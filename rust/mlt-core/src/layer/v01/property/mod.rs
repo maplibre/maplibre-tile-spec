@@ -16,8 +16,8 @@ use crate::utils::{
 };
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{
-    ColumnType, LogicalCodec, LogicalEncoding, OwnedEncodedData, OwnedStream, OwnedStreamData,
-    PhysicalCodec, PhysicalEncoding, PhysicalStreamType, Stream, StreamMeta,
+    ColumnType, Encoding, LogicalCodec, LogicalEncoding, OwnedEncodedData, OwnedStream,
+    OwnedStreamData, PhysicalCodec, PhysicalEncoding, PhysicalStreamType, Stream, StreamMeta,
 };
 use crate::{FromDecoded, MltError, impl_encodable};
 
@@ -436,6 +436,12 @@ pub struct PropertyEncodingStrategy {
     logical: LogicalEncoding,
     physical: PhysicalEncoding,
 }
+impl PropertyEncodingStrategy {
+    #[must_use]
+    pub fn encoding(self) -> Encoding {
+        Encoding::new(self.logical, self.physical)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PresenceStream {
@@ -474,51 +480,27 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             Val::Bool(b) => EncVal::Bool(OwnedStream::encode_bools(&unapply_presence(b))?),
             Val::I8(i) => {
                 let vals = unapply_presence(i);
-                EncVal::I8(OwnedStream::encode_i8s(
-                    &vals,
-                    config.logical,
-                    config.physical,
-                )?)
+                EncVal::I8(OwnedStream::encode_i8s(&vals, config.encoding())?)
             }
             Val::U8(u) => {
                 let values = unapply_presence(u);
-                EncVal::U8(OwnedStream::encode_u8s(
-                    &values,
-                    config.logical,
-                    config.physical,
-                )?)
+                EncVal::U8(OwnedStream::encode_u8s(&values, config.encoding())?)
             }
             Val::I32(i) => {
                 let vals = unapply_presence(i);
-                EncVal::I32(OwnedStream::encode_i32s(
-                    &vals,
-                    config.logical,
-                    config.physical,
-                )?)
+                EncVal::I32(OwnedStream::encode_i32s(&vals, config.encoding())?)
             }
             Val::U32(u) => {
                 let vals = unapply_presence(u);
-                EncVal::U32(OwnedStream::encode_u32s(
-                    &vals,
-                    config.logical,
-                    config.physical,
-                )?)
+                EncVal::U32(OwnedStream::encode_u32s(&vals, config.encoding())?)
             }
             Val::I64(i) => {
                 let vals = unapply_presence(i);
-                EncVal::I64(OwnedStream::encode_i64s(
-                    &vals,
-                    config.logical,
-                    config.physical,
-                )?)
+                EncVal::I64(OwnedStream::encode_i64s(&vals, config.encoding())?)
             }
             Val::U64(u) => {
                 let vals = unapply_presence(u);
-                EncVal::U64(OwnedStream::encode_u64s(
-                    &vals,
-                    config.logical,
-                    config.physical,
-                )?)
+                EncVal::U64(OwnedStream::encode_u64s(&vals, config.encoding())?)
             }
             Val::F32(f) => {
                 let vals = unapply_presence(f);

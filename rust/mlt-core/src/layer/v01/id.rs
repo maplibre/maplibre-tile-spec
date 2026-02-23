@@ -11,8 +11,8 @@ use crate::utils::{
     BinarySerializer as _, OptSeqOpt, apply_present, encode_bools_to_bytes, encode_byte_rle,
 };
 use crate::v01::{
-    ColumnType, LogicalCodec, LogicalEncoding, OwnedEncodedData, OwnedStream, OwnedStreamData,
-    PhysicalCodec, PhysicalEncoding, PhysicalStreamType, Stream, StreamMeta,
+    ColumnType, Encoding, LogicalCodec, LogicalEncoding, OwnedEncodedData, OwnedStream,
+    OwnedStreamData, PhysicalCodec, PhysicalEncoding, PhysicalStreamType, Stream, StreamMeta,
 };
 
 /// ID column representation, either encoded or decoded, or none if there are no IDs
@@ -257,15 +257,13 @@ impl FromDecoded<'_> for OwnedEncodedId {
             let vals: Vec<u32> = ids.iter().filter_map(|&id| id).map(|v| v as u32).collect();
             OwnedEncodedIdValue::Id32(OwnedStream::encode_u32s(
                 &vals,
-                config.logical,
-                PhysicalEncoding::None,
+                Encoding::new(config.logical, PhysicalEncoding::None),
             )?)
         } else {
             let vals: Vec<u64> = ids.iter().filter_map(|&id| id).collect();
             OwnedEncodedIdValue::Id64(OwnedStream::encode_u64s(
                 &vals,
-                config.logical,
-                PhysicalEncoding::VarInt,
+                Encoding::new(config.logical, PhysicalEncoding::VarInt),
             )?)
         };
 

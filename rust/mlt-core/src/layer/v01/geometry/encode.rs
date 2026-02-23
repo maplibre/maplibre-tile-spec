@@ -166,7 +166,7 @@ pub fn encode_geometry(
     // Encode geometry types (meta stream)
     let meta = {
         let vector_types_u32: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
-        OwnedStream::encode_u32s(&vector_types_u32, config.meta_logical, config.meta_physical)?
+        OwnedStream::encode_u32s(&vector_types_u32, config.meta)?
     };
 
     let mut items = Vec::new();
@@ -182,8 +182,7 @@ pub fn encode_geometry(
         if !lengths.is_empty() {
             items.push(OwnedStream::encode_u32s_of_type(
                 &lengths,
-                config.num_geometries_logical,
-                config.num_geometries_physical,
+                config.num_geometries,
                 PhysicalStreamType::Length(LengthType::Geometries),
             )?);
         }
@@ -200,8 +199,7 @@ pub fn encode_geometry(
                 if !part_lengths.is_empty() {
                     items.push(OwnedStream::encode_u32s_of_type(
                         &part_lengths,
-                        config.rings_logical,
-                        config.rings_physical,
+                        config.rings,
                         PhysicalStreamType::Length(LengthType::Parts),
                     )?);
                 }
@@ -211,8 +209,7 @@ pub fn encode_geometry(
                 if !ring_lengths.is_empty() {
                     items.push(OwnedStream::encode_u32s_of_type(
                         &ring_lengths,
-                        config.rings2_logical,
-                        config.rings2_physical,
+                        config.rings2,
                         PhysicalStreamType::Length(LengthType::Rings),
                     )?);
                 }
@@ -226,8 +223,7 @@ pub fn encode_geometry(
                 if !part_lengths.is_empty() {
                     items.push(OwnedStream::encode_u32s_of_type(
                         &part_lengths,
-                        config.no_rings_logical,
-                        config.no_rings_physical,
+                        config.no_rings,
                         PhysicalStreamType::Length(LengthType::Parts),
                     )?);
                 }
@@ -242,8 +238,7 @@ pub fn encode_geometry(
             if !part_lengths.is_empty() {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &part_lengths,
-                    config.parts_logical,
-                    config.parts_physical,
+                    config.parts,
                     PhysicalStreamType::Length(LengthType::Parts),
                 )?);
             }
@@ -254,8 +249,7 @@ pub fn encode_geometry(
             if !ring_lengths.is_empty() {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &ring_lengths,
-                    config.parts_ring_logical,
-                    config.parts_ring_physical,
+                    config.parts_ring,
                     PhysicalStreamType::Length(LengthType::Rings),
                 )?);
             }
@@ -265,8 +259,7 @@ pub fn encode_geometry(
             if !lengths.is_empty() {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &lengths,
-                    config.only_parts_logical,
-                    config.only_parts_physical,
+                    config.only_parts,
                     PhysicalStreamType::Length(LengthType::Parts),
                 )?);
             }
@@ -277,8 +270,7 @@ pub fn encode_geometry(
     if let Some(tris) = triangles {
         items.push(OwnedStream::encode_u32s_of_type(
             tris,
-            config.triangles_logical,
-            config.triangles_physical,
+            config.triangles,
             PhysicalStreamType::Length(LengthType::Triangles),
         )?);
     }
@@ -287,8 +279,7 @@ pub fn encode_geometry(
     if let Some(idx_buf) = index_buffer {
         items.push(OwnedStream::encode_u32s_of_type(
             idx_buf,
-            config.triangles_indexes_logical,
-            config.triangles_indexes_physical,
+            config.triangles_indexes,
             PhysicalStreamType::Offset(OffsetType::Index),
         )?);
     }
@@ -297,15 +288,14 @@ pub fn encode_geometry(
     if let Some(v_offs) = vertex_offsets {
         items.push(OwnedStream::encode_u32s_of_type(
             v_offs,
-            config.vertex_offsets_logical,
-            config.vertex_offsets_physical,
+            config.vertex_offsets,
             PhysicalStreamType::Offset(OffsetType::Vertex),
         )?);
     }
 
     // Encode vertex buffer
     if let Some(verts) = vertices {
-        items.push(encode_vertex_buffer(verts, config.vertex_physical)?);
+        items.push(encode_vertex_buffer(verts, config.vertex.physical)?);
     }
 
     Ok(OwnedEncodedGeometry { meta, items })

@@ -27,8 +27,8 @@ use crate::v01::geometry::decode::{
     decode_root_length_stream,
 };
 use crate::v01::{
-    DictionaryType, LengthType, LogicalCodec, LogicalEncoding, OffsetType, OwnedStream,
-    PhysicalCodec, PhysicalEncoding, PhysicalStreamType, Stream, StreamMeta,
+    DictionaryType, Encoding, LengthType, LogicalCodec, OffsetType, OwnedStream, PhysicalCodec,
+    PhysicalStreamType, Stream, StreamMeta,
 };
 use crate::{FromDecoded, MltError};
 
@@ -377,46 +377,36 @@ impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedEncodedGeometry);
 #[derive(Debug, Clone, Copy, Builder)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct GeometryEncodingStrategy {
-    /// Logical encoding for the geometry types (meta) stream.
-    meta_logical: LogicalEncoding,
-    /// Physical codec for the geometry types (meta) stream.
-    meta_physical: PhysicalEncoding,
+    /// Encoding settings for the geometry types (meta) stream.
+    meta: Encoding,
 
-    /// Logical encoding for the geometry length stream
-    num_geometries_logical: LogicalEncoding,
-    /// Physical codec for the geometry length stream
-    num_geometries_physical: PhysicalEncoding,
+    /// Encoding for the geometry length stream.
+    num_geometries: Encoding,
 
-    /// how to name this ???
-    rings_logical: LogicalEncoding,
-    rings2_logical: LogicalEncoding,
-    no_rings_logical: LogicalEncoding,
-    rings_physical: PhysicalEncoding,
-    rings2_physical: PhysicalEncoding,
-    no_rings_physical: PhysicalEncoding,
+    /// Encoding for parts length stream when rings are present.
+    rings: Encoding,
+    /// Encoding for ring vertex-count stream.
+    rings2: Encoding,
+    /// Encoding for parts length stream when rings are not present.
+    no_rings: Encoding,
 
-    /// how to name this ???
-    parts_logical: LogicalEncoding,
-    parts_ring_logical: LogicalEncoding,
-    parts_physical: PhysicalEncoding,
-    parts_ring_physical: PhysicalEncoding,
+    /// Encoding for parts length stream (with rings) when `geometry_offsets` absent.
+    parts: Encoding,
+    /// Encoding for ring lengths when `geometry_offsets` absent.
+    parts_ring: Encoding,
 
-    only_parts_logical: LogicalEncoding,
-    only_parts_physical: PhysicalEncoding,
+    /// Encoding for parts-only stream (e.g. `LineString`, no rings).
+    only_parts: Encoding,
 
-    /// Logical codec for triangles stream for pre-tessellated polygons
-    triangles_logical: LogicalEncoding,
-    triangles_indexes_logical: LogicalEncoding,
-    /// Physical codec for triangles stream for pre-tessellated polygons
-    triangles_physical: PhysicalEncoding,
-    triangles_indexes_physical: PhysicalEncoding,
+    /// Encoding for triangles count stream (pre-tessellated polygons).
+    triangles: Encoding,
+    /// Encoding for triangle index buffer (pre-tessellated polygons).
+    triangles_indexes: Encoding,
 
-    /// Physical codec for the vertex data stream.
-    ///
-    /// The logical codec is always [`LogicalCodec::ComponentwiseDelta`]
-    vertex_physical: PhysicalEncoding,
-    vertex_offsets_logical: LogicalEncoding,
-    vertex_offsets_physical: PhysicalEncoding,
+    /// Encoding for the vertex data stream (logical is always `ComponentwiseDelta`; only physical varies).
+    vertex: Encoding,
+    /// Encoding for vertex offsets (dictionary encoding).
+    vertex_offsets: Encoding,
 }
 
 impl FromDecoded<'_> for OwnedEncodedGeometry {
