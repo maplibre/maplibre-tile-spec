@@ -39,18 +39,6 @@ fn encode_length_stream(
     length_type: LengthType,
     physical_codec: PhysicalCodec,
 ) -> Result<OwnedStream, MltError> {
-    if lengths.is_empty() {
-        return Ok(OwnedStream {
-            meta: StreamMeta {
-                physical_type: PhysicalStreamType::Length(length_type),
-                num_values: 0,
-                logical_codec: LogicalCodec::None,
-                physical_codec: PhysicalCodec::None,
-            },
-            data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
-        });
-    }
-
     encode_u32_stream(
         lengths,
         LogicalCodec::None,
@@ -65,18 +53,6 @@ fn encode_u32_stream_auto(
     physical_type: PhysicalStreamType,
 ) -> Result<OwnedStream, MltError> {
     let num_values = u32::try_from(values.len())?;
-    if values.is_empty() {
-        return Ok(OwnedStream {
-            meta: StreamMeta {
-                physical_type,
-                num_values,
-                logical_codec: LogicalCodec::None,
-                physical_codec: PhysicalCodec::None,
-            },
-            data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
-        });
-    }
-
     // Try different encodings and select the smallest
     let (data, logical_codec) = LogicalEncoding::None.encode_u32s(values)?;
     let (data, physical_codec) = PhysicalEncoding::VarInt.encode_u32s(data);
