@@ -821,10 +821,13 @@ fn file_matches_filters(
     geom_filters: &HashSet<String>,
     algo_filters: &HashSet<String>,
 ) -> bool {
-    let file_geoms: HashSet<&str> = info.geometries().split(',').map(str::trim).collect();
-    let file_algos: HashSet<&str> = info.algorithms().split(',').map(str::trim).collect();
-    (geom_filters.is_empty() || geom_filters.iter().all(|g| file_geoms.contains(g.as_str())))
-        && (algo_filters.is_empty() || algo_filters.iter().all(|a| file_algos.contains(a.as_str())))
+    let matches = |filters: &HashSet<String>, values: &str| {
+        filters.is_empty() || {
+            let file_set: HashSet<&str> = values.split(',').map(str::trim).collect();
+            filters.iter().all(|f| file_set.contains(f.as_str()))
+        }
+    };
+    matches(geom_filters, info.geometries()) && matches(algo_filters, info.algorithms())
 }
 
 fn poly_verts(poly: &geo_types::Polygon<i32>) -> Vec<[f64; 2]> {
