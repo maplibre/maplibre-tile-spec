@@ -8,8 +8,7 @@ use crate::MltError;
 use crate::utils::encode_componentwise_delta_vec2s;
 use crate::v01::{
     DictionaryType, GeometryEncodingStrategy, GeometryType, LengthType, LogicalCodec,
-    LogicalEncoding, OffsetType, OwnedStream, PhysicalEncoding, PhysicalStreamType,
-    StreamMeta,
+    LogicalEncoding, OffsetType, OwnedStream, PhysicalEncoding, PhysicalStreamType, StreamMeta,
 };
 
 /// Encode a length stream (for geometries, parts, rings)
