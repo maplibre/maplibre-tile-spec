@@ -7,34 +7,10 @@ use super::{DecodedGeometry, OwnedEncodedGeometry};
 use crate::MltError;
 use crate::utils::encode_componentwise_delta_vec2s;
 use crate::v01::{
-    DictionaryType, GeometryType, LengthType, LogicalCodec, LogicalEncoding, OffsetType,
-    OwnedStream, PhysicalCodec, PhysicalEncoding, PhysicalStreamType, StreamMeta,
+    DictionaryType, GeometryEncodingStrategy, GeometryType, LengthType, LogicalCodec,
+    LogicalEncoding, OffsetType, OwnedStream, PhysicalEncoding, PhysicalStreamType,
+    StreamMeta,
 };
-
-/// Configuration for geometry encoding
-#[derive(Debug, Clone, Copy)]
-pub struct GeometryEncodingStrategy {
-    /// Physical encoding technique for topology streams
-    pub physical_codec: PhysicalCodec,
-}
-
-impl Default for GeometryEncodingStrategy {
-    fn default() -> Self {
-        Self {
-            physical_codec: PhysicalCodec::VarInt,
-        }
-    }
-}
-
-/// Encode geometry types stream using RLE if beneficial
-fn encode_geometry_types(
-    types: &[GeometryType],
-    logical: LogicalEncoding,
-    physical: PhysicalEncoding,
-) -> Result<OwnedStream, MltError> {
-    let values: Vec<u32> = types.iter().map(|t| *t as u32).collect();
-    OwnedStream::encode_u32s(&values, logical, physical)
-}
 
 /// Encode a length stream (for geometries, parts, rings)
 fn encode_length_stream(
@@ -313,17 +289,17 @@ pub fn encode_geometry(
         vertices,
     } = decoded;
 
-    if vector_types.is_empty() {
-        let meta = OwnedStream::empty_without_codec();
-        let items = Vec::new();
-        return Ok(OwnedEncodedGeometry { meta, items });
-    }
-
     // Encode geometry types (meta stream)
-    let meta = encode_geometry_types(vector_types, LogicalEncoding::None, PhysicalEncoding::None)?;
+    let meta = {
+        let vector_types_u32: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
+        OwnedStream::encode_u32s(
+            &vector_types_u32,
+            LogicalEncoding::None,
+            PhysicalEncoding::None,
+        )?
+    };
 
     let mut items = Vec::new();
-
     let has_linestrings = contains_linestring(vector_types);
 
     // Encode topology streams based on geometry structure

@@ -389,13 +389,7 @@ impl FromDecoded<'_> for OwnedEncodedGeometry {
         decoded: &Self::Input,
         config: Self::EncodingStrategy,
     ) -> Result<Self, MltError> {
-        // Convert the public encoding strategy to the internal one used by encode_geometry
-        let physical_codec = match config.vertex_physical {
-            PhysicalEncoding::None => PhysicalCodec::None,
-            PhysicalEncoding::VarInt => PhysicalCodec::VarInt,
-        };
-        let internal_config = encode::GeometryEncodingStrategy { physical_codec };
-        encode::encode_geometry(decoded, internal_config)
+        encode::encode_geometry(decoded, config)
     }
 }
 
