@@ -59,8 +59,13 @@ docs-build:
     docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
 
 # Extract version from a tag by removing language prefix and 'v' prefix
-extract-version language tag:
+ci-extract-version language tag:
     @echo "{{replace(replace(tag, language + '-', ''), 'v', '')}}"
+
+# Run the mlt CLI tool with the given arguments. Working dir is the `rust` subdir.
+[working-directory: 'rust']
+mlt *args:
+    cargo run --package mlt -- {{args}}
 
 # Ensure a command is available
 assert-cmd command:
