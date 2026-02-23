@@ -1,8 +1,3 @@
-//! Geometry encoding implementation for converting decoded geometries to encoded format.
-
-use integer_encoding::VarInt as _;
-use zigzag::ZigZag as _;
-
 use super::{DecodedGeometry, OwnedEncodedGeometry};
 use crate::MltError;
 use crate::utils::encode_componentwise_delta_vec2s;
@@ -10,51 +5,6 @@ use crate::v01::{
     DictionaryType, GeometryEncodingStrategy, GeometryType, LengthType, LogicalCodec,
     LogicalEncoding, OffsetType, OwnedStream, PhysicalEncoding, PhysicalStreamType, StreamMeta,
 };
-
-/// Encode a length stream (for geometries, parts, rings)
-fn encode_length_stream(
-    lengths: &[u32],
-    length_type: LengthType,
-    logical: LogicalEncoding,
-    physical: PhysicalEncoding,
-) -> Result<OwnedStream, MltError> {
-    OwnedStream::encode_u32s_of_type(
-        lengths,
-        logical,
-        physical,
-        PhysicalStreamType::Length(length_type),
-    )
-}
-
-/// Encode a u32 stream with automatic encoding selection (plain, delta, RLE, delta-RLE)
-fn encode_u32_stream_auto(
-    values: &[u32],
-    physical_type: PhysicalStreamType,
-) -> Result<OwnedStream, MltError> {
-    let num_values = u32::try_from(values.len())?;
-    // Try different encodings and select the smallest
-    let (data, logical_codec) = LogicalEncoding::None.encode_u32s(values)?;
-    let (data, physical_codec) = PhysicalEncoding::VarInt.encode_u32s(data);
-    Ok(OwnedStream {
-        meta: StreamMeta {
-            physical_type,
-            num_values,
-            logical_codec,
-            physical_codec,
-        },
-        data,
-    })
-}
-
-/// Encode a u32 stream with specified encoding
-fn encode_u32_stream(
-    values: &[u32],
-    logical: LogicalEncoding,
-    physical: PhysicalEncoding,
-    physical_type: PhysicalStreamType,
-) -> Result<OwnedStream, MltError> {
-    OwnedStream::encode_u32s_of_type(values, logical, physical, physical_type)
-}
 
 /// Encode vertex buffer using componentwise delta encoding
 fn encode_vertex_buffer(
@@ -74,57 +24,6 @@ fn encode_vertex_buffer(
         },
         data,
     })
-}
-
-/// Calculate RLE runs and delta-RLE runs for encoding selection
-fn calculate_runs(values: &[u32]) -> (usize, usize) {
-    if values.is_empty() {
-        return (0, 0);
-    }
-
-    let mut runs = 1;
-    let mut delta_runs = 1;
-    let mut prev_value = values[0];
-    let mut prev_delta = 0i64;
-
-    for &value in values.iter().skip(1) {
-        if value != prev_value {
-            runs += 1;
-        }
-        let delta = i64::from(value) - i64::from(prev_value);
-        if delta != prev_delta {
-            delta_runs += 1;
-        }
-        prev_value = value;
-        prev_delta = delta;
-    }
-
-    (runs, delta_runs)
-}
-
-/// Encode values as varints
-fn encode_varints_u32(values: &[u32]) -> Vec<u8> {
-    let mut result = Vec::with_capacity(values.len() * 2);
-    for &v in values {
-        result.extend_from_slice(&v.encode_var_vec());
-    }
-    result
-}
-
-/// Encode values with delta + zigzag + varint
-fn encode_delta_zigzag_varints(values: &[u32]) -> Vec<u8> {
-    let mut result = Vec::with_capacity(values.len() * 2);
-    let mut prev = 0i64;
-    for &v in values {
-        let value = i64::from(v);
-        let delta = value - prev;
-        #[expect(clippy::cast_possible_truncation, reason = "delta fits in i32")]
-        let delta_i32 = delta as i32;
-        let zigzag = i32::encode(delta_i32);
-        result.extend_from_slice(&zigzag.encode_var_vec());
-        prev = value;
-    }
-    result
 }
 
 /// Convert geometry offsets to length stream for encoding
@@ -292,11 +191,11 @@ pub fn encode_geometry(
         // Encode geometry lengths (NumGeometries)
         let lengths = encode_root_length_stream(vector_types, geom_offs, GeometryType::Polygon);
         if !lengths.is_empty() {
-            items.push(encode_length_stream(
+            items.push(OwnedStream::encode_u32s_of_type(
                 &lengths,
-                LengthType::Geometries,
                 LogicalEncoding::None,
                 PhysicalEncoding::None,
+                PhysicalStreamType::Length(LengthType::Geometries),
             )?);
         }
 
@@ -310,22 +209,22 @@ pub fn encode_geometry(
                     has_linestrings,
                 );
                 if !part_lengths.is_empty() {
-                    items.push(encode_length_stream(
+                    items.push(OwnedStream::encode_u32s_of_type(
                         &part_lengths,
-                        LengthType::Parts,
                         LogicalEncoding::None,
                         PhysicalEncoding::None,
+                        PhysicalStreamType::Length(LengthType::Parts),
                     )?);
                 }
 
                 let ring_lengths =
                     encode_level2_length_stream(vector_types, geom_offs, part_offs, ring_offs);
                 if !ring_lengths.is_empty() {
-                    items.push(encode_length_stream(
+                    items.push(OwnedStream::encode_u32s_of_type(
                         &ring_lengths,
-                        LengthType::Rings,
                         LogicalEncoding::None,
                         PhysicalEncoding::None,
+                        PhysicalStreamType::Length(LengthType::Rings),
                     )?);
                 }
             } else {
@@ -336,11 +235,11 @@ pub fn encode_geometry(
                     part_offs,
                 );
                 if !part_lengths.is_empty() {
-                    items.push(encode_length_stream(
+                    items.push(OwnedStream::encode_u32s_of_type(
                         &part_lengths,
-                        LengthType::Parts,
                         LogicalEncoding::None,
                         PhysicalEncoding::None,
+                        PhysicalStreamType::Length(LengthType::Parts),
                     )?);
                 }
             }
@@ -352,11 +251,11 @@ pub fn encode_geometry(
             let part_lengths =
                 encode_root_length_stream(vector_types, part_offs, GeometryType::LineString);
             if !part_lengths.is_empty() {
-                items.push(encode_length_stream(
+                items.push(OwnedStream::encode_u32s_of_type(
                     &part_lengths,
-                    LengthType::Parts,
                     LogicalEncoding::None,
                     PhysicalEncoding::None,
+                    PhysicalStreamType::Length(LengthType::Parts),
                 )?);
             }
 
@@ -364,22 +263,22 @@ pub fn encode_geometry(
             let ring_lengths =
                 encode_level1_length_stream(vector_types, part_offs, ring_offs, has_linestrings);
             if !ring_lengths.is_empty() {
-                items.push(encode_length_stream(
+                items.push(OwnedStream::encode_u32s_of_type(
                     &ring_lengths,
-                    LengthType::Rings,
                     LogicalEncoding::None,
                     PhysicalEncoding::None,
+                    PhysicalStreamType::Length(LengthType::Rings),
                 )?);
             }
         } else {
             // Only parts (e.g., LineString)
             let lengths = encode_root_length_stream(vector_types, part_offs, GeometryType::Point);
             if !lengths.is_empty() {
-                items.push(encode_length_stream(
+                items.push(OwnedStream::encode_u32s_of_type(
                     &lengths,
-                    LengthType::Parts,
                     LogicalEncoding::None,
                     PhysicalEncoding::None,
+                    PhysicalStreamType::Length(LengthType::Parts),
                 )?);
             }
         }
@@ -387,17 +286,17 @@ pub fn encode_geometry(
 
     // Encode triangles stream if present (for pre-tessellated polygons)
     if let Some(tris) = triangles {
-        items.push(encode_length_stream(
+        items.push(OwnedStream::encode_u32s_of_type(
             tris,
-            LengthType::Triangles,
             LogicalEncoding::None,
             PhysicalEncoding::None,
+            PhysicalStreamType::Length(LengthType::Triangles),
         )?);
     }
 
     // Encode index buffer if present (for pre-tessellated polygons)
     if let Some(idx_buf) = index_buffer {
-        items.push(encode_u32_stream(
+        items.push(OwnedStream::encode_u32s_of_type(
             idx_buf,
             LogicalEncoding::None,
             PhysicalEncoding::None,
@@ -407,7 +306,7 @@ pub fn encode_geometry(
 
     // Encode vertex offsets if present (dictionary encoding)
     if let Some(v_offs) = vertex_offsets {
-        items.push(encode_u32_stream(
+        items.push(OwnedStream::encode_u32s_of_type(
             v_offs,
             LogicalEncoding::None,
             PhysicalEncoding::None,
