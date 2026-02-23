@@ -6,11 +6,11 @@ use ratatui::prelude::{Line, Span, Style};
 use ratatui::widgets::{Cell, Paragraph, Row, Table, Wrap};
 use size_format::SizeFormatterSI;
 
-use crate::ls::{LsRow, MltFileInfo, row_cells};
+use crate::ls::{LsRow, NA, na, row_cells};
 use crate::ui::state::App;
 use crate::ui::{
     CLR_DIMMED, CLR_HINT, CLR_HOVERED, STYLE_BOLD, STYLE_LABEL, STYLE_SELECTED, block_with_title,
-    collect_extensions, collect_file_values, geom_abbrev_to_full,
+    collect_extensions, collect_file_algorithms, collect_file_geometries,
 };
 
 pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
@@ -29,13 +29,13 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let rows: Vec<Row> = app
         .filtered_file_indices
         .iter()
-        .map(|&i| Row::new(row_cells(&app.mlt_files[i].1).map(Cell::from)))
+        .map(|&i| Row::new(row_cells(&app.files[i]).map(Cell::from)))
         .collect();
 
     let file_w = app
-        .mlt_files
+        .files
         .iter()
-        .map(|(_, r)| row_cells(r)[0].len())
+        .map(|r| row_cells(r)[0].len())
         .max()
         .unwrap_or(4)
         .max(4);
@@ -55,7 +55,7 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         ""
     };
     let filtered = app.filtered_file_indices.len();
-    let total = app.mlt_files.len();
+    let total = app.files.len();
     let count = if filtered < total {
         format!("{filtered}/{total}")
     } else {
@@ -73,30 +73,20 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
 }
 
 pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
-    let exts = collect_extensions(&app.mlt_files);
-    let geoms = collect_file_values(&app.mlt_files, MltFileInfo::geometries);
-    let algos = collect_file_values(&app.mlt_files, MltFileInfo::algorithms);
+    let exts = collect_extensions(&app.files);
+    let geoms = collect_file_geometries(&app.files);
+    let algos = collect_file_algorithms(&app.files);
     let has_any =
         !app.ext_filters.is_empty() || !app.geom_filters.is_empty() || !app.algo_filters.is_empty();
 
-    let sel_ext: Option<String> = app
-        .selected_file_real_index()
-        .and_then(|i| app.mlt_files.get(i))
-        .and_then(|(p, _)| p.extension().and_then(|e| e.to_str()))
+    let selected_mlt = app.get_selected_file();
+    let sel_ext: Option<String> = selected_mlt
+        .and_then(|r| r.path().extension().and_then(|e| e.to_str()))
         .map(str::to_lowercase);
-    let sel_info = app
-        .selected_file_real_index()
-        .and_then(|i| app.mlt_files.get(i))
-        .and_then(|(_, r)| match r {
-            LsRow::Info(i) => Some(i),
-            _ => None,
-        });
-    let sel_geoms: HashSet<&str> = sel_info
-        .map(|i| i.geometries().split(',').map(str::trim).collect())
-        .unwrap_or_default();
-    let sel_algos: HashSet<&str> = sel_info
-        .map(|i| i.algorithms().split(',').map(str::trim).collect())
-        .unwrap_or_default();
+    let sel_info = selected_mlt.and_then(|r| match r {
+        LsRow::Info(_, i) => Some(i),
+        _ => None,
+    });
 
     let mut lines: Vec<Line<'static>> = Vec::new();
     let reset_style = if has_any {
@@ -123,24 +113,28 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     if !geoms.is_empty() {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled("Geometry Types:", STYLE_BOLD)));
+
+        let sel_geoms: HashSet<_> = sel_info
+            .map(|i| i.geometries.iter().copied().collect())
+            .unwrap_or_default();
         for g in &geoms {
             lines.push(Line::from(Span::styled(
-                format!(
-                    "  {}{}",
-                    check(app.geom_filters.contains(g)),
-                    geom_abbrev_to_full(g)
-                ),
-                present_style(sel_geoms.contains(g.as_str())),
+                format!("  {}{g}", check(app.geom_filters.contains(g))),
+                present_style(sel_geoms.contains(g)),
             )));
         }
     }
     if !algos.is_empty() {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled("Algorithms:", STYLE_BOLD)));
+
+        let sel_algos: HashSet<_> = sel_info
+            .map(|i| i.algorithms.iter().copied().collect())
+            .unwrap_or_default();
         for a in &algos {
             lines.push(Line::from(Span::styled(
                 format!("  {}{a}", check(app.algo_filters.contains(a))),
-                present_style(sel_algos.contains(a.as_str())),
+                present_style(sel_algos.contains(a)),
             )));
         }
     }
@@ -159,13 +153,10 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
 }
 
 pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
-    let info = app
-        .selected_file_real_index()
-        .and_then(|i| app.mlt_files.get(i))
-        .and_then(|(_, r)| match r {
-            LsRow::Info(i) => Some(i),
-            _ => None,
-        });
+    let info = app.get_selected_file().and_then(|r| match r {
+        LsRow::Info(_, i) => Some(i),
+        _ => None,
+    });
 
     let lines: Vec<Line<'static>> = if let Some(info) = info {
         let sz = |n: usize| format!("{:.1}B", SizeFormatterSI::new(n as u64));
@@ -183,42 +174,45 @@ pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
             Line::from(spans)
         };
         vec![
-            row("File", info.path().to_string(), ""),
-            row("Size", sz(info.size()), "raw MLT file size"),
+            row("File", info.path.clone(), ""),
+            row("Size", sz(info.size), "raw MLT file size"),
             row(
                 "Encoding",
-                format!("{:.1}%", info.encoding_pct()),
+                na(info.encoding_pct.map(|p| format!("{p:.1}%"))),
                 "MLT / (data + metadata)",
             ),
-            row("Data", sz(info.data_size()), "decoded payload size"),
+            row("Data", na(info.data_size.map(&sz)), "decoded payload size"),
             row(
                 "Metadata",
-                format!("{} ({:.1}% of data)", sz(info.meta_size()), info.meta_pct()),
+                match (info.meta_size, info.meta_pct) {
+                    (Some(m), Some(p)) => format!("{} ({:.1}% of data)", sz(m), p),
+                    _ => NA.to_string(),
+                },
                 "encoding overhead",
             ),
-            row("Layers", info.layers().to_string(), "tile layer count"),
+            row("Layers", info.layers.to_string(), "tile layer count"),
             row(
                 "Features",
-                info.features().to_string(),
+                info.features.to_string(),
                 "total across all layers",
             ),
             row(
                 "Streams",
-                info.streams().to_string(),
+                na(info.streams.map(|n| n.to_string())),
                 "encoded data streams",
             ),
             row(
                 "Geometries",
-                info.geometries().to_string(),
+                info.geometries_display(),
                 "geometry types present",
             ),
             row(
                 "Algorithms",
-                info.algorithms().to_string(),
+                info.algorithms_display(),
                 "compression methods",
             ),
         ]
-    } else if app.filtered_file_indices.is_empty() && !app.mlt_files.is_empty() {
+    } else if app.filtered_file_indices.is_empty() && !app.files.is_empty() {
         vec![
             Line::from("No files match the current filters."),
             Line::from(""),
