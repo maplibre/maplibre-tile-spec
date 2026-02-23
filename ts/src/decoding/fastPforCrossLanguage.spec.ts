@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 
 import IntWrapper from "./intWrapper";
 import { decodeBigEndianInt32sInto } from "./bigEndianDecode";
+import { encodeFastPfor } from "../encoding/integerEncodingUtils";
 import {
     createFastPforWireDecodeWorkspace,
     decodeFastPfor,
@@ -97,6 +98,24 @@ describe("decodeFastPfor (wire format fixtures)", () => {
                 expect(decoded).toEqual(expectedValues);
                 expect(offset.get()).toBe(prefix.length + encoded.length);
                 expect(buffer.subarray(prefix.length + encoded.length)).toEqual(suffix);
+            });
+
+            it("round-trips C++ decoded values through TS encode + decode", () => {
+                const values = readExpectedFixtureValues(name);
+                const encoded = encodeFastPfor(values);
+
+                const offset = new IntWrapper(0);
+                const decoded = decodeFastPfor(encoded, values.length, encoded.length, offset);
+                expect(decoded).toEqual(values);
+                expect(offset.get()).toBe(encoded.length);
+            });
+
+            it("matches C++ encoded fixture bytes", () => {
+                const fixtureEncoded = readEncodedFixtureBytes(name);
+                const values = readExpectedFixtureValues(name);
+                const encoded = encodeFastPfor(values);
+
+                expect(encoded).toEqual(fixtureEncoded);
             });
         });
     }
