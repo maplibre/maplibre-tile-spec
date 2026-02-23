@@ -587,7 +587,7 @@ mod tests {
 
     /// Strategy for [`PhysicalEncoder`] that excludes `FastPFOR` to support 64bit ints
     fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {
-        any::<PhysicalEncoder>().prop_filter("not fastpfor", |v| *v != PhysicalEncoding::FastPFOR)
+        any::<PhysicalEncoder>().prop_filter("not fastpfor", |v| *v != PhysicalEncoder::FastPFOR)
     }
 
     /// Encode a `DecodedProperty` and immediately decode it back.
@@ -744,7 +744,7 @@ mod tests {
         fn test_i64_absent_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(any::<i64>(), 0..100),
-            logical in any::<PhysicalEncoder>(),
+            logical in any::<LogicalEncoder>(),
             physical in physical_no_fastpfor(),
         ) {
             let opt_values: Vec<Option<i64>> = values.into_iter().map(Some).collect();

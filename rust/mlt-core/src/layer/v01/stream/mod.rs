@@ -101,7 +101,7 @@ impl OwnedStream {
         let as_i32: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
         let (physical_u32s, logical_encoding) = encoding.logical.encode_i32s(&as_i32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s);
+        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s)?;
         Ok(Self {
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::None),
@@ -116,7 +116,7 @@ impl OwnedStream {
         let as_u32: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
         let (physical_u32s, logical_encoding) = encoding.logical.encode_u32s(&as_u32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s);
+        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s)?;
         Ok(Self {
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::None),
@@ -130,7 +130,7 @@ impl OwnedStream {
     pub fn encode_i32s(values: &[i32], encoding: Encoder) -> Result<Self, MltError> {
         let (physical_u32s, logical_encoding) = encoding.logical.encode_i32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s);
+        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s)?;
         Ok(Self {
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::None),
@@ -151,7 +151,7 @@ impl OwnedStream {
     ) -> Result<Self, MltError> {
         let (physical_u32s, logical_encoding) = encoding.logical.encode_u32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s);
+        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s)?;
         Ok(Self {
             meta: StreamMeta::new(stream_type, logical_encoding, physical_encoding, num_values),
             data,
@@ -161,7 +161,7 @@ impl OwnedStream {
     pub fn encode_i64s(values: &[i64], encoding: Encoder) -> Result<Self, MltError> {
         let (physical_u64s, logical_encoding) = encoding.logical.encode_i64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
-        let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s);
+        let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s)?;
         Ok(Self {
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::None),
@@ -175,7 +175,7 @@ impl OwnedStream {
     pub fn encode_u64s(values: &[u64], encoding: Encoder) -> Result<Self, MltError> {
         let (physical_u64s, logical_encoding) = encoding.logical.encode_u64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
-        let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s);
+        let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s)?;
         Ok(Self {
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::None),
@@ -625,7 +625,9 @@ impl<'a> Stream<'a> {
                 }
             },
             PhysicalEncoding::FastPFOR => {
-                return Err(MltError::UnsupportedPhysicalEncoding("FastPFOR decoding u64"));
+                return Err(MltError::UnsupportedPhysicalEncoding(
+                    "FastPFOR decoding u64",
+                ));
             }
             PhysicalEncoding::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
         }?;
@@ -696,7 +698,7 @@ mod tests {
 
     /// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
     fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {
-        any::<PhysicalEncoder>().prop_filter("not fastpfor", |v| *v != PhysicalEncoding::FastPFOR)
+        any::<PhysicalEncoder>().prop_filter("not fastpfor", |v| *v != PhysicalEncoder::FastPFOR)
     }
 
     /// Test case for stream decoding tests
@@ -844,10 +846,8 @@ mod tests {
     #[case::empty(vec![])]
     fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
         use crate::utils::BinarySerializer as _;
-        let encoder = Encoder {logical: LogicalEncoder::None, physical:PhysicalEncoding::FastPFOR};
-        let owned_stream =
-            OwnedStream::encode_u32s(&values, )
-                .unwrap();
+        let encoder = Encoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR);
+        let owned_stream = OwnedStream::encode_u32s(&values, encoder).unwrap();
 
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
@@ -929,6 +929,11 @@ mod tests {
             _ => panic!("data type mismatch"),
         }
     }
+
+    fn encoding_no_fastpfor() -> impl Strategy<Value = Encoder> {
+        any::<Encoder>().prop_filter("not fastpfor", |v| v.physical != PhysicalEncoder::FastPFOR)
+    }
+
     proptest! {
         #[test]
         fn test_u32_roundtrip(
@@ -969,7 +974,7 @@ mod tests {
         #[test]
         fn test_u64_roundtrip(
             values in prop::collection::vec(any::<u64>(), 0..100),
-            encoding in any::<Encoder>(),
+            encoding in encoding_no_fastpfor()
         ) {
             let owned_stream = OwnedStream::encode_u64s(&values, encoding).unwrap();
 
@@ -987,7 +992,7 @@ mod tests {
         #[test]
         fn test_i64_roundtrip(
             values in prop::collection::vec(any::<i64>(), 0..100),
-            encoding in any::<Encoder>()
+            encoding in encoding_no_fastpfor()
         ) {
             let owned_stream = OwnedStream::encode_i64s(&values, encoding).unwrap();
 
