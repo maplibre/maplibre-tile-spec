@@ -9,6 +9,7 @@ use derive_builder::Builder;
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
+use serde::{Deserialize, Serialize};
 
 use crate::MltError::{
     GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, IntegerOverflow,
@@ -298,7 +299,19 @@ impl DecodedGeometry {
 
 /// Types of geometries supported in MLT
 #[derive(
-    Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Hash, Ord, TryFromPrimitive, strum::Display,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    PartialOrd,
+    Eq,
+    Hash,
+    Ord,
+    TryFromPrimitive,
+    strum::Display,
+    strum::IntoStaticStr,
+    Serialize,
+    Deserialize,
 )]
 #[repr(u8)]
 pub enum GeometryType {
