@@ -75,7 +75,7 @@ To avoid copying bytes, we employ `borrowme`:
   At the moment, only `DecodedGeometry` is implemented, but the same idea applies to other entities.
   The decoded values are stored in standard Rust types, e.g. `Vec<u64>` for IDs.
 * **`Id` enum** contains `Encoded(EncodedId)` and `Decoded(DecodedId)` variants, with values described above.
-  This allows `in-place` decoding, e.g. it is possible to decode just one property column / ID / Geometry, while keeping the rest in their encoded form.
+  This allows in-place decoding, e.g. it is possible to decode just one property column / ID / Geometry, while keeping the rest in their encoded form.
   The enum also has a corresponding `borrowme`-generated `OwnedId`.
 
 Converting between encoded and decoded variants is possible via `from_encoded`/`from_decoded`.
