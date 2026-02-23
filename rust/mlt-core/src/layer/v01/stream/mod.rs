@@ -704,10 +704,17 @@ impl<'a> Stream<'a> {
 
 #[cfg(test)]
 mod tests {
+    use proptest::prelude::*;
     use rstest::rstest;
 
     use super::*;
     use crate::v01::property::decode::decode_string_streams;
+
+    /// Strategy for `PhysicalEncoding` that excludes `FastPFOR`.
+    /// Use this for u64/i64 tests since FastPFOR truncates to u32.
+    fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoding> {
+        any::<PhysicalEncoding>().prop_filter("not fastpfor", |v| *v != PhysicalEncoding::FastPFOR)
+    }
 
     /// Test case for stream decoding tests
     #[derive(Debug)]
@@ -942,8 +949,6 @@ mod tests {
             _ => panic!("data type mismatch"),
         }
     }
-    use proptest::prelude::*;
-
     proptest! {
         #[test]
         fn test_u32_roundtrip(
@@ -987,7 +992,7 @@ mod tests {
         fn test_u64_roundtrip(
             values in prop::collection::vec(any::<u64>(), 0..100),
             logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>()
+            physical in physical_no_fastpfor()
         ) {
             let owned_stream = OwnedStream::encode_u64s(&values, logical, physical).unwrap();
 
@@ -1006,7 +1011,7 @@ mod tests {
         fn test_i64_roundtrip(
             values in prop::collection::vec(any::<i64>(), 0..100),
             logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>()
+            physical in physical_no_fastpfor()
         ) {
             let owned_stream = OwnedStream::encode_i64s(&values, logical, physical).unwrap();
 
