@@ -145,7 +145,7 @@ impl PhysicalEncoding {
             }
             Self::FastPFOR => {
                 // FastPFOR only supports u32, so we truncate
-                Err(MltError::UnsupportedPhysicalCodec("FastPFor on u64"))
+                Err(MltError::UnsupportedPhysicalCodec("FastPFOR on u64"))
             }
         }
     }
