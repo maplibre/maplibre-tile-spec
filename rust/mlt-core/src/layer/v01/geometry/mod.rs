@@ -635,26 +635,29 @@ mod tests {
     }
 
     fn arb_polygon() -> impl Strategy<Value = DecodedGeometry> {
-        prop::collection::vec(prop::collection::vec((any::<i32>(), any::<i32>()), 3..10), 1..4)
-            .prop_map(|rings| {
-                let mut vertices = vec![];
-                let mut ring_offsets = vec![0];
-                for ring in rings {
-                    for (x, y) in ring {
-                        vertices.push(x);
-                        vertices.push(y);
-                    }
-                    ring_offsets.push(u32::try_from(vertices.len() / 2).unwrap());
+        prop::collection::vec(
+            prop::collection::vec((any::<i32>(), any::<i32>()), 3..10),
+            1..4,
+        )
+        .prop_map(|rings| {
+            let mut vertices = vec![];
+            let mut ring_offsets = vec![0];
+            for ring in rings {
+                for (x, y) in ring {
+                    vertices.push(x);
+                    vertices.push(y);
                 }
+                ring_offsets.push(u32::try_from(vertices.len() / 2).unwrap());
+            }
 
-                DecodedGeometry {
-                    vector_types: vec![GeometryType::Polygon],
-                    part_offsets: Some(vec![0, u32::try_from(ring_offsets.len() - 1).unwrap()]),
-                    ring_offsets: Some(ring_offsets),
-                    vertices: Some(vertices),
-                    ..Default::default()
-                }
-            })
+            DecodedGeometry {
+                vector_types: vec![GeometryType::Polygon],
+                part_offsets: Some(vec![0, u32::try_from(ring_offsets.len() - 1).unwrap()]),
+                ring_offsets: Some(ring_offsets),
+                vertices: Some(vertices),
+                ..Default::default()
+            }
+        })
     }
 
     fn arb_multi_point() -> impl Strategy<Value = DecodedGeometry> {
