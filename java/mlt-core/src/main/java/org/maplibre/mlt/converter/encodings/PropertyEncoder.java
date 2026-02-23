@@ -10,6 +10,7 @@ import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.data.Feature;
+import org.maplibre.mlt.data.unsigned.Unsigned;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
@@ -172,25 +173,39 @@ public class PropertyEncoder {
     return null;
   }
 
+  private static Byte getBytePropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
+    final var rawValue = feature.properties().get(columnMetadata.name);
+    if (rawValue instanceof Byte b) {
+      return b;
+    } else if (rawValue instanceof Unsigned u) {
+      return u.byteValue();
+    }
+    return null;
+  }
+
   private static Integer getIntPropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
     final var rawValue = feature.properties().get(columnMetadata.name);
-    if (rawValue instanceof Integer) {
-      return (Integer) rawValue;
-    } else if (rawValue instanceof Long) {
-      final var v = (long) rawValue;
+    if (rawValue instanceof Integer i) {
+      return i;
+    } else if (rawValue instanceof Long l) {
+      final var v = l.longValue();
       if ((int) v == v) {
         return (int) v;
       }
+    } else if (rawValue instanceof Unsigned u) {
+      return u.intValue();
     }
     return null;
   }
 
   private static Long getLongPropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
     final var rawValue = feature.properties().get(columnMetadata.name);
-    if (rawValue instanceof Long) {
-      return (Long) rawValue;
-    } else if (rawValue instanceof Integer) {
-      return (long) (int) rawValue;
+    if (rawValue instanceof Long l) {
+      return l;
+    } else if (rawValue instanceof Integer i) {
+      return (long) i.intValue();
+    } else if (rawValue instanceof Unsigned u) {
+      return u.longValue();
     }
     return null;
   }
