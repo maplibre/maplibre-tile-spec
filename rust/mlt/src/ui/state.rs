@@ -9,7 +9,7 @@ use ratatui::layout::{Constraint, Rect};
 use ratatui::widgets::TableState;
 use rstar::{PointDistance as _, RTree};
 
-use crate::ls::{FileAlgorithm, FileSortColumn, LsRow, MltFileInfo};
+use crate::ls::{FileAlgorithm, FileSortColumn, LsRow};
 use crate::ui::{
     GeometryIndexEntry, auto_expand, coord_f64, group_by_layer, is_entry_visible, load_fc,
     multi_part_count,
@@ -603,14 +603,20 @@ impl App {
                     .and_then(|e| e.to_str())
                     .map(str::to_lowercase)
                     .unwrap_or_default();
-                let ext_match = self.ext_filters.is_empty()
-                    || self.ext_filters.iter().any(|f| f.as_str() == ext);
-                if !ext_match {
+                if !self.ext_filters.is_empty()
+                    && !self.ext_filters.iter().any(|f| f.as_str() == ext)
+                {
                     return false;
                 }
                 match &self.files[i] {
                     LsRow::Info(_, info) => {
-                        file_matches_filters(info, &self.geom_filters, &self.algo_filters)
+                        self.geom_filters
+                            .iter()
+                            .all(|g| info.geometries.contains(g))
+                            && self
+                                .algo_filters
+                                .iter()
+                                .all(|a| info.algorithms.contains(a))
                     }
                     _ => true,
                 }
@@ -820,17 +826,6 @@ fn file_cmp(a: &LsRow, b: &LsRow, col: FileSortColumn, asc: bool) -> std::cmp::O
         _ => a.path().cmp(b.path()),
     };
     if asc { ord } else { ord.reverse() }
-}
-
-fn file_matches_filters(
-    info: &MltFileInfo,
-    geom_filters: &HashSet<GeometryType>,
-    algo_filters: &HashSet<FileAlgorithm>,
-) -> bool {
-    let file_geoms: HashSet<GeometryType> = info.geometries.iter().copied().collect();
-    let file_algos: HashSet<FileAlgorithm> = info.algorithms.iter().copied().collect();
-    (geom_filters.is_empty() || geom_filters.iter().all(|g| file_geoms.contains(g)))
-        && (algo_filters.is_empty() || algo_filters.iter().all(|a| file_algos.contains(a)))
 }
 
 fn poly_verts(poly: &geo_types::Polygon<i32>) -> Vec<[f64; 2]> {
