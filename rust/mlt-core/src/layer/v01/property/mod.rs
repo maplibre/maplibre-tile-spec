@@ -590,19 +590,6 @@ mod tests {
 
     use super::*;
 
-    fn logical_codec_strategy() -> impl Strategy<Value = LogicalEncoding> {
-        prop_oneof![
-            Just(LogicalEncoding::None),
-            Just(LogicalEncoding::Delta),
-            Just(LogicalEncoding::Rle),
-            Just(LogicalEncoding::DeltaRle),
-        ]
-    }
-
-    fn physical_codec_strategy() -> impl Strategy<Value = PhysicalEncoding> {
-        prop_oneof![Just(PhysicalEncoding::None), Just(PhysicalEncoding::VarInt),]
-    }
-
     /// Encode a `DecodedProperty` and immediately decode it back.
     fn roundtrip(decoded: &DecodedProperty, strategy: PropertyEncodingStrategy) -> DecodedProperty {
         let encoded =
@@ -645,8 +632,8 @@ mod tests {
         fn test_i8_present_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<i8>()), 0..100),
-            logical in logical_codec_strategy(),
-            physical in physical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
+            physical in any::<PhysicalEncoding>(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::I8(values) };
             let strategy = PropertyEncodingStrategy {
@@ -661,8 +648,8 @@ mod tests {
         fn test_i8_absent_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(any::<i8>(), 0..100),
-            logical in logical_codec_strategy(),
-            physical in physical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
+            physical in any::<PhysicalEncoding>(),
         ) {
             let opt_values: Vec<Option<i8>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::I8(opt_values) };
@@ -678,8 +665,8 @@ mod tests {
         fn test_u8_present_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<u8>()), 0..100),
-            logical in logical_codec_strategy(),
-            physical in physical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
+            physical in any::<PhysicalEncoding>(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::U8(values) };
             let strategy = PropertyEncodingStrategy {
@@ -694,8 +681,8 @@ mod tests {
         fn test_u8_absent_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(any::<u8>(), 0..100),
-            logical in logical_codec_strategy(),
-            physical in physical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
+            physical in any::<PhysicalEncoding>(),
         ) {
             let opt_values: Vec<Option<u8>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::U8(opt_values) };
@@ -711,8 +698,8 @@ mod tests {
         fn test_i32_present_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<i32>()), 0..100),
-            logical in logical_codec_strategy(),
-            physical in physical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
+            physical in any::<PhysicalEncoding>(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::I32(values) };
             let strategy = PropertyEncodingStrategy {
@@ -727,8 +714,8 @@ mod tests {
         fn test_i32_absent_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(any::<i32>(), 0..100),
-            logical in logical_codec_strategy(),
-            physical in physical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
+            physical in any::<PhysicalEncoding>(),
         ) {
             let opt_values: Vec<Option<i32>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::I32(opt_values) };
@@ -744,8 +731,8 @@ mod tests {
         fn test_u32_present_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<u32>()), 0..100),
-            logical in logical_codec_strategy(),
-            physical in physical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
+            physical in any::<PhysicalEncoding>(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::U32(values) };
             let strategy = PropertyEncodingStrategy {
@@ -760,8 +747,8 @@ mod tests {
         fn test_u32_absent_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(any::<u32>(), 0..100),
-            logical in logical_codec_strategy(),
-            physical in physical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
+            physical in any::<PhysicalEncoding>(),
         ) {
             let opt_values: Vec<Option<u32>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::U32(opt_values) };
@@ -777,8 +764,8 @@ mod tests {
         fn test_i64_present_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<i64>()), 0..100),
-            logical in logical_codec_strategy(),
-            physical in physical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
+            physical in any::<PhysicalEncoding>(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::I64(values) };
             let strategy = PropertyEncodingStrategy {
@@ -793,8 +780,8 @@ mod tests {
         fn test_i64_absent_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(any::<i64>(), 0..100),
-            logical in logical_codec_strategy(),
-            physical in physical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
+            physical in any::<PhysicalEncoding>(),
         ) {
             let opt_values: Vec<Option<i64>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::I64(opt_values) };
@@ -810,8 +797,8 @@ mod tests {
         fn test_u64_present_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<u64>()), 0..100),
-            logical in logical_codec_strategy(),
-            physical in physical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
+            physical in any::<PhysicalEncoding>(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::U64(values) };
             let strategy = PropertyEncodingStrategy {
@@ -826,8 +813,8 @@ mod tests {
         fn test_u64_absent_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(any::<u64>(), 0..100),
-            logical in logical_codec_strategy(),
-            physical in physical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
+            physical in any::<PhysicalEncoding>(),
         ) {
             let opt_values: Vec<Option<u64>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::U64(opt_values) };

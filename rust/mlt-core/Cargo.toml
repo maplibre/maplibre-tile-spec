@@ -37,6 +37,7 @@ insta.workspace = true
 json5.workspace = true
 pretty_assertions.workspace = true
 proptest.workspace = true
+proptest-derive.workspace = true
 rstest.workspace = true
 test_each_file.workspace = true
 

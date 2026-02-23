@@ -352,21 +352,11 @@ mod tests {
         assert_eq!(output, input);
     }
 
-    fn logical_codec_strategy() -> impl Strategy<Value = LogicalEncoding> {
-        use LogicalEncoding as Enc;
-        prop_oneof![
-            Just(Enc::None),
-            Just(Enc::Delta),
-            Just(Enc::Rle),
-            Just(Enc::DeltaRle),
-        ]
-    }
-
     proptest! {
         #[test]
         fn test_roundtrip_id32(
             ids in prop::collection::vec(any::<u32>(), 1..100),
-            logical in logical_codec_strategy()
+            logical in any::<LogicalEncoding>()
         ) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
             assert_roundtrip_succeeds(ids_u64, IdEncodingStrategy{ id_width: Id32,logical})?;
@@ -375,7 +365,7 @@ mod tests {
         #[test]
         fn test_roundtrip_opt_id32(
             ids in prop::collection::vec(prop::option::of(any::<u32>()), 1..100),
-            logical in logical_codec_strategy()
+            logical in any::<LogicalEncoding>()
         ) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| id.map(u64::from)).collect();
             assert_roundtrip_succeeds(ids_u64, IdEncodingStrategy{ id_width: OptId32,logical})?;
@@ -384,7 +374,7 @@ mod tests {
         #[test]
         fn test_roundtrip_id64(
             ids in prop::collection::vec(any::<u64>(), 1..100),
-            logical in logical_codec_strategy()
+            logical in any::<LogicalEncoding>()
         ) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
             assert_roundtrip_succeeds(ids_u64, IdEncodingStrategy{ id_width: Id64, logical})?;
@@ -393,7 +383,7 @@ mod tests {
         #[test]
         fn test_roundtrip_opt_id64(
             ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100),
-            logical in logical_codec_strategy()
+            logical in any::<LogicalEncoding>()
         ) {
             assert_roundtrip_succeeds(ids, IdEncodingStrategy{ id_width: OptId64, logical})?;
         }
@@ -401,7 +391,7 @@ mod tests {
         #[test]
         fn test_encodable_trait_api_id32(
             ids in prop::collection::vec(any::<u32>(), 1..100),
-            logical in logical_codec_strategy()
+            logical in any::<LogicalEncoding>()
         ) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
             assert_encodable_api_works(ids_u64, IdEncodingStrategy{ id_width: Id32,logical})?;
@@ -410,7 +400,7 @@ mod tests {
         #[test]
         fn test_encodable_trait_api_opt_id64(
             ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100),
-            logical in logical_codec_strategy()
+            logical in any::<LogicalEncoding>()
         ) {
             assert_encodable_api_works(ids, IdEncodingStrategy{ id_width: OptId64,logical})?;
         }
@@ -418,7 +408,7 @@ mod tests {
         #[test]
         fn test_correct_variant_produced_id32(
             ids in prop::collection::vec(1u32..1000u32, 1..50),
-            logical in logical_codec_strategy()
+            logical in any::<LogicalEncoding>()
         ) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
             assert_produces_correct_variant(ids_u64, IdEncodingStrategy{ id_width: Id32,logical})?;
@@ -427,7 +417,7 @@ mod tests {
         #[test]
         fn test_correct_variant_produced_id64(
             ids in prop::collection::vec(any::<u64>(), 1..50),
-            logical in logical_codec_strategy()
+            logical in any::<LogicalEncoding>()
         ) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
             assert_produces_correct_variant(ids_u64, IdEncodingStrategy{ id_width: Id64,logical})?;
