@@ -18,7 +18,9 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["props_mixed", "F32 very buggy and does not work"],
     ["prop_str_empty", "empty strings not supported"],
     ["prop_i64_min", "wraps to 0 despite it should have been negative"],
+    ["prop_u32_max", "wraps to -1 despite it should have been positive"],
     ["prop_i64_max", "wraps to -1 despite it should have been positive"],
+    ["prop_u64_max", "wraps to -1 despite it should have been positive"],
 ]);
 
 const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");

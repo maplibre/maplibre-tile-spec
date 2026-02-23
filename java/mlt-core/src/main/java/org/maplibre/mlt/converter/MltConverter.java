@@ -22,6 +22,9 @@ import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
+import org.maplibre.mlt.data.unsigned.U32;
+import org.maplibre.mlt.data.unsigned.U64;
+import org.maplibre.mlt.data.unsigned.U8;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
@@ -136,7 +139,7 @@ public class MltConverter {
         if (includeIdIfPresent) {
           if (feature.hasId()) {
             hasId = true;
-            if (!hasLongId && feature.id() > Integer.MAX_VALUE
+            if ((!hasLongId && feature.id() > Integer.MAX_VALUE)
                 || feature.id() < Integer.MIN_VALUE) {
               hasLongId = true;
             }
@@ -464,7 +467,6 @@ public class MltConverter {
       @Nullable URI tessellateSource,
       @NotNull MLTStreamObserver streamRecorder)
       throws IOException {
-
     // Convert the list of metadatas (one per layer) into a lookup by the first and only layer name
     // We assume that the names are unique.
     final var metaMap =
@@ -719,26 +721,22 @@ public class MltConverter {
 
   private static MltMetadata.ScalarType getScalarType(Map.Entry<String, Object> property) {
     var propertyValue = property.getValue();
-    if (propertyValue instanceof Boolean) {
-      return MltMetadata.ScalarType.BOOLEAN;
-    }
-    // TODO: also handle unsigned int to avoid zigZag coding
-    // TODO: quick and dirty fix for wrong data types -> make proper solution
-    else if (propertyValue instanceof Integer) {
-      return MltMetadata.ScalarType.INT_32;
-    } else if (propertyValue instanceof Long) {
-      return ((long) propertyValue > Integer.MAX_VALUE || (long) propertyValue < Integer.MIN_VALUE)
-          ? MltMetadata.ScalarType.INT_64
-          : MltMetadata.ScalarType.INT_32;
-    } else if (propertyValue instanceof Float) {
-      return MltMetadata.ScalarType.FLOAT;
-    } else if (propertyValue instanceof Double) {
-      return MltMetadata.ScalarType.DOUBLE;
-    } else if (propertyValue instanceof String) {
-      return MltMetadata.ScalarType.STRING;
-    }
-
-    throw new IllegalArgumentException("Specified data type currently not supported.");
+    return switch (propertyValue) {
+      case Boolean v -> MltMetadata.ScalarType.BOOLEAN;
+      case U8 v -> MltMetadata.ScalarType.UINT_8;
+      case U32 v -> MltMetadata.ScalarType.UINT_32;
+      case U64 v -> MltMetadata.ScalarType.UINT_64;
+      case Byte v -> MltMetadata.ScalarType.INT_8;
+      case Integer v -> MltMetadata.ScalarType.INT_32;
+      case Long v ->
+          (v > Integer.MAX_VALUE || v < Integer.MIN_VALUE)
+              ? MltMetadata.ScalarType.INT_64
+              : MltMetadata.ScalarType.INT_32;
+      case Float v -> MltMetadata.ScalarType.FLOAT;
+      case Double v -> MltMetadata.ScalarType.DOUBLE;
+      case String v -> MltMetadata.ScalarType.STRING;
+      default -> throw new IllegalArgumentException("Specified data type currently not supported.");
+    };
   }
 
   private static MltMetadata.Column createScalarColumnScheme(
