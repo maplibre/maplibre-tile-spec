@@ -602,13 +602,15 @@ mod tests {
     use super::*;
 
     /// Helper function to encode, serialize, parse, and decode for roundtrip testing
-    fn roundtrip(decoded: &DecodedGeometry, config: GeometryEncoder) -> DecodedGeometry {
-        let encoded =
-            OwnedEncodedGeometry::from_decoded(decoded, config).expect("Failed to encode");
+    fn roundtrip(decoded: &DecodedGeometry, encoder: GeometryEncoder) -> DecodedGeometry {
+        let encoded_geom =
+            OwnedEncodedGeometry::from_decoded(decoded, encoder).expect("Failed to encode");
 
         // Serialize to bytes (write_to includes the stream count varint)
         let mut buffer = Vec::new();
-        encoded.write_to(&mut buffer).expect("Failed to serialize");
+        encoded_geom
+            .write_to(&mut buffer)
+            .expect("Failed to serialize");
 
         // Now parse (parse expects varint stream count + streams)
         let (remaining, parsed) = EncodedGeometry::parse(&buffer).expect("Failed to parse");
@@ -738,38 +740,38 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_point_roundtrip(strategy in any::<GeometryEncoder>(), input in arb_point()) {
-            let output = roundtrip(&input, strategy);
+        fn test_point_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_point()) {
+            let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_line_string_roundtrip(strategy in any::<GeometryEncoder>(), input in arb_line_string()) {
-            let output = roundtrip(&input, strategy);
+        fn test_line_string_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_line_string()) {
+            let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_polygon_roundtrip(strategy in any::<GeometryEncoder>(), input in arb_polygon()) {
-            let output = roundtrip(&input, strategy);
+        fn test_polygon_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_polygon()) {
+            let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_multi_point_roundtrip(strategy in any::<GeometryEncoder>(), input in arb_multi_point()) {
-            let output = roundtrip(&input, strategy);
+        fn test_multi_point_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_point()) {
+            let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_multi_line_string_roundtrip(strategy in any::<GeometryEncoder>(), input in arb_multi_line_string()) {
-            let output = roundtrip(&input, strategy);
+        fn test_multi_line_string_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_line_string()) {
+            let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_multi_polygon_roundtrip(strategy in any::<GeometryEncoder>(), input in arb_multi_polygon()) {
-            let output = roundtrip(&input, strategy);
+        fn test_multi_polygon_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_polygon()) {
+            let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
     }
