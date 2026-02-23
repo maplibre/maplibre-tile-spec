@@ -226,7 +226,7 @@ impl LogicalValue {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum LogicalEncoding {
     None,
@@ -333,16 +333,6 @@ mod tests {
     use crate::v01::DictionaryType;
     use crate::v01::stream::physical::{PhysicalCodec, PhysicalStreamType};
 
-    fn logical_codec_strategy() -> impl Strategy<Value = LogicalEncoding> {
-        use LogicalEncoding as Enc;
-        prop_oneof![
-            Just(Enc::None),
-            Just(Enc::Delta),
-            Just(Enc::Rle),
-            Just(Enc::DeltaRle),
-        ]
-    }
-
     fn make_meta(logical_codec: LogicalCodec, num_values: usize) -> StreamMeta {
         let num_values =
             u32::try_from(num_values).expect("proptest to not generate that large of a vec");
@@ -358,7 +348,7 @@ mod tests {
         #[test]
         fn test_u32_logical_roundtrip(
             values in prop::collection::vec(any::<u32>(), 0..100),
-            logical in logical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
         ) {
             let (encoded, computed) = logical.encode_u32s(&values).unwrap();
             let meta = make_meta(computed, values.len());
@@ -371,7 +361,7 @@ mod tests {
         #[test]
         fn test_i32_logical_roundtrip(
             values in prop::collection::vec(any::<i32>(), 0..100),
-            logical in logical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
         ) {
             let (encoded, computed) = logical.encode_i32s(&values).unwrap();
             let meta = make_meta(computed, values.len());
@@ -384,7 +374,7 @@ mod tests {
         #[test]
         fn test_u64_logical_roundtrip(
             values in prop::collection::vec(any::<u64>(), 0..100),
-            logical in logical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
         ) {
             let (encoded, computed) = logical.encode_u64s(&values).unwrap();
             let meta = make_meta(computed, values.len());
@@ -397,7 +387,7 @@ mod tests {
         #[test]
         fn test_i64_logical_roundtrip(
             values in prop::collection::vec(any::<i64>(), 0..100),
-            logical in logical_codec_strategy(),
+            logical in any::<LogicalEncoding>(),
         ) {
             let (encoded, computed) = logical.encode_i64s(&values).unwrap();
             let meta = make_meta(computed, values.len());

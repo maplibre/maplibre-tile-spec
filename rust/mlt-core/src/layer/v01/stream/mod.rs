@@ -156,6 +156,19 @@ impl OwnedStream {
         physical_type: PhysicalStreamType,
     ) -> Result<Self, MltError> {
         let Encoding { logical, physical } = encoding;
+        Self::encode_u32s_of_type(
+            values,
+            logical,
+            physical,
+            PhysicalStreamType::Data(DictionaryType::None),
+        )
+    }
+    pub fn encode_u32s_of_type(
+        values: &[u32],
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
+        physical_type: PhysicalStreamType,
+    ) -> Result<Self, MltError> {
         let (physical_u32s, logical_codec) = logical.encode_u32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
         let (data, physical_codec) = physical.encode_u32s(physical_u32s);
@@ -197,6 +210,33 @@ impl OwnedStream {
             },
             data,
         })
+    }
+
+    /// Encode a sequence of strings into a length stream and a data stream.
+    pub fn encode_strings(
+        values: &[String],
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
+    ) -> Result<Vec<Self>, MltError> {
+        let lengths: Vec<u32> = values
+            .iter()
+            .map(|s| u32::try_from(s.len()))
+            .collect::<Result<Vec<_>, _>>()?;
+        let data: Vec<u8> = values
+            .iter()
+            .flat_map(|s| s.as_bytes().iter().copied())
+            .collect();
+
+        let length_stream = Self::encode_u32s_of_type(
+            &lengths,
+            logical,
+            physical,
+            PhysicalStreamType::Length(LengthType::VarBinary),
+        )?;
+
+        let data_stream = Self::new_plain(data, u32::try_from(values.len())?);
+
+        Ok(vec![length_stream, data_stream])
     }
 }
 /// Metadata about an encoded stream
@@ -282,7 +322,7 @@ impl StreamMeta {
     ) -> io::Result<()> {
         use crate::v01::LogicalTechnique as LT;
         writer.write_u8(self.physical_type.as_u8())?;
-        let logical_encoder_u8: u8 = match self.logical_codec {
+        let logical_codec_u8: u8 = match self.logical_codec {
             LogicalCodec::None => (LT::None as u8) << 5,
             LogicalCodec::Delta => (LT::Delta as u8) << 5,
             LogicalCodec::DeltaRle(_) => ((LT::Delta as u8) << 5) | ((LT::Rle as u8) << 2),
@@ -297,7 +337,7 @@ impl StreamMeta {
             PhysicalCodec::VarInt => 0x2,
             PhysicalCodec::Alp => 0x3,
         };
-        writer.write_u8(logical_encoder_u8 | physical_codec_u8)?;
+        writer.write_u8(logical_codec_u8 | physical_codec_u8)?;
         writer.write_varint(self.num_values)?;
         writer.write_varint(byte_length)?;
 
@@ -344,7 +384,7 @@ impl Debug for StreamMeta {
         f.debug_struct("StreamMeta")
             .field("physical_type", &format_args!("{physical_type:?}"))
             .field("num_values", &format_args!("{num_values:?}"))
-            .field("logical_encoder", &format_args!("{logical_codec:?}"))
+            .field("logical_codec", &format_args!("{logical_codec:?}"))
             .field("physical_codec", &format_args!("{physical_codec:?}"))
             .finish()
     }
@@ -671,6 +711,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::v01::property::decode::decode_string_streams;
 
     /// Test case for stream decoding tests
     #[derive(Debug)]
@@ -880,32 +921,13 @@ mod tests {
     }
     use proptest::prelude::*;
 
-    fn logical_encoders_strategy() -> impl Strategy<Value = LogicalEncoding> {
-        prop_oneof![
-            Just(LogicalEncoding::None),
-            Just(LogicalEncoding::Rle),
-            Just(LogicalEncoding::Delta),
-            Just(LogicalEncoding::DeltaRle),
-        ]
-    }
-
-    fn physical_encoder_strategy() -> impl Strategy<Value = PhysicalEncoding> {
-        prop_oneof![
-            Just(PhysicalEncoding::None),
-            Just(PhysicalEncoding::VarInt),
-            // FastPFOR and Alp are not supported for encoding yet
-        ]
-    }
-
     proptest! {
-            #[test]
-            fn test_u32_roundtrip(
-                values in prop::collection::vec(any::<u32>(), 0..100),
-                logical_encoder in logical_encoders_strategy(),
-                physical_codec in physical_encoder_strategy()
-            ) {
-                let encoding = Encoding::new(logical_encoder, physical_codec);
-                let owned_stream = OwnedStream::encode_u32s(&values, encoding).unwrap();
+        #[test]
+        fn test_u32_roundtrip(
+            values in prop::collection::vec(any::<u32>(), 0..100),
+            encoding in any::<Encoding>()
+        ) {
+            let owned_stream = OwnedStream::encode_u32s(&values, encoding).unwrap();
 
                 let mut buffer = Vec::new();
                 buffer.write_stream(&owned_stream).unwrap();
@@ -918,14 +940,12 @@ mod tests {
                 assert_eq!(decoded_values, values);
             }
 
-            #[test]
-            fn test_i32_roundtrip(
-                values in prop::collection::vec(any::<i32>(), 0..100),
-                logical_encoder in logical_encoders_strategy(),
-                physical_codec in physical_encoder_strategy()
-            ) {
-                let encoding = Encoding::new(logical_encoder, physical_codec);
-                let owned_stream = OwnedStream::encode_i32s(&values, encoding).unwrap();
+        #[test]
+        fn test_i32_roundtrip(
+            values in prop::collection::vec(any::<i32>(), 0..100),
+            encoding in any::<Encoding>(),
+        ) {
+            let owned_stream = OwnedStream::encode_i32s(&values, encoding).unwrap();
 
                 let mut buffer = Vec::new();
                 buffer.write_stream(&owned_stream).unwrap();
@@ -938,14 +958,12 @@ mod tests {
                 assert_eq!(decoded_values, values);
             }
 
-            #[test]
-            fn test_u64_roundtrip(
-                values in prop::collection::vec(any::<u64>(), 0..100),
-                logical_encoder in logical_encoders_strategy(),
-                physical_codec in physical_encoder_strategy()
-            ) {
-                let encoding = Encoding::new(logical_encoder, physical_codec);
-                let owned_stream = OwnedStream::encode_u64s(&values, encoding).unwrap();
+        #[test]
+        fn test_u64_roundtrip(
+            values in prop::collection::vec(any::<u64>(), 0..100),
+            encoding in any::<Encoding>(),
+        ) {
+            let owned_stream = OwnedStream::encode_u64s(&values, encoding).unwrap();
 
                 let mut buffer = Vec::new();
                 buffer.write_stream(&owned_stream).unwrap();
@@ -958,14 +976,12 @@ mod tests {
                 assert_eq!(decoded_values, values);
             }
 
-            #[test]
-            fn test_i64_roundtrip(
-                values in prop::collection::vec(any::<i64>(), 0..100),
-                logical_encoder in logical_encoders_strategy(),
-                physical_codec in physical_encoder_strategy()
-            ) {
-    let encoding = Encoding::new(logical_encoder, physical_codec);
-                let owned_stream = OwnedStream::encode_i64s(&values, encoding).unwrap();
+        #[test]
+        fn test_i64_roundtrip(
+            values in prop::collection::vec(any::<i64>(), 0..100),
+            encoding in any::<Encoding>()
+        ) {
+            let owned_stream = OwnedStream::encode_i64s(&values, encoding).unwrap();
 
                 let mut buffer = Vec::new();
                 buffer.write_stream(&owned_stream).unwrap();
@@ -978,13 +994,12 @@ mod tests {
                 assert_eq!(decoded_values, values);
             }
 
-            #[test]
-            fn test_i8_roundtrip(
-                values in prop::collection::vec(any::<i8>(), 0..100),
-                logical_encoder in logical_encoders_strategy(),
-                physical_codec in physical_encoder_strategy()
-            ) {
-    let encoding = Encoding::new(logical_encoder, physical_codec);            let owned_stream = OwnedStream::encode_i8s(&values, encoding).unwrap();
+        #[test]
+        fn test_i8_roundtrip(
+            values in prop::collection::vec(any::<i8>(), 0..100),
+            encoding in any::<Encoding>(),
+        ) {
+            let owned_stream = OwnedStream::encode_i8s(&values, encoding).unwrap();
 
                 let mut buffer = Vec::new();
                 buffer.write_stream(&owned_stream).unwrap();
@@ -996,14 +1011,12 @@ mod tests {
                 assert_eq!(decoded_values, values);
             }
 
-            #[test]
-            fn test_u8_roundtrip(
-                values in prop::collection::vec(any::<u8>(), 0..100),
-                logical_encoder in logical_encoders_strategy(),
-                physical_codec in physical_encoder_strategy()
-            ) {
-                let encoding = Encoding::new(logical_encoder, physical_codec);
-                let owned_stream = OwnedStream::encode_u8s(&values, encoding).unwrap();
+        #[test]
+        fn test_u8_roundtrip(
+            values in prop::collection::vec(any::<u8>(), 0..100),
+            encoding in any::<Encoding>()
+        ) {
+            let owned_stream = OwnedStream::encode_u8s(&values, encoding).unwrap();
 
                 let mut buffer = Vec::new();
                 buffer.write_stream(&owned_stream).unwrap();
@@ -1029,4 +1042,30 @@ mod tests {
                 assert_eq!(decoded_values, values);
             }
         }
+
+        #[test]
+        fn test_string_roundtrip(
+            values in prop::collection::vec(any::<String>(), 0..100),
+            encoding in any::<Encoding>(),
+        ) {
+            let owned_streams = OwnedStream::encode_strings(&values, encoding).unwrap();
+
+            let mut buffers = Vec::new();
+            for owned_stream in &owned_streams {
+                let mut buffer = Vec::new();
+                buffer.write_stream(owned_stream).unwrap();
+                buffers.push(buffer);
+            }
+
+            let mut parsed_streams = Vec::new();
+            for buffer in &buffers {
+                let (remaining, parsed_stream) = Stream::parse(buffer).unwrap();
+                assert!(remaining.is_empty());
+                parsed_streams.push(parsed_stream);
+            }
+
+            let decoded_values = decode_string_streams(parsed_streams).unwrap();
+            assert_eq!(decoded_values, values);
+        }
+    }
 }
