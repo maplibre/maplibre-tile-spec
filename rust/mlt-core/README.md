@@ -6,9 +6,9 @@
   </picture>
 </p>
 
-# MapLibre Tile (MLT) Rust library
+# `MapLibre Tile` (MLT) Rust library
 
-The MapLibre Tile specification is mainly inspired by the [Mapbox Vector Tile (MVT)](https://github.com/mapbox/vector-tile-spec) specification,
+The `MapLibre Tile` specification is mainly inspired by the [Mapbox Vector Tile (MVT)](https://github.com/mapbox/vector-tile-spec) specification,
 but has been redesigned from the ground up to address the challenges of rapidly growing geospatial data volumes
 and complex next-generation geospatial source formats as well as to leverage the capabilities of modern hardware and APIs.
 MLT is specifically designed for modern and next generation graphics APIs to enable high-performance processing and rendering of
@@ -21,7 +21,7 @@ In particular, MLT offers the following features:
 - **Better decoding performance**:
   Fast lightweight encodings which can be used in combination with SIMD/vectorization instructions.
 - **Support for linear referencing and m-values**:
-  To efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet).
+  To efficiently support the upcoming next generation source formats such as Overture Maps (`GeoParquet`).
 - **Support for 3D coordinates**: i.e., elevation
 - **Support for complex types**: including nested properties, lists, and maps
 - **Improved processing performance**,
