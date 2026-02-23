@@ -65,8 +65,7 @@ fn encode_level1_length_stream(
         let needs_length = matches!(
             geom_type,
             GeometryType::MultiPolygon | GeometryType::Polygon
-        ) || (is_line_string_present
-            && geom_type.is_linestring());
+        ) || (is_line_string_present && geom_type.is_linestring());
 
         if needs_length {
             for _ in 0..num_geoms {

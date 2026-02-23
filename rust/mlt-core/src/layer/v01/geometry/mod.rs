@@ -641,10 +641,7 @@ mod tests {
                 ]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.part_offsets, input.part_offsets);
-            assert_eq!(output.ring_offsets, input.ring_offsets);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -667,8 +664,7 @@ mod tests {
                 vertices: Some(vec![100, 200]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -688,8 +684,7 @@ mod tests {
                 vertices: Some(vec![0, 0, 100, 200, 50, 150]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -705,9 +700,7 @@ mod tests {
                 vertices: Some(vec![0, 0, 100, 0, 100, 100]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.part_offsets, input.part_offsets);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -724,10 +717,7 @@ mod tests {
                 vertices: Some(vec![0, 0, 100, 0, 100, 100, 0, 100]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.part_offsets, input.part_offsets);
-            assert_eq!(output.ring_offsets, input.ring_offsets);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -743,9 +733,7 @@ mod tests {
                 vertices: Some(vec![0, 0, 50, 50, 100, 100]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.geometry_offsets, input.geometry_offsets);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -761,10 +749,7 @@ mod tests {
                 vertices: Some(vec![0, 0, 100, 100, 200, 200]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.geometry_offsets, input.geometry_offsets);
-            assert_eq!(output.part_offsets, input.part_offsets);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -784,11 +769,7 @@ mod tests {
                 ]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.geometry_offsets, input.geometry_offsets);
-            assert_eq!(output.part_offsets, input.part_offsets);
-            assert_eq!(output.ring_offsets, input.ring_offsets);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -805,9 +786,7 @@ mod tests {
                 vertices: Some(vec![0, 0, 10, 10, 20, 20, 30, 30]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.part_offsets, input.part_offsets);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -842,7 +821,7 @@ mod tests {
                 vertices: Some(vec![-100, -200, 100, 200]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -858,7 +837,7 @@ mod tests {
                 vertices: Some(vec![i32::MAX, i32::MIN]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -875,10 +854,7 @@ mod tests {
                 vertices: Some(vec![0, 0, 100, 0, 100, 100, 0, 100]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.index_buffer, input.index_buffer);
-            assert_eq!(output.triangles, input.triangles);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -895,9 +871,7 @@ mod tests {
                 vertices: Some(vec![0, 0, 100, 100, 200, 200]), // Only 3 unique vertices
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.vertex_offsets, input.vertex_offsets);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -922,11 +896,7 @@ mod tests {
                 ]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.geometry_offsets, input.geometry_offsets);
-            assert_eq!(output.part_offsets, input.part_offsets);
-            assert_eq!(output.ring_offsets, input.ring_offsets);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -943,8 +913,7 @@ mod tests {
                 vertices: None, // No vertices
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -969,9 +938,7 @@ mod tests {
                 ]),
             };
             let output = roundtrip(&input, strategy);
-            assert_eq!(output.vector_types, input.vector_types);
-            assert_eq!(output.part_offsets, input.part_offsets);
-            assert_eq!(output.vertices, input.vertices);
+            prop_assert_eq!(output, input);
         }
 
         #[test]
@@ -992,7 +959,6 @@ mod tests {
                 index_buffer: None,
                 triangles: None,
             };
-
             prop_assert_eq!(geometry_roundtrip(&decoded, strategy), decoded);
         }
     }
