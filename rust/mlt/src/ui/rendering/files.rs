@@ -7,11 +7,36 @@ use ratatui::widgets::{Cell, Paragraph, Row, Table, Wrap};
 use size_format::SizeFormatterSI;
 
 use crate::ls::{LsRow, NA, na, row_cells};
+use crate::ui::rendering::map;
 use crate::ui::state::App;
 use crate::ui::{
     CLR_DIMMED, CLR_HINT, CLR_HOVERED, STYLE_BOLD, STYLE_LABEL, STYLE_SELECTED, block_with_title,
     collect_extensions, collect_file_algorithms, collect_file_geometries,
 };
+
+pub fn render_tile_preview_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
+    if let Some(ref fc) = app.preview_fc {
+        map::render_tile_preview(f, area, fc, app.preview_extent);
+    } else {
+        let msg = if app
+            .get_selected_file()
+            .and_then(|r| {
+                app.preview_load_requested
+                    .as_ref()
+                    .filter(|p| p.as_path() == r.path())
+            })
+            .is_some()
+        {
+            "Loading…"
+        } else {
+            "Select a tile file (.mlt / .mvt) to preview"
+        };
+        f.render_widget(
+            Paragraph::new(Line::from(msg)).block(block_with_title("Tile Preview")),
+            area,
+        );
+    }
+}
 
 pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     app.file_table_area = Some(area);
@@ -145,14 +170,13 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let inner = area.height.saturating_sub(2);
     let max = u16::try_from(lines.len().saturating_sub(inner as usize)).unwrap_or(0);
     app.filter_scroll = app.filter_scroll.min(max);
-
     let para = Paragraph::new(lines)
         .block(block_with_title("Filter (click to toggle)"))
         .scroll((app.filter_scroll, 0));
     f.render_widget(para, area);
 }
 
-pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
+pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let info = app.get_selected_file().and_then(|r| match r {
         LsRow::Info(_, i) => Some(i),
         _ => None,
@@ -222,8 +246,13 @@ pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
         vec![Line::from("Select a file to view details")]
     };
 
+    let inner = area.height.saturating_sub(2) as usize;
+    let max = u16::try_from(lines.len().saturating_sub(inner)).unwrap_or(0);
+    app.file_info_scroll = app.file_info_scroll.min(max);
+
     let para = Paragraph::new(lines)
         .block(block_with_title("File Info"))
-        .wrap(Wrap { trim: false });
+        .wrap(Wrap { trim: false })
+        .scroll((app.file_info_scroll, 0));
     f.render_widget(para, area);
 }
