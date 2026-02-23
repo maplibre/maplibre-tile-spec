@@ -334,7 +334,7 @@ pub enum GeometryType {
 
 impl GeometryType {
     #[must_use]
-    pub fn is_linestring(&self) -> bool {
+    pub fn is_linestring(self) -> bool {
         matches!(
             self,
             GeometryType::LineString | GeometryType::MultiLineString
@@ -370,25 +370,48 @@ impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedEncodedGeometry);
 
 /// How to encode Geometry
 #[derive(Debug, Clone, Copy, Builder)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct GeometryEncodingStrategy {
     /// Logical encoding for the geometry types (meta) stream.
     meta_logical: LogicalEncoding,
     /// Physical codec for the geometry types (meta) stream.
     meta_physical: PhysicalEncoding,
+
+    /// Logical encoding for the geometry length stream
+    num_geometries_logical: LogicalEncoding,
+    /// Physical codec for the geometry length stream
+    num_geometries_physical: PhysicalEncoding,
+
+    /// how to name this ???
+    rings_logical: LogicalEncoding,
+    rings2_logical: LogicalEncoding,
+    no_rings_logical: LogicalEncoding,
+    rings_physical: PhysicalEncoding,
+    rings2_physical: PhysicalEncoding,
+    no_rings_physical: PhysicalEncoding,
+
+    /// how to name this ???
+    parts_logical: LogicalEncoding,
+    parts_ring_logical: LogicalEncoding,
+    parts_physical: PhysicalEncoding,
+    parts_ring_physical: PhysicalEncoding,
+
+    only_parts_logical: LogicalEncoding,
+    only_parts_physical: PhysicalEncoding,
+
+    /// Logical codec for triangles stream for pre-tessellated polygons
+    triangles_logical: LogicalEncoding,
+    triangles_indexes_logical: LogicalEncoding,
+    /// Physical codec for triangles stream for pre-tessellated polygons
+    triangles_physical: PhysicalEncoding,
+    triangles_indexes_physical: PhysicalEncoding,
+
     /// Physical codec for the vertex data stream.
     ///
     /// The logical codec is always [`LogicalCodec::ComponentwiseDelta`]
     vertex_physical: PhysicalEncoding,
-}
-
-impl Default for GeometryEncodingStrategy {
-    fn default() -> Self {
-        Self {
-            meta_logical: LogicalEncoding::None,
-            meta_physical: PhysicalEncoding::VarInt,
-            vertex_physical: PhysicalEncoding::VarInt,
-        }
-    }
+    vertex_offsets_logical: LogicalEncoding,
+    vertex_offsets_physical: PhysicalEncoding,
 }
 
 impl FromDecoded<'_> for OwnedEncodedGeometry {
@@ -569,6 +592,8 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
 
 #[cfg(test)]
 mod tests {
+    use proptest::prelude::*;
+
     use super::*;
     use crate::Encodable as _;
 
@@ -588,404 +613,6 @@ mod tests {
         DecodedGeometry::from_encoded(parsed).expect("Failed to decode")
     }
 
-    #[test]
-    fn test_empty_geometry_roundtrip() {
-        let input = DecodedGeometry::default();
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-    }
-
-    #[test]
-    fn test_single_point_roundtrip() {
-        let input = DecodedGeometry {
-            vector_types: vec![GeometryType::Point],
-            geometry_offsets: None,
-            part_offsets: None,
-            ring_offsets: None,
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![100, 200]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_multiple_points_roundtrip() {
-        let input = DecodedGeometry {
-            vector_types: vec![
-                GeometryType::Point,
-                GeometryType::Point,
-                GeometryType::Point,
-            ],
-            geometry_offsets: None,
-            part_offsets: None,
-            ring_offsets: None,
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![0, 0, 100, 200, 50, 150]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_linestring_roundtrip() {
-        let input = DecodedGeometry {
-            vector_types: vec![GeometryType::LineString],
-            geometry_offsets: None,
-            part_offsets: Some(vec![0, 3]),
-            ring_offsets: None,
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![0, 0, 100, 0, 100, 100]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.part_offsets, input.part_offsets);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_polygon_roundtrip() {
-        // A simple square polygon (exterior ring only)
-        let input = DecodedGeometry {
-            vector_types: vec![GeometryType::Polygon],
-            geometry_offsets: None,
-            part_offsets: Some(vec![0, 1]),
-            ring_offsets: Some(vec![0, 4]),
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![0, 0, 100, 0, 100, 100, 0, 100]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.part_offsets, input.part_offsets);
-        assert_eq!(output.ring_offsets, input.ring_offsets);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_multipoint_roundtrip() {
-        let input = DecodedGeometry {
-            vector_types: vec![GeometryType::MultiPoint],
-            geometry_offsets: Some(vec![0, 3]),
-            part_offsets: None,
-            ring_offsets: None,
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![0, 0, 50, 50, 100, 100]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.geometry_offsets, input.geometry_offsets);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_multilinestring_roundtrip() {
-        let input = DecodedGeometry {
-            vector_types: vec![GeometryType::MultiLineString],
-            geometry_offsets: Some(vec![0, 2]),
-            part_offsets: Some(vec![0, 2, 3]),
-            ring_offsets: None,
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![0, 0, 100, 100, 200, 200]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.geometry_offsets, input.geometry_offsets);
-        assert_eq!(output.part_offsets, input.part_offsets);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_multipolygon_roundtrip() {
-        // MultiPolygon with 2 simple polygons
-        let input = DecodedGeometry {
-            vector_types: vec![GeometryType::MultiPolygon],
-            geometry_offsets: Some(vec![0, 2]),
-            part_offsets: Some(vec![0, 1, 2]),
-            ring_offsets: Some(vec![0, 4, 8]),
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![
-                0, 0, 10, 0, 10, 10, 0, 10, // First polygon
-                20, 20, 30, 20, 30, 30, 20, 30, // Second polygon
-            ]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.geometry_offsets, input.geometry_offsets);
-        assert_eq!(output.part_offsets, input.part_offsets);
-        assert_eq!(output.ring_offsets, input.ring_offsets);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_mixed_geometry_types_roundtrip() {
-        // Mix of Point and LineString
-        let input = DecodedGeometry {
-            vector_types: vec![GeometryType::Point, GeometryType::LineString],
-            geometry_offsets: None,
-            part_offsets: Some(vec![0, 1, 4]),
-            ring_offsets: None,
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![0, 0, 10, 10, 20, 20, 30, 30]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.part_offsets, input.part_offsets);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_encodable_trait_api() {
-        let decoded = DecodedGeometry {
-            vector_types: vec![GeometryType::Point],
-            geometry_offsets: None,
-            part_offsets: None,
-            ring_offsets: None,
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![100, 200]),
-        };
-
-        let mut geom_enum = OwnedGeometry::Decoded(decoded.clone());
-        let config = GeometryEncodingStrategy::default();
-        geom_enum.encode_with(config).expect("Failed to encode");
-
-        assert!(!geom_enum.is_decoded(), "Should be Encoded after encoding");
-    }
-
-    #[test]
-    fn test_negative_coordinates() {
-        let input = DecodedGeometry {
-            vector_types: vec![GeometryType::Point, GeometryType::Point],
-            geometry_offsets: None,
-            part_offsets: None,
-            ring_offsets: None,
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![-100, -200, 100, 200]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_large_coordinates() {
-        let input = DecodedGeometry {
-            vector_types: vec![GeometryType::Point],
-            geometry_offsets: None,
-            part_offsets: None,
-            ring_offsets: None,
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![i32::MAX, i32::MIN]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_tessellated_polygon_roundtrip() {
-        // Pre-tessellated polygon with triangles and index buffer
-        let input = DecodedGeometry {
-            vector_types: vec![GeometryType::Polygon],
-            geometry_offsets: None,
-            part_offsets: Some(vec![0, 1]),
-            ring_offsets: Some(vec![0, 4]),
-            vertex_offsets: None,
-            index_buffer: Some(vec![0, 1, 2, 0, 2, 3]), // Two triangles
-            triangles: Some(vec![2]),                   // One polygon with 2 triangles
-            vertices: Some(vec![0, 0, 100, 0, 100, 100, 0, 100]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.index_buffer, input.index_buffer);
-        assert_eq!(output.triangles, input.triangles);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_vertex_offsets_roundtrip() {
-        // Dictionary-encoded vertices with vertex offsets
-        let input = DecodedGeometry {
-            vector_types: vec![GeometryType::LineString, GeometryType::LineString],
-            geometry_offsets: None,
-            part_offsets: Some(vec![0, 3, 6]),
-            ring_offsets: None,
-            vertex_offsets: Some(vec![0, 1, 2, 2, 1, 0]), // Indices into vertices
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![0, 0, 100, 100, 200, 200]), // Only 3 unique vertices
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.vertex_offsets, input.vertex_offsets);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_mixed_point_multipoint_polygon_roundtrip() {
-        // Mix of Point, MultiPoint, and Polygon to exercise level2 Point/MultiPoint branch
-        let input = DecodedGeometry {
-            vector_types: vec![
-                GeometryType::Point,
-                GeometryType::MultiPoint,
-                GeometryType::Polygon,
-            ],
-            geometry_offsets: Some(vec![0, 1, 4, 5]), // Point:1, MultiPoint:3 points, Polygon:1
-            part_offsets: Some(vec![0, 1, 2, 3, 4, 5]), // Each geometry has one part
-            ring_offsets: Some(vec![0, 1, 2, 3, 4, 8]), // Point/MultiPoint have 1 vertex each, Polygon has 4
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![
-                0, 0, // Point
-                10, 10, 20, 20, 30, 30, // MultiPoint (3 points)
-                100, 100, 200, 100, 200, 200, 100, 200, // Polygon
-            ]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.geometry_offsets, input.geometry_offsets);
-        assert_eq!(output.part_offsets, input.part_offsets);
-        assert_eq!(output.ring_offsets, input.ring_offsets);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_geometry_no_vertices() {
-        // Geometry with types but no vertices (edge case)
-        let input = DecodedGeometry {
-            vector_types: vec![GeometryType::Point],
-            geometry_offsets: None,
-            part_offsets: None,
-            ring_offsets: None,
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: None, // No vertices
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_multiple_linestrings_roundtrip() {
-        // Multiple separate LineStrings (not a MultiLineString)
-        let input = DecodedGeometry {
-            vector_types: vec![
-                GeometryType::LineString,
-                GeometryType::LineString,
-                GeometryType::LineString,
-            ],
-            geometry_offsets: None,
-            part_offsets: Some(vec![0, 3, 5, 8]),
-            ring_offsets: None,
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![
-                0, 0, 10, 10, 20, 20, // Line 1: 3 vertices
-                30, 30, 40, 40, // Line 2: 2 vertices
-                50, 50, 60, 60, 70, 70, // Line 3: 3 vertices
-            ]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.part_offsets, input.part_offsets);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    #[test]
-    fn test_polygon_with_hole_roundtrip() {
-        // Polygon with exterior ring and one interior ring (hole)
-        let input = DecodedGeometry {
-            vector_types: vec![GeometryType::Polygon],
-            geometry_offsets: None,
-            part_offsets: Some(vec![0, 2]), // One polygon with 2 rings
-            ring_offsets: Some(vec![0, 4, 8]), // Exterior: 4 vertices, Interior: 4 vertices
-            vertex_offsets: None,
-            index_buffer: None,
-            triangles: None,
-            vertices: Some(vec![
-                0, 0, 100, 0, 100, 100, 0, 100, // Exterior ring
-                25, 25, 75, 25, 75, 75, 25, 75, // Interior ring (hole)
-            ]),
-        };
-        let config = GeometryEncodingStrategy::default();
-        let output = roundtrip(&input, config);
-        assert_eq!(output.vector_types, input.vector_types);
-        assert_eq!(output.part_offsets, input.part_offsets);
-        assert_eq!(output.ring_offsets, input.ring_offsets);
-        assert_eq!(output.vertices, input.vertices);
-    }
-
-    use proptest::prelude::*;
-
-    fn logical_encoding_strategy() -> impl Strategy<Value = LogicalEncoding> {
-        prop_oneof![
-            Just(LogicalEncoding::None),
-            Just(LogicalEncoding::Delta),
-            Just(LogicalEncoding::Rle),
-            Just(LogicalEncoding::DeltaRle),
-        ]
-    }
-
-    fn physical_encoding_strategy() -> impl Strategy<Value = PhysicalEncoding> {
-        prop_oneof![Just(PhysicalEncoding::None), Just(PhysicalEncoding::VarInt),]
-    }
-
-    fn geometry_encoding_strategy() -> impl Strategy<Value = GeometryEncodingStrategy> {
-        (
-            logical_encoding_strategy(),
-            physical_encoding_strategy(),
-            physical_encoding_strategy(),
-        )
-            .prop_map(|(meta_logical, meta_physical, vertex_physical)| {
-                GeometryEncodingStrategy {
-                    meta_logical,
-                    meta_physical,
-                    vertex_physical,
-                }
-            })
-    }
-
     fn geometry_roundtrip(
         decoded: &DecodedGeometry,
         strategy: GeometryEncodingStrategy,
@@ -998,9 +625,359 @@ mod tests {
 
     proptest! {
         #[test]
+        fn test_polygon_with_hole_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            // Polygon with exterior ring and one interior ring (hole)
+            let input = DecodedGeometry {
+                vector_types: vec![GeometryType::Polygon],
+                geometry_offsets: None,
+                part_offsets: Some(vec![0, 2]), // One polygon with 2 rings
+                ring_offsets: Some(vec![0, 4, 8]), // Exterior: 4 vertices, Interior: 4 vertices
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![
+                    0, 0, 100, 0, 100, 100, 0, 100, // Exterior ring
+                    25, 25, 75, 25, 75, 75, 25, 75, // Interior ring (hole)
+                ]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.part_offsets, input.part_offsets);
+            assert_eq!(output.ring_offsets, input.ring_offsets);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_empty_geometry_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            let input = DecodedGeometry::default();
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+        }
+
+        #[test]
+        fn test_single_point_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            let input = DecodedGeometry {
+                vector_types: vec![GeometryType::Point],
+                geometry_offsets: None,
+                part_offsets: None,
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![100, 200]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_multiple_points_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            let input = DecodedGeometry {
+                vector_types: vec![
+                    GeometryType::Point,
+                    GeometryType::Point,
+                    GeometryType::Point,
+                ],
+                geometry_offsets: None,
+                part_offsets: None,
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![0, 0, 100, 200, 50, 150]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_linestring_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            let input = DecodedGeometry {
+                vector_types: vec![GeometryType::LineString],
+                geometry_offsets: None,
+                part_offsets: Some(vec![0, 3]),
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![0, 0, 100, 0, 100, 100]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.part_offsets, input.part_offsets);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_polygon_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            // A simple square polygon (exterior ring only)
+            let input = DecodedGeometry {
+                vector_types: vec![GeometryType::Polygon],
+                geometry_offsets: None,
+                part_offsets: Some(vec![0, 1]),
+                ring_offsets: Some(vec![0, 4]),
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![0, 0, 100, 0, 100, 100, 0, 100]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.part_offsets, input.part_offsets);
+            assert_eq!(output.ring_offsets, input.ring_offsets);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_multipoint_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            let input = DecodedGeometry {
+                vector_types: vec![GeometryType::MultiPoint],
+                geometry_offsets: Some(vec![0, 3]),
+                part_offsets: None,
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![0, 0, 50, 50, 100, 100]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.geometry_offsets, input.geometry_offsets);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_multilinestring_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            let input = DecodedGeometry {
+                vector_types: vec![GeometryType::MultiLineString],
+                geometry_offsets: Some(vec![0, 2]),
+                part_offsets: Some(vec![0, 2, 3]),
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![0, 0, 100, 100, 200, 200]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.geometry_offsets, input.geometry_offsets);
+            assert_eq!(output.part_offsets, input.part_offsets);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_multipolygon_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            // MultiPolygon with 2 simple polygons
+            let input = DecodedGeometry {
+                vector_types: vec![GeometryType::MultiPolygon],
+                geometry_offsets: Some(vec![0, 2]),
+                part_offsets: Some(vec![0, 1, 2]),
+                ring_offsets: Some(vec![0, 4, 8]),
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![
+                    0, 0, 10, 0, 10, 10, 0, 10, // First polygon
+                    20, 20, 30, 20, 30, 30, 20, 30, // Second polygon
+                ]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.geometry_offsets, input.geometry_offsets);
+            assert_eq!(output.part_offsets, input.part_offsets);
+            assert_eq!(output.ring_offsets, input.ring_offsets);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_mixed_geometry_types_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            // Mix of Point and LineString
+            let input = DecodedGeometry {
+                vector_types: vec![GeometryType::Point, GeometryType::LineString],
+                geometry_offsets: None,
+                part_offsets: Some(vec![0, 1, 4]),
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![0, 0, 10, 10, 20, 20, 30, 30]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.part_offsets, input.part_offsets);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_encodable_trait_api(strategy in any::<GeometryEncodingStrategy>()) {
+            let decoded = DecodedGeometry {
+                vector_types: vec![GeometryType::Point],
+                geometry_offsets: None,
+                part_offsets: None,
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![100, 200]),
+            };
+
+            let mut geom_enum = OwnedGeometry::Decoded(decoded.clone());
+            geom_enum.encode_with(strategy).expect("Failed to encode");
+
+            assert!(!geom_enum.is_decoded(), "Should be Encoded after encoding");
+        }
+
+        #[test]
+        fn test_negative_coordinates(strategy in any::<GeometryEncodingStrategy>()) {
+            let input = DecodedGeometry {
+                vector_types: vec![GeometryType::Point, GeometryType::Point],
+                geometry_offsets: None,
+                part_offsets: None,
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![-100, -200, 100, 200]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_large_coordinates(strategy in any::<GeometryEncodingStrategy>()) {
+            let input = DecodedGeometry {
+                vector_types: vec![GeometryType::Point],
+                geometry_offsets: None,
+                part_offsets: None,
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![i32::MAX, i32::MIN]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_tessellated_polygon_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            // Pre-tessellated polygon with triangles and index buffer
+            let input = DecodedGeometry {
+                vector_types: vec![GeometryType::Polygon],
+                geometry_offsets: None,
+                part_offsets: Some(vec![0, 1]),
+                ring_offsets: Some(vec![0, 4]),
+                vertex_offsets: None,
+                index_buffer: Some(vec![0, 1, 2, 0, 2, 3]), // Two triangles
+                triangles: Some(vec![2]),                   // One polygon with 2 triangles
+                vertices: Some(vec![0, 0, 100, 0, 100, 100, 0, 100]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.index_buffer, input.index_buffer);
+            assert_eq!(output.triangles, input.triangles);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_vertex_offsets_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            // Dictionary-encoded vertices with vertex offsets
+            let input = DecodedGeometry {
+                vector_types: vec![GeometryType::LineString, GeometryType::LineString],
+                geometry_offsets: None,
+                part_offsets: Some(vec![0, 3, 6]),
+                ring_offsets: None,
+                vertex_offsets: Some(vec![0, 1, 2, 2, 1, 0]), // Indices into vertices
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![0, 0, 100, 100, 200, 200]), // Only 3 unique vertices
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.vertex_offsets, input.vertex_offsets);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_mixed_point_multipoint_polygon_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            // Mix of Point, MultiPoint, and Polygon to exercise level2 Point/MultiPoint branch
+            let input = DecodedGeometry {
+                vector_types: vec![
+                    GeometryType::Point,
+                    GeometryType::MultiPoint,
+                    GeometryType::Polygon,
+                ],
+                geometry_offsets: Some(vec![0, 1, 4, 5]), // Point:1, MultiPoint:3 points, Polygon:1
+                part_offsets: Some(vec![0, 1, 2, 3, 4, 5]), // Each geometry has one part
+                ring_offsets: Some(vec![0, 1, 2, 3, 4, 8]), // Point/MultiPoint have 1 vertex each, Polygon has 4
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![
+                    0, 0, // Point
+                    10, 10, 20, 20, 30, 30, // MultiPoint (3 points)
+                    100, 100, 200, 100, 200, 200, 100, 200, // Polygon
+                ]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.geometry_offsets, input.geometry_offsets);
+            assert_eq!(output.part_offsets, input.part_offsets);
+            assert_eq!(output.ring_offsets, input.ring_offsets);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_geometry_no_vertices(strategy in any::<GeometryEncodingStrategy>()) {
+            // Geometry with types but no vertices (edge case)
+            let input = DecodedGeometry {
+                vector_types: vec![GeometryType::Point],
+                geometry_offsets: None,
+                part_offsets: None,
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: None, // No vertices
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
+        fn test_multiple_linestrings_roundtrip(strategy in any::<GeometryEncodingStrategy>()) {
+            // Multiple separate LineStrings (not a MultiLineString)
+            let input = DecodedGeometry {
+                vector_types: vec![
+                    GeometryType::LineString,
+                    GeometryType::LineString,
+                    GeometryType::LineString,
+                ],
+                geometry_offsets: None,
+                part_offsets: Some(vec![0, 3, 5, 8]),
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: Some(vec![
+                    0, 0, 10, 10, 20, 20, // Line 1: 3 vertices
+                    30, 30, 40, 40, // Line 2: 2 vertices
+                    50, 50, 60, 60, 70, 70, // Line 3: 3 vertices
+                ]),
+            };
+            let output = roundtrip(&input, strategy);
+            assert_eq!(output.vector_types, input.vector_types);
+            assert_eq!(output.part_offsets, input.part_offsets);
+            assert_eq!(output.vertices, input.vertices);
+        }
+
+        #[test]
         fn test_point_roundtrip(
             coords in prop::collection::vec([any::<i32>(), any::<i32>()], 0..100),
-            strategy in geometry_encoding_strategy(),
+            strategy in any::<GeometryEncodingStrategy>(),
         ) {
             let vector_types = vec![GeometryType::Point; coords.len()];
             let vertices: Vec<i32> = coords.into_iter().flatten().collect();
