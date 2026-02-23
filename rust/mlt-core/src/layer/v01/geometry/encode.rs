@@ -26,16 +26,6 @@ impl Default for GeometryEncodingStrategy {
     }
 }
 
-impl GeometryEncodingStrategy {
-    /// Create a new strategy with `VarInt` physical encoding
-    #[must_use]
-    pub fn varint() -> Self {
-        Self {
-            physical_codec: PhysicalCodec::VarInt,
-        }
-    }
-}
-
 /// Encode geometry types stream using RLE if beneficial
 fn encode_geometry_types(types: &[GeometryType]) -> Result<OwnedStream, MltError> {
     let values: Vec<u32> = types.iter().map(|t| *t as u32).collect();
@@ -816,7 +806,9 @@ mod tests {
 
     #[test]
     fn test_varint_constructor() {
-        let config = GeometryEncodingStrategy::varint();
+        let config = GeometryEncodingStrategy{
+            physical_codec: PhysicalCodec::VarInt,
+        };
         assert!(matches!(config.physical_codec, PhysicalCodec::VarInt));
     }
 
