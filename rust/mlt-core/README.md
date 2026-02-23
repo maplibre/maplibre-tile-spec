@@ -26,7 +26,7 @@ In particular, MLT offers the following features:
 - **Support complex types**, including nested properties, lists and maps
 - **Improved processing performance**,
   based on storage and in-memory formats that are specifically designed for modern GL APIs, allowing for efficient processing on both CPU and GPU.
-  The formats are designed to be loaded into GPU buffers with little or no additional processing
+  The formats are designed to be loaded into GPU buffers with little or no additional processing.
 
 📝 For a more in-depth exploration of MLT have a look at the [following slides](https://github.com/mactrem/presentations/blob/main/FOSS4G_2024_Europe/FOSS4G_2024_Europe.pdf), watch
 [this talk](https://www.youtube.com/watch?v=YHcoAFcsES0) or read [this paper](https://dl.acm.org/doi/10.1145/3748636.3763208) by MLT inventor Markus Tremmel.
