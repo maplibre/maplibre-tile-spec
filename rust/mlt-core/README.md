@@ -78,7 +78,9 @@ To avoid copying bytes, we employ `borrowme`:
   This allows in-place decoding, e.g. it is possible to decode just one property column / ID / Geometry, while keeping the rest in their encoded form.
   The enum also has a corresponding `borrowme`-generated `OwnedId`.
 
-Converting between encoded and decoded variants is possible via `from_encoded`/`from_decoded`.
+Converting between encoded and decoded representations is done via:
+- `DecodedId::from_encoded` / `OwnedEncodedId::from_decoded` for the struct-level conversions, and
+- `Id::decode`, `Encodable::encode_with`, and `Decodable::materialize` for working with the `Id` enum.
 
 ## Tools
 
