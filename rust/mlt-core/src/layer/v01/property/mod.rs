@@ -517,11 +517,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             }
             Val::Str(s) => {
                 let values = unapply_presence(s);
-                EncVal::Str(OwnedStream::encode_strings(
-                    &values,
-                    config.logical,
-                    config.physical,
-                )?)
+                EncVal::Str(OwnedStream::encode_strings(&values, config.encoding())?)
             }
             Val::Struct => Err(NotImplemented("struct property encoding"))?,
         };

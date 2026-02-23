@@ -155,23 +155,9 @@ impl OwnedStream {
         encoding: Encoding,
         physical_type: PhysicalStreamType,
     ) -> Result<Self, MltError> {
-        let Encoding { logical, physical } = encoding;
-        Self::encode_u32s_of_type(
-            values,
-            logical,
-            physical,
-            PhysicalStreamType::Data(DictionaryType::None),
-        )
-    }
-    pub fn encode_u32s_of_type(
-        values: &[u32],
-        logical: LogicalEncoding,
-        physical: PhysicalEncoding,
-        physical_type: PhysicalStreamType,
-    ) -> Result<Self, MltError> {
-        let (physical_u32s, logical_codec) = logical.encode_u32s(values)?;
+        let (physical_u32s, logical_codec) = encoding.logical.encode_u32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_codec) = physical.encode_u32s(physical_u32s);
+        let (data, physical_codec) = encoding.physical.encode_u32s(physical_u32s);
         Ok(Self {
             meta: StreamMeta {
                 physical_type,
@@ -213,11 +199,7 @@ impl OwnedStream {
     }
 
     /// Encode a sequence of strings into a length stream and a data stream.
-    pub fn encode_strings(
-        values: &[String],
-        logical: LogicalEncoding,
-        physical: PhysicalEncoding,
-    ) -> Result<Vec<Self>, MltError> {
+    pub fn encode_strings(values: &[String], encoding: Encoding) -> Result<Vec<Self>, MltError> {
         let lengths: Vec<u32> = values
             .iter()
             .map(|s| u32::try_from(s.len()))
@@ -229,8 +211,7 @@ impl OwnedStream {
 
         let length_stream = Self::encode_u32s_of_type(
             &lengths,
-            logical,
-            physical,
+            encoding,
             PhysicalStreamType::Length(LengthType::VarBinary),
         )?;
 
@@ -929,16 +910,16 @@ mod tests {
         ) {
             let owned_stream = OwnedStream::encode_u32s(&values, encoding).unwrap();
 
-                let mut buffer = Vec::new();
-                buffer.write_stream(&owned_stream).unwrap();
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
 
-                let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
-                assert!(remaining.is_empty());
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
 
-                let decoded_values = parsed_stream.decode_bits_u32().unwrap().decode_u32().unwrap();
+            let decoded_values = parsed_stream.decode_bits_u32().unwrap().decode_u32().unwrap();
 
-                assert_eq!(decoded_values, values);
-            }
+            assert_eq!(decoded_values, values);
+        }
 
         #[test]
         fn test_i32_roundtrip(
@@ -947,16 +928,16 @@ mod tests {
         ) {
             let owned_stream = OwnedStream::encode_i32s(&values, encoding).unwrap();
 
-                let mut buffer = Vec::new();
-                buffer.write_stream(&owned_stream).unwrap();
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
 
-                let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
-                assert!(remaining.is_empty());
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
 
-                let decoded_values = parsed_stream.decode_bits_u32().unwrap().decode_i32().unwrap();
+            let decoded_values = parsed_stream.decode_bits_u32().unwrap().decode_i32().unwrap();
 
-                assert_eq!(decoded_values, values);
-            }
+            assert_eq!(decoded_values, values);
+        }
 
         #[test]
         fn test_u64_roundtrip(
@@ -965,16 +946,16 @@ mod tests {
         ) {
             let owned_stream = OwnedStream::encode_u64s(&values, encoding).unwrap();
 
-                let mut buffer = Vec::new();
-                buffer.write_stream(&owned_stream).unwrap();
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
 
-                let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
-                assert!(remaining.is_empty());
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
 
-                let decoded_values = parsed_stream.decode_bits_u64().unwrap().decode_u64().unwrap();
+            let decoded_values = parsed_stream.decode_bits_u64().unwrap().decode_u64().unwrap();
 
-                assert_eq!(decoded_values, values);
-            }
+            assert_eq!(decoded_values, values);
+        }
 
         #[test]
         fn test_i64_roundtrip(
@@ -983,16 +964,16 @@ mod tests {
         ) {
             let owned_stream = OwnedStream::encode_i64s(&values, encoding).unwrap();
 
-                let mut buffer = Vec::new();
-                buffer.write_stream(&owned_stream).unwrap();
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
 
-                let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
-                assert!(remaining.is_empty());
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
 
-                let decoded_values = parsed_stream.decode_bits_u64().unwrap().decode_i64().unwrap();
+            let decoded_values = parsed_stream.decode_bits_u64().unwrap().decode_i64().unwrap();
 
-                assert_eq!(decoded_values, values);
-            }
+            assert_eq!(decoded_values, values);
+        }
 
         #[test]
         fn test_i8_roundtrip(
@@ -1001,15 +982,15 @@ mod tests {
         ) {
             let owned_stream = OwnedStream::encode_i8s(&values, encoding).unwrap();
 
-                let mut buffer = Vec::new();
-                buffer.write_stream(&owned_stream).unwrap();
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
 
-                let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
-                assert!(remaining.is_empty());
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
 
-                let decoded_values = parsed_stream.decode_i8s().unwrap();
-                assert_eq!(decoded_values, values);
-            }
+            let decoded_values = parsed_stream.decode_i8s().unwrap();
+            assert_eq!(decoded_values, values);
+        }
 
         #[test]
         fn test_u8_roundtrip(
@@ -1018,29 +999,28 @@ mod tests {
         ) {
             let owned_stream = OwnedStream::encode_u8s(&values, encoding).unwrap();
 
-                let mut buffer = Vec::new();
-                buffer.write_stream(&owned_stream).unwrap();
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
 
-                let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
-                assert!(remaining.is_empty());
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
 
-                let decoded_values = parsed_stream.decode_u8s().unwrap();
-                assert_eq!(decoded_values, values);
-            }
+            let decoded_values = parsed_stream.decode_u8s().unwrap();
+            assert_eq!(decoded_values, values);
+        }
 
-            #[test]
-            fn test_f32_roundtrip(values in prop::collection::vec(any::<f32>(), 0..100)) {
-                let owned_stream = OwnedStream::encode_f32(&values).unwrap();
+        #[test]
+        fn test_f32_roundtrip(values in prop::collection::vec(any::<f32>(), 0..100)) {
+            let owned_stream = OwnedStream::encode_f32(&values).unwrap();
 
-                let mut buffer = Vec::new();
-                buffer.write_stream(&owned_stream).unwrap();
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
 
-                let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
-                assert!(remaining.is_empty());
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
 
-                let decoded_values = parsed_stream.decode_f32().unwrap();
-                assert_eq!(decoded_values, values);
-            }
+            let decoded_values = parsed_stream.decode_f32().unwrap();
+            assert_eq!(decoded_values, values);
         }
 
         #[test]
