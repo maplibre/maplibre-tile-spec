@@ -600,7 +600,7 @@ mod tests {
     /// Strategy for `PhysicalEncoding` that excludes `FastPFOR`.
     /// Use this for u64/i64 tests since FastPFOR truncates to u32.
     fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoding> {
-      any::<PhysicalEncoding>().prop_filter("not fastpfor", |v| *v != PhysicalEncoding::FastPFOR)
+        any::<PhysicalEncoding>().prop_filter("not fastpfor", |v| *v != PhysicalEncoding::FastPFOR)
     }
 
     /// Encode a `DecodedProperty` and immediately decode it back.
