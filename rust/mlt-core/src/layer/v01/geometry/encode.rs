@@ -93,20 +93,6 @@ fn encode_u32_stream_auto(
         best_logical = LogicalCodec::Delta;
     }
 
-    // Try RLE if compression ratio is good enough (at least 2:1)
-    if values.len() / runs >= 2 {
-        let (rle_data, r, n) = encode_rle_varints(values);
-        if rle_data.len() < best_data.len() {
-            best_data = rle_data;
-            best_logical = LogicalCodec::Rle(RleMeta {
-                runs: r,
-                num_rle_values: n,
-            });
-            rle_runs = r;
-            rle_num_values = n;
-        }
-    }
-
     // Try Delta-RLE if compression ratio is good enough
     if values.len() / delta_runs >= 2 {
         let (delta_rle_data, r, n) = encode_delta_rle_varints(values);
@@ -119,18 +105,6 @@ fn encode_u32_stream_auto(
             rle_runs = r;
             rle_num_values = n;
         }
-    }
-
-    // Check for const stream (single RLE run) - force RLE encoding
-    if runs == 1 && values.len() > 1 {
-        let (rle_data, r, n) = encode_rle_varints(values);
-        best_data = rle_data;
-        best_logical = LogicalCodec::Rle(RleMeta {
-            runs: r,
-            num_rle_values: n,
-        });
-        rle_runs = r;
-        rle_num_values = n;
     }
 
     let num_values = match best_logical {
@@ -262,47 +236,6 @@ fn encode_delta_zigzag_varints(values: &[u32]) -> Vec<u8> {
         prev = value;
     }
     result
-}
-
-/// Encode values with RLE + varint
-/// Returns (encoded data, `num_runs`, `num_rle_values`)
-fn encode_rle_varints(values: &[u32]) -> (Vec<u8>, u32, u32) {
-    if values.is_empty() {
-        return (Vec::new(), 0, 0);
-    }
-
-    let mut runs = Vec::new();
-    let mut vals = Vec::new();
-
-    let mut current_val = values[0];
-    let mut current_run = 1u32;
-
-    for &val in &values[1..] {
-        if val == current_val {
-            current_run = current_run.saturating_add(1);
-        } else {
-            runs.push(current_run);
-            vals.push(current_val);
-            current_val = val;
-            current_run = 1;
-        }
-    }
-    runs.push(current_run);
-    vals.push(current_val);
-
-    let num_runs = u32::try_from(runs.len()).unwrap_or(u32::MAX);
-    let num_rle_values = u32::try_from(vals.len()).unwrap_or(u32::MAX);
-
-    // Encode runs followed by values
-    let mut result = Vec::with_capacity((runs.len() + vals.len()) * 2);
-    for &r in &runs {
-        result.extend_from_slice(&r.encode_var_vec());
-    }
-    for &v in &vals {
-        result.extend_from_slice(&v.encode_var_vec());
-    }
-
-    (result, num_runs, num_rle_values)
 }
 
 /// Encode values with delta + RLE + varint
@@ -715,23 +648,6 @@ mod tests {
         let (runs, delta_runs) = calculate_runs(&[]);
         assert_eq!(runs, 0);
         assert_eq!(delta_runs, 0);
-    }
-
-    #[test]
-    fn test_rle_encoding() {
-        let values = vec![1, 1, 1, 2, 2, 3];
-        let (encoded, num_runs, num_vals) = encode_rle_varints(&values);
-        assert_eq!(num_runs, 3);
-        assert_eq!(num_vals, 3);
-        assert!(!encoded.is_empty());
-    }
-
-    #[test]
-    fn test_rle_encoding_empty() {
-        let (encoded, num_runs, num_vals) = encode_rle_varints(&[]);
-        assert_eq!(num_runs, 0);
-        assert_eq!(num_vals, 0);
-        assert!(encoded.is_empty());
     }
 
     #[test]
