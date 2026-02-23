@@ -585,6 +585,11 @@ mod tests {
 
     use super::*;
 
+    /// Strategy for [`PhysicalEncoder`] that excludes `FastPFOR` to support 64bit ints
+    fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {
+        any::<PhysicalEncoder>().prop_filter("not fastpfor", |v| *v != PhysicalEncoder::FastPFOR)
+    }
+
     /// Encode a `DecodedProperty` and immediately decode it back.
     fn roundtrip(decoded: &DecodedProperty, encoder: PropertyEncoder) -> DecodedProperty {
         let encoded_data =
@@ -728,7 +733,7 @@ mod tests {
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<i64>()), 0..100),
             logical in any::<LogicalEncoder>(),
-            physical in any::<PhysicalEncoder>(),
+            physical in physical_no_fastpfor(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::I64(values) };
             let encoder = PropertyEncoder::new(PresenceStream::Present, logical, physical);
@@ -740,7 +745,7 @@ mod tests {
             name in any::<String>(),
             values in prop::collection::vec(any::<i64>(), 0..100),
             logical in any::<LogicalEncoder>(),
-            physical in any::<PhysicalEncoder>(),
+            physical in physical_no_fastpfor(),
         ) {
             let opt_values: Vec<Option<i64>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::I64(opt_values) };
@@ -753,7 +758,7 @@ mod tests {
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<u64>()), 0..100),
             logical in any::<LogicalEncoder>(),
-            physical in any::<PhysicalEncoder>(),
+            physical in physical_no_fastpfor(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::U64(values) };
             let encoder = PropertyEncoder::new(PresenceStream::Present, logical, physical);
@@ -765,7 +770,7 @@ mod tests {
             name in any::<String>(),
             values in prop::collection::vec(any::<u64>(), 0..100),
             logical in any::<LogicalEncoder>(),
-            physical in any::<PhysicalEncoder>(),
+            physical in physical_no_fastpfor(),
         ) {
             let opt_values: Vec<Option<u64>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::U64(opt_values) };
