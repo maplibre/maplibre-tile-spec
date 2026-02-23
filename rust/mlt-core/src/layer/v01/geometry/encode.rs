@@ -66,10 +66,7 @@ fn encode_level1_length_stream(
             geom_type,
             GeometryType::MultiPolygon | GeometryType::Polygon
         ) || (is_line_string_present
-            && matches!(
-                geom_type,
-                GeometryType::MultiLineString | GeometryType::LineString
-            ));
+            && geom_type.is_linestring());
 
         if needs_length {
             for _ in 0..num_geoms {
@@ -138,10 +135,7 @@ fn encode_level1_without_ring_buffer_length_stream(
     for (i, &geom_type) in geometry_types.iter().enumerate() {
         let num_geoms = (geometry_offsets[i + 1] - geometry_offsets[i]) as usize;
 
-        if matches!(
-            geom_type,
-            GeometryType::MultiLineString | GeometryType::LineString
-        ) {
+        if geom_type.is_linestring() {
             for _ in 0..num_geoms {
                 let start = part_offsets[part_idx];
                 let end = part_offsets[part_idx + 1];
