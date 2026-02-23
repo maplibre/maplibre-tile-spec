@@ -13,8 +13,8 @@ use mlt_core::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::geojson::Geom32;
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::{
-    DictionaryType, Geometry, GeometryType, LengthType, LogicalCodec, OffsetType, PhysicalCodec,
-    PhysicalStreamType, Stream,
+    DictionaryType, Geometry, GeometryType, LengthType, LogicalEncoding, OffsetType,
+    PhysicalEncoding, PhysicalStreamType, Stream,
 };
 use mlt_core::{Analyze as _, parse_layers};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
@@ -91,7 +91,7 @@ pub enum FileSortColumn {
 /// Algorithm description for a file (MLT stream combo or protobuf for MVT).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FileAlgorithm {
-    Mlt(PhysicalStreamType, PhysicalCodec, StatLogicalCodec),
+    Mlt(PhysicalStreamType, PhysicalEncoding, StatLogicalCodec),
     Mvt,
 }
 
@@ -127,10 +127,10 @@ impl std::fmt::Display for FileAlgorithm {
                     },
                 };
                 let physical = match physical {
-                    PhysicalCodec::None => "",
-                    PhysicalCodec::FastPFOR => "FastPFOR",
-                    PhysicalCodec::VarInt => "VarInt",
-                    PhysicalCodec::Alp => "Alp",
+                    PhysicalEncoding::None => "",
+                    PhysicalEncoding::FastPFOR => "FastPFOR",
+                    PhysicalEncoding::VarInt => "VarInt",
+                    PhysicalEncoding::Alp => "Alp",
                 };
                 let logical = match logical {
                     StatLogicalCodec::None => "",
@@ -505,9 +505,9 @@ fn geometry_type_from_geom32(geom: &Geom32) -> Option<GeometryType> {
     })
 }
 
-type StreamStat = (PhysicalStreamType, PhysicalCodec, StatLogicalCodec);
+type StreamStat = (PhysicalStreamType, PhysicalEncoding, StatLogicalCodec);
 
-/// Mirrors [`LogicalCodec`] without associated metadata values.
+/// Mirrors [`LogicalEncoding`] without associated metadata values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum StatLogicalCodec {
     None,
@@ -519,16 +519,16 @@ pub enum StatLogicalCodec {
     PseudoDecimal,
 }
 
-impl From<LogicalCodec> for StatLogicalCodec {
-    fn from(ld: LogicalCodec) -> Self {
+impl From<LogicalEncoding> for StatLogicalCodec {
+    fn from(ld: LogicalEncoding) -> Self {
         match ld {
-            LogicalCodec::None => Self::None,
-            LogicalCodec::Delta => Self::Delta,
-            LogicalCodec::DeltaRle(_) => Self::DeltaRle,
-            LogicalCodec::ComponentwiseDelta => Self::ComponentwiseDelta,
-            LogicalCodec::Rle(_) => Self::Rle,
-            LogicalCodec::Morton(_) => Self::Morton,
-            LogicalCodec::PseudoDecimal => Self::PseudoDecimal,
+            LogicalEncoding::None => Self::None,
+            LogicalEncoding::Delta => Self::Delta,
+            LogicalEncoding::DeltaRle(_) => Self::DeltaRle,
+            LogicalEncoding::ComponentwiseDelta => Self::ComponentwiseDelta,
+            LogicalEncoding::Rle(_) => Self::Rle,
+            LogicalEncoding::Morton(_) => Self::Morton,
+            LogicalEncoding::PseudoDecimal => Self::PseudoDecimal,
         }
     }
 }
@@ -536,8 +536,8 @@ impl From<LogicalCodec> for StatLogicalCodec {
 fn collect_stream_info(stream: &Stream, algo: &mut HashSet<StreamStat>) {
     algo.insert((
         stream.meta.physical_type,
-        stream.meta.physical_codec,
-        StatLogicalCodec::from(stream.meta.logical_codec),
+        stream.meta.physical_encoding,
+        StatLogicalCodec::from(stream.meta.logical_encoding),
     ));
 }
 

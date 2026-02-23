@@ -3,8 +3,8 @@ use crate::MltError;
 /// Trait for types that can be created from decoded data
 pub trait FromDecoded<'a>: Sized {
     type Input: 'a;
-    type EncodingStrategy;
-    fn from_decoded(input: &Self::Input, config: Self::EncodingStrategy) -> Result<Self, MltError>;
+    type Encoder;
+    fn from_decoded(input: &Self::Input, config: Self::Encoder) -> Result<Self, MltError>;
 }
 
 /// Trait for enums that can be in either decoded or encoded form
@@ -23,7 +23,7 @@ pub trait Encodable<'a>: Sized {
 
     fn encode_with(
         &mut self,
-        config: <Self::EncodedType as FromDecoded<'a>>::EncodingStrategy,
+        config: <Self::EncodedType as FromDecoded<'a>>::Encoder,
     ) -> Result<&Self, MltError>
     where
         Self::EncodedType: FromDecoded<'a>,

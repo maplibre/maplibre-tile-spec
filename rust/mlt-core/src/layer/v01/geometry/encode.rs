@@ -2,25 +2,25 @@ use super::{DecodedGeometry, OwnedEncodedGeometry};
 use crate::MltError;
 use crate::utils::encode_componentwise_delta_vec2s;
 use crate::v01::{
-    DictionaryType, GeometryEncodingStrategy, GeometryType, LengthType, LogicalCodec, OffsetType,
-    OwnedStream, PhysicalEncoding, PhysicalStreamType, StreamMeta,
+    DictionaryType, GeometryEncoder, GeometryType, LengthType, LogicalEncoding, OffsetType,
+    OwnedStream, PhysicalEncoder, PhysicalStreamType, StreamMeta,
 };
 
 /// Encode vertex buffer using componentwise delta encoding
 fn encode_vertex_buffer(
     vertices: &[i32],
-    physical: PhysicalEncoding,
+    physical: PhysicalEncoder,
 ) -> Result<OwnedStream, MltError> {
     // Componentwise delta encoding: delta X and Y separately
     let physical_u32 = encode_componentwise_delta_vec2s(vertices);
     let num_values = u32::try_from(physical_u32.len())?;
-    let (data, physical_codec) = physical.encode_u32s(physical_u32);
+    let (data, physical_encoding) = physical.encode_u32s(physical_u32);
     Ok(OwnedStream {
         meta: StreamMeta {
             physical_type: PhysicalStreamType::Data(DictionaryType::Vertex),
             num_values,
-            logical_codec: LogicalCodec::ComponentwiseDelta,
-            physical_codec,
+            logical_encoding: LogicalEncoding::ComponentwiseDelta,
+            physical_encoding,
         },
         data,
     })
@@ -150,7 +150,7 @@ fn encode_level1_without_ring_buffer_length_stream(
 /// Main geometry encoding function
 pub fn encode_geometry(
     decoded: &DecodedGeometry,
-    config: GeometryEncodingStrategy,
+    config: GeometryEncoder,
 ) -> Result<OwnedEncodedGeometry, MltError> {
     let DecodedGeometry {
         vector_types,
