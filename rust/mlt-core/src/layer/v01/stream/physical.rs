@@ -96,7 +96,6 @@ pub enum PhysicalEncoding {
 
 impl PhysicalEncoding {
     /// Physically encode a `u32` sequence into the appropriate `OwnedStreamData` variant.
-    #[must_use]
     pub fn encode_u32s(
         self,
         values: Vec<u32>,
