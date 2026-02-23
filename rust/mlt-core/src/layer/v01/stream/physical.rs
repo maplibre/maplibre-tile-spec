@@ -123,7 +123,6 @@ impl PhysicalEncoding {
     }
 
     /// Physically encode a `u64` sequence into the appropriate `OwnedStreamData` variant.
-    #[must_use]
     pub fn encode_u64s(
         self,
         values: Vec<u64>,
