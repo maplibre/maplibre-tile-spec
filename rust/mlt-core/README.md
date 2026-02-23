@@ -19,7 +19,7 @@ In particular, MLT offers the following features:
   Up to 6x on large encoded tiles, based on a column oriented layout with recursively applied (custom) lightweight encodings.
   This leads to reduced latency, storage, and egress costs and, in particular, improved cache utilization.
 - **Better decoding performance**:
-  Fast lightweight encodings which can be used in combination with SIMD/vectorization instructions
+  Fast lightweight encodings which can be used in combination with SIMD/vectorization instructions.
 - **Support for linear referencing and m-values**:
   To efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet).
 - **Support 3D coordinates**, i.e. elevation
