@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { decodeFloatsLE, decodeDoublesLE, decodeBooleanRle, decodeString, decodeByteRle, getVectorTypeBooleanStream } from "./decodingUtils";
+import {
+    decodeFloatsLE,
+    decodeDoublesLE,
+    decodeBooleanRle,
+    decodeString,
+    decodeByteRle,
+    getVectorTypeBooleanStream,
+} from "./decodingUtils";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
 import {

@@ -60,7 +60,6 @@ public class BingMapsDecoderBenchmark {
         encodedMvtTiles2,
         compressedMVTiles,
         encodedMltTiles,
-        tileMetadata,
         TestSettings.BING_MVT_PATH,
         SEPARATOR);
   }

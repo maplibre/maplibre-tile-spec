@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.util.Assert;
 import org.maplibre.mlt.TestSettings;
@@ -28,6 +29,7 @@ import org.maplibre.mlt.decoder.MltDecoder;
 /*
  * Add the tiles which should be benchmarked to the respective directories.
  * */
+@Tag("benchmark")
 public class CompressionBenchmarksTest {
   private static final String OMT_PATH = "../../test/fixtures/omt";
   public static final String PLACEHOLDER_FILE = ".gitkeep";

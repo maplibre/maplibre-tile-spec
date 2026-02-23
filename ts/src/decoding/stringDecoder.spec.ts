@@ -316,11 +316,7 @@ describe("decodeSharedDictionary", () => {
             const field3 = encodeStructField([2], [true]);
 
             const complete = concatenateBuffers(lengthStream, dataStream, field1, field2, field3);
-            const metadata = createColumnMetadataForStruct("name", [
-                { name: "" },
-                { name: ":en" },
-                { name: ":de" },
-            ]);
+            const metadata = createColumnMetadataForStruct("name", [{ name: "" }, { name: ":en" }, { name: ":de" }]);
 
             const result = decodeSharedDictionary(complete, new IntWrapper(0), metadata, 1);
 
