@@ -43,8 +43,8 @@ Parsers can skip unknown block types by reading the `size` and moving forward ac
 For now, we only define `0x01` for vector layers, and possibly a few more if needed.
 
 Note the ordering:
-`tag` is after the `size` because it is possible to treat it as a single byte for now.
-Until the parser supports more than 127 types, and can efficiently skip unknown ones without doing a more expensive varint parsing.
+`tag` is after the `size` because it is possible to treat it as a single byte for now, until the parser supports more than 127 types.
+This allows the parser to efficiently skip unknown types without doing more expensive varint parsing.
 
 ## Layer 0x01 - MVT compatibility
 
