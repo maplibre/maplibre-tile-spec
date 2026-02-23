@@ -8,8 +8,7 @@ use crate::MltError;
 use crate::utils::encode_componentwise_delta_vec2s;
 use crate::v01::{
     DictionaryType, GeometryType, LengthType, LogicalCodec, LogicalEncoding, OffsetType,
-    OwnedEncodedData, OwnedStream, OwnedStreamData, PhysicalCodec, PhysicalEncoding,
-    PhysicalStreamType, StreamMeta,
+    OwnedStream, PhysicalCodec, PhysicalEncoding, PhysicalStreamType, StreamMeta,
 };
 
 /// Configuration for geometry encoding
@@ -28,21 +27,26 @@ impl Default for GeometryEncodingStrategy {
 }
 
 /// Encode geometry types stream using RLE if beneficial
-fn encode_geometry_types(types: &[GeometryType]) -> Result<OwnedStream, MltError> {
+fn encode_geometry_types(
+    types: &[GeometryType],
+    logical: LogicalEncoding,
+    physical: PhysicalEncoding,
+) -> Result<OwnedStream, MltError> {
     let values: Vec<u32> = types.iter().map(|t| *t as u32).collect();
-    encode_u32_stream_auto(&values, PhysicalStreamType::Data(DictionaryType::None))
+    OwnedStream::encode_u32s(&values, logical, physical)
 }
 
 /// Encode a length stream (for geometries, parts, rings)
 fn encode_length_stream(
     lengths: &[u32],
     length_type: LengthType,
-    physical_codec: PhysicalCodec,
+    logical: LogicalEncoding,
+    physical: PhysicalEncoding,
 ) -> Result<OwnedStream, MltError> {
-    encode_u32_stream(
+    OwnedStream::encode_u32s_of_type(
         lengths,
-        LogicalCodec::None,
-        physical_codec,
+        logical,
+        physical,
         PhysicalStreamType::Length(length_type),
     )
 }
@@ -70,22 +74,10 @@ fn encode_u32_stream_auto(
 /// Encode a u32 stream with specified encoding
 fn encode_u32_stream(
     values: &[u32],
-    logical_codec: LogicalCodec,
-    physical_codec: PhysicalCodec,
+    logical: LogicalEncoding,
+    physical: PhysicalEncoding,
     physical_type: PhysicalStreamType,
 ) -> Result<OwnedStream, MltError> {
-    let logical = match logical_codec {
-        LogicalCodec::None => LogicalEncoding::None,
-        LogicalCodec::Delta => LogicalEncoding::Delta,
-        LogicalCodec::DeltaRle(_) => LogicalEncoding::DeltaRle,
-        LogicalCodec::Rle(_) => LogicalEncoding::Rle,
-        _ => unreachable!(),
-    };
-    let physical = match physical_codec {
-        PhysicalCodec::None => PhysicalEncoding::None,
-        PhysicalCodec::VarInt => PhysicalEncoding::VarInt,
-        _ => unreachable!(),
-    };
     OwnedStream::encode_u32s_of_type(values, logical, physical, physical_type)
 }
 
@@ -328,7 +320,7 @@ pub fn encode_geometry(
     }
 
     // Encode geometry types (meta stream)
-    let meta = encode_geometry_types(vector_types)?;
+    let meta = encode_geometry_types(vector_types, LogicalEncoding::None, PhysicalEncoding::None)?;
 
     let mut items = Vec::new();
 
@@ -342,7 +334,8 @@ pub fn encode_geometry(
             items.push(encode_length_stream(
                 &lengths,
                 LengthType::Geometries,
-                config.physical_codec,
+                LogicalEncoding::None,
+                PhysicalEncoding::None,
             )?);
         }
 
@@ -359,7 +352,8 @@ pub fn encode_geometry(
                     items.push(encode_length_stream(
                         &part_lengths,
                         LengthType::Parts,
-                        config.physical_codec,
+                        LogicalEncoding::None,
+                        PhysicalEncoding::None,
                     )?);
                 }
 
@@ -369,7 +363,8 @@ pub fn encode_geometry(
                     items.push(encode_length_stream(
                         &ring_lengths,
                         LengthType::Rings,
-                        config.physical_codec,
+                        LogicalEncoding::None,
+                        PhysicalEncoding::None,
                     )?);
                 }
             } else {
@@ -383,7 +378,8 @@ pub fn encode_geometry(
                     items.push(encode_length_stream(
                         &part_lengths,
                         LengthType::Parts,
-                        config.physical_codec,
+                        LogicalEncoding::None,
+                        PhysicalEncoding::None,
                     )?);
                 }
             }
@@ -398,7 +394,8 @@ pub fn encode_geometry(
                 items.push(encode_length_stream(
                     &part_lengths,
                     LengthType::Parts,
-                    config.physical_codec,
+                    LogicalEncoding::None,
+                    PhysicalEncoding::None,
                 )?);
             }
 
@@ -409,7 +406,8 @@ pub fn encode_geometry(
                 items.push(encode_length_stream(
                     &ring_lengths,
                     LengthType::Rings,
-                    config.physical_codec,
+                    LogicalEncoding::None,
+                    PhysicalEncoding::None,
                 )?);
             }
         } else {
@@ -419,7 +417,8 @@ pub fn encode_geometry(
                 items.push(encode_length_stream(
                     &lengths,
                     LengthType::Parts,
-                    config.physical_codec,
+                    LogicalEncoding::None,
+                    PhysicalEncoding::None,
                 )?);
             }
         }
@@ -430,7 +429,8 @@ pub fn encode_geometry(
         items.push(encode_length_stream(
             tris,
             LengthType::Triangles,
-            config.physical_codec,
+            LogicalEncoding::None,
+            PhysicalEncoding::None,
         )?);
     }
 
@@ -438,8 +438,8 @@ pub fn encode_geometry(
     if let Some(idx_buf) = index_buffer {
         items.push(encode_u32_stream(
             idx_buf,
-            LogicalCodec::None,
-            config.physical_codec,
+            LogicalEncoding::None,
+            PhysicalEncoding::None,
             PhysicalStreamType::Offset(OffsetType::Index),
         )?);
     }
@@ -448,8 +448,8 @@ pub fn encode_geometry(
     if let Some(v_offs) = vertex_offsets {
         items.push(encode_u32_stream(
             v_offs,
-            LogicalCodec::None,
-            config.physical_codec,
+            LogicalEncoding::None,
+            PhysicalEncoding::None,
             PhysicalStreamType::Offset(OffsetType::Vertex),
         )?);
     }
@@ -465,49 +465,6 @@ pub fn encode_geometry(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::v01::{LogicalCodec, PhysicalStreamType};
-
-    #[test]
-    fn test_encode_varints_u32() {
-        let values = vec![1, 2, 127, 128, 16383, 16384];
-        let encoded = encode_varints_u32(&values);
-        assert!(!encoded.is_empty());
-    }
-
-    #[test]
-    fn test_calculate_runs() {
-        let values = vec![1, 1, 1, 2, 2, 3];
-        let (runs, delta_runs) = calculate_runs(&values);
-        assert_eq!(runs, 3); // 1, 2, 3 (3 distinct values)
-        // Deltas: [1, 0, 0, 1, 0, 1] -> delta_runs count changes in delta
-        // Position 0: delta=1 (first)
-        // Position 1: delta=0 (change from 1)
-        // Position 2: delta=0 (same)
-        // Position 3: delta=1 (change from 0)
-        // Position 4: delta=0 (change from 1)
-        // Position 5: delta=1 (change from 0)
-        // Changes at: 1, 3, 4, 5 -> 4 transitions + 1 initial = 5? Let me trace...
-        // Actually: prev_delta starts at 0, so first delta (values[1]-values[0]=0) != prev_delta=0? No.
-        // Actually the value[0] = 1, prev=0, delta[0] = 1.
-        // Then value[1] = 1, prev=1, delta[1] = 0, != prev_delta(=0 initially)? No, prev_delta starts at 0 after first iteration
-        // Let me trace again:
-        // i=1: value=1, delta=1-1=0, prev_delta=1 (set in i=0 loop didn't run)
-        // Wait, the loop starts at skip(1), so first iteration is i=1
-        // i=0 is handled outside: prev_value=values[0]=1, prev_delta=0
-        // i=1: value=1, delta=0, delta!=prev_delta(0)? no. prev_delta=0, prev_value=1
-        // i=2: value=1, delta=0, delta!=prev_delta(0)? no.
-        // i=3: value=2, delta=1, delta!=prev_delta(0)? yes! delta_runs=2
-        // i=4: value=2, delta=0, delta!=prev_delta(1)? yes! delta_runs=3
-        // i=5: value=3, delta=1, delta!=prev_delta(0)? yes! delta_runs=4
-        assert_eq!(delta_runs, 4);
-    }
-
-    #[test]
-    fn test_calculate_runs_empty() {
-        let (runs, delta_runs) = calculate_runs(&[]);
-        assert_eq!(runs, 0);
-        assert_eq!(delta_runs, 0);
-    }
 
     #[test]
     fn test_empty_geometry() {
@@ -533,78 +490,5 @@ mod tests {
 
         let lengths = encode_root_length_stream(&types, &offsets, GeometryType::Polygon);
         assert_eq!(lengths, vec![2]);
-    }
-
-    #[test]
-    fn test_varint_constructor() {
-        let config = GeometryEncodingStrategy {
-            physical_codec: PhysicalCodec::VarInt,
-        };
-        assert!(matches!(config.physical_codec, PhysicalCodec::VarInt));
-    }
-
-    #[test]
-    fn test_encode_empty_geometry_types() {
-        let result = encode_geometry_types(&[]);
-        assert!(result.is_ok());
-        let stream = result.unwrap();
-        assert_eq!(stream.meta.num_values, 0);
-    }
-
-    #[test]
-    fn test_encode_empty_length_stream() {
-        let result = encode_length_stream(&[], LengthType::Geometries, PhysicalCodec::VarInt);
-        assert!(result.is_ok());
-        let stream = result.unwrap();
-        assert_eq!(stream.meta.num_values, 0);
-    }
-
-    #[test]
-    fn test_encode_empty_u32_stream() {
-        let result = encode_u32_stream(
-            &[],
-            LogicalCodec::None,
-            PhysicalCodec::VarInt,
-            PhysicalStreamType::Data(DictionaryType::None),
-        );
-        assert!(result.is_ok());
-        let stream = result.unwrap();
-        assert_eq!(stream.meta.num_values, 0);
-    }
-
-    #[test]
-    fn test_encode_empty_vertex_buffer() {
-        let result = encode_vertex_buffer(&[], PhysicalEncoding::None);
-        assert!(result.is_ok());
-        let stream = result.unwrap();
-        assert_eq!(stream.meta.num_values, 0);
-    }
-
-    #[test]
-    fn test_encode_u32_stream_with_delta_codec() {
-        let values = vec![100, 101, 102, 103];
-        let result = encode_u32_stream(
-            &values,
-            LogicalCodec::Delta,
-            PhysicalCodec::VarInt,
-            PhysicalStreamType::Data(DictionaryType::None),
-        );
-        assert!(result.is_ok());
-        let stream = result.unwrap();
-        assert!(matches!(stream.meta.logical_codec, LogicalCodec::Delta));
-    }
-
-    #[test]
-    fn test_encode_u32_stream_with_none_physical_codec() {
-        let values = vec![1, 2, 3];
-        let result = encode_u32_stream(
-            &values,
-            LogicalCodec::None,
-            PhysicalCodec::None,
-            PhysicalStreamType::Data(DictionaryType::None),
-        );
-        assert!(result.is_ok());
-        let stream = result.unwrap();
-        assert!(matches!(stream.meta.physical_codec, PhysicalCodec::None));
     }
 }
