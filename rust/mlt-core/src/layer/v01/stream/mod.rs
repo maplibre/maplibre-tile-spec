@@ -365,9 +365,9 @@ impl Debug for StreamMeta {
         } = self;
         f.debug_struct("StreamMeta")
             .field("stream_type", &format_args!("{stream_type:?}"))
-            .field("num_values", &format_args!("{num_values:?}"))
             .field("logical_encoding", &format_args!("{logical_encoding:?}"))
             .field("physical_encoding", &format_args!("{physical_encoding:?}"))
+            .field("num_values", &format_args!("{num_values:?}"))
             .finish()
     }
 }
