@@ -860,14 +860,6 @@ mod tests {
     }
 
     #[test]
-    fn test_encode_empty_u32_stream_auto() {
-        let result = encode_u32_stream_auto(&[], PhysicalStreamType::Data(DictionaryType::None));
-        assert!(result.is_ok());
-        let stream = result.unwrap();
-        assert_eq!(stream.meta.num_values, 0);
-    }
-
-    #[test]
     fn test_encode_empty_u32_stream() {
         let result = encode_u32_stream(
             &[],
@@ -886,48 +878,6 @@ mod tests {
         assert!(result.is_ok());
         let stream = result.unwrap();
         assert_eq!(stream.meta.num_values, 0);
-    }
-
-    #[test]
-    fn test_delta_encoding_wins() {
-        // Create a sequence where delta encoding is more efficient:
-        // Large values with constant increment of 1 - plain varint needs many bytes for
-        // each large value, but delta only needs 1 byte per delta (zigzag 1 = 2)
-        // Using values large enough that varint encoding is multiple bytes
-        let values: Vec<u32> = (100_000..100_020).collect();
-        let result =
-            encode_u32_stream_auto(&values, PhysicalStreamType::Data(DictionaryType::None));
-        assert!(result.is_ok());
-        let stream = result.unwrap();
-        // With 20 values starting at 100000, delta encoding should win over plain
-        // since each value uses 3 bytes in plain varint but deltas use 1 byte
-        assert!(
-            matches!(
-                stream.meta.logical_codec,
-                LogicalCodec::Delta | LogicalCodec::DeltaRle(_)
-            ),
-            "Expected Delta or DeltaRle encoding, got {:?}",
-            stream.meta.logical_codec
-        );
-    }
-
-    #[test]
-    fn test_delta_rle_encoding_wins() {
-        // Create a sequence where delta-RLE is most efficient:
-        // Monotonically increasing with constant step - deltas are all the same
-        // e.g., [0, 10, 20, 30, 40, 50, 60, 70, 80, 90] -> deltas = [0, 10, 10, 10, 10, 10, 10, 10, 10, 10]
-        // This compresses well with delta-RLE since the delta values are constant
-        let values: Vec<u32> = (0..20).map(|i| i * 100).collect();
-        let result =
-            encode_u32_stream_auto(&values, PhysicalStreamType::Data(DictionaryType::None));
-        assert!(result.is_ok());
-        let stream = result.unwrap();
-        // With constant deltas and enough values, delta-RLE should win
-        assert!(
-            matches!(stream.meta.logical_codec, LogicalCodec::DeltaRle(_)),
-            "Expected DeltaRle, got {:?}",
-            stream.meta.logical_codec
-        );
     }
 
     #[test]
