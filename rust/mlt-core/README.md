@@ -20,8 +20,8 @@ In particular, MLT offers the following features:
   This leads to reduced latency, storage, and egress costs and, in particular, improved cache utilization
 - **Better decoding performance**:
   Fast lightweight encodings which can be used in combination with SIMD/vectorization instructions
-- **Support for linear referencing and m-values**
-  To efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet)
+- **Support for linear referencing and m-values**:
+  To efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet).
 - **Support 3D coordinates**, i.e. elevation
 - **Support complex types**, including nested properties, lists and maps
 - **Improved processing performance**,
