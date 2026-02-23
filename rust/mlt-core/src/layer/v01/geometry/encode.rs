@@ -111,8 +111,8 @@ fn encode_level2_length_stream(
             }
         } else {
             // Point/MultiPoint don't have ring lengths
-                ring_idx += num_geoms;
-                part_idx += num_geoms;
+            ring_idx += num_geoms;
+            part_idx += num_geoms;
         }
     }
 
