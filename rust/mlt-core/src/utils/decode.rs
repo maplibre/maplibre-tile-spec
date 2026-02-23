@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use fastpfor::cpp::{Codec32, FastPFor256Codec};
+use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd};
 use zigzag::ZigZag;
 
