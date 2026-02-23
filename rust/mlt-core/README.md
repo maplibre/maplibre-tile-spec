@@ -22,8 +22,8 @@ In particular, MLT offers the following features:
   Fast lightweight encodings which can be used in combination with SIMD/vectorization instructions.
 - **Support for linear referencing and m-values**:
   To efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet).
-- **Support 3D coordinates**, i.e. elevation
-- **Support complex types**, including nested properties, lists and maps
+- **Support for 3D coordinates**: i.e., elevation
+- **Support for complex types**: including nested properties, lists, and maps
 - **Improved processing performance**,
   based on storage and in-memory formats that are specifically designed for modern GL APIs, allowing for efficient processing on both CPU and GPU.
   The formats are designed to be loaded into GPU buffers with little or no additional processing.
