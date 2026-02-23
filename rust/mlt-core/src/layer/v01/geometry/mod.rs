@@ -1,4 +1,5 @@
 mod decode;
+mod encode;
 
 use std::fmt::Debug;
 use std::io::Write;
@@ -19,9 +20,7 @@ use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::encode::impl_encodable;
 use crate::geojson::{Coord32, Geom32 as GeoGeom};
-use crate::utils::{
-    BinarySerializer as _, OptSeq, SetOptionOnce as _, encode_componentwise_delta_vec2s,
-};
+use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _};
 use crate::v01::column::ColumnType;
 use crate::v01::geometry::decode::{
     decode_geometry_types, decode_level1_length_stream,
@@ -29,9 +28,8 @@ use crate::v01::geometry::decode::{
     decode_root_length_stream,
 };
 use crate::v01::{
-    DictionaryType, LengthType, LogicalCodec, LogicalEncoding, OffsetType, OwnedEncodedData,
-    OwnedStream, OwnedStreamData, PhysicalCodec, PhysicalEncoding, PhysicalStreamType, Stream,
-    StreamMeta,
+    DictionaryType, Encoder, LengthType, LogicalEncoding, OffsetType, OwnedStream,
+    PhysicalEncoding, Stream, StreamMeta, StreamType,
 };
 use crate::{FromDecoded, MltError};
 
@@ -88,15 +86,7 @@ pub struct EncodedGeometry<'a> {
 impl Default for OwnedEncodedGeometry {
     fn default() -> Self {
         Self {
-            meta: OwnedStream {
-                meta: StreamMeta {
-                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                    num_values: 0,
-                    logical_codec: LogicalCodec::None,
-                    physical_codec: PhysicalCodec::None,
-                },
-                data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
-            },
+            meta: OwnedStream::empty_without_encoding(),
             items: Vec::new(),
         }
     }
@@ -106,6 +96,38 @@ impl Analyze for EncodedGeometry<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         self.meta.for_each_stream(cb);
         self.items.for_each_stream(cb);
+    }
+}
+
+impl<'a> EncodedGeometry<'a> {
+    /// Parse encoded geometry from bytes (expects varint stream count + streams)
+    pub fn parse(input: &'a [u8]) -> crate::MltRefResult<'a, Self> {
+        use crate::utils::parse_varint;
+
+        let (input, stream_count) = parse_varint::<u64>(input)?;
+        let stream_count = usize::try_from(stream_count)?;
+        if stream_count == 0 {
+            return Ok((
+                input,
+                Self {
+                    meta: Stream::new(
+                        StreamMeta::new(
+                            StreamType::Data(DictionaryType::None),
+                            LogicalEncoding::None,
+                            PhysicalEncoding::None,
+                            0,
+                        ),
+                        crate::v01::EncodedData::new(&[]),
+                    ),
+                    items: Vec::new(),
+                },
+            ));
+        }
+
+        let (input, meta) = Stream::parse(input)?;
+        let (input, items) = Stream::parse_multiple(input, stream_count - 1)?;
+
+        Ok((input, Self { meta, items }))
     }
 }
 
@@ -314,6 +336,7 @@ impl DecodedGeometry {
     Deserialize,
 )]
 #[repr(u8)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum GeometryType {
     Point,
     LineString,
@@ -321,6 +344,20 @@ pub enum GeometryType {
     MultiPoint,
     MultiLineString,
     MultiPolygon,
+}
+
+impl GeometryType {
+    #[must_use]
+    pub fn is_polygon(self) -> bool {
+        matches!(self, GeometryType::Polygon | GeometryType::MultiPolygon)
+    }
+    #[must_use]
+    pub fn is_linestring(self) -> bool {
+        matches!(
+            self,
+            GeometryType::LineString | GeometryType::MultiLineString
+        )
+    }
 }
 
 impl Analyze for GeometryType {
@@ -352,58 +389,45 @@ impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedEncodedGeometry);
 /// How to encode Geometry
 #[derive(Debug, Clone, Copy, Builder)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-pub struct GeometryEncodingStrategy {
-    /// Logical encoding for the geometry types (meta) stream.
-    meta_logical: LogicalEncoding,
-    /// Physical codec for the geometry types (meta) stream.
-    meta_physical: PhysicalEncoding,
-    /// Physical codec for the vertex data stream.
-    ///
-    /// The logical codec is always [`LogicalCodec::ComponentwiseDelta`]
-    vertex_physical: PhysicalEncoding,
+pub struct GeometryEncoder {
+    /// Encoding settings for the geometry types (meta) stream.
+    meta: Encoder,
+
+    /// Encoding for the geometry length stream.
+    num_geometries: Encoder,
+
+    /// Encoding for parts length stream when rings are present.
+    rings: Encoder,
+    /// Encoding for ring vertex-count stream.
+    rings2: Encoder,
+    /// Encoding for parts length stream when rings are not present.
+    no_rings: Encoder,
+
+    /// Encoding for parts length stream (with rings) when `geometry_offsets` absent.
+    parts: Encoder,
+    /// Encoding for ring lengths when `geometry_offsets` absent.
+    parts_ring: Encoder,
+
+    /// Encoding for parts-only stream (e.g. `LineString`, no rings).
+    only_parts: Encoder,
+
+    /// Encoding for triangles count stream (pre-tessellated polygons).
+    triangles: Encoder,
+    /// Encoding for triangle index buffer (pre-tessellated polygons).
+    triangles_indexes: Encoder,
+
+    /// Encoding for the vertex data stream (logical is always `ComponentwiseDelta`; only physical varies).
+    vertex: Encoder,
+    /// Encoding for vertex offsets (dictionary encoding).
+    vertex_offsets: Encoder,
 }
 
 impl FromDecoded<'_> for OwnedEncodedGeometry {
     type Input = DecodedGeometry;
-    type EncodingStrategy = GeometryEncodingStrategy;
+    type Encoder = GeometryEncoder;
 
-    fn from_decoded(
-        decoded: &Self::Input,
-        config: Self::EncodingStrategy,
-    ) -> Result<Self, MltError> {
-        for &vt in &decoded.vector_types {
-            if vt != GeometryType::Point {
-                // FIXME: We have more than just GeometryType::Point !!!
-                return Err(NotImplemented("geometry encoding for non-Point types"));
-            }
-        }
-
-        // Meta stream
-        let types_as_u32: Vec<u32> = decoded.vector_types.iter().map(|&t| t as u32).collect();
-        let meta =
-            OwnedStream::encode_u32s(&types_as_u32, config.meta_logical, config.meta_physical)?;
-
-        // Vertex stream: componentwise delta + zigzag
-        let vertices = decoded.vertices.as_deref().unwrap_or(&[]);
-        let items = if vertices.is_empty() {
-            vec![]
-        } else {
-            let encoded = encode_componentwise_delta_vec2s(vertices);
-            let num_values = u32::try_from(encoded.len())?;
-            let (data, physical_codec) = config.vertex_physical.encode_u32s(encoded);
-            let vertex_stream = OwnedStream {
-                meta: StreamMeta {
-                    physical_type: PhysicalStreamType::Data(DictionaryType::Vertex),
-                    num_values,
-                    logical_codec: LogicalCodec::ComponentwiseDelta,
-                    physical_codec,
-                },
-                data,
-            };
-            vec![vertex_stream]
-        };
-
-        Ok(Self { meta, items })
+    fn from_decoded(decoded: &Self::Input, config: Self::Encoder) -> Result<Self, MltError> {
+        encode::encode_geometry(decoded, config)
     }
 }
 
@@ -462,32 +486,32 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
         let mut vertices: Option<Vec<i32>> = None;
 
         for stream in items {
-            match stream.meta.physical_type {
-                PhysicalStreamType::Present => {}
-                PhysicalStreamType::Data(v) => match v {
+            match stream.meta.stream_type {
+                StreamType::Present => {}
+                StreamType::Data(v) => match v {
                     DictionaryType::Vertex => {
                         let v = stream.decode_bits_u32()?.decode_i32()?;
                         vertices.set_once(v)?;
                     }
-                    _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
+                    _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                 },
-                PhysicalStreamType::Offset(v) => {
+                StreamType::Offset(v) => {
                     let target = match v {
                         OffsetType::Vertex => &mut vertex_offsets,
                         OffsetType::Index => &mut index_buffer,
-                        _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
+                        _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
                 }
-                PhysicalStreamType::Length(v) => {
+                StreamType::Length(v) => {
                     let target = match v {
                         LengthType::Geometries => &mut geometry_offsets,
                         LengthType::Parts => &mut part_offsets,
                         LengthType::Rings => &mut ring_offsets,
                         LengthType::Triangles => &mut triangles,
-                        _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
+                        _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
-                    // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamCodec<T>
+                    // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamEncoding<T>
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
                 }
             }
@@ -571,63 +595,184 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
     }
 }
 
-// pub fn get_vector_type_int_stream(metadata: &Stream) -> VectorType {
-//     match metadata.stream {
-//         StreamType::Rle => {
-//             if metadata.data.len() == 1 {
-//                 VectorType::Const
-//             } else {
-//                 VectorType::Flat
-//             }
-//         }
-//         StreamType::DeltaRle if (1..=2).contains(&metadata.data.len()) => VectorType::Sequence,
-//         _ => {
-//             if metadata.num_values == 1 {
-//                 VectorType::Const
-//             } else {
-//                 VectorType::Flat
-//             }
-//         }
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
 
     use super::*;
 
-    fn geometry_roundtrip(
-        decoded: &DecodedGeometry,
-        strategy: GeometryEncodingStrategy,
-    ) -> DecodedGeometry {
-        let encoded =
-            OwnedEncodedGeometry::from_decoded(decoded, strategy).expect("encoding failed");
-        let borrowed = borrowme::borrow(&encoded);
-        DecodedGeometry::from_encoded(borrowed).expect("decoding failed")
+    /// Helper function to encode, serialize, parse, and decode for roundtrip testing
+    fn roundtrip(decoded: &DecodedGeometry, encoder: GeometryEncoder) -> DecodedGeometry {
+        let encoded_geom =
+            OwnedEncodedGeometry::from_decoded(decoded, encoder).expect("Failed to encode");
+
+        // Serialize to bytes (write_to includes the stream count varint)
+        let mut buffer = Vec::new();
+        encoded_geom
+            .write_to(&mut buffer)
+            .expect("Failed to serialize");
+
+        // Now parse (parse expects varint stream count + streams)
+        let (remaining, parsed) = EncodedGeometry::parse(&buffer).expect("Failed to parse");
+        assert!(remaining.is_empty(), "Remaining bytes after parse");
+
+        DecodedGeometry::from_encoded(parsed).expect("Failed to decode")
+    }
+
+    fn arb_point() -> impl Strategy<Value = DecodedGeometry> {
+        (any::<i32>(), any::<i32>()).prop_map(|(x, y)| DecodedGeometry {
+            vector_types: vec![GeometryType::Point],
+            vertices: Some(vec![x, y]),
+            ..Default::default()
+        })
+    }
+
+    fn arb_line_string() -> impl Strategy<Value = DecodedGeometry> {
+        prop::collection::vec((any::<i32>(), any::<i32>()), 2..10).prop_map(|coords| {
+            let vertices: Vec<i32> = coords.into_iter().flat_map(|(x, y)| vec![x, y]).collect();
+            let num_coords = u32::try_from(vertices.len() / 2).unwrap();
+            DecodedGeometry {
+                vector_types: vec![GeometryType::LineString],
+                part_offsets: Some(vec![0, num_coords]),
+                vertices: Some(vertices),
+                ..Default::default()
+            }
+        })
+    }
+
+    fn arb_polygon() -> impl Strategy<Value = DecodedGeometry> {
+        prop::collection::vec(
+            prop::collection::vec((any::<i32>(), any::<i32>()), 3..10),
+            1..4,
+        )
+        .prop_map(|rings| {
+            let mut vertices = vec![];
+            let mut ring_offsets = vec![0];
+            for ring in rings {
+                for (x, y) in ring {
+                    vertices.push(x);
+                    vertices.push(y);
+                }
+                ring_offsets.push(u32::try_from(vertices.len() / 2).unwrap());
+            }
+
+            DecodedGeometry {
+                vector_types: vec![GeometryType::Polygon],
+                part_offsets: Some(vec![0, u32::try_from(ring_offsets.len() - 1).unwrap()]),
+                ring_offsets: Some(ring_offsets),
+                vertices: Some(vertices),
+                ..Default::default()
+            }
+        })
+    }
+
+    fn arb_multi_point() -> impl Strategy<Value = DecodedGeometry> {
+        prop::collection::vec((any::<i32>(), any::<i32>()), 2..10).prop_map(|coords| {
+            let vertices: Vec<i32> = coords.into_iter().flat_map(|(x, y)| vec![x, y]).collect();
+            DecodedGeometry {
+                vector_types: vec![GeometryType::MultiPoint],
+                geometry_offsets: Some(vec![0, u32::try_from(vertices.len() / 2).unwrap()]),
+                vertices: Some(vertices),
+                ..Default::default()
+            }
+        })
+    }
+
+    fn arb_multi_line_string() -> impl Strategy<Value = DecodedGeometry> {
+        prop::collection::vec(
+            prop::collection::vec((any::<i32>(), any::<i32>()), 2..10),
+            2..5,
+        )
+        .prop_map(|lines| {
+            let mut vertices = vec![];
+            let mut part_offsets = vec![0];
+            for line in lines {
+                for (x, y) in line {
+                    vertices.push(x);
+                    vertices.push(y);
+                }
+                part_offsets.push(u32::try_from(vertices.len() / 2).unwrap());
+            }
+
+            DecodedGeometry {
+                vector_types: vec![GeometryType::MultiLineString],
+                geometry_offsets: Some(vec![0, u32::try_from(part_offsets.len() - 1).unwrap()]),
+                part_offsets: Some(part_offsets),
+                vertices: Some(vertices),
+                ..Default::default()
+            }
+        })
+    }
+
+    fn arb_multi_polygon() -> impl Strategy<Value = DecodedGeometry> {
+        prop::collection::vec(
+            prop::collection::vec(
+                prop::collection::vec((any::<i32>(), any::<i32>()), 3..10),
+                1..4,
+            ),
+            2..5,
+        )
+        .prop_map(|polygons| {
+            let mut vertices = vec![];
+            let mut part_offsets = vec![0];
+            let mut ring_offsets = vec![0];
+            for poly_rings in polygons {
+                for ring in poly_rings {
+                    for (x, y) in ring {
+                        vertices.push(x);
+                        vertices.push(y);
+                    }
+                    ring_offsets.push(u32::try_from(vertices.len() / 2).unwrap());
+                }
+                part_offsets.push(u32::try_from(ring_offsets.len() - 1).unwrap());
+            }
+
+            DecodedGeometry {
+                vector_types: vec![GeometryType::MultiPolygon],
+                geometry_offsets: Some(vec![0, u32::try_from(part_offsets.len() - 1).unwrap()]),
+                part_offsets: Some(part_offsets),
+                ring_offsets: Some(ring_offsets),
+                vertices: Some(vertices),
+                ..Default::default()
+            }
+        })
     }
 
     proptest! {
         #[test]
-        fn test_point_roundtrip(
-            coords in prop::collection::vec([any::<i32>(), any::<i32>()], 0..100),
-            strategy in any::<GeometryEncodingStrategy>(),
-        ) {
-            let vector_types = vec![GeometryType::Point; coords.len()];
-            let vertices: Vec<i32> = coords.into_iter().flatten().collect();
+        fn test_point_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_point()) {
+            let output = roundtrip(&input, encoder);
+            prop_assert_eq!(output, input);
+        }
 
-            let decoded = DecodedGeometry {
-                vector_types,
-                vertices: if vertices.is_empty() { None } else { Some(vertices) },
-                geometry_offsets: None,
-                part_offsets: None,
-                ring_offsets: None,
-                vertex_offsets: None,
-                index_buffer: None,
-                triangles: None,
-            };
+        #[test]
+        fn test_line_string_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_line_string()) {
+            let output = roundtrip(&input, encoder);
+            prop_assert_eq!(output, input);
+        }
 
-            prop_assert_eq!(geometry_roundtrip(&decoded, strategy), decoded);
+        #[test]
+        fn test_polygon_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_polygon()) {
+            let output = roundtrip(&input, encoder);
+            prop_assert_eq!(output, input);
+        }
+
+        #[test]
+        fn test_multi_point_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_point()) {
+            let output = roundtrip(&input, encoder);
+            prop_assert_eq!(output, input);
+        }
+
+        #[test]
+        fn test_multi_line_string_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_line_string()) {
+            let output = roundtrip(&input, encoder);
+            prop_assert_eq!(output, input);
+        }
+
+        #[test]
+        fn test_multi_polygon_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_polygon()) {
+            let output = roundtrip(&input, encoder);
+            prop_assert_eq!(output, input);
         }
     }
 }

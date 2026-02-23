@@ -26,6 +26,8 @@ pub enum ResizeHandle {
     LeftRight,
     FeaturesProperties,
     FileBrowserLeftRight,
+    FileBrowserPreviewFilter,
+    FileBrowserFilterInfo,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,6 +90,8 @@ impl LayerGroup {
     }
 }
 
+pub type PreviewValue = (PathBuf, Result<(FeatureCollection, f64), ()>);
+
 pub struct App {
     pub(crate) mode: ViewMode,
     pub(crate) files: Vec<LsRow>,
@@ -119,6 +123,8 @@ pub struct App {
     pub(crate) last_properties_key: Option<(usize, usize)>,
     geometry_index: Option<RTree<GeometryIndexEntry>>,
     pub(crate) file_left_pct: u16,
+    pub(crate) file_preview_pct: u16,
+    pub(crate) file_filter_pct: u16,
     pub(crate) ext_filters: HashSet<String>,
     pub(crate) geom_filters: HashSet<GeometryType>,
     pub(crate) algo_filters: HashSet<FileAlgorithm>,
@@ -128,6 +134,12 @@ pub struct App {
     pub(crate) show_help: bool,
     pub(crate) help_scroll: u16,
     pub(crate) error_popup: Option<(String, String)>,
+    pub(crate) file_info_scroll: u16,
+    pub(crate) preview_tile_path: Option<PathBuf>,
+    pub(crate) preview_fc: Option<FeatureCollection>,
+    pub(crate) preview_extent: f64,
+    pub(crate) preview_rx: Option<mpsc::Receiver<PreviewValue>>,
+    pub(crate) preview_load_requested: Option<PathBuf>,
 }
 
 impl Default for App {
@@ -166,6 +178,8 @@ impl Default for App {
             tree_inner_height: 0,
             geometry_index: None,
             file_left_pct: 70,
+            file_preview_pct: 33,
+            file_filter_pct: 33,
             ext_filters: HashSet::new(),
             geom_filters: HashSet::new(),
             algo_filters: HashSet::new(),
@@ -175,6 +189,12 @@ impl Default for App {
             show_help: false,
             help_scroll: 0,
             error_popup: None,
+            file_info_scroll: 0,
+            preview_tile_path: None,
+            preview_fc: None,
+            preview_extent: 4096.0,
+            preview_rx: None,
+            preview_load_requested: None,
         }
     }
 }

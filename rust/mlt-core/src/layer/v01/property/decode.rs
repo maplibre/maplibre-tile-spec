@@ -4,8 +4,8 @@ use crate::MltError::{
 };
 use crate::utils::apply_present;
 use crate::v01::{
-    DecodedProperty, DictionaryType, EncodedStructProp, LengthType, OffsetType, PhysicalStreamType,
-    PropValue, Property, Stream, StreamData,
+    DecodedProperty, DictionaryType, EncodedStructProp, LengthType, OffsetType, PropValue,
+    Property, Stream, StreamData, StreamType,
 };
 
 /// Classified string sub-streams, used by both regular string and shared dictionary decoding.
@@ -22,10 +22,10 @@ struct StringStreams {
 
 impl StringStreams {
     fn classify(streams: Vec<Stream<'_>>) -> Result<Self, MltError> {
-        use PhysicalStreamType as PST;
+        use StreamType as PST;
         let mut result = Self::default();
         for s in streams {
-            match s.meta.physical_type {
+            match s.meta.stream_type {
                 PST::Length(LengthType::VarBinary) => {
                     result.var_binary_lengths = Some(s.decode_bits_u32()?.decode_u32()?);
                 }
@@ -47,7 +47,7 @@ impl StringStreams {
                 PST::Offset(OffsetType::String) => {
                     result.offsets = Some(s.decode_bits_u32()?.decode_u32()?);
                 }
-                _ => Err(UnexpectedStreamType(s.meta.physical_type))?,
+                _ => Err(UnexpectedStreamType(s.meta.stream_type))?,
             }
         }
         Ok(result)

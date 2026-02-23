@@ -8,7 +8,7 @@ use crate::utils::{SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::column::ColumnType;
 use crate::v01::{
     Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedStructChild,
-    EncodedStructProp, Geometry, Id, OwnedId, PhysicalStreamType, Property, Stream,
+    EncodedStructProp, Geometry, Id, OwnedId, Property, Stream, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -236,10 +236,8 @@ impl Layer01<'_> {
                         let s;
                         (input, s) = Stream::parse(input)?;
                         let done = matches!(
-                            s.meta.physical_type,
-                            PhysicalStreamType::Data(
-                                DictionaryType::Single | DictionaryType::Shared
-                            )
+                            s.meta.stream_type,
+                            StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
                         );
                         dict_streams.push(s);
                         if done {
