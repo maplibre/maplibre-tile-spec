@@ -11,9 +11,9 @@ fn encode_vertex_buffer(
     vertices: &[i32],
     physical: PhysicalEncoding,
 ) -> Result<OwnedStream, MltError> {
-    let num_values = u32::try_from(vertices.len())?;
     // Componentwise delta encoding: delta X and Y separately
     let physical_u32 = encode_componentwise_delta_vec2s(vertices);
+    let num_values = u32::try_from(physical_u32.len())?;
     let (data, physical_codec) = physical.encode_u32s(physical_u32);
     Ok(OwnedStream {
         meta: StreamMeta {
