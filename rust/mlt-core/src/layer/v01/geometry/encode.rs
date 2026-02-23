@@ -7,9 +7,9 @@ use super::{DecodedGeometry, OwnedEncodedGeometry};
 use crate::MltError;
 use crate::utils::encode_componentwise_delta_vec2s;
 use crate::v01::{
-    DictionaryType, GeometryType, LengthType, LogicalCodec, OffsetType, OwnedDataVarInt,
+    DictionaryType, GeometryType, LengthType, LogicalCodec, LogicalEncoding, OffsetType,
     OwnedEncodedData, OwnedStream, OwnedStreamData, PhysicalCodec, PhysicalEncoding,
-    PhysicalStreamType, RleMeta, StreamMeta,
+    PhysicalStreamType, StreamMeta,
 };
 
 /// Configuration for geometry encoding
@@ -64,11 +64,12 @@ fn encode_u32_stream_auto(
     values: &[u32],
     physical_type: PhysicalStreamType,
 ) -> Result<OwnedStream, MltError> {
+    let num_values = u32::try_from(values.len())?;
     if values.is_empty() {
         return Ok(OwnedStream {
             meta: StreamMeta {
                 physical_type,
-                num_values: 0,
+                num_values,
                 logical_codec: LogicalCodec::None,
                 physical_codec: PhysicalCodec::None,
             },
@@ -76,50 +77,17 @@ fn encode_u32_stream_auto(
         });
     }
 
-    // Calculate statistics for encoding selection
-    let (runs, delta_runs) = calculate_runs(values);
-
     // Try different encodings and select the smallest
-    let plain_encoded = encode_varints_u32(values);
-    let delta_encoded = encode_delta_zigzag_varints(values);
-
-    let mut best_data = plain_encoded;
-    let mut best_logical = LogicalCodec::None;
-    let mut rle_runs = 0;
-    let mut rle_num_values = 0;
-
-    if delta_encoded.len() < best_data.len() {
-        best_data = delta_encoded;
-        best_logical = LogicalCodec::Delta;
-    }
-
-    // Try Delta-RLE if compression ratio is good enough
-    if values.len() / delta_runs >= 2 {
-        let (delta_rle_data, r, n) = encode_delta_rle_varints(values);
-        if delta_rle_data.len() < best_data.len() {
-            best_data = delta_rle_data;
-            best_logical = LogicalCodec::DeltaRle(RleMeta {
-                runs: r,
-                num_rle_values: n,
-            });
-            rle_runs = r;
-            rle_num_values = n;
-        }
-    }
-
-    let num_values = match best_logical {
-        LogicalCodec::Rle(_) | LogicalCodec::DeltaRle(_) => rle_runs + rle_num_values,
-        _ => u32::try_from(values.len())?,
-    };
-
+    let (data, logical_codec) = LogicalEncoding::None.encode_u32s(values)?;
+    let (data, physical_codec) = PhysicalEncoding::VarInt.encode_u32s(data);
     Ok(OwnedStream {
         meta: StreamMeta {
             physical_type,
             num_values,
-            logical_codec: best_logical,
-            physical_codec: PhysicalCodec::VarInt,
+            logical_codec,
+            physical_codec,
         },
-        data: OwnedStreamData::VarInt(OwnedDataVarInt { data: best_data }),
+        data,
     })
 }
 
@@ -130,41 +98,19 @@ fn encode_u32_stream(
     physical_codec: PhysicalCodec,
     physical_type: PhysicalStreamType,
 ) -> Result<OwnedStream, MltError> {
-    if values.is_empty() {
-        return Ok(OwnedStream {
-            meta: StreamMeta {
-                physical_type,
-                num_values: 0,
-                logical_codec: LogicalCodec::None,
-                physical_codec: PhysicalCodec::None,
-            },
-            data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
-        });
-    }
-
-    let data = match logical_codec {
-        LogicalCodec::None => encode_varints_u32(values),
-        LogicalCodec::Delta => encode_delta_zigzag_varints(values),
-        _ => return Err(MltError::NotImplemented("unsupported logical decoder")),
+    let logical = match logical_codec {
+        LogicalCodec::None => LogicalEncoding::None,
+        LogicalCodec::Delta => LogicalEncoding::Delta,
+        LogicalCodec::DeltaRle(_) => LogicalEncoding::DeltaRle,
+        LogicalCodec::Rle(_) => LogicalEncoding::Rle,
+        _ => unreachable!(),
     };
-
-    let num_values = u32::try_from(values.len())?;
-
-    let stream_data = match physical_codec {
-        PhysicalCodec::VarInt => OwnedStreamData::VarInt(OwnedDataVarInt { data }),
-        PhysicalCodec::None => OwnedStreamData::Encoded(OwnedEncodedData { data }),
-        _ => return Err(MltError::NotImplemented("unsupported physical decoder")),
+    let physical = match physical_codec {
+        PhysicalCodec::None => PhysicalEncoding::None,
+        PhysicalCodec::VarInt => PhysicalEncoding::VarInt,
+        _ => unreachable!(),
     };
-
-    Ok(OwnedStream {
-        meta: StreamMeta {
-            physical_type,
-            num_values,
-            logical_codec,
-            physical_codec,
-        },
-        data: stream_data,
-    })
+    OwnedStream::encode_u32s_of_type(values, logical, physical, physical_type)
 }
 
 /// Encode vertex buffer using componentwise delta encoding
@@ -236,61 +182,6 @@ fn encode_delta_zigzag_varints(values: &[u32]) -> Vec<u8> {
         prev = value;
     }
     result
-}
-
-/// Encode values with delta + RLE + varint
-/// Returns (encoded data, `num_runs`, `num_delta_rle_values`)
-fn encode_delta_rle_varints(values: &[u32]) -> (Vec<u8>, u32, u32) {
-    if values.is_empty() {
-        return (Vec::new(), 0, 0);
-    }
-
-    // First compute deltas
-    let mut deltas = Vec::with_capacity(values.len());
-    let mut prev = 0i64;
-    for &v in values {
-        let value = i64::from(v);
-        let delta = value - prev;
-        deltas.push(delta);
-        prev = value;
-    }
-
-    // RLE encode the deltas
-    let mut runs = Vec::new();
-    let mut vals = Vec::new();
-
-    let mut current_val = deltas[0];
-    let mut current_run = 1u32;
-
-    for &delta in &deltas[1..] {
-        if delta == current_val {
-            current_run = current_run.saturating_add(1);
-        } else {
-            runs.push(current_run);
-            vals.push(current_val);
-            current_val = delta;
-            current_run = 1;
-        }
-    }
-    runs.push(current_run);
-    vals.push(current_val);
-
-    let num_runs = u32::try_from(runs.len()).unwrap_or(u32::MAX);
-    let num_rle_values = u32::try_from(vals.len()).unwrap_or(u32::MAX);
-
-    // Encode runs followed by zigzag-encoded values
-    let mut result = Vec::with_capacity((runs.len() + vals.len()) * 2);
-    for &r in &runs {
-        result.extend_from_slice(&r.encode_var_vec());
-    }
-    for &v in &vals {
-        #[expect(clippy::cast_possible_truncation, reason = "delta fits in i32")]
-        let delta_i32 = v as i32;
-        let zigzag = i32::encode(delta_i32);
-        result.extend_from_slice(&zigzag.encode_var_vec());
-    }
-
-    (result, num_runs, num_rle_values)
 }
 
 /// Convert geometry offsets to length stream for encoding
@@ -608,14 +499,6 @@ mod tests {
     }
 
     #[test]
-    fn test_encode_delta_zigzag() {
-        let values = vec![0, 1, 2, 3, 4];
-        let encoded = encode_delta_zigzag_varints(&values);
-        // Delta: [0, 1, 1, 1, 1] -> zigzag: [0, 2, 2, 2, 2]
-        assert!(!encoded.is_empty());
-    }
-
-    #[test]
     fn test_calculate_runs() {
         let values = vec![1, 1, 1, 2, 2, 3];
         let (runs, delta_runs) = calculate_runs(&values);
@@ -648,14 +531,6 @@ mod tests {
         let (runs, delta_runs) = calculate_runs(&[]);
         assert_eq!(runs, 0);
         assert_eq!(delta_runs, 0);
-    }
-
-    #[test]
-    fn test_delta_rle_encoding_empty() {
-        let (encoded, num_runs, num_vals) = encode_delta_rle_varints(&[]);
-        assert_eq!(num_runs, 0);
-        assert_eq!(num_vals, 0);
-        assert!(encoded.is_empty());
     }
 
     #[test]
