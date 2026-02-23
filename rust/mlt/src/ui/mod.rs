@@ -22,6 +22,7 @@ use geo_types::Polygon;
 use mlt_core::geojson::{Coord32, FeatureCollection, Geom32};
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::parse_layers;
+use mlt_core::v01::GeometryType;
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -29,7 +30,7 @@ use ratatui::widgets::{Block, Borders};
 use rstar::{AABB, PointDistance, RTreeObject};
 
 use crate::ls::{
-    FileSortColumn, LsRow, MltFileInfo, analyze_tile_files, is_mvt_extension, is_tile_extension,
+    FileAlgorithm, FileSortColumn, LsRow, analyze_tile_files, is_mvt_extension, is_tile_extension,
 };
 use crate::ui::rendering::files::{
     render_file_browser, render_file_filter_panel, render_file_info_panel,
@@ -76,16 +77,9 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
             );
         }
         let base = args.path.clone();
-        let files: Vec<_> = paths
+        let files: Vec<LsRow> = paths
             .iter()
-            .map(|p| {
-                (
-                    p.clone(),
-                    LsRow::Loading {
-                        path: crate::ls::relative_path(p, &base),
-                    },
-                )
-            })
+            .map(|p| LsRow::Loading { path: p.clone() })
             .collect();
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || {
@@ -161,7 +155,7 @@ fn find_tile_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
     }
     let mut files = Vec::new();
     visit(dir, &mut files)?;
-    files.sort();
+    files.sort_unstable();
     Ok(files)
 }
 
@@ -304,10 +298,10 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
 
     loop {
         if let Some(rows) = app.analysis_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
-            if rows.len() == app.mlt_files.len() {
+            if rows.len() == app.files.len() {
                 for (i, row) in rows.into_iter().enumerate() {
-                    if let Some(e) = app.mlt_files.get_mut(i) {
-                        e.1 = row;
+                    if let Some(e) = app.files.get_mut(i) {
+                        *e = row;
                     }
                 }
             }
@@ -589,7 +583,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             if let Some(fa) = filter_area
                                 && point_in_rect(mouse.column, mouse.row, fa)
                             {
-                                let row = (mouse.row.saturating_sub(fa.y + 1)) as usize
+                                let row = mouse.row.saturating_sub(fa.y + 1) as usize
                                     + app.filter_scroll as usize;
                                 handle_filter_click(app, row);
                                 continue;
@@ -597,9 +591,9 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             if let Some(ia) = info_area
                                 && point_in_rect(mouse.column, mouse.row, ia)
                                 && app.filtered_file_indices.is_empty()
-                                && !app.mlt_files.is_empty()
+                                && !app.files.is_empty()
                             {
-                                let row = (mouse.row.saturating_sub(ia.y + 1)) as usize;
+                                let row = mouse.row.saturating_sub(ia.y + 1) as usize;
                                 if row == 2 {
                                     app.ext_filters.clear();
                                     app.geom_filters.clear();
@@ -710,9 +704,9 @@ fn scroll_by(val: u16, step: u16, up: bool) -> u16 {
 // --- Filtering ---
 
 fn handle_filter_click(app: &mut App, row: usize) {
-    let exts = collect_extensions(&app.mlt_files);
-    let geoms = collect_file_values(&app.mlt_files, MltFileInfo::geometries);
-    let algos = collect_file_values(&app.mlt_files, MltFileInfo::algorithms);
+    let exts = collect_extensions(&app.files);
+    let geoms = collect_file_geometries(&app.files);
+    let algos = collect_file_algorithms(&app.files);
 
     let ext_start = 3;
     let ext_end = ext_start + exts.len();
@@ -726,60 +720,64 @@ fn handle_filter_click(app: &mut App, row: usize) {
         app.geom_filters.clear();
         app.algo_filters.clear();
     } else if row >= ext_start && row < ext_end {
-        toggle_set(&mut app.ext_filters, &exts[row - ext_start]);
+        toggle_set_string(&mut app.ext_filters, &exts[row - ext_start]);
     } else if row >= geom_start && row < geom_end {
-        toggle_set(&mut app.geom_filters, &geoms[row - geom_start]);
+        toggle_set(&mut app.geom_filters, geoms[row - geom_start]);
     } else if row >= algo_start && row < algo_end {
-        toggle_set(&mut app.algo_filters, &algos[row - algo_start]);
+        toggle_set(&mut app.algo_filters, algos[row - algo_start]);
     }
     app.rebuild_filtered_files();
 }
 
-fn toggle_set(set: &mut HashSet<String>, val: &str) {
+fn toggle_set<T: Eq + std::hash::Hash>(set: &mut HashSet<T>, val: T) {
+    if !set.remove(&val) {
+        set.insert(val);
+    }
+}
+
+fn toggle_set_string(set: &mut HashSet<String>, val: &str) {
     if !set.remove(val) {
         set.insert(val.to_string());
     }
 }
 
-fn geom_abbrev_to_full(abbrev: &str) -> &str {
-    match abbrev {
-        "Pt" => "Point",
-        "Line" => "LineString",
-        "Poly" => "Polygon",
-        "MPt" => "MultiPoint",
-        "MLine" => "MultiLineString",
-        "MPoly" => "MultiPolygon",
-        other => other,
-    }
-}
-
-fn collect_file_values(files: &[(PathBuf, LsRow)], field: fn(&MltFileInfo) -> &str) -> Vec<String> {
+pub(crate) fn collect_file_geometries(files: &[LsRow]) -> Vec<GeometryType> {
     let mut set = HashSet::new();
-    for (_, row) in files {
-        if let LsRow::Info(info) = row {
-            for v in field(info)
-                .split(',')
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-            {
-                set.insert(v.to_string());
+    for row in files {
+        if let LsRow::Info(_, info) = row {
+            for g in &info.geometries {
+                set.insert(*g);
             }
         }
     }
     let mut v: Vec<_> = set.into_iter().collect();
-    v.sort();
+    v.sort_unstable();
     v
 }
 
-fn collect_extensions(files: &[(PathBuf, LsRow)]) -> Vec<String> {
+pub(crate) fn collect_file_algorithms(files: &[LsRow]) -> Vec<FileAlgorithm> {
     let mut set = HashSet::new();
-    for (path, _) in files {
-        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+    for row in files {
+        if let LsRow::Info(_, info) = row {
+            for a in &info.algorithms {
+                set.insert(*a);
+            }
+        }
+    }
+    let mut v: Vec<_> = set.into_iter().collect();
+    v.sort_by_key(FileAlgorithm::to_string);
+    v
+}
+
+fn collect_extensions(files: &[LsRow]) -> Vec<String> {
+    let mut set = HashSet::new();
+    for row in files {
+        if let Some(ext) = row.path().extension().and_then(|e| e.to_str()) {
             set.insert(ext.to_lowercase());
         }
     }
     let mut v: Vec<_> = set.into_iter().collect();
-    v.sort();
+    v.sort_unstable();
     v
 }
 
