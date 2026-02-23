@@ -121,7 +121,7 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
     output
 }
 
-/// Encode a `u32` sequence using FastPFOR256 (composite codec).
+/// Encode a `u32` sequence using `FastPFOR256` (composite codec).
 ///
 /// This is the inverse of `decode_fastpfor_composite`
 pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {

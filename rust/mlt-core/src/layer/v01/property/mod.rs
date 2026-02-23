@@ -597,8 +597,7 @@ mod tests {
 
     use super::*;
 
-    /// Strategy for `PhysicalEncoding` that excludes `FastPFOR`.
-    /// Use this for u64/i64 tests since FastPFOR truncates to u32.
+    /// Strategy for `PhysicalEncoding` that excludes `FastPFOR` to support 64bit ints
     fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoding> {
         any::<PhysicalEncoding>().prop_filter("not fastpfor", |v| *v != PhysicalEncoding::FastPFOR)
     }

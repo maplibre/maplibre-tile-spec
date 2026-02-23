@@ -133,7 +133,7 @@ pub fn decode_bytes_to_bools(bytes: &[u8], num_bools: usize) -> Vec<bool> {
         .collect::<Vec<_>>()
 }
 
-/// Decode FastPFOR-compressed data using the composite codec protocol.
+/// Decode `FastPFOR`-compressed data using the composite codec protocol.
 ///
 /// The Java MLT encoder uses `Composition(FastPFOR(), VariableByte())`, matching
 /// the C++ `CompositeCodec<FastPFor<8>, VariableByte>`. The wire format is:

@@ -90,7 +90,8 @@ pub enum PhysicalEncoding {
     /// Simple compression scheme where the codec is easier to implement compared to `FastPFOR`.
     VarInt,
     /// Preferred, tends to produce the best compression ratio and decoding performance.
-    /// Does not support u64/i64 integers; only 32-bit integers are supported.
+    ///
+    /// Does not support u64/i64 integers
     FastPFOR,
 }
 
@@ -141,10 +142,7 @@ impl PhysicalEncoding {
                 let stream = OwnedStreamData::VarInt(OwnedDataVarInt { data });
                 Ok((stream, PhysicalCodec::VarInt))
             }
-            Self::FastPFOR => {
-                // FastPFOR only supports u32, so we truncate
-                Err(MltError::UnsupportedPhysicalCodec("FastPFOR on u64"))
-            }
+            Self::FastPFOR => Err(MltError::UnsupportedPhysicalCodec("FastPFOR on u64")),
         }
     }
 }
