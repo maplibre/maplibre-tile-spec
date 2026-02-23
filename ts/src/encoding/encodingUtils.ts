@@ -10,11 +10,11 @@ export function encodeFloatsLE(values: Float32Array): Uint8Array {
 }
 
 export function encodeDoubleLE(values: Float32Array): Uint8Array {
-    const buffer = new Uint8Array(values.length * 8);
+    const buffer = new Uint8Array(values.length * 4);
     const view = new DataView(buffer.buffer);
 
     for (let i = 0; i < values.length; i++) {
-        view.setFloat64(i * 8, values[i], true);
+        view.setFloat32(i * 4, values[i], true);
     }
 
     return buffer;

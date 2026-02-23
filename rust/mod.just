@@ -23,13 +23,16 @@ bless *args: (just 'cargo-install' 'cargo-insta')
 bench:
     cargo bench --all-targets --all-features
 
+alias b := build
 # Build the project
 build:
     cargo build --all-targets --all-features
 
+alias c := check
 # Quick compile without building a binary
 check: (just 'cargo-install' 'cargo-hack')
     cargo hack check --all-targets --each-feature --workspace
+    cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
 ci-coverage: env-info (just 'java::gen-snippets')
@@ -42,20 +45,51 @@ ci-check: env-info check
 
 # Run linting as expected by CI
 ci-lint: env-info test-fmt clippy
-    {{just}} assert-git-is-clean
+    {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run all tests as expected by CI
-ci-test: env-info (just 'java::gen-snippets') test test-doc
-    {{just}} assert-git-is-clean
+ci-test: env-info (just 'java::gen-snippets') test
+    {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-test-msrv: env-info ci-check (just 'java::gen-snippets') test
+ci-test-msrv: env-info
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # For MSRV, relax all warnings to avoid different warnings per rust version
+    unset CI RUSTFLAGS RUSTDOCFLAGS RUST_BACKTRACE
+    # Pre-install cargo-hack to avoid CI binstall issues
+    {{just}} cargo-install cargo-hack
+    {{just}} rust::ci-check
+    {{just}} java::gen-snippets
+    {{just}} rust::test
+    {{just}} assert-git-is-clean
 
 # Build the layer target (installs `cargo fuzz`)
 ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linux-gnu')
 
 # Fuzz the target for 90 seconds (installs `cargo fuzz`)
 ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '--max_len=300')
+
+# Build and package release binary for CI
+ci-build-release target artifact_name:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup target add {{target}}
+    cargo build --release --target {{target}} --package mlt --bin mlt
+    cd target/{{target}}/release
+    if [ -f mlt.exe ]; then
+        7z a ../../../../{{artifact_name}} mlt.exe
+    else
+        tar -czf ../../../../{{artifact_name}} mlt
+    fi
+
+# Output version and tag for GITHUB_OUTPUT (append with >> $GITHUB_OUTPUT)
+ci-get-release-info package='mlt':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VERSION=$({{just}} rust::get-crate-field version {{package}})
+    echo "version=$VERSION"
+    echo "tag=rust-{{package}}-v$VERSION"
 
 # Clean all build artifacts
 clean:
@@ -64,7 +98,10 @@ clean:
 
 # Run cargo clippy to lint the code
 clippy *args:
-    cargo clippy --all-targets --all-features {{args}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo clippy --workspace --all-targets --all-features {{args}}
+    cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
 # Generate code coverage report. Installs `cargo llvm-cov`
 coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-llvm-cov')
@@ -72,7 +109,7 @@ coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-llvm-cov')
 
 # Build and open code documentation
 docs *args='--open':
-    DOCS_RS=1 cargo doc --no-deps {{args}} --all-features
+    DOCS_RS=1 cargo doc --no-deps {{args}} --all-features --package mlt-core
 
 # Print environment info
 env-info:
@@ -86,6 +123,7 @@ env-info:
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
     @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
 
+alias f := fmt
 # Reformat code. If nightly is available, use it for better results.
 fmt:
     #!/usr/bin/env bash
@@ -125,6 +163,15 @@ lint: clippy test-fmt
 msrv: (just 'cargo-install' 'cargo-msrv')
     cargo msrv find --write-msrv --ignore-lockfile --component rustfmt -- {{just}} rust::ci-test-msrv
 
+# Build mlt-pyo3 and launch a Python interpreter with mlt_pyo3 pre-imported
+[working-directory: 'mlt-pyo3']
+py: (just 'cargo-install' 'maturin')
+    maturin develop --features extension-module
+    python3 -i -c "import mlt_pyo3; print('mlt_pyo3 ready — try: mlt_pyo3.decode_mlt(data)')"
+
+py-publish:
+    docker run --rm -v $(pwd):/io ghcr.io/pyo3/maturin build --release
+
 # Run cargo-release
 release *args='': (just 'cargo-install' 'release-plz')
     release-plz {{args}}
@@ -133,16 +180,18 @@ release *args='': (just 'cargo-install' 'release-plz')
 semver *args: (just 'cargo-install' 'cargo-semver-checks')
     cargo semver-checks --all-features {{args}}
 
+alias t := test
 # Run all tests
-test:
+test: && test-doc
     cargo test --all-targets --all-features
-    cargo test --doc --all-features
 
+# Run the ignored debug test by itself
 test-debug:
     RUST_BACKTRACE=1 cargo test --test synthetics debug -- --ignored
 
 # Test documentation generation
-test-doc: (docs '')
+test-doc: (docs '--document-private-items')
+    cargo test --doc --all-features
 
 # Test code formatting
 test-fmt: (fmt-toml '--check' '--check-format')

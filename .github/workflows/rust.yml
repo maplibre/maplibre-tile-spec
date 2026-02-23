@@ -18,12 +18,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        uses: Swatinem/rust-cache@v2
-        with: { workspaces: rust }
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall' }
+      - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-check
@@ -33,12 +28,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        uses: Swatinem/rust-cache@v2
-        with: { workspaces: rust }
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall' }
+      - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-test
@@ -46,22 +36,15 @@ jobs:
   fuzz:
     name: Fuzz ${{ matrix.target }}
     runs-on: ubuntu-latest
-    defaults:
-      run: { working-directory: ./rust }
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: layer
     steps:
-      - uses: actions/checkout@v6
-      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall' }
-      - name: Install Rust nightly
-        uses: dtolnay/rust-toolchain@nightly
+      - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-rust
+        with: { toolchain: nightly }
       - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
       # enable once we can reliably fuzz ourselves
       #- run: just -v rust::ci-fuzz-run ${{ matrix.target }}
@@ -70,38 +53,26 @@ jobs:
     name: Test MSRV
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        uses: Swatinem/rust-cache@v2
-        with: { workspaces: rust }
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall' }
-      - uses: ./.github/actions/mlt-setup-java
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
       - uses: ./.github/actions/mlt-setup-rust
-      - name: Read MSRV
-        id: msrv
-        run: echo "value=$(just rust::get-msrv)" >> $GITHUB_OUTPUT
-      - name: Install MSRV Rust ${{ steps.msrv.outputs.value }}
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ steps.msrv.outputs.value }}
-      - run: just -v assert-git-is-clean
+        with: { toolchain: msrv }
+      - run: just -v rust::ci-test-msrv
 
   coverage:
     name: Code Coverage
     if: github.event_name != 'release' && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: Swatinem/rust-cache@v2
-        with: { workspaces: rust }
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall,cargo-llvm-cov' }
-      - uses: ./.github/actions/mlt-setup-java
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
       - uses: ./.github/actions/mlt-setup-rust
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'cargo-llvm-cov' }
       - name: Generate code coverage
         run: just -v rust::ci-coverage
       - name: Upload coverage to Codecov
+        if: github.repository_owner == 'maplibre'
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -131,29 +102,14 @@ jobs:
             artifact_name: mlt-windows-x86_64.zip
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall' }
+      - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-rust
-      - name: Add target
-        run: rustup target add ${{ matrix.target }}
-      - name: Build release binary
-        run: cargo build --release --target ${{ matrix.target }} --package mlt --bin mlt
-        working-directory: rust
-      - name: Package Unix binary
-        if: runner.os != 'Windows'
-        run: tar -czf ../../../../${{ matrix.artifact_name }} mlt
-        working-directory: rust/target/${{ matrix.target }}/release/
-      - name: Package Windows binary
-        if: runner.os == 'Windows'
-        run: 7z a ../../../../${{ matrix.artifact_name }} mlt.exe
-        working-directory: rust/target/${{ matrix.target }}/release/
+      - run: just -v rust::ci-build-release ${{ matrix.target }} ${{ matrix.artifact_name }}
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact_name }}
-          path: |
-            ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}
 
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
@@ -185,17 +141,17 @@ jobs:
       cancel-in-progress: false
     steps:
       - run: rustup update stable && rustup default stable
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v6.0.2
         with: { fetch-depth: 0, persist-credentials: false }
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@e592230ad39e3ec735402572601fc621aa24355c # v0.5.124
+        uses: release-plz/action@f708778669256143d984cce4b23592637532e040 # v0.5.127
         id: release
         with: { command: release, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@e592230ad39e3ec735402572601fc621aa24355c # v0.5.124
+        uses: release-plz/action@f708778669256143d984cce4b23592637532e040 # v0.5.127
         with: { command: release-pr, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
@@ -210,33 +166,20 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
       - uses: taiki-e/install-action@v2
         with: { tool: 'just' }
-      - name: Get mlt version for release tag (Unix)
-        if: runner.os != 'Windows'
-        id: get_version_unix
+      - name: Get mlt version for release tag
+        id: get_version
         shell: bash
-        run: |
-          VERSION=$(just rust::get-crate-field version mlt)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=rust-mlt-v$VERSION" >> $GITHUB_OUTPUT
-      - name: Get mlt version for release tag (Windows)
-        if: runner.os == 'Windows'
-        id: get_version_windows
-        shell: pwsh
-        run: |
-          $VERSION = just rust::get-crate-field version mlt
-          echo "version=$VERSION" >> $env:GITHUB_OUTPUT
-          echo "tag=rust-mlt-v$VERSION" >> $env:GITHUB_OUTPUT
+        run: just -v rust::get-release-info mlt >> $GITHUB_OUTPUT
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
+        uses: actions/download-artifact@v7
+        with: { path: artifacts }
       - name: Add binaries to GitHub release
-        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
-          tag_name: ${{ steps.get_version_windows.outputs.tag || steps.get_version_unix.outputs.tag }}
+          tag_name: ${{ steps.get_version.outputs.tag }}
           files: |
             artifacts/**/*.tar.gz
             artifacts/**/*.zip

@@ -3,11 +3,15 @@ use std::fmt::Debug;
 
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
+use num_traits::PrimInt;
 
-use crate::MltError::{DataWidthMismatch, ParsingLogicalTechnique, UnsupportedLogicalDecoder};
-use crate::utils::{decode_componentwise_delta_vec2s, decode_rle, decode_zigzag_delta};
+use crate::MltError;
+use crate::MltError::{DataWidthMismatch, ParsingLogicalTechnique, UnsupportedLogicalCodec};
+use crate::utils::{
+    decode_componentwise_delta_vec2s, decode_rle, decode_zigzag, decode_zigzag_delta, encode_rle,
+    encode_zigzag, encode_zigzag_delta,
+};
 use crate::v01::{MortonMeta, RleMeta, StreamMeta};
-use crate::{MltError, utils};
 
 /// Logical encoding technique used for a column, as stored in the tile
 #[borrowme]
@@ -29,7 +33,7 @@ impl LogicalTechnique {
 }
 /// How should the stream be interpreted at the logical level (second pass of decoding)
 #[derive(Clone, Copy, PartialEq)]
-pub enum LogicalDecoder {
+pub enum LogicalCodec {
     None,
     Delta,
     DeltaRle(RleMeta),
@@ -39,7 +43,23 @@ pub enum LogicalDecoder {
     PseudoDecimal,
 }
 
-impl Debug for LogicalDecoder {
+/// RLE-encode a sequence into `[run-lengths | unique-values]` and return the matching `RleMeta`.
+/// `num_logical` is the expanded output length (stored in `RleMeta::num_rle_values`).
+fn apply_rle<T: PrimInt + Debug>(
+    data: &[T],
+    num_logical: usize,
+) -> Result<(Vec<T>, RleMeta), MltError> {
+    let (runs_vec, vals_vec) = encode_rle(data);
+    let meta = RleMeta {
+        runs: u32::try_from(runs_vec.len())?,
+        num_rle_values: u32::try_from(num_logical)?,
+    };
+    let mut combined = runs_vec;
+    combined.extend(vals_vec);
+    Ok((combined, meta))
+}
+
+impl Debug for LogicalCodec {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::None => write!(f, "None"),
@@ -76,143 +96,305 @@ impl LogicalValue {
     }
 
     pub fn decode_i32(self) -> Result<Vec<i32>, MltError> {
-        match self.meta.logical_decoder {
-            LogicalDecoder::None => match self.data {
-                LogicalData::VecU32(data) => Ok(utils::decode_zigzag::<i32>(&data)),
+        match self.meta.logical_codec {
+            LogicalCodec::None => match self.data {
+                LogicalData::VecU32(data) => Ok(decode_zigzag::<i32>(&data)),
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
             },
-            LogicalDecoder::Rle(rle) => match self.data {
+            LogicalCodec::Rle(rle) => match self.data {
                 LogicalData::VecU32(data) => {
-                    let decoded =
-                        decode_rle(&data, rle.runs as usize, rle.num_rle_values as usize)?;
-                    Ok(utils::decode_zigzag::<i32>(&decoded))
+                    let runs = usize::try_from(rle.runs)?;
+                    let num_rle_values = usize::try_from(rle.num_rle_values)?;
+                    let decoded = decode_rle(&data, runs, num_rle_values)?;
+                    Ok(decode_zigzag(&decoded))
                 }
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
             },
-            LogicalDecoder::ComponentwiseDelta => match self.data {
+            LogicalCodec::ComponentwiseDelta => match self.data {
                 LogicalData::VecU32(data) => decode_componentwise_delta_vec2s(&data),
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
             },
-            LogicalDecoder::Delta => match self.data {
+            LogicalCodec::Delta => match self.data {
                 LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, _>(data.as_slice())),
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
             },
-            LogicalDecoder::DeltaRle(rle_meta) => {
-                match self.data {
-                    LogicalData::VecU32(data) => {
-                        // First decode RLE, then apply ZigZag Delta decoding
-                        let rle_decoded = decode_rle(
-                            &data,
-                            rle_meta.runs as usize,
-                            rle_meta.num_rle_values as usize,
-                        )?;
-                        Ok(decode_zigzag_delta::<i32, _>(rle_decoded.as_slice()))
-                    }
-                    LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
+            LogicalCodec::DeltaRle(rle) => match self.data {
+                LogicalData::VecU32(data) => {
+                    let runs = usize::try_from(rle.runs)?;
+                    let num_rle_values = usize::try_from(rle.num_rle_values)?;
+                    let rle_decoded = decode_rle(&data, runs, num_rle_values)?;
+                    Ok(decode_zigzag_delta::<i32, _>(rle_decoded.as_slice()))
                 }
-            }
-            _ => Err(UnsupportedLogicalDecoder(self.meta.logical_decoder, "i32")),
+                LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
+            },
+            _ => Err(UnsupportedLogicalCodec(self.meta.logical_codec, "i32")),
         }
     }
 
     pub fn decode_u32(self) -> Result<Vec<u32>, MltError> {
-        match self.meta.logical_decoder {
-            LogicalDecoder::None => match self.data {
+        match self.meta.logical_codec {
+            LogicalCodec::None => match self.data {
                 LogicalData::VecU32(data) => Ok(data),
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "u32")),
             },
-            LogicalDecoder::Rle(value) => match self.data {
+            LogicalCodec::Rle(rle) => match self.data {
                 LogicalData::VecU32(data) => {
-                    decode_rle(&data, value.runs as usize, value.num_rle_values as usize)
+                    let runs = usize::try_from(rle.runs)?;
+                    let num_rle_values = usize::try_from(rle.num_rle_values)?;
+                    decode_rle(&data, runs, num_rle_values)
                 }
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "u32")),
             },
-            LogicalDecoder::Delta => match self.data {
+            LogicalCodec::Delta => match self.data {
                 LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, u32>(data.as_slice())),
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "u32")),
             },
-            LogicalDecoder::DeltaRle(rle_meta) => {
-                match self.data {
-                    LogicalData::VecU32(data) => {
-                        // First decode RLE, then apply ZigZag Delta decoding
-                        let rle_decoded = decode_rle(
-                            &data,
-                            rle_meta.runs as usize,
-                            rle_meta.num_rle_values as usize,
-                        )?;
-                        Ok(decode_zigzag_delta::<i32, u32>(rle_decoded.as_slice()))
-                    }
-                    LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "u32")),
+            LogicalCodec::DeltaRle(rle) => match self.data {
+                LogicalData::VecU32(data) => {
+                    let runs = usize::try_from(rle.runs)?;
+                    let num_rle_values = usize::try_from(rle.num_rle_values)?;
+                    let rle_decoded = decode_rle(&data, runs, num_rle_values)?;
+                    Ok(decode_zigzag_delta::<i32, u32>(rle_decoded.as_slice()))
                 }
-            }
-            _ => Err(UnsupportedLogicalDecoder(self.meta.logical_decoder, "u32")),
+                LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "u32")),
+            },
+            _ => Err(UnsupportedLogicalCodec(self.meta.logical_codec, "u32")),
         }
     }
 
     pub fn decode_i64(self) -> Result<Vec<i64>, MltError> {
-        match self.meta.logical_decoder {
-            LogicalDecoder::None => match self.data {
-                LogicalData::VecU64(data) => Ok(utils::decode_zigzag::<i64>(&data)),
+        match self.meta.logical_codec {
+            LogicalCodec::None => match self.data {
+                LogicalData::VecU64(data) => Ok(decode_zigzag(&data)),
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "i64")),
             },
-            LogicalDecoder::Delta => match self.data {
+            LogicalCodec::Delta => match self.data {
                 LogicalData::VecU64(data) => Ok(decode_zigzag_delta::<i64, i64>(data.as_slice())),
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "i64")),
             },
-            LogicalDecoder::DeltaRle(rle_meta) => match self.data {
+            LogicalCodec::DeltaRle(rle) => match self.data {
                 LogicalData::VecU64(data) => {
-                    let rle_decoded = decode_rle(
-                        &data,
-                        rle_meta.runs as usize,
-                        rle_meta.num_rle_values as usize,
-                    )?;
+                    let runs = usize::try_from(rle.runs)?;
+                    let num_rle_values = usize::try_from(rle.num_rle_values)?;
+                    let rle_decoded = decode_rle(&data, runs, num_rle_values)?;
                     Ok(decode_zigzag_delta::<i64, i64>(rle_decoded.as_slice()))
                 }
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "i64")),
             },
-            LogicalDecoder::Rle(value) => match self.data {
+            LogicalCodec::Rle(rle) => match self.data {
                 LogicalData::VecU64(data) => {
-                    let decoded =
-                        decode_rle(&data, value.runs as usize, value.num_rle_values as usize)?;
-                    Ok(utils::decode_zigzag::<i64>(&decoded))
+                    let runs = usize::try_from(rle.runs)?;
+                    let num_rle_values = usize::try_from(rle.num_rle_values)?;
+                    let decoded = decode_rle(&data, runs, num_rle_values)?;
+                    Ok(decode_zigzag(&decoded))
                 }
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "i64")),
             },
-            _ => Err(UnsupportedLogicalDecoder(self.meta.logical_decoder, "i64")),
+            _ => Err(UnsupportedLogicalCodec(self.meta.logical_codec, "i64")),
         }
     }
 
     pub fn decode_u64(self) -> Result<Vec<u64>, MltError> {
-        match self.meta.logical_decoder {
-            LogicalDecoder::None => match self.data {
+        match self.meta.logical_codec {
+            LogicalCodec::None => match self.data {
                 LogicalData::VecU64(data) => Ok(data),
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "u64")),
             },
-            LogicalDecoder::Rle(value) => match self.data {
+            LogicalCodec::Rle(rle) => match self.data {
                 LogicalData::VecU64(data) => {
-                    decode_rle(&data, value.runs as usize, value.num_rle_values as usize)
+                    let runs = usize::try_from(rle.runs)?;
+                    let num_rle_values = usize::try_from(rle.num_rle_values)?;
+                    decode_rle(&data, runs, num_rle_values)
                 }
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "u64")),
             },
-            LogicalDecoder::Delta => match self.data {
+            LogicalCodec::Delta => match self.data {
                 LogicalData::VecU64(data) => Ok(decode_zigzag_delta::<i64, u64>(data.as_slice())),
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "u64")),
             },
-            LogicalDecoder::DeltaRle(rle_meta) => {
-                match self.data {
-                    LogicalData::VecU64(data) => {
-                        // First decode RLE, then apply ZigZag Delta decoding
-                        let rle_decoded = decode_rle(
-                            &data,
-                            rle_meta.runs as usize,
-                            rle_meta.num_rle_values as usize,
-                        )?;
-                        Ok(decode_zigzag_delta::<i64, u64>(rle_decoded.as_slice()))
-                    }
-                    LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "u64")),
+            LogicalCodec::DeltaRle(rle) => match self.data {
+                LogicalData::VecU64(data) => {
+                    let runs = usize::try_from(rle.runs)?;
+                    let num_rle_values = usize::try_from(rle.num_rle_values)?;
+                    let rle_decoded = decode_rle(&data, runs, num_rle_values)?;
+                    Ok(decode_zigzag_delta::<i64, u64>(rle_decoded.as_slice()))
                 }
+                LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "u64")),
+            },
+            _ => Err(UnsupportedLogicalCodec(self.meta.logical_codec, "u64")),
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+pub enum LogicalEncoding {
+    None,
+    Delta,
+    DeltaRle,
+    Rle,
+    // FIXME: add more of the LogicalCodec strategies
+}
+impl LogicalEncoding {
+    /// Logically encode `u32` values, returning the physically-stored sequence and the concrete decoder.
+    ///
+    /// [`LogicalCodec`] is derived from the actual data.
+    /// See [`LogicalValue::decode_u32`] for the reverse operation.
+    pub fn encode_u32s(self, values: &[u32]) -> Result<(Vec<u32>, LogicalCodec), MltError> {
+        match self {
+            Self::None => Ok((values.to_vec(), LogicalCodec::None)),
+            Self::Delta => {
+                let values = values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>();
+                let u32s = encode_zigzag_delta(&values);
+                Ok((u32s, LogicalCodec::Delta))
             }
-            _ => Err(UnsupportedLogicalDecoder(self.meta.logical_decoder, "u64")),
+            Self::Rle => {
+                let (u32s, meta) = apply_rle(values, values.len())?;
+                Ok((u32s, LogicalCodec::Rle(meta)))
+            }
+            Self::DeltaRle => {
+                let values = values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>();
+                let delta = encode_zigzag_delta(&values);
+                let (u32s, meta) = apply_rle(&delta, values.len())?;
+                Ok((u32s, LogicalCodec::DeltaRle(meta)))
+            }
+        }
+    }
+
+    /// Logically encode `i32` values into the `u32` physical representation.
+    ///
+    /// [`LogicalCodec`] is derived from the actual data.
+    /// See [`LogicalValue::decode_i32`] for the reverse operation.
+    pub fn encode_i32s(self, values: &[i32]) -> Result<(Vec<u32>, LogicalCodec), MltError> {
+        match self {
+            Self::None => Ok((encode_zigzag(values), LogicalCodec::None)),
+            Self::Delta => Ok((encode_zigzag_delta(values), LogicalCodec::Delta)),
+            Self::Rle => {
+                let (u32s, meta) = apply_rle(&encode_zigzag(values), values.len())?;
+                Ok((u32s, LogicalCodec::Rle(meta)))
+            }
+            Self::DeltaRle => {
+                let (u32s, meta) = apply_rle(&encode_zigzag_delta(values), values.len())?;
+                Ok((u32s, LogicalCodec::DeltaRle(meta)))
+            }
+        }
+    }
+
+    /// Logically encode `u64` values into the `u64` physical representation.
+    ///
+    /// [`LogicalCodec`] is derived from the actual data.
+    /// See [`LogicalValue::decode_u64`] for the reverse operation.
+    pub fn encode_u64s(self, values: &[u64]) -> Result<(Vec<u64>, LogicalCodec), MltError> {
+        match self {
+            Self::None => Ok((values.to_vec(), LogicalCodec::None)),
+            Self::Delta => Ok((
+                encode_zigzag_delta(&values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>()),
+                LogicalCodec::Delta,
+            )),
+            Self::Rle => {
+                let (u64s, meta) = apply_rle(values, values.len())?;
+                Ok((u64s, LogicalCodec::Rle(meta)))
+            }
+            Self::DeltaRle => {
+                let delta = encode_zigzag_delta(
+                    &values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>(),
+                );
+                let (u64s, meta) = apply_rle(&delta, values.len())?;
+                Ok((u64s, LogicalCodec::DeltaRle(meta)))
+            }
+        }
+    }
+
+    /// Logically encode `i64` values into the `u64` physical representation.
+    ///
+    /// [`LogicalCodec`] is derived from the actual data.
+    /// See [`LogicalValue::decode_i64`] for the reverse operation.
+    pub fn encode_i64s(self, values: &[i64]) -> Result<(Vec<u64>, LogicalCodec), MltError> {
+        match self {
+            Self::None => Ok((encode_zigzag(values), LogicalCodec::None)),
+            Self::Delta => Ok((encode_zigzag_delta(values), LogicalCodec::Delta)),
+            Self::Rle => {
+                let (u64s, meta) = apply_rle(&encode_zigzag(values), values.len())?;
+                Ok((u64s, LogicalCodec::Rle(meta)))
+            }
+            Self::DeltaRle => {
+                let (u64s, meta) = apply_rle(&encode_zigzag_delta(values), values.len())?;
+                Ok((u64s, LogicalCodec::DeltaRle(meta)))
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+
+    use super::*;
+    use crate::v01::DictionaryType;
+    use crate::v01::stream::physical::{PhysicalCodec, PhysicalStreamType};
+
+    fn make_meta(logical_codec: LogicalCodec, num_values: usize) -> StreamMeta {
+        let num_values =
+            u32::try_from(num_values).expect("proptest to not generate that large of a vec");
+        StreamMeta {
+            physical_type: PhysicalStreamType::Data(DictionaryType::None),
+            num_values,
+            logical_codec,
+            physical_codec: PhysicalCodec::None,
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_u32_logical_roundtrip(
+            values in prop::collection::vec(any::<u32>(), 0..100),
+            logical in any::<LogicalEncoding>(),
+        ) {
+            let (encoded, computed) = logical.encode_u32s(&values).unwrap();
+            let meta = make_meta(computed, values.len());
+            let decoded = LogicalValue::new(meta, LogicalData::VecU32(encoded))
+                .decode_u32()
+                .unwrap();
+            prop_assert_eq!(decoded, values);
+        }
+
+        #[test]
+        fn test_i32_logical_roundtrip(
+            values in prop::collection::vec(any::<i32>(), 0..100),
+            logical in any::<LogicalEncoding>(),
+        ) {
+            let (encoded, computed) = logical.encode_i32s(&values).unwrap();
+            let meta = make_meta(computed, values.len());
+            let decoded = LogicalValue::new(meta, LogicalData::VecU32(encoded))
+                .decode_i32()
+                .unwrap();
+            prop_assert_eq!(decoded, values);
+        }
+
+        #[test]
+        fn test_u64_logical_roundtrip(
+            values in prop::collection::vec(any::<u64>(), 0..100),
+            logical in any::<LogicalEncoding>(),
+        ) {
+            let (encoded, computed) = logical.encode_u64s(&values).unwrap();
+            let meta = make_meta(computed, values.len());
+            let decoded = LogicalValue::new(meta, LogicalData::VecU64(encoded))
+                .decode_u64()
+                .unwrap();
+            prop_assert_eq!(decoded, values);
+        }
+
+        #[test]
+        fn test_i64_logical_roundtrip(
+            values in prop::collection::vec(any::<i64>(), 0..100),
+            logical in any::<LogicalEncoding>(),
+        ) {
+            let (encoded, computed) = logical.encode_i64s(&values).unwrap();
+            let meta = make_meta(computed, values.len());
+            let decoded = LogicalValue::new(meta, LogicalData::VecU64(encoded))
+                .decode_i64()
+                .unwrap();
+            prop_assert_eq!(decoded, values);
         }
     }
 }

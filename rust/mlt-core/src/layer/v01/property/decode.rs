@@ -1,5 +1,12 @@
 use crate::MltError;
-use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream, StreamData};
+use crate::MltError::{
+    BufferUnderflow, DictIndexOutOfBounds, MissingStringStream, UnexpectedStreamType,
+};
+use crate::utils::apply_present;
+use crate::v01::{
+    DecodedProperty, DictionaryType, EncodedStructProp, LengthType, OffsetType, PhysicalStreamType,
+    PropValue, Property, Stream, StreamData,
+};
 
 /// Classified string sub-streams, used by both regular string and shared dictionary decoding.
 #[derive(Default)]
@@ -40,7 +47,7 @@ impl StringStreams {
                 PST::Offset(OffsetType::String) => {
                     result.offsets = Some(s.decode_bits_u32()?.decode_u32()?);
                 }
-                _ => Err(MltError::UnexpectedStreamType(s.meta.physical_type))?,
+                _ => Err(UnexpectedStreamType(s.meta.physical_type))?,
             }
         }
         Ok(result)
@@ -49,9 +56,9 @@ impl StringStreams {
     /// Decode dictionary entries from length + data streams, with optional FSST decompression.
     fn decode_dictionary(&self) -> Result<Vec<String>, MltError> {
         let dl = self.dict_lengths.as_deref();
-        let dl = dl.ok_or(MltError::MissingStringStream("dictionary lengths"))?;
+        let dl = dl.ok_or(MissingStringStream("dictionary lengths"))?;
         let dd = self.dict_bytes.as_deref();
-        let dd = dd.ok_or(MltError::MissingStringStream("dictionary data"))?;
+        let dd = dd.ok_or(MissingStringStream("dictionary data"))?;
         if let (Some(sym_lens), Some(sym_data)) = (&self.symbol_lengths, &self.symbol_bytes) {
             split_to_strings(dl, &decode_fsst(sym_data, sym_lens, dd))
         } else {
@@ -68,35 +75,35 @@ pub fn decode_string_streams(streams: Vec<Stream<'_>>) -> Result<Vec<String>, Ml
         resolve_offsets(&ss.decode_dictionary()?, offsets)
     } else if let Some(lengths) = &ss.var_binary_lengths {
         let data = ss.data_bytes.as_deref().or(ss.dict_bytes.as_deref());
-        let data = data.ok_or(MltError::MissingStringStream("string data"))?;
+        let data = data.ok_or(MissingStringStream("string data"))?;
         split_to_strings(lengths, data)
     } else if ss.dict_lengths.is_some() {
         ss.decode_dictionary()
     } else {
-        Err(MltError::MissingStringStream("any usable combination"))
+        Err(MissingStringStream("any usable combination"))
     }
 }
 
 /// Decode a shared dictionary from its streams, returning the dictionary entries.
-pub fn decode_shared_dictionary(streams: Vec<Stream<'_>>) -> Result<Vec<String>, MltError> {
+fn decode_shared_dictionary(streams: Vec<Stream<'_>>) -> Result<Vec<String>, MltError> {
     StringStreams::classify(streams)?.decode_dictionary()
 }
 
 /// Look up dictionary entries by index.
-pub fn resolve_offsets(dict: &[String], offsets: &[u32]) -> Result<Vec<String>, MltError> {
+fn resolve_offsets(dict: &[String], offsets: &[u32]) -> Result<Vec<String>, MltError> {
     offsets
         .iter()
         .map(|&idx| {
             dict.get(idx as usize)
                 .cloned()
-                .ok_or(MltError::DictIndexOutOfBounds(idx, dict.len()))
+                .ok_or(DictIndexOutOfBounds(idx, dict.len()))
         })
         .collect()
 }
 
 fn raw_bytes(s: Stream<'_>) -> Vec<u8> {
     match s.data {
-        StreamData::Raw(d) => d.data.to_vec(),
+        StreamData::Encoded(d) => d.data.to_vec(),
         StreamData::VarInt(d) => d.data.to_vec(),
     }
 }
@@ -108,10 +115,7 @@ fn split_to_strings(lengths: &[u32], data: &[u8]) -> Result<Vec<String>, MltErro
     for &len in lengths {
         let len = len as usize;
         let Some(v) = data.get(offset..offset + len) else {
-            return Err(MltError::BufferUnderflow {
-                needed: len,
-                remaining: data.len().saturating_sub(offset),
-            });
+            return Err(BufferUnderflow(len, data.len().saturating_sub(offset)));
         };
         strings.push(str::from_utf8(v)?.to_owned());
         offset += len;
@@ -140,4 +144,28 @@ fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec
         i += 1;
     }
     output
+}
+
+/// Decode a struct with shared dictionary into one decoded property per child.
+pub fn decode_struct_children<'a>(
+    parent_name: &str,
+    struct_data: EncodedStructProp<'_>,
+) -> Result<Vec<Property<'a>>, MltError> {
+    let dict = decode_shared_dictionary(struct_data.dict_streams)?;
+    struct_data
+        .children
+        .into_iter()
+        .map(|child| {
+            let present = if let Some(c) = child.optional {
+                Some(c.decode_bools()?)
+            } else {
+                None
+            };
+            let offsets = child.data.decode_bits_u32()?.decode_u32()?;
+            let strings = resolve_offsets(&dict, &offsets)?;
+            let name = format!("{parent_name}{}", child.name);
+            let values = PropValue::Str(apply_present(present, strings)?);
+            Ok(Property::Decoded(DecodedProperty { name, values }))
+        })
+        .collect()
 }

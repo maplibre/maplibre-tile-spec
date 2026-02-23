@@ -1,11 +1,12 @@
 #!/usr/bin/env just --justfile
 
-mod rust
-mod java
-mod ts
 mod cpp
+mod java
+mod rust
+mod ts
 
 just := quote(just_executable())
+ci_mode := if env('CI', '') != '' {'1'} else {''}
 
 # By default, show the list of all available commands
 @_default:
@@ -51,13 +52,11 @@ test: test-int
 # Run integration tests, ensuring that the output matches the expected output
 test-int: _clean-int-test _test-run-int (_diff-dirs "test/output" "test/expected")
 
-mkdocs:
-	docker build -t squidfunk/mkdocs-material mkdocs
-	cd mkdocs && docker run --rm -it -p 8000:8000 -v ${PWD}:/docs squidfunk/mkdocs-material
+docs:
+	docker run --rm -it -p 8000:8000 -v ${PWD}:/docs zensical/zensical:latest
 
-mkdocs-build:
-    docker build -t squidfunk/mkdocs-material mkdocs
-    cd mkdocs && docker run --rm -v ${PWD}:/docs squidfunk/mkdocs-material build --strict
+docs-build:
+    docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
 
 # Extract version from a tag by removing language prefix and 'v' prefix
 extract-version language tag:
@@ -65,9 +64,11 @@ extract-version language tag:
 
 # Ensure a command is available
 assert-cmd command:
-    @if ! type {{command}} > /dev/null; then \
-        echo "Command '{{command}}' could not be found. Please make sure it has been installed on your computer." ;\
-        exit 1 ;\
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! type {{command}} > /dev/null; then
+        echo "Command '{{command}}' could not be found. Please make sure it has been installed on your computer."
+        exit 1
     fi
 
 # Install a Cargo tool if missing (uses cargo-binstall when available)
@@ -85,16 +86,20 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
         fi
     fi
 
-# Make sure the git repo has no uncommitted changes
+# Make sure the git repo has no uncommitted changes. Fails only if CI envvar is set.
 assert-git-is-clean:
     #!/usr/bin/env bash
     set -euo pipefail
     if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
         >&2 echo "::error::git repo is not clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified."
-        >&2 echo "######### git status ##########"
-        git status
-        git --no-pager diff
-        exit 1
+        if [[ "{{ci_mode}}" == "1" ]]; then
+            >&2 echo "######### git status ##########"
+            git status
+            git --no-pager diff
+            exit 1
+        else
+            >&2 echo "git repo is not clean, but not failing because CI mode is not enabled."
+        fi
     fi
 
 _clean-int-test:

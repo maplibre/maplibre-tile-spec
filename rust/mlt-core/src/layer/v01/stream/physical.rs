@@ -2,8 +2,11 @@ use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError::ParsingPhysicalStreamType;
-use crate::v01::{DictionaryType, LengthType, OffsetType};
-use crate::{MltError, MltRefResult, utils};
+use crate::utils::{encode_u32s_to_bytes, encode_u64s_to_bytes, encode_varint, parse_u8};
+use crate::v01::{
+    DictionaryType, LengthType, OffsetType, OwnedDataVarInt, OwnedEncodedData, OwnedStreamData,
+};
+use crate::{MltError, MltRefResult};
 
 /// How should the stream be interpreted at the physical level (first pass of decoding)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -15,7 +18,7 @@ pub enum PhysicalStreamType {
 }
 impl PhysicalStreamType {
     pub fn parse(input: &'_ [u8]) -> MltRefResult<'_, Self> {
-        let (input, value) = utils::parse_u8(input)?;
+        let (input, value) = parse_u8(input)?;
         let pt = Self::from_u8(value).ok_or(ParsingPhysicalStreamType(value))?;
         Ok((input, pt))
     }
@@ -25,7 +28,7 @@ impl PhysicalStreamType {
         let low4 = value & 0x0F;
         Some(match high4 {
             #[cfg(fuzzing)]
-            // when fuzzing, we cannot have ignored bits, to preserve roundtripa-biltiy
+            // when fuzzing, we cannot have ignored bits, to preserve roundtrip-ability
             0 if low4 == 0 => PhysicalStreamType::Present,
             #[cfg(not(fuzzing))]
             0 => PhysicalStreamType::Present,
@@ -55,24 +58,76 @@ impl PhysicalStreamType {
     }
 }
 
-/// Physical decoder used for a column, as stored in the tile
+/// Physical codec used for a column, as stored in the tile
 #[borrowme]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
-pub enum PhysicalDecoder {
+pub enum PhysicalCodec {
     None = 0,
     /// Preferred, tends to produce the best compression ratio and decoding performance.
     /// But currently limited to 32-bit integer.
     FastPFOR = 1,
     /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
-    /// Simple compression scheme where the decoder are easier to implement compared to `FastPfor`.
+    /// Simple compression scheme where the codec is easier to implement compared to `FastPfor`.
     VarInt = 2,
     /// Adaptive Lossless floating-Point Compression
     Alp = 3,
 }
 
-impl PhysicalDecoder {
+impl PhysicalCodec {
     pub fn parse(value: u8) -> Result<Self, MltError> {
-        Self::try_from(value).or(Err(MltError::ParsingPhysicalDecoder(value)))
+        Self::try_from(value).or(Err(MltError::ParsingPhysicalCodec(value)))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+pub enum PhysicalEncoding {
+    None,
+    /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
+    /// Simple compression scheme where the codec is easier to implement compared to `FastPFOR`.
+    VarInt,
+    // FIXME: implement more physical techniques
+}
+
+impl PhysicalEncoding {
+    /// Physically encode a `u32` sequence into the appropriate `OwnedStreamData` variant.
+    #[must_use]
+    pub fn encode_u32s(self, values: Vec<u32>) -> (OwnedStreamData, PhysicalCodec) {
+        match self {
+            Self::None => {
+                let data = encode_u32s_to_bytes(&values);
+                let stream = OwnedStreamData::Encoded(OwnedEncodedData { data });
+                (stream, PhysicalCodec::None)
+            }
+            Self::VarInt => {
+                let mut data = Vec::new();
+                for v in values {
+                    encode_varint(&mut data, u64::from(v));
+                }
+                let stream = OwnedStreamData::VarInt(OwnedDataVarInt { data });
+                (stream, PhysicalCodec::VarInt)
+            }
+        }
+    }
+
+    /// Physically encode a `u64` sequence into the appropriate `OwnedStreamData` variant.
+    #[must_use]
+    pub fn encode_u64s(self, values: Vec<u64>) -> (OwnedStreamData, PhysicalCodec) {
+        match self {
+            Self::None => {
+                let data = encode_u64s_to_bytes(&values);
+                let stream = OwnedStreamData::Encoded(OwnedEncodedData { data });
+                (stream, PhysicalCodec::None)
+            }
+            Self::VarInt => {
+                let mut data = Vec::new();
+                for v in values {
+                    encode_varint(&mut data, v);
+                }
+                let stream = OwnedStreamData::VarInt(OwnedDataVarInt { data });
+                (stream, PhysicalCodec::VarInt)
+            }
+        }
     }
 }

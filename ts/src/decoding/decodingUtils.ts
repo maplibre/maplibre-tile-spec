@@ -86,9 +86,11 @@ export function decodeDoublesLE(
     nullabilityBuffer?: BitVector,
 ): Float64Array {
     const currentPos = pos.get();
-    const newOffset = currentPos + numValues * Float64Array.BYTES_PER_ELEMENT;
+    // Wire format stores DOUBLE as Float32 (4 bytes each), not Float64 (8 bytes)
+    const newOffset = currentPos + numValues * Float32Array.BYTES_PER_ELEMENT;
     const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
-    const fb = new Float64Array(newBuf);
+    const f32 = new Float32Array(newBuf);
+    const fb = Float64Array.from(f32); // Convert F32 -> F64
     pos.set(newOffset);
 
     if (nullabilityBuffer) {

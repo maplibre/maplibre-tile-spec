@@ -36,7 +36,7 @@ Features:
 - **Map Panel (right)**: Visual representation of the geometries
   - Shows the extent boundary as a thin gray rectangle
   - **Color coding by geometry type**:
-    - Points: Magenta (multi-point: light magenta)
+    - Points: Magenta (multipoint: light magenta)
     - `LineStrings`: Cyan (multi-linestring: light cyan)
     - Polygons: Blue/Red based on winding order (multi-polygon: same)
   - **Polygon winding order visualization**:
