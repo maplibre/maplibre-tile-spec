@@ -332,6 +332,16 @@ pub enum GeometryType {
     MultiPolygon,
 }
 
+impl GeometryType {
+    #[must_use]
+    pub fn is_linestring(&self) -> bool {
+        matches!(
+            self,
+            GeometryType::LineString | GeometryType::MultiLineString
+        )
+    }
+}
+
 impl Analyze for GeometryType {
     fn collect_statistic(&self, _stat: StatType) -> usize {
         size_of::<Self>()

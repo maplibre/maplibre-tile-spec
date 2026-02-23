@@ -258,20 +258,6 @@ fn encode_level1_without_ring_buffer_length_stream(
     lengths
 }
 
-/// Determine if any polygon types are present
-fn contains_polygon(types: &[GeometryType]) -> bool {
-    types
-        .iter()
-        .any(|t| matches!(t, GeometryType::Polygon | GeometryType::MultiPolygon))
-}
-
-/// Determine if any linestring types are present (excluding points)
-fn contains_linestring(types: &[GeometryType]) -> bool {
-    types
-        .iter()
-        .any(|t| matches!(t, GeometryType::LineString | GeometryType::MultiLineString))
-}
-
 /// Main geometry encoding function
 pub fn encode_geometry(
     decoded: &DecodedGeometry,
@@ -299,7 +285,7 @@ pub fn encode_geometry(
     };
 
     let mut items = Vec::new();
-    let has_linestrings = contains_linestring(vector_types);
+    let has_linestrings = vector_types.iter().any(GeometryType::is_linestring);
 
     // Encode topology streams based on geometry structure
     if let Some(geom_offs) = geometry_offsets {
