@@ -1,4 +1,4 @@
-mod decode;
+pub(crate) mod decode;
 
 use std::fmt::{self, Debug};
 use std::io::Write;
