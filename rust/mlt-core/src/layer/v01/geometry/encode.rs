@@ -109,7 +109,8 @@ fn encode_level2_length_stream(
             }
         } else {
             // Point/MultiPoint don't have ring lengths
-            ring_idx += num_geoms;
+            // But we still need to advance part_idx appropriately because
+            // decode_level2_length_stream advances its level1_offset_buffer_counter
             part_idx += num_geoms;
         }
     }
