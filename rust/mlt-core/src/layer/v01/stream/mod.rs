@@ -16,21 +16,21 @@ use crate::utils::{
     parse_u8, parse_varint, parse_varint_vec, take,
 };
 pub use crate::v01::stream::logical::{
-    LogicalCodec, LogicalData, LogicalEncoding, LogicalTechnique, LogicalValue,
+    LogicalData, LogicalEncoder, LogicalEncoding, LogicalTechnique, LogicalValue,
 };
-pub use crate::v01::stream::physical::{PhysicalCodec, PhysicalEncoding, PhysicalStreamType};
+pub use crate::v01::stream::physical::{PhysicalEncoder, PhysicalEncoding, StreamType};
 use crate::{MltError, MltRefResult};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-pub struct Encoding {
-    pub logical: LogicalEncoding,
-    pub physical: PhysicalEncoding,
+pub struct Encoder {
+    pub logical: LogicalEncoder,
+    pub physical: PhysicalEncoder,
 }
 
-impl Encoding {
+impl Encoder {
     #[must_use]
-    pub const fn new(logical: LogicalEncoding, physical: PhysicalEncoding) -> Self {
+    pub const fn new(logical: LogicalEncoder, physical: PhysicalEncoder) -> Self {
         Self { logical, physical }
     }
 }
@@ -52,14 +52,14 @@ impl Analyze for Stream<'_> {
 impl OwnedStream {
     /// Creates an empty stream
     #[must_use]
-    pub fn empty_without_codec() -> Self {
+    pub fn empty_without_encoding() -> Self {
         Self {
-            meta: StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                num_values: 0,
-                logical_codec: LogicalCodec::None,
-                physical_codec: PhysicalCodec::None,
-            },
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::None),
+                LogicalEncoding::None,
+                PhysicalEncoding::None,
+                0,
+            ),
             data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
         }
     }
@@ -67,12 +67,12 @@ impl OwnedStream {
     /// Creates a plain stream with values encoded literally
     #[must_use]
     fn new_plain(data: Vec<u8>, num_values: u32) -> OwnedStream {
-        let meta = StreamMeta {
-            physical_type: PhysicalStreamType::Data(DictionaryType::None),
+        let meta = StreamMeta::new(
+            StreamType::Data(DictionaryType::None),
+            LogicalEncoding::None,
+            PhysicalEncoding::None,
             num_values,
-            logical_codec: LogicalCodec::None,
-            physical_codec: PhysicalCodec::None,
-        };
+        );
         let data = OwnedStreamData::Encoded(OwnedEncodedData { data });
         Self { meta, data }
     }
@@ -97,107 +97,98 @@ impl OwnedStream {
         Ok(Self::new_plain(data, num_values))
     }
 
-    pub fn encode_i8s(values: &[i8], encoding: Encoding) -> Result<Self, MltError> {
+    pub fn encode_i8s(values: &[i8], encoding: Encoder) -> Result<Self, MltError> {
         let as_i32: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
-        let (physical_u32s, logical_codec) = encoding.logical.encode_i32s(&as_i32)?;
+        let (physical_u32s, logical_encoding) = encoding.logical.encode_i32s(&as_i32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_codec) = encoding.physical.encode_u32s(physical_u32s);
+        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s);
         Ok(Self {
-            meta: StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::None),
+                logical_encoding,
+                physical_encoding,
                 num_values,
-                logical_codec,
-                physical_codec,
-            },
+            ),
             data,
         })
     }
-    pub fn encode_u8s(values: &[u8], encoding: Encoding) -> Result<Self, MltError> {
+    pub fn encode_u8s(values: &[u8], encoding: Encoder) -> Result<Self, MltError> {
         let as_u32: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
-        let (physical_u32s, logical_codec) = encoding.logical.encode_u32s(&as_u32)?;
+        let (physical_u32s, logical_encoding) = encoding.logical.encode_u32s(&as_u32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_codec) = encoding.physical.encode_u32s(physical_u32s);
+        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s);
         Ok(Self {
-            meta: StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::None),
+                logical_encoding,
+                physical_encoding,
                 num_values,
-                logical_codec,
-                physical_codec,
-            },
+            ),
             data,
         })
     }
-    pub fn encode_i32s(values: &[i32], encoding: Encoding) -> Result<Self, MltError> {
-        let (physical_u32s, logical_codec) = encoding.logical.encode_i32s(values)?;
+    pub fn encode_i32s(values: &[i32], encoding: Encoder) -> Result<Self, MltError> {
+        let (physical_u32s, logical_encoding) = encoding.logical.encode_i32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_codec) = encoding.physical.encode_u32s(physical_u32s);
+        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s);
         Ok(Self {
-            meta: StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::None),
+                logical_encoding,
+                physical_encoding,
                 num_values,
-                logical_codec,
-                physical_codec,
-            },
+            ),
             data,
         })
     }
-    pub fn encode_u32s(values: &[u32], encoding: Encoding) -> Result<Self, MltError> {
-        Self::encode_u32s_of_type(
-            values,
-            encoding,
-            PhysicalStreamType::Data(DictionaryType::None),
-        )
+    pub fn encode_u32s(values: &[u32], encoding: Encoder) -> Result<Self, MltError> {
+        Self::encode_u32s_of_type(values, encoding, StreamType::Data(DictionaryType::None))
     }
     pub fn encode_u32s_of_type(
         values: &[u32],
-        encoding: Encoding,
-        physical_type: PhysicalStreamType,
+        encoding: Encoder,
+        stream_type: StreamType,
     ) -> Result<Self, MltError> {
-        let (physical_u32s, logical_codec) = encoding.logical.encode_u32s(values)?;
+        let (physical_u32s, logical_encoding) = encoding.logical.encode_u32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_codec) = encoding.physical.encode_u32s(physical_u32s);
+        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s);
         Ok(Self {
-            meta: StreamMeta {
-                physical_type,
-                num_values,
-                logical_codec,
-                physical_codec,
-            },
+            meta: StreamMeta::new(stream_type, logical_encoding, physical_encoding, num_values),
             data,
         })
     }
 
-    pub fn encode_i64s(values: &[i64], encoding: Encoding) -> Result<Self, MltError> {
-        let (physical_u64s, logical_codec) = encoding.logical.encode_i64s(values)?;
+    pub fn encode_i64s(values: &[i64], encoding: Encoder) -> Result<Self, MltError> {
+        let (physical_u64s, logical_encoding) = encoding.logical.encode_i64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
-        let (data, physical_codec) = encoding.physical.encode_u64s(physical_u64s);
+        let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s);
         Ok(Self {
-            meta: StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::None),
+                logical_encoding,
+                physical_encoding,
                 num_values,
-                logical_codec,
-                physical_codec,
-            },
+            ),
             data,
         })
     }
-    pub fn encode_u64s(values: &[u64], encoding: Encoding) -> Result<Self, MltError> {
-        let (physical_u64s, logical_codec) = encoding.logical.encode_u64s(values)?;
+    pub fn encode_u64s(values: &[u64], encoding: Encoder) -> Result<Self, MltError> {
+        let (physical_u64s, logical_encoding) = encoding.logical.encode_u64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
-        let (data, physical_codec) = encoding.physical.encode_u64s(physical_u64s);
+        let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s);
         Ok(Self {
-            meta: StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::None),
+                logical_encoding,
+                physical_encoding,
                 num_values,
-                logical_codec,
-                physical_codec,
-            },
+            ),
             data,
         })
     }
 
     /// Encode a sequence of strings into a length stream and a data stream.
-    pub fn encode_strings(values: &[String], encoding: Encoding) -> Result<Vec<Self>, MltError> {
+    pub fn encode_strings(values: &[String], encoding: Encoder) -> Result<Vec<Self>, MltError> {
         let lengths: Vec<u32> = values
             .iter()
             .map(|s| u32::try_from(s.len()))
@@ -210,7 +201,7 @@ impl OwnedStream {
         let length_stream = Self::encode_u32s_of_type(
             &lengths,
             encoding,
-            PhysicalStreamType::Length(LengthType::VarBinary),
+            StreamType::Length(LengthType::VarBinary),
         )?;
 
         let data_stream = Self::new_plain(data, u32::try_from(values.len())?);
@@ -221,12 +212,27 @@ impl OwnedStream {
 /// Metadata about an encoded stream
 #[derive(Clone, Copy, PartialEq)]
 pub struct StreamMeta {
-    pub physical_type: PhysicalStreamType,
+    pub stream_type: StreamType,
+    pub logical_encoding: LogicalEncoding,
+    pub physical_encoding: PhysicalEncoding,
     pub num_values: u32,
-    pub logical_codec: LogicalCodec,
-    pub physical_codec: PhysicalCodec,
 }
 impl StreamMeta {
+    #[must_use]
+    pub fn new(
+        stream_type: StreamType,
+        logical_encoding: LogicalEncoding,
+        physical_encoding: PhysicalEncoding,
+        num_values: u32,
+    ) -> Self {
+        Self {
+            stream_type,
+            logical_encoding,
+            physical_encoding,
+            num_values,
+        }
+    }
+
     /// Parse stream from the input
     ///
     /// If `is_bool` is true, compute RLE parameters for boolean streams
@@ -236,20 +242,20 @@ impl StreamMeta {
     fn parse(input: &[u8], is_bool: bool) -> MltRefResult<'_, (Self, u32)> {
         use crate::v01::LogicalTechnique as LT;
 
-        let (input, physical_type) = PhysicalStreamType::parse(input)?;
+        let (input, stream_type) = StreamType::parse(input)?;
         let (input, val) = parse_u8(input)?;
         let logical1 = LT::parse(val >> 5)?;
         let logical2 = LT::parse((val >> 2) & 0x7)?;
-        let physical_codec = PhysicalCodec::parse(val & 0x3)?;
+        let physical_encoding = PhysicalEncoding::parse(val & 0x3)?;
 
         let (input, num_values) = parse_varint::<u32>(input)?;
         let (input, byte_length) = parse_varint::<u32>(input)?;
 
         let mut input = input;
-        let logical_codec = match (logical1, logical2) {
-            (LT::None, LT::None) => LogicalCodec::None,
-            (LT::Delta, LT::None) => LogicalCodec::Delta,
-            (LT::ComponentwiseDelta, LT::None) => LogicalCodec::ComponentwiseDelta,
+        let logical_encoding = match (logical1, logical2) {
+            (LT::None, LT::None) => LogicalEncoding::None,
+            (LT::Delta, LT::None) => LogicalEncoding::Delta,
+            (LT::ComponentwiseDelta, LT::None) => LogicalEncoding::ComponentwiseDelta,
             (LT::Delta, LT::Rle) | (LT::Rle, LT::None) => {
                 let runs;
                 let num_rle_values;
@@ -265,9 +271,9 @@ impl StreamMeta {
                     num_rle_values,
                 };
                 if logical1 == LT::Rle {
-                    LogicalCodec::Rle(rle)
+                    LogicalEncoding::Rle(rle)
                 } else {
-                    LogicalCodec::DeltaRle(rle)
+                    LogicalEncoding::DeltaRle(rle)
                 }
             }
             (LT::Morton, LT::None) => {
@@ -275,21 +281,16 @@ impl StreamMeta {
                 let coordinate_shift;
                 (input, num_bits) = parse_varint::<u32>(input)?;
                 (input, coordinate_shift) = parse_varint::<u32>(input)?;
-                LogicalCodec::Morton(MortonMeta {
+                LogicalEncoding::Morton(MortonMeta {
                     num_bits,
                     coordinate_shift,
                 })
             }
-            (LT::PseudoDecimal, LT::None) => LogicalCodec::PseudoDecimal,
+            (LT::PseudoDecimal, LT::None) => LogicalEncoding::PseudoDecimal,
             _ => Err(MltError::InvalidLogicalEncodings(logical1, logical2))?,
         };
 
-        let meta = StreamMeta {
-            physical_type,
-            num_values,
-            logical_codec,
-            physical_codec,
-        };
+        let meta = StreamMeta::new(stream_type, logical_encoding, physical_encoding, num_values);
         Ok((input, (meta, byte_length)))
     }
 
@@ -300,42 +301,42 @@ impl StreamMeta {
         byte_length: u32,
     ) -> io::Result<()> {
         use crate::v01::LogicalTechnique as LT;
-        writer.write_u8(self.physical_type.as_u8())?;
-        let logical_codec_u8: u8 = match self.logical_codec {
-            LogicalCodec::None => (LT::None as u8) << 5,
-            LogicalCodec::Delta => (LT::Delta as u8) << 5,
-            LogicalCodec::DeltaRle(_) => ((LT::Delta as u8) << 5) | ((LT::Rle as u8) << 2),
-            LogicalCodec::ComponentwiseDelta => (LT::ComponentwiseDelta as u8) << 5,
-            LogicalCodec::Rle(_) => (LT::Rle as u8) << 5,
-            LogicalCodec::Morton(_) => (LT::Morton as u8) << 5,
-            LogicalCodec::PseudoDecimal => (LT::PseudoDecimal as u8) << 5,
+        writer.write_u8(self.stream_type.as_u8())?;
+        let logical_enc_u8: u8 = match self.logical_encoding {
+            LogicalEncoding::None => (LT::None as u8) << 5,
+            LogicalEncoding::Delta => (LT::Delta as u8) << 5,
+            LogicalEncoding::DeltaRle(_) => ((LT::Delta as u8) << 5) | ((LT::Rle as u8) << 2),
+            LogicalEncoding::ComponentwiseDelta => (LT::ComponentwiseDelta as u8) << 5,
+            LogicalEncoding::Rle(_) => (LT::Rle as u8) << 5,
+            LogicalEncoding::Morton(_) => (LT::Morton as u8) << 5,
+            LogicalEncoding::PseudoDecimal => (LT::PseudoDecimal as u8) << 5,
         };
-        let physical_codec_u8: u8 = match self.physical_codec {
-            PhysicalCodec::None => 0x0,
-            PhysicalCodec::FastPFOR => 0x1,
-            PhysicalCodec::VarInt => 0x2,
-            PhysicalCodec::Alp => 0x3,
+        let physical_enc_u8: u8 = match self.physical_encoding {
+            PhysicalEncoding::None => 0x0,
+            PhysicalEncoding::FastPFOR => 0x1,
+            PhysicalEncoding::VarInt => 0x2,
+            PhysicalEncoding::Alp => 0x3,
         };
-        writer.write_u8(logical_codec_u8 | physical_codec_u8)?;
+        writer.write_u8(logical_enc_u8 | physical_enc_u8)?;
         writer.write_varint(self.num_values)?;
         writer.write_varint(byte_length)?;
 
-        // some codecs have settings inside them
-        match self.logical_codec {
-            LogicalCodec::DeltaRle(r) | LogicalCodec::Rle(r) => {
+        // some encoding have settings inside them
+        match self.logical_encoding {
+            LogicalEncoding::DeltaRle(r) | LogicalEncoding::Rle(r) => {
                 if !is_bool {
                     writer.write_varint(r.runs)?;
                     writer.write_varint(r.num_rle_values)?;
                 }
             }
-            LogicalCodec::Morton(m) => {
+            LogicalEncoding::Morton(m) => {
                 writer.write_varint(m.num_bits)?;
                 writer.write_varint(m.coordinate_shift)?;
             }
-            LogicalCodec::None
-            | LogicalCodec::Delta
-            | LogicalCodec::ComponentwiseDelta
-            | LogicalCodec::PseudoDecimal => {}
+            LogicalEncoding::None
+            | LogicalEncoding::Delta
+            | LogicalEncoding::ComponentwiseDelta
+            | LogicalEncoding::PseudoDecimal => {}
         }
         Ok(())
     }
@@ -355,16 +356,16 @@ impl Debug for StreamMeta {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // ensure we process all fields, and format them without the alt field
         let Self {
-            physical_type,
+            stream_type,
+            logical_encoding,
+            physical_encoding,
             num_values,
-            logical_codec,
-            physical_codec,
         } = self;
         f.debug_struct("StreamMeta")
-            .field("physical_type", &format_args!("{physical_type:?}"))
+            .field("stream_type", &format_args!("{stream_type:?}"))
+            .field("logical_encoding", &format_args!("{logical_encoding:?}"))
+            .field("physical_encoding", &format_args!("{physical_encoding:?}"))
             .field("num_values", &format_args!("{num_values:?}"))
-            .field("logical_codec", &format_args!("{logical_codec:?}"))
-            .field("physical_codec", &format_args!("{physical_codec:?}"))
             .finish()
     }
 }
@@ -507,15 +508,15 @@ impl<'a> Stream<'a> {
     /// If `is_bool` is true, compute RLE parameters for boolean streams
     /// automatically instead of reading them from the input.
     fn parse_internal(input: &'a [u8], is_bool: bool) -> MltRefResult<'a, Self> {
-        use PhysicalCodec as PD;
+        use PhysicalEncoding as PD;
         let (input, (meta, byte_length)) = StreamMeta::parse(input, is_bool)?;
 
         let (input, data) = take(input, usize::try_from(byte_length)?)?;
 
-        let stream_data = match meta.physical_codec {
+        let stream_data = match meta.physical_encoding {
             PD::None | PD::FastPFOR => EncodedData::new(data),
             PD::VarInt => DataVarInt::new(data),
-            PD::Alp => return Err(MltError::UnsupportedPhysicalCodec("ALP")),
+            PD::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
         };
 
         Ok((input, Stream::new(meta, stream_data)))
@@ -563,8 +564,8 @@ impl<'a> Stream<'a> {
     }
 
     pub fn decode_bits_u32(self) -> Result<LogicalValue, MltError> {
-        let value = match self.meta.physical_codec {
-            PhysicalCodec::VarInt => match self.data {
+        let value = match self.meta.physical_encoding {
+            PhysicalEncoding::VarInt => match self.data {
                 StreamData::VarInt(data) => all(parse_varint_vec::<u32, u32>(
                     data.data,
                     self.meta.num_values,
@@ -573,7 +574,7 @@ impl<'a> Stream<'a> {
                     return Err(MltError::StreamDataMismatch("VarInt", "Encoded"));
                 }
             },
-            PhysicalCodec::None => match self.data {
+            PhysicalEncoding::None => match self.data {
                 StreamData::Encoded(data) => {
                     all(decode_bytes_to_u32s(data.data, self.meta.num_values)?)
                 }
@@ -581,7 +582,7 @@ impl<'a> Stream<'a> {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
                 }
             },
-            PhysicalCodec::FastPFOR => match self.data {
+            PhysicalEncoding::FastPFOR => match self.data {
                 StreamData::Encoded(data) => Ok(decode_fastpfor_composite(
                     data.data,
                     self.meta.num_values as usize,
@@ -590,7 +591,7 @@ impl<'a> Stream<'a> {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
                 }
             },
-            PhysicalCodec::Alp => return Err(MltError::UnsupportedPhysicalCodec("ALP")),
+            PhysicalEncoding::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
         }?;
 
         Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
@@ -605,8 +606,8 @@ impl<'a> Stream<'a> {
     }
 
     pub fn decode_bits_u64(self) -> Result<LogicalValue, MltError> {
-        let value = match self.meta.physical_codec {
-            PhysicalCodec::VarInt => match self.data {
+        let value = match self.meta.physical_encoding {
+            PhysicalEncoding::VarInt => match self.data {
                 StreamData::VarInt(data) => all(parse_varint_vec::<u64, u64>(
                     data.data,
                     self.meta.num_values,
@@ -615,7 +616,7 @@ impl<'a> Stream<'a> {
                     return Err(MltError::StreamDataMismatch("VarInt", "Encoded"));
                 }
             },
-            PhysicalCodec::None => match self.data {
+            PhysicalEncoding::None => match self.data {
                 StreamData::Encoded(data) => {
                     all(decode_bytes_to_u64s(data.data, self.meta.num_values)?)
                 }
@@ -623,10 +624,10 @@ impl<'a> Stream<'a> {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
                 }
             },
-            PhysicalCodec::FastPFOR => {
-                return Err(MltError::UnsupportedPhysicalCodec("FastPFOR decoding u64"));
+            PhysicalEncoding::FastPFOR => {
+                return Err(MltError::UnsupportedPhysicalEncoding("FastPFOR decoding u64"));
             }
-            PhysicalCodec::Alp => return Err(MltError::UnsupportedPhysicalCodec("ALP")),
+            PhysicalEncoding::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
         }?;
 
         Ok(LogicalValue::new(self.meta, LogicalData::VecU64(value)))
@@ -670,15 +671,15 @@ impl<'a> Stream<'a> {
     // }
 
     // pub fn decode2<'a>(&'_ self) -> MltResult<'_, Vec<u32>> {
-    //     match self.physical_type {
-    //         PhysicalStreamType::Present => {
+    //     match self.stream_type {
+    //         StreamType::Present => {
     //             todo!()
     //         }
-    //         PhysicalStreamType::Data(_v) => parse_varint_vec::<u32, u32>(&[], self.num_values),
-    //         PhysicalStreamType::Offset(_v) => {
+    //         StreamType::Data(_v) => parse_varint_vec::<u32, u32>(&[], self.num_values),
+    //         StreamType::Offset(_v) => {
     //             todo!()
     //         }
-    //         PhysicalStreamType::Length(_v) => {
+    //         StreamType::Length(_v) => {
     //             todo!()
     //         }
     //     }
@@ -693,9 +694,9 @@ mod tests {
     use super::*;
     use crate::v01::property::decode::decode_string_streams;
 
-    /// Strategy for `PhysicalEncoding` that excludes `FastPFOR` to support 64bit ints
-    fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoding> {
-        any::<PhysicalEncoding>().prop_filter("not fastpfor", |v| *v != PhysicalEncoding::FastPFOR)
+    /// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
+    fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {
+        any::<PhysicalEncoder>().prop_filter("not fastpfor", |v| *v != PhysicalEncoding::FastPFOR)
     }
 
     /// Test case for stream decoding tests
@@ -714,20 +715,20 @@ mod tests {
             // Basic VarInt test case
             StreamTestCase {
                 name: "simple_varint_u32",
-                meta: StreamMeta {
-                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                    num_values: 4,
-                    logical_codec: LogicalCodec::None,
-                    physical_codec: PhysicalCodec::VarInt,
-                },
+                meta: StreamMeta::new(
+                    StreamType::Data(DictionaryType::None),
+                    LogicalEncoding::None,
+                    PhysicalEncoding::VarInt,
+                    4,
+                ),
                 data: &[0x04, 0x03, 0x02, 0x01],
                 expected_u32_logical_value: Some(LogicalValue::new(
-                    StreamMeta {
-                        physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                        num_values: 4,
-                        logical_codec: LogicalCodec::None,
-                        physical_codec: PhysicalCodec::VarInt,
-                    },
+                    StreamMeta::new(
+                        StreamType::Data(DictionaryType::None),
+                        LogicalEncoding::None,
+                        PhysicalEncoding::VarInt,
+                        4,
+                    ),
                     LogicalData::VecU32(vec![4, 3, 2, 1]),
                 )),
                 expected_u64_logical_value: None,
@@ -735,20 +736,20 @@ mod tests {
             // Basic Encoded test case
             StreamTestCase {
                 name: "simple_raw_bytes_to_u32",
-                meta: StreamMeta {
-                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                    num_values: 1,
-                    logical_codec: LogicalCodec::None,
-                    physical_codec: PhysicalCodec::None,
-                },
+                meta: StreamMeta::new(
+                    StreamType::Data(DictionaryType::None),
+                    LogicalEncoding::None,
+                    PhysicalEncoding::None,
+                    1,
+                ),
                 data: &[0x04, 0x03, 0x02, 0x01],
                 expected_u32_logical_value: Some(LogicalValue::new(
-                    StreamMeta {
-                        physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                        num_values: 1,
-                        logical_codec: LogicalCodec::None,
-                        physical_codec: PhysicalCodec::None,
-                    },
+                    StreamMeta::new(
+                        StreamType::Data(DictionaryType::None),
+                        LogicalEncoding::None,
+                        PhysicalEncoding::None,
+                        1,
+                    ),
                     LogicalData::VecU32(vec![0x0102_0304]),
                 )),
                 expected_u64_logical_value: None,
@@ -757,12 +758,12 @@ mod tests {
     }
 
     fn create_stream_from_test_case(test_case: &StreamTestCase) -> Stream<'_> {
-        let data = match test_case.meta.physical_codec {
-            PhysicalCodec::VarInt => DataVarInt::new(test_case.data),
-            PhysicalCodec::None => EncodedData::new(test_case.data),
+        let data = match test_case.meta.physical_encoding {
+            PhysicalEncoding::VarInt => DataVarInt::new(test_case.data),
+            PhysicalEncoding::None => EncodedData::new(test_case.data),
             _ => panic!(
-                "Unsupported physical codec in test: {:?}",
-                test_case.meta.physical_codec
+                "Unsupported physical encoding in test: {:?}",
+                test_case.meta.physical_encoding
             ),
         };
         Stream::new(test_case.meta, data)
@@ -786,13 +787,13 @@ mod tests {
         }
     }
 
-    fn make_logical_val(logical_codec: LogicalCodec, input_data: Vec<u32>) -> LogicalValue {
-        let meta = StreamMeta {
-            physical_type: PhysicalStreamType::Data(DictionaryType::None),
-            num_values: u32::try_from(input_data.len()).expect("input_data length fits in u32"),
-            logical_codec,
-            physical_codec: PhysicalCodec::VarInt,
-        };
+    fn make_logical_val(logical_encoding: LogicalEncoding, input_data: Vec<u32>) -> LogicalValue {
+        let meta = StreamMeta::new(
+            StreamType::Data(DictionaryType::None),
+            logical_encoding,
+            PhysicalEncoding::VarInt,
+            u32::try_from(input_data.len()).expect("input_data length fits in u32"),
+        );
         let data = LogicalData::VecU32(input_data);
         LogicalValue::new(meta, data)
     }
@@ -800,38 +801,38 @@ mod tests {
     #[rstest]
     // ZigZag pairs: [(0,0),(2,4),(2,4)] -> [(0,0),(1,2),(1,2)]
     // Delta: [(0,0),(1,2),(1,2)] -> [(0,0),(1,2),(2,4)]
-    #[case::componentwise_delta(LogicalCodec::ComponentwiseDelta, vec![0, 0, 2, 4, 2, 4], vec![0, 0, 1, 2, 2, 4])]
+    #[case::componentwise_delta(LogicalEncoding::ComponentwiseDelta, vec![0, 0, 2, 4, 2, 4], vec![0, 0, 1, 2, 2, 4])]
     // ZigZag: [0,1,2,1,2] -> [0,-1,1,-1,1]
     // Delta: [0,-1,1,-1,1] -> [0,-1,0,-1,0]
-    #[case::delta(LogicalCodec::Delta, vec![0, 1, 2, 1, 2], vec![0, -1, 0, -1, 0])]
+    #[case::delta(LogicalEncoding::Delta, vec![0, 1, 2, 1, 2], vec![0, -1, 0, -1, 0])]
     // RLE: [3,2] [0,2] -> [0,0,0,2,2]
     // ZigZag: [0,0,0,2,2] -> [0,0,0,1,1]
     // Delta: [0,0,0,1,1] -> [0,0,0,1,2]
-    #[case::delta_rle(LogicalCodec::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), vec![3, 2, 0, 2], vec![0, 0, 0, 1, 2])]
-    #[case::delta(LogicalCodec::Delta, vec![], vec![])]
+    #[case::delta_rle(LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), vec![3, 2, 0, 2], vec![0, 0, 0, 1, 2])]
+    #[case::delta(LogicalEncoding::Delta, vec![], vec![])]
     fn test_decode_i32(
-        #[case] logical_codec: LogicalCodec,
+        #[case] logical_encoding: LogicalEncoding,
         #[case] input_data: Vec<u32>,
         #[case] expected: Vec<i32>,
     ) {
-        let result = make_logical_val(logical_codec, input_data).decode_i32();
+        let result = make_logical_val(logical_encoding, input_data).decode_i32();
         assert!(result.is_ok(), "should decode successfully");
         assert_eq!(result.unwrap(), expected, "should match expected output");
     }
 
     #[rstest]
-    #[case::empty(LogicalCodec::None, vec![], vec![])]
-    #[case::new_encoded(LogicalCodec::None, vec![10, 20, 30, 40], vec![10, 20, 30, 40])]
-    #[case::rle(LogicalCodec::Rle(RleMeta { runs: 3, num_rle_values: 6 }), vec![3, 2, 1, 10, 20, 30], vec![10, 10, 10, 20, 20, 30])]
+    #[case::empty(LogicalEncoding::None, vec![], vec![])]
+    #[case::new_encoded(LogicalEncoding::None, vec![10, 20, 30, 40], vec![10, 20, 30, 40])]
+    #[case::rle(LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 6 }), vec![3, 2, 1, 10, 20, 30], vec![10, 10, 10, 20, 20, 30])]
     // ZigZag: [0,2,2,2,2] -> [0,1,1,1,1]
     // Delta: [0,1,1,1,1] -> [0,1,2,3,4]
-    #[case::delta(LogicalCodec::Delta, vec![0, 2, 2, 2, 2], vec![0, 1, 2, 3, 4])]
+    #[case::delta(LogicalEncoding::Delta, vec![0, 2, 2, 2, 2], vec![0, 1, 2, 3, 4])]
     fn test_decode_u32(
-        #[case] logical_codec: LogicalCodec,
+        #[case] logical_encoding: LogicalEncoding,
         #[case] input_data: Vec<u32>,
         #[case] expected: Vec<u32>,
     ) {
-        let result = make_logical_val(logical_codec, input_data).decode_u32();
+        let result = make_logical_val(logical_encoding, input_data).decode_u32();
         assert!(result.is_ok(), "should decode successfully");
         assert_eq!(result.unwrap(), expected, "should match expected output");
     }
@@ -843,9 +844,9 @@ mod tests {
     #[case::empty(vec![])]
     fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
         use crate::utils::BinarySerializer as _;
-
+        let encoder = Encoder {logical: LogicalEncoder::None, physical:PhysicalEncoding::FastPFOR};
         let owned_stream =
-            OwnedStream::encode_u32s(&values, LogicalEncoding::None, PhysicalEncoding::FastPFOR)
+            OwnedStream::encode_u32s(&values, )
                 .unwrap();
 
         let mut buffer = Vec::new();
@@ -865,41 +866,38 @@ mod tests {
 
     /// Test roundtrip: write -> parse -> equality for stream serialization
     #[rstest]
-    #[case::new_encoded(PhysicalStreamType::Data(DictionaryType::None), 2, LogicalCodec::None, PhysicalCodec::None, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08], false)]
-    #[case::new_encoded(PhysicalStreamType::Data(DictionaryType::None), 2, LogicalCodec::ComponentwiseDelta, PhysicalCodec::None, vec![0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00], false)]
-    #[case::new_encoded(PhysicalStreamType::Offset(OffsetType::Vertex), 3, LogicalCodec::None, PhysicalCodec::None, vec![0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00], false)]
-    #[case::varint(PhysicalStreamType::Data(DictionaryType::None), 4, LogicalCodec::None, PhysicalCodec::VarInt, vec![0x0A, 0x14, 0x1E, 0x28], false)]
-    #[case::varint(PhysicalStreamType::Data(DictionaryType::None), 5, LogicalCodec::Delta, PhysicalCodec::VarInt, vec![0x00, 0x02, 0x02, 0x02, 0x02], false)]
-    #[case::varint(PhysicalStreamType::Data(DictionaryType::None), 3, LogicalCodec::PseudoDecimal, PhysicalCodec::VarInt, vec![0x01, 0x02, 0x03], false)]
-    #[case::varint(PhysicalStreamType::Length(LengthType::VarBinary), 3, LogicalCodec::Delta, PhysicalCodec::VarInt, vec![0x00, 0x02, 0x02], false)]
-    #[case::rle(PhysicalStreamType::Data(DictionaryType::None), 6, LogicalCodec::Rle(RleMeta { runs: 3, num_rle_values: 3 }), PhysicalCodec::VarInt, vec![0x03, 0x02, 0x01, 0x0A, 0x14, 0x1E], false)]
-    #[case::rle(PhysicalStreamType::Data(DictionaryType::None), 5, LogicalCodec::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), PhysicalCodec::VarInt, vec![0x03, 0x02, 0x00, 0x02], false)]
-    #[case::morton(PhysicalStreamType::Data(DictionaryType::Morton), 4, LogicalCodec::Morton(MortonMeta { num_bits: 32, coordinate_shift: 0 }), PhysicalCodec::VarInt, vec![0x01, 0x02, 0x03, 0x04], false)]
-    #[case::boolean(PhysicalStreamType::Present, 16, LogicalCodec::Rle(RleMeta { runs: 2, num_rle_values: 2 }), PhysicalCodec::VarInt, vec![0xFF, 0x00], true)]
+    #[case::new_encoded(StreamType::Data(DictionaryType::None), 2, LogicalEncoding::None, PhysicalEncoding::None, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08], false)]
+    #[case::new_encoded(StreamType::Data(DictionaryType::None), 2, LogicalEncoding::ComponentwiseDelta, PhysicalEncoding::None, vec![0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00], false)]
+    #[case::new_encoded(StreamType::Offset(OffsetType::Vertex), 3, LogicalEncoding::None, PhysicalEncoding::None, vec![0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00], false)]
+    #[case::varint(StreamType::Data(DictionaryType::None), 4, LogicalEncoding::None, PhysicalEncoding::VarInt, vec![0x0A, 0x14, 0x1E, 0x28], false)]
+    #[case::varint(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02, 0x02, 0x02], false)]
+    #[case::varint(StreamType::Data(DictionaryType::None), 3, LogicalEncoding::PseudoDecimal, PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03], false)]
+    #[case::varint(StreamType::Length(LengthType::VarBinary), 3, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02], false)]
+    #[case::rle(StreamType::Data(DictionaryType::None), 6, LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 3 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x01, 0x0A, 0x14, 0x1E], false)]
+    #[case::rle(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x00, 0x02], false)]
+    #[case::morton(StreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Morton(MortonMeta { num_bits: 32, coordinate_shift: 0 }), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false)]
+    #[case::boolean(StreamType::Present, 16, LogicalEncoding::Rle(RleMeta { runs: 2, num_rle_values: 2 }), PhysicalEncoding::VarInt, vec![0xFF, 0x00], true)]
     fn test_stream_roundtrip(
-        #[case] physical_type: PhysicalStreamType,
+        #[case] stream_type: StreamType,
         #[case] num_values: u32,
-        #[case] logical_codec: LogicalCodec,
-        #[case] physical_codec: PhysicalCodec,
+        #[case] logical_encoding: LogicalEncoding,
+        #[case] physical_encoding: PhysicalEncoding,
         #[case] data_bytes: Vec<u8>,
         #[case] is_bool: bool,
     ) {
         use crate::utils::BinarySerializer as _;
 
-        let stream_data = match physical_codec {
-            PhysicalCodec::None | PhysicalCodec::FastPFOR => {
+        let stream_data = match physical_encoding {
+            PhysicalEncoding::None | PhysicalEncoding::FastPFOR => {
                 OwnedStreamData::Encoded(OwnedEncodedData { data: data_bytes })
             }
-            PhysicalCodec::VarInt => OwnedStreamData::VarInt(OwnedDataVarInt { data: data_bytes }),
-            PhysicalCodec::Alp => panic!("ALP not supported"),
+            PhysicalEncoding::VarInt => {
+                OwnedStreamData::VarInt(OwnedDataVarInt { data: data_bytes })
+            }
+            PhysicalEncoding::Alp => panic!("ALP not supported"),
         };
         let stream = OwnedStream {
-            meta: StreamMeta {
-                physical_type,
-                num_values,
-                logical_codec,
-                physical_codec,
-            },
+            meta: StreamMeta::new(stream_type, logical_encoding, physical_encoding, num_values),
             data: stream_data,
         };
 
@@ -935,7 +933,7 @@ mod tests {
         #[test]
         fn test_u32_roundtrip(
             values in prop::collection::vec(any::<u32>(), 0..100),
-            encoding in any::<Encoding>()
+            encoding in any::<Encoder>()
         ) {
             let owned_stream = OwnedStream::encode_u32s(&values, encoding).unwrap();
 
@@ -953,7 +951,7 @@ mod tests {
         #[test]
         fn test_i32_roundtrip(
             values in prop::collection::vec(any::<i32>(), 0..100),
-            encoding in any::<Encoding>(),
+            encoding in any::<Encoder>(),
         ) {
             let owned_stream = OwnedStream::encode_i32s(&values, encoding).unwrap();
 
@@ -971,7 +969,7 @@ mod tests {
         #[test]
         fn test_u64_roundtrip(
             values in prop::collection::vec(any::<u64>(), 0..100),
-            encoding in any::<Encoding>(),
+            encoding in any::<Encoder>(),
         ) {
             let owned_stream = OwnedStream::encode_u64s(&values, encoding).unwrap();
 
@@ -989,7 +987,7 @@ mod tests {
         #[test]
         fn test_i64_roundtrip(
             values in prop::collection::vec(any::<i64>(), 0..100),
-            encoding in any::<Encoding>()
+            encoding in any::<Encoder>()
         ) {
             let owned_stream = OwnedStream::encode_i64s(&values, encoding).unwrap();
 
@@ -1007,7 +1005,7 @@ mod tests {
         #[test]
         fn test_i8_roundtrip(
             values in prop::collection::vec(any::<i8>(), 0..100),
-            encoding in any::<Encoding>(),
+            encoding in any::<Encoder>(),
         ) {
             let owned_stream = OwnedStream::encode_i8s(&values, encoding).unwrap();
 
@@ -1024,7 +1022,7 @@ mod tests {
         #[test]
         fn test_u8_roundtrip(
             values in prop::collection::vec(any::<u8>(), 0..100),
-            encoding in any::<Encoding>()
+            encoding in any::<Encoder>()
         ) {
             let owned_stream = OwnedStream::encode_u8s(&values, encoding).unwrap();
 
@@ -1055,7 +1053,7 @@ mod tests {
         #[test]
         fn test_string_roundtrip(
             values in prop::collection::vec(any::<String>(), 0..100),
-            encoding in any::<Encoding>(),
+            encoding in any::<Encoder>(),
         ) {
             let owned_streams = OwnedStream::encode_strings(&values, encoding).unwrap();
 

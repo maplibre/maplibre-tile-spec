@@ -1,5 +1,5 @@
 use geo_types::Polygon;
-use mlt_core::geojson::{Coord32, Geom32};
+use mlt_core::geojson::{Coord32, FeatureCollection, Geom32};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Span, Style};
@@ -62,6 +62,35 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
                 TreeItem::Feature { layer, feat } | TreeItem::SubFeature { layer, feat, .. } => {
                     draw_feat(ctx, app.global_idx(*layer, *feat));
                 }
+            }
+        });
+
+    f.render_widget(canvas, area);
+}
+
+/// Full-tile preview for file browser (all layers, no r-tree/mouse).
+pub fn render_tile_preview(f: &mut Frame<'_>, area: Rect, fc: &FeatureCollection, extent: f64) {
+    let canvas = Canvas::default()
+        .block(block_with_title("Tile Preview"))
+        .x_bounds([0.0, extent])
+        .y_bounds([0.0, extent])
+        .paint(|ctx| {
+            ctx.draw(&Rectangle {
+                x: 0.0,
+                y: 0.0,
+                width: extent,
+                height: extent,
+                color: CLR_EXTENT,
+            });
+            for feat in &fc.features {
+                draw_feature(
+                    ctx,
+                    &feat.geometry,
+                    geometry_color(&feat.geometry),
+                    false,
+                    None,
+                    None,
+                );
             }
         });
 

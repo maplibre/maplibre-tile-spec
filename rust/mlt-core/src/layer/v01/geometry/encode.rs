@@ -2,26 +2,26 @@ use super::{DecodedGeometry, OwnedEncodedGeometry};
 use crate::MltError;
 use crate::utils::encode_componentwise_delta_vec2s;
 use crate::v01::{
-    DictionaryType, GeometryEncodingStrategy, GeometryType, LengthType, LogicalCodec, OffsetType,
-    OwnedStream, PhysicalEncoding, PhysicalStreamType, StreamMeta,
+    DictionaryType, GeometryEncoder, GeometryType, LengthType, LogicalEncoding, OffsetType,
+    OwnedStream, PhysicalEncoder, StreamMeta, StreamType,
 };
 
 /// Encode vertex buffer using componentwise delta encoding
 fn encode_vertex_buffer(
     vertices: &[i32],
-    physical: PhysicalEncoding,
+    physical: PhysicalEncoder,
 ) -> Result<OwnedStream, MltError> {
     // Componentwise delta encoding: delta X and Y separately
     let physical_u32 = encode_componentwise_delta_vec2s(vertices);
     let num_values = u32::try_from(physical_u32.len())?;
-    let (data, physical_codec) = physical.encode_u32s(physical_u32)?;
+    let (data, physical_encoding) = physical.encode_u32s(physical_u32)?;
     Ok(OwnedStream {
-        meta: StreamMeta {
-            physical_type: PhysicalStreamType::Data(DictionaryType::Vertex),
+        meta: StreamMeta::new(
+            StreamType::Data(DictionaryType::Vertex),
+            LogicalEncoding::ComponentwiseDelta,
+            physical_encoding,
             num_values,
-            logical_codec: LogicalCodec::ComponentwiseDelta,
-            physical_codec,
-        },
+        ),
         data,
     })
 }
@@ -150,7 +150,7 @@ fn encode_level1_without_ring_buffer_length_stream(
 /// Main geometry encoding function
 pub fn encode_geometry(
     decoded: &DecodedGeometry,
-    config: GeometryEncodingStrategy,
+    config: GeometryEncoder,
 ) -> Result<OwnedEncodedGeometry, MltError> {
     let DecodedGeometry {
         vector_types,
@@ -183,7 +183,7 @@ pub fn encode_geometry(
             items.push(OwnedStream::encode_u32s_of_type(
                 &lengths,
                 config.num_geometries,
-                PhysicalStreamType::Length(LengthType::Geometries),
+                StreamType::Length(LengthType::Geometries),
             )?);
         }
 
@@ -200,7 +200,7 @@ pub fn encode_geometry(
                     items.push(OwnedStream::encode_u32s_of_type(
                         &part_lengths,
                         config.rings,
-                        PhysicalStreamType::Length(LengthType::Parts),
+                        StreamType::Length(LengthType::Parts),
                     )?);
                 }
 
@@ -210,7 +210,7 @@ pub fn encode_geometry(
                     items.push(OwnedStream::encode_u32s_of_type(
                         &ring_lengths,
                         config.rings2,
-                        PhysicalStreamType::Length(LengthType::Rings),
+                        StreamType::Length(LengthType::Rings),
                     )?);
                 }
             } else {
@@ -224,7 +224,7 @@ pub fn encode_geometry(
                     items.push(OwnedStream::encode_u32s_of_type(
                         &part_lengths,
                         config.no_rings,
-                        PhysicalStreamType::Length(LengthType::Parts),
+                        StreamType::Length(LengthType::Parts),
                     )?);
                 }
             }
@@ -239,7 +239,7 @@ pub fn encode_geometry(
                 items.push(OwnedStream::encode_u32s_of_type(
                     &part_lengths,
                     config.parts,
-                    PhysicalStreamType::Length(LengthType::Parts),
+                    StreamType::Length(LengthType::Parts),
                 )?);
             }
 
@@ -250,7 +250,7 @@ pub fn encode_geometry(
                 items.push(OwnedStream::encode_u32s_of_type(
                     &ring_lengths,
                     config.parts_ring,
-                    PhysicalStreamType::Length(LengthType::Rings),
+                    StreamType::Length(LengthType::Rings),
                 )?);
             }
         } else {
@@ -260,7 +260,7 @@ pub fn encode_geometry(
                 items.push(OwnedStream::encode_u32s_of_type(
                     &lengths,
                     config.only_parts,
-                    PhysicalStreamType::Length(LengthType::Parts),
+                    StreamType::Length(LengthType::Parts),
                 )?);
             }
         }
@@ -271,7 +271,7 @@ pub fn encode_geometry(
         items.push(OwnedStream::encode_u32s_of_type(
             tris,
             config.triangles,
-            PhysicalStreamType::Length(LengthType::Triangles),
+            StreamType::Length(LengthType::Triangles),
         )?);
     }
 
@@ -280,7 +280,7 @@ pub fn encode_geometry(
         items.push(OwnedStream::encode_u32s_of_type(
             idx_buf,
             config.triangles_indexes,
-            PhysicalStreamType::Offset(OffsetType::Index),
+            StreamType::Offset(OffsetType::Index),
         )?);
     }
 
@@ -289,7 +289,7 @@ pub fn encode_geometry(
         items.push(OwnedStream::encode_u32s_of_type(
             v_offs,
             config.vertex_offsets,
-            PhysicalStreamType::Offset(OffsetType::Vertex),
+            StreamType::Offset(OffsetType::Vertex),
         )?);
     }
 
