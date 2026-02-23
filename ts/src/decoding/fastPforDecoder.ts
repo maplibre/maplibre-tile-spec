@@ -190,7 +190,7 @@ function unpackExceptionStreams(inValues: Int32Array, inExcept: number, workspac
 
         if (inExcept >= inValues.length) {
             throw new Error(
-                `FastPFOR decode: truncated exception stream header (bitWidth=${bitWidth}, needWords=1, availableWords=${inValues.length - inExcept})`,
+                `FastPFOR decode: truncated exception stream header (bitWidth=${bitWidth}, streamWordIndex=${inExcept}, needWords=1, availableWords=${inValues.length - inExcept}, encodedWords=${inValues.length})`,
             );
         }
         const size = inValues[inExcept++] >>> 0;
@@ -199,7 +199,7 @@ function unpackExceptionStreams(inValues: Int32Array, inExcept: number, workspac
         const wordsNeeded = (size * bitWidth + 31) >>> 5;
         if (inExcept + wordsNeeded > inValues.length) {
             throw new Error(
-                `FastPFOR decode: truncated exception stream (bitWidth=${bitWidth}, size=${size}, needWords=${wordsNeeded}, availableWords=${inValues.length - inExcept})`,
+                `FastPFOR decode: truncated exception stream (bitWidth=${bitWidth}, size=${size}, streamWordIndex=${inExcept}, needWords=${wordsNeeded}, availableWords=${inValues.length - inExcept}, encodedWords=${inValues.length})`,
             );
         }
 
@@ -510,7 +510,7 @@ function decodePageBlocks(
 
     if (tmpInPos !== packedEnd) {
         throw new Error(
-            `FastPFOR decode: packed region mismatch (pageStart=${pageStart}, tmpInPos=${tmpInPos}, expectedPackedEnd=${packedEnd}, encoded.length=${inValues.length})`,
+            `FastPFOR decode: packed region mismatch (pageStart=${pageStart}, packedStart=${inPos}, consumedPackedEnd=${tmpInPos}, expectedPackedEnd=${packedEnd}, packedWords=${packedEnd - inPos}, encoded.length=${inValues.length})`,
         );
     }
 
@@ -553,7 +553,7 @@ function decodePage(
 
     if (bitmapPos >= inValues.length) {
         throw new Error(
-            `FastPFOR decode: invalid byteSize=${byteSize} (metaInts=${metaInts}) causes bitmapPos=${bitmapPos} out of bounds (encoded.length=${inValues.length})`,
+            `FastPFOR decode: invalid byteSize=${byteSize} (metaInts=${metaInts}, pageStart=${pageStart}, packedEnd=${packedEnd}, byteContainerStart=${byteContainerStart}) causes bitmapPos=${bitmapPos} out of bounds (encoded.length=${inValues.length})`,
         );
     }
 
@@ -650,7 +650,9 @@ function decodeVByte(
     }
 
     if (tmpOutPos !== targetOut) {
-        throw new Error(`FastPFOR VByte: truncated stream (decoded ${tmpOutPos - outPos0}, expected ${expectedCount})`);
+        throw new Error(
+            `FastPFOR VByte: truncated stream (decoded=${tmpOutPos - outPos0}, expected=${expectedCount}, consumedWords=${wordIndex - inPos}/${inLength}, vbyteStart=${inPos}, vbyteEnd=${finalWordIndex})`,
+        );
     }
 
     return wordIndex;

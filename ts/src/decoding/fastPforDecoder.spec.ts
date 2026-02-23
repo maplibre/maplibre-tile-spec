@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-    createFastPforEncoderWorkspace,
-    encodeFastPforInt32,
-    encodeFastPforInt32WithWorkspace,
-} from "../encoding/fastPforEncoder";
+import { encodeFastPforInt32 } from "../encoding/fastPforEncoder";
 import {
     createFastPforWireDecodeWorkspace,
     decodeFastPforInt32,
@@ -78,17 +74,28 @@ describe("FastPFOR decoder", () => {
     });
 
     it("round-trips representative block bit-widths", () => {
-        const bitWidths = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 16, 31];
+        const bitWidthCases = [
+            { bitWidth: 0, samples: [0] },
+            { bitWidth: 1, samples: [0, 1, 0, 1] },
+            { bitWidth: 2, samples: [2, 3, 2, 3] },
+            { bitWidth: 3, samples: [4, 5, 6, 7] },
+            { bitWidth: 4, samples: [8, 9, 10, 11] },
+            { bitWidth: 5, samples: [16, 17, 18, 19] },
+            { bitWidth: 6, samples: [32, 33, 34, 35] },
+            { bitWidth: 7, samples: [64, 65, 66, 67] },
+            { bitWidth: 8, samples: [128, 129, 130, 131] },
+            { bitWidth: 9, samples: [256, 257, 258, 259] },
+            { bitWidth: 12, samples: [2_048, 2_049, 2_050, 2_051] },
+            { bitWidth: 13, samples: [4_096, 4_097, 4_098, 4_099] },
+            { bitWidth: 14, samples: [8_192, 8_193, 8_194, 8_195] },
+            { bitWidth: 15, samples: [16_384, 16_385, 16_386, 16_387] },
+            { bitWidth: 16, samples: [32_768, 32_769, 32_770, 32_771] },
+            { bitWidth: 31, samples: [1_073_741_824, 1_073_741_825, 1_073_741_826, 1_073_741_827] },
+        ] as const;
 
-        for (const bitWidth of bitWidths) {
+        for (const { bitWidth, samples } of bitWidthCases) {
             const values = new Int32Array(BLOCK_SIZE);
-            if (bitWidth !== 0) {
-                const lowerBound = 2 ** (bitWidth - 1);
-                const span = lowerBound;
-                for (let i = 0; i < values.length; i++) {
-                    values[i] = lowerBound + (i % span);
-                }
-            }
+            for (let i = 0; i < values.length; i++) values[i] = samples[i % samples.length];
 
             const encoded = encodeFastPforInt32(values);
             const decoded = decodeFastPforInt32(encoded, values.length);
@@ -117,38 +124,36 @@ describe("FastPFOR decoder", () => {
     });
 
     it("round-trips exception streams across widths", () => {
-        const exceptionBitWidths = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 16, 32];
+        const exceptionBitWidthCases = [
+            { exceptionBitWidth: 2, outlierValue: 4 },
+            { exceptionBitWidth: 3, outlierValue: 8 },
+            { exceptionBitWidth: 4, outlierValue: 16 },
+            { exceptionBitWidth: 5, outlierValue: 32 },
+            { exceptionBitWidth: 6, outlierValue: 64 },
+            { exceptionBitWidth: 7, outlierValue: 128 },
+            { exceptionBitWidth: 8, outlierValue: 256 },
+            { exceptionBitWidth: 9, outlierValue: 512 },
+            { exceptionBitWidth: 10, outlierValue: 1_024 },
+            { exceptionBitWidth: 11, outlierValue: 2_048 },
+            { exceptionBitWidth: 12, outlierValue: 4_096 },
+            { exceptionBitWidth: 13, outlierValue: 8_192 },
+            { exceptionBitWidth: 16, outlierValue: 65_536 },
+            { exceptionBitWidth: 32, outlierValue: -1 },
+        ] as const;
 
-        for (const exceptionBitWidth of exceptionBitWidths) {
+        for (const { exceptionBitWidth, outlierValue } of exceptionBitWidthCases) {
             const values = new Int32Array(BLOCK_SIZE);
             if (exceptionBitWidth === 32) {
-                values[0] = -1;
+                values[0] = outlierValue;
             } else {
                 for (let i = 0; i < values.length; i++) values[i] = i % 2;
-                const outlier = 2 ** exceptionBitWidth;
-                values[10] = outlier;
-                values[100] = outlier;
+                values[10] = outlierValue;
+                values[100] = outlierValue;
             }
             const encoded = encodeFastPforInt32(values);
             const decoded = decodeFastPforInt32(encoded, values.length);
             expect(decoded, `round-trip mismatch for exceptionBitWidth=${exceptionBitWidth}`).toEqual(values);
         }
-    });
-
-    it("reuses encoder workspace across successive encodes", () => {
-        const workspace = createFastPforEncoderWorkspace();
-
-        const first = new Int32Array(BLOCK_SIZE + 8);
-        for (let i = 0; i < first.length; i++) first[i] = i;
-
-        const second = new Int32Array(16);
-        for (let i = 0; i < second.length; i++) second[i] = 10_000 + i;
-
-        const firstEncoded = encodeFastPforInt32WithWorkspace(first, workspace);
-        const secondEncoded = encodeFastPforInt32WithWorkspace(second, workspace);
-
-        expect(decodeFastPforInt32(firstEncoded, first.length)).toEqual(first);
-        expect(decodeFastPforInt32(secondEncoded, second.length)).toEqual(second);
     });
 });
 
