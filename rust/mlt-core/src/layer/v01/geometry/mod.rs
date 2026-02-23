@@ -335,6 +335,10 @@ pub enum GeometryType {
 
 impl GeometryType {
     #[must_use]
+    pub fn is_polygon(&self) -> bool {
+        matches!(self, GeometryType::Polygon | GeometryType::MultiPolygon)
+    }
+    #[must_use]
     pub fn is_linestring(self) -> bool {
         matches!(
             self,

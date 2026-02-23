@@ -86,11 +86,7 @@ pub fn decode_level1_length_stream(
     for (i, &geometry_type) in geometry_types.iter().enumerate() {
         let num_geometries = (root_offset_buffer[i + 1] - root_offset_buffer[i]) as usize;
 
-        if geometry_type == GeometryType::MultiPolygon
-            || geometry_type == GeometryType::Polygon
-            || (is_line_string_present
-                && (geometry_type == GeometryType::MultiLineString
-                    || geometry_type == GeometryType::LineString))
+        if geometry_type.is_polygon() || (is_line_string_present && (geometry_type.is_linestring()))
         {
             // For MultiPolygon, Polygon and in some cases for MultiLineString and LineString
             // a value in the level1LengthBuffer exists
