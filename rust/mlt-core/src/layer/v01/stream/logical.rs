@@ -343,17 +343,17 @@ mod tests {
 
     use super::*;
     use crate::v01::DictionaryType;
-    use crate::v01::stream::physical::{PhysicalEncoding, PhysicalStreamType};
+    use crate::v01::stream::physical::{PhysicalEncoding, StreamType};
 
     fn make_meta(logical_encoding: LogicalEncoding, num_values: usize) -> StreamMeta {
         let num_values =
             u32::try_from(num_values).expect("proptest to not generate that large of a vec");
-        StreamMeta {
-            physical_type: PhysicalStreamType::Data(DictionaryType::None),
-            num_values,
+        StreamMeta::new(
+            StreamType::Data(DictionaryType::None),
             logical_encoding,
-            physical_encoding: PhysicalEncoding::None,
-        }
+            PhysicalEncoding::None,
+            num_values,
+        )
     }
 
     proptest! {

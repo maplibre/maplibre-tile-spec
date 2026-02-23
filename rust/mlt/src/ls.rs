@@ -14,7 +14,7 @@ use mlt_core::geojson::Geom32;
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::{
     DictionaryType, Geometry, GeometryType, LengthType, LogicalEncoding, OffsetType,
-    PhysicalEncoding, PhysicalStreamType, Stream,
+    PhysicalEncoding, Stream, StreamType,
 };
 use mlt_core::{Analyze as _, parse_layers};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
@@ -91,7 +91,7 @@ pub enum FileSortColumn {
 /// Algorithm description for a file (MLT stream combo or protobuf for MVT).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FileAlgorithm {
-    Mlt(PhysicalStreamType, PhysicalEncoding, StatLogicalCodec),
+    Mlt(StreamType, PhysicalEncoding, StatLogicalCodec),
     Mvt,
 }
 
@@ -101,8 +101,8 @@ impl std::fmt::Display for FileAlgorithm {
             Self::Mvt => write!(f, "Protobuf"),
             Self::Mlt(phys_type, physical, logical) => {
                 let phys_type = match phys_type {
-                    PhysicalStreamType::Present => "Present",
-                    PhysicalStreamType::Data(v) => match v {
+                    StreamType::Present => "Present",
+                    StreamType::Data(v) => match v {
                         DictionaryType::None => "RawData",
                         DictionaryType::Vertex => "Vertex",
                         DictionaryType::Single => "Single",
@@ -110,13 +110,13 @@ impl std::fmt::Display for FileAlgorithm {
                         DictionaryType::Morton => "Morton",
                         DictionaryType::Fsst => "Fsst",
                     },
-                    PhysicalStreamType::Offset(v) => match v {
+                    StreamType::Offset(v) => match v {
                         OffsetType::Vertex => "VertexOffset",
                         OffsetType::Index => "IndexOffset",
                         OffsetType::String => "StringOffset",
                         OffsetType::Key => "KeyOffset",
                     },
-                    PhysicalStreamType::Length(v) => match v {
+                    StreamType::Length(v) => match v {
                         LengthType::VarBinary => "VarBinaryLen",
                         LengthType::Geometries => "GeomLen",
                         LengthType::Parts => "PartsLen",
@@ -505,7 +505,7 @@ fn geometry_type_from_geom32(geom: &Geom32) -> Option<GeometryType> {
     })
 }
 
-type StreamStat = (PhysicalStreamType, PhysicalEncoding, StatLogicalCodec);
+type StreamStat = (StreamType, PhysicalEncoding, StatLogicalCodec);
 
 /// Mirrors [`LogicalEncoding`] without associated metadata values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -535,7 +535,7 @@ impl From<LogicalEncoding> for StatLogicalCodec {
 
 fn collect_stream_info(stream: &Stream, algo: &mut HashSet<StreamStat>) {
     algo.insert((
-        stream.meta.physical_type,
+        stream.meta.stream_type,
         stream.meta.physical_encoding,
         StatLogicalCodec::from(stream.meta.logical_encoding),
     ));

@@ -29,7 +29,7 @@ use crate::v01::geometry::decode::{
 };
 use crate::v01::{
     DictionaryType, Encoder, LengthType, LogicalEncoding, OffsetType, OwnedStream,
-    PhysicalEncoding, PhysicalStreamType, Stream, StreamMeta,
+    PhysicalEncoding, Stream, StreamMeta, StreamType,
 };
 use crate::{FromDecoded, MltError};
 
@@ -111,12 +111,12 @@ impl<'a> EncodedGeometry<'a> {
                 input,
                 Self {
                     meta: Stream::new(
-                        StreamMeta {
-                            physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                            num_values: 0,
-                            logical_encoding: LogicalEncoding::None,
-                            physical_encoding: PhysicalEncoding::None,
-                        },
+                        StreamMeta::new(
+                            StreamType::Data(DictionaryType::None),
+                            LogicalEncoding::None,
+                            PhysicalEncoding::None,
+                            0,
+                        ),
                         crate::v01::EncodedData::new(&[]),
                     ),
                     items: Vec::new(),
@@ -486,30 +486,30 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
         let mut vertices: Option<Vec<i32>> = None;
 
         for stream in items {
-            match stream.meta.physical_type {
-                PhysicalStreamType::Present => {}
-                PhysicalStreamType::Data(v) => match v {
+            match stream.meta.stream_type {
+                StreamType::Present => {}
+                StreamType::Data(v) => match v {
                     DictionaryType::Vertex => {
                         let v = stream.decode_bits_u32()?.decode_i32()?;
                         vertices.set_once(v)?;
                     }
-                    _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
+                    _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                 },
-                PhysicalStreamType::Offset(v) => {
+                StreamType::Offset(v) => {
                     let target = match v {
                         OffsetType::Vertex => &mut vertex_offsets,
                         OffsetType::Index => &mut index_buffer,
-                        _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
+                        _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
                 }
-                PhysicalStreamType::Length(v) => {
+                StreamType::Length(v) => {
                     let target = match v {
                         LengthType::Geometries => &mut geometry_offsets,
                         LengthType::Parts => &mut part_offsets,
                         LengthType::Rings => &mut ring_offsets,
                         LengthType::Triangles => &mut triangles,
-                        _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
+                        _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
                     // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamEncoding<T>
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
@@ -602,13 +602,15 @@ mod tests {
     use super::*;
 
     /// Helper function to encode, serialize, parse, and decode for roundtrip testing
-    fn roundtrip(decoded: &DecodedGeometry, config: GeometryEncoder) -> DecodedGeometry {
-        let encoded =
-            OwnedEncodedGeometry::from_decoded(decoded, config).expect("Failed to encode");
+    fn roundtrip(decoded: &DecodedGeometry, encoder: GeometryEncoder) -> DecodedGeometry {
+        let encoded_geom =
+            OwnedEncodedGeometry::from_decoded(decoded, encoder).expect("Failed to encode");
 
         // Serialize to bytes (write_to includes the stream count varint)
         let mut buffer = Vec::new();
-        encoded.write_to(&mut buffer).expect("Failed to serialize");
+        encoded_geom
+            .write_to(&mut buffer)
+            .expect("Failed to serialize");
 
         // Now parse (parse expects varint stream count + streams)
         let (remaining, parsed) = EncodedGeometry::parse(&buffer).expect("Failed to parse");
@@ -738,38 +740,38 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_point_roundtrip(strategy in any::<GeometryEncoder>(), input in arb_point()) {
-            let output = roundtrip(&input, strategy);
+        fn test_point_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_point()) {
+            let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_line_string_roundtrip(strategy in any::<GeometryEncoder>(), input in arb_line_string()) {
-            let output = roundtrip(&input, strategy);
+        fn test_line_string_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_line_string()) {
+            let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_polygon_roundtrip(strategy in any::<GeometryEncoder>(), input in arb_polygon()) {
-            let output = roundtrip(&input, strategy);
+        fn test_polygon_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_polygon()) {
+            let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_multi_point_roundtrip(strategy in any::<GeometryEncoder>(), input in arb_multi_point()) {
-            let output = roundtrip(&input, strategy);
+        fn test_multi_point_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_point()) {
+            let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_multi_line_string_roundtrip(strategy in any::<GeometryEncoder>(), input in arb_multi_line_string()) {
-            let output = roundtrip(&input, strategy);
+        fn test_multi_line_string_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_line_string()) {
+            let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_multi_polygon_roundtrip(strategy in any::<GeometryEncoder>(), input in arb_multi_polygon()) {
-            let output = roundtrip(&input, strategy);
+        fn test_multi_polygon_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_polygon()) {
+            let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
     }

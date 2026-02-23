@@ -3,9 +3,7 @@ use std::convert::Infallible;
 use fastpfor::cpp::Exception;
 use num_enum::TryFromPrimitiveError;
 
-use crate::v01::{
-    GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, PhysicalStreamType,
-};
+use crate::v01::{GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType};
 
 pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
@@ -42,14 +40,14 @@ pub enum MltError {
     ParsingLogicalTechnique(u8),
     #[error("error parsing physical encoding: code={0}")]
     ParsingPhysicalEncoding(u8),
-    #[error("error parsing physical stream type: code={0}")]
-    ParsingPhysicalStreamType(u8),
+    #[error("error parsing stream type: code={0}")]
+    ParsingStreamType(u8),
     #[error("found {0} bytes after the expected end of layer")]
     TrailingLayerData(usize),
     #[error("unexpected end of input (unable to take {0} bytes)")]
     UnableToTake(usize),
     #[error("unexpected stream type {0:?}")]
-    UnexpectedStreamType(PhysicalStreamType),
+    UnexpectedStreamType(StreamType),
     #[error("unsupported logical encoding {0:?} for {1}")]
     UnsupportedLogicalEncoding(LogicalEncoding, &'static str),
     #[error("invalid combination of logical encodings: {0:?} + {1:?}")]
