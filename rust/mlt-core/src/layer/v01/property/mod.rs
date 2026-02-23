@@ -1,4 +1,4 @@
-mod decode;
+pub(crate) mod decode;
 
 use std::fmt::{self, Debug};
 use std::io::Write;
@@ -533,7 +533,14 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                 let values = values.iter().map(|&f| f as f32).collect::<Vec<_>>();
                 EncVal::F64(OwnedStream::encode_f32(&values)?)
             }
-            Val::Str(_) => Err(NotImplemented("string property encoding"))?,
+            Val::Str(s) => {
+                let values = unapply_presence(s);
+                EncVal::Str(OwnedStream::encode_strings(
+                    &values,
+                    config.logical,
+                    config.physical,
+                )?)
+            }
             Val::Struct => Err(NotImplemented("struct property encoding"))?,
         };
 
