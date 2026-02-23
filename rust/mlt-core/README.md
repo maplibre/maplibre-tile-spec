@@ -68,9 +68,9 @@ This example is for `Id`, but the same idea applies to `Geometry`, and `Property
 
 To avoid copying bytes, we employ `borrowme`:
 * **`EncodedId` struct** contains references into the original input data.
-  The values are not decoded, just some metadata is parsed. Most data is stored as `Stream<'a>` instances, which hold references to parts of the original input and tie to input lifetime.
+  The values are not decoded, just some metadata is parsed. Most data is stored as `Stream<'a>` instances, which hold references to parts of the original input and are tied to the input lifetime.
 * **`OwnedEncodedId` struct** is auto-generated with the [borrowme crate](https://docs.rs/borrowme/latest/borrowme/) - it has the same fields as the `EncodedId` struct, but owns its data.
-  This is useful when you want to store a `EncodedId` struct beyond the lifetime of the original input slice, or when you want to modify it or store the result of the encoding before storing it into a file.
+  This is useful when you want to store an `EncodedId` struct beyond the lifetime of the original input slice, or when you want to modify it or store the result of the encoding before storing it into a file.
 * **`DecodedId` struct** is used to store the decoded value.
   At the moment, only `DecodedGeometry` is implemented, but the same idea applies to other entities.
   The decoded values are stored in standard Rust types, e.g. `Vec<u64>` for IDs.
