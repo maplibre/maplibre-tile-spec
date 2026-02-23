@@ -196,6 +196,33 @@ impl OwnedStream {
             data,
         })
     }
+
+    /// Encode a sequence of strings into a length stream and a data stream.
+    pub fn encode_strings(
+        values: &[String],
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
+    ) -> Result<Vec<Self>, MltError> {
+        let lengths: Vec<u32> = values
+            .iter()
+            .map(|s| u32::try_from(s.len()))
+            .collect::<Result<Vec<_>, _>>()?;
+        let data: Vec<u8> = values
+            .iter()
+            .flat_map(|s| s.as_bytes().iter().copied())
+            .collect();
+
+        let length_stream = Self::encode_u32s_of_type(
+            &lengths,
+            logical,
+            physical,
+            PhysicalStreamType::Length(LengthType::VarBinary),
+        )?;
+
+        let data_stream = Self::new_plain(data, u32::try_from(values.len())?);
+
+        Ok(vec![length_stream, data_stream])
+    }
 }
 /// Metadata about an encoded stream
 #[derive(Clone, Copy, PartialEq)]
@@ -669,6 +696,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::v01::property::decode::decode_string_streams;
 
     /// Test case for stream decoding tests
     #[derive(Debug)]
@@ -1019,6 +1047,32 @@ mod tests {
             assert!(remaining.is_empty());
 
             let decoded_values = parsed_stream.decode_f32().unwrap();
+            assert_eq!(decoded_values, values);
+        }
+
+        #[test]
+        fn test_string_roundtrip(
+            values in prop::collection::vec(any::<String>(), 0..100),
+            logical_encoder in logical_encoders_strategy(),
+            physical_codec in physical_encoder_strategy()
+        ) {
+            let owned_streams = OwnedStream::encode_strings(&values, logical_encoder, physical_codec).unwrap();
+
+            let mut buffers = Vec::new();
+            for owned_stream in &owned_streams {
+                let mut buffer = Vec::new();
+                buffer.write_stream(owned_stream).unwrap();
+                buffers.push(buffer);
+            }
+
+            let mut parsed_streams = Vec::new();
+            for buffer in &buffers {
+                let (remaining, parsed_stream) = Stream::parse(buffer).unwrap();
+                assert!(remaining.is_empty());
+                parsed_streams.push(parsed_stream);
+            }
+
+            let decoded_values = decode_string_streams(parsed_streams).unwrap();
             assert_eq!(decoded_values, values);
         }
     }
