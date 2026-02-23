@@ -10,7 +10,6 @@ export function encodeFloatsLE(values: Float32Array): Uint8Array {
 }
 
 export function encodeDoubleLE(values: Float32Array): Uint8Array {
-    // Wire format stores DOUBLE as Float32 (4 bytes each), not Float64 (8 bytes)
     const buffer = new Uint8Array(values.length * 4);
     const view = new DataView(buffer.buffer);
 
