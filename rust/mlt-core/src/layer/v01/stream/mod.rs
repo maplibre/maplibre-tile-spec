@@ -1,4 +1,3 @@
-mod decode;
 mod logical;
 mod physical;
 
@@ -13,10 +12,9 @@ use num_enum::TryFromPrimitive;
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{
     BinarySerializer as _, all, decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s,
-    decode_bytes_to_u64s, encode_bools_to_bytes, encode_byte_rle, parse_u8, parse_varint,
-    parse_varint_vec, take,
+    decode_bytes_to_u64s, decode_fastpfor_composite, encode_bools_to_bytes, encode_byte_rle,
+    parse_u8, parse_varint, parse_varint_vec, take,
 };
-use crate::v01::stream::decode::decode_fastpfor_composite;
 pub use crate::v01::stream::logical::{
     LogicalCodec, LogicalData, LogicalEncoding, LogicalTechnique, LogicalValue,
 };
@@ -93,7 +91,7 @@ impl OwnedStream {
         let as_i32: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
         let (physical_u32s, logical_codec) = logical.encode_i32s(&as_i32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_codec) = physical.encode_u32s(physical_u32s);
+        let (data, physical_codec) = physical.encode_u32s(physical_u32s)?;
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -112,7 +110,7 @@ impl OwnedStream {
         let as_u32: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
         let (physical_u32s, logical_codec) = logical.encode_u32s(&as_u32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_codec) = physical.encode_u32s(physical_u32s);
+        let (data, physical_codec) = physical.encode_u32s(physical_u32s)?;
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -130,7 +128,7 @@ impl OwnedStream {
     ) -> Result<Self, MltError> {
         let (physical_u32s, logical_codec) = logical.encode_i32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_codec) = physical.encode_u32s(physical_u32s);
+        let (data, physical_codec) = physical.encode_u32s(physical_u32s)?;
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -161,7 +159,7 @@ impl OwnedStream {
     ) -> Result<Self, MltError> {
         let (physical_u32s, logical_codec) = logical.encode_u32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_codec) = physical.encode_u32s(physical_u32s);
+        let (data, physical_codec) = physical.encode_u32s(physical_u32s)?;
         Ok(Self {
             meta: StreamMeta {
                 physical_type,
@@ -180,7 +178,7 @@ impl OwnedStream {
     ) -> Result<Self, MltError> {
         let (physical_u64s, logical_codec) = logical.encode_i64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
-        let (data, physical_codec) = physical.encode_u64s(physical_u64s);
+        let (data, physical_codec) = physical.encode_u64s(physical_u64s)?;
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -198,7 +196,7 @@ impl OwnedStream {
     ) -> Result<Self, MltError> {
         let (physical_u64s, logical_codec) = logical.encode_u64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
-        let (data, physical_codec) = physical.encode_u64s(physical_u64s);
+        let (data, physical_codec) = physical.encode_u64s(physical_u64s)?;
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -643,7 +641,7 @@ impl<'a> Stream<'a> {
                 }
             },
             PhysicalCodec::FastPFOR => {
-                return Err(MltError::UnsupportedPhysicalCodec("FastPFOR"));
+                return Err(MltError::UnsupportedPhysicalCodec("FastPFOR decoding u64"));
             }
             PhysicalCodec::Alp => return Err(MltError::UnsupportedPhysicalCodec("ALP")),
         }?;

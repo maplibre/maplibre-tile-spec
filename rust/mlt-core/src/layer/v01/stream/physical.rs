@@ -1,9 +1,10 @@
 use borrowme::borrowme;
-use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
 use num_enum::TryFromPrimitive;
 
 use crate::MltError::ParsingPhysicalStreamType;
-use crate::utils::{encode_u32s_to_bytes, encode_u64s_to_bytes, encode_varint, parse_u8};
+use crate::utils::{
+    encode_fastpfor, encode_u32s_to_bytes, encode_u64s_to_bytes, encode_varint, parse_u8,
+};
 use crate::v01::{
     DictionaryType, LengthType, OffsetType, OwnedDataVarInt, OwnedEncodedData, OwnedStreamData,
 };
@@ -96,12 +97,15 @@ pub enum PhysicalEncoding {
 impl PhysicalEncoding {
     /// Physically encode a `u32` sequence into the appropriate `OwnedStreamData` variant.
     #[must_use]
-    pub fn encode_u32s(self, values: Vec<u32>) -> (OwnedStreamData, PhysicalCodec) {
+    pub fn encode_u32s(
+        self,
+        values: Vec<u32>,
+    ) -> Result<(OwnedStreamData, PhysicalCodec), MltError> {
         match self {
             Self::None => {
                 let data = encode_u32s_to_bytes(&values);
                 let stream = OwnedStreamData::Encoded(OwnedEncodedData { data });
-                (stream, PhysicalCodec::None)
+                Ok((stream, PhysicalCodec::None))
             }
             Self::VarInt => {
                 let mut data = Vec::new();
@@ -109,41 +113,27 @@ impl PhysicalEncoding {
                     encode_varint(&mut data, u64::from(v));
                 }
                 let stream = OwnedStreamData::VarInt(OwnedDataVarInt { data });
-                (stream, PhysicalCodec::VarInt)
+                Ok((stream, PhysicalCodec::VarInt))
             }
             Self::FastPFOR => {
-                if values.is_empty() {
-                    return (
-                        OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
-                        PhysicalCodec::FastPFOR,
-                    );
-                }
-                let codec = FastPFor256Codec::new();
-                // Over-allocate due to the possibility of having to write a header
-                let mut compressed = vec![0u32; values.len() + 1024];
-                let out = codec.encode32(&values, &mut compressed).unwrap();
-
-                // Convert u32 words to big-endian bytes
-                let mut data = Vec::with_capacity(out.len() * 4);
-                for word in out.iter() {
-                    data.extend_from_slice(&word.to_be_bytes());
-                }
-                (
-                    OwnedStreamData::Encoded(OwnedEncodedData { data }),
-                    PhysicalCodec::FastPFOR,
-                )
+                let data = encode_fastpfor(&values)?;
+                let stream = OwnedStreamData::Encoded(OwnedEncodedData { data });
+                Ok((stream, PhysicalCodec::FastPFOR))
             }
         }
     }
 
     /// Physically encode a `u64` sequence into the appropriate `OwnedStreamData` variant.
     #[must_use]
-    pub fn encode_u64s(self, values: Vec<u64>) -> (OwnedStreamData, PhysicalCodec) {
+    pub fn encode_u64s(
+        self,
+        values: Vec<u64>,
+    ) -> Result<(OwnedStreamData, PhysicalCodec), MltError> {
         match self {
             Self::None => {
                 let data = encode_u64s_to_bytes(&values);
                 let stream = OwnedStreamData::Encoded(OwnedEncodedData { data });
-                (stream, PhysicalCodec::None)
+                Ok((stream, PhysicalCodec::None))
             }
             Self::VarInt => {
                 let mut data = Vec::new();
@@ -151,16 +141,11 @@ impl PhysicalEncoding {
                     encode_varint(&mut data, v);
                 }
                 let stream = OwnedStreamData::VarInt(OwnedDataVarInt { data });
-                (stream, PhysicalCodec::VarInt)
+                Ok((stream, PhysicalCodec::VarInt))
             }
             Self::FastPFOR => {
                 // FastPFOR only supports u32, so we truncate
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    reason = "cpp and java compatibility, but is this the best way to handle this?"
-                )]
-                let u32s: Vec<u32> = values.into_iter().map(|v| v as u32).collect();
-                self.encode_u32s(u32s)
+                Err(MltError::UnsupportedPhysicalCodec("FastPFor on u64"))
             }
         }
     }

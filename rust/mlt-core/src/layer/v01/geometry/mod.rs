@@ -390,7 +390,7 @@ impl FromDecoded<'_> for OwnedEncodedGeometry {
         } else {
             let encoded = encode_componentwise_delta_vec2s(vertices);
             let num_values = u32::try_from(encoded.len())?;
-            let (data, physical_codec) = config.vertex_physical.encode_u32s(encoded);
+            let (data, physical_codec) = config.vertex_physical.encode_u32s(encoded)?;
             let vertex_stream = OwnedStream {
                 meta: StreamMeta {
                     physical_type: PhysicalStreamType::Data(DictionaryType::Vertex),
