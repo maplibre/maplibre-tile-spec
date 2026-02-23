@@ -81,6 +81,7 @@ impl PhysicalCodec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum PhysicalEncoding {
     None,
     /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.

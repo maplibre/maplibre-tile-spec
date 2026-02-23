@@ -338,6 +338,7 @@ impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedEncodedGeometry);
 
 /// How to encode Geometry
 #[derive(Debug, Clone, Copy, Builder)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct GeometryEncodingStrategy {
     /// Logical encoding for the geometry types (meta) stream.
     meta_logical: LogicalEncoding,
@@ -583,34 +584,6 @@ mod tests {
 
     use super::*;
 
-    fn logical_encoding_strategy() -> impl Strategy<Value = LogicalEncoding> {
-        prop_oneof![
-            Just(LogicalEncoding::None),
-            Just(LogicalEncoding::Delta),
-            Just(LogicalEncoding::Rle),
-            Just(LogicalEncoding::DeltaRle),
-        ]
-    }
-
-    fn physical_encoding_strategy() -> impl Strategy<Value = PhysicalEncoding> {
-        prop_oneof![Just(PhysicalEncoding::None), Just(PhysicalEncoding::VarInt),]
-    }
-
-    fn geometry_encoding_strategy() -> impl Strategy<Value = GeometryEncodingStrategy> {
-        (
-            logical_encoding_strategy(),
-            physical_encoding_strategy(),
-            physical_encoding_strategy(),
-        )
-            .prop_map(|(meta_logical, meta_physical, vertex_physical)| {
-                GeometryEncodingStrategy {
-                    meta_logical,
-                    meta_physical,
-                    vertex_physical,
-                }
-            })
-    }
-
     fn geometry_roundtrip(
         decoded: &DecodedGeometry,
         strategy: GeometryEncodingStrategy,
@@ -625,7 +598,7 @@ mod tests {
         #[test]
         fn test_point_roundtrip(
             coords in prop::collection::vec([any::<i32>(), any::<i32>()], 0..100),
-            strategy in geometry_encoding_strategy(),
+            strategy in any::<GeometryEncodingStrategy>(),
         ) {
             let vector_types = vec![GeometryType::Point; coords.len()];
             let vertices: Vec<i32> = coords.into_iter().flatten().collect();
