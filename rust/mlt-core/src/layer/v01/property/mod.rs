@@ -17,7 +17,7 @@ use crate::utils::{
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{
     ColumnType, Encoder, LogicalEncoder, LogicalEncoding, OwnedEncodedData, OwnedStream,
-    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, PhysicalStreamType, Stream, StreamMeta,
+    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, Stream, StreamMeta, StreamType,
 };
 use crate::{FromDecoded, MltError, impl_encodable};
 
@@ -461,12 +461,12 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present_vec));
             Some(OwnedStream {
-                meta: StreamMeta {
-                    physical_type: PhysicalStreamType::Present,
-                    num_values: u32::try_from(present_vec.len())?,
-                    logical_encoding: LogicalEncoding::None,
-                    physical_encoding: PhysicalEncoding::None,
-                },
+                meta: StreamMeta::new(
+                    StreamType::Present,
+                    LogicalEncoding::None,
+                    PhysicalEncoding::None,
+                    u32::try_from(present_vec.len())?,
+                ),
                 data: OwnedStreamData::Encoded(OwnedEncodedData { data }),
             })
         } else {

@@ -20,7 +20,7 @@ use crate::v01::stream::decode::decode_fastpfor_composite;
 pub use crate::v01::stream::logical::{
     LogicalData, LogicalEncoder, LogicalEncoding, LogicalTechnique, LogicalValue,
 };
-pub use crate::v01::stream::physical::{PhysicalEncoder, PhysicalEncoding, PhysicalStreamType};
+pub use crate::v01::stream::physical::{PhysicalEncoder, PhysicalEncoding, StreamType};
 use crate::{MltError, MltRefResult};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -56,12 +56,12 @@ impl OwnedStream {
     #[must_use]
     pub fn empty_without_encoding() -> Self {
         Self {
-            meta: StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                num_values: 0,
-                logical_encoding: LogicalEncoding::None,
-                physical_encoding: PhysicalEncoding::None,
-            },
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::None),
+                LogicalEncoding::None,
+                PhysicalEncoding::None,
+                0,
+            ),
             data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
         }
     }
@@ -69,12 +69,12 @@ impl OwnedStream {
     /// Creates a plain stream with values encoded literally
     #[must_use]
     fn new_plain(data: Vec<u8>, num_values: u32) -> OwnedStream {
-        let meta = StreamMeta {
-            physical_type: PhysicalStreamType::Data(DictionaryType::None),
+        let meta = StreamMeta::new(
+            StreamType::Data(DictionaryType::None),
+            LogicalEncoding::None,
+            PhysicalEncoding::None,
             num_values,
-            logical_encoding: LogicalEncoding::None,
-            physical_encoding: PhysicalEncoding::None,
-        };
+        );
         let data = OwnedStreamData::Encoded(OwnedEncodedData { data });
         Self { meta, data }
     }
@@ -105,12 +105,12 @@ impl OwnedStream {
         let num_values = u32::try_from(physical_u32s.len())?;
         let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s);
         Ok(Self {
-            meta: StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                num_values,
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::None),
                 logical_encoding,
                 physical_encoding,
-            },
+                num_values,
+            ),
             data,
         })
     }
@@ -120,12 +120,12 @@ impl OwnedStream {
         let num_values = u32::try_from(physical_u32s.len())?;
         let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s);
         Ok(Self {
-            meta: StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                num_values,
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::None),
                 logical_encoding,
                 physical_encoding,
-            },
+                num_values,
+            ),
             data,
         })
     }
@@ -134,37 +134,28 @@ impl OwnedStream {
         let num_values = u32::try_from(physical_u32s.len())?;
         let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s);
         Ok(Self {
-            meta: StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                num_values,
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::None),
                 logical_encoding,
                 physical_encoding,
-            },
+                num_values,
+            ),
             data,
         })
     }
     pub fn encode_u32s(values: &[u32], encoding: Encoder) -> Result<Self, MltError> {
-        Self::encode_u32s_of_type(
-            values,
-            encoding,
-            PhysicalStreamType::Data(DictionaryType::None),
-        )
+        Self::encode_u32s_of_type(values, encoding, StreamType::Data(DictionaryType::None))
     }
     pub fn encode_u32s_of_type(
         values: &[u32],
         encoding: Encoder,
-        physical_type: PhysicalStreamType,
+        stream_type: StreamType,
     ) -> Result<Self, MltError> {
         let (physical_u32s, logical_encoding) = encoding.logical.encode_u32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
         let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s);
         Ok(Self {
-            meta: StreamMeta {
-                physical_type,
-                num_values,
-                logical_encoding,
-                physical_encoding,
-            },
+            meta: StreamMeta::new(stream_type, logical_encoding, physical_encoding, num_values),
             data,
         })
     }
@@ -174,12 +165,12 @@ impl OwnedStream {
         let num_values = u32::try_from(physical_u64s.len())?;
         let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s);
         Ok(Self {
-            meta: StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                num_values,
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::None),
                 logical_encoding,
                 physical_encoding,
-            },
+                num_values,
+            ),
             data,
         })
     }
@@ -188,12 +179,12 @@ impl OwnedStream {
         let num_values = u32::try_from(physical_u64s.len())?;
         let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s);
         Ok(Self {
-            meta: StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                num_values,
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::None),
                 logical_encoding,
                 physical_encoding,
-            },
+                num_values,
+            ),
             data,
         })
     }
@@ -212,7 +203,7 @@ impl OwnedStream {
         let length_stream = Self::encode_u32s_of_type(
             &lengths,
             encoding,
-            PhysicalStreamType::Length(LengthType::VarBinary),
+            StreamType::Length(LengthType::VarBinary),
         )?;
 
         let data_stream = Self::new_plain(data, u32::try_from(values.len())?);
@@ -223,12 +214,27 @@ impl OwnedStream {
 /// Metadata about an encoded stream
 #[derive(Clone, Copy, PartialEq)]
 pub struct StreamMeta {
-    pub physical_type: PhysicalStreamType,
-    pub num_values: u32,
+    pub stream_type: StreamType,
     pub logical_encoding: LogicalEncoding,
     pub physical_encoding: PhysicalEncoding,
+    pub num_values: u32,
 }
 impl StreamMeta {
+    #[must_use]
+    pub fn new(
+        stream_type: StreamType,
+        logical_encoding: LogicalEncoding,
+        physical_encoding: PhysicalEncoding,
+        num_values: u32,
+    ) -> Self {
+        Self {
+            stream_type,
+            logical_encoding,
+            physical_encoding,
+            num_values,
+        }
+    }
+
     /// Parse stream from the input
     ///
     /// If `is_bool` is true, compute RLE parameters for boolean streams
@@ -238,7 +244,7 @@ impl StreamMeta {
     fn parse(input: &[u8], is_bool: bool) -> MltRefResult<'_, (Self, u32)> {
         use crate::v01::LogicalTechnique as LT;
 
-        let (input, physical_type) = PhysicalStreamType::parse(input)?;
+        let (input, stream_type) = StreamType::parse(input)?;
         let (input, val) = parse_u8(input)?;
         let logical1 = LT::parse(val >> 5)?;
         let logical2 = LT::parse((val >> 2) & 0x7)?;
@@ -286,12 +292,7 @@ impl StreamMeta {
             _ => Err(MltError::InvalidLogicalEncodings(logical1, logical2))?,
         };
 
-        let meta = StreamMeta {
-            physical_type,
-            num_values,
-            logical_encoding,
-            physical_encoding,
-        };
+        let meta = StreamMeta::new(stream_type, logical_encoding, physical_encoding, num_values);
         Ok((input, (meta, byte_length)))
     }
 
@@ -302,7 +303,7 @@ impl StreamMeta {
         byte_length: u32,
     ) -> io::Result<()> {
         use crate::v01::LogicalTechnique as LT;
-        writer.write_u8(self.physical_type.as_u8())?;
+        writer.write_u8(self.stream_type.as_u8())?;
         let logical_enc_u8: u8 = match self.logical_encoding {
             LogicalEncoding::None => (LT::None as u8) << 5,
             LogicalEncoding::Delta => (LT::Delta as u8) << 5,
@@ -357,13 +358,13 @@ impl Debug for StreamMeta {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // ensure we process all fields, and format them without the alt field
         let Self {
-            physical_type,
-            num_values,
+            stream_type,
             logical_encoding,
             physical_encoding,
+            num_values,
         } = self;
         f.debug_struct("StreamMeta")
-            .field("physical_type", &format_args!("{physical_type:?}"))
+            .field("stream_type", &format_args!("{stream_type:?}"))
             .field("num_values", &format_args!("{num_values:?}"))
             .field("logical_encoding", &format_args!("{logical_encoding:?}"))
             .field("physical_encoding", &format_args!("{physical_encoding:?}"))
@@ -672,15 +673,15 @@ impl<'a> Stream<'a> {
     // }
 
     // pub fn decode2<'a>(&'_ self) -> MltResult<'_, Vec<u32>> {
-    //     match self.physical_type {
-    //         PhysicalStreamType::Present => {
+    //     match self.stream_type {
+    //         StreamType::Present => {
     //             todo!()
     //         }
-    //         PhysicalStreamType::Data(_v) => parse_varint_vec::<u32, u32>(&[], self.num_values),
-    //         PhysicalStreamType::Offset(_v) => {
+    //         StreamType::Data(_v) => parse_varint_vec::<u32, u32>(&[], self.num_values),
+    //         StreamType::Offset(_v) => {
     //             todo!()
     //         }
-    //         PhysicalStreamType::Length(_v) => {
+    //         StreamType::Length(_v) => {
     //             todo!()
     //         }
     //     }
@@ -710,20 +711,20 @@ mod tests {
             // Basic VarInt test case
             StreamTestCase {
                 name: "simple_varint_u32",
-                meta: StreamMeta {
-                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                    num_values: 4,
-                    logical_encoding: LogicalEncoding::None,
-                    physical_encoding: PhysicalEncoding::VarInt,
-                },
+                meta: StreamMeta::new(
+                    StreamType::Data(DictionaryType::None),
+                    LogicalEncoding::None,
+                    PhysicalEncoding::VarInt,
+                    4,
+                ),
                 data: &[0x04, 0x03, 0x02, 0x01],
                 expected_u32_logical_value: Some(LogicalValue::new(
-                    StreamMeta {
-                        physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                        num_values: 4,
-                        logical_encoding: LogicalEncoding::None,
-                        physical_encoding: PhysicalEncoding::VarInt,
-                    },
+                    StreamMeta::new(
+                        StreamType::Data(DictionaryType::None),
+                        LogicalEncoding::None,
+                        PhysicalEncoding::VarInt,
+                        4,
+                    ),
                     LogicalData::VecU32(vec![4, 3, 2, 1]),
                 )),
                 expected_u64_logical_value: None,
@@ -731,20 +732,20 @@ mod tests {
             // Basic Encoded test case
             StreamTestCase {
                 name: "simple_raw_bytes_to_u32",
-                meta: StreamMeta {
-                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                    num_values: 1,
-                    logical_encoding: LogicalEncoding::None,
-                    physical_encoding: PhysicalEncoding::None,
-                },
+                meta: StreamMeta::new(
+                    StreamType::Data(DictionaryType::None),
+                    LogicalEncoding::None,
+                    PhysicalEncoding::None,
+                    1,
+                ),
                 data: &[0x04, 0x03, 0x02, 0x01],
                 expected_u32_logical_value: Some(LogicalValue::new(
-                    StreamMeta {
-                        physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                        num_values: 1,
-                        logical_encoding: LogicalEncoding::None,
-                        physical_encoding: PhysicalEncoding::None,
-                    },
+                    StreamMeta::new(
+                        StreamType::Data(DictionaryType::None),
+                        LogicalEncoding::None,
+                        PhysicalEncoding::None,
+                        1,
+                    ),
                     LogicalData::VecU32(vec![0x0102_0304]),
                 )),
                 expected_u64_logical_value: None,
@@ -783,12 +784,12 @@ mod tests {
     }
 
     fn make_logical_val(logical_encoding: LogicalEncoding, input_data: Vec<u32>) -> LogicalValue {
-        let meta = StreamMeta {
-            physical_type: PhysicalStreamType::Data(DictionaryType::None),
-            num_values: u32::try_from(input_data.len()).expect("input_data length fits in u32"),
+        let meta = StreamMeta::new(
+            StreamType::Data(DictionaryType::None),
             logical_encoding,
-            physical_encoding: PhysicalEncoding::VarInt,
-        };
+            PhysicalEncoding::VarInt,
+            u32::try_from(input_data.len()).expect("input_data length fits in u32"),
+        );
         let data = LogicalData::VecU32(input_data);
         LogicalValue::new(meta, data)
     }
@@ -834,19 +835,19 @@ mod tests {
 
     /// Test roundtrip: write -> parse -> equality for stream serialization
     #[rstest]
-    #[case::new_encoded(PhysicalStreamType::Data(DictionaryType::None), 2, LogicalEncoding::None, PhysicalEncoding::None, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08], false)]
-    #[case::new_encoded(PhysicalStreamType::Data(DictionaryType::None), 2, LogicalEncoding::ComponentwiseDelta, PhysicalEncoding::None, vec![0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00], false)]
-    #[case::new_encoded(PhysicalStreamType::Offset(OffsetType::Vertex), 3, LogicalEncoding::None, PhysicalEncoding::None, vec![0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00], false)]
-    #[case::varint(PhysicalStreamType::Data(DictionaryType::None), 4, LogicalEncoding::None, PhysicalEncoding::VarInt, vec![0x0A, 0x14, 0x1E, 0x28], false)]
-    #[case::varint(PhysicalStreamType::Data(DictionaryType::None), 5, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02, 0x02, 0x02], false)]
-    #[case::varint(PhysicalStreamType::Data(DictionaryType::None), 3, LogicalEncoding::PseudoDecimal, PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03], false)]
-    #[case::varint(PhysicalStreamType::Length(LengthType::VarBinary), 3, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02], false)]
-    #[case::rle(PhysicalStreamType::Data(DictionaryType::None), 6, LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 3 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x01, 0x0A, 0x14, 0x1E], false)]
-    #[case::rle(PhysicalStreamType::Data(DictionaryType::None), 5, LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x00, 0x02], false)]
-    #[case::morton(PhysicalStreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Morton(MortonMeta { num_bits: 32, coordinate_shift: 0 }), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false)]
-    #[case::boolean(PhysicalStreamType::Present, 16, LogicalEncoding::Rle(RleMeta { runs: 2, num_rle_values: 2 }), PhysicalEncoding::VarInt, vec![0xFF, 0x00], true)]
+    #[case::new_encoded(StreamType::Data(DictionaryType::None), 2, LogicalEncoding::None, PhysicalEncoding::None, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08], false)]
+    #[case::new_encoded(StreamType::Data(DictionaryType::None), 2, LogicalEncoding::ComponentwiseDelta, PhysicalEncoding::None, vec![0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00], false)]
+    #[case::new_encoded(StreamType::Offset(OffsetType::Vertex), 3, LogicalEncoding::None, PhysicalEncoding::None, vec![0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00], false)]
+    #[case::varint(StreamType::Data(DictionaryType::None), 4, LogicalEncoding::None, PhysicalEncoding::VarInt, vec![0x0A, 0x14, 0x1E, 0x28], false)]
+    #[case::varint(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02, 0x02, 0x02], false)]
+    #[case::varint(StreamType::Data(DictionaryType::None), 3, LogicalEncoding::PseudoDecimal, PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03], false)]
+    #[case::varint(StreamType::Length(LengthType::VarBinary), 3, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02], false)]
+    #[case::rle(StreamType::Data(DictionaryType::None), 6, LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 3 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x01, 0x0A, 0x14, 0x1E], false)]
+    #[case::rle(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x00, 0x02], false)]
+    #[case::morton(StreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Morton(MortonMeta { num_bits: 32, coordinate_shift: 0 }), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false)]
+    #[case::boolean(StreamType::Present, 16, LogicalEncoding::Rle(RleMeta { runs: 2, num_rle_values: 2 }), PhysicalEncoding::VarInt, vec![0xFF, 0x00], true)]
     fn test_stream_roundtrip(
-        #[case] physical_type: PhysicalStreamType,
+        #[case] stream_type: StreamType,
         #[case] num_values: u32,
         #[case] logical_encoding: LogicalEncoding,
         #[case] physical_encoding: PhysicalEncoding,
@@ -865,12 +866,7 @@ mod tests {
             PhysicalEncoding::Alp => panic!("ALP not supported"),
         };
         let stream = OwnedStream {
-            meta: StreamMeta {
-                physical_type,
-                num_values,
-                logical_encoding,
-                physical_encoding,
-            },
+            meta: StreamMeta::new(stream_type, logical_encoding, physical_encoding, num_values),
             data: stream_data,
         };
 

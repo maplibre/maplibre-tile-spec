@@ -29,7 +29,7 @@ use crate::v01::geometry::decode::{
 };
 use crate::v01::{
     DictionaryType, Encoder, LengthType, LogicalEncoding, OffsetType, OwnedStream,
-    PhysicalEncoding, PhysicalStreamType, Stream, StreamMeta,
+    PhysicalEncoding, Stream, StreamMeta, StreamType,
 };
 use crate::{FromDecoded, MltError};
 
@@ -111,12 +111,12 @@ impl<'a> EncodedGeometry<'a> {
                 input,
                 Self {
                     meta: Stream::new(
-                        StreamMeta {
-                            physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                            num_values: 0,
-                            logical_encoding: LogicalEncoding::None,
-                            physical_encoding: PhysicalEncoding::None,
-                        },
+                        StreamMeta::new(
+                            StreamType::Data(DictionaryType::None),
+                            LogicalEncoding::None,
+                            PhysicalEncoding::None,
+                            0,
+                        ),
                         crate::v01::EncodedData::new(&[]),
                     ),
                     items: Vec::new(),
@@ -486,30 +486,30 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
         let mut vertices: Option<Vec<i32>> = None;
 
         for stream in items {
-            match stream.meta.physical_type {
-                PhysicalStreamType::Present => {}
-                PhysicalStreamType::Data(v) => match v {
+            match stream.meta.stream_type {
+                StreamType::Present => {}
+                StreamType::Data(v) => match v {
                     DictionaryType::Vertex => {
                         let v = stream.decode_bits_u32()?.decode_i32()?;
                         vertices.set_once(v)?;
                     }
-                    _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
+                    _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                 },
-                PhysicalStreamType::Offset(v) => {
+                StreamType::Offset(v) => {
                     let target = match v {
                         OffsetType::Vertex => &mut vertex_offsets,
                         OffsetType::Index => &mut index_buffer,
-                        _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
+                        _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
                 }
-                PhysicalStreamType::Length(v) => {
+                StreamType::Length(v) => {
                     let target = match v {
                         LengthType::Geometries => &mut geometry_offsets,
                         LengthType::Parts => &mut part_offsets,
                         LengthType::Rings => &mut ring_offsets,
                         LengthType::Triangles => &mut triangles,
-                        _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
+                        _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
                     // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamEncoding<T>
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;

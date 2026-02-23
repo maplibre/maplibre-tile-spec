@@ -1,7 +1,7 @@
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
-use crate::MltError::ParsingPhysicalStreamType;
+use crate::MltError::ParsingStreamType;
 use crate::utils::{encode_u32s_to_bytes, encode_u64s_to_bytes, encode_varint, parse_u8};
 use crate::v01::{
     DictionaryType, LengthType, OffsetType, OwnedDataVarInt, OwnedEncodedData, OwnedStreamData,
@@ -10,16 +10,16 @@ use crate::{MltError, MltRefResult};
 
 /// How should the stream be interpreted at the physical level (first pass of decoding)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum PhysicalStreamType {
+pub enum StreamType {
     Present,
     Data(DictionaryType),
     Offset(OffsetType),
     Length(LengthType),
 }
-impl PhysicalStreamType {
+impl StreamType {
     pub fn parse(input: &'_ [u8]) -> MltRefResult<'_, Self> {
         let (input, value) = parse_u8(input)?;
-        let pt = Self::from_u8(value).ok_or(ParsingPhysicalStreamType(value))?;
+        let pt = Self::from_u8(value).ok_or(ParsingStreamType(value))?;
         Ok((input, pt))
     }
 
@@ -29,29 +29,29 @@ impl PhysicalStreamType {
         Some(match high4 {
             #[cfg(fuzzing)]
             // when fuzzing, we cannot have ignored bits, to preserve roundtrip-ability
-            0 if low4 == 0 => PhysicalStreamType::Present,
+            0 if low4 == 0 => StreamType::Present,
             #[cfg(not(fuzzing))]
-            0 => PhysicalStreamType::Present,
-            1 => PhysicalStreamType::Data(DictionaryType::try_from(low4).ok()?),
-            2 => PhysicalStreamType::Offset(OffsetType::try_from(low4).ok()?),
-            3 => PhysicalStreamType::Length(LengthType::try_from(low4).ok()?),
+            0 => StreamType::Present,
+            1 => StreamType::Data(DictionaryType::try_from(low4).ok()?),
+            2 => StreamType::Offset(OffsetType::try_from(low4).ok()?),
+            3 => StreamType::Length(LengthType::try_from(low4).ok()?),
             _ => return None,
         })
     }
     #[must_use]
     pub fn as_u8(self) -> u8 {
         let proto_high4 = match self {
-            PhysicalStreamType::Present => 0,
-            PhysicalStreamType::Data(_) => 1,
-            PhysicalStreamType::Offset(_) => 2,
-            PhysicalStreamType::Length(_) => 3,
+            StreamType::Present => 0,
+            StreamType::Data(_) => 1,
+            StreamType::Offset(_) => 2,
+            StreamType::Length(_) => 3,
         };
         let high4 = proto_high4 << 4;
         let low4 = match self {
-            PhysicalStreamType::Present => 0,
-            PhysicalStreamType::Data(i) => i as u8,
-            PhysicalStreamType::Offset(i) => i as u8,
-            PhysicalStreamType::Length(i) => i as u8,
+            StreamType::Present => 0,
+            StreamType::Data(i) => i as u8,
+            StreamType::Offset(i) => i as u8,
+            StreamType::Length(i) => i as u8,
         };
         debug_assert!(low4 <= 0x0F, "secondary types should not exceed 4 bit");
         high4 | low4
