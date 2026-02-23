@@ -21,6 +21,20 @@ pub use crate::v01::stream::logical::{
 pub use crate::v01::stream::physical::{PhysicalCodec, PhysicalEncoding, PhysicalStreamType};
 use crate::{MltError, MltRefResult};
 
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+pub struct Encoding {
+    pub logical: LogicalEncoding,
+    pub physical: PhysicalEncoding,
+}
+
+impl Encoding {
+    #[must_use]
+    pub const fn new(logical: LogicalEncoding, physical: PhysicalEncoding) -> Self {
+        Self { logical, physical }
+    }
+}
+
 /// Representation of an encoded stream
 #[borrowme]
 #[derive(Debug, PartialEq)]
@@ -83,15 +97,11 @@ impl OwnedStream {
         Ok(Self::new_plain(data, num_values))
     }
 
-    pub fn encode_i8s(
-        values: &[i8],
-        logical: LogicalEncoding,
-        physical: PhysicalEncoding,
-    ) -> Result<Self, MltError> {
+    pub fn encode_i8s(values: &[i8], encoding: Encoding) -> Result<Self, MltError> {
         let as_i32: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
-        let (physical_u32s, logical_codec) = logical.encode_i32s(&as_i32)?;
+        let (physical_u32s, logical_codec) = encoding.logical.encode_i32s(&as_i32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_codec) = physical.encode_u32s(physical_u32s)?;
+        let (data, physical_codec) = encoding.physical.encode_u32s(physical_u32s);
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -102,15 +112,11 @@ impl OwnedStream {
             data,
         })
     }
-    pub fn encode_u8s(
-        values: &[u8],
-        logical: LogicalEncoding,
-        physical: PhysicalEncoding,
-    ) -> Result<Self, MltError> {
+    pub fn encode_u8s(values: &[u8], encoding: Encoding) -> Result<Self, MltError> {
         let as_u32: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
-        let (physical_u32s, logical_codec) = logical.encode_u32s(&as_u32)?;
+        let (physical_u32s, logical_codec) = encoding.logical.encode_u32s(&as_u32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_codec) = physical.encode_u32s(physical_u32s)?;
+        let (data, physical_codec) = encoding.physical.encode_u32s(physical_u32s);
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -121,14 +127,10 @@ impl OwnedStream {
             data,
         })
     }
-    pub fn encode_i32s(
-        values: &[i32],
-        logical: LogicalEncoding,
-        physical: PhysicalEncoding,
-    ) -> Result<Self, MltError> {
-        let (physical_u32s, logical_codec) = logical.encode_i32s(values)?;
+    pub fn encode_i32s(values: &[i32], encoding: Encoding) -> Result<Self, MltError> {
+        let (physical_u32s, logical_codec) = encoding.logical.encode_i32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_codec) = physical.encode_u32s(physical_u32s)?;
+        let (data, physical_codec) = encoding.physical.encode_u32s(physical_u32s);
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -139,27 +141,21 @@ impl OwnedStream {
             data,
         })
     }
-    pub fn encode_u32s(
-        values: &[u32],
-        logical: LogicalEncoding,
-        physical: PhysicalEncoding,
-    ) -> Result<Self, MltError> {
+    pub fn encode_u32s(values: &[u32], encoding: Encoding) -> Result<Self, MltError> {
         Self::encode_u32s_of_type(
             values,
-            logical,
-            physical,
+            encoding,
             PhysicalStreamType::Data(DictionaryType::None),
         )
     }
     pub fn encode_u32s_of_type(
         values: &[u32],
-        logical: LogicalEncoding,
-        physical: PhysicalEncoding,
+        encoding: Encoding,
         physical_type: PhysicalStreamType,
     ) -> Result<Self, MltError> {
-        let (physical_u32s, logical_codec) = logical.encode_u32s(values)?;
+        let (physical_u32s, logical_codec) = encoding.logical.encode_u32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_codec) = physical.encode_u32s(physical_u32s)?;
+        let (data, physical_codec) = encoding.physical.encode_u32s(physical_u32s);
         Ok(Self {
             meta: StreamMeta {
                 physical_type,
@@ -171,14 +167,10 @@ impl OwnedStream {
         })
     }
 
-    pub fn encode_i64s(
-        values: &[i64],
-        logical: LogicalEncoding,
-        physical: PhysicalEncoding,
-    ) -> Result<Self, MltError> {
-        let (physical_u64s, logical_codec) = logical.encode_i64s(values)?;
+    pub fn encode_i64s(values: &[i64], encoding: Encoding) -> Result<Self, MltError> {
+        let (physical_u64s, logical_codec) = encoding.logical.encode_i64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
-        let (data, physical_codec) = physical.encode_u64s(physical_u64s)?;
+        let (data, physical_codec) = encoding.physical.encode_u64s(physical_u64s);
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -189,14 +181,10 @@ impl OwnedStream {
             data,
         })
     }
-    pub fn encode_u64s(
-        values: &[u64],
-        logical: LogicalEncoding,
-        physical: PhysicalEncoding,
-    ) -> Result<Self, MltError> {
-        let (physical_u64s, logical_codec) = logical.encode_u64s(values)?;
+    pub fn encode_u64s(values: &[u64], encoding: Encoding) -> Result<Self, MltError> {
+        let (physical_u64s, logical_codec) = encoding.logical.encode_u64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
-        let (data, physical_codec) = physical.encode_u64s(physical_u64s)?;
+        let (data, physical_codec) = encoding.physical.encode_u64s(physical_u64s);
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -209,11 +197,7 @@ impl OwnedStream {
     }
 
     /// Encode a sequence of strings into a length stream and a data stream.
-    pub fn encode_strings(
-        values: &[String],
-        logical: LogicalEncoding,
-        physical: PhysicalEncoding,
-    ) -> Result<Vec<Self>, MltError> {
+    pub fn encode_strings(values: &[String], encoding: Encoding) -> Result<Vec<Self>, MltError> {
         let lengths: Vec<u32> = values
             .iter()
             .map(|s| u32::try_from(s.len()))
@@ -225,8 +209,7 @@ impl OwnedStream {
 
         let length_stream = Self::encode_u32s_of_type(
             &lengths,
-            logical,
-            physical,
+            encoding,
             PhysicalStreamType::Length(LengthType::VarBinary),
         )?;
 
@@ -952,10 +935,9 @@ mod tests {
         #[test]
         fn test_u32_roundtrip(
             values in prop::collection::vec(any::<u32>(), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>()
+            encoding in any::<Encoding>()
         ) {
-            let owned_stream = OwnedStream::encode_u32s(&values, logical, physical).unwrap();
+            let owned_stream = OwnedStream::encode_u32s(&values, encoding).unwrap();
 
             let mut buffer = Vec::new();
             buffer.write_stream(&owned_stream).unwrap();
@@ -971,10 +953,9 @@ mod tests {
         #[test]
         fn test_i32_roundtrip(
             values in prop::collection::vec(any::<i32>(), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>()
+            encoding in any::<Encoding>(),
         ) {
-            let owned_stream = OwnedStream::encode_i32s(&values, logical, physical).unwrap();
+            let owned_stream = OwnedStream::encode_i32s(&values, encoding).unwrap();
 
             let mut buffer = Vec::new();
             buffer.write_stream(&owned_stream).unwrap();
@@ -990,10 +971,9 @@ mod tests {
         #[test]
         fn test_u64_roundtrip(
             values in prop::collection::vec(any::<u64>(), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in physical_no_fastpfor()
+            encoding in any::<Encoding>(),
         ) {
-            let owned_stream = OwnedStream::encode_u64s(&values, logical, physical).unwrap();
+            let owned_stream = OwnedStream::encode_u64s(&values, encoding).unwrap();
 
             let mut buffer = Vec::new();
             buffer.write_stream(&owned_stream).unwrap();
@@ -1009,10 +989,9 @@ mod tests {
         #[test]
         fn test_i64_roundtrip(
             values in prop::collection::vec(any::<i64>(), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in physical_no_fastpfor()
+            encoding in any::<Encoding>()
         ) {
-            let owned_stream = OwnedStream::encode_i64s(&values, logical, physical).unwrap();
+            let owned_stream = OwnedStream::encode_i64s(&values, encoding).unwrap();
 
             let mut buffer = Vec::new();
             buffer.write_stream(&owned_stream).unwrap();
@@ -1028,10 +1007,9 @@ mod tests {
         #[test]
         fn test_i8_roundtrip(
             values in prop::collection::vec(any::<i8>(), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>()
+            encoding in any::<Encoding>(),
         ) {
-            let owned_stream = OwnedStream::encode_i8s(&values, logical, physical).unwrap();
+            let owned_stream = OwnedStream::encode_i8s(&values, encoding).unwrap();
 
             let mut buffer = Vec::new();
             buffer.write_stream(&owned_stream).unwrap();
@@ -1046,10 +1024,9 @@ mod tests {
         #[test]
         fn test_u8_roundtrip(
             values in prop::collection::vec(any::<u8>(), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>()
+            encoding in any::<Encoding>()
         ) {
-            let owned_stream = OwnedStream::encode_u8s(&values, logical, physical).unwrap();
+            let owned_stream = OwnedStream::encode_u8s(&values, encoding).unwrap();
 
             let mut buffer = Vec::new();
             buffer.write_stream(&owned_stream).unwrap();
@@ -1078,10 +1055,9 @@ mod tests {
         #[test]
         fn test_string_roundtrip(
             values in prop::collection::vec(any::<String>(), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>()
+            encoding in any::<Encoding>(),
         ) {
-            let owned_streams = OwnedStream::encode_strings(&values, logical, physical).unwrap();
+            let owned_streams = OwnedStream::encode_strings(&values, encoding).unwrap();
 
             let mut buffers = Vec::new();
             for owned_stream in &owned_streams {
