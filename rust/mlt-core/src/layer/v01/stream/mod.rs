@@ -146,12 +146,25 @@ impl OwnedStream {
         logical: LogicalEncoding,
         physical: PhysicalEncoding,
     ) -> Result<Self, MltError> {
+        Self::encode_u32s_of_type(
+            values,
+            logical,
+            physical,
+            PhysicalStreamType::Data(DictionaryType::None),
+        )
+    }
+    pub fn encode_u32s_of_type(
+        values: &[u32],
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
+        physical_type: PhysicalStreamType,
+    ) -> Result<Self, MltError> {
         let (physical_u32s, logical_codec) = logical.encode_u32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
         let (data, physical_codec) = physical.encode_u32s(physical_u32s);
         Ok(Self {
             meta: StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                physical_type,
                 num_values,
                 logical_codec,
                 physical_codec,
