@@ -849,6 +849,33 @@ mod tests {
         assert_eq!(result.unwrap(), expected, "should match expected output");
     }
 
+    #[rstest]
+    #[case::basic(vec![1, 2, 3, 4, 5, 100, 1000])]
+    #[case::large(vec![1_000_000; 256])]
+    #[case::edge_values(vec![0, 1, 2, 4, 8, 16, 1024, 65535, 1_000_000_000, u32::MAX])]
+    #[case::empty(vec![])]
+    fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
+        use crate::utils::BinarySerializer as _;
+
+        let owned_stream =
+            OwnedStream::encode_u32s(&values, LogicalEncoding::None, PhysicalEncoding::FastPFOR)
+                .unwrap();
+
+        let mut buffer = Vec::new();
+        buffer.write_stream(&owned_stream).unwrap();
+
+        let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+        assert!(remaining.is_empty());
+
+        let decoded_values = parsed_stream
+            .decode_bits_u32()
+            .unwrap()
+            .decode_u32()
+            .unwrap();
+
+        assert_eq!(decoded_values, values);
+    }
+
     /// Test roundtrip: write -> parse -> equality for stream serialization
     #[rstest]
     #[case::new_encoded(PhysicalStreamType::Data(DictionaryType::None), 2, LogicalCodec::None, PhysicalCodec::None, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08], false)]
@@ -1049,10 +1076,10 @@ mod tests {
         #[test]
         fn test_string_roundtrip(
             values in prop::collection::vec(any::<String>(), 0..100),
-            logical_encoder in logical_encoders_strategy(),
-            physical_codec in physical_encoder_strategy()
+            logical in any::<LogicalEncoding>(),
+            physical in any::<PhysicalEncoding>()
         ) {
-            let owned_streams = OwnedStream::encode_strings(&values, logical_encoder, physical_codec).unwrap();
+            let owned_streams = OwnedStream::encode_strings(&values, logical, physical).unwrap();
 
             let mut buffers = Vec::new();
             for owned_stream in &owned_streams {
