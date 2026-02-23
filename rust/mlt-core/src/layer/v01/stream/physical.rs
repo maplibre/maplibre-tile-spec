@@ -90,7 +90,7 @@ pub enum PhysicalEncoding {
     /// Simple compression scheme where the codec is easier to implement compared to `FastPFOR`.
     VarInt,
     /// Preferred, tends to produce the best compression ratio and decoding performance.
-    /// Silently truncates u64/i64 integers to fit within u32
+    /// Does not support u64/i64 integers; only 32-bit integers are supported.
     FastPFOR,
 }
 
