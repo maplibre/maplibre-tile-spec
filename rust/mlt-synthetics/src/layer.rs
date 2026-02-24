@@ -2,7 +2,7 @@
 
 use std::fs::{File, OpenOptions};
 use std::io::Write as _;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::{fs, io};
 
 use mlt_core::geojson::FeatureCollection;
@@ -11,7 +11,7 @@ use mlt_core::v01::{
     LogicalEncoder, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PropValue,
     PropertyEncoder,
 };
-use mlt_core::{parse_layers, Encodable as _, OwnedLayer};
+use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
 
 use crate::geometry::{Point, ValidatingGeometryEncoder};
 
@@ -43,7 +43,8 @@ impl Feature {
             layer.decode_all().unwrap();
         }
         let fc = FeatureCollection::from_layers(&data).unwrap();
-        let json = serde_json::to_string_pretty(&serde_json::to_value(&fc).unwrap()).unwrap();
+        let mut json = serde_json::to_string_pretty(&serde_json::to_value(&fc).unwrap()).unwrap();
+        json.push('\n');
         let mut out_file = Self::open_new(&dir.join(format!("{name}.json"))).unwrap();
         out_file.write_all(json.as_bytes()).unwrap();
     }
@@ -51,7 +52,7 @@ impl Feature {
         default_feature().and_point(point, meta, vertex)
     }
     pub fn and_point(mut self, [x, y]: Point, meta: Encoder, vertex: Encoder) -> Self {
-        self.geometry_encoder.point(meta, vertex);
+        self.geometry_encoder = self.geometry_encoder.point(meta, vertex);
         self.geom.vector_types.push(GeometryType::Point);
         let old_vert = self.geom.vertices.unwrap_or_default();
         let new_vert = vec![x, y];
@@ -75,19 +76,15 @@ impl Feature {
         vertex: Encoder,
         only_parts: Encoder,
     ) -> Self {
-        self.geometry_encoder.linestring(meta, vertex, only_parts);
+        self.geometry_encoder = self.geometry_encoder.linestring(meta, vertex, only_parts);
         self.geom.vector_types.push(GeometryType::LineString);
         let old_vert = self.geom.vertices.unwrap_or_default();
-        clet base_offset = old_vert.len() as u32;
-        let new_vert = points.into_iter().copied().flatten().collect::<Vec<_>>();
-        let new_offset = base_offset + (new_vert.len() as u32) / 2;
+        let base_offset = u32::try_from(old_vert.len()).expect("vertex count overflow");
+        let new_vert: Vec<_> = points.iter().copied().flatten().collect();
+        let new_offset =
+            base_offset + u32::try_from(new_vert.len()).expect("vertex count overflow") / 2;
 
-        self.geom.vertices = Some(
-            old_vert
-                .into_iter()
-                .chain(new_vert.into_iter())
-                .collect::<Vec<_>>(),
-        );
+        self.geom.vertices = Some(old_vert.into_iter().chain(new_vert).collect());
 
         let new_part_offsets = vec![base_offset, new_offset];
         let old_part_offsets = self.geom.part_offsets.unwrap_or_default();
@@ -105,32 +102,37 @@ impl Feature {
         default_feature().and_polygon(points)
     }
 
-    pub fn and_polygon(mut self, points: &[Point]) -> Self {
+    #[expect(clippy::todo)]
+    pub fn and_polygon(self, _points: &[Point]) -> Self {
         todo!()
     }
 
     pub fn polygon_with_hole(points: &[Point], hole: &[Point]) -> Self {
         default_feature().and_polygon_with_hole(points, hole)
     }
-    pub fn and_polygon_with_hole(mut self, points: &[Point], hole: &[Point]) -> Self {
+    #[expect(clippy::todo)]
+    pub fn and_polygon_with_hole(self, _points: &[Point], _hole: &[Point]) -> Self {
         todo!()
     }
     pub fn multi_point(points: &[Point]) -> Self {
         default_feature().and_multi_point(points)
     }
-    pub fn and_multi_point(mut self,points: &[Point]) -> Self {
+    #[expect(clippy::todo)]
+    pub fn and_multi_point(self, _points: &[Point]) -> Self {
         todo!()
     }
     pub fn multi_linestring(points: &[&[Point]]) -> Self {
         default_feature().and_multi_linestring(points)
     }
-    pub fn and_multi_linestring(mut self, points: &[&[Point]]) -> Self {
+    #[expect(clippy::todo)]
+    pub fn and_multi_linestring(self, _points: &[&[Point]]) -> Self {
         todo!()
     }
     pub fn multi_polygon(points: &[&[Point]]) -> Self {
         default_feature().and_multi_polygon(points)
     }
-    pub fn and_multi_polygon(mut self, points: &[&[Point]]) -> Self {
+    #[expect(clippy::todo)]
+    pub fn and_multi_polygon(self, _points: &[&[Point]]) -> Self {
         todo!()
     }
 
@@ -150,7 +152,7 @@ impl Feature {
             ..self
         }
     }
-    pub fn prop(self, name: impl ToString, values: PropValue, encoder: PropertyEncoder) -> Self {
+    pub fn prop(self, name: &impl ToString, values: PropValue, encoder: PropertyEncoder) -> Self {
         let name = name.to_string();
         Self {
             props: vec![(DecodedProperty { name, values }, encoder)],
@@ -171,7 +173,7 @@ impl Feature {
         }
     }
 
-    fn write_mlt(&self, path: &PathBuf) {
+    fn write_mlt(&self, path: &Path) {
         let feat = self.clone();
 
         // encode to mlt
@@ -223,4 +225,3 @@ fn default_feature() -> Feature {
         geometry_encoder: ValidatingGeometryEncoder::default(),
     }
 }
-K

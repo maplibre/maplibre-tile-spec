@@ -151,7 +151,7 @@ fn encode_level1_without_ring_buffer_length_stream(
 /// Main geometry encoding function
 pub fn encode_geometry(
     decoded: &DecodedGeometry,
-    config: &Box<dyn GeometryEncoder>,
+    config: &dyn GeometryEncoder,
 ) -> Result<OwnedEncodedGeometry, MltError> {
     let DecodedGeometry {
         vector_types,

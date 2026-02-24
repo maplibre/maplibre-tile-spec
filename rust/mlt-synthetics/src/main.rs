@@ -11,15 +11,19 @@ use crate::geometry::{C0, C1, C2, C3, H1, H2, H3, Point};
 
 fn main() {
     // fixme: replace real synthetics
-    let synthetics_dir = Path::new("../test/synthetic/rust/");
-    if synthetics_dir.exists() {
-        fs::remove_dir_all(synthetics_dir)
-            .unwrap_or_else(|_| panic!("to be able to delete {}", synthetics_dir.display()));
+    let dir = Path::new("../test/synthetic/0x01-rust/");
+    if dir.exists() {
+        fs::remove_dir_all(dir)
+            .unwrap_or_else(|_| panic!("to be able to delete {}", dir.display()));
     }
-    fs::create_dir_all(synthetics_dir)
-        .unwrap_or_else(|_| panic!("to be able to create {}", synthetics_dir.display()));
+    fs::create_dir_all(dir).unwrap_or_else(|_| panic!("to be able to create {}", dir.display()));
 
-    generate_geometry(synthetics_dir);
+    let dir = dir
+        .canonicalize()
+        .unwrap_or_else(|_| panic!("bad path {}", dir.display()));
+    println!("Generating geometry test data in {}", dir.display());
+
+    generate_geometry(&dir);
 }
 
 fn generate_geometry(dir: &Path) {
@@ -49,6 +53,7 @@ fn generate_geometry(dir: &Path) {
     Feat::multi_polygon(&[pol2, pol2]).write(dir, "polygon_multi_fpf");
 }
 
+#[expect(dead_code)]
 fn generate_mixed(dir: &Path) {
     use {Encoder as Enc, Feature as Feat};
 
@@ -76,17 +81,18 @@ fn generate_mixed(dir: &Path) {
         .write(dir, "mixed_all");
 }
 
+#[expect(dead_code)]
 fn generate_extent(dir: &Path) {
     use {Encoder as Enc, Feature as Feat};
 
-    for extent in [512, 4096, 131072, 1073741824] {
+    for extent in [512_i32, 4096, 131_072, 1_073_741_824] {
         Feat::linestring(
             &[[0, 0], [extent - 1, extent - 1]],
             Enc::varint(),
             Enc::varint(),
             Enc::varint(),
         )
-        .extent(extent as u32)
+        .extent(extent.cast_unsigned())
         .write(dir, &format!("extent_{extent}"));
         Feat::linestring(
             &[[-42, -42], [extent + 42, extent + 42]],
@@ -94,18 +100,19 @@ fn generate_extent(dir: &Path) {
             Enc::varint(),
             Enc::varint(),
         )
-        .extent(extent as u32)
+        .extent(extent.cast_unsigned())
         .write(dir, &format!("extent_buf_{extent}"));
     }
 }
 
+#[expect(dead_code)]
 fn generate_ids(dir: &Path) {
     use {Encoder as Enc, Feature as Feat};
     let p0 = Feat::point(C0, Enc::varint(), Enc::varint());
 
     p0.clone()
         .id(0, LogicalEncoder::None, IdWidth::Id32)
-        .write(dir, "id_0");
+        .write(dir, "id0");
     p0.clone()
         .id(100, LogicalEncoder::None, IdWidth::Id32)
         .write(dir, "id");

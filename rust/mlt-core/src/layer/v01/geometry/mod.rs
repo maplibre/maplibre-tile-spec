@@ -391,7 +391,7 @@ impl FromDecoded<'_> for OwnedEncodedGeometry {
     type Encoder = Box<dyn GeometryEncoder>;
 
     fn from_decoded(decoded: &Self::Input, config: Self::Encoder) -> Result<Self, MltError> {
-        encode::encode_geometry(decoded, &config)
+        encode::encode_geometry(decoded, config.as_ref())
     }
 }
 

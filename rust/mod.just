@@ -214,6 +214,14 @@ update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
 
+# Generate synthetic .mlt files and ensure there are no duplicates
+generate-synthetic-mlts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf ../test/synthetic/0x01-rust
+    cargo run -p mlt-synthetics
+    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
+
 [private]
 [working-directory: 'mlt-core']
 cargo-fuzz *args:  (just 'cargo-install' 'cargo-fuzz')

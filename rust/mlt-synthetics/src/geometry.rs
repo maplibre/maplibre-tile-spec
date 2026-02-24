@@ -38,16 +38,20 @@ impl ValidatingGeometryEncoder {
         set(&mut self.only_parts, only_parts, "only_parts");
         self
     }
-    pub fn polygon(mut self) -> Self {
+    #[expect(clippy::todo)]
+    pub fn polygon(self) -> Self {
         todo!()
     }
-    pub fn multi_point(mut self) -> Self {
+    #[expect(clippy::todo)]
+    pub fn multi_point(self) -> Self {
         todo!()
     }
-    pub fn multi_linestring(mut self) -> Self {
+    #[expect(clippy::todo)]
+    pub fn multi_linestring(self) -> Self {
         todo!()
     }
-    pub fn multi_polygon(mut self) -> Self {
+    #[expect(clippy::todo)]
+    pub fn multi_polygon(self) -> Self {
         todo!()
     }
 }
