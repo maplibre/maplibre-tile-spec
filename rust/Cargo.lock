@@ -1270,11 +1270,9 @@ dependencies = [
  "hex",
  "insta",
  "integer-encoding",
- "json5",
  "mvt-reader",
  "num-traits",
  "num_enum",
- "pretty_assertions",
  "proptest",
  "proptest-derive",
  "rstest",
@@ -1300,8 +1298,11 @@ dependencies = [
 name = "mlt-synthetics"
 version = "0.1.0"
 dependencies = [
+ "json5",
  "mlt-core",
+ "pretty_assertions",
  "serde_json",
+ "test_each_file",
 ]
 
 [[package]]

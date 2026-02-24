@@ -27,25 +27,27 @@ pub struct ValidatingGeometryEncoder {
     pub vertex_offsets: Option<Encoder>,
 }
 impl ValidatingGeometryEncoder {
-    pub fn point(&mut self, meta: Encoder, vertex: Encoder) {
+    pub fn point(mut self, meta: Encoder, vertex: Encoder) -> Self {
         set(&mut self.meta, meta, "meta");
         set(&mut self.vertex, vertex, "vertex");
+        self
     }
-    pub fn linestring(&mut self, meta: Encoder, vertex: Encoder, only_parts: Encoder) {
+    pub fn linestring(mut self, meta: Encoder, vertex: Encoder, only_parts: Encoder) -> Self {
         set(&mut self.meta, meta, "meta");
         set(&mut self.vertex, vertex, "vertex");
         set(&mut self.only_parts, only_parts, "only_parts");
+        self
     }
-    pub fn polygon(&mut self) {
+    pub fn polygon(mut self) -> Self {
         todo!()
     }
-    pub fn multi_point(&mut self) {
+    pub fn multi_point(mut self) -> Self {
         todo!()
     }
-    pub fn multi_linestring(&mut self) {
+    pub fn multi_linestring(mut self) -> Self {
         todo!()
     }
-    pub fn multi_polygon(&mut self) {
+    pub fn multi_polygon(mut self) -> Self {
         todo!()
     }
 }

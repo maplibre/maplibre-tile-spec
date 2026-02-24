@@ -7,6 +7,7 @@ use serde_json::Value;
 use test_each_file::test_each_path;
 
 test_each_path! { for ["mlt", "json"] in "../test/synthetic/0x01" => pair_test }
+test_each_path! { for ["mlt", "json"] in "../test/synthetic/rust" => pair_test }
 
 fn pair_test([mlt, json]: [&Path; 2]) {
     test_one(mlt, json);

@@ -33,8 +33,6 @@ zigzag.workspace = true
 [dev-dependencies]
 criterion.workspace = true
 insta.workspace = true
-json5.workspace = true
-pretty_assertions.workspace = true
 proptest.workspace = true
 proptest-derive.workspace = true
 rstest.workspace = true

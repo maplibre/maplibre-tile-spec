@@ -14,6 +14,9 @@ publish = false
 [dependencies]
 serde_json.workspace = true
 mlt-core.workspace = true
+test_each_file.workspace = true
+json5.workspace = true
+pretty_assertions.workspace = true
 
 [lints]
 workspace = true
