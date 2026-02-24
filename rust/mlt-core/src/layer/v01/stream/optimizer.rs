@@ -38,11 +38,12 @@ const HLL_ERROR_RATE: f64 = 0.05;
 ///
 /// # Strategy
 ///
-/// 1. **Profile**: Compute lightweight statistics over a representative sample
+/// 1. [`Self::prune_candidates`] - **"Prune"**:
+///    Compute lightweight statistics over a representative sample
 ///    of the data (average run length, sort order, max bit-width, distinct
 ///    ratio) and use them to prune obviously unsuitable candidates early.
-///
-/// 2. **Compete**: Encode the same sample with every surviving candidate and
+/// 2. [`Self::min_size_encoding_u32s`] / [`Self::min_size_encoding_u64s`] - **"Compete"**:
+///    Encode the same sample with every surviving candidate and
 ///    pick the one whose encoded output is smallest.
 ///    In case of a tie
 ///    - the physical priority order is `FastPFOR` > `VarInt` > `None and,
@@ -86,7 +87,7 @@ impl DataProfile {
     /// Profile a `u32` sample in a single pass.
     #[must_use]
     #[expect(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-    pub fn profile<T>(sample: &[T::UInt]) -> Self
+    fn profile<T>(sample: &[T::UInt]) -> Self
     where
         T: ZigZag + Hash,
         <T as ZigZag>::UInt: Hash + WrappingSub,
