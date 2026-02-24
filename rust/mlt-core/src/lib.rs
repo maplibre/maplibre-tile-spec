@@ -16,6 +16,8 @@ pub use decode::*;
 pub use encode::*;
 pub use errors::{MltError, MltRefResult};
 pub use layer::{Layer, OwnedLayer};
+// reexport borrowme to make it easier to use in other crates
+pub use borrowme;
 
 /// Parse a sequence of binary layers
 pub fn parse_layers(mut input: &[u8]) -> Result<Vec<Layer<'_>>, MltError> {

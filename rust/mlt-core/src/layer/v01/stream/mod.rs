@@ -30,6 +30,16 @@ pub struct Encoder {
 
 impl Encoder {
     #[must_use]
+    pub fn plain() -> Encoder {
+        Encoder {
+            logical: LogicalEncoder::None,
+            physical: PhysicalEncoder::None,
+        }
+    }
+}
+
+impl Encoder {
+    #[must_use]
     pub const fn new(logical: LogicalEncoder, physical: PhysicalEncoder) -> Self {
         Self { logical, physical }
     }
@@ -37,7 +47,7 @@ impl Encoder {
 
 /// Representation of an encoded stream
 #[borrowme]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Stream<'a> {
     pub meta: StreamMeta,
     pub data: StreamData<'a>,
@@ -426,7 +436,7 @@ pub struct MortonMeta {
 macro_rules! stream_data {
     ($($enm:ident : $ty:ident / $owned:ident),+ $(,)?) => {
         #[borrowme]
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug, PartialEq, Clone)]
         pub enum StreamData<'a> {
             $($enm($ty<'a>),)+
         }
@@ -441,7 +451,7 @@ macro_rules! stream_data {
 
         $(
             #[borrowme]
-            #[derive(PartialEq)]
+            #[derive(PartialEq, Clone)]
             pub struct $ty<'a> {
                 #[borrowme(borrow_with = Vec::as_slice)]
                 pub data: &'a [u8],

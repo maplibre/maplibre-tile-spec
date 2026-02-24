@@ -6,7 +6,6 @@ use std::io::Write;
 use std::ops::Range;
 
 use borrowme::borrowme;
-use derive_builder::Builder;
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
@@ -28,14 +27,15 @@ use crate::v01::geometry::decode::{
     decode_root_length_stream,
 };
 use crate::v01::{
-    DictionaryType, Encoder, LengthType, LogicalEncoding, OffsetType, OwnedStream,
+    DictionaryType, LengthType, LogicalEncoding, OffsetType, OwnedStream,
     PhysicalEncoding, Stream, StreamMeta, StreamType,
 };
 use crate::{FromDecoded, MltError};
+pub use crate::v01::geometry::encode::GeometryEncoder;
 
 /// Geometry column representation, either encoded or decoded
 #[borrowme]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Geometry<'a> {
     Encoded(EncodedGeometry<'a>),
     Decoded(DecodedGeometry),
@@ -77,7 +77,7 @@ impl OwnedGeometry {
 
 /// Unparsed geometry data as read directly from the tile
 #[borrowme]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct EncodedGeometry<'a> {
     pub meta: Stream<'a>,
     pub items: Vec<Stream<'a>>,
@@ -386,48 +386,13 @@ impl Analyze for GeometryType {
 impl_decodable!(Geometry<'a>, EncodedGeometry<'a>, DecodedGeometry);
 impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedEncodedGeometry);
 
-/// How to encode Geometry
-#[derive(Debug, Clone, Copy, Builder)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-pub struct GeometryEncoder {
-    /// Encoding settings for the geometry types (meta) stream.
-    meta: Encoder,
-
-    /// Encoding for the geometry length stream.
-    num_geometries: Encoder,
-
-    /// Encoding for parts length stream when rings are present.
-    rings: Encoder,
-    /// Encoding for ring vertex-count stream.
-    rings2: Encoder,
-    /// Encoding for parts length stream when rings are not present.
-    no_rings: Encoder,
-
-    /// Encoding for parts length stream (with rings) when `geometry_offsets` absent.
-    parts: Encoder,
-    /// Encoding for ring lengths when `geometry_offsets` absent.
-    parts_ring: Encoder,
-
-    /// Encoding for parts-only stream (e.g. `LineString`, no rings).
-    only_parts: Encoder,
-
-    /// Encoding for triangles count stream (pre-tessellated polygons).
-    triangles: Encoder,
-    /// Encoding for triangle index buffer (pre-tessellated polygons).
-    triangles_indexes: Encoder,
-
-    /// Encoding for the vertex data stream (logical is always `ComponentwiseDelta`; only physical varies).
-    vertex: Encoder,
-    /// Encoding for vertex offsets (dictionary encoding).
-    vertex_offsets: Encoder,
-}
 
 impl FromDecoded<'_> for OwnedEncodedGeometry {
     type Input = DecodedGeometry;
-    type Encoder = GeometryEncoder;
+    type Encoder = Box<dyn GeometryEncoder>;
 
     fn from_decoded(decoded: &Self::Input, config: Self::Encoder) -> Result<Self, MltError> {
-        encode::encode_geometry(decoded, config)
+        encode::encode_geometry(decoded, &config)
     }
 }
 
@@ -598,13 +563,13 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
-
+    use crate::v01::geometry::encode::GeometryEncoderAll;
     use super::*;
 
     /// Helper function to encode, serialize, parse, and decode for roundtrip testing
-    fn roundtrip(decoded: &DecodedGeometry, encoder: GeometryEncoder) -> DecodedGeometry {
+    fn roundtrip(decoded: &DecodedGeometry, encoder: GeometryEncoderAll) -> DecodedGeometry {
         let encoded_geom =
-            OwnedEncodedGeometry::from_decoded(decoded, encoder).expect("Failed to encode");
+            OwnedEncodedGeometry::from_decoded(decoded, Box::new(encoder)).expect("Failed to encode");
 
         // Serialize to bytes (write_to includes the stream count varint)
         let mut buffer = Vec::new();
@@ -740,37 +705,37 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_point_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_point()) {
+        fn test_point_roundtrip(encoder in any::<GeometryEncoderAll>(), input in arb_point()) {
             let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_line_string_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_line_string()) {
+        fn test_line_string_roundtrip(encoder in any::<GeometryEncoderAll>(), input in arb_line_string()) {
             let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_polygon_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_polygon()) {
+        fn test_polygon_roundtrip(encoder in any::<GeometryEncoderAll>(), input in arb_polygon()) {
             let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_multi_point_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_point()) {
+        fn test_multi_point_roundtrip(encoder in any::<GeometryEncoderAll>(), input in arb_multi_point()) {
             let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_multi_line_string_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_line_string()) {
+        fn test_multi_line_string_roundtrip(encoder in any::<GeometryEncoderAll>(), input in arb_multi_line_string()) {
             let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }
 
         #[test]
-        fn test_multi_polygon_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_polygon()) {
+        fn test_multi_polygon_roundtrip(encoder in any::<GeometryEncoderAll>(), input in arb_multi_polygon()) {
             let output = roundtrip(&input, encoder);
             prop_assert_eq!(output, input);
         }

@@ -203,8 +203,14 @@ impl<'a> FromEncoded<'a> for DecodedId {
 /// How to encode IDs
 #[derive(Debug, Clone, Copy)]
 pub struct IdEncoder {
-    logical: LogicalEncoder,
-    id_width: IdWidth,
+    pub logical: LogicalEncoder,
+    pub id_width: IdWidth,
+}
+impl IdEncoder {
+    #[must_use]
+    pub fn new(logical: LogicalEncoder, id_width: IdWidth) -> Self {
+        Self { logical, id_width }
+    }
 }
 
 /// How wide are the IDs
