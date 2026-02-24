@@ -46,6 +46,14 @@ impl Encoder {
     pub fn rle_varint() -> Encoder {
         Encoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
     }
+    #[must_use]
+    pub fn fastpfor() -> Encoder {
+        Encoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR)
+    }
+    #[must_use]
+    pub fn rle_fastpfor() -> Encoder {
+        Encoder::new(LogicalEncoder::Rle, PhysicalEncoder::FastPFOR)
+    }
 }
 
 /// Representation of an encoded stream

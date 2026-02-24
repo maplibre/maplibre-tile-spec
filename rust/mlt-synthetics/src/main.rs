@@ -6,19 +6,15 @@
 //! # Current Status
 //!
 //! ## Files that MATCH Java output (byte-for-byte identical):
-//! - Basic geometry: point, line, polygon, `polygon_hole`, `polygon_multi`, multipoint, multiline
-//! - Extent variants: `extent_512`, `extent_4096`, `extent_131072`, `extent_1073741824` (and buf variants)
-//!
-//! ## Files that DIFFER from Java output:
-//! - ID files: Java uses varint encoding by default, Rust currently uses plain encoding
-//! - Property files: Similar encoding differences
+//! - All basic geometries, extents, IDs, and properties
+//! - `FastPFOR` variants: `polygon_fpf`, `polygon_hole_fpf`, `polygon_multi_fpf`
 //!
 //! ## Files NOT YET GENERATED:
 //! - Mixed geometry: `mixed_pt_line`, `mixed_pt_poly`, `mixed_line_poly`, `mixed_pt_mline`, `mixed_all`
-//!   (requires proper support for mixing geometry types in a single layer)
-//! - `FastPFOR` variants: `polygon_fpf`, `polygon_hole_fpf`, `polygon_multi_fpf`
-//! - Tessellation variants: `polygon_tes`, `polygon_morton_tes`
-//! - FSST/Shared dictionary: `props_str_fsst`, `props_shared_dict`, `props_shared_dict_fsst`
+//!   (requires fixing geometry offset arrays in mlt-core for mixed types)
+//! - Tessellation variants: `polygon_tes`, `polygon_morton_tes` (tessellation compute not implemented)
+//! - FSST: `props_str_fsst` (FSST encoding not implemented)
+//! - Shared dictionary: `props_shared_dict`, `props_shared_dict_fsst` (shared dict encoding not implemented)
 
 mod geometry;
 mod layer;
@@ -50,7 +46,9 @@ fn main() {
     println!("Generating synthetic test data in {}", dir.display());
 
     generate_geometry(&dir);
-    // TODO: generate_mixed requires proper support for mixing geometry types in a layer
+    // TODO: `generate_mixed` requires fixing the geometry offset arrays in mlt-core
+    // for mixed geometry types - see `encode_root_length_stream` issue
+    // generate_mixed();
     // generate_mixed(&dir);
     generate_extent(&dir);
     generate_ids(&dir);
@@ -82,7 +80,17 @@ fn generate_geometry(dir: &Path) {
         E::varint(),
     )
     .write(dir, "polygon");
-    // TODO: polygon_fpf, polygon_tes, polygon_morton_tes need FastPFOR/tessellation support
+
+    // polygon_fpf - Same polygon with FastPFOR encoding
+    Feature::polygon(
+        pol.clone(),
+        E::fastpfor(),
+        E::fastpfor(),
+        E::fastpfor(),
+        E::fastpfor(),
+    )
+    .write(dir, "polygon_fpf");
+    // TODO: polygon_tes, polygon_morton_tes need tessellation support
 
     // Polygon with hole - Java: feat(poly(ring(c1, c2, c3, c1), ring(h1, h2, h3, h1)));
     // Java uses RLE encoding for the rings stream
@@ -91,14 +99,23 @@ fn generate_geometry(dir: &Path) {
         vec![LineString(vec![H1, H2, H3, H1])],
     );
     Feature::polygon(
-        pol_hole,
+        pol_hole.clone(),
         E::varint(),
         E::varint(),
         E::varint(),
         E::rle_varint(),
     )
     .write(dir, "polygon_hole");
-    // TODO: polygon_hole_fpf needs FastPFOR support
+
+    // polygon_hole_fpf - Polygon with hole using FastPFOR + RLE for rings
+    Feature::polygon(
+        pol_hole,
+        E::fastpfor(),
+        E::fastpfor(),
+        E::fastpfor(),
+        E::rle_fastpfor(),
+    )
+    .write(dir, "polygon_hole_fpf");
 
     // MultiPolygon - Java: feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1)));
     // Java uses RLE encoding for both parts and rings streams
@@ -107,7 +124,7 @@ fn generate_geometry(dir: &Path) {
         Polygon::new(LineString(vec![H1, H3, C2, H1]), vec![]),
     ]);
     Feature::multi_polygon(
-        mpol,
+        mpol.clone(),
         E::varint(),
         E::varint(),
         E::varint(),
@@ -115,7 +132,17 @@ fn generate_geometry(dir: &Path) {
         E::rle_varint(),
     )
     .write(dir, "polygon_multi");
-    // TODO: polygon_multi_fpf needs FastPFOR support
+
+    // polygon_multi_fpf - MultiPolygon with FastPFOR + RLE for parts/rings
+    Feature::multi_polygon(
+        mpol,
+        E::fastpfor(),
+        E::fastpfor(),
+        E::fastpfor(),
+        E::rle_fastpfor(),
+        E::rle_fastpfor(),
+    )
+    .write(dir, "polygon_multi_fpf");
 
     // MultiPoint - Java: write("multipoint", feat(multi(p1, p2, p3)), cfg());
     let mpt = MultiPoint(vec![Point(C1), Point(C2), Point(C3)]);
@@ -127,7 +154,6 @@ fn generate_geometry(dir: &Path) {
         .write(dir, "multiline");
 }
 
-#[expect(dead_code)]
 fn generate_mixed(dir: &Path) {
     use Encoder as E;
 
