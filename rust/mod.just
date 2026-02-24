@@ -238,9 +238,16 @@ verify-syntetic-equality: generate-synthetic-mlts (just 'cargo-install' 'delta' 
           diff -U20 \
             --label "A: $file_a" \
             --label "B: $file_b" \
+            <($BIN decode "$file_a") \
+            <($BIN decode "$file_b") \
+            | delta --side-by-side --file-modified-label "decoded difference"
+            
+          diff -U20 \
+            --label "A: $file_a" \
+            --label "B: $file_b" \
             <($BIN dump "$file_a") \
             <($BIN dump "$file_b") \
-            | delta --side-by-side
+            | delta --side-by-side --file-modified-label "dumped binary difference"
           echo
         fi
       else
