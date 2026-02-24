@@ -1,15 +1,17 @@
 #![expect(dead_code)]
 
+use std::fs::{File, OpenOptions};
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
+use std::{fs, io};
 
-use mlt_core::borrowme::Borrow as _;
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, Encoder, GeometryType, IdEncoder, IdWidth,
-    LogicalEncoder, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PhysicalEncoder,
-    PresenceStream, PropValue, PropertyEncoder,
+    LogicalEncoder, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PropValue,
+    PropertyEncoder,
 };
-use mlt_core::{Encodable as _, OwnedLayer};
+use mlt_core::{parse_layers, Encodable as _, OwnedLayer};
 
 use crate::geometry::{Point, ValidatingGeometryEncoder};
 
@@ -17,90 +19,118 @@ use crate::geometry::{Point, ValidatingGeometryEncoder};
 pub struct Feature {
     // features
     geom: DecodedGeometry,
-    props: Vec<DecodedProperty>,
+    props: Vec<(DecodedProperty, PropertyEncoder)>,
     ids: DecodedId,
     extent: Option<u32>,
 
     // config
     ids_encoder: IdEncoder,
     geometry_encoder: ValidatingGeometryEncoder,
-    property_encoder: PropertyEncoder,
 }
 
 impl Feature {
+    fn open_new(path: &Path) -> io::Result<File> {
+        OpenOptions::new().write(true).create_new(true).open(path)
+    }
+
     pub fn write(&self, dir: &Path, name: &str) {
-        self.write_geojson(&dir.join(format!("{name}.geojson")));
-        self.write_mlt(&dir.join(format!("{name}.mlt")));
-    }
-    pub fn point([x, y]: Point, meta: Encoder, vertex: Encoder) -> Self {
-        let geom = DecodedGeometry {
-            vector_types: vec![GeometryType::Point],
-            vertices: Some(vec![x, y]),
-            ..Default::default()
-        };
-        let mut geometry_encoder = ValidatingGeometryEncoder::default();
-        geometry_encoder.point(meta, vertex);
-        let property_encoder = PropertyEncoder::new(
-            PresenceStream::Absent,
-            LogicalEncoder::None,
-            PhysicalEncoder::None,
-        );
+        let path = dir.join(format!("{name}.mlt"));
+        self.write_mlt(&path);
 
-        Self {
-            geom,
-            props: vec![],
-            ids: DecodedId(None),
-
-            extent: None,
-            ids_encoder: IdEncoder::new(LogicalEncoder::None, IdWidth::Id32),
-            geometry_encoder,
-            property_encoder,
+        let buffer = fs::read(&path).unwrap();
+        let mut data = parse_layers(&buffer).unwrap();
+        for layer in &mut data {
+            layer.decode_all().unwrap();
         }
+        let fc = FeatureCollection::from_layers(&data).unwrap();
+        let json = serde_json::to_string_pretty(&serde_json::to_value(&fc).unwrap()).unwrap();
+        let mut out_file = Self::open_new(&dir.join(format!("{name}.json"))).unwrap();
+        out_file.write_all(json.as_bytes()).unwrap();
     }
+    pub fn point(point: Point, meta: Encoder, vertex: Encoder) -> Self {
+        default_feature().and_point(point, meta, vertex)
+    }
+    pub fn and_point(mut self, [x, y]: Point, meta: Encoder, vertex: Encoder) -> Self {
+        self.geometry_encoder.point(meta, vertex);
+        self.geom.vector_types.push(GeometryType::Point);
+        let old_vert = self.geom.vertices.unwrap_or_default();
+        let new_vert = vec![x, y];
+        self.geom.vertices = Some(old_vert.into_iter().chain(new_vert).collect::<Vec<_>>());
+        self
+    }
+
     pub fn linestring(
         points: &[Point],
         meta: Encoder,
         vertex: Encoder,
         only_parts: Encoder,
     ) -> Self {
-        let vertices = points.into_iter().copied().flatten().collect::<Vec<_>>();
-        let part_offsets = vec![0, (vertices.len() as u32) / 2];
-        let geom = DecodedGeometry {
-            vector_types: vec![GeometryType::LineString],
-            vertices: Some(vertices),
-            part_offsets: Some(part_offsets),
-            ..Default::default()
-        };
-        let mut geometry_encoder = ValidatingGeometryEncoder::default();
-        geometry_encoder.linestring(meta, vertex, only_parts);
-        let property_encoder = PropertyEncoder::new(
-            PresenceStream::Absent,
-            LogicalEncoder::None,
-            PhysicalEncoder::None,
-        );
-
-        Self {
-            geom,
-            props: vec![],
-            ids: DecodedId(None),
-
-            extent: None,
-            ids_encoder: IdEncoder::new(LogicalEncoder::None, IdWidth::Id32),
-            geometry_encoder,
-            property_encoder,
-        }
+        default_feature().and_linestring(points, meta, vertex, only_parts)
     }
 
-    pub fn polygon(points: &[&[Point]]) -> Self {
+    pub fn and_linestring(
+        mut self,
+        points: &[Point],
+        meta: Encoder,
+        vertex: Encoder,
+        only_parts: Encoder,
+    ) -> Self {
+        self.geometry_encoder.linestring(meta, vertex, only_parts);
+        self.geom.vector_types.push(GeometryType::LineString);
+        let old_vert = self.geom.vertices.unwrap_or_default();
+        clet base_offset = old_vert.len() as u32;
+        let new_vert = points.into_iter().copied().flatten().collect::<Vec<_>>();
+        let new_offset = base_offset + (new_vert.len() as u32) / 2;
+
+        self.geom.vertices = Some(
+            old_vert
+                .into_iter()
+                .chain(new_vert.into_iter())
+                .collect::<Vec<_>>(),
+        );
+
+        let new_part_offsets = vec![base_offset, new_offset];
+        let old_part_offsets = self.geom.part_offsets.unwrap_or_default();
+        self.geom.part_offsets = Some(
+            old_part_offsets
+                .into_iter()
+                .chain(new_part_offsets)
+                .collect::<Vec<_>>(),
+        );
+
+        self
+    }
+
+    pub fn polygon(points: &[Point]) -> Self {
+        default_feature().and_polygon(points)
+    }
+
+    pub fn and_polygon(mut self, points: &[Point]) -> Self {
+        todo!()
+    }
+
+    pub fn polygon_with_hole(points: &[Point], hole: &[Point]) -> Self {
+        default_feature().and_polygon_with_hole(points, hole)
+    }
+    pub fn and_polygon_with_hole(mut self, points: &[Point], hole: &[Point]) -> Self {
         todo!()
     }
     pub fn multi_point(points: &[Point]) -> Self {
+        default_feature().and_multi_point(points)
+    }
+    pub fn and_multi_point(mut self,points: &[Point]) -> Self {
         todo!()
     }
     pub fn multi_linestring(points: &[&[Point]]) -> Self {
+        default_feature().and_multi_linestring(points)
+    }
+    pub fn and_multi_linestring(mut self, points: &[&[Point]]) -> Self {
         todo!()
     }
-    pub fn multi_polygon(points: &[&[&[Point]]]) -> Self {
+    pub fn multi_polygon(points: &[&[Point]]) -> Self {
+        default_feature().and_multi_polygon(points)
+    }
+    pub fn and_multi_polygon(mut self, points: &[&[Point]]) -> Self {
         todo!()
     }
 
@@ -113,27 +143,30 @@ impl Feature {
         }
     }
     pub fn ids(self, ids: Vec<Option<u64>>, ids_encoder: IdEncoder) -> Self {
+        let ids = DecodedId(Some(ids));
         Self {
-            ids: DecodedId(Some(ids)),
+            ids,
             ids_encoder,
             ..self
         }
     }
-    pub fn prop(self, name: &str, values: PropValue, property_encoder: PropertyEncoder) -> Self {
-        let props = vec![DecodedProperty {
-            name: name.to_string(),
-            values,
-        }];
+    pub fn prop(self, name: impl ToString, values: PropValue, encoder: PropertyEncoder) -> Self {
+        let name = name.to_string();
         Self {
-            props,
-            property_encoder,
+            props: vec![(DecodedProperty { name, values }, encoder)],
             ..self
         }
     }
-    pub fn props(self, props: Vec<DecodedProperty>, property_encoder: PropertyEncoder) -> Self {
+    pub fn props(self, props: Vec<DecodedProperty>, encoder: PropertyEncoder) -> Self {
         Self {
-            props,
-            property_encoder,
+            props: props.into_iter().map(|p| (p, encoder)).collect(),
+            ..self
+        }
+    }
+
+    pub fn extent(self, extent: u32) -> Self {
+        Self {
+            extent: Some(extent),
             ..self
         }
     }
@@ -142,70 +175,51 @@ impl Feature {
         let feat = self.clone();
 
         // encode to mlt
-        let id = if self.ids.0.is_some() {
-            let mut id = OwnedId::Decoded(feat.ids);
-            id.encode_with(self.ids_encoder).unwrap();
-            id
-        } else {
-            OwnedId::None
-        };
-
         let mut geometry = OwnedGeometry::Decoded(feat.geom);
         geometry
             .encode_with(Box::new(self.geometry_encoder))
             .unwrap();
 
-        let mut properties = feat
-            .props
-            .into_iter()
-            .map(OwnedProperty::Decoded)
-            .collect::<Vec<_>>();
-        for p in &mut properties {
-            p.encode_with(self.property_encoder).unwrap();
-        }
-
-        // serialise out
+        // serialize as binary
         let layer = OwnedLayer::Tag01(OwnedLayer01 {
             name: "layer1".to_string(),
             extent: self.extent.unwrap_or(4096),
-            id,
+            id: if self.ids.0.is_some() {
+                let mut id = OwnedId::Decoded(feat.ids);
+                id.encode_with(self.ids_encoder).unwrap();
+                id
+            } else {
+                OwnedId::None
+            },
             geometry,
-            properties,
+            properties: feat
+                .props
+                .into_iter()
+                .map(|(p, e)| {
+                    let mut p = OwnedProperty::Decoded(p);
+                    p.encode_with(e).unwrap();
+                    p
+                })
+                .collect::<Vec<_>>(),
         });
 
-        let mut file = std::fs::File::create(path)
+        let mut file = Self::open_new(path)
             .unwrap_or_else(|_| panic!("cannot create feature {}", path.display()));
         layer
             .write_to(&mut file)
             .unwrap_or_else(|_| panic!("cannot encode feature {}", path.display()));
     }
+}
 
-    fn write_geojson(&self, file: &Path) {
-        let feat = self.clone();
+// purposely not pub, or impl Default since it is REQUIRED to have at least one geometry
+fn default_feature() -> Feature {
+    Feature {
+        geom: DecodedGeometry::default(),
+        props: vec![],
+        ids: DecodedId(None),
 
-        // encode to geojson
-        let id = OwnedId::Decoded(feat.ids);
-        let geometry = OwnedGeometry::Decoded(feat.geom);
-        let properties = feat
-            .props
-            .into_iter()
-            .map(OwnedProperty::Decoded)
-            .collect::<Vec<_>>();
-        let layer = OwnedLayer::Tag01(OwnedLayer01 {
-            name: "layer1".to_string(),
-            extent: self.extent.unwrap_or(4096),
-            id,
-            geometry,
-            properties,
-        });
-        let borrowed_layer = layer.borrow();
-        let mlt_geojson = FeatureCollection::from_layers(&[borrowed_layer]).unwrap();
-
-        // serialise out
-        let geojson = serde_json::to_string_pretty(&mlt_geojson).unwrap();
-
-        // write to file
-        std::fs::write(file, geojson)
-            .unwrap_or_else(|_| panic!("cannot write feature {}", file.display()));
+        extent: None,
+        ids_encoder: IdEncoder::new(LogicalEncoder::None, IdWidth::Id32),
+        geometry_encoder: ValidatingGeometryEncoder::default(),
     }
 }

@@ -429,7 +429,7 @@ impl<'a> Property<'a> {
 }
 
 /// How to encode properties
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PropertyEncoder {
     pub optional: PresenceStream,
     pub logical: LogicalEncoder,
@@ -447,6 +447,15 @@ impl PropertyEncoder {
             logical,
             physical,
         }
+    }
+
+    #[must_use]
+    pub fn none() -> Self {
+        Self::new(
+            PresenceStream::Absent,
+            LogicalEncoder::None,
+            PhysicalEncoder::None,
+        )
     }
 
     #[must_use]
@@ -619,11 +628,7 @@ mod tests {
         ) {
             let opt_values: Vec<Option<bool>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::Bool(opt_values) };
-            let encoder = PropertyEncoder::new(
-                PresenceStream::Absent,
-                LogicalEncoder::None,
-                PhysicalEncoder::None,
-            );
+            let encoder = PropertyEncoder::none();
             prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
@@ -806,11 +811,7 @@ mod tests {
         ) {
             let opt_values: Vec<Option<f32>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::F32(opt_values) };
-            let encoder = PropertyEncoder::new(
-                PresenceStream::Absent,
-                LogicalEncoder::None,
-                PhysicalEncoder::None,
-            );
+            let encoder = PropertyEncoder::none();
             prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
@@ -848,11 +849,7 @@ mod tests {
         ) {
             let opt_values: Vec<Option<f64>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::F64(opt_values) };
-            let encoder = PropertyEncoder::new(
-                PresenceStream::Absent,
-                LogicalEncoder::None,
-                PhysicalEncoder::None,
-            );
+            let encoder = PropertyEncoder::none();
             prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
     }
