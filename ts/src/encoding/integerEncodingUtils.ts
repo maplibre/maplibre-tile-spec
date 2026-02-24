@@ -2,7 +2,6 @@ import IntWrapper from "../decoding/intWrapper";
 import {
     createFastPforEncoderWorkspace,
     encodeFastPforInt32WithWorkspace,
-    type FastPforEncoderWorkspace,
 } from "./fastPforEncoder";
 import { encodeBigEndianInt32s } from "./bigEndianEncode";
 
@@ -107,26 +106,9 @@ function encodeVarintFloat64Value(val: number, buf: Uint8Array, offset: IntWrapp
     offset.increment();
 }
 
-export type FastPforWireEncodeWorkspace = {
-    encoderWorkspace: FastPforEncoderWorkspace;
-};
-
-export function createFastPforWireEncodeWorkspace(): FastPforWireEncodeWorkspace {
-    return {
-        encoderWorkspace: createFastPforEncoderWorkspace(),
-    };
-}
-
 export function encodeFastPfor(values: Int32Array): Uint8Array {
-    const wireWorkspace = createFastPforWireEncodeWorkspace();
-    return encodeFastPforWithWorkspace(values, wireWorkspace);
-}
-
-export function encodeFastPforWithWorkspace(
-    values: Int32Array,
-    wireWorkspace: FastPforWireEncodeWorkspace,
-): Uint8Array {
-    const encodedWords = encodeFastPforInt32WithWorkspace(values, wireWorkspace.encoderWorkspace);
+    const encoderWorkspace = createFastPforEncoderWorkspace();
+    const encodedWords = encodeFastPforInt32WithWorkspace(values, encoderWorkspace);
     return encodeBigEndianInt32s(encodedWords);
 }
 
