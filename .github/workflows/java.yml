@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - 'justfile'
+      - 'java/mod.just'
       - '.github/**'
       - 'java/**'
       - 'test/**'
@@ -25,22 +26,21 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
-      - run: just -v env-info-java
+      - run: just -v java::env-info
       - if: matrix.os == 'ubuntu-latest'
-        name: Lint Java code. If fails, run `just fmt-java` to reformat, and `just lint-java` to see issues locally
-        run: just -v lint-java
+        name: Lint Java code. If fails, run `just java::fmt` to reformat, and `just java::lint` to see issues locally
+        run: just -v java::lint
 
-      - run: ./gradlew jacocoTestReport
-        working-directory: java
+      - run: just -v java::test-coverage
 
-      - run: just -v test-java-cli
+      - run: just -v java::test-cli
 
       - name: Test Maven local publishing
-        run: cd java && ./gradlew publishMavenPublicationToMavenLocal
+        run: just -v java::test-publish
 
       - run: npm ci
         working-directory: java/encoding-server
@@ -58,4 +58,4 @@ jobs:
           directory: java
 
       - name: Test synthetic MLT generation
-        run: just -v ci-check-synthetic-mlts
+        run: just -v java::ci-check-synthetic-mlts

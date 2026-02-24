@@ -4,7 +4,10 @@ import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.
 import static org.maplibre.mlt.tools.SyntheticMltUtil.*;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.file.Files;
+import org.maplibre.mlt.data.unsigned.U32;
+import org.maplibre.mlt.data.unsigned.U64;
 
 public class SyntheticMltGenerator {
 
@@ -114,6 +117,14 @@ public class SyntheticMltGenerator {
     write(layer("ids64_delta", ids64), cfg(DELTA).ids());
     write(layer("ids64_rle", ids64), cfg(RLE).ids());
     write(layer("ids64_delta_rle", ids64), cfg(DELTA_RLE).ids());
+
+    var optIds = array(idFeat(100), idFeat(101), idFeat(), idFeat(105), idFeat(106));
+    write(layer("ids_opt", optIds), cfg().ids());
+    write(layer("ids_opt_delta", optIds), cfg(DELTA).ids());
+
+    var optIds64 = array(idFeat(), idFeat(9_234_567_890L), idFeat(101), idFeat(105), idFeat(106));
+    write(layer("ids64_opt", optIds64), cfg().ids());
+    write(layer("ids64_opt_delta", optIds64), cfg(DELTA).ids());
   }
 
   @SuppressWarnings("cast")
@@ -121,11 +132,14 @@ public class SyntheticMltGenerator {
     // Scalar property types
     write("prop_bool", feat(p0, prop("val", true)), cfg());
     write("prop_bool_false", feat(p0, prop("val", false)), cfg());
-    // FIXME: not yet supported
+    // FIXME: needs support in the Java decoder + encoder
     // write("prop_i8", feat(p0, prop("val", (byte) 42)), cfg());
     // write("prop_i8_neg", feat(p0, prop("val", (byte) -42)), cfg());
     // write("prop_i8_min", feat(p0, prop("val", Byte.MIN_VALUE)), cfg());
     // write("prop_i8_max", feat(p0, prop("val", Byte.MAX_VALUE)), cfg());
+    // write("prop_u8", feat(p0, prop("tinynum", U8.of(100))), cfg());
+    // write("prop_u8_min", feat(p0, prop("tinynum", U8.of(0))), cfg());
+    // write("prop_u8_max", feat(p0, prop("tinynum", U8.of(255))), cfg());
     // write("prop_i16", feat(p0, prop("val", (short) 42)), cfg());
     // write("prop_i16_neg", feat(p0, prop("val", (short) -42)), cfg());
     // write("prop_i16_min", feat(p0, prop("val", Short.MIN_VALUE)), cfg());
@@ -134,10 +148,22 @@ public class SyntheticMltGenerator {
     write("prop_i32_neg", feat(p0, prop("val", (int) -42)), cfg());
     write("prop_i32_min", feat(p0, prop("val", Integer.MIN_VALUE)), cfg());
     write("prop_i32_max", feat(p0, prop("val", Integer.MAX_VALUE)), cfg());
+    write("prop_u32", feat(p0, prop("val", U32.of(42L))), cfg());
+    write("prop_u32_min", feat(p0, prop("val", U32.of(0L))), cfg());
+    write("prop_u32_max", feat(p0, prop("val", U32.of(0xFFFFFFFFL))), cfg());
     write("prop_i64", feat(p0, prop("val", (long) 9_876_543_210L)), cfg());
     write("prop_i64_neg", feat(p0, prop("val", (long) -9_876_543_210L)), cfg());
     write("prop_i64_min", feat(p0, prop("val", Long.MIN_VALUE)), cfg());
     write("prop_i64_max", feat(p0, prop("val", Long.MAX_VALUE)), cfg());
+    write(
+        "prop_u64",
+        feat(p0, prop("bignum", U64.of(BigInteger.valueOf(1234567890123456789L)))),
+        cfg());
+    write("prop_u64_min", feat(p0, prop("bignum", U64.of(BigInteger.ZERO))), cfg());
+    write(
+        "prop_u64_max",
+        feat(p0, prop("bignum", U64.of(new BigInteger("18446744073709551615")))),
+        cfg());
     write("prop_f32", feat(p0, prop("val", (float) 3.14f)), cfg());
     write("prop_f32_neg_inf", feat(p0, prop("val", Float.NEGATIVE_INFINITY)), cfg());
     write("prop_f32_min", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
@@ -175,6 +201,18 @@ public class SyntheticMltGenerator {
                 kv("precision", 0.123456789))),
         cfg());
 
+    // FIXME: needs support in the decoder + encoder
+    // var feat_u8s =
+    //    array(
+    //        feat(p1, prop("val", U8.of(100))),
+    //        feat(p2, prop("val", U8.of(100))),
+    //        feat(p3, prop("val", U8.of(100))),
+    //        feat(p4, prop("val", U8.of(100))));
+    // write(layer("props_u8", feat_u8s), cfg());
+    // write(layer("props_u8_delta", feat_u8s), cfg(DELTA));
+    // write(layer("props_u8_rle", feat_u8s), cfg(RLE));
+    // write(layer("props_u8_delta_rle", feat_u8s), cfg(DELTA_RLE));
+
     var feat_ints =
         array(
             feat(p1, prop("val", 42)),
@@ -185,6 +223,28 @@ public class SyntheticMltGenerator {
     write(layer("props_i32_delta", feat_ints), cfg(DELTA));
     write(layer("props_i32_rle", feat_ints), cfg(RLE));
     write(layer("props_i32_delta_rle", feat_ints), cfg(DELTA_RLE));
+
+    var feat_u32s =
+        array(
+            feat(p0, prop("val", U32.of(9_000))),
+            feat(p1, prop("val", U32.of(9_000))),
+            feat(p2, prop("val", U32.of(9_000))),
+            feat(p3, prop("val", U32.of(9_000))));
+    write(layer("props_u32", feat_u32s), cfg());
+    write(layer("props_u32_delta", feat_u32s), cfg(DELTA));
+    write(layer("props_u32_rle", feat_u32s), cfg(RLE));
+    write(layer("props_u32_delta_rle", feat_u32s), cfg(DELTA_RLE));
+
+    var feat_u64s =
+        array(
+            feat(p0, prop("val", U64.of(BigInteger.valueOf(9_000L)))),
+            feat(p1, prop("val", U64.of(BigInteger.valueOf(9_000L)))),
+            feat(p2, prop("val", U64.of(BigInteger.valueOf(9_000L)))),
+            feat(p3, prop("val", U64.of(BigInteger.valueOf(9_000L)))));
+    write(layer("props_u64", feat_u64s), cfg());
+    write(layer("props_u64_delta", feat_u64s), cfg(DELTA));
+    write(layer("props_u64_rle", feat_u64s), cfg(RLE));
+    write(layer("props_u64_delta_rle", feat_u64s), cfg(DELTA_RLE));
 
     var feat_str =
         array(

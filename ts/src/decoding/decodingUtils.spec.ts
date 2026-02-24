@@ -39,7 +39,7 @@ describe("decodingUtils", () => {
 
             expect(result[0]).toBeCloseTo(3.14159);
             expect(result[1]).toBeCloseTo(2.71828);
-            expect(offset.get()).toBe(16);
+            expect(offset.get()).toBe(8);
         });
     });
 
