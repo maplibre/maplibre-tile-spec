@@ -210,6 +210,44 @@ update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
 
+# Generate synthetic .mlt files and ensure there are no duplicates
+generate-synthetic-mlts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf ../test/synthetic/0x01-rust
+    cargo run -p mlt-synthetics
+    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
+
+# checks that the contents of two synthetic directories are equal
+verify-synthetic-equality: generate-synthetic-mlts (just 'cargo-install' 'delta' 'git-delta')
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    DIR_A="../test/synthetic/0x01"
+    DIR_B="../test/synthetic/0x01-rust"
+
+    BIN="cargo run --quiet --"
+    find "$DIR_A" -type f -iname "*.mlt" | while read -r file_a; do
+      rel_path="$(realpath --relative-to="$DIR_A" "$file_a")"
+      file_b="$DIR_B/$rel_path"
+
+      if [[ -f "$file_b" ]]; then
+        if ! cmp -s "$file_a" "$file_b"; then
+          echo "Differences: $rel_path"
+          echo ""
+          diff -U20 \
+            --label "$file_a" \
+            <($BIN decode "$file_a") \
+            --label "$file_b" \
+            <($BIN decode "$file_b") \
+            | delta --side-by-side --file-modified-label "mlt decoded difference"
+        fi
+      else
+        echo "Missing in $DIR_B but present in $DIR_A: $rel_path"
+      fi
+    done
+
+
 [private]
 [working-directory: 'mlt-core']
 cargo-fuzz *args:  (just 'cargo-install' 'cargo-fuzz')

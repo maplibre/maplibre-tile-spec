@@ -238,9 +238,10 @@ impl LogicalValue {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Default)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum LogicalEncoder {
+    #[default]
     None,
     Delta,
     DeltaRle,

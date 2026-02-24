@@ -17,8 +17,8 @@ harness = false
 
 [dependencies]
 borrowme.workspace = true
-derive_builder.workspace = true
 fastpfor.workspace = true
+fsst-rs.workspace = true
 geo-types.workspace = true
 hex.workspace = true
 integer-encoding.workspace = true
@@ -34,8 +34,6 @@ zigzag.workspace = true
 [dev-dependencies]
 criterion.workspace = true
 insta.workspace = true
-json5.workspace = true
-pretty_assertions.workspace = true
 proptest.workspace = true
 proptest-derive.workspace = true
 rstest.workspace = true

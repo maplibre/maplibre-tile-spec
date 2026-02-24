@@ -62,18 +62,9 @@ gen-tests: (just 'cargo-install' 'fd' 'fd-find')
 generate-synthetic-mlts:
     #!/usr/bin/env bash
     set -euo pipefail
-    rm -rf ../test/synthetic
+    rm -rf ../test/synthetic/0x01
     ./gradlew :mlt-tools:generateSyntheticMlt
-    all_hashes=$(find "../test/synthetic" -name '*.mlt' -exec sha256sum {} \; | sort)
-    duplicates=$(echo "$all_hashes" | awk '{print $1}' | uniq -d)
-    if [ -n "$duplicates" ]; then
-        echo "::error::Duplicate synthetic MLT files found"
-        while IFS= read -r hash; do
-            echo ""
-            echo "$all_hashes" | grep "^$hash " | awk '{print "  - " $2}'
-        done <<< "$duplicates"
-        exit 1
-    fi
+    {{just}} _assert-all-mlt-files-different test/synthetic/0x01
 
 # Run linting (format check)
 lint:

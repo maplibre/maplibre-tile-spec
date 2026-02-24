@@ -4,7 +4,6 @@ use std::fmt::{self, Debug};
 use std::io::Write;
 
 use borrowme::borrowme;
-use derive_builder::Builder;
 use integer_encoding::VarIntWriter as _;
 
 use crate::MltError::{IntegerOverflow, NotImplemented};
@@ -17,7 +16,7 @@ use crate::utils::{
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{
     ColumnType, Encoder, LogicalEncoder, LogicalEncoding, OwnedEncodedData, OwnedStream,
-    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, Stream, StreamMeta, StreamType,
+    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, RleMeta, Stream, StreamMeta, StreamType,
 };
 use crate::{FromDecoded, MltError, impl_encodable};
 
@@ -429,12 +428,27 @@ impl<'a> Property<'a> {
     }
 }
 
+/// How to encode string properties
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum StringEncoding {
+    /// Plain encoding: length stream + data stream
+    #[default]
+    Plain,
+    /// FSST encoding: symbol lengths + symbol table + value lengths + compressed corpus
+    ///
+    /// Note: The FSST algorithm implementation may differ from Java's, so the
+    /// compressed output may not be byte-for-byte identical. Both implementations
+    /// are semantically compatible and can decode each other's output.
+    Fsst,
+}
+
 /// How to encode properties
-#[derive(Debug, Clone, Copy, Builder)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PropertyEncoder {
-    optional: PresenceStream,
-    logical: LogicalEncoder,
-    physical: PhysicalEncoder,
+    pub optional: PresenceStream,
+    pub logical: LogicalEncoder,
+    pub physical: PhysicalEncoder,
+    pub string_encoding: StringEncoding,
 }
 impl PropertyEncoder {
     #[must_use]
@@ -447,6 +461,22 @@ impl PropertyEncoder {
             optional,
             logical,
             physical,
+            string_encoding: StringEncoding::Plain,
+        }
+    }
+
+    /// Create a property encoder with FSST string encoding
+    #[must_use]
+    pub fn with_fsst(
+        optional: PresenceStream,
+        logical: LogicalEncoder,
+        physical: PhysicalEncoder,
+    ) -> Self {
+        Self {
+            optional,
+            logical,
+            physical,
+            string_encoding: StringEncoding::Fsst,
         }
     }
 
@@ -472,13 +502,22 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
         use {OwnedEncodedPropValue as EncVal, PropValue as Val};
         let optional = if config.optional == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
+            let num_values = u32::try_from(present_vec.len())?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present_vec));
+            // Presence streams always use byte-RLE encoding.
+            // The RleMeta values are computed by readers from the stream itself
+            // (runs = num_values.div_ceil(8), num_rle_values = byte_length).
+            let runs = num_values.div_ceil(8);
+            let num_rle_values = u32::try_from(data.len())?;
             Some(OwnedStream {
                 meta: StreamMeta::new(
                     StreamType::Present,
-                    LogicalEncoding::None,
+                    LogicalEncoding::Rle(RleMeta {
+                        runs,
+                        num_rle_values,
+                    }),
                     PhysicalEncoding::None,
-                    u32::try_from(present_vec.len())?,
+                    num_values,
                 ),
                 data: OwnedStreamData::Encoded(OwnedEncodedData { data }),
             })
@@ -527,7 +566,15 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             }
             Val::Str(s) => {
                 let values = unapply_presence(s);
-                EncVal::Str(OwnedStream::encode_strings(&values, config.encoder())?)
+                let streams = match config.string_encoding {
+                    StringEncoding::Plain => {
+                        OwnedStream::encode_strings(&values, config.encoder())?
+                    }
+                    StringEncoding::Fsst => {
+                        OwnedStream::encode_strings_fsst(&values, config.encoder())?
+                    }
+                };
+                EncVal::Str(streams)
             }
             Val::Struct => Err(NotImplemented("struct property encoding"))?,
         };
@@ -623,7 +670,7 @@ mod tests {
             let encoder = PropertyEncoder::new(
                 PresenceStream::Absent,
                 LogicalEncoder::None,
-                PhysicalEncoder::None,
+                PhysicalEncoder::VarInt,
             );
             prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
@@ -810,7 +857,7 @@ mod tests {
             let encoder = PropertyEncoder::new(
                 PresenceStream::Absent,
                 LogicalEncoder::None,
-                PhysicalEncoder::None,
+                PhysicalEncoder::VarInt,
             );
             prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
@@ -852,7 +899,7 @@ mod tests {
             let encoder = PropertyEncoder::new(
                 PresenceStream::Absent,
                 LogicalEncoder::None,
-                PhysicalEncoder::None,
+                PhysicalEncoder::VarInt,
             );
             prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }

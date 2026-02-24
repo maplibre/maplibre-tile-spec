@@ -33,11 +33,32 @@ impl Encoder {
     pub const fn new(logical: LogicalEncoder, physical: PhysicalEncoder) -> Self {
         Self { logical, physical }
     }
+
+    #[must_use]
+    pub fn plain() -> Encoder {
+        Encoder::new(LogicalEncoder::None, PhysicalEncoder::None)
+    }
+    #[must_use]
+    pub fn varint() -> Encoder {
+        Encoder::new(LogicalEncoder::None, PhysicalEncoder::VarInt)
+    }
+    #[must_use]
+    pub fn rle_varint() -> Encoder {
+        Encoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
+    }
+    #[must_use]
+    pub fn fastpfor() -> Encoder {
+        Encoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR)
+    }
+    #[must_use]
+    pub fn rle_fastpfor() -> Encoder {
+        Encoder::new(LogicalEncoder::Rle, PhysicalEncoder::FastPFOR)
+    }
 }
 
 /// Representation of an encoded stream
 #[borrowme]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Stream<'a> {
     pub meta: StreamMeta,
     pub data: StreamData<'a>,
@@ -78,12 +99,28 @@ impl OwnedStream {
     }
 
     /// Encode a boolean stream: byte-RLE <- packed bitmap <- `Vec<bool>`
+    /// Boolean streams always use byte-RLE encoding with `LogicalEncoding::Rle` metadata.
+    /// The `RleMeta` values are computed by readers from the stream itself.
     pub fn encode_bools(values: &[bool]) -> Result<Self, MltError> {
         let num_values = u32::try_from(values.len())?;
         let bytes = encode_bools_to_bytes(values);
         let data = encode_byte_rle(&bytes);
-        // byte RLE is how bits are always encoded, not rle -> plain
-        Ok(Self::new_plain(data, num_values))
+        // Boolean streams use byte-RLE encoding with RLE metadata
+        let runs = num_values.div_ceil(8);
+        let num_rle_values = u32::try_from(data.len())?;
+        let meta = StreamMeta::new(
+            StreamType::Data(DictionaryType::None),
+            LogicalEncoding::Rle(RleMeta {
+                runs,
+                num_rle_values,
+            }),
+            PhysicalEncoding::None,
+            num_values,
+        );
+        Ok(Self {
+            meta,
+            data: OwnedStreamData::Encoded(OwnedEncodedData { data }),
+        })
     }
 
     /// Encodes `f32`s into a stream
@@ -207,6 +244,105 @@ impl OwnedStream {
         let data_stream = Self::new_plain(data, u32::try_from(values.len())?);
 
         Ok(vec![length_stream, data_stream])
+    }
+
+    /// Encode a sequence of strings using FSST compression.
+    ///
+    /// Produces 4 streams:
+    /// 1. Symbol lengths stream (Length, `LengthType::Symbol`)
+    /// 2. Symbol table data stream (Data, `DictionaryType::Fsst`)
+    /// 3. Value lengths stream (Length, `LengthType::Dictionary`)
+    /// 4. Compressed corpus stream (Data, `DictionaryType::Single`)
+    ///
+    /// Note: The FSST algorithm implementation may differ from Java's, so the
+    /// compressed output may not be byte-for-byte identical. Both implementations
+    /// are semantically compatible and can decode each other's output.
+    pub fn encode_strings_fsst(
+        values: &[String],
+        encoding: Encoder,
+    ) -> Result<Vec<Self>, MltError> {
+        use fsst::Compressor;
+
+        // Build byte slices for training
+        let byte_slices: Vec<&[u8]> = values.iter().map(String::as_bytes).collect();
+
+        // Train FSST compressor on the corpus
+        let compressor = Compressor::train(&byte_slices);
+
+        // Get symbol table info
+        let symbols = compressor.symbol_table();
+        let symbol_lengths_u8 = compressor.symbol_lengths();
+
+        // Build concatenated symbol bytes (only the actual bytes for each symbol)
+        let mut symbol_bytes = Vec::new();
+        for sym in symbols {
+            let bytes = sym.to_u64().to_le_bytes();
+            let len = sym.len();
+            symbol_bytes.extend_from_slice(&bytes[..len]);
+        }
+
+        // Convert symbol lengths to u32 for encoding
+        let symbol_lengths: Vec<u32> = symbol_lengths_u8
+            .iter()
+            .take(symbols.len())
+            .map(|&l| u32::from(l))
+            .collect();
+
+        // Compress all strings and concatenate into a single corpus
+        let mut compressed = Vec::new();
+        for s in values {
+            let comp = compressor.compress(s.as_bytes());
+            compressed.extend(comp);
+        }
+
+        // Get original string lengths (UTF-8 byte lengths)
+        let value_lengths: Vec<u32> = values
+            .iter()
+            .map(|s| u32::try_from(s.len()))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Stream 1: Symbol lengths
+        let symbol_length_stream = Self::encode_u32s_of_type(
+            &symbol_lengths,
+            encoding,
+            StreamType::Length(LengthType::Symbol),
+        )?;
+
+        // Stream 2: Symbol table data
+        let symbol_table_stream = Self {
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::Fsst),
+                LogicalEncoding::None,
+                PhysicalEncoding::None,
+                u32::try_from(symbol_lengths.len())?,
+            ),
+            data: OwnedStreamData::Encoded(OwnedEncodedData { data: symbol_bytes }),
+        };
+
+        // Stream 3: Value lengths (original UTF-8 byte lengths)
+        let value_length_stream = Self::encode_u32s_of_type(
+            &value_lengths,
+            encoding,
+            StreamType::Length(LengthType::Dictionary),
+        )?;
+
+        // Stream 4: Compressed corpus
+        let compressed_stream = Self {
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::Single),
+                LogicalEncoding::None,
+                PhysicalEncoding::None,
+                u32::try_from(values.len())?,
+            ),
+            data: OwnedStreamData::Encoded(OwnedEncodedData { data: compressed }),
+        };
+
+        Ok(vec![
+            symbol_length_stream,
+            symbol_table_stream,
+            value_length_stream,
+            compressed_stream,
+        ])
     }
 }
 /// Metadata about an encoded stream
@@ -426,7 +562,7 @@ pub struct MortonMeta {
 macro_rules! stream_data {
     ($($enm:ident : $ty:ident / $owned:ident),+ $(,)?) => {
         #[borrowme]
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug, PartialEq, Clone)]
         pub enum StreamData<'a> {
             $($enm($ty<'a>),)+
         }
@@ -441,7 +577,7 @@ macro_rules! stream_data {
 
         $(
             #[borrowme]
-            #[derive(PartialEq)]
+            #[derive(PartialEq, Clone)]
             pub struct $ty<'a> {
                 #[borrowme(borrow_with = Vec::as_slice)]
                 pub data: &'a [u8],

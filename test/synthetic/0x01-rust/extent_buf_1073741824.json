@@ -1,0 +1,25 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            -42,
+            -42
+          ],
+          [
+            1073741866,
+            1073741866
+          ]
+        ],
+        "type": "LineString"
+      },
+      "properties": {
+        "_extent": 1073741824,
+        "_layer": "layer1"
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

@@ -127,3 +127,18 @@ _test-run-int:
     echo "fake output by copying expected into output so that the rest of the script works"
     # TODO: REMOVE THIS, and replace it with a real integration test run
     cp -r test/expected/* test/output
+
+# Ensure there are no duplicate synthetic MLT files by comparing their hashes.
+_assert-all-mlt-files-different dir='test/synthetic':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    all_hashes=$(find {{quote(dir)}} -name '*.mlt' -exec sha256sum {} \; | sort)
+    duplicates=$(echo "$all_hashes" | awk '{print $1}' | uniq -d)
+    if [ -n "$duplicates" ]; then
+        echo "::error::Duplicate synthetic MLT files found"
+        while IFS= read -r hash; do
+            echo ""
+            echo "$all_hashes" | grep "^$hash " | awk '{print "  - " $2}'
+        done <<< "$duplicates"
+        exit 1
+    fi
