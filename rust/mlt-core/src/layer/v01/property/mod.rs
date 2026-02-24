@@ -428,12 +428,27 @@ impl<'a> Property<'a> {
     }
 }
 
+/// How to encode string properties
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum StringEncoding {
+    /// Plain encoding: length stream + data stream
+    #[default]
+    Plain,
+    /// FSST encoding: symbol lengths + symbol table + value lengths + compressed corpus
+    ///
+    /// Note: The FSST algorithm implementation may differ from Java's, so the
+    /// compressed output may not be byte-for-byte identical. Both implementations
+    /// are semantically compatible and can decode each other's output.
+    Fsst,
+}
+
 /// How to encode properties
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PropertyEncoder {
     pub optional: PresenceStream,
     pub logical: LogicalEncoder,
     pub physical: PhysicalEncoder,
+    pub string_encoding: StringEncoding,
 }
 impl PropertyEncoder {
     #[must_use]
@@ -446,6 +461,22 @@ impl PropertyEncoder {
             optional,
             logical,
             physical,
+            string_encoding: StringEncoding::Plain,
+        }
+    }
+
+    /// Create a property encoder with FSST string encoding
+    #[must_use]
+    pub fn with_fsst(
+        optional: PresenceStream,
+        logical: LogicalEncoder,
+        physical: PhysicalEncoder,
+    ) -> Self {
+        Self {
+            optional,
+            logical,
+            physical,
+            string_encoding: StringEncoding::Fsst,
         }
     }
 
@@ -535,7 +566,15 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             }
             Val::Str(s) => {
                 let values = unapply_presence(s);
-                EncVal::Str(OwnedStream::encode_strings(&values, config.encoder())?)
+                let streams = match config.string_encoding {
+                    StringEncoding::Plain => {
+                        OwnedStream::encode_strings(&values, config.encoder())?
+                    }
+                    StringEncoding::Fsst => {
+                        OwnedStream::encode_strings_fsst(&values, config.encoder())?
+                    }
+                };
+                EncVal::Str(streams)
             }
             Val::Struct => Err(NotImplemented("struct property encoding"))?,
         };

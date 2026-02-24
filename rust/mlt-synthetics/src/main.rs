@@ -8,12 +8,13 @@
 //! ## Files that MATCH Java output (byte-for-byte identical):
 //! - All basic geometries, extents, IDs, and properties
 //! - `FastPFOR` variants: `polygon_fpf`, `polygon_hole_fpf`, `polygon_multi_fpf`
+//! - Mixed geometries, tessellation variants
+//!
+//! ## Files with DIFFERENT output (semantically equivalent, different FSST algorithm):
+//! - `props_str_fsst`: Uses `fsst-rs` crate which may produce different symbol tables
+//!   than Java's FSST implementation, but both decode to the same strings.
 //!
 //! ## Files NOT YET GENERATED:
-//! - Mixed geometry: `mixed_pt_line`, `mixed_pt_poly`, `mixed_line_poly`, `mixed_pt_mline`, `mixed_all`
-//!   (requires fixing geometry offset arrays in mlt-core for mixed types)
-//! - Tessellation variants: `polygon_tes`, `polygon_morton_tes` (tessellation compute not implemented)
-//! - FSST: `props_str_fsst` (FSST encoding not implemented)
 //! - Shared dictionary: `props_shared_dict`, `props_shared_dict_fsst` (shared dict encoding not implemented)
 
 mod geometry;
@@ -579,7 +580,21 @@ fn generate_props_str(dir: &Path) {
     feat.prop(&"val", PropValue::Str(values.clone()), enc)
         .write(dir, "props_str");
 
-    // TODO: props_str_fsst needs FSST support
+    // FSST encoding for strings
+    // Note: The Rust FSST implementation (fsst-rs) may produce different compressed output
+    // than Java's, but both are semantically compatible for decode.
+    let enc_fsst = PropertyEncoder::with_fsst(
+        PresenceStream::Present,
+        LogicalEncoder::None,
+        PhysicalEncoder::VarInt,
+    );
+    let mut feat_fsst = Feature::default();
+    for &c in &coords {
+        feat_fsst = feat_fsst.and_point(Point(c), E::rle_varint(), E::varint());
+    }
+    feat_fsst
+        .prop(&"val", PropValue::Str(values), enc_fsst)
+        .write(dir, "props_str_fsst");
 }
 
 fn generate_shared_dictionaries(dir: &Path) {

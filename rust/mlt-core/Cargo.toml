@@ -18,6 +18,7 @@ harness = false
 [dependencies]
 borrowme.workspace = true
 fastpfor.workspace = true
+fsst-rs.workspace = true
 geo-types.workspace = true
 hex.workspace = true
 integer-encoding.workspace = true
