@@ -15,6 +15,56 @@ use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
 
 use crate::geometry::ValidatingGeometryEncoder;
 
+/// Tessellate a polygon using earcut algorithm.
+/// Returns `(triangle_indices, num_triangles)`.
+fn tessellate_polygon(polygon: &Polygon<i32>) -> (Vec<u32>, u32) {
+    // Flatten coordinates without closing point (earcut expects open rings)
+    let mut flat_coords: Vec<f64> = Vec::new();
+    let mut hole_indices: Vec<usize> = Vec::new();
+
+    // Add exterior ring (without closing point)
+    let exterior = polygon.exterior();
+    let exterior_coords: Vec<_> = exterior.coords().collect();
+    let exterior_len =
+        if exterior_coords.len() > 1 && exterior_coords.first() == exterior_coords.last() {
+            exterior_coords.len() - 1
+        } else {
+            exterior_coords.len()
+        };
+    for coord in &exterior_coords[..exterior_len] {
+        flat_coords.push(f64::from(coord.x));
+        flat_coords.push(f64::from(coord.y));
+    }
+
+    // Add interior rings (holes)
+    let mut vertex_count = exterior_len;
+    for interior in polygon.interiors() {
+        hole_indices.push(vertex_count);
+        let interior_coords: Vec<_> = interior.coords().collect();
+        let interior_len =
+            if interior_coords.len() > 1 && interior_coords.first() == interior_coords.last() {
+                interior_coords.len() - 1
+            } else {
+                interior_coords.len()
+            };
+        for coord in &interior_coords[..interior_len] {
+            flat_coords.push(f64::from(coord.x));
+            flat_coords.push(f64::from(coord.y));
+        }
+        vertex_count += interior_len;
+    }
+
+    // Run earcut
+    let indices = earcutr::earcut(&flat_coords, &hole_indices, 2).expect("Tessellation failed");
+    let num_triangles = u32::try_from(indices.len() / 3).expect("too many triangles");
+    let indices_u32: Vec<u32> = indices
+        .into_iter()
+        .map(|i| u32::try_from(i).expect("index overflow"))
+        .collect();
+
+    (indices_u32, num_triangles)
+}
+
 /// A builder for creating synthetic MLT layers with multiple features.
 /// This matches Java's approach where a layer contains multiple features,
 /// each with a single geometry type.
@@ -260,6 +310,81 @@ impl Feature {
         self.geometry_encoder = self
             .geometry_encoder
             .merge(ValidatingGeometryEncoder::default().polygon(meta, vertex, parts, rings));
+        self
+    }
+
+    /// Create a feature with a tessellated Polygon geometry.
+    ///
+    /// Parameters:
+    /// - `geom`: The polygon geometry
+    /// - `meta`: Encoder for the geometry type stream
+    /// - `vertex`: Encoder for the vertex data stream
+    /// - `num_geometries`: Encoder for the geometry count stream (empty for single polygon)
+    /// - `parts`: Encoder for the parts length stream
+    /// - `rings`: Encoder for the rings length stream
+    /// - `triangles`: Encoder for the triangles count stream
+    /// - `triangles_indexes`: Encoder for the triangle index buffer
+    #[expect(clippy::too_many_arguments)]
+    pub fn polygon_tessellated(
+        geom: Polygon<i32>,
+        meta: Encoder,
+        vertex: Encoder,
+        num_geometries: Encoder,
+        parts: Encoder,
+        rings: Encoder,
+        triangles: Encoder,
+        triangles_indexes: Encoder,
+    ) -> Self {
+        Self::default().and_polygon_tessellated(
+            geom,
+            meta,
+            vertex,
+            num_geometries,
+            parts,
+            rings,
+            triangles,
+            triangles_indexes,
+        )
+    }
+
+    /// Add another tessellated Polygon geometry to this feature.
+    #[must_use]
+    #[expect(clippy::too_many_arguments)]
+    pub fn and_polygon_tessellated(
+        mut self,
+        geom: Polygon<i32>,
+        meta: Encoder,
+        vertex: Encoder,
+        num_geometries: Encoder,
+        parts: Encoder,
+        rings: Encoder,
+        triangles: Encoder,
+        triangles_indexes: Encoder,
+    ) -> Self {
+        // Tessellate the polygon
+        let (indices, num_triangles) = tessellate_polygon(&geom);
+
+        // Push the polygon geometry
+        self.geom.push_geom(&Geom32::Polygon(geom));
+
+        // Store tessellation data
+        let tris = self.geom.triangles.get_or_insert_with(Vec::new);
+        tris.push(num_triangles);
+
+        let idx_buf = self.geom.index_buffer.get_or_insert_with(Vec::new);
+        idx_buf.extend(indices);
+
+        self.geometry_encoder =
+            self.geometry_encoder
+                .merge(ValidatingGeometryEncoder::default().polygon_tessellated(
+                    meta,
+                    vertex,
+                    num_geometries,
+                    parts,
+                    rings,
+                    triangles,
+                    triangles_indexes,
+                ));
         self
     }
 

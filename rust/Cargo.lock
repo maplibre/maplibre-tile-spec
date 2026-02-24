@@ -680,6 +680,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "earcutr"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afc28d89ac6cb489f679fcf51aaa62b4667bb0fb73a30f1d4d23949069707c07"
+dependencies = [
+ "itertools 0.14.0",
+ "num-traits",
+]
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1298,6 +1308,7 @@ dependencies = [
 name = "mlt-synthetics"
 version = "0.1.0"
 dependencies = [
+ "earcutr",
  "geo-types",
  "json5",
  "mlt-core",

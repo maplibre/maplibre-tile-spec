@@ -78,7 +78,32 @@ fn generate_geometry(dir: &Path) {
     )
     .write(dir, "polygon_fpf");
 
-    // TODO: polygon_tes, polygon_morton_tes need tessellation support
+    // polygon_tes - Polygon with tessellation (varint)
+    Feature::polygon_tessellated(
+        pol(),
+        E::varint(),
+        E::varint(),
+        E::varint(),
+        E::varint(),
+        E::varint(),
+        E::varint(),
+        E::varint(),
+    )
+    .write(dir, "polygon_tes");
+
+    // polygon_morton_tes - Polygon with tessellation + FastPFOR
+    Feature::polygon_tessellated(
+        pol(),
+        E::fastpfor(),
+        E::fastpfor(),
+        E::fastpfor(),
+        E::fastpfor(),
+        E::fastpfor(),
+        E::fastpfor(),
+        E::fastpfor(),
+    )
+    .write(dir, "polygon_morton_tes");
+
     // Polygon with hole - Java: feat(poly(ring(c1, c2, c3, c1), ring(h1, h2, h3, h1)));
     // Java uses RLE encoding for the rings stream
     let pol_hole = || {

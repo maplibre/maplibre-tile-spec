@@ -57,6 +57,33 @@ impl ValidatingGeometryEncoder {
         self
     }
 
+    /// Configure encoding for Polygon geometry with tessellation.
+    /// This includes the standard polygon streams plus triangles and index buffer.
+    #[expect(clippy::too_many_arguments)]
+    pub fn polygon_tessellated(
+        mut self,
+        meta: Encoder,
+        vertex: Encoder,
+        num_geometries: Encoder,
+        parts: Encoder,
+        parts_ring: Encoder,
+        triangles: Encoder,
+        triangles_indexes: Encoder,
+    ) -> Self {
+        set(&mut self.meta, meta, "meta");
+        set(&mut self.vertex, vertex, "vertex");
+        set(&mut self.num_geometries, num_geometries, "num_geometries");
+        set(&mut self.parts, parts, "parts");
+        set(&mut self.parts_ring, parts_ring, "parts_ring");
+        set(&mut self.triangles, triangles, "triangles");
+        set(
+            &mut self.triangles_indexes,
+            triangles_indexes,
+            "triangles_indexes",
+        );
+        self
+    }
+
     /// Configure encoding for `MultiPoint` geometry.
     pub fn multi_point(mut self, meta: Encoder, vertex: Encoder, num_geometries: Encoder) -> Self {
         set(&mut self.meta, meta, "meta");

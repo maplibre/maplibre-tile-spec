@@ -385,12 +385,15 @@ pub fn encode_geometry(
         .iter()
         .copied()
         .any(GeometryType::is_linestring);
+    let has_tessellation = triangles.is_some();
 
     // Encode topology streams based on geometry structure
     if let Some(geom_offs) = geometry_offsets {
         // Encode geometry lengths (NumGeometries)
         let lengths = encode_root_length_stream(vector_types, geom_offs, GeometryType::Polygon);
-        if !lengths.is_empty() {
+        if !lengths.is_empty() || has_tessellation {
+            // For tessellated polygons with outlines, Java always includes this stream
+            // even when empty
             items.push(OwnedStream::encode_u32s_of_type(
                 &lengths,
                 config.num_geometries(),
@@ -446,6 +449,16 @@ pub fn encode_geometry(
         // No geometry offsets (no Multi* types), encode from parts
         if let Some(ring_offs) = ring_offsets {
             // parts -> rings (e.g., Polygon without Multi, or mixed Point + Polygon)
+
+            // For tessellated polygons with outlines, Java includes an empty geometries stream
+            if has_tessellation {
+                items.push(OwnedStream::encode_u32s_of_type(
+                    &[],
+                    config.num_geometries(),
+                    StreamType::Length(LengthType::Geometries),
+                )?);
+            }
+
             let part_lengths =
                 encode_root_length_stream(vector_types, part_offs, GeometryType::LineString);
             if !part_lengths.is_empty() {
