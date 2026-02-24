@@ -20,8 +20,12 @@ name = "mlt-core"
 publish = true
 
 [[package]]
-name = "mlt-legacy"
-release = false
+name = "mlt-pyo3"
+publish = true
+
+[[package]]
+name = "mlt-synthetics"
+publish = false
 
 [changelog]
 # always include commits with breaking changes in the changelog

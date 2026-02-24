@@ -3,8 +3,7 @@ resolver = "3"
 members = ["mlt", "mlt-core", "mlt-pyo3", "mlt-synthetics"]
 default-members = ["mlt", "mlt-core", "mlt-synthetics"]
 # Excluding mlt-core/fuzz because cargo-fuzz does not have workspace support
-# Excluding mlt-legacy due to buildscript issues
-exclude = ["mlt-core/fuzz", "mlt-legacy"]
+exclude = ["mlt-core/fuzz"]
 
 [workspace.package]
 authors = ["Maplibre Contributors"]
@@ -37,6 +36,7 @@ mvt-reader = "2.2.0"
 num-traits = "0.2.19"
 num_enum = "0.7.4"
 pretty_assertions = "1.4"
+probabilistic-collections = "0.7"
 proptest = "1.6"
 proptest-derive = "0.8"
 pyo3 = "0.28.2"
