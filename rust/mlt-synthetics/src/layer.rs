@@ -22,8 +22,8 @@ pub struct Feature {
 
 impl Feature {
     pub fn write(&self, dir: &Path, name: &str) {
-        self.write_mlt(&dir.with_file_name(format!("{name}.mlt")));
-        self.write_geojson(&dir.with_file_name(format!("{name}.geojson")));
+        self.write_geojson(&dir.join(format!("{name}.geojson")));
+        self.write_mlt(&dir.join(format!("{name}.mlt")));
     }
     pub fn point([x, y]: [i32; 2], meta: Encoder,vertex:Encoder) -> Self {
         let geom = DecodedGeometry {
@@ -96,17 +96,10 @@ impl Feature {
     fn write_geojson(&self, file: &Path) {
         let feat = self.clone();
 
-        let mut id = OwnedId::Decoded(feat.ids);
-        id.encode_with(self.ids_encoder).unwrap();
-
-        let mut geometry = OwnedGeometry::Decoded(feat.geom);
-        geometry.encode_with(Box::new(self.geometry_encoder)).unwrap();
-
-        let mut properties = feat.props.into_iter().map(OwnedProperty::Decoded).collect::<Vec<_>>();
-        for p in &mut properties {
-            p.encode_with(self.property_encoder).unwrap();
-        }
-
+        // encode to geojson
+        let id = OwnedId::Decoded(feat.ids);
+        let geometry = OwnedGeometry::Decoded(feat.geom);
+        let properties = feat.props.into_iter().map(OwnedProperty::Decoded).collect::<Vec<_>>();
         let layer = OwnedLayer::Tag01(OwnedLayer01 {
             name: "layer1".to_string(),
             extent: self.extent.unwrap_or(4096),
@@ -115,9 +108,12 @@ impl Feature {
             properties,
         });
         let borrowed_layer = layer.borrow();
-
         let mlt_geojson = FeatureCollection::from_layers(&[borrowed_layer]).unwrap();
+
+        // serialise out
         let geojson = serde_json::to_string_pretty(&mlt_geojson).unwrap();
+
+        // write to file
         std::fs::write(file, geojson).unwrap_or_else(|_| panic!("cannot write feature {}", file.display()));
     }
 

@@ -233,9 +233,10 @@ impl FromDecoded<'_> for OwnedEncodedId {
     fn from_decoded(decoded: &Self::Input, config: IdEncoder) -> Result<Self, MltError> {
         use IdWidth as CFG;
 
-        // skipped one level higher
-        let DecodedId(Some(ids)) = decoded else {
-            return Err(MltError::IdsMissingForEncoding);
+        let empty_vec =Vec::new();
+        let ids = match decoded {
+            DecodedId(Some(ids))=> ids,
+            DecodedId(None) => &empty_vec,
         };
 
         let optional = if matches!(config.id_width, CFG::OptId32 | CFG::OptId64) {

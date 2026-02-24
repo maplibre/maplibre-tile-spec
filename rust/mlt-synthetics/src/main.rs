@@ -8,7 +8,8 @@ use mlt_core::v01::Encoder;
 use crate::geometry::C0;
 
 fn main() {
-    let synthetics_dir = Path::new("../test/synthetic/0x01");
+    // fixme: replace real synthetics
+    let synthetics_dir = Path::new("../test/synthetic/rust/");
     if synthetics_dir.exists() {
         fs::remove_dir_all(synthetics_dir).unwrap_or_else(|_| panic!("to be able to delete {}", synthetics_dir.display()));
     }
