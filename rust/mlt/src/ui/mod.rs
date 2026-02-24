@@ -34,6 +34,7 @@ use crate::ls::{
 };
 use crate::ui::rendering::files::{
     render_file_browser, render_file_filter_panel, render_file_info_panel,
+    render_tile_preview_panel,
 };
 use crate::ui::rendering::help::{render_error_popup, render_help_overlay};
 use crate::ui::rendering::layers::{render_properties_panel, render_tree_panel};
@@ -106,6 +107,33 @@ fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
             layer.decode_all()?;
         }
         Ok(FeatureCollection::from_layers(&layers)?)
+    }
+}
+
+fn extent_from_fc(fc: &FeatureCollection) -> f64 {
+    fc.features
+        .first()
+        .and_then(|f| {
+            f.properties
+                .get("_extent")
+                .and_then(serde_json::Value::as_f64)
+        })
+        .unwrap_or(4096.0)
+}
+
+fn refresh_tile_preview(app: &mut App) {
+    let path = if let Some(r) = app.get_selected_file() {
+        r.path().to_path_buf()
+    } else {
+        app.preview_tile_path = None;
+        app.preview_fc = None;
+        app.preview_load_requested = None;
+        return;
+    };
+    if !is_tile_extension(&path) {
+        app.preview_tile_path = None;
+        app.preview_fc = None;
+        app.preview_load_requested = None;
     }
 }
 
@@ -285,6 +313,24 @@ fn pct_at(pos: u16, origin: u16, span: u16) -> u16 {
     pct.clamp(10, 90)
 }
 
+const FILE_RIGHT_PANEL_MIN: u16 = 20;
+fn file_browser_preview_pct_clamped(pct: u16, filter_pct: u16) -> u16 {
+    pct.clamp(
+        FILE_RIGHT_PANEL_MIN,
+        100u16
+            .saturating_sub(FILE_RIGHT_PANEL_MIN)
+            .saturating_sub(filter_pct),
+    )
+}
+fn file_browser_filter_pct_clamped(pct: u16, preview_pct: u16) -> u16 {
+    pct.clamp(
+        FILE_RIGHT_PANEL_MIN,
+        100u16
+            .saturating_sub(FILE_RIGHT_PANEL_MIN)
+            .saturating_sub(preview_pct),
+    )
+}
+
 fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyhow::Result<()> {
     let mut map_area: Option<Rect> = None;
     let mut tree_area: Option<Rect> = None;
@@ -292,6 +338,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
     let mut left_area: Option<Rect> = None;
     let mut filter_area: Option<Rect> = None;
     let mut info_area: Option<Rect> = None;
+    let mut preview_area: Option<Rect> = None;
+    let mut right_col: Option<Rect> = None;
     let mut file_left: Option<Rect> = None;
     let mut last_tree_click: Option<(Instant, usize)> = None;
     let mut last_file_click: Option<(Instant, usize)> = None;
@@ -309,11 +357,51 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
             app.rebuild_filtered_files();
         }
 
+        if let Some((path, result)) = app.preview_rx.as_mut().and_then(|rx| rx.try_recv().ok()) {
+            app.preview_rx = None;
+            app.preview_load_requested = None;
+            if app.get_selected_file().map(LsRow::path) == Some(path.as_path()) {
+                if let Ok((fc, ext)) = result {
+                    app.preview_tile_path = Some(path);
+                    app.preview_fc = Some(fc);
+                    app.preview_extent = ext;
+                } else {
+                    app.preview_tile_path = Some(path);
+                    app.preview_fc = None;
+                }
+            }
+            app.invalidate();
+        }
+        if app.mode == ViewMode::FileBrowser
+            && let Some(selected) = app.get_selected_file()
+        {
+            let path = selected.path().to_path_buf();
+            if is_tile_extension(&path)
+                && (app.preview_tile_path.as_ref() != Some(&path) || app.preview_fc.is_none())
+                && app.preview_load_requested.as_ref() != Some(&path)
+            {
+                let (tx, rx) = mpsc::channel();
+                app.preview_rx = Some(rx);
+                app.preview_load_requested = Some(path.clone());
+                let path_spawn = path.clone();
+                thread::spawn(move || {
+                    let result = load_fc(&path_spawn)
+                        .map(|fc| {
+                            let ext = extent_from_fc(&fc);
+                            (fc, ext)
+                        })
+                        .map_err(|_| ());
+                    let _ = tx.send((path_spawn, result));
+                });
+            }
+        }
+
         if app.needs_redraw {
             app.needs_redraw = false;
             terminal.draw(|f| {
                 match app.mode {
                     ViewMode::FileBrowser => {
+                        refresh_tile_preview(app);
                         let cols = Layout::default()
                             .direction(Direction::Horizontal)
                             .constraints([
@@ -321,16 +409,33 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 Constraint::Percentage(100u16.saturating_sub(app.file_left_pct)),
                             ])
                             .split(f.area());
+                        let right_pct = file_browser_preview_pct_clamped(
+                            app.file_preview_pct,
+                            app.file_filter_pct,
+                        );
+                        let filter_pct =
+                            file_browser_filter_pct_clamped(app.file_filter_pct, right_pct);
+                        app.file_preview_pct = right_pct;
+                        app.file_filter_pct = filter_pct;
                         let right = Layout::default()
                             .direction(Direction::Vertical)
-                            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                            .constraints([
+                                Constraint::Percentage(right_pct),
+                                Constraint::Percentage(filter_pct),
+                                Constraint::Percentage(
+                                    100u16.saturating_sub(right_pct).saturating_sub(filter_pct),
+                                ),
+                            ])
                             .split(cols[1]);
                         render_file_browser(f, cols[0], app);
-                        render_file_filter_panel(f, right[0], app);
-                        render_file_info_panel(f, right[1], app);
+                        render_tile_preview_panel(f, right[0], app);
+                        render_file_filter_panel(f, right[1], app);
+                        render_file_info_panel(f, right[2], app);
                         file_left = Some(cols[0]);
-                        filter_area = Some(right[0]);
-                        info_area = Some(right[1]);
+                        right_col = Some(cols[1]);
+                        preview_area = Some(right[0]);
+                        filter_area = Some(right[1]);
+                        info_area = Some(right[2]);
                     }
                     ViewMode::LayerOverview => {
                         let cols = Layout::default()
@@ -476,6 +581,23 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 ResizeHandle::FileBrowserLeftRight => {
                                     app.file_left_pct = pct_at(mouse.column, area.x, area.width);
                                 }
+                                ResizeHandle::FileBrowserPreviewFilter => {
+                                    if let Some(rc) = right_col {
+                                        app.file_preview_pct = file_browser_preview_pct_clamped(
+                                            pct_at(mouse.row, rc.y, rc.height),
+                                            app.file_filter_pct,
+                                        );
+                                    }
+                                }
+                                ResizeHandle::FileBrowserFilterInfo => {
+                                    if let Some(rc) = right_col {
+                                        app.file_filter_pct = file_browser_filter_pct_clamped(
+                                            pct_at(mouse.row, rc.y, rc.height)
+                                                .saturating_sub(app.file_preview_pct),
+                                            app.file_preview_pct,
+                                        );
+                                    }
+                                }
                             }
                             app.invalidate();
                             continue;
@@ -532,6 +654,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             }
                             if info_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
                             {
+                                app.file_info_scroll = scroll_by(app.file_info_scroll, step, up);
+                                app.invalidate();
                                 continue;
                             }
                         }
@@ -576,6 +700,30 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     && mouse.row < fl.y + fl.height
                                 {
                                     app.resizing = Some(ResizeHandle::FileBrowserLeftRight);
+                                    app.invalidate();
+                                    continue;
+                                }
+                            }
+                            if let (Some(pa), Some(fa)) = (preview_area, filter_area) {
+                                let dy_preview = pa.y + pa.height;
+                                if mouse.row >= dy_preview.saturating_sub(DIVIDER_GRAB)
+                                    && mouse.row < dy_preview.saturating_add(DIVIDER_GRAB)
+                                    && right_col.is_some_and(|rc| {
+                                        point_in_rect(mouse.column, mouse.row, rc)
+                                    })
+                                {
+                                    app.resizing = Some(ResizeHandle::FileBrowserPreviewFilter);
+                                    app.invalidate();
+                                    continue;
+                                }
+                                let dy_filter = fa.y + fa.height;
+                                if mouse.row >= dy_filter.saturating_sub(DIVIDER_GRAB)
+                                    && mouse.row < dy_filter.saturating_add(DIVIDER_GRAB)
+                                    && right_col.is_some_and(|rc| {
+                                        point_in_rect(mouse.column, mouse.row, rc)
+                                    })
+                                {
+                                    app.resizing = Some(ResizeHandle::FileBrowserFilterInfo);
                                     app.invalidate();
                                     continue;
                                 }

@@ -1,6 +1,9 @@
+use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
 use integer_encoding::VarInt as _;
 use num_traits::{PrimInt, WrappingSub};
 use zigzag::ZigZag;
+
+use crate::MltError;
 
 /// Helper function to encode a varint using integer-encoding
 pub fn encode_varint(data: &mut Vec<u8>, value: u64) {
@@ -118,6 +121,26 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
     output
 }
 
+/// Encode a `u32` sequence using `FastPFOR256` (composite codec).
+///
+/// This is the inverse of `decode_fastpfor_composite`
+pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
+    if values.is_empty() {
+        return Ok(Vec::new());
+    }
+    let codec = FastPFor256Codec::new();
+    // Over-allocate: FastPFOR may write a header and padding beyond the input length.
+    let mut compressed = vec![0u32; values.len() + 1024];
+    let out = codec.encode32(values, &mut compressed)?;
+
+    // Convert u32 words to big-endian bytes to match the wire format.
+    let mut data = Vec::with_capacity(out.len() * 4);
+    for word in out.iter() {
+        data.extend_from_slice(&word.to_be_bytes());
+    }
+    Ok(data)
+}
+
 pub fn encode_u32s_to_bytes(data: &[u32]) -> Vec<u8> {
     let mut output = Vec::with_capacity(data.len() * 4);
     for &val in data {
@@ -173,7 +196,8 @@ mod tests {
     use super::*;
     use crate::utils::{
         decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s,
-        decode_componentwise_delta_vec2s, decode_rle, decode_zigzag, decode_zigzag_delta,
+        decode_componentwise_delta_vec2s, decode_fastpfor_composite, decode_rle, decode_zigzag,
+        decode_zigzag_delta,
     };
 
     proptest! {
@@ -246,6 +270,19 @@ mod tests {
             prop_assert_eq!(data, decoded);
             prop_assert!(rem.is_empty());
         }
+
+        #[test]
+        fn test_fastpfor_roundtrip(data: Vec<u32>) {
+            let encoded = encode_fastpfor(&data).unwrap();
+            let decoded = decode_fastpfor_composite(&encoded, data.len()).unwrap();
+            prop_assert_eq!(data, decoded);
+        }
+    }
+
+    #[test]
+    fn test_encode_fastpfor_empty() {
+        let encoded = encode_fastpfor(&[]).unwrap();
+        assert!(encoded.is_empty());
     }
 
     #[test]
