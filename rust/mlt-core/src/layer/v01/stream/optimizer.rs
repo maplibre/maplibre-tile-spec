@@ -19,7 +19,10 @@ const MIN_SAMPLE: usize = 512;
 const MAX_SAMPLE: usize = 4_096;
 
 /// RLE is only worthwhile when runs are on average at least this long.
-const MIN_AVG_RUN_LENGTH: f64 = 2.0;
+const RLE_MIN_AVG_RUN_LENGTH: f64 = 2.0;
+
+/// RLE is unlikely to be worthwhile when the distinctness ratio is above this threshold.
+const RLE_APPROXIMATE_MAX_DISTINCTNESS_RATIO: f64 = 0.95 - HLL_ERROR_RATE;
 
 /// Delta encoding is useful when the absolute delta values fit in fewer bits
 /// than the original values.  Require at least this many bits of reduction
@@ -42,7 +45,7 @@ const HLL_ERROR_RATE: f64 = 0.05;
 /// 2. **Compete**: Encode the same sample with every surviving candidate and
 ///    pick the one whose encoded output is smallest.
 ///    In case of a tie
-///    - the physical priority order is `FastPFOR` > `VarInt` > `None` and,
+///    - the physical priority order is `FastPFOR` > `VarInt` > `None and,
 ///    - at the logical level, more complex transforms are deprioritized.
 #[derive(Debug, Clone, Default)]
 pub struct DataProfile {
@@ -168,6 +171,16 @@ impl DataProfile {
             .unwrap_or_else(Encoder::varint)
     }
 
+    /// Returns the estimated number of distinct values in the sample, normalized to `[0.0, 1.0]`.
+    ///
+    /// A low `distinct_ratio` means most values are repeated, which is exactly
+    /// the case where a dictionary trades a small code-book for a much shorter
+    /// value stream.
+    #[must_use]
+    pub fn estimated_distinct_ratio(&self) -> f64 {
+        self.distinct_ratio
+    }
+
     /// Return the list of `Encoder` variants worth trying for `u32` data given the
     /// supplied profile.
     ///
@@ -229,38 +242,26 @@ impl DataProfile {
     /// run-length and unique-value arrays stored by the encoder are small.
     #[must_use]
     fn rle_is_viable(&self) -> bool {
-        self.avg_run_length >= MIN_AVG_RUN_LENGTH && self.distinct_ratio < 1.0
+        self.avg_run_length >= RLE_MIN_AVG_RUN_LENGTH
+            && self.distinct_ratio < RLE_APPROXIMATE_MAX_DISTINCTNESS_RATIO
     }
 
     /// Returns `true` if Delta encoding is expected to be beneficial.
     #[must_use]
     fn delta_is_beneficial(&self) -> bool {
-        // Delta is always beneficial for sorted streams.
-        // For unsorted streams require a measurable bit-width reduction.
-        self.is_sorted
-            || self.max_bit_width.saturating_sub(self.delta_max_bit_width)
-                >= DELTA_BIT_SAVINGS_THRESHOLD
-    }
-
-    /// Returns the estimated number of distinct values in the sample, normalized to `[0.0, 1.0]`.
-    ///
-    /// A low `distinct_ratio` means most values are repeated, which is exactly
-    /// the case where a dictionary trades a small code-book for a much shorter
-    /// value stream.
-    #[must_use]
-    pub fn distinct_ratio(&self) -> f64 {
-        self.distinct_ratio
+        let bit_width_saving = self.max_bit_width.saturating_sub(self.delta_max_bit_width);
+        self.is_sorted || bit_width_saving >= DELTA_BIT_SAVINGS_THRESHOLD
     }
 }
 
-fn block_sample<T: Clone + Copy>(values: &[T], target: usize) -> Vec<T> {
+fn block_sample<T: Clone + Copy>(values: &[T], target: usize) -> &[T] {
     if values.len() <= target {
-        return values.to_vec();
+        return values;
     }
     // Pick a starting point (could be middle or random)
     // and take a contiguous chunk to preserve RLE/Delta patterns.
     let start = (values.len() / 2).saturating_sub(target / 2);
-    values[start..start + target].to_vec()
+    &values[start..start + target]
 }
 
 /// Compute the target sample size from the full stream length.
