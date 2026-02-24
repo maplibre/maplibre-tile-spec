@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use num_traits::{AsPrimitive, PrimInt, WrappingSub, Zero};
+use num_traits::{AsPrimitive as _, PrimInt as _, WrappingSub, Zero as _};
 use probabilistic_collections::SipHasherBuilder;
 use probabilistic_collections::hyperloglog::HyperLogLog;
 use zigzag::ZigZag;
@@ -42,7 +42,7 @@ const HLL_ERROR_RATE: f64 = 0.05;
 /// 2. **Compete**: Encode the same sample with every surviving candidate and
 ///    pick the one whose encoded output is smallest.
 ///    In case of a tie
-///    - the physical priority order is FastPFOR > VarInt > None and,
+///    - the physical priority order is `FastPFOR` > `VarInt` > `None and,
 ///    - at the logical level, more complex transforms are deprioritized.
 #[derive(Debug, Clone, Default)]
 pub struct DataProfile {
@@ -82,6 +82,7 @@ pub struct DataProfile {
 impl DataProfile {
     /// Profile a `u32` sample in a single pass.
     #[must_use]
+    #[expect(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
     pub fn profile<T>(sample: &[T::UInt]) -> Self
     where
         T: ZigZag + Hash,
@@ -156,22 +157,22 @@ impl DataProfile {
         candidates
             .iter()
             .copied()
-            .min_by_key(|&enc| encoded_size_u32(&data, enc))
+            .min_by_key(|&enc| encoded_size_u32(data, enc))
             .unwrap_or_else(Encoder::fastpfor)
     }
     pub fn min_size_encoding_u64s(candidates: &[Encoder], data: &[u64]) -> Encoder {
         candidates
             .iter()
             .copied()
-            .min_by_key(|&enc| encoded_size_u64(&data, enc))
+            .min_by_key(|&enc| encoded_size_u64(data, enc))
             .unwrap_or_else(Encoder::fastpfor)
     }
 
     /// Return the list of `Encoder` variants worth trying for `u32` data given the
     /// supplied profile.
     ///
-    /// FastPFOR is always preferred over VarInt;
-    /// VarInt is included as a fallback and for compatibility with gzip-compressed output.
+    /// `FastPFOR` is always preferred over `VarInt`;
+    /// `VarInt` is included as a fallback and for compatibility with gzip-compressed output.
     ///
     /// The returned vec is ordered from most- to least-complex so the competition
     /// loop breaks ties deterministically (first match wins on equal sizes).

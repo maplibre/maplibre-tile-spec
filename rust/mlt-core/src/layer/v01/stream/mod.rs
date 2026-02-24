@@ -59,12 +59,12 @@ impl Encoder {
 
     /// Automatically select the best encoder for a `u32` stream.
     ///
-    /// Uses the BTRBlocks strategy:
+    /// Uses the `BTRBlocks` strategy:
     /// - profile a lower amount of sample of the data to prune unsuitable candidates,
     /// - then encode the same sample with all survivors and
     /// - return the encoder that produces the smallest output.
     ///
-    /// FastPFOR is always preferred over VarInt when sizes are equal.
+    /// `FastPFOR` is always preferred over `VarInt` when sizes are equal.
     #[must_use]
     pub fn auto_u32(values: &[u32]) -> Encoder {
         let enc = DataProfile::prune_candidates::<i32>(values);
