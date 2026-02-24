@@ -543,59 +543,35 @@ pub fn encode_geometry(
 
 pub trait GeometryEncoder {
     /// Encoding settings for the geometry types (meta) stream.
-    fn meta(&self) -> Encoder {
-        unreachable!()
-    }
+    fn meta(&self) -> Encoder;
 
     /// Encoding for the geometry length stream.
-    fn num_geometries(&self) -> Encoder {
-        unreachable!()
-    }
+    fn num_geometries(&self) -> Encoder;
 
     /// Encoding for parts length stream when rings are present.
-    fn rings(&self) -> Encoder {
-        unreachable!()
-    }
+    fn rings(&self) -> Encoder;
     /// Encoding for ring vertex-count stream.
-    fn rings2(&self) -> Encoder {
-        unreachable!()
-    }
+    fn rings2(&self) -> Encoder;
     /// Encoding for parts length stream when rings are not present.
-    fn no_rings(&self) -> Encoder {
-        unreachable!()
-    }
+    fn no_rings(&self) -> Encoder;
 
     /// Encoding for parts length stream (with rings) when `geometry_offsets` absent.
-    fn parts(&self) -> Encoder {
-        unreachable!()
-    }
+    fn parts(&self) -> Encoder;
     /// Encoding for ring lengths when `geometry_offsets` absent.
-    fn parts_ring(&self) -> Encoder {
-        unreachable!()
-    }
+    fn parts_ring(&self) -> Encoder;
 
     /// Encoding for parts-only stream (e.g. `LineString`, no rings).
-    fn only_parts(&self) -> Encoder {
-        unreachable!()
-    }
+    fn only_parts(&self) -> Encoder;
 
     /// Encoding for triangles count stream (pre-tessellated polygons).
-    fn triangles(&self) -> Encoder {
-        unreachable!()
-    }
+    fn triangles(&self) -> Encoder;
     /// Encoding for triangle index buffer (pre-tessellated polygons).
-    fn triangles_indexes(&self) -> Encoder {
-        unreachable!()
-    }
+    fn triangles_indexes(&self) -> Encoder;
 
     /// Encoding for the vertex data stream (logical is always `ComponentwiseDelta`; only physical varies).
-    fn vertex(&self) -> Encoder {
-        unreachable!()
-    }
+    fn vertex(&self) -> Encoder;
     /// Encoding for vertex offsets (dictionary encoding).
-    fn vertex_offsets(&self) -> Encoder {
-        unreachable!()
-    }
+    fn vertex_offsets(&self) -> Encoder;
 }
 
 /// How to encode Geometry
