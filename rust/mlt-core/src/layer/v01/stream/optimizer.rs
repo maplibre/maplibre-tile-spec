@@ -165,7 +165,7 @@ impl DataProfile {
             .iter()
             .copied()
             .min_by_key(|&enc| encoded_size_u64(data, enc))
-            .unwrap_or_else(Encoder::fastpfor)
+            .unwrap_or_else(Encoder::varint)
     }
 
     /// Return the list of `Encoder` variants worth trying for `u32` data given the
