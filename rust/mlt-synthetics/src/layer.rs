@@ -280,11 +280,11 @@ impl Layer {
                 .collect::<Vec<_>>(),
         });
 
-        let mut file =
-            Self::open_new(path).unwrap_or_else(|_| panic!("cannot create {}", path.display()));
+        let mut file = Self::open_new(path)
+            .unwrap_or_else(|e| panic!("cannot create {}: {e}", path.display()));
         layer
             .write_to(&mut file)
-            .unwrap_or_else(|_| panic!("cannot encode {}", path.display()));
+            .unwrap_or_else(|e| panic!("cannot encode {}: {e}", path.display()));
     }
 }
 
