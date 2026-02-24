@@ -11,7 +11,7 @@ use mlt_core::v01::{
 };
 use mlt_core::{Encodable as _, OwnedLayer};
 
-use crate::geometry::ValidatingGeometryEncoder;
+use crate::geometry::{Point, ValidatingGeometryEncoder};
 
 #[derive(Debug, Clone)]
 pub struct Feature {
@@ -32,7 +32,7 @@ impl Feature {
         self.write_geojson(&dir.join(format!("{name}.geojson")));
         self.write_mlt(&dir.join(format!("{name}.mlt")));
     }
-    pub fn point([x, y]: [i32; 2], meta: Encoder, vertex: Encoder) -> Self {
+    pub fn point([x, y]: Point, meta: Encoder, vertex: Encoder) -> Self {
         let geom = DecodedGeometry {
             vector_types: vec![GeometryType::Point],
             vertices: Some(vec![x, y]),
@@ -57,15 +57,22 @@ impl Feature {
             property_encoder,
         }
     }
-    pub fn line(points: [[i32; 2]; 2], meta: Encoder, vertex: Encoder, only_parts: Encoder) -> Self {
+    pub fn line(
+        points: impl IntoIterator<Item = Point>,
+        meta: Encoder,
+        vertex: Encoder,
+        only_parts: Encoder,
+    ) -> Self {
+        let vertices = points.into_iter().flatten().collect::<Vec<_>>();
+        let part_offsets = vec![0, (vertices.len() as u32)/2];
         let geom = DecodedGeometry {
             vector_types: vec![GeometryType::LineString],
-            vertices: Some(points.into_iter().flatten().collect()),
-            part_offsets: Some(vec![0,2]),
+            vertices: Some(vertices),
+            part_offsets: Some(part_offsets),
             ..Default::default()
         };
         let mut geometry_encoder = ValidatingGeometryEncoder::default();
-        geometry_encoder.line(meta,vertex,only_parts);
+        geometry_encoder.line(meta, vertex, only_parts);
         let property_encoder = PropertyEncoder::new(
             PresenceStream::Absent,
             LogicalEncoder::None,

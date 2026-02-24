@@ -24,5 +24,11 @@ fn main() {
 
 fn generate_geometry(dir: &Path) {
     Feature::point(C0, Encoder::varint(), Encoder::varint()).write(dir, "point");
-    Feature::line([C1, C2], Encoder::varint(), Encoder::varint(), Encoder::varint()).write(dir, "line");
+    Feature::line(
+        [C1, C2],
+        Encoder::varint(),
+        Encoder::varint(),
+        Encoder::varint(),
+    )
+    .write(dir, "line");
 }

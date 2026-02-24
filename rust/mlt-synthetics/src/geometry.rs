@@ -2,13 +2,14 @@
 
 use mlt_core::v01::{Encoder, GeometryEncoder};
 
-pub const C0: [i32; 2] = [13, 42];
-pub const C1: [i32; 2] = [4, 47];
-pub const C2: [i32; 2] = [12, 53];
-pub const C3: [i32; 2] = [18, 45];
-pub const H1: [i32; 2] = [13, 48];
-pub const H2: [i32; 2] = [12, 50];
-pub const H3: [i32; 2] = [10, 49];
+pub type Point = [i32; 2];
+pub const C0: Point = [13, 42];
+pub const C1: Point = [4, 47];
+pub const C2: Point = [12, 53];
+pub const C3: Point = [18, 45];
+pub const H1: Point = [13, 48];
+pub const H2: Point = [12, 50];
+pub const H3: Point = [10, 49];
 
 #[derive(Default, Clone, Copy, Debug)]
 pub struct ValidatingGeometryEncoder {
@@ -35,8 +36,7 @@ impl ValidatingGeometryEncoder {
         set(&mut self.vertex, vertex, "vertex");
         set(&mut self.only_parts, only_parts, "only_parts");
     }
-    pub fn polygon(&mut self) {
-    }
+    pub fn polygon(&mut self) {}
 }
 
 impl GeometryEncoder for ValidatingGeometryEncoder {
