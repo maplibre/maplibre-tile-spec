@@ -29,8 +29,8 @@ protobuf-java = { group = "com.google.protobuf", name = "protobuf-java", version
 slf4j-simple = { group = "org.slf4j", name = "slf4j-simple", version = "2.0.17" }
 sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version = "3.51.2.0" }
 tileverse-io = { group = "io.tileverse", name = "tileverse-bom", version.ref = "tileverse" }
-tileverse-pmtiles = { module = "io.tileverse.pmtiles:tileverse-pmtiles" }
 tileverse-rangereader-all = { module= "io.tileverse.rangereader:tileverse-rangereader-all" }
+planetiler-core = { module= "com.onthegomap.planetiler:planetiler-core", version="0.10.0" }
 
 [plugins]
 diffplug-spotless = { id = "com.diffplug.spotless", version = "8.2.1"}
