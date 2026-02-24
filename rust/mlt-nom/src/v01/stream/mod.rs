@@ -260,9 +260,7 @@ impl<'a> Stream<'a> {
             PT::None | PT::FastPFOR => DataRaw::new(data),
             PT::VarInt => DataVarInt::new(data),
             PT::Alp => {
-                return Err(MltError::DecodeError(format!(
-                    "Unsupported logical/physical technique combination: {physical:?}"
-                )));
+                return Err(MltError::UnsupportedPhysicalDecoder("ALP"));
             }
         };
 
@@ -312,9 +310,7 @@ impl<'a> Stream<'a> {
             PhysicalDecoder::None => {
                 // For raw data, we'd need to read 8 bytes per value
                 // But typically 64-bit IDs use VarInt encoding
-                return Err(MltError::DecodeError(
-                    "Raw physical decoder not supported for u64".to_string(),
-                ));
+                return Err(MltError::UnsupportedPhysicalDecoder("Raw (u64)"));
             }
             PhysicalDecoder::FastPFOR => {
                 return Err(MltError::UnsupportedPhysicalDecoder("FastPFOR"));

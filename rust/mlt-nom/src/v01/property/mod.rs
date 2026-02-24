@@ -356,7 +356,7 @@ impl<'a> FromRaw<'a> for DecodedProperty {
                 present.as_ref(),
                 decode_string_streams(streams)?,
             )),
-            RawPropValue::Struct(_) => PropValue::Struct,
+            RawPropValue::Struct(_) => Err(MltError::NotDecoded("struct must use decode_expand"))?,
         };
         Ok(DecodedProperty {
             name: v.name.to_string(),
