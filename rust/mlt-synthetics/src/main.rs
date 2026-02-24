@@ -46,10 +46,7 @@ fn main() {
     println!("Generating synthetic test data in {}", dir.display());
 
     generate_geometry(&dir);
-    // TODO: `generate_mixed` requires fixing the geometry offset arrays in mlt-core
-    // for mixed geometry types - see `encode_root_length_stream` issue
-    // generate_mixed();
-    // generate_mixed(&dir);
+    generate_mixed(&dir);
     generate_extent(&dir);
     generate_ids(&dir);
     generate_properties(&dir);
@@ -58,10 +55,8 @@ fn main() {
 fn generate_geometry(dir: &Path) {
     use Encoder as E;
 
-    // Point - Java: write("point", feat(p0), cfg());
     Feature::point(Point(C0), E::varint(), E::varint()).write(dir, "point");
 
-    // Line - Java: write("line", feat(line(c1, c2)), cfg());
     Feature::linestring(
         LineString(vec![C1, C2]),
         E::varint(),
@@ -70,36 +65,30 @@ fn generate_geometry(dir: &Path) {
     )
     .write(dir, "line");
 
-    // Polygon - Java: var pol = feat(poly(c1, c2, c3, c1));
-    let pol = Polygon::new(LineString(vec![C1, C2, C3, C1]), vec![]);
-    Feature::polygon(
-        pol.clone(),
-        E::varint(),
-        E::varint(),
-        E::varint(),
-        E::varint(),
-    )
-    .write(dir, "polygon");
+    let pol = || Polygon::new(LineString(vec![C1, C2, C3, C1]), vec![]);
+    Feature::polygon(pol(), E::varint(), E::varint(), E::varint(), E::varint())
+        .write(dir, "polygon");
 
-    // polygon_fpf - Same polygon with FastPFOR encoding
     Feature::polygon(
-        pol.clone(),
+        pol(),
         E::fastpfor(),
         E::fastpfor(),
         E::fastpfor(),
         E::fastpfor(),
     )
     .write(dir, "polygon_fpf");
-    // TODO: polygon_tes, polygon_morton_tes need tessellation support
 
+    // TODO: polygon_tes, polygon_morton_tes need tessellation support
     // Polygon with hole - Java: feat(poly(ring(c1, c2, c3, c1), ring(h1, h2, h3, h1)));
     // Java uses RLE encoding for the rings stream
-    let pol_hole = Polygon::new(
-        LineString(vec![C1, C2, C3, C1]),
-        vec![LineString(vec![H1, H2, H3, H1])],
-    );
+    let pol_hole = || {
+        Polygon::new(
+            LineString(vec![C1, C2, C3, C1]),
+            vec![LineString(vec![H1, H2, H3, H1])],
+        )
+    };
     Feature::polygon(
-        pol_hole.clone(),
+        pol_hole(),
         E::varint(),
         E::varint(),
         E::varint(),
@@ -109,7 +98,7 @@ fn generate_geometry(dir: &Path) {
 
     // polygon_hole_fpf - Polygon with hole using FastPFOR + RLE for rings
     Feature::polygon(
-        pol_hole,
+        pol_hole(),
         E::fastpfor(),
         E::fastpfor(),
         E::fastpfor(),
@@ -119,12 +108,14 @@ fn generate_geometry(dir: &Path) {
 
     // MultiPolygon - Java: feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1)));
     // Java uses RLE encoding for both parts and rings streams
-    let mpol = MultiPolygon(vec![
-        Polygon::new(LineString(vec![C1, C2, C3, C1]), vec![]),
-        Polygon::new(LineString(vec![H1, H3, C2, H1]), vec![]),
-    ]);
+    let mpol = || {
+        MultiPolygon(vec![
+            Polygon::new(LineString(vec![C1, C2, C3, C1]), vec![]),
+            Polygon::new(LineString(vec![H1, H3, C2, H1]), vec![]),
+        ])
+    };
     Feature::multi_polygon(
-        mpol.clone(),
+        mpol(),
         E::varint(),
         E::varint(),
         E::varint(),
@@ -135,7 +126,7 @@ fn generate_geometry(dir: &Path) {
 
     // polygon_multi_fpf - MultiPolygon with FastPFOR + RLE for parts/rings
     Feature::multi_polygon(
-        mpol,
+        mpol(),
         E::fastpfor(),
         E::fastpfor(),
         E::fastpfor(),
@@ -157,42 +148,29 @@ fn generate_geometry(dir: &Path) {
 fn generate_mixed(dir: &Path) {
     use Encoder as E;
 
-    let line1 = LineString(vec![C1, C2]);
-    let line2 = LineString(vec![H1, H2, H3]);
-    let pol1 = Polygon::new(LineString(vec![C1, C2, C3, C1]), vec![]);
-    // Note: Java uses h1, h3, h2, h1 for mixed_all (counter-clockwise)
-    let pol2 = Polygon::new(LineString(vec![H1, H3, H2, H1]), vec![]);
+    let line1 = || LineString(vec![C1, C2]);
+    let line2 = || LineString(vec![H1, H2, H3]);
+    let pol1 = || Polygon::new(LineString(vec![C1, C2, C3, C1]), vec![]);
+    let pol2 = || Polygon::new(LineString(vec![H1, H3, H2, H1]), vec![]);
 
     // mixed_pt_line: layer with point feature + linestring feature
     Layer::new(vec![
         Feature::point(Point(C0), E::varint(), E::varint()),
-        Feature::linestring(line1.clone(), E::varint(), E::varint(), E::varint()),
+        Feature::linestring(line1(), E::varint(), E::varint(), E::varint()),
     ])
     .write(dir, "mixed_pt_line");
 
     // mixed_pt_poly: layer with point feature + polygon feature
     Layer::new(vec![
         Feature::point(Point(C0), E::varint(), E::varint()),
-        Feature::polygon(
-            pol1.clone(),
-            E::varint(),
-            E::varint(),
-            E::varint(),
-            E::varint(),
-        ),
+        Feature::polygon(pol1(), E::varint(), E::varint(), E::varint(), E::varint()),
     ])
     .write(dir, "mixed_pt_poly");
 
     // mixed_line_poly: layer with linestring feature + polygon feature
     Layer::new(vec![
-        Feature::linestring(line1.clone(), E::varint(), E::varint(), E::varint()),
-        Feature::polygon(
-            pol1.clone(),
-            E::varint(),
-            E::varint(),
-            E::varint(),
-            E::varint(),
-        ),
+        Feature::linestring(line1(), E::varint(), E::varint(), E::varint()),
+        Feature::polygon(pol1(), E::varint(), E::varint(), E::varint(), E::varint()),
     ])
     .write(dir, "mixed_line_poly");
 
@@ -200,7 +178,7 @@ fn generate_mixed(dir: &Path) {
     Layer::new(vec![
         Feature::point(Point(C0), E::varint(), E::varint()),
         Feature::multi_linestring(
-            MultiLineString(vec![line1.clone(), line2]),
+            MultiLineString(vec![line1(), line2()]),
             E::varint(),
             E::varint(),
             E::varint(),
@@ -210,22 +188,23 @@ fn generate_mixed(dir: &Path) {
     .write(dir, "mixed_pt_mline");
 
     // mixed_all: layer with point + linestring + polygon + multi-polygon features
+    // Java auto-detects const streams and uses RLE, so we use RLE for parts since all values are 1
     Layer::new(vec![
         Feature::point(Point(C0), E::varint(), E::varint()),
-        Feature::linestring(line1, E::varint(), E::varint(), E::varint()),
+        Feature::linestring(line1(), E::varint(), E::varint(), E::varint()),
         Feature::polygon(
-            pol1.clone(),
+            pol1(),
             E::varint(),
             E::varint(),
-            E::varint(),
+            E::rle_varint(), // parts: all values are 1, so Java uses RLE
             E::varint(),
         ),
         Feature::multi_polygon(
-            MultiPolygon(vec![pol1, pol2]),
+            MultiPolygon(vec![pol1(), pol2()]),
             E::varint(),
             E::varint(),
             E::varint(),
-            E::varint(),
+            E::rle_varint(), // parts: all values are 1, so Java uses RLE
             E::varint(),
         ),
     ])

@@ -27,8 +27,15 @@ fn encode_vertex_buffer(
     })
 }
 
-/// Convert geometry offsets to length stream for encoding
-/// This is the inverse of `decode_root_length_stream`
+/// Convert geometry offsets to length stream for encoding.
+/// This is the inverse of `decode_root_length_stream`.
+///
+/// The offset array can be either:
+/// - Sparse: entries only for geometries that need them (types > `buffer_id`), N+1 entries for N matching geoms
+/// - Dense (normalized): N+1 entries for N geometry types, indexed by geometry position
+///
+/// If dense `(len == geometry_types.len() + 1)`, use geometry index directly.
+/// If sparse, use sequential indexing for matching geometry types.
 fn encode_root_length_stream(
     geometry_types: &[GeometryType],
     geometry_offsets: &[u32],
@@ -36,21 +43,36 @@ fn encode_root_length_stream(
 ) -> Vec<u32> {
     let mut lengths = Vec::new();
 
-    for (i, &geom_type) in geometry_types.iter().enumerate() {
-        // Only encode lengths for geometry types > buffer_id
-        // (e.g., for Polygon buffer_id, encode MultiPolygon and MultiLineString lengths)
-        if geom_type > buffer_id {
-            let start = geometry_offsets[i];
-            let end = geometry_offsets[i + 1];
-            lengths.push(end - start);
+    if geometry_offsets.len() == geometry_types.len() + 1 {
+        // Dense array: use geometry index directly
+        for (i, &geom_type) in geometry_types.iter().enumerate() {
+            if geom_type > buffer_id {
+                let start = geometry_offsets[i];
+                let end = geometry_offsets[i + 1];
+                lengths.push(end - start);
+            }
+        }
+    } else {
+        // Sparse array: sequential indexing for matching types
+        let mut offset_idx = 0;
+        for &geom_type in geometry_types {
+            if geom_type > buffer_id {
+                let start = geometry_offsets[offset_idx];
+                let end = geometry_offsets[offset_idx + 1];
+                lengths.push(end - start);
+                offset_idx += 1;
+            }
         }
     }
 
     lengths
 }
 
-/// Convert part offsets to length stream for level 1 encoding
-/// This is the inverse of `decode_level1_length_stream`
+/// Convert part offsets to length stream for level 1 encoding.
+/// This is the inverse of `decode_level1_length_stream`.
+///
+/// The `geometry_offsets` array is expected to be an N+1 element array for N geometries.
+/// For mixed types, it should be normalized first.
 fn encode_level1_length_stream(
     geometry_types: &[GeometryType],
     geometry_offsets: &[u32],
@@ -73,17 +95,18 @@ fn encode_level1_length_stream(
                 lengths.push(end - start);
                 part_idx += 1;
             }
-        } else {
-            // Skip entries that don't have lengths in the stream
-            part_idx += num_geoms;
         }
+        // Note: Point/MultiPoint don't contribute to part_offsets, so don't advance part_idx
     }
 
     lengths
 }
 
-/// Convert ring offsets to length stream for level 2 encoding
-/// This is the inverse of `decode_level2_length_stream`
+/// Convert ring offsets to length stream for level 2 encoding.
+/// This is the inverse of `decode_level2_length_stream`.
+///
+/// The `geometry_offsets` array is expected to be an N+1 element array for N geometries.
+/// The `part_offsets` array tracks ring counts cumulatively.
 fn encode_level2_length_stream(
     geometry_types: &[GeometryType],
     geometry_offsets: &[u32],
@@ -97,7 +120,11 @@ fn encode_level2_length_stream(
     for (i, &geom_type) in geometry_types.iter().enumerate() {
         let num_geoms = (geometry_offsets[i + 1] - geometry_offsets[i]) as usize;
 
-        if geom_type != GeometryType::Point && geom_type != GeometryType::MultiPoint {
+        // Only Polygon and MultiPolygon have ring data in level 2
+        // LineStrings with Polygon present add their vertex counts directly to ring_offsets
+        // but they don't have parts (ring count per linestring is always 1 implicitly)
+        if geom_type.is_polygon() {
+            // Polygon/MultiPolygon: iterate through sub-polygons, each has parts (ring counts)
             for _ in 0..num_geoms {
                 let num_parts = (part_offsets[part_idx + 1] - part_offsets[part_idx]) as usize;
                 part_idx += 1;
@@ -108,19 +135,26 @@ fn encode_level2_length_stream(
                     ring_idx += 1;
                 }
             }
-        } else {
-            // Point/MultiPoint don't have ring lengths
-            // But we still need to advance part_idx appropriately because
-            // decode_level2_length_stream advances its level1_offset_buffer_counter
-            part_idx += num_geoms;
+        } else if geom_type.is_linestring() {
+            // LineStrings contribute to ring_offsets directly (vertex counts)
+            // Each linestring is implicitly 1 "ring" in terms of vertex counts
+            for _ in 0..num_geoms {
+                let start = ring_offsets[ring_idx];
+                let end = ring_offsets[ring_idx + 1];
+                lengths.push(end - start);
+                ring_idx += 1;
+            }
         }
+        // Note: Point/MultiPoint don't contribute to ring_offsets
     }
 
     lengths
 }
 
-/// Convert part offsets without ring buffer to length stream
-/// This is the inverse of `decode_level1_without_ring_buffer_length_stream`
+/// Convert part offsets without ring buffer to length stream.
+/// This is the inverse of `decode_level1_without_ring_buffer_length_stream`.
+///
+/// The `geometry_offsets` array is expected to be an N+1 element array for N geometries.
 fn encode_level1_without_ring_buffer_length_stream(
     geometry_types: &[GeometryType],
     geometry_offsets: &[u32],
@@ -139,10 +173,8 @@ fn encode_level1_without_ring_buffer_length_stream(
                 lengths.push(end - start);
                 part_idx += 1;
             }
-        } else {
-            // Point/MultiPoint don't have lengths in this stream
-            part_idx += num_geoms;
         }
+        // Note: Point/MultiPoint don't contribute to part_offsets, so don't advance part_idx
     }
 
     lengths
@@ -198,6 +230,57 @@ fn normalize_part_offsets_for_vertices(
 
     normalized.push(vertex_idx.min(num_vertices));
     normalized
+}
+
+/// Normalize `geometry_offsets` for mixed geometry types.
+/// When only Multi* geometries contribute to `geometry_offsets`, this expands it to have
+/// one entry per geometry plus a trailing entry.
+fn normalize_geometry_offsets(vector_types: &[GeometryType], geometry_offsets: &[u32]) -> Vec<u32> {
+    // Check if already normalized (has N+1 entries for N geometry types)
+    if geometry_offsets.len() == vector_types.len() + 1 {
+        return geometry_offsets.to_vec();
+    }
+
+    // Build normalized offset array
+    let mut normalized = Vec::with_capacity(vector_types.len() + 1);
+    let mut offset_idx = 0_usize;
+    let mut current_offset = 0_u32;
+
+    for &geom_type in vector_types {
+        normalized.push(current_offset);
+
+        match geom_type {
+            GeometryType::MultiLineString
+            | GeometryType::MultiPoint
+            | GeometryType::MultiPolygon => {
+                // Multi* types consume from the sparse geometry_offsets
+                if offset_idx + 1 < geometry_offsets.len() {
+                    let count = geometry_offsets[offset_idx + 1] - geometry_offsets[offset_idx];
+                    current_offset += count;
+                    offset_idx += 1;
+                }
+            }
+            _ => {
+                // Non-Multi types have implicit count of 1
+                current_offset += 1;
+            }
+        }
+    }
+
+    normalized.push(current_offset);
+    normalized
+}
+
+/// Create a synthetic `geometry_offsets` array where each geometry has exactly 1 sub-geometry.
+/// This is used when there are no Multi* types, but we still need a dense offset array
+/// for encoding functions that expect one.
+fn create_unit_geometry_offsets(vector_types: &[GeometryType]) -> Vec<u32> {
+    let size = u32::try_from(vector_types.len() + 1).expect("geometry count overflow");
+    let mut offsets = Vec::with_capacity(size as usize);
+    for i in 0..size {
+        offsets.push(i);
+    }
+    offsets
 }
 
 /// Normalize `part_offsets` for ring-based indexing (Polygon mixed with `Point`/`LineString`)
@@ -258,8 +341,10 @@ pub fn encode_geometry(
         vertices,
     } = decoded;
 
-    // Normalize part_offsets if needed for mixed geometry types
-    let normalized_parts = if geometry_offsets.is_none() {
+    // Normalize part_offsets if needed for mixed geometry types with rings
+    // When we have rings, we need to expand part_offsets to have N+1 entries
+    // When we don't have rings, part_offsets is already in the correct sparse format
+    let normalized_parts = if geometry_offsets.is_none() && ring_offsets.is_some() {
         if let Some(part_offs) = part_offsets {
             if let Some(ring_offs) = ring_offsets {
                 // Mixed with rings (e.g., Point + Polygon) - normalize for ring-based indexing
@@ -267,13 +352,6 @@ pub fn encode_geometry(
                     vector_types,
                     part_offs,
                     ring_offs,
-                ))
-            } else if let Some(verts) = vertices {
-                // Mixed without rings (e.g., Point + LineString) - normalize for vertex-based indexing
-                Some(normalize_part_offsets_for_vertices(
-                    vector_types,
-                    part_offs,
-                    verts,
                 ))
             } else {
                 part_offsets.clone()
@@ -285,6 +363,12 @@ pub fn encode_geometry(
         part_offsets.clone()
     };
     let part_offsets = &normalized_parts;
+
+    // Normalize geometry_offsets for mixed geometry types
+    let normalized_geom_offs = geometry_offsets
+        .as_ref()
+        .map(|g| normalize_geometry_offsets(vector_types, g));
+    let geometry_offsets = &normalized_geom_offs;
 
     // Encode geometry types (meta stream)
     let meta = {
@@ -317,11 +401,13 @@ pub fn encode_geometry(
         if let Some(part_offs) = part_offsets {
             if let Some(ring_offs) = ring_offsets {
                 // Full topology: geom -> parts -> rings
+                // When rings are present (Polygon in layer), LineStrings contribute to rings, not parts.
+                // So is_line_string_present should be false for the parts stream.
                 let part_lengths = encode_level1_length_stream(
                     vector_types,
                     geom_offs,
                     part_offs,
-                    has_linestrings,
+                    false, // LineStrings contribute to rings, not parts
                 );
                 if !part_lengths.is_empty() {
                     items.push(OwnedStream::encode_u32s_of_type(
@@ -357,9 +443,9 @@ pub fn encode_geometry(
             }
         }
     } else if let Some(part_offs) = part_offsets {
-        // No geometry offsets, encode from parts
+        // No geometry offsets (no Multi* types), encode from parts
         if let Some(ring_offs) = ring_offsets {
-            // parts -> rings (e.g., Polygon without Multi)
+            // parts -> rings (e.g., Polygon without Multi, or mixed Point + Polygon)
             let part_lengths =
                 encode_root_length_stream(vector_types, part_offs, GeometryType::LineString);
             if !part_lengths.is_empty() {
@@ -371,8 +457,22 @@ pub fn encode_geometry(
             }
 
             // Ring lengths
-            let ring_lengths =
-                encode_level1_length_stream(vector_types, part_offs, ring_offs, has_linestrings);
+            // For mixed geometry types (e.g., Point + Polygon), we need synthetic geometry_offsets
+            // where each geometry has 1 sub-geometry. For pure Polygon layers, part_offs
+            // already serves as the offset array (ring counts per polygon).
+            let is_mixed = vector_types.iter().any(|t| !t.is_polygon());
+            let ring_lengths = if is_mixed {
+                let synthetic_geom_offs = create_unit_geometry_offsets(vector_types);
+                encode_level1_length_stream(
+                    vector_types,
+                    &synthetic_geom_offs,
+                    ring_offs,
+                    has_linestrings,
+                )
+            } else {
+                // Pure polygon layer - part_offs gives ring counts per polygon
+                encode_level1_length_stream(vector_types, part_offs, ring_offs, has_linestrings)
+            };
             if !ring_lengths.is_empty() {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &ring_lengths,

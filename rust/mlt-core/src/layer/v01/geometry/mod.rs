@@ -371,19 +371,46 @@ impl DecodedGeometry {
         }
 
         let end_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
-        let parts = self.part_offsets.get_or_insert_with(Vec::new);
-        if parts.is_empty() {
-            parts.push(start_idx);
+
+        // If ring_offsets exists (i.e., there's a Polygon in the layer),
+        // add LineString vertex indices to ring_offsets instead of part_offsets.
+        // This matches Java's behavior where LineString adds to numRings when containsPolygon.
+        if let Some(rings) = &mut self.ring_offsets {
+            // Add to ring_offsets - LineString vertices go here when Polygon is present
+            if rings.is_empty() {
+                rings.push(start_idx);
+            }
+            rings.push(end_idx);
+        } else {
+            // No polygon yet - add to part_offsets as vertex indices
+            let parts = self.part_offsets.get_or_insert_with(Vec::new);
+            if parts.is_empty() {
+                parts.push(start_idx);
+            }
+            parts.push(end_idx);
         }
-        parts.push(end_idx);
     }
 
     fn push_polygon(&mut self, poly: &Polygon<i32>) {
         self.vector_types.push(GeometryType::Polygon);
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
-        let parts = self.part_offsets.get_or_insert_with(Vec::new);
         let rings = self.ring_offsets.get_or_insert_with(Vec::new);
+
+        // Check if LineStrings have been added (their vertex offsets are in part_offsets)
+        // If so, move their data to ring_offsets before adding Polygon data.
+        // This matches Java's behavior where LineString adds to numRings when containsPolygon.
+        if let Some(linestring_parts) = self.part_offsets.take() {
+            // Move LineString vertex offsets to ring_offsets
+            if rings.is_empty() {
+                *rings = linestring_parts;
+            } else {
+                // Shouldn't happen - rings should be empty if we have linestring parts
+                panic!("Unexpected state: both part_offsets and ring_offsets populated");
+            }
+        }
+
+        let parts = self.part_offsets.get_or_insert_with(Vec::new);
 
         // parts[i] stores the ring index where polygon i starts
         // Number of existing rings = rings.len() - 1 (since rings is an offset array)
