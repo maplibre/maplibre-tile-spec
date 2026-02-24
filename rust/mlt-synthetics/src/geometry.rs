@@ -27,32 +27,106 @@ pub struct ValidatingGeometryEncoder {
     pub vertex_offsets: Option<Encoder>,
 }
 impl ValidatingGeometryEncoder {
+    /// Configure encoding for Point geometry.
     pub fn point(mut self, meta: Encoder, vertex: Encoder) -> Self {
         set(&mut self.meta, meta, "meta");
         set(&mut self.vertex, vertex, "vertex");
         self
     }
+
+    /// Configure encoding for `LineString` geometry.
     pub fn linestring(mut self, meta: Encoder, vertex: Encoder, only_parts: Encoder) -> Self {
         set(&mut self.meta, meta, "meta");
         set(&mut self.vertex, vertex, "vertex");
         set(&mut self.only_parts, only_parts, "only_parts");
         self
     }
-    #[expect(clippy::todo)]
-    pub fn polygon(self) -> Self {
-        todo!()
+
+    /// Configure encoding for Polygon geometry.
+    pub fn polygon(
+        mut self,
+        meta: Encoder,
+        vertex: Encoder,
+        parts: Encoder,
+        parts_ring: Encoder,
+    ) -> Self {
+        set(&mut self.meta, meta, "meta");
+        set(&mut self.vertex, vertex, "vertex");
+        set(&mut self.parts, parts, "parts");
+        set(&mut self.parts_ring, parts_ring, "parts_ring");
+        self
     }
-    #[expect(clippy::todo)]
-    pub fn multi_point(self) -> Self {
-        todo!()
+
+    /// Configure encoding for `MultiPoint` geometry.
+    pub fn multi_point(mut self, meta: Encoder, vertex: Encoder, num_geometries: Encoder) -> Self {
+        set(&mut self.meta, meta, "meta");
+        set(&mut self.vertex, vertex, "vertex");
+        set(&mut self.num_geometries, num_geometries, "num_geometries");
+        self
     }
-    #[expect(clippy::todo)]
-    pub fn multi_linestring(self) -> Self {
-        todo!()
+
+    /// Configure encoding for `MultiLineString` geometry.
+    /// Uses `no_rings` since `MultiLineString` has `geometry_offsets` but no rings.
+    pub fn multi_linestring(
+        mut self,
+        meta: Encoder,
+        vertex: Encoder,
+        num_geometries: Encoder,
+        no_rings: Encoder,
+    ) -> Self {
+        set(&mut self.meta, meta, "meta");
+        set(&mut self.vertex, vertex, "vertex");
+        set(&mut self.num_geometries, num_geometries, "num_geometries");
+        set(&mut self.no_rings, no_rings, "no_rings");
+        self
     }
-    #[expect(clippy::todo)]
-    pub fn multi_polygon(self) -> Self {
-        todo!()
+
+    /// Configure encoding for `MultiPolygon` geometry.
+    /// Uses `rings` and `rings2` since `MultiPolygon` has `geometry_offsets`.
+    pub fn multi_polygon(
+        mut self,
+        meta: Encoder,
+        vertex: Encoder,
+        num_geometries: Encoder,
+        rings: Encoder,
+        rings2: Encoder,
+    ) -> Self {
+        set(&mut self.meta, meta, "meta");
+        set(&mut self.vertex, vertex, "vertex");
+        set(&mut self.num_geometries, num_geometries, "num_geometries");
+        set(&mut self.rings, rings, "rings");
+        set(&mut self.rings2, rings2, "rings2");
+        self
+    }
+
+    /// Merge another encoder's settings into this one.
+    /// Panics if any field is set differently in both encoders.
+    pub fn merge(mut self, other: Self) -> Self {
+        merge_opt(&mut self.meta, other.meta, "meta");
+        merge_opt(
+            &mut self.num_geometries,
+            other.num_geometries,
+            "num_geometries",
+        );
+        merge_opt(&mut self.rings, other.rings, "rings");
+        merge_opt(&mut self.rings2, other.rings2, "rings2");
+        merge_opt(&mut self.no_rings, other.no_rings, "no_rings");
+        merge_opt(&mut self.parts, other.parts, "parts");
+        merge_opt(&mut self.parts_ring, other.parts_ring, "parts_ring");
+        merge_opt(&mut self.only_parts, other.only_parts, "only_parts");
+        merge_opt(&mut self.triangles, other.triangles, "triangles");
+        merge_opt(
+            &mut self.triangles_indexes,
+            other.triangles_indexes,
+            "triangles_indexes",
+        );
+        merge_opt(&mut self.vertex, other.vertex, "vertex");
+        merge_opt(
+            &mut self.vertex_offsets,
+            other.vertex_offsets,
+            "vertex_offsets",
+        );
+        self
     }
 }
 
@@ -99,7 +173,17 @@ fn set(val: &mut Option<Encoder>, encoder: Encoder, name: &str) {
     if let Some(v) = val
         && v != &encoder
     {
-        panic!("{name} already set")
+        panic!("{name} already set with different value")
     }
     *val = Some(encoder);
+}
+
+fn merge_opt(target: &mut Option<Encoder>, source: Option<Encoder>, name: &str) {
+    if let Some(src) = source {
+        if let Some(tgt) = target {
+            assert_eq!(tgt, &src, "{name} conflict during merge");
+        } else {
+            *target = Some(src);
+        }
+    }
 }

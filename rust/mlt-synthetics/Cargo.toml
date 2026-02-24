@@ -12,6 +12,7 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
+geo-types.workspace = true
 json5.workspace = true
 mlt-core.workspace = true
 pretty_assertions.workspace = true

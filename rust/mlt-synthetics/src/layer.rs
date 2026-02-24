@@ -5,25 +5,24 @@ use std::io::Write as _;
 use std::path::Path;
 use std::{fs, io};
 
-use mlt_core::geojson::FeatureCollection;
+use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
+use mlt_core::geojson::{Coord32, FeatureCollection, Geom32};
 use mlt_core::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, Encoder, GeometryType, IdEncoder, IdWidth,
-    LogicalEncoder, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PropValue,
-    PropertyEncoder,
+    DecodedGeometry, DecodedId, DecodedProperty, IdEncoder, IdWidth, LogicalEncoder, OwnedGeometry,
+    OwnedId, OwnedLayer01, OwnedProperty, PropValue, PropertyEncoder,
 };
 use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
 
-use crate::geometry::{Point, ValidatingGeometryEncoder};
+use crate::geometry::ValidatingGeometryEncoder;
 
+/// A builder for creating synthetic MLT features with explicit control over encoding parameters.
 #[derive(Debug, Clone)]
 pub struct Feature {
-    // features
     geom: DecodedGeometry,
     props: Vec<(DecodedProperty, PropertyEncoder)>,
     ids: DecodedId,
     extent: Option<u32>,
 
-    // config
     ids_encoder: IdEncoder,
     geometry_encoder: ValidatingGeometryEncoder,
 }
@@ -33,6 +32,7 @@ impl Feature {
         OpenOptions::new().write(true).create_new(true).open(path)
     }
 
+    /// Write the feature to an MLT file and a corresponding JSON file.
     pub fn write(&self, dir: &Path, name: &str) {
         let path = dir.join(format!("{name}.mlt"));
         self.write_mlt(&path);
@@ -48,94 +48,25 @@ impl Feature {
         let mut out_file = Self::open_new(&dir.join(format!("{name}.json"))).unwrap();
         out_file.write_all(json.as_bytes()).unwrap();
     }
-    pub fn point(point: Point, meta: Encoder, vertex: Encoder) -> Self {
-        default_feature().and_point(point, meta, vertex)
+
+    /// Create a feature from a `geo_types` geometry with encoding configuration.
+    pub fn from_geom(geom: impl Into<Geom32>, encoder: ValidatingGeometryEncoder) -> Self {
+        let mut feat = default_feature();
+        feat.geom.push_geom(&geom.into());
+        feat.geometry_encoder = encoder;
+        feat
     }
-    pub fn and_point(mut self, [x, y]: Point, meta: Encoder, vertex: Encoder) -> Self {
-        self.geometry_encoder = self.geometry_encoder.point(meta, vertex);
-        self.geom.vector_types.push(GeometryType::Point);
-        let old_vert = self.geom.vertices.unwrap_or_default();
-        let new_vert = vec![x, y];
-        self.geom.vertices = Some(old_vert.into_iter().chain(new_vert).collect::<Vec<_>>());
+
+    /// Add another geometry to this feature.
+    #[must_use]
+    pub fn and(mut self, geom: impl Into<Geom32>, encoder: ValidatingGeometryEncoder) -> Self {
+        self.geom.push_geom(&geom.into());
+        self.geometry_encoder = self.geometry_encoder.merge(encoder);
         self
     }
 
-    pub fn linestring(
-        points: &[Point],
-        meta: Encoder,
-        vertex: Encoder,
-        only_parts: Encoder,
-    ) -> Self {
-        default_feature().and_linestring(points, meta, vertex, only_parts)
-    }
-
-    pub fn and_linestring(
-        mut self,
-        points: &[Point],
-        meta: Encoder,
-        vertex: Encoder,
-        only_parts: Encoder,
-    ) -> Self {
-        self.geometry_encoder = self.geometry_encoder.linestring(meta, vertex, only_parts);
-        self.geom.vector_types.push(GeometryType::LineString);
-        let old_vert = self.geom.vertices.unwrap_or_default();
-        let base_offset = u32::try_from(old_vert.len()).expect("vertex count overflow");
-        let new_vert: Vec<_> = points.iter().copied().flatten().collect();
-        let new_offset =
-            base_offset + u32::try_from(new_vert.len()).expect("vertex count overflow") / 2;
-
-        self.geom.vertices = Some(old_vert.into_iter().chain(new_vert).collect());
-
-        let new_part_offsets = vec![base_offset, new_offset];
-        let old_part_offsets = self.geom.part_offsets.unwrap_or_default();
-        self.geom.part_offsets = Some(
-            old_part_offsets
-                .into_iter()
-                .chain(new_part_offsets)
-                .collect::<Vec<_>>(),
-        );
-
-        self
-    }
-
-    pub fn polygon(points: &[Point]) -> Self {
-        default_feature().and_polygon(points)
-    }
-
-    #[expect(clippy::todo)]
-    pub fn and_polygon(self, _points: &[Point]) -> Self {
-        todo!()
-    }
-
-    pub fn polygon_with_hole(points: &[Point], hole: &[Point]) -> Self {
-        default_feature().and_polygon_with_hole(points, hole)
-    }
-    #[expect(clippy::todo)]
-    pub fn and_polygon_with_hole(self, _points: &[Point], _hole: &[Point]) -> Self {
-        todo!()
-    }
-    pub fn multi_point(points: &[Point]) -> Self {
-        default_feature().and_multi_point(points)
-    }
-    #[expect(clippy::todo)]
-    pub fn and_multi_point(self, _points: &[Point]) -> Self {
-        todo!()
-    }
-    pub fn multi_linestring(points: &[&[Point]]) -> Self {
-        default_feature().and_multi_linestring(points)
-    }
-    #[expect(clippy::todo)]
-    pub fn and_multi_linestring(self, _points: &[&[Point]]) -> Self {
-        todo!()
-    }
-    pub fn multi_polygon(points: &[&[Point]]) -> Self {
-        default_feature().and_multi_polygon(points)
-    }
-    #[expect(clippy::todo)]
-    pub fn and_multi_polygon(self, _points: &[&[Point]]) -> Self {
-        todo!()
-    }
-
+    /// Set feature ID with encoding parameters.
+    #[must_use]
     pub fn id(self, id: u64, logical: LogicalEncoder, id_width: IdWidth) -> Self {
         let ids_encoder = IdEncoder::new(logical, id_width);
         Self {
@@ -144,6 +75,9 @@ impl Feature {
             ..self
         }
     }
+
+    /// Set multiple feature IDs with encoding parameters.
+    #[must_use]
     pub fn ids(self, ids: Vec<Option<u64>>, ids_encoder: IdEncoder) -> Self {
         let ids = DecodedId(Some(ids));
         Self {
@@ -152,6 +86,9 @@ impl Feature {
             ..self
         }
     }
+
+    /// Add a property to this feature.
+    #[must_use]
     pub fn prop(self, name: &impl ToString, values: PropValue, encoder: PropertyEncoder) -> Self {
         let name = name.to_string();
         Self {
@@ -159,6 +96,9 @@ impl Feature {
             ..self
         }
     }
+
+    /// Add multiple properties to this feature.
+    #[must_use]
     pub fn props(self, props: Vec<DecodedProperty>, encoder: PropertyEncoder) -> Self {
         Self {
             props: props.into_iter().map(|p| (p, encoder)).collect(),
@@ -166,6 +106,8 @@ impl Feature {
         }
     }
 
+    /// Set the tile extent.
+    #[must_use]
     pub fn extent(self, extent: u32) -> Self {
         Self {
             extent: Some(extent),
@@ -176,13 +118,11 @@ impl Feature {
     fn write_mlt(&self, path: &Path) {
         let feat = self.clone();
 
-        // encode to mlt
         let mut geometry = OwnedGeometry::Decoded(feat.geom);
         geometry
             .encode_with(Box::new(self.geometry_encoder))
             .unwrap();
 
-        // serialize as binary
         let layer = OwnedLayer::Tag01(OwnedLayer01 {
             name: "layer1".to_string(),
             extent: self.extent.unwrap_or(4096),
@@ -213,15 +153,46 @@ impl Feature {
     }
 }
 
-// purposely not pub, or impl Default since it is REQUIRED to have at least one geometry
 fn default_feature() -> Feature {
     Feature {
         geom: DecodedGeometry::default(),
         props: vec![],
         ids: DecodedId(None),
-
         extent: None,
         ids_encoder: IdEncoder::new(LogicalEncoder::None, IdWidth::Id32),
         geometry_encoder: ValidatingGeometryEncoder::default(),
     }
+}
+
+// Helper functions to create geo_types geometries from coordinate arrays
+pub fn point(x: i32, y: i32) -> Point<i32> {
+    Point(Coord { x, y })
+}
+
+pub fn coord(x: i32, y: i32) -> Coord32 {
+    Coord { x, y }
+}
+
+pub fn line(coords: &[[i32; 2]]) -> LineString<i32> {
+    LineString(coords.iter().map(|[x, y]| Coord { x: *x, y: *y }).collect())
+}
+
+pub fn polygon(exterior: &[[i32; 2]]) -> Polygon<i32> {
+    Polygon::new(line(exterior), vec![])
+}
+
+pub fn polygon_with_holes(exterior: &[[i32; 2]], holes: &[&[[i32; 2]]]) -> Polygon<i32> {
+    Polygon::new(line(exterior), holes.iter().map(|h| line(h)).collect())
+}
+
+pub fn multi_point(coords: &[[i32; 2]]) -> MultiPoint<i32> {
+    MultiPoint(coords.iter().map(|[x, y]| point(*x, *y)).collect())
+}
+
+pub fn multi_line(lines: &[&[[i32; 2]]]) -> MultiLineString<i32> {
+    MultiLineString(lines.iter().map(|l| line(l)).collect())
+}
+
+pub fn multi_polygon(polygons: &[&[[i32; 2]]]) -> MultiPolygon<i32> {
+    MultiPolygon(polygons.iter().map(|p| polygon(p)).collect())
 }

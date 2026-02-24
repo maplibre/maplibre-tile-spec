@@ -317,6 +317,225 @@ impl DecodedGeometry {
             }
         }
     }
+
+    /// Add a geometry to this decoded geometry collection.
+    /// This is the reverse of `to_geojson` - it converts a `geo_types::Geometry<i32>`
+    /// into the internal MLT representation with offset arrays.
+    #[must_use]
+    pub fn with_geom(mut self, geom: &GeoGeom) -> Self {
+        self.push_geom(geom);
+        self
+    }
+
+    /// Add a geometry to this decoded geometry collection (mutable version).
+    pub fn push_geom(&mut self, geom: &GeoGeom) {
+        match geom {
+            GeoGeom::Point(p) => self.push_point(p.0),
+            GeoGeom::Line(l) => {
+                self.push_linestring(&LineString(vec![l.start, l.end]));
+            }
+            GeoGeom::LineString(ls) => self.push_linestring(ls),
+            GeoGeom::Polygon(p) => self.push_polygon(p),
+            GeoGeom::MultiPoint(mp) => self.push_multi_point(mp),
+            GeoGeom::MultiLineString(mls) => self.push_multi_linestring(mls),
+            GeoGeom::MultiPolygon(mp) => self.push_multi_polygon(mp),
+            GeoGeom::Triangle(t) => {
+                self.push_polygon(&Polygon::new(LineString(vec![t.0, t.1, t.2]), vec![]));
+            }
+            GeoGeom::Rect(r) => {
+                self.push_polygon(&r.to_polygon());
+            }
+            GeoGeom::GeometryCollection(gc) => {
+                for g in gc {
+                    self.push_geom(g);
+                }
+            }
+        }
+    }
+
+    fn push_point(&mut self, coord: Coord32) {
+        self.vector_types.push(GeometryType::Point);
+        self.vertices
+            .get_or_insert_with(Vec::new)
+            .extend([coord.x, coord.y]);
+    }
+
+    fn push_linestring(&mut self, ls: &LineString<i32>) {
+        self.vector_types.push(GeometryType::LineString);
+
+        let verts = self.vertices.get_or_insert_with(Vec::new);
+        let start_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+
+        for coord in ls.coords() {
+            verts.extend([coord.x, coord.y]);
+        }
+
+        let end_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+        let parts = self.part_offsets.get_or_insert_with(Vec::new);
+        if parts.is_empty() {
+            parts.push(start_idx);
+        }
+        parts.push(end_idx);
+    }
+
+    fn push_polygon(&mut self, poly: &Polygon<i32>) {
+        self.vector_types.push(GeometryType::Polygon);
+
+        let verts = self.vertices.get_or_insert_with(Vec::new);
+        let parts = self.part_offsets.get_or_insert_with(Vec::new);
+        let rings = self.ring_offsets.get_or_insert_with(Vec::new);
+
+        // parts[i] stores the ring index where polygon i starts
+        // Number of existing rings = rings.len() - 1 (since rings is an offset array)
+        let ring_count = if rings.is_empty() { 0 } else { rings.len() - 1 };
+        if parts.is_empty() {
+            parts.push(u32::try_from(ring_count).expect("ring count overflow"));
+        }
+
+        // Push exterior ring (without closing vertex - MLT omits it)
+        let ext = poly.exterior();
+        let ext_coords: Vec<_> = if ext.0.last() == ext.0.first() && ext.0.len() > 1 {
+            ext.0[..ext.0.len() - 1].to_vec()
+        } else {
+            ext.0.clone()
+        };
+
+        let ring_start = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+        if rings.is_empty() {
+            rings.push(ring_start);
+        }
+        for coord in &ext_coords {
+            verts.extend([coord.x, coord.y]);
+        }
+        rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+
+        // Push interior rings (holes)
+        for hole in poly.interiors() {
+            let hole_coords: Vec<_> = if hole.0.last() == hole.0.first() && hole.0.len() > 1 {
+                hole.0[..hole.0.len() - 1].to_vec()
+            } else {
+                hole.0.clone()
+            };
+            for coord in &hole_coords {
+                verts.extend([coord.x, coord.y]);
+            }
+            rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+        }
+
+        // After adding this polygon's rings, record the new ring count
+        let new_ring_count = rings.len() - 1;
+        parts.push(u32::try_from(new_ring_count).expect("ring count overflow"));
+    }
+
+    fn push_multi_point(&mut self, mp: &MultiPoint<i32>) {
+        self.vector_types.push(GeometryType::MultiPoint);
+
+        let verts = self.vertices.get_or_insert_with(Vec::new);
+        let geoms = self.geometry_offsets.get_or_insert_with(Vec::new);
+
+        let start_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+        if geoms.is_empty() {
+            geoms.push(start_idx);
+        }
+
+        for point in mp {
+            verts.extend([point.0.x, point.0.y]);
+        }
+
+        geoms.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+    }
+
+    fn push_multi_linestring(&mut self, mls: &MultiLineString<i32>) {
+        self.vector_types.push(GeometryType::MultiLineString);
+
+        let verts = self.vertices.get_or_insert_with(Vec::new);
+        let geoms = self.geometry_offsets.get_or_insert_with(Vec::new);
+        let parts = self.part_offsets.get_or_insert_with(Vec::new);
+
+        // geoms stores indices into parts (linestring count)
+        // Current linestring count = parts.len() - 1 (since parts is offset array)
+        let ls_count = if parts.is_empty() { 0 } else { parts.len() - 1 };
+        if geoms.is_empty() {
+            geoms.push(u32::try_from(ls_count).expect("part count overflow"));
+        }
+
+        for ls in mls {
+            let start_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+            if parts.is_empty() {
+                parts.push(start_idx);
+            }
+            for coord in ls.coords() {
+                verts.extend([coord.x, coord.y]);
+            }
+            parts.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+        }
+
+        // After adding all linestrings, record the new linestring count
+        let new_ls_count = parts.len() - 1;
+        geoms.push(u32::try_from(new_ls_count).expect("part count overflow"));
+    }
+
+    fn push_multi_polygon(&mut self, mp: &MultiPolygon<i32>) {
+        self.vector_types.push(GeometryType::MultiPolygon);
+
+        let verts = self.vertices.get_or_insert_with(Vec::new);
+        let geoms = self.geometry_offsets.get_or_insert_with(Vec::new);
+        let parts = self.part_offsets.get_or_insert_with(Vec::new);
+        let rings = self.ring_offsets.get_or_insert_with(Vec::new);
+
+        // geoms stores indices into parts (polygon count)
+        // Current polygon count = parts.len() - 1 (since parts is offset array)
+        let poly_count = if parts.is_empty() { 0 } else { parts.len() - 1 };
+        if geoms.is_empty() {
+            geoms.push(u32::try_from(poly_count).expect("part count overflow"));
+        }
+
+        for poly in mp {
+            // parts stores indices into rings (ring count for each polygon)
+            let ring_count = if rings.is_empty() { 0 } else { rings.len() - 1 };
+            if parts.is_empty() {
+                parts.push(u32::try_from(ring_count).expect("ring count overflow"));
+            }
+
+            // Push exterior ring (without closing vertex)
+            let ext = poly.exterior();
+            let ext_coords: Vec<_> = if ext.0.last() == ext.0.first() && ext.0.len() > 1 {
+                ext.0[..ext.0.len() - 1].to_vec()
+            } else {
+                ext.0.clone()
+            };
+
+            let ring_start = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+            if rings.is_empty() {
+                rings.push(ring_start);
+            }
+            for coord in &ext_coords {
+                verts.extend([coord.x, coord.y]);
+            }
+            rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+
+            // Push interior rings (holes)
+            for hole in poly.interiors() {
+                let hole_coords: Vec<_> = if hole.0.last() == hole.0.first() && hole.0.len() > 1 {
+                    hole.0[..hole.0.len() - 1].to_vec()
+                } else {
+                    hole.0.clone()
+                };
+                for coord in &hole_coords {
+                    verts.extend([coord.x, coord.y]);
+                }
+                rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+            }
+
+            // After adding this polygon's rings, record the new ring count
+            let new_ring_count = rings.len() - 1;
+            parts.push(u32::try_from(new_ring_count).expect("ring count overflow"));
+        }
+
+        // After adding all polygons, record the new polygon count
+        let new_poly_count = parts.len() - 1;
+        geoms.push(u32::try_from(new_poly_count).expect("part count overflow"));
+    }
 }
 
 /// Types of geometries supported in MLT

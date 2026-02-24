@@ -30,25 +30,21 @@ pub struct Encoder {
 
 impl Encoder {
     #[must_use]
+    pub const fn new(logical: LogicalEncoder, physical: PhysicalEncoder) -> Self {
+        Self { logical, physical }
+    }
+
+    #[must_use]
     pub fn plain() -> Encoder {
-        Encoder {
-            logical: LogicalEncoder::None,
-            physical: PhysicalEncoder::None,
-        }
+        Encoder::new(LogicalEncoder::None, PhysicalEncoder::None)
     }
     #[must_use]
     pub fn varint() -> Encoder {
-        Encoder {
-            logical: LogicalEncoder::None,
-            physical: PhysicalEncoder::VarInt,
-        }
+        Encoder::new(LogicalEncoder::None, PhysicalEncoder::VarInt)
     }
-}
-
-impl Encoder {
     #[must_use]
-    pub const fn new(logical: LogicalEncoder, physical: PhysicalEncoder) -> Self {
-        Self { logical, physical }
+    pub fn rle_varint() -> Encoder {
+        Encoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
     }
 }
 

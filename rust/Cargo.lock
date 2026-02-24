@@ -1298,6 +1298,7 @@ dependencies = [
 name = "mlt-synthetics"
 version = "0.1.0"
 dependencies = [
+ "geo-types",
  "json5",
  "mlt-core",
  "pretty_assertions",
