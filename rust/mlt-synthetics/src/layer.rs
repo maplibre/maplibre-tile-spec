@@ -64,7 +64,7 @@ impl Feature {
         only_parts: Encoder,
     ) -> Self {
         let vertices = points.into_iter().flatten().collect::<Vec<_>>();
-        let part_offsets = vec![0, (vertices.len() as u32)/2];
+        let part_offsets = vec![0, (vertices.len() as u32) / 2];
         let geom = DecodedGeometry {
             vector_types: vec![GeometryType::LineString],
             vertices: Some(vertices),
