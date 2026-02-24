@@ -241,7 +241,6 @@ verify-syntetic-equality: generate-synthetic-mlts (just 'cargo-install' 'delta' 
             --label "$file_b" \
             <($BIN decode "$file_b") \
             | delta --side-by-side --file-modified-label "mlt decoded difference"
-          echo
         fi
       else
         echo "Missing in $DIR_B but present in $DIR_A: $rel_path"
