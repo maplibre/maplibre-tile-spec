@@ -3,9 +3,9 @@ package org.maplibre.mlt.cli;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -23,6 +23,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.maplibre.mlt.converter.encodings.fsst.FsstJni;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 class EncodeCommandLine {
   static final String INPUT_TILE_ARG = "mvt";
@@ -72,15 +74,20 @@ class EncodeCommandLine {
   static final String HELP_OPTION = "help";
   static final String SERVER_ARG = "server";
 
-  private static boolean validateCompression(CommandLine cmd) {
+  private static List<String> getAllowedCompressions(CommandLine cmd) {
     final var allowed =
-        new HashSet<>(
+        new ArrayList<>(
             Arrays.asList(COMPRESS_OPTION_GZIP, COMPRESS_OPTION_DEFLATE, COMPRESS_OPTION_NONE));
     if (cmd.hasOption(INPUT_PMTILES_ARG)) {
       allowed.add(COMPRESS_OPTION_BROTLI);
       allowed.add(COMPRESS_OPTION_ZSTD);
     }
-    return allowed.contains(cmd.getOptionValue(COMPRESS_OPTION, COMPRESS_OPTION_NONE));
+    return allowed;
+  }
+
+  private static boolean validateCompression(CommandLine cmd) {
+    return getAllowedCompressions(cmd)
+        .contains(cmd.getOptionValue(COMPRESS_OPTION, COMPRESS_OPTION_NONE));
   }
 
   static CommandLine getCommandLine(String[] args) throws IOException {
@@ -344,7 +351,7 @@ Add an explicit column mapping on the specified layers:
               .longOpt(PRINT_MLT_OPTION)
               .hasArg(false)
               .desc(
-                  "Print the MLT tile after encoding it. "
+                  "Print the MLT tile to stdout after encoding it. "
                       + "Only applies with --"
                       + INPUT_TILE_ARG
                       + ".")
@@ -355,7 +362,7 @@ Add an explicit column mapping on the specified layers:
               .longOpt(PRINT_MVT_OPTION)
               .hasArg(false)
               .desc(
-                  "Print the round-tripped MVT tile. "
+                  "Print the round-tripped MVT tile to stdout. "
                       + "Only applies with --"
                       + INPUT_TILE_ARG
                       + ".")
@@ -464,7 +471,12 @@ Add an explicit column mapping on the specified layers:
               .hasArg(true)
               .optionalArg(true)
               .argName("level")
-              .desc("Enable verbose output.")
+              .desc(
+                  "Select output verbosity for status and information on stderr. "
+                      + "Optionally specify a level: off, fatal, error, warn, info, debug, trace. "
+                      + "Default is info, or debug if --"
+                      + VERBOSE_OPTION
+                      + " is specified without a level.")
               .required(false)
               .converter(Converter.NUMBER)
               .get());
@@ -517,28 +529,26 @@ Add an explicit column mapping on the specified layers:
               .filter(x -> x)
               .count()
           != 1) {
-        System.err.println(
-            "Specify one of --"
-                + INPUT_TILE_ARG
-                + ", --"
-                + INPUT_MBTILES_ARG
-                + ", --"
-                + INPUT_OFFLINEDB_ARG
-                + ", or --"
-                + INPUT_PMTILES_ARG
-                + ".");
+        Logger.error(
+            "Exactly one of --{}, --{}, --{}, or --{} must be used",
+            INPUT_TILE_ARG,
+            INPUT_MBTILES_ARG,
+            INPUT_OFFLINEDB_ARG,
+            INPUT_PMTILES_ARG);
       } else if (cmd.hasOption(OUTPUT_FILE_ARG) && cmd.hasOption(OUTPUT_DIR_ARG)) {
-        System.err.println(
-            "Cannot specify both --" + OUTPUT_FILE_ARG + " and --" + OUTPUT_DIR_ARG + " options.");
+        Logger.error("Cannot specify both --{} and --{} options.", OUTPUT_FILE_ARG, OUTPUT_DIR_ARG);
       } else if (!validateCompression(cmd)) {
-        System.err.println("Invalid compression type.");
+        Logger.error(
+            "Not a valid compression type: '{}'.  Valid options are: {}",
+            cmd.getOptionValue(COMPRESS_OPTION),
+            String.join(", ", getAllowedCompressions(cmd)));
       } else {
         return cmd;
       }
     } catch (IOException | ParseException ex) {
-      System.err.println("Failed to parse options: " + ex.getMessage());
-    } catch (URISyntaxException e) {
-      System.err.println("Invalid tessellation URL: " + e.getMessage());
+      Logger.error("Failed to parse command line arguments", ex);
+    } catch (URISyntaxException ex) {
+      Logger.error("Invalid tessellation URL", ex);
     }
     return null;
   }
@@ -581,8 +591,10 @@ Add an explicit column mapping on the specified layers:
                 (oldList, newList) ->
                     Stream.of(oldList, newList).flatMap(Collection::stream).toList());
           } else {
-            System.err.println("WARNING: Invalid column mapping ignored: " + item);
-            System.err.println("Expected pattern is: " + colMapListPattern);
+            Logger.warn(
+                "Invalid column mapping ignored: '{}'. Expected pattern is: {}",
+                item,
+                colMapListPattern);
           }
         }
       }
@@ -605,9 +617,11 @@ Add an explicit column mapping on the specified layers:
               (oldList, newList) ->
                   Stream.of(oldList, newList).flatMap(Collection::stream).toList());
         } else {
-          System.err.println("WARNING: Invalid column mapping ignored: " + item);
-          System.err.println(
-              "Expected pattern is: " + colMapSeparatorPattern1 + " or " + colMapSeparatorPattern2);
+          Logger.warn(
+              "Invalid column mapping ignored: '{}'. Expected pattern is: {} or {}",
+              item,
+              colMapSeparatorPattern1,
+              colMapSeparatorPattern2);
         }
       }
     }
@@ -629,8 +643,10 @@ Add an explicit column mapping on the specified layers:
         return Pattern.compile(pattern, Pattern.LITERAL);
       }
     } catch (PatternSyntaxException ex) {
-      System.err.println("Invalid pattern, matching all input instead: " + ex.getMessage());
+      Logger.error("Invalid regex pattern: '{}'.  Matching all input.", pattern, ex);
       return colMapMatchAll;
     }
   }
+
+  private static Logger Logger = LoggerFactory.getLogger(EncodeCommandLine.class);
 }

@@ -22,6 +22,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MBTilesHelper extends ConversionHelper {
   static final String MetadataMIMEType = "application/vnd.maplibre-vector-tile";
@@ -79,9 +81,7 @@ public class MBTilesHelper extends ConversionHelper {
               final var z = tile.getZoom();
 
               if (z < config.minZoom() || z > config.maxZoom()) {
-                if (config.verboseLevel() > 2) {
-                  System.err.printf("Skipping %d:%d,%d%n", z, x, y);
-                }
+                Logger.trace("Skipping tile {}:{},{} outside zoom range", z, x, y);
                 continue;
               }
 
@@ -98,10 +98,12 @@ public class MBTilesHelper extends ConversionHelper {
                       });
             } catch (IllegalArgumentException ex) {
               success.set(false);
-              System.err.printf(
-                  "ERROR: Failed to convert tile (%d:%d,%d) : %s%n",
-                  tile.getZoom(), tile.getColumn(), tile.getRow(), ex.getMessage());
-              logErrorStack(ex, config.verboseLevel());
+              Logger.error(
+                  "Failed to convert tile {}:{},{}",
+                  tile.getZoom(),
+                  tile.getColumn(),
+                  tile.getRow(),
+                  ex);
             }
           }
 
@@ -109,7 +111,7 @@ public class MBTilesHelper extends ConversionHelper {
             config.taskRunner().shutdown();
             config.taskRunner().awaitTermination();
           } catch (InterruptedException ex) {
-            System.err.println("ERROR: Interrupted");
+            Logger.error("Interrupted");
             return false;
           }
 
@@ -143,8 +145,7 @@ public class MBTilesHelper extends ConversionHelper {
       }
     } catch (MBTilesReadException | IOException | MBTilesWriteException | SQLException ex) {
       success.set(false);
-      System.err.println("ERROR: MBTiles conversion failed: " + ex.getMessage());
-      logErrorStack(ex, config.verboseLevel());
+      Logger.error("Failed to convert MBTiles file", ex);
     } finally {
       if (mbTilesReader != null) {
         mbTilesReader.close();
@@ -156,9 +157,9 @@ public class MBTilesHelper extends ConversionHelper {
   private static void updateMetadata(
       @NonNull EncodeConfig config, @NonNull Connection connection, @NonNull String metadataJSON)
       throws SQLException {
-    if (config.verboseLevel() > 0) {
-      System.err.printf("Setting tile MIME type to '%s'%n", MetadataMIMEType);
-    }
+    Logger.debug("Updating metadata");
+    Logger.trace("Setting tile MIME type to '{}'", MetadataMIMEType);
+
     var sql = "UPDATE metadata SET value = ? WHERE name = ?";
     try (var statement = connection.prepareStatement(sql)) {
       statement.setString(1, MetadataMIMEType);
@@ -168,9 +169,7 @@ public class MBTilesHelper extends ConversionHelper {
 
     // Put the global metadata in a custom metadata key.
     // Could also be in a custom key within the standard `json` entry...
-    if (config.verboseLevel() > 1) {
-      System.err.println("Adding tileset metadata JSON");
-    }
+    Logger.trace("Adding tileset metadata JSON: {}", metadataJSON);
     sql = "INSERT OR REPLACE INTO metadata (name, value) VALUES (?, ?)";
     try (var statement = connection.prepareStatement(sql)) {
       statement.setString(1, "mln-json");
@@ -178,7 +177,7 @@ public class MBTilesHelper extends ConversionHelper {
       statement.execute();
     }
 
-    vacuumDatabase(connection, config.verboseLevel());
+    vacuumDatabase(connection);
   }
 
   private static boolean convertTile(
@@ -209,12 +208,12 @@ public class MBTilesHelper extends ConversionHelper {
         }
       }
       return true;
-    } catch (IOException | MBTilesWriteException e) {
-      System.err.printf(
-          "ERROR: Failed to convert tile (%d:%d,%d) : %s%n",
-          tile.getZoom(), tile.getColumn(), tile.getRow(), e.getMessage());
-      logErrorStack(e, config.verboseLevel());
+    } catch (IOException | MBTilesWriteException ex) {
+      Logger.error(
+          "Failed to convert tile {}:{},{}", tile.getZoom(), tile.getColumn(), tile.getRow(), ex);
     }
     return false;
   }
+
+  private static Logger Logger = LoggerFactory.getLogger(MBTilesHelper.class);
 }

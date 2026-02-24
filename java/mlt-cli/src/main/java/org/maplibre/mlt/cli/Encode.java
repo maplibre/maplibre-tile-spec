@@ -4,7 +4,6 @@ import jakarta.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +22,8 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.compare.CompareHelper;
 import org.maplibre.mlt.converter.ConversionConfig;
@@ -36,6 +37,8 @@ import org.maplibre.mlt.converter.encodings.fsst.FsstJni;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Encode {
 
@@ -58,9 +61,8 @@ public class Encode {
       }
 
       return run(cmd);
-    } catch (Exception e) {
-      System.err.println("Failed:");
-      e.printStackTrace(System.err);
+    } catch (Exception ex) {
+      Logger.error("Failed", ex);
       return false;
     }
   }
@@ -99,11 +101,17 @@ public class Encode {
         cmd.getParsedOptionValue(EncodeCommandLine.MAX_ZOOM_OPTION, (long) Integer.MAX_VALUE)
             .intValue();
 
-    final var verboseLevel =
+    final var logLevel =
         cmd.hasOption(EncodeCommandLine.VERBOSE_OPTION)
-            ? cmd.getParsedOptionValue(EncodeCommandLine.VERBOSE_OPTION, 1L).intValue()
-            : 0;
-    final var continueOnError = cmd.hasOption(EncodeCommandLine.CONTINUE_OPTION);
+            ? Level.toLevel(cmd.getOptionValue(EncodeCommandLine.VERBOSE_OPTION), Level.DEBUG)
+            : Level.INFO;
+    Configurator.setRootLevel(logLevel);
+
+    // PMTiles logs stats at INFO.  Enable that only if the user has selected at least debug.
+    // Note: `isLessSpecificThan` is actually less-than-or-equal.
+    Configurator.setLevel(
+        com.onthegomap.planetiler.pmtiles.WriteablePmtiles.class,
+        logLevel.isLessSpecificThan(Level.DEBUG) ? Level.INFO : Level.OFF);
 
     final var threadCountOption =
         cmd.hasOption(EncodeCommandLine.PARALLEL_OPTION)
@@ -112,19 +120,29 @@ public class Encode {
     final var threadCount =
         (threadCountOption > 0) ? threadCountOption : Runtime.getRuntime().availableProcessors();
     final var taskRunner = createTaskRunner(threadCount);
-    if (taskRunner != null && verboseLevel > 0) {
-      System.err.println("Using " + taskRunner.getThreadCount() + " threads");
-    }
+    Logger.debug("Using {} threads", Math.max(1, taskRunner.getThreadCount()));
 
-    if (verboseLevel > 0 && !columnMappings.isEmpty()) {
-      System.err.printf("Using Column Mappings:%n%s", columnMappings);
+    Logger.debug(
+        "Using column mappings: {}", columnMappings.isEmpty() ? "none" : columnMappings.toString());
+
+    boolean useFSST = false;
+    if (useFSSTNative) {
+      if (FsstJni.isLoaded() && FsstEncoder.useNative(true)) {
+        useFSST = true;
+      } else {
+        Logger.warn("Native FSST could not be loaded", FsstJni.getLoadError());
+      }
+    } else if (useFSSTJava) {
+      Logger.debug("Using Java FSST encoder");
+      FsstEncoder.useNative(false);
+      useFSST = true;
     }
 
     final var conversionConfig =
         ConversionConfig.builder()
             .includeIds(!cmd.hasOption(EncodeCommandLine.EXCLUDE_IDS_OPTION))
             .useFastPFOR(cmd.hasOption(EncodeCommandLine.FASTPFOR_ENCODING_OPTION))
-            .useFSST(useFSSTJava || useFSSTNative)
+            .useFSST(useFSST)
             .mismatchPolicy(enableCoerceOnTypeMismatch, enableElideOnTypeMismatch)
             .preTessellatePolygons(tessellatePolygons)
             .useMortonEncoding(!cmd.hasOption(EncodeCommandLine.NO_MORTON_OPTION))
@@ -134,21 +152,8 @@ public class Encode {
             .layerFilterInvert(filterInvert)
             .integerEncoding(ConversionConfig.IntegerEncodingOption.AUTO)
             .build();
-    if (verboseLevel > 0 && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
-      System.err.println(
-          "Including outlines for layers: " + String.join(", ", outlineFeatureTables));
-    }
-
-    if (useFSSTNative) {
-      if (!FsstJni.isLoaded() || !FsstEncoder.useNative(true)) {
-        final var err = FsstJni.getLoadError();
-        System.err.println(
-            "Native FSST could not be loaded: "
-                + ((err != null) ? err.getMessage() : "(no error)"));
-        ConversionHelper.logErrorStack(err, verboseLevel);
-      }
-    } else if (useFSSTJava) {
-      FsstEncoder.useNative(false);
+    if (outlineFeatureTables != null && outlineFeatureTables.length > 0) {
+      Logger.debug("Including outlines for layers: {}", String.join(", ", outlineFeatureTables));
     }
 
     final var encodeConfig =
@@ -176,8 +181,7 @@ public class Encode {
             .willTime(cmd.hasOption(EncodeCommandLine.TIMER_OPTION))
             .dumpStreams(cmd.hasOption(EncodeCommandLine.DUMP_STREAMS_OPTION))
             .taskRunner(taskRunner)
-            .continueOnError(continueOnError)
-            .verboseLevel(verboseLevel)
+            .continueOnError(cmd.hasOption(EncodeCommandLine.CONTINUE_OPTION))
             .build();
 
     if (tileFileNames != null && tileFileNames.length > 0) {
@@ -198,9 +202,7 @@ public class Encode {
           streamPath = getOutputPath(cmd, fileName, null, true);
         }
 
-        if (verboseLevel > 0) {
-          System.err.println("Converting " + tileFileName + " to " + outputPath);
-        }
+        Logger.debug("Converting {} to {}", tileFileName, outputPath);
 
         encodeTile(tileFileName, outputPath, streamPath, encodeConfig);
       }
@@ -240,12 +242,16 @@ public class Encode {
       }
     }
 
-    if (verboseLevel > 0 && totalCompressedInput > 0) {
-      System.err.printf(
-          "Compressed %d bytes to %d bytes (%.1f%%)%n",
-          totalCompressedInput,
-          totalCompressedOutput,
-          100 * (double) totalCompressedOutput / totalCompressedInput);
+    if (totalCompressedInput > 0) {
+      Logger.atTrace()
+          .setMessage("Compressed {} bytes to {} bytes ({}%)")
+          .addArgument(totalCompressedInput)
+          .addArgument(totalCompressedOutput)
+          .addArgument(
+              () ->
+                  String.format(
+                      "%.1f", 100 * (double) totalCompressedOutput / totalCompressedInput))
+          .log();
     }
     return true;
   }
@@ -266,9 +272,7 @@ public class Encode {
         MltConverter.createTilesetMetadata(
             decodedMvTile, config.conversionConfig(), config.columnMappingConfig(), isIdPresent);
 
-    if (config.verboseLevel() > 2) {
-      printColumnMappings(metadata, System.err);
-    }
+    logColumnMappings(metadata);
 
     final var targetConfig = applyColumnMappingsToConversionConfig(config, metadata);
 
@@ -277,9 +281,7 @@ public class Encode {
       if (streamPath != null) {
         streamObserver = new MLTStreamObserverFile(streamPath);
         Files.createDirectories(streamPath);
-        if (config.verboseLevel() > 1) {
-          System.err.println("Writing raw streams to " + streamPath);
-        }
+        Logger.debug("Writing raw streams to {}", streamPath);
       }
     }
     var mlTile =
@@ -291,15 +293,12 @@ public class Encode {
 
     if (config.willOutput()) {
       if (outputPath != null) {
-        if (config.verboseLevel() > 0) {
-          System.err.println("Writing converted tile to " + outputPath);
-        }
+        Logger.debug("Writing converted tile to {}", outputPath);
 
         try {
           Files.write(outputPath, mlTile);
         } catch (IOException ex) {
-          System.err.println("ERROR: Failed to write tile");
-          ex.printStackTrace(System.err);
+          Logger.error("ERROR: Failed to write tile", ex);
         }
       }
     }
@@ -308,9 +307,7 @@ public class Encode {
     }
     var needsDecoding = config.willDecode() || willCompare || config.willPrintMLT();
     if (needsDecoding) {
-      if (config.verboseLevel() > 1) {
-        System.err.println("Decoding converted tile...");
-      }
+      Logger.debug("Decoding converted tile...");
       if (willTime) {
         timer.restart();
       }
@@ -338,9 +335,9 @@ public class Encode {
                 targetConfig.getLayerFilterPattern(),
                 targetConfig.getLayerFilterInvert());
         if (result.isPresent()) {
-          System.err.println("Tiles do not match: " + result);
-        } else if (config.verboseLevel() > 0) {
-          System.err.println("Tiles match");
+          Logger.warn("Tiles do not match: {}", result);
+        } else {
+          Logger.debug("Tiles match");
         }
       }
     }
@@ -371,14 +368,11 @@ public class Encode {
             .map(table -> table.name)
             .collect(Collectors.joining(","));
     if (!warnTables.isEmpty()) {
-      System.err.printf(
-          "WARNING: --"
-              + EncodeCommandLine.SORT_FEATURES_OPTION
-              + " and --"
-              + EncodeCommandLine.REGEN_IDS_OPTION
-              + " are incompatible: "
-              + warnTables
-              + "%n");
+      Logger.warn(
+          "The --{} and --{} options are incompatible: {}",
+          EncodeCommandLine.SORT_FEATURES_OPTION,
+          EncodeCommandLine.REGEN_IDS_OPTION,
+          warnTables);
     }
 
     // Now that we have the actual column names from the metadata, we can determine which column
@@ -442,9 +436,7 @@ public class Encode {
               decodedMvTile, config.conversionConfig(), config.columnMappingConfig(), isIdPresent);
 
       // Print column mappings if verbosity level is high.
-      if (config.verboseLevel() > 2) {
-        printColumnMappings(metadata, System.err);
-      }
+      logColumnMappings(metadata);
 
       // Apply column mappings and update the conversion configuration.
       final var targetConfig = applyColumnMappingsToConversionConfig(config, metadata);
@@ -466,27 +458,39 @@ public class Encode {
                   || outputStream.size() < tileData.length - compressionFixedThreshold.get())
               && (compressionRatioThreshold.isEmpty()
                   || outputStream.size() < tileData.length * compressionRatioThreshold.get())) {
-            if (config.verboseLevel() > 1) {
-              System.err.printf(
-                  "  Compressed %d:%d,%d from %d to %d bytes (%.1f%%)%n",
-                  z,
-                  x,
-                  y,
-                  tileData.length,
-                  outputStream.size(),
-                  100 * (double) outputStream.size() / tileData.length);
-              totalCompressedInput += tileData.length;
-              totalCompressedOutput += outputStream.size();
+            if (Logger.isTraceEnabled()) {
+              final var compressedSize = outputStream.size();
+              final var originalSize = tileData.length;
+              Logger.atTrace()
+                  .setMessage("Compressed {}:{},{} from {} to {} bytes ({}%)")
+                  .addArgument(z)
+                  .addArgument(x)
+                  .addArgument(y)
+                  .addArgument(originalSize)
+                  .addArgument(compressedSize)
+                  .addArgument(() -> String.format("%.1f", 100.0 * compressedSize / originalSize))
+                  .log();
             }
+            totalCompressedInput += tileData.length;
+            totalCompressedOutput += outputStream.size();
             if (didCompress != null) {
               didCompress.setTrue();
             }
             tileData = outputStream.toByteArray();
           } else {
-            if (config.verboseLevel() > 1) {
-              System.err.printf(
-                  "  Compression of %d:%d,%d not effective, saving uncompressed (%d vs %d bytes)%n",
-                  z, x, y, tileData.length, outputStream.size());
+            if (Logger.isTraceEnabled()) {
+              final var compressedSize = outputStream.size();
+              final var originalSize = tileData.length;
+              Logger.atTrace()
+                  .setMessage(
+                      "Compression of {}:{},{} not effective ({} vs {} bytes, {}%), using uncompressed")
+                  .addArgument(z)
+                  .addArgument(x)
+                  .addArgument(y)
+                  .addArgument(originalSize)
+                  .addArgument(compressedSize)
+                  .addArgument(() -> String.format("%.1f", 100.0 * compressedSize / originalSize))
+                  .log();
             }
             if (didCompress != null) {
               didCompress.setFalse();
@@ -497,23 +501,21 @@ public class Encode {
       return tileData;
     } catch (IOException ex) {
       // Log an error message if tile conversion fails.
-      System.err.printf("ERROR: Failed to process tile (%d:%d,%d): %s%n", z, x, y, ex.getMessage());
-      if (config.verboseLevel() > 1) {
-        ex.printStackTrace(System.err);
-      }
+      Logger.error("Failed to process tile {}:{},{}", z, x, y, ex);
     }
     return null;
   }
 
-  private static void printColumnMappings(
-      MltMetadata.TileSetMetadata metadata,
-      @SuppressWarnings("SameParameterValue") PrintStream out) {
+  private static void logColumnMappings(MltMetadata.TileSetMetadata metadata) {
+    if (!Logger.isTraceEnabled()) {
+      return;
+    }
     for (var table : metadata.featureTables) {
       for (var column : table.columns) {
         if (column.complexType != null
             && column.complexType.physicalType == MltMetadata.ComplexType.STRUCT) {
-          out.format(
-              "Found column mapping: %s => %s%n",
+          Logger.trace(
+              "Found column mapping: {} => {}",
               table.name,
               column.complexType.children.stream()
                   .map(f -> column.name + f.name)
@@ -554,7 +556,7 @@ public class Encode {
       // pmtiles)
       final var inputURI = getInputURI(inputFileName);
       if (inputURI.getPath() == null) {
-        System.err.println("ERROR: Unable to determine input filename for output path");
+        Logger.error("Unable to determine input filename from '{}'", inputFileName);
         return null;
       }
 
@@ -579,7 +581,7 @@ public class Encode {
         try {
           Files.createDirectories(outputDir);
         } catch (IOException ex) {
-          System.err.printf("Failed to create directory '%s': %s", outputDir, ex.getMessage());
+          Logger.error("Failed to create directory '{}': %s", outputDir, ex);
           return null;
         }
       }
@@ -606,4 +608,6 @@ public class Encode {
 
   private static long totalCompressedInput = 0;
   private static long totalCompressedOutput = 0;
+
+  private static Logger Logger = LoggerFactory.getLogger(Encode.class);
 }

@@ -18,6 +18,8 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ConversionHelper {
   public static byte[] decompress(InputStream srcStream) throws IOException {
@@ -67,27 +69,19 @@ public class ConversionHelper {
     return src;
   }
 
-  static boolean vacuumDatabase(@NonNull Connection connection, int verboseLevel)
-      throws SQLException {
-    if (verboseLevel > 1) {
-      System.err.println("Optimizing database");
-    }
+  static boolean vacuumDatabase(@NonNull Connection connection) throws SQLException {
+    Logger.debug("Optimizing database");
     try (final var stmt = connection.createStatement()) {
       stmt.execute("VACUUM");
       return true;
     } catch (SQLException ex) {
-      System.err.println("ERROR: Failed to optimize database: " + ex.getMessage());
-      logErrorStack(ex, verboseLevel);
+      Logger.error("Failed to optimize database", ex);
     }
     return false;
   }
 
-  public static void logErrorStack(@Nullable Throwable ex, int verboseLevel) {
-    if (ex != null && verboseLevel > 1) {
-      ex.printStackTrace(System.err);
-    }
-  }
-
   static final double DEFAULT_COMPRESSION_RATIO_THRESHOLD = 0.98;
   static final long DEFAULT_COMPRESSION_FIXED_THRESHOLD = 20L;
+
+  private static Logger Logger = LoggerFactory.getLogger(ConversionHelper.class);
 }
