@@ -248,7 +248,7 @@ impl DataProfile {
     /// the case where a dictionary trades a small code-book for a much shorter
     /// value stream.
     #[must_use]
-    fn distinct_ratio(&self) -> f64 {
+    pub fn distinct_ratio(&self) -> f64 {
         self.distinct_ratio
     }
 }
