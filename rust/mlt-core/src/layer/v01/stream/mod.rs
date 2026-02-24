@@ -60,7 +60,7 @@ impl Encoder {
     /// Automatically select the best encoder for a `u32` stream.
     ///
     /// Uses the `BTRBlocks` strategy:
-    /// - profile a lower amount of sample of the data to prune unsuitable candidates,
+    /// - profile a small sample of the data to prune unsuitable candidates,
     /// - then encode the same sample with all survivors and
     /// - return the encoder that produces the smallest output.
     ///
