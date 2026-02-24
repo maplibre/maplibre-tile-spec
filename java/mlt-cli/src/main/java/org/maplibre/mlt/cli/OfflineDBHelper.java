@@ -18,6 +18,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
@@ -36,14 +37,14 @@ public class OfflineDBHelper extends ConversionHelper {
         outputPath = tempFile.toPath();
         tempFile.deleteOnExit();
       }
-      Logger.debug("Copying source file {} to {}", inputPath, outputPath);
+      logger.debug("Copying source file {} to {}", inputPath, outputPath);
       Files.copy(
           inputPath,
           outputPath,
           StandardCopyOption.REPLACE_EXISTING,
           StandardCopyOption.COPY_ATTRIBUTES);
     } catch (IOException ex) {
-      Logger.error("Failed to create target file", ex);
+      logger.error("Failed to create target file", ex);
       return false;
     }
 
@@ -58,6 +59,7 @@ public class OfflineDBHelper extends ConversionHelper {
       try (final var iterateStatement = srcConnection.createStatement();
           final var tileResults = iterateStatement.executeQuery("SELECT * FROM tiles");
           final var updateStatement = dstConnection.prepareStatement(updateSql)) {
+        final var tileCount = new AtomicLong(0);
         while (tileResults.next()) {
           if (!config.continueOnError() && !success.get()) {
             break;
@@ -74,6 +76,10 @@ public class OfflineDBHelper extends ConversionHelper {
               .taskRunner()
               .run(
                   () -> {
+                    final var count = tileCount.incrementAndGet();
+                    if (count % TILE_LOG_INTERVAL == 0) {
+                      logger.debug("Processing tile {} : {}:{},{}", count, z, x, y);
+                    }
                     if (!convertTile(config, z, x, y, data, uniqueID, updateStatement)) {
                       success.set(false);
                     }
@@ -84,7 +90,7 @@ public class OfflineDBHelper extends ConversionHelper {
           config.taskRunner().shutdown();
           config.taskRunner().awaitTermination();
         } catch (InterruptedException ex) {
-          Logger.error("Interrupted");
+          logger.error("Interrupted", ex);
           return false;
         }
       }
@@ -97,7 +103,7 @@ public class OfflineDBHelper extends ConversionHelper {
 
       vacuumDatabase(dstConnection);
     } catch (SQLException | IOException ex) {
-      Logger.error("Offline Database conversion failed", ex);
+      logger.error("Offline Database conversion failed", ex);
       return false;
     }
     return success.get();
@@ -118,7 +124,7 @@ public class OfflineDBHelper extends ConversionHelper {
         try {
           data = decompress(metadataResults.getBinaryStream("data"));
         } catch (IOException | IllegalStateException ignore) {
-          Logger.warn("Failed to decompress Source resource '{}', skipping", uniqueID);
+          logger.warn("Failed to decompress Source resource '{}', skipping", uniqueID);
           continue;
         }
 
@@ -128,7 +134,7 @@ public class OfflineDBHelper extends ConversionHelper {
         try {
           json = new Gson().fromJson(jsonString, JsonObject.class);
         } catch (JsonSyntaxException ex) {
-          Logger.warn("Source resource '{}' is not JSON, skipping", uniqueID);
+          logger.warn("Source resource '{}' is not JSON, skipping", uniqueID);
           continue;
         }
 
@@ -154,7 +160,7 @@ public class OfflineDBHelper extends ConversionHelper {
         updateStatement.setLong(3, uniqueID);
         updateStatement.execute();
 
-        Logger.debug("Updated source JSON format to '{}'", MBTilesHelper.MetadataMIMEType);
+        logger.debug("Updated source JSON format to '{}'", MBTilesHelper.MetadataMIMEType);
       }
     }
   }
@@ -167,13 +173,13 @@ public class OfflineDBHelper extends ConversionHelper {
       byte[] data,
       long uniqueID,
       @NotNull PreparedStatement updateStatement) {
-    Logger.trace("Converting tile {}: {},{}", z, x, y);
+    logger.trace("Converting tile {}: {},{}", z, x, y);
 
     byte[] srcTileData;
     try {
       srcTileData = decompress(new ByteArrayInputStream(data));
     } catch (IOException | IllegalStateException ex) {
-      Logger.error("Failed to decompress tile '{}'", uniqueID);
+      logger.error("Failed to decompress tile '{}'", uniqueID, ex);
       return false;
     }
 
@@ -200,11 +206,11 @@ public class OfflineDBHelper extends ConversionHelper {
         }
         return true;
       } catch (SQLException ex) {
-        Logger.error("Failed to convert tile '{}'", uniqueID, ex);
+        logger.error("Failed to convert tile '{}'", uniqueID, ex);
       }
     }
     return false;
   }
 
-  private static Logger Logger = LoggerFactory.getLogger(OfflineDBHelper.class);
+  private static final Logger logger = LoggerFactory.getLogger(OfflineDBHelper.class);
 }

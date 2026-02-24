@@ -70,12 +70,12 @@ public class ConversionHelper {
   }
 
   static boolean vacuumDatabase(@NonNull Connection connection) throws SQLException {
-    Logger.debug("Optimizing database");
+    logger.debug("Optimizing database");
     try (final var stmt = connection.createStatement()) {
       stmt.execute("VACUUM");
       return true;
     } catch (SQLException ex) {
-      Logger.error("Failed to optimize database", ex);
+      logger.error("Failed to optimize database", ex);
     }
     return false;
   }
@@ -83,5 +83,20 @@ public class ConversionHelper {
   static final double DEFAULT_COMPRESSION_RATIO_THRESHOLD = 0.98;
   static final long DEFAULT_COMPRESSION_FIXED_THRESHOLD = 20L;
 
-  private static Logger Logger = LoggerFactory.getLogger(ConversionHelper.class);
+  protected static long TILE_LOG_INTERVAL = 10_000L;
+
+  static {
+    try {
+      final var str = System.getenv("MLT_TILE_LOG_INTERVAL");
+      if (str != null) {
+        final var value = Long.parseUnsignedLong(str);
+        if (value > 0) {
+          TILE_LOG_INTERVAL = value;
+        }
+      }
+    } catch (Exception ignored) {
+    }
+  }
+
+  private static final Logger logger = LoggerFactory.getLogger(ConversionHelper.class);
 }

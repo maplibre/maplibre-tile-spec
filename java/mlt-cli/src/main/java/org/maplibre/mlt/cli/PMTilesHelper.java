@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class PMTilesHelper extends ConversionHelper {
+
   /// Encode the MVT tiles in a PMTiles file
   static boolean encodePMTiles(URI inputURI, Path outputPath, EncodeConfig config)
       throws IOException {
@@ -53,16 +54,16 @@ public class PMTilesHelper extends ConversionHelper {
                   ignored -> tryCreateReadablePmtiles(cachingReader));
       final var maybeReader = readerSupplier.get();
       if (maybeReader.isEmpty()) {
-        Logger.error("Failed to read PMTiles from '{}'", inputURI);
+        logger.error("Failed to read PMTiles from '{}'", inputURI);
         return false;
       }
 
       final var reader = maybeReader.get();
 
-      Logger.debug("Opened PMTiles from '{}'", inputURI);
+      logger.debug("Opened PMTiles from '{}'", inputURI);
 
       final var header = reader.getHeader();
-      Logger.debug(
+      logger.debug(
           "PMTiles header: version={}, tileType={}, tileCompression={}, minZoom={}, maxZoom={}, numAddressedTiles={}, numTileContents={} ({}%)",
           header.specVersion(),
           header.tileType(),
@@ -74,7 +75,7 @@ public class PMTilesHelper extends ConversionHelper {
           String.format("%.1f", 100.0 * header.numTileContents() / header.numAddressedTiles()));
 
       if (header.tileType() != TileType.MVT) {
-        Logger.error(
+        logger.error(
             "Input PMTiles tile type is {}, expected {} (MVT)", header.tileType(), TileType.MVT);
         return false;
       }
@@ -108,7 +109,7 @@ public class PMTilesHelper extends ConversionHelper {
 
       try (final var fileWriter = WriteablePmtiles.newWriteToFile(outputPath);
           final var tileWriter = fileWriter.newTileWriter()) {
-        Logger.debug("Opened '{}'", outputPath);
+        logger.debug("Opened '{}'", outputPath);
 
         final var taskRunner = config.taskRunner();
         final var success = new AtomicBoolean(true);
@@ -140,17 +141,17 @@ public class PMTilesHelper extends ConversionHelper {
           // Wait for all tasks to finish
           taskRunner.awaitTermination();
         } catch (InterruptedException ex) {
-          Logger.error("Interrupted", ex);
+          logger.error("Interrupted", ex);
           success.set(false);
         }
 
         if (success.get()) {
-          Logger.debug("Finalizing MBTiles file");
+          logger.debug("Finalizing MBTiles file");
           fileWriter.finish(newMetadata);
         }
         return success.get();
       } catch (IOException ex) {
-        Logger.error("PMTiles conversion failed", ex);
+        logger.error("PMTiles conversion failed", ex);
         return false;
       }
     }
@@ -165,7 +166,7 @@ public class PMTilesHelper extends ConversionHelper {
       final int maxZoom) {
     final var maybeReader = readerSupplier.get();
     if (maybeReader.isEmpty()) {
-      Logger.error("Failed to read PMTiles file");
+      logger.error("Failed to read PMTiles file");
       state.success.set(false);
       return;
     }
@@ -189,7 +190,7 @@ public class PMTilesHelper extends ConversionHelper {
               }
             });
     state.directoryComplete.set(true);
-    Logger.debug(
+    logger.debug(
         "Directory read complete. Processing {} tiles.",
         String.format("%,d", state.totalTileCount.get()));
     taskRunner.shutdown();
@@ -205,12 +206,12 @@ public class PMTilesHelper extends ConversionHelper {
       final var tileLabel = String.format("%d:%d,%d", tileCoord.z(), tileCoord.x(), tileCoord.y());
       final var tileCount = state.tilesProcessed.incrementAndGet();
 
-      if (Logger.isDebugEnabled()) {
-        final var logInterval = 10000;
+      if (logger.isDebugEnabled()) {
         if (!state.directoryComplete.get()) {
           // Still fetching tile coordinates, we can't show a percentage
-          if (tileCount < 2 || (tileCount % logInterval == 0)) {
-            Logger.atDebug()
+          if (tileCount < 2 || (tileCount % TILE_LOG_INTERVAL == 0)) {
+            logger
+                .atDebug()
                 .setMessage("Processing tile {} : {}")
                 .addArgument(() -> String.format("%,d", tileCount))
                 .addArgument(tileLabel)
@@ -220,12 +221,13 @@ public class PMTilesHelper extends ConversionHelper {
           final var totalTiles = state.totalTileCount.get();
           final var progress = 100.0 * tileCount / totalTiles;
           final var prevProgress = 100.0 * Math.max(0, tileCount - 1) / totalTiles;
-          if ((tileCount % logInterval == 0)
+          if ((tileCount % TILE_LOG_INTERVAL == 0)
               || (int) Math.round(progress * 10.0) != (int) Math.round(prevProgress * 10.0)) {
-            Logger.atDebug()
-                .setMessage("Processing tiles: {} ({}%) : {}")
-                .addArgument(() -> String.format(",d", tileCount))
-                .addArgument(() -> String.format(",d", totalTiles))
+            logger
+                .atDebug()
+                .setMessage("Processing tiles: {} / {} ({}%) : {}")
+                .addArgument(() -> String.format("%,d", tileCount))
+                .addArgument(() -> String.format("%,d", totalTiles))
                 .addArgument(() -> String.format("%.1f", progress))
                 .addArgument(tileLabel)
                 .log();
@@ -235,14 +237,14 @@ public class PMTilesHelper extends ConversionHelper {
 
       final var maybeReader = readerSupplier.get();
       if (maybeReader.isEmpty()) {
-        Logger.error("Failed to read PMTiles for tile {}", tileLabel);
+        logger.error("Failed to read PMTiles for tile {}", tileLabel);
         return false;
       }
 
       final var reader = maybeReader.get();
       byte[] tileData = reader.getTile(tileCoord);
       if (tileData == null) {
-        Logger.warn("Tile {} is missing from PMTiles file", tileLabel);
+        logger.warn("Tile {} is missing from PMTiles file", tileLabel);
         return false;
       }
 
@@ -250,12 +252,13 @@ public class PMTilesHelper extends ConversionHelper {
       try {
         tileData = decompress(new ByteArrayInputStream(tileData));
       } catch (IOException ex) {
-        Logger.error("Failed to decompress tile {}", tileLabel, ex);
+        logger.error("Failed to decompress tile {}", tileLabel, ex);
         return false;
       }
 
       final var uncompressedSize = tileData.length;
-      Logger.atTrace()
+      logger
+          .atTrace()
           .setMessage("Loaded {}, {} bytes{}")
           .addArgument(tileLabel)
           .addArgument(uncompressedSize)
@@ -284,7 +287,7 @@ public class PMTilesHelper extends ConversionHelper {
           writer.write(new TileEncodingResult(tileCoord, mltData, OptionalLong.of(hash)));
         }
       } else {
-        Logger.warn("Tile {} produced empty output, skipping", tileLabel);
+        logger.warn("Tile {} produced empty output, skipping", tileLabel);
       }
       return true;
     };
@@ -315,5 +318,5 @@ public class PMTilesHelper extends ConversionHelper {
       @NotNull AtomicBoolean directoryComplete,
       @NotNull AtomicBoolean success) {}
 
-  private static Logger Logger = LoggerFactory.getLogger(PMTilesHelper.class);
+  private static final Logger logger = LoggerFactory.getLogger(PMTilesHelper.class);
 }

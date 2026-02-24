@@ -36,7 +36,7 @@ public class Server {
         new Thread(() -> handleClient(client)).start();
       }
     } catch (Exception ex) {
-      Logger.error("Failed to start server on port {}", port, ex);
+      logger.error("Failed to start server on port {}", port, ex);
       return false;
     }
   }
@@ -48,9 +48,9 @@ public class Server {
         Encode.run(command.trim().split("\\s+"));
       }
     } catch (Exception ex) {
-      Logger.error("Failed to handle client connection", ex);
+      logger.error("Failed to handle client connection", ex);
     }
   }
 
-  private static Logger Logger = LoggerFactory.getLogger(Server.class);
+  private static final Logger logger = LoggerFactory.getLogger(Server.class);
 }

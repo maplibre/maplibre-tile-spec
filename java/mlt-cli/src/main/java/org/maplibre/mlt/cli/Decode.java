@@ -26,7 +26,7 @@ public class Decode {
     try {
       run(args);
     } catch (Exception ex) {
-      Logger.error("Decoding failed", ex);
+      logger.error("Decoding failed", ex);
       System.exit(1);
     }
   }
@@ -89,5 +89,5 @@ public class Decode {
     }
   }
 
-  private static Logger Logger = LoggerFactory.getLogger(Decode.class);
+  private static final Logger logger = LoggerFactory.getLogger(Decode.class);
 }

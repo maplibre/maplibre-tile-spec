@@ -62,7 +62,7 @@ public class Encode {
 
       return run(cmd);
     } catch (Exception ex) {
-      Logger.error("Failed", ex);
+      logger.error("Failed", ex);
       return false;
     }
   }
@@ -120,9 +120,9 @@ public class Encode {
     final var threadCount =
         (threadCountOption > 0) ? threadCountOption : Runtime.getRuntime().availableProcessors();
     final var taskRunner = createTaskRunner(threadCount);
-    Logger.debug("Using {} threads", Math.max(1, taskRunner.getThreadCount()));
+    logger.debug("Using {} threads", Math.max(1, taskRunner.getThreadCount()));
 
-    Logger.debug(
+    logger.debug(
         "Using column mappings: {}", columnMappings.isEmpty() ? "none" : columnMappings.toString());
 
     boolean useFSST = false;
@@ -130,10 +130,10 @@ public class Encode {
       if (FsstJni.isLoaded() && FsstEncoder.useNative(true)) {
         useFSST = true;
       } else {
-        Logger.warn("Native FSST could not be loaded", FsstJni.getLoadError());
+        logger.warn("Native FSST could not be loaded", FsstJni.getLoadError());
       }
     } else if (useFSSTJava) {
-      Logger.debug("Using Java FSST encoder");
+      logger.debug("Using Java FSST encoder");
       FsstEncoder.useNative(false);
       useFSST = true;
     }
@@ -153,7 +153,7 @@ public class Encode {
             .integerEncoding(ConversionConfig.IntegerEncodingOption.AUTO)
             .build();
     if (outlineFeatureTables != null && outlineFeatureTables.length > 0) {
-      Logger.debug("Including outlines for layers: {}", String.join(", ", outlineFeatureTables));
+      logger.debug("Including outlines for layers: {}", String.join(", ", outlineFeatureTables));
     }
 
     final var encodeConfig =
@@ -202,7 +202,7 @@ public class Encode {
           streamPath = getOutputPath(cmd, fileName, null, true);
         }
 
-        Logger.debug("Converting {} to {}", tileFileName, outputPath);
+        logger.debug("Converting {} to {}", tileFileName, outputPath);
 
         encodeTile(tileFileName, outputPath, streamPath, encodeConfig);
       }
@@ -243,7 +243,8 @@ public class Encode {
     }
 
     if (totalCompressedInput > 0) {
-      Logger.atTrace()
+      logger
+          .atTrace()
           .setMessage("Compressed {} bytes to {} bytes ({}%)")
           .addArgument(totalCompressedInput)
           .addArgument(totalCompressedOutput)
@@ -281,7 +282,7 @@ public class Encode {
       if (streamPath != null) {
         streamObserver = new MLTStreamObserverFile(streamPath);
         Files.createDirectories(streamPath);
-        Logger.debug("Writing raw streams to {}", streamPath);
+        logger.debug("Writing raw streams to {}", streamPath);
       }
     }
     var mlTile =
@@ -293,12 +294,12 @@ public class Encode {
 
     if (config.willOutput()) {
       if (outputPath != null) {
-        Logger.debug("Writing converted tile to {}", outputPath);
+        logger.debug("Writing converted tile to {}", outputPath);
 
         try {
           Files.write(outputPath, mlTile);
         } catch (IOException ex) {
-          Logger.error("ERROR: Failed to write tile", ex);
+          logger.error("Failed to write tile to {}", outputPath, ex);
         }
       }
     }
@@ -307,7 +308,7 @@ public class Encode {
     }
     var needsDecoding = config.willDecode() || willCompare || config.willPrintMLT();
     if (needsDecoding) {
-      Logger.debug("Decoding converted tile...");
+      logger.debug("Decoding converted tile...");
       if (willTime) {
         timer.restart();
       }
@@ -335,9 +336,9 @@ public class Encode {
                 targetConfig.getLayerFilterPattern(),
                 targetConfig.getLayerFilterInvert());
         if (result.isPresent()) {
-          Logger.warn("Tiles do not match: {}", result);
+          logger.warn("Tiles do not match: {}", result);
         } else {
-          Logger.debug("Tiles match");
+          logger.debug("Tiles match");
         }
       }
     }
@@ -368,7 +369,7 @@ public class Encode {
             .map(table -> table.name)
             .collect(Collectors.joining(","));
     if (!warnTables.isEmpty()) {
-      Logger.warn(
+      logger.warn(
           "The --{} and --{} options are incompatible: {}",
           EncodeCommandLine.SORT_FEATURES_OPTION,
           EncodeCommandLine.REGEN_IDS_OPTION,
@@ -458,10 +459,11 @@ public class Encode {
                   || outputStream.size() < tileData.length - compressionFixedThreshold.get())
               && (compressionRatioThreshold.isEmpty()
                   || outputStream.size() < tileData.length * compressionRatioThreshold.get())) {
-            if (Logger.isTraceEnabled()) {
+            if (logger.isTraceEnabled()) {
               final var compressedSize = outputStream.size();
               final var originalSize = tileData.length;
-              Logger.atTrace()
+              logger
+                  .atTrace()
                   .setMessage("Compressed {}:{},{} from {} to {} bytes ({}%)")
                   .addArgument(z)
                   .addArgument(x)
@@ -478,10 +480,11 @@ public class Encode {
             }
             tileData = outputStream.toByteArray();
           } else {
-            if (Logger.isTraceEnabled()) {
+            if (logger.isTraceEnabled()) {
               final var compressedSize = outputStream.size();
               final var originalSize = tileData.length;
-              Logger.atTrace()
+              logger
+                  .atTrace()
                   .setMessage(
                       "Compression of {}:{},{} not effective ({} vs {} bytes, {}%), using uncompressed")
                   .addArgument(z)
@@ -501,20 +504,20 @@ public class Encode {
       return tileData;
     } catch (IOException ex) {
       // Log an error message if tile conversion fails.
-      Logger.error("Failed to process tile {}:{},{}", z, x, y, ex);
+      logger.error("Failed to process tile {}:{},{}", z, x, y, ex);
     }
     return null;
   }
 
   private static void logColumnMappings(MltMetadata.TileSetMetadata metadata) {
-    if (!Logger.isTraceEnabled()) {
+    if (!logger.isTraceEnabled()) {
       return;
     }
     for (var table : metadata.featureTables) {
       for (var column : table.columns) {
         if (column.complexType != null
             && column.complexType.physicalType == MltMetadata.ComplexType.STRUCT) {
-          Logger.trace(
+          logger.trace(
               "Found column mapping: {} => {}",
               table.name,
               column.complexType.children.stream()
@@ -556,7 +559,7 @@ public class Encode {
       // pmtiles)
       final var inputURI = getInputURI(inputFileName);
       if (inputURI.getPath() == null) {
-        Logger.error("Unable to determine input filename from '{}'", inputFileName);
+        logger.error("Unable to determine input filename from '{}'", inputFileName);
         return null;
       }
 
@@ -581,7 +584,7 @@ public class Encode {
         try {
           Files.createDirectories(outputDir);
         } catch (IOException ex) {
-          Logger.error("Failed to create directory '{}': %s", outputDir, ex);
+          logger.error("Failed to create directory '{}'", outputDir, ex);
           return null;
         }
       }
@@ -609,5 +612,5 @@ public class Encode {
   private static long totalCompressedInput = 0;
   private static long totalCompressedOutput = 0;
 
-  private static Logger Logger = LoggerFactory.getLogger(Encode.class);
+  private static final Logger logger = LoggerFactory.getLogger(Encode.class);
 }

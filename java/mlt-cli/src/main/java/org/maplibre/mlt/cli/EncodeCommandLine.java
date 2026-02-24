@@ -478,7 +478,6 @@ Add an explicit column mapping on the specified layers:
                       + VERBOSE_OPTION
                       + " is specified without a level.")
               .required(false)
-              .converter(Converter.NUMBER)
               .get());
       options.addOption(
           Option.builder()
@@ -529,16 +528,16 @@ Add an explicit column mapping on the specified layers:
               .filter(x -> x)
               .count()
           != 1) {
-        Logger.error(
+        logger.error(
             "Exactly one of --{}, --{}, --{}, or --{} must be used",
             INPUT_TILE_ARG,
             INPUT_MBTILES_ARG,
             INPUT_OFFLINEDB_ARG,
             INPUT_PMTILES_ARG);
       } else if (cmd.hasOption(OUTPUT_FILE_ARG) && cmd.hasOption(OUTPUT_DIR_ARG)) {
-        Logger.error("Cannot specify both --{} and --{} options.", OUTPUT_FILE_ARG, OUTPUT_DIR_ARG);
+        logger.error("Cannot specify both --{} and --{} options.", OUTPUT_FILE_ARG, OUTPUT_DIR_ARG);
       } else if (!validateCompression(cmd)) {
-        Logger.error(
+        logger.error(
             "Not a valid compression type: '{}'.  Valid options are: {}",
             cmd.getOptionValue(COMPRESS_OPTION),
             String.join(", ", getAllowedCompressions(cmd)));
@@ -546,9 +545,9 @@ Add an explicit column mapping on the specified layers:
         return cmd;
       }
     } catch (IOException | ParseException ex) {
-      Logger.error("Failed to parse command line arguments", ex);
+      logger.error("Failed to parse command line arguments", ex);
     } catch (URISyntaxException ex) {
-      Logger.error("Invalid tessellation URL", ex);
+      logger.error("Invalid tessellation URL", ex);
     }
     return null;
   }
@@ -591,7 +590,7 @@ Add an explicit column mapping on the specified layers:
                 (oldList, newList) ->
                     Stream.of(oldList, newList).flatMap(Collection::stream).toList());
           } else {
-            Logger.warn(
+            logger.warn(
                 "Invalid column mapping ignored: '{}'. Expected pattern is: {}",
                 item,
                 colMapListPattern);
@@ -617,7 +616,7 @@ Add an explicit column mapping on the specified layers:
               (oldList, newList) ->
                   Stream.of(oldList, newList).flatMap(Collection::stream).toList());
         } else {
-          Logger.warn(
+          logger.warn(
               "Invalid column mapping ignored: '{}'. Expected pattern is: {} or {}",
               item,
               colMapSeparatorPattern1,
@@ -643,10 +642,10 @@ Add an explicit column mapping on the specified layers:
         return Pattern.compile(pattern, Pattern.LITERAL);
       }
     } catch (PatternSyntaxException ex) {
-      Logger.error("Invalid regex pattern: '{}'.  Matching all input.", pattern, ex);
+      logger.error("Invalid regex pattern: '{}'.  Matching all input.", pattern, ex);
       return colMapMatchAll;
     }
   }
 
-  private static Logger Logger = LoggerFactory.getLogger(EncodeCommandLine.class);
+  private static final Logger logger = LoggerFactory.getLogger(EncodeCommandLine.class);
 }
