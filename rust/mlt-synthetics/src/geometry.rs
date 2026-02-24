@@ -39,22 +39,48 @@ impl ValidatingGeometryEncoder {
 }
 
 impl GeometryEncoder for ValidatingGeometryEncoder {
-    fn meta(&self) -> Encoder { self.meta.expect("meta") }
-    fn num_geometries(&self) -> Encoder { self.num_geometries.expect("num_geometries") }
-    fn rings(&self) -> Encoder { self.rings.expect("rings") }
-    fn rings2(&self) -> Encoder { self.rings2.expect("rings2") }
-    fn no_rings(&self) -> Encoder { self.no_rings.expect("no_rings") }
-    fn parts(&self) -> Encoder { self.parts.expect("parts") }
-    fn parts_ring(&self) -> Encoder { self.parts_ring.expect("parts_ring") }
-    fn only_parts(&self) -> Encoder { self.only_parts.expect("only_parts") }
-    fn triangles(&self) -> Encoder { self.triangles.expect("triangles") }
-    fn triangles_indexes(&self) -> Encoder { self.triangles_indexes.expect("triangles_indexes") }
-    fn vertex(&self) -> Encoder { self.vertex.expect("vertex") }
-    fn vertex_offsets(&self) -> Encoder { self.vertex_offsets.expect("vertex_offsets") }
+    fn meta(&self) -> Encoder {
+        self.meta.expect("meta")
+    }
+    fn num_geometries(&self) -> Encoder {
+        self.num_geometries.expect("num_geometries")
+    }
+    fn rings(&self) -> Encoder {
+        self.rings.expect("rings")
+    }
+    fn rings2(&self) -> Encoder {
+        self.rings2.expect("rings2")
+    }
+    fn no_rings(&self) -> Encoder {
+        self.no_rings.expect("no_rings")
+    }
+    fn parts(&self) -> Encoder {
+        self.parts.expect("parts")
+    }
+    fn parts_ring(&self) -> Encoder {
+        self.parts_ring.expect("parts_ring")
+    }
+    fn only_parts(&self) -> Encoder {
+        self.only_parts.expect("only_parts")
+    }
+    fn triangles(&self) -> Encoder {
+        self.triangles.expect("triangles")
+    }
+    fn triangles_indexes(&self) -> Encoder {
+        self.triangles_indexes.expect("triangles_indexes")
+    }
+    fn vertex(&self) -> Encoder {
+        self.vertex.expect("vertex")
+    }
+    fn vertex_offsets(&self) -> Encoder {
+        self.vertex_offsets.expect("vertex_offsets")
+    }
 }
 
 fn set(val: &mut Option<Encoder>, encoder: Encoder, name: &str) {
-    if let Some(v) = val && v != &encoder {
+    if let Some(v) = val
+        && v != &encoder
+    {
         panic!("{name} already set")
     }
     *val = Some(encoder);

@@ -5,7 +5,7 @@ use std::fs;
 use std::path::Path;
 
 use layer::Feature;
-use mlt_core::v01::{Encoder, IdWidth, LogicalEncoder, PhysicalEncoder};
+use mlt_core::v01::{Encoder, LogicalEncoder, PhysicalEncoder};
 
 use crate::geometry::C0;
 
@@ -34,6 +34,5 @@ fn generate_geometry(dir: &Path) {
             physical: PhysicalEncoder::VarInt,
         },
     )
-    .id(0, LogicalEncoder::None, IdWidth::Id32)
     .write(dir, "point");
 }

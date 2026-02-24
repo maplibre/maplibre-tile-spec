@@ -26,12 +26,12 @@ use crate::v01::geometry::decode::{
     decode_level1_without_ring_buffer_length_stream, decode_level2_length_stream,
     decode_root_length_stream,
 };
+pub use crate::v01::geometry::encode::GeometryEncoder;
 use crate::v01::{
-    DictionaryType, LengthType, LogicalEncoding, OffsetType, OwnedStream,
-    PhysicalEncoding, Stream, StreamMeta, StreamType,
+    DictionaryType, LengthType, LogicalEncoding, OffsetType, OwnedStream, PhysicalEncoding, Stream,
+    StreamMeta, StreamType,
 };
 use crate::{FromDecoded, MltError};
-pub use crate::v01::geometry::encode::GeometryEncoder;
 
 /// Geometry column representation, either encoded or decoded
 #[borrowme]
@@ -386,7 +386,6 @@ impl Analyze for GeometryType {
 impl_decodable!(Geometry<'a>, EncodedGeometry<'a>, DecodedGeometry);
 impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedEncodedGeometry);
 
-
 impl FromDecoded<'_> for OwnedEncodedGeometry {
     type Input = DecodedGeometry;
     type Encoder = Box<dyn GeometryEncoder>;
@@ -563,13 +562,14 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
-    use crate::v01::geometry::encode::GeometryEncoderAll;
+
     use super::*;
+    use crate::v01::geometry::encode::GeometryEncoderAll;
 
     /// Helper function to encode, serialize, parse, and decode for roundtrip testing
     fn roundtrip(decoded: &DecodedGeometry, encoder: GeometryEncoderAll) -> DecodedGeometry {
-        let encoded_geom =
-            OwnedEncodedGeometry::from_decoded(decoded, Box::new(encoder)).expect("Failed to encode");
+        let encoded_geom = OwnedEncodedGeometry::from_decoded(decoded, Box::new(encoder))
+            .expect("Failed to encode");
 
         // Serialize to bytes (write_to includes the stream count varint)
         let mut buffer = Vec::new();

@@ -1,7 +1,11 @@
 use super::{DecodedGeometry, OwnedEncodedGeometry};
 use crate::MltError;
 use crate::utils::encode_componentwise_delta_vec2s;
-use crate::v01::{DictionaryType, Encoder, GeometryType, LengthType, LogicalEncoding, OffsetType, OwnedStream, PhysicalEncoder, StreamMeta, StreamType};
+use crate::v01::LengthType::VarBinary;
+use crate::v01::{
+    DictionaryType, Encoder, GeometryType, LengthType, LogicalEncoding, OffsetType, OwnedStream,
+    PhysicalEncoder, StreamMeta, StreamType,
+};
 
 /// Encode vertex buffer using componentwise delta encoding
 fn encode_vertex_buffer(
@@ -163,7 +167,11 @@ pub fn encode_geometry(
     // Encode geometry types (meta stream)
     let meta = {
         let vector_types_u32: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
-        OwnedStream::encode_u32s(&vector_types_u32, config.meta())?
+        OwnedStream::encode_u32s_of_type(
+            &vector_types_u32,
+            config.meta(),
+            StreamType::Length(VarBinary),
+        )?
     };
 
     let mut items = Vec::new();
@@ -300,38 +308,60 @@ pub fn encode_geometry(
 
 pub trait GeometryEncoder {
     /// Encoding settings for the geometry types (meta) stream.
-    fn meta(&self) -> Encoder{unreachable!()}
+    fn meta(&self) -> Encoder {
+        unreachable!()
+    }
 
     /// Encoding for the geometry length stream.
-    fn num_geometries(&self) -> Encoder{unreachable!()}
+    fn num_geometries(&self) -> Encoder {
+        unreachable!()
+    }
 
     /// Encoding for parts length stream when rings are present.
-    fn rings(&self) -> Encoder{unreachable!()}
+    fn rings(&self) -> Encoder {
+        unreachable!()
+    }
     /// Encoding for ring vertex-count stream.
-    fn rings2(&self) -> Encoder{unreachable!()}
+    fn rings2(&self) -> Encoder {
+        unreachable!()
+    }
     /// Encoding for parts length stream when rings are not present.
-    fn no_rings(&self) -> Encoder{unreachable!()}
+    fn no_rings(&self) -> Encoder {
+        unreachable!()
+    }
 
     /// Encoding for parts length stream (with rings) when `geometry_offsets` absent.
-    fn parts(&self) -> Encoder{unreachable!()}
+    fn parts(&self) -> Encoder {
+        unreachable!()
+    }
     /// Encoding for ring lengths when `geometry_offsets` absent.
-    fn parts_ring(&self) -> Encoder{unreachable!()}
+    fn parts_ring(&self) -> Encoder {
+        unreachable!()
+    }
 
     /// Encoding for parts-only stream (e.g. `LineString`, no rings).
-    fn only_parts(&self) -> Encoder{unreachable!()}
+    fn only_parts(&self) -> Encoder {
+        unreachable!()
+    }
 
     /// Encoding for triangles count stream (pre-tessellated polygons).
-    fn triangles(&self) -> Encoder{unreachable!()}
+    fn triangles(&self) -> Encoder {
+        unreachable!()
+    }
     /// Encoding for triangle index buffer (pre-tessellated polygons).
-    fn triangles_indexes(&self) -> Encoder{unreachable!()}
+    fn triangles_indexes(&self) -> Encoder {
+        unreachable!()
+    }
 
     /// Encoding for the vertex data stream (logical is always `ComponentwiseDelta`; only physical varies).
-    fn vertex(&self) -> Encoder{unreachable!()}
+    fn vertex(&self) -> Encoder {
+        unreachable!()
+    }
     /// Encoding for vertex offsets (dictionary encoding).
-    fn vertex_offsets(&self) -> Encoder{unreachable!()}
+    fn vertex_offsets(&self) -> Encoder {
+        unreachable!()
+    }
 }
-
-
 
 /// How to encode Geometry
 #[derive(Debug, Clone, Copy)]
@@ -369,19 +399,43 @@ pub struct GeometryEncoderAll {
     pub vertex_offsets: Encoder,
 }
 
-impl GeometryEncoder for GeometryEncoderAll{
-    fn meta(&self) -> Encoder{self.meta}
-    fn num_geometries(&self) -> Encoder{self.num_geometries}
-    fn rings(&self) -> Encoder{self.rings}
-    fn rings2(&self) -> Encoder{self.rings2}
-    fn no_rings(&self) -> Encoder{self.no_rings}
-    fn parts(&self) -> Encoder{self.parts}
-    fn parts_ring(&self) -> Encoder{self.parts_ring}
-    fn only_parts(&self) -> Encoder{self.only_parts}
-    fn triangles(&self) -> Encoder{self.triangles}
-    fn triangles_indexes(&self) -> Encoder{self.triangles_indexes}
-    fn vertex(&self) -> Encoder{self.vertex}
-    fn vertex_offsets(&self) -> Encoder{self.vertex_offsets}
+impl GeometryEncoder for GeometryEncoderAll {
+    fn meta(&self) -> Encoder {
+        self.meta
+    }
+    fn num_geometries(&self) -> Encoder {
+        self.num_geometries
+    }
+    fn rings(&self) -> Encoder {
+        self.rings
+    }
+    fn rings2(&self) -> Encoder {
+        self.rings2
+    }
+    fn no_rings(&self) -> Encoder {
+        self.no_rings
+    }
+    fn parts(&self) -> Encoder {
+        self.parts
+    }
+    fn parts_ring(&self) -> Encoder {
+        self.parts_ring
+    }
+    fn only_parts(&self) -> Encoder {
+        self.only_parts
+    }
+    fn triangles(&self) -> Encoder {
+        self.triangles
+    }
+    fn triangles_indexes(&self) -> Encoder {
+        self.triangles_indexes
+    }
+    fn vertex(&self) -> Encoder {
+        self.vertex
+    }
+    fn vertex_offsets(&self) -> Encoder {
+        self.vertex_offsets
+    }
 }
 
 #[cfg(test)]
