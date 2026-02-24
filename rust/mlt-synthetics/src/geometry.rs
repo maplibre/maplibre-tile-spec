@@ -30,11 +30,12 @@ impl ValidatingGeometryEncoder {
         set(&mut self.meta, meta, "meta");
         set(&mut self.vertex, vertex, "vertex");
     }
-    pub fn polyline(&mut self, meta: Encoder, rings: Encoder, rings2: Encoder, no_rings: Encoder) {
+    pub fn line(&mut self, meta: Encoder, vertex: Encoder, only_parts: Encoder) {
         set(&mut self.meta, meta, "meta");
-        set(&mut self.rings, rings, "rings");
-        set(&mut self.rings2, rings2, "rings2");
-        set(&mut self.no_rings, no_rings, "no_rings");
+        set(&mut self.vertex, vertex, "vertex");
+        set(&mut self.only_parts, only_parts, "only_parts");
+    }
+    pub fn polygon(&mut self) {
     }
 }
 

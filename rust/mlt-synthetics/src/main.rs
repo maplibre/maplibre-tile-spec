@@ -7,7 +7,7 @@ use std::path::Path;
 use layer::Feature;
 use mlt_core::v01::{Encoder, LogicalEncoder, PhysicalEncoder};
 
-use crate::geometry::C0;
+use crate::geometry::{C0, C1, C2};
 
 fn main() {
     // fixme: replace real synthetics
@@ -23,16 +23,6 @@ fn main() {
 }
 
 fn generate_geometry(dir: &Path) {
-    Feature::point(
-        C0,
-        Encoder {
-            logical: LogicalEncoder::None,
-            physical: PhysicalEncoder::VarInt,
-        },
-        Encoder {
-            logical: LogicalEncoder::None,
-            physical: PhysicalEncoder::VarInt,
-        },
-    )
-    .write(dir, "point");
+    Feature::point(C0, Encoder::varint(), Encoder::varint()).write(dir, "point");
+    Feature::line([C1, C2], Encoder::varint(), Encoder::varint(), Encoder::varint()).write(dir, "line");
 }

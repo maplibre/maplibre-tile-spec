@@ -36,6 +36,13 @@ impl Encoder {
             physical: PhysicalEncoder::None,
         }
     }
+    #[must_use]
+    pub fn varint() -> Encoder {
+        Encoder {
+            logical: LogicalEncoder::None,
+            physical: PhysicalEncoder::VarInt,
+        }
+    }
 }
 
 impl Encoder {

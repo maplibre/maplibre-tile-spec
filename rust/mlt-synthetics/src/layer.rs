@@ -41,7 +41,33 @@ impl Feature {
         let mut geometry_encoder = ValidatingGeometryEncoder::default();
         geometry_encoder.point(meta, vertex);
         let property_encoder = PropertyEncoder::new(
-            PresenceStream::Present,
+            PresenceStream::Absent,
+            LogicalEncoder::None,
+            PhysicalEncoder::None,
+        );
+
+        Self {
+            geom,
+            props: vec![],
+            ids: DecodedId(None),
+
+            extent: None,
+            ids_encoder: IdEncoder::new(LogicalEncoder::None, IdWidth::Id32),
+            geometry_encoder,
+            property_encoder,
+        }
+    }
+    pub fn line(points: [[i32; 2]; 2], meta: Encoder, vertex: Encoder, only_parts: Encoder) -> Self {
+        let geom = DecodedGeometry {
+            vector_types: vec![GeometryType::LineString],
+            vertices: Some(points.into_iter().flatten().collect()),
+            part_offsets: Some(vec![0,2]),
+            ..Default::default()
+        };
+        let mut geometry_encoder = ValidatingGeometryEncoder::default();
+        geometry_encoder.line(meta,vertex,only_parts);
+        let property_encoder = PropertyEncoder::new(
+            PresenceStream::Absent,
             LogicalEncoder::None,
             PhysicalEncoder::None,
         );
