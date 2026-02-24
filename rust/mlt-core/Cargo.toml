@@ -17,7 +17,6 @@ harness = false
 
 [dependencies]
 borrowme.workspace = true
-derive_builder.workspace = true
 fastpfor.workspace = true
 geo-types.workspace = true
 hex.workspace = true
