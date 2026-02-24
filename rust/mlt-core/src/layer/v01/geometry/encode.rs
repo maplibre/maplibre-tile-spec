@@ -328,7 +328,7 @@ fn normalize_part_offsets_for_rings(
 /// Main geometry encoding function
 pub fn encode_geometry(
     decoded: &DecodedGeometry,
-    config: &dyn GeometryEncoder,
+    config: &GeometryEncoder,
 ) -> Result<OwnedEncodedGeometry, MltError> {
     let DecodedGeometry {
         vector_types,
@@ -375,7 +375,7 @@ pub fn encode_geometry(
         let vector_types_u32: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
         OwnedStream::encode_u32s_of_type(
             &vector_types_u32,
-            config.meta(),
+            config.meta,
             StreamType::Length(VarBinary),
         )?
     };
@@ -396,7 +396,7 @@ pub fn encode_geometry(
             // even when empty
             items.push(OwnedStream::encode_u32s_of_type(
                 &lengths,
-                config.num_geometries(),
+                config.num_geometries,
                 StreamType::Length(LengthType::Geometries),
             )?);
         }
@@ -415,7 +415,7 @@ pub fn encode_geometry(
                 if !part_lengths.is_empty() {
                     items.push(OwnedStream::encode_u32s_of_type(
                         &part_lengths,
-                        config.rings(),
+                        config.rings,
                         StreamType::Length(LengthType::Parts),
                     )?);
                 }
@@ -425,7 +425,7 @@ pub fn encode_geometry(
                 if !ring_lengths.is_empty() {
                     items.push(OwnedStream::encode_u32s_of_type(
                         &ring_lengths,
-                        config.rings2(),
+                        config.rings2,
                         StreamType::Length(LengthType::Rings),
                     )?);
                 }
@@ -439,7 +439,7 @@ pub fn encode_geometry(
                 if !part_lengths.is_empty() {
                     items.push(OwnedStream::encode_u32s_of_type(
                         &part_lengths,
-                        config.no_rings(),
+                        config.no_rings,
                         StreamType::Length(LengthType::Parts),
                     )?);
                 }
@@ -454,7 +454,7 @@ pub fn encode_geometry(
             if has_tessellation {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &[],
-                    config.num_geometries(),
+                    config.num_geometries,
                     StreamType::Length(LengthType::Geometries),
                 )?);
             }
@@ -464,7 +464,7 @@ pub fn encode_geometry(
             if !part_lengths.is_empty() {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &part_lengths,
-                    config.parts(),
+                    config.parts,
                     StreamType::Length(LengthType::Parts),
                 )?);
             }
@@ -489,7 +489,7 @@ pub fn encode_geometry(
             if !ring_lengths.is_empty() {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &ring_lengths,
-                    config.parts_ring(),
+                    config.parts_ring,
                     StreamType::Length(LengthType::Rings),
                 )?);
             }
@@ -499,7 +499,7 @@ pub fn encode_geometry(
             if !lengths.is_empty() {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &lengths,
-                    config.only_parts(),
+                    config.only_parts,
                     StreamType::Length(LengthType::Parts),
                 )?);
             }
@@ -510,7 +510,7 @@ pub fn encode_geometry(
     if let Some(tris) = triangles {
         items.push(OwnedStream::encode_u32s_of_type(
             tris,
-            config.triangles(),
+            config.triangles,
             StreamType::Length(LengthType::Triangles),
         )?);
     }
@@ -519,7 +519,7 @@ pub fn encode_geometry(
     if let Some(idx_buf) = index_buffer {
         items.push(OwnedStream::encode_u32s_of_type(
             idx_buf,
-            config.triangles_indexes(),
+            config.triangles_indexes,
             StreamType::Offset(OffsetType::Index),
         )?);
     }
@@ -528,56 +528,23 @@ pub fn encode_geometry(
     if let Some(v_offs) = vertex_offsets {
         items.push(OwnedStream::encode_u32s_of_type(
             v_offs,
-            config.vertex_offsets(),
+            config.vertex_offsets,
             StreamType::Offset(OffsetType::Vertex),
         )?);
     }
 
     // Encode vertex buffer
     if let Some(verts) = vertices {
-        items.push(encode_vertex_buffer(verts, config.vertex().physical)?);
+        items.push(encode_vertex_buffer(verts, config.vertex.physical)?);
     }
 
     Ok(OwnedEncodedGeometry { meta, items })
 }
 
-pub trait GeometryEncoder {
-    /// Encoding settings for the geometry types (meta) stream.
-    fn meta(&self) -> Encoder;
-
-    /// Encoding for the geometry length stream.
-    fn num_geometries(&self) -> Encoder;
-
-    /// Encoding for parts length stream when rings are present.
-    fn rings(&self) -> Encoder;
-    /// Encoding for ring vertex-count stream.
-    fn rings2(&self) -> Encoder;
-    /// Encoding for parts length stream when rings are not present.
-    fn no_rings(&self) -> Encoder;
-
-    /// Encoding for parts length stream (with rings) when `geometry_offsets` absent.
-    fn parts(&self) -> Encoder;
-    /// Encoding for ring lengths when `geometry_offsets` absent.
-    fn parts_ring(&self) -> Encoder;
-
-    /// Encoding for parts-only stream (e.g. `LineString`, no rings).
-    fn only_parts(&self) -> Encoder;
-
-    /// Encoding for triangles count stream (pre-tessellated polygons).
-    fn triangles(&self) -> Encoder;
-    /// Encoding for triangle index buffer (pre-tessellated polygons).
-    fn triangles_indexes(&self) -> Encoder;
-
-    /// Encoding for the vertex data stream (logical is always `ComponentwiseDelta`; only physical varies).
-    fn vertex(&self) -> Encoder;
-    /// Encoding for vertex offsets (dictionary encoding).
-    fn vertex_offsets(&self) -> Encoder;
-}
-
 /// How to encode Geometry
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-pub struct GeometryEncoderAll {
+pub struct GeometryEncoder {
     /// Encoding settings for the geometry types (meta) stream.
     pub meta: Encoder,
 
@@ -610,42 +577,96 @@ pub struct GeometryEncoderAll {
     pub vertex_offsets: Encoder,
 }
 
-impl GeometryEncoder for GeometryEncoderAll {
-    fn meta(&self) -> Encoder {
-        self.meta
+impl GeometryEncoder {
+    /// Use the provided encoder for all streams.
+    #[must_use]
+    pub fn all(encoder: Encoder) -> Self {
+        Self {
+            meta: encoder,
+            num_geometries: encoder,
+            rings: encoder,
+            rings2: encoder,
+            no_rings: encoder,
+            parts: encoder,
+            parts_ring: encoder,
+            only_parts: encoder,
+            triangles: encoder,
+            triangles_indexes: encoder,
+            vertex: encoder,
+            vertex_offsets: encoder,
+        }
     }
-    fn num_geometries(&self) -> Encoder {
-        self.num_geometries
+
+    /// Set encoding for the geometry types (meta) stream.
+    pub fn meta(&mut self, e: Encoder) -> &mut Self {
+        self.meta = e;
+        self
     }
-    fn rings(&self) -> Encoder {
-        self.rings
+
+    /// Set encoding for the geometry length stream.
+    pub fn num_geometries(&mut self, e: Encoder) -> &mut Self {
+        self.num_geometries = e;
+        self
     }
-    fn rings2(&self) -> Encoder {
-        self.rings2
+
+    /// Set encoding for parts length stream when rings are present.
+    pub fn rings(&mut self, e: Encoder) -> &mut Self {
+        self.rings = e;
+        self
     }
-    fn no_rings(&self) -> Encoder {
-        self.no_rings
+
+    /// Set encoding for ring vertex-count stream.
+    pub fn rings2(&mut self, e: Encoder) -> &mut Self {
+        self.rings2 = e;
+        self
     }
-    fn parts(&self) -> Encoder {
-        self.parts
+
+    /// Set encoding for parts length stream when rings are not present.
+    pub fn no_rings(&mut self, e: Encoder) -> &mut Self {
+        self.no_rings = e;
+        self
     }
-    fn parts_ring(&self) -> Encoder {
-        self.parts_ring
+
+    /// Set encoding for parts length stream (with rings) when `geometry_offsets` absent.
+    pub fn parts(&mut self, e: Encoder) -> &mut Self {
+        self.parts = e;
+        self
     }
-    fn only_parts(&self) -> Encoder {
-        self.only_parts
+
+    /// Set encoding for ring lengths when `geometry_offsets` absent.
+    pub fn parts_ring(&mut self, e: Encoder) -> &mut Self {
+        self.parts_ring = e;
+        self
     }
-    fn triangles(&self) -> Encoder {
-        self.triangles
+
+    /// Set encoding for parts-only stream (e.g. `LineString`, no rings).
+    pub fn only_parts(&mut self, e: Encoder) -> &mut Self {
+        self.only_parts = e;
+        self
     }
-    fn triangles_indexes(&self) -> Encoder {
-        self.triangles_indexes
+
+    /// Set encoding for triangles count stream (pre-tessellated polygons).
+    pub fn triangles(&mut self, e: Encoder) -> &mut Self {
+        self.triangles = e;
+        self
     }
-    fn vertex(&self) -> Encoder {
-        self.vertex
+
+    /// Set encoding for triangle index buffer (pre-tessellated polygons).
+    pub fn triangles_indexes(&mut self, e: Encoder) -> &mut Self {
+        self.triangles_indexes = e;
+        self
     }
-    fn vertex_offsets(&self) -> Encoder {
-        self.vertex_offsets
+
+    /// Set encoding for the vertex data stream.
+    pub fn vertex(&mut self, e: Encoder) -> &mut Self {
+        self.vertex = e;
+        self
+    }
+
+    /// Set encoding for vertex offsets (dictionary encoding).
+    pub fn vertex_offsets(&mut self, e: Encoder) -> &mut Self {
+        self.vertex_offsets = e;
+        self
     }
 }
 
