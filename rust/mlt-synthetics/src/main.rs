@@ -5,9 +5,8 @@ use std::fs;
 use std::path::Path;
 
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
-use mlt_core::v01::{Encoder, IdEncoder, IdWidth, LogicalEncoder};
+use mlt_core::v01::Encoder;
 
-use crate::geometry::ValidatingGeometryEncoder;
 use crate::layer::Feature;
 
 // Common coordinates matching Java synthetics
@@ -32,85 +31,78 @@ fn main() {
 }
 
 fn generate_geometry(dir: &Path) {
-    use Encoder as Enc;
-    type GEnc = ValidatingGeometryEncoder;
+    use Encoder as E;
 
     // Point - Java: write("point", feat(p0), cfg());
-    let pt_enc = GEnc::default().point(Enc::varint(), Enc::varint());
-    Feature::from_geom(Point(C0), pt_enc).write(dir, "point");
+    Feature::point(Point(C0), E::varint(), E::varint()).write(dir, "point");
 
     // Line - Java: write("line", feat(line(c1, c2)), cfg());
-    let line_enc = GEnc::default().linestring(Enc::varint(), Enc::varint(), Enc::varint());
-    Feature::from_geom(LineString(vec![C1, C2]), line_enc).write(dir, "line");
+    Feature::linestring(
+        LineString(vec![C1, C2]),
+        E::varint(),
+        E::varint(),
+        E::varint(),
+    )
+    .write(dir, "line");
 
     // Polygon - Java: var pol = feat(poly(c1, c2, c3, c1));
-    let poly_enc =
-        GEnc::default().polygon(Enc::varint(), Enc::varint(), Enc::varint(), Enc::varint());
     let pol = Polygon::new(LineString(vec![C1, C2, C3, C1]), vec![]);
-    Feature::from_geom(pol.clone(), poly_enc).write(dir, "polygon");
+    Feature::polygon(
+        pol.clone(),
+        E::varint(),
+        E::varint(),
+        E::varint(),
+        E::varint(),
+    )
+    .write(dir, "polygon");
     // TODO: polygon_fpf, polygon_tes, polygon_morton_tes need different encoding configs
 
     // Polygon with hole - Java: feat(poly(ring(c1, c2, c3, c1), ring(h1, h2, h3, h1)));
+    // Java uses RLE encoding for the rings stream
     let pol_hole = Polygon::new(
         LineString(vec![C1, C2, C3, C1]),
         vec![LineString(vec![H1, H2, H3, H1])],
     );
-    Feature::from_geom(pol_hole.clone(), poly_enc).write(dir, "polygon_hole");
+    Feature::polygon(
+        pol_hole,
+        E::varint(),
+        E::varint(),
+        E::varint(),
+        E::rle_varint(),
+    )
+    .write(dir, "polygon_hole");
     // TODO: polygon_hole_fpf needs different encoding config
 
     // MultiPolygon - Java: feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1)));
-    let mpoly_enc = GEnc::default().multi_polygon(
-        Enc::varint(),
-        Enc::varint(),
-        Enc::varint(),
-        Enc::varint(),
-        Enc::varint(),
-    );
+    // Java uses RLE encoding for both parts and rings streams
     let mpol = MultiPolygon(vec![
         Polygon::new(LineString(vec![C1, C2, C3, C1]), vec![]),
         Polygon::new(LineString(vec![H1, H3, C2, H1]), vec![]),
     ]);
-    Feature::from_geom(mpol.clone(), mpoly_enc).write(dir, "polygon_multi");
+    Feature::multi_polygon(
+        mpol,
+        E::varint(),
+        E::varint(),
+        E::varint(),
+        E::rle_varint(),
+        E::rle_varint(),
+    )
+    .write(dir, "polygon_multi");
     // TODO: polygon_multi_fpf needs different encoding config
 
     // MultiPoint - Java: write("multipoint", feat(multi(p1, p2, p3)), cfg());
-    let mpt_enc = GEnc::default().multi_point(Enc::varint(), Enc::varint(), Enc::varint());
     let mpt = MultiPoint(vec![Point(C1), Point(C2), Point(C3)]);
-    Feature::from_geom(mpt, mpt_enc).write(dir, "multipoint");
+    Feature::multi_point(mpt, E::varint(), E::varint(), E::varint()).write(dir, "multipoint");
 
     // MultiLineString - Java: write("multiline", feat(multi(line(c1, c2), line(h1, h2, h3))), cfg());
-    let mline_enc = GEnc::default().multi_linestring(
-        Enc::varint(),
-        Enc::varint(),
-        Enc::varint(),
-        Enc::varint(),
-    );
     let mline = MultiLineString(vec![LineString(vec![C1, C2]), LineString(vec![H1, H2, H3])]);
-    Feature::from_geom(mline, mline_enc).write(dir, "multiline");
+    Feature::multi_linestring(mline, E::varint(), E::varint(), E::varint(), E::varint())
+        .write(dir, "multiline");
 }
 
 #[expect(dead_code)]
 fn generate_mixed(dir: &Path) {
-    use Encoder as Enc;
-    type GEnc = ValidatingGeometryEncoder;
-
-    let pt_enc = GEnc::default().point(Enc::varint(), Enc::varint());
-    let line_enc = GEnc::default().linestring(Enc::varint(), Enc::varint(), Enc::varint());
-    let poly_enc =
-        GEnc::default().polygon(Enc::varint(), Enc::varint(), Enc::varint(), Enc::varint());
-    let mline_enc = GEnc::default().multi_linestring(
-        Enc::varint(),
-        Enc::varint(),
-        Enc::varint(),
-        Enc::varint(),
-    );
-    let mpoly_enc = GEnc::default().multi_polygon(
-        Enc::varint(),
-        Enc::varint(),
-        Enc::varint(),
-        Enc::varint(),
-        Enc::varint(),
-    );
+    use Encoder as E;
 
     let line1 = LineString(vec![C1, C2]);
     let line2 = LineString(vec![H1, H2, H3]);
@@ -118,39 +110,67 @@ fn generate_mixed(dir: &Path) {
     let pol2 = Polygon::new(LineString(vec![H1, H2, H3, H1]), vec![]);
 
     // mixed_pt_line: point + linestring
-    Feature::from_geom(Point(C0), pt_enc)
-        .and(line1.clone(), line_enc)
+    Feature::point(Point(C0), E::varint(), E::varint())
+        .and_linestring(line1.clone(), E::varint(), E::varint(), E::varint())
         .write(dir, "mixed_pt_line");
 
     // mixed_pt_poly: point + polygon
-    Feature::from_geom(Point(C0), pt_enc)
-        .and(pol1.clone(), poly_enc)
+    Feature::point(Point(C0), E::varint(), E::varint())
+        .and_polygon(
+            pol1.clone(),
+            E::varint(),
+            E::varint(),
+            E::varint(),
+            E::varint(),
+        )
         .write(dir, "mixed_pt_poly");
 
     // mixed_line_poly: linestring + polygon
-    Feature::from_geom(line1.clone(), line_enc)
-        .and(pol1.clone(), poly_enc)
+    Feature::linestring(line1.clone(), E::varint(), E::varint(), E::varint())
+        .and_polygon(
+            pol1.clone(),
+            E::varint(),
+            E::varint(),
+            E::varint(),
+            E::varint(),
+        )
         .write(dir, "mixed_line_poly");
 
     // mixed_pt_mline: point + multi-linestring
-    Feature::from_geom(Point(C0), pt_enc)
-        .and(MultiLineString(vec![line1.clone(), line2]), mline_enc)
+    Feature::point(Point(C0), E::varint(), E::varint())
+        .and_multi_linestring(
+            MultiLineString(vec![line1.clone(), line2]),
+            E::varint(),
+            E::varint(),
+            E::varint(),
+            E::varint(),
+        )
         .write(dir, "mixed_pt_mline");
 
     // mixed_all: point + linestring + polygon + multi-polygon
-    Feature::from_geom(Point(C0), pt_enc)
-        .and(line1, line_enc)
-        .and(pol1.clone(), poly_enc)
-        .and(MultiPolygon(vec![pol1, pol2]), mpoly_enc)
+    Feature::point(Point(C0), E::varint(), E::varint())
+        .and_linestring(line1, E::varint(), E::varint(), E::varint())
+        .and_polygon(
+            pol1.clone(),
+            E::varint(),
+            E::varint(),
+            E::varint(),
+            E::varint(),
+        )
+        .and_multi_polygon(
+            MultiPolygon(vec![pol1, pol2]),
+            E::varint(),
+            E::varint(),
+            E::varint(),
+            E::varint(),
+            E::varint(),
+        )
         .write(dir, "mixed_all");
 }
 
 #[expect(dead_code)]
 fn generate_extent(dir: &Path) {
-    use Encoder as Enc;
-    type GEnc = ValidatingGeometryEncoder;
-
-    let line_enc = GEnc::default().linestring(Enc::varint(), Enc::varint(), Enc::varint());
+    use Encoder as E;
 
     for extent in [512_i32, 4096, 131_072, 1_073_741_824] {
         let line = LineString(vec![
@@ -160,7 +180,7 @@ fn generate_extent(dir: &Path) {
                 y: extent - 1,
             },
         ]);
-        Feature::from_geom(line, line_enc)
+        Feature::linestring(line, E::varint(), E::varint(), E::varint())
             .extent(extent.cast_unsigned())
             .write(dir, &format!("extent_{extent}"));
 
@@ -171,7 +191,7 @@ fn generate_extent(dir: &Path) {
                 y: extent + 42,
             },
         ]);
-        Feature::from_geom(line_buf, line_enc)
+        Feature::linestring(line_buf, E::varint(), E::varint(), E::varint())
             .extent(extent.cast_unsigned())
             .write(dir, &format!("extent_buf_{extent}"));
     }
@@ -179,11 +199,10 @@ fn generate_extent(dir: &Path) {
 
 #[expect(dead_code)]
 fn generate_ids(dir: &Path) {
-    use Encoder as Enc;
-    type GEnc = ValidatingGeometryEncoder;
+    use Encoder as E;
+    use mlt_core::v01::{IdEncoder, IdWidth, LogicalEncoder};
 
-    let pt_enc = GEnc::default().point(Enc::varint(), Enc::varint());
-    let p0 = || Feature::from_geom(Point(C0), pt_enc);
+    let p0 = || Feature::point(Point(C0), E::varint(), E::varint());
 
     p0().id(0, LogicalEncoder::None, IdWidth::Id32)
         .write(dir, "id0");

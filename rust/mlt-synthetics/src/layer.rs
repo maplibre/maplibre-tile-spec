@@ -5,11 +5,11 @@ use std::io::Write as _;
 use std::path::Path;
 use std::{fs, io};
 
-use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
-use mlt_core::geojson::{Coord32, FeatureCollection, Geom32};
+use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
+use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, IdEncoder, IdWidth, LogicalEncoder, OwnedGeometry,
-    OwnedId, OwnedLayer01, OwnedProperty, PropValue, PropertyEncoder,
+    DecodedGeometry, DecodedId, DecodedProperty, Encoder, IdEncoder, IdWidth, LogicalEncoder,
+    OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PropValue, PropertyEncoder,
 };
 use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
 
@@ -25,6 +25,19 @@ pub struct Feature {
 
     ids_encoder: IdEncoder,
     geometry_encoder: ValidatingGeometryEncoder,
+}
+
+impl Default for Feature {
+    fn default() -> Self {
+        Self {
+            geom: DecodedGeometry::default(),
+            props: vec![],
+            ids: DecodedId(None),
+            extent: None,
+            ids_encoder: IdEncoder::new(LogicalEncoder::None, IdWidth::Id32),
+            geometry_encoder: ValidatingGeometryEncoder::default(),
+        }
+    }
 }
 
 impl Feature {
@@ -49,19 +62,206 @@ impl Feature {
         out_file.write_all(json.as_bytes()).unwrap();
     }
 
-    /// Create a feature from a `geo_types` geometry with encoding configuration.
-    pub fn from_geom(geom: impl Into<Geom32>, encoder: ValidatingGeometryEncoder) -> Self {
-        let mut feat = default_feature();
-        feat.geom.push_geom(&geom.into());
-        feat.geometry_encoder = encoder;
-        feat
+    /// Create a feature with a Point geometry.
+    ///
+    /// Parameters:
+    /// - `geom`: The point geometry
+    /// - `meta`: Encoder for the geometry type stream
+    /// - `vertex`: Encoder for the vertex data stream
+    pub fn point(geom: Point<i32>, meta: Encoder, vertex: Encoder) -> Self {
+        Self::default().and_point(geom, meta, vertex)
     }
 
-    /// Add another geometry to this feature.
+    /// Add another Point geometry to this feature.
     #[must_use]
-    pub fn and(mut self, geom: impl Into<Geom32>, encoder: ValidatingGeometryEncoder) -> Self {
-        self.geom.push_geom(&geom.into());
-        self.geometry_encoder = self.geometry_encoder.merge(encoder);
+    pub fn and_point(mut self, geom: Point<i32>, meta: Encoder, vertex: Encoder) -> Self {
+        self.geom.push_geom(&Geom32::Point(geom));
+        self.geometry_encoder = self
+            .geometry_encoder
+            .merge(ValidatingGeometryEncoder::default().point(meta, vertex));
+        self
+    }
+
+    /// Create a feature with a `LineString` geometry.
+    ///
+    /// Parameters:
+    /// - `geom`: The linestring geometry
+    /// - `meta`: Encoder for the geometry type stream
+    /// - `vertex`: Encoder for the vertex data stream
+    /// - `parts`: Encoder for the parts length stream
+    pub fn linestring(
+        geom: LineString<i32>,
+        meta: Encoder,
+        vertex: Encoder,
+        parts: Encoder,
+    ) -> Self {
+        Self::default().and_linestring(geom, meta, vertex, parts)
+    }
+
+    /// Add another `LineString` geometry to this feature.
+    #[must_use]
+    pub fn and_linestring(
+        mut self,
+        geom: LineString<i32>,
+        meta: Encoder,
+        vertex: Encoder,
+        parts: Encoder,
+    ) -> Self {
+        self.geom.push_geom(&Geom32::LineString(geom));
+        self.geometry_encoder = self
+            .geometry_encoder
+            .merge(ValidatingGeometryEncoder::default().linestring(meta, vertex, parts));
+        self
+    }
+
+    /// Create a feature with a Polygon geometry.
+    ///
+    /// Parameters:
+    /// - `geom`: The polygon geometry
+    /// - `meta`: Encoder for the geometry type stream
+    /// - `vertex`: Encoder for the vertex data stream
+    /// - `parts`: Encoder for the parts length stream
+    /// - `rings`: Encoder for the rings length stream
+    pub fn polygon(
+        geom: Polygon<i32>,
+        meta: Encoder,
+        vertex: Encoder,
+        parts: Encoder,
+        rings: Encoder,
+    ) -> Self {
+        Self::default().and_polygon(geom, meta, vertex, parts, rings)
+    }
+
+    /// Add another Polygon geometry to this feature.
+    #[must_use]
+    pub fn and_polygon(
+        mut self,
+        geom: Polygon<i32>,
+        meta: Encoder,
+        vertex: Encoder,
+        parts: Encoder,
+        rings: Encoder,
+    ) -> Self {
+        self.geom.push_geom(&Geom32::Polygon(geom));
+        self.geometry_encoder = self
+            .geometry_encoder
+            .merge(ValidatingGeometryEncoder::default().polygon(meta, vertex, parts, rings));
+        self
+    }
+
+    /// Create a feature with a `MultiPoint` geometry.
+    ///
+    /// Parameters:
+    /// - `geom`: The multipoint geometry
+    /// - `meta`: Encoder for the geometry type stream
+    /// - `vertex`: Encoder for the vertex data stream
+    /// - `num_geometries`: Encoder for the geometry count stream
+    pub fn multi_point(
+        geom: MultiPoint<i32>,
+        meta: Encoder,
+        vertex: Encoder,
+        num_geometries: Encoder,
+    ) -> Self {
+        Self::default().and_multi_point(geom, meta, vertex, num_geometries)
+    }
+
+    /// Add another `MultiPoint` geometry to this feature.
+    #[must_use]
+    pub fn and_multi_point(
+        mut self,
+        geom: MultiPoint<i32>,
+        meta: Encoder,
+        vertex: Encoder,
+        num_geometries: Encoder,
+    ) -> Self {
+        self.geom.push_geom(&Geom32::MultiPoint(geom));
+        self.geometry_encoder = self
+            .geometry_encoder
+            .merge(ValidatingGeometryEncoder::default().multi_point(meta, vertex, num_geometries));
+        self
+    }
+
+    /// Create a feature with a `MultiLineString` geometry.
+    ///
+    /// Parameters:
+    /// - `geom`: The multi-linestring geometry
+    /// - `meta`: Encoder for the geometry type stream
+    /// - `vertex`: Encoder for the vertex data stream
+    /// - `num_geometries`: Encoder for the geometry count stream
+    /// - `parts`: Encoder for the parts length stream (no rings)
+    pub fn multi_linestring(
+        geom: MultiLineString<i32>,
+        meta: Encoder,
+        vertex: Encoder,
+        num_geometries: Encoder,
+        parts: Encoder,
+    ) -> Self {
+        Self::default().and_multi_linestring(geom, meta, vertex, num_geometries, parts)
+    }
+
+    /// Add another `MultiLineString` geometry to this feature.
+    #[must_use]
+    pub fn and_multi_linestring(
+        mut self,
+        geom: MultiLineString<i32>,
+        meta: Encoder,
+        vertex: Encoder,
+        num_geometries: Encoder,
+        parts: Encoder,
+    ) -> Self {
+        self.geom.push_geom(&Geom32::MultiLineString(geom));
+        self.geometry_encoder =
+            self.geometry_encoder
+                .merge(ValidatingGeometryEncoder::default().multi_linestring(
+                    meta,
+                    vertex,
+                    num_geometries,
+                    parts,
+                ));
+        self
+    }
+
+    /// Create a feature with a `MultiPolygon` geometry.
+    ///
+    /// Parameters:
+    /// - `geom`: The multi-polygon geometry
+    /// - `meta`: Encoder for the geometry type stream
+    /// - `vertex`: Encoder for the vertex data stream
+    /// - `num_geometries`: Encoder for the geometry count stream
+    /// - `parts`: Encoder for the parts length stream
+    /// - `rings`: Encoder for the rings length stream
+    pub fn multi_polygon(
+        geom: MultiPolygon<i32>,
+        meta: Encoder,
+        vertex: Encoder,
+        num_geometries: Encoder,
+        parts: Encoder,
+        rings: Encoder,
+    ) -> Self {
+        Self::default().and_multi_polygon(geom, meta, vertex, num_geometries, parts, rings)
+    }
+
+    /// Add another `MultiPolygon` geometry to this feature.
+    #[must_use]
+    pub fn and_multi_polygon(
+        mut self,
+        geom: MultiPolygon<i32>,
+        meta: Encoder,
+        vertex: Encoder,
+        num_geometries: Encoder,
+        parts: Encoder,
+        rings: Encoder,
+    ) -> Self {
+        self.geom.push_geom(&Geom32::MultiPolygon(geom));
+        self.geometry_encoder =
+            self.geometry_encoder
+                .merge(ValidatingGeometryEncoder::default().multi_polygon(
+                    meta,
+                    vertex,
+                    num_geometries,
+                    parts,
+                    rings,
+                ));
         self
     }
 
@@ -151,48 +351,4 @@ impl Feature {
             .write_to(&mut file)
             .unwrap_or_else(|_| panic!("cannot encode feature {}", path.display()));
     }
-}
-
-fn default_feature() -> Feature {
-    Feature {
-        geom: DecodedGeometry::default(),
-        props: vec![],
-        ids: DecodedId(None),
-        extent: None,
-        ids_encoder: IdEncoder::new(LogicalEncoder::None, IdWidth::Id32),
-        geometry_encoder: ValidatingGeometryEncoder::default(),
-    }
-}
-
-// Helper functions to create geo_types geometries from coordinate arrays
-pub fn point(x: i32, y: i32) -> Point<i32> {
-    Point(Coord { x, y })
-}
-
-pub fn coord(x: i32, y: i32) -> Coord32 {
-    Coord { x, y }
-}
-
-pub fn line(coords: &[[i32; 2]]) -> LineString<i32> {
-    LineString(coords.iter().map(|[x, y]| Coord { x: *x, y: *y }).collect())
-}
-
-pub fn polygon(exterior: &[[i32; 2]]) -> Polygon<i32> {
-    Polygon::new(line(exterior), vec![])
-}
-
-pub fn polygon_with_holes(exterior: &[[i32; 2]], holes: &[&[[i32; 2]]]) -> Polygon<i32> {
-    Polygon::new(line(exterior), holes.iter().map(|h| line(h)).collect())
-}
-
-pub fn multi_point(coords: &[[i32; 2]]) -> MultiPoint<i32> {
-    MultiPoint(coords.iter().map(|[x, y]| point(*x, *y)).collect())
-}
-
-pub fn multi_line(lines: &[&[[i32; 2]]]) -> MultiLineString<i32> {
-    MultiLineString(lines.iter().map(|l| line(l)).collect())
-}
-
-pub fn multi_polygon(polygons: &[&[[i32; 2]]]) -> MultiPolygon<i32> {
-    MultiPolygon(polygons.iter().map(|p| polygon(p)).collect())
 }
