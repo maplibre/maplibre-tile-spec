@@ -5,24 +5,19 @@ use std::io::Write as _;
 use std::path::Path;
 use std::{fs, io};
 
-use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
+use geo_types::Polygon;
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, Encoder, IdEncoder, IdWidth, LogicalEncoder,
+    DecodedGeometry, DecodedId, DecodedProperty, Encoder, GeometryEncoder, IdEncoder,
     OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PropValue, PropertyEncoder,
 };
 use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
 
-use crate::geometry::ValidatingGeometryEncoder;
-
 /// Tessellate a polygon using earcut algorithm.
-/// Returns `(triangle_indices, num_triangles)`.
 fn tessellate_polygon(polygon: &Polygon<i32>) -> (Vec<u32>, u32) {
-    // Flatten coordinates without closing point (earcut expects open rings)
     let mut flat_coords: Vec<f64> = Vec::new();
     let mut hole_indices: Vec<usize> = Vec::new();
 
-    // Add exterior ring (without closing point)
     let exterior = polygon.exterior();
     let exterior_coords: Vec<_> = exterior.coords().collect();
     let exterior_len =
@@ -36,7 +31,6 @@ fn tessellate_polygon(polygon: &Polygon<i32>) -> (Vec<u32>, u32) {
         flat_coords.push(f64::from(coord.y));
     }
 
-    // Add interior rings (holes)
     let mut vertex_count = exterior_len;
     for interior in polygon.interiors() {
         hole_indices.push(vertex_count);
@@ -54,7 +48,6 @@ fn tessellate_polygon(polygon: &Polygon<i32>) -> (Vec<u32>, u32) {
         vertex_count += interior_len;
     }
 
-    // Run earcut
     let indices = earcutr::earcut(&flat_coords, &hole_indices, 2).expect("Tessellation failed");
     let num_triangles = u32::try_from(indices.len() / 3).expect("too many triangles");
     let indices_u32: Vec<u32> = indices
@@ -65,22 +58,141 @@ fn tessellate_polygon(polygon: &Polygon<i32>) -> (Vec<u32>, u32) {
     (indices_u32, num_triangles)
 }
 
-/// A builder for creating synthetic MLT layers with multiple features.
-/// This matches Java's approach where a layer contains multiple features,
-/// each with a single geometry type.
-#[derive(Debug, Clone)]
+/// Layer builder: holds geometry encoder, geometry list, properties, extent, and IDs.
 pub struct Layer {
-    features: Vec<Feature>,
+    geometry_encoder: GeometryEncoder,
+    geometry_items: Vec<Geom32>,
+    /// Polygons that are also tessellated; triangle data is merged when building decoded geometry.
+    tessellated_polygons: Vec<Option<Polygon<i32>>>,
+    props: Vec<Box<dyn LayerProp>>,
     extent: Option<u32>,
+    ids: Option<(Vec<Option<u64>>, IdEncoder)>,
+}
+
+/// Create a layer with all geometry encoders set to `VarInt`.
+#[must_use]
+pub fn geo_varint() -> Layer {
+    Layer::new(Encoder::varint())
+}
+
+/// Create a layer with all geometry encoders set to `FastPFOR`.
+#[must_use]
+pub fn geo_fastpfor() -> Layer {
+    Layer::new(Encoder::fastpfor())
 }
 
 impl Layer {
-    /// Create a layer with multiple features.
-    pub fn new(features: Vec<Feature>) -> Self {
-        Self {
-            features,
+    #[must_use]
+    pub fn new(default_geom_enc: Encoder) -> Layer {
+        Layer {
+            geometry_encoder: GeometryEncoder::all(default_geom_enc),
+            geometry_items: vec![],
+            tessellated_polygons: vec![],
+            props: vec![],
             extent: None,
+            ids: None,
         }
+    }
+
+    /// Set encoding for parts length stream when rings are present.
+    #[must_use]
+    pub fn rings(mut self, e: Encoder) -> Self {
+        self.geometry_encoder.rings(e);
+        self
+    }
+
+    /// Set encoding for ring vertex-count stream.
+    #[must_use]
+    pub fn rings2(mut self, e: Encoder) -> Self {
+        self.geometry_encoder.rings2(e);
+        self
+    }
+
+    /// Set encoding for the vertex data stream.
+    #[must_use]
+    pub fn vertex(mut self, e: Encoder) -> Self {
+        self.geometry_encoder.vertex(e);
+        self
+    }
+
+    /// Set encoding for the geometry types (meta) stream.
+    #[must_use]
+    pub fn meta(mut self, e: Encoder) -> Self {
+        self.geometry_encoder.meta(e);
+        self
+    }
+
+    /// Set encoding for the geometry length stream.
+    #[must_use]
+    pub fn num_geometries(mut self, e: Encoder) -> Self {
+        self.geometry_encoder.num_geometries(e);
+        self
+    }
+
+    /// Set encoding for parts length stream when rings are not present.
+    #[must_use]
+    pub fn no_rings(mut self, e: Encoder) -> Self {
+        self.geometry_encoder.no_rings(e);
+        self
+    }
+
+    /// Set encoding for parts length stream (with rings) when `geometry_offsets` absent.
+    #[must_use]
+    pub fn parts(mut self, e: Encoder) -> Self {
+        self.geometry_encoder.parts(e);
+        self
+    }
+
+    /// Set encoding for ring lengths when `geometry_offsets` absent.
+    #[must_use]
+    pub fn parts_ring(mut self, e: Encoder) -> Self {
+        self.geometry_encoder.parts_ring(e);
+        self
+    }
+
+    /// Set encoding for parts-only stream.
+    #[must_use]
+    pub fn only_parts(mut self, e: Encoder) -> Self {
+        self.geometry_encoder.only_parts(e);
+        self
+    }
+
+    /// Set encoding for triangles and triangle index buffer.
+    #[must_use]
+    pub fn triangles(mut self, e: Encoder) -> Self {
+        self.geometry_encoder.triangles(e);
+        self.geometry_encoder.triangles_indexes(e);
+        self
+    }
+
+    /// Set encoding for vertex offsets.
+    #[must_use]
+    pub fn vertex_offsets(mut self, e: Encoder) -> Self {
+        self.geometry_encoder.vertex_offsets(e);
+        self
+    }
+
+    /// Add a geometry (uses [`geo_types::Geometry`] `From` impls: `Point`, `LineString`, etc.).
+    #[must_use]
+    pub fn geo(mut self, geometry: impl Into<Geom32>) -> Self {
+        self.geometry_items.push(geometry.into());
+        self.tessellated_polygons.push(None);
+        self
+    }
+
+    /// Add a tessellated polygon (polygon + triangle mesh).
+    #[must_use]
+    pub fn tessellated(mut self, polygon: Polygon<i32>) -> Self {
+        self.geometry_items.push(Geom32::Polygon(polygon.clone()));
+        self.tessellated_polygons.push(Some(polygon));
+        self
+    }
+
+    /// Add a property (boxed dynamic value).
+    #[must_use]
+    pub fn add_prop(mut self, prop: impl LayerProp + 'static) -> Self {
+        self.props.push(Box::new(prop));
+        self
     }
 
     /// Set the tile extent.
@@ -90,19 +202,44 @@ impl Layer {
         self
     }
 
+    /// Set feature IDs.
+    #[must_use]
+    pub fn ids(mut self, ids: Vec<Option<u64>>, encoder: IdEncoder) -> Self {
+        self.ids = Some((ids, encoder));
+        self
+    }
+
+    fn build_decoded_geometry(&self) -> DecodedGeometry {
+        let mut geom = DecodedGeometry::default();
+        for g in &self.geometry_items {
+            geom.push_geom(g);
+        }
+        for poly in &self.tessellated_polygons {
+            let Some(poly) = poly else { continue };
+            let (indices, num_triangles) = tessellate_polygon(poly);
+            geom.triangles
+                .get_or_insert_with(Vec::new)
+                .push(num_triangles);
+            geom.index_buffer
+                .get_or_insert_with(Vec::new)
+                .extend(indices);
+        }
+        geom
+    }
+
     fn open_new(path: &Path) -> io::Result<File> {
         OpenOptions::new().write(true).create_new(true).open(path)
     }
 
-    /// Write the layer to an MLT file and a corresponding JSON file.
-    pub fn write(&self, dir: &Path, name: &str) {
+    /// Write the layer to an MLT file and a corresponding JSON file (consumes self).
+    pub fn write(self, dir: &Path, name: &str) {
         let path = dir.join(format!("{name}.mlt"));
         self.write_mlt(&path);
 
         let buffer = fs::read(&path).unwrap();
         let mut data = parse_layers(&buffer).unwrap();
-        for layer in &mut data {
-            layer.decode_all().unwrap();
+        for l in &mut data {
+            l.decode_all().unwrap();
         }
         let fc = FeatureCollection::from_layers(&data).unwrap();
         let mut json = serde_json::to_string_pretty(&serde_json::to_value(&fc).unwrap()).unwrap();
@@ -111,57 +248,29 @@ impl Layer {
         out_file.write_all(json.as_bytes()).unwrap();
     }
 
-    fn write_mlt(&self, path: &Path) {
-        // Merge all feature geometries, properties, and IDs
-        let mut merged_geom = DecodedGeometry::default();
-        let merged_props: Vec<(DecodedProperty, PropertyEncoder)> = vec![];
-        let mut merged_ids: Vec<Option<u64>> = vec![];
-        let mut merged_geometry_encoder = ValidatingGeometryEncoder::default();
-        let mut ids_encoder = IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);
-        let mut has_ids = false;
+    fn write_mlt(self, path: &Path) {
+        let decoded_geom = self.build_decoded_geometry();
+        let mut geometry = OwnedGeometry::Decoded(decoded_geom);
+        geometry.encode_with(self.geometry_encoder).unwrap();
 
-        for feat in &self.features {
-            // Merge geometry by iterating through each feature's geometry
-            let num_geoms = feat.geom.vector_types.len();
-            for idx in 0..num_geoms {
-                let geom = feat.geom.to_geojson(idx).unwrap();
-                merged_geom.push_geom(&geom);
-            }
-            merged_geometry_encoder = merged_geometry_encoder.merge(feat.geometry_encoder);
+        let mut merged_props: Vec<(DecodedProperty, PropertyEncoder)> =
+            self.props.iter().map(|p| p.to_decoded()).collect();
+        merged_props.sort_by(|(a, _), (b, _)| a.name.cmp(&b.name));
 
-            // Merge IDs
-            if let Some(ids) = &feat.ids.0 {
-                has_ids = true;
-                merged_ids.extend(ids.iter().copied());
-                ids_encoder = feat.ids_encoder;
-            } else {
-                merged_ids.push(None);
-            }
-
-            // TODO: Merge properties properly
-        }
-
-        let mut geometry = OwnedGeometry::Decoded(merged_geom);
-        geometry
-            .encode_with(Box::new(merged_geometry_encoder))
-            .unwrap();
-
-        // Sort properties alphabetically by name to match Java's output
-        let mut props_sorted = merged_props;
-        props_sorted.sort_by(|(a, _), (b, _)| a.name.cmp(&b.name));
+        let id = if let Some((ids, ids_encoder)) = self.ids {
+            let mut id = OwnedId::Decoded(DecodedId(Some(ids)));
+            id.encode_with(ids_encoder).unwrap();
+            id
+        } else {
+            OwnedId::None
+        };
 
         let layer = OwnedLayer::Tag01(OwnedLayer01 {
             name: "layer1".to_string(),
             extent: self.extent.unwrap_or(4096),
-            id: if has_ids {
-                let mut id = OwnedId::Decoded(DecodedId(Some(merged_ids)));
-                id.encode_with(ids_encoder).unwrap();
-                id
-            } else {
-                OwnedId::None
-            },
+            id,
             geometry,
-            properties: props_sorted
+            properties: merged_props
                 .into_iter()
                 .map(|(p, e)| {
                     let mut p = OwnedProperty::Decoded(p);
@@ -171,438 +280,157 @@ impl Layer {
                 .collect::<Vec<_>>(),
         });
 
-        let mut file = Self::open_new(path)
-            .unwrap_or_else(|_| panic!("cannot create feature {}", path.display()));
+        let mut file =
+            Self::open_new(path).unwrap_or_else(|_| panic!("cannot create {}", path.display()));
         layer
             .write_to(&mut file)
-            .unwrap_or_else(|_| panic!("cannot encode feature {}", path.display()));
+            .unwrap_or_else(|_| panic!("cannot encode {}", path.display()));
     }
 }
 
-/// A builder for creating synthetic MLT features with explicit control over encoding parameters.
-#[derive(Debug, Clone)]
-pub struct Feature {
-    geom: DecodedGeometry,
-    props: Vec<(DecodedProperty, PropertyEncoder)>,
-    ids: DecodedId,
-    extent: Option<u32>,
-
-    ids_encoder: IdEncoder,
-    geometry_encoder: ValidatingGeometryEncoder,
+/// Property builder that can be added to a layer as a boxed dynamic value.
+pub trait LayerProp {
+    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder);
 }
 
-impl Default for Feature {
-    fn default() -> Self {
+/// Dynamic accessor: pushes an optional value onto the property's value list.
+/// Stored as a boxed closure so we can have a uniform Prop<T> API.
+type SetValue<T> = Box<dyn FnMut(&mut Vec<Option<T>>, Option<T>)>;
+
+/// Property builder for a single property with typed values.
+pub struct Prop<T> {
+    name: String,
+    enc: PropertyEncoder,
+    values: Vec<Option<T>>,
+    set_value: SetValue<T>,
+}
+
+impl<T: Clone> Prop<T> {
+    pub fn new(name: &str, enc: PropertyEncoder, set_value: SetValue<T>) -> Self {
         Self {
-            geom: DecodedGeometry::default(),
-            props: vec![],
-            ids: DecodedId(None),
-            extent: None,
-            ids_encoder: IdEncoder::new(LogicalEncoder::None, IdWidth::Id32),
-            geometry_encoder: ValidatingGeometryEncoder::default(),
+            name: name.to_string(),
+            enc,
+            values: vec![],
+            set_value,
         }
     }
-}
 
-impl Feature {
-    fn open_new(path: &Path) -> io::Result<File> {
-        OpenOptions::new().write(true).create_new(true).open(path)
-    }
-
-    /// Write the feature to an MLT file and a corresponding JSON file.
-    pub fn write(&self, dir: &Path, name: &str) {
-        let path = dir.join(format!("{name}.mlt"));
-        self.write_mlt(&path);
-
-        let buffer = fs::read(&path).unwrap();
-        let mut data = parse_layers(&buffer).unwrap();
-        for layer in &mut data {
-            layer.decode_all().unwrap();
-        }
-        let fc = FeatureCollection::from_layers(&data).unwrap();
-        let mut json = serde_json::to_string_pretty(&serde_json::to_value(&fc).unwrap()).unwrap();
-        json.push('\n');
-        let mut out_file = Self::open_new(&dir.join(format!("{name}.json"))).unwrap();
-        out_file.write_all(json.as_bytes()).unwrap();
-    }
-
-    /// Create a feature with a Point geometry.
-    ///
-    /// Parameters:
-    /// - `geom`: The point geometry
-    /// - `meta`: Encoder for the geometry type stream
-    /// - `vertex`: Encoder for the vertex data stream
-    pub fn point(geom: Point<i32>, meta: Encoder, vertex: Encoder) -> Self {
-        Self::default().and_point(geom, meta, vertex)
-    }
-
-    /// Add another Point geometry to this feature.
+    /// Add an optional value.
     #[must_use]
-    pub fn and_point(mut self, geom: Point<i32>, meta: Encoder, vertex: Encoder) -> Self {
-        self.geom.push_geom(&Geom32::Point(geom));
-        self.geometry_encoder = self
-            .geometry_encoder
-            .merge(ValidatingGeometryEncoder::default().point(meta, vertex));
+    pub fn add_none(mut self) -> Self {
+        (self.set_value)(&mut self.values, None);
         self
     }
 
-    /// Create a feature with a `LineString` geometry.
-    ///
-    /// Parameters:
-    /// - `geom`: The linestring geometry
-    /// - `meta`: Encoder for the geometry type stream
-    /// - `vertex`: Encoder for the vertex data stream
-    /// - `parts`: Encoder for the parts length stream
-    pub fn linestring(
-        geom: LineString<i32>,
-        meta: Encoder,
-        vertex: Encoder,
-        parts: Encoder,
-    ) -> Self {
-        Self::default().and_linestring(geom, meta, vertex, parts)
-    }
-
-    /// Add another `LineString` geometry to this feature.
     #[must_use]
-    pub fn and_linestring(
-        mut self,
-        geom: LineString<i32>,
-        meta: Encoder,
-        vertex: Encoder,
-        parts: Encoder,
-    ) -> Self {
-        self.geom.push_geom(&Geom32::LineString(geom));
-        self.geometry_encoder = self
-            .geometry_encoder
-            .merge(ValidatingGeometryEncoder::default().linestring(meta, vertex, parts));
+    pub fn add(mut self, value: T) -> Self {
+        (self.set_value)(&mut self.values, Some(value));
         self
     }
 
-    /// Create a feature with a Polygon geometry.
-    ///
-    /// Parameters:
-    /// - `geom`: The polygon geometry
-    /// - `meta`: Encoder for the geometry type stream
-    /// - `vertex`: Encoder for the vertex data stream
-    /// - `parts`: Encoder for the parts length stream
-    /// - `rings`: Encoder for the rings length stream
-    pub fn polygon(
-        geom: Polygon<i32>,
-        meta: Encoder,
-        vertex: Encoder,
-        parts: Encoder,
-        rings: Encoder,
-    ) -> Self {
-        Self::default().and_polygon(geom, meta, vertex, parts, rings)
-    }
-
-    /// Add another Polygon geometry to this feature.
-    #[must_use]
-    pub fn and_polygon(
-        mut self,
-        geom: Polygon<i32>,
-        meta: Encoder,
-        vertex: Encoder,
-        parts: Encoder,
-        rings: Encoder,
-    ) -> Self {
-        self.geom.push_geom(&Geom32::Polygon(geom));
-        self.geometry_encoder = self
-            .geometry_encoder
-            .merge(ValidatingGeometryEncoder::default().polygon(meta, vertex, parts, rings));
-        self
-    }
-
-    /// Create a feature with a tessellated Polygon geometry.
-    ///
-    /// Parameters:
-    /// - `geom`: The polygon geometry
-    /// - `meta`: Encoder for the geometry type stream
-    /// - `vertex`: Encoder for the vertex data stream
-    /// - `num_geometries`: Encoder for the geometry count stream (empty for single polygon)
-    /// - `parts`: Encoder for the parts length stream
-    /// - `rings`: Encoder for the rings length stream
-    /// - `triangles`: Encoder for the triangles count stream
-    /// - `triangles_indexes`: Encoder for the triangle index buffer
-    #[expect(clippy::too_many_arguments)]
-    pub fn polygon_tessellated(
-        geom: Polygon<i32>,
-        meta: Encoder,
-        vertex: Encoder,
-        num_geometries: Encoder,
-        parts: Encoder,
-        rings: Encoder,
-        triangles: Encoder,
-        triangles_indexes: Encoder,
-    ) -> Self {
-        Self::default().and_polygon_tessellated(
-            geom,
-            meta,
-            vertex,
-            num_geometries,
-            parts,
-            rings,
-            triangles,
-            triangles_indexes,
+    fn to_decoded_with(&self, values: PropValue) -> (DecodedProperty, PropertyEncoder) {
+        (
+            DecodedProperty {
+                name: self.name.clone(),
+                values,
+            },
+            self.enc,
         )
     }
+}
+impl LayerProp for Prop<bool> {
+    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
+        self.to_decoded_with(PropValue::Bool(self.values.clone()))
+    }
+}
+impl LayerProp for Prop<i32> {
+    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
+        self.to_decoded_with(PropValue::I32(self.values.clone()))
+    }
+}
+impl LayerProp for Prop<u32> {
+    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
+        self.to_decoded_with(PropValue::U32(self.values.clone()))
+    }
+}
+impl LayerProp for Prop<i64> {
+    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
+        self.to_decoded_with(PropValue::I64(self.values.clone()))
+    }
+}
+impl LayerProp for Prop<u64> {
+    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
+        self.to_decoded_with(PropValue::U64(self.values.clone()))
+    }
+}
+impl LayerProp for Prop<f32> {
+    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
+        self.to_decoded_with(PropValue::F32(self.values.clone()))
+    }
+}
+impl LayerProp for Prop<f64> {
+    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
+        self.to_decoded_with(PropValue::F64(self.values.clone()))
+    }
+}
+impl LayerProp for Prop<String> {
+    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
+        self.to_decoded_with(PropValue::Str(self.values.clone()))
+    }
+}
 
-    /// Add another tessellated Polygon geometry to this feature.
+/// Push closure: appends to the vec. Used as the dynamic accessor for all Prop<T>.
+fn push_value<T>(v: &mut Vec<Option<T>>, x: Option<T>) {
+    v.push(x);
+}
+
+pub fn bool(name: &str, enc: PropertyEncoder) -> Prop<bool> {
+    Prop::new(name, enc, Box::new(push_value))
+}
+
+pub fn i32(name: &str, enc: PropertyEncoder) -> Prop<i32> {
+    Prop::new(name, enc, Box::new(push_value))
+}
+
+pub fn u32(name: &str, enc: PropertyEncoder) -> Prop<u32> {
+    Prop::new(name, enc, Box::new(push_value))
+}
+
+pub fn i64(name: &str, enc: PropertyEncoder) -> Prop<i64> {
+    Prop::new(name, enc, Box::new(push_value))
+}
+
+pub fn u64(name: &str, enc: PropertyEncoder) -> Prop<u64> {
+    Prop::new(name, enc, Box::new(push_value))
+}
+
+pub fn f32(name: &str, enc: PropertyEncoder) -> Prop<f32> {
+    Prop::new(name, enc, Box::new(push_value))
+}
+
+pub fn f64(name: &str, enc: PropertyEncoder) -> Prop<f64> {
+    Prop::new(name, enc, Box::new(push_value))
+}
+
+pub fn string(name: &str, enc: PropertyEncoder) -> Prop<String> {
+    Prop::new(name, enc, Box::new(push_value))
+}
+
+/// Erased property: holds a pre-built decoded property and encoder (e.g. for I32, Str, etc.).
+#[derive(Clone)]
+pub struct DecodedProp {
+    prop: DecodedProperty,
+    enc: PropertyEncoder,
+}
+
+impl DecodedProp {
     #[must_use]
-    #[expect(clippy::too_many_arguments)]
-    pub fn and_polygon_tessellated(
-        mut self,
-        geom: Polygon<i32>,
-        meta: Encoder,
-        vertex: Encoder,
-        num_geometries: Encoder,
-        parts: Encoder,
-        rings: Encoder,
-        triangles: Encoder,
-        triangles_indexes: Encoder,
-    ) -> Self {
-        // Tessellate the polygon
-        let (indices, num_triangles) = tessellate_polygon(&geom);
-
-        // Push the polygon geometry
-        self.geom.push_geom(&Geom32::Polygon(geom));
-
-        // Store tessellation data
-        let tris = self.geom.triangles.get_or_insert_with(Vec::new);
-        tris.push(num_triangles);
-
-        let idx_buf = self.geom.index_buffer.get_or_insert_with(Vec::new);
-        idx_buf.extend(indices);
-
-        self.geometry_encoder =
-            self.geometry_encoder
-                .merge(ValidatingGeometryEncoder::default().polygon_tessellated(
-                    meta,
-                    vertex,
-                    num_geometries,
-                    parts,
-                    rings,
-                    triangles,
-                    triangles_indexes,
-                ));
-        self
+    pub fn new(prop: DecodedProperty, enc: PropertyEncoder) -> Self {
+        Self { prop, enc }
     }
-
-    /// Create a feature with a `MultiPoint` geometry.
-    ///
-    /// Parameters:
-    /// - `geom`: The multipoint geometry
-    /// - `meta`: Encoder for the geometry type stream
-    /// - `vertex`: Encoder for the vertex data stream
-    /// - `num_geometries`: Encoder for the geometry count stream
-    pub fn multi_point(
-        geom: MultiPoint<i32>,
-        meta: Encoder,
-        vertex: Encoder,
-        num_geometries: Encoder,
-    ) -> Self {
-        Self::default().and_multi_point(geom, meta, vertex, num_geometries)
-    }
-
-    /// Add another `MultiPoint` geometry to this feature.
-    #[must_use]
-    pub fn and_multi_point(
-        mut self,
-        geom: MultiPoint<i32>,
-        meta: Encoder,
-        vertex: Encoder,
-        num_geometries: Encoder,
-    ) -> Self {
-        self.geom.push_geom(&Geom32::MultiPoint(geom));
-        self.geometry_encoder = self
-            .geometry_encoder
-            .merge(ValidatingGeometryEncoder::default().multi_point(meta, vertex, num_geometries));
-        self
-    }
-
-    /// Create a feature with a `MultiLineString` geometry.
-    ///
-    /// Parameters:
-    /// - `geom`: The multi-linestring geometry
-    /// - `meta`: Encoder for the geometry type stream
-    /// - `vertex`: Encoder for the vertex data stream
-    /// - `num_geometries`: Encoder for the geometry count stream
-    /// - `parts`: Encoder for the parts length stream (no rings)
-    pub fn multi_linestring(
-        geom: MultiLineString<i32>,
-        meta: Encoder,
-        vertex: Encoder,
-        num_geometries: Encoder,
-        parts: Encoder,
-    ) -> Self {
-        Self::default().and_multi_linestring(geom, meta, vertex, num_geometries, parts)
-    }
-
-    /// Add another `MultiLineString` geometry to this feature.
-    #[must_use]
-    pub fn and_multi_linestring(
-        mut self,
-        geom: MultiLineString<i32>,
-        meta: Encoder,
-        vertex: Encoder,
-        num_geometries: Encoder,
-        parts: Encoder,
-    ) -> Self {
-        self.geom.push_geom(&Geom32::MultiLineString(geom));
-        self.geometry_encoder =
-            self.geometry_encoder
-                .merge(ValidatingGeometryEncoder::default().multi_linestring(
-                    meta,
-                    vertex,
-                    num_geometries,
-                    parts,
-                ));
-        self
-    }
-
-    /// Create a feature with a `MultiPolygon` geometry.
-    ///
-    /// Parameters:
-    /// - `geom`: The multi-polygon geometry
-    /// - `meta`: Encoder for the geometry type stream
-    /// - `vertex`: Encoder for the vertex data stream
-    /// - `num_geometries`: Encoder for the geometry count stream
-    /// - `parts`: Encoder for the parts length stream
-    /// - `rings`: Encoder for the rings length stream
-    pub fn multi_polygon(
-        geom: MultiPolygon<i32>,
-        meta: Encoder,
-        vertex: Encoder,
-        num_geometries: Encoder,
-        parts: Encoder,
-        rings: Encoder,
-    ) -> Self {
-        Self::default().and_multi_polygon(geom, meta, vertex, num_geometries, parts, rings)
-    }
-
-    /// Add another `MultiPolygon` geometry to this feature.
-    #[must_use]
-    pub fn and_multi_polygon(
-        mut self,
-        geom: MultiPolygon<i32>,
-        meta: Encoder,
-        vertex: Encoder,
-        num_geometries: Encoder,
-        parts: Encoder,
-        rings: Encoder,
-    ) -> Self {
-        self.geom.push_geom(&Geom32::MultiPolygon(geom));
-        self.geometry_encoder =
-            self.geometry_encoder
-                .merge(ValidatingGeometryEncoder::default().multi_polygon(
-                    meta,
-                    vertex,
-                    num_geometries,
-                    parts,
-                    rings,
-                ));
-        self
-    }
-
-    /// Set feature ID with encoding parameters.
-    #[must_use]
-    pub fn id(self, id: u64, logical: LogicalEncoder, id_width: IdWidth) -> Self {
-        let ids_encoder = IdEncoder::new(logical, id_width);
-        Self {
-            ids: DecodedId(Some(vec![Some(id)])),
-            ids_encoder,
-            ..self
-        }
-    }
-
-    /// Set multiple feature IDs with encoding parameters.
-    #[must_use]
-    pub fn ids(self, ids: Vec<Option<u64>>, ids_encoder: IdEncoder) -> Self {
-        let ids = DecodedId(Some(ids));
-        Self {
-            ids,
-            ids_encoder,
-            ..self
-        }
-    }
-
-    /// Add a property to this feature.
-    #[must_use]
-    pub fn prop(
-        mut self,
-        name: &impl ToString,
-        values: PropValue,
-        encoder: PropertyEncoder,
-    ) -> Self {
-        let name = name.to_string();
-        self.props.push((DecodedProperty { name, values }, encoder));
-        self
-    }
-
-    /// Add another property to this feature.
-    #[must_use]
-    pub fn and_prop(
-        self,
-        name: &impl ToString,
-        values: PropValue,
-        encoder: PropertyEncoder,
-    ) -> Self {
-        self.prop(name, values, encoder)
-    }
-
-    /// Add multiple properties to this feature.
-    #[must_use]
-    pub fn props(mut self, props: Vec<DecodedProperty>, encoder: PropertyEncoder) -> Self {
-        self.props.extend(props.into_iter().map(|p| (p, encoder)));
-        self
-    }
-
-    /// Set the tile extent.
-    #[must_use]
-    pub fn extent(self, extent: u32) -> Self {
-        Self {
-            extent: Some(extent),
-            ..self
-        }
-    }
-
-    fn write_mlt(&self, path: &Path) {
-        let mut feat = self.clone();
-
-        let mut geometry = OwnedGeometry::Decoded(feat.geom);
-        geometry
-            .encode_with(Box::new(self.geometry_encoder))
-            .unwrap();
-
-        // Sort properties alphabetically by name to match Java's output
-        feat.props.sort_by(|(a, _), (b, _)| a.name.cmp(&b.name));
-
-        let layer = OwnedLayer::Tag01(OwnedLayer01 {
-            name: "layer1".to_string(),
-            extent: self.extent.unwrap_or(4096),
-            id: if self.ids.0.is_some() {
-                let mut id = OwnedId::Decoded(feat.ids);
-                id.encode_with(self.ids_encoder).unwrap();
-                id
-            } else {
-                OwnedId::None
-            },
-            geometry,
-            properties: feat
-                .props
-                .into_iter()
-                .map(|(p, e)| {
-                    let mut p = OwnedProperty::Decoded(p);
-                    p.encode_with(e).unwrap();
-                    p
-                })
-                .collect::<Vec<_>>(),
-        });
-
-        let mut file = Self::open_new(path)
-            .unwrap_or_else(|e| panic!("cannot create feature {} because {e}", path.display()));
-        layer
-            .write_to(&mut file)
-            .unwrap_or_else(|e| panic!("cannot encode feature {} because {e}", path.display()));
+}
+impl LayerProp for DecodedProp {
+    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
+        (self.prop.clone(), self.enc)
     }
 }
