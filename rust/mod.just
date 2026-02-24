@@ -223,8 +223,8 @@ verify-syntetic-equality: generate-synthetic-mlts (just 'cargo-install' 'delta' 
     #!/usr/bin/env bash
     set -euo pipefail
 
-    DIR_A="$(realpath "../test/synthetic/0x01")"
-    DIR_B="$(realpath "../test/synthetic/0x01-rust")"
+    DIR_A="../test/synthetic/0x01"
+    DIR_B="../test/synthetic/0x01-rust"
 
     BIN="cargo run --quiet --"
     find "$DIR_A" -type f -iname "*.mlt" | while read -r file_a; do
@@ -236,18 +236,18 @@ verify-syntetic-equality: generate-synthetic-mlts (just 'cargo-install' 'delta' 
           echo "Differences: $rel_path"
           echo ""
           diff -U20 \
-            --label "A: $file_a" \
-            --label "B: $file_b" \
+            --label "$file_a" \
             <($BIN decode "$file_a") \
+            --label "$file_b" \
             <($BIN decode "$file_b") \
-            | delta --side-by-side --file-modified-label "decoded difference"
+            | delta --side-by-side --file-modified-label "mlt decoded difference"
 
           diff -U20 \
             --label "A: $file_a" \
             --label "B: $file_b" \
             <($BIN dump "$file_a") \
             <($BIN dump "$file_b") \
-            | delta --side-by-side --file-modified-label "dumped binary difference"
+            | delta --side-by-side --file-modified-label "mlt dump difference"
           echo
         fi
       else
