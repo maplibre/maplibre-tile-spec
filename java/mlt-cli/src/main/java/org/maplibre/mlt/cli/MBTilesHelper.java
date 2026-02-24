@@ -204,8 +204,8 @@ public class MBTilesHelper extends ConversionHelper {
               z,
               srcTileData,
               config,
-              Optional.of(DEFAULT_COMPRESSION_RATIO_THRESHOLD),
-              Optional.of(DEFAULT_COMPRESSION_FIXED_THRESHOLD),
+              Optional.of(COMPRESSION_RATIO_THRESHOLD),
+              Optional.of(COMPRESSION_FIXED_THRESHOLD),
               didCompress);
 
       if (tileData != null) {

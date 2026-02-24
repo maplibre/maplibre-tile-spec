@@ -21,7 +21,8 @@ import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ConversionHelper {
+///  Base class for sharing between PMTiles, MBTiles and offline database conversions
+class ConversionHelper {
   public static byte[] decompress(InputStream srcStream) throws IOException {
     InputStream decompressInputStream = null;
     // Check for common compression formats by looking at the header bytes
@@ -80,10 +81,14 @@ public class ConversionHelper {
     return false;
   }
 
-  static final double DEFAULT_COMPRESSION_RATIO_THRESHOLD = 0.98;
-  static final long DEFAULT_COMPRESSION_FIXED_THRESHOLD = 20L;
+  protected static final double DEFAULT_COMPRESSION_RATIO_THRESHOLD = 0.98;
+  protected static double COMPRESSION_RATIO_THRESHOLD = DEFAULT_COMPRESSION_RATIO_THRESHOLD;
+  protected static final long DEFAULT_COMPRESSION_FIXED_THRESHOLD = 20L;
+  protected static long COMPRESSION_FIXED_THRESHOLD = DEFAULT_COMPRESSION_FIXED_THRESHOLD;
 
   protected static long TILE_LOG_INTERVAL = 10_000L;
+
+  private static final Logger logger = LoggerFactory.getLogger(ConversionHelper.class);
 
   static {
     try {
@@ -91,12 +96,43 @@ public class ConversionHelper {
       if (str != null) {
         final var value = Long.parseUnsignedLong(str);
         if (value > 0) {
+          logger.trace("Setting tile logging interval to {}", value);
           TILE_LOG_INTERVAL = value;
         }
       }
-    } catch (Exception ignored) {
+    } catch (Exception ex) {
+      logger.warn(
+          "Failed to parse MLT_TILE_LOG_INTERVAL, using default value of {}",
+          TILE_LOG_INTERVAL,
+          ex);
+    }
+    try {
+      final var str = System.getenv("MLT_COMPRESSION_RATIO_THRESHOLD");
+      if (str != null) {
+        final var value = Double.parseDouble(str);
+        if (value > 0 && value <= 1) {
+          logger.trace("Setting compression ratio threshold to {}", value);
+          COMPRESSION_RATIO_THRESHOLD = value;
+        }
+      }
+    } catch (Exception ex) {
+      logger.warn(
+          "Failed to parse MLT_COMPRESSION_RATIO_THRESHOLD, using default value of {}",
+          COMPRESSION_RATIO_THRESHOLD,
+          ex);
+    }
+    try {
+      final var str = System.getenv("MLT_COMPRESSION_FIXED_THRESHOLD");
+      if (str != null) {
+        final var value = Long.parseLong(str);
+        logger.trace("Setting compression fixed threshold to {}", value);
+        COMPRESSION_FIXED_THRESHOLD = value;
+      }
+    } catch (Exception ex) {
+      logger.warn(
+          "Failed to parse MLT_COMPRESSION_FIXED_THRESHOLD, using default value of {}",
+          COMPRESSION_FIXED_THRESHOLD,
+          ex);
     }
   }
-
-  private static final Logger logger = LoggerFactory.getLogger(ConversionHelper.class);
 }

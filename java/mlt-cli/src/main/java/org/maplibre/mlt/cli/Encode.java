@@ -456,9 +456,9 @@ public class Encode {
 
           // Evaluate whether the compressed version is worth using.
           if ((compressionFixedThreshold.isEmpty()
-                  || outputStream.size() < tileData.length - compressionFixedThreshold.get())
+                  || outputStream.size() <= tileData.length - compressionFixedThreshold.get())
               && (compressionRatioThreshold.isEmpty()
-                  || outputStream.size() < tileData.length * compressionRatioThreshold.get())) {
+                  || outputStream.size() <= tileData.length * compressionRatioThreshold.get())) {
             if (logger.isTraceEnabled()) {
               final var compressedSize = outputStream.size();
               final var originalSize = tileData.length;

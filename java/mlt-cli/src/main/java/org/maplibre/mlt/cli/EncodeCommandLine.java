@@ -18,6 +18,7 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.help.HelpFormatter;
+import org.apache.commons.cli.help.TextHelpAppendable;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.StringUtils;
 import org.maplibre.mlt.converter.encodings.fsst.FsstJni;
@@ -514,12 +515,7 @@ Add an explicit column mapping on the specified layers:
       if (cmd.hasOption(SERVER_ARG)) {
         return cmd;
       } else if (cmd.getOptions().length == 0 || cmd.hasOption(HELP_OPTION)) {
-        final var autoUsage = true;
-        final var header =
-            "\nConvert an MVT tile file or MBTiles containing MVT tiles to MLT format.\n\n";
-        final var footer = "";
-        final var formatter = HelpFormatter.builder().get();
-        formatter.printHelp(Encode.class.getName(), header, options, footer, autoUsage);
+        printHelp(options);
       } else if (Stream.of(
                   cmd.hasOption(INPUT_TILE_ARG),
                   cmd.hasOption(INPUT_MBTILES_ARG),
@@ -550,6 +546,45 @@ Add an explicit column mapping on the specified layers:
       logger.error("Invalid tessellation URL", ex);
     }
     return null;
+  }
+
+  private static void printHelp(Options options) throws IOException {
+    final var autoUsage = true;
+    final var header =
+        "Convert an MVT tile or a container file containing MVT tiles to MLT format.\n";
+    final var footer =
+        "\nExample usages:\n"
+            + " Encode a single tile:\n"
+            + "    encode --mvt input.mvt --mlt output.mlt\n"
+            + " Encode all tiles in an MBTiles file, with compression and parallel encoding:\n"
+            + "    encode --mbtiles input.mbtiles --dir output_dir --compress gzip -j\n"
+            + " Start an encoding server on port 8080:\n"
+            + "    encode --server 8080\n"
+            + "\nEnvironment variables:\n"
+            + "  MLT_TILE_LOG_INTERVAL: Number of tiles between status log messages (default: 10000)\n"
+            + "  MLT_COMPRESSION_RATIO_THRESHOLD: Minimum compression ratio to apply compression (default: "
+            + ConversionHelper.DEFAULT_COMPRESSION_RATIO_THRESHOLD
+            + ").\n"
+            + "  MLT_COMPRESSION_FIXED_THRESHOLD: Minimum size in bytes for a tile to be compressed (default: "
+            + ConversionHelper.DEFAULT_COMPRESSION_FIXED_THRESHOLD
+            + ")\n";
+
+    final var target = new TextHelpAppendable(System.err);
+
+    final var widthStr = System.getenv("COLUMNS");
+    if (widthStr != null) {
+      try {
+        target.getTextStyleBuilder().setMaxWidth(Integer.parseInt(widthStr));
+      } catch (NumberFormatException ignore) {
+      }
+    }
+
+    final var formatter =
+        HelpFormatter.builder().setShowSince(false).setHelpAppendable(target).get();
+    formatter.printHelp(Encode.class.getName(), header, options, null, autoUsage);
+
+    // Passing this as the footer to `printHelp` causes it to be formatted incorrectly.
+    target.append(footer);
   }
 
   // matches a layer discriminator, [] = all, [regex] = match a regex
