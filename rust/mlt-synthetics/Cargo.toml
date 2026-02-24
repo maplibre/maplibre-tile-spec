@@ -1,0 +1,19 @@
+[package]
+name = "mlt-synthetics"
+version = "0.1.0"
+authors.workspace = true
+categories.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+serde_json.workspace = true
+mlt-core.workspace = true
+
+[lints]
+workspace = true
