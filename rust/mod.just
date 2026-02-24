@@ -156,10 +156,6 @@ get-crate-field field package=main_crate: (just 'assert-cmd' 'jq')
 # Get the minimum supported Rust version (MSRV) for the crate
 get-msrv package=main_crate: (get-crate-field 'rust_version' package)
 
-# Generate synthetics
-gen-synth:
-    cargo run -p mlt-synthetics
-
 # Run linting (clippy + format check)
 lint: clippy test-fmt
 
