@@ -55,7 +55,7 @@ pub struct DataProfile {
     /// `avg_run_length = sample_len / num_runs`.
     avg_run_length: f64,
 
-    /// `true` if the sample values are sorted ascending in ascending or descending order.
+    /// `true` if the sample values are sorted in ascending or descending order.
     is_sorted: bool,
 
     /// Maximum number of bits required to represent any value in the sample
