@@ -600,9 +600,9 @@ impl Feature {
         });
 
         let mut file = Self::open_new(path)
-            .unwrap_or_else(|_| panic!("cannot create feature {}", path.display()));
+            .unwrap_or_else(|e| panic!("cannot create feature {} because {e}", path.display()));
         layer
             .write_to(&mut file)
-            .unwrap_or_else(|_| panic!("cannot encode feature {}", path.display()));
+            .unwrap_or_else(|e| panic!("cannot encode feature {} because {e}", path.display()));
     }
 }
