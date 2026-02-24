@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.regex.Pattern;
 import no.ecc.vectortile.VectorTileDecoder;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
@@ -47,11 +46,6 @@ public class MvtUtils {
   }
 
   public static MapboxVectorTile decodeMvt(byte[] mvtTile) throws IOException {
-    return decodeMvt(mvtTile, Map.of());
-  }
-
-  public static MapboxVectorTile decodeMvt(
-      byte[] mvtTile, Map<Pattern, List<ColumnMapping>> columnMappings) throws IOException {
     VectorTileDecoder mvtDecoder = new VectorTileDecoder();
     mvtDecoder.setAutoScale(false);
 

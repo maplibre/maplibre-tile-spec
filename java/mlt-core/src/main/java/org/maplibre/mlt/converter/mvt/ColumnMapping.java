@@ -3,7 +3,6 @@ package org.maplibre.mlt.converter.mvt;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -81,7 +80,7 @@ public class ColumnMapping {
 
   /// Find a matching column mapping among a collection of mappings grouped by layer name patterns
   public static ColumnMapping findMapping(
-      Map<Pattern, List<ColumnMapping>> patternMappings, String layerName, String propertyName) {
+      ColumnMappingConfig patternMappings, String layerName, String propertyName) {
     return patternMappings.entrySet().stream()
         .filter(entry -> entry.getKey().matcher(layerName).matches())
         .map(entry -> findMapping(entry.getValue(), propertyName))
