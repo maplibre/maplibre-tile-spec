@@ -578,7 +578,7 @@ pub struct GeometryEncoder {
 }
 
 impl GeometryEncoder {
-    /// All streams use varint encoding.
+    /// Use the provided encoder for all streams.
     #[must_use]
     pub fn all(encoder: Encoder) -> Self {
         Self {
