@@ -111,9 +111,9 @@ impl DataProfile {
                 runs += 1;
             }
             if v < prev {
-                is_sorted_falling = false;
-            } else if prev < v {
                 is_sorted_rising = false;
+            } else if prev < v {
+                is_sorted_falling = false;
             }
             let delta_bits: T::UInt = v.wrapping_sub(&prev);
             let delta_signed: T = delta_bits.as_();
