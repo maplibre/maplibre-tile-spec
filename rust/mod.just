@@ -219,7 +219,7 @@ generate-synthetic-mlts:
     {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
 
 # checks that the contents of two synthetic directories are equal
-verify-syntetic-equality: generate-synthetic-mlts (just 'cargo-install' 'delta' 'git-delta')
+verify-synthetic-equality: generate-synthetic-mlts (just 'cargo-install' 'delta' 'git-delta')
     #!/usr/bin/env bash
     set -euo pipefail
 
