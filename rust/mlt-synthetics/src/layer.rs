@@ -57,13 +57,13 @@ impl Feature {
             property_encoder,
         }
     }
-    pub fn line(
-        points: impl IntoIterator<Item = Point>,
+    pub fn linestring(
+        points: &[Point],
         meta: Encoder,
         vertex: Encoder,
         only_parts: Encoder,
     ) -> Self {
-        let vertices = points.into_iter().flatten().collect::<Vec<_>>();
+        let vertices = points.into_iter().copied().flatten().collect::<Vec<_>>();
         let part_offsets = vec![0, (vertices.len() as u32) / 2];
         let geom = DecodedGeometry {
             vector_types: vec![GeometryType::LineString],
@@ -72,7 +72,7 @@ impl Feature {
             ..Default::default()
         };
         let mut geometry_encoder = ValidatingGeometryEncoder::default();
-        geometry_encoder.line(meta, vertex, only_parts);
+        geometry_encoder.linestring(meta, vertex, only_parts);
         let property_encoder = PropertyEncoder::new(
             PresenceStream::Absent,
             LogicalEncoder::None,
@@ -89,6 +89,19 @@ impl Feature {
             geometry_encoder,
             property_encoder,
         }
+    }
+
+    pub fn polygon(points: &[&[Point]]) -> Self {
+        todo!()
+    }
+    pub fn multi_point(points: &[Point]) -> Self {
+        todo!()
+    }
+    pub fn multi_linestring(points: &[&[Point]]) -> Self {
+        todo!()
+    }
+    pub fn multi_polygon(points: &[&[&[Point]]]) -> Self {
+        todo!()
     }
 
     pub fn id(self, id: u64, logical: LogicalEncoder, id_width: IdWidth) -> Self {

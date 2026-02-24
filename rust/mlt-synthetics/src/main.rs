@@ -5,7 +5,7 @@ use std::fs;
 use std::path::Path;
 
 use layer::Feature;
-use mlt_core::v01::{Encoder, LogicalEncoder, PhysicalEncoder};
+use mlt_core::v01::Encoder;
 
 use crate::geometry::{C0, C1, C2};
 
@@ -23,12 +23,8 @@ fn main() {
 }
 
 fn generate_geometry(dir: &Path) {
-    Feature::point(C0, Encoder::varint(), Encoder::varint()).write(dir, "point");
-    Feature::line(
-        [C1, C2],
-        Encoder::varint(),
-        Encoder::varint(),
-        Encoder::varint(),
-    )
-    .write(dir, "line");
+    use Encoder as Enc;
+    use Feature as Feat;
+    Feat::point(C0, Enc::varint(), Enc::varint()).write(dir, "point");
+    Feat::linestring(&[C1, C2], Enc::varint(), Enc::varint(), Enc::varint()).write(dir, "line");
 }

@@ -31,12 +31,23 @@ impl ValidatingGeometryEncoder {
         set(&mut self.meta, meta, "meta");
         set(&mut self.vertex, vertex, "vertex");
     }
-    pub fn line(&mut self, meta: Encoder, vertex: Encoder, only_parts: Encoder) {
+    pub fn linestring(&mut self, meta: Encoder, vertex: Encoder, only_parts: Encoder) {
         set(&mut self.meta, meta, "meta");
         set(&mut self.vertex, vertex, "vertex");
         set(&mut self.only_parts, only_parts, "only_parts");
     }
-    pub fn polygon(&mut self) {}
+    pub fn polygon(&mut self) {
+        todo!()
+    }
+    pub fn multi_point(&mut self) {
+        todo!()
+    }
+    pub fn multi_linestring(&mut self) {
+        todo!()
+    }
+    pub fn multi_polygon(&mut self) {
+        todo!()
+    }
 }
 
 impl GeometryEncoder for ValidatingGeometryEncoder {
