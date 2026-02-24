@@ -75,7 +75,7 @@ pub struct DataProfile {
     /// 5 % error => 432-byte register vector.
     /// Ranges from 0.0 (all values identical) to 1.0 (all values unique).
     ///
-    /// Primarily used by [`DataProfile::dictionary_is_viable`]
+    /// Currently used by [`DataProfile::rle_is_viable`].
     distinct_ratio: f64,
 }
 
