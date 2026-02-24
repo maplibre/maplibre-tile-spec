@@ -218,6 +218,35 @@ generate-synthetic-mlts:
     cargo run -p mlt-synthetics
     {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
 
+# checks that the contents of two synthetic directories are equal
+verify-syntetic-equality: generate-synthetic-mlts (just 'cargo-install' 'delta' 'git-delta')
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    DIR_A="$(realpath "../test/synthetic/0x01")"
+    DIR_B="$(realpath "../test/synthetic/0x01-rust")"
+
+    find "$DIR_A" -type f -iname "*.mlt" | while read -r file_a; do
+      rel_path="$(realpath --relative-to="$DIR_A" "$file_a")"
+      file_b="$DIR_B/$rel_path"
+
+      if [[ -f "$file_b" ]]; then
+        if ! cmp -s "$file_a" "$file_b"; then
+          echo "Differences: $rel_path"
+          echo ""
+          delta \
+            --file-modified-label "diff <(cargo run dump "$file_a") <(cargo run dump "$file_b")" \
+            --side-by-side \
+            <(cargo run --quiet -- dump "$file_a") \
+            <(cargo run --quiet -- dump "$file_b")
+          echo
+        fi
+      else
+        echo "Missing in B: $rel_path"
+      fi
+    done
+
+
 [private]
 [working-directory: 'mlt-core']
 cargo-fuzz *args:  (just 'cargo-install' 'cargo-fuzz')
