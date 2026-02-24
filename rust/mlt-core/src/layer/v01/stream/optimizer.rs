@@ -46,7 +46,7 @@ const HLL_ERROR_RATE: f64 = 0.05;
 ///    Encode the same sample with every surviving candidate and
 ///    pick the one whose encoded output is smallest.
 ///    In case of a tie
-///    - the physical priority order is `FastPFOR` > `VarInt` > `None and,
+///    - the physical priority order is `FastPFOR` > `VarInt` > `None` and,
 ///    - at the logical level, more complex transforms are deprioritized.
 #[derive(Debug, Clone, Default)]
 pub struct DataProfile {
@@ -153,7 +153,7 @@ impl DataProfile {
         let target = sample_size(values.len());
         let sample = block_sample(values, target);
 
-        let profile = DataProfile::profile::<T>(&sample);
+        let profile = DataProfile::profile::<T>(sample);
         profile.candidates(T::zero().count_zeros() == 32)
     }
 
