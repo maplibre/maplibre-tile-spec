@@ -148,6 +148,100 @@ fn encode_level1_without_ring_buffer_length_stream(
     lengths
 }
 
+/// Normalize offset arrays to be indexed by geometry type.
+/// When building `DecodedGeometry` via `push_*` methods, offset arrays may not include
+/// entries for geometry types that don't need them (e.g., Points don't contribute to `part_offsets`).
+/// This function expands the offset arrays to have one entry per geometry type plus a trailing entry.
+///
+/// For `part_offsets` without rings (Point + `LineString`):
+///   - `part_offsets` tracks vertex ranges
+///   - Points contribute 1 vertex each (implicit)
+///   - `LineString` values contribute their vertex count from the sparse array
+///
+/// For `part_offsets` with rings (Point + Polygon, `LineString` + Polygon):
+///   - `part_offsets` tracks ring indices
+///   - Points and `LineString` values contribute 0 rings each (implicit)
+///   - Polygons contribute their ring count from the sparse array
+fn normalize_part_offsets_for_vertices(
+    vector_types: &[GeometryType],
+    part_offsets: &[u32],
+    vertices: &[i32],
+) -> Vec<u32> {
+    let num_vertices = u32::try_from(vertices.len() / 2).expect("vertex count overflow");
+
+    // Check if already normalized (has N+1 entries for N geometry types)
+    if part_offsets.len() == vector_types.len() + 1 {
+        return part_offsets.to_vec();
+    }
+
+    // Build normalized offset array for vertex-based indexing
+    let mut normalized = Vec::with_capacity(vector_types.len() + 1);
+    let mut vertex_idx = 0_u32;
+    let mut part_idx = 0_usize;
+
+    for &geom_type in vector_types {
+        normalized.push(vertex_idx);
+
+        if geom_type == GeometryType::Point {
+            // Point always consumes exactly 1 vertex
+            vertex_idx += 1;
+        } else if geom_type == GeometryType::LineString {
+            // LineString consumes vertices tracked in part_offsets
+            if part_idx + 1 < part_offsets.len() {
+                let len = part_offsets[part_idx + 1] - part_offsets[part_idx];
+                vertex_idx += len;
+                part_idx += 1;
+            }
+        }
+        // Polygon/MultiPolygon are handled through ring_offsets
+    }
+
+    normalized.push(vertex_idx.min(num_vertices));
+    normalized
+}
+
+/// Normalize `part_offsets` for ring-based indexing (Polygon mixed with `Point`/`LineString`)
+fn normalize_part_offsets_for_rings(
+    vector_types: &[GeometryType],
+    part_offsets: &[u32],
+    ring_offsets: &[u32],
+) -> Vec<u32> {
+    let num_rings = if ring_offsets.is_empty() {
+        0
+    } else {
+        u32::try_from(ring_offsets.len() - 1).expect("ring count overflow")
+    };
+
+    // Check if already normalized (has N+1 entries for N geometry types)
+    if part_offsets.len() == vector_types.len() + 1 {
+        return part_offsets.to_vec();
+    }
+
+    // Build normalized offset array for ring-based indexing
+    let mut normalized = Vec::with_capacity(vector_types.len() + 1);
+    let mut ring_idx = 0_u32;
+    let mut part_idx = 0_usize;
+
+    for &geom_type in vector_types {
+        normalized.push(ring_idx);
+
+        if geom_type == GeometryType::Point || geom_type == GeometryType::LineString {
+            // Point/LineString don't contribute to ring_offsets (0 rings)
+        } else if geom_type == GeometryType::Polygon {
+            // Polygon consumes rings tracked in part_offsets
+            if part_idx + 1 < part_offsets.len() {
+                let ring_count = part_offsets[part_idx + 1] - part_offsets[part_idx];
+                ring_idx += ring_count;
+                part_idx += 1;
+            }
+        }
+        // MultiPolygon is handled through geometry_offsets
+    }
+
+    normalized.push(ring_idx.min(num_rings));
+    normalized
+}
+
 /// Main geometry encoding function
 pub fn encode_geometry(
     decoded: &DecodedGeometry,
@@ -163,6 +257,34 @@ pub fn encode_geometry(
         triangles,
         vertices,
     } = decoded;
+
+    // Normalize part_offsets if needed for mixed geometry types
+    let normalized_parts = if geometry_offsets.is_none() {
+        if let Some(part_offs) = part_offsets {
+            if let Some(ring_offs) = ring_offsets {
+                // Mixed with rings (e.g., Point + Polygon) - normalize for ring-based indexing
+                Some(normalize_part_offsets_for_rings(
+                    vector_types,
+                    part_offs,
+                    ring_offs,
+                ))
+            } else if let Some(verts) = vertices {
+                // Mixed without rings (e.g., Point + LineString) - normalize for vertex-based indexing
+                Some(normalize_part_offsets_for_vertices(
+                    vector_types,
+                    part_offs,
+                    verts,
+                ))
+            } else {
+                part_offsets.clone()
+            }
+        } else {
+            None
+        }
+    } else {
+        part_offsets.clone()
+    };
+    let part_offsets = &normalized_parts;
 
     // Encode geometry types (meta stream)
     let meta = {

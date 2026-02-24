@@ -91,12 +91,28 @@ impl OwnedStream {
     }
 
     /// Encode a boolean stream: byte-RLE <- packed bitmap <- `Vec<bool>`
+    /// Boolean streams always use byte-RLE encoding with `LogicalEncoding::Rle` metadata.
+    /// The `RleMeta` values are computed by readers from the stream itself.
     pub fn encode_bools(values: &[bool]) -> Result<Self, MltError> {
         let num_values = u32::try_from(values.len())?;
         let bytes = encode_bools_to_bytes(values);
         let data = encode_byte_rle(&bytes);
-        // byte RLE is how bits are always encoded, not rle -> plain
-        Ok(Self::new_plain(data, num_values))
+        // Boolean streams use byte-RLE encoding with RLE metadata
+        let runs = num_values.div_ceil(8);
+        let num_rle_values = u32::try_from(data.len())?;
+        let meta = StreamMeta::new(
+            StreamType::Data(DictionaryType::None),
+            LogicalEncoding::Rle(RleMeta {
+                runs,
+                num_rle_values,
+            }),
+            PhysicalEncoding::None,
+            num_values,
+        );
+        Ok(Self {
+            meta,
+            data: OwnedStreamData::Encoded(OwnedEncodedData { data }),
+        })
     }
 
     /// Encodes `f32`s into a stream

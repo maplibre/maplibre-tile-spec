@@ -16,7 +16,7 @@ use crate::utils::{
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{
     ColumnType, Encoder, LogicalEncoder, LogicalEncoding, OwnedEncodedData, OwnedStream,
-    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, Stream, StreamMeta, StreamType,
+    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, RleMeta, Stream, StreamMeta, StreamType,
 };
 use crate::{FromDecoded, MltError, impl_encodable};
 
@@ -450,15 +450,6 @@ impl PropertyEncoder {
     }
 
     #[must_use]
-    pub fn none() -> Self {
-        Self::new(
-            PresenceStream::Absent,
-            LogicalEncoder::None,
-            PhysicalEncoder::None,
-        )
-    }
-
-    #[must_use]
     pub fn encoder(self) -> Encoder {
         Encoder::new(self.logical, self.physical)
     }
@@ -480,13 +471,22 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
         use {OwnedEncodedPropValue as EncVal, PropValue as Val};
         let optional = if config.optional == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
+            let num_values = u32::try_from(present_vec.len())?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present_vec));
+            // Presence streams always use byte-RLE encoding.
+            // The RleMeta values are computed by readers from the stream itself
+            // (runs = num_values.div_ceil(8), num_rle_values = byte_length).
+            let runs = num_values.div_ceil(8);
+            let num_rle_values = u32::try_from(data.len())?;
             Some(OwnedStream {
                 meta: StreamMeta::new(
                     StreamType::Present,
-                    LogicalEncoding::None,
+                    LogicalEncoding::Rle(RleMeta {
+                        runs,
+                        num_rle_values,
+                    }),
                     PhysicalEncoding::None,
-                    u32::try_from(present_vec.len())?,
+                    num_values,
                 ),
                 data: OwnedStreamData::Encoded(OwnedEncodedData { data }),
             })
@@ -628,7 +628,11 @@ mod tests {
         ) {
             let opt_values: Vec<Option<bool>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::Bool(opt_values) };
-            let encoder = PropertyEncoder::none();
+            let encoder = PropertyEncoder::new(
+                PresenceStream::Absent,
+                LogicalEncoder::None,
+                PhysicalEncoder::VarInt,
+            );
             prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
@@ -811,7 +815,11 @@ mod tests {
         ) {
             let opt_values: Vec<Option<f32>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::F32(opt_values) };
-            let encoder = PropertyEncoder::none();
+            let encoder = PropertyEncoder::new(
+                PresenceStream::Absent,
+                LogicalEncoder::None,
+                PhysicalEncoder::VarInt,
+            );
             prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
@@ -849,7 +857,11 @@ mod tests {
         ) {
             let opt_values: Vec<Option<f64>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::F64(opt_values) };
-            let encoder = PropertyEncoder::none();
+            let encoder = PropertyEncoder::new(
+                PresenceStream::Absent,
+                LogicalEncoder::None,
+                PhysicalEncoder::VarInt,
+            );
             prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
     }
