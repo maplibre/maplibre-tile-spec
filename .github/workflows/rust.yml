@@ -80,8 +80,7 @@ jobs:
       - run: just -v assert-git-is-clean
 
   test-publish:
-    name: Code Coverage
-    if: github.event_name != 'release' && github.repository_owner == 'maplibre'
+    name: Test workspace publishing using --dry-run
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
