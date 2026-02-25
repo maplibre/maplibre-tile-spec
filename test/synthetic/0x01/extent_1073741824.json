@@ -2,7 +2,6 @@
   "features": [
     {
       "geometry": {
-        "type": "LineString",
         "coordinates": [
           [
             0,
@@ -12,7 +11,8 @@
             1073741823,
             1073741823
           ]
-        ]
+        ],
+        "type": "LineString"
       },
       "properties": {
         "_extent": 1073741824,

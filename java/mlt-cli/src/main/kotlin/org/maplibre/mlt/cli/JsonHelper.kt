@@ -8,6 +8,7 @@ import org.maplibre.mlt.converter.mvt.MapboxVectorTile
 import org.maplibre.mlt.data.Feature
 import org.maplibre.mlt.data.Layer
 import org.maplibre.mlt.data.MapLibreTile
+import java.util.SortedMap
 import kotlin.Any
 import kotlin.Boolean
 import kotlin.String
@@ -32,8 +33,8 @@ object JsonHelper {
     ): String = createGson(pretty).toJson(toJsonObjects(mlTile))
 
     @JvmStatic
-    fun toJsonObjects(mlTile: MapLibreTile): MutableMap<String, Any?> =
-        mutableMapOf<String, Any?>(
+    fun toJsonObjects(mlTile: MapLibreTile): Map<String, Any?> =
+        sortedMapOf<String, Any?>(
             "layers" to
                 mlTile.layers
                     .stream()
@@ -42,8 +43,8 @@ object JsonHelper {
         )
 
     @JvmStatic
-    private fun toJson(layer: Layer): MutableMap<String, Any?> {
-        val map = mutableMapOf<String, Any?>()
+    private fun toJson(layer: Layer): Map<String, Any?> {
+        val map = sortedMapOf<String, Any?>()
         map.put("name", layer.name)
         map.put("extent", layer.tileExtent)
         map.put(
@@ -57,8 +58,8 @@ object JsonHelper {
     }
 
     @JvmStatic
-    private fun toJson(feature: Feature): MutableMap<String, Any?> {
-        val map = mutableMapOf<String, Any?>()
+    private fun toJson(feature: Feature): Map<String, Any?> {
+        val map = sortedMapOf<String, Any?>()
         if (feature.hasId) {
             map.put("id", feature.id)
         }
@@ -92,8 +93,8 @@ object JsonHelper {
     private fun toGeoJsonObjects(
         mlTile: MapLibreTile,
         gson: Gson,
-    ): MutableMap<String, Any?> {
-        val fc = mutableMapOf<String, Any?>()
+    ): Map<String, Any?> {
+        val fc = sortedMapOf<String, Any?>()
         fc.put("type", "FeatureCollection")
         fc.put(
             "features",
@@ -119,8 +120,8 @@ object JsonHelper {
         layer: Layer,
         feature: Feature,
         gson: Gson,
-    ): MutableMap<String, Any?> {
-        val f = mutableMapOf<String, Any?>()
+    ): Map<String, Any?> {
+        val f = sortedMapOf<String, Any?>()
         f.put("type", "Feature")
         if (feature.hasId) {
             f.put("id", feature.id)
@@ -137,26 +138,26 @@ object JsonHelper {
     // Filters out null values and returns properties sorted by key.
     // Duplicate keys (if any) keep the first value.
     @JvmStatic
-    private fun getSortedNonNullProperties(feature: Feature): MutableMap<String, Any?> =
+    private fun getSortedNonNullProperties(feature: Feature): SortedMap<String, Any?> =
         feature.properties.entries
             .stream()
             .filter { entry -> entry.value != null }
             .asSequence()
             .associate { entry -> entry.key to entry.value }
-            .toMutableMap()
+            .toSortedMap()
 
     @JvmStatic
     private fun geometryToGeoJson(
         geometry: Geometry,
         gson: Gson,
-    ): MutableMap<String, Any?> {
+    ): Map<String, Any?> {
         val writer = GeoJsonWriter()
         writer.setEncodeCRS(false)
         val map = gson.fromJson<MutableMap<String, Any?>>(writer.write(geometry), MutableMap::class.java)
         if (map.containsKey("coordinates")) {
             map.put("coordinates", intifyCoordinates(map.get("coordinates")))
         }
-        return map
+        return map.toSortedMap()
     }
 
     /** Recursively convert whole-number doubles to longs inside a coordinates structure.  */
@@ -182,8 +183,8 @@ object JsonHelper {
     ): String = createGson(pretty).toJson(toJsonObjects(mvTile))
 
     @JvmStatic
-    private fun toJsonObjects(mvTile: MapboxVectorTile): MutableMap<String, Any?> =
-        mutableMapOf<String, Any?>(
+    private fun toJsonObjects(mvTile: MapboxVectorTile): Map<String, Any?> =
+        sortedMapOf(
             "layers" to
                 mvTile
                     .layers()

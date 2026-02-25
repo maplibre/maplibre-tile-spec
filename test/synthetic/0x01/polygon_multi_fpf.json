@@ -2,7 +2,6 @@
   "features": [
     {
       "geometry": {
-        "type": "MultiPolygon",
         "coordinates": [
           [
             [
@@ -44,7 +43,8 @@
               ]
             ]
           ]
-        ]
+        ],
+        "type": "MultiPolygon"
       },
       "properties": {
         "_extent": 4096,

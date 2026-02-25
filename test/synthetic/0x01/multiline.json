@@ -2,7 +2,6 @@
   "features": [
     {
       "geometry": {
-        "type": "MultiLineString",
         "coordinates": [
           [
             [
@@ -28,7 +27,8 @@
               49
             ]
           ]
-        ]
+        ],
+        "type": "MultiLineString"
       },
       "properties": {
         "_extent": 4096,

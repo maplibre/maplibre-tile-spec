@@ -2,11 +2,11 @@
   "features": [
     {
       "geometry": {
-        "type": "Point",
         "coordinates": [
           13,
           42
-        ]
+        ],
+        "type": "Point"
       },
       "id": 9234567890,
       "properties": {

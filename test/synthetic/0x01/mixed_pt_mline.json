@@ -2,11 +2,11 @@
   "features": [
     {
       "geometry": {
-        "type": "Point",
         "coordinates": [
           13,
           42
-        ]
+        ],
+        "type": "Point"
       },
       "properties": {
         "_extent": 4096,
@@ -16,7 +16,6 @@
     },
     {
       "geometry": {
-        "type": "MultiLineString",
         "coordinates": [
           [
             [
@@ -42,7 +41,8 @@
               49
             ]
           ]
-        ]
+        ],
+        "type": "MultiLineString"
       },
       "properties": {
         "_extent": 4096,

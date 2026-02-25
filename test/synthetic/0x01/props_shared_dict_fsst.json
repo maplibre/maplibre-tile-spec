@@ -2,11 +2,11 @@
   "features": [
     {
       "geometry": {
-        "type": "Point",
         "coordinates": [
           4,
           47
-        ]
+        ],
+        "type": "Point"
       },
       "properties": {
         "_extent": 4096,

@@ -2,11 +2,11 @@
   "features": [
     {
       "geometry": {
-        "type": "Point",
         "coordinates": [
           13,
           42
-        ]
+        ],
+        "type": "Point"
       },
       "id": 100,
       "properties": {
@@ -17,11 +17,11 @@
     },
     {
       "geometry": {
-        "type": "Point",
         "coordinates": [
           13,
           42
-        ]
+        ],
+        "type": "Point"
       },
       "id": 101,
       "properties": {
@@ -32,11 +32,11 @@
     },
     {
       "geometry": {
-        "type": "Point",
         "coordinates": [
           13,
           42
-        ]
+        ],
+        "type": "Point"
       },
       "properties": {
         "_extent": 4096,
@@ -46,11 +46,11 @@
     },
     {
       "geometry": {
-        "type": "Point",
         "coordinates": [
           13,
           42
-        ]
+        ],
+        "type": "Point"
       },
       "id": 105,
       "properties": {
@@ -61,11 +61,11 @@
     },
     {
       "geometry": {
-        "type": "Point",
         "coordinates": [
           13,
           42
-        ]
+        ],
+        "type": "Point"
       },
       "id": 106,
       "properties": {

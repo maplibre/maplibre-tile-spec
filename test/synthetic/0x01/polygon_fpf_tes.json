@@ -2,7 +2,6 @@
   "features": [
     {
       "geometry": {
-        "type": "Polygon",
         "coordinates": [
           [
             [
@@ -22,7 +21,8 @@
               47
             ]
           ]
-        ]
+        ],
+        "type": "Polygon"
       },
       "properties": {
         "_extent": 4096,
