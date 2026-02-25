@@ -29,4 +29,4 @@ classifiers = [
 
 [tool.maturin]
 manifest-path = "Cargo.toml"
-module-name = "mlt_pyo3"
+module-name = "mlt"
