@@ -187,6 +187,10 @@ release *args='': (just 'cargo-install' 'release-plz')
 semver *args: (just 'cargo-install' 'cargo-semver-checks')
     cargo semver-checks --all-features {{args}}
 
+# Regenerate the Python type stub for mlt-pyo3
+sync-pyo3-stubs:
+    cargo run -p mlt-pyo3 --bin stub_gen
+
 # Sync the version field in mlt-pyo3/pyproject.toml to match mlt-pyo3/Cargo.toml
 sync-pyo3-version:
     #!/usr/bin/env bash

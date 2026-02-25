@@ -68,7 +68,7 @@ jobs:
         with: { tool: 'just' }
       - uses: ./.github/actions/mlt-setup-rust
       - name: Regenerate stub
-        run: just rust::gen-pyo3-stubs
+        run: just rust::sync-pyo3-stubs
       - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8
         with: {commit-message: "chore: regenerate mlt_pyo3.pyi stub"}
 
