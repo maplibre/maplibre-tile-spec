@@ -17,6 +17,7 @@ crate-type = ["cdylib", "rlib"]
 [[bin]]
 name = "stub_gen"
 path = "src/bins/stub_gen.rs"
+required-features = ["abi3"]
 
 [features]
 abi3 = ["pyo3/abi3-py310", "generate-import-lib"]

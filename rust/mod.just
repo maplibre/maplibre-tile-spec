@@ -189,7 +189,7 @@ semver *args: (just 'cargo-install' 'cargo-semver-checks')
 
 # Regenerate the Python type stub for mlt-pyo3
 sync-pyo3-stubs:
-    cargo run -p mlt-pyo3 --bin stub_gen
+    cargo run -p mlt-pyo3 --bin stub_gen --features abi3
 
 # Sync the version field in mlt-pyo3/pyproject.toml to match mlt-pyo3/Cargo.toml
 sync-pyo3-version:
