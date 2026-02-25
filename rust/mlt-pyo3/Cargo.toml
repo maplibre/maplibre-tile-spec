@@ -15,7 +15,7 @@ name = "mlt_pyo3"
 crate-type = ["cdylib"]
 
 [features]
-abi3 = ["pyo3/abi3-py37", "generate-import-lib"]
+abi3 = ["pyo3/abi3-py39", "generate-import-lib"]
 generate-import-lib = ["pyo3/generate-import-lib"]
 
 [dependencies]
