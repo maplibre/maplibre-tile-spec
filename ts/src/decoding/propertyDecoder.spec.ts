@@ -5,7 +5,6 @@ import { ScalarType, type Column } from "../metadata/tileset/tilesetMetadata";
 import { IntFlatVector } from "../vector/flat/intFlatVector";
 import { LongFlatVector } from "../vector/flat/longFlatVector";
 import { FloatFlatVector } from "../vector/flat/floatFlatVector";
-import { DoubleFlatVector } from "../vector/flat/doubleFlatVector";
 import { BooleanFlatVector } from "../vector/flat/booleanFlatVector";
 import { IntSequenceVector } from "../vector/sequence/intSequenceVector";
 import { LongSequenceVector } from "../vector/sequence/longSequenceVector";
@@ -410,7 +409,7 @@ describe("decodePropertyColumn - BOOLEAN", () => {
 });
 
 describe("decodePropertyColumn - DOUBLE", () => {
-    it("should decode non-nullable DOUBLE column", () => {
+    it("should decode non-nullable DOUBLE column - doubles currently written as floats", () => {
         const expectedValues = new Float32Array([1.2345, 5.4321, 1.33742]);
         const columnMetadata = createColumnMetadata("testColumn", ScalarType.DOUBLE, false);
         const encodedData = encodeDoubleColumn(expectedValues);
@@ -418,15 +417,15 @@ describe("decodePropertyColumn - DOUBLE", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, expectedValues.length);
 
-        expect(result).toBeInstanceOf(DoubleFlatVector);
-        const resultVec = result as DoubleFlatVector;
+        expect(result).toBeInstanceOf(FloatFlatVector);
+        const resultVec = result as FloatFlatVector;
         expect(resultVec.size).toBe(expectedValues.length);
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBeCloseTo(expectedValues[i], 5);
         }
     });
 
-    it("should decode nullable DOUBLE column with null values", () => {
+    it("should decode nullable DOUBLE column with null values - doubles currently written as floats", () => {
         const expectedValues = [1.5, null, 2.7, null, 3.14159];
         const columnMetadata = createColumnMetadata("testColumn", ScalarType.DOUBLE, true);
         const encodedData = encodeDoubleNullableColumn(expectedValues);
@@ -434,8 +433,8 @@ describe("decodePropertyColumn - DOUBLE", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 2, expectedValues.length);
 
-        expect(result).toBeInstanceOf(DoubleFlatVector);
-        const resultVec = result as DoubleFlatVector;
+        expect(result).toBeInstanceOf(FloatFlatVector);
+        const resultVec = result as FloatFlatVector;
         expect(resultVec.size).toBe(expectedValues.length);
         expect(resultVec.getValue(0)).toBeCloseTo(1.5, 5);
         expect(resultVec.getValue(1)).toBe(null); // null value

@@ -12,7 +12,7 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-earcutr.workspace = true
+geo.workspace = true
 geo-types.workspace = true
 json5.workspace = true
 mlt-core.workspace = true
