@@ -25,8 +25,7 @@ record EncodeConfig(
     boolean willTime,
     boolean dumpStreams,
     @NotNull TaskRunner taskRunner,
-    boolean continueOnError,
-    int verboseLevel) {
+    boolean continueOnError) {
 
   public Builder asBuilder() {
     return new Builder()
@@ -47,8 +46,7 @@ record EncodeConfig(
         .willTime(this.willTime)
         .dumpStreams(this.dumpStreams)
         .taskRunner(this.taskRunner)
-        .continueOnError(this.continueOnError)
-        .verboseLevel(this.verboseLevel);
+        .continueOnError(this.continueOnError);
   }
 
   public static Builder builder() {
@@ -74,7 +72,6 @@ record EncodeConfig(
     private boolean dumpStreams = false;
     private @NotNull TaskRunner taskRunner;
     private boolean continueOnError = false;
-    private int verboseLevel = 0;
 
     public Builder columnMappings(@NotNull ColumnMappingConfig v) {
       this.columnMappingConfig = v;
@@ -166,11 +163,6 @@ record EncodeConfig(
       return this;
     }
 
-    public Builder verboseLevel(int v) {
-      this.verboseLevel = v;
-      return this;
-    }
-
     public EncodeConfig build() {
       return new EncodeConfig(
           (columnMappingConfig != null) ? columnMappingConfig : new ColumnMappingConfig(),
@@ -190,8 +182,7 @@ record EncodeConfig(
           willTime,
           dumpStreams,
           (taskRunner != null) ? taskRunner : new SerialTaskRunner(),
-          continueOnError,
-          verboseLevel);
+          continueOnError);
     }
   }
 }
