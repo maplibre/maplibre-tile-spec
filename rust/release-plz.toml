@@ -9,6 +9,7 @@ pr_branch_prefix = "release-plz-"
 pr_labels = ["release"]
 pr_name = "chore(rust): release{% if package %} {{ package }}{% endif %}{% if version %}  v{{ version }}{% endif %}"
 publish_allow_dirty = false
+publish_no_verify = true # we have already thoroughly verified that all aspects of our project work in CI before this step
 semver_check = true
 publish_timeout = "10m" # set a timeout for `cargo publish`
 

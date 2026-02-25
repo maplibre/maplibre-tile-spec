@@ -206,9 +206,9 @@ test-doc: (docs '--document-private-items')
 test-fmt: (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
 
-# Use the experimental workspace publishing with --dry-run
+# Test workspace publishing with --dry-run
 test-publish:
-    cargo +nightly -Z package-workspace publish --dry-run
+    cargo publish --workspace --dry-run
 
 # Find unused dependencies
 udeps: (just 'cargo-install' 'cargo-udeps')
