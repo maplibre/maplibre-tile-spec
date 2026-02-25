@@ -1,6 +1,7 @@
 plugins {
     id 'java-library'
     id 'jacoco'
+    alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.diffplug.spotless)
     alias(libs.plugins.gradleup.shadow)
 }
@@ -43,6 +44,9 @@ dependencies {
     implementation(libs.log4j.api)
     implementation(libs.log4j.slf4j.impl)
 
+    // Kotlin
+    implementation(libs.kotlin.stdlib)
+
     // pmtiles support
     implementation(libs.planetiler.core)
     implementation(platform(libs.tileverse.io))
@@ -83,6 +87,10 @@ java {
     }
 }
 
+kotlin {
+    jvmToolchain {21}
+}
+
 spotless {
     groovy {
         target 'build.gradle'
@@ -90,6 +98,10 @@ spotless {
         trimTrailingWhitespace()
         endWithNewline()
 
+    }
+    kotlin {
+        target 'src/**/*.kt'
+        ktlint()
     }
     java {
         importOrder()
