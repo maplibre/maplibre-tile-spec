@@ -19,6 +19,7 @@ bench:
 
 # Run integration tests, and override what we expect the output to be with the actual output
 bless: _clean-int-test _test-run-int
+    {{just}} rust::bless
     rm -rf test/expected && mv test/output test/expected
 
 # Delete all build files for multiple languages
@@ -59,8 +60,13 @@ docs-build:
     docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
 
 # Extract version from a tag by removing language prefix and 'v' prefix
-extract-version language tag:
+ci-extract-version language tag:
     @echo "{{replace(replace(tag, language + '-', ''), 'v', '')}}"
+
+# Run the mlt CLI tool with the given arguments. Working dir is the `rust` subdir.
+[working-directory: 'rust']
+mlt *args:
+    cargo run --package mlt -- {{args}}
 
 # Ensure a command is available
 assert-cmd command:
@@ -122,3 +128,18 @@ _test-run-int:
     echo "fake output by copying expected into output so that the rest of the script works"
     # TODO: REMOVE THIS, and replace it with a real integration test run
     cp -r test/expected/* test/output
+
+# Ensure there are no duplicate synthetic MLT files by comparing their hashes.
+_assert-all-mlt-files-different dir='test/synthetic':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    all_hashes=$(find {{quote(dir)}} -name '*.mlt' -exec sha256sum {} \; | sort)
+    duplicates=$(echo "$all_hashes" | awk '{print $1}' | uniq -d)
+    if [ -n "$duplicates" ]; then
+        echo "::error::Duplicate synthetic MLT files found"
+        while IFS= read -r hash; do
+            echo ""
+            echo "$all_hashes" | grep "^$hash " | awk '{print "  - " $2}'
+        done <<< "$duplicates"
+        exit 1
+    fi

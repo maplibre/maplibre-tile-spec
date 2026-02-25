@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 use std::ffi::OsStr;
-use std::fmt::Write as _;
 use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
+use std::string::ToString;
 
 use anyhow::Result;
 use clap::{Args, ValueEnum};
@@ -13,11 +13,12 @@ use mlt_core::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::geojson::Geom32;
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::{
-    DictionaryType, Geometry, GeometryType, LengthType, LogicalCodec, OffsetType, PhysicalCodec,
-    PhysicalStreamType, Stream,
+    DictionaryType, Geometry, GeometryType, LengthType, LogicalEncoding, OffsetType,
+    PhysicalEncoding, Stream, StreamType,
 };
 use mlt_core::{Analyze as _, parse_layers};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
+use serde::Serialize;
 use size_format::SizeFormatterSI;
 use tabled::Table;
 use tabled::builder::Builder;
@@ -87,96 +88,143 @@ pub enum FileSortColumn {
     Features,
 }
 
-#[derive(serde::Serialize, Debug, Clone)]
-pub struct MltFileInfo {
-    path: String,
-    size: usize,
-    encoding_pct: f64,
-    data_size: usize,
-    meta_size: usize,
-    meta_pct: f64,
-    gzipped_size: usize,
-    gzip_pct: f64,
-    layers: usize,
-    features: usize,
-    streams: usize,
-    algorithms: String,
-    geometries: String,
+/// Algorithm description for a file (MLT stream combo or protobuf for MVT).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FileAlgorithm {
+    Mlt(StreamType, PhysicalEncoding, StatLogicalCodec),
+    Mvt,
 }
+
+impl std::fmt::Display for FileAlgorithm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Mvt => write!(f, "Protobuf"),
+            Self::Mlt(phys_type, physical, logical) => {
+                let phys_type = match phys_type {
+                    StreamType::Present => "Present",
+                    StreamType::Data(v) => match v {
+                        DictionaryType::None => "RawData",
+                        DictionaryType::Vertex => "Vertex",
+                        DictionaryType::Single => "Single",
+                        DictionaryType::Shared => "Shared",
+                        DictionaryType::Morton => "Morton",
+                        DictionaryType::Fsst => "Fsst",
+                    },
+                    StreamType::Offset(v) => match v {
+                        OffsetType::Vertex => "VertexOffset",
+                        OffsetType::Index => "IndexOffset",
+                        OffsetType::String => "StringOffset",
+                        OffsetType::Key => "KeyOffset",
+                    },
+                    StreamType::Length(v) => match v {
+                        LengthType::VarBinary => "VarBinaryLen",
+                        LengthType::Geometries => "GeomLen",
+                        LengthType::Parts => "PartsLen",
+                        LengthType::Rings => "RingsLen",
+                        LengthType::Triangles => "TrianglesLen",
+                        LengthType::Symbol => "SymbolLen",
+                        LengthType::Dictionary => "DictLen",
+                    },
+                };
+                let physical = match physical {
+                    PhysicalEncoding::None => "",
+                    PhysicalEncoding::FastPFOR => "FastPFOR",
+                    PhysicalEncoding::VarInt => "VarInt",
+                    PhysicalEncoding::Alp => "Alp",
+                };
+                let logical = match logical {
+                    StatLogicalCodec::None => "",
+                    StatLogicalCodec::Delta => "Delta",
+                    StatLogicalCodec::DeltaRle => "DeltaRle",
+                    StatLogicalCodec::Rle => "Rle",
+                    StatLogicalCodec::ComponentwiseDelta => "CwDelta",
+                    StatLogicalCodec::Morton => "Morton",
+                    StatLogicalCodec::PseudoDecimal => "PseudoDec",
+                };
+                write!(f, "{phys_type}")?;
+                if !physical.is_empty() {
+                    write!(f, "-{physical}")?;
+                }
+                if !logical.is_empty() {
+                    write!(f, "-{logical}")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+impl Serialize for FileAlgorithm {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+/// Dash shown when a numeric column is not applicable (e.g. MVT has no Enc %).
+pub const NA: &str = "—";
+
+#[must_use]
+pub fn na(v: Option<String>) -> String {
+    v.unwrap_or_else(|| NA.to_string())
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct MltFileInfo {
+    pub path: String,
+    pub size: usize,
+    pub encoding_pct: Option<f64>,
+    pub data_size: Option<usize>,
+    pub meta_size: Option<usize>,
+    pub meta_pct: Option<f64>,
+    pub gzipped_size: Option<usize>,
+    pub gzip_pct: Option<f64>,
+    pub layers: usize,
+    pub features: usize,
+    pub streams: Option<usize>,
+    pub algorithms: HashSet<FileAlgorithm>,
+    pub geometries: HashSet<GeometryType>,
+}
+
+impl MltFileInfo {}
 
 impl MltFileInfo {
     #[must_use]
-    pub fn path(&self) -> &str {
-        &self.path
+    pub fn geometries_display(&self) -> String {
+        geometries_display(&self.geometries)
     }
     #[must_use]
-    pub fn size(&self) -> usize {
-        self.size
-    }
-    #[must_use]
-    pub fn encoding_pct(&self) -> f64 {
-        self.encoding_pct
-    }
-    #[must_use]
-    pub fn data_size(&self) -> usize {
-        self.data_size
-    }
-    #[must_use]
-    pub fn meta_size(&self) -> usize {
-        self.meta_size
-    }
-    #[must_use]
-    pub fn meta_pct(&self) -> f64 {
-        self.meta_pct
-    }
-    #[must_use]
-    pub fn layers(&self) -> usize {
-        self.layers
-    }
-    #[must_use]
-    pub fn features(&self) -> usize {
-        self.features
-    }
-    #[must_use]
-    pub fn streams(&self) -> usize {
-        self.streams
-    }
-    #[must_use]
-    pub fn geometries(&self) -> &str {
-        &self.geometries
-    }
-    #[must_use]
-    pub fn algorithms(&self) -> &str {
-        &self.algorithms
+    pub fn algorithms_display(&self) -> String {
+        algorithms_display(&self.algorithms)
     }
 }
 
 #[derive(serde::Serialize, Clone)]
 #[serde(untagged)]
+#[expect(clippy::large_enum_variant)]
 pub enum LsRow {
-    Info(MltFileInfo),
+    Info(PathBuf, MltFileInfo),
     Error {
-        path: String,
+        path: PathBuf,
         error: String,
     },
     /// Placeholder while analysis is in progress
     Loading {
-        path: String,
+        path: PathBuf,
     },
 }
 
-#[must_use]
-pub fn relative_path(path: &Path, base_path: &Path) -> String {
-    if base_path.is_file() {
-        path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .to_string()
-    } else {
-        path.strip_prefix(base_path)
-            .unwrap_or(path)
-            .to_string_lossy()
-            .to_string()
+impl LsRow {
+    /// Path for this row (file path, or path that failed/loading).
+    #[must_use]
+    pub fn path(&self) -> &Path {
+        match self {
+            LsRow::Info(path, _) | LsRow::Error { path, .. } | LsRow::Loading { path } => {
+                path.as_path()
+            }
+        }
     }
 }
 
@@ -205,9 +253,9 @@ pub fn ls(args: &LsArgs) -> Result<()> {
     let rows: Vec<_> = all_files
         .par_iter()
         .map(|path| match analyze_tile_file(path, base_path, false) {
-            Ok(info) => LsRow::Info(info),
+            Ok(info) => LsRow::Info(path.clone(), info),
             Err(e) => LsRow::Error {
-                path: relative_path(path, base_path),
+                path: path.clone(),
                 error: e.to_string(),
             },
         })
@@ -230,9 +278,9 @@ pub fn analyze_tile_files(paths: &[PathBuf], base_path: &Path, skip_gzip: bool) 
     paths
         .par_iter()
         .map(|path| match analyze_tile_file(path, base_path, skip_gzip) {
-            Ok(info) => LsRow::Info(info),
+            Ok(info) => LsRow::Info(path.clone(), info),
             Err(e) => LsRow::Error {
-                path: relative_path(path, base_path),
+                path: path.clone(),
                 error: e.to_string(),
             },
         })
@@ -244,22 +292,22 @@ pub fn analyze_tile_files(paths: &[PathBuf], base_path: &Path, skip_gzip: bool) 
 pub fn row_cells(row: &LsRow) -> [String; 5] {
     let fmt_size = |n: usize| format!("{:.1}B", SizeFormatterSI::new(n as u64));
     match row {
-        LsRow::Info(info) => [
-            info.path().to_string(),
-            format!("{:>8}", fmt_size(info.size())),
-            format!("{:>6}", fmt_pct(info.encoding_pct())),
-            format!("{:>6}", info.layers()),
-            format!("{:>10}", info.features().separate_with_commas()),
+        LsRow::Info(_, info) => [
+            info.path.clone(),
+            format!("{:>8}", fmt_size(info.size)),
+            format!("{:>6}", na(info.encoding_pct.map(fmt_pct))),
+            format!("{:>6}", info.layers),
+            format!("{:>10}", info.features.separate_with_commas()),
         ],
         LsRow::Error { path, error } => [
-            path.clone(),
+            path.display().to_string(),
             format!("ERROR: {error}"),
             String::new(),
             String::new(),
             String::new(),
         ],
         LsRow::Loading { path } => [
-            path.clone(),
+            path.display().to_string(),
             "…".to_string(),
             "…".to_string(),
             "…".to_string(),
@@ -305,13 +353,10 @@ fn collect_tile_files(path: &Path, recursive: bool, extensions: &[String]) -> Re
     };
 
     let mut files = Vec::new();
-
-    if path.is_file() {
-        if matches_ext(path) {
-            files.push(path.to_path_buf());
-        }
-    } else if path.is_dir() {
+    if path.is_dir() {
         collect_from_dir(path, &mut files, recursive, &matches_ext)?;
+    } else if path.is_file() && matches_ext(path) {
+        files.push(path.to_path_buf());
     }
 
     Ok(files)
@@ -340,14 +385,33 @@ where
 }
 
 pub fn analyze_tile_file(path: &Path, base_path: &Path, skip_gzip: bool) -> Result<MltFileInfo> {
+    let rel_path = if base_path.is_file() {
+        path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string()
+    } else {
+        path.strip_prefix(base_path)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .to_string()
+    };
     let buffer = fs::read(path)?;
-    let original_size = buffer.len();
-
-    if is_mvt_extension(path) {
-        return analyze_mvt_buffer(&buffer, original_size, path, base_path, skip_gzip);
+    let mut info = if is_mvt_extension(path) {
+        analyze_mvt_buffer(&buffer, rel_path)?
+    } else {
+        analyze_mlt_buffer(&buffer, rel_path)?
+    };
+    if !skip_gzip {
+        let gzip_size = estimate_gzip_size(&buffer)?;
+        info.gzipped_size = Some(gzip_size);
+        info.gzip_pct = Some(percent(gzip_size, buffer.len()));
     }
+    Ok(info)
+}
 
-    let mut layers = parse_layers(&buffer)?;
+pub fn analyze_mlt_buffer(buffer: &[u8], rel_path: String) -> Result<MltFileInfo> {
+    let mut layers = parse_layers(buffer)?;
 
     let mut stream_count = 0;
     let mut algorithms: HashSet<StreamStat> = HashSet::new();
@@ -380,93 +444,72 @@ pub fn analyze_tile_file(path: &Path, base_path: &Path, skip_gzip: bool) -> Resu
         }
     }
 
-    let (gzipped_size, gzip_pct) = if skip_gzip {
-        (0, 0.0)
-    } else {
-        let gz = estimate_gzip_size(&buffer)?;
-        (gz, percent(gz, original_size))
-    };
-
-    let geometries_str = format_geometries(geometries);
-    let algorithms_str = format_algorithms(algorithms);
-    let rel_path = relative_path(path, base_path);
+    let algorithms_set: HashSet<FileAlgorithm> = algorithms
+        .into_iter()
+        .map(|(a, b, c)| FileAlgorithm::Mlt(a, b, c))
+        .collect();
 
     Ok(MltFileInfo {
         path: rel_path,
-        size: original_size,
-        encoding_pct: percent(original_size, data_size + meta_size),
-        data_size,
-        meta_size,
-        meta_pct: percent_of(meta_size, data_size),
-        gzipped_size,
-        gzip_pct,
+        size: buffer.len(),
+        encoding_pct: Some(percent(buffer.len(), data_size + meta_size)),
+        data_size: Some(data_size),
+        meta_size: Some(meta_size),
+        meta_pct: Some(percent_of(meta_size, data_size)),
         layers: layers.len(),
         features: feature_count,
-        streams: stream_count,
-        algorithms: algorithms_str,
-        geometries: geometries_str,
+        streams: Some(stream_count),
+        algorithms: algorithms_set,
+        geometries,
+        ..MltFileInfo::default()
     })
 }
 
-fn analyze_mvt_buffer(
-    buffer: &[u8],
-    original_size: usize,
-    path: &Path,
-    base_path: &Path,
-    skip_gzip: bool,
-) -> Result<MltFileInfo> {
+fn analyze_mvt_buffer(buffer: &[u8], rel_path: String) -> Result<MltFileInfo> {
     let fc = mvt_to_feature_collection(buffer.to_vec())?;
 
     let mut layer_names = HashSet::new();
-    let mut geom_types = HashSet::new();
+    let mut geometries = HashSet::new();
     for feat in &fc.features {
         // FIXME: we shouldn't use "magical" properties to pass values around
         if let Some(name) = feat.properties.get("_layer").and_then(|v| v.as_str()) {
             layer_names.insert(name.to_string());
         }
-        geom_types.insert(match &feat.geometry {
-            Geom32::Point(_) => "Pt",
-            Geom32::MultiPoint(_) => "MPt",
-            Geom32::LineString(_) => "Line",
-            Geom32::MultiLineString(_) => "MLine",
-            Geom32::Polygon(_) => "Poly",
-            Geom32::MultiPolygon(_) => "MPoly",
-            _ => "Other",
-        });
+        if let Some(gt) = geometry_type_from_geom32(&feat.geometry) {
+            geometries.insert(gt);
+        }
     }
 
-    let (gzipped_size, gzip_pct) = if skip_gzip {
-        (0, 0.0)
-    } else {
-        let gz = estimate_gzip_size(buffer)?;
-        (gz, percent(gz, original_size))
-    };
-
-    let mut sorted_geoms: Vec<_> = geom_types.into_iter().collect();
-    sorted_geoms.sort_unstable();
-
     Ok(MltFileInfo {
-        path: relative_path(path, base_path),
-        size: original_size,
-        encoding_pct: 0.0,
-        data_size: 0,
-        meta_size: 0,
-        meta_pct: 0.0,
-        gzipped_size,
-        gzip_pct,
+        path: rel_path,
+        size: buffer.len(),
         layers: layer_names.len(),
         features: fc.features.len(),
-        streams: 0,
-        algorithms: "protobuf".to_string(),
-        geometries: sorted_geoms.join(","),
+        algorithms: std::iter::once(FileAlgorithm::Mvt).collect(),
+        geometries,
+        ..MltFileInfo::default()
     })
 }
 
-type StreamStat = (PhysicalStreamType, PhysicalCodec, StatLogicalCodec);
+fn geometry_type_from_geom32(geom: &Geom32) -> Option<GeometryType> {
+    Some(match geom {
+        Geom32::Point(_) => GeometryType::Point,
+        Geom32::MultiPoint(_) => GeometryType::MultiPoint,
+        Geom32::LineString(_) => GeometryType::LineString,
+        Geom32::MultiLineString(_) => GeometryType::MultiLineString,
+        Geom32::Polygon(_) => GeometryType::Polygon,
+        Geom32::MultiPolygon(_) => GeometryType::MultiPolygon,
+        Geom32::Line(_) | Geom32::GeometryCollection(_) | Geom32::Rect(_) | Geom32::Triangle(_) => {
+            return None;
+        }
+    })
+}
 
-/// Mirrors [`LogicalCodec`] without associated metadata values.
+type StreamStat = (StreamType, PhysicalEncoding, StatLogicalCodec);
+
+/// Mirrors [`LogicalEncoding`] without associated metadata values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-enum StatLogicalCodec {
+pub enum StatLogicalCodec {
     None,
     Delta,
     DeltaRle,
@@ -476,25 +519,25 @@ enum StatLogicalCodec {
     PseudoDecimal,
 }
 
-impl From<LogicalCodec> for StatLogicalCodec {
-    fn from(ld: LogicalCodec) -> Self {
+impl From<LogicalEncoding> for StatLogicalCodec {
+    fn from(ld: LogicalEncoding) -> Self {
         match ld {
-            LogicalCodec::None => Self::None,
-            LogicalCodec::Delta => Self::Delta,
-            LogicalCodec::DeltaRle(_) => Self::DeltaRle,
-            LogicalCodec::ComponentwiseDelta => Self::ComponentwiseDelta,
-            LogicalCodec::Rle(_) => Self::Rle,
-            LogicalCodec::Morton(_) => Self::Morton,
-            LogicalCodec::PseudoDecimal => Self::PseudoDecimal,
+            LogicalEncoding::None => Self::None,
+            LogicalEncoding::Delta => Self::Delta,
+            LogicalEncoding::DeltaRle(_) => Self::DeltaRle,
+            LogicalEncoding::ComponentwiseDelta => Self::ComponentwiseDelta,
+            LogicalEncoding::Rle(_) => Self::Rle,
+            LogicalEncoding::Morton(_) => Self::Morton,
+            LogicalEncoding::PseudoDecimal => Self::PseudoDecimal,
         }
     }
 }
 
 fn collect_stream_info(stream: &Stream, algo: &mut HashSet<StreamStat>) {
     algo.insert((
-        stream.meta.physical_type,
-        stream.meta.physical_codec,
-        StatLogicalCodec::from(stream.meta.logical_codec),
+        stream.meta.stream_type,
+        stream.meta.physical_encoding,
+        StatLogicalCodec::from(stream.meta.logical_encoding),
     ));
 }
 
@@ -505,81 +548,24 @@ fn estimate_gzip_size(data: &[u8]) -> Result<usize> {
     Ok(compressed.len())
 }
 
-fn format_algorithms(algorithms: HashSet<StreamStat>) -> String {
-    let mut sorted: Vec<_> = algorithms.into_iter().collect();
-    sorted.sort();
-    sorted
-        .into_iter()
-        .map(|(phys_type, physical, logical)| {
-            let phys_type = match phys_type {
-                PhysicalStreamType::Present => "Present",
-                PhysicalStreamType::Data(v) => match v {
-                    DictionaryType::None => "RawData",
-                    DictionaryType::Vertex => "Vertex",
-                    DictionaryType::Single => "Single",
-                    DictionaryType::Shared => "Shared",
-                    DictionaryType::Morton => "Morton",
-                    DictionaryType::Fsst => "Fsst",
-                },
-                PhysicalStreamType::Offset(v) => match v {
-                    OffsetType::Vertex => "VertexOffset",
-                    OffsetType::Index => "IndexOffset",
-                    OffsetType::String => "StringOffset",
-                    OffsetType::Key => "KeyOffset",
-                },
-                PhysicalStreamType::Length(v) => match v {
-                    LengthType::VarBinary => "VarBinaryLen",
-                    LengthType::Geometries => "GeomLen",
-                    LengthType::Parts => "PartsLen",
-                    LengthType::Rings => "RingsLen",
-                    LengthType::Triangles => "TrianglesLen",
-                    LengthType::Symbol => "SymbolLen",
-                    LengthType::Dictionary => "DictLen",
-                },
-            };
-            let physical = match physical {
-                PhysicalCodec::None => "",
-                PhysicalCodec::FastPFOR => "FastPFOR",
-                PhysicalCodec::VarInt => "VarInt",
-                PhysicalCodec::Alp => "Alp",
-            };
-            let logical = match logical {
-                StatLogicalCodec::None => "",
-                StatLogicalCodec::Delta => "Delta",
-                StatLogicalCodec::DeltaRle => "DeltaRle",
-                StatLogicalCodec::Rle => "Rle",
-                StatLogicalCodec::ComponentwiseDelta => "CwDelta",
-                StatLogicalCodec::Morton => "Morton",
-                StatLogicalCodec::PseudoDecimal => "PseudoDec",
-            };
-            let mut val = phys_type.to_owned();
-            if !physical.is_empty() {
-                let _ = write!(val, "-{physical}");
-            }
-            if !logical.is_empty() {
-                let _ = write!(val, "-{logical}");
-            }
-            val
-        })
-        .collect::<Vec<_>>()
-        .join(",")
+fn geometries_display(geometries: &HashSet<GeometryType>) -> String {
+    let abbrev = |g: GeometryType| match g {
+        GeometryType::Point => "Pt",
+        GeometryType::LineString => "Line",
+        GeometryType::Polygon => "Poly",
+        GeometryType::MultiPoint => "MPt",
+        GeometryType::MultiLineString => "MLine",
+        GeometryType::MultiPolygon => "MPoly",
+    };
+    let mut v: Vec<_> = geometries.iter().map(|g| abbrev(*g)).collect();
+    v.sort_unstable();
+    v.join(",")
 }
 
-fn format_geometries(geometries: HashSet<GeometryType>) -> String {
-    let mut sorted: Vec<_> = geometries.into_iter().collect();
-    sorted.sort();
-    sorted
-        .into_iter()
-        .map(|g| match g {
-            GeometryType::Point => "Pt",
-            GeometryType::LineString => "Line",
-            GeometryType::Polygon => "Poly",
-            GeometryType::MultiPoint => "MPt",
-            GeometryType::MultiLineString => "MLine",
-            GeometryType::MultiPolygon => "MPoly",
-        })
-        .collect::<Vec<_>>()
-        .join(",")
+fn algorithms_display(algorithms: &HashSet<FileAlgorithm>) -> String {
+    let mut v: Vec<_> = algorithms.iter().map(ToString::to_string).collect();
+    v.sort_unstable();
+    v.join(",")
 }
 
 fn print_table(rows: &[LsRow], extended: bool) {
@@ -588,7 +574,7 @@ fn print_table(rows: &[LsRow], extended: bool) {
     let infos: Vec<&MltFileInfo> = rows
         .iter()
         .filter_map(|r| match r {
-            LsRow::Info(info) => Some(info),
+            LsRow::Info(_, info) => Some(info),
             LsRow::Error { .. } | LsRow::Loading { .. } => None,
         })
         .collect();
@@ -618,34 +604,34 @@ fn print_table(rows: &[LsRow], extended: bool) {
 
     for (i, row) in rows.iter().enumerate() {
         match row {
-            LsRow::Info(info) => {
+            LsRow::Info(_, info) => {
                 let mut data_row = vec![
-                    info.path().to_string(),
-                    fmt_size(info.size()),
-                    fmt_pct(info.encoding_pct()),
-                    fmt_size(info.data_size),
-                    fmt_size(info.meta_size),
-                    fmt_pct(info.meta_pct),
-                    fmt_size(info.gzipped_size),
-                    fmt_pct(info.gzip_pct),
-                    info.layers().separate_with_commas(),
-                    info.features().separate_with_commas(),
-                    info.streams.separate_with_commas(),
-                    info.geometries().to_string(),
+                    info.path.clone(),
+                    fmt_size(info.size),
+                    na(info.encoding_pct.map(fmt_pct)),
+                    na(info.data_size.map(fmt_size)),
+                    na(info.meta_size.map(fmt_size)),
+                    na(info.meta_pct.map(fmt_pct)),
+                    na(info.gzipped_size.map(fmt_size)),
+                    na(info.gzip_pct.map(fmt_pct)),
+                    info.layers.separate_with_commas(),
+                    info.features.separate_with_commas(),
+                    na(info.streams.map(|n| n.separate_with_commas())),
+                    info.geometries_display(),
                 ];
                 if extended {
-                    data_row.push(info.algorithms().to_string());
+                    data_row.push(info.algorithms_display());
                 }
                 builder.push_record(data_row);
             }
             LsRow::Error { path, error } => {
-                let mut data_row = vec![path.clone(), format!("ERROR: {error}")];
+                let mut data_row = vec![path.display().to_string(), format!("ERROR: {error}")];
                 data_row.resize(num_cols, String::new());
                 builder.push_record(data_row);
                 error_table_rows.push(i + 1);
             }
             LsRow::Loading { path } => {
-                let mut data_row = vec![path.clone(), "Loading…".to_string()];
+                let mut data_row = vec![path.display().to_string(), "Loading…".to_string()];
                 data_row.resize(num_cols, String::new());
                 builder.push_record(data_row);
             }
@@ -654,25 +640,56 @@ fn print_table(rows: &[LsRow], extended: bool) {
 
     if has_total {
         let total_size: usize = infos.iter().map(|i| i.size).sum();
-        let total_data: usize = infos.iter().map(|i| i.data_size).sum();
-        let total_meta: usize = infos.iter().map(|i| i.meta_size).sum();
-        let total_gzipped: usize = infos.iter().map(|i| i.gzipped_size).sum();
+        let total_data: Option<usize> = infos
+            .iter()
+            .try_fold(0usize, |acc, i| i.data_size.map(|d| acc + d));
+        let total_meta: Option<usize> = infos
+            .iter()
+            .try_fold(0usize, |acc, i| i.meta_size.map(|m| acc + m));
+        let total_gzipped: usize = infos.iter().filter_map(|i| i.gzipped_size).sum();
         let total_layers: usize = infos.iter().map(|i| i.layers).sum();
         let total_features: usize = infos.iter().map(|i| i.features).sum();
-        let total_streams: usize = infos.iter().map(|i| i.streams).sum();
+        let total_streams: Option<usize> = infos
+            .iter()
+            .try_fold(0usize, |acc, i| i.streams.map(|s| acc + s));
 
+        let (enc_pct, decoded, meta, meta_pct) = match (total_data, total_meta) {
+            (Some(d), Some(m)) => (
+                fmt_pct(percent(total_size, d + m)),
+                fmt_size(d),
+                fmt_size(m),
+                fmt_pct(percent_of(m, d)),
+            ),
+            _ => (
+                NA.to_string(),
+                NA.to_string(),
+                NA.to_string(),
+                NA.to_string(),
+            ),
+        };
+        let has_any_gzip = infos.iter().any(|i| i.gzipped_size.is_some());
+        let gzip_size_str = if has_any_gzip {
+            fmt_size(total_gzipped)
+        } else {
+            NA.to_string()
+        };
+        let gzip_pct_str = if has_any_gzip {
+            fmt_pct(percent(total_gzipped, total_size))
+        } else {
+            NA.to_string()
+        };
         let mut row = vec![
             "TOTAL".to_string(),
             fmt_size(total_size),
-            fmt_pct(percent(total_size, total_data + total_meta)),
-            fmt_size(total_data),
-            fmt_size(total_meta),
-            fmt_pct(percent_of(total_meta, total_data)),
-            fmt_size(total_gzipped),
-            fmt_pct(percent(total_gzipped, total_size)),
+            enc_pct,
+            decoded,
+            meta,
+            meta_pct,
+            gzip_size_str,
+            gzip_pct_str,
             total_layers.separate_with_commas(),
             total_features.separate_with_commas(),
-            total_streams.separate_with_commas(),
+            na(total_streams.map(|s| s.separate_with_commas())),
             String::new(),
         ];
         if extended {

@@ -18,7 +18,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-check
@@ -28,7 +28,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-test
@@ -42,7 +42,7 @@ jobs:
         include:
           - target: layer
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly }
       - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
@@ -53,7 +53,7 @@ jobs:
     name: Test MSRV
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: msrv }
@@ -64,7 +64,7 @@ jobs:
     if: github.event_name != 'release' && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
       - uses: ./.github/actions/mlt-setup-rust
       - uses: taiki-e/install-action@v2
@@ -79,6 +79,16 @@ jobs:
           files: rust/target/llvm-cov/codecov.info
       - run: just -v assert-git-is-clean
 
+  test-publish:
+    name: Test workspace publishing using --dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/mlt-setup-rust
+      - name: Test workspace publishing
+        run: just -v rust::test-publish
+      - run: just -v assert-git-is-clean
+
   build-release-binaries:
     name: Build release binaries for ${{ matrix.target }}
     strategy:
@@ -87,7 +97,7 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: mlt-linux-x86_64.tar.gz
+            artifact_name: mlt-x86_64-unknown-linux-gnu.tar.gz
           # Requires mlt > fastpfor to support arm via the existing simde code
           # Currently, seems flaky
           #- os: ubuntu-22.04-arm
@@ -99,14 +109,14 @@ jobs:
           #  artifact_name: mlt-macos-aarch64.tar.gz
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: mlt-windows-x86_64.zip
+            artifact_name: mlt-x86_64-pc-windows-msvc.zip
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-build-release ${{ matrix.target }} ${{ matrix.artifact_name }}
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_name }}
@@ -114,7 +124,7 @@ jobs:
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
   ci-passed-rust:
-    needs: [ test, test-msrv, lint, build-release-binaries ]
+    needs: [ test, test-msrv, lint, build-release-binaries, test-publish ]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -141,17 +151,18 @@ jobs:
       cancel-in-progress: false
     steps:
       - run: rustup update stable && rustup default stable
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v6.0.2
         with: { fetch-depth: 0, persist-credentials: false }
+      - uses: ./.github/actions/mlt-setup-rust
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@e592230ad39e3ec735402572601fc621aa24355c # v0.5.124
+        uses: release-plz/action@f708778669256143d984cce4b23592637532e040 # v0.5.127
         id: release
         with: { command: release, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@e592230ad39e3ec735402572601fc621aa24355c # v0.5.124
+        uses: release-plz/action@f708778669256143d984cce4b23592637532e040 # v0.5.127
         with: { command: release-pr, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
@@ -166,18 +177,18 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
       - uses: taiki-e/install-action@v2
         with: { tool: 'just' }
       - name: Get mlt version for release tag
         id: get_version
         shell: bash
-        run: just -v rust::get-release-info mlt >> $GITHUB_OUTPUT
+        run: just -v rust::ci-get-release-info mlt >> $GITHUB_OUTPUT
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with: { path: artifacts }
       - name: Add binaries to GitHub release
-        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           tag_name: ${{ steps.get_version.outputs.tag }}
           files: |

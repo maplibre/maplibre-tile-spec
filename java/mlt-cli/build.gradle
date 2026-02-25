@@ -10,6 +10,15 @@ repositories {
     maven {
         url = 'https://maven.ecc.no/releases'
     }
+    maven {
+        url = 'https://nexus.terrestris.de/repository/public/'
+        content {
+            includeGroup 'org.geotools'
+            includeGroup 'org.geotools.ogc'
+            includeGroup 'org.eclipse.imagen'
+            includeGroup 'it.geosolutions.jgridshift'
+        }
+    }
 }
 
 dependencies {
@@ -32,9 +41,17 @@ dependencies {
     implementation(libs.jts.io.common)
 
     // pmtiles support
+    implementation(libs.planetiler.core) {
+        // Eliminate a duplicate binding warning emitted on stderr at startup by SLF4J.
+        //
+        // "libraries or frameworks should not declare a dependency on any SLF4J binding but only
+        //  depend on slf4j-api. When a library declares a compile-time dependency on a SLF4J
+        //  binding, it imposes that binding on the end-user, thus negating SLF4J's purpose."
+        // https://www.slf4j.org/codes.html#multiple_bindings
+        exclude group: 'org.apache.logging.log4j', module: 'log4j-slf4j2-impl'
+    }
     implementation(platform(libs.tileverse.io))
     implementation(libs.tileverse.rangereader.all)
-    implementation(libs.tileverse.pmtiles)
 
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)

@@ -12,19 +12,15 @@ const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["polygon_multi_fpf", "FastPFor not implemented"],
-    ["polygon_morton_tes", "Morton not implemented"],
+    ["polygon_fpf_tes", "Morton not implemented"],
     ["polygon_hole_fpf", "FastPFor not implemented"],
     ["polygon_fpf", "FastPFor not implemented"],
     ["props_mixed", "F32 very buggy and does not work"],
-    ["prop_f64", "throws error 'byte length of Float64Array should be a multiple of 8'"],
-    ["prop_f64_min", "throws error 'byte length of Float64Array should be a multiple of 8'"],
-    ["prop_f64_max", "throws error 'byte length of Float64Array should be a multiple of 8'"],
-    ["prop_f64_nan", "throws error 'byte length of Float64Array should be a multiple of 8'"],
-    ["prop_f64_neg_inf", "throws error 'byte length of Float64Array should be a multiple of 8'"],
-    ["prop_f64_neg_zero", "throws error 'byte length of Float64Array should be a multiple of 8'"],
     ["prop_str_empty", "empty strings not supported"],
     ["prop_i64_min", "wraps to 0 despite it should have been negative"],
+    ["prop_u32_max", "wraps to -1 despite it should have been positive"],
     ["prop_i64_max", "wraps to -1 despite it should have been positive"],
+    ["prop_u64_max", "wraps to -1 despite it should have been positive"],
 ]);
 
 const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");

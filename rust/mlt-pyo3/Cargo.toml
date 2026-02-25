@@ -1,7 +1,7 @@
 [package]
 name = "mlt-pyo3"
 description = "Python bindings for MapLibre Tile (MLT) format via PyO3"
-version = "0.1.0"
+version = "0.1.1"
 readme = "README.md"
 repository.workspace = true
 edition.workspace = true
@@ -12,14 +12,15 @@ rust-version.workspace = true
 
 [lib]
 name = "mlt_pyo3"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [features]
-default = []
+abi3 = ["pyo3/abi3-py39", "generate-import-lib"]
+generate-import-lib = ["pyo3/generate-import-lib"]
 
 [dependencies]
 geo-types.workspace = true
-mlt-core = { path = "../mlt-core" }
+mlt-core.workspace = true
 pyo3.workspace = true
 serde_json.workspace = true
 

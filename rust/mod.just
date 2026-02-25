@@ -180,6 +180,15 @@ release *args='': (just 'cargo-install' 'release-plz')
 semver *args: (just 'cargo-install' 'cargo-semver-checks')
     cargo semver-checks --all-features {{args}}
 
+# Sync the version field in mlt-pyo3/pyproject.toml to match mlt-pyo3/Cargo.toml
+sync-pyo3-version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VERSION=$({{just}} rust::get-crate-field version mlt-pyo3)
+    PYPROJECT="mlt-pyo3/pyproject.toml"
+    sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$PYPROJECT"
+    echo "Synced $PYPROJECT to version $VERSION"
+
 alias t := test
 # Run all tests
 test: && test-doc
@@ -197,9 +206,9 @@ test-doc: (docs '--document-private-items')
 test-fmt: (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
 
-# Use the experimental workspace publishing with --dry-run
+# Test workspace publishing with --dry-run
 test-publish:
-    cargo +nightly -Z package-workspace publish --dry-run
+    cargo publish --workspace --dry-run
 
 # Find unused dependencies
 udeps: (just 'cargo-install' 'cargo-udeps')
@@ -209,6 +218,80 @@ udeps: (just 'cargo-install' 'cargo-udeps')
 update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
+
+# Assert each .mlt in compare_dir exists in ref_dir and is binary-identical. Skip '_rust' files.
+_assert-synthetic-mlt-identity ref_dir='../test/synthetic/0x01' compare_dir='../test/synthetic/0x01-rust':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Ensure compare_dir exists.
+    if [[ ! -d "{{compare_dir}}" ]]; then
+        echo "::error::Compare directory {{compare_dir}} does not exist"
+        exit 1
+    fi
+
+    # Expand .mlt files; fail if none are found to avoid masking missing/failed generation.
+    shopt -s nullglob
+    mlt_files=( "{{compare_dir}}"/*.mlt )
+    shopt -u nullglob
+    if (( ${#mlt_files[@]} == 0 )); then
+        echo "::error::No .mlt files found in {{compare_dir}}"
+        exit 1
+    fi
+
+    for mlt in "${mlt_files[@]}"; do
+        base=$(basename "$mlt")
+        if [[ "$base" == *"-rust.mlt" ]]; then
+            continue
+        fi
+        ref="{{ref_dir}}/$base"
+        if [[ ! -f "$ref" ]]; then
+            echo "::error::File $mlt has no counterpart in {{ref_dir}}"
+            exit 1
+        elif ! cmp -s "$ref" "$mlt"; then
+            echo "::error::Binary difference: $base"
+            exit 1
+        fi
+    done
+    echo "All {{compare_dir}}/*.mlt files have identical counterparts in {{ref_dir}} (except *-rust.mlt)."
+
+# Generate synthetic .mlt files and ensure there are no duplicates
+generate-synthetic-mlts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf ../test/synthetic/0x01-rust
+    cargo run -p mlt-synthetics
+    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
+    {{just}} rust::_assert-synthetic-mlt-identity
+
+# checks that the contents of two synthetic directories are equal
+verify-synthetic-equality: generate-synthetic-mlts (just 'cargo-install' 'delta' 'git-delta')
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    DIR_A="../test/synthetic/0x01"
+    DIR_B="../test/synthetic/0x01-rust"
+
+    BIN="cargo run --quiet --"
+    find "$DIR_A" -type f -iname "*.mlt" | while read -r file_a; do
+      rel_path="$(realpath --relative-to="$DIR_A" "$file_a")"
+      file_b="$DIR_B/$rel_path"
+
+      if [[ -f "$file_b" ]]; then
+        if ! cmp -s "$file_a" "$file_b"; then
+          echo "Differences: $rel_path"
+          echo ""
+          diff -U20 \
+            --label "$file_a" \
+            <($BIN decode "$file_a") \
+            --label "$file_b" \
+            <($BIN decode "$file_b") \
+            | delta --side-by-side --file-modified-label "mlt decoded difference"
+        fi
+      else
+        echo "Missing in $DIR_B but present in $DIR_A: $rel_path"
+      fi
+    done
+
 
 [private]
 [working-directory: 'mlt-core']

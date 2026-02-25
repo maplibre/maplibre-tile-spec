@@ -22,6 +22,7 @@ use geo_types::Polygon;
 use mlt_core::geojson::{Coord32, FeatureCollection, Geom32};
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::parse_layers;
+use mlt_core::v01::GeometryType;
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -29,10 +30,11 @@ use ratatui::widgets::{Block, Borders};
 use rstar::{AABB, PointDistance, RTreeObject};
 
 use crate::ls::{
-    FileSortColumn, LsRow, MltFileInfo, analyze_tile_files, is_mvt_extension, is_tile_extension,
+    FileAlgorithm, FileSortColumn, LsRow, analyze_tile_files, is_mvt_extension, is_tile_extension,
 };
 use crate::ui::rendering::files::{
     render_file_browser, render_file_filter_panel, render_file_info_panel,
+    render_tile_preview_panel,
 };
 use crate::ui::rendering::help::{render_error_popup, render_help_overlay};
 use crate::ui::rendering::layers::{render_properties_panel, render_tree_panel};
@@ -76,16 +78,9 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
             );
         }
         let base = args.path.clone();
-        let files: Vec<_> = paths
+        let files: Vec<LsRow> = paths
             .iter()
-            .map(|p| {
-                (
-                    p.clone(),
-                    LsRow::Loading {
-                        path: crate::ls::relative_path(p, &base),
-                    },
-                )
-            })
+            .map(|p| LsRow::Loading { path: p.clone() })
             .collect();
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || {
@@ -112,6 +107,33 @@ fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
             layer.decode_all()?;
         }
         Ok(FeatureCollection::from_layers(&layers)?)
+    }
+}
+
+fn extent_from_fc(fc: &FeatureCollection) -> f64 {
+    fc.features
+        .first()
+        .and_then(|f| {
+            f.properties
+                .get("_extent")
+                .and_then(serde_json::Value::as_f64)
+        })
+        .unwrap_or(4096.0)
+}
+
+fn refresh_tile_preview(app: &mut App) {
+    let path = if let Some(r) = app.get_selected_file() {
+        r.path().to_path_buf()
+    } else {
+        app.preview_tile_path = None;
+        app.preview_fc = None;
+        app.preview_load_requested = None;
+        return;
+    };
+    if !is_tile_extension(&path) {
+        app.preview_tile_path = None;
+        app.preview_fc = None;
+        app.preview_load_requested = None;
     }
 }
 
@@ -161,7 +183,7 @@ fn find_tile_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
     }
     let mut files = Vec::new();
     visit(dir, &mut files)?;
-    files.sort();
+    files.sort_unstable();
     Ok(files)
 }
 
@@ -291,6 +313,24 @@ fn pct_at(pos: u16, origin: u16, span: u16) -> u16 {
     pct.clamp(10, 90)
 }
 
+const FILE_RIGHT_PANEL_MIN: u16 = 20;
+fn file_browser_preview_pct_clamped(pct: u16, filter_pct: u16) -> u16 {
+    pct.clamp(
+        FILE_RIGHT_PANEL_MIN,
+        100u16
+            .saturating_sub(FILE_RIGHT_PANEL_MIN)
+            .saturating_sub(filter_pct),
+    )
+}
+fn file_browser_filter_pct_clamped(pct: u16, preview_pct: u16) -> u16 {
+    pct.clamp(
+        FILE_RIGHT_PANEL_MIN,
+        100u16
+            .saturating_sub(FILE_RIGHT_PANEL_MIN)
+            .saturating_sub(preview_pct),
+    )
+}
+
 fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyhow::Result<()> {
     let mut map_area: Option<Rect> = None;
     let mut tree_area: Option<Rect> = None;
@@ -298,16 +338,18 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
     let mut left_area: Option<Rect> = None;
     let mut filter_area: Option<Rect> = None;
     let mut info_area: Option<Rect> = None;
+    let mut preview_area: Option<Rect> = None;
+    let mut right_col: Option<Rect> = None;
     let mut file_left: Option<Rect> = None;
     let mut last_tree_click: Option<(Instant, usize)> = None;
     let mut last_file_click: Option<(Instant, usize)> = None;
 
     loop {
         if let Some(rows) = app.analysis_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
-            if rows.len() == app.mlt_files.len() {
+            if rows.len() == app.files.len() {
                 for (i, row) in rows.into_iter().enumerate() {
-                    if let Some(e) = app.mlt_files.get_mut(i) {
-                        e.1 = row;
+                    if let Some(e) = app.files.get_mut(i) {
+                        *e = row;
                     }
                 }
             }
@@ -315,11 +357,51 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
             app.rebuild_filtered_files();
         }
 
+        if let Some((path, result)) = app.preview_rx.as_mut().and_then(|rx| rx.try_recv().ok()) {
+            app.preview_rx = None;
+            app.preview_load_requested = None;
+            if app.get_selected_file().map(LsRow::path) == Some(path.as_path()) {
+                if let Ok((fc, ext)) = result {
+                    app.preview_tile_path = Some(path);
+                    app.preview_fc = Some(fc);
+                    app.preview_extent = ext;
+                } else {
+                    app.preview_tile_path = Some(path);
+                    app.preview_fc = None;
+                }
+            }
+            app.invalidate();
+        }
+        if app.mode == ViewMode::FileBrowser
+            && let Some(selected) = app.get_selected_file()
+        {
+            let path = selected.path().to_path_buf();
+            if is_tile_extension(&path)
+                && (app.preview_tile_path.as_ref() != Some(&path) || app.preview_fc.is_none())
+                && app.preview_load_requested.as_ref() != Some(&path)
+            {
+                let (tx, rx) = mpsc::channel();
+                app.preview_rx = Some(rx);
+                app.preview_load_requested = Some(path.clone());
+                let path_spawn = path.clone();
+                thread::spawn(move || {
+                    let result = load_fc(&path_spawn)
+                        .map(|fc| {
+                            let ext = extent_from_fc(&fc);
+                            (fc, ext)
+                        })
+                        .map_err(|_| ());
+                    let _ = tx.send((path_spawn, result));
+                });
+            }
+        }
+
         if app.needs_redraw {
             app.needs_redraw = false;
             terminal.draw(|f| {
                 match app.mode {
                     ViewMode::FileBrowser => {
+                        refresh_tile_preview(app);
                         let cols = Layout::default()
                             .direction(Direction::Horizontal)
                             .constraints([
@@ -327,16 +409,33 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 Constraint::Percentage(100u16.saturating_sub(app.file_left_pct)),
                             ])
                             .split(f.area());
+                        let right_pct = file_browser_preview_pct_clamped(
+                            app.file_preview_pct,
+                            app.file_filter_pct,
+                        );
+                        let filter_pct =
+                            file_browser_filter_pct_clamped(app.file_filter_pct, right_pct);
+                        app.file_preview_pct = right_pct;
+                        app.file_filter_pct = filter_pct;
                         let right = Layout::default()
                             .direction(Direction::Vertical)
-                            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                            .constraints([
+                                Constraint::Percentage(right_pct),
+                                Constraint::Percentage(filter_pct),
+                                Constraint::Percentage(
+                                    100u16.saturating_sub(right_pct).saturating_sub(filter_pct),
+                                ),
+                            ])
                             .split(cols[1]);
                         render_file_browser(f, cols[0], app);
-                        render_file_filter_panel(f, right[0], app);
-                        render_file_info_panel(f, right[1], app);
+                        render_tile_preview_panel(f, right[0], app);
+                        render_file_filter_panel(f, right[1], app);
+                        render_file_info_panel(f, right[2], app);
                         file_left = Some(cols[0]);
-                        filter_area = Some(right[0]);
-                        info_area = Some(right[1]);
+                        right_col = Some(cols[1]);
+                        preview_area = Some(right[0]);
+                        filter_area = Some(right[1]);
+                        info_area = Some(right[2]);
                     }
                     ViewMode::LayerOverview => {
                         let cols = Layout::default()
@@ -482,6 +581,23 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 ResizeHandle::FileBrowserLeftRight => {
                                     app.file_left_pct = pct_at(mouse.column, area.x, area.width);
                                 }
+                                ResizeHandle::FileBrowserPreviewFilter => {
+                                    if let Some(rc) = right_col {
+                                        app.file_preview_pct = file_browser_preview_pct_clamped(
+                                            pct_at(mouse.row, rc.y, rc.height),
+                                            app.file_filter_pct,
+                                        );
+                                    }
+                                }
+                                ResizeHandle::FileBrowserFilterInfo => {
+                                    if let Some(rc) = right_col {
+                                        app.file_filter_pct = file_browser_filter_pct_clamped(
+                                            pct_at(mouse.row, rc.y, rc.height)
+                                                .saturating_sub(app.file_preview_pct),
+                                            app.file_preview_pct,
+                                        );
+                                    }
+                                }
                             }
                             app.invalidate();
                             continue;
@@ -538,6 +654,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             }
                             if info_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
                             {
+                                app.file_info_scroll = scroll_by(app.file_info_scroll, step, up);
+                                app.invalidate();
                                 continue;
                             }
                         }
@@ -586,10 +704,34 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     continue;
                                 }
                             }
+                            if let (Some(pa), Some(fa)) = (preview_area, filter_area) {
+                                let dy_preview = pa.y + pa.height;
+                                if mouse.row >= dy_preview.saturating_sub(DIVIDER_GRAB)
+                                    && mouse.row < dy_preview.saturating_add(DIVIDER_GRAB)
+                                    && right_col.is_some_and(|rc| {
+                                        point_in_rect(mouse.column, mouse.row, rc)
+                                    })
+                                {
+                                    app.resizing = Some(ResizeHandle::FileBrowserPreviewFilter);
+                                    app.invalidate();
+                                    continue;
+                                }
+                                let dy_filter = fa.y + fa.height;
+                                if mouse.row >= dy_filter.saturating_sub(DIVIDER_GRAB)
+                                    && mouse.row < dy_filter.saturating_add(DIVIDER_GRAB)
+                                    && right_col.is_some_and(|rc| {
+                                        point_in_rect(mouse.column, mouse.row, rc)
+                                    })
+                                {
+                                    app.resizing = Some(ResizeHandle::FileBrowserFilterInfo);
+                                    app.invalidate();
+                                    continue;
+                                }
+                            }
                             if let Some(fa) = filter_area
                                 && point_in_rect(mouse.column, mouse.row, fa)
                             {
-                                let row = (mouse.row.saturating_sub(fa.y + 1)) as usize
+                                let row = mouse.row.saturating_sub(fa.y + 1) as usize
                                     + app.filter_scroll as usize;
                                 handle_filter_click(app, row);
                                 continue;
@@ -597,9 +739,9 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             if let Some(ia) = info_area
                                 && point_in_rect(mouse.column, mouse.row, ia)
                                 && app.filtered_file_indices.is_empty()
-                                && !app.mlt_files.is_empty()
+                                && !app.files.is_empty()
                             {
-                                let row = (mouse.row.saturating_sub(ia.y + 1)) as usize;
+                                let row = mouse.row.saturating_sub(ia.y + 1) as usize;
                                 if row == 2 {
                                     app.ext_filters.clear();
                                     app.geom_filters.clear();
@@ -710,9 +852,9 @@ fn scroll_by(val: u16, step: u16, up: bool) -> u16 {
 // --- Filtering ---
 
 fn handle_filter_click(app: &mut App, row: usize) {
-    let exts = collect_extensions(&app.mlt_files);
-    let geoms = collect_file_values(&app.mlt_files, MltFileInfo::geometries);
-    let algos = collect_file_values(&app.mlt_files, MltFileInfo::algorithms);
+    let exts = collect_extensions(&app.files);
+    let geoms = collect_file_geometries(&app.files);
+    let algos = collect_file_algorithms(&app.files);
 
     let ext_start = 3;
     let ext_end = ext_start + exts.len();
@@ -726,60 +868,64 @@ fn handle_filter_click(app: &mut App, row: usize) {
         app.geom_filters.clear();
         app.algo_filters.clear();
     } else if row >= ext_start && row < ext_end {
-        toggle_set(&mut app.ext_filters, &exts[row - ext_start]);
+        toggle_set_string(&mut app.ext_filters, &exts[row - ext_start]);
     } else if row >= geom_start && row < geom_end {
-        toggle_set(&mut app.geom_filters, &geoms[row - geom_start]);
+        toggle_set(&mut app.geom_filters, geoms[row - geom_start]);
     } else if row >= algo_start && row < algo_end {
-        toggle_set(&mut app.algo_filters, &algos[row - algo_start]);
+        toggle_set(&mut app.algo_filters, algos[row - algo_start]);
     }
     app.rebuild_filtered_files();
 }
 
-fn toggle_set(set: &mut HashSet<String>, val: &str) {
+fn toggle_set<T: Eq + std::hash::Hash>(set: &mut HashSet<T>, val: T) {
+    if !set.remove(&val) {
+        set.insert(val);
+    }
+}
+
+fn toggle_set_string(set: &mut HashSet<String>, val: &str) {
     if !set.remove(val) {
         set.insert(val.to_string());
     }
 }
 
-fn geom_abbrev_to_full(abbrev: &str) -> &str {
-    match abbrev {
-        "Pt" => "Point",
-        "Line" => "LineString",
-        "Poly" => "Polygon",
-        "MPt" => "MultiPoint",
-        "MLine" => "MultiLineString",
-        "MPoly" => "MultiPolygon",
-        other => other,
-    }
-}
-
-fn collect_file_values(files: &[(PathBuf, LsRow)], field: fn(&MltFileInfo) -> &str) -> Vec<String> {
+pub(crate) fn collect_file_geometries(files: &[LsRow]) -> Vec<GeometryType> {
     let mut set = HashSet::new();
-    for (_, row) in files {
-        if let LsRow::Info(info) = row {
-            for v in field(info)
-                .split(',')
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-            {
-                set.insert(v.to_string());
+    for row in files {
+        if let LsRow::Info(_, info) = row {
+            for g in &info.geometries {
+                set.insert(*g);
             }
         }
     }
     let mut v: Vec<_> = set.into_iter().collect();
-    v.sort();
+    v.sort_unstable();
     v
 }
 
-fn collect_extensions(files: &[(PathBuf, LsRow)]) -> Vec<String> {
+pub(crate) fn collect_file_algorithms(files: &[LsRow]) -> Vec<FileAlgorithm> {
     let mut set = HashSet::new();
-    for (path, _) in files {
-        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+    for row in files {
+        if let LsRow::Info(_, info) = row {
+            for a in &info.algorithms {
+                set.insert(*a);
+            }
+        }
+    }
+    let mut v: Vec<_> = set.into_iter().collect();
+    v.sort_by_key(FileAlgorithm::to_string);
+    v
+}
+
+fn collect_extensions(files: &[LsRow]) -> Vec<String> {
+    let mut set = HashSet::new();
+    for row in files {
+        if let Some(ext) = row.path().extension().and_then(|e| e.to_str()) {
             set.insert(ext.to_lowercase());
         }
     }
     let mut v: Vec<_> = set.into_iter().collect();
-    v.sort();
+    v.sort_unstable();
     v
 }
 

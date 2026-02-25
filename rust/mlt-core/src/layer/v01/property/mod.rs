@@ -1,10 +1,9 @@
-mod decode;
+pub(crate) mod decode;
 
 use std::fmt::{self, Debug};
 use std::io::Write;
 
 use borrowme::borrowme;
-use derive_builder::Builder;
 use integer_encoding::VarIntWriter as _;
 
 use crate::MltError::{IntegerOverflow, NotImplemented};
@@ -16,8 +15,8 @@ use crate::utils::{
 };
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{
-    ColumnType, LogicalCodec, LogicalEncoding, OwnedEncodedData, OwnedStream, OwnedStreamData,
-    PhysicalCodec, PhysicalEncoding, PhysicalStreamType, Stream, StreamMeta,
+    ColumnType, Encoder, LogicalEncoder, LogicalEncoding, OwnedEncodedData, OwnedStream,
+    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, RleMeta, Stream, StreamMeta, StreamType,
 };
 use crate::{FromDecoded, MltError, impl_encodable};
 
@@ -229,7 +228,7 @@ impl Default for OwnedEncodedProperty {
         Self {
             name: String::default(),
             optional: None,
-            value: OwnedEncodedPropValue::Bool(OwnedStream::empty_without_codec()),
+            value: OwnedEncodedPropValue::Bool(OwnedStream::empty_without_encoding()),
         }
     }
 }
@@ -429,12 +428,62 @@ impl<'a> Property<'a> {
     }
 }
 
+/// How to encode string properties
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum StringEncoding {
+    /// Plain encoding: length stream + data stream
+    #[default]
+    Plain,
+    /// FSST encoding: symbol lengths + symbol table + value lengths + compressed corpus
+    ///
+    /// Note: The FSST algorithm implementation may differ from Java's, so the
+    /// compressed output may not be byte-for-byte identical. Both implementations
+    /// are semantically compatible and can decode each other's output.
+    Fsst,
+}
+
 /// How to encode properties
-#[derive(Debug, Clone, Copy, Builder)]
-pub struct PropertyEncodingStrategy {
-    optional: PresenceStream,
-    logical: LogicalEncoding,
-    physical: PhysicalEncoding,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PropertyEncoder {
+    pub optional: PresenceStream,
+    pub logical: LogicalEncoder,
+    pub physical: PhysicalEncoder,
+    pub string_encoding: StringEncoding,
+}
+impl PropertyEncoder {
+    #[must_use]
+    pub fn new(
+        optional: PresenceStream,
+        logical: LogicalEncoder,
+        physical: PhysicalEncoder,
+    ) -> Self {
+        Self {
+            optional,
+            logical,
+            physical,
+            string_encoding: StringEncoding::Plain,
+        }
+    }
+
+    /// Create a property encoder with FSST string encoding
+    #[must_use]
+    pub fn with_fsst(
+        optional: PresenceStream,
+        logical: LogicalEncoder,
+        physical: PhysicalEncoder,
+    ) -> Self {
+        Self {
+            optional,
+            logical,
+            physical,
+            string_encoding: StringEncoding::Fsst,
+        }
+    }
+
+    #[must_use]
+    pub fn encoder(self) -> Encoder {
+        Encoder::new(self.logical, self.physical)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -447,23 +496,29 @@ pub enum PresenceStream {
 
 impl FromDecoded<'_> for OwnedEncodedProperty {
     type Input = DecodedProperty;
-    type EncodingStrategy = PropertyEncodingStrategy;
+    type Encoder = PropertyEncoder;
 
-    fn from_decoded(
-        decoded: &Self::Input,
-        config: Self::EncodingStrategy,
-    ) -> Result<Self, MltError> {
+    fn from_decoded(decoded: &Self::Input, config: Self::Encoder) -> Result<Self, MltError> {
         use {OwnedEncodedPropValue as EncVal, PropValue as Val};
         let optional = if config.optional == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
+            let num_values = u32::try_from(present_vec.len())?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present_vec));
+            // Presence streams always use byte-RLE encoding.
+            // The RleMeta values are computed by readers from the stream itself
+            // (runs = num_values.div_ceil(8), num_rle_values = byte_length).
+            let runs = num_values.div_ceil(8);
+            let num_rle_values = u32::try_from(data.len())?;
             Some(OwnedStream {
-                meta: StreamMeta {
-                    physical_type: PhysicalStreamType::Present,
-                    num_values: u32::try_from(present_vec.len())?,
-                    logical_codec: LogicalCodec::None,
-                    physical_codec: PhysicalCodec::None,
-                },
+                meta: StreamMeta::new(
+                    StreamType::Present,
+                    LogicalEncoding::Rle(RleMeta {
+                        runs,
+                        num_rle_values,
+                    }),
+                    PhysicalEncoding::None,
+                    num_values,
+                ),
                 data: OwnedStreamData::Encoded(OwnedEncodedData { data }),
             })
         } else {
@@ -474,51 +529,27 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             Val::Bool(b) => EncVal::Bool(OwnedStream::encode_bools(&unapply_presence(b))?),
             Val::I8(i) => {
                 let vals = unapply_presence(i);
-                EncVal::I8(OwnedStream::encode_i8s(
-                    &vals,
-                    config.logical,
-                    config.physical,
-                )?)
+                EncVal::I8(OwnedStream::encode_i8s(&vals, config.encoder())?)
             }
             Val::U8(u) => {
                 let values = unapply_presence(u);
-                EncVal::U8(OwnedStream::encode_u8s(
-                    &values,
-                    config.logical,
-                    config.physical,
-                )?)
+                EncVal::U8(OwnedStream::encode_u8s(&values, config.encoder())?)
             }
             Val::I32(i) => {
                 let vals = unapply_presence(i);
-                EncVal::I32(OwnedStream::encode_i32s(
-                    &vals,
-                    config.logical,
-                    config.physical,
-                )?)
+                EncVal::I32(OwnedStream::encode_i32s(&vals, config.encoder())?)
             }
             Val::U32(u) => {
                 let vals = unapply_presence(u);
-                EncVal::U32(OwnedStream::encode_u32s(
-                    &vals,
-                    config.logical,
-                    config.physical,
-                )?)
+                EncVal::U32(OwnedStream::encode_u32s(&vals, config.encoder())?)
             }
             Val::I64(i) => {
                 let vals = unapply_presence(i);
-                EncVal::I64(OwnedStream::encode_i64s(
-                    &vals,
-                    config.logical,
-                    config.physical,
-                )?)
+                EncVal::I64(OwnedStream::encode_i64s(&vals, config.encoder())?)
             }
             Val::U64(u) => {
                 let vals = unapply_presence(u);
-                EncVal::U64(OwnedStream::encode_u64s(
-                    &vals,
-                    config.logical,
-                    config.physical,
-                )?)
+                EncVal::U64(OwnedStream::encode_u64s(&vals, config.encoder())?)
             }
             Val::F32(f) => {
                 let vals = unapply_presence(f);
@@ -533,7 +564,18 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                 let values = values.iter().map(|&f| f as f32).collect::<Vec<_>>();
                 EncVal::F64(OwnedStream::encode_f32(&values)?)
             }
-            Val::Str(_) => Err(NotImplemented("string property encoding"))?,
+            Val::Str(s) => {
+                let values = unapply_presence(s);
+                let streams = match config.string_encoding {
+                    StringEncoding::Plain => {
+                        OwnedStream::encode_strings(&values, config.encoder())?
+                    }
+                    StringEncoding::Fsst => {
+                        OwnedStream::encode_strings_fsst(&values, config.encoder())?
+                    }
+                };
+                EncVal::Str(streams)
+            }
             Val::Struct => Err(NotImplemented("struct property encoding"))?,
         };
 
@@ -590,11 +632,16 @@ mod tests {
 
     use super::*;
 
+    /// Strategy for [`PhysicalEncoder`] that excludes `FastPFOR` to support 64bit ints
+    fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {
+        any::<PhysicalEncoder>().prop_filter("not fastpfor", |v| *v != PhysicalEncoder::FastPFOR)
+    }
+
     /// Encode a `DecodedProperty` and immediately decode it back.
-    fn roundtrip(decoded: &DecodedProperty, strategy: PropertyEncodingStrategy) -> DecodedProperty {
-        let encoded =
-            OwnedEncodedProperty::from_decoded(decoded, strategy).expect("encoding failed");
-        let borrowed = borrowme::borrow(&encoded);
+    fn roundtrip(decoded: &DecodedProperty, encoder: PropertyEncoder) -> DecodedProperty {
+        let encoded_data =
+            OwnedEncodedProperty::from_decoded(decoded, encoder).expect("encoding failed");
+        let borrowed = borrowme::borrow(&encoded_data);
         DecodedProperty::from_encoded(borrowed).expect("decoding failed")
     }
 
@@ -605,12 +652,12 @@ mod tests {
             values in prop::collection::vec(prop::option::of(any::<bool>()), 0..100),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::Bool(values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Present,
-                logical: LogicalEncoding::None,
-                physical: PhysicalEncoding::None,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(
+                PresenceStream::Present,
+                LogicalEncoder::None,
+                PhysicalEncoder::None,
+            );
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
@@ -620,213 +667,165 @@ mod tests {
         ) {
             let opt_values: Vec<Option<bool>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::Bool(opt_values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Absent,
-                logical: LogicalEncoding::None,
-                physical: PhysicalEncoding::None,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(
+                PresenceStream::Absent,
+                LogicalEncoder::None,
+                PhysicalEncoder::VarInt,
+            );
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
         fn test_i8_present_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<i8>()), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>(),
+            logical in any::<LogicalEncoder>(),
+            physical in any::<PhysicalEncoder>(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::I8(values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Present,
-                logical,
-                physical,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(PresenceStream::Present, logical, physical);
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
         fn test_i8_absent_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(any::<i8>(), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>(),
+            logical in any::<LogicalEncoder>(),
+            physical in any::<PhysicalEncoder>(),
         ) {
             let opt_values: Vec<Option<i8>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::I8(opt_values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Absent,
-                logical,
-                physical,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(PresenceStream::Absent, logical, physical);
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
         fn test_u8_present_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<u8>()), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>(),
+            logical in any::<LogicalEncoder>(),
+            physical in any::<PhysicalEncoder>(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::U8(values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Present,
-                logical,
-                physical,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(PresenceStream::Present, logical, physical);
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
         fn test_u8_absent_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(any::<u8>(), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>(),
+            logical in any::<LogicalEncoder>(),
+            physical in any::<PhysicalEncoder>(),
         ) {
             let opt_values: Vec<Option<u8>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::U8(opt_values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Absent,
-                logical,
-                physical,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(PresenceStream::Absent, logical, physical);
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
         fn test_i32_present_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<i32>()), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>(),
+            logical in any::<LogicalEncoder>(),
+            physical in any::<PhysicalEncoder>(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::I32(values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Present,
-                logical,
-                physical,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(PresenceStream::Present, logical, physical);
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
         fn test_i32_absent_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(any::<i32>(), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>(),
+            logical in any::<LogicalEncoder>(),
+            physical in any::<PhysicalEncoder>(),
         ) {
             let opt_values: Vec<Option<i32>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::I32(opt_values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Absent,
-                logical,
-                physical,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(PresenceStream::Absent, logical, physical);
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
         fn test_u32_present_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<u32>()), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>(),
+            logical in any::<LogicalEncoder>(),
+            physical in any::<PhysicalEncoder>(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::U32(values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Present,
-                logical,
-                physical,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(PresenceStream::Present, logical, physical);
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
         fn test_u32_absent_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(any::<u32>(), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>(),
+            logical in any::<LogicalEncoder>(),
+            physical in any::<PhysicalEncoder>(),
         ) {
             let opt_values: Vec<Option<u32>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::U32(opt_values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Absent,
-                logical,
-                physical,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(PresenceStream::Absent, logical, physical);
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
         fn test_i64_present_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<i64>()), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>(),
+            logical in any::<LogicalEncoder>(),
+            physical in physical_no_fastpfor(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::I64(values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Present,
-                logical,
-                physical,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(PresenceStream::Present, logical, physical);
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
         fn test_i64_absent_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(any::<i64>(), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>(),
+            logical in any::<LogicalEncoder>(),
+            physical in physical_no_fastpfor(),
         ) {
             let opt_values: Vec<Option<i64>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::I64(opt_values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Absent,
-                logical,
-                physical,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(PresenceStream::Absent, logical, physical);
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
         fn test_u64_present_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(prop::option::of(any::<u64>()), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>(),
+            logical in any::<LogicalEncoder>(),
+            physical in physical_no_fastpfor(),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::U64(values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Present,
-                logical,
-                physical,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(PresenceStream::Present, logical, physical);
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
         fn test_u64_absent_roundtrip(
             name in any::<String>(),
             values in prop::collection::vec(any::<u64>(), 0..100),
-            logical in any::<LogicalEncoding>(),
-            physical in any::<PhysicalEncoding>(),
+            logical in any::<LogicalEncoder>(),
+            physical in physical_no_fastpfor(),
         ) {
             let opt_values: Vec<Option<u64>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::U64(opt_values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Absent,
-                logical,
-                physical,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(PresenceStream::Absent, logical, physical);
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
-        /// F32 values are stored verbatim (no logical/physical codec selection).
+        /// F32 values are stored verbatim (no logical/physical encoding selection).
         /// NaN is excluded because NaN != NaN breaks equality checks.
         #[test]
         fn test_f32_present_roundtrip(
@@ -837,12 +836,12 @@ mod tests {
             ),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::F32(values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Present,
-                logical: LogicalEncoding::None,
-                physical: PhysicalEncoding::None,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(
+                PresenceStream::Present,
+                LogicalEncoder::None,
+                PhysicalEncoder::None,
+            );
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
@@ -855,12 +854,12 @@ mod tests {
         ) {
             let opt_values: Vec<Option<f32>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::F32(opt_values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Absent,
-                logical: LogicalEncoding::None,
-                physical: PhysicalEncoding::None,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(
+                PresenceStream::Absent,
+                LogicalEncoder::None,
+                PhysicalEncoder::VarInt,
+            );
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         /// F64 is stored as F32 on the wire, so we generate from f32 to avoid precision loss during the roundtrip comparison.
@@ -877,12 +876,12 @@ mod tests {
             ),
         ) {
             let decoded = DecodedProperty { name, values: PropValue::F64(values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Present,
-                logical: LogicalEncoding::None,
-                physical: PhysicalEncoding::None,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(
+                PresenceStream::Present,
+                LogicalEncoder::None,
+                PhysicalEncoder::None,
+            );
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
 
         #[test]
@@ -897,12 +896,12 @@ mod tests {
         ) {
             let opt_values: Vec<Option<f64>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::F64(opt_values) };
-            let strategy = PropertyEncodingStrategy {
-                optional: PresenceStream::Absent,
-                logical: LogicalEncoding::None,
-                physical: PhysicalEncoding::None,
-            };
-            prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
+            let encoder = PropertyEncoder::new(
+                PresenceStream::Absent,
+                LogicalEncoder::None,
+                PhysicalEncoder::VarInt,
+            );
+            prop_assert_eq!(roundtrip(&decoded, encoder), decoded);
         }
     }
 }
