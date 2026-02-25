@@ -124,7 +124,7 @@ private:
     template <typename T>
     BufWrapper<T> getTempBuffer(std::size_t minSize) {
         buffer.resize(std::max(buffer.size(), bufferIndex + 1));
-        buffer[bufferIndex].resize(std::max(buffer.size(), minSize * sizeof(T)));
+        buffer[bufferIndex].resize(std::max(buffer[bufferIndex].size(), minSize * sizeof(T)));
         return {*this, buffer[bufferIndex].data()};
     }
 
