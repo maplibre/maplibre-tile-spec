@@ -19,7 +19,7 @@ name = "stub_gen"
 path = "src/bin/stub_gen.rs"
 
 [features]
-abi3 = ["pyo3/abi3-py39", "generate-import-lib"]
+abi3 = ["pyo3/abi3-py310", "generate-import-lib"]
 generate-import-lib = ["pyo3/generate-import-lib"]
 
 [dependencies]
