@@ -98,7 +98,7 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
                 },
             ));
         });
-        App::new_file_browser(files, Some(rx))
+        App::new_file_browser(files, Some(rx), args.path.clone())
     } else if args.path.is_file() {
         App::new_single_file(load_fc(&args.path)?, Some(args.path.clone()))
     } else {
@@ -112,13 +112,13 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
 fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
     let buf = fs::read(path)?;
     if is_mlt_extension(path) {
-        Ok(mvt_to_feature_collection(buf)?)
-    } else {
         let mut layers = parse_layers(&buf)?;
         for layer in &mut layers {
             layer.decode_all()?;
         }
         Ok(FeatureCollection::from_layers(&layers)?)
+    } else {
+        Ok(mvt_to_feature_collection(buf)?)
     }
 }
 
@@ -215,9 +215,10 @@ fn click_row_in_area(col: u16, row: u16, area: Rect, scroll: usize) -> Option<us
 const HIGHLIGHT_SYMBOL_WIDTH: u16 = 3;
 const COLUMN_SPACING: u16 = 1;
 
+/// Table has 6 columns: File, Size, Enc %, Layers, Features, Notes. Notes is not sortable.
 fn file_header_click_column(
     area: Rect,
-    widths: &[Constraint; 5],
+    widths: &[Constraint; 6],
     col: u16,
     row: u16,
 ) -> Option<FileSortColumn> {
@@ -228,14 +229,24 @@ fn file_header_click_column(
         vertical: 1,
         horizontal: 1,
     });
-    let resolved: Vec<u16> = widths
+    let fixed: u16 = widths
         .iter()
         .map(|c| match c {
-            Constraint::Length(l) | Constraint::Min(l) => *l,
+            Constraint::Length(l) => *l,
             _ => 0,
         })
-        .collect();
-    let mut x = inner.x + HIGHLIGHT_SYMBOL_WIDTH;
+        .sum();
+    let remaining = inner
+        .width
+        .saturating_sub(HIGHLIGHT_SYMBOL_WIDTH + fixed + 5 * COLUMN_SPACING);
+    let mut resolved = [0u16; 6];
+    for (i, c) in widths.iter().enumerate() {
+        resolved[i] = match c {
+            Constraint::Length(l) => *l,
+            Constraint::Min(_) => remaining,
+            _ => 0,
+        };
+    }
     let cols = [
         FileSortColumn::File,
         FileSortColumn::Size,
@@ -243,6 +254,7 @@ fn file_header_click_column(
         FileSortColumn::Layers,
         FileSortColumn::Features,
     ];
+    let mut x = inner.x + HIGHLIGHT_SYMBOL_WIDTH;
     for (i, &w) in resolved.iter().enumerate() {
         let end = if i == resolved.len() - 1 {
             inner.x + inner.width
@@ -250,7 +262,7 @@ fn file_header_click_column(
             x + w
         };
         if col >= x && col < end {
-            return Some(cols[i]);
+            return cols.get(i).copied();
         }
         x = end + COLUMN_SPACING;
     }
@@ -786,16 +798,14 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     mouse.row,
                                     area,
                                     app.file_list_state.offset(),
-                                ) && row > 0
-                                    && row <= app.filtered_file_indices.len()
+                                ) && row < app.filtered_file_indices.len()
                                 {
-                                    let r = row - 1;
                                     let dbl = last_file_click.is_some_and(|(t, prev)| {
-                                        prev == r && t.elapsed().as_millis() < 400
+                                        prev == row && t.elapsed().as_millis() < 400
                                     });
-                                    last_file_click = Some((Instant::now(), r));
-                                    app.selected_file_index = r;
-                                    app.file_list_state.select(Some(r));
+                                    last_file_click = Some((Instant::now(), row));
+                                    app.selected_file_index = row;
+                                    app.file_list_state.select(Some(row));
                                     app.invalidate_bounds();
                                     if dbl {
                                         app.handle_enter();
