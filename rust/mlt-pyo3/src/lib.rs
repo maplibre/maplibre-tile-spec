@@ -13,6 +13,8 @@ use mlt_core::{MltError, parse_layers};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
+use pyo3_stub_gen::define_stub_info_gatherer;
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
 use tile_transform::TileTransform;
 
 use crate::feature::MltFeature;
@@ -22,6 +24,7 @@ fn mlt_err(e: MltError) -> PyErr {
 }
 
 /// A decoded MLT layer containing features.
+#[gen_stub_pyclass]
 #[pyclass]
 struct MltLayer {
     #[pyo3(get)]
@@ -30,6 +33,19 @@ struct MltLayer {
     extent: u32,
     #[pyo3(get)]
     features: Vec<Py<MltFeature>>,
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl MltLayer {
+    fn __repr__(&self) -> String {
+        format!(
+            "MltLayer(name={:?}, extent={}, features=<{} features>)",
+            self.name,
+            self.extent,
+            self.features.len()
+        )
+    }
 }
 
 fn push_coord_raw(buf: &mut Vec<u8>, coord: [i32; 2]) {
@@ -219,11 +235,12 @@ fn build_features(
 /// `tms`: when True (the default), treat `y` as TMS convention (y=0 at south,
 /// used by OpenMapTiles / MBTiles). Set to False for XYZ / slippy-map tiles
 /// (y=0 at north, e.g. OSM raster tiles).
+#[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (data, z=None, x=None, y=None, tms=true))]
 fn decode_mlt(
     py: Python<'_>,
-    data: &[u8],
+    #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
     z: Option<u32>,
     x: Option<u32>,
     y: Option<u32>,
@@ -276,8 +293,11 @@ fn decode_mlt(
 }
 
 /// Decode an MLT binary blob and return GeoJSON as a string.
+#[gen_stub_pyfunction]
 #[pyfunction]
-fn decode_mlt_to_geojson(data: &[u8]) -> PyResult<String> {
+fn decode_mlt_to_geojson(
+    #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
+) -> PyResult<String> {
     let mut layers = parse_layers(data).map_err(mlt_err)?;
     for layer in &mut layers {
         layer.decode_all().map_err(mlt_err)?;
@@ -287,8 +307,11 @@ fn decode_mlt_to_geojson(data: &[u8]) -> PyResult<String> {
 }
 
 /// Return a list of layer names without fully decoding.
+#[gen_stub_pyfunction]
 #[pyfunction]
-fn list_layers(data: &[u8]) -> PyResult<Vec<String>> {
+fn list_layers(
+    #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
+) -> PyResult<Vec<String>> {
     let layers = parse_layers(data).map_err(mlt_err)?;
     Ok(layers
         .iter()
@@ -305,6 +328,8 @@ fn mlt_pyo3(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<MltFeature>()?;
     Ok(())
 }
+
+define_stub_info_gatherer!(stub_info);
 
 #[cfg(test)]
 mod tests {

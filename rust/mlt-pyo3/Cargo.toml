@@ -12,7 +12,7 @@ rust-version.workspace = true
 
 [lib]
 name = "mlt_pyo3"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [features]
 abi3 = ["pyo3/abi3-py39", "generate-import-lib"]
@@ -22,7 +22,12 @@ generate-import-lib = ["pyo3/generate-import-lib"]
 geo-types.workspace = true
 mlt-core.workspace = true
 pyo3.workspace = true
+pyo3-stub-gen.workspace = true
 serde_json.workspace = true
+
+[[bin]]
+name = "stub_gen"
+path = "src/bin/stub_gen.rs"
 
 [dev-dependencies]
 pyo3 = { workspace = true, features = ["auto-initialize"] }
