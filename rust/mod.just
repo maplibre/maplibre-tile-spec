@@ -166,7 +166,14 @@ msrv: (just 'cargo-install' 'cargo-msrv')
 # Build mlt-pyo3 and launch a Python interpreter with mlt_pyo3 pre-imported
 [working-directory: 'mlt-pyo3']
 py: (just 'cargo-install' 'maturin')
-    maturin develop --features extension-module
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -f ".venv" ]]; then
+        echo "Please make sure to create your virtual environment by running 'python -m venv .venv'"
+        exit 1
+    fi
+    source .venv/bin/activate
+    maturin develop
     python3 -i -c "import mlt_pyo3; print('mlt_pyo3 ready — try: mlt_pyo3.decode_mlt(data)')"
 
 py-publish:
