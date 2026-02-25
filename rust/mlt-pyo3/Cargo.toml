@@ -19,7 +19,7 @@ default = []
 
 [dependencies]
 geo-types.workspace = true
-mlt-core = { path = "../mlt-core" }
+mlt-core = { path = "../mlt-core", version = "0.1.0" }
 pyo3.workspace = true
 serde_json.workspace = true
 
