@@ -67,6 +67,10 @@ describe("MLT Decoder - Synthetic tests", () => {
             ]);
 
             const featureTables = decodeTile(mltBuffer, null, false);
+            if (testName.includes("morton")) {
+                const usesMorton = featureTables.some((table: any) => Boolean(table?.geometryVector?.mortonSettings));
+                expect(usesMorton).toBe(true);
+            }
             const actualJson = featureTablesToFeatureCollection(featureTables);
             const expectedJson = JSON5.parse(jsonRaw);
             expect(actualJson).toEqual(expectedJson);
