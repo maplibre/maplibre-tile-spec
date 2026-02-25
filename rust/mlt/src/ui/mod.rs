@@ -8,7 +8,7 @@ use std::fs::canonicalize;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::{fs, thread};
 
 use anyhow::bail;
@@ -30,7 +30,8 @@ use ratatui::widgets::{Block, Borders};
 use rstar::{AABB, PointDistance, RTreeObject};
 
 use crate::ls::{
-    FileAlgorithm, FileSortColumn, LsRow, analyze_tile_files, is_mvt_extension, is_tile_extension,
+    FileAlgorithm, FileSortColumn, LsFlags, LsRow, analyze_tile_files, is_mlt_extension,
+    is_tile_extension,
 };
 use crate::ui::rendering::files::{
     render_file_browser, render_file_filter_panel, render_file_info_panel,
@@ -62,6 +63,9 @@ pub const STYLE_SELECTED: Style = Style::new().fg(CLR_SELECTED).add_modifier(Mod
 pub const STYLE_LABEL: Style = Style::new().fg(CLR_LABEL);
 pub const STYLE_BOLD: Style = Style::new().add_modifier(Modifier::BOLD);
 
+/// Throttle hover-driven redraws so mouse move over map doesn't flood the loop
+const HOVER_REDRAW_THROTTLE: Duration = Duration::from_millis(32);
+
 #[derive(Args)]
 pub struct UiArgs {
     /// Path to a tile file (.mlt, .mvt, .pbf) or directory
@@ -84,7 +88,15 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
             .collect();
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || {
-            let _ = tx.send(analyze_tile_files(&paths, &base, true));
+            let _ = tx.send(analyze_tile_files(
+                &paths,
+                &base,
+                LsFlags {
+                    gzip: true,
+                    algorithms: true,
+                    validate: false,
+                },
+            ));
         });
         App::new_file_browser(files, Some(rx))
     } else if args.path.is_file() {
@@ -99,7 +111,7 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
 
 fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
     let buf = fs::read(path)?;
-    if is_mvt_extension(path) {
+    if is_mlt_extension(path) {
         Ok(mvt_to_feature_collection(buf)?)
     } else {
         let mut layers = parse_layers(&buf)?;
@@ -343,6 +355,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
     let mut file_left: Option<Rect> = None;
     let mut last_tree_click: Option<(Instant, usize)> = None;
     let mut last_file_click: Option<(Instant, usize)> = None;
+    let mut last_hover_redraw: Option<Instant> = None;
 
     loop {
         if let Some(rows) = app.analysis_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
@@ -469,7 +482,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
             })?;
         }
 
-        if event::poll(std::time::Duration::from_millis(16))? {
+        if event::poll(Duration::from_millis(16))? {
             match event::read()? {
                 Event::Key(key) if key.kind == KeyEventKind::Press => {
                     if key.modifiers.contains(KeyModifiers::CONTROL)
@@ -637,7 +650,12 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             }
                         }
                         if app.hovered != prev {
-                            app.invalidate();
+                            let allow = last_hover_redraw
+                                .is_none_or(|t| t.elapsed() >= HOVER_REDRAW_THROTTLE);
+                            if allow {
+                                last_hover_redraw = Some(Instant::now());
+                                app.invalidate();
+                            }
                         }
                     }
                     MouseEventKind::ScrollUp | MouseEventKind::ScrollDown => {
@@ -892,7 +910,7 @@ fn toggle_set_string(set: &mut HashSet<String>, val: &str) {
 pub(crate) fn collect_file_geometries(files: &[LsRow]) -> Vec<GeometryType> {
     let mut set = HashSet::new();
     for row in files {
-        if let LsRow::Info(_, info) = row {
+        if let LsRow::Info { info, .. } = row {
             for g in &info.geometries {
                 set.insert(*g);
             }
@@ -906,7 +924,7 @@ pub(crate) fn collect_file_geometries(files: &[LsRow]) -> Vec<GeometryType> {
 pub(crate) fn collect_file_algorithms(files: &[LsRow]) -> Vec<FileAlgorithm> {
     let mut set = HashSet::new();
     for row in files {
-        if let LsRow::Info(_, info) = row {
+        if let LsRow::Info { info, .. } = row {
             for a in &info.algorithms {
                 set.insert(*a);
             }

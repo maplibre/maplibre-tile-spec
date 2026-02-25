@@ -18,8 +18,11 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class ConversionHelper {
+///  Base class for sharing between PMTiles, MBTiles and offline database conversions
+class ConversionHelper {
   public static byte[] decompress(InputStream srcStream) throws IOException {
     InputStream decompressInputStream = null;
     // Check for common compression formats by looking at the header bytes
@@ -67,27 +70,69 @@ public class ConversionHelper {
     return src;
   }
 
-  static boolean vacuumDatabase(@NonNull Connection connection, int verboseLevel)
-      throws SQLException {
-    if (verboseLevel > 1) {
-      System.err.println("Optimizing database");
-    }
+  static boolean vacuumDatabase(@NonNull Connection connection) throws SQLException {
+    logger.debug("Optimizing database");
     try (final var stmt = connection.createStatement()) {
       stmt.execute("VACUUM");
       return true;
     } catch (SQLException ex) {
-      System.err.println("ERROR: Failed to optimize database: " + ex.getMessage());
-      logErrorStack(ex, verboseLevel);
+      logger.error("Failed to optimize database", ex);
     }
     return false;
   }
 
-  public static void logErrorStack(@Nullable Throwable ex, int verboseLevel) {
-    if (ex != null && verboseLevel > 1) {
-      ex.printStackTrace(System.err);
+  protected static final double DEFAULT_COMPRESSION_RATIO_THRESHOLD = 0.98;
+  protected static double COMPRESSION_RATIO_THRESHOLD = DEFAULT_COMPRESSION_RATIO_THRESHOLD;
+  protected static final long DEFAULT_COMPRESSION_FIXED_THRESHOLD = 20L;
+  protected static long COMPRESSION_FIXED_THRESHOLD = DEFAULT_COMPRESSION_FIXED_THRESHOLD;
+
+  protected static long TILE_LOG_INTERVAL = 10_000L;
+
+  private static final Logger logger = LoggerFactory.getLogger(ConversionHelper.class);
+
+  static {
+    try {
+      final var str = System.getenv("MLT_TILE_LOG_INTERVAL");
+      if (str != null) {
+        final var value = Long.parseUnsignedLong(str);
+        if (value > 0) {
+          logger.trace("Setting tile logging interval to {}", value);
+          TILE_LOG_INTERVAL = value;
+        }
+      }
+    } catch (Exception ex) {
+      logger.warn(
+          "Failed to parse MLT_TILE_LOG_INTERVAL, using default value of {}",
+          TILE_LOG_INTERVAL,
+          ex);
+    }
+    try {
+      final var str = System.getenv("MLT_COMPRESSION_RATIO_THRESHOLD");
+      if (str != null) {
+        final var value = Double.parseDouble(str);
+        if (value > 0 && value <= 1) {
+          logger.trace("Setting compression ratio threshold to {}", value);
+          COMPRESSION_RATIO_THRESHOLD = value;
+        }
+      }
+    } catch (Exception ex) {
+      logger.warn(
+          "Failed to parse MLT_COMPRESSION_RATIO_THRESHOLD, using default value of {}",
+          COMPRESSION_RATIO_THRESHOLD,
+          ex);
+    }
+    try {
+      final var str = System.getenv("MLT_COMPRESSION_FIXED_THRESHOLD");
+      if (str != null) {
+        final var value = Long.parseLong(str);
+        logger.trace("Setting compression fixed threshold to {}", value);
+        COMPRESSION_FIXED_THRESHOLD = value;
+      }
+    } catch (Exception ex) {
+      logger.warn(
+          "Failed to parse MLT_COMPRESSION_FIXED_THRESHOLD, using default value of {}",
+          COMPRESSION_FIXED_THRESHOLD,
+          ex);
     }
   }
-
-  static final double DEFAULT_COMPRESSION_RATIO_THRESHOLD = 0.98;
-  static final long DEFAULT_COMPRESSION_FIXED_THRESHOLD = 20L;
 }

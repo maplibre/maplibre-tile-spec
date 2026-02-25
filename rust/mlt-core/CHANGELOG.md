@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2](https://github.com/maplibre/maplibre-tile-spec/compare/mlt-core-v0.1.1...mlt-core-v0.1.2) - 2026-02-25
+
+### Added
+
+- Release done to test if some of the release automation is working. Should fix `cargo-binstall mlt`
+
 ## [0.1.1](https://github.com/maplibre/maplibre-tile-spec/compare/mlt-core-v0.1.0...mlt-core-v0.1.1) - 2026-02-25
 
 ### Added

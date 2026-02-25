@@ -109,7 +109,7 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         .and_then(|r| r.path().extension().and_then(|e| e.to_str()))
         .map(str::to_lowercase);
     let sel_info = selected_mlt.and_then(|r| match r {
-        LsRow::Info(_, i) => Some(i),
+        LsRow::Info { info, .. } => Some(info),
         _ => None,
     });
 
@@ -178,7 +178,7 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
 
 pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let info = app.get_selected_file().and_then(|r| match r {
-        LsRow::Info(_, i) => Some(i),
+        LsRow::Info { info, .. } => Some(info),
         _ => None,
     });
 

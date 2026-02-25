@@ -78,11 +78,6 @@ public class GeometryEncoder {
               TessellationUtils.tessellatePolygon(polygon, 0, tessellateSource);
           numTriangles.add(tessellatedPolygon.numTriangles());
           indexBuffer.addAll(tessellatedPolygon.indexBuffer());
-
-          if (polygon.getNumInteriorRing() > 500) {
-            System.err.println(
-                "Polygon with more than 500 rings ----------------------------------------------");
-          }
         }
         case MultiLineString multiLineString -> {
           // TODO: verify if part of a MultiPolygon or Polygon geometry add then to numRings?
@@ -100,12 +95,9 @@ public class GeometryEncoder {
           geometryTypes.add(GeometryType.MULTIPOLYGON.ordinal());
           var numPolygons = multiPolygon.getNumGeometries();
           numGeometries.add(numPolygons);
-          var numRings2 = 0;
           for (var i = 0; i < numPolygons; i++) {
             var polygon = (Polygon) multiPolygon.getGeometryN(i);
             flatPolygon(polygon, vertexBuffer, numParts, numRings);
-
-            numRings2 += polygon.getNumInteriorRing();
           }
 
           // TODO: use also a vertex dictionary encoding for MultiPolygon geometries
@@ -113,20 +105,15 @@ public class GeometryEncoder {
               TessellationUtils.tessellateMultiPolygon(multiPolygon, tessellateSource);
           numTriangles.add(tessellatedPolygon.numTriangles());
           indexBuffer.addAll(tessellatedPolygon.indexBuffer());
-
-          if (numRings2 > 500) {
-            System.err.println(
-                "MultiPolygon with more than 500 rings --------------------------------------------");
-          }
         }
         case MultiPoint multiPoint -> {
           geometryTypes.add(GeometryType.MULTIPOINT.ordinal());
           var numPoints = multiPoint.getNumGeometries();
           numGeometries.add(numPoints);
           for (var i = 0; i < numPoints; i++) {
-            var point = (Point) multiPoint.getGeometryN(i);
-            var x = (int) point.getX();
-            var y = (int) point.getY();
+            final var point = (Point) multiPoint.getGeometryN(i);
+            final var x = (int) point.getX();
+            final var y = (int) point.getY();
             vertexBuffer.add(new Vertex(x, y));
           }
         }

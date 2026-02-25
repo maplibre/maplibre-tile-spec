@@ -79,27 +79,6 @@ export function decodeFloatsLE(
     return fb;
 }
 
-export function decodeDoublesLE(
-    encodedValues: Uint8Array,
-    pos: IntWrapper,
-    numValues: number,
-    nullabilityBuffer?: BitVector,
-): Float64Array {
-    const currentPos = pos.get();
-    // Wire format stores DOUBLE as Float32 (4 bytes each), not Float64 (8 bytes)
-    const newOffset = currentPos + numValues * Float32Array.BYTES_PER_ELEMENT;
-    const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
-    const f32 = new Float32Array(newBuf);
-    const fb = Float64Array.from(f32); // Convert F32 -> F64
-    pos.set(newOffset);
-
-    if (nullabilityBuffer) {
-        return unpackNullable(fb, nullabilityBuffer, 0);
-    }
-
-    return fb;
-}
-
 const TEXT_DECODER_MIN_LENGTH = 12;
 const utf8TextDecoder = new TextDecoder();
 
