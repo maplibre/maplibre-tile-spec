@@ -1,55 +1,63 @@
 plugins {
-    id 'java-library'
-    id('com.diffplug.spotless') version '8.1.0'
-    id 'me.champeau.jmh' version '0.7.3'
+    alias(libs.plugins.diffplug.spotless)
+    alias(libs.plugins.maven.publish)
+    alias(libs.plugins.me.champeau.jmh)
     id 'jacoco'
-    id 'com.vanniktech.maven.publish' version '0.35.0'
+    id 'java-library'
 }
 
 repositories {
     mavenCentral()
     maven {
-        url 'https://maven.ecc.no/releases'
+        url = 'https://maven.ecc.no/releases'
     }
 }
 
 dependencies {
-    implementation 'com.carrotsearch:hppc:0.10.0'
-    implementation 'com.google.code.gson:gson:2.13.2'
-    implementation 'com.google.guava:guava:33.5.0-jre'
-    implementation 'org.maplibre:earcut4j:3.0.0'
-    implementation 'org.apache.commons:commons-lang3:3.20.0'
-    runtimeOnly 'com.google.protobuf:protobuf-java:4.33.2'
-    testImplementation 'io.github.sebasbaumh:mapbox-vector-tile-java:25.1.0'
-    api 'me.lemire.integercompression:JavaFastPFOR:0.3.10'
-    implementation 'no.ecc.vectortile:java-vector-tile:1.3.23'
-    implementation 'org.locationtech.jts:jts-core:1.20.0'
-    implementation 'org.slf4j:slf4j-simple:2.0.17'
-    implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
-    implementation 'org.jetbrains:annotations:26.0.2-1'
+    api(libs.javaFastPFOR)
+    implementation(libs.commons.lang3)
+    implementation(libs.earcut4j)
+    implementation(libs.gson)
+    implementation(libs.guava)
+    implementation(libs.hppc)
+    implementation(libs.jakarta.annotation.api)
+    implementation(libs.java.vector.tile)
+    implementation(libs.jetbrains.annotations)
+    implementation(libs.jts.core)
+    implementation(libs.mapbox.vector.tile.java)
+    implementation(libs.protobuf.java)
+    implementation(libs.slf4j.simple)
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.2'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.2'
-    testImplementation 'org.openjdk.jmh:jmh-core:1.37'
-    testImplementation 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
-    testImplementation 'org.xerial:sqlite-jdbc:3.51.1.0'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.3'
+    testImplementation(libs.jmh.core)
+    testImplementation(libs.jmh.generator.annprocess)
+    testImplementation(libs.junit.jupiter.api)
+    testImplementation(libs.junit.jupiter.params)
+    testImplementation(libs.sqlite.jdbc)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.jupiter.platform.launcher)
 }
 
 test {
     jvmArgs "-Dcom.google.protobuf.use_unsafe_pre22_gencode"
-    useJUnitPlatform()
+    // Forward benchmark.iterations to the test JVM so tests can read it via Integer.getInteger()
+    systemProperty 'benchmark.iterations', System.getProperty('benchmark.iterations', '1')
+    useJUnitPlatform {
+        excludeTags 'benchmark'
+    }
     testLogging {
         outputs.upToDateWhen { false }
         showStandardStreams = true
         events "passed", "skipped", "failed"
-        exceptionFormat "full"
+        exceptionFormat = "full"
     }
     finalizedBy jacocoTestReport
 }
 
 jacocoTestReport {
+    reports {
+        xml.required = true
+        html.required = false
+    }
     dependsOn test
 }
 

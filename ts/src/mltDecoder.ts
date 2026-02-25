@@ -89,13 +89,19 @@ export default function decodeTile(
                 if (columnMetadata.nullable) {
                     const presentStreamMetadata = decodeStreamMetadata(tile, offset);
                     const streamDataStart = offset.get();
-                    const values = decodeBooleanRle(tile, presentStreamMetadata.numValues, presentStreamMetadata.byteLength, offset);
+                    const values = decodeBooleanRle(
+                        tile,
+                        presentStreamMetadata.numValues,
+                        presentStreamMetadata.byteLength,
+                        offset,
+                    );
                     offset.set(streamDataStart + presentStreamMetadata.byteLength);
                     nullabilityBuffer = new BitVector(values, presentStreamMetadata.numValues);
                 }
 
                 const idDataStreamMetadata = decodeStreamMetadata(tile, offset);
-                numFeatures = idDataStreamMetadata.decompressedCount;
+                // decompressedCount is the count WITHOUT nulls, but we may have nulls
+                numFeatures = nullabilityBuffer ? nullabilityBuffer.size() : idDataStreamMetadata.decompressedCount;
 
                 idVector = decodeIdColumn(
                     tile,
@@ -127,7 +133,7 @@ export default function decodeTile(
                 const hasStreamCnt = hasStreamCount(columnMetadata);
                 const numStreams = hasStreamCnt ? decodeVarintInt32(tile, offset, 1)[0] : 1;
 
-                if (numStreams === 0 && columnMetadata.type === "scalarType") {
+                if (numStreams === 0) {
                     continue;
                 }
 
@@ -179,7 +185,14 @@ function decodeIdColumn(
     if (idDataType === ScalarType.UINT_32) {
         switch (vectorType) {
             case VectorType.FLAT: {
-                const id = decodeIntStream(tile, offset, idDataStreamMetadata, false);
+                const id = decodeIntStream(
+                    tile,
+                    offset,
+                    idDataStreamMetadata,
+                    false,
+                    undefined,
+                    typeof sizeOrNullabilityBuffer !== "number" ? sizeOrNullabilityBuffer : undefined,
+                );
                 return new IntFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
             case VectorType.SEQUENCE: {
@@ -203,8 +216,13 @@ function decodeIdColumn(
                     const id = decodeLongFloat64Stream(tile, offset, idDataStreamMetadata, false);
                     return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
                 }
-
-                const id = decodeLongStream(tile, offset, idDataStreamMetadata, false);
+                const id = decodeLongStream(
+                    tile,
+                    offset,
+                    idDataStreamMetadata,
+                    false,
+                    typeof sizeOrNullabilityBuffer !== "number" ? sizeOrNullabilityBuffer : undefined,
+                );
                 return new LongFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
             case VectorType.SEQUENCE: {

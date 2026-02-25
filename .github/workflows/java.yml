@@ -2,12 +2,12 @@ name: Java CI
 
 on:
   push:
-    paths:
-      - '.github/**'
-      - 'java/**'
-      - 'test/**'
+    branches:
+      - main
   pull_request:
     paths:
+      - 'justfile'
+      - 'java/mod.just'
       - '.github/**'
       - 'java/**'
       - 'test/**'
@@ -19,28 +19,43 @@ defaults:
 
 jobs:
   test-java:
+    permissions:
+      id-token: write  # for OIDC Codecov
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
       - uses: taiki-e/install-action@v2
-        with:
-          tool: just
+        with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
-      - run: just -v env-info-java
+      - run: just -v java::env-info
       - if: matrix.os == 'ubuntu-latest'
-        name: Lint Java code. If fails, run `just fmt-java` to reformat, and `just lint-java` to see issues locally
-        run: just -v lint-java
-      - run: just -v test-java
-      - run: just -v test-java-cli
-      - name: Test Maven local publishing
-        run: cd java && ./gradlew publishMavenPublicationToMavenLocal
+        name: Lint Java code. If fails, run `just java::fmt` to reformat, and `just java::lint` to see issues locally
+        run: just -v java::lint
 
-      - run: npm install
+      - run: just -v java::test-coverage
+
+      - run: just -v java::test-cli
+
+      - name: Test Maven local publishing
+        run: just -v java::test-publish
+
+      - run: npm ci
         working-directory: java/encoding-server
       - run: npm run lint
         working-directory: java/encoding-server
       - run: npm run checkstyle
         working-directory: java/encoding-server
+      - run: just -v assert-git-is-clean
+
+      - name: Upload coverage to Codecov
+        if: github.repository_owner == 'maplibre'
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          directory: java
+
+      - name: Test synthetic MLT generation
+        run: just -v java::ci-check-synthetic-mlts

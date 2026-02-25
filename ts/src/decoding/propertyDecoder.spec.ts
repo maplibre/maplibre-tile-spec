@@ -407,7 +407,7 @@ describe("decodePropertyColumn - BOOLEAN", () => {
 });
 
 describe("decodePropertyColumn - DOUBLE", () => {
-    it("should decode non-nullable DOUBLE column", () => {
+    it("should decode non-nullable DOUBLE column - doubles currently written as floats", () => {
         const expectedValues = new Float32Array([1.2345, 5.4321, 1.33742]);
         const columnMetadata = createColumnMetadata("testColumn", ScalarType.DOUBLE, false);
         // doubles currently decoded as floats
@@ -424,7 +424,7 @@ describe("decodePropertyColumn - DOUBLE", () => {
         }
     });
 
-    it("should decode nullable DOUBLE column with null values", () => {
+    it("should decode nullable DOUBLE column with null values - doubles currently written as floats", () => {
         const expectedValues = [1.5, null, 2.7, null, 3.14159];
         const columnMetadata = createColumnMetadata("testColumn", ScalarType.DOUBLE, true);
         // doubles currently decoded as floats
@@ -464,9 +464,26 @@ describe("decodePropertyColumn - STRING", () => {
             const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
             const fieldStreams = encodeStructField([0, 1, 2, 3], [true, true, true, true]);
             const completeData = concatenateBuffers(lengthStream, dataStream, fieldStreams);
-            const columnMetadata = createColumnMetadataForStruct("address", [{ name: "street" }]);
+            const columnMetadata = createColumnMetadataForStruct("address:", [{ name: "street" }]);
             const offset = new IntWrapper(0);
             const result = decodePropertyColumn(completeData, offset, columnMetadata, 1, dictionaryStrings.length);
+
+            expect(result).toHaveLength(1);
+            expect(result[0]).toBeInstanceOf(StringDictionaryVector);
+            expect(result[0].name).toBe("address:street");
+            for (let i = 0; i < dictionaryStrings.length; i++) {
+                expect(result[0].getValue(i)).toBe(dictionaryStrings[i]);
+            }
+        });
+
+        it("should decode shared dictionary when numStreams matches encoder output (3 + N*2)", () => {
+            const dictionaryStrings = ["apple", "banana", "peach", "date"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
+            const fieldStreams = encodeStructField([0, 1, 2, 3], [true, true, true, true]);
+            const completeData = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+            const columnMetadata = createColumnMetadataForStruct("address:", [{ name: "street" }]);
+            const offset = new IntWrapper(0);
+            const result = decodePropertyColumn(completeData, offset, columnMetadata, 5, dictionaryStrings.length);
 
             expect(result).toHaveLength(1);
             expect(result[0]).toBeInstanceOf(StringDictionaryVector);
@@ -533,16 +550,12 @@ describe("decodePropertyColumn - Edge Cases", () => {
         expect(result).toBeNull();
     });
 
-    it("should return null for complex type with numStreams != 1", () => {
-        // Create a struct/complex type column
-        const columnMetadata = createColumnMetadataForStruct("structColumn", [
-            { name: "field1", type: ScalarType.INT_32 },
-            { name: "field2", type: ScalarType.STRING },
-        ]);
+    it("should return null for complex type with numStreams === 0", () => {
+        const columnMetadata = createColumnMetadataForStruct("structColumn", [{ name: "field1" }, { name: "field2" }]);
         const offset = new IntWrapper(0);
-        const data = new Uint8Array(10);
+        const data = new Uint8Array(0);
 
-        const result = decodePropertyColumn(data, offset, columnMetadata, 2, 5);
+        const result = decodePropertyColumn(data, offset, columnMetadata, 0, 5);
 
         expect(result).toBeNull();
     });

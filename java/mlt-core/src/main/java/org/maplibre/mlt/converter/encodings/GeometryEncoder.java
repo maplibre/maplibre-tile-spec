@@ -150,15 +150,8 @@ public class GeometryEncoder {
       if (vertex.y() > maxVertexValue) maxVertexValue = vertex.y();
     }
 
-    HilbertCurve hilbertCurve = null;
-    try {
-      hilbertCurve = new HilbertCurve(minVertexValue, maxVertexValue);
-    } catch (Exception e) {
-      e.printStackTrace(System.err);
-      throw e;
-    }
-
-    var zOrderCurve = new ZOrderCurve(minVertexValue, maxVertexValue);
+    final var hilbertCurve = new HilbertCurve(minVertexValue, maxVertexValue);
+    final var zOrderCurve = new ZOrderCurve(minVertexValue, maxVertexValue);
     // TODO: if the ratio is lower than 2 dictionary encoding has not to be considered?
     var vertexDictionary = addVerticesToDictionary(vertexBuffer, hilbertCurve);
     var mortonEncodedDictionary = addVerticesToMortonDictionary(vertexBuffer, zOrderCurve);

@@ -2,45 +2,60 @@ name: C++ CI
 
 on:
   push:
-    paths:
-      - '.github/**'
-      - 'cpp/**'
-      - 'test/**'
+    branches:
+      - main
   pull_request:
     paths:
+      - 'justfile'
+      - 'cpp/mod.just'
       - '.github/**'
       - 'cpp/**'
       - 'test/**'
 
 jobs:
-  build:
+  cpp-build:
+    permissions:
+      id-token: write  # for OIDC Codecov
     strategy:
       matrix:
         os: [macos-15, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
 
-    defaults:
-      run:
-        working-directory: cpp
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
         with:
           submodules: recursive
           fetch-depth: 1
 
-      - name: Configure with CMake
-        run: cmake -B build -S .
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-binstall' }
 
-      - name: Build the project
-        run: cmake --build build --target mlt-cpp-test mlt-cpp-json
+      - name: install gcovr (macOS)
+        if: runner.os == 'macOS'
+        run: brew install gcovr
 
-      - name: Run C++ tests
-        run: build/test/mlt-cpp-test
+      - name: install gcovr (Linux)
+        if: runner.os == 'Linux'
+        run: pip3 install gcovr
 
-      - name: sanity test for mlt-cpp-json tool
-        run: build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq .
+      - name: Build, test and generate coverage report
+        run: just -v cpp::coverage
+
+      - name: Upload coverage to Codecov
+        if: github.repository_owner == 'maplibre'
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          fail_ci_if_error: true
+          disable_file_fixes: true
+          disable_search: true
+          files: cpp/build/coverage.xml
+
+      - name: Sanity test for mlt-cpp-json tool
+        run: just -v cpp::test-json
 
       - name: Build with Bazel
-        run: bazel build //cpp:mlt_cpp
+        run: just -v cpp::bazel-build
+
+      - run: just -v assert-git-is-clean

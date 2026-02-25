@@ -267,7 +267,7 @@ describe("decodeSharedDictionary", () => {
 
             const fieldStreams = encodeStructField([0, 1, 2, 3], [true, true, true, true]);
             const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
-            const columnMetaencodedStrings = createColumnMetadataForStruct("address", [{ name: "street" }]);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("address:", [{ name: "street" }]);
 
             const result = decodeSharedDictionary(
                 completeencodedStrings,
@@ -283,6 +283,48 @@ describe("decodeSharedDictionary", () => {
                 expect(result[0].getValue(i)).toBe(dictionaryStrings[i]);
             }
         });
+
+        it("should handle empty child field name (common prefix stripped)", () => {
+            const dictionaryStrings = ["Berlin", "London", "Paris"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
+
+            const fieldStreams = encodeStructField([0, 1, 2], [true, true, true]);
+            const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+
+            const columnMetaencodedStrings = createColumnMetadataForStruct("name", [{ name: "" }]);
+
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                3,
+            );
+
+            expect(result).toHaveLength(1);
+            expect(result[0].name).toBe("name");
+            for (let i = 0; i < dictionaryStrings.length; i++) {
+                expect(result[0].getValue(i)).toBe(dictionaryStrings[i]);
+            }
+        });
+
+        it("should handle mix of empty and delimited child names", () => {
+            const dict = ["value1", "value2", "value3"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dict);
+
+            const field1 = encodeStructField([0], [true]);
+            const field2 = encodeStructField([1], [true]);
+            const field3 = encodeStructField([2], [true]);
+
+            const complete = concatenateBuffers(lengthStream, dataStream, field1, field2, field3);
+            const metadata = createColumnMetadataForStruct("name", [{ name: "" }, { name: ":en" }, { name: ":de" }]);
+
+            const result = decodeSharedDictionary(complete, new IntWrapper(0), metadata, 1);
+
+            expect(result).toHaveLength(3);
+            expect(result[0].name).toBe("name");
+            expect(result[1].name).toBe("name:en");
+            expect(result[2].name).toBe("name:de");
+        });
     });
 
     describe("nullability", () => {
@@ -292,7 +334,7 @@ describe("decodeSharedDictionary", () => {
 
             const fieldStreams = encodeStructField([0, 2], [true, false, true, false]);
             const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
-            const columnMetaencodedStrings = createColumnMetadataForStruct("colors", [{ name: "primary" }]);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("colors:", [{ name: "primary" }]);
 
             const result = decodeSharedDictionary(
                 completeencodedStrings,
@@ -315,7 +357,7 @@ describe("decodeSharedDictionary", () => {
             // Simulating implicit nullability by mismatched counts
             const fieldStreams = encodeStructField([0, 1], [true, false, false, true]);
             const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
-            const columnMetaencodedStrings = createColumnMetadataForStruct("greek", [{ name: "letter" }]);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("greek:", [{ name: "letter" }]);
 
             const result = decodeSharedDictionary(
                 completeencodedStrings,
@@ -348,7 +390,7 @@ describe("decodeSharedDictionary", () => {
                 dataStream,
                 fieldStreams,
             );
-            const columnMetaencodedStrings = createColumnMetadataForStruct("encodedStrings", [{ name: "value" }]);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("encodedStrings:", [{ name: "value" }]);
 
             const result = decodeSharedDictionary(
                 completeencodedStrings,
@@ -379,7 +421,7 @@ describe("decodeSharedDictionary", () => {
                 field2Streams,
                 field3Streams,
             );
-            const columnMetaencodedStrings = createColumnMetadataForStruct("multi", [
+            const columnMetaencodedStrings = createColumnMetadataForStruct("multi:", [
                 { name: "field1" },
                 { name: "field2" },
                 { name: "field3" },
@@ -414,7 +456,7 @@ describe("decodeSharedDictionary", () => {
                 field2Streams,
                 field3Streams,
             );
-            const columnMetaencodedStrings = createColumnMetadataForStruct("test", [
+            const columnMetaencodedStrings = createColumnMetadataForStruct("test:", [
                 { name: "field1" },
                 { name: "field2" },
                 { name: "field3" },
@@ -447,7 +489,7 @@ describe("decodeSharedDictionary", () => {
                 field2Streams,
                 field3Streams,
             );
-            const columnMetaencodedStrings = createColumnMetadataForStruct("mixed", [
+            const columnMetaencodedStrings = createColumnMetadataForStruct("mixed:", [
                 { name: "field1" },
                 { name: "field2" },
                 { name: "field3" },

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.regex.Pattern;
 import no.ecc.vectortile.VectorTileDecoder;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
@@ -33,7 +32,7 @@ public class MvtUtils {
    * To get realistic number and have a fair comparison in terms of the decoding performance,
    * the geometries of the features have to be decoded.
    * */
-  static Map<String, VectorTileLayer> decodeMvtMapbox(byte[] mvtTile) throws IOException {
+  public static Map<String, VectorTileLayer> decodeMvtMapbox(byte[] mvtTile) throws IOException {
     Pbf pbf = new Pbf(mvtTile);
     VectorTile vectorTile = new VectorTile(pbf, pbf.length);
     for (var layer : vectorTile.layers.values()) {
@@ -47,11 +46,6 @@ public class MvtUtils {
   }
 
   public static MapboxVectorTile decodeMvt(byte[] mvtTile) throws IOException {
-    return decodeMvt(mvtTile, Map.of());
-  }
-
-  public static MapboxVectorTile decodeMvt(
-      byte[] mvtTile, Map<Pattern, List<ColumnMapping>> columnMappings) throws IOException {
     VectorTileDecoder mvtDecoder = new VectorTileDecoder();
     mvtDecoder.setAutoScale(false);
 
