@@ -43,7 +43,8 @@ jobs:
       - name: Setup Rust
         run: rustup update stable && rustup default stable
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
-        with: { tool: 'just,jq' }
+        with: { tool: 'just' }
+      - run: apt update && apt install -y jq
       - name: Sync pyproject.toml version from Cargo.toml
         working-directory: rust
         run: just sync-pyo3-version
