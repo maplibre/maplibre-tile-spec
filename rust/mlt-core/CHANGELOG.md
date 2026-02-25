@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- *(rust)* validate mlt-json with ls command ([#963](https://github.com/maplibre/maplibre-tile-spec/pull/963))
+- Release done to test if some of the release automation is working. Should fix `cargo-binstall mlt`
 
 ## [0.1.1](https://github.com/maplibre/maplibre-tile-spec/compare/mlt-core-v0.1.0...mlt-core-v0.1.1) - 2026-02-25
 
