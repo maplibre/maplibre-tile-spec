@@ -78,7 +78,7 @@ fn generate_geometry(d: &Path) {
     geo_varint().tessellated(pol()).write(d, "polygon_tes");
     geo_fastpfor()
         .tessellated(pol())
-        .write(d, "polygon_morton_tes");
+        .write(d, "polygon_fpf_tes");
     geo_varint()
         .parts_ring(E::rle_varint())
         .geo(pol_hole())

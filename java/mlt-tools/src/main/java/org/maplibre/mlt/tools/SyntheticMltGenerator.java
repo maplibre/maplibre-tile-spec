@@ -44,7 +44,7 @@ public class SyntheticMltGenerator {
     write("polygon", pol, cfg());
     write("polygon_fpf", pol, cfg().fastPFOR());
     write("polygon_tes", pol, cfg().tessellate());
-    write("polygon_morton_tes", pol, cfg().fastPFOR().tessellate());
+    write("polygon_fpf_tes", pol, cfg().fastPFOR().tessellate());
 
     // Polygon with hole
     var polWithHole = feat(poly(ring(c1, c2, c3, c1), ring(h1, h2, h3, h1)));
