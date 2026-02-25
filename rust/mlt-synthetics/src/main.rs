@@ -730,7 +730,7 @@ fn generate_props_str(d: &Path) {
             },
             PropertyEncoder::with_fsst(O::Present, L::None, P::VarInt),
         ))
-        .write(d, "props_str_fsst-rust"); // tesselation algo is not consistent with java's
+        .write(d, "props_str_fsst-rust"); // FSST compression output is not byte-for-byte consistent with Java's
 }
 
 fn generate_shared_dictionaries(d: &Path) {
