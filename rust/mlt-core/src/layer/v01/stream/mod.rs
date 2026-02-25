@@ -1,4 +1,5 @@
 mod logical;
+mod optimizer;
 mod physical;
 
 use std::fmt::Debug;
@@ -18,6 +19,7 @@ use crate::utils::{
 pub use crate::v01::stream::logical::{
     LogicalData, LogicalEncoder, LogicalEncoding, LogicalTechnique, LogicalValue,
 };
+pub use crate::v01::stream::optimizer::DataProfile;
 pub use crate::v01::stream::physical::{PhysicalEncoder, PhysicalEncoding, StreamType};
 use crate::{MltError, MltRefResult};
 
@@ -53,6 +55,27 @@ impl Encoder {
     #[must_use]
     pub fn rle_fastpfor() -> Encoder {
         Encoder::new(LogicalEncoder::Rle, PhysicalEncoder::FastPFOR)
+    }
+
+    /// Automatically select the best encoder for a `u32` stream.
+    ///
+    /// Uses the `BTRBlocks` strategy:
+    /// - profile a small sample of the data to prune unsuitable candidates,
+    /// - then encode the same sample with all survivors and
+    /// - return the encoder that produces the smallest output.
+    ///
+    /// `FastPFOR` is always preferred over `VarInt` when sizes are equal.
+    #[must_use]
+    pub fn auto_u32(values: &[u32]) -> Encoder {
+        let enc = DataProfile::prune_candidates::<i32>(values);
+        DataProfile::min_size_encoding_u32s(&enc, values)
+    }
+
+    /// Automatically select the best encoder for a `u64` stream.
+    #[must_use]
+    pub fn auto_u64(values: &[u64]) -> Encoder {
+        let enc = DataProfile::prune_candidates::<i64>(values);
+        DataProfile::min_size_encoding_u64s(&enc, values)
     }
 }
 
