@@ -97,7 +97,7 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: mlt-linux-x86_64.tar.gz
+            artifact_name: mlt-x86_64-unknown-linux-gnu.tar.gz
           # Requires mlt > fastpfor to support arm via the existing simde code
           # Currently, seems flaky
           #- os: ubuntu-22.04-arm
@@ -109,7 +109,7 @@ jobs:
           #  artifact_name: mlt-macos-aarch64.tar.gz
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: mlt-windows-x86_64.zip
+            artifact_name: mlt-x86_64-pc-windows-msvc.zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6.0.2
@@ -183,7 +183,7 @@ jobs:
       - name: Get mlt version for release tag
         id: get_version
         shell: bash
-        run: just -v rust::get-release-info mlt >> $GITHUB_OUTPUT
+        run: just -v rust::ci-get-release-info mlt >> $GITHUB_OUTPUT
       - name: Download all artifacts
         uses: actions/download-artifact@v7
         with: { path: artifacts }
