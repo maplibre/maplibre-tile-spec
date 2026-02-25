@@ -98,8 +98,6 @@ clean:
 
 # Run cargo clippy to lint the code
 clippy *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
     cargo clippy --workspace --all-targets --all-features {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
@@ -191,12 +189,10 @@ sync-pyo3-version:
 
 alias t := test
 # Run all tests
-test: && test-doc
+test:
     cargo test --all-targets --all-features
-
-# Run the ignored debug test by itself
-test-debug:
-    RUST_BACKTRACE=1 cargo test --test synthetics debug -- --ignored
+    {{just}} rust::generate-synthetic-mlts
+    {{just}} rust::test-doc
 
 # Test documentation generation
 test-doc: (docs '--document-private-items')
@@ -218,6 +214,21 @@ udeps: (just 'cargo-install' 'cargo-udeps')
 update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
+
+# Generate synthetic .mlt files and ensure there are no duplicates
+generate-synthetic-mlts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf ../test/synthetic/0x01-rust
+    cargo run -p mlt-synthetics
+    {{just}} rust::validate-synthetic
+    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
+    {{just}} rust::_assert-synthetic-mlt-identity
+    {{just}} rust::_verify-synthetic-equality
+
+# Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
+validate-synthetic:
+    {{just}} mlt ls --validate-to-json --details basic ../test/synthetic/
 
 # Assert each .mlt in compare_dir exists in ref_dir and is binary-identical. Skip '_rust' files.
 _assert-synthetic-mlt-identity ref_dir='../test/synthetic/0x01' compare_dir='../test/synthetic/0x01-rust':
@@ -254,17 +265,8 @@ _assert-synthetic-mlt-identity ref_dir='../test/synthetic/0x01' compare_dir='../
     done
     echo "All {{compare_dir}}/*.mlt files have identical counterparts in {{ref_dir}} (except *-rust.mlt)."
 
-# Generate synthetic .mlt files and ensure there are no duplicates
-generate-synthetic-mlts:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    rm -rf ../test/synthetic/0x01-rust
-    cargo run -p mlt-synthetics
-    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
-    {{just}} rust::_assert-synthetic-mlt-identity
-
 # checks that the contents of two synthetic directories are equal
-verify-synthetic-equality: generate-synthetic-mlts (just 'cargo-install' 'delta' 'git-delta')
+_verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
     #!/usr/bin/env bash
     set -euo pipefail
 
