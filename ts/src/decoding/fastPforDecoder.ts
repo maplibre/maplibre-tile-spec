@@ -540,12 +540,6 @@ function decodePage(
     const packedStart = (pageStart + 1) | 0;
     const packedEnd = (pageStart + whereMeta) | 0;
 
-    if (packedEnd >= inValues.length) {
-        throw new Error(
-            `FastPFOR decode: metadata offset out of bounds (pageStart=${pageStart}, whereMeta=${whereMeta}, metaStart=${packedEnd}, encoded.length=${inValues.length})`,
-        );
-    }
-
     const byteSize = inValues[packedEnd] >>> 0;
     const metaInts = (byteSize + 3) >>> 2;
     const byteContainerStart = packedEnd + 1;

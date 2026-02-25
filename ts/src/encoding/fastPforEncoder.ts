@@ -466,28 +466,17 @@ function encodeVByte(
 
 /**
  * Encodes an int32 stream using the FastPFOR wire format (pages + VByte tail).
- * Intended for tests and reference output.
- */
-export function encodeFastPforInt32(values: Int32Array): Int32Buf {
-    return encodeFastPforInt32WithWorkspace(values, undefined);
-}
-
-/**
- * Encodes an int32 stream using the FastPFOR wire format (pages + VByte tail).
- *
- * If `workspace` is omitted, a new workspace is created per call.
  */
 export function encodeFastPforInt32WithWorkspace(
     values: Int32Array,
-    workspace?: FastPforEncoderWorkspace,
+    workspace: FastPforEncoderWorkspace,
 ): Int32Buf {
-    const encoderWorkspace = workspace ?? createFastPforEncoderWorkspace();
     const state: EncodeState = { inPos: 0, outPos: 0, out: new Int32Array(values.length + 1024) as Int32Buf };
 
-    encode(values, values.length, state, encoderWorkspace);
+    encode(values, values.length, state, workspace);
 
     const remaining = values.length - state.inPos;
-    encodeVByte(values, remaining, state, encoderWorkspace);
+    encodeVByte(values, remaining, state, workspace);
 
     return state.out.subarray(0, state.outPos);
 }
