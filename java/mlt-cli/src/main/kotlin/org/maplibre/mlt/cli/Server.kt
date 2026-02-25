@@ -10,8 +10,7 @@ import java.net.Socket
 class Server {
     fun run(port: Int) {
         if (isRunning(port)) {
-            logger.info("Port {} in use", port)
-            return
+            throw RuntimeException("Port $port is already in use")
         }
 
         startServer(port) // never returns

@@ -75,7 +75,7 @@ open class ConversionHelper {
                 val parameters = DeflateParameters()
                 parameters.setCompressionLevel(9)
                 parameters.setWithZlibHeader(false)
-                return DeflateCompressorOutputStream(src)
+                return DeflateCompressorOutputStream(src, parameters)
             }
             return src
         }
@@ -104,8 +104,10 @@ open class ConversionHelper {
         @JvmField
         protected var compressionFixedThreshold = DEFAULT_COMPRESSION_FIXED_THRESHOLD
 
+        public const val DEFAULT_TILE_LOG_INTERVAL = 10_000L
+
         @JvmField
-        protected var tileLogInterval = 10000L
+        protected var tileLogInterval = DEFAULT_TILE_LOG_INTERVAL
 
         private val logger = LoggerFactory.getLogger(ConversionHelper::class.java)
 
@@ -114,8 +116,12 @@ open class ConversionHelper {
                 val str = System.getenv("MLT_TILE_LOG_INTERVAL")
                 if (str != null) {
                     val value = str.toULong().toLong()
-                    logger.trace("Setting tile logging interval to {}", value)
-                    tileLogInterval = value
+                    if (value > 0) {
+                        logger.trace("Setting tile logging interval to {}", value)
+                        tileLogInterval = value
+                    } else {
+                        logger.warn("Invalid value for MLT_TILE_LOG_INTERVAL, using default value of {}", DEFAULT_TILE_LOG_INTERVAL)
+                    }
                 }
             } catch (ex: Exception) {
                 logger.warn(

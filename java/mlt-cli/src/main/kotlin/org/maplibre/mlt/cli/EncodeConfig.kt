@@ -5,26 +5,25 @@ import org.maplibre.mlt.converter.mvt.ColumnMappingConfig
 import java.net.URI
 import java.util.regex.Pattern
 
-@JvmRecord
 data class EncodeConfig(
-    @JvmField val columnMappingConfig: ColumnMappingConfig,
-    @JvmField val conversionConfig: ConversionConfig,
-    @JvmField val tessellateSource: URI?,
-    @JvmField val sortFeaturesPattern: Pattern?,
-    @JvmField val regenIDsPattern: Pattern?,
-    @JvmField val compressionType: String?,
-    @JvmField val minZoom: Int,
-    @JvmField val maxZoom: Int,
-    @JvmField val willOutput: Boolean,
-    @JvmField val willDecode: Boolean,
-    @JvmField val willPrintMLT: Boolean,
-    @JvmField val willPrintMVT: Boolean,
-    @JvmField val compareProp: Boolean,
-    @JvmField val compareGeom: Boolean,
-    @JvmField val willTime: Boolean,
-    @JvmField val dumpStreams: Boolean,
-    @JvmField val taskRunner: TaskRunner,
-    @JvmField val continueOnError: Boolean,
+    val columnMappingConfig: ColumnMappingConfig,
+    val conversionConfig: ConversionConfig,
+    val tessellateSource: URI?,
+    val sortFeaturesPattern: Pattern?,
+    val regenIDsPattern: Pattern?,
+    val compressionType: String?,
+    val minZoom: Int,
+    val maxZoom: Int,
+    val willOutput: Boolean,
+    val willDecode: Boolean,
+    val willPrintMLT: Boolean,
+    val willPrintMVT: Boolean,
+    val compareProp: Boolean,
+    val compareGeom: Boolean,
+    val willTime: Boolean,
+    val dumpStreams: Boolean,
+    val taskRunner: TaskRunner,
+    val continueOnError: Boolean,
 ) {
     fun asBuilder(): Builder =
         Builder()
