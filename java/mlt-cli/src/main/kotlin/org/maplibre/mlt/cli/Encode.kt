@@ -41,6 +41,7 @@ import java.util.Optional
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import java.util.function.Function
 import java.util.function.Supplier
 import java.util.regex.Pattern
@@ -72,8 +73,9 @@ object Encode {
             }
 
             if (cmd.hasOption(EncodeCommandLine.SERVER_ARG)) {
-                return Server()
-                    .run(cmd.getOptionValue(EncodeCommandLine.SERVER_ARG, "3001").toInt())
+                val port = cmd.getOptionValue(EncodeCommandLine.SERVER_ARG, "3001").toInt()
+                // never returns
+                Server().run(port)
             }
 
             return run(cmd)
@@ -291,20 +293,11 @@ object Encode {
             }
         }
 
-        if (totalCompressedInput > 0) {
-            logger
-                .atTrace()
-                .setMessage("Compressed {} bytes to {} bytes ({}%)")
-                .addArgument(totalCompressedInput)
-                .addArgument(totalCompressedOutput)
-                .addArgument(
-                    Supplier {
-                        kotlin.String.format(
-                            "%.1f",
-                            100 * totalCompressedOutput.toDouble() / totalCompressedInput,
-                        )
-                    },
-                ).log()
+        if (totalCompressedInput.get() > 0) {
+            val input = totalCompressedInput.get()
+            val output = totalCompressedOutput.get()
+            val percentStr = String.format("%.1f", 100.0 * output / input)
+            logger.trace("Compressed {} bytes to {} bytes ({}%)", input, output, percentStr)
         }
         return true
     }
@@ -405,7 +398,7 @@ object Encode {
                         targetConfig.getLayerFilterPattern(),
                         targetConfig.getLayerFilterInvert(),
                     )
-                if (result.isPresent()) {
+                if (result.isPresent) {
                     logger.warn("Tiles do not match: {}", result)
                 } else {
                     logger.debug("Tiles match")
@@ -581,8 +574,8 @@ object Encode {
                                     },
                                 ).log()
                         }
-                        totalCompressedInput += tileData.size.toLong()
-                        totalCompressedOutput += outputStream.size().toLong()
+                        totalCompressedInput.addAndGet(tileData.size.toLong())
+                        totalCompressedOutput.addAndGet(outputStream.size().toLong())
                         if (didCompress != null) {
                             didCompress.setTrue()
                         }
@@ -741,8 +734,8 @@ object Encode {
         )
     }
 
-    private var totalCompressedInput: Long = 0
-    private var totalCompressedOutput: Long = 0
+    private var totalCompressedInput = AtomicLong(0L)
+    private var totalCompressedOutput = AtomicLong(0L)
 
     private val logger: Logger = LoggerFactory.getLogger(Encode::class.java)
 }

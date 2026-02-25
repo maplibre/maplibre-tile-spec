@@ -7,7 +7,7 @@ class ThreadPoolTaskRunner(
     private val threadPool: ThreadPoolExecutor,
 ) : TaskRunner {
     override val threadCount: Int
-        get() = threadPool.getMaximumPoolSize()
+        get() = threadPool.maximumPoolSize
 
     override fun run(task: Runnable?) {
         if (task != null) {

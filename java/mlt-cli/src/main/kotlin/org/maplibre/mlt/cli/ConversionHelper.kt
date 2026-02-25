@@ -115,7 +115,7 @@ open class ConversionHelper {
                 if (str != null) {
                     val value = str.toULong().toLong()
                     logger.trace("Setting tile logging interval to {}", value)
-                    tileLogInterval
+                    tileLogInterval = value
                 }
             } catch (ex: Exception) {
                 logger.warn(
@@ -131,6 +131,12 @@ open class ConversionHelper {
                     if (value > 0 && value <= 1) {
                         logger.trace("Setting compression ratio threshold to {}", value)
                         compressionRatioThreshold = value
+                    } else {
+                        logger.warn(
+                            "Invalid value for MLT_COMPRESSION_RATIO_THRESHOLD: {}, using default value of {}",
+                            value,
+                            compressionRatioThreshold,
+                        )
                     }
                 }
             } catch (ex: Exception) {

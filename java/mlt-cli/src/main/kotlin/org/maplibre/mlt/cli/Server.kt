@@ -8,29 +8,29 @@ import java.net.ServerSocket
 import java.net.Socket
 
 class Server {
-    fun run(port: Int): Boolean {
+    fun run(port: Int) {
         if (isRunning(port)) {
-            return true
+            logger.info("Port {} in use", port)
+            return
         }
 
-        return startServer(port)
+        startServer(port) // never returns
     }
 
-    // Use `_` (unnamed variable) with JDK22+
     private fun isRunning(port: Int): Boolean {
         try {
-            Socket("localhost", port).use { ignored ->
+            Socket("localhost", port).use { _ ->
                 return true
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return false
         }
     }
 
-    private fun startServer(port: Int): Boolean {
+    private fun startServer(port: Int) {
         try {
             ServerSocket(port).use { server ->
-                println("Server started on port " + port)
+                logger.info("Server started on port {}", port)
                 while (true) {
                     val client = server.accept()
                     Thread(Runnable { handleClient(client) }).start()
@@ -38,7 +38,6 @@ class Server {
             }
         } catch (ex: Exception) {
             logger.error("Failed to start server on port {}", port, ex)
-            return false
         }
     }
 

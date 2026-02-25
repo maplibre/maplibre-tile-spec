@@ -69,9 +69,8 @@ object JsonHelper {
         map.put(
             "properties",
             feature.properties.entries
-                .stream()
-                .filter { entry -> entry.value != null }
                 .asSequence()
+                .filter { entry -> entry.value != null }
                 .associate { entry ->
                     entry.key to entry.value
                 },
@@ -140,9 +139,8 @@ object JsonHelper {
     @JvmStatic
     private fun getSortedNonNullProperties(feature: Feature): SortedMap<String, Any?> =
         feature.properties.entries
-            .stream()
-            .filter { entry -> entry.value != null }
             .asSequence()
+            .filter { entry -> entry.value != null }
             .associate { entry -> entry.key to entry.value }
             .toSortedMap()
 

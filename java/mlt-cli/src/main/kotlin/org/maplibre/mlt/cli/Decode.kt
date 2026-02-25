@@ -73,7 +73,7 @@ object Decode {
         val parser: CommandLineParser = DefaultParser()
         val cmd = parser.parse(options, args)
         val fileName = cmd.getOptionValue(FILE_NAME_ARG)
-        if (fileName == null) {
+        if (fileName == null || fileName.isEmpty()) {
             throw ParseException("Missing required argument: " + FILE_NAME_ARG)
         }
         val willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION)

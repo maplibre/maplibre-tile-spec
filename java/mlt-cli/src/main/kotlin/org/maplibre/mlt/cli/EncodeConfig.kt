@@ -159,15 +159,8 @@ data class EncodeConfig(
 
         fun build(): EncodeConfig =
             EncodeConfig(
-                (if (columnMappingConfig != null) columnMappingConfig else ColumnMappingConfig())!!,
-                (
-                    if (conversionConfig != null) {
-                        conversionConfig
-                    } else {
-                        org.maplibre.mlt.converter
-                            .ConversionConfig()
-                    }
-                )!!,
+                columnMappingConfig ?: ColumnMappingConfig(),
+                conversionConfig ?: ConversionConfig(),
                 tessellateSource,
                 sortFeaturesPattern,
                 regenIDsPattern,
@@ -182,7 +175,7 @@ data class EncodeConfig(
                 compareGeom,
                 willTime,
                 dumpStreams,
-                (if (taskRunner != null) taskRunner else SerialTaskRunner())!!,
+                taskRunner ?: SerialTaskRunner(),
                 continueOnError,
             )
     }
