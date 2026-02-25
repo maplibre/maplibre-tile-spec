@@ -10,7 +10,8 @@ requires-python = ">=3.9"
 license = { text = "MIT OR Apache-2.0" }
 keywords = ["maplibre", "tile", "mlt", "vector-tiles", "gis"]
 classifiers = [
-    "License :: OSI Approved :: MIT OR Apache-2.0",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
