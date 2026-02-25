@@ -74,10 +74,3 @@ missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 multiple_crate_versions = "allow"
 too_many_lines = "allow"
-
-[package.metadata.binstall]
-pkg-url = "{ repo }/releases/download/rust-{ name }-v{ version }/{ name }-{ target }{ archive-suffix }"
-pkg-fmt = "tgz"
-
-[package.metadata.binstall.overrides.'cfg(target_os = "windows")']
-pkg-fmt = "zip"

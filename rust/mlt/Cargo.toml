@@ -11,6 +11,13 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/rust-{ name }-v{ version }/{ name }-{ target }{ archive-suffix }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.'cfg(target_os = "windows")']
+pkg-fmt = "zip"
+
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
