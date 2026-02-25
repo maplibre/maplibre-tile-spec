@@ -9,6 +9,7 @@ use anyhow::Result;
 use clap::{Args, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;
+use globset::{GlobSet, GlobSetBuilder};
 use mlt_core::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::mvt::mvt_to_feature_collection;
@@ -29,15 +30,19 @@ use tabled::settings::style::HorizontalLine;
 use tabled::settings::{Alignment, Style};
 use thousands::Separable as _;
 
-#[derive(Args)]
+#[derive(Debug, Args)]
 pub struct LsArgs {
     /// Paths to tile files (.mlt, .mvt, .pbf) or directories
     #[arg(required = true)]
     paths: Vec<PathBuf>,
 
     /// Filter by file extension (e.g. mlt, mvt, pbf). Can be specified multiple times.
-    #[arg(short, long)]
+    #[arg(short = 'e', long)]
     extension: Vec<String>,
+
+    /// Exclude paths matching the given glob (e.g. "**/fixtures/**", "**/*.pbf"). Can be specified multiple times.
+    #[arg(short = 'E', long = "exclude")]
+    exclude: Vec<String>,
 
     /// Disable recursive directory traversal
     #[arg(long)]
@@ -65,7 +70,7 @@ pub enum Detail {
     /// Show gzip size estimation and compression ratio
     #[clap(name = "gzip")]
     GZip,
-    /// Show geometry types present in the tile
+    /// Show stream/encoding algorithms used (Algorithms column)
     Algorithms,
 }
 
@@ -270,24 +275,61 @@ impl LsRow {
     }
 }
 
+/// True if the path string contains glob metacharacters `"*?[{"`.
+fn has_glob_metachars(path: &Path) -> bool {
+    let s = path.to_string_lossy();
+    s.contains('*') || s.contains('?') || s.contains('[') || s.contains('{')
+}
+
+/// Expand path arguments: if a path contains glob metacharacters, expand it to matching paths;
+/// otherwise use the path as-is. Directories are left as-is so `collect_tile_files` can recurse into them.
+fn expand_path_args(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
+    let mut out = Vec::new();
+    for path in paths {
+        if has_glob_metachars(path) {
+            for entry in glob::glob(path.to_string_lossy().as_ref())? {
+                out.push(entry?);
+            }
+        } else {
+            out.push(path.clone());
+        }
+    }
+    Ok(out)
+}
+
+/// Build a `GlobSet` from patterns; returns None if patterns is empty.
+fn build_exclude_set(patterns: &[String]) -> Result<Option<GlobSet>> {
+    if patterns.is_empty() {
+        return Ok(None);
+    }
+    let mut builder = GlobSetBuilder::new();
+    for p in patterns {
+        builder.add(globset::Glob::new(p)?);
+    }
+    Ok(Some(builder.build()?))
+}
+
 /// List tile files with statistics.
 /// Returns `true` if all files were valid, `false` if any file had an error, or no files.
 pub fn ls(args: &LsArgs) -> Result<bool> {
     let flags = LsFlags::from(args);
     let mut all_files = Vec::new();
 
-    for path in &args.paths {
-        let files = collect_tile_files(path, !args.no_recursive, &args.extension)?;
+    // Expand path arguments as globs when they contain *?[{; directories are left as-is and handled below.
+    let expanded_paths = expand_path_args(&args.paths)?;
+    let exclude = build_exclude_set(&args.exclude)?;
+
+    for path in &expanded_paths {
+        let files = collect_tile_files(path, args, exclude.as_ref())?;
         all_files.extend(files);
     }
+
     if all_files.is_empty() {
         eprintln!("No tile files found");
         return Ok(false);
     }
 
-    // Determine base path for relative path calculation
-    // Use current directory if multiple paths or use the single path
-    let base_path = if args.paths.len() == 1 {
+    let base_path = if args.paths.len() == 1 && !has_glob_metachars(&args.paths[0]) {
         &args.paths[0]
     } else {
         Path::new(".")
@@ -379,19 +421,30 @@ fn matches_extension_filter(path: &Path, extensions: &[String]) -> bool {
     }
 }
 
-fn collect_tile_files(path: &Path, recursive: bool, extensions: &[String]) -> Result<Vec<PathBuf>> {
+fn collect_tile_files(
+    path: &Path,
+    args: &LsArgs,
+    exclude_set: Option<&GlobSet>,
+) -> Result<Vec<PathBuf>> {
     let matches_ext = |p: &Path| {
-        if extensions.is_empty() {
+        if args.extension.is_empty() {
             is_tile_extension(p)
         } else {
-            matches_extension_filter(p, extensions)
+            matches_extension_filter(p, &args.extension)
         }
     };
+    let excluded = |p: &Path| exclude_set.is_some_and(|s| s.is_match(p));
 
     let mut files = Vec::new();
     if path.is_dir() {
-        collect_from_dir(path, &mut files, recursive, &matches_ext)?;
-    } else if path.is_file() && matches_ext(path) {
+        collect_from_dir(
+            path,
+            &mut files,
+            !args.no_recursive,
+            &matches_ext,
+            exclude_set,
+        )?;
+    } else if path.is_file() && !excluded(path) && matches_ext(path) {
         files.push(path.to_path_buf());
     }
 
@@ -403,6 +456,7 @@ fn collect_from_dir<F>(
     files: &mut Vec<PathBuf>,
     recursive: bool,
     matches_ext: &F,
+    exclude_set: Option<&GlobSet>,
 ) -> Result<()>
 where
     F: Fn(&Path) -> bool,
@@ -410,11 +464,11 @@ where
     for entry in fs::read_dir(dir)? {
         let path = entry?.path();
         if path.is_file() {
-            if matches_ext(&path) {
+            if !exclude_set.is_some_and(|s| s.is_match(&path)) && matches_ext(&path) {
                 files.push(path);
             }
-        } else if recursive && path.is_dir() {
-            collect_from_dir(&path, files, recursive, matches_ext)?;
+        } else if recursive && path.is_dir() && !exclude_set.is_some_and(|s| s.is_match(&path)) {
+            collect_from_dir(&path, files, recursive, matches_ext, exclude_set)?;
         }
     }
     Ok(())
