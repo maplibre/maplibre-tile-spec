@@ -180,6 +180,15 @@ release *args='': (just 'cargo-install' 'release-plz')
 semver *args: (just 'cargo-install' 'cargo-semver-checks')
     cargo semver-checks --all-features {{args}}
 
+# Sync the version field in mlt-pyo3/pyproject.toml to match mlt-pyo3/Cargo.toml
+sync-pyo3-version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VERSION=$({{just}} rust::get-crate-field version mlt-pyo3)
+    PYPROJECT="mlt-pyo3/pyproject.toml"
+    sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$PYPROJECT"
+    echo "Synced $PYPROJECT to version $VERSION"
+
 alias t := test
 # Run all tests
 test: && test-doc
