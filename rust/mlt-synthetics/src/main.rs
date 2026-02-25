@@ -92,7 +92,7 @@ fn generate_geometry(dir: &Path) {
     )
     .write(dir, "polygon_tes");
 
-    // polygon_morton_tes - Polygon with tessellation + FastPFOR
+    // polygon_fpf_tes - Polygon with tessellation + FastPFOR
     Feature::polygon_tessellated(
         pol(),
         E::fastpfor(),
@@ -103,7 +103,7 @@ fn generate_geometry(dir: &Path) {
         E::fastpfor(),
         E::fastpfor(),
     )
-    .write(dir, "polygon_morton_tes");
+    .write(dir, "polygon_fpf_tes");
 
     // Polygon with hole - Java: feat(poly(ring(c1, c2, c3, c1), ring(h1, h2, h3, h1)));
     // Java uses RLE encoding for the rings stream

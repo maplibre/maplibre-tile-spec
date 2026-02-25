@@ -12,7 +12,7 @@ const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["polygon_multi_fpf", "FastPFor not implemented"],
-    ["polygon_morton_tes", "Morton not implemented"],
+    ["polygon_fpf_tes", "Morton not implemented"],
     ["polygon_hole_fpf", "FastPFor not implemented"],
     ["polygon_fpf", "FastPFor not implemented"],
     ["props_mixed", "F32 very buggy and does not work"],
