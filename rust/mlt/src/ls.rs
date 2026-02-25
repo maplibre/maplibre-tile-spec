@@ -65,7 +65,7 @@ pub enum Detail {
     /// Show gzip size estimation and compression ratio
     #[clap(name = "gzip")]
     GZip,
-    /// Show geometry types present in the tile
+    /// Show stream/encoding algorithms used (Algorithms column)
     Algorithms,
 }
 

@@ -63,6 +63,9 @@ pub const STYLE_SELECTED: Style = Style::new().fg(CLR_SELECTED).add_modifier(Mod
 pub const STYLE_LABEL: Style = Style::new().fg(CLR_LABEL);
 pub const STYLE_BOLD: Style = Style::new().add_modifier(Modifier::BOLD);
 
+/// Throttle hover-driven redraws so mouse move over map doesn't flood the loop
+const HOVER_REDRAW_THROTTLE_MS: u128 = 32;
+
 #[derive(Args)]
 pub struct UiArgs {
     /// Path to a tile file (.mlt, .mvt, .pbf) or directory
@@ -352,6 +355,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
     let mut file_left: Option<Rect> = None;
     let mut last_tree_click: Option<(Instant, usize)> = None;
     let mut last_file_click: Option<(Instant, usize)> = None;
+    let mut last_hover_redraw: Option<Instant> = None;
 
     loop {
         if let Some(rows) = app.analysis_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
@@ -646,7 +650,13 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             }
                         }
                         if app.hovered != prev {
-                            app.invalidate();
+                            let allow = last_hover_redraw.is_none_or(|t| {
+                                t.elapsed().as_millis() >= HOVER_REDRAW_THROTTLE_MS
+                            });
+                            if allow {
+                                last_hover_redraw = Some(Instant::now());
+                                app.invalidate();
+                            }
                         }
                     }
                     MouseEventKind::ScrollUp | MouseEventKind::ScrollDown => {

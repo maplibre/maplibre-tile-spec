@@ -22,7 +22,7 @@ clap = { version = "4.5.58", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 crossterm = "0.29.0"
 derive_builder = "0.20"
-fastpfor = "0.6"
+fastpfor = "0.7"
 flate2 = "1"
 fsst-rs = "0.5"
 geo = "0.32.0"
