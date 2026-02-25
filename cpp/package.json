@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "dependencies": {
+    "json5": "^2.2.3"
+  }
+}

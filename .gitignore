@@ -16,3 +16,4 @@ coverage/
 dist/
 site/
 tmp/
+node_modules
