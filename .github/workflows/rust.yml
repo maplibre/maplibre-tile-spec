@@ -79,6 +79,16 @@ jobs:
           files: rust/target/llvm-cov/codecov.info
       - run: just -v assert-git-is-clean
 
+  test-publish:
+    name: Test workspace publishing using --dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/mlt-setup-rust
+      - name: Test workspace publishing
+        run: just -v rust::test-publish
+      - run: just -v assert-git-is-clean
+
   build-release-binaries:
     name: Build release binaries for ${{ matrix.target }}
     strategy:
@@ -114,7 +124,7 @@ jobs:
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
   ci-passed-rust:
-    needs: [ test, test-msrv, lint, build-release-binaries ]
+    needs: [ test, test-msrv, lint, build-release-binaries, test-publish ]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -143,6 +153,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v6.0.2
         with: { fetch-depth: 0, persist-credentials: false }
+      - uses: ./.github/actions/mlt-setup-rust
       - name: Publish to crates.io if crate's version is newer
         uses: release-plz/action@f708778669256143d984cce4b23592637532e040 # v0.5.127
         id: release

@@ -12,10 +12,11 @@ rust-version.workspace = true
 
 [lib]
 name = "mlt_pyo3"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [features]
-default = []
+abi3 = ["pyo3/abi3-py39", "generate-import-lib"]
+generate-import-lib = ["pyo3/generate-import-lib"]
 
 [dependencies]
 geo-types.workspace = true
