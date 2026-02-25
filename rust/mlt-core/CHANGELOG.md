@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(rust)* Property encoding ([#929](https://github.com/maplibre/maplibre-tile-spec/pull/929))
 - *(rust)* impl stream encoding ([#924](https://github.com/maplibre/maplibre-tile-spec/pull/924))
 - *(rust)* impl `encode_componentwise_delta_vec2s` ([#930](https://github.com/maplibre/maplibre-tile-spec/pull/930))
-- *(rust)* Id encoder impelmentation ([#906](https://github.com/maplibre/maplibre-tile-spec/pull/906))
+- *(rust)* Id encoder implementation ([#906](https://github.com/maplibre/maplibre-tile-spec/pull/906))
 
 ### Fixed
 
