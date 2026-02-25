@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- *(rust)* bugs in mlt ui vilualizer ([#970](https://github.com/maplibre/maplibre-tile-spec/pull/970))
+- *(rust)* bugs in mlt UI visualizer ([#970](https://github.com/maplibre/maplibre-tile-spec/pull/970))
 
 ## [0.1.2](https://github.com/maplibre/maplibre-tile-spec/compare/mlt-v0.1.1...mlt-v0.1.2) - 2026-02-25
 
