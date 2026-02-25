@@ -69,6 +69,13 @@ jobs:
       - uses: ./.github/actions/mlt-setup-rust
       - name: Regenerate stub
         run: just rust::sync-pyo3-stubs
+
+      # run pre-commit as a formatting tiebreaker
+      - name: Install uv
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
+      - run: uvx pre-commit run --all-files
+        continue-on-error: true
+
       - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8
         with: {commit-message: "chore: regenerate mlt_pyo3.pyi stub"}
 
