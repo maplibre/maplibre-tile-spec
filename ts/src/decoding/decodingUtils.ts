@@ -79,25 +79,6 @@ export function decodeFloatsLE(
     return fb;
 }
 
-export function decodeDoublesLE(
-    encodedValues: Uint8Array,
-    pos: IntWrapper,
-    numValues: number,
-    nullabilityBuffer?: BitVector,
-): Float64Array {
-    const currentPos = pos.get();
-    const newOffset = currentPos + numValues * Float64Array.BYTES_PER_ELEMENT;
-    const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
-    const fb = new Float64Array(newBuf);
-    pos.set(newOffset);
-
-    if (nullabilityBuffer) {
-        return unpackNullable(fb, nullabilityBuffer, 0);
-    }
-
-    return fb;
-}
-
 const TEXT_DECODER_MIN_LENGTH = 12;
 const utf8TextDecoder = new TextDecoder();
 

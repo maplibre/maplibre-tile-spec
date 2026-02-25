@@ -1,0 +1,20 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          13,
+          42
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1",
+        "val": 42
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}
