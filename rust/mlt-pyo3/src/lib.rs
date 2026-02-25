@@ -320,7 +320,7 @@ fn list_layers(
 }
 
 #[pymodule]
-fn mlt_pyo3(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn mlt(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(decode_mlt, m)?)?;
     m.add_function(wrap_pyfunction!(decode_mlt_to_geojson, m)?)?;
     m.add_function(wrap_pyfunction!(list_layers, m)?)?;

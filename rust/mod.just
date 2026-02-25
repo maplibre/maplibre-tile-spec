@@ -161,7 +161,7 @@ lint: clippy test-fmt
 msrv: (just 'cargo-install' 'cargo-msrv')
     cargo msrv find --write-msrv --ignore-lockfile --component rustfmt -- {{just}} rust::ci-test-msrv
 
-# Build mlt-pyo3 and launch a Python interpreter with mlt_pyo3 pre-imported
+# Build mlt-pyo3 and launch a Python interpreter with mlt pre-imported
 [working-directory: 'mlt-pyo3']
 py: (just 'cargo-install' 'maturin')
     #!/usr/bin/env bash
@@ -172,7 +172,7 @@ py: (just 'cargo-install' 'maturin')
     fi
     source .venv/bin/activate
     maturin develop
-    python3 -i -c "import mlt_pyo3; print('mlt_pyo3 ready — try: mlt_pyo3.decode_mlt(data)')"
+    python3 -i -c "import mlt; print('mlt ready — try: mlt.decode_mlt(data)')"
 
 py-publish:
     docker run --rm -v $(pwd):/io ghcr.io/pyo3/maturin build --release
