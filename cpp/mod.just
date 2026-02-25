@@ -33,18 +33,24 @@ fmt:
 lint:
     echo "TODO: Add C++ linting command"
 
-_test-synthethic:
+_install_npm_deps:
+    npm ci
+
+_test-synthethic: _install_npm_deps
     {{just}} ts install
     node tool/test-synthetic.mjs
 
 # Run tests
 [working-directory: 'build']
-test: cmake-build _test-synthethic
+test: _clean_coverage_data cmake-build _test-synthethic
     ctest
+
+_clean_coverage_data:
+    find build -name "*.gcda" -delete
 
 # Generate coverage report
 [working-directory: 'build']
-coverage: (_check-tool 'gcovr') test _test-synthethic
+coverage: _clean_coverage_data (_check-tool 'gcovr') test _test-synthethic
     gcovr --root ../.. \
         --filter ../src --filter ../include \
         --txt coverage.txt \
