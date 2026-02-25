@@ -9,17 +9,6 @@ export function encodeFloatsLE(values: Float32Array): Uint8Array {
     return buffer;
 }
 
-export function encodeDoubleLE(values: Float32Array): Uint8Array {
-    const buffer = new Uint8Array(values.length * 4);
-    const view = new DataView(buffer.buffer);
-
-    for (let i = 0; i < values.length; i++) {
-        view.setFloat32(i * 4, values[i], true);
-    }
-
-    return buffer;
-}
-
 export function encodeBooleanRle(values: boolean[]): Uint8Array {
     // Pack booleans into bytes (8 booleans per byte)
     const numBytes = Math.ceil(values.length / 8);
