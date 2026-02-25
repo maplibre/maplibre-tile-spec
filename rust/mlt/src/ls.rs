@@ -78,7 +78,7 @@ pub struct LsFlags {
 
 impl From<&LsArgs> for LsFlags {
     fn from(args: &LsArgs) -> Self {
-        use Detail::{GZip, All, Algorithms};
+        use Detail::{Algorithms, All, GZip};
         let details = args.details.as_slice();
         Self {
             gzip: details.contains(&GZip) || details.contains(&All),
@@ -808,7 +808,10 @@ fn print_table(rows: &[LsRow], flags: LsFlags) {
         table.with(Style::empty().vertical('|').horizontals([(1, header_line)]));
     }
     // File - left aligned, size..stream (9-11) right, two more left
-    table.modify(Columns::new(1..9 + if flags.gzip { 2 } else { 0 }), Alignment::right());
+    table.modify(
+        Columns::new(1..9 + if flags.gzip { 2 } else { 0 }),
+        Alignment::right(),
+    );
     for &row_idx in &error_table_rows {
         table.modify(Cell::new(row_idx, 1), Alignment::left());
     }
