@@ -27,7 +27,7 @@ clean:
 
 # Reformat code
 fmt:
-    echo "TODO: Add C++ formatting command"
+    pre-commit run --all-files clang-format
 
 # Run linting
 lint:
@@ -46,7 +46,7 @@ test: _clean_coverage_data cmake-build _test-synthethic
     ctest
 
 _clean_coverage_data:
-    find build -name "*.gcda" -delete
+    find . -name "*.gcda" -delete
 
 # Generate coverage report
 [working-directory: 'build']
