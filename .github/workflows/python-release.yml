@@ -153,7 +153,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
-          args: --release --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-pyo3/Cargo.toml
+          args: --out dist --manifest-path rust/mlt-pyo3/Cargo.toml
       - name: Upload sdist
         uses: actions/upload-artifact@v5
         with: { name: 'wheels-sdist', path: 'dist' }
