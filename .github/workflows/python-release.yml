@@ -173,5 +173,3 @@ jobs:
       - name: Publish to PyPI
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: uv publish 'wheels-*/*'
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
