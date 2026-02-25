@@ -33,14 +33,18 @@ jobs:
           # FIXME: FSST does not seem to support 32bit targets
           #- runner: ubuntu-22.04
           #  target: x86
-          - runner: ubuntu-22.04
-            target: aarch64
-          - runner: ubuntu-22.04
-            target: armv7
-          - runner: ubuntu-22.04
-            target: s390x
-          - runner: ubuntu-22.04
-            target: ppc64le
+          # FIXME: Python::initialize not avaliable for linking
+          #- runner: ubuntu-22.04
+          #  target: aarch64
+          # FIXME: error: unknown type name '__m128i' and related
+          #- runner: ubuntu-22.04
+          #  target: armv7
+          # FIXME: cpp standard mismatch
+          #- runner: ubuntu-22.04
+          #  target: s390x
+          # FIXME: error: unknown type name '__m128i' and related
+          #- runner: ubuntu-22.04
+          #  target: ppc64le
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/mlt-setup-rust
@@ -73,7 +77,15 @@ jobs:
   #        - runner: ubuntu-22.04
   #          target: aarch64
   #        - runner: ubuntu-22.04
-  #          target: armv7
+  #        # FIXME: FSST does not seem to support 32bit targets
+  #        #- runner: ubuntu-22.04
+  #        #  target: x86
+  #        # FIXME: Python::initialize not avaliable for linking
+  #        #- runner: ubuntu-22.04
+  #        # target: aarch64
+  #        # FIXME: error: unknown type name '__m128i' and related
+  #        #- runner: ubuntu-22.04
+  #        #  target: armv7
   #  steps:
   #    - uses: actions/checkout@v6
   #    - uses: ./.github/actions/mlt-setup-rust
@@ -92,39 +104,40 @@ jobs:
   #        name: wheels-musllinux-${{ matrix.platform.target }}
   #        path: dist
 
-  windows:
-    runs-on: ${{ matrix.platform.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - runner: windows-latest
-            target: x64
-            python_arch: x64
-          - runner: windows-latest
-            target: x86
-            python_arch: x86
-          - runner: windows-11-arm
-            target: aarch64
-            python_arch: arm64
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/mlt-setup-rust
-      - uses: actions/setup-python@v6
-        with:
-          python-version: 3.13
-          architecture: ${{ matrix.platform.python_arch }}
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.platform.target }}
-          args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-pyo3/Cargo.toml
-          sccache: false
-      - name: Upload wheels
-        uses: actions/upload-artifact@v5
-        with:
-          name: wheels-windows-${{ matrix.platform.target }}
-          path: dist
+  # FIXME: Failed to run `zig cc -v` with status exit code: 1: error: unable to create compilation: LibCStdLibHeaderNotFound
+  #windows:
+  #  runs-on: ${{ matrix.platform.runner }}
+  #  strategy:
+  #    fail-fast: false
+  #    matrix:
+  #      platform:
+  #        - runner: windows-latest
+  #          target: x64
+  #          python_arch: x64
+  #        - runner: windows-latest
+  #          target: x86
+  #          python_arch: x86
+  #        - runner: windows-11-arm
+  #          target: aarch64
+  #          python_arch: arm64
+  #  steps:
+  #    - uses: actions/checkout@v6
+  #    - uses: ./.github/actions/mlt-setup-rust
+  #    - uses: actions/setup-python@v6
+  #      with:
+  #        python-version: 3.13
+  #        architecture: ${{ matrix.platform.python_arch }}
+  #    - name: Build wheels
+  #      uses: PyO3/maturin-action@v1
+  #      with:
+  #        target: ${{ matrix.platform.target }}
+  #        args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-pyo3/Cargo.toml
+  #        sccache: false
+  #    - name: Upload wheels
+  #      uses: actions/upload-artifact@v5
+  #      with:
+  #        name: wheels-windows-${{ matrix.platform.target }}
+  #        path: dist
 
   macos:
     runs-on: ${{ matrix.platform.runner }}
