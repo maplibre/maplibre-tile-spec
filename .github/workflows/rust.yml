@@ -85,7 +85,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-rust
-      - name: Generate code coverage
+      - name: Test workspace publishing
         run: just -v rust::test-publish
       - run: just -v assert-git-is-clean
 
