@@ -3,6 +3,16 @@ allow_dirty = false
 changelog_update = true
 dependencies_update = true
 git_release_enable = true
+git_release_name = "rust-{{ package }}-v{{ version }}"
+git_release_body = """
+{{ changelog }}
+{% if remote.contributors %}
+### Contributors
+{% for contributor in remote.contributors %}
+* @{{ contributor.username }}
+{% endfor %}
+{% endif %}
+"""
 git_tag_enable = true
 git_tag_name = "rust-{{ package }}-v{{ version }}"
 pr_branch_prefix = "release-plz-"
@@ -12,18 +22,16 @@ publish_allow_dirty = false
 publish_no_verify = true # we have already thoroughly verified that all aspects of our project work in CI before this step
 semver_check = true
 publish_timeout = "10m" # set a timeout for `cargo publish`
+publish = true
 
 [[package]]
 name = "mlt"
-publish = true
 
 [[package]]
 name = "mlt-core"
-publish = true
 
 [[package]]
 name = "mlt-pyo3"
-publish = true
 
 [[package]]
 name = "mlt-synthetics"
