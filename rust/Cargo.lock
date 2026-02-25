@@ -1277,7 +1277,7 @@ dependencies = [
 
 [[package]]
 name = "mlt"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -1297,7 +1297,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "borrowme",
  "criterion",
@@ -1324,7 +1324,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-pyo3"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "geo-types",
  "mlt-core",
