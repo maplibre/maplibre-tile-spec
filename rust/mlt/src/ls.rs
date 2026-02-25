@@ -9,6 +9,7 @@ use anyhow::Result;
 use clap::{Args, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;
+use globset::{GlobSet, GlobSetBuilder};
 use mlt_core::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::mvt::mvt_to_feature_collection;
@@ -29,15 +30,19 @@ use tabled::settings::style::HorizontalLine;
 use tabled::settings::{Alignment, Style};
 use thousands::Separable as _;
 
-#[derive(Args)]
+#[derive(Debug, Args)]
 pub struct LsArgs {
     /// Paths to tile files (.mlt, .mvt, .pbf) or directories
     #[arg(required = true)]
     paths: Vec<PathBuf>,
 
     /// Filter by file extension (e.g. mlt, mvt, pbf). Can be specified multiple times.
-    #[arg(short, long)]
+    #[arg(short = 'e', long)]
     extension: Vec<String>,
+
+    /// Exclude paths matching the given glob (e.g. "*.json", "**/fixtures/*"). Can be specified multiple times.
+    #[arg(short = 'E', long = "exclude")]
+    exclude: Vec<String>,
 
     /// Disable recursive directory traversal
     #[arg(long)]
@@ -270,16 +275,58 @@ impl LsRow {
     }
 }
 
+/// True if the path string contains glob metacharacters (*?[).
+fn has_glob_metachars(path: &Path) -> bool {
+    let s = path.to_string_lossy();
+    s.contains('*') || s.contains('?') || s.contains('[') || s.contains('{')
+}
+
+/// Expand path arguments: if a path contains glob metacharacters, expand it to matching paths;
+/// otherwise use the path as-is. Directories are left as-is so `collect_tile_files` can recurse into them.
+fn expand_path_args(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
+    let mut out = Vec::new();
+    for path in paths {
+        if has_glob_metachars(path) {
+            for entry in glob::glob(path.to_string_lossy().as_ref())? {
+                out.push(entry?);
+            }
+        } else {
+            out.push(path.clone());
+        }
+    }
+    Ok(out)
+}
+
+/// Build a `GlobSet` from patterns; returns None if patterns is empty.
+fn build_exclude_set(patterns: &[String]) -> Result<Option<GlobSet>> {
+    if patterns.is_empty() {
+        return Ok(None);
+    }
+    let mut builder = GlobSetBuilder::new();
+    for p in patterns {
+        builder.add(globset::Glob::new(p)?);
+    }
+    Ok(Some(builder.build()?))
+}
+
 /// List tile files with statistics.
 /// Returns `true` if all files were valid, `false` if any file had an error, or no files.
 pub fn ls(args: &LsArgs) -> Result<bool> {
     let flags = LsFlags::from(args);
     let mut all_files = Vec::new();
 
-    for path in &args.paths {
+    // Expand path arguments as globs when they contain *?[; directories are left as-is and handled below.
+    let expanded_paths = expand_path_args(&args.paths)?;
+
+    for path in &expanded_paths {
         let files = collect_tile_files(path, !args.no_recursive, &args.extension)?;
         all_files.extend(files);
     }
+
+    if let Some(exclude_set) = build_exclude_set(&args.exclude)? {
+        all_files.retain(|p| !exclude_set.is_match(p));
+    }
+
     if all_files.is_empty() {
         eprintln!("No tile files found");
         return Ok(false);
