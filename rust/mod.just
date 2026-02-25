@@ -164,7 +164,14 @@ msrv: (just 'cargo-install' 'cargo-msrv')
 # Build mlt-pyo3 and launch a Python interpreter with mlt pre-imported
 [working-directory: 'mlt-pyo3']
 py: (just 'cargo-install' 'maturin')
-    maturin develop --features extension-module
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -d ".venv" ]]; then
+        echo "Please make sure to create your virtual environment by running 'python -m venv .venv'"
+        exit 1
+    fi
+    source .venv/bin/activate
+    maturin develop
     python3 -i -c "import mlt; print('mlt ready — try: mlt.decode_mlt(data)')"
 
 py-publish:
@@ -177,6 +184,10 @@ release *args='': (just 'cargo-install' 'release-plz')
 # Check semver compatibility with prior published version
 semver *args: (just 'cargo-install' 'cargo-semver-checks')
     cargo semver-checks --all-features {{args}}
+
+# Regenerate the Python type stub for mlt-pyo3
+sync-pyo3-stubs:
+    cargo run -p mlt-pyo3 --bin stub_gen --features abi3
 
 # Sync the version field in mlt-pyo3/pyproject.toml to match mlt-pyo3/Cargo.toml
 sync-pyo3-version:
