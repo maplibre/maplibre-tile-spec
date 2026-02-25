@@ -7,6 +7,7 @@ git_tag_enable = true
 git_tag_name = "rust-{{ package }}-v{{ version }}"
 pr_branch_prefix = "release-plz-"
 pr_labels = ["release"]
+pr_name = "chore(rust): release{% if package %} {{ package }}{% endif %}{% if version %}  v{{ version }}{% endif %}"
 publish_allow_dirty = false
 semver_check = true
 publish_timeout = "10m" # set a timeout for `cargo publish`
