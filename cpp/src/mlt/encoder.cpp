@@ -379,10 +379,16 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                                                                        indexBuffer,
                                                                        physicalTechnique,
                                                                        intEncoder,
-                                                                       true);
+                                                                       config.includeOutlines);
         }
-        return GeometryEncoder::encodeGeometryColumn(
-            geometryTypes, numGeometries, numParts, numRings, vertexBuffer, physicalTechnique, intEncoder);
+        return GeometryEncoder::encodeGeometryColumn(geometryTypes,
+                                                     numGeometries,
+                                                     numParts,
+                                                     numRings,
+                                                     vertexBuffer,
+                                                     physicalTechnique,
+                                                     intEncoder,
+                                                     config.useMortonEncoding);
     }();
 
     util::encoding::encodeVarint(encodedGeom.numStreams, bodyBytes);
@@ -448,7 +454,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 }
             }
 
-            auto result = StringEncoder::encodeSharedDictionary(sharedCols, physicalTechnique, intEncoder);
+            auto result = StringEncoder::encodeSharedDictionary(
+                sharedCols, physicalTechnique, intEncoder, config.useFsst);
 
             util::encoding::encodeVarint(result.numStreams, bodyBytes);
             bodyBytes.insert(bodyBytes.end(), result.data.begin(), result.data.end());
@@ -558,7 +565,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         values.push_back(std::nullopt);
                     }
                 }
-                encoded = PropertyEncoder::encodeStringColumn(values, physicalTechnique, intEncoder);
+                encoded = PropertyEncoder::encodeStringColumn(values, physicalTechnique, intEncoder, config.useFsst);
                 break;
             }
             default:

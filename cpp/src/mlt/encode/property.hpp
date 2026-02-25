@@ -96,7 +96,8 @@ public:
 
     static std::vector<std::uint8_t> encodeStringColumn(std::span<const std::optional<std::string_view>> values,
                                                         PhysicalLevelTechnique physicalTechnique,
-                                                        IntegerEncoder& intEncoder) {
+                                                        IntegerEncoder& intEncoder,
+                                                        bool useFsst = true) {
         std::vector<bool> presentValues;
         std::vector<std::string_view> dataValues;
         for (const auto& v : values) {
@@ -108,7 +109,7 @@ public:
 
         auto presentStream = BooleanEncoder::encodeBooleanStream(presentValues, PhysicalStreamType::PRESENT);
 
-        auto stringResult = StringEncoder::encode(dataValues, physicalTechnique, intEncoder);
+        auto stringResult = StringEncoder::encode(dataValues, physicalTechnique, intEncoder, useFsst);
 
         const auto streamCount = stringResult.numStreams + 1;
 

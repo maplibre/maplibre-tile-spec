@@ -1795,3 +1795,421 @@ INSTANTIATE_TEST_SUITE_P(All,
                          ReencodeOMTTessellated,
                          ::testing::ValuesIn(discoverFixtures("omt")),
                          sanitizeFixtureName);
+
+TEST(Encode, TypePromotionInt32ToInt64) {
+    auto layer = makeLayer("promo",
+                           {
+                               makePointFeature(1, {10, 20}, {{"val", std::int32_t{42}}}),
+                               makePointFeature(2, {30, 40}, {{"val", std::int64_t{9999999999LL}}}),
+                           });
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("promo");
+    ASSERT_TRUE(decoded);
+    const auto& prop = decoded->getProperties().at("val");
+    EXPECT_EQ(prop.getType(), metadata::tileset::ScalarType::INT_64);
+    EXPECT_EQ(unwrapProperty<std::int64_t>(*prop.getProperty(0)), 42);
+    EXPECT_EQ(unwrapProperty<std::int64_t>(*prop.getProperty(1)), 9999999999LL);
+}
+
+TEST(Encode, TypePromotionInt64ThenInt32) {
+    auto layer = makeLayer("promo_rev",
+                           {
+                               makePointFeature(1, {10, 20}, {{"val", std::int64_t{100LL}}}),
+                               makePointFeature(2, {30, 40}, {{"val", std::int32_t{200}}}),
+                           });
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("promo_rev");
+    ASSERT_TRUE(decoded);
+    EXPECT_EQ(decoded->getProperties().at("val").getType(), metadata::tileset::ScalarType::INT_64);
+}
+
+TEST(Encode, TypePromotionFloatToDouble) {
+    auto layer = makeLayer("promo_float",
+                           {
+                               makePointFeature(1, {10, 20}, {{"val", 1.5f}}),
+                               makePointFeature(2, {30, 40}, {{"val", 3.14159265358979}}),
+                           });
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("promo_float");
+    ASSERT_TRUE(decoded);
+    EXPECT_EQ(decoded->getProperties().at("val").getType(), metadata::tileset::ScalarType::DOUBLE);
+}
+
+TEST(Encode, TypePromotionDoubleThenFloat) {
+    auto layer = makeLayer("promo_dfloat",
+                           {
+                               makePointFeature(1, {10, 20}, {{"val", 2.71828}}),
+                               makePointFeature(2, {30, 40}, {{"val", 1.0f}}),
+                           });
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("promo_dfloat");
+    ASSERT_TRUE(decoded);
+    EXPECT_EQ(decoded->getProperties().at("val").getType(), metadata::tileset::ScalarType::DOUBLE);
+}
+
+TEST(Encode, TypePromotionMixedToString) {
+    auto layer = makeLayer("mixed_types",
+                           {
+                               makePointFeature(1, {10, 20}, {{"val", std::int32_t{42}}}),
+                               makePointFeature(2, {30, 40}, {{"val", std::string("hello")}}),
+                           });
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("mixed_types");
+    ASSERT_TRUE(decoded);
+    EXPECT_EQ(decoded->getProperties().at("val").getType(), metadata::tileset::ScalarType::STRING);
+    EXPECT_EQ(std::get<std::string_view>(*decoded->getProperties().at("val").getProperty(0)), "42");
+    EXPECT_EQ(std::get<std::string_view>(*decoded->getProperties().at("val").getProperty(1)), "hello");
+}
+
+TEST(Encode, Uint64RleEncoding) {
+    std::vector<Encoder::Feature> features;
+    for (int i = 0; i < 100; ++i) {
+        features.push_back(makePointFeature(i, {i * 10, i * 10}, {{"big", std::uint64_t(18000000000000000000ULL)}}));
+    }
+    auto layer = makeLayer("u64rle", std::move(features));
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("u64rle");
+    ASSERT_TRUE(decoded);
+    for (int i = 0; i < 100; ++i) {
+        EXPECT_EQ(unwrapProperty<std::uint64_t>(*decoded->getProperties().at("big").getProperty(i)),
+                  18000000000000000000ULL);
+    }
+}
+
+TEST(Encode, Int64DeltaRle) {
+    std::vector<Encoder::Feature> features;
+    for (int i = 0; i < 100; ++i) {
+        features.push_back(makePointFeature(i, {i * 10, i * 10}, {{"val", std::int64_t{1000000000LL + i * 100}}}));
+    }
+    auto layer = makeLayer("i64delta", std::move(features));
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("i64delta");
+    ASSERT_TRUE(decoded);
+    for (int i = 0; i < 100; ++i) {
+        EXPECT_EQ(unwrapProperty<std::int64_t>(*decoded->getProperties().at("val").getProperty(i)),
+                  1000000000LL + i * 100);
+    }
+}
+
+TEST(Encode, SignedInt64RleWithNegatives) {
+    std::vector<Encoder::Feature> features;
+    for (int i = 0; i < 50; ++i) {
+        features.push_back(makePointFeature(i, {i * 10, i * 10}, {{"val", std::int64_t{-999999999LL}}}));
+    }
+    for (int i = 50; i < 100; ++i) {
+        features.push_back(makePointFeature(i, {i * 10, i * 10}, {{"val", std::int64_t{999999999LL}}}));
+    }
+    auto layer = makeLayer("i64rle_signed", std::move(features));
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("i64rle_signed");
+    ASSERT_TRUE(decoded);
+    for (int i = 0; i < 50; ++i) {
+        EXPECT_EQ(unwrapProperty<std::int64_t>(*decoded->getProperties().at("val").getProperty(i)), -999999999LL);
+    }
+    for (int i = 50; i < 100; ++i) {
+        EXPECT_EQ(unwrapProperty<std::int64_t>(*decoded->getProperties().at("val").getProperty(i)), 999999999LL);
+    }
+}
+
+TEST(Encode, PretessellatedWithoutOutlinesProducesValidBinary) {
+    Encoder::Layer layer;
+    layer.name = "no_outlines";
+    layer.extent = 4096;
+
+    Encoder::Feature f;
+    f.id = 1;
+    f.geometry.type = metadata::tileset::GeometryType::POLYGON;
+    f.geometry.coordinates = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
+    f.geometry.ringSizes = {4};
+    layer.features.push_back(std::move(f));
+
+    EncoderConfig config;
+    config.preTessellate = true;
+    config.includeOutlines = false;
+    config.sortFeatures = false;
+
+    Encoder encoder;
+    auto bytes = encoder.encode({layer}, config);
+    EXPECT_FALSE(bytes.empty());
+
+    EncoderConfig configWithOutlines;
+    configWithOutlines.preTessellate = true;
+    configWithOutlines.includeOutlines = true;
+    configWithOutlines.sortFeatures = false;
+    auto bytesWithOutlines = encoder.encode({layer}, configWithOutlines);
+    EXPECT_LT(bytes.size(), bytesWithOutlines.size());
+}
+
+TEST(Encode, MortonVertexDictionaryDisabled) {
+    std::vector<Encoder::Vertex> sharedVerts = {
+        {100, 200},
+        {300, 400},
+        {500, 600},
+        {700, 800},
+        {900, 1000},
+    };
+
+    std::vector<Encoder::Feature> features;
+    for (int i = 0; i < 200; ++i) {
+        Encoder::Feature f;
+        f.id = i;
+        f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
+        f.geometry.coordinates = {
+            sharedVerts[i % sharedVerts.size()],
+            sharedVerts[(i + 1) % sharedVerts.size()],
+        };
+        features.push_back(std::move(f));
+    }
+    auto layer = makeLayer("no_morton", std::move(features));
+
+    EncoderConfig config;
+    config.useMortonEncoding = false;
+    auto tile = encodeDecode({layer}, config);
+    const auto* decoded = tile.getLayer("no_morton");
+    ASSERT_TRUE(decoded);
+    EXPECT_EQ(decoded->getFeatures().size(), 200u);
+}
+
+TEST(Encode, FastPforDisabled) {
+    std::vector<Encoder::Feature> features;
+    for (int i = 0; i < 50; ++i) {
+        features.push_back(makePointFeature(i, {i * 10, i * 10}, {{"idx", std::int32_t{i}}}));
+    }
+
+    EncoderConfig config;
+    config.useFastPfor = false;
+    auto tile = encodeDecode({makeLayer("no_pfor", std::move(features))}, config);
+    const auto* decoded = tile.getLayer("no_pfor");
+    ASSERT_TRUE(decoded);
+    EXPECT_EQ(decoded->getFeatures().size(), 50u);
+}
+
+TEST(Encode, FsstDisabledForStrings) {
+    std::vector<Encoder::Feature> features;
+    for (int i = 0; i < 200; ++i) {
+        features.push_back(makePointFeature(i, {i, i}, {{"road", std::string("residential")}}));
+    }
+
+    EncoderConfig config;
+    config.useFsst = false;
+    auto tile = encodeDecode({makeLayer("no_fsst", std::move(features))}, config);
+    const auto* decoded = tile.getLayer("no_fsst");
+    ASSERT_TRUE(decoded);
+    EXPECT_EQ(decoded->getFeatures().size(), 200u);
+}
+
+TEST(Encode, StructColumnAllChildrenAbsent) {
+    std::vector<Encoder::Feature> features;
+    for (int i = 0; i < 10; ++i) {
+        Encoder::Feature f;
+        f.id = i;
+        f.geometry.type = metadata::tileset::GeometryType::POINT;
+        f.geometry.coordinates = {{i * 100, i * 100}};
+
+        if (i < 5) {
+            Encoder::StructValue names;
+            names["en"] = "Name " + std::to_string(i);
+            f.properties["name"] = std::move(names);
+        }
+        features.push_back(std::move(f));
+    }
+    auto layer = makeLayer("sparse_struct", std::move(features));
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("sparse_struct");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 10u);
+}
+
+TEST(EncodeMetadata, MortonStreamMetadataRoundtrip) {
+    using namespace metadata::stream;
+
+    MortonEncodedStreamMetadata original(PhysicalStreamType::DATA,
+                                         LogicalStreamType{DictionaryType::MORTON},
+                                         LogicalLevelTechnique::MORTON,
+                                         LogicalLevelTechnique::DELTA,
+                                         PhysicalLevelTechnique::VARINT,
+                                         100,
+                                         200,
+                                         13,
+                                         0);
+
+    auto encoded = original.encode();
+    BufferStream stream({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+    auto decoded = StreamMetadata::decode(stream);
+
+    ASSERT_TRUE(decoded);
+    EXPECT_EQ(decoded->getMetadataType(), LogicalLevelTechnique::MORTON);
+    auto* morton = dynamic_cast<MortonEncodedStreamMetadata*>(decoded.get());
+    ASSERT_TRUE(morton);
+    EXPECT_EQ(morton->getNumBits(), 13);
+    EXPECT_EQ(morton->getCoordinateShift(), 0);
+}
+
+TEST(Encode, MultiLineStringInPolygonLayer) {
+    Encoder::Layer layer;
+    layer.name = "mixed_line_poly";
+    layer.extent = 4096;
+
+    Encoder::Feature poly;
+    poly.id = 1;
+    poly.geometry.type = metadata::tileset::GeometryType::POLYGON;
+    poly.geometry.coordinates = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
+    poly.geometry.ringSizes = {4};
+    layer.features.push_back(std::move(poly));
+
+    Encoder::Feature mls;
+    mls.id = 2;
+    mls.geometry.type = metadata::tileset::GeometryType::MULTILINESTRING;
+    mls.geometry.parts = {
+        {{200, 200}, {300, 300}},
+        {{400, 400}, {500, 500}},
+    };
+    layer.features.push_back(std::move(mls));
+
+    EncoderConfig config;
+    config.sortFeatures = false;
+    auto tile = encodeDecode({layer}, config);
+    const auto* decoded = tile.getLayer("mixed_line_poly");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 2u);
+}
+
+TEST(Encode, FeatureSortingDisabled) {
+    std::vector<Encoder::Feature> features;
+    features.push_back(makePointFeature(1, {3000, 3000}));
+    features.push_back(makePointFeature(2, {100, 100}));
+    features.push_back(makePointFeature(3, {2000, 500}));
+
+    EncoderConfig config;
+    config.sortFeatures = false;
+    auto tile = encodeDecode({makeLayer("nosort", std::move(features))}, config);
+    const auto* decoded = tile.getLayer("nosort");
+    ASSERT_TRUE(decoded);
+    EXPECT_EQ(decoded->getFeatures()[0].getID(), 1u);
+    EXPECT_EQ(decoded->getFeatures()[1].getID(), 2u);
+    EXPECT_EQ(decoded->getFeatures()[2].getID(), 3u);
+}
+
+TEST(Encode, StringPropertyFromNonStringType) {
+    auto layer = makeLayer("coerced",
+                           {
+                               makePointFeature(1, {10, 20}, {{"val", true}}),
+                               makePointFeature(2, {30, 40}, {{"val", std::string("text")}}),
+                           });
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("coerced");
+    ASSERT_TRUE(decoded);
+    EXPECT_EQ(decoded->getProperties().at("val").getType(), metadata::tileset::ScalarType::STRING);
+}
+
+TEST(Encode, Uint32PropertyColumn) {
+    std::vector<Encoder::Feature> features;
+    for (int i = 0; i < 20; ++i) {
+        features.push_back(makePointFeature(i, {i * 100, i * 100}, {{"val", std::uint32_t(3000000000u + i)}}));
+    }
+
+    EncoderConfig config;
+    config.sortFeatures = false;
+    auto layer = makeLayer("u32col", std::move(features));
+    auto tile = encodeDecode({layer}, config);
+    const auto* decoded = tile.getLayer("u32col");
+    ASSERT_TRUE(decoded);
+    for (int i = 0; i < 20; ++i) {
+        EXPECT_EQ(unwrapProperty<std::uint32_t>(*decoded->getProperties().at("val").getProperty(i)), 3000000000u + i);
+    }
+}
+
+TEST(Encode, NullableDoubleProperty) {
+    auto layer = makeLayer("nullable_dbl",
+                           {
+                               makePointFeature(1, {10, 20}, {{"val", 3.14159265358979}}),
+                               makePointFeature(2, {30, 40}),
+                               makePointFeature(3, {50, 60}, {{"val", 2.71828182845905}}),
+                           });
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("nullable_dbl");
+    ASSERT_TRUE(decoded);
+    EXPECT_TRUE(decoded->getProperties().at("val").getProperty(0).has_value());
+    EXPECT_FALSE(decoded->getProperties().at("val").getProperty(1).has_value());
+    EXPECT_TRUE(decoded->getProperties().at("val").getProperty(2).has_value());
+}
+
+TEST(Encode, NullableFloatProperty) {
+    auto layer = makeLayer("nullable_flt",
+                           {
+                               makePointFeature(1, {10, 20}, {{"val", 1.5f}}),
+                               makePointFeature(2, {30, 40}),
+                               makePointFeature(3, {50, 60}, {{"val", 2.5f}}),
+                           });
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("nullable_flt");
+    ASSERT_TRUE(decoded);
+    EXPECT_TRUE(decoded->getProperties().at("val").getProperty(0).has_value());
+    EXPECT_FALSE(decoded->getProperties().at("val").getProperty(1).has_value());
+    EXPECT_TRUE(decoded->getProperties().at("val").getProperty(2).has_value());
+}
+
+TEST(Encode, NullableStringProperty) {
+    auto layer = makeLayer("nullable_str",
+                           {
+                               makePointFeature(1, {10, 20}, {{"val", std::string("hello")}}),
+                               makePointFeature(2, {30, 40}),
+                               makePointFeature(3, {50, 60}, {{"val", std::string("world")}}),
+                           });
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("nullable_str");
+    ASSERT_TRUE(decoded);
+    auto v0 = decoded->getProperties().at("val").getProperty(0);
+    auto v1 = decoded->getProperties().at("val").getProperty(1);
+    auto v2 = decoded->getProperties().at("val").getProperty(2);
+    EXPECT_TRUE(v0.has_value());
+    EXPECT_FALSE(v1.has_value());
+    EXPECT_TRUE(v2.has_value());
+    EXPECT_EQ(std::get<std::string_view>(*v0), "hello");
+    EXPECT_EQ(std::get<std::string_view>(*v2), "world");
+}
+
+TEST(Encode, NullableBoolProperty) {
+    auto layer = makeLayer("nullable_bool",
+                           {
+                               makePointFeature(1, {10, 20}, {{"val", true}}),
+                               makePointFeature(2, {30, 40}),
+                               makePointFeature(3, {50, 60}, {{"val", false}}),
+                           });
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("nullable_bool");
+    ASSERT_TRUE(decoded);
+    EXPECT_TRUE(decoded->getProperties().at("val").getProperty(0).has_value());
+    EXPECT_FALSE(decoded->getProperties().at("val").getProperty(1).has_value());
+    EXPECT_TRUE(decoded->getProperties().at("val").getProperty(2).has_value());
+}
+
+TEST(Encode, NullableUint64Property) {
+    auto layer = makeLayer("nullable_u64",
+                           {
+                               makePointFeature(1, {10, 20}, {{"val", std::uint64_t(12345678901234ULL)}}),
+                               makePointFeature(2, {30, 40}),
+                               makePointFeature(3, {50, 60}, {{"val", std::uint64_t(98765432109876ULL)}}),
+                           });
+
+    auto tile = encodeDecode({layer});
+    const auto* decoded = tile.getLayer("nullable_u64");
+    ASSERT_TRUE(decoded);
+    EXPECT_TRUE(decoded->getProperties().at("val").getProperty(0).has_value());
+    EXPECT_FALSE(decoded->getProperties().at("val").getProperty(1).has_value());
+    EXPECT_TRUE(decoded->getProperties().at("val").getProperty(2).has_value());
+}

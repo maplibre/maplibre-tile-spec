@@ -20,6 +20,9 @@ struct EncoderConfig {
     bool includeIds = true;
     bool sortFeatures = true;
     bool preTessellate = false;
+    bool includeOutlines = true;
+    bool useMortonEncoding = true;
+    bool useFsst = true;
 };
 
 class Encoder : public util::noncopyable {
