@@ -41,6 +41,7 @@ jobs:
             target: ppc64le
     steps:
       - uses: actions/checkout@v6
+      - uses: ./.github/actions/mlt-setup-rust
       - uses: actions/setup-python@v6
         with: { python-version: '3.x' }
       - name: Build wheels
@@ -71,6 +72,7 @@ jobs:
             target: armv7
     steps:
       - uses: actions/checkout@v6
+      - uses: ./.github/actions/mlt-setup-rust
       - uses: actions/setup-python@v6
         with: { python-version: '3.x' }
       - name: Build wheels
