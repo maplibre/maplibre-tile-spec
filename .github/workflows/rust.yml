@@ -182,7 +182,7 @@ jobs:
       - name: Get mlt version for release tag
         id: get_version
         shell: bash
-        run: just -v rust::get-release-info mlt >> $GITHUB_OUTPUT
+        run: just -v rust::ci-get-release-info mlt >> $GITHUB_OUTPUT
       - name: Download all artifacts
         uses: actions/download-artifact@v7
         with: { path: artifacts }
