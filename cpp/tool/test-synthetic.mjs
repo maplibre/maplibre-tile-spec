@@ -57,7 +57,16 @@ for (const mltFile of mltFiles) {
     continue;
   }
 
-  const actual = execFileSync(binary, [mltFile], { encoding: "utf-8" });
+  let actual;
+  try {
+    actual = execFileSync(binary, [mltFile], { encoding: "utf-8" });
+  } catch (err) {
+    const msg = err.stderr?.trim() || err.message;
+    console.log(`FAIL - ${name} (crash: ${msg})`);
+    failed++;
+    continue;
+  }
+
   const expected = await readFile(jsonFile, "utf-8");
 
   const actualObj = normalizeFloats(JSON.parse(actual));
