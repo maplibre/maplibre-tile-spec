@@ -40,7 +40,7 @@ pub struct LsArgs {
     #[arg(short = 'e', long)]
     extension: Vec<String>,
 
-    /// Exclude paths matching the given glob (e.g. "*.json", "**/fixtures/*"). Can be specified multiple times.
+    /// Exclude paths matching the given glob (e.g. "**/fixtures/**", "**/*.pbf"). Can be specified multiple times.
     #[arg(short = 'E', long = "exclude")]
     exclude: Vec<String>,
 
@@ -275,7 +275,7 @@ impl LsRow {
     }
 }
 
-/// True if the path string contains glob metacharacters (*?[).
+/// True if the path string contains glob metacharacters `"*?[{"`.
 fn has_glob_metachars(path: &Path) -> bool {
     let s = path.to_string_lossy();
     s.contains('*') || s.contains('?') || s.contains('[') || s.contains('{')
@@ -315,16 +315,13 @@ pub fn ls(args: &LsArgs) -> Result<bool> {
     let flags = LsFlags::from(args);
     let mut all_files = Vec::new();
 
-    // Expand path arguments as globs when they contain *?[; directories are left as-is and handled below.
+    // Expand path arguments as globs when they contain *?[{; directories are left as-is and handled below.
     let expanded_paths = expand_path_args(&args.paths)?;
+    let exclude = build_exclude_set(&args.exclude)?;
 
     for path in &expanded_paths {
-        let files = collect_tile_files(path, !args.no_recursive, &args.extension)?;
+        let files = collect_tile_files(path, args, exclude.as_ref())?;
         all_files.extend(files);
-    }
-
-    if let Some(exclude_set) = build_exclude_set(&args.exclude)? {
-        all_files.retain(|p| !exclude_set.is_match(p));
     }
 
     if all_files.is_empty() {
@@ -332,9 +329,7 @@ pub fn ls(args: &LsArgs) -> Result<bool> {
         return Ok(false);
     }
 
-    // Determine base path for relative path calculation
-    // Use current directory if multiple paths or use the single path
-    let base_path = if args.paths.len() == 1 {
+    let base_path = if args.paths.len() == 1 && !has_glob_metachars(&args.paths[0]) {
         &args.paths[0]
     } else {
         Path::new(".")
@@ -426,19 +421,30 @@ fn matches_extension_filter(path: &Path, extensions: &[String]) -> bool {
     }
 }
 
-fn collect_tile_files(path: &Path, recursive: bool, extensions: &[String]) -> Result<Vec<PathBuf>> {
+fn collect_tile_files(
+    path: &Path,
+    args: &LsArgs,
+    exclude_set: Option<&GlobSet>,
+) -> Result<Vec<PathBuf>> {
     let matches_ext = |p: &Path| {
-        if extensions.is_empty() {
+        if args.extension.is_empty() {
             is_tile_extension(p)
         } else {
-            matches_extension_filter(p, extensions)
+            matches_extension_filter(p, &args.extension)
         }
     };
+    let excluded = |p: &Path| exclude_set.is_some_and(|s| s.is_match(p));
 
     let mut files = Vec::new();
     if path.is_dir() {
-        collect_from_dir(path, &mut files, recursive, &matches_ext)?;
-    } else if path.is_file() && matches_ext(path) {
+        collect_from_dir(
+            path,
+            &mut files,
+            !args.no_recursive,
+            &matches_ext,
+            exclude_set,
+        )?;
+    } else if path.is_file() && !excluded(path) && matches_ext(path) {
         files.push(path.to_path_buf());
     }
 
@@ -450,6 +456,7 @@ fn collect_from_dir<F>(
     files: &mut Vec<PathBuf>,
     recursive: bool,
     matches_ext: &F,
+    exclude_set: Option<&GlobSet>,
 ) -> Result<()>
 where
     F: Fn(&Path) -> bool,
@@ -457,11 +464,11 @@ where
     for entry in fs::read_dir(dir)? {
         let path = entry?.path();
         if path.is_file() {
-            if matches_ext(&path) {
+            if !exclude_set.is_some_and(|s| s.is_match(&path)) && matches_ext(&path) {
                 files.push(path);
             }
-        } else if recursive && path.is_dir() {
-            collect_from_dir(&path, files, recursive, matches_ext)?;
+        } else if recursive && path.is_dir() && !exclude_set.is_some_and(|s| s.is_match(&path)) {
+            collect_from_dir(&path, files, recursive, matches_ext, exclude_set)?;
         }
     }
     Ok(())

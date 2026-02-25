@@ -8,7 +8,7 @@ use std::fs::canonicalize;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::{fs, thread};
 
 use anyhow::bail;
@@ -64,7 +64,7 @@ pub const STYLE_LABEL: Style = Style::new().fg(CLR_LABEL);
 pub const STYLE_BOLD: Style = Style::new().add_modifier(Modifier::BOLD);
 
 /// Throttle hover-driven redraws so mouse move over map doesn't flood the loop
-const HOVER_REDRAW_THROTTLE_MS: u128 = 32;
+const HOVER_REDRAW_THROTTLE: Duration = Duration::from_millis(32);
 
 #[derive(Args)]
 pub struct UiArgs {
@@ -482,7 +482,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
             })?;
         }
 
-        if event::poll(std::time::Duration::from_millis(16))? {
+        if event::poll(Duration::from_millis(16))? {
             match event::read()? {
                 Event::Key(key) if key.kind == KeyEventKind::Press => {
                     if key.modifiers.contains(KeyModifiers::CONTROL)
@@ -650,9 +650,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             }
                         }
                         if app.hovered != prev {
-                            let allow = last_hover_redraw.is_none_or(|t| {
-                                t.elapsed().as_millis() >= HOVER_REDRAW_THROTTLE_MS
-                            });
+                            let allow = last_hover_redraw
+                                .is_none_or(|t| t.elapsed() >= HOVER_REDRAW_THROTTLE);
                             if allow {
                                 last_hover_redraw = Some(Instant::now());
                                 app.invalidate();
