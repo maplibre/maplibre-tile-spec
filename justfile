@@ -19,6 +19,7 @@ bench:
 
 # Run integration tests, and override what we expect the output to be with the actual output
 bless: _clean-int-test _test-run-int
+    {{just}} rust::bless
     rm -rf test/expected && mv test/output test/expected
 
 # Delete all build files for multiple languages
