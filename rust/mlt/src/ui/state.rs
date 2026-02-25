@@ -629,7 +629,7 @@ impl App {
                     return false;
                 }
                 match &self.files[i] {
-                    LsRow::Info(_, info) => {
+                    LsRow::Info { info, .. } => {
                         self.geom_filters
                             .iter()
                             .all(|g| info.geometries.contains(g))
@@ -829,7 +829,7 @@ impl App {
 fn file_cmp(a: &LsRow, b: &LsRow, col: FileSortColumn, asc: bool) -> std::cmp::Ordering {
     use std::cmp::Ordering;
     let ord = match (a, b) {
-        (LsRow::Info(_, ai), LsRow::Info(_, bi)) => match col {
+        (LsRow::Info { info: ai, .. }, LsRow::Info { info: bi, .. }) => match col {
             FileSortColumn::File => ai.path.cmp(&bi.path),
             FileSortColumn::Size => ai.size.cmp(&bi.size),
             FileSortColumn::EncPct => match (ai.encoding_pct, bi.encoding_pct) {
@@ -841,8 +841,8 @@ fn file_cmp(a: &LsRow, b: &LsRow, col: FileSortColumn, asc: bool) -> std::cmp::O
             FileSortColumn::Layers => ai.layers.cmp(&bi.layers),
             FileSortColumn::Features => ai.features.cmp(&bi.features),
         },
-        (LsRow::Info(..), _) => Ordering::Less,
-        (_, LsRow::Info(..)) => Ordering::Greater,
+        (LsRow::Info { .. }, _) => Ordering::Less,
+        (_, LsRow::Info { .. }) => Ordering::Greater,
         _ => a.path().cmp(b.path()),
     };
     if asc { ord } else { ord.reverse() }

@@ -1,7 +1,7 @@
 [package]
 name = "mlt"
 description = "MapLibre Tile Tools"
-version = "0.1.1"
+version = "0.1.2"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -24,6 +24,9 @@ clap.workspace = true
 crossterm.workspace = true
 flate2.workspace = true
 geo-types.workspace = true
+glob.workspace = true
+globset.workspace = true
+json5.workspace = true
 mlt-core.workspace = true
 ratatui.workspace = true
 rayon.workspace = true

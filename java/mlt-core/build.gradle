@@ -26,7 +26,6 @@ dependencies {
     implementation(libs.jts.core)
     implementation(libs.mapbox.vector.tile.java)
     implementation(libs.protobuf.java)
-    implementation(libs.slf4j.simple)
 
     testImplementation(libs.jmh.core)
     testImplementation(libs.jmh.generator.annprocess)
