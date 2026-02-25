@@ -39,6 +39,7 @@ const SKIP_FASTPFOR = new Set([
   "polygon_hole_fpf.mlt",
   "polygon_morton_tes.mlt",
   "polygon_multi_fpf.mlt",
+  "polygon_fpf_tes.mlt",
 ]);
 
 console.log(`Found ${mltFiles.length} MLT files\n`);
