@@ -63,10 +63,11 @@ docs-build:
 ci-extract-version language tag:
     @echo "{{replace(replace(tag, language + '-', ''), 'v', '')}}"
 
-# Run the mlt CLI tool with the given arguments from current dir
+# Run the mlt CLI tool with the given arguments from current dir.
 [no-cd]
+[positional-arguments]  # avoid shell expansions
 mlt *args:
-    cargo run --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt -- {{args}}
+    cargo run --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt -- "$@"
 
 # Ensure a command is available
 assert-cmd command:
