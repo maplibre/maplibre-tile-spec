@@ -6,9 +6,7 @@ import decodeTile from "./mltDecoder";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
 import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
-
-const RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100;
-const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
+import { expectJsonEqualWithTolerance } from "./synthetic-test-util.js";
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["polygon_multi_fpf", "FastPFor not implemented"],
@@ -39,25 +37,6 @@ describe("MLT Decoder - Synthetic tests", () => {
     /**
      * This adds number handing comparison logic to vitest for number which are close enough, but would fail the regular comparison.
      */
-    expect.addEqualityTesters([
-        (received, expected) => {
-            if (typeof received !== "number" || typeof expected !== "number") {
-                return undefined;
-            }
-
-            // Handle Infinity/NaN
-            if (!Number.isFinite(expected)) return Object.is(received, expected);
-
-            // Handle Close to Zero
-            if (Math.abs(expected) < ABSOLUTE_FLOAT_TOLERANCE) {
-                return Math.abs(received) <= ABSOLUTE_FLOAT_TOLERANCE;
-            }
-
-            // Handle Relative Tolerance
-            const relativeError = Math.abs(received - expected) / Math.abs(expected);
-            return relativeError <= RELATIVE_FLOAT_TOLERANCE;
-        },
-    ]);
 
     for (const testName of activeList) {
         it(`should decode ${testName}`, async () => {
@@ -69,7 +48,7 @@ describe("MLT Decoder - Synthetic tests", () => {
             const featureTables = decodeTile(mltBuffer, null, false);
             const actualJson = featureTablesToFeatureCollection(featureTables);
             const expectedJson = JSON5.parse(jsonRaw);
-            expect(actualJson).toEqual(expectedJson);
+            expectJsonEqualWithTolerance(actualJson, expectedJson);
         });
     }
 

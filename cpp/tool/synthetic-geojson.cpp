@@ -79,12 +79,15 @@ json toFeatureCollection(const MapLibreTile& tile) {
             props["_extent"] = layer.getExtent();
             props["_layer"] = layer.getName();
 
-            features.push_back({
+            auto featureObj = json{
                 {"geometry", buildRawGeometryElement(feature.getGeometry())},
-                {"id", feature.getID()},
                 {"properties", std::move(props)},
                 {"type", "Feature"},
-            });
+            };
+            if (const auto id = feature.getID(); id.has_value()) {
+                featureObj["id"] = *id;
+            }
+            features.push_back(std::move(featureObj));
         }
     }
     return {{"features", std::move(features)}, {"type", "FeatureCollection"}};

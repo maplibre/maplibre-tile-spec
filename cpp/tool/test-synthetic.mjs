@@ -2,9 +2,11 @@
 
 import { execFileSync } from "node:child_process";
 import { glob, readFile } from "node:fs/promises";
-import { deepStrictEqual } from "node:assert";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import JSON5 from "json5";
+import { expectJsonEqualWithTolerance } from "../../ts/src/synthetic-test-util.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const binary = resolve(__dirname, "../build/tool/mlt-cpp-json");
@@ -55,24 +57,19 @@ for (const mltFile of mltFiles) {
     continue;
   }
 
+  const actual = execFileSync(binary, [mltFile], { encoding: "utf-8" });
+  const expected = await readFile(jsonFile, "utf-8");
+
+  const actualObj = normalizeFloats(JSON.parse(actual));
+  const expectedObj = normalizeFloats(JSON5.parse(expected));
+
   try {
-    const actual = execFileSync(binary, [mltFile], { encoding: "utf-8" });
-    const expected = await readFile(jsonFile, "utf-8");
-
-    const actualObj = normalizeFloats(JSON.parse(actual));
-    const expectedObj = normalizeFloats(JSON.parse(expected));
-
-    deepStrictEqual(actualObj, expectedObj);
-    console.log(`OK   ${name}`);
+    expectJsonEqualWithTolerance(expectedObj, actualObj);
+    console.log(`OK - ${name}`);
     passed++;
   } catch (err) {
-    if (err?.code === "ERR_ASSERTION") {
-      console.log(`DIFF ${name}`);
-      console.log(`  ${err.message.split("\n").slice(0, 3).join("\n  ")}`);
-    } else {
-      console.log(`FAIL ${name}`);
-      console.log(`  ${err.stderr?.trim() || err.message}`);
-    }
+    console.log(`FAIL - ${name}`)
+    console.error("expected:\n", JSON5.stringify(expectedObj, null, 2), "\nactual:\n", JSON5.stringify(actualObj, null, 2))
     failed++;
   }
 }

@@ -32,7 +32,8 @@ struct Decoder::Impl {
         : geometryFactory(std::move(geometryFactory_)) {}
 
     Layer parseBasicMVTEquivalent(BufferStream&);
-    std::vector<Feature> makeFeatures(const std::vector<Feature::id_t>&, std::vector<std::unique_ptr<Geometry>>&&);
+    std::vector<Feature> makeFeatures(const std::vector<std::optional<Feature::id_t>>&,
+                                      std::vector<std::unique_ptr<Geometry>>&&);
 
     IntegerDecoder integerDecoder;
     StringDecoder stringDecoder{integerDecoder};
@@ -47,26 +48,44 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
 
     const auto layerMetadata = mlt::metadata::tileset::decodeFeatureTable(tileData);
 
-    std::vector<Feature::id_t> ids;
+    std::vector<std::optional<Feature::id_t>> ids;
     std::unique_ptr<geometry::GeometryVector> geometryVector;
     PropertyVecMap properties;
 
     for (const auto& columnMetadata : layerMetadata.columns) {
         const auto numStreams = Tag0x01::hasStreamCount(columnMetadata) ? decodeVarint<std::uint32_t>(tileData) : 1;
         if (columnMetadata.isID()) {
+            PackedBitset idPresentBits;
+            std::uint32_t numFeaturesFromPresent = 0;
             if (columnMetadata.nullable) {
                 const auto presentStreamMetadata = StreamMetadata::decode(tileData);
-                // data ignored, don't decode it
-                tileData.consume(presentStreamMetadata->getByteLength());
+                numFeaturesFromPresent = presentStreamMetadata->getNumValues();
+                rle::decodeBoolean(tileData, idPresentBits, *presentStreamMetadata, /*consume=*/true);
             }
 
             const auto idDataStreamMetadata = StreamMetadata::decode(tileData);
 
-            ids.resize(idDataStreamMetadata->getNumValues());
+            std::vector<Feature::id_t> denseIds(idDataStreamMetadata->getNumValues());
             if (columnMetadata.getScalarType().hasLongID) {
-                integerDecoder.decodeIntStream<std::uint64_t>(tileData, ids, *idDataStreamMetadata);
+                integerDecoder.decodeIntStream<std::uint64_t>(tileData, denseIds, *idDataStreamMetadata);
             } else {
-                integerDecoder.decodeIntStream<std::uint32_t, std::uint64_t>(tileData, ids, *idDataStreamMetadata);
+                integerDecoder.decodeIntStream<std::uint32_t, std::uint64_t>(tileData, denseIds, *idDataStreamMetadata);
+            }
+
+            if (!idPresentBits.empty()) {
+                // Expand dense IDs to sparse optional IDs using the present bitset
+                ids.resize(numFeaturesFromPresent);
+                std::size_t denseIdx = 0;
+                for (std::uint32_t i = 0; i < numFeaturesFromPresent; ++i) {
+                    if (testBit(idPresentBits, i)) {
+                        ids[i] = denseIds[denseIdx++];
+                    }
+                }
+            } else {
+                ids.resize(denseIds.size());
+                for (std::size_t i = 0; i < denseIds.size(); ++i) {
+                    ids[i] = denseIds[i];
+                }
             }
         } else if (columnMetadata.isGeometry()) {
             geometryVector = geometryDecoder.decodeGeometryColumn(tileData, columnMetadata, numStreams);
@@ -91,7 +110,7 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
             std::move(properties)};
 }
 
-std::vector<Feature> Decoder::Impl::makeFeatures(const std::vector<Feature::id_t>& ids,
+std::vector<Feature> Decoder::Impl::makeFeatures(const std::vector<std::optional<Feature::id_t>>& ids,
                                                  std::vector<std::unique_ptr<Geometry>>&& geometries) {
     const auto featureCount = geometries.size();
     if (!ids.empty() && ids.size() != featureCount) {
@@ -100,7 +119,7 @@ std::vector<Feature> Decoder::Impl::makeFeatures(const std::vector<Feature::id_t
     }
 
     return util::generateVector<Feature>(featureCount, [&](const auto i) {
-        const auto id = ids.empty() ? Feature::id_t{0} : ids[i];
+        const auto id = ids.empty() ? std::optional<Feature::id_t>{} : ids[i];
         return Feature{id, std::move(geometries[i]), static_cast<std::uint32_t>(i)};
     });
 }
