@@ -28,7 +28,7 @@ jobs:
       - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8 # v1.3.3
         with: {commit-message: "chore: sort Cargo.toml"}
   rust-sync-pyo3-version:
-    name: Sync mlt-pyo3 pyproject.toml version
+    name: Sync mlt-py pyproject.toml version
     runs-on: ubuntu-latest
     permissions:
       contents: read

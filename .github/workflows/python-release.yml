@@ -51,7 +51,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-pyo3/Cargo.toml
+          args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-py/Cargo.toml
           sccache: false
           manylinux: auto
       - name: Upload wheels
@@ -86,7 +86,7 @@ jobs:
   #      uses: PyO3/maturin-action@v1
   #      with:
   #        target: ${{ matrix.platform.target }}
-  #        args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-pyo3/Cargo.toml
+  #        args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-py/Cargo.toml
   #        sccache: false
   #        manylinux: musllinux_1_2
   #    - name: Upload wheels
@@ -122,7 +122,7 @@ jobs:
   #      uses: PyO3/maturin-action@v1
   #      with:
   #        target: ${{ matrix.platform.target }}
-  #        args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-pyo3/Cargo.toml
+  #        args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-py/Cargo.toml
   #        sccache: false
   #    - name: Upload wheels
   #      uses: actions/upload-artifact@v5
@@ -150,7 +150,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-pyo3/Cargo.toml
+          args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-py/Cargo.toml
           sccache: false
       - name: Upload wheels
         uses: actions/upload-artifact@v5
@@ -166,7 +166,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
-          args: --out dist --manifest-path rust/mlt-pyo3/Cargo.toml
+          args: --out dist --manifest-path rust/mlt-py/Cargo.toml
       - name: Upload sdist
         uses: actions/upload-artifact@v5
         with: { name: 'wheels-sdist', path: 'dist' }

@@ -13,7 +13,7 @@ A QGIS plugin to open **MapLibre Tile (MLT)** files, powered by the Rust
          │ import
 ┌────────▼────────────┐
 │   mlt               │  Rust → Python bridge (PyO3 + maturin)
-│   (rust/mlt-pyo3)   │
+│   (rust/mlt-py)   │
 └────────┬────────────┘
          │ depends on
 ┌────────▼────────────┐
@@ -48,7 +48,7 @@ Use whichever interpreter prints "QGIS bindings OK" in the commands below.
 ### Step 2: Build and install the native module
 
 ```bash
-cd rust/mlt-pyo3
+cd rust/mlt-py
 
 # Option A: build a wheel, then install it
 pip install maturin            # in any environment
@@ -166,6 +166,6 @@ values are correct.
 **Plugin not visible in QGIS** — check the symlink points to the right
 directory and that the `metadata.txt` file exists inside it.
 
-**Build fails with "unsafe_code forbidden"** — the `mlt-pyo3` crate overrides
-the workspace lint locally; make sure you're building from `rust/mlt-pyo3/`,
+**Build fails with "unsafe_code forbidden"** — the `mlt-py` crate overrides
+the workspace lint locally; make sure you're building from `rust/mlt-py/`,
 not the workspace root.

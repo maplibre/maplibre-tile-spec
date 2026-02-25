@@ -161,8 +161,8 @@ lint: clippy test-fmt
 msrv: (just 'cargo-install' 'cargo-msrv')
     cargo msrv find --write-msrv --ignore-lockfile --component rustfmt -- {{just}} rust::ci-test-msrv
 
-# Build mlt-pyo3 and launch a Python interpreter with mlt pre-imported
-[working-directory: 'mlt-pyo3']
+# Build mlt-py and launch a Python interpreter with mlt pre-imported
+[working-directory: 'mlt-py']
 py: (just 'cargo-install' 'maturin')
     #!/usr/bin/env bash
     set -euo pipefail
@@ -172,7 +172,7 @@ py: (just 'cargo-install' 'maturin')
     fi
     source .venv/bin/activate
     maturin develop
-    python3 -i -c "import mlt; print('mlt ready — try: mlt.decode_mlt(data)')"
+    python3 -i -c "import mlt_py; print('mlt_py ready — try: mlt_py.decode_mlt(data)')"
 
 py-publish:
     docker run --rm -v $(pwd):/io ghcr.io/pyo3/maturin build --release
@@ -185,16 +185,16 @@ release *args='': (just 'cargo-install' 'release-plz')
 semver *args: (just 'cargo-install' 'cargo-semver-checks')
     cargo semver-checks --all-features {{args}}
 
-# Regenerate the Python type stub for mlt-pyo3
+# Regenerate the Python type stub for mlt-py
 sync-pyo3-stubs:
-    cargo run -p mlt-pyo3 --bin stub_gen --features abi3
+    cargo run -p mlt-py --bin stub_gen --features abi3
 
-# Sync the version field in mlt-pyo3/pyproject.toml to match mlt-pyo3/Cargo.toml
+# Sync the version field in mlt-py/pyproject.toml to match mlt-py/Cargo.toml
 sync-pyo3-version:
     #!/usr/bin/env bash
     set -euo pipefail
-    VERSION=$({{just}} rust::get-crate-field version mlt-pyo3)
-    PYPROJECT="mlt-pyo3/pyproject.toml"
+    VERSION=$({{just}} rust::get-crate-field version mlt-py)
+    PYPROJECT="mlt-py/pyproject.toml"
     sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$PYPROJECT"
     echo "Synced $PYPROJECT to version $VERSION"
 
