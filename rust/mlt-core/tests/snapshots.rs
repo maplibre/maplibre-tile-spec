@@ -10,7 +10,7 @@ use test_each_file::test_each_path;
 
 //
 // ATTENTION:  this test is likely to be deleted soon.
-//             use synthetics.rs test instead
+//             Geometry validation is done via `mlt ls --validate-to-json` (see mlt/tests/validate_synthetic.rs).
 //
 
 // test_each_path! { for ["mlt"] in "../test/expected/tag0x01" as parse => parse }

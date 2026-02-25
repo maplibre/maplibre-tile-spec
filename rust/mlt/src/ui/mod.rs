@@ -30,7 +30,8 @@ use ratatui::widgets::{Block, Borders};
 use rstar::{AABB, PointDistance, RTreeObject};
 
 use crate::ls::{
-    FileAlgorithm, FileSortColumn, LsRow, analyze_tile_files, is_mvt_extension, is_tile_extension,
+    FileAlgorithm, FileSortColumn, LsFlags, LsRow, analyze_tile_files, is_mlt_extension,
+    is_tile_extension,
 };
 use crate::ui::rendering::files::{
     render_file_browser, render_file_filter_panel, render_file_info_panel,
@@ -84,7 +85,15 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
             .collect();
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || {
-            let _ = tx.send(analyze_tile_files(&paths, &base, true));
+            let _ = tx.send(analyze_tile_files(
+                &paths,
+                &base,
+                LsFlags {
+                    gzip: true,
+                    algorithms: true,
+                    validate: false,
+                },
+            ));
         });
         App::new_file_browser(files, Some(rx))
     } else if args.path.is_file() {
@@ -99,7 +108,7 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
 
 fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
     let buf = fs::read(path)?;
-    if is_mvt_extension(path) {
+    if is_mlt_extension(path) {
         Ok(mvt_to_feature_collection(buf)?)
     } else {
         let mut layers = parse_layers(&buf)?;
@@ -892,7 +901,7 @@ fn toggle_set_string(set: &mut HashSet<String>, val: &str) {
 pub(crate) fn collect_file_geometries(files: &[LsRow]) -> Vec<GeometryType> {
     let mut set = HashSet::new();
     for row in files {
-        if let LsRow::Info(_, info) = row {
+        if let LsRow::Info { info, .. } = row {
             for g in &info.geometries {
                 set.insert(*g);
             }
@@ -906,7 +915,7 @@ pub(crate) fn collect_file_geometries(files: &[LsRow]) -> Vec<GeometryType> {
 pub(crate) fn collect_file_algorithms(files: &[LsRow]) -> Vec<FileAlgorithm> {
     let mut set = HashSet::new();
     for row in files {
-        if let LsRow::Info(_, info) = row {
+        if let LsRow::Info { info, .. } = row {
             for a in &info.algorithms {
                 set.insert(*a);
             }
