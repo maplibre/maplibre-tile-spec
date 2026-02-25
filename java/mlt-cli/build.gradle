@@ -40,22 +40,22 @@ dependencies {
     implementation(libs.jts.core)
     implementation(libs.jts.io.common)
 
+    implementation(libs.log4j.api)
+    implementation(libs.log4j.slf4j.impl)
+
     // pmtiles support
-    implementation(libs.planetiler.core) {
-        // Eliminate a duplicate binding warning emitted on stderr at startup by SLF4J.
-        //
-        // "libraries or frameworks should not declare a dependency on any SLF4J binding but only
-        //  depend on slf4j-api. When a library declares a compile-time dependency on a SLF4J
-        //  binding, it imposes that binding on the end-user, thus negating SLF4J's purpose."
-        // https://www.slf4j.org/codes.html#multiple_bindings
-        exclude group: 'org.apache.logging.log4j', module: 'log4j-slf4j2-impl'
-    }
+    implementation(libs.planetiler.core)
     implementation(platform(libs.tileverse.io))
     implementation(libs.tileverse.rangereader.all)
 
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testImplementation(libs.junit.jupiter.params)
+}
+
+// Exclude slf4j-simple from all configurations to prevent conflicts with log4j-slf4j-impl
+configurations.all {
+    exclude group: 'org.slf4j', module: 'slf4j-simple'
 }
 
 test {
@@ -121,12 +121,24 @@ tasks.withType(Test).configureEach {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         configurations = project.configurations.named('runtimeClasspath').map { [it] }
 
+        // TODO: How to exclude the file from some dependency?  This also blocks the include below.
+        // Currently we're relying on order to make this work.
+        //exclude 'log4j2.properties'
+        from('src/main/resources') {
+            include 'log4j2.properties'
+            duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        }
+
         // Filter out dependency JAR signatures to prevent `SecurityException: Invalid signature file digest for Manifest main attributes`
         exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
 
         // Tileverse relies on the contents of META-INF/services to register service providers.
         // By default, these are ignored when building a fat JAR, so we need to merge them.
         filesMatching('META-INF/services/**') {
+            duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        }
+        // Log4j relies on the contents of META-INF/org/apache/logging/log4j/core/config/plugins to register plugins.
+        filesMatching('META-INF/org/apache/logging/log4j/core/config/plugins/**') {
             duplicatesStrategy = DuplicatesStrategy.INCLUDE
         }
         mergeServiceFiles()

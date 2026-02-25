@@ -5,7 +5,7 @@ import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import type { StreamMetadata, RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import IntWrapper from "../decoding/intWrapper";
-import { encodeBooleanRle, encodeFloatsLE, encodeDoubleLE } from "./encodingUtils";
+import { encodeBooleanRle, encodeFloatsLE } from "./encodingUtils";
 import {
     encodeVarintInt32Value,
     encodeVarintInt32,
@@ -309,20 +309,20 @@ export function encodeFloatNullableColumn(values: (number | null)[]): Uint8Array
 }
 
 /**
- * Encodes DOUBLE values
+ * Encodes DOUBLE values (doubles currently written as floats)
  */
 export function encodeDoubleColumn(values: Float32Array): Uint8Array {
-    const encodedData = encodeDoubleLE(values);
+    const encodedData = encodeFloatsLE(values);
     const streamMetadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, values.length);
     return buildEncodedStream(streamMetadata, encodedData);
 }
 
 /**
- * Encodes nullable DOUBLE values
+ * Encodes nullable DOUBLE values (doubles currently written as floats)
  */
 export function encodeDoubleNullableColumn(values: (number | null)[]): Uint8Array {
     const nonNullValues = values.filter((v): v is number => v !== null);
-    const encodedData = encodeDoubleLE(new Float32Array(nonNullValues));
+    const encodedData = encodeFloatsLE(new Float32Array(nonNullValues));
     const dataStreamMetadata = createStreamMetadata(
         LogicalLevelTechnique.NONE,
         LogicalLevelTechnique.NONE,

@@ -3,9 +3,9 @@ package org.maplibre.mlt.cli;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -18,11 +18,14 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.help.HelpFormatter;
+import org.apache.commons.cli.help.TextHelpAppendable;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.StringUtils;
 import org.maplibre.mlt.converter.encodings.fsst.FsstJni;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 class EncodeCommandLine {
   static final String INPUT_TILE_ARG = "mvt";
@@ -72,15 +75,20 @@ class EncodeCommandLine {
   static final String HELP_OPTION = "help";
   static final String SERVER_ARG = "server";
 
-  private static boolean validateCompression(CommandLine cmd) {
+  private static List<String> getAllowedCompressions(CommandLine cmd) {
     final var allowed =
-        new HashSet<>(
+        new ArrayList<>(
             Arrays.asList(COMPRESS_OPTION_GZIP, COMPRESS_OPTION_DEFLATE, COMPRESS_OPTION_NONE));
     if (cmd.hasOption(INPUT_PMTILES_ARG)) {
       allowed.add(COMPRESS_OPTION_BROTLI);
       allowed.add(COMPRESS_OPTION_ZSTD);
     }
-    return allowed.contains(cmd.getOptionValue(COMPRESS_OPTION, COMPRESS_OPTION_NONE));
+    return allowed;
+  }
+
+  private static boolean validateCompression(CommandLine cmd) {
+    return getAllowedCompressions(cmd)
+        .contains(cmd.getOptionValue(COMPRESS_OPTION, COMPRESS_OPTION_NONE));
   }
 
   static CommandLine getCommandLine(String[] args) throws IOException {
@@ -344,7 +352,7 @@ Add an explicit column mapping on the specified layers:
               .longOpt(PRINT_MLT_OPTION)
               .hasArg(false)
               .desc(
-                  "Print the MLT tile after encoding it. "
+                  "Print the MLT tile to stdout after encoding it. "
                       + "Only applies with --"
                       + INPUT_TILE_ARG
                       + ".")
@@ -355,7 +363,7 @@ Add an explicit column mapping on the specified layers:
               .longOpt(PRINT_MVT_OPTION)
               .hasArg(false)
               .desc(
-                  "Print the round-tripped MVT tile. "
+                  "Print the round-tripped MVT tile to stdout. "
                       + "Only applies with --"
                       + INPUT_TILE_ARG
                       + ".")
@@ -464,9 +472,13 @@ Add an explicit column mapping on the specified layers:
               .hasArg(true)
               .optionalArg(true)
               .argName("level")
-              .desc("Enable verbose output.")
+              .desc(
+                  "Select output verbosity for status and information on stderr. "
+                      + "Optionally specify a level: off, fatal, error, warn, info, debug, trace. "
+                      + "Default is info, or debug if --"
+                      + VERBOSE_OPTION
+                      + " is specified without a level.")
               .required(false)
-              .converter(Converter.NUMBER)
               .get());
       options.addOption(
           Option.builder()
@@ -503,12 +515,7 @@ Add an explicit column mapping on the specified layers:
       if (cmd.hasOption(SERVER_ARG)) {
         return cmd;
       } else if (cmd.getOptions().length == 0 || cmd.hasOption(HELP_OPTION)) {
-        final var autoUsage = true;
-        final var header =
-            "\nConvert an MVT tile file or MBTiles containing MVT tiles to MLT format.\n\n";
-        final var footer = "";
-        final var formatter = HelpFormatter.builder().get();
-        formatter.printHelp(Encode.class.getName(), header, options, footer, autoUsage);
+        printHelp(options);
       } else if (Stream.of(
                   cmd.hasOption(INPUT_TILE_ARG),
                   cmd.hasOption(INPUT_MBTILES_ARG),
@@ -517,30 +524,67 @@ Add an explicit column mapping on the specified layers:
               .filter(x -> x)
               .count()
           != 1) {
-        System.err.println(
-            "Specify one of --"
-                + INPUT_TILE_ARG
-                + ", --"
-                + INPUT_MBTILES_ARG
-                + ", --"
-                + INPUT_OFFLINEDB_ARG
-                + ", or --"
-                + INPUT_PMTILES_ARG
-                + ".");
+        logger.error(
+            "Exactly one of --{}, --{}, --{}, or --{} must be used",
+            INPUT_TILE_ARG,
+            INPUT_MBTILES_ARG,
+            INPUT_OFFLINEDB_ARG,
+            INPUT_PMTILES_ARG);
       } else if (cmd.hasOption(OUTPUT_FILE_ARG) && cmd.hasOption(OUTPUT_DIR_ARG)) {
-        System.err.println(
-            "Cannot specify both --" + OUTPUT_FILE_ARG + " and --" + OUTPUT_DIR_ARG + " options.");
+        logger.error("Cannot specify both --{} and --{} options.", OUTPUT_FILE_ARG, OUTPUT_DIR_ARG);
       } else if (!validateCompression(cmd)) {
-        System.err.println("Invalid compression type.");
+        logger.error(
+            "Not a valid compression type: '{}'.  Valid options are: {}",
+            cmd.getOptionValue(COMPRESS_OPTION),
+            String.join(", ", getAllowedCompressions(cmd)));
       } else {
         return cmd;
       }
     } catch (IOException | ParseException ex) {
-      System.err.println("Failed to parse options: " + ex.getMessage());
-    } catch (URISyntaxException e) {
-      System.err.println("Invalid tessellation URL: " + e.getMessage());
+      logger.error("Failed to parse command line arguments", ex);
+    } catch (URISyntaxException ex) {
+      logger.error("Invalid tessellation URL", ex);
     }
     return null;
+  }
+
+  private static void printHelp(Options options) throws IOException {
+    final var autoUsage = true;
+    final var header =
+        "Convert an MVT tile or a container file containing MVT tiles to MLT format.\n";
+    final var footer =
+        "\nExample usages:\n"
+            + " Encode a single tile:\n"
+            + "    encode --mvt input.mvt --mlt output.mlt\n"
+            + " Encode all tiles in an MBTiles file, with compression and parallel encoding:\n"
+            + "    encode --mbtiles input.mbtiles --dir output_dir --compress gzip -j\n"
+            + " Start an encoding server on port 8080:\n"
+            + "    encode --server 8080\n"
+            + "\nEnvironment variables:\n"
+            + "  MLT_TILE_LOG_INTERVAL: Number of tiles between status log messages (default: 10000)\n"
+            + "  MLT_COMPRESSION_RATIO_THRESHOLD: Minimum compression ratio to apply compression (default: "
+            + ConversionHelper.DEFAULT_COMPRESSION_RATIO_THRESHOLD
+            + ").\n"
+            + "  MLT_COMPRESSION_FIXED_THRESHOLD: Minimum size in bytes for a tile to be compressed (default: "
+            + ConversionHelper.DEFAULT_COMPRESSION_FIXED_THRESHOLD
+            + ")\n";
+
+    final var target = new TextHelpAppendable(System.err);
+
+    final var widthStr = System.getenv("COLUMNS");
+    if (widthStr != null) {
+      try {
+        target.getTextStyleBuilder().setMaxWidth(Integer.parseInt(widthStr));
+      } catch (NumberFormatException ignore) {
+      }
+    }
+
+    final var formatter =
+        HelpFormatter.builder().setShowSince(false).setHelpAppendable(target).get();
+    formatter.printHelp(Encode.class.getName(), header, options, null, autoUsage);
+
+    // Passing this as the footer to `printHelp` causes it to be formatted incorrectly.
+    target.append(footer);
   }
 
   // matches a layer discriminator, [] = all, [regex] = match a regex
@@ -581,8 +625,10 @@ Add an explicit column mapping on the specified layers:
                 (oldList, newList) ->
                     Stream.of(oldList, newList).flatMap(Collection::stream).toList());
           } else {
-            System.err.println("WARNING: Invalid column mapping ignored: " + item);
-            System.err.println("Expected pattern is: " + colMapListPattern);
+            logger.warn(
+                "Invalid column mapping ignored: '{}'. Expected pattern is: {}",
+                item,
+                colMapListPattern);
           }
         }
       }
@@ -605,9 +651,11 @@ Add an explicit column mapping on the specified layers:
               (oldList, newList) ->
                   Stream.of(oldList, newList).flatMap(Collection::stream).toList());
         } else {
-          System.err.println("WARNING: Invalid column mapping ignored: " + item);
-          System.err.println(
-              "Expected pattern is: " + colMapSeparatorPattern1 + " or " + colMapSeparatorPattern2);
+          logger.warn(
+              "Invalid column mapping ignored: '{}'. Expected pattern is: {} or {}",
+              item,
+              colMapSeparatorPattern1,
+              colMapSeparatorPattern2);
         }
       }
     }
@@ -629,8 +677,10 @@ Add an explicit column mapping on the specified layers:
         return Pattern.compile(pattern, Pattern.LITERAL);
       }
     } catch (PatternSyntaxException ex) {
-      System.err.println("Invalid pattern, matching all input instead: " + ex.getMessage());
+      logger.error("Invalid regex pattern: '{}'.  Matching all input.", pattern, ex);
       return colMapMatchAll;
     }
   }
+
+  private static final Logger logger = LoggerFactory.getLogger(EncodeCommandLine.class);
 }
