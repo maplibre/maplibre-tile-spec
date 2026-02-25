@@ -29,9 +29,9 @@ pub fn dump(args: &DumpArgs, decode: AfterDump) -> Result<()> {
     let buffer = fs::read(&args.file)?;
 
     if is_mlt_extension(&args.file) {
-        dump_mvt(args, buffer)?;
-    } else {
         dump_mlt(args, decode, &buffer)?;
+    } else {
+        dump_mvt(args, buffer)?;
     }
     Ok(())
 }
