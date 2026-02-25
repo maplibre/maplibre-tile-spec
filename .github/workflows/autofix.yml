@@ -27,6 +27,30 @@ jobs:
 
       - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8 # v1.3.3
         with: {commit-message: "chore: sort Cargo.toml"}
+  sync-pyo3-version:
+    name: Sync mlt-pyo3 pyproject.toml version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: |
+      github.event.action == 'opened' ||
+      github.event.action == 'synchronize' ||
+      github.event.action == 'reopened'
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - name: Setup Rust
+        run: rustup update stable && rustup default stable
+      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
+        with: { tool: 'just,jq' }
+      - name: Sync pyproject.toml version from Cargo.toml
+        working-directory: rust
+        run: just sync-pyo3-version
+
+      - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8 # v1.3.3
+        with: {commit-message: "chore: sync secondary version indicators"}
+
   bless:
     name: Bless test output
     runs-on: ubuntu-latest
