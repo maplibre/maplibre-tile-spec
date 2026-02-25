@@ -219,12 +219,10 @@ update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
 
-# Assert each .mlt in compare_dir (except exceptions) exists in ref_dir and is binary-identical. ref_dir may have more files.
+# Assert each .mlt in compare_dir exists in ref_dir and is binary-identical. Skip '_rust' files.
 _assert-synthetic-mlt-identity ref_dir='../test/synthetic/0x01' compare_dir='../test/synthetic/0x01-rust':
     #!/usr/bin/env bash
     set -euo pipefail
-    # We expect these space-separated files to differ because they contain non-deterministic content.
-    EXCEPTIONS="props_str_fsst.mlt"
     # Ensure compare_dir exists.
     if [[ ! -d "{{compare_dir}}" ]]; then
         echo "::error::Compare directory {{compare_dir}} does not exist"
@@ -242,7 +240,7 @@ _assert-synthetic-mlt-identity ref_dir='../test/synthetic/0x01' compare_dir='../
 
     for mlt in "${mlt_files[@]}"; do
         base=$(basename "$mlt")
-        if [[ " $EXCEPTIONS " == *" $base "* ]]; then
+        if [[ "$base" == *"-rust.mlt" ]]; then
             continue
         fi
         ref="{{ref_dir}}/$base"
@@ -254,7 +252,7 @@ _assert-synthetic-mlt-identity ref_dir='../test/synthetic/0x01' compare_dir='../
             exit 1
         fi
     done
-    echo "All {{compare_dir}}/*.mlt files have identical counterparts in {{ref_dir}} (except exceptions)."
+    echo "All {{compare_dir}}/*.mlt files have identical counterparts in {{ref_dir}} (except *-rust.mlt)."
 
 # Generate synthetic .mlt files and ensure there are no duplicates
 generate-synthetic-mlts:
