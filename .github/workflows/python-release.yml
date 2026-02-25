@@ -60,39 +60,40 @@ jobs:
           name: wheels-linux-${{ matrix.platform.target }}
           path: dist
 
-  musllinux:
-    runs-on: ${{ matrix.platform.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - runner: ubuntu-22.04
-            target: x86_64
-          # FIXME: FSST does not seem to support 32bit targets
-          #- runner: ubuntu-22.04
-          #  target: x86
-          # FIXME: Weird portability-cmake issues with fastpfor
-          #- runner: ubuntu-22.04
-          #  target: aarch64
-          #- runner: ubuntu-22.04
-          #  target: armv7
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/mlt-setup-rust
-      - uses: actions/setup-python@v6
-        with: { python-version: '3.x' }
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.platform.target }}
-          args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-pyo3/Cargo.toml
-          sccache: false
-          manylinux: musllinux_1_2
-      - name: Upload wheels
-        uses: actions/upload-artifact@v5
-        with:
-          name: wheels-musllinux-${{ matrix.platform.target }}
-          path: dist
+  # FIXME: our --bin bins/stub-gen requires pyo3::Python::initialize, but unsure how to do that on musllinux. We don't need it for the library!
+  #musllinux:
+  #  runs-on: ${{ matrix.platform.runner }}
+  #  strategy:
+  #    fail-fast: false
+  #    matrix:
+  #      platform:
+  #        - runner: ubuntu-22.04
+  #          target: x86_64
+  #        # FIXME: FSST does not seem to support 32bit targets
+  #        #- runner: ubuntu-22.04
+  #        #  target: x86
+  #        # FIXME: Weird portability-cmake issues with fastpfor
+  #        #- runner: ubuntu-22.04
+  #        #  target: aarch64
+  #        #- runner: ubuntu-22.04
+  #        #  target: armv7
+  #  steps:
+  #    - uses: actions/checkout@v6
+  #    - uses: ./.github/actions/mlt-setup-rust
+  #    - uses: actions/setup-python@v6
+  #      with: { python-version: '3.x' }
+  #    - name: Build wheels
+  #      uses: PyO3/maturin-action@v1
+  #      with:
+  #        target: ${{ matrix.platform.target }}
+  #        args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-pyo3/Cargo.toml
+  #        sccache: false
+  #        manylinux: musllinux_1_2
+  #    - name: Upload wheels
+  #      uses: actions/upload-artifact@v5
+  #      with:
+  #        name: wheels-musllinux-${{ matrix.platform.target }}
+  #        path: dist
 
   # FIXME: Weird portability-cmake issues with fastpfor
   #windows:
@@ -176,7 +177,8 @@ jobs:
     if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
     needs:
       - linux
-      - musllinux
+      # FIXME: does seem to require dev-only dependencys
+      #- musllinux
       # FIXME: Weird portability-cmake issues with fastpfor
       #- windows
       - macos

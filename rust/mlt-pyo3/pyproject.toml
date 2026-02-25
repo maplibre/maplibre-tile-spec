@@ -6,7 +6,7 @@ build-backend = "maturin"
 name = "mlt-pyo3"
 version = "0.1.2"
 description = "Python bindings for MapLibre Tile (MLT) format"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT OR Apache-2.0" }
 keywords = ["maplibre", "tile", "mlt", "vector-tiles", "gis"]
 classifiers = [
