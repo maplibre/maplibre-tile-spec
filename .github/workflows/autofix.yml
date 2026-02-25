@@ -7,7 +7,7 @@ on:
 permissions: {}
 
 jobs:
-  fmt-toml:
+  rust-fmt-toml:
     name: Format Cargo.toml
     runs-on: ubuntu-latest
     permissions:
@@ -23,11 +23,11 @@ jobs:
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         with: { tool: 'just,cargo-sort' }
       - name: Format Cargo.toml
-        run: just fmt-toml
+        run: just rust::fmt-toml
 
       - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8 # v1.3.3
         with: {commit-message: "chore: sort Cargo.toml"}
-  sync-pyo3-version:
+  rust-sync-pyo3-version:
     name: Sync mlt-pyo3 pyproject.toml version
     runs-on: ubuntu-latest
     permissions:
