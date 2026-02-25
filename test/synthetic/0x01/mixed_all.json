@@ -1,21 +1,28 @@
 {
+  "type": "FeatureCollection",
   "features": [
     {
-      "geometry": {
-        "coordinates": [
-          13,
-          42
-        ],
-        "type": "Point"
-      },
+      "type": "Feature",
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
     },
     {
+      "type": "Feature",
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1"
+      },
       "geometry": {
+        "type": "LineString",
         "coordinates": [
           [
             4,
@@ -25,17 +32,17 @@
             12,
             53
           ]
-        ],
-        "type": "LineString"
-      },
+        ]
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
+        "type": "Polygon",
         "coordinates": [
           [
             [
@@ -55,17 +62,17 @@
               47
             ]
           ]
-        ],
-        "type": "Polygon"
-      },
+        ]
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
+        "type": "MultiPolygon",
         "coordinates": [
           [
             [
@@ -107,15 +114,8 @@
               ]
             ]
           ]
-        ],
-        "type": "MultiPolygon"
-      },
-      "properties": {
-        "_extent": 4096,
-        "_layer": "layer1"
-      },
-      "type": "Feature"
+        ]
+      }
     }
-  ],
-  "type": "FeatureCollection"
+  ]
 }

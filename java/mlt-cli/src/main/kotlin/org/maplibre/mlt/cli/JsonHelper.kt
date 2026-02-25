@@ -34,7 +34,7 @@ object JsonHelper {
 
     @JvmStatic
     fun toJsonObjects(mlTile: MapLibreTile): Map<String, Any?> =
-        sortedMapOf<String, Any?>(
+        mutableMapOf<String, Any?>(
             "layers" to
                 mlTile.layers
                     .stream()
@@ -44,7 +44,7 @@ object JsonHelper {
 
     @JvmStatic
     private fun toJson(layer: Layer): Map<String, Any?> {
-        val map = sortedMapOf<String, Any?>()
+        val map = mutableMapOf<String, Any?>()
         map.put("name", layer.name)
         map.put("extent", layer.tileExtent)
         map.put(
@@ -59,7 +59,7 @@ object JsonHelper {
 
     @JvmStatic
     private fun toJson(feature: Feature): Map<String, Any?> {
-        val map = sortedMapOf<String, Any?>()
+        val map = mutableMapOf<String, Any?>()
         if (feature.hasId) {
             map.put("id", feature.id)
         }
@@ -94,7 +94,7 @@ object JsonHelper {
         mlTile: MapLibreTile,
         gson: Gson,
     ): Map<String, Any?> {
-        val fc = sortedMapOf<String, Any?>()
+        val fc = mutableMapOf<String, Any?>()
         fc.put("type", "FeatureCollection")
         fc.put(
             "features",
@@ -121,7 +121,7 @@ object JsonHelper {
         feature: Feature,
         gson: Gson,
     ): Map<String, Any?> {
-        val f = sortedMapOf<String, Any?>()
+        val f = mutableMapOf<String, Any?>()
         f.put("type", "Feature")
         if (feature.hasId) {
             f.put("id", feature.id)
@@ -157,7 +157,7 @@ object JsonHelper {
         if (map.containsKey("coordinates")) {
             map.put("coordinates", intifyCoordinates(map.get("coordinates")))
         }
-        return map.toSortedMap()
+        return map.toMutableMap()
     }
 
     /** Recursively convert whole-number doubles to longs inside a coordinates structure.  */
@@ -184,7 +184,7 @@ object JsonHelper {
 
     @JvmStatic
     private fun toJsonObjects(mvTile: MapboxVectorTile): Map<String, Any?> =
-        sortedMapOf(
+        mutableMapOf(
             "layers" to
                 mvTile
                     .layers()

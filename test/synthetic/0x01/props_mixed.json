@@ -1,13 +1,8 @@
 {
+  "type": "FeatureCollection",
   "features": [
     {
-      "geometry": {
-        "coordinates": [
-          4,
-          47
-        ],
-        "type": "Point"
-      },
+      "type": "Feature",
       "properties": {
         "_extent": 4096,
         "_layer": "layer1",
@@ -17,8 +12,13 @@
         "precision": 0.12345679,
         "temp": 25.5
       },
-      "type": "Feature"
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4,
+          47
+        ]
+      }
     }
-  ],
-  "type": "FeatureCollection"
+  ]
 }
