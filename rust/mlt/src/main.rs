@@ -2,9 +2,10 @@ pub mod dump;
 pub mod ls;
 pub mod ui;
 
+use std::process::exit;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
-use std::process::exit;
 
 use crate::dump::{AfterDump, DumpArgs, dump};
 use crate::ls::{LsArgs, ls};
