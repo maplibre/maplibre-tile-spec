@@ -18,9 +18,12 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class OfflineDBHelper extends ConversionHelper {
   /// Encode the MVT tiles in an offline database file
@@ -34,16 +37,14 @@ public class OfflineDBHelper extends ConversionHelper {
         outputPath = tempFile.toPath();
         tempFile.deleteOnExit();
       }
-      if (config.verboseLevel() > 1) {
-        System.err.printf("Copying source to %s%n", outputPath);
-      }
+      logger.debug("Copying source file {} to {}", inputPath, outputPath);
       Files.copy(
           inputPath,
           outputPath,
           StandardCopyOption.REPLACE_EXISTING,
           StandardCopyOption.COPY_ATTRIBUTES);
     } catch (IOException ex) {
-      System.err.println("ERROR: Failed to create target file: " + ex.getMessage());
+      logger.error("Failed to create target file", ex);
       return false;
     }
 
@@ -58,6 +59,7 @@ public class OfflineDBHelper extends ConversionHelper {
       try (final var iterateStatement = srcConnection.createStatement();
           final var tileResults = iterateStatement.executeQuery("SELECT * FROM tiles");
           final var updateStatement = dstConnection.prepareStatement(updateSql)) {
+        final var tileCount = new AtomicLong(0);
         while (tileResults.next()) {
           if (!config.continueOnError() && !success.get()) {
             break;
@@ -74,6 +76,10 @@ public class OfflineDBHelper extends ConversionHelper {
               .taskRunner()
               .run(
                   () -> {
+                    final var count = tileCount.incrementAndGet();
+                    if (count % TILE_LOG_INTERVAL == 0) {
+                      logger.debug("Processing tile {} : {}:{},{}", count, z, x, y);
+                    }
                     if (!convertTile(config, z, x, y, data, uniqueID, updateStatement)) {
                       success.set(false);
                     }
@@ -84,7 +90,7 @@ public class OfflineDBHelper extends ConversionHelper {
           config.taskRunner().shutdown();
           config.taskRunner().awaitTermination();
         } catch (InterruptedException ex) {
-          System.err.println("ERROR: Interrupted");
+          logger.error("Interrupted", ex);
           return false;
         }
       }
@@ -95,10 +101,9 @@ public class OfflineDBHelper extends ConversionHelper {
 
       updateMetadata(config, dstConnection);
 
-      vacuumDatabase(dstConnection, config.verboseLevel());
+      vacuumDatabase(dstConnection);
     } catch (SQLException | IOException ex) {
-      System.err.println("ERROR: Offline Database conversion failed: " + ex.getMessage());
-      logErrorStack(ex, config.verboseLevel());
+      logger.error("Offline Database conversion failed", ex);
       return false;
     }
     return success.get();
@@ -119,8 +124,7 @@ public class OfflineDBHelper extends ConversionHelper {
         try {
           data = decompress(metadataResults.getBinaryStream("data"));
         } catch (IOException | IllegalStateException ignore) {
-          System.err.printf(
-              "WARNING: Failed to decompress Source resource '%d', skipping%n", uniqueID);
+          logger.warn("Failed to decompress Source resource '{}', skipping", uniqueID);
           continue;
         }
 
@@ -130,7 +134,7 @@ public class OfflineDBHelper extends ConversionHelper {
         try {
           json = new Gson().fromJson(jsonString, JsonObject.class);
         } catch (JsonSyntaxException ex) {
-          System.err.printf("WARNING: Source resource '%d' is not JSON, skipping%n", uniqueID);
+          logger.warn("Source resource '{}' is not JSON, skipping", uniqueID);
           continue;
         }
 
@@ -156,9 +160,7 @@ public class OfflineDBHelper extends ConversionHelper {
         updateStatement.setLong(3, uniqueID);
         updateStatement.execute();
 
-        if (config.verboseLevel() > 1) {
-          System.err.printf("Updated source JSON format to '%s'%n", MBTilesHelper.MetadataMIMEType);
-        }
+        logger.debug("Updated source JSON format to '{}'", MBTilesHelper.MetadataMIMEType);
       }
     }
   }
@@ -171,16 +173,13 @@ public class OfflineDBHelper extends ConversionHelper {
       byte[] data,
       long uniqueID,
       @NotNull PreparedStatement updateStatement) {
-    if (config.verboseLevel() > 0) {
-      System.err.printf("Converting %d:%d,%d%n", z, x, y);
-    }
+    logger.trace("Converting tile {}: {},{}", z, x, y);
 
     byte[] srcTileData;
     try {
       srcTileData = decompress(new ByteArrayInputStream(data));
     } catch (IOException | IllegalStateException ex) {
-      System.err.printf("ERROR: Failed to decompress tile '%d': %s%n", uniqueID, ex.getMessage());
-      logErrorStack(ex, config.verboseLevel());
+      logger.error("Failed to decompress tile '{}'", uniqueID, ex);
       return false;
     }
 
@@ -192,15 +191,13 @@ public class OfflineDBHelper extends ConversionHelper {
             z,
             srcTileData,
             config,
-            Optional.of(DEFAULT_COMPRESSION_RATIO_THRESHOLD),
-            Optional.of(DEFAULT_COMPRESSION_FIXED_THRESHOLD),
+            Optional.of(COMPRESSION_RATIO_THRESHOLD),
+            Optional.of(COMPRESSION_FIXED_THRESHOLD),
             didCompress);
 
     if (tileData != null) {
       try {
-        // Parallel writes are possible, but only by creating a separate connection
-        // for
-        // each thread
+        // Parallel writes are possible, but only by creating a separate connection for each thread
         synchronized (updateStatement) {
           updateStatement.setBytes(1, tileData);
           updateStatement.setBoolean(2, didCompress.booleanValue());
@@ -209,10 +206,11 @@ public class OfflineDBHelper extends ConversionHelper {
         }
         return true;
       } catch (SQLException ex) {
-        System.err.printf("ERROR: Failed to convert tile '%d': %s%n", uniqueID, ex.getMessage());
-        logErrorStack(ex, config.verboseLevel());
+        logger.error("Failed to convert tile '{}'", uniqueID, ex);
       }
     }
     return false;
   }
+
+  private static final Logger logger = LoggerFactory.getLogger(OfflineDBHelper.class);
 }

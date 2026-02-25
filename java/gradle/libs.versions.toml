@@ -26,7 +26,8 @@ junit-jupiter-platform-launcher = { group = "org.junit.platform", name = "junit-
 mapbox-vector-tile-java = { group = "io.github.sebasbaumh", name = "mapbox-vector-tile-java", version = "25.1.0" }
 mbtiles4j = { group = "org.imintel", name = "mbtiles4j", version = "1.0.6" }
 protobuf-java = { group = "com.google.protobuf", name = "protobuf-java", version = "4.33.5" }
-slf4j-simple = { group = "org.slf4j", name = "slf4j-simple", version = "2.0.17" }
+log4j-api = { group = "org.apache.logging.log4j", name = "log4j-api", version = "2.25.3" }
+log4j-slf4j-impl = { group = "org.apache.logging.log4j", name = "log4j-slf4j-impl", version = "2.25.3" }
 sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version = "3.51.2.0" }
 tileverse-io = { group = "io.tileverse", name = "tileverse-bom", version.ref = "tileverse" }
 tileverse-rangereader-all = { module= "io.tileverse.rangereader:tileverse-rangereader-all" }
