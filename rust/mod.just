@@ -210,6 +210,43 @@ update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
 
+# Assert each .mlt in compare_dir (except exceptions) exists in ref_dir and is binary-identical. ref_dir may have more files.
+_assert-synthetic-mlt-identity ref_dir='../test/synthetic/0x01' compare_dir='../test/synthetic/0x01-rust':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # We expect these space-separated files to differ because they contain non-deterministic content.
+    EXCEPTIONS="props_str_fsst.mlt"
+    # Ensure compare_dir exists.
+    if [[ ! -d "{{compare_dir}}" ]]; then
+        echo "::error::Compare directory {{compare_dir}} does not exist"
+        exit 1
+    fi
+
+    # Expand .mlt files; fail if none are found to avoid masking missing/failed generation.
+    shopt -s nullglob
+    mlt_files=( "{{compare_dir}}"/*.mlt )
+    shopt -u nullglob
+    if (( ${#mlt_files[@]} == 0 )); then
+        echo "::error::No .mlt files found in {{compare_dir}}"
+        exit 1
+    fi
+
+    for mlt in "${mlt_files[@]}"; do
+        base=$(basename "$mlt")
+        if [[ " $EXCEPTIONS " == *" $base "* ]]; then
+            continue
+        fi
+        ref="{{ref_dir}}/$base"
+        if [[ ! -f "$ref" ]]; then
+            echo "::error::File $mlt has no counterpart in {{ref_dir}}"
+            exit 1
+        elif ! cmp -s "$ref" "$mlt"; then
+            echo "::error::Binary difference: $base"
+            exit 1
+        fi
+    done
+    echo "All {{compare_dir}}/*.mlt files have identical counterparts in {{ref_dir}} (except exceptions)."
+
 # Generate synthetic .mlt files and ensure there are no duplicates
 generate-synthetic-mlts:
     #!/usr/bin/env bash
@@ -217,6 +254,7 @@ generate-synthetic-mlts:
     rm -rf ../test/synthetic/0x01-rust
     cargo run -p mlt-synthetics
     {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
+    {{just}} rust::_assert-synthetic-mlt-identity
 
 # checks that the contents of two synthetic directories are equal
 verify-synthetic-equality: generate-synthetic-mlts (just 'cargo-install' 'delta' 'git-delta')
