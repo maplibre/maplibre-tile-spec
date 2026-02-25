@@ -75,10 +75,7 @@ fn generate_geometry(d: &Path) {
     geo_varint().geo(LineString(vec![C1, C2])).write(d, "line");
     geo_varint().geo(pol()).write(d, "polygon");
     geo_fastpfor().geo(pol()).write(d, "polygon_fpf");
-    geo_varint().tessellated(pol()).write(d, "polygon
-      
-      
-      ");
+    geo_varint().tessellated(pol()).write(d, "polygon_tes");
     geo_fastpfor()
         .tessellated(pol())
         .write(d, "polygon_fpf_tes");
