@@ -168,7 +168,7 @@ msrv: (just 'cargo-install' 'cargo-msrv')
 py: (just 'cargo-install' 'maturin')
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ ! -f ".venv" ]]; then
+    if [[ ! -d ".venv" ]]; then
         echo "Please make sure to create your virtual environment by running 'python -m venv .venv'"
         exit 1
     fi
