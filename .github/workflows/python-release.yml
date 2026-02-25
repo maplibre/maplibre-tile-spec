@@ -187,7 +187,8 @@ jobs:
       - linux
       # FIXME: does seem to require dev-only dependencys
       #- musllinux
-      - windows
+      # FIXME: Failed to run `zig cc -v` with status exit code: 1: error: unable to create compilation: LibCStdLibHeaderNotFound
+      #- windows
       - macos
       - sdist
     permissions:
