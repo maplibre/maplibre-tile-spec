@@ -40,6 +40,8 @@ pub enum LogicalEncoding {
     ComponentwiseDelta,
     Rle(RleMeta),
     Morton(MortonMeta),
+    MortonDelta(MortonMeta),
+    MortonRle(MortonMeta),
     PseudoDecimal,
 }
 
@@ -69,6 +71,8 @@ impl Debug for LogicalEncoding {
             Self::DeltaRle(v) => write!(f, "DeltaRle({v:?})"),
             Self::Rle(v) => write!(f, "Rle({v:?})"),
             Self::Morton(v) => write!(f, "Morton({v:?})"),
+            Self::MortonDelta(v) => write!(f, "MortonDelta({v:?})"),
+            Self::MortonRle(v) => write!(f, "MortonRle({v:?})"),
         }
     }
 }
