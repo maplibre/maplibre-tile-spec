@@ -11,6 +11,14 @@ import org.maplibre.mlt.data.MapLibreTile
 import java.util.SortedMap
 import kotlin.math.floor
 
+
+class JsonHelper {
+    companion object {
+        @JvmStatic
+        fun toGeoJson(tile: MapLibreTile): String = tile.toGeoJson()
+    }
+}
+
 fun MapboxVectorTile.toJson(pretty: Boolean = true): String = createGson(pretty).toJson(toJsonObjects(this))
 
 fun MapLibreTile.toJson(pretty: Boolean = true): String = createGson(pretty).toJson(toJsonObjects(this))
