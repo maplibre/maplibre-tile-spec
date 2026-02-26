@@ -177,7 +177,7 @@ private fun updateMetadata(
                         config.compressionType,
                     ).use { compressStream ->
                         compressed = (compressStream !== outputStream)
-                        compressStream!!.write(jsonString.toByteArray(StandardCharsets.UTF_8))
+                        compressStream.write(jsonString.toByteArray(StandardCharsets.UTF_8))
                     }
                     data = outputStream.toByteArray()
                 }

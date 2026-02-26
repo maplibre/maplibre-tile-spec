@@ -216,7 +216,7 @@ fun convertTile(
                     outputStream,
                     config.compressionType,
                 ).use { compressStream ->
-                    compressStream!!.write(tileData)
+                    compressStream.write(tileData)
                 }
                 // Evaluate whether the compressed version is worth using.
                 if ((
