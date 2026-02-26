@@ -11,6 +11,10 @@ runs:
   using: "composite"
   steps:
 
+    - name: Update package cache
+      if: runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get update
     - name: Install protobuf compiler (Ubuntu)
       if: runner.os == 'Linux'
       shell: bash

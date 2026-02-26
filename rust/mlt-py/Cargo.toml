@@ -1,5 +1,5 @@
 [package]
-name = "mlt-pyo3"
+name = "mlt-py"
 description = "Python bindings for MapLibre Tile (MLT) format via PyO3"
 version = "0.1.3"
 readme = "README.md"
@@ -11,7 +11,7 @@ categories.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "mlt_pyo3"
+name = "mlt_py"
 crate-type = ["cdylib", "rlib"]
 
 [[bin]]
