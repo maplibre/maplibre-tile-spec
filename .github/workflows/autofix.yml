@@ -53,7 +53,7 @@ jobs:
         with: {commit-message: "chore: sync secondary version indicators"}
 
   rust-gen-pyo3-stubs:
-    name: Regenerate mlt_pyo3.pyi stub
+    name: Regenerate mlt-pyo3.pyi stub
     runs-on: ubuntu-latest
     permissions:
       contents: read
