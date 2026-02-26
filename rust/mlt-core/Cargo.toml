@@ -34,13 +34,13 @@ zigzag.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
+geo-types = { workspace = true, features = ["arbitrary"] }
 insta.workspace = true
 proptest.workspace = true
 proptest-arbitrary-interop.workspace = true
 proptest-derive.workspace = true
 rstest.workspace = true
 test_each_file.workspace = true
-geo-types = { workspace = true, features = ["arbitrary"] }
 
 [lints]
 workspace = true
