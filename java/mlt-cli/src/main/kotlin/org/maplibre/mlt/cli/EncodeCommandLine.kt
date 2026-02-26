@@ -23,10 +23,6 @@ import java.util.regex.Pattern
 import java.util.regex.PatternSyntaxException
 import java.util.stream.Collectors
 import java.util.stream.Stream
-import kotlin.Array
-import kotlin.Boolean
-import kotlin.NumberFormatException
-import kotlin.Throws
 
 internal object EncodeCommandLine {
     const val INPUT_TILE_ARG = "mvt"
@@ -94,7 +90,6 @@ internal object EncodeCommandLine {
     ): Boolean = getAllowedCompressions(cmd).anyMatch { x -> x == option }
 
     @Throws(IOException::class)
-    @JvmStatic
     fun getCommandLine(args: Array<String>): CommandLine? {
         try {
             val options = Options()
@@ -631,7 +626,7 @@ Add an explicit column mapping on the specified layers:
 
             if (cmd.hasOption(SERVER_ARG)) {
                 return cmd
-            } else if (cmd.getOptions().size == 0 || cmd.hasOption(HELP_OPTION)) {
+            } else if (cmd.options.size == 0 || cmd.hasOption(HELP_OPTION)) {
                 printHelp(options)
             } else if (Stream
                     .of<Boolean?>(
@@ -690,13 +685,15 @@ Add an explicit column mapping on the specified layers:
                     " Start an encoding server on port 8080:\n" +
                     "    encode --server 8080\n" +
                     "\nEnvironment variables:\n" +
-                    "  MLT_TILE_LOG_INTERVAL: Number of tiles between status log messages (default: 10000)\n" +
-                    "  MLT_COMPRESSION_RATIO_THRESHOLD: Minimum compression ratio to apply compression (default: " +
-                    ConversionHelper.DEFAULT_COMPRESSION_RATIO_THRESHOLD +
-                    ").\n" +
-                    "  MLT_COMPRESSION_FIXED_THRESHOLD: Minimum size in bytes for a tile to be compressed (default: " +
-                    ConversionHelper.DEFAULT_COMPRESSION_FIXED_THRESHOLD +
-                    ")\n"
+                    "  " + Environment.ENV_TILE_LOG_INTERVAL + ": Number of tiles between status log messages (default: 10000)\n" +
+                    "  " + Environment.ENV_COMPRESSION_RATIO_THRESHOLD + ": Minimum compression ratio to apply compression (default: " +
+                    Environment.DEFAULT_COMPRESSION_RATIO_THRESHOLD +
+                    ")\n  " +
+                    Environment.ENV_COMPRESSION_FIXED_THRESHOLD + ": Minimum savings in bytes for a tile to be compressed (default: " +
+                    Environment.DEFAULT_COMPRESSION_FIXED_THRESHOLD +
+                    ")\n  " +
+                    Environment.ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maxumum heap size (default: " +
+                    Environment.DEFAULT_CACHE_MAX_HEAP_PERCENT + ")\n"
             )
 
         val target = TextHelpAppendable(System.err)
@@ -704,7 +701,7 @@ Add an explicit column mapping on the specified layers:
         val widthStr = System.getenv("COLUMNS")
         if (widthStr != null) {
             try {
-                target.getTextStyleBuilder().setMaxWidth(widthStr.toInt())
+                target.textStyleBuilder.setMaxWidth(widthStr.toInt())
             } catch (ignore: NumberFormatException) {
             }
         }
@@ -715,7 +712,7 @@ Add an explicit column mapping on the specified layers:
                 .setShowSince(false)
                 .setHelpAppendable(target)
                 .get()
-        formatter.printHelp(Encode::class.java.getName(), header, options, null, autoUsage)
+        formatter.printHelp(Encode::class.java.name, header, options, null, autoUsage)
 
         // Passing this as the footer to `printHelp` causes it to be formatted incorrectly.
         target.append(footer)
@@ -735,7 +732,6 @@ Add an explicit column mapping on the specified layers:
     private val colMapPatternPattern: Pattern = Pattern.compile("^/(.*)/$")
     private val colMapMatchAll: Pattern = Pattern.compile(".*")
 
-    @JvmStatic
     fun getColumnMappings(cmd: CommandLine): ColumnMappingConfig {
         val result = ColumnMappingConfig()
         if (cmd.hasOption(COLUMN_MAPPING_AUTO_OPTION)) {
@@ -752,13 +748,13 @@ Add an explicit column mapping on the specified layers:
                         val list = matcher.group(2)
                         val columnNames =
                             Arrays
-                                .stream<kotlin.String>(
+                                .stream<String>(
                                     list
                                         .split(",".toRegex())
                                         .dropLastWhile { it.isEmpty() }
                                         .toTypedArray(),
-                                ).map<kotlin.String?> { obj: kotlin.String? -> obj!!.trim { it <= ' ' } }
-                                .filter { s: kotlin.String? -> !s!!.isEmpty() }
+                                ).map<String?> { obj: String? -> obj!!.trim { it <= ' ' } }
+                                .filter { s: String? -> !s!!.isEmpty() }
                                 .collect(Collectors.toList())
                         result.merge(
                             layers,
@@ -817,16 +813,16 @@ Add an explicit column mapping on the specified layers:
         return result
     }
 
-    private fun parseLayerPatterns(pattern: kotlin.String?): Pattern? =
+    private fun parseLayerPatterns(pattern: String?): Pattern? =
         if (StringUtils.isBlank(pattern)) {
             colMapMatchAll
         } else {
-            EncodeCommandLine.parsePattern(
+            parsePattern(
                 pattern!!,
             )
         }
 
-    private fun parsePattern(pattern: kotlin.String): Pattern {
+    private fun parsePattern(pattern: String): Pattern {
         val matcher = colMapPatternPattern.matcher(pattern)
         try {
             if (matcher.matches()) {

@@ -23,7 +23,7 @@ object Decode {
     @JvmStatic
     fun main(args: Array<String>) {
         try {
-            Decode.run(args)
+            run(args)
         } catch (ex: Exception) {
             logger.error("Decoding failed", ex)
             System.exit(1)
@@ -90,7 +90,7 @@ object Decode {
             val decodedTile = MltDecoder.decodeMlTile(mltTileBuffer)
             if (willTime) timer.stop("decoding")
             if (willPrintMLT) {
-                System.out.write(JsonHelper.toJson(decodedTile).toByteArray(StandardCharsets.UTF_8))
+                System.out.write(decodedTile.toJson().toByteArray(StandardCharsets.UTF_8))
             }
         }
     }
