@@ -33,13 +33,16 @@ jobs:
           # FIXME: FSST does not seem to support 32bit targets
           #- runner: ubuntu-22.04
           #  target: x86
-          # FIXME: Weird portability-cmake issues with fastpfor
+          # FIXME: Python::initialize not avaliable for linking
           #- runner: ubuntu-22.04
           #  target: aarch64
+          # FIXME: error: unknown type name '__m128i' and related
           #- runner: ubuntu-22.04
           #  target: armv7
+          # FIXME: cpp standard mismatch
           #- runner: ubuntu-22.04
           #  target: s390x
+          # FIXME: error: unknown type name '__m128i' and related
           #- runner: ubuntu-22.04
           #  target: ppc64le
     steps:
@@ -69,12 +72,18 @@ jobs:
   #      platform:
   #        - runner: ubuntu-22.04
   #          target: x86_64
+  #        - runner: ubuntu-22.04
+  #          target: x86
+  #        - runner: ubuntu-22.04
+  #          target: aarch64
+  #        - runner: ubuntu-22.04
   #        # FIXME: FSST does not seem to support 32bit targets
   #        #- runner: ubuntu-22.04
   #        #  target: x86
-  #        # FIXME: Weird portability-cmake issues with fastpfor
+  #        # FIXME: Python::initialize not avaliable for linking
   #        #- runner: ubuntu-22.04
-  #        #  target: aarch64
+  #        # target: aarch64
+  #        # FIXME: error: unknown type name '__m128i' and related
   #        #- runner: ubuntu-22.04
   #        #  target: armv7
   #  steps:
@@ -95,7 +104,7 @@ jobs:
   #        name: wheels-musllinux-${{ matrix.platform.target }}
   #        path: dist
 
-  # FIXME: Weird portability-cmake issues with fastpfor
+  # FIXME: Failed to run `zig cc -v` with status exit code: 1: error: unable to create compilation: LibCStdLibHeaderNotFound
   #windows:
   #  runs-on: ${{ matrix.platform.runner }}
   #  strategy:
@@ -138,9 +147,8 @@ jobs:
         platform:
           - runner: macos-15-intel
             target: x86_64
-          # FIXME: Weird portability-cmake issues with fastpfor
-          #- runner: macos-latest
-          #  target: aarch64
+          - runner: macos-latest
+            target: aarch64
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/mlt-setup-rust
@@ -179,7 +187,7 @@ jobs:
       - linux
       # FIXME: does seem to require dev-only dependencys
       #- musllinux
-      # FIXME: Weird portability-cmake issues with fastpfor
+      # FIXME: Failed to run `zig cc -v` with status exit code: 1: error: unable to create compilation: LibCStdLibHeaderNotFound
       #- windows
       - macos
       - sdist
