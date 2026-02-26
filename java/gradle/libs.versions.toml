@@ -1,5 +1,5 @@
 [versions]
-tileverse = "1.1.0"
+tileverse = "1.3.0"
 jmh = "1.37"
 junit-jupiter = "6.0.2"
 kotlin-jvm = "2.3.10"
@@ -15,7 +15,7 @@ hppc = { group = "com.carrotsearch", name = "hppc", version = "0.10.0" }
 javaFastPFOR = { group = "me.lemire.integercompression", name = "JavaFastPFOR", version = "0.3.10" }
 jakarta-annotation-api = { group = "jakarta.annotation", name = "jakarta.annotation-api", version = "3.0.0" }
 java-vector-tile = { group = "no.ecc.vectortile", name = "java-vector-tile", version = "1.3.23" }
-jetbrains-annotations = { group = "org.jetbrains", name = "annotations", version = "26.0.2-1" }
+jetbrains-annotations = { group = "org.jetbrains", name = "annotations", version = "26.1.0" }
 jmh-core = { group = "org.openjdk.jmh", name = "jmh-core", version.ref = "jmh" }
 jmh-generator-annprocess = { group = "org.openjdk.jmh", name = "jmh-generator-annprocess", version.ref = "jmh"}
 jts-core = { group = "org.locationtech.jts", name = "jts-core", version = "1.20.0" }

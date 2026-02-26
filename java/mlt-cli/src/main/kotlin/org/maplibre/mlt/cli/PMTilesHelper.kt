@@ -9,9 +9,8 @@ import com.onthegomap.planetiler.archive.WriteableTileArchive
 import com.onthegomap.planetiler.geo.TileCoord
 import com.onthegomap.planetiler.pmtiles.Pmtiles
 import com.onthegomap.planetiler.pmtiles.Pmtiles.TileType
-import com.onthegomap.planetiler.pmtiles.ReadablePmtiles
 import com.onthegomap.planetiler.pmtiles.WriteablePmtiles
-import io.tileverse.rangereader.RangeReader
+import io.tileverse.cache.CacheManager
 import io.tileverse.rangereader.RangeReaderFactory
 import io.tileverse.rangereader.cache.CachingRangeReader
 import org.apache.commons.lang3.mutable.MutableBoolean
@@ -23,12 +22,9 @@ import java.net.URI
 import java.nio.file.Path
 import java.util.Optional
 import java.util.OptionalLong
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
-import java.util.function.Function
-import java.util.function.Supplier
 import kotlin.math.max
 import kotlin.math.min
 
@@ -39,174 +35,159 @@ object PMTilesHelper : ConversionHelper() {
         inputURI: URI,
         outputPath: Path,
         config: EncodeConfig,
-    ): Boolean {
-        val readerCacheWeight = 250 * 1024 * 1024
+    ): Boolean =
         RangeReaderFactory.create(inputURI).use { rawReader ->
             CachingRangeReader
                 .builder(rawReader)
-                .maximumWeight(readerCacheWeight.toLong())
+                .cacheManager(CacheManager.getDefault())
+                .withHeaderBuffer()
+                .withBlockAlignment()
                 .build()
                 .use { cachingReader ->
-
-                    // Although `RangeReader` is thread-safe, `ReadablePmtiles` is not because
-                    // it uses a single `Channel` with separate `position` and `read` operations.
-                    // So use a separate instance for each thread, but share the underlying reader and cache.
-                    val threadCount = config.taskRunner.threadCount
-                    val readers =
-                        ConcurrentHashMap<Long?, Optional<ReadablePmtiles>>(1 + threadCount)
-                    val readerSupplier: Supplier<Optional<ReadablePmtiles>> =
-                        Supplier {
-                            readers.computeIfAbsent(
-                                Thread.currentThread().threadId(),
-                            ) { ignored: Long? -> tryCreateReadablePmtiles(cachingReader) }
+                    // This reader is thread-safe
+                    ReadablePmtiles(cachingReader).use { reader ->
+                        logger.debug("Opened '{}' for reading", inputURI)
+                        WriteablePmtiles.newWriteToFile(outputPath).use { writer ->
+                            logger.debug("Opened '{}' for writing", outputPath)
+                            encodePMTiles(inputURI, reader, writer, outputPath, config)
                         }
-                    val maybeReader = readerSupplier.get()
-                    if (maybeReader.isEmpty()) {
-                        logger.error("Failed to read PMTiles from '{}'", inputURI)
-                        return false
-                    }
-
-                    val reader = maybeReader.get()
-
-                    logger.debug("Opened PMTiles from '{}'", inputURI)
-
-                    val header = reader.getHeader()
-                    logger.debug(
-                        "PMTiles header: version={}, tileType={}, tileCompression={}, minZoom={}, maxZoom={}, numAddressedTiles={}, numTileContents={} ({}%)",
-                        header.specVersion(),
-                        header.tileType(),
-                        header.tileCompression(),
-                        header.minZoom(),
-                        header.maxZoom(),
-                        header.numAddressedTiles(),
-                        header.numTileContents(),
-                        String.format(
-                            "%.1f",
-                            100.0 * header.numTileContents() / header.numAddressedTiles(),
-                        ),
-                    )
-
-                    if (header.tileType() != TileType.MVT) {
-                        logger.error(
-                            "Input PMTiles tile type is {}, expected {} (MVT)",
-                            header.tileType(),
-                            TileType.MVT,
-                        )
-                        return false
-                    }
-
-                    // If a compression type is given (including none) try to use that, otherwise
-                    // use the source compression type mapped to supported types.
-                    val targetCompressType =
-                        if (config.compressionType == null) {
-                            toTileCompression(header.tileCompression())
-                        } else {
-                            TileCompression.fromId(config.compressionType)
-                        }
-
-                    val actualMinZoom = max(header.minZoom().toInt(), config.minZoom)
-                    val actualMaxZoom = min(header.maxZoom().toInt(), config.maxZoom)
-
-                    val oldMetadata = reader.metadata()
-                    val newMetadata =
-                        TileArchiveMetadata(
-                            oldMetadata.name(),
-                            oldMetadata.description(),
-                            oldMetadata.attribution(),
-                            oldMetadata.version(),
-                            oldMetadata.type(),
-                            TileFormat.MLT,
-                            oldMetadata.bounds(),
-                            oldMetadata.center(),
-                            actualMinZoom,
-                            actualMaxZoom,
-                            oldMetadata.json(),
-                            oldMetadata.others(),
-                            targetCompressType,
-                        )
-                    try {
-                        WriteablePmtiles.newWriteToFile(outputPath).use { fileWriter ->
-                            fileWriter.newTileWriter().use { tileWriter ->
-                                logger.debug("Opened '{}'", outputPath)
-                                val taskRunner = config.taskRunner
-                                val success = AtomicBoolean(true)
-                                val tilesProcessed = AtomicLong(0)
-                                val totalTileCount = AtomicLong(0)
-
-                                val state =
-                                    ConversionState(
-                                        config,
-                                        tilesProcessed,
-                                        totalTileCount,
-                                        AtomicBoolean(false), // directoryComplete
-                                        success,
-                                    )
-
-                                val processTile =
-                                    getProcessTileFunction(readerSupplier, tileWriter, state)
-
-                                taskRunner.run(
-                                    Runnable {
-                                        processTiles(
-                                            taskRunner,
-                                            processTile,
-                                            readerSupplier,
-                                            state,
-                                            config.minZoom,
-                                            config.maxZoom,
-                                        )
-                                    },
-                                )
-
-                                try {
-                                    // Wait for all tasks to finish
-                                    taskRunner.awaitTermination()
-                                } catch (ex: InterruptedException) {
-                                    logger.error("Interrupted", ex)
-                                    success.set(false)
-                                }
-
-                                if (success.get()) {
-                                    logger.debug("Finalizing MBTiles file")
-                                    fileWriter.finish(newMetadata)
-                                }
-                                return success.get()
-                            }
-                        }
-                    } catch (ex: IOException) {
-                        logger.error("PMTiles conversion failed", ex)
-                        return false
                     }
                 }
         }
+
+    @Throws(IOException::class)
+    private fun encodePMTiles(
+        inputURI: URI,
+        reader: ReadablePmtiles,
+        writer: WriteablePmtiles,
+        outputPath: Path,
+        config: EncodeConfig,
+    ): Boolean {
+        val header = reader.header
+        logger.debug(
+            "PMTiles header: version={}, tileType={}, tileCompression={}, minZoom={}, maxZoom={}, numAddressedTiles={}, numTileContents={} ({}%)",
+            header.specVersion(),
+            header.tileType(),
+            header.tileCompression(),
+            header.minZoom(),
+            header.maxZoom(),
+            header.numAddressedTiles(),
+            header.numTileContents(),
+            String.format(
+                "%.1f",
+                100.0 * header.numTileContents() / header.numAddressedTiles(),
+            ),
+        )
+
+        if (header.tileType() != TileType.MVT) {
+            logger.error(
+                "Input PMTiles tile type is {}, expected {}",
+                header.tileType(),
+                TileType.MVT,
+            )
+            return false
+        }
+
+        // If a compression type is given (including none) try to use that, otherwise
+        // use the source compression type mapped to supported types.
+        val targetCompressType =
+            if (config.compressionType == null) {
+                toTileCompression(header.tileCompression())
+            } else {
+                TileCompression.fromId(config.compressionType)
+            }
+
+        val minZoom = max(header.minZoom().toInt(), config.minZoom)
+        val maxZoom = min(header.maxZoom().toInt(), config.maxZoom)
+
+        val newMetadata =
+            updateMetadata(reader.metadata(), minZoom, maxZoom, targetCompressType)
+        try {
+            writer.newTileWriter().use { tileWriter ->
+                val state =
+                    ConversionState(
+                        config,
+                        AtomicLong(0),
+                        AtomicLong(0),
+                        AtomicBoolean(false),
+                        AtomicBoolean(true),
+                        minZoom,
+                        maxZoom,
+                    )
+
+                config.taskRunner.run(
+                    {
+                        processAllTiles(
+                            config.taskRunner,
+                            { coords ->
+                                processTileRange(coords, reader, tileWriter, state)
+                            },
+                            reader,
+                            state,
+                        )
+                    },
+                )
+
+                try {
+                    // Wait for all tasks to finish
+                    config.taskRunner.awaitTermination()
+                } catch (ex: InterruptedException) {
+                    logger.error("Interrupted", ex)
+                    state.success.set(false)
+                }
+
+                if (state.success.get()) {
+                    logger.debug("Finalizing MBTiles file")
+                    writer.finish(newMetadata)
+                }
+                return state.success.get()
+            }
+        } catch (ex: IOException) {
+            logger.error("PMTiles conversion failed", ex)
+            return false
+        }
     }
 
-    private fun processTiles(
-        taskRunner: TaskRunner,
-        processTile: java.util.function.Function<TileCoord?, Boolean?>,
-        readerSupplier: Supplier<Optional<ReadablePmtiles>>,
-        state: ConversionState,
+    private fun updateMetadata(
+        oldMetadata: TileArchiveMetadata,
         minZoom: Int,
         maxZoom: Int,
+        targetCompressType: TileCompression?,
+    ): TileArchiveMetadata =
+        TileArchiveMetadata(
+            oldMetadata.name(),
+            oldMetadata.description(),
+            oldMetadata.attribution(),
+            oldMetadata.version(),
+            oldMetadata.type(),
+            TileFormat.MLT,
+            oldMetadata.bounds(),
+            oldMetadata.center(),
+            minZoom,
+            maxZoom,
+            oldMetadata.json(),
+            oldMetadata.others(),
+            targetCompressType,
+        )
+
+    private fun processAllTiles(
+        taskRunner: TaskRunner,
+        processTileRange: (List<TileCoord>) -> Boolean,
+        reader: ReadablePmtiles,
+        state: ConversionState,
     ) {
-        val maybeReader = readerSupplier.get()
-        if (maybeReader.isEmpty()) {
-            logger.error("Failed to read PMTiles file")
-            state.success.set(false)
-            return
-        }
-        val reader = maybeReader.get()
         reader
-            .getAllTileCoords()
-            .stream()
-            .filter { tc: TileCoord? -> minZoom <= tc!!.z() && tc.z() <= maxZoom }
-            .forEach { tileCoord: TileCoord? ->
-                state.totalTileCount.incrementAndGet()
+            .allTileCoordRanges
+            .forEach { tileCoords ->
                 if (state.encodeConfig.continueOnError || state.success.get()) {
+                    state.totalTileCount.addAndGet(tileCoords.size.toLong())
+                    if (!tileCoords.any { coord -> coord.z() in state.minZoom..state.maxZoom }) {
+                        return@forEach
+                    }
                     try {
                         taskRunner.run(
-                            Runnable {
-                                if (!processTile.apply(tileCoord)!!) {
+                            {
+                                if (!processTileRange(tileCoords)) {
                                     state.success.set(false)
                                 }
                             },
@@ -224,114 +205,114 @@ object PMTilesHelper : ConversionHelper() {
         taskRunner.shutdown()
     }
 
-    /** Produce a callable function for processing a single tile, capturing everything
-     * it needs, suitable for submitting to a thread pool */
-    private fun getProcessTileFunction(
-        readerSupplier: Supplier<Optional<ReadablePmtiles>>,
+    /** Convert a range of tile coordinates which have the same contents */
+    private fun processTileRange(
+        tileCoords: List<TileCoord>,
+        reader: ReadablePmtiles,
         writer: WriteableTileArchive.TileWriter,
         state: ConversionState,
-    ): java.util.function.Function<TileCoord?, Boolean?> {
-        return Function { tileCoord: TileCoord? ->
-            val tileLabel =
-                String.format("%d:%d,%d", tileCoord!!.z(), tileCoord.x(), tileCoord.y())
-            val tileCount = state.tilesProcessed.incrementAndGet()
+    ): Boolean {
+        if (tileCoords.isEmpty()) {
+            return true
+        }
+        val firstTileCoord = tileCoords.first()
+        val tileLabel =
+            String.format("%d:%d,%d", firstTileCoord.z(), firstTileCoord.x(), firstTileCoord.y())
+        val tileCount = state.tilesProcessed.addAndGet(tileCoords.size.toLong())
 
-            if (logger.isDebugEnabled()) {
-                if (!state.directoryComplete.get()) {
-                    // Still fetching tile coordinates, we can't show a percentage
-                    if (tileCount < 2 || (tileCount % tileLogInterval == 0L)) {
-                        logger
-                            .atDebug()
-                            .setMessage("Processing tile {} : {}")
-                            .addArgument(Supplier { String.format("%,d", tileCount) })
-                            .addArgument(tileLabel)
-                            .log()
-                    }
-                } else {
-                    val totalTiles = state.totalTileCount.get()
-                    val progress = 100.0 * tileCount / totalTiles
-                    val prevProgress = 100.0 * max(0, tileCount - 1) / totalTiles
-                    if ((tileCount % tileLogInterval == 0L) ||
-                        Math.round(progress * 10.0).toInt() !=
-                        Math
-                            .round(prevProgress * 10.0)
-                            .toInt()
-                    ) {
-                        logger
-                            .atDebug()
-                            .setMessage("Processing tiles: {} / {} ({}%) : {}")
-                            .addArgument(Supplier { String.format("%,d", tileCount) })
-                            .addArgument(Supplier { String.format("%,d", totalTiles) })
-                            .addArgument(Supplier { String.format("%.1f", progress) })
-                            .addArgument(tileLabel)
-                            .log()
-                    }
-                }
-            }
-
-            val maybeReader = readerSupplier.get()
-            if (maybeReader.isEmpty()) {
-                logger.error("Failed to read PMTiles for tile {}", tileLabel)
-                return@Function false
-            }
-
-            val reader = maybeReader.get()
-            var tileData = reader.getTile(tileCoord)
-            if (tileData == null) {
-                logger.warn("Tile {} is missing from PMTiles file", tileLabel)
-                return@Function false
-            }
-
-            val compressedSize = tileData.size
-            try {
-                tileData = decompress(ByteArrayInputStream(tileData))
-            } catch (ex: IOException) {
-                logger.error("Failed to decompress tile {}", tileLabel, ex)
-                return@Function false
-            }
-
-            val uncompressedSize = tileData.size
-            logger
-                .atTrace()
-                .setMessage("Loaded {}, {} bytes{}")
-                .addArgument(tileLabel)
-                .addArgument(uncompressedSize)
-                .addArgument(
-                    Supplier {
-                        if (compressedSize != uncompressedSize) {
-                            String.format(
-                                ", %d compressed",
-                                compressedSize,
-                            )
-                        } else {
-                            ""
-                        }
-                    },
-                ).log()
-
-            val didCompress: MutableBoolean? = null
-            val mltData =
-                Encode.convertTile(
-                    tileCoord.x().toLong(),
-                    tileCoord.y().toLong(),
-                    tileCoord.z(),
-                    tileData,
-                    state.encodeConfig,
-                    Optional.empty<Double>(), // compress even if it increases the size
-                    Optional.empty<Long>(),
-                    didCompress,
-                )
-
-            if (mltData != null && mltData.size > 0) {
-                val hash = TileArchiveWriter.generateContentHash(mltData)
-                synchronized(writer) {
-                    writer.write(TileEncodingResult(tileCoord, mltData, OptionalLong.of(hash)))
+        if (logger.isDebugEnabled()) {
+            if (!state.directoryComplete.get()) {
+                // Still fetching tile coordinates, we can't show a percentage
+                if (tileCount < 2 || (tileCount % tileLogInterval == 0L)) {
+                    logger
+                        .atDebug()
+                        .setMessage("Processing tile {} : {}")
+                        .addArgument({ String.format("%,d", tileCount) })
+                        .addArgument(tileLabel)
+                        .log()
                 }
             } else {
-                logger.warn("Tile {} produced empty output, skipping", tileLabel)
+                val totalTiles = state.totalTileCount.get()
+                val progress = 100.0 * tileCount / totalTiles
+                val prevProgress = 100.0 * max(0, tileCount - 1) / totalTiles
+                if ((tileCount % tileLogInterval == 0L) ||
+                    Math.round(progress * 10.0).toInt() !=
+                    Math
+                        .round(prevProgress * 10.0)
+                        .toInt()
+                ) {
+                    logger
+                        .atDebug()
+                        .setMessage("Processing tiles: {} / {} ({}%) : {}")
+                        .addArgument({ String.format("%,d", tileCount) })
+                        .addArgument({ String.format("%,d", totalTiles) })
+                        .addArgument({ String.format("%.1f", progress) })
+                        .addArgument(tileLabel)
+                        .log()
+                }
             }
-            true
         }
+
+        var tileData = reader.getTile(firstTileCoord)
+        if (tileData == null) {
+            logger.warn("Tile {} is missing from PMTiles file", tileLabel)
+            return false
+        }
+
+        val compressedSize = tileData.size
+        try {
+            tileData = decompress(ByteArrayInputStream(tileData))
+        } catch (ex: IOException) {
+            logger.error("Failed to decompress tile {}", tileLabel, ex)
+            return false
+        }
+
+        val uncompressedSize = tileData.size
+        logger
+            .atTrace()
+            .setMessage("Loaded {}, {} bytes{}")
+            .addArgument(tileLabel)
+            .addArgument(uncompressedSize)
+            .addArgument(
+                {
+                    if (compressedSize != uncompressedSize) {
+                        String.format(
+                            ", %d compressed",
+                            compressedSize,
+                        )
+                    } else {
+                        ""
+                    }
+                },
+            ).log()
+
+        val didCompress: MutableBoolean? = null
+        val mltData =
+            Encode.convertTile(
+                firstTileCoord.x().toLong(),
+                firstTileCoord.y().toLong(),
+                firstTileCoord.z(),
+                tileData,
+                state.encodeConfig,
+                Optional.empty<Double>(), // compress even if it increases the size
+                Optional.empty<Long>(),
+                didCompress,
+            )
+
+        if (mltData != null && mltData.size > 0) {
+            val hash = OptionalLong.of(TileArchiveWriter.generateContentHash(mltData))
+            // Write the result for all tile coordinates in this range
+            synchronized(writer) {
+                tileCoords.forEach { tileCoord ->
+                    if (tileCoord.z() in state.minZoom..state.maxZoom) {
+                        writer.write(TileEncodingResult(tileCoord, mltData, hash))
+                    }
+                }
+            }
+        } else {
+            logger.warn("Tile {} produced empty output, skipping", tileLabel)
+        }
+        return true
     }
 
     private fun toTileCompression(compression: Pmtiles.Compression): TileCompression =
@@ -345,26 +326,19 @@ object PMTilesHelper : ConversionHelper() {
             }
 
             else -> {
-                throw IllegalArgumentException("Unsupported PMTiles compression type: " + compression)
+                throw IllegalArgumentException("Unsupported compression type: " + compression)
             }
         }
 
-    private fun tryCreateReadablePmtiles(reader: RangeReader): Optional<ReadablePmtiles> {
-        try {
-            return Optional.of(ReadablePmtiles(reader.asByteChannel()))
-        } catch (ignored: IOException) {
-        }
-        return Optional.empty()
-    }
-
     private val logger: Logger = LoggerFactory.getLogger(PMTilesHelper::class.java)
 
-    @JvmRecord
     private data class ConversionState(
         val encodeConfig: EncodeConfig,
         val tilesProcessed: AtomicLong,
         val totalTileCount: AtomicLong,
         val directoryComplete: AtomicBoolean,
         val success: AtomicBoolean,
+        val minZoom: Int,
+        val maxZoom: Int,
     )
 }
