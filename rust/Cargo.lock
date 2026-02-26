@@ -113,6 +113,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arbitrary"
+version = "1.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
+
+[[package]]
 name = "atomic"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -963,6 +969,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24f8647af4005fa11da47cd56252c6ef030be8fa97bdbf355e7dfb6348f0a82c"
 dependencies = [
  "approx",
+ "arbitrary",
  "num-traits",
  "rayon",
  "rstar",
@@ -1555,7 +1562,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mlt-pyo3"
+name = "mlt-py"
 version = "0.1.3"
 dependencies = [
  "geo-types",
@@ -1772,7 +1779,7 @@ checksum = "778da78c64ddc928ebf5ad9df5edf0789410ff3bdbf3619aed51cd789a6af1e2"
 dependencies = [
  "libc",
  "ndarray",
- "num-complex 0.2.4",
+ "num-complex 0.4.6",
  "num-integer",
  "num-traits",
  "pyo3",
