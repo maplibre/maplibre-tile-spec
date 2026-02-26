@@ -320,7 +320,7 @@ fn list_layers(
 }
 
 #[pymodule]
-fn mlt(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn maplibre_tiles(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(decode_mlt, m)?)?;
     m.add_function(wrap_pyfunction!(decode_mlt_to_geojson, m)?)?;
     m.add_function(wrap_pyfunction!(list_layers, m)?)?;

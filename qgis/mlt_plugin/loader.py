@@ -57,7 +57,7 @@ def _ensure_mlt():
         raise ImportError(
             "mlt module not found. "
             "Install it with: pip install mlt  "
-            "(or build from rust/mlt-pyo3 with maturin)"
+            "(or build from rust/mlt-py with maturin)"
         )
 
 

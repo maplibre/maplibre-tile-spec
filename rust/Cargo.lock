@@ -1562,7 +1562,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mlt-pyo3"
+name = "mlt-py"
 version = "0.1.3"
 dependencies = [
  "geo-types",

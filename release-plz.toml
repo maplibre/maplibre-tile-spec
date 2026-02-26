@@ -32,7 +32,7 @@ name = "mlt"
 name = "mlt-core"
 
 [[package]]
-name = "mlt-pyo3"
+name = "mlt-py"
 git_tag_name = "python-mlt-v{{ version }}"
 git_release_name = "python-mlt-v{{ version }}"
 
