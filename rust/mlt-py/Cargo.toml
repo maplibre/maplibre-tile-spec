@@ -11,7 +11,7 @@ categories.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "mlt-py"
+name = "maplibre_tiles"
 crate-type = ["cdylib", "rlib"]
 
 [[bin]]
