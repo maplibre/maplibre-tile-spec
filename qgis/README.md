@@ -7,18 +7,18 @@ A QGIS plugin to open **MapLibre Tile (MLT)** files, powered by the Rust
 
 ```
 ┌─────────────────────┐
-│   QGIS Plugin       │  Python – registers menu action, creates memory layers
+│   QGIS Plugin       │  Python - registers menu action, creates memory layers
 │   (qgis/mlt_plugin) │
 └────────┬────────────┘
          │ import
 ┌────────▼────────────┐
-│   mlt               │  Rust → Python bridge (PyO3 + maturin)
+│   maplibre-tiles    │  Rust -> Python bridge (PyO3 + maturin)
 │   (rust/mlt-py)     │
 └────────┬────────────┘
          │ depends on
 ┌────────▼────────────┐
-│   mlt               │  Rust – zero-copy MLT binary parser
-│   (rust/mlt)        │
+│   mlt-core          │  Rust - zero-copy MLT binary parser
+│   (rust/mlt-core)   │
 └─────────────────────┘
 ```
 
@@ -66,7 +66,7 @@ maturin build --release --interpreter /usr/bin/python3
 Verify:
 
 ```bash
-/usr/bin/python3 -c "import mlt; print(mlt.list_layers(open('../../test/synthetic/0x01/polygon.mlt','rb').read()))"
+/usr/bin/python3 -c "import maplibre_tiles; print(maplibre_tiles.list_layers(open('../../test/synthetic/0x01/polygon.mlt','rb').read()))"
 # Expected: ['layer1']
 ```
 
@@ -129,31 +129,6 @@ If coordinates look wrong (features in the ocean), try toggling TMS.
 
 Click **Skip (raw coords)** to load tile-local integer coordinates without
 geo-referencing (useful for inspecting raw tile data).
-
-## Python API (standalone, without QGIS)
-
-```python
-import mlt
-
-data = open("tile.mlt", "rb").read()
-
-# Structured decode with geo-referencing
-layers = mlt.decode_mlt(data, z=14, x=8297, y=10749, tms=True)
-for layer in layers:
-    print(f"Layer: {layer.name}, extent: {layer.extent}")
-    for feat in layer.features[:3]:
-        print(f"  id={feat.id}, type={feat.geometry_type}")
-        print(f"  wkb={len(feat.wkb)} bytes, props={dict(feat.properties)}")
-
-# Raw tile-local coordinates (no z/x/y needed)
-layers = mlt.decode_mlt(data)
-
-# GeoJSON string output (tile-local coords)
-geojson_str = mlt.decode_mlt_to_geojson(data)
-
-# Fast layer listing (no full decode)
-names = mlt.list_layers(data)
-```
 
 ## Troubleshooting
 

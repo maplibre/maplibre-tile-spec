@@ -11,7 +11,7 @@ categories.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "mlt_pyo3"
+name = "mlt-py"
 crate-type = ["cdylib", "rlib"]
 
 [[bin]]
