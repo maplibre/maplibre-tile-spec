@@ -241,29 +241,52 @@ fn normalize_geometry_offsets(vector_types: &[GeometryType], geometry_offsets: &
         return geometry_offsets.to_vec();
     }
 
-    // Build normalized offset array
+    // The sparse geometry_offsets is structured as:
+    //   [start_of_first_multi, end_of_first_multi, end_of_second_multi, ...]
+    //
+    // Only the very first Multi*'s start is stored explicitly. All subsequent
+    // entries are end values only. Non-Multi types (LineString, Point, etc.)
+    // are not represented in geometry_offsets at all, but they DO advance the
+    // absolute position in part_offsets by 1 each.
+    //
+    // Because current_offset tracks the same running total as the absolute
+    // position in part_offsets (both advance by 1 for each non-Multi sub-geom
+    // and by the sub-geom count for each Multi*), we use current_offset as the
+    // start for every Multi* beyond the first instead of reading a stale end
+    // value from the previous entry.
     let mut normalized = Vec::with_capacity(vector_types.len() + 1);
-    let mut offset_idx = 0_usize;
+    // end_idx points at the next "end" value to consume from geometry_offsets.
+    // For the first Multi* we consume two entries (start + end); after that,
+    // one entry (end only) per Multi*.
+    let mut end_idx = 1_usize;
+    let mut first_multi_seen = false;
     let mut current_offset = 0_u32;
 
     for &geom_type in vector_types {
         normalized.push(current_offset);
 
-        match geom_type {
-            GeometryType::MultiLineString
-            | GeometryType::MultiPoint
-            | GeometryType::MultiPolygon => {
-                // Multi* types consume from the sparse geometry_offsets
-                if offset_idx + 1 < geometry_offsets.len() {
-                    let count = geometry_offsets[offset_idx + 1] - geometry_offsets[offset_idx];
-                    current_offset += count;
-                    offset_idx += 1;
+        if geom_type.is_multi() {
+            if end_idx < geometry_offsets.len() {
+                if !first_multi_seen {
+                    // For the first Multi*, the sparse array explicitly stores its
+                    // start at index 0 and its end at index 1. Use the stored start
+                    // so that any leading non-Multi features are accounted for correctly.
+                    let start = geometry_offsets[0];
+                    let end = geometry_offsets[end_idx];
+                    current_offset += end - start;
+                    first_multi_seen = true;
+                } else {
+                    // For subsequent Multi* features, current_offset already equals
+                    // the absolute start position in part_offsets, so derive the
+                    // count directly from the stored end value.
+                    let end = geometry_offsets[end_idx];
+                    current_offset += end - current_offset;
                 }
+                end_idx += 1;
             }
-            _ => {
-                // Non-Multi types have implicit count of 1
-                current_offset += 1;
-            }
+        } else {
+            // Non-Multi types have implicit count of 1
+            current_offset += 1;
         }
     }
 
