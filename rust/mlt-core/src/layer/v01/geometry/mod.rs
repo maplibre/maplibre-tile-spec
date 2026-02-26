@@ -942,6 +942,76 @@ mod tests {
             })
     }
 
+    /// Strategy for a layer mixing `Point` with `MultiLineString` — the cross-family
+    /// case that previously caused a u32 underflow in `normalize_geometry_offsets`
+    /// because Point does not contribute to `part_offsets`.
+    fn arb_cross_point_mls_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
+        prop::collection::vec(
+            prop_oneof![
+                arb_coord().prop_map(Point).prop_map(GeoGeom::Point),
+                prop::collection::vec(prop::collection::vec(arb_coord(), 2..6), 2..5).prop_map(
+                    |lines| {
+                        GeoGeom::MultiLineString(MultiLineString(
+                            lines.into_iter().map(LineString).collect(),
+                        ))
+                    }
+                ),
+            ],
+            2..12,
+        )
+        .prop_filter("needs both Point and MultiLineString", |geoms| {
+            geoms.iter().any(|g| matches!(g, GeoGeom::Point(_)))
+                && geoms
+                    .iter()
+                    .any(|g| matches!(g, GeoGeom::MultiLineString(_)))
+        })
+    }
+
+    /// Strategy for a layer mixing `Point` with `MultiPolygon`.
+    fn arb_cross_point_mpoly_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
+        prop::collection::vec(
+            prop_oneof![
+                arb_coord().prop_map(Point).prop_map(GeoGeom::Point),
+                prop::collection::vec(arb_coord(), 3..6).prop_map(|mut coords| {
+                    coords.push(coords[0]);
+                    GeoGeom::MultiPolygon(MultiPolygon(vec![Polygon::new(
+                        LineString(coords),
+                        vec![],
+                    )]))
+                }),
+            ],
+            2..10,
+        )
+        .prop_filter("needs both Point and MultiPolygon", |geoms| {
+            geoms.iter().any(|g| matches!(g, GeoGeom::Point(_)))
+                && geoms.iter().any(|g| matches!(g, GeoGeom::MultiPolygon(_)))
+        })
+    }
+
+    /// Strategy for a layer mixing `LineString` with `MultiPolygon` — exercises the
+    /// case where LineString (which writes to `ring_offsets` when polygons are present)
+    /// is interleaved with MultiPolygon features.
+    fn arb_cross_ls_mpoly_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
+        prop::collection::vec(
+            prop_oneof![
+                prop::collection::vec(arb_coord(), 2..8)
+                    .prop_map(|coords| GeoGeom::LineString(LineString(coords))),
+                prop::collection::vec(arb_coord(), 3..6).prop_map(|mut coords| {
+                    coords.push(coords[0]);
+                    GeoGeom::MultiPolygon(MultiPolygon(vec![Polygon::new(
+                        LineString(coords),
+                        vec![],
+                    )]))
+                }),
+            ],
+            2..10,
+        )
+        .prop_filter("needs both LineString and MultiPolygon", |geoms| {
+            geoms.iter().any(|g| matches!(g, GeoGeom::LineString(_)))
+                && geoms.iter().any(|g| matches!(g, GeoGeom::MultiPolygon(_)))
+        })
+    }
+
     proptest! {
         #[test]
         fn test_geometry_roundtrip(
@@ -974,6 +1044,39 @@ mod tests {
         fn test_mixed_polygon_roundtrip(
             encoder in any::<GeometryEncoder>(),
             geoms in arb_mixed_polygon_geoms(),
+        ) {
+            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+            prop_assert_eq!(output, canonical);
+        }
+
+        /// Cross-family: Point interleaved with MultiLineString.
+        /// Previously panicked with u32 underflow in normalize_geometry_offsets.
+        #[test]
+        fn test_cross_point_mls_roundtrip(
+            encoder in any::<GeometryEncoder>(),
+            geoms in arb_cross_point_mls_geoms(),
+        ) {
+            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+            prop_assert_eq!(output, canonical);
+        }
+
+        /// Cross-family: Point interleaved with MultiPolygon.
+        #[test]
+        fn test_cross_point_mpoly_roundtrip(
+            encoder in any::<GeometryEncoder>(),
+            geoms in arb_cross_point_mpoly_geoms(),
+        ) {
+            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+            prop_assert_eq!(output, canonical);
+        }
+
+        /// Cross-family: LineString interleaved with MultiPolygon.
+        /// Exercises the path where LineString writes to ring_offsets rather than
+        /// part_offsets, while MultiPolygon drives geometry_offsets.
+        #[test]
+        fn test_cross_ls_mpoly_roundtrip(
+            encoder in any::<GeometryEncoder>(),
+            geoms in arb_cross_ls_mpoly_geoms(),
         ) {
             let (canonical, output) = roundtrip_via_push(&geoms, encoder);
             prop_assert_eq!(output, canonical);
