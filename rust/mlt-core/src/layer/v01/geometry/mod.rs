@@ -401,10 +401,10 @@ impl DecodedGeometry {
         // ring_offsets now, before we set up ring_offsets for polygon use.
         // On subsequent polygons ring_offsets is already initialised and
         // part_offsets holds polygon ring-range data — leave both alone.
-        if self.ring_offsets.is_none()
-            && let Some(linestring_parts) = self.part_offsets.take()
-        {
-            self.ring_offsets = Some(linestring_parts);
+        if self.ring_offsets.is_none() {
+            if let Some(linestring_parts) = self.part_offsets.take() {
+                self.ring_offsets = Some(linestring_parts);
+            }
         }
 
         let rings = self.ring_offsets.get_or_insert_with(Vec::new);
@@ -813,6 +813,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
+    use proptest_arbitrary_interop::arb;
 
     use super::*;
     use crate::v01::geometry::encode::GeometryEncoder;
@@ -861,6 +862,10 @@ mod tests {
         (canonical, output)
     }
 
+    fn arb_coord() -> impl Strategy<Value = Coord32> {
+        (any::<i32>(), any::<i32>()).prop_map(|(x, y)| Coord32 { x, y })
+    }
+
     /// Strategy for a single arbitrary `GeoGeom` (= `Geometry<i32>`).
     ///
     /// geo-types' `arbitrary` feature requires `CoordFloat` on every type it
@@ -870,66 +875,39 @@ mod tests {
     /// that *do* satisfy `CoordFloat` (e.g. `f64`-based geometry), but is not
     /// useful here.
     fn arb_geom() -> impl Strategy<Value = GeoGeom> {
-        use geo_types::Coord;
         prop_oneof![
             // Point
-            (any::<i32>(), any::<i32>()).prop_map(|(x, y)| GeoGeom::Point(Point(Coord { x, y }))),
+            arb_coord().prop_map(Point).prop_map(GeoGeom::Point),
             // LineString
-            prop::collection::vec((any::<i32>(), any::<i32>()), 2..10).prop_map(|coords| {
-                GeoGeom::LineString(LineString(
-                    coords.into_iter().map(|(x, y)| Coord { x, y }).collect(),
-                ))
-            }),
+            prop::collection::vec(arb_coord(), 2..10)
+                .prop_map(|coords| GeoGeom::LineString(LineString(coords))),
             // Polygon (single exterior ring, no holes)
-            prop::collection::vec((any::<i32>(), any::<i32>()), 3..8).prop_map(|coords| {
-                let mut ring: Vec<Coord<i32>> =
-                    coords.into_iter().map(|(x, y)| Coord { x, y }).collect();
-                ring.push(ring[0]);
-                GeoGeom::Polygon(Polygon::new(LineString(ring), vec![]))
+            prop::collection::vec(arb_coord(), 3..8).prop_map(|mut coords| {
+                coords.push(coords[0]);
+                GeoGeom::Polygon(Polygon::new(LineString(coords), vec![]))
             }),
             // MultiPoint
-            prop::collection::vec((any::<i32>(), any::<i32>()), 2..8).prop_map(|coords| {
-                GeoGeom::MultiPoint(MultiPoint(
-                    coords
-                        .into_iter()
-                        .map(|(x, y)| Point(Coord { x, y }))
-                        .collect(),
-                ))
+            prop::collection::vec(arb_coord(), 2..8).prop_map(|coords| {
+                GeoGeom::MultiPoint(MultiPoint(coords.into_iter().map(Point).collect()))
             }),
             // MultiLineString
-            prop::collection::vec(
-                prop::collection::vec((any::<i32>(), any::<i32>()), 2..6),
-                2..5,
-            )
-            .prop_map(|lines| GeoGeom::MultiLineString(MultiLineString(
-                lines
-                    .into_iter()
-                    .map(|coords| LineString(
-                        coords.into_iter().map(|(x, y)| Coord { x, y }).collect(),
-                    ))
-                    .collect(),
-            ))),
+            prop::collection::vec(prop::collection::vec(arb_coord(), 2..6), 2..5,).prop_map(
+                |lines| GeoGeom::MultiLineString(MultiLineString(
+                    lines.into_iter().map(LineString).collect(),
+                ))
+            ),
             // MultiPolygon
-            prop::collection::vec((any::<i32>(), any::<i32>()), 3..6).prop_map(|coords| {
-                let mut ring: Vec<Coord<i32>> =
-                    coords.into_iter().map(|(x, y)| Coord { x, y }).collect();
-                ring.push(ring[0]);
-                GeoGeom::MultiPolygon(MultiPolygon(vec![Polygon::new(LineString(ring), vec![])]))
+            prop::collection::vec(arb_coord(), 3..6).prop_map(|mut coords| {
+                coords.push(coords[0]);
+                GeoGeom::MultiPolygon(MultiPolygon(vec![Polygon::new(LineString(coords), vec![])]))
             }),
         ]
     }
 
-    /// Strategy for a sequence of arbitrary `GeoGeom` values.
-    fn arb_geoms(
-        size: impl Into<prop::collection::SizeRange>,
-    ) -> impl Strategy<Value = Vec<GeoGeom>> {
-        prop::collection::vec(arb_geom(), size)
-    }
-
-    /// Strategy for a mixed `LineString` + `MultiLineString` layer — the exact
+    /// Strategy for a mixed LineString + MultiLineString layer — the exact
     /// combination that triggered the `normalize_geometry_offsets` bug.
     fn arb_mixed_linestring_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
-        arb_geoms(2..12)
+        prop::collection::vec(arb_geom(), 2..12)
             .prop_map(|geoms| {
                 geoms
                     .into_iter()
@@ -944,9 +922,9 @@ mod tests {
             })
     }
 
-    /// Strategy for a mixed `Point` + `MultiPoint` layer.
+    /// Strategy for a mixed Point + MultiPoint layer.
     fn arb_mixed_point_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
-        arb_geoms(2..12)
+        prop::collection::vec(arb_geom(), 2..12)
             .prop_map(|geoms| {
                 geoms
                     .into_iter()
@@ -959,9 +937,9 @@ mod tests {
             })
     }
 
-    /// Strategy for a mixed `Polygon` + `MultiPolygon` layer.
+    /// Strategy for a mixed Polygon + MultiPolygon layer.
     fn arb_mixed_polygon_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
-        arb_geoms(2..8)
+        prop::collection::vec(arb_geom(), 2..8)
             .prop_map(|geoms| {
                 geoms
                     .into_iter()
