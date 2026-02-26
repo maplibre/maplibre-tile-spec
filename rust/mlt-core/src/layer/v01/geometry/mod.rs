@@ -895,8 +895,7 @@ mod tests {
         ]
     }
 
-    /// Strategy for a mixed LineString + MultiLineString layer — the exact
-    /// combination that triggered the `normalize_geometry_offsets` bug.
+    /// Strategy for a mixed `LineString` + `MultiLineString` layer
     fn arb_mixed_linestring_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
         prop::collection::vec(arb_geom(), 2..12)
             .prop_map(|geoms| {
@@ -913,7 +912,7 @@ mod tests {
             })
     }
 
-    /// Strategy for a mixed Point + MultiPoint layer.
+    /// Strategy for a mixed `Point` + `MultiPoint` layer.
     fn arb_mixed_point_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
         prop::collection::vec(arb_geom(), 2..12)
             .prop_map(|geoms| {
@@ -928,7 +927,7 @@ mod tests {
             })
     }
 
-    /// Strategy for a mixed Polygon + MultiPolygon layer.
+    /// Strategy for a mixed `Polygon` + `MultiPolygon` layer.
     fn arb_mixed_polygon_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
         prop::collection::vec(arb_geom(), 2..8)
             .prop_map(|geoms| {
