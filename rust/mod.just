@@ -46,7 +46,7 @@ ci-check: ci-env-info check
 # Print environment info for CI
 ci-env-info:
     @echo "::group::General environment Information"
-    {{just}} env-info
+    {{just}} rust::env-info
     @echo "::endgroup::"
     @echo "::group::lscpu"
     lscpu
