@@ -13,7 +13,7 @@ A QGIS plugin to open **MapLibre Tile (MLT)** files, powered by the Rust
          │ import
 ┌────────▼────────────┐
 │   mlt               │  Rust → Python bridge (PyO3 + maturin)
-│   (rust/mlt-py)   │
+│   (rust/mlt-py)     │
 └────────┬────────────┘
          │ depends on
 ┌────────▼────────────┐
