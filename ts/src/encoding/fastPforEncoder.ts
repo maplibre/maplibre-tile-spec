@@ -92,9 +92,6 @@ export function fastPack32(inValues: Int32Array, inPos: number, out: Int32Buf, o
         }
     }
 
-    if (bitOffset !== 0) {
-        out[outputWordIndex] = currentWord | 0;
-    }
 }
 
 export function createFastPforEncoderWorkspace(): FastPforEncoderWorkspace {
@@ -209,26 +206,15 @@ function recordBlockExceptions(
 
     ensureExceptionValuesCapacity(dataToBePacked, dataPointers, exceptionBitWidth, exceptionCount);
 
-    let actualExceptionCount = 0;
     for (let k = 0; k < BLOCK_SIZE; k++) {
         const value = inValues[blockPos + k] >>> 0;
         if (value >>> bitWidth !== 0) {
-            actualExceptionCount++;
             byteContainerPos = writeByte(workspace, byteContainerPos, k);
             if (exceptionBitWidth !== 1) {
                 const exceptionValues = dataToBePacked[exceptionBitWidth];
-                if (!exceptionValues) {
-                    throw new Error(`FastPFOR encode: missing exception buffer for bitWidth=${exceptionBitWidth}`);
-                }
                 exceptionValues[dataPointers[exceptionBitWidth]++] = (value >>> bitWidth) | 0;
             }
         }
-    }
-
-    if (actualExceptionCount !== exceptionCount) {
-        throw new Error(
-            `FastPFOR encode: exception count mismatch (got ${actualExceptionCount}, expected ${exceptionCount})`,
-        );
     }
 
     return byteContainerPos;
@@ -309,9 +295,6 @@ function writeExceptionStreams(
             let j = 0;
             for (; j < size; j += 32) {
                 const exceptionValues = dataToBePacked[k];
-                if (!exceptionValues) {
-                    throw new Error(`FastPFOR encode: missing exception stream for bitWidth=${k}`);
-                }
                 state.out = ensureInt32Capacity(state.out, state.outPos + k);
                 fastPack32(exceptionValues, j, state.out, state.outPos, k);
                 state.outPos += k;
@@ -350,12 +333,6 @@ function encodePage(
         const maxBitWidth = bestBitWidthPlan[2];
 
         const exceptionBitWidth = exceptionCount > 0 ? (maxBitWidth - bitWidth) : 0;
-        if (exceptionCount > 0 && (exceptionBitWidth < 1 || exceptionBitWidth > MAX_BIT_WIDTH)) {
-            throw new Error(
-                `FastPFOR encode: invalid exceptionBitWidth=${exceptionBitWidth} (bitWidth=${bitWidth}, maxBitWidth=${maxBitWidth})`,
-            );
-        }
-
         byteContainerPos = writeBlockHeader(workspace, byteContainerPos, bitWidth, exceptionCount, maxBitWidth);
         byteContainerPos = recordBlockExceptions(
             workspace,
@@ -425,10 +402,6 @@ function encodeVByte(
     workspace: FastPforEncoderWorkspace,
 ): void {
     if (inLength === 0) return;
-
-    if (inLength > 255) {
-        throw new Error(`encodeVByte: inLength=${inLength} exceeds expected max of 255`);
-    }
 
     const requiredBytes = inLength * 5 + 3;
     workspace.byteContainer = ensureUint8Capacity(workspace.byteContainer, requiredBytes);

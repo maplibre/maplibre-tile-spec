@@ -2,11 +2,45 @@ import { describe, expect, it } from "vitest";
 
 import { createFastPforEncoderWorkspace, encodeFastPforInt32WithWorkspace } from "../encoding/fastPforEncoder";
 import {
+    createDecoderWorkspace,
     createFastPforWireDecodeWorkspace,
     decodeFastPforInt32,
     ensureFastPforWireEncodedWordsCapacity,
 } from "./fastPforDecoder";
 import { BLOCK_SIZE } from "./fastPforShared";
+
+const LARGE_OUTLIER_VALUE = 1_048_576;
+const DEFAULT_OUTLIER_VALUE = 4;
+const HEADER_BYTE_MASK = 0xff;
+const EXCEPTION_COUNT_SHIFT = 8;
+const MAX_BITS_SHIFT = 16;
+
+function createSingleBlockValuesWithExceptionOutliers(outlierValue: number): Int32Array {
+    const values = new Int32Array(BLOCK_SIZE);
+    for (let i = 0; i < values.length; i++) values[i] = i % 2;
+    values[10] = outlierValue;
+    values[100] = outlierValue;
+    return values;
+}
+
+function getSinglePageWordLayout(encodedWords: Int32Array) {
+    const metadataOffsetWordIndex = 1;
+    const metadataOffsetInWords = encodedWords[metadataOffsetWordIndex] | 0;
+    const packedDataEndWordIndex = (metadataOffsetWordIndex + metadataOffsetInWords) | 0;
+    const metadataByteLength = encodedWords[packedDataEndWordIndex] >>> 0;
+    const metadataWordCount = (metadataByteLength + 3) >>> 2;
+    const byteContainerStartWordIndex = (packedDataEndWordIndex + 1) | 0;
+    const exceptionBitmapWordIndex = (byteContainerStartWordIndex + metadataWordCount) | 0;
+    return { packedDataEndWordIndex, byteContainerStartWordIndex, exceptionBitmapWordIndex };
+}
+
+function parseBlockHeaderWord(headerWord: number): { bitWidth: number; exceptionCount: number; maxBits: number } {
+    return {
+        bitWidth: headerWord & HEADER_BYTE_MASK,
+        exceptionCount: (headerWord >>> EXCEPTION_COUNT_SHIFT) & HEADER_BYTE_MASK,
+        maxBits: (headerWord >>> MAX_BITS_SHIFT) & HEADER_BYTE_MASK,
+    };
+}
 
 describe("FastPFOR decoder", () => {
     it("throws on invalid alignedLength (negative)", () => {
@@ -155,18 +189,35 @@ describe("FastPFOR decoder", () => {
             expect(decoded, `round-trip mismatch for exceptionBitWidth=${exceptionBitWidth}`).toEqual(values);
         }
     });
+
+    it("round-trips exceptionBitWidth=1 fast-path", () => {
+        const values = new Int32Array(BLOCK_SIZE);
+        for (let i = 0; i < values.length; i++) values[i] = i & 1;
+        values[42] = 2;
+        values[128] = 2;
+
+        const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
+        const { byteContainerStartWordIndex } = getSinglePageWordLayout(encoded);
+        const headerWord = encoded[byteContainerStartWordIndex] >>> 0;
+        const blockHeader = parseBlockHeaderWord(headerWord);
+
+        expect(blockHeader.exceptionCount).toBeGreaterThan(0);
+        expect(blockHeader.maxBits).toBe(blockHeader.bitWidth + 1);
+
+        const decoded = decodeFastPforInt32(encoded, values.length);
+        expect(decoded).toEqual(values);
+    });
 });
 
 describe("FastPFOR decoder error cases", () => {
-    function getSinglePageWordLayout(encodedWords: Int32Array) {
-        const firstPageHeaderWordIndex = 1;
-        const metadataOffsetWordCount = encodedWords[firstPageHeaderWordIndex] | 0;
-        const packedDataEndWordIndex = (firstPageHeaderWordIndex + metadataOffsetWordCount) | 0;
-        const metadataByteLength = encodedWords[packedDataEndWordIndex] >>> 0;
-        const metadataWordCount = (metadataByteLength + 3) >>> 2;
-        const byteContainerStartWordIndex = (packedDataEndWordIndex + 1) | 0;
-        const exceptionBitmapWordIndex = (byteContainerStartWordIndex + metadataWordCount) | 0;
-        return { packedDataEndWordIndex, byteContainerStartWordIndex, exceptionBitmapWordIndex };
+    function withForcedByteSizeAndNoExceptionStreams(encoded: Int32Array, forcedByteSize: number): Int32Array {
+        const corrupted = encoded.slice();
+        const { packedDataEndWordIndex, byteContainerStartWordIndex } = getSinglePageWordLayout(corrupted);
+        corrupted[packedDataEndWordIndex] = forcedByteSize;
+
+        const bitmapWordIndex = byteContainerStartWordIndex + ((forcedByteSize + 3) >>> 2);
+        corrupted[bitmapWordIndex] = 0;
+        return corrupted;
     }
 
     it("throws on truncated input (missing page data)", () => {
@@ -214,20 +265,18 @@ describe("FastPFOR decoder error cases", () => {
     });
 
     it("throws on invalid maxBits in exception metadata", () => {
-        const values = new Int32Array(BLOCK_SIZE);
-        for (let i = 0; i < values.length; i++) values[i] = i % 2;
-        values[10] = 1 << 20;
-        values[100] = 1 << 20;
-
+        const values = createSingleBlockValuesWithExceptionOutliers(LARGE_OUTLIER_VALUE);
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         const { byteContainerStartWordIndex } = getSinglePageWordLayout(encoded);
 
         const corruptedEncoded = encoded.slice();
         const blockHeaderWord = corruptedEncoded[byteContainerStartWordIndex] >>> 0;
-        const blockBitWidth = blockHeaderWord & 0xff;
+        const { bitWidth: blockBitWidth } = parseBlockHeaderWord(blockHeaderWord);
 
-        const invalidMaxBits = (blockBitWidth - 1) & 0xff;
-        corruptedEncoded[byteContainerStartWordIndex] = ((blockHeaderWord & 0xff00ffff) | (invalidMaxBits << 16)) | 0;
+        const invalidMaxBits = (blockBitWidth - 1) & HEADER_BYTE_MASK;
+        const clearMaxBitsMask = ~(HEADER_BYTE_MASK << MAX_BITS_SHIFT);
+        corruptedEncoded[byteContainerStartWordIndex] =
+            ((blockHeaderWord & clearMaxBitsMask) | (invalidMaxBits << MAX_BITS_SHIFT)) | 0;
 
         expect(() => decodeFastPforInt32(corruptedEncoded, values.length)).toThrow(/invalid maxBits/);
     });
@@ -271,6 +320,60 @@ describe("FastPFOR decoder error cases", () => {
         expect(() => decodeFastPforInt32(corruptedEncoded, values.length)).toThrow(/truncated exception stream/);
     });
 
+    it("throws when byteSize is too small for exception metadata", () => {
+        const smallByteSizeCases = [
+            { forcedByteSize: 1, expectedError: /byteContainer underflow/ },
+            { forcedByteSize: 2, expectedError: /exception header underflow/ },
+            { forcedByteSize: 4, expectedError: /exception positions underflow/ },
+        ];
+
+        for (const { forcedByteSize, expectedError } of smallByteSizeCases) {
+            const values = createSingleBlockValuesWithExceptionOutliers(DEFAULT_OUTLIER_VALUE);
+            const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
+            const corruptedEncoded = withForcedByteSizeAndNoExceptionStreams(encoded, forcedByteSize);
+
+            expect(() => decodeFastPforInt32(corruptedEncoded, values.length), `forcedByteSize=${forcedByteSize}`).toThrow(
+                expectedError,
+            );
+        }
+    });
+
+    it("throws when maxBits equals bitWidth but exceptions are present", () => {
+        const values = createSingleBlockValuesWithExceptionOutliers(DEFAULT_OUTLIER_VALUE);
+        const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
+        const { byteContainerStartWordIndex } = getSinglePageWordLayout(encoded);
+
+        const corruptedEncoded = encoded.slice();
+        const blockHeaderWord = corruptedEncoded[byteContainerStartWordIndex] >>> 0;
+        const { bitWidth: blockBitWidth } = parseBlockHeaderWord(blockHeaderWord);
+        const bytes = new Uint8Array(corruptedEncoded.buffer, corruptedEncoded.byteOffset, corruptedEncoded.byteLength);
+        bytes[byteContainerStartWordIndex * 4 + 2] = blockBitWidth & HEADER_BYTE_MASK;
+
+        expect(() => decodeFastPforInt32(corruptedEncoded, values.length)).toThrow(/invalid exceptionBitWidth=0/);
+    });
+
+    it("throws when exception stream is missing for declared exceptionBitWidth", () => {
+        const values = createSingleBlockValuesWithExceptionOutliers(DEFAULT_OUTLIER_VALUE);
+        const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
+        const { exceptionBitmapWordIndex } = getSinglePageWordLayout(encoded);
+
+        const corruptedEncoded = encoded.slice();
+        corruptedEncoded[exceptionBitmapWordIndex] = 0;
+
+        expect(() => decodeFastPforInt32(corruptedEncoded, values.length)).toThrow(/missing exception stream/);
+    });
+
+    it("throws when exception stream pointer overflows stream size", () => {
+        const values = createSingleBlockValuesWithExceptionOutliers(DEFAULT_OUTLIER_VALUE);
+        const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
+        const { exceptionBitmapWordIndex } = getSinglePageWordLayout(encoded);
+
+        const corruptedEncoded = encoded.slice();
+        corruptedEncoded[exceptionBitmapWordIndex + 1] = 1;
+
+        expect(() => decodeFastPforInt32(corruptedEncoded, values.length)).toThrow(/exception stream overflow/);
+    });
+
     it("throws on unterminated VByte value", () => {
         const encoded = new Int32Array([0, 0x7f7f7f7f, 0x0000007f]);
         expect(() => decodeFastPforInt32(encoded, 1)).toThrow(/unterminated value/);
@@ -282,4 +385,46 @@ describe("FastPFOR decoder error cases", () => {
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         expect(() => decodeFastPforInt32(encoded, 200)).toThrow(/truncated stream/);
     });
+});
+
+describe("FastPFOR decoder workspace paths", () => {
+    it("reallocates byteContainer when provided workspace is too small", () => {
+        const values = createSingleBlockValuesWithExceptionOutliers(DEFAULT_OUTLIER_VALUE);
+        const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
+        const workspace = createDecoderWorkspace();
+        workspace.byteContainer = new Uint8Array(1);
+        workspace.byteContainerI32 = undefined;
+
+        const decoded = decodeFastPforInt32(encoded, values.length, workspace);
+        expect(decoded).toEqual(values);
+        expect(workspace.byteContainer.length).toBeGreaterThan(1);
+    });
+
+    it("handles unaligned byteContainer workspace via byte fallback copy path", () => {
+        const values = createSingleBlockValuesWithExceptionOutliers(DEFAULT_OUTLIER_VALUE);
+        const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
+        const workspace = createDecoderWorkspace();
+        const unalignedByteContainer = new Uint8Array(new ArrayBuffer(2049), 1, 2048);
+        workspace.byteContainer = unalignedByteContainer;
+        workspace.byteContainerI32 = undefined;
+
+        const decoded = decodeFastPforInt32(encoded, values.length, workspace);
+        expect(decoded).toEqual(values);
+        expect(workspace.byteContainer.byteOffset & 3).toBe(1);
+    });
+
+    it("rebuilds aligned int view when workspace has stale int32 view", () => {
+        const values = createSingleBlockValuesWithExceptionOutliers(DEFAULT_OUTLIER_VALUE);
+        const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
+        const workspace = createDecoderWorkspace();
+        workspace.byteContainer = new Uint8Array(4096);
+        workspace.byteContainerI32 = new Int32Array(4);
+
+        const decoded = decodeFastPforInt32(encoded, values.length, workspace);
+        expect(decoded).toEqual(values);
+        expect(workspace.byteContainerI32).toBeDefined();
+        expect(workspace.byteContainerI32!.buffer).toBe(workspace.byteContainer.buffer);
+        expect(workspace.byteContainerI32!.byteOffset).toBe(workspace.byteContainer.byteOffset);
+    });
+
 });

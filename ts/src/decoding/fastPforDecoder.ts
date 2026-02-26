@@ -309,12 +309,6 @@ function readBlockHeader(
         );
     }
 
-    if (exceptionCount > BLOCK_SIZE) {
-        throw new Error(
-            `FastPFOR decode: invalid exceptionCount=${exceptionCount} at block=${block} (expected 0..${BLOCK_SIZE})`,
-        );
-    }
-
     return { bitWidth, exceptionCount, bytePosIn };
 }
 
@@ -412,11 +406,6 @@ function applyBlockExceptions(
         const shift = 1 << bitWidth;
         for (let k = 0; k < exceptionCount; k = (k + 1) | 0) {
             const pos = byteContainer[bytePosIn++];
-            if (pos >= BLOCK_SIZE) {
-                throw new Error(
-                    `FastPFOR decode: invalid exception pos=${pos} at block=${block} (expected 0..${BLOCK_SIZE - 1})`,
-                );
-            }
             out[(pos + blockOutPos) | 0] |= shift;
         }
         return bytePosIn;
@@ -441,11 +430,6 @@ function applyBlockExceptions(
 
     for (let k = 0; k < exceptionCount; k = (k + 1) | 0) {
         const pos = byteContainer[bytePosIn++];
-        if (pos >= BLOCK_SIZE) {
-            throw new Error(
-                `FastPFOR decode: invalid exception pos=${pos} at block=${block} (expected 0..${BLOCK_SIZE - 1})`,
-            );
-        }
         const val = exceptionValues[exPtr++] | 0;
         out[(pos + blockOutPos) | 0] |= val << bitWidth;
     }
@@ -694,10 +678,6 @@ export function decodeFastPforInt32(
     const expectedTail = (numValues - outPos) | 0;
     inPos = decodeVByte(encoded, inPos, remainingLength, decoded, outPos, expectedTail);
     outPos = (outPos + expectedTail) | 0;
-
-    if (outPos !== numValues) {
-        throw new Error(`FastPFOR decode: decoded ${outPos} values, expected ${numValues}`);
-    }
 
     return decoded;
 }
