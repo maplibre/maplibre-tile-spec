@@ -37,4 +37,4 @@ Changelog = "https://github.com/maplibre/maplibre-tile-spec/blob/master/rust/mlt
 
 [tool.maturin]
 manifest-path = "Cargo.toml"
-module-name = "maplibre-tiles"
+module-name = "maplibre_tiles"
