@@ -402,9 +402,10 @@ impl DecodedGeometry {
         // On subsequent polygons ring_offsets is already initialised and
         // part_offsets holds polygon ring-range data — leave both alone.
         if self.ring_offsets.is_none()
-            && let Some(linestring_parts) = self.part_offsets.take() {
-                self.ring_offsets = Some(linestring_parts);
-            }
+            && let Some(linestring_parts) = self.part_offsets.take()
+        {
+            self.ring_offsets = Some(linestring_parts);
+        }
 
         let rings = self.ring_offsets.get_or_insert_with(Vec::new);
         let parts = self.part_offsets.get_or_insert_with(Vec::new);
