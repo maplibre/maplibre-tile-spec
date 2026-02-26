@@ -1,4 +1,4 @@
-"""Loads MLT files into QGIS memory layers using mlt_pyo3."""
+"""Loads MLT files into QGIS memory layers using mlt."""
 
 from collections import defaultdict
 from pathlib import Path
@@ -18,9 +18,9 @@ from qgis.core import (
 from qgis.PyQt.QtCore import QVariant
 
 try:
-    import mlt_pyo3
+    import mlt
 except ImportError:
-    mlt_pyo3 = None
+    mlt = None
 
 PLUGIN_NAME = "MLT Provider"
 
@@ -52,11 +52,11 @@ QVARIANT_MAP = {
 }
 
 
-def _ensure_mlt_pyo3():
-    if mlt_pyo3 is None:
+def _ensure_mlt():
+    if mlt is None:
         raise ImportError(
-            "mlt_pyo3 module not found. "
-            "Install it with: pip install mlt-pyo3  "
+            "mlt module not found. "
+            "Install it with: pip install mlt  "
             "(or build from rust/mlt-pyo3 with maturin)"
         )
 
@@ -118,8 +118,8 @@ def _make_qgs_features(features, vl, field_names) -> List[QgsFeature]:
 def _decode_file(file_path, zxy=None, tms=True):
     data = Path(file_path).read_bytes()
     if zxy is not None:
-        return mlt_pyo3.decode_mlt(data, z=zxy[0], x=zxy[1], y=zxy[2], tms=tms)
-    return mlt_pyo3.decode_mlt(data)
+        return mlt.decode_mlt(data, z=zxy[0], x=zxy[1], y=zxy[2], tms=tms)
+    return mlt.decode_mlt(data)
 
 
 def _create_and_populate_layer(
@@ -170,7 +170,7 @@ def load_mlt_file(
     tms: bool = True,
 ) -> List[QgsVectorLayer]:
     """Read a single MLT file and add its layers to the QGIS project."""
-    _ensure_mlt_pyo3()
+    _ensure_mlt()
 
     mlt_layers = _decode_file(file_path, zxy=zxy, tms=tms)
     stem = Path(file_path).stem
@@ -207,7 +207,7 @@ def load_mlt_files_merged(
                      Files not in the dict (or if None) use raw tile coords.
         tms: TMS y-axis convention (default True).
     """
-    _ensure_mlt_pyo3()
+    _ensure_mlt()
 
     # Key: (layer_name, geom_type_str) -> list of mlt features
     buckets: Dict[Tuple[str, str], list] = defaultdict(list)

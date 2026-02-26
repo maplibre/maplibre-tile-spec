@@ -7,6 +7,7 @@ git_release_name = "rust-{{ package }}-v{{ version }}"
 git_release_body = """
 {{ changelog }}
 {% if remote.contributors %}
+
 ### Contributors
 {% for contributor in remote.contributors %}
 * @{{ contributor.username }}
@@ -17,7 +18,7 @@ git_tag_enable = true
 git_tag_name = "rust-{{ package }}-v{{ version }}"
 pr_branch_prefix = "release-plz-"
 pr_labels = ["release"]
-pr_name = "chore(rust): release{% if package %} {{ package }}{% endif %}{% if version %}  v{{ version }}{% endif %}"
+pr_name = "chore(rust): release{% if package %} {{ package }}{% endif %}{% if version %} v{{ version }}{% endif %}"
 publish_allow_dirty = false
 publish_no_verify = true # we have already thoroughly verified that all aspects of our project work in CI before this step
 semver_check = true
@@ -32,6 +33,8 @@ name = "mlt-core"
 
 [[package]]
 name = "mlt-pyo3"
+git_tag_name = "python-mlt-v{{ version }}"
+git_release_name = "python-mlt-v{{ version }}"
 
 [[package]]
 name = "mlt-synthetics"
