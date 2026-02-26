@@ -3,7 +3,7 @@ just := quote(just_executable())
 
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
-# Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
+# Use `just ci-env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
 ci_mode := if env('CI', '') != '' {'1'} else {''}
 export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
@@ -46,11 +46,21 @@ ci-check: ci-env-info check
 # Print environment info for CI
 ci-env-info:
     @echo "::group::General environment Information"
-    {{just}} rust::env-info
+    @echo "Running for '{{main_crate}}' crate {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    @echo "PWD {{justfile_directory()}}"
+    {{just}} --version
+    rustc --version
+    cargo --version
+    rustup --version
+    @echo "RUSTFLAGS='$RUSTFLAGS'"
+    @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
     @echo "::endgroup::"
+
     @echo "::group::lscpu"
     lscpu
     @echo "::endgroup::"
+
     @echo "::group::/proc/cpuinfo"
     cat /proc/cpuinfo
     @echo "::endgroup::"
@@ -120,18 +130,6 @@ coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-llvm-cov')
 # Build and open code documentation
 docs *args='--open':
     DOCS_RS=1 cargo doc --no-deps {{args}} --all-features --package mlt-core
-
-# Print environment info
-env-info:
-    @echo "Running for '{{main_crate}}' crate {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD {{justfile_directory()}}"
-    {{just}} --version
-    rustc --version
-    cargo --version
-    rustup --version
-    @echo "RUSTFLAGS='$RUSTFLAGS'"
-    @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
-    @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
 
 alias f := fmt
 # Reformat code. If nightly is available, use it for better results.
