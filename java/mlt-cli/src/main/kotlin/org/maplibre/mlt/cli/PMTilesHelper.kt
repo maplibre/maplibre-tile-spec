@@ -102,19 +102,18 @@ object PMTilesHelper : ConversionHelper() {
 
         val newMetadata =
             updateMetadata(reader.metadata(), minZoom, maxZoom, targetCompressType)
+        val state =
+            ConversionState(
+                config,
+                AtomicLong(0),
+                AtomicLong(0),
+                AtomicBoolean(false),
+                AtomicBoolean(true),
+                minZoom,
+                maxZoom,
+            )
         try {
             writer.newTileWriter().use { tileWriter ->
-                val state =
-                    ConversionState(
-                        config,
-                        AtomicLong(0),
-                        AtomicLong(0),
-                        AtomicBoolean(false),
-                        AtomicBoolean(true),
-                        minZoom,
-                        maxZoom,
-                    )
-
                 config.taskRunner.run(
                     {
                         processAllTiles(
@@ -301,6 +300,7 @@ object PMTilesHelper : ConversionHelper() {
 
         if (mltData != null && mltData.size > 0) {
             val hash = OptionalLong.of(TileArchiveWriter.generateContentHash(mltData))
+
             // Write the result for all tile coordinates in this range
             synchronized(writer) {
                 tileCoords.forEach { tileCoord ->

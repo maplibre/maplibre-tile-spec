@@ -297,7 +297,7 @@ object Encode {
             val input = totalCompressedInput.get()
             val output = totalCompressedOutput.get()
             val percentStr = String.format("%.1f", 100.0 * output / input)
-            logger.trace("Compressed {} bytes to {} bytes ({}%)", input, output, percentStr)
+            logger.debug("Compressed {} bytes to {} bytes ({}%)", input, output, percentStr)
         }
         return true
     }

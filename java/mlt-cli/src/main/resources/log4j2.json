@@ -1,0 +1,22 @@
+{
+  "Configuration": {
+    "Appenders": {
+      "Console": {
+        "name": "Console",
+         "target": "system_err",
+        "PatternLayout": {
+          "pattern": "%highlight{%msg%n%throwable}{FATAL=bright red, ERROR=red, WARN=yellow, INFO=normal, DEBUG=gray, TRACE=gray}"
+        }
+      }
+    },
+    "Loggers": {
+      "Root": {
+        "AppenderRef": [
+          {
+            "ref": "Console"
+          }
+        ]
+      }
+    }
+  }
+}
