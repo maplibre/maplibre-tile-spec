@@ -28,6 +28,15 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 
+]
+
+[project.urls]
+Homepage = "https://maplibre.org/maplibre-tile-spec"
+Documentation = "https://maplibre.org/maplibre-tile-spec"
+Repository = "https://github.com/maplibre/maplibre-tile-spec.git"
+Issues = "https://github.com/maplibre/maplibre-tile-spec/issues"
+Changelog = "https://github.com/maplibre/maplibre-tile-spec/blob/master/rust/mlt-py/CHANGELOG.md"
+
 [tool.maturin]
 manifest-path = "Cargo.toml"
 module-name = "maplibre-tiles"
