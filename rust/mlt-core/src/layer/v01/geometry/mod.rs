@@ -401,11 +401,10 @@ impl DecodedGeometry {
         // ring_offsets now, before we set up ring_offsets for polygon use.
         // On subsequent polygons ring_offsets is already initialised and
         // part_offsets holds polygon ring-range data — leave both alone.
-        if self.ring_offsets.is_none() {
-            if let Some(linestring_parts) = self.part_offsets.take() {
+        if self.ring_offsets.is_none()
+            && let Some(linestring_parts) = self.part_offsets.take() {
                 self.ring_offsets = Some(linestring_parts);
             }
-        }
 
         let rings = self.ring_offsets.get_or_insert_with(Vec::new);
         let parts = self.part_offsets.get_or_insert_with(Vec::new);
@@ -813,7 +812,6 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
-    use proptest_arbitrary_interop::arb;
 
     use super::*;
     use crate::v01::geometry::encode::GeometryEncoder;
@@ -866,14 +864,6 @@ mod tests {
         (any::<i32>(), any::<i32>()).prop_map(|(x, y)| Coord32 { x, y })
     }
 
-    /// Strategy for a single arbitrary `GeoGeom` (= `Geometry<i32>`).
-    ///
-    /// geo-types' `arbitrary` feature requires `CoordFloat` on every type it
-    /// implements, which excludes `i32`.  We therefore keep handwritten
-    /// proptest strategies using basic `any::<i32>()` primitives.
-    /// `proptest-arbitrary-interop` is available in the workspace for types
-    /// that *do* satisfy `CoordFloat` (e.g. `f64`-based geometry), but is not
-    /// useful here.
     fn arb_geom() -> impl Strategy<Value = GeoGeom> {
         prop_oneof![
             // Point
