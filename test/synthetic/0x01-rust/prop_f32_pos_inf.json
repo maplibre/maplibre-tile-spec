@@ -11,7 +11,7 @@
       "properties": {
         "_extent": 4096,
         "_layer": "layer1",
-        "val": null
+        "val": "f32::INFINITY"
       },
       "type": "Feature"
     }

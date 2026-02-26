@@ -13,8 +13,28 @@ use crate::MltError;
 
 /// Convert f32 to JSON using the shortest decimal representation (matches Java's `Float.toString()`)
 pub fn f32_to_json(f: f32) -> serde_json::Value {
+    if f.is_nan() {
+        return serde_json::Value::String("f32::NAN".to_string());
+    }
+    if f.is_infinite() {
+        let s = if f > 0.0 { "f32::INFINITY" } else { "f32::NEG_INFINITY" };
+        return serde_json::Value::String(s.to_string());
+    }
     let serialized = &serde_json::to_string(&f).expect("f32 serialization should not fail");
     serde_json::from_str(serialized).expect("serialized f32 should parse as JSON")
+}
+
+/// Convert f64 to JSON. NaN and ±Infinity use string tags; finite values delegate to [`f32_to_json`].
+#[expect(clippy::cast_possible_truncation, reason = "f64 stored as f32 in wire format")]
+pub fn f64_to_json(f: f64) -> serde_json::Value {
+    if f.is_nan() {
+        return serde_json::Value::String("f64::NAN".to_string());
+    }
+    if f.is_infinite() {
+        let s = if f > 0.0 { "f64::INFINITY" } else { "f64::NEG_INFINITY" };
+        return serde_json::Value::String(s.to_string());
+    }
+    f32_to_json(f as f32)
 }
 
 pub trait SetOptionOnce<T> {

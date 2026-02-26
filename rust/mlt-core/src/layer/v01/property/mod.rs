@@ -11,7 +11,7 @@ use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::utils::{
     BinarySerializer as _, FmtOptVec, apply_present, encode_bools_to_bytes, encode_byte_rle,
-    f32_to_json,
+    f32_to_json, f64_to_json,
 };
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{
@@ -365,7 +365,6 @@ impl Debug for PropValue {
 impl PropValue {
     /// Convert the value at index `i` to a [`serde_json::Value`]
     #[must_use]
-    #[expect(clippy::cast_possible_truncation)] // f64 stored as f32 in wire format
     pub fn to_geojson(&self, i: usize) -> Option<serde_json::Value> {
         use serde_json::Value;
 
@@ -378,7 +377,7 @@ impl PropValue {
             Self::I64(v) => v[i].map(Value::from),
             Self::U64(v) => v[i].map(Value::from),
             Self::F32(v) => v[i].map(f32_to_json),
-            Self::F64(v) => v[i].map(|f| f32_to_json(f as f32)),
+            Self::F64(v) => v[i].map(f64_to_json),
             Self::Str(v) => v[i].as_ref().map(|s| Value::String(s.clone())),
             Self::Struct => None,
         }
