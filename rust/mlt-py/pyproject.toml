@@ -28,8 +28,6 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 
-]
-
 [project.urls]
 Homepage = "https://maplibre.org/maplibre-tile-spec"
 Documentation = "https://maplibre.org/maplibre-tile-spec"
