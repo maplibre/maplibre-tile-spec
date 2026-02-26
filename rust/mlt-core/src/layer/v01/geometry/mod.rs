@@ -401,10 +401,10 @@ impl DecodedGeometry {
         // ring_offsets now, before we set up ring_offsets for polygon use.
         // On subsequent polygons ring_offsets is already initialised and
         // part_offsets holds polygon ring-range data — leave both alone.
-        if self.ring_offsets.is_none() {
-            if let Some(linestring_parts) = self.part_offsets.take() {
-                self.ring_offsets = Some(linestring_parts);
-            }
+        if self.ring_offsets.is_none()
+            && let Some(linestring_parts) = self.part_offsets.take()
+        {
+            self.ring_offsets = Some(linestring_parts);
         }
 
         let rings = self.ring_offsets.get_or_insert_with(Vec::new);
@@ -926,7 +926,7 @@ mod tests {
         prop::collection::vec(arb_geom(), size)
     }
 
-    /// Strategy for a mixed LineString + MultiLineString layer — the exact
+    /// Strategy for a mixed `LineString` + `MultiLineString` layer — the exact
     /// combination that triggered the `normalize_geometry_offsets` bug.
     fn arb_mixed_linestring_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
         arb_geoms(2..12)
@@ -944,7 +944,7 @@ mod tests {
             })
     }
 
-    /// Strategy for a mixed Point + MultiPoint layer.
+    /// Strategy for a mixed `Point` + `MultiPoint` layer.
     fn arb_mixed_point_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
         arb_geoms(2..12)
             .prop_map(|geoms| {
@@ -959,7 +959,7 @@ mod tests {
             })
     }
 
-    /// Strategy for a mixed Polygon + MultiPolygon layer.
+    /// Strategy for a mixed `Polygon` + `MultiPolygon` layer.
     fn arb_mixed_polygon_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
         arb_geoms(2..8)
             .prop_map(|geoms| {

@@ -267,7 +267,13 @@ fn normalize_geometry_offsets(vector_types: &[GeometryType], geometry_offsets: &
 
         if geom_type.is_multi() {
             if end_idx < geometry_offsets.len() {
-                if !first_multi_seen {
+                if first_multi_seen {
+                    // For subsequent Multi* features, current_offset already equals
+                    // the absolute start position in part_offsets, so derive the
+                    // count directly from the stored end value.
+                    let end = geometry_offsets[end_idx];
+                    current_offset += end - current_offset;
+                } else {
                     // For the first Multi*, the sparse array explicitly stores its
                     // start at index 0 and its end at index 1. Use the stored start
                     // so that any leading non-Multi features are accounted for correctly.
@@ -275,12 +281,6 @@ fn normalize_geometry_offsets(vector_types: &[GeometryType], geometry_offsets: &
                     let end = geometry_offsets[end_idx];
                     current_offset += end - start;
                     first_multi_seen = true;
-                } else {
-                    // For subsequent Multi* features, current_offset already equals
-                    // the absolute start position in part_offsets, so derive the
-                    // count directly from the stored end value.
-                    let end = geometry_offsets[end_idx];
-                    current_offset += end - current_offset;
                 }
                 end_idx += 1;
             }
