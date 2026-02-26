@@ -35,24 +35,36 @@ check: (just 'cargo-install' 'cargo-hack')
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: env-info (just 'java::gen-snippets')
+ci-coverage: ci-env-info (just 'java::gen-snippets')
     mkdir -p target/llvm-cov
     # ATTENTION: the output-path here is used in the CI workflow
     {{just}} rust::coverage '--codecov --output-path target/llvm-cov/codecov.info'
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-check: env-info check
+ci-check: ci-env-info check
+
+# Print environment info for CI
+ci-env-info:
+    @echo "::group::General environment Information"
+    {{just}} env-info
+    @echo "::endgroup::"
+    @echo "::group::lscpu"
+    lscpu
+    @echo "::endgroup::"
+    @echo "::group::/proc/cpuinfo"
+    cat /proc/cpuinfo
+    @echo "::endgroup::"
 
 # Run linting as expected by CI
-ci-lint: env-info test-fmt clippy
+ci-lint: ci-env-info test-fmt clippy
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run all tests as expected by CI
-ci-test: env-info (just 'java::gen-snippets') test
+ci-test: ci-env-info (just 'java::gen-snippets') test
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-test-msrv: env-info
+ci-test-msrv: ci-env-info
     #!/usr/bin/env bash
     set -euo pipefail
     # For MSRV, relax all warnings to avoid different warnings per rust version
@@ -201,7 +213,7 @@ sync-pyo3-version:
 alias t := test
 # Run all tests
 test:
-    cargo test --all-targets --all-features
+    cargo test --all-targets --all-features{{if CI}} -- --test-threads=1{{endif}}
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
 
