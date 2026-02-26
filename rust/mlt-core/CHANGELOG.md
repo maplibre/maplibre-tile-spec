@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.1.2...rust-mlt-core-v0.1.3) - 2026-02-26
+
+### Fixed
+
+- *(rust)* encodeing of normalized mixed multi + regular geometrys panics ([#981](https://github.com/maplibre/maplibre-tile-spec/pull/981))
+
 ## [0.1.2](https://github.com/maplibre/maplibre-tile-spec/compare/mlt-core-v0.1.1...mlt-core-v0.1.2) - 2026-02-25
 
 ### Added
