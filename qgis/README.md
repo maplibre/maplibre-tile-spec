@@ -12,7 +12,7 @@ A QGIS plugin to open **MapLibre Tile (MLT)** files, powered by the Rust
 └────────┬────────────┘
          │ import
 ┌────────▼────────────┐
-│   mlt_pyo3          │  Rust → Python bridge (PyO3 + maturin)
+│   mlt               │  Rust → Python bridge (PyO3 + maturin)
 │   (rust/mlt-pyo3)   │
 └────────┬────────────┘
          │ depends on
@@ -33,7 +33,7 @@ A QGIS plugin to open **MapLibre Tile (MLT)** files, powered by the Rust
 
 ### Step 1: Find QGIS's Python interpreter
 
-The `mlt_pyo3` native module must be built for the same Python that QGIS uses.
+The `mlt` native module must be built for the same Python that QGIS uses.
 
 ```bash
 # Linux (system Python, usually the same one QGIS links to)
@@ -56,7 +56,7 @@ maturin build --release --interpreter /usr/bin/python3
 
 # Install into user site-packages (visible to QGIS)
 /usr/bin/python3 -m pip install --user --break-system-packages \
-    ../../rust/target/wheels/mlt_pyo3-*.whl
+    ../../rust/target/wheels/mlt-*.whl
 
 # Option B: if QGIS uses a virtualenv / conda, activate it first
 #   conda activate qgis-env   # or: source /path/to/venv/bin/activate
@@ -66,7 +66,7 @@ maturin build --release --interpreter /usr/bin/python3
 Verify:
 
 ```bash
-/usr/bin/python3 -c "import mlt_pyo3; print(mlt_pyo3.list_layers(open('../../test/synthetic/0x01/polygon.mlt','rb').read()))"
+/usr/bin/python3 -c "import mlt; print(mlt.list_layers(open('../../test/synthetic/0x01/polygon.mlt','rb').read()))"
 # Expected: ['layer1']
 ```
 
@@ -133,12 +133,12 @@ geo-referencing (useful for inspecting raw tile data).
 ## Python API (standalone, without QGIS)
 
 ```python
-import mlt_pyo3
+import mlt
 
 data = open("tile.mlt", "rb").read()
 
 # Structured decode with geo-referencing
-layers = mlt_pyo3.decode_mlt(data, z=14, x=8297, y=10749, tms=True)
+layers = mlt.decode_mlt(data, z=14, x=8297, y=10749, tms=True)
 for layer in layers:
     print(f"Layer: {layer.name}, extent: {layer.extent}")
     for feat in layer.features[:3]:
@@ -146,18 +146,18 @@ for layer in layers:
         print(f"  wkb={len(feat.wkb)} bytes, props={dict(feat.properties)}")
 
 # Raw tile-local coordinates (no z/x/y needed)
-layers = mlt_pyo3.decode_mlt(data)
+layers = mlt.decode_mlt(data)
 
 # GeoJSON string output (tile-local coords)
-geojson_str = mlt_pyo3.decode_mlt_to_geojson(data)
+geojson_str = mlt.decode_mlt_to_geojson(data)
 
 # Fast layer listing (no full decode)
-names = mlt_pyo3.list_layers(data)
+names = mlt.list_layers(data)
 ```
 
 ## Troubleshooting
 
-**"mlt_pyo3 module not found"** — the native module isn't installed for QGIS's
+**"mlt module not found"** — the native module isn't installed for QGIS's
 Python. Re-run Step 2 using the correct interpreter.
 
 **Features appear in the ocean** — toggle the TMS checkbox, or verify z/x/y

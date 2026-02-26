@@ -255,6 +255,7 @@ pub enum LsRow {
     },
     Error {
         path: PathBuf,
+        size: Option<usize>,
         error: String,
     },
     /// Placeholder while analysis is in progress
@@ -363,6 +364,9 @@ pub fn analyze_tile_files(paths: &[PathBuf], base_path: &Path, flags: LsFlags) -
             Err(e) => LsRow::Error {
                 path: path.clone(),
                 error: e.to_string(),
+                size: fs::metadata(path)
+                    .ok()
+                    .and_then(|m| usize::try_from(m.len()).ok()),
             },
         })
         .collect()
@@ -380,9 +384,15 @@ pub fn row_cells(row: &LsRow) -> [String; 5] {
             format!("{:>6}", info.layers),
             format!("{:>10}", info.features.separate_with_commas()),
         ],
-        LsRow::Error { path, error } => [
+        LsRow::Error {
+            path,
+            error: _,
+            size,
+        } => [
             path.display().to_string(),
-            format!("ERROR: {error}"),
+            size.map_or_else(String::new, |n| {
+                format!("{:>8}", format!("{:.1}B", SizeFormatterSI::new(n as u64)))
+            }),
             String::new(),
             String::new(),
             String::new(),
@@ -395,6 +405,42 @@ pub fn row_cells(row: &LsRow) -> [String; 5] {
             "…".to_string(),
         ],
     }
+}
+
+/// Path string for UI display; when `base` is given, returns path relative to base (same as Info row display).
+#[must_use]
+pub fn path_display(path: &Path, base: Option<&Path>) -> String {
+    match base {
+        None => path.display().to_string(),
+        Some(b) if b.is_file() => path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string(),
+        Some(b) => path.strip_prefix(b).map_or_else(
+            |_| path.display().to_string(),
+            |p| p.to_string_lossy().to_string(),
+        ),
+    }
+}
+
+/// Six-column cells for UI table: [File, Size, Enc %, Layers, Features, Notes]. Uses `path_display(path, base)` for the file column. Notes column is error message for Error rows, empty otherwise.
+#[must_use]
+pub fn row_cells_6(row: &LsRow, base: Option<&Path>) -> [String; 6] {
+    let cells5 = row_cells(row);
+    let file_col = path_display(row.path(), base);
+    let notes = match row {
+        LsRow::Error { error, .. } => error.clone(),
+        LsRow::Info { .. } | LsRow::Loading { .. } => String::new(),
+    };
+    [
+        file_col,
+        cells5[1].clone(),
+        cells5[2].clone(),
+        cells5[3].clone(),
+        cells5[4].clone(),
+        notes,
+    ]
 }
 
 pub(crate) fn is_tile_extension(path: &Path) -> bool {
@@ -761,8 +807,13 @@ fn print_table(rows: &[LsRow], flags: LsFlags) {
                 }
                 builder.push_record(data_row);
             }
-            LsRow::Error { path, error } => {
-                let mut data_row = vec![path.display().to_string(), format!("ERROR: {error}")];
+            LsRow::Error { path, error, size } => {
+                let size_str = size.map_or_else(String::new, &fmt_size);
+                let mut data_row = vec![
+                    path.display().to_string(),
+                    size_str,
+                    format!("ERROR: {error}"),
+                ];
                 data_row.resize(num_cols, String::new());
                 builder.push_record(data_row);
                 error_table_rows.push(i + 1);
