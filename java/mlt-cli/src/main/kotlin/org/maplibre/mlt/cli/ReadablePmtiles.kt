@@ -15,9 +15,6 @@ import org.apache.commons.lang3.NotImplementedException
 import org.locationtech.jts.geom.Coordinate
 import java.io.IOException
 import java.io.UncheckedIOException
-import java.util.function.IntFunction
-import java.util.stream.IntStream
-import java.util.stream.Stream
 
 /** Thread-safe partial copy of Planetiler's Pmtiles reader.
  * Also exposes run-length encoded tile coordinate ranges
@@ -159,10 +156,9 @@ class ReadablePmtiles(
     }
 
     // Warning: this will only work on z15 or less pmtiles which planetiler creates
-    private fun getTileCoords(dir: MutableList<Pmtiles.Entry>): Stream<MutableList<TileCoord>> =
+    private fun getTileCoords(dir: List<Pmtiles.Entry>): List<List<TileCoord>> =
         dir
-            .stream()
-            .flatMap<MutableList<TileCoord>> { entry: Pmtiles.Entry ->
+            .flatMap { entry: Pmtiles.Entry ->
                 if (entry.runLength() == 0) {
                     getTileCoords(
                         readDir(
@@ -171,29 +167,21 @@ class ReadablePmtiles(
                         ),
                     )
                 } else {
-                    Stream.of<MutableList<TileCoord>>(
-                        IntStream
-                            .range(
-                                entry.tileId().toInt(),
-                                entry.tileId().toInt() + entry.runLength(),
-                            ).mapToObj<TileCoord>(
-                                IntFunction { encoded: Int ->
-                                    TileCoord.hilbertDecode(
-                                        encoded,
-                                    )
-                                },
-                            ).toList(),
+                    listOf(
+                        (entry.tileId()..entry.tileId() + entry.runLength())
+                            .map { encoded ->
+                                TileCoord.hilbertDecode(
+                                    encoded.toInt(),
+                                )
+                            }.toList(),
                     )
                 }
             }
 
     override fun getAllTileCoords(): CloseableIterator<TileCoord> = throw NotImplementedException()
 
-    val allTileCoordRanges: CloseableIterator<MutableList<TileCoord>>
-        get() =
-            CloseableIterator.of<MutableList<TileCoord>>(
-                getTileCoords(readDir(header.rootDirOffset(), header.rootDirLength())),
-            )
+    val allTileCoordRanges: Iterable<List<TileCoord>>
+        get() = getTileCoords(readDir(header.rootDirOffset(), header.rootDirLength()))
 
     override fun getAllTiles(): CloseableIterator<Tile> = throw NotImplementedException()
 

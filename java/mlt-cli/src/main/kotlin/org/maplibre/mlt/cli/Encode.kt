@@ -1,33 +1,24 @@
 package org.maplibre.mlt.cli
 
-import com.onthegomap.planetiler.pmtiles.WriteablePmtiles
 import org.apache.commons.cli.CommandLine
 import org.apache.commons.cli.ParseException
 import org.apache.commons.io.FilenameUtils
-import org.apache.commons.lang3.mutable.MutableBoolean
 import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.core.config.Configurator
-import org.maplibre.mlt.cli.ConversionHelper.Companion.createCompressStream
 import org.maplibre.mlt.cli.EncodeCommandLine.getColumnMappings
-import org.maplibre.mlt.cli.EncodeConfig.Companion.builder
-import org.maplibre.mlt.cli.MBTilesHelper.encodeMBTiles
 import org.maplibre.mlt.compare.CompareHelper
 import org.maplibre.mlt.compare.CompareHelper.CompareMode
 import org.maplibre.mlt.converter.ConversionConfig
-import org.maplibre.mlt.converter.FeatureTableOptimizations
 import org.maplibre.mlt.converter.MLTStreamObserver
 import org.maplibre.mlt.converter.MLTStreamObserverDefault
 import org.maplibre.mlt.converter.MLTStreamObserverFile
 import org.maplibre.mlt.converter.MltConverter
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder
 import org.maplibre.mlt.converter.encodings.fsst.FsstJni
-import org.maplibre.mlt.converter.mvt.ColumnMapping
 import org.maplibre.mlt.converter.mvt.MvtUtils
 import org.maplibre.mlt.decoder.MltDecoder
-import org.maplibre.mlt.metadata.tileset.MltMetadata
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.net.URI
@@ -37,30 +28,16 @@ import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.util.Optional
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicLong
-import java.util.function.Function
-import java.util.function.Supplier
 import java.util.regex.Pattern
-import java.util.stream.Collectors
-import kotlin.Array
-import kotlin.Boolean
-import kotlin.ByteArray
-import kotlin.Double
-import kotlin.Exception
-import kotlin.Int
-import kotlin.Long
-import kotlin.Throws
 import kotlin.math.max
-import kotlin.require
 
 object Encode {
     @JvmStatic
     fun main(args: Array<String>) {
-        if (!Encode.run(args)) {
+        if (!run(args)) {
             System.exit(1)
         }
     }
@@ -129,7 +106,7 @@ object Encode {
             cmd
                 .getParsedOptionValue<Long?>(
                     EncodeCommandLine.MAX_ZOOM_OPTION,
-                    kotlin.Int.Companion.MAX_VALUE
+                    Int.MAX_VALUE
                         .toLong(),
                 )!!
                 .toInt()
@@ -145,7 +122,7 @@ object Encode {
         // PMTiles logs stats at INFO.  Enable that only if the user has selected at least debug.
         // Note: `isLessSpecificThan` is actually less-than-or-equal.
         Configurator.setLevel(
-            WriteablePmtiles::class.java,
+            "com.onthegomap.planetiler.pmtiles.WriteablePmtiles",
             if (logLevel.isLessSpecificThan(Level.DEBUG)) Level.INFO else Level.OFF,
         )
 
@@ -207,32 +184,32 @@ object Encode {
         }
 
         val encodeConfig =
-            builder()
-                .columnMappings(columnMappings)
-                .conversionConfig(conversionConfig)
-                .tessellateSource(tessellateURI)
-                .sortFeaturesPattern(sortFeaturesPattern)
-                .regenIDsPattern(regenIDsPattern)
-                .compressionType(compressionType)
-                .minZoom(minZoom)
-                .maxZoom(maxZoom)
-                .willOutput(
+            EncodeConfig(
+                columnMappingConfig = columnMappings,
+                conversionConfig = conversionConfig,
+                tessellateSource = tessellateURI,
+                sortFeaturesPattern = sortFeaturesPattern,
+                regenIDsPattern = regenIDsPattern,
+                compressionType = compressionType,
+                minZoom = minZoom,
+                maxZoom = maxZoom,
+                willOutput =
                     cmd.hasOption(EncodeCommandLine.OUTPUT_FILE_ARG) ||
                         cmd.hasOption(EncodeCommandLine.OUTPUT_DIR_ARG),
-                ).willDecode(cmd.hasOption(EncodeCommandLine.DECODE_OPTION))
-                .willPrintMLT(cmd.hasOption(EncodeCommandLine.PRINT_MLT_OPTION))
-                .willPrintMVT(cmd.hasOption(EncodeCommandLine.PRINT_MVT_OPTION))
-                .compareProp(
+                willDecode = cmd.hasOption(EncodeCommandLine.DECODE_OPTION),
+                willPrintMLT = cmd.hasOption(EncodeCommandLine.PRINT_MLT_OPTION),
+                willPrintMVT = cmd.hasOption(EncodeCommandLine.PRINT_MVT_OPTION),
+                compareProp =
                     cmd.hasOption(EncodeCommandLine.COMPARE_PROP_OPTION) ||
                         cmd.hasOption(EncodeCommandLine.COMPARE_ALL_OPTION),
-                ).compareGeom(
+                compareGeom =
                     cmd.hasOption(EncodeCommandLine.COMPARE_GEOM_OPTION) ||
                         cmd.hasOption(EncodeCommandLine.COMPARE_ALL_OPTION),
-                ).willTime(cmd.hasOption(EncodeCommandLine.TIMER_OPTION))
-                .dumpStreams(cmd.hasOption(EncodeCommandLine.DUMP_STREAMS_OPTION))
-                .taskRunner(taskRunner)
-                .continueOnError(cmd.hasOption(EncodeCommandLine.CONTINUE_OPTION))
-                .build()
+                willTime = cmd.hasOption(EncodeCommandLine.TIMER_OPTION),
+                dumpStreams = cmd.hasOption(EncodeCommandLine.DUMP_STREAMS_OPTION),
+                taskRunner = taskRunner,
+                continueOnError = cmd.hasOption(EncodeCommandLine.CONTINUE_OPTION),
+            )
 
         if (tileFileNames != null && tileFileNames.size > 0) {
             require(!(tileFileNames.size > 1 && cmd.hasOption(EncodeCommandLine.OUTPUT_FILE_ARG))) {
@@ -242,7 +219,7 @@ object Encode {
                 )
             }
             for (tileFileName in tileFileNames) {
-                val outputPath = Encode.getOutputPath(cmd, tileFileName!!, "mlt")
+                val outputPath = getOutputPath(cmd, tileFileName!!, "mlt")
                 if (outputPath == null) {
                     continue
                 }
@@ -255,7 +232,7 @@ object Encode {
 
                 logger.debug("Converting {} to {}", tileFileName, outputPath)
 
-                Encode.encodeTile(tileFileName, outputPath, streamPath, encodeConfig)
+                encodeTile(0, 0, 0, tileFileName, outputPath, streamPath, encodeConfig)
             }
         } else if (cmd.hasOption(EncodeCommandLine.INPUT_MBTILES_ARG)) {
             // Converting all the tiles in an MBTiles file
@@ -271,7 +248,7 @@ object Encode {
                 ext = "." + ext
             }
             val outputPath = getOutputPath(cmd, inputPath, "mlt" + ext)
-            if (!OfflineDBHelper.encodeOfflineDB(Path.of(inputPath), outputPath, encodeConfig)) {
+            if (!encodeOfflineDB(Path.of(inputPath), outputPath, encodeConfig)) {
                 return false
             }
         } else if (cmd.hasOption(EncodeCommandLine.INPUT_PMTILES_ARG)) {
@@ -288,12 +265,12 @@ object Encode {
             val inputURI = getInputURI(inputPath)
 
             outputPath = outputPath.toAbsolutePath()
-            if (!PMTilesHelper.encodePMTiles(inputURI, outputPath, encodeConfig)) {
+            if (!encodePMTiles(inputURI, outputPath, encodeConfig)) {
                 return false
             }
         }
 
-        if (totalCompressedInput.get() > 0) {
+        if (totalCompressedInput.get() > 0 && logger.isDebugEnabled) {
             val input = totalCompressedInput.get()
             val output = totalCompressedOutput.get()
             val percentStr = String.format("%.1f", 100.0 * output / input)
@@ -305,7 +282,10 @@ object Encode {
     /**  Convert a single tile from an individual file */
     @Throws(IOException::class)
     private fun encodeTile(
-        tileFileName: kotlin.String,
+        x: Long,
+        y: Long,
+        z: Int,
+        tileFileName: String,
         outputPath: Path,
         streamPath: Path?,
         config: EncodeConfig,
@@ -326,7 +306,7 @@ object Encode {
                 isIdPresent,
             )
 
-        logColumnMappings(metadata)
+        logColumnMappings(x, y, z, metadata)
 
         val targetConfig = applyColumnMappingsToConversionConfig(config, metadata)
 
@@ -360,7 +340,7 @@ object Encode {
             }
         }
         if (config.willPrintMVT) {
-            System.out.write(JsonHelper.toJson(decodedMvTile).toByteArray(StandardCharsets.UTF_8))
+            System.out.write(decodedMvTile.toJson().toByteArray(StandardCharsets.UTF_8))
         }
         val needsDecoding = config.willDecode || willCompare || config.willPrintMLT
         if (needsDecoding) {
@@ -374,7 +354,7 @@ object Encode {
                 timer!!.stop("decoding")
             }
             if (config.willPrintMLT) {
-                System.out.write(JsonHelper.toJson(decodedTile).toByteArray(StandardCharsets.UTF_8))
+                System.out.write(decodedTile.toJson().toByteArray(StandardCharsets.UTF_8))
             }
             if (willCompare) {
                 val mode =
@@ -395,8 +375,8 @@ object Encode {
                         decodedTile,
                         decodedMvTile,
                         mode,
-                        targetConfig.getLayerFilterPattern(),
-                        targetConfig.getLayerFilterInvert(),
+                        targetConfig.layerFilterPattern,
+                        targetConfig.layerFilterInvert,
                     )
                 if (result.isPresent) {
                     logger.warn("Tiles do not match: {}", result)
@@ -407,241 +387,10 @@ object Encode {
         }
     }
 
-    // In batch conversion, we don't have the column names yet when we set up the config, so
-    // we need to apply the mappings to an existing immutable config object using the column
-    // names from a decoded tile metadata.
-    private fun applyColumnMappingsToConversionConfig(
-        config: EncodeConfig,
-        metadata: MltMetadata.TileSetMetadata,
-    ): ConversionConfig {
-        val conversionConfig = config.conversionConfig
-        // If the config already has optimizations, don't modify it
-        if (!conversionConfig.getOptimizations().isEmpty()) {
-            return conversionConfig
-        }
-
-        // Warn if both patterns match on any tables
-        val warnTables =
-            metadata.featureTables
-                .stream()
-                .filter { table: MltMetadata.FeatureTable? ->
-                    config.sortFeaturesPattern != null &&
-                        config.sortFeaturesPattern.matcher(table!!.name).matches()
-                }.filter { table: MltMetadata.FeatureTable? ->
-                    config.regenIDsPattern != null &&
-                        config.regenIDsPattern.matcher(table!!.name).matches()
-                }.map<kotlin.String?> { table: MltMetadata.FeatureTable? -> table!!.name }
-                .collect(Collectors.joining(","))
-        if (!warnTables.isEmpty()) {
-            logger.warn(
-                "The --{} and --{} options are incompatible: {}",
-                EncodeCommandLine.SORT_FEATURES_OPTION,
-                EncodeCommandLine.REGEN_IDS_OPTION,
-                warnTables,
-            )
-        }
-
-        // Now that we have the actual column names from the metadata, we can determine which column
-        // mappings apply to which tables and create the optimizations for each table accordingly.
-        val optimizationMap =
-            metadata.featureTables
-                .stream()
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        Function { table: MltMetadata.FeatureTable? -> table!!.name },
-                        Function { table: MltMetadata.FeatureTable? ->
-                            FeatureTableOptimizations(
-                                config.sortFeaturesPattern != null &&
-                                    config.sortFeaturesPattern
-                                        .matcher(table!!.name)
-                                        .matches(),
-                                config.regenIDsPattern != null &&
-                                    config.regenIDsPattern.matcher(table!!.name).matches(),
-                                config.columnMappingConfig.entries
-                                    .stream()
-                                    .filter { entry: MutableMap.MutableEntry<Pattern?, MutableList<ColumnMapping?>?>? ->
-                                        entry!!
-                                            .key!!
-                                            .matcher(
-                                                table!!.name,
-                                            ).matches()
-                                    }.flatMap<ColumnMapping?> { entry: MutableMap.MutableEntry<Pattern?, MutableList<ColumnMapping?>?>? ->
-                                        entry!!.value!!.stream()
-                                    }.toList(),
-                            )
-                        },
-                    ),
-                )
-
-        // re-create the config with the applied column mappings
-        return conversionConfig.asBuilder().optimizations(optimizationMap).build()
-    }
-
-    /**
-     * Converts a tile from MVT to MLT, handling de- and re-compression
-     *
-     * @param x The x-coordinate of the tile.
-     * @param y The y-coordinate of the tile.
-     * @param z The zoom level of the tile.
-     * @param srcTileData The source tile data as a byte array.
-     * @param config The configuration for the conversion process
-     * @param compressionRatioThreshold An optional threshold for the compression ratio to determine
-     * whether compression is worth the need to decompress it. The compressed version will only be
-     * used if its size is less than the original size multiplied by this ratio. If not present, a
-     * compressed result will be used even if it's larger than the original.
-     * @param compressionFixedThreshold An optional fixed byte threshold to determine whether
-     * compression is worth the need to decompress it. The compressed version will only be used if
-     * its size is at least this many bytes smaller than the original size. If not present, a
-     * compressed result will be used even if it's larger than the original.
-     * @param didCompress A mutable boolean to indicate whether compression was applied
-     * @return The converted tile data as a byte array, or null if the conversion failed.
-     */
-    @JvmStatic
-    fun convertTile(
-        x: Long,
-        y: Long,
-        z: Int,
-        srcTileData: ByteArray,
-        config: EncodeConfig,
-        compressionRatioThreshold: Optional<Double>,
-        compressionFixedThreshold: Optional<Long>,
-        didCompress: MutableBoolean?,
-    ): ByteArray? {
-        try {
-            // Decode the source tile data into an intermediate representation.
-            val decodedMvTile = MvtUtils.decodeMvt(srcTileData)
-
-            val isIdPresent = true
-            val metadata =
-                MltConverter.createTilesetMetadata(
-                    decodedMvTile,
-                    config.conversionConfig,
-                    config.columnMappingConfig,
-                    isIdPresent,
-                )
-
-            // Print column mappings if verbosity level is high.
-            logColumnMappings(metadata)
-
-            // Apply column mappings and update the conversion configuration.
-            val targetConfig = applyColumnMappingsToConversionConfig(config, metadata)
-
-            // Convert the tile using the updated configuration and tessellation source.
-            var tileData =
-                MltConverter.convertMvt(
-                    decodedMvTile,
-                    metadata,
-                    targetConfig,
-                    config.tessellateSource,
-                )
-
-            // Apply compression if specified.
-            if (config.compressionType != null) {
-                ByteArrayOutputStream().use { outputStream ->
-                    createCompressStream(
-                        outputStream,
-                        config.compressionType,
-                    ).use { compressStream ->
-                        compressStream!!.write(tileData)
-                    }
-                    // Evaluate whether the compressed version is worth using.
-                    if ((
-                            compressionFixedThreshold.isEmpty() ||
-                                outputStream.size() <= tileData.size - compressionFixedThreshold.get()
-                        ) &&
-                        (
-                            compressionRatioThreshold.isEmpty() ||
-                                outputStream.size() <= tileData.size * compressionRatioThreshold.get()
-                        )
-                    ) {
-                        if (logger.isTraceEnabled()) {
-                            val compressedSize = outputStream.size()
-                            val originalSize = tileData.size
-                            logger
-                                .atTrace()
-                                .setMessage("Compressed {}:{},{} from {} to {} bytes ({}%)")
-                                .addArgument(z)
-                                .addArgument(x)
-                                .addArgument(y)
-                                .addArgument(originalSize)
-                                .addArgument(compressedSize)
-                                .addArgument(
-                                    Supplier {
-                                        kotlin.String.format(
-                                            "%.1f",
-                                            100.0 * compressedSize / originalSize,
-                                        )
-                                    },
-                                ).log()
-                        }
-                        totalCompressedInput.addAndGet(tileData.size.toLong())
-                        totalCompressedOutput.addAndGet(outputStream.size().toLong())
-                        if (didCompress != null) {
-                            didCompress.setTrue()
-                        }
-                        tileData = outputStream.toByteArray()
-                    } else {
-                        if (logger.isTraceEnabled()) {
-                            val compressedSize = outputStream.size()
-                            val originalSize = tileData.size
-                            logger
-                                .atTrace()
-                                .setMessage(
-                                    "Compression of {}:{},{} not effective ({} vs {} bytes, {}%), using uncompressed",
-                                ).addArgument(z)
-                                .addArgument(x)
-                                .addArgument(y)
-                                .addArgument(originalSize)
-                                .addArgument(compressedSize)
-                                .addArgument(
-                                    Supplier {
-                                        kotlin.String.format(
-                                            "%.1f",
-                                            100.0 * compressedSize / originalSize,
-                                        )
-                                    },
-                                ).log()
-                        }
-                        if (didCompress != null) {
-                            didCompress.setFalse()
-                        }
-                    }
-                }
-            }
-            return tileData
-        } catch (ex: IOException) {
-            // Log an error message if tile conversion fails.
-            logger.error("Failed to process tile {}:{},{}", z, x, y, ex)
-        }
-        return null
-    }
-
-    private fun logColumnMappings(metadata: MltMetadata.TileSetMetadata) {
-        if (!logger.isTraceEnabled()) {
-            return
-        }
-        for (table in metadata.featureTables) {
-            for (column in table.columns) {
-                if (column.complexType != null &&
-                    column.complexType.physicalType == MltMetadata.ComplexType.STRUCT
-                ) {
-                    logger.trace(
-                        "Found column mapping: {} => {}",
-                        table.name,
-                        column.complexType.children
-                            .stream()
-                            .map<kotlin.String?> { f: MltMetadata.Field? -> column.name + f!!.name }
-                            .collect(Collectors.joining(", ")),
-                    )
-                }
-            }
-        }
-    }
-
-    private fun getInputURI(inputArg: kotlin.String): URI {
+    private fun getInputURI(inputArg: String): URI {
         val file = File(inputArg)
-        return if (file.isFile()) {
-            file.getAbsoluteFile().toURI().normalize()
+        return if (file.isFile) {
+            file.absoluteFile.toURI().normalize()
         } else {
             URI.create(
                 inputArg,
@@ -652,22 +401,22 @@ object Encode {
     /** Resolve an output filename.
      * If an output filename is specified directly, use it.
      * If only an output directory is given, add the input filename and the specified extension.
-     * If neither a directory or file name is given, returns null.  This is used for testing.
+     * If neither a directory nor file name is given, returns null.  This is used for testing.
      * If a path is returned and the directory doesn't already exist, it is created. */
     private fun getOutputPath(
         cmd: CommandLine,
-        inputFileName: kotlin.String,
-        targetExt: kotlin.String?,
+        inputFileName: String,
+        targetExt: String?,
     ): Path? = getOutputPath(cmd, inputFileName, targetExt, false)
 
     private fun getOutputPath(
         cmd: CommandLine,
-        inputFileName: kotlin.String,
-        targetExt: kotlin.String?,
+        inputFileName: String,
+        targetExt: String?,
         forceExt: Boolean,
     ): Path? {
         val ext =
-            if (targetExt != null && !targetExt.isEmpty()) {
+            if (!targetExt.isNullOrEmpty()) {
                 FilenameUtils.EXTENSION_SEPARATOR_STR + targetExt
             } else {
                 ""
@@ -681,15 +430,15 @@ object Encode {
             // Get the file basename without extension.  The input may be a local path or a URI (for
             // pmtiles)
             val inputURI = getInputURI(inputFileName)
-            if (inputURI.getPath() == null) {
+            if (inputURI.path == null) {
                 logger.error("Unable to determine input filename from '{}'", inputFileName)
                 return null
             }
 
-            var baseName: kotlin.String?
+            var baseName: String?
             try {
-                val inputPath = Paths.get(inputURI.getPath())
-                baseName = FilenameUtils.getBaseName(inputPath.getFileName().toString())
+                val inputPath = Paths.get(inputURI.path)
+                baseName = FilenameUtils.getBaseName(inputPath.fileName.toString())
             } catch (ignored: InvalidPathException) {
                 //  Windows can't handle getting the path part of a file URI
                 baseName = FilenameUtils.getBaseName(inputFileName)
@@ -702,7 +451,7 @@ object Encode {
                 outputPath = Path.of(FilenameUtils.removeExtension(outputPath.toString()) + ext)
             }
 
-            val outputDir = outputPath.toAbsolutePath().getParent()
+            val outputDir = outputPath.toAbsolutePath().parent
             if (!Files.exists(outputDir)) {
                 try {
                     Files.createDirectories(outputDir)
@@ -733,9 +482,6 @@ object Encode {
             ),
         )
     }
-
-    private var totalCompressedInput = AtomicLong(0L)
-    private var totalCompressedOutput = AtomicLong(0L)
 
     private val logger: Logger = LoggerFactory.getLogger(Encode::class.java)
 }

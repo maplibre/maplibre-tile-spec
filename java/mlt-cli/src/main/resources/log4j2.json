@@ -5,7 +5,34 @@
         "name": "Console",
          "target": "system_err",
         "PatternLayout": {
-          "pattern": "%highlight{%msg%n%throwable}{FATAL=bright red, ERROR=red, WARN=yellow, INFO=normal, DEBUG=gray, TRACE=gray}"
+          "LevelPatternSelector": {
+            "PatternMatch": [
+              {
+                "key": "FATAL",
+                "pattern": "%highlight{FATAL: %msg%n%throwable}{FATAL=bright red}"
+              },
+              {
+                "key": "ERROR",
+                "pattern": "%highlight{ERROR: %msg%n%throwable}{ERROR=red}"
+              },
+              {
+                "key": "WARN",
+                "pattern": "%highlight{WARNING: %msg%n%throwable}{WARN=yellow}"
+              },
+              {
+                "key": "INFO",
+                "pattern": "%msg%n%throwable"
+              },
+              {
+                "key": "DEBUG",
+                "pattern": "%highlight{%msg%n%throwable}{DEBUG=gray}"
+              },
+              {
+                "key": "TRACE",
+                "pattern": "%highlight{%relative{} ms : %msg%n%throwable}{TRACE=white}"
+              }
+            ]
+          }
         }
       }
     },
