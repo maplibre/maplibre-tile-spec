@@ -81,38 +81,6 @@ private fun floatsAsStrings(obj: Any?): Any? =
         }
     }
 
-/** Recursively replace GeoJSON string tokens with Float/Double special values. */
-private fun stringsAsFloats(obj: Any?): Any? =
-    when (obj) {
-        is String -> {
-            when (obj) {
-                F32_NAN -> Float.NaN
-                F32_INFINITY -> Float.POSITIVE_INFINITY
-                F32_NEG_INFINITY -> Float.NEGATIVE_INFINITY
-                F64_NAN -> Double.NaN
-                F64_INFINITY -> Double.POSITIVE_INFINITY
-                F64_NEG_INFINITY -> Double.NEGATIVE_INFINITY
-                else -> obj
-            }
-        }
-
-        is Map<*, *> -> {
-            obj.entries.associate { (k, v) -> k to stringsAsFloats(v) }
-        }
-
-        is List<*> -> {
-            obj.map { stringsAsFloats(it) }
-        }
-
-        is Iterable<*> -> {
-            obj.map { stringsAsFloats(it) }
-        }
-
-        else -> {
-            obj
-        }
-    }
-
 private fun toJsonObjects(mlTile: MapLibreTile): Map<String, Any?> =
     mutableMapOf<String, Any?>(
         "layers" to
