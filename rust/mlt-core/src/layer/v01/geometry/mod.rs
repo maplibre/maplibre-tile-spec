@@ -970,7 +970,7 @@ mod tests {
         ]
     }
 
-    /// Strategy for a mixed `LineString` + `MultiLineString` layer
+    /// Mixing `LineString` with `MultiLineString`
     fn arb_mixed_linestring_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
         prop::collection::vec(arb_geom(), 2..12)
             .prop_map(|geoms| {
@@ -987,7 +987,7 @@ mod tests {
             })
     }
 
-    /// Strategy for a mixed `Point` + `MultiPoint` layer.
+    /// Mixing `Point` with `MultiPoint`
     fn arb_mixed_point_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
         prop::collection::vec(arb_geom(), 2..12)
             .prop_map(|geoms| {
@@ -1002,7 +1002,7 @@ mod tests {
             })
     }
 
-    /// Strategy for a mixed `Polygon` + `MultiPolygon` layer.
+    /// Mixing `Polygon` with `MultiPolygon`
     fn arb_mixed_polygon_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
         prop::collection::vec(arb_geom(), 2..8)
             .prop_map(|geoms| {
@@ -1015,6 +1015,72 @@ mod tests {
                 geoms.iter().any(|g| matches!(g, GeoGeom::Polygon(_)))
                     && geoms.iter().any(|g| matches!(g, GeoGeom::MultiPolygon(_)))
             })
+    }
+
+    /// Mixing `Point` with `MultiLineString`
+    fn arb_cross_point_mls_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
+        prop::collection::vec(
+            prop_oneof![
+                arb_coord().prop_map(Point).prop_map(GeoGeom::Point),
+                prop::collection::vec(prop::collection::vec(arb_coord(), 2..6), 2..5).prop_map(
+                    |lines| {
+                        GeoGeom::MultiLineString(MultiLineString(
+                            lines.into_iter().map(LineString).collect(),
+                        ))
+                    }
+                ),
+            ],
+            2..12,
+        )
+        .prop_filter("needs both Point and MultiLineString", |geoms| {
+            geoms.iter().any(|g| matches!(g, GeoGeom::Point(_)))
+                && geoms
+                    .iter()
+                    .any(|g| matches!(g, GeoGeom::MultiLineString(_)))
+        })
+    }
+
+    /// Mixing `Point` with `MultiPolygon`.
+    fn arb_cross_point_mpoly_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
+        prop::collection::vec(
+            prop_oneof![
+                arb_coord().prop_map(Point).prop_map(GeoGeom::Point),
+                prop::collection::vec(arb_coord(), 3..6).prop_map(|mut coords| {
+                    coords.push(coords[0]);
+                    GeoGeom::MultiPolygon(MultiPolygon(vec![Polygon::new(
+                        LineString(coords),
+                        vec![],
+                    )]))
+                }),
+            ],
+            2..10,
+        )
+        .prop_filter("needs both Point and MultiPolygon", |geoms| {
+            geoms.iter().any(|g| matches!(g, GeoGeom::Point(_)))
+                && geoms.iter().any(|g| matches!(g, GeoGeom::MultiPolygon(_)))
+        })
+    }
+
+    /// Mixing `LineString` with `MultiPolygon`
+    fn arb_cross_ls_mpoly_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
+        prop::collection::vec(
+            prop_oneof![
+                prop::collection::vec(arb_coord(), 2..8)
+                    .prop_map(|coords| GeoGeom::LineString(LineString(coords))),
+                prop::collection::vec(arb_coord(), 3..6).prop_map(|mut coords| {
+                    coords.push(coords[0]);
+                    GeoGeom::MultiPolygon(MultiPolygon(vec![Polygon::new(
+                        LineString(coords),
+                        vec![],
+                    )]))
+                }),
+            ],
+            2..10,
+        )
+        .prop_filter("needs both LineString and MultiPolygon", |geoms| {
+            geoms.iter().any(|g| matches!(g, GeoGeom::LineString(_)))
+                && geoms.iter().any(|g| matches!(g, GeoGeom::MultiPolygon(_)))
+        })
     }
 
     proptest! {
@@ -1049,6 +1115,36 @@ mod tests {
         fn test_mixed_polygon_roundtrip(
             encoder in any::<GeometryEncoder>(),
             geoms in arb_mixed_polygon_geoms(),
+        ) {
+            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+            prop_assert_eq!(output, canonical);
+        }
+
+        #[ignore = "encoder does not implement this correctly"]
+        #[test]
+        fn test_cross_point_mls_roundtrip(
+            encoder in any::<GeometryEncoder>(),
+            geoms in arb_cross_point_mls_geoms(),
+        ) {
+            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+            prop_assert_eq!(output, canonical);
+        }
+
+        #[ignore = "encoder does not implement this correctly"]
+        #[test]
+        fn test_cross_point_mpoly_roundtrip(
+            encoder in any::<GeometryEncoder>(),
+            geoms in arb_cross_point_mpoly_geoms(),
+        ) {
+            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+            prop_assert_eq!(output, canonical);
+        }
+
+        #[ignore = "encoder does not implement this correctly"]
+        #[test]
+        fn test_cross_ls_mpoly_roundtrip(
+            encoder in any::<GeometryEncoder>(),
+            geoms in arb_cross_ls_mpoly_geoms(),
         ) {
             let (canonical, output) = roundtrip_via_push(&geoms, encoder);
             prop_assert_eq!(output, canonical);
