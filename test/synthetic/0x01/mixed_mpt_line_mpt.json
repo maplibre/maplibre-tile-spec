@@ -1,6 +1,12 @@
 {
+  "type": "FeatureCollection",
   "features": [
     {
+      "type": "Feature",
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1"
+      },
       "geometry": {
         "type": "MultiPoint",
         "coordinates": [
@@ -17,14 +23,14 @@
             45
           ]
         ]
-      },
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
         "type": "LineString",
         "coordinates": [
@@ -37,14 +43,14 @@
             53
           ]
         ]
-      },
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
         "type": "MultiPoint",
         "coordinates": [
@@ -61,13 +67,7 @@
             45
           ]
         ]
-      },
-      "properties": {
-        "_extent": 4096,
-        "_layer": "layer1"
-      },
-      "type": "Feature"
+      }
     }
-  ],
-  "type": "FeatureCollection"
+  ]
 }

@@ -87,14 +87,14 @@
             45
           ]
         ]
-      },
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
         "type": "MultiLineString",
         "coordinates": [
@@ -123,14 +123,14 @@
             ]
           ]
         ]
-      },
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
         "type": "MultiPolygon",
         "coordinates": [
