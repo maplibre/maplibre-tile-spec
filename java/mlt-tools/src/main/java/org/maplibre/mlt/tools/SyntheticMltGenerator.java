@@ -91,18 +91,6 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateMixed() throws IOException {
-
-    // Point:  c(38,40)
-    // LineString:  feat(line(c(5,8),c(12,45),c(9,70)))
-    // Polygon:  feat(poly(c(55,5),c(75,22),c(58,28),c(55,5)))
-    // Polygon:
-    // feat(poly(ring(c(52,35),c(12,58),c(60,72),c(52,35)),ring(c(32,50),c(36,60),c(24,54),c(32,50))))
-    // MultiPoint:  feat(multi(c(6,65),c(11,71),c(17,69)))
-    // MultiLineString:  feat(multi(line(c(24,10),c(42,18)),line(c(30,36),c(48,52),c(35,62))))
-    // MultiPolygon:
-    // feat(multi(poly(ring(c(7,20),c(26,9),c(21,31),c(7,20))),ring((9,20),(18,25),(20,15),(9,20))),poly(c(69,57),c(73,64),c(71,66),c(69,57)))))
-    //
-
     GeomType[] types = {
       new GeomType("pt", feat(gf.createPoint(c(38, 29)))),
       new GeomType("line", feat(line(c(5, 38), c(12, 45), c(9, 70)))),
