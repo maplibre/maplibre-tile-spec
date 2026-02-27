@@ -39,8 +39,10 @@ describe("FastPFOR encoder", () => {
         const decoded = decodeFastPforInt32(encoded, values.length);
 
         expect(decoded).toEqual(values);
-        expect(workspace.dataToBePacked[2]).toBeDefined();
-        expect(workspace.dataToBePacked[2]!.length).toBeGreaterThan(1);
+        const exceptionStream = workspace.dataToBePacked[2];
+        expect(exceptionStream).toBeDefined();
+        if (!exceptionStream) throw new Error("expected exception stream for bitWidth=2");
+        expect(exceptionStream.length).toBeGreaterThan(1);
     });
 
     it("rounds grown exception buffers to a multiple of 32", () => {
@@ -54,7 +56,9 @@ describe("FastPFOR encoder", () => {
 
         encodeFastPforInt32WithWorkspace(values, workspace);
 
-        expect(workspace.dataToBePacked[2]).toBeDefined();
-        expect(workspace.dataToBePacked[2]!.length % 32).toBe(0);
+        const exceptionStream = workspace.dataToBePacked[2];
+        expect(exceptionStream).toBeDefined();
+        if (!exceptionStream) throw new Error("expected exception stream for bitWidth=2");
+        expect(exceptionStream.length % 32).toBe(0);
     });
 });
