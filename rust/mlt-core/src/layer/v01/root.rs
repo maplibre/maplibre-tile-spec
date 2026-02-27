@@ -16,10 +16,6 @@ use crate::{Decodable as _, MltError, MltRefResult, utils};
 #[cfg(not(fuzzing))]
 #[borrowme]
 #[derive(Debug, PartialEq)]
-#[cfg_attr(
-    all(not(test), feature = "arbitrary"),
-    owned_attr(derive(arbitrary::Arbitrary))
-)]
 pub struct Layer01<'a> {
     pub name: &'a str,
     pub extent: u32,

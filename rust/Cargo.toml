@@ -16,7 +16,6 @@ repository = "https://github.com/maplibre/maplibre-tile-spec"
 rust-version = "1.88.0"
 
 [workspace.dependencies]
-arbitrary = { version = "1.4", features = ["derive"] }
 anyhow = "1"
 borrowme = "0.0.15"
 clap = { version = "4.5.58", features = ["derive"] }

@@ -567,7 +567,6 @@ pub fn encode_geometry(
 /// How to encode Geometry
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct GeometryEncoder {
     /// Encoding settings for the geometry types (meta) stream.
     pub meta: Encoder,
