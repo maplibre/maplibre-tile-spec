@@ -79,6 +79,16 @@ jobs:
           files: rust/target/llvm-cov/codecov.info
       - run: just -v assert-git-is-clean
 
+  test-publish:
+    name: Test workspace publishing using --dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/mlt-setup-rust
+      - name: Test workspace publishing
+        run: just -v rust::test-publish
+      - run: just -v assert-git-is-clean
+
   build-release-binaries:
     name: Build release binaries for ${{ matrix.target }}
     strategy:
@@ -87,19 +97,16 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: mlt-linux-x86_64.tar.gz
-          # Requires mlt > fastpfor to support arm via the existing simde code
-          # Currently, seems flaky
-          #- os: ubuntu-22.04-arm
-          #  target: aarch64-unknown-linux-gnu
-          #  artifact_name: mlt-linux-aarch64.tar.gz
-          # Requires mlt > fastpfor to support apple arm.
-          #- os: macos-latest
-          #  target: aarch64-apple-darwin
-          #  artifact_name: mlt-macos-aarch64.tar.gz
+            artifact_name: mlt-x86_64-unknown-linux-gnu.tar.gz
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            artifact_name: mlt-aarch64-unknown-linux-gnu.tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: mlt-aarch64-apple-darwin.tar.gz
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: mlt-windows-x86_64.zip
+            artifact_name: mlt-x86_64-pc-windows-msvc.zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6.0.2
@@ -114,7 +121,7 @@ jobs:
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
   ci-passed-rust:
-    needs: [ test, test-msrv, lint, build-release-binaries ]
+    needs: [ test, test-msrv, lint, build-release-binaries, test-publish ]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -143,6 +150,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v6.0.2
         with: { fetch-depth: 0, persist-credentials: false }
+      - uses: ./.github/actions/mlt-setup-rust
       - name: Publish to crates.io if crate's version is newer
         uses: release-plz/action@f708778669256143d984cce4b23592637532e040 # v0.5.127
         id: release
@@ -172,7 +180,7 @@ jobs:
       - name: Get mlt version for release tag
         id: get_version
         shell: bash
-        run: just -v rust::get-release-info mlt >> $GITHUB_OUTPUT
+        run: just -v rust::ci-get-release-info mlt >> $GITHUB_OUTPUT
       - name: Download all artifacts
         uses: actions/download-artifact@v7
         with: { path: artifacts }

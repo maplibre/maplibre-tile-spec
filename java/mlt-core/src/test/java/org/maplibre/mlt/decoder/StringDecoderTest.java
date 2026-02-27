@@ -23,6 +23,7 @@ import org.maplibre.mlt.converter.MLTStreamObserverDefault;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.encodings.StringEncoder;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
@@ -255,7 +256,8 @@ public class StringDecoderTest {
     mvTile.layers().getFirst().features().getFirst().properties().remove("name");
 
     final var columnMapping = new ColumnMapping("name", ":", true);
-    final var columnMappings = Map.of(Pattern.compile(".*"), List.of(columnMapping));
+    final var columnMappings =
+        ColumnMappingConfig.of(Pattern.compile(".*"), List.of(columnMapping));
     final var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
     final var fieldMetadata =
         tileMetadata.featureTables.get(tableIndex).columns.stream()
@@ -306,7 +308,8 @@ public class StringDecoderTest {
 
     final var mapping1 = new ColumnMapping("name", ":", true);
     final var mapping2 = new ColumnMapping("name", "_", true);
-    final var columnMappings = Map.of(Pattern.compile(".*"), List.of(mapping1, mapping2));
+    final var columnMappings =
+        ColumnMappingConfig.of(Pattern.compile(".*"), List.of(mapping1, mapping2));
 
     final var metadata =
         MltConverter.createTilesetMetadata(mvTile, columnMappings, /*isIdPresent*/ true);
@@ -344,7 +347,8 @@ public class StringDecoderTest {
 
     final var columnMapping =
         new ColumnMapping(List.of("name", "name:en", "name:latin", "name_en", "name_int"), true);
-    final var columnMappings = Map.of(Pattern.compile(".*"), List.of(columnMapping));
+    final var columnMappings =
+        ColumnMappingConfig.of(Pattern.compile(".*"), List.of(columnMapping));
 
     final var metadata =
         MltConverter.createTilesetMetadata(mvTile, columnMappings, /*isIdPresent*/ true);

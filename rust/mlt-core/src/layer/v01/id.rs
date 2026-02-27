@@ -12,7 +12,7 @@ use crate::utils::{
 };
 use crate::v01::{
     ColumnType, Encoder, LogicalEncoder, LogicalEncoding, OwnedEncodedData, OwnedStream,
-    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, Stream, StreamMeta, StreamType,
+    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, RleMeta, Stream, StreamMeta, StreamType,
 };
 
 /// ID column representation, either encoded or decoded, or none if there are no IDs
@@ -203,8 +203,14 @@ impl<'a> FromEncoded<'a> for DecodedId {
 /// How to encode IDs
 #[derive(Debug, Clone, Copy)]
 pub struct IdEncoder {
-    logical: LogicalEncoder,
-    id_width: IdWidth,
+    pub logical: LogicalEncoder,
+    pub id_width: IdWidth,
+}
+impl IdEncoder {
+    #[must_use]
+    pub fn new(logical: LogicalEncoder, id_width: IdWidth) -> Self {
+        Self { logical, id_width }
+    }
 }
 
 /// How wide are the IDs
@@ -227,7 +233,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
     fn from_decoded(decoded: &Self::Input, config: IdEncoder) -> Result<Self, MltError> {
         use IdWidth as CFG;
 
-        // skipped one level higher
+        // skipped one level higher via Id::None
         let DecodedId(Some(ids)) = decoded else {
             return Err(MltError::IdsMissingForEncoding);
         };
@@ -237,9 +243,17 @@ impl FromDecoded<'_> for OwnedEncodedId {
             let num_values = u32::try_from(present.len())?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present));
 
+            // Presence streams always use byte-RLE encoding.
+            // The RleMeta values are computed by readers from the stream itself
+            // (runs = num_values.div_ceil(8), num_rle_values = byte_length).
+            let runs = num_values.div_ceil(8);
+            let num_rle_values = u32::try_from(data.len())?;
             let meta = StreamMeta::new(
                 StreamType::Present,
-                LogicalEncoding::None,
+                LogicalEncoding::Rle(RleMeta {
+                    runs,
+                    num_rle_values,
+                }),
                 PhysicalEncoding::None,
                 num_values,
             );
@@ -257,7 +271,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
             let vals: Vec<u32> = ids.iter().filter_map(|&id| id).map(|v| v as u32).collect();
             OwnedEncodedIdValue::Id32(OwnedStream::encode_u32s(
                 &vals,
-                Encoder::new(config.logical, PhysicalEncoder::None),
+                Encoder::new(config.logical, PhysicalEncoder::VarInt),
             )?)
         } else {
             let vals: Vec<u64> = ids.iter().filter_map(|&id| id).collect();
