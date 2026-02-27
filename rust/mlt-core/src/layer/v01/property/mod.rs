@@ -49,6 +49,10 @@ impl OwnedEncodedStructChild {
 /// Property representation, either encoded or decoded
 #[borrowme]
 #[derive(Debug, PartialEq)]
+#[cfg_attr(
+    all(not(test), feature = "arbitrary"),
+    owned_attr(derive(arbitrary::Arbitrary))
+)]
 pub enum Property<'a> {
     Encoded(EncodedProperty<'a>),
     Decoded(DecodedProperty),
@@ -233,6 +237,17 @@ impl Default for OwnedEncodedProperty {
     }
 }
 
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl arbitrary::Arbitrary<'_> for OwnedEncodedProperty {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        let decoded: DecodedProperty = u.arbitrary()?;
+        let encoder: PropertyEncoder = u.arbitrary()?;
+        let prop: Self =
+            Self::from_decoded(&decoded, encoder).map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        Ok(prop)
+    }
+}
+
 /// A sequence of encoded property values of various types
 #[borrowme]
 #[derive(Debug, PartialEq)]
@@ -276,6 +291,7 @@ impl Analyze for EncodedPropValue<'_> {
 
 /// Decoded property values as a name and a vector of optional typed values
 #[derive(Debug, Clone, Default, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct DecodedProperty {
     pub name: String,
     pub values: PropValue,
@@ -294,6 +310,7 @@ impl Analyze for DecodedProperty {
 
 /// Decoded property value types
 #[derive(Clone, Default, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum PropValue {
     Bool(Vec<Option<bool>>),
     I8(Vec<Option<i8>>),
@@ -430,6 +447,7 @@ impl<'a> Property<'a> {
 
 /// How to encode string properties
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum StringEncoding {
     /// Plain encoding: length stream + data stream
     #[default]
@@ -444,6 +462,7 @@ pub enum StringEncoding {
 
 /// How to encode properties
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct PropertyEncoder {
     pub optional: PresenceStream,
     pub logical: LogicalEncoder,
@@ -487,6 +506,7 @@ impl PropertyEncoder {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum PresenceStream {
     /// Attaches a nullability stream
     Present,
