@@ -1,79 +1,79 @@
 {
+  "type": "FeatureCollection",
   "features": [
     {
-      "geometry": {
-        "coordinates": [
-          13,
-          42
-        ],
-        "type": "Point"
-      },
+      "type": "Feature",
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
+        "type": "Point",
         "coordinates": [
           13,
           42
-        ],
-        "type": "Point"
-      },
+        ]
+      }
+    },
+    {
+      "type": "Feature",
       "id": 9234567890,
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
+        "type": "Point",
         "coordinates": [
           13,
           42
-        ],
-        "type": "Point"
-      },
+        ]
+      }
+    },
+    {
+      "type": "Feature",
       "id": 101,
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
+        "type": "Point",
         "coordinates": [
           13,
           42
-        ],
-        "type": "Point"
-      },
+        ]
+      }
+    },
+    {
+      "type": "Feature",
       "id": 105,
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
+        "type": "Point",
         "coordinates": [
           13,
           42
-        ],
-        "type": "Point"
-      },
+        ]
+      }
+    },
+    {
+      "type": "Feature",
       "id": 106,
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
     }
-  ],
-  "type": "FeatureCollection"
+  ]
 }
