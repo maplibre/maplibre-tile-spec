@@ -424,9 +424,8 @@ describe("FastPFOR decoder workspace paths", () => {
         expect(decoded).toEqual(values);
         const byteContainerI32 = workspace.byteContainerI32;
         expect(byteContainerI32).toBeDefined();
-        if (!byteContainerI32) throw new Error("expected byteContainerI32 to be rebuilt");
-        expect(byteContainerI32.buffer).toBe(workspace.byteContainer.buffer);
-        expect(byteContainerI32.byteOffset).toBe(workspace.byteContainer.byteOffset);
+        expect(byteContainerI32?.buffer).toBe(workspace.byteContainer.buffer);
+        expect(byteContainerI32?.byteOffset).toBe(workspace.byteContainer.byteOffset);
     });
 
 });

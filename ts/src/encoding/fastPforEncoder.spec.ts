@@ -10,6 +10,7 @@ const EXCEPTION_POS_A = 10;
 const EXCEPTION_POS_B = 100;
 const EXCEPTION_OUTLIER_VALUE = 7;
 const UNDERSIZED_PREALLOCATED_STREAM = 1;
+const LARGE_INCOMPRESSIBLE_BLOCK_COUNT = 2050;
 
 describe("FastPFOR encoder", () => {
     it("grows byteContainer when workspace capacity is too small", () => {
@@ -41,8 +42,7 @@ describe("FastPFOR encoder", () => {
         expect(decoded).toEqual(values);
         const exceptionStream = workspace.dataToBePacked[2];
         expect(exceptionStream).toBeDefined();
-        if (!exceptionStream) throw new Error("expected exception stream for bitWidth=2");
-        expect(exceptionStream.length).toBeGreaterThan(1);
+        expect(exceptionStream?.length).toBeGreaterThan(1);
     });
 
     it("rounds grown exception buffers to a multiple of 32", () => {
@@ -58,7 +58,18 @@ describe("FastPFOR encoder", () => {
 
         const exceptionStream = workspace.dataToBePacked[2];
         expect(exceptionStream).toBeDefined();
-        if (!exceptionStream) throw new Error("expected exception stream for bitWidth=2");
-        expect(exceptionStream.length % 32).toBe(0);
+        const exceptionStreamLength = exceptionStream?.length;
+        expect(exceptionStreamLength).toBeDefined();
+        expect((exceptionStreamLength ?? 0) % 32).toBe(0);
+    });
+
+    it("round-trips a large incompressible payload", () => {
+        const values = new Int32Array(BLOCK_SIZE * LARGE_INCOMPRESSIBLE_BLOCK_COUNT);
+        for (let i = 0; i < values.length; i++) values[i] = -(i + 1);
+
+        const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
+        const decoded = decodeFastPforInt32(encoded, values.length);
+
+        expect(decoded).toEqual(values);
     });
 });
