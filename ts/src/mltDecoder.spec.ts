@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { expect, describe, it } from "vitest";
+import { describe, it } from "vitest";
 import { readdirSync, readFileSync } from "fs";
 import { parse, join } from "path";
 import { VectorTile, type VectorTileFeature } from "@mapbox/vector-tile";
@@ -36,19 +36,19 @@ describe("FeatureTable", () => {
 
         const table = featureTables[0];
 
-        expect(table.name).toBe("layer");
-        expect(table.extent).toBe(4096);
+        assert.equal(table.name, "layer");
+        assert.equal(table.extent, 4096);
 
         let featureCount = 0;
         for (const feature of table) {
-            expect(feature.geometry).toBeTruthy();
-            expect(feature.geometry.coordinates).toBeInstanceOf(Array);
-            expect(feature.geometry.coordinates.length).toBeGreaterThan(0);
-            expect(typeof feature.geometry.type).toBe("number");
+            assert.ok(feature.geometry);
+            assert.ok(Array.isArray(feature.geometry.coordinates));
+            assert.ok(feature.geometry.coordinates.length > 0);
+            assert.equal(typeof feature.geometry.type, "number");
 
             featureCount++;
         }
-        expect(featureCount).toBe(table.numFeatures);
+        assert.equal(featureCount, table.numFeatures);
     });
 });
 
@@ -89,7 +89,7 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
         // Use getFeatures() instead of iterator (like C++ and Java implementations)
         const mltFeatures = featureTable.getFeatures();
 
-        expect(mltFeatures.length).toBe(layer.length);
+        assert.equal(mltFeatures.length, layer.length);
 
         for (let j = 0; j < layer.length; j++) {
             const mvtFeature = layer.feature(j);
