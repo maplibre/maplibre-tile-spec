@@ -28,6 +28,7 @@ fmt: install
 
 # Install dependencies
 install:
+    cd ../test/synthetic/synthetic-test-tool && npm ci
     npm ci
 
 # Run linting
