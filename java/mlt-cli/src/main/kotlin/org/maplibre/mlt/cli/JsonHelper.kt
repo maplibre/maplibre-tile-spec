@@ -11,6 +11,14 @@ import org.maplibre.mlt.data.MapLibreTile
 import java.util.SortedMap
 import kotlin.math.floor
 
+// GeoJSON does not support non-numeric floats; use Rust-style string tokens for cross-implementation consistency.
+private const val F32_NAN = "f32::NAN"
+private const val F32_INFINITY = "f32::INFINITY"
+private const val F32_NEG_INFINITY = "f32::NEG_INFINITY"
+private const val F64_NAN = "f64::NAN"
+private const val F64_INFINITY = "f64::INFINITY"
+private const val F64_NEG_INFINITY = "f64::NEG_INFINITY"
+
 class JsonHelper {
     companion object {
         @JvmStatic
@@ -34,6 +42,76 @@ private fun createGson(pretty: Boolean): Gson {
     }
     return builder.create()
 }
+
+/** Recursively replace Float/Double NaN and ±Infinity with GeoJSON string tokens. */
+private fun floatsAsStrings(obj: Any?): Any? =
+    when (obj) {
+        is Float -> {
+            when {
+                obj.isNaN() -> F32_NAN
+                obj == Float.POSITIVE_INFINITY -> F32_INFINITY
+                obj == Float.NEGATIVE_INFINITY -> F32_NEG_INFINITY
+                else -> obj
+            }
+        }
+
+        is Double -> {
+            when {
+                obj.isNaN() -> F64_NAN
+                obj == Double.POSITIVE_INFINITY -> F64_INFINITY
+                obj == Double.NEGATIVE_INFINITY -> F64_NEG_INFINITY
+                else -> obj
+            }
+        }
+
+        is Map<*, *> -> {
+            obj.entries.associate { (k, v) -> k to floatsAsStrings(v) }
+        }
+
+        is List<*> -> {
+            obj.map { floatsAsStrings(it) }
+        }
+
+        is Iterable<*> -> {
+            obj.map { floatsAsStrings(it) }
+        }
+
+        else -> {
+            obj
+        }
+    }
+
+/** Recursively replace GeoJSON string tokens with Float/Double special values. */
+private fun stringsAsFloats(obj: Any?): Any? =
+    when (obj) {
+        is String -> {
+            when (obj) {
+                F32_NAN -> Float.NaN
+                F32_INFINITY -> Float.POSITIVE_INFINITY
+                F32_NEG_INFINITY -> Float.NEGATIVE_INFINITY
+                F64_NAN -> Double.NaN
+                F64_INFINITY -> Double.POSITIVE_INFINITY
+                F64_NEG_INFINITY -> Double.NEGATIVE_INFINITY
+                else -> obj
+            }
+        }
+
+        is Map<*, *> -> {
+            obj.entries.associate { (k, v) -> k to stringsAsFloats(v) }
+        }
+
+        is List<*> -> {
+            obj.map { stringsAsFloats(it) }
+        }
+
+        is Iterable<*> -> {
+            obj.map { stringsAsFloats(it) }
+        }
+
+        else -> {
+            obj
+        }
+    }
 
 private fun toJsonObjects(mlTile: MapLibreTile): Map<String, Any?> =
     mutableMapOf<String, Any?>(
@@ -116,7 +194,7 @@ private fun featureToGeoJson(
     val props = getSortedNonNullProperties(feature)
     props.put("_layer", layer.name)
     props.put("_extent", layer.tileExtent)
-    f.put("properties", props)
+    f.put("properties", floatsAsStrings(props))
     val geom = feature.geometry
     f.put("geometry", if (geom == null) null else geometryToGeoJson(geom, gson))
     return f
