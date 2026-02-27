@@ -135,10 +135,11 @@ jobs:
     if: failure() && fromJSON(github.run_attempt) < 3
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/rerun
-        with:
-          run_id: ${{ github.run_id }}
+      - run: gh run rerun ${{ github.run_id }} --failed
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          GH_DEBUG: api
 
   # Release unpublished packages or create a PR with changes
   release-plz:
