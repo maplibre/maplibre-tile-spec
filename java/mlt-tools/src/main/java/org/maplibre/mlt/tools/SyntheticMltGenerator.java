@@ -6,6 +6,8 @@ import static org.maplibre.mlt.tools.SyntheticMltUtil.*;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
+import java.util.List;
+import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
 
@@ -66,10 +68,30 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateMixed() throws IOException {
-    write(layer("mixed_pt_line", feat(p0), feat(line(c1, c2))), cfg());
-    write(layer("mixed_pt_poly", feat(p0), feat(poly(c1, c2, c3, c1))), cfg());
-    write(layer("mixed_line_poly", feat(line(c1, c2)), feat(poly(c1, c2, c3, c1))), cfg());
-    write(layer("mixed_pt_mline", feat(p0), feat(multi(line(c1, c2), line(h1, h2, h3)))), cfg());
+    record GeomType(String name, Geometry geom) {}
+    // we deduplicate duplicate geometry, so yes this is nessesary
+    var types =
+        List.of(
+            new GeomType("pt", p0),
+            new GeomType("line", line(c1, c2)),
+            new GeomType("poly", poly(c1, c2, c3, c1)),
+            new GeomType("mpt", multi(p1, p2, p3)),
+            new GeomType("mline", multi(line(c1, c2), line(h1, h2, h3))),
+            new GeomType("mpoly", multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1))));
+
+    for (var t1 : types) {
+      for (var t2 : types) {
+        var name = "geom_" + t1.name() + "_" + t2.name();
+        var l1 = layer(name, feat(t1.geom()), feat(t2.geom()));
+        write(l1, cfg());
+
+        // due to how offsets work, this is still a good test to have
+        if (!t2.name().equals(t1.name())) {
+          var l2 = layer(name + "_" + t1.name(), feat(t1.geom()), feat(t2.geom()), feat(t1.geom()));
+          write(l2, cfg());
+        }
+      }
+    }
 
     write(
         layer(
