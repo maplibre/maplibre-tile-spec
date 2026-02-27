@@ -127,19 +127,16 @@ jobs:
     steps:
       - name: Result of the needed steps
         run: echo "${{ toJSON(needs) }}"
-      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-        run: exit 1
-  # FIXME: Some of our tests require AVX, which is not avaliable on AMD. THIS IS A BUG!
-  rerun-on-failure:
-    needs: [ test, test-msrv, lint, build-release-binaries, test-publish ]
-    if: failure() && fromJSON(github.run_attempt) < 3
-    runs-on: ubuntu-latest
-    steps:
+      # FIXME: Some of our tests require AVX, which is not avaliable on AMD. THIS IS A BUG!
       - run: gh run rerun ${{ github.run_id }} --failed
+        if: (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && fromJSON(github.run_attempt) < 3
+        name: Rerun on failour
         env:
           GH_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RERUN_RUST_CI_PAT }}
           GH_DEBUG: api
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
 
   # Release unpublished packages or create a PR with changes
   release-plz:
