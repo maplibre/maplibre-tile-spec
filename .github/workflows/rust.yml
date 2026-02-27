@@ -136,7 +136,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/mlt-setup-rust
+      - uses: ./.github/actions/rerun
         with:
           run_id: ${{ github.run_id }}
 
