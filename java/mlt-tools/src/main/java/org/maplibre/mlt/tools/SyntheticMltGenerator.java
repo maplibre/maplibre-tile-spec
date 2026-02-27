@@ -6,7 +6,6 @@ import static org.maplibre.mlt.tools.SyntheticMltUtil.*;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
-import java.util.List;
 import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
@@ -70,18 +69,18 @@ public class SyntheticMltGenerator {
   private static void generateMixed() throws IOException {
     record GeomType(String name, Geometry geom) {}
     // we deduplicate duplicate geometry, so yes this is nessesary
-    var types =
-        List.of(
-            new GeomType("pt", p0),
-            new GeomType("line", line(c1, c2)),
-            new GeomType("poly", poly(c1, c2, c3, c1)),
-            new GeomType("mpt", multi(p1, p2, p3)),
-            new GeomType("mline", multi(line(c1, c2), line(h1, h2, h3))),
-            new GeomType("mpoly", multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1))));
+    GeomType[] types = {
+      new GeomType("pt", p0),
+      new GeomType("line", line(c1, c2)),
+      new GeomType("poly", poly(c1, c2, c3, c1)),
+      new GeomType("mpt", multi(p1, p2, p3)),
+      new GeomType("mline", multi(line(c1, c2), line(h1, h2, h3))),
+      new GeomType("mpoly", multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1)))
+    };
 
     for (var t1 : types) {
       for (var t2 : types) {
-        var name = "geom_" + t1.name() + "_" + t2.name();
+        var name = "mixed_" + t1.name() + "_" + t2.name();
         var l1 = layer(name, feat(t1.geom()), feat(t2.geom()));
         write(l1, cfg());
 
@@ -96,10 +95,12 @@ public class SyntheticMltGenerator {
     write(
         layer(
             "mixed_all",
-            feat(p0),
-            feat(line(c1, c2)),
-            feat(poly(c1, c2, c3, c1)),
-            feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, h2, h1)))),
+            feat(types[0].geom()),
+            feat(types[1].geom()),
+            feat(types[2].geom()),
+            feat(types[3].geom()),
+            feat(types[4].geom()),
+            feat(types[5].geom())),
         cfg());
   }
 
