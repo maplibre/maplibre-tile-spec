@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Formatter};
 use std::io::Write;
 
+use arbitrary::Unstructured;
 use borrowme::borrowme;
 
 use crate::MltError;
@@ -18,6 +19,10 @@ use crate::v01::{
 /// ID column representation, either encoded or decoded, or none if there are no IDs
 #[borrowme]
 #[derive(Debug, Default, PartialEq)]
+#[cfg_attr(
+    all(not(test), feature = "arbitrary"),
+    owned_attr(derive(arbitrary::Arbitrary))
+)]
 pub enum Id<'a> {
     #[default]
     None,
@@ -110,6 +115,17 @@ impl Analyze for EncodedId<'_> {
     }
 }
 
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl arbitrary::Arbitrary<'_> for OwnedEncodedId {
+    fn arbitrary(u: &mut Unstructured<'_>) -> arbitrary::Result<Self> {
+        let parsed: DecodedId = u.arbitrary()?;
+        let encoder: IdEncoder = u.arbitrary()?;
+        let owned_id = OwnedEncodedId::from_decoded(&parsed, encoder)
+            .map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        Ok(owned_id)
+    }
+}
+
 /// A sequence of encoded ID values, either 32-bit or 64-bit unsigned integers
 #[borrowme]
 #[derive(Debug, PartialEq)]
@@ -128,6 +144,7 @@ impl Analyze for EncodedIdValue<'_> {
 
 /// Decoded ID values as a vector of optional 64-bit unsigned integers
 #[derive(Clone, Default, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct DecodedId(pub Option<Vec<Option<u64>>>);
 
 impl Analyze for DecodedId {
@@ -202,6 +219,7 @@ impl<'a> FromEncoded<'a> for DecodedId {
 
 /// How to encode IDs
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct IdEncoder {
     pub logical: LogicalEncoder,
     pub id_width: IdWidth,
@@ -215,6 +233,7 @@ impl IdEncoder {
 
 /// How wide are the IDs
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum IdWidth {
     /// 32-bit encoding
     Id32,

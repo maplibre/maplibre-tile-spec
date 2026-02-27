@@ -23,8 +23,9 @@ pub use crate::v01::stream::optimizer::DataProfile;
 pub use crate::v01::stream::physical::{PhysicalEncoder, PhysicalEncoding, StreamType};
 use crate::{MltError, MltRefResult};
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, serde::Serialize)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct Encoder {
     pub logical: LogicalEncoder,
     pub physical: PhysicalEncoder,
