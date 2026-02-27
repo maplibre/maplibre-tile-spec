@@ -5,7 +5,8 @@ use std::io::Write as _;
 use std::path::Path;
 use std::{fs, io};
 
-use geo_types::Polygon;
+use geo::{Convert as _, TriangulateEarcut as _};
+use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, Encoder, GeometryEncoder, IdEncoder,
@@ -13,46 +14,50 @@ use mlt_core::v01::{
 };
 use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
 
-/// Tessellate a polygon using earcut algorithm.
+/// Tessellate a polygon using the geo crate's earcut algorithm.
+///
+/// Geo's earcut includes the closing vertex in each ring; MLT (and Java's `earcut4j`) omit it.
+/// We remap triangle indices so that any index referring to a ring's closing vertex is replaced
+/// by that ring's start index, producing identical index buffers to Java.
 fn tessellate_polygon(polygon: &Polygon<i32>) -> (Vec<u32>, u32) {
-    let mut flat_coords: Vec<f64> = Vec::new();
-    let mut hole_indices: Vec<usize> = Vec::new();
+    // Convert i32 polygon to f64 for tessellation (geo's TriangulateEarcut requires CoordFloat)
+    let polygon_f64: Polygon<f64> = polygon.convert();
+    let raw = polygon_f64.earcut_triangles_raw();
+    let num_triangles = u32::try_from(raw.triangle_indices.len() / 3).expect("too many triangles");
 
-    let exterior = polygon.exterior();
-    let exterior_coords: Vec<_> = exterior.coords().collect();
-    let exterior_len =
-        if exterior_coords.len() > 1 && exterior_coords.first() == exterior_coords.last() {
-            exterior_coords.len() - 1
+    // Build remap: geo index -> MLT index (closing vertex of each ring -> ring start).
+    let mut geo_to_mlt = Vec::with_capacity(raw.vertices.len() / 2);
+    let mut mlt_offset = 0;
+
+    let mut push_ring = |ring: &LineString<i32>| {
+        let len = ring.0.len();
+        let mlt_len = if len > 1 && ring.0.first() == ring.0.last() {
+            len - 1
         } else {
-            exterior_coords.len()
+            len
         };
-    for coord in &exterior_coords[..exterior_len] {
-        flat_coords.push(f64::from(coord.x));
-        flat_coords.push(f64::from(coord.y));
-    }
-
-    let mut vertex_count = exterior_len;
-    for interior in polygon.interiors() {
-        hole_indices.push(vertex_count);
-        let interior_coords: Vec<_> = interior.coords().collect();
-        let interior_len =
-            if interior_coords.len() > 1 && interior_coords.first() == interior_coords.last() {
-                interior_coords.len() - 1
+        for i in 0..len {
+            geo_to_mlt.push(if i == len - 1 && mlt_len < len {
+                mlt_offset
             } else {
-                interior_coords.len()
-            };
-        for coord in &interior_coords[..interior_len] {
-            flat_coords.push(f64::from(coord.x));
-            flat_coords.push(f64::from(coord.y));
+                mlt_offset + i
+            });
         }
-        vertex_count += interior_len;
+        mlt_offset += mlt_len;
+    };
+
+    push_ring(polygon.exterior());
+    for interior in polygon.interiors() {
+        push_ring(interior);
     }
 
-    let indices = earcutr::earcut(&flat_coords, &hole_indices, 2).expect("Tessellation failed");
-    let num_triangles = u32::try_from(indices.len() / 3).expect("too many triangles");
-    let indices_u32: Vec<u32> = indices
+    let indices_u32: Vec<u32> = raw
+        .triangle_indices
         .into_iter()
-        .map(|i| u32::try_from(i).expect("index overflow"))
+        .map(|i| {
+            let mlt_idx = geo_to_mlt.get(i).copied().unwrap_or(i);
+            u32::try_from(mlt_idx).expect("index overflow")
+        })
         .collect();
 
     (indices_u32, num_triangles)
@@ -180,6 +185,15 @@ impl Layer {
         self
     }
 
+    /// Add multiple geometries
+    #[must_use]
+    pub fn geos<T: Into<Geom32>, I: IntoIterator<Item = T>>(mut self, geometries: I) -> Self {
+        for g in geometries {
+            self = self.geo(g.into());
+        }
+        self
+    }
+
     /// Add a tessellated polygon (polygon + triangle mesh).
     #[must_use]
     pub fn tessellated(mut self, polygon: Polygon<i32>) -> Self {
@@ -232,7 +246,8 @@ impl Layer {
     }
 
     /// Write the layer to an MLT file and a corresponding JSON file (consumes self).
-    pub fn write(self, dir: &Path, name: &str) {
+    pub fn write(self, dir: &Path, name: impl AsRef<str>) {
+        let name = name.as_ref();
         let path = dir.join(format!("{name}.mlt"));
         self.write_mlt(&path);
 

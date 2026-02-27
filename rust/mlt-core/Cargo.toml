@@ -1,7 +1,7 @@
 [package]
 name = "mlt-core"
 description = "MapLibre Tile library code"
-version = "0.1.1"
+version = "0.1.2"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -34,6 +34,7 @@ zigzag.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
+geo-types = { workspace = true, features = ["arbitrary"] }
 insta.workspace = true
 proptest.workspace = true
 proptest-derive.workspace = true

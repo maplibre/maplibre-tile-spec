@@ -18,18 +18,21 @@ class FsstDebug implements Fsst {
   private static final AtomicBoolean printed = new AtomicBoolean(false);
 
   static {
-    Runtime.getRuntime().addShutdownHook(new Thread(FsstDebug::printStats));
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  System.err.print(FsstDebug.printStatsOnce());
+                }));
   }
 
   @Override
   public SymbolTable encode(byte[] data) {
-    new LongSummaryStatistics();
-
-    long a = System.currentTimeMillis();
-    var fromJni = jni.encode(data);
-    long b = System.currentTimeMillis();
-    var fromJava = java.encode(data);
-    long c = System.currentTimeMillis();
+    final long a = System.currentTimeMillis();
+    final var fromJni = jni.encode(data);
+    final long b = System.currentTimeMillis();
+    final var fromJava = java.encode(data);
+    final long c = System.currentTimeMillis();
     jniTime.addAndGet(b - a);
     javaTime.addAndGet(c - b);
     jniSize.addAndGet(fromJni.weight());
@@ -38,23 +41,27 @@ class FsstDebug implements Fsst {
     return fromJava;
   }
 
-  public static void printStats() {
-    if (!printed.getAndSet(true)) {
-      System.err.println(
-          "java/jni:"
-              + javaTime
-              + "ms/"
-              + jniTime
-              + "ms "
-              + javaSize
-              + "/"
-              + jniSize
-              + " "
-              + (javaSize.get() * 1d / jniSize.get())
-              + " jni smaller "
-              + jniSmaller
-              + "/"
-              + (javaSmaller.get() + jniSmaller.get()));
-    }
+  public static String printStats() {
+    return new StringBuilder()
+        .append("java/jni:")
+        .append(javaTime)
+        .append("ms/")
+        .append(jniTime)
+        .append("ms ")
+        .append(javaSize)
+        .append("/")
+        .append(jniSize)
+        .append(" ")
+        .append(javaSize.get() * 1d / jniSize.get())
+        .append(" jni smaller ")
+        .append(jniSmaller)
+        .append("/")
+        .append(javaSmaller.get() + jniSmaller.get())
+        .append("\n")
+        .toString();
+  }
+
+  public static String printStatsOnce() {
+    return printed.getAndSet(true) ? "" : printStats();
   }
 }

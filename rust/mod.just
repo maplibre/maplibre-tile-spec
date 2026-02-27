@@ -3,7 +3,7 @@ just := quote(just_executable())
 
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
-# Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
+# Use `just ci-env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
 ci_mode := if env('CI', '') != '' {'1'} else {''}
 export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
@@ -35,24 +35,46 @@ check: (just 'cargo-install' 'cargo-hack')
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: env-info (just 'java::gen-snippets')
+ci-coverage: ci-env-info (just 'java::gen-snippets')
     mkdir -p target/llvm-cov
     # ATTENTION: the output-path here is used in the CI workflow
     {{just}} rust::coverage '--codecov --output-path target/llvm-cov/codecov.info'
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-check: env-info check
+ci-check: ci-env-info check
+
+# Print environment info for CI
+ci-env-info:
+    @echo "::group::General environment Information"
+    @echo "Running for '{{main_crate}}' crate {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    @echo "PWD {{justfile_directory()}}"
+    {{just}} --version
+    rustc --version
+    cargo --version
+    rustup --version
+    @echo "RUSTFLAGS='$RUSTFLAGS'"
+    @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
+    @echo "::endgroup::"
+
+    @echo "::group::lscpu"
+    lscpu
+    @echo "::endgroup::"
+
+    @echo "::group::/proc/cpuinfo"
+    cat /proc/cpuinfo
+    @echo "::endgroup::"
 
 # Run linting as expected by CI
-ci-lint: env-info test-fmt clippy
+ci-lint: ci-env-info test-fmt clippy
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run all tests as expected by CI
-ci-test: env-info (just 'java::gen-snippets') test
+ci-test: ci-env-info (just 'java::gen-snippets') test
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-test-msrv: env-info
+ci-test-msrv: ci-env-info
     #!/usr/bin/env bash
     set -euo pipefail
     # For MSRV, relax all warnings to avoid different warnings per rust version
@@ -98,8 +120,6 @@ clean:
 
 # Run cargo clippy to lint the code
 clippy *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
     cargo clippy --workspace --all-targets --all-features {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
@@ -110,18 +130,6 @@ coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-llvm-cov')
 # Build and open code documentation
 docs *args='--open':
     DOCS_RS=1 cargo doc --no-deps {{args}} --all-features --package mlt-core
-
-# Print environment info
-env-info:
-    @echo "Running for '{{main_crate}}' crate {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD {{justfile_directory()}}"
-    {{just}} --version
-    rustc --version
-    cargo --version
-    rustup --version
-    @echo "RUSTFLAGS='$RUSTFLAGS'"
-    @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
-    @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
 
 alias f := fmt
 # Reformat code. If nightly is available, use it for better results.
@@ -163,11 +171,18 @@ lint: clippy test-fmt
 msrv: (just 'cargo-install' 'cargo-msrv')
     cargo msrv find --write-msrv --ignore-lockfile --component rustfmt -- {{just}} rust::ci-test-msrv
 
-# Build mlt-pyo3 and launch a Python interpreter with mlt_pyo3 pre-imported
-[working-directory: 'mlt-pyo3']
+# Build mlt-py and launch a Python interpreter with mlt pre-imported
+[working-directory: 'mlt-py']
 py: (just 'cargo-install' 'maturin')
-    maturin develop --features extension-module
-    python3 -i -c "import mlt_pyo3; print('mlt_pyo3 ready — try: mlt_pyo3.decode_mlt(data)')"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -d ".venv" ]]; then
+        echo "Please make sure to create your virtual environment by running 'python -m venv .venv'"
+        exit 1
+    fi
+    source .venv/bin/activate
+    maturin develop
+    python3 -i -c "import maplibre_tiles; print('maplibre_tiles ready — try: maplibre_tiles.decode_mlt(data)')"
 
 py-publish:
     docker run --rm -v $(pwd):/io ghcr.io/pyo3/maturin build --release
@@ -180,23 +195,25 @@ release *args='': (just 'cargo-install' 'release-plz')
 semver *args: (just 'cargo-install' 'cargo-semver-checks')
     cargo semver-checks --all-features {{args}}
 
-# Sync the version field in mlt-pyo3/pyproject.toml to match mlt-pyo3/Cargo.toml
+# Regenerate the Python type stub for mlt-py
+sync-pyo3-stubs:
+    cargo run -p mlt-py --bin stub_gen --features abi3
+
+# Sync the version field in mlt-py/pyproject.toml to match mlt-py/Cargo.toml
 sync-pyo3-version:
     #!/usr/bin/env bash
     set -euo pipefail
-    VERSION=$({{just}} rust::get-crate-field version mlt-pyo3)
-    PYPROJECT="mlt-pyo3/pyproject.toml"
+    VERSION=$({{just}} rust::get-crate-field version mlt-py)
+    PYPROJECT="mlt-py/pyproject.toml"
     sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$PYPROJECT"
     echo "Synced $PYPROJECT to version $VERSION"
 
 alias t := test
 # Run all tests
-test: && test-doc
-    cargo test --all-targets --all-features
-
-# Run the ignored debug test by itself
-test-debug:
-    RUST_BACKTRACE=1 cargo test --test synthetics debug -- --ignored
+test:
+    cargo test --all-features {{if ci_mode == '1' {'--lib --bins --tests --examples -- --test-threads=1'} else {'--all-targets'} }}
+    # {{just}} rust::generate-synthetic-mlts
+    {{just}} rust::test-doc
 
 # Test documentation generation
 test-doc: (docs '--document-private-items')
@@ -206,9 +223,9 @@ test-doc: (docs '--document-private-items')
 test-fmt: (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
 
-# Use the experimental workspace publishing with --dry-run
+# Test workspace publishing with --dry-run
 test-publish:
-    cargo +nightly -Z package-workspace publish --dry-run
+    cargo publish --workspace --dry-run
 
 # Find unused dependencies
 udeps: (just 'cargo-install' 'cargo-udeps')
@@ -219,12 +236,25 @@ update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
 
-# Assert each .mlt in compare_dir (except exceptions) exists in ref_dir and is binary-identical. ref_dir may have more files.
+# Generate synthetic .mlt files and ensure there are no duplicates
+generate-synthetic-mlts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf ../test/synthetic/0x01-rust
+    cargo run -p mlt-synthetics
+    {{just}} rust::validate-synthetic
+    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
+    {{just}} rust::_verify-synthetic-equality
+    {{just}} rust::_assert-synthetic-mlt-identity
+
+# Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
+validate-synthetic:
+    {{just}} mlt ls --validate-to-json --details basic ../test/synthetic/
+
+# Assert each .mlt in compare_dir exists in ref_dir and is binary-identical. Skip '_rust' files.
 _assert-synthetic-mlt-identity ref_dir='../test/synthetic/0x01' compare_dir='../test/synthetic/0x01-rust':
     #!/usr/bin/env bash
     set -euo pipefail
-    # We expect these space-separated files to differ because they contain non-deterministic content.
-    EXCEPTIONS="props_str_fsst.mlt"
     # Ensure compare_dir exists.
     if [[ ! -d "{{compare_dir}}" ]]; then
         echo "::error::Compare directory {{compare_dir}} does not exist"
@@ -242,7 +272,7 @@ _assert-synthetic-mlt-identity ref_dir='../test/synthetic/0x01' compare_dir='../
 
     for mlt in "${mlt_files[@]}"; do
         base=$(basename "$mlt")
-        if [[ " $EXCEPTIONS " == *" $base "* ]]; then
+        if [[ "$base" == *"-rust.mlt" ]]; then
             continue
         fi
         ref="{{ref_dir}}/$base"
@@ -254,28 +284,31 @@ _assert-synthetic-mlt-identity ref_dir='../test/synthetic/0x01' compare_dir='../
             exit 1
         fi
     done
-    echo "All {{compare_dir}}/*.mlt files have identical counterparts in {{ref_dir}} (except exceptions)."
-
-# Generate synthetic .mlt files and ensure there are no duplicates
-generate-synthetic-mlts:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    rm -rf ../test/synthetic/0x01-rust
-    cargo run -p mlt-synthetics
-    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
-    {{just}} rust::_assert-synthetic-mlt-identity
+    echo "All {{compare_dir}}/*.mlt files have identical counterparts in {{ref_dir}} (except *-rust.mlt)."
 
 # checks that the contents of two synthetic directories are equal
-verify-synthetic-equality: generate-synthetic-mlts (just 'cargo-install' 'delta' 'git-delta')
+_verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
     #!/usr/bin/env bash
     set -euo pipefail
+
+    # `realpath --relative-to-...` doesn't work on MacOS
+    # https://unix.stackexchange.com/a/655825/312244
+    posix_relpath() {
+        set -- "${1%/}/" "${2%/}/" ''               ## '/'-end to avoid mismatch
+        while [ "$1" ] && [ "$2" = "${2#"$1"}" ]    ## reduce $1 to shared path
+        do  set -- "${1%/?*/}/"  "$2" "../$3"       ## source/.. target ../relpath
+        done
+        REPLY="${3}${2#"$1"}"                       ## build result
+        # unless root chomp trailing '/', replace '' with '.'
+        [ "${REPLY#/}" ] && REPLY="${REPLY%/}" || REPLY="${REPLY:-.}"
+    }
 
     DIR_A="../test/synthetic/0x01"
     DIR_B="../test/synthetic/0x01-rust"
 
-    BIN="cargo run --quiet --"
+    BIN="cargo run --bin mlt --quiet --"
     find "$DIR_A" -type f -iname "*.mlt" | while read -r file_a; do
-      rel_path="$(realpath --relative-to="$DIR_A" "$file_a")"
+      rel_path="$(posix_relpath "$DIR_A" "$file_a")"
       file_b="$DIR_B/$rel_path"
 
       if [[ -f "$file_b" ]]; then
