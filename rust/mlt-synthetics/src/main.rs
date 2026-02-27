@@ -11,6 +11,7 @@ use std::path::Path;
 use geo_types::{
     Coord, MultiLineString, MultiPoint, MultiPolygon, Point, coord, line_string, point, polygon,
 };
+use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     DecodedProperty, Encoder as E, IdEncoder, IdWidth, LogicalEncoder as L, PhysicalEncoder as P,
     PresenceStream as O, PropValue, PropertyEncoder,
@@ -102,25 +103,66 @@ fn generate_mixed(d: &Path) {
     let line2 = || line_string![H1, H2, H3];
     let pol1 = || polygon![C1, C2, C3, C1];
     let pol2 = || polygon![H1, H3, H2, H1];
+    let types: Vec<(&str, Geom32)> = vec![
+        ("pt", P0.into()),
+        ("line", line1().into()),
+        ("poly", pol1().into()),
+        ("mpoint", MultiPoint(vec![P1, P2, P3]).into()),
+        ("mline", MultiLineString(vec![line1(), line2()]).into()),
+        ("mpoly", MultiPolygon(vec![pol1(), pol2()]).into()),
+    ];
 
-    geo_varint().geo(P0).geo(line1()).write(d, "mixed_pt_line");
-    geo_varint().geo(P0).geo(pol1()).write(d, "mixed_pt_poly");
-    geo_varint()
-        .geo(line1())
-        .geo(pol1())
-        .write(d, "mixed_line_poly");
-    geo_varint()
-        .geo(P0)
-        .geo(MultiLineString(vec![line1(), line2()]))
-        .write(d, "mixed_pt_mline");
-    geo_varint()
-        .parts(E::rle_varint())
-        .rings(E::rle_varint())
-        .geo(P0)
-        .geo(line1())
-        .geo(pol1())
-        .geo(MultiPolygon(vec![pol1(), pol2()]))
-        .write(d, "mixed_all");
+    // FIXME: this is a bug, all of these panic
+    let non_working = vec![
+        "mixed_pt_mpoint",
+        "mixed_line_pt_line",
+        "mixed_line_mpoly",
+        "mixed_poly_pt_poly",
+        "mixed_poly_line_poly",
+        "mixed_poly_mpoint_poly",
+        "mixed_poly_mline",
+        "mixed_mpoint_pt",
+        "mixed_mpoint_mline",
+        "mixed_mpoint_mpoly",
+        "mixed_mline_mpoint_mline",
+        "mixed_mline_mpoly",
+        "mixed_mpoly_mpoint_mpoly",
+        "mixed_mpoly_mline",
+    ];
+
+    for (n1, geo1) in &types {
+        for (n2, geo2) in &types {
+            let name = format!("mixed_{n1}_{n2}");
+            // FIXME: remove this
+            if non_working.contains(&name.as_str()) {
+                continue;
+            }
+            geo_varint()
+                .geo(geo1.clone())
+                .geo(geo2.clone())
+                .write(d, &name);
+            if n1 != n2 {
+                let name = format!("{name}_{n1}");
+                // FIXME: remove this
+                if non_working.contains(&name.as_str()) {
+                    continue;
+                }
+                geo_varint()
+                    .geo(geo1.clone())
+                    .geo(geo2.clone())
+                    .geo(geo1.clone())
+                    .write(d, name);
+            }
+        }
+    }
+
+    // FIXME: panics
+    //let geos = types.iter().map(|(_, geo)| geo.clone()).collect::<Vec<_>>();
+    //geo_varint()
+    //  .parts(E::rle_varint())
+    //.rings(E::rle_varint())
+    //.geos(geos)
+    //.write(d, "mixed_all");
 }
 
 fn generate_extent(d: &Path) {

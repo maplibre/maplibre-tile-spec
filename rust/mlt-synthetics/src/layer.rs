@@ -250,7 +250,8 @@ impl Layer {
     }
 
     /// Write the layer to an MLT file and a corresponding JSON file (consumes self).
-    pub fn write(self, dir: &Path, name: &str) {
+    pub fn write(self, dir: &Path, name: impl AsRef<str>) {
+        let name = name.as_ref();
         let path = dir.join(format!("{name}.mlt"));
         self.write_mlt(&path);
 
