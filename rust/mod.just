@@ -291,12 +291,24 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
     #!/usr/bin/env bash
     set -euo pipefail
 
+    # `realpath --relative-to-...` doesn't work on MacOS
+    # https://unix.stackexchange.com/a/655825/312244
+    posix_relpath() {
+        set -- "${1%/}/" "${2%/}/" ''               ## '/'-end to avoid mismatch
+        while [ "$1" ] && [ "$2" = "${2#"$1"}" ]    ## reduce $1 to shared path
+        do  set -- "${1%/?*/}/"  "$2" "../$3"       ## source/.. target ../relpath
+        done
+        REPLY="${3}${2#"$1"}"                       ## build result
+        # unless root chomp trailing '/', replace '' with '.'
+        [ "${REPLY#/}" ] && REPLY="${REPLY%/}" || REPLY="${REPLY:-.}"
+    }
+
     DIR_A="../test/synthetic/0x01"
     DIR_B="../test/synthetic/0x01-rust"
 
     BIN="cargo run --quiet --"
     find "$DIR_A" -type f -iname "*.mlt" | while read -r file_a; do
-      rel_path="$(realpath --relative-to="$DIR_A" "$file_a")"
+      rel_path="$(posix_relpath "$DIR_A" "$file_a")"
       file_b="$DIR_B/$rel_path"
 
       if [[ -f "$file_b" ]]; then
