@@ -15,7 +15,11 @@ rust-version.workspace = true
 name = "decoding"
 harness = false
 
+[features]
+arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
+
 [dependencies]
+arbitrary = { workspace = true, optional = true }
 borrowme.workspace = true
 fastpfor.workspace = true
 fsst-rs.workspace = true
