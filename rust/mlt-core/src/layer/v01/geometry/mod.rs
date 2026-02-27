@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::MltError::{
     GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, IntegerOverflow,
-    NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented, UnexpectedOffsetCombination,
+    NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented,
 };
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
@@ -36,6 +36,10 @@ use crate::{FromDecoded, MltError};
 /// Geometry column representation, either encoded or decoded
 #[borrowme]
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(
+    all(not(test), feature = "arbitrary"),
+    owned_attr(derive(arbitrary::Arbitrary))
+)]
 pub enum Geometry<'a> {
     Encoded(EncodedGeometry<'a>),
     Decoded(DecodedGeometry),
@@ -260,27 +264,24 @@ impl DecodedGeometry {
 
         match geom_type {
             GeometryType::Point => {
-                let pt = match (geoms, parts, rings) {
-                    (Some(g), Some(p), Some(r)) => {
-                        v(ring_off(r, part_off(p, geom_off(g, index)?)?)?)?
-                    }
-                    (Some(g), Some(p), None) => v(part_off(p, geom_off(g, index)?)?)?,
-                    (None, Some(p), Some(r)) => v(ring_off(r, part_off(p, index)?)?)?,
-                    (None, Some(p), None) => v(part_off(p, index)?)?,
-                    (None, None, None) => v(index)?,
-                    _ => {
-                        return Err(UnexpectedOffsetCombination(index, geom_type));
-                    }
-                };
-                Ok(GeoGeom::Point(Point(pt)))
+                // Resolve through hierarchy: geoms? -> parts? -> rings? -> vertex
+                let idx = geoms.map_or(Ok(index), |g| geom_off(g, index))?;
+                let idx = parts.map_or(Ok(idx), |p| part_off(p, idx))?;
+                let idx = rings.map_or(Ok(idx), |r| ring_off(r, idx))?;
+                Ok(GeoGeom::Point(Point(v(idx)?)))
             }
             GeometryType::LineString => {
-                let r = match (parts, rings) {
-                    (Some(p), Some(r)) => ring_off_pair(r, part_off(p, index)?)?,
-                    (Some(p), None) => part_off_pair(p, index)?,
-                    _ => return Err(NoPartOffsets(index, geom_type)),
+                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
+                // Get part index: use geoms[index] if present, else index directly
+                let part_idx = geoms.map_or(Ok(index), |g| geom_off(g, index))?;
+                // With rings: parts[part_idx] gives ring index, use ring_offsets for vertex range
+                // Without rings: use part_offsets directly for vertex range
+                let vertex_range = if let Some(r) = rings {
+                    ring_off_pair(r, part_off(parts, part_idx)?)?
+                } else {
+                    part_off_pair(parts, part_idx)?
                 };
-                line(r).map(GeoGeom::LineString)
+                line(vertex_range).map(GeoGeom::LineString)
             }
             GeometryType::Polygon => {
                 let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
@@ -293,18 +294,49 @@ impl DecodedGeometry {
             }
             GeometryType::MultiPoint => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
-                geom_off_pair(geoms, index)?
-                    .map(&v)
-                    .collect::<Result<Vec<Coord32>, _>>()
-                    .map(|cs| GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect())))
+                let geom_range = geom_off_pair(geoms, index)?;
+                // When ring_offsets exist (polygon geometry present), geometry_offsets indexes
+                // into part_offsets which indexes into ring_offsets for vertex indices.
+                // When only part_offsets exist, geometry_offsets indexes into part_offsets
+                // which gives direct vertex indices.
+                // When neither exist, geometry_offsets gives direct vertex indices.
+                match (parts, rings) {
+                    (Some(parts), Some(rings)) => geom_range
+                        .map(|p| v(ring_off(rings, part_off(parts, p)?)?))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map(|cs| {
+                            GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect()))
+                        }),
+                    (Some(parts), None) => geom_range
+                        .map(|p| v(part_off(parts, p)?))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map(|cs| {
+                            GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect()))
+                        }),
+                    (None, _) => geom_range.map(&v).collect::<Result<Vec<_>, _>>().map(|cs| {
+                        GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect()))
+                    }),
+                }
             }
             GeometryType::MultiLineString => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
                 let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
-                geom_off_pair(geoms, index)?
-                    .map(|p| line(part_off_pair(parts, p)?))
-                    .collect::<Result<Vec<LineString<i32>>, _>>()
-                    .map(|ls| GeoGeom::MultiLineString(MultiLineString(ls)))
+                let geom_range = geom_off_pair(geoms, index)?;
+                // geometry_offsets indexes into part_offsets for each linestring.
+                // When ring_offsets exist (polygon geometry present), part_offsets indexes
+                // into ring_offsets for vertex ranges. Otherwise, part_offsets directly
+                // gives vertex ranges.
+                if let Some(rings) = rings {
+                    geom_range
+                        .map(|p| line(ring_off_pair(rings, part_off(parts, p)?)?))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map(|ls| GeoGeom::MultiLineString(MultiLineString(ls)))
+                } else {
+                    geom_range
+                        .map(|p| line(part_off_pair(parts, p)?))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map(|ls| GeoGeom::MultiLineString(MultiLineString(ls)))
+                }
             }
             GeometryType::MultiPolygon => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
@@ -560,6 +592,49 @@ impl DecodedGeometry {
         // After adding all polygons, record the new polygon count
         let new_poly_count = parts.len() - 1;
         geoms.push(u32::try_from(new_poly_count).expect("part count overflow"));
+    }
+}
+
+#[cfg(all(not(test), feature = "arbitrary"))]
+#[derive(Debug, Clone, PartialEq, PartialOrd, arbitrary::Arbitrary)]
+enum ArbitraryGeometry {
+    Point((i32, i32)),
+    // FIXME: Add LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon, once supported upstream
+}
+
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl From<ArbitraryGeometry> for crate::geojson::Geom32 {
+    fn from(value: ArbitraryGeometry) -> Self {
+        use crate::geojson::Geom32 as G;
+        let cord = |(x, y)| Coord { x, y };
+        match value {
+            ArbitraryGeometry::Point((x, y)) => G::Point(Point(cord((x, y)))),
+            // FIXME: once fully working, add the rest
+        }
+    }
+}
+
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl arbitrary::Arbitrary<'_> for DecodedGeometry {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        let geoms = u.arbitrary_iter::<ArbitraryGeometry>()?;
+        let mut decoded = DecodedGeometry::default();
+        for geo in geoms {
+            let geo = crate::geojson::Geom32::from(geo?);
+            decoded.push_geom(&geo);
+        }
+        Ok(decoded)
+    }
+}
+
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl arbitrary::Arbitrary<'_> for OwnedEncodedGeometry {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        let decoded = u.arbitrary()?;
+        let enc = u.arbitrary()?;
+        let geom =
+            Self::from_decoded(&decoded, enc).map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        Ok(geom)
     }
 }
 

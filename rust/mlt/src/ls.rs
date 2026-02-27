@@ -583,12 +583,13 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<
     let matches_json = if flags.validate {
         let json_path = path.with_extension("json");
         if json_path.is_file() {
-            let expected: FeatureCollection = json5::from_str(&fs::read_to_string(&json_path)?)
-                .map_err(|e| anyhow::anyhow!("{e}"))?;
+            let expected: FeatureCollection =
+                serde_json::from_str(&fs::read_to_string(&json_path)?)
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
             let actual = FeatureCollection::from_layers(&layers)?;
             let expected_val = normalize_tiny_floats(serde_json::to_value(&expected)?);
             let actual_val = normalize_tiny_floats(serde_json::to_value(&actual)?);
-            Some(expected_val == actual_val)
+            Some(json_values_equal(&expected_val, &actual_val))
         } else {
             Some(false)
         }
@@ -615,6 +616,39 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<
         matches_json,
         ..MltFileInfo::default()
     })
+}
+
+/// Compare two JSON values for equality. Numbers are compared with float tolerance so that
+/// f32 round-trip (e.g. 3.14 vs 3.140000104904175) and Java minimal decimal (e.g. 3.4028235e+38)
+/// match the Rust decoder output.
+fn json_values_equal(a: &JsonValue, b: &JsonValue) -> bool {
+    match (a, b) {
+        (JsonValue::Number(na), JsonValue::Number(nb)) if na.is_f64() && nb.is_f64() => {
+            let na = na.as_f64().expect("f64");
+            let nb = nb.as_f64().expect("f64");
+            assert!(
+                !na.is_nan() && !nb.is_nan(),
+                "unexpected non-finite numbers"
+            );
+            let abs_diff = (na - nb).abs();
+            let max_abs = na.abs().max(nb.abs()).max(1.0);
+            abs_diff <= f64::from(f32::EPSILON) * max_abs * 2.0
+        }
+        (JsonValue::Array(aa), JsonValue::Array(ab)) => {
+            aa.len() == ab.len()
+                && aa
+                    .iter()
+                    .zip(ab.iter())
+                    .all(|(x, y)| json_values_equal(x, y))
+        }
+        (JsonValue::Object(ao), JsonValue::Object(bo)) => {
+            ao.len() == bo.len()
+                && ao
+                    .iter()
+                    .all(|(k, v)| bo.get(k).is_some_and(|w| json_values_equal(v, w)))
+        }
+        _ => a == b,
+    }
 }
 
 /// Replace tiny float values (e.g. `1e-40`) with `0.0` to handle codec precision issues.

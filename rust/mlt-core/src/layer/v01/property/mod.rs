@@ -11,7 +11,7 @@ use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::utils::{
     BinarySerializer as _, FmtOptVec, apply_present, encode_bools_to_bytes, encode_byte_rle,
-    f32_to_json,
+    f32_to_json, f64_to_json,
 };
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{
@@ -49,6 +49,10 @@ impl OwnedEncodedStructChild {
 /// Property representation, either encoded or decoded
 #[borrowme]
 #[derive(Debug, PartialEq)]
+#[cfg_attr(
+    all(not(test), feature = "arbitrary"),
+    owned_attr(derive(arbitrary::Arbitrary))
+)]
 pub enum Property<'a> {
     Encoded(EncodedProperty<'a>),
     Decoded(DecodedProperty),
@@ -233,6 +237,17 @@ impl Default for OwnedEncodedProperty {
     }
 }
 
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl arbitrary::Arbitrary<'_> for OwnedEncodedProperty {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        let decoded: DecodedProperty = u.arbitrary()?;
+        let encoder: PropertyEncoder = u.arbitrary()?;
+        let prop: Self =
+            Self::from_decoded(&decoded, encoder).map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        Ok(prop)
+    }
+}
+
 /// A sequence of encoded property values of various types
 #[borrowme]
 #[derive(Debug, PartialEq)]
@@ -276,6 +291,7 @@ impl Analyze for EncodedPropValue<'_> {
 
 /// Decoded property values as a name and a vector of optional typed values
 #[derive(Debug, Clone, Default, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct DecodedProperty {
     pub name: String,
     pub values: PropValue,
@@ -294,6 +310,7 @@ impl Analyze for DecodedProperty {
 
 /// Decoded property value types
 #[derive(Clone, Default, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum PropValue {
     Bool(Vec<Option<bool>>),
     I8(Vec<Option<i8>>),
@@ -365,7 +382,6 @@ impl Debug for PropValue {
 impl PropValue {
     /// Convert the value at index `i` to a [`serde_json::Value`]
     #[must_use]
-    #[expect(clippy::cast_possible_truncation)] // f64 stored as f32 in wire format
     pub fn to_geojson(&self, i: usize) -> Option<serde_json::Value> {
         use serde_json::Value;
 
@@ -378,7 +394,7 @@ impl PropValue {
             Self::I64(v) => v[i].map(Value::from),
             Self::U64(v) => v[i].map(Value::from),
             Self::F32(v) => v[i].map(f32_to_json),
-            Self::F64(v) => v[i].map(|f| f32_to_json(f as f32)),
+            Self::F64(v) => v[i].map(f64_to_json),
             Self::Str(v) => v[i].as_ref().map(|s| Value::String(s.clone())),
             Self::Struct => None,
         }
@@ -430,6 +446,7 @@ impl<'a> Property<'a> {
 
 /// How to encode string properties
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum StringEncoding {
     /// Plain encoding: length stream + data stream
     #[default]
@@ -444,6 +461,7 @@ pub enum StringEncoding {
 
 /// How to encode properties
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct PropertyEncoder {
     pub optional: PresenceStream,
     pub logical: LogicalEncoder,
@@ -486,7 +504,8 @@ impl PropertyEncoder {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumIter)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum PresenceStream {
     /// Attaches a nullability stream
     Present,
