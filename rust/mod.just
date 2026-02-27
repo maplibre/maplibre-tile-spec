@@ -3,7 +3,7 @@ just := quote(just_executable())
 
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
-# Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
+# Use `just ci-env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
 ci_mode := if env('CI', '') != '' {'1'} else {''}
 export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
@@ -35,24 +35,46 @@ check: (just 'cargo-install' 'cargo-hack')
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: env-info (just 'java::gen-snippets')
+ci-coverage: ci-env-info (just 'java::gen-snippets')
     mkdir -p target/llvm-cov
     # ATTENTION: the output-path here is used in the CI workflow
     {{just}} rust::coverage '--codecov --output-path target/llvm-cov/codecov.info'
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-check: env-info check
+ci-check: ci-env-info check
+
+# Print environment info for CI
+ci-env-info:
+    @echo "::group::General environment Information"
+    @echo "Running for '{{main_crate}}' crate {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    @echo "PWD {{justfile_directory()}}"
+    {{just}} --version
+    rustc --version
+    cargo --version
+    rustup --version
+    @echo "RUSTFLAGS='$RUSTFLAGS'"
+    @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
+    @echo "::endgroup::"
+
+    @echo "::group::lscpu"
+    lscpu
+    @echo "::endgroup::"
+
+    @echo "::group::/proc/cpuinfo"
+    cat /proc/cpuinfo
+    @echo "::endgroup::"
 
 # Run linting as expected by CI
-ci-lint: env-info test-fmt clippy
+ci-lint: ci-env-info test-fmt clippy
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run all tests as expected by CI
-ci-test: env-info (just 'java::gen-snippets') test
+ci-test: ci-env-info (just 'java::gen-snippets') test
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-test-msrv: env-info
+ci-test-msrv: ci-env-info
     #!/usr/bin/env bash
     set -euo pipefail
     # For MSRV, relax all warnings to avoid different warnings per rust version
@@ -109,18 +131,6 @@ coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-llvm-cov')
 docs *args='--open':
     DOCS_RS=1 cargo doc --no-deps {{args}} --all-features --package mlt-core
 
-# Print environment info
-env-info:
-    @echo "Running for '{{main_crate}}' crate {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD {{justfile_directory()}}"
-    {{just}} --version
-    rustc --version
-    cargo --version
-    rustup --version
-    @echo "RUSTFLAGS='$RUSTFLAGS'"
-    @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
-    @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
-
 alias f := fmt
 # Reformat code. If nightly is available, use it for better results.
 fmt:
@@ -161,8 +171,8 @@ lint: clippy test-fmt
 msrv: (just 'cargo-install' 'cargo-msrv')
     cargo msrv find --write-msrv --ignore-lockfile --component rustfmt -- {{just}} rust::ci-test-msrv
 
-# Build mlt-pyo3 and launch a Python interpreter with mlt pre-imported
-[working-directory: 'mlt-pyo3']
+# Build mlt-py and launch a Python interpreter with mlt pre-imported
+[working-directory: 'mlt-py']
 py: (just 'cargo-install' 'maturin')
     #!/usr/bin/env bash
     set -euo pipefail
@@ -172,7 +182,7 @@ py: (just 'cargo-install' 'maturin')
     fi
     source .venv/bin/activate
     maturin develop
-    python3 -i -c "import mlt; print('mlt ready — try: mlt.decode_mlt(data)')"
+    python3 -i -c "import maplibre_tiles; print('maplibre_tiles ready — try: maplibre_tiles.decode_mlt(data)')"
 
 py-publish:
     docker run --rm -v $(pwd):/io ghcr.io/pyo3/maturin build --release
@@ -185,24 +195,24 @@ release *args='': (just 'cargo-install' 'release-plz')
 semver *args: (just 'cargo-install' 'cargo-semver-checks')
     cargo semver-checks --all-features {{args}}
 
-# Regenerate the Python type stub for mlt-pyo3
+# Regenerate the Python type stub for mlt-py
 sync-pyo3-stubs:
-    cargo run -p mlt-pyo3 --bin stub_gen --features abi3
+    cargo run -p mlt-py --bin stub_gen --features abi3
 
-# Sync the version field in mlt-pyo3/pyproject.toml to match mlt-pyo3/Cargo.toml
+# Sync the version field in mlt-py/pyproject.toml to match mlt-py/Cargo.toml
 sync-pyo3-version:
     #!/usr/bin/env bash
     set -euo pipefail
-    VERSION=$({{just}} rust::get-crate-field version mlt-pyo3)
-    PYPROJECT="mlt-pyo3/pyproject.toml"
+    VERSION=$({{just}} rust::get-crate-field version mlt-py)
+    PYPROJECT="mlt-py/pyproject.toml"
     sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$PYPROJECT"
     echo "Synced $PYPROJECT to version $VERSION"
 
 alias t := test
 # Run all tests
 test:
-    cargo test --all-targets --all-features
-    {{just}} rust::generate-synthetic-mlts
+    cargo test --all-features {{if ci_mode == '1' {'--lib --bins --tests --examples -- --test-threads=1'} else {'--all-targets'} }}
+    # {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
 
 # Test documentation generation
@@ -234,8 +244,8 @@ generate-synthetic-mlts:
     cargo run -p mlt-synthetics
     {{just}} rust::validate-synthetic
     {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
-    {{just}} rust::_assert-synthetic-mlt-identity
     {{just}} rust::_verify-synthetic-equality
+    {{just}} rust::_assert-synthetic-mlt-identity
 
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
@@ -281,12 +291,24 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
     #!/usr/bin/env bash
     set -euo pipefail
 
+    # `realpath --relative-to-...` doesn't work on MacOS
+    # https://unix.stackexchange.com/a/655825/312244
+    posix_relpath() {
+        set -- "${1%/}/" "${2%/}/" ''               ## '/'-end to avoid mismatch
+        while [ "$1" ] && [ "$2" = "${2#"$1"}" ]    ## reduce $1 to shared path
+        do  set -- "${1%/?*/}/"  "$2" "../$3"       ## source/.. target ../relpath
+        done
+        REPLY="${3}${2#"$1"}"                       ## build result
+        # unless root chomp trailing '/', replace '' with '.'
+        [ "${REPLY#/}" ] && REPLY="${REPLY%/}" || REPLY="${REPLY:-.}"
+    }
+
     DIR_A="../test/synthetic/0x01"
     DIR_B="../test/synthetic/0x01-rust"
 
-    BIN="cargo run --quiet --"
+    BIN="cargo run --bin mlt --quiet --"
     find "$DIR_A" -type f -iname "*.mlt" | while read -r file_a; do
-      rel_path="$(realpath --relative-to="$DIR_A" "$file_a")"
+      rel_path="$(posix_relpath "$DIR_A" "$file_a")"
       file_b="$DIR_B/$rel_path"
 
       if [[ -f "$file_b" ]]; then

@@ -6,6 +6,7 @@ import static org.maplibre.mlt.tools.SyntheticMltUtil.*;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
+import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
 
@@ -66,18 +67,39 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateMixed() throws IOException {
-    write(layer("mixed_pt_line", feat(p0), feat(line(c1, c2))), cfg());
-    write(layer("mixed_pt_poly", feat(p0), feat(poly(c1, c2, c3, c1))), cfg());
-    write(layer("mixed_line_poly", feat(line(c1, c2)), feat(poly(c1, c2, c3, c1))), cfg());
-    write(layer("mixed_pt_mline", feat(p0), feat(multi(line(c1, c2), line(h1, h2, h3)))), cfg());
+    record GeomType(String name, Geometry geom) {}
+    GeomType[] types = {
+      new GeomType("pt", p0),
+      new GeomType("line", line(c1, c2)),
+      new GeomType("poly", poly(c1, c2, c3, c1)),
+      new GeomType("mpt", multi(p1, p2, p3)),
+      new GeomType("mline", multi(line(c1, c2), line(h1, h2, h3))),
+      new GeomType("mpoly", multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1))),
+    };
+
+    for (var t1 : types) {
+      for (var t2 : types) {
+        var name = "mixed_" + t1.name() + "_" + t2.name();
+        var l1 = layer(name, feat(t1.geom()), feat(t2.geom()));
+        write(l1, cfg());
+
+        // due to how offsets work, this is still a good test to have
+        if (!t2.name().equals(t1.name())) {
+          var l2 = layer(name + "_" + t1.name(), feat(t1.geom()), feat(t2.geom()), feat(t1.geom()));
+          write(l2, cfg());
+        }
+      }
+    }
 
     write(
         layer(
             "mixed_all",
-            feat(p0),
-            feat(line(c1, c2)),
-            feat(poly(c1, c2, c3, c1)),
-            feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, h2, h1)))),
+            feat(types[0].geom()),
+            feat(types[1].geom()),
+            feat(types[2].geom()),
+            feat(types[3].geom()),
+            feat(types[4].geom()),
+            feat(types[5].geom())),
         cfg());
   }
 
@@ -166,20 +188,28 @@ public class SyntheticMltGenerator {
         cfg());
     write("prop_f32", feat(p0, prop("val", (float) 3.14f)), cfg());
     write("prop_f32_neg_inf", feat(p0, prop("val", Float.NEGATIVE_INFINITY)), cfg());
-    write("prop_f32_min", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
+    write("prop_f32_min_exp", feat(p0, prop("val", Float.MIN_EXPONENT)), cfg());
+    write("prop_f32_min_norm", feat(p0, prop("val", Float.MIN_NORMAL)), cfg());
+    // FIXME: Produces the same output as prop_f32_min_norm
+    // write("prop_f32_min_val", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
     // FIXME: Produces the same output as prop_f32_min
     // write("prop_f32_neg_zero", feat(p0, prop("val", (float) -0.0f)), cfg());
     write("prop_f32_zero", feat(p0, prop("val", (float) 0.0f)), cfg());
-    write("prop_f32_max", feat(p0, prop("val", Float.MAX_VALUE)), cfg());
+    write("prop_f32_max_val", feat(p0, prop("val", Float.MAX_VALUE)), cfg());
+    write("prop_f32_max_exp", feat(p0, prop("val", Float.MAX_EXPONENT)), cfg());
     write("prop_f32_pos_inf", feat(p0, prop("val", Float.POSITIVE_INFINITY)), cfg());
     write("prop_f32_nan", feat(p0, prop("val", Float.NaN)), cfg());
     write("prop_f64", feat(p0, prop("val", (double) 3.141592653589793)), cfg());
     write("prop_f64_neg_inf", feat(p0, prop("val", Double.NEGATIVE_INFINITY)), cfg());
-    write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
+    write("prop_f64_min_exp", feat(p0, prop("val", Double.MIN_EXPONENT)), cfg());
+    write("prop_f64_min_norm", feat(p0, prop("val", Double.MIN_NORMAL)), cfg());
+    // FIXME: Produces the same output as prop_f64_min_norm
+    // write("prop_f64_min_val", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
     write("prop_f64_neg_zero", feat(p0, prop("val", (double) -0.0)), cfg());
     // FIXME: Produces the same output as prop_f64_min
     // write("prop_f64_zero", feat(p0, prop("val", (double) 0.0)), cfg());
-    write("prop_f64_max", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
+    write("prop_f64_max_val", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
+    write("prop_f64_max_exp", feat(p0, prop("val", Double.MAX_EXPONENT)), cfg());
     // FIXME: Fails in Java as it Produces the same output as prop_f64_max
     // write("prop_f64_pos_inf", feat(p0, prop("val", Double.POSITIVE_INFINITY)), cfg());
     write("prop_f64_nan", feat(p0, prop("val", Double.NaN)), cfg());
@@ -195,8 +225,15 @@ public class SyntheticMltGenerator {
             p1,
             props(
                 kv("name", "Test Point"),
-                kv("count", 42),
                 kv("active", true),
+                // FIXME: needs support in the Java decoder + encoder
+                // kv("tiny-count", (byte) 42),
+                // FIXME: needs support in the decoder + encoder
+                // kv("tiny", U8.of(100)),
+                kv("count", 42),
+                kv("medium", U32.of(100)),
+                kv("bignum", 42L),
+                kv("medium", U64.of(BigInteger.ZERO)),
                 kv("temp", 25.5f),
                 kv("precision", 0.123456789))),
         cfg());

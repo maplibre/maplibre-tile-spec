@@ -1,7 +1,7 @@
 [general]
 name=MLT Provider
 qgisMinimumVersion=3.22
-description=Open MapLibre Tile (MLT) files in QGIS using high-performance Rust decoding via mlt-pyo3
+description=Open MapLibre Tile (MLT) files in QGIS using high-performance Rust decoding via mlt-py
 version=0.1.0
 author=MapLibre Contributors
 email=info@maplibre.org

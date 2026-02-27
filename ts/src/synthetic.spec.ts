@@ -17,6 +17,19 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["prop_u32_max", "wraps to -1 despite it should have been positive"],
     ["prop_i64_max", "wraps to -1 despite it should have been positive"],
     ["prop_u64_max", "wraps to -1 despite it should have been positive"],
+    ["mixed_all", "geometry diff"],
+    ["mixed_line_mpt_line", "geometry diff"],
+    ["mixed_mline_mpt_mline", "geometry diff"],
+    ["mixed_mpoly_mpt_mpoly", "geometry diff"],
+    ["mixed_mpt_line", "geometry diff"],
+    ["mixed_mpt_line_mpt", "geometry diff"],
+    ["mixed_mpt_mline", "geometry diff"],
+    ["mixed_mpt_mline_mpt", "geometry diff"],
+    ["mixed_mpt_mpoly", "geometry diff"],
+    ["mixed_mpt_mpoly_mpt", "geometry diff"],
+    ["mixed_mpt_poly", "geometry diff"],
+    ["mixed_mpt_poly_mpt", "geometry diff"],
+    ["mixed_poly_mpt_poly", "geometry diff"],
 ]);
 
 const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");

@@ -1,0 +1,40 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "maplibre-tiles"
+version = "0.1.3"
+description = "Python bindings for MapLibre Tile (MLT) format"
+requires-python = ">=3.10"
+license = { text = "MIT OR Apache-2.0" }
+keywords = ["maplibre", "tile", "mlt", "vector-tiles", "gis"]
+readme = "README.md"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Information Technology",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://maplibre.org/maplibre-tile-spec"
+Documentation = "https://maplibre.org/maplibre-tile-spec"
+Repository = "https://github.com/maplibre/maplibre-tile-spec.git"
+Issues = "https://github.com/maplibre/maplibre-tile-spec/issues"
+Changelog = "https://github.com/maplibre/maplibre-tile-spec/blob/master/rust/mlt-py/CHANGELOG.md"
+
+[tool.maturin]
+manifest-path = "Cargo.toml"
+module-name = "maplibre_tiles"
