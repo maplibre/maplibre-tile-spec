@@ -6,7 +6,7 @@
       "properties": {
         "_extent": 4096,
         "_layer": "layer1",
-        "val": -Infinity
+        "val": "f32::NEG_INFINITY"
       },
       "geometry": {
         "type": "Point",
