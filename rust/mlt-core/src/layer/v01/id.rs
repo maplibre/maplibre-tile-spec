@@ -231,7 +231,7 @@ impl IdEncoder {
 }
 
 /// How wide are the IDs
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, strum::EnumIter)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum IdWidth {
     /// 32-bit encoding
