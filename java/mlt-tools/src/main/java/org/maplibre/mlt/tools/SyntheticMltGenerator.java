@@ -62,7 +62,7 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateMultiPoints() throws IOException {
-    write("multipoint", feat(multi(p1, p2, p3)), cfg());
+    write("multipoint", feat(multi(c1, c2, c3)), cfg());
   }
 
   private static void generateMultiLineStrings() throws IOException {
@@ -74,7 +74,8 @@ public class SyntheticMltGenerator {
   private static void generateMixedCombine(GeomType[] arr, int k, int start, List<GeomType> current)
       throws IOException {
     if (current.size() == k) {
-      var name = "mixed_" + current.stream().map(GeomType::sym).collect(Collectors.joining("_"));
+      var name =
+          "mix_" + k + "_" + current.stream().map(GeomType::sym).collect(Collectors.joining("_"));
       var feats = current.stream().map(t -> t.feat).toArray(Feature[]::new);
       write(layer(name, feats), cfg());
     } else {
@@ -91,13 +92,26 @@ public class SyntheticMltGenerator {
 
   private static void generateMixed() throws IOException {
     GeomType[] types = {
-      new GeomType("pt", feat(p0)),
-      new GeomType("line", feat(line1)),
-      new GeomType("poly", feat(poly1)),
-      new GeomType("polyh", feat(poly1h)), // with hole
-      new GeomType("mpt", feat(multi(p1, p2, p3))),
-      new GeomType("mline", feat(multi(line1, line2))),
-      new GeomType("mpoly", feat(multi(poly1, poly2))),
+      new GeomType("pt", feat(gf.createPoint(c(38, 29)))),
+      new GeomType("line", feat(line(c(5, 38), c(12, 45), c(9, 70)))),
+      new GeomType("poly", feat(poly(c(55, 5), c(58, 28), c(75, 22), c(55, 5)))),
+      new GeomType(
+          "polyh",
+          feat(
+              poly(
+                  ring(c(52, 35), c(14, 55), c(60, 72), c(52, 35)),
+                  ring(c(32, 50), c(36, 60), c(24, 54), c(32, 50))))),
+      new GeomType("mpt", feat(multi(c(6, 25), c(21, 41), c(23, 69)))),
+      new GeomType(
+          "mline", feat(multi(line(c(24, 10), c(42, 18)), line(c(30, 36), c(48, 52), c(35, 62))))),
+      new GeomType(
+          "mpoly",
+          feat(
+              multi(
+                  poly(
+                      ring(c(7, 20), c(21, 31), c(26, 9), c(7, 20)),
+                      ring(c(15, 20), c(20, 15), c(18, 25), c(15, 20))),
+                  poly(c(69, 57), c(71, 66), c(73, 64), c(69, 57)))))
     };
 
     for (int k = 2; k <= types.length; k++) {
@@ -105,29 +119,25 @@ public class SyntheticMltGenerator {
     }
 
     for (var a : types) {
+      // Create A-A variants
+      var sym = "mix_dup_" + a.sym;
+      write(layer(sym, a.feat, a.feat), cfg());
       for (var b : types) {
         if (!a.sym.equals(b.sym)) {
           // Create A-B-A variants
-          var sym = "mixed_" + a.sym + "_" + b.sym + "_" + a.sym;
-          write(layer(sym, a.feat, b.feat, a.feat), cfg());
+          var sym2 = "mix_" + a.sym + "_" + b.sym + "_" + a.sym;
+          write(layer(sym2, a.feat, b.feat, a.feat), cfg());
         }
       }
     }
   }
 
   private static void generateExtent() throws IOException {
-    var e9 = 512;
-    write(layer("extent_" + e9, e9, feat(line(c(0, 0), c(e9 - 1, e9 - 1)))), cfg());
-    write(layer("extent_buf_" + e9, e9, feat(line(c(-42, -42), c(e9 + 42, e9 + 42)))), cfg());
-    var e12 = 4096;
-    write(layer("extent_" + e12, e12, feat(line(c(0, 0), c(e12 - 1, e12 - 1)))), cfg());
-    write(layer("extent_buf_" + e12, e12, feat(line(c(-42, -42), c(e12 + 42, e12 + 42)))), cfg());
-    var e17 = 131072;
-    write(layer("extent_" + e17, e17, feat(line(c(0, 0), c(e17 - 1, e17 - 1)))), cfg());
-    write(layer("extent_buf_" + e17, e17, feat(line(c(-42, -42), c(e17 + 42, e17 + 42)))), cfg());
-    var e30 = 1073741824;
-    write(layer("extent_" + e30, e30, feat(line(c(0, 0), c(e30 - 1, e30 - 1)))), cfg());
-    write(layer("extent_buf_" + e30, e30, feat(line(c(-42, -42), c(e30 + 42, e30 + 42)))), cfg());
+    int[] extents = {512, 4096, 131072, 1073741824};
+    for (int e : extents) {
+      write(layer("extent_" + e, e, feat(line(c(0, 0), c(e - 1, e - 1)))), cfg());
+      write(layer("extent_buf_" + e, e, feat(line(c(-42, -42), c(e + 42, e + 42)))), cfg());
+    }
   }
 
   private static void generateIds() throws IOException {
