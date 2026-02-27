@@ -1,21 +1,21 @@
 {
+  "type": "FeatureCollection",
   "features": [
     {
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          4,
-          47
-        ]
-      },
+      "type": "Feature",
       "properties": {
         "_extent": 4096,
         "_layer": "layer1",
         "name:de": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         "name:en": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
       },
-      "type": "Feature"
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4,
+          47
+        ]
+      }
     }
-  ],
-  "type": "FeatureCollection"
+  ]
 }

@@ -12,6 +12,8 @@ pub use layer::{unknown, v01};
 mod utils;
 
 pub use analyse::{Analyze, StatType};
+// reexport borrowme to make it easier to use in other crates
+pub use borrowme;
 pub use decode::*;
 pub use encode::*;
 pub use errors::{MltError, MltRefResult};

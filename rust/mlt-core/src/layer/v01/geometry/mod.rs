@@ -6,7 +6,6 @@ use std::io::Write;
 use std::ops::Range;
 
 use borrowme::borrowme;
-use derive_builder::Builder;
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
@@ -27,15 +26,16 @@ use crate::v01::geometry::decode::{
     decode_level1_without_ring_buffer_length_stream, decode_level2_length_stream,
     decode_root_length_stream,
 };
+pub use crate::v01::geometry::encode::GeometryEncoder;
 use crate::v01::{
-    DictionaryType, Encoder, LengthType, LogicalEncoding, OffsetType, OwnedStream,
-    PhysicalEncoding, Stream, StreamMeta, StreamType,
+    DictionaryType, LengthType, LogicalEncoding, OffsetType, OwnedStream, PhysicalEncoding, Stream,
+    StreamMeta, StreamType,
 };
 use crate::{FromDecoded, MltError};
 
 /// Geometry column representation, either encoded or decoded
 #[borrowme]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Geometry<'a> {
     Encoded(EncodedGeometry<'a>),
     Decoded(DecodedGeometry),
@@ -77,7 +77,7 @@ impl OwnedGeometry {
 
 /// Unparsed geometry data as read directly from the tile
 #[borrowme]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct EncodedGeometry<'a> {
     pub meta: Stream<'a>,
     pub items: Vec<Stream<'a>>,
@@ -317,6 +317,250 @@ impl DecodedGeometry {
             }
         }
     }
+
+    /// Add a geometry to this decoded geometry collection.
+    /// This is the reverse of `to_geojson` - it converts a `geo_types::Geometry<i32>`
+    /// into the internal MLT representation with offset arrays.
+    #[must_use]
+    pub fn with_geom(mut self, geom: &GeoGeom) -> Self {
+        self.push_geom(geom);
+        self
+    }
+
+    /// Add a geometry to this decoded geometry collection (mutable version).
+    pub fn push_geom(&mut self, geom: &GeoGeom) {
+        match geom {
+            GeoGeom::Point(p) => self.push_point(p.0),
+            GeoGeom::Line(l) => {
+                self.push_linestring(&LineString(vec![l.start, l.end]));
+            }
+            GeoGeom::LineString(ls) => self.push_linestring(ls),
+            GeoGeom::Polygon(p) => self.push_polygon(p),
+            GeoGeom::MultiPoint(mp) => self.push_multi_point(mp),
+            GeoGeom::MultiLineString(mls) => self.push_multi_linestring(mls),
+            GeoGeom::MultiPolygon(mp) => self.push_multi_polygon(mp),
+            GeoGeom::Triangle(t) => {
+                self.push_polygon(&Polygon::new(LineString(vec![t.0, t.1, t.2]), vec![]));
+            }
+            GeoGeom::Rect(r) => {
+                self.push_polygon(&r.to_polygon());
+            }
+            GeoGeom::GeometryCollection(gc) => {
+                for g in gc {
+                    self.push_geom(g);
+                }
+            }
+        }
+    }
+
+    fn push_point(&mut self, coord: Coord32) {
+        self.vector_types.push(GeometryType::Point);
+        self.vertices
+            .get_or_insert_with(Vec::new)
+            .extend([coord.x, coord.y]);
+    }
+
+    fn push_linestring(&mut self, ls: &LineString<i32>) {
+        self.vector_types.push(GeometryType::LineString);
+
+        let verts = self.vertices.get_or_insert_with(Vec::new);
+        let start_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+
+        for coord in ls.coords() {
+            verts.extend([coord.x, coord.y]);
+        }
+
+        let end_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+
+        // If ring_offsets exists (i.e., there's a Polygon in the layer),
+        // add LineString vertex indices to ring_offsets instead of part_offsets.
+        // This matches Java's behavior where LineString adds to numRings when containsPolygon.
+        if let Some(rings) = &mut self.ring_offsets {
+            // Add to ring_offsets - LineString vertices go here when Polygon is present
+            if rings.is_empty() {
+                rings.push(start_idx);
+            }
+            rings.push(end_idx);
+        } else {
+            // No polygon yet - add to part_offsets as vertex indices
+            let parts = self.part_offsets.get_or_insert_with(Vec::new);
+            if parts.is_empty() {
+                parts.push(start_idx);
+            }
+            parts.push(end_idx);
+        }
+    }
+
+    fn push_polygon(&mut self, poly: &Polygon<i32>) {
+        self.vector_types.push(GeometryType::Polygon);
+
+        let verts = self.vertices.get_or_insert_with(Vec::new);
+
+        // Only on the very first polygon: if LineStrings were pushed before us,
+        // their vertex offsets are sitting in part_offsets. Move them to
+        // ring_offsets now, before we set up ring_offsets for polygon use.
+        // On subsequent polygons ring_offsets is already initialised and
+        // part_offsets holds polygon ring-range data — leave both alone.
+        if self.ring_offsets.is_none()
+            && let Some(linestring_parts) = self.part_offsets.take()
+        {
+            self.ring_offsets = Some(linestring_parts);
+        }
+
+        let rings = self.ring_offsets.get_or_insert_with(Vec::new);
+        let parts = self.part_offsets.get_or_insert_with(Vec::new);
+
+        // parts[i] stores the ring index where polygon i starts
+        // Number of existing rings = rings.len() - 1 (since rings is an offset array)
+        let ring_count = if rings.is_empty() { 0 } else { rings.len() - 1 };
+        if parts.is_empty() {
+            parts.push(u32::try_from(ring_count).expect("ring count overflow"));
+        }
+
+        // Push exterior ring (without closing vertex - MLT omits it)
+        let ext = poly.exterior();
+        let ext_coords: Vec<_> = if ext.0.last() == ext.0.first() && ext.0.len() > 1 {
+            ext.0[..ext.0.len() - 1].to_vec()
+        } else {
+            ext.0.clone()
+        };
+
+        let ring_start = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+        if rings.is_empty() {
+            rings.push(ring_start);
+        }
+        for coord in &ext_coords {
+            verts.extend([coord.x, coord.y]);
+        }
+        rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+
+        // Push interior rings (holes)
+        for hole in poly.interiors() {
+            let hole_coords: Vec<_> = if hole.0.last() == hole.0.first() && hole.0.len() > 1 {
+                hole.0[..hole.0.len() - 1].to_vec()
+            } else {
+                hole.0.clone()
+            };
+            for coord in &hole_coords {
+                verts.extend([coord.x, coord.y]);
+            }
+            rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+        }
+
+        // After adding this polygon's rings, record the new ring count
+        let new_ring_count = rings.len() - 1;
+        parts.push(u32::try_from(new_ring_count).expect("ring count overflow"));
+    }
+
+    fn push_multi_point(&mut self, mp: &MultiPoint<i32>) {
+        self.vector_types.push(GeometryType::MultiPoint);
+
+        let verts = self.vertices.get_or_insert_with(Vec::new);
+        let geoms = self.geometry_offsets.get_or_insert_with(Vec::new);
+
+        let start_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+        if geoms.is_empty() {
+            geoms.push(start_idx);
+        }
+
+        for point in mp {
+            verts.extend([point.0.x, point.0.y]);
+        }
+
+        geoms.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+    }
+
+    fn push_multi_linestring(&mut self, mls: &MultiLineString<i32>) {
+        self.vector_types.push(GeometryType::MultiLineString);
+
+        let verts = self.vertices.get_or_insert_with(Vec::new);
+        let geoms = self.geometry_offsets.get_or_insert_with(Vec::new);
+        let parts = self.part_offsets.get_or_insert_with(Vec::new);
+
+        // geoms stores indices into parts (linestring count)
+        // Current linestring count = parts.len() - 1 (since parts is offset array)
+        let ls_count = if parts.is_empty() { 0 } else { parts.len() - 1 };
+        if geoms.is_empty() {
+            geoms.push(u32::try_from(ls_count).expect("part count overflow"));
+        }
+
+        for ls in mls {
+            let start_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+            if parts.is_empty() {
+                parts.push(start_idx);
+            }
+            for coord in ls.coords() {
+                verts.extend([coord.x, coord.y]);
+            }
+            parts.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+        }
+
+        // After adding all linestrings, record the new linestring count
+        let new_ls_count = parts.len() - 1;
+        geoms.push(u32::try_from(new_ls_count).expect("part count overflow"));
+    }
+
+    fn push_multi_polygon(&mut self, mp: &MultiPolygon<i32>) {
+        self.vector_types.push(GeometryType::MultiPolygon);
+
+        let verts = self.vertices.get_or_insert_with(Vec::new);
+        let geoms = self.geometry_offsets.get_or_insert_with(Vec::new);
+        let parts = self.part_offsets.get_or_insert_with(Vec::new);
+        let rings = self.ring_offsets.get_or_insert_with(Vec::new);
+
+        // geoms stores indices into parts (polygon count)
+        // Current polygon count = parts.len() - 1 (since parts is offset array)
+        let poly_count = if parts.is_empty() { 0 } else { parts.len() - 1 };
+        if geoms.is_empty() {
+            geoms.push(u32::try_from(poly_count).expect("part count overflow"));
+        }
+
+        for poly in mp {
+            // parts stores indices into rings (ring count for each polygon)
+            let ring_count = if rings.is_empty() { 0 } else { rings.len() - 1 };
+            if parts.is_empty() {
+                parts.push(u32::try_from(ring_count).expect("ring count overflow"));
+            }
+
+            // Push exterior ring (without closing vertex)
+            let ext = poly.exterior();
+            let ext_coords: Vec<_> = if ext.0.last() == ext.0.first() && ext.0.len() > 1 {
+                ext.0[..ext.0.len() - 1].to_vec()
+            } else {
+                ext.0.clone()
+            };
+
+            let ring_start = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+            if rings.is_empty() {
+                rings.push(ring_start);
+            }
+            for coord in &ext_coords {
+                verts.extend([coord.x, coord.y]);
+            }
+            rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+
+            // Push interior rings (holes)
+            for hole in poly.interiors() {
+                let hole_coords: Vec<_> = if hole.0.last() == hole.0.first() && hole.0.len() > 1 {
+                    hole.0[..hole.0.len() - 1].to_vec()
+                } else {
+                    hole.0.clone()
+                };
+                for coord in &hole_coords {
+                    verts.extend([coord.x, coord.y]);
+                }
+                rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+            }
+
+            // After adding this polygon's rings, record the new ring count
+            let new_ring_count = rings.len() - 1;
+            parts.push(u32::try_from(new_ring_count).expect("ring count overflow"));
+        }
+
+        // After adding all polygons, record the new polygon count
+        let new_poly_count = parts.len() - 1;
+        geoms.push(u32::try_from(new_poly_count).expect("part count overflow"));
+    }
 }
 
 /// Types of geometries supported in MLT
@@ -358,6 +602,13 @@ impl GeometryType {
             GeometryType::LineString | GeometryType::MultiLineString
         )
     }
+    #[must_use]
+    pub fn is_multi(self) -> bool {
+        matches!(
+            self,
+            GeometryType::MultiPoint | GeometryType::MultiLineString | GeometryType::MultiPolygon
+        )
+    }
 }
 
 impl Analyze for GeometryType {
@@ -386,48 +637,12 @@ impl Analyze for GeometryType {
 impl_decodable!(Geometry<'a>, EncodedGeometry<'a>, DecodedGeometry);
 impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedEncodedGeometry);
 
-/// How to encode Geometry
-#[derive(Debug, Clone, Copy, Builder)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-pub struct GeometryEncoder {
-    /// Encoding settings for the geometry types (meta) stream.
-    meta: Encoder,
-
-    /// Encoding for the geometry length stream.
-    num_geometries: Encoder,
-
-    /// Encoding for parts length stream when rings are present.
-    rings: Encoder,
-    /// Encoding for ring vertex-count stream.
-    rings2: Encoder,
-    /// Encoding for parts length stream when rings are not present.
-    no_rings: Encoder,
-
-    /// Encoding for parts length stream (with rings) when `geometry_offsets` absent.
-    parts: Encoder,
-    /// Encoding for ring lengths when `geometry_offsets` absent.
-    parts_ring: Encoder,
-
-    /// Encoding for parts-only stream (e.g. `LineString`, no rings).
-    only_parts: Encoder,
-
-    /// Encoding for triangles count stream (pre-tessellated polygons).
-    triangles: Encoder,
-    /// Encoding for triangle index buffer (pre-tessellated polygons).
-    triangles_indexes: Encoder,
-
-    /// Encoding for the vertex data stream (logical is always `ComponentwiseDelta`; only physical varies).
-    vertex: Encoder,
-    /// Encoding for vertex offsets (dictionary encoding).
-    vertex_offsets: Encoder,
-}
-
 impl FromDecoded<'_> for OwnedEncodedGeometry {
     type Input = DecodedGeometry;
     type Encoder = GeometryEncoder;
 
     fn from_decoded(decoded: &Self::Input, config: Self::Encoder) -> Result<Self, MltError> {
-        encode::encode_geometry(decoded, config)
+        encode::encode_geometry(decoded, &config)
     }
 }
 
@@ -600,11 +815,14 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
+    use crate::v01::geometry::encode::GeometryEncoder;
 
-    /// Helper function to encode, serialize, parse, and decode for roundtrip testing
+    /// Encode, serialize, parse, and decode a `DecodedGeometry`.
+    /// The input must already be in the dense canonical form that `from_encoded`
+    /// produces (i.e. built via a previous `roundtrip` call, not via `push_*`).
     fn roundtrip(decoded: &DecodedGeometry, encoder: GeometryEncoder) -> DecodedGeometry {
-        let encoded_geom =
-            OwnedEncodedGeometry::from_decoded(decoded, encoder).expect("Failed to encode");
+        let encoded_geom = OwnedEncodedGeometry::from_decoded(decoded, encoder);
+        let encoded_geom = encoded_geom.expect("Failed to encode");
 
         // Serialize to bytes (write_to includes the stream count varint)
         let mut buffer = Vec::new();
@@ -619,160 +837,146 @@ mod tests {
         DecodedGeometry::from_encoded(parsed).expect("Failed to decode")
     }
 
-    fn arb_point() -> impl Strategy<Value = DecodedGeometry> {
-        (any::<i32>(), any::<i32>()).prop_map(|(x, y)| DecodedGeometry {
-            vector_types: vec![GeometryType::Point],
-            vertices: Some(vec![x, y]),
-            ..Default::default()
-        })
+    /// Build a `DecodedGeometry` from a sequence of `GeoGeom` values via
+    /// `push_geom` and perform a two-cycle encode/decode:
+    ///
+    /// 1. push → encode → decode  (`canonical`): exercises `push_geom` and
+    ///    `normalize_geometry_offsets`; normalises the sparse push_* layout to
+    ///    the dense form that `from_encoded` always returns.
+    /// 2. canonical → encode → decode  (`output`): verifies idempotency of
+    ///    encode/decode on the canonical form
+    ///
+    /// Comparing `canonical == output` catches both panics in the push path
+    /// and silent data corruption in encode/decode
+    fn roundtrip_via_push(
+        geoms: &[GeoGeom],
+        encoder: GeometryEncoder,
+    ) -> (DecodedGeometry, DecodedGeometry) {
+        let mut pushed = DecodedGeometry::default();
+        for g in geoms {
+            pushed.push_geom(g);
+        }
+        let canonical = roundtrip(&pushed, encoder);
+        let output = roundtrip(&canonical, encoder);
+        (canonical, output)
     }
 
-    fn arb_line_string() -> impl Strategy<Value = DecodedGeometry> {
-        prop::collection::vec((any::<i32>(), any::<i32>()), 2..10).prop_map(|coords| {
-            let vertices: Vec<i32> = coords.into_iter().flat_map(|(x, y)| vec![x, y]).collect();
-            let num_coords = u32::try_from(vertices.len() / 2).unwrap();
-            DecodedGeometry {
-                vector_types: vec![GeometryType::LineString],
-                part_offsets: Some(vec![0, num_coords]),
-                vertices: Some(vertices),
-                ..Default::default()
-            }
-        })
+    fn arb_coord() -> impl Strategy<Value = Coord32> {
+        (any::<i32>(), any::<i32>()).prop_map(|(x, y)| Coord32 { x, y })
     }
 
-    fn arb_polygon() -> impl Strategy<Value = DecodedGeometry> {
-        prop::collection::vec(
-            prop::collection::vec((any::<i32>(), any::<i32>()), 3..10),
-            1..4,
-        )
-        .prop_map(|rings| {
-            let mut vertices = vec![];
-            let mut ring_offsets = vec![0];
-            for ring in rings {
-                for (x, y) in ring {
-                    vertices.push(x);
-                    vertices.push(y);
-                }
-                ring_offsets.push(u32::try_from(vertices.len() / 2).unwrap());
-            }
-
-            DecodedGeometry {
-                vector_types: vec![GeometryType::Polygon],
-                part_offsets: Some(vec![0, u32::try_from(ring_offsets.len() - 1).unwrap()]),
-                ring_offsets: Some(ring_offsets),
-                vertices: Some(vertices),
-                ..Default::default()
-            }
-        })
-    }
-
-    fn arb_multi_point() -> impl Strategy<Value = DecodedGeometry> {
-        prop::collection::vec((any::<i32>(), any::<i32>()), 2..10).prop_map(|coords| {
-            let vertices: Vec<i32> = coords.into_iter().flat_map(|(x, y)| vec![x, y]).collect();
-            DecodedGeometry {
-                vector_types: vec![GeometryType::MultiPoint],
-                geometry_offsets: Some(vec![0, u32::try_from(vertices.len() / 2).unwrap()]),
-                vertices: Some(vertices),
-                ..Default::default()
-            }
-        })
-    }
-
-    fn arb_multi_line_string() -> impl Strategy<Value = DecodedGeometry> {
-        prop::collection::vec(
-            prop::collection::vec((any::<i32>(), any::<i32>()), 2..10),
-            2..5,
-        )
-        .prop_map(|lines| {
-            let mut vertices = vec![];
-            let mut part_offsets = vec![0];
-            for line in lines {
-                for (x, y) in line {
-                    vertices.push(x);
-                    vertices.push(y);
-                }
-                part_offsets.push(u32::try_from(vertices.len() / 2).unwrap());
-            }
-
-            DecodedGeometry {
-                vector_types: vec![GeometryType::MultiLineString],
-                geometry_offsets: Some(vec![0, u32::try_from(part_offsets.len() - 1).unwrap()]),
-                part_offsets: Some(part_offsets),
-                vertices: Some(vertices),
-                ..Default::default()
-            }
-        })
-    }
-
-    fn arb_multi_polygon() -> impl Strategy<Value = DecodedGeometry> {
-        prop::collection::vec(
-            prop::collection::vec(
-                prop::collection::vec((any::<i32>(), any::<i32>()), 3..10),
-                1..4,
+    fn arb_geom() -> impl Strategy<Value = GeoGeom> {
+        prop_oneof![
+            // Point
+            arb_coord().prop_map(Point).prop_map(GeoGeom::Point),
+            // LineString
+            prop::collection::vec(arb_coord(), 2..10)
+                .prop_map(|coords| GeoGeom::LineString(LineString(coords))),
+            // Polygon (single exterior ring, no holes)
+            prop::collection::vec(arb_coord(), 3..8).prop_map(|mut coords| {
+                coords.push(coords[0]);
+                GeoGeom::Polygon(Polygon::new(LineString(coords), vec![]))
+            }),
+            // MultiPoint
+            prop::collection::vec(arb_coord(), 2..8).prop_map(|coords| {
+                GeoGeom::MultiPoint(MultiPoint(coords.into_iter().map(Point).collect()))
+            }),
+            // MultiLineString
+            prop::collection::vec(prop::collection::vec(arb_coord(), 2..6), 2..5,).prop_map(
+                |lines| GeoGeom::MultiLineString(MultiLineString(
+                    lines.into_iter().map(LineString).collect(),
+                ))
             ),
-            2..5,
-        )
-        .prop_map(|polygons| {
-            let mut vertices = vec![];
-            let mut part_offsets = vec![0];
-            let mut ring_offsets = vec![0];
-            for poly_rings in polygons {
-                for ring in poly_rings {
-                    for (x, y) in ring {
-                        vertices.push(x);
-                        vertices.push(y);
-                    }
-                    ring_offsets.push(u32::try_from(vertices.len() / 2).unwrap());
-                }
-                part_offsets.push(u32::try_from(ring_offsets.len() - 1).unwrap());
-            }
+            // MultiPolygon
+            prop::collection::vec(arb_coord(), 3..6).prop_map(|mut coords| {
+                coords.push(coords[0]);
+                GeoGeom::MultiPolygon(MultiPolygon(vec![Polygon::new(LineString(coords), vec![])]))
+            }),
+        ]
+    }
 
-            DecodedGeometry {
-                vector_types: vec![GeometryType::MultiPolygon],
-                geometry_offsets: Some(vec![0, u32::try_from(part_offsets.len() - 1).unwrap()]),
-                part_offsets: Some(part_offsets),
-                ring_offsets: Some(ring_offsets),
-                vertices: Some(vertices),
-                ..Default::default()
-            }
-        })
+    /// Strategy for a mixed `LineString` + `MultiLineString` layer
+    fn arb_mixed_linestring_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
+        prop::collection::vec(arb_geom(), 2..12)
+            .prop_map(|geoms| {
+                geoms
+                    .into_iter()
+                    .filter(|g| matches!(g, GeoGeom::LineString(_) | GeoGeom::MultiLineString(_)))
+                    .collect::<Vec<_>>()
+            })
+            .prop_filter("needs both LS and MLS", |geoms| {
+                geoms.iter().any(|g| matches!(g, GeoGeom::LineString(_)))
+                    && geoms
+                        .iter()
+                        .any(|g| matches!(g, GeoGeom::MultiLineString(_)))
+            })
+    }
+
+    /// Strategy for a mixed `Point` + `MultiPoint` layer.
+    fn arb_mixed_point_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
+        prop::collection::vec(arb_geom(), 2..12)
+            .prop_map(|geoms| {
+                geoms
+                    .into_iter()
+                    .filter(|g| matches!(g, GeoGeom::Point(_) | GeoGeom::MultiPoint(_)))
+                    .collect::<Vec<_>>()
+            })
+            .prop_filter("needs both P and MP", |geoms| {
+                geoms.iter().any(|g| matches!(g, GeoGeom::Point(_)))
+                    && geoms.iter().any(|g| matches!(g, GeoGeom::MultiPoint(_)))
+            })
+    }
+
+    /// Strategy for a mixed `Polygon` + `MultiPolygon` layer.
+    fn arb_mixed_polygon_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
+        prop::collection::vec(arb_geom(), 2..8)
+            .prop_map(|geoms| {
+                geoms
+                    .into_iter()
+                    .filter(|g| matches!(g, GeoGeom::Polygon(_) | GeoGeom::MultiPolygon(_)))
+                    .collect::<Vec<_>>()
+            })
+            .prop_filter("needs both Poly and MPoly", |geoms| {
+                geoms.iter().any(|g| matches!(g, GeoGeom::Polygon(_)))
+                    && geoms.iter().any(|g| matches!(g, GeoGeom::MultiPolygon(_)))
+            })
     }
 
     proptest! {
         #[test]
-        fn test_point_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_point()) {
-            let output = roundtrip(&input, encoder);
-            prop_assert_eq!(output, input);
+        fn test_geometry_roundtrip(
+            encoder in any::<GeometryEncoder>(),
+            geom in arb_geom(),
+        ) {
+            let (canonical, output) = roundtrip_via_push(&[geom], encoder);
+            prop_assert_eq!(output, canonical);
         }
 
         #[test]
-        fn test_line_string_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_line_string()) {
-            let output = roundtrip(&input, encoder);
-            prop_assert_eq!(output, input);
+        fn test_mixed_linestring_roundtrip(
+            encoder in any::<GeometryEncoder>(),
+            geoms in arb_mixed_linestring_geoms(),
+        ) {
+            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+            prop_assert_eq!(output, canonical);
         }
 
         #[test]
-        fn test_polygon_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_polygon()) {
-            let output = roundtrip(&input, encoder);
-            prop_assert_eq!(output, input);
+        fn test_mixed_point_roundtrip(
+            encoder in any::<GeometryEncoder>(),
+            geoms in arb_mixed_point_geoms(),
+        ) {
+            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+            prop_assert_eq!(output, canonical);
         }
 
         #[test]
-        fn test_multi_point_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_point()) {
-            let output = roundtrip(&input, encoder);
-            prop_assert_eq!(output, input);
-        }
-
-        #[test]
-        fn test_multi_line_string_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_line_string()) {
-            let output = roundtrip(&input, encoder);
-            prop_assert_eq!(output, input);
-        }
-
-        #[test]
-        fn test_multi_polygon_roundtrip(encoder in any::<GeometryEncoder>(), input in arb_multi_polygon()) {
-            let output = roundtrip(&input, encoder);
-            prop_assert_eq!(output, input);
+        fn test_mixed_polygon_roundtrip(
+            encoder in any::<GeometryEncoder>(),
+            geoms in arb_mixed_polygon_geoms(),
+        ) {
+            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+            prop_assert_eq!(output, canonical);
         }
     }
 }

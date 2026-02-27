@@ -62,18 +62,9 @@ gen-tests: (just 'cargo-install' 'fd' 'fd-find')
 generate-synthetic-mlts:
     #!/usr/bin/env bash
     set -euo pipefail
-    rm -rf ../test/synthetic
+    rm -rf ../test/synthetic/0x01
     ./gradlew :mlt-tools:generateSyntheticMlt
-    all_hashes=$(find "../test/synthetic" -name '*.mlt' -exec sha256sum {} \; | sort)
-    duplicates=$(echo "$all_hashes" | awk '{print $1}' | uniq -d)
-    if [ -n "$duplicates" ]; then
-        echo "::error::Duplicate synthetic MLT files found"
-        while IFS= read -r hash; do
-            echo ""
-            echo "$all_hashes" | grep "^$hash " | awk '{print "  - " $2}'
-        done <<< "$duplicates"
-        exit 1
-    fi
+    {{just}} _assert-all-mlt-files-different test/synthetic/0x01
 
 # Run linting (format check)
 lint:
@@ -94,8 +85,8 @@ test-cli:
     $ENCODE --mvt ../test/fixtures/omt/10_530_682.mvt --mlt output/varint.mlt --decode
     $ENCODE --mvt ../test/fixtures/omt/10_530_682.mvt --enable-fastpfor --enable-fsst --mlt output/advanced.mlt
     $DECODE --mlt output/advanced.mlt
-    $ENCODE --mbtiles ../test/fixtures/omt.max1.mbtiles --outlines ALL --colmap-delim '[]name/[:_]/' --tessellate --sort-ids --coerce-mismatch --verbose 0 --parallel
-    $ENCODE --pmtiles ../test/fixtures/omt-planet-20260112.mvt.max1.pmtiles --outlines ALL --colmap-delim '[]name/[:_]/' --tessellate --sort-ids --coerce-mismatch --verbose 0 --parallel
+    $ENCODE --mbtiles ../test/fixtures/omt.max1.mbtiles --outlines ALL --colmap-delim '[]name/[:_]/' --tessellate --sort-ids --coerce-mismatch --verbose warn --parallel
+    $ENCODE --pmtiles ../test/fixtures/omt-planet-20260112.mvt.max1.pmtiles --outlines ALL --colmap-delim '[]name/[:_]/' --tessellate --sort-ids --coerce-mismatch --verbose warn --parallel
 
 # Run tests with coverage
 test-coverage:

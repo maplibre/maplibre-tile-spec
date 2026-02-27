@@ -24,9 +24,9 @@ pub type Coord16 = geo_types::Coord<i16>;
 /// `GeoJSON` [`FeatureCollection`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FeatureCollection {
-    pub features: Vec<Feature>,
     #[serde(rename = "type")]
     pub ty: String,
+    pub features: Vec<Feature>,
 }
 
 impl FeatureCollection {

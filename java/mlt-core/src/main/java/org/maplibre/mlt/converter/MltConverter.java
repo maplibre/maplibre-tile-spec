@@ -19,6 +19,7 @@ import org.maplibre.mlt.converter.encodings.GeometryEncoder;
 import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.converter.encodings.PropertyEncoder;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.unsigned.U32;
@@ -28,20 +29,83 @@ import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltConverter {
-
+  /// Create tileset metadata from a MVT tile
+  /// @param tile The MVT tile to create metadata from
+  /// @param columnMappingConfig Optional column mapping configuration
+  /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      MapboxVectorTile tile,
-      Map<Pattern, List<ColumnMapping>> columnMappings,
-      boolean isIdPresent) {
-    return createTilesetMetadata(tile, columnMappings, isIdPresent, false, false);
+      @NotNull MapboxVectorTile tile,
+      @Nullable ColumnMappingConfig columnMappingConfig,
+      boolean includeIdIfPresent) {
+    return createTilesetMetadata(
+        tile, ConversionConfig.TypeMismatchPolicy.FAIL, columnMappingConfig, includeIdIfPresent);
   }
 
+  /// Create tileset metadata from a MVT tile
+  /// @param tile The MVT tile to create metadata from
+  /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
+  /// @param includeIdIfPresent Whether to include an ID column
+  /// @param enableCoerceOnMismatch Whether to coerce values to string on type mismatch
+  /// @param enableElideOnMismatch Whether to elide values on type mismatch (for each property, the
+  /// first type encountered is used)
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      MapboxVectorTile tile,
-      Map<Pattern, List<ColumnMapping>> columnMappings,
+      @NotNull MapboxVectorTile tile,
+      @Nullable ColumnMappingConfig columnMappingConfig,
       boolean includeIdIfPresent,
       boolean enableCoerceOnMismatch,
       boolean enableElideOnMismatch) {
+    final var config =
+        ConversionConfig.builder()
+            .mismatchPolicy(enableCoerceOnMismatch, enableElideOnMismatch)
+            .build();
+    return createTilesetMetadata(tile, config, columnMappingConfig, includeIdIfPresent);
+  }
+
+  /// Create tileset metadata from a MVT tile
+  /// @param tile The MVT tile to create metadata from
+  /// @param config Optional configuration
+  /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
+  /// @param includeIdIfPresent Whether to include an ID column
+  public static MltMetadata.TileSetMetadata createTilesetMetadata(
+      @NotNull MapboxVectorTile tile,
+      @Nullable ConversionConfig config,
+      @Nullable ColumnMappingConfig columnMappingConfig,
+      boolean includeIdIfPresent) {
+    return createTilesetMetadata(
+        tile,
+        (config != null) ? config.getTypeMismatchPolicy() : null,
+        columnMappingConfig,
+        includeIdIfPresent);
+  }
+
+  /// Create tileset metadata from a MVT tile
+  /// @param tile The MVT tile to create metadata from
+  /// @param config Optional configuration
+  /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
+  /// @param includeIdIfPresent Whether to include an ID column
+  public static MltMetadata.TileSetMetadata createTilesetMetadata(
+      @NotNull MapboxVectorTile tile,
+      @Nullable ConversionConfig config,
+      @Nullable List<ColumnMapping> columnMappingConfig,
+      boolean includeIdIfPresent) {
+    return createTilesetMetadata(
+        tile,
+        (config != null) ? config.getTypeMismatchPolicy() : null,
+        ColumnMappingConfig.of(Pattern.compile(".*"), columnMappingConfig),
+        includeIdIfPresent);
+  }
+
+  /// Create tileset metadata from a MVT tile
+  /// @param tile The MVT tile to create metadata from
+  /// @param typeMismatchPolicy Policy for handling type mismatches
+  /// @param columnMappingConfig Optional column mapping configuration
+  /// @param includeIdIfPresent Whether to include an ID column
+  public static MltMetadata.TileSetMetadata createTilesetMetadata(
+      @NotNull MapboxVectorTile tile,
+      @NotNull ConversionConfig.TypeMismatchPolicy typeMismatchPolicy,
+      @Nullable ColumnMappingConfig columnMappingConfig,
+      boolean includeIdIfPresent) {
+
     // TODO: Allow determining whether ID is present automatically
     // TODO: Allow nullable ID columns
 
@@ -66,11 +130,10 @@ public class MltConverter {
                       property,
                       layer.name(),
                       currentFeatureIndex,
-                      columnMappings,
+                      columnMappingConfig,
                       columnSchemas,
                       complexPropertyColumnSchemas,
-                      enableCoerceOnMismatch,
-                      enableElideOnMismatch);
+                      typeMismatchPolicy);
                 });
 
         if (includeIdIfPresent) {
@@ -129,14 +192,13 @@ public class MltConverter {
   }
 
   private static void resolveColumnType(
-      Map.Entry<String, Object> property,
-      String layerName,
+      @NotNull Map.Entry<String, Object> property,
+      @NotNull String layerName,
       int featureIndex,
-      Map<Pattern, List<ColumnMapping>> columnMappings,
-      LinkedHashMap<String, MltMetadata.Column> columnSchemas,
-      LinkedHashMap<ColumnMapping, MltMetadata.ComplexField> complexColumnSchemas,
-      boolean enableCoerceOnMismatch,
-      boolean enableElideOnMismatch) {
+      @Nullable ColumnMappingConfig columnMappingConfig,
+      @NotNull LinkedHashMap<String, MltMetadata.Column> columnSchemas,
+      @NotNull LinkedHashMap<ColumnMapping, MltMetadata.ComplexField> complexColumnSchemas,
+      @NotNull ConversionConfig.TypeMismatchPolicy typeMismatchPolicy) {
     final var mvtPropertyName = property.getKey();
 
     /* MVT can only contain scalar types */
@@ -168,11 +230,11 @@ public class MltConverter {
                 && scalarType == MltMetadata.ScalarType.FLOAT) {
               // no-op
               // keep DOUBLE
-            } else if (enableCoerceOnMismatch) {
+            } else if (typeMismatchPolicy == ConversionConfig.TypeMismatchPolicy.COERCE) {
               if (prevPhysicalType != MltMetadata.ScalarType.STRING) {
                 previousSchema.scalarType.physicalType = MltMetadata.ScalarType.STRING;
               }
-            } else if (!enableElideOnMismatch) {
+            } else if (typeMismatchPolicy != ConversionConfig.TypeMismatchPolicy.ELIDE) {
               throw new RuntimeException(
                   String.format(
                       "Layer '%s' Feature index %d Property '%s' has different type: %s / %s",
@@ -188,18 +250,21 @@ public class MltConverter {
       }
     }
 
-    final var columnMapping = ColumnMapping.findMapping(columnMappings, layerName, mvtPropertyName);
-    if (columnMapping != null) {
-      // A mapping exists for this property.
-      // Create the parent type and add a child type entry.
-      final var parentColumn =
-          complexColumnSchemas.computeIfAbsent(columnMapping, k -> createComplexColumn());
+    if (columnMappingConfig != null) {
+      final var columnMapping =
+          ColumnMapping.findMapping(columnMappingConfig, layerName, mvtPropertyName);
+      if (columnMapping != null) {
+        // A mapping exists for this property.
+        // Create the parent type and add a child type entry.
+        final var parentColumn =
+            complexColumnSchemas.computeIfAbsent(columnMapping, k -> createComplexColumn());
 
-      if (parentColumn.children.stream().noneMatch(c -> c.name.equals(mvtPropertyName))) {
-        parentColumn.children.add(createScalarFieldScheme(mvtPropertyName, true, scalarType));
+        if (parentColumn.children.stream().noneMatch(c -> c.name.equals(mvtPropertyName))) {
+          parentColumn.children.add(createScalarFieldScheme(mvtPropertyName, true, scalarType));
+        }
+
+        return;
       }
-
-      return;
     }
 
     // no matching column mappings, create a plain scalar column
@@ -493,7 +558,7 @@ public class MltConverter {
                 sortedFeatures,
                 physicalLevelTechnique,
                 config.getUseFSST(),
-                config.getCoercePropertyValues(),
+                config.getTypeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE,
                 config.getIntegerEncodingOption(),
                 streamRecorder);
       }
@@ -541,7 +606,7 @@ public class MltConverter {
         sortedFeatures,
         config.getUseFastPFOR(),
         config.getUseFSST(),
-        config.getCoercePropertyValues(),
+        config.getTypeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE,
         columnMappings,
         config.getIntegerEncodingOption(),
         streamRecorder);
