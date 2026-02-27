@@ -169,7 +169,8 @@ class SyntheticMltUtil {
     return gf.createPolygon(shell, holes);
   }
 
-  static MultiPoint multi(Point... pts) {
+  static MultiPoint multi(Coordinate... coords) {
+    var pts = Arrays.stream(coords).map(t -> gf.createPoint(t)).toArray(Point[]::new);
     return gf.createMultiPoint(pts);
   }
 
