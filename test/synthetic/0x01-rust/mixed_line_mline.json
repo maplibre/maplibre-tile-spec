@@ -1,7 +1,14 @@
 {
+  "type": "FeatureCollection",
   "features": [
     {
+      "type": "Feature",
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1"
+      },
       "geometry": {
+        "type": "LineString",
         "coordinates": [
           [
             4,
@@ -11,17 +18,17 @@
             12,
             53
           ]
-        ],
-        "type": "LineString"
-      },
+        ]
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
+        "type": "MultiLineString",
         "coordinates": [
           [
             [
@@ -47,15 +54,8 @@
               49
             ]
           ]
-        ],
-        "type": "MultiLineString"
-      },
-      "properties": {
-        "_extent": 4096,
-        "_layer": "layer1"
-      },
-      "type": "Feature"
+        ]
+      }
     }
-  ],
-  "type": "FeatureCollection"
+  ]
 }

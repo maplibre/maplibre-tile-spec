@@ -36,6 +36,10 @@ use crate::{FromDecoded, MltError};
 /// Geometry column representation, either encoded or decoded
 #[borrowme]
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(
+    all(not(test), feature = "arbitrary"),
+    owned_attr(derive(arbitrary::Arbitrary))
+)]
 pub enum Geometry<'a> {
     Encoded(EncodedGeometry<'a>),
     Decoded(DecodedGeometry),
@@ -560,6 +564,49 @@ impl DecodedGeometry {
         // After adding all polygons, record the new polygon count
         let new_poly_count = parts.len() - 1;
         geoms.push(u32::try_from(new_poly_count).expect("part count overflow"));
+    }
+}
+
+#[cfg(all(not(test), feature = "arbitrary"))]
+#[derive(Debug, Clone, PartialEq, PartialOrd, arbitrary::Arbitrary)]
+enum ArbitraryGeometry {
+    Point((i32, i32)),
+    // FIXME: Add LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon, once supported upstream
+}
+
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl From<ArbitraryGeometry> for crate::geojson::Geom32 {
+    fn from(value: ArbitraryGeometry) -> Self {
+        use crate::geojson::Geom32 as G;
+        let cord = |(x, y)| Coord { x, y };
+        match value {
+            ArbitraryGeometry::Point((x, y)) => G::Point(Point(cord((x, y)))),
+            // FIXME: once fully working, add the rest
+        }
+    }
+}
+
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl arbitrary::Arbitrary<'_> for DecodedGeometry {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        let geoms = u.arbitrary_iter::<ArbitraryGeometry>()?;
+        let mut decoded = DecodedGeometry::default();
+        for geo in geoms {
+            let geo = crate::geojson::Geom32::from(geo?);
+            decoded.push_geom(&geo);
+        }
+        Ok(decoded)
+    }
+}
+
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl arbitrary::Arbitrary<'_> for OwnedEncodedGeometry {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        let decoded = u.arbitrary()?;
+        let enc = u.arbitrary()?;
+        let geom =
+            Self::from_decoded(&decoded, enc).map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        Ok(geom)
     }
 }
 
