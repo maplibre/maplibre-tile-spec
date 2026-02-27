@@ -6,7 +6,10 @@ import static org.maplibre.mlt.tools.SyntheticMltUtil.*;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
-import org.locationtech.jts.geom.Geometry;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
 
@@ -37,23 +40,23 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateLines() throws IOException {
-    write("line", feat(line(c1, c2)), cfg());
+    write("line", feat(line1), cfg());
   }
 
   private static void generatePolygons() throws IOException {
-    var pol = feat(poly(c1, c2, c3, c1));
+    var pol = feat(poly1);
     write("polygon", pol, cfg());
     write("polygon_fpf", pol, cfg().fastPFOR());
     write("polygon_tes", pol, cfg().tessellate());
     write("polygon_fpf_tes", pol, cfg().fastPFOR().tessellate());
 
     // Polygon with hole
-    var polWithHole = feat(poly(ring(c1, c2, c3, c1), ring(h1, h2, h3, h1)));
+    var polWithHole = feat(poly1h);
     write("polygon_hole", polWithHole, cfg());
     write("polygon_hole_fpf", polWithHole, cfg().fastPFOR());
 
     // MultiPolygon
-    var multiPol = feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1)));
+    var multiPol = feat(multi(poly1, poly2));
     write("polygon_multi", multiPol, cfg());
     write("polygon_multi_fpf", multiPol, cfg().fastPFOR());
   }
@@ -63,44 +66,53 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateMultiLineStrings() throws IOException {
-    write("multiline", feat(multi(line(c1, c2), line(h1, h2, h3))), cfg());
+    write("multiline", feat(multi(line1, line2)), cfg());
+  }
+
+  record GeomType(String sym, Feature feat) {}
+
+  private static void generateMixedCombine(GeomType[] arr, int k, int start, List<GeomType> current)
+      throws IOException {
+    if (current.size() == k) {
+      var name = "mixed_" + current.stream().map(GeomType::sym).collect(Collectors.joining("_"));
+      var feats = current.stream().map(t -> t.feat).toArray(Feature[]::new);
+      write(layer(name, feats), cfg());
+    } else {
+      for (int i = start; i < arr.length; i++) {
+        if (i > start && arr[i] == arr[i - 1]) {
+          continue;
+        }
+        current.add(arr[i]);
+        generateMixedCombine(arr, k, i + 1, current);
+        current.removeLast();
+      }
+    }
   }
 
   private static void generateMixed() throws IOException {
-    record GeomType(String name, Geometry geom) {}
     GeomType[] types = {
-      new GeomType("pt", p0),
-      new GeomType("line", line(c1, c2)),
-      new GeomType("poly", poly(c1, c2, c3, c1)),
-      new GeomType("mpt", multi(p1, p2, p3)),
-      new GeomType("mline", multi(line(c1, c2), line(h1, h2, h3))),
-      new GeomType("mpoly", multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1))),
+      new GeomType("pt", feat(p0)),
+      new GeomType("line", feat(line1)),
+      new GeomType("poly", feat(poly1)),
+      new GeomType("polyh", feat(poly1h)), // with hole
+      new GeomType("mpt", feat(multi(p1, p2, p3))),
+      new GeomType("mline", feat(multi(line1, line2))),
+      new GeomType("mpoly", feat(multi(poly1, poly2))),
     };
 
-    for (var t1 : types) {
-      for (var t2 : types) {
-        var name = "mixed_" + t1.name() + "_" + t2.name();
-        var l1 = layer(name, feat(t1.geom()), feat(t2.geom()));
-        write(l1, cfg());
+    for (int k = 2; k <= types.length; k++) {
+      generateMixedCombine(types, k, 0, new ArrayList<>());
+    }
 
-        // due to how offsets work, this is still a good test to have
-        if (!t2.name().equals(t1.name())) {
-          var l2 = layer(name + "_" + t1.name(), feat(t1.geom()), feat(t2.geom()), feat(t1.geom()));
-          write(l2, cfg());
+    for (var a : types) {
+      for (var b : types) {
+        if (!a.sym.equals(b.sym)) {
+          // Create A-B-A variants
+          var sym = "mixed_" + a.sym + "_" + b.sym + "_" + a.sym;
+          write(layer(sym, a.feat, b.feat, a.feat), cfg());
         }
       }
     }
-
-    write(
-        layer(
-            "mixed_all",
-            feat(types[0].geom()),
-            feat(types[1].geom()),
-            feat(types[2].geom()),
-            feat(types[3].geom()),
-            feat(types[4].geom()),
-            feat(types[5].geom())),
-        cfg());
   }
 
   private static void generateExtent() throws IOException {
@@ -255,10 +267,10 @@ public class SyntheticMltGenerator {
 
     var feat_ints =
         array(
+            feat(p0, prop("val", 42)),
             feat(p1, prop("val", 42)),
             feat(p2, prop("val", 42)),
-            feat(p3, prop("val", 42)),
-            feat(ph1, prop("val", 42)));
+            feat(p3, prop("val", 42)));
     write(layer("props_i32", feat_ints), cfg());
     write(layer("props_i32_delta", feat_ints), cfg(DELTA));
     write(layer("props_i32_rle", feat_ints), cfg(RLE));

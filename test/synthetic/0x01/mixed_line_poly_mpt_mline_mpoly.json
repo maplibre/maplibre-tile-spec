@@ -1,0 +1,175 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            11,
+            52
+          ],
+          [
+            71,
+            72
+          ],
+          [
+            61,
+            22
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              11,
+              52
+            ],
+            [
+              71,
+              72
+            ],
+            [
+              61,
+              22
+            ],
+            [
+              11,
+              52
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            11,
+            52
+          ],
+          [
+            71,
+            72
+          ],
+          [
+            61,
+            22
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "MultiLineString",
+        "coordinates": [
+          [
+            [
+              11,
+              52
+            ],
+            [
+              71,
+              72
+            ],
+            [
+              61,
+              22
+            ]
+          ],
+          [
+            [
+              23,
+              34
+            ],
+            [
+              73,
+              4
+            ],
+            [
+              13,
+              24
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                11,
+                52
+              ],
+              [
+                71,
+                72
+              ],
+              [
+                61,
+                22
+              ],
+              [
+                11,
+                52
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                23,
+                34
+              ],
+              [
+                73,
+                4
+              ],
+              [
+                13,
+                24
+              ],
+              [
+                23,
+                34
+              ]
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}
