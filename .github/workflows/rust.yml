@@ -129,6 +129,16 @@ jobs:
         run: echo "${{ toJSON(needs) }}"
       - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: exit 1
+  # FIXME: Some of our tests require AVX, which is not avaliable on AMD. THIS IS A BUG!
+  rerun-on-failure:
+    needs: [ test, test-msrv, lint, build-release-binaries, test-publish ]
+    if: failure() && fromJSON(github.run_attempt) < 3
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/mlt-setup-rust
+        with:
+          run_id: ${{ github.run_id }}
 
   # Release unpublished packages or create a PR with changes
   release-plz:
