@@ -279,9 +279,16 @@ impl DecodedGeometry {
                 Ok(GeoGeom::Point(Point(pt)))
             }
             GeometryType::LineString => {
-                let r = match (parts, rings) {
-                    (Some(p), Some(r)) => ring_off_pair(r, part_off(p, index)?)?,
-                    (Some(p), None) => part_off_pair(p, index)?,
+                // When geometry_offsets exist (mixed LineString/MultiLineString), use them to
+                // find the correct part index. When rings exist (polygon geometry present),
+                // the vertex range comes from ring_offsets via part_offsets.
+                let r = match (geoms, parts, rings) {
+                    (Some(g), Some(p), Some(r)) => {
+                        ring_off_pair(r, part_off(p, geom_off(g, index)?)?)?
+                    }
+                    (Some(g), Some(p), None) => part_off_pair(p, geom_off(g, index)?)?,
+                    (None, Some(p), Some(r)) => ring_off_pair(r, part_off(p, index)?)?,
+                    (None, Some(p), None) => part_off_pair(p, index)?,
                     _ => return Err(NoPartOffsets(index, geom_type)),
                 };
                 line(r).map(GeoGeom::LineString)
@@ -297,18 +304,48 @@ impl DecodedGeometry {
             }
             GeometryType::MultiPoint => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
-                geom_off_pair(geoms, index)?
-                    .map(&v)
-                    .collect::<Result<Vec<Coord32>, _>>()
-                    .map(|cs| GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect())))
+                let geom_range = geom_off_pair(geoms, index)?;
+                // When ring_offsets exist (polygon geometry present), geometry_offsets indexes
+                // into part_offsets which indexes into ring_offsets for vertex indices.
+                // When only part_offsets exist, geometry_offsets indexes into part_offsets
+                // which gives direct vertex indices.
+                // When neither exist, geometry_offsets gives direct vertex indices.
+                match (parts, rings) {
+                    (Some(parts), Some(rings)) => geom_range
+                        .map(|p| v(ring_off(rings, part_off(parts, p)?)?))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map(|cs| {
+                            GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect()))
+                        }),
+                    (Some(parts), None) => geom_range
+                        .map(|p| v(part_off(parts, p)?))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map(|cs| {
+                            GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect()))
+                        }),
+                    (None, _) => geom_range.map(&v).collect::<Result<Vec<_>, _>>().map(|cs| {
+                        GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect()))
+                    }),
+                }
             }
             GeometryType::MultiLineString => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
-                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
-                geom_off_pair(geoms, index)?
-                    .map(|p| line(part_off_pair(parts, p)?))
-                    .collect::<Result<Vec<LineString<i32>>, _>>()
-                    .map(|ls| GeoGeom::MultiLineString(MultiLineString(ls)))
+                let geom_range = geom_off_pair(geoms, index)?;
+                // When ring_offsets exist (polygon geometry present), geometry_offsets
+                // index directly into ring_offsets for linestring vertex ranges.
+                // Otherwise, geometry_offsets index into part_offsets.
+                if let Some(rings) = rings {
+                    geom_range
+                        .map(|p| line(ring_off_pair(rings, p)?))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map(|ls| GeoGeom::MultiLineString(MultiLineString(ls)))
+                } else {
+                    let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
+                    geom_range
+                        .map(|p| line(part_off_pair(parts, p)?))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map(|ls| GeoGeom::MultiLineString(MultiLineString(ls)))
+                }
             }
             GeometryType::MultiPolygon => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
