@@ -15,6 +15,10 @@ rust-version.workspace = true
 name = "decoding"
 harness = false
 
+[[bench]]
+name = "encoding"
+harness = false
+
 [features]
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
 
