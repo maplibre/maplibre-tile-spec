@@ -257,7 +257,7 @@ impl Layer {
             l.decode_all().unwrap();
         }
         let fc = FeatureCollection::from_layers(&data).unwrap();
-        let mut json = serde_json::to_string_pretty(&serde_json::to_value(&fc).unwrap()).unwrap();
+        let mut json = serde_json::to_string_pretty(&fc).unwrap();
         json.push('\n');
         let mut out_file = Self::open_new(&dir.join(format!("{name}.json"))).unwrap();
         out_file.write_all(json.as_bytes()).unwrap();

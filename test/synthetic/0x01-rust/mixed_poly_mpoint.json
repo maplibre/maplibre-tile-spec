@@ -1,7 +1,14 @@
 {
+  "type": "FeatureCollection",
   "features": [
     {
+      "type": "Feature",
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1"
+      },
       "geometry": {
+        "type": "Polygon",
         "coordinates": [
           [
             [
@@ -21,17 +28,17 @@
               47
             ]
           ]
-        ],
-        "type": "Polygon"
-      },
+        ]
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
         "_extent": 4096,
         "_layer": "layer1"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
+        "type": "MultiPoint",
         "coordinates": [
           [
             12,
@@ -45,15 +52,8 @@
             4,
             47
           ]
-        ],
-        "type": "MultiPoint"
-      },
-      "properties": {
-        "_extent": 4096,
-        "_layer": "layer1"
-      },
-      "type": "Feature"
+        ]
+      }
     }
-  ],
-  "type": "FeatureCollection"
+  ]
 }

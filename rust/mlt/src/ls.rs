@@ -583,8 +583,9 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<
     let matches_json = if flags.validate {
         let json_path = path.with_extension("json");
         if json_path.is_file() {
-            let expected: FeatureCollection = json5::from_str(&fs::read_to_string(&json_path)?)
-                .map_err(|e| anyhow::anyhow!("{e}"))?;
+            let expected: FeatureCollection =
+                serde_json::from_str(&fs::read_to_string(&json_path)?)
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
             let actual = FeatureCollection::from_layers(&layers)?;
             let expected_val = normalize_tiny_floats(serde_json::to_value(&expected)?);
             let actual_val = normalize_tiny_floats(serde_json::to_value(&actual)?);
