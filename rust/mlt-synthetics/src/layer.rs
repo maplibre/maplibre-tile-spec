@@ -5,7 +5,7 @@ use std::io::Write as _;
 use std::path::Path;
 use std::{fs, io};
 
-use geo::{MapCoords as _, TriangulateEarcut as _};
+use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{
@@ -21,11 +21,7 @@ use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
 /// by that ring's start index, producing identical index buffers to Java.
 fn tessellate_polygon(polygon: &Polygon<i32>) -> (Vec<u32>, u32) {
     // Convert i32 polygon to f64 for tessellation (geo's TriangulateEarcut requires CoordFloat)
-    let polygon_f64: Polygon<f64> = polygon.map_coords(|c| geo_types::Coord {
-        x: f64::from(c.x),
-        y: f64::from(c.y),
-    });
-
+    let polygon_f64: Polygon<f64> = polygon.convert();
     let raw = polygon_f64.earcut_triangles_raw();
     let num_triangles = u32::try_from(raw.triangle_indices.len() / 3).expect("too many triangles");
 
