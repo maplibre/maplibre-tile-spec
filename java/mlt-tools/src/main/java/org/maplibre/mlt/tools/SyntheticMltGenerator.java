@@ -74,7 +74,7 @@ public class SyntheticMltGenerator {
       new GeomType("poly", poly(c1, c2, c3, c1)),
       new GeomType("mpt", multi(p1, p2, p3)),
       new GeomType("mline", multi(line(c1, c2), line(h1, h2, h3))),
-      new GeomType("mpoly", multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1)))
+      new GeomType("mpoly", multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1))),
     };
 
     for (var t1 : types) {
@@ -217,8 +217,15 @@ public class SyntheticMltGenerator {
             p1,
             props(
                 kv("name", "Test Point"),
-                kv("count", 42),
                 kv("active", true),
+                // FIXME: needs support in the Java decoder + encoder
+                // kv("tiny-count", (byte) 42),
+                // FIXME: needs support in the decoder + encoder
+                // kv("tiny", U8.of(100)),
+                kv("count", 42),
+                kv("medium", U32.of(100)),
+                kv("bignum", 42L),
+                kv("medium", U64.of(BigInteger.ZERO)),
                 kv("temp", 25.5f),
                 kv("precision", 0.123456789))),
         cfg());
