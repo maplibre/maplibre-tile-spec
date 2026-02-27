@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::MltError::{
     GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, IntegerOverflow,
-    NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented, UnexpectedOffsetCombination,
+    NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented,
 };
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
@@ -264,34 +264,24 @@ impl DecodedGeometry {
 
         match geom_type {
             GeometryType::Point => {
-                let pt = match (geoms, parts, rings) {
-                    (Some(g), Some(p), Some(r)) => {
-                        v(ring_off(r, part_off(p, geom_off(g, index)?)?)?)?
-                    }
-                    (Some(g), Some(p), None) => v(part_off(p, geom_off(g, index)?)?)?,
-                    (None, Some(p), Some(r)) => v(ring_off(r, part_off(p, index)?)?)?,
-                    (None, Some(p), None) => v(part_off(p, index)?)?,
-                    (None, None, None) => v(index)?,
-                    _ => {
-                        return Err(UnexpectedOffsetCombination(index, geom_type));
-                    }
-                };
-                Ok(GeoGeom::Point(Point(pt)))
+                // Resolve through hierarchy: geoms? -> parts? -> rings? -> vertex
+                let idx = geoms.map_or(Ok(index), |g| geom_off(g, index))?;
+                let idx = parts.map_or(Ok(idx), |p| part_off(p, idx))?;
+                let idx = rings.map_or(Ok(idx), |r| ring_off(r, idx))?;
+                Ok(GeoGeom::Point(Point(v(idx)?)))
             }
             GeometryType::LineString => {
-                // When geometry_offsets exist (mixed LineString/MultiLineString), use them to
-                // find the correct part index. When rings exist (polygon geometry present),
-                // the vertex range comes from ring_offsets via part_offsets.
-                let r = match (geoms, parts, rings) {
-                    (Some(g), Some(p), Some(r)) => {
-                        ring_off_pair(r, part_off(p, geom_off(g, index)?)?)?
-                    }
-                    (Some(g), Some(p), None) => part_off_pair(p, geom_off(g, index)?)?,
-                    (None, Some(p), Some(r)) => ring_off_pair(r, part_off(p, index)?)?,
-                    (None, Some(p), None) => part_off_pair(p, index)?,
-                    _ => return Err(NoPartOffsets(index, geom_type)),
+                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
+                // Get part index: use geoms[index] if present, else index directly
+                let part_idx = geoms.map_or(Ok(index), |g| geom_off(g, index))?;
+                // With rings: parts[part_idx] gives ring index, use ring_offsets for vertex range
+                // Without rings: use part_offsets directly for vertex range
+                let vertex_range = if let Some(r) = rings {
+                    ring_off_pair(r, part_off(parts, part_idx)?)?
+                } else {
+                    part_off_pair(parts, part_idx)?
                 };
-                line(r).map(GeoGeom::LineString)
+                line(vertex_range).map(GeoGeom::LineString)
             }
             GeometryType::Polygon => {
                 let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
