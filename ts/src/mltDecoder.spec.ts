@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { expect, describe, it } from "vitest";
 import { readdirSync, readFileSync } from "fs";
 import { parse, join } from "path";
@@ -98,7 +99,7 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
 
             const mltGeometry = mltFeature.geometry?.coordinates;
             const mvtGeometry = mvtFeature.loadGeometry();
-            expect(mltGeometry).toEqual(mvtGeometry);
+            assert.deepEqual(mltGeometry, mvtGeometry);
 
             const mltProperties = mltFeature.properties;
             const mvtProperties = mvtFeature.properties;
@@ -109,9 +110,7 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
             //encoded anymore
             removeEmptyStrings(mvtProperties);
             removeEmptyStrings(mltProperties);
-
-            expect(Object.keys(mltProperties).length).toEqual(Object.keys(mvtProperties).length);
-            expect(mltProperties).toEqual(mvtProperties);
+            assert.deepEqual(mltProperties, mvtProperties);
         }
     }
 }
@@ -119,7 +118,7 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
 function compareId(mltFeature: Feature, mvtFeature: VectorTileFeature, idWithinMaxSafeInteger: boolean) {
     if (!mvtFeature.id) {
         /* Java MVT library in the MVT converter decodes zero for undefined ids */
-        expect([0, null, 0n]).toContain(mltFeature.id);
+        assert.ok(mltFeature.id === 0 || mltFeature.id === null || mltFeature.id === 0n);
     } else {
         const mltFeatureId = mltFeature.id;
         /* For const and sequence vectors the decoder can return bigint compared to the vector-tile-js library */
@@ -135,14 +134,14 @@ function compareId(mltFeature: Feature, mvtFeature: VectorTileFeature, idWithinM
         if (mltFeatureId < 0 || mltFeatureId > Number.MAX_SAFE_INTEGER) {
             /* Expected to fail in some/most cases */
             try {
-                expect(actualId).toEqual(mvtFeature.id);
+                assert.equal(actualId, mvtFeature.id);
             } catch (e) {
                 //console.info("id mismatch", featureTableName, mltFeatureId, mvtFeature.id);
             }
             return;
         }
 
-        expect(actualId).toEqual(mvtFeature.id);
+        assert.equal(actualId, mvtFeature.id);
     }
 }
 
