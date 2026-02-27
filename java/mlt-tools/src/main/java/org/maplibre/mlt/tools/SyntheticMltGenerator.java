@@ -203,7 +203,8 @@ public class SyntheticMltGenerator {
     write("prop_f64_neg_inf", feat(p0, prop("val", Double.NEGATIVE_INFINITY)), cfg());
     write("prop_f64_min_exp", feat(p0, prop("val", Double.MIN_EXPONENT)), cfg());
     write("prop_f64_min_norm", feat(p0, prop("val", Double.MIN_NORMAL)), cfg());
-    write("prop_f64_min_val", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
+    // FIXME: Produces the same output as prop_f64_min_norm
+    // write("prop_f64_min_val", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
     write("prop_f64_neg_zero", feat(p0, prop("val", (double) -0.0)), cfg());
     // FIXME: Produces the same output as prop_f64_min
     // write("prop_f64_zero", feat(p0, prop("val", (double) 0.0)), cfg());
