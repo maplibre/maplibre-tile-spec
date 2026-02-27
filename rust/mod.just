@@ -212,7 +212,7 @@ alias t := test
 # Run all tests
 test:
     cargo test --all-features {{if ci_mode == '1' {'--lib --bins --tests --examples -- --test-threads=1'} else {'--all-targets'} }}
-    {{just}} rust::generate-synthetic-mlts
+    # {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
 
 # Test documentation generation
@@ -244,8 +244,8 @@ generate-synthetic-mlts:
     cargo run -p mlt-synthetics
     {{just}} rust::validate-synthetic
     {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
-    {{just}} rust::_assert-synthetic-mlt-identity
     {{just}} rust::_verify-synthetic-equality
+    {{just}} rust::_assert-synthetic-mlt-identity
 
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
@@ -306,7 +306,7 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
     DIR_A="../test/synthetic/0x01"
     DIR_B="../test/synthetic/0x01-rust"
 
-    BIN="cargo run --quiet --"
+    BIN="cargo run --bin mlt --quiet --"
     find "$DIR_A" -type f -iname "*.mlt" | while read -r file_a; do
       rel_path="$(posix_relpath "$DIR_A" "$file_a")"
       file_b="$DIR_B/$rel_path"

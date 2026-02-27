@@ -11,7 +11,6 @@ import org.maplibre.mlt.data.MapLibreTile
 import java.util.SortedMap
 import kotlin.math.floor
 
-
 class JsonHelper {
     companion object {
         @JvmStatic
