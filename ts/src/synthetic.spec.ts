@@ -1,12 +1,12 @@
-import { readdir, readFile } from "node:fs/promises";
-import { join, parse, resolve } from "node:path";
-import JSON5 from "json5";
-import { describe, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { describe, it } from "vitest";
 import decodeTile from "./mltDecoder";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
 import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
-import { expectJsonEqualWithTolerance } from "./synthetic-test-util.js";
+
+import { SyntheticTestRunner } from "synthetic-test-tool";
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["polygon_multi_fpf", "FastPFor not implemented"],
@@ -22,39 +22,23 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
 ]);
 
 const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");
-const files = await readdir(syntheticDir);
-const testNames = files
-    .filter((f) => f.endsWith(".mlt"))
-    .map((f) => parse(f).name)
-    .sort();
-// Separate tests into two groups
-const activeList = testNames.filter((name) => !UNIMPLEMENTED_SYNTHETICS.has(name));
-const skippedTests = testNames
-    .filter((name) => UNIMPLEMENTED_SYNTHETICS.has(name))
-    .map((name) => [name, UNIMPLEMENTED_SYNTHETICS.get(name)] as const);
+
+class SyntheticTestRunnerJS extends SyntheticTestRunner {
+    shouldSkip(testName: string) {
+        return UNIMPLEMENTED_SYNTHETICS.get(testName) ?? false;
+    }
+
+    async decodeMLT(mltFilePath: string) {
+        const mltBuffer = await readFile(mltFilePath);
+        const featureTables = decodeTile(mltBuffer, undefined, false);
+        return featureTablesToFeatureCollection(featureTables) as unknown as Record<string, unknown>;
+    }
+}
 
 describe("MLT Decoder - Synthetic tests", () => {
-    /**
-     * This adds number handing comparison logic to vitest for number which are close enough, but would fail the regular comparison.
-     */
-
-    for (const testName of activeList) {
-        it(`should decode ${testName}`, async () => {
-            const [mltBuffer, jsonRaw] = await Promise.all([
-                readFile(join(syntheticDir, `${testName}.mlt`)),
-                readFile(join(syntheticDir, `${testName}.json`), "utf-8"),
-            ]);
-
-            const featureTables = decodeTile(mltBuffer, null, false);
-            const actualJson = featureTablesToFeatureCollection(featureTables);
-            const expectedJson = JSON5.parse(jsonRaw);
-            expectJsonEqualWithTolerance(actualJson, expectedJson);
-        });
-    }
-
-    for (const skipTest of skippedTests) {
-        it.skip(`should decode ${skipTest[0]} (skipped because: ${skipTest[1]})`, () => {});
-    }
+    it("should pass all synthetic tests", async () => {
+        await new SyntheticTestRunnerJS().run(syntheticDir);
+    });
 });
 
 function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSON.FeatureCollection {
@@ -70,8 +54,9 @@ function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSO
                     ...Object.fromEntries(Object.entries(feature.properties).map(([k, v]) => [k, safeNumber(v)])),
                 },
             };
-            if (safeNumber(feature.id) !== null) {
-                geojsonFeature.id = safeNumber(feature.id);
+            const id = safeNumber(feature.id);
+            if (id != null) {
+                geojsonFeature.id = id;
             }
             features.push(geojsonFeature);
         }

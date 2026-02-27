@@ -1,6 +1,7 @@
 {
   "type": "module",
   "dependencies": {
-    "json5": "^2.2.3"
+    "json5": "^2.2.3",
+    "synthetic-test-tool": "file:../test/synthetic/synthetic-test-tool"
   }
 }
