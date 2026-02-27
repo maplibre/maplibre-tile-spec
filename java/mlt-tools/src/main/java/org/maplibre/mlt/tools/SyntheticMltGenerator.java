@@ -68,7 +68,6 @@ public class SyntheticMltGenerator {
 
   private static void generateMixed() throws IOException {
     record GeomType(String name, Geometry geom) {}
-    // we deduplicate duplicate geometry, so yes this is nessesary
     GeomType[] types = {
       new GeomType("pt", p0),
       new GeomType("line", line(c1, c2)),
