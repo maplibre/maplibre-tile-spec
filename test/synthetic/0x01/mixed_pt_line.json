@@ -4,7 +4,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1"
       },
       "geometry": {
@@ -18,19 +18,23 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1"
       },
       "geometry": {
         "type": "LineString",
         "coordinates": [
           [
-            4,
-            47
+            11,
+            52
           ],
           [
-            12,
-            53
+            71,
+            72
+          ],
+          [
+            61,
+            22
           ]
         ]
       }
