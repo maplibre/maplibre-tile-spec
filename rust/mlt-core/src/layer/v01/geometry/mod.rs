@@ -330,17 +330,18 @@ impl DecodedGeometry {
             }
             GeometryType::MultiLineString => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
+                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
                 let geom_range = geom_off_pair(geoms, index)?;
-                // When ring_offsets exist (polygon geometry present), geometry_offsets
-                // index directly into ring_offsets for linestring vertex ranges.
-                // Otherwise, geometry_offsets index into part_offsets.
+                // geometry_offsets indexes into part_offsets for each linestring.
+                // When ring_offsets exist (polygon geometry present), part_offsets indexes
+                // into ring_offsets for vertex ranges. Otherwise, part_offsets directly
+                // gives vertex ranges.
                 if let Some(rings) = rings {
                     geom_range
-                        .map(|p| line(ring_off_pair(rings, p)?))
+                        .map(|p| line(ring_off_pair(rings, part_off(parts, p)?)?))
                         .collect::<Result<Vec<_>, _>>()
                         .map(|ls| GeoGeom::MultiLineString(MultiLineString(ls)))
                 } else {
-                    let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
                     geom_range
                         .map(|p| line(part_off_pair(parts, p)?))
                         .collect::<Result<Vec<_>, _>>()
