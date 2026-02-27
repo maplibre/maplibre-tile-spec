@@ -626,7 +626,7 @@ fn json_values_equal(a: &JsonValue, b: &JsonValue) -> bool {
         (JsonValue::Number(na), JsonValue::Number(nb)) if na.is_f64() && nb.is_f64() => {
             let na = na.as_f64().expect("f64");
             let nb = nb.as_f64().expect("f64");
-            assert!(na.is_nan() || nb.is_nan(), "unexpected non-finite numbers");
+            assert!(!na.is_nan() && !nb.is_nan(), "unexpected non-finite numbers");
             let abs_diff = (na - nb).abs();
             let max_abs = na.abs().max(nb.abs()).max(1.0);
             abs_diff <= f64::from(f32::EPSILON) * max_abs * 2.0
