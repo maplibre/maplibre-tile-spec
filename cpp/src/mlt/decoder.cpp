@@ -20,6 +20,7 @@
 #include <mlt/util/varint.hpp>
 
 #include <cstddef>
+#include <optional>
 #include <stdexcept>
 
 namespace mlt {
@@ -119,7 +120,7 @@ std::vector<Feature> Decoder::Impl::makeFeatures(const std::vector<std::optional
     }
 
     return util::generateVector<Feature>(featureCount, [&](const auto i) {
-        const auto id = ids.empty() ? std::optional<Feature::id_t>{} : ids[i];
+        const auto id = ids.empty() ? std::nullopt : ids[i];
         return Feature{id, std::move(geometries[i]), static_cast<std::uint32_t>(i)};
     });
 }
