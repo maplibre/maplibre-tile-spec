@@ -229,5 +229,27 @@ public class ConversionConfigTest {
             .geometryEncoding(ConversionConfig.IntegerEncodingOption.PLAIN)
             .build();
     assertEquals(ConversionConfig.IntegerEncodingOption.PLAIN, custom.getGeometryEncodingOption());
+
+    // When only integer encoding is set, geometry stays AUTO (backward compatible with main:
+    // on main, geometry streams always used AUTO and were not controlled by integerEncodingOption).
+    var withIntegerOnly =
+        ConversionConfig.builder()
+            .integerEncoding(ConversionConfig.IntegerEncodingOption.RLE)
+            .build();
+    assertEquals(
+        ConversionConfig.IntegerEncodingOption.RLE, withIntegerOnly.getIntegerEncodingOption());
+    assertEquals(
+        ConversionConfig.DEFAULT_INTEGER_ENCODING, withIntegerOnly.getGeometryEncodingOption());
+  }
+
+  @Test
+  public void testIntegerEncodingOnlyConstructor_geometryStaysAuto() {
+    // Constructor that takes integerEncodingOption: geometry encoding stays AUTO for backward
+    // compatibility (on main, geometry was never configurable and always used AUTO).
+    var cfg =
+        new ConversionConfig(
+            true, false, false, Map.of(), false, ConversionConfig.IntegerEncodingOption.DELTA);
+    assertEquals(ConversionConfig.IntegerEncodingOption.DELTA, cfg.getIntegerEncodingOption());
+    assertEquals(ConversionConfig.DEFAULT_INTEGER_ENCODING, cfg.getGeometryEncodingOption());
   }
 }

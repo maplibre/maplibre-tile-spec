@@ -313,7 +313,7 @@ public class ConversionConfig {
     private Pattern layerFilterPattern = null;
     private boolean layerFilterInvert = DEFAULT_LAYER_FILTER_INVERT;
     private IntegerEncodingOption integerEncodingOption = DEFAULT_INTEGER_ENCODING;
-    private IntegerEncodingOption geometryEncodingOption = DEFAULT_INTEGER_ENCODING;
+    private @Nullable IntegerEncodingOption geometryEncodingOption = null;
 
     public Builder includeIds(boolean val) {
       this.includeIds = val;
@@ -385,6 +385,8 @@ public class ConversionConfig {
     }
 
     public ConversionConfig build() {
+      var effectiveGeometryEncoding =
+          geometryEncodingOption != null ? geometryEncodingOption : DEFAULT_INTEGER_ENCODING;
       return new ConversionConfig(
           includeIds,
           useFastPFOR,
@@ -397,7 +399,7 @@ public class ConversionConfig {
           layerFilterPattern,
           layerFilterInvert,
           integerEncodingOption,
-          geometryEncodingOption);
+          effectiveGeometryEncoding);
     }
   }
 }

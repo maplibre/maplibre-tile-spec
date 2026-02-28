@@ -103,7 +103,7 @@ public class IntegerEncoder {
   }
 
   public static byte[] encodeIntStream(
-      ArrayList<Integer> values,
+      List<Integer> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
       PhysicalStreamType streamType,
