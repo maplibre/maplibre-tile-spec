@@ -257,8 +257,8 @@ public class SyntheticMltGenerator {
                 // kv("tiny", U8.of(100)),
                 kv("count", 42),
                 kv("medium", U32.of(100)),
-                kv("bignum", 42L),
-                kv("biggest", U64.of(BigInteger.ZERO)), // FIXME: this is encoded as u32
+                kv("bignum", 42L), // FIXME: this is encoded as i32
+                kv("biggest", U64.of(BigInteger.ZERO)),
                 kv("temp", 25.5f),
                 kv("precision", 0.123456789))),
         cfg());
