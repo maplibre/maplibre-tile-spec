@@ -653,8 +653,6 @@ pub fn encode_geometry(
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct GeometryEncoder {
-    // NOTE: vertex_buffer_type is pinned to Vec2 in the Arbitrary impl below — Morton
-    // requires coordinates in a bounded range and is tested via dedicated tests only.
     /// Encoding settings for the geometry types (meta) stream.
     pub meta: Encoder,
 
@@ -681,12 +679,14 @@ pub struct GeometryEncoder {
     /// Encoding for triangle index buffer (pre-tessellated polygons).
     pub triangles_indexes: Encoder,
 
-    /// Encoding for the vertex data stream (logical encoding depends on `vertex_buffer_type`).
+    /// Encoding for the vertex data stream (logical encoding is always `ComponentwiseDelta` if `vertex_buffer_type==Vec2`).
     pub vertex: Encoder,
     /// Encoding for vertex offsets (used when `vertex_buffer_type` is not `Vec2`).
     pub vertex_offsets: Encoder,
 
     /// How the vertex buffer should be encoded.
+    // vertex_buffer_type is pinned to Vec2 in the Arbitrary impl below.
+    // Morton encoding requires coordinates in a bounded range and is tested via dedicated tests only.
     #[cfg_attr(test, proptest(value = "VertexBufferType::Vec2"))]
     #[cfg_attr(all(not(test), feature = "arbitrary"), arbitrary(value = VertexBufferType::Vec2))]
     pub vertex_buffer_type: VertexBufferType,
