@@ -285,7 +285,7 @@ fn create_unit_geometry_offsets(vector_types: &[GeometryType]) -> Vec<u32> {
 }
 
 /// Normalize `part_offsets` for ring-based indexing (Polygon mixed with `Point`/`LineString`).
-/// Returns an offset array where offset[i+1] - offset[i] = number of ring length entries
+/// Returns an offset array where `offset[i+1]` - `offset[i]` = number of ring length entries
 /// that geometry i contributes to the rings stream.
 ///
 /// When a Polygon is present:
