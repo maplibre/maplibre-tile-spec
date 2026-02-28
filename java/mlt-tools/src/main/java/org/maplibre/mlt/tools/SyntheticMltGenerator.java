@@ -95,7 +95,7 @@ public class SyntheticMltGenerator {
             + "_"
             + current.stream().map(GeomType::sym).collect(Collectors.joining("_"));
     var feats = current.stream().map(t -> t.feat).toArray(Feature[]::new);
-    write(layer(name, feats), cfg());
+    write(layer(name, feats), cfg().geomEnc(PLAIN));
   }
 
   private static void generateMixedCombine(GeomType[] arr, int k, int start, List<GeomType> current)
