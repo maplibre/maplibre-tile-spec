@@ -72,6 +72,11 @@ impl SynthWriter {
         Self { dir }
     }
 
+    #[must_use]
+    pub fn geo(&self, encoder: Encoder) -> Layer {
+        Layer::new(self.dir.clone(), encoder)
+    }
+
     /// Create a layer with all geometry encoders set to `VarInt`.
     #[must_use]
     pub fn geo_varint(&self) -> Layer {

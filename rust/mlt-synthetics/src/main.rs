@@ -20,19 +20,20 @@ use mlt_core::v01::{
 
 use crate::layer::{DecodedProp, SynthWriter, bool, i32};
 
-const C0: Coord<i32> = c(13, 42);
+const C0: Coord<i32> = coord! { x: 13, y: 42 };
 // triangle 1, clockwise winding, X ends in 1, Y ends in 2
-const C1: Coord<i32> = c(11, 52);
-const C2: Coord<i32> = c(71, 72);
-const C3: Coord<i32> = c(61, 22);
+const C1: Coord<i32> = coord! { x: 11, y: 52 };
+const C2: Coord<i32> = coord! { x: 71, y: 72 };
+const C3: Coord<i32> = coord! { x: 61, y: 22 };
 // triangle 2, clockwise winding, X ends in 3, Y ends in 4
-const C21: Coord<i32> = c(23, 34);
-const C22: Coord<i32> = c(73, 4);
-const C23: Coord<i32> = c(13, 24);
+const C21: Coord<i32> = coord! { x: 23, y: 34 };
+const C22: Coord<i32> = coord! { x: 73, y: 4 };
+const C23: Coord<i32> = coord! { x: 13, y: 24 };
 // hole in triangle 1 with counter-clockwise winding
-const H1: Coord<i32> = c(65, 66);
-const H2: Coord<i32> = c(35, 56);
-const H3: Coord<i32> = c(55, 36);
+const H1: Coord<i32> = coord! { x: 65, y: 66 };
+const H2: Coord<i32> = coord! { x: 35, y: 56 };
+const H3: Coord<i32> = coord! { x: 55, y: 36 };
+
 const P0: Point<i32> = Point(C0);
 const P1: Point<i32> = Point(C1);
 const P2: Point<i32> = Point(C2);
@@ -67,64 +68,115 @@ fn main() {
     generate_properties(&writer);
 }
 
+// Geometry builder macros matching Java definitions
+fn line1() -> geo_types::LineString<i32> {
+    line![C1, C2, C3]
+}
+fn line2() -> geo_types::LineString<i32> {
+    line![C21, C22, C23]
+}
+fn poly1() -> geo_types::Polygon<i32> {
+    poly![C1, C2, C3, C1]
+}
+fn poly2() -> geo_types::Polygon<i32> {
+    poly![C21, C22, C23, C21]
+}
+fn poly1h() -> geo_types::Polygon<i32> {
+    poly! { exterior: [C1, C2, C3, C1], interiors: [[H1, H2, H3, H1]] }
+}
+
 fn generate_geometry(w: &SynthWriter) {
     w.geo_varint().geo(P0).write("point");
-    w.geo_varint().geo(line![C1, C2, C3]).write("line");
-    w.geo_varint().geo(poly![C1, C2, C3, C1]).write("polygon");
+    w.geo_varint().geo(line1()).write("line");
+    w.geo_varint().geo(poly1()).write("polygon");
+    w.geo_fastpfor().geo(poly1()).write("polygon_fpf");
+    w.geo_varint().tessellated(poly1()).write("polygon_tes");
     w.geo_fastpfor()
-        .geo(poly![C1, C2, C3, C1])
-        .write("polygon_fpf");
-    w.geo_varint()
-        .tessellated(poly![C1, C2, C3, C1])
-        .write("polygon_tes");
-    w.geo_fastpfor()
-        .tessellated(poly![C1, C2, C3, C1])
+        .tessellated(poly1())
         .write("polygon_fpf_tes");
     w.geo_varint()
         .parts_ring(E::rle_varint())
-        .geo(poly! { exterior: [C1, C2, C3, C1], interiors: [[H1, H2, H3, H1]] })
+        .geo(poly1h())
         .write("polygon_hole");
     w.geo_fastpfor()
         .parts_ring(E::rle_fastpfor())
-        .geo(poly! { exterior: [C1, C2, C3, C1], interiors: [[H1, H2, H3, H1]] })
+        .geo(poly1h())
         .write("polygon_hole_fpf");
     w.geo_varint()
         .rings(E::rle_varint())
         .rings2(E::rle_varint())
-        .geo(MultiPolygon(vec![
-            poly![C1, C2, C3, C1],
-            poly![C21, C22, C23, C21],
-        ]))
+        .geo(MultiPolygon(vec![poly1(), poly2()]))
         .write("polygon_multi");
     w.geo_fastpfor()
         .rings(E::rle_fastpfor())
         .rings2(E::rle_fastpfor())
-        .geo(MultiPolygon(vec![
-            poly![C1, C2, C3, C1],
-            poly![C21, C22, C23, C21],
-        ]))
+        .geo(MultiPolygon(vec![poly1(), poly2()]))
         .write("polygon_multi_fpf");
     w.geo_varint()
         .geo(MultiPoint(vec![P1, P2, P3]))
         .write("multipoint");
     w.geo_varint()
-        .geo(MultiLineString(vec![
-            line![C1, C2, C3],
-            line![C21, C22, C23],
-        ]))
+        .no_rings(E::rle_varint())
+        .geo(MultiLineString(vec![line1(), line2()]))
         .write("multiline");
 }
 
+// Geometries = Rle        mline OR mpoly OR mpt
+// Parts = Rle             line OR poly OR polyh
+// Rings = Rle             mpoly OR poly OR polyh
+// VarBinary = DeltaRle    (line AND polyh AND mpt) OR (line AND poly AND mpt)
+// VarBinary = Rle         line OR mline OR mpoly OR mpt OR poly OR polyh OR pt
+
+static types: [(&str, Geom32); 7] = [
+    ("pt", p(38, 29).into()),
+    ("line", line![c(5, 38), c(12, 45), c(9, 70)].into()),
+    (
+        "poly",
+        poly![c(55, 5), c(58, 28), c(75, 22), c(55, 5)].into(),
+    ),
+    (
+        "polyh",
+        poly! {
+                exterior: [c(52, 35), c(14, 55), c(60, 72), c(52, 35)],
+                interiors: [[c(32, 50), c(36, 60), c(24, 54), c(32, 50)]]
+            }
+            .into(),
+    ),
+    (
+        "mpt",
+        MultiPoint(vec![p(6, 25), p(21, 41), p(23, 69)]).into(),
+    ),
+    (
+        "mline",
+        MultiLineString(vec![
+            line![c(24, 10), c(42, 18)],
+            line![c(30, 36), c(48, 52), c(35, 62)],
+        ])
+            .into(),
+    ),
+    (
+        "mpoly",
+        MultiPolygon(vec![
+            poly! {
+                    exterior: [c(7, 20), c(21, 31), c(26, 9), c(7, 20)],
+                    interiors: [[c(15, 20), c(20, 15), c(18, 25), c(15, 20)]]
+                },
+            poly![c(69, 57), c(71, 66), c(73, 64), c(69, 57)],
+        ])
+            .into(),
+    ),
+];
+
+
 fn generate_combinations(
     w: &SynthWriter,
-    types: &[(&str, Geom32)],
     k: usize,
     start: usize,
     current: &mut Vec<usize>,
 ) {
     if current.len() == k {
         let name = format!(
-            "mixed_{k}_{}",
+            "mix_{k}_{}",
             current
                 .iter()
                 .map(|&i| types[i].0)
@@ -139,55 +191,40 @@ fn generate_combinations(
     } else {
         for i in start..types.len() {
             current.push(i);
-            generate_combinations(w, types, k, i + 1, current);
+            generate_combinations(w, k, i + 1, current);
             current.pop();
         }
     }
 }
 
 fn generate_mixed(w: &SynthWriter) {
-    let types: Vec<(&str, Geom32)> = vec![
-        ("pt", p(38, 29).into()),
-        ("line", line![c(5, 38), c(12, 45), c(9, 70)].into()),
-        (
-            "poly",
-            poly![c(55, 5), c(58, 28), c(75, 22), c(55, 5)].into(),
-        ),
-        (
-            "polyh",
-            poly! {
-                exterior: [c(52, 35), c(14, 55), c(60, 72), c(52, 35)],
-                interiors: [[c(32, 50), c(36, 60), c(24, 54), c(32, 50)]]
-            }
-            .into(),
-        ),
-        (
-            "mpoint",
-            MultiPoint(vec![p(6, 25), p(21, 41), p(23, 69)]).into(),
-        ),
-        (
-            "mline",
-            MultiLineString(vec![
-                line![c(24, 10), c(42, 18)],
-                line![c(30, 36), c(48, 52), c(35, 62)],
-            ])
-            .into(),
-        ),
-        (
-            "mpoly",
-            MultiPolygon(vec![
-                poly! {
-                    exterior: [c(7, 20), c(21, 31), c(26, 9), c(7, 20)],
-                    interiors: [[c(15, 20), c(20, 15), c(18, 25), c(15, 20)]]
-                },
-                poly![c(69, 57), c(71, 66), c(73, 64), c(69, 57)],
-            ])
-            .into(),
-        ),
-    ];
-
     for k in 2..=types.len() {
-        generate_combinations(w, &types, k, 0, &mut Vec::new());
+        generate_combinations(w, k, 0, &mut Vec::new());
+    }
+
+    // Generate A-A (duplicate) and A-B-A patterns
+    for (na, ga) in &types {
+        // A-A variant: mix_dup_<a>
+        let name = format!("mix_dup_{na}");
+        let geoms = vec![ga.clone(), ga.clone()];
+        let mut layer = w.geo_varint();
+        for g in geoms {
+            layer = layer.geo(g);
+        }
+        layer.write(&name);
+
+        for (nb, gb) in &types {
+            if na != nb {
+                // A-B-A variant: mix_<a>_<b>_<a>
+                let name = format!("mix_{na}_{nb}_{na}");
+                let geoms = vec![ga.clone(), gb.clone(), ga.clone()];
+                let mut layer = w.geo_varint();
+                for g in geoms {
+                    layer = layer.geo(g);
+                }
+                layer.write(&name);
+            }
+        }
     }
 }
 
