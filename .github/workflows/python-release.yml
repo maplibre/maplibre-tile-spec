@@ -8,7 +8,7 @@ on:
     branches:
       - main
     tags:
-      - 'rust-mlt-pyo3-v*'
+      - 'python-mlt-v*'
   pull_request:
     paths:
       - 'justfile'
@@ -33,13 +33,16 @@ jobs:
           # FIXME: FSST does not seem to support 32bit targets
           #- runner: ubuntu-22.04
           #  target: x86
-          # FIXME: Weird portability-cmake issues with fastpfor
+          # FIXME: Python::initialize not avaliable for linking
           #- runner: ubuntu-22.04
           #  target: aarch64
+          # FIXME: error: unknown type name '__m128i' and related
           #- runner: ubuntu-22.04
           #  target: armv7
+          # FIXME: cpp standard mismatch
           #- runner: ubuntu-22.04
           #  target: s390x
+          # FIXME: error: unknown type name '__m128i' and related
           #- runner: ubuntu-22.04
           #  target: ppc64le
     steps:
@@ -51,7 +54,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-pyo3/Cargo.toml
+          args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-py/Cargo.toml
           sccache: false
           manylinux: auto
       - name: Upload wheels
@@ -60,41 +63,48 @@ jobs:
           name: wheels-linux-${{ matrix.platform.target }}
           path: dist
 
-  musllinux:
-    runs-on: ${{ matrix.platform.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - runner: ubuntu-22.04
-            target: x86_64
-          # FIXME: FSST does not seem to support 32bit targets
-          #- runner: ubuntu-22.04
-          #  target: x86
-          # FIXME: Weird portability-cmake issues with fastpfor
-          #- runner: ubuntu-22.04
-          #  target: aarch64
-          #- runner: ubuntu-22.04
-          #  target: armv7
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/mlt-setup-rust
-      - uses: actions/setup-python@v6
-        with: { python-version: '3.x' }
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.platform.target }}
-          args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-pyo3/Cargo.toml
-          sccache: false
-          manylinux: musllinux_1_2
-      - name: Upload wheels
-        uses: actions/upload-artifact@v5
-        with:
-          name: wheels-musllinux-${{ matrix.platform.target }}
-          path: dist
+  # FIXME: our --bin bins/stub-gen requires pyo3::Python::initialize, but unsure how to do that on musllinux. We don't need it for the library!
+  #musllinux:
+  #  runs-on: ${{ matrix.platform.runner }}
+  #  strategy:
+  #    fail-fast: false
+  #    matrix:
+  #      platform:
+  #        - runner: ubuntu-22.04
+  #          target: x86_64
+  #        - runner: ubuntu-22.04
+  #          target: x86
+  #        - runner: ubuntu-22.04
+  #          target: aarch64
+  #        - runner: ubuntu-22.04
+  #        # FIXME: FSST does not seem to support 32bit targets
+  #        #- runner: ubuntu-22.04
+  #        #  target: x86
+  #        # FIXME: Python::initialize not avaliable for linking
+  #        #- runner: ubuntu-22.04
+  #        # target: aarch64
+  #        # FIXME: error: unknown type name '__m128i' and related
+  #        #- runner: ubuntu-22.04
+  #        #  target: armv7
+  #  steps:
+  #    - uses: actions/checkout@v6
+  #    - uses: ./.github/actions/mlt-setup-rust
+  #    - uses: actions/setup-python@v6
+  #      with: { python-version: '3.x' }
+  #    - name: Build wheels
+  #      uses: PyO3/maturin-action@v1
+  #      with:
+  #        target: ${{ matrix.platform.target }}
+  #        args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-py/Cargo.toml
+  #        sccache: false
+  #        manylinux: musllinux_1_2
+  #    - name: Upload wheels
+  #      uses: actions/upload-artifact@v5
+  #      with:
+  #        name: wheels-musllinux-${{ matrix.platform.target }}
+  #        path: dist
 
-  # FIXME: Weird portability-cmake issues with fastpfor
+  # FIXME: Failed to run `zig cc -v` with status exit code: 1: error: unable to create compilation: LibCStdLibHeaderNotFound
   #windows:
   #  runs-on: ${{ matrix.platform.runner }}
   #  strategy:
@@ -121,7 +131,7 @@ jobs:
   #      uses: PyO3/maturin-action@v1
   #      with:
   #        target: ${{ matrix.platform.target }}
-  #        args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-pyo3/Cargo.toml
+  #        args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-py/Cargo.toml
   #        sccache: false
   #    - name: Upload wheels
   #      uses: actions/upload-artifact@v5
@@ -137,9 +147,8 @@ jobs:
         platform:
           - runner: macos-15-intel
             target: x86_64
-          # FIXME: Weird portability-cmake issues with fastpfor
-          #- runner: macos-latest
-          #  target: aarch64
+          - runner: macos-latest
+            target: aarch64
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/mlt-setup-rust
@@ -149,7 +158,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-pyo3/Cargo.toml
+          args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-py/Cargo.toml
           sccache: false
       - name: Upload wheels
         uses: actions/upload-artifact@v5
@@ -165,7 +174,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
-          args: --out dist --manifest-path rust/mlt-pyo3/Cargo.toml
+          args: --out dist --manifest-path rust/mlt-py/Cargo.toml
       - name: Upload sdist
         uses: actions/upload-artifact@v5
         with: { name: 'wheels-sdist', path: 'dist' }
@@ -176,8 +185,9 @@ jobs:
     if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
     needs:
       - linux
-      - musllinux
-      # FIXME: Weird portability-cmake issues with fastpfor
+      # FIXME: does seem to require dev-only dependencys
+      #- musllinux
+      # FIXME: Failed to run `zig cc -v` with status exit code: 1: error: unable to create compilation: LibCStdLibHeaderNotFound
       #- windows
       - macos
       - sdist

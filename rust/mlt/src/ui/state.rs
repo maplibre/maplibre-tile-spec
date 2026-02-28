@@ -98,9 +98,11 @@ pub struct App {
     pub(crate) selected_file_index: usize,
     pub(crate) file_list_state: TableState,
     pub(crate) analysis_rx: Option<mpsc::Receiver<Vec<LsRow>>>,
+    /// Base path for file browser; used when drawing to show relative paths.
+    pub(crate) file_browser_base: Option<PathBuf>,
     file_sort: Option<(FileSortColumn, bool)>,
     pub(crate) file_table_area: Option<Rect>,
-    pub(crate) file_table_widths: Option<[Constraint; 5]>,
+    pub(crate) file_table_widths: Option<[Constraint; 6]>,
     pub(crate) current_file: Option<PathBuf>,
     pub(crate) fc: FeatureCollection,
     pub(crate) layer_groups: Vec<LayerGroup>,
@@ -150,6 +152,7 @@ impl Default for App {
             selected_file_index: 0,
             file_list_state: TableState::default(),
             analysis_rx: None,
+            file_browser_base: None,
             file_sort: None,
             file_table_area: None,
             file_table_widths: None,
@@ -203,6 +206,7 @@ impl App {
     pub(crate) fn new_file_browser(
         files: Vec<LsRow>,
         analysis_rx: Option<mpsc::Receiver<Vec<LsRow>>>,
+        base_path: PathBuf,
     ) -> Self {
         let mut file_list_state = TableState::default();
         file_list_state.select(Some(0));
@@ -211,6 +215,7 @@ impl App {
             files,
             file_list_state,
             analysis_rx,
+            file_browser_base: Some(base_path),
             filtered_file_indices,
             ..Self::default()
         }
@@ -826,6 +831,13 @@ impl App {
     }
 }
 
+fn error_size(row: &LsRow) -> usize {
+    match row {
+        LsRow::Error { size: Some(s), .. } => *s,
+        _ => 0,
+    }
+}
+
 fn file_cmp(a: &LsRow, b: &LsRow, col: FileSortColumn, asc: bool) -> std::cmp::Ordering {
     use std::cmp::Ordering;
     let ord = match (a, b) {
@@ -843,6 +855,10 @@ fn file_cmp(a: &LsRow, b: &LsRow, col: FileSortColumn, asc: bool) -> std::cmp::O
         },
         (LsRow::Info { .. }, _) => Ordering::Less,
         (_, LsRow::Info { .. }) => Ordering::Greater,
+        (LsRow::Error { .. }, LsRow::Error { .. }) => match col {
+            FileSortColumn::Size => error_size(a).cmp(&error_size(b)),
+            _ => a.path().cmp(b.path()),
+        },
         _ => a.path().cmp(b.path()),
     };
     if asc { ord } else { ord.reverse() }

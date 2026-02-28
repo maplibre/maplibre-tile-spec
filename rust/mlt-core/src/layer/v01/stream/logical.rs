@@ -242,8 +242,9 @@ impl LogicalValue {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Default)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Default, strum::EnumIter)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum LogicalEncoder {
     #[default]
     None,

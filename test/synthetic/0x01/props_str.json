@@ -1,95 +1,95 @@
 {
+  "type": "FeatureCollection",
   "features": [
     {
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          4,
-          47
-        ]
-      },
+      "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": "residential_zone_north_sector_1"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
         "type": "Point",
         "coordinates": [
-          12,
-          53
+          11,
+          52
         ]
-      },
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": "commercial_zone_south_sector_2"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
         "type": "Point",
         "coordinates": [
-          18,
-          45
+          71,
+          72
         ]
-      },
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": "industrial_zone_east_sector_3"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
         "type": "Point",
         "coordinates": [
-          13,
-          48
+          61,
+          22
         ]
-      },
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": "park_zone_west_sector_4"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
         "type": "Point",
         "coordinates": [
-          12,
-          50
+          65,
+          66
         ]
-      },
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": "water_zone_north_sector_5"
       },
-      "type": "Feature"
-    },
-    {
       "geometry": {
         "type": "Point",
         "coordinates": [
-          10,
-          49
+          35,
+          56
         ]
-      },
+      }
+    },
+    {
+      "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": "residential_zone_south_sector_6"
       },
-      "type": "Feature"
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55,
+          36
+        ]
+      }
     }
-  ],
-  "type": "FeatureCollection"
+  ]
 }

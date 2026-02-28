@@ -82,8 +82,9 @@ impl PhysicalEncoding {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumIter)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum PhysicalEncoder {
     None,
     /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.

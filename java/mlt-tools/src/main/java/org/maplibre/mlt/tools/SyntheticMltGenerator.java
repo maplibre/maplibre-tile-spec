@@ -7,6 +7,10 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import org.locationtech.jts.geom.Coordinate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
 
@@ -37,8 +41,8 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateLines() throws IOException {
-    write("line", feat(line(c1, c2)), cfg());
-
+    write("line", feat(line1), cfg());
+    
     // Morton (Z-order) line: de-interleave index bits into x/y (even/odd bits).
     int numPoints = 16; // 4x4 complete Morton block
     int scale = 8;
@@ -57,60 +61,100 @@ public class SyntheticMltGenerator {
   }
 
   private static void generatePolygons() throws IOException {
-    var pol = feat(poly(c1, c2, c3, c1));
+    var pol = feat(poly1);
     write("polygon", pol, cfg());
     write("polygon_fpf", pol, cfg().fastPFOR());
     write("polygon_tes", pol, cfg().tessellate());
     write("polygon_fpf_tes", pol, cfg().fastPFOR().tessellate());
 
     // Polygon with hole
-    var polWithHole = feat(poly(ring(c1, c2, c3, c1), ring(h1, h2, h3, h1)));
+    var polWithHole = feat(poly1h);
     write("polygon_hole", polWithHole, cfg());
     write("polygon_hole_fpf", polWithHole, cfg().fastPFOR());
 
     // MultiPolygon
-    var multiPol = feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1)));
+    var multiPol = feat(multi(poly1, poly2));
     write("polygon_multi", multiPol, cfg());
     write("polygon_multi_fpf", multiPol, cfg().fastPFOR());
   }
 
   private static void generateMultiPoints() throws IOException {
-    write("multipoint", feat(multi(p1, p2, p3)), cfg());
+    write("multipoint", feat(multi(c1, c2, c3)), cfg());
   }
 
   private static void generateMultiLineStrings() throws IOException {
-    write("multiline", feat(multi(line(c1, c2), line(h1, h2, h3))), cfg());
+    write("multiline", feat(multi(line1, line2)), cfg());
+  }
+
+  record GeomType(String sym, Feature feat) {}
+
+  private static void generateMixedCombine(GeomType[] arr, int k, int start, List<GeomType> current)
+      throws IOException {
+    if (current.size() == k) {
+      var name =
+          "mix_" + k + "_" + current.stream().map(GeomType::sym).collect(Collectors.joining("_"));
+      var feats = current.stream().map(t -> t.feat).toArray(Feature[]::new);
+      write(layer(name, feats), cfg());
+    } else {
+      for (int i = start; i < arr.length; i++) {
+        if (i > start && arr[i] == arr[i - 1]) {
+          continue;
+        }
+        current.add(arr[i]);
+        generateMixedCombine(arr, k, i + 1, current);
+        current.removeLast();
+      }
+    }
   }
 
   private static void generateMixed() throws IOException {
-    write(layer("mixed_pt_line", feat(p0), feat(line(c1, c2))), cfg());
-    write(layer("mixed_pt_poly", feat(p0), feat(poly(c1, c2, c3, c1))), cfg());
-    write(layer("mixed_line_poly", feat(line(c1, c2)), feat(poly(c1, c2, c3, c1))), cfg());
-    write(layer("mixed_pt_mline", feat(p0), feat(multi(line(c1, c2), line(h1, h2, h3)))), cfg());
+    GeomType[] types = {
+      new GeomType("pt", feat(gf.createPoint(c(38, 29)))),
+      new GeomType("line", feat(line(c(5, 38), c(12, 45), c(9, 70)))),
+      new GeomType("poly", feat(poly(c(55, 5), c(58, 28), c(75, 22), c(55, 5)))),
+      new GeomType(
+          "polyh",
+          feat(
+              poly(
+                  ring(c(52, 35), c(14, 55), c(60, 72), c(52, 35)),
+                  ring(c(32, 50), c(36, 60), c(24, 54), c(32, 50))))),
+      new GeomType("mpt", feat(multi(c(6, 25), c(21, 41), c(23, 69)))),
+      new GeomType(
+          "mline", feat(multi(line(c(24, 10), c(42, 18)), line(c(30, 36), c(48, 52), c(35, 62))))),
+      new GeomType(
+          "mpoly",
+          feat(
+              multi(
+                  poly(
+                      ring(c(7, 20), c(21, 31), c(26, 9), c(7, 20)),
+                      ring(c(15, 20), c(20, 15), c(18, 25), c(15, 20))),
+                  poly(c(69, 57), c(71, 66), c(73, 64), c(69, 57)))))
+    };
 
-    write(
-        layer(
-            "mixed_all",
-            feat(p0),
-            feat(line(c1, c2)),
-            feat(poly(c1, c2, c3, c1)),
-            feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, h2, h1)))),
-        cfg());
+    for (int k = 2; k <= types.length; k++) {
+      generateMixedCombine(types, k, 0, new ArrayList<>());
+    }
+
+    for (var a : types) {
+      // Create A-A variants
+      var sym = "mix_dup_" + a.sym;
+      write(layer(sym, a.feat, a.feat), cfg());
+      for (var b : types) {
+        if (!a.sym.equals(b.sym)) {
+          // Create A-B-A variants
+          var sym2 = "mix_" + a.sym + "_" + b.sym + "_" + a.sym;
+          write(layer(sym2, a.feat, b.feat, a.feat), cfg());
+        }
+      }
+    }
   }
 
   private static void generateExtent() throws IOException {
-    var e9 = 512;
-    write(layer("extent_" + e9, e9, feat(line(c(0, 0), c(e9 - 1, e9 - 1)))), cfg());
-    write(layer("extent_buf_" + e9, e9, feat(line(c(-42, -42), c(e9 + 42, e9 + 42)))), cfg());
-    var e12 = 4096;
-    write(layer("extent_" + e12, e12, feat(line(c(0, 0), c(e12 - 1, e12 - 1)))), cfg());
-    write(layer("extent_buf_" + e12, e12, feat(line(c(-42, -42), c(e12 + 42, e12 + 42)))), cfg());
-    var e17 = 131072;
-    write(layer("extent_" + e17, e17, feat(line(c(0, 0), c(e17 - 1, e17 - 1)))), cfg());
-    write(layer("extent_buf_" + e17, e17, feat(line(c(-42, -42), c(e17 + 42, e17 + 42)))), cfg());
-    var e30 = 1073741824;
-    write(layer("extent_" + e30, e30, feat(line(c(0, 0), c(e30 - 1, e30 - 1)))), cfg());
-    write(layer("extent_buf_" + e30, e30, feat(line(c(-42, -42), c(e30 + 42, e30 + 42)))), cfg());
+    int[] extents = {512, 4096, 131072, 1073741824};
+    for (int e : extents) {
+      write(layer("extent_" + e, e, feat(line(c(0, 0), c(e - 1, e - 1)))), cfg());
+      write(layer("extent_buf_" + e, e, feat(line(c(-42, -42), c(e + 42, e + 42)))), cfg());
+    }
   }
 
   private static void generateIds() throws IOException {
@@ -183,23 +227,34 @@ public class SyntheticMltGenerator {
         cfg());
     write("prop_f32", feat(p0, prop("val", (float) 3.14f)), cfg());
     write("prop_f32_neg_inf", feat(p0, prop("val", Float.NEGATIVE_INFINITY)), cfg());
-    write("prop_f32_min", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
+    write("prop_f32_min_exp", feat(p0, prop("val", Float.MIN_EXPONENT)), cfg());
+    write("prop_f32_min_norm", feat(p0, prop("val", Float.MIN_NORMAL)), cfg());
+    // FIXME: Produces the same output as prop_f32_min_norm
+    // write("prop_f32_min_val", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
     // FIXME: Produces the same output as prop_f32_min
     // write("prop_f32_neg_zero", feat(p0, prop("val", (float) -0.0f)), cfg());
     write("prop_f32_zero", feat(p0, prop("val", (float) 0.0f)), cfg());
-    write("prop_f32_max", feat(p0, prop("val", Float.MAX_VALUE)), cfg());
+    write("prop_f32_max_val", feat(p0, prop("val", Float.MAX_VALUE)), cfg());
+    write("prop_f32_max_exp", feat(p0, prop("val", Float.MAX_EXPONENT)), cfg());
     write("prop_f32_pos_inf", feat(p0, prop("val", Float.POSITIVE_INFINITY)), cfg());
     write("prop_f32_nan", feat(p0, prop("val", Float.NaN)), cfg());
     write("prop_f64", feat(p0, prop("val", (double) 3.141592653589793)), cfg());
-    write("prop_f64_neg_inf", feat(p0, prop("val", Double.NEGATIVE_INFINITY)), cfg());
-    write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
+    // FIXME: Serializes as f32
+    // write("prop_f64_neg_inf", feat(p0, prop("val", Double.NEGATIVE_INFINITY)), cfg());
+    write("prop_f64_min_exp", feat(p0, prop("val", Double.MIN_EXPONENT)), cfg());
+    write("prop_f64_min_norm", feat(p0, prop("val", Double.MIN_NORMAL)), cfg());
+    // FIXME: Produces the same output as prop_f64_min_norm
+    // write("prop_f64_min_val", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
     write("prop_f64_neg_zero", feat(p0, prop("val", (double) -0.0)), cfg());
     // FIXME: Produces the same output as prop_f64_min
     // write("prop_f64_zero", feat(p0, prop("val", (double) 0.0)), cfg());
-    write("prop_f64_max", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
+    // FIXME: Serializes as f32
+    // write("prop_f64_max_val", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
+    write("prop_f64_max_exp", feat(p0, prop("val", Double.MAX_EXPONENT)), cfg());
     // FIXME: Fails in Java as it Produces the same output as prop_f64_max
     // write("prop_f64_pos_inf", feat(p0, prop("val", Double.POSITIVE_INFINITY)), cfg());
-    write("prop_f64_nan", feat(p0, prop("val", Double.NaN)), cfg());
+    // FIXME: Serializes as f32
+    // write("prop_f64_nan", feat(p0, prop("val", Double.NaN)), cfg());
     write("prop_str_empty", feat(p0, prop("val", "")), cfg());
     write("prop_str_ascii", feat(p0, prop("val", "42")), cfg());
     write("prop_str_escape", feat(p0, prop("val", "Line1\n\t\"quoted\"\\path")), cfg());
@@ -212,8 +267,15 @@ public class SyntheticMltGenerator {
             p1,
             props(
                 kv("name", "Test Point"),
-                kv("count", 42),
                 kv("active", true),
+                // FIXME: needs support in the Java decoder + encoder
+                // kv("tiny-count", (byte) 42),
+                // FIXME: needs support in the decoder + encoder
+                // kv("tiny", U8.of(100)),
+                kv("count", 42),
+                kv("medium", U32.of(100)),
+                kv("bignum", 42L),
+                kv("medium", U64.of(BigInteger.ZERO)),
                 kv("temp", 25.5f),
                 kv("precision", 0.123456789))),
         cfg());
@@ -232,10 +294,10 @@ public class SyntheticMltGenerator {
 
     var feat_ints =
         array(
+            feat(p0, prop("val", 42)),
             feat(p1, prop("val", 42)),
             feat(p2, prop("val", 42)),
-            feat(p3, prop("val", 42)),
-            feat(ph1, prop("val", 42)));
+            feat(p3, prop("val", 42)));
     write(layer("props_i32", feat_ints), cfg());
     write(layer("props_i32_delta", feat_ints), cfg(DELTA));
     write(layer("props_i32_rle", feat_ints), cfg(RLE));

@@ -25,7 +25,7 @@ public class CompareHelper {
     All
   }
 
-  record Difference(
+  public record Difference(
       String message,
       Optional<Integer> layerIndex,
       Optional<String> layerName,

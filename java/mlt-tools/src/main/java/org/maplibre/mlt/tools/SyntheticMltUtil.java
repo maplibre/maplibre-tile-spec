@@ -33,16 +33,23 @@ class SyntheticMltUtil {
   // ensuring we observe difference in encoding rather than geometry variations.
   // Use SRID 4326 for visualization - all coords are in positive longitude/latitude
   // range, but in reality the coords are in SRID=0 tile space.
+  // Use coordinates X in 0..180, Y in 0..85 space to match lon/lat ranges and help QGIS vis.
+  // Try to keep all values unique to simplify validation and debugging.
+  // Use tiny tile extent 80 for most geometry tests to focus on encoding correctness.
   static final GeometryFactory gf = new GeometryFactory(new PrecisionModel(), 4326);
   static final Coordinate c0 = c(13, 42);
-  // triangle
-  static final Coordinate c1 = c(4, 47);
-  static final Coordinate c2 = c(12, 53);
-  static final Coordinate c3 = c(18, 45);
-  // hole with counter-clockwise winding
-  static final Coordinate h1 = c(13, 48);
-  static final Coordinate h2 = c(12, 50);
-  static final Coordinate h3 = c(10, 49);
+  // triangle 1, clockwise winding, X ends in 1, Y ends in 2
+  static final Coordinate c1 = c(11, 52);
+  static final Coordinate c2 = c(71, 72);
+  static final Coordinate c3 = c(61, 22);
+  // triangle 2, clockwise winding, X ends in 3, Y ends in 4
+  static final Coordinate c21 = c(23, 34);
+  static final Coordinate c22 = c(73, 4);
+  static final Coordinate c23 = c(13, 24);
+  // hole in triangle 1 with counter-clockwise winding
+  static final Coordinate h1 = c(65, 66);
+  static final Coordinate h2 = c(35, 56);
+  static final Coordinate h3 = c(55, 36);
 
   static final Point p0 = gf.createPoint(c0);
   static final Point p1 = gf.createPoint(c1);
@@ -52,6 +59,12 @@ class SyntheticMltUtil {
   static final Point ph1 = gf.createPoint(h1);
   static final Point ph2 = gf.createPoint(h2);
   static final Point ph3 = gf.createPoint(h3);
+
+  static final LineString line1 = line(c1, c2, c3);
+  static final LineString line2 = line(c21, c22, c23);
+  static final Polygon poly1 = poly(c1, c2, c3, c1);
+  static final Polygon poly2 = poly(c21, c22, c23, c21);
+  static final Polygon poly1h = poly(ring(c1, c2, c3, c1), ring(h1, h2, h3, h1));
 
   /** Builder subclass with no-argument shorthand methods for common flags. */
   static class Cfg extends ConversionConfig.Builder {
@@ -156,7 +169,8 @@ class SyntheticMltUtil {
     return gf.createPolygon(shell, holes);
   }
 
-  static MultiPoint multi(Point... pts) {
+  static MultiPoint multi(Coordinate... coords) {
+    var pts = Arrays.stream(coords).map(t -> gf.createPoint(t)).toArray(Point[]::new);
     return gf.createMultiPoint(pts);
   }
 
@@ -205,7 +219,7 @@ class SyntheticMltUtil {
   }
 
   static Layer layer(String name, Feature... features) {
-    return new Layer(name, Arrays.asList(features), 4096);
+    return new Layer(name, Arrays.asList(features), 80);
   }
 
   static Layer layer(String name, int extent, Feature... features) {

@@ -1,20 +1,20 @@
 {
+  "type": "FeatureCollection",
   "features": [
     {
-      "geometry": {
-        "coordinates": [
-          13,
-          42
-        ],
-        "type": "Point"
-      },
+      "type": "Feature",
       "properties": {
         "_extent": 4096,
         "_layer": "layer1",
-        "val": 1.0000000000000001e-45
+        "val": 1.401298464324817e-45
       },
-      "type": "Feature"
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
     }
-  ],
-  "type": "FeatureCollection"
+  ]
 }
