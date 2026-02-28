@@ -12,7 +12,7 @@ use std::sync::LazyLock;
 
 use geo_types::{
     Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
-    line_string as line, polygon as poly,
+    line_string as line, wkt,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
@@ -49,48 +49,23 @@ const fn c(x: i32, y: i32) -> Coord<i32> {
     coord! { x: x, y: y }
 }
 
-const fn p(x: i32, y: i32) -> Point<i32> {
-    Point(c(x, y))
-}
-
 static MIX_TYPES: LazyLock<[(&'static str, Geom32); 7]> = LazyLock::new(|| {
     [
-        ("pt", p(38, 29).into()),
-        ("line", line![c(5, 38), c(12, 45), c(9, 70)].into()),
-        (
-            "poly",
-            poly![c(55, 5), c(58, 28), c(75, 22), c(55, 5)].into(),
-        ),
+        ("pt", wkt!(POINT(38 29)).into()),
+        ("line", wkt!(LINESTRING(5 38, 12 45, 9 70)).into()),
+        ("poly", wkt!(POLYGON((55 5, 58 28, 75 22, 55 5))).into()),
         (
             "polyh",
-            poly! {
-                exterior: [c(52, 35), c(14, 55), c(60, 72), c(52, 35)],
-                interiors: [[c(32, 50), c(36, 60), c(24, 54), c(32, 50)]]
-            }
-            .into(),
+            wkt!(POLYGON((52 35, 14 55, 60 72, 52 35),(32 50, 36 60, 24 54, 32 50))).into(),
         ),
-        (
-            "mpt",
-            MultiPoint(vec![p(6, 25), p(21, 41), p(23, 69)]).into(),
-        ),
+        ("mpt", wkt!(MULTIPOINT(6 25, 21 41, 23 69)).into()),
         (
             "mline",
-            MultiLineString(vec![
-                line![c(24, 10), c(42, 18)],
-                line![c(30, 36), c(48, 52), c(35, 62)],
-            ])
-            .into(),
+            wkt!(MULTILINESTRING((24 10, 42 18),(30 36, 48 52, 35 62))).into(),
         ),
         (
             "mpoly",
-            MultiPolygon(vec![
-                poly! {
-                    exterior: [c(7, 20), c(21, 31), c(26, 9), c(7, 20)],
-                    interiors: [[c(15, 20), c(20, 15), c(18, 25), c(15, 20)]]
-                },
-                poly![c(69, 57), c(71, 66), c(73, 64), c(69, 57)],
-            ])
-            .into(),
+            wkt!(MULTIPOLYGON(((7 20, 21 31, 26 9, 7 20),(15 20, 20 15, 18 25, 15 20)),((69 57, 71 66, 73 64, 69 57)))).into(),
         ),
     ]
 });
@@ -114,19 +89,19 @@ fn main() {
 
 // Geometry builder macros matching Java definitions
 fn line1() -> LineString<i32> {
-    line![C1, C2, C3]
+    wkt!(LINESTRING(11 52, 71 72, 61 22))
 }
 fn line2() -> LineString<i32> {
-    line![C21, C22, C23]
+    wkt!(LINESTRING(23 34, 73 4, 13 24))
 }
 fn poly1() -> Polygon<i32> {
-    poly![C1, C2, C3, C1]
+    wkt!(POLYGON((11 52, 71 72, 61 22, 11 52)))
 }
 fn poly2() -> Polygon<i32> {
-    poly![C21, C22, C23, C21]
+    wkt!(POLYGON((23 34, 73 4, 13 24, 23 34)))
 }
 fn poly1h() -> Polygon<i32> {
-    poly! { exterior: [C1, C2, C3, C1], interiors: [[H1, H2, H3, H1]] }
+    wkt!(POLYGON((11 52, 71 72, 61 22, 11 52),(65 66, 35 56, 55 36, 65 66)))
 }
 
 fn generate_geometry(w: &SynthWriter) {
