@@ -9,14 +9,11 @@ use integer_encoding::VarIntWriter as _;
 use crate::MltError::{IntegerOverflow, NotImplemented};
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
-use crate::utils::{
-    BinarySerializer as _, FmtOptVec, apply_present, encode_bools_to_bytes, encode_byte_rle,
-    f32_to_json, f64_to_json,
-};
+use crate::utils::{BinarySerializer as _, FmtOptVec, apply_present, f32_to_json, f64_to_json};
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{
-    ColumnType, Encoder, LogicalEncoder, LogicalEncoding, OwnedEncodedData, OwnedStream,
-    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, RleMeta, Stream, StreamMeta, StreamType,
+    ColumnType, DictionaryType, Encoder, LengthType, LogicalEncoder, OffsetType, OwnedStream,
+    PhysicalEncoder, Stream, StreamType,
 };
 use crate::{FromDecoded, MltError, impl_encodable};
 
@@ -155,11 +152,10 @@ impl OwnedEncodedProperty {
         // name
         writer.write_string(&self.name)?;
 
-        // struct children
+        // Struct children metadata must be written inline here so subsequent column
+        // metadata offsets remain correct.
         if let OwnedEncodedPropValue::Struct(s) = &self.value {
-            // Yes, we need to write the children right here, otherwise this messes up the next columns metadata
-            let child_column_count = u64::try_from(s.children.len())?;
-            writer.write_varint(child_column_count)?;
+            writer.write_varint(u64::try_from(s.children.len())?)?;
             for child in &s.children {
                 child.write_columns_meta_to(writer)?;
             }
@@ -214,10 +210,12 @@ impl OwnedEncodedProperty {
                 }
                 for child in &s.children {
                     if let Some(opt) = &child.optional {
-                        writer.write_varint(2)?; // stream_count => data and option
+                        // warning: the _usize is necessary, we don't want to zigzag
+                        writer.write_varint(2_usize)?; // stream_count => data and option
                         writer.write_boolean_stream(opt)?;
                     } else {
-                        writer.write_varint(1)?; // stream_count => only data stream
+                        // warning: the _usize is necessary, we don't want to zigzag
+                        writer.write_varint(1_usize)?; // stream_count => only data stream
                     }
                     writer.write_stream(&child.data)?;
                 }
@@ -504,6 +502,44 @@ impl PropertyEncoder {
     }
 }
 
+/// Instruction for how to encode a single decoded property when batch-encoding a
+/// [`Vec<DecodedProperty>`] via [`FromDecoded`].
+///
+/// Each instruction corresponds positionally to one entry in the input slice.
+/// Instructions sharing the same [`EncodingInstruction::StructChild::struct_name`] are grouped
+/// into a single struct column with a shared dictionary.
+/// The struct column appears in the output at the position of its first child in the input.
+#[derive(Debug, Clone, PartialEq)]
+pub enum EncodingInstruction {
+    /// Encode this property as a standalone scalar column.
+    Scalar(PropertyEncoder),
+    /// Encode this property as a child field of a shared-dictionary struct column.
+    StructChild {
+        /// Name of the parent struct column.
+        ///
+        /// All instructions with the same value are grouped into one struct column.
+        struct_name: String,
+        /// Name of this field within the struct column.
+        child_name: String,
+        /// Encoder used for the offset-index stream of this child.
+        encoder: PropertyEncoder,
+    },
+}
+
+impl EncodingInstruction {
+    pub fn struct_child(
+        struct_name: impl Into<String>,
+        child_name: impl Into<String>,
+        encoder: PropertyEncoder,
+    ) -> Self {
+        Self::StructChild {
+            struct_name: struct_name.into(),
+            child_name: child_name.into(),
+            encoder,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumIter)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum PresenceStream {
@@ -511,6 +547,182 @@ pub enum PresenceStream {
     Present,
     /// If there are nulls, drop them
     Absent,
+}
+
+impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
+    type Input = Vec<DecodedProperty>;
+    type Encoder = Vec<EncodingInstruction>;
+
+    fn from_decoded(input: &Self::Input, config: Self::Encoder) -> Result<Self, MltError> {
+        use std::collections::{HashMap, HashSet};
+
+        if input.len() != config.len() {
+            return Err(MltError::EncodingInstructionCountMismatch {
+                input_len: input.len(),
+                config_len: config.len(),
+            });
+        }
+
+        // Pass 1: collect struct child groups, preserving first-occurrence order of struct names.
+        let mut struct_groups: HashMap<String, Vec<(&DecodedProperty, PropertyEncoder, String)>> =
+            HashMap::new();
+        let mut struct_order: Vec<String> = Vec::new();
+
+        for (prop, instruction) in input.iter().zip(config.iter()) {
+            if let EncodingInstruction::StructChild {
+                struct_name,
+                child_name,
+                encoder,
+            } = instruction
+            {
+                let group = struct_groups.entry(struct_name.clone()).or_insert_with(|| {
+                    struct_order.push(struct_name.clone());
+                    Vec::new()
+                });
+                group.push((prop, *encoder, child_name.clone()));
+            }
+        }
+
+        // Pre-encode all struct groups.
+        let mut encoded_structs: HashMap<String, OwnedEncodedProperty> = HashMap::new();
+        for struct_name in &struct_order {
+            let children = &struct_groups[struct_name];
+            encoded_structs.insert(
+                struct_name.clone(),
+                encode_struct_property(struct_name.clone(), children)?,
+            );
+        }
+
+        // Pass 2: emit properties in input order; structs appear at their first child's position.
+        let mut result = Vec::new();
+        let mut emitted_structs: HashSet<String> = HashSet::new();
+
+        for (prop, instruction) in input.iter().zip(config.into_iter()) {
+            match instruction {
+                EncodingInstruction::Scalar(encoder) => {
+                    result.push(OwnedEncodedProperty::from_decoded(prop, encoder)?);
+                }
+                EncodingInstruction::StructChild { struct_name, .. } => {
+                    if emitted_structs.insert(struct_name.clone()) {
+                        result.push(
+                            encoded_structs
+                                .remove(&struct_name)
+                                .expect("pre-encoded in pass 1"),
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(result)
+    }
+}
+
+/// Encode a group of decoded string properties into a single struct column with a shared
+/// dictionary. Children are ordered as provided.
+fn encode_struct_property(
+    name: String,
+    children: &[(&DecodedProperty, PropertyEncoder, String)],
+) -> Result<OwnedEncodedProperty, MltError> {
+    // Build shared dictionary: unique strings in first-occurrence insertion order.
+    let mut dict: Vec<String> = Vec::new();
+    let mut dict_index: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+
+    for (prop, _, _) in children {
+        match &prop.values {
+            PropValue::Str(values) => {
+                for s in values.iter().flatten() {
+                    if let std::collections::hash_map::Entry::Vacant(e) =
+                        dict_index.entry(s.clone())
+                    {
+                        let idx = u32::try_from(dict.len())?;
+                        e.insert(idx);
+                        dict.push(s.clone());
+                    }
+                }
+            }
+            _ => return Err(NotImplemented("generic prop_child encoding")),
+        }
+    }
+
+    // Use the first child's string_encoding to decide how to encode the shared dictionary.
+    // Use the first child's encoder for all shared-dict stream encoding choices.
+    let first_encoder = children
+        .first()
+        .map_or(PropertyEncoder::new(
+            PresenceStream::Absent,
+            LogicalEncoder::None,
+            PhysicalEncoder::None,
+        ), |(_, enc, _)| *enc);
+    let string_encoding = first_encoder.string_encoding;
+    let dict_encoding = first_encoder.encoder();
+
+    let dict_streams = match string_encoding {
+        StringEncoding::Plain => OwnedStream::encode_strings_with_type(
+            &dict,
+            dict_encoding,
+            LengthType::Dictionary,
+            DictionaryType::Shared,
+        )?,
+        StringEncoding::Fsst => OwnedStream::encode_strings_fsst_with_type(
+            &dict,
+            dict_encoding,
+            DictionaryType::Shared,
+        )?,
+    };
+
+    // Encode each child column.
+    let mut encoded_children = Vec::new();
+    for (prop, encoder, child_name) in children {
+        let PropValue::Str(values) = &prop.values else {
+            return Err(NotImplemented("generic struct child encoding"));
+        };
+
+        // Presence stream: emit when the encoder requests it (PresenceStream::Present) or when
+        // there are actual null values. This matches Java's behaviour of always writing a presence
+        // bitmap for Present-encoded struct children even if no values are null.
+        let has_nulls = values.iter().any(Option::is_none);
+        let emit_presence = encoder.optional == PresenceStream::Present || has_nulls;
+        let optional = if emit_presence {
+            let present_bools: Vec<bool> = values.iter().map(Option::is_some).collect();
+            Some(OwnedStream::encode_presence(&present_bools)?)
+        } else {
+            None
+        };
+
+        // Offset indices for non-null values only.
+        let offsets: Vec<u32> = values
+            .iter()
+            .filter_map(|v| v.as_deref())
+            .map(|s| dict_index[s])
+            .collect();
+
+        let data = OwnedStream::encode_u32s_of_type(
+            &offsets,
+            encoder.encoder(),
+            StreamType::Offset(OffsetType::String),
+        )?;
+
+        encoded_children.push(OwnedEncodedStructChild {
+            name: child_name.clone(),
+            typ: if emit_presence {
+                ColumnType::OptStr
+            } else {
+                ColumnType::Str
+            },
+            optional,
+            data,
+        });
+    }
+
+    Ok(OwnedEncodedProperty {
+        name,
+        optional: None,
+        value: OwnedEncodedPropValue::Struct(OwnedEncodedStructProp {
+            dict_streams,
+            children: encoded_children,
+        }),
+    })
 }
 
 impl FromDecoded<'_> for OwnedEncodedProperty {
@@ -521,25 +733,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
         use {OwnedEncodedPropValue as EncVal, PropValue as Val};
         let optional = if config.optional == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
-            let num_values = u32::try_from(present_vec.len())?;
-            let data = encode_byte_rle(&encode_bools_to_bytes(&present_vec));
-            // Presence streams always use byte-RLE encoding.
-            // The RleMeta values are computed by readers from the stream itself
-            // (runs = num_values.div_ceil(8), num_rle_values = byte_length).
-            let runs = num_values.div_ceil(8);
-            let num_rle_values = u32::try_from(data.len())?;
-            Some(OwnedStream {
-                meta: StreamMeta::new(
-                    StreamType::Present,
-                    LogicalEncoding::Rle(RleMeta {
-                        runs,
-                        num_rle_values,
-                    }),
-                    PhysicalEncoding::None,
-                    num_values,
-                ),
-                data: OwnedStreamData::Encoded(OwnedEncodedData { data }),
-            })
+            Some(OwnedStream::encode_presence(&present_vec)?)
         } else {
             None
         };
@@ -575,23 +769,28 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                 EncVal::F32(OwnedStream::encode_f32(&vals)?)
             }
             Val::F64(f) => {
-                let values = unapply_presence(f);
+                // F64 is stored on the wire as F32 (lossy, matching the decoder).
                 #[expect(
                     clippy::cast_possible_truncation,
                     reason = "the decoder does it this way, but why?"
                 )]
-                let values = values.iter().map(|&f| f as f32).collect::<Vec<_>>();
-                EncVal::F64(OwnedStream::encode_f32(&values)?)
+                let as_f32: Vec<f32> = unapply_presence(f).iter().map(|&v| v as f32).collect();
+                EncVal::F64(OwnedStream::encode_f32(&as_f32)?)
             }
             Val::Str(s) => {
                 let values = unapply_presence(s);
                 let streams = match config.string_encoding {
-                    StringEncoding::Plain => {
-                        OwnedStream::encode_strings(&values, config.encoder())?
-                    }
-                    StringEncoding::Fsst => {
-                        OwnedStream::encode_strings_fsst(&values, config.encoder())?
-                    }
+                    StringEncoding::Plain => OwnedStream::encode_strings_with_type(
+                        &values,
+                        config.encoder(),
+                        LengthType::VarBinary,
+                        DictionaryType::None,
+                    )?,
+                    StringEncoding::Fsst => OwnedStream::encode_strings_fsst_with_type(
+                        &values,
+                        config.encoder(),
+                        DictionaryType::Single,
+                    )?,
                 };
                 EncVal::Str(streams)
             }
@@ -650,6 +849,289 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
+
+    /// Default encoder: no logical/physical encoding, with a presence stream.
+    fn default_encoder() -> PropertyEncoder {
+        PropertyEncoder::new(
+            PresenceStream::Present,
+            LogicalEncoder::None,
+            PhysicalEncoder::None,
+        )
+    }
+
+    /// Build a `Vec<Option<String>>` where every entry is `Some`.
+    fn strs(vals: &[&str]) -> Vec<Option<String>> {
+        vals.iter().map(|v| Some(v.to_string())).collect()
+    }
+
+    /// Build a `Vec<Option<String>>` from a mix of `Some(&str)` and `None`.
+    fn opt_strs(vals: &[Option<&str>]) -> Vec<Option<String>> {
+        vals.iter().map(|v| v.map(ToString::to_string)).collect()
+    }
+
+    /// Build a [`DecodedProperty`] with [`PropValue::Str`].
+    fn str_prop(name: &str, values: Vec<Option<String>>) -> DecodedProperty {
+        DecodedProperty {
+            name: name.to_string(),
+            values: PropValue::Str(values),
+        }
+    }
+
+    /// Borrow an encoded struct property and expand + fully decode all its children.
+    fn expand_struct(prop: &OwnedEncodedProperty) -> Vec<DecodedProperty> {
+        Property::from(borrowme::borrow(prop))
+            .decode_expand()
+            .expect("decode_expand failed")
+            .into_iter()
+            .map(|p| p.decode().expect("decode failed"))
+            .collect()
+    }
+
+    /// Borrow and decode an encoded scalar property.
+    fn decode_scalar(prop: &OwnedEncodedProperty) -> DecodedProperty {
+        DecodedProperty::from_encoded(borrowme::borrow(prop)).expect("decode failed")
+    }
+
+    /// Encode a [`Vec<DecodedProperty>`] as a struct and decode it back via [`decode_expand`].
+    fn struct_roundtrip(
+        struct_name: &str,
+        children: &[(&str, Vec<Option<String>>)],
+        encoder: PropertyEncoder,
+    ) -> Vec<DecodedProperty> {
+        let decoded: Vec<DecodedProperty> = children
+            .iter()
+            .map(|(child_name, values)| str_prop(child_name, values.clone()))
+            .collect();
+
+        let instructions: Vec<EncodingInstruction> = children
+            .iter()
+            .map(|(child_name, _)| {
+                EncodingInstruction::struct_child(struct_name, *child_name, encoder)
+            })
+            .collect();
+
+        let encoded_property = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, instructions)
+            .expect("encoding failed");
+        assert_eq!(
+            encoded_property.len(),
+            1,
+            "children must collapse to one struct column"
+        );
+
+        expand_struct(&encoded_property[0])
+    }
+
+    #[test]
+    fn test_struct_shared_dict_present_roundtrip() {
+        let de_values = opt_strs(&[Some("Berlin"), Some("München"), None]);
+        let en_values = opt_strs(&[Some("Berlin"), None, Some("London")]);
+
+        let result = struct_roundtrip(
+            "name",
+            &[(":de", de_values.clone()), (":en", en_values.clone())],
+            default_encoder(),
+        );
+
+        assert_eq!(result.len(), 2);
+        // decode_expand prefixes each child name with the struct column name
+        assert_eq!(result[0].name, "name:de");
+        assert_eq!(result[0].values, PropValue::Str(de_values));
+        assert_eq!(result[1].name, "name:en");
+        assert_eq!(result[1].values, PropValue::Str(en_values));
+    }
+
+    #[test]
+    fn test_struct_shared_dict_no_nulls_roundtrip() {
+        let de_values = strs(&["Berlin", "München", "Hamburg"]);
+        let en_values = strs(&["Berlin", "Munich", "Hamburg"]);
+
+        let result = struct_roundtrip(
+            "name",
+            &[(":de", de_values.clone()), (":en", en_values.clone())],
+            default_encoder(),
+        );
+
+        assert_eq!(result[0].values, PropValue::Str(de_values));
+        assert_eq!(result[1].values, PropValue::Str(en_values));
+    }
+
+    #[test]
+    fn test_struct_shared_dict_deduplication() {
+        // Strings shared across children should appear only once in the dictionary.
+        // "Berlin" appears in both children; dictionary must deduplicate it.
+        let de_values = strs(&["Berlin", "Berlin"]);
+        let en_values = strs(&["Berlin", "London"]);
+
+        let result = struct_roundtrip(
+            "name",
+            &[(":de", de_values.clone()), (":en", en_values.clone())],
+            default_encoder(),
+        );
+
+        assert_eq!(result[0].values, PropValue::Str(de_values));
+        assert_eq!(result[1].values, PropValue::Str(en_values));
+    }
+
+    #[test]
+    fn test_struct_mixed_with_scalars() {
+        // A scalar property before and after the struct group must be preserved,
+        // correctly ordered, and round-trip to the same values.
+        let enc = default_encoder();
+
+        let scalar_before = DecodedProperty {
+            name: "population".to_string(),
+            values: PropValue::U32(vec![Some(1_000_000), Some(2_000_000)]),
+        };
+        let de = str_prop(":de", strs(&["Berlin", "Hamburg"]));
+        let en = str_prop(":en", strs(&["Berlin", "Hamburg"]));
+        let scalar_after = DecodedProperty {
+            name: "rank".to_string(),
+            values: PropValue::U32(vec![Some(1), Some(2)]),
+        };
+
+        let input = vec![
+            scalar_before.clone(),
+            de.clone(),
+            en.clone(),
+            scalar_after.clone(),
+        ];
+        let instructions = vec![
+            EncodingInstruction::Scalar(enc),
+            EncodingInstruction::struct_child("name", ":de", enc),
+            EncodingInstruction::struct_child("name", ":en", enc),
+            EncodingInstruction::Scalar(enc),
+        ];
+
+        let encoded_prop = Vec::<OwnedEncodedProperty>::from_decoded(&input, instructions)
+            .expect("encoding failed");
+
+        // Output order: scalar_before, struct("name"), scalar_after
+        assert_eq!(encoded_prop.len(), 3);
+
+        assert_eq!(decode_scalar(&encoded_prop[0]), scalar_before);
+
+        let struct_children = expand_struct(&encoded_prop[1]);
+        assert_eq!(struct_children[0].name, "name:de");
+        assert_eq!(struct_children[0].values, de.values);
+        assert_eq!(struct_children[1].name, "name:en");
+        assert_eq!(struct_children[1].values, en.values);
+
+        assert_eq!(decode_scalar(&encoded_prop[2]), scalar_after);
+    }
+
+    #[test]
+    fn test_two_struct_groups() {
+        // Two independent struct columns ("name" and "label") interleaved with a scalar,
+        // all encoded in a single pass. Each struct must produce its own shared dictionary
+        // and appear at the position of its first child in the output.
+        let enc = default_encoder();
+
+        let name_de = str_prop(":de", strs(&["Berlin", "Hamburg"]));
+        let name_en = str_prop(":en", strs(&["Berlin", "Hamburg"]));
+        let population = DecodedProperty {
+            name: "population".to_string(),
+            values: PropValue::U32(vec![Some(3_700_000), Some(1_800_000)]),
+        };
+        let label_de = str_prop(":de", strs(&["BE", "HH"]));
+        let label_en = str_prop(":en", strs(&["BER", "HAM"]));
+
+        // Input order: name:de, name:en, population, label:de, label:en
+        let input = vec![
+            name_de.clone(),
+            name_en.clone(),
+            population.clone(),
+            label_de.clone(),
+            label_en.clone(),
+        ];
+        let instructions = vec![
+            EncodingInstruction::struct_child("name", ":de", enc),
+            EncodingInstruction::struct_child("name", ":en", enc),
+            EncodingInstruction::Scalar(enc),
+            EncodingInstruction::struct_child("label", ":de", enc),
+            EncodingInstruction::struct_child("label", ":en", enc),
+        ];
+
+        let encoded_prop = Vec::<OwnedEncodedProperty>::from_decoded(&input, instructions)
+            .expect("encoding failed");
+
+        // Expected output order: struct("name"), scalar("population"), struct("label")
+        assert_eq!(encoded_prop.len(), 3);
+
+        let name_children = expand_struct(&encoded_prop[0]);
+        assert_eq!(name_children[0].name, "name:de");
+        assert_eq!(name_children[0].values, name_de.values);
+        assert_eq!(name_children[1].name, "name:en");
+        assert_eq!(name_children[1].values, name_en.values);
+
+        assert_eq!(decode_scalar(&encoded_prop[1]), population);
+
+        let label_children = expand_struct(&encoded_prop[2]);
+        assert_eq!(label_children[0].name, "label:de");
+        assert_eq!(label_children[0].values, label_de.values);
+        assert_eq!(label_children[1].name, "label:en");
+        assert_eq!(label_children[1].values, label_en.values);
+    }
+
+    #[test]
+    fn test_struct_instruction_count_mismatch() {
+        let decoded = vec![DecodedProperty::default()];
+        let instructions = vec![]; // wrong length
+
+        let err = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, instructions)
+            .expect_err("should fail");
+        assert!(
+            matches!(
+                err,
+                MltError::EncodingInstructionCountMismatch {
+                    input_len: 1,
+                    config_len: 0
+                }
+            ),
+            "unexpected error: {err}"
+        );
+    }
+
+    proptest! {
+        /// Property-based roundtrip: arbitrary struct names, child names, string values,
+        /// and encoder settings all survive encode → decode_expand intact.
+        #[test]
+        fn test_struct_shared_dict_proptest(
+            struct_name in "[a-z]{1,8}",
+            children in prop::collection::vec(
+                (
+                    "[a-z]{1,6}",
+                    prop::collection::vec(prop::option::of("[a-zA-Z ]{0,20}"), 0..20),
+                ),
+                1..5usize,
+            ),
+            logical in any::<LogicalEncoder>(),
+            physical in physical_no_fastpfor(),
+        ) {
+            let encoder = PropertyEncoder::new(PresenceStream::Present, logical, physical);
+
+            let decoded: Vec<DecodedProperty> = children
+                .iter()
+                .map(|(child_name, values)| str_prop(child_name, values.clone()))
+                .collect();
+
+            let instructions: Vec<EncodingInstruction> = children
+                .iter()
+                .map(|(child_name, _)| EncodingInstruction::struct_child(&struct_name, child_name, encoder))
+                .collect();
+
+            let encoded = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, instructions)
+                .expect("encoding failed");
+            prop_assert_eq!(encoded.len(), 1, "children must collapse to one struct column");
+
+            let re_children = expand_struct(&encoded[0]);
+            prop_assert_eq!(re_children.len(), children.len());
+
+            for (re, (child_name, values)) in re_children.into_iter().zip(children.iter()) {
+                prop_assert_eq!(re.name, format!("{struct_name}{child_name}"));
+                prop_assert_eq!(re.values, PropValue::Str(values.clone()));
+            }
+        }
+    }
 
     /// Strategy for [`PhysicalEncoder`] that excludes `FastPFOR` to support 64bit ints
     fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {

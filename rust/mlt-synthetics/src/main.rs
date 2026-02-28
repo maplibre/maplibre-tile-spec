@@ -816,5 +816,35 @@ fn generate_shared_dictionaries(w: &SynthWriter) {
         ))
         .write("props_no_shared_dict");
 
-    // TODO: props_shared_dict and props_shared_dict_fsst need shared dictionary support
+    w.geo_varint()
+        .geo(P1)
+        .add_struct_child(
+            "name:",
+            "de",
+            PropertyEncoder::new(O::Present, L::None, P::VarInt),
+            vec![Some("A".repeat(30))],
+        )
+        .add_struct_child(
+            "name:",
+            "en",
+            PropertyEncoder::new(O::Present, L::None, P::VarInt),
+            vec![Some("A".repeat(30))],
+        )
+        .write("props_shared_dict-rust"); // For some reason Java haluciantes another stream count at the start, so starts counting the stream count at 1
+
+    w.geo_varint()
+        .geo(P1)
+        .add_struct_child(
+            "name:",
+            "de",
+            PropertyEncoder::with_fsst(O::Present, L::None, P::VarInt),
+            vec![Some("A".repeat(30))],
+        )
+        .add_struct_child(
+            "name:",
+            "en",
+            PropertyEncoder::with_fsst(O::Present, L::None, P::VarInt),
+            vec![Some("A".repeat(30))],
+        )
+        .write("props_shared_dict_fsst-rust"); // FSST compression output is not byte-for-byte consistent with Java's
 }
