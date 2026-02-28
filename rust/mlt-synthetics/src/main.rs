@@ -3,9 +3,9 @@
 //! This generates synthetic MLT files for testing and validation.
 //! The goal is to produce byte-for-byte identical output to the Java generator.
 
-use std::fmt::Write;
 mod layer;
 
+use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
@@ -166,69 +166,13 @@ fn generate_geometry(w: &SynthWriter) {
 }
 
 fn write_mix(w: &SynthWriter, current: &[usize]) {
-    let mut pt = false;
-    let mut line = false;
-    let mut poly = false;
-    let mut polyh = false;
-    let mut mpt = false;
-    let mut mline = false;
-    let mut mpoly = false;
-
     let mut builder = w.geo_varint();
     let mut name = format!("mix_{}", current.len());
     for idx in current {
         let mix_type = &MIX_TYPES[*idx];
         builder = builder.geo(mix_type.1.clone());
         write!(&mut name, "_{}", mix_type.0).unwrap();
-
-        match mix_type.0 {
-            "pt" => pt = true,
-            "line" => line = true,
-            "poly" => poly = true,
-            "polyh" => polyh = true,
-            "mpt" => mpt = true,
-            "mline" => mline = true,
-            "mpoly" => mpoly = true,
-            _ => unreachable!(),
-        }
     }
-
-    // Length(LengthType::Geometries)    .geometries
-    // Length(LengthType::Parts)         .no_rings
-    // Length(LengthType::Parts)         .only_parts
-    // Length(LengthType::Parts)         .parts
-    // Length(LengthType::Parts)         .rings
-    // Length(LengthType::Rings)         .parts_ring
-    // Length(LengthType::Rings)         .rings2
-    // Length(LengthType::Triangles)     .triangles
-    // Length(VarBinary)                 .meta
-    // Offset(OffsetType::Index)         .triangles_indexes
-    // Offset(OffsetType::Vertex)        .vertex_offsets
-
-    if (line && polyh && mpt) || (line && poly && mpt) {
-        // VarBinary = DeltaRle    (line && polyh && mpt) || (line && poly && mpt)
-        builder = builder.meta(E::delta_rle_varint());
-    } else {
-        // VarBinary = Rle         line || mline || mpoly || mpt || poly || polyh || pt
-        builder = builder.meta(E::rle_varint());
-    }
-    if line || poly || polyh {
-        // Rings = Rle             mpoly || poly || polyh
-        builder = builder.parts_ring(E::rle_varint());
-        builder = builder.rings2(E::rle_varint());
-    }
-    if line || poly || polyh {
-        // Parts = Rle             line || poly || polyh
-        builder = builder.no_rings(E::rle_varint());
-        builder = builder.only_parts(E::rle_varint());
-        builder = builder.parts(E::rle_varint());
-        builder = builder.rings(E::rle_varint());
-    }
-    // Geometries = Rle        mline || mpoly || mpt
-    if mline || mpoly || mpt {
-        builder = builder.geometries(E::rle_varint());
-    }
-
     builder.write(&name);
 }
 
