@@ -111,7 +111,7 @@ public class SyntheticMltGenerator {
                   poly(
                       ring(c(7, 20), c(21, 31), c(26, 9), c(7, 20)),
                       ring(c(15, 20), c(20, 15), c(18, 25), c(15, 20))),
-                  poly(c(69, 57), c(71, 66), c(73, 64), c(69, 57)))))
+                  poly(c(69, 57), c(71, 66), c(73, 64), c(69, 57))))),
     };
 
     for (int k = 2; k <= types.length; k++) {
@@ -258,7 +258,7 @@ public class SyntheticMltGenerator {
                 kv("count", 42),
                 kv("medium", U32.of(100)),
                 kv("bignum", 42L),
-                kv("medium", U64.of(BigInteger.ZERO)),
+                kv("biggest", U64.of(BigInteger.ZERO)), // FIXME: this is encoded as u32
                 kv("temp", 25.5f),
                 kv("precision", 0.123456789))),
         cfg());

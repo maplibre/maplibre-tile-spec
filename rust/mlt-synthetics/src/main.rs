@@ -729,14 +729,14 @@ fn generate_properties(d: &Path) {
     .add_prop(DecodedProp::new(
         DecodedProperty {
             name: "bignum".to_string(),
-            values: PropValue::U64(vec![Some(100)]),
+            values: PropValue::I64(vec![Some(42)]),
         },
         enc,
     ))
     .add_prop(DecodedProp::new(
         DecodedProperty {
-            name: "medium".to_string(),
-            values: PropValue::U64(vec![Some(0)]),
+            name: "biggest".to_string(),
+            values: PropValue::U32(vec![Some(0)]), // FIXME: this should be u64, but java does it it this way
         },
         enc,
     ))
