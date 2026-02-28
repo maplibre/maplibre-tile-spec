@@ -45,6 +45,10 @@ public class ConversionConfigTest {
         expected.getLayerFilterInvert(), actual.getLayerFilterInvert(), "layerFilterInvert");
     assertEquals(
         expected.getIntegerEncodingOption(), actual.getIntegerEncodingOption(), "integerEncoding");
+    assertEquals(
+        expected.getGeometryEncodingOption(),
+        actual.getGeometryEncodingOption(),
+        "geometryEncoding");
   }
 
   @Test
@@ -64,6 +68,7 @@ public class ConversionConfigTest {
     assertNull(cfg.getLayerFilterPattern(), "layerFilterPattern-default-null");
     assertEquals(ConversionConfig.DEFAULT_LAYER_FILTER_INVERT, cfg.getLayerFilterInvert());
     assertEquals(ConversionConfig.DEFAULT_INTEGER_ENCODING, cfg.getIntegerEncodingOption());
+    assertEquals(ConversionConfig.DEFAULT_INTEGER_ENCODING, cfg.getGeometryEncodingOption());
   }
 
   @Test
@@ -80,7 +85,8 @@ public class ConversionConfigTest {
             /* outlineFeatureTableNames= */ null,
             /* layerFilterPattern= */ null,
             /* layerFilterInvert= */ true,
-            /* integerEncodingOption= */ ConversionConfig.IntegerEncodingOption.DELTA);
+            /* integerEncodingOption= */ ConversionConfig.IntegerEncodingOption.DELTA,
+            /* geometryEncodingOption= */ ConversionConfig.IntegerEncodingOption.DELTA);
 
     assertNotNull(cfg.getOptimizations());
     assertTrue(cfg.getOptimizations().isEmpty());
@@ -105,7 +111,8 @@ public class ConversionConfigTest {
             /* outlineFeatureTableNames= */ outline,
             /* layerFilterPattern= */ Pattern.compile("layerA"),
             /* layerFilterInvert= */ false,
-            /* integerEncodingOption= */ ConversionConfig.IntegerEncodingOption.PLAIN);
+            /* integerEncodingOption= */ ConversionConfig.IntegerEncodingOption.PLAIN,
+            /* geometryEncodingOption= */ ConversionConfig.IntegerEncodingOption.PLAIN);
 
     assertSame(optim, cfg.getOptimizations(), "optimizations-same-reference");
     assertEquals(outline, cfg.getOutlineFeatureTableNames(), "outline-equals");
@@ -210,5 +217,39 @@ public class ConversionConfigTest {
             .integerEncoding(ConversionConfig.IntegerEncodingOption.RLE)
             .build();
     assertEquals(ConversionConfig.IntegerEncodingOption.RLE, custom.getIntegerEncodingOption());
+  }
+
+  @Test
+  public void testGeometryEncodingOption_defaultsAndCustom() {
+    var defaultCfg = new ConversionConfig();
+    assertEquals(ConversionConfig.DEFAULT_INTEGER_ENCODING, defaultCfg.getGeometryEncodingOption());
+
+    var custom =
+        ConversionConfig.builder()
+            .geometryEncoding(ConversionConfig.IntegerEncodingOption.PLAIN)
+            .build();
+    assertEquals(ConversionConfig.IntegerEncodingOption.PLAIN, custom.getGeometryEncodingOption());
+
+    // When only integer encoding is set, geometry stays AUTO (backward compatible with main:
+    // on main, geometry streams always used AUTO and were not controlled by integerEncodingOption).
+    var withIntegerOnly =
+        ConversionConfig.builder()
+            .integerEncoding(ConversionConfig.IntegerEncodingOption.RLE)
+            .build();
+    assertEquals(
+        ConversionConfig.IntegerEncodingOption.RLE, withIntegerOnly.getIntegerEncodingOption());
+    assertEquals(
+        ConversionConfig.DEFAULT_INTEGER_ENCODING, withIntegerOnly.getGeometryEncodingOption());
+  }
+
+  @Test
+  public void testIntegerEncodingOnlyConstructor_geometryStaysAuto() {
+    // Constructor that takes integerEncodingOption: geometry encoding stays AUTO for backward
+    // compatibility (on main, geometry was never configurable and always used AUTO).
+    var cfg =
+        new ConversionConfig(
+            true, false, false, Map.of(), false, ConversionConfig.IntegerEncodingOption.DELTA);
+    assertEquals(ConversionConfig.IntegerEncodingOption.DELTA, cfg.getIntegerEncodingOption());
+    assertEquals(ConversionConfig.DEFAULT_INTEGER_ENCODING, cfg.getGeometryEncodingOption());
   }
 }

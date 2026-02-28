@@ -88,13 +88,20 @@ public class SyntheticMltGenerator {
 
   record GeomType(String sym, Feature feat) {}
 
+  private static void generateMixCombination(List<GeomType> current) throws IOException {
+    var name =
+        "mix_"
+            + current.size()
+            + "_"
+            + current.stream().map(GeomType::sym).collect(Collectors.joining("_"));
+    var feats = current.stream().map(t -> t.feat).toArray(Feature[]::new);
+    write(layer(name, feats), cfg().geomEnc(PLAIN));
+  }
+
   private static void generateMixedCombine(GeomType[] arr, int k, int start, List<GeomType> current)
       throws IOException {
     if (current.size() == k) {
-      var name =
-          "mix_" + k + "_" + current.stream().map(GeomType::sym).collect(Collectors.joining("_"));
-      var feats = current.stream().map(t -> t.feat).toArray(Feature[]::new);
-      write(layer(name, feats), cfg());
+      generateMixCombination(current);
     } else {
       for (int i = start; i < arr.length; i++) {
         if (i > start && arr[i] == arr[i - 1]) {
@@ -128,22 +135,19 @@ public class SyntheticMltGenerator {
                   poly(
                       ring(c(7, 20), c(21, 31), c(26, 9), c(7, 20)),
                       ring(c(15, 20), c(20, 15), c(18, 25), c(15, 20))),
-                  poly(c(69, 57), c(71, 66), c(73, 64), c(69, 57)))))
+                  poly(c(69, 57), c(71, 66), c(73, 64), c(69, 57))))),
     };
 
     for (int k = 2; k <= types.length; k++) {
       generateMixedCombine(types, k, 0, new ArrayList<>());
     }
-
     for (var a : types) {
       // Create A-A variants
-      var sym = "mix_dup_" + a.sym;
-      write(layer(sym, a.feat, a.feat), cfg());
+      generateMixCombination(List.of(a, a));
       for (var b : types) {
         if (!a.sym.equals(b.sym)) {
           // Create A-B-A variants
-          var sym2 = "mix_" + a.sym + "_" + b.sym + "_" + a.sym;
-          write(layer(sym2, a.feat, b.feat, a.feat), cfg());
+          generateMixCombination(List.of(a, b, a));
         }
       }
     }

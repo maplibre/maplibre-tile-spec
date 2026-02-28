@@ -83,6 +83,11 @@ class SyntheticMltUtil {
       return this;
     }
 
+    public Cfg geomEnc(ConversionConfig.IntegerEncodingOption encoding) {
+      this.geometryEncoding(encoding);
+      return this;
+    }
+
     public Cfg coercePropValues() {
       this.mismatchPolicy(ConversionConfig.TypeMismatchPolicy.COERCE);
       return this;
@@ -140,6 +145,7 @@ class SyntheticMltUtil {
     // c.layerFilterPattern(null); // Pattern
     c.layerFilterInvert(false);
     c.integerEncoding(encoding);
+    c.geometryEncoding(AUTO);
     return c;
   }
 
