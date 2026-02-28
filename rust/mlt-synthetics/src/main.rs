@@ -99,17 +99,45 @@ fn generate_geometry(d: &Path) {
 }
 
 fn generate_mixed(d: &Path) {
-    let line1 = || line_string![C1, C2];
-    let line2 = || line_string![H1, H2, H3];
-    let pol1 = || polygon![C1, C2, C3, C1];
-    let pol2 = || polygon![H1, H3, H2, H1];
     let types: Vec<(&str, Geom32)> = vec![
-        ("pt", P0.into()),
-        ("line", line1().into()),
-        ("poly", pol1().into()),
-        ("mpoint", MultiPoint(vec![P1, P2, P3]).into()),
-        ("mline", MultiLineString(vec![line1(), line2()]).into()),
-        ("mpoly", MultiPolygon(vec![pol1(), pol2()]).into()),
+        ("pt", p(38, 29).into()),
+        ("line", line_string![c(5, 38), c(12, 45), c(9, 70)].into()),
+        (
+            "poly",
+            polygon![c(55, 5), c(58, 28), c(75, 22), c(55, 5)].into(),
+        ),
+        (
+            "polyh",
+            polygon! {
+                exterior: [c(52, 35), c(14, 55), c(60, 72), c(52, 35)],
+                interiors: [[c(32, 50), c(36, 60), c(24, 54), c(32, 50)]]
+            }
+            .into(),
+        ),
+        (
+            "mpoint",
+            MultiPoint(vec![p(6, 25), p(21, 41), p(23, 69)]).into(),
+        ),
+        (
+            "mline",
+            MultiLineString(vec![
+                line_string![c(24, 10), c(42, 18)],
+                line_string![c(30, 36), c(48, 52), c(35, 62)],
+            ])
+            .into(),
+        ),
+        (
+            "mpoly",
+            MultiPolygon(vec![
+                polygon! {
+                    exterior: [c(7, 20), c(21, 31), c(26, 9), c(7, 20)],
+                    interiors: [[c(15, 20), c(20, 15), c(18, 25), c(15, 20)]]
+                }
+                .into(),
+                polygon![c(69, 57), c(71, 66), c(73, 64), c(69, 57)],
+            ])
+            .into(),
+        ),
     ];
 
     for k in 2..=types.len() {
@@ -117,46 +145,99 @@ fn generate_mixed(d: &Path) {
     }
 }
 
+fn c(x: i32, y: i32) -> Coord<i32> {
+    coord! {x:x,y:y}
+}
+
+fn p(x: i32, y: i32) -> Point<i32> {
+    Point(c(x, y))
+}
+
 const NON_WORKING_GEOS: &[&str] = &[
+    "mixed_2_pt_polyh",
     "mixed_2_line_mpoly",
+    "mixed_2_line_polyh",
     "mixed_2_poly_mline",
     "mixed_2_poly_mline",
     "mixed_2_poly_mline",
+    "mixed_2_polyh_mline",
     "mixed_2_mpoint_mline",
     "mixed_2_mpoint_mpoly",
     "mixed_2_mline_mpoly",
+    "mixed_3_pt_line_polyh",
     "mixed_3_pt_line_mpoly",
     "mixed_3_pt_poly_mline",
+    "mixed_3_pt_poly_polyh",
     "mixed_3_pt_mpoint_mline",
     "mixed_3_pt_mpoint_mpoly",
     "mixed_3_pt_mline_mpoly",
+    "mixed_3_pt_polyh_mline",
     "mixed_3_line_poly_mline",
     "mixed_3_line_mpoint_mline",
     "mixed_3_line_mpoint_mpoly",
     "mixed_3_line_mline_mpoly",
     "mixed_3_poly_mpoint_mline",
     "mixed_3_poly_mpoint_mpoly",
+    "mixed_3_line_poly_polyh",
+    "mixed_3_line_polyh_mline",
     "mixed_3_poly_mline_mpoly",
+    "mixed_3_poly_polyh_mline",
+    "mixed_3_polyh_mpoint_mline",
+    "mixed_3_polyh_mpoint_mpoly",
+    "mixed_3_polyh_mline_mpoly",
     "mixed_3_mpoint_mline_mpoly",
     "mixed_4_pt_line_poly_mline",
+    "mixed_4_pt_line_poly_polyh",
+    "mixed_4_pt_line_polyh_mline",
     "mixed_4_pt_line_mpoint_mline",
     "mixed_4_pt_line_mpoint_mpoly",
     "mixed_4_pt_line_mline_mpoly",
     "mixed_4_pt_poly_mpoint_mline",
     "mixed_4_pt_poly_mpoint_mpoly",
     "mixed_4_pt_poly_mline_mpoly",
+    "mixed_4_pt_poly_polyh_mline",
+    "mixed_4_pt_polyh_mpoint_mline",
+    "mixed_4_pt_polyh_mpoint_mpoly",
+    "mixed_4_pt_polyh_mline_mpoly",
     "mixed_4_pt_mpoint_mline_mpoly",
     "mixed_4_line_poly_mpoint_mline",
     "mixed_4_line_poly_mpoint_mpoly",
     "mixed_4_line_poly_mline_mpoly",
+    "mixed_4_line_poly_polyh_mline",
+    "mixed_4_line_polyh_mpoint_mline",
+    "mixed_4_line_polyh_mpoint_mpoly",
+    "mixed_4_line_polyh_mline_mpoly",
     "mixed_4_line_mpoint_mline_mpoly",
     "mixed_4_poly_mpoint_mline_mpoly",
+    "mixed_4_poly_polyh_mpoint_mline",
+    "mixed_4_poly_polyh_mpoint_mpoly",
+    "mixed_4_poly_polyh_mline_mpoly",
+    "mixed_4_polyh_mpoint_mline_mpoly",
+    "mixed_5_pt_line_poly_polyh_mline",
+    "mixed_5_pt_line_polyh_mpoint_mline",
+    "mixed_5_pt_line_polyh_mpoint_mpoly",
+    "mixed_5_pt_poly_polyh_mpoint_mline",
+    "mixed_5_pt_poly_polyh_mpoint_mpoly",
+    "mixed_5_pt_poly_polyh_mline_mpoly",
+    "mixed_5_pt_polyh_mpoint_mline_mpoly",
     "mixed_5_pt_line_poly_mpoint_mline",
     "mixed_5_pt_line_poly_mpoint_mpoly",
     "mixed_5_pt_line_mpoint_mline_mpoly",
     "mixed_5_pt_poly_mpoint_mline_mpoly",
     "mixed_5_line_poly_mpoint_mline_mpoly",
+    "mixed_5_line_poly_polyh_mpoint_mline",
+    "mixed_5_line_poly_polyh_mpoint_mpoly",
+    "mixed_5_line_poly_polyh_mline_mpoly",
+    "mixed_5_line_poly_mpoint_mline_mpoly",
+    "mixed_5_line_polyh_mpoint_mline_mpoly",
+    "mixed_5_poly_polyh_mpoint_mline_mpoly",
+    "mixed_6_pt_line_poly_polyh_mpoint_mline",
+    "mixed_6_pt_line_poly_polyh_mpoint_mpoly",
     "mixed_6_pt_line_poly_mpoint_mline_mpoly",
+    "mixed_6_pt_line_polyh_mpoint_mline_mpoly",
+    "mixed_6_pt_poly_polyh_mpoint_mline_mpoly",
+    "mixed_6_line_poly_polyh_mpoint_mline_mpoly",
+    "mixed_7_pt_line_poly_polyh_mpoint_mline_mpoly",
 ];
 
 fn generate_combinations(
@@ -179,11 +260,9 @@ fn generate_combinations(
         // FIXME: Remove NON_WORKING_GEOS
         if !NON_WORKING_GEOS.contains(&name.as_str()) {
             let mut builder = geo_varint();
-
             for i in current {
                 builder = builder.geo(types[*i].1.clone());
             }
-
             builder.write(d, &name);
             return;
         }

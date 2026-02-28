@@ -10,8 +10,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          13,
-          42
+          38,
+          29
         ]
       }
     },
@@ -25,16 +25,16 @@
         "type": "MultiPoint",
         "coordinates": [
           [
-            4,
-            47
+            6,
+            25
           ],
           [
-            12,
-            53
+            21,
+            41
           ],
           [
-            18,
-            45
+            23,
+            69
           ]
         ]
       }
