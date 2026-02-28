@@ -156,8 +156,7 @@ fn generate_mixed(d: &Path) {
                 polygon! {
                     exterior: [c(7, 20), c(21, 31), c(26, 9), c(7, 20)],
                     interiors: [[c(15, 20), c(20, 15), c(18, 25), c(15, 20)]]
-                }
-                .into(),
+                },
                 polygon![c(69, 57), c(71, 66), c(73, 64), c(69, 57)],
             ])
             .into(),
@@ -292,16 +291,16 @@ fn generate_combinations(
 }
 
 fn generate_extent(d: &Path) {
-    for e in [512_i32, 4096, 131072, 1073741824] {
+    for e in [512_i32, 4096, 131_072, 1_073_741_824] {
         geo_varint()
-            .extent(e as u32)
+            .extent(e.cast_unsigned())
             .geo(line_string![
                 coord! { x: 0_i32, y: 0 },
                 coord! { x: e - 1, y: e - 1 }
             ])
             .write(d, format!("extent_{e}"));
         geo_varint()
-            .extent(e as u32)
+            .extent(e.cast_unsigned())
             .geo(line_string![
                 coord! { x: -42_i32, y: -42 },
                 coord! { x: e + 42, y: e + 42 }
