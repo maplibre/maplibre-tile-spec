@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <memory>
+#include <vector>
 
 namespace mlt::metadata::stream {
 
@@ -118,6 +119,8 @@ public:
 
     static std::unique_ptr<StreamMetadata> decode(BufferStream&);
 
+    virtual std::vector<std::uint8_t> encode() const;
+
     PhysicalStreamType getPhysicalStreamType() const { return physicalStreamType; }
     const std::optional<LogicalStreamType>& getLogicalStreamType() const { return logicalStreamType; }
     LogicalLevelTechnique getLogicalLevelTechnique1() const { return logicalLevelTechnique1; }
@@ -183,6 +186,8 @@ public:
 
     LogicalLevelTechnique getMetadataType() const noexcept override { return LogicalLevelTechnique::RLE; }
 
+    std::vector<std::uint8_t> encode() const override;
+
     static RleEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& tileData) {
         const auto [runs, numValues] = util::decoding::decodeVarints<std::uint32_t, 2>(tileData);
         return RleEncodedStreamMetadata(std::move(streamMetadata), runs, numValues);
@@ -227,6 +232,8 @@ public:
           coordinateShift(coordinateShift_) {}
 
     LogicalLevelTechnique getMetadataType() const noexcept override { return LogicalLevelTechnique::MORTON; }
+
+    std::vector<std::uint8_t> encode() const override;
 
     static MortonEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& tileData) {
         const auto [numBits, coordShift] = util::decoding::decodeVarints<std::uint32_t, 2>(tileData);

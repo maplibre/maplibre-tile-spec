@@ -10,3 +10,9 @@
 [submodule "cpp/vendor/json"]
 	path = cpp/vendor/json
 	url = https://github.com/nlohmann/json.git
+[submodule "cpp/vendor/fsst"]
+	path = cpp/vendor/fsst
+	url = https://github.com/cwida/fsst.git
+[submodule "cpp/vendor/earcut"]
+	path = cpp/vendor/earcut
+	url = https://github.com/mapbox/earcut.hpp.git

@@ -28,7 +28,7 @@ struct Tag0x01 {
             }
         } else if (logicalScalarType) {
             if (logicalScalarType == LogicalScalarType::ID) {
-                return isNullable ? (hasLongIDs ? 3 : 2) : (hasLongIDs ? 1 : 0);
+                return (hasLongIDs ? 2 : 0) | (isNullable ? 1 : 0);
             }
         } else if (physicalComplexType) {
             if (physicalComplexType == ComplexType::GEOMETRY) {
