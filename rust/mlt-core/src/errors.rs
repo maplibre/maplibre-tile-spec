@@ -92,6 +92,10 @@ pub enum MltError {
     UnsupportedPhysicalEncoding(&'static str),
     #[error("unsupported physical encoding: {0:?} for {1}")]
     UnsupportedPhysicalEncodingForType(PhysicalEncoding, &'static str),
+    #[error(
+        "Extent {extent} cannot be encoded to morton due to morton allowing max. 16 bits, but {required_bits} would be required"
+    )]
+    VertexMortonNotCompatibleWithExtent { extent: u64, required_bits: u32 },
 
     // Geometry decode errors (field = variable name, geom_type for context)
     #[error("MVT error: {0}")]

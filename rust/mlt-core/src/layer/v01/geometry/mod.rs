@@ -162,7 +162,6 @@ pub struct DecodedGeometry {
     pub geometry_offsets: Option<Vec<u32>>,
     pub part_offsets: Option<Vec<u32>>,
     pub ring_offsets: Option<Vec<u32>>,
-    pub vertex_offsets: Option<Vec<u32>>,
     pub index_buffer: Option<Vec<u32>>,
     pub triangles: Option<Vec<u32>>,
     pub vertices: Option<Vec<i32>>,
@@ -176,7 +175,6 @@ impl Analyze for DecodedGeometry {
                     + self.geometry_offsets.collect_statistic(stat)
                     + self.part_offsets.collect_statistic(stat)
                     + self.ring_offsets.collect_statistic(stat)
-                    + self.vertex_offsets.collect_statistic(stat)
                     + self.index_buffer.collect_statistic(stat)
                     + self.triangles.collect_statistic(stat)
                     + self.vertices.collect_statistic(stat)
@@ -196,7 +194,6 @@ impl DecodedGeometry {
         let geoms = self.geometry_offsets.as_deref();
         let parts = self.part_offsets.as_deref();
         let rings = self.ring_offsets.as_deref();
-        let vo = self.vertex_offsets.as_deref();
 
         let off = |s: &[u32], idx: usize, field: &'static str| -> Result<usize, MltError> {
             match s.get(idx) {
@@ -225,15 +222,11 @@ impl DecodedGeometry {
         };
 
         let v = |idx: usize| -> Result<Coord32, MltError> {
-            let vertex = match vo {
-                Some(vo) => off(vo, idx, "vertex_offsets")?,
-                None => idx,
-            };
-            let s = match verts.get(vertex * 2..(vertex * 2) + 2) {
+            let s = match verts.get(idx * 2..(idx * 2) + 2) {
                 Some(v) => v,
                 None => Err(GeometryVertexOutOfBounds {
                     index,
-                    vertex,
+                    vertex: idx,
                     count: verts.len() / 2,
                 })?,
             };
@@ -780,13 +773,19 @@ impl Analyze for GeometryType {
     }
 }
 
-// /// Vertex buffer type used for geometry columns
-// #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-// pub enum VertexBufferType {
-//     Morton,
-//     Vec2,
-//     Vec3,
-// }
+/// Describes how the vertex buffer should be encoded.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum VertexBufferType {
+    /// Standard 2D `(x, y)` pairs encoded with componentwise delta.
+    #[default]
+    Vec2,
+    /// Morton (Z-order) dictionary encoding:
+    /// Unique vertices are sorted by their Morton code and stored once.
+    /// Each vertex position in the stream is replaced by its index into that dictionary.
+    Morton,
+}
 
 // #[derive(Debug, Clone, Copy, PartialEq)]
 // pub enum VectorType {
@@ -832,18 +831,23 @@ impl<'a> Geometry<'a> {
 
 impl Debug for DecodedGeometry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let DecodedGeometry {
+            vector_types,
+            geometry_offsets,
+            part_offsets,
+            ring_offsets,
+            index_buffer,
+            triangles,
+            vertices,
+        } = self;
         f.debug_struct("DecodedGeometry")
-            .field("vector_types", &OptSeq(Some(&self.vector_types)))
-            .field(
-                "geometry_offsets",
-                &OptSeq(self.geometry_offsets.as_deref()),
-            )
-            .field("part_offsets", &OptSeq(self.part_offsets.as_deref()))
-            .field("ring_offsets", &OptSeq(self.ring_offsets.as_deref()))
-            .field("vertex_offsets", &OptSeq(self.vertex_offsets.as_deref()))
-            .field("index_buffer", &OptSeq(self.index_buffer.as_deref()))
-            .field("triangles", &OptSeq(self.triangles.as_deref()))
-            .field("vertices", &OptSeq(self.vertices.as_deref()))
+            .field("vector_types", &OptSeq(Some(vector_types)))
+            .field("geometry_offsets", &OptSeq(geometry_offsets.as_deref()))
+            .field("part_offsets", &OptSeq(part_offsets.as_deref()))
+            .field("ring_offsets", &OptSeq(ring_offsets.as_deref()))
+            .field("index_buffer", &OptSeq(index_buffer.as_deref()))
+            .field("triangles", &OptSeq(triangles.as_deref()))
+            .field("vertices", &OptSeq(vertices.as_deref()))
             .finish()
     }
 }
@@ -960,13 +964,33 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
         // Case when the indices of a Polygon outline are encoded in the tile
         // This is handled by including index_buffer in the DecodedGeometry
 
+        // Expand vertex dictionary:
+        // If a vertex offset stream was present,
+        // - `vertices` holds only the unique dictionary entries and
+        // - `vertex_offsets` holds per-vertex indices into it.
+        //
+        // Expand them into a single flat (x, y) sequence so that `DecodedGeometry` always
+        // represents fully decoded data, regardless of the encoding that was used.
+        if let Some(offsets) = vertex_offsets.take()
+            && let Some(dict) = vertices.as_deref()
+        {
+            vertices = Some(
+                offsets
+                    .iter()
+                    .flat_map(|&i| {
+                        let i = i as usize;
+                        [dict[i * 2], dict[i * 2 + 1]]
+                    })
+                    .collect(),
+            );
+        }
+
         Ok(DecodedGeometry {
             // vertex_buffer_type: VertexBufferType::Vec2, // Morton not supported yet
             vector_types,
             geometry_offsets,
             part_offsets,
             ring_offsets,
-            vertex_offsets,
             index_buffer,
             triangles,
             vertices,
@@ -976,6 +1000,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
 
 #[cfg(test)]
 mod tests {
+    use geo_types::wkt;
     use proptest::prelude::*;
 
     use super::*;
@@ -1004,10 +1029,10 @@ mod tests {
     /// Build a `DecodedGeometry` from a sequence of `GeoGeom` values via
     /// `push_geom` and perform a two-cycle encode/decode:
     ///
-    /// 1. push → encode → decode  (`canonical`): exercises `push_geom` and
+    /// 1. push -> encode -> decode  (`canonical`): exercises `push_geom` and
     ///    `normalize_geometry_offsets`; normalises the sparse push_* layout to
     ///    the dense form that `from_encoded` always returns.
-    /// 2. canonical → encode → decode  (`output`): verifies idempotency of
+    /// 2. canonical -> encode -> decode  (`output`): verifies idempotency of
     ///    encode/decode on the canonical form
     ///
     /// Comparing `canonical == output` catches both panics in the push path
@@ -1238,5 +1263,77 @@ mod tests {
             let (canonical, output) = roundtrip_via_push(&geoms, encoder);
             prop_assert_eq!(output, canonical);
         }
+    }
+
+    /// Verifies that a Morton-encoded vertex dictionary is fully expanded inside `from_encoded`.
+    /// This ensures `DecodedGeometry` always holds flat `(x, y)` pairs.
+    #[test]
+    fn test_morton_vertex_dictionary_expansion() {
+        use crate::v01::{
+            DictionaryType, Encoder, LengthType, LogicalEncoding, MortonMeta, OffsetType,
+            OwnedStream, StreamMeta, StreamType,
+        };
+
+        // meta: single LineString
+        let meta = OwnedStream::encode_u32s_of_type(
+            &[GeometryType::LineString as u32],
+            Encoder::varint(),
+            StreamType::Length(LengthType::VarBinary),
+        )
+        .unwrap();
+
+        // parts: one LineString of length 4
+        let parts = OwnedStream::encode_u32s_of_type(
+            &[4u32],
+            Encoder::varint(),
+            StreamType::Length(LengthType::Parts),
+        )
+        .unwrap();
+
+        // vertex offsets: per-vertex indices into the Morton dictionary
+        let vertex_offsets_stream = OwnedStream::encode_u32s_of_type(
+            &[0u32, 1, 2, 1],
+            Encoder::varint(),
+            StreamType::Offset(OffsetType::Vertex),
+        )
+        .unwrap();
+
+        // Morton vertex dictionary: 3 unique entries.
+        // Raw codes [0, 16, 32] -> delta-encoded as [0, 16, 16].
+        // The MortonDelta logical encoding means the decoder will undo the delta,
+        // then decode each Morton code to an (x, y) pair.
+        let morton_deltas = vec![0u32, 16, 16];
+        let (data, physical_encoding) = Encoder::varint()
+            .physical
+            .encode_u32s(morton_deltas)
+            .unwrap();
+        let morton_dict = OwnedStream {
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::Morton),
+                LogicalEncoding::MortonDelta(MortonMeta {
+                    num_bits: 3,
+                    coordinate_shift: 0,
+                }),
+                physical_encoding,
+                3, // 3 dictionary entries -> 3 physical u32 values
+            ),
+            data,
+        };
+
+        // Assemble, serialize, parse, decode
+        let owned = OwnedEncodedGeometry {
+            meta,
+            items: vec![parts, vertex_offsets_stream, morton_dict],
+        };
+        let mut buffer = Vec::new();
+        owned.write_to(&mut buffer).unwrap();
+        let (remaining, parsed) = EncodedGeometry::parse(&buffer).unwrap();
+        assert!(remaining.is_empty());
+        let decoded = DecodedGeometry::from_encoded(parsed).unwrap();
+
+        assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));
+
+        let geom = decoded.to_geojson(0).unwrap();
+        assert_eq!(geom, wkt!(LINESTRING(0 0,4 0,0 4,4 0)).into());
     }
 }

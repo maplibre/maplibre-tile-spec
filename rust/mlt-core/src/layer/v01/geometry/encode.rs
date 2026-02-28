@@ -1,10 +1,12 @@
-use super::{DecodedGeometry, OwnedEncodedGeometry};
+use std::collections::BTreeSet;
+
+use super::{DecodedGeometry, OwnedEncodedGeometry, VertexBufferType};
 use crate::MltError;
 use crate::utils::encode_componentwise_delta_vec2s;
 use crate::v01::LengthType::VarBinary;
 use crate::v01::{
-    DictionaryType, Encoder, GeometryType, LengthType, LogicalEncoding, OffsetType, OwnedStream,
-    PhysicalEncoder, StreamMeta, StreamType,
+    DictionaryType, Encoder, GeometryType, LengthType, LogicalEncoding, MortonMeta, OffsetType,
+    OwnedStream, PhysicalEncoder, StreamMeta, StreamType,
 };
 
 /// Encode vertex buffer using componentwise delta encoding
@@ -25,6 +27,102 @@ fn encode_vertex_buffer(
         ),
         data,
     })
+}
+
+/// Encode a Morton vertex dictionary stream.
+///
+/// `codes` must be the sorted unique Morton codes for the dictionary.
+/// They are delta-encoded before physical encoding.
+fn encode_morton_vertex_buffer(
+    codes: &[u32],
+    meta: MortonMeta,
+    physical: PhysicalEncoder,
+) -> Result<OwnedStream, MltError> {
+    let deltas: Vec<u32> = std::iter::once(codes[0])
+        .chain(codes.windows(2).map(|w| w[1] - w[0]))
+        .collect();
+    let num_values = u32::try_from(deltas.len())?;
+    let (data, physical_encoding) = physical.encode_u32s(deltas)?;
+    Ok(OwnedStream {
+        meta: StreamMeta::new(
+            StreamType::Data(DictionaryType::Morton),
+            LogicalEncoding::MortonDelta(meta),
+            physical_encoding,
+            num_values,
+        ),
+        data,
+    })
+}
+
+/// Compute `ZOrderCurve` parameters from the vertex value range.
+///
+/// Returns `(num_bits, coordinate_shift)` matching Java's `SpaceFillingCurve`.
+fn zorder_params(vertices: &[i32]) -> Result<(u32, u32), MltError> {
+    let min_v = vertices.iter().copied().min().unwrap_or(0);
+    let max_v = vertices.iter().copied().max().unwrap_or(0);
+    let coordinate_shift: u32 = if min_v < 0 { min_v.unsigned_abs() } else { 0 };
+    let tile_extent = i64::from(max_v) + i64::from(coordinate_shift);
+    let num_bits = if let Ok(extent) = u64::try_from(tile_extent) {
+        // ceil(log2(extent + 1)), matching Java's Math.ceil(Math.log(...) / Math.log(2)).
+        // Computed with integer arithmetic: for te >= 1, this equals `u64::BITS - te.leading_zeros()`.
+        // Capped at 16: Morton codes are u32, so each axis may use at most 16 bits.
+        let required_bits = u64::BITS - extent.leading_zeros();
+        if required_bits > 16 {
+            return Err(MltError::VertexMortonNotCompatibleWithExtent {
+                extent,
+                required_bits,
+            });
+        }
+        required_bits
+    } else {
+        0u32
+    };
+    Ok((num_bits, coordinate_shift))
+}
+
+/// Encode a single `(x, y)` pair to its Z-order (Morton) code.
+fn morton_encode(x: i32, y: i32, num_bits: u32, coordinate_shift: u32) -> Result<u32, MltError> {
+    let sx = u32::try_from(i64::from(x) + i64::from(coordinate_shift))?;
+    let sy = u32::try_from(i64::from(y) + i64::from(coordinate_shift))?;
+    let mut code = 0u32;
+    for i in 0..num_bits {
+        // num_bits is capped at 16, so 2*i+1 <= 31 => no shift overflow possible.
+        code |= ((sx >> i) & 1) << (2 * i);
+        code |= ((sy >> i) & 1) << (2 * i + 1);
+    }
+    Ok(code)
+}
+
+/// Build a sorted unique Morton dictionary and per-vertex offset indices from a flat
+/// `[x0, y0, x1, y1, …]` vertex slice.
+///
+/// Returns `(sorted_unique_codes, per_vertex_offsets)`.
+fn build_morton_dict(
+    vertices: &[i32],
+    num_bits: u32,
+    coordinate_shift: u32,
+) -> Result<(Vec<u32>, Vec<u32>), MltError> {
+    let codes: Vec<u32> = vertices
+        .chunks_exact(2)
+        .map(|c| morton_encode(c[0], c[1], num_bits, coordinate_shift))
+        .collect::<Result<_, _>>()?;
+
+    let dict: Vec<u32> = codes
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+
+    let offsets: Vec<u32> = codes
+        .iter()
+        .map(|&code| {
+            u32::try_from(dict.partition_point(|&c| c < code))
+                .map_err(|_| MltError::IntegerOverflow)
+        })
+        .collect::<Result<_, _>>()?;
+
+    Ok((dict, offsets))
 }
 
 /// Convert geometry offsets to length stream for encoding.
@@ -346,7 +444,6 @@ pub fn encode_geometry(
         geometry_offsets,
         part_offsets,
         ring_offsets,
-        vertex_offsets,
         index_buffer,
         triangles,
         vertices,
@@ -523,18 +620,32 @@ pub fn encode_geometry(
         )?);
     }
 
-    // Encode vertex offsets if present (dictionary encoding)
-    if let Some(v_offs) = vertex_offsets {
-        items.push(OwnedStream::encode_u32s_of_type(
-            v_offs,
-            config.vertex_offsets,
-            StreamType::Offset(OffsetType::Vertex),
-        )?);
-    }
-
-    // Encode vertex buffer
+    // Encode vertex buffer (and dictionary offsets when Morton encoding is active)
     if let Some(verts) = vertices {
-        items.push(encode_vertex_buffer(verts, config.vertex.physical)?);
+        match config.vertex_buffer_type {
+            VertexBufferType::Vec2 => {
+                items.push(encode_vertex_buffer(verts, config.vertex.physical)?);
+            }
+            VertexBufferType::Morton => {
+                let (num_bits, coordinate_shift) = zorder_params(verts)?;
+                let (dict, offsets) = build_morton_dict(verts, num_bits, coordinate_shift)?;
+                let morton_meta = MortonMeta {
+                    num_bits,
+                    coordinate_shift,
+                };
+
+                items.push(OwnedStream::encode_u32s_of_type(
+                    &offsets,
+                    config.vertex_offsets,
+                    StreamType::Offset(OffsetType::Vertex),
+                )?);
+                items.push(encode_morton_vertex_buffer(
+                    &dict,
+                    morton_meta,
+                    config.vertex.physical,
+                )?);
+            }
+        }
     }
 
     Ok(OwnedEncodedGeometry { meta, items })
@@ -571,10 +682,17 @@ pub struct GeometryEncoder {
     /// Encoding for triangle index buffer (pre-tessellated polygons).
     pub triangles_indexes: Encoder,
 
-    /// Encoding for the vertex data stream (logical is always `ComponentwiseDelta`; only physical varies).
+    /// Encoding for the vertex data stream (logical encoding is always `ComponentwiseDelta` if `vertex_buffer_type==Vec2`).
     pub vertex: Encoder,
-    /// Encoding for vertex offsets (dictionary encoding).
+    /// Encoding for vertex offsets (used when `vertex_buffer_type` is not `Vec2`).
     pub vertex_offsets: Encoder,
+
+    /// How the vertex buffer should be encoded.
+    // vertex_buffer_type is pinned to Vec2 in the Arbitrary impl below.
+    // Morton encoding requires coordinates in a bounded range and is tested via dedicated tests only.
+    #[cfg_attr(test, proptest(value = "VertexBufferType::Vec2"))]
+    #[cfg_attr(all(not(test), feature = "arbitrary"), arbitrary(value = VertexBufferType::Vec2))]
+    pub vertex_buffer_type: VertexBufferType,
 }
 
 impl GeometryEncoder {
@@ -594,6 +712,7 @@ impl GeometryEncoder {
             triangles_indexes: encoder,
             vertex: encoder,
             vertex_offsets: encoder,
+            vertex_buffer_type: VertexBufferType::Vec2,
         }
     }
 
@@ -666,6 +785,12 @@ impl GeometryEncoder {
     /// Set encoding for vertex offsets (dictionary encoding).
     pub fn vertex_offsets(&mut self, e: Encoder) -> &mut Self {
         self.vertex_offsets = e;
+        self
+    }
+
+    /// Set the vertex buffer encoding type.
+    pub fn vertex_buffer_type(&mut self, t: VertexBufferType) -> &mut Self {
+        self.vertex_buffer_type = t;
         self
     }
 }

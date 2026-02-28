@@ -11,13 +11,13 @@ use std::path::Path;
 use std::sync::LazyLock;
 
 use geo_types::{
-    Coord, MultiLineString, MultiPoint, MultiPolygon, Point, coord, line_string as line,
-    polygon as poly,
+    Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
+    line_string as line, wkt,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     DecodedProperty, Encoder as E, IdEncoder, IdWidth, LogicalEncoder as L, PhysicalEncoder as P,
-    PresenceStream as O, PropValue, PropertyEncoder,
+    PresenceStream as O, PropValue, PropertyEncoder, VertexBufferType,
 };
 
 use crate::layer::{DecodedProp, SynthWriter, bool, i32};
@@ -27,10 +27,6 @@ const C0: Coord<i32> = coord! { x: 13, y: 42 };
 const C1: Coord<i32> = coord! { x: 11, y: 52 };
 const C2: Coord<i32> = coord! { x: 71, y: 72 };
 const C3: Coord<i32> = coord! { x: 61, y: 22 };
-// triangle 2, clockwise winding, X ends in 3, Y ends in 4
-const C21: Coord<i32> = coord! { x: 23, y: 34 };
-const C22: Coord<i32> = coord! { x: 73, y: 4 };
-const C23: Coord<i32> = coord! { x: 13, y: 24 };
 // hole in triangle 1 with counter-clockwise winding
 const H1: Coord<i32> = coord! { x: 65, y: 66 };
 const H2: Coord<i32> = coord! { x: 35, y: 56 };
@@ -49,59 +45,35 @@ const fn c(x: i32, y: i32) -> Coord<i32> {
     coord! { x: x, y: y }
 }
 
-const fn p(x: i32, y: i32) -> Point<i32> {
-    Point(c(x, y))
-}
-
 static MIX_TYPES: LazyLock<[(&'static str, Geom32); 7]> = LazyLock::new(|| {
     [
-        ("pt", p(38, 29).into()),
-        ("line", line![c(5, 38), c(12, 45), c(9, 70)].into()),
-        (
-            "poly",
-            poly![c(55, 5), c(58, 28), c(75, 22), c(55, 5)].into(),
-        ),
+        ("pt", wkt!(POINT(38 29)).into()),
+        ("line", wkt!(LINESTRING(5 38, 12 45, 9 70)).into()),
+        ("poly", wkt!(POLYGON((55 5, 58 28, 75 22, 55 5))).into()),
         (
             "polyh",
-            poly! {
-                exterior: [c(52, 35), c(14, 55), c(60, 72), c(52, 35)],
-                interiors: [[c(32, 50), c(36, 60), c(24, 54), c(32, 50)]]
-            }
-            .into(),
+            wkt!(POLYGON((52 35, 14 55, 60 72, 52 35),(32 50, 36 60, 24 54, 32 50))).into(),
         ),
-        (
-            "mpt",
-            MultiPoint(vec![p(6, 25), p(21, 41), p(23, 69)]).into(),
-        ),
+        ("mpt", wkt!(MULTIPOINT(6 25, 21 41, 23 69)).into()),
         (
             "mline",
-            MultiLineString(vec![
-                line![c(24, 10), c(42, 18)],
-                line![c(30, 36), c(48, 52), c(35, 62)],
-            ])
-            .into(),
+            wkt!(MULTILINESTRING((24 10, 42 18),(30 36, 48 52, 35 62))).into(),
         ),
         (
             "mpoly",
-            MultiPolygon(vec![
-                poly! {
-                    exterior: [c(7, 20), c(21, 31), c(26, 9), c(7, 20)],
-                    interiors: [[c(15, 20), c(20, 15), c(18, 25), c(15, 20)]]
-                },
-                poly![c(69, 57), c(71, 66), c(73, 64), c(69, 57)],
-            ])
-            .into(),
+            wkt!(MULTIPOLYGON(((7 20, 21 31, 26 9, 7 20),(15 20, 20 15, 18 25, 15 20)),((69 57, 71 66, 73 64, 69 57)))).into(),
         ),
     ]
 });
 
 fn main() {
     let dir = Path::new("../test/synthetic/0x01-rust/");
-    fs::create_dir_all(dir).unwrap_or_else(|_| panic!("to be able to create {}", dir.display()));
+    fs::create_dir_all(dir)
+        .unwrap_or_else(|e| panic!("to be able to create {}: {e:?}", dir.display()));
 
     let dir = dir
         .canonicalize()
-        .unwrap_or_else(|_| panic!("bad path {}", dir.display()));
+        .unwrap_or_else(|e| panic!("bad path {}: {e:?}", dir.display()));
     println!("Generating synthetic test data in {}", dir.display());
 
     let writer = SynthWriter::new(dir);
@@ -113,25 +85,45 @@ fn main() {
 }
 
 // Geometry builder macros matching Java definitions
-fn line1() -> geo_types::LineString<i32> {
-    line![C1, C2, C3]
+fn line1() -> LineString<i32> {
+    wkt!(LINESTRING(11 52, 71 72, 61 22))
 }
-fn line2() -> geo_types::LineString<i32> {
-    line![C21, C22, C23]
+fn line2() -> LineString<i32> {
+    wkt!(LINESTRING(23 34, 73 4, 13 24))
 }
-fn poly1() -> geo_types::Polygon<i32> {
-    poly![C1, C2, C3, C1]
+fn poly1() -> Polygon<i32> {
+    wkt!(POLYGON((11 52, 71 72, 61 22, 11 52)))
 }
-fn poly2() -> geo_types::Polygon<i32> {
-    poly![C21, C22, C23, C21]
+fn poly2() -> Polygon<i32> {
+    wkt!(POLYGON((23 34, 73 4, 13 24, 23 34)))
 }
-fn poly1h() -> geo_types::Polygon<i32> {
-    poly! { exterior: [C1, C2, C3, C1], interiors: [[H1, H2, H3, H1]] }
+fn poly1h() -> Polygon<i32> {
+    wkt!(POLYGON((11 52, 71 72, 61 22, 11 52),(65 66, 35 56, 55 36, 65 66)))
 }
 
 fn generate_geometry(w: &SynthWriter) {
     w.geo_varint().geo(P0).write("point");
     w.geo_varint().geo(line1()).write("line");
+    // Morton (Z-order) line: de-interleave index bits into x/y (even/odd bits).
+    let num_points = 16; // 4x4 complete Morton block
+    let scale = 8;
+    let morton_bits = 4;
+    let mut morton_curve = Vec::with_capacity(num_points);
+    for i in 0..num_points {
+        let i = i32::try_from(i).unwrap();
+        let mut x = 0_i32;
+        let mut y = 0_i32;
+        for b in 0..morton_bits {
+            x |= ((i >> (2 * b)) & 1) << b;
+            y |= ((i >> (2 * b + 1)) & 1) << b;
+        }
+        morton_curve.push(c(x * scale, y * scale));
+    }
+    w.geo_varint()
+        .geo(LineString::new(morton_curve))
+        .vertex_buffer_type(VertexBufferType::Morton)
+        .vertex_offsets(E::delta_rle_varint())
+        .write("line_morton");
     w.geo_varint().geo(poly1()).write("polygon");
     w.geo_fastpfor().geo(poly1()).write("polygon_fpf");
     w.geo_varint().tessellated(poly1()).write("polygon_tes");

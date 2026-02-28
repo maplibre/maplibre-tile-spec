@@ -11,6 +11,7 @@ use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, Encoder, GeometryEncoder, IdEncoder,
     OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PropValue, PropertyEncoder,
+    VertexBufferType,
 };
 use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
 
@@ -191,6 +192,13 @@ impl Layer {
     #[must_use]
     pub fn vertex_offsets(mut self, e: Encoder) -> Self {
         self.geometry_encoder.vertex_offsets(e);
+        self
+    }
+
+    /// Set encoding of the vertex buffer.
+    #[must_use]
+    pub fn vertex_buffer_type(mut self, v: VertexBufferType) -> Self {
+        self.geometry_encoder.vertex_buffer_type(v);
         self
     }
 
