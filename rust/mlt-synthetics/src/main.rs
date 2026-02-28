@@ -11,8 +11,8 @@ use std::path::Path;
 use std::sync::LazyLock;
 
 use geo_types::{
-    Coord, MultiLineString, MultiPoint, MultiPolygon, Point, coord, line_string as line,
-    polygon as poly,
+    Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
+    line_string as line, polygon as poly,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
@@ -113,25 +113,43 @@ fn main() {
 }
 
 // Geometry builder macros matching Java definitions
-fn line1() -> geo_types::LineString<i32> {
+fn line1() -> LineString<i32> {
     line![C1, C2, C3]
 }
-fn line2() -> geo_types::LineString<i32> {
+fn line2() -> LineString<i32> {
     line![C21, C22, C23]
 }
-fn poly1() -> geo_types::Polygon<i32> {
+fn poly1() -> Polygon<i32> {
     poly![C1, C2, C3, C1]
 }
-fn poly2() -> geo_types::Polygon<i32> {
+fn poly2() -> Polygon<i32> {
     poly![C21, C22, C23, C21]
 }
-fn poly1h() -> geo_types::Polygon<i32> {
+fn poly1h() -> Polygon<i32> {
     poly! { exterior: [C1, C2, C3, C1], interiors: [[H1, H2, H3, H1]] }
 }
 
 fn generate_geometry(w: &SynthWriter) {
     w.geo_varint().geo(P0).write("point");
     w.geo_varint().geo(line1()).write("line");
+    // Morton (Z-order) line: de-interleave index bits into x/y (even/odd bits).
+    let num_points = 16; // 4x4 complete Morton block
+    let scale = 8;
+    let morton_bits = 4;
+    let mut morton_curve = Vec::with_capacity(num_points);
+    for i in 0..num_points {
+        let i = i as i32;
+        let mut x = 0_i32;
+        let mut y = 0_i32;
+        for b in 0..morton_bits {
+            x |= ((i >> (2 * b)) & 1) << b;
+            y |= ((i >> (2 * b + 1)) & 1) << b;
+        }
+        morton_curve.push(c(x * scale, y * scale))
+    }
+    w.geo_varint()
+        .geo(LineString::new(morton_curve))
+        .write("line_morton");
     w.geo_varint().geo(poly1()).write("polygon");
     w.geo_fastpfor().geo(poly1()).write("polygon_fpf");
     w.geo_varint().tessellated(poly1()).write("polygon_tes");
