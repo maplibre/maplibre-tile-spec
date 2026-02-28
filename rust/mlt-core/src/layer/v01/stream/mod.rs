@@ -436,7 +436,7 @@ impl StreamMeta {
                     LogicalEncoding::DeltaRle(rle)
                 }
             }
-            (LT::Morton, LT::None) | (LT::Morton, LT::Rle) | (LT::Morton, LT::Delta) => {
+            (LT::Morton, LT::None | LT::Rle | LT::Delta) => {
                 let num_bits;
                 let coordinate_shift;
                 (input, num_bits) = parse_varint::<u32>(input)?;
