@@ -176,8 +176,8 @@ fn generate_combinations(
                 .collect::<Vec<_>>()
                 .join("_")
         );
+        // FIXME: Remove NON_WORKING_GEOS
         if !NON_WORKING_GEOS.contains(&name.as_str()) {
-            dbg!(&name);
             let mut builder = geo_varint();
 
             for i in current {
