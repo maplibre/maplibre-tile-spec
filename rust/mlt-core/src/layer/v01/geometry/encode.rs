@@ -407,7 +407,7 @@ pub fn encode_geometry(
             // even when empty
             items.push(OwnedStream::encode_u32s_of_type(
                 &lengths,
-                config.num_geometries,
+                config.geometries,
                 StreamType::Length(LengthType::Geometries),
             )?);
         }
@@ -465,7 +465,7 @@ pub fn encode_geometry(
             if has_tessellation {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &[],
-                    config.num_geometries,
+                    config.geometries,
                     StreamType::Length(LengthType::Geometries),
                 )?);
             }
@@ -549,7 +549,7 @@ pub struct GeometryEncoder {
     pub meta: Encoder,
 
     /// Encoding for the geometry length stream.
-    pub num_geometries: Encoder,
+    pub geometries: Encoder,
 
     /// Encoding for parts length stream when rings are present.
     pub rings: Encoder,
@@ -583,7 +583,7 @@ impl GeometryEncoder {
     pub fn all(encoder: Encoder) -> Self {
         Self {
             meta: encoder,
-            num_geometries: encoder,
+            geometries: encoder,
             rings: encoder,
             rings2: encoder,
             no_rings: encoder,
@@ -604,8 +604,8 @@ impl GeometryEncoder {
     }
 
     /// Set encoding for the geometry length stream.
-    pub fn num_geometries(&mut self, e: Encoder) -> &mut Self {
-        self.num_geometries = e;
+    pub fn geometries(&mut self, e: Encoder) -> &mut Self {
+        self.geometries = e;
         self
     }
 

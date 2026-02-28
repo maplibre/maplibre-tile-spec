@@ -3,6 +3,7 @@
 //! This generates synthetic MLT files for testing and validation.
 //! The goal is to produce byte-for-byte identical output to the Java generator.
 
+use std::fmt::Write;
 mod layer;
 
 use std::fs;
@@ -52,7 +53,6 @@ const fn p(x: i32, y: i32) -> Point<i32> {
     Point(c(x, y))
 }
 
-
 static MIX_TYPES: LazyLock<[(&'static str, Geom32); 7]> = LazyLock::new(|| {
     [
         ("pt", p(38, 29).into()),
@@ -67,7 +67,7 @@ static MIX_TYPES: LazyLock<[(&'static str, Geom32); 7]> = LazyLock::new(|| {
                 exterior: [c(52, 35), c(14, 55), c(60, 72), c(52, 35)],
                 interiors: [[c(32, 50), c(36, 60), c(24, 54), c(32, 50)]]
             }
-                .into(),
+            .into(),
         ),
         (
             "mpt",
@@ -79,7 +79,7 @@ static MIX_TYPES: LazyLock<[(&'static str, Geom32); 7]> = LazyLock::new(|| {
                 line![c(24, 10), c(42, 18)],
                 line![c(30, 36), c(48, 52), c(35, 62)],
             ])
-                .into(),
+            .into(),
         ),
         (
             "mpoly",
@@ -90,11 +90,10 @@ static MIX_TYPES: LazyLock<[(&'static str, Geom32); 7]> = LazyLock::new(|| {
                 },
                 poly![c(69, 57), c(71, 66), c(73, 64), c(69, 57)],
             ])
-                .into(),
+            .into(),
         ),
     ]
 });
-
 
 fn main() {
     let dir = Path::new("../test/synthetic/0x01-rust/");
@@ -166,27 +165,76 @@ fn generate_geometry(w: &SynthWriter) {
         .write("multiline");
 }
 
-// Geometries = Rle        mline OR mpoly OR mpt
-// Parts = Rle             line OR poly OR polyh
-// Rings = Rle             mpoly OR poly OR polyh
-// VarBinary = DeltaRle    (line AND polyh AND mpt) OR (line AND poly AND mpt)
-// VarBinary = Rle         line OR mline OR mpoly OR mpt OR poly OR polyh OR pt
+fn write_mix(w: &SynthWriter, current: &[usize]) {
+    let mut pt = false;
+    let mut line = false;
+    let mut poly = false;
+    let mut polyh = false;
+    let mut mpt = false;
+    let mut mline = false;
+    let mut mpoly = false;
+
+    let mut builder = w.geo_varint();
+    let mut name = format!("mix_{}", current.len());
+    for idx in current {
+        let mix_type = &MIX_TYPES[*idx];
+        builder = builder.geo(mix_type.1.clone());
+        write!(&mut name, "_{}", mix_type.0).unwrap();
+
+        match mix_type.0 {
+            "pt" => pt = true,
+            "line" => line = true,
+            "poly" => poly = true,
+            "polyh" => polyh = true,
+            "mpt" => mpt = true,
+            "mline" => mline = true,
+            "mpoly" => mpoly = true,
+            _ => unreachable!(),
+        }
+    }
+
+    // Length(LengthType::Geometries)    .geometries
+    // Length(LengthType::Parts)         .no_rings
+    // Length(LengthType::Parts)         .only_parts
+    // Length(LengthType::Parts)         .parts
+    // Length(LengthType::Parts)         .rings
+    // Length(LengthType::Rings)         .parts_ring
+    // Length(LengthType::Rings)         .rings2
+    // Length(LengthType::Triangles)     .triangles
+    // Length(VarBinary)                 .meta
+    // Offset(OffsetType::Index)         .triangles_indexes
+    // Offset(OffsetType::Vertex)        .vertex_offsets
+
+    if (line && polyh && mpt) || (line && poly && mpt) {
+        // VarBinary = DeltaRle    (line && polyh && mpt) || (line && poly && mpt)
+        builder = builder.meta(E::delta_rle_varint());
+    } else {
+        // VarBinary = Rle         line || mline || mpoly || mpt || poly || polyh || pt
+        builder = builder.meta(E::rle_varint());
+    }
+    if line || poly || polyh {
+        // Rings = Rle             mpoly || poly || polyh
+        builder = builder.parts_ring(E::rle_varint());
+        builder = builder.rings2(E::rle_varint());
+    }
+    if line || poly || polyh {
+        // Parts = Rle             line || poly || polyh
+        builder = builder.no_rings(E::rle_varint());
+        builder = builder.only_parts(E::rle_varint());
+        builder = builder.parts(E::rle_varint());
+        builder = builder.rings(E::rle_varint());
+    }
+    // Geometries = Rle        mline || mpoly || mpt
+    if mline || mpoly || mpt {
+        builder = builder.geometries(E::rle_varint());
+    }
+
+    builder.write(&name);
+}
 
 fn generate_combinations(w: &SynthWriter, k: usize, start: usize, current: &mut Vec<usize>) {
     if current.len() == k {
-        let name = format!(
-            "mix_{k}_{}",
-            current
-                .iter()
-                .map(|&i| MIX_TYPES[i].0)
-                .collect::<Vec<_>>()
-                .join("_")
-        );
-        let mut builder = w.geo_varint();
-        for i in current {
-            builder = builder.geo(MIX_TYPES[*i].1.clone());
-        }
-        builder.write(&name);
+        write_mix(w, current);
     } else {
         for i in start..MIX_TYPES.len() {
             current.push(i);
@@ -197,31 +245,16 @@ fn generate_combinations(w: &SynthWriter, k: usize, start: usize, current: &mut 
 }
 
 fn generate_mixed(w: &SynthWriter) {
+    // Generate all combinations of MIX_TYPES with length 2 or more
     for k in 2..=MIX_TYPES.len() {
         generate_combinations(w, k, 0, &mut Vec::new());
     }
-
     // Generate A-A (duplicate) and A-B-A patterns
-    for (na, ga) in MIX_TYPES.iter() {
-        // A-A variant: mix_dup_<a>
-        let name = format!("mix_dup_{na}");
-        let geoms = vec![ga.clone(), ga.clone()];
-        let mut layer = w.geo_varint();
-        for g in geoms {
-            layer = layer.geo(g);
-        }
-        layer.write(&name);
-
-        for (nb, gb) in MIX_TYPES.iter() {
-            if na != nb {
-                // A-B-A variant: mix_<a>_<b>_<a>
-                let name = format!("mix_{na}_{nb}_{na}");
-                let geoms = vec![ga.clone(), gb.clone(), ga.clone()];
-                let mut layer = w.geo_varint();
-                for g in geoms {
-                    layer = layer.geo(g);
-                }
-                layer.write(&name);
+    for idx in 0..MIX_TYPES.len() {
+        write_mix(w, &[idx, idx]); // A-A variant
+        for idx2 in 0..MIX_TYPES.len() {
+            if idx != idx2 {
+                write_mix(w, &[idx, idx2, idx]); // A-B-A variant
             }
         }
     }

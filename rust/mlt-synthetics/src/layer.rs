@@ -92,14 +92,14 @@ impl SynthWriter {
 
 /// Layer builder: holds geometry encoder, geometry list, properties, extent, and IDs.
 pub struct Layer {
-    path: PathBuf,
-    geometry_encoder: GeometryEncoder,
-    geometry_items: Vec<Geom32>,
+    pub path: PathBuf,
+    pub geometry_encoder: GeometryEncoder,
+    pub geometry_items: Vec<Geom32>,
     /// Polygons that are also tessellated; triangle data is merged when building decoded geometry.
-    tessellated_polygons: Vec<Option<Polygon<i32>>>,
-    props: Vec<Box<dyn LayerProp>>,
-    extent: Option<u32>,
-    ids: Option<(Vec<Option<u64>>, IdEncoder)>,
+    pub tessellated_polygons: Vec<Option<Polygon<i32>>>,
+    pub props: Vec<Box<dyn LayerProp>>,
+    pub extent: Option<u32>,
+    pub ids: Option<(Vec<Option<u64>>, IdEncoder)>,
 }
 
 impl Layer {
@@ -146,8 +146,8 @@ impl Layer {
 
     /// Set encoding for the geometry length stream.
     #[must_use]
-    pub fn num_geometries(mut self, e: Encoder) -> Self {
-        self.geometry_encoder.num_geometries(e);
+    pub fn geometries(mut self, e: Encoder) -> Self {
+        self.geometry_encoder.geometries(e);
         self
     }
 
