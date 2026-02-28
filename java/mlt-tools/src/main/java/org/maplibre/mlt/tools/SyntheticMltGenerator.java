@@ -42,7 +42,7 @@ public class SyntheticMltGenerator {
 
   private static void generateLines() throws IOException {
     write("line", feat(line1), cfg());
-    
+
     // Morton (Z-order) line: de-interleave index bits into x/y (even/odd bits).
     int numPoints = 16; // 4x4 complete Morton block
     int scale = 8;
