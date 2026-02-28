@@ -8,8 +8,10 @@ mod layer;
 use std::fs;
 use std::path::Path;
 
+use geo::Polygon;
 use geo_types::{
-    Coord, MultiLineString, MultiPoint, MultiPolygon, Point, coord, line_string, point, polygon,
+    Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, coord, line_string, point,
+    polygon,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
@@ -19,18 +21,55 @@ use mlt_core::v01::{
 
 use crate::layer::{DecodedProp, bool, geo_fastpfor, geo_varint, i32};
 
-const C0: Coord<i32> = coord! { x: 13, y: 42 };
-const C1: Coord<i32> = coord! { x: 4, y: 47 };
-const C2: Coord<i32> = coord! { x: 12, y: 53 };
-const C3: Coord<i32> = coord! { x: 18, y: 45 };
-const H1: Coord<i32> = coord! { x: 13, y: 48 };
-const H2: Coord<i32> = coord! { x: 12, y: 50 };
-const H3: Coord<i32> = coord! { x: 10, y: 49 };
-
+const C0: Coord<i32> = c(13, 42);
+// triangle 1, clockwise winding, X ends in 1, Y ends in 2
+const C1: Coord<i32> = c(11, 52);
+const C2: Coord<i32> = c(71, 72);
+const C3: Coord<i32> = c(61, 22);
+// triangle 2, clockwise winding, X ends in 3, Y ends in 4
+const C21: Coord<i32> = c(23, 34);
+const C22: Coord<i32> = c(73, 4);
+const C23: Coord<i32> = c(13, 24);
+// hole in triangle 1 with counter-clockwise winding
+const H1: Coord<i32> = c(65, 66);
+const H2: Coord<i32> = c(35, 56);
+const H3: Coord<i32> = c(55, 36);
 const P0: Point<i32> = Point(C0);
 const P1: Point<i32> = Point(C1);
 const P2: Point<i32> = Point(C2);
 const P3: Point<i32> = Point(C3);
+// holes as points with same coordinates as the hole vertices
+const PH1: Point<i32> = Point(H1);
+const PH2: Point<i32> = Point(H2);
+const PH3: Point<i32> = Point(H3);
+
+fn line1() -> LineString<i32> {
+    line_string![C1, C2, C3]
+}
+
+fn line2() -> LineString<i32> {
+    line_string![C21, C22, C23]
+}
+
+fn poly1() -> Polygon<i32> {
+    polygon![C1, C2, C3, C1]
+}
+
+fn poly2() -> Polygon<i32> {
+    polygon![C21, C22, C23, C21]
+}
+
+fn poly1h() -> Polygon<i32> {
+    polygon! { exterior: [C1, C2, C3, C1], interiors: [[H1, H2, H3, H1]] }
+}
+
+const fn c(x: i32, y: i32) -> Coord<i32> {
+    coord! {x:x,y:y}
+}
+
+const fn p(x: i32, y: i32) -> Point<i32> {
+    Point(c(x, y))
+}
 
 fn main() {
     let dir = Path::new("../test/synthetic/0x01-rust/");
@@ -50,51 +89,36 @@ fn main() {
 
 fn generate_geometry(d: &Path) {
     geo_varint().geo(P0).write(d, "point");
-    geo_varint().geo(line_string![C1, C2]).write(d, "line");
-    geo_varint()
-        .geo(polygon![C1, C2, C3, C1])
-        .write(d, "polygon");
+    geo_varint().geo(line1()).write(d, "line");
+    geo_varint().geo(poly1()).write(d, "polygon");
+    geo_fastpfor().geo(poly1()).write(d, "polygon_fpf");
+    geo_varint().tessellated(poly1()).write(d, "polygon_tes");
     geo_fastpfor()
-        .geo(polygon![C1, C2, C3, C1])
-        .write(d, "polygon_fpf");
-    geo_varint()
-        .tessellated(polygon![C1, C2, C3, C1])
-        .write(d, "polygon_tes");
-    geo_fastpfor()
-        .tessellated(polygon![C1, C2, C3, C1])
+        .tessellated(poly1())
         .write(d, "polygon_fpf_tes");
     geo_varint()
         .parts_ring(E::rle_varint())
-        .geo(polygon! { exterior: [C1, C2, C3, C1], interiors: [[H1, H2, H3, H1]] })
+        .geo(poly1h())
         .write(d, "polygon_hole");
     geo_fastpfor()
         .parts_ring(E::rle_fastpfor())
-        .geo(polygon! { exterior: [C1, C2, C3, C1], interiors: [[H1, H2, H3, H1]] })
+        .geo(poly1h())
         .write(d, "polygon_hole_fpf");
     geo_varint()
         .rings(E::rle_varint())
         .rings2(E::rle_varint())
-        .geo(MultiPolygon(vec![
-            polygon![C1, C2, C3, C1],
-            polygon![H1, H3, C2, H1],
-        ]))
+        .geo(MultiPolygon(vec![poly1(), poly2()]))
         .write(d, "polygon_multi");
     geo_fastpfor()
         .rings(E::rle_fastpfor())
         .rings2(E::rle_fastpfor())
-        .geo(MultiPolygon(vec![
-            polygon![C1, C2, C3, C1],
-            polygon![H1, H3, C2, H1],
-        ]))
+        .geo(MultiPolygon(vec![poly1(), poly2()]))
         .write(d, "polygon_multi_fpf");
     geo_varint()
         .geo(MultiPoint(vec![P1, P2, P3]))
         .write(d, "multipoint");
     geo_varint()
-        .geo(MultiLineString(vec![
-            line_string![C1, C2],
-            line_string![H1, H2, H3],
-        ]))
+        .geo(MultiLineString(vec![line1(), line2()]))
         .write(d, "multiline");
 }
 
@@ -143,14 +167,6 @@ fn generate_mixed(d: &Path) {
     for k in 2..=types.len() {
         generate_combinations(&types, k, 0, &mut Vec::new(), d);
     }
-}
-
-fn c(x: i32, y: i32) -> Coord<i32> {
-    coord! {x:x,y:y}
-}
-
-fn p(x: i32, y: i32) -> Point<i32> {
-    Point(c(x, y))
 }
 
 const NON_WORKING_GEOS: &[&str] = &[
@@ -894,7 +910,7 @@ fn generate_props_str(d: &Path) {
     let six_points = || {
         geo_varint()
             .meta(E::rle_varint())
-            .geos([P1, P2, P3, point!(H1), point!(H2), point!(H3)])
+            .geos([P1, P2, P3, PH1, PH2, PH3])
     };
     let values = || {
         vec![

@@ -7,7 +7,9 @@
         "_extent": 80,
         "_layer": "layer1",
         "active": true,
+        "bignum": 100,
         "count": 42,
+        "medium": 0,
         "name": "Test Point",
         "precision": 0.12345679104328156,
         "temp": 25.5
@@ -15,8 +17,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          4,
-          47
+          11,
+          52
         ]
       }
     }
