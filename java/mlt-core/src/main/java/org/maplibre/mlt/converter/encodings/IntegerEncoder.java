@@ -103,6 +103,27 @@ public class IntegerEncoder {
   }
 
   public static byte[] encodeIntStream(
+      ArrayList<Integer> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @NotNull IntegerEncodingOption encodingOption,
+      @NotNull MLTStreamObserver streamObserver,
+      @Nullable String streamName)
+      throws IOException {
+    return encodeIntStream(
+        CollectionUtils.unboxInts(values),
+        physicalLevelTechnique,
+        isSigned,
+        streamType,
+        logicalStreamType,
+        encodingOption,
+        streamObserver,
+        streamName);
+  }
+
+  public static byte[] encodeIntStream(
       int[] values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,

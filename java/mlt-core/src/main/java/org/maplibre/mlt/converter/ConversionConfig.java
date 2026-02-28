@@ -42,6 +42,7 @@ public class ConversionConfig {
   private final @Nullable Pattern layerFilterPattern;
   private final boolean layerFilterInvert;
   private final @NotNull IntegerEncodingOption integerEncodingOption;
+  private final @NotNull IntegerEncodingOption geometryEncodingOption;
 
   /**
    * @param includeIds Specifies if the ids should be included into a FeatureTable.
@@ -67,7 +68,8 @@ public class ConversionConfig {
       List<String> outlineFeatureTableNames,
       @Nullable Pattern layerFilterPattern,
       boolean layerFilterInvert,
-      @NotNull IntegerEncodingOption integerEncodingOption) {
+      @NotNull IntegerEncodingOption integerEncodingOption,
+      @NotNull IntegerEncodingOption geometryEncodingOption) {
     this.includeIds = includeIds;
     this.useFastPFOR = useFastPFOR;
     this.useFSST = useFSST;
@@ -80,6 +82,7 @@ public class ConversionConfig {
     this.layerFilterPattern = layerFilterPattern;
     this.layerFilterInvert = layerFilterInvert;
     this.integerEncodingOption = integerEncodingOption;
+    this.geometryEncodingOption = geometryEncodingOption;
   }
 
   public ConversionConfig(
@@ -102,7 +105,8 @@ public class ConversionConfig {
         outlineFeatureTableNames,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
+        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public ConversionConfig(
@@ -123,7 +127,8 @@ public class ConversionConfig {
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
+        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public ConversionConfig(
@@ -144,7 +149,8 @@ public class ConversionConfig {
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        integerEncodingOption);
+        integerEncodingOption,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public ConversionConfig(
@@ -163,7 +169,8 @@ public class ConversionConfig {
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
+        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public ConversionConfig(boolean includeIds, boolean useAdvancedEncodingSchemes) {
@@ -178,7 +185,8 @@ public class ConversionConfig {
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
+        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public ConversionConfig(boolean includeIds) {
@@ -193,7 +201,8 @@ public class ConversionConfig {
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
+        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public ConversionConfig() {
@@ -208,7 +217,8 @@ public class ConversionConfig {
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
+        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public boolean getIncludeIds() {
@@ -256,6 +266,10 @@ public class ConversionConfig {
     return integerEncodingOption;
   }
 
+  public IntegerEncodingOption getGeometryEncodingOption() {
+    return geometryEncodingOption;
+  }
+
   public Builder asBuilder() {
     return new Builder()
         .includeIds(this.includeIds)
@@ -268,7 +282,8 @@ public class ConversionConfig {
         .outlineFeatureTableNames(this.outlineFeatureTableNames)
         .layerFilterPattern(this.layerFilterPattern)
         .layerFilterInvert(this.layerFilterInvert)
-        .integerEncoding(this.integerEncodingOption);
+        .integerEncoding(this.integerEncodingOption)
+        .geometryEncoding(this.geometryEncodingOption);
   }
 
   public static Builder builder() {
@@ -298,6 +313,7 @@ public class ConversionConfig {
     private Pattern layerFilterPattern = null;
     private boolean layerFilterInvert = DEFAULT_LAYER_FILTER_INVERT;
     private IntegerEncodingOption integerEncodingOption = DEFAULT_INTEGER_ENCODING;
+    private IntegerEncodingOption geometryEncodingOption = DEFAULT_INTEGER_ENCODING;
 
     public Builder includeIds(boolean val) {
       this.includeIds = val;
@@ -363,6 +379,11 @@ public class ConversionConfig {
       return this;
     }
 
+    public Builder geometryEncoding(IntegerEncodingOption val) {
+      this.geometryEncodingOption = val;
+      return this;
+    }
+
     public ConversionConfig build() {
       return new ConversionConfig(
           includeIds,
@@ -375,7 +396,8 @@ public class ConversionConfig {
           outlineFeatureTableNames,
           layerFilterPattern,
           layerFilterInvert,
-          integerEncodingOption);
+          integerEncodingOption,
+          geometryEncodingOption);
     }
   }
 }
