@@ -146,9 +146,6 @@ target_sources(mlt-cpp PRIVATE
     ${MLT_SRC_FILES}
 )
 
-# SIMD Everywhere (needed on ARM)
-target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/simde")
-
 include("${PROJECT_SOURCE_DIR}/vendor/fastpfor.cmake")
 
 # json

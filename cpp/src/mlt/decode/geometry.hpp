@@ -155,17 +155,19 @@ public:
                     switch (type) {
                         case DictionaryType::VERTEX:
                             switch (geomStreamMetadata->getPhysicalLevelTechnique()) {
-                                case PhysicalLevelTechnique::FAST_PFOR:
-                                    throw std::runtime_error("FastPfor encoding for geometries is not yet supported.");
                                 case PhysicalLevelTechnique::NONE:
-                                case PhysicalLevelTechnique::ALP:
-                                    // TODO: other implementations are not clear on whether these are valid
                                 case PhysicalLevelTechnique::VARINT:
+                                case PhysicalLevelTechnique::FAST_PFOR:
                                     intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t>(
                                         tileData, vertices, *geomStreamMetadata, /*isSigned=*/true);
                                     break;
+                                case PhysicalLevelTechnique::ALP:
+                                    throw std::runtime_error("ALP encoding for geometries is not yet supported");
                                 default:
-                                    throw std::runtime_error("Unsupported encoding for geometries: " + column.name);
+                                    throw std::runtime_error("Unsupported encoding " +
+                                                             std::to_string(std::to_underlying(
+                                                                 geomStreamMetadata->getPhysicalLevelTechnique())) +
+                                                             " for geometries: " + column.name);
                             };
                             break;
                         case DictionaryType::MORTON: {
