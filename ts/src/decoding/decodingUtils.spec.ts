@@ -1,19 +1,8 @@
-import { describe, it, expect } from "vitest";
-import {
-    decodeFloatsLE,
-    decodeBooleanRle,
-    decodeString,
-    decodeByteRle,
-    getVectorTypeBooleanStream,
-} from "./decodingUtils";
-import IntWrapper from "./intWrapper";
+import { describe, expect, it } from "vitest";
+import { encodeBooleanRle, encodeByteRle, encodeFloatsLE, encodeStrings } from "../encoding/encodingUtils";
 import BitVector from "../vector/flat/bitVector";
-import {
-    encodeFloatsLE,
-    encodeBooleanRle,
-    encodeByteRle,
-    encodeStrings,
-} from "../encoding/encodingUtils";
+import { decodeBooleanRle, decodeByteRle, decodeFloatsLE, decodeString } from "./decodingUtils";
+import IntWrapper from "./intWrapper";
 
 describe("decodingUtils", () => {
     describe("decodeFloatsLE", () => {
