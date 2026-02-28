@@ -11,6 +11,21 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "val": 42
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
           11,
           52
         ]
@@ -43,21 +58,6 @@
         "coordinates": [
           61,
           22
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "_extent": 80,
-        "_layer": "layer1",
-        "val": 42
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          65,
-          66
         ]
       }
     }

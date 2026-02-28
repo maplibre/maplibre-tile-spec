@@ -292,62 +292,22 @@ fn generate_combinations(
 }
 
 fn generate_extent(d: &Path) {
-    geo_varint()
-        .extent(512)
-        .geo(line_string![
-            coord! { x: 0, y: 0 },
-            coord! { x: 511, y: 511 }
-        ])
-        .write(d, "extent_512");
-    geo_varint()
-        .extent(512)
-        .geo(line_string![
-            coord! { x: -42, y: -42 },
-            coord! { x: 554, y: 554 }
-        ])
-        .write(d, "extent_buf_512");
-    geo_varint()
-        .extent(4096)
-        .geo(line_string![
-            coord! { x: 0, y: 0 },
-            coord! { x: 4095, y: 4095 }
-        ])
-        .write(d, "extent_4096");
-    geo_varint()
-        .extent(4096)
-        .geo(line_string![
-            coord! { x: -42, y: -42 },
-            coord! { x: 4138, y: 4138 }
-        ])
-        .write(d, "extent_buf_4096");
-    geo_varint()
-        .extent(131_072)
-        .geo(line_string![
-            coord! { x: 0, y: 0 },
-            coord! { x: 131_071, y: 131_071 },
-        ])
-        .write(d, "extent_131072");
-    geo_varint()
-        .extent(131_072)
-        .geo(line_string![
-            coord! { x: -42, y: -42 },
-            coord! { x: 131_114, y: 131_114 },
-        ])
-        .write(d, "extent_buf_131072");
-    geo_varint()
-        .extent(1_073_741_824)
-        .geo(line_string![
-            coord! { x: 0, y: 0 },
-            coord! { x: 1_073_741_823, y: 1_073_741_823 },
-        ])
-        .write(d, "extent_1073741824");
-    geo_varint()
-        .extent(1_073_741_824)
-        .geo(line_string![
-            coord! { x: -42, y: -42 },
-            coord! { x: 1_073_741_866, y: 1_073_741_866 },
-        ])
-        .write(d, "extent_buf_1073741824");
+    for e in [512_i32, 4096, 131072, 1073741824] {
+        geo_varint()
+            .extent(e as u32)
+            .geo(line_string![
+                coord! { x: 0_i32, y: 0 },
+                coord! { x: e - 1, y: e - 1 }
+            ])
+            .write(d, format!("extent_{e}"));
+        geo_varint()
+            .extent(e as u32)
+            .geo(line_string![
+                coord! { x: -42_i32, y: -42 },
+                coord! { x: e + 42, y: e + 42 }
+            ])
+            .write(d, format!("extent_buf_{e}"));
+    }
 }
 
 fn generate_ids(d: &Path) {
@@ -804,11 +764,7 @@ fn generate_properties(d: &Path) {
 }
 
 fn generate_props_i32(d: &Path) {
-    let four_points = || {
-        geo_varint()
-            .meta(E::rle_varint())
-            .geos([P1, P2, P3, point!(H1)])
-    };
+    let four_points = || geo_varint().meta(E::rle_varint()).geos([P0, P1, P2, P3]);
     let values = || DecodedProperty {
         name: "val".to_string(),
         values: PropValue::I32(vec![Some(42), Some(42), Some(42), Some(42)]),
