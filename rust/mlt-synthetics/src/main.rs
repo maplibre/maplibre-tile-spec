@@ -27,10 +27,6 @@ const C0: Coord<i32> = coord! { x: 13, y: 42 };
 const C1: Coord<i32> = coord! { x: 11, y: 52 };
 const C2: Coord<i32> = coord! { x: 71, y: 72 };
 const C3: Coord<i32> = coord! { x: 61, y: 22 };
-// triangle 2, clockwise winding, X ends in 3, Y ends in 4
-const C21: Coord<i32> = coord! { x: 23, y: 34 };
-const C22: Coord<i32> = coord! { x: 73, y: 4 };
-const C23: Coord<i32> = coord! { x: 13, y: 24 };
 // hole in triangle 1 with counter-clockwise winding
 const H1: Coord<i32> = coord! { x: 65, y: 66 };
 const H2: Coord<i32> = coord! { x: 35, y: 56 };
@@ -72,11 +68,12 @@ static MIX_TYPES: LazyLock<[(&'static str, Geom32); 7]> = LazyLock::new(|| {
 
 fn main() {
     let dir = Path::new("../test/synthetic/0x01-rust/");
-    fs::create_dir_all(dir).unwrap_or_else(|_| panic!("to be able to create {}", dir.display()));
+    fs::create_dir_all(dir)
+        .unwrap_or_else(|e| panic!("to be able to create {}: {e:?}", dir.display()));
 
     let dir = dir
         .canonicalize()
-        .unwrap_or_else(|_| panic!("bad path {}", dir.display()));
+        .unwrap_or_else(|e| panic!("bad path {}: {e:?}", dir.display()));
     println!("Generating synthetic test data in {}", dir.display());
 
     let writer = SynthWriter::new(dir);
