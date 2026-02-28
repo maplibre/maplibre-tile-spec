@@ -10,7 +10,7 @@ use std::path::Path;
 
 use geo::Polygon;
 use geo_types::{
-    Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, coord, line_string, point,
+    Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, coord, line_string,
     polygon,
 };
 use mlt_core::geojson::Geom32;
