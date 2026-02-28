@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.locationtech.jts.geom.Coordinate;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
@@ -41,6 +42,22 @@ public class SyntheticMltGenerator {
 
   private static void generateLines() throws IOException {
     write("line", feat(line1), cfg());
+
+    // Morton (Z-order) line: de-interleave index bits into x/y (even/odd bits).
+    int numPoints = 16; // 4x4 complete Morton block
+    int scale = 8;
+    int mortonBits = 4;
+    var mortonCurve = new Coordinate[numPoints];
+    for (var i = 0; i < mortonCurve.length; i++) {
+      var x = 0;
+      var y = 0;
+      for (var b = 0; b < mortonBits; b++) {
+        x |= ((i >> (2 * b)) & 1) << b;
+        y |= ((i >> (2 * b + 1)) & 1) << b;
+      }
+      mortonCurve[i] = c(x * scale, y * scale);
+    }
+    write("line_morton", feat(line(mortonCurve)), cfg().morton());
   }
 
   private static void generatePolygons() throws IOException {

@@ -436,15 +436,20 @@ impl StreamMeta {
                     LogicalEncoding::DeltaRle(rle)
                 }
             }
-            (LT::Morton, LT::None) => {
+            (LT::Morton, LT::None | LT::Rle | LT::Delta) => {
                 let num_bits;
                 let coordinate_shift;
                 (input, num_bits) = parse_varint::<u32>(input)?;
                 (input, coordinate_shift) = parse_varint::<u32>(input)?;
-                LogicalEncoding::Morton(MortonMeta {
+                let meta = MortonMeta {
                     num_bits,
                     coordinate_shift,
-                })
+                };
+                match logical2 {
+                    LT::Rle => LogicalEncoding::MortonRle(meta),
+                    LT::Delta => LogicalEncoding::MortonDelta(meta),
+                    _ => LogicalEncoding::Morton(meta),
+                }
             }
             (LT::PseudoDecimal, LT::None) => LogicalEncoding::PseudoDecimal,
             _ => Err(MltError::InvalidLogicalEncodings(logical1, logical2))?,
@@ -460,16 +465,19 @@ impl StreamMeta {
         is_bool: bool,
         byte_length: u32,
     ) -> io::Result<()> {
-        use crate::v01::LogicalTechnique as LT;
+        use {LogicalEncoding as LE, LogicalTechnique as LT};
+
         writer.write_u8(self.stream_type.as_u8())?;
         let logical_enc_u8: u8 = match self.logical_encoding {
-            LogicalEncoding::None => (LT::None as u8) << 5,
-            LogicalEncoding::Delta => (LT::Delta as u8) << 5,
-            LogicalEncoding::DeltaRle(_) => ((LT::Delta as u8) << 5) | ((LT::Rle as u8) << 2),
-            LogicalEncoding::ComponentwiseDelta => (LT::ComponentwiseDelta as u8) << 5,
-            LogicalEncoding::Rle(_) => (LT::Rle as u8) << 5,
-            LogicalEncoding::Morton(_) => (LT::Morton as u8) << 5,
-            LogicalEncoding::PseudoDecimal => (LT::PseudoDecimal as u8) << 5,
+            LE::None => (LT::None as u8) << 5,
+            LE::Delta => (LT::Delta as u8) << 5,
+            LE::DeltaRle(_) => ((LT::Delta as u8) << 5) | ((LT::Rle as u8) << 2),
+            LE::ComponentwiseDelta => (LT::ComponentwiseDelta as u8) << 5,
+            LE::Rle(_) => (LT::Rle as u8) << 5,
+            LE::Morton(_) => (LT::Morton as u8) << 5,
+            LE::MortonRle(_) => (LT::Morton as u8) << 5 | ((LT::Rle as u8) << 2),
+            LE::MortonDelta(_) => (LT::Morton as u8) << 5 | ((LT::Delta as u8) << 2),
+            LE::PseudoDecimal => (LT::PseudoDecimal as u8) << 5,
         };
         let physical_enc_u8: u8 = match self.physical_encoding {
             PhysicalEncoding::None => 0x0,
@@ -483,20 +491,17 @@ impl StreamMeta {
 
         // some encoding have settings inside them
         match self.logical_encoding {
-            LogicalEncoding::DeltaRle(r) | LogicalEncoding::Rle(r) => {
+            LE::DeltaRle(r) | LE::Rle(r) => {
                 if !is_bool {
                     writer.write_varint(r.runs)?;
                     writer.write_varint(r.num_rle_values)?;
                 }
             }
-            LogicalEncoding::Morton(m) => {
+            LE::Morton(m) | LE::MortonDelta(m) | LE::MortonRle(m) => {
                 writer.write_varint(m.num_bits)?;
                 writer.write_varint(m.coordinate_shift)?;
             }
-            LogicalEncoding::None
-            | LogicalEncoding::Delta
-            | LogicalEncoding::ComponentwiseDelta
-            | LogicalEncoding::PseudoDecimal => {}
+            LE::None | LE::Delta | LE::ComponentwiseDelta | LE::PseudoDecimal => {}
         }
         Ok(())
     }
