@@ -57,7 +57,7 @@ fn encode_morton_vertex_buffer(
 /// Compute `ZOrderCurve` parameters from the vertex value range.
 ///
 /// Returns `(num_bits, coordinate_shift)` matching Java's `SpaceFillingCurve`.
-fn zorder_params(vertices: &[i32]) -> (u32, u32) {
+fn zorder_params(vertices: &[i32]) -> Result<(u32, u32), MltError> {
     let min_v = vertices.iter().copied().min().unwrap_or(0);
     let max_v = vertices.iter().copied().max().unwrap_or(0);
     let coordinate_shift: u32 = if min_v < 0 { min_v.unsigned_abs() } else { 0 };
@@ -66,24 +66,28 @@ fn zorder_params(vertices: &[i32]) -> (u32, u32) {
         0u32
     } else {
         // ceil(log2(tile_extent + 1)), matching Java's Math.ceil(Math.log(...) / Math.log(2)).
+        // Computed with integer arithmetic: for te >= 1, this equals `u64::BITS - te.leading_zeros()`.
         // Capped at 16: Morton codes are u32, so each axis may use at most 16 bits.
-        ((tile_extent as f64 + 1.0).log2().ceil() as u32).min(16)
+        let te = u64::try_from(tile_extent)?;
+        (u64::BITS - te.leading_zeros()).min(16)
     };
-    (num_bits, coordinate_shift)
+    Ok((num_bits, coordinate_shift))
 }
 
 /// Encode a single `(x, y)` pair to its Z-order (Morton) code.
-fn morton_encode(x: i32, y: i32, num_bits: u32, coordinate_shift: u32) -> u32 {
+fn morton_encode(x: i32, y: i32, num_bits: u32, coordinate_shift: u32) -> Result<u32, MltError> {
     // Use i64 for the shift so coordinate_shift never wraps on large negative inputs.
-    let sx = (i64::from(x) + i64::from(coordinate_shift)) as u32;
-    let sy = (i64::from(y) + i64::from(coordinate_shift)) as u32;
+    let sx = u32::try_from(i64::from(x) + i64::from(coordinate_shift))
+        .map_err(|_| MltError::IntegerOverflow)?;
+    let sy = u32::try_from(i64::from(y) + i64::from(coordinate_shift))
+        .map_err(|_| MltError::IntegerOverflow)?;
     let mut code = 0u32;
     for i in 0..num_bits {
         // num_bits is capped at 16, so 2*i+1 <= 31 — no shift overflow.
         code |= ((sx >> i) & 1) << (2 * i);
         code |= ((sy >> i) & 1) << (2 * i + 1);
     }
-    code
+    Ok(code)
 }
 
 /// Build a sorted unique Morton dictionary and per-vertex offset indices from a flat
@@ -94,11 +98,11 @@ fn build_morton_dict(
     vertices: &[i32],
     num_bits: u32,
     coordinate_shift: u32,
-) -> (Vec<u32>, Vec<u32>) {
+) -> Result<(Vec<u32>, Vec<u32>), MltError> {
     let codes: Vec<u32> = vertices
         .chunks_exact(2)
         .map(|c| morton_encode(c[0], c[1], num_bits, coordinate_shift))
-        .collect();
+        .collect::<Result<_, _>>()?;
 
     let dict: Vec<u32> = codes
         .iter()
@@ -109,10 +113,13 @@ fn build_morton_dict(
 
     let offsets: Vec<u32> = codes
         .iter()
-        .map(|&code| dict.partition_point(|&c| c < code) as u32)
-        .collect();
+        .map(|&code| {
+            u32::try_from(dict.partition_point(|&c| c < code))
+                .map_err(|_| MltError::IntegerOverflow)
+        })
+        .collect::<Result<_, _>>()?;
 
-    (dict, offsets)
+    Ok((dict, offsets))
 }
 
 /// Convert geometry offsets to length stream for encoding.
@@ -617,8 +624,8 @@ pub fn encode_geometry(
                 items.push(encode_vertex_buffer(verts, config.vertex.physical)?);
             }
             VertexBufferType::Morton => {
-                let (num_bits, coordinate_shift) = zorder_params(verts);
-                let (dict, offsets) = build_morton_dict(verts, num_bits, coordinate_shift);
+                let (num_bits, coordinate_shift) = zorder_params(verts)?;
+                let (dict, offsets) = build_morton_dict(verts, num_bits, coordinate_shift)?;
                 let morton_meta = MortonMeta {
                     num_bits,
                     coordinate_shift,

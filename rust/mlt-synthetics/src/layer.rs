@@ -195,16 +195,10 @@ impl Layer {
         self
     }
 
-    /// Enable Morton (Z-order) dictionary encoding for the vertex buffer.
-    ///
-    /// Also sets vertex offsets to `delta_rle_varint`, matching Java's behaviour.
-    /// Override with `.vertex_offsets(…)` afterwards if needed.
+    /// Set encoding of the vertex buffer.
     #[must_use]
-    pub fn morton(mut self) -> Self {
-        self.geometry_encoder
-            .vertex_buffer_type(VertexBufferType::Morton);
-        self.geometry_encoder
-            .vertex_offsets(Encoder::delta_rle_varint());
+    pub fn vertex_buffer_type(mut self, v: VertexBufferType) -> Self {
+        self.geometry_encoder.vertex_buffer_type(v);
         self
     }
 

@@ -17,7 +17,7 @@ use geo_types::{
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     DecodedProperty, Encoder as E, IdEncoder, IdWidth, LogicalEncoder as L, PhysicalEncoder as P,
-    PresenceStream as O, PropValue, PropertyEncoder,
+    PresenceStream as O, PropValue, PropertyEncoder, VertexBufferType,
 };
 
 use crate::layer::{DecodedProp, SynthWriter, bool, i32};
@@ -137,19 +137,19 @@ fn generate_geometry(w: &SynthWriter) {
     let scale = 8;
     let morton_bits = 4;
     let mut morton_curve = Vec::with_capacity(num_points);
-    for i in 0..num_points {
-        let i = i as i32;
+    for i in 0_i32..16 {
         let mut x = 0_i32;
         let mut y = 0_i32;
         for b in 0..morton_bits {
             x |= ((i >> (2 * b)) & 1) << b;
             y |= ((i >> (2 * b + 1)) & 1) << b;
         }
-        morton_curve.push(c(x * scale, y * scale))
+        morton_curve.push(c(x * scale, y * scale));
     }
     w.geo_varint()
         .geo(LineString::new(morton_curve))
-        .morton()
+        .vertex_buffer_type(VertexBufferType::Morton)
+        .vertex_offsets(E::delta_rle_varint())
         .write("line_morton");
     w.geo_varint().geo(poly1()).write("polygon");
     w.geo_fastpfor().geo(poly1()).write("polygon_fpf");

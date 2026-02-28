@@ -968,7 +968,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
         // If a vertex offset stream was present,
         // - `vertices` holds only the unique dictionary entries and
         // - `vertex_offsets` holds per-vertex indices into it.
-        // 
+        //
         // Expand them into a single flat (x, y) sequence so that `DecodedGeometry` always
         // represents fully decoded data, regardless of the encoding that was used.
         if let Some(offsets) = vertex_offsets.take()
