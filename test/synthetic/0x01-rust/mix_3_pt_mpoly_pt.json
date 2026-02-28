@@ -1,0 +1,103 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38,
+          29
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                7,
+                20
+              ],
+              [
+                21,
+                31
+              ],
+              [
+                26,
+                9
+              ],
+              [
+                7,
+                20
+              ]
+            ],
+            [
+              [
+                15,
+                20
+              ],
+              [
+                20,
+                15
+              ],
+              [
+                18,
+                25
+              ],
+              [
+                15,
+                20
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                69,
+                57
+              ],
+              [
+                71,
+                66
+              ],
+              [
+                73,
+                64
+              ],
+              [
+                69,
+                57
+              ]
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38,
+          29
+        ]
+      }
+    }
+  ]
+}

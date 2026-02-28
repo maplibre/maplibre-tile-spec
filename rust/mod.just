@@ -247,6 +247,10 @@ generate-synthetic-mlts:
     {{just}} rust::_verify-synthetic-equality
     {{just}} rust::_assert-synthetic-mlt-identity
 
+# Create .dump files for all .mlt files in test/synthetic for all languages
+generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find') build
+    fd . ../test/synthetic -e mlt -x sh -c 'target/debug/mlt dump {} > {.}.dump'
+
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
     {{just}} mlt ls --validate-to-json --details basic ../test/synthetic/
@@ -294,13 +298,14 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
     # `realpath --relative-to-...` doesn't work on MacOS
     # https://unix.stackexchange.com/a/655825/312244
     posix_relpath() {
-        set -- "${1%/}/" "${2%/}/" ''               ## '/'-end to avoid mismatch
-        while [ "$1" ] && [ "$2" = "${2#"$1"}" ]    ## reduce $1 to shared path
-        do  set -- "${1%/?*/}/"  "$2" "../$3"       ## source/.. target ../relpath
+        set -- "${1%/}/" "${2%/}/" ''
+        while [ "$1" ] && [ "$2" = "${2#"$1"}" ]
+        do
+            set -- "${1%/?*/}/" "$2" "../$3"
         done
-        REPLY="${3}${2#"$1"}"                       ## build result
-        # unless root chomp trailing '/', replace '' with '.'
-        [ "${REPLY#/}" ] && REPLY="${REPLY%/}" || REPLY="${REPLY:-.}"
+        rel="${3}${2#"$1"}"
+        [ "${rel#/}" ] && rel="${rel%/}" || rel="${rel:-.}"
+        printf '%s\n' "$rel"
     }
 
     DIR_A="../test/synthetic/0x01"

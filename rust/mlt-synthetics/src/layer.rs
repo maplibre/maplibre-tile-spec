@@ -2,7 +2,7 @@
 
 use std::fs::{File, OpenOptions};
 use std::io::Write as _;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::{fs, io};
 
 use geo::{Convert as _, TriangulateEarcut as _};
@@ -63,33 +63,50 @@ fn tessellate_polygon(polygon: &Polygon<i32>) -> (Vec<u32>, u32) {
     (indices_u32, num_triangles)
 }
 
+pub struct SynthWriter {
+    dir: PathBuf,
+}
+
+impl SynthWriter {
+    pub fn new(dir: PathBuf) -> Self {
+        Self { dir }
+    }
+
+    #[must_use]
+    pub fn geo(&self, encoder: Encoder) -> Layer {
+        Layer::new(self.dir.clone(), encoder)
+    }
+
+    /// Create a layer with all geometry encoders set to `VarInt`.
+    #[must_use]
+    pub fn geo_varint(&self) -> Layer {
+        Layer::new(self.dir.clone(), Encoder::varint())
+    }
+
+    /// Create a layer with all geometry encoders set to `FastPFOR`.
+    #[must_use]
+    pub fn geo_fastpfor(&self) -> Layer {
+        Layer::new(self.dir.clone(), Encoder::fastpfor())
+    }
+}
+
 /// Layer builder: holds geometry encoder, geometry list, properties, extent, and IDs.
 pub struct Layer {
-    geometry_encoder: GeometryEncoder,
-    geometry_items: Vec<Geom32>,
+    pub path: PathBuf,
+    pub geometry_encoder: GeometryEncoder,
+    pub geometry_items: Vec<Geom32>,
     /// Polygons that are also tessellated; triangle data is merged when building decoded geometry.
-    tessellated_polygons: Vec<Option<Polygon<i32>>>,
-    props: Vec<Box<dyn LayerProp>>,
-    extent: Option<u32>,
-    ids: Option<(Vec<Option<u64>>, IdEncoder)>,
-}
-
-/// Create a layer with all geometry encoders set to `VarInt`.
-#[must_use]
-pub fn geo_varint() -> Layer {
-    Layer::new(Encoder::varint())
-}
-
-/// Create a layer with all geometry encoders set to `FastPFOR`.
-#[must_use]
-pub fn geo_fastpfor() -> Layer {
-    Layer::new(Encoder::fastpfor())
+    pub tessellated_polygons: Vec<Option<Polygon<i32>>>,
+    pub props: Vec<Box<dyn LayerProp>>,
+    pub extent: Option<u32>,
+    pub ids: Option<(Vec<Option<u64>>, IdEncoder)>,
 }
 
 impl Layer {
     #[must_use]
-    pub fn new(default_geom_enc: Encoder) -> Layer {
+    pub fn new(path: PathBuf, default_geom_enc: Encoder) -> Layer {
         Layer {
+            path,
             geometry_encoder: GeometryEncoder::all(default_geom_enc),
             geometry_items: vec![],
             tessellated_polygons: vec![],
@@ -129,8 +146,8 @@ impl Layer {
 
     /// Set encoding for the geometry length stream.
     #[must_use]
-    pub fn num_geometries(mut self, e: Encoder) -> Self {
-        self.geometry_encoder.num_geometries(e);
+    pub fn geometries(mut self, e: Encoder) -> Self {
+        self.geometry_encoder.geometries(e);
         self
     }
 
@@ -246,8 +263,9 @@ impl Layer {
     }
 
     /// Write the layer to an MLT file and a corresponding JSON file (consumes self).
-    pub fn write(self, dir: &Path, name: impl AsRef<str>) {
+    pub fn write(self, name: impl AsRef<str>) {
         let name = name.as_ref();
+        let dir = self.path.clone();
         let path = dir.join(format!("{name}.mlt"));
         self.write_mlt(&path);
 
@@ -282,7 +300,7 @@ impl Layer {
 
         let layer = OwnedLayer::Tag01(OwnedLayer01 {
             name: "layer1".to_string(),
-            extent: self.extent.unwrap_or(4096),
+            extent: self.extent.unwrap_or(80),
             id,
             geometry,
             properties: merged_props

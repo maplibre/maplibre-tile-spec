@@ -235,54 +235,32 @@ fn normalize_part_offsets_for_vertices(
 /// Normalize `geometry_offsets` for mixed geometry types.
 /// When only Multi* geometries contribute to `geometry_offsets`, this expands it to have
 /// one entry per geometry plus a trailing entry.
+///
+/// The sparse `geometry_offsets` is a cumulative count array for Multi* types only:
+///   `[0, count_of_first_multi, count_of_first_multi + count_of_second_multi, ...]`
+///
+/// Non-Multi types are not represented in `geometry_offsets` but each has an implicit
+/// count of 1. The normalized output will have N+1 entries for N geometry types.
 fn normalize_geometry_offsets(vector_types: &[GeometryType], geometry_offsets: &[u32]) -> Vec<u32> {
     // Check if already normalized (has N+1 entries for N geometry types)
     if geometry_offsets.len() == vector_types.len() + 1 {
         return geometry_offsets.to_vec();
     }
 
-    // The sparse geometry_offsets is structured as:
-    //   [start_of_first_multi, end_of_first_multi, end_of_second_multi, ...]
-    //
-    // Only the very first Multi*'s start is stored explicitly. All subsequent
-    // entries are end values only. Non-Multi types (LineString, Point, etc.)
-    // are not represented in geometry_offsets at all, but they DO advance the
-    // absolute position in part_offsets by 1 each.
-    //
-    // Because current_offset tracks the same running total as the absolute
-    // position in part_offsets (both advance by 1 for each non-Multi sub-geom
-    // and by the sub-geom count for each Multi*), we use current_offset as the
-    // start for every Multi* beyond the first instead of reading a stale end
-    // value from the previous entry.
     let mut normalized = Vec::with_capacity(vector_types.len() + 1);
-    // end_idx points at the next "end" value to consume from geometry_offsets.
-    // For the first Multi* we consume two entries (start + end); after that,
-    // one entry (end only) per Multi*.
-    let mut end_idx = 1_usize;
-    let mut first_multi_seen = false;
     let mut current_offset = 0_u32;
+    let mut sparse_idx = 0_usize; // Index into sparse geometry_offsets
 
     for &geom_type in vector_types {
         normalized.push(current_offset);
 
         if geom_type.is_multi() {
-            if end_idx < geometry_offsets.len() {
-                if first_multi_seen {
-                    // For subsequent Multi* features, current_offset already equals
-                    // the absolute start position in part_offsets, so derive the
-                    // count directly from the stored end value.
-                    let end = geometry_offsets[end_idx];
-                    current_offset += end - current_offset;
-                } else {
-                    // For the first Multi*, the sparse array explicitly stores its
-                    // start at index 0 and its end at index 1. Use the stored start
-                    // so that any leading non-Multi features are accounted for correctly.
-                    let start = geometry_offsets[0];
-                    let end = geometry_offsets[end_idx];
-                    current_offset += end - start;
-                    first_multi_seen = true;
-                }
-                end_idx += 1;
+            // Multi* types get their count from the sparse array
+            if sparse_idx + 1 < geometry_offsets.len() {
+                let start = geometry_offsets[sparse_idx];
+                let end = geometry_offsets[sparse_idx + 1];
+                current_offset += end - start;
+                sparse_idx += 1;
             }
         } else {
             // Non-Multi types have implicit count of 1
@@ -306,7 +284,14 @@ fn create_unit_geometry_offsets(vector_types: &[GeometryType]) -> Vec<u32> {
     offsets
 }
 
-/// Normalize `part_offsets` for ring-based indexing (Polygon mixed with `Point`/`LineString`)
+/// Normalize `part_offsets` for ring-based indexing (Polygon mixed with `Point`/`LineString`).
+/// Returns an offset array where `offset[i+1]` - `offset[i]` = number of ring length entries
+/// that geometry i contributes to the rings stream.
+///
+/// When a Polygon is present:
+/// - Point: 0 entries (doesn't contribute to rings)
+/// - `LineString`: 1 entry (its vertex count goes to rings)
+/// - Polygon: `ring_count` entries (each ring's vertex count)
 fn normalize_part_offsets_for_rings(
     vector_types: &[GeometryType],
     part_offsets: &[u32],
@@ -331,10 +316,13 @@ fn normalize_part_offsets_for_rings(
     for &geom_type in vector_types {
         normalized.push(ring_idx);
 
-        if geom_type == GeometryType::Point || geom_type == GeometryType::LineString {
-            // Point/LineString don't contribute to ring_offsets (0 rings)
-        } else if geom_type == GeometryType::Polygon {
-            // Polygon consumes rings tracked in part_offsets
+        if geom_type == GeometryType::Point {
+            // Point doesn't contribute to ring_offsets
+        } else if geom_type.is_linestring() {
+            // LineString contributes 1 entry to ring_offsets (its vertex count)
+            ring_idx += 1;
+        } else if geom_type.is_polygon() {
+            // Polygon contributes ring_count entries (vertex count for each ring)
             if part_idx + 1 < part_offsets.len() {
                 let ring_count = part_offsets[part_idx + 1] - part_offsets[part_idx];
                 ring_idx += ring_count;
@@ -419,7 +407,7 @@ pub fn encode_geometry(
             // even when empty
             items.push(OwnedStream::encode_u32s_of_type(
                 &lengths,
-                config.num_geometries,
+                config.geometries,
                 StreamType::Length(LengthType::Geometries),
             )?);
         }
@@ -477,7 +465,7 @@ pub fn encode_geometry(
             if has_tessellation {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &[],
-                    config.num_geometries,
+                    config.geometries,
                     StreamType::Length(LengthType::Geometries),
                 )?);
             }
@@ -492,23 +480,11 @@ pub fn encode_geometry(
                 )?);
             }
 
-            // Ring lengths
-            // For mixed geometry types (e.g., Point + Polygon), we need synthetic geometry_offsets
-            // where each geometry has 1 sub-geometry. For pure Polygon layers, part_offs
-            // already serves as the offset array (ring counts per polygon).
-            let is_mixed = vector_types.iter().any(|t| !t.is_polygon());
-            let ring_lengths = if is_mixed {
-                let synthetic_geom_offs = create_unit_geometry_offsets(vector_types);
-                encode_level1_length_stream(
-                    vector_types,
-                    &synthetic_geom_offs,
-                    ring_offs,
-                    has_linestrings,
-                )
-            } else {
-                // Pure polygon layer - part_offs gives ring counts per polygon
-                encode_level1_length_stream(vector_types, part_offs, ring_offs, has_linestrings)
-            };
+            // Ring lengths: part_offs is normalized to have N+1 entries where
+            // part_offs[i+1] - part_offs[i] = number of rings for geometry i.
+            // For Point/LineString this is 0, for Polygon it's the actual ring count.
+            let ring_lengths =
+                encode_level1_length_stream(vector_types, part_offs, ring_offs, has_linestrings);
             if !ring_lengths.is_empty() {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &ring_lengths,
@@ -573,7 +549,7 @@ pub struct GeometryEncoder {
     pub meta: Encoder,
 
     /// Encoding for the geometry length stream.
-    pub num_geometries: Encoder,
+    pub geometries: Encoder,
 
     /// Encoding for parts length stream when rings are present.
     pub rings: Encoder,
@@ -607,7 +583,7 @@ impl GeometryEncoder {
     pub fn all(encoder: Encoder) -> Self {
         Self {
             meta: encoder,
-            num_geometries: encoder,
+            geometries: encoder,
             rings: encoder,
             rings2: encoder,
             no_rings: encoder,
@@ -628,8 +604,8 @@ impl GeometryEncoder {
     }
 
     /// Set encoding for the geometry length stream.
-    pub fn num_geometries(&mut self, e: Encoder) -> &mut Self {
-        self.num_geometries = e;
+    pub fn geometries(&mut self, e: Encoder) -> &mut Self {
+        self.geometries = e;
         self
     }
 
