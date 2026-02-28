@@ -55,7 +55,12 @@ public class ConversionConfig {
    *     'ALL' for all
    * @param layerFilterPattern A regex to filter layer names
    * @param layerFilterInvert True to invert the pattern
-   * @param integerEncodingOption Specifies which integer encoding to use
+   * @param integerEncodingOption Specifies which integer encoding to use for property columns and
+   *     other non-geometry integer streams.
+   * @param geometryEncodingOption Specifies which integer encoding to use for geometry-related
+   *     streams (lengths, offsets, etc.). When using the builder, leaving this unset defaults to
+   *     {@link #DEFAULT_INTEGER_ENCODING} (AUTO) for backward compatibility; use {@link
+   *     Builder#geometryEncoding(IntegerEncodingOption)} to set it explicitly.
    */
   public ConversionConfig(
       boolean includeIds,

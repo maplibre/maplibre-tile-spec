@@ -38,6 +38,32 @@ public class GeometryEncoder {
 
   private GeometryEncoder() {}
 
+  /**
+   * Backward-compatible overload that uses {@link IntegerEncodingOption#AUTO} for geometry stream
+   * encoding. Prefer {@link #encodePretessellatedGeometryColumn(List, PhysicalLevelTechnique,
+   * SortSettings, boolean, boolean, URI, IntegerEncodingOption, MLTStreamObserver)} when you need
+   * to control encoding.
+   */
+  public static EncodedGeometryColumn encodePretessellatedGeometryColumn(
+      List<Geometry> geometries,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      SortSettings sortSettings,
+      boolean useMortonEncoding,
+      boolean encodePolygonOutlines,
+      @Nullable URI tessellateSource,
+      @NotNull MLTStreamObserver streamObserver)
+      throws IOException {
+    return encodePretessellatedGeometryColumn(
+        geometries,
+        physicalLevelTechnique,
+        sortSettings,
+        useMortonEncoding,
+        encodePolygonOutlines,
+        tessellateSource,
+        IntegerEncodingOption.AUTO,
+        streamObserver);
+  }
+
   public static EncodedGeometryColumn encodePretessellatedGeometryColumn(
       List<Geometry> geometries,
       PhysicalLevelTechnique physicalLevelTechnique,
@@ -487,6 +513,27 @@ public class GeometryEncoder {
             geometryType ->
                 geometryType == GeometryType.POLYGON.ordinal()
                     || geometryType == GeometryType.MULTIPOLYGON.ordinal());
+  }
+
+  /**
+   * Backward-compatible overload that uses {@link IntegerEncodingOption#AUTO} for geometry stream
+   * encoding. Prefer {@link #encodeGeometryColumn(List, PhysicalLevelTechnique, SortSettings,
+   * boolean, IntegerEncodingOption, MLTStreamObserver)} when you need to control encoding.
+   */
+  public static EncodedGeometryColumn encodeGeometryColumn(
+      List<Geometry> geometries,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      SortSettings sortSettings,
+      boolean useMortonEncoding,
+      @NotNull MLTStreamObserver streamObserver)
+      throws IOException {
+    return encodeGeometryColumn(
+        geometries,
+        physicalLevelTechnique,
+        sortSettings,
+        useMortonEncoding,
+        IntegerEncodingOption.AUTO,
+        streamObserver);
   }
 
   // TODO: add selection algorithms based on statistics and sampling
