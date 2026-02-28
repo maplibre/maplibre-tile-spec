@@ -137,7 +137,8 @@ fn generate_geometry(w: &SynthWriter) {
     let scale = 8;
     let morton_bits = 4;
     let mut morton_curve = Vec::with_capacity(num_points);
-    for i in 0_i32..num_points {
+    for i in 0..num_points {
+        let i = i32::try_from(i).unwrap();
         let mut x = 0_i32;
         let mut y = 0_i32;
         for b in 0..morton_bits {

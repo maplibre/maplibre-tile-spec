@@ -1000,6 +1000,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
 
 #[cfg(test)]
 mod tests {
+    use geo_types::wkt;
     use proptest::prelude::*;
 
     use super::*;
@@ -1333,14 +1334,6 @@ mod tests {
         assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));
 
         let geom = decoded.to_geojson(0).unwrap();
-        assert_eq!(
-            geom,
-            GeoGeom::LineString(LineString(vec![
-                Coord { x: 0, y: 0 },
-                Coord { x: 4, y: 0 },
-                Coord { x: 0, y: 4 },
-                Coord { x: 4, y: 0 },
-            ]))
-        );
+        assert_eq!(geom, wkt!(LINESTRING(0 0,4 0,0 4,4 0)).into());
     }
 }
