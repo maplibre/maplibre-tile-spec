@@ -867,7 +867,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
             match stream.meta.stream_type {
                 StreamType::Present => {}
                 StreamType::Data(v) => match v {
-                    DictionaryType::Vertex => {
+                    DictionaryType::Vertex | DictionaryType::Morton => {
                         let v = stream.decode_bits_u32()?.decode_i32()?;
                         vertices.set_once(v)?;
                     }
