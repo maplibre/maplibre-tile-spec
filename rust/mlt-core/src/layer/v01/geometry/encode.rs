@@ -76,14 +76,11 @@ fn zorder_params(vertices: &[i32]) -> Result<(u32, u32), MltError> {
 
 /// Encode a single `(x, y)` pair to its Z-order (Morton) code.
 fn morton_encode(x: i32, y: i32, num_bits: u32, coordinate_shift: u32) -> Result<u32, MltError> {
-    // Use i64 for the shift so coordinate_shift never wraps on large negative inputs.
-    let sx = u32::try_from(i64::from(x) + i64::from(coordinate_shift))
-        .map_err(|_| MltError::IntegerOverflow)?;
-    let sy = u32::try_from(i64::from(y) + i64::from(coordinate_shift))
-        .map_err(|_| MltError::IntegerOverflow)?;
+    let sx = u32::try_from(i64::from(x) + i64::from(coordinate_shift))?;
+    let sy = u32::try_from(i64::from(y) + i64::from(coordinate_shift))?;
     let mut code = 0u32;
     for i in 0..num_bits {
-        // num_bits is capped at 16, so 2*i+1 <= 31 — no shift overflow.
+        // num_bits is capped at 16, so 2*i+1 <= 31 => no shift overflow possible.
         code |= ((sx >> i) & 1) << (2 * i);
         code |= ((sy >> i) & 1) << (2 * i + 1);
     }
