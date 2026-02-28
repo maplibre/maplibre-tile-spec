@@ -112,57 +112,88 @@ fn generate_mixed(d: &Path) {
         ("mpoly", MultiPolygon(vec![pol1(), pol2()]).into()),
     ];
 
-    // FIXME: this is a bug, all of these panic
-    let non_working = vec![
-        "mixed_pt_mpoint",
-        "mixed_line_pt_line",
-        "mixed_line_mpoly",
-        "mixed_poly_pt_poly",
-        "mixed_poly_line_poly",
-        "mixed_poly_mpoint_poly",
-        "mixed_poly_mline",
-        "mixed_mpoint_pt",
-        "mixed_mpoint_mline",
-        "mixed_mpoint_mpoly",
-        "mixed_mline_mpoint_mline",
-        "mixed_mline_mpoly",
-        "mixed_mpoly_mpoint_mpoly",
-        "mixed_mpoly_mline",
-    ];
+    for k in 2..=types.len() {
+        generate_combinations(&types, k, 0, &mut Vec::new(), d);
+    }
+}
 
-    for (n1, geo1) in &types {
-        for (n2, geo2) in &types {
-            let name = format!("mixed_{n1}_{n2}");
-            // FIXME: remove this
-            if non_working.contains(&name.as_str()) {
-                continue;
+const NON_WORKING_GEOS: &[&str] = &[
+    "mixed_2_line_mpoly",
+    "mixed_2_poly_mline",
+    "mixed_2_poly_mline",
+    "mixed_2_poly_mline",
+    "mixed_2_mpoint_mline",
+    "mixed_2_mpoint_mpoly",
+    "mixed_2_mline_mpoly",
+    "mixed_3_pt_line_mpoly",
+    "mixed_3_pt_poly_mline",
+    "mixed_3_pt_mpoint_mline",
+    "mixed_3_pt_mpoint_mpoly",
+    "mixed_3_pt_mline_mpoly",
+    "mixed_3_line_poly_mline",
+    "mixed_3_line_mpoint_mline",
+    "mixed_3_line_mpoint_mpoly",
+    "mixed_3_line_mline_mpoly",
+    "mixed_3_poly_mpoint_mline",
+    "mixed_3_poly_mpoint_mpoly",
+    "mixed_3_poly_mline_mpoly",
+    "mixed_3_mpoint_mline_mpoly",
+    "mixed_4_pt_line_poly_mline",
+    "mixed_4_pt_line_mpoint_mline",
+    "mixed_4_pt_line_mpoint_mpoly",
+    "mixed_4_pt_line_mline_mpoly",
+    "mixed_4_pt_poly_mpoint_mline",
+    "mixed_4_pt_poly_mpoint_mpoly",
+    "mixed_4_pt_poly_mline_mpoly",
+    "mixed_4_pt_mpoint_mline_mpoly",
+    "mixed_4_line_poly_mpoint_mline",
+    "mixed_4_line_poly_mpoint_mpoly",
+    "mixed_4_line_poly_mline_mpoly",
+    "mixed_4_line_mpoint_mline_mpoly",
+    "mixed_4_poly_mpoint_mline_mpoly",
+    "mixed_5_pt_line_poly_mpoint_mline",
+    "mixed_5_pt_line_poly_mpoint_mpoly",
+    "mixed_5_pt_line_mpoint_mline_mpoly",
+    "mixed_5_pt_poly_mpoint_mline_mpoly",
+    "mixed_5_line_poly_mpoint_mline_mpoly",
+    "mixed_6_pt_line_poly_mpoint_mline_mpoly",
+];
+
+fn generate_combinations(
+    types: &[(&str, Geom32)],
+    k: usize,
+    start: usize,
+    current: &mut Vec<usize>,
+    d: &Path,
+) {
+    if current.len() == k {
+        let name = format!(
+            "mixed_{}_{}",
+            k,
+            current
+                .iter()
+                .map(|&i| types[i].0)
+                .collect::<Vec<_>>()
+                .join("_")
+        );
+        if !NON_WORKING_GEOS.contains(&name.as_str()) {
+            dbg!(&name);
+            let mut builder = geo_varint();
+
+            for i in current {
+                builder = builder.geo(types[*i].1.clone());
             }
-            geo_varint()
-                .geo(geo1.clone())
-                .geo(geo2.clone())
-                .write(d, &name);
-            if n1 != n2 {
-                let name = format!("{name}_{n1}");
-                // FIXME: remove this
-                if non_working.contains(&name.as_str()) {
-                    continue;
-                }
-                geo_varint()
-                    .geo(geo1.clone())
-                    .geo(geo2.clone())
-                    .geo(geo1.clone())
-                    .write(d, name);
-            }
+
+            builder.write(d, &name);
+            return;
         }
     }
 
-    // FIXME: panics
-    //let geos = types.iter().map(|(_, geo)| geo.clone()).collect::<Vec<_>>();
-    //geo_varint()
-    //  .parts(E::rle_varint())
-    //.rings(E::rle_varint())
-    //.geos(geos)
-    //.write(d, "mixed_all");
+    for i in start..types.len() {
+        current.push(i);
+        generate_combinations(types, k, i + 1, current, d);
+        current.pop();
+    }
 }
 
 fn generate_extent(d: &Path) {

@@ -282,7 +282,7 @@ impl Layer {
 
         let layer = OwnedLayer::Tag01(OwnedLayer01 {
             name: "layer1".to_string(),
-            extent: self.extent.unwrap_or(4096),
+            extent: self.extent.unwrap_or(80),
             id,
             geometry,
             properties: merged_props

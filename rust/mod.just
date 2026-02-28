@@ -294,13 +294,14 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
     # `realpath --relative-to-...` doesn't work on MacOS
     # https://unix.stackexchange.com/a/655825/312244
     posix_relpath() {
-        set -- "${1%/}/" "${2%/}/" ''               ## '/'-end to avoid mismatch
-        while [ "$1" ] && [ "$2" = "${2#"$1"}" ]    ## reduce $1 to shared path
-        do  set -- "${1%/?*/}/"  "$2" "../$3"       ## source/.. target ../relpath
+        set -- "${1%/}/" "${2%/}/" ''
+        while [ "$1" ] && [ "$2" = "${2#"$1"}" ]
+        do
+            set -- "${1%/?*/}/" "$2" "../$3"
         done
-        REPLY="${3}${2#"$1"}"                       ## build result
-        # unless root chomp trailing '/', replace '' with '.'
-        [ "${REPLY#/}" ] && REPLY="${REPLY%/}" || REPLY="${REPLY:-.}"
+        rel="${3}${2#"$1"}"
+        [ "${rel#/}" ] && rel="${rel%/}" || rel="${rel:-.}"
+        printf '%s\n' "$rel"
     }
 
     DIR_A="../test/synthetic/0x01"
