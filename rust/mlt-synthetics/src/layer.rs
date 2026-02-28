@@ -11,6 +11,7 @@ use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, Encoder, GeometryEncoder, IdEncoder,
     OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PropValue, PropertyEncoder,
+    VertexBufferType,
 };
 use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
 
@@ -191,6 +192,19 @@ impl Layer {
     #[must_use]
     pub fn vertex_offsets(mut self, e: Encoder) -> Self {
         self.geometry_encoder.vertex_offsets(e);
+        self
+    }
+
+    /// Enable Morton (Z-order) dictionary encoding for the vertex buffer.
+    ///
+    /// Also sets vertex offsets to `delta_rle_varint`, matching Java's behaviour.
+    /// Override with `.vertex_offsets(…)` afterwards if needed.
+    #[must_use]
+    pub fn morton(mut self) -> Self {
+        self.geometry_encoder
+            .vertex_buffer_type(VertexBufferType::Morton);
+        self.geometry_encoder
+            .vertex_offsets(Encoder::delta_rle_varint());
         self
     }
 

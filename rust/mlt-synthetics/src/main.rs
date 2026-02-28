@@ -149,6 +149,7 @@ fn generate_geometry(w: &SynthWriter) {
     }
     w.geo_varint()
         .geo(LineString::new(morton_curve))
+        .morton()
         .write("line_morton");
     w.geo_varint().geo(poly1()).write("polygon");
     w.geo_fastpfor().geo(poly1()).write("polygon_fpf");
