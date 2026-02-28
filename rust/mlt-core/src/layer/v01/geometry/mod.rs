@@ -781,9 +781,9 @@ pub enum VertexBufferType {
     /// Standard 2D `(x, y)` pairs encoded with componentwise delta.
     #[default]
     Vec2,
-    /// Morton (Z-order) dictionary encoding: unique vertices are sorted by their
-    /// Morton code and stored once; each vertex position in the stream is replaced
-    /// by its index into that dictionary.
+    /// Morton (Z-order) dictionary encoding:
+    /// Unique vertices are sorted by their Morton code and stored once.
+    /// Each vertex position in the stream is replaced by its index into that dictionary.
     Morton,
 }
 
@@ -964,9 +964,12 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
         // Case when the indices of a Polygon outline are encoded in the tile
         // This is handled by including index_buffer in the DecodedGeometry
 
-        // Expand vertex dictionary: if a vertex offset stream was present, `vertices` holds
-        // only the unique dictionary entries and `vertex_offsets` holds per-vertex indices into
-        // it.  Expand them into a single flat (x, y) sequence so that `DecodedGeometry` always
+        // Expand vertex dictionary:
+        // If a vertex offset stream was present,
+        // - `vertices` holds only the unique dictionary entries and
+        // - `vertex_offsets` holds per-vertex indices into it.
+        // 
+        // Expand them into a single flat (x, y) sequence so that `DecodedGeometry` always
         // represents fully decoded data, regardless of the encoding that was used.
         if let Some(offsets) = vertex_offsets.take()
             && let Some(dict) = vertices.as_deref()
