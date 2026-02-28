@@ -247,6 +247,10 @@ generate-synthetic-mlts:
     {{just}} rust::_verify-synthetic-equality
     {{just}} rust::_assert-synthetic-mlt-identity
 
+# Create .dump files for all .mlt files in test/synthetic for all languages
+generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find') build
+    fd . ../test/synthetic -e mlt -x sh -c 'target/debug/mlt dump {} > {.}.dump'
+
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
     {{just}} mlt ls --validate-to-json --details basic ../test/synthetic/

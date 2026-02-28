@@ -50,6 +50,10 @@ impl Encoder {
         Encoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
     }
     #[must_use]
+    pub fn delta_rle_varint() -> Encoder {
+        Encoder::new(LogicalEncoder::DeltaRle, PhysicalEncoder::VarInt)
+    }
+    #[must_use]
     pub fn fastpfor() -> Encoder {
         Encoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR)
     }

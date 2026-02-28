@@ -396,30 +396,40 @@ impl DecodedGeometry {
         self.vector_types.push(GeometryType::LineString);
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
-        let start_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+        let num_vertices = u32::try_from(ls.0.len()).expect("vertex count overflow");
 
         for coord in ls.coords() {
             verts.extend([coord.x, coord.y]);
         }
 
-        let end_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
-
         // If ring_offsets exists (i.e., there's a Polygon in the layer),
-        // add LineString vertex indices to ring_offsets instead of part_offsets.
+        // add LineString vertex count to ring_offsets instead of part_offsets.
         // This matches Java's behavior where LineString adds to numRings when containsPolygon.
         if let Some(rings) = &mut self.ring_offsets {
-            // Add to ring_offsets - LineString vertices go here when Polygon is present
+            // Add cumulative vertex count to ring_offsets
+            let mut cumulative = if rings.is_empty() {
+                0
+            } else {
+                *rings.last().unwrap()
+            };
             if rings.is_empty() {
-                rings.push(start_idx);
+                rings.push(cumulative);
             }
-            rings.push(end_idx);
+            cumulative += num_vertices;
+            rings.push(cumulative);
         } else {
-            // No polygon yet - add to part_offsets as vertex indices
+            // No polygon yet - add cumulative vertex count to part_offsets
             let parts = self.part_offsets.get_or_insert_with(Vec::new);
+            let mut cumulative = if parts.is_empty() {
+                0
+            } else {
+                *parts.last().unwrap()
+            };
             if parts.is_empty() {
-                parts.push(start_idx);
+                parts.push(cumulative);
             }
-            parts.push(end_idx);
+            cumulative += num_vertices;
+            parts.push(cumulative);
         }
     }
 
@@ -442,11 +452,28 @@ impl DecodedGeometry {
         let rings = self.ring_offsets.get_or_insert_with(Vec::new);
         let parts = self.part_offsets.get_or_insert_with(Vec::new);
 
-        // parts[i] stores the ring index where polygon i starts
-        // Number of existing rings = rings.len() - 1 (since rings is an offset array)
-        let ring_count = if rings.is_empty() { 0 } else { rings.len() - 1 };
+        // Track cumulative polygon ring count (not including LineString entries)
+        // parts.last() gives the current polygon ring count if parts is non-empty
+        let mut polygon_ring_count = if parts.is_empty() {
+            0_u32
+        } else {
+            *parts.last().unwrap()
+        };
+
+        // Push starting ring count for this polygon (if first polygon)
         if parts.is_empty() {
-            parts.push(u32::try_from(ring_count).expect("ring count overflow"));
+            parts.push(polygon_ring_count);
+        }
+
+        // Track cumulative vertex count for ring_offsets (ignoring Point vertices)
+        // ring_offsets stores cumulative vertex counts for polygon rings only
+        let mut cumulative_ring_vertices = if rings.is_empty() {
+            0
+        } else {
+            *rings.last().unwrap()
+        };
+        if rings.is_empty() {
+            rings.push(cumulative_ring_vertices);
         }
 
         // Push exterior ring (without closing vertex - MLT omits it)
@@ -457,14 +484,12 @@ impl DecodedGeometry {
             ext.0.clone()
         };
 
-        let ring_start = u32::try_from(verts.len() / 2).expect("vertex count overflow");
-        if rings.is_empty() {
-            rings.push(ring_start);
-        }
         for coord in &ext_coords {
             verts.extend([coord.x, coord.y]);
         }
-        rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+        cumulative_ring_vertices += u32::try_from(ext_coords.len()).expect("vertex count overflow");
+        rings.push(cumulative_ring_vertices);
+        polygon_ring_count += 1;
 
         // Push interior rings (holes)
         for hole in poly.interiors() {
@@ -476,12 +501,14 @@ impl DecodedGeometry {
             for coord in &hole_coords {
                 verts.extend([coord.x, coord.y]);
             }
-            rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+            cumulative_ring_vertices +=
+                u32::try_from(hole_coords.len()).expect("vertex count overflow");
+            rings.push(cumulative_ring_vertices);
+            polygon_ring_count += 1;
         }
 
-        // After adding this polygon's rings, record the new ring count
-        let new_ring_count = rings.len() - 1;
-        parts.push(u32::try_from(new_ring_count).expect("ring count overflow"));
+        // After adding this polygon's rings, record the cumulative ring count
+        parts.push(polygon_ring_count);
     }
 
     fn push_multi_point(&mut self, mp: &MultiPoint<i32>) {
@@ -490,16 +517,20 @@ impl DecodedGeometry {
         let verts = self.vertices.get_or_insert_with(Vec::new);
         let geoms = self.geometry_offsets.get_or_insert_with(Vec::new);
 
-        let start_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+        // geometry_offsets stores cumulative sub-geometry counts
+        // Initialize with 0 if empty
         if geoms.is_empty() {
-            geoms.push(start_idx);
+            geoms.push(0);
         }
 
+        let num_points = u32::try_from(mp.0.len()).expect("point count overflow");
         for point in mp {
             verts.extend([point.0.x, point.0.y]);
         }
 
-        geoms.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+        // Add cumulative count
+        let prev = *geoms.last().unwrap();
+        geoms.push(prev + num_points);
     }
 
     fn push_multi_linestring(&mut self, mls: &MultiLineString<i32>) {
@@ -507,29 +538,60 @@ impl DecodedGeometry {
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
         let geoms = self.geometry_offsets.get_or_insert_with(Vec::new);
-        let parts = self.part_offsets.get_or_insert_with(Vec::new);
+        let num_linestrings = u32::try_from(mls.0.len()).expect("linestring count overflow");
 
-        // geoms stores indices into parts (linestring count)
-        // Current linestring count = parts.len() - 1 (since parts is offset array)
-        let ls_count = if parts.is_empty() { 0 } else { parts.len() - 1 };
+        // geometry_offsets stores cumulative sub-geometry counts
         if geoms.is_empty() {
-            geoms.push(u32::try_from(ls_count).expect("part count overflow"));
+            geoms.push(0);
         }
 
-        for ls in mls {
-            let start_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+        // When a Polygon is present (ring_offsets exists), LineString vertex counts
+        // go to ring_offsets instead of part_offsets. This matches Java's behavior.
+        if let Some(rings) = &mut self.ring_offsets {
+            // Polygon is present - add cumulative vertex counts to ring_offsets
+            let mut cumulative = if rings.is_empty() {
+                0
+            } else {
+                *rings.last().unwrap()
+            };
+            if rings.is_empty() {
+                rings.push(cumulative);
+            }
+            for ls in mls {
+                for coord in ls.coords() {
+                    verts.extend([coord.x, coord.y]);
+                }
+                cumulative += u32::try_from(ls.0.len()).expect("vertex count overflow");
+                rings.push(cumulative);
+            }
+        } else {
+            // No Polygon - use part_offsets for cumulative vertex counts
+            // This is a "virtual" offset array that tracks cumulative linestring vertex
+            // counts, ignoring any Point vertices that may have been added in between.
+            let parts = self.part_offsets.get_or_insert_with(Vec::new);
+
+            // Get the current cumulative vertex count from the last entry
+            let mut cumulative = if parts.is_empty() {
+                0
+            } else {
+                *parts.last().unwrap()
+            };
             if parts.is_empty() {
-                parts.push(start_idx);
+                parts.push(cumulative);
             }
-            for coord in ls.coords() {
-                verts.extend([coord.x, coord.y]);
+
+            for ls in mls {
+                for coord in ls.coords() {
+                    verts.extend([coord.x, coord.y]);
+                }
+                cumulative += u32::try_from(ls.0.len()).expect("vertex count overflow");
+                parts.push(cumulative);
             }
-            parts.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
         }
 
-        // After adding all linestrings, record the new linestring count
-        let new_ls_count = parts.len() - 1;
-        geoms.push(u32::try_from(new_ls_count).expect("part count overflow"));
+        // Add cumulative count
+        let prev = *geoms.last().unwrap();
+        geoms.push(prev + num_linestrings);
     }
 
     fn push_multi_polygon(&mut self, mp: &MultiPolygon<i32>) {
@@ -537,21 +599,46 @@ impl DecodedGeometry {
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
         let geoms = self.geometry_offsets.get_or_insert_with(Vec::new);
+        let num_polygons = u32::try_from(mp.0.len()).expect("polygon count overflow");
+
+        // geometry_offsets stores cumulative sub-geometry counts
+        if geoms.is_empty() {
+            geoms.push(0);
+        }
+
+        // If LineStrings were pushed before us, their vertex offsets are in part_offsets.
+        // Move them to ring_offsets before we use part_offsets for polygon ring counts.
+        if self.ring_offsets.is_none()
+            && let Some(linestring_parts) = self.part_offsets.take()
+        {
+            self.ring_offsets = Some(linestring_parts);
+        }
+
         let parts = self.part_offsets.get_or_insert_with(Vec::new);
         let rings = self.ring_offsets.get_or_insert_with(Vec::new);
 
-        // geoms stores indices into parts (polygon count)
-        // Current polygon count = parts.len() - 1 (since parts is offset array)
-        let poly_count = if parts.is_empty() { 0 } else { parts.len() - 1 };
-        if geoms.is_empty() {
-            geoms.push(u32::try_from(poly_count).expect("part count overflow"));
+        // Track cumulative polygon ring count (not including LineString entries)
+        // parts.last() gives the current polygon ring count if parts is non-empty
+        let mut polygon_ring_count = if parts.is_empty() {
+            0_u32
+        } else {
+            *parts.last().unwrap()
+        };
+
+        // Track cumulative vertex count for ring_offsets (ignoring Point vertices)
+        let mut cumulative_ring_vertices = if rings.is_empty() {
+            0
+        } else {
+            *rings.last().unwrap()
+        };
+        if rings.is_empty() {
+            rings.push(cumulative_ring_vertices);
         }
 
         for poly in mp {
-            // parts stores indices into rings (ring count for each polygon)
-            let ring_count = if rings.is_empty() { 0 } else { rings.len() - 1 };
+            // Push starting ring count for this polygon
             if parts.is_empty() {
-                parts.push(u32::try_from(ring_count).expect("ring count overflow"));
+                parts.push(polygon_ring_count);
             }
 
             // Push exterior ring (without closing vertex)
@@ -562,14 +649,13 @@ impl DecodedGeometry {
                 ext.0.clone()
             };
 
-            let ring_start = u32::try_from(verts.len() / 2).expect("vertex count overflow");
-            if rings.is_empty() {
-                rings.push(ring_start);
-            }
             for coord in &ext_coords {
                 verts.extend([coord.x, coord.y]);
             }
-            rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+            cumulative_ring_vertices +=
+                u32::try_from(ext_coords.len()).expect("vertex count overflow");
+            rings.push(cumulative_ring_vertices);
+            polygon_ring_count += 1;
 
             // Push interior rings (holes)
             for hole in poly.interiors() {
@@ -581,17 +667,19 @@ impl DecodedGeometry {
                 for coord in &hole_coords {
                     verts.extend([coord.x, coord.y]);
                 }
-                rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+                cumulative_ring_vertices +=
+                    u32::try_from(hole_coords.len()).expect("vertex count overflow");
+                rings.push(cumulative_ring_vertices);
+                polygon_ring_count += 1;
             }
 
-            // After adding this polygon's rings, record the new ring count
-            let new_ring_count = rings.len() - 1;
-            parts.push(u32::try_from(new_ring_count).expect("ring count overflow"));
+            // After adding this polygon's rings, record the cumulative ring count
+            parts.push(polygon_ring_count);
         }
 
-        // After adding all polygons, record the new polygon count
-        let new_poly_count = parts.len() - 1;
-        geoms.push(u32::try_from(new_poly_count).expect("part count overflow"));
+        // Add cumulative count
+        let prev = *geoms.last().unwrap();
+        geoms.push(prev + num_polygons);
     }
 }
 
@@ -848,6 +936,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
             }
         } else if let Some(offsets) = part_offsets.take() {
             if let Some(ring_offsets_copy) = ring_offsets.take() {
+                let is_line_string_present = vector_types.iter().any(|t| t.is_linestring());
                 part_offsets = Some(decode_root_length_stream(
                     &vector_types,
                     &offsets,
@@ -857,7 +946,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
                     &vector_types,
                     part_offsets.as_ref().unwrap(),
                     &ring_offsets_copy,
-                    true, // isLineStringPresent
+                    is_line_string_present,
                 ));
             } else {
                 part_offsets = Some(decode_root_length_stream(
