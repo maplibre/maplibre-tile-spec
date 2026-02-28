@@ -8,8 +8,6 @@ import org.imintel.mbtiles4j.MBTilesWriter
 import org.imintel.mbtiles4j.Tile
 import org.maplibre.mlt.converter.MltConverter
 import org.maplibre.mlt.metadata.tileset.MltMetadata
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
@@ -96,8 +94,8 @@ fun encodeMBTiles(
                         config.taskRunner.run(
                             Runnable {
                                 val count = tileCount.incrementAndGet().toULong()
-                                if (count.mod(Environment.tileLogInterval) == 0UL) {
-                                    logger.debug(
+                                if (count.mod(tileLogInterval) == 0UL) {
+                                    logger.trace(
                                         "Processing tile {} : {}:{},{}",
                                         count,
                                         z,
@@ -190,8 +188,7 @@ private fun updateMetadata(
     connection: Connection,
     metadataJSON: String,
 ) {
-    logger.debug("Updating metadata")
-    logger.trace("Setting tile MIME type to '{}'", MBTILES_METADATA_MIME_TYPE)
+    logger.debug("Updating metadata. Setting tile MIME type to '{}'", MBTILES_METADATA_MIME_TYPE)
 
     var sql = "UPDATE metadata SET value = ? WHERE name = ?"
     connection.prepareStatement(sql).use { statement ->
@@ -230,8 +227,8 @@ private fun convertTile(
                 z,
                 srcTileData,
                 config,
-                Optional.of(Environment.compressionRatioThreshold),
-                Optional.of(Environment.compressionFixedThreshold),
+                Optional.of(compressionRatioThreshold),
+                Optional.of(compressionFixedThreshold),
                 didCompress,
             )
 
@@ -260,5 +257,3 @@ private fun convertTile(
     }
     return false
 }
-
-private val logger: Logger = LoggerFactory.getLogger(Encode::class.java)

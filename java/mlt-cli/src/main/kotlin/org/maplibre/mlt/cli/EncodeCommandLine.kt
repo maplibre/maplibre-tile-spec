@@ -685,15 +685,17 @@ Add an explicit column mapping on the specified layers:
                     " Start an encoding server on port 8080:\n" +
                     "    encode --server 8080\n" +
                     "\nEnvironment variables:\n" +
-                    "  " + Environment.ENV_TILE_LOG_INTERVAL + ": Number of tiles between status log messages (default: 10000)\n" +
-                    "  " + Environment.ENV_COMPRESSION_RATIO_THRESHOLD + ": Minimum compression ratio to apply compression (default: " +
-                    Environment.DEFAULT_COMPRESSION_RATIO_THRESHOLD +
+                    "  " + ENV_TILE_LOG_INTERVAL + ": Number of tiles between status log messages (default: 10000)\n" +
+                    "  " + ENV_COMPRESSION_RATIO_THRESHOLD + ": Minimum compression ratio to apply compression (default: " +
+                    DEFAULT_COMPRESSION_RATIO_THRESHOLD +
                     ")\n  " +
-                    Environment.ENV_COMPRESSION_FIXED_THRESHOLD + ": Minimum savings in bytes for a tile to be compressed (default: " +
-                    Environment.DEFAULT_COMPRESSION_FIXED_THRESHOLD +
+                    ENV_COMPRESSION_FIXED_THRESHOLD + ": Minimum savings in bytes for a tile to be compressed (default: " +
+                    DEFAULT_COMPRESSION_FIXED_THRESHOLD +
                     ")\n  " +
-                    Environment.ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maxumum heap size (default: " +
-                    Environment.DEFAULT_CACHE_MAX_HEAP_PERCENT + ")\n"
+                    ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maxumum heap size (default: " +
+                    DEFAULT_CACHE_MAX_HEAP_PERCENT + ")\n  " +
+                    ENV_CACHE_EXPIRE + ": Cache expiration duration after access, in ISO-8601 format (e.g. P1.2S) \n" +
+                    "    or plain (e.g., 1.2s) (default: " + DEFAULT_CACHE_EXPIRE.toString() + ")\n"
             )
 
         val target = TextHelpAppendable(System.err)

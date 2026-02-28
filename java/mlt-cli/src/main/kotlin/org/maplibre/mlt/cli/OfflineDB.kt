@@ -4,8 +4,6 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonSyntaxException
 import org.apache.commons.lang3.mutable.MutableBoolean
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -76,7 +74,7 @@ fun encodeOfflineDB(
                                 config.taskRunner.run(
                                     Runnable {
                                         val count = tileCount.incrementAndGet().toULong()
-                                        if (count.mod(Environment.tileLogInterval) == 0UL) {
+                                        if (count.mod(tileLogInterval) == 0UL) {
                                             logger.debug(
                                                 "Processing tile {} : {}:{},{}",
                                                 count,
@@ -226,8 +224,8 @@ private fun convertTile(
             z,
             srcTileData,
             config,
-            Optional.of(Environment.compressionRatioThreshold),
-            Optional.of(Environment.compressionFixedThreshold),
+            Optional.of(compressionRatioThreshold),
+            Optional.of(compressionFixedThreshold),
             didCompress,
         )
 
@@ -247,5 +245,3 @@ private fun convertTile(
     }
     return false
 }
-
-private val logger: Logger = LoggerFactory.getLogger(Encode::class.java)

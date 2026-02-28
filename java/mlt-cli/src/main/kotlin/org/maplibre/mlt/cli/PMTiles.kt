@@ -19,8 +19,6 @@ import io.tileverse.io.ByteRange
 import io.tileverse.rangereader.RangeReaderFactory
 import io.tileverse.rangereader.cache.CachingRangeReader
 import org.apache.commons.lang3.mutable.MutableBoolean
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.net.URI
@@ -28,6 +26,8 @@ import java.nio.ByteBuffer
 import java.nio.file.Path
 import java.util.Optional
 import java.util.OptionalLong
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -52,7 +52,7 @@ fun encodePMTiles(
             .build()
             .use { cachingReader ->
                 // This reader is thread-safe
-                ReadablePmtiles(cachingReader)
+                ReadablePmtiles(cachingReader, false)
                     .use { reader ->
                         logger.debug("Opened '{}' for reading", inputURI)
                         WriteablePmtiles.newWriteToFile(outputPath).use { writer ->
@@ -61,7 +61,7 @@ fun encodePMTiles(
                         }
                     }.also {
                         cacheManager.stats().forEach { (name, value) ->
-                            logger.trace("Cache '{}' : {}", name, value)
+                            logger.debug(cacheMarker, "Cache '{}' : {}", name, value)
                         }
                     }
             }
@@ -78,9 +78,9 @@ private fun getCacheManager(): CacheManager =
         it.getCache(cacheName, {
             CaffeineCache
                 .newBuilder<ByteRange, ByteBuffer>()
-                .maxHeapPercent(Environment.cacheMaxHeapPercent, ::weigh)
-                .averageWeight(Environment.DEFAULT_AVERAGE_WEIGHT)
-                .expireAfterAccess(Environment.cacheExpireAfterAccess.toJavaDuration())
+                .maxHeapPercent(cacheMaxHeapPercent, ::weigh)
+                .averageWeight(DEFAULT_CACHE_AVERAGE_WEIGHT)
+                .expireAfterAccess(cacheExpireAfterAccess.toJavaDuration())
                 .scheduler(Scheduler.systemScheduler())
                 .removalListener(::onRemoval)
                 .recordStats()
@@ -105,7 +105,7 @@ private fun onRemoval(
     cause: RemovalCause,
 ) {
     if (logger.isTraceEnabled && cause != RemovalCause.EXPLICIT) {
-        logger.trace("Evicted {}, {}, cause: {}", value, key, cause)
+        logger.trace(cacheMarker, "Evicted {}, {}, cause: {}", value, key, cause)
     }
 }
 
@@ -117,9 +117,19 @@ private fun encodePMTiles(
     outputPath: Path,
     config: EncodeConfig,
 ): Boolean {
+    val timer = Timer()
     val header = reader.header
+    val tilesPresentPct =
+        if (header.numAddressedTiles() > 0) {
+            String.format(
+                " (%.1f%%)",
+                100.0 * header.numTileContents() / header.numAddressedTiles(),
+            )
+        } else {
+            ""
+        }
     logger.debug(
-        "PMTiles header: version={}, tileType={}, tileCompression={}, minZoom={}, maxZoom={}, numAddressedTiles={}, numTileContents={} ({}%)",
+        "PMTiles: version={}, tileType={}, tileCompression={}, minZoom={}, maxZoom={}, numAddressedTiles={}, numTileContents={}{}",
         header.specVersion(),
         header.tileType(),
         header.tileCompression(),
@@ -127,10 +137,7 @@ private fun encodePMTiles(
         header.maxZoom(),
         header.numAddressedTiles(),
         header.numTileContents(),
-        String.format(
-            "%.1f",
-            100.0 * header.numTileContents() / header.numAddressedTiles(),
-        ),
+        tilesPresentPct,
     )
 
     if (header.tileType() != TileType.MVT) {
@@ -164,17 +171,20 @@ private fun encodePMTiles(
             targetConfig,
             AtomicLong(0),
             AtomicLong(0),
+            AtomicLong(0),
             AtomicBoolean(false),
             AtomicBoolean(true),
+            if (logger.isDebugEnabled) ConcurrentHashMap<Long, ConcurrentSkipListSet<TileCoord>>() else null,
         )
+
     try {
         writer.newTileWriter().use { tileWriter ->
             config.taskRunner.run(
                 {
                     processAllTiles(
                         config.taskRunner,
-                        { coords ->
-                            processTileRange(coords, reader, tileWriter, state)
+                        { ref ->
+                            processTileRange(ref, reader, tileWriter, state, minZoom, maxZoom)
                         },
                         reader,
                         state,
@@ -196,6 +206,21 @@ private fun encodePMTiles(
                 logger.debug("Finalizing MBTiles file")
                 writer.finish(newMetadata)
             }
+
+            state.tileHashMap?.let { tileHashMap ->
+                val elapsedMs = timer.elapsedTime
+                val uniqueTiles = tileHashMap.size
+                val totalTiles =
+                    tileHashMap.reduceEntriesToLong(1, { it.value.size.toLong() }, 0L, Long::plus)
+                logger.debug(
+                    "Finished. Tile contents: {} ({}/s), Entries: {} ({}%)",
+                    String.format("%,d", uniqueTiles),
+                    String.format("%,.2f", uniqueTiles / Math.max(1.0, elapsedMs) * 1000),
+                    String.format("%,d", totalTiles),
+                    String.format("%.1f", 100.0 * uniqueTiles / totalTiles),
+                )
+            }
+
             return state.success.get()
         }
     } catch (ex: IOException) {
@@ -228,24 +253,27 @@ private fun updateMetadata(
 
 private fun processAllTiles(
     taskRunner: TaskRunner,
-    processTileRange: (List<TileCoord>) -> Boolean,
+    processTileRange: (ReadablePmtiles.TileCoordRange) -> Boolean,
     reader: ReadablePmtiles,
     state: ConversionState,
     minZoom: Int,
     maxZoom: Int,
 ) {
-    logger.trace("Loading directory of tile coordinates ...")
     reader
         .allTileCoordRanges
-        .map { range -> range.filter { coord -> coord.z in minZoom..maxZoom } }
-        .filter { range -> range.isNotEmpty() }
-        .forEach { tileCoords ->
+        .forEach { tileRef ->
             if (state.encodeConfig.continueOnError || state.success.get()) {
-                state.totalTileCount.addAndGet(tileCoords.size.toLong())
+                state.totalTileCount.addAndGet(tileRef.tileCount.toLong())
+                state.filteredTileCount.addAndGet(
+                    tileRef.tileCoords
+                        .filter { coord -> coord.z() in minZoom..maxZoom }
+                        .size
+                        .toLong(),
+                )
                 try {
                     taskRunner.run(
                         {
-                            if (!processTileRange(tileCoords)) {
+                            if (!processTileRange(tileRef)) {
                                 state.success.set(false)
                             }
                         },
@@ -257,7 +285,8 @@ private fun processAllTiles(
         }
     state.directoryComplete.set(true)
     logger.debug(
-        "Directory read complete. Total {} tiles.",
+        "Directory read complete. Processing {} of {} total tiles.",
+        String.format("%,d", state.filteredTileCount.get()),
         String.format("%,d", state.totalTileCount.get()),
     )
     taskRunner.shutdown()
@@ -265,58 +294,51 @@ private fun processAllTiles(
 
 /** Convert a range of tile coordinates which have the same contents */
 private fun processTileRange(
-    tileCoords: List<TileCoord>,
+    tileRef: ReadablePmtiles.TileCoordRange,
     reader: ReadablePmtiles,
     writer: WriteableTileArchive.TileWriter,
     state: ConversionState,
+    minZoom: Int,
+    maxZoom: Int,
 ): Boolean {
+    val tileCoords = tileRef.tileCoords.filter { coord -> coord.z() in minZoom..maxZoom }
     if (tileCoords.isEmpty()) {
+        // No tiles in this range are within the zoom range, skip it
+        // TODO: Can we terminate the directory sequence iteration once exceeding maxZoom?
         return true
     }
+
     val firstTileCoord = tileCoords.first()
     val tileLabel = getTileLabel(firstTileCoord)
-    val tileCount = state.tilesProcessed.addAndGet(tileCoords.size.toLong())
-    val logInterval = Environment.tileLogInterval
+    val prevTileCount = state.tilesProcessed.getAndAdd(tileCoords.size.toLong())
+    val curTileCount = prevTileCount + tileCoords.size
 
+    // Log every Nth tile at debug level
     if (logger.isDebugEnabled) {
-        if (!state.directoryComplete.get()) {
-            // Still fetching tile coordinates, we can't show a percentage
-            if (tileCount < 2 || tileCount.toULong().mod(logInterval) == 0UL) {
-                logger
-                    .atDebug()
-                    .setMessage("Processing tile {} : {}")
-                    .addArgument({ String.format("%,d", tileCount) })
-                    .addArgument(tileLabel)
-                    .log()
-            }
-        } else {
-            val totalTiles = state.totalTileCount.get()
-            val progress = 100.0 * tileCount / totalTiles
-            val prevProgress = 100.0 * max(0, tileCount - 1) / totalTiles
-            if (tileCount.toULong().mod(logInterval) == 0UL ||
-                Math.round(progress * 10.0).toInt() !=
-                Math
-                    .round(prevProgress * 10.0)
-                    .toInt()
-            ) {
-                logger
-                    .atDebug()
-                    .setMessage("Processing tiles: {} / {} ({}%) : {}")
-                    .addArgument({ String.format("%,d", tileCount) })
-                    .addArgument({ String.format("%,d", totalTiles) })
-                    .addArgument({ String.format("%.1f", progress) })
-                    .addArgument(tileLabel)
-                    .log()
+        val prevBatch = prevTileCount.toULong().div(tileLogInterval)
+        val curBatch = curTileCount.toULong().div(tileLogInterval)
+        // If we're the range that crosses a log interval boundary, log the progress.
+        if (prevTileCount == 0L || curBatch != prevBatch) {
+            if (!state.directoryComplete.get()) {
+                // Still fetching tile coordinates, we can't show a percentage.
+                logger.debug("Processing tile {} : {}", String.format("%,d", curTileCount), tileLabel)
+            } else {
+                val totalTiles = state.filteredTileCount.get()
+                logger.debug(
+                    "Processing tiles: {} / {} ({}%) : {}",
+                    String.format("%,d", curTileCount),
+                    String.format("%,d", totalTiles),
+                    String.format("%.1f", 100.0 * curTileCount / totalTiles),
+                    tileLabel,
+                )
             }
         }
     }
 
-    var tileData = reader.getTile(firstTileCoord)
-    if (tileData == null) {
-        logger.warn("Tile {} is missing from PMTiles file", tileLabel)
-        return false
-    }
+    // Get the raw tile contents
+    var tileData = reader.getBytes(tileRef.byteRange)
 
+    // Decompress the raw tile data
     val compressedMVTSize = tileData.size
     try {
         tileData = decompress(ByteArrayInputStream(tileData))
@@ -326,21 +348,23 @@ private fun processTileRange(
     }
 
     val uncompressedMVTSize = tileData.size
-    logger
-        .atTrace()
-        .setMessage("{} loaded, {} bytes{}")
-        .addArgument(tileLabel)
-        .addArgument(uncompressedMVTSize)
-        .addArgument(
-            {
-                if (compressedMVTSize != uncompressedMVTSize) {
-                    ", $compressedMVTSize compressed"
-                } else {
-                    ""
-                }
-            },
-        ).log()
+    if (logger.isTraceEnabled) {
+        val comp =
+            if (compressedMVTSize != uncompressedMVTSize) {
+                ", $compressedMVTSize compressed"
+            } else {
+                ""
+            }
+        logger.trace(
+            readMarker,
+            "{} loaded, {} bytes{}",
+            tileLabel,
+            uncompressedMVTSize,
+            comp,
+        )
+    }
 
+    // Convert to MLT and optionally re-compress
     val didCompress = MutableBoolean()
     val mltData =
         convertTile(
@@ -354,23 +378,41 @@ private fun processTileRange(
             didCompress,
         )
 
+    // Write the result for all the tile coordinates in the range
     if (mltData != null && mltData.size > 0) {
         val hash = OptionalLong.of(TileArchiveWriter.generateContentHash(mltData))
-        logger
-            .atTrace()
-            .setMessage("Writing {}{}, {} bytes{}")
-            .addArgument(tileLabel)
-            .addArgument {
+        if (logger.isTraceEnabled) {
+            val extraCoords =
                 if (tileCoords.size > 1) {
                     "(+ ${tileCoords.size - 1}: ${getTileLabels(tileCoords.drop(1), 10)})"
                 } else {
                     ""
                 }
-            }.addArgument(mltData.size)
-            .addArgument { if (didCompress.isTrue) " (compressed)" else "" }
-            .log()
+            logger.trace(
+                writeMarker,
+                "Writing {}{}, {} bytes{} hash {}",
+                tileLabel,
+                extraCoords,
+                mltData.size,
+                if (didCompress.isTrue) " (compressed)" else "",
+                hash.asLong,
+            )
+        }
 
-        // Write the result for all tile coordinates in this range
+        if (state.tileHashMap != null) {
+            val coordsForHash = state.tileHashMap.computeIfAbsent(hash.asLong, { ConcurrentSkipListSet<TileCoord>() })
+            tileCoords.forEach { tileCoord ->
+                if (!coordsForHash.add(tileCoord)) {
+                    logger.warn(
+                        "Tile coord {} repeated with hash {}",
+                        getTileLabel(tileCoord),
+                        hash.asLong,
+                    )
+                }
+            }
+        }
+
+        // The writer is not thread-safe
         synchronized(writer) {
             tileCoords.forEach { tileCoord ->
                 writer.write(TileEncodingResult(tileCoord, mltData, hash))
@@ -412,12 +454,19 @@ private fun toCompressionOption(compression: TileCompression): String? =
         }
     }
 
-private val logger: Logger = LoggerFactory.getLogger(Encode::class.java)
-
 private data class ConversionState(
+    // Options passed to each tile conversion
     val encodeConfig: EncodeConfig,
+    // The number of tiles processed so far
     val tilesProcessed: AtomicLong,
+    // The total number of tiles seen in the directory so far
     val totalTileCount: AtomicLong,
+    // The total number of tiles seen that we'll convert
+    val filteredTileCount: AtomicLong,
+    // Whether we've finished reading the directory
     val directoryComplete: AtomicBoolean,
+    // Whether the conversion is successful so far
     val success: AtomicBoolean,
+    // Used to track tile hashes to identify repeats (if debug output is enabled)
+    val tileHashMap: ConcurrentHashMap<Long, ConcurrentSkipListSet<TileCoord>>?,
 )
