@@ -7,6 +7,7 @@ mod layer;
 
 use std::fs;
 use std::path::Path;
+use std::sync::LazyLock;
 
 use geo_types::{
     Coord, MultiLineString, MultiPoint, MultiPolygon, Point, coord, line_string as line,
@@ -50,6 +51,50 @@ const fn c(x: i32, y: i32) -> Coord<i32> {
 const fn p(x: i32, y: i32) -> Point<i32> {
     Point(c(x, y))
 }
+
+
+static MIX_TYPES: LazyLock<[(&'static str, Geom32); 7]> = LazyLock::new(|| {
+    [
+        ("pt", p(38, 29).into()),
+        ("line", line![c(5, 38), c(12, 45), c(9, 70)].into()),
+        (
+            "poly",
+            poly![c(55, 5), c(58, 28), c(75, 22), c(55, 5)].into(),
+        ),
+        (
+            "polyh",
+            poly! {
+                exterior: [c(52, 35), c(14, 55), c(60, 72), c(52, 35)],
+                interiors: [[c(32, 50), c(36, 60), c(24, 54), c(32, 50)]]
+            }
+                .into(),
+        ),
+        (
+            "mpt",
+            MultiPoint(vec![p(6, 25), p(21, 41), p(23, 69)]).into(),
+        ),
+        (
+            "mline",
+            MultiLineString(vec![
+                line![c(24, 10), c(42, 18)],
+                line![c(30, 36), c(48, 52), c(35, 62)],
+            ])
+                .into(),
+        ),
+        (
+            "mpoly",
+            MultiPolygon(vec![
+                poly! {
+                    exterior: [c(7, 20), c(21, 31), c(26, 9), c(7, 20)],
+                    interiors: [[c(15, 20), c(20, 15), c(18, 25), c(15, 20)]]
+                },
+                poly![c(69, 57), c(71, 66), c(73, 64), c(69, 57)],
+            ])
+                .into(),
+        ),
+    ]
+});
+
 
 fn main() {
     let dir = Path::new("../test/synthetic/0x01-rust/");
@@ -127,69 +172,23 @@ fn generate_geometry(w: &SynthWriter) {
 // VarBinary = DeltaRle    (line AND polyh AND mpt) OR (line AND poly AND mpt)
 // VarBinary = Rle         line OR mline OR mpoly OR mpt OR poly OR polyh OR pt
 
-static types: [(&str, Geom32); 7] = [
-    ("pt", p(38, 29).into()),
-    ("line", line![c(5, 38), c(12, 45), c(9, 70)].into()),
-    (
-        "poly",
-        poly![c(55, 5), c(58, 28), c(75, 22), c(55, 5)].into(),
-    ),
-    (
-        "polyh",
-        poly! {
-                exterior: [c(52, 35), c(14, 55), c(60, 72), c(52, 35)],
-                interiors: [[c(32, 50), c(36, 60), c(24, 54), c(32, 50)]]
-            }
-            .into(),
-    ),
-    (
-        "mpt",
-        MultiPoint(vec![p(6, 25), p(21, 41), p(23, 69)]).into(),
-    ),
-    (
-        "mline",
-        MultiLineString(vec![
-            line![c(24, 10), c(42, 18)],
-            line![c(30, 36), c(48, 52), c(35, 62)],
-        ])
-            .into(),
-    ),
-    (
-        "mpoly",
-        MultiPolygon(vec![
-            poly! {
-                    exterior: [c(7, 20), c(21, 31), c(26, 9), c(7, 20)],
-                    interiors: [[c(15, 20), c(20, 15), c(18, 25), c(15, 20)]]
-                },
-            poly![c(69, 57), c(71, 66), c(73, 64), c(69, 57)],
-        ])
-            .into(),
-    ),
-];
-
-
-fn generate_combinations(
-    w: &SynthWriter,
-    k: usize,
-    start: usize,
-    current: &mut Vec<usize>,
-) {
+fn generate_combinations(w: &SynthWriter, k: usize, start: usize, current: &mut Vec<usize>) {
     if current.len() == k {
         let name = format!(
             "mix_{k}_{}",
             current
                 .iter()
-                .map(|&i| types[i].0)
+                .map(|&i| MIX_TYPES[i].0)
                 .collect::<Vec<_>>()
                 .join("_")
         );
         let mut builder = w.geo_varint();
         for i in current {
-            builder = builder.geo(types[*i].1.clone());
+            builder = builder.geo(MIX_TYPES[*i].1.clone());
         }
         builder.write(&name);
     } else {
-        for i in start..types.len() {
+        for i in start..MIX_TYPES.len() {
             current.push(i);
             generate_combinations(w, k, i + 1, current);
             current.pop();
@@ -198,12 +197,12 @@ fn generate_combinations(
 }
 
 fn generate_mixed(w: &SynthWriter) {
-    for k in 2..=types.len() {
+    for k in 2..=MIX_TYPES.len() {
         generate_combinations(w, k, 0, &mut Vec::new());
     }
 
     // Generate A-A (duplicate) and A-B-A patterns
-    for (na, ga) in &types {
+    for (na, ga) in MIX_TYPES.iter() {
         // A-A variant: mix_dup_<a>
         let name = format!("mix_dup_{na}");
         let geoms = vec![ga.clone(), ga.clone()];
@@ -213,7 +212,7 @@ fn generate_mixed(w: &SynthWriter) {
         }
         layer.write(&name);
 
-        for (nb, gb) in &types {
+        for (nb, gb) in MIX_TYPES.iter() {
             if na != nb {
                 // A-B-A variant: mix_<a>_<b>_<a>
                 let name = format!("mix_{na}_{nb}_{na}");
