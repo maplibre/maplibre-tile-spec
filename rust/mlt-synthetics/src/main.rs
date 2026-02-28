@@ -561,11 +561,11 @@ fn generate_properties(d: &Path) {
     p0().add_prop(DecodedProp::new(
         DecodedProperty {
             name: "val".to_string(),
-            values: PropValue::F32(vec![Some(f32::from_bits(1))]),
+            values: PropValue::F32(vec![Some(f32::MIN_POSITIVE)]),
         },
         enc,
     ))
-    .write(d, "prop_f32_min");
+    .write(d, "prop_f32_min_norm");
     p0().add_prop(DecodedProp::new(
         DecodedProperty {
             name: "val".to_string(),
@@ -581,7 +581,7 @@ fn generate_properties(d: &Path) {
         },
         enc,
     ))
-    .write(d, "prop_f32_max");
+    .write(d, "prop_f32_max_val");
     p0().add_prop(DecodedProp::new(
         DecodedProperty {
             name: "val".to_string(),
@@ -623,7 +623,7 @@ fn generate_properties(d: &Path) {
         },
         enc,
     ))
-    .write(d, "prop_f64_min");
+    .write(d, "prop_f64_min_norm");
     p0().add_prop(DecodedProp::new(
         DecodedProperty {
             name: "val".to_string(),

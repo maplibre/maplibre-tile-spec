@@ -210,7 +210,6 @@ public class SyntheticMltGenerator {
         cfg());
     write("prop_f32", feat(p0, prop("val", (float) 3.14f)), cfg());
     write("prop_f32_neg_inf", feat(p0, prop("val", Float.NEGATIVE_INFINITY)), cfg());
-    write("prop_f32_min_exp", feat(p0, prop("val", Float.MIN_EXPONENT)), cfg());
     write("prop_f32_min_norm", feat(p0, prop("val", Float.MIN_NORMAL)), cfg());
     // FIXME: Produces the same output as prop_f32_min_norm
     // write("prop_f32_min_val", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
@@ -218,13 +217,11 @@ public class SyntheticMltGenerator {
     // write("prop_f32_neg_zero", feat(p0, prop("val", (float) -0.0f)), cfg());
     write("prop_f32_zero", feat(p0, prop("val", (float) 0.0f)), cfg());
     write("prop_f32_max_val", feat(p0, prop("val", Float.MAX_VALUE)), cfg());
-    write("prop_f32_max_exp", feat(p0, prop("val", Float.MAX_EXPONENT)), cfg());
     write("prop_f32_pos_inf", feat(p0, prop("val", Float.POSITIVE_INFINITY)), cfg());
     write("prop_f32_nan", feat(p0, prop("val", Float.NaN)), cfg());
     write("prop_f64", feat(p0, prop("val", (double) 3.141592653589793)), cfg());
     // FIXME: Serializes as f32
     // write("prop_f64_neg_inf", feat(p0, prop("val", Double.NEGATIVE_INFINITY)), cfg());
-    write("prop_f64_min_exp", feat(p0, prop("val", Double.MIN_EXPONENT)), cfg());
     write("prop_f64_min_norm", feat(p0, prop("val", Double.MIN_NORMAL)), cfg());
     // FIXME: Produces the same output as prop_f64_min_norm
     // write("prop_f64_min_val", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
@@ -233,7 +230,6 @@ public class SyntheticMltGenerator {
     // write("prop_f64_zero", feat(p0, prop("val", (double) 0.0)), cfg());
     // FIXME: Serializes as f32
     // write("prop_f64_max_val", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
-    write("prop_f64_max_exp", feat(p0, prop("val", Double.MAX_EXPONENT)), cfg());
     // FIXME: Fails in Java as it Produces the same output as prop_f64_max
     // write("prop_f64_pos_inf", feat(p0, prop("val", Double.POSITIVE_INFINITY)), cfg());
     // FIXME: Serializes as f32
