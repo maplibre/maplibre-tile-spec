@@ -647,13 +647,14 @@ fn encode_struct_property(
 
     // Use the first child's string_encoding to decide how to encode the shared dictionary.
     // Use the first child's encoder for all shared-dict stream encoding choices.
-    let first_encoder = children
-        .first()
-        .map_or(PropertyEncoder::new(
+    let first_encoder = children.first().map_or(
+        PropertyEncoder::new(
             PresenceStream::Absent,
             LogicalEncoder::None,
             PhysicalEncoder::None,
-        ), |(_, enc, _)| *enc);
+        ),
+        |(_, enc, _)| *enc,
+    );
     let string_encoding = first_encoder.string_encoding;
     let dict_encoding = first_encoder.encoder();
 
