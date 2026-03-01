@@ -86,12 +86,20 @@ pub enum MltError {
     StructSharedDictRequiresStreams(usize),
     #[error("Structs are not allowed to be optional")]
     TriedToEncodeOptionalStruct,
+    #[error(
+        "encoding instruction count mismatch: expected {input_len} instructions for {input_len} properties, got {config_len}"
+    )]
+    EncodingInstructionCountMismatch { input_len: usize, config_len: usize },
     #[error("struct child data streams expected exactly 1 value, got {0}")]
     UnexpectedStructChildCount(usize),
     #[error("unsupported physical encoding: {0}")]
     UnsupportedPhysicalEncoding(&'static str),
     #[error("unsupported physical encoding: {0:?} for {1}")]
     UnsupportedPhysicalEncodingForType(PhysicalEncoding, &'static str),
+    #[error(
+        "Extent {extent} cannot be encoded to morton due to morton allowing max. 16 bits, but {required_bits} would be required"
+    )]
+    VertexMortonNotCompatibleWithExtent { extent: u64, required_bits: u32 },
 
     // Geometry decode errors (field = variable name, geom_type for context)
     #[error("MVT error: {0}")]

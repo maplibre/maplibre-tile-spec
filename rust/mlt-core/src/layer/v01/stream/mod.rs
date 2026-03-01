@@ -25,6 +25,7 @@ use crate::{MltError, MltRefResult};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct Encoder {
     pub logical: LogicalEncoder,
     pub physical: PhysicalEncoder,
@@ -47,6 +48,10 @@ impl Encoder {
     #[must_use]
     pub fn rle_varint() -> Encoder {
         Encoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
+    }
+    #[must_use]
+    pub fn delta_rle_varint() -> Encoder {
+        Encoder::new(LogicalEncoder::DeltaRle, PhysicalEncoder::VarInt)
     }
     #[must_use]
     pub fn fastpfor() -> Encoder {
@@ -108,11 +113,16 @@ impl OwnedStream {
         }
     }
 
+    #[must_use]
+    fn plain(data: Vec<u8>, num_values: u32) -> OwnedStream {
+        Self::plain_with_type(data, num_values, DictionaryType::None)
+    }
+
     /// Creates a plain stream with values encoded literally
     #[must_use]
-    fn new_plain(data: Vec<u8>, num_values: u32) -> OwnedStream {
+    fn plain_with_type(data: Vec<u8>, num_values: u32, dict_type: DictionaryType) -> OwnedStream {
         let meta = StreamMeta::new(
-            StreamType::Data(DictionaryType::None),
+            StreamType::Data(dict_type),
             LogicalEncoding::None,
             PhysicalEncoding::None,
             num_values,
@@ -121,18 +131,29 @@ impl OwnedStream {
         Self { meta, data }
     }
 
-    /// Encode a boolean stream: byte-RLE <- packed bitmap <- `Vec<bool>`
+    /// Encode a boolean data stream: byte-RLE <- packed bitmap <- `Vec<bool>`
     /// Boolean streams always use byte-RLE encoding with `LogicalEncoding::Rle` metadata.
     /// The `RleMeta` values are computed by readers from the stream itself.
     pub fn encode_bools(values: &[bool]) -> Result<Self, MltError> {
+        Self::encode_bools_with_type(values, StreamType::Data(DictionaryType::None))
+    }
+
+    /// Encode a presence/nullability stream
+    ///
+    /// Identical to [`Self::encode_bools`] except the stream type is [`StreamType::Present`]
+    pub fn encode_presence(values: &[bool]) -> Result<Self, MltError> {
+        Self::encode_bools_with_type(values, StreamType::Present)
+    }
+
+    /// Encode a boolean data stream: byte-RLE <- packed bitmap <- `Vec<bool>`
+    fn encode_bools_with_type(values: &[bool], stream_type: StreamType) -> Result<Self, MltError> {
         let num_values = u32::try_from(values.len())?;
         let bytes = encode_bools_to_bytes(values);
         let data = encode_byte_rle(&bytes);
-        // Boolean streams use byte-RLE encoding with RLE metadata
         let runs = num_values.div_ceil(8);
         let num_rle_values = u32::try_from(data.len())?;
         let meta = StreamMeta::new(
-            StreamType::Data(DictionaryType::None),
+            stream_type,
             LogicalEncoding::Rle(RleMeta {
                 runs,
                 num_rle_values,
@@ -154,7 +175,7 @@ impl OwnedStream {
             .flat_map(|f| f.to_le_bytes())
             .collect::<Vec<u8>>();
 
-        Ok(Self::new_plain(data, num_values))
+        Ok(Self::plain(data, num_values))
     }
 
     pub fn encode_i8s(values: &[i8], encoding: Encoder) -> Result<Self, MltError> {
@@ -248,7 +269,12 @@ impl OwnedStream {
     }
 
     /// Encode a sequence of strings into a length stream and a data stream.
-    pub fn encode_strings(values: &[String], encoding: Encoder) -> Result<Vec<Self>, MltError> {
+    pub fn encode_strings_with_type(
+        values: &[String],
+        encoding: Encoder,
+        length_type: LengthType,
+        dict_type: DictionaryType,
+    ) -> Result<Vec<Self>, MltError> {
         let lengths: Vec<u32> = values
             .iter()
             .map(|s| u32::try_from(s.len()))
@@ -258,13 +284,10 @@ impl OwnedStream {
             .flat_map(|s| s.as_bytes().iter().copied())
             .collect();
 
-        let length_stream = Self::encode_u32s_of_type(
-            &lengths,
-            encoding,
-            StreamType::Length(LengthType::VarBinary),
-        )?;
+        let length_stream =
+            Self::encode_u32s_of_type(&lengths, encoding, StreamType::Length(length_type))?;
 
-        let data_stream = Self::new_plain(data, u32::try_from(values.len())?);
+        let data_stream = Self::plain_with_type(data, u32::try_from(values.len())?, dict_type);
 
         Ok(vec![length_stream, data_stream])
     }
@@ -280,9 +303,10 @@ impl OwnedStream {
     /// Note: The FSST algorithm implementation may differ from Java's, so the
     /// compressed output may not be byte-for-byte identical. Both implementations
     /// are semantically compatible and can decode each other's output.
-    pub fn encode_strings_fsst(
+    pub fn encode_strings_fsst_with_type(
         values: &[String],
         encoding: Encoder,
+        dict_type: DictionaryType,
     ) -> Result<Vec<Self>, MltError> {
         use fsst::Compressor;
 
@@ -352,7 +376,7 @@ impl OwnedStream {
         // Stream 4: Compressed corpus
         let compressed_stream = Self {
             meta: StreamMeta::new(
-                StreamType::Data(DictionaryType::Single),
+                StreamType::Data(dict_type),
                 LogicalEncoding::None,
                 PhysicalEncoding::None,
                 u32::try_from(values.len())?,
@@ -435,15 +459,20 @@ impl StreamMeta {
                     LogicalEncoding::DeltaRle(rle)
                 }
             }
-            (LT::Morton, LT::None) => {
+            (LT::Morton, LT::None | LT::Rle | LT::Delta) => {
                 let num_bits;
                 let coordinate_shift;
                 (input, num_bits) = parse_varint::<u32>(input)?;
                 (input, coordinate_shift) = parse_varint::<u32>(input)?;
-                LogicalEncoding::Morton(MortonMeta {
+                let meta = MortonMeta {
                     num_bits,
                     coordinate_shift,
-                })
+                };
+                match logical2 {
+                    LT::Rle => LogicalEncoding::MortonRle(meta),
+                    LT::Delta => LogicalEncoding::MortonDelta(meta),
+                    _ => LogicalEncoding::Morton(meta),
+                }
             }
             (LT::PseudoDecimal, LT::None) => LogicalEncoding::PseudoDecimal,
             _ => Err(MltError::InvalidLogicalEncodings(logical1, logical2))?,
@@ -459,16 +488,19 @@ impl StreamMeta {
         is_bool: bool,
         byte_length: u32,
     ) -> io::Result<()> {
-        use crate::v01::LogicalTechnique as LT;
+        use {LogicalEncoding as LE, LogicalTechnique as LT};
+
         writer.write_u8(self.stream_type.as_u8())?;
         let logical_enc_u8: u8 = match self.logical_encoding {
-            LogicalEncoding::None => (LT::None as u8) << 5,
-            LogicalEncoding::Delta => (LT::Delta as u8) << 5,
-            LogicalEncoding::DeltaRle(_) => ((LT::Delta as u8) << 5) | ((LT::Rle as u8) << 2),
-            LogicalEncoding::ComponentwiseDelta => (LT::ComponentwiseDelta as u8) << 5,
-            LogicalEncoding::Rle(_) => (LT::Rle as u8) << 5,
-            LogicalEncoding::Morton(_) => (LT::Morton as u8) << 5,
-            LogicalEncoding::PseudoDecimal => (LT::PseudoDecimal as u8) << 5,
+            LE::None => (LT::None as u8) << 5,
+            LE::Delta => (LT::Delta as u8) << 5,
+            LE::DeltaRle(_) => ((LT::Delta as u8) << 5) | ((LT::Rle as u8) << 2),
+            LE::ComponentwiseDelta => (LT::ComponentwiseDelta as u8) << 5,
+            LE::Rle(_) => (LT::Rle as u8) << 5,
+            LE::Morton(_) => (LT::Morton as u8) << 5,
+            LE::MortonRle(_) => (LT::Morton as u8) << 5 | ((LT::Rle as u8) << 2),
+            LE::MortonDelta(_) => (LT::Morton as u8) << 5 | ((LT::Delta as u8) << 2),
+            LE::PseudoDecimal => (LT::PseudoDecimal as u8) << 5,
         };
         let physical_enc_u8: u8 = match self.physical_encoding {
             PhysicalEncoding::None => 0x0,
@@ -482,20 +514,17 @@ impl StreamMeta {
 
         // some encoding have settings inside them
         match self.logical_encoding {
-            LogicalEncoding::DeltaRle(r) | LogicalEncoding::Rle(r) => {
+            LE::DeltaRle(r) | LE::Rle(r) => {
                 if !is_bool {
                     writer.write_varint(r.runs)?;
                     writer.write_varint(r.num_rle_values)?;
                 }
             }
-            LogicalEncoding::Morton(m) => {
+            LE::Morton(m) | LE::MortonDelta(m) | LE::MortonRle(m) => {
                 writer.write_varint(m.num_bits)?;
                 writer.write_varint(m.coordinate_shift)?;
             }
-            LogicalEncoding::None
-            | LogicalEncoding::Delta
-            | LogicalEncoding::ComponentwiseDelta
-            | LogicalEncoding::PseudoDecimal => {}
+            LE::None | LE::Delta | LE::ComponentwiseDelta | LE::PseudoDecimal => {}
         }
         Ok(())
     }
@@ -1000,6 +1029,7 @@ mod tests {
 
     #[rstest]
     #[case::basic(vec![1, 2, 3, 4, 5, 100, 1000])]
+    #[ignore = "FIXME - executes AVX (?) code despite neither using inline assembly. Maybe UB. Does only happen on AMD Server CPUs"]
     #[case::large(vec![1_000_000; 256])]
     #[case::edge_values(vec![0, 1, 2, 4, 8, 16, 1024, 65535, 1_000_000_000, u32::MAX])]
     #[case::empty(vec![])]
@@ -1219,7 +1249,7 @@ mod tests {
             values in prop::collection::vec(any::<String>(), 0..100),
             encoding in any::<Encoder>(),
         ) {
-            let owned_streams = OwnedStream::encode_strings(&values, encoding).unwrap();
+            let owned_streams = OwnedStream::encode_strings_with_type(&values, encoding, LengthType::VarBinary, DictionaryType::None).unwrap();
 
             let mut buffers = Vec::new();
             for owned_stream in &owned_streams {

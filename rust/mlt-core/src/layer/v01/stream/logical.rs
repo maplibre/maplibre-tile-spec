@@ -8,8 +8,8 @@ use num_traits::PrimInt;
 use crate::MltError;
 use crate::MltError::{DataWidthMismatch, ParsingLogicalTechnique, UnsupportedLogicalEncoding};
 use crate::utils::{
-    decode_componentwise_delta_vec2s, decode_rle, decode_zigzag, decode_zigzag_delta, encode_rle,
-    encode_zigzag, encode_zigzag_delta,
+    decode_componentwise_delta_vec2s, decode_morton_codes, decode_morton_delta, decode_rle,
+    decode_zigzag, decode_zigzag_delta, encode_rle, encode_zigzag, encode_zigzag_delta,
 };
 use crate::v01::{MortonMeta, RleMeta, StreamMeta};
 
@@ -40,6 +40,8 @@ pub enum LogicalEncoding {
     ComponentwiseDelta,
     Rle(RleMeta),
     Morton(MortonMeta),
+    MortonDelta(MortonMeta),
+    MortonRle(MortonMeta),
     PseudoDecimal,
 }
 
@@ -69,6 +71,8 @@ impl Debug for LogicalEncoding {
             Self::DeltaRle(v) => write!(f, "DeltaRle({v:?})"),
             Self::Rle(v) => write!(f, "Rle({v:?})"),
             Self::Morton(v) => write!(f, "Morton({v:?})"),
+            Self::MortonDelta(v) => write!(f, "MortonDelta({v:?})"),
+            Self::MortonRle(v) => write!(f, "MortonRle({v:?})"),
         }
     }
 }
@@ -127,7 +131,27 @@ impl LogicalValue {
                 }
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
             },
-            _ => Err(UnsupportedLogicalEncoding(
+            LogicalEncoding::Morton(meta) => match self.data {
+                LogicalData::VecU32(data) => Ok(decode_morton_codes(
+                    &data,
+                    meta.num_bits,
+                    meta.coordinate_shift,
+                )),
+                LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
+            },
+            LogicalEncoding::MortonDelta(meta) => match self.data {
+                LogicalData::VecU32(data) => Ok(decode_morton_delta(
+                    &data,
+                    meta.num_bits,
+                    meta.coordinate_shift,
+                )),
+                LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
+            },
+            LogicalEncoding::MortonRle(_) => Err(UnsupportedLogicalEncoding(
+                self.meta.logical_encoding,
+                "i32 (MortonRle)",
+            )),
+            LogicalEncoding::PseudoDecimal => Err(UnsupportedLogicalEncoding(
                 self.meta.logical_encoding,
                 "i32",
             )),
@@ -238,8 +262,9 @@ impl LogicalValue {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Default)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Default, strum::EnumIter)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum LogicalEncoder {
     #[default]
     None,

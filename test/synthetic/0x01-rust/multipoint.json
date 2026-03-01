@@ -1,29 +1,29 @@
 {
+  "type": "FeatureCollection",
   "features": [
     {
-      "geometry": {
-        "coordinates": [
-          [
-            4,
-            47
-          ],
-          [
-            12,
-            53
-          ],
-          [
-            18,
-            45
-          ]
-        ],
-        "type": "MultiPoint"
-      },
+      "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1"
       },
-      "type": "Feature"
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            11,
+            52
+          ],
+          [
+            71,
+            72
+          ],
+          [
+            61,
+            22
+          ]
+        ]
+      }
     }
-  ],
-  "type": "FeatureCollection"
+  ]
 }

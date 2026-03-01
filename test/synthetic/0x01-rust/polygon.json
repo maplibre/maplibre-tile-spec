@@ -1,35 +1,35 @@
 {
+  "type": "FeatureCollection",
   "features": [
     {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
       "geometry": {
+        "type": "Polygon",
         "coordinates": [
           [
             [
-              4,
-              47
+              11,
+              52
             ],
             [
-              12,
-              53
+              71,
+              72
             ],
             [
-              18,
-              45
+              61,
+              22
             ],
             [
-              4,
-              47
+              11,
+              52
             ]
           ]
-        ],
-        "type": "Polygon"
-      },
-      "properties": {
-        "_extent": 4096,
-        "_layer": "layer1"
-      },
-      "type": "Feature"
+        ]
+      }
     }
-  ],
-  "type": "FeatureCollection"
+  ]
 }

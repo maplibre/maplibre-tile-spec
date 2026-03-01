@@ -4,7 +4,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "name:de": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         "name:en": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
@@ -12,8 +12,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          4,
-          47
+          13,
+          42
         ]
       }
     }

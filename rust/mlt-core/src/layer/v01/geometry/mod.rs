@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::MltError::{
     GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, IntegerOverflow,
-    NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented, UnexpectedOffsetCombination,
+    NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented,
 };
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
@@ -36,6 +36,10 @@ use crate::{FromDecoded, MltError};
 /// Geometry column representation, either encoded or decoded
 #[borrowme]
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(
+    all(not(test), feature = "arbitrary"),
+    owned_attr(derive(arbitrary::Arbitrary))
+)]
 pub enum Geometry<'a> {
     Encoded(EncodedGeometry<'a>),
     Decoded(DecodedGeometry),
@@ -158,7 +162,6 @@ pub struct DecodedGeometry {
     pub geometry_offsets: Option<Vec<u32>>,
     pub part_offsets: Option<Vec<u32>>,
     pub ring_offsets: Option<Vec<u32>>,
-    pub vertex_offsets: Option<Vec<u32>>,
     pub index_buffer: Option<Vec<u32>>,
     pub triangles: Option<Vec<u32>>,
     pub vertices: Option<Vec<i32>>,
@@ -172,7 +175,6 @@ impl Analyze for DecodedGeometry {
                     + self.geometry_offsets.collect_statistic(stat)
                     + self.part_offsets.collect_statistic(stat)
                     + self.ring_offsets.collect_statistic(stat)
-                    + self.vertex_offsets.collect_statistic(stat)
                     + self.index_buffer.collect_statistic(stat)
                     + self.triangles.collect_statistic(stat)
                     + self.vertices.collect_statistic(stat)
@@ -192,7 +194,6 @@ impl DecodedGeometry {
         let geoms = self.geometry_offsets.as_deref();
         let parts = self.part_offsets.as_deref();
         let rings = self.ring_offsets.as_deref();
-        let vo = self.vertex_offsets.as_deref();
 
         let off = |s: &[u32], idx: usize, field: &'static str| -> Result<usize, MltError> {
             match s.get(idx) {
@@ -221,15 +222,11 @@ impl DecodedGeometry {
         };
 
         let v = |idx: usize| -> Result<Coord32, MltError> {
-            let vertex = match vo {
-                Some(vo) => off(vo, idx, "vertex_offsets")?,
-                None => idx,
-            };
-            let s = match verts.get(vertex * 2..(vertex * 2) + 2) {
+            let s = match verts.get(idx * 2..(idx * 2) + 2) {
                 Some(v) => v,
                 None => Err(GeometryVertexOutOfBounds {
                     index,
-                    vertex,
+                    vertex: idx,
                     count: verts.len() / 2,
                 })?,
             };
@@ -260,27 +257,24 @@ impl DecodedGeometry {
 
         match geom_type {
             GeometryType::Point => {
-                let pt = match (geoms, parts, rings) {
-                    (Some(g), Some(p), Some(r)) => {
-                        v(ring_off(r, part_off(p, geom_off(g, index)?)?)?)?
-                    }
-                    (Some(g), Some(p), None) => v(part_off(p, geom_off(g, index)?)?)?,
-                    (None, Some(p), Some(r)) => v(ring_off(r, part_off(p, index)?)?)?,
-                    (None, Some(p), None) => v(part_off(p, index)?)?,
-                    (None, None, None) => v(index)?,
-                    _ => {
-                        return Err(UnexpectedOffsetCombination(index, geom_type));
-                    }
-                };
-                Ok(GeoGeom::Point(Point(pt)))
+                // Resolve through hierarchy: geoms? -> parts? -> rings? -> vertex
+                let idx = geoms.map_or(Ok(index), |g| geom_off(g, index))?;
+                let idx = parts.map_or(Ok(idx), |p| part_off(p, idx))?;
+                let idx = rings.map_or(Ok(idx), |r| ring_off(r, idx))?;
+                Ok(GeoGeom::Point(Point(v(idx)?)))
             }
             GeometryType::LineString => {
-                let r = match (parts, rings) {
-                    (Some(p), Some(r)) => ring_off_pair(r, part_off(p, index)?)?,
-                    (Some(p), None) => part_off_pair(p, index)?,
-                    _ => return Err(NoPartOffsets(index, geom_type)),
+                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
+                // Get part index: use geoms[index] if present, else index directly
+                let part_idx = geoms.map_or(Ok(index), |g| geom_off(g, index))?;
+                // With rings: parts[part_idx] gives ring index, use ring_offsets for vertex range
+                // Without rings: use part_offsets directly for vertex range
+                let vertex_range = if let Some(r) = rings {
+                    ring_off_pair(r, part_off(parts, part_idx)?)?
+                } else {
+                    part_off_pair(parts, part_idx)?
                 };
-                line(r).map(GeoGeom::LineString)
+                line(vertex_range).map(GeoGeom::LineString)
             }
             GeometryType::Polygon => {
                 let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
@@ -293,18 +287,49 @@ impl DecodedGeometry {
             }
             GeometryType::MultiPoint => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
-                geom_off_pair(geoms, index)?
-                    .map(&v)
-                    .collect::<Result<Vec<Coord32>, _>>()
-                    .map(|cs| GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect())))
+                let geom_range = geom_off_pair(geoms, index)?;
+                // When ring_offsets exist (polygon geometry present), geometry_offsets indexes
+                // into part_offsets which indexes into ring_offsets for vertex indices.
+                // When only part_offsets exist, geometry_offsets indexes into part_offsets
+                // which gives direct vertex indices.
+                // When neither exist, geometry_offsets gives direct vertex indices.
+                match (parts, rings) {
+                    (Some(parts), Some(rings)) => geom_range
+                        .map(|p| v(ring_off(rings, part_off(parts, p)?)?))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map(|cs| {
+                            GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect()))
+                        }),
+                    (Some(parts), None) => geom_range
+                        .map(|p| v(part_off(parts, p)?))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map(|cs| {
+                            GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect()))
+                        }),
+                    (None, _) => geom_range.map(&v).collect::<Result<Vec<_>, _>>().map(|cs| {
+                        GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect()))
+                    }),
+                }
             }
             GeometryType::MultiLineString => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
                 let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
-                geom_off_pair(geoms, index)?
-                    .map(|p| line(part_off_pair(parts, p)?))
-                    .collect::<Result<Vec<LineString<i32>>, _>>()
-                    .map(|ls| GeoGeom::MultiLineString(MultiLineString(ls)))
+                let geom_range = geom_off_pair(geoms, index)?;
+                // geometry_offsets indexes into part_offsets for each linestring.
+                // When ring_offsets exist (polygon geometry present), part_offsets indexes
+                // into ring_offsets for vertex ranges. Otherwise, part_offsets directly
+                // gives vertex ranges.
+                if let Some(rings) = rings {
+                    geom_range
+                        .map(|p| line(ring_off_pair(rings, part_off(parts, p)?)?))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map(|ls| GeoGeom::MultiLineString(MultiLineString(ls)))
+                } else {
+                    geom_range
+                        .map(|p| line(part_off_pair(parts, p)?))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map(|ls| GeoGeom::MultiLineString(MultiLineString(ls)))
+                }
             }
             GeometryType::MultiPolygon => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
@@ -364,30 +389,40 @@ impl DecodedGeometry {
         self.vector_types.push(GeometryType::LineString);
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
-        let start_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+        let num_vertices = u32::try_from(ls.0.len()).expect("vertex count overflow");
 
         for coord in ls.coords() {
             verts.extend([coord.x, coord.y]);
         }
 
-        let end_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
-
         // If ring_offsets exists (i.e., there's a Polygon in the layer),
-        // add LineString vertex indices to ring_offsets instead of part_offsets.
+        // add LineString vertex count to ring_offsets instead of part_offsets.
         // This matches Java's behavior where LineString adds to numRings when containsPolygon.
         if let Some(rings) = &mut self.ring_offsets {
-            // Add to ring_offsets - LineString vertices go here when Polygon is present
+            // Add cumulative vertex count to ring_offsets
+            let mut cumulative = if rings.is_empty() {
+                0
+            } else {
+                *rings.last().unwrap()
+            };
             if rings.is_empty() {
-                rings.push(start_idx);
+                rings.push(cumulative);
             }
-            rings.push(end_idx);
+            cumulative += num_vertices;
+            rings.push(cumulative);
         } else {
-            // No polygon yet - add to part_offsets as vertex indices
+            // No polygon yet - add cumulative vertex count to part_offsets
             let parts = self.part_offsets.get_or_insert_with(Vec::new);
+            let mut cumulative = if parts.is_empty() {
+                0
+            } else {
+                *parts.last().unwrap()
+            };
             if parts.is_empty() {
-                parts.push(start_idx);
+                parts.push(cumulative);
             }
-            parts.push(end_idx);
+            cumulative += num_vertices;
+            parts.push(cumulative);
         }
     }
 
@@ -410,11 +445,28 @@ impl DecodedGeometry {
         let rings = self.ring_offsets.get_or_insert_with(Vec::new);
         let parts = self.part_offsets.get_or_insert_with(Vec::new);
 
-        // parts[i] stores the ring index where polygon i starts
-        // Number of existing rings = rings.len() - 1 (since rings is an offset array)
-        let ring_count = if rings.is_empty() { 0 } else { rings.len() - 1 };
+        // Track cumulative polygon ring count (not including LineString entries)
+        // parts.last() gives the current polygon ring count if parts is non-empty
+        let mut polygon_ring_count = if parts.is_empty() {
+            0_u32
+        } else {
+            *parts.last().unwrap()
+        };
+
+        // Push starting ring count for this polygon (if first polygon)
         if parts.is_empty() {
-            parts.push(u32::try_from(ring_count).expect("ring count overflow"));
+            parts.push(polygon_ring_count);
+        }
+
+        // Track cumulative vertex count for ring_offsets (ignoring Point vertices)
+        // ring_offsets stores cumulative vertex counts for polygon rings only
+        let mut cumulative_ring_vertices = if rings.is_empty() {
+            0
+        } else {
+            *rings.last().unwrap()
+        };
+        if rings.is_empty() {
+            rings.push(cumulative_ring_vertices);
         }
 
         // Push exterior ring (without closing vertex - MLT omits it)
@@ -425,14 +477,12 @@ impl DecodedGeometry {
             ext.0.clone()
         };
 
-        let ring_start = u32::try_from(verts.len() / 2).expect("vertex count overflow");
-        if rings.is_empty() {
-            rings.push(ring_start);
-        }
         for coord in &ext_coords {
             verts.extend([coord.x, coord.y]);
         }
-        rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+        cumulative_ring_vertices += u32::try_from(ext_coords.len()).expect("vertex count overflow");
+        rings.push(cumulative_ring_vertices);
+        polygon_ring_count += 1;
 
         // Push interior rings (holes)
         for hole in poly.interiors() {
@@ -444,12 +494,14 @@ impl DecodedGeometry {
             for coord in &hole_coords {
                 verts.extend([coord.x, coord.y]);
             }
-            rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+            cumulative_ring_vertices +=
+                u32::try_from(hole_coords.len()).expect("vertex count overflow");
+            rings.push(cumulative_ring_vertices);
+            polygon_ring_count += 1;
         }
 
-        // After adding this polygon's rings, record the new ring count
-        let new_ring_count = rings.len() - 1;
-        parts.push(u32::try_from(new_ring_count).expect("ring count overflow"));
+        // After adding this polygon's rings, record the cumulative ring count
+        parts.push(polygon_ring_count);
     }
 
     fn push_multi_point(&mut self, mp: &MultiPoint<i32>) {
@@ -458,16 +510,20 @@ impl DecodedGeometry {
         let verts = self.vertices.get_or_insert_with(Vec::new);
         let geoms = self.geometry_offsets.get_or_insert_with(Vec::new);
 
-        let start_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+        // geometry_offsets stores cumulative sub-geometry counts
+        // Initialize with 0 if empty
         if geoms.is_empty() {
-            geoms.push(start_idx);
+            geoms.push(0);
         }
 
+        let num_points = u32::try_from(mp.0.len()).expect("point count overflow");
         for point in mp {
             verts.extend([point.0.x, point.0.y]);
         }
 
-        geoms.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+        // Add cumulative count
+        let prev = *geoms.last().unwrap();
+        geoms.push(prev + num_points);
     }
 
     fn push_multi_linestring(&mut self, mls: &MultiLineString<i32>) {
@@ -475,29 +531,60 @@ impl DecodedGeometry {
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
         let geoms = self.geometry_offsets.get_or_insert_with(Vec::new);
-        let parts = self.part_offsets.get_or_insert_with(Vec::new);
+        let num_linestrings = u32::try_from(mls.0.len()).expect("linestring count overflow");
 
-        // geoms stores indices into parts (linestring count)
-        // Current linestring count = parts.len() - 1 (since parts is offset array)
-        let ls_count = if parts.is_empty() { 0 } else { parts.len() - 1 };
+        // geometry_offsets stores cumulative sub-geometry counts
         if geoms.is_empty() {
-            geoms.push(u32::try_from(ls_count).expect("part count overflow"));
+            geoms.push(0);
         }
 
-        for ls in mls {
-            let start_idx = u32::try_from(verts.len() / 2).expect("vertex count overflow");
+        // When a Polygon is present (ring_offsets exists), LineString vertex counts
+        // go to ring_offsets instead of part_offsets. This matches Java's behavior.
+        if let Some(rings) = &mut self.ring_offsets {
+            // Polygon is present - add cumulative vertex counts to ring_offsets
+            let mut cumulative = if rings.is_empty() {
+                0
+            } else {
+                *rings.last().unwrap()
+            };
+            if rings.is_empty() {
+                rings.push(cumulative);
+            }
+            for ls in mls {
+                for coord in ls.coords() {
+                    verts.extend([coord.x, coord.y]);
+                }
+                cumulative += u32::try_from(ls.0.len()).expect("vertex count overflow");
+                rings.push(cumulative);
+            }
+        } else {
+            // No Polygon - use part_offsets for cumulative vertex counts
+            // This is a "virtual" offset array that tracks cumulative linestring vertex
+            // counts, ignoring any Point vertices that may have been added in between.
+            let parts = self.part_offsets.get_or_insert_with(Vec::new);
+
+            // Get the current cumulative vertex count from the last entry
+            let mut cumulative = if parts.is_empty() {
+                0
+            } else {
+                *parts.last().unwrap()
+            };
             if parts.is_empty() {
-                parts.push(start_idx);
+                parts.push(cumulative);
             }
-            for coord in ls.coords() {
-                verts.extend([coord.x, coord.y]);
+
+            for ls in mls {
+                for coord in ls.coords() {
+                    verts.extend([coord.x, coord.y]);
+                }
+                cumulative += u32::try_from(ls.0.len()).expect("vertex count overflow");
+                parts.push(cumulative);
             }
-            parts.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
         }
 
-        // After adding all linestrings, record the new linestring count
-        let new_ls_count = parts.len() - 1;
-        geoms.push(u32::try_from(new_ls_count).expect("part count overflow"));
+        // Add cumulative count
+        let prev = *geoms.last().unwrap();
+        geoms.push(prev + num_linestrings);
     }
 
     fn push_multi_polygon(&mut self, mp: &MultiPolygon<i32>) {
@@ -505,21 +592,46 @@ impl DecodedGeometry {
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
         let geoms = self.geometry_offsets.get_or_insert_with(Vec::new);
+        let num_polygons = u32::try_from(mp.0.len()).expect("polygon count overflow");
+
+        // geometry_offsets stores cumulative sub-geometry counts
+        if geoms.is_empty() {
+            geoms.push(0);
+        }
+
+        // If LineStrings were pushed before us, their vertex offsets are in part_offsets.
+        // Move them to ring_offsets before we use part_offsets for polygon ring counts.
+        if self.ring_offsets.is_none()
+            && let Some(linestring_parts) = self.part_offsets.take()
+        {
+            self.ring_offsets = Some(linestring_parts);
+        }
+
         let parts = self.part_offsets.get_or_insert_with(Vec::new);
         let rings = self.ring_offsets.get_or_insert_with(Vec::new);
 
-        // geoms stores indices into parts (polygon count)
-        // Current polygon count = parts.len() - 1 (since parts is offset array)
-        let poly_count = if parts.is_empty() { 0 } else { parts.len() - 1 };
-        if geoms.is_empty() {
-            geoms.push(u32::try_from(poly_count).expect("part count overflow"));
+        // Track cumulative polygon ring count (not including LineString entries)
+        // parts.last() gives the current polygon ring count if parts is non-empty
+        let mut polygon_ring_count = if parts.is_empty() {
+            0_u32
+        } else {
+            *parts.last().unwrap()
+        };
+
+        // Track cumulative vertex count for ring_offsets (ignoring Point vertices)
+        let mut cumulative_ring_vertices = if rings.is_empty() {
+            0
+        } else {
+            *rings.last().unwrap()
+        };
+        if rings.is_empty() {
+            rings.push(cumulative_ring_vertices);
         }
 
         for poly in mp {
-            // parts stores indices into rings (ring count for each polygon)
-            let ring_count = if rings.is_empty() { 0 } else { rings.len() - 1 };
+            // Push starting ring count for this polygon
             if parts.is_empty() {
-                parts.push(u32::try_from(ring_count).expect("ring count overflow"));
+                parts.push(polygon_ring_count);
             }
 
             // Push exterior ring (without closing vertex)
@@ -530,14 +642,13 @@ impl DecodedGeometry {
                 ext.0.clone()
             };
 
-            let ring_start = u32::try_from(verts.len() / 2).expect("vertex count overflow");
-            if rings.is_empty() {
-                rings.push(ring_start);
-            }
             for coord in &ext_coords {
                 verts.extend([coord.x, coord.y]);
             }
-            rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+            cumulative_ring_vertices +=
+                u32::try_from(ext_coords.len()).expect("vertex count overflow");
+            rings.push(cumulative_ring_vertices);
+            polygon_ring_count += 1;
 
             // Push interior rings (holes)
             for hole in poly.interiors() {
@@ -549,17 +660,62 @@ impl DecodedGeometry {
                 for coord in &hole_coords {
                     verts.extend([coord.x, coord.y]);
                 }
-                rings.push(u32::try_from(verts.len() / 2).expect("vertex count overflow"));
+                cumulative_ring_vertices +=
+                    u32::try_from(hole_coords.len()).expect("vertex count overflow");
+                rings.push(cumulative_ring_vertices);
+                polygon_ring_count += 1;
             }
 
-            // After adding this polygon's rings, record the new ring count
-            let new_ring_count = rings.len() - 1;
-            parts.push(u32::try_from(new_ring_count).expect("ring count overflow"));
+            // After adding this polygon's rings, record the cumulative ring count
+            parts.push(polygon_ring_count);
         }
 
-        // After adding all polygons, record the new polygon count
-        let new_poly_count = parts.len() - 1;
-        geoms.push(u32::try_from(new_poly_count).expect("part count overflow"));
+        // Add cumulative count
+        let prev = *geoms.last().unwrap();
+        geoms.push(prev + num_polygons);
+    }
+}
+
+#[cfg(all(not(test), feature = "arbitrary"))]
+#[derive(Debug, Clone, PartialEq, PartialOrd, arbitrary::Arbitrary)]
+enum ArbitraryGeometry {
+    Point((i32, i32)),
+    // FIXME: Add LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon, once supported upstream
+}
+
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl From<ArbitraryGeometry> for crate::geojson::Geom32 {
+    fn from(value: ArbitraryGeometry) -> Self {
+        use crate::geojson::Geom32 as G;
+        let cord = |(x, y)| Coord { x, y };
+        match value {
+            ArbitraryGeometry::Point((x, y)) => G::Point(Point(cord((x, y)))),
+            // FIXME: once fully working, add the rest
+        }
+    }
+}
+
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl arbitrary::Arbitrary<'_> for DecodedGeometry {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        let geoms = u.arbitrary_iter::<ArbitraryGeometry>()?;
+        let mut decoded = DecodedGeometry::default();
+        for geo in geoms {
+            let geo = crate::geojson::Geom32::from(geo?);
+            decoded.push_geom(&geo);
+        }
+        Ok(decoded)
+    }
+}
+
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl arbitrary::Arbitrary<'_> for OwnedEncodedGeometry {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        let decoded = u.arbitrary()?;
+        let enc = u.arbitrary()?;
+        let geom =
+            Self::from_decoded(&decoded, enc).map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        Ok(geom)
     }
 }
 
@@ -617,13 +773,19 @@ impl Analyze for GeometryType {
     }
 }
 
-// /// Vertex buffer type used for geometry columns
-// #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-// pub enum VertexBufferType {
-//     Morton,
-//     Vec2,
-//     Vec3,
-// }
+/// Describes how the vertex buffer should be encoded.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum VertexBufferType {
+    /// Standard 2D `(x, y)` pairs encoded with componentwise delta.
+    #[default]
+    Vec2,
+    /// Morton (Z-order) dictionary encoding:
+    /// Unique vertices are sorted by their Morton code and stored once.
+    /// Each vertex position in the stream is replaced by its index into that dictionary.
+    Morton,
+}
 
 // #[derive(Debug, Clone, Copy, PartialEq)]
 // pub enum VectorType {
@@ -669,18 +831,23 @@ impl<'a> Geometry<'a> {
 
 impl Debug for DecodedGeometry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let DecodedGeometry {
+            vector_types,
+            geometry_offsets,
+            part_offsets,
+            ring_offsets,
+            index_buffer,
+            triangles,
+            vertices,
+        } = self;
         f.debug_struct("DecodedGeometry")
-            .field("vector_types", &OptSeq(Some(&self.vector_types)))
-            .field(
-                "geometry_offsets",
-                &OptSeq(self.geometry_offsets.as_deref()),
-            )
-            .field("part_offsets", &OptSeq(self.part_offsets.as_deref()))
-            .field("ring_offsets", &OptSeq(self.ring_offsets.as_deref()))
-            .field("vertex_offsets", &OptSeq(self.vertex_offsets.as_deref()))
-            .field("index_buffer", &OptSeq(self.index_buffer.as_deref()))
-            .field("triangles", &OptSeq(self.triangles.as_deref()))
-            .field("vertices", &OptSeq(self.vertices.as_deref()))
+            .field("vector_types", &OptSeq(Some(vector_types)))
+            .field("geometry_offsets", &OptSeq(geometry_offsets.as_deref()))
+            .field("part_offsets", &OptSeq(part_offsets.as_deref()))
+            .field("ring_offsets", &OptSeq(ring_offsets.as_deref()))
+            .field("index_buffer", &OptSeq(index_buffer.as_deref()))
+            .field("triangles", &OptSeq(triangles.as_deref()))
+            .field("vertices", &OptSeq(vertices.as_deref()))
             .finish()
     }
 }
@@ -704,7 +871,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
             match stream.meta.stream_type {
                 StreamType::Present => {}
                 StreamType::Data(v) => match v {
-                    DictionaryType::Vertex => {
+                    DictionaryType::Vertex | DictionaryType::Morton => {
                         let v = stream.decode_bits_u32()?.decode_i32()?;
                         vertices.set_once(v)?;
                     }
@@ -773,6 +940,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
             }
         } else if let Some(offsets) = part_offsets.take() {
             if let Some(ring_offsets_copy) = ring_offsets.take() {
+                let is_line_string_present = vector_types.iter().any(|t| t.is_linestring());
                 part_offsets = Some(decode_root_length_stream(
                     &vector_types,
                     &offsets,
@@ -782,7 +950,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
                     &vector_types,
                     part_offsets.as_ref().unwrap(),
                     &ring_offsets_copy,
-                    true, // isLineStringPresent
+                    is_line_string_present,
                 ));
             } else {
                 part_offsets = Some(decode_root_length_stream(
@@ -796,13 +964,33 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
         // Case when the indices of a Polygon outline are encoded in the tile
         // This is handled by including index_buffer in the DecodedGeometry
 
+        // Expand vertex dictionary:
+        // If a vertex offset stream was present,
+        // - `vertices` holds only the unique dictionary entries and
+        // - `vertex_offsets` holds per-vertex indices into it.
+        //
+        // Expand them into a single flat (x, y) sequence so that `DecodedGeometry` always
+        // represents fully decoded data, regardless of the encoding that was used.
+        if let Some(offsets) = vertex_offsets.take()
+            && let Some(dict) = vertices.as_deref()
+        {
+            vertices = Some(
+                offsets
+                    .iter()
+                    .flat_map(|&i| {
+                        let i = i as usize;
+                        [dict[i * 2], dict[i * 2 + 1]]
+                    })
+                    .collect(),
+            );
+        }
+
         Ok(DecodedGeometry {
             // vertex_buffer_type: VertexBufferType::Vec2, // Morton not supported yet
             vector_types,
             geometry_offsets,
             part_offsets,
             ring_offsets,
-            vertex_offsets,
             index_buffer,
             triangles,
             vertices,
@@ -812,6 +1000,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
 
 #[cfg(test)]
 mod tests {
+    use geo_types::wkt;
     use proptest::prelude::*;
 
     use super::*;
@@ -840,10 +1029,10 @@ mod tests {
     /// Build a `DecodedGeometry` from a sequence of `GeoGeom` values via
     /// `push_geom` and perform a two-cycle encode/decode:
     ///
-    /// 1. push → encode → decode  (`canonical`): exercises `push_geom` and
+    /// 1. push -> encode -> decode  (`canonical`): exercises `push_geom` and
     ///    `normalize_geometry_offsets`; normalises the sparse push_* layout to
     ///    the dense form that `from_encoded` always returns.
-    /// 2. canonical → encode → decode  (`output`): verifies idempotency of
+    /// 2. canonical -> encode -> decode  (`output`): verifies idempotency of
     ///    encode/decode on the canonical form
     ///
     /// Comparing `canonical == output` catches both panics in the push path
@@ -895,7 +1084,7 @@ mod tests {
         ]
     }
 
-    /// Strategy for a mixed `LineString` + `MultiLineString` layer
+    /// Mixing `LineString` with `MultiLineString`
     fn arb_mixed_linestring_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
         prop::collection::vec(arb_geom(), 2..12)
             .prop_map(|geoms| {
@@ -912,7 +1101,7 @@ mod tests {
             })
     }
 
-    /// Strategy for a mixed `Point` + `MultiPoint` layer.
+    /// Mixing `Point` with `MultiPoint`
     fn arb_mixed_point_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
         prop::collection::vec(arb_geom(), 2..12)
             .prop_map(|geoms| {
@@ -927,7 +1116,7 @@ mod tests {
             })
     }
 
-    /// Strategy for a mixed `Polygon` + `MultiPolygon` layer.
+    /// Mixing `Polygon` with `MultiPolygon`
     fn arb_mixed_polygon_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
         prop::collection::vec(arb_geom(), 2..8)
             .prop_map(|geoms| {
@@ -940,6 +1129,72 @@ mod tests {
                 geoms.iter().any(|g| matches!(g, GeoGeom::Polygon(_)))
                     && geoms.iter().any(|g| matches!(g, GeoGeom::MultiPolygon(_)))
             })
+    }
+
+    /// Mixing `Point` with `MultiLineString`
+    fn arb_cross_point_mls_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
+        prop::collection::vec(
+            prop_oneof![
+                arb_coord().prop_map(Point).prop_map(GeoGeom::Point),
+                prop::collection::vec(prop::collection::vec(arb_coord(), 2..6), 2..5).prop_map(
+                    |lines| {
+                        GeoGeom::MultiLineString(MultiLineString(
+                            lines.into_iter().map(LineString).collect(),
+                        ))
+                    }
+                ),
+            ],
+            2..12,
+        )
+        .prop_filter("needs both Point and MultiLineString", |geoms| {
+            geoms.iter().any(|g| matches!(g, GeoGeom::Point(_)))
+                && geoms
+                    .iter()
+                    .any(|g| matches!(g, GeoGeom::MultiLineString(_)))
+        })
+    }
+
+    /// Mixing `Point` with `MultiPolygon`.
+    fn arb_cross_point_mpoly_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
+        prop::collection::vec(
+            prop_oneof![
+                arb_coord().prop_map(Point).prop_map(GeoGeom::Point),
+                prop::collection::vec(arb_coord(), 3..6).prop_map(|mut coords| {
+                    coords.push(coords[0]);
+                    GeoGeom::MultiPolygon(MultiPolygon(vec![Polygon::new(
+                        LineString(coords),
+                        vec![],
+                    )]))
+                }),
+            ],
+            2..10,
+        )
+        .prop_filter("needs both Point and MultiPolygon", |geoms| {
+            geoms.iter().any(|g| matches!(g, GeoGeom::Point(_)))
+                && geoms.iter().any(|g| matches!(g, GeoGeom::MultiPolygon(_)))
+        })
+    }
+
+    /// Mixing `LineString` with `MultiPolygon`
+    fn arb_cross_ls_mpoly_geoms() -> impl Strategy<Value = Vec<GeoGeom>> {
+        prop::collection::vec(
+            prop_oneof![
+                prop::collection::vec(arb_coord(), 2..8)
+                    .prop_map(|coords| GeoGeom::LineString(LineString(coords))),
+                prop::collection::vec(arb_coord(), 3..6).prop_map(|mut coords| {
+                    coords.push(coords[0]);
+                    GeoGeom::MultiPolygon(MultiPolygon(vec![Polygon::new(
+                        LineString(coords),
+                        vec![],
+                    )]))
+                }),
+            ],
+            2..10,
+        )
+        .prop_filter("needs both LineString and MultiPolygon", |geoms| {
+            geoms.iter().any(|g| matches!(g, GeoGeom::LineString(_)))
+                && geoms.iter().any(|g| matches!(g, GeoGeom::MultiPolygon(_)))
+        })
     }
 
     proptest! {
@@ -978,5 +1233,107 @@ mod tests {
             let (canonical, output) = roundtrip_via_push(&geoms, encoder);
             prop_assert_eq!(output, canonical);
         }
+
+        #[ignore = "encoder does not implement this correctly"]
+        #[test]
+        fn test_cross_point_mls_roundtrip(
+            encoder in any::<GeometryEncoder>(),
+            geoms in arb_cross_point_mls_geoms(),
+        ) {
+            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+            prop_assert_eq!(output, canonical);
+        }
+
+        #[ignore = "encoder does not implement this correctly"]
+        #[test]
+        fn test_cross_point_mpoly_roundtrip(
+            encoder in any::<GeometryEncoder>(),
+            geoms in arb_cross_point_mpoly_geoms(),
+        ) {
+            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+            prop_assert_eq!(output, canonical);
+        }
+
+        #[ignore = "encoder does not implement this correctly"]
+        #[test]
+        fn test_cross_ls_mpoly_roundtrip(
+            encoder in any::<GeometryEncoder>(),
+            geoms in arb_cross_ls_mpoly_geoms(),
+        ) {
+            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+            prop_assert_eq!(output, canonical);
+        }
+    }
+
+    /// Verifies that a Morton-encoded vertex dictionary is fully expanded inside `from_encoded`.
+    /// This ensures `DecodedGeometry` always holds flat `(x, y)` pairs.
+    #[test]
+    fn test_morton_vertex_dictionary_expansion() {
+        use crate::v01::{
+            DictionaryType, Encoder, LengthType, LogicalEncoding, MortonMeta, OffsetType,
+            OwnedStream, StreamMeta, StreamType,
+        };
+
+        // meta: single LineString
+        let meta = OwnedStream::encode_u32s_of_type(
+            &[GeometryType::LineString as u32],
+            Encoder::varint(),
+            StreamType::Length(LengthType::VarBinary),
+        )
+        .unwrap();
+
+        // parts: one LineString of length 4
+        let parts = OwnedStream::encode_u32s_of_type(
+            &[4u32],
+            Encoder::varint(),
+            StreamType::Length(LengthType::Parts),
+        )
+        .unwrap();
+
+        // vertex offsets: per-vertex indices into the Morton dictionary
+        let vertex_offsets_stream = OwnedStream::encode_u32s_of_type(
+            &[0u32, 1, 2, 1],
+            Encoder::varint(),
+            StreamType::Offset(OffsetType::Vertex),
+        )
+        .unwrap();
+
+        // Morton vertex dictionary: 3 unique entries.
+        // Raw codes [0, 16, 32] -> delta-encoded as [0, 16, 16].
+        // The MortonDelta logical encoding means the decoder will undo the delta,
+        // then decode each Morton code to an (x, y) pair.
+        let morton_deltas = vec![0u32, 16, 16];
+        let (data, physical_encoding) = Encoder::varint()
+            .physical
+            .encode_u32s(morton_deltas)
+            .unwrap();
+        let morton_dict = OwnedStream {
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::Morton),
+                LogicalEncoding::MortonDelta(MortonMeta {
+                    num_bits: 3,
+                    coordinate_shift: 0,
+                }),
+                physical_encoding,
+                3, // 3 dictionary entries -> 3 physical u32 values
+            ),
+            data,
+        };
+
+        // Assemble, serialize, parse, decode
+        let owned = OwnedEncodedGeometry {
+            meta,
+            items: vec![parts, vertex_offsets_stream, morton_dict],
+        };
+        let mut buffer = Vec::new();
+        owned.write_to(&mut buffer).unwrap();
+        let (remaining, parsed) = EncodedGeometry::parse(&buffer).unwrap();
+        assert!(remaining.is_empty());
+        let decoded = DecodedGeometry::from_encoded(parsed).unwrap();
+
+        assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));
+
+        let geom = decoded.to_geojson(0).unwrap();
+        assert_eq!(geom, wkt!(LINESTRING(0 0,4 0,0 4,4 0)).into());
     }
 }

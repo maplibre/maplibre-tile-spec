@@ -211,8 +211,8 @@ sync-pyo3-version:
 alias t := test
 # Run all tests
 test:
-    cargo test --all-features {{if ci_mode == '1' {'--lib --bins --tests --examples -- --test-threads=1'} else {'--all-targets'} }}
-    # {{just}} rust::generate-synthetic-mlts
+    cargo test --all-features --all-targets
+    {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
 
 # Test documentation generation
@@ -246,6 +246,10 @@ generate-synthetic-mlts:
     {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
     {{just}} rust::_verify-synthetic-equality
     {{just}} rust::_assert-synthetic-mlt-identity
+
+# Create .dump files for all .mlt files in test/synthetic for all languages
+generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find') build
+    fd . ../test/synthetic -e mlt -x sh -c 'target/debug/mlt dump {} > {.}.dump'
 
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
@@ -294,13 +298,14 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
     # `realpath --relative-to-...` doesn't work on MacOS
     # https://unix.stackexchange.com/a/655825/312244
     posix_relpath() {
-        set -- "${1%/}/" "${2%/}/" ''               ## '/'-end to avoid mismatch
-        while [ "$1" ] && [ "$2" = "${2#"$1"}" ]    ## reduce $1 to shared path
-        do  set -- "${1%/?*/}/"  "$2" "../$3"       ## source/.. target ../relpath
+        set -- "${1%/}/" "${2%/}/" ''
+        while [ "$1" ] && [ "$2" = "${2#"$1"}" ]
+        do
+            set -- "${1%/?*/}/" "$2" "../$3"
         done
-        REPLY="${3}${2#"$1"}"                       ## build result
-        # unless root chomp trailing '/', replace '' with '.'
-        [ "${REPLY#/}" ] && REPLY="${REPLY%/}" || REPLY="${REPLY:-.}"
+        rel="${3}${2#"$1"}"
+        [ "${rel#/}" ] && rel="${rel%/}" || rel="${rel:-.}"
+        printf '%s\n' "$rel"
     }
 
     DIR_A="../test/synthetic/0x01"
@@ -310,6 +315,7 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
     find "$DIR_A" -type f -iname "*.mlt" | while read -r file_a; do
       rel_path="$(posix_relpath "$DIR_A" "$file_a")"
       file_b="$DIR_B/$rel_path"
+      file_b_rust="${file_b%.mlt}-rust.mlt"
 
       if [[ -f "$file_b" ]]; then
         if ! cmp -s "$file_a" "$file_b"; then
@@ -317,11 +323,18 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
           echo ""
           diff -U20 \
             --label "$file_a" \
-            <($BIN decode "$file_a") \
+            <($BIN dump "$file_a") \
             --label "$file_b" \
-            <($BIN decode "$file_b") \
-            | delta --side-by-side --file-modified-label "mlt decoded difference"
+            <($BIN dump "$file_b") \
+            | delta --side-by-side --file-modified-label "mlt dump difference"
         fi
+      elif [[ -f "$file_b_rust" ]]; then
+        diff -U20 \
+          --label "$file_a" \
+          <($BIN decode "$file_a") \
+          --label "$file_b_rust" \
+          <($BIN decode "$file_b_rust") \
+          | delta --side-by-side --file-modified-label "mlt decoded difference"
       else
         echo "Missing in $DIR_B but present in $DIR_A: $rel_path"
       fi

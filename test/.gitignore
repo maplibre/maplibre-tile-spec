@@ -6,3 +6,6 @@ expected/*/*/*.json
 
 # The per-tile directories also need to be hidden
 expected/*/*/*/*
+
+# Dump files
+**/*.dump

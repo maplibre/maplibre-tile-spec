@@ -83,7 +83,7 @@ impl FeatureCollection {
 }
 
 /// `GeoJSON` [`Feature`]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Feature {
     #[serde(with = "geom_serde")]
     pub geometry: Geom32,
@@ -92,6 +92,29 @@ pub struct Feature {
     pub properties: BTreeMap<String, Value>,
     #[serde(rename = "type")]
     pub ty: String,
+}
+
+struct Geom32Wire<'a>(&'a Geom32);
+impl Serialize for Geom32Wire<'_> {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        geom_serde::serialize(self.0, s)
+    }
+}
+
+/// Serialize with the preferred order of the keys
+impl Serialize for Feature {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap as _;
+        let len = 3 + usize::from(self.id.is_some());
+        let mut map = serializer.serialize_map(Some(len))?;
+        map.serialize_entry("type", &self.ty)?;
+        if let Some(id) = self.id {
+            map.serialize_entry("id", &id)?;
+        }
+        map.serialize_entry("properties", &self.properties)?;
+        map.serialize_entry("geometry", &Geom32Wire(&self.geometry))?;
+        map.end()
+    }
 }
 
 /// Serialize/deserialize [`Geom32`] in `GeoJSON` wire format:
