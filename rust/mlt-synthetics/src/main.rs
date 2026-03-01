@@ -17,10 +17,10 @@ use geo_types::{
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     DecodedProperty, Encoder as E, IdEncoder, IdWidth, LogicalEncoder as L, PhysicalEncoder as P,
-    PresenceStream as O, PropValue, PropertyEncoder, VertexBufferType,
+    PresenceStream as O, PropValue, ScalarEncoder, VertexBufferType,
 };
 
-use crate::layer::{DecodedProp, SynthWriter, bool, i32};
+use crate::layer::{DecodedProp, Layer, SynthWriter, bool, i32};
 
 const C0: Coord<i32> = coord! { x: 13, y: 42 };
 // triangle 1, clockwise winding, X ends in 1, Y ends in 2
@@ -43,6 +43,10 @@ const PH3: Point<i32> = Point(H3);
 
 const fn c(x: i32, y: i32) -> Coord<i32> {
     coord! { x: x, y: y }
+}
+
+fn p0(w: &SynthWriter) -> Layer {
+    w.geo_varint().geo(P0)
 }
 
 static MIX_TYPES: LazyLock<[(&'static str, Geom32); 7]> = LazyLock::new(|| {
@@ -102,7 +106,7 @@ fn poly1h() -> Polygon<i32> {
 }
 
 fn generate_geometry(w: &SynthWriter) {
-    w.geo_varint().geo(P0).write("point");
+    p0(w).write("point");
     w.geo_varint().geo(line1()).write("line");
     // Morton (Z-order) line: de-interleave index bits into x/y (even/odd bits).
     let num_points = 16; // 4x4 complete Morton block
@@ -210,16 +214,18 @@ fn generate_extent(w: &SynthWriter) {
 }
 
 fn generate_ids(w: &SynthWriter) {
-    let p0 = || w.geo_varint().geo(P0);
-    p0().ids(vec![Some(0)], IdEncoder::new(L::None, IdWidth::Id32))
+    p0(w)
+        .ids(vec![Some(0)], IdEncoder::new(L::None, IdWidth::Id32))
         .write("id0");
-    p0().ids(vec![Some(100)], IdEncoder::new(L::None, IdWidth::Id32))
+    p0(w)
+        .ids(vec![Some(100)], IdEncoder::new(L::None, IdWidth::Id32))
         .write("id");
-    p0().ids(
-        vec![Some(9_234_567_890)],
-        IdEncoder::new(L::None, IdWidth::Id64),
-    )
-    .write("id64");
+    p0(w)
+        .ids(
+            vec![Some(9_234_567_890)],
+            IdEncoder::new(L::None, IdWidth::Id64),
+        )
+        .write("id64");
 
     let four_p0 = || w.geo_varint().meta(E::rle_varint()).geos([P0, P0, P0, P0]);
     four_p0()
@@ -323,262 +329,299 @@ fn generate_ids(w: &SynthWriter) {
 }
 
 fn generate_properties(w: &SynthWriter) {
-    let p0 = || w.geo_varint().geo(P0);
-    let enc = PropertyEncoder::new(O::Present, L::None, P::VarInt);
+    let enc = ScalarEncoder::new(O::Present, L::None, P::VarInt);
 
-    p0().add_prop(bool("val", enc).add(true)).write("prop_bool");
-    p0().add_prop(bool("val", enc).add(false))
+    p0(w)
+        .add_prop(bool("val", enc).add(true))
+        .write("prop_bool");
+    p0(w)
+        .add_prop(bool("val", enc).add(false))
         .write("prop_bool_false");
 
-    p0().add_prop(i32("val", enc).add(42)).write("prop_i32");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::I32(vec![Some(-42)]),
-        },
-        enc,
-    ))
-    .write("prop_i32_neg");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::I32(vec![Some(i32::MIN)]),
-        },
-        enc,
-    ))
-    .write("prop_i32_min");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::I32(vec![Some(i32::MAX)]),
-        },
-        enc,
-    ))
-    .write("prop_i32_max");
+    p0(w).add_prop(i32("val", enc).add(42)).write("prop_i32");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::I32(vec![Some(-42)]),
+            },
+            enc,
+        ))
+        .write("prop_i32_neg");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::I32(vec![Some(i32::MIN)]),
+            },
+            enc,
+        ))
+        .write("prop_i32_min");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::I32(vec![Some(i32::MAX)]),
+            },
+            enc,
+        ))
+        .write("prop_i32_max");
 
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::U32(vec![Some(42)]),
-        },
-        enc,
-    ))
-    .write("prop_u32");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::U32(vec![Some(0)]),
-        },
-        enc,
-    ))
-    .write("prop_u32_min");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::U32(vec![Some(u32::MAX)]),
-        },
-        enc,
-    ))
-    .write("prop_u32_max");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::U32(vec![Some(42)]),
+            },
+            enc,
+        ))
+        .write("prop_u32");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::U32(vec![Some(0)]),
+            },
+            enc,
+        ))
+        .write("prop_u32_min");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::U32(vec![Some(u32::MAX)]),
+            },
+            enc,
+        ))
+        .write("prop_u32_max");
 
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::I64(vec![Some(9_876_543_210)]),
-        },
-        enc,
-    ))
-    .write("prop_i64");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::I64(vec![Some(-9_876_543_210)]),
-        },
-        enc,
-    ))
-    .write("prop_i64_neg");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::I64(vec![Some(i64::MIN)]),
-        },
-        enc,
-    ))
-    .write("prop_i64_min");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::I64(vec![Some(i64::MAX)]),
-        },
-        enc,
-    ))
-    .write("prop_i64_max");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::I64(vec![Some(9_876_543_210)]),
+            },
+            enc,
+        ))
+        .write("prop_i64");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::I64(vec![Some(-9_876_543_210)]),
+            },
+            enc,
+        ))
+        .write("prop_i64_neg");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::I64(vec![Some(i64::MIN)]),
+            },
+            enc,
+        ))
+        .write("prop_i64_min");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::I64(vec![Some(i64::MAX)]),
+            },
+            enc,
+        ))
+        .write("prop_i64_max");
 
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "bignum".to_string(),
-            values: PropValue::U64(vec![Some(1_234_567_890_123_456_789)]),
-        },
-        enc,
-    ))
-    .write("prop_u64");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "bignum".to_string(),
-            values: PropValue::U64(vec![Some(0)]),
-        },
-        enc,
-    ))
-    .write("prop_u64_min");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "bignum".to_string(),
-            values: PropValue::U64(vec![Some(u64::MAX)]),
-        },
-        enc,
-    ))
-    .write("prop_u64_max");
-
-    #[expect(clippy::approx_constant)]
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::F32(vec![Some(3.14)]),
-        },
-        enc,
-    ))
-    .write("prop_f32");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::F32(vec![Some(f32::NEG_INFINITY)]),
-        },
-        enc,
-    ))
-    .write("prop_f32_neg_inf");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::F32(vec![Some(f32::MIN_POSITIVE)]),
-        },
-        enc,
-    ))
-    .write("prop_f32_min_norm");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::F32(vec![Some(0.0)]),
-        },
-        enc,
-    ))
-    .write("prop_f32_zero");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::F32(vec![Some(f32::MAX)]),
-        },
-        enc,
-    ))
-    .write("prop_f32_max_val");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::F32(vec![Some(f32::INFINITY)]),
-        },
-        enc,
-    ))
-    .write("prop_f32_pos_inf");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::F32(vec![Some(f32::NAN)]),
-        },
-        enc,
-    ))
-    .write("prop_f32_nan");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "bignum".to_string(),
+                values: PropValue::U64(vec![Some(1_234_567_890_123_456_789)]),
+            },
+            enc,
+        ))
+        .write("prop_u64");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "bignum".to_string(),
+                values: PropValue::U64(vec![Some(0)]),
+            },
+            enc,
+        ))
+        .write("prop_u64_min");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "bignum".to_string(),
+                values: PropValue::U64(vec![Some(u64::MAX)]),
+            },
+            enc,
+        ))
+        .write("prop_u64_max");
 
     #[expect(clippy::approx_constant)]
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::F64(vec![Some(3.141_592_653_589_793)]),
-        },
-        enc,
-    ))
-    .write("prop_f64");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::F64(vec![Some(f64::NEG_INFINITY)]),
-        },
-        enc,
-    ))
-    .write("prop_f64_neg_inf");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::F64(vec![Some(f64::MIN_POSITIVE)]),
-        },
-        enc,
-    ))
-    .write("prop_f64_min_norm");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::F64(vec![Some(-0.0)]),
-        },
-        enc,
-    ))
-    .write("prop_f64_neg_zero");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::F64(vec![Some(f64::MAX)]),
-        },
-        enc,
-    ))
-    .write("prop_f64_max");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::F64(vec![Some(f64::NAN)]),
-        },
-        enc,
-    ))
-    .write("prop_f64_nan");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F32(vec![Some(3.14)]),
+            },
+            enc,
+        ))
+        .write("prop_f32");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F32(vec![Some(f32::NEG_INFINITY)]),
+            },
+            enc,
+        ))
+        .write("prop_f32_neg_inf");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F32(vec![Some(f32::MIN_POSITIVE)]),
+            },
+            enc,
+        ))
+        .write("prop_f32_min_norm");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F32(vec![Some(0.0)]),
+            },
+            enc,
+        ))
+        .write("prop_f32_zero");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F32(vec![Some(f32::MAX)]),
+            },
+            enc,
+        ))
+        .write("prop_f32_max_val");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F32(vec![Some(f32::INFINITY)]),
+            },
+            enc,
+        ))
+        .write("prop_f32_pos_inf");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F32(vec![Some(f32::NAN)]),
+            },
+            enc,
+        ))
+        .write("prop_f32_nan");
 
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::Str(vec![Some(String::new())]),
-        },
-        enc,
-    ))
-    .write("prop_str_empty");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::Str(vec![Some("42".to_string())]),
-        },
-        enc,
-    ))
-    .write("prop_str_ascii");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::Str(vec![Some("Line1\n\t\"quoted\"\\path".to_string())]),
-        },
-        enc,
-    ))
-    .write("prop_str_escape");
-    p0().add_prop(DecodedProp::new(
-        DecodedProperty {
-            name: "val".to_string(),
-            values: PropValue::Str(vec![Some("München 📍 cafe\u{0301}".to_string())]),
-        },
-        enc,
-    ))
-    .write("prop_str_unicode");
+    // Java generator doesn't actually support these special float values,
+    // but once it does, we should re-enable these
+    #[cfg(any())]
+    {
+        #[expect(clippy::approx_constant)]
+        p0(w)
+            .add_prop(DecodedProp::new(
+                DecodedProperty {
+                    name: "val".to_string(),
+                    values: PropValue::F64(vec![Some(3.141_592_653_589_793)]),
+                },
+                enc,
+            ))
+            .write("prop_f64");
+        p0(w)
+            .add_prop(DecodedProp::new(
+                DecodedProperty {
+                    name: "val".to_string(),
+                    values: PropValue::F64(vec![Some(f64::NEG_INFINITY)]),
+                },
+                enc,
+            ))
+            .write("prop_f64_neg_inf");
+        p0(w)
+            .add_prop(DecodedProp::new(
+                DecodedProperty {
+                    name: "val".to_string(),
+                    values: PropValue::F64(vec![Some(f64::MIN_POSITIVE)]),
+                },
+                enc,
+            ))
+            .write("prop_f64_min_norm");
+        p0(w)
+            .add_prop(DecodedProp::new(
+                DecodedProperty {
+                    name: "val".to_string(),
+                    values: PropValue::F64(vec![Some(-0.0)]),
+                },
+                enc,
+            ))
+            .write("prop_f64_neg_zero");
+        p0(w)
+            .add_prop(DecodedProp::new(
+                DecodedProperty {
+                    name: "val".to_string(),
+                    values: PropValue::F64(vec![Some(f64::MAX)]),
+                },
+                enc,
+            ))
+            .write("prop_f64_max");
+        p0(w)
+            .add_prop(DecodedProp::new(
+                DecodedProperty {
+                    name: "val".to_string(),
+                    values: PropValue::F64(vec![Some(f64::NAN)]),
+                },
+                enc,
+            ))
+            .write("prop_f64_nan");
+    }
+
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::Str(vec![Some(String::new())]),
+            },
+            enc,
+        ))
+        .write("prop_str_empty");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::Str(vec![Some("42".to_string())]),
+            },
+            enc,
+        ))
+        .write("prop_str_ascii");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::Str(vec![Some("Line1\n\t\"quoted\"\\path".to_string())]),
+            },
+            enc,
+        ))
+        .write("prop_str_escape");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::Str(vec![Some("München 📍 cafe\u{0301}".to_string())]),
+            },
+            enc,
+        ))
+        .write("prop_str_unicode");
 
     let p1 = || w.geo_varint().geo(P1);
     p1().add_prop(DecodedProp::new(
@@ -671,25 +714,25 @@ fn generate_props_i32(w: &SynthWriter) {
     four_points()
         .add_prop(DecodedProp::new(
             values(),
-            PropertyEncoder::new(O::Present, L::None, P::VarInt),
+            ScalarEncoder::new(O::Present, L::None, P::VarInt),
         ))
         .write("props_i32");
     four_points()
         .add_prop(DecodedProp::new(
             values(),
-            PropertyEncoder::new(O::Present, L::Delta, P::VarInt),
+            ScalarEncoder::new(O::Present, L::Delta, P::VarInt),
         ))
         .write("props_i32_delta");
     four_points()
         .add_prop(DecodedProp::new(
             values(),
-            PropertyEncoder::new(O::Present, L::Rle, P::VarInt),
+            ScalarEncoder::new(O::Present, L::Rle, P::VarInt),
         ))
         .write("props_i32_rle");
     four_points()
         .add_prop(DecodedProp::new(
             values(),
-            PropertyEncoder::new(O::Present, L::DeltaRle, P::VarInt),
+            ScalarEncoder::new(O::Present, L::DeltaRle, P::VarInt),
         ))
         .write("props_i32_delta_rle");
 }
@@ -704,25 +747,25 @@ fn generate_props_u32(w: &SynthWriter) {
     four_points()
         .add_prop(DecodedProp::new(
             values(),
-            PropertyEncoder::new(O::Present, L::None, P::VarInt),
+            ScalarEncoder::new(O::Present, L::None, P::VarInt),
         ))
         .write("props_u32");
     four_points()
         .add_prop(DecodedProp::new(
             values(),
-            PropertyEncoder::new(O::Present, L::Delta, P::VarInt),
+            ScalarEncoder::new(O::Present, L::Delta, P::VarInt),
         ))
         .write("props_u32_delta");
     four_points()
         .add_prop(DecodedProp::new(
             values(),
-            PropertyEncoder::new(O::Present, L::Rle, P::VarInt),
+            ScalarEncoder::new(O::Present, L::Rle, P::VarInt),
         ))
         .write("props_u32_rle");
     four_points()
         .add_prop(DecodedProp::new(
             values(),
-            PropertyEncoder::new(O::Present, L::DeltaRle, P::VarInt),
+            ScalarEncoder::new(O::Present, L::DeltaRle, P::VarInt),
         ))
         .write("props_u32_delta_rle");
 }
@@ -737,25 +780,25 @@ fn generate_props_u64(w: &SynthWriter) {
     four_points()
         .add_prop(DecodedProp::new(
             property(),
-            PropertyEncoder::new(O::Present, L::None, P::VarInt),
+            ScalarEncoder::new(O::Present, L::None, P::VarInt),
         ))
         .write("props_u64");
     four_points()
         .add_prop(DecodedProp::new(
             property(),
-            PropertyEncoder::new(O::Present, L::Delta, P::VarInt),
+            ScalarEncoder::new(O::Present, L::Delta, P::VarInt),
         ))
         .write("props_u64_delta");
     four_points()
         .add_prop(DecodedProp::new(
             property(),
-            PropertyEncoder::new(O::Present, L::Rle, P::VarInt),
+            ScalarEncoder::new(O::Present, L::Rle, P::VarInt),
         ))
         .write("props_u64_rle");
     four_points()
         .add_prop(DecodedProp::new(
             property(),
-            PropertyEncoder::new(O::Present, L::DeltaRle, P::VarInt),
+            ScalarEncoder::new(O::Present, L::DeltaRle, P::VarInt),
         ))
         .write("props_u64_delta_rle");
 }
@@ -783,7 +826,7 @@ fn generate_props_str(w: &SynthWriter) {
                 name: "val".to_string(),
                 values: PropValue::Str(values()),
             },
-            PropertyEncoder::new(O::Present, L::None, P::VarInt),
+            ScalarEncoder::new(O::Present, L::None, P::VarInt),
         ))
         .write("props_str");
     six_points()
@@ -792,29 +835,57 @@ fn generate_props_str(w: &SynthWriter) {
                 name: "val".to_string(),
                 values: PropValue::Str(values()),
             },
-            PropertyEncoder::with_fsst(O::Present, L::None, P::VarInt),
+            ScalarEncoder::with_fsst(O::Present, L::None, P::VarInt),
         ))
         .write("props_str_fsst-rust"); // FSST compression output is not byte-for-byte consistent with Java's
 }
 
 fn generate_shared_dictionaries(w: &SynthWriter) {
-    w.geo_varint()
-        .geo(P1)
+    let long_string_value = || "A".repeat(30);
+    p0(w)
         .add_prop(DecodedProp::new(
             DecodedProperty {
                 name: "name:en".to_string(),
-                values: PropValue::Str(vec![Some("A".repeat(30))]),
+                values: PropValue::Str(vec![Some(long_string_value())]),
             },
-            PropertyEncoder::new(O::Present, L::None, P::VarInt),
+            ScalarEncoder::new(O::Present, L::None, P::VarInt),
         ))
         .add_prop(DecodedProp::new(
             DecodedProperty {
                 name: "name:de".to_string(),
-                values: PropValue::Str(vec![Some("A".repeat(30))]),
+                values: PropValue::Str(vec![Some(long_string_value())]),
             },
-            PropertyEncoder::new(O::Present, L::None, P::VarInt),
+            ScalarEncoder::new(O::Present, L::None, P::VarInt),
         ))
         .write("props_no_shared_dict");
 
-    // TODO: props_shared_dict and props_shared_dict_fsst need shared dictionary support
+    p0(w)
+        .add_shared_dict_column(
+            "name:",
+            "de",
+            ScalarEncoder::new(O::Present, L::None, P::VarInt),
+            vec![Some(long_string_value())],
+        )
+        .add_shared_dict_column(
+            "name:",
+            "en",
+            ScalarEncoder::new(O::Present, L::None, P::VarInt),
+            vec![Some(long_string_value())],
+        )
+        .write("props_shared_dict-rust"); // For some reason Java hallucinates another stream count at the start, so starts counting the stream count at 1
+
+    p0(w)
+        .add_shared_dict_column(
+            "name:",
+            "de",
+            ScalarEncoder::with_fsst(O::Present, L::None, P::VarInt),
+            vec![Some(long_string_value())],
+        )
+        .add_shared_dict_column(
+            "name:",
+            "en",
+            ScalarEncoder::with_fsst(O::Present, L::None, P::VarInt),
+            vec![Some(long_string_value())],
+        )
+        .write("props_shared_dict_fsst-rust"); // Rust FSST is not byte-for-byte consistent with Java's
 }

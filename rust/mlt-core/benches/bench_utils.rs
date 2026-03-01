@@ -1,6 +1,10 @@
 use std::fs;
 use std::path::Path;
 
+// This code runs in CI because of --all-targets, so make it run really fast.
+#[cfg(debug_assertions)]
+pub const BENCHMARKED_ZOOM_LEVELS: [u8; 1] = [0];
+#[cfg(not(debug_assertions))]
 pub const BENCHMARKED_ZOOM_LEVELS: [u8; 3] = [4, 7, 13];
 
 #[must_use]

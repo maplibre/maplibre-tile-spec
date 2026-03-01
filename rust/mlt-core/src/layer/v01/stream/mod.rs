@@ -113,11 +113,16 @@ impl OwnedStream {
         }
     }
 
+    #[must_use]
+    fn plain(data: Vec<u8>, num_values: u32) -> OwnedStream {
+        Self::plain_with_type(data, num_values, DictionaryType::None)
+    }
+
     /// Creates a plain stream with values encoded literally
     #[must_use]
-    fn new_plain(data: Vec<u8>, num_values: u32) -> OwnedStream {
+    fn plain_with_type(data: Vec<u8>, num_values: u32, dict_type: DictionaryType) -> OwnedStream {
         let meta = StreamMeta::new(
-            StreamType::Data(DictionaryType::None),
+            StreamType::Data(dict_type),
             LogicalEncoding::None,
             PhysicalEncoding::None,
             num_values,
@@ -126,18 +131,29 @@ impl OwnedStream {
         Self { meta, data }
     }
 
-    /// Encode a boolean stream: byte-RLE <- packed bitmap <- `Vec<bool>`
+    /// Encode a boolean data stream: byte-RLE <- packed bitmap <- `Vec<bool>`
     /// Boolean streams always use byte-RLE encoding with `LogicalEncoding::Rle` metadata.
     /// The `RleMeta` values are computed by readers from the stream itself.
     pub fn encode_bools(values: &[bool]) -> Result<Self, MltError> {
+        Self::encode_bools_with_type(values, StreamType::Data(DictionaryType::None))
+    }
+
+    /// Encode a presence/nullability stream
+    ///
+    /// Identical to [`Self::encode_bools`] except the stream type is [`StreamType::Present`]
+    pub fn encode_presence(values: &[bool]) -> Result<Self, MltError> {
+        Self::encode_bools_with_type(values, StreamType::Present)
+    }
+
+    /// Encode a boolean data stream: byte-RLE <- packed bitmap <- `Vec<bool>`
+    fn encode_bools_with_type(values: &[bool], stream_type: StreamType) -> Result<Self, MltError> {
         let num_values = u32::try_from(values.len())?;
         let bytes = encode_bools_to_bytes(values);
         let data = encode_byte_rle(&bytes);
-        // Boolean streams use byte-RLE encoding with RLE metadata
         let runs = num_values.div_ceil(8);
         let num_rle_values = u32::try_from(data.len())?;
         let meta = StreamMeta::new(
-            StreamType::Data(DictionaryType::None),
+            stream_type,
             LogicalEncoding::Rle(RleMeta {
                 runs,
                 num_rle_values,
@@ -159,7 +175,7 @@ impl OwnedStream {
             .flat_map(|f| f.to_le_bytes())
             .collect::<Vec<u8>>();
 
-        Ok(Self::new_plain(data, num_values))
+        Ok(Self::plain(data, num_values))
     }
 
     pub fn encode_i8s(values: &[i8], encoding: Encoder) -> Result<Self, MltError> {
@@ -253,7 +269,12 @@ impl OwnedStream {
     }
 
     /// Encode a sequence of strings into a length stream and a data stream.
-    pub fn encode_strings(values: &[String], encoding: Encoder) -> Result<Vec<Self>, MltError> {
+    pub fn encode_strings_with_type(
+        values: &[String],
+        encoding: Encoder,
+        length_type: LengthType,
+        dict_type: DictionaryType,
+    ) -> Result<Vec<Self>, MltError> {
         let lengths: Vec<u32> = values
             .iter()
             .map(|s| u32::try_from(s.len()))
@@ -263,13 +284,10 @@ impl OwnedStream {
             .flat_map(|s| s.as_bytes().iter().copied())
             .collect();
 
-        let length_stream = Self::encode_u32s_of_type(
-            &lengths,
-            encoding,
-            StreamType::Length(LengthType::VarBinary),
-        )?;
+        let length_stream =
+            Self::encode_u32s_of_type(&lengths, encoding, StreamType::Length(length_type))?;
 
-        let data_stream = Self::new_plain(data, u32::try_from(values.len())?);
+        let data_stream = Self::plain_with_type(data, u32::try_from(values.len())?, dict_type);
 
         Ok(vec![length_stream, data_stream])
     }
@@ -285,9 +303,10 @@ impl OwnedStream {
     /// Note: The FSST algorithm implementation may differ from Java's, so the
     /// compressed output may not be byte-for-byte identical. Both implementations
     /// are semantically compatible and can decode each other's output.
-    pub fn encode_strings_fsst(
+    pub fn encode_strings_fsst_with_type(
         values: &[String],
         encoding: Encoder,
+        dict_type: DictionaryType,
     ) -> Result<Vec<Self>, MltError> {
         use fsst::Compressor;
 
@@ -357,7 +376,7 @@ impl OwnedStream {
         // Stream 4: Compressed corpus
         let compressed_stream = Self {
             meta: StreamMeta::new(
-                StreamType::Data(DictionaryType::Single),
+                StreamType::Data(dict_type),
                 LogicalEncoding::None,
                 PhysicalEncoding::None,
                 u32::try_from(values.len())?,
@@ -1230,7 +1249,7 @@ mod tests {
             values in prop::collection::vec(any::<String>(), 0..100),
             encoding in any::<Encoder>(),
         ) {
-            let owned_streams = OwnedStream::encode_strings(&values, encoding).unwrap();
+            let owned_streams = OwnedStream::encode_strings_with_type(&values, encoding, LengthType::VarBinary, DictionaryType::None).unwrap();
 
             let mut buffers = Vec::new();
             for owned_stream in &owned_streams {

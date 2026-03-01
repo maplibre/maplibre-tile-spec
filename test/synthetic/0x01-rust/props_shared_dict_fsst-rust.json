@@ -6,7 +6,8 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 0.0
+        "name:de": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "name:en": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
       },
       "geometry": {
         "type": "Point",
