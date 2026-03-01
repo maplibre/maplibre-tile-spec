@@ -595,7 +595,7 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
 
         // Pass 2: emit properties in input order; structs appear at their first child's position.
         let mut result = Vec::new();
-        let mut emitted_structs: HashSet<String> = HashSet::new();
+        let mut emitted_structs = HashSet::new();
 
         for (prop, instruction) in input.iter().zip(config.into_iter()) {
             match instruction {
