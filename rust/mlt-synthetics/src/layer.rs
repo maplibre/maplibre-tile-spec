@@ -2,7 +2,6 @@
 
 use std::fs::{File, OpenOptions};
 use std::io::Write as _;
-use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
