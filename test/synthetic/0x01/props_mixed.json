@@ -12,7 +12,7 @@
         "count": 42,
         "medium": 100,
         "name": "Test Point",
-        "precision": 0.12345679,
+        "precision": 0.123456789,
         "temp": 25.5
       },
       "geometry": {
