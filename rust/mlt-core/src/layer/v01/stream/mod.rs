@@ -1290,9 +1290,13 @@ mod tests {
             assert!(remaining.is_empty());
 
             let decoded_values = parsed_stream.decode_f32().unwrap();
-            assert_eq!(decoded_values, values);
-            for (v1,v2) in decoded_values.iter().zip(values){
-              assert_eq!(v1.to_bits(), v2.to_bits(), "despite being semantically equal, the values are not actually equal");
+            assert_eq!(decoded_values.len(), values.len());
+            for (v1, v2) in decoded_values.iter().zip(values.iter()) {
+                assert_eq!(
+                    v1.to_bits(),
+                    v2.to_bits(),
+                    "despite being semantically equal, the values are not actually equal"
+                );
             }
         }
 
