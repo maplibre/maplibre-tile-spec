@@ -211,7 +211,7 @@ sync-pyo3-version:
 alias t := test
 # Run all tests
 test:
-    cargo test --all-features --all-targets {{if ci_mode == '1' {' -- --test-threads=1'} else {''} }}
+    cargo test --all-features --all-targets
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
 
