@@ -723,7 +723,8 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
     type Encoder = ScalarEncoder;
 
     fn from_decoded(decoded: &Self::Input, config: Self::Encoder) -> Result<Self, MltError> {
-        use {OwnedEncodedPropValue as EncVal, PropValue as Val};
+        use OwnedEncodedPropValue as EncVal;
+        use PropValue as Val;
         let optional = if config.optional == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
             Some(OwnedStream::encode_presence(&present_vec)?)
@@ -801,7 +802,8 @@ impl<'a> FromEncoded<'a> for DecodedProperty {
     type Input = EncodedProperty<'a>;
 
     fn from_encoded(v: EncodedProperty<'_>) -> Result<Self, MltError> {
-        use {EncodedPropValue as EncVal, PropValue as Val};
+        use EncodedPropValue as EncVal;
+        use PropValue as Val;
         let present = if let Some(c) = v.optional {
             Some(c.decode_bools()?)
         } else {

@@ -499,7 +499,8 @@ impl StreamMeta {
         is_bool: bool,
         byte_length: u32,
     ) -> io::Result<()> {
-        use {LogicalEncoding as LE, LogicalTechnique as LT};
+        use LogicalEncoding as LE;
+        use LogicalTechnique as LT;
 
         writer.write_u8(self.stream_type.as_u8())?;
         let logical_enc_u8: u8 = match self.logical_encoding {
