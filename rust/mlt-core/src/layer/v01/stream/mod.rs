@@ -848,7 +848,7 @@ impl<'a> Stream<'a> {
             .map(|chunk| {
                 let bytes = chunk
                     .try_into()
-                    .expect("invaliable because of `chunks_exact`");
+                    .expect("infallible because of `chunks_exact`");
                 f32::from_le_bytes(bytes)
             })
             .take(num)
@@ -869,7 +869,7 @@ impl<'a> Stream<'a> {
             .map(|chunk| {
                 let bytes = chunk
                     .try_into()
-                    .expect("invaliable because of `chunks_exact`");
+                    .expect("infallible because of `chunks_exact`");
                 f64::from_le_bytes(bytes)
             })
             .take(num)
@@ -1263,33 +1263,39 @@ mod tests {
             assert_eq!(decoded_values, values);
         }
 
-                #[test]
-                fn test_f32_roundtrip(values in prop::collection::vec(any::<f32>(), 0..100)) {
-                    let owned_stream = OwnedStream::encode_f32(&values).unwrap();
+        #[test]
+        fn test_f32_roundtrip(values in prop::collection::vec(any::<f32>(), 0..100)) {
+            let owned_stream = OwnedStream::encode_f32(&values).unwrap();
 
-                    let mut buffer = Vec::new();
-                    buffer.write_stream(&owned_stream).unwrap();
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
 
-                    let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
-                    assert!(remaining.is_empty());
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
 
-                    let decoded_values = parsed_stream.decode_f32().unwrap();
-                    assert_eq!(decoded_values, values);
-                }
+            let decoded_values = parsed_stream.decode_f32().unwrap();
+            assert_eq!(decoded_values, values);
+            for (v1,v2) in decoded_values.iter().zip(values){
+              assert_eq!(v1.to_bits(), v2.to_bits(), "despite being semantically equal, the values are not actually equal");
+            }
+        }
 
-                        #[test]
-                        fn test_f64_roundtrip(values in prop::collection::vec(any::<f64>(), 0..100)) {
-                            let owned_stream = OwnedStream::encode_f64(&values).unwrap();
+        #[test]
+        fn test_f64_roundtrip(values in prop::collection::vec(any::<f64>(), 0..100)) {
+            let owned_stream = OwnedStream::encode_f64(&values).unwrap();
 
-                            let mut buffer = Vec::new();
-                            buffer.write_stream(&owned_stream).unwrap();
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
 
-                            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
-                            assert!(remaining.is_empty());
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
 
-                            let decoded_values = parsed_stream.decode_f64().unwrap();
-                            assert_eq!(decoded_values, values);
-                        }
+            let decoded_values = parsed_stream.decode_f64().unwrap();
+            assert_eq!(decoded_values, values);
+            for (v1,v2) in decoded_values.iter().zip(values){
+              assert_eq!(v1.to_bits(), v2.to_bits(), "despite being semantically equal, the values are not actually equal");
+            }
+        }
 
         #[test]
         fn test_string_roundtrip(
