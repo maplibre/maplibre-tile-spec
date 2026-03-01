@@ -326,7 +326,7 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
             <($BIN dump "$file_a") \
             --label "$file_b" \
             <($BIN dump "$file_b") \
-            | delta --side-by-side --file-modified-label "mlt decoded difference"
+            | delta --side-by-side --file-modified-label "mlt dump difference"
         fi
       elif [[ -f "$file_b_rust" ]]; then
         diff -U20 \
