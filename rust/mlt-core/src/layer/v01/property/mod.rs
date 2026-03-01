@@ -579,8 +579,7 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
                     struct_order.push(struct_name.clone());
                     Vec::new()
                 });
-                // Use the decoded property's name to avoid divergence between value source and metadata.
-                group.push((prop, *enc, prop.name.clone()));
+                group.push((prop, *enc, child_name.clone()));
             }
         }
 
