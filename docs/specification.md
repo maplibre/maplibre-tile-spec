@@ -455,7 +455,9 @@ An `id` column is not mandatory.
 If included, it should be a u64 or narrower integer type (u32 if possible) for MVT compatibility.
 A narrower type enables the use of efficient encodings like FastPfor128.
 
-### Geometry Column
+### Geometry Column {#geometry-column}
+
+For the detailed geometry encoding format, length stream encoding rules, vertex encoding (including componentwise delta and dictionary encoding), and decoding examples, see [Geometry Encoding](geometry.md).
 
 The geometry column uses a Structure of Arrays (SoA) layout (data-oriented design).
 The `x`, `y`, and optional `z` coordinates are stored interleaved in a `VertexBuffer` for efficient CPU processing and direct copying to GPU buffers.
@@ -485,6 +487,8 @@ Depending on the geometry type, the following streams are used in addition to `G
 - **MultiPoint**: NumGeometries, VertexBuffer
 - **MultiLineString**: NumGeometries, NumParts (LineString), VertexBuffer
 - **MultiPolygon**: NumGeometries, NumParts (Polygon), NumRings (LinearRing), VertexBuffer
+
+When LineString and Polygon types are mixed in the same column, LineString vertex counts are stored in the NumRings stream. See [Geometry Encoding](geometry.md) for the full decoding rules.
 
 An additional `VertexOffsets` stream is present when using Dictionary or Morton-Dictionary encoding.
 If geometries (mainly polygons) are pre-tessellated for direct GPU use, `NumTriangles` and `IndexBuffer` streams must be provided.
