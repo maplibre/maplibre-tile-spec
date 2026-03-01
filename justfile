@@ -97,6 +97,9 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
 assert-git-is-clean:
     #!/usr/bin/env bash
     set -euo pipefail
+    if [[ "{{ci_mode}}" == "1" ]]; then
+        git add . --all # this prevents us having untracked, but actually uncanged files
+    fi
     if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
         >&2 echo "::error::git repo is not clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified."
         if [[ "{{ci_mode}}" == "1" ]]; then
