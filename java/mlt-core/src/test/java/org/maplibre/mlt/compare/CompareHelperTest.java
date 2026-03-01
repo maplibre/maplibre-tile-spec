@@ -175,18 +175,6 @@ class CompareHelperTest {
   }
 
   @Test
-  void doubleInMvtMatchesEquivalentFloatInMlt() {
-    final var mltFeature =
-        new Feature(1, FACTORY.createPoint(new Coordinate(1, 2)), Map.of("speed", 1.5f));
-    final var mvtFeature =
-        new Feature(1, FACTORY.createPoint(new Coordinate(1, 2)), Map.of("speed", 1.5));
-    final var mlt = mltOf(createLayer("roads", mltFeature));
-    final var mvt = mvtOf(createLayer("roads", mvtFeature));
-    final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.Properties);
-    assertFalse(result.isPresent());
-  }
-
-  @Test
   void numericValuesWithSameStringRepresentationEqual() {
     final var mltFeature =
         new Feature(1, FACTORY.createPoint(new Coordinate(1, 2)), Map.of("pop", 42L));

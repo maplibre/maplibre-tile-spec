@@ -18,11 +18,12 @@ import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
 
 public class CompareHelper {
+
   public enum CompareMode {
     LayersOnly,
     Geometry,
     Properties,
-    All
+    All,
   }
 
   public record Difference(
@@ -55,13 +56,13 @@ public class CompareHelper {
                   + "\nMLT geometry:\n"
                   + geometries.get().getRight())
               : "";
-      return message
+      return (message
           + (itemStr.isEmpty() ? "" : " " + itemStr)
           + (propStr.isEmpty() ? "" : " " + propStr)
           + (geomStr.isEmpty() ? "" : "\n" + geomStr)
           + (layerIndex.isPresent() ? (" at layer index " + layerIndex.get()) : "")
           + (layerName.isPresent() ? (" in layer '" + layerName.get() + "': ") : "")
-          + (featureIndex.isPresent() ? (" at feature index " + featureIndex.get()) : "");
+          + (featureIndex.isPresent() ? (" at feature index " + featureIndex.get()) : ""));
     }
 
     static Builder builder(@NotNull String message) {
@@ -69,6 +70,7 @@ public class CompareHelper {
     }
 
     static class Builder {
+
       private @NotNull String message = "";
       private Optional<Integer> layerIndex = Optional.empty();
       private Optional<String> layerName = Optional.empty();
@@ -303,10 +305,6 @@ public class CompareHelper {
     // Try simple equality
     if (Objects.equals(a, b)) {
       return true;
-    }
-    if (a instanceof Double && b instanceof Float) {
-      // We currently encode doubles as floats
-      return ((Double) a).floatValue() == (Float) b;
     }
     // Allow for, e.g., int32 and int64 representations of the same number by comparing strings
     return a.toString().equals(b.toString());
