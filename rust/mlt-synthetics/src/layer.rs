@@ -15,7 +15,7 @@ use mlt_core::v01::{
 };
 use mlt_core::{Encodable as _, FromDecoded as _, OwnedLayer, parse_layers};
 
-use crate::PropValue::{Bool, F32, F64, I32, I64, Str, U32, U64};
+use mlt_core::v01::PropValue::{Bool, F32, F64, I32, I64, Str, U32, U64};
 
 /// Tessellate a polygon using the geo crate's earcut algorithm.
 ///
