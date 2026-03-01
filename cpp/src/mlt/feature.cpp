@@ -5,7 +5,7 @@
 
 namespace mlt {
 
-Feature::Feature(id_t ident_, std::unique_ptr<Geometry>&& geometry_, std::uint32_t index_)
+Feature::Feature(std::optional<id_t> ident_, std::unique_ptr<Geometry>&& geometry_, std::uint32_t index_)
     : ident(ident_),
       index(index_),
       geometry(std::move(geometry_)) {}

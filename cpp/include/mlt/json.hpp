@@ -271,9 +271,11 @@ inline json buildProperties(const Layer& layer, const Feature& feature) {
 
 inline json toJSON(const Layer& layer, const Feature& feature, const Projection& projection, bool geoJSON) {
     auto result = json{
-        {"id", feature.getID()},
         {"geometry", detail::buildAnyGeometryElement(feature.getGeometry(), projection, geoJSON)},
     };
+    if (const auto id = feature.getID(); id.has_value()) {
+        result["id"] = *id;
+    }
     if (geoJSON) {
         result["type"] = "Feature";
     }

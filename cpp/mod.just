@@ -27,20 +27,31 @@ clean:
 
 # Reformat code
 fmt:
-    echo "TODO: Add C++ formatting command"
+    pre-commit run --all-files clang-format
 
 # Run linting
 lint:
     echo "TODO: Add C++ linting command"
 
+_install_npm_deps:
+    cd ../test/synthetic/synthetic-test-tool && npm ci
+    npm ci
+
+_test-synthethic: _install_npm_deps
+    {{just}} ts install
+    node tool/test-synthetic.mjs
+
 # Run tests
 [working-directory: 'build']
-test: cmake-build
+test: _clean_coverage_data cmake-build _test-synthethic
     ctest
+
+_clean_coverage_data:
+    find . -name "*.gcda" -delete
 
 # Generate coverage report
 [working-directory: 'build']
-coverage: (_check-tool 'gcovr') test
+coverage: _clean_coverage_data (_check-tool 'gcovr') test _test-synthethic
     gcovr --root ../.. \
         --filter ../src --filter ../include \
         --txt coverage.txt \

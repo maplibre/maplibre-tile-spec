@@ -45,6 +45,7 @@
     "vitest": "^4.0.1"
   },
   "dependencies": {
-    "@mapbox/point-geometry": "^1.1.0"
+    "@mapbox/point-geometry": "^1.1.0",
+    "synthetic-test-tool": "file:../test/synthetic/synthetic-test-tool"
   }
 }
