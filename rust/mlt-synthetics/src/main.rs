@@ -527,7 +527,7 @@ fn generate_properties(w: &SynthWriter) {
 
     // Java generator doesn't actually support these special float values,
     // but once it does, we should re-enable these
-    #[cfg(not(all()))]
+    #[cfg(any())]
     {
         #[expect(clippy::approx_constant)]
         p0(w)
