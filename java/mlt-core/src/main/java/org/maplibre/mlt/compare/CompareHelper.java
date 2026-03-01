@@ -23,7 +23,7 @@ public class CompareHelper {
     LayersOnly,
     Geometry,
     Properties,
-    All,
+    All
   }
 
   public record Difference(
