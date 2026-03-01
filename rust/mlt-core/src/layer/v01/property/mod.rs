@@ -761,14 +761,9 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                 let vals = unapply_presence(f);
                 EncVal::F32(OwnedStream::encode_f32(&vals)?)
             }
-            Val::F64(f) => {
-                // F64 is stored on the wire as F32 (lossy, matching the decoder).
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    reason = "the decoder does it this way, but why?"
-                )]
-                let as_f32: Vec<f32> = unapply_presence(f).iter().map(|&v| v as f32).collect();
-                EncVal::F64(OwnedStream::encode_f32(&as_f32)?)
+            Val::F64(d) => {
+                let vals = unapply_presence(d);
+                EncVal::F64(OwnedStream::encode_f64(&vals)?)
             }
             Val::Str(s) => {
                 let values = unapply_presence(s);
@@ -821,10 +816,7 @@ impl<'a> FromEncoded<'a> for DecodedProperty {
             EncVal::I64(s) => Val::I64(apply_present(present, s.decode_i64()?)?),
             EncVal::U64(s) => Val::U64(apply_present(present, s.decode_u64()?)?),
             EncVal::F32(s) => Val::F32(apply_present(present, s.decode_f32()?)?),
-            EncVal::F64(s) => Val::F64(apply_present(
-                present,
-                s.decode_f32()?.into_iter().map(f64::from).collect(),
-            )?),
+            EncVal::F64(s) => Val::F64(apply_present(present, s.decode_f64()?)?),
             EncVal::Str(streams) => {
                 Val::Str(apply_present(present, decode_string_streams(streams)?)?)
             }
