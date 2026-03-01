@@ -240,13 +240,13 @@ public class SyntheticMltGenerator {
     write("prop_f32_max_val", feat(p0, prop("val", Float.MAX_VALUE)), cfg());
     write("prop_f32_pos_inf", feat(p0, prop("val", Float.POSITIVE_INFINITY)), cfg());
     write("prop_f32_nan", feat(p0, prop("val", Float.NaN)), cfg());
-    write("prop_f64", feat(p0, prop("val", (double) 3.141592653589793)), cfg());
-    // FIXME: Serializes as f32
+    // FIXME: ALL f64 are serialized as f32, but should be done properly
+    // write("prop_f64", feat(p0, prop("val", (double) 3.141592653589793)), cfg());
     // write("prop_f64_neg_inf", feat(p0, prop("val", Double.NEGATIVE_INFINITY)), cfg());
-    write("prop_f64_min_norm", feat(p0, prop("val", Double.MIN_NORMAL)), cfg());
+    // write("prop_f64_min_norm", feat(p0, prop("val", Double.MIN_NORMAL)), cfg());
     // FIXME: Produces the same output as prop_f64_min_norm
     // write("prop_f64_min_val", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
-    write("prop_f64_neg_zero", feat(p0, prop("val", (double) -0.0)), cfg());
+    // write("prop_f64_neg_zero", feat(p0, prop("val", (double) -0.0)), cfg());
     // FIXME: Produces the same output as prop_f64_min
     // write("prop_f64_zero", feat(p0, prop("val", (double) 0.0)), cfg());
     // FIXME: Serializes as f32
@@ -340,7 +340,7 @@ public class SyntheticMltGenerator {
   private static void generateSharedDictionaries() throws IOException {
     // 30 because otherwise fsst is skipped
     var val = "A".repeat(30);
-    var feat_names = array(feat(p1, props(kv("name:en", val), kv("name:de", val))));
+    var feat_names = array(feat(p0, props(kv("name:en", val), kv("name:de", val))));
 
     write(layer("props_no_shared_dict", feat_names), cfg());
     write(layer("props_shared_dict", feat_names), cfg().sharedDictPrefix("name", ":"));

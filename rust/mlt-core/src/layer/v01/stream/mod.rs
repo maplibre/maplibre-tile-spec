@@ -114,17 +114,13 @@ impl OwnedStream {
     }
 
     #[must_use]
-    fn new_plain(data: Vec<u8>, num_values: u32) -> OwnedStream {
-        Self::new_plain_with_type(data, num_values, DictionaryType::None)
+    fn plain(data: Vec<u8>, num_values: u32) -> OwnedStream {
+        Self::plain_with_type(data, num_values, DictionaryType::None)
     }
 
     /// Creates a plain stream with values encoded literally
     #[must_use]
-    fn new_plain_with_type(
-        data: Vec<u8>,
-        num_values: u32,
-        dict_type: DictionaryType,
-    ) -> OwnedStream {
+    fn plain_with_type(data: Vec<u8>, num_values: u32, dict_type: DictionaryType) -> OwnedStream {
         let meta = StreamMeta::new(
             StreamType::Data(dict_type),
             LogicalEncoding::None,
@@ -179,7 +175,7 @@ impl OwnedStream {
             .flat_map(|f| f.to_le_bytes())
             .collect::<Vec<u8>>();
 
-        Ok(Self::new_plain(data, num_values))
+        Ok(Self::plain(data, num_values))
     }
 
     pub fn encode_i8s(values: &[i8], encoding: Encoder) -> Result<Self, MltError> {
@@ -291,7 +287,7 @@ impl OwnedStream {
         let length_stream =
             Self::encode_u32s_of_type(&lengths, encoding, StreamType::Length(length_type))?;
 
-        let data_stream = Self::new_plain_with_type(data, u32::try_from(values.len())?, dict_type);
+        let data_stream = Self::plain_with_type(data, u32::try_from(values.len())?, dict_type);
 
         Ok(vec![length_stream, data_stream])
     }

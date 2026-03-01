@@ -211,8 +211,8 @@ sync-pyo3-version:
 alias t := test
 # Run all tests
 test:
-    cargo test --all-features {{if ci_mode == '1' {'--lib --bins --tests --examples -- --test-threads=1'} else {'--all-targets'} }}
-    # {{just}} rust::generate-synthetic-mlts
+    cargo test --all-features --all-targets {{if ci_mode == '1' {' -- --test-threads=1'} else {''} }}
+    {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
 
 # Test documentation generation
@@ -315,6 +315,7 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
     find "$DIR_A" -type f -iname "*.mlt" | while read -r file_a; do
       rel_path="$(posix_relpath "$DIR_A" "$file_a")"
       file_b="$DIR_B/$rel_path"
+      file_b_rust="${file_b%.mlt}-rust.mlt"
 
       if [[ -f "$file_b" ]]; then
         if ! cmp -s "$file_a" "$file_b"; then
@@ -322,11 +323,18 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
           echo ""
           diff -U20 \
             --label "$file_a" \
-            <($BIN decode "$file_a") \
+            <($BIN dump "$file_a") \
             --label "$file_b" \
-            <($BIN decode "$file_b") \
+            <($BIN dump "$file_b") \
             | delta --side-by-side --file-modified-label "mlt decoded difference"
         fi
+      elif [[ -f "$file_b_rust" ]]; then
+        diff -U20 \
+          --label "$file_a" \
+          <($BIN decode "$file_a") \
+          --label "$file_b_rust" \
+          <($BIN decode "$file_b_rust") \
+          | delta --side-by-side --file-modified-label "mlt decoded difference"
       else
         echo "Missing in $DIR_B but present in $DIR_A: $rel_path"
       fi
