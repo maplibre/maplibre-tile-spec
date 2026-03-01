@@ -11,10 +11,6 @@ const RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100;
 const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
-    ["polygon_multi_fpf", "FastPFor not implemented"],
-    ["polygon_fpf_tes", "FastPFor not implemented"],
-    ["polygon_hole_fpf", "FastPFor not implemented"],
-    ["polygon_fpf", "FastPFor not implemented"],
     ["props_mixed", "F32 very buggy and does not work"],
     ["prop_str_empty", "empty strings not supported"],
     ["prop_i64_min", "wraps to 0 despite it should have been negative"],

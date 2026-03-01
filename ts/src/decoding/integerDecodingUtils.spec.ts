@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+    createFastPforWireDecodeWorkspace,
+    decodeFastPfor,
+    decodeFastPforWithWorkspace,
     decodeVarintInt32,
     decodeVarintInt64,
     decodeVarintFloat64,
@@ -393,5 +396,24 @@ describe("IntegerDecodingUtils", () => {
             expect(base).toBe(-3n);
             expect(delta).toBe(1n);
         });
+    });
+
+    it("should reject FastPFOR byte lengths that are not multiple of 4", () => {
+        const encoded = new Uint8Array([0x01, 0x02, 0x03]);
+        const offset = new IntWrapper(0);
+
+        expect(() => decodeFastPfor(encoded, 0, encoded.length, offset)).toThrow(/invalid encodedByteLength=3/);
+        expect(offset.get()).toBe(0);
+    });
+
+    it("should reject FastPFOR byte lengths with workspace API when not multiple of 4", () => {
+        const encoded = new Uint8Array([0x01, 0x02, 0x03]);
+        const offset = new IntWrapper(0);
+        const workspace = createFastPforWireDecodeWorkspace();
+
+        expect(() =>
+            decodeFastPforWithWorkspace(encoded, 0, encoded.length, offset, workspace),
+        ).toThrow(/invalid encodedByteLength=3/);
+        expect(offset.get()).toBe(0);
     });
 });
