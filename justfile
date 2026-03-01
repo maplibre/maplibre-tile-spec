@@ -101,8 +101,12 @@ assert-git-is-clean:
         >&2 echo "::error::git repo is not clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified."
         if [[ "{{ci_mode}}" == "1" ]]; then
             >&2 echo "######### git status ##########"
+            echo "::group::git diff"
             git --no-pager diff
+            echo "::endgroup::"
+            echo "::group::git status"
             git status
+            echo "::endgroup::"
             exit 1
         else
             >&2 echo "git repo is not clean, but not failing because CI mode is not enabled."
