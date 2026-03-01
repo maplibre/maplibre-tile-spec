@@ -1190,7 +1190,7 @@ mod tests {
             let decoded_values = parsed_stream.decode_u8s().unwrap();
             assert_eq!(decoded_values, values);
         }
-              
+
         #[test]
         fn test_u32_roundtrip(
             values in prop::collection::vec(any::<u32>(), 0..100),
