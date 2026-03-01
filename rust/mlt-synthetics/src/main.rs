@@ -662,8 +662,7 @@ fn generate_properties(w: &SynthWriter) {
         ))
         .write("prop_str_unicode");
 
-    let p1 = || w.geo_varint().geo(P1);
-    p1().add_prop(DecodedProp::new(
+    p0(w).add_prop(DecodedProp::new(
         DecodedProperty {
             name: "name".to_string(),
             values: PropValue::Str(vec![Some("Test Point".to_string())]),

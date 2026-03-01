@@ -256,7 +256,7 @@ public class SyntheticMltGenerator {
     write(
         "props_mixed",
         feat(
-            p1,
+            p0,
             props(
                 kv("name", "Test Point"),
                 kv("active", true),
