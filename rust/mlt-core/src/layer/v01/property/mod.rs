@@ -1,5 +1,7 @@
 pub(crate) mod decode;
 
+use std::collections::hash_map::Entry;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Debug};
 use std::io::Write;
 
@@ -554,8 +556,6 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
     type Encoder = Vec<EncodingInstruction>;
 
     fn from_decoded(input: &Self::Input, config: Self::Encoder) -> Result<Self, MltError> {
-        use std::collections::{HashMap, HashSet};
-
         if input.len() != config.len() {
             return Err(MltError::EncodingInstructionCountMismatch {
                 input_len: input.len(),
@@ -626,15 +626,13 @@ fn encode_struct_property(
 ) -> Result<OwnedEncodedProperty, MltError> {
     // Build shared dictionary: unique strings in first-occurrence insertion order.
     let mut dict: Vec<String> = Vec::new();
-    let mut dict_index: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+    let mut dict_index: HashMap<String, u32> = HashMap::new();
 
     for (prop, _, _) in children {
         match &prop.values {
             PropValue::Str(values) => {
                 for s in values.iter().flatten() {
-                    if let std::collections::hash_map::Entry::Vacant(e) =
-                        dict_index.entry(s.clone())
-                    {
+                    if let Entry::Vacant(e) = dict_index.entry(s.clone()) {
                         let idx = u32::try_from(dict.len())?;
                         e.insert(idx);
                         dict.push(s.clone());
@@ -655,19 +653,17 @@ fn encode_struct_property(
         ),
         |(_, enc, _)| *enc,
     );
-    let string_encoding = first_encoder.string_encoding;
-    let dict_encoding = first_encoder.encoder();
 
-    let dict_streams = match string_encoding {
+    let dict_streams = match first_encoder.string_encoding {
         StringEncoding::Plain => OwnedStream::encode_strings_with_type(
             &dict,
-            dict_encoding,
+            first_encoder.encoder(),
             LengthType::Dictionary,
             DictionaryType::Shared,
         )?,
         StringEncoding::Fsst => OwnedStream::encode_strings_fsst_with_type(
             &dict,
-            dict_encoding,
+            first_encoder.encoder(),
             DictionaryType::Shared,
         )?,
     };
@@ -679,12 +675,8 @@ fn encode_struct_property(
             return Err(NotImplemented("generic struct child encoding"));
         };
 
-        // Presence stream: emit when the encoder requests it (PresenceStream::Present) or when
-        // there are actual null values. This matches Java's behaviour of always writing a presence
-        // bitmap for Present-encoded struct children even if no values are null.
-        let has_nulls = values.iter().any(Option::is_none);
-        let emit_presence = encoder.optional == PresenceStream::Present || has_nulls;
-        let optional = if emit_presence {
+        // Presence stream
+        let optional = if encoder.optional == PresenceStream::Present {
             let present_bools: Vec<bool> = values.iter().map(Option::is_some).collect();
             Some(OwnedStream::encode_presence(&present_bools)?)
         } else {
@@ -706,7 +698,7 @@ fn encode_struct_property(
 
         encoded_children.push(OwnedEncodedStructChild {
             name: child_name.clone(),
-            typ: if emit_presence {
+            typ: if encoder.optional == PresenceStream::Present {
                 ColumnType::OptStr
             } else {
                 ColumnType::Str

@@ -142,14 +142,14 @@ impl OwnedStream {
         Self::encode_bools_with_type(values, StreamType::Data(DictionaryType::None))
     }
 
-    /// Encode a presence/nullability stream: byte-RLE <- packed bitmap <- `Vec<bool>`
+    /// Encode a presence/nullability stream
     ///
-    /// Identical to [`encode_bools`] except the stream type is [`StreamType::Present`], which is
-    /// the correct type for optional-value presence bitmaps.
+    /// Identical to [`Self::encode_bools`] except the stream type is [`StreamType::Present`]
     pub fn encode_presence(values: &[bool]) -> Result<Self, MltError> {
         Self::encode_bools_with_type(values, StreamType::Present)
     }
 
+    /// Encode a boolean data stream: byte-RLE <- packed bitmap <- `Vec<bool>`
     fn encode_bools_with_type(values: &[bool], stream_type: StreamType) -> Result<Self, MltError> {
         let num_values = u32::try_from(values.len())?;
         let bytes = encode_bools_to_bytes(values);
