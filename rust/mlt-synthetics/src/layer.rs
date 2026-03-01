@@ -8,14 +8,13 @@ use std::{fs, io};
 use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
+use mlt_core::v01::PropValue::{Bool, F32, F64, I32, I64, Str, U32, U64};
 use mlt_core::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, Encoder, GeometryEncoder, IdEncoder,
     OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PropValue,
     PropertyEncoder, ScalarEncoder, VertexBufferType,
 };
 use mlt_core::{Encodable as _, FromDecoded as _, OwnedLayer, parse_layers};
-
-use mlt_core::v01::PropValue::{Bool, F32, F64, I32, I64, Str, U32, U64};
 
 /// Tessellate a polygon using the geo crate's earcut algorithm.
 ///

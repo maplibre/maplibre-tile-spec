@@ -842,7 +842,16 @@ impl<'a> Stream<'a> {
                 return Err(MltError::NotImplemented("varint f32 decoding"));
             }
         };
-        let num = self.meta.num_values as usize;
+        let num = usize::try_from(self.meta.num_values)?;
+        let Some(expected_bytes) = num.checked_mul(4) else {
+            return Err(MltError::IntegerOverflow);
+        };
+        if raw.len() != expected_bytes {
+            return Err(MltError::InvalidDecodingStreamSize(
+                raw.len(),
+                expected_bytes,
+            ));
+        }
         Ok(raw
             .chunks_exact(4)
             .map(|chunk| {
@@ -851,7 +860,6 @@ impl<'a> Stream<'a> {
                     .expect("infallible because of `chunks_exact`");
                 f32::from_le_bytes(bytes)
             })
-            .take(num)
             .collect())
     }
 
@@ -863,7 +871,16 @@ impl<'a> Stream<'a> {
                 return Err(MltError::NotImplemented("varint f64 decoding"));
             }
         };
-        let num = self.meta.num_values as usize;
+        let num = usize::try_from(self.meta.num_values)?;
+        let Some(expected_bytes) = num.checked_mul(8) else {
+            return Err(MltError::IntegerOverflow);
+        };
+        if raw.len() != expected_bytes {
+            return Err(MltError::InvalidDecodingStreamSize(
+                raw.len(),
+                expected_bytes,
+            ));
+        }
         Ok(raw
             .chunks_exact(8)
             .map(|chunk| {
@@ -872,7 +889,6 @@ impl<'a> Stream<'a> {
                     .expect("infallible because of `chunks_exact`");
                 f64::from_le_bytes(bytes)
             })
-            .take(num)
             .collect())
     }
 
