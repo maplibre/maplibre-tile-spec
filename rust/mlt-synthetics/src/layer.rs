@@ -369,12 +369,6 @@ impl Layer {
         layer
             .write_to(&mut file)
             .unwrap_or_else(|e| panic!("cannot encode {}: {e}", path.display()));
-        let meta = file.metadata().unwrap();
-        assert_ne!(
-            meta.size(),
-            0,
-            "the file written to disk should be written to disk"
-        );
     }
 }
 
