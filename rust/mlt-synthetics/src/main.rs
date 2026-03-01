@@ -6,9 +6,9 @@
 mod layer;
 
 use std::fmt::Write as _;
-use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
+use std::{f64, fs};
 
 use geo_types::{
     Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
@@ -483,6 +483,15 @@ fn generate_properties(w: &SynthWriter) {
         .add_prop(DecodedProp::new(
             DecodedProperty {
                 name: "val".to_string(),
+                values: PropValue::F32(vec![Some(f32::from_bits(1))]),
+            },
+            enc,
+        ))
+        .write("prop_f32_min_val");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
                 values: PropValue::F32(vec![Some(f32::MIN_POSITIVE)]),
             },
             enc,
@@ -501,11 +510,20 @@ fn generate_properties(w: &SynthWriter) {
         .add_prop(DecodedProp::new(
             DecodedProperty {
                 name: "val".to_string(),
+                values: PropValue::F32(vec![Some(-0.0)]),
+            },
+            enc,
+        ))
+        .write("prop_f32_neg_zero");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
                 values: PropValue::F32(vec![Some(f32::MAX)]),
             },
             enc,
         ))
-        .write("prop_f32_max_val");
+        .write("prop_f32_max");
     p0(w)
         .add_prop(DecodedProp::new(
             DecodedProperty {
@@ -525,66 +543,87 @@ fn generate_properties(w: &SynthWriter) {
         ))
         .write("prop_f32_nan");
 
-    // Java generator doesn't actually support these special float values,
-    // but once it does, we should re-enable these
-    #[cfg(any())]
-    {
-        #[expect(clippy::approx_constant)]
-        p0(w)
-            .add_prop(DecodedProp::new(
-                DecodedProperty {
-                    name: "val".to_string(),
-                    values: PropValue::F64(vec![Some(3.141_592_653_589_793)]),
-                },
-                enc,
-            ))
-            .write("prop_f64");
-        p0(w)
-            .add_prop(DecodedProp::new(
-                DecodedProperty {
-                    name: "val".to_string(),
-                    values: PropValue::F64(vec![Some(f64::NEG_INFINITY)]),
-                },
-                enc,
-            ))
-            .write("prop_f64_neg_inf");
-        p0(w)
-            .add_prop(DecodedProp::new(
-                DecodedProperty {
-                    name: "val".to_string(),
-                    values: PropValue::F64(vec![Some(f64::MIN_POSITIVE)]),
-                },
-                enc,
-            ))
-            .write("prop_f64_min_norm");
-        p0(w)
-            .add_prop(DecodedProp::new(
-                DecodedProperty {
-                    name: "val".to_string(),
-                    values: PropValue::F64(vec![Some(-0.0)]),
-                },
-                enc,
-            ))
-            .write("prop_f64_neg_zero");
-        p0(w)
-            .add_prop(DecodedProp::new(
-                DecodedProperty {
-                    name: "val".to_string(),
-                    values: PropValue::F64(vec![Some(f64::MAX)]),
-                },
-                enc,
-            ))
-            .write("prop_f64_max");
-        p0(w)
-            .add_prop(DecodedProp::new(
-                DecodedProperty {
-                    name: "val".to_string(),
-                    values: PropValue::F64(vec![Some(f64::NAN)]),
-                },
-                enc,
-            ))
-            .write("prop_f64_nan");
-    }
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F64(vec![Some(f64::consts::PI)]),
+            },
+            enc,
+        ))
+        .write("prop_f64");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F64(vec![Some(f64::NAN)]),
+            },
+            enc,
+        ))
+        .write("prop_f64_nan");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F64(vec![Some(f64::NEG_INFINITY)]),
+            },
+            enc,
+        ))
+        .write("prop_f64_neg_inf");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F64(vec![Some(f64::from_bits(1))]),
+            },
+            enc,
+        ))
+        .write("prop_f64_min_val");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F64(vec![Some(f64::MIN_POSITIVE)]),
+            },
+            enc,
+        ))
+        .write("prop_f64_min_norm");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F64(vec![Some(-0.0)]),
+            },
+            enc,
+        ))
+        .write("prop_f64_neg_zero");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F64(vec![Some(0.0)]),
+            },
+            enc,
+        ))
+        .write("prop_f64_zero");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F64(vec![Some(f64::MAX)]),
+            },
+            enc,
+        ))
+        .write("prop_f64_max");
+    p0(w)
+        .add_prop(DecodedProp::new(
+            DecodedProperty {
+                name: "val".to_string(),
+                values: PropValue::F64(vec![Some(f64::INFINITY)]),
+            },
+            enc,
+        ))
+        .write("prop_f64_pos_inf");
 
     p0(w)
         .add_prop(DecodedProp::new(
