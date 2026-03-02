@@ -17,7 +17,7 @@ use geo_types::{
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     IdEncoder, IdWidth, IntegerEncoder as E, LogicalEncoder as L, PresenceStream as O, PropValue,
-    ScalarEncoder, StringEncoding as SE, VertexBufferType,
+    ScalarEncoder as S, StringEncoding as SE, VertexBufferType,
 };
 
 use crate::layer::{Layer, SynthWriter};
@@ -329,7 +329,7 @@ fn generate_ids(w: &SynthWriter) {
 }
 
 fn generate_properties(w: &SynthWriter) {
-    let enc = ScalarEncoder::bool(O::Present);
+    let enc = S::bool(O::Present);
     p0(w)
         .add_prop(enc, "val", PropValue::Bool(vec![Some(true)]))
         .write("prop_bool");
@@ -337,7 +337,7 @@ fn generate_properties(w: &SynthWriter) {
         .add_prop(enc, "val", PropValue::Bool(vec![Some(false)]))
         .write("prop_bool_false");
 
-    let enc = ScalarEncoder::int(O::Present, E::varint());
+    let enc = S::int(O::Present, E::varint());
     p0(w)
         .add_prop(enc, "val", PropValue::I32(vec![Some(42)]))
         .write("prop_i32");
@@ -388,7 +388,7 @@ fn generate_properties(w: &SynthWriter) {
         .add_prop(enc, "bignum", PropValue::U64(vec![Some(u64::MAX)]))
         .write("prop_u64_max");
 
-    let enc = ScalarEncoder::float(O::Present);
+    let enc = S::float(O::Present);
     #[expect(clippy::approx_constant)]
     p0(w)
         .add_prop(enc, "val", PropValue::F32(vec![Some(3.14)]))
@@ -445,6 +445,7 @@ fn generate_properties(w: &SynthWriter) {
         .add_prop(enc, "val", PropValue::F64(vec![Some(f64::INFINITY)]))
         .write("prop_f64_pos_inf");
 
+    let enc = S::str(O::Present, E::varint());
     p0(w)
         .add_prop(enc, "val", PropValue::Str(vec![Some(String::new())]))
         .write("prop_str_empty");
@@ -468,20 +469,48 @@ fn generate_properties(w: &SynthWriter) {
 
     p0(w)
         .add_prop(
-            enc,
+            S::str(O::Present, E::varint()),
             "name",
             PropValue::Str(vec![Some("Test Point".to_string())]),
         )
-        .add_prop(enc, "active", PropValue::Bool(vec![Some(true)]))
+        .add_prop(
+            S::bool(O::Present),
+            "active",
+            PropValue::Bool(vec![Some(true)]),
+        )
         //FIXME in java
         //.add_prop(enc, "tiny-count", PropValue::I8(vec![Some(42)]))
         //.add_prop(enc, "tiny-count", PropValue::U8(vec![Some(100)]))
-        .add_prop(enc, "count", PropValue::I32(vec![Some(42)]))
-        .add_prop(enc, "medium", PropValue::U32(vec![Some(100)]))
-        .add_prop(enc, "bignum", PropValue::I32(vec![Some(42)]))
-        .add_prop(enc, "biggest", PropValue::U64(vec![Some(0)])) // FIXME: this should be u64, but java does it it this way
-        .add_prop(enc, "temp", PropValue::F32(vec![Some(25.5)]))
-        .add_prop(enc, "precision", PropValue::F64(vec![Some(0.123_456_789)]))
+        .add_prop(
+            S::int(O::Present, E::varint()),
+            "count",
+            PropValue::I32(vec![Some(42)]),
+        )
+        .add_prop(
+            S::int(O::Present, E::varint()),
+            "medium",
+            PropValue::U32(vec![Some(100)]),
+        )
+        .add_prop(
+            S::int(O::Present, E::varint()),
+            "bignum",
+            PropValue::I32(vec![Some(42)]),
+        )
+        .add_prop(
+            S::int(O::Present, E::varint()),
+            "biggest",
+            PropValue::U64(vec![Some(0)]),
+        ) // FIXME: this should be u64, but java does it it this way
+        .add_prop(
+            S::float(O::Present),
+            "temp",
+            PropValue::F32(vec![Some(25.5)]),
+        )
+        .add_prop(
+            S::float(O::Present),
+            "precision",
+            PropValue::F64(vec![Some(0.123_456_789)]),
+        )
         .write("props_mixed");
 
     generate_props_i32(w);
@@ -496,28 +525,16 @@ fn generate_props_i32(w: &SynthWriter) {
     let values = || PropValue::I32(vec![Some(42), Some(42), Some(42), Some(42)]);
 
     four_points()
-        .add_prop(ScalarEncoder::int(O::Present, E::varint()), "val", values())
+        .add_prop(S::int(O::Present, E::varint()), "val", values())
         .write("props_i32");
     four_points()
-        .add_prop(
-            ScalarEncoder::int(O::Present, E::delta_varint()),
-            "val",
-            values(),
-        )
+        .add_prop(S::int(O::Present, E::delta_varint()), "val", values())
         .write("props_i32_delta");
     four_points()
-        .add_prop(
-            ScalarEncoder::int(O::Present, E::delta_rle_varint()),
-            "val",
-            values(),
-        )
+        .add_prop(S::int(O::Present, E::rle_varint()), "val", values())
         .write("props_i32_rle");
     four_points()
-        .add_prop(
-            ScalarEncoder::int(O::Present, E::delta_rle_varint()),
-            "val",
-            values(),
-        )
+        .add_prop(S::int(O::Present, E::delta_rle_varint()), "val", values())
         .write("props_i32_delta_rle");
 }
 
@@ -526,28 +543,16 @@ fn generate_props_u32(w: &SynthWriter) {
     let values = || PropValue::U32(vec![Some(9_000), Some(9_000), Some(9_000), Some(9_000)]);
 
     four_points()
-        .add_prop(ScalarEncoder::int(O::Present, E::varint()), "val", values())
+        .add_prop(S::int(O::Present, E::varint()), "val", values())
         .write("props_u32");
     four_points()
-        .add_prop(
-            ScalarEncoder::int(O::Present, E::delta_varint()),
-            "val",
-            values(),
-        )
+        .add_prop(S::int(O::Present, E::delta_varint()), "val", values())
         .write("props_u32_delta");
     four_points()
-        .add_prop(
-            ScalarEncoder::int(O::Present, E::delta_rle_varint()),
-            "val",
-            values(),
-        )
+        .add_prop(S::int(O::Present, E::rle_varint()), "val", values())
         .write("props_u32_rle");
     four_points()
-        .add_prop(
-            ScalarEncoder::int(O::Present, E::delta_rle_varint()),
-            "val",
-            values(),
-        )
+        .add_prop(S::int(O::Present, E::delta_rle_varint()), "val", values())
         .write("props_u32_delta_rle");
 }
 
@@ -556,32 +561,16 @@ fn generate_props_u64(w: &SynthWriter) {
     let property = || PropValue::U64(vec![Some(9_000), Some(9_000), Some(9_000), Some(9_000)]);
 
     four_points()
-        .add_prop(
-            ScalarEncoder::int(O::Present, E::varint()),
-            "val",
-            property(),
-        )
+        .add_prop(S::int(O::Present, E::varint()), "val", property())
         .write("props_u64");
     four_points()
-        .add_prop(
-            ScalarEncoder::int(O::Present, E::delta_varint()),
-            "val",
-            property(),
-        )
+        .add_prop(S::int(O::Present, E::delta_varint()), "val", property())
         .write("props_u64_delta");
     four_points()
-        .add_prop(
-            ScalarEncoder::int(O::Present, E::delta_rle_varint()),
-            "val",
-            property(),
-        )
+        .add_prop(S::int(O::Present, E::rle_varint()), "val", property())
         .write("props_u64_rle");
     four_points()
-        .add_prop(
-            ScalarEncoder::int(O::Present, E::delta_rle_varint()),
-            "val",
-            property(),
-        )
+        .add_prop(S::int(O::Present, E::delta_rle_varint()), "val", property())
         .write("props_u64_delta_rle");
 }
 
@@ -603,11 +592,11 @@ fn generate_props_str(w: &SynthWriter) {
     };
 
     six_points()
-        .add_prop(ScalarEncoder::str(O::Present, E::varint()), "val", values())
+        .add_prop(S::str(O::Present, E::varint()), "val", values())
         .write("props_str");
     six_points()
         .add_prop(
-            ScalarEncoder::str_fsst(O::Present, E::varint(), E::varint()),
+            S::str_fsst(O::Present, E::varint(), E::varint()),
             "val",
             values(),
         )
@@ -618,12 +607,12 @@ fn generate_shared_dictionaries(w: &SynthWriter) {
     let long_string_value = || "A".repeat(30);
     p0(w)
         .add_prop(
-            ScalarEncoder::str(O::Present, E::varint()),
+            S::str(O::Present, E::varint()),
             "name:en",
             PropValue::Str(vec![Some(long_string_value())]),
         )
         .add_prop(
-            ScalarEncoder::str(O::Present, E::varint()),
+            S::str(O::Present, E::varint()),
             "name:de",
             PropValue::Str(vec![Some(long_string_value())]),
         )
