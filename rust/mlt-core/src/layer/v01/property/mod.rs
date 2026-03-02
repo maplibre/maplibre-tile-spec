@@ -729,7 +729,9 @@ fn encode_struct_property(
         |(_, enc, _)| *enc,
     );
     let ScalarValueEncoder::String(enc) = first_encoder.value else {
-        return Err(NotImplemented("unsupported string encoding"));
+        return Err(NotImplemented(
+            "Non-string encoder passed to encode struct children",
+        ));
     };
 
     let dict_streams = match enc {
@@ -1265,7 +1267,8 @@ mod tests {
     fn struct_mixed_with_scalars() {
         // Scalar columns before and after a struct group must land in the right
         // positions after the two-pass grouping logic.
-        let enc = ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain());
+        let int_enc = ScalarEncoder::int(PresenceStream::Present, IntegerEncoder::plain());
+        let str_enc = ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain());
         let population = DecodedProperty {
             name: "population".to_string(),
             values: PropValue::U32(vec![Some(3_748_000), Some(1_787_000)]),
@@ -1285,10 +1288,10 @@ mod tests {
                 rank.clone(),
             ],
             vec![
-                PropertyEncoder::Scalar(enc),
-                PropertyEncoder::struct_child("name", ":de", enc),
-                PropertyEncoder::struct_child("name", ":en", enc),
-                PropertyEncoder::Scalar(enc),
+                PropertyEncoder::Scalar(int_enc),
+                PropertyEncoder::struct_child("name", ":de", str_enc),
+                PropertyEncoder::struct_child("name", ":en", str_enc),
+                PropertyEncoder::Scalar(int_enc),
             ],
         )
         .unwrap();
@@ -1308,7 +1311,8 @@ mod tests {
     fn two_struct_groups_with_scalar_between() {
         // Two independent struct columns must each get their own shared dictionary
         // and appear at the position of their first child in the output.
-        let enc = ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain());
+        let str_enc = ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain());
+        let int_enc = ScalarEncoder::int(PresenceStream::Present, IntegerEncoder::plain());
         let name_de = str_prop(":de", strs(&["Berlin", "Hamburg"]));
         let name_en = str_prop(":en", strs(&["Berlin", "Hamburg"]));
         let population = DecodedProperty {
@@ -1327,11 +1331,11 @@ mod tests {
                 label_en.clone(),
             ],
             vec![
-                PropertyEncoder::struct_child("name", ":de", enc),
-                PropertyEncoder::struct_child("name", ":en", enc),
-                PropertyEncoder::Scalar(enc),
-                PropertyEncoder::struct_child("label", ":de", enc),
-                PropertyEncoder::struct_child("label", ":en", enc),
+                PropertyEncoder::struct_child("name", ":de", str_enc),
+                PropertyEncoder::struct_child("name", ":en", str_enc),
+                PropertyEncoder::Scalar(int_enc),
+                PropertyEncoder::struct_child("label", ":de", str_enc),
+                PropertyEncoder::struct_child("label", ":en", str_enc),
             ],
         )
         .unwrap();
