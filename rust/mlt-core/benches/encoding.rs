@@ -2,8 +2,8 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
-    GeometryEncoder, IdEncoder, IdWidth, IntegerEncoder, LogicalEncoder, PhysicalEncoder,
-    PresenceStream, ScalarEncoder,
+    AproximantePropertyType, GeometryEncoder, IdEncoder, IdWidth, IntegerEncoder, LogicalEncoder,
+    PhysicalEncoder, PresenceStream, ScalarEncoder,
 };
 use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
 use strum::IntoEnumIterator as _;
@@ -113,7 +113,6 @@ fn bench_encode_properties(c: &mut Criterion) {
         for presence in PresenceStream::iter() {
             for physical in PhysicalEncoder::iter() {
                 for logical in LogicalEncoder::iter() {
-                    let property_encoder = ScalarEncoder::new(presence, logical, physical);
                     group.bench_with_input(
                         BenchmarkId::new(format!("{presence:?}-{logical:?}-{physical:?}"), zoom),
                         &tiles,
@@ -124,8 +123,29 @@ fn bench_encode_properties(c: &mut Criterion) {
                                     for layer in &mut layers {
                                         if let OwnedLayer::Tag01(l) = layer {
                                             for prop in &mut l.properties {
-                                                prop.encode_with(property_encoder)
-                                                    .expect("prop encode failed");
+                                                let int_enc =
+                                                    IntegerEncoder::new(logical, physical);
+                                                let enc = match prop.approximate_type() {
+                                                    AproximantePropertyType::Bool => {
+                                                        ScalarEncoder::bool(presence)
+                                                    }
+                                                    AproximantePropertyType::Integer => {
+                                                        ScalarEncoder::int(presence, int_enc)
+                                                    }
+                                                    AproximantePropertyType::Float => {
+                                                        ScalarEncoder::float(presence)
+                                                    }
+                                                    AproximantePropertyType::String => {
+                                                        ScalarEncoder::str_fsst(
+                                                            presence, int_enc, int_enc,
+                                                        )
+                                                    }
+                                                    AproximantePropertyType::Struct => {
+                                                        unreachable!("unimplemented")
+                                                    }
+                                                };
+
+                                                prop.encode_with(enc).expect("prop encode failed");
                                             }
                                         }
                                     }

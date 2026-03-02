@@ -16,8 +16,8 @@ use geo_types::{
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
-    IdEncoder, IdWidth, IntegerEncoder as E, LogicalEncoder as L, PhysicalEncoder as P,
-    PresenceStream as O, PropValue, ScalarEncoder, VertexBufferType,
+    IdEncoder, IdWidth, IntegerEncoder as E, LogicalEncoder as L, PresenceStream as O, PropValue,
+    ScalarEncoder, VertexBufferType,
 };
 
 use crate::layer::{Layer, SynthWriter};
@@ -329,8 +329,7 @@ fn generate_ids(w: &SynthWriter) {
 }
 
 fn generate_properties(w: &SynthWriter) {
-    let enc = ScalarEncoder::new(O::Present, L::None, P::VarInt);
-
+    let enc = ScalarEncoder::bool(O::Present);
     p0(w)
         .add_prop(enc, "val", PropValue::Bool(vec![Some(true)]))
         .write("prop_bool");
@@ -338,6 +337,7 @@ fn generate_properties(w: &SynthWriter) {
         .add_prop(enc, "val", PropValue::Bool(vec![Some(false)]))
         .write("prop_bool_false");
 
+    let enc = ScalarEncoder::int(O::Present, E::varint());
     p0(w)
         .add_prop(enc, "val", PropValue::I32(vec![Some(42)]))
         .write("prop_i32");
@@ -388,6 +388,7 @@ fn generate_properties(w: &SynthWriter) {
         .add_prop(enc, "bignum", PropValue::U64(vec![Some(u64::MAX)]))
         .write("prop_u64_max");
 
+    let enc = ScalarEncoder::float(O::Present);
     #[expect(clippy::approx_constant)]
     p0(w)
         .add_prop(enc, "val", PropValue::F32(vec![Some(3.14)]))
@@ -495,29 +496,25 @@ fn generate_props_i32(w: &SynthWriter) {
     let values = || PropValue::I32(vec![Some(42), Some(42), Some(42), Some(42)]);
 
     four_points()
-        .add_prop(
-            ScalarEncoder::new(O::Present, L::None, P::VarInt),
-            "val",
-            values(),
-        )
+        .add_prop(ScalarEncoder::int(O::Present, E::varint()), "val", values())
         .write("props_i32");
     four_points()
         .add_prop(
-            ScalarEncoder::new(O::Present, L::Delta, P::VarInt),
+            ScalarEncoder::int(O::Present, E::delta_varint()),
             "val",
             values(),
         )
         .write("props_i32_delta");
     four_points()
         .add_prop(
-            ScalarEncoder::new(O::Present, L::Rle, P::VarInt),
+            ScalarEncoder::int(O::Present, E::delta_rle_varint()),
             "val",
             values(),
         )
         .write("props_i32_rle");
     four_points()
         .add_prop(
-            ScalarEncoder::new(O::Present, L::DeltaRle, P::VarInt),
+            ScalarEncoder::int(O::Present, E::delta_rle_varint()),
             "val",
             values(),
         )
@@ -529,29 +526,25 @@ fn generate_props_u32(w: &SynthWriter) {
     let values = || PropValue::U32(vec![Some(9_000), Some(9_000), Some(9_000), Some(9_000)]);
 
     four_points()
-        .add_prop(
-            ScalarEncoder::new(O::Present, L::None, P::VarInt),
-            "val",
-            values(),
-        )
+        .add_prop(ScalarEncoder::int(O::Present, E::varint()), "val", values())
         .write("props_u32");
     four_points()
         .add_prop(
-            ScalarEncoder::new(O::Present, L::Delta, P::VarInt),
+            ScalarEncoder::int(O::Present, E::delta_varint()),
             "val",
             values(),
         )
         .write("props_u32_delta");
     four_points()
         .add_prop(
-            ScalarEncoder::new(O::Present, L::Rle, P::VarInt),
+            ScalarEncoder::int(O::Present, E::delta_rle_varint()),
             "val",
             values(),
         )
         .write("props_u32_rle");
     four_points()
         .add_prop(
-            ScalarEncoder::new(O::Present, L::DeltaRle, P::VarInt),
+            ScalarEncoder::int(O::Present, E::delta_rle_varint()),
             "val",
             values(),
         )
@@ -564,28 +557,28 @@ fn generate_props_u64(w: &SynthWriter) {
 
     four_points()
         .add_prop(
-            ScalarEncoder::new(O::Present, L::None, P::VarInt),
+            ScalarEncoder::int(O::Present, E::varint()),
             "val",
             property(),
         )
         .write("props_u64");
     four_points()
         .add_prop(
-            ScalarEncoder::new(O::Present, L::Delta, P::VarInt),
+            ScalarEncoder::int(O::Present, E::delta_varint()),
             "val",
             property(),
         )
         .write("props_u64_delta");
     four_points()
         .add_prop(
-            ScalarEncoder::new(O::Present, L::Rle, P::VarInt),
+            ScalarEncoder::int(O::Present, E::delta_rle_varint()),
             "val",
             property(),
         )
         .write("props_u64_rle");
     four_points()
         .add_prop(
-            ScalarEncoder::new(O::Present, L::DeltaRle, P::VarInt),
+            ScalarEncoder::int(O::Present, E::delta_rle_varint()),
             "val",
             property(),
         )
@@ -610,15 +603,11 @@ fn generate_props_str(w: &SynthWriter) {
     };
 
     six_points()
-        .add_prop(
-            ScalarEncoder::new(O::Present, L::None, P::VarInt),
-            "val",
-            values(),
-        )
+        .add_prop(ScalarEncoder::str(O::Present, E::varint()), "val", values())
         .write("props_str");
     six_points()
         .add_prop(
-            ScalarEncoder::with_fsst(O::Present, L::None, P::VarInt),
+            ScalarEncoder::str_fsst(O::Present, E::varint(), E::varint()),
             "val",
             values(),
         )
@@ -629,12 +618,12 @@ fn generate_shared_dictionaries(w: &SynthWriter) {
     let long_string_value = || "A".repeat(30);
     p0(w)
         .add_prop(
-            ScalarEncoder::new(O::Present, L::None, P::VarInt),
+            ScalarEncoder::str(O::Present, E::varint()),
             "name:en",
             PropValue::Str(vec![Some(long_string_value())]),
         )
         .add_prop(
-            ScalarEncoder::new(O::Present, L::None, P::VarInt),
+            ScalarEncoder::str(O::Present, E::varint()),
             "name:de",
             PropValue::Str(vec![Some(long_string_value())]),
         )
@@ -644,13 +633,13 @@ fn generate_shared_dictionaries(w: &SynthWriter) {
         .add_shared_dict_column(
             "name:",
             "de",
-            ScalarEncoder::new(O::Present, L::None, P::VarInt),
+            ScalarEncoder::str(O::Present, E::varint()),
             [Some(long_string_value())],
         )
         .add_shared_dict_column(
             "name:",
             "en",
-            ScalarEncoder::new(O::Present, L::None, P::VarInt),
+            ScalarEncoder::str(O::Present, E::varint()),
             [Some(long_string_value())],
         )
         .write("props_shared_dict-rust"); // For some reason Java hallucinates another stream count at the start, so starts counting the stream count at 1
@@ -659,13 +648,13 @@ fn generate_shared_dictionaries(w: &SynthWriter) {
         .add_shared_dict_column(
             "name:",
             "de",
-            ScalarEncoder::with_fsst(O::Present, L::None, P::VarInt),
+            ScalarEncoder::str_fsst(O::Present, E::varint(), E::varint()),
             [Some(long_string_value())],
         )
         .add_shared_dict_column(
             "name:",
             "en",
-            ScalarEncoder::with_fsst(O::Present, L::None, P::VarInt),
+            ScalarEncoder::str_fsst(O::Present, E::varint(), E::varint()),
             [Some(long_string_value())],
         )
         .write("props_shared_dict_fsst-rust"); // Rust FSST is not byte-for-byte consistent with Java's

@@ -8,14 +8,14 @@ use std::io::Write;
 use borrowme::borrowme;
 use integer_encoding::VarIntWriter as _;
 
-use crate::MltError::{IntegerOverflow, NotImplemented};
+use crate::MltError::{IntegerOverflow, NotImplemented, UnsupportedPropertyEncoderCombination};
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::utils::{BinarySerializer as _, FmtOptVec, apply_present, f32_to_json, f64_to_json};
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{
-    ColumnType, DictionaryType, FsstStringEncoder, IntegerEncoder, LengthType, LogicalEncoder,
-    OffsetType, OwnedStream, PhysicalEncoder, Stream, StreamType,
+    ColumnType, DictionaryType, FsstStringEncoder, IntegerEncoder, LengthType, OffsetType,
+    OwnedStream, Stream, StreamType,
 };
 use crate::{FromDecoded, MltError, impl_encodable};
 
@@ -89,6 +89,41 @@ impl OwnedProperty {
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
+
+    #[must_use]
+    pub fn approximate_type(&self) -> AproximantePropertyType {
+        use AproximantePropertyType as T;
+        use OwnedEncodedPropValue as Enc;
+        use PropValue as Dec;
+        match self {
+            Self::Encoded(r) => match &r.value {
+                Enc::Bool(_) => T::Bool,
+                Enc::I8(_) | Enc::I32(_) | Enc::I64(_) | Enc::U8(_) | Enc::U32(_) | Enc::U64(_) => {
+                    T::Integer
+                }
+                Enc::F32(_) | Enc::F64(_) => T::Float,
+                Enc::Str(_) => T::String,
+                Enc::Struct(_) => T::Struct,
+            },
+            Self::Decoded(r) => match &r.values {
+                Dec::Bool(_) => T::Bool,
+                Dec::I8(_) | Dec::I32(_) | Dec::I64(_) | Dec::U8(_) | Dec::U32(_) | Dec::U64(_) => {
+                    T::Integer
+                }
+                Dec::F32(_) | Dec::F64(_) => T::Float,
+                Dec::Str(_) => T::String,
+                Dec::Struct => T::Struct,
+            },
+        }
+    }
+}
+
+pub enum AproximantePropertyType {
+    Bool,
+    Integer,
+    Float,
+    String,
+    Struct,
 }
 
 /// Unparsed property data as read directly from the tile
@@ -97,7 +132,7 @@ impl OwnedProperty {
 pub struct EncodedProperty<'a> {
     name: &'a str,
     optional: Option<Stream<'a>>,
-    value: EncodedPropValue<'a>,
+    pub(crate) value: EncodedPropValue<'a>,
 }
 
 impl<'a> EncodedProperty<'a> {
@@ -341,6 +376,22 @@ impl PropValue {
             PropValue::Struct => Err(NotImplemented("struct property encoding"))?,
         })
     }
+
+    fn name(&self) -> &'static str {
+        match self {
+            PropValue::Bool(_) => "bool",
+            PropValue::I8(_) => "i8",
+            PropValue::U8(_) => "u8",
+            PropValue::I32(_) => "i32",
+            PropValue::U32(_) => "u32",
+            PropValue::I64(_) => "i64",
+            PropValue::U64(_) => "u64",
+            PropValue::F32(_) => "f32",
+            PropValue::F64(_) => "f64",
+            PropValue::Str(_) => "str",
+            PropValue::Struct => "struct",
+        }
+    }
 }
 
 impl Analyze for PropValue {
@@ -444,68 +495,6 @@ impl<'a> Property<'a> {
     }
 }
 
-/// How to encode properties
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct ScalarEncoder {
-    pub optional: PresenceStream,
-    pub value: ScalarValueEncoder,
-}
-impl ScalarEncoder {
-    #[must_use]
-    pub fn new(
-        optional: PresenceStream,
-        logical: LogicalEncoder,
-        physical: PhysicalEncoder,
-    ) -> Self {
-        Self {
-            optional,
-            value: ScalarValueEncoder {
-                enc: IntegerEncoder { logical, physical },
-                string: StringEncoding::Plain {
-                    string_lengths: IntegerEncoder { logical, physical },
-                },
-            },
-        }
-    }
-
-    /// Create a property encoder with FSST string encoding
-    #[must_use]
-    pub fn with_fsst(
-        optional: PresenceStream,
-        logical: LogicalEncoder,
-        physical: PhysicalEncoder,
-    ) -> Self {
-        let enc = IntegerEncoder { logical, physical };
-        Self {
-            optional,
-            value: ScalarValueEncoder {
-                enc,
-                string: StringEncoding::Fsst(FsstStringEncoder {
-                    symbol_lengths: enc,
-                    dict_lengths: enc,
-                }),
-            },
-        }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum StringEncoding {
-    Plain { string_lengths: IntegerEncoder },
-    Fsst(FsstStringEncoder),
-}
-
-/// How to encode properties
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct ScalarValueEncoder {
-    pub enc: IntegerEncoder,
-    pub string: StringEncoding,
-}
-
 /// Instruction for how to encode a single decoded property when batch-encoding a
 /// [`Vec<DecodedProperty>`] via [`FromDecoded`].
 ///
@@ -528,6 +517,94 @@ pub enum PropertyEncoder {
         /// Encoder used for the offset-index stream of this child.
         encoder: ScalarEncoder,
     },
+}
+
+/// How to encode properties
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub struct ScalarEncoder {
+    pub optional: PresenceStream,
+    pub value: ScalarValueEncoder,
+}
+impl ScalarEncoder {
+    #[must_use]
+    pub fn str(optional: PresenceStream, string_lengths: IntegerEncoder) -> Self {
+        let enc = StringEncoding::Plain { string_lengths };
+        Self {
+            optional,
+            value: ScalarValueEncoder::String(enc),
+        }
+    }
+    /// Create a property encoder with integer encoding
+    #[must_use]
+    pub fn int(optional: PresenceStream, enc: IntegerEncoder) -> Self {
+        Self {
+            optional,
+            value: ScalarValueEncoder::Int(enc),
+        }
+    }
+    /// Create a property encoder with FSST string encoding
+    #[must_use]
+    pub fn str_fsst(
+        optional: PresenceStream,
+        symbol_lengths: IntegerEncoder,
+        dict_lengths: IntegerEncoder,
+    ) -> Self {
+        let enc = FsstStringEncoder {
+            symbol_lengths,
+            dict_lengths,
+        };
+        Self {
+            optional,
+            value: ScalarValueEncoder::String(StringEncoding::Fsst(enc)),
+        }
+    }
+    /// Create a property encoder for boolean values
+    #[must_use]
+    pub fn bool(optional: PresenceStream) -> Self {
+        Self {
+            optional,
+            value: ScalarValueEncoder::Bool,
+        }
+    }
+    /// Create a property encoder for float values
+    #[must_use]
+    pub fn float(optional: PresenceStream) -> Self {
+        Self {
+            optional,
+            value: ScalarValueEncoder::Float,
+        }
+    }
+}
+
+/// How to encode properties
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum ScalarValueEncoder {
+    Int(IntegerEncoder),
+    String(StringEncoding),
+    Float,
+    Bool,
+    Struct,
+}
+impl ScalarValueEncoder {
+    fn name(self) -> &'static str {
+        match self {
+            ScalarValueEncoder::Int(_) => "int",
+            ScalarValueEncoder::String(_) => "string",
+            ScalarValueEncoder::Float => "float",
+            ScalarValueEncoder::Bool => "bool",
+            ScalarValueEncoder::Struct => "struct",
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum StringEncoding {
+    Plain { string_lengths: IntegerEncoder },
+    Fsst(FsstStringEncoder),
 }
 
 impl PropertyEncoder {
@@ -648,15 +725,14 @@ fn encode_struct_property(
     // Use the first child's string_encoding to decide how to encode the shared dictionary.
     // Use the first child's encoder for all shared-dict stream encoding choices.
     let first_encoder = children.first().map_or(
-        ScalarEncoder::new(
-            PresenceStream::Present,
-            LogicalEncoder::None,
-            PhysicalEncoder::None,
-        ),
+        ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::varint()),
         |(_, enc, _)| *enc,
     );
+    let ScalarValueEncoder::String(enc) = first_encoder.value else {
+        return Err(NotImplemented("unsupported string encoding"));
+    };
 
-    let dict_streams = match first_encoder.value.string {
+    let dict_streams = match enc {
         StringEncoding::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
             &dict,
             string_lengths,
@@ -694,7 +770,7 @@ fn encode_struct_property(
 
         let data = OwnedStream::encode_u32s_of_type(
             &offsets,
-            encoder.value.enc,
+            IntegerEncoder::varint(), // FIXME: needs to be modeled upstream
             StreamType::Offset(OffsetType::String),
         )?;
 
@@ -735,42 +811,44 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
         };
 
         let value = match (&decoded.values, encoder.value) {
-            (Val::Bool(b), _) => EncVal::Bool(OwnedStream::encode_bools(&unapply_presence(b))?),
-            (Val::I8(i), enc) => {
-                let vals = unapply_presence(i);
-                EncVal::I8(OwnedStream::encode_i8s(&vals, enc.enc)?)
+            (Val::Bool(b), ScalarValueEncoder::Bool) => {
+                EncVal::Bool(OwnedStream::encode_bools(&unapply_presence(b))?)
             }
-            (Val::U8(u), enc) => {
+            (Val::I8(i), ScalarValueEncoder::Int(enc)) => {
+                let vals = unapply_presence(i);
+                EncVal::I8(OwnedStream::encode_i8s(&vals, enc)?)
+            }
+            (Val::U8(u), ScalarValueEncoder::Int(enc)) => {
                 let values = unapply_presence(u);
-                EncVal::U8(OwnedStream::encode_u8s(&values, enc.enc)?)
+                EncVal::U8(OwnedStream::encode_u8s(&values, enc)?)
             }
-            (Val::I32(i), enc) => {
+            (Val::I32(i), ScalarValueEncoder::Int(enc)) => {
                 let vals = unapply_presence(i);
-                EncVal::I32(OwnedStream::encode_i32s(&vals, enc.enc)?)
+                EncVal::I32(OwnedStream::encode_i32s(&vals, enc)?)
             }
-            (Val::U32(u), enc) => {
+            (Val::U32(u), ScalarValueEncoder::Int(enc)) => {
                 let vals = unapply_presence(u);
-                EncVal::U32(OwnedStream::encode_u32s(&vals, enc.enc)?)
+                EncVal::U32(OwnedStream::encode_u32s(&vals, enc)?)
             }
-            (Val::I64(i), enc) => {
+            (Val::I64(i), ScalarValueEncoder::Int(enc)) => {
                 let vals = unapply_presence(i);
-                EncVal::I64(OwnedStream::encode_i64s(&vals, enc.enc)?)
+                EncVal::I64(OwnedStream::encode_i64s(&vals, enc)?)
             }
-            (Val::U64(u), enc) => {
+            (Val::U64(u), ScalarValueEncoder::Int(enc)) => {
                 let vals = unapply_presence(u);
-                EncVal::U64(OwnedStream::encode_u64s(&vals, enc.enc)?)
+                EncVal::U64(OwnedStream::encode_u64s(&vals, enc)?)
             }
-            (Val::F32(f), _) => {
+            (Val::F32(f), ScalarValueEncoder::Float) => {
                 let vals = unapply_presence(f);
                 EncVal::F32(OwnedStream::encode_f32(&vals)?)
             }
-            (Val::F64(d), _) => {
+            (Val::F64(d), ScalarValueEncoder::Float) => {
                 let vals = unapply_presence(d);
                 EncVal::F64(OwnedStream::encode_f64(&vals)?)
             }
-            (Val::Str(s), enc) => {
+            (Val::Str(s), ScalarValueEncoder::String(enc)) => {
                 let values = unapply_presence(s);
-                let streams = match enc.string {
+                let streams = match enc {
                     StringEncoding::Plain { string_lengths } => {
                         OwnedStream::encode_strings_with_type(
                             &values,
@@ -787,7 +865,10 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                 };
                 EncVal::Str(streams)
             }
-            (Val::Struct, _) => Err(NotImplemented("struct property encoding"))?,
+            (Val::Struct, ScalarValueEncoder::Struct) => {
+                Err(NotImplemented("struct property encoding"))?
+            }
+            (v, e) => Err(UnsupportedPropertyEncoderCombination(v.name(), e.name()))?,
         };
 
         Ok(Self {
@@ -840,10 +921,7 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-
-    fn plain_enc(presence: PresenceStream) -> ScalarEncoder {
-        ScalarEncoder::new(presence, LogicalEncoder::None, PhysicalEncoder::None)
-    }
+    use crate::v01::{LogicalEncoder, PhysicalEncoder};
 
     fn strs(vals: &[&str]) -> Vec<Option<String>> {
         vals.iter().map(|v| Some(v.to_string())).collect()
@@ -928,7 +1006,7 @@ mod tests {
                         name: "x".to_string(),
                         values: PropValue::$variant(values),
                     };
-                    let enc = ScalarEncoder::new(PresenceStream::Present, logical, physical);
+                    let enc = ScalarEncoder::int(PresenceStream::Present, IntegerEncoder::new(logical, physical));
                     prop_assert_eq!(roundtrip(&prop, enc), prop);
                 }
 
@@ -943,7 +1021,7 @@ mod tests {
                         name: "x".to_string(),
                         values: PropValue::$variant(opt),
                     };
-                    let enc = ScalarEncoder::new(PresenceStream::Absent, logical, physical);
+                    let enc = ScalarEncoder::int(PresenceStream::Absent, IntegerEncoder::new(logical, physical));
                     prop_assert_eq!(roundtrip(&prop, enc), prop);
                 }
             }
@@ -969,7 +1047,10 @@ mod tests {
             name: "active".to_string(),
             values: PropValue::Bool(vec![Some(true), None, Some(false), Some(true), None]),
         };
-        assert_eq!(roundtrip(&prop, plain_enc(PresenceStream::Present)), prop);
+        assert_eq!(
+            roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present)),
+            prop
+        );
     }
     #[test]
     fn bool_all_null() {
@@ -977,7 +1058,10 @@ mod tests {
             name: "active".to_string(),
             values: PropValue::Bool(vec![None, None, None]),
         };
-        assert_eq!(roundtrip(&prop, plain_enc(PresenceStream::Present)), prop);
+        assert_eq!(
+            roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present)),
+            prop
+        );
     }
 
     proptest! {
@@ -990,13 +1074,13 @@ mod tests {
                 name: "flag".to_string(),
                 values: PropValue::Bool(values),
             };
-            prop_assert_eq!(roundtrip(&prop, plain_enc(PresenceStream::Present)), prop);
+            let enc = ScalarEncoder::bool(PresenceStream::Present);
+            prop_assert_eq!(roundtrip(&prop, enc), prop);
         }
     }
 
     // F32 and F64 are stored verbatim; logical and physical encoders are ignored.
     // NaN is excluded because NaN != NaN
-    // F64 is truncated to f32 precision on the wire
     proptest! {
         #[test]
         fn f32_roundtrip(
@@ -1009,16 +1093,15 @@ mod tests {
                 name: "score".to_string(),
                 values: PropValue::F32(values),
             };
-            prop_assert_eq!(roundtrip(&prop, plain_enc(PresenceStream::Present)), prop);
+            let enc = ScalarEncoder::float(PresenceStream::Present);
+            prop_assert_eq!(roundtrip(&prop, enc), prop);
         }
 
         #[test]
         fn f64_roundtrip(
             values in prop::collection::vec(
                 prop::option::of(
-                    any::<f32>()
-                        .prop_filter("no NaN", |f| !f.is_nan())
-                        .prop_map(f64::from),
+                    any::<f64>().prop_filter("no NaN", |f| !f.is_nan()),
                 ),
                 0..100,
             ),
@@ -1027,7 +1110,8 @@ mod tests {
                 name: "score".to_string(),
                 values: PropValue::F64(values),
             };
-            prop_assert_eq!(roundtrip(&prop, plain_enc(PresenceStream::Present)), prop);
+            let enc = ScalarEncoder::float(PresenceStream::Present);
+            prop_assert_eq!(roundtrip(&prop, enc), prop);
         }
     }
 
@@ -1039,21 +1123,24 @@ mod tests {
             "city",
             opt_strs(&[Some("Berlin"), None, Some("Hamburg"), None]),
         );
-        assert_eq!(roundtrip(&prop, plain_enc(PresenceStream::Present)), prop);
+        let enc = ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain());
+        assert_eq!(roundtrip(&prop, enc), prop);
     }
 
     #[test]
     fn str_scalar_all_null() {
         // All-None with a presence stream: the data stream is empty, presence is all-false.
         let prop = str_prop("city", opt_strs(&[None, None, None]));
-        assert_eq!(roundtrip(&prop, plain_enc(PresenceStream::Present)), prop);
+        let enc = ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain());
+        assert_eq!(roundtrip(&prop, enc), prop);
     }
 
     #[test]
     fn str_scalar_empty() {
         // Zero-row property: nothing to encode on either stream.
         let prop = str_prop("unused", vec![]);
-        assert_eq!(roundtrip(&prop, plain_enc(PresenceStream::Present)), prop);
+        let enc = ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain());
+        assert_eq!(roundtrip(&prop, enc), prop);
     }
 
     proptest! {
@@ -1065,7 +1152,8 @@ mod tests {
             ),
         ) {
             let prop = str_prop("name", values);
-            prop_assert_eq!(roundtrip(&prop, plain_enc(PresenceStream::Present)), prop);
+            let enc = ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain());
+            prop_assert_eq!(roundtrip(&prop, enc), prop);
         }
     }
 
@@ -1073,10 +1161,10 @@ mod tests {
     // corpus against it.  Both scalar and struct paths use separate code routes.
     #[test]
     fn fsst_scalar_string_roundtrip() {
-        let enc = ScalarEncoder::with_fsst(
+        let enc = ScalarEncoder::str_fsst(
             PresenceStream::Present,
-            LogicalEncoder::None,
-            PhysicalEncoder::None,
+            IntegerEncoder::plain(),
+            IntegerEncoder::plain(),
         );
         // Repeated "Br" prefix gives FSST something to compress.
         let prop = str_prop(
@@ -1088,10 +1176,10 @@ mod tests {
 
     #[test]
     fn fsst_struct_shared_dict_roundtrip() {
-        let enc = ScalarEncoder::with_fsst(
+        let enc = ScalarEncoder::str_fsst(
             PresenceStream::Present,
-            LogicalEncoder::None,
-            PhysicalEncoder::None,
+            IntegerEncoder::plain(),
+            IntegerEncoder::plain(),
         );
         let de = strs(&["Berlin", "Brandenburg", "Bremen"]);
         let en = strs(&["Berlin", "Brandenburg", "Bremen"]);
@@ -1109,7 +1197,7 @@ mod tests {
         let result = struct_encode_and_expand(
             "name",
             &[(":de", de.clone()), (":en", en.clone())],
-            plain_enc(PresenceStream::Present),
+            ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain()),
         );
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].name, "name:de");
@@ -1125,7 +1213,7 @@ mod tests {
         let result = struct_encode_and_expand(
             "name",
             &[(":de", de.clone()), (":en", en.clone())],
-            plain_enc(PresenceStream::Present),
+            ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain()),
         );
         assert_eq!(result[0].values, PropValue::Str(de));
         assert_eq!(result[1].values, PropValue::Str(en));
@@ -1142,9 +1230,10 @@ mod tests {
             str_prop(":de", strs(&["Berlin", "Berlin"])),
             str_prop(":en", strs(&["Berlin", "London"])),
         ];
+        let enc = ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain());
         let instructions = vec![
-            PropertyEncoder::struct_child("name", ":de", plain_enc(PresenceStream::Present)),
-            PropertyEncoder::struct_child("name", ":en", plain_enc(PresenceStream::Present)),
+            PropertyEncoder::struct_child("name", ":de", enc),
+            PropertyEncoder::struct_child("name", ":en", enc),
         ];
         let encoded = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, instructions).unwrap();
 
@@ -1176,7 +1265,7 @@ mod tests {
     fn struct_mixed_with_scalars() {
         // Scalar columns before and after a struct group must land in the right
         // positions after the two-pass grouping logic.
-        let enc = plain_enc(PresenceStream::Present);
+        let enc = ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain());
         let population = DecodedProperty {
             name: "population".to_string(),
             values: PropValue::U32(vec![Some(3_748_000), Some(1_787_000)]),
@@ -1219,7 +1308,7 @@ mod tests {
     fn two_struct_groups_with_scalar_between() {
         // Two independent struct columns must each get their own shared dictionary
         // and appear at the position of their first child in the output.
-        let enc = plain_enc(PresenceStream::Present);
+        let enc = ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain());
         let name_de = str_prop(":de", strs(&["Berlin", "Hamburg"]));
         let name_en = str_prop(":en", strs(&["Berlin", "Hamburg"]));
         let population = DecodedProperty {
@@ -1293,7 +1382,7 @@ mod tests {
             logical in any::<LogicalEncoder>(),
             physical in physical_no_fastpfor(),
         ) {
-            let encoder = ScalarEncoder::new(PresenceStream::Present, logical, physical);
+            let encoder = ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::new(logical, physical));
             let decoded: Vec<DecodedProperty> = children
                 .iter()
                 .map(|(child_name, values)| str_prop(child_name, values.clone()))
