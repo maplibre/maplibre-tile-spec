@@ -11,9 +11,9 @@ use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::PropValue::{Bool, F32, F64, I32, I64, Str, U32, U64};
 use mlt_core::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, GeometryEncoder, IdEncoder, IntegerEncoder,
+    DecodedGeometry, DecodedId, DecodedProperty, GeometryEncoder, IdEncoder, IntEncoder,
     MultiPropertyEncoder, OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01,
-    OwnedProperty, PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, StringEncoding,
+    OwnedProperty, PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, StrEncoding,
     VertexBufferType,
 };
 use mlt_core::{Encodable as _, FromDecoded as _, OwnedLayer, parse_layers};
@@ -77,20 +77,20 @@ impl SynthWriter {
     }
 
     #[must_use]
-    pub fn geo(&self, encoder: IntegerEncoder) -> Layer {
+    pub fn geo(&self, encoder: IntEncoder) -> Layer {
         Layer::new(self.dir.clone(), encoder)
     }
 
     /// Create a layer with all geometry encoders set to `VarInt`.
     #[must_use]
     pub fn geo_varint(&self) -> Layer {
-        Layer::new(self.dir.clone(), IntegerEncoder::varint())
+        Layer::new(self.dir.clone(), IntEncoder::varint())
     }
 
     /// Create a layer with all geometry encoders set to `FastPFOR`.
     #[must_use]
     pub fn geo_fastpfor(&self) -> Layer {
-        Layer::new(self.dir.clone(), IntegerEncoder::fastpfor())
+        Layer::new(self.dir.clone(), IntEncoder::fastpfor())
     }
 }
 
@@ -104,12 +104,12 @@ pub struct Layer {
     pub props: Vec<Box<dyn LayerProp>>,
     pub extent: Option<u32>,
     pub ids: Option<(Vec<Option<u64>>, IdEncoder)>,
-    pub shared_dicts: HashMap<String, StringEncoding>,
+    pub shared_dicts: HashMap<String, StrEncoding>,
 }
 
 impl Layer {
     #[must_use]
-    pub fn new(path: PathBuf, default_geom_enc: IntegerEncoder) -> Layer {
+    pub fn new(path: PathBuf, default_geom_enc: IntEncoder) -> Layer {
         Layer {
             path,
             geometry_encoder: GeometryEncoder::all(default_geom_enc),
@@ -124,70 +124,70 @@ impl Layer {
 
     /// Set encoding for parts length stream when rings are present.
     #[must_use]
-    pub fn rings(mut self, e: IntegerEncoder) -> Self {
+    pub fn rings(mut self, e: IntEncoder) -> Self {
         self.geometry_encoder.rings(e);
         self
     }
 
     /// Set encoding for ring vertex-count stream.
     #[must_use]
-    pub fn rings2(mut self, e: IntegerEncoder) -> Self {
+    pub fn rings2(mut self, e: IntEncoder) -> Self {
         self.geometry_encoder.rings2(e);
         self
     }
 
     /// Set encoding for the vertex data stream.
     #[must_use]
-    pub fn vertex(mut self, e: IntegerEncoder) -> Self {
+    pub fn vertex(mut self, e: IntEncoder) -> Self {
         self.geometry_encoder.vertex(e);
         self
     }
 
     /// Set encoding for the geometry types (meta) stream.
     #[must_use]
-    pub fn meta(mut self, e: IntegerEncoder) -> Self {
+    pub fn meta(mut self, e: IntEncoder) -> Self {
         self.geometry_encoder.meta(e);
         self
     }
 
     /// Set encoding for the geometry length stream.
     #[must_use]
-    pub fn geometries(mut self, e: IntegerEncoder) -> Self {
+    pub fn geometries(mut self, e: IntEncoder) -> Self {
         self.geometry_encoder.geometries(e);
         self
     }
 
     /// Set encoding for parts length stream when rings are not present.
     #[must_use]
-    pub fn no_rings(mut self, e: IntegerEncoder) -> Self {
+    pub fn no_rings(mut self, e: IntEncoder) -> Self {
         self.geometry_encoder.no_rings(e);
         self
     }
 
     /// Set encoding for parts length stream (with rings) when `geometry_offsets` absent.
     #[must_use]
-    pub fn parts(mut self, e: IntegerEncoder) -> Self {
+    pub fn parts(mut self, e: IntEncoder) -> Self {
         self.geometry_encoder.parts(e);
         self
     }
 
     /// Set encoding for ring lengths when `geometry_offsets` absent.
     #[must_use]
-    pub fn parts_ring(mut self, e: IntegerEncoder) -> Self {
+    pub fn parts_ring(mut self, e: IntEncoder) -> Self {
         self.geometry_encoder.parts_ring(e);
         self
     }
 
     /// Set encoding for parts-only stream.
     #[must_use]
-    pub fn only_parts(mut self, e: IntegerEncoder) -> Self {
+    pub fn only_parts(mut self, e: IntEncoder) -> Self {
         self.geometry_encoder.only_parts(e);
         self
     }
 
     /// Set encoding for triangles and triangle index buffer.
     #[must_use]
-    pub fn triangles(mut self, e: IntegerEncoder) -> Self {
+    pub fn triangles(mut self, e: IntEncoder) -> Self {
         self.geometry_encoder.triangles(e);
         self.geometry_encoder.triangles_indexes(e);
         self
@@ -195,7 +195,7 @@ impl Layer {
 
     /// Set encoding for vertex offsets.
     #[must_use]
-    pub fn vertex_offsets(mut self, e: IntegerEncoder) -> Self {
+    pub fn vertex_offsets(mut self, e: IntEncoder) -> Self {
         self.geometry_encoder.vertex_offsets(e);
         self
     }
@@ -257,11 +257,7 @@ impl Layer {
     ///
     /// See [`Self::add_shared_dict_column`] to add children.
     #[must_use]
-    pub fn add_shared_dict(
-        mut self,
-        struct_name: impl Into<String>,
-        encoder: StringEncoding,
-    ) -> Self {
+    pub fn add_shared_dict(mut self, struct_name: impl Into<String>, encoder: StrEncoding) -> Self {
         self.shared_dicts.insert(struct_name.into(), encoder);
         self
     }
@@ -279,7 +275,7 @@ impl Layer {
         struct_name: &str,
         child_name: &str,
         optional: PresenceStream,
-        offset: IntegerEncoder,
+        offset: IntEncoder,
         values: impl IntoIterator<Item = Option<String>>,
     ) -> Self {
         assert!(
@@ -567,7 +563,7 @@ pub struct StructChild {
     child_name: String,
     values: Vec<Option<String>>,
     optional: PresenceStream,
-    offset: IntegerEncoder,
+    offset: IntEncoder,
 }
 
 impl LayerProp for StructChild {

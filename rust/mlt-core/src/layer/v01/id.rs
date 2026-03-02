@@ -11,8 +11,9 @@ use crate::utils::{
     BinarySerializer as _, OptSeqOpt, apply_present, encode_bools_to_bytes, encode_byte_rle,
 };
 use crate::v01::{
-    ColumnType, IntegerEncoder, LogicalEncoder, LogicalEncoding, OwnedEncodedData, OwnedStream,
-    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, RleMeta, Stream, StreamMeta, StreamType,
+    ColumnType, IntEncoder, IntEncoding, LogicalEncoder, LogicalEncoding, OwnedEncodedData,
+    OwnedStream, OwnedStreamData, PhysicalEncoder, PhysicalEncoding, RleMeta, Stream, StreamMeta,
+    StreamType,
 };
 
 /// ID column representation, either encoded or decoded, or none if there are no IDs
@@ -268,11 +269,13 @@ impl FromDecoded<'_> for OwnedEncodedId {
             let num_rle_values = u32::try_from(data.len())?;
             let meta = StreamMeta::new(
                 StreamType::Present,
-                LogicalEncoding::Rle(RleMeta {
-                    runs,
-                    num_rle_values,
-                }),
-                PhysicalEncoding::None,
+                IntEncoding::new(
+                    LogicalEncoding::Rle(RleMeta {
+                        runs,
+                        num_rle_values,
+                    }),
+                    PhysicalEncoding::None,
+                ),
                 num_values,
             );
 
@@ -289,13 +292,13 @@ impl FromDecoded<'_> for OwnedEncodedId {
             let vals: Vec<u32> = ids.iter().filter_map(|&id| id).map(|v| v as u32).collect();
             OwnedEncodedIdValue::Id32(OwnedStream::encode_u32s(
                 &vals,
-                IntegerEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
+                IntEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
             )?)
         } else {
             let vals: Vec<u64> = ids.iter().filter_map(|&id| id).collect();
             OwnedEncodedIdValue::Id64(OwnedStream::encode_u64s(
                 &vals,
-                IntegerEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
+                IntEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
             )?)
         };
 
