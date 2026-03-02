@@ -60,3 +60,11 @@ impl IntegerEncoder {
         DataProfile::min_size_encoding_u64s(&enc, values)
     }
 }
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub struct FsstStringEncoder {
+    pub symbol_lengths: IntegerEncoder,
+    pub dict_lengths: IntegerEncoder,
+}

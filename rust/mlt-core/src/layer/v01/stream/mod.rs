@@ -8,7 +8,6 @@ use std::io::Write;
 use std::{fmt, io};
 
 use borrowme::borrowme;
-pub use encoder::IntegerEncoder;
 use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 
@@ -18,6 +17,7 @@ use crate::utils::{
     decode_bytes_to_u64s, decode_fastpfor_composite, encode_bools_to_bytes, encode_byte_rle,
     parse_u8, parse_varint, parse_varint_vec, take,
 };
+pub use crate::v01::stream::encoder::{FsstStringEncoder, IntegerEncoder};
 pub use crate::v01::stream::logical::{
     LogicalData, LogicalEncoder, LogicalEncoding, LogicalTechnique, LogicalValue,
 };
@@ -223,7 +223,7 @@ impl OwnedStream {
     /// Encode a sequence of strings into a length stream and a data stream.
     pub fn encode_strings_with_type(
         values: &[String],
-        encoding: IntegerEncoder,
+        length_encoding: IntegerEncoder,
         length_type: LengthType,
         dict_type: DictionaryType,
     ) -> Result<Vec<Self>, MltError> {
@@ -237,7 +237,7 @@ impl OwnedStream {
             .collect();
 
         let length_stream =
-            Self::encode_u32s_of_type(&lengths, encoding, StreamType::Length(length_type))?;
+            Self::encode_u32s_of_type(&lengths, length_encoding, StreamType::Length(length_type))?;
 
         let data_stream = Self::plain_with_type(data, u32::try_from(values.len())?, dict_type);
 
@@ -257,7 +257,7 @@ impl OwnedStream {
     /// are semantically compatible and can decode each other's output.
     pub fn encode_strings_fsst_with_type(
         values: &[String],
-        encoding: IntegerEncoder,
+        encoding: FsstStringEncoder,
         dict_type: DictionaryType,
     ) -> Result<Vec<Self>, MltError> {
         use fsst::Compressor;
@@ -303,7 +303,7 @@ impl OwnedStream {
         // Stream 1: Symbol lengths
         let symbol_length_stream = Self::encode_u32s_of_type(
             &symbol_lengths,
-            encoding,
+            encoding.symbol_lengths,
             StreamType::Length(LengthType::Symbol),
         )?;
 
@@ -321,7 +321,7 @@ impl OwnedStream {
         // Stream 3: Value lengths (original UTF-8 byte lengths)
         let value_length_stream = Self::encode_u32s_of_type(
             &value_lengths,
-            encoding,
+            encoding.dict_lengths,
             StreamType::Length(LengthType::Dictionary),
         )?;
 

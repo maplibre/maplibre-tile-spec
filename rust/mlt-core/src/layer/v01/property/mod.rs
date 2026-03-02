@@ -14,8 +14,8 @@ use crate::decode::{FromEncoded, impl_decodable};
 use crate::utils::{BinarySerializer as _, FmtOptVec, apply_present, f32_to_json, f64_to_json};
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{
-    ColumnType, DictionaryType, IntegerEncoder, LengthType, LogicalEncoder, OffsetType,
-    OwnedStream, PhysicalEncoder, Stream, StreamType,
+    ColumnType, DictionaryType, FsstStringEncoder, IntegerEncoder, LengthType, LogicalEncoder,
+    OffsetType, OwnedStream, PhysicalEncoder, Stream, StreamType,
 };
 use crate::{FromDecoded, MltError, impl_encodable};
 
@@ -663,7 +663,10 @@ fn encode_struct_property(
         )?,
         StringEncoding::Fsst => OwnedStream::encode_strings_fsst_with_type(
             &dict,
-            first_encoder.encoder(),
+            FsstStringEncoder {
+                symbol_lengths: first_encoder.encoder(),
+                dict_lengths: first_encoder.encoder(),
+            },
             DictionaryType::Single, // TODO: figure out if this is correct. According to Java it is.. but why?
         )?,
     };
@@ -777,7 +780,10 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                     )?,
                     StringEncoding::Fsst => OwnedStream::encode_strings_fsst_with_type(
                         &values,
-                        config.encoder(),
+                        FsstStringEncoder {
+                            symbol_lengths: config.encoder(),
+                            dict_lengths: config.encoder(),
+                        },
                         DictionaryType::Single,
                     )?,
                 };
