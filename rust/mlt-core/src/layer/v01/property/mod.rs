@@ -1444,16 +1444,15 @@ mod tests {
             PropertyEncoder::shared_dict("label:", "de", PresenceStream::Present, enc),
             PropertyEncoder::shared_dict("label:", "en", PresenceStream::Present, enc),
         ];
+        let str_enc = StringEncoding::plain(IntegerEncoder::plain());
         let encoded_prop = Vec::<OwnedEncodedProperty>::from_decoded(
             &decoded_props,
             MultiPropertyEncoder {
                 properties: prop_encoders,
-                shared_dicts: HashMap::from([(
-                    "name:".to_string(),
-                    StringEncoding::Plain {
-                        string_lengths: IntegerEncoder::plain(),
-                    },
-                )]),
+                shared_dicts: HashMap::from([
+                    ("name:".to_string(), str_enc),
+                    ("label:".to_string(), str_enc),
+                ]),
             },
         )
         .unwrap();
