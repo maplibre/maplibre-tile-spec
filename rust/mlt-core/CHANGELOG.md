@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.1.2...rust-mlt-core-v0.2.0) - 2026-03-02
+
+### Added
+
+- *(rust)* enable configuring the shared dictionarys fully ([#1015](https://github.com/maplibre/maplibre-tile-spec/pull/1015))
+- *(rust)* shared dictionary encoding support ([#1006](https://github.com/maplibre/maplibre-tile-spec/pull/1006))
+- *(rust)* add rust morton encoding ([#1005](https://github.com/maplibre/maplibre-tile-spec/pull/1005))
+- *(rust)* implement `arbitrary::Arbitrary` for simpler fuzzing setups ([#991](https://github.com/maplibre/maplibre-tile-spec/pull/991))
+
+### Fixed
+
+- *(encoders)* F64 encoded as f64 ([#1009](https://github.com/maplibre/maplibre-tile-spec/pull/1009))
+- *(rust)* LineString and MultiLineString geometries ([#989](https://github.com/maplibre/maplibre-tile-spec/pull/989))
+- *(rust)* encodeing of normalized mixed multi + regular geometrys panics ([#981](https://github.com/maplibre/maplibre-tile-spec/pull/981))
+
+### Other
+
+- *(rust)* move prop internals to "big enum" arch ([#1014](https://github.com/maplibre/maplibre-tile-spec/pull/1014))
+- clean up how FromDecoded interacts with strings ([#1011](https://github.com/maplibre/maplibre-tile-spec/pull/1011))
+- rename `Encoder` -> `IntegerEncoder` ([#1010](https://github.com/maplibre/maplibre-tile-spec/pull/1010))
+- *(rust)* start fixing rust synthetics ([#1002](https://github.com/maplibre/maplibre-tile-spec/pull/1002))
+- *(synthetic)* add Morton fixture synthetic test ([#960](https://github.com/maplibre/maplibre-tile-spec/pull/960))
+- More testing around geometry combinations ([#982](https://github.com/maplibre/maplibre-tile-spec/pull/982))
+- *(rust)* remove AVX failing test ([#999](https://github.com/maplibre/maplibre-tile-spec/pull/999))
+- *(rust)* rm json5, inf floats to string ([#1000](https://github.com/maplibre/maplibre-tile-spec/pull/1000))
+- *(rust)* Add an encoding benchmark ([#997](https://github.com/maplibre/maplibre-tile-spec/pull/997))
+- Revert "impl arbitrary"
+- impl arbitrary
+
 ## [0.1.2](https://github.com/maplibre/maplibre-tile-spec/compare/mlt-core-v0.1.1...mlt-core-v0.1.2) - 2026-02-25
 
 ### Added
