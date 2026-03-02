@@ -34,7 +34,7 @@ hex = "0.4.3"
 insta = "1.43.2"
 integer-encoding = "4.0.2"
 mlt-core = { version = "0.1.2", path = "mlt-core" }
-mvt-reader = "2.2.0"
+mvt-reader = "2.3.0"
 num-traits = "0.2.19"
 num_enum = "0.7.4"
 pretty_assertions = "1.4"

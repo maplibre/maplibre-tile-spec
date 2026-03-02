@@ -8,12 +8,13 @@ use std::{fs, io};
 use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
+use mlt_core::v01::PropValue::{Bool, F32, F64, I32, I64, Str, U32, U64};
 use mlt_core::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, Encoder, GeometryEncoder, IdEncoder,
-    OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PropValue, PropertyEncoder,
-    VertexBufferType,
+    DecodedGeometry, DecodedId, DecodedProperty, GeometryEncoder, IdEncoder, IntegerEncoder,
+    OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PropValue,
+    PropertyEncoder, ScalarEncoder, VertexBufferType,
 };
-use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
+use mlt_core::{Encodable as _, FromDecoded as _, OwnedLayer, parse_layers};
 
 /// Tessellate a polygon using the geo crate's earcut algorithm.
 ///
@@ -74,20 +75,20 @@ impl SynthWriter {
     }
 
     #[must_use]
-    pub fn geo(&self, encoder: Encoder) -> Layer {
+    pub fn geo(&self, encoder: IntegerEncoder) -> Layer {
         Layer::new(self.dir.clone(), encoder)
     }
 
     /// Create a layer with all geometry encoders set to `VarInt`.
     #[must_use]
     pub fn geo_varint(&self) -> Layer {
-        Layer::new(self.dir.clone(), Encoder::varint())
+        Layer::new(self.dir.clone(), IntegerEncoder::varint())
     }
 
     /// Create a layer with all geometry encoders set to `FastPFOR`.
     #[must_use]
     pub fn geo_fastpfor(&self) -> Layer {
-        Layer::new(self.dir.clone(), Encoder::fastpfor())
+        Layer::new(self.dir.clone(), IntegerEncoder::fastpfor())
     }
 }
 
@@ -105,7 +106,7 @@ pub struct Layer {
 
 impl Layer {
     #[must_use]
-    pub fn new(path: PathBuf, default_geom_enc: Encoder) -> Layer {
+    pub fn new(path: PathBuf, default_geom_enc: IntegerEncoder) -> Layer {
         Layer {
             path,
             geometry_encoder: GeometryEncoder::all(default_geom_enc),
@@ -119,70 +120,70 @@ impl Layer {
 
     /// Set encoding for parts length stream when rings are present.
     #[must_use]
-    pub fn rings(mut self, e: Encoder) -> Self {
+    pub fn rings(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.rings(e);
         self
     }
 
     /// Set encoding for ring vertex-count stream.
     #[must_use]
-    pub fn rings2(mut self, e: Encoder) -> Self {
+    pub fn rings2(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.rings2(e);
         self
     }
 
     /// Set encoding for the vertex data stream.
     #[must_use]
-    pub fn vertex(mut self, e: Encoder) -> Self {
+    pub fn vertex(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.vertex(e);
         self
     }
 
     /// Set encoding for the geometry types (meta) stream.
     #[must_use]
-    pub fn meta(mut self, e: Encoder) -> Self {
+    pub fn meta(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.meta(e);
         self
     }
 
     /// Set encoding for the geometry length stream.
     #[must_use]
-    pub fn geometries(mut self, e: Encoder) -> Self {
+    pub fn geometries(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.geometries(e);
         self
     }
 
     /// Set encoding for parts length stream when rings are not present.
     #[must_use]
-    pub fn no_rings(mut self, e: Encoder) -> Self {
+    pub fn no_rings(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.no_rings(e);
         self
     }
 
     /// Set encoding for parts length stream (with rings) when `geometry_offsets` absent.
     #[must_use]
-    pub fn parts(mut self, e: Encoder) -> Self {
+    pub fn parts(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.parts(e);
         self
     }
 
     /// Set encoding for ring lengths when `geometry_offsets` absent.
     #[must_use]
-    pub fn parts_ring(mut self, e: Encoder) -> Self {
+    pub fn parts_ring(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.parts_ring(e);
         self
     }
 
     /// Set encoding for parts-only stream.
     #[must_use]
-    pub fn only_parts(mut self, e: Encoder) -> Self {
+    pub fn only_parts(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.only_parts(e);
         self
     }
 
     /// Set encoding for triangles and triangle index buffer.
     #[must_use]
-    pub fn triangles(mut self, e: Encoder) -> Self {
+    pub fn triangles(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.triangles(e);
         self.geometry_encoder.triangles_indexes(e);
         self
@@ -190,7 +191,7 @@ impl Layer {
 
     /// Set encoding for vertex offsets.
     #[must_use]
-    pub fn vertex_offsets(mut self, e: Encoder) -> Self {
+    pub fn vertex_offsets(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.vertex_offsets(e);
         self
     }
@@ -229,8 +230,40 @@ impl Layer {
 
     /// Add a property (boxed dynamic value).
     #[must_use]
-    pub fn add_prop(mut self, prop: impl LayerProp + 'static) -> Self {
-        self.props.push(Box::new(prop));
+    pub fn add_prop(
+        mut self,
+        encoder: ScalarEncoder,
+        name: impl Into<String>,
+        prop: PropValue,
+    ) -> Self {
+        let prop = DecodedProperty {
+            name: name.into(),
+            values: prop,
+        };
+
+        self.props.push(Box::new(DecodedProp::new(prop, encoder)));
+        self
+    }
+
+    /// Add a child field of a shared-dictionary struct column.
+    ///
+    /// All children with the same `struct_name` are grouped into one struct column. Children are
+    /// ordered within the struct by the order they are added. The struct column is sorted among
+    /// other columns by `struct_name`.
+    #[must_use]
+    pub fn add_shared_dict_column(
+        mut self,
+        struct_name: &str,
+        child_name: &str,
+        encoder: ScalarEncoder,
+        values: impl IntoIterator<Item = Option<String>>,
+    ) -> Self {
+        self.props.push(Box::new(StructChild {
+            struct_name: struct_name.to_string(),
+            child_name: child_name.to_string(),
+            values: values.into_iter().collect(),
+            encoder,
+        }));
         self
     }
 
@@ -294,9 +327,21 @@ impl Layer {
         let mut geometry = OwnedGeometry::Decoded(decoded_geom);
         geometry.encode_with(self.geometry_encoder).unwrap();
 
-        let mut merged_props: Vec<(DecodedProperty, PropertyEncoder)> =
-            self.props.iter().map(|p| p.to_decoded()).collect();
-        merged_props.sort_by(|(a, _), (b, _)| a.name.cmp(&b.name));
+        let mut all_props = self
+            .props
+            .iter()
+            .map(|p| p.to_decoded())
+            .collect::<Vec<_>>();
+
+        // Sort by effective column name: struct_name for struct children, property name for
+        // scalars. sort_by is stable so children of the same struct keep their relative order.
+        all_props.sort_by(|(pa, ia), (pb, ib)| {
+            effective_column_name(pa, ia).cmp(effective_column_name(pb, ib))
+        });
+
+        let (decoded, instructions): (Vec<_>, Vec<_>) = all_props.into_iter().unzip();
+        let encoded_props =
+            Vec::<OwnedEncodedProperty>::from_decoded(&decoded, instructions).unwrap();
 
         let id = if let Some((ids, ids_encoder)) = self.ids {
             let mut id = OwnedId::Decoded(DecodedId(Some(ids)));
@@ -306,19 +351,16 @@ impl Layer {
             OwnedId::None
         };
 
+        let properties = encoded_props
+            .into_iter()
+            .map(OwnedProperty::Encoded)
+            .collect();
         let layer = OwnedLayer::Tag01(OwnedLayer01 {
             name: "layer1".to_string(),
             extent: self.extent.unwrap_or(80),
             id,
             geometry,
-            properties: merged_props
-                .into_iter()
-                .map(|(p, e)| {
-                    let mut p = OwnedProperty::Decoded(p);
-                    p.encode_with(e).unwrap();
-                    p
-                })
-                .collect::<Vec<_>>(),
+            properties,
         });
 
         let mut file = Self::open_new(path)
@@ -326,6 +368,15 @@ impl Layer {
         layer
             .write_to(&mut file)
             .unwrap_or_else(|e| panic!("cannot encode {}: {e}", path.display()));
+    }
+}
+
+/// Returns the effective column name used for sorting: `struct_name` for struct children,
+/// `prop.name` for scalars.
+fn effective_column_name<'a>(prop: &'a DecodedProperty, encoder: &'a PropertyEncoder) -> &'a str {
+    match encoder {
+        PropertyEncoder::Scalar(_) => &prop.name,
+        PropertyEncoder::StructChild { struct_name, .. } => struct_name,
     }
 }
 
@@ -341,13 +392,13 @@ type SetValue<T> = Box<dyn FnMut(&mut Vec<Option<T>>, Option<T>)>;
 /// Property builder for a single property with typed values.
 pub struct Prop<T> {
     name: String,
-    enc: PropertyEncoder,
+    enc: ScalarEncoder,
     values: Vec<Option<T>>,
     set_value: SetValue<T>,
 }
 
 impl<T: Clone> Prop<T> {
-    pub fn new(name: &str, enc: PropertyEncoder, set_value: SetValue<T>) -> Self {
+    pub fn new(name: &str, enc: ScalarEncoder, set_value: SetValue<T>) -> Self {
         Self {
             name: name.to_string(),
             enc,
@@ -375,48 +426,49 @@ impl<T: Clone> Prop<T> {
                 name: self.name.clone(),
                 values,
             },
-            self.enc,
+            PropertyEncoder::Scalar(self.enc),
         )
     }
 }
+
 impl LayerProp for Prop<bool> {
     fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(PropValue::Bool(self.values.clone()))
+        self.to_decoded_with(Bool(self.values.clone()))
     }
 }
 impl LayerProp for Prop<i32> {
     fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(PropValue::I32(self.values.clone()))
+        self.to_decoded_with(I32(self.values.clone()))
     }
 }
 impl LayerProp for Prop<u32> {
     fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(PropValue::U32(self.values.clone()))
+        self.to_decoded_with(U32(self.values.clone()))
     }
 }
 impl LayerProp for Prop<i64> {
     fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(PropValue::I64(self.values.clone()))
+        self.to_decoded_with(I64(self.values.clone()))
     }
 }
 impl LayerProp for Prop<u64> {
     fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(PropValue::U64(self.values.clone()))
+        self.to_decoded_with(U64(self.values.clone()))
     }
 }
 impl LayerProp for Prop<f32> {
     fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(PropValue::F32(self.values.clone()))
+        self.to_decoded_with(F32(self.values.clone()))
     }
 }
 impl LayerProp for Prop<f64> {
     fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(PropValue::F64(self.values.clone()))
+        self.to_decoded_with(F64(self.values.clone()))
     }
 }
 impl LayerProp for Prop<String> {
     fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(PropValue::Str(self.values.clone()))
+        self.to_decoded_with(Str(self.values.clone()))
     }
 }
 
@@ -425,35 +477,35 @@ fn push_value<T>(v: &mut Vec<Option<T>>, x: Option<T>) {
     v.push(x);
 }
 
-pub fn bool(name: &str, enc: PropertyEncoder) -> Prop<bool> {
+pub fn bool(name: &str, enc: ScalarEncoder) -> Prop<bool> {
     Prop::new(name, enc, Box::new(push_value))
 }
 
-pub fn i32(name: &str, enc: PropertyEncoder) -> Prop<i32> {
+pub fn i32(name: &str, enc: ScalarEncoder) -> Prop<i32> {
     Prop::new(name, enc, Box::new(push_value))
 }
 
-pub fn u32(name: &str, enc: PropertyEncoder) -> Prop<u32> {
+pub fn u32(name: &str, enc: ScalarEncoder) -> Prop<u32> {
     Prop::new(name, enc, Box::new(push_value))
 }
 
-pub fn i64(name: &str, enc: PropertyEncoder) -> Prop<i64> {
+pub fn i64(name: &str, enc: ScalarEncoder) -> Prop<i64> {
     Prop::new(name, enc, Box::new(push_value))
 }
 
-pub fn u64(name: &str, enc: PropertyEncoder) -> Prop<u64> {
+pub fn u64(name: &str, enc: ScalarEncoder) -> Prop<u64> {
     Prop::new(name, enc, Box::new(push_value))
 }
 
-pub fn f32(name: &str, enc: PropertyEncoder) -> Prop<f32> {
+pub fn f32(name: &str, enc: ScalarEncoder) -> Prop<f32> {
     Prop::new(name, enc, Box::new(push_value))
 }
 
-pub fn f64(name: &str, enc: PropertyEncoder) -> Prop<f64> {
+pub fn f64(name: &str, enc: ScalarEncoder) -> Prop<f64> {
     Prop::new(name, enc, Box::new(push_value))
 }
 
-pub fn string(name: &str, enc: PropertyEncoder) -> Prop<String> {
+pub fn string(name: &str, enc: ScalarEncoder) -> Prop<String> {
     Prop::new(name, enc, Box::new(push_value))
 }
 
@@ -461,17 +513,41 @@ pub fn string(name: &str, enc: PropertyEncoder) -> Prop<String> {
 #[derive(Clone)]
 pub struct DecodedProp {
     prop: DecodedProperty,
-    enc: PropertyEncoder,
+    enc: ScalarEncoder,
 }
 
 impl DecodedProp {
     #[must_use]
-    pub fn new(prop: DecodedProperty, enc: PropertyEncoder) -> Self {
+    pub fn new(prop: DecodedProperty, enc: ScalarEncoder) -> Self {
         Self { prop, enc }
     }
 }
 impl LayerProp for DecodedProp {
     fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        (self.prop.clone(), self.enc)
+        (self.prop.clone(), PropertyEncoder::Scalar(self.enc))
+    }
+}
+
+/// A single child field of a shared-dictionary struct column.
+///
+/// All `StructChildProp`s added to a [`Layer`] with the same `struct_name` are grouped into one
+/// struct column. The column appears in the output at the position of its first child after
+/// sorting by effective column name.
+pub struct StructChild {
+    struct_name: String,
+    child_name: String,
+    values: Vec<Option<String>>,
+    encoder: ScalarEncoder,
+}
+
+impl LayerProp for StructChild {
+    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
+        let prop = DecodedProperty {
+            name: self.child_name.clone(),
+            values: Str(self.values.clone()),
+        };
+        let instruction =
+            PropertyEncoder::struct_child(&self.struct_name, &self.child_name, self.encoder);
+        (prop, instruction)
     }
 }

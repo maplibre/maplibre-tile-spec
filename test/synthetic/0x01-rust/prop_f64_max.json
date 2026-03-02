@@ -6,7 +6,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": "f64::INFINITY"
+        "val": 1.7976931348623157e+308
       },
       "geometry": {
         "type": "Point",

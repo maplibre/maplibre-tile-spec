@@ -11,10 +11,6 @@ const RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100;
 const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
-    ["polygon_multi_fpf", "FastPFor not implemented"],
-    ["polygon_fpf_tes", "FastPFor not implemented"],
-    ["polygon_hole_fpf", "FastPFor not implemented"],
-    ["polygon_fpf", "FastPFor not implemented"],
     ["props_mixed", "F32 very buggy and does not work"],
     ["prop_str_empty", "empty strings not supported"],
     ["prop_i64_min", "wraps to 0 despite it should have been negative"],
@@ -146,6 +142,11 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["prop_f32_nan", "geometry diff"],
     ["prop_f32_neg_inf", "geometry diff"],
     ["prop_f32_pos_inf", "geometry diff"],
+    ["prop_f64", "does not parse f64 as f32"],
+    ["prop_f64_max", "does not parse f64 as f32"],
+    ["prop_f64_nan", "does not parse f64 as f32"],
+    ["prop_f64_neg_inf", "does not parse f64 as f32"],
+    ["prop_f64_pos_inf", "does not parse f64 as f32"],
 ]);
 
 const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");

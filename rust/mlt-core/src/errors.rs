@@ -70,6 +70,8 @@ pub enum MltError {
     InvalidFastPforByteLength(usize),
     #[error("vec2 delta stream size expected to be non-empty and multiple of 2, got {0}")]
     InvalidPairStreamSize(usize),
+    #[error("decodable stream size expected {1}, got {0}")]
+    InvalidDecodingStreamSize(usize, usize),
     #[error("stream data mismatch: expected {0}, got {1}")]
     StreamDataMismatch(&'static str, &'static str),
     #[error("IDs missing for encoding (expected Some IDs, got None)")]
@@ -86,6 +88,10 @@ pub enum MltError {
     StructSharedDictRequiresStreams(usize),
     #[error("Structs are not allowed to be optional")]
     TriedToEncodeOptionalStruct,
+    #[error(
+        "encoding instruction count mismatch: expected {input_len} instructions for {input_len} properties, got {config_len}"
+    )]
+    EncodingInstructionCountMismatch { input_len: usize, config_len: usize },
     #[error("struct child data streams expected exactly 1 value, got {0}")]
     UnexpectedStructChildCount(usize),
     #[error("unsupported physical encoding: {0}")]

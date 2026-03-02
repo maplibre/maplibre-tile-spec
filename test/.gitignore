@@ -8,4 +8,4 @@ expected/*/*/*.json
 expected/*/*/*/*
 
 # Dump files
-synthetic/**/*.dump
+**/*.dump

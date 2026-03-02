@@ -1,3 +1,4 @@
+mod encoder;
 mod logical;
 mod optimizer;
 mod physical;
@@ -16,73 +17,13 @@ use crate::utils::{
     decode_bytes_to_u64s, decode_fastpfor_composite, encode_bools_to_bytes, encode_byte_rle,
     parse_u8, parse_varint, parse_varint_vec, take,
 };
+pub use crate::v01::stream::encoder::{FsstStringEncoder, IntegerEncoder};
 pub use crate::v01::stream::logical::{
     LogicalData, LogicalEncoder, LogicalEncoding, LogicalTechnique, LogicalValue,
 };
 pub use crate::v01::stream::optimizer::DataProfile;
 pub use crate::v01::stream::physical::{PhysicalEncoder, PhysicalEncoding, StreamType};
 use crate::{MltError, MltRefResult};
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct Encoder {
-    pub logical: LogicalEncoder,
-    pub physical: PhysicalEncoder,
-}
-
-impl Encoder {
-    #[must_use]
-    pub const fn new(logical: LogicalEncoder, physical: PhysicalEncoder) -> Self {
-        Self { logical, physical }
-    }
-
-    #[must_use]
-    pub fn plain() -> Encoder {
-        Encoder::new(LogicalEncoder::None, PhysicalEncoder::None)
-    }
-    #[must_use]
-    pub fn varint() -> Encoder {
-        Encoder::new(LogicalEncoder::None, PhysicalEncoder::VarInt)
-    }
-    #[must_use]
-    pub fn rle_varint() -> Encoder {
-        Encoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
-    }
-    #[must_use]
-    pub fn delta_rle_varint() -> Encoder {
-        Encoder::new(LogicalEncoder::DeltaRle, PhysicalEncoder::VarInt)
-    }
-    #[must_use]
-    pub fn fastpfor() -> Encoder {
-        Encoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR)
-    }
-    #[must_use]
-    pub fn rle_fastpfor() -> Encoder {
-        Encoder::new(LogicalEncoder::Rle, PhysicalEncoder::FastPFOR)
-    }
-
-    /// Automatically select the best encoder for a `u32` stream.
-    ///
-    /// Uses the `BTRBlocks` strategy:
-    /// - profile a small sample of the data to prune unsuitable candidates,
-    /// - then encode the same sample with all survivors and
-    /// - return the encoder that produces the smallest output.
-    ///
-    /// `FastPFOR` is always preferred over `VarInt` when sizes are equal.
-    #[must_use]
-    pub fn auto_u32(values: &[u32]) -> Encoder {
-        let enc = DataProfile::prune_candidates::<i32>(values);
-        DataProfile::min_size_encoding_u32s(&enc, values)
-    }
-
-    /// Automatically select the best encoder for a `u64` stream.
-    #[must_use]
-    pub fn auto_u64(values: &[u64]) -> Encoder {
-        let enc = DataProfile::prune_candidates::<i64>(values);
-        DataProfile::min_size_encoding_u64s(&enc, values)
-    }
-}
 
 /// Representation of an encoded stream
 #[borrowme]
@@ -113,11 +54,16 @@ impl OwnedStream {
         }
     }
 
+    #[must_use]
+    fn plain(data: Vec<u8>, num_values: u32) -> OwnedStream {
+        Self::plain_with_type(data, num_values, DictionaryType::None)
+    }
+
     /// Creates a plain stream with values encoded literally
     #[must_use]
-    fn new_plain(data: Vec<u8>, num_values: u32) -> OwnedStream {
+    fn plain_with_type(data: Vec<u8>, num_values: u32, dict_type: DictionaryType) -> OwnedStream {
         let meta = StreamMeta::new(
-            StreamType::Data(DictionaryType::None),
+            StreamType::Data(dict_type),
             LogicalEncoding::None,
             PhysicalEncoding::None,
             num_values,
@@ -126,18 +72,29 @@ impl OwnedStream {
         Self { meta, data }
     }
 
-    /// Encode a boolean stream: byte-RLE <- packed bitmap <- `Vec<bool>`
+    /// Encode a boolean data stream: byte-RLE <- packed bitmap <- `Vec<bool>`
     /// Boolean streams always use byte-RLE encoding with `LogicalEncoding::Rle` metadata.
     /// The `RleMeta` values are computed by readers from the stream itself.
     pub fn encode_bools(values: &[bool]) -> Result<Self, MltError> {
+        Self::encode_bools_with_type(values, StreamType::Data(DictionaryType::None))
+    }
+
+    /// Encode a presence/nullability stream
+    ///
+    /// Identical to [`Self::encode_bools`] except the stream type is [`StreamType::Present`]
+    pub fn encode_presence(values: &[bool]) -> Result<Self, MltError> {
+        Self::encode_bools_with_type(values, StreamType::Present)
+    }
+
+    /// Encode a boolean data stream: byte-RLE <- packed bitmap <- `Vec<bool>`
+    fn encode_bools_with_type(values: &[bool], stream_type: StreamType) -> Result<Self, MltError> {
         let num_values = u32::try_from(values.len())?;
         let bytes = encode_bools_to_bytes(values);
         let data = encode_byte_rle(&bytes);
-        // Boolean streams use byte-RLE encoding with RLE metadata
         let runs = num_values.div_ceil(8);
         let num_rle_values = u32::try_from(data.len())?;
         let meta = StreamMeta::new(
-            StreamType::Data(DictionaryType::None),
+            stream_type,
             LogicalEncoding::Rle(RleMeta {
                 runs,
                 num_rle_values,
@@ -159,10 +116,21 @@ impl OwnedStream {
             .flat_map(|f| f.to_le_bytes())
             .collect::<Vec<u8>>();
 
-        Ok(Self::new_plain(data, num_values))
+        Ok(Self::plain(data, num_values))
     }
 
-    pub fn encode_i8s(values: &[i8], encoding: Encoder) -> Result<Self, MltError> {
+    /// Encodes `f64`s into a stream
+    pub fn encode_f64(values: &[f64]) -> Result<Self, MltError> {
+        let num_values = u32::try_from(values.len())?;
+        let data = values
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect::<Vec<u8>>();
+
+        Ok(Self::plain(data, num_values))
+    }
+
+    pub fn encode_i8s(values: &[i8], encoding: IntegerEncoder) -> Result<Self, MltError> {
         let as_i32: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
         let (physical_u32s, logical_encoding) = encoding.logical.encode_i32s(&as_i32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
@@ -177,7 +145,7 @@ impl OwnedStream {
             data,
         })
     }
-    pub fn encode_u8s(values: &[u8], encoding: Encoder) -> Result<Self, MltError> {
+    pub fn encode_u8s(values: &[u8], encoding: IntegerEncoder) -> Result<Self, MltError> {
         let as_u32: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
         let (physical_u32s, logical_encoding) = encoding.logical.encode_u32s(&as_u32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
@@ -192,7 +160,7 @@ impl OwnedStream {
             data,
         })
     }
-    pub fn encode_i32s(values: &[i32], encoding: Encoder) -> Result<Self, MltError> {
+    pub fn encode_i32s(values: &[i32], encoding: IntegerEncoder) -> Result<Self, MltError> {
         let (physical_u32s, logical_encoding) = encoding.logical.encode_i32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
         let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s)?;
@@ -206,12 +174,12 @@ impl OwnedStream {
             data,
         })
     }
-    pub fn encode_u32s(values: &[u32], encoding: Encoder) -> Result<Self, MltError> {
+    pub fn encode_u32s(values: &[u32], encoding: IntegerEncoder) -> Result<Self, MltError> {
         Self::encode_u32s_of_type(values, encoding, StreamType::Data(DictionaryType::None))
     }
     pub fn encode_u32s_of_type(
         values: &[u32],
-        encoding: Encoder,
+        encoding: IntegerEncoder,
         stream_type: StreamType,
     ) -> Result<Self, MltError> {
         let (physical_u32s, logical_encoding) = encoding.logical.encode_u32s(values)?;
@@ -223,7 +191,7 @@ impl OwnedStream {
         })
     }
 
-    pub fn encode_i64s(values: &[i64], encoding: Encoder) -> Result<Self, MltError> {
+    pub fn encode_i64s(values: &[i64], encoding: IntegerEncoder) -> Result<Self, MltError> {
         let (physical_u64s, logical_encoding) = encoding.logical.encode_i64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
         let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s)?;
@@ -237,7 +205,7 @@ impl OwnedStream {
             data,
         })
     }
-    pub fn encode_u64s(values: &[u64], encoding: Encoder) -> Result<Self, MltError> {
+    pub fn encode_u64s(values: &[u64], encoding: IntegerEncoder) -> Result<Self, MltError> {
         let (physical_u64s, logical_encoding) = encoding.logical.encode_u64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
         let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s)?;
@@ -253,7 +221,12 @@ impl OwnedStream {
     }
 
     /// Encode a sequence of strings into a length stream and a data stream.
-    pub fn encode_strings(values: &[String], encoding: Encoder) -> Result<Vec<Self>, MltError> {
+    pub fn encode_strings_with_type(
+        values: &[String],
+        length_encoding: IntegerEncoder,
+        length_type: LengthType,
+        dict_type: DictionaryType,
+    ) -> Result<Vec<Self>, MltError> {
         let lengths: Vec<u32> = values
             .iter()
             .map(|s| u32::try_from(s.len()))
@@ -263,13 +236,10 @@ impl OwnedStream {
             .flat_map(|s| s.as_bytes().iter().copied())
             .collect();
 
-        let length_stream = Self::encode_u32s_of_type(
-            &lengths,
-            encoding,
-            StreamType::Length(LengthType::VarBinary),
-        )?;
+        let length_stream =
+            Self::encode_u32s_of_type(&lengths, length_encoding, StreamType::Length(length_type))?;
 
-        let data_stream = Self::new_plain(data, u32::try_from(values.len())?);
+        let data_stream = Self::plain_with_type(data, u32::try_from(values.len())?, dict_type);
 
         Ok(vec![length_stream, data_stream])
     }
@@ -285,9 +255,10 @@ impl OwnedStream {
     /// Note: The FSST algorithm implementation may differ from Java's, so the
     /// compressed output may not be byte-for-byte identical. Both implementations
     /// are semantically compatible and can decode each other's output.
-    pub fn encode_strings_fsst(
+    pub fn encode_strings_fsst_with_type(
         values: &[String],
-        encoding: Encoder,
+        encoding: FsstStringEncoder,
+        dict_type: DictionaryType,
     ) -> Result<Vec<Self>, MltError> {
         use fsst::Compressor;
 
@@ -332,7 +303,7 @@ impl OwnedStream {
         // Stream 1: Symbol lengths
         let symbol_length_stream = Self::encode_u32s_of_type(
             &symbol_lengths,
-            encoding,
+            encoding.symbol_lengths,
             StreamType::Length(LengthType::Symbol),
         )?;
 
@@ -350,14 +321,14 @@ impl OwnedStream {
         // Stream 3: Value lengths (original UTF-8 byte lengths)
         let value_length_stream = Self::encode_u32s_of_type(
             &value_lengths,
-            encoding,
+            encoding.dict_lengths,
             StreamType::Length(LengthType::Dictionary),
         )?;
 
         // Stream 4: Compressed corpus
         let compressed_stream = Self {
             meta: StreamMeta::new(
-                StreamType::Data(DictionaryType::Single),
+                StreamType::Data(dict_type),
                 LogicalEncoding::None,
                 PhysicalEncoding::None,
                 u32::try_from(values.len())?,
@@ -469,7 +440,8 @@ impl StreamMeta {
         is_bool: bool,
         byte_length: u32,
     ) -> io::Result<()> {
-        use {LogicalEncoding as LE, LogicalTechnique as LT};
+        use LogicalEncoding as LE;
+        use LogicalTechnique as LT;
 
         writer.write_u8(self.stream_type.as_u8())?;
         let logical_enc_u8: u8 = match self.logical_encoding {
@@ -812,15 +784,53 @@ impl<'a> Stream<'a> {
                 return Err(MltError::NotImplemented("varint f32 decoding"));
             }
         };
-        let num = self.meta.num_values as usize;
+        let num = usize::try_from(self.meta.num_values)?;
+        let Some(expected_bytes) = num.checked_mul(4) else {
+            return Err(MltError::IntegerOverflow);
+        };
+        if raw.len() != expected_bytes {
+            return Err(MltError::InvalidDecodingStreamSize(
+                raw.len(),
+                expected_bytes,
+            ));
+        }
         Ok(raw
             .chunks_exact(4)
             .map(|chunk| {
-                // `chunks_exact(4)` guarantees `chunk` has length 4, so this is infallible.
-                let bytes = [chunk[0], chunk[1], chunk[2], chunk[3]];
+                let bytes = chunk
+                    .try_into()
+                    .expect("infallible because of `chunks_exact`");
                 f32::from_le_bytes(bytes)
             })
-            .take(num)
+            .collect())
+    }
+
+    /// Decode a stream of f64 values from raw little-endian bytes
+    pub fn decode_f64(self) -> Result<Vec<f64>, MltError> {
+        let raw = match &self.data {
+            StreamData::Encoded(d) => d.data,
+            StreamData::VarInt(_) => {
+                return Err(MltError::NotImplemented("varint f64 decoding"));
+            }
+        };
+        let num = usize::try_from(self.meta.num_values)?;
+        let Some(expected_bytes) = num.checked_mul(8) else {
+            return Err(MltError::IntegerOverflow);
+        };
+        if raw.len() != expected_bytes {
+            return Err(MltError::InvalidDecodingStreamSize(
+                raw.len(),
+                expected_bytes,
+            ));
+        }
+        Ok(raw
+            .chunks_exact(8)
+            .map(|chunk| {
+                let bytes = chunk
+                    .try_into()
+                    .expect("infallible because of `chunks_exact`");
+                f64::from_le_bytes(bytes)
+            })
             .collect())
     }
 
@@ -1016,7 +1026,7 @@ mod tests {
     #[case::empty(vec![])]
     fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
         use crate::utils::BinarySerializer as _;
-        let encoder = Encoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR);
+        let encoder = IntegerEncoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR);
         let owned_stream = OwnedStream::encode_u32s(&values, encoder).unwrap();
 
         let mut buffer = Vec::new();
@@ -1100,15 +1110,50 @@ mod tests {
         }
     }
 
-    fn encoding_no_fastpfor() -> impl Strategy<Value = Encoder> {
-        any::<Encoder>().prop_filter("not fastpfor", |v| v.physical != PhysicalEncoder::FastPFOR)
+    fn encoding_no_fastpfor() -> impl Strategy<Value = IntegerEncoder> {
+        any::<IntegerEncoder>()
+            .prop_filter("not fastpfor", |v| v.physical != PhysicalEncoder::FastPFOR)
     }
 
     proptest! {
         #[test]
+        fn test_i8_roundtrip(
+            values in prop::collection::vec(any::<i8>(), 0..100),
+            encoding in any::<IntegerEncoder>(),
+        ) {
+            let owned_stream = OwnedStream::encode_i8s(&values, encoding).unwrap();
+
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
+
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
+
+            let decoded_values = parsed_stream.decode_i8s().unwrap();
+            assert_eq!(decoded_values, values);
+        }
+
+        #[test]
+        fn test_u8_roundtrip(
+            values in prop::collection::vec(any::<u8>(), 0..100),
+            encoding in any::<IntegerEncoder>()
+        ) {
+            let owned_stream = OwnedStream::encode_u8s(&values, encoding).unwrap();
+
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
+
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
+
+            let decoded_values = parsed_stream.decode_u8s().unwrap();
+            assert_eq!(decoded_values, values);
+        }
+
+        #[test]
         fn test_u32_roundtrip(
             values in prop::collection::vec(any::<u32>(), 0..100),
-            encoding in any::<Encoder>()
+            encoding in any::<IntegerEncoder>()
         ) {
             let owned_stream = OwnedStream::encode_u32s(&values, encoding).unwrap();
 
@@ -1126,7 +1171,7 @@ mod tests {
         #[test]
         fn test_i32_roundtrip(
             values in prop::collection::vec(any::<i32>(), 0..100),
-            encoding in any::<Encoder>(),
+            encoding in any::<IntegerEncoder>(),
         ) {
             let owned_stream = OwnedStream::encode_i32s(&values, encoding).unwrap();
 
@@ -1178,40 +1223,6 @@ mod tests {
         }
 
         #[test]
-        fn test_i8_roundtrip(
-            values in prop::collection::vec(any::<i8>(), 0..100),
-            encoding in any::<Encoder>(),
-        ) {
-            let owned_stream = OwnedStream::encode_i8s(&values, encoding).unwrap();
-
-            let mut buffer = Vec::new();
-            buffer.write_stream(&owned_stream).unwrap();
-
-            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
-            assert!(remaining.is_empty());
-
-            let decoded_values = parsed_stream.decode_i8s().unwrap();
-            assert_eq!(decoded_values, values);
-        }
-
-        #[test]
-        fn test_u8_roundtrip(
-            values in prop::collection::vec(any::<u8>(), 0..100),
-            encoding in any::<Encoder>()
-        ) {
-            let owned_stream = OwnedStream::encode_u8s(&values, encoding).unwrap();
-
-            let mut buffer = Vec::new();
-            buffer.write_stream(&owned_stream).unwrap();
-
-            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
-            assert!(remaining.is_empty());
-
-            let decoded_values = parsed_stream.decode_u8s().unwrap();
-            assert_eq!(decoded_values, values);
-        }
-
-        #[test]
         fn test_f32_roundtrip(values in prop::collection::vec(any::<f32>(), 0..100)) {
             let owned_stream = OwnedStream::encode_f32(&values).unwrap();
 
@@ -1222,15 +1233,43 @@ mod tests {
             assert!(remaining.is_empty());
 
             let decoded_values = parsed_stream.decode_f32().unwrap();
-            assert_eq!(decoded_values, values);
+            assert_eq!(decoded_values.len(), values.len());
+            for (v1, v2) in decoded_values.iter().zip(values.iter()) {
+                assert_eq!(
+                    v1.to_bits(),
+                    v2.to_bits(),
+                    "despite being semantically equal, the values are not actually equal"
+                );
+            }
+        }
+
+        #[test]
+        fn test_f64_roundtrip(values in prop::collection::vec(any::<f64>(), 0..100)) {
+            let owned_stream = OwnedStream::encode_f64(&values).unwrap();
+
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
+
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
+
+            let decoded_values = parsed_stream.decode_f64().unwrap();
+            assert_eq!(decoded_values.len(), values.len());
+            for (v1, v2) in decoded_values.iter().zip(values.iter()) {
+                assert_eq!(
+                    v1.to_bits(),
+                    v2.to_bits(),
+                    "despite being semantically equal, the values are not actually equal"
+                );
+            }
         }
 
         #[test]
         fn test_string_roundtrip(
             values in prop::collection::vec(any::<String>(), 0..100),
-            encoding in any::<Encoder>(),
+            encoding in any::<IntegerEncoder>(),
         ) {
-            let owned_streams = OwnedStream::encode_strings(&values, encoding).unwrap();
+            let owned_streams = OwnedStream::encode_strings_with_type(&values, encoding, LengthType::VarBinary, DictionaryType::None).unwrap();
 
             let mut buffers = Vec::new();
             for owned_stream in &owned_streams {

@@ -6,7 +6,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 3.1415927410125732
+        "val": 3.141592653589793
       },
       "geometry": {
         "type": "Point",

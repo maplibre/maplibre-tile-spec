@@ -173,16 +173,6 @@ public class PropertyEncoder {
     return null;
   }
 
-  private static Byte getBytePropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
-    final var rawValue = feature.properties().get(columnMetadata.name);
-    if (rawValue instanceof Byte b) {
-      return b;
-    } else if (rawValue instanceof Unsigned u) {
-      return u.byteValue();
-    }
-    return null;
-  }
-
   private static Integer getIntPropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
     final var rawValue = feature.properties().get(columnMetadata.name);
     if (rawValue instanceof Integer i) {
@@ -216,6 +206,16 @@ public class PropertyEncoder {
       return (Float) rawValue;
     } else if (rawValue instanceof Double) {
       return (float) (double) rawValue;
+    }
+    return null;
+  }
+
+  private static Double getDoublePropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
+    final var rawValue = feature.properties().get(columnMetadata.name);
+    if (rawValue instanceof Double) {
+      return (Double) rawValue;
+    } else if (rawValue instanceof Float) {
+      return (double) rawValue;
     }
     return null;
   }
@@ -270,9 +270,14 @@ public class PropertyEncoder {
         yield encodeInt64Column(
             features, columnMetadata, isID, signed, integerEncodingOption, streamObserver);
       }
-      case FLOAT, DOUBLE ->
-          // no stream count
-          encodeFloatColumn(features, columnMetadata, streamObserver);
+      case FLOAT -> {
+        // no stream count
+        yield encodeFloatColumn(features, columnMetadata, streamObserver);
+      }
+      case DOUBLE -> {
+        // no stream count
+        yield encodeDoubleColumn(features, columnMetadata, streamObserver);
+      }
       case STRING ->
           encodeStringColumn(
               columnMetadata,
@@ -439,6 +444,38 @@ public class PropertyEncoder {
             : new byte[0];
     final var encodedDataStream =
         FloatEncoder.encodeFloatStream(values, streamObserver, "prop_" + fieldName);
+    return Bytes.concat(encodedPresentStream, encodedDataStream);
+  }
+
+  private static byte[] encodeDoubleColumn(
+      List<Feature> features,
+      MltMetadata.Column metadata,
+      @NotNull MLTStreamObserver streamObserver)
+      throws IOException {
+    final var fieldName = metadata.name;
+    final var values = new ArrayList<Double>();
+    final var presentValues = metadata.isNullable ? new ArrayList<Boolean>(features.size()) : null;
+    for (var feature : features) {
+      final var propertyValue = getDoublePropertyValue(feature, metadata);
+      final var present = (propertyValue != null);
+      if (present) {
+        values.add(propertyValue);
+      }
+      if (presentValues != null) {
+        presentValues.add(present);
+      }
+    }
+
+    final var encodedPresentStream =
+        (presentValues != null)
+            ? BooleanEncoder.encodeBooleanStream(
+                presentValues,
+                PhysicalStreamType.PRESENT,
+                streamObserver,
+                "prop_" + fieldName + "_present")
+            : new byte[0];
+    final var encodedDataStream =
+        DoubleEncoder.encodeDoubleStream(values, streamObserver, "prop_" + fieldName);
     return Bytes.concat(encodedPresentStream, encodedDataStream);
   }
 
