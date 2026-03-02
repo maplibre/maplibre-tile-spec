@@ -2,7 +2,7 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
-    AproximantePropertyType, GeometryEncoder, IdEncoder, IdWidth, IntegerEncoder, LogicalEncoder,
+    AproxPropertyType, GeometryEncoder, IdEncoder, IdWidth, IntegerEncoder, LogicalEncoder,
     PhysicalEncoder, PresenceStream, ScalarEncoder,
 };
 use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
@@ -125,22 +125,22 @@ fn bench_encode_properties(c: &mut Criterion) {
                                             for prop in &mut l.properties {
                                                 let int_enc =
                                                     IntegerEncoder::new(logical, physical);
-                                                let enc = match prop.approximate_type() {
-                                                    AproximantePropertyType::Bool => {
+                                                let enc = match prop.approx_type() {
+                                                    AproxPropertyType::Bool => {
                                                         ScalarEncoder::bool(presence)
                                                     }
-                                                    AproximantePropertyType::Integer => {
+                                                    AproxPropertyType::Integer => {
                                                         ScalarEncoder::int(presence, int_enc)
                                                     }
-                                                    AproximantePropertyType::Float => {
+                                                    AproxPropertyType::Float => {
                                                         ScalarEncoder::float(presence)
                                                     }
-                                                    AproximantePropertyType::String => {
+                                                    AproxPropertyType::String => {
                                                         ScalarEncoder::str_fsst(
                                                             presence, int_enc, int_enc,
                                                         )
                                                     }
-                                                    AproximantePropertyType::Struct => {
+                                                    AproxPropertyType::Struct => {
                                                         unreachable!("unimplemented")
                                                     }
                                                 };
