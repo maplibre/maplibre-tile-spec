@@ -221,19 +221,19 @@ impl OwnedStream {
     }
 
     /// Encode a sequence of strings into a length stream and a data stream.
-    pub fn encode_strings_with_type(
-        values: &[String],
+    pub fn encode_strings_with_type<S: AsRef<str>>(
+        values: &[S],
         length_encoding: IntegerEncoder,
         length_type: LengthType,
         dict_type: DictionaryType,
     ) -> Result<Vec<Self>, MltError> {
         let lengths: Vec<u32> = values
             .iter()
-            .map(|s| u32::try_from(s.len()))
+            .map(|s| u32::try_from(s.as_ref().len()))
             .collect::<Result<Vec<_>, _>>()?;
         let data: Vec<u8> = values
             .iter()
-            .flat_map(|s| s.as_bytes().iter().copied())
+            .flat_map(|s| s.as_ref().as_bytes().iter().copied())
             .collect();
 
         let length_stream =
@@ -255,15 +255,15 @@ impl OwnedStream {
     /// Note: The FSST algorithm implementation may differ from Java's, so the
     /// compressed output may not be byte-for-byte identical. Both implementations
     /// are semantically compatible and can decode each other's output.
-    pub fn encode_strings_fsst_with_type(
-        values: &[String],
+    pub fn encode_strings_fsst_with_type<S: AsRef<str>>(
+        values: &[S],
         encoding: FsstStringEncoder,
         dict_type: DictionaryType,
     ) -> Result<Vec<Self>, MltError> {
         use fsst::Compressor;
 
         // Build byte slices for training
-        let byte_slices: Vec<&[u8]> = values.iter().map(String::as_bytes).collect();
+        let byte_slices: Vec<&[u8]> = values.iter().map(|s| s.as_ref().as_bytes()).collect();
 
         // Train FSST compressor on the corpus
         let compressor = Compressor::train(&byte_slices);
@@ -290,14 +290,14 @@ impl OwnedStream {
         // Compress all strings and concatenate into a single corpus
         let mut compressed = Vec::new();
         for s in values {
-            let comp = compressor.compress(s.as_bytes());
+            let comp = compressor.compress(s.as_ref().as_bytes());
             compressed.extend(comp);
         }
 
         // Get original string lengths (UTF-8 byte lengths)
         let value_lengths: Vec<u32> = values
             .iter()
-            .map(|s| u32::try_from(s.len()))
+            .map(|s| u32::try_from(s.as_ref().len()))
             .collect::<Result<Vec<_>, _>>()?;
 
         // Stream 1: Symbol lengths

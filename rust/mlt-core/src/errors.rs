@@ -76,6 +76,8 @@ pub enum MltError {
     StreamDataMismatch(&'static str, &'static str),
     #[error("IDs missing for encoding (expected Some IDs, got None)")]
     IdsMissingForEncoding,
+    #[error("missing struct encoder for struct")]
+    MissingStructEncoderForStruct,
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
     #[error("MVT parse error: {0}")]
