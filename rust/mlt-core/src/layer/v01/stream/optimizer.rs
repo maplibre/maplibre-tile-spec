@@ -6,8 +6,8 @@ use probabilistic_collections::hyperloglog::HyperLogLog;
 use zigzag::ZigZag;
 
 use crate::MltError;
-use crate::v01::{LogicalEncoder, PhysicalEncoder};
 use crate::v01::stream::IntegerEncoder;
+use crate::v01::{LogicalEncoder, PhysicalEncoder};
 
 /// Minimum number of values to profile / compete on.
 ///
@@ -215,7 +215,10 @@ impl DataProfile {
                     PhysicalEncoder::FastPFOR,
                 ));
             }
-            out.push(IntegerEncoder::new(LogicalEncoder::Delta, PhysicalEncoder::VarInt));
+            out.push(IntegerEncoder::new(
+                LogicalEncoder::Delta,
+                PhysicalEncoder::VarInt,
+            ));
         }
 
         // RLE-only (no delta).
