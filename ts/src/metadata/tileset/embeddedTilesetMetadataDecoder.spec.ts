@@ -215,31 +215,24 @@ describe("embeddedTilesetMetadataDecoder", () => {
             expect(metadata.featureTables[0].columns[0].complexType.children).toHaveLength(1);
         });
 
-        const logicalIdTypeCodeCases = [
-            { typeCode: 0, nullable: false, longID: false },
-            { typeCode: 1, nullable: true, longID: false },
-            { typeCode: 2, nullable: false, longID: true },
-            { typeCode: 3, nullable: true, longID: true },
-        ];
-        for (const { typeCode, nullable, longID } of logicalIdTypeCodeCases) {
-            it(`should decode ID type code ${typeCode} as logical ID metadata`, () => {
-                const buffer = concatenateBuffers(
-                    encodeFieldName("layer"),
-                    encodeTypeCode(4096),
-                    encodeChildCount(1),
-                    encodeTypeCode(typeCode),
-                );
+        it("should decode logical ID metadata with implicit id column name", () => {
+            const typeCode = 3;
+            const buffer = concatenateBuffers(
+                encodeFieldName("layer"),
+                encodeTypeCode(4096),
+                encodeChildCount(1),
+                encodeTypeCode(typeCode),
+            );
 
-                const [metadata] = decodeEmbeddedTileSetMetadata(buffer, new IntWrapper(0));
-                const idColumn = metadata.featureTables[0].columns[0];
+            const [metadata] = decodeEmbeddedTileSetMetadata(buffer, new IntWrapper(0));
+            const idColumn = metadata.featureTables[0].columns[0];
 
-                expect(idColumn.name).toBe("id");
-                expect(idColumn.nullable).toBe(nullable);
-                expect(idColumn.type).toBe("scalarType");
-                expect(idColumn.scalarType?.type).toBe("logicalType");
-                expect(idColumn.scalarType?.logicalType).toBe(LogicalScalarType.ID);
-                expect(idColumn.scalarType?.longID).toBe(longID);
-            });
-        }
+            expect(idColumn.name).toBe("id");
+            expect(idColumn.nullable).toBe(true);
+            expect(idColumn.type).toBe("scalarType");
+            expect(idColumn.scalarType?.type).toBe("logicalType");
+            expect(idColumn.scalarType?.logicalType).toBe(LogicalScalarType.ID);
+            expect(idColumn.scalarType?.longID).toBe(true);
+        });
     });
 });

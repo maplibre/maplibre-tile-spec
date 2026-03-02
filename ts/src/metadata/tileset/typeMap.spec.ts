@@ -3,23 +3,27 @@ import { type Column, ComplexType, LogicalScalarType, ScalarType } from "./tiles
 import { decodeColumnType, isGeometryColumn, isLogicalIdColumn } from "./typeMap";
 
 describe("typeMap helpers", () => {
-    it("should decode ID type codes with longID mapped from bit 1", () => {
+    it("should decode ID type codes with logical metadata and bit flags", () => {
         const cases = [
-            { typeCode: 0, longID: false },
-            { typeCode: 1, longID: false },
-            { typeCode: 2, longID: true },
-            { typeCode: 3, longID: true },
+            { typeCode: 0, nullable: false, longID: false },
+            { typeCode: 1, nullable: true, longID: false },
+            { typeCode: 2, nullable: false, longID: true },
+            { typeCode: 3, nullable: true, longID: true },
         ];
 
-        for (const { typeCode, longID } of cases) {
+        for (const { typeCode, nullable, longID } of cases) {
             const column = decodeColumnType(typeCode);
 
-            expect(column).not.toBeNull();
-            if (!column) {
-                throw new Error(`Failed to decode type code ${typeCode}`);
-            }
+            expect(column).toMatchObject({
+                nullable,
+                type: "scalarType",
+                scalarType: {
+                    type: "logicalType",
+                    logicalType: LogicalScalarType.ID,
+                    longID,
+                },
+            });
             expect(isLogicalIdColumn(column)).toBe(true);
-            expect(column?.scalarType?.longID).toBe(longID);
         }
     });
 
@@ -47,7 +51,7 @@ describe("typeMap helpers", () => {
         expect(isLogicalIdColumn(logicalIdAnyNameColumn)).toBe(true);
     });
 
-    it("should detect geometry columns by metadata type, not by name", () => {
+    it("should return false for STRUCT columns even when column is named geometry", () => {
         const structNamedGeometryColumn = {
             name: "geometry",
             type: "complexType",
@@ -58,6 +62,10 @@ describe("typeMap helpers", () => {
             },
         } as Column;
 
+        expect(isGeometryColumn(structNamedGeometryColumn)).toBe(false);
+    });
+
+    it("should return true for GEOMETRY columns regardless of column name", () => {
         const geometryAnyNameColumn = {
             name: "geom",
             type: "complexType",
@@ -68,7 +76,6 @@ describe("typeMap helpers", () => {
             },
         } as Column;
 
-        expect(isGeometryColumn(structNamedGeometryColumn)).toBe(false);
         expect(isGeometryColumn(geometryAnyNameColumn)).toBe(true);
     });
 });
