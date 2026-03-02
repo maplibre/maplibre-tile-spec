@@ -498,27 +498,27 @@ mod tests {
         encoder: IdEncoder,
     ) -> Result<(), TestCaseError> {
         let input = DecodedId(Some(ids));
-        let encoded = OwnedEncodedId::from_decoded(&input, encoder).expect("Failed to encode");
+        let enc_id = OwnedEncodedId::from_decoded(&input, encoder).expect("Failed to encode");
 
         if matches!(encoder.id_width, Id32 | OptId32) {
             prop_assert!(
-                matches!(encoded.value, OwnedEncodedIdValue::Id32(_)),
+                matches!(enc_id.value, OwnedEncodedIdValue::Id32(_)),
                 "Expected Id32 variant"
             );
         } else {
             prop_assert!(
-                matches!(encoded.value, OwnedEncodedIdValue::Id64(_)),
+                matches!(enc_id.value, OwnedEncodedIdValue::Id64(_)),
                 "Expected Id64 variant"
             );
         }
 
         if matches!(encoder.id_width, OptId32 | OptId64) {
             prop_assert!(
-                encoded.optional.is_some(),
+                enc_id.optional.is_some(),
                 "Expected optional stream to be present"
             );
         } else {
-            prop_assert!(encoded.optional.is_none(), "Expected no optional stream");
+            prop_assert!(enc_id.optional.is_none(), "Expected no optional stream");
         }
         Ok(())
     }
