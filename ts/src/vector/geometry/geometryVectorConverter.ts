@@ -96,8 +96,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                 }
                 geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
             }
-            // MULTIPOINT must increment offset counters like POINT does, to keep them in sync
-            // Each point in the MULTIPOINT consumes one entry in partOffsets and ringOffsets
+            // MULTIPOINT must increment offset counters like POINT does
             partOffsetCounter += numPoints;
             ringOffsetsCounter += numPoints;
         } else if (geometryType === GEOMETRY_TYPE.LINESTRING) {
