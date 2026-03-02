@@ -7,7 +7,7 @@ use mlt_core::geojson::FeatureCollection;
 use mlt_core::{MltError, parse_layers};
 
 use crate::OutputFormat;
-use crate::ls::is_mvt_extension;
+use crate::ls::is_mlt_extension;
 
 #[derive(Args)]
 pub struct DumpArgs {
@@ -28,10 +28,10 @@ pub enum AfterDump {
 pub fn dump(args: &DumpArgs, decode: AfterDump) -> Result<()> {
     let buffer = fs::read(&args.file)?;
 
-    if is_mvt_extension(&args.file) {
-        dump_mvt(args, buffer)?;
-    } else {
+    if is_mlt_extension(&args.file) {
         dump_mlt(args, decode, &buffer)?;
+    } else {
+        dump_mvt(args, buffer)?;
     }
     Ok(())
 }

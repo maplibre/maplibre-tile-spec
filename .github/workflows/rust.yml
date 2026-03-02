@@ -98,15 +98,12 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact_name: mlt-x86_64-unknown-linux-gnu.tar.gz
-          # Requires mlt > fastpfor to support arm via the existing simde code
-          # Currently, seems flaky
-          #- os: ubuntu-22.04-arm
-          #  target: aarch64-unknown-linux-gnu
-          #  artifact_name: mlt-linux-aarch64.tar.gz
-          # Requires mlt > fastpfor to support apple arm.
-          #- os: macos-latest
-          #  target: aarch64-apple-darwin
-          #  artifact_name: mlt-macos-aarch64.tar.gz
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            artifact_name: mlt-aarch64-unknown-linux-gnu.tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: mlt-aarch64-apple-darwin.tar.gz
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact_name: mlt-x86_64-pc-windows-msvc.zip

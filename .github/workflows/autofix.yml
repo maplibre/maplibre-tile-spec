@@ -28,7 +28,7 @@ jobs:
       - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8 # v1.3.3
         with: {commit-message: "chore: sort Cargo.toml"}
   rust-sync-pyo3-version:
-    name: Sync mlt-pyo3 pyproject.toml version
+    name: Sync maplibre-tiles pyproject.toml version
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -51,6 +51,33 @@ jobs:
 
       - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8 # v1.3.3
         with: {commit-message: "chore: sync secondary version indicators"}
+
+  rust-gen-pyo3-stubs:
+    name: Regenerate maplibre_tiles.pyi stub
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: |
+      github.event.action == 'opened' ||
+      github.event.action == 'synchronize' ||
+      github.event.action == 'reopened'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just' }
+      - uses: ./.github/actions/mlt-setup-rust
+      - name: Regenerate stub
+        run: just rust::sync-pyo3-stubs
+
+      # run pre-commit as a formatting tiebreaker
+      - name: Install uv
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
+      - run: uvx pre-commit run --all-files
+        continue-on-error: true
+
+      - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8
+        with: {commit-message: "chore: regenerate maplibre_tiles.pyi stub"}
 
   bless:
     name: Bless test output

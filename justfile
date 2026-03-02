@@ -63,10 +63,11 @@ docs-build:
 ci-extract-version language tag:
     @echo "{{replace(replace(tag, language + '-', ''), 'v', '')}}"
 
-# Run the mlt CLI tool with the given arguments. Working dir is the `rust` subdir.
-[working-directory: 'rust']
+# Run the mlt CLI tool with the given arguments from current dir.
+[no-cd]
+[positional-arguments]  # avoids shell expansions
 mlt *args:
-    cargo run --package mlt -- {{args}}
+    cargo run --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt -- "$@"
 
 # Ensure a command is available
 assert-cmd command:
@@ -99,9 +100,13 @@ assert-git-is-clean:
     if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
         >&2 echo "::error::git repo is not clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified."
         if [[ "{{ci_mode}}" == "1" ]]; then
-            >&2 echo "######### git status ##########"
+            >&2 echo "::group::git status"
             git status
+            >&2 echo "::endgroup::"
+            >&2 echo "::group::git diff (tracked changes)"
+            git add . --intent-to-add
             git --no-pager diff
+            >&2 echo "::endgroup::"
             exit 1
         else
             >&2 echo "git repo is not clean, but not failing because CI mode is not enabled."

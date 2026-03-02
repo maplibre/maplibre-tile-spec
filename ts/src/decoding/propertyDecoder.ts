@@ -5,13 +5,12 @@ import BitVector from "../vector/flat/bitVector";
 import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import { VectorType } from "../vector/vectorType";
 import { BooleanFlatVector } from "../vector/flat/booleanFlatVector";
-import { DoubleFlatVector } from "../vector/flat/doubleFlatVector";
 import { FloatFlatVector } from "../vector/flat/floatFlatVector";
 import { LongConstVector } from "../vector/constant/longConstVector";
 import { LongFlatVector } from "../vector/flat/longFlatVector";
 import { IntFlatVector } from "../vector/flat/intFlatVector";
 import { IntConstVector } from "../vector/constant/intConstVector";
-import { decodeBooleanRle, decodeDoublesLE, decodeFloatsLE, skipColumn } from "./decodingUtils";
+import { decodeBooleanRle, decodeFloatsLE, skipColumn } from "./decodingUtils";
 import {
     decodeConstIntStream,
     decodeConstLongStream,
@@ -97,9 +96,8 @@ function decodeScalarPropertyColumn(
         case ScalarType.INT_64:
             return decodeLongColumn(data, offset, columnMetadata, sizeOrNullabilityBuffer, column);
         case ScalarType.FLOAT:
+        case ScalarType.DOUBLE: // doubles currently written as floats
             return decodeFloatColumn(data, offset, columnMetadata, sizeOrNullabilityBuffer);
-        case ScalarType.DOUBLE:
-            return decodeDoubleColumn(data, offset, columnMetadata, sizeOrNullabilityBuffer);
         default:
             throw new Error(`The specified data type for the field is currently not supported: ${column}`);
     }
@@ -132,18 +130,6 @@ function decodeFloatColumn(
     const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
     const dataStream = decodeFloatsLE(data, offset, dataStreamMetadata.numValues, nullabilityBuffer);
     return new FloatFlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
-}
-
-function decodeDoubleColumn(
-    data: Uint8Array,
-    offset: IntWrapper,
-    column: Column,
-    sizeOrNullabilityBuffer: number | BitVector,
-): DoubleFlatVector {
-    const dataStreamMetadata = decodeStreamMetadata(data, offset);
-    const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
-    const dataStream = decodeDoublesLE(data, offset, dataStreamMetadata.numValues, nullabilityBuffer);
-    return new DoubleFlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
 }
 
 function decodeLongColumn(

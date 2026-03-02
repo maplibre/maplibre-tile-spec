@@ -11,6 +11,10 @@ runs:
   using: "composite"
   steps:
 
+    - name: Update package cache
+      if: runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get update
     - name: Install protobuf compiler (Ubuntu)
       if: runner.os == 'Linux'
       shell: bash
@@ -29,7 +33,7 @@ runs:
       run: choco install protoc -y
 
     - uses: taiki-e/install-action@v2
-      with: { tool: 'just,cargo-binstall,cargo-hack,fd-find,cargo-insta,cargo-sort' }
+      with: { tool: 'just,cargo-binstall,cargo-hack,fd-find,cargo-insta,cargo-sort,git-delta' }
 
     # Install the requested toolchain (stable, nightly, or msrv)
     - if: ${{ inputs.toolchain == 'stable' }}
