@@ -91,8 +91,8 @@ impl OwnedProperty {
     }
 
     #[must_use]
-    pub fn approximate_type(&self) -> AproximantePropertyType {
-        use AproximantePropertyType as T;
+    pub fn approx_type(&self) -> AproxPropertyType {
+        use AproxPropertyType as T;
         use OwnedEncodedPropValue as Enc;
         use PropValue as Dec;
         match self {
@@ -118,7 +118,7 @@ impl OwnedProperty {
     }
 }
 
-pub enum AproximantePropertyType {
+pub enum AproxPropertyType {
     Bool,
     Integer,
     Float,
