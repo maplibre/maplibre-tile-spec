@@ -38,7 +38,7 @@ tileverse-rangereader-all = { module= "io.tileverse.rangereader:tileverse-ranger
 
 [plugins]
 diffplug-spotless = { id = "com.diffplug.spotless", version = "8.2.1"}
-gradleup-shadow = { id = "com.gradleup.shadow", version = "9.3.1"}
+gradleup-shadow = { id = "com.gradleup.shadow", version = "9.3.2"}
 me-champeau-jmh = { id = "me.champeau.jmh", version = "0.7.3" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.36.0" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin-jvm" }
