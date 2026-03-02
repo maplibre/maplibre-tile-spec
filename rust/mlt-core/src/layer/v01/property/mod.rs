@@ -444,21 +444,6 @@ impl<'a> Property<'a> {
     }
 }
 
-/// How to encode string properties
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum StringEncoding {
-    /// Plain encoding: length stream + data stream
-    #[default]
-    Plain,
-    /// FSST encoding: symbol lengths + symbol table + value lengths + compressed corpus
-    ///
-    /// Note: The FSST algorithm implementation may differ from Java's, so the
-    /// compressed output may not be byte-for-byte identical. Both implementations
-    /// are semantically compatible and can decode each other's output.
-    Fsst,
-}
-
 /// How to encode properties
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
@@ -477,7 +462,9 @@ impl ScalarEncoder {
             optional,
             value: ScalarValueEncoder {
                 enc: IntegerEncoder { logical, physical },
-                string: StringEncoding::Plain,
+                string: StringEncoding::Plain {
+                    string_lengths: IntegerEncoder { logical, physical },
+                },
             },
         }
     }
@@ -489,14 +476,26 @@ impl ScalarEncoder {
         logical: LogicalEncoder,
         physical: PhysicalEncoder,
     ) -> Self {
+        let enc = IntegerEncoder { logical, physical };
         Self {
             optional,
             value: ScalarValueEncoder {
-                enc: IntegerEncoder { logical, physical },
-                string: StringEncoding::Fsst,
+                enc,
+                string: StringEncoding::Fsst(FsstStringEncoder {
+                    symbol_lengths: enc,
+                    dict_lengths: enc,
+                }),
             },
         }
     }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum StringEncoding {
+    Plain { string_lengths: IntegerEncoder },
+    Fsst(FsstStringEncoder),
 }
 
 /// How to encode properties
@@ -657,25 +656,16 @@ fn encode_struct_property(
         |(_, enc, _)| *enc,
     );
 
-    let dict_streams = match first_encoder.value {
-        ScalarValueEncoder {
-            enc,
-            string: StringEncoding::Plain,
-        } => OwnedStream::encode_strings_with_type(
+    let dict_streams = match first_encoder.value.string {
+        StringEncoding::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
             &dict,
-            enc,
+            string_lengths,
             LengthType::Dictionary,
             DictionaryType::Shared,
         )?,
-        ScalarValueEncoder {
-            enc,
-            string: StringEncoding::Fsst,
-        } => OwnedStream::encode_strings_fsst_with_type(
+        StringEncoding::Fsst(enc) => OwnedStream::encode_strings_fsst_with_type(
             &dict,
-            FsstStringEncoder {
-                symbol_lengths: enc,
-                dict_lengths: enc,
-            },
+            enc,
             DictionaryType::Single, // TODO: figure out if this is correct. According to Java it is.. but why?
         )?,
     };
@@ -781,18 +771,17 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             (Val::Str(s), enc) => {
                 let values = unapply_presence(s);
                 let streams = match enc.string {
-                    StringEncoding::Plain => OwnedStream::encode_strings_with_type(
+                    StringEncoding::Plain { string_lengths } => {
+                        OwnedStream::encode_strings_with_type(
+                            &values,
+                            string_lengths,
+                            LengthType::VarBinary,
+                            DictionaryType::None,
+                        )?
+                    }
+                    StringEncoding::Fsst(enc) => OwnedStream::encode_strings_fsst_with_type(
                         &values,
-                        enc.enc,
-                        LengthType::VarBinary,
-                        DictionaryType::None,
-                    )?,
-                    StringEncoding::Fsst => OwnedStream::encode_strings_fsst_with_type(
-                        &values,
-                        FsstStringEncoder {
-                            symbol_lengths: enc.enc,
-                            dict_lengths: enc.enc,
-                        },
+                        enc,
                         DictionaryType::Single,
                     )?,
                 };
