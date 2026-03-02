@@ -2,8 +2,8 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
-    Encoder, GeometryEncoder, IdEncoder, IdWidth, LogicalEncoder, PhysicalEncoder, PresenceStream,
-    ScalarEncoder,
+    GeometryEncoder, IdEncoder, IdWidth, IntegerEncoder, LogicalEncoder, PhysicalEncoder,
+    PresenceStream, ScalarEncoder,
 };
 use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
 use strum::IntoEnumIterator as _;
@@ -38,7 +38,7 @@ fn bench_encode_geometry(c: &mut Criterion) {
 
         for physical in PhysicalEncoder::iter() {
             for logical in LogicalEncoder::iter() {
-                let geometry_encoder = GeometryEncoder::all(Encoder { logical, physical });
+                let geometry_encoder = GeometryEncoder::all(IntegerEncoder { logical, physical });
                 group.bench_with_input(
                     BenchmarkId::new(format!("{logical:?}-{physical:?}"), zoom),
                     &tiles,

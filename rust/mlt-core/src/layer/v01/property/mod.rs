@@ -14,8 +14,8 @@ use crate::decode::{FromEncoded, impl_decodable};
 use crate::utils::{BinarySerializer as _, FmtOptVec, apply_present, f32_to_json, f64_to_json};
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{
-    ColumnType, DictionaryType, Encoder, LengthType, LogicalEncoder, OffsetType, OwnedStream,
-    PhysicalEncoder, Stream, StreamType,
+    ColumnType, DictionaryType, IntegerEncoder, LengthType, LogicalEncoder, OffsetType,
+    OwnedStream, PhysicalEncoder, Stream, StreamType,
 };
 use crate::{FromDecoded, MltError, impl_encodable};
 
@@ -499,8 +499,8 @@ impl ScalarEncoder {
     }
 
     #[must_use]
-    pub fn encoder(self) -> Encoder {
-        Encoder::new(self.logical, self.physical)
+    pub fn encoder(self) -> IntegerEncoder {
+        IntegerEncoder::new(self.logical, self.physical)
     }
 }
 
@@ -597,7 +597,7 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
         let mut result = Vec::new();
         let mut emitted_structs = HashSet::new();
 
-        for (prop, encoder) in properties.iter().zip(encoders.into_iter()) {
+        for (prop, encoder) in properties.iter().zip(encoders) {
             match encoder {
                 PropertyEncoder::Scalar(enc) => {
                     result.push(OwnedEncodedProperty::from_decoded(prop, enc)?);
