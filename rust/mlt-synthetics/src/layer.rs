@@ -1,5 +1,6 @@
 #![expect(dead_code)]
 
+use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -11,8 +12,9 @@ use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::PropValue::{Bool, F32, F64, I32, I64, Str, U32, U64};
 use mlt_core::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, GeometryEncoder, IdEncoder, IntegerEncoder,
-    OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PropValue,
-    PropertyEncoder, ScalarEncoder, VertexBufferType,
+    MultiPropertyEncoder, OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01,
+    OwnedProperty, PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, StringEncoding,
+    VertexBufferType,
 };
 use mlt_core::{Encodable as _, FromDecoded as _, OwnedLayer, parse_layers};
 
@@ -102,6 +104,7 @@ pub struct Layer {
     pub props: Vec<Box<dyn LayerProp>>,
     pub extent: Option<u32>,
     pub ids: Option<(Vec<Option<u64>>, IdEncoder)>,
+    pub shared_dicts: HashMap<String, StringEncoding>,
 }
 
 impl Layer {
@@ -115,6 +118,7 @@ impl Layer {
             props: vec![],
             extent: None,
             ids: None,
+            shared_dicts: HashMap::new(),
         }
     }
 
@@ -245,24 +249,49 @@ impl Layer {
         self
     }
 
+    /// Register a shared dictionary.
+    ///
+    /// All children with the same `struct_name` are grouped into one struct column. Children are
+    /// ordered within the struct by the order they are added. The struct column is sorted among
+    /// other columns by `struct_name`.
+    ///
+    /// See [`Self::add_shared_dict_column`] to add children.
+    #[must_use]
+    pub fn add_shared_dict(
+        mut self,
+        struct_name: impl Into<String>,
+        encoder: StringEncoding,
+    ) -> Self {
+        self.shared_dicts.insert(struct_name.into(), encoder);
+        self
+    }
+
     /// Add a child field of a shared-dictionary struct column.
     ///
     /// All children with the same `struct_name` are grouped into one struct column. Children are
     /// ordered within the struct by the order they are added. The struct column is sorted among
     /// other columns by `struct_name`.
+    ///
+    /// Needs [`Self::add_shared_dict`] called before adding columns.
     #[must_use]
     pub fn add_shared_dict_column(
         mut self,
         struct_name: &str,
         child_name: &str,
-        encoder: ScalarEncoder,
+        optional: PresenceStream,
+        offset: IntegerEncoder,
         values: impl IntoIterator<Item = Option<String>>,
     ) -> Self {
+        assert!(
+            self.shared_dicts.contains_key(struct_name),
+            "shared dictionary needs to be registered before adding columns"
+        );
         self.props.push(Box::new(StructChild {
             struct_name: struct_name.to_string(),
             child_name: child_name.to_string(),
             values: values.into_iter().collect(),
-            encoder,
+            optional,
+            offset,
         }));
         self
     }
@@ -340,8 +369,8 @@ impl Layer {
         });
 
         let (decoded, instructions): (Vec<_>, Vec<_>) = all_props.into_iter().unzip();
-        let encoded_props =
-            Vec::<OwnedEncodedProperty>::from_decoded(&decoded, instructions).unwrap();
+        let enc = MultiPropertyEncoder::new(instructions, self.shared_dicts);
+        let encoded_props = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc).unwrap();
 
         let id = if let Some((ids, ids_encoder)) = self.ids {
             let mut id = OwnedId::Decoded(DecodedId(Some(ids)));
@@ -376,7 +405,7 @@ impl Layer {
 fn effective_column_name<'a>(prop: &'a DecodedProperty, encoder: &'a PropertyEncoder) -> &'a str {
     match encoder {
         PropertyEncoder::Scalar(_) => &prop.name,
-        PropertyEncoder::StructChild { struct_name, .. } => struct_name,
+        PropertyEncoder::SharedDict(enc) => &enc.struct_name,
     }
 }
 
@@ -537,7 +566,8 @@ pub struct StructChild {
     struct_name: String,
     child_name: String,
     values: Vec<Option<String>>,
-    encoder: ScalarEncoder,
+    optional: PresenceStream,
+    offset: IntegerEncoder,
 }
 
 impl LayerProp for StructChild {
@@ -546,8 +576,12 @@ impl LayerProp for StructChild {
             name: self.child_name.clone(),
             values: Str(self.values.clone()),
         };
-        let instruction =
-            PropertyEncoder::struct_child(&self.struct_name, &self.child_name, self.encoder);
+        let instruction = PropertyEncoder::shared_dict(
+            &self.struct_name,
+            &self.child_name,
+            self.optional,
+            self.offset,
+        );
         (prop, instruction)
     }
 }

@@ -31,6 +31,10 @@ impl IntegerEncoder {
         IntegerEncoder::new(LogicalEncoder::DeltaRle, PhysicalEncoder::VarInt)
     }
     #[must_use]
+    pub fn delta_varint() -> IntegerEncoder {
+        IntegerEncoder::new(LogicalEncoder::Delta, PhysicalEncoder::VarInt)
+    }
+    #[must_use]
     pub fn fastpfor() -> IntegerEncoder {
         IntegerEncoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR)
     }
