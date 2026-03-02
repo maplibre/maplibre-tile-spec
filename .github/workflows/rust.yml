@@ -113,7 +113,7 @@ jobs:
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-build-release ${{ matrix.target }} ${{ matrix.artifact_name }}
       - name: Upload artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_name }}
@@ -182,7 +182,7 @@ jobs:
         shell: bash
         run: just -v rust::ci-get-release-info mlt >> $GITHUB_OUTPUT
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with: { path: artifacts }
       - name: Add binaries to GitHub release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
