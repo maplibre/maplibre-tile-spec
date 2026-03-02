@@ -499,7 +499,7 @@ impl<'a> Property<'a> {
 /// [`Vec<DecodedProperty>`] via [`FromDecoded`].
 ///
 /// Each instruction corresponds positionally to one entry in the input slice.
-/// Instructions sharing the same [`PropertyEncoder::StructChild::struct_name`] are grouped
+/// Instructions sharing the same [`PropertyEncoder::SharedDict::shared_dict`] are grouped
 /// into a single struct column with a shared dictionary.
 /// The struct column appears in the output at the position of its first child in the input.
 #[derive(Debug, Clone, PartialEq)]
