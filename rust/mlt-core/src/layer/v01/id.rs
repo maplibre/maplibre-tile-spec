@@ -495,10 +495,10 @@ mod tests {
     /// Helper: Asserts that encoding produces the expected variant type for the given config
     fn assert_produces_correct_variant(
         ids: Vec<Option<u64>>,
-        config: IdEncoder,
+        encoder: IdEncoder,
     ) -> Result<(), TestCaseError> {
         let input = DecodedId(Some(ids));
-        let encoded = OwnedEncodedId::from_decoded(&input, config).expect("Failed to encode");
+        let encoded = OwnedEncodedId::from_decoded(&input, encoder).expect("Failed to encode");
 
         if matches!(encoder.id_width, Id32 | OptId32) {
             prop_assert!(
