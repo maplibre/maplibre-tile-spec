@@ -5,10 +5,9 @@ use probabilistic_collections::SipHasherBuilder;
 use probabilistic_collections::hyperloglog::HyperLogLog;
 use zigzag::ZigZag;
 
-use super::Encoder;
-use super::logical::LogicalEncoder;
-use super::physical::PhysicalEncoder;
 use crate::MltError;
+use crate::v01::{LogicalEncoder, PhysicalEncoder};
+use crate::v01::stream::IntegerEncoder;
 
 /// Minimum number of values to profile / compete on.
 ///
@@ -141,13 +140,13 @@ impl DataProfile {
 
     /// Profile a representative sample to prune unsuitable candidates.
     #[must_use]
-    pub fn prune_candidates<T>(values: &[T::UInt]) -> Vec<Encoder>
+    pub fn prune_candidates<T>(values: &[T::UInt]) -> Vec<IntegerEncoder>
     where
         T: ZigZag + Hash,
         <T as ZigZag>::UInt: Hash + WrappingSub,
     {
         if values.is_empty() {
-            return vec![Encoder::plain()];
+            return vec![IntegerEncoder::plain()];
         }
 
         let target = sample_size(values.len());
@@ -157,19 +156,19 @@ impl DataProfile {
         profile.candidates(T::zero().count_zeros() == 32)
     }
 
-    pub fn min_size_encoding_u32s(candidates: &[Encoder], data: &[u32]) -> Encoder {
+    pub fn min_size_encoding_u32s(candidates: &[IntegerEncoder], data: &[u32]) -> IntegerEncoder {
         candidates
             .iter()
             .copied()
             .min_by_key(|&enc| encoded_size_u32(data, enc))
-            .unwrap_or_else(Encoder::fastpfor)
+            .unwrap_or_else(IntegerEncoder::fastpfor)
     }
-    pub fn min_size_encoding_u64s(candidates: &[Encoder], data: &[u64]) -> Encoder {
+    pub fn min_size_encoding_u64s(candidates: &[IntegerEncoder], data: &[u64]) -> IntegerEncoder {
         candidates
             .iter()
             .copied()
             .min_by_key(|&enc| encoded_size_u64(data, enc))
-            .unwrap_or_else(Encoder::varint)
+            .unwrap_or_else(IntegerEncoder::varint)
     }
 
     /// Returns the estimated number of distinct values in the sample, normalized to `[0.0, 1.0]`.
@@ -191,18 +190,18 @@ impl DataProfile {
     /// The returned vec is ordered from most- to least-complex so the competition
     /// loop breaks ties deterministically (first match wins on equal sizes).
     #[must_use]
-    fn candidates(&self, fastpfor_is_allowed: bool) -> Vec<Encoder> {
+    fn candidates(&self, fastpfor_is_allowed: bool) -> Vec<IntegerEncoder> {
         let mut out = Vec::with_capacity(8);
 
         // DeltaRle – only when both transforms pay off.
         if self.delta_is_beneficial() && self.rle_is_viable() {
             if fastpfor_is_allowed {
-                out.push(Encoder::new(
+                out.push(IntegerEncoder::new(
                     LogicalEncoder::DeltaRle,
                     PhysicalEncoder::FastPFOR,
                 ));
             }
-            out.push(Encoder::new(
+            out.push(IntegerEncoder::new(
                 LogicalEncoder::DeltaRle,
                 PhysicalEncoder::VarInt,
             ));
@@ -211,27 +210,27 @@ impl DataProfile {
         // Delta-only.
         if self.delta_is_beneficial() {
             if fastpfor_is_allowed {
-                out.push(Encoder::new(
+                out.push(IntegerEncoder::new(
                     LogicalEncoder::Delta,
                     PhysicalEncoder::FastPFOR,
                 ));
             }
-            out.push(Encoder::new(LogicalEncoder::Delta, PhysicalEncoder::VarInt));
+            out.push(IntegerEncoder::new(LogicalEncoder::Delta, PhysicalEncoder::VarInt));
         }
 
         // RLE-only (no delta).
         if self.rle_is_viable() {
             if fastpfor_is_allowed {
-                out.push(Encoder::rle_fastpfor());
+                out.push(IntegerEncoder::rle_fastpfor());
             }
-            out.push(Encoder::rle_varint());
+            out.push(IntegerEncoder::rle_varint());
         }
 
         // Plain FastPFOR / VarInt are always candidates.
         if fastpfor_is_allowed {
-            out.push(Encoder::fastpfor());
+            out.push(IntegerEncoder::fastpfor());
         }
-        out.push(Encoder::varint());
+        out.push(IntegerEncoder::varint());
 
         out
     }
@@ -284,7 +283,7 @@ fn sample_size(len: usize) -> usize {
 ///
 /// Returns `usize::MAX` on error so that a broken candidate is always ranked
 /// last.
-fn encoded_size_u32(values: &[u32], encoder: Encoder) -> usize {
+fn encoded_size_u32(values: &[u32], encoder: IntegerEncoder) -> usize {
     let result: Result<_, MltError> = (|| {
         let (physical_u32s, _logical_enc) = encoder.logical.encode_u32s(values)?;
         let (data, _physical_enc) = encoder.physical.encode_u32s(physical_u32s)?;
@@ -293,7 +292,7 @@ fn encoded_size_u32(values: &[u32], encoder: Encoder) -> usize {
     result.unwrap_or(usize::MAX)
 }
 
-fn encoded_size_u64(values: &[u64], encoder: Encoder) -> usize {
+fn encoded_size_u64(values: &[u64], encoder: IntegerEncoder) -> usize {
     let result: Result<_, MltError> = (|| {
         let (physical_u64s, _logical_enc) = encoder.logical.encode_u64s(values)?;
         let (data, _physical_enc) = encoder.physical.encode_u64s(physical_u64s)?;
@@ -321,19 +320,19 @@ mod tests {
         let candidates = DataProfile::prune_candidates::<i32>(&data);
         insta::assert_debug_snapshot!(candidates, @"
         [
-            Encoder {
+            IntegerEncoder {
                 logical: Delta,
                 physical: FastPFOR,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: Delta,
                 physical: VarInt,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: None,
                 physical: FastPFOR,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: None,
                 physical: VarInt,
             },
@@ -356,11 +355,11 @@ mod tests {
 
         insta::assert_debug_snapshot!(candidates, @"
         [
-            Encoder {
+            IntegerEncoder {
                 logical: Delta,
                 physical: VarInt,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: None,
                 physical: VarInt,
             },
@@ -369,7 +368,7 @@ mod tests {
         let enc = DataProfile::min_size_encoding_u64s(&candidates, &data);
         assert_eq!(
             enc,
-            Encoder {
+            IntegerEncoder {
                 logical: LogicalEncoder::Delta,
                 physical: PhysicalEncoder::VarInt
             }
@@ -382,19 +381,19 @@ mod tests {
         let enc = DataProfile::prune_candidates::<i32>(&data);
         insta::assert_debug_snapshot!(enc, @"
         [
-            Encoder {
+            IntegerEncoder {
                 logical: Delta,
                 physical: FastPFOR,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: Delta,
                 physical: VarInt,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: None,
                 physical: FastPFOR,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: None,
                 physical: VarInt,
             },
@@ -403,7 +402,7 @@ mod tests {
         let enc = DataProfile::min_size_encoding_u32s(&enc, &data);
         assert_eq!(
             enc,
-            Encoder {
+            IntegerEncoder {
                 logical: LogicalEncoder::Delta,
                 physical: PhysicalEncoder::FastPFOR
             }
@@ -416,35 +415,35 @@ mod tests {
         let enc = DataProfile::prune_candidates::<i32>(&data);
         insta::assert_debug_snapshot!(enc, @"
         [
-            Encoder {
+            IntegerEncoder {
                 logical: DeltaRle,
                 physical: FastPFOR,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: DeltaRle,
                 physical: VarInt,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: Delta,
                 physical: FastPFOR,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: Delta,
                 physical: VarInt,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: Rle,
                 physical: FastPFOR,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: Rle,
                 physical: VarInt,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: None,
                 physical: FastPFOR,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: None,
                 physical: VarInt,
             },
@@ -453,7 +452,7 @@ mod tests {
         let enc = DataProfile::min_size_encoding_u32s(&enc, &data);
         assert_eq!(
             enc,
-            Encoder {
+            IntegerEncoder {
                 logical: LogicalEncoder::Rle,
                 physical: PhysicalEncoder::VarInt
             }
@@ -466,11 +465,11 @@ mod tests {
         let enc = DataProfile::prune_candidates::<i64>(&data);
         insta::assert_debug_snapshot!(enc, @"
         [
-            Encoder {
+            IntegerEncoder {
                 logical: Delta,
                 physical: VarInt,
             },
-            Encoder {
+            IntegerEncoder {
                 logical: None,
                 physical: VarInt,
             },
@@ -479,7 +478,7 @@ mod tests {
         let enc = DataProfile::min_size_encoding_u64s(&enc, &data);
         assert_eq!(
             enc,
-            Encoder {
+            IntegerEncoder {
                 logical: LogicalEncoder::Delta,
                 physical: PhysicalEncoder::VarInt
             }
@@ -489,16 +488,16 @@ mod tests {
     #[test]
     fn select_u32_empty_fallback() {
         let enc = DataProfile::prune_candidates::<i32>(&[]);
-        assert_eq!(enc, vec![Encoder::plain()]);
+        assert_eq!(enc, vec![IntegerEncoder::plain()]);
         let enc = DataProfile::min_size_encoding_u64s(&enc, &[]);
-        assert_eq!(enc, Encoder::plain());
+        assert_eq!(enc, IntegerEncoder::plain());
     }
 
     #[test]
     fn select_u64_empty_fallback() {
         let enc = DataProfile::prune_candidates::<i64>(&[]);
-        assert_eq!(enc, vec![Encoder::plain()]);
+        assert_eq!(enc, vec![IntegerEncoder::plain()]);
         let enc = DataProfile::min_size_encoding_u32s(&enc, &[]);
-        assert_eq!(enc, Encoder::plain());
+        assert_eq!(enc, IntegerEncoder::plain());
     }
 }

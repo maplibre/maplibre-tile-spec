@@ -16,7 +16,7 @@ use geo_types::{
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
-    Encoder as E, IdEncoder, IdWidth, LogicalEncoder as L, PhysicalEncoder as P,
+    IntegerEncoder as E, IdEncoder, IdWidth, LogicalEncoder as L, PhysicalEncoder as P,
     PresenceStream as O, PropValue, ScalarEncoder, VertexBufferType,
 };
 

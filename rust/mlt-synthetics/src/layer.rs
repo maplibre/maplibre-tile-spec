@@ -10,7 +10,7 @@ use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::PropValue::{Bool, F32, F64, I32, I64, Str, U32, U64};
 use mlt_core::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, Encoder, GeometryEncoder, IdEncoder,
+    DecodedGeometry, DecodedId, DecodedProperty, GeometryEncoder, IdEncoder, IntegerEncoder,
     OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PropValue,
     PropertyEncoder, ScalarEncoder, VertexBufferType,
 };
@@ -75,20 +75,20 @@ impl SynthWriter {
     }
 
     #[must_use]
-    pub fn geo(&self, encoder: Encoder) -> Layer {
+    pub fn geo(&self, encoder: IntegerEncoder) -> Layer {
         Layer::new(self.dir.clone(), encoder)
     }
 
     /// Create a layer with all geometry encoders set to `VarInt`.
     #[must_use]
     pub fn geo_varint(&self) -> Layer {
-        Layer::new(self.dir.clone(), Encoder::varint())
+        Layer::new(self.dir.clone(), IntegerEncoder::varint())
     }
 
     /// Create a layer with all geometry encoders set to `FastPFOR`.
     #[must_use]
     pub fn geo_fastpfor(&self) -> Layer {
-        Layer::new(self.dir.clone(), Encoder::fastpfor())
+        Layer::new(self.dir.clone(), IntegerEncoder::fastpfor())
     }
 }
 
@@ -106,7 +106,7 @@ pub struct Layer {
 
 impl Layer {
     #[must_use]
-    pub fn new(path: PathBuf, default_geom_enc: Encoder) -> Layer {
+    pub fn new(path: PathBuf, default_geom_enc: IntegerEncoder) -> Layer {
         Layer {
             path,
             geometry_encoder: GeometryEncoder::all(default_geom_enc),
@@ -120,70 +120,70 @@ impl Layer {
 
     /// Set encoding for parts length stream when rings are present.
     #[must_use]
-    pub fn rings(mut self, e: Encoder) -> Self {
+    pub fn rings(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.rings(e);
         self
     }
 
     /// Set encoding for ring vertex-count stream.
     #[must_use]
-    pub fn rings2(mut self, e: Encoder) -> Self {
+    pub fn rings2(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.rings2(e);
         self
     }
 
     /// Set encoding for the vertex data stream.
     #[must_use]
-    pub fn vertex(mut self, e: Encoder) -> Self {
+    pub fn vertex(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.vertex(e);
         self
     }
 
     /// Set encoding for the geometry types (meta) stream.
     #[must_use]
-    pub fn meta(mut self, e: Encoder) -> Self {
+    pub fn meta(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.meta(e);
         self
     }
 
     /// Set encoding for the geometry length stream.
     #[must_use]
-    pub fn geometries(mut self, e: Encoder) -> Self {
+    pub fn geometries(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.geometries(e);
         self
     }
 
     /// Set encoding for parts length stream when rings are not present.
     #[must_use]
-    pub fn no_rings(mut self, e: Encoder) -> Self {
+    pub fn no_rings(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.no_rings(e);
         self
     }
 
     /// Set encoding for parts length stream (with rings) when `geometry_offsets` absent.
     #[must_use]
-    pub fn parts(mut self, e: Encoder) -> Self {
+    pub fn parts(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.parts(e);
         self
     }
 
     /// Set encoding for ring lengths when `geometry_offsets` absent.
     #[must_use]
-    pub fn parts_ring(mut self, e: Encoder) -> Self {
+    pub fn parts_ring(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.parts_ring(e);
         self
     }
 
     /// Set encoding for parts-only stream.
     #[must_use]
-    pub fn only_parts(mut self, e: Encoder) -> Self {
+    pub fn only_parts(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.only_parts(e);
         self
     }
 
     /// Set encoding for triangles and triangle index buffer.
     #[must_use]
-    pub fn triangles(mut self, e: Encoder) -> Self {
+    pub fn triangles(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.triangles(e);
         self.geometry_encoder.triangles_indexes(e);
         self
@@ -191,7 +191,7 @@ impl Layer {
 
     /// Set encoding for vertex offsets.
     #[must_use]
-    pub fn vertex_offsets(mut self, e: Encoder) -> Self {
+    pub fn vertex_offsets(mut self, e: IntegerEncoder) -> Self {
         self.geometry_encoder.vertex_offsets(e);
         self
     }

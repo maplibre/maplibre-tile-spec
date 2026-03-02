@@ -1270,14 +1270,14 @@ mod tests {
     #[test]
     fn test_morton_vertex_dictionary_expansion() {
         use crate::v01::{
-            DictionaryType, Encoder, LengthType, LogicalEncoding, MortonMeta, OffsetType,
+            DictionaryType, IntegerEncoder, LengthType, LogicalEncoding, MortonMeta, OffsetType,
             OwnedStream, StreamMeta, StreamType,
         };
 
         // meta: single LineString
         let meta = OwnedStream::encode_u32s_of_type(
             &[GeometryType::LineString as u32],
-            Encoder::varint(),
+            IntegerEncoder::varint(),
             StreamType::Length(LengthType::VarBinary),
         )
         .unwrap();
@@ -1285,7 +1285,7 @@ mod tests {
         // parts: one LineString of length 4
         let parts = OwnedStream::encode_u32s_of_type(
             &[4u32],
-            Encoder::varint(),
+            IntegerEncoder::varint(),
             StreamType::Length(LengthType::Parts),
         )
         .unwrap();
@@ -1293,7 +1293,7 @@ mod tests {
         // vertex offsets: per-vertex indices into the Morton dictionary
         let vertex_offsets_stream = OwnedStream::encode_u32s_of_type(
             &[0u32, 1, 2, 1],
-            Encoder::varint(),
+            IntegerEncoder::varint(),
             StreamType::Offset(OffsetType::Vertex),
         )
         .unwrap();
@@ -1303,7 +1303,7 @@ mod tests {
         // The MortonDelta logical encoding means the decoder will undo the delta,
         // then decode each Morton code to an (x, y) pair.
         let morton_deltas = vec![0u32, 16, 16];
-        let (data, physical_encoding) = Encoder::varint()
+        let (data, physical_encoding) = IntegerEncoder::varint()
             .physical
             .encode_u32s(morton_deltas)
             .unwrap();

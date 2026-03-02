@@ -1,3 +1,4 @@
+mod encoder;
 mod logical;
 mod optimizer;
 mod physical;
@@ -6,6 +7,7 @@ use std::fmt::Debug;
 use std::io::Write;
 use std::{fmt, io};
 
+pub use encoder::IntegerEncoder;
 use borrowme::borrowme;
 use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
@@ -22,67 +24,6 @@ pub use crate::v01::stream::logical::{
 pub use crate::v01::stream::optimizer::DataProfile;
 pub use crate::v01::stream::physical::{PhysicalEncoder, PhysicalEncoding, StreamType};
 use crate::{MltError, MltRefResult};
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct Encoder {
-    pub logical: LogicalEncoder,
-    pub physical: PhysicalEncoder,
-}
-
-impl Encoder {
-    #[must_use]
-    pub const fn new(logical: LogicalEncoder, physical: PhysicalEncoder) -> Self {
-        Self { logical, physical }
-    }
-
-    #[must_use]
-    pub fn plain() -> Encoder {
-        Encoder::new(LogicalEncoder::None, PhysicalEncoder::None)
-    }
-    #[must_use]
-    pub fn varint() -> Encoder {
-        Encoder::new(LogicalEncoder::None, PhysicalEncoder::VarInt)
-    }
-    #[must_use]
-    pub fn rle_varint() -> Encoder {
-        Encoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
-    }
-    #[must_use]
-    pub fn delta_rle_varint() -> Encoder {
-        Encoder::new(LogicalEncoder::DeltaRle, PhysicalEncoder::VarInt)
-    }
-    #[must_use]
-    pub fn fastpfor() -> Encoder {
-        Encoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR)
-    }
-    #[must_use]
-    pub fn rle_fastpfor() -> Encoder {
-        Encoder::new(LogicalEncoder::Rle, PhysicalEncoder::FastPFOR)
-    }
-
-    /// Automatically select the best encoder for a `u32` stream.
-    ///
-    /// Uses the `BTRBlocks` strategy:
-    /// - profile a small sample of the data to prune unsuitable candidates,
-    /// - then encode the same sample with all survivors and
-    /// - return the encoder that produces the smallest output.
-    ///
-    /// `FastPFOR` is always preferred over `VarInt` when sizes are equal.
-    #[must_use]
-    pub fn auto_u32(values: &[u32]) -> Encoder {
-        let enc = DataProfile::prune_candidates::<i32>(values);
-        DataProfile::min_size_encoding_u32s(&enc, values)
-    }
-
-    /// Automatically select the best encoder for a `u64` stream.
-    #[must_use]
-    pub fn auto_u64(values: &[u64]) -> Encoder {
-        let enc = DataProfile::prune_candidates::<i64>(values);
-        DataProfile::min_size_encoding_u64s(&enc, values)
-    }
-}
 
 /// Representation of an encoded stream
 #[borrowme]
@@ -189,7 +130,7 @@ impl OwnedStream {
         Ok(Self::plain(data, num_values))
     }
 
-    pub fn encode_i8s(values: &[i8], encoding: Encoder) -> Result<Self, MltError> {
+    pub fn encode_i8s(values: &[i8], encoding: IntegerEncoder) -> Result<Self, MltError> {
         let as_i32: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
         let (physical_u32s, logical_encoding) = encoding.logical.encode_i32s(&as_i32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
@@ -204,7 +145,7 @@ impl OwnedStream {
             data,
         })
     }
-    pub fn encode_u8s(values: &[u8], encoding: Encoder) -> Result<Self, MltError> {
+    pub fn encode_u8s(values: &[u8], encoding: IntegerEncoder) -> Result<Self, MltError> {
         let as_u32: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
         let (physical_u32s, logical_encoding) = encoding.logical.encode_u32s(&as_u32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
@@ -219,7 +160,7 @@ impl OwnedStream {
             data,
         })
     }
-    pub fn encode_i32s(values: &[i32], encoding: Encoder) -> Result<Self, MltError> {
+    pub fn encode_i32s(values: &[i32], encoding: IntegerEncoder) -> Result<Self, MltError> {
         let (physical_u32s, logical_encoding) = encoding.logical.encode_i32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
         let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s)?;
@@ -233,12 +174,12 @@ impl OwnedStream {
             data,
         })
     }
-    pub fn encode_u32s(values: &[u32], encoding: Encoder) -> Result<Self, MltError> {
+    pub fn encode_u32s(values: &[u32], encoding: IntegerEncoder) -> Result<Self, MltError> {
         Self::encode_u32s_of_type(values, encoding, StreamType::Data(DictionaryType::None))
     }
     pub fn encode_u32s_of_type(
         values: &[u32],
-        encoding: Encoder,
+        encoding: IntegerEncoder,
         stream_type: StreamType,
     ) -> Result<Self, MltError> {
         let (physical_u32s, logical_encoding) = encoding.logical.encode_u32s(values)?;
@@ -250,7 +191,7 @@ impl OwnedStream {
         })
     }
 
-    pub fn encode_i64s(values: &[i64], encoding: Encoder) -> Result<Self, MltError> {
+    pub fn encode_i64s(values: &[i64], encoding: IntegerEncoder) -> Result<Self, MltError> {
         let (physical_u64s, logical_encoding) = encoding.logical.encode_i64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
         let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s)?;
@@ -264,7 +205,7 @@ impl OwnedStream {
             data,
         })
     }
-    pub fn encode_u64s(values: &[u64], encoding: Encoder) -> Result<Self, MltError> {
+    pub fn encode_u64s(values: &[u64], encoding: IntegerEncoder) -> Result<Self, MltError> {
         let (physical_u64s, logical_encoding) = encoding.logical.encode_u64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
         let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s)?;
@@ -282,7 +223,7 @@ impl OwnedStream {
     /// Encode a sequence of strings into a length stream and a data stream.
     pub fn encode_strings_with_type(
         values: &[String],
-        encoding: Encoder,
+        encoding: IntegerEncoder,
         length_type: LengthType,
         dict_type: DictionaryType,
     ) -> Result<Vec<Self>, MltError> {
@@ -316,7 +257,7 @@ impl OwnedStream {
     /// are semantically compatible and can decode each other's output.
     pub fn encode_strings_fsst_with_type(
         values: &[String],
-        encoding: Encoder,
+        encoding: IntegerEncoder,
         dict_type: DictionaryType,
     ) -> Result<Vec<Self>, MltError> {
         use fsst::Compressor;
@@ -1085,7 +1026,7 @@ mod tests {
     #[case::empty(vec![])]
     fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
         use crate::utils::BinarySerializer as _;
-        let encoder = Encoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR);
+        let encoder = IntegerEncoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR);
         let owned_stream = OwnedStream::encode_u32s(&values, encoder).unwrap();
 
         let mut buffer = Vec::new();
@@ -1169,15 +1110,16 @@ mod tests {
         }
     }
 
-    fn encoding_no_fastpfor() -> impl Strategy<Value = Encoder> {
-        any::<Encoder>().prop_filter("not fastpfor", |v| v.physical != PhysicalEncoder::FastPFOR)
+    fn encoding_no_fastpfor() -> impl Strategy<Value = IntegerEncoder> {
+        any::<IntegerEncoder>()
+            .prop_filter("not fastpfor", |v| v.physical != PhysicalEncoder::FastPFOR)
     }
 
     proptest! {
         #[test]
         fn test_i8_roundtrip(
             values in prop::collection::vec(any::<i8>(), 0..100),
-            encoding in any::<Encoder>(),
+            encoding in any::<IntegerEncoder>(),
         ) {
             let owned_stream = OwnedStream::encode_i8s(&values, encoding).unwrap();
 
@@ -1194,7 +1136,7 @@ mod tests {
         #[test]
         fn test_u8_roundtrip(
             values in prop::collection::vec(any::<u8>(), 0..100),
-            encoding in any::<Encoder>()
+            encoding in any::<IntegerEncoder>()
         ) {
             let owned_stream = OwnedStream::encode_u8s(&values, encoding).unwrap();
 
@@ -1211,7 +1153,7 @@ mod tests {
         #[test]
         fn test_u32_roundtrip(
             values in prop::collection::vec(any::<u32>(), 0..100),
-            encoding in any::<Encoder>()
+            encoding in any::<IntegerEncoder>()
         ) {
             let owned_stream = OwnedStream::encode_u32s(&values, encoding).unwrap();
 
@@ -1229,7 +1171,7 @@ mod tests {
         #[test]
         fn test_i32_roundtrip(
             values in prop::collection::vec(any::<i32>(), 0..100),
-            encoding in any::<Encoder>(),
+            encoding in any::<IntegerEncoder>(),
         ) {
             let owned_stream = OwnedStream::encode_i32s(&values, encoding).unwrap();
 
@@ -1325,7 +1267,7 @@ mod tests {
         #[test]
         fn test_string_roundtrip(
             values in prop::collection::vec(any::<String>(), 0..100),
-            encoding in any::<Encoder>(),
+            encoding in any::<IntegerEncoder>(),
         ) {
             let owned_streams = OwnedStream::encode_strings_with_type(&values, encoding, LengthType::VarBinary, DictionaryType::None).unwrap();
 
