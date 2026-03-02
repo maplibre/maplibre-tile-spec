@@ -544,7 +544,7 @@ pub struct ScalarEncoder {
 impl ScalarEncoder {
     #[must_use]
     pub fn str(optional: PresenceStream, string_lengths: IntEncoder) -> Self {
-        let enc = StrEncoding::Plain { string_lengths };
+        let enc = StrEncoder::Plain { string_lengths };
         Self {
             optional,
             value: ScalarValueEncoder::String(enc),
@@ -571,7 +571,7 @@ impl ScalarEncoder {
         };
         Self {
             optional,
-            value: ScalarValueEncoder::String(StrEncoding::Fsst(enc)),
+            value: ScalarValueEncoder::String(StrEncoder::Fsst(enc)),
         }
     }
     /// Create a property encoder for boolean values
@@ -597,7 +597,7 @@ impl ScalarEncoder {
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum ScalarValueEncoder {
     Int(IntEncoder),
-    String(StrEncoding),
+    String(StrEncoder),
     Float,
     Bool,
     Struct,
@@ -617,11 +617,11 @@ impl ScalarValueEncoder {
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum StrEncoding {
+pub enum StrEncoder {
     Plain { string_lengths: IntEncoder },
     Fsst(FsstStrEncoder),
 }
-impl StrEncoding {
+impl StrEncoder {
     #[must_use]
     pub fn plain(string_lengths: IntEncoder) -> Self {
         Self::Plain { string_lengths }
@@ -662,14 +662,14 @@ pub enum PresenceStream {
 
 pub struct MultiPropertyEncoder {
     properties: Vec<PropertyEncoder>,
-    shared_dicts: HashMap<String, StrEncoding>,
+    shared_dicts: HashMap<String, StrEncoder>,
 }
 
 impl MultiPropertyEncoder {
     #[must_use]
     pub fn new(
         properties: Vec<PropertyEncoder>,
-        shared_dicts: HashMap<String, StrEncoding>,
+        shared_dicts: HashMap<String, StrEncoder>,
     ) -> Self {
         Self {
             properties,
@@ -758,7 +758,7 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
 }
 
 struct SharedDictionaryGroup<'a> {
-    shared: StrEncoding,
+    shared: StrEncoder,
     children: Vec<SharedDictChild<'a>>,
 }
 
@@ -795,13 +795,13 @@ fn encode_shared_dictionary(
     }
 
     let dict_streams = match group.shared {
-        StrEncoding::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
+        StrEncoder::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
             &dict,
             string_lengths,
             LengthType::Dictionary,
             DictionaryType::Shared,
         )?,
-        StrEncoding::Fsst(enc) => OwnedStream::encode_strings_fsst_with_type(
+        StrEncoder::Fsst(enc) => OwnedStream::encode_strings_fsst_with_type(
             &dict,
             enc,
             DictionaryType::Single, // TODO: figure out if this is correct. According to Java it is.. but why?
@@ -910,13 +910,13 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             (Val::Str(s), ScalarValueEncoder::String(enc)) => {
                 let values = unapply_presence(s);
                 let streams = match enc {
-                    StrEncoding::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
+                    StrEncoder::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
                         &values,
                         string_lengths,
                         LengthType::VarBinary,
                         DictionaryType::None,
                     )?,
-                    StrEncoding::Fsst(enc) => OwnedStream::encode_strings_fsst_with_type(
+                    StrEncoder::Fsst(enc) => OwnedStream::encode_strings_fsst_with_type(
                         &values,
                         enc,
                         DictionaryType::Single,
@@ -1015,7 +1015,7 @@ mod tests {
         children: &[(&str, Vec<Option<String>>)],
         presence: PresenceStream,
         encoder: IntEncoder,
-        shared_dicts: impl Into<HashMap<String, StrEncoding>>,
+        shared_dicts: impl Into<HashMap<String, StrEncoder>>,
     ) -> Vec<DecodedProperty> {
         let decoded: Vec<DecodedProperty> = children
             .iter()
@@ -1252,7 +1252,7 @@ mod tests {
             &[(":de", de.clone()), (":en", en.clone())],
             PresenceStream::Present,
             enc,
-            [("name".to_string(), StrEncoding::plain(IntEncoder::plain()))],
+            [("name".to_string(), StrEncoder::plain(IntEncoder::plain()))],
         );
         assert_eq!(result[0].values, PropValue::Str(de));
         assert_eq!(result[1].values, PropValue::Str(en));
@@ -1268,7 +1268,7 @@ mod tests {
             &[(":de", de.clone()), (":en", en.clone())],
             PresenceStream::Present,
             IntEncoder::plain(),
-            [("name".to_string(), StrEncoding::plain(IntEncoder::plain()))],
+            [("name".to_string(), StrEncoder::plain(IntEncoder::plain()))],
         );
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].name, "name:de");
@@ -1286,7 +1286,7 @@ mod tests {
             &[(":de", de.clone()), (":en", en.clone())],
             PresenceStream::Present,
             IntEncoder::plain(),
-            [("name".to_string(), StrEncoding::plain(IntEncoder::plain()))],
+            [("name".to_string(), StrEncoder::plain(IntEncoder::plain()))],
         );
         assert_eq!(result[0].values, PropValue::Str(de));
         assert_eq!(result[1].values, PropValue::Str(en));
@@ -1308,7 +1308,7 @@ mod tests {
             PropertyEncoder::shared_dict("name", ":de", PresenceStream::Present, enc),
             PropertyEncoder::shared_dict("name", ":en", PresenceStream::Present, enc),
         ];
-        let string_enc = StrEncoding::Plain {
+        let string_enc = StrEncoder::Plain {
             string_lengths: IntEncoder::plain(),
         };
         let enc = MultiPropertyEncoder {
@@ -1380,7 +1380,7 @@ mod tests {
             ),
             PropertyEncoder::Scalar(scalar_enc),
         ];
-        let string_enc = StrEncoding::Plain {
+        let string_enc = StrEncoder::Plain {
             string_lengths: IntEncoder::plain(),
         };
         let enc = MultiPropertyEncoder {
@@ -1429,7 +1429,7 @@ mod tests {
             PropertyEncoder::shared_dict("label:", "de", PresenceStream::Present, enc),
             PropertyEncoder::shared_dict("label:", "en", PresenceStream::Present, enc),
         ];
-        let str_enc = StrEncoding::plain(IntEncoder::plain());
+        let str_enc = StrEncoder::plain(IntEncoder::plain());
         let encoded_prop = Vec::<OwnedEncodedProperty>::from_decoded(
             &decoded_props,
             MultiPropertyEncoder {
@@ -1492,7 +1492,7 @@ mod tests {
             ),
             logical in any::<LogicalEncoder>(),
             physical in physical_no_fastpfor(),
-            string_enc in  any::<StrEncoding>(),
+            string_enc in  any::<StrEncoder>(),
         ) {
             let encoder = IntEncoder::new(logical, physical);
             let decoded: Vec<DecodedProperty> = children

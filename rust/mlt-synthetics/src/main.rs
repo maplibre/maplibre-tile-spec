@@ -17,7 +17,7 @@ use geo_types::{
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     IdEncoder, IdWidth, IntEncoder as E, LogicalEncoder as L, PresenceStream as O, PropValue,
-    ScalarEncoder as S, StrEncoding as SE, VertexBufferType,
+    ScalarEncoder as S, StrEncoder as SE, VertexBufferType,
 };
 
 use crate::layer::{Layer, SynthWriter};

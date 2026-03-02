@@ -13,7 +13,7 @@ use mlt_core::v01::PropValue::{Bool, F32, F64, I32, I64, Str, U32, U64};
 use mlt_core::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, GeometryEncoder, IdEncoder, IntEncoder,
     MultiPropertyEncoder, OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01,
-    OwnedProperty, PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, StrEncoding,
+    OwnedProperty, PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, StrEncoder,
     VertexBufferType,
 };
 use mlt_core::{Encodable as _, FromDecoded as _, OwnedLayer, parse_layers};
@@ -104,7 +104,7 @@ pub struct Layer {
     pub props: Vec<Box<dyn LayerProp>>,
     pub extent: Option<u32>,
     pub ids: Option<(Vec<Option<u64>>, IdEncoder)>,
-    pub shared_dicts: HashMap<String, StrEncoding>,
+    pub shared_dicts: HashMap<String, StrEncoder>,
 }
 
 impl Layer {
@@ -257,7 +257,7 @@ impl Layer {
     ///
     /// See [`Self::add_shared_dict_column`] to add children.
     #[must_use]
-    pub fn add_shared_dict(mut self, struct_name: impl Into<String>, encoder: StrEncoding) -> Self {
+    pub fn add_shared_dict(mut self, struct_name: impl Into<String>, encoder: StrEncoder) -> Self {
         self.shared_dicts.insert(struct_name.into(), encoder);
         self
     }
