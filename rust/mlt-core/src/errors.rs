@@ -84,6 +84,8 @@ pub enum MltError {
     NeedsEncodingBeforeWriting,
     #[error("not implemented: {0}")]
     NotImplemented(&'static str),
+    #[error("unsupported property value and encoder combination: {0:?} + {1:?}")]
+    UnsupportedPropertyEncoderCombination(&'static str, &'static str),
     #[error("struct shared dictionary requires at least 2 streams, got {0}")]
     StructSharedDictRequiresStreams(usize),
     #[error("Structs are not allowed to be optional")]
