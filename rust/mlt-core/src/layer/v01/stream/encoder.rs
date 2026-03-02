@@ -4,8 +4,8 @@ use crate::v01::{DataProfile, LogicalEncoder, PhysicalEncoder};
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct IntegerEncoder {
-    pub logical: LogicalEncoder,
-    pub physical: PhysicalEncoder,
+    pub(crate) logical: LogicalEncoder,
+    pub(crate) physical: PhysicalEncoder,
 }
 
 impl IntegerEncoder {
@@ -65,6 +65,6 @@ impl IntegerEncoder {
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct FsstStringEncoder {
-    pub symbol_lengths: IntegerEncoder,
-    pub dict_lengths: IntegerEncoder,
+    pub(crate) symbol_lengths: IntegerEncoder,
+    pub(crate) dict_lengths: IntegerEncoder,
 }
