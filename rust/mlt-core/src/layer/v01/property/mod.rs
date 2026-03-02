@@ -705,7 +705,9 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
                     optional,
                     offset,
                 } = enc;
-                let shared = encoders.shared_dicts[struct_name];
+                let Some(&shared) = encoders.shared_dicts.get(struct_name) else {
+                    return Err(MltError::MissingStructEncoderForStruct);
+                };
                 let group = struct_groups.entry(struct_name.clone()).or_insert_with(|| {
                     struct_order.push(struct_name.clone());
                     SharedDictionaryGroup {
@@ -1359,7 +1361,7 @@ mod tests {
     fn struct_mixed_with_scalars() {
         // Scalar columns before and after a struct group must land in the right
         // positions after the two-pass grouping logic.
-        let scalar_enc = ScalarEncoder::str(PresenceStream::Present, IntegerEncoder::plain());
+        let scalar_enc = ScalarEncoder::int(PresenceStream::Present, IntegerEncoder::plain());
         let population = DecodedProperty {
             name: "population".to_string(),
             values: PropValue::U32(vec![Some(3_748_000), Some(1_787_000)]),
@@ -1447,7 +1449,7 @@ mod tests {
             MultiPropertyEncoder {
                 properties: prop_encoders,
                 shared_dicts: HashMap::from([(
-                    "name".to_string(),
+                    "name:".to_string(),
                     StringEncoding::Plain {
                         string_lengths: IntegerEncoder::plain(),
                     },
