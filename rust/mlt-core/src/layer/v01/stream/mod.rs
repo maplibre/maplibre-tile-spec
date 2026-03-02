@@ -7,8 +7,8 @@ use std::fmt::Debug;
 use std::io::Write;
 use std::{fmt, io};
 
-pub use encoder::IntegerEncoder;
 use borrowme::borrowme;
+pub use encoder::IntegerEncoder;
 use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 

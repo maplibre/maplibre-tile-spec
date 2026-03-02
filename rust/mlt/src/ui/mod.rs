@@ -587,10 +587,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                     _ => {}
                 },
                 Event::Mouse(mouse) => match mouse.kind {
-                    MouseEventKind::Up(_) => {
-                        if app.resizing.take().is_some() {
-                            app.invalidate();
-                        }
+                    MouseEventKind::Up(_) if app.resizing.take().is_some() => {
+                        app.invalidate();
                     }
                     MouseEventKind::Moved | MouseEventKind::Drag(_) => {
                         if let Some(handle) = app.resizing {

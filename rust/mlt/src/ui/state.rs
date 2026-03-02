@@ -500,11 +500,11 @@ impl App {
             return;
         }
         match self.tree_items.get(self.selected_index).cloned() {
-            Some(TreeItem::Layer(li)) => {
-                if li < self.expanded_layers.len() && self.expanded_layers[li] {
-                    self.expanded_layers[li] = false;
-                    self.rebuild_and_clamp();
-                }
+            Some(TreeItem::Layer(li))
+                if li < self.expanded_layers.len() && self.expanded_layers[li] =>
+            {
+                self.expanded_layers[li] = false;
+                self.rebuild_and_clamp();
             }
             Some(TreeItem::Feature { layer, feat }) => {
                 if self.expanded_features.remove(&(layer, feat)) {
@@ -745,15 +745,18 @@ impl App {
     ) -> Option<usize> {
         for (idx, item) in self.tree_items.iter().enumerate() {
             match item {
-                TreeItem::Layer(li) if *li == layer => {
-                    if !self.expanded_layers.get(layer).copied().unwrap_or(false) {
-                        return Some(idx);
-                    }
+                TreeItem::Layer(li)
+                    if *li == layer
+                        && !self.expanded_layers.get(layer).copied().unwrap_or(false) =>
+                {
+                    return Some(idx);
                 }
-                TreeItem::Feature { layer: l, feat: f } if *l == layer && *f == feat => {
-                    if part.is_none() || !self.expanded_features.contains(&(layer, feat)) {
-                        return Some(idx);
-                    }
+                TreeItem::Feature { layer: l, feat: f }
+                    if *l == layer
+                        && *f == feat
+                        && (part.is_none() || !self.expanded_features.contains(&(layer, feat))) =>
+                {
+                    return Some(idx);
                 }
                 TreeItem::SubFeature {
                     layer: l,
