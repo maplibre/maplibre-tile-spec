@@ -27,7 +27,7 @@ describe("typeMap helpers", () => {
         }
     });
 
-    it("should detect logical ID columns by metadata type, not by name", () => {
+    it("should return false for physical scalar columns even when column is named id", () => {
         const physicalIdNamedColumn = {
             name: "id",
             type: "scalarType",
@@ -37,6 +37,10 @@ describe("typeMap helpers", () => {
             },
         } as Column;
 
+        expect(isLogicalIdColumn(physicalIdNamedColumn)).toBe(false);
+    });
+
+    it("should return true for logical ID columns regardless of column name", () => {
         const logicalIdAnyNameColumn = {
             name: "my_custom_id",
             type: "scalarType",
@@ -47,7 +51,6 @@ describe("typeMap helpers", () => {
             },
         } as Column;
 
-        expect(isLogicalIdColumn(physicalIdNamedColumn)).toBe(false);
         expect(isLogicalIdColumn(logicalIdAnyNameColumn)).toBe(true);
     });
 
