@@ -13,6 +13,7 @@ import me.lemire.integercompression.*;
 import org.apache.commons.lang3.tuple.Pair;
 
 public class DecodingUtils {
+
   private DecodingUtils() {}
 
   // TODO: quick and dirty -> optimize for performance
@@ -253,6 +254,17 @@ public class DecodingUtils {
             .asFloatBuffer();
     pos.set(pos.get() + numValues * Float.BYTES);
     var decodedValues = new float[fb.limit()];
+    fb.get(decodedValues);
+    return decodedValues;
+  }
+
+  public static double[] decodeDoublesLE(byte[] encodedValues, IntWrapper pos, int numValues) {
+    var fb =
+        ByteBuffer.wrap(encodedValues, pos.get(), numValues * Double.BYTES)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .asDoubleBuffer();
+    pos.set(pos.get() + numValues * Double.BYTES);
+    var decodedValues = new double[fb.limit()];
     fb.get(decodedValues);
     return decodedValues;
   }

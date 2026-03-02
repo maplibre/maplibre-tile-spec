@@ -8,14 +8,13 @@ use std::{fs, io};
 use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
+use mlt_core::v01::PropValue::{Bool, F32, F64, I32, I64, Str, U32, U64};
 use mlt_core::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, Encoder, GeometryEncoder, IdEncoder,
     OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PropValue,
     PropertyEncoder, ScalarEncoder, VertexBufferType,
 };
 use mlt_core::{Encodable as _, FromDecoded as _, OwnedLayer, parse_layers};
-
-use mlt_core::v01::PropValue::{Bool, F32, F64, I32, I64, Str, U32, U64};
 
 /// Tessellate a polygon using the geo crate's earcut algorithm.
 ///
@@ -231,8 +230,18 @@ impl Layer {
 
     /// Add a property (boxed dynamic value).
     #[must_use]
-    pub fn add_prop(mut self, prop: impl LayerProp + 'static) -> Self {
-        self.props.push(Box::new(prop));
+    pub fn add_prop(
+        mut self,
+        encoder: ScalarEncoder,
+        name: impl Into<String>,
+        prop: PropValue,
+    ) -> Self {
+        let prop = DecodedProperty {
+            name: name.into(),
+            values: prop,
+        };
+
+        self.props.push(Box::new(DecodedProp::new(prop, encoder)));
         self
     }
 
@@ -247,12 +256,12 @@ impl Layer {
         struct_name: &str,
         child_name: &str,
         encoder: ScalarEncoder,
-        values: Vec<Option<String>>,
+        values: impl IntoIterator<Item = Option<String>>,
     ) -> Self {
         self.props.push(Box::new(StructChild {
             struct_name: struct_name.to_string(),
             child_name: child_name.to_string(),
-            values,
+            values: values.into_iter().collect(),
             encoder,
         }));
         self
@@ -318,8 +327,11 @@ impl Layer {
         let mut geometry = OwnedGeometry::Decoded(decoded_geom);
         geometry.encode_with(self.geometry_encoder).unwrap();
 
-        let mut all_props: Vec<(DecodedProperty, PropertyEncoder)> =
-            self.props.iter().map(|p| p.to_decoded()).collect();
+        let mut all_props = self
+            .props
+            .iter()
+            .map(|p| p.to_decoded())
+            .collect::<Vec<_>>();
 
         // Sort by effective column name: struct_name for struct children, property name for
         // scalars. sort_by is stable so children of the same struct keep their relative order.
@@ -339,15 +351,16 @@ impl Layer {
             OwnedId::None
         };
 
+        let properties = encoded_props
+            .into_iter()
+            .map(OwnedProperty::Encoded)
+            .collect();
         let layer = OwnedLayer::Tag01(OwnedLayer01 {
             name: "layer1".to_string(),
             extent: self.extent.unwrap_or(80),
             id,
             geometry,
-            properties: encoded_props
-                .into_iter()
-                .map(OwnedProperty::Encoded)
-                .collect(),
+            properties,
         });
 
         let mut file = Self::open_new(path)

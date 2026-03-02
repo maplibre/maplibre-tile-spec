@@ -12,14 +12,14 @@
         "count": 42,
         "medium": 100,
         "name": "Test Point",
-        "precision": 0.12345679,
+        "precision": 0.123456789,
         "temp": 25.5
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          11,
-          52
+          13,
+          42
         ]
       }
     }

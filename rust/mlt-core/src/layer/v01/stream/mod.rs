@@ -178,6 +178,17 @@ impl OwnedStream {
         Ok(Self::plain(data, num_values))
     }
 
+    /// Encodes `f64`s into a stream
+    pub fn encode_f64(values: &[f64]) -> Result<Self, MltError> {
+        let num_values = u32::try_from(values.len())?;
+        let data = values
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect::<Vec<u8>>();
+
+        Ok(Self::plain(data, num_values))
+    }
+
     pub fn encode_i8s(values: &[i8], encoding: Encoder) -> Result<Self, MltError> {
         let as_i32: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
         let (physical_u32s, logical_encoding) = encoding.logical.encode_i32s(&as_i32)?;
@@ -488,7 +499,8 @@ impl StreamMeta {
         is_bool: bool,
         byte_length: u32,
     ) -> io::Result<()> {
-        use {LogicalEncoding as LE, LogicalTechnique as LT};
+        use LogicalEncoding as LE;
+        use LogicalTechnique as LT;
 
         writer.write_u8(self.stream_type.as_u8())?;
         let logical_enc_u8: u8 = match self.logical_encoding {
@@ -831,15 +843,53 @@ impl<'a> Stream<'a> {
                 return Err(MltError::NotImplemented("varint f32 decoding"));
             }
         };
-        let num = self.meta.num_values as usize;
+        let num = usize::try_from(self.meta.num_values)?;
+        let Some(expected_bytes) = num.checked_mul(4) else {
+            return Err(MltError::IntegerOverflow);
+        };
+        if raw.len() != expected_bytes {
+            return Err(MltError::InvalidDecodingStreamSize(
+                raw.len(),
+                expected_bytes,
+            ));
+        }
         Ok(raw
             .chunks_exact(4)
             .map(|chunk| {
-                // `chunks_exact(4)` guarantees `chunk` has length 4, so this is infallible.
-                let bytes = [chunk[0], chunk[1], chunk[2], chunk[3]];
+                let bytes = chunk
+                    .try_into()
+                    .expect("infallible because of `chunks_exact`");
                 f32::from_le_bytes(bytes)
             })
-            .take(num)
+            .collect())
+    }
+
+    /// Decode a stream of f64 values from raw little-endian bytes
+    pub fn decode_f64(self) -> Result<Vec<f64>, MltError> {
+        let raw = match &self.data {
+            StreamData::Encoded(d) => d.data,
+            StreamData::VarInt(_) => {
+                return Err(MltError::NotImplemented("varint f64 decoding"));
+            }
+        };
+        let num = usize::try_from(self.meta.num_values)?;
+        let Some(expected_bytes) = num.checked_mul(8) else {
+            return Err(MltError::IntegerOverflow);
+        };
+        if raw.len() != expected_bytes {
+            return Err(MltError::InvalidDecodingStreamSize(
+                raw.len(),
+                expected_bytes,
+            ));
+        }
+        Ok(raw
+            .chunks_exact(8)
+            .map(|chunk| {
+                let bytes = chunk
+                    .try_into()
+                    .expect("infallible because of `chunks_exact`");
+                f64::from_le_bytes(bytes)
+            })
             .collect())
     }
 
@@ -1125,6 +1175,40 @@ mod tests {
 
     proptest! {
         #[test]
+        fn test_i8_roundtrip(
+            values in prop::collection::vec(any::<i8>(), 0..100),
+            encoding in any::<Encoder>(),
+        ) {
+            let owned_stream = OwnedStream::encode_i8s(&values, encoding).unwrap();
+
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
+
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
+
+            let decoded_values = parsed_stream.decode_i8s().unwrap();
+            assert_eq!(decoded_values, values);
+        }
+
+        #[test]
+        fn test_u8_roundtrip(
+            values in prop::collection::vec(any::<u8>(), 0..100),
+            encoding in any::<Encoder>()
+        ) {
+            let owned_stream = OwnedStream::encode_u8s(&values, encoding).unwrap();
+
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
+
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
+
+            let decoded_values = parsed_stream.decode_u8s().unwrap();
+            assert_eq!(decoded_values, values);
+        }
+
+        #[test]
         fn test_u32_roundtrip(
             values in prop::collection::vec(any::<u32>(), 0..100),
             encoding in any::<Encoder>()
@@ -1197,40 +1281,6 @@ mod tests {
         }
 
         #[test]
-        fn test_i8_roundtrip(
-            values in prop::collection::vec(any::<i8>(), 0..100),
-            encoding in any::<Encoder>(),
-        ) {
-            let owned_stream = OwnedStream::encode_i8s(&values, encoding).unwrap();
-
-            let mut buffer = Vec::new();
-            buffer.write_stream(&owned_stream).unwrap();
-
-            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
-            assert!(remaining.is_empty());
-
-            let decoded_values = parsed_stream.decode_i8s().unwrap();
-            assert_eq!(decoded_values, values);
-        }
-
-        #[test]
-        fn test_u8_roundtrip(
-            values in prop::collection::vec(any::<u8>(), 0..100),
-            encoding in any::<Encoder>()
-        ) {
-            let owned_stream = OwnedStream::encode_u8s(&values, encoding).unwrap();
-
-            let mut buffer = Vec::new();
-            buffer.write_stream(&owned_stream).unwrap();
-
-            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
-            assert!(remaining.is_empty());
-
-            let decoded_values = parsed_stream.decode_u8s().unwrap();
-            assert_eq!(decoded_values, values);
-        }
-
-        #[test]
         fn test_f32_roundtrip(values in prop::collection::vec(any::<f32>(), 0..100)) {
             let owned_stream = OwnedStream::encode_f32(&values).unwrap();
 
@@ -1241,7 +1291,35 @@ mod tests {
             assert!(remaining.is_empty());
 
             let decoded_values = parsed_stream.decode_f32().unwrap();
-            assert_eq!(decoded_values, values);
+            assert_eq!(decoded_values.len(), values.len());
+            for (v1, v2) in decoded_values.iter().zip(values.iter()) {
+                assert_eq!(
+                    v1.to_bits(),
+                    v2.to_bits(),
+                    "despite being semantically equal, the values are not actually equal"
+                );
+            }
+        }
+
+        #[test]
+        fn test_f64_roundtrip(values in prop::collection::vec(any::<f64>(), 0..100)) {
+            let owned_stream = OwnedStream::encode_f64(&values).unwrap();
+
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
+
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
+
+            let decoded_values = parsed_stream.decode_f64().unwrap();
+            assert_eq!(decoded_values.len(), values.len());
+            for (v1, v2) in decoded_values.iter().zip(values.iter()) {
+                assert_eq!(
+                    v1.to_bits(),
+                    v2.to_bits(),
+                    "despite being semantically equal, the values are not actually equal"
+                );
+            }
         }
 
         #[test]
