@@ -17,7 +17,7 @@ use geo_types::{
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     IdEncoder, IdWidth, IntegerEncoder as E, LogicalEncoder as L, PresenceStream as O, PropValue,
-    ScalarEncoder, VertexBufferType,
+    ScalarEncoder, StringEncoding as SE, VertexBufferType,
 };
 
 use crate::layer::{Layer, SynthWriter};
@@ -630,31 +630,37 @@ fn generate_shared_dictionaries(w: &SynthWriter) {
         .write("props_no_shared_dict");
 
     p0(w)
+        .add_shared_dict("name:", SE::plain(E::varint()))
         .add_shared_dict_column(
             "name:",
             "de",
-            ScalarEncoder::str(O::Present, E::varint()),
+            O::Present,
+            E::varint(),
             [Some(long_string_value())],
         )
         .add_shared_dict_column(
             "name:",
             "en",
-            ScalarEncoder::str(O::Present, E::varint()),
+            O::Present,
+            E::varint(),
             [Some(long_string_value())],
         )
         .write("props_shared_dict-rust"); // For some reason Java hallucinates another stream count at the start, so starts counting the stream count at 1
 
     p0(w)
+        .add_shared_dict("name:", SE::fsst(E::varint(), E::varint()))
         .add_shared_dict_column(
             "name:",
             "de",
-            ScalarEncoder::str_fsst(O::Present, E::varint(), E::varint()),
+            O::Present,
+            E::varint(),
             [Some(long_string_value())],
         )
         .add_shared_dict_column(
             "name:",
             "en",
-            ScalarEncoder::str_fsst(O::Present, E::varint(), E::varint()),
+            O::Present,
+            E::varint(),
             [Some(long_string_value())],
         )
         .write("props_shared_dict_fsst-rust"); // Rust FSST is not byte-for-byte consistent with Java's
