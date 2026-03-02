@@ -248,7 +248,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
     type Input = DecodedId;
     type Encoder = IdEncoder;
 
-    fn from_decoded(decoded: &Self::Input, config: IdEncoder) -> Result<Self, MltError> {
+    fn from_decoded(decoded: &Self::Input, encoder: IdEncoder) -> Result<Self, MltError> {
         use IdWidth as CFG;
 
         // skipped one level higher via Id::None
@@ -256,7 +256,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
             return Err(MltError::IdsMissingForEncoding);
         };
 
-        let optional = if matches!(config.id_width, CFG::OptId32 | CFG::OptId64) {
+        let optional = if matches!(encoder.id_width, CFG::OptId32 | CFG::OptId64) {
             let present: Vec<bool> = ids.iter().map(Option::is_some).collect();
             let num_values = u32::try_from(present.len())?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present));
@@ -284,18 +284,18 @@ impl FromDecoded<'_> for OwnedEncodedId {
             None
         };
 
-        let value = if matches!(config.id_width, CFG::Id32 | CFG::OptId32) {
+        let value = if matches!(encoder.id_width, CFG::Id32 | CFG::OptId32) {
             #[expect(clippy::cast_possible_truncation, reason = "truncation was requested")]
             let vals: Vec<u32> = ids.iter().filter_map(|&id| id).map(|v| v as u32).collect();
             OwnedEncodedIdValue::Id32(OwnedStream::encode_u32s(
                 &vals,
-                IntegerEncoder::new(config.logical, PhysicalEncoder::VarInt),
+                IntegerEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
             )?)
         } else {
             let vals: Vec<u64> = ids.iter().filter_map(|&id| id).collect();
             OwnedEncodedIdValue::Id64(OwnedStream::encode_u64s(
                 &vals,
-                IntegerEncoder::new(config.logical, PhysicalEncoder::VarInt),
+                IntegerEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
             )?)
         };
 
@@ -500,7 +500,7 @@ mod tests {
         let input = DecodedId(Some(ids));
         let encoded = OwnedEncodedId::from_decoded(&input, config).expect("Failed to encode");
 
-        if matches!(config.id_width, Id32 | OptId32) {
+        if matches!(encoder.id_width, Id32 | OptId32) {
             prop_assert!(
                 matches!(encoded.value, OwnedEncodedIdValue::Id32(_)),
                 "Expected Id32 variant"
@@ -512,7 +512,7 @@ mod tests {
             );
         }
 
-        if matches!(config.id_width, OptId32 | OptId64) {
+        if matches!(encoder.id_width, OptId32 | OptId64) {
             prop_assert!(
                 encoded.optional.is_some(),
                 "Expected optional stream to be present"

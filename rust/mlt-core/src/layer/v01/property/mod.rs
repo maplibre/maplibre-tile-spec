@@ -725,10 +725,10 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
     type Input = DecodedProperty;
     type Encoder = ScalarEncoder;
 
-    fn from_decoded(decoded: &Self::Input, config: Self::Encoder) -> Result<Self, MltError> {
+    fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
         use OwnedEncodedPropValue as EncVal;
         use PropValue as Val;
-        let optional = if config.optional == PresenceStream::Present {
+        let optional = if encoder.optional == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
             Some(OwnedStream::encode_presence(&present_vec)?)
         } else {
@@ -739,27 +739,27 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             Val::Bool(b) => EncVal::Bool(OwnedStream::encode_bools(&unapply_presence(b))?),
             Val::I8(i) => {
                 let vals = unapply_presence(i);
-                EncVal::I8(OwnedStream::encode_i8s(&vals, config.encoder())?)
+                EncVal::I8(OwnedStream::encode_i8s(&vals, encoder.encoder())?)
             }
             Val::U8(u) => {
                 let values = unapply_presence(u);
-                EncVal::U8(OwnedStream::encode_u8s(&values, config.encoder())?)
+                EncVal::U8(OwnedStream::encode_u8s(&values, encoder.encoder())?)
             }
             Val::I32(i) => {
                 let vals = unapply_presence(i);
-                EncVal::I32(OwnedStream::encode_i32s(&vals, config.encoder())?)
+                EncVal::I32(OwnedStream::encode_i32s(&vals, encoder.encoder())?)
             }
             Val::U32(u) => {
                 let vals = unapply_presence(u);
-                EncVal::U32(OwnedStream::encode_u32s(&vals, config.encoder())?)
+                EncVal::U32(OwnedStream::encode_u32s(&vals, encoder.encoder())?)
             }
             Val::I64(i) => {
                 let vals = unapply_presence(i);
-                EncVal::I64(OwnedStream::encode_i64s(&vals, config.encoder())?)
+                EncVal::I64(OwnedStream::encode_i64s(&vals, encoder.encoder())?)
             }
             Val::U64(u) => {
                 let vals = unapply_presence(u);
-                EncVal::U64(OwnedStream::encode_u64s(&vals, config.encoder())?)
+                EncVal::U64(OwnedStream::encode_u64s(&vals, encoder.encoder())?)
             }
             Val::F32(f) => {
                 let vals = unapply_presence(f);
@@ -771,18 +771,18 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             }
             Val::Str(s) => {
                 let values = unapply_presence(s);
-                let streams = match config.string {
+                let streams = match encoder.string {
                     StringEncoding::Plain => OwnedStream::encode_strings_with_type(
                         &values,
-                        config.encoder(),
+                        encoder.encoder(),
                         LengthType::VarBinary,
                         DictionaryType::None,
                     )?,
                     StringEncoding::Fsst => OwnedStream::encode_strings_fsst_with_type(
                         &values,
                         FsstStringEncoder {
-                            symbol_lengths: config.encoder(),
-                            dict_lengths: config.encoder(),
+                            symbol_lengths: encoder.encoder(),
+                            dict_lengths: encoder.encoder(),
                         },
                         DictionaryType::Single,
                     )?,

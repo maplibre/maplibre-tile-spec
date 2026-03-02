@@ -437,7 +437,7 @@ fn normalize_part_offsets_for_rings(
 /// Main geometry encoding function
 pub fn encode_geometry(
     decoded: &DecodedGeometry,
-    config: &GeometryEncoder,
+    encoder: &GeometryEncoder,
 ) -> Result<OwnedEncodedGeometry, MltError> {
     let DecodedGeometry {
         vector_types,
@@ -483,7 +483,7 @@ pub fn encode_geometry(
         let vector_types_u32: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
         OwnedStream::encode_u32s_of_type(
             &vector_types_u32,
-            config.meta,
+            encoder.meta,
             StreamType::Length(VarBinary),
         )?
     };
@@ -504,7 +504,7 @@ pub fn encode_geometry(
             // even when empty
             items.push(OwnedStream::encode_u32s_of_type(
                 &lengths,
-                config.geometries,
+                encoder.geometries,
                 StreamType::Length(LengthType::Geometries),
             )?);
         }
@@ -523,7 +523,7 @@ pub fn encode_geometry(
                 if !part_lengths.is_empty() {
                     items.push(OwnedStream::encode_u32s_of_type(
                         &part_lengths,
-                        config.rings,
+                        encoder.rings,
                         StreamType::Length(LengthType::Parts),
                     )?);
                 }
@@ -533,7 +533,7 @@ pub fn encode_geometry(
                 if !ring_lengths.is_empty() {
                     items.push(OwnedStream::encode_u32s_of_type(
                         &ring_lengths,
-                        config.rings2,
+                        encoder.rings2,
                         StreamType::Length(LengthType::Rings),
                     )?);
                 }
@@ -547,7 +547,7 @@ pub fn encode_geometry(
                 if !part_lengths.is_empty() {
                     items.push(OwnedStream::encode_u32s_of_type(
                         &part_lengths,
-                        config.no_rings,
+                        encoder.no_rings,
                         StreamType::Length(LengthType::Parts),
                     )?);
                 }
@@ -562,7 +562,7 @@ pub fn encode_geometry(
             if has_tessellation {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &[],
-                    config.geometries,
+                    encoder.geometries,
                     StreamType::Length(LengthType::Geometries),
                 )?);
             }
@@ -572,7 +572,7 @@ pub fn encode_geometry(
             if !part_lengths.is_empty() {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &part_lengths,
-                    config.parts,
+                    encoder.parts,
                     StreamType::Length(LengthType::Parts),
                 )?);
             }
@@ -585,7 +585,7 @@ pub fn encode_geometry(
             if !ring_lengths.is_empty() {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &ring_lengths,
-                    config.parts_ring,
+                    encoder.parts_ring,
                     StreamType::Length(LengthType::Rings),
                 )?);
             }
@@ -595,7 +595,7 @@ pub fn encode_geometry(
             if !lengths.is_empty() {
                 items.push(OwnedStream::encode_u32s_of_type(
                     &lengths,
-                    config.only_parts,
+                    encoder.only_parts,
                     StreamType::Length(LengthType::Parts),
                 )?);
             }
@@ -606,7 +606,7 @@ pub fn encode_geometry(
     if let Some(tris) = triangles {
         items.push(OwnedStream::encode_u32s_of_type(
             tris,
-            config.triangles,
+            encoder.triangles,
             StreamType::Length(LengthType::Triangles),
         )?);
     }
@@ -615,16 +615,16 @@ pub fn encode_geometry(
     if let Some(idx_buf) = index_buffer {
         items.push(OwnedStream::encode_u32s_of_type(
             idx_buf,
-            config.triangles_indexes,
+            encoder.triangles_indexes,
             StreamType::Offset(OffsetType::Index),
         )?);
     }
 
     // Encode vertex buffer (and dictionary offsets when Morton encoding is active)
     if let Some(verts) = vertices {
-        match config.vertex_buffer_type {
+        match encoder.vertex_buffer_type {
             VertexBufferType::Vec2 => {
-                items.push(encode_vertex_buffer(verts, config.vertex.physical)?);
+                items.push(encode_vertex_buffer(verts, encoder.vertex.physical)?);
             }
             VertexBufferType::Morton => {
                 let (num_bits, coordinate_shift) = zorder_params(verts)?;
@@ -636,13 +636,13 @@ pub fn encode_geometry(
 
                 items.push(OwnedStream::encode_u32s_of_type(
                     &offsets,
-                    config.vertex_offsets,
+                    encoder.vertex_offsets,
                     StreamType::Offset(OffsetType::Vertex),
                 )?);
                 items.push(encode_morton_vertex_buffer(
                     &dict,
                     morton_meta,
-                    config.vertex.physical,
+                    encoder.vertex.physical,
                 )?);
             }
         }
