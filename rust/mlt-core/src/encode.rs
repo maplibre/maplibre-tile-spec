@@ -4,7 +4,7 @@ use crate::MltError;
 pub trait FromDecoded<'a>: Sized {
     type Input: 'a;
     type Encoder;
-    fn from_decoded(input: &Self::Input, config: Self::Encoder) -> Result<Self, MltError>;
+    fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError>;
 }
 
 /// Trait for enums that can be in either decoded or encoded form

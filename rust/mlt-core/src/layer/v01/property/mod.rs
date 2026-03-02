@@ -14,8 +14,8 @@ use crate::decode::{FromEncoded, impl_decodable};
 use crate::utils::{BinarySerializer as _, FmtOptVec, apply_present, f32_to_json, f64_to_json};
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{
-    ColumnType, DictionaryType, IntegerEncoder, LengthType, LogicalEncoder, OffsetType,
-    OwnedStream, PhysicalEncoder, Stream, StreamType,
+    ColumnType, DictionaryType, FsstStringEncoder, IntegerEncoder, LengthType, LogicalEncoder,
+    OffsetType, OwnedStream, PhysicalEncoder, Stream, StreamType,
 };
 use crate::{FromDecoded, MltError, impl_encodable};
 
@@ -444,29 +444,12 @@ impl<'a> Property<'a> {
     }
 }
 
-/// How to encode string properties
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum StringEncoding {
-    /// Plain encoding: length stream + data stream
-    #[default]
-    Plain,
-    /// FSST encoding: symbol lengths + symbol table + value lengths + compressed corpus
-    ///
-    /// Note: The FSST algorithm implementation may differ from Java's, so the
-    /// compressed output may not be byte-for-byte identical. Both implementations
-    /// are semantically compatible and can decode each other's output.
-    Fsst,
-}
-
 /// How to encode properties
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ScalarEncoder {
     pub optional: PresenceStream,
-    pub logical: LogicalEncoder,
-    pub physical: PhysicalEncoder,
-    pub string: StringEncoding,
+    pub value: ScalarValueEncoder,
 }
 impl ScalarEncoder {
     #[must_use]
@@ -477,9 +460,12 @@ impl ScalarEncoder {
     ) -> Self {
         Self {
             optional,
-            logical,
-            physical,
-            string: StringEncoding::Plain,
+            value: ScalarValueEncoder {
+                enc: IntegerEncoder { logical, physical },
+                string: StringEncoding::Plain {
+                    string_lengths: IntegerEncoder { logical, physical },
+                },
+            },
         }
     }
 
@@ -490,18 +476,34 @@ impl ScalarEncoder {
         logical: LogicalEncoder,
         physical: PhysicalEncoder,
     ) -> Self {
+        let enc = IntegerEncoder { logical, physical };
         Self {
             optional,
-            logical,
-            physical,
-            string: StringEncoding::Fsst,
+            value: ScalarValueEncoder {
+                enc,
+                string: StringEncoding::Fsst(FsstStringEncoder {
+                    symbol_lengths: enc,
+                    dict_lengths: enc,
+                }),
+            },
         }
     }
+}
 
-    #[must_use]
-    pub fn encoder(self) -> IntegerEncoder {
-        IntegerEncoder::new(self.logical, self.physical)
-    }
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum StringEncoding {
+    Plain { string_lengths: IntegerEncoder },
+    Fsst(FsstStringEncoder),
+}
+
+/// How to encode properties
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub struct ScalarValueEncoder {
+    pub enc: IntegerEncoder,
+    pub string: StringEncoding,
 }
 
 /// Instruction for how to encode a single decoded property when batch-encoding a
@@ -654,16 +656,16 @@ fn encode_struct_property(
         |(_, enc, _)| *enc,
     );
 
-    let dict_streams = match first_encoder.string {
-        StringEncoding::Plain => OwnedStream::encode_strings_with_type(
+    let dict_streams = match first_encoder.value.string {
+        StringEncoding::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
             &dict,
-            first_encoder.encoder(),
+            string_lengths,
             LengthType::Dictionary,
             DictionaryType::Shared,
         )?,
-        StringEncoding::Fsst => OwnedStream::encode_strings_fsst_with_type(
+        StringEncoding::Fsst(enc) => OwnedStream::encode_strings_fsst_with_type(
             &dict,
-            first_encoder.encoder(),
+            enc,
             DictionaryType::Single, // TODO: figure out if this is correct. According to Java it is.. but why?
         )?,
     };
@@ -692,7 +694,7 @@ fn encode_struct_property(
 
         let data = OwnedStream::encode_u32s_of_type(
             &offsets,
-            encoder.encoder(),
+            encoder.value.enc,
             StreamType::Offset(OffsetType::String),
         )?;
 
@@ -722,68 +724,70 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
     type Input = DecodedProperty;
     type Encoder = ScalarEncoder;
 
-    fn from_decoded(decoded: &Self::Input, config: Self::Encoder) -> Result<Self, MltError> {
+    fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
         use OwnedEncodedPropValue as EncVal;
         use PropValue as Val;
-        let optional = if config.optional == PresenceStream::Present {
+        let optional = if encoder.optional == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
             Some(OwnedStream::encode_presence(&present_vec)?)
         } else {
             None
         };
 
-        let value = match &decoded.values {
-            Val::Bool(b) => EncVal::Bool(OwnedStream::encode_bools(&unapply_presence(b))?),
-            Val::I8(i) => {
+        let value = match (&decoded.values, encoder.value) {
+            (Val::Bool(b), _) => EncVal::Bool(OwnedStream::encode_bools(&unapply_presence(b))?),
+            (Val::I8(i), enc) => {
                 let vals = unapply_presence(i);
-                EncVal::I8(OwnedStream::encode_i8s(&vals, config.encoder())?)
+                EncVal::I8(OwnedStream::encode_i8s(&vals, enc.enc)?)
             }
-            Val::U8(u) => {
+            (Val::U8(u), enc) => {
                 let values = unapply_presence(u);
-                EncVal::U8(OwnedStream::encode_u8s(&values, config.encoder())?)
+                EncVal::U8(OwnedStream::encode_u8s(&values, enc.enc)?)
             }
-            Val::I32(i) => {
+            (Val::I32(i), enc) => {
                 let vals = unapply_presence(i);
-                EncVal::I32(OwnedStream::encode_i32s(&vals, config.encoder())?)
+                EncVal::I32(OwnedStream::encode_i32s(&vals, enc.enc)?)
             }
-            Val::U32(u) => {
+            (Val::U32(u), enc) => {
                 let vals = unapply_presence(u);
-                EncVal::U32(OwnedStream::encode_u32s(&vals, config.encoder())?)
+                EncVal::U32(OwnedStream::encode_u32s(&vals, enc.enc)?)
             }
-            Val::I64(i) => {
+            (Val::I64(i), enc) => {
                 let vals = unapply_presence(i);
-                EncVal::I64(OwnedStream::encode_i64s(&vals, config.encoder())?)
+                EncVal::I64(OwnedStream::encode_i64s(&vals, enc.enc)?)
             }
-            Val::U64(u) => {
+            (Val::U64(u), enc) => {
                 let vals = unapply_presence(u);
-                EncVal::U64(OwnedStream::encode_u64s(&vals, config.encoder())?)
+                EncVal::U64(OwnedStream::encode_u64s(&vals, enc.enc)?)
             }
-            Val::F32(f) => {
+            (Val::F32(f), _) => {
                 let vals = unapply_presence(f);
                 EncVal::F32(OwnedStream::encode_f32(&vals)?)
             }
-            Val::F64(d) => {
+            (Val::F64(d), _) => {
                 let vals = unapply_presence(d);
                 EncVal::F64(OwnedStream::encode_f64(&vals)?)
             }
-            Val::Str(s) => {
+            (Val::Str(s), enc) => {
                 let values = unapply_presence(s);
-                let streams = match config.string {
-                    StringEncoding::Plain => OwnedStream::encode_strings_with_type(
+                let streams = match enc.string {
+                    StringEncoding::Plain { string_lengths } => {
+                        OwnedStream::encode_strings_with_type(
+                            &values,
+                            string_lengths,
+                            LengthType::VarBinary,
+                            DictionaryType::None,
+                        )?
+                    }
+                    StringEncoding::Fsst(enc) => OwnedStream::encode_strings_fsst_with_type(
                         &values,
-                        config.encoder(),
-                        LengthType::VarBinary,
-                        DictionaryType::None,
-                    )?,
-                    StringEncoding::Fsst => OwnedStream::encode_strings_fsst_with_type(
-                        &values,
-                        config.encoder(),
+                        enc,
                         DictionaryType::Single,
                     )?,
                 };
                 EncVal::Str(streams)
             }
-            Val::Struct => Err(NotImplemented("struct property encoding"))?,
+            (Val::Struct, _) => Err(NotImplemented("struct property encoding"))?,
         };
 
         Ok(Self {

@@ -38,7 +38,7 @@ fn bench_encode_geometry(c: &mut Criterion) {
 
         for physical in PhysicalEncoder::iter() {
             for logical in LogicalEncoder::iter() {
-                let geometry_encoder = GeometryEncoder::all(IntegerEncoder { logical, physical });
+                let geometry_encoder = GeometryEncoder::all(IntegerEncoder::new(logical, physical));
                 group.bench_with_input(
                     BenchmarkId::new(format!("{logical:?}-{physical:?}"), zoom),
                     &tiles,

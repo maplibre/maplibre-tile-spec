@@ -803,8 +803,8 @@ impl FromDecoded<'_> for OwnedEncodedGeometry {
     type Input = DecodedGeometry;
     type Encoder = GeometryEncoder;
 
-    fn from_decoded(decoded: &Self::Input, config: Self::Encoder) -> Result<Self, MltError> {
-        encode::encode_geometry(decoded, &config)
+    fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
+        encode::encode_geometry(decoded, &encoder)
     }
 }
 

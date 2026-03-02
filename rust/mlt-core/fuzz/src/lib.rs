@@ -177,7 +177,7 @@ impl LayerInput {
                 );
                 println!("layer extent: {extent} -> varint({extent})");
                 {
-                    println!("layer id: {id:?}",);
+                    println!("layer id: {id:?}");
                     let mut metadata = Vec::new();
                     id.write_columns_meta_to(&mut metadata).unwrap();
                     println!("\tlayer id metadata: {}", metadata.encode_hex::<String>());
