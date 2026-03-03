@@ -47,46 +47,46 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
     const partOffsets = topologyVector.partOffsets;
     const ringOffsets = topologyVector.ringOffsets;
     const vertexOffsets = geometryVector.vertexOffsets;
+    const nonOffset = !vertexOffsets || vertexOffsets.length === 0;
 
     const containsPolygon = geometryVector.containsPolygonGeometry();
     const vertexBuffer = geometryVector.vertexBuffer;
 
     for (let i = 0; i < geometryVector.numGeometries; i++) {
         const geometryType = geometryVector.geometryType(i);
-        if (geometryType === GEOMETRY_TYPE.POINT) {
-            if (!vertexOffsets || vertexOffsets.length === 0) {
-                const x = vertexBuffer[vertexBufferOffset++];
-                const y = vertexBuffer[vertexBufferOffset++];
-                const coordinate = new Point(x, y);
-                geometries[geometryCounter++] = geometryFactory.createPoint(coordinate);
+        switch (geometryType) {
+        case GEOMETRY_TYPE.POINT: {
+            let x: number;
+            let y: number;
+            if (nonOffset) {
+                x = vertexBuffer[vertexBufferOffset++];
+                y = vertexBuffer[vertexBufferOffset++];
             } else if (geometryVector.vertexBufferType === VertexBufferType.VEC_2) {
                 const offset = vertexOffsets[vertexOffsetsOffset++] * 2;
-                const x = vertexBuffer[offset];
-                const y = vertexBuffer[offset + 1];
-                const coordinate = new Point(x, y);
-                geometries[geometryCounter++] = geometryFactory.createPoint(coordinate);
+                x = vertexBuffer[offset];
+                y = vertexBuffer[offset + 1];
             } else {
                 const offset = vertexOffsets[vertexOffsetsOffset++];
                 const mortonCode = vertexBuffer[offset];
                 const vertex = decodeZOrderCurve(mortonCode, mortonSettings.numBits, mortonSettings.coordinateShift);
-                const coordinate = new Point(vertex.x, vertex.y);
-                geometries[geometryCounter++] = geometryFactory.createPoint(coordinate);
+                x = vertex.x;
+                y = vertex.y;
             }
-
+            geometries[geometryCounter++] = geometryFactory.createPoint(new Point(x, y));
             if (geometryOffsets) geometryOffsetsCounter++;
             if (partOffsets) partOffsetCounter++;
             if (ringOffsets) ringOffsetsCounter++;
-        } else if (geometryType === GEOMETRY_TYPE.MULTIPOINT) {
+        } 
+        case GEOMETRY_TYPE.MULTIPOINT: {
             const numPoints = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
             geometryOffsetsCounter++;
             const points: Point[] = new Array(numPoints);
-            if (!vertexOffsets || vertexOffsets.length === 0) {
+            if (nonOffset) {
                 for (let j = 0; j < numPoints; j++) {
                     const x = vertexBuffer[vertexBufferOffset++];
                     const y = vertexBuffer[vertexBufferOffset++];
                     points[j] = new Point(x, y);
                 }
-                geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
             } else {
                 for (let j = 0; j < numPoints; j++) {
                     const offset = vertexOffsets[vertexOffsetsOffset++] * 2;
@@ -94,12 +94,13 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                     const y = vertexBuffer[offset + 1];
                     points[j] = new Point(x, y);
                 }
-                geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
             }
+            geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
             // MULTIPOINT must increment offset counters like POINT does
             partOffsetCounter += numPoints;
             ringOffsetsCounter += numPoints;
-        } else if (geometryType === GEOMETRY_TYPE.LINESTRING) {
+        } 
+        case GEOMETRY_TYPE.LINESTRING: {
             let numVertices = 0;
             if (containsPolygon) {
                 numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
@@ -110,7 +111,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
             partOffsetCounter++;
 
             let vertices: Point[];
-            if (!vertexOffsets || vertexOffsets.length === 0) {
+            if (nonOffset) {
                 vertices = getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
                 vertexBufferOffset += numVertices * 2;
             } else {
@@ -137,15 +138,17 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
             geometries[geometryCounter++] = geometryFactory.createLineString(vertices);
 
             if (geometryOffsets) geometryOffsetsCounter++;
-        } else if (geometryType === GEOMETRY_TYPE.POLYGON) {
+        } 
+        case GEOMETRY_TYPE.POLYGON: {
             const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
             partOffsetCounter++;
             const rings: CoordinatesArray = new Array(numRings - 1);
+            let shell: Point[];
             let numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
             ringOffsetsCounter++;
 
-            if (!vertexOffsets || vertexOffsets.length === 0) {
-                const shell = getLinearRing(vertexBuffer, vertexBufferOffset, numVertices);
+            if (nonOffset) {
+                shell = getLinearRing(vertexBuffer, vertexBufferOffset, numVertices);
                 vertexBufferOffset += numVertices * 2;
                 for (let j = 0; j < rings.length; j++) {
                     numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
@@ -153,10 +156,8 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                     rings[j] = getLinearRing(vertexBuffer, vertexBufferOffset, numVertices);
                     vertexBufferOffset += numVertices * 2;
                 }
-                geometries[geometryCounter++] = geometryFactory.createPolygon(shell, rings);
             } else {
-                const shell =
-                    geometryVector.vertexBufferType === VertexBufferType.VEC_2
+                shell = geometryVector.vertexBufferType === VertexBufferType.VEC_2
                         ? decodeDictionaryEncodedLinearRing(
                               vertexBuffer,
                               vertexOffsets,
@@ -193,16 +194,16 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                               );
                     vertexOffsetsOffset += numVertices;
                 }
-                geometries[geometryCounter++] = geometryFactory.createPolygon(shell, rings);
             }
-
+            geometries[geometryCounter++] = geometryFactory.createPolygon(shell, rings);
             if (geometryOffsets) geometryOffsetsCounter++;
-        } else if (geometryType === GEOMETRY_TYPE.MULTILINESTRING) {
+        } 
+        case GEOMETRY_TYPE.MULTILINESTRING: {
             const numLineStrings =
                 geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
             geometryOffsetsCounter++;
             const lineStrings: CoordinatesArray = new Array(numLineStrings);
-            if (!vertexOffsets || vertexOffsets.length === 0) {
+            if (nonOffset) {
                 for (let j = 0; j < numLineStrings; j++) {
                     let numVertices = 0;
                     if (containsPolygon) {
@@ -216,7 +217,6 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                     lineStrings[j] = getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
                     vertexBufferOffset += numVertices * 2;
                 }
-                geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
             } else {
                 for (let j = 0; j < numLineStrings; j++) {
                     let numVertices = 0;
@@ -248,14 +248,15 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                     lineStrings[j] = vertices;
                     vertexOffsetsOffset += numVertices;
                 }
-                geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
             }
-        } else if (geometryType === GEOMETRY_TYPE.MULTIPOLYGON) {
+            geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
+        } 
+        case GEOMETRY_TYPE.MULTIPOLYGON: {
             const numPolygons = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
             geometryOffsetsCounter++;
             const polygons: CoordinatesArray[] = new Array(numPolygons);
             let numVertices = 0;
-            if (!vertexOffsets || vertexOffsets.length === 0) {
+            if (nonOffset) {
                 for (let j = 0; j < numPolygons; j++) {
                     const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
                     partOffsetCounter++;
@@ -273,7 +274,6 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
 
                     polygons[j] = geometryFactory.createPolygon(shell, rings);
                 }
-                geometries[geometryCounter++] = geometryFactory.createMultiPolygon(polygons);
             } else {
                 for (let j = 0; j < numPolygons; j++) {
                     const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
@@ -322,11 +322,12 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
 
                     polygons[j] = geometryFactory.createPolygon(shell, rings);
                 }
-                geometries[geometryCounter++] = geometryFactory.createMultiPolygon(polygons);
             }
-        } else {
+            geometries[geometryCounter++] = geometryFactory.createMultiPolygon(polygons);
+        } 
+        default:
             throw new Error("The specified geometry type is currently not supported.");
-        }
+    }
     }
 
     return geometries;
