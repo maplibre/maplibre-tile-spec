@@ -184,6 +184,9 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     }
                     geometries.push_back(factory.createMultiPoint(std::move(vertices)));
                 }
+
+                partOffsetCounter += numPoints;
+                ringOffsetsCounter += numPoints;
                 break;
             }
             case GeometryType::LINESTRING: {

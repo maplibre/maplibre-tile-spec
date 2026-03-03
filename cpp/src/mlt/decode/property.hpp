@@ -178,13 +178,21 @@ protected:
                 checkBits(presentStream, result);
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
-            case ScalarType::DOUBLE: // wire format stores doubles as floats
             case ScalarType::FLOAT: {
                 std::vector<float> floatBuffer;
                 floatBuffer.reserve(streamMetadata->getNumValues());
                 decodeRaw(tileData, floatBuffer, *streamMetadata, /*consume=*/true);
 
                 PropertyVec result{std::move(floatBuffer)};
+                checkBits(presentStream, result);
+                return {scalarType, std::move(result), std::move(presentStream)};
+            }
+            case ScalarType::DOUBLE: {
+                std::vector<double> doubleBuffer;
+                doubleBuffer.reserve(streamMetadata->getNumValues());
+                decodeRaw(tileData, doubleBuffer, *streamMetadata, /*consume=*/true);
+
+                PropertyVec result{std::move(doubleBuffer)};
                 checkBits(presentStream, result);
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
