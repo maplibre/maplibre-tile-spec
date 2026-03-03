@@ -6,7 +6,9 @@ import decodeTile from "./mltDecoder";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
 import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
+import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
 
+const EARCUT_MAX_RINGS = 500;
 const RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100;
 const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
 
@@ -85,12 +87,10 @@ describe("MLT Decoder - Synthetic tests", () => {
 function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSON.FeatureCollection {
     const features: GeoJSON.Feature[] = [];
     for (const table of featureTables) {
-        const tableFeatures = table.getFeatures();
-        for (let i = 0; i < tableFeatures.length; i++) {
-            const feature = tableFeatures[i];
+        for (const feature of table.getFeatures()) {
             const geojsonFeature: GeoJSON.Feature = {
                 type: "Feature",
-                geometry: getGeometry(feature.geometry, table, i),
+                geometry: getGeometry(feature.geometry),
                 properties: {
                     _layer: table.name,
                     _extent: table.extent,
@@ -111,7 +111,7 @@ function safeNumber<T>(val: bigint | T): T | number {
     return typeof val === "bigint" ? Number(val) : val;
 }
 
-function getGeometry(geometry: Geometry, table: FeatureTable, featureIndex: number): GeoJSON.Geometry {
+function getGeometry(geometry: Geometry): GeoJSON.Geometry {
     const coords = geometry.coordinates.map((ring) => ring.map((p) => [p.x, p.y]));
     switch (geometry.type) {
         case GEOMETRY_TYPE.POINT:
@@ -124,25 +124,14 @@ function getGeometry(geometry: Geometry, table: FeatureTable, featureIndex: numb
             return { type: "MultiPoint", coordinates: coords.map((r) => r[0]) };
         case GEOMETRY_TYPE.MULTILINESTRING:
             return { type: "MultiLineString", coordinates: coords };
-        case GEOMETRY_TYPE.MULTIPOLYGON:
-            return getMultiPolygon(geometry, table, featureIndex);
+        case GEOMETRY_TYPE.MULTIPOLYGON: {
+            const polygons = classifyRings(geometry.coordinates, EARCUT_MAX_RINGS);
+            return {
+                type: "MultiPolygon",
+                coordinates: polygons.map((polygon) => polygon.map((ring) => ring.map((p) => [p.x, p.y]))),
+            };
+        }
         default:
             throw new Error(`Unsupported geometry type: ${geometry.type}`);
     }
-}
-
-function getMultiPolygon(geometry: Geometry, table: FeatureTable, featureIndex: number): GeoJSON.MultiPolygon {
-    const { geometryOffsets, partOffsets } = table.geometryVector.topologyVector;
-    const startPolygon = geometryOffsets[featureIndex];
-    const numPolygons = geometryOffsets[featureIndex + 1] - startPolygon;
-
-    let ringCounter = 0;
-    const polygons = Array.from({ length: numPolygons }, (_, i) => {
-        const polygonIdx = startPolygon + i;
-        const numRings = partOffsets[polygonIdx + 1] - partOffsets[polygonIdx];
-        return Array.from({ length: numRings }, () =>
-            geometry.coordinates[ringCounter++].map((p) => [p.x, p.y])
-        );
-    });
-    return { type: "MultiPolygon", coordinates: polygons };
 }
