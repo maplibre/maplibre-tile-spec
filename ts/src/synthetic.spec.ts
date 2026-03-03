@@ -1,5 +1,4 @@
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { describe, it } from "vitest";
 import decodeTile from "./mltDecoder";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
@@ -7,7 +6,10 @@ import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
 import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
 
-import { SyntheticTestRunner } from "synthetic-test-tool";
+import {
+    SyntheticTestRunner,
+    type SyntheticCaseResult,
+} from "synthetic-test-tool";
 
 const EARCUT_MAX_RINGS = 500;
 
@@ -36,8 +38,6 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["prop_f64_val_null", "does not parse f64 as f32"],
 ]);
 
-const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");
-
 class SyntheticTestRunnerJS extends SyntheticTestRunner {
     shouldSkip(testName: string) {
         return UNIMPLEMENTED_SYNTHETICS.get(testName) ?? false;
@@ -50,10 +50,29 @@ class SyntheticTestRunnerJS extends SyntheticTestRunner {
     }
 }
 
-describe("MLT Decoder - Synthetic tests", () => {
-    it("should pass all synthetic tests", async () => {
-        await new SyntheticTestRunnerJS().run(syntheticDir);
-    });
+describe("MLT Decoder - Synthetic tests", async () => {
+    const runner = new SyntheticTestRunnerJS();
+
+    for await (const result of runner) {
+        switch (result.status) {
+            case "skip":
+                it.skip(`${result.name} (${result.reason})`, () => undefined);
+                break;
+            case "ok":
+                it(result.name, () => undefined);
+                break;
+            case "fail":
+                it(result.name, () => {
+                    throw result.error;
+                });
+                break;
+            case "crash":
+                it(result.name, () => {
+                    throw new Error(`Crash for ${result.name}: ${result.reason}`);
+                });
+                break;
+        }
+    }
 });
 
 function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSON.FeatureCollection {
