@@ -206,12 +206,7 @@ impl<'a> FromEncoded<'a> for DecodedId {
             }
         };
 
-        let presence = if let Some(c) = optional {
-            Some(c.decode_bools()?)
-        } else {
-            None
-        };
-        let ids_optional = apply_present(presence, ids_u64)?;
+        let ids_optional = apply_present(optional, ids_u64)?;
 
         Ok(DecodedId(Some(ids_optional)))
     }
