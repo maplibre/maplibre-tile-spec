@@ -29,6 +29,12 @@ describe("MLT Decoder - MVT comparison for OMT tiles", () => {
     testTiles(omtMltTileDir, omtMvtTileDir);
 }, 150000);
 
+describe("MLT Decoder - MVT comparison for Bing tiles", () => {
+    const bingMltTileDir = "../test/expected/tag0x01/bing";
+    const bingMvtTileDir = "../test/fixtures/bing";
+    testTiles(bingMltTileDir, bingMvtTileDir);
+}, 150000);
+
 describe("FeatureTable", () => {
     it("should iterate through features correctly", () => {
         const bytes = new Uint8Array(fs.readFileSync(ITERATOR_TILE));

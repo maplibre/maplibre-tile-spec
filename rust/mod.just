@@ -249,7 +249,7 @@ generate-synthetic-mlts:
 
 # Create .dump files for all .mlt files in test/synthetic for all languages
 generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find') build
-    fd . ../test/synthetic -e mlt -x sh -c 'target/debug/mlt dump {} > {.}.dump'
+    fd . ../test/synthetic -e mlt -x sh -c 'target/debug/mlt dump {} > {.}.dump || echo "Failed to dump {}"'
 
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:

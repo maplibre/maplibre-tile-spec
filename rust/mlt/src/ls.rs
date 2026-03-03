@@ -753,8 +753,8 @@ impl From<LogicalEncoding> for StatLogicalCodec {
 fn collect_stream_info(stream: &Stream, algo: &mut HashSet<StreamStat>) {
     algo.insert((
         stream.meta.stream_type,
-        stream.meta.physical_encoding,
-        StatLogicalCodec::from(stream.meta.logical_encoding),
+        stream.meta.encoding.physical,
+        StatLogicalCodec::from(stream.meta.encoding.logical),
     ));
 }
 

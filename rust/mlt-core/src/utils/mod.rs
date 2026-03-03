@@ -11,6 +11,7 @@ pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt, fmt_byte_array};
 use serde_json::{Number, Value};
 
 use crate::MltError;
+use crate::v01::Stream;
 
 /// Convert f32 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
 pub fn f32_to_json(f: f32) -> Value {
@@ -56,10 +57,12 @@ impl<T> SetOptionOnce<T> for Option<T> {
 /// If present is None (non-optional column), all values are wrapped in Some.
 /// If present is Some, values are interleaved with None according to the bitmap.
 pub fn apply_present<T>(
-    present: Option<Vec<bool>>,
+    present: Option<Stream>,
     values: Vec<T>,
 ) -> Result<Vec<Option<T>>, MltError> {
-    let Some(present) = present else {
+    let present = if let Some(p) = present {
+        p.decode_bools()?
+    } else {
         return Ok(values.into_iter().map(Some).collect());
     };
     let present_bit_count = present.iter().filter(|&&b| b).count();

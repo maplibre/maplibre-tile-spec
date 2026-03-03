@@ -2,7 +2,7 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
-    AproxPropertyType, GeometryEncoder, IdEncoder, IdWidth, IntegerEncoder, LogicalEncoder,
+    AproxPropertyType, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder,
     PhysicalEncoder, PresenceStream, ScalarEncoder,
 };
 use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
@@ -38,7 +38,7 @@ fn bench_encode_geometry(c: &mut Criterion) {
 
         for physical in PhysicalEncoder::iter() {
             for logical in LogicalEncoder::iter() {
-                let geometry_encoder = GeometryEncoder::all(IntegerEncoder::new(logical, physical));
+                let geometry_encoder = GeometryEncoder::all(IntEncoder::new(logical, physical));
                 group.bench_with_input(
                     BenchmarkId::new(format!("{logical:?}-{physical:?}"), zoom),
                     &tiles,
@@ -123,8 +123,7 @@ fn bench_encode_properties(c: &mut Criterion) {
                                     for layer in &mut layers {
                                         if let OwnedLayer::Tag01(l) = layer {
                                             for prop in &mut l.properties {
-                                                let int_enc =
-                                                    IntegerEncoder::new(logical, physical);
+                                                let int_enc = IntEncoder::new(logical, physical);
                                                 let enc = match prop.approx_type() {
                                                     AproxPropertyType::Bool => {
                                                         ScalarEncoder::bool(presence)

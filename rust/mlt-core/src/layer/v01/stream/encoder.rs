@@ -3,44 +3,44 @@ use crate::v01::{DataProfile, LogicalEncoder, PhysicalEncoder};
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct IntegerEncoder {
+pub struct IntEncoder {
     pub(crate) logical: LogicalEncoder,
     pub(crate) physical: PhysicalEncoder,
 }
 
-impl IntegerEncoder {
+impl IntEncoder {
     #[must_use]
     pub const fn new(logical: LogicalEncoder, physical: PhysicalEncoder) -> Self {
         Self { logical, physical }
     }
 
     #[must_use]
-    pub fn plain() -> IntegerEncoder {
-        IntegerEncoder::new(LogicalEncoder::None, PhysicalEncoder::None)
+    pub fn plain() -> IntEncoder {
+        IntEncoder::new(LogicalEncoder::None, PhysicalEncoder::None)
     }
     #[must_use]
-    pub fn varint() -> IntegerEncoder {
-        IntegerEncoder::new(LogicalEncoder::None, PhysicalEncoder::VarInt)
+    pub fn varint() -> IntEncoder {
+        IntEncoder::new(LogicalEncoder::None, PhysicalEncoder::VarInt)
     }
     #[must_use]
-    pub fn rle_varint() -> IntegerEncoder {
-        IntegerEncoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
+    pub fn rle_varint() -> IntEncoder {
+        IntEncoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
     }
     #[must_use]
-    pub fn delta_rle_varint() -> IntegerEncoder {
-        IntegerEncoder::new(LogicalEncoder::DeltaRle, PhysicalEncoder::VarInt)
+    pub fn delta_rle_varint() -> IntEncoder {
+        IntEncoder::new(LogicalEncoder::DeltaRle, PhysicalEncoder::VarInt)
     }
     #[must_use]
-    pub fn delta_varint() -> IntegerEncoder {
-        IntegerEncoder::new(LogicalEncoder::Delta, PhysicalEncoder::VarInt)
+    pub fn delta_varint() -> IntEncoder {
+        IntEncoder::new(LogicalEncoder::Delta, PhysicalEncoder::VarInt)
     }
     #[must_use]
-    pub fn fastpfor() -> IntegerEncoder {
-        IntegerEncoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR)
+    pub fn fastpfor() -> IntEncoder {
+        IntEncoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR)
     }
     #[must_use]
-    pub fn rle_fastpfor() -> IntegerEncoder {
-        IntegerEncoder::new(LogicalEncoder::Rle, PhysicalEncoder::FastPFOR)
+    pub fn rle_fastpfor() -> IntEncoder {
+        IntEncoder::new(LogicalEncoder::Rle, PhysicalEncoder::FastPFOR)
     }
 
     /// Automatically select the best encoder for a `u32` stream.
@@ -52,14 +52,14 @@ impl IntegerEncoder {
     ///
     /// `FastPFOR` is always preferred over `VarInt` when sizes are equal.
     #[must_use]
-    pub fn auto_u32(values: &[u32]) -> IntegerEncoder {
+    pub fn auto_u32(values: &[u32]) -> IntEncoder {
         let enc = DataProfile::prune_candidates::<i32>(values);
         DataProfile::min_size_encoding_u32s(&enc, values)
     }
 
     /// Automatically select the best encoder for a `u64` stream.
     #[must_use]
-    pub fn auto_u64(values: &[u64]) -> IntegerEncoder {
+    pub fn auto_u64(values: &[u64]) -> IntEncoder {
         let enc = DataProfile::prune_candidates::<i64>(values);
         DataProfile::min_size_encoding_u64s(&enc, values)
     }
@@ -68,7 +68,7 @@ impl IntegerEncoder {
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct FsstStringEncoder {
-    pub(crate) symbol_lengths: IntegerEncoder,
-    pub(crate) dict_lengths: IntegerEncoder,
+pub struct FsstStrEncoder {
+    pub(crate) symbol_lengths: IntEncoder,
+    pub(crate) dict_lengths: IntEncoder,
 }

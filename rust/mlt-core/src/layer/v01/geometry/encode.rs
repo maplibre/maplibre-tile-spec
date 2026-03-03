@@ -5,7 +5,7 @@ use crate::MltError;
 use crate::utils::encode_componentwise_delta_vec2s;
 use crate::v01::LengthType::VarBinary;
 use crate::v01::{
-    DictionaryType, GeometryType, IntegerEncoder, LengthType, LogicalEncoding, MortonMeta,
+    DictionaryType, GeometryType, IntEncoder, IntEncoding, LengthType, LogicalEncoding, MortonMeta,
     OffsetType, OwnedStream, PhysicalEncoder, StreamMeta, StreamType,
 };
 
@@ -21,8 +21,7 @@ fn encode_vertex_buffer(
     Ok(OwnedStream {
         meta: StreamMeta::new(
             StreamType::Data(DictionaryType::Vertex),
-            LogicalEncoding::ComponentwiseDelta,
-            physical_encoding,
+            IntEncoding::new(LogicalEncoding::ComponentwiseDelta, physical_encoding),
             num_values,
         ),
         data,
@@ -46,8 +45,7 @@ fn encode_morton_vertex_buffer(
     Ok(OwnedStream {
         meta: StreamMeta::new(
             StreamType::Data(DictionaryType::Morton),
-            LogicalEncoding::MortonDelta(meta),
-            physical_encoding,
+            IntEncoding::new(LogicalEncoding::MortonDelta(meta), physical_encoding),
             num_values,
         ),
         data,
@@ -657,35 +655,35 @@ pub fn encode_geometry(
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct GeometryEncoder {
     /// Encoding settings for the geometry types (meta) stream.
-    pub meta: IntegerEncoder,
+    pub meta: IntEncoder,
 
     /// Encoding for the geometry length stream.
-    pub geometries: IntegerEncoder,
+    pub geometries: IntEncoder,
 
     /// Encoding for parts length stream when rings are present.
-    pub rings: IntegerEncoder,
+    pub rings: IntEncoder,
     /// Encoding for ring vertex-count stream.
-    pub rings2: IntegerEncoder,
+    pub rings2: IntEncoder,
     /// Encoding for parts length stream when rings are not present.
-    pub no_rings: IntegerEncoder,
+    pub no_rings: IntEncoder,
 
     /// Encoding for parts length stream (with rings) when `geometry_offsets` absent.
-    pub parts: IntegerEncoder,
+    pub parts: IntEncoder,
     /// Encoding for ring lengths when `geometry_offsets` absent.
-    pub parts_ring: IntegerEncoder,
+    pub parts_ring: IntEncoder,
 
     /// Encoding for parts-only stream (e.g. `LineString`, no rings).
-    pub only_parts: IntegerEncoder,
+    pub only_parts: IntEncoder,
 
     /// Encoding for triangles count stream (pre-tessellated polygons).
-    pub triangles: IntegerEncoder,
+    pub triangles: IntEncoder,
     /// Encoding for triangle index buffer (pre-tessellated polygons).
-    pub triangles_indexes: IntegerEncoder,
+    pub triangles_indexes: IntEncoder,
 
     /// Encoding for the vertex data stream (logical encoding is always `ComponentwiseDelta` if `vertex_buffer_type==Vec2`).
-    pub vertex: IntegerEncoder,
+    pub vertex: IntEncoder,
     /// Encoding for vertex offsets (used when `vertex_buffer_type` is not `Vec2`).
-    pub vertex_offsets: IntegerEncoder,
+    pub vertex_offsets: IntEncoder,
 
     /// How the vertex buffer should be encoded.
     // vertex_buffer_type is pinned to Vec2 in the Arbitrary impl below.
@@ -698,7 +696,7 @@ pub struct GeometryEncoder {
 impl GeometryEncoder {
     /// Use the provided encoder for all streams.
     #[must_use]
-    pub fn all(encoder: IntegerEncoder) -> Self {
+    pub fn all(encoder: IntEncoder) -> Self {
         Self {
             meta: encoder,
             geometries: encoder,
@@ -717,73 +715,73 @@ impl GeometryEncoder {
     }
 
     /// Set encoding for the geometry types (meta) stream.
-    pub fn meta(&mut self, e: IntegerEncoder) -> &mut Self {
+    pub fn meta(&mut self, e: IntEncoder) -> &mut Self {
         self.meta = e;
         self
     }
 
     /// Set encoding for the geometry length stream.
-    pub fn geometries(&mut self, e: IntegerEncoder) -> &mut Self {
+    pub fn geometries(&mut self, e: IntEncoder) -> &mut Self {
         self.geometries = e;
         self
     }
 
     /// Set encoding for parts length stream when rings are present.
-    pub fn rings(&mut self, e: IntegerEncoder) -> &mut Self {
+    pub fn rings(&mut self, e: IntEncoder) -> &mut Self {
         self.rings = e;
         self
     }
 
     /// Set encoding for ring vertex-count stream.
-    pub fn rings2(&mut self, e: IntegerEncoder) -> &mut Self {
+    pub fn rings2(&mut self, e: IntEncoder) -> &mut Self {
         self.rings2 = e;
         self
     }
 
     /// Set encoding for parts length stream when rings are not present.
-    pub fn no_rings(&mut self, e: IntegerEncoder) -> &mut Self {
+    pub fn no_rings(&mut self, e: IntEncoder) -> &mut Self {
         self.no_rings = e;
         self
     }
 
     /// Set encoding for parts length stream (with rings) when `geometry_offsets` absent.
-    pub fn parts(&mut self, e: IntegerEncoder) -> &mut Self {
+    pub fn parts(&mut self, e: IntEncoder) -> &mut Self {
         self.parts = e;
         self
     }
 
     /// Set encoding for ring lengths when `geometry_offsets` absent.
-    pub fn parts_ring(&mut self, e: IntegerEncoder) -> &mut Self {
+    pub fn parts_ring(&mut self, e: IntEncoder) -> &mut Self {
         self.parts_ring = e;
         self
     }
 
     /// Set encoding for parts-only stream (e.g. `LineString`, no rings).
-    pub fn only_parts(&mut self, e: IntegerEncoder) -> &mut Self {
+    pub fn only_parts(&mut self, e: IntEncoder) -> &mut Self {
         self.only_parts = e;
         self
     }
 
     /// Set encoding for triangles count stream (pre-tessellated polygons).
-    pub fn triangles(&mut self, e: IntegerEncoder) -> &mut Self {
+    pub fn triangles(&mut self, e: IntEncoder) -> &mut Self {
         self.triangles = e;
         self
     }
 
     /// Set encoding for triangle index buffer (pre-tessellated polygons).
-    pub fn triangles_indexes(&mut self, e: IntegerEncoder) -> &mut Self {
+    pub fn triangles_indexes(&mut self, e: IntEncoder) -> &mut Self {
         self.triangles_indexes = e;
         self
     }
 
     /// Set encoding for the vertex data stream.
-    pub fn vertex(&mut self, e: IntegerEncoder) -> &mut Self {
+    pub fn vertex(&mut self, e: IntEncoder) -> &mut Self {
         self.vertex = e;
         self
     }
 
     /// Set encoding for vertex offsets (dictionary encoding).
-    pub fn vertex_offsets(&mut self, e: IntegerEncoder) -> &mut Self {
+    pub fn vertex_offsets(&mut self, e: IntEncoder) -> &mut Self {
         self.vertex_offsets = e;
         self
     }
