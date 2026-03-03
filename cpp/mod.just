@@ -67,7 +67,7 @@ bazel-build:
 
 # Sanity test for mlt-cpp-json tool
 test-json:
-    build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq .
+    build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq . >/dev/null
 
 decode-synthetics: cmake-build (just 'cargo-install' 'fd' 'fd-find')
     #!/usr/bin/env bash
