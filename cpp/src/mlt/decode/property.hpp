@@ -206,15 +206,6 @@ protected:
                 checkBits(presentStream, result);
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
-            case ScalarType::DOUBLE: {
-                std::vector<double> doubleBuffer;
-                doubleBuffer.reserve(streamMetadata->getNumValues());
-                decodeRaw(tileData, doubleBuffer, *streamMetadata, /*consume=*/true);
-
-                PropertyVec result{std::move(doubleBuffer)};
-                checkBits(presentStream, result);
-                return {scalarType, std::move(result), std::move(presentStream)};
-            }
             case ScalarType::STRING: {
                 const auto stringCount = presentStream.empty() ? presentValueCount : countSetBits(presentStream);
                 // FIXME? why numStreams - 1? what if its not optional
