@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <mlt/decode/int.hpp>
 #include <mlt/decode/string.hpp>
 #include <mlt/feature.hpp>
@@ -178,10 +179,26 @@ protected:
                 checkBits(presentStream, result);
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
-            case ScalarType::DOUBLE: // wire format stores doubles as floats
+            case ScalarType::DOUBLE: {
+                std::vector<double> doubleBuffer;
+                if (streamMetadata->getNumValues() * sizeof(double) == streamMetadata->getByteLength()) {
+                    decodeRaw(tileData, doubleBuffer, *streamMetadata, /*consume=*/true);
+                } else {
+                    // Compatibility with tilesets encoded before double support was added
+                    std::vector<float> floatBuffer;
+                    decodeRaw(tileData, floatBuffer, *streamMetadata, /*consume=*/true);
+                    doubleBuffer.reserve(streamMetadata->getNumValues());
+                    std::ranges::transform(floatBuffer, std::back_inserter(doubleBuffer), [](float value) {
+                        return static_cast<double>(value);
+                    });
+                }
+
+                PropertyVec result{std::move(doubleBuffer)};
+                checkBits(presentStream, result);
+                return {scalarType, std::move(result), std::move(presentStream)};
+            }
             case ScalarType::FLOAT: {
                 std::vector<float> floatBuffer;
-                floatBuffer.reserve(streamMetadata->getNumValues());
                 decodeRaw(tileData, floatBuffer, *streamMetadata, /*consume=*/true);
 
                 PropertyVec result{std::move(floatBuffer)};
