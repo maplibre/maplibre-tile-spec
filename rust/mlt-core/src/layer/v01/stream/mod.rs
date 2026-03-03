@@ -882,7 +882,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::v01::property::decode::decode_string_streams;
+    use crate::v01::strings::decode_string_streams;
 
     /// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
     fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {
