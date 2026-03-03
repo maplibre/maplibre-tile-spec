@@ -55,12 +55,14 @@ dependencies {
 
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.jupiter.platform.launcher)
     testImplementation(libs.junit.jupiter.params)
 }
 
 // Exclude slf4j-simple from all configurations to prevent conflicts with log4j-slf4j-impl
 configurations.all {
-    exclude group: 'org.slf4j', module: 'slf4j-simple'
+    exclude group: 'org.slf4j', module: 'slf4j-simple' // no control over log output
+    exclude group: 'org.slf4j', module: 'log4j-over-slf4j' // only for log4j 1.x
 }
 
 test {
