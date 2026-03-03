@@ -217,66 +217,52 @@ impl Layer01<'_> {
                         )
                     };
 
-                    let mut dict_streams: Vec<Stream<'_>> = Vec::with_capacity(5);
+                    let mut dict_streams: [Option<Stream<'_>>; 5] = [None, None, None, None, None];
+                    let mut count = 0usize;
                     loop {
-                        if dict_streams.len() >= 5 {
+                        if count >= 5 {
                             return Err(MltError::UnsupportedStringStreamCount(6));
                         }
                         let (rest, s) = Stream::parse(input)?;
                         input = rest;
                         let is_last = done(&s);
-                        if dict_streams.is_empty() && is_last {
+                        if count == 0 && is_last {
                             return Err(MltError::MissingStringStream(
                                 "shared dictionary data (need at least 2 streams)",
                             ));
                         }
-                        dict_streams.push(s);
+                        dict_streams[count] = Some(s);
+                        count += 1;
                         if is_last {
                             break;
                         }
                     }
                     // FIXME: this is a rediculous byte lookahead. Need a different way.
-                    if dict_streams.len() == 4
+                    if count == 4
                         && input.first() == Some(&StreamType::Offset(OffsetType::String).as_u8())
                     {
                         let (rest, s5) = Stream::parse(input)?;
                         input = rest;
-                        dict_streams.push(s5);
+                        dict_streams[4] = Some(s5);
+                        count = 5;
                     }
                     let (rest, children) = parse_struct_children(input, &column)?;
                     input = rest;
 
-                    let n = dict_streams.len();
-                    let mut it = dict_streams.drain(..);
-                    // FIXME: i wonder if there is a cleaner way to do this
-                    let struct_prop = match n {
-                        2 => EncodedStructProp::plain(
-                            it.next().unwrap(),
-                            it.next().unwrap(),
-                            children,
-                        ),
-                        3 => EncodedStructProp::dictionary(
-                            it.next().unwrap(),
-                            it.next().unwrap(),
-                            it.next().unwrap(),
-                            children,
-                        ),
-                        4 => EncodedStructProp::fsst_plain(
-                            it.next().unwrap(),
-                            it.next().unwrap(),
-                            it.next().unwrap(),
-                            it.next().unwrap(),
-                            children,
-                        ),
-                        5 => EncodedStructProp::fsst_dictionary(
-                            it.next().unwrap(),
-                            it.next().unwrap(),
-                            it.next().unwrap(),
-                            it.next().unwrap(),
-                            it.next().unwrap(),
-                            children,
-                        ),
-                        _ => return Err(MltError::UnsupportedStringStreamCount(n)),
+                    let struct_prop = match dict_streams {
+                        [Some(s1), Some(s2), None, None, None] => {
+                            EncodedStructProp::plain(s1, s2, children)
+                        }
+                        [Some(s1), Some(s2), Some(s3), None, None] => {
+                            EncodedStructProp::dictionary(s1, s2, s3, children)
+                        }
+                        [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
+                            EncodedStructProp::fsst_plain(s1, s2, s3, s4, children)
+                        }
+                        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
+                            EncodedStructProp::fsst_dictionary(s1, s2, s3, s4, s5, children)
+                        }
+                        _ => return Err(MltError::UnsupportedStringStreamCount(count)),
                     };
 
                     properties.push(Property::new_encoded(name, EncVal::Struct(struct_prop)));
