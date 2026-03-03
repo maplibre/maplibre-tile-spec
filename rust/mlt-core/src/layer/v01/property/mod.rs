@@ -12,8 +12,8 @@ use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::utils::{BinarySerializer as _, FmtOptVec, apply_present, f32_to_json, f64_to_json};
 pub use crate::v01::property::strings::{
-    EncodedStructChild, EncodedStructProp, SharedDictChild, SharedDictEncoder,
-    SharedDictionaryGroup, StrEncoder, decode_string_streams, decode_struct_children,
+    EncodedStrProp, EncodedStructChild, EncodedStructProp, SharedDictChild, SharedDictEncoder,
+    SharedDictionaryGroup, StrEncoder, decode_strings, decode_struct_children,
     encode_shared_dictionary,
 };
 use crate::v01::{
@@ -22,6 +22,7 @@ use crate::v01::{
 use crate::{FromDecoded, MltError, impl_encodable};
 
 /// Property representation, either encoded or decoded
+#[allow(clippy::large_enum_variant)]
 #[borrowme]
 #[derive(Debug, PartialEq)]
 #[cfg_attr(
@@ -161,8 +162,8 @@ impl OwnedEncodedProperty {
         // Struct children metadata must be written inline here so subsequent column
         // metadata offsets remain correct.
         if let OwnedEncodedPropValue::Struct(s) = &self.value {
-            writer.write_varint(u64::try_from(s.children.len())?)?;
-            for child in &s.children {
+            writer.write_varint(u64::try_from(s.children().len())?)?;
+            for child in s.children() {
                 child.write_columns_meta_to(writer)?;
             }
         }
@@ -188,27 +189,22 @@ impl OwnedEncodedProperty {
                 writer.write_optional_stream(opt.as_ref())?;
                 writer.write_stream(val)?;
             }
-            Val::Str(opt, streams) => {
-                let stream_count = u64::try_from(streams.len())?;
-                let opt_stream_count = u64::from(opt.is_some());
-                let Some(stream_count) = stream_count.checked_add(opt_stream_count) else {
-                    return Err(IntegerOverflow);
-                };
+            Val::Str(opt, encoding) => {
+                let stream_count = u64::try_from(encoding.stream_count())?
+                    .checked_add(u64::from(opt.is_some()))
+                    .ok_or(IntegerOverflow)?;
                 writer.write_varint(stream_count)?;
                 writer.write_optional_stream(opt.as_ref())?;
-                for s in streams {
+                for s in encoding.streams() {
                     writer.write_stream(s)?;
                 }
             }
             Val::Struct(s) => {
-                let child_len = u64::try_from(s.children.len())?;
-                let dict_cnt = u64::try_from(s.dict_streams.len())?;
-                let stream_count = child_len.checked_add(dict_cnt).ok_or(IntegerOverflow)?;
-                writer.write_varint(stream_count)?;
-                for dict in &s.dict_streams {
-                    writer.write_stream(dict)?;
+                writer.write_varint(s.stream_count())?;
+                for stream in s.dict_streams() {
+                    writer.write_stream(stream)?;
                 }
-                for child in &s.children {
+                for child in s.children() {
                     // stream_count => data + (0 or 1 for optional stream)
                     // must be usize because we don't want to zigzag
                     writer.write_varint(1 + usize::from(child.optional.is_some()))?;
@@ -243,6 +239,7 @@ impl arbitrary::Arbitrary<'_> for OwnedEncodedProperty {
 }
 
 /// A sequence of encoded property values of various types
+#[allow(clippy::large_enum_variant)]
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum EncodedPropValue<'a> {
@@ -255,7 +252,7 @@ pub enum EncodedPropValue<'a> {
     U64(Option<Stream<'a>>, Stream<'a>),
     F32(Option<Stream<'a>>, Stream<'a>),
     F64(Option<Stream<'a>>, Stream<'a>),
-    Str(Option<Stream<'a>>, Vec<Stream<'a>>),
+    Str(Option<Stream<'a>>, EncodedStrProp<'a>),
     Struct(EncodedStructProp<'a>),
 }
 
@@ -274,15 +271,16 @@ impl Analyze for EncodedPropValue<'_> {
                 opt.for_each_stream(cb);
                 stream.for_each_stream(cb);
             }
-            Self::Str(opt, streams) => {
+            Self::Str(opt, encoding) => {
                 opt.for_each_stream(cb);
-                streams.for_each_stream(cb);
+                for s in encoding.streams() {
+                    cb(&s);
+                }
             }
             Self::Struct(sp) => {
-                sp.dict_streams.for_each_stream(cb);
-                for child in &sp.children {
-                    child.optional.for_each_stream(cb);
-                    child.data.for_each_stream(cb);
+                let streams = sp.streams();
+                for s in &streams {
+                    cb(s);
                 }
             }
         }
@@ -734,7 +732,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             }
             (Val::Str(s), ScalarValueEncoder::String(enc)) => {
                 let values = unapply_presence(s);
-                let streams = match enc {
+                let encoding = match enc {
                     StrEncoder::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
                         &values,
                         string_lengths,
@@ -747,7 +745,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                         DictionaryType::Single,
                     )?,
                 };
-                EncVal::Str(optional, streams)
+                EncVal::Str(optional, encoding)
             }
             (Val::Struct, ScalarValueEncoder::Struct) => {
                 Err(NotImplemented("struct property encoding"))?
@@ -782,7 +780,7 @@ impl<'a> FromEncoded<'a> for DecodedProperty {
             EncVal::U64(o, s) => Val::U64(apply_present(o, s.decode_u64()?)?),
             EncVal::F32(o, s) => Val::F32(apply_present(o, s.decode_f32()?)?),
             EncVal::F64(o, s) => Val::F64(apply_present(o, s.decode_f64()?)?),
-            EncVal::Str(o, streams) => Val::Str(apply_present(o, decode_string_streams(streams)?)?),
+            EncVal::Str(o, s) => Val::Str(apply_present(o, decode_strings(&s)?)?),
             EncVal::Struct(_) => Err(MltError::NotDecoded("struct must use decode_expand"))?,
         };
         Ok(DecodedProperty {

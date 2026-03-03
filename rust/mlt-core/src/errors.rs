@@ -48,6 +48,8 @@ pub enum MltError {
     UnableToTake(usize),
     #[error("unexpected stream type {0:?}")]
     UnexpectedStreamType(StreamType),
+    #[error("unexpected stream type {0:?}, expected {1} for {2}")]
+    UnexpectedStreamType2(StreamType, &'static str, &'static str),
     #[error("unsupported logical encoding {0:?} for {1}")]
     UnsupportedLogicalEncoding(LogicalEncoding, &'static str),
     #[error("invalid combination of logical encodings: {0:?} + {1:?}")]
@@ -90,6 +92,8 @@ pub enum MltError {
     UnsupportedPropertyEncoderCombination(&'static str, &'static str),
     #[error("struct shared dictionary requires at least 2 streams, got {0}")]
     StructSharedDictRequiresStreams(usize),
+    #[error("unsupported string stream count (expected 2, 3, or 5): {0}")]
+    UnsupportedStringStreamCount(usize),
     #[error("Structs are not allowed to be optional")]
     TriedToEncodeOptionalStruct,
     #[error(

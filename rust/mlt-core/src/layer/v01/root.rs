@@ -7,8 +7,8 @@ use crate::analyse::{Analyze, StatType};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::column::ColumnType;
 use crate::v01::{
-    Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedStructChild,
-    EncodedStructProp, Geometry, Id, OwnedId, Property, Stream, StreamType,
+    Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedStrProp, EncodedStructChild,
+    EncodedStructProp, Geometry, Id, OffsetType, OwnedId, Property, Stream, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -181,9 +181,28 @@ impl Layer01<'_> {
                     }
                     (input, opt) = parse_optional(column.typ, input)?;
                     stream_count -= usize::from(opt.is_some());
-                    let value_vec;
-                    (input, value_vec) = Stream::parse_multiple(input, stream_count)?;
-                    properties.push(Property::new_encoded(name, EncVal::Str(opt, value_vec)));
+                    let encoding = match stream_count {
+                        2 => {
+                            let (inp, length) = Stream::parse(input)?;
+                            let (inp, data) = Stream::parse(inp)?;
+                            input = inp;
+                            EncodedStrProp::plain(length, data)?
+                        }
+                        3 => {
+                            let (inp, length) = Stream::parse(input)?;
+                            let (inp, offset) = Stream::parse(inp)?;
+                            let (inp, data) = Stream::parse(inp)?;
+                            input = inp;
+                            EncodedStrProp::dictionary(length, offset, data)?
+                        }
+                        4 | 5 => {
+                            let (inp, streams) = Stream::parse_multiple(input, stream_count)?;
+                            input = inp;
+                            EncodedStrProp::from_streams(streams)?
+                        }
+                        n => return Err(MltError::UnsupportedStringStreamCount(n)),
+                    };
+                    properties.push(Property::new_encoded(name, EncVal::Str(opt, encoding)));
                 }
                 ColumnType::Struct => {
                     (input, stream_count) = parse_varint::<usize>(input)?;
@@ -191,55 +210,76 @@ impl Layer01<'_> {
                         return Err(MltError::StructSharedDictRequiresStreams(stream_count));
                     }
 
-                    // Parse shared dictionary streams
-                    let mut dict_streams = Vec::new();
-                    let mut remaining_streams = stream_count;
-                    loop {
-                        if remaining_streams == 0 {
-                            return Err(MltError::MissingStringStream("shared dictionary data"));
-                        }
-                        remaining_streams -= 1;
-                        let s;
-                        (input, s) = Stream::parse(input)?;
-                        let done = matches!(
+                    let done = |s: &Stream<'_>| {
+                        matches!(
                             s.meta.stream_type,
                             StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
-                        );
+                        )
+                    };
+
+                    let mut dict_streams: Vec<Stream<'_>> = Vec::with_capacity(5);
+                    loop {
+                        if dict_streams.len() >= 5 {
+                            return Err(MltError::UnsupportedStringStreamCount(6));
+                        }
+                        let (rest, s) = Stream::parse(input)?;
+                        input = rest;
+                        let is_last = done(&s);
+                        if dict_streams.is_empty() && is_last {
+                            return Err(MltError::MissingStringStream(
+                                "shared dictionary data (need at least 2 streams)",
+                            ));
+                        }
                         dict_streams.push(s);
-                        if done {
+                        if is_last {
                             break;
                         }
                     }
-
-                    // Parse each child field (present stream + dictionary index stream)
-                    let mut children = Vec::with_capacity(column.children.len());
-                    for child in &column.children {
-                        (input, stream_count) = parse_varint::<usize>(input)?;
-                        let child_optional;
-                        (input, child_optional) = parse_optional(child.typ, input)?;
-                        let optional_stream_count = usize::from(child_optional.is_some());
-                        if let Some(data_count) = stream_count.checked_sub(optional_stream_count)
-                            && data_count != 1
-                        {
-                            return Err(MltError::UnexpectedStructChildCount(data_count));
-                        }
-                        let child_data;
-                        (input, child_data) = Stream::parse(input)?;
-                        children.push(EncodedStructChild {
-                            name: child.name.unwrap_or(""),
-                            typ: child.typ,
-                            optional: child_optional,
-                            data: child_data,
-                        });
+                    // FIXME: this is a rediculous byte lookahead. Need a different way.
+                    if dict_streams.len() == 4
+                        && input.first() == Some(&StreamType::Offset(OffsetType::String).as_u8())
+                    {
+                        let (rest, s5) = Stream::parse(input)?;
+                        input = rest;
+                        dict_streams.push(s5);
                     }
+                    let (rest, children) = parse_struct_children(input, &column)?;
+                    input = rest;
 
-                    properties.push(Property::new_encoded(
-                        name,
-                        EncVal::Struct(EncodedStructProp {
-                            dict_streams,
+                    let n = dict_streams.len();
+                    let mut it = dict_streams.drain(..);
+                    // FIXME: i wonder if there is a cleaner way to do this
+                    let struct_prop = match n {
+                        2 => EncodedStructProp::plain(
+                            it.next().unwrap(),
+                            it.next().unwrap(),
                             children,
-                        }),
-                    ));
+                        ),
+                        3 => EncodedStructProp::dictionary(
+                            it.next().unwrap(),
+                            it.next().unwrap(),
+                            it.next().unwrap(),
+                            children,
+                        ),
+                        4 => EncodedStructProp::fsst_plain(
+                            it.next().unwrap(),
+                            it.next().unwrap(),
+                            it.next().unwrap(),
+                            it.next().unwrap(),
+                            children,
+                        ),
+                        5 => EncodedStructProp::fsst_dictionary(
+                            it.next().unwrap(),
+                            it.next().unwrap(),
+                            it.next().unwrap(),
+                            it.next().unwrap(),
+                            it.next().unwrap(),
+                            children,
+                        ),
+                        _ => return Err(MltError::UnsupportedStringStreamCount(n)),
+                    };
+
+                    properties.push(Property::new_encoded(name, EncVal::Struct(struct_prop)));
                 }
             }
         }
@@ -267,6 +307,32 @@ impl Layer01<'_> {
         }
         Ok(())
     }
+}
+
+fn parse_struct_children<'a>(
+    mut input: &'a [u8],
+    column: &Column<'a>,
+) -> MltRefResult<'a, Vec<EncodedStructChild<'a>>> {
+    let mut children = Vec::with_capacity(column.children.len());
+    for child in &column.children {
+        let (inp, sc) = parse_varint::<usize>(input)?;
+        let (inp, child_optional) = parse_optional(child.typ, inp)?;
+        let optional_stream_count = usize::from(child_optional.is_some());
+        if let Some(data_count) = sc.checked_sub(optional_stream_count) {
+            if data_count != 1 {
+                return Err(MltError::UnexpectedStructChildCount(data_count));
+            }
+        }
+        let (inp, child_data) = Stream::parse(inp)?;
+        children.push(EncodedStructChild {
+            name: child.name.unwrap_or(""),
+            typ: child.typ,
+            optional: child_optional,
+            data: child_data,
+        });
+        input = inp;
+    }
+    Ok((input, children))
 }
 
 fn parse_optional(typ: ColumnType, input: &[u8]) -> MltRefResult<'_, Option<Stream<'_>>> {

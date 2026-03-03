@@ -17,6 +17,7 @@ use crate::utils::{
     decode_bytes_to_u64s, decode_fastpfor_composite, encode_bools_to_bytes, encode_byte_rle,
     parse_u8, parse_varint, parse_varint_vec, take,
 };
+use crate::v01::property::strings::OwnedEncodedStrProp;
 pub use crate::v01::stream::encoder::{FsstStrEncoder, IntEncoder};
 pub use crate::v01::stream::logical::{
     LogicalData, LogicalEncoder, LogicalEncoding, LogicalTechnique, LogicalValue,
@@ -239,7 +240,7 @@ impl OwnedStream {
         length_encoding: IntEncoder,
         length_type: LengthType,
         dict_type: DictionaryType,
-    ) -> Result<Vec<Self>, MltError> {
+    ) -> Result<OwnedEncodedStrProp, MltError> {
         let lengths: Vec<u32> = values
             .iter()
             .map(|s| u32::try_from(s.as_ref().len()))
@@ -249,12 +250,14 @@ impl OwnedStream {
             .flat_map(|s| s.as_ref().as_bytes().iter().copied())
             .collect();
 
-        let length_stream =
-            Self::encode_u32s_of_type(&lengths, length_encoding, StreamType::Length(length_type))?;
-
-        let data_stream = Self::plain_with_type(data, u32::try_from(values.len())?, dict_type);
-
-        Ok(vec![length_stream, data_stream])
+        Ok(OwnedEncodedStrProp::Plain {
+            lengths: Self::encode_u32s_of_type(
+                &lengths,
+                length_encoding,
+                StreamType::Length(length_type),
+            )?,
+            data: Self::plain_with_type(data, u32::try_from(values.len())?, dict_type),
+        })
     }
 
     /// Encode a sequence of strings using FSST compression.
@@ -272,7 +275,7 @@ impl OwnedStream {
         values: &[S],
         encoding: FsstStrEncoder,
         dict_type: DictionaryType,
-    ) -> Result<Vec<Self>, MltError> {
+    ) -> Result<OwnedEncodedStrProp, MltError> {
         use fsst::Compressor;
 
         // Build byte slices for training
@@ -347,12 +350,23 @@ impl OwnedStream {
             data: OwnedStreamData::Encoded(OwnedEncodedData { data: compressed }),
         };
 
-        Ok(vec![
-            symbol_length_stream,
-            symbol_table_stream,
-            value_length_stream,
-            compressed_stream,
-        ])
+        // Stream 5: Offset indices (0, 1, 2, ...) for string lookup
+        let offsets: Vec<u32> = (0..values.len())
+            .map(|i| u32::try_from(i).unwrap())
+            .collect();
+        let offset_stream = Self::encode_u32s_of_type(
+            &offsets,
+            encoding.dict_lengths,
+            StreamType::Offset(OffsetType::String),
+        )?;
+
+        Ok(OwnedEncodedStrProp::FsstDictionary {
+            symbol_lengths: symbol_length_stream,
+            symbol_table: symbol_table_stream,
+            length: value_length_stream,
+            corpus: compressed_stream,
+            offset: Some(offset_stream),
+        })
     }
 }
 /// Metadata about an encoded stream
@@ -883,7 +897,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::v01::strings::decode_string_streams;
+    use crate::v01::property::strings::{EncodedStrProp, decode_strings};
 
     /// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
     fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {
@@ -1277,10 +1291,11 @@ mod tests {
             values in prop::collection::vec(any::<String>(), 0..100),
             encoding in any::<IntEncoder>(),
         ) {
-            let owned_streams = OwnedStream::encode_strings_with_type(&values, encoding, LengthType::VarBinary, DictionaryType::None).unwrap();
+            let encoded = OwnedStream::encode_strings_with_type(&values, encoding, LengthType::VarBinary, DictionaryType::None).unwrap();
+            let owned_streams = encoded.streams();
 
             let mut buffers = Vec::new();
-            for owned_stream in &owned_streams {
+            for owned_stream in owned_streams {
                 let mut buffer = Vec::new();
                 buffer.write_stream(owned_stream).unwrap();
                 buffers.push(buffer);
@@ -1293,7 +1308,8 @@ mod tests {
                 parsed_streams.push(parsed_stream);
             }
 
-            let decoded_values = decode_string_streams(parsed_streams).unwrap();
+            let encoding = EncodedStrProp::from_streams(parsed_streams).unwrap();
+            let decoded_values = decode_strings(&encoding).unwrap();
             assert_eq!(decoded_values, values);
         }
     }
