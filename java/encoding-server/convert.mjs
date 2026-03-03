@@ -144,7 +144,7 @@ function convertTileResponse(filePath, res) {
 		(config.fsst ? " --fsst" : "") +
 		(config.fastpfor ? " --fastpfor" : "") +
 		(config.nomorton ? " --nomorton" : "") +
-		(config.outlines ? " --outlines " + config.outlines : "") +
+		(config.outlines ? ` --outlines ${config.outlines}` : "") +
 		(config.tessellate ? " --tessellate" : "") +
 		(config.coercemismatch ? " --coerce-mismatch" : "") +
 		(config.timer ? " --timer" : "") +

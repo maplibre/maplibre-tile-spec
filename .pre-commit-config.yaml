@@ -67,4 +67,5 @@ repos:
     rev: v2.4.5
     hooks:
       - id: biome-check
+        args: [--unsafe]
         exclude: '^(ts/|.*\.json$)'

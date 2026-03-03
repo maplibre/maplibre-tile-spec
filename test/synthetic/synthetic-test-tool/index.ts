@@ -146,7 +146,7 @@ export class SyntheticTestRunner {
 				deepEqualWithTolerance(expected, actual);
 				console.log(`OK - ${name}`);
 				passed++;
-			} catch (err) {
+			} catch (_err) {
 				console.log(`FAIL - ${name}`);
 				console.error(
 					"expected:\n",
