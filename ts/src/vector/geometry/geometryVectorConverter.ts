@@ -218,48 +218,36 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                         geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
                     geometryOffsetsCounter++;
                     const lineStrings: CoordinatesArray = new Array(numLineStrings);
-                    if (nonOffset) {
-                        for (let j = 0; j < numLineStrings; j++) {
-                            let numVertices = 0;
-                            if (containsPolygon) {
-                                numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                                ringOffsetsCounter++;
-                            } else {
-                                numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                            }
-                            partOffsetCounter++;
-
+                    for (let j = 0; j < numLineStrings; j++) {
+                        let numVertices = 0;
+                        if (containsPolygon) {
+                            numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                            ringOffsetsCounter++;
+                        } else {
+                            numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                        }
+                        partOffsetCounter++;
+                        if (nonOffset) {
                             lineStrings[j] = getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
                             vertexBufferOffset += numVertices * 2;
-                        }
-                    } else {
-                        for (let j = 0; j < numLineStrings; j++) {
-                            let numVertices = 0;
-                            if (containsPolygon) {
-                                numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                                ringOffsetsCounter++;
-                            } else {
-                                numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                            }
-                            partOffsetCounter++;
-
+                        } else {
                             const vertices =
                                 geometryVector.vertexBufferType === VertexBufferType.VEC_2
                                     ? decodeDictionaryEncodedLineString(
-                                          vertexBuffer,
-                                          vertexOffsets,
-                                          vertexOffsetsOffset,
-                                          numVertices,
-                                          false,
-                                      )
+                                            vertexBuffer,
+                                            vertexOffsets,
+                                            vertexOffsetsOffset,
+                                            numVertices,
+                                            false,
+                                        )
                                     : decodeMortonDictionaryEncodedLineString(
-                                          vertexBuffer,
-                                          vertexOffsets,
-                                          vertexOffsetsOffset,
-                                          numVertices,
-                                          false,
-                                          mortonSettings,
-                                      );
+                                            vertexBuffer,
+                                            vertexOffsets,
+                                            vertexOffsetsOffset,
+                                            numVertices,
+                                            false,
+                                            mortonSettings,
+                                        );
                             lineStrings[j] = vertices;
                             vertexOffsetsOffset += numVertices;
                         }
