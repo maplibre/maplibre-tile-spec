@@ -1,12 +1,10 @@
 package org.maplibre.mlt.cli
 
 import org.apache.commons.lang3.mutable.MutableBoolean
-import org.imintel.mbtiles4j.MBTilesException
 import org.imintel.mbtiles4j.MBTilesReadException
 import org.imintel.mbtiles4j.MBTilesReader
 import org.imintel.mbtiles4j.MBTilesWriteException
 import org.imintel.mbtiles4j.MBTilesWriter
-import org.imintel.mbtiles4j.SQLHelper
 import org.imintel.mbtiles4j.Tile
 import org.imintel.mbtiles4j.model.MetadataEntry
 import org.maplibre.mlt.converter.MltConverter
@@ -155,7 +153,7 @@ fun encodeMBTiles(
 
                 // mbtiles4j doesn't support types other than png and jpg,
                 // so we have to set the format metadata the hard way.
-                getConnection(dbFile, config).use { connection ->
+                getConnection(dbFile).use { connection ->
                     updateMetadata(config, connection, metadata, metadataJSON)
                 }
             } finally {
@@ -192,10 +190,7 @@ fun encodeMBTiles(
 
 private fun getConnectionString(dbFile: File) = "jdbc:sqlite:" + dbFile.absolutePath
 
-private fun getConnection(
-    dbFile: File,
-    config: EncodeConfig,
-) = DriverManager.getConnection(getConnectionString(dbFile))
+private fun getConnection(dbFile: File) = DriverManager.getConnection(getConnectionString(dbFile))
 
 @Throws(SQLException::class)
 private fun updateMetadata(
@@ -220,8 +215,8 @@ private fun updateMetadata(
         }
 
         logger.trace("Setting tile MIME type to '{}'", MBTILES_METADATA_MIME_TYPE)
-        statement.setString(1, MBTILES_METADATA_MIME_TYPE)
-        statement.setString(2, "format")
+        statement.setString(1, "format")
+        statement.setString(2, MBTILES_METADATA_MIME_TYPE)
         statement.addBatch()
 
         // Put the global metadata in a custom metadata key.
