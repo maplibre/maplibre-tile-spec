@@ -8,7 +8,7 @@ use crate::utils::{SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::column::ColumnType;
 use crate::v01::{
     Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedStrProp, EncodedStructChild,
-    EncodedStructProp, Geometry, Id, OffsetType, OwnedId, Property, Stream, StreamType,
+    EncodedStructProp, Geometry, Id, OwnedId, Property, Stream, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -211,6 +211,8 @@ impl Layer01<'_> {
                     while streams_taken < stream_count {
                         let stream;
                         (input, stream) = Stream::parse(input)?;
+                        // Read header streams until we hit the dictionary DATA stream.
+                        // C++/Java use this pattern: loop until DictionaryType::Single|Shared.
                         let is_last = matches!(
                             stream.meta.stream_type,
                             StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
@@ -222,15 +224,6 @@ impl Layer01<'_> {
                         } else if streams_taken >= 5 {
                             return Err(MltError::UnsupportedStringStreamCount(6));
                         }
-                    }
-                    // FIXME: this is a rediculous byte lookahead. Need a different way.
-                    if streams_taken == 4
-                        && input.first() == Some(&StreamType::Offset(OffsetType::String).as_u8())
-                    {
-                        let stream;
-                        (input, stream) = Stream::parse(input)?;
-                        dict_streams[4] = Some(stream);
-                        streams_taken += 1;
                     }
                     let children;
                     (input, children) = parse_struct_children(input, &column)?;
@@ -290,10 +283,10 @@ fn parse_struct_children<'a>(
         let (inp, sc) = parse_varint::<usize>(input)?;
         let (inp, child_optional) = parse_optional(child.typ, inp)?;
         let optional_stream_count = usize::from(child_optional.is_some());
-        if let Some(data_count) = sc.checked_sub(optional_stream_count) {
-            if data_count != 1 {
-                return Err(MltError::UnexpectedStructChildCount(data_count));
-            }
+        if let Some(data_count) = sc.checked_sub(optional_stream_count)
+            && data_count != 1
+        {
+            return Err(MltError::UnexpectedStructChildCount(data_count));
         }
         let (inp, child_data) = Stream::parse(inp)?;
         children.push(EncodedStructChild {

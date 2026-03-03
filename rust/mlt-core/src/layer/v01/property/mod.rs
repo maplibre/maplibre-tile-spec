@@ -443,7 +443,7 @@ impl<'a> Property<'a> {
     pub fn decode_expand(self) -> Result<Vec<Property<'a>>, MltError> {
         match self {
             Self::Encoded(enc) => match enc.value {
-                EncodedPropValue::Struct(v) => decode_struct_children(enc.name, v),
+                EncodedPropValue::Struct(v) => decode_struct_children(enc.name, &v),
                 _ => Ok(vec![Self::Decoded(DecodedProperty::from_encoded(enc)?)]),
             },
             Self::Decoded(d) => Ok(vec![Self::Decoded(d)]),

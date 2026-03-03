@@ -126,8 +126,8 @@ pub enum EncodedStrProp<'a> {
     },
 }
 
-// a helper to validate stream type to match expectation using matches! syntax
-macro_rules! assert_stream_type {
+/// a helper to validate stream type to match expectation using matches! syntax
+macro_rules! validate_stream {
     ($stream:expr, $expected:pat $(,)?) => {
         if !matches!($stream.meta.stream_type, $expected) {
             return Err(UnexpectedStreamType2(
@@ -141,8 +141,8 @@ macro_rules! assert_stream_type {
 
 impl<'a> EncodedStrProp<'a> {
     pub fn plain(lengths: Stream<'a>, data: Stream<'a>) -> Result<Self, MltError> {
-        assert_stream_type!(lengths, StreamType::Length(LengthType::VarBinary));
-        assert_stream_type!(
+        validate_stream!(lengths, StreamType::Length(LengthType::VarBinary));
+        validate_stream!(
             data,
             StreamType::Data(DictionaryType::None | DictionaryType::Single)
         );
@@ -154,9 +154,9 @@ impl<'a> EncodedStrProp<'a> {
         offset: Stream<'a>,
         data: Stream<'a>,
     ) -> Result<Self, MltError> {
-        assert_stream_type!(lengths, StreamType::Length(LengthType::Dictionary));
-        assert_stream_type!(offset, StreamType::Offset(OffsetType::String));
-        assert_stream_type!(data, StreamType::Data(DictionaryType::Single));
+        validate_stream!(lengths, StreamType::Length(LengthType::Dictionary));
+        validate_stream!(offset, StreamType::Offset(OffsetType::String));
+        validate_stream!(data, StreamType::Data(DictionaryType::Single));
         Ok(Self::Dictionary {
             lengths,
             offset,
@@ -171,12 +171,12 @@ impl<'a> EncodedStrProp<'a> {
         corpus: Stream<'a>,
         offset: Option<Stream<'a>>,
     ) -> Result<Self, MltError> {
-        assert_stream_type!(symbol_lengths, StreamType::Length(LengthType::Symbol));
-        assert_stream_type!(symbol_table, StreamType::Data(DictionaryType::Fsst));
-        assert_stream_type!(length, StreamType::Length(LengthType::Dictionary));
-        assert_stream_type!(corpus, StreamType::Data(DictionaryType::Single));
+        validate_stream!(symbol_lengths, StreamType::Length(LengthType::Symbol));
+        validate_stream!(symbol_table, StreamType::Data(DictionaryType::Fsst));
+        validate_stream!(length, StreamType::Length(LengthType::Dictionary));
+        validate_stream!(corpus, StreamType::Data(DictionaryType::Single));
         if let Some(ref o) = offset {
-            assert_stream_type!(o, StreamType::Offset(OffsetType::String));
+            validate_stream!(o, StreamType::Offset(OffsetType::String));
         }
         Ok(Self::FsstDictionary {
             symbol_lengths,
@@ -417,7 +417,7 @@ impl<'a> EncodedStructProp<'a> {
         }
     }
 
-    /// Dict streams in wire order (for serialization and for decode_shared_dictionary).
+    /// Dict streams in wire order (for serialization and for `decode_shared_dictionary`).
     #[must_use]
     pub fn dict_streams(&self) -> Vec<Stream<'_>> {
         match self {
@@ -860,7 +860,7 @@ fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec
 /// Decode a struct with shared dictionary into one decoded property per child.
 pub fn decode_struct_children<'a>(
     parent_name: &str,
-    struct_data: EncodedStructProp<'_>,
+    struct_data: &EncodedStructProp<'_>,
 ) -> Result<Vec<Property<'a>>, MltError> {
     let dict = decode_shared_dictionary(struct_data.dict_streams())?;
     struct_data
