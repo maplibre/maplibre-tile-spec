@@ -267,20 +267,6 @@ struct PropertyVisitor {
     std::optional<json> operator()(float value) const { return encodeFloatingPoint(value, "f32"); }
     std::optional<json> operator()(double value) const { return encodeFloatingPoint(value, "f64"); }
 
-    std::optional<json> operator()(const std::optional<float>& value) const {
-        if (!value.has_value()) {
-            return std::nullopt;
-        }
-        return (*this)(*value);
-    }
-
-    std::optional<json> operator()(const std::optional<double>& value) const {
-        if (!value.has_value()) {
-            return std::nullopt;
-        }
-        return (*this)(*value);
-    }
-
     template <typename T>
     std::optional<json> operator()(const T& value) const {
         return value;
