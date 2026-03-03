@@ -5,7 +5,7 @@
       "type": "Feature",
       "id": 9234567890,
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1"
       },
       "geometry": {
@@ -20,7 +20,7 @@
       "type": "Feature",
       "id": 9234567890,
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1"
       },
       "geometry": {
@@ -35,7 +35,7 @@
       "type": "Feature",
       "id": 9234567890,
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1"
       },
       "geometry": {
@@ -50,7 +50,7 @@
       "type": "Feature",
       "id": 9234567890,
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1"
       },
       "geometry": {

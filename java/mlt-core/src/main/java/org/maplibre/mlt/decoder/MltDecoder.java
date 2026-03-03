@@ -17,6 +17,7 @@ import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltDecoder {
+
   private MltDecoder() {}
 
   private static Layer parseBasicMVTEquivalent(int layerSize, InputStream stream)
@@ -45,7 +46,7 @@ public class MltDecoder {
           }
         } else {
           // Skip the remainder of this one
-          final var ignored = stream.skip(length - tag.getRight());
+          stream.skip(length - tag.getRight());
         }
       }
     }

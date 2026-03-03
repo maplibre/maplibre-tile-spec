@@ -1,6 +1,5 @@
 package org.maplibre.mlt.converter.encodings.fsst;
 
-import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;

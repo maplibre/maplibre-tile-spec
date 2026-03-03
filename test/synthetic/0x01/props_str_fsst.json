@@ -4,90 +4,90 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": "residential_zone_north_sector_1"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          4,
-          47
+          11,
+          52
         ]
       }
     },
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": "commercial_zone_south_sector_2"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          12,
-          53
+          71,
+          72
         ]
       }
     },
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": "industrial_zone_east_sector_3"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          18,
-          45
+          61,
+          22
         ]
       }
     },
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": "park_zone_west_sector_4"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          13,
-          48
+          65,
+          66
         ]
       }
     },
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": "water_zone_north_sector_5"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          12,
-          50
+          35,
+          56
         ]
       }
     },
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": "residential_zone_south_sector_6"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          10,
-          49
+          55,
+          36
         ]
       }
     }

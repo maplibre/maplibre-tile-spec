@@ -70,10 +70,14 @@ pub enum MltError {
     InvalidFastPforByteLength(usize),
     #[error("vec2 delta stream size expected to be non-empty and multiple of 2, got {0}")]
     InvalidPairStreamSize(usize),
+    #[error("decodable stream size expected {1}, got {0}")]
+    InvalidDecodingStreamSize(usize, usize),
     #[error("stream data mismatch: expected {0}, got {1}")]
     StreamDataMismatch(&'static str, &'static str),
     #[error("IDs missing for encoding (expected Some IDs, got None)")]
     IdsMissingForEncoding,
+    #[error("missing struct encoder for struct")]
+    MissingStructEncoderForStruct,
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
     #[error("MVT parse error: {0}")]
@@ -82,16 +86,26 @@ pub enum MltError {
     NeedsEncodingBeforeWriting,
     #[error("not implemented: {0}")]
     NotImplemented(&'static str),
+    #[error("unsupported property value and encoder combination: {0:?} + {1:?}")]
+    UnsupportedPropertyEncoderCombination(&'static str, &'static str),
     #[error("struct shared dictionary requires at least 2 streams, got {0}")]
     StructSharedDictRequiresStreams(usize),
     #[error("Structs are not allowed to be optional")]
     TriedToEncodeOptionalStruct,
+    #[error(
+        "encoding instruction count mismatch: expected {input_len} instructions for {input_len} properties, got {config_len}"
+    )]
+    EncodingInstructionCountMismatch { input_len: usize, config_len: usize },
     #[error("struct child data streams expected exactly 1 value, got {0}")]
     UnexpectedStructChildCount(usize),
     #[error("unsupported physical encoding: {0}")]
     UnsupportedPhysicalEncoding(&'static str),
     #[error("unsupported physical encoding: {0:?} for {1}")]
     UnsupportedPhysicalEncodingForType(PhysicalEncoding, &'static str),
+    #[error(
+        "Extent {extent} cannot be encoded to morton due to morton allowing max. 16 bits, but {required_bits} would be required"
+    )]
+    VertexMortonNotCompatibleWithExtent { extent: u64, required_bits: u32 },
 
     // Geometry decode errors (field = variable name, geom_type for context)
     #[error("MVT error: {0}")]

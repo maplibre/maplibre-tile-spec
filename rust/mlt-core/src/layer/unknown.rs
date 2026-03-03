@@ -6,6 +6,10 @@ use borrowme::borrowme;
 /// Unknown layer data, stored as encoded bytes
 #[borrowme]
 #[derive(Debug, Clone, Default, PartialEq)]
+#[cfg_attr(
+    all(not(test), feature = "arbitrary"),
+    owned_attr(derive(arbitrary::Arbitrary))
+)]
 pub struct Unknown<'a> {
     pub tag: u8,
     #[borrowme(borrow_with = Vec::as_slice)]

@@ -55,6 +55,15 @@ public class EncodingUtils {
     return buffer.array();
   }
 
+  /** Convert the doubles to IEEE754 floating point numbers in Little Endian byte order. */
+  public static byte[] encodeDoublesLE(double[] values) {
+    var buffer = ByteBuffer.allocate(values.length * 8).order(ByteOrder.LITTLE_ENDIAN);
+    for (var value : values) {
+      buffer.putDouble(value);
+    }
+    return buffer.array();
+  }
+
   // Source:
   // https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java
   public static byte[] encodeVarints(int[] values, boolean zigZagEncode, boolean deltaEncode)

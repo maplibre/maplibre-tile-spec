@@ -4,9 +4,9 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
-        "val": NaN
+        "val": "f32::NAN"
       },
       "geometry": {
         "type": "Point",

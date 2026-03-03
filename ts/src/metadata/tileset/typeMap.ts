@@ -3,6 +3,7 @@ import {
     ColumnScope,
     type ComplexColumn,
     ComplexType,
+    LogicalScalarType,
     type ScalarColumn,
     ScalarType,
 } from "./tilesetMetadata";
@@ -18,7 +19,13 @@ import {
 
 /**
  * Decodes a type code into a Column structure.
- * ID columns (0-3) are represented as physical UINT_32 or UINT_64 types in TypeScript
+ *
+ * ID type codes (0..3):
+ * - Bit 0: nullable
+ * - Bit 1: longID (0/1 -> uint32 IDs, 2/3 -> uint64 IDs)
+ *
+ * ID columns are kept as logical types so they remain distinguishable
+ * from feature properties that may also be named "id".
  */
 export function decodeColumnType(typeCode: number): Column | null {
     switch (typeCode) {
@@ -26,15 +33,13 @@ export function decodeColumnType(typeCode: number): Column | null {
         case 1:
         case 2:
         case 3: {
-            // ID columns: 0=uint32, 1=uint64, 2=nullable uint32, 3=nullable uint64
             const column = {} as Column;
-            column.nullable = (typeCode & 1) !== 0; // Bit 0 = nullable;
+            column.nullable = (typeCode & 1) !== 0;
             column.columnScope = ColumnScope.FEATURE;
             const scalarCol = {} as ScalarColumn;
-            // Map to physical type since TS schema doesn't have LogicalScalarType.ID
-            const physicalType = typeCode > 1 ? ScalarType.UINT_64 : ScalarType.UINT_32; // Bit 1 = longID
-            scalarCol.physicalType = physicalType;
-            scalarCol.type = "physicalType";
+            scalarCol.type = "logicalType";
+            scalarCol.logicalType = LogicalScalarType.ID;
+            scalarCol.longID = (typeCode & 2) !== 0;
             column.scalarType = scalarCol;
             column.type = "scalarType";
             return column;
@@ -87,14 +92,9 @@ export function columnTypeHasChildren(typeCode: number): boolean {
 
 /**
  * Determines if a stream count needs to be read for this column.
- * Mirrors the logic in cpp/include/mlt/metadata/type_map.hpp lines 81-118
+ * Mirrors the logic in cpp/include/mlt/metadata/type_map.hpp lines 85-122
  */
 export function hasStreamCount(column: Column): boolean {
-    // ID columns don't have stream count (identified by name)
-    if (column.name === "id") {
-        return false;
-    }
-
     if (column.type === "scalarType") {
         const scalarCol = column.scalarType;
 
@@ -136,6 +136,22 @@ export function hasStreamCount(column: Column): boolean {
 
     console.warn("Unexpected column type in hasStreamCount", column);
     return false;
+}
+
+export function isLogicalIdColumn(column: Column): boolean {
+    return (
+        column.type === "scalarType" &&
+        column.scalarType?.type === "logicalType" &&
+        column.scalarType.logicalType === LogicalScalarType.ID
+    );
+}
+
+export function isGeometryColumn(column: Column): boolean {
+    return (
+        column.type === "complexType" &&
+        column.complexType?.type === "physicalType" &&
+        column.complexType.physicalType === ComplexType.GEOMETRY
+    );
 }
 
 /**

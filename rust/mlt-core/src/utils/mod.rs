@@ -8,13 +8,35 @@ mod decode;
 pub(crate) use decode::*;
 mod formatter;
 pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt, fmt_byte_array};
+use serde_json::{Number, Value};
 
 use crate::MltError;
+use crate::v01::Stream;
 
-/// Convert f32 to JSON using the shortest decimal representation (matches Java's `Float.toString()`)
-pub fn f32_to_json(f: f32) -> serde_json::Value {
-    let serialized = &serde_json::to_string(&f).expect("f32 serialization should not fail");
-    serde_json::from_str(serialized).expect("serialized f32 should parse as JSON")
+/// Convert f32 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
+pub fn f32_to_json(f: f32) -> Value {
+    if f.is_nan() {
+        Value::String("f32::NAN".to_owned())
+    } else if f == f32::INFINITY {
+        Value::String("f32::INFINITY".to_owned())
+    } else if f == f32::NEG_INFINITY {
+        Value::String("f32::NEG_INFINITY".to_owned())
+    } else {
+        Number::from_f64(f64::from(f)).expect("finite f32").into()
+    }
+}
+
+/// Convert f64 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
+pub fn f64_to_json(f: f64) -> Value {
+    if f.is_nan() {
+        Value::String("f64::NAN".to_owned())
+    } else if f == f64::INFINITY {
+        Value::String("f64::INFINITY".to_owned())
+    } else if f == f64::NEG_INFINITY {
+        Value::String("f64::NEG_INFINITY".to_owned())
+    } else {
+        Number::from_f64(f).expect("finite f64").into()
+    }
 }
 
 pub trait SetOptionOnce<T> {
@@ -35,10 +57,12 @@ impl<T> SetOptionOnce<T> for Option<T> {
 /// If present is None (non-optional column), all values are wrapped in Some.
 /// If present is Some, values are interleaved with None according to the bitmap.
 pub fn apply_present<T>(
-    present: Option<Vec<bool>>,
+    present: Option<Stream>,
     values: Vec<T>,
 ) -> Result<Vec<Option<T>>, MltError> {
-    let Some(present) = present else {
+    let present = if let Some(p) = present {
+        p.decode_bools()?
+    } else {
         return Ok(values.into_iter().map(Some).collect());
     };
     let present_bit_count = present.iter().filter(|&&b| b).count();

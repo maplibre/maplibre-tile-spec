@@ -58,7 +58,7 @@ jobs:
           sccache: false
           manylinux: auto
       - name: Upload wheels
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-linux-${{ matrix.platform.target }}
           path: dist
@@ -99,7 +99,7 @@ jobs:
   #        sccache: false
   #        manylinux: musllinux_1_2
   #    - name: Upload wheels
-  #      uses: actions/upload-artifact@v5
+  #      uses: actions/upload-artifact@v7
   #      with:
   #        name: wheels-musllinux-${{ matrix.platform.target }}
   #        path: dist
@@ -134,7 +134,7 @@ jobs:
   #        args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-py/Cargo.toml
   #        sccache: false
   #    - name: Upload wheels
-  #      uses: actions/upload-artifact@v5
+  #      uses: actions/upload-artifact@v7
   #      with:
   #        name: wheels-windows-${{ matrix.platform.target }}
   #        path: dist
@@ -161,7 +161,7 @@ jobs:
           args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-py/Cargo.toml
           sccache: false
       - name: Upload wheels
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-macos-${{ matrix.platform.target }}
           path: dist
@@ -176,7 +176,7 @@ jobs:
           command: sdist
           args: --out dist --manifest-path rust/mlt-py/Cargo.toml
       - name: Upload sdist
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with: { name: 'wheels-sdist', path: 'dist' }
 
   release:
@@ -199,9 +199,9 @@ jobs:
       # Used to generate artifact attestation
       attestations: write
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with: { subject-path: 'wheels-*/*' }
       - name: Install uv
         if: ${{ startsWith(github.ref, 'refs/tags/') }}

@@ -96,6 +96,9 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                 }
                 geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
             }
+            // MULTIPOINT must increment offset counters like POINT does
+            partOffsetCounter += numPoints;
+            ringOffsetsCounter += numPoints;
         } else if (geometryType === GEOMETRY_TYPE.LINESTRING) {
             let numVertices = 0;
             if (containsPolygon) {

@@ -4,9 +4,9 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
-        "val": 0.0
+        "val": 4.9E-324
       },
       "geometry": {
         "type": "Point",

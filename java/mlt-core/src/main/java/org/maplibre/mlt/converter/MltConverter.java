@@ -659,6 +659,7 @@ public class MltConverter {
             isColumnSortable && featureTableOptimizations.allowIdRegeneration(), ids);
     /* Morton Vertex Dictionary encoding is currently not supported in pre-tessellation */
     var useMortonEncoding = false;
+    var geometryEncodingOption = config.getGeometryEncodingOption();
     var encodedGeometryColumn =
         config.getPreTessellatePolygons()
             ? GeometryEncoder.encodePretessellatedGeometryColumn(
@@ -668,12 +669,14 @@ public class MltConverter {
                 useMortonEncoding,
                 encodePolygonOutlines,
                 tessellateSource,
+                geometryEncodingOption,
                 streamRecorder)
             : GeometryEncoder.encodeGeometryColumn(
                 geometries,
                 physicalLevelTechnique,
                 sortSettings,
                 config.getUseMortonEncoding(),
+                geometryEncodingOption,
                 streamRecorder);
 
     if (encodedGeometryColumn.geometryColumnSorted()) {

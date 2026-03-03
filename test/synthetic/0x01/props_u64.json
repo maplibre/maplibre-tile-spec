@@ -4,7 +4,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": 9000
       },
@@ -19,45 +19,45 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": 9000
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          4,
-          47
+          11,
+          52
         ]
       }
     },
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": 9000
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          12,
-          53
+          71,
+          72
         ]
       }
     },
     {
       "type": "Feature",
       "properties": {
-        "_extent": 4096,
+        "_extent": 80,
         "_layer": "layer1",
         "val": 9000
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          18,
-          45
+          61,
+          22
         ]
       }
     }

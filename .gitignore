@@ -3,9 +3,10 @@
 *.gcov
 *.log
 *.new.geojson
-.cache/
 .DS_Store
+.cache/
 .idea/
+.kotlin
 .venv
 .vscode/
 MODULE.bazel.lock
