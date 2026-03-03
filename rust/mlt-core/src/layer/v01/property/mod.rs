@@ -190,21 +190,28 @@ impl OwnedEncodedProperty {
                 writer.write_stream(val)?;
             }
             Val::Str(opt, encoding) => {
-                let stream_count = u64::try_from(encoding.stream_count())?
+                let streams = encoding.streams();
+                let stream_count = u64::try_from(streams.len())?
                     .checked_add(u64::from(opt.is_some()))
                     .ok_or(IntegerOverflow)?;
                 writer.write_varint(stream_count)?;
                 writer.write_optional_stream(opt.as_ref())?;
-                for s in encoding.streams() {
+                for s in streams {
                     writer.write_stream(s)?;
                 }
             }
             Val::Struct(s) => {
-                writer.write_varint(s.stream_count())?;
-                for stream in s.dict_streams() {
+                let dict_streams = s.dict_streams();
+                let children = s.children();
+                writer.write_varint(
+                    dict_streams.len()
+                        + children.len()
+                        + children.iter().filter(|c| c.optional.is_some()).count(),
+                )?;
+                for stream in dict_streams {
                     writer.write_stream(stream)?;
                 }
-                for child in s.children() {
+                for child in children {
                     // stream_count => data + (0 or 1 for optional stream)
                     // must be usize because we don't want to zigzag
                     writer.write_varint(1 + usize::from(child.optional.is_some()))?;

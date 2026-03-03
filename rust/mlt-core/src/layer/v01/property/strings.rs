@@ -295,17 +295,6 @@ impl<'a> EncodedStrProp<'a> {
 }
 
 impl OwnedEncodedStrProp {
-    /// Number of streams (for writing stream count varint).
-    #[must_use]
-    pub fn stream_count(&self) -> usize {
-        match self {
-            Self::Plain { .. } => 2,
-            Self::Dictionary { .. } => 3,
-            Self::FsstPlain { .. } => 4,
-            Self::FsstDictionary { .. } => 5,
-        }
-    }
-
     /// Streams in wire order for serialization.
     #[must_use]
     pub fn streams(&self) -> Vec<&OwnedStream> {
