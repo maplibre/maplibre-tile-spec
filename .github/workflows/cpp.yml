@@ -11,6 +11,7 @@ on:
       - '.github/**'
       - 'cpp/**'
       - 'test/**'
+  workflow_dispatch:
 
 jobs:
   cpp-build:

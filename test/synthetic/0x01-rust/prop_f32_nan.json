@@ -1,20 +1,20 @@
 {
+  "type": "FeatureCollection",
   "features": [
     {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "val": "f32::NAN"
+      },
       "geometry": {
+        "type": "Point",
         "coordinates": [
           13,
           42
-        ],
-        "type": "Point"
-      },
-      "properties": {
-        "_extent": 4096,
-        "_layer": "layer1",
-        "val": null
-      },
-      "type": "Feature"
+        ]
+      }
     }
-  ],
-  "type": "FeatureCollection"
+  ]
 }

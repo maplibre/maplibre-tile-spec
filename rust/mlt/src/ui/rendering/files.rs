@@ -3,10 +3,10 @@ use std::collections::HashSet;
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Rect};
 use ratatui::prelude::{Line, Span, Style};
-use ratatui::widgets::{Cell, Paragraph, Row, Table, Wrap};
+use ratatui::widgets::{Cell, HighlightSpacing, Paragraph, Row, Table, Wrap};
 use size_format::SizeFormatterSI;
 
-use crate::ls::{LsRow, NA, na, row_cells};
+use crate::ls::{LsRow, NA, na, path_display, row_cells_6};
 use crate::ui::rendering::map;
 use crate::ui::state::App;
 use crate::ui::{
@@ -42,25 +42,11 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     app.file_table_area = Some(area);
     app.file_table_inner_height = area.height.saturating_sub(3) as usize;
 
-    let header = Row::new(vec![
-        Cell::from("File"),
-        Cell::from(Line::from("Size").alignment(Alignment::Right)),
-        Cell::from(Line::from("Enc %").alignment(Alignment::Right)),
-        Cell::from(Line::from("Layers").alignment(Alignment::Right)),
-        Cell::from(Line::from("Features").alignment(Alignment::Right)),
-    ])
-    .style(STYLE_BOLD);
-
-    let rows: Vec<Row> = app
-        .filtered_file_indices
-        .iter()
-        .map(|&i| Row::new(row_cells(&app.files[i]).map(Cell::from)))
-        .collect();
-
+    let base = app.file_browser_base.as_deref();
     let file_w = app
         .files
         .iter()
-        .map(|r| row_cells(r)[0].len())
+        .map(|r| path_display(r.path(), base).len())
         .max()
         .unwrap_or(4)
         .max(4);
@@ -71,8 +57,25 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         Constraint::Length(7),
         Constraint::Length(6),
         Constraint::Length(10),
+        Constraint::Min(0),
     ];
     app.file_table_widths = Some(widths);
+
+    let header = Row::new(vec![
+        Cell::from("File"),
+        Cell::from(Line::from("Size").alignment(Alignment::Right)),
+        Cell::from(Line::from("Enc %").alignment(Alignment::Right)),
+        Cell::from(Line::from("Layers").alignment(Alignment::Right)),
+        Cell::from(Line::from("Features").alignment(Alignment::Right)),
+        Cell::from("Notes"),
+    ])
+    .style(STYLE_BOLD);
+
+    let rows: Vec<Row> = app
+        .filtered_file_indices
+        .iter()
+        .map(|&i| Row::new(row_cells_6(&app.files[i], base).map(Cell::from)))
+        .collect();
 
     let sort_hint = if app.data_loaded() {
         " Click header to sort"
@@ -93,7 +96,8 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         .column_spacing(1)
         .block(block_with_title(title))
         .row_highlight_style(STYLE_SELECTED)
-        .highlight_symbol(">> ");
+        .highlight_symbol(">> ")
+        .highlight_spacing(HighlightSpacing::Always);
     f.render_stateful_widget(table, area, &mut app.file_list_state);
 }
 
@@ -109,7 +113,7 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         .and_then(|r| r.path().extension().and_then(|e| e.to_str()))
         .map(str::to_lowercase);
     let sel_info = selected_mlt.and_then(|r| match r {
-        LsRow::Info(_, i) => Some(i),
+        LsRow::Info { info, .. } => Some(info),
         _ => None,
     });
 
@@ -178,7 +182,7 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
 
 pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let info = app.get_selected_file().and_then(|r| match r {
-        LsRow::Info(_, i) => Some(i),
+        LsRow::Info { info, .. } => Some(info),
         _ => None,
     });
 

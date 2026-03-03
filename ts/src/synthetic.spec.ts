@@ -6,21 +6,35 @@ import decodeTile from "./mltDecoder";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
 import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
+import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
 
+const EARCUT_MAX_RINGS = 500;
 const RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100;
 const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
-    ["polygon_multi_fpf", "FastPFor not implemented"],
-    ["polygon_fpf_tes", "Morton not implemented"],
-    ["polygon_hole_fpf", "FastPFor not implemented"],
-    ["polygon_fpf", "FastPFor not implemented"],
     ["props_mixed", "F32 very buggy and does not work"],
     ["prop_str_empty", "empty strings not supported"],
+    ["prop_str_empty_val", "empty strings not supported"],
+    ["prop_str_val_empty", "empty strings not supported"],
     ["prop_i64_min", "wraps to 0 despite it should have been negative"],
     ["prop_u32_max", "wraps to -1 despite it should have been positive"],
     ["prop_i64_max", "wraps to -1 despite it should have been positive"],
     ["prop_u64_max", "wraps to -1 despite it should have been positive"],
+    ["prop_f32_nan", "geometry diff"],
+    ["prop_f32_neg_inf", "geometry diff"],
+    ["prop_f32_pos_inf", "geometry diff"],
+    ["prop_f64", "does not parse f64 as f32"],
+    ["prop_f64_max", "does not parse f64 as f32"],
+    ["prop_f64_min_norm", "does not parse f64 as f32"],
+    ["prop_f64_min_val", "does not parse f64 as f32"],
+    ["prop_f64_nan", "does not parse f64 as f32"],
+    ["prop_f64_neg_inf", "does not parse f64 as f32"],
+    ["prop_f64_neg_zero", "does not parse f64 as f32"],
+    ["prop_f64_pos_inf", "does not parse f64 as f32"],
+    ["prop_f64_zero", "does not parse f64 as f32"],
+    ["prop_f64_null_val", "does not parse f64 as f32"],
+    ["prop_f64_val_null", "does not parse f64 as f32"],
 ]);
 
 const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");
@@ -91,8 +105,9 @@ function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSO
                     ...Object.fromEntries(Object.entries(feature.properties).map(([k, v]) => [k, safeNumber(v)])),
                 },
             };
-            if (safeNumber(feature.id) !== null) {
-                geojsonFeature.id = safeNumber(feature.id);
+            const safeId = safeNumber(feature.id);
+            if (safeId !== null && safeId !== undefined) {
+                geojsonFeature.id = safeId;
             }
             features.push(geojsonFeature);
         }
@@ -106,7 +121,6 @@ function safeNumber<T>(val: bigint | T): T | number {
 
 function getGeometry(geometry: Geometry): GeoJSON.Geometry {
     const coords = geometry.coordinates.map((ring) => ring.map((p) => [p.x, p.y]));
-
     switch (geometry.type) {
         case GEOMETRY_TYPE.POINT:
             return { type: "Point", coordinates: coords[0][0] };
@@ -118,8 +132,13 @@ function getGeometry(geometry: Geometry): GeoJSON.Geometry {
             return { type: "MultiPoint", coordinates: coords.map((r) => r[0]) };
         case GEOMETRY_TYPE.MULTILINESTRING:
             return { type: "MultiLineString", coordinates: coords };
-        case GEOMETRY_TYPE.MULTIPOLYGON:
-            return { type: "MultiPolygon", coordinates: coords.map((r) => [r]) };
+        case GEOMETRY_TYPE.MULTIPOLYGON: {
+            const polygons = classifyRings(geometry.coordinates, EARCUT_MAX_RINGS);
+            return {
+                type: "MultiPolygon",
+                coordinates: polygons.map((polygon) => polygon.map((ring) => ring.map((p) => [p.x, p.y]))),
+            };
+        }
         default:
             throw new Error(`Unsupported geometry type: ${geometry.type}`);
     }

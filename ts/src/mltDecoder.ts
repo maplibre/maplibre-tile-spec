@@ -1,5 +1,5 @@
 import FeatureTable from "./vector/featureTable";
-import { type Column, ScalarType } from "./metadata/tileset/tilesetMetadata";
+import { type Column, LogicalScalarType, ScalarType } from "./metadata/tileset/tilesetMetadata";
 import IntWrapper from "./decoding/intWrapper";
 import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "./metadata/tile/streamMetadataDecoder";
 import { VectorType } from "./vector/vectorType";
@@ -28,14 +28,11 @@ import type GeometryScaling from "./decoding/geometryScaling";
 import { decodeBooleanRle } from "./decoding/decodingUtils";
 import { DoubleFlatVector } from "./vector/flat/doubleFlatVector";
 import { decodeEmbeddedTileSetMetadata } from "./metadata/tileset/embeddedTilesetMetadataDecoder";
-import { hasStreamCount } from "./metadata/tileset/typeMap";
+import { hasStreamCount, isGeometryColumn, isLogicalIdColumn } from "./metadata/tileset/typeMap";
 import { type StreamMetadata } from "./metadata/tile/streamMetadataDecoder";
 import { type GeometryVector } from "./vector/geometry/geometryVector";
 import type Vector from "./vector/vector";
 import { type GpuVector } from "./vector/geometry/gpuVector";
-
-const ID_COLUMN_NAME = "id";
-const GEOMETRY_COLUMN_NAME = "geometry";
 
 /**
  * Decodes a tile with embedded metadata (Tag 0x01 format).
@@ -83,7 +80,7 @@ export default function decodeTile(
         for (const columnMetadata of featureTableMetadata.columns) {
             const columnName = columnMetadata.name;
 
-            if (columnName === ID_COLUMN_NAME) {
+            if (isLogicalIdColumn(columnMetadata)) {
                 let nullabilityBuffer = null;
                 // Check column metadata nullable flag, not numStreams (ID columns don't have stream count)
                 if (columnMetadata.nullable) {
@@ -112,7 +109,7 @@ export default function decodeTile(
                     nullabilityBuffer ?? numFeatures,
                     idWithinMaxSafeInteger,
                 );
-            } else if (columnName === GEOMETRY_COLUMN_NAME) {
+            } else if (isGeometryColumn(columnMetadata)) {
                 const numStreams = decodeVarintInt32(tile, offset, 1)[0];
 
                 // If no ID column, get numFeatures from geometry type stream metadata
@@ -180,7 +177,17 @@ function decodeIdColumn(
     sizeOrNullabilityBuffer: number | BitVector,
     idWithinMaxSafeInteger: boolean = false,
 ): IntVector {
-    const idDataType = columnMetadata.scalarType.physicalType;
+    const scalarTypeMetadata = columnMetadata.scalarType;
+    if (
+        !scalarTypeMetadata ||
+        scalarTypeMetadata.type !== "logicalType" ||
+        scalarTypeMetadata.logicalType !== LogicalScalarType.ID
+    ) {
+        throw new Error(`ID column must be a logical ID scalar type: ${columnName}`);
+    }
+
+    const idDataType = scalarTypeMetadata.longID ? ScalarType.UINT_64 : ScalarType.UINT_32;
+
     const vectorType = getVectorType(idDataStreamMetadata, sizeOrNullabilityBuffer, tile, offset);
     if (idDataType === ScalarType.UINT_32) {
         switch (vectorType) {

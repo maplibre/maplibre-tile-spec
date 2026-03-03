@@ -100,6 +100,50 @@ pub fn decode_zigzag<T: ZigZag>(data: &[T::UInt]) -> Vec<T> {
     data.iter().map(|&v| T::decode(v)).collect()
 }
 
+/// Decode one Morton (Z-order) code to (x, y) with given `num_bits` and `coordinate_shift`.
+/// Matches Java ZOrderCurve.decode / IntegerDecoder.decodeMortonCode.
+#[inline]
+fn decode_morton_half(code: u32, num_bits: u32) -> u32 {
+    let mut coord = 0u32;
+    for i in 0..num_bits {
+        coord |= (code & (1 << (2 * i))) >> i;
+    }
+    coord
+}
+
+/// Decode a single Morton code to (x, y) as i32, applying `coordinate_shift`.
+#[allow(clippy::cast_possible_wrap)]
+pub fn decode_morton_one(morton_code: u32, num_bits: u32, coordinate_shift: u32) -> (i32, i32) {
+    let x = decode_morton_half(morton_code, num_bits) as i32 - coordinate_shift as i32;
+    let y = decode_morton_half(morton_code >> 1, num_bits) as i32 - coordinate_shift as i32;
+    (x, y)
+}
+
+/// Decode Morton codes to flat [x0, y0, x1, y1, ...]. Deltas are raw (u32 reinterpreted as i32).
+#[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
+pub fn decode_morton_delta(data: &[u32], num_bits: u32, coordinate_shift: u32) -> Vec<i32> {
+    let mut out = Vec::with_capacity(data.len() * 2);
+    let mut prev = 0i32;
+    for &u in data {
+        prev = prev.wrapping_add(u as i32);
+        let (x, y) = decode_morton_one(prev as u32, num_bits, coordinate_shift);
+        out.push(x);
+        out.push(y);
+    }
+    out
+}
+
+/// Decode Morton codes (no delta) to flat [x0, y0, x1, y1, ...].
+pub fn decode_morton_codes(data: &[u32], num_bits: u32, coordinate_shift: u32) -> Vec<i32> {
+    let mut out = Vec::with_capacity(data.len() * 2);
+    for &code in data {
+        let (x, y) = decode_morton_one(code, num_bits, coordinate_shift);
+        out.push(x);
+        out.push(y);
+    }
+    out
+}
+
 /// Decode byte-level RLE as used in ORC for boolean and present streams.
 ///
 /// Format: control byte determines the run type:

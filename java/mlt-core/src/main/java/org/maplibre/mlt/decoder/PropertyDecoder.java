@@ -103,11 +103,9 @@ public class PropertyDecoder {
         yield unpack(dataStream, presentStream, presentStreamSize);
       }
       case DOUBLE -> {
-        {
-          final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-          final var dataStream = FloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
-          yield unpack(dataStream, presentStream, presentStreamSize);
-        }
+        final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+        final var dataStream = DoubleDecoder.decodeDoubleStream(data, offset, dataStreamMetadata);
+        yield unpack(dataStream, presentStream, presentStreamSize);
       }
       case STRING -> {
         if (presentStream == null) {

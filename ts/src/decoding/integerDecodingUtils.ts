@@ -1,5 +1,14 @@
 import type IntWrapper from "./intWrapper";
 import type BitVector from "../vector/flat/bitVector";
+import {
+    createFastPforWireDecodeWorkspace,
+    decodeFastPforInt32,
+    ensureFastPforWireEncodedWordsCapacity,
+    type FastPforWireDecodeWorkspace,
+} from "./fastPforDecoder";
+import { decodeBigEndianInt32sInto } from "./bigEndianDecode";
+export type { FastPforWireDecodeWorkspace } from "./fastPforDecoder";
+export { createFastPforWireDecodeWorkspace } from "./fastPforDecoder";
 
 //based on https://github.com/mapbox/pbf/blob/main/index.js
 export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, numValues: number): Int32Array {
@@ -140,12 +149,40 @@ function decodeVarintRemainder(l, buf, offset) {
 }
 
 export function decodeFastPfor(
-    data: Uint8Array,
-    numValues: number,
-    byteLength: number,
+    encodedBytes: Uint8Array,
+    expectedValueCount: number,
+    encodedByteLength: number,
     offset: IntWrapper,
 ): Int32Array {
-    throw new Error("FastPFor is not implemented yet.");
+    const workspace = createFastPforWireDecodeWorkspace(encodedByteLength >>> 2);
+    return decodeFastPforWithWorkspace(encodedBytes, expectedValueCount, encodedByteLength, offset, workspace);
+}
+
+export function decodeFastPforWithWorkspace(
+    encodedBytes: Uint8Array,
+    expectedValueCount: number,
+    encodedByteLength: number,
+    offset: IntWrapper,
+    workspace: FastPforWireDecodeWorkspace,
+): Int32Array {
+    const inputByteOffset = offset.get();
+    if ((encodedByteLength & 3) !== 0) {
+        throw new Error(
+            `FastPFOR: invalid encodedByteLength=${encodedByteLength} at offset=${inputByteOffset} (encodedBytes.length=${encodedBytes.length}; expected a multiple of 4 bytes for an int32 big-endian word stream)`,
+        );
+    }
+
+    const encodedWordCount = encodedByteLength >>> 2;
+    const encodedWordBuffer = ensureFastPforWireEncodedWordsCapacity(workspace, encodedWordCount);
+    decodeBigEndianInt32sInto(encodedBytes, inputByteOffset, encodedByteLength, encodedWordBuffer);
+
+    const decodedValues = decodeFastPforInt32(
+        encodedWordBuffer.subarray(0, encodedWordCount),
+        expectedValueCount,
+        workspace.decoderWorkspace,
+    );
+    offset.add(encodedByteLength);
+    return decodedValues;
 }
 
 export function decodeZigZagInt32Value(encoded: number): number {

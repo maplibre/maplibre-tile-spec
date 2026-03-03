@@ -18,6 +18,10 @@ use crate::{MltError, MltRefResult, utils};
 #[borrowme]
 #[derive(Debug, PartialEq)]
 #[expect(clippy::large_enum_variant)]
+#[cfg_attr(
+    all(not(test), feature = "arbitrary"),
+    owned_attr(derive(arbitrary::Arbitrary))
+)]
 pub enum Layer<'a> {
     /// MVT-compatible layer (tag = 1)
     Tag01(Layer01<'a>),

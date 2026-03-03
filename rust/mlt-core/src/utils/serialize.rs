@@ -30,6 +30,19 @@ pub trait BinarySerializer: Write + VarIntWriter {
         stream.data.write_to(self)?;
         Ok(())
     }
+
+    /// Serializes an optional stream, which is a stream with boolean values indicating presence of values in another stream.
+    fn write_optional_stream(&mut self, stream: Option<&OwnedStream>) -> io::Result<()>
+    where
+        Self: Sized,
+    {
+        if let Some(s) = stream {
+            self.write_boolean_stream(s)
+        } else {
+            Ok(())
+        }
+    }
+
     /// Reverses [`Stream::parse_bool`](crate::v01::stream::Stream::parse_bool)
     fn write_boolean_stream(&mut self, stream: &OwnedStream) -> io::Result<()>
     where

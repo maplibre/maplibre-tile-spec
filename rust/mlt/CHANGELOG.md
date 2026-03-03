@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/maplibre/maplibre-tile-spec/compare/mlt-v0.1.2...mlt-v0.1.3) - 2026-02-25
+
+### Fixed
+
+- *(rust)* bugs in mlt UI visualizer ([#970](https://github.com/maplibre/maplibre-tile-spec/pull/970))
+
+## [0.1.2](https://github.com/maplibre/maplibre-tile-spec/compare/mlt-v0.1.1...mlt-v0.1.2) - 2026-02-25
+
+### Added
+
+- *(rust)* mlt ls wildcards, exclusions, throttle hover redraws, dependencies ([#967](https://github.com/maplibre/maplibre-tile-spec/pull/967))
+- *(rust)* validate mlt-json with ls command ([#963](https://github.com/maplibre/maplibre-tile-spec/pull/963))
+
+### Other
+
+- *(rust)* fix another CI typo ([#959](https://github.com/maplibre/maplibre-tile-spec/pull/959))
+
 ## [0.1.1](https://github.com/maplibre/maplibre-tile-spec/compare/mlt-v0.1.0...mlt-v0.1.1) - 2026-02-25
 
 ### Added

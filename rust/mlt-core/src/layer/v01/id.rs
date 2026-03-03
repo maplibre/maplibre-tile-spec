@@ -11,13 +11,18 @@ use crate::utils::{
     BinarySerializer as _, OptSeqOpt, apply_present, encode_bools_to_bytes, encode_byte_rle,
 };
 use crate::v01::{
-    ColumnType, Encoder, LogicalEncoder, LogicalEncoding, OwnedEncodedData, OwnedStream,
-    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, RleMeta, Stream, StreamMeta, StreamType,
+    ColumnType, IntEncoder, IntEncoding, LogicalEncoder, LogicalEncoding, OwnedEncodedData,
+    OwnedStream, OwnedStreamData, PhysicalEncoder, PhysicalEncoding, RleMeta, Stream, StreamMeta,
+    StreamType,
 };
 
 /// ID column representation, either encoded or decoded, or none if there are no IDs
 #[borrowme]
 #[derive(Debug, Default, PartialEq)]
+#[cfg_attr(
+    all(not(test), feature = "arbitrary"),
+    owned_attr(derive(arbitrary::Arbitrary))
+)]
 pub enum Id<'a> {
     #[default]
     None,
@@ -91,9 +96,7 @@ impl OwnedEncodedId {
     }
 
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        if let Some(opt) = &self.optional {
-            writer.write_boolean_stream(opt)?;
-        }
+        writer.write_optional_stream(self.optional.as_ref())?;
         match &self.value {
             OwnedEncodedIdValue::Id32(s) | OwnedEncodedIdValue::Id64(s) => {
                 writer.write_stream(s)?;
@@ -107,6 +110,17 @@ impl Analyze for EncodedId<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         self.optional.for_each_stream(cb);
         self.value.for_each_stream(cb);
+    }
+}
+
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl arbitrary::Arbitrary<'_> for OwnedEncodedId {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        let parsed: DecodedId = u.arbitrary()?;
+        let encoder: IdEncoder = u.arbitrary()?;
+        let owned_id =
+            Self::from_decoded(&parsed, encoder).map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        Ok(owned_id)
     }
 }
 
@@ -128,6 +142,7 @@ impl Analyze for EncodedIdValue<'_> {
 
 /// Decoded ID values as a vector of optional 64-bit unsigned integers
 #[derive(Clone, Default, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct DecodedId(pub Option<Vec<Option<u64>>>);
 
 impl Analyze for DecodedId {
@@ -189,12 +204,7 @@ impl<'a> FromEncoded<'a> for DecodedId {
             }
         };
 
-        let presence = if let Some(c) = optional {
-            Some(c.decode_bools()?)
-        } else {
-            None
-        };
-        let ids_optional = apply_present(presence, ids_u64)?;
+        let ids_optional = apply_present(optional, ids_u64)?;
 
         Ok(DecodedId(Some(ids_optional)))
     }
@@ -202,6 +212,7 @@ impl<'a> FromEncoded<'a> for DecodedId {
 
 /// How to encode IDs
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct IdEncoder {
     pub logical: LogicalEncoder,
     pub id_width: IdWidth,
@@ -214,7 +225,8 @@ impl IdEncoder {
 }
 
 /// How wide are the IDs
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, strum::EnumIter)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum IdWidth {
     /// 32-bit encoding
     Id32,
@@ -230,7 +242,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
     type Input = DecodedId;
     type Encoder = IdEncoder;
 
-    fn from_decoded(decoded: &Self::Input, config: IdEncoder) -> Result<Self, MltError> {
+    fn from_decoded(decoded: &Self::Input, encoder: IdEncoder) -> Result<Self, MltError> {
         use IdWidth as CFG;
 
         // skipped one level higher via Id::None
@@ -238,7 +250,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
             return Err(MltError::IdsMissingForEncoding);
         };
 
-        let optional = if matches!(config.id_width, CFG::OptId32 | CFG::OptId64) {
+        let optional = if matches!(encoder.id_width, CFG::OptId32 | CFG::OptId64) {
             let present: Vec<bool> = ids.iter().map(Option::is_some).collect();
             let num_values = u32::try_from(present.len())?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present));
@@ -250,11 +262,13 @@ impl FromDecoded<'_> for OwnedEncodedId {
             let num_rle_values = u32::try_from(data.len())?;
             let meta = StreamMeta::new(
                 StreamType::Present,
-                LogicalEncoding::Rle(RleMeta {
-                    runs,
-                    num_rle_values,
-                }),
-                PhysicalEncoding::None,
+                IntEncoding::new(
+                    LogicalEncoding::Rle(RleMeta {
+                        runs,
+                        num_rle_values,
+                    }),
+                    PhysicalEncoding::None,
+                ),
                 num_values,
             );
 
@@ -266,18 +280,18 @@ impl FromDecoded<'_> for OwnedEncodedId {
             None
         };
 
-        let value = if matches!(config.id_width, CFG::Id32 | CFG::OptId32) {
+        let value = if matches!(encoder.id_width, CFG::Id32 | CFG::OptId32) {
             #[expect(clippy::cast_possible_truncation, reason = "truncation was requested")]
             let vals: Vec<u32> = ids.iter().filter_map(|&id| id).map(|v| v as u32).collect();
             OwnedEncodedIdValue::Id32(OwnedStream::encode_u32s(
                 &vals,
-                Encoder::new(config.logical, PhysicalEncoder::VarInt),
+                IntEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
             )?)
         } else {
             let vals: Vec<u64> = ids.iter().filter_map(|&id| id).collect();
             OwnedEncodedIdValue::Id64(OwnedStream::encode_u64s(
                 &vals,
-                Encoder::new(config.logical, PhysicalEncoder::VarInt),
+                IntEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
             )?)
         };
 
@@ -477,30 +491,30 @@ mod tests {
     /// Helper: Asserts that encoding produces the expected variant type for the given config
     fn assert_produces_correct_variant(
         ids: Vec<Option<u64>>,
-        config: IdEncoder,
+        encoder: IdEncoder,
     ) -> Result<(), TestCaseError> {
         let input = DecodedId(Some(ids));
-        let encoded = OwnedEncodedId::from_decoded(&input, config).expect("Failed to encode");
+        let enc_id = OwnedEncodedId::from_decoded(&input, encoder).expect("Failed to encode");
 
-        if matches!(config.id_width, Id32 | OptId32) {
+        if matches!(encoder.id_width, Id32 | OptId32) {
             prop_assert!(
-                matches!(encoded.value, OwnedEncodedIdValue::Id32(_)),
+                matches!(enc_id.value, OwnedEncodedIdValue::Id32(_)),
                 "Expected Id32 variant"
             );
         } else {
             prop_assert!(
-                matches!(encoded.value, OwnedEncodedIdValue::Id64(_)),
+                matches!(enc_id.value, OwnedEncodedIdValue::Id64(_)),
                 "Expected Id64 variant"
             );
         }
 
-        if matches!(config.id_width, OptId32 | OptId64) {
+        if matches!(encoder.id_width, OptId32 | OptId64) {
             prop_assert!(
-                encoded.optional.is_some(),
+                enc_id.optional.is_some(),
                 "Expected optional stream to be present"
             );
         } else {
-            prop_assert!(encoded.optional.is_none(), "Expected no optional stream");
+            prop_assert!(enc_id.optional.is_none(), "Expected no optional stream");
         }
         Ok(())
     }
