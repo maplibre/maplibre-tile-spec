@@ -36,7 +36,6 @@ import kotlin.math.min
 import kotlin.time.toJavaDuration
 
 /** Encode the MVT tiles in a PMTiles file */
-@Throws(IOException::class)
 fun encodePMTiles(
     inputURI: URI,
     outputPath: Path,
@@ -109,7 +108,6 @@ private fun onRemoval(
     }
 }
 
-@Throws(IOException::class)
 private fun encodePMTiles(
     inputURI: URI,
     reader: ReadablePmtiles,

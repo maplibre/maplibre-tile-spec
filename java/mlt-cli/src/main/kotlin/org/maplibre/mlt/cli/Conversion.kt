@@ -28,7 +28,6 @@ import java.util.stream.Collectors
 import java.util.zip.Inflater
 import java.util.zip.InflaterInputStream
 
-@Throws(IOException::class)
 fun decompress(srcStream: InputStream): ByteArray {
     var decompressInputStream: InputStream? = null
     // Check for common compression formats by looking at the header bytes
@@ -60,7 +59,6 @@ fun decompress(srcStream: InputStream): ByteArray {
     return readStream.readAllBytes()
 }
 
-@Throws(IOException::class)
 fun createCompressStream(
     src: OutputStream,
     compressionType: String?,
@@ -79,7 +77,6 @@ fun createCompressStream(
     return src
 }
 
-@Throws(SQLException::class)
 fun vacuumDatabase(connection: Connection): Boolean {
     logger.debug("Optimizing database")
     try {

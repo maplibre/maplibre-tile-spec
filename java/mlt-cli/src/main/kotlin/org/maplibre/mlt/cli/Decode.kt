@@ -30,7 +30,6 @@ object Decode {
         }
     }
 
-    @Throws(ParseException::class, IOException::class)
     private fun run(args: Array<String>) {
         val options = Options()
         options.addOption(

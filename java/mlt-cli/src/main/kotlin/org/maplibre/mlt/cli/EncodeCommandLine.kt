@@ -89,7 +89,6 @@ internal object EncodeCommandLine {
         option: String?,
     ): Boolean = getAllowedCompressions(cmd).anyMatch { x -> x == option }
 
-    @Throws(IOException::class)
     fun getCommandLine(args: Array<String>): CommandLine? {
         try {
             val options = Options()
@@ -670,7 +669,6 @@ Add an explicit column mapping on the specified layers:
         return null
     }
 
-    @Throws(IOException::class)
     private fun printHelp(options: Options?) {
         val autoUsage = true
         val header =

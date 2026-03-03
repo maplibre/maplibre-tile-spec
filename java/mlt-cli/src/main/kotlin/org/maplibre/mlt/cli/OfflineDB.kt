@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 /** Encode the MVT tiles in an offline database file */
-@Throws(ClassNotFoundException::class)
 fun encodeOfflineDB(
     inputPath: Path,
     outputPath: Path?,
@@ -126,7 +125,6 @@ fun encodeOfflineDB(
     return success.get()
 }
 
-@Throws(SQLException::class, IOException::class)
 private fun updateMetadata(
     config: EncodeConfig,
     dstConnection: Connection,

@@ -62,12 +62,6 @@ object Encode {
         }
     }
 
-    @Throws(
-        URISyntaxException::class,
-        IOException::class,
-        ClassNotFoundException::class,
-        ParseException::class,
-    )
     private fun run(cmd: CommandLine): Boolean {
         val tileFileNames = cmd.getOptionValues(EncodeCommandLine.INPUT_TILE_ARG)
         val sortFeaturesPattern =
@@ -280,7 +274,6 @@ object Encode {
     }
 
     /**  Convert a single tile from an individual file */
-    @Throws(IOException::class)
     private fun encodeTile(
         x: Long,
         y: Long,

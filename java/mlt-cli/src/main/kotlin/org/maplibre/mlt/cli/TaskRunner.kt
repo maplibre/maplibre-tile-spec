@@ -13,7 +13,6 @@ interface TaskRunner {
     fun run(task: Runnable?)
 
     /**  Wait for all tasks to complete.  Assumes shutdown has been called. */
-    @Throws(InterruptedException::class)
     fun awaitTermination()
 
     /**  Stop accepting new tasks */

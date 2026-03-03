@@ -23,16 +23,13 @@ class ReadablePmtiles(
     private val channel: RangeReader,
     private val closeSourceChannel: Boolean = true,
 ) : ReadableTileArchive {
-    @Throws(IOException::class)
     private fun getBytes(
         start: Long,
         length: Long,
     ) = channel.readRange(start, Math.toIntExact(length)).array()
 
-    @Throws(IOException::class)
     fun getBytes(range: ByteRange) = getBytes(range.offset(), range.length().toLong())
 
-    @Throws(IOException::class)
     private fun getHeaderBytes(
         offset: Long,
         length: Long,
@@ -44,7 +41,6 @@ class ReadablePmtiles(
         }
     }
 
-    @Throws(IOException::class)
     fun getTileRange(
         x: Int,
         y: Int,
@@ -88,14 +84,12 @@ class ReadablePmtiles(
         z: Int,
     ) = getTileRange(x, y, z)?.let(::getBytes)
 
-    @Throws(IOException::class)
     override fun close() {
         if (closeSourceChannel) {
             channel.close()
         }
     }
 
-    @get:Throws(IOException::class)
     val jsonMetadata by lazy {
         Pmtiles.JsonMetadata.fromBytes(getHeaderBytes(header.jsonMetadataOffset(), header.jsonMetadataLength().toInt().toLong()))
     }
@@ -142,10 +136,8 @@ class ReadablePmtiles(
         }
     }
 
-    @Throws(IOException::class)
     private fun readDir(entry: Pmtiles.Entry) = readDir(header.leafDirectoriesOffset() + entry.offset(), entry.length().toLong())
 
-    @Throws(IOException::class)
     private fun readDir(
         offset: Long,
         length: Long,
@@ -192,13 +184,10 @@ class ReadablePmtiles(
                 }
             }
 
-    @get:Throws(IOException::class)
     val allTileCoordRanges get() = getTileCoordRanges(rootDir)
 
-    @get:Throws(IOException::class)
     val header by lazy { Pmtiles.Header.fromBytes(getBytes(0, HEADER_LEN.toLong())) }
 
-    @get:Throws(IOException::class)
     private val rootDir by lazy { readDir(header.rootDirOffset(), header.rootDirLength()) }
 
     companion object {

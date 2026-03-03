@@ -182,7 +182,6 @@ fun encodeMBTiles(
     return success.get()
 }
 
-@Throws(SQLException::class)
 private fun updateMetadata(
     config: EncodeConfig,
     connection: Connection,
