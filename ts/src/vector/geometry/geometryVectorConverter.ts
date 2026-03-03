@@ -77,6 +77,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
             if (partOffsets) partOffsetCounter++;
             if (ringOffsets) ringOffsetsCounter++;
         }
+        break;
         case GEOMETRY_TYPE.MULTIPOINT: {
             const numPoints = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
             geometryOffsetsCounter++;
@@ -100,6 +101,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
             partOffsetCounter += numPoints;
             ringOffsetsCounter += numPoints;
         }
+        break;
         case GEOMETRY_TYPE.LINESTRING: {
             let numVertices = 0;
             if (containsPolygon) {
@@ -139,6 +141,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
 
             if (geometryOffsets) geometryOffsetsCounter++;
         }
+        break;
         case GEOMETRY_TYPE.POLYGON: {
             const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
             partOffsetCounter++;
@@ -198,6 +201,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
             geometries[geometryCounter++] = geometryFactory.createPolygon(shell, rings);
             if (geometryOffsets) geometryOffsetsCounter++;
         }
+        break;
         case GEOMETRY_TYPE.MULTILINESTRING: {
             const numLineStrings =
                 geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
@@ -251,6 +255,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
             }
             geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
         }
+        break;
         case GEOMETRY_TYPE.MULTIPOLYGON: {
             const numPolygons = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
             geometryOffsetsCounter++;
@@ -325,6 +330,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
             }
             geometries[geometryCounter++] = geometryFactory.createMultiPolygon(polygons);
         }
+        break;
         default:
             throw new Error("The specified geometry type is currently not supported.");
     }
