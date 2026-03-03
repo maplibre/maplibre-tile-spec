@@ -1,12 +1,12 @@
-import express from "express";
 import cors from "cors";
+import express from "express";
 
 import config from "./config.mjs";
 import {
-  convertStyleRequest,
-  convertSourceRequest,
-  convertTileRequest,
-  runCLISetup,
+	convertSourceRequest,
+	convertStyleRequest,
+	convertTileRequest,
+	runCLISetup,
 } from "./convert.mjs";
 
 const app = express();
@@ -18,7 +18,7 @@ app.use("/source", convertSourceRequest);
 app.use("/tile", convertTileRequest);
 
 app.listen(config.port, config.host, () => {
-  runCLISetup();
+	runCLISetup();
 
-  console.log(`Server started on port ${config.port}`);
+	console.log(`Server started on port ${config.port}`);
 });
