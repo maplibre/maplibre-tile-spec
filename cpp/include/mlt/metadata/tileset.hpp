@@ -131,4 +131,7 @@ struct FeatureTable {
 
 FeatureTable decodeFeatureTable(BufferStream&);
 
+/// Encode a feature table header into binary format (inverse of decodeFeatureTable).
+std::vector<std::uint8_t> encodeFeatureTable(const FeatureTable&);
+
 } // namespace mlt::metadata::tileset
