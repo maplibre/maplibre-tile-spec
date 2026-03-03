@@ -365,7 +365,83 @@ impl OwnedStream {
             symbol_table: symbol_table_stream,
             length: value_length_stream,
             corpus: compressed_stream,
-            offset: Some(offset_stream),
+            offset: offset_stream,
+        })
+    }
+
+    /// Encode strings with FSST (4 streams, no offset). For shared dictionary struct columns;
+    /// each child has its own offset stream.
+    pub fn encode_strings_fsst_plain_with_type<S: AsRef<str>>(
+        values: &[S],
+        encoding: FsstStrEncoder,
+        dict_type: DictionaryType,
+    ) -> Result<OwnedEncodedStrProp, MltError> {
+        use fsst::Compressor;
+
+        let byte_slices: Vec<&[u8]> = values.iter().map(|s| s.as_ref().as_bytes()).collect();
+        let compressor = Compressor::train(&byte_slices);
+        let symbols = compressor.symbol_table();
+        let symbol_lengths_u8 = compressor.symbol_lengths();
+
+        let mut symbol_bytes = Vec::new();
+        for sym in symbols {
+            let bytes = sym.to_u64().to_le_bytes();
+            let len = sym.len();
+            symbol_bytes.extend_from_slice(&bytes[..len]);
+        }
+
+        let symbol_lengths: Vec<u32> = symbol_lengths_u8
+            .iter()
+            .take(symbols.len())
+            .map(|&l| u32::from(l))
+            .collect();
+
+        let mut compressed = Vec::new();
+        for s in values {
+            let comp = compressor.compress(s.as_ref().as_bytes());
+            compressed.extend(comp);
+        }
+
+        let value_lengths: Vec<u32> = values
+            .iter()
+            .map(|s| u32::try_from(s.as_ref().len()))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let symbol_length_stream = Self::encode_u32s_of_type(
+            &symbol_lengths,
+            encoding.symbol_lengths,
+            StreamType::Length(LengthType::Symbol),
+        )?;
+
+        let symbol_table_stream = Self {
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::Fsst),
+                IntEncoding::none(),
+                u32::try_from(symbol_lengths.len())?,
+            ),
+            data: OwnedStreamData::Encoded(OwnedEncodedData { data: symbol_bytes }),
+        };
+
+        let value_length_stream = Self::encode_u32s_of_type(
+            &value_lengths,
+            encoding.dict_lengths,
+            StreamType::Length(LengthType::Dictionary),
+        )?;
+
+        let compressed_stream = Self {
+            meta: StreamMeta::new(
+                StreamType::Data(dict_type),
+                IntEncoding::none(),
+                u32::try_from(values.len())?,
+            ),
+            data: OwnedStreamData::Encoded(OwnedEncodedData { data: compressed }),
+        };
+
+        Ok(OwnedEncodedStrProp::FsstPlain {
+            symbol_lengths: symbol_length_stream,
+            symbol_table: symbol_table_stream,
+            length: value_length_stream,
+            corpus: compressed_stream,
         })
     }
 }
