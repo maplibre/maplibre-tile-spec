@@ -24,9 +24,13 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["prop_f32_pos_inf", "geometry diff"],
     ["prop_f64", "does not parse f64 as f32"],
     ["prop_f64_max", "does not parse f64 as f32"],
+    ["prop_f64_min_norm", "does not parse f64 as f32"],
+    ["prop_f64_min_val", "does not parse f64 as f32"],
     ["prop_f64_nan", "does not parse f64 as f32"],
     ["prop_f64_neg_inf", "does not parse f64 as f32"],
+    ["prop_f64_neg_zero", "does not parse f64 as f32"],
     ["prop_f64_pos_inf", "does not parse f64 as f32"],
+    ["prop_f64_zero", "does not parse f64 as f32"],
 ]);
 
 const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");
