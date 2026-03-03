@@ -21,7 +21,6 @@ const SKIP_FASTPFOR = new Set([
 
 class SyntheticTestRunnerCpp extends SyntheticTestRunner {
 	shouldSkip(testName) {
-		// if (SKIP_NAN_INF.has(testName)) return "NaN/Infinity not valid JSON";
 		if (SKIP_FASTPFOR.has(testName))
 			return "FastPFor requires MLT_WITH_FASTPFOR=ON";
 		return false;
