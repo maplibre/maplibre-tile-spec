@@ -45,6 +45,7 @@ _test-synthetic: _install_npm_deps
 [working-directory: 'build']
 test: _clean_coverage_data cmake-build _test-synthetic
     ctest
+    {{just}} cpp::decode-synthetics
 
 _clean_coverage_data:
     find . -name "*.gcda" -delete
@@ -55,6 +56,7 @@ coverage: _clean_coverage_data (_check-tool 'gcovr') test
     gcovr --root ../.. \
         --filter ../src --filter ../include \
         --txt coverage.txt \
+        --merge-mode-functions=separate \
         --cobertura-pretty --cobertura coverage.xml \
         --html-details coverage.html
     @echo "Coverage report at $PWD/coverage.html"
@@ -65,7 +67,13 @@ bazel-build:
 
 # Sanity test for mlt-cpp-json tool
 test-json:
-    build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq .
+    build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq . >/dev/null
+
+decode-synthetics: cmake-build (just 'cargo-install' 'fd' 'fd-find')
+    #!/usr/bin/env bash
+    JSON_TOOL=build/tool/mlt-cpp-json
+    fd . ../test/synthetic/0x01 -e mlt -x bash -c "echo {} ; $JSON_TOOL {} >/dev/null || true"
+    fd . ../test/synthetic/0x01-rust -e mlt -x bash -c "echo {} ; $JSON_TOOL {} >/dev/null || true"
 
 _check-tool command:
     @which {{command}} > /dev/null || (echo "Error: {{command}} is not installed. Please install it using: brew install {{command}} (macOS) or pip3 install {{command}} (Linux)" && exit 1)

@@ -10,7 +10,6 @@ class SerialTaskRunner : TaskRunner {
         }
     }
 
-    @Throws(InterruptedException::class)
     override fun awaitTermination() {
     }
 

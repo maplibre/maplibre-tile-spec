@@ -1,10 +1,12 @@
 {
   "Configuration": {
+    "status": "warn",
     "Appenders": {
       "Console": {
         "name": "Console",
          "target": "system_err",
         "PatternLayout": {
+          "noConsoleNoAnsi": true,
           "LevelPatternSelector": {
             "PatternMatch": [
               {
@@ -25,11 +27,11 @@
               },
               {
                 "key": "DEBUG",
-                "pattern": "%highlight{%msg%n%throwable}{DEBUG=gray}"
+                "pattern": "%highlight{%msg%n%throwable}{DEBUG=dim white}"
               },
               {
                 "key": "TRACE",
-                "pattern": "%highlight{%relative{} ms : %msg%n%throwable}{TRACE=white}"
+                "pattern": "%highlight{%msg%n%throwable}{TRACE=bright black}"
               }
             ]
           }
