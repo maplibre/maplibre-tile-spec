@@ -10,15 +10,15 @@ app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use(express.json());
 
 app.post("/tessellate", (req, res) => {
-	const data = req.body;
-	const { vertices, holes } = data;
+  const data = req.body;
+  const { vertices, holes } = data;
 
-	const indices = earcut(vertices, holes, 2);
-	const response = { indices };
-	res.json(response);
+  const indices = earcut(vertices, holes, 2);
+  const response = { indices };
+  res.json(response);
 });
 
 const port = 3000;
 app.listen(port, () => {
-	console.log(`Server is running at http://localhost:${port}`);
+  console.log(`Server is running at http://localhost:${port}`);
 });

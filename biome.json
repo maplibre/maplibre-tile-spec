@@ -5,5 +5,11 @@
       "indentWidth": 2,
       "indentStyle": "space"
     }
+  },
+  "javascript": {
+    "formatter": {
+      "indentWidth": 2,
+      "indentStyle": "space"
+    }
   }
 }

@@ -12,27 +12,27 @@ const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");
 
 // FastPFOR-encoded tiles (requires MLT_WITH_FASTPFOR=ON at build time)
 const SKIP_FASTPFOR = new Set([
-	"polygon_fpf",
-	"polygon_hole_fpf",
-	"polygon_morton_tes",
-	"polygon_multi_fpf",
-	"polygon_fpf_tes",
+  "polygon_fpf",
+  "polygon_hole_fpf",
+  "polygon_morton_tes",
+  "polygon_multi_fpf",
+  "polygon_fpf_tes",
 ]);
 
 class SyntheticTestRunnerCpp extends SyntheticTestRunner {
-	shouldSkip(testName) {
-		// if (SKIP_NAN_INF.has(testName)) return "NaN/Infinity not valid JSON";
-		if (SKIP_FASTPFOR.has(testName))
-			return "FastPFor requires MLT_WITH_FASTPFOR=ON";
-		return false;
-	}
+  shouldSkip(testName) {
+    // if (SKIP_NAN_INF.has(testName)) return "NaN/Infinity not valid JSON";
+    if (SKIP_FASTPFOR.has(testName))
+      return "FastPFor requires MLT_WITH_FASTPFOR=ON";
+    return false;
+  }
 
-	async decodeMLT(mltFilePath) {
-		const output = execFileSync(binary, [mltFilePath], { encoding: "utf-8" });
-		return JSON.parse(output);
-	}
+  async decodeMLT(mltFilePath) {
+    const output = execFileSync(binary, [mltFilePath], { encoding: "utf-8" });
+    return JSON.parse(output);
+  }
 }
 
 await new SyntheticTestRunnerCpp()
-	.run(syntheticDir)
-	.catch(() => process.exit(1));
+  .run(syntheticDir)
+  .catch(() => process.exit(1));
