@@ -12,7 +12,9 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cmath>
 #include <iterator>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -249,6 +251,23 @@ inline json buildAnyGeometryElement(const geometry::Geometry& geometry, const Pr
 #pragma region Properties
 struct PropertyVisitor {
     template <typename T>
+    std::optional<json> encodeFloatingPoint(T value, std::string_view prefix) const {
+        if (std::isfinite(value)) {
+            return json(value);
+        }
+        if (std::isnan(value)) {
+            return json(std::string(prefix) + "::NAN");
+        }
+        if (std::signbit(value)) {
+            return json(std::string(prefix) + "::NEG_INFINITY");
+        }
+        return json(std::string(prefix) + "::INFINITY");
+    }
+
+    std::optional<json> operator()(float value) const { return encodeFloatingPoint(value, "f32"); }
+    std::optional<json> operator()(double value) const { return encodeFloatingPoint(value, "f64"); }
+
+    template <typename T>
     std::optional<json> operator()(const T& value) const {
         return value;
     }
@@ -271,9 +290,11 @@ inline json buildProperties(const Layer& layer, const Feature& feature) {
 
 inline json toJSON(const Layer& layer, const Feature& feature, const Projection& projection, bool geoJSON) {
     auto result = json{
-        {"id", feature.getID()},
         {"geometry", detail::buildAnyGeometryElement(feature.getGeometry(), projection, geoJSON)},
     };
+    if (const auto id = feature.getID(); id.has_value()) {
+        result["id"] = *id;
+    }
     if (geoJSON) {
         result["type"] = "Feature";
     }

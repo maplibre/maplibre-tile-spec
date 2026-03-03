@@ -448,7 +448,8 @@ impl StreamMeta {
         is_bool: bool,
         byte_length: u32,
     ) -> io::Result<()> {
-        use {LogicalEncoding as LE, LogicalTechnique as LT};
+        use LogicalEncoding as LE;
+        use LogicalTechnique as LT;
 
         writer.write_u8(self.stream_type.as_u8())?;
         let logical_enc_u8: u8 = match self.encoding.logical {
@@ -882,7 +883,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::v01::property::decode::decode_string_streams;
+    use crate::v01::strings::decode_string_streams;
 
     /// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
     fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {

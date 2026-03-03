@@ -96,9 +96,7 @@ impl OwnedEncodedId {
     }
 
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        if let Some(opt) = &self.optional {
-            writer.write_boolean_stream(opt)?;
-        }
+        writer.write_optional_stream(self.optional.as_ref())?;
         match &self.value {
             OwnedEncodedIdValue::Id32(s) | OwnedEncodedIdValue::Id64(s) => {
                 writer.write_stream(s)?;
@@ -206,12 +204,7 @@ impl<'a> FromEncoded<'a> for DecodedId {
             }
         };
 
-        let presence = if let Some(c) = optional {
-            Some(c.decode_bools()?)
-        } else {
-            None
-        };
-        let ids_optional = apply_present(presence, ids_u64)?;
+        let ids_optional = apply_present(optional, ids_u64)?;
 
         Ok(DecodedId(Some(ids_optional)))
     }
