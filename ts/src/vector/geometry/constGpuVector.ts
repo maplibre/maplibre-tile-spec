@@ -1,5 +1,5 @@
 import { GpuVector } from "./gpuVector";
-import type TopologyVector from "./topologyVector";
+import type { TopologyVector } from "./topologyVector";
 
 export function createConstGpuVector(
     numGeometries: number,

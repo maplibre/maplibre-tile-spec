@@ -128,7 +128,7 @@ describe("MULTIPOINT – sequential vertex buffer", () => {
             vertexBuffer: new Int32Array([1, 2, 3, 4, 5, 6]),
             vertexOffsets: undefined,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 3]),
+                geometryOffsets: new Uint32Array([0, 3]),
                 partOffsets: undefined,
                 ringOffsets: undefined,
             },
@@ -150,7 +150,7 @@ describe("MULTIPOINT – VEC_2 dictionary encoded", () => {
             vertexOffsets: new Int32Array([0, 2]),
             vertexBufferType: VertexBufferType.VEC_2,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 2]),
+                geometryOffsets: new Uint32Array([0, 2]),
                 partOffsets: undefined,
                 ringOffsets: undefined,
             },
@@ -171,7 +171,7 @@ describe("LINESTRING – sequential vertex buffer, no polygon context", () => {
             vertexOffsets: undefined,
             topologyVector: {
                 geometryOffsets: undefined,
-                partOffsets: new Int32Array([0, 3]),
+                partOffsets: new Uint32Array([0, 3]),
                 ringOffsets: undefined,
             },
             geometryType: () => GEOMETRY_TYPE.LINESTRING,
@@ -192,8 +192,8 @@ describe("LINESTRING – sequential vertex buffer, polygon context (uses ringOff
             vertexOffsets: undefined,
             topologyVector: {
                 geometryOffsets: undefined,
-                partOffsets: new Int32Array([0, 1]),
-                ringOffsets: new Int32Array([0, 2]),
+                partOffsets: new Uint32Array([0, 1]),
+                ringOffsets: new Uint32Array([0, 2]),
             },
             geometryType: () => GEOMETRY_TYPE.LINESTRING,
             containsPolygonGeometry: () => true,
@@ -214,7 +214,7 @@ describe("LINESTRING – VEC_2 dictionary encoded", () => {
             vertexBufferType: VertexBufferType.VEC_2,
             topologyVector: {
                 geometryOffsets: undefined,
-                partOffsets: new Int32Array([0, 2]),
+                partOffsets: new Uint32Array([0, 2]),
                 ringOffsets: undefined,
             },
             geometryType: () => GEOMETRY_TYPE.LINESTRING,
@@ -239,7 +239,7 @@ describe("LINESTRING – Morton dictionary encoded", () => {
             mortonSettings: DEFAULT_MORTON_SETTINGS,
             topologyVector: {
                 geometryOffsets: undefined,
-                partOffsets: new Int32Array([0, 2]),
+                partOffsets: new Uint32Array([0, 2]),
                 ringOffsets: undefined,
             },
             geometryType: () => GEOMETRY_TYPE.LINESTRING,
@@ -259,8 +259,8 @@ describe("POLYGON – sequential vertex buffer, no holes", () => {
             vertexOffsets: undefined,
             topologyVector: {
                 geometryOffsets: undefined,
-                partOffsets: new Int32Array([0, 1]),
-                ringOffsets: new Int32Array([0, 4]),
+                partOffsets: new Uint32Array([0, 1]),
+                ringOffsets: new Uint32Array([0, 4]),
             },
             geometryType: () => GEOMETRY_TYPE.POLYGON,
         });
@@ -280,8 +280,8 @@ describe("POLYGON – sequential vertex buffer, with hole", () => {
             vertexOffsets: undefined,
             topologyVector: {
                 geometryOffsets: undefined,
-                partOffsets: new Int32Array([0, 2]),
-                ringOffsets: new Int32Array([0, 3, 6]),
+                partOffsets: new Uint32Array([0, 2]),
+                ringOffsets: new Uint32Array([0, 3, 6]),
             },
             geometryType: () => GEOMETRY_TYPE.POLYGON,
         });
@@ -300,8 +300,8 @@ describe("POLYGON – VEC_2 dictionary encoded, no holes", () => {
             vertexBufferType: VertexBufferType.VEC_2,
             topologyVector: {
                 geometryOffsets: undefined,
-                partOffsets: new Int32Array([0, 1]),
-                ringOffsets: new Int32Array([0, 3]),
+                partOffsets: new Uint32Array([0, 1]),
+                ringOffsets: new Uint32Array([0, 3]),
             },
             geometryType: () => GEOMETRY_TYPE.POLYGON,
         });
@@ -322,8 +322,8 @@ describe("POLYGON – VEC_2 dictionary encoded, with hole", () => {
             vertexBufferType: VertexBufferType.VEC_2,
             topologyVector: {
                 geometryOffsets: undefined,
-                partOffsets: new Int32Array([0, 2]),
-                ringOffsets: new Int32Array([0, 3, 6]),
+                partOffsets: new Uint32Array([0, 2]),
+                ringOffsets: new Uint32Array([0, 3, 6]),
             },
             geometryType: () => GEOMETRY_TYPE.POLYGON,
         });
@@ -350,8 +350,8 @@ describe("POLYGON – Morton dictionary encoded, no holes", () => {
             mortonSettings: DEFAULT_MORTON_SETTINGS,
             topologyVector: {
                 geometryOffsets: undefined,
-                partOffsets: new Int32Array([0, 1]),
-                ringOffsets: new Int32Array([0, 3]),
+                partOffsets: new Uint32Array([0, 1]),
+                ringOffsets: new Uint32Array([0, 3]),
             },
             geometryType: () => GEOMETRY_TYPE.POLYGON,
         });
@@ -388,8 +388,8 @@ describe("POLYGON – Morton dictionary encoded, with hole", () => {
             mortonSettings: DEFAULT_MORTON_SETTINGS,
             topologyVector: {
                 geometryOffsets: undefined,
-                partOffsets: new Int32Array([0, 2]),
-                ringOffsets: new Int32Array([0, 3, 6]),
+                partOffsets: new Uint32Array([0, 2]),
+                ringOffsets: new Uint32Array([0, 3, 6]),
             },
             geometryType: () => GEOMETRY_TYPE.POLYGON,
         });
@@ -406,9 +406,9 @@ describe("POLYGON – geometryOffsets counter incremented", () => {
             vertexBuffer: new Int32Array([0, 0, 1, 0, 0, 1]),
             vertexOffsets: undefined,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 1]),
-                partOffsets: new Int32Array([0, 1]),
-                ringOffsets: new Int32Array([0, 3]),
+                geometryOffsets: new Uint32Array([0, 1]),
+                partOffsets: new Uint32Array([0, 1]),
+                ringOffsets: new Uint32Array([0, 3]),
             },
             geometryType: () => GEOMETRY_TYPE.POLYGON,
         });
@@ -425,8 +425,8 @@ describe("MULTILINESTRING – sequential vertex buffer, no polygon context", () 
             vertexBuffer: new Int32Array([0, 0, 1, 1, 2, 2, 3, 3]),
             vertexOffsets: undefined,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 2]),
-                partOffsets: new Int32Array([0, 2, 4]),
+                geometryOffsets: new Uint32Array([0, 2]),
+                partOffsets: new Uint32Array([0, 2, 4]),
                 ringOffsets: undefined,
             },
             geometryType: () => GEOMETRY_TYPE.MULTILINESTRING,
@@ -447,9 +447,9 @@ describe("MULTILINESTRING – sequential vertex buffer, polygon context (uses ri
             vertexBuffer: new Int32Array([0, 0, 1, 1]),
             vertexOffsets: undefined,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 1]),
-                partOffsets: new Int32Array([0, 1]),
-                ringOffsets: new Int32Array([0, 2]),
+                geometryOffsets: new Uint32Array([0, 1]),
+                partOffsets: new Uint32Array([0, 1]),
+                ringOffsets: new Uint32Array([0, 2]),
             },
             geometryType: () => GEOMETRY_TYPE.MULTILINESTRING,
             containsPolygonGeometry: () => true,
@@ -468,8 +468,8 @@ describe("MULTILINESTRING – VEC_2 dictionary encoded", () => {
             vertexOffsets: new Int32Array([0, 1, 2, 3]),
             vertexBufferType: VertexBufferType.VEC_2,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 2]),
-                partOffsets: new Int32Array([0, 2, 4]),
+                geometryOffsets: new Uint32Array([0, 2]),
+                partOffsets: new Uint32Array([0, 2, 4]),
                 ringOffsets: undefined,
             },
             geometryType: () => GEOMETRY_TYPE.MULTILINESTRING,
@@ -498,8 +498,8 @@ describe("MULTILINESTRING – Morton dictionary encoded", () => {
             vertexBufferType: VertexBufferType.MORTON,
             mortonSettings: DEFAULT_MORTON_SETTINGS,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 2]),
-                partOffsets: new Int32Array([0, 1, 2]),
+                geometryOffsets: new Uint32Array([0, 2]),
+                partOffsets: new Uint32Array([0, 1, 2]),
                 ringOffsets: undefined,
             },
             geometryType: () => GEOMETRY_TYPE.MULTILINESTRING,
@@ -527,9 +527,9 @@ describe("MULTILINESTRING – Morton encoded, polygon context", () => {
             vertexBufferType: VertexBufferType.MORTON,
             mortonSettings: DEFAULT_MORTON_SETTINGS,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 2]),
-                partOffsets: new Int32Array([0, 1, 2]),
-                ringOffsets: new Int32Array([0, 1, 2]),
+                geometryOffsets: new Uint32Array([0, 2]),
+                partOffsets: new Uint32Array([0, 1, 2]),
+                ringOffsets: new Uint32Array([0, 1, 2]),
             },
             geometryType: () => GEOMETRY_TYPE.MULTILINESTRING,
             containsPolygonGeometry: () => true,
@@ -548,9 +548,9 @@ describe("MULTIPOLYGON – sequential vertex buffer, no holes", () => {
             vertexBuffer: new Int32Array([0, 0, 1, 0, 0, 1, 5, 5, 6, 5, 5, 6]),
             vertexOffsets: undefined,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 2]),
-                partOffsets: new Int32Array([0, 1, 2]),
-                ringOffsets: new Int32Array([0, 3, 6]),
+                geometryOffsets: new Uint32Array([0, 2]),
+                partOffsets: new Uint32Array([0, 1, 2]),
+                ringOffsets: new Uint32Array([0, 3, 6]),
             },
             geometryType: () => GEOMETRY_TYPE.MULTIPOLYGON,
         });
@@ -569,9 +569,9 @@ describe("MULTIPOLYGON – sequential vertex buffer, with holes", () => {
             vertexBuffer: new Int32Array([0, 0, 10, 0, 0, 10, 1, 1, 3, 1, 1, 3]),
             vertexOffsets: undefined,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 1]),
-                partOffsets: new Int32Array([0, 2]),
-                ringOffsets: new Int32Array([0, 3, 6]),
+                geometryOffsets: new Uint32Array([0, 1]),
+                partOffsets: new Uint32Array([0, 2]),
+                ringOffsets: new Uint32Array([0, 3, 6]),
             },
             geometryType: () => GEOMETRY_TYPE.MULTIPOLYGON,
         });
@@ -589,9 +589,9 @@ describe("MULTIPOLYGON – VEC_2 dictionary encoded, no holes", () => {
             vertexOffsets: new Int32Array([0, 1, 2, 3, 4, 5]),
             vertexBufferType: VertexBufferType.VEC_2,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 2]),
-                partOffsets: new Int32Array([0, 1, 2]),
-                ringOffsets: new Int32Array([0, 3, 6]),
+                geometryOffsets: new Uint32Array([0, 2]),
+                partOffsets: new Uint32Array([0, 1, 2]),
+                ringOffsets: new Uint32Array([0, 3, 6]),
             },
             geometryType: () => GEOMETRY_TYPE.MULTIPOLYGON,
         });
@@ -610,9 +610,9 @@ describe("MULTIPOLYGON – VEC_2 dictionary encoded, with holes", () => {
             vertexOffsets: new Int32Array([0, 1, 2, 3, 4, 5]),
             vertexBufferType: VertexBufferType.VEC_2,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 1]),
-                partOffsets: new Int32Array([0, 2]),
-                ringOffsets: new Int32Array([0, 3, 6]),
+                geometryOffsets: new Uint32Array([0, 1]),
+                partOffsets: new Uint32Array([0, 2]),
+                ringOffsets: new Uint32Array([0, 3, 6]),
             },
             geometryType: () => GEOMETRY_TYPE.MULTIPOLYGON,
         });
@@ -638,9 +638,9 @@ describe("MULTIPOLYGON – Morton dictionary encoded, no holes", () => {
             vertexBufferType: VertexBufferType.MORTON,
             mortonSettings: DEFAULT_MORTON_SETTINGS,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 1]),
-                partOffsets: new Int32Array([0, 1]),
-                ringOffsets: new Int32Array([0, 3]),
+                geometryOffsets: new Uint32Array([0, 1]),
+                partOffsets: new Uint32Array([0, 1]),
+                ringOffsets: new Uint32Array([0, 3]),
             },
             geometryType: () => GEOMETRY_TYPE.MULTIPOLYGON,
         });
@@ -674,9 +674,9 @@ describe("MULTIPOLYGON – Morton dictionary encoded, with holes", () => {
             vertexBufferType: VertexBufferType.MORTON,
             mortonSettings: DEFAULT_MORTON_SETTINGS,
             topologyVector: {
-                geometryOffsets: new Int32Array([0, 1]),
-                partOffsets: new Int32Array([0, 2]),
-                ringOffsets: new Int32Array([0, 3, 6]),
+                geometryOffsets: new Uint32Array([0, 1]),
+                partOffsets: new Uint32Array([0, 2]),
+                ringOffsets: new Uint32Array([0, 3, 6]),
             },
             geometryType: () => GEOMETRY_TYPE.MULTIPOLYGON,
         });
