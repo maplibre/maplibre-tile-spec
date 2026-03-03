@@ -37,13 +37,13 @@ _install_npm_deps:
     cd ../test/synthetic/synthetic-test-tool && npm ci
     npm ci
 
-_test-synthethic: _install_npm_deps
+_test-synthetic: _install_npm_deps
     {{just}} ts install
     node tool/test-synthetic.mjs
 
 # Run tests
 [working-directory: 'build']
-test: _clean_coverage_data cmake-build _test-synthethic
+test: _clean_coverage_data cmake-build _test-synthetic
     ctest
 
 _clean_coverage_data:
@@ -51,7 +51,7 @@ _clean_coverage_data:
 
 # Generate coverage report
 [working-directory: 'build']
-coverage: _clean_coverage_data (_check-tool 'gcovr') test _test-synthethic
+coverage: _clean_coverage_data (_check-tool 'gcovr') test
     gcovr --root ../.. \
         --filter ../src --filter ../include \
         --txt coverage.txt \

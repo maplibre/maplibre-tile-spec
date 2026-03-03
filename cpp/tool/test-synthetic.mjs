@@ -18,6 +18,7 @@ const SKIP_NAN_INF = new Set([
   "prop_f64_nan",
   "prop_f64_neg_inf",
   "prop_f64_max",
+  "prop_f64_max_val",
 ]);
 
 // FastPFOR-encoded tiles (requires MLT_WITH_FASTPFOR=ON at build time)

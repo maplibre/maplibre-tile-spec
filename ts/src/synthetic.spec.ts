@@ -67,10 +67,8 @@ function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSO
                     ...Object.fromEntries(Object.entries(feature.properties).map(([k, v]) => [k, safeNumber(v)])),
                 },
             };
-            const id = safeNumber(feature.id);
-            if (id != null) {
-                geojsonFeature.id = id;
-            }
+            if (safeNumber(feature.id) !== null) {
+                geojsonFeature.id = safeNumber(feature.id);
             features.push(geojsonFeature);
         }
     }
