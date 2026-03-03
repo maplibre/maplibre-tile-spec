@@ -205,14 +205,13 @@ impl Layer01<'_> {
                     properties.push(Property::new_encoded(name, EncVal::Str(opt, encoding)));
                 }
                 ColumnType::Struct => {
+                    // Read header streams until we hit the dictionary DATA(Single|Shared) stream.
                     (input, stream_count) = parse_varint::<usize>(input)?;
                     let mut dict_streams = [None, None, None, None, None];
-                    let mut streams_taken = 0usize;
+                    let mut streams_taken = 0;
                     while streams_taken < stream_count {
                         let stream;
                         (input, stream) = Stream::parse(input)?;
-                        // Read header streams until we hit the dictionary DATA stream.
-                        // C++/Java use this pattern: loop until DictionaryType::Single|Shared.
                         let is_last = matches!(
                             stream.meta.stream_type,
                             StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
