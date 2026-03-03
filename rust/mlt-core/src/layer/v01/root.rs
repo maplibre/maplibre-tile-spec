@@ -170,37 +170,29 @@ impl Layer01<'_> {
                 }
                 ColumnType::Str | ColumnType::OptStr => {
                     (input, stream_count) = parse_varint::<usize>(input)?;
-                    // Each stream requires at least 1 byte (physical stream type)
-                    if input.len() < stream_count {
-                        return Err(MltError::BufferUnderflow(stream_count, input.len()));
-                    }
-                    if stream_count == 0 && column.typ.is_optional() {
-                        return Err(MltError::MissingStringStream(
-                            "presence stream for optional strings",
-                        ));
-                    }
                     (input, opt) = parse_optional(column.typ, input)?;
                     stream_count -= usize::from(opt.is_some());
-                    let encoding = match stream_count {
-                        2 => {
-                            let (inp, length) = Stream::parse(input)?;
-                            let (inp, data) = Stream::parse(inp)?;
-                            input = inp;
-                            EncodedStrProp::plain(length, data)?
+                    if stream_count > 5 {
+                        return Err(MltError::UnsupportedStringStreamCount(stream_count));
+                    }
+                    let mut str_streams = [None, None, None, None, None];
+                    for slot in str_streams.iter_mut().take(stream_count) {
+                        let stream;
+                        (input, stream) = Stream::parse(input)?;
+                        *slot = Some(stream);
+                    }
+                    let encoding = match str_streams {
+                        [Some(s1), Some(s2), None, None, None] => EncodedStrProp::plain(s1, s2)?,
+                        [Some(s1), Some(s2), Some(s3), None, None] => {
+                            EncodedStrProp::dictionary(s1, s2, s3)?
                         }
-                        3 => {
-                            let (inp, length) = Stream::parse(input)?;
-                            let (inp, offset) = Stream::parse(inp)?;
-                            let (inp, data) = Stream::parse(inp)?;
-                            input = inp;
-                            EncodedStrProp::dictionary(length, offset, data)?
+                        [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
+                            EncodedStrProp::fsst_plain(s1, s2, s3, s4)?
                         }
-                        4 | 5 => {
-                            let (inp, streams) = Stream::parse_multiple(input, stream_count)?;
-                            input = inp;
-                            EncodedStrProp::from_streams(streams)?
+                        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
+                            EncodedStrProp::fsst_dictionary(s1, s2, s3, s4, s5)?
                         }
-                        n => return Err(MltError::UnsupportedStringStreamCount(n)),
+                        _ => Err(MltError::UnsupportedStringStreamCount(stream_count))?,
                     };
                     properties.push(Property::new_encoded(name, EncVal::Str(opt, encoding)));
                 }
