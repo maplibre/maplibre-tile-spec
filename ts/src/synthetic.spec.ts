@@ -68,7 +68,13 @@ describe("MLT Decoder - Synthetic tests", async () => {
                 break;
             case "crash":
                 it(result.name, () => {
-                    throw new Error(`Crash for ${result.name}: ${result.reason}`);
+                    if (result.error instanceof Error) {
+                        throw result.error;
+                    }
+                    throw new Error(`Crash for ${result.name}: ${result.reason}`, {
+                        // Preserve any non-Error crash information if available.
+                        cause: result.error,
+                    });
                 });
                 break;
         }
