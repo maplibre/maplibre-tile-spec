@@ -6,10 +6,7 @@ import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
 import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
 
-import {
-    SyntheticTestRunner,
-    type SyntheticCaseResult,
-} from "synthetic-test-tool";
+import { SyntheticTestRunner } from "synthetic-test-tool";
 
 const EARCUT_MAX_RINGS = 500;
 
