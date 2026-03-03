@@ -194,13 +194,13 @@ public class SyntheticMltGenerator {
 
   @SuppressWarnings("cast")
   private static void generateProperties() throws IOException {
-    // Scalar property types
     write("prop_bool", feat(p0, prop("val", true)), cfg());
     write("prop_bool_false", feat(p0, prop("val", false)), cfg());
     write(layer("prop_bool_true_null", feat(p0, prop("val", true)), feat(p0)), cfg());
     write(layer("prop_bool_null_true", feat(p0), feat(p0, prop("val", true))), cfg());
     write(layer("prop_bool_false_null", feat(p0, prop("val", false)), feat(p0)), cfg());
     write(layer("prop_bool_null_false", feat(p0), feat(p0, prop("val", false))), cfg());
+
     // FIXME: needs support in the Java decoder + encoder
     // write("prop_i8", feat(p0, prop("val", (byte) 42)), cfg());
     // write("prop_i8_neg", feat(p0, prop("val", (byte) -42)), cfg());
@@ -208,11 +208,13 @@ public class SyntheticMltGenerator {
     // write("prop_i8_max", feat(p0, prop("val", Byte.MAX_VALUE)), cfg());
     // write(layer("prop_i8_val_null", feat(p0, prop("val", (byte) 42)), feat(p0)), cfg());
     // write(layer("prop_i8_null_val", feat(p0), feat(p0, prop("val", (byte) 42))), cfg());
+
     // write("prop_u8", feat(p0, prop("tinynum", U8.of(100))), cfg());
     // write("prop_u8_min", feat(p0, prop("tinynum", U8.of(0))), cfg());
     // write("prop_u8_max", feat(p0, prop("tinynum", U8.of(255))), cfg());
     // write(layer("prop_u8_val_null", feat(p0, prop("val", U8.of(100))), feat(p0)), cfg());
     // write(layer("prop_u8_null_val", feat(p0), feat(p0, prop("val", U8.of(100)))), cfg());
+
     // write("prop_i16", feat(p0, prop("val", (short) 42)), cfg());
     // write("prop_i16_neg", feat(p0, prop("val", (short) -42)), cfg());
     // write("prop_i16_min", feat(p0, prop("val", Short.MIN_VALUE)), cfg());
@@ -226,24 +228,29 @@ public class SyntheticMltGenerator {
     write("prop_i32_max", feat(p0, prop("val", Integer.MAX_VALUE)), cfg());
     write(layer("prop_i32_val_null", feat(p0, prop("val", (int) 42)), feat(p0)), cfg());
     write(layer("prop_i32_null_val", feat(p0), feat(p0, prop("val", (int) 42))), cfg());
+
     write("prop_u32", feat(p0, prop("val", U32.of(42L))), cfg());
     write("prop_u32_min", feat(p0, prop("val", U32.of(0L))), cfg());
     write("prop_u32_max", feat(p0, prop("val", U32.of(0xFFFFFFFFL))), cfg());
-    write("prop_i64", feat(p0, prop("val", (long) 9_876_543_210L)), cfg());
+    write(layer("prop_u32_val_null", feat(p0, prop("val", U32.of(42L))), feat(p0)), cfg());
+    write(layer("prop_u32_null_val", feat(p0), feat(p0, prop("val", U32.of(42L)))), cfg());
+
+    long i64_value = 9_876_543_210L;
+    write("prop_i64", feat(p0, prop("val", i64_value)), cfg());
     write("prop_i64_neg", feat(p0, prop("val", (long) -9_876_543_210L)), cfg());
     write("prop_i64_min", feat(p0, prop("val", Long.MIN_VALUE)), cfg());
     write("prop_i64_max", feat(p0, prop("val", Long.MAX_VALUE)), cfg());
-    write(
-        "prop_u64",
-        feat(p0, prop("bignum", U64.of(BigInteger.valueOf(1234567890123456789L)))),
-        cfg());
+    write(layer("prop_i64_val_null", feat(p0, prop("val", i64_value)), feat(p0)), cfg());
+    write(layer("prop_i64_null_val", feat(p0), feat(p0, prop("val", i64_value))), cfg());
+
+    U64 u64_value = U64.of(BigInteger.valueOf(1234567890123456789L));
+    U64 u64_max = U64.of(new BigInteger("18446744073709551615"));
+    write("prop_u64", feat(p0, prop("bignum", u64_value)), cfg());
     write("prop_u64_min", feat(p0, prop("bignum", U64.of(BigInteger.ZERO))), cfg());
-    write(
-        "prop_u64_max",
-        feat(p0, prop("bignum", U64.of(new BigInteger("18446744073709551615")))),
-        cfg());
-    write(layer("prop_u32_val_null", feat(p0, prop("val", U32.of(42L))), feat(p0)), cfg());
-    write(layer("prop_u32_null_val", feat(p0), feat(p0, prop("val", U32.of(42L)))), cfg());
+    write("prop_u64_max", feat(p0, prop("bignum", u64_max)), cfg());
+    write(layer("prop_u64_val_null", feat(p0, prop("val", u64_value)), feat(p0)), cfg());
+    write(layer("prop_u64_null_val", feat(p0), feat(p0, prop("val", u64_value))), cfg());
+
     write("prop_f32", feat(p0, prop("val", (float) 3.14f)), cfg());
     write("prop_f32_neg_inf", feat(p0, prop("val", Float.NEGATIVE_INFINITY)), cfg());
     write("prop_f32_min_norm", feat(p0, prop("val", Float.MIN_NORMAL)), cfg());
@@ -255,6 +262,7 @@ public class SyntheticMltGenerator {
     write("prop_f32_nan", feat(p0, prop("val", Float.NaN)), cfg());
     write(layer("prop_f32_val_null", feat(p0, prop("val", 3.14f)), feat(p0)), cfg());
     write(layer("prop_f32_null_val", feat(p0), feat(p0, prop("val", 3.14f))), cfg());
+
     write("prop_f64", feat(p0, prop("val", (Double) Math.PI)), cfg());
     write("prop_f64_neg_inf", feat(p0, prop("val", Double.NEGATIVE_INFINITY)), cfg());
     write("prop_f64_min_norm", feat(p0, prop("val", Double.MIN_NORMAL)), cfg());
@@ -266,6 +274,7 @@ public class SyntheticMltGenerator {
     write("prop_f64_nan", feat(p0, prop("val", Double.NaN)), cfg());
     write(layer("prop_f64_val_null", feat(p0, prop("val", (Double) Math.PI)), feat(p0)), cfg());
     write(layer("prop_f64_null_val", feat(p0), feat(p0, prop("val", (Double) Math.PI))), cfg());
+
     write("prop_str_empty", feat(p0, prop("val", "")), cfg());
     write("prop_str_ascii", feat(p0, prop("val", "42")), cfg());
     write("prop_str_escape", feat(p0, prop("val", "Line1\n\t\"quoted\"\\path")), cfg());
