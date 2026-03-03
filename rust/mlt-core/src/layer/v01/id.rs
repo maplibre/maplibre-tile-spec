@@ -96,9 +96,7 @@ impl OwnedEncodedId {
     }
 
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        if let Some(opt) = &self.optional {
-            writer.write_boolean_stream(opt)?;
-        }
+        writer.write_optional_stream(self.optional.as_ref())?;
         match &self.value {
             OwnedEncodedIdValue::Id32(s) | OwnedEncodedIdValue::Id64(s) => {
                 writer.write_stream(s)?;

@@ -172,9 +172,7 @@ impl OwnedEncodedProperty {
 
         match &self.value {
             Val::Bool(opt, val) => {
-                if let Some(opt) = opt {
-                    writer.write_boolean_stream(opt)?;
-                }
+                writer.write_optional_stream(opt.as_ref())?;
                 writer.write_boolean_stream(val)?;
             }
             Val::I8(opt, val)
@@ -185,9 +183,7 @@ impl OwnedEncodedProperty {
             | Val::U64(opt, val)
             | Val::F32(opt, val)
             | Val::F64(opt, val) => {
-                if let Some(opt) = opt {
-                    writer.write_boolean_stream(opt)?;
-                }
+                writer.write_optional_stream(opt.as_ref())?;
                 writer.write_stream(val)?;
             }
             Val::Str(opt, streams) => {
@@ -197,9 +193,7 @@ impl OwnedEncodedProperty {
                     return Err(IntegerOverflow);
                 };
                 writer.write_varint(stream_count)?;
-                if let Some(opt) = &opt {
-                    writer.write_boolean_stream(opt)?;
-                }
+                writer.write_optional_stream(opt.as_ref())?;
                 for s in streams {
                     writer.write_stream(s)?;
                 }
@@ -213,14 +207,10 @@ impl OwnedEncodedProperty {
                     writer.write_stream(dict)?;
                 }
                 for child in &s.children {
-                    if let Some(opt) = &child.optional {
-                        // warning: the _usize is necessary, we don't want to zigzag
-                        writer.write_varint(2_usize)?; // stream_count => data and option
-                        writer.write_boolean_stream(opt)?;
-                    } else {
-                        // warning: the _usize is necessary, we don't want to zigzag
-                        writer.write_varint(1_usize)?; // stream_count => only data stream
-                    }
+                    // stream_count => data + (0 or 1 for optional stream)
+                    // must be usize because we don't want to zigzag
+                    writer.write_varint(1 + usize::from(child.optional.is_some()))?;
+                    writer.write_optional_stream(child.optional.as_ref())?;
                     writer.write_stream(&child.data)?;
                 }
             }
