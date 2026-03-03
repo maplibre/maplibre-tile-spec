@@ -72,7 +72,7 @@ fun encodeOfflineDB(
                                 val data = tileResults.getBinaryStream("data").readAllBytes()
 
                                 config.taskRunner.run(
-                                    Runnable {
+                                    {
                                         val count = tileCount.incrementAndGet().toULong()
                                         if (count.mod(tileLogInterval) == 0UL) {
                                             logger.debug(

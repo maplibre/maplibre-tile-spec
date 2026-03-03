@@ -13,7 +13,7 @@ class TaskRunnerTest {
     fun `serial runner executes task immediately when thread count is less than two`() {
         val ran = AtomicBoolean(false)
         val runner = createBoundedNonRejectingTaskRunner(1)
-        assert(runner is SerialTaskRunner)
+        assertTrue(runner is SerialTaskRunner)
 
         runner.run(Runnable { ran.set(true) })
 
@@ -43,7 +43,7 @@ class TaskRunnerTest {
         try {
             repeat(threadCount - 1) {
                 runner.run({
-                    assert(Thread.currentThread().threadId() != mainThread)
+                    assertTrue(Thread.currentThread().threadId() != mainThread)
                     assertDoesNotThrow { startLatch.await(1, TimeUnit.SECONDS) }
                     stopLatch.countDown()
                 })

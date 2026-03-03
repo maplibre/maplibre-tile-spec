@@ -692,7 +692,7 @@ Add an explicit column mapping on the specified layers:
                     ENV_COMPRESSION_FIXED_THRESHOLD + ": Minimum savings in bytes for a tile to be compressed (default: " +
                     DEFAULT_COMPRESSION_FIXED_THRESHOLD +
                     ")\n  " +
-                    ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maxumum heap size (default: " +
+                    ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maximum heap size (default: " +
                     DEFAULT_CACHE_MAX_HEAP_PERCENT + ")\n  " +
                     ENV_CACHE_EXPIRE + ": Cache expiration duration after access, in ISO-8601 format (e.g. P1.2S) \n" +
                     "    or plain (e.g., 1.2s) (default: " + DEFAULT_CACHE_EXPIRE.toString() + ")\n"
