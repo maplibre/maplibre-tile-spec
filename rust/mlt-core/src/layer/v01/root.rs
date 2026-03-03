@@ -312,8 +312,7 @@ fn parse_columns_meta(
     mut input: &'_ [u8],
     column_count: usize,
 ) -> MltRefResult<'_, (Vec<Column<'_>>, usize)> {
-    #[allow(clippy::enum_glob_use)]
-    use crate::v01::column::ColumnType::*;
+    use crate::v01::column::ColumnType::{Geometry, Id, LongId, OptId, OptLongId, Struct};
 
     let mut col_info = Vec::with_capacity(column_count);
     let mut geometries = 0;

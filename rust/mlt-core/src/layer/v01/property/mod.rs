@@ -22,7 +22,7 @@ use crate::v01::{
 use crate::{FromDecoded, MltError, impl_encodable};
 
 /// Property representation, either encoded or decoded
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 #[borrowme]
 #[derive(Debug, PartialEq)]
 #[cfg_attr(
@@ -239,7 +239,6 @@ impl arbitrary::Arbitrary<'_> for OwnedEncodedProperty {
 }
 
 /// A sequence of encoded property values of various types
-#[allow(clippy::large_enum_variant)]
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum EncodedPropValue<'a> {

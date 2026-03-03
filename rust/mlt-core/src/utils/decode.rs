@@ -112,7 +112,7 @@ fn decode_morton_half(code: u32, num_bits: u32) -> u32 {
 }
 
 /// Decode a single Morton code to (x, y) as i32, applying `coordinate_shift`.
-#[allow(clippy::cast_possible_wrap)]
+#[expect(clippy::cast_possible_wrap)]
 pub fn decode_morton_one(morton_code: u32, num_bits: u32, coordinate_shift: u32) -> (i32, i32) {
     let x = decode_morton_half(morton_code, num_bits) as i32 - coordinate_shift as i32;
     let y = decode_morton_half(morton_code >> 1, num_bits) as i32 - coordinate_shift as i32;
@@ -120,7 +120,7 @@ pub fn decode_morton_one(morton_code: u32, num_bits: u32, coordinate_shift: u32)
 }
 
 /// Decode Morton codes to flat [x0, y0, x1, y1, ...]. Deltas are raw (u32 reinterpreted as i32).
-#[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
+#[expect(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
 pub fn decode_morton_delta(data: &[u32], num_bits: u32, coordinate_shift: u32) -> Vec<i32> {
     let mut out = Vec::with_capacity(data.len() * 2);
     let mut prev = 0i32;
