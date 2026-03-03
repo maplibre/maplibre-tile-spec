@@ -15,6 +15,8 @@ const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
 const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["props_mixed", "F32 very buggy and does not work"],
     ["prop_str_empty", "empty strings not supported"],
+    ["prop_str_empty_val", "empty strings not supported"],
+    ["prop_str_val_empty", "empty strings not supported"],
     ["prop_i64_min", "wraps to 0 despite it should have been negative"],
     ["prop_u32_max", "wraps to -1 despite it should have been positive"],
     ["prop_i64_max", "wraps to -1 despite it should have been positive"],
@@ -31,6 +33,8 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["prop_f64_neg_zero", "does not parse f64 as f32"],
     ["prop_f64_pos_inf", "does not parse f64 as f32"],
     ["prop_f64_zero", "does not parse f64 as f32"],
+    ["prop_f64_null_val", "does not parse f64 as f32"],
+    ["prop_f64_val_null", "does not parse f64 as f32"],
 ]);
 
 const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");
