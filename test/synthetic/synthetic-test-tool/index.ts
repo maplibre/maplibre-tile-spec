@@ -1,6 +1,7 @@
 import { glob, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import JSON5 from "json5";
+import { expect } from "vitest";
 
 async function collectGlob(pattern: string): Promise<string[]> {
   const result: string[] = [];
@@ -13,94 +14,22 @@ async function collectGlob(pattern: string): Promise<string[]> {
 const RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100;
 const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
 
-function numbersEqualWithTolerance(expected: number, actual: number): boolean {
-  if (!Number.isFinite(expected)) return Object.is(expected, actual);
-  if (Math.abs(expected) < ABSOLUTE_FLOAT_TOLERANCE) {
-    return Math.abs(actual) <= ABSOLUTE_FLOAT_TOLERANCE;
-  }
-  const relativeError = Math.abs(actual - expected) / Math.abs(expected);
-  return relativeError <= RELATIVE_FLOAT_TOLERANCE;
-}
-
-export function deepEqualWithTolerance(
-  expected: unknown,
-  actual: unknown,
-  path = "",
-): void {
-  const loc = path || "root";
-
-  if (typeof expected === "number" && typeof actual === "number") {
-    if (!numbersEqualWithTolerance(expected, actual)) {
-      throw new Error(
-        `Mismatch at ${loc}: expected ${expected}, got ${actual}`,
-      );
+expect.addEqualityTesters([
+  (received, expected) => {
+    if (typeof received !== "number" || typeof expected !== "number") {
+      return undefined;
     }
-    return;
-  }
 
-  if (
-    expected === null ||
-    actual === null ||
-    expected === undefined ||
-    actual === undefined
-  ) {
-    if (expected !== actual) {
-      throw new Error(
-        `Mismatch at ${loc}: expected ${expected}, got ${actual}`,
-      );
-    }
-    return;
-  }
+    if (!Number.isFinite(expected)) return Object.is(received, expected);
 
-  if (typeof expected !== typeof actual) {
-    throw new Error(
-      `Type mismatch at ${loc}: expected ${typeof expected}, got ${typeof actual}`,
-    );
-  }
+    if (Math.abs(expected) < ABSOLUTE_FLOAT_TOLERANCE) {
+      return Math.abs(received) <= ABSOLUTE_FLOAT_TOLERANCE;
+    }
 
-  if (Array.isArray(expected)) {
-    if (!Array.isArray(actual)) {
-      throw new Error(`Expected array at ${loc}, got ${typeof actual}`);
-    }
-    if (expected.length !== actual.length) {
-      throw new Error(
-        `Array length mismatch at ${loc}: expected ${expected.length}, got ${actual.length}`,
-      );
-    }
-    for (let i = 0; i < expected.length; i++) {
-      deepEqualWithTolerance(
-        expected[i],
-        (actual as unknown[])[i],
-        `${path}[${i}]`,
-      );
-    }
-    return;
-  }
-
-  if (typeof expected === "object") {
-    const expectedKeys = Object.keys(expected as object).sort();
-    const actualKeys = Object.keys(actual as object).sort();
-    if (JSON.stringify(expectedKeys) !== JSON.stringify(actualKeys)) {
-      throw new Error(
-        `Key mismatch at ${loc}: expected [${expectedKeys}], got [${actualKeys}]`,
-      );
-    }
-    for (const key of expectedKeys) {
-      deepEqualWithTolerance(
-        (expected as Record<string, unknown>)[key],
-        (actual as Record<string, unknown>)[key],
-        path ? `${path}.${key}` : key,
-      );
-    }
-    return;
-  }
-
-  if (expected !== actual) {
-    throw new Error(
-      `Mismatch at ${loc}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
-    );
-  }
-}
+    const relativeError = Math.abs(received - expected) / Math.abs(expected);
+    return relativeError <= RELATIVE_FLOAT_TOLERANCE;
+  },
+]);
 
 export class SyntheticTestRunner {
   shouldSkip(_testName: string): false | string {
@@ -143,7 +72,7 @@ export class SyntheticTestRunner {
       const expected = JSON5.parse(expectedRaw);
 
       try {
-        deepEqualWithTolerance(expected, actual);
+        expect(actual).toEqual(expected);
         console.log(`OK - ${name}`);
         passed++;
       } catch (_err) {

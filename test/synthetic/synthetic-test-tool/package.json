@@ -3,6 +3,7 @@
   "main": "index.ts",
   "type": "module",
   "dependencies": {
-    "json5": "^2.2.3"
+    "json5": "^2.2.3",
+    "vitest": "^4.0.18"
   }
 }
