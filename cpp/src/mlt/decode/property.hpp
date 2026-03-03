@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <iterator>
 #include <mlt/decode/int.hpp>
 #include <mlt/decode/string.hpp>
 #include <mlt/feature.hpp>
