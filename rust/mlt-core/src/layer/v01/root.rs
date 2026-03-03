@@ -64,6 +64,8 @@ impl Analyze for Layer01<'_> {
 impl Layer01<'_> {
     /// Parse `v01::Layer` metadata
     pub fn parse(input: &[u8]) -> Result<Layer01<'_>, MltError> {
+        use EncodedPropValue as EncVal;
+
         let (input, layer_name) = parse_string(input)?;
         let (input, extent) = parse_varint::<u32>(input)?;
         let (input, column_count) = parse_varint::<usize>(input)?;
@@ -88,21 +90,21 @@ impl Layer01<'_> {
         let mut geometry: Option<Geometry> = None;
 
         for column in col_info {
-            let optional;
+            let opt;
             let value;
             let mut stream_count;
             let name = column.name.unwrap_or("");
 
             match column.typ {
                 ColumnType::Id | ColumnType::OptId => {
-                    (input, optional) = parse_optional(column.typ, input)?;
+                    (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    id_stream.set_once(Id::new_encoded(optional, EncodedIdValue::Id32(value)))?;
+                    id_stream.set_once(Id::new_encoded(opt, EncodedIdValue::Id32(value)))?;
                 }
                 ColumnType::LongId | ColumnType::OptLongId => {
-                    (input, optional) = parse_optional(column.typ, input)?;
+                    (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    id_stream.set_once(Id::new_encoded(optional, EncodedIdValue::Id64(value)))?;
+                    id_stream.set_once(Id::new_encoded(opt, EncodedIdValue::Id64(value)))?;
                 }
                 ColumnType::Geometry => {
                     let value_vec;
@@ -122,85 +124,49 @@ impl Layer01<'_> {
                     geometry.set_once(Geometry::new_encoded(value, value_vec))?;
                 }
                 ColumnType::Bool | ColumnType::OptBool => {
-                    (input, optional) = parse_optional(column.typ, input)?;
+                    (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse_bool(input)?;
-                    properties.push(Property::new_encoded(
-                        name,
-                        optional,
-                        EncodedPropValue::Bool(value),
-                    ));
+                    properties.push(Property::new_encoded(name, EncVal::Bool(opt, value)));
                 }
                 ColumnType::I8 | ColumnType::OptI8 => {
-                    (input, optional) = parse_optional(column.typ, input)?;
+                    (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(
-                        name,
-                        optional,
-                        EncodedPropValue::I8(value),
-                    ));
+                    properties.push(Property::new_encoded(name, EncVal::I8(opt, value)));
                 }
                 ColumnType::U8 | ColumnType::OptU8 => {
-                    (input, optional) = parse_optional(column.typ, input)?;
+                    (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(
-                        name,
-                        optional,
-                        EncodedPropValue::U8(value),
-                    ));
+                    properties.push(Property::new_encoded(name, EncVal::U8(opt, value)));
                 }
                 ColumnType::I32 | ColumnType::OptI32 => {
-                    (input, optional) = parse_optional(column.typ, input)?;
+                    (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(
-                        name,
-                        optional,
-                        EncodedPropValue::I32(value),
-                    ));
+                    properties.push(Property::new_encoded(name, EncVal::I32(opt, value)));
                 }
                 ColumnType::U32 | ColumnType::OptU32 => {
-                    (input, optional) = parse_optional(column.typ, input)?;
+                    (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(
-                        name,
-                        optional,
-                        EncodedPropValue::U32(value),
-                    ));
+                    properties.push(Property::new_encoded(name, EncVal::U32(opt, value)));
                 }
                 ColumnType::I64 | ColumnType::OptI64 => {
-                    (input, optional) = parse_optional(column.typ, input)?;
+                    (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(
-                        name,
-                        optional,
-                        EncodedPropValue::I64(value),
-                    ));
+                    properties.push(Property::new_encoded(name, EncVal::I64(opt, value)));
                 }
                 ColumnType::U64 | ColumnType::OptU64 => {
-                    (input, optional) = parse_optional(column.typ, input)?;
+                    (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(
-                        name,
-                        optional,
-                        EncodedPropValue::U64(value),
-                    ));
+                    properties.push(Property::new_encoded(name, EncVal::U64(opt, value)));
                 }
                 ColumnType::F32 | ColumnType::OptF32 => {
-                    (input, optional) = parse_optional(column.typ, input)?;
+                    (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(
-                        name,
-                        optional,
-                        EncodedPropValue::F32(value),
-                    ));
+                    properties.push(Property::new_encoded(name, EncVal::F32(opt, value)));
                 }
                 ColumnType::F64 | ColumnType::OptF64 => {
-                    (input, optional) = parse_optional(column.typ, input)?;
+                    (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(
-                        name,
-                        optional,
-                        EncodedPropValue::F64(value),
-                    ));
+                    properties.push(Property::new_encoded(name, EncVal::F64(opt, value)));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
                     (input, stream_count) = parse_varint::<usize>(input)?;
@@ -213,15 +179,11 @@ impl Layer01<'_> {
                             "presence stream for optional strings",
                         ));
                     }
-                    (input, optional) = parse_optional(column.typ, input)?;
-                    stream_count -= usize::from(optional.is_some());
+                    (input, opt) = parse_optional(column.typ, input)?;
+                    stream_count -= usize::from(opt.is_some());
                     let value_vec;
                     (input, value_vec) = Stream::parse_multiple(input, stream_count)?;
-                    properties.push(Property::new_encoded(
-                        name,
-                        optional,
-                        EncodedPropValue::Str(value_vec),
-                    ));
+                    properties.push(Property::new_encoded(name, EncVal::Str(opt, value_vec)));
                 }
                 ColumnType::Struct => {
                     (input, stream_count) = parse_varint::<usize>(input)?;
@@ -273,8 +235,7 @@ impl Layer01<'_> {
 
                     properties.push(Property::new_encoded(
                         name,
-                        None,
-                        EncodedPropValue::Struct(EncodedStructProp {
+                        EncVal::Struct(EncodedStructProp {
                             dict_streams,
                             children,
                         }),

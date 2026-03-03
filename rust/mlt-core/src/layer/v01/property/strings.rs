@@ -163,7 +163,6 @@ pub fn encode_shared_dictionary(
 
     Ok(OwnedEncodedProperty {
         name: name.to_owned(),
-        optional: None,
         value: OwnedEncodedPropValue::Struct(OwnedEncodedStructProp {
             dict_streams,
             children: encoded_children,
@@ -327,15 +326,10 @@ pub fn decode_struct_children<'a>(
         .children
         .into_iter()
         .map(|child| {
-            let present = if let Some(c) = child.optional {
-                Some(c.decode_bools()?)
-            } else {
-                None
-            };
             let offsets = child.data.decode_bits_u32()?.decode_u32()?;
             let strings = resolve_offsets(&dict, &offsets)?;
             let name = format!("{parent_name}{}", child.name);
-            let values = PropValue::Str(apply_present(present, strings)?);
+            let values = PropValue::Str(apply_present(child.optional, strings)?);
             Ok(Property::Decoded(DecodedProperty { name, values }))
         })
         .collect()
