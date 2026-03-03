@@ -1,4 +1,4 @@
-import { glob, readFile } from "node:fs/promises";
+import { glob, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import JSON5 from "json5";
 import { expect } from "vitest";
@@ -34,6 +34,19 @@ expect.addEqualityTesters([
 export class SyntheticTestRunner {
   shouldSkip(_testName: string): false | string {
     return false;
+  }
+
+  private async writeActualOutput(
+    mltFile: string,
+    actual: Record<string, unknown>,
+  ) {
+    const actualFile = mltFile.replace(/\.mlt$/, ".actual.json");
+    await writeFile(
+      actualFile,
+      `${JSON5.stringify(actual, null, 2)}\n`,
+      "utf-8",
+    );
+    return actualFile;
   }
 
   decodeMLT(_mltFilePath: string): Promise<Record<string, unknown>> {
@@ -77,12 +90,8 @@ export class SyntheticTestRunner {
         passed++;
       } catch (_err) {
         console.log(`FAIL - ${name}`);
-        console.error(
-          "expected:\n",
-          JSON5.stringify(expected, null, 2),
-          "\nactual:\n",
-          JSON5.stringify(actual, null, 2),
-        );
+        const actualFile = await this.writeActualOutput(mltFile, actual);
+        console.log(`wrote actual output to ${actualFile}`);
         failed++;
       }
     }

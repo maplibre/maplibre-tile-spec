@@ -3,6 +3,7 @@
 *.gcov
 *.log
 *.new.geojson
+*.actual.json
 .DS_Store
 .cache/
 .idea/
