@@ -12,7 +12,7 @@ public class DoubleDecoder {
 
   public static List<Double> decodeDoubleStream(
       byte[] data, IntWrapper offset, StreamMetadata streamMetadata) {
-    if (streamMetadata.numValues() * Double.BYTES == streamMetadata.byteLength()) {
+    if ((long) streamMetadata.numValues() * Double.BYTES == streamMetadata.byteLength()) {
       final var values = DecodingUtils.decodeDoublesLE(data, offset, streamMetadata.numValues());
       return Arrays.stream(values).boxed().collect(Collectors.toUnmodifiableList());
     } else {
