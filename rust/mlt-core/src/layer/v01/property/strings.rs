@@ -612,11 +612,16 @@ pub fn encode_shared_dictionary(
             LengthType::Dictionary,
             DictionaryType::Shared,
         )?,
-        StrEncoder::Fsst(enc) => OwnedStream::encode_strings_fsst_with_type(
-            &dict,
-            enc,
-            DictionaryType::Single, // TODO: figure out if this is correct. According to Java it is.. but why?
-        )?,
+        StrEncoder::Fsst(enc) => {
+            // For shared dictionary, we don't want the offset stream in the header -
+            // each child has its own offset stream. Strip it here.
+            let mut prop =
+                OwnedStream::encode_strings_fsst_with_type(&dict, enc, DictionaryType::Single)?;
+            if let OwnedEncodedStrProp::FsstDictionary { offset, .. } = &mut prop {
+                *offset = None;
+            }
+            prop
+        }
     };
 
     // Encode each child column.
