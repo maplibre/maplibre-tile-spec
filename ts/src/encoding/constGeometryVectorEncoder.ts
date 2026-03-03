@@ -1,8 +1,8 @@
 import { ConstGeometryVector } from "../vector/geometry/constGeometryVector";
 import { GEOMETRY_TYPE } from "../vector/geometry/geometryType";
-import { GeometryVector, MortonSettings } from "../vector/geometry/geometryVector";
 import { VertexBufferType } from "../vector/geometry/vertexBufferType";
 import { encodeZOrderCurve } from "./zOrderCurveEncoder";
+import type { GeometryVector, MortonSettings } from "../vector/geometry/geometryVector";
 
 export const DEFAULT_MORTON_SETTINGS: MortonSettings = { numBits: 16, coordinateShift: 0 } as MortonSettings;
 
