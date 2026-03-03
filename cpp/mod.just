@@ -59,7 +59,8 @@ test-json:
     build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq .
 
 decode-synthetics: cmake-build
-    #!/usr/bin/env bash -e
+    #!/usr/bin/env bash
+    set -e # Fail on error
     # These are the ones that work currently
     # Ideally just: `fd . test/synthetic/0x01 -e mlt -x cpp/build/tool/mlt-cpp-json "{}" >/dev/null`
     JSON_TOOL=build/tool/mlt-cpp-json
