@@ -206,48 +206,34 @@ impl Layer01<'_> {
                 }
                 ColumnType::Struct => {
                     (input, stream_count) = parse_varint::<usize>(input)?;
-                    if stream_count < 2 {
-                        return Err(MltError::StructSharedDictRequiresStreams(stream_count));
-                    }
-
-                    let done = |s: &Stream<'_>| {
-                        matches!(
-                            s.meta.stream_type,
+                    let mut dict_streams = [None, None, None, None, None];
+                    let mut streams_taken = 0usize;
+                    while streams_taken < stream_count {
+                        let stream;
+                        (input, stream) = Stream::parse(input)?;
+                        let is_last = matches!(
+                            stream.meta.stream_type,
                             StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
-                        )
-                    };
-
-                    let mut dict_streams: [Option<Stream<'_>>; 5] = [None, None, None, None, None];
-                    let mut count = 0usize;
-                    loop {
-                        if count >= 5 {
-                            return Err(MltError::UnsupportedStringStreamCount(6));
-                        }
-                        let (rest, s) = Stream::parse(input)?;
-                        input = rest;
-                        let is_last = done(&s);
-                        if count == 0 && is_last {
-                            return Err(MltError::MissingStringStream(
-                                "shared dictionary data (need at least 2 streams)",
-                            ));
-                        }
-                        dict_streams[count] = Some(s);
-                        count += 1;
+                        );
+                        dict_streams[streams_taken] = Some(stream);
+                        streams_taken += 1;
                         if is_last {
                             break;
+                        } else if streams_taken >= 5 {
+                            return Err(MltError::UnsupportedStringStreamCount(6));
                         }
                     }
                     // FIXME: this is a rediculous byte lookahead. Need a different way.
-                    if count == 4
+                    if streams_taken == 4
                         && input.first() == Some(&StreamType::Offset(OffsetType::String).as_u8())
                     {
-                        let (rest, s5) = Stream::parse(input)?;
-                        input = rest;
-                        dict_streams[4] = Some(s5);
-                        count = 5;
+                        let stream;
+                        (input, stream) = Stream::parse(input)?;
+                        dict_streams[4] = Some(stream);
+                        streams_taken += 1;
                     }
-                    let (rest, children) = parse_struct_children(input, &column)?;
-                    input = rest;
+                    let children;
+                    (input, children) = parse_struct_children(input, &column)?;
 
                     let struct_prop = match dict_streams {
                         [Some(s1), Some(s2), None, None, None] => {
@@ -262,7 +248,7 @@ impl Layer01<'_> {
                         [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
                             EncodedStructProp::fsst_dictionary(s1, s2, s3, s4, s5, children)
                         }
-                        _ => return Err(MltError::UnsupportedStringStreamCount(count)),
+                        _ => Err(MltError::StructSharedDictRequiresStreams(streams_taken))?,
                     };
 
                     properties.push(Property::new_encoded(name, EncVal::Struct(struct_prop)));
