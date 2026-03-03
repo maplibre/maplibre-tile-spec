@@ -86,7 +86,7 @@ class ReadablePmtiles(
         x: Int,
         y: Int,
         z: Int,
-    ) = getTileRange(x, y, z)?.let { getBytes(it) }
+    ) = getTileRange(x, y, z)?.let(::getBytes)
 
     @Throws(IOException::class)
     override fun close() {
