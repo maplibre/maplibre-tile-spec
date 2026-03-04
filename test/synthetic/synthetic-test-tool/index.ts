@@ -75,9 +75,9 @@ export class SyntheticTestRunner implements AsyncIterable<SyntheticCaseResult> {
     throw new Error("not implemented");
   }
 
-  private async runCase(
-    syntheticDir: string,
+  async runCase(
     testName: string,
+    syntheticDir: string = syntheticTestDir,
   ): Promise<SyntheticCaseResult> {
     const mltFile = join(syntheticDir, `${testName}.mlt`);
     const jsonFile = join(syntheticDir, `${testName}.json`);
@@ -128,7 +128,7 @@ export class SyntheticTestRunner implements AsyncIterable<SyntheticCaseResult> {
     );
 
     for (const testName of names) {
-      yield await this.runCase(syntheticTestDir, testName);
+      yield await this.runCase(testName, syntheticTestDir);
     }
   }
 

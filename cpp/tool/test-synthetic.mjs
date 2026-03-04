@@ -40,19 +40,15 @@ let skipped = 0;
 for await (const result of runner) {
   switch (result.status) {
     case "ok":
-      console.log(`OK - ${result.name}`);
+      console.log(`OK - ${result.testName}`);
       passed++;
       break;
     case "fail":
-      console.log(`FAIL - ${result.name}`);
-      failed++;
-      break;
-    case "crash":
-      console.log(`FAIL - ${result.name} (crash: ${result.reason})`);
+      console.log(`FAIL - ${result.testName}`);
       failed++;
       break;
     case "skip":
-      console.log(`SKIP ${result.name} (${result.reason})`);
+      console.log(`SKIP ${result.testName} (${result.reason})`);
       skipped++;
       break;
   }

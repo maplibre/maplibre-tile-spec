@@ -8,7 +8,7 @@ import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
 
 import {
     SyntheticTestRunner,
-    type SyntheticCaseResult,
+    syntheticTestDir,
 } from "synthetic-test-tool";
 
 const EARCUT_MAX_RINGS = 500;
@@ -50,28 +50,27 @@ class SyntheticTestRunnerJS extends SyntheticTestRunner {
     }
 }
 
-describe("MLT Decoder - Synthetic tests", async () => {
-    const runner = new SyntheticTestRunnerJS();
+const runner = new SyntheticTestRunnerJS();
+const { active, skipped } = await runner.getTestCases(syntheticTestDir);
 
-    for await (const result of runner) {
-        switch (result.status) {
-            case "skip":
-                it.skip(`${result.name} (${result.reason})`, () => undefined);
-                break;
-            case "ok":
-                it(result.name, () => undefined);
-                break;
-            case "fail":
-                it(result.name, () => {
+describe("MLT Decoder - Synthetic tests", () => {
+
+    for (const [testName, reason] of skipped) {
+        it.skip(`${testName} (${reason})`, () => undefined);
+    }
+
+    for (const testName of active) {
+        it(testName, async () => {
+            const result = await runner.runCase(testName, syntheticTestDir);
+            switch (result.status) {
+                case "ok":
+                    return;
+                case "skip":
+                    return;
+                case "fail":
                     throw result.error;
-                });
-                break;
-            case "crash":
-                it(result.name, () => {
-                    throw new Error(`Crash for ${result.name}: ${result.reason}`);
-                });
-                break;
-        }
+            }
+        });
     }
 });
 
