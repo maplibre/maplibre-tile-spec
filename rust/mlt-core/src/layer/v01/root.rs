@@ -300,9 +300,7 @@ fn parse_shared_dict_column<'a>(
         if is_last {
             break;
         } else if streams_taken >= dict_streams.len() {
-            return Err(MltError::UnsupportedStringStreamCount(
-                streams_taken + 1,
-            ));
+            return Err(MltError::UnsupportedStringStreamCount(streams_taken + 1));
         }
     }
     let children;
