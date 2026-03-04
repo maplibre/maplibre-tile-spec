@@ -1409,7 +1409,7 @@ mod tests {
                 .unwrap(),
                 n => panic!("unexpected stream count {n}"),
             };
-            let decoded_values = decode_strings(&encoding).unwrap();
+            let decoded_values = decode_strings(encoding).unwrap();
             assert_eq!(decoded_values, values);
         }
     }

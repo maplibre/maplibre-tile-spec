@@ -280,7 +280,7 @@ impl Analyze for EncodedPropValue<'_> {
             Self::Str(opt, encoding) => {
                 opt.for_each_stream(cb);
                 for s in encoding.streams() {
-                    cb(&s);
+                    cb(s);
                 }
             }
             Self::SharedDict(sp) => {
@@ -786,7 +786,7 @@ impl<'a> FromEncoded<'a> for DecodedProperty {
             EncVal::U64(o, s) => Val::U64(apply_present(o, s.decode_u64()?)?),
             EncVal::F32(o, s) => Val::F32(apply_present(o, s.decode_f32()?)?),
             EncVal::F64(o, s) => Val::F64(apply_present(o, s.decode_f64()?)?),
-            EncVal::Str(o, s) => Val::Str(apply_present(o, decode_strings(&s)?)?),
+            EncVal::Str(o, s) => Val::Str(apply_present(o, decode_strings(s)?)?),
             EncVal::SharedDict(_) => Err(MltError::NotDecoded("struct must use decode_expand"))?,
         };
         Ok(DecodedProperty {

@@ -6,8 +6,7 @@ use borrowme::borrowme;
 
 use crate::MltError;
 use crate::MltError::{
-    BufferUnderflow, DictIndexOutOfBounds, MissingStringStream, NotImplemented,
-    UnexpectedStreamType, UnexpectedStreamType2,
+    BufferUnderflow, DictIndexOutOfBounds, NotImplemented, UnexpectedStreamType2,
 };
 use crate::utils::{BinarySerializer as _, apply_present};
 use crate::v01::{
@@ -211,51 +210,9 @@ impl<'a> EncodedStrProp<'a> {
 
     /// Streams in an order suitable for classification [`decode_strings`]
     #[must_use]
-    pub fn streams(&self) -> Vec<Stream<'_>> {
+    pub fn streams(&self) -> Vec<&Stream<'_>> {
         match self {
-            Self::Plain { lengths, data } => vec![lengths.clone(), data.clone()],
-            Self::Dictionary {
-                lengths,
-                offset,
-                data,
-            } => vec![lengths.clone(), offset.clone(), data.clone()],
-            Self::FsstPlain {
-                symbol_lengths,
-                symbol_table,
-                length,
-                corpus,
-            } => vec![
-                symbol_lengths.clone(),
-                symbol_table.clone(),
-                length.clone(),
-                corpus.clone(),
-            ],
-            Self::FsstDictionary {
-                symbol_lengths,
-                symbol_table,
-                length,
-                corpus,
-                offset,
-            } => vec![
-                symbol_lengths.clone(),
-                symbol_table.clone(),
-                length.clone(),
-                corpus.clone(),
-                offset.clone(),
-            ],
-        }
-    }
-}
-
-impl OwnedEncodedStrProp {
-    /// Streams in wire order for serialization.
-    #[must_use]
-    pub fn streams(&self) -> Vec<&OwnedStream> {
-        match self {
-            Self::Plain {
-                lengths: length,
-                data,
-            } => vec![length, data],
+            Self::Plain { lengths, data } => vec![lengths, data],
             Self::Dictionary {
                 lengths,
                 offset,
@@ -276,15 +233,14 @@ impl OwnedEncodedStrProp {
             } => vec![symbol_lengths, symbol_table, length, corpus, offset],
         }
     }
+}
 
-    /// Consume and return the streams in wire order (e.g. for struct shared-dict encoding).
+impl OwnedEncodedStrProp {
+    /// Streams in wire order for serialization.
     #[must_use]
-    pub fn into_streams(self) -> Vec<OwnedStream> {
+    pub fn streams(&self) -> Vec<&OwnedStream> {
         match self {
-            Self::Plain {
-                lengths: length,
-                data,
-            } => vec![length, data],
+            Self::Plain { lengths, data } => vec![lengths, data],
             Self::Dictionary {
                 lengths,
                 offset,
@@ -392,7 +348,44 @@ impl<'a> EncodedSharedDictProp<'a> {
         })
     }
 
-    /// Dict streams in wire order (for serialization and for `decode_shared_dictionary`).
+    /// Decode the shared dictionary entries from this encoding.
+    pub fn decode_dictionary(&self) -> Result<Vec<String>, MltError> {
+        match self {
+            Self::Plain {
+                enc_len, enc_data, ..
+            }
+            | Self::Dictionary {
+                enc_len, enc_data, ..
+            } => {
+                let lens = enc_len.clone().decode_bits_u32()?.decode_u32()?;
+                let data = raw_bytes(enc_data.clone());
+                split_to_strings(&lens, &data)
+            }
+            Self::FsstPlain {
+                enc_len_sym,
+                symbol_table,
+                enc_len_dic,
+                corpus,
+                ..
+            }
+            | Self::FsstDictionary {
+                enc_len_sym,
+                symbol_table,
+                enc_len_dic,
+                corpus,
+                ..
+            } => {
+                let sym_lens = enc_len_sym.clone().decode_bits_u32()?.decode_u32()?;
+                let sym_data = raw_bytes(symbol_table.clone());
+                let dict_lens = enc_len_dic.clone().decode_bits_u32()?.decode_u32()?;
+                let compressed = raw_bytes(corpus.clone());
+                let decompressed = decode_fsst(&sym_data, &sym_lens, &compressed);
+                split_to_strings(&dict_lens, &decompressed)
+            }
+        }
+    }
+
+    /// Dict streams in wire order (for serialization).
     #[must_use]
     pub fn dict_streams(&self) -> Vec<Stream<'_>> {
         match self {
@@ -662,86 +655,55 @@ impl OwnedEncodedStructChild {
     }
 }
 
-/// Classified string sub-streams, used by both regular string and shared dictionary decoding.
-#[derive(Default)]
-struct StringStreams {
-    var_binary_lengths: Option<Vec<u32>>,
-    dict_lengths: Option<Vec<u32>>,
-    symbol_lengths: Option<Vec<u32>>,
-    data_bytes: Option<Vec<u8>>,
-    dict_bytes: Option<Vec<u8>>,
-    symbol_bytes: Option<Vec<u8>>,
-    offsets: Option<Vec<u32>>,
-}
-
-impl StringStreams {
-    fn classify(streams: Vec<Stream<'_>>) -> Result<Self, MltError> {
-        use StreamType as ST;
-        let mut result = Self::default();
-        for s in streams {
-            match s.meta.stream_type {
-                ST::Length(LengthType::VarBinary) => {
-                    result.var_binary_lengths = Some(s.decode_bits_u32()?.decode_u32()?);
-                }
-                ST::Length(LengthType::Dictionary) => {
-                    result.dict_lengths = Some(s.decode_bits_u32()?.decode_u32()?);
-                }
-                ST::Length(LengthType::Symbol) => {
-                    result.symbol_lengths = Some(s.decode_bits_u32()?.decode_u32()?);
-                }
-                ST::Data(DictionaryType::None) => {
-                    result.data_bytes = Some(raw_bytes(s));
-                }
-                ST::Data(DictionaryType::Single | DictionaryType::Shared) => {
-                    result.dict_bytes = Some(raw_bytes(s));
-                }
-                ST::Data(DictionaryType::Fsst) => {
-                    result.symbol_bytes = Some(raw_bytes(s));
-                }
-                ST::Offset(OffsetType::String) => {
-                    result.offsets = Some(s.decode_bits_u32()?.decode_u32()?);
-                }
-                _ => Err(UnexpectedStreamType(s.meta.stream_type))?,
-            }
-        }
-        Ok(result)
-    }
-
-    /// Decode dictionary entries from length + data streams, with optional FSST decompression.
-    fn decode_dictionary(&self) -> Result<Vec<String>, MltError> {
-        let dl = self.dict_lengths.as_deref();
-        let dl = dl.ok_or(MissingStringStream("dictionary lengths"))?;
-        let dd = self.dict_bytes.as_deref();
-        let dd = dd.ok_or(MissingStringStream("dictionary data"))?;
-        if let (Some(sym_lens), Some(sym_data)) = (&self.symbol_lengths, &self.symbol_bytes) {
-            split_to_strings(dl, &decode_fsst(sym_data, sym_lens, dd))
-        } else {
-            split_to_strings(dl, dd)
-        }
-    }
-}
-
 /// Decode string property from its encoded stream encoding.
-pub fn decode_strings(encoding: &EncodedStrProp<'_>) -> Result<Vec<String>, MltError> {
-    let streams = encoding.streams();
-    let ss = StringStreams::classify(streams)?;
-
-    if let Some(offsets) = &ss.offsets {
-        resolve_offsets(&ss.decode_dictionary()?, offsets)
-    } else if let Some(lengths) = &ss.var_binary_lengths {
-        let data = ss.data_bytes.as_deref().or(ss.dict_bytes.as_deref());
-        let data = data.ok_or(MissingStringStream("string data"))?;
-        split_to_strings(lengths, data)
-    } else if ss.dict_lengths.is_some() {
-        ss.decode_dictionary()
-    } else {
-        Err(MissingStringStream("any usable combination"))
+pub fn decode_strings(encoding: EncodedStrProp<'_>) -> Result<Vec<String>, MltError> {
+    match encoding {
+        EncodedStrProp::Plain { lengths, data } => {
+            let lens = lengths.decode_bits_u32()?.decode_u32()?;
+            let data_bytes = raw_bytes(data);
+            split_to_strings(&lens, &data_bytes)
+        }
+        EncodedStrProp::Dictionary {
+            lengths,
+            offset,
+            data,
+        } => {
+            let dict_lens = lengths.decode_bits_u32()?.decode_u32()?;
+            let dict_bytes = raw_bytes(data);
+            let dict = split_to_strings(&dict_lens, &dict_bytes)?;
+            let offsets = offset.decode_bits_u32()?.decode_u32()?;
+            resolve_offsets(&dict, &offsets)
+        }
+        EncodedStrProp::FsstPlain {
+            symbol_lengths,
+            symbol_table,
+            length,
+            corpus,
+        } => {
+            let sym_lens = symbol_lengths.decode_bits_u32()?.decode_u32()?;
+            let sym_data = raw_bytes(symbol_table);
+            let dict_lens = length.decode_bits_u32()?.decode_u32()?;
+            let compressed = raw_bytes(corpus);
+            let decompressed = decode_fsst(&sym_data, &sym_lens, &compressed);
+            split_to_strings(&dict_lens, &decompressed)
+        }
+        EncodedStrProp::FsstDictionary {
+            symbol_lengths,
+            symbol_table,
+            length,
+            corpus,
+            offset,
+        } => {
+            let sym_lens = symbol_lengths.decode_bits_u32()?.decode_u32()?;
+            let sym_data = raw_bytes(symbol_table);
+            let dict_lens = length.decode_bits_u32()?.decode_u32()?;
+            let compressed = raw_bytes(corpus);
+            let decompressed = decode_fsst(&sym_data, &sym_lens, &compressed);
+            let dict = split_to_strings(&dict_lens, &decompressed)?;
+            let offsets = offset.decode_bits_u32()?.decode_u32()?;
+            resolve_offsets(&dict, &offsets)
+        }
     }
-}
-
-/// Decode a shared dictionary from its streams, returning the dictionary entries.
-fn decode_shared_dictionary(streams: Vec<Stream<'_>>) -> Result<Vec<String>, MltError> {
-    StringStreams::classify(streams)?.decode_dictionary()
 }
 
 /// Look up dictionary entries by index.
@@ -806,7 +768,7 @@ pub fn decode_struct_children<'a>(
     parent_name: &str,
     struct_data: &EncodedSharedDictProp<'_>,
 ) -> Result<Vec<Property<'a>>, MltError> {
-    let dict = decode_shared_dictionary(struct_data.dict_streams())?;
+    let dict = struct_data.decode_dictionary()?;
     struct_data
         .children()
         .iter()
