@@ -37,7 +37,7 @@ describe("MLT Decoder - Synthetic tests", () => {
 
   for (const skippedTest of testCases.skipped) {
     it.skip(skippedTest, () => {
-      // Test is skipped since it is not supported yet. Reason: ${UNIMPLEMENTED_SYNTHETICS.get(skippedTest)}
+      // Test is skipped since it is not supported yet
     });
   }
 });
