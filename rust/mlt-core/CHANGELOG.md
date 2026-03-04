@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - *(encoders)* F64 encoded as f64 ([#1009](https://github.com/maplibre/maplibre-tile-spec/pull/1009))
 - *(rust)* LineString and MultiLineString geometries ([#989](https://github.com/maplibre/maplibre-tile-spec/pull/989))
-- *(rust)* encodeing of normalized mixed multi + regular geometrys panics ([#981](https://github.com/maplibre/maplibre-tile-spec/pull/981))
+- *(rust)* encoding of normalized mixed multi + regular geometrys panics ([#981](https://github.com/maplibre/maplibre-tile-spec/pull/981))
 
 ### Other
 
