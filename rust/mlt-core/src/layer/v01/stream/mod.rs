@@ -351,9 +351,8 @@ impl OwnedStream {
         };
 
         // Stream 5: Offset indices (0, 1, 2, ...) for string lookup
-        let offsets: Vec<u32> = (0..values.len())
-            .map(|i| u32::try_from(i).unwrap())
-            .collect();
+        let value_cnt = u32::try_from(values.len())?;
+        let offsets = (0..value_cnt).collect::<Vec<_>>();
         let offset_stream = Self::encode_u32s_of_type(
             &offsets,
             encoding.dict_lengths,
