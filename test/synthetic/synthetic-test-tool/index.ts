@@ -50,12 +50,6 @@ export type SyntheticCaseResult =
       status: "fail";
       testName: string;
       error: unknown;
-    }
-  | {
-      status: "crash";
-      testName: string;
-      reason: string;
-      error: unknown;
     };
 
 export class SyntheticTestRunner implements AsyncIterable<SyntheticCaseResult> {
@@ -101,11 +95,9 @@ export class SyntheticTestRunner implements AsyncIterable<SyntheticCaseResult> {
     try {
       actual = await this.decodeMLT(mltFile);
     } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
       return {
-        status: "crash",
+        status: "fail",
         testName,
-        reason,
         error,
       };
     }
