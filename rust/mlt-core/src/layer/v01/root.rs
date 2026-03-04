@@ -92,7 +92,7 @@ impl Layer01<'_> {
         for column in col_info {
             let opt;
             let value;
-            let mut stream_count;
+            let enc_val;
             let name = column.name.unwrap_or("");
 
             match column.typ {
@@ -107,21 +107,7 @@ impl Layer01<'_> {
                     id_stream.set_once(Id::new_encoded(opt, EncodedIdValue::Id64(value)))?;
                 }
                 ColumnType::Geometry => {
-                    let value_vec;
-                    (input, stream_count) = parse_varint::<usize>(input)?;
-                    if stream_count == 0 {
-                        return Err(MltError::GeometryWithoutStreams);
-                    }
-                    // Each stream requires at least 1 byte (physical stream type)
-                    if input.len() < stream_count {
-                        return Err(MltError::BufferUnderflow(stream_count, input.len()));
-                    }
-
-                    // metadata
-                    (input, value) = Stream::parse(input)?;
-                    // geometry items
-                    (input, value_vec) = Stream::parse_multiple(input, stream_count - 1)?;
-                    geometry.set_once(Geometry::new_encoded(value, value_vec))?;
+                    input = parse_geometry_column(input, &mut geometry)?;
                 }
                 ColumnType::Bool | ColumnType::OptBool => {
                     (input, opt) = parse_optional(column.typ, input)?;
@@ -169,80 +155,12 @@ impl Layer01<'_> {
                     properties.push(Property::new_encoded(name, EncVal::F64(opt, value)));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
-                    (input, stream_count) = parse_varint::<usize>(input)?;
-                    (input, opt) = parse_optional(column.typ, input)?;
-                    if opt.is_some() {
-                        if stream_count == 0 {
-                            return Err(MltError::UnsupportedStringStreamCount(stream_count));
-                        }
-                        stream_count -= 1;
-                    }
-                    let mut str_streams = [None, None, None, None, None];
-                    if stream_count > str_streams.len() {
-                        return Err(MltError::UnsupportedStringStreamCount(stream_count));
-                    }
-                    for slot in str_streams.iter_mut().take(stream_count) {
-                        let stream;
-                        (input, stream) = Stream::parse(input)?;
-                        *slot = Some(stream);
-                    }
-                    let encoding = match str_streams {
-                        [Some(s1), Some(s2), None, None, None] => EncodedStrProp::plain(s1, s2)?,
-                        [Some(s1), Some(s2), Some(s3), None, None] => {
-                            EncodedStrProp::dictionary(s1, s2, s3)?
-                        }
-                        [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
-                            EncodedStrProp::fsst_plain(s1, s2, s3, s4)?
-                        }
-                        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
-                            EncodedStrProp::fsst_dictionary(s1, s2, s3, s4, s5)?
-                        }
-                        _ => Err(MltError::UnsupportedStringStreamCount(stream_count))?,
-                    };
-                    properties.push(Property::new_encoded(name, EncVal::Str(opt, encoding)));
+                    (input, enc_val) = parse_str_column(input, column.typ)?;
+                    properties.push(Property::new_encoded(name, enc_val));
                 }
                 ColumnType::SharedDict => {
-                    // Read header streams until we hit the dictionary DATA(Single|Shared) stream.
-                    (input, stream_count) = parse_varint::<usize>(input)?;
-                    let mut dict_streams = [None, None, None, None, None];
-                    let mut streams_taken = 0;
-                    while streams_taken < stream_count {
-                        let stream;
-                        (input, stream) = Stream::parse(input)?;
-                        let is_last = matches!(
-                            stream.meta.stream_type,
-                            StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
-                        );
-                        dict_streams[streams_taken] = Some(stream);
-                        streams_taken += 1;
-                        if is_last {
-                            break;
-                        } else if streams_taken >= dict_streams.len() {
-                            return Err(MltError::UnsupportedStringStreamCount(
-                                dict_streams.len() + 1,
-                            ));
-                        }
-                    }
-                    let children;
-                    (input, children) = parse_struct_children(input, &column)?;
-
-                    let shared_dict = match dict_streams {
-                        [Some(s1), Some(s2), None, None, None] => {
-                            EncodedSharedDictProp::plain(s1, s2, children)?
-                        }
-                        [Some(s1), Some(s2), Some(s3), None, None] => {
-                            EncodedSharedDictProp::dictionary(s1, s2, s3, children)?
-                        }
-                        [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
-                            EncodedSharedDictProp::fsst_plain(s1, s2, s3, s4, children)?
-                        }
-                        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
-                            EncodedSharedDictProp::fsst_dictionary(s1, s2, s3, s4, s5, children)?
-                        }
-                        _ => Err(MltError::StructSharedDictRequiresStreams(streams_taken))?,
-                    };
-
-                    properties.push(Property::new_encoded(name, EncVal::SharedDict(shared_dict)));
+                    (input, enc_val) = parse_shared_dict_column(input, &column)?;
+                    properties.push(Property::new_encoded(name, enc_val));
                 }
             }
         }
@@ -305,6 +223,104 @@ fn parse_optional(typ: ColumnType, input: &[u8]) -> MltRefResult<'_, Option<Stre
     } else {
         Ok((input, None))
     }
+}
+
+fn parse_geometry_column<'a>(
+    input: &'a [u8],
+    geometry: &mut Option<Geometry<'a>>,
+) -> Result<&'a [u8], MltError> {
+    let (input, stream_count) = parse_varint::<usize>(input)?;
+    if stream_count == 0 {
+        return Err(MltError::GeometryWithoutStreams);
+    }
+    // Each stream requires at least 1 byte (physical stream type)
+    if input.len() < stream_count {
+        return Err(MltError::BufferUnderflow(stream_count, input.len()));
+    }
+    // metadata
+    let (input, value) = Stream::parse(input)?;
+    // geometry items
+    let (input, value_vec) = Stream::parse_multiple(input, stream_count - 1)?;
+    geometry.set_once(Geometry::new_encoded(value, value_vec))?;
+    Ok(input)
+}
+
+fn parse_str_column(mut input: &[u8], typ: ColumnType) -> MltRefResult<'_, EncodedPropValue<'_>> {
+    let mut stream_count;
+    let opt;
+    (input, stream_count) = parse_varint::<usize>(input)?;
+    (input, opt) = parse_optional(typ, input)?;
+    if opt.is_some() {
+        if stream_count == 0 {
+            return Err(MltError::UnsupportedStringStreamCount(stream_count));
+        }
+        stream_count -= 1;
+    }
+    let mut str_streams = [None, None, None, None, None];
+    if stream_count > str_streams.len() {
+        return Err(MltError::UnsupportedStringStreamCount(stream_count));
+    }
+    for slot in str_streams.iter_mut().take(stream_count) {
+        let stream;
+        (input, stream) = Stream::parse(input)?;
+        *slot = Some(stream);
+    }
+    let encoding = match str_streams {
+        [Some(s1), Some(s2), None, None, None] => EncodedStrProp::plain(s1, s2)?,
+        [Some(s1), Some(s2), Some(s3), None, None] => EncodedStrProp::dictionary(s1, s2, s3)?,
+        [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
+            EncodedStrProp::fsst_plain(s1, s2, s3, s4)?
+        }
+        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
+            EncodedStrProp::fsst_dictionary(s1, s2, s3, s4, s5)?
+        }
+        _ => Err(MltError::UnsupportedStringStreamCount(stream_count))?,
+    };
+    Ok((input, EncodedPropValue::Str(opt, encoding)))
+}
+
+fn parse_shared_dict_column<'a>(
+    mut input: &'a [u8],
+    column: &Column<'a>,
+) -> MltRefResult<'a, EncodedPropValue<'a>> {
+    // Read header streams until we hit the dictionary DATA(Single|Shared) stream.
+    let stream_count;
+    (input, stream_count) = parse_varint::<usize>(input)?;
+    let mut dict_streams = [None, None, None, None, None];
+    let mut streams_taken = 0;
+    while streams_taken < stream_count {
+        let stream;
+        (input, stream) = Stream::parse(input)?;
+        let is_last = matches!(
+            stream.meta.stream_type,
+            StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
+        );
+        dict_streams[streams_taken] = Some(stream);
+        streams_taken += 1;
+        if is_last {
+            break;
+        } else if streams_taken >= dict_streams.len() {
+            return Err(MltError::UnsupportedStringStreamCount(
+                dict_streams.len() + 1,
+            ));
+        }
+    }
+    let children;
+    (input, children) = parse_struct_children(input, column)?;
+    let shared_dict = match dict_streams {
+        [Some(s1), Some(s2), None, None, None] => EncodedSharedDictProp::plain(s1, s2, children)?,
+        [Some(s1), Some(s2), Some(s3), None, None] => {
+            EncodedSharedDictProp::dictionary(s1, s2, s3, children)?
+        }
+        [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
+            EncodedSharedDictProp::fsst_plain(s1, s2, s3, s4, children)?
+        }
+        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
+            EncodedSharedDictProp::fsst_dictionary(s1, s2, s3, s4, s5, children)?
+        }
+        _ => Err(MltError::StructSharedDictRequiresStreams(streams_taken))?,
+    };
+    Ok((input, EncodedPropValue::SharedDict(shared_dict)))
 }
 
 fn parse_columns_meta(
