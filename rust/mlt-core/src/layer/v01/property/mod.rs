@@ -7,10 +7,13 @@ use std::io::Write;
 use borrowme::borrowme;
 use integer_encoding::VarIntWriter as _;
 
-use crate::MltError::{IntegerOverflow, NotImplemented, UnsupportedPropertyEncoderCombination};
+use crate::MltError::{NotImplemented, UnsupportedPropertyEncoderCombination};
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
-use crate::utils::{BinarySerializer as _, FmtOptVec, apply_present, f32_to_json, f64_to_json};
+use crate::utils::{
+    BinarySerializer as _, FmtOptVec, apply_present, checked_sum2, checked_sum3, f32_to_json,
+    f64_to_json,
+};
 pub use crate::v01::property::strings::{
     EncodedSharedDictProp, EncodedStrProp, EncodedStructChild, SharedDictChild, SharedDictEncoder,
     SharedDictionaryGroup, StrEncoder, decode_strings, decode_struct_children,
@@ -191,9 +194,8 @@ impl OwnedEncodedProperty {
             }
             Val::Str(opt, encoding) => {
                 let streams = encoding.streams();
-                let stream_count = u64::try_from(streams.len())?
-                    .checked_add(u64::from(opt.is_some()))
-                    .ok_or(IntegerOverflow)?;
+                let stream_count =
+                    checked_sum2(u64::try_from(streams.len())?, u64::from(opt.is_some()))?;
                 writer.write_varint(stream_count)?;
                 writer.write_optional_stream(opt.as_ref())?;
                 for s in streams {
@@ -203,11 +205,11 @@ impl OwnedEncodedProperty {
             Val::SharedDict(s) => {
                 let dict_streams = s.dict_streams();
                 let children = s.children();
-                writer.write_varint(
-                    dict_streams.len()
-                        + children.len()
-                        + children.iter().filter(|c| c.optional.is_some()).count(),
-                )?;
+                writer.write_varint(checked_sum3(
+                    dict_streams.len(),
+                    children.len(),
+                    children.iter().filter(|c| c.optional.is_some()).count(),
+                )?)?;
                 for stream in dict_streams {
                     writer.write_stream(stream)?;
                 }

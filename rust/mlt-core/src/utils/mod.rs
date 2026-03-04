@@ -1,5 +1,7 @@
 mod encode;
+
 pub use encode::*;
+use num_traits::CheckedAdd;
 mod serialize;
 pub use serialize::*;
 mod parse;
@@ -83,4 +85,18 @@ pub fn apply_present<T>(
         result.push(if p { val_iter.next() } else { None });
     }
     Ok(result)
+}
+
+/// Perform checked addition of three values, returning an error if any overflow occurs.
+#[inline]
+pub fn checked_sum2<T: CheckedAdd + Copy>(v1: T, v2: T) -> Result<T, MltError> {
+    v1.checked_add(&v2).ok_or(MltError::IntegerOverflow)
+}
+
+/// Perform checked addition of three values, returning an error if any overflow occurs.
+#[inline]
+pub fn checked_sum3<T: CheckedAdd + Copy>(v1: T, v2: T, v3: T) -> Result<T, MltError> {
+    v1.checked_add(&v2)
+        .and_then(|sum| sum.checked_add(&v3))
+        .ok_or(MltError::IntegerOverflow)
 }
