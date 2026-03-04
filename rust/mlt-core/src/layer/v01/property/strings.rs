@@ -30,7 +30,7 @@ pub struct EncodedStructChild<'a> {
 /// Four variants: plain (2 streams), dictionary (3), FSST plain (4), FSST dictionary (5).
 #[borrowme]
 #[derive(Debug, Clone, PartialEq)]
-pub enum EncodedStructProp<'a> {
+pub enum EncodedSharedDictProp<'a> {
     /// Plain shared dict (2 streams): length + data.
     Plain {
         enc_len: Stream<'a>,
@@ -245,17 +245,6 @@ impl<'a> EncodedStrProp<'a> {
         })
     }
 
-    /// Number of streams (for stream count varint).
-    #[must_use]
-    pub fn stream_count(&self) -> usize {
-        match self {
-            Self::Plain { .. } => 2,
-            Self::Dictionary { .. } => 3,
-            Self::FsstPlain { .. } => 4,
-            Self::FsstDictionary { .. } => 5,
-        }
-    }
-
     /// Streams in an order suitable for classification (`decode_string_streams`).
     #[must_use]
     pub fn streams(&self) -> Vec<Stream<'_>> {
@@ -354,7 +343,7 @@ impl OwnedEncodedStrProp {
     }
 }
 
-impl<'a> EncodedStructProp<'a> {
+impl<'a> EncodedSharedDictProp<'a> {
     /// Plain shared dict (2 streams): length + data.
     pub fn plain(
         enc_len: Stream<'a>,
@@ -439,17 +428,6 @@ impl<'a> EncodedStructProp<'a> {
         })
     }
 
-    /// Dict stream count (2, 3, 4, or 5).
-    #[must_use]
-    pub fn dict_stream_count(&self) -> usize {
-        match self {
-            Self::Plain { .. } => 2,
-            Self::Dictionary { .. } => 3,
-            Self::FsstPlain { .. } => 4,
-            Self::FsstDictionary { .. } => 5,
-        }
-    }
-
     /// Dict streams in wire order (for serialization and for `decode_shared_dictionary`).
     #[must_use]
     pub fn dict_streams(&self) -> Vec<Stream<'_>> {
@@ -492,17 +470,6 @@ impl<'a> EncodedStructProp<'a> {
         }
     }
 
-    /// Total stream count (dict + children).
-    #[must_use]
-    pub fn stream_count(&self) -> usize {
-        let child_count: usize = self
-            .children()
-            .iter()
-            .map(|c| 1 + c.optional.as_ref().map_or(0, |_| 1))
-            .sum();
-        self.dict_stream_count() + child_count
-    }
-
     /// All streams in wire order: dict streams then each child's optional (if any) and data.
     #[must_use]
     pub fn streams(&self) -> Vec<Stream<'_>> {
@@ -527,27 +494,7 @@ impl<'a> EncodedStructProp<'a> {
     }
 }
 
-impl OwnedEncodedStructProp {
-    #[must_use]
-    pub fn dict_stream_count(&self) -> usize {
-        match self {
-            Self::Plain { .. } => 2,
-            Self::Dictionary { .. } => 3,
-            Self::FsstPlain { .. } => 4,
-            Self::FsstDictionary { .. } => 5,
-        }
-    }
-
-    #[must_use]
-    pub fn stream_count(&self) -> usize {
-        let child_count: usize = self
-            .children()
-            .iter()
-            .map(|c| 1 + c.optional.as_ref().map_or(0, |_| 1))
-            .sum();
-        self.dict_stream_count() + child_count
-    }
-
+impl OwnedEncodedSharedDictProp {
     #[must_use]
     pub fn streams(&self) -> Vec<&OwnedStream> {
         let mut v = self.dict_streams();
@@ -694,7 +641,7 @@ pub fn encode_shared_dictionary(
         OwnedEncodedStrProp::Plain {
             lengths: enc_len,
             data: enc_data,
-        } => OwnedEncodedStructProp::Plain {
+        } => OwnedEncodedSharedDictProp::Plain {
             enc_len,
             enc_data,
             children,
@@ -703,7 +650,7 @@ pub fn encode_shared_dictionary(
             lengths: enc_len,
             offset: enc_off,
             data: enc_data,
-        } => OwnedEncodedStructProp::Dictionary {
+        } => OwnedEncodedSharedDictProp::Dictionary {
             enc_len,
             enc_off,
             enc_data,
@@ -714,7 +661,7 @@ pub fn encode_shared_dictionary(
             symbol_table,
             length: enc_len_dic,
             corpus,
-        } => OwnedEncodedStructProp::FsstPlain {
+        } => OwnedEncodedSharedDictProp::FsstPlain {
             enc_len_sym,
             symbol_table,
             enc_len_dic,
@@ -727,7 +674,7 @@ pub fn encode_shared_dictionary(
             length: enc_len_dic,
             corpus,
             offset,
-        } => OwnedEncodedStructProp::FsstDictionary {
+        } => OwnedEncodedSharedDictProp::FsstDictionary {
             enc_len_sym,
             symbol_table,
             enc_len_dic,
@@ -893,7 +840,7 @@ fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec
 /// Decode a struct with shared dictionary into one decoded property per child.
 pub fn decode_struct_children<'a>(
     parent_name: &str,
-    struct_data: &EncodedStructProp<'_>,
+    struct_data: &EncodedSharedDictProp<'_>,
 ) -> Result<Vec<Property<'a>>, MltError> {
     let dict = decode_shared_dictionary(struct_data.dict_streams())?;
     struct_data
@@ -921,8 +868,8 @@ mod tests {
     use crate::decode::FromEncoded as _;
     use crate::encode::FromDecoded as _;
     use crate::v01::property::{
-        DecodedProperty, MultiPropertyEncoder, OwnedEncodedPropValue, OwnedEncodedProperty,
-        PresenceStream, PropValue, Property, PropertyEncoder, ScalarEncoder,
+        DecodedProperty, MultiPropertyEncoder, OwnedEncodedProperty, PresenceStream, PropValue,
+        Property, PropertyEncoder, ScalarEncoder,
     };
     use crate::v01::{IntEncoder, LogicalEncoder, PhysicalEncoder};
 
@@ -1133,19 +1080,6 @@ mod tests {
         };
 
         let encoded = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc).unwrap();
-
-        let OwnedEncodedPropValue::Struct(ref s) = encoded[0].value else {
-            panic!("expected Struct variant");
-        };
-        // If deduplication were broken a naive implementation might write "Berlin" twice,
-        // but the stream count is structural — it will always be 2 for plain encoding.
-        // What changes is the data stream's byte length; we check that after decode the
-        // second offset still resolves "London" correctly (dict index 1, not 2).
-        assert_eq!(
-            s.dict_stream_count(),
-            2,
-            "plain: one length stream + one data stream"
-        );
 
         let children = expand_struct(&encoded[0]);
         assert_eq!(

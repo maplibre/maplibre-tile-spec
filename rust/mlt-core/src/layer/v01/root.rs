@@ -7,8 +7,8 @@ use crate::analyse::{Analyze, StatType};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::column::ColumnType;
 use crate::v01::{
-    Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedStrProp, EncodedStructChild,
-    EncodedStructProp, Geometry, Id, OwnedId, Property, Stream, StreamType,
+    Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedSharedDictProp,
+    EncodedStrProp, EncodedStructChild, Geometry, Id, OwnedId, Property, Stream, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -221,16 +221,16 @@ impl Layer01<'_> {
 
                     let struct_prop = match dict_streams {
                         [Some(s1), Some(s2), None, None, None] => {
-                            EncodedStructProp::plain(s1, s2, children)?
+                            EncodedSharedDictProp::plain(s1, s2, children)?
                         }
                         [Some(s1), Some(s2), Some(s3), None, None] => {
-                            EncodedStructProp::dictionary(s1, s2, s3, children)?
+                            EncodedSharedDictProp::dictionary(s1, s2, s3, children)?
                         }
                         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
-                            EncodedStructProp::fsst_plain(s1, s2, s3, s4, children)?
+                            EncodedSharedDictProp::fsst_plain(s1, s2, s3, s4, children)?
                         }
                         [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
-                            EncodedStructProp::fsst_dictionary(s1, s2, s3, s4, s5, children)?
+                            EncodedSharedDictProp::fsst_dictionary(s1, s2, s3, s4, s5, children)?
                         }
                         _ => Err(MltError::StructSharedDictRequiresStreams(streams_taken))?,
                     };

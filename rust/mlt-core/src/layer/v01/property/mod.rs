@@ -12,7 +12,7 @@ use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::utils::{BinarySerializer as _, FmtOptVec, apply_present, f32_to_json, f64_to_json};
 pub use crate::v01::property::strings::{
-    EncodedStrProp, EncodedStructChild, EncodedStructProp, SharedDictChild, SharedDictEncoder,
+    EncodedSharedDictProp, EncodedStrProp, EncodedStructChild, SharedDictChild, SharedDictEncoder,
     SharedDictionaryGroup, StrEncoder, decode_strings, decode_struct_children,
     encode_shared_dictionary,
 };
@@ -259,7 +259,7 @@ pub enum EncodedPropValue<'a> {
     F32(Option<Stream<'a>>, Stream<'a>),
     F64(Option<Stream<'a>>, Stream<'a>),
     Str(Option<Stream<'a>>, EncodedStrProp<'a>),
-    Struct(EncodedStructProp<'a>),
+    Struct(EncodedSharedDictProp<'a>),
 }
 
 impl Analyze for EncodedPropValue<'_> {
