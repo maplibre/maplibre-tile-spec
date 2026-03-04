@@ -7,8 +7,8 @@ use crate::analyse::{Analyze, StatType};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::column::ColumnType;
 use crate::v01::{
-    Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedStructChild,
-    EncodedStructProp, Geometry, Id, OwnedId, Property, Stream, StreamType,
+    Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedSharedDictProp,
+    EncodedStrProp, EncodedStructChild, Geometry, Id, OwnedId, Property, Stream, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -92,7 +92,7 @@ impl Layer01<'_> {
         for column in col_info {
             let opt;
             let value;
-            let mut stream_count;
+            let enc_val;
             let name = column.name.unwrap_or("");
 
             match column.typ {
@@ -107,21 +107,7 @@ impl Layer01<'_> {
                     id_stream.set_once(Id::new_encoded(opt, EncodedIdValue::Id64(value)))?;
                 }
                 ColumnType::Geometry => {
-                    let value_vec;
-                    (input, stream_count) = parse_varint::<usize>(input)?;
-                    if stream_count == 0 {
-                        return Err(MltError::GeometryWithoutStreams);
-                    }
-                    // Each stream requires at least 1 byte (physical stream type)
-                    if input.len() < stream_count {
-                        return Err(MltError::BufferUnderflow(stream_count, input.len()));
-                    }
-
-                    // metadata
-                    (input, value) = Stream::parse(input)?;
-                    // geometry items
-                    (input, value_vec) = Stream::parse_multiple(input, stream_count - 1)?;
-                    geometry.set_once(Geometry::new_encoded(value, value_vec))?;
+                    input = parse_geometry_column(input, &mut geometry)?;
                 }
                 ColumnType::Bool | ColumnType::OptBool => {
                     (input, opt) = parse_optional(column.typ, input)?;
@@ -169,77 +155,12 @@ impl Layer01<'_> {
                     properties.push(Property::new_encoded(name, EncVal::F64(opt, value)));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
-                    (input, stream_count) = parse_varint::<usize>(input)?;
-                    // Each stream requires at least 1 byte (physical stream type)
-                    if input.len() < stream_count {
-                        return Err(MltError::BufferUnderflow(stream_count, input.len()));
-                    }
-                    if stream_count == 0 && column.typ.is_optional() {
-                        return Err(MltError::MissingStringStream(
-                            "presence stream for optional strings",
-                        ));
-                    }
-                    (input, opt) = parse_optional(column.typ, input)?;
-                    stream_count -= usize::from(opt.is_some());
-                    let value_vec;
-                    (input, value_vec) = Stream::parse_multiple(input, stream_count)?;
-                    properties.push(Property::new_encoded(name, EncVal::Str(opt, value_vec)));
+                    (input, enc_val) = parse_str_column(input, column.typ)?;
+                    properties.push(Property::new_encoded(name, enc_val));
                 }
-                ColumnType::Struct => {
-                    (input, stream_count) = parse_varint::<usize>(input)?;
-                    if stream_count < 2 {
-                        return Err(MltError::StructSharedDictRequiresStreams(stream_count));
-                    }
-
-                    // Parse shared dictionary streams
-                    let mut dict_streams = Vec::new();
-                    let mut remaining_streams = stream_count;
-                    loop {
-                        if remaining_streams == 0 {
-                            return Err(MltError::MissingStringStream("shared dictionary data"));
-                        }
-                        remaining_streams -= 1;
-                        let s;
-                        (input, s) = Stream::parse(input)?;
-                        let done = matches!(
-                            s.meta.stream_type,
-                            StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
-                        );
-                        dict_streams.push(s);
-                        if done {
-                            break;
-                        }
-                    }
-
-                    // Parse each child field (present stream + dictionary index stream)
-                    let mut children = Vec::with_capacity(column.children.len());
-                    for child in &column.children {
-                        (input, stream_count) = parse_varint::<usize>(input)?;
-                        let child_optional;
-                        (input, child_optional) = parse_optional(child.typ, input)?;
-                        let optional_stream_count = usize::from(child_optional.is_some());
-                        if let Some(data_count) = stream_count.checked_sub(optional_stream_count)
-                            && data_count != 1
-                        {
-                            return Err(MltError::UnexpectedStructChildCount(data_count));
-                        }
-                        let child_data;
-                        (input, child_data) = Stream::parse(input)?;
-                        children.push(EncodedStructChild {
-                            name: child.name.unwrap_or(""),
-                            typ: child.typ,
-                            optional: child_optional,
-                            data: child_data,
-                        });
-                    }
-
-                    properties.push(Property::new_encoded(
-                        name,
-                        EncVal::Struct(EncodedStructProp {
-                            dict_streams,
-                            children,
-                        }),
-                    ));
+                ColumnType::SharedDict => {
+                    (input, enc_val) = parse_shared_dict_column(input, &column)?;
+                    properties.push(Property::new_encoded(name, enc_val));
                 }
             }
         }
@@ -269,6 +190,32 @@ impl Layer01<'_> {
     }
 }
 
+fn parse_struct_children<'a>(
+    mut input: &'a [u8],
+    column: &Column<'a>,
+) -> MltRefResult<'a, Vec<EncodedStructChild<'a>>> {
+    let mut children = Vec::with_capacity(column.children.len());
+    for child in &column.children {
+        let (inp, sc) = parse_varint::<usize>(input)?;
+        let (inp, child_optional) = parse_optional(child.typ, inp)?;
+        let optional_stream_count = usize::from(child_optional.is_some());
+        if let Some(data_count) = sc.checked_sub(optional_stream_count)
+            && data_count != 1
+        {
+            return Err(MltError::UnexpectedStructChildCount(data_count));
+        }
+        let (inp, child_data) = Stream::parse(inp)?;
+        children.push(EncodedStructChild {
+            name: child.name.unwrap_or(""),
+            typ: child.typ,
+            optional: child_optional,
+            data: child_data,
+        });
+        input = inp;
+    }
+    Ok((input, children))
+}
+
 fn parse_optional(typ: ColumnType, input: &[u8]) -> MltRefResult<'_, Option<Stream<'_>>> {
     if typ.is_optional() {
         let (input, optional) = Stream::parse_bool(input)?;
@@ -278,12 +225,107 @@ fn parse_optional(typ: ColumnType, input: &[u8]) -> MltRefResult<'_, Option<Stre
     }
 }
 
+fn parse_geometry_column<'a>(
+    input: &'a [u8],
+    geometry: &mut Option<Geometry<'a>>,
+) -> Result<&'a [u8], MltError> {
+    let (input, stream_count) = parse_varint::<usize>(input)?;
+    if stream_count == 0 {
+        return Err(MltError::GeometryWithoutStreams);
+    }
+    // Each stream requires at least 1 byte (physical stream type)
+    if input.len() < stream_count {
+        return Err(MltError::BufferUnderflow(stream_count, input.len()));
+    }
+    // metadata
+    let (input, value) = Stream::parse(input)?;
+    // geometry items
+    let (input, value_vec) = Stream::parse_multiple(input, stream_count - 1)?;
+    geometry.set_once(Geometry::new_encoded(value, value_vec))?;
+    Ok(input)
+}
+
+fn parse_str_column(mut input: &[u8], typ: ColumnType) -> MltRefResult<'_, EncodedPropValue<'_>> {
+    let mut stream_count;
+    let opt;
+    (input, stream_count) = parse_varint::<usize>(input)?;
+    (input, opt) = parse_optional(typ, input)?;
+    if opt.is_some() {
+        if stream_count == 0 {
+            return Err(MltError::UnsupportedStringStreamCount(stream_count));
+        }
+        stream_count -= 1;
+    }
+    let mut str_streams = [None, None, None, None, None];
+    if stream_count > str_streams.len() {
+        return Err(MltError::UnsupportedStringStreamCount(stream_count));
+    }
+    for slot in str_streams.iter_mut().take(stream_count) {
+        let stream;
+        (input, stream) = Stream::parse(input)?;
+        *slot = Some(stream);
+    }
+    let encoding = match str_streams {
+        [Some(s1), Some(s2), None, None, None] => EncodedStrProp::plain(s1, s2)?,
+        [Some(s1), Some(s2), Some(s3), None, None] => EncodedStrProp::dictionary(s1, s2, s3)?,
+        [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
+            EncodedStrProp::fsst_plain(s1, s2, s3, s4)?
+        }
+        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
+            EncodedStrProp::fsst_dictionary(s1, s2, s3, s4, s5)?
+        }
+        _ => Err(MltError::UnsupportedStringStreamCount(stream_count))?,
+    };
+    Ok((input, EncodedPropValue::Str(opt, encoding)))
+}
+
+fn parse_shared_dict_column<'a>(
+    mut input: &'a [u8],
+    column: &Column<'a>,
+) -> MltRefResult<'a, EncodedPropValue<'a>> {
+    // Read header streams until we hit the dictionary DATA(Single|Shared) stream.
+    let stream_count;
+    (input, stream_count) = parse_varint::<usize>(input)?;
+    let mut dict_streams = [None, None, None, None, None];
+    let mut streams_taken = 0;
+    while streams_taken < stream_count {
+        let stream;
+        (input, stream) = Stream::parse(input)?;
+        let is_last = matches!(
+            stream.meta.stream_type,
+            StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
+        );
+        dict_streams[streams_taken] = Some(stream);
+        streams_taken += 1;
+        if is_last {
+            break;
+        } else if streams_taken >= dict_streams.len() {
+            return Err(MltError::UnsupportedStringStreamCount(streams_taken + 1));
+        }
+    }
+    let children;
+    (input, children) = parse_struct_children(input, column)?;
+    let shared_dict = match dict_streams {
+        [Some(s1), Some(s2), None, None, None] => EncodedSharedDictProp::plain(s1, s2, children)?,
+        [Some(s1), Some(s2), Some(s3), None, None] => {
+            EncodedSharedDictProp::dictionary(s1, s2, s3, children)?
+        }
+        [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
+            EncodedSharedDictProp::fsst_plain(s1, s2, s3, s4, children)?
+        }
+        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
+            EncodedSharedDictProp::fsst_dictionary(s1, s2, s3, s4, s5, children)?
+        }
+        _ => Err(MltError::StructSharedDictRequiresStreams(streams_taken))?,
+    };
+    Ok((input, EncodedPropValue::SharedDict(shared_dict)))
+}
+
 fn parse_columns_meta(
     mut input: &'_ [u8],
     column_count: usize,
 ) -> MltRefResult<'_, (Vec<Column<'_>>, usize)> {
-    #[allow(clippy::enum_glob_use)]
-    use crate::v01::column::ColumnType::*;
+    use crate::v01::column::ColumnType::{Geometry, Id, LongId, OptId, OptLongId, SharedDict};
 
     let mut col_info = Vec::with_capacity(column_count);
     let mut geometries = 0;
@@ -294,7 +336,7 @@ fn parse_columns_meta(
         match typ.typ {
             Geometry => geometries += 1,
             Id | OptId | LongId | OptLongId => ids += 1,
-            Struct => {
+            SharedDict => {
                 // Yes, we need to parse children right here, otherwise this messes up the next column
                 let child_column_count;
                 (input, child_column_count) = parse_varint::<usize>(input)?;
@@ -422,7 +464,7 @@ impl From<ColumnType> for LayerOrdering {
         match typ {
             OptId | Id | LongId | OptLongId => Self::Id,
             Bool | OptBool | I8 | OptI8 | U8 | OptU8 | I32 | OptI32 | U32 | OptU32 | I64
-            | OptI64 | U64 | OptU64 | F32 | OptF32 | F64 | OptF64 | Str | OptStr | Struct => {
+            | OptI64 | U64 | OptU64 | F32 | OptF32 | F64 | OptF64 | Str | OptStr | SharedDict => {
                 Self::Property
             }
             Geometry => Self::Geometry,

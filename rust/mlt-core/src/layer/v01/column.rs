@@ -69,7 +69,7 @@ pub enum ColumnType {
     OptF64 = 27,
     Str = 28,
     OptStr = 29,
-    Struct = 30,
+    SharedDict = 30,
 }
 
 impl ColumnType {
