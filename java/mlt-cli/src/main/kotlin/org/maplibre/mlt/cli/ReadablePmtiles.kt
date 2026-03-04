@@ -21,32 +21,23 @@ import java.io.UncheckedIOException
  * which are not currently exposed by Planetiler's API. */
 class ReadablePmtiles(
     private val channel: RangeReader,
+    private val closeSourceChannel: Boolean = true,
 ) : ReadableTileArchive {
-    val header: Pmtiles.Header
-
-    init {
-        this.header = Pmtiles.Header.fromBytes(getBytes(0, HEADER_LEN.toLong()))
-    }
-
-    @Throws(IOException::class)
     private fun getBytes(
         start: Long,
         length: Long,
-    ): ByteArray = channel.readRange(start, Math.toIntExact(length)).array()
+    ) = channel.readRange(start, Math.toIntExact(length)).array()
 
-    override fun getTile(
-        x: Int,
-        y: Int,
-        z: Int,
-    ): ByteArray? {
-        val tileRange = getTileRange(x, y, z)
-        if (tileRange == null) {
-            return null
-        }
-        try {
-            return getBytes(tileRange.offset(), tileRange.length().toLong())
-        } catch (e: IOException) {
-            throw IllegalStateException("Could not get tile", e)
+    fun getBytes(range: ByteRange) = getBytes(range.offset(), range.length().toLong())
+
+    private fun getHeaderBytes(
+        offset: Long,
+        length: Long,
+    ) = getBytes(offset, length).let {
+        if (header.internalCompression() == Pmtiles.Compression.GZIP) {
+            Gzip.gunzip(it)
+        } else {
+            it
         }
     }
 
@@ -62,11 +53,7 @@ class ReadablePmtiles(
             var dirLength = header.rootDirLength().toInt()
 
             for (depth in 0..3) {
-                var dirBytes = getBytes(dirOffset, dirLength.toLong())
-                if (header.internalCompression() == Pmtiles.Compression.GZIP) {
-                    dirBytes = Gzip.gunzip(dirBytes)
-                }
-
+                val dirBytes = getHeaderBytes(dirOffset, dirLength.toLong())
                 val dir = Pmtiles.directoryFromBytes(dirBytes)
                 val entry = findTile(dir, tileId.toLong())
                 if (entry != null) {
@@ -87,16 +74,25 @@ class ReadablePmtiles(
         return null
     }
 
-    @get:Throws(IOException::class)
-    val jsonMetadata: Pmtiles.JsonMetadata
-        get() {
-            var buf =
-                getBytes(header.jsonMetadataOffset(), header.jsonMetadataLength().toInt().toLong())
-            if (header.internalCompression() == Pmtiles.Compression.GZIP) {
-                buf = Gzip.gunzip(buf)
-            }
-            return Pmtiles.JsonMetadata.fromBytes(buf)
+    override fun getAllTileCoords(): CloseableIterator<TileCoord> = throw NotImplementedException()
+
+    override fun getAllTiles(): CloseableIterator<Tile> = throw NotImplementedException()
+
+    override fun getTile(
+        x: Int,
+        y: Int,
+        z: Int,
+    ) = getTileRange(x, y, z)?.let(::getBytes)
+
+    override fun close() {
+        if (closeSourceChannel) {
+            channel.close()
         }
+    }
+
+    val jsonMetadata by lazy {
+        Pmtiles.JsonMetadata.fromBytes(getHeaderBytes(header.jsonMetadataOffset(), header.jsonMetadataLength().toInt().toLong()))
+    }
 
     override fun metadata(): TileArchiveMetadata {
         val tileCompression =
@@ -140,55 +136,59 @@ class ReadablePmtiles(
         }
     }
 
+    private fun readDir(entry: Pmtiles.Entry) = readDir(header.leafDirectoriesOffset() + entry.offset(), entry.length().toLong())
+
     private fun readDir(
         offset: Long,
         length: Long,
-    ): MutableList<Pmtiles.Entry> {
-        try {
-            var buf = getBytes(offset, length)
-            if (header.internalCompression() == Pmtiles.Compression.GZIP) {
-                buf = Gzip.gunzip(buf)
+    ) = Pmtiles.directoryFromBytes(getHeaderBytes(offset, length))
+
+    data class TileCoordRange(
+        val startTileId: Long,
+        val tileCount: Int,
+        val byteRange: ByteRange,
+    ) {
+        constructor(entry: Pmtiles.Entry, header: Pmtiles.Header) : this(
+            entry.tileId(),
+            entry.runLength(),
+            ByteRange(header.tileDataOffset() + entry.offset(), entry.length()),
+        )
+
+        init {
+            if (tileCount < 1) {
+                throw IllegalArgumentException("tileCount must be positive")
             }
-            return Pmtiles.directoryFromBytes(buf)
-        } catch (e: IOException) {
-            throw UncheckedIOException(e)
+            if (byteRange.offset < 0) {
+                throw IllegalArgumentException("byteRange offset must be non-negative")
+            }
+            if (byteRange.length < 1) {
+                throw IllegalArgumentException("byteRange length must be positive")
+            }
         }
+
+        val tileIds get() = (startTileId until startTileId + tileCount)
+
+        // Warning: this will only work on z15 or less pmtiles which planetiler creates
+        // TODO: Will extending `hilbertDecode` to Longs solve this?
+        val tileCoords get() = tileIds.map { TileCoord.hilbertDecode(it.toInt()) }
     }
 
-    // Warning: this will only work on z15 or less pmtiles which planetiler creates
-    private fun getTileCoords(dir: List<Pmtiles.Entry>): List<List<TileCoord>> =
+    private fun getTileCoordRanges(dir: Iterable<Pmtiles.Entry>): Sequence<TileCoordRange> =
         dir
-            .flatMap { entry: Pmtiles.Entry ->
+            .asSequence()
+            .flatMap<Pmtiles.Entry, TileCoordRange> { entry ->
                 if (entry.runLength() == 0) {
-                    getTileCoords(
-                        readDir(
-                            header.leafDirectoriesOffset() + entry.offset(),
-                            entry.length().toLong(),
-                        ),
-                    )
+                    getTileCoordRanges(readDir(entry))
                 } else {
-                    listOf(
-                        (entry.tileId()..entry.tileId() + entry.runLength())
-                            .map { encoded ->
-                                TileCoord.hilbertDecode(
-                                    encoded.toInt(),
-                                )
-                            }.toList(),
-                    )
+                    sequenceOf(TileCoordRange(entry, header))
                 }
             }
 
-    override fun getAllTileCoords(): CloseableIterator<TileCoord> = throw NotImplementedException()
+    val allTileCoordRanges get() = getTileCoordRanges(rootDir)
 
-    val allTileCoordRanges: Iterable<List<TileCoord>>
-        get() = getTileCoords(readDir(header.rootDirOffset(), header.rootDirLength()))
+    val header by lazy { Pmtiles.Header.fromBytes(getBytes(0, HEADER_LEN.toLong())) }
 
-    override fun getAllTiles(): CloseableIterator<Tile> = throw NotImplementedException()
-
-    @Throws(IOException::class)
-    override fun close() {
-        channel.close()
-    }
+    private val rootDir by lazy { readDir(header.rootDirOffset(), header.rootDirLength()) }
 
     companion object {
         const val HEADER_LEN: Int = 127 // Pmtiles.HEADER_LEN is inaccessible
@@ -200,7 +200,7 @@ class ReadablePmtiles(
          * tileId + runLength, return that. Else if the preceding entry is a directory (runLength = 0),
          * return that. Else return null.
          */
-        fun findTile(
+        private fun findTile(
             entries: List<Pmtiles.Entry>,
             tileId: Long,
         ): Pmtiles.Entry? {

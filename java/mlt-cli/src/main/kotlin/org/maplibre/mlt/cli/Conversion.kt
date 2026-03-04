@@ -14,8 +14,6 @@ import org.maplibre.mlt.converter.MltConverter
 import org.maplibre.mlt.converter.mvt.ColumnMapping
 import org.maplibre.mlt.converter.mvt.MvtUtils
 import org.maplibre.mlt.metadata.tileset.MltMetadata
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -26,12 +24,10 @@ import java.sql.SQLException
 import java.util.Optional
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
-import java.util.function.Supplier
 import java.util.stream.Collectors
 import java.util.zip.Inflater
 import java.util.zip.InflaterInputStream
 
-@Throws(IOException::class)
 fun decompress(srcStream: InputStream): ByteArray {
     var decompressInputStream: InputStream? = null
     // Check for common compression formats by looking at the header bytes
@@ -63,7 +59,6 @@ fun decompress(srcStream: InputStream): ByteArray {
     return readStream.readAllBytes()
 }
 
-@Throws(IOException::class)
 fun createCompressStream(
     src: OutputStream,
     compressionType: String?,
@@ -82,7 +77,6 @@ fun createCompressStream(
     return src
 }
 
-@Throws(SQLException::class)
 fun vacuumDatabase(connection: Connection): Boolean {
     logger.debug("Optimizing database")
     try {
@@ -143,9 +137,9 @@ fun logColumnMappings(
                     })
 
                 if (added.isTrue) {
-                    logger.trace("{}:{},{} Found new column mapping {} for {}: {}", z, x, y, entry, table.name, mappings)
+                    logger.trace(colMapMarker, "{}:{},{} Found new column mapping {} for {}: {}", z, x, y, entry, table.name, mappings)
                 } else {
-                    logger.trace("{}:{},{} Found existing column mapping for {}: {}", z, x, y, table.name, entry)
+                    logger.trace(colMapMarker, "{}:{},{} Found existing column mapping for {}: {}", z, x, y, table.name, entry)
                 }
             }
         }
@@ -231,20 +225,17 @@ fun convertTile(
                     if (logger.isTraceEnabled) {
                         val compressedSize = outputStream.size()
                         val originalSize = tileData.size
-                        logger
-                            .atTrace()
-                            .setMessage("{} compressed {} to {} bytes ({}%)")
-                            .addArgument(getTileLabel(x, y, z))
-                            .addArgument(originalSize)
-                            .addArgument(compressedSize)
-                            .addArgument(
-                                Supplier {
-                                    String.format(
-                                        "%.1f",
-                                        100.0 * compressedSize / originalSize,
-                                    )
-                                },
-                            ).log()
+                        logger.trace(
+                            compressMarker,
+                            "{} compressed {} to {} bytes ({}%)",
+                            getTileLabel(x, y, z),
+                            originalSize,
+                            compressedSize,
+                            String.format(
+                                "%.1f",
+                                100.0 * compressedSize / originalSize,
+                            ),
+                        )
                     }
                     totalCompressedInput.addAndGet(tileData.size.toLong())
                     totalCompressedOutput.addAndGet(outputStream.size().toLong())
@@ -256,23 +247,19 @@ fun convertTile(
                     if (logger.isTraceEnabled) {
                         val compressedSize = outputStream.size()
                         val originalSize = tileData.size
-                        logger
-                            .atTrace()
-                            .setMessage(
-                                "Compression of {}:{},{} not effective ({} vs {} bytes, {}%), using uncompressed",
-                            ).addArgument(z)
-                            .addArgument(x)
-                            .addArgument(y)
-                            .addArgument(originalSize)
-                            .addArgument(compressedSize)
-                            .addArgument(
-                                Supplier {
-                                    String.format(
-                                        "%.1f",
-                                        100.0 * compressedSize / originalSize,
-                                    )
-                                },
-                            ).log()
+                        val pctStr =
+                            String.format(
+                                "%.1f",
+                                100.0 * compressedSize / originalSize,
+                            )
+                        logger.trace(
+                            compressMarker,
+                            "Compression of {} not effective ({} vs {} bytes, {}%), using uncompressed",
+                            getTileLabel(x, y, z),
+                            originalSize,
+                            compressedSize,
+                            pctStr,
+                        )
                     }
                     if (didCompress != null) {
                         didCompress.setFalse()
@@ -363,7 +350,5 @@ val totalCompressedOutput = AtomicLong(0L)
 
 val loggedColumnMappingId = AtomicLong(0L)
 val loggedColumnMappings = ConcurrentHashMap<String, Long>()
-
-private val logger: Logger = LoggerFactory.getLogger(Encode::class.java)
 
 const val MBTILES_METADATA_MIME_TYPE = "application/vnd.maplibre-vector-tile"

@@ -62,12 +62,6 @@ object Encode {
         }
     }
 
-    @Throws(
-        URISyntaxException::class,
-        IOException::class,
-        ClassNotFoundException::class,
-        ParseException::class,
-    )
     private fun run(cmd: CommandLine): Boolean {
         val tileFileNames = cmd.getOptionValues(EncodeCommandLine.INPUT_TILE_ARG)
         val sortFeaturesPattern =
@@ -140,8 +134,8 @@ object Encode {
                     .getRuntime()
                     .availableProcessors()
             }
-        val taskRunner = createTaskRunner(threadCount)
-        logger.debug("Using {} threads", max(1, taskRunner.threadCount))
+        val taskRunner = createBoundedNonRejectingTaskRunner(threadCount)
+        logger.debug("Using {} thread(s)", taskRunner.threadCount + 1)
 
         logger.debug(
             "Using column mappings: {}",
@@ -280,7 +274,6 @@ object Encode {
     }
 
     /**  Convert a single tile from an individual file */
-    @Throws(IOException::class)
     private fun encodeTile(
         x: Long,
         y: Long,
@@ -462,25 +455,6 @@ object Encode {
             }
         }
         return outputPath
-    }
-
-    private fun createTaskRunner(threadCount: Int): TaskRunner {
-        if (threadCount <= 1) {
-            return SerialTaskRunner()
-        }
-        // Create a thread pool with a bounded task queue that will not reject tasks when it's full.
-        // Tasks beyond the limit will run on the calling thread, preventing OOM from too many tasks
-        // while allowing for parallelism when the pool is available.
-        return ThreadPoolTaskRunner(
-            ThreadPoolExecutor(
-                threadCount,
-                threadCount,
-                100L,
-                TimeUnit.MILLISECONDS,
-                LinkedBlockingQueue<Runnable?>(4 * threadCount),
-                ThreadPoolExecutor.CallerRunsPolicy(),
-            ),
-        )
     }
 
     private val logger: Logger = LoggerFactory.getLogger(Encode::class.java)
