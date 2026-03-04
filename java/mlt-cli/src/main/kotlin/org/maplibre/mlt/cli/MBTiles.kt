@@ -186,25 +186,17 @@ fun encodeMBTiles(
     return success.get()
 }
 
-<<<<<<< HEAD:java/mlt-cli/src/main/kotlin/org/maplibre/mlt/cli/MBTilesHelper.kt
 private fun getConnectionString(dbFile: File) = "jdbc:sqlite:" + dbFile.absolutePath
 
 private fun getConnection(dbFile: File) = DriverManager.getConnection(getConnectionString(dbFile))
 
-@Throws(SQLException::class)
-=======
->>>>>>> main:java/mlt-cli/src/main/kotlin/org/maplibre/mlt/cli/MBTiles.kt
 private fun updateMetadata(
     config: EncodeConfig,
     connection: Connection,
     metadata: MetadataEntry,
     metadataJSON: String,
 ) {
-<<<<<<< HEAD:java/mlt-cli/src/main/kotlin/org/maplibre/mlt/cli/MBTilesHelper.kt
     logger.debug("Updating metadata")
-=======
-    logger.debug("Updating metadata. Setting tile MIME type to '{}'", MBTILES_METADATA_MIME_TYPE)
->>>>>>> main:java/mlt-cli/src/main/kotlin/org/maplibre/mlt/cli/MBTiles.kt
 
     var sql = "INSERT OR REPLACE INTO metadata (name, value) VALUES (?, ?)"
     connection.prepareStatement(sql).use { statement ->
