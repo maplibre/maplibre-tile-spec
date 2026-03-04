@@ -1,6 +1,5 @@
 import { globSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import JSON5 from "json5";
 
 const RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100;
 const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
@@ -28,7 +27,7 @@ export function writeActualOutput(
   actual: Record<string, unknown>,
 ): string {
   const actualFile = mltFile.replace(/\.mlt$/, ".actual.json");
-  writeFileSync(actualFile, `${JSON5.stringify(actual, null, 2)}\n`, "utf-8");
+  writeFileSync(actualFile, `${JSON.stringify(actual, null, 2)}\n`, "utf-8");
   return actualFile;
 }
 
@@ -55,7 +54,7 @@ export function getTestCases(
     } else {
       const jsonFile = join(syntheticDir, `${testName}.json`);
       const expectedRaw = readFileSync(jsonFile, "utf-8");
-      const expected = JSON5.parse(expectedRaw);
+      const expected = JSON.parse(expectedRaw);
       active.push({ name: testName, fileName: mltFile, content: expected });
     }
   }
