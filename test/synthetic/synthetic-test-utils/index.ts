@@ -1,11 +1,14 @@
-import { globSync, readFileSync, writeFile, writeFileSync } from "node:fs";
+import { globSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import JSON5 from "json5";
 
 const RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100;
 const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
 
-export function compareWithTolerance(received: unknown, expected: unknown): boolean | undefined {
+export function compareWithTolerance(
+  received: unknown,
+  expected: unknown,
+): boolean | undefined {
   if (typeof received !== "number" || typeof expected !== "number") {
     return undefined;
   }
@@ -20,24 +23,29 @@ export function compareWithTolerance(received: unknown, expected: unknown): bool
   return relativeError <= RELATIVE_FLOAT_TOLERANCE;
 }
 
-export function writeActualOutput(mltFile: string, actual: Record<string, unknown>): string {
+export function writeActualOutput(
+  mltFile: string,
+  actual: Record<string, unknown>,
+): string {
   const actualFile = mltFile.replace(/\.mlt$/, ".actual.json");
-  writeFileSync(
-    actualFile,
-    `${JSON5.stringify(actual, null, 2)}\n`,
-    "utf-8",
-  );
+  writeFileSync(actualFile, `${JSON5.stringify(actual, null, 2)}\n`, "utf-8");
   return actualFile;
 }
 
-export function getTestCases(syntheticDir: string, skipList: string[]): { active: { name: string, content: object, fileName: string }[]; skipped: string[] } {
+export function getTestCases(
+  syntheticDir: string,
+  skipList: string[],
+): {
+  active: { name: string; content: object; fileName: string }[];
+  skipped: string[];
+} {
   const mltFiles = [];
   for (const f of globSync(join(syntheticDir, "*.mlt"))) {
     mltFiles.push(f);
   }
   mltFiles.sort();
 
-  const active: { name: string, content: object, fileName: string }[] = [];
+  const active: { name: string; content: object; fileName: string }[] = [];
   const skipped: string[] = [];
 
   for (const mltFile of mltFiles) {
