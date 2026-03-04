@@ -387,29 +387,24 @@ impl<'a> EncodedSharedDictProp<'a> {
 
     /// Dict streams in wire order (for serialization).
     #[must_use]
-    pub fn dict_streams(&self) -> Vec<Stream<'_>> {
+    pub fn dict_streams(&self) -> Vec<&Stream<'_>> {
         match self {
             Self::Plain {
                 enc_len, enc_data, ..
-            } => vec![enc_len.clone(), enc_data.clone()],
+            } => vec![enc_len, enc_data],
             Self::Dictionary {
                 enc_len,
                 enc_off,
                 enc_data,
                 ..
-            } => vec![enc_len.clone(), enc_off.clone(), enc_data.clone()],
+            } => vec![enc_len, enc_off, enc_data],
             Self::FsstPlain {
                 enc_len_sym,
                 symbol_table,
                 enc_len_dic,
                 corpus,
                 ..
-            } => vec![
-                enc_len_sym.clone(),
-                symbol_table.clone(),
-                enc_len_dic.clone(),
-                corpus.clone(),
-            ],
+            } => vec![enc_len_sym, symbol_table, enc_len_dic, corpus],
             Self::FsstDictionary {
                 enc_len_sym,
                 symbol_table,
@@ -417,25 +412,19 @@ impl<'a> EncodedSharedDictProp<'a> {
                 corpus,
                 offset,
                 ..
-            } => vec![
-                enc_len_sym.clone(),
-                symbol_table.clone(),
-                enc_len_dic.clone(),
-                corpus.clone(),
-                offset.clone(),
-            ],
+            } => vec![enc_len_sym, symbol_table, enc_len_dic, corpus, offset],
         }
     }
 
     /// All streams in wire order: dict streams then each child's optional (if any) and data.
     #[must_use]
-    pub fn streams(&self) -> Vec<Stream<'_>> {
+    pub fn streams(&self) -> Vec<&Stream<'_>> {
         let mut v = self.dict_streams();
         for c in self.children() {
             if let Some(ref o) = c.optional {
-                v.push(o.clone());
+                v.push(o);
             }
-            v.push(c.data.clone());
+            v.push(&c.data);
         }
         v
     }
