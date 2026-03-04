@@ -1369,7 +1369,7 @@ mod tests {
             let encoded = OwnedStream::encode_strings_with_type(&values, encoding, LengthType::VarBinary, DictionaryType::None).unwrap();
             let owned_streams = encoded.streams();
 
-            let mut buffers = Vec::new();
+            let mut buffers: Vec<Vec<u8>> = Vec::new();
             for owned_stream in owned_streams {
                 let mut buffer = Vec::new();
                 buffer.write_stream(owned_stream).unwrap();
@@ -1383,7 +1383,32 @@ mod tests {
                 parsed_streams.push(parsed_stream);
             }
 
-            let encoding = EncodedStrProp::from_streams(parsed_streams).unwrap();
+            let encoding = match parsed_streams.len() {
+                2 => EncodedStrProp::plain(parsed_streams[0].clone(), parsed_streams[1].clone())
+                    .unwrap(),
+                3 => EncodedStrProp::dictionary(
+                    parsed_streams[0].clone(),
+                    parsed_streams[1].clone(),
+                    parsed_streams[2].clone(),
+                )
+                .unwrap(),
+                4 => EncodedStrProp::fsst_plain(
+                    parsed_streams[0].clone(),
+                    parsed_streams[1].clone(),
+                    parsed_streams[2].clone(),
+                    parsed_streams[3].clone(),
+                )
+                .unwrap(),
+                5 => EncodedStrProp::fsst_dictionary(
+                    parsed_streams[0].clone(),
+                    parsed_streams[1].clone(),
+                    parsed_streams[2].clone(),
+                    parsed_streams[3].clone(),
+                    parsed_streams[4].clone(),
+                )
+                .unwrap(),
+                n => panic!("unexpected stream count {n}"),
+            };
             let decoded_values = decode_strings(&encoding).unwrap();
             assert_eq!(decoded_values, values);
         }

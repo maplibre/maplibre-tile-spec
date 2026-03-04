@@ -16,7 +16,7 @@ use crate::v01::{
     PropValue, Property, Stream, StreamData, StreamType,
 };
 
-/// A single child field within a Struct column
+/// A single child field within a `SharedDict` column
 #[borrowme]
 #[derive(Clone, Debug, PartialEq)]
 pub struct EncodedStructChild<'a> {
@@ -26,8 +26,7 @@ pub struct EncodedStructChild<'a> {
     pub data: Stream<'a>,
 }
 
-/// Encoded data for a Struct column with shared dictionary encoding.
-/// Four variants: plain (2 streams), dictionary (3), FSST plain (4), FSST dictionary (5).
+/// Encoded data for a `SharedDict` column with shared dictionary encoding.
 #[borrowme]
 #[derive(Debug, Clone, PartialEq)]
 pub enum EncodedSharedDictProp<'a> {
@@ -207,41 +206,6 @@ impl<'a> EncodedStrProp<'a> {
             length,
             corpus,
             offset,
-        })
-    }
-
-    /// Build from a parsed stream list (2 = plain, 3 = dictionary, 4 or 5 = FSST). Does not validate stream types.
-    pub fn from_streams(vec: Vec<Stream<'a>>) -> Result<Self, MltError> {
-        let n = vec.len();
-        let mut it = vec.into_iter();
-        Ok(match n {
-            2 => Self::Plain {
-                lengths: it.next().ok_or(MissingStringStream("plain length"))?,
-                data: it.next().ok_or(MissingStringStream("plain data"))?,
-            },
-            3 => Self::Dictionary {
-                lengths: it.next().ok_or(MissingStringStream("dict length"))?,
-                offset: it.next().ok_or(MissingStringStream("dict offset"))?,
-                data: it.next().ok_or(MissingStringStream("dict data"))?,
-            },
-            4 => Self::FsstPlain {
-                symbol_lengths: it
-                    .next()
-                    .ok_or(MissingStringStream("fsst symbol_lengths"))?,
-                symbol_table: it.next().ok_or(MissingStringStream("fsst symbol_table"))?,
-                length: it.next().ok_or(MissingStringStream("fsst length"))?,
-                corpus: it.next().ok_or(MissingStringStream("fsst corpus"))?,
-            },
-            5 => Self::FsstDictionary {
-                symbol_lengths: it
-                    .next()
-                    .ok_or(MissingStringStream("fsst symbol_lengths"))?,
-                symbol_table: it.next().ok_or(MissingStringStream("fsst symbol_table"))?,
-                length: it.next().ok_or(MissingStringStream("fsst length"))?,
-                corpus: it.next().ok_or(MissingStringStream("fsst corpus"))?,
-                offset: it.next().ok_or(MissingStringStream("fsst offset"))?,
-            },
-            n => return Err(MltError::UnsupportedStringStreamCount(n)),
         })
     }
 
@@ -686,7 +650,7 @@ pub fn encode_shared_dictionary(
 
     Ok(OwnedEncodedProperty {
         name: name.to_owned(),
-        value: OwnedEncodedPropValue::Struct(struct_prop),
+        value: OwnedEncodedPropValue::SharedDict(struct_prop),
     })
 }
 

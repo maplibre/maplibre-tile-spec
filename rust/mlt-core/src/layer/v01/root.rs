@@ -235,7 +235,7 @@ impl Layer01<'_> {
                         _ => Err(MltError::StructSharedDictRequiresStreams(streams_taken))?,
                     };
 
-                    properties.push(Property::new_encoded(name, EncVal::Struct(struct_prop)));
+                    properties.push(Property::new_encoded(name, EncVal::SharedDict(struct_prop)));
                 }
             }
         }

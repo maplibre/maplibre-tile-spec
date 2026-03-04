@@ -139,7 +139,7 @@ fn bench_encode_properties(c: &mut Criterion) {
                                                             presence, int_enc, int_enc,
                                                         )
                                                     }
-                                                    AproxPropertyType::Struct => {
+                                                    AproxPropertyType::SharedDict => {
                                                         unreachable!("unimplemented")
                                                     }
                                                 };
