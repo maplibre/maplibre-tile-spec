@@ -40,24 +40,20 @@ export type SyntheticCaseResult =
   | {
       status: "ok";
       testName: string;
-      name: string;
     }
   | {
       status: "skip";
       testName: string;
-      name: string;
       reason: string;
     }
   | {
       status: "fail";
       testName: string;
-      name: string;
       error: unknown;
     }
   | {
       status: "crash";
       testName: string;
-      name: string;
       reason: string;
       error: unknown;
     };
@@ -90,7 +86,6 @@ export class SyntheticTestRunner implements AsyncIterable<SyntheticCaseResult> {
     testName: string,
   ): Promise<SyntheticCaseResult> {
     const mltFile = join(syntheticDir, `${testName}.mlt`);
-    const name = `${testName}.mlt`;
     const jsonFile = join(syntheticDir, `${testName}.json`);
 
     const skipReason = this.shouldSkip(testName);
@@ -98,7 +93,6 @@ export class SyntheticTestRunner implements AsyncIterable<SyntheticCaseResult> {
       return {
         status: "skip",
         testName,
-        name,
         reason: skipReason,
       };
     }
@@ -111,7 +105,6 @@ export class SyntheticTestRunner implements AsyncIterable<SyntheticCaseResult> {
       return {
         status: "crash",
         testName,
-        name,
         reason,
         error,
       };
@@ -125,14 +118,12 @@ export class SyntheticTestRunner implements AsyncIterable<SyntheticCaseResult> {
       return {
         status: "ok",
         testName,
-        name,
       };
     } catch (error) {
       const _actualFile = await this.writeActualOutput(mltFile, actual);
       return {
         status: "fail",
         testName,
-        name,
         error,
       };
     }
