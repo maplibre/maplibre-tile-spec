@@ -2,7 +2,7 @@
   "name": "synthetic-test-tool",
   "main": "index.ts",
   "type": "module",
-  "devDependencies": {
+  "dependencies": {
     "json5": "^2.2.3"
   }
 }
