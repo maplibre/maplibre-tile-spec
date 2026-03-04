@@ -37,8 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(rust)* remove AVX failing test ([#999](https://github.com/maplibre/maplibre-tile-spec/pull/999))
 - *(rust)* rm json5, inf floats to string ([#1000](https://github.com/maplibre/maplibre-tile-spec/pull/1000))
 - *(rust)* Add an encoding benchmark ([#997](https://github.com/maplibre/maplibre-tile-spec/pull/997))
-- Revert "impl arbitrary"
-- impl arbitrary
 
 ## [0.1.2](https://github.com/maplibre/maplibre-tile-spec/compare/mlt-core-v0.1.1...mlt-core-v0.1.2) - 2026-02-25
 
