@@ -9,8 +9,6 @@ import org.imintel.mbtiles4j.Tile
 import org.imintel.mbtiles4j.model.MetadataEntry
 import org.maplibre.mlt.converter.MltConverter
 import org.maplibre.mlt.metadata.tileset.MltMetadata
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
@@ -101,8 +99,8 @@ fun encodeMBTiles(
                         config.taskRunner.run(
                             Runnable {
                                 val count = tileCount.incrementAndGet().toULong()
-                                if (count.mod(Environment.tileLogInterval) == 0UL) {
-                                    logger.debug(
+                                if (count.mod(tileLogInterval) == 0UL) {
+                                    logger.trace(
                                         "Processing tile {} : {}:{},{}",
                                         count,
                                         z,
@@ -188,18 +186,25 @@ fun encodeMBTiles(
     return success.get()
 }
 
+<<<<<<< HEAD:java/mlt-cli/src/main/kotlin/org/maplibre/mlt/cli/MBTilesHelper.kt
 private fun getConnectionString(dbFile: File) = "jdbc:sqlite:" + dbFile.absolutePath
 
 private fun getConnection(dbFile: File) = DriverManager.getConnection(getConnectionString(dbFile))
 
 @Throws(SQLException::class)
+=======
+>>>>>>> main:java/mlt-cli/src/main/kotlin/org/maplibre/mlt/cli/MBTiles.kt
 private fun updateMetadata(
     config: EncodeConfig,
     connection: Connection,
     metadata: MetadataEntry,
     metadataJSON: String,
 ) {
+<<<<<<< HEAD:java/mlt-cli/src/main/kotlin/org/maplibre/mlt/cli/MBTilesHelper.kt
     logger.debug("Updating metadata")
+=======
+    logger.debug("Updating metadata. Setting tile MIME type to '{}'", MBTILES_METADATA_MIME_TYPE)
+>>>>>>> main:java/mlt-cli/src/main/kotlin/org/maplibre/mlt/cli/MBTiles.kt
 
     var sql = "INSERT OR REPLACE INTO metadata (name, value) VALUES (?, ?)"
     connection.prepareStatement(sql).use { statement ->
@@ -251,8 +256,8 @@ private fun convertTile(
                 z,
                 srcTileData,
                 config,
-                Optional.of(Environment.compressionRatioThreshold),
-                Optional.of(Environment.compressionFixedThreshold),
+                Optional.of(compressionRatioThreshold),
+                Optional.of(compressionFixedThreshold),
                 didCompress,
             )
 
@@ -281,5 +286,3 @@ private fun convertTile(
     }
     return false
 }
-
-private val logger: Logger = LoggerFactory.getLogger(Encode::class.java)

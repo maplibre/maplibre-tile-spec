@@ -11,7 +11,7 @@ use utils::BinarySerializer as _;
 
 use crate::layer::unknown::Unknown;
 use crate::layer::v01::Layer01;
-use crate::utils::{parse_u8, parse_varint, take};
+use crate::utils::{checked_sum2, parse_u8, parse_varint, take};
 use crate::{MltError, MltRefResult, utils};
 
 /// A layer that can be one of the known types, or an unknown
@@ -80,10 +80,7 @@ impl OwnedLayer {
             OwnedLayer::Unknown(unknown) => (unknown.tag, Cow::Borrowed(&unknown.value)),
         };
 
-        let size = buffer
-            .len()
-            .checked_add(1)
-            .ok_or(io::Error::other(MltError::IntegerOverflow))?;
+        let size = checked_sum2(buffer.len(), 1)?;
         let size = u64::try_from(size).map_err(MltError::from)?;
         writer.write_varint(size)?;
         writer.write_u8(tag)?;

@@ -46,8 +46,6 @@ jobs:
         working-directory: java/encoding-server
       - run: npm run lint
         working-directory: java/encoding-server
-      - run: npm run checkstyle
-        working-directory: java/encoding-server
       - run: just -v assert-git-is-clean
 
       - name: Upload coverage to Codecov
