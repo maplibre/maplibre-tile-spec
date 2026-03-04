@@ -52,8 +52,3 @@ runs:
       uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: ${{ steps.msrv.outputs.value }}
-
-    - name: Cache Cargo registry and build artifacts
-      if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-      uses: Swatinem/rust-cache@v2
-      with: { workspaces: rust }
