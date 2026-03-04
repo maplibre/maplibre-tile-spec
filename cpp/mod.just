@@ -34,7 +34,7 @@ lint:
     echo "TODO: Add C++ linting command"
 
 _install_npm_deps:
-    cd ../test/synthetic/synthetic-test-tool && npm ci
+    cd ../test/synthetic/synthetic-test-utils && npm ci
     npm ci
 
 _test-synthetic: _install_npm_deps
