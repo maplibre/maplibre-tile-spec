@@ -52,7 +52,7 @@ export type SyntheticCaseResult =
       error: unknown;
     };
 
-export class SyntheticTestRunner implements AsyncIterable<SyntheticCaseResult> {
+export class SyntheticTestRunner {
   shouldSkip(_testName: string): false | string {
     return false;
   }
@@ -112,7 +112,7 @@ export class SyntheticTestRunner implements AsyncIterable<SyntheticCaseResult> {
         testName,
       };
     } catch (error) {
-      const _actualFile = await this.writeActualOutput(mltFile, actual);
+      await this.writeActualOutput(mltFile, actual);
       return {
         status: "fail",
         testName,
@@ -121,19 +121,8 @@ export class SyntheticTestRunner implements AsyncIterable<SyntheticCaseResult> {
     }
   }
 
-  async *[Symbol.asyncIterator](): AsyncGenerator<SyntheticCaseResult> {
-    const files = await collectGlob(join(syntheticTestDir, "*.mlt"));
-    const names = files.map((fileName) =>
-      basename(fileName).replace(/\.mlt$/, ""),
-    );
-
-    for (const testName of names) {
-      yield await this.runCase(testName, syntheticTestDir);
-    }
-  }
-
   async getTestCases(
-    syntheticDir: string,
+    syntheticDir: string = syntheticTestDir,
   ): Promise<{ active: string[]; skipped: [string, string][] }> {
     const mltFiles = await collectGlob(join(syntheticDir, "*.mlt"));
     const testNames = mltFiles.map((f) => basename(f).replace(/\.mlt$/, ""));

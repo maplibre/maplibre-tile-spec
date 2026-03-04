@@ -32,25 +32,35 @@ class SyntheticTestRunnerCpp extends SyntheticTestRunner {
 }
 
 const runner = new SyntheticTestRunnerCpp();
+const { active, skipped: skippedCases } = await runner.getTestCases();
 
 let passed = 0;
 let failed = 0;
 let skipped = 0;
 
-for await (const result of runner) {
+for (const [testName, reason] of skippedCases) {
+  console.log(`SKIP ${testName} (${reason})`);
+  skipped++;
+}
+
+for (const testName of active) {
+  const result = await runner.runCase(testName);
   switch (result.status) {
-    case "ok":
+    case "ok": {
       console.log(`OK - ${result.testName}`);
       passed++;
       break;
-    case "fail":
+    }
+    case "fail": {
       console.log(`FAIL - ${result.testName}`);
       failed++;
       break;
-    case "skip":
+    }
+    case "skip": {
       console.log(`SKIP ${result.testName} (${result.reason})`);
       skipped++;
       break;
+    }
   }
 }
 

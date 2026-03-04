@@ -8,7 +8,6 @@ import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
 
 import {
     SyntheticTestRunner,
-    syntheticTestDir,
 } from "synthetic-test-tool";
 
 const EARCUT_MAX_RINGS = 500;
@@ -51,7 +50,7 @@ class SyntheticTestRunnerJS extends SyntheticTestRunner {
 }
 
 const runner = new SyntheticTestRunnerJS();
-const { active, skipped } = await runner.getTestCases(syntheticTestDir);
+const { active, skipped } = await runner.getTestCases();
 
 describe("MLT Decoder - Synthetic tests", () => {
 
@@ -61,7 +60,7 @@ describe("MLT Decoder - Synthetic tests", () => {
 
     for (const testName of active) {
         it(testName, async () => {
-            const result = await runner.runCase(testName, syntheticTestDir);
+            const result = await runner.runCase(testName);
             switch (result.status) {
                 case "ok":
                     return;
