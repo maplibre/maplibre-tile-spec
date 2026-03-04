@@ -1,6 +1,7 @@
 import { globSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100;
 const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
@@ -32,9 +33,7 @@ export function writeActualOutput(
   return actualFile;
 }
 
-export function getTestCases(
-  skipList: string[],
-): {
+export function getTestCases(skipList: string[]): {
   active: { name: string; content: object; fileName: string }[];
   skipped: string[];
 } {
