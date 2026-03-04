@@ -1,6 +1,7 @@
 import { globSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
-
+import { basename, dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100;
 const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
 
@@ -32,13 +33,13 @@ export function writeActualOutput(
 }
 
 export function getTestCases(
-  syntheticDir: string,
   skipList: string[],
 ): {
   active: { name: string; content: object; fileName: string }[];
   skipped: string[];
 } {
   const mltFiles = [];
+  const syntheticDir = resolve(__dirname, "../0x01");
   for (const f of globSync(join(syntheticDir, "*.mlt"))) {
     mltFiles.push(f);
   }

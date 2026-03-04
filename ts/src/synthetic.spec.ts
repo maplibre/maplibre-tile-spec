@@ -1,12 +1,11 @@
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
+import { compareWithTolerance, getTestCases, writeActualOutput } from "../../test/synthetic/synthetic-test-utils";
 import decodeTile from "./mltDecoder";
 import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
-import { compareWithTolerance, getTestCases, writeActualOutput } from "../../test/synthetic/synthetic-test-utils";
 
 const EARCUT_MAX_RINGS = 500;
 
@@ -37,7 +36,7 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
 
 describe("MLT Decoder - Synthetic tests", () => {
     expect.addEqualityTesters([compareWithTolerance]);
-    const testCases = getTestCases(resolve(__dirname, "../../test/synthetic/0x01"), Array.from(UNIMPLEMENTED_SYNTHETICS.keys()));
+    const testCases = getTestCases(Array.from(UNIMPLEMENTED_SYNTHETICS.keys()));
     for (const { name, content, fileName } of testCases.active) {
         it(name, async () => {
             const actual = await decodeMLT(fileName);
