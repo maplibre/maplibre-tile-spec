@@ -6,36 +6,25 @@ import { VertexBufferType } from "./vertexBufferType";
 import { encodeZOrderCurve } from "../../encoding/zOrderCurveEncoder";
 import type { GeometryVector, MortonSettings } from "./geometryVector";
 import {
-    DEFAULT_MORTON_SETTINGS,
-    encode,
     encodeLineStringGeometryVector,
     encodeLineStringGeometryVectorWithMortonEncoding,
+    encodeMultiLineStringGeometryVector,
+    encodeMultiLineStringGeometryVectorWithMortonOffsets,
+    encodeMultiLineStringGeometryVectorWithOffsets,
     encodeMultiPointGeometryVector,
+    encodeMultiPolygonGeometryVector,
+    encodeMultiPolygonGeometryVectorWithMortonOffsets,
+    encodeMultiPolygonGeometryVectorWithOffsets,
     encodePointGeometryVector,
     encodePointGeometryVectorWithMortonEncoding,
     encodePointGeometryVectorWithOffset,
     encodePointsGeometryVector,
     encodePolygonGeometryVector,
+    encodePolygonGeometryVectorWithMortonOffsets,
+    encodePolygonGeometryVectorWithOffsets,
 } from "../../encoding/constGeometryVectorEncoder";
 import { ConstGeometryVector } from "./constGeometryVector";
-
-function makeGeometryVector(overrides: Partial<GeometryVector> = {}): GeometryVector {
-    return {
-        numGeometries: 0,
-        vertexBuffer: new Int32Array([]),
-        vertexOffsets: undefined,
-        vertexBufferType: VertexBufferType.VEC_2,
-        mortonSettings: DEFAULT_MORTON_SETTINGS,
-        topologyVector: {
-            geometryOffsets: undefined,
-            partOffsets: undefined,
-            ringOffsets: undefined,
-        },
-        geometryType: (_i: number) => GEOMETRY_TYPE.POINT,
-        containsPolygonGeometry: () => false,
-        ...overrides,
-    } as unknown as GeometryVector;
-}
+import { FlatGeometryVector } from "./flatGeometryVector";
 
 describe("POINT – sequential vertex buffer (no vertexOffsets)", () => {
     it("creates a single point from the vertex buffer", () => {
@@ -228,37 +217,35 @@ describe("POLYGON – sequential vertex buffer, no holes", () => {
 
 describe("POLYGON – sequential vertex buffer, with hole", () => {
     it("creates a polygon with one hole", () => {
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array([0, 0, 10, 0, 0, 10, 2, 2, 4, 2, 2, 4]),
-            vertexOffsets: undefined,
-            topologyVector: {
-                geometryOffsets: undefined,
-                partOffsets: new Uint32Array([0, 2]),
-                ringOffsets: new Uint32Array([0, 3, 6]),
-            },
-            geometryType: () => GEOMETRY_TYPE.POLYGON,
-        });
+        const gv = encodePolygonGeometryVector([
+            [
+                [0, 0],
+                [10, 0],
+                [0, 10],
+            ],
+            [
+                [2, 2],
+                [4, 2],
+                [2, 4],
+            ],
+        ]);
 
         const result = convertGeometryVector(gv);
-        expect(result[0]).toHaveLength(2); // [shell, hole]
+        expect(result[0]).toHaveLength(2);
+        expect(result[0][0]).toHaveLength(4); // shell has 3 points + 1 (closing point)
+        expect(result[0][1]).toHaveLength(4); // hole has 3 points + 1 (closing point)
     });
 });
 
 describe("POLYGON – VEC_2 dictionary encoded, no holes", () => {
     it("creates a closed polygon shell via VEC_2 vertex offsets", () => {
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array([0, 0, 5, 5, 10, 0]),
-            vertexOffsets: new Int32Array([0, 1, 2]),
-            vertexBufferType: VertexBufferType.VEC_2,
-            topologyVector: {
-                geometryOffsets: undefined,
-                partOffsets: new Uint32Array([0, 1]),
-                ringOffsets: new Uint32Array([0, 3]),
-            },
-            geometryType: () => GEOMETRY_TYPE.POLYGON,
-        });
+        const gv = encodePolygonGeometryVectorWithOffsets([
+            [
+                [0, 0],
+                [5, 5],
+                [10, 0],
+            ],
+        ]);
 
         const result = convertGeometryVector(gv);
         const shell = result[0][0];
@@ -269,47 +256,35 @@ describe("POLYGON – VEC_2 dictionary encoded, no holes", () => {
 
 describe("POLYGON – VEC_2 dictionary encoded, with hole", () => {
     it("creates a polygon with one hole via VEC_2 vertex offsets", () => {
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array([0, 0, 10, 0, 0, 10, 2, 2, 4, 2, 2, 4]),
-            vertexOffsets: new Int32Array([0, 1, 2, 3, 4, 5]),
-            vertexBufferType: VertexBufferType.VEC_2,
-            topologyVector: {
-                geometryOffsets: undefined,
-                partOffsets: new Uint32Array([0, 2]),
-                ringOffsets: new Uint32Array([0, 3, 6]),
-            },
-            geometryType: () => GEOMETRY_TYPE.POLYGON,
-        });
+        const gv = encodePolygonGeometryVectorWithOffsets([
+            [
+                [0, 0],
+                [10, 0],
+                [0, 10],
+            ],
+            [
+                [2, 2],
+                [4, 2],
+                [2, 4],
+            ],
+        ]);
 
         const result = convertGeometryVector(gv);
-        expect(result[0]).toHaveLength(2); // [shell, hole]
+        expect(result[0]).toHaveLength(2);
+        expect(result[0][0]).toHaveLength(4); // shell has 3 points + 1 (closing point)
+        expect(result[0][1]).toHaveLength(4); // hole has 3 points + 1 (closing point)
     });
 });
 
 describe("POLYGON – Morton dictionary encoded, no holes", () => {
     it("creates a closed polygon shell via Morton encoding", () => {
-        const pts = [
-            [0, 0],
-            [5, 0],
-            [0, 5],
-        ] as const;
-        const codes = pts.map(([x, y]) => encode(x, y));
-
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array(codes),
-            vertexOffsets: new Int32Array([0, 1, 2]),
-            vertexBufferType: VertexBufferType.MORTON,
-            mortonSettings: DEFAULT_MORTON_SETTINGS,
-            topologyVector: {
-                geometryOffsets: undefined,
-                partOffsets: new Uint32Array([0, 1]),
-                ringOffsets: new Uint32Array([0, 3]),
-            },
-            geometryType: () => GEOMETRY_TYPE.POLYGON,
-        });
-
+        const gv = encodePolygonGeometryVectorWithMortonOffsets([
+            [
+                [0, 0],
+                [5, 0],
+                [0, 5],
+            ],
+        ]);
         const result = convertGeometryVector(gv);
         const shell = result[0][0];
         expect(shell).toHaveLength(4);
@@ -322,114 +297,62 @@ describe("POLYGON – Morton dictionary encoded, no holes", () => {
 
 describe("POLYGON – Morton dictionary encoded, with hole", () => {
     it("creates a polygon with one hole via Morton encoding", () => {
-        const shellPts = [
-            [0, 0],
-            [10, 0],
-            [0, 10],
-        ] as const;
-        const holePts = [
-            [1, 1],
-            [3, 1],
-            [1, 3],
-        ] as const;
-        const codes = [...shellPts, ...holePts].map(([x, y]) => encode(x, y));
-
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array(codes),
-            vertexOffsets: new Int32Array([0, 1, 2, 3, 4, 5]),
-            vertexBufferType: VertexBufferType.MORTON,
-            mortonSettings: DEFAULT_MORTON_SETTINGS,
-            topologyVector: {
-                geometryOffsets: undefined,
-                partOffsets: new Uint32Array([0, 2]),
-                ringOffsets: new Uint32Array([0, 3, 6]),
-            },
-            geometryType: () => GEOMETRY_TYPE.POLYGON,
-        });
-
+        const gv = encodePolygonGeometryVectorWithMortonOffsets([
+            [
+                [0, 0],
+                [10, 0],
+                [0, 10],
+            ],
+            [
+                [1, 1],
+                [3, 1],
+                [1, 3],
+            ],
+        ]);
         const result = convertGeometryVector(gv);
         expect(result[0]).toHaveLength(2);
-    });
-});
-
-describe("POLYGON – geometryOffsets counter incremented", () => {
-    it("does not throw and returns correct polygon when geometryOffsets is present", () => {
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array([0, 0, 1, 0, 0, 1]),
-            vertexOffsets: undefined,
-            topologyVector: {
-                geometryOffsets: new Uint32Array([0, 1]),
-                partOffsets: new Uint32Array([0, 1]),
-                ringOffsets: new Uint32Array([0, 3]),
-            },
-            geometryType: () => GEOMETRY_TYPE.POLYGON,
-        });
-
-        const result = convertGeometryVector(gv);
-        expect(result[0][0]).toHaveLength(4);
+        expect(result[0][0]).toHaveLength(4); // shell has 3 points + 1 (closing point)
+        expect(result[0][1]).toHaveLength(4); // hole has 3 points + 1 (closing point)
     });
 });
 
 describe("MULTILINESTRING – sequential vertex buffer, no polygon context", () => {
     it("creates a multi-line string with two line strings", () => {
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array([0, 0, 1, 1, 2, 2, 3, 3]),
-            vertexOffsets: undefined,
-            topologyVector: {
-                geometryOffsets: new Uint32Array([0, 2]),
-                partOffsets: new Uint32Array([0, 2, 4]),
-                ringOffsets: undefined,
-            },
-            geometryType: () => GEOMETRY_TYPE.MULTILINESTRING,
-            containsPolygonGeometry: () => false,
-        });
-
+        const gv = encodeMultiLineStringGeometryVector([
+            [
+                [0, 0],
+                [1, 1],
+            ],
+            [
+                [2, 2],
+                [3, 3],
+                [4, 4],
+            ],
+            [
+                [5, 5],
+                [6, 6],
+            ],
+        ]);
         const result = convertGeometryVector(gv);
-        expect(result[0]).toHaveLength(2);
+        expect(result[0]).toHaveLength(3);
         expect(result[0][0]).toEqual([new Point(0, 0), new Point(1, 1)]);
-        expect(result[0][1]).toEqual([new Point(2, 2), new Point(3, 3)]);
-    });
-});
-
-describe("MULTILINESTRING – sequential vertex buffer, polygon context (uses ringOffsets)", () => {
-    it("uses ringOffsets for vertex counts when containsPolygon is true", () => {
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array([0, 0, 1, 1]),
-            vertexOffsets: undefined,
-            topologyVector: {
-                geometryOffsets: new Uint32Array([0, 1]),
-                partOffsets: new Uint32Array([0, 1]),
-                ringOffsets: new Uint32Array([0, 2]),
-            },
-            geometryType: () => GEOMETRY_TYPE.MULTILINESTRING,
-            containsPolygonGeometry: () => true,
-        });
-
-        const result = convertGeometryVector(gv);
-        expect(result[0][0]).toEqual([new Point(0, 0), new Point(1, 1)]);
+        expect(result[0][1]).toEqual([new Point(2, 2), new Point(3, 3), new Point(4, 4)]);
+        expect(result[0][2]).toEqual([new Point(5, 5), new Point(6, 6)]);
     });
 });
 
 describe("MULTILINESTRING – VEC_2 dictionary encoded", () => {
     it("decodes multi-line string via vertexOffsets VEC_2", () => {
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array([0, 1, 2, 3, 4, 5, 6, 7]),
-            vertexOffsets: new Int32Array([0, 1, 2, 3]),
-            vertexBufferType: VertexBufferType.VEC_2,
-            topologyVector: {
-                geometryOffsets: new Uint32Array([0, 2]),
-                partOffsets: new Uint32Array([0, 2, 4]),
-                ringOffsets: undefined,
-            },
-            geometryType: () => GEOMETRY_TYPE.MULTILINESTRING,
-            containsPolygonGeometry: () => false,
-        });
-
+        const gv = encodeMultiLineStringGeometryVectorWithOffsets([
+            [
+                [0, 1],
+                [2, 3],
+            ],
+            [
+                [4, 5],
+                [6, 7],
+            ],
+        ]);
         const result = convertGeometryVector(gv);
         expect(result[0]).toHaveLength(2);
         expect(result[0][0]).toEqual([new Point(0, 1), new Point(2, 3)]);
@@ -439,117 +362,116 @@ describe("MULTILINESTRING – VEC_2 dictionary encoded", () => {
 
 describe("MULTILINESTRING – Morton dictionary encoded", () => {
     it("decodes multi-line string via Morton encoding", () => {
-        const pts = [
-            [1, 2],
-            [3, 4],
-        ] as const;
-        const codes = pts.map(([x, y]) => encode(x, y));
-
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array(codes),
-            vertexOffsets: new Int32Array([0, 1]),
-            vertexBufferType: VertexBufferType.MORTON,
-            mortonSettings: DEFAULT_MORTON_SETTINGS,
-            topologyVector: {
-                geometryOffsets: new Uint32Array([0, 2]),
-                partOffsets: new Uint32Array([0, 1, 2]),
-                ringOffsets: undefined,
-            },
-            geometryType: () => GEOMETRY_TYPE.MULTILINESTRING,
-            containsPolygonGeometry: () => false,
-        });
+        const gv = encodeMultiLineStringGeometryVectorWithMortonOffsets([
+            [
+                [1, 2],
+                [3, 4],
+            ],
+        ]);
 
         const result = convertGeometryVector(gv);
-        expect(result[0][0]).toEqual([new Point(1, 2)]);
-        expect(result[0][1]).toEqual([new Point(3, 4)]);
-    });
-});
-
-describe("MULTILINESTRING – Morton encoded, polygon context", () => {
-    it("uses ringOffsets for vertex counts when containsPolygon is true", () => {
-        const pts = [
-            [5, 6],
-            [7, 8],
-        ] as const;
-        const codes = pts.map(([x, y]) => encode(x, y));
-
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array(codes),
-            vertexOffsets: new Int32Array([0, 1]),
-            vertexBufferType: VertexBufferType.MORTON,
-            mortonSettings: DEFAULT_MORTON_SETTINGS,
-            topologyVector: {
-                geometryOffsets: new Uint32Array([0, 2]),
-                partOffsets: new Uint32Array([0, 1, 2]),
-                ringOffsets: new Uint32Array([0, 1, 2]),
-            },
-            geometryType: () => GEOMETRY_TYPE.MULTILINESTRING,
-            containsPolygonGeometry: () => true,
-        });
-
-        const result = convertGeometryVector(gv);
-        expect(result[0][0]).toEqual([new Point(5, 6)]);
-        expect(result[0][1]).toEqual([new Point(7, 8)]);
+        expect(result[0][0]).toEqual([new Point(1, 2), new Point(3, 4)]);
     });
 });
 
 describe("MULTIPOLYGON – sequential vertex buffer, no holes", () => {
     it("creates a multi-polygon with two triangular polygons", () => {
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array([0, 0, 1, 0, 0, 1, 5, 5, 6, 5, 5, 6]),
-            vertexOffsets: undefined,
-            topologyVector: {
-                geometryOffsets: new Uint32Array([0, 2]),
-                partOffsets: new Uint32Array([0, 1, 2]),
-                ringOffsets: new Uint32Array([0, 3, 6]),
-            },
-            geometryType: () => GEOMETRY_TYPE.MULTIPOLYGON,
-        });
+        const gv = encodeMultiPolygonGeometryVector([
+            [
+                [
+                    [0, 0],
+                    [1, 0],
+                    [0, 1],
+                ],
+            ],
+            [
+                [
+                    [5, 5],
+                    [6, 5],
+                    [5, 6],
+                ],
+            ],
+            [
+                [
+                    [10, 10],
+                    [10, 0],
+                    [0, 10],
+                ],
+            ],
+        ]);
 
         const result = convertGeometryVector(gv);
-        expect(result[0]).toHaveLength(2);
+        expect(result[0]).toHaveLength(3);
         expect(result[0][0]).toHaveLength(4); // closed shell
         expect(result[0][1]).toHaveLength(4); // closed shell
+        expect(result[0][2]).toHaveLength(4); // closed shell
     });
 });
 
 describe("MULTIPOLYGON – sequential vertex buffer, with holes", () => {
     it("creates a polygon that has a hole", () => {
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array([0, 0, 10, 0, 0, 10, 1, 1, 3, 1, 1, 3]),
-            vertexOffsets: undefined,
-            topologyVector: {
-                geometryOffsets: new Uint32Array([0, 1]),
-                partOffsets: new Uint32Array([0, 2]),
-                ringOffsets: new Uint32Array([0, 3, 6]),
-            },
-            geometryType: () => GEOMETRY_TYPE.MULTIPOLYGON,
-        });
+        const gv = encodeMultiPolygonGeometryVector([
+            [
+                [
+                    [0, 0],
+                    [10, 0],
+                    [0, 10],
+                ],
+                [
+                    [1, 1],
+                    [3, 1],
+                    [1, 3],
+                ],
+            ],
+            [
+                [
+                    [5, 5],
+                    [25, 5],
+                    [5, 25],
+                ],
+                [
+                    [6, 6],
+                    [7, 6],
+                    [6, 7],
+                ],
+            ],
+            [
+                [
+                    [10, 10],
+                    [10, 0],
+                    [0, 10],
+                ],
+            ],
+        ]);
 
         const result = convertGeometryVector(gv);
-        expect(result[0]).toHaveLength(2); // [shell, hole]
+        expect(result[0]).toHaveLength(5);
+        expect(result[0][0]).toHaveLength(4);
+        expect(result[0][1]).toHaveLength(4);
+        expect(result[0][2]).toHaveLength(4);
+        expect(result[0][3]).toHaveLength(4);
+        expect(result[0][4]).toHaveLength(4);
     });
 });
 
 describe("MULTIPOLYGON – VEC_2 dictionary encoded, no holes", () => {
     it("decodes multi-polygon via vertexOffsets VEC_2", () => {
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array([0, 0, 2, 0, 0, 2, 5, 5, 7, 5, 5, 7]),
-            vertexOffsets: new Int32Array([0, 1, 2, 3, 4, 5]),
-            vertexBufferType: VertexBufferType.VEC_2,
-            topologyVector: {
-                geometryOffsets: new Uint32Array([0, 2]),
-                partOffsets: new Uint32Array([0, 1, 2]),
-                ringOffsets: new Uint32Array([0, 3, 6]),
-            },
-            geometryType: () => GEOMETRY_TYPE.MULTIPOLYGON,
-        });
-
+        const gv = encodeMultiPolygonGeometryVectorWithOffsets([
+            [
+                [
+                    [0, 0],
+                    [2, 0],
+                    [0, 2],
+                ],
+            ],
+            [
+                [
+                    [5, 5],
+                    [7, 5],
+                    [5, 7],
+                ],
+            ],
+        ]);
         const result = convertGeometryVector(gv);
         expect(result[0]).toHaveLength(2);
         expect(result[0][0]).toHaveLength(4); // closed
@@ -558,19 +480,20 @@ describe("MULTIPOLYGON – VEC_2 dictionary encoded, no holes", () => {
 
 describe("MULTIPOLYGON – VEC_2 dictionary encoded, with holes", () => {
     it("creates a multi-polygon with hole via VEC_2", () => {
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array([0, 0, 10, 0, 0, 10, 1, 1, 3, 1, 1, 3]),
-            vertexOffsets: new Int32Array([0, 1, 2, 3, 4, 5]),
-            vertexBufferType: VertexBufferType.VEC_2,
-            topologyVector: {
-                geometryOffsets: new Uint32Array([0, 1]),
-                partOffsets: new Uint32Array([0, 2]),
-                ringOffsets: new Uint32Array([0, 3, 6]),
-            },
-            geometryType: () => GEOMETRY_TYPE.MULTIPOLYGON,
-        });
-
+        const gv = encodeMultiPolygonGeometryVectorWithOffsets([
+            [
+                [
+                    [0, 0],
+                    [10, 0],
+                    [0, 10],
+                ],
+                [
+                    [1, 1],
+                    [3, 1],
+                    [1, 3],
+                ],
+            ],
+        ]);
         const result = convertGeometryVector(gv);
         expect(result[0]).toHaveLength(2);
     });
@@ -578,27 +501,15 @@ describe("MULTIPOLYGON – VEC_2 dictionary encoded, with holes", () => {
 
 describe("MULTIPOLYGON – Morton dictionary encoded, no holes", () => {
     it("decodes multi-polygon shells via Morton encoding", () => {
-        const shellPts = [
-            [0, 0],
-            [1, 0],
-            [0, 1],
-        ] as const;
-        const codes = shellPts.map(([x, y]) => encode(x, y));
-
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array(codes),
-            vertexOffsets: new Int32Array([0, 1, 2]),
-            vertexBufferType: VertexBufferType.MORTON,
-            mortonSettings: DEFAULT_MORTON_SETTINGS,
-            topologyVector: {
-                geometryOffsets: new Uint32Array([0, 1]),
-                partOffsets: new Uint32Array([0, 1]),
-                ringOffsets: new Uint32Array([0, 3]),
-            },
-            geometryType: () => GEOMETRY_TYPE.MULTIPOLYGON,
-        });
-
+        const gv = encodeMultiPolygonGeometryVectorWithMortonOffsets([
+            [
+                [
+                    [0, 0],
+                    [1, 0],
+                    [0, 1],
+                ],
+            ],
+        ]);
         const result = convertGeometryVector(gv);
         const shell = result[0][0];
         expect(shell).toHaveLength(4); // closed
@@ -609,43 +520,100 @@ describe("MULTIPOLYGON – Morton dictionary encoded, no holes", () => {
 
 describe("MULTIPOLYGON – Morton dictionary encoded, with holes", () => {
     it("creates a multi-polygon with hole via Morton encoding", () => {
-        const shellPts = [
-            [0, 0],
-            [10, 0],
-            [0, 10],
-        ] as const;
-        const holePts = [
-            [1, 1],
-            [3, 1],
-            [1, 3],
-        ] as const;
-        const codes = [...shellPts, ...holePts].map(([x, y]) => encode(x, y));
-
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array(codes),
-            vertexOffsets: new Int32Array([0, 1, 2, 3, 4, 5]),
-            vertexBufferType: VertexBufferType.MORTON,
-            mortonSettings: DEFAULT_MORTON_SETTINGS,
-            topologyVector: {
-                geometryOffsets: new Uint32Array([0, 1]),
-                partOffsets: new Uint32Array([0, 2]),
-                ringOffsets: new Uint32Array([0, 3, 6]),
-            },
-            geometryType: () => GEOMETRY_TYPE.MULTIPOLYGON,
-        });
-
+        const gv = encodeMultiPolygonGeometryVectorWithMortonOffsets([
+            [
+                [
+                    [0, 0],
+                    [10, 0],
+                    [0, 10],
+                ],
+                [
+                    [1, 1],
+                    [3, 1],
+                    [1, 3],
+                ],
+            ],
+        ]);
         const result = convertGeometryVector(gv);
         expect(result[0]).toHaveLength(2);
     });
 });
 
+describe("Vector with multiple geometries of different types", () => {
+    it("converts geometries of different types in the same vector", () => {
+        console.log("start");
+        const pointGv = encodePointGeometryVector(1, 2);
+        const multiPointGv = encodeMultiPointGeometryVector([
+            [3, 4],
+            [5, 6],
+        ]);
+        const lineStringGv = encodeLineStringGeometryVector([
+            [7, 8],
+            [9, 10],
+        ]);
+        const polygonGv = encodePolygonGeometryVector([
+            [
+                [11, 11],
+                [11, 12],
+                [12, 11],
+            ],
+        ]);
+        const multiLineStringGv = encodeMultiLineStringGeometryVector([
+            [
+                [13, 14],
+                [15, 16],
+            ],
+        ]);
+        
+        const gv = new FlatGeometryVector(
+            VertexBufferType.VEC_2,
+            new Int32Array([
+                GEOMETRY_TYPE.POINT,
+                GEOMETRY_TYPE.MULTIPOINT,
+                GEOMETRY_TYPE.LINESTRING,
+                GEOMETRY_TYPE.POLYGON,
+                GEOMETRY_TYPE.MULTILINESTRING,
+            ]),
+            {
+                geometryOffsets: new Uint32Array([0, 1, 3, 5, 8, 9]),
+                partOffsets: new Uint32Array([0, 1, 2, 3, 4, 5, 6]),
+                ringOffsets: new Uint32Array([0, 1, 2, 3, 5, 8, 10]),
+            },
+            undefined,
+            new Int32Array([
+                ...pointGv.vertexBuffer,
+                ...multiPointGv.vertexBuffer,
+                ...lineStringGv.vertexBuffer,
+                ...polygonGv.vertexBuffer,
+                ...multiLineStringGv.vertexBuffer,
+            ]),
+        );
+
+        const result = convertGeometryVector(gv);
+        expect(result).toHaveLength(5);
+        expect(result[0]).toEqual([[new Point(1, 2)]]);
+        expect(result[1]).toEqual([[new Point(3, 4)], [new Point(5, 6)]]);
+        expect(result[2]).toEqual([[new Point(7, 8), new Point(9, 10)]]);
+        expect(result[3]).toEqual([
+            [
+                new Point(11, 11),
+                new Point(11, 12),
+                new Point(12, 11),
+                new Point(11, 11), // closed
+            ],
+        ]);
+        expect(result[4]).toEqual([[new Point(13, 14), new Point(15, 16)]]);
+    });
+});
+
 describe("Error handling", () => {
     it("throws on unsupported geometry type", () => {
-        const gv = makeGeometryVector({
+        const gv = {
             numGeometries: 1,
+            topologyVector: {},
             geometryType: () => 999 as unknown as GEOMETRY_TYPE,
-        });
+            containsPolygonGeometry: () => false,
+        } as unknown as GeometryVector;
 
         expect(() => convertGeometryVector(gv)).toThrowError("The specified geometry type is currently not supported.");
     });
@@ -653,17 +621,23 @@ describe("Error handling", () => {
 
 describe("Edge cases", () => {
     it("returns an empty array when numGeometries is 0", () => {
-        const gv = makeGeometryVector({ numGeometries: 0 });
+        const gv = { numGeometries: 0, topologyVector: {}, containsPolygonGeometry: () => false } as unknown as GeometryVector;
         expect(convertGeometryVector(gv)).toHaveLength(0);
     });
 
     it("treats vertexOffsets with length 0 as absent (sequential buffer path)", () => {
-        const gv = makeGeometryVector({
-            numGeometries: 1,
-            vertexBuffer: new Int32Array([3, 9]),
-            vertexOffsets: new Int32Array([]), // length === 0 → same as undefined
-            geometryType: () => GEOMETRY_TYPE.POINT,
-        });
+        const gv = new ConstGeometryVector(
+            1,
+            GEOMETRY_TYPE.POINT,
+            VertexBufferType.VEC_2,
+            {
+                geometryOffsets: undefined,
+                partOffsets: undefined,
+                ringOffsets: undefined,
+            },
+            new Int32Array([]), // length === 0 → same as undefined
+            new Int32Array([3, 9])
+        );
 
         const result = convertGeometryVector(gv);
         expect(result[0]).toEqual([[new Point(3, 9)]]);
