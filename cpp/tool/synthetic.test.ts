@@ -1,0 +1,46 @@
+import { execFileSync } from "node:child_process";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+
+import { compareWithTolerance, getTestCases, writeActualOutput } from "synthetic-test-utils";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const binary = resolve(__dirname, "../build/tool/mlt-cpp-json");
+const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");
+
+// FastPFOR-encoded tiles (requires MLT_WITH_FASTPFOR=ON at build time)
+const SKIPPED_TESTS = [
+  "polygon_fpf",
+  "polygon_hole_fpf",
+  "polygon_morton_tes",
+  "polygon_multi_fpf",
+  "polygon_fpf_tes",
+];
+
+describe("MLT Decoder - Synthetic tests", () => {
+    expect.addEqualityTesters([compareWithTolerance]);
+    const testCases = getTestCases(syntheticDir, SKIPPED_TESTS);
+    for (const { name, content, fileName } of testCases.active) {
+        it(name, async () => {
+            const actual = await decodeMLT(fileName);
+            try {
+              expect(actual).toEqual(content);  
+            } catch (error) {
+              writeActualOutput(fileName, actual);
+              throw error;
+            }
+        });
+    }
+
+    for (const skippedTest of testCases.skipped) {
+        it.skip(skippedTest, () => {
+            // Test is skipped since it is not supported yet. Reason: ${UNIMPLEMENTED_SYNTHETICS.get(skippedTest)}
+        });
+    }
+});
+
+async function decodeMLT(mltFilePath: string) {
+  const output = execFileSync(binary, [mltFilePath], { encoding: "utf-8" });
+  return JSON.parse(output);
+}

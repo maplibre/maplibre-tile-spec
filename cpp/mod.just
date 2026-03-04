@@ -39,7 +39,7 @@ _install_npm_deps:
 
 _test-synthetic: _install_npm_deps
     {{just}} ts install
-    node tool/test-synthetic.mjs
+    npx vitest tool/synthetic.test.ts
 
 # Run tests
 [working-directory: 'build']

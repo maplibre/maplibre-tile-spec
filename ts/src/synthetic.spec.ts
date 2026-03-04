@@ -1,13 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { describe, it } from "vitest";
-import decodeTile from "./mltDecoder";
+import { describe, expect, it } from "vitest";
+import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
+import decodeTile from "./mltDecoder";
 import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
-import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
-
-import { SyntheticTestRunner } from "synthetic-test-tool";
+import { compareWithTolerance, getTestCases, writeActualOutput } from "../../test/synthetic/synthetic-test-utils";
 
 const EARCUT_MAX_RINGS = 500;
 
@@ -36,25 +35,29 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["prop_f64_val_null", "does not parse f64 as f32"],
 ]);
 
-const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");
-
-class SyntheticTestRunnerJS extends SyntheticTestRunner {
-    shouldSkip(testName: string) {
-        return UNIMPLEMENTED_SYNTHETICS.get(testName) ?? false;
-    }
-
-    async decodeMLT(mltFilePath: string) {
-        const mltBuffer = await readFile(mltFilePath);
-        const featureTables = decodeTile(mltBuffer, undefined, false);
-        return featureTablesToFeatureCollection(featureTables) as unknown as Record<string, unknown>;
-    }
-}
-
 describe("MLT Decoder - Synthetic tests", () => {
-    it("should pass all synthetic tests", async () => {
-        await new SyntheticTestRunnerJS().run(syntheticDir);
-    });
+    expect.addEqualityTesters([compareWithTolerance]);
+    const testCases = getTestCases(resolve(__dirname, "../../test/synthetic/0x01"), Array.from(UNIMPLEMENTED_SYNTHETICS.keys()));
+    for (const { name, content, fileName } of testCases.active) {
+        it(name, async () => {
+            const actual = await decodeMLT(fileName);
+            writeActualOutput(fileName, actual);
+            expect(actual).toEqual(content);
+        });
+    }
+
+    for (const skippedTest of testCases.skipped) {
+        it.skip(skippedTest, () => {
+            // Test is skipped since it is not supported yet. Reason: ${UNIMPLEMENTED_SYNTHETICS.get(skippedTest)}
+        });
+    }
 });
+
+async function decodeMLT(mltFilePath: string) {
+    const mltBuffer = await readFile(mltFilePath);
+    const featureTables = decodeTile(mltBuffer, undefined, false);
+    return featureTablesToFeatureCollection(featureTables) as unknown as Record<string, unknown>;
+}
 
 function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSON.FeatureCollection {
     const features: GeoJSON.Feature[] = [];
