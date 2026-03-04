@@ -12,6 +12,14 @@ use strum::IntoEnumIterator as _;
 mod bench_utils;
 use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_mlt_tiles};
 
+fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
+    if cfg!(debug_assertions) {
+        values.take(1)
+    } else {
+        values.take(usize::MAX)
+    }
+}
+
 fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<OwnedLayer> {
     tiles
         .iter()
@@ -36,8 +44,8 @@ fn bench_encode_geometry(c: &mut Criterion) {
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
         group.throughput(Throughput::Bytes(total_bytes as u64));
 
-        for physical in PhysicalEncoder::iter() {
-            for logical in LogicalEncoder::iter() {
+        for physical in limit(PhysicalEncoder::iter()) {
+            for logical in limit(LogicalEncoder::iter()) {
                 let geometry_encoder = GeometryEncoder::all(IntEncoder::new(logical, physical));
                 group.bench_with_input(
                     BenchmarkId::new(format!("{logical:?}-{physical:?}"), zoom),
@@ -74,8 +82,8 @@ fn bench_encode_ids(c: &mut Criterion) {
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
         group.throughput(Throughput::Bytes(total_bytes as u64));
 
-        for fmt in IdWidth::iter() {
-            for logical in LogicalEncoder::iter() {
+        for fmt in limit(IdWidth::iter()) {
+            for logical in limit(LogicalEncoder::iter()) {
                 let id_encoder = IdEncoder::new(logical, fmt);
                 group.bench_with_input(
                     BenchmarkId::new(format!("{logical:?}-{fmt:?}"), zoom),
@@ -110,9 +118,9 @@ fn bench_encode_properties(c: &mut Criterion) {
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
         group.throughput(Throughput::Bytes(total_bytes as u64));
 
-        for presence in PresenceStream::iter() {
-            for physical in PhysicalEncoder::iter() {
-                for logical in LogicalEncoder::iter() {
+        for presence in limit(PresenceStream::iter()) {
+            for physical in limit(PhysicalEncoder::iter()) {
+                for logical in limit(LogicalEncoder::iter()) {
                     group.bench_with_input(
                         BenchmarkId::new(format!("{presence:?}-{logical:?}-{physical:?}"), zoom),
                         &tiles,
@@ -139,7 +147,7 @@ fn bench_encode_properties(c: &mut Criterion) {
                                                             presence, int_enc, int_enc,
                                                         )
                                                     }
-                                                    AproxPropertyType::Struct => {
+                                                    AproxPropertyType::SharedDict => {
                                                         unreachable!("unimplemented")
                                                     }
                                                 };

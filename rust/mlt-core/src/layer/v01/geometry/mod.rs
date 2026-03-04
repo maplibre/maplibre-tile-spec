@@ -12,14 +12,14 @@ use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
 use crate::MltError::{
-    GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, IntegerOverflow,
-    NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented,
+    GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, NoGeometryOffsets,
+    NoPartOffsets, NoRingOffsets, NotImplemented,
 };
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::encode::impl_encodable;
 use crate::geojson::{Coord32, Geom32 as GeoGeom};
-use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _};
+use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _, checked_sum2};
 use crate::v01::column::ColumnType;
 use crate::v01::geometry::decode::{
     decode_geometry_types, decode_level1_length_stream,
@@ -142,7 +142,7 @@ impl OwnedEncodedGeometry {
 
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         let items_len = u64::try_from(self.items.len())?;
-        let items_len = items_len.checked_add(1).ok_or(IntegerOverflow)?;
+        let items_len = checked_sum2(items_len, 1)?;
         writer.write_varint(items_len)?;
         writer.write_stream(&self.meta)?;
         for item in &self.items {
