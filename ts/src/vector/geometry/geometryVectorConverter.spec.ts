@@ -564,7 +564,7 @@ describe("Vector with multiple geometries of different types", () => {
                 [15, 16],
             ],
         ]);
-        
+
         const gv = new FlatGeometryVector(
             VertexBufferType.VEC_2,
             new Int32Array([
