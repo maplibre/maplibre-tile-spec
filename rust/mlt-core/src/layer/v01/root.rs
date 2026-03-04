@@ -171,11 +171,16 @@ impl Layer01<'_> {
                 ColumnType::Str | ColumnType::OptStr => {
                     (input, stream_count) = parse_varint::<usize>(input)?;
                     (input, opt) = parse_optional(column.typ, input)?;
-                    stream_count -= usize::from(opt.is_some());
-                    if stream_count > 5 {
-                        return Err(MltError::UnsupportedStringStreamCount(stream_count));
+                    if opt.is_some() {
+                        if stream_count == 0 {
+                            return Err(MltError::UnsupportedStringStreamCount(stream_count));
+                        }
+                        stream_count -= 1;
                     }
                     let mut str_streams = [None, None, None, None, None];
+                    if stream_count > str_streams.len() {
+                        return Err(MltError::UnsupportedStringStreamCount(stream_count));
+                    }
                     for slot in str_streams.iter_mut().take(stream_count) {
                         let stream;
                         (input, stream) = Stream::parse(input)?;
@@ -196,7 +201,7 @@ impl Layer01<'_> {
                     };
                     properties.push(Property::new_encoded(name, EncVal::Str(opt, encoding)));
                 }
-                ColumnType::Struct => {
+                ColumnType::SharedDict => {
                     // Read header streams until we hit the dictionary DATA(Single|Shared) stream.
                     (input, stream_count) = parse_varint::<usize>(input)?;
                     let mut dict_streams = [None, None, None, None, None];
@@ -212,14 +217,16 @@ impl Layer01<'_> {
                         streams_taken += 1;
                         if is_last {
                             break;
-                        } else if streams_taken >= 5 {
-                            return Err(MltError::UnsupportedStringStreamCount(6));
+                        } else if streams_taken >= dict_streams.len() {
+                            return Err(MltError::UnsupportedStringStreamCount(
+                                dict_streams.len() + 1,
+                            ));
                         }
                     }
                     let children;
                     (input, children) = parse_struct_children(input, &column)?;
 
-                    let struct_prop = match dict_streams {
+                    let shared_dict = match dict_streams {
                         [Some(s1), Some(s2), None, None, None] => {
                             EncodedSharedDictProp::plain(s1, s2, children)?
                         }
@@ -235,7 +242,7 @@ impl Layer01<'_> {
                         _ => Err(MltError::StructSharedDictRequiresStreams(streams_taken))?,
                     };
 
-                    properties.push(Property::new_encoded(name, EncVal::SharedDict(struct_prop)));
+                    properties.push(Property::new_encoded(name, EncVal::SharedDict(shared_dict)));
                 }
             }
         }
@@ -304,7 +311,7 @@ fn parse_columns_meta(
     mut input: &'_ [u8],
     column_count: usize,
 ) -> MltRefResult<'_, (Vec<Column<'_>>, usize)> {
-    use crate::v01::column::ColumnType::{Geometry, Id, LongId, OptId, OptLongId, Struct};
+    use crate::v01::column::ColumnType::{Geometry, Id, LongId, OptId, OptLongId, SharedDict};
 
     let mut col_info = Vec::with_capacity(column_count);
     let mut geometries = 0;
@@ -315,7 +322,7 @@ fn parse_columns_meta(
         match typ.typ {
             Geometry => geometries += 1,
             Id | OptId | LongId | OptLongId => ids += 1,
-            Struct => {
+            SharedDict => {
                 // Yes, we need to parse children right here, otherwise this messes up the next column
                 let child_column_count;
                 (input, child_column_count) = parse_varint::<usize>(input)?;
@@ -443,7 +450,7 @@ impl From<ColumnType> for LayerOrdering {
         match typ {
             OptId | Id | LongId | OptLongId => Self::Id,
             Bool | OptBool | I8 | OptI8 | U8 | OptU8 | I32 | OptI32 | U32 | OptU32 | I64
-            | OptI64 | U64 | OptU64 | F32 | OptF32 | F64 | OptF64 | Str | OptStr | Struct => {
+            | OptI64 | U64 | OptU64 | F32 | OptF32 | F64 | OptF64 | Str | OptStr | SharedDict => {
                 Self::Property
             }
             Geometry => Self::Geometry,

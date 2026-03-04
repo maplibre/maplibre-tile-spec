@@ -209,7 +209,7 @@ impl<'a> EncodedStrProp<'a> {
         })
     }
 
-    /// Streams in an order suitable for classification (`decode_string_streams`).
+    /// Streams in an order suitable for classification [`decode_strings`]
     #[must_use]
     pub fn streams(&self) -> Vec<Stream<'_>> {
         match self {

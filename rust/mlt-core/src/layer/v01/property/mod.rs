@@ -153,7 +153,7 @@ impl OwnedEncodedProperty {
             OwnedEncodedPropValue::F64(None, _) => ColumnType::F64.write_to(writer)?,
             OwnedEncodedPropValue::Str(Some(_), _) => ColumnType::OptStr.write_to(writer)?,
             OwnedEncodedPropValue::Str(None, _) => ColumnType::Str.write_to(writer)?,
-            OwnedEncodedPropValue::SharedDict(_) => ColumnType::Struct.write_to(writer)?,
+            OwnedEncodedPropValue::SharedDict(_) => ColumnType::SharedDict.write_to(writer)?,
         }
 
         // name
