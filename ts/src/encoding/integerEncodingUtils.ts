@@ -709,7 +709,7 @@ export function encodeDeltaRleInt32(input: Int32Array): {
     }
 
     const deltasAndEncoded: number[] = [];
-    let previousValue: number = 0;
+    let previousValue = 0;
 
     // Step 1 & 2: Calculate Deltas and Zigzag Encode them
     for (let i = 0; i < input.length; i++) {
@@ -774,7 +774,7 @@ export function encodeDeltaRleInt64(input: BigInt64Array): {
     }
 
     const deltasAndEncoded: bigint[] = [];
-    let previousValue: bigint = 0n;
+    let previousValue = 0n;
 
     // Step 1 & 2: Calculate Deltas and Zigzag Encode them
     for (let i = 0; i < input.length; i++) {

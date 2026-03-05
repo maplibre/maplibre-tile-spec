@@ -6,7 +6,7 @@ export class IntConstVector extends Vector<Int32Array, number> {
         super(name, Int32Array.of(value), sizeOrNullabilityBuffer);
     }
 
-    protected getValueFromBuffer(index: number): number {
+    protected getValueFromBuffer(_index: number): number {
         return this.dataBuffer[0];
     }
 }

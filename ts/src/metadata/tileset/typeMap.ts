@@ -116,7 +116,8 @@ export function hasStreamCount(column: Column): boolean {
                 default:
                     return false;
             }
-        } else if (scalarCol.type === "logicalType") {
+        }
+        if (scalarCol.type === "logicalType") {
             return false;
         }
     } else if (column.type === "complexType") {

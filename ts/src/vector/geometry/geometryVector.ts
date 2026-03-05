@@ -17,7 +17,7 @@ export interface MortonSettings {
     coordinateShift: number;
 }
 
-export abstract class GeometryVector implements Iterable<Geometry> {
+export abstract class GeometryVector {
     protected constructor(
         private readonly _vertexBufferType: VertexBufferType,
         private readonly _topologyVector: TopologyVector,
@@ -40,15 +40,6 @@ export abstract class GeometryVector implements Iterable<Geometry> {
 
     get vertexBuffer(): Int32Array {
         return this._vertexBuffer;
-    }
-    *[Symbol.iterator](): Iterator<Geometry> {
-        const geometries = convertGeometryVector(this);
-        let index = 0;
-
-        while (index < this.numGeometries) {
-            yield { coordinates: geometries[index], type: this.geometryType(index) };
-            index++;
-        }
     }
 
     /* Allows faster access to the vertices since morton encoding is currently not used in the POC. Morton encoding

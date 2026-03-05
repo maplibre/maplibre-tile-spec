@@ -1,4 +1,4 @@
-import { type GeometryVector, type MortonSettings, type CoordinatesArray } from "./geometryVector";
+import type { GeometryVector, MortonSettings, CoordinatesArray } from "./geometryVector";
 import { decodeZOrderCurve } from "./zOrderCurve";
 import { GEOMETRY_TYPE } from "./geometryType";
 import { VertexBufferType } from "./vertexBufferType";
@@ -339,7 +339,7 @@ function decodeMortonDictionaryEncodedLinearRing(
     vertexOffsets: Int32Array,
     vertexOffset: number,
     numVertices: number,
-    geometryFactory: MvtGeometryFactory,
+    _geometryFactory: MvtGeometryFactory,
     mortonSettings: MortonSettings,
 ): Point[] {
     return decodeMortonDictionaryEncodedLineString(
