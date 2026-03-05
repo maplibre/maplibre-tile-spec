@@ -11,9 +11,7 @@ const EARCUT_MAX_RINGS = 500;
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["props_mixed", "F32 very buggy and does not work"],
-    ["prop_i64_min", "wraps to 0 despite it should have been negative"],
     ["prop_u32_max", "wraps to -1 despite it should have been positive"],
-    ["prop_i64_max", "wraps to -1 despite it should have been positive"],
     ["prop_u64_max", "wraps to -1 despite it should have been positive"],
     ["prop_f64", "does not parse f64 as f32"],
     ["prop_f64_max", "does not parse f64 as f32"],
