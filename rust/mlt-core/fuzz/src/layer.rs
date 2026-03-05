@@ -211,3 +211,9 @@ impl LayerInput {
         }
     }
 }
+
+impl std::fmt::Debug for LayerInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.bytes.encode_hex::<String>())
+    }
+}

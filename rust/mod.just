@@ -151,8 +151,14 @@ fmt-toml *args: (just 'cargo-install' 'cargo-sort')
 # Fuzz the layer target (installs `cargo fuzz`)
 fuzz target='layer' *args: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' args)
 
-# Minimize the size of the fuzzing corpus (installs `cargo fuzz`)
-fuzz-cmin file target='layer': (cargo-fuzz 'tmin' target file)
+# Seed the layer fuzz corpus from all .mlt test files (run once, or after new .mlts are added)
+fuzz-seed target='layer': (just 'cargo-install' 'fd' 'fd-find')
+    mkdir -p mlt-core/fuzz/corpus/{{target}}
+    fd . ../test -e mlt -x cp {} mlt-core/fuzz/corpus/{{target}}/
+    {{just}} rust::fuzz-cmin {{target}}
+
+# Minimize the fuzz corpus for target (slow — run occasionally to prune redundant entries)
+fuzz-cmin target='layer': (cargo-fuzz 'cmin' target '--target' 'x86_64-unknown-linux-gnu')
 
 # Minimize the crash in file (installs `cargo fuzz`)
 fuzz-tmin file target='layer': (cargo-fuzz 'tmin' target file)
