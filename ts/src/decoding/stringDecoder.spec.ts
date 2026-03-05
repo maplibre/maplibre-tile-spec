@@ -45,6 +45,17 @@ describe("decodeString - Plain String Decoder", () => {
         }
     });
 
+    it("should decode plain strings with empty string", () => {
+        const expectedStrings = [""];
+        const encodedStrings = encodePlainStrings(expectedStrings);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
+
+        expect(result).toBeInstanceOf(StringFlatVector);
+        const resultVec = result as StringFlatVector;
+        expect(resultVec.getValue(0)).toBe(expectedStrings[0]);
+    });
+
     it("should decode plain strings with empty strings", () => {
         const expectedStrings = ["", "encodedStrings", "", "more"];
         const encodedStrings = encodePlainStrings(expectedStrings);
@@ -196,7 +207,7 @@ describe("decodeString - Empty Column Edge Cases", () => {
         const encodedStrings = encodePlainStrings(strings);
         const offset = new IntWrapper(0);
         const result = decodeString("testColumn", encodedStrings, offset, 3);
-        expect(result).toBeNull();
+        expect((result as StringFlatVector).getValue(0)).toBeNull();
     });
 });
 

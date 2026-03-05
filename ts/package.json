@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "vitest run ./src --coverage --coverage.reportOnFailure",
+    "test": "vitest --coverage --coverage.reportOnFailure",
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\""
   },
@@ -37,7 +37,6 @@
     "bytebuffer": "^5.0.1",
     "earcut": "^3.0.2",
     "eslint": "^9.39.1",
-    "json5": "^2.2.3",
     "pbf": "^4.0.1",
     "prettier": "^3.7.4",
     "typescript": "^5.9.3",
@@ -45,7 +44,6 @@
     "vitest": "^4.0.1"
   },
   "dependencies": {
-    "@mapbox/point-geometry": "^1.1.0",
-    "synthetic-test-tool": "file:../test/synthetic/synthetic-test-tool"
+    "@mapbox/point-geometry": "^1.1.0"
   }
 }

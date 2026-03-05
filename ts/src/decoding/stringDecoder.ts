@@ -31,9 +31,6 @@ export function decodeString(
 
     for (let i = 0; i < numStreams; i++) {
         const streamMetadata = decodeStreamMetadata(data, offset);
-        if (streamMetadata.byteLength === 0) {
-            continue;
-        }
 
         switch (streamMetadata.physicalStreamType) {
             case PhysicalStreamType.PRESENT: {
