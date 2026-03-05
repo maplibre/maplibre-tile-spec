@@ -8,6 +8,11 @@ use mlt_core::{Layer, OwnedLayer};
 pub struct LayerInput {
     pub bytes: Vec<u8>,
 }
+impl std::fmt::Debug for LayerInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.bytes.encode_hex::<String>())
+    }
+}
 impl LayerInput {
     pub fn fuzz_roundtrip(self) {
         let total_len = self.bytes.len();
@@ -35,30 +40,7 @@ impl LayerInput {
 
         // Compare without printing to avoid printing lots of data
         if consumed_input != buffer.as_slice() {
-            Self::panic_with_helpful_diff(consumed_input, buffer.as_slice(), &owned_layer)
-        }
-    }
-
-    fn panic_with_helpful_diff(input: &[u8], output: &[u8], parsed_input: &OwnedLayer) -> ! {
-        Self::print_hex_diff(input, output);
-        let (_, out) = Layer::parse(input).unwrap_or_else(|e| {
-            panic!("After parsing the input and writing it to disk, it cannot be read again because {e}\n\
-            Input parsed to a layer and debug printed:\n{parsed_input:#?}");
-        });
-        let written_owned = out.to_owned();
-        Self::try_panic_if_debug_is_different(parsed_input, &written_owned);
-        if *parsed_input == written_owned {
-            // this will not be fun to debug :(
-            Self::print_corresponding_bytes(written_owned);
-            panic!(
-                "Parsed input and written output parsed back are equal => some dead bits are ignored in the parser\nInput parsed to a layer and debug printed:\n {parsed_input:#?}"
-            );
-        } else {
-            // this should never trigger, and if it does, this is likely a bug in our debugging format
-            println!(
-                "input and output are also NOT equal => significant state not debug-printed or not written to disk"
-            );
-            Self::minimize_unequal_but_debug_equal(parsed_input, &written_owned)
+            panic_with_helpful_diff(consumed_input, buffer.as_slice(), &owned_layer)
         }
     }
 
@@ -67,46 +49,15 @@ impl LayerInput {
         use OwnedLayer as OL;
         match (input, output) {
             (OL::Tag01(input), OL::Tag01(output)) => {
-                Self::minimize_layer1_unequal_but_debug_equal(input, output)
+                minimize_layer1_unequal_but_debug_equal(input, output)
             }
             (OL::Unknown(input), OL::Unknown(output)) => {
-                Self::minimize_unknown_unequal_but_debug_equal(input, output)
+                minimize_unknown_inequal_but_debug_equal(input, output)
             }
             (OL::Unknown(_), OL::Tag01(_)) | (OL::Tag01(_), OL::Unknown(_)) => {
                 unreachable!("mismatched layer types generate different debug output")
             }
         }
-    }
-    fn minimize_layer1_unequal_but_debug_equal(input: &OwnedLayer01, output: &OwnedLayer01) -> ! {
-        let OwnedLayer01 {
-            name,
-            extent,
-            id,
-            geometry,
-            properties,
-            #[cfg(fuzzing)]
-            layer_order,
-        } = input;
-        assert_eq!(*name, output.name, "Layer01 name with different names");
-        assert_eq!(
-            *extent, output.extent,
-            "Layer01 extent with different extents"
-        );
-        assert_eq!(*id, output.id, "Layer01 id with different ids");
-        assert_eq!(
-            *geometry, output.geometry,
-            "Layer01 with different geometries"
-        );
-        assert_eq!(
-            *properties, output.properties,
-            "Layer01 with different properties"
-        );
-        #[cfg(fuzzing)]
-        assert_eq!(
-            layer_order, &output.layer_order,
-            "Layer01 with different layer order"
-        );
-        unreachable!("all props are compared equal, but the outer does not compare equal");
     }
 
     /// If the diff shows up in the debug output, this is very much simpler to debug
@@ -123,97 +74,149 @@ impl LayerInput {
             "Which means that input and output are slightly different:"
         );
     }
-    fn minimize_unknown_inequal_but_debug_equal(input: &OwnedUnknown, output: &OwnedUnknown) -> ! {
-        let OwnedUnknown { value, tag } = input;
-        assert_eq!(*tag, output.tag, "Unknown tag with different tags");
-        assert_eq!(*value, output.value, "Unknown tag with different values");
-        unreachable!("all props are compared equal, but the outer does not compare equal");
-    }
+}
 
-    fn print_hex_diff(input: &[u8], output: &[u8]) {
-        let input_hex = input.encode_hex::<String>();
-        let input_hex = format!("[{input_hex}; {}]", input.len());
-        let output_hex = output.encode_hex::<String>();
-        let output_hex = format!("[{output_hex}; {}]", output.len());
-
-        let mut diff_arrows_hex = String::new();
-        for i in 0..input_hex.len().max(output_hex.len()) {
-            match (input_hex.get(i..=i), output_hex.get(i..=i)) {
-                (Some(i), Some(o)) => {
-                    diff_arrows_hex.push(if i == o { ' ' } else { '^' });
-                }
-                (None, None) => unreachable!(),
-                _ => diff_arrows_hex.push(' '),
-            }
-        }
-
-        println!(
-            "Buffer does not match consumed input\n\n\
-            {input_hex} <- parsed input\n\
-            {output_hex} <- written output\n\
-            {diff_arrows_hex}\n",
+fn panic_with_helpful_diff(input: &[u8], output: &[u8], parsed_input: &OwnedLayer) -> ! {
+    print_hex_diff(input, output);
+    let (_, out) = Layer::parse(input).unwrap_or_else(|e| {
+        panic!(
+            "After parsing the input and writing it to disk, it cannot be read again because {e}\n\
+            Input parsed to a layer and debug printed:\n{parsed_input:#?}"
         );
-    }
-
-    fn print_corresponding_bytes(layer: OwnedLayer) {
-        println!("DEBUG - Here is what the layer looks like as bytes.");
-        println!("IMPORTANT: ordering is arbitrary and does not match MLT");
-        match layer {
-            OwnedLayer::Tag01(l1) => {
-                let OwnedLayer01 {
-                    name,
-                    extent,
-                    id,
-                    geometry,
-                    properties,
-                    #[cfg(fuzzing)]
-                    layer_order,
-                } = l1;
-                #[cfg(fuzzing)]
-                println!("layer_order: {layer_order:?}");
-                println!(
-                    "layer name {name} -> {}",
-                    name.as_bytes().encode_hex::<String>()
-                );
-                println!("layer extent: {extent} -> varint({extent})");
-                {
-                    println!("layer id: {id:?}");
-                    let mut metadata = Vec::new();
-                    id.write_columns_meta_to(&mut metadata).unwrap();
-                    println!("\tlayer id metadata: {}", metadata.encode_hex::<String>());
-                    let mut data = Vec::new();
-                    id.write_to(&mut data).unwrap();
-                    println!("\tlayer id data: {}", data.encode_hex::<String>());
-                }
-                for (i, prop) in properties.iter().enumerate() {
-                    println!("{i}. property -> {prop:?}");
-                    let mut metadata = Vec::new();
-                    prop.write_columns_meta_to(&mut metadata).unwrap();
-                    println!("\tprop metadata: {}", metadata.encode_hex::<String>());
-                    let mut buf = Vec::new();
-                    prop.write_to(&mut buf).unwrap();
-                    println!("\tprop data: {}", buf.encode_hex::<String>());
-                }
-                {
-                    println!("{geometry:?}");
-                    let mut metadata = Vec::new();
-                    geometry.write_columns_meta_to(&mut metadata).unwrap();
-                    println!("\tprop metadata: {}", metadata.encode_hex::<String>());
-                    let mut buf = Vec::new();
-                    geometry.write_to(&mut buf).unwrap();
-                    println!("\tgeometry data: {}", buf.encode_hex::<String>());
-                }
-            }
-            OwnedLayer::Unknown(u) => {
-                println!("tag: {}", u.tag);
-                println!("value: {}", u.value.encode_hex::<String>());
-            }
-        }
+    });
+    let written_owned = out.to_owned();
+    LayerInput::try_panic_if_debug_is_different(parsed_input, &written_owned);
+    if *parsed_input == written_owned {
+        // this will not be fun to debug :(
+        print_corresponding_bytes(written_owned);
+        panic!(
+            "Parsed input and written output parsed back are equal => some dead bits are ignored in the parser\nInput parsed to a layer and debug printed:\n {parsed_input:#?}"
+        );
+    } else {
+        // this should never trigger, and if it does, this is likely a bug in our debugging format
+        println!(
+            "input and output are also NOT equal => significant state not debug-printed or not written to disk"
+        );
+        LayerInput::minimize_unequal_but_debug_equal(parsed_input, &written_owned)
     }
 }
 
-impl std::fmt::Debug for LayerInput {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.bytes.encode_hex::<String>())
+fn minimize_layer1_unequal_but_debug_equal(input: &OwnedLayer01, output: &OwnedLayer01) -> ! {
+    let OwnedLayer01 {
+        name,
+        extent,
+        id,
+        geometry,
+        properties,
+        #[cfg(fuzzing)]
+        layer_order,
+    } = input;
+    assert_eq!(*name, output.name, "Layer01 name with different names");
+    assert_eq!(
+        *extent, output.extent,
+        "Layer01 extent with different extents"
+    );
+    assert_eq!(*id, output.id, "Layer01 id with different ids");
+    assert_eq!(
+        *geometry, output.geometry,
+        "Layer01 with different geometries"
+    );
+    assert_eq!(
+        *properties, output.properties,
+        "Layer01 with different properties"
+    );
+    #[cfg(fuzzing)]
+    assert_eq!(
+        layer_order, &output.layer_order,
+        "Layer01 with different layer order"
+    );
+    unreachable!("all props are compared equal, but the outer does not compare equal");
+}
+
+fn minimize_unknown_inequal_but_debug_equal(input: &OwnedUnknown, output: &OwnedUnknown) -> ! {
+    let OwnedUnknown { value, tag } = input;
+    assert_eq!(*tag, output.tag, "Unknown tag with different tags");
+    assert_eq!(*value, output.value, "Unknown tag with different values");
+    unreachable!("all props are compared equal, but the outer does not compare equal");
+}
+
+fn print_hex_diff(input: &[u8], output: &[u8]) {
+    let input_hex = input.encode_hex::<String>();
+    let input_hex = format!("[{input_hex}; {}]", input.len());
+    let output_hex = output.encode_hex::<String>();
+    let output_hex = format!("[{output_hex}; {}]", output.len());
+
+    let mut diff_arrows_hex = String::new();
+    for i in 0..input_hex.len().max(output_hex.len()) {
+        match (input_hex.get(i..=i), output_hex.get(i..=i)) {
+            (Some(i), Some(o)) => {
+                diff_arrows_hex.push(if i == o { ' ' } else { '^' });
+            }
+            (None, None) => unreachable!(),
+            _ => diff_arrows_hex.push(' '),
+        }
+    }
+
+    println!(
+        "Buffer does not match consumed input\n\n\
+            {input_hex} <- parsed input\n\
+            {output_hex} <- written output\n\
+            {diff_arrows_hex}\n",
+    );
+}
+
+fn print_corresponding_bytes(layer: OwnedLayer) {
+    println!("DEBUG - Here is what the layer looks like as bytes.");
+    println!("IMPORTANT: ordering is arbitrary and does not match MLT");
+    match layer {
+        OwnedLayer::Tag01(l1) => {
+            let OwnedLayer01 {
+                name,
+                extent,
+                id,
+                geometry,
+                properties,
+                #[cfg(fuzzing)]
+                layer_order,
+            } = l1;
+            #[cfg(fuzzing)]
+            println!("layer_order: {layer_order:?}");
+            println!(
+                "layer name {name} -> {}",
+                name.as_bytes().encode_hex::<String>()
+            );
+            println!("layer extent: {extent} -> varint({extent})");
+            {
+                println!("layer id: {id:?}");
+                let mut metadata = Vec::new();
+                id.write_columns_meta_to(&mut metadata).unwrap();
+                println!("\tlayer id metadata: {}", metadata.encode_hex::<String>());
+                let mut data = Vec::new();
+                id.write_to(&mut data).unwrap();
+                println!("\tlayer id data: {}", data.encode_hex::<String>());
+            }
+            for (i, prop) in properties.iter().enumerate() {
+                println!("{i}. property -> {prop:?}");
+                let mut metadata = Vec::new();
+                prop.write_columns_meta_to(&mut metadata).unwrap();
+                println!("\tprop metadata: {}", metadata.encode_hex::<String>());
+                let mut buf = Vec::new();
+                prop.write_to(&mut buf).unwrap();
+                println!("\tprop data: {}", buf.encode_hex::<String>());
+            }
+            {
+                println!("{geometry:?}");
+                let mut metadata = Vec::new();
+                geometry.write_columns_meta_to(&mut metadata).unwrap();
+                println!("\tprop metadata: {}", metadata.encode_hex::<String>());
+                let mut buf = Vec::new();
+                geometry.write_to(&mut buf).unwrap();
+                println!("\tgeometry data: {}", buf.encode_hex::<String>());
+            }
+        }
+        OwnedLayer::Unknown(u) => {
+            println!("tag: {}", u.tag);
+            println!("value: {}", u.value.encode_hex::<String>());
+        }
     }
 }

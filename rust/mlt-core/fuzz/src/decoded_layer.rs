@@ -39,7 +39,7 @@ impl DecodedLayerInput {
 
         if self.layer != owned_parsed_back {
             LayerInput::try_panic_if_debug_is_different(&self.layer, &owned_parsed_back);
-            LayerInput::minimize_inequal_but_debug_equal(&self.layer, &owned_parsed_back);
+            LayerInput::minimize_unequal_but_debug_equal(&self.layer, &owned_parsed_back);
         }
     }
 }
