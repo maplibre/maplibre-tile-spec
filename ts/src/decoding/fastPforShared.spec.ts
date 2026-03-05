@@ -1,4 +1,3 @@
-
 import { describe, expect, it } from "vitest";
 import {
     BLOCK_SIZE,
@@ -23,9 +22,9 @@ describe("FastPforShared", () => {
         it("returns DEFAULT_PAGE_SIZE for invalid inputs", () => {
             expect(normalizePageSize(0)).toBe(DEFAULT_PAGE_SIZE);
             expect(normalizePageSize(-1)).toBe(DEFAULT_PAGE_SIZE);
-            expect(normalizePageSize(NaN)).toBe(DEFAULT_PAGE_SIZE);
-            expect(normalizePageSize(Infinity)).toBe(DEFAULT_PAGE_SIZE);
-            expect(normalizePageSize(-Infinity)).toBe(DEFAULT_PAGE_SIZE);
+            expect(normalizePageSize(Number.NaN)).toBe(DEFAULT_PAGE_SIZE);
+            expect(normalizePageSize(Number.POSITIVE_INFINITY)).toBe(DEFAULT_PAGE_SIZE);
+            expect(normalizePageSize(Number.NEGATIVE_INFINITY)).toBe(DEFAULT_PAGE_SIZE);
         });
 
         it("rounds down to nearest multiple of BLOCK_SIZE", () => {

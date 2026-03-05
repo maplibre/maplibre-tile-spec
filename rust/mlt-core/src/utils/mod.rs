@@ -8,8 +8,8 @@ mod parse;
 pub(crate) use parse::*;
 mod decode;
 pub(crate) use decode::*;
-mod formatter;
-pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt, fmt_byte_array};
+pub(crate) mod formatter;
+pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt};
 use serde_json::{Number, Value};
 
 use crate::MltError;

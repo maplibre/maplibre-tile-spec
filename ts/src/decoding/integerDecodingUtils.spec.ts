@@ -71,7 +71,7 @@ describe("IntegerDecodingUtils", () => {
 
         it("should decode Int64", () => {
             const value = 2n ** 50n;
-            const encoded = encodeVarintInt64(new BigInt64Array([value]));
+            const encoded = encodeVarintInt64(new BigUint64Array([value]));
             const decoded = decodeVarintInt64(encoded, new IntWrapper(0), 1);
             expect(decoded[0]).toEqual(value);
         });
@@ -94,9 +94,9 @@ describe("IntegerDecodingUtils", () => {
 
         it("should decode zigzag BigInt64Array", () => {
             const data = new BigInt64Array([0n, 1n, 2n, 3n]);
-            encodeZigZagInt64(data);
-            decodeZigZagInt64(data);
-            expect(Array.from(data)).toEqual([0n, 1n, 2n, 3n]);
+            const encoded = encodeZigZagInt64(data);
+            const decoded = decodeZigZagInt64(encoded);
+            expect(Array.from(decoded)).toEqual([0n, 1n, 2n, 3n]);
         });
 
         it("should decode zigzag Float64Array", () => {
@@ -220,9 +220,9 @@ describe("IntegerDecodingUtils", () => {
 
             it("should decode zigzag delta Int64", () => {
                 const data = new BigInt64Array([1n, 2n, 3n, 5n, 6n, 7n]);
-                encodeZigZagDeltaInt64(data);
-                decodeZigZagDeltaInt64(data);
-                expect(Array.from(data)).toEqual([1n, 2n, 3n, 5n, 6n, 7n]);
+                const encoded = encodeZigZagDeltaInt64(data);
+                const decoded = decodeZigZagDeltaInt64(encoded);
+                expect(Array.from(decoded)).toEqual([1n, 2n, 3n, 5n, 6n, 7n]);
             });
 
             it("should decode zigzag delta Float64", () => {
@@ -411,9 +411,9 @@ describe("IntegerDecodingUtils", () => {
         const offset = new IntWrapper(0);
         const workspace = createFastPforWireDecodeWorkspace();
 
-        expect(() =>
-            decodeFastPforWithWorkspace(encoded, 0, encoded.length, offset, workspace),
-        ).toThrow(/invalid encodedByteLength=3/);
+        expect(() => decodeFastPforWithWorkspace(encoded, 0, encoded.length, offset, workspace)).toThrow(
+            /invalid encodedByteLength=3/,
+        );
         expect(offset.get()).toBe(0);
     });
 });

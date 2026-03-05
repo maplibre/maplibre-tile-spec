@@ -1,4 +1,4 @@
-import { type StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
+import type { StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import {
     encodeDeltaRleInt32,
@@ -127,7 +127,7 @@ function encodeRleFloat64(data: Float64Array, isSigned: boolean): Float64Array {
  * Encodes BigInt64 values with zigzag encoding and varint compression
  */
 export function encodeInt64SignedNone(values: BigInt64Array): Uint8Array {
-    const zigzagEncoded = new BigInt64Array(Array.from(values, (val) => encodeZigZagInt64Value(val)));
+    const zigzagEncoded = new BigUint64Array(Array.from(values, (val) => encodeZigZagInt64Value(val)));
     return encodeVarintInt64(zigzagEncoded);
 }
 
@@ -140,7 +140,7 @@ export function encodeInt64SignedDelta(values: BigInt64Array): Uint8Array {
     for (let i = 1; i < values.length; i++) {
         deltaEncoded[i] = values[i] - values[i - 1];
     }
-    const zigzagEncoded = new BigInt64Array(deltaEncoded.length);
+    const zigzagEncoded = new BigUint64Array(deltaEncoded.length);
     for (let i = 0; i < deltaEncoded.length; i++) {
         zigzagEncoded[i] = encodeZigZagInt64Value(deltaEncoded[i]);
     }
@@ -161,7 +161,7 @@ export function encodeInt64SignedRle(runs: Array<[number, bigint]>): Uint8Array 
     }
 
     const rleValues = [...runLengths, ...values];
-    return encodeVarintInt64(new BigInt64Array(rleValues));
+    return encodeVarintInt64(new BigUint64Array(rleValues));
 }
 
 /**
@@ -178,12 +178,12 @@ export function encodeInt64SignedDeltaRle(runs: Array<[number, bigint]>): Uint8A
     }
 
     const rleValues = [...runLengths, ...values];
-    return encodeVarintInt64(new BigInt64Array(rleValues));
+    return encodeVarintInt64(new BigUint64Array(rleValues));
 }
 
 /**
  * Encodes unsigned BigInt64 values with varint compression (no zigzag)
  */
 export function encodeInt64UnsignedNone(values: BigInt64Array): Uint8Array {
-    return encodeVarintInt64(values);
+    return encodeVarintInt64(new BigUint64Array(values));
 }

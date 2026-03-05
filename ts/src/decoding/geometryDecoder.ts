@@ -1,4 +1,3 @@
-import { type GeometryVector, type MortonSettings } from "../vector/geometry/geometryVector";
 import { decodeStreamMetadata, type MortonEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import type IntWrapper from "./intWrapper";
 import {
@@ -11,21 +10,16 @@ import { VectorType } from "../vector/vectorType";
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
 import { LengthType } from "../metadata/tile/lengthType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
-import TopologyVector from "../vector/geometry/topologyVector";
 import {
-    ConstGeometryVector,
     createConstGeometryVector,
     createMortonEncodedConstGeometryVector,
 } from "../vector/geometry/constGeometryVector";
-import {
-    createFlatGeometryVector,
-    createFlatGeometryVectorMortonEncoded,
-    FlatGeometryVector,
-} from "../vector/geometry/flatGeometryVector";
+import { createFlatGeometryVector, createFlatGeometryVectorMortonEncoded } from "../vector/geometry/flatGeometryVector";
 import { OffsetType } from "../metadata/tile/offsetType";
-import { ConstGpuVector, createConstGpuVector } from "../vector/geometry/constGpuVector";
-import { type GpuVector } from "../vector/geometry/gpuVector";
-import { createFlatGpuVector, FlatGpuVector } from "../vector/geometry/flatGpuVector";
+import { createConstGpuVector } from "../vector/geometry/constGpuVector";
+import { createFlatGpuVector } from "../vector/geometry/flatGpuVector";
+import type { GeometryVector, MortonSettings } from "../vector/geometry/geometryVector";
+import type { GpuVector } from "../vector/geometry/gpuVector";
 import type GeometryScaling from "./geometryScaling";
 
 // TODO: get rid of numFeatures parameter
@@ -104,7 +98,7 @@ export function decodeGeometryColumn(
         if (indexBuffer !== null) {
             if (geometryOffsets != null || partOffsets != null) {
                 /* Case when the indices of a Polygon outline are encoded in the tile */
-                const topologyVector = new TopologyVector(geometryOffsets, partOffsets, ringOffsets);
+                const topologyVector = { geometryOffsets, partOffsets, ringOffsets };
                 return createConstGpuVector(
                     numFeatures,
                     geometryType,
@@ -124,14 +118,14 @@ export function decodeGeometryColumn(
               createConstGeometryVector(
                   numFeatures,
                   geometryType,
-                  new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
+                  { geometryOffsets, partOffsets, ringOffsets },
                   vertexOffsets,
                   vertexBuffer,
               )
             : createMortonEncodedConstGeometryVector(
                   numFeatures,
                   geometryType,
-                  new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
+                  { geometryOffsets, partOffsets, ringOffsets },
                   vertexOffsets,
                   vertexBuffer,
                   mortonSettings,
@@ -221,25 +215,23 @@ export function decodeGeometryColumn(
 
     if (indexBuffer !== null) {
         /* Case when the indices of a Polygon outline are encoded in the tile */
-        return createFlatGpuVector(
-            geometryTypeVector,
-            triangleOffsets,
-            indexBuffer,
-            vertexBuffer,
-            new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
-        );
+        return createFlatGpuVector(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer, {
+            geometryOffsets,
+            partOffsets,
+            ringOffsets,
+        });
     }
 
     return mortonSettings === null /* Currently only 2D coordinates (Vec2) are implemented in the encoder  */
         ? createFlatGeometryVector(
               geometryTypeVector,
-              new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
+              { geometryOffsets, partOffsets, ringOffsets },
               vertexOffsets,
               vertexBuffer,
           )
         : createFlatGeometryVectorMortonEncoded(
               geometryTypeVector,
-              new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
+              { geometryOffsets, partOffsets, ringOffsets },
               vertexOffsets,
               vertexBuffer,
               mortonSettings,

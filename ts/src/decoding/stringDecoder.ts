@@ -31,9 +31,6 @@ export function decodeString(
 
     for (let i = 0; i < numStreams; i++) {
         const streamMetadata = decodeStreamMetadata(data, offset);
-        if (streamMetadata.byteLength === 0) {
-            continue;
-        }
 
         switch (streamMetadata.physicalStreamType) {
             case PhysicalStreamType.PRESENT: {
@@ -225,7 +222,7 @@ export function decodeSharedDictionary(
     let i = 0;
     for (const childField of childFields) {
         const numStreams = decodeVarintInt32(data, offset, 1)[0];
-        if (numStreams == 0) {
+        if (numStreams === 0) {
             /* Column is not present in the tile */
             continue;
         }

@@ -490,6 +490,17 @@ describe("decodeLongStream", () => {
             expect(result).toEqual(expectedValues);
         });
 
+        it("should decode NONE signed min int64", () => {
+            const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 1);
+            const expectedValues = new BigInt64Array([-(2n ** 63n)]);
+            const data = encodeInt64SignedNone(expectedValues);
+            const offset = new IntWrapper(0);
+
+            const result = decodeLongStream(data, offset, metadata, true);
+
+            expect(result).toEqual(expectedValues);
+        });
+
         it("should decode NONE unsigned", () => {
             const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
             const expectedValues = new BigInt64Array([1n, 2n, 3n]);

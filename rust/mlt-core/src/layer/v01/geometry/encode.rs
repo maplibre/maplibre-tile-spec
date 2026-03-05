@@ -3,7 +3,6 @@ use std::collections::BTreeSet;
 use super::{DecodedGeometry, OwnedEncodedGeometry, VertexBufferType};
 use crate::MltError;
 use crate::utils::encode_componentwise_delta_vec2s;
-use crate::v01::LengthType::VarBinary;
 use crate::v01::{
     DictionaryType, GeometryType, IntEncoder, IntEncoding, LengthType, LogicalEncoding, MortonMeta,
     OffsetType, OwnedStream, PhysicalEncoder, StreamMeta, StreamType,
@@ -55,7 +54,7 @@ fn encode_morton_vertex_buffer(
 /// Compute `ZOrderCurve` parameters from the vertex value range.
 ///
 /// Returns `(num_bits, coordinate_shift)` matching Java's `SpaceFillingCurve`.
-fn zorder_params(vertices: &[i32]) -> Result<(u32, u32), MltError> {
+pub(super) fn z_order_params(vertices: &[i32]) -> Result<(u32, u32), MltError> {
     let min_v = vertices.iter().copied().min().unwrap_or(0);
     let max_v = vertices.iter().copied().max().unwrap_or(0);
     let coordinate_shift: u32 = if min_v < 0 { min_v.unsigned_abs() } else { 0 };
@@ -192,9 +191,38 @@ fn encode_level1_length_stream(
                 part_idx += 1;
             }
         }
-        // Note: Point/MultiPoint don't contribute to part_offsets, so don't advance part_idx
+        // Note: Point/MultiPoint don't have entries in the sparse part_offsets used
+        // at this call site, so part_idx must not advance for non-length types here.
     }
 
+    lengths
+}
+
+/// Compute ring vertex-count lengths for the no-geometry-offsets + has-ring-offsets case.
+///
+/// In this branch `part_offsets` is a **dense** N+1 array (one slot per geometry,
+/// including Points) and `ring_offsets` holds the vertex offsets for every slot.
+/// Using the geometry index directly as the ring-slot index avoids the
+/// running-counter misalignment that `encode_level1_length_stream` would produce
+/// when non-length types (Points) occupy slots that a sparse counter skips.
+fn encode_ring_lengths_for_mixed(
+    geometry_types: &[GeometryType],
+    part_offsets: &[u32],
+    ring_offsets: &[u32],
+    is_line_string_present: bool,
+) -> Vec<u32> {
+    let mut lengths = Vec::new();
+    for (i, &geom_type) in geometry_types.iter().enumerate() {
+        let needs_length =
+            geom_type.is_polygon() || (is_line_string_present && geom_type.is_linestring());
+        if needs_length {
+            let slot_start = part_offsets[i] as usize;
+            let slot_end = part_offsets[i + 1] as usize;
+            for slot in slot_start..slot_end {
+                lengths.push(ring_offsets[slot + 1] - ring_offsets[slot]);
+            }
+        }
+    }
     lengths
 }
 
@@ -217,7 +245,7 @@ fn encode_level2_length_stream(
         let num_geoms = (geometry_offsets[i + 1] - geometry_offsets[i]) as usize;
 
         // Only Polygon and MultiPolygon have ring data in level 2
-        // LineStrings with Polygon present add their vertex counts directly to ring_offsets
+        // LineStrings with Polygon present add their vertex counts directly to ring_offsets,
         // but they don't have parts (ring count per linestring is always 1 implicitly)
         if geom_type.is_polygon() {
             // Polygon/MultiPolygon: iterate through sub-polygons, each has parts (ring counts)
@@ -382,7 +410,7 @@ fn create_unit_geometry_offsets(vector_types: &[GeometryType]) -> Vec<u32> {
 
 /// Normalize `part_offsets` for ring-based indexing (Polygon mixed with `Point`/`LineString`).
 /// Returns an offset array where `offset[i+1]` - `offset[i]` = number of ring length entries
-/// that geometry i contributes to the rings stream.
+/// that geometry `i` contributes to the rings stream.
 ///
 /// When a Polygon is present:
 /// - Point: 0 entries (doesn't contribute to rings)
@@ -432,10 +460,17 @@ fn normalize_part_offsets_for_rings(
     normalized
 }
 
-/// Main geometry encoding function
+/// Main geometry encoding function.
+///
+/// `on_stream`, when provided, is called with the [`StreamType`] and raw
+/// `u32` payload of every stream that is about to be encoded.  This lets
+/// callers profile the data for encoder selection without duplicating any
+/// topology logic.
+#[expect(clippy::type_complexity)]
 pub fn encode_geometry(
     decoded: &DecodedGeometry,
     encoder: &GeometryEncoder,
+    mut on_stream: Option<&mut dyn FnMut(StreamType, &[u32])>,
 ) -> Result<OwnedEncodedGeometry, MltError> {
     let DecodedGeometry {
         vector_types,
@@ -479,10 +514,13 @@ pub fn encode_geometry(
     // Encode geometry types (meta stream)
     let meta = {
         let vector_types_u32: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
+        if let Some(cb) = &mut on_stream {
+            cb(StreamType::Length(LengthType::VarBinary), &vector_types_u32);
+        }
         OwnedStream::encode_u32s_of_type(
             &vector_types_u32,
             encoder.meta,
-            StreamType::Length(VarBinary),
+            StreamType::Length(LengthType::VarBinary),
         )?
     };
 
@@ -500,6 +538,9 @@ pub fn encode_geometry(
         if !lengths.is_empty() || has_tessellation {
             // For tessellated polygons with outlines, Java always includes this stream
             // even when empty
+            if let Some(cb) = &mut on_stream {
+                cb(StreamType::Length(LengthType::Geometries), &lengths);
+            }
             items.push(OwnedStream::encode_u32s_of_type(
                 &lengths,
                 encoder.geometries,
@@ -519,6 +560,9 @@ pub fn encode_geometry(
                     false, // LineStrings contribute to rings, not parts
                 );
                 if !part_lengths.is_empty() {
+                    if let Some(cb) = &mut on_stream {
+                        cb(StreamType::Length(LengthType::Parts), &part_lengths);
+                    }
                     items.push(OwnedStream::encode_u32s_of_type(
                         &part_lengths,
                         encoder.rings,
@@ -529,6 +573,9 @@ pub fn encode_geometry(
                 let ring_lengths =
                     encode_level2_length_stream(vector_types, geom_offs, part_offs, ring_offs);
                 if !ring_lengths.is_empty() {
+                    if let Some(cb) = &mut on_stream {
+                        cb(StreamType::Length(LengthType::Rings), &ring_lengths);
+                    }
                     items.push(OwnedStream::encode_u32s_of_type(
                         &ring_lengths,
                         encoder.rings2,
@@ -543,6 +590,9 @@ pub fn encode_geometry(
                     part_offs,
                 );
                 if !part_lengths.is_empty() {
+                    if let Some(cb) = &mut on_stream {
+                        cb(StreamType::Length(LengthType::Parts), &part_lengths);
+                    }
                     items.push(OwnedStream::encode_u32s_of_type(
                         &part_lengths,
                         encoder.no_rings,
@@ -558,6 +608,9 @@ pub fn encode_geometry(
 
             // For tessellated polygons with outlines, Java includes an empty geometries stream
             if has_tessellation {
+                if let Some(cb) = &mut on_stream {
+                    cb(StreamType::Length(LengthType::Geometries), &[]);
+                }
                 items.push(OwnedStream::encode_u32s_of_type(
                     &[],
                     encoder.geometries,
@@ -568,6 +621,9 @@ pub fn encode_geometry(
             let part_lengths =
                 encode_root_length_stream(vector_types, part_offs, GeometryType::LineString);
             if !part_lengths.is_empty() {
+                if let Some(cb) = &mut on_stream {
+                    cb(StreamType::Length(LengthType::Parts), &part_lengths);
+                }
                 items.push(OwnedStream::encode_u32s_of_type(
                     &part_lengths,
                     encoder.parts,
@@ -575,12 +631,16 @@ pub fn encode_geometry(
                 )?);
             }
 
-            // Ring lengths: part_offs is normalized to have N+1 entries where
-            // part_offs[i+1] - part_offs[i] = number of rings for geometry i.
-            // For Point/LineString this is 0, for Polygon it's the actual ring count.
+            // Ring lengths: part_offs is a dense N+1 array (one slot per geometry,
+            // including Points).  ring_offs stores vertex offsets for each slot.
+            // Use the dense-aware helper so Point slots are correctly skipped by
+            // index rather than by a running counter that ignores non-length types.
             let ring_lengths =
-                encode_level1_length_stream(vector_types, part_offs, ring_offs, has_linestrings);
+                encode_ring_lengths_for_mixed(vector_types, part_offs, ring_offs, has_linestrings);
             if !ring_lengths.is_empty() {
+                if let Some(cb) = &mut on_stream {
+                    cb(StreamType::Length(LengthType::Rings), &ring_lengths);
+                }
                 items.push(OwnedStream::encode_u32s_of_type(
                     &ring_lengths,
                     encoder.parts_ring,
@@ -591,6 +651,9 @@ pub fn encode_geometry(
             // Only parts (e.g., LineString)
             let lengths = encode_root_length_stream(vector_types, part_offs, GeometryType::Point);
             if !lengths.is_empty() {
+                if let Some(cb) = &mut on_stream {
+                    cb(StreamType::Length(LengthType::Parts), &lengths);
+                }
                 items.push(OwnedStream::encode_u32s_of_type(
                     &lengths,
                     encoder.only_parts,
@@ -602,6 +665,9 @@ pub fn encode_geometry(
 
     // Encode triangles stream if present (for pre-tessellated polygons)
     if let Some(tris) = triangles {
+        if let Some(cb) = &mut on_stream {
+            cb(StreamType::Length(LengthType::Triangles), tris);
+        }
         items.push(OwnedStream::encode_u32s_of_type(
             tris,
             encoder.triangles,
@@ -611,6 +677,9 @@ pub fn encode_geometry(
 
     // Encode index buffer if present (for pre-tessellated polygons)
     if let Some(idx_buf) = index_buffer {
+        if let Some(cb) = &mut on_stream {
+            cb(StreamType::Offset(OffsetType::Index), idx_buf);
+        }
         items.push(OwnedStream::encode_u32s_of_type(
             idx_buf,
             encoder.triangles_indexes,
@@ -622,16 +691,26 @@ pub fn encode_geometry(
     if let Some(verts) = vertices {
         match encoder.vertex_buffer_type {
             VertexBufferType::Vec2 => {
+                if let Some(cb) = &mut on_stream {
+                    let delta = encode_componentwise_delta_vec2s(verts);
+                    cb(StreamType::Data(DictionaryType::Vertex), &delta);
+                }
                 items.push(encode_vertex_buffer(verts, encoder.vertex.physical)?);
             }
             VertexBufferType::Morton => {
-                let (num_bits, coordinate_shift) = zorder_params(verts)?;
+                let (num_bits, coordinate_shift) = z_order_params(verts)?;
                 let (dict, offsets) = build_morton_dict(verts, num_bits, coordinate_shift)?;
                 let morton_meta = MortonMeta {
                     num_bits,
                     coordinate_shift,
                 };
-
+                if let Some(cb) = &mut on_stream {
+                    cb(StreamType::Offset(OffsetType::Vertex), &offsets);
+                    let deltas: Vec<u32> = std::iter::once(dict[0])
+                        .chain(dict.windows(2).map(|w| w[1] - w[0]))
+                        .collect();
+                    cb(StreamType::Data(DictionaryType::Morton), &deltas);
+                }
                 items.push(OwnedStream::encode_u32s_of_type(
                     &offsets,
                     encoder.vertex_offsets,
