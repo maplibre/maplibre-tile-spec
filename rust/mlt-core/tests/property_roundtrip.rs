@@ -6,7 +6,7 @@ use mlt_core::v01::{
     PhysicalEncoder, PresenceStream, PropValue, Property, PropertyEncoder, ScalarEncoder,
     StrEncoder,
 };
-use mlt_core::{FromDecoded, FromEncoded, MltError};
+use mlt_core::{FromDecoded as _, FromEncoded as _, MltError};
 use proptest::prelude::*;
 
 // proptest_derive::Arbitrary is only derived for these types inside the crate
@@ -48,15 +48,14 @@ fn arb_int_encoder_no_fastpfor() -> impl Strategy<Value = IntEncoder> {
 
 fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
     prop_oneof![
-        arb_int_encoder_no_fastpfor().prop_map(StrEncoder::plain),
-        (arb_int_encoder_no_fastpfor(), arb_int_encoder_no_fastpfor())
-            .prop_map(|(sym, dict)| StrEncoder::fsst(sym, dict)),
+        arb_int_encoder().prop_map(StrEncoder::plain),
+        (arb_int_encoder(), arb_int_encoder()).prop_map(|(sym, dict)| StrEncoder::fsst(sym, dict)),
     ]
 }
 
 fn roundtrip(decoded: &DecodedProperty, encoder: ScalarEncoder) -> DecodedProperty {
-    let encoded = OwnedEncodedProperty::from_decoded(decoded, encoder).expect("encoding failed");
-    DecodedProperty::from_encoded(borrowme::borrow(&encoded)).expect("decoding failed")
+    let enc = OwnedEncodedProperty::from_decoded(decoded, encoder).expect("encoding failed");
+    DecodedProperty::from_encoded(borrowme::borrow(&enc)).expect("decoding failed")
 }
 
 fn strs(vals: &[&str]) -> Vec<Option<String>> {
