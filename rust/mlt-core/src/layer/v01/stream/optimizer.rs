@@ -1,8 +1,4 @@
-use std::hash::Hash;
-
 use num_traits::{AsPrimitive as _, PrimInt as _, WrappingSub, Zero as _};
-use probabilistic_collections::SipHasherBuilder;
-use probabilistic_collections::hyperloglog::HyperLogLog;
 use zigzag::ZigZag;
 
 use crate::MltError;
@@ -20,18 +16,10 @@ const MAX_SAMPLE: usize = 4_096;
 /// RLE is only worthwhile when runs are on average at least this long.
 const RLE_MIN_AVG_RUN_LENGTH: f64 = 2.0;
 
-/// RLE is unlikely to be worthwhile when the distinctness ratio is above this threshold.
-const RLE_APPROXIMATE_MAX_DISTINCTNESS_RATIO: f64 = 0.95 - HLL_ERROR_RATE;
-
 /// Delta encoding is useful when the absolute delta values fit in fewer bits
 /// than the original values.  Require at least this many bits of reduction
 /// before enabling Delta on an unsorted stream.
 const DELTA_BIT_SAVINGS_THRESHOLD: u8 = 4;
-
-/// Error probability passed to [`HyperLogLog::with_hasher`].
-///
-/// `HLL_ERROR_RATE` * register size fits within a single cache-line cluster.
-const HLL_ERROR_RATE: f64 = 0.05;
 
 /// Sampling-based encoder selection
 ///
@@ -71,15 +59,6 @@ pub struct DataProfile {
     /// reduce value magnitudes and therefore benefit downstream integer
     /// encoders.
     delta_max_bit_width: u8,
-
-    /// Estimated fraction of distinct values: `estimated_distinct / sample_len`.
-    ///
-    /// Computed via an embedded `HyperLogLog` sketch
-    /// 5 % error => 432-byte register vector.
-    /// Ranges from 0.0 (all values identical) to 1.0 (all values unique).
-    ///
-    /// Currently used by [`DataProfile::rle_is_viable`].
-    distinct_ratio: f64,
 }
 
 impl DataProfile {
@@ -88,15 +67,12 @@ impl DataProfile {
     #[expect(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
     fn profile<T>(sample: &[T::UInt]) -> Self
     where
-        T: ZigZag + Hash,
-        <T as ZigZag>::UInt: Hash + WrappingSub,
+        T: ZigZag,
+        <T as ZigZag>::UInt: WrappingSub,
     {
         if sample.is_empty() {
             return Self::default();
         }
-
-        let mut hll =
-            HyperLogLog::<T::UInt>::with_hasher(HLL_ERROR_RATE, SipHasherBuilder::from_entropy());
 
         let mut runs: usize = 1;
         let mut is_sorted_rising = true;
@@ -105,11 +81,7 @@ impl DataProfile {
         let mut max_delta: T::UInt = T::UInt::zero();
         let mut prev = sample[0];
 
-        hll.insert(&sample[0]);
-
         for &v in &sample[1..] {
-            hll.insert(&v);
-
             if v != prev {
                 runs += 1;
             }
@@ -126,15 +98,12 @@ impl DataProfile {
             prev = v;
         }
 
-        let distinct_ratio = (hll.len() / sample.len() as f64).clamp(0.0, 1.0);
-
         Self {
             sample_len: sample.len(),
             avg_run_length: sample.len() as f64 / runs as f64,
             is_sorted: is_sorted_rising || is_sorted_falling,
             max_bit_width: (T::zero().leading_zeros() - max_val.leading_zeros()) as u8,
             delta_max_bit_width: (T::zero().leading_zeros() - max_delta.leading_zeros()) as u8,
-            distinct_ratio,
         }
     }
 
@@ -142,8 +111,8 @@ impl DataProfile {
     #[must_use]
     pub fn prune_candidates<T>(values: &[T::UInt]) -> Vec<IntEncoder>
     where
-        T: ZigZag + Hash,
-        <T as ZigZag>::UInt: Hash + WrappingSub,
+        T: ZigZag,
+        <T as ZigZag>::UInt: WrappingSub,
     {
         if values.is_empty() {
             return vec![IntEncoder::plain()];
@@ -169,16 +138,6 @@ impl DataProfile {
             .copied()
             .min_by_key(|&enc| encoded_size_u64(data, enc))
             .unwrap_or_else(IntEncoder::varint)
-    }
-
-    /// Returns the estimated number of distinct values in the sample, normalized to `[0.0, 1.0]`.
-    ///
-    /// A low `distinct_ratio` means most values are repeated, which is exactly
-    /// the case where a dictionary trades a small code-book for a much shorter
-    /// value stream.
-    #[must_use]
-    pub fn estimated_distinct_ratio(&self) -> f64 {
-        self.distinct_ratio
     }
 
     /// Return the list of `Encoder` variants worth trying for `u32` data given the
@@ -240,13 +199,11 @@ impl DataProfile {
 
     /// Returns `true` if RLE is a sensible candidate based on this profile.
     ///
-    /// Requires both a sufficient average run length (consecutive repetition)
-    /// and a low enough distinct ratio (global repetition) so that the
-    /// run-length and unique-value arrays stored by the encoder are small.
+    /// An average run length above the threshold means values repeat frequently
+    /// enough that the run-length and unique-value arrays will be compact.
     #[must_use]
     fn rle_is_viable(&self) -> bool {
         self.avg_run_length >= RLE_MIN_AVG_RUN_LENGTH
-            && self.distinct_ratio < RLE_APPROXIMATE_MAX_DISTINCTNESS_RATIO
     }
 
     /// Returns `true` if Delta encoding is expected to be beneficial.
