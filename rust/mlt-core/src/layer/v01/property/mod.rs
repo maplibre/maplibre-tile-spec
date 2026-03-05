@@ -73,9 +73,7 @@ impl OwnedProperty {
 
     #[must_use]
     pub fn approx_type(&self) -> AproxPropertyType {
-        use AproxPropertyType as T;
-        use OwnedEncodedPropValue as Enc;
-        use PropValue as Dec;
+        use {AproxPropertyType as T, OwnedEncodedPropValue as Enc, PropValue as Dec};
         match self {
             Self::Encoded(r) => match &r.value {
                 Enc::Bool(..) => T::Bool,
@@ -467,7 +465,7 @@ impl<'a> Property<'a> {
 /// Instructions sharing the same [`PropertyEncoder::shared_dict`] are grouped
 /// into a single struct column with a shared dictionary.
 /// The struct column appears in the output at the position of its first child in the input.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PropertyEncoder {
     /// Encode this property as a standalone scalar column.
     Scalar(ScalarEncoder),
@@ -592,6 +590,7 @@ pub enum PresenceStream {
     Absent,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultiPropertyEncoder {
     pub(crate) properties: Vec<PropertyEncoder>,
     pub(crate) shared_dicts: HashMap<String, StrEncoder>,
@@ -694,8 +693,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
     type Encoder = ScalarEncoder;
 
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
-        use OwnedEncodedPropValue as EncVal;
-        use PropValue as Val;
+        use {OwnedEncodedPropValue as EncVal, PropValue as Val};
         let optional = if encoder.optional == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
             Some(OwnedStream::encode_presence(&present_vec)?)
@@ -777,8 +775,7 @@ impl<'a> FromEncoded<'a> for DecodedProperty {
     type Input = EncodedProperty<'a>;
 
     fn from_encoded(v: EncodedProperty<'_>) -> Result<Self, MltError> {
-        use EncodedPropValue as EncVal;
-        use PropValue as Val;
+        use {EncodedPropValue as EncVal, PropValue as Val};
         let values = match v.value {
             EncVal::Bool(o, s) => Val::Bool(apply_present(o, s.decode_bools()?)?),
             EncVal::I8(o, s) => Val::I8(apply_present(o, s.decode_i8s()?)?),
