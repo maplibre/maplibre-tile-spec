@@ -1,41 +1,42 @@
 package org.maplibre.mlt.converter.encodings.fsst;
 
-import java.nio.file.FileSystems;
+import jakarta.annotation.Nullable;
+import nl.bartlouwers.fsst.*;
 
 public class FsstJni implements Fsst {
-
-  private static boolean isLoaded = false;
-  private static UnsatisfiedLinkError loadError;
+  private static nl.bartlouwers.fsst.Fsst impl = null;
+  private static Error loadError;
 
   static {
-    String os = System.getProperty("os.name").toLowerCase();
-    boolean isWindows = os.contains("win");
-    String moduleDir = "build/FsstWrapper.so";
-    if (isWindows) {
-      // TODO: figure out how to get cmake to put in common directory
-      moduleDir = "build/Release/FsstWrapper.so";
-    }
-    String modulePath =
-        FileSystems.getDefault().getPath(moduleDir).normalize().toAbsolutePath().toString();
     try {
-      System.load(modulePath);
-      isLoaded = true;
-    } catch (UnsatisfiedLinkError e) {
+      var impl = new FsstImpl();
+      impl.encode(new byte[] {});
+      FsstJni.impl = impl;
+    } catch (UnsatisfiedLinkError | ExceptionInInitializerError e) {
       loadError = e;
     }
   }
 
-  public SymbolTable encode(byte[] data) {
-    return FsstJni.compress(data);
+  public @Nullable SymbolTable encode(byte[] data) {
+    return (impl != null) ? impl.encode(data) : null;
+  }
+
+  public @Nullable byte[] decode(SymbolTable table) {
+    return (impl != null) ? impl.decode(table) : null;
+  }
+
+  public @Nullable byte[] decode(
+      byte[] symbols, int[] symbolLengths, byte[] compressedData, int decompressedLength) {
+    return (impl != null)
+        ? impl.decode(symbols, symbolLengths, compressedData, decompressedLength)
+        : null;
   }
 
   public static boolean isLoaded() {
-    return isLoaded;
+    return (impl != null);
   }
 
-  public static UnsatisfiedLinkError getLoadError() {
+  public static Error getLoadError() {
     return loadError;
   }
-
-  public static native SymbolTable compress(byte[] inputBytes);
 }

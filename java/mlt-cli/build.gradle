@@ -86,12 +86,12 @@ jacocoTestReport {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(22)
     }
 }
 
 kotlin {
-    jvmToolchain { languageVersion.set(JavaLanguageVersion.of(21)) }
+    jvmToolchain { languageVersion.set(JavaLanguageVersion.of(22)) }
 }
 
 spotless {

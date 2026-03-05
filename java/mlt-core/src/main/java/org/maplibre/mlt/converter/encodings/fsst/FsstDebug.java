@@ -3,6 +3,7 @@ package org.maplibre.mlt.converter.encodings.fsst;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import nl.bartlouwers.fsst.SymbolTable;
 
 class FsstDebug implements Fsst {
   private final Fsst java = new FsstJava();
@@ -25,18 +26,24 @@ class FsstDebug implements Fsst {
                 }));
   }
 
+  public static int weight(SymbolTable table) {
+    return table.symbols().length + table.symbolLengths().length + table.compressedData().length;
+  }
+
   @Override
   public SymbolTable encode(byte[] data) {
     final long a = System.currentTimeMillis();
-    final var fromJni = jni.encode(data);
+    var fromJni = jni.encode(data);
     final long b = System.currentTimeMillis();
     final var fromJava = java.encode(data);
     final long c = System.currentTimeMillis();
-    jniTime.addAndGet(b - a);
-    javaTime.addAndGet(c - b);
-    jniSize.addAndGet(fromJni.weight());
-    javaSize.addAndGet(fromJava.weight());
-    (fromJava.weight() <= fromJni.weight() ? javaSmaller : jniSmaller).incrementAndGet();
+    if (fromJni != null) {
+      jniTime.addAndGet(b - a);
+      javaTime.addAndGet(c - b);
+      jniSize.addAndGet(weight(fromJni));
+      javaSize.addAndGet(weight(fromJava));
+      (weight(fromJava) <= weight(fromJni) ? javaSmaller : jniSmaller).incrementAndGet();
+    }
     return fromJava;
   }
 

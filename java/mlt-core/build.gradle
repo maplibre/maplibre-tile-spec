@@ -17,6 +17,7 @@ dependencies {
     api(libs.javaFastPFOR)
     implementation(libs.commons.lang3)
     implementation(libs.earcut4j)
+    implementation(libs.fsst4j)
     implementation(libs.gson)
     implementation(libs.guava)
     implementation(libs.hppc)
@@ -62,7 +63,7 @@ jacocoTestReport {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(22)
     }
 }
 
@@ -75,18 +76,23 @@ spotless {
     }
 }
 
-tasks.register('compileWrapper', Exec) {
-    workingDir = project.projectDir
-    doFirst {
-        if (System.properties['os.name'].toLowerCase().contains('windows')) {
-            executable "../resources/compile-windows.bat"
-        } else {
-            executable "./compile-wrapper.sh"
+tasks.register('compileWrapper') {
+    description = 'Builds the native FSST wrapper'
+    group = 'build'
+    outputs.files layout.projectDirectory.dir('../resources/build/FsstWrapper.so')
+
+    doLast {
+        def baseDir = file(layout.projectDirectory.dir('..'))
+        exec {
+            workingDir baseDir
+            if (System.properties['os.name'].toLowerCase().contains('windows')) {
+                commandLine "resources\\compile-windows.bat"
+            } else {
+                commandLine './resources/compile'
+            }
         }
     }
 }
-
-// compileJava.dependsOn compileWrapper // Disabled due to CMake compatibility issues
 
 gradle.projectsEvaluated {
     tasks.withType(JavaCompile).tap {
@@ -100,6 +106,7 @@ gradle.projectsEvaluated {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
+    //dependsOn(tasks.named('compileWrapper'))
 }
 
 tasks.register('validateSemver') {
