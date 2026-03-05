@@ -110,7 +110,7 @@ impl GeometryOptimizer {
     /// - The coordinate range fits within 16 bits per axis (required by the spec), and
     /// - The uniqueness ratio is below [`MORTON_UNIQUENESS_THRESHOLD`], meaning
     ///   enough vertices are repeated that the dictionary overhead is worthwhile.
-    pub fn select_vertex_strategy(vertices: &[i32]) -> VertexBufferType {
+    fn select_vertex_strategy(vertices: &[i32]) -> VertexBufferType {
         let total = vertices.len() / 2;
         if total == 0 {
             return VertexBufferType::Vec2;

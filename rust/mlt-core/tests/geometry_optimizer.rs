@@ -6,7 +6,7 @@ use mlt_core::borrowme;
 use mlt_core::geojson::{Coord32, Geom32};
 use mlt_core::v01::{
     DecodedGeometry, DictionaryType, GeometryOptimizer, LengthType, OffsetType,
-    OwnedEncodedGeometry, StreamType, VertexBufferType,
+    OwnedEncodedGeometry, StreamType,
 };
 use pretty_assertions::assert_eq;
 
@@ -30,8 +30,6 @@ fn encoded_stream_types(encoded: &OwnedEncodedGeometry) -> HashSet<StreamType> {
         .chain(encoded.items.iter().map(|s| s.meta.stream_type))
         .collect()
 }
-
-// -- Roundtrip tests ---------------------------------------------------------
 
 #[test]
 fn roundtrip_single_point() {
@@ -114,44 +112,66 @@ fn roundtrip_multi_polygon() {
     assert_eq!(canonical, output);
 }
 
-// -- Strategy selection ------------------------------------------------------
-
 #[test]
-fn vertex_strategy_empty_is_vec2() {
-    assert_eq!(
-        GeometryOptimizer::select_vertex_strategy(&[]),
-        VertexBufferType::Vec2
+fn vertex_strategy_all_unique_prefers_vec2() {
+    // 10 distinct points — uniqueness ratio = 1.0 ≥ 0.5 → Vec2.
+    let geoms: Vec<Geom32> = (0i32..10)
+        .map(|i| Geom32::Point(Point(Coord32 { x: i, y: i })))
+        .collect();
+    let encoded =
+        GeometryOptimizer::optimize_and_encode(&push_geoms(&geoms)).expect("encode failed");
+    let types = encoded_stream_types(&encoded);
+    assert!(
+        types.contains(&StreamType::Data(DictionaryType::Vertex)),
+        "all-unique vertices must use Vec2 (Vertex) encoding"
+    );
+    assert!(
+        !types.contains(&StreamType::Data(DictionaryType::Morton)),
+        "all-unique vertices must not use Morton encoding"
     );
 }
 
 #[test]
-fn vertex_strategy_all_unique_is_vec2() {
-    let verts: Vec<i32> = (0i32..20).collect();
-    assert_eq!(
-        GeometryOptimizer::select_vertex_strategy(&verts),
-        VertexBufferType::Vec2
+fn vertex_strategy_high_repetition_prefers_morton() {
+    // All 20 points share the same coordinate — uniqueness ratio = 1/20 < 0.5 → Morton.
+    let geoms: Vec<Geom32> =
+        std::iter::repeat_n(Geom32::Point(Point(Coord32 { x: 5, y: 5 })), 20).collect();
+    let encoded =
+        GeometryOptimizer::optimize_and_encode(&push_geoms(&geoms)).expect("encode failed");
+    let types = encoded_stream_types(&encoded);
+    assert!(
+        types.contains(&StreamType::Data(DictionaryType::Morton)),
+        "highly repeated vertices must use Morton encoding"
+    );
+    assert!(
+        !types.contains(&StreamType::Data(DictionaryType::Vertex)),
+        "highly repeated vertices must not use Vec2 encoding"
     );
 }
 
 #[test]
-fn vertex_strategy_all_same_is_morton() {
-    let verts: Vec<i32> = [5, 5].repeat(20);
-    assert_eq!(
-        GeometryOptimizer::select_vertex_strategy(&verts),
-        VertexBufferType::Morton
+fn vertex_strategy_out_of_morton_range_falls_back_to_vec2() {
+    // Coordinates exceed 16-bit range (> 65535), so Morton is ruled out entirely.
+    let geoms: Vec<Geom32> = std::iter::repeat_n(
+        Geom32::Point(Point(Coord32 {
+            x: 0x1_0000,
+            y: 0x1_0000,
+        })),
+        50,
+    )
+    .collect();
+    let encoded =
+        GeometryOptimizer::optimize_and_encode(&push_geoms(&geoms)).expect("encode failed");
+    let types = encoded_stream_types(&encoded);
+    assert!(
+        types.contains(&StreamType::Data(DictionaryType::Vertex)),
+        "out-of-range coordinates must fall back to Vec2 encoding"
+    );
+    assert!(
+        !types.contains(&StreamType::Data(DictionaryType::Morton)),
+        "out-of-range coordinates must not use Morton encoding"
     );
 }
-
-#[test]
-fn vertex_strategy_out_of_range_falls_back_to_vec2() {
-    let huge: Vec<i32> = [0x1_0000, 0x1_0000].repeat(50);
-    assert_eq!(
-        GeometryOptimizer::select_vertex_strategy(&huge),
-        VertexBufferType::Vec2
-    );
-}
-
-// -- Encoded stream structure ------------------------------------------------
 
 #[test]
 fn encoded_output_always_has_meta_stream() {
