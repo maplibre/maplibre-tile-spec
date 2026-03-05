@@ -10,6 +10,14 @@ export function compareWithTolerance(
   received: unknown,
   expected: unknown,
 ): boolean | undefined {
+  if (typeof expected === "string") {
+    if (expected.endsWith("NAN")) {
+      expected = NaN;
+    } else if (expected.endsWith("INFINITY")) {
+      expected = expected.endsWith("NEG_INFINITY") ? -Infinity : Infinity;
+    }
+  }
+
   if (typeof received !== "number" || typeof expected !== "number") {
     return undefined;
   }
