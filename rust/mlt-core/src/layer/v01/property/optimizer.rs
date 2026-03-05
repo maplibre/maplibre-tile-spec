@@ -542,6 +542,7 @@ fn common_prefix_name(names: &[&str]) -> String {
             break;
         }
     }
+    let prefix_len = first.floor_char_boundary(prefix_len);
     let raw = &first[..prefix_len];
     let trimmed = raw.trim_end_matches([':', '_', '-', '.']);
     if trimmed.is_empty() {
