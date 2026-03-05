@@ -21,7 +21,6 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
     }
 
     protected getValueFromBuffer(index: number): string {
-
         if (this.decodedDictionary == null) {
             if (this.symbolLengthBuffer == null) {
                 // TODO: change FsstEncoder to take offsets instead of length to get rid of this conversion
