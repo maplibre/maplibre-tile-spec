@@ -305,7 +305,7 @@ impl PropertyOptimizer {
             }
             PropValue::I8(v) => {
                 let presence = to_presence(count_nulls(v));
-                // FIXME: inaccurate, but encoders don't support i8 widely. Sometimes, plain might be more efficient for this, but is estimated less effecitive
+                // FIXME: inaccurate, but encoders don't support i8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
                 let non_null: Vec<u32> = v
                     .iter()
                     .flatten()
@@ -320,7 +320,7 @@ impl PropertyOptimizer {
             }
             PropValue::U8(v) => {
                 let presence = to_presence(count_nulls(v));
-                // FIXME: inaccurate, but encoders don't support u8 widely. Sometimes, plain might be more efficient for this, but is estimated less effecitive
+                // FIXME: inaccurate, but encoders don't support u8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
                 let non_null: Vec<u32> = v.iter().flatten().copied().map(u32::from).collect();
                 PropertyEncoder::Scalar(ScalarEncoder::int(
                     presence,
@@ -484,8 +484,7 @@ fn to_presence(num_nulls: usize) -> PresenceStream {
     }
 }
 
-/// Returns the longest common byte prefix of `names` with trailing separator
-/// characters (`':'`, `'_'`, `'-'`, `'.'`) stripped.
+/// Returns the longest common byte prefix of `names`.
 ///
 /// Falls back to the first name when the stripped prefix is empty.
 fn common_prefix_name(names: &[&str]) -> String {
