@@ -340,10 +340,7 @@ fn build_encoder(
             let presence = to_presence(count_nulls(v));
             let non_null = v.iter().flatten().copied().collect::<Vec<i64>>();
             let enc = encode_zigzag(&non_null);
-            PropertyEncoder::Scalar(ScalarEncoder::int(
-                presence,
-                IntEncoder::auto_u64(&enc),
-            ))
+            PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u64(&enc)))
         }
         PropValue::U64(v) => {
             let presence = to_presence(count_nulls(v));
