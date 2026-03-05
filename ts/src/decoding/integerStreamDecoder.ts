@@ -219,11 +219,12 @@ function decodeInt32(
 }
 
 function decodeInt64(
-    values: BigInt64Array,
+    values: BigUint64Array,
     streamMetadata: StreamMetadata,
     isSigned: boolean,
     nullabilityBuffer?: BitVector,
 ): BigInt64Array {
+    let decodedValues: BigInt64Array;
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
@@ -231,16 +232,20 @@ function decodeInt64(
                 if (!nullabilityBuffer) {
                     return decodeDeltaRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
                 }
-                values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
+                decodedValues = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
+                decodedValues = decodeZigZagDeltaInt64(decodedValues);
+            } else {
+                decodedValues = decodeZigZagDeltaInt64(values);
             }
-            decodeZigZagDeltaInt64(values);
             break;
         case LogicalLevelTechnique.RLE:
-            values = decodeRleInt64(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
+            decodedValues = decodeRleInt64(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
             break;
         case LogicalLevelTechnique.NONE:
             if (isSigned) {
-                decodeZigZagInt64(values);
+                decodedValues = decodeZigZagInt64(values);
+            } else {
+                decodedValues = new BigInt64Array(values);
             }
             break;
         default:
@@ -250,9 +255,9 @@ function decodeInt64(
     }
 
     if (nullabilityBuffer) {
-        return unpackNullable(values, nullabilityBuffer, 0n);
+        return unpackNullable(decodedValues, nullabilityBuffer, 0n);
     }
-    return values;
+    return decodedValues;
 }
 
 export function decodeFloat64(values: Float64Array, streamMetadata: StreamMetadata, isSigned: boolean): Float64Array {
@@ -378,7 +383,7 @@ function decodeRleInt32(data: Int32Array, streamMetadata: RleEncodedStreamMetada
 }
 
 function decodeRleInt64(
-    data: BigInt64Array,
+    data: BigUint64Array,
     streamMetadata: RleEncodedStreamMetadata,
     isSigned: boolean,
 ): BigInt64Array {
