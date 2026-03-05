@@ -12,7 +12,6 @@ export class StringDictionaryVector extends VariableSizeVector<Uint8Array, strin
     ) {
         super(name, offsetBuffer, dictionaryBuffer, nullabilityBuffer ?? indexBuffer.length);
         this.indexBuffer = indexBuffer;
-        this.textEncoder = new TextEncoder();
     }
 
     protected getValueFromBuffer(index: number): string {
