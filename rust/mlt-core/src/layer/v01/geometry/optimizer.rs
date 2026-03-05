@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use super::GeometryEncoder;
-use super::encode::{encode_geometry, zorder_params};
-use super::{DecodedGeometry, OwnedEncodedGeometry, VertexBufferType};
+use super::encode::{encode_geometry, z_order_params};
+use super::{DecodedGeometry, GeometryEncoder, OwnedEncodedGeometry, VertexBufferType};
 use crate::MltError;
 use crate::v01::{DictionaryType, IntEncoder, LengthType, OffsetType, StreamType};
 
@@ -17,7 +16,7 @@ const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.5;
 ///
 /// `GeometryOptimizer` analyses a [`DecodedGeometry`] and picks the best
 /// combination of encoding strategies for every stream it contains.  It
-/// replaces the need to configure a [`super::GeometryEncoder`] by hand.
+/// replaces the need to configure a [`GeometryEncoder`] by hand.
 ///
 /// # Design
 ///
@@ -29,7 +28,7 @@ const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.5;
 pub struct GeometryOptimizer;
 
 impl GeometryOptimizer {
-    /// Analyse `decoded` and encode it with automatically selected per-stream
+    /// Analyze `decoded` and encode it with automatically selected per-stream
     /// encoders.
     pub fn optimize_and_encode(
         decoded: &DecodedGeometry,
@@ -117,7 +116,7 @@ impl GeometryOptimizer {
         }
 
         // Morton requires coordinates in a bounded range.
-        if zorder_params(vertices).is_err() {
+        if z_order_params(vertices).is_err() {
             return VertexBufferType::Vec2;
         }
 

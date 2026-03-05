@@ -54,7 +54,7 @@ fn encode_morton_vertex_buffer(
 /// Compute `ZOrderCurve` parameters from the vertex value range.
 ///
 /// Returns `(num_bits, coordinate_shift)` matching Java's `SpaceFillingCurve`.
-pub(super) fn zorder_params(vertices: &[i32]) -> Result<(u32, u32), MltError> {
+pub(super) fn z_order_params(vertices: &[i32]) -> Result<(u32, u32), MltError> {
     let min_v = vertices.iter().copied().min().unwrap_or(0);
     let max_v = vertices.iter().copied().max().unwrap_or(0);
     let coordinate_shift: u32 = if min_v < 0 { min_v.unsigned_abs() } else { 0 };
@@ -245,7 +245,7 @@ fn encode_level2_length_stream(
         let num_geoms = (geometry_offsets[i + 1] - geometry_offsets[i]) as usize;
 
         // Only Polygon and MultiPolygon have ring data in level 2
-        // LineStrings with Polygon present add their vertex counts directly to ring_offsets
+        // LineStrings with Polygon present add their vertex counts directly to ring_offsets,
         // but they don't have parts (ring count per linestring is always 1 implicitly)
         if geom_type.is_polygon() {
             // Polygon/MultiPolygon: iterate through sub-polygons, each has parts (ring counts)
@@ -410,7 +410,7 @@ fn create_unit_geometry_offsets(vector_types: &[GeometryType]) -> Vec<u32> {
 
 /// Normalize `part_offsets` for ring-based indexing (Polygon mixed with `Point`/`LineString`).
 /// Returns an offset array where `offset[i+1]` - `offset[i]` = number of ring length entries
-/// that geometry i contributes to the rings stream.
+/// that geometry `i` contributes to the rings stream.
 ///
 /// When a Polygon is present:
 /// - Point: 0 entries (doesn't contribute to rings)
@@ -466,6 +466,7 @@ fn normalize_part_offsets_for_rings(
 /// `u32` payload of every stream that is about to be encoded.  This lets
 /// callers profile the data for encoder selection without duplicating any
 /// topology logic.
+#[expect(clippy::type_complexity)]
 pub fn encode_geometry(
     decoded: &DecodedGeometry,
     encoder: &GeometryEncoder,
@@ -697,7 +698,7 @@ pub fn encode_geometry(
                 items.push(encode_vertex_buffer(verts, encoder.vertex.physical)?);
             }
             VertexBufferType::Morton => {
-                let (num_bits, coordinate_shift) = zorder_params(verts)?;
+                let (num_bits, coordinate_shift) = z_order_params(verts)?;
                 let (dict, offsets) = build_morton_dict(verts, num_bits, coordinate_shift)?;
                 let morton_meta = MortonMeta {
                     num_bits,
