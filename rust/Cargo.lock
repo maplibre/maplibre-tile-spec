@@ -1556,6 +1556,7 @@ dependencies = [
  "strum 0.28.0",
  "test_each_file",
  "thiserror 2.0.18",
+ "union-find",
  "zigzag",
 ]
 
@@ -3384,6 +3385,12 @@ dependencies = [
  "phf_codegen",
  "rand 0.8.5",
 ]
+
+[[package]]
+name = "union-find"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "039142448432983c34b64739f8526f8f233a1eec7a66e61b6ab29acfa781194e"
 
 [[package]]
 name = "utf8parse"

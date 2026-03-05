@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 
 use fsst::Compressor;
 use probabilistic_collections::similarity::MinHash;
+use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
 use crate::v01::property::strings::StrEncoder;
 use crate::v01::property::{
@@ -213,56 +214,49 @@ impl PropertyOptimizer {
 
     /// Cluster string profiles into groups using greedy [`MinHash`] Jaccard merging.
     ///
-    /// Returns a `Vec` of groups; each group is a sorted list of `col_idx`
-    /// values.  Every string column appears in exactly one group.  Singleton
-    /// groups (length 1) represent standalone scalar string columns.
+    /// Returns a `Vec` of groups; each group is a sorted list of `col_idx` values.
+    /// Every string column appears in exactly one group. Singleton groups
+    /// (length 1) represent standalone scalar string columns.
     fn group_strings(
         profiles: &[StringProfile],
         min_hash: &MinHash<IntoIter<&str>, &str>,
     ) -> Vec<Vec<usize>> {
-        // group_id[i] = which group profile i currently belongs to.
-        let mut group_id: Vec<usize> = (0..profiles.len()).collect();
+        let n = profiles.len();
+        let mut uf = QuickUnionUf::<UnionBySize>::new(n);
 
-        for i in 0..profiles.len() {
-            // Columns with no non-null values can't be compared.
+        // Compare every pair of columns and union if similarity exceeds threshold
+        for i in 0..n {
             if profiles[i].min_hashes.is_empty() {
-                continue;
+                continue; // skip empty columns
             }
-            for j in (i + 1)..profiles.len() {
+            for j in (i + 1)..n {
                 if profiles[j].min_hashes.is_empty() {
                     continue;
                 }
-                if group_id[i] == group_id[j] {
-                    continue;
-                }
+
                 let sim = min_hash
                     .get_similarity_from_hashes(&profiles[i].min_hashes, &profiles[j].min_hashes);
+
                 if sim > MINHASH_SIMILARITY_THRESHOLD {
-                    // Merge group of j into group of i.
-                    let old_id = group_id[j];
-                    let new_id = group_id[i];
-                    for id in &mut group_id {
-                        if *id == old_id {
-                            *id = new_id;
-                        }
-                    }
+                    uf.union(i, j);
                 }
             }
         }
 
-        // Collect groups, mapping group_id -> list of col_idx, sorted by col_idx
-        // so that dictionary insertion order matches the encoding pass.
-        let mut groups_map: HashMap<usize, Vec<usize>> = HashMap::new();
-        for (i, &gid) in group_id.iter().enumerate() {
-            groups_map.entry(gid).or_default().push(profiles[i].col_idx);
+        // Collect groups by root
+        let mut groups_map = HashMap::<_, Vec<usize>>::new();
+        for (i, profile) in profiles.iter().enumerate() {
+            let root = uf.find(i);
+            groups_map.entry(root).or_default().push(profile.col_idx);
         }
 
+        // Convert map to Vec<Vec<usize>>, sort inner lists, sort by first column
         let mut groups: Vec<Vec<usize>> = groups_map.into_values().collect();
         for g in &mut groups {
             g.sort_unstable();
         }
-        // Order groups by their first (lowest) col_idx for deterministic output.
         groups.sort_unstable_by_key(|g| g[0]);
+
         groups
     }
 
