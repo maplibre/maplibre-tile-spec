@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 
 use fsst::Compressor;
 use probabilistic_collections::similarity::MinHash;
-use union_find::{QuickUnionUf, UnionBySize, UnionFind};
+use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
 use crate::v01::property::strings::StrEncoder;
 use crate::v01::property::{
@@ -193,10 +193,8 @@ impl PropertyOptimizer {
         min_hash: &MinHash<IntoIter<&str>, &str>,
     ) -> StringProfile {
         let mut unique_set: HashSet<&str> = HashSet::new();
-        for v in values {
-            if let Some(s) = v {
-                unique_set.insert(s.as_str());
-            }
+        for s in values.iter().flatten() {
+            unique_set.insert(s.as_str());
         }
 
         // Guard against all-null columns - MinHash panics on an empty iterator.
