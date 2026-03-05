@@ -54,8 +54,8 @@ fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
 }
 
 fn roundtrip(decoded: &DecodedProperty, encoder: ScalarEncoder) -> DecodedProperty {
-    let encoded = OwnedEncodedProperty::from_decoded(decoded, encoder).expect("encoding failed");
-    DecodedProperty::from_encoded(borrowme::borrow(&encoded)).expect("decoding failed")
+    let enc = OwnedEncodedProperty::from_decoded(decoded, encoder).expect("encoding failed");
+    DecodedProperty::from_encoded(borrowme::borrow(&enc)).expect("decoding failed")
 }
 
 fn strs(vals: &[&str]) -> Vec<Option<String>> {
