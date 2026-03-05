@@ -100,17 +100,11 @@ impl IdOptimizer {
         // If every value was None the value stream will be empty regardless of
         // encoding; return the trivial default.
         if first_non_null.is_none() {
-            return Err(Self::default_encoder());
+            return Err(IdEncoder::new(LogicalEncoder::None, IdWidth::Id32));
         }
 
         let id_width = Self::deduce_width(has_nulls, max_value);
         Ok((is_sequential, is_constant, id_width))
-    }
-
-    /// Returns the zero-cost fallback encoder used when there is nothing to encode.
-    #[inline]
-    fn default_encoder() -> IdEncoder {
-        IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
     }
 
     /// Determine the narrowest correct `IdWidth` for the given data.
