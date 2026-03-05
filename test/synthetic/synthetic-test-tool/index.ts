@@ -1,7 +1,12 @@
 import { glob, readFile, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import JSON5 from "json5";
 import { expect } from "vitest";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+export const syntheticTestDir = resolve(__dirname, "../0x01");
 
 async function collectGlob(pattern: string): Promise<string[]> {
   const result: string[] = [];
@@ -31,6 +36,22 @@ expect.addEqualityTesters([
   },
 ]);
 
+export type SyntheticCaseResult =
+  | {
+      status: "ok";
+      testName: string;
+    }
+  | {
+      status: "skip";
+      testName: string;
+      reason: string;
+    }
+  | {
+      status: "fail";
+      testName: string;
+      error: unknown;
+    };
+
 export class SyntheticTestRunner {
   shouldSkip(_testName: string): false | string {
     return false;
@@ -46,6 +67,7 @@ export class SyntheticTestRunner {
       `${JSON5.stringify(actual, null, 2)}\n`,
       "utf-8",
     );
+    console.log(`wrote actual output to ${actualFile}`);
     return actualFile;
   }
 
@@ -53,57 +75,54 @@ export class SyntheticTestRunner {
     throw new Error("not implemented");
   }
 
-  async run(syntheticDir: string): Promise<void> {
-    const mltFiles = await collectGlob(join(syntheticDir, "*.mlt"));
-    let passed = 0;
-    let failed = 0;
-    let skipped = 0;
+  async runCase(
+    testName: string,
+    syntheticDir: string = syntheticTestDir,
+  ): Promise<SyntheticCaseResult> {
+    const mltFile = join(syntheticDir, `${testName}.mlt`);
+    const jsonFile = join(syntheticDir, `${testName}.json`);
 
-    for (const mltFile of mltFiles) {
-      const name = basename(mltFile);
-      const testName = name.replace(/\.mlt$/, "");
-      const jsonFile = mltFile.replace(/\.mlt$/, ".json");
-
-      const skipReason = this.shouldSkip(testName);
-      if (skipReason !== false) {
-        console.log(`SKIP ${name} (${skipReason})`);
-        skipped++;
-        continue;
-      }
-
-      let actual: Record<string, unknown>;
-      try {
-        actual = await this.decodeMLT(mltFile);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.log(`FAIL - ${name} (crash: ${msg})`);
-        failed++;
-        continue;
-      }
-
-      const expectedRaw = await readFile(jsonFile, "utf-8");
-      const expected = JSON5.parse(expectedRaw);
-
-      try {
-        expect(actual).toEqual(expected);
-        console.log(`OK - ${name}`);
-        passed++;
-      } catch (_err) {
-        console.log(`FAIL - ${name}`);
-        const actualFile = await this.writeActualOutput(mltFile, actual);
-        console.log(`wrote actual output to ${actualFile}`);
-        failed++;
-      }
+    const skipReason = this.shouldSkip(testName);
+    if (skipReason !== false) {
+      return {
+        status: "skip",
+        testName,
+        reason: skipReason,
+      };
     }
 
-    console.log(
-      `\n${passed} passed, ${failed} failed, ${skipped} skipped, ${mltFiles.length} total`,
-    );
-    if (failed > 0) throw new Error(`${failed} test(s) failed`);
+    let actual: Record<string, unknown>;
+    try {
+      actual = await this.decodeMLT(mltFile);
+    } catch (error) {
+      return {
+        status: "fail",
+        testName,
+        error,
+      };
+    }
+
+    const expectedRaw = await readFile(jsonFile, "utf-8");
+    const expected = JSON5.parse(expectedRaw);
+
+    try {
+      expect(actual).toEqual(expected);
+      return {
+        status: "ok",
+        testName,
+      };
+    } catch (error) {
+      await this.writeActualOutput(mltFile, actual);
+      return {
+        status: "fail",
+        testName,
+        error,
+      };
+    }
   }
 
   async getTestCases(
-    syntheticDir: string,
+    syntheticDir: string = syntheticTestDir,
   ): Promise<{ active: string[]; skipped: [string, string][] }> {
     const mltFiles = await collectGlob(join(syntheticDir, "*.mlt"));
     const testNames = mltFiles.map((f) => basename(f).replace(/\.mlt$/, ""));

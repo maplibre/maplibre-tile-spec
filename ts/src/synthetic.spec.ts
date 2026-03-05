@@ -1,5 +1,4 @@
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { describe, it } from "vitest";
 import decodeTile from "./mltDecoder";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
@@ -7,7 +6,9 @@ import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
 import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
 
-import { SyntheticTestRunner } from "synthetic-test-tool";
+import {
+    SyntheticTestRunner,
+} from "synthetic-test-tool";
 
 const EARCUT_MAX_RINGS = 500;
 
@@ -36,8 +37,6 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["prop_f64_val_null", "does not parse f64 as f32"],
 ]);
 
-const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");
-
 class SyntheticTestRunnerJS extends SyntheticTestRunner {
     shouldSkip(testName: string) {
         return UNIMPLEMENTED_SYNTHETICS.get(testName) ?? false;
@@ -50,10 +49,28 @@ class SyntheticTestRunnerJS extends SyntheticTestRunner {
     }
 }
 
+const runner = new SyntheticTestRunnerJS();
+const { active, skipped } = await runner.getTestCases();
+
 describe("MLT Decoder - Synthetic tests", () => {
-    it("should pass all synthetic tests", async () => {
-        await new SyntheticTestRunnerJS().run(syntheticDir);
-    });
+
+    for (const [testName, reason] of skipped) {
+        it.skip(`${testName} (${reason})`, () => undefined);
+    }
+
+    for (const testName of active) {
+        it(testName, async () => {
+            const result = await runner.runCase(testName);
+            switch (result.status) {
+                case "ok":
+                    return;
+                case "skip":
+                    return;
+                case "fail":
+                    throw result.error;
+            }
+        });
+    }
 });
 
 function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSON.FeatureCollection {
