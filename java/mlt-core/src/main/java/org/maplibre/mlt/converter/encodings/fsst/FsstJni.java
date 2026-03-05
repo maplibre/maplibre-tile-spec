@@ -1,5 +1,6 @@
 package org.maplibre.mlt.converter.encodings.fsst;
 
+import jakarta.annotation.Nullable;
 import nl.bartlouwers.fsst.*;
 
 public class FsstJni implements Fsst {
@@ -16,17 +17,19 @@ public class FsstJni implements Fsst {
     }
   }
 
-  public SymbolTable encode(byte[] data) {
-    return impl.encode(data);
+  public @Nullable SymbolTable encode(byte[] data) {
+    return (impl != null) ? impl.encode(data) : null;
   }
 
-  public byte[] decode(SymbolTable table) {
-    return impl.decode(table);
+  public @Nullable byte[] decode(SymbolTable table) {
+    return (impl != null) ? impl.decode(table) : null;
   }
 
-  public byte[] decode(
+  public @Nullable byte[] decode(
       byte[] symbols, int[] symbolLengths, byte[] compressedData, int decompressedLength) {
-    return impl.decode(symbols, symbolLengths, compressedData, decompressedLength);
+    return (impl != null)
+        ? impl.decode(symbols, symbolLengths, compressedData, decompressedLength)
+        : null;
   }
 
   public static boolean isLoaded() {

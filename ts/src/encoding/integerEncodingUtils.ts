@@ -1,4 +1,6 @@
 import IntWrapper from "../decoding/intWrapper";
+import { createFastPforEncoderWorkspace, encodeFastPforInt32WithWorkspace } from "./fastPforEncoder";
+import { encodeBigEndianInt32s } from "./bigEndianEncode";
 
 export function encodeVarintInt32Value(value: number, dst: Uint8Array, offset: IntWrapper): void {
     let v = value;
@@ -101,8 +103,10 @@ function encodeVarintFloat64Value(val: number, buf: Uint8Array, offset: IntWrapp
     offset.increment();
 }
 
-export function encodeFastPfor(data: Int32Array): Uint8Array {
-    throw new Error("FastPFor is not implemented yet.");
+export function encodeFastPfor(values: Int32Array): Uint8Array {
+    const encoderWorkspace = createFastPforEncoderWorkspace();
+    const encodedWords = encodeFastPforInt32WithWorkspace(values, encoderWorkspace);
+    return encodeBigEndianInt32s(encodedWords);
 }
 
 export function encodeZigZagInt32Value(value: number): number {
@@ -705,7 +709,7 @@ export function encodeDeltaRleInt32(input: Int32Array): {
     }
 
     const deltasAndEncoded: number[] = [];
-    let previousValue: number = 0;
+    let previousValue = 0;
 
     // Step 1 & 2: Calculate Deltas and Zigzag Encode them
     for (let i = 0; i < input.length; i++) {
@@ -770,7 +774,7 @@ export function encodeDeltaRleInt64(input: BigInt64Array): {
     }
 
     const deltasAndEncoded: bigint[] = [];
-    let previousValue: bigint = 0n;
+    let previousValue = 0n;
 
     // Step 1 & 2: Calculate Deltas and Zigzag Encode them
     for (let i = 0; i < input.length; i++) {

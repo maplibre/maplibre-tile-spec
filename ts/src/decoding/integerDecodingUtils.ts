@@ -1,5 +1,13 @@
 import type IntWrapper from "./intWrapper";
-import type BitVector from "../vector/flat/bitVector";
+import {
+    createFastPforWireDecodeWorkspace,
+    decodeFastPforInt32,
+    ensureFastPforWireEncodedWordsCapacity,
+    type FastPforWireDecodeWorkspace,
+} from "./fastPforDecoder";
+import { decodeBigEndianInt32sInto } from "./bigEndianDecode";
+export type { FastPforWireDecodeWorkspace } from "./fastPforDecoder";
+export { createFastPforWireDecodeWorkspace } from "./fastPforDecoder";
 
 //based on https://github.com/mapbox/pbf/blob/main/index.js
 export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, numValues: number): Int32Array {
@@ -86,7 +94,8 @@ export function decodeVarintFloat64(src: Uint8Array, offset: IntWrapper, numValu
 
 //based on https://github.com/mapbox/pbf/blob/main/index.js
 function decodeVarintFloat64Value(buf: Uint8Array, offset: IntWrapper): number {
-    let val, b;
+    let val;
+    let b;
     b = buf[offset.get()];
     offset.increment();
     val = b & 0x7f;
@@ -110,7 +119,8 @@ function decodeVarintFloat64Value(buf: Uint8Array, offset: IntWrapper): number {
 }
 
 function decodeVarintRemainder(l, buf, offset) {
-    let h, b;
+    let h;
+    let b;
     b = buf[offset.get()];
     offset.increment();
     h = (b & 0x70) >> 4;
@@ -140,12 +150,40 @@ function decodeVarintRemainder(l, buf, offset) {
 }
 
 export function decodeFastPfor(
-    data: Uint8Array,
-    numValues: number,
-    byteLength: number,
+    encodedBytes: Uint8Array,
+    expectedValueCount: number,
+    encodedByteLength: number,
     offset: IntWrapper,
 ): Int32Array {
-    throw new Error("FastPFor is not implemented yet.");
+    const workspace = createFastPforWireDecodeWorkspace(encodedByteLength >>> 2);
+    return decodeFastPforWithWorkspace(encodedBytes, expectedValueCount, encodedByteLength, offset, workspace);
+}
+
+export function decodeFastPforWithWorkspace(
+    encodedBytes: Uint8Array,
+    expectedValueCount: number,
+    encodedByteLength: number,
+    offset: IntWrapper,
+    workspace: FastPforWireDecodeWorkspace,
+): Int32Array {
+    const inputByteOffset = offset.get();
+    if ((encodedByteLength & 3) !== 0) {
+        throw new Error(
+            `FastPFOR: invalid encodedByteLength=${encodedByteLength} at offset=${inputByteOffset} (encodedBytes.length=${encodedBytes.length}; expected a multiple of 4 bytes for an int32 big-endian word stream)`,
+        );
+    }
+
+    const encodedWordCount = encodedByteLength >>> 2;
+    const encodedWordBuffer = ensureFastPforWireEncodedWordsCapacity(workspace, encodedWordCount);
+    decodeBigEndianInt32sInto(encodedBytes, inputByteOffset, encodedByteLength, encodedWordBuffer);
+
+    const decodedValues = decodeFastPforInt32(
+        encodedWordBuffer.subarray(0, encodedWordCount),
+        expectedValueCount,
+        workspace.decoderWorkspace,
+    );
+    offset.add(encodedByteLength);
+    return decodedValues;
 }
 
 export function decodeZigZagInt32Value(encoded: number): number {
@@ -260,7 +298,7 @@ export function decodeZigZagDeltaInt32(data: Int32Array) {
         }
     }
 
-    for (; i != data.length; ++i) {
+    for (; i !== data.length; ++i) {
         data[i] = decodeZigZagInt32Value(data[i]) + data[i - 1];
     }
 }
@@ -283,7 +321,7 @@ export function decodeZigZagDeltaInt64(data: BigInt64Array) {
         }
     }
 
-    for (; i != data.length; ++i) {
+    for (; i !== data.length; ++i) {
         data[i] = decodeZigZagInt64Value(data[i]) + data[i - 1];
     }
 }
@@ -306,7 +344,7 @@ export function decodeZigZagDeltaFloat64(data: Float64Array) {
         }
     }
 
-    for (; i != data.length; ++i) {
+    for (; i !== data.length; ++i) {
         data[i] = decodeZigZagFloat64Value(data[i]) + data[i - 1];
     }
 }
@@ -381,7 +419,7 @@ export function fastInverseDelta(data: Uint32Array | Int32Array) {
         }
     }
 
-    while (i != data.length) {
+    while (i !== data.length) {
         data[i] += data[i - 1];
         ++i;
     }
@@ -419,7 +457,7 @@ export function decodeComponentwiseDeltaVec2(data: Int32Array): void {
         }
     }
 
-    for (; i != data.length; i += 2) {
+    for (; i !== data.length; i += 2) {
         data[i] = decodeZigZagInt32Value(data[i]) + data[i - 2];
         data[i + 1] = decodeZigZagInt32Value(data[i + 1]) + data[i - 1];
     }
@@ -451,7 +489,7 @@ export function decodeComponentwiseDeltaVec2Scaled(data: Int32Array, scale: numb
         }
     }
 
-    for (; i != data.length; i += 2) {
+    for (; i !== data.length; i += 2) {
         previousVertexX += decodeZigZagInt32Value(data[i]);
         previousVertexY += decodeZigZagInt32Value(data[i + 1]);
         data[i] = clamp(Math.round(previousVertexX * scale), min, max);
@@ -470,7 +508,7 @@ export function decodeZigZagDeltaOfDeltaInt32(data: Int32Array): Uint32Array {
     decodedData[0] = 0;
     decodedData[1] = decodeZigZagInt32Value(data[0]);
     let deltaSum = decodedData[1];
-    for (let i = 2; i != decodedData.length; ++i) {
+    for (let i = 2; i !== decodedData.length; ++i) {
         const zigZagValue = data[i - 1];
         const delta = decodeZigZagInt32Value(zigZagValue);
         deltaSum += delta;
@@ -577,7 +615,7 @@ export function decodeZigZagConstRleInt32(data: Int32Array): number {
 
 export function decodeZigZagSequenceRleInt32(data: Int32Array): [baseValue: number, delta: number] {
     /* base value and delta value are equal */
-    if (data.length == 2) {
+    if (data.length === 2) {
         const value = decodeZigZagInt32Value(data[1]);
         return [value, value];
     }
@@ -598,7 +636,7 @@ export function decodeZigZagConstRleInt64(data: BigInt64Array): bigint {
 
 export function decodeZigZagSequenceRleInt64(data: BigInt64Array): [baseValue: bigint, delta: bigint] {
     /* base value and delta value are equal */
-    if (data.length == 2) {
+    if (data.length === 2) {
         const value = decodeZigZagInt64Value(data[1]);
         return [value, value];
     }

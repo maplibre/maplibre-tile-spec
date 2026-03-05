@@ -21,7 +21,7 @@ class FsstTest {
 
   @AfterAll
   static void printStats() {
-    FsstDebug.printStats();
+    System.err.print(FsstDebug.printStatsOnce());
   }
 
   @Test

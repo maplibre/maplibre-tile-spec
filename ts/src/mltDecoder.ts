@@ -1,5 +1,5 @@
 import FeatureTable from "./vector/featureTable";
-import { type Column, ScalarType } from "./metadata/tileset/tilesetMetadata";
+import { type Column, LogicalScalarType, ScalarType } from "./metadata/tileset/tilesetMetadata";
 import IntWrapper from "./decoding/intWrapper";
 import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "./metadata/tile/streamMetadataDecoder";
 import { VectorType } from "./vector/vectorType";
@@ -18,7 +18,7 @@ import {
 import { IntSequenceVector } from "./vector/sequence/intSequenceVector";
 import { LongFlatVector } from "./vector/flat/longFlatVector";
 import { LongSequenceVector } from "./vector/sequence/longSequenceVector";
-import { type IntVector } from "./vector/intVector";
+import type { IntVector } from "./vector/intVector";
 import { decodeVarintInt32 } from "./decoding/integerDecodingUtils";
 import { decodeGeometryColumn } from "./decoding/geometryDecoder";
 import { decodePropertyColumn } from "./decoding/propertyDecoder";
@@ -28,14 +28,11 @@ import type GeometryScaling from "./decoding/geometryScaling";
 import { decodeBooleanRle } from "./decoding/decodingUtils";
 import { DoubleFlatVector } from "./vector/flat/doubleFlatVector";
 import { decodeEmbeddedTileSetMetadata } from "./metadata/tileset/embeddedTilesetMetadataDecoder";
-import { hasStreamCount } from "./metadata/tileset/typeMap";
-import { type StreamMetadata } from "./metadata/tile/streamMetadataDecoder";
-import { type GeometryVector } from "./vector/geometry/geometryVector";
+import { hasStreamCount, isGeometryColumn, isLogicalIdColumn } from "./metadata/tileset/typeMap";
+import type { StreamMetadata } from "./metadata/tile/streamMetadataDecoder";
+import type { GeometryVector } from "./vector/geometry/geometryVector";
 import type Vector from "./vector/vector";
-import { type GpuVector } from "./vector/geometry/gpuVector";
-
-const ID_COLUMN_NAME = "id";
-const GEOMETRY_COLUMN_NAME = "geometry";
+import type { GpuVector } from "./vector/geometry/gpuVector";
 
 /**
  * Decodes a tile with embedded metadata (Tag 0x01 format).
@@ -83,7 +80,7 @@ export default function decodeTile(
         for (const columnMetadata of featureTableMetadata.columns) {
             const columnName = columnMetadata.name;
 
-            if (columnName === ID_COLUMN_NAME) {
+            if (isLogicalIdColumn(columnMetadata)) {
                 let nullabilityBuffer = null;
                 // Check column metadata nullable flag, not numStreams (ID columns don't have stream count)
                 if (columnMetadata.nullable) {
@@ -100,7 +97,8 @@ export default function decodeTile(
                 }
 
                 const idDataStreamMetadata = decodeStreamMetadata(tile, offset);
-                numFeatures = idDataStreamMetadata.decompressedCount;
+                // decompressedCount is the count WITHOUT nulls, but we may have nulls
+                numFeatures = nullabilityBuffer ? nullabilityBuffer.size() : idDataStreamMetadata.decompressedCount;
 
                 idVector = decodeIdColumn(
                     tile,
@@ -111,7 +109,7 @@ export default function decodeTile(
                     nullabilityBuffer ?? numFeatures,
                     idWithinMaxSafeInteger,
                 );
-            } else if (columnName === GEOMETRY_COLUMN_NAME) {
+            } else if (isGeometryColumn(columnMetadata)) {
                 const numStreams = decodeVarintInt32(tile, offset, 1)[0];
 
                 // If no ID column, get numFeatures from geometry type stream metadata
@@ -177,14 +175,31 @@ function decodeIdColumn(
     columnName: string,
     idDataStreamMetadata: StreamMetadata,
     sizeOrNullabilityBuffer: number | BitVector,
-    idWithinMaxSafeInteger: boolean = false,
+    idWithinMaxSafeInteger = false,
 ): IntVector {
-    const idDataType = columnMetadata.scalarType.physicalType;
+    const scalarTypeMetadata = columnMetadata.scalarType;
+    if (
+        !scalarTypeMetadata ||
+        scalarTypeMetadata.type !== "logicalType" ||
+        scalarTypeMetadata.logicalType !== LogicalScalarType.ID
+    ) {
+        throw new Error(`ID column must be a logical ID scalar type: ${columnName}`);
+    }
+
+    const idDataType = scalarTypeMetadata.longID ? ScalarType.UINT_64 : ScalarType.UINT_32;
+
     const vectorType = getVectorType(idDataStreamMetadata, sizeOrNullabilityBuffer, tile, offset);
     if (idDataType === ScalarType.UINT_32) {
         switch (vectorType) {
             case VectorType.FLAT: {
-                const id = decodeIntStream(tile, offset, idDataStreamMetadata, false);
+                const id = decodeIntStream(
+                    tile,
+                    offset,
+                    idDataStreamMetadata,
+                    false,
+                    undefined,
+                    typeof sizeOrNullabilityBuffer !== "number" ? sizeOrNullabilityBuffer : undefined,
+                );
                 return new IntFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
             case VectorType.SEQUENCE: {
@@ -201,30 +216,34 @@ function decodeIdColumn(
                 return new IntConstVector(columnName, id, sizeOrNullabilityBuffer);
             }
         }
-    } else {
-        switch (vectorType) {
-            case VectorType.FLAT: {
-                if (idWithinMaxSafeInteger) {
-                    const id = decodeLongFloat64Stream(tile, offset, idDataStreamMetadata, false);
-                    return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
-                }
-
-                const id = decodeLongStream(tile, offset, idDataStreamMetadata, false);
-                return new LongFlatVector(columnName, id, sizeOrNullabilityBuffer);
+    }
+    switch (vectorType) {
+        case VectorType.FLAT: {
+            if (idWithinMaxSafeInteger) {
+                const id = decodeLongFloat64Stream(tile, offset, idDataStreamMetadata, false);
+                return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
-            case VectorType.SEQUENCE: {
-                const id = decodeSequenceLongStream(tile, offset, idDataStreamMetadata);
-                return new LongSequenceVector(
-                    columnName,
-                    id[0],
-                    id[1],
-                    (idDataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
-                );
-            }
-            case VectorType.CONST: {
-                const id = decodeConstLongStream(tile, offset, idDataStreamMetadata, false);
-                return new LongConstVector(columnName, id, sizeOrNullabilityBuffer);
-            }
+            const id = decodeLongStream(
+                tile,
+                offset,
+                idDataStreamMetadata,
+                false,
+                typeof sizeOrNullabilityBuffer !== "number" ? sizeOrNullabilityBuffer : undefined,
+            );
+            return new LongFlatVector(columnName, id, sizeOrNullabilityBuffer);
+        }
+        case VectorType.SEQUENCE: {
+            const id = decodeSequenceLongStream(tile, offset, idDataStreamMetadata);
+            return new LongSequenceVector(
+                columnName,
+                id[0],
+                id[1],
+                (idDataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
+            );
+        }
+        case VectorType.CONST: {
+            const id = decodeConstLongStream(tile, offset, idDataStreamMetadata, false);
+            return new LongConstVector(columnName, id, sizeOrNullabilityBuffer);
         }
     }
 

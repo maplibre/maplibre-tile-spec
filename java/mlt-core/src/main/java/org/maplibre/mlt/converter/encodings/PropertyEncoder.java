@@ -10,6 +10,7 @@ import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.data.Feature;
+import org.maplibre.mlt.data.unsigned.Unsigned;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
@@ -174,23 +175,27 @@ public class PropertyEncoder {
 
   private static Integer getIntPropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
     final var rawValue = feature.properties().get(columnMetadata.name);
-    if (rawValue instanceof Integer) {
-      return (Integer) rawValue;
-    } else if (rawValue instanceof Long) {
-      final var v = (long) rawValue;
+    if (rawValue instanceof Integer i) {
+      return i;
+    } else if (rawValue instanceof Long l) {
+      final var v = l.longValue();
       if ((int) v == v) {
         return (int) v;
       }
+    } else if (rawValue instanceof Unsigned u) {
+      return u.intValue();
     }
     return null;
   }
 
   private static Long getLongPropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
     final var rawValue = feature.properties().get(columnMetadata.name);
-    if (rawValue instanceof Long) {
-      return (Long) rawValue;
-    } else if (rawValue instanceof Integer) {
-      return (long) (int) rawValue;
+    if (rawValue instanceof Long l) {
+      return l;
+    } else if (rawValue instanceof Integer i) {
+      return (long) i.intValue();
+    } else if (rawValue instanceof Unsigned u) {
+      return u.longValue();
     }
     return null;
   }
@@ -201,6 +206,16 @@ public class PropertyEncoder {
       return (Float) rawValue;
     } else if (rawValue instanceof Double) {
       return (float) (double) rawValue;
+    }
+    return null;
+  }
+
+  private static Double getDoublePropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
+    final var rawValue = feature.properties().get(columnMetadata.name);
+    if (rawValue instanceof Double) {
+      return (Double) rawValue;
+    } else if (rawValue instanceof Float) {
+      return (double) rawValue;
     }
     return null;
   }
@@ -255,9 +270,14 @@ public class PropertyEncoder {
         yield encodeInt64Column(
             features, columnMetadata, isID, signed, integerEncodingOption, streamObserver);
       }
-      case FLOAT, DOUBLE ->
-          // no stream count
-          encodeFloatColumn(features, columnMetadata, streamObserver);
+      case FLOAT -> {
+        // no stream count
+        yield encodeFloatColumn(features, columnMetadata, streamObserver);
+      }
+      case DOUBLE -> {
+        // no stream count
+        yield encodeDoubleColumn(features, columnMetadata, streamObserver);
+      }
       case STRING ->
           encodeStringColumn(
               columnMetadata,
@@ -427,6 +447,38 @@ public class PropertyEncoder {
     return Bytes.concat(encodedPresentStream, encodedDataStream);
   }
 
+  private static byte[] encodeDoubleColumn(
+      List<Feature> features,
+      MltMetadata.Column metadata,
+      @NotNull MLTStreamObserver streamObserver)
+      throws IOException {
+    final var fieldName = metadata.name;
+    final var values = new ArrayList<Double>();
+    final var presentValues = metadata.isNullable ? new ArrayList<Boolean>(features.size()) : null;
+    for (var feature : features) {
+      final var propertyValue = getDoublePropertyValue(feature, metadata);
+      final var present = (propertyValue != null);
+      if (present) {
+        values.add(propertyValue);
+      }
+      if (presentValues != null) {
+        presentValues.add(present);
+      }
+    }
+
+    final var encodedPresentStream =
+        (presentValues != null)
+            ? BooleanEncoder.encodeBooleanStream(
+                presentValues,
+                PhysicalStreamType.PRESENT,
+                streamObserver,
+                "prop_" + fieldName + "_present")
+            : new byte[0];
+    final var encodedDataStream =
+        DoubleEncoder.encodeDoubleStream(values, streamObserver, "prop_" + fieldName);
+    return Bytes.concat(encodedPresentStream, encodedDataStream);
+  }
+
   private static byte[] encodeInt32Column(
       List<Feature> features,
       MltMetadata.Column metadata,
@@ -440,9 +492,12 @@ public class PropertyEncoder {
     final var values = new ArrayList<Integer>();
     final var presentValues = metadata.isNullable ? new ArrayList<Boolean>(features.size()) : null;
     for (var feature : features) {
-      // TODO: refactor -> handle long values for ids differently
+      // Force ID values to integer for this column.
+      // If long were required, `encodeInt64Column` would have been called instead.
       final var propertyValue =
-          isID ? Integer.valueOf((int) feature.id()) : getIntPropertyValue(feature, metadata);
+          isID
+              ? (feature.hasId() ? Integer.valueOf(Math.toIntExact(feature.id())) : null)
+              : getIntPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {
         values.add(propertyValue);
@@ -450,6 +505,10 @@ public class PropertyEncoder {
       if (presentValues != null) {
         presentValues.add(present);
       }
+      // If the column is not nullable, all values must be present.
+      // Failure of this assertion indicates a problem with metadata creation,
+      // or use of the metadata to encode data other than what it describes.
+      assert (present || metadata.isNullable);
     }
 
     var encodedPresentStream =
@@ -486,8 +545,7 @@ public class PropertyEncoder {
     final var values = new ArrayList<Long>();
     final var presentValues = metadata.isNullable ? new ArrayList<Boolean>(features.size()) : null;
     for (var feature : features) {
-      final var propertyValue =
-          isID ? Long.valueOf(feature.id()) : getLongPropertyValue(feature, metadata);
+      final var propertyValue = isID ? feature.idOrNull() : getLongPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {
         values.add(propertyValue);

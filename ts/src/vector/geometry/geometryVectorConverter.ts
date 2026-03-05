@@ -1,4 +1,4 @@
-import { type GeometryVector, type MortonSettings, type CoordinatesArray } from "./geometryVector";
+import type { GeometryVector, MortonSettings, CoordinatesArray } from "./geometryVector";
 import { decodeZOrderCurve } from "./zOrderCurve";
 import { GEOMETRY_TYPE } from "./geometryType";
 import { VertexBufferType } from "./vertexBufferType";
@@ -96,6 +96,9 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                 }
                 geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
             }
+            // MULTIPOINT must increment offset counters like POINT does
+            partOffsetCounter += numPoints;
+            ringOffsetsCounter += numPoints;
         } else if (geometryType === GEOMETRY_TYPE.LINESTRING) {
             let numVertices = 0;
             if (containsPolygon) {
@@ -347,7 +350,7 @@ function decodeMortonDictionaryEncodedLinearRing(
     vertexOffsets: Int32Array,
     vertexOffset: number,
     numVertices: number,
-    geometryFactory: MvtGeometryFactory,
+    _geometryFactory: MvtGeometryFactory,
     mortonSettings: MortonSettings,
 ): Point[] {
     return decodeMortonDictionaryEncodedLineString(

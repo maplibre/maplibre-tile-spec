@@ -1,0 +1,7 @@
+{
+  "type": "module",
+  "dependencies": {
+    "synthetic-test-utils": "file:../test/synthetic/synthetic-test-utils",
+    "vitest": "^4.0.18"
+  }
+}

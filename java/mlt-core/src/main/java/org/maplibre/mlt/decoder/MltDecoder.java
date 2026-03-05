@@ -17,6 +17,7 @@ import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltDecoder {
+
   private MltDecoder() {}
 
   private static Layer parseBasicMVTEquivalent(int layerSize, InputStream stream)
@@ -45,7 +46,7 @@ public class MltDecoder {
           }
         } else {
           // Skip the remainder of this one
-          final var ignored = stream.skip(length - tag.getRight());
+          stream.skip(length - tag.getRight());
         }
       }
     }
@@ -66,21 +67,44 @@ public class MltDecoder {
       // TODO: add decoding of vector type to be compliant with the spec
       // TODO: compare based on ids
       if (MltTypeMap.Tag0x01.isID(columnMetadata)) {
+        BitSet presentStream = null;
+        int presentStreamSize = 0;
         if (columnMetadata.isNullable) {
           final var presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-          // TODO: handle present stream -> should a id column even be nullable?
-          offset.add(presentStreamMetadata.byteLength());
+          presentStream =
+              DecodingUtils.decodeBooleanRle(
+                  tile,
+                  presentStreamMetadata.numValues(),
+                  presentStreamMetadata.byteLength(),
+                  offset);
+          presentStreamSize = presentStreamMetadata.numValues();
         }
 
         final var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
+        List<Long> denseIds;
         if (columnMetadata.scalarType.hasLongId) {
-          ids = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
+          denseIds = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
         } else {
-          ids =
+          denseIds =
               IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false).stream()
                   .mapToLong(i -> i)
                   .boxed()
                   .collect(Collectors.toList());
+        }
+
+        if (presentStream != null) {
+          // Expand the dense (non-null only) ID list into a sparse list with nulls
+          ids = new ArrayList<>(presentStreamSize);
+          int denseIdx = 0;
+          for (int i = 0; i < presentStreamSize; i++) {
+            if (presentStream.get(i)) {
+              ids.add(denseIds.get(denseIdx++));
+            } else {
+              ids.add(null);
+            }
+          }
+        } else {
+          ids = denseIds;
         }
       } else if (MltTypeMap.Tag0x01.isGeometry(columnMetadata)) {
         assert hasStreamCount;
@@ -140,8 +164,11 @@ public class MltDecoder {
           p.put(propertyColumn.getKey(), v);
         }
       }
-      final var id = (ids != null) ? ids.get(j) : 0;
-      var feature = new Feature(id, geometries[j], p);
+      final Long idValue = (ids != null) ? ids.get(j) : null;
+      var feature =
+          (idValue != null)
+              ? new Feature(idValue, geometries[j], p)
+              : new Feature(geometries[j], p);
       features.add(feature);
     }
 

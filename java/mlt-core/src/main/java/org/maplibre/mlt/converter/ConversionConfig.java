@@ -8,6 +8,12 @@ import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
 
 public class ConversionConfig {
+  public enum TypeMismatchPolicy {
+    COERCE, // Coerce values to string on type mismatch
+    ELIDE, // Skip values that don't match the first type encountered
+    FAIL // Throw an error if a type mismatch is detected (default)
+  }
+
   public enum IntegerEncodingOption {
     AUTO, // Automatically select best encoding (default)
     PLAIN, // Force plain encoding
@@ -19,7 +25,7 @@ public class ConversionConfig {
   public static final boolean DEFAULT_INCLUDE_IDS = true;
   public static final boolean DEFAULT_USE_FAST_PFOR = false;
   public static final boolean DEFAULT_USE_FSST = false;
-  public static final boolean DEFAULT_COERCE_PROPERTY_VALUES = false;
+  public static final TypeMismatchPolicy DEFAULT_MISMATCH_POLICY = TypeMismatchPolicy.FAIL;
   public static final boolean DEFAULT_USE_MORTON_ENCODING = true;
   public static final boolean DEFAULT_PRE_TESSELLATE_POLYGONS = false;
   public static final boolean DEFAULT_LAYER_FILTER_INVERT = false;
@@ -28,7 +34,7 @@ public class ConversionConfig {
   private final boolean includeIds;
   private final boolean useFastPFOR;
   private final boolean useFSST;
-  private final boolean coercePropertyValues;
+  private final TypeMismatchPolicy mismatchPolicy;
   private final boolean useMortonEncoding;
   private final boolean preTessellatePolygons;
   private final @NotNull Map<String, FeatureTableOptimizations> optimizations;
@@ -36,6 +42,7 @@ public class ConversionConfig {
   private final @Nullable Pattern layerFilterPattern;
   private final boolean layerFilterInvert;
   private final @NotNull IntegerEncodingOption integerEncodingOption;
+  private final @NotNull IntegerEncodingOption geometryEncodingOption;
 
   /**
    * @param includeIds Specifies if the ids should be included into a FeatureTable.
@@ -48,24 +55,30 @@ public class ConversionConfig {
    *     'ALL' for all
    * @param layerFilterPattern A regex to filter layer names
    * @param layerFilterInvert True to invert the pattern
-   * @param integerEncodingOption Specifies which integer encoding to use
+   * @param integerEncodingOption Specifies which integer encoding to use for property columns and
+   *     other non-geometry integer streams.
+   * @param geometryEncodingOption Specifies which integer encoding to use for geometry-related
+   *     streams (lengths, offsets, etc.). When using the builder, leaving this unset defaults to
+   *     {@link #DEFAULT_INTEGER_ENCODING} (AUTO) for backward compatibility; use {@link
+   *     Builder#geometryEncoding(IntegerEncodingOption)} to set it explicitly.
    */
   public ConversionConfig(
       boolean includeIds,
       boolean useFastPFOR,
       boolean useFSST,
-      boolean coercePropertyValues,
+      TypeMismatchPolicy mismatchPolicy,
       Map<String, FeatureTableOptimizations> optimizations,
       boolean preTessellatePolygons,
       boolean useMortonEncoding,
       List<String> outlineFeatureTableNames,
       @Nullable Pattern layerFilterPattern,
       boolean layerFilterInvert,
-      @NotNull IntegerEncodingOption integerEncodingOption) {
+      @NotNull IntegerEncodingOption integerEncodingOption,
+      @NotNull IntegerEncodingOption geometryEncodingOption) {
     this.includeIds = includeIds;
     this.useFastPFOR = useFastPFOR;
     this.useFSST = useFSST;
-    this.coercePropertyValues = coercePropertyValues;
+    this.mismatchPolicy = mismatchPolicy;
     this.preTessellatePolygons = preTessellatePolygons;
     this.useMortonEncoding = useMortonEncoding;
     this.optimizations = (optimizations != null) ? optimizations : new HashMap<>();
@@ -74,13 +87,14 @@ public class ConversionConfig {
     this.layerFilterPattern = layerFilterPattern;
     this.layerFilterInvert = layerFilterInvert;
     this.integerEncodingOption = integerEncodingOption;
+    this.geometryEncodingOption = geometryEncodingOption;
   }
 
   public ConversionConfig(
       boolean includeIds,
       boolean useFastPFOR,
       boolean useFSST,
-      boolean coercePropertyValues,
+      TypeMismatchPolicy mismatchPolicy,
       Map<String, FeatureTableOptimizations> optimizations,
       boolean preTessellatePolygons,
       boolean useMortonEncoding,
@@ -89,14 +103,15 @@ public class ConversionConfig {
         includeIds,
         useFastPFOR,
         useFSST,
-        coercePropertyValues,
+        mismatchPolicy,
         optimizations,
         preTessellatePolygons,
         useMortonEncoding,
         outlineFeatureTableNames,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
+        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public ConversionConfig(
@@ -110,14 +125,15 @@ public class ConversionConfig {
         includeIds,
         useFastPFOR,
         useFSST,
-        /* coercePropertyValues= */ DEFAULT_COERCE_PROPERTY_VALUES,
+        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         optimizations,
         preTessellatePolygons,
         useMortonEncoding,
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
+        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public ConversionConfig(
@@ -131,14 +147,15 @@ public class ConversionConfig {
         includeIds,
         useFastPFOR,
         useFSST,
-        /* coercePropertyValues= */ DEFAULT_COERCE_PROPERTY_VALUES,
+        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         optimizations, // it was null before, now it is used
         /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        integerEncodingOption);
+        integerEncodingOption,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public ConversionConfig(
@@ -150,14 +167,15 @@ public class ConversionConfig {
         includeIds,
         useFastPFOR,
         useFSST,
-        /* coercePropertyValues= */ DEFAULT_COERCE_PROPERTY_VALUES,
+        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         optimizations,
         /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
+        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public ConversionConfig(boolean includeIds, boolean useAdvancedEncodingSchemes) {
@@ -165,14 +183,15 @@ public class ConversionConfig {
         includeIds,
         /* useFastPFOR= */ DEFAULT_USE_FAST_PFOR,
         /* useFSST= */ DEFAULT_USE_FSST,
-        /* coercePropertyValues= */ DEFAULT_COERCE_PROPERTY_VALUES,
+        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         /* optimizations= */ null,
         /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
+        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public ConversionConfig(boolean includeIds) {
@@ -180,14 +199,15 @@ public class ConversionConfig {
         includeIds,
         /* useFastPFOR= */ DEFAULT_USE_FAST_PFOR,
         /* useFSST= */ DEFAULT_USE_FSST,
-        /* coercePropertyValues= */ DEFAULT_COERCE_PROPERTY_VALUES,
+        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         /* optimizations= */ null,
         /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
+        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public ConversionConfig() {
@@ -195,14 +215,15 @@ public class ConversionConfig {
         /* includeIds= */ DEFAULT_INCLUDE_IDS,
         /* useFastPFOR= */ DEFAULT_USE_FAST_PFOR,
         /* useFSST= */ DEFAULT_USE_FSST,
-        /* coercePropertyValues= */ DEFAULT_COERCE_PROPERTY_VALUES,
+        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         /* optimizations= */ null,
         /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
+        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
+        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
   public boolean getIncludeIds() {
@@ -217,8 +238,8 @@ public class ConversionConfig {
     return this.useFSST;
   }
 
-  public boolean getCoercePropertyValues() {
-    return this.coercePropertyValues;
+  public TypeMismatchPolicy getTypeMismatchPolicy() {
+    return this.mismatchPolicy;
   }
 
   public Map<String, FeatureTableOptimizations> getOptimizations() {
@@ -250,27 +271,54 @@ public class ConversionConfig {
     return integerEncodingOption;
   }
 
+  public IntegerEncodingOption getGeometryEncodingOption() {
+    return geometryEncodingOption;
+  }
+
+  public Builder asBuilder() {
+    return new Builder()
+        .includeIds(this.includeIds)
+        .useFastPFOR(this.useFastPFOR)
+        .useFSST(this.useFSST)
+        .mismatchPolicy(this.mismatchPolicy)
+        .optimizations(this.optimizations)
+        .preTessellatePolygons(this.preTessellatePolygons)
+        .useMortonEncoding(this.useMortonEncoding)
+        .outlineFeatureTableNames(this.outlineFeatureTableNames)
+        .layerFilterPattern(this.layerFilterPattern)
+        .layerFilterInvert(this.layerFilterInvert)
+        .integerEncoding(this.integerEncodingOption)
+        .geometryEncoding(this.geometryEncodingOption);
+  }
+
   public static Builder builder() {
     return new Builder();
   }
 
   /**
-   * Short builder for ConversionConfig with sensible defaults. Example: var config =
-   * ConversionConfig.builder() .includeIds(true) .useFastPFOR(true)
-   * .integerEncoding(IntegerEncodingOption.DELTA) .build();
+   * Short builder for ConversionConfig with sensible defaults. Example:
+   *
+   * <pre>{@code
+   * var config = ConversionConfig.builder()
+   *     .includeIds(true)
+   *     .useFastPFOR(true)
+   *     .integerEncoding(IntegerEncodingOption.DELTA)
+   *     .build();
+   * }</pre>
    */
   public static class Builder {
     private boolean includeIds = DEFAULT_INCLUDE_IDS;
     private boolean useFastPFOR = DEFAULT_USE_FAST_PFOR;
     private boolean useFSST = DEFAULT_USE_FSST;
-    private boolean coercePropertyValues = DEFAULT_COERCE_PROPERTY_VALUES;
-    private Map<String, FeatureTableOptimizations> optimizations = null;
+    private TypeMismatchPolicy mismatchPolicy = DEFAULT_MISMATCH_POLICY;
+    private Map<String, FeatureTableOptimizations> optimizations = Map.of();
     private boolean preTessellatePolygons = DEFAULT_PRE_TESSELLATE_POLYGONS;
     private boolean useMortonEncoding = DEFAULT_USE_MORTON_ENCODING;
-    private List<String> outlineFeatureTableNames = null;
+    private List<String> outlineFeatureTableNames = List.of();
     private Pattern layerFilterPattern = null;
     private boolean layerFilterInvert = DEFAULT_LAYER_FILTER_INVERT;
     private IntegerEncodingOption integerEncodingOption = DEFAULT_INTEGER_ENCODING;
+    private @Nullable IntegerEncodingOption geometryEncodingOption = null;
 
     public Builder includeIds(boolean val) {
       this.includeIds = val;
@@ -287,9 +335,18 @@ public class ConversionConfig {
       return this;
     }
 
-    public Builder coercePropertyValues(boolean val) {
-      this.coercePropertyValues = val;
+    public Builder mismatchPolicy(TypeMismatchPolicy policy) {
+      this.mismatchPolicy = policy;
       return this;
+    }
+
+    public Builder mismatchPolicy(boolean coerceMismatches, boolean elideMismatches) {
+      return mismatchPolicy(
+          coerceMismatches
+              ? ConversionConfig.TypeMismatchPolicy.COERCE
+              : (elideMismatches
+                  ? ConversionConfig.TypeMismatchPolicy.ELIDE
+                  : ConversionConfig.TypeMismatchPolicy.FAIL));
     }
 
     public Builder optimizations(Map<String, FeatureTableOptimizations> val) {
@@ -327,19 +384,27 @@ public class ConversionConfig {
       return this;
     }
 
+    public Builder geometryEncoding(IntegerEncodingOption val) {
+      this.geometryEncodingOption = val;
+      return this;
+    }
+
     public ConversionConfig build() {
+      var effectiveGeometryEncoding =
+          geometryEncodingOption != null ? geometryEncodingOption : DEFAULT_INTEGER_ENCODING;
       return new ConversionConfig(
           includeIds,
           useFastPFOR,
           useFSST,
-          coercePropertyValues,
+          mismatchPolicy,
           optimizations,
           preTessellatePolygons,
           useMortonEncoding,
           outlineFeatureTableNames,
           layerFilterPattern,
           layerFilterInvert,
-          integerEncodingOption);
+          integerEncodingOption,
+          effectiveGeometryEncoding);
     }
   }
 }

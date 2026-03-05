@@ -1,6 +1,5 @@
 package org.maplibre.mlt.converter.encodings.fsst;
 
-import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -19,7 +18,12 @@ class FsstDebug implements Fsst {
   private static final AtomicBoolean printed = new AtomicBoolean(false);
 
   static {
-    Runtime.getRuntime().addShutdownHook(new Thread(FsstDebug::printStats));
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  System.err.print(FsstDebug.printStatsOnce());
+                }));
   }
 
   public static int weight(SymbolTable table) {
@@ -29,7 +33,7 @@ class FsstDebug implements Fsst {
   @Override
   public SymbolTable encode(byte[] data) {
     final long a = System.currentTimeMillis();
-    final var fromJni = FsstJni.isLoaded() ? jni.encode(data) : null;
+    var fromJni = jni.encode(data);
     final long b = System.currentTimeMillis();
     final var fromJava = java.encode(data);
     final long c = System.currentTimeMillis();
@@ -43,23 +47,27 @@ class FsstDebug implements Fsst {
     return fromJava;
   }
 
-  public static void printStats() {
-    if (!printed.getAndSet(true)) {
-      System.err.println(
-          "java/jni:"
-              + javaTime
-              + "ms/"
-              + jniTime
-              + "ms "
-              + javaSize
-              + "/"
-              + jniSize
-              + " "
-              + (javaSize.get() * 1d / jniSize.get())
-              + " jni smaller "
-              + jniSmaller
-              + "/"
-              + (javaSmaller.get() + jniSmaller.get()));
-    }
+  public static String printStats() {
+    return new StringBuilder()
+        .append("java/jni:")
+        .append(javaTime)
+        .append("ms/")
+        .append(jniTime)
+        .append("ms ")
+        .append(javaSize)
+        .append("/")
+        .append(jniSize)
+        .append(" ")
+        .append(javaSize.get() * 1d / jniSize.get())
+        .append(" jni smaller ")
+        .append(jniSmaller)
+        .append("/")
+        .append(javaSmaller.get() + jniSmaller.get())
+        .append("\n")
+        .toString();
+  }
+
+  public static String printStatsOnce() {
+    return printed.getAndSet(true) ? "" : printStats();
   }
 }

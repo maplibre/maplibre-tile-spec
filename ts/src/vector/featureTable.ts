@@ -1,11 +1,11 @@
-import { type Geometry, type GeometryVector } from "./geometry/geometryVector";
+import type { Geometry, GeometryVector } from "./geometry/geometryVector";
 import type Vector from "./vector";
-import { type IntVector } from "./intVector";
+import type { IntVector } from "./intVector";
 import { IntFlatVector } from "./flat/intFlatVector";
 import { DoubleFlatVector } from "./flat/doubleFlatVector";
 import { IntSequenceVector } from "./sequence/intSequenceVector";
 import { IntConstVector } from "./constant/intConstVector";
-import { type GpuVector } from "./geometry/gpuVector";
+import type { GpuVector } from "./geometry/gpuVector";
 
 export interface Feature {
     id: number | bigint;
@@ -13,7 +13,7 @@ export interface Feature {
     properties: { [key: string]: unknown };
 }
 
-export default class FeatureTable implements Iterable<Feature> {
+export default class FeatureTable {
     private propertyVectorsMap: Map<string, Vector>;
 
     constructor(
@@ -48,38 +48,6 @@ export default class FeatureTable implements Iterable<Feature> {
         return this.propertyVectorsMap.get(name);
     }
 
-    *[Symbol.iterator](): Iterator<Feature> {
-        const geometryIterator = this.geometryVector[Symbol.iterator]();
-        let index = 0;
-
-        while (index < this.numFeatures) {
-            let id;
-            if (this.idVector) {
-                id = this.containsMaxSaveIntegerValues(this.idVector)
-                    ? Number(this.idVector.getValue(index))
-                    : this.idVector.getValue(index);
-            }
-
-            const geometry = geometryIterator?.next().value;
-
-            const properties: { [key: string]: unknown } = {};
-            for (const propertyColumn of this.propertyVectors) {
-                if (!propertyColumn) {
-                    continue;
-                }
-
-                const columnName = propertyColumn.name;
-                const propertyValue = propertyColumn.getValue(index);
-                if (propertyValue !== null) {
-                    properties[columnName] = propertyValue;
-                }
-            }
-
-            index++;
-            yield { id, geometry, properties };
-        }
-    }
-
     get numFeatures(): number {
         return this.geometryVector.numGeometries;
     }
@@ -98,11 +66,9 @@ export default class FeatureTable implements Iterable<Feature> {
         for (let i = 0; i < this.numFeatures; i++) {
             let id;
             if (this.idVector) {
-                id = this.containsMaxSaveIntegerValues(this.idVector)
-                    ? Number(this.idVector.getValue(i))
-                    : this.idVector.getValue(i);
+                const idValue = this.idVector.getValue(i);
+                id = this.containsMaxSaveIntegerValues(this.idVector) && idValue !== null ? Number(idValue) : idValue;
             }
-
             const geometry = {
                 coordinates: geometries[i],
                 type: this.geometryVector.geometryType(i),

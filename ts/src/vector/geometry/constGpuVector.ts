@@ -25,7 +25,7 @@ export class ConstGpuVector extends GpuVector {
         super(triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
     }
 
-    geometryType(index: number): number {
+    geometryType(_index: number): number {
         return this._geometryType;
     }
 

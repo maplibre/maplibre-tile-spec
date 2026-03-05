@@ -200,14 +200,14 @@ function getLogicalSubtypeValue(metadata: StreamMetadata): number {
     }
 }
 
-function encodeNumStreams(numStreams: number): Uint8Array {
+function _encodeNumStreams(numStreams: number): Uint8Array {
     const buffer = new Uint8Array(5);
     const offset = new IntWrapper(0);
     encodeVarintInt32Value(numStreams, buffer, offset);
     return buffer.slice(0, offset.get());
 }
 
-function createPresentStream(presentValues: boolean[]): Uint8Array {
+function _createPresentStream(presentValues: boolean[]): Uint8Array {
     const metadata: StreamMetadata = {
         physicalStreamType: PhysicalStreamType.PRESENT,
         logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
@@ -221,7 +221,7 @@ function createPresentStream(presentValues: boolean[]): Uint8Array {
     return buildEncodedStream(metadata, encodeBooleanRle(presentValues));
 }
 
-function createOffsetStream(offsetIndices: number[]): Uint8Array {
+function _createOffsetStream(offsetIndices: number[]): Uint8Array {
     const metadata: StreamMetadata = {
         physicalStreamType: PhysicalStreamType.OFFSET,
         logicalStreamType: new LogicalStreamType(undefined, OffsetType.STRING),

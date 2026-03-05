@@ -79,25 +79,6 @@ export function decodeFloatsLE(
     return fb;
 }
 
-export function decodeDoublesLE(
-    encodedValues: Uint8Array,
-    pos: IntWrapper,
-    numValues: number,
-    nullabilityBuffer?: BitVector,
-): Float64Array {
-    const currentPos = pos.get();
-    const newOffset = currentPos + numValues * Float64Array.BYTES_PER_ELEMENT;
-    const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
-    const fb = new Float64Array(newBuf);
-    pos.set(newOffset);
-
-    if (nullabilityBuffer) {
-        return unpackNullable(fb, nullabilityBuffer, 0);
-    }
-
-    return fb;
-}
-
 const TEXT_DECODER_MIN_LENGTH = 12;
 const utf8TextDecoder = new TextDecoder();
 
@@ -122,7 +103,9 @@ function readUtf8(buf, pos, end): string {
 
         if (i + bytesPerSequence > end) break;
 
-        let b1, b2, b3;
+        let b1;
+        let b2;
+        let b3;
 
         if (bytesPerSequence === 1) {
             if (b0 < 0x80) {
@@ -181,7 +164,7 @@ export function getVectorTypeBooleanStream(
 ): VectorType {
     const valuesPerRun = 0x83;
     // TODO: use VectorType metadata field for to test which VectorType is used
-    return Math.ceil(numFeatures / valuesPerRun) * 2 == byteLength &&
+    return Math.ceil(numFeatures / valuesPerRun) * 2 === byteLength &&
         /* Test the first value byte if all bits are set to true */
         (data[offset.get() + 1] & 0xff) === (bitCount(numFeatures) << 2) - 1
         ? VectorType.CONST
