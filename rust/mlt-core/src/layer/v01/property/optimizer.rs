@@ -75,11 +75,14 @@ fn common_prefix_name(names: &[&str]) -> String {
     let first = names[0];
     let mut prefix_len = first.len();
     for name in &names[1..] {
-        prefix_len = first
+        let new_len = first
             .bytes()
             .zip(name.bytes())
             .take_while(|(a, b)| a == b)
             .count();
+        // Accumulate the minimum — do not overwrite with a potentially longer
+        // match against `first` when a shorter one was already found.
+        prefix_len = prefix_len.min(new_len);
         if prefix_len == 0 {
             break;
         }
@@ -399,48 +402,48 @@ impl PropertyOptimizer {
                 PropertyEncoder::Scalar(ScalarEncoder::float(to_presence(count_nulls(v))))
             }
             PropValue::I8(v) => {
+                let presence = to_presence(count_nulls(v));
                 let non_null: Vec<u32> = v.iter().flatten().map(|&x| x as u32).collect();
-                let presence = to_presence(v.len() - non_null.len());
                 PropertyEncoder::Scalar(ScalarEncoder::int(
                     presence,
                     IntEncoder::auto_u32(&non_null),
                 ))
             }
             PropValue::U8(v) => {
+                let presence = to_presence(count_nulls(v));
                 let non_null: Vec<u32> = v.iter().flatten().map(|x| u32::from(*x)).collect();
-                let presence = to_presence(v.len() - non_null.len());
                 PropertyEncoder::Scalar(ScalarEncoder::int(
                     presence,
                     IntEncoder::auto_u32(&non_null),
                 ))
             }
             PropValue::I32(v) => {
+                let presence = to_presence(count_nulls(v));
                 let non_null: Vec<u32> = v.iter().flatten().map(|&x| x as u32).collect();
-                let presence = to_presence(v.len() - non_null.len());
                 PropertyEncoder::Scalar(ScalarEncoder::int(
                     presence,
                     IntEncoder::auto_u32(&non_null),
                 ))
             }
             PropValue::U32(v) => {
+                let presence = to_presence(count_nulls(v));
                 let non_null: Vec<u32> = v.iter().flatten().copied().collect();
-                let presence = to_presence(v.len() - non_null.len());
                 PropertyEncoder::Scalar(ScalarEncoder::int(
                     presence,
                     IntEncoder::auto_u32(&non_null),
                 ))
             }
             PropValue::I64(v) => {
+                let presence = to_presence(count_nulls(v));
                 let non_null: Vec<u64> = v.iter().flatten().map(|&x| x as u64).collect();
-                let presence = to_presence(v.len() - non_null.len());
                 PropertyEncoder::Scalar(ScalarEncoder::int(
                     presence,
                     IntEncoder::auto_u64(&non_null),
                 ))
             }
             PropValue::U64(v) => {
+                let presence = to_presence(count_nulls(v));
                 let non_null: Vec<u64> = v.iter().flatten().copied().collect();
-                let presence = to_presence(v.len() - non_null.len());
                 PropertyEncoder::Scalar(ScalarEncoder::int(
                     presence,
                     IntEncoder::auto_u64(&non_null),
@@ -471,8 +474,13 @@ impl PropertyOptimizer {
                 }
             }
             PropValue::SharedDict => {
-                // Already-encoded struct columns should not appear in decoded
-                // input, but handle gracefully instead of panicking.
+                // `SharedDict` columns are produced by the encoder, not consumed
+                // as decoder input.  Hitting this branch means the caller passed
+                // already-encoded data, which is a programming error.
+                debug_assert!(
+                    false,
+                    "PropValue::SharedDict must not appear in decoded input"
+                );
                 PropertyEncoder::Scalar(ScalarEncoder::bool(PresenceStream::Absent))
             }
         }
@@ -480,23 +488,18 @@ impl PropertyOptimizer {
 
     /// Choose between `Plain` and `Fsst` for a standalone string column.
     fn scalar_str_encoder(presence: PresenceStream, non_null: &[&str]) -> PropertyEncoder {
+        let lengths: Vec<u32> = non_null
+            .iter()
+            .map(|s| u32::try_from(s.len()).unwrap_or(u32::MAX))
+            .collect();
         if fsst_is_viable(non_null) {
-            let lengths: Vec<u32> = non_null
-                .iter()
-                .map(|s| u32::try_from(s.len()).unwrap_or(u32::MAX))
-                .collect();
-            let dict_lengths_enc = IntEncoder::auto_u32(&lengths);
             // symbol_lengths stream is small (≤ 255 entries); VarInt is sufficient.
             PropertyEncoder::Scalar(ScalarEncoder::str_fsst(
                 presence,
                 IntEncoder::varint(),
-                dict_lengths_enc,
+                IntEncoder::auto_u32(&lengths),
             ))
         } else {
-            let lengths: Vec<u32> = non_null
-                .iter()
-                .map(|s| u32::try_from(s.len()).unwrap_or(u32::MAX))
-                .collect();
             PropertyEncoder::Scalar(ScalarEncoder::str(presence, IntEncoder::auto_u32(&lengths)))
         }
     }
@@ -527,11 +530,18 @@ impl PropertyOptimizer {
         }
 
         // Map this child's non-null values to their dictionary offsets.
+        // Every non-null string must already be present in `dict_index` because
+        // the dict was built from the union of all group columns, including this
+        // child.  An absent key would indicate a bug in the grouping logic.
         let offsets: Vec<u32> = if let PropValue::Str(values) = &properties[child_col_idx].values {
             values
                 .iter()
                 .flatten()
-                .filter_map(|s| dict_index.get(s.as_str()).copied())
+                .map(|s| {
+                    *dict_index
+                        .get(s.as_str())
+                        .expect("non-null string missing from shared dictionary")
+                })
                 .collect()
         } else {
             Vec::new()
@@ -686,6 +696,36 @@ mod tests {
         };
         assert_eq!(name, "addr");
     }
+
+    // ── common_prefix_name ────────────────────────────────────────────────────
+
+    #[test]
+    fn common_prefix_name_three_names_basic() {
+        // All three share "name:" as their common prefix.
+        assert_eq!(
+            common_prefix_name(&["name:en", "name:de", "name:fr"]),
+            "name",
+        );
+    }
+
+    #[test]
+    fn common_prefix_name_accumulates_minimum() {
+        // "addr:zipcode" has a *longer* common prefix with "addr:zip" (the
+        // first name) than "addr:street" does.  Without min-accumulation the
+        // loop would overwrite the shorter result found for "addr:street" and
+        // return "addr:zip" instead of "addr".
+        assert_eq!(
+            common_prefix_name(&["addr:zip", "addr:street", "addr:zipcode"]),
+            "addr",
+        );
+    }
+
+    #[test]
+    fn common_prefix_name_single_name_returns_itself() {
+        assert_eq!(common_prefix_name(&["standalone"]), "standalone");
+    }
+
+    // ── empty input ───────────────────────────────────────────────────────────
 
     #[test]
     fn empty_input_returns_empty_encoder() {
