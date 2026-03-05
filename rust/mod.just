@@ -149,13 +149,13 @@ fmt-toml *args: (just 'cargo-install' 'cargo-sort')
     cargo sort --workspace --grouped {{args}}
 
 # Fuzz the layer target (installs `cargo fuzz`)
-fuzz *args: (cargo-fuzz 'run' 'layer' '--' args)
+fuzz target='layer' *args: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' args)
 
 # Minimize the size of the fuzzing corpus (installs `cargo fuzz`)
-fuzz-cmin file: (cargo-fuzz 'tmin' 'layer' file)
+fuzz-cmin file target='layer': (cargo-fuzz 'tmin' target file)
 
 # Minimize the crash in file (installs `cargo fuzz`)
-fuzz-tmin file: (cargo-fuzz 'tmin' 'layer' file)
+fuzz-tmin file target='layer': (cargo-fuzz 'tmin' target file)
 
 # Get any package's field from the metadata
 get-crate-field field package=main_crate: (just 'assert-cmd' 'jq')
