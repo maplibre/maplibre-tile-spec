@@ -219,7 +219,7 @@ describe("IntegerDecodingUtils", () => {
             });
 
             it("should decode zigzag delta Int64", () => {
-                const data = new BigUint64Array([1n, 2n, 3n, 5n, 6n, 7n]);
+                const data = new BigInt64Array([1n, 2n, 3n, 5n, 6n, 7n]);
                 const encoded = encodeZigZagDeltaInt64(data);
                 const decoded = decodeZigZagDeltaInt64(encoded);
                 expect(Array.from(decoded)).toEqual([1n, 2n, 3n, 5n, 6n, 7n]);

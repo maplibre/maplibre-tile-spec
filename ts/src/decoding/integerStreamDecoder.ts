@@ -232,8 +232,8 @@ function decodeInt64(
                 if (!nullabilityBuffer) {
                     return decodeDeltaRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
                 }
-                decodedValues = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
-                decodedValues = decodeZigZagDeltaInt64(decodedValues);
+                values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
+                decodedValues = decodeZigZagDeltaInt64(values);
             } else {
                 decodedValues = decodeZigZagDeltaInt64(values);
             }
@@ -389,7 +389,7 @@ function decodeRleInt64(
 ): BigInt64Array {
     return isSigned
         ? decodeZigZagRleInt64(data, streamMetadata.runs, streamMetadata.numRleValues)
-        : decodeUnsignedRleInt64(data, streamMetadata.runs, streamMetadata.numRleValues);
+        : new BigInt64Array(decodeUnsignedRleInt64(data, streamMetadata.runs, streamMetadata.numRleValues));
 }
 
 function decodeRleFloat64(

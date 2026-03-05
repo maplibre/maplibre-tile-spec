@@ -18,7 +18,6 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
         nullabilityBuffer: BitVector,
     ) {
         super(name, offsetBuffer, dictionaryBuffer, nullabilityBuffer);
-        this.textEncoder = new TextEncoder();
     }
 
     protected getValueFromBuffer(index: number): string {
@@ -59,7 +58,6 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
             if (this.symbolLengthBuffer == null) {
                 // TODO: change FsstEncoder to take offsets instead of length to get rid of this conversion
                 this.symbolLengthBuffer = this.offsetToLengthBuffer(this.symbolOffsetBuffer);
-                this.lengthBuffer = this.offsetToLengthBuffer(this.offsetBuffer);
             }
 
             this.decodedDictionary = decodeFsst(this.symbolTableBuffer, this.symbolLengthBuffer, this.dataBuffer);

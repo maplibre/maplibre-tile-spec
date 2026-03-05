@@ -185,5 +185,5 @@ export function encodeInt64SignedDeltaRle(runs: Array<[number, bigint]>): Uint8A
  * Encodes unsigned BigInt64 values with varint compression (no zigzag)
  */
 export function encodeInt64UnsignedNone(values: BigInt64Array): Uint8Array {
-    return encodeVarintInt64(new BigUint64Array(Array.from(values)));
+    return encodeVarintInt64(new BigUint64Array(values));
 }

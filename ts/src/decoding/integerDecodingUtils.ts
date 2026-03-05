@@ -242,7 +242,7 @@ export function decodeUnsignedRleInt64(
     encodedData: BigUint64Array,
     numRuns: number,
     numTotalValues?: number,
-): BigInt64Array {
+): BigUint64Array {
     // If numTotalValues not provided, calculate from runs (nullable case)
     if (numTotalValues === undefined) {
         numTotalValues = 0;
@@ -251,7 +251,7 @@ export function decodeUnsignedRleInt64(
         }
     }
 
-    const decodedValues = new BigInt64Array(numTotalValues);
+    const decodedValues = new BigUint64Array(numTotalValues);
     let offset = 0;
     for (let i = 0; i < numRuns; i++) {
         const runLength = Number(encodedData[i]);

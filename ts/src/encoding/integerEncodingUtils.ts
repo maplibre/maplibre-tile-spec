@@ -296,7 +296,7 @@ export function encodeZigZagDeltaInt32(data: Int32Array): void {
     }
 }
 
-export function encodeZigZagDeltaInt64(data: BigUint64Array): BigUint64Array {
+export function encodeZigZagDeltaInt64(data: BigInt64Array): BigUint64Array {
     if (data.length === 0) {
         return new BigUint64Array(0);
     }
