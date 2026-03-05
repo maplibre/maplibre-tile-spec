@@ -621,7 +621,11 @@ describe("Error handling", () => {
 
 describe("Edge cases", () => {
     it("returns an empty array when numGeometries is 0", () => {
-        const gv = { numGeometries: 0, topologyVector: {}, containsPolygonGeometry: () => false } as unknown as GeometryVector;
+        const gv = {
+            numGeometries: 0,
+            topologyVector: {},
+            containsPolygonGeometry: () => false,
+        } as unknown as GeometryVector;
         expect(convertGeometryVector(gv)).toHaveLength(0);
     });
 
@@ -636,7 +640,7 @@ describe("Edge cases", () => {
                 ringOffsets: undefined,
             },
             new Int32Array([]), // length === 0 → same as undefined
-            new Int32Array([3, 9])
+            new Int32Array([3, 9]),
         );
 
         const result = convertGeometryVector(gv);

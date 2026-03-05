@@ -213,29 +213,28 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                 partOffsetCounter++;
 
                 if (!vertexOffsets || vertexOffsets.length === 0) {
-
                     lineStrings[j] = getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
                     vertexBufferOffset += numVertices * 2;
                 } else {
                     const vertices =
-                    geometryVector.vertexBufferType === VertexBufferType.VEC_2
-                        ? decodeDictionaryEncodedLineString(
-                                vertexBuffer,
-                                vertexOffsets,
-                                vertexOffsetsOffset,
-                                numVertices,
-                                false,
-                            )
-                        : decodeMortonDictionaryEncodedLineString(
-                                vertexBuffer,
-                                vertexOffsets,
-                                vertexOffsetsOffset,
-                                numVertices,
-                                false,
-                                mortonSettings,
-                            );
-                lineStrings[j] = vertices;
-                vertexOffsetsOffset += numVertices;
+                        geometryVector.vertexBufferType === VertexBufferType.VEC_2
+                            ? decodeDictionaryEncodedLineString(
+                                  vertexBuffer,
+                                  vertexOffsets,
+                                  vertexOffsetsOffset,
+                                  numVertices,
+                                  false,
+                              )
+                            : decodeMortonDictionaryEncodedLineString(
+                                  vertexBuffer,
+                                  vertexOffsets,
+                                  vertexOffsetsOffset,
+                                  numVertices,
+                                  false,
+                                  mortonSettings,
+                              );
+                    lineStrings[j] = vertices;
+                    vertexOffsetsOffset += numVertices;
                 }
             }
             geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
