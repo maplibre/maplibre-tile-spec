@@ -91,7 +91,6 @@ export function fastPack32(inValues: Int32Array, inPos: number, out: Int32Buf, o
             bitOffset = bitWidth - lowBits;
         }
     }
-
 }
 
 export function createFastPforEncoderWorkspace(): FastPforEncoderWorkspace {
@@ -222,12 +221,7 @@ function recordBlockExceptions(
 
 type EncodeState = { inPos: number; out: Int32Buf; outPos: number };
 
-function packBlock(
-    inValues: Int32Array,
-    blockPos: number,
-    bitWidth: number,
-    state: EncodeState,
-): void {
+function packBlock(inValues: Int32Array, blockPos: number, bitWidth: number, state: EncodeState): void {
     for (let k = 0; k < BLOCK_SIZE; k += 32) {
         state.out = ensureInt32Capacity(state.out, state.outPos + bitWidth);
         fastPack32(inValues, blockPos + k, state.out, state.outPos, bitWidth);
@@ -269,16 +263,13 @@ function computeExceptionBitmap(dataPointers: Int32Array): number {
     let bitmap = 0;
     for (let k = 2; k <= MAX_BIT_WIDTH; k++) {
         if (dataPointers[k] !== 0) {
-            bitmap |= (k === MAX_BIT_WIDTH) ? 0x80000000 : (1 << (k - 1));
+            bitmap |= k === MAX_BIT_WIDTH ? 0x80000000 : 1 << (k - 1);
         }
     }
     return bitmap;
 }
 
-function writeExceptionStreams(
-    workspace: FastPforEncoderWorkspace,
-    state: EncodeState,
-): void {
+function writeExceptionStreams(workspace: FastPforEncoderWorkspace, state: EncodeState): void {
     const dataPointers = workspace.dataPointers;
     const dataToBePacked = workspace.dataToBePacked;
 
@@ -301,7 +292,7 @@ function writeExceptionStreams(
             }
 
             const overflow = j - size;
-            state.outPos -= ((overflow * k) >>> 5);
+            state.outPos -= (overflow * k) >>> 5;
         }
     }
 }
@@ -332,7 +323,7 @@ function encodePage(
         const exceptionCount = bestBitWidthPlan[1];
         const maxBitWidth = bestBitWidthPlan[2];
 
-        const exceptionBitWidth = exceptionCount > 0 ? (maxBitWidth - bitWidth) : 0;
+        const exceptionBitWidth = exceptionCount > 0 ? maxBitWidth - bitWidth : 0;
         byteContainerPos = writeBlockHeader(workspace, byteContainerPos, bitWidth, exceptionCount, maxBitWidth);
         byteContainerPos = recordBlockExceptions(
             workspace,
@@ -377,12 +368,7 @@ function encodeAlignedPages(
     }
 }
 
-function encode(
-    inValues: Int32Array,
-    inLength: number,
-    state: EncodeState,
-    workspace: FastPforEncoderWorkspace,
-): void {
+function encode(inValues: Int32Array, inLength: number, state: EncodeState, workspace: FastPforEncoderWorkspace): void {
     const alignedLength = greatestMultiple(inLength, BLOCK_SIZE);
     state.out = ensureInt32Capacity(state.out, state.outPos + 1);
     state.out[state.outPos++] = alignedLength;
@@ -440,10 +426,7 @@ function encodeVByte(
 /**
  * Encodes an int32 stream using the FastPFOR wire format (pages + VByte tail).
  */
-export function encodeFastPforInt32WithWorkspace(
-    values: Int32Array,
-    workspace: FastPforEncoderWorkspace,
-): Int32Buf {
+export function encodeFastPforInt32WithWorkspace(values: Int32Array, workspace: FastPforEncoderWorkspace): Int32Buf {
     const state: EncodeState = { inPos: 0, outPos: 0, out: new Int32Array(values.length + 1024) as Int32Buf };
 
     encode(values, values.length, state, workspace);

@@ -3,8 +3,6 @@ import type BitVector from "../flat/bitVector";
 import { decodeString } from "../../decoding/decodingUtils";
 
 export class StringDictionaryVector extends VariableSizeVector<Uint8Array, string> {
-    private readonly textEncoder: TextEncoder;
-
     constructor(
         name: string,
         private readonly indexBuffer: Int32Array,

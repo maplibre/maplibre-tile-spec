@@ -222,7 +222,7 @@ export function decodeSharedDictionary(
     let i = 0;
     for (const childField of childFields) {
         const numStreams = decodeVarintInt32(data, offset, 1)[0];
-        if (numStreams == 0) {
+        if (numStreams === 0) {
             /* Column is not present in the tile */
             continue;
         }

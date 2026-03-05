@@ -1,11 +1,11 @@
-import { type Geometry, type GeometryVector } from "./geometry/geometryVector";
+import type { Geometry, GeometryVector } from "./geometry/geometryVector";
 import type Vector from "./vector";
-import { type IntVector } from "./intVector";
+import type { IntVector } from "./intVector";
 import { IntFlatVector } from "./flat/intFlatVector";
 import { DoubleFlatVector } from "./flat/doubleFlatVector";
 import { IntSequenceVector } from "./sequence/intSequenceVector";
 import { IntConstVector } from "./constant/intConstVector";
-import { type GpuVector } from "./geometry/gpuVector";
+import type { GpuVector } from "./geometry/gpuVector";
 
 export interface Feature {
     id: number | bigint;

@@ -296,13 +296,13 @@ function convertTileRequest(req, res) {
 
 function runCLISetup() {
   console.log(`Building CLI tools at ${config.cliToolsPath}`);
-  execSync(`./gradlew cli`, { cwd: config.cliToolsPath });
+  execSync("./gradlew cli", { cwd: config.cliToolsPath });
 
   if (config.noencodingserver) {
     return;
   }
 
-  const server = spawn(`java`, [
+  const server = spawn("java", [
     "-jar",
     `${config.encoderPath}`,
     "--server",
