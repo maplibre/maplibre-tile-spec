@@ -104,7 +104,7 @@ fn vertex_strategy_all_unique_prefers_vec2() {
 
 #[test]
 fn vertex_strategy_high_repetition_prefers_morton() {
-    // All 20 points share the same coordinate - uniqueness ratio = 1/20 < 0.5 → Morton.
+    // All 20 points share the same coordinate — uniqueness ratio = 1/20 < 0.5 → Morton.
     let geoms: Vec<Geom32> = std::iter::repeat_n(point! { x: 5, y: 5 }.into(), 20).collect();
     let encoded =
         GeometryOptimizer::optimize_and_encode(&push_geoms(&geoms)).expect("encode failed");
