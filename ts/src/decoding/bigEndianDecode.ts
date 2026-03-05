@@ -42,12 +42,7 @@ export function decodeBigEndianInt32sInto(
         } else {
             for (let i = 0; i < numCompleteInts; i++) {
                 const base = offset + i * 4;
-                out[i] =
-                    (bytes[base] << 24) |
-                    (bytes[base + 1] << 16) |
-                    (bytes[base + 2] << 8) |
-                    bytes[base + 3] |
-                    0;
+                out[i] = (bytes[base] << 24) | (bytes[base + 1] << 16) | (bytes[base + 2] << 8) | bytes[base + 3] | 0;
             }
         }
     }

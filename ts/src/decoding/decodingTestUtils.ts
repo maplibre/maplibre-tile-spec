@@ -5,7 +5,7 @@ import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique"
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import { LengthType } from "../metadata/tile/lengthType";
 import { OffsetType } from "../metadata/tile/offsetType";
-import { type RleEncodedStreamMetadata, type StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
+import type { RleEncodedStreamMetadata, StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import IntWrapper from "./intWrapper";
 import { type Column, type Field, ComplexType, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { encodeBooleanRle, encodeStrings, createStringLengths } from "../encoding/encodingUtils";
@@ -17,7 +17,7 @@ import { encodeVarintInt32Value, encodeVarintInt32 } from "../encoding/integerEn
 export function createStreamMetadata(
     logicalTechnique1: LogicalLevelTechnique,
     logicalTechnique2: LogicalLevelTechnique = LogicalLevelTechnique.NONE,
-    numValues: number = 3,
+    numValues = 3,
 ): StreamMetadata {
     return {
         physicalStreamType: PhysicalStreamType.DATA,
@@ -212,11 +212,7 @@ export function encodeSharedDictionary(
  * @param isPresent - Whether the field itself is present
  * @returns Encoded streams for the field
  */
-export function encodeStructField(
-    offsetIndices: number[],
-    presentValues: boolean[],
-    isPresent: boolean = true,
-): Uint8Array {
+export function encodeStructField(offsetIndices: number[], presentValues: boolean[], isPresent = true): Uint8Array {
     if (!isPresent) {
         return encodeNumStreams(0);
     }

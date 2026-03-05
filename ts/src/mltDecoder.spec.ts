@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { readdirSync, readFileSync } from "fs";
-import { parse, join } from "path";
+import { readdirSync, readFileSync } from "node:fs";
+import { parse, join } from "node:path";
 import { VectorTile, type VectorTileFeature } from "@mapbox/vector-tile";
 import Pbf from "pbf";
 
@@ -141,7 +141,7 @@ function compareId(mltFeature: Feature, mvtFeature: VectorTileFeature, idWithinM
             /* Expected to fail in some/most cases */
             try {
                 assert.equal(actualId, mvtFeature.id);
-            } catch (e) {
+            } catch (_e) {
                 //console.info("id mismatch", featureTableName, mltFeatureId, mvtFeature.id);
             }
             return;
@@ -176,7 +176,7 @@ function transformPropertyNames(properties: Record<string, any>) {
         /* Currently id is not supported as a property name in a FeatureTable,
          *  so this quick workaround is implemented */
         if (newKey === "_id") {
-            properties["id"] = properties[newKey];
+            properties.id = properties[newKey];
             delete properties[newKey];
         }
     }

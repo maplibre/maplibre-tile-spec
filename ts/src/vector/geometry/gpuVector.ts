@@ -1,6 +1,6 @@
 import Point from "@mapbox/point-geometry";
 import { GEOMETRY_TYPE } from "./geometryType";
-import { type CoordinatesArray } from "./geometryVector";
+import type { CoordinatesArray } from "./geometryVector";
 import type TopologyVector from "./topologyVector";
 
 export abstract class GpuVector implements Iterable<CoordinatesArray> {

@@ -6,7 +6,7 @@ export class LongConstVector extends Vector<BigInt64Array, bigint> {
         super(name, BigInt64Array.of(value), sizeOrNullabilityBuffer);
     }
 
-    protected getValueFromBuffer(index: number): bigint {
+    protected getValueFromBuffer(_index: number): bigint {
         return this.dataBuffer[0];
     }
 }
