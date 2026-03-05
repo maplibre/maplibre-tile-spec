@@ -6,7 +6,7 @@ use mlt_core::v01::{
     PhysicalEncoder, PresenceStream, PropValue, Property, PropertyEncoder, ScalarEncoder,
     StrEncoder,
 };
-use mlt_core::{FromDecoded, FromEncoded, MltError};
+use mlt_core::{FromDecoded as _, FromEncoded as _, MltError};
 use proptest::prelude::*;
 
 // proptest_derive::Arbitrary is only derived for these types inside the crate
