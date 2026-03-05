@@ -18,7 +18,7 @@ public:
     using StreamMetadata = metadata::stream::StreamMetadata;
     using MortonEncodedStreamMetadata = metadata::stream::MortonEncodedStreamMetadata;
 
-    IntegerDecoder();
+    IntegerDecoder(bool enableFastPFOR);
     ~IntegerDecoder() noexcept;
 
     IntegerDecoder(IntegerDecoder&&) = delete;
@@ -88,6 +88,10 @@ private:
     std::unique_ptr<Impl> impl;
     std::vector<std::vector<std::uint8_t>> buffer;
     std::size_t bufferIndex = 0;
+
+#if MLT_WITH_FASTPFOR
+    bool enableFastPFOR;
+#endif
 
     // Very simple RAII wrapper for temporary buffers.
     // Buffers must be used only within a current method invocation.

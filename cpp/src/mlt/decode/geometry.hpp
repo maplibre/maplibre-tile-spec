@@ -20,6 +20,9 @@ class GeometryDecoder {
 public:
     using GeometryVector = geometry::GeometryVector;
 
+    GeometryDecoder(IntegerDecoder& intDecoder)
+        : intDecoder(intDecoder) {}
+
 private:
     enum class VectorType : std::uint32_t {
         FLAT,
@@ -389,7 +392,7 @@ public:
     }
 
 private:
-    IntegerDecoder intDecoder;
+    IntegerDecoder& intDecoder;
 };
 
 } // namespace mlt::decoder

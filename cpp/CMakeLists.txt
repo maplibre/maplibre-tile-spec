@@ -4,12 +4,6 @@ project(mlt-cpp LANGUAGES CXX)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 include(AddCXXCompilerFlag)
 
-# Use the same deployment target as the parent project, if set.
-if (NOT MLT_OSX_DEPLOYMENT_TARGET)
-    set(MLT_OSX_DEPLOYMENT_TARGET 16)
-endif()
-set(CMAKE_OSX_DEPLOYMENT_TARGET ${MLT_OSX_DEPLOYMENT_TARGET})
-
 # generate compile_commands.json https://cmake.org/cmake/help/latest/variable/CMAKE_EXPORT_COMPILE_COMMANDS.html
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
