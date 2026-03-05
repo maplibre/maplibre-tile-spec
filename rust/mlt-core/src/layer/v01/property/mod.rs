@@ -561,7 +561,7 @@ impl ScalarValueEncoder {
             ScalarValueEncoder::String(_) => "string",
             ScalarValueEncoder::Float => "float",
             ScalarValueEncoder::Bool => "bool",
-            ScalarValueEncoder::SharedDict => "struct",
+            ScalarValueEncoder::SharedDict => "shared_dict",
         }
     }
 }
