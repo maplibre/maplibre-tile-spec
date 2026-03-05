@@ -1,7 +1,9 @@
+mod optimizer;
 use std::fmt::{Debug, Formatter};
 use std::io::Write;
 
 use borrowme::borrowme;
+pub use optimizer::IdOptimizer;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
@@ -211,7 +213,7 @@ impl<'a> FromEncoded<'a> for DecodedId {
 }
 
 /// How to encode IDs
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct IdEncoder {
     pub logical: LogicalEncoder,
@@ -225,7 +227,7 @@ impl IdEncoder {
 }
 
 /// How wide are the IDs
-#[derive(Debug, Clone, Copy, strum::EnumIter)]
+#[derive(Debug, Clone, Copy, PartialEq, strum::EnumIter)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum IdWidth {
     /// 32-bit encoding

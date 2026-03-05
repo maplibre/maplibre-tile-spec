@@ -466,7 +466,7 @@ impl<'a> Property<'a> {
 /// Instructions sharing the same [`PropertyEncoder::shared_dict`] are grouped
 /// into a single struct column with a shared dictionary.
 /// The struct column appears in the output at the position of its first child in the input.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PropertyEncoder {
     /// Encode this property as a standalone scalar column.
     Scalar(ScalarEncoder),
@@ -591,9 +591,10 @@ pub enum PresenceStream {
     Absent,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultiPropertyEncoder {
-    properties: Vec<PropertyEncoder>,
-    shared_dicts: HashMap<String, StrEncoder>,
+    pub(crate) properties: Vec<PropertyEncoder>,
+    pub(crate) shared_dicts: HashMap<String, StrEncoder>,
 }
 
 impl MultiPropertyEncoder {

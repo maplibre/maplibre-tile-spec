@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
-use mlt_core::borrowme;
 use mlt_core::v01::{
     DecodedProperty, IntEncoder, LogicalEncoder, MultiPropertyEncoder, OwnedEncodedProperty,
     PhysicalEncoder, PresenceStream, PropValue, Property, PropertyEncoder, ScalarEncoder,
     StrEncoder,
 };
-use mlt_core::{FromDecoded as _, FromEncoded as _, MltError};
+use mlt_core::{FromDecoded as _, FromEncoded as _, MltError, borrowme};
 use proptest::prelude::*;
 
 // proptest_derive::Arbitrary is only derived for these types inside the crate
