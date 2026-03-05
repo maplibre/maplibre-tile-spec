@@ -17,7 +17,7 @@ use crate::{Decodable as _, MltError, MltRefResult, utils};
 #[borrowme]
 #[derive(Debug, PartialEq)]
 #[cfg_attr(
-    all(not(test), feature = "arbitrary"),
+    all(not(test), not(fuzzing), feature = "arbitrary"),
     owned_attr(derive(arbitrary::Arbitrary))
 )]
 pub struct Layer01<'a> {
@@ -451,10 +451,50 @@ impl OwnedLayer01 {
 #[cfg(fuzzing)]
 /// To make sure we serialize out in the same order as the original file, we need to store the order in which we parsed the columns
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum LayerOrdering {
     Id,
     Geometry,
     Property,
+}
+
+#[cfg(all(fuzzing, feature = "arbitrary"))]
+impl arbitrary::Arbitrary<'_> for OwnedLayer01 {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        use crate::v01::{OwnedGeometry, OwnedProperty};
+        let name: String = u.arbitrary()?;
+        let extent: u32 = u.arbitrary()?;
+        let id: OwnedId = u.arbitrary()?;
+        let geometry: OwnedGeometry = u.arbitrary()?;
+        let properties: Vec<OwnedProperty> = u.arbitrary()?;
+
+        // Build a valid layer_order: 1 Geometry, N Property (one per property),
+        // and optionally 1 Id (only when id is not None), then shuffle.
+        let mut layer_order: Vec<LayerOrdering> = Vec::new();
+        if id != OwnedId::None {
+            layer_order.push(LayerOrdering::Id);
+        }
+        layer_order.push(LayerOrdering::Geometry);
+        for _ in &properties {
+            layer_order.push(LayerOrdering::Property);
+        }
+
+        // Fisher-Yates shuffle using arbitrary indices
+        let n = layer_order.len();
+        for i in (1..n).rev() {
+            let j: usize = u.int_in_range(0..=i)?;
+            layer_order.swap(i, j);
+        }
+
+        Ok(OwnedLayer01 {
+            name,
+            extent,
+            id,
+            geometry,
+            properties,
+            layer_order,
+        })
+    }
 }
 
 #[cfg(fuzzing)]

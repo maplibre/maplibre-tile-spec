@@ -1,3 +1,8 @@
+use borrowme::ToOwned as _;
+use mlt_core::{Layer, OwnedLayer};
+
+use crate::LayerInput;
+
 /// Fuzz input that starts from an already-decoded layer and tests encode → decode roundtrip.
 ///
 /// Unlike [`LayerInput`] (which starts from raw bytes), this drives the fuzzer to generate
@@ -23,13 +28,12 @@ impl DecodedLayerInput {
                 self.layer
             );
         };
-        if !remaining.is_empty() {
-            panic!(
-                "Re-parsing written layer left {} trailing bytes\nOriginal layer:\n{:#?}",
-                remaining.len(),
-                self.layer
-            );
-        }
+        assert!(
+            remaining.is_empty(),
+            "Re-parsing written layer left {} trailing bytes\nOriginal layer:\n{:#?}",
+            remaining.len(),
+            self.layer
+        );
 
         let owned_parsed_back = parsed_back.to_owned();
 
@@ -43,17 +47,5 @@ impl DecodedLayerInput {
 impl std::fmt::Debug for DecodedLayerInput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "DecodedLayerInput {{\n\tlayer: {:#?}\n}}", self.layer)
-    }
-}
-
-impl std::fmt::Debug for LayerInput {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Input {{\n\tbytes: [0x{}; {}]\n}}\n",
-            self.bytes.encode_hex::<String>(),
-            self.bytes.len()
-        )?;
-        write!(f, "As a layer: {:#?}", Layer::parse(&self.bytes))
     }
 }
