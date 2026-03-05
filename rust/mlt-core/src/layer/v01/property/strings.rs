@@ -61,7 +61,7 @@ pub enum EncodedSharedDictProp<'a> {
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SharedDictEncoder {
     /// Name of the parent struct column.
     ///
