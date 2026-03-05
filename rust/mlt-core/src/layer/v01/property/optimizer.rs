@@ -9,6 +9,7 @@ use fsst::Compressor;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
+use crate::utils::encode_zigzag;
 use crate::v01::property::strings::StrEncoder;
 use crate::v01::property::{
     DecodedProperty, MultiPropertyEncoder, PresenceStream, PropValue, PropertyEncoder,
@@ -303,17 +304,14 @@ fn build_encoder(
         PropValue::I8(v) => {
             let presence = to_presence(count_nulls(v));
             // FIXME: inaccurate, but encoders don't support i8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
-            let non_null: Vec<u32> = v
+            let non_null = v
                 .iter()
                 .flatten()
                 .copied()
                 .map(i32::from)
-                .map(i32::cast_unsigned)
-                .collect();
-            PropertyEncoder::Scalar(ScalarEncoder::int(
-                presence,
-                IntEncoder::auto_u32(&non_null),
-            ))
+                .collect::<Vec<i32>>();
+            let enc = encode_zigzag(&non_null);
+            PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
         }
         PropValue::U8(v) => {
             let presence = to_presence(count_nulls(v));
@@ -326,11 +324,9 @@ fn build_encoder(
         }
         PropValue::I32(v) => {
             let presence = to_presence(count_nulls(v));
-            let non_null: Vec<u32> = v.iter().flatten().map(|&x| x.cast_unsigned()).collect();
-            PropertyEncoder::Scalar(ScalarEncoder::int(
-                presence,
-                IntEncoder::auto_u32(&non_null),
-            ))
+            let non_null = v.iter().flatten().copied().collect::<Vec<i32>>();
+            let enc = encode_zigzag(&non_null);
+            PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
         }
         PropValue::U32(v) => {
             let presence = to_presence(count_nulls(v));
@@ -342,10 +338,11 @@ fn build_encoder(
         }
         PropValue::I64(v) => {
             let presence = to_presence(count_nulls(v));
-            let non_null: Vec<u64> = v.iter().flatten().map(|&x| x.cast_unsigned()).collect();
+            let non_null = v.iter().flatten().copied().collect::<Vec<i64>>();
+            let enc = encode_zigzag(&non_null);
             PropertyEncoder::Scalar(ScalarEncoder::int(
                 presence,
-                IntEncoder::auto_u64(&non_null),
+                IntEncoder::auto_u64(&enc),
             ))
         }
         PropValue::U64(v) => {
