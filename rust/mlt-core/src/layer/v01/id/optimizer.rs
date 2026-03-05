@@ -43,11 +43,19 @@ impl IdOptimizer {
             Err(value) => return value,
         };
 
-        let logical = match Self::select_logical_encoder(ids, is_sequential, is_constant, id_width)
-        {
-            Ok(value) => value,
-            Err(value) => return value,
-        };
+        // Fast-path: all consecutive non-null values increment by exactly 1.
+        // DeltaRle is optimal; skip allocation and trial encoding.
+        if is_sequential && ids.len() > 4 {
+            return IdEncoder::new(LogicalEncoder::DeltaRle, id_width);
+        }
+
+        // Fast-path: every non-null value is identical.
+        // Rle is optimal; skip allocation and trial encoding.
+        if is_constant && ids.len() > 2 {
+            return IdEncoder::new(LogicalEncoder::Rle, id_width);
+        }
+        // Profile, prune, filter, and compete to find the best logical encoder.
+        let logical = Self::compete(ids, id_width);
         IdEncoder::new(logical, id_width)
     }
 
@@ -97,30 +105,6 @@ impl IdOptimizer {
 
         let id_width = Self::deduce_width(has_nulls, max_value);
         Ok((is_sequential, is_constant, id_width))
-    }
-
-    fn select_logical_encoder(
-        ids: &[Option<u64>],
-        is_sequential: bool,
-        is_constant: bool,
-        id_width: IdWidth,
-    ) -> Result<LogicalEncoder, IdEncoder> {
-        // Fast-path A: all consecutive non-null values increment by exactly 1.
-        // DeltaRle is provably optimal; skip allocation and trial encoding.
-        if is_sequential {
-            return Err(IdEncoder::new(LogicalEncoder::DeltaRle, id_width));
-        }
-
-        // Fast-path B: every non-null value is identical.
-        // Rle is provably optimal; skip allocation and trial encoding.
-        if is_constant {
-            return Err(IdEncoder::new(LogicalEncoder::Rle, id_width));
-        }
-
-        // Competition: data is neither sequential nor constant.
-        // Profile, prune, filter, and compete to find the best logical encoder.
-        let logical = Self::compete(ids, id_width);
-        Ok(logical)
     }
 
     /// Returns the zero-cost fallback encoder used when there is nothing to encode.
