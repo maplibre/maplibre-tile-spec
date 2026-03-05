@@ -795,6 +795,5 @@ impl<'a> FromEncoded<'a> for DecodedProperty {
             name: v.name.to_string(),
             values,
         })
-
     }
 }
