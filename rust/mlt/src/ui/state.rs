@@ -25,7 +25,9 @@ pub enum ViewMode {
 pub enum ResizeHandle {
     LeftRight,
     FeaturesProperties,
+    PropertiesGeometry,
     FileBrowserLeftRight,
+    FileBrowserPreviewFilter,
     FileBrowserFilterInfo,
 }
 
@@ -122,6 +124,7 @@ pub struct App {
     pub(crate) tree_scroll: u16,
     pub(crate) tree_inner_height: usize,
     pub(crate) last_properties_key: Option<(usize, usize)>,
+    pub(crate) properties_pct: u16,
     geometry_index: Option<RTree<GeometryIndexEntry>>,
     pub(crate) file_left_pct: u16,
     pub(crate) file_preview_pct: u16,
@@ -178,6 +181,7 @@ impl Default for App {
             last_properties_key: None,
             tree_scroll: 0,
             tree_inner_height: 0,
+            properties_pct: 50,
             geometry_index: None,
             file_left_pct: 70,
             file_preview_pct: 33,
