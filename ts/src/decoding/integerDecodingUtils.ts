@@ -324,7 +324,7 @@ export function decodeZigZagDeltaInt64(data: BigInt64Array | BigUint64Array): Bi
         }
     }
 
-    for (; i != decodedValues.length; ++i) {
+    for (; i !== decodedValues.length; ++i) {
         decodedValues[i] = decodeZigZagInt64Value(data[i]) + decodedValues[i - 1];
     }
     return decodedValues;
