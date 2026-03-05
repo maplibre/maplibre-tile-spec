@@ -125,8 +125,8 @@ impl LayerInput {
     }
     fn minimize_unknown_inequal_but_debug_equal(input: &OwnedUnknown, output: &OwnedUnknown) -> ! {
         let OwnedUnknown { value, tag } = input;
-        assert_eq!(*tag, output.tag, "Unknow tag with different tags");
-        assert_eq!(*value, output.value, "Unknow tag with different values");
+        assert_eq!(*tag, output.tag, "Unknown tag with different tags");
+        assert_eq!(*value, output.value, "Unknown tag with different values");
         unreachable!("all props are compared equal, but the outer does not compare equal");
     }
 
