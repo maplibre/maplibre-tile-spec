@@ -34,10 +34,6 @@ impl IdOptimizer {
         let Some(ids) = &decoded.0 else {
             return IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);
         };
-        if ids.is_empty() {
-            return IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);
-        }
-
         let (is_sequential, is_constant, id_width) = match Self::single_pass_statistics(ids) {
             Ok(value) => value,
             Err(value) => return value,
@@ -66,46 +62,42 @@ impl IdOptimizer {
 
     fn single_pass_statistics(ids: &[Option<u64>]) -> Result<(bool, bool, IdWidth), IdEncoder> {
         let mut has_nulls = false;
-        let mut max_value: u64 = 0;
         let mut is_sequential = true;
         let mut is_constant = true;
+        let mut max_value;
 
-        let mut first_non_null: Option<u64> = None;
-        let mut prev_non_null: Option<u64> = None;
-
-        for &id in ids {
-            match id {
-                None => {
-                    has_nulls = true;
+        // Find first non-null
+        let mut ids_iter = ids.iter();
+        let first_non_null = loop {
+            if let Some(opt_id) = ids_iter.next() {
+                if let Some(id) = opt_id {
+                    max_value = *id;
+                    break *id;
                 }
+                has_nulls = true;
+            } else {
+                // Either empty or all values are null; return early with the trivial default.
+                return Err(IdEncoder::new(LogicalEncoder::None, IdWidth::Id32));
+            }
+        };
+
+        let mut prev_non_null: u64 = first_non_null;
+        for &id in ids_iter {
+            match id {
+                None => has_nulls = true,
                 Some(v) => {
                     max_value = max_value.max(v);
-                    match prev_non_null {
-                        None => {
-                            first_non_null = Some(v);
-                        }
-                        Some(prev) => {
-                            // Sequential: each consecutive non-null must be exactly prev + 1
-                            if v != prev.wrapping_add(1) {
-                                is_sequential = false;
-                            }
-                            // Constant: every non-null must equal the first
-                            if v != first_non_null
-                                .expect("first_non_null is set before prev_non_null")
-                            {
-                                is_constant = false;
-                            }
-                        }
+                    // Sequential: each consecutive non-null must be exactly prev_non_null + 1
+                    if v != prev_non_null.wrapping_add(1) {
+                        is_sequential = false;
                     }
-                    prev_non_null = Some(v);
+                    // Constant: every non-null must equal the first
+                    if v != first_non_null {
+                        is_constant = false;
+                    }
+                    prev_non_null = v;
                 }
             }
-        }
-
-        // If every value was None the value stream will be empty regardless of
-        // encoding; return the trivial default.
-        if first_non_null.is_none() {
-            return Err(IdEncoder::new(LogicalEncoder::None, IdWidth::Id32));
         }
 
         let id_width = Self::deduce_width(has_nulls, max_value);
