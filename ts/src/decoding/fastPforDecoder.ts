@@ -93,9 +93,7 @@ export function createDecoderWorkspace(): FastPforDecoderWorkspace {
     };
 }
 
-export function createFastPforWireDecodeWorkspace(
-    initialEncodedWordCapacity: number = 16,
-): FastPforWireDecodeWorkspace {
+export function createFastPforWireDecodeWorkspace(initialEncodedWordCapacity: number = 16): FastPforWireDecodeWorkspace {
     if (initialEncodedWordCapacity < 0) {
         throw new RangeError(`initialEncodedWordCapacity must be >= 0, got ${initialEncodedWordCapacity}`);
     }
