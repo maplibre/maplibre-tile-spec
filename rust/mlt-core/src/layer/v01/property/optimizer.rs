@@ -25,7 +25,7 @@ const MINHASH_PERMUTATIONS: usize = 128;
 
 /// String columns whose estimated Jaccard similarity exceeds this threshold are
 /// grouped into a single shared dictionary.
-const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.6;
+pub const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.6;
 
 /// Minimum total raw byte size of a column before attempting FSST compression.
 /// Below this the symbol-table overhead dominates and FSST never wins.

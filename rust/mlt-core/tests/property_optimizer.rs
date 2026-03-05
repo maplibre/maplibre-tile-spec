@@ -193,8 +193,8 @@ fn column_ordering_does_not_affect_grouping() {
 #[test]
 fn dissimilar_columns_stay_as_separate_scalars() {
     let props = vec![
-        str_prop("city", &["London", "Paris", "Berlin"]),
-        str_prop("colour", &["red", "green", "blue"]),
+        str_prop("city:de", &["Munich", "Manheim", "Garching"]),
+        str_prop("city:colourado", &["Black", "Red", "Gold"]),
     ];
     assert_debug_snapshot!(optimize_encode_expand(&props), @"
     MultiPropertyEncoder {
@@ -205,7 +205,7 @@ fn dissimilar_columns_stay_as_separate_scalars() {
                     value: String(
                         Plain {
                             string_lengths: IntEncoder {
-                                logical: None,
+                                logical: Delta,
                                 physical: VarInt,
                             },
                         },

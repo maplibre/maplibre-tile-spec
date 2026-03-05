@@ -5,7 +5,7 @@ use crate::v01::{DataProfile, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, Ph
 /// encoding settings.
 ///
 /// The returned encoder is guaranteed to be compatible with
-/// [`OwnedEncodedId::from_decoded`](super::OwnedEncodedId::from_decoded),
+/// `OwnedEncodedId::from_decoded`,
 /// which unconditionally uses [`PhysicalEncoder::VarInt`].
 ///
 /// # Pipeline
@@ -32,10 +32,10 @@ impl IdOptimizer {
     #[must_use]
     pub fn optimize(decoded: &DecodedId) -> IdEncoder {
         let Some(ids) = &decoded.0 else {
-            return Self::default_encoder();
+            return IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);
         };
         if ids.is_empty() {
-            return Self::default_encoder();
+            return IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);
         }
 
         let (is_sequential, is_constant, id_width) = match Self::single_pass_statistics(ids) {
@@ -147,7 +147,7 @@ impl IdOptimizer {
     ///
     /// Candidates are pruned by [`DataProfile::prune_candidates`] and then
     /// filtered to retain only those with `physical == VarInt`, because
-    /// [`OwnedEncodedId::from_decoded`](super::OwnedEncodedId::from_decoded)
+    /// `OwnedEncodedId::from_decoded`
     /// always uses [`PhysicalEncoder::VarInt`] for ID streams.
     fn compete(ids: &[Option<u64>], id_width: IdWidth) -> LogicalEncoder {
         match id_width {
