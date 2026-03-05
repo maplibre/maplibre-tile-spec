@@ -741,7 +741,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 };
 
                                 let dy_preview = pa.y + pa.height;
-                                if invalidate(dy_preview, ResizeHandle::FileBrowserLeftRight) {
+                                if invalidate(dy_preview, ResizeHandle::FileBrowserPreviewFilter) {
                                     continue;
                                 }
                                 let dy_filter = fa.y + fa.height;
