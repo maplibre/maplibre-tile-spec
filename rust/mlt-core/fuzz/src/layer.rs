@@ -58,26 +58,26 @@ impl LayerInput {
             println!(
                 "input and output are also NOT equal => significant state not debug-printed or not written to disk"
             );
-            Self::minimize_inequal_but_debug_equal(parsed_input, &written_owned)
+            Self::minimize_unequal_but_debug_equal(parsed_input, &written_owned)
         }
     }
 
     /// We try to remove prefixes of serialized things that we know are good
-    pub(crate) fn minimize_inequal_but_debug_equal(input: &OwnedLayer, output: &OwnedLayer) -> ! {
+    pub(crate) fn minimize_unequal_but_debug_equal(input: &OwnedLayer, output: &OwnedLayer) -> ! {
         use OwnedLayer as OL;
         match (input, output) {
             (OL::Tag01(input), OL::Tag01(output)) => {
-                Self::minimize_layer1_inequal_but_debug_equal(input, output)
+                Self::minimize_layer1_unequal_but_debug_equal(input, output)
             }
             (OL::Unknown(input), OL::Unknown(output)) => {
-                Self::minimize_unknown_inequal_but_debug_equal(input, output)
+                Self::minimize_unknown_unequal_but_debug_equal(input, output)
             }
             (OL::Unknown(_), OL::Tag01(_)) | (OL::Tag01(_), OL::Unknown(_)) => {
                 unreachable!("mismatched layer types generate different debug output")
             }
         }
     }
-    fn minimize_layer1_inequal_but_debug_equal(input: &OwnedLayer01, output: &OwnedLayer01) -> ! {
+    fn minimize_layer1_unequal_but_debug_equal(input: &OwnedLayer01, output: &OwnedLayer01) -> ! {
         let OwnedLayer01 {
             name,
             extent,
