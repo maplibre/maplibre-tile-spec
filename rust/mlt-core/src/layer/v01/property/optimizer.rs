@@ -81,7 +81,7 @@ impl PropertyOptimizer {
         // `get_similarity_from_hashes` produces consistent Jaccard estimates.
         let min_hash = MinHash::<IntoIter<String>, String>::new(MINHASH_PERMUTATIONS);
 
-        let str_profiles = Self::profile_string_collumns(properties, &min_hash);
+        let str_profiles = Self::profile_string_columns(properties, &min_hash);
         let (groups, col_to_group) =
             Self::group_string_columns_by_min_hash_similarity(&min_hash, &str_profiles);
         let (shared_dicts, group_struct_names) =
@@ -178,7 +178,7 @@ impl PropertyOptimizer {
     }
 
     /// Profile every string column
-    fn profile_string_collumns(
+    fn profile_string_columns(
         properties: &[DecodedProperty],
         min_hash: &MinHash<IntoIter<String>, String>,
     ) -> Vec<StringProfile> {
