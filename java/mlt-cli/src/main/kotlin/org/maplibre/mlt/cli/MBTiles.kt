@@ -6,6 +6,7 @@ import org.imintel.mbtiles4j.MBTilesReader
 import org.imintel.mbtiles4j.MBTilesWriteException
 import org.imintel.mbtiles4j.MBTilesWriter
 import org.imintel.mbtiles4j.Tile
+import org.imintel.mbtiles4j.model.MetadataEntry
 import org.maplibre.mlt.converter.MltConverter
 import org.maplibre.mlt.metadata.tileset.MltMetadata
 import java.io.ByteArrayInputStream
@@ -39,6 +40,7 @@ fun encodeMBTiles(
         // If no target file is specified, a temporary is used.
         // mbtiles4j blocks access to in-memory databases and built-in
         // temp file support, so we have to use its temp file support.
+        // Nullable so that we can close it correctly in normal and exception scenarios.
         var mbTilesWriter: MBTilesWriter? =
             if (outputPath != null) {
                 MBTilesWriter(outputPath.toFile())
@@ -49,7 +51,10 @@ fun encodeMBTiles(
             // Copy metadata from the input file.
             // We can't set the format, see the coda.
             val metadata = mbTilesReader.getMetadata()
-            mbTilesWriter!!.addMetadataEntry(metadata)
+
+            // As of 1.0.6, mbtiles4j doesn't correctly handle metadata entries with SQL special
+            // characters, so we have to handle these later, once we have direct access to the file.
+            // mbTilesWriter.addMetadataEntry(metadata)
 
             val pbMeta = MltMetadata.TileSetMetadata()
             pbMeta.name = metadata.tilesetName
@@ -71,7 +76,7 @@ fun encodeMBTiles(
             // Splitting reads by zoom level might improve performance.
             val tiles = mbTilesReader.getTiles()
             val tileCount = AtomicLong(0)
-            val writerCapture = mbTilesWriter
+            val writerCapture = mbTilesWriter!!
             try {
                 while (tiles.hasNext()) {
                     val tile = tiles.next()
@@ -146,9 +151,8 @@ fun encodeMBTiles(
 
                 // mbtiles4j doesn't support types other than png and jpg,
                 // so we have to set the format metadata the hard way.
-                val connectionString = "jdbc:sqlite:" + dbFile.absolutePath
-                DriverManager.getConnection(connectionString).use { connection ->
-                    updateMetadata(config, connection, metadataJSON)
+                getConnection(dbFile).use { connection ->
+                    updateMetadata(config, connection, metadata, metadataJSON)
                 }
             } finally {
                 // mbtiles4j doesn't support `AutoCloseable`
@@ -182,28 +186,46 @@ fun encodeMBTiles(
     return success.get()
 }
 
+private fun getConnectionString(dbFile: File) = "jdbc:sqlite:" + dbFile.absolutePath
+
+private fun getConnection(dbFile: File) = DriverManager.getConnection(getConnectionString(dbFile))
+
 private fun updateMetadata(
     config: EncodeConfig,
     connection: Connection,
+    metadata: MetadataEntry,
     metadataJSON: String,
 ) {
-    logger.debug("Updating metadata. Setting tile MIME type to '{}'", MBTILES_METADATA_MIME_TYPE)
+    logger.debug("Updating metadata")
 
-    var sql = "UPDATE metadata SET value = ? WHERE name = ?"
+    var sql = "INSERT OR REPLACE INTO metadata (name, value) VALUES (?, ?)"
     connection.prepareStatement(sql).use { statement ->
-        statement.setString(1, MBTILES_METADATA_MIME_TYPE)
-        statement.setString(2, "format")
-        statement.execute()
-    }
-    // Put the global metadata in a custom metadata key.
-    // Could also be in a custom key within the standard `json` entry...
-    logger.trace("Adding tileset metadata JSON: {}", metadataJSON)
-    sql = "INSERT OR REPLACE INTO metadata (name, value) VALUES (?, ?)"
-    connection.prepareStatement(sql).use { statement ->
+        for (entry in metadata.requiredKeyValuePairs) {
+            statement.setString(1, entry.key)
+            statement.setString(2, entry.value)
+            statement.addBatch()
+        }
+        for (entry in metadata.customKeyValuePairs) {
+            statement.setString(1, entry.key)
+            statement.setString(2, entry.value)
+            statement.addBatch()
+        }
+
+        logger.trace("Setting tile MIME type to '{}'", MBTILES_METADATA_MIME_TYPE)
+        statement.setString(1, "format")
+        statement.setString(2, MBTILES_METADATA_MIME_TYPE)
+        statement.addBatch()
+
+        // Put the global metadata in a custom metadata key.
+        // Could also be in a custom key within the standard `json` entry...
+        logger.trace("Adding tileset metadata JSON: {}", metadataJSON)
         statement.setString(1, "mln-json")
         statement.setString(2, metadataJSON)
-        statement.execute()
+        statement.addBatch()
+
+        statement.executeBatch()
     }
+
     vacuumDatabase(connection)
 }
 
