@@ -443,7 +443,7 @@ export function encodeZigZagRleInt64(input: BigInt64Array): {
     // The final array uses BigUint64Array for lengths AND values
     const encodedData = new BigUint64Array(numRuns * 2);
 
-    // Populate the first half with lengths (converting numbers back to BigUint64s)
+    // Populate the first half with lengths (converting numbers back to BigUint64Array format)
     for (let i = 0; i < numRuns; i++) {
         encodedData[i] = BigInt(runLengths[i]);
     }
@@ -817,7 +817,7 @@ export function encodeDeltaRleInt64(input: BigInt64Array): {
     const numRuns = runLengths.length;
     const encodedData = new BigUint64Array(numRuns * 2);
 
-    // Populate the first half with lengths (converting numbers back to BigUint64s for storage)
+    // Populate the first half with lengths (converting numbers back to BigUint64Array for storage)
     for (let i = 0; i < numRuns; i++) {
         encodedData[i] = BigInt(runLengths[i]);
     }
