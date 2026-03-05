@@ -230,7 +230,7 @@ export function encodeUnsignedRleInt64(input: BigInt64Array): { data: BigUint64A
     return { data: encodedData, runs: numRuns };
 }
 
-export function _encodeUnsignedRleFloat64(input: Float64Array): { data: Float64Array; runs: number } {
+export function encodeUnsignedRleFloat64(input: Float64Array): { data: Float64Array; runs: number } {
     if (input.length === 0) {
         return { data: new Float64Array(0), runs: 0 };
     }
@@ -275,7 +275,7 @@ export function _encodeUnsignedRleFloat64(input: Float64Array): { data: Float64A
     return { data: encodedData, runs: numRuns };
 }
 
-export function _encodeZigZagDeltaInt32(data: Int32Array): void {
+export function encodeZigZagDeltaInt32(data: Int32Array): void {
     if (data.length === 0) {
         return;
     }
@@ -296,7 +296,7 @@ export function _encodeZigZagDeltaInt32(data: Int32Array): void {
     }
 }
 
-export function _encodeZigZagDeltaInt64(data: BigUint64Array): BigUint64Array {
+export function encodeZigZagDeltaInt64(data: BigUint64Array): BigUint64Array {
     if (data.length === 0) {
         return new BigUint64Array(0);
     }
@@ -319,7 +319,7 @@ export function _encodeZigZagDeltaInt64(data: BigUint64Array): BigUint64Array {
     return encodedData;
 }
 
-export function _encodeZigZagDeltaFloat64(data: Float64Array): void {
+export function encodeZigZagDeltaFloat64(data: Float64Array): void {
     if (data.length === 0) {
         return;
     }
@@ -340,7 +340,7 @@ export function _encodeZigZagDeltaFloat64(data: Float64Array): void {
     }
 }
 
-export function _encodeZigZagRleInt32(input: Int32Array): {
+export function encodeZigZagRleInt32(input: Int32Array): {
     data: Int32Array;
     runs: number;
     numTotalValues: number;
@@ -398,7 +398,7 @@ export function _encodeZigZagRleInt32(input: Int32Array): {
     };
 }
 
-export function _encodeZigZagRleInt64(input: BigInt64Array): {
+export function encodeZigZagRleInt64(input: BigInt64Array): {
     data: BigUint64Array;
     runs: number;
     numTotalValues: number;
@@ -458,7 +458,7 @@ export function _encodeZigZagRleInt64(input: BigInt64Array): {
     };
 }
 
-export function _encodeZigZagRleFloat64(input: Float64Array): {
+export function encodeZigZagRleFloat64(input: Float64Array): {
     data: Float64Array;
     runs: number;
     numTotalValues: number;
@@ -519,7 +519,7 @@ export function _encodeZigZagRleFloat64(input: Float64Array): {
 /**
  * This is not really a encode, but more of a decode method...
  */
-export function _encodeDeltaInt32(data: Int32Array): void {
+export function encodeDeltaInt32(data: Int32Array): void {
     if (data.length === 0) {
         return;
     }
@@ -528,7 +528,7 @@ export function _encodeDeltaInt32(data: Int32Array): void {
     }
 }
 
-export function _encodeComponentwiseDeltaVec2(data: Int32Array): void {
+export function encodeComponentwiseDeltaVec2(data: Int32Array): void {
     if (data.length < 2) return;
 
     // Reverse iterate to avoid overwriting data needed for delta computation
@@ -544,7 +544,7 @@ export function _encodeComponentwiseDeltaVec2(data: Int32Array): void {
     data[1] = encodeZigZagInt32Value(data[1]);
 }
 
-export function _encodeComponentwiseDeltaVec2Scaled(data: Int32Array, scale: number): void {
+export function encodeComponentwiseDeltaVec2Scaled(data: Int32Array, scale: number): void {
     if (data.length < 2) return;
 
     // First, inverse scale all values (tile space -> original space)
@@ -569,7 +569,7 @@ export function _encodeComponentwiseDeltaVec2Scaled(data: Int32Array, scale: num
 // HM TODO:
 // zigZagDeltaOfDeltaDecoding
 
-export function _encodeZigZagRleDeltaInt32(values: Int32Array | number[]): {
+export function encodeZigZagRleDeltaInt32(values: Int32Array | number[]): {
     data: Int32Array;
     runs: number;
     numTotalValues: number;
@@ -638,7 +638,7 @@ export function _encodeZigZagRleDeltaInt32(values: Int32Array | number[]): {
     };
 }
 
-export function _encodeRleDeltaInt32(values: Int32Array | number[]): {
+export function encodeRleDeltaInt32(values: Int32Array | number[]): {
     data: Int32Array;
     runs: number;
     numTotalValues: number;
@@ -703,7 +703,7 @@ export function _encodeRleDeltaInt32(values: Int32Array | number[]): {
     };
 }
 
-export function _encodeDeltaRleInt32(input: Int32Array): {
+export function encodeDeltaRleInt32(input: Int32Array): {
     data: Int32Array;
     runs: number;
     numValues: number;
@@ -768,7 +768,7 @@ export function _encodeDeltaRleInt32(input: Int32Array): {
     };
 }
 
-export function _encodeDeltaRleInt64(input: BigInt64Array): {
+export function encodeDeltaRleInt64(input: BigInt64Array): {
     data: BigUint64Array;
     runs: number;
     numValues: number;
