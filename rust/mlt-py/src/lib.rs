@@ -190,7 +190,7 @@ fn prop_value_to_py(py: Python<'_>, pv: &PropValue, i: usize) -> Py<PyAny> {
             Some(s) => s.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::Struct => py.None(),
+        PropValue::SharedDict => py.None(),
     }
 }
 

@@ -46,7 +46,7 @@ describe("FeatureTable", () => {
         assert.equal(table.extent, 4096);
 
         let featureCount = 0;
-        for (const feature of table) {
+        for (const feature of table.getFeatures()) {
             assert.ok(feature.geometry);
             assert.ok(Array.isArray(feature.geometry.coordinates));
             assert.ok(feature.geometry.coordinates.length > 0);
