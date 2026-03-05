@@ -222,7 +222,7 @@ export function encodeUnsignedRleInt64(input: BigInt64Array): { data: BigUint64A
     // Populate the first half with lengths. We must convert the numbers back to BigUint64s here.
     for (let i = 0; i < numRuns; i++) {
         encodedData[i] = BigInt(runLengths[i]);
-    // Populate the first half with lengths, converting the run length numbers to bigint for storage in the BigUint64Array.
+    }
 
     // Populate the second half with values, offset by the total number of runs
     encodedData.set(runValues, numRuns);
