@@ -48,8 +48,8 @@ fn arb_int_encoder_no_fastpfor() -> impl Strategy<Value = IntEncoder> {
 
 fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
     prop_oneof![
-        arb_int_encoder_no_fastpfor().prop_map(StrEncoder::plain),
-        (arb_int_encoder_no_fastpfor(), arb_int_encoder_no_fastpfor())
+        arb_int_encoder().prop_map(StrEncoder::plain),
+        (arb_int_encoder(), arb_int_encoder())
             .prop_map(|(sym, dict)| StrEncoder::fsst(sym, dict)),
     ]
 }
