@@ -39,8 +39,8 @@ fn two_similar_columns_collapse_to_one_struct() {
         properties: [
             SharedDict(
                 SharedDictEncoder {
-                    struct_name: "name",
-                    child_name: ":en",
+                    struct_name: "name:",
+                    child_name: "en",
                     offset: IntEncoder {
                         logical: Delta,
                         physical: VarInt,
@@ -50,8 +50,8 @@ fn two_similar_columns_collapse_to_one_struct() {
             ),
             SharedDict(
                 SharedDictEncoder {
-                    struct_name: "name",
-                    child_name: ":de",
+                    struct_name: "name:",
+                    child_name: "de",
                     offset: IntEncoder {
                         logical: Delta,
                         physical: VarInt,
@@ -61,7 +61,7 @@ fn two_similar_columns_collapse_to_one_struct() {
             ),
         ],
         shared_dicts: {
-            "name": Plain {
+            "name:": Plain {
                 string_lengths: IntEncoder {
                     logical: None,
                     physical: VarInt,
@@ -85,8 +85,8 @@ fn three_similar_columns_collapse_to_one_struct() {
         properties: [
             SharedDict(
                 SharedDictEncoder {
-                    struct_name: "name",
-                    child_name: ":en",
+                    struct_name: "name:",
+                    child_name: "en",
                     offset: IntEncoder {
                         logical: Delta,
                         physical: VarInt,
@@ -96,8 +96,8 @@ fn three_similar_columns_collapse_to_one_struct() {
             ),
             SharedDict(
                 SharedDictEncoder {
-                    struct_name: "name",
-                    child_name: ":de",
+                    struct_name: "name:",
+                    child_name: "de",
                     offset: IntEncoder {
                         logical: Delta,
                         physical: VarInt,
@@ -107,8 +107,8 @@ fn three_similar_columns_collapse_to_one_struct() {
             ),
             SharedDict(
                 SharedDictEncoder {
-                    struct_name: "name",
-                    child_name: ":fr",
+                    struct_name: "name:",
+                    child_name: "fr",
                     offset: IntEncoder {
                         logical: Delta,
                         physical: VarInt,
@@ -118,7 +118,7 @@ fn three_similar_columns_collapse_to_one_struct() {
             ),
         ],
         shared_dicts: {
-            "name": Plain {
+            "name:": Plain {
                 string_lengths: IntEncoder {
                     logical: None,
                     physical: VarInt,
@@ -146,8 +146,8 @@ fn column_ordering_does_not_affect_grouping() {
         properties: [
             SharedDict(
                 SharedDictEncoder {
-                    struct_name: "addr",
-                    child_name: ":zip",
+                    struct_name: "addr:",
+                    child_name: "zip",
                     offset: IntEncoder {
                         logical: Delta,
                         physical: VarInt,
@@ -157,8 +157,8 @@ fn column_ordering_does_not_affect_grouping() {
             ),
             SharedDict(
                 SharedDictEncoder {
-                    struct_name: "addr",
-                    child_name: ":street",
+                    struct_name: "addr:",
+                    child_name: "street",
                     offset: IntEncoder {
                         logical: Delta,
                         physical: VarInt,
@@ -168,8 +168,8 @@ fn column_ordering_does_not_affect_grouping() {
             ),
             SharedDict(
                 SharedDictEncoder {
-                    struct_name: "addr",
-                    child_name: ":zipcode",
+                    struct_name: "addr:",
+                    child_name: "zipcode",
                     offset: IntEncoder {
                         logical: Delta,
                         physical: VarInt,
@@ -179,7 +179,7 @@ fn column_ordering_does_not_affect_grouping() {
             ),
         ],
         shared_dicts: {
-            "addr": Plain {
+            "addr:": Plain {
                 string_lengths: IntEncoder {
                     logical: None,
                     physical: VarInt,

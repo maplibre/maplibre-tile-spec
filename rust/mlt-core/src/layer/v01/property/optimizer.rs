@@ -2,12 +2,10 @@
 //! "Profile -> Group -> Compete -> Select" pipeline and produces a
 //! [`MultiPropertyEncoder`] with near-optimal per-column encoding settings.
 
+use std::collections::hash_set::IntoIter;
 use std::collections::{HashMap, HashSet};
-use std::vec::IntoIter;
 
 use fsst::Compressor;
-use probabilistic_collections::SipHasherBuilder;
-use probabilistic_collections::hyperloglog::HyperLogLog;
 use probabilistic_collections::similarity::MinHash;
 
 use crate::v01::property::strings::StrEncoder;
@@ -16,9 +14,6 @@ use crate::v01::property::{
     ScalarEncoder,
 };
 use crate::v01::stream::IntEncoder;
-
-/// Error rate for the `HyperLogLog` used to estimate string-column cardinality.
-const HLL_ERROR_RATE: f64 = 0.05;
 
 /// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;
@@ -38,12 +33,6 @@ const FSST_SAMPLE_STRINGS: usize = 512;
 struct StringProfile {
     /// Index of this column in the original `properties` slice.
     col_idx: usize,
-    num_nulls: usize,
-    total_bytes: usize,
-    /// Total row count (including nulls).
-    total_rows: usize,
-    /// HLL-estimated number of distinct non-null values.
-    estimated_distinct: f64,
     /// `MinHash` signature computed over the set of unique non-null values.
     /// Empty when the column contains no non-null values (all-null column).
     min_hashes: Vec<u64>,
@@ -55,9 +44,8 @@ struct StringProfile {
 /// # Pipeline
 ///
 /// 1. **Profile**
-///    single pass over every string column: count nulls, measure
-///    raw byte size, estimate cardinality via `HyperLogLog`, and compute a
-///    `MinHash` signature.
+///    single pass over every string column: collect unique non-null values
+///    and compute a `MinHash` signature over them.
 /// 2. **Group**
 ///    compare [`MinHash`] signatures with Jaccard similarity; columns
 ///    whose similarity exceeds [`MINHASH_SIMILARITY_THRESHOLD`] are clustered
@@ -79,7 +67,7 @@ impl PropertyOptimizer {
 
         // One MinHash instance is shared across all string columns so that
         // `get_similarity_from_hashes` produces consistent Jaccard estimates.
-        let min_hash = MinHash::<IntoIter<String>, String>::new(MINHASH_PERMUTATIONS);
+        let min_hash = MinHash::<IntoIter<&str>, &str>::new(MINHASH_PERMUTATIONS);
 
         let str_profiles = Self::profile_string_columns(properties, &min_hash);
         let (groups, col_to_group) =
@@ -161,7 +149,7 @@ impl PropertyOptimizer {
 
     /// group string columns by [`MinHash`] similarity
     fn group_string_columns_by_min_hash_similarity(
-        min_hash: &MinHash<IntoIter<String>, String>,
+        min_hash: &MinHash<IntoIter<&str>, &str>,
         str_profiles: &[StringProfile],
     ) -> (Vec<Vec<usize>>, HashMap<usize, usize>) {
         // Each inner Vec holds `col_idx` values sorted in property order.
@@ -180,7 +168,7 @@ impl PropertyOptimizer {
     /// Profile every string column
     fn profile_string_columns(
         properties: &[DecodedProperty],
-        min_hash: &MinHash<IntoIter<String>, String>,
+        min_hash: &MinHash<IntoIter<&str>, &str>,
     ) -> Vec<StringProfile> {
         let str_profiles: Vec<StringProfile> = properties
             .iter()
@@ -196,46 +184,29 @@ impl PropertyOptimizer {
         str_profiles
     }
 
-    /// Profile a single string column, computing null count, raw byte size,
-    /// HLL cardinality estimate, and a [`MinHash`] signature.
+    /// Profile a single string column by computing a [`MinHash`] signature over
+    /// its unique non-null values.
     fn profile_string_column(
         col_idx: usize,
         values: &[Option<String>],
-        min_hash: &MinHash<IntoIter<String>, String>,
+        min_hash: &MinHash<IntoIter<&str>, &str>,
     ) -> StringProfile {
-        let mut hll =
-            HyperLogLog::<String>::with_hasher(HLL_ERROR_RATE, SipHasherBuilder::from_entropy());
-        let mut total_bytes = 0usize;
-        let mut num_nulls = 0usize;
-        // Collect unique values for the MinHash signature.
-        let mut unique_set: HashSet<String> = HashSet::new();
-
+        let mut unique_set: HashSet<&str> = HashSet::new();
         for v in values {
-            match v {
-                None => num_nulls += 1,
-                Some(s) => {
-                    hll.insert(s);
-                    total_bytes += s.len();
-                    unique_set.insert(s.clone());
-                }
+            if let Some(s) = v {
+                unique_set.insert(s.as_str());
             }
         }
 
-        let estimated_distinct = hll.len(); // returns f64
         // Guard against all-null columns - MinHash panics on an empty iterator.
         let min_hashes = if unique_set.is_empty() {
             Vec::new()
         } else {
-            let unique: Vec<String> = unique_set.into_iter().collect();
-            min_hash.get_min_hashes(unique.into_iter())
+            min_hash.get_min_hashes(unique_set.into_iter())
         };
 
         StringProfile {
             col_idx,
-            num_nulls,
-            total_bytes,
-            total_rows: values.len(),
-            estimated_distinct,
             min_hashes,
         }
     }
@@ -247,7 +218,7 @@ impl PropertyOptimizer {
     /// groups (length 1) represent standalone scalar string columns.
     fn group_strings(
         profiles: &[StringProfile],
-        min_hash: &MinHash<IntoIter<String>, String>,
+        min_hash: &MinHash<IntoIter<&str>, &str>,
     ) -> Vec<Vec<usize>> {
         // group_id[i] = which group profile i currently belongs to.
         let mut group_id: Vec<usize> = (0..profiles.len()).collect();
@@ -544,11 +515,10 @@ fn common_prefix_name(names: &[&str]) -> String {
     }
     let prefix_len = first.floor_char_boundary(prefix_len);
     let raw = &first[..prefix_len];
-    let trimmed = raw.trim_end_matches([':', '_', '-', '.']);
-    if trimmed.is_empty() {
+    if raw.is_empty() {
         first.to_owned()
     } else {
-        trimmed.to_owned()
+        raw.to_owned()
     }
 }
 
@@ -661,6 +631,6 @@ mod tests {
         let PropertyEncoder::SharedDict(sd) = &enc.properties[0] else {
             panic!("expected SharedDict");
         };
-        assert_eq!(sd.struct_name, "addr");
+        assert_eq!(sd.struct_name, "addr:");
     }
 }
