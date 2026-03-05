@@ -1,4 +1,3 @@
-pub mod optimizer;
 pub mod strings;
 
 use std::collections::{HashMap, HashSet};
