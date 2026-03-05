@@ -80,7 +80,7 @@ fn returns_default_encoder(#[case] decoded: DecodedId) {
 )]
 #[case::max_u32_value(
     make_ids(&[Some(u64::from(u32::MAX))]),
-    IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::Id32)
+    IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
 )]
 #[case::sequential_large(
     sequential_ids_large(),
@@ -97,7 +97,7 @@ fn returns_default_encoder(#[case] decoded: DecodedId) {
 )]
 #[case::single_non_null(
     make_ids(&[Some(99)]),
-    IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::Id32)
+    IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
 )]
 #[case::non_sequential_u32(
     make_ids(&[Some(100), Some(50), Some(200), Some(10), Some(150), Some(75)]),

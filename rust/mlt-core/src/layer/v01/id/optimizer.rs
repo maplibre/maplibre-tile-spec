@@ -43,6 +43,11 @@ impl IdOptimizer {
             Err(value) => return value,
         };
 
+        // None is optimal; skip allocation and trial encoding.
+        if ids.len() <= 2 {
+            return IdEncoder::new(LogicalEncoder::None, id_width);
+        }
+
         // Fast-path: all consecutive non-null values increment by exactly 1.
         // DeltaRle is optimal; skip allocation and trial encoding.
         if is_sequential && ids.len() > 4 {
@@ -51,7 +56,7 @@ impl IdOptimizer {
 
         // Fast-path: every non-null value is identical.
         // Rle is optimal; skip allocation and trial encoding.
-        if is_constant && ids.len() > 2 {
+        if is_constant {
             return IdEncoder::new(LogicalEncoder::Rle, id_width);
         }
         // Profile, prune, filter, and compete to find the best logical encoder.
