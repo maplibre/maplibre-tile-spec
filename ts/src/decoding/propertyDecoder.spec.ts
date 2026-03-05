@@ -35,7 +35,7 @@ import {
     encodeInt32NullableColumn,
 } from "../encoding/propertyEncoder";
 
-function createColumnMetadata(name: string, scalarType: number, nullable: boolean = false): Column {
+function createColumnMetadata(name: string, scalarType: number, nullable = false): Column {
     return {
         name: name,
         nullable: nullable,
@@ -426,7 +426,7 @@ describe("decodePropertyColumn - DOUBLE", () => {
     });
 
     it("should decode nullable DOUBLE column with null values - doubles currently written as floats", () => {
-        const expectedValues = [1.5, null, 2.7, null, 3.14159];
+        const expectedValues = [1.5, null, 2.7, null, Math.PI];
         const columnMetadata = createColumnMetadata("testColumn", ScalarType.DOUBLE, true);
         const encodedData = encodeDoubleNullableColumn(expectedValues);
         const offset = new IntWrapper(0);
@@ -440,7 +440,7 @@ describe("decodePropertyColumn - DOUBLE", () => {
         expect(resultVec.getValue(1)).toBe(null); // null value
         expect(resultVec.getValue(2)).toBeCloseTo(2.7, 5);
         expect(resultVec.getValue(3)).toBe(null); // null value
-        expect(resultVec.getValue(4)).toBeCloseTo(3.14159, 5);
+        expect(resultVec.getValue(4)).toBeCloseTo(Math.PI, 5);
     });
 
     it("should handle offset correctly after decoding DOUBLE column", () => {

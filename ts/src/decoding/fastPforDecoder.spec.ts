@@ -246,7 +246,7 @@ describe("FastPFOR decoder error cases", () => {
 
         const corruptedEncoded = encoded.slice();
         const blockHeaderWord = corruptedEncoded[byteContainerStartWordIndex] >>> 0;
-        corruptedEncoded[byteContainerStartWordIndex] = ((blockHeaderWord & 0xffffff00) | 33) | 0;
+        corruptedEncoded[byteContainerStartWordIndex] = (blockHeaderWord & 0xffffff00) | 33 | 0;
 
         expect(() => decodeFastPforInt32(corruptedEncoded, values.length)).toThrow(/invalid bitWidth/);
     });
@@ -276,7 +276,7 @@ describe("FastPFOR decoder error cases", () => {
         const invalidMaxBits = (blockBitWidth - 1) & HEADER_BYTE_MASK;
         const clearMaxBitsMask = ~(HEADER_BYTE_MASK << MAX_BITS_SHIFT);
         corruptedEncoded[byteContainerStartWordIndex] =
-            ((blockHeaderWord & clearMaxBitsMask) | (invalidMaxBits << MAX_BITS_SHIFT)) | 0;
+            (blockHeaderWord & clearMaxBitsMask) | (invalidMaxBits << MAX_BITS_SHIFT) | 0;
 
         expect(() => decodeFastPforInt32(corruptedEncoded, values.length)).toThrow(/invalid maxBits/);
     });
@@ -332,9 +332,10 @@ describe("FastPFOR decoder error cases", () => {
             const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
             const corruptedEncoded = withForcedByteSizeAndNoExceptionStreams(encoded, forcedByteSize);
 
-            expect(() => decodeFastPforInt32(corruptedEncoded, values.length), `forcedByteSize=${forcedByteSize}`).toThrow(
-                expectedError,
-            );
+            expect(
+                () => decodeFastPforInt32(corruptedEncoded, values.length),
+                `forcedByteSize=${forcedByteSize}`,
+            ).toThrow(expectedError);
         }
     });
 
@@ -427,5 +428,4 @@ describe("FastPFOR decoder workspace paths", () => {
         expect(byteContainerI32?.buffer).toBe(workspace.byteContainer.buffer);
         expect(byteContainerI32?.byteOffset).toBe(workspace.byteContainer.byteOffset);
     });
-
 });

@@ -4,11 +4,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import IntWrapper from "./intWrapper";
 import { decodeBigEndianInt32sInto } from "./bigEndianDecode";
 import { encodeFastPfor } from "../encoding/integerEncodingUtils";
-import {
-    createFastPforWireDecodeWorkspace,
-    decodeFastPfor,
-    decodeFastPforWithWorkspace,
-} from "./integerDecodingUtils";
+import { createFastPforWireDecodeWorkspace, decodeFastPfor, decodeFastPforWithWorkspace } from "./integerDecodingUtils";
 
 describe("decodeFastPfor (wire format fixtures)", () => {
     const FIXTURES_DIR_URL = new URL("../../../test/fixtures/fastpfor/", import.meta.url);

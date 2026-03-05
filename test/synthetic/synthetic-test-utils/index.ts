@@ -12,9 +12,11 @@ export function compareWithTolerance(
 ): boolean | undefined {
   if (typeof expected === "string") {
     if (expected.endsWith("NAN")) {
-      expected = NaN;
+      expected = Number.NaN;
     } else if (expected.endsWith("INFINITY")) {
-      expected = expected.endsWith("NEG_INFINITY") ? -Infinity : Infinity;
+      expected = expected.endsWith("NEG_INFINITY")
+        ? Number.NEGATIVE_INFINITY
+        : Number.POSITIVE_INFINITY;
     }
   }
 

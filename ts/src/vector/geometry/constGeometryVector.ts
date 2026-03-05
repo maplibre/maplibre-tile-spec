@@ -52,7 +52,7 @@ export class ConstGeometryVector extends GeometryVector {
         super(vertexBufferType, topologyVector, vertexOffsets, vertexBuffer, mortonSettings);
     }
 
-    geometryType(index: number): number {
+    geometryType(_index: number): number {
         return this._geometryType;
     }
 

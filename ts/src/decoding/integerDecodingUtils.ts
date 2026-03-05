@@ -1,5 +1,4 @@
 import type IntWrapper from "./intWrapper";
-import type BitVector from "../vector/flat/bitVector";
 import {
     createFastPforWireDecodeWorkspace,
     decodeFastPforInt32,
@@ -95,7 +94,8 @@ export function decodeVarintFloat64(src: Uint8Array, offset: IntWrapper, numValu
 
 //based on https://github.com/mapbox/pbf/blob/main/index.js
 function decodeVarintFloat64Value(buf: Uint8Array, offset: IntWrapper): number {
-    let val, b;
+    let val;
+    let b;
     b = buf[offset.get()];
     offset.increment();
     val = b & 0x7f;
@@ -119,7 +119,8 @@ function decodeVarintFloat64Value(buf: Uint8Array, offset: IntWrapper): number {
 }
 
 function decodeVarintRemainder(l, buf, offset) {
-    let h, b;
+    let h;
+    let b;
     b = buf[offset.get()];
     offset.increment();
     h = (b & 0x70) >> 4;
@@ -297,7 +298,7 @@ export function decodeZigZagDeltaInt32(data: Int32Array) {
         }
     }
 
-    for (; i != data.length; ++i) {
+    for (; i !== data.length; ++i) {
         data[i] = decodeZigZagInt32Value(data[i]) + data[i - 1];
     }
 }
@@ -320,7 +321,7 @@ export function decodeZigZagDeltaInt64(data: BigInt64Array) {
         }
     }
 
-    for (; i != data.length; ++i) {
+    for (; i !== data.length; ++i) {
         data[i] = decodeZigZagInt64Value(data[i]) + data[i - 1];
     }
 }
@@ -343,7 +344,7 @@ export function decodeZigZagDeltaFloat64(data: Float64Array) {
         }
     }
 
-    for (; i != data.length; ++i) {
+    for (; i !== data.length; ++i) {
         data[i] = decodeZigZagFloat64Value(data[i]) + data[i - 1];
     }
 }
@@ -418,7 +419,7 @@ export function fastInverseDelta(data: Uint32Array | Int32Array) {
         }
     }
 
-    while (i != data.length) {
+    while (i !== data.length) {
         data[i] += data[i - 1];
         ++i;
     }
@@ -456,7 +457,7 @@ export function decodeComponentwiseDeltaVec2(data: Int32Array): void {
         }
     }
 
-    for (; i != data.length; i += 2) {
+    for (; i !== data.length; i += 2) {
         data[i] = decodeZigZagInt32Value(data[i]) + data[i - 2];
         data[i + 1] = decodeZigZagInt32Value(data[i + 1]) + data[i - 1];
     }
@@ -488,7 +489,7 @@ export function decodeComponentwiseDeltaVec2Scaled(data: Int32Array, scale: numb
         }
     }
 
-    for (; i != data.length; i += 2) {
+    for (; i !== data.length; i += 2) {
         previousVertexX += decodeZigZagInt32Value(data[i]);
         previousVertexY += decodeZigZagInt32Value(data[i + 1]);
         data[i] = clamp(Math.round(previousVertexX * scale), min, max);
@@ -507,7 +508,7 @@ export function decodeZigZagDeltaOfDeltaInt32(data: Int32Array): Uint32Array {
     decodedData[0] = 0;
     decodedData[1] = decodeZigZagInt32Value(data[0]);
     let deltaSum = decodedData[1];
-    for (let i = 2; i != decodedData.length; ++i) {
+    for (let i = 2; i !== decodedData.length; ++i) {
         const zigZagValue = data[i - 1];
         const delta = decodeZigZagInt32Value(zigZagValue);
         deltaSum += delta;
@@ -614,7 +615,7 @@ export function decodeZigZagConstRleInt32(data: Int32Array): number {
 
 export function decodeZigZagSequenceRleInt32(data: Int32Array): [baseValue: number, delta: number] {
     /* base value and delta value are equal */
-    if (data.length == 2) {
+    if (data.length === 2) {
         const value = decodeZigZagInt32Value(data[1]);
         return [value, value];
     }
@@ -635,7 +636,7 @@ export function decodeZigZagConstRleInt64(data: BigInt64Array): bigint {
 
 export function decodeZigZagSequenceRleInt64(data: BigInt64Array): [baseValue: bigint, delta: bigint] {
     /* base value and delta value are equal */
-    if (data.length == 2) {
+    if (data.length === 2) {
         const value = decodeZigZagInt64Value(data[1]);
         return [value, value];
     }
