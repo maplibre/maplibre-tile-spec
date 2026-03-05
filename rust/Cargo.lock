@@ -1547,6 +1547,7 @@ dependencies = [
  "mvt-reader",
  "num-traits",
  "num_enum",
+ "pretty_assertions",
  "probabilistic-collections",
  "proptest",
  "proptest-derive",

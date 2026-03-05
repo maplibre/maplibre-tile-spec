@@ -1,14 +1,22 @@
 mod decode;
 mod encode;
+mod optimizer;
 
 use std::fmt::Debug;
 use std::io::Write;
 use std::ops::Range;
 
 use borrowme::borrowme;
+use decode::{
+    decode_geometry_types, decode_level1_length_stream,
+    decode_level1_without_ring_buffer_length_stream, decode_level2_length_stream,
+    decode_root_length_stream,
+};
+pub use encode::GeometryEncoder;
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
+pub use optimizer::GeometryOptimizer;
 use serde::{Deserialize, Serialize};
 
 use crate::MltError::{
@@ -21,12 +29,6 @@ use crate::encode::impl_encodable;
 use crate::geojson::{Coord32, Geom32 as GeoGeom};
 use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _, checked_sum2};
 use crate::v01::column::ColumnType;
-use crate::v01::geometry::decode::{
-    decode_geometry_types, decode_level1_length_stream,
-    decode_level1_without_ring_buffer_length_stream, decode_level2_length_stream,
-    decode_root_length_stream,
-};
-pub use crate::v01::geometry::encode::GeometryEncoder;
 use crate::v01::{
     DictionaryType, IntEncoding, LengthType, OffsetType, OwnedStream, Stream, StreamMeta,
     StreamType,
@@ -803,7 +805,7 @@ impl FromDecoded<'_> for OwnedEncodedGeometry {
     type Encoder = GeometryEncoder;
 
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
-        encode::encode_geometry(decoded, &encoder)
+        encode::encode_geometry(decoded, &encoder, None)
     }
 }
 
@@ -1003,7 +1005,6 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::v01::geometry::encode::GeometryEncoder;
 
     /// Encode, serialize, parse, and decode a `DecodedGeometry`.
     /// The input must already be in the dense canonical form that `from_encoded`
@@ -1253,7 +1254,6 @@ mod tests {
             prop_assert_eq!(output, canonical);
         }
 
-        #[ignore = "encoder does not implement this correctly"]
         #[test]
         fn test_cross_ls_mpoly_roundtrip(
             encoder in any::<GeometryEncoder>(),

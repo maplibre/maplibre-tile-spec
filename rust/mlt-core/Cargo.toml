@@ -42,6 +42,7 @@ zigzag.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
+pretty_assertions.workspace = true
 geo-types = { workspace = true, features = ["arbitrary"] }
 insta.workspace = true
 proptest.workspace = true
