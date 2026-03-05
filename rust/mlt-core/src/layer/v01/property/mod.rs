@@ -1,3 +1,4 @@
+pub mod optimizer;
 pub mod strings;
 
 use std::collections::{HashMap, HashSet};
@@ -592,8 +593,8 @@ pub enum PresenceStream {
 }
 
 pub struct MultiPropertyEncoder {
-    properties: Vec<PropertyEncoder>,
-    shared_dicts: HashMap<String, StrEncoder>,
+    pub(crate) properties: Vec<PropertyEncoder>,
+    pub(crate) shared_dicts: HashMap<String, StrEncoder>,
 }
 
 impl MultiPropertyEncoder {
@@ -795,6 +796,5 @@ impl<'a> FromEncoded<'a> for DecodedProperty {
             name: v.name.to_string(),
             values,
         })
-
     }
 }
