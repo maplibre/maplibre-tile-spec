@@ -1,7 +1,7 @@
 use insta::assert_debug_snapshot;
-use mlt_core::v01::optimizer::PropertyOptimizer;
 use mlt_core::v01::{
     DecodedProperty, MultiPropertyEncoder, OwnedEncodedProperty, PropValue, Property,
+    PropertyOptimizer,
 };
 use mlt_core::{FromDecoded as _, borrowme};
 
