@@ -1,9 +1,9 @@
-import type TopologyVector from "../../vector/geometry/topologyVector";
 import { convertGeometryVector } from "./geometryVectorConverter";
 import { decodeZOrderCurve } from "./zOrderCurve";
+import type Point from "@mapbox/point-geometry";
 import type { GEOMETRY_TYPE } from "./geometryType";
 import type { VertexBufferType } from "./vertexBufferType";
-import type Point from "@mapbox/point-geometry";
+import type { TopologyVector } from "../../vector/geometry/topologyVector";
 
 export type CoordinatesArray = Array<Array<Point>>;
 
