@@ -1,4 +1,4 @@
-import { type StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
+import type { StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import {
     encodeDeltaRleInt32,

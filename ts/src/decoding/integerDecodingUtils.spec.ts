@@ -411,9 +411,9 @@ describe("IntegerDecodingUtils", () => {
         const offset = new IntWrapper(0);
         const workspace = createFastPforWireDecodeWorkspace();
 
-        expect(() =>
-            decodeFastPforWithWorkspace(encoded, 0, encoded.length, offset, workspace),
-        ).toThrow(/invalid encodedByteLength=3/);
+        expect(() => decodeFastPforWithWorkspace(encoded, 0, encoded.length, offset, workspace)).toThrow(
+            /invalid encodedByteLength=3/,
+        );
         expect(offset.get()).toBe(0);
     });
 });

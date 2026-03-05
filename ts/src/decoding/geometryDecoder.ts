@@ -1,4 +1,4 @@
-import { type GeometryVector, type MortonSettings } from "../vector/geometry/geometryVector";
+import type { GeometryVector, MortonSettings } from "../vector/geometry/geometryVector";
 import { decodeStreamMetadata, type MortonEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import type IntWrapper from "./intWrapper";
 import {
@@ -13,19 +13,14 @@ import { LengthType } from "../metadata/tile/lengthType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import TopologyVector from "../vector/geometry/topologyVector";
 import {
-    ConstGeometryVector,
     createConstGeometryVector,
     createMortonEncodedConstGeometryVector,
 } from "../vector/geometry/constGeometryVector";
-import {
-    createFlatGeometryVector,
-    createFlatGeometryVectorMortonEncoded,
-    FlatGeometryVector,
-} from "../vector/geometry/flatGeometryVector";
+import { createFlatGeometryVector, createFlatGeometryVectorMortonEncoded } from "../vector/geometry/flatGeometryVector";
 import { OffsetType } from "../metadata/tile/offsetType";
-import { ConstGpuVector, createConstGpuVector } from "../vector/geometry/constGpuVector";
-import { type GpuVector } from "../vector/geometry/gpuVector";
-import { createFlatGpuVector, FlatGpuVector } from "../vector/geometry/flatGpuVector";
+import { createConstGpuVector } from "../vector/geometry/constGpuVector";
+import type { GpuVector } from "../vector/geometry/gpuVector";
+import { createFlatGpuVector } from "../vector/geometry/flatGpuVector";
 import type GeometryScaling from "./geometryScaling";
 
 // TODO: get rid of numFeatures parameter
