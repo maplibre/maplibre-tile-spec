@@ -73,7 +73,9 @@ impl OwnedProperty {
 
     #[must_use]
     pub fn approx_type(&self) -> AproxPropertyType {
-        use {AproxPropertyType as T, OwnedEncodedPropValue as Enc, PropValue as Dec};
+        use AproxPropertyType as T;
+        use OwnedEncodedPropValue as Enc;
+        use PropValue as Dec;
         match self {
             Self::Encoded(r) => match &r.value {
                 Enc::Bool(..) => T::Bool,
@@ -693,7 +695,8 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
     type Encoder = ScalarEncoder;
 
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
-        use {OwnedEncodedPropValue as EncVal, PropValue as Val};
+        use OwnedEncodedPropValue as EncVal;
+        use PropValue as Val;
         let optional = if encoder.optional == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
             Some(OwnedStream::encode_presence(&present_vec)?)
@@ -775,7 +778,8 @@ impl<'a> FromEncoded<'a> for DecodedProperty {
     type Input = EncodedProperty<'a>;
 
     fn from_encoded(v: EncodedProperty<'_>) -> Result<Self, MltError> {
-        use {EncodedPropValue as EncVal, PropValue as Val};
+        use EncodedPropValue as EncVal;
+        use PropValue as Val;
         let values = match v.value {
             EncVal::Bool(o, s) => Val::Bool(apply_present(o, s.decode_bools()?)?),
             EncVal::I8(o, s) => Val::I8(apply_present(o, s.decode_i8s()?)?),
