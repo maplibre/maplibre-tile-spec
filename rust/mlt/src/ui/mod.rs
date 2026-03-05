@@ -604,14 +604,6 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 ResizeHandle::FileBrowserLeftRight => {
                                     app.file_left_pct = pct_at(mouse.column, area.x, area.width);
                                 }
-                                ResizeHandle::FileBrowserPreviewFilter => {
-                                    if let Some(rc) = right_col {
-                                        app.file_preview_pct = file_browser_preview_pct_clamped(
-                                            pct_at(mouse.row, rc.y, rc.height),
-                                            app.file_filter_pct,
-                                        );
-                                    }
-                                }
                                 ResizeHandle::FileBrowserFilterInfo => {
                                     if let Some(rc) = right_col {
                                         app.file_filter_pct = file_browser_filter_pct_clamped(
@@ -733,26 +725,27 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 }
                             }
                             if let (Some(pa), Some(fa)) = (preview_area, filter_area) {
+                                let mut invalidate = |value: u16, resizer: ResizeHandle| {
+                                    if mouse.row >= value.saturating_sub(DIVIDER_GRAB)
+                                        && mouse.row < value.saturating_add(DIVIDER_GRAB)
+                                        && right_col.is_some_and(|rc| {
+                                            point_in_rect(mouse.column, mouse.row, rc)
+                                        })
+                                    {
+                                        app.resizing = Some(resizer);
+                                        app.invalidate();
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                };
+
                                 let dy_preview = pa.y + pa.height;
-                                if mouse.row >= dy_preview.saturating_sub(DIVIDER_GRAB)
-                                    && mouse.row < dy_preview.saturating_add(DIVIDER_GRAB)
-                                    && right_col.is_some_and(|rc| {
-                                        point_in_rect(mouse.column, mouse.row, rc)
-                                    })
-                                {
-                                    app.resizing = Some(ResizeHandle::FileBrowserPreviewFilter);
-                                    app.invalidate();
+                                if invalidate(dy_preview, ResizeHandle::FileBrowserLeftRight) {
                                     continue;
                                 }
                                 let dy_filter = fa.y + fa.height;
-                                if mouse.row >= dy_filter.saturating_sub(DIVIDER_GRAB)
-                                    && mouse.row < dy_filter.saturating_add(DIVIDER_GRAB)
-                                    && right_col.is_some_and(|rc| {
-                                        point_in_rect(mouse.column, mouse.row, rc)
-                                    })
-                                {
-                                    app.resizing = Some(ResizeHandle::FileBrowserFilterInfo);
-                                    app.invalidate();
+                                if invalidate(dy_filter, ResizeHandle::FileBrowserFilterInfo) {
                                     continue;
                                 }
                             }

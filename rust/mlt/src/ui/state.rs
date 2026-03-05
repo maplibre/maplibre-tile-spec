@@ -26,7 +26,6 @@ pub enum ResizeHandle {
     LeftRight,
     FeaturesProperties,
     FileBrowserLeftRight,
-    FileBrowserPreviewFilter,
     FileBrowserFilterInfo,
 }
 

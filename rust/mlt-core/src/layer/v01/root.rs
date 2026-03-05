@@ -316,7 +316,7 @@ fn parse_shared_dict_column<'a>(
         [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
             EncodedSharedDictProp::fsst_dictionary(s1, s2, s3, s4, s5, children)?
         }
-        _ => Err(MltError::StructSharedDictRequiresStreams(streams_taken))?,
+        _ => Err(MltError::SharedDictRequiresStreams(streams_taken))?,
     };
     Ok((input, EncodedPropValue::SharedDict(shared_dict)))
 }

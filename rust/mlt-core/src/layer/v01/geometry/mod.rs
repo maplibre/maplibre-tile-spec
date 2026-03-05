@@ -435,7 +435,7 @@ impl DecodedGeometry {
         // Only on the very first polygon: if LineStrings were pushed before us,
         // their vertex offsets are sitting in part_offsets. Move them to
         // ring_offsets now, before we set up ring_offsets for polygon use.
-        // On subsequent polygons ring_offsets is already initialised and
+        // On subsequent polygons ring_offsets is already initialized and
         // part_offsets holds polygon ring-range data — leave both alone.
         if self.ring_offsets.is_none()
             && let Some(linestring_parts) = self.part_offsets.take()
@@ -1030,7 +1030,7 @@ mod tests {
     /// `push_geom` and perform a two-cycle encode/decode:
     ///
     /// 1. push -> encode -> decode  (`canonical`): exercises `push_geom` and
-    ///    `normalize_geometry_offsets`; normalises the sparse push_* layout to
+    ///    `normalize_geometry_offsets`; normalizes the sparse push_* layout to
     ///    the dense form that `from_encoded` always returns.
     /// 2. canonical -> encode -> decode  (`output`): verifies idempotency of
     ///    encode/decode on the canonical form
