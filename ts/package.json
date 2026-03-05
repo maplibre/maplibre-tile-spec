@@ -16,8 +16,7 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest --coverage --coverage.reportOnFailure",
-    "lint": "eslint",
-    "format": "pre-commit run biome-check"
+    "lint": "eslint"
   },
   "repository": {
     "type": "git",
