@@ -70,405 +70,396 @@ impl PropertyOptimizer {
         // `get_similarity_from_hashes` produces consistent Jaccard estimates.
         let min_hash = MinHash::<IntoIter<&str>, &str>::new(MINHASH_PERMUTATIONS);
 
-        let str_profiles = Self::profile_string_columns(properties, &min_hash);
+        let str_profiles = profile_string_columns(properties, &min_hash);
         let (groups, col_to_group) =
-            Self::group_string_columns_by_min_hash_similarity(&min_hash, &str_profiles);
+            group_string_columns_by_min_hash_similarity(&min_hash, &str_profiles);
         let (shared_dicts, group_struct_names) =
-            Self::name_and_configure_multi_member_groups(properties, &groups);
-        let encoders = Self::build_per_property_encoders(
-            properties,
-            &groups,
-            &col_to_group,
-            &group_struct_names,
-        );
+            name_and_configure_multi_member_groups(properties, &groups);
+        let encoders =
+            build_per_property_encoders(properties, &groups, &col_to_group, &group_struct_names);
 
         MultiPropertyEncoder::new(encoders, shared_dicts)
     }
+}
 
-    fn build_per_property_encoders(
-        properties: &[DecodedProperty],
-        groups: &[Vec<usize>],
-        col_to_group: &HashMap<usize, usize>,
-        group_struct_names: &[Option<String>],
-    ) -> Vec<PropertyEncoder> {
-        let encoders: Vec<PropertyEncoder> = properties
+fn build_per_property_encoders(
+    properties: &[DecodedProperty],
+    groups: &[Vec<usize>],
+    col_to_group: &HashMap<usize, usize>,
+    group_struct_names: &[Option<String>],
+) -> Vec<PropertyEncoder> {
+    let encoders: Vec<PropertyEncoder> = properties
+        .iter()
+        .enumerate()
+        .map(|(idx, prop)| {
+            build_encoder(
+                idx,
+                prop,
+                col_to_group,
+                groups,
+                group_struct_names,
+                properties,
+            )
+        })
+        .collect();
+    encoders
+}
+
+fn name_and_configure_multi_member_groups(
+    properties: &[DecodedProperty],
+    groups: &[Vec<usize>],
+) -> (HashMap<String, StrEncoder>, Vec<Option<String>>) {
+    // `struct_name` is the actual column name written to the tile.  It is
+    // always derived from the longest common prefix of the grouped property
+    // names
+    //
+    // If two independent groups share the same prefix (rare in practice),
+    // the second group is silently dissolved: its members are encoded as
+    // individual scalar columns.
+    let mut used_names: HashSet<String> = HashSet::new();
+    let mut shared_dicts: HashMap<String, StrEncoder> = HashMap::new();
+    // `group_struct_names[g] = Some(name)` iff the group has ≥ 2 members
+    // AND its prefix did not collide with a previously registered group.
+    let mut group_struct_names: Vec<Option<String>> = vec![None; groups.len()];
+
+    for (g_idx, group) in groups.iter().enumerate() {
+        if group.len() < 2 {
+            continue;
+        }
+        let names: Vec<&str> = group
             .iter()
-            .enumerate()
-            .map(|(idx, prop)| {
-                Self::build_encoder(
-                    idx,
-                    prop,
-                    col_to_group,
-                    groups,
-                    group_struct_names,
-                    properties,
-                )
-            })
+            .map(|&ci| properties[ci].name.as_str())
             .collect();
-        encoders
+        let struct_name = common_prefix_name(&names);
+
+        // If the prefix is already taken, fall back to scalar for this group.
+        if used_names.contains(&struct_name) {
+            continue;
+        }
+        used_names.insert(struct_name.clone());
+
+        let str_enc = shared_dict_str_encoder(group, properties);
+        shared_dicts.insert(struct_name.clone(), str_enc);
+        group_struct_names[g_idx] = Some(struct_name);
     }
+    (shared_dicts, group_struct_names)
+}
 
-    fn name_and_configure_multi_member_groups(
-        properties: &[DecodedProperty],
-        groups: &[Vec<usize>],
-    ) -> (HashMap<String, StrEncoder>, Vec<Option<String>>) {
-        // `struct_name` is the actual column name written to the tile.  It is
-        // always derived from the longest common prefix of the grouped property
-        // names
-        //
-        // If two independent groups share the same prefix (rare in practice),
-        // the second group is silently dissolved: its members are encoded as
-        // individual scalar columns.
-        let mut used_names: HashSet<String> = HashSet::new();
-        let mut shared_dicts: HashMap<String, StrEncoder> = HashMap::new();
-        // `group_struct_names[g] = Some(name)` iff the group has ≥ 2 members
-        // AND its prefix did not collide with a previously registered group.
-        let mut group_struct_names: Vec<Option<String>> = vec![None; groups.len()];
+/// group string columns by [`MinHash`] similarity
+fn group_string_columns_by_min_hash_similarity(
+    min_hash: &MinHash<IntoIter<&str>, &str>,
+    str_profiles: &[StringProfile],
+) -> (Vec<Vec<usize>>, HashMap<usize, usize>) {
+    // Each inner Vec holds `col_idx` values sorted in property order.
+    let groups: Vec<Vec<usize>> = group_strings(str_profiles, min_hash);
 
-        for (g_idx, group) in groups.iter().enumerate() {
-            if group.len() < 2 {
-                continue;
-            }
-            let names: Vec<&str> = group
-                .iter()
-                .map(|&ci| properties[ci].name.as_str())
-                .collect();
-            let struct_name = common_prefix_name(&names);
-
-            // If the prefix is already taken, fall back to scalar for this group.
-            if used_names.contains(&struct_name) {
-                continue;
-            }
-            used_names.insert(struct_name.clone());
-
-            let str_enc = Self::shared_dict_str_encoder(group, properties);
-            shared_dicts.insert(struct_name.clone(), str_enc);
-            group_struct_names[g_idx] = Some(struct_name);
-        }
-        (shared_dicts, group_struct_names)
-    }
-
-    /// group string columns by [`MinHash`] similarity
-    fn group_string_columns_by_min_hash_similarity(
-        min_hash: &MinHash<IntoIter<&str>, &str>,
-        str_profiles: &[StringProfile],
-    ) -> (Vec<Vec<usize>>, HashMap<usize, usize>) {
-        // Each inner Vec holds `col_idx` values sorted in property order.
-        let groups: Vec<Vec<usize>> = Self::group_strings(str_profiles, min_hash);
-
-        // col_idx -> index into `groups`
-        let mut col_to_group: HashMap<usize, usize> = HashMap::new();
-        for (g_idx, group) in groups.iter().enumerate() {
-            for &col_idx in group {
-                col_to_group.insert(col_idx, g_idx);
-            }
-        }
-        (groups, col_to_group)
-    }
-
-    /// Profile every string column
-    fn profile_string_columns(
-        properties: &[DecodedProperty],
-        min_hash: &MinHash<IntoIter<&str>, &str>,
-    ) -> Vec<StringProfile> {
-        let str_profiles: Vec<StringProfile> = properties
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, prop)| {
-                if let PropValue::Str(values) = &prop.values {
-                    Some(Self::profile_string_column(idx, values, min_hash))
-                } else {
-                    None
-                }
-            })
-            .collect();
-        str_profiles
-    }
-
-    /// Profile a single string column by computing a [`MinHash`] signature over
-    /// its unique non-null values.
-    fn profile_string_column(
-        col_idx: usize,
-        values: &[Option<String>],
-        min_hash: &MinHash<IntoIter<&str>, &str>,
-    ) -> StringProfile {
-        let mut unique_set: HashSet<&str> = HashSet::new();
-        for s in values.iter().flatten() {
-            unique_set.insert(s.as_str());
-        }
-
-        // Guard against all-null columns - MinHash panics on an empty iterator.
-        let min_hashes = if unique_set.is_empty() {
-            Vec::new()
-        } else {
-            min_hash.get_min_hashes(unique_set.into_iter())
-        };
-
-        StringProfile {
-            col_idx,
-            min_hashes,
-        }
-    }
-
-    /// Cluster string profiles into groups using greedy [`MinHash`] Jaccard merging.
-    ///
-    /// Returns a `Vec` of groups; each group is a sorted list of `col_idx` values.
-    /// Every string column appears in exactly one group. Singleton groups
-    /// (length 1) represent standalone scalar string columns.
-    fn group_strings(
-        profiles: &[StringProfile],
-        min_hash: &MinHash<IntoIter<&str>, &str>,
-    ) -> Vec<Vec<usize>> {
-        let n = profiles.len();
-        let mut uf = QuickUnionUf::<UnionBySize>::new(n);
-
-        // Compare every pair of columns and union if similarity exceeds threshold
-        for i in 0..n {
-            if profiles[i].min_hashes.is_empty() {
-                continue; // skip empty columns
-            }
-            for j in (i + 1)..n {
-                if profiles[j].min_hashes.is_empty() {
-                    continue;
-                }
-
-                let sim = min_hash
-                    .get_similarity_from_hashes(&profiles[i].min_hashes, &profiles[j].min_hashes);
-
-                if sim > MINHASH_SIMILARITY_THRESHOLD {
-                    uf.union(i, j);
-                }
-            }
-        }
-
-        // Collect groups by root
-        let mut groups_map = HashMap::<_, Vec<usize>>::new();
-        for (i, profile) in profiles.iter().enumerate() {
-            let root = uf.find(i);
-            groups_map.entry(root).or_default().push(profile.col_idx);
-        }
-
-        // Convert map to Vec<Vec<usize>>, sort inner lists, sort by first column
-        let mut groups: Vec<Vec<usize>> = groups_map.into_values().collect();
-        for g in &mut groups {
-            g.sort_unstable();
-        }
-        groups.sort_unstable_by_key(|g| g[0]);
-
-        groups
-    }
-
-    /// Choose the shared-dictionary `StrEncoder` for a multi-member group.
-    ///
-    /// Runs the FSST viability probe over the combined corpus of all children.
-    fn shared_dict_str_encoder(group: &[usize], properties: &[DecodedProperty]) -> StrEncoder {
-        let mut all_strings: Vec<&str> = Vec::new();
+    // col_idx -> index into `groups`
+    let mut col_to_group: HashMap<usize, usize> = HashMap::new();
+    for (g_idx, group) in groups.iter().enumerate() {
         for &col_idx in group {
-            if let PropValue::Str(values) = &properties[col_idx].values {
-                for s in values.iter().flatten() {
-                    all_strings.push(s.as_str());
-                }
-            }
+            col_to_group.insert(col_idx, g_idx);
         }
-        if fsst_is_viable(&all_strings) {
-            // VarInt works well for both the symbol-table length stream
-            // (≤ 255 small values) and the original string-length stream.
-            StrEncoder::fsst(IntEncoder::varint(), IntEncoder::varint())
-        } else {
-            let lengths: Vec<u32> = all_strings
-                .iter()
-                .map(|s| u32::try_from(s.len()).unwrap_or(u32::MAX))
-                .collect();
-            StrEncoder::Plain {
-                string_lengths: IntEncoder::auto_u32(&lengths),
+    }
+    (groups, col_to_group)
+}
+
+/// Profile every string column
+fn profile_string_columns(
+    properties: &[DecodedProperty],
+    min_hash: &MinHash<IntoIter<&str>, &str>,
+) -> Vec<StringProfile> {
+    let str_profiles: Vec<StringProfile> = properties
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, prop)| {
+            if let PropValue::Str(values) = &prop.values {
+                Some(profile_string_column(idx, values, min_hash))
+            } else {
+                None
+            }
+        })
+        .collect();
+    str_profiles
+}
+
+/// Profile a single string column by computing a [`MinHash`] signature over
+/// its unique non-null values.
+fn profile_string_column(
+    col_idx: usize,
+    values: &[Option<String>],
+    min_hash: &MinHash<IntoIter<&str>, &str>,
+) -> StringProfile {
+    let mut unique_set: HashSet<&str> = HashSet::new();
+    for s in values.iter().flatten() {
+        unique_set.insert(s.as_str());
+    }
+
+    // Guard against all-null columns - MinHash panics on an empty iterator.
+    let min_hashes = if unique_set.is_empty() {
+        Vec::new()
+    } else {
+        min_hash.get_min_hashes(unique_set.into_iter())
+    };
+
+    StringProfile {
+        col_idx,
+        min_hashes,
+    }
+}
+
+/// Cluster string profiles into groups using greedy [`MinHash`] Jaccard merging.
+///
+/// Returns a `Vec` of groups; each group is a sorted list of `col_idx` values.
+/// Every string column appears in exactly one group. Singleton groups
+/// (length 1) represent standalone scalar string columns.
+fn group_strings(
+    profiles: &[StringProfile],
+    min_hash: &MinHash<IntoIter<&str>, &str>,
+) -> Vec<Vec<usize>> {
+    let n = profiles.len();
+    let mut uf = QuickUnionUf::<UnionBySize>::new(n);
+
+    // Compare every pair of columns and union if similarity exceeds threshold
+    for i in 0..n {
+        if profiles[i].min_hashes.is_empty() {
+            continue; // skip empty columns
+        }
+        for j in (i + 1)..n {
+            if profiles[j].min_hashes.is_empty() {
+                continue;
+            }
+
+            let sim = min_hash
+                .get_similarity_from_hashes(&profiles[i].min_hashes, &profiles[j].min_hashes);
+
+            if sim > MINHASH_SIMILARITY_THRESHOLD {
+                uf.union(i, j);
             }
         }
     }
 
-    fn build_encoder(
-        idx: usize,
-        prop: &DecodedProperty,
-        col_to_group: &HashMap<usize, usize>,
-        groups: &[Vec<usize>],
-        group_struct_names: &[Option<String>],
-        properties: &[DecodedProperty],
-    ) -> PropertyEncoder {
-        match &prop.values {
-            PropValue::Bool(v) => {
-                PropertyEncoder::Scalar(ScalarEncoder::bool(to_presence(count_nulls(v))))
-            }
-            PropValue::F32(v) => {
-                PropertyEncoder::Scalar(ScalarEncoder::float(to_presence(count_nulls(v))))
-            }
-            PropValue::F64(v) => {
-                PropertyEncoder::Scalar(ScalarEncoder::float(to_presence(count_nulls(v))))
-            }
-            PropValue::I8(v) => {
-                let presence = to_presence(count_nulls(v));
-                // FIXME: inaccurate, but encoders don't support i8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
-                let non_null: Vec<u32> = v
-                    .iter()
-                    .flatten()
-                    .copied()
-                    .map(i32::from)
-                    .map(i32::cast_unsigned)
-                    .collect();
-                PropertyEncoder::Scalar(ScalarEncoder::int(
-                    presence,
-                    IntEncoder::auto_u32(&non_null),
-                ))
-            }
-            PropValue::U8(v) => {
-                let presence = to_presence(count_nulls(v));
-                // FIXME: inaccurate, but encoders don't support u8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
-                let non_null: Vec<u32> = v.iter().flatten().copied().map(u32::from).collect();
-                PropertyEncoder::Scalar(ScalarEncoder::int(
-                    presence,
-                    IntEncoder::auto_u32(&non_null),
-                ))
-            }
-            PropValue::I32(v) => {
-                let presence = to_presence(count_nulls(v));
-                let non_null: Vec<u32> = v.iter().flatten().map(|&x| x.cast_unsigned()).collect();
-                PropertyEncoder::Scalar(ScalarEncoder::int(
-                    presence,
-                    IntEncoder::auto_u32(&non_null),
-                ))
-            }
-            PropValue::U32(v) => {
-                let presence = to_presence(count_nulls(v));
-                let non_null: Vec<u32> = v.iter().flatten().copied().collect();
-                PropertyEncoder::Scalar(ScalarEncoder::int(
-                    presence,
-                    IntEncoder::auto_u32(&non_null),
-                ))
-            }
-            PropValue::I64(v) => {
-                let presence = to_presence(count_nulls(v));
-                let non_null: Vec<u64> = v.iter().flatten().map(|&x| x.cast_unsigned()).collect();
-                PropertyEncoder::Scalar(ScalarEncoder::int(
-                    presence,
-                    IntEncoder::auto_u64(&non_null),
-                ))
-            }
-            PropValue::U64(v) => {
-                let presence = to_presence(count_nulls(v));
-                let non_null: Vec<u64> = v.iter().flatten().copied().collect();
-                PropertyEncoder::Scalar(ScalarEncoder::int(
-                    presence,
-                    IntEncoder::auto_u64(&non_null),
-                ))
-            }
-            PropValue::Str(v) => {
-                let num_nulls = count_nulls(v);
-                let presence = to_presence(num_nulls);
-                let g_idx = col_to_group[&idx];
-                let group = &groups[g_idx];
+    // Collect groups by root
+    let mut groups_map = HashMap::<_, Vec<usize>>::new();
+    for (i, profile) in profiles.iter().enumerate() {
+        let root = uf.find(i);
+        groups_map.entry(root).or_default().push(profile.col_idx);
+    }
 
-                if let Some(struct_name) = &group_struct_names[g_idx] {
-                    // Replicate the dictionary build order (property order within
-                    // the group) to compute the actual offset array, then select
-                    // the best IntEncoder for it.
-                    let offset = Self::offset_encoder_for(group, properties, idx);
-                    // The decoder reconstructs the original property name as
-                    // `struct_name + child_name`, so child_name must be the
-                    // suffix that follows the common prefix, not the full name.
-                    let child_suffix = prop
-                        .name
-                        .strip_prefix(struct_name.as_str())
-                        .unwrap_or(&prop.name)
-                        .to_owned();
-                    PropertyEncoder::shared_dict(
-                        struct_name.clone(),
-                        child_suffix,
-                        presence,
-                        offset,
-                    )
-                } else {
-                    // Standalone scalar string
-                    let non_null: Vec<&str> = v.iter().flatten().map(String::as_str).collect();
-                    Self::scalar_str_encoder(presence, &non_null)
-                }
-            }
-            PropValue::SharedDict => {
-                // `SharedDict` columns are produced by the encoder, not consumed
-                // as decoder input.  Hitting this branch means the caller passed
-                // invalid data, which is a programming error.
-                debug_assert!(
-                    false,
-                    "PropValue::SharedDict must not appear in decoded input"
-                );
-                PropertyEncoder::Scalar(ScalarEncoder::bool(PresenceStream::Absent))
+    // Convert map to Vec<Vec<usize>>, sort inner lists, sort by first column
+    let mut groups: Vec<Vec<usize>> = groups_map.into_values().collect();
+    for g in &mut groups {
+        g.sort_unstable();
+    }
+    groups.sort_unstable_by_key(|g| g[0]);
+
+    groups
+}
+
+/// Choose the shared-dictionary `StrEncoder` for a multi-member group.
+///
+/// Runs the FSST viability probe over the combined corpus of all children.
+fn shared_dict_str_encoder(group: &[usize], properties: &[DecodedProperty]) -> StrEncoder {
+    let mut all_strings: Vec<&str> = Vec::new();
+    for &col_idx in group {
+        if let PropValue::Str(values) = &properties[col_idx].values {
+            for s in values.iter().flatten() {
+                all_strings.push(s.as_str());
             }
         }
     }
-
-    /// Choose between `Plain` and `Fsst` for a standalone string column.
-    fn scalar_str_encoder(presence: PresenceStream, non_null: &[&str]) -> PropertyEncoder {
-        let lengths: Vec<u32> = non_null
+    if fsst_is_viable(&all_strings) {
+        // VarInt works well for both the symbol-table length stream
+        // (≤ 255 small values) and the original string-length stream.
+        StrEncoder::fsst(IntEncoder::varint(), IntEncoder::varint())
+    } else {
+        let lengths: Vec<u32> = all_strings
             .iter()
             .map(|s| u32::try_from(s.len()).unwrap_or(u32::MAX))
             .collect();
-        if fsst_is_viable(non_null) {
-            // symbol_lengths stream is small (≤ 255 entries); VarInt is sufficient.
-            PropertyEncoder::Scalar(ScalarEncoder::str_fsst(
-                presence,
-                IntEncoder::varint(),
-                IntEncoder::auto_u32(&lengths),
-            ))
-        } else {
-            PropertyEncoder::Scalar(ScalarEncoder::str(presence, IntEncoder::auto_u32(&lengths)))
+        StrEncoder::Plain {
+            string_lengths: IntEncoder::auto_u32(&lengths),
         }
     }
+}
 
-    /// Compute the optimal `IntEncoder` for the offset stream of one child
-    /// inside a shared-dictionary group.
-    ///
-    /// The dictionary insertion order mirrors the encoding pass (properties
-    /// iterated in their original index order within the group), so the offsets
-    /// computed here match those written during actual encoding.
-    fn offset_encoder_for(
-        group: &[usize],
-        properties: &[DecodedProperty],
-        child_col_idx: usize,
-    ) -> IntEncoder {
-        // Build the shared dictionary in property order (group is sorted by col_idx).
-        let mut dict_index: HashMap<&str, u32> = HashMap::new();
-        let mut dict_size = 0u32;
-        for &col_idx in group {
-            if let PropValue::Str(values) = &properties[col_idx].values {
-                for s in values.iter().flatten() {
-                    if !dict_index.contains_key(s.as_str()) {
-                        dict_index.insert(s.as_str(), dict_size);
-                        dict_size = dict_size.saturating_add(1);
-                    }
+fn build_encoder(
+    idx: usize,
+    prop: &DecodedProperty,
+    col_to_group: &HashMap<usize, usize>,
+    groups: &[Vec<usize>],
+    group_struct_names: &[Option<String>],
+    properties: &[DecodedProperty],
+) -> PropertyEncoder {
+    match &prop.values {
+        PropValue::Bool(v) => {
+            PropertyEncoder::Scalar(ScalarEncoder::bool(to_presence(count_nulls(v))))
+        }
+        PropValue::F32(v) => {
+            PropertyEncoder::Scalar(ScalarEncoder::float(to_presence(count_nulls(v))))
+        }
+        PropValue::F64(v) => {
+            PropertyEncoder::Scalar(ScalarEncoder::float(to_presence(count_nulls(v))))
+        }
+        PropValue::I8(v) => {
+            let presence = to_presence(count_nulls(v));
+            // FIXME: inaccurate, but encoders don't support i8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
+            let non_null: Vec<u32> = v
+                .iter()
+                .flatten()
+                .copied()
+                .map(i32::from)
+                .map(i32::cast_unsigned)
+                .collect();
+            PropertyEncoder::Scalar(ScalarEncoder::int(
+                presence,
+                IntEncoder::auto_u32(&non_null),
+            ))
+        }
+        PropValue::U8(v) => {
+            let presence = to_presence(count_nulls(v));
+            // FIXME: inaccurate, but encoders don't support u8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
+            let non_null: Vec<u32> = v.iter().flatten().copied().map(u32::from).collect();
+            PropertyEncoder::Scalar(ScalarEncoder::int(
+                presence,
+                IntEncoder::auto_u32(&non_null),
+            ))
+        }
+        PropValue::I32(v) => {
+            let presence = to_presence(count_nulls(v));
+            let non_null: Vec<u32> = v.iter().flatten().map(|&x| x.cast_unsigned()).collect();
+            PropertyEncoder::Scalar(ScalarEncoder::int(
+                presence,
+                IntEncoder::auto_u32(&non_null),
+            ))
+        }
+        PropValue::U32(v) => {
+            let presence = to_presence(count_nulls(v));
+            let non_null: Vec<u32> = v.iter().flatten().copied().collect();
+            PropertyEncoder::Scalar(ScalarEncoder::int(
+                presence,
+                IntEncoder::auto_u32(&non_null),
+            ))
+        }
+        PropValue::I64(v) => {
+            let presence = to_presence(count_nulls(v));
+            let non_null: Vec<u64> = v.iter().flatten().map(|&x| x.cast_unsigned()).collect();
+            PropertyEncoder::Scalar(ScalarEncoder::int(
+                presence,
+                IntEncoder::auto_u64(&non_null),
+            ))
+        }
+        PropValue::U64(v) => {
+            let presence = to_presence(count_nulls(v));
+            let non_null: Vec<u64> = v.iter().flatten().copied().collect();
+            PropertyEncoder::Scalar(ScalarEncoder::int(
+                presence,
+                IntEncoder::auto_u64(&non_null),
+            ))
+        }
+        PropValue::Str(v) => {
+            let num_nulls = count_nulls(v);
+            let presence = to_presence(num_nulls);
+            let g_idx = col_to_group[&idx];
+            let group = &groups[g_idx];
+
+            if let Some(struct_name) = &group_struct_names[g_idx] {
+                // Replicate the dictionary build order (property order within
+                // the group) to compute the actual offset array, then select
+                // the best IntEncoder for it.
+                let offset = offset_encoder_for(group, properties, idx);
+                // The decoder reconstructs the original property name as
+                // `struct_name + child_name`, so child_name must be the
+                // suffix that follows the common prefix, not the full name.
+                let child_suffix = prop
+                    .name
+                    .strip_prefix(struct_name.as_str())
+                    .unwrap_or(&prop.name)
+                    .to_owned();
+                PropertyEncoder::shared_dict(struct_name.clone(), child_suffix, presence, offset)
+            } else {
+                // Standalone scalar string
+                let non_null: Vec<&str> = v.iter().flatten().map(String::as_str).collect();
+                scalar_str_encoder(presence, &non_null)
+            }
+        }
+        PropValue::SharedDict => {
+            // `SharedDict` columns are produced by the encoder, not consumed
+            // as decoder input.  Hitting this branch means the caller passed
+            // invalid data, which is a programming error.
+            debug_assert!(
+                false,
+                "PropValue::SharedDict must not appear in decoded input"
+            );
+            PropertyEncoder::Scalar(ScalarEncoder::bool(PresenceStream::Absent))
+        }
+    }
+}
+
+/// Choose between `Plain` and `Fsst` for a standalone string column.
+fn scalar_str_encoder(presence: PresenceStream, non_null: &[&str]) -> PropertyEncoder {
+    let lengths: Vec<u32> = non_null
+        .iter()
+        .map(|s| u32::try_from(s.len()).unwrap_or(u32::MAX))
+        .collect();
+    if fsst_is_viable(non_null) {
+        // symbol_lengths stream is small (≤ 255 entries); VarInt is sufficient.
+        PropertyEncoder::Scalar(ScalarEncoder::str_fsst(
+            presence,
+            IntEncoder::varint(),
+            IntEncoder::auto_u32(&lengths),
+        ))
+    } else {
+        PropertyEncoder::Scalar(ScalarEncoder::str(presence, IntEncoder::auto_u32(&lengths)))
+    }
+}
+
+/// Compute the optimal `IntEncoder` for the offset stream of one child
+/// inside a shared-dictionary group.
+///
+/// The dictionary insertion order mirrors the encoding pass (properties
+/// iterated in their original index order within the group), so the offsets
+/// computed here match those written during actual encoding.
+fn offset_encoder_for(
+    group: &[usize],
+    properties: &[DecodedProperty],
+    child_col_idx: usize,
+) -> IntEncoder {
+    // Build the shared dictionary in property order (group is sorted by col_idx).
+    let mut dict_index: HashMap<&str, u32> = HashMap::new();
+    let mut dict_size = 0u32;
+    for &col_idx in group {
+        if let PropValue::Str(values) = &properties[col_idx].values {
+            for s in values.iter().flatten() {
+                if !dict_index.contains_key(s.as_str()) {
+                    dict_index.insert(s.as_str(), dict_size);
+                    dict_size = dict_size.saturating_add(1);
                 }
             }
         }
+    }
 
-        // Map this child's non-null values to their dictionary offsets.
-        // Every non-null string must already be present in `dict_index` because
-        // the dict was built from the union of all group columns, including this
-        // child.  An absent key would indicate a bug in the grouping logic.
-        let offsets: Vec<u32> = if let PropValue::Str(values) = &properties[child_col_idx].values {
-            values
-                .iter()
-                .flatten()
-                .map(|s| {
-                    *dict_index
-                        .get(s.as_str())
-                        .expect("non-null string missing from shared dictionary")
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
+    // Map this child's non-null values to their dictionary offsets.
+    // Every non-null string must already be present in `dict_index` because
+    // the dict was built from the union of all group columns, including this
+    // child.  An absent key would indicate a bug in the grouping logic.
+    let offsets: Vec<u32> = if let PropValue::Str(values) = &properties[child_col_idx].values {
+        values
+            .iter()
+            .flatten()
+            .map(|s| {
+                *dict_index
+                    .get(s.as_str())
+                    .expect("non-null string missing from shared dictionary")
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
 
-        if offsets.is_empty() {
-            IntEncoder::plain()
-        } else {
-            IntEncoder::auto_u32(&offsets)
-        }
+    if offsets.is_empty() {
+        IntEncoder::plain()
+    } else {
+        IntEncoder::auto_u32(&offsets)
     }
 }
 
