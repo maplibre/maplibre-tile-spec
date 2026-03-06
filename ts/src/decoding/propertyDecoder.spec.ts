@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { decodePropertyColumn } from "./propertyDecoder";
 import IntWrapper from "./intWrapper";
-import Vector from "../vector/vector";
+import type Vector from "../vector/vector";
 import { ScalarType, type Column } from "../metadata/tileset/tilesetMetadata";
 import { IntFlatVector } from "../vector/flat/intFlatVector";
 import { LongFlatVector } from "../vector/flat/longFlatVector";
@@ -428,7 +428,7 @@ describe("decodePropertyColumn - DOUBLE", () => {
     });
 
     it("should decode nullable DOUBLE column with null values", () => {
-        const expectedValues = [1.5, null, 2.7, null, 3.14159];
+        const expectedValues = [1.5, null, 2.7, null, Math.PI];
         const columnMetadata = createColumnMetadata("testColumn", ScalarType.DOUBLE, true);
         const encodedData = encodeDoubleNullableColumn(expectedValues);
         const offset = new IntWrapper(0);
@@ -473,7 +473,7 @@ describe("decodePropertyColumn - STRING", () => {
             expect((result as Vector[])[0]).toBeInstanceOf(StringDictionaryVector);
             expect((result as Vector[])[0].name).toBe("address:street");
             for (let i = 0; i < dictionaryStrings.length; i++) {
-                expect(((result as Vector[]) as Vector[])[0].getValue(i)).toBe(dictionaryStrings[i]);
+                expect((result as Vector[] as Vector[])[0].getValue(i)).toBe(dictionaryStrings[i]);
             }
         });
 
