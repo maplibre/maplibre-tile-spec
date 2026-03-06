@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
 use mlt_core::v01::{
     DecodedProperty, IntEncoder, LogicalEncoder, MultiPropertyEncoder, OwnedEncodedProperty,
     PhysicalEncoder, PresenceStream, PropValue, Property, PropertyEncoder, ScalarEncoder,
-    StrEncoder,
+    SharedDictEncoder, SharedDictItemEncoder, StrEncoder,
 };
 use mlt_core::{FromDecoded as _, FromEncoded as _, MltError, borrowme};
 use proptest::prelude::*;
@@ -72,26 +70,23 @@ fn str_prop(name: &str, values: Vec<Option<String>>) -> DecodedProperty {
     }
 }
 
-fn expand_struct(prop: &OwnedEncodedProperty) -> Vec<DecodedProperty> {
+fn decode_struct(prop: &OwnedEncodedProperty) -> DecodedProperty {
     Property::from(borrowme::borrow(prop))
-        .decode_expand()
-        .expect("decode_expand failed")
-        .into_iter()
-        .map(|p| p.decode().expect("decode failed"))
-        .collect()
+        .decode()
+        .expect("decode failed")
 }
 
 fn decode_scalar(prop: &OwnedEncodedProperty) -> DecodedProperty {
     DecodedProperty::from_encoded(borrowme::borrow(prop)).expect("decode failed")
 }
 
-fn struct_encode_and_expand(
+fn struct_encode_and_decode(
     struct_name: &str,
     children: &[(&str, Vec<Option<String>>)],
     presence: PresenceStream,
     offset_encoder: IntEncoder,
-    shared_dicts: impl Into<HashMap<String, StrEncoder>>,
-) -> Vec<DecodedProperty> {
+    dict_encoder: StrEncoder,
+) -> DecodedProperty {
     let decoded: Vec<DecodedProperty> = children
         .iter()
         .map(|(child_name, values)| str_prop(child_name, values.clone()))
@@ -99,12 +94,21 @@ fn struct_encode_and_expand(
     let instructions: Vec<PropertyEncoder> = children
         .iter()
         .map(|(child_name, _)| {
-            PropertyEncoder::shared_dict(struct_name, *child_name, presence, offset_encoder)
+            SharedDictEncoder {
+                struct_name: struct_name.to_string(),
+                dict_encoder,
+                items: vec![SharedDictItemEncoder {
+                    child_name: (*child_name).to_string(),
+                    optional: presence,
+                    offset: offset_encoder,
+                }],
+            }
+            .into()
         })
         .collect();
     let encoded = Vec::<OwnedEncodedProperty>::from_decoded(
         &decoded,
-        MultiPropertyEncoder::new(instructions, shared_dicts.into()),
+        MultiPropertyEncoder::new(instructions),
     )
     .expect("encoding failed");
     assert_eq!(
@@ -112,7 +116,7 @@ fn struct_encode_and_expand(
         1,
         "struct children must collapse to one column"
     );
-    expand_struct(&encoded[0])
+    decode_struct(&encoded[0])
 }
 
 // Absent mode has no presence stream on the wire, so only all-Some inputs are
@@ -296,68 +300,87 @@ fn fsst_scalar_string_roundtrip() {
 fn fsst_struct_shared_dict_roundtrip() {
     let de = strs(&["Berlin", "München", "Köln"]);
     let en = strs(&["Berlin", "Munich", "Cologne"]);
-    let result = struct_encode_and_expand(
+    let result = struct_encode_and_decode(
         "name",
         &[(":de", de.clone()), (":en", en.clone())],
         PresenceStream::Present,
         IntEncoder::plain(),
-        [("name".to_string(), StrEncoder::plain(IntEncoder::plain()))],
+        StrEncoder::plain(IntEncoder::plain()),
     );
-    assert_eq!(result[0].values, PropValue::Str(de));
-    assert_eq!(result[1].values, PropValue::Str(en));
+    assert_eq!(result.name, "name");
+    let PropValue::SharedDict(items) = &result.values else {
+        panic!("Expected SharedDict");
+    };
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0].suffix, ":de");
+    assert_eq!(items[0].values, de);
+    assert_eq!(items[1].suffix, ":en");
+    assert_eq!(items[1].values, en);
 }
 
 #[test]
 fn struct_with_nulls() {
     let de = opt_strs(&[Some("Berlin"), Some("München"), None]);
     let en = opt_strs(&[Some("Berlin"), None, Some("London")]);
-    let result = struct_encode_and_expand(
+    let result = struct_encode_and_decode(
         "name",
         &[(":de", de.clone()), (":en", en.clone())],
         PresenceStream::Present,
         IntEncoder::plain(),
-        [("name".to_string(), StrEncoder::plain(IntEncoder::plain()))],
+        StrEncoder::plain(IntEncoder::plain()),
     );
-    assert_eq!(result.len(), 2);
-    assert_eq!(result[0].name, "name:de");
-    assert_eq!(result[0].values, PropValue::Str(de));
-    assert_eq!(result[1].name, "name:en");
-    assert_eq!(result[1].values, PropValue::Str(en));
+    assert_eq!(result.name, "name");
+    let PropValue::SharedDict(items) = &result.values else {
+        panic!("Expected SharedDict");
+    };
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0].suffix, ":de");
+    assert_eq!(items[0].values, de);
+    assert_eq!(items[1].suffix, ":en");
+    assert_eq!(items[1].values, en);
 }
 
 #[test]
 fn struct_no_nulls() {
     let de = strs(&["Berlin", "München", "Hamburg"]);
     let en = strs(&["Berlin", "Munich", "Hamburg"]);
-    let result = struct_encode_and_expand(
+    let result = struct_encode_and_decode(
         "name",
         &[(":de", de.clone()), (":en", en.clone())],
         PresenceStream::Present,
         IntEncoder::plain(),
-        [("name".to_string(), StrEncoder::plain(IntEncoder::plain()))],
+        StrEncoder::plain(IntEncoder::plain()),
     );
-    assert_eq!(result[0].values, PropValue::Str(de));
-    assert_eq!(result[1].values, PropValue::Str(en));
+    assert_eq!(result.name, "name");
+    let PropValue::SharedDict(items) = &result.values else {
+        panic!("Expected SharedDict");
+    };
+    assert_eq!(items[0].values, de);
+    assert_eq!(items[1].values, en);
 }
 
 #[test]
 fn struct_shared_dict_deduplication() {
     let de = strs(&["Berlin", "Berlin"]);
     let en = strs(&["Berlin", "London"]);
-    let children = struct_encode_and_expand(
+    let result = struct_encode_and_decode(
         "name",
         &[(":de", de.clone()), (":en", en.clone())],
         PresenceStream::Present,
         IntEncoder::plain(),
-        [("name".to_string(), StrEncoder::plain(IntEncoder::plain()))],
+        StrEncoder::plain(IntEncoder::plain()),
     );
-    assert_eq!(children[0].values, PropValue::Str(de));
-    assert_eq!(children[1].values, PropValue::Str(en));
+    let PropValue::SharedDict(items) = &result.values else {
+        panic!("Expected SharedDict");
+    };
+    assert_eq!(items[0].values, de);
+    assert_eq!(items[1].values, en);
 }
 
 #[test]
 fn struct_mixed_with_scalars() {
     let enc = IntEncoder::plain();
+    let str_enc = StrEncoder::plain(enc);
     let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
     let population = DecodedProperty {
         name: "population".to_string(),
@@ -378,27 +401,44 @@ fn struct_mixed_with_scalars() {
     ];
     let prop_encs = vec![
         PropertyEncoder::Scalar(scalar_enc),
-        PropertyEncoder::shared_dict("name", ":de", PresenceStream::Present, enc),
-        PropertyEncoder::shared_dict("name", ":en", PresenceStream::Present, enc),
+        SharedDictEncoder {
+            struct_name: "name".to_string(),
+            dict_encoder: str_enc,
+            items: vec![SharedDictItemEncoder {
+                child_name: ":de".to_string(),
+                optional: PresenceStream::Present,
+                offset: enc,
+            }],
+        }
+        .into(),
+        SharedDictEncoder {
+            struct_name: "name".to_string(),
+            dict_encoder: str_enc,
+            items: vec![SharedDictItemEncoder {
+                child_name: ":en".to_string(),
+                optional: PresenceStream::Present,
+                offset: enc,
+            }],
+        }
+        .into(),
         PropertyEncoder::Scalar(scalar_enc),
     ];
-    let encoded = Vec::<OwnedEncodedProperty>::from_decoded(
-        &props,
-        MultiPropertyEncoder::new(
-            prop_encs,
-            HashMap::from([("name".to_string(), StrEncoder::plain(enc))]),
-        ),
-    )
-    .unwrap();
+    let encoded =
+        Vec::<OwnedEncodedProperty>::from_decoded(&props, MultiPropertyEncoder::new(prop_encs))
+            .unwrap();
 
     // Output order: scalar "population", struct "name", scalar "rank"
     assert_eq!(encoded.len(), 3);
     assert_eq!(decode_scalar(&encoded[0]), population);
-    let name = expand_struct(&encoded[1]);
-    assert_eq!(name[0].name, "name:de");
-    assert_eq!(name[0].values, name_de.values);
-    assert_eq!(name[1].name, "name:en");
-    assert_eq!(name[1].values, name_en.values);
+    let name = decode_struct(&encoded[1]);
+    assert_eq!(name.name, "name");
+    let PropValue::SharedDict(items) = &name.values else {
+        panic!("Expected SharedDict");
+    };
+    assert_eq!(items[0].suffix, ":de");
+    assert_eq!(items[0].values, strs(&["Berlin", "Hamburg"]));
+    assert_eq!(items[1].suffix, ":en");
+    assert_eq!(items[1].values, strs(&["Berlin", "Hamburg"]));
     assert_eq!(decode_scalar(&encoded[2]), rank);
 }
 
@@ -424,42 +464,80 @@ fn two_struct_groups_with_scalar_between() {
     let str_enc = StrEncoder::plain(IntEncoder::plain());
     let encoded = Vec::<OwnedEncodedProperty>::from_decoded(
         &decoded_props,
-        MultiPropertyEncoder::new(
-            vec![
-                PropertyEncoder::shared_dict("name:", "de", PresenceStream::Present, enc),
-                PropertyEncoder::shared_dict("name:", "en", PresenceStream::Present, enc),
-                ScalarEncoder::int(PresenceStream::Present, enc).into(),
-                PropertyEncoder::shared_dict("label:", "de", PresenceStream::Present, enc),
-                PropertyEncoder::shared_dict("label:", "en", PresenceStream::Present, enc),
-            ],
-            HashMap::from([
-                ("name:".to_string(), str_enc),
-                ("label:".to_string(), str_enc),
-            ]),
-        ),
+        MultiPropertyEncoder::new(vec![
+            SharedDictEncoder {
+                struct_name: "name:".to_string(),
+                dict_encoder: str_enc,
+                items: vec![SharedDictItemEncoder {
+                    child_name: "de".to_string(),
+                    optional: PresenceStream::Present,
+                    offset: enc,
+                }],
+            }
+            .into(),
+            SharedDictEncoder {
+                struct_name: "name:".to_string(),
+                dict_encoder: str_enc,
+                items: vec![SharedDictItemEncoder {
+                    child_name: "en".to_string(),
+                    optional: PresenceStream::Present,
+                    offset: enc,
+                }],
+            }
+            .into(),
+            ScalarEncoder::int(PresenceStream::Present, enc).into(),
+            SharedDictEncoder {
+                struct_name: "label:".to_string(),
+                dict_encoder: str_enc,
+                items: vec![SharedDictItemEncoder {
+                    child_name: "de".to_string(),
+                    optional: PresenceStream::Present,
+                    offset: enc,
+                }],
+            }
+            .into(),
+            SharedDictEncoder {
+                struct_name: "label:".to_string(),
+                dict_encoder: str_enc,
+                items: vec![SharedDictItemEncoder {
+                    child_name: "en".to_string(),
+                    optional: PresenceStream::Present,
+                    offset: enc,
+                }],
+            }
+            .into(),
+        ]),
     )
     .unwrap();
 
     // Output order: struct "name:", scalar "population", struct "label:"
     assert_eq!(encoded.len(), 3);
-    let name = expand_struct(&encoded[0]);
-    assert_eq!(name[0].name, "name:de");
-    assert_eq!(name[0].values, name_de.values);
-    assert_eq!(name[1].name, "name:en");
-    assert_eq!(name[1].values, name_en.values);
+    let name = decode_struct(&encoded[0]);
+    assert_eq!(name.name, "name:");
+    let PropValue::SharedDict(name_items) = &name.values else {
+        panic!("Expected SharedDict");
+    };
+    assert_eq!(name_items[0].suffix, "de");
+    assert_eq!(name_items[0].values, strs(&["Berlin", "Hamburg"]));
+    assert_eq!(name_items[1].suffix, "en");
+    assert_eq!(name_items[1].values, strs(&["Berlin", "Hamburg"]));
     assert_eq!(decode_scalar(&encoded[1]), population);
-    let label = expand_struct(&encoded[2]);
-    assert_eq!(label[0].name, "label:de");
-    assert_eq!(label[0].values, label_de.values);
-    assert_eq!(label[1].name, "label:en");
-    assert_eq!(label[1].values, label_en.values);
+    let label = decode_struct(&encoded[2]);
+    assert_eq!(label.name, "label:");
+    let PropValue::SharedDict(label_items) = &label.values else {
+        panic!("Expected SharedDict");
+    };
+    assert_eq!(label_items[0].suffix, "de");
+    assert_eq!(label_items[0].values, strs(&["BE", "HH"]));
+    assert_eq!(label_items[1].suffix, "en");
+    assert_eq!(label_items[1].values, strs(&["BER", "HAM"]));
 }
 
 #[test]
 fn struct_instruction_count_mismatch() {
     let err = Vec::<OwnedEncodedProperty>::from_decoded(
         &vec![DecodedProperty::default()],
-        MultiPropertyEncoder::new(vec![], HashMap::default()),
+        MultiPropertyEncoder::new(vec![]),
     )
     .unwrap_err();
     assert!(
@@ -492,17 +570,21 @@ proptest! {
             .iter()
             .map(|(name, vals)| (name.as_str(), vals.clone()))
             .collect();
-        let re_children = struct_encode_and_expand(
+        let result = struct_encode_and_decode(
             &struct_name,
             &child_refs,
             PresenceStream::Present,
             encoder,
-            [(struct_name.clone(), string_enc)],
+            string_enc,
         );
-        prop_assert_eq!(re_children.len(), children.len());
-        for (re, (child_name, values)) in re_children.into_iter().zip(children.iter()) {
-            prop_assert_eq!(re.name, format!("{struct_name}{child_name}"));
-            prop_assert_eq!(re.values, PropValue::Str(values.clone()));
+        prop_assert_eq!(result.name, struct_name.clone());
+        let PropValue::SharedDict(items) = result.values else {
+            return Err(TestCaseError::Fail("Expected SharedDict".into()));
+        };
+        prop_assert_eq!(items.len(), children.len());
+        for (item, (child_name, values)) in items.into_iter().zip(children.iter()) {
+            prop_assert_eq!(&item.suffix, child_name);
+            prop_assert_eq!(item.values, values.clone());
         }
     }
 }

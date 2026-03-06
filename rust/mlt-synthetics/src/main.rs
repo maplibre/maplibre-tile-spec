@@ -20,7 +20,7 @@ use mlt_core::v01::{
     ScalarEncoder as S, StrEncoder as SE, VertexBufferType,
 };
 
-use crate::layer::{Layer, SynthWriter};
+use crate::layer::{Layer, SharedDict, SynthWriter};
 
 const C0: Coord<i32> = coord! { x: 13, y: 42 };
 // triangle 1, clockwise winding, X ends in 1, Y ends in 2
@@ -737,18 +737,20 @@ fn generate_properties(w: &SynthWriter) {
 
     p0(w)
         .add_prop(
-            S::str(O::Present, E::varint()),
-            "name",
-            PropValue::Str(vec![Some("Test Point".to_string())]),
-        )
-        .add_prop(
             S::bool(O::Present),
             "active",
             PropValue::Bool(vec![Some(true)]),
         )
-        //FIXME in java
-        //.add_prop(enc, "tiny-count", PropValue::I8(vec![Some(42)]))
-        //.add_prop(enc, "tiny-count", PropValue::U8(vec![Some(100)]))
+        .add_prop(
+            S::int(O::Present, E::varint()),
+            "biggest",
+            PropValue::U64(vec![Some(0)]),
+        ) // FIXME: this should be u64, but java does it it this way
+        .add_prop(
+            S::int(O::Present, E::varint()),
+            "bignum",
+            PropValue::I32(vec![Some(42)]),
+        )
         .add_prop(
             S::int(O::Present, E::varint()),
             "count",
@@ -760,25 +762,23 @@ fn generate_properties(w: &SynthWriter) {
             PropValue::U32(vec![Some(100)]),
         )
         .add_prop(
-            S::int(O::Present, E::varint()),
-            "bignum",
-            PropValue::I32(vec![Some(42)]),
-        )
-        .add_prop(
-            S::int(O::Present, E::varint()),
-            "biggest",
-            PropValue::U64(vec![Some(0)]),
-        ) // FIXME: this should be u64, but java does it it this way
-        .add_prop(
-            S::float(O::Present),
-            "temp",
-            PropValue::F32(vec![Some(25.5)]),
+            S::str(O::Present, E::varint()),
+            "name",
+            PropValue::Str(vec![Some("Test Point".to_string())]),
         )
         .add_prop(
             S::float(O::Present),
             "precision",
             PropValue::F64(vec![Some(0.123_456_789)]),
         )
+        .add_prop(
+            S::float(O::Present),
+            "temp",
+            PropValue::F32(vec![Some(25.5)]),
+        )
+        //FIXME in java
+        //.add_prop(enc, "tiny-count", PropValue::I8(vec![Some(42)]))
+        //.add_prop(enc, "tiny-count", PropValue::U8(vec![Some(100)]))
         .write("props_mixed");
 
     generate_props_i32(w);
@@ -877,62 +877,46 @@ fn generate_shared_dictionaries(w: &SynthWriter) {
     p0(w)
         .add_prop(
             S::str(O::Present, E::varint()),
-            "name:en",
+            "name:de",
             PropValue::Str(vec![Some(long_string_value())]),
         )
         .add_prop(
             S::str(O::Present, E::varint()),
-            "name:de",
+            "name:en",
             PropValue::Str(vec![Some(long_string_value())]),
         )
         .write("props_no_shared_dict");
 
     p0(w)
-        .add_shared_dict("name:", SE::plain(E::varint()))
-        .add_shared_dict_column(
-            "name:",
-            "de",
-            O::Present,
-            E::varint(),
-            [Some(long_string_value())],
-        )
-        .add_shared_dict_column(
-            "name:",
-            "en",
-            O::Present,
-            E::varint(),
-            [Some(long_string_value())],
+        .add_shared_dict(
+            SharedDict::new("name:", SE::plain(E::varint()))
+                .column("de", O::Present, E::varint(), [Some(long_string_value())])
+                .column("en", O::Present, E::varint(), [Some(long_string_value())]),
         )
         .write("props_shared_dict-rust"); // For some reason Java hallucinates another stream count at the start, so starts counting the stream count at 1
 
     p0(w)
-        .add_shared_dict("name:", SE::fsst(E::varint(), E::varint()))
-        .add_shared_dict_column(
-            "name:",
-            "de",
-            O::Present,
-            E::varint(),
-            [Some(long_string_value())],
-        )
-        .add_shared_dict_column(
-            "name:",
-            "en",
-            O::Present,
-            E::varint(),
-            [Some(long_string_value())],
+        .add_shared_dict(
+            SharedDict::new("name:", SE::fsst(E::varint(), E::varint()))
+                .column("de", O::Present, E::varint(), [Some(long_string_value())])
+                .column("en", O::Present, E::varint(), [Some(long_string_value())]),
         )
         .write("props_shared_dict_fsst-rust"); // Rust FSST is not byte-for-byte consistent with Java's
 
     // Empty struct name: keys "a" and "b" both become children of the "" struct.
     // FIXME: dump equal, but not binary equal
     // p0(w)
-    //   .add_shared_dict("", SE::plain(E::varint()))
-    //   .add_shared_dict_column("", "a", O::Present, E::varint(), [Some(val.clone())])
-    //   .add_shared_dict_column("", "b", O::Present, E::varint(), [Some(val.clone())])
-    //  .write("props_shared_dict_no_struct_name");
+    //     .add_shared_dict(
+    //         SharedDict::new("", SE::plain(E::varint()))
+    //             .column("a", O::Present, E::varint(), [Some(val.clone())])
+    //             .column("b", O::Present, E::varint(), [Some(val.clone())]),
+    //     )
+    //     .write("props_shared_dict_no_struct_name");
     p0(w)
-        .add_shared_dict("", SE::fsst(E::varint(), E::varint()))
-        .add_shared_dict_column("", "a", O::Present, E::varint(), [Some(val.clone())])
-        .add_shared_dict_column("", "b", O::Present, E::varint(), [Some(val.clone())])
+        .add_shared_dict(
+            SharedDict::new("", SE::fsst(E::varint(), E::varint()))
+                .column("a", O::Present, E::varint(), [Some(val.clone())])
+                .column("b", O::Present, E::varint(), [Some(val.clone())]),
+        )
         .write("props_shared_dict_no_struct_name_fsst-rust"); // Rust FSST is not byte-for-byte consistent with Java's
 }

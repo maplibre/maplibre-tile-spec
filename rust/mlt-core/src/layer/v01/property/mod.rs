@@ -18,7 +18,7 @@ use crate::utils::{
 pub use crate::v01::property::optimizer::PropertyOptimizer;
 pub use crate::v01::property::strings::{
     EncodedSharedDictProp, EncodedStrProp, EncodedStructChild, SharedDictChild, SharedDictEncoder,
-    SharedDictionaryGroup, StrEncoder, decode_strings, decode_struct_children,
+    SharedDictItemEncoder, SharedDictionaryGroup, StrEncoder, decode_shared_dict, decode_strings,
     encode_shared_dictionary,
 };
 use crate::v01::{
@@ -100,7 +100,7 @@ impl OwnedProperty {
                 | Dec::U64(..) => T::Integer,
                 Dec::F32(..) | Dec::F64(..) => T::Float,
                 Dec::Str(..) => T::String,
-                Dec::SharedDict => T::SharedDict,
+                Dec::SharedDict(_) => T::SharedDict,
             },
         }
     }
@@ -316,8 +316,18 @@ impl Analyze for DecodedProperty {
     }
 }
 
+/// A single sub-property within a shared dictionary decoded value.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub struct SharedDictItem {
+    /// The suffix name of this sub-property (appended to parent struct name).
+    pub suffix: String,
+    /// The string values for each feature (None = null).
+    pub values: Vec<Option<String>>,
+}
+
 /// Decoded property value types
-#[derive(Clone, Default, PartialEq)]
+#[derive(Clone, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum PropValue {
     Bool(Vec<Option<bool>>),
@@ -330,10 +340,16 @@ pub enum PropValue {
     F32(Vec<Option<f32>>),
     F64(Vec<Option<f64>>),
     Str(Vec<Option<String>>),
-    /// FIXME: we shouldn't have defaults for prop value
-    #[default]
-    SharedDict,
+    /// Shared dictionary with multiple string sub-properties.
+    SharedDict(Vec<SharedDictItem>),
 }
+
+impl Default for PropValue {
+    fn default() -> Self {
+        Self::Bool(Vec::new())
+    }
+}
+
 impl PropValue {
     fn as_presence_stream(&self) -> Result<Vec<bool>, MltError> {
         Ok(match self {
@@ -347,7 +363,7 @@ impl PropValue {
             PropValue::F32(v) => v.iter().map(Option::is_some).collect(),
             PropValue::F64(v) => v.iter().map(Option::is_some).collect(),
             PropValue::Str(v) => v.iter().map(Option::is_some).collect(),
-            PropValue::SharedDict => Err(NotImplemented("struct property encoding"))?,
+            PropValue::SharedDict(_) => Err(NotImplemented("presence stream for shared dict"))?,
         })
     }
 
@@ -363,7 +379,7 @@ impl PropValue {
             PropValue::F32(_) => "f32",
             PropValue::F64(_) => "f64",
             PropValue::Str(_) => "str",
-            PropValue::SharedDict => "struct",
+            PropValue::SharedDict(_) => "shared_dict",
         }
     }
 }
@@ -381,7 +397,10 @@ impl Analyze for PropValue {
             Self::F32(v) => v.collect_statistic(stat),
             Self::F64(v) => v.collect_statistic(stat),
             Self::Str(v) => v.collect_statistic(stat),
-            Self::SharedDict => 0,
+            Self::SharedDict(items) => items
+                .iter()
+                .map(|item| item.values.collect_statistic(stat))
+                .sum(),
         }
     }
 }
@@ -399,7 +418,7 @@ impl Debug for PropValue {
             Self::F32(v) => f.debug_tuple("F32").field(&FmtOptVec(v)).finish(),
             Self::F64(v) => f.debug_tuple("F64").field(&FmtOptVec(v)).finish(),
             Self::Str(v) => f.debug_tuple("Str").field(&FmtOptVec(v)).finish(),
-            Self::SharedDict => write!(f, "Struct"),
+            Self::SharedDict(items) => f.debug_tuple("SharedDict").field(items).finish(),
         }
     }
 }
@@ -421,7 +440,19 @@ impl PropValue {
             Self::F32(v) => v[i].map(f32_to_json),
             Self::F64(v) => v[i].map(f64_to_json),
             Self::Str(v) => v[i].as_ref().map(|s| Value::String(s.clone())),
-            Self::SharedDict => None,
+            Self::SharedDict(items) => {
+                let mut obj = serde_json::Map::new();
+                for item in items {
+                    if let Some(ref s) = item.values[i] {
+                        obj.insert(item.suffix.clone(), Value::String(s.clone()));
+                    }
+                }
+                if obj.is_empty() {
+                    None
+                } else {
+                    Some(Value::Object(obj))
+                }
+            }
         }
     }
 }
@@ -448,31 +479,15 @@ impl<'a> Property<'a> {
             Self::Decoded(v) => v,
         })
     }
-
-    /// Decode this property. Struct properties expand into multiple decoded properties.
-    pub fn decode_expand(self) -> Result<Vec<Property<'a>>, MltError> {
-        match self {
-            Self::Encoded(enc) => match enc.value {
-                EncodedPropValue::SharedDict(v) => decode_struct_children(enc.name, &v),
-                _ => Ok(vec![Self::Decoded(DecodedProperty::from_encoded(enc)?)]),
-            },
-            Self::Decoded(d) => Ok(vec![Self::Decoded(d)]),
-        }
-    }
 }
 
 /// Instruction for how to encode a single decoded property when batch-encoding a
 /// [`Vec<DecodedProperty>`] via [`FromDecoded`].
-///
-/// Each instruction corresponds positionally to one entry in the input slice.
-/// Instructions sharing the same [`PropertyEncoder::shared_dict`] are grouped
-/// into a single struct column with a shared dictionary.
-/// The struct column appears in the output at the position of its first child in the input.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PropertyEncoder {
-    /// Encode this property as a standalone scalar column.
+    /// How to encode a scalar property
     Scalar(ScalarEncoder),
-    /// Encode this property as a child field of a shared-dictionary struct column.
+    /// How to encode a shared dictionary property (multiple string sub-properties)
     SharedDict(SharedDictEncoder),
 }
 
@@ -546,7 +561,7 @@ impl ScalarEncoder {
     }
 }
 
-/// How to encode properties
+/// How to encode scalar property values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum ScalarValueEncoder {
@@ -554,8 +569,8 @@ pub enum ScalarValueEncoder {
     String(StrEncoder),
     Float,
     Bool,
-    SharedDict,
 }
+
 impl ScalarValueEncoder {
     fn name(self) -> &'static str {
         match self {
@@ -563,24 +578,7 @@ impl ScalarValueEncoder {
             ScalarValueEncoder::String(_) => "string",
             ScalarValueEncoder::Float => "float",
             ScalarValueEncoder::Bool => "bool",
-            ScalarValueEncoder::SharedDict => "shared_dict",
         }
-    }
-}
-
-impl PropertyEncoder {
-    pub fn shared_dict(
-        struct_name: impl Into<String>,
-        child_name: impl Into<String>,
-        optional: PresenceStream,
-        offset: IntEncoder,
-    ) -> Self {
-        Self::SharedDict(SharedDictEncoder {
-            struct_name: struct_name.into(),
-            child_name: child_name.into(),
-            optional,
-            offset,
-        })
     }
 }
 
@@ -597,19 +595,12 @@ pub enum PresenceStream {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultiPropertyEncoder {
     pub(crate) properties: Vec<PropertyEncoder>,
-    pub(crate) shared_dicts: HashMap<String, StrEncoder>,
 }
 
 impl MultiPropertyEncoder {
     #[must_use]
-    pub fn new(
-        properties: Vec<PropertyEncoder>,
-        shared_dicts: HashMap<String, StrEncoder>,
-    ) -> Self {
-        Self {
-            properties,
-            shared_dicts,
-        }
+    pub fn new(properties: Vec<PropertyEncoder>) -> Self {
+        Self { properties }
     }
 }
 
@@ -627,32 +618,33 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
         }
 
         // Pass 1: collect struct child groups, preserving first-occurrence order of struct names.
+        // Each SharedDictEncoder references a struct_name. Multiple entries with the same
+        // struct_name are grouped together. The dict_encoder is taken from the first entry.
         let mut struct_groups: HashMap<String, SharedDictionaryGroup> = HashMap::new();
         let mut struct_order: Vec<String> = Vec::new();
 
         for (prop, encoder) in properties.iter().zip(&prop_encs) {
             if let PropertyEncoder::SharedDict(enc) = encoder {
-                let SharedDictEncoder {
-                    struct_name,
-                    child_name,
-                    optional,
-                    offset,
-                } = enc;
-                let Some(&shared) = encoders.shared_dicts.get(struct_name) else {
-                    return Err(MltError::MissingStructEncoderForStruct);
-                };
-                let group = struct_groups.entry(struct_name.clone()).or_insert_with(|| {
-                    struct_order.push(struct_name.clone());
-                    SharedDictionaryGroup {
-                        shared,
-                        children: Vec::new(),
-                    }
-                });
+                // Each SharedDictEncoder should have exactly one item for this property
+                let item = enc
+                    .items
+                    .first()
+                    .ok_or(MltError::MissingStructEncoderForStruct)?;
+
+                let group = struct_groups
+                    .entry(enc.struct_name.clone())
+                    .or_insert_with(|| {
+                        struct_order.push(enc.struct_name.clone());
+                        SharedDictionaryGroup {
+                            shared: enc.dict_encoder,
+                            children: Vec::new(),
+                        }
+                    });
                 group.children.push(SharedDictChild {
                     prop_value: prop,
-                    prop_name: child_name.clone(),
-                    optional: *optional,
-                    offset: *offset,
+                    prop_name: item.child_name.clone(),
+                    optional: item.optional,
+                    offset: item.offset,
                 });
             }
         }
@@ -759,9 +751,9 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                 };
                 EncVal::Str(optional, encoding)
             }
-            (Val::SharedDict, ScalarValueEncoder::SharedDict) => {
-                Err(NotImplemented("struct property encoding"))?
-            }
+            (Val::SharedDict(_), _) => Err(NotImplemented(
+                "SharedDict cannot be encoded via ScalarEncoder",
+            ))?,
             (v, e) => Err(UnsupportedPropertyEncoderCombination(v.name(), e.name()))?,
         };
 
@@ -793,7 +785,7 @@ impl<'a> FromEncoded<'a> for DecodedProperty {
             EncVal::F32(o, s) => Val::F32(apply_present(o, s.decode_f32()?)?),
             EncVal::F64(o, s) => Val::F64(apply_present(o, s.decode_f64()?)?),
             EncVal::Str(o, s) => Val::Str(apply_present(o, decode_strings(s)?)?),
-            EncVal::SharedDict(_) => Err(MltError::NotDecoded("struct must use decode_expand"))?,
+            EncVal::SharedDict(sd) => decode_shared_dict(&sd)?,
         };
         Ok(DecodedProperty {
             name: v.name.to_string(),

@@ -184,7 +184,7 @@ impl Layer01<'_> {
         self.geometry.materialize()?;
         let old_props = std::mem::take(&mut self.properties);
         for prop in old_props {
-            self.properties.extend(prop.decode_expand()?);
+            self.properties.push(Property::Decoded(prop.decode()?));
         }
         Ok(())
     }

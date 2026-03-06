@@ -12,7 +12,7 @@ use crate::utils::{BinarySerializer as _, apply_present};
 use crate::v01::{
     ColumnType, DecodedProperty, DictionaryType, FsstStrEncoder, IntEncoder, LengthType,
     OffsetType, OwnedEncodedPropValue, OwnedEncodedProperty, OwnedStream, PresenceStream,
-    PropValue, Property, Stream, StreamData, StreamType,
+    PropValue, SharedDictItem, Stream, StreamData, StreamType,
 };
 
 /// A single child field within a `SharedDict` column
@@ -61,18 +61,26 @@ pub enum EncodedSharedDictProp<'a> {
     },
 }
 
+/// Encoder for an individual sub-property within a shared dictionary.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SharedDictEncoder {
-    /// Name of the parent struct column.
-    ///
-    /// All instructions with the same value are grouped into one struct column.
-    pub struct_name: String,
-    /// Name of this field within the struct column.
+pub struct SharedDictItemEncoder {
+    /// Name of this field within the struct column (suffix).
     pub child_name: String,
+    /// If a stream for optional values should be attached.
+    pub optional: PresenceStream,
     /// Encoder used for the offset-index stream of this child.
     pub offset: IntEncoder,
-    /// If a stream for optional values should be attached
-    pub optional: PresenceStream,
+}
+
+/// Encoder for a shared dictionary property with multiple string sub-properties.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedDictEncoder {
+    /// Name of the struct column.
+    pub struct_name: String,
+    /// Encoder for the shared dictionary strings (plain vs FSST).
+    pub dict_encoder: StrEncoder,
+    /// Encoders for individual sub-properties.
+    pub items: Vec<SharedDictItemEncoder>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -752,21 +760,22 @@ fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec
     output
 }
 
-/// Decode a struct with shared dictionary into one decoded property per child.
-pub fn decode_struct_children<'a>(
-    parent_name: &str,
-    struct_data: &EncodedSharedDictProp<'_>,
-) -> Result<Vec<Property<'a>>, MltError> {
+/// Decode a struct with shared dictionary into a single decoded property with all children.
+pub fn decode_shared_dict(struct_data: &EncodedSharedDictProp<'_>) -> Result<PropValue, MltError> {
     let dict = struct_data.decode_dictionary()?;
-    struct_data
-        .children()
-        .iter()
-        .map(|child| {
-            let offsets = child.data.clone().decode_bits_u32()?.decode_u32()?;
-            let strings = resolve_offsets(&dict, &offsets)?;
-            let name = format!("{parent_name}{}", child.name);
-            let values = PropValue::Str(apply_present(child.optional.clone(), strings)?);
-            Ok(Property::Decoded(DecodedProperty { name, values }))
-        })
-        .collect::<Result<Vec<_>, _>>()
+    Ok(PropValue::SharedDict(
+        struct_data
+            .children()
+            .iter()
+            .map(|child| -> Result<SharedDictItem, MltError> {
+                let offsets = child.data.clone().decode_bits_u32()?.decode_u32()?;
+                let strings = resolve_offsets(&dict, &offsets)?;
+                let values = apply_present(child.optional.clone(), strings)?;
+                Ok(SharedDictItem {
+                    suffix: child.name.to_string(),
+                    values,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+    ))
 }

@@ -10,7 +10,7 @@ use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
 use crate::utils::encode_zigzag;
-use crate::v01::property::strings::StrEncoder;
+use crate::v01::property::strings::{SharedDictEncoder, SharedDictItemEncoder, StrEncoder};
 use crate::v01::property::{
     DecodedProperty, MultiPropertyEncoder, PresenceStream, PropValue, PropertyEncoder,
     ScalarEncoder,
@@ -64,7 +64,7 @@ impl PropertyOptimizer {
     #[must_use]
     pub fn optimize(properties: &[DecodedProperty]) -> MultiPropertyEncoder {
         if properties.is_empty() {
-            return MultiPropertyEncoder::new(Vec::new(), HashMap::new());
+            return MultiPropertyEncoder::new(Vec::new());
         }
 
         // One MinHash instance is shared across all string columns so that
@@ -76,10 +76,15 @@ impl PropertyOptimizer {
             group_string_columns_by_min_hash_similarity(&min_hash, &str_profiles);
         let (shared_dicts, group_struct_names) =
             name_and_configure_multi_member_groups(properties, &groups);
-        let encoders =
-            build_per_property_encoders(properties, &groups, &col_to_group, &group_struct_names);
+        let encoders = build_per_property_encoders(
+            properties,
+            &groups,
+            &col_to_group,
+            &group_struct_names,
+            &shared_dicts,
+        );
 
-        MultiPropertyEncoder::new(encoders, shared_dicts)
+        MultiPropertyEncoder::new(encoders)
     }
 }
 
@@ -88,6 +93,7 @@ fn build_per_property_encoders(
     groups: &[Vec<usize>],
     col_to_group: &HashMap<usize, usize>,
     group_struct_names: &[Option<String>],
+    shared_dicts: &HashMap<String, StrEncoder>,
 ) -> Vec<PropertyEncoder> {
     let encoders: Vec<PropertyEncoder> = properties
         .iter()
@@ -100,6 +106,7 @@ fn build_per_property_encoders(
                 groups,
                 group_struct_names,
                 properties,
+                shared_dicts,
             )
         })
         .collect();
@@ -290,6 +297,7 @@ fn build_encoder(
     groups: &[Vec<usize>],
     group_struct_names: &[Option<String>],
     properties: &[DecodedProperty],
+    shared_dicts: &HashMap<String, StrEncoder>,
 ) -> PropertyEncoder {
     match &prop.values {
         PropValue::Bool(v) => {
@@ -369,20 +377,30 @@ fn build_encoder(
                     .strip_prefix(struct_name.as_str())
                     .unwrap_or(&prop.name)
                     .to_owned();
-                PropertyEncoder::shared_dict(struct_name.clone(), child_suffix, presence, offset)
+                let dict_encoder = shared_dicts[struct_name];
+                SharedDictEncoder {
+                    struct_name: struct_name.clone(),
+                    dict_encoder,
+                    items: vec![SharedDictItemEncoder {
+                        child_name: child_suffix,
+                        optional: presence,
+                        offset,
+                    }],
+                }
+                .into()
             } else {
                 // Standalone scalar string
                 let non_null: Vec<&str> = v.iter().flatten().map(String::as_str).collect();
                 scalar_str_encoder(presence, &non_null)
             }
         }
-        PropValue::SharedDict => {
-            // `SharedDict` columns are produced by the encoder, not consumed
-            // as decoder input.  Hitting this branch means the caller passed
+        PropValue::SharedDict(_) => {
+            // `SharedDict` columns are produced by the decoder, not consumed
+            // as encoder input.  Hitting this branch means the caller passed
             // invalid data, which is a programming error.
             debug_assert!(
                 false,
-                "PropValue::SharedDict must not appear in decoded input"
+                "PropValue::SharedDict must not appear in encoder input"
             );
             PropertyEncoder::Scalar(ScalarEncoder::bool(PresenceStream::Absent))
         }

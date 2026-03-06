@@ -12,62 +12,109 @@ fn str_prop(name: &str, values: &[&str]) -> DecodedProperty {
     }
 }
 
-fn optimize_encode_expand(props: &[DecodedProperty]) -> MultiPropertyEncoder {
+fn optimize_encode_roundtrip(props: &[DecodedProperty]) -> MultiPropertyEncoder {
     let encoder = PropertyOptimizer::optimize(props);
     let enc = Vec::<OwnedEncodedProperty>::from_decoded(&props.to_vec(), encoder.clone())
         .expect("encoding failed");
-    let decoded = enc
+    let decoded: Vec<DecodedProperty> = enc
         .iter()
-        .flat_map(|enc| {
+        .map(|enc| {
             Property::from(borrowme::borrow(enc))
-                .decode_expand()
-                .expect("decode_expand failed")
-                .into_iter()
-                .map(|p| p.decode().expect("decode failed"))
+                .decode()
+                .expect("decode failed")
         })
-        .collect::<Vec<_>>();
-    assert_eq!(&decoded, props);
+        .collect();
+
+    // Verify the decoded data is equivalent to the input.
+    // When multiple Str columns are encoded as SharedDict, they decode
+    // as a single SharedDict property, so we compare values not structure.
+    verify_equivalent_data(props, &decoded);
     encoder
+}
+
+/// Verify that decoded properties contain equivalent data to the input.
+/// Handles the case where multiple Str properties become one `SharedDict`.
+fn verify_equivalent_data(input: &[DecodedProperty], decoded: &[DecodedProperty]) {
+    // Collect all input values by name
+    let mut input_values: std::collections::HashMap<String, Vec<Option<String>>> =
+        std::collections::HashMap::new();
+    for prop in input {
+        if let PropValue::Str(v) = &prop.values {
+            input_values.insert(prop.name.clone(), v.clone());
+        }
+    }
+
+    // Collect all decoded values by name (expanding SharedDict items)
+    let mut decoded_values: std::collections::HashMap<String, Vec<Option<String>>> =
+        std::collections::HashMap::new();
+    for prop in decoded {
+        match &prop.values {
+            PropValue::Str(v) => {
+                decoded_values.insert(prop.name.clone(), v.clone());
+            }
+            PropValue::SharedDict(items) => {
+                for item in items {
+                    let full_name = format!("{}{}", prop.name, item.suffix);
+                    decoded_values.insert(full_name, item.values.clone());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(input_values, decoded_values, "Decoded data mismatch");
 }
 
 #[test]
 fn two_similar_columns_collapse_to_one_struct() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
     let props = vec![str_prop("name:en", vocab), str_prop("name:de", vocab)];
-    assert_debug_snapshot!(optimize_encode_expand(&props), @r#"
+    assert_debug_snapshot!(optimize_encode_roundtrip(&props), @r#"
     MultiPropertyEncoder {
         properties: [
             SharedDict(
                 SharedDictEncoder {
                     struct_name: "name:",
-                    child_name: "en",
-                    offset: IntEncoder {
-                        logical: Delta,
-                        physical: VarInt,
+                    dict_encoder: Plain {
+                        string_lengths: IntEncoder {
+                            logical: None,
+                            physical: VarInt,
+                        },
                     },
-                    optional: Absent,
+                    items: [
+                        SharedDictItemEncoder {
+                            child_name: "en",
+                            optional: Absent,
+                            offset: IntEncoder {
+                                logical: Delta,
+                                physical: VarInt,
+                            },
+                        },
+                    ],
                 },
             ),
             SharedDict(
                 SharedDictEncoder {
                     struct_name: "name:",
-                    child_name: "de",
-                    offset: IntEncoder {
-                        logical: Delta,
-                        physical: VarInt,
+                    dict_encoder: Plain {
+                        string_lengths: IntEncoder {
+                            logical: None,
+                            physical: VarInt,
+                        },
                     },
-                    optional: Absent,
+                    items: [
+                        SharedDictItemEncoder {
+                            child_name: "de",
+                            optional: Absent,
+                            offset: IntEncoder {
+                                logical: Delta,
+                                physical: VarInt,
+                            },
+                        },
+                    ],
                 },
             ),
         ],
-        shared_dicts: {
-            "name:": Plain {
-                string_lengths: IntEncoder {
-                    logical: None,
-                    physical: VarInt,
-                },
-            },
-        },
     }
     "#);
 }
@@ -80,51 +127,73 @@ fn three_similar_columns_collapse_to_one_struct() {
         str_prop("name:de", vocab),
         str_prop("name:fr", vocab),
     ];
-    assert_debug_snapshot!(optimize_encode_expand(&props), @r#"
+    assert_debug_snapshot!(optimize_encode_roundtrip(&props), @r#"
     MultiPropertyEncoder {
         properties: [
             SharedDict(
                 SharedDictEncoder {
                     struct_name: "name:",
-                    child_name: "en",
-                    offset: IntEncoder {
-                        logical: Delta,
-                        physical: VarInt,
+                    dict_encoder: Plain {
+                        string_lengths: IntEncoder {
+                            logical: None,
+                            physical: VarInt,
+                        },
                     },
-                    optional: Absent,
+                    items: [
+                        SharedDictItemEncoder {
+                            child_name: "en",
+                            optional: Absent,
+                            offset: IntEncoder {
+                                logical: Delta,
+                                physical: VarInt,
+                            },
+                        },
+                    ],
                 },
             ),
             SharedDict(
                 SharedDictEncoder {
                     struct_name: "name:",
-                    child_name: "de",
-                    offset: IntEncoder {
-                        logical: Delta,
-                        physical: VarInt,
+                    dict_encoder: Plain {
+                        string_lengths: IntEncoder {
+                            logical: None,
+                            physical: VarInt,
+                        },
                     },
-                    optional: Absent,
+                    items: [
+                        SharedDictItemEncoder {
+                            child_name: "de",
+                            optional: Absent,
+                            offset: IntEncoder {
+                                logical: Delta,
+                                physical: VarInt,
+                            },
+                        },
+                    ],
                 },
             ),
             SharedDict(
                 SharedDictEncoder {
                     struct_name: "name:",
-                    child_name: "fr",
-                    offset: IntEncoder {
-                        logical: Delta,
-                        physical: VarInt,
+                    dict_encoder: Plain {
+                        string_lengths: IntEncoder {
+                            logical: None,
+                            physical: VarInt,
+                        },
                     },
-                    optional: Absent,
+                    items: [
+                        SharedDictItemEncoder {
+                            child_name: "fr",
+                            optional: Absent,
+                            offset: IntEncoder {
+                                logical: Delta,
+                                physical: VarInt,
+                            },
+                        },
+                    ],
                 },
             ),
         ],
-        shared_dicts: {
-            "name:": Plain {
-                string_lengths: IntEncoder {
-                    logical: None,
-                    physical: VarInt,
-                },
-            },
-        },
     }
     "#);
 }
@@ -141,51 +210,73 @@ fn column_ordering_does_not_affect_grouping() {
         str_prop("addr:street", vocab),
         str_prop("addr:zipcode", vocab),
     ];
-    assert_debug_snapshot!(optimize_encode_expand(&props), @r#"
+    assert_debug_snapshot!(optimize_encode_roundtrip(&props), @r#"
     MultiPropertyEncoder {
         properties: [
             SharedDict(
                 SharedDictEncoder {
                     struct_name: "addr:",
-                    child_name: "zip",
-                    offset: IntEncoder {
-                        logical: Delta,
-                        physical: VarInt,
+                    dict_encoder: Plain {
+                        string_lengths: IntEncoder {
+                            logical: None,
+                            physical: VarInt,
+                        },
                     },
-                    optional: Absent,
+                    items: [
+                        SharedDictItemEncoder {
+                            child_name: "zip",
+                            optional: Absent,
+                            offset: IntEncoder {
+                                logical: Delta,
+                                physical: VarInt,
+                            },
+                        },
+                    ],
                 },
             ),
             SharedDict(
                 SharedDictEncoder {
                     struct_name: "addr:",
-                    child_name: "street",
-                    offset: IntEncoder {
-                        logical: Delta,
-                        physical: VarInt,
+                    dict_encoder: Plain {
+                        string_lengths: IntEncoder {
+                            logical: None,
+                            physical: VarInt,
+                        },
                     },
-                    optional: Absent,
+                    items: [
+                        SharedDictItemEncoder {
+                            child_name: "street",
+                            optional: Absent,
+                            offset: IntEncoder {
+                                logical: Delta,
+                                physical: VarInt,
+                            },
+                        },
+                    ],
                 },
             ),
             SharedDict(
                 SharedDictEncoder {
                     struct_name: "addr:",
-                    child_name: "zipcode",
-                    offset: IntEncoder {
-                        logical: Delta,
-                        physical: VarInt,
+                    dict_encoder: Plain {
+                        string_lengths: IntEncoder {
+                            logical: None,
+                            physical: VarInt,
+                        },
                     },
-                    optional: Absent,
+                    items: [
+                        SharedDictItemEncoder {
+                            child_name: "zipcode",
+                            optional: Absent,
+                            offset: IntEncoder {
+                                logical: Delta,
+                                physical: VarInt,
+                            },
+                        },
+                    ],
                 },
             ),
         ],
-        shared_dicts: {
-            "addr:": Plain {
-                string_lengths: IntEncoder {
-                    logical: None,
-                    physical: VarInt,
-                },
-            },
-        },
     }
     "#);
 }
@@ -196,7 +287,7 @@ fn dissimilar_columns_stay_as_separate_scalars() {
         str_prop("city:de", &["Munich", "Manheim", "Garching"]),
         str_prop("city:colourado", &["Black", "Red", "Gold"]),
     ];
-    assert_debug_snapshot!(optimize_encode_expand(&props), @"
+    assert_debug_snapshot!(optimize_encode_roundtrip(&props), @"
     MultiPropertyEncoder {
         properties: [
             Scalar(
@@ -226,7 +317,6 @@ fn dissimilar_columns_stay_as_separate_scalars() {
                 },
             ),
         ],
-        shared_dicts: {},
     }
     ");
 }
@@ -234,7 +324,7 @@ fn dissimilar_columns_stay_as_separate_scalars() {
 #[test]
 fn single_string_column_stays_scalar() {
     let props = vec![str_prop("name", &["Alice", "Bob", "Carol"])];
-    assert_debug_snapshot!(optimize_encode_expand(&props), @"
+    assert_debug_snapshot!(optimize_encode_roundtrip(&props), @"
     MultiPropertyEncoder {
         properties: [
             Scalar(
@@ -251,17 +341,15 @@ fn single_string_column_stays_scalar() {
                 },
             ),
         ],
-        shared_dicts: {},
     }
     ");
 }
 
 #[test]
 fn empty_input_produces_no_encoded_columns() {
-    assert_debug_snapshot!(optimize_encode_expand(&[]), @"
+    assert_debug_snapshot!(optimize_encode_roundtrip(&[]), @"
     MultiPropertyEncoder {
         properties: [],
-        shared_dicts: {},
     }
     ");
 }
