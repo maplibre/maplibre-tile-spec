@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type Point from "@mapbox/point-geometry";
 import type { VectorTileFeatureLike, VectorTileLike } from "@maplibre/vt-pbf";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   compareWithTolerance,
   getTestCases,
