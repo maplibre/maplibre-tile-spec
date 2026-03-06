@@ -3,8 +3,8 @@ use std::ops::Range;
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 
 use crate::MltError::{
-    self, GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, NoGeometryOffsets,
-    NoPartOffsets, NoRingOffsets,
+    self, GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds,
+    NoGeometryOffsets, NoPartOffsets, NoRingOffsets,
 };
 use crate::geojson::Coord32;
 use crate::v01::{DecodedGeometry, GeometryType};
