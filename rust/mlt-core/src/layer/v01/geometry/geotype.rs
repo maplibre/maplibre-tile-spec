@@ -20,58 +20,53 @@ impl DecodedGeometry {
         let rings = self.ring_offsets.as_deref();
 
         let off = |s: &[u32], idx: usize, field: &'static str| -> Result<usize, MltError> {
-            match s.get(idx) {
-                Some(&v) => Ok(v as usize),
-                None => Err(GeometryOutOfBounds {
-                    index,
-                    field,
-                    idx,
-                    len: s.len(),
-                }),
-            }
+            s.get(idx).map(|&v| v as usize).ok_or(GeometryOutOfBounds {
+                index,
+                field,
+                idx,
+                len: s.len(),
+            })
         };
+        let off_pair =
+            |s: &[u32], idx: usize, field: &'static str| -> Result<Range<usize>, MltError> {
+                Ok(off(s, idx, field)?..off(s, idx + 1, field)?)
+            };
 
-        let geom_off = |s: &[u32], idx: usize| off(s, idx, "geometry_offsets");
-        let part_off = |s: &[u32], idx: usize| off(s, idx, "part_offsets");
-        let ring_off = |s: &[u32], idx: usize| off(s, idx, "ring_offsets");
+        let geom_off = |s: &[u32], i: usize| off(s, i, "geometry_offsets");
+        let part_off = |s: &[u32], i: usize| off(s, i, "part_offsets");
+        let ring_off = |s: &[u32], i: usize| off(s, i, "ring_offsets");
+        let geom_range = |s: &[u32], i: usize| off_pair(s, i, "geometry_offsets");
+        let part_range = |s: &[u32], i: usize| off_pair(s, i, "part_offsets");
+        let ring_range = |s: &[u32], i: usize| off_pair(s, i, "ring_offsets");
 
-        let geom_off_pair = |s: &[u32], i: usize| -> Result<Range<usize>, MltError> {
-            Ok(geom_off(s, i)?..geom_off(s, i + 1)?)
-        };
-        let part_off_pair = |s: &[u32], i: usize| -> Result<Range<usize>, MltError> {
-            Ok(part_off(s, i)?..part_off(s, i + 1)?)
-        };
-        let ring_off_pair = |s: &[u32], i: usize| -> Result<Range<usize>, MltError> {
-            Ok(ring_off(s, i)?..ring_off(s, i + 1)?)
-        };
-
-        let v = |idx: usize| -> Result<Coord32, MltError> {
-            let s = match verts.get(idx * 2..(idx * 2) + 2) {
-                Some(v) => v,
-                None => Err(GeometryVertexOutOfBounds {
+        let vert = |idx: usize| -> Result<Coord32, MltError> {
+            verts
+                .get(idx * 2..idx * 2 + 2)
+                .map(|s| Coord { x: s[0], y: s[1] })
+                .ok_or(GeometryVertexOutOfBounds {
                     index,
                     vertex: idx,
                     count: verts.len() / 2,
-                })?,
-            };
-            Ok(Coord { x: s[0], y: s[1] })
+                })
         };
-        let line = |r: Range<usize>| -> Result<LineString<i32>, MltError> { r.map(&v).collect() };
+        let line =
+            |r: Range<usize>| -> Result<LineString<i32>, MltError> { r.map(&vert).collect() };
         let closed_ring = |r: Range<usize>| -> Result<LineString<i32>, MltError> {
-            let start = r.start;
-            let mut coords: Vec<Coord32> = r.map(&v).collect::<Result<_, _>>()?;
-            coords.push(v(start)?);
+            let first = r.start;
+            let mut coords: Vec<Coord32> = r.map(&vert).collect::<Result<_, _>>()?;
+            coords.push(vert(first)?);
             Ok(LineString(coords))
         };
-        let rings_in =
-            |part_range: Range<usize>, rings: &[u32]| -> Result<Polygon<i32>, MltError> {
-                let ring_vecs: Vec<LineString<i32>> = part_range
-                    .map(|r| closed_ring(ring_off_pair(rings, r)?))
-                    .collect::<Result<_, _>>()?;
-                let mut iter = ring_vecs.into_iter();
-                let exterior = iter.next().unwrap_or_else(|| LineString(vec![]));
-                let interiors: Vec<LineString<i32>> = iter.collect();
-                Ok(Polygon::new(exterior, interiors))
+        let poly_from_rings =
+            |part_rng: Range<usize>, r: &[u32]| -> Result<Polygon<i32>, MltError> {
+                let mut rings = part_rng
+                    .map(|idx| closed_ring(ring_range(r, idx)?))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter();
+                Ok(Polygon::new(
+                    rings.next().unwrap_or_else(|| LineString(vec![])),
+                    rings.collect(),
+                ))
             };
 
         let geom_type = *self
@@ -85,76 +80,73 @@ impl DecodedGeometry {
                 let idx = geoms.map_or(Ok(index), |g| geom_off(g, index))?;
                 let idx = parts.map_or(Ok(idx), |p| part_off(p, idx))?;
                 let idx = rings.map_or(Ok(idx), |r| ring_off(r, idx))?;
-                Ok(Geom32::Point(Point(v(idx)?)))
+                Ok(Geom32::Point(Point(vert(idx)?)))
             }
             GeometryType::LineString => {
                 let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
                 // Get part index: use geoms[index] if present, else index directly
-                let part_idx = geoms.map_or(Ok(index), |g| geom_off(g, index))?;
+                let part_idx = geoms.map_or(Ok(index), |geom| geom_off(geom, index))?;
                 // With rings: parts[part_idx] gives ring index, use ring_offsets for vertex range
                 // Without rings: use part_offsets directly for vertex range
-                let vertex_range = if let Some(r) = rings {
-                    ring_off_pair(r, part_off(parts, part_idx)?)?
-                } else {
-                    part_off_pair(parts, part_idx)?
+                let vert_range = match rings {
+                    Some(ring) => ring_range(ring, part_off(parts, part_idx)?)?,
+                    None => part_range(parts, part_idx)?,
                 };
-                line(vertex_range).map(Geom32::LineString)
+                line(vert_range).map(Geom32::LineString)
             }
             GeometryType::Polygon => {
                 let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
                 let rings = rings.ok_or(NoRingOffsets(index, geom_type))?;
-                let i = geoms
-                    .map(|g| geom_off(g, index))
+                let idx = geoms
+                    .map(|geom| geom_off(geom, index))
                     .transpose()?
                     .unwrap_or(index);
-                rings_in(part_off_pair(parts, i)?, rings).map(Geom32::Polygon)
+                poly_from_rings(part_range(parts, idx)?, rings).map(Geom32::Polygon)
             }
             GeometryType::MultiPoint => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
-                let geom_range = geom_off_pair(geoms, index)?;
+                let geom_rng = geom_range(geoms, index)?;
+                // Resolve vertex index through parts?->rings? hierarchy
                 // When ring_offsets exist (polygon geometry present), geometry_offsets indexes
                 // into part_offsets which indexes into ring_offsets for vertex indices.
                 // When only part_offsets exist, geometry_offsets indexes into part_offsets
                 // which gives direct vertex indices.
                 // When neither exist, geometry_offsets gives direct vertex indices.
-                match (parts, rings) {
-                    (Some(parts), Some(rings)) => geom_range
-                        .map(|p| v(ring_off(rings, part_off(parts, p)?)?))
-                        .collect::<Result<Vec<_>, _>>(),
-                    (Some(parts), None) => geom_range
-                        .map(|p| v(part_off(parts, p)?))
-                        .collect::<Result<Vec<_>, _>>(),
-                    (None, _) => geom_range.map(&v).collect::<Result<Vec<_>, _>>(),
-                }
-                .map(|cs| Geom32::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect())))
+                let coords: Result<Vec<_>, _> = match (parts, rings) {
+                    (Some(parts), Some(rings)) => geom_rng
+                        .map(|idx| vert(ring_off(rings, part_off(parts, idx)?)?))
+                        .collect(),
+                    (Some(part), None) => geom_rng.map(|idx| vert(part_off(part, idx)?)).collect(),
+                    (None, _) => geom_rng.map(&vert).collect(),
+                };
+                Ok(Geom32::MultiPoint(MultiPoint(
+                    coords?.into_iter().map(Point).collect(),
+                )))
             }
             GeometryType::MultiLineString => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
                 let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
-                let geom_range = geom_off_pair(geoms, index)?;
+                let geom_rng = geom_range(geoms, index)?;
                 // geometry_offsets indexes into part_offsets for each linestring.
                 // When ring_offsets exist (polygon geometry present), part_offsets indexes
                 // into ring_offsets for vertex ranges. Otherwise, part_offsets directly
                 // gives vertex ranges.
-                if let Some(rings) = rings {
-                    geom_range
-                        .map(|p| line(ring_off_pair(rings, part_off(parts, p)?)?))
-                        .collect::<Result<Vec<_>, _>>()
-                } else {
-                    geom_range
-                        .map(|p| line(part_off_pair(parts, p)?))
-                        .collect::<Result<Vec<_>, _>>()
-                }
-                .map(|ls| Geom32::MultiLineString(MultiLineString(ls)))
+                let lines: Result<Vec<_>, _> = match rings {
+                    Some(ring) => geom_rng
+                        .map(|idx| line(ring_range(ring, part_off(parts, idx)?)?))
+                        .collect(),
+                    None => geom_rng.map(|idx| line(part_range(parts, idx)?)).collect(),
+                };
+                Ok(Geom32::MultiLineString(MultiLineString(lines?)))
             }
             GeometryType::MultiPolygon => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
                 let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
                 let rings = rings.ok_or(NoRingOffsets(index, geom_type))?;
-                geom_off_pair(geoms, index)?
-                    .map(|p| rings_in(part_off_pair(parts, p)?, rings))
-                    .collect::<Result<Vec<Polygon<i32>>, _>>()
-                    .map(|ps| Geom32::MultiPolygon(MultiPolygon(ps)))
+                let polys: Vec<_> = geom_range(geoms, index)?
+                    .map(|idx| poly_from_rings(part_range(parts, idx)?, rings))
+                    .collect::<Result<_, _>>()?;
+                Ok(Geom32::MultiPolygon(MultiPolygon(polys)))
             }
         }
     }
@@ -213,6 +205,11 @@ impl DecodedGeometry {
     }
 
     fn push_polygon(&mut self, poly: &Polygon<i32>) {
+        // Only on the very first polygon: if LineStrings were pushed before us,
+        // their vertex offsets are sitting in part_offsets. Move them to
+        // ring_offsets now, before we set up ring_offsets for polygon use.
+        // On subsequent polygons ring_offsets is already initialized and
+        // part_offsets holds polygon ring-range data — leave both alone.
         self.vector_types.push(GeometryType::Polygon);
         self.init_polygon_offsets();
 
@@ -227,19 +224,12 @@ impl DecodedGeometry {
     /// moves any `LineString` vertex offsets from `part_offsets` to `ring_offsets`.
     fn init_polygon_offsets(&mut self) {
         if self.ring_offsets.is_none()
-            && let Some(linestring_parts) = self.part_offsets.take()
+            && let Some(ls_parts) = self.part_offsets.take()
         {
-            self.ring_offsets = Some(linestring_parts);
+            self.ring_offsets = Some(ls_parts);
         }
-
-        let rings = self.ring_offsets.get_or_insert_with(Vec::new);
-        if rings.is_empty() {
-            rings.push(0);
-        }
-        let parts = self.part_offsets.get_or_insert_with(Vec::new);
-        if parts.is_empty() {
-            parts.push(0);
-        }
+        init_offsets(self.ring_offsets.get_or_insert_with(Vec::new));
+        init_offsets(self.part_offsets.get_or_insert_with(Vec::new));
     }
 
     fn push_multi_point(&mut self, mp: &MultiPoint<i32>) {
@@ -286,36 +276,17 @@ impl DecodedGeometry {
 
     /// Initialize and update `geometry_offsets` with a sub-geometry count.
     fn push_geometry_count(&mut self, count: u32) {
-        let geoms = self.geometry_offsets.get_or_insert_with(Vec::new);
-        if geoms.is_empty() {
-            geoms.push(0);
-        }
-        let prev = *geoms.last().unwrap();
-        geoms.push(prev + count);
+        let g = self.geometry_offsets.get_or_insert_with(Vec::new);
+        init_offsets(g);
+        g.push(g.last().unwrap() + count);
     }
 }
 
-/// Push ring coordinates to vertices and `ring_offsets`, stripping closing vertex if present.
-/// Returns the number of vertices added.
-fn push_ring_coords(
-    coords: &[Coord32],
-    verts: &mut Vec<i32>,
-    rings: &mut Vec<u32>,
-    cumulative: u32,
-) -> u32 {
-    let ring_coords: &[Coord32] = if coords.last() == coords.first() && coords.len() > 1 {
-        &coords[..coords.len() - 1]
-    } else {
-        coords
-    };
-
-    for coord in ring_coords {
-        verts.extend([coord.x, coord.y]);
+/// Ensure offset array starts with 0.
+fn init_offsets(v: &mut Vec<u32>) {
+    if v.is_empty() {
+        v.push(0);
     }
-
-    let count = u32::try_from(ring_coords.len()).expect("vertex count overflow");
-    rings.push(cumulative + count);
-    count
 }
 
 /// Push a single polygon's rings (exterior + interiors) to the offset arrays.
@@ -326,41 +297,42 @@ fn push_polygon_rings(
     rings: &mut Vec<u32>,
     parts: &mut Vec<u32>,
 ) {
-    let mut cumulative_ring_vertices = *rings.last().unwrap();
-    let mut polygon_ring_count = *parts.last().unwrap();
-
-    // Push exterior ring (without closing vertex)
-    let ext = poly.exterior();
-    cumulative_ring_vertices += push_ring_coords(&ext.0, verts, rings, cumulative_ring_vertices);
-    polygon_ring_count += 1;
-
-    // Push interior rings (holes)
-    for hole in poly.interiors() {
-        cumulative_ring_vertices +=
-            push_ring_coords(&hole.0, verts, rings, cumulative_ring_vertices);
-        polygon_ring_count += 1;
+    let mut ring_count = *parts.last().unwrap();
+    for ring in std::iter::once(poly.exterior()).chain(poly.interiors()) {
+        push_ring(ring, verts, rings);
+        ring_count += 1;
     }
+    parts.push(ring_count);
+}
 
-    parts.push(polygon_ring_count);
+/// Push a ring's coordinates (stripping closing vertex) to verts and update rings offset.
+fn push_ring(ring: &LineString<i32>, verts: &mut Vec<i32>, rings: &mut Vec<u32>) {
+    let coords = &ring.0;
+    let len = if coords.len() > 1 && coords.last() == coords.first() {
+        coords.len() - 1
+    } else {
+        coords.len()
+    };
+    for c in &coords[..len] {
+        verts.extend([c.x, c.y]);
+    }
+    let prev = *rings.last().unwrap();
+    rings.push(prev + u32::try_from(len).expect("vertex count overflow"));
 }
 
 /// Push linestrings to vertex buffer and offset array.
 fn push_linestrings<'a>(
-    linestrings: impl Iterator<Item = &'a LineString<i32>>,
+    iter: impl Iterator<Item = &'a LineString<i32>>,
     verts: &mut Vec<i32>,
     offsets: &mut Vec<u32>,
 ) {
-    let mut cumulative = *offsets.last().unwrap_or(&0);
-    if offsets.is_empty() {
-        offsets.push(0);
-    }
-
-    for ls in linestrings {
-        for coord in ls.coords() {
-            verts.extend([coord.x, coord.y]);
+    init_offsets(offsets);
+    for ls in iter {
+        for c in ls.coords() {
+            verts.extend([c.x, c.y]);
         }
-        cumulative += u32::try_from(ls.0.len()).expect("vertex count overflow");
-        offsets.push(cumulative);
+        let prev = *offsets.last().unwrap();
+        offsets.push(prev + u32::try_from(ls.0.len()).expect("vertex count overflow"));
     }
 }
 
