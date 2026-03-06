@@ -473,7 +473,7 @@ describe("decodePropertyColumn - STRING", () => {
             expect((result as Vector[])[0]).toBeInstanceOf(StringDictionaryVector);
             expect((result as Vector[])[0].name).toBe("address:street");
             for (let i = 0; i < dictionaryStrings.length; i++) {
-                expect((result as Vector[] as Vector[])[0].getValue(i)).toBe(dictionaryStrings[i]);
+                expect((result as Vector[])[0].getValue(i)).toBe(dictionaryStrings[i]);
             }
         });
 
