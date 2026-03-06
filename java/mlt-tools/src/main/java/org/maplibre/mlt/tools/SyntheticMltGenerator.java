@@ -410,41 +410,16 @@ public class SyntheticMltGenerator {
     // 30 because otherwise fsst is skipped
     var val = "A".repeat(30);
 
-    // If there are many identical strings in the same column, an offset directory is used to share
-    // them
+    // If there are many identical strings in the same column,
+    // an offset directory is used to share them
+    // Because the directory we are indexing into has lengths assosciated with it and the offsets
+    // are indexes,
+    // we cannot do overlap-optimization where one ABBA contains BB -> only ABBA would be in the
+    // dict.
+    // -> ABBABB would need to be in the dict
     var feat_two_str_eq = array(feat(p1, prop("val", val)), feat(p2, prop("val", val)));
-    write(layer("props_offset_str_eq", feat_two_str_eq), cfg());
-    write(layer("props_offset_str_eq_fsst", feat_two_str_eq), cfg().fsst());
-
-    // FIXME
-    // if we are the prefix on the other string, we can use the offset into it
-    // var feat_two_str_prefix = array(feat(p1, prop("val", "B" + val)), feat(p2, prop("val",
-    // val)));
-    // write(layer("props_offset_str_prefix", feat_two_str_prefix), cfg());
-    // write(layer("props_offset_str_prefix_fsst", feat_two_str_prefix), cfg().fsst());
-    // Collections.reverse(Arrays.asList(feat_two_str_prefix));
-    // write(layer("props_offset_str_prefix_rev", feat_two_str_prefix), cfg());
-    // write(layer("props_offset_str_prefix_rev_fsst", feat_two_str_prefix), cfg().fsst());
-
-    // FIXME
-    // if we are the suffix on the other string, we can use the offset into it
-    // var feat_two_str_suffix = array(feat(p1, prop("val", val + "B")), feat(p2, prop("val",
-    // val)));
-    // write(layer("props_offset_str_suffix", feat_two_str_suffix), cfg());
-    // write(layer("props_offset_str_suffix_fsst", feat_two_str_suffix), cfg().fsst());
-    // Collections.reverse(Arrays.asList(feat_two_str_suffix));
-    // write(layer("props_offset_str_suffix_rev", feat_two_str_suffix), cfg());
-    // write(layer("props_offset_str_suffix_rev_fsst", feat_two_str_suffix), cfg().fsst());
-
-    // FIXME
-    // the second string is inside the first string
-    // var feat_two_str_inside = array(feat(p1, prop("val", "B" + val + "B")), feat(p2, prop("val",
-    // val)));
-    // write(layer("props_offset_str_inside", feat_two_str_inside), cfg());
-    // write(layer("props_offset_str_inside_fsst", feat_two_str_inside), cfg().fsst());
-    // Collections.reverse(Arrays.asList(feat_two_str_inside));
-    // write(layer("props_offset_str_inside_rev", feat_two_str_inside), cfg());
-    // write(layer("props_offset_str_inside_rev_fsst", feat_two_str_inside), cfg().fsst());
+    write(layer("props_offset_str", feat_two_str_eq), cfg());
+    write(layer("props_offset_str_fsst", feat_two_str_eq), cfg().fsst());
   }
 
   private static void generateSharedDictionaries() throws IOException {
