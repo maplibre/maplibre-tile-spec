@@ -1,0 +1,45 @@
+{
+	"name": "@maplibre/mlt-wasm",
+	"version": "0.1.0",
+	"description": "WebAssembly-backed MapLibre Tile (MLT) decoder",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": [
+		"/dist",
+		"/pkg"
+	],
+	"license": "(MIT OR Apache-2.0)",
+	"homepage": "https://github.com/maplibre/maplibre-tile-spec/#readme",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/maplibre/maplibre-tile-spec"
+	},
+	"bugs": {
+		"url": "https://github.com/maplibre/maplibre-tile-spec/issues"
+	},
+	"keywords": [
+		"maplibre",
+		"mlt",
+		"vector-tile",
+		"wasm",
+		"webassembly",
+		"gis"
+	],
+	"scripts": {
+		"build:wasm": "wasm-pack build --target bundler --out-dir pkg",
+		"build:ts": "tsc",
+		"build": "npm run build:wasm && npm run build:ts",
+		"test": "vitest --coverage --coverage.reportOnFailure"
+	},
+	"dependencies": {
+		"@mapbox/point-geometry": "^1.1.0",
+		"@maplibre/vt-pbf": "4.3.0"
+	},
+	"devDependencies": {
+		"@types/node": "^24.10.2",
+		"@vitest/coverage-v8": "^4.0.1",
+		"typescript": "^5.9.3",
+		"vitest": "^4.0.1"
+	}
+}

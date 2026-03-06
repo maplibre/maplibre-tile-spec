@@ -1,0 +1,23 @@
+[package]
+name = "mlt-wasm"
+description = "WebAssembly bindings for the MapLibre Tile (MLT) format"
+version = "0.1.0"
+authors.workspace = true
+categories.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+js-sys.workspace = true
+mlt-core = { version = "0.2.0", path = "../mlt-core" }
+wasm-bindgen.workspace = true
+
+[lints]
+workspace = true

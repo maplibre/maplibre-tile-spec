@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["mlt", "mlt-core", "mlt-py", "mlt-synthetics"]
+members = ["mlt", "mlt-core", "mlt-py", "mlt-synthetics", "mlt-wasm"]
 default-members = ["mlt", "mlt-core", "mlt-synthetics"]
 # Excluding mlt-core/fuzz because cargo-fuzz does not have workspace support
 exclude = ["mlt-core/fuzz"]
@@ -23,7 +23,7 @@ clap = { version = "4.5.58", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 crossterm = "0.29.0"
 derive_builder = "0.20"
-fastpfor = "0.8"
+fastpfor = { version = "0.8", default-features = false, features = ["rust"] }
 flate2 = "1"
 fsst-rs = "0.5"
 geo = "0.32.0"
@@ -57,6 +57,8 @@ thiserror = "2.0.11"
 thousands = "0.2"
 union-find = "0.4.3"
 zigzag = "0.1.0"
+js-sys = "0.3"
+wasm-bindgen = "0.2"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

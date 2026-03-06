@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
+use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd};
 use zigzag::ZigZag;
 
@@ -211,17 +211,25 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
         return Err(MltError::FastPforDecode(num_values, 0));
     }
 
-    // The fastpfor crate's FastPFor256Codec is already a CompositeCodec<FastPFor<8>, VariableByte>.
-    // It handles the full Composition protocol internally (FastPFor header + VByte remainder).
-
     // Over-allocate output buffer — the codec may decode padding beyond num_values.
     let buf_size = num_values + 1024;
     let mut result = vec![0u32; buf_size];
 
-    let decoded = FastPFor256Codec::new().decode32(&input, &mut result)?;
+    let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
+    let mut input_offset = std::io::Cursor::new(0u32);
+    let mut output_offset = std::io::Cursor::new(0u32);
 
-    if decoded.len() < num_values {
-        return Err(MltError::FastPforDecode(num_values, decoded.len()));
+    comp.uncompress(
+        &input,
+        input.len() as u32,
+        &mut input_offset,
+        &mut result,
+        &mut output_offset,
+    )?;
+
+    let decoded = output_offset.position() as usize;
+    if decoded < num_values {
+        return Err(MltError::FastPforDecode(num_values, decoded));
     }
 
     result.truncate(num_values);

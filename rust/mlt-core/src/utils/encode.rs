@@ -1,4 +1,4 @@
-use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
+use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
 use integer_encoding::VarInt as _;
 use num_traits::{PrimInt, WrappingSub};
 use zigzag::ZigZag;
@@ -128,14 +128,25 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
     if values.is_empty() {
         return Ok(Vec::new());
     }
-    let codec = FastPFor256Codec::new();
     // Over-allocate: FastPFOR may write a header and padding beyond the input length.
     let mut compressed = vec![0u32; values.len() + 1024];
-    let out = codec.encode32(values, &mut compressed)?;
+    let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
+    let mut input_offset = std::io::Cursor::new(0u32);
+    let mut output_offset = std::io::Cursor::new(0u32);
+
+    comp.compress(
+        values,
+        values.len() as u32,
+        &mut input_offset,
+        &mut compressed,
+        &mut output_offset,
+    )?;
+
+    let written = output_offset.position() as usize;
 
     // Convert u32 words to big-endian bytes to match the wire format.
-    let mut data = Vec::with_capacity(out.len() * 4);
-    for word in out.iter() {
+    let mut data = Vec::with_capacity(written * 4);
+    for word in &compressed[..written] {
         data.extend_from_slice(&word.to_be_bytes());
     }
     Ok(data)
