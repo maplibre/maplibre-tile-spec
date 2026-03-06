@@ -241,7 +241,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                                     numRingVertices,
                                     true,
                                     mortonSettings,
-                                );        
+                                );
                                 vertexOffsetsOffset += numRingVertices;
                             }
                         }
@@ -259,7 +259,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
 }
 
 function decodeDictionaryEncodedLineStringOrRing(
-    vertexBufferType: VertexBufferType, 
+    vertexBufferType: VertexBufferType,
     vertexBuffer: Int32Array,
     vertexOffsets: Int32Array,
     vertexOffset: number,
@@ -268,7 +268,13 @@ function decodeDictionaryEncodedLineStringOrRing(
     mortonSettings: MortonSettings,
 ): Point[] {
     if (vertexBufferType === VertexBufferType.VEC_2) {
-        return decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffset, numVertices, closeLineString);
+        return decodeDictionaryEncodedLineString(
+            vertexBuffer,
+            vertexOffsets,
+            vertexOffset,
+            numVertices,
+            closeLineString,
+        );
     } else {
         return decodeMortonDictionaryEncodedLineString(
             vertexBuffer,
