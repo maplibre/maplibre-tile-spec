@@ -136,13 +136,13 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
 
     comp.compress(
         values,
-        values.len() as u32,
+        u32::try_from(values.len())?,
         &mut input_offset,
         &mut compressed,
         &mut output_offset,
     )?;
 
-    let written = output_offset.position() as usize;
+    let written = usize::try_from(output_offset.position())?;
 
     // Convert u32 words to big-endian bytes to match the wire format.
     let mut data = Vec::with_capacity(written * 4);

@@ -221,13 +221,13 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
 
     comp.uncompress(
         &input,
-        input.len() as u32,
+        u32::try_from(input.len())?,
         &mut input_offset,
         &mut result,
         &mut output_offset,
     )?;
 
-    let decoded = output_offset.position() as usize;
+    let decoded = usize::try_from(output_offset.position())?;
     if decoded < num_values {
         return Err(MltError::FastPforDecode(num_values, decoded));
     }

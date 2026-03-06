@@ -1,4 +1,4 @@
-//! WebAssembly bindings for the MapLibre Tile (MLT) format.
+//! WebAssembly bindings for the `MapLibre` Tile (MLT) format.
 //!
 //! # Design
 //!
@@ -60,21 +60,25 @@ pub struct MltTile {
 #[wasm_bindgen]
 impl MltTile {
     /// Number of layers in this tile.
+    #[must_use]
     pub fn layer_count(&self) -> usize {
         self.layers.len()
     }
 
     /// Name of layer `layer_idx`.
+    #[must_use]
     pub fn layer_name(&self, layer_idx: usize) -> String {
         self.layers[layer_idx].name.clone()
     }
 
     /// Extent of layer `layer_idx` in tile coordinates (typically 4096).
+    #[must_use]
     pub fn layer_extent(&self, layer_idx: usize) -> u32 {
         self.layers[layer_idx].extent
     }
 
     /// Number of features in layer `layer_idx`.
+    #[must_use]
     pub fn feature_count(&self, layer_idx: usize) -> usize {
         self.layers[layer_idx].geometry.vector_types.len()
     }
@@ -88,9 +92,10 @@ impl MltTile {
     /// | `3`    | Polygon    |
     /// | `0`    | Unknown    |
     ///
-    /// Multi-part geometries (MultiPoint, MultiLineString, MultiPolygon) map
+    /// Multi-part geometries (`MultiPoint`, `MultiLineString`, `MultiPolygon`) map
     /// to the same value as their single-part counterpart — the multi-ness is
     /// expressed through the ring structure returned by [`feature_geometry`].
+    #[must_use]
     pub fn feature_type(&self, layer_idx: usize, feature_idx: usize) -> u8 {
         match self.layers[layer_idx]
             .geometry
@@ -108,13 +113,14 @@ impl MltTile {
     ///
     /// The TS wrapper converts `NaN` → `undefined` to match the
     /// `VectorTileFeatureLike.id: number | undefined` contract.
+    #[must_use]
+    #[allow(clippy::cast_precision_loss)]
     pub fn feature_id(&self, layer_idx: usize, feature_idx: usize) -> f64 {
         self.layers[layer_idx]
             .ids
             .as_deref()
             .and_then(|ids| ids.get(feature_idx).copied().flatten())
-            .map(|id| id as f64)
-            .unwrap_or(f64::NAN)
+            .map_or(f64::NAN, |id| id as f64)
     }
 
     /// Geometry for a single feature as a flat `Int32Array`.
@@ -136,15 +142,17 @@ impl MltTile {
         let rings = self.layers[layer_idx]
             .geometry
             .to_mvt_rings(feature_idx)
-            .map_err(to_js_err)?;
+            .map_err(|e| to_js_err(&e))?;
 
         // Pre-compute exact capacity: 1 (numRings) + per ring: 1 (len) + 2*points
         let cap = 1 + rings.iter().map(|r| 1 + r.len() * 2).sum::<usize>();
         let mut buf: Vec<i32> = Vec::with_capacity(cap);
 
-        buf.push(rings.len() as i32);
+        buf.push(i32::try_from(rings.len()).map_err(|_| JsError::new("ring count overflows i32"))?);
         for ring in rings {
-            buf.push(ring.len() as i32);
+            buf.push(
+                i32::try_from(ring.len()).map_err(|_| JsError::new("ring length overflows i32"))?,
+            );
             for [x, y] in ring {
                 buf.push(x);
                 buf.push(y);
@@ -166,6 +174,7 @@ impl MltTile {
     /// This method is intentionally not called in the `MltVectorTileFeature`
     /// constructor on the TS side — it is only invoked when the `.properties`
     /// getter is first accessed, keeping unused features allocation-free.
+    #[must_use]
     pub fn feature_properties(&self, layer_idx: usize, feature_idx: usize) -> Object {
         let obj = Object::new();
         for prop in &self.layers[layer_idx].properties {
@@ -188,12 +197,12 @@ impl MltTile {
 /// accesses are cheap index operations with no further parsing.
 #[wasm_bindgen]
 pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
-    let mut raw_layers = parse_layers(data).map_err(to_js_err)?;
+    let mut raw_layers = parse_layers(data).map_err(|e| to_js_err(&e))?;
 
     let mut layers = Vec::with_capacity(raw_layers.len());
 
     for raw_layer in &mut raw_layers {
-        raw_layer.decode_all().map_err(to_js_err)?;
+        raw_layer.decode_all().map_err(|e| to_js_err(&e))?;
 
         let layer01 = raw_layer
             .as_layer01()
@@ -201,13 +210,15 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
 
         let geometry = match &layer01.geometry {
             mlt_core::v01::Geometry::Decoded(g) => g.clone(),
-            _ => return Err(JsError::new("geometry was not decoded")),
+            mlt_core::v01::Geometry::Encoded(_) => {
+                return Err(JsError::new("geometry was not decoded"));
+            }
         };
 
         let ids = match &layer01.id {
             Id::Decoded(DecodedId(v)) => v.clone(),
             Id::None => None,
-            _ => return Err(JsError::new("id was not decoded")),
+            Id::Encoded(_) => return Err(JsError::new("id was not decoded")),
         };
 
         let properties = layer01
@@ -215,7 +226,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             .iter()
             .map(|p| match p {
                 Property::Decoded(d) => Ok(d.clone()),
-                _ => Err(JsError::new("property was not decoded")),
+                Property::Encoded(_) => Err(JsError::new("property was not decoded")),
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -231,7 +242,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
     Ok(MltTile { layers })
 }
 
-fn to_js_err(e: MltError) -> JsError {
+fn to_js_err(e: &MltError) -> JsError {
     JsError::new(&e.to_string())
 }
 
@@ -240,6 +251,7 @@ fn to_js_err(e: MltError) -> JsError {
 /// Returns `None` for absent optional values and for unsupported column types
 /// (e.g. `SharedDict`), which causes the property to be omitted from the
 /// output object rather than set to `null`.
+#[allow(clippy::cast_precision_loss)]
 fn prop_to_js(pv: &PropValue, i: usize) -> Option<JsValue> {
     match pv {
         PropValue::Bool(v) => v[i].map(JsValue::from_bool),
