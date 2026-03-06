@@ -42,7 +42,8 @@ public class SyntheticMltGenerator {
   private static void generateLines() throws IOException {
     write("line", feat(line1), cfg());
 
-    write("line_morton", feat(line(mortonCurve)), cfg().morton());
+    write("line_morton_curve_no_morton", feat(line(mortonCurve)), cfg());
+    write("line_morton_curve_morton", feat(line(mortonCurve)), cfg().morton());
 
     write("line_zero_length", feat(line(c(6, 6), c(6, 6))), cfg());
   }
@@ -93,7 +94,8 @@ public class SyntheticMltGenerator {
     // Close the shared Morton curve into a ring to test Morton encoding for polygons.
     var mortonRing = java.util.Arrays.copyOf(mortonCurve, mortonCurve.length + 1);
     mortonRing[mortonCurve.length] = mortonRing[0];
-    write("poly_morton", feat(poly(mortonRing)), cfg().morton());
+    write("poly_morton_ring_no_morton", feat(poly(mortonRing)), cfg());
+    write("poly_morton_ring_morton", feat(poly(mortonRing)), cfg().morton());
   }
 
   private static void generateMultiPoints() throws IOException {
