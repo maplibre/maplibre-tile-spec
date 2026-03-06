@@ -96,6 +96,23 @@ public class SyntheticMltGenerator {
     mortonRing[mortonCurve.length] = mortonRing[0];
     write("poly_morton_ring_no_morton", feat(poly(mortonRing)), cfg());
     write("poly_morton_ring_morton", feat(poly(mortonRing)), cfg().morton());
+
+    // Split the Morton curve into two halves (bottom 2 rows / top 2 rows of the 4x4 grid)
+    // and close each into a ring to form a MultiPolygon.
+    var half = mortonCurve.length / 2;
+    var mortonRing1 = java.util.Arrays.copyOf(mortonCurve, half + 1);
+    mortonRing1[half] = mortonRing1[0];
+    var mortonRing2src = java.util.Arrays.copyOfRange(mortonCurve, half, mortonCurve.length);
+    var mortonRing2 = java.util.Arrays.copyOf(mortonRing2src, mortonRing2src.length + 1);
+    mortonRing2[mortonRing2src.length] = mortonRing2[0];
+    write(
+        "poly_multi_morton_ring_no_morton",
+        feat(multi(poly(mortonRing1), poly(mortonRing2))),
+        cfg());
+    write(
+        "poly_multi_morton_ring_morton",
+        feat(multi(poly(mortonRing1), poly(mortonRing2))),
+        cfg().morton());
   }
 
   private static void generateMultiPoints() throws IOException {
