@@ -282,6 +282,7 @@ public class SyntheticMltGenerator {
     write("prop_str_ascii", feat(p0, prop("val", "42")), cfg());
     write("prop_str_escape", feat(p0, prop("val", "Line1\n\t\"quoted\"\\path")), cfg());
     write("prop_str_unicode", feat(p0, prop("val", "München 📍 cafe\u0301")), cfg());
+    write("prop_str_special", feat(p0, prop("val", "hello\u0000 world\n")), cfg());
     write(layer("prop_str_val_null", feat(p0, prop("val", "42")), feat(p0)), cfg());
     write(layer("prop_str_null_val", feat(p0), feat(p0, prop("val", "42"))), cfg());
     write(layer("prop_str_val_empty", feat(p0, prop("val", "")), feat(p0)), cfg());
