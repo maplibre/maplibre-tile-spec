@@ -1,6 +1,10 @@
 import Point from "@mapbox/point-geometry";
+import type {
+  VectorTileFeatureLike,
+  VectorTileLayerLike,
+  VectorTileLike,
+} from "@maplibre/vt-pbf";
 import { decode_tile as wasmDecodeTile } from "../pkg/mlt_wasm.js";
-import type {VectorTileFeatureLike, VectorTileLayerLike, VectorTileLike} from "@maplibre/vt-pbf";
 
 interface WasmMltTile {
   layer_count(): number;
