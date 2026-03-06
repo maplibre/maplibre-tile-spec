@@ -243,7 +243,7 @@ public class GeometryEncoder {
       }
     }
 
-    var encodedGeometryTypesStream =
+    final var encodedGeometryTypesStream =
         IntegerEncoder.encodeIntStream(
             geometryTypes,
             physicalLevelTechnique,
@@ -253,11 +253,12 @@ public class GeometryEncoder {
             encodingOption,
             streamObserver,
             "geom_types");
-    var encodedTopologyStreams = encodedGeometryTypesStream;
+
+    var encodedTopologyStreams = new ArrayList<>(encodedGeometryTypesStream);
     var numStreams = 1;
 
     if (!numGeometries.isEmpty()) {
-      var encodedNumGeometries =
+      final var encodedNumGeometries =
           IntegerEncoder.encodeIntStream(
               numGeometries,
               physicalLevelTechnique,
@@ -271,7 +272,7 @@ public class GeometryEncoder {
       numStreams++;
     }
     if (!numParts.isEmpty()) {
-      var encodedNumParts =
+      final var encodedNumParts =
           IntegerEncoder.encodeIntStream(
               numParts,
               physicalLevelTechnique,
@@ -285,7 +286,7 @@ public class GeometryEncoder {
       numStreams++;
     }
     if (!numRings.isEmpty()) {
-      var encodedNumRings =
+      final var encodedNumRings =
           IntegerEncoder.encodeIntStream(
               numRings,
               physicalLevelTechnique,
@@ -299,11 +300,11 @@ public class GeometryEncoder {
       numStreams++;
     }
 
-    var plainVertexBufferSize = encodedVertexBuffer.encodedValues.remaining();
-    var dictionaryEncodedSize =
+    final var plainVertexBufferSize = encodedVertexBuffer.encodedValues.remaining();
+    final var dictionaryEncodedSize =
         encodedDictionaryOffsets.encodedValues.remaining()
             + encodedVertexDictionary.encodedValues.remaining();
-    var mortonDictionaryEncodedSize =
+    final var mortonDictionaryEncodedSize =
         encodedMortonEncodedDictionaryOffsets.encodedValues.remaining()
             + encodedMortonVertexDictionary.encodedValues.remaining();
 
@@ -344,7 +345,7 @@ public class GeometryEncoder {
     } else if (plainVertexBufferSize <= dictionaryEncodedSize
         && plainVertexBufferSize <= mortonDictionaryEncodedSize) {
       // TODO: get rid of extra conversion
-      var encodedVertexBufferStream =
+      final var encodedVertexBufferStream =
           encodeVertexBuffer(
               zigZagDeltaVertexBuffer, vertexBuffer, physicalLevelTechnique, streamObserver);
 
@@ -354,7 +355,7 @@ public class GeometryEncoder {
     } else if ((dictionaryEncodedSize < plainVertexBufferSize
             && dictionaryEncodedSize <= mortonDictionaryEncodedSize)
         || !useMortonEncoding) {
-      var encodedVertexOffsetStream =
+      final var encodedVertexOffsetStream =
           IntegerEncoder.encodeIntStream(
               dictionaryOffsets,
               physicalLevelTechnique,
@@ -365,7 +366,7 @@ public class GeometryEncoder {
               streamObserver,
               "geom_vertex_offsets");
 
-      var encodedVertexDictionaryStream =
+      final var encodedVertexDictionaryStream =
           encodeVertexBuffer(
               zigZagDeltaVertexDictionary,
               vertexDictionary.getRight(),
@@ -381,7 +382,7 @@ public class GeometryEncoder {
     else {
       // Note: input values are morton-encoded as they're produced, so the values here are not the
       // raw values
-      var encodedMortonVertexOffsetStream =
+      final var encodedMortonVertexOffsetStream =
           IntegerEncoder.encodeIntStream(
               mortonEncodedDictionaryOffsets,
               physicalLevelTechnique,
@@ -392,7 +393,7 @@ public class GeometryEncoder {
               streamObserver,
               "geom_morton_vertex_offsets");
 
-      var encodedMortonEncodedVertexDictionaryStream =
+      final var encodedMortonEncodedVertexDictionaryStream =
           IntegerEncoder.encodeMortonStream(
               mortonEncodedDictionary,
               zOrderCurve.numBits(),

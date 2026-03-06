@@ -223,7 +223,7 @@ public class StringEncoder {
       return symbolTable;
     }
 
-    final var result =
+    final var encodedDataStream =
         IntegerEncoder.encodeIntStream(
             dataStream,
             physicalLevelTechnique,
@@ -232,8 +232,8 @@ public class StringEncoder {
             new LogicalStreamType(OffsetType.STRING),
             streamObserver,
             fieldName);
-    result.addAll(symbolTable);
-    return result;
+    symbolTable.addAll(encodedDataStream);
+    return symbolTable;
   }
 
   private static List<ByteBuffer> encodeFsst(
