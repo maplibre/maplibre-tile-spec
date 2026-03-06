@@ -18,9 +18,7 @@ public class SyntheticMltGenerator {
 
   public static void main(String[] args) throws IOException {
     if (Files.exists(SYNTHETICS_DIR)) {
-      throw new IOException(
-          "Synthetics dir must be deleted before running `:mlt-tools:generateSyntheticMlt`: "
-              + SYNTHETICS_DIR.toAbsolutePath());
+      throw new IOException("Synthetics dir must be deleted before running `:mlt-tools:generateSyntheticMlt`: " + SYNTHETICS_DIR.toAbsolutePath());
     }
     Files.createDirectories(SYNTHETICS_DIR);
 
@@ -89,17 +87,15 @@ public class SyntheticMltGenerator {
   record GeomType(String sym, Feature feat) {}
 
   private static void generateMixCombination(List<GeomType> current) throws IOException {
-    var name =
-        "mix_"
-            + current.size()
-            + "_"
-            + current.stream().map(GeomType::sym).collect(Collectors.joining("_"));
-    var feats = current.stream().map(t -> t.feat).toArray(Feature[]::new);
+    var name = "mix_" + current.size() + "_" + current.stream().map(GeomType::sym).collect(Collectors.joining("_"));
+    var feats = current
+      .stream()
+      .map(t -> t.feat)
+      .toArray(Feature[]::new);
     write(layer(name, feats), cfg().geomEnc(PLAIN));
   }
 
-  private static void generateMixedCombine(GeomType[] arr, int k, int start, List<GeomType> current)
-      throws IOException {
+  private static void generateMixedCombine(GeomType[] arr, int k, int start, List<GeomType> current) throws IOException {
     if (current.size() == k) {
       generateMixCombination(current);
     } else {
@@ -119,23 +115,18 @@ public class SyntheticMltGenerator {
       new GeomType("pt", feat(gf.createPoint(c(38, 29)))),
       new GeomType("line", feat(line(c(5, 38), c(12, 45), c(9, 70)))),
       new GeomType("poly", feat(poly(c(55, 5), c(58, 28), c(75, 22), c(55, 5)))),
-      new GeomType(
-          "polyh",
-          feat(
-              poly(
-                  ring(c(52, 35), c(14, 55), c(60, 72), c(52, 35)),
-                  ring(c(32, 50), c(36, 60), c(24, 54), c(32, 50))))),
+      new GeomType("polyh", feat(poly(ring(c(52, 35), c(14, 55), c(60, 72), c(52, 35)), ring(c(32, 50), c(36, 60), c(24, 54), c(32, 50))))),
       new GeomType("mpt", feat(multi(c(6, 25), c(21, 41), c(23, 69)))),
+      new GeomType("mline", feat(multi(line(c(24, 10), c(42, 18)), line(c(30, 36), c(48, 52), c(35, 62))))),
       new GeomType(
-          "mline", feat(multi(line(c(24, 10), c(42, 18)), line(c(30, 36), c(48, 52), c(35, 62))))),
-      new GeomType(
-          "mpoly",
-          feat(
-              multi(
-                  poly(
-                      ring(c(7, 20), c(21, 31), c(26, 9), c(7, 20)),
-                      ring(c(15, 20), c(20, 15), c(18, 25), c(15, 20))),
-                  poly(c(69, 57), c(71, 66), c(73, 64), c(69, 57))))),
+        "mpoly",
+        feat(
+          multi(
+            poly(ring(c(7, 20), c(21, 31), c(26, 9), c(7, 20)), ring(c(15, 20), c(20, 15), c(18, 25), c(15, 20))),
+            poly(c(69, 57), c(71, 66), c(73, 64), c(69, 57))
+          )
+        )
+      ),
     };
 
     for (int k = 2; k <= types.length; k++) {
@@ -154,7 +145,7 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateExtent() throws IOException {
-    int[] extents = {512, 4096, 131072, 1073741824};
+    int[] extents = { 512, 4096, 131072, 1073741824 };
     for (int e : extents) {
       write(layer("extent_" + e, e, feat(line(c(0, 0), c(e - 1, e - 1)))), cfg());
       write(layer("extent_buf_" + e, e, feat(line(c(-42, -42), c(e + 42, e + 42)))), cfg());
@@ -172,12 +163,7 @@ public class SyntheticMltGenerator {
     write(layer("ids_rle", ids32), cfg(RLE).ids());
     write(layer("ids_delta_rle", ids32), cfg(DELTA_RLE).ids());
 
-    var ids64 =
-        array(
-            idFeat(9_234_567_890L),
-            idFeat(9_234_567_890L),
-            idFeat(9_234_567_890L),
-            idFeat(9_234_567_890L));
+    var ids64 = array(idFeat(9_234_567_890L), idFeat(9_234_567_890L), idFeat(9_234_567_890L), idFeat(9_234_567_890L));
     write(layer("ids64", ids64), cfg().ids());
     write(layer("ids64_delta", ids64), cfg(DELTA).ids());
     write(layer("ids64_rle", ids64), cfg(RLE).ids());
@@ -194,6 +180,9 @@ public class SyntheticMltGenerator {
 
   @SuppressWarnings("cast")
   private static void generateProperties() throws IOException {
+    write("prop_empty_name", feat(p0, prop("", true)), cfg());
+    write("prop_special_name", feat(p0, prop("hello\0 world\n", true)), cfg());
+
     write("prop_bool", feat(p0, prop("val", true)), cfg());
     write("prop_bool_false", feat(p0, prop("val", false)), cfg());
     write(layer("prop_bool_true_null", feat(p0, prop("val", true)), feat(p0)), cfg());
@@ -286,23 +275,26 @@ public class SyntheticMltGenerator {
 
     // Multiple properties - single feature demonstrating multiple property types
     write(
-        "props_mixed",
-        feat(
-            p0,
-            props(
-                kv("name", "Test Point"),
-                kv("active", true),
-                // FIXME: needs support in the Java decoder + encoder
-                // kv("tiny-count", (byte) 42),
-                // FIXME: needs support in the decoder + encoder
-                // kv("tiny", U8.of(100)),
-                kv("count", 42),
-                kv("medium", U32.of(100)),
-                kv("bignum", 42L), // FIXME: this is encoded as i32
-                kv("biggest", U64.of(BigInteger.ZERO)),
-                kv("temp", 25.5f),
-                kv("precision", 0.123456789))),
-        cfg());
+      "props_mixed",
+      feat(
+        p0,
+        props(
+          kv("name", "Test Point"),
+          kv("active", true),
+          // FIXME: needs support in the Java decoder + encoder
+          // kv("tiny-count", (byte) 42),
+          // FIXME: needs support in the decoder + encoder
+          // kv("tiny", U8.of(100)),
+          kv("count", 42),
+          kv("medium", U32.of(100)),
+          kv("bignum", 42L), // FIXME: this is encoded as i32
+          kv("biggest", U64.of(BigInteger.ZERO)),
+          kv("temp", 25.5f),
+          kv("precision", 0.123456789)
+        )
+      ),
+      cfg()
+    );
 
     // FIXME: needs support in the decoder + encoder
     // var feat_u8s =
@@ -316,47 +308,42 @@ public class SyntheticMltGenerator {
     // write(layer("props_u8_rle", feat_u8s), cfg(RLE));
     // write(layer("props_u8_delta_rle", feat_u8s), cfg(DELTA_RLE));
 
-    var feat_ints =
-        array(
-            feat(p0, prop("val", 42)),
-            feat(p1, prop("val", 42)),
-            feat(p2, prop("val", 42)),
-            feat(p3, prop("val", 42)));
+    var feat_ints = array(feat(p0, prop("val", 42)), feat(p1, prop("val", 42)), feat(p2, prop("val", 42)), feat(p3, prop("val", 42)));
     write(layer("props_i32", feat_ints), cfg());
     write(layer("props_i32_delta", feat_ints), cfg(DELTA));
     write(layer("props_i32_rle", feat_ints), cfg(RLE));
     write(layer("props_i32_delta_rle", feat_ints), cfg(DELTA_RLE));
 
-    var feat_u32s =
-        array(
-            feat(p0, prop("val", U32.of(9_000))),
-            feat(p1, prop("val", U32.of(9_000))),
-            feat(p2, prop("val", U32.of(9_000))),
-            feat(p3, prop("val", U32.of(9_000))));
+    var feat_u32s = array(
+      feat(p0, prop("val", U32.of(9_000))),
+      feat(p1, prop("val", U32.of(9_000))),
+      feat(p2, prop("val", U32.of(9_000))),
+      feat(p3, prop("val", U32.of(9_000)))
+    );
     write(layer("props_u32", feat_u32s), cfg());
     write(layer("props_u32_delta", feat_u32s), cfg(DELTA));
     write(layer("props_u32_rle", feat_u32s), cfg(RLE));
     write(layer("props_u32_delta_rle", feat_u32s), cfg(DELTA_RLE));
 
-    var feat_u64s =
-        array(
-            feat(p0, prop("val", U64.of(BigInteger.valueOf(9_000L)))),
-            feat(p1, prop("val", U64.of(BigInteger.valueOf(9_000L)))),
-            feat(p2, prop("val", U64.of(BigInteger.valueOf(9_000L)))),
-            feat(p3, prop("val", U64.of(BigInteger.valueOf(9_000L)))));
+    var feat_u64s = array(
+      feat(p0, prop("val", U64.of(BigInteger.valueOf(9_000L)))),
+      feat(p1, prop("val", U64.of(BigInteger.valueOf(9_000L)))),
+      feat(p2, prop("val", U64.of(BigInteger.valueOf(9_000L)))),
+      feat(p3, prop("val", U64.of(BigInteger.valueOf(9_000L))))
+    );
     write(layer("props_u64", feat_u64s), cfg());
     write(layer("props_u64_delta", feat_u64s), cfg(DELTA));
     write(layer("props_u64_rle", feat_u64s), cfg(RLE));
     write(layer("props_u64_delta_rle", feat_u64s), cfg(DELTA_RLE));
 
-    var feat_str =
-        array(
-            feat(p1, prop("val", "residential_zone_north_sector_1")),
-            feat(p2, prop("val", "commercial_zone_south_sector_2")),
-            feat(p3, prop("val", "industrial_zone_east_sector_3")),
-            feat(ph1, prop("val", "park_zone_west_sector_4")),
-            feat(ph2, prop("val", "water_zone_north_sector_5")),
-            feat(ph3, prop("val", "residential_zone_south_sector_6")));
+    var feat_str = array(
+      feat(p1, prop("val", "residential_zone_north_sector_1")),
+      feat(p2, prop("val", "commercial_zone_south_sector_2")),
+      feat(p3, prop("val", "industrial_zone_east_sector_3")),
+      feat(ph1, prop("val", "park_zone_west_sector_4")),
+      feat(ph2, prop("val", "water_zone_north_sector_5")),
+      feat(ph3, prop("val", "residential_zone_south_sector_6"))
+    );
     write(layer("props_str", feat_str), cfg());
     write(layer("props_str_fsst", feat_str), cfg().fsst());
   }
