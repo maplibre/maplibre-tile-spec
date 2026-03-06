@@ -19,14 +19,14 @@ describe("decodingUtils", () => {
 
     describe("decodeDoublesLE", () => {
         it("should decode double values from little-endian bytes", () => {
-            const data = new Float32Array([3.14159, 2.71828]);
+            const data = new Float64Array([3.14159, 2.71828]);
             const encoded = encodeDoubleLE(data);
             const offset = new IntWrapper(0);
             const result = decodeDoublesLE(encoded, offset, 2);
 
             expect(result[0]).toBeCloseTo(3.14159);
             expect(result[1]).toBeCloseTo(2.71828);
-            expect(offset.get()).toBe(8);
+            expect(offset.get()).toBe(Float64Array.BYTES_PER_ELEMENT * 2);
         });
     });
 
