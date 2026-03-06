@@ -45,10 +45,9 @@ const val DEFAULT_CACHE_MAX_HEAP_PERCENT = 20.0
 const val ENV_CACHE_MAX_HEAP_PERCENT = "MLT_CACHE_MAX_HEAP_PERCENT"
 val cacheMaxHeapPercent by lazy {
     resolveConfigValue(ENV_CACHE_MAX_HEAP_PERCENT, DEFAULT_CACHE_MAX_HEAP_PERCENT, String::toDouble).also {
-        if (it.isFinite() && 0.0 <= it && it <= 100.0) {
-            it
+        if (!it.isFinite() || !(0.0 <= it && it <= 100.0)) {
+            throw IllegalArgumentException("Cache max heap percent must be between 0 and 100")
         }
-        throw IllegalArgumentException("Cache max heap percent must be between 0 and 100")
     }
 }
 
