@@ -28,9 +28,15 @@ public class ByteBufferUtil {
 
   /// Combine (by copying) ByteBuffer objects into a new ByteBuffer
   /// NOTE: traverses the iterable twice
+  /// The result is not marked as read-only because that disables `.array()`
   public static ByteBuffer concat(Iterable<ByteBuffer> buffers) {
     final var result = ByteBuffer.wrap(new byte[totalLength(buffers)]);
-    streamOf(buffers).forEach(result::put);
+    streamOf(buffers)
+        .forEach(
+            b -> {
+              // Use `duplicate` to avoid changing the position of the input buffers
+              result.put(b.duplicate());
+            });
     return result.flip();
   }
 

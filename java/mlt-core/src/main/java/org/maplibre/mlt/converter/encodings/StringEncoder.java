@@ -6,7 +6,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.mutable.MutableInt;
@@ -14,7 +19,14 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
-import org.maplibre.mlt.metadata.stream.*;
+import org.maplibre.mlt.metadata.stream.DictionaryType;
+import org.maplibre.mlt.metadata.stream.LengthType;
+import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.LogicalStreamType;
+import org.maplibre.mlt.metadata.stream.OffsetType;
+import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
+import org.maplibre.mlt.metadata.stream.StreamMetadata;
 import org.maplibre.mlt.util.ByteBufferUtil;
 
 public class StringEncoder {
@@ -170,7 +182,7 @@ public class StringEncoder {
               streamObserver,
               fieldName + "_fsstdict");
     } else {
-      fsstEncodedDictionary = new ArrayList<>();
+      fsstEncodedDictionary = null;
     }
 
     return Stream.of(

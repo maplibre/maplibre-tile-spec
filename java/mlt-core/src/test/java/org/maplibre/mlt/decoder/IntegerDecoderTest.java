@@ -9,8 +9,13 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.util.Assert;
 import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.converter.MLTStreamObserverDefault;
-import org.maplibre.mlt.converter.encodings.*;
-import org.maplibre.mlt.metadata.stream.*;
+import org.maplibre.mlt.converter.encodings.EncodingUtils;
+import org.maplibre.mlt.converter.encodings.IntegerEncoder;
+import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.LogicalStreamType;
+import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
+import org.maplibre.mlt.metadata.stream.StreamMetadata;
 import org.maplibre.mlt.util.ByteBufferUtil;
 
 public class IntegerDecoderTest {

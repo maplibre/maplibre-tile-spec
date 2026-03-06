@@ -8,7 +8,13 @@ import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
@@ -24,9 +30,21 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption;
 import org.maplibre.mlt.converter.MLTStreamObserver;
-import org.maplibre.mlt.converter.geometry.*;
+import org.maplibre.mlt.converter.geometry.GeometryType;
+import org.maplibre.mlt.converter.geometry.GeometryUtils;
+import org.maplibre.mlt.converter.geometry.HilbertCurve;
+import org.maplibre.mlt.converter.geometry.SpaceFillingCurve;
+import org.maplibre.mlt.converter.geometry.Vertex;
+import org.maplibre.mlt.converter.geometry.ZOrderCurve;
 import org.maplibre.mlt.converter.tessellation.TessellationUtils;
-import org.maplibre.mlt.metadata.stream.*;
+import org.maplibre.mlt.metadata.stream.DictionaryType;
+import org.maplibre.mlt.metadata.stream.LengthType;
+import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.LogicalStreamType;
+import org.maplibre.mlt.metadata.stream.OffsetType;
+import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
+import org.maplibre.mlt.metadata.stream.StreamMetadata;
 
 public class GeometryEncoder {
 
@@ -249,7 +267,6 @@ public class GeometryEncoder {
               encodingOption,
               streamObserver,
               "geom_num_geoms");
-      encodedTopologyStreams.addAll(encodedTopologyStreams);
       encodedTopologyStreams.addAll(encodedNumGeometries);
       numStreams++;
     }
@@ -264,7 +281,6 @@ public class GeometryEncoder {
               encodingOption,
               streamObserver,
               "geom_num_parts");
-      encodedTopologyStreams.addAll(encodedTopologyStreams);
       encodedTopologyStreams.addAll(encodedNumParts);
       numStreams++;
     }
@@ -279,7 +295,6 @@ public class GeometryEncoder {
               encodingOption,
               streamObserver,
               "geom_num_rings");
-      encodedTopologyStreams.addAll(encodedTopologyStreams);
       encodedTopologyStreams.addAll(encodedNumRings);
       numStreams++;
     }

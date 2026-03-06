@@ -9,7 +9,11 @@ import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.BitSet;
-import me.lemire.integercompression.*;
+import me.lemire.integercompression.Composition;
+import me.lemire.integercompression.FastPFOR;
+import me.lemire.integercompression.IntWrapper;
+import me.lemire.integercompression.IntegerCODEC;
+import me.lemire.integercompression.VariableByte;
 import org.apache.commons.lang3.tuple.Pair;
 
 public class DecodingUtils {

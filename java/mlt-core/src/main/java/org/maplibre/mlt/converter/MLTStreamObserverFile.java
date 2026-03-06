@@ -54,7 +54,7 @@ public class MLTStreamObserverFile implements MLTStreamObserver {
               StandardOpenOption.CREATE,
               StandardOpenOption.WRITE,
               StandardOpenOption.TRUNCATE_EXISTING)) {
-        channel.write(rawMetaData);
+        channel.write(rawMetaData.duplicate());
       }
     }
     if (rawData != null && rawData.hasRemaining()) {
@@ -65,7 +65,7 @@ public class MLTStreamObserverFile implements MLTStreamObserver {
               StandardOpenOption.CREATE,
               StandardOpenOption.WRITE,
               StandardOpenOption.TRUNCATE_EXISTING)) {
-        channel.write(rawData);
+        channel.write(rawData.duplicate());
       }
     }
     if (values != null && !values.isEmpty()) {

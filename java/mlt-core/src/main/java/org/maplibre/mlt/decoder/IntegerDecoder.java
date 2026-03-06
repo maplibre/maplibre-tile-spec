@@ -7,7 +7,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
 import org.maplibre.mlt.decoder.vectorized.VectorizedDecodingUtils;
-import org.maplibre.mlt.metadata.stream.*;
+import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.MortonEncodedStreamMetadata;
+import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.RleEncodedStreamMetadata;
+import org.maplibre.mlt.metadata.stream.StreamMetadata;
 
 public class IntegerDecoder {
 

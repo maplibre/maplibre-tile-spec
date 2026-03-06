@@ -1,6 +1,7 @@
 package org.maplibre.mlt.converter.encodings;
 
-import static org.maplibre.mlt.converter.encodings.LinearRegression.*;
+import static org.maplibre.mlt.converter.encodings.LinearRegression.calculateDeltas;
+import static org.maplibre.mlt.converter.encodings.LinearRegression.gradientDescent;
 
 import java.io.IOException;
 import java.nio.file.Paths;

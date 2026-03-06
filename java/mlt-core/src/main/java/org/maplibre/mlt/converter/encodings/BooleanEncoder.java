@@ -3,10 +3,14 @@ package org.maplibre.mlt.converter.encodings;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.BitSet;
+import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.MLTStreamObserver;
-import org.maplibre.mlt.metadata.stream.*;
+import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
+import org.maplibre.mlt.metadata.stream.StreamMetadata;
 
 public class BooleanEncoder {
 

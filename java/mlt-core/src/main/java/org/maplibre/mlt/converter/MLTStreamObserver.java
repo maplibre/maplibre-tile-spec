@@ -49,34 +49,12 @@ public interface MLTStreamObserver {
 
   default <T> void observeStream(
       @NotNull String streamName,
-      @NotNull T[] values,
-      @Nullable byte[] rawMetaData,
-      @Nullable byte[] rawData)
-      throws IOException {
-    if (isActive()) {
-      observeStream(streamName, Arrays.asList(values), maybeWrap(rawMetaData), maybeWrap(rawData));
-    }
-  }
-
-  default <T> void observeStream(
-      @NotNull String streamName,
-      @NotNull T[] values,
-      @NotNull ByteBuffer rawMetaData,
-      @Nullable byte[] rawData)
-      throws IOException {
-    if (isActive()) {
-      observeStream(streamName, Arrays.asList(values), rawMetaData, maybeWrap(rawData));
-    }
-  }
-
-  default <T> void observeStream(
-      @NotNull String streamName,
       @NotNull Collection<T> values,
       @NotNull Iterable<ByteBuffer> rawMetaData,
       @Nullable byte[] rawData)
       throws IOException {
     if (isActive()) {
-      observeStream(streamName, values, ByteBufferUtil.concat(rawMetaData), maybeWrap(rawData));
+      observeStream(streamName, values, ByteBufferUtil.concat(rawMetaData), wrapNullable(rawData));
     }
   }
 
@@ -91,7 +69,7 @@ public interface MLTStreamObserver {
           streamName,
           Arrays.asList(values),
           ByteBufferUtil.concat(rawMetaData),
-          maybeWrap(rawData));
+          wrapNullable(rawData));
     }
   }
 
@@ -103,17 +81,6 @@ public interface MLTStreamObserver {
       throws IOException {
     if (isActive()) {
       observeStream(streamName, Arrays.asList(values), ByteBufferUtil.concat(rawMetaData), rawData);
-    }
-  }
-
-  default <T> void observeStream(
-      @NotNull String streamName,
-      @NotNull T[] values,
-      @Nullable byte[] rawMetaData,
-      @NotNull ByteBuffer rawData)
-      throws IOException {
-    if (isActive()) {
-      observeStream(streamName, Arrays.asList(values), maybeWrap(rawMetaData), rawData);
     }
   }
 
@@ -139,7 +106,7 @@ public interface MLTStreamObserver {
     }
   }
 
-  private static @Nullable ByteBuffer maybeWrap(@Nullable byte[] buffer) {
+  private static @NotNull ByteBuffer wrapNullable(@Nullable byte[] buffer) {
     return (buffer == null) ? emptyBuffer : ByteBuffer.wrap(buffer).asReadOnlyBuffer();
   }
 
