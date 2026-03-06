@@ -64,7 +64,6 @@ function decodeScalarPropertyColumn(
     columnMetadata: Column,
 ) {
     let nullabilityBuffer: BitVector = null;
-    let numValues = 0;
     if (numStreams === 0) {
         /* Skip since this column has no values */
         return null;
@@ -73,7 +72,7 @@ function decodeScalarPropertyColumn(
     // Read nullability stream if column is nullable
     if (columnMetadata.nullable) {
         const presentStreamMetadata = decodeStreamMetadata(data, offset);
-        numValues = presentStreamMetadata.numValues;
+        const numValues = presentStreamMetadata.numValues;
         const streamDataStart = offset.get();
         const presentVector = decodeBooleanRle(data, numValues, presentStreamMetadata.byteLength, offset);
         offset.set(streamDataStart + presentStreamMetadata.byteLength);

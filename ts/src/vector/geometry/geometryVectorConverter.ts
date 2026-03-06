@@ -100,7 +100,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
             partOffsetCounter += numPoints;
             ringOffsetsCounter += numPoints;
         } else if (geometryType === GEOMETRY_TYPE.LINESTRING) {
-            let numVertices = 0;
+            let numVertices: number;
             if (containsPolygon) {
                 numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
                 ringOffsetsCounter++;
@@ -203,7 +203,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
             geometryOffsetsCounter++;
             const lineStrings: CoordinatesArray = new Array(numLineStrings);
             for (let j = 0; j < numLineStrings; j++) {
-                let numVertices = 0;
+                let numVertices: number;
                 if (containsPolygon) {
                     numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
                     ringOffsetsCounter++;
@@ -242,7 +242,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
             const numPolygons = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
             geometryOffsetsCounter++;
             const polygons: CoordinatesArray[] = new Array(numPolygons);
-            let numVertices = 0;
+            let numVertices: number;
             if (!vertexOffsets || vertexOffsets.length === 0) {
                 for (let j = 0; j < numPolygons; j++) {
                     const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
