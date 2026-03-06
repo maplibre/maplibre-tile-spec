@@ -131,9 +131,7 @@ fn generate_geometry(w: &SynthWriter) {
     w.geo_varint().geo(poly1()).write("poly");
     w.geo_fastpfor().geo(poly1()).write("poly_fpf");
     w.geo_varint().tessellated(poly1()).write("poly_tes");
-    w.geo_fastpfor()
-        .tessellated(poly1())
-        .write("poly_fpf_tes");
+    w.geo_fastpfor().tessellated(poly1()).write("poly_fpf_tes");
     w.geo_varint()
         .parts_ring(E::rle_varint())
         .geo(poly1h())
