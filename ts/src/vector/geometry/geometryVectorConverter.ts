@@ -34,11 +34,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                     if (nonOffset) {
                         x = vertexBuffer[vertexBufferOffset++];
                         y = vertexBuffer[vertexBufferOffset++];
-                    } else if (geometryVector.vertexBufferType === VertexBufferType.VEC_2) {
-                        const offset = vertexOffsets[vertexOffsetsOffset++] * 2;
-                        x = vertexBuffer[offset];
-                        y = vertexBuffer[offset + 1];
-                    } else {
+                    } else if (geometryVector.vertexBufferType === VertexBufferType.MORTON) {
                         const offset = vertexOffsets[vertexOffsetsOffset++];
                         const mortonCode = vertexBuffer[offset];
                         const vertex = decodeZOrderCurve(
@@ -48,6 +44,10 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                         );
                         x = vertex.x;
                         y = vertex.y;
+                    } else {
+                        const offset = vertexOffsets[vertexOffsetsOffset++] * 2;
+                        x = vertexBuffer[offset];
+                        y = vertexBuffer[offset + 1];
                     }
                     geometries[geometryCounter++] = [[new Point(x, y)]];
                     if (geometryOffsets) geometryOffsetsCounter++;
@@ -267,15 +267,7 @@ function decodeDictionaryEncodedLineStringOrRing(
     closeLineString: boolean,
     mortonSettings: MortonSettings,
 ): Point[] {
-    if (vertexBufferType === VertexBufferType.VEC_2) {
-        return decodeDictionaryEncodedLineString(
-            vertexBuffer,
-            vertexOffsets,
-            vertexOffset,
-            numVertices,
-            closeLineString,
-        );
-    } else {
+    if (vertexBufferType === VertexBufferType.MORTON) {
         return decodeMortonDictionaryEncodedLineString(
             vertexBuffer,
             vertexOffsets,
@@ -283,6 +275,14 @@ function decodeDictionaryEncodedLineStringOrRing(
             numVertices,
             closeLineString,
             mortonSettings,
+        );
+    } else {
+        return decodeDictionaryEncodedLineString(
+            vertexBuffer,
+            vertexOffsets,
+            vertexOffset,
+            numVertices,
+            closeLineString,
         );
     }
 }
