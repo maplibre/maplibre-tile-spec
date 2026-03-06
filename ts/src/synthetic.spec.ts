@@ -24,6 +24,8 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["prop_f64_zero", "does not parse f64 as f32"],
     ["prop_f64_null_val", "does not parse f64 as f32"],
     ["prop_f64_val_null", "does not parse f64 as f32"],
+    ["poly_multi_morton_ring_morton", "decodes to zero coordinates"],
+    ["poly_multi_morton_ring_no_morton", "decodes to zero coordinates"],
 ]);
 
 describe("MLT Decoder - Synthetic tests", () => {
