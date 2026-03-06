@@ -195,7 +195,7 @@ public class SyntheticMltGenerator {
   @SuppressWarnings("cast")
   private static void generateProperties() throws IOException {
     write("prop_empty_name", feat(p0, prop("", true)), cfg());
-    write("prop_special_name", feat(p0, prop("hello\0 world\n", true)), cfg());
+    write("prop_special_name", feat(p0, prop("hello\u0000 world\n", true)), cfg());
 
     write("prop_bool", feat(p0, prop("val", true)), cfg());
     write("prop_bool_false", feat(p0, prop("val", false)), cfg());
