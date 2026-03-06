@@ -430,6 +430,13 @@ public class SyntheticMltGenerator {
     write(layer("props_shared_dict", feat_names), cfg().sharedDictPrefix("name", ":"));
     write(layer("props_shared_dict_fsst", feat_names), cfg().sharedDictPrefix("name", ":").fsst());
 
+    var feat_one_child = array(feat(p0, props(kv("name:en", val), kv("place", val))));
+    write(
+        layer("props_shared_dict_one_child", feat_one_child), cfg().sharedDictPrefix("name", ":"));
+    write(
+        layer("props_shared_dict_one_child_fsst", feat_one_child),
+        cfg().sharedDictPrefix("name", ":").fsst());
+
     var feat_distinct_keys_same_value = array(feat(p0, props(kv("a", val), kv("b", val))));
     write(
         layer("props_shared_dict_no_struct_name", feat_distinct_keys_same_value),
