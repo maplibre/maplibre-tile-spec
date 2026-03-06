@@ -311,7 +311,7 @@ export function encodeFloatNullableColumn(values: (number | null)[]): Uint8Array
 /**
  * Encodes DOUBLE values
  */
-export function encodeDoubleColumn(values: Float32Array): Uint8Array {
+export function encodeDoubleColumn(values: Float64Array): Uint8Array {
     const encodedData = encodeDoubleLE(values);
     const streamMetadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, values.length);
     return buildEncodedStream(streamMetadata, encodedData);
@@ -322,7 +322,7 @@ export function encodeDoubleColumn(values: Float32Array): Uint8Array {
  */
 export function encodeDoubleNullableColumn(values: (number | null)[]): Uint8Array {
     const nonNullValues = values.filter((v): v is number => v !== null);
-    const encodedData = encodeDoubleLE(new Float32Array(nonNullValues));
+    const encodedData = encodeDoubleLE(new Float64Array(nonNullValues));
     const dataStreamMetadata = createStreamMetadata(
         LogicalLevelTechnique.NONE,
         LogicalLevelTechnique.NONE,
