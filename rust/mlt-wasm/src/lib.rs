@@ -35,6 +35,9 @@ use mlt_core::v01::{
 use mlt_core::{MltError, parse_layers};
 use wasm_bindgen::prelude::*;
 
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
 struct DecodedLayer {
     name: String,
     extent: u32,

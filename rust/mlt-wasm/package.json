@@ -27,10 +27,10 @@
 		"gis"
 	],
 	"scripts": {
-   	"build:wasm": "wasm-pack build --target bundler --out-dir pkg --profile wasm-release --no-opt",
+	"build:wasm": "RUSTFLAGS=\"-Zunstable-options -Cpanic=immediate-abort\" CARGO_UNSTABLE_BUILD_STD=std,panic_abort RUSTUP_TOOLCHAIN=nightly wasm-pack build --target bundler --out-dir pkg --profile wasm-release --no-opt",
    	"build:wasm-opt": "wasm-opt --enable-bulk-memory --enable-simd pkg/mlt_wasm_bg.wasm -Os -o pkg/mlt_opt.wasm",
 		"build:ts": "tsc",
-		"build": "npm run build:wasm && npm run build:wasm-opt && npm run build:ts",
+		"build": "npm run build:wasm && npm run build:wasm-opt && npm run build:ts && du -sh pkg/*.wasm",
 		"test": "vitest --coverage --coverage.reportOnFailure"
 	},
 	"dependencies": {
