@@ -412,8 +412,10 @@ public class SyntheticMltGenerator {
 
     // If there are many identical strings in the same column,
     // an offset directory is used to share them
-    // Because the directory we are indexing into has lengths assosciated with it and the offsets are indexes,
-    // we cannot do overlap-optimization where one ABBA contains BB -> only ABBA would be in the dict.
+    // Because the directory we are indexing into has lengths assosciated with it and the offsets
+    // are indexes,
+    // we cannot do overlap-optimization where one ABBA contains BB -> only ABBA would be in the
+    // dict.
     // -> ABBABB would need to be in the dict
     var feat_two_str_eq = array(feat(p1, prop("val", val)), feat(p2, prop("val", val)));
     write(layer("props_offset_str", feat_two_str_eq), cfg());
