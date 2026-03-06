@@ -5,7 +5,9 @@ import java.util.Iterator;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-public class ByteBufferUtil {
+public final class ByteBufferUtil {
+  private ByteBufferUtil() {}
+
   /// Combine (by copying) ByteBuffer objects into a new, read-only ByteBuffer
   public static ByteBuffer concat(ByteBuffer... buffers) {
     return concat(

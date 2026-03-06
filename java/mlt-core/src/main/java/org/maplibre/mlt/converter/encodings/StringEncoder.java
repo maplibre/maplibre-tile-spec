@@ -308,10 +308,6 @@ public class StringEncoder {
     return result;
   }
 
-  private static int totalLengthOf(String[] values) {
-    return Arrays.stream(values).mapToInt(String::length).sum();
-  }
-
   private static int totalLengthOf(Collection<String> values) {
     return values.stream().mapToInt(String::length).sum();
   }

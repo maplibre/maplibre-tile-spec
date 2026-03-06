@@ -17,31 +17,9 @@ import org.maplibre.mlt.metadata.stream.LengthType;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
-public class StringDecoder {
+public final class StringDecoder {
 
   private StringDecoder() {}
-
-  public static HashMap<String, List<String>> resolve(
-      Triple<HashMap<String, Integer>, HashMap<String, BitSet>, Map<String, List<String>>> result) {
-    var numValues = result.getLeft();
-    var presentStreams = result.getMiddle();
-    var propertyColumns = result.getRight();
-    var propertyMap = new HashMap<String, List<String>>();
-    for (var propertyColumn : propertyColumns.entrySet()) {
-      var columnName = propertyColumn.getKey();
-      var columnPresentStream = presentStreams.get(columnName);
-      var columnPropertyValues = propertyColumn.getValue();
-      var values = new ArrayList<String>();
-      var counter = 0;
-      for (var j = 0; j < numValues.get(columnName); j++) {
-        var value = columnPresentStream.get(j) ? columnPropertyValues.get(counter++) : null;
-        values.add(value);
-      }
-      propertyMap.put(columnName, values);
-    }
-
-    return propertyMap;
-  }
 
   public static Triple<HashMap<String, Integer>, HashMap<String, BitSet>, Map<String, List<String>>>
       decodeSharedDictionary(byte[] data, IntWrapper offset, MltMetadata.Column column)
