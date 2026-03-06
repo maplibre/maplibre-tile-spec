@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.maplibre.mlt.data.Feature;
@@ -92,7 +93,7 @@ public class SyntheticMltGenerator {
     write("poly_multi_fpf_tes", multiPol, cfg().fastPFOR().tessellate());
 
     // Close the shared Morton curve into a ring to test Morton encoding for polygons.
-    var mortonRing = java.util.Arrays.copyOf(mortonCurve, mortonCurve.length + 1);
+    var mortonRing = Arrays.copyOf(mortonCurve, mortonCurve.length + 1);
     mortonRing[mortonCurve.length] = mortonRing[0];
     write("poly_morton_ring_no_morton", feat(poly(mortonRing)), cfg());
     write("poly_morton_ring_morton", feat(poly(mortonRing)), cfg().morton());
@@ -100,10 +101,10 @@ public class SyntheticMltGenerator {
     // Split the Morton curve into two halves (bottom 2 rows / top 2 rows of the 4x4 grid)
     // and close each into a ring to form a MultiPolygon.
     var half = mortonCurve.length / 2;
-    var mortonRing1 = java.util.Arrays.copyOf(mortonCurve, half + 1);
+    var mortonRing1 = Arrays.copyOf(mortonCurve, half + 1);
     mortonRing1[half] = mortonRing1[0];
-    var mortonRing2src = java.util.Arrays.copyOfRange(mortonCurve, half, mortonCurve.length);
-    var mortonRing2 = java.util.Arrays.copyOf(mortonRing2src, mortonRing2src.length + 1);
+    var mortonRing2src = Arrays.copyOfRange(mortonCurve, half, mortonCurve.length);
+    var mortonRing2 = Arrays.copyOf(mortonRing2src, mortonRing2src.length + 1);
     mortonRing2[mortonRing2src.length] = mortonRing2[0];
     write(
         "poly_multi_morton_ring_no_morton",
@@ -121,6 +122,11 @@ public class SyntheticMltGenerator {
 
   private static void generateMultiLineStrings() throws IOException {
     write("multiline", feat(multi(line1, line2)), cfg());
+
+    var half = mortonCurve.length / 2;
+    var mortonLine1 = Arrays.copyOf(mortonCurve, half);
+    var mortonLine2 = Arrays.copyOfRange(mortonCurve, half, mortonCurve.length);
+    write("multiline_morton", feat(multi(line(mortonLine1), line(mortonLine2))), cfg().morton());
   }
 
   record GeomType(String sym, Feature feat) {}
