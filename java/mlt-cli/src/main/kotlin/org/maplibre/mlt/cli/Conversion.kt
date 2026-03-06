@@ -239,6 +239,7 @@ fun convertTile(
                     }
                     totalCompressedInput.addAndGet(tileData.size.toLong())
                     totalCompressedOutput.addAndGet(outputStream.size().toLong())
+                    totalCompressedTiles.incrementAndGet()
                     if (didCompress != null) {
                         didCompress.setTrue()
                     }
@@ -261,6 +262,7 @@ fun convertTile(
                             pctStr,
                         )
                     }
+                    totalUncompressedTiles.incrementAndGet()
                     if (didCompress != null) {
                         didCompress.setFalse()
                     }
@@ -347,6 +349,8 @@ fun applyColumnMappingsToConversionConfig(
 
 val totalCompressedInput = AtomicLong(0L)
 val totalCompressedOutput = AtomicLong(0L)
+val totalCompressedTiles = AtomicLong(0L)
+val totalUncompressedTiles = AtomicLong(0L)
 
 val loggedColumnMappingId = AtomicLong(0L)
 val loggedColumnMappings = ConcurrentHashMap<String, Long>()

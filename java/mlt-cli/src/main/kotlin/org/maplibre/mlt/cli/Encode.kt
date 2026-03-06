@@ -13,6 +13,7 @@ import org.maplibre.mlt.converter.MLTStreamObserver
 import org.maplibre.mlt.converter.MLTStreamObserverDefault
 import org.maplibre.mlt.converter.MLTStreamObserverFile
 import org.maplibre.mlt.converter.MltConverter
+import org.maplibre.mlt.converter.encodings.StringEncoder
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder
 import org.maplibre.mlt.converter.encodings.fsst.FsstJni
 import org.maplibre.mlt.converter.mvt.MvtUtils
@@ -267,8 +268,20 @@ object Encode {
         if (totalCompressedInput.get() > 0 && logger.isDebugEnabled) {
             val input = totalCompressedInput.get()
             val output = totalCompressedOutput.get()
-            val percentStr = String.format("%.1f", 100.0 * output / input)
-            logger.debug("Compressed {} bytes to {} bytes ({}%)", input, output, percentStr)
+            val compressed = totalCompressedTiles.get()
+            val uncompressed = totalUncompressedTiles.get()
+            val total = compressed + uncompressed
+            val sizePercentStr = if (input > 0) String.format(" (%.1f%%)", 100.0 * output / input) else ""
+            val countPercentStr = if (total > 0) String.format(" (%.1f%%)", 100.0 * compressed / total) else ""
+            logger.debug(
+                "Compressed {} bytes to {} bytes{} in {} of {}{} tiles",
+                input,
+                output,
+                sizePercentStr,
+                compressed,
+                total,
+                countPercentStr,
+            )
         }
         return true
     }
