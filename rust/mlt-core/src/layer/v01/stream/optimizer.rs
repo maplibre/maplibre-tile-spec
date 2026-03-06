@@ -27,8 +27,7 @@ const DELTA_BIT_SAVINGS_THRESHOLD: u8 = 4;
 ///
 /// 1. [`Self::prune_candidates`] - **"Prune"**:
 ///    Compute lightweight statistics over a representative sample
-///    of the data (average run length, sort order, max bit-width, distinct
-///    ratio) and use them to prune obviously unsuitable candidates early.
+///    of the data (average run length, sort order, max bit-width) and use them to prune obviously unsuitable candidates early.
 /// 2. [`Self::min_size_encoding_u32s`] / [`Self::min_size_encoding_u64s`] - **"Compete"**:
 ///    Encode the same sample with every surviving candidate and
 ///    pick the one whose encoded output is smallest.
