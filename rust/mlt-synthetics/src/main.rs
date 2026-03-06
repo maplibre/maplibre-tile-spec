@@ -124,34 +124,37 @@ fn generate_geometry(w: &SynthWriter) {
         morton_curve.push(c(x * scale, y * scale));
     }
     w.geo_varint()
-        .geo(LineString::new(morton_curve))
+        .geo(LineString::new(morton_curve.clone()))
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .write("line_morton");
-    w.geo_varint().geo(poly1()).write("polygon");
-    w.geo_fastpfor().geo(poly1()).write("polygon_fpf");
-    w.geo_varint().tessellated(poly1()).write("polygon_tes");
-    w.geo_fastpfor()
-        .tessellated(poly1())
-        .write("polygon_fpf_tes");
+        .write("line_morton_curve_morton");
+    w.geo_varint()
+        .geo(LineString::new(morton_curve))
+        .vertex_buffer_type(VertexBufferType::Vec2)
+        .vertex_offsets(E::delta_rle_varint())
+        .write("line_morton_curve_no_morton");
+    w.geo_varint().geo(poly1()).write("poly");
+    w.geo_fastpfor().geo(poly1()).write("poly_fpf");
+    w.geo_varint().tessellated(poly1()).write("poly_tes");
+    w.geo_fastpfor().tessellated(poly1()).write("poly_fpf_tes");
     w.geo_varint()
         .parts_ring(E::rle_varint())
         .geo(poly1h())
-        .write("polygon_hole");
+        .write("poly_hole");
     w.geo_fastpfor()
         .parts_ring(E::rle_fastpfor())
         .geo(poly1h())
-        .write("polygon_hole_fpf");
+        .write("poly_hole_fpf");
     w.geo_varint()
         .rings(E::rle_varint())
         .rings2(E::rle_varint())
         .geo(MultiPolygon(vec![poly1(), poly2()]))
-        .write("polygon_multi");
+        .write("poly_multi");
     w.geo_fastpfor()
         .rings(E::rle_fastpfor())
         .rings2(E::rle_fastpfor())
         .geo(MultiPolygon(vec![poly1(), poly2()]))
-        .write("polygon_multi_fpf");
+        .write("poly_multi_fpf");
     w.geo_varint()
         .geo(MultiPoint(vec![P1, P2, P3]))
         .write("multipoint");

@@ -65,9 +65,13 @@ class SyntheticMltUtil {
   static final Polygon poly1 = poly(c1, c2, c3, c1);
   static final Polygon poly2 = poly(c21, c22, c23, c21);
   static final Polygon poly1h = poly(ring(c1, c2, c3, c1), ring(h1, h2, h3, h1));
+  // 4x4 complete Morton block: 16 points decoded from Z-order (even bits → x, odd bits → y).
+  // Shared by line_morton and poly_morton so both test the same coordinate pattern.
+  static final Coordinate[] mortonCurve = buildMortonCurve(16, 8, 4);
 
   /** Builder subclass with no-argument shorthand methods for common flags. */
   static class Cfg extends ConversionConfig.Builder {
+
     public Cfg ids() {
       this.includeIds(true);
       return this;
@@ -157,6 +161,21 @@ class SyntheticMltUtil {
 
   static Coordinate c(int x, int y) {
     return new Coordinate(x, y);
+  }
+
+  /** De-interleave Z-order index bits into x (even bits) and y (odd bits) coordinates. */
+  static Coordinate[] buildMortonCurve(int numPoints, int scale, int mortonBits) {
+    var curve = new Coordinate[numPoints];
+    for (var i = 0; i < numPoints; i++) {
+      var x = 0;
+      var y = 0;
+      for (var b = 0; b < mortonBits; b++) {
+        x |= ((i >> (2 * b)) & 1) << b;
+        y |= ((i >> (2 * b + 1)) & 1) << b;
+      }
+      curve[i] = c(x * scale, y * scale);
+    }
+    return curve;
   }
 
   static LineString line(Coordinate... coords) {
