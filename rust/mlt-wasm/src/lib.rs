@@ -35,9 +35,6 @@ use mlt_core::v01::{
 use mlt_core::{MltError, parse_layers};
 use wasm_bindgen::prelude::*;
 
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
 struct DecodedLayer {
     name: String,
     extent: u32,
@@ -185,10 +182,6 @@ impl MltTile {
         obj
     }
 }
-
-// ---------------------------------------------------------------------------
-// Entry point
-// ---------------------------------------------------------------------------
 
 /// Decode a raw MLT tile blob and return an [`MltTile`] whose data lives
 /// entirely in Rust heap memory until accessed from JS.

@@ -18,7 +18,6 @@ crate-type = ["cdylib"]
 js-sys.workspace = true
 mlt-core.workspace = true
 wasm-bindgen.workspace = true
-wee_alloc = "0.4"
 
 [lints]
 workspace = true

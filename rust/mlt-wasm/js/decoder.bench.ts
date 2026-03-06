@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { VectorTileLike } from "@maplibre/vt-pbf";
@@ -8,75 +8,68 @@ import type FeatureTable from "../../ts/src/vector/featureTable";
 import { decodeTile as wasmDecodeTile } from "./vectorTile";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const FIXTURE_ROOT = resolve(__dirname, "../../../test/expected/tag0x01/omt");
+const OMT = resolve(__dirname, "../../../test/expected/tag0x01/omt");
 
-function loadFixture(file: string): Uint8Array {
-  return new Uint8Array(readFileSync(resolve(FIXTURE_ROOT, file)));
+function loadPool(zoom: number): Uint8Array[] {
+  return readdirSync(OMT)
+    .filter((f) => f.startsWith(`${zoom}_`) && f.endsWith(".mlt"))
+    .sort()
+    .map((f) => new Uint8Array(readFileSync(resolve(OMT, f))));
 }
 
-const FIXTURES = [
-  { label: "small  (~39 KB)", bytes: loadFixture("11_1062_1368.mlt") },
-  { label: "medium (~80 KB)", bytes: loadFixture("10_530_682.mlt") },
-  { label: "large  (~763 KB)", bytes: loadFixture("14_8298_10748.mlt") },
-] as const;
+// zoom 11: 12 tiles, 39–89 KB each  (~760 KB total — exceeds typical L2)
+// zoom 10: 12 tiles, 70–128 KB each (~1.1 MB total)
+// zoom 14: 10 tiles, 344–763 KB each (~5.5 MB total — exceeds most L3s)
+const POOLS = [
+  { label: "small  (zoom 11, 39–89 KB)", pool: loadPool(11) },
+  { label: "medium (zoom 10, 70–128 KB)", pool: loadPool(10) },
+  { label: "large  (zoom 14, 344–763 KB)", pool: loadPool(14) },
+];
 
-/**
- * Materialises every feature's geometry and properties from a WASM-decoded
- * tile.  Geometry is decoded via loadGeometry().  Properties are decoded
- * lazily inside MltFeature (memoised with ??=), so reading the getter here
- * forces a WASM boundary crossing and full property deserialisation.
- *
- * Returns the total feature count so the call cannot be eliminated as dead
- * code by the JS engine.
- */
 function traverseWasm(tile: VectorTileLike): number {
-  let featureCount = 0;
+  let n = 0;
   for (const layer of Object.values(tile.layers)) {
     for (let i = 0; i < layer.length; i++) {
-      const feature = layer.feature(i);
-      feature.loadGeometry();
-      void feature.properties;
-      featureCount++;
+      const f = layer.feature(i);
+      f.loadGeometry();
+      void f.properties;
+      n++;
     }
   }
-  return featureCount;
+  return n;
 }
 
-/**
- * Materialises every feature from a TypeScript-decoded tile.
- * getFeatures() eagerly constructs geometry and properties for all features.
- *
- * Returns the total feature count so the call cannot be eliminated as dead
- * code by the JS engine.
- */
 function traverseTs(tables: FeatureTable[]): number {
-  let featureCount = 0;
-  for (const table of tables) {
-    featureCount += table.getFeatures().length;
-  }
-  return featureCount;
+  let n = 0;
+  for (const table of tables) n += table.getFeatures().length;
+  return n;
 }
 
-const BENCH_OPTIONS = { warmupIterations: 10, time: 2000 } as const;
+const OPTIONS = { warmupIterations: 10, time: 2000 } as const;
 
-for (const { label, bytes } of FIXTURES) {
-  describe(`decode + full traversal — ${label}`, () => {
-    bench(
-      "WASM decoder",
-      () => {
-        const tile = wasmDecodeTile(bytes);
-        if (traverseWasm(tile) < 0) throw new Error("unreachable");
-      },
-      BENCH_OPTIONS,
-    );
+for (const { label, pool } of POOLS) {
+  describe(`decode + traverse - ${label}`, () => {
+    // Independent counters: each bench rotates through the pool on its own
+    // so neither decoder sees the same Uint8Array twice in a row.
+    let wi = 0;
+    let ti = 0;
 
     bench(
       "TS decoder",
       () => {
-        const tables = tsDecodeTile(bytes);
+        const tables = tsDecodeTile(pool[ti++ % pool.length]);
         if (traverseTs(tables) < 0) throw new Error("unreachable");
       },
-      BENCH_OPTIONS,
+      OPTIONS,
+    );
+
+    bench(
+      "WASM decoder",
+      () => {
+        const tile = wasmDecodeTile(pool[wi++ % pool.length]);
+        if (traverseWasm(tile) < 0) throw new Error("unreachable");
+      },
+      OPTIONS,
     );
   });
 }

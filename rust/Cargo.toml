@@ -83,7 +83,7 @@ too_many_lines = "allow"
 
 [profile.wasm-release]
 inherits = "release"
-opt-level = "z"
+opt-level = 3
 lto = "fat"
 codegen-units = 1
 panic = "abort"
