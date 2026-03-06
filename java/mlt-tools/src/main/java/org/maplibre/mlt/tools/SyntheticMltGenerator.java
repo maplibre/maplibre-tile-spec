@@ -363,7 +363,7 @@ public class SyntheticMltGenerator {
     // 30 because otherwise fsst is skipped
     var val = "A".repeat(30);
 
-    // If there are many identical strings in the same collumn, an offset directory is used to share
+    // If there are many identical strings in the same column, an offset directory is used to share
     // them
     var feat_two_str_eq = array(feat(p1, prop("val", val)), feat(p2, prop("val", val)));
     write(layer("props_offset_str_eq", feat_two_str_eq), cfg());
