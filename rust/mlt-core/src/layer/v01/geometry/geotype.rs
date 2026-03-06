@@ -201,41 +201,15 @@ impl DecodedGeometry {
         self.vector_types.push(GeometryType::LineString);
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
-        let num_vertices = u32::try_from(ls.0.len()).expect("vertex count overflow");
-
-        for coord in ls.coords() {
-            verts.extend([coord.x, coord.y]);
-        }
-
         // If ring_offsets exists (i.e., there's a Polygon in the layer),
         // add LineString vertex count to ring_offsets instead of part_offsets.
         // This matches Java's behavior where LineString adds to numRings when containsPolygon.
-        if let Some(rings) = &mut self.ring_offsets {
-            // Add cumulative vertex count to ring_offsets
-            let mut cumulative = if rings.is_empty() {
-                0
-            } else {
-                *rings.last().unwrap()
-            };
-            if rings.is_empty() {
-                rings.push(cumulative);
-            }
-            cumulative += num_vertices;
-            rings.push(cumulative);
-        } else {
-            // No polygon yet - add cumulative vertex count to part_offsets
-            let parts = self.part_offsets.get_or_insert_with(Vec::new);
-            let mut cumulative = if parts.is_empty() {
-                0
-            } else {
-                *parts.last().unwrap()
-            };
-            if parts.is_empty() {
-                parts.push(cumulative);
-            }
-            cumulative += num_vertices;
-            parts.push(cumulative);
-        }
+        let offsets = self
+            .ring_offsets
+            .as_mut()
+            .unwrap_or_else(|| self.part_offsets.get_or_insert_with(Vec::new));
+
+        push_linestrings(std::iter::once(ls), verts, offsets);
     }
 
     fn push_polygon(&mut self, poly: &Polygon<i32>) {
