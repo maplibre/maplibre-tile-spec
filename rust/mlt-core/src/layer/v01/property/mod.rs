@@ -1,3 +1,4 @@
+mod optimizer;
 pub mod strings;
 
 use std::collections::{HashMap, HashSet};
@@ -14,6 +15,7 @@ use crate::utils::{
     BinarySerializer as _, FmtOptVec, apply_present, checked_sum2, checked_sum3, f32_to_json,
     f64_to_json,
 };
+pub use crate::v01::property::optimizer::PropertyOptimizer;
 pub use crate::v01::property::strings::{
     EncodedSharedDictProp, EncodedStrProp, EncodedStructChild, SharedDictChild, SharedDictEncoder,
     SharedDictionaryGroup, StrEncoder, decode_strings, decode_struct_children,

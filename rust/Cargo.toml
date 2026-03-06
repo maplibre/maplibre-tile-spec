@@ -13,7 +13,7 @@ homepage = "https://maplibre.org"
 keywords = ["maplibre", "tile", "mlt", "mvt", "map"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/maplibre-tile-spec"
-rust-version = "1.88.0"
+rust-version = "1.91.0"
 
 [workspace.dependencies]
 anyhow = "1"
@@ -55,6 +55,7 @@ tabled = "0.20"
 test_each_file = "0.3.5"
 thiserror = "2.0.11"
 thousands = "0.2"
+union-find = "0.4.3"
 zigzag = "0.1.0"
 
 [workspace.lints.rust]
