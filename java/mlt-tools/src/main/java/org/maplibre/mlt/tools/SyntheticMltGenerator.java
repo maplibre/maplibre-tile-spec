@@ -58,6 +58,7 @@ public class SyntheticMltGenerator {
       mortonCurve[i] = c(x * scale, y * scale);
     }
     write("line_morton", feat(line(mortonCurve)), cfg().morton());
+
     write("line_zero_length", feat(line(c(6, 6), c(6, 6))), cfg());
   }
 
