@@ -71,15 +71,21 @@ public class SyntheticMltGenerator {
     var polColinear = feat(poly(c(0, 0), c(10, 0), c(20, 0), c(0, 0)));
     write("poly_colinear", polColinear, cfg());
     write("poly_colinear_fpf", polColinear, cfg().fastPFOR());
+    write("poly_colinear_tes", polColinear, cfg().tessellate());
+    write("poly_colinear_fpf_tes", polColinear, cfg().fastPFOR().tessellate());
 
     var polSelfIntersect = feat(poly(c(0, 0), c(10, 10), c(0, 10), c(10, 0), c(0, 0)));
     write("poly_self_intersect", polSelfIntersect, cfg());
     write("poly_self_intersect_fpf", polSelfIntersect, cfg().fastPFOR());
+    write("poly_self_intersect_tes", polSelfIntersect, cfg().tessellate());
+    write("poly_self_intersect_fpf_tes", polSelfIntersect, cfg().fastPFOR().tessellate());
 
     // Polygon with hole
     var polWithHole = feat(poly1h);
     write("poly_hole", polWithHole, cfg());
     write("poly_hole_fpf", polWithHole, cfg().fastPFOR());
+    write("poly_hole_tes", polWithHole, cfg().tessellate());
+    write("poly_hole_fpf_tes", polWithHole, cfg().fastPFOR().tessellate());
 
     var polyHoleTouching =
         feat(
@@ -88,11 +94,15 @@ public class SyntheticMltGenerator {
                 ring(c(0, 0), c(2, 2), c(5, 2), c(0, 0))));
     write("poly_hole_touching", polyHoleTouching, cfg());
     write("poly_hole_touching_fpf", polyHoleTouching, cfg().fastPFOR());
+    write("poly_hole_touching_tes", polyHoleTouching, cfg().tessellate());
+    write("poly_hole_touching_fpf_tes", polyHoleTouching, cfg().fastPFOR().tessellate());
 
     // MultiPolygon
     var multiPol = feat(multi(poly1, poly2));
     write("poly_multi", multiPol, cfg());
     write("poly_multi_fpf", multiPol, cfg().fastPFOR());
+    write("poly_multi_tes", multiPol, cfg().tessellate());
+    write("poly_multi_fpf_tes", multiPol, cfg().fastPFOR().tessellate());
   }
 
   private static void generateMultiPoints() throws IOException {
