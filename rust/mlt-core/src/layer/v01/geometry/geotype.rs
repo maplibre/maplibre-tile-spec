@@ -525,9 +525,9 @@ enum ArbitraryGeometry {
 impl From<ArbitraryGeometry> for crate::geojson::Geom32 {
     fn from(value: ArbitraryGeometry) -> Self {
         use crate::geojson::Geom32 as G;
-        let cord = |(x, y)| Coord { x, y };
+        let coord = |(x, y)| Coord { x, y };
         match value {
-            ArbitraryGeometry::Point((x, y)) => G::Point(Point(cord((x, y)))),
+            ArbitraryGeometry::Point((x, y)) => G::Point(Point(coord((x, y)))),
             // FIXME: once fully working, add the rest
         }
     }
