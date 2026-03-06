@@ -84,8 +84,9 @@ class MltLayer implements VectorTileLayerLike {
   constructor(
     private readonly _tile: WasmMltTile,
     private readonly _layerIdx: number,
+    name: string,
   ) {
-    this.name = _tile.layer_name(_layerIdx);
+    this.name = name;
     this.extent = _tile.layer_extent(_layerIdx);
     this.length = _tile.feature_count(_layerIdx);
   }
@@ -99,7 +100,8 @@ export function decodeTile(data: Uint8Array): VectorTileLike {
   const tile = wasmDecodeTile(data) as WasmMltTile;
   const layers: Record<string, VectorTileLayerLike> = {};
   for (let i = 0; i < tile.layer_count(); i++) {
-    layers[tile.layer_name(i)] = new MltLayer(tile, i);
+    const name = tile.layer_name(i);
+    layers[name] = new MltLayer(tile, i, name);
   }
   return { layers };
 }

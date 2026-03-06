@@ -128,11 +128,15 @@ impl MltTile {
     ///
     /// The TS wrapper decodes this into `Point[][]` by iterating the prefix
     /// counts and constructing `new Point(x, y)` for each coordinate pair.
-    pub fn feature_geometry(&self, layer_idx: usize, feature_idx: usize) -> Int32Array {
+    pub fn feature_geometry(
+        &self,
+        layer_idx: usize,
+        feature_idx: usize,
+    ) -> Result<Int32Array, JsError> {
         let rings = self.layers[layer_idx]
             .geometry
             .to_mvt_rings(feature_idx)
-            .unwrap_or_default();
+            .map_err(to_js_err)?;
 
         // Pre-compute exact capacity: 1 (numRings) + per ring: 1 (len) + 2*points
         let cap = 1 + rings.iter().map(|r| 1 + r.len() * 2).sum::<usize>();
@@ -147,7 +151,7 @@ impl MltTile {
             }
         }
 
-        Int32Array::from(buf.as_slice())
+        Ok(Int32Array::from(buf.as_slice()))
     }
 
     /// Properties for a single feature as a plain JS object.
