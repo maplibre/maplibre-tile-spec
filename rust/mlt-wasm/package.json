@@ -29,7 +29,7 @@
 	"scripts": {
 	"build:wasm": "RUSTFLAGS=\"-Zunstable-options -Cpanic=immediate-abort\" CARGO_UNSTABLE_BUILD_STD=std,panic_abort RUSTUP_TOOLCHAIN=nightly wasm-pack build --target bundler --out-dir pkg --profile wasm-release --no-opt",
    	"build:wasm-opt": "wasm-opt --enable-bulk-memory --enable-simd pkg/mlt_wasm_bg.wasm -Os -o pkg/mlt.wasm",
-    "build:wasm-gz": "gzip --best --no-name pkg/mlt.wasm --keep && du -sh pkg/*.wasm*",
+    "build:wasm-gz": "gzip --best --no-name pkg/mlt.wasm --keep --force && du -sh pkg/*.wasm*",
     "build:ts": "tsc",
 		"build": "npm run build:wasm && npm run build:wasm-opt && npm run build:ts && npm run build:wasm-gz",
 		"test": "vitest --coverage --coverage.reportOnFailure"

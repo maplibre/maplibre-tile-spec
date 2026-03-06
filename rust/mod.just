@@ -220,6 +220,7 @@ test:
     cargo test --all-features --all-targets
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
+    {{just}} rust::wasm-test
 
 # Test documentation generation
 test-doc: (docs '--document-private-items')
@@ -256,6 +257,18 @@ generate-synthetic-mlts:
 # Create .dump files for all .mlt files in test/synthetic for all languages
 generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find') build
     fd . ../test/synthetic -e mlt -x sh -c 'target/debug/mlt dump {} > {.}.dump || echo "Failed to dump {}"'
+
+# Build the mlt-wasm package (compiles Rust to WASM and TypeScript)
+[working-directory: 'mlt-wasm']
+wasm-build:
+    npm ci
+    npm run build
+
+# Run mlt-wasm tests
+[working-directory: 'mlt-wasm']
+wasm-test:
+    npm ci
+    npm run test
 
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
