@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type Point from "@mapbox/point-geometry";
 import type { VectorTileFeatureLike, VectorTileLike } from "@maplibre/vt-pbf";
@@ -10,7 +9,6 @@ import {
   getTestCases,
   writeActualOutput,
 } from "../../../test/synthetic/synthetic-test-utils";
-import { initSync } from "../pkg/mlt_wasm.js";
 import { decodeTile } from "./vectorTile";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -34,11 +32,6 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
   ["poly_self_intersect_fpf", "FastPFor not supported"],
   ["poly_self_intersect_fpf_tes", "FastPFor not supported"],
 ]);
-
-beforeAll(() => {
-  const wasmPath = join(__dirname, "../pkg/mlt_wasm_bg.wasm");
-  initSync({ module: readFileSync(wasmPath) });
-});
 
 describe("MLT WASM Decoder - Synthetic tests", () => {
   expect.addEqualityTesters([compareWithTolerance]);
