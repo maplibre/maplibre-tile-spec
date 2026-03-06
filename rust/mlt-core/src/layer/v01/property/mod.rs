@@ -554,7 +554,7 @@ pub enum ScalarValueEncoder {
     String(StrEncoder),
     Float,
     Bool,
-    Struct,
+    SharedDict,
 }
 impl ScalarValueEncoder {
     fn name(self) -> &'static str {
@@ -563,7 +563,7 @@ impl ScalarValueEncoder {
             ScalarValueEncoder::String(_) => "string",
             ScalarValueEncoder::Float => "float",
             ScalarValueEncoder::Bool => "bool",
-            ScalarValueEncoder::Struct => "struct",
+            ScalarValueEncoder::SharedDict => "shared_dict",
         }
     }
 }
@@ -758,7 +758,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                 };
                 EncVal::Str(optional, encoding)
             }
-            (Val::SharedDict, ScalarValueEncoder::Struct) => {
+            (Val::SharedDict, ScalarValueEncoder::SharedDict) => {
                 Err(NotImplemented("struct property encoding"))?
             }
             (v, e) => Err(UnsupportedPropertyEncoderCombination(v.name(), e.name()))?,

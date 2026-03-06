@@ -1,7 +1,9 @@
+mod optimizer;
 use std::fmt::{Debug, Formatter};
 use std::io::Write;
 
 use borrowme::borrowme;
+pub use optimizer::IdOptimizer;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};

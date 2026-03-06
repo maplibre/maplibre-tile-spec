@@ -890,8 +890,13 @@ export function fastUnpack256_16(inValues: Int32Array, inPos: number, out: Int32
     }
 }
 
-
-export function fastUnpack256_Generic(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number, bitWidth: number): void {
+export function fastUnpack256_Generic(
+    inValues: Int32Array,
+    inPos: number,
+    out: Int32Array,
+    outPos: number,
+    bitWidth: number,
+): void {
     const mask = MASKS[bitWidth] >>> 0;
 
     let inputWordIndex = inPos;

@@ -1,14 +1,22 @@
 mod decode;
 mod encode;
+mod optimizer;
 
 use std::fmt::Debug;
 use std::io::Write;
 use std::ops::Range;
 
 use borrowme::borrowme;
+use decode::{
+    decode_geometry_types, decode_level1_length_stream,
+    decode_level1_without_ring_buffer_length_stream, decode_level2_length_stream,
+    decode_root_length_stream,
+};
+pub use encode::GeometryEncoder;
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
+pub use optimizer::GeometryOptimizer;
 use serde::{Deserialize, Serialize};
 
 use crate::MltError::{
@@ -21,12 +29,6 @@ use crate::encode::impl_encodable;
 use crate::geojson::{Coord32, Geom32 as GeoGeom};
 use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _, checked_sum2};
 use crate::v01::column::ColumnType;
-use crate::v01::geometry::decode::{
-    decode_geometry_types, decode_level1_length_stream,
-    decode_level1_without_ring_buffer_length_stream, decode_level2_length_stream,
-    decode_root_length_stream,
-};
-pub use crate::v01::geometry::encode::GeometryEncoder;
 use crate::v01::{
     DictionaryType, IntEncoding, LengthType, OffsetType, OwnedStream, Stream, StreamMeta,
     StreamType,
@@ -433,7 +435,7 @@ impl DecodedGeometry {
         // Only on the very first polygon: if LineStrings were pushed before us,
         // their vertex offsets are sitting in part_offsets. Move them to
         // ring_offsets now, before we set up ring_offsets for polygon use.
-        // On subsequent polygons ring_offsets is already initialised and
+        // On subsequent polygons ring_offsets is already initialized and
         // part_offsets holds polygon ring-range data — leave both alone.
         if self.ring_offsets.is_none()
             && let Some(linestring_parts) = self.part_offsets.take()
@@ -803,7 +805,7 @@ impl FromDecoded<'_> for OwnedEncodedGeometry {
     type Encoder = GeometryEncoder;
 
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
-        encode::encode_geometry(decoded, &encoder)
+        encode::encode_geometry(decoded, &encoder, None)
     }
 }
 
@@ -1003,7 +1005,6 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::v01::geometry::encode::GeometryEncoder;
 
     /// Encode, serialize, parse, and decode a `DecodedGeometry`.
     /// The input must already be in the dense canonical form that `from_encoded`
@@ -1029,7 +1030,7 @@ mod tests {
     /// `push_geom` and perform a two-cycle encode/decode:
     ///
     /// 1. push -> encode -> decode  (`canonical`): exercises `push_geom` and
-    ///    `normalize_geometry_offsets`; normalises the sparse push_* layout to
+    ///    `normalize_geometry_offsets`; normalizes the sparse push_* layout to
     ///    the dense form that `from_encoded` always returns.
     /// 2. canonical -> encode -> decode  (`output`): verifies idempotency of
     ///    encode/decode on the canonical form
@@ -1253,7 +1254,6 @@ mod tests {
             prop_assert_eq!(output, canonical);
         }
 
-        #[ignore = "encoder does not implement this correctly"]
         #[test]
         fn test_cross_ls_mpoly_roundtrip(
             encoder in any::<GeometryEncoder>(),
