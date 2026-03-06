@@ -50,7 +50,7 @@ struct StringProfile {
 ///    and compute a `MinHash` signature over them.
 /// 2. **Group**
 ///    compare [`MinHash`] signatures with Jaccard similarity; columns
-///    whose similarity exceeds [`MINHASH_SIMILARITY_THRESHOLD`] are clustered
+///    whose similarity exceeds `MINHASH_SIMILARITY_THRESHOLD` are clustered
 ///    into a shared dictionary.  The struct column name is derived from the
 ///    longest common prefix of the grouped property names.
 /// 3. **Compete & Select** - choose the best `IntEncoder` for integer columns
