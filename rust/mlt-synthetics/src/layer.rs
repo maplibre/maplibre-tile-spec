@@ -8,12 +8,11 @@ use std::{fs, io};
 use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::v01::PropValue::{Bool, F32, F64, I32, I64, Str, U32, U64};
 use mlt_core::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, GeometryEncoder, IdEncoder, IntEncoder,
     MultiPropertyEncoder, OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01,
     OwnedProperty, PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
-    SharedDictItemEncoder, StrEncoder, VertexBufferType,
+    SharedDictItem, SharedDictItemEncoder, StrEncoder, VertexBufferType,
 };
 use mlt_core::{Encodable as _, FromDecoded as _, OwnedLayer, parse_layers};
 
@@ -100,7 +99,8 @@ pub struct Layer {
     pub geometry_items: Vec<Geom32>,
     /// Polygons that are also tessellated; triangle data is merged when building decoded geometry.
     pub tessellated_polygons: Vec<Option<Polygon<i32>>>,
-    pub props: Vec<Box<dyn LayerProp>>,
+    pub properties: Vec<DecodedProperty>,
+    pub prop_encoders: Vec<PropertyEncoder>,
     pub extent: Option<u32>,
     pub ids: Option<(Vec<Option<u64>>, IdEncoder)>,
 }
@@ -113,7 +113,8 @@ impl Layer {
             geometry_encoder: GeometryEncoder::all(default_geom_enc),
             geometry_items: vec![],
             tessellated_polygons: vec![],
-            props: vec![],
+            properties: vec![],
+            prop_encoders: vec![],
             extent: None,
             ids: None,
         }
@@ -229,20 +230,17 @@ impl Layer {
         self
     }
 
-    /// Add a property (boxed dynamic value).
+    /// Add a scalar property.
     #[must_use]
     pub fn add_prop(
         mut self,
         encoder: ScalarEncoder,
         name: impl Into<String>,
-        prop: PropValue,
+        values: PropValue,
     ) -> Self {
-        let prop = DecodedProperty {
-            name: name.into(),
-            values: prop,
-        };
-
-        self.props.push(Box::new(DecodedProp::new(prop, encoder)));
+        let name = name.into();
+        self.properties.push(DecodedProperty { name, values });
+        self.prop_encoders.push(PropertyEncoder::Scalar(encoder));
         self
     }
 
@@ -252,7 +250,10 @@ impl Layer {
     /// [`SharedDict::column`], and pass it to this method.
     #[must_use]
     pub fn add_shared_dict(mut self, shared_dict: SharedDict) -> Self {
-        self.props.push(Box::new(shared_dict));
+        let name = shared_dict.encoder.struct_name.clone();
+        let values = PropValue::SharedDict(shared_dict.items);
+        self.properties.push(DecodedProperty { name, values });
+        self.prop_encoders.push(shared_dict.encoder.into());
         self
     }
 
@@ -316,12 +317,6 @@ impl Layer {
         let mut geometry = OwnedGeometry::Decoded(decoded_geom);
         geometry.encode_with(self.geometry_encoder).unwrap();
 
-        let all_props: Vec<_> = self.props.iter().flat_map(|p| p.to_decoded()).collect();
-
-        let (decoded, instructions): (Vec<_>, Vec<_>) = all_props.into_iter().unzip();
-        let enc = MultiPropertyEncoder::new(instructions);
-        let encoded_props = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc).unwrap();
-
         let id = if let Some((ids, ids_encoder)) = self.ids {
             let mut id = OwnedId::Decoded(DecodedId(Some(ids)));
             id.encode_with(ids_encoder).unwrap();
@@ -330,16 +325,15 @@ impl Layer {
             OwnedId::None
         };
 
-        let properties = encoded_props
-            .into_iter()
-            .map(OwnedProperty::Encoded)
-            .collect();
+        let enc = MultiPropertyEncoder::new(self.prop_encoders);
+        let props = Vec::<OwnedEncodedProperty>::from_decoded(&self.properties, enc).unwrap();
+
         let layer = OwnedLayer::Tag01(OwnedLayer01 {
             name: "layer1".to_string(),
             extent: self.extent.unwrap_or(80),
             id,
             geometry,
-            properties,
+            properties: props.into_iter().map(OwnedProperty::Encoded).collect(),
         });
 
         let mut file = Self::open_new(path)
@@ -350,170 +344,13 @@ impl Layer {
     }
 }
 
-/// Returns the effective column name used for sorting: `struct_name` for struct children,
-/// `prop.name` for scalars.
-fn effective_column_name<'a>(prop: &'a DecodedProperty, encoder: &'a PropertyEncoder) -> &'a str {
-    match encoder {
-        PropertyEncoder::Scalar(_) => &prop.name,
-        PropertyEncoder::SharedDict(enc) => &enc.struct_name,
-    }
-}
-
-/// Property builder that can be added to a layer as a boxed dynamic value.
-pub trait LayerProp {
-    fn to_decoded(&self) -> Vec<(DecodedProperty, PropertyEncoder)>;
-}
-
-/// Dynamic accessor: pushes an optional value onto the property's value list.
-/// Stored as a boxed closure so we can have a uniform Prop<T> API.
-type SetValue<T> = Box<dyn FnMut(&mut Vec<Option<T>>, Option<T>)>;
-
-/// Property builder for a single property with typed values.
-pub struct Prop<T> {
-    name: String,
-    enc: ScalarEncoder,
-    values: Vec<Option<T>>,
-    set_value: SetValue<T>,
-}
-
-impl<T: Clone> Prop<T> {
-    pub fn new(name: &str, enc: ScalarEncoder, set_value: SetValue<T>) -> Self {
-        Self {
-            name: name.to_string(),
-            enc,
-            values: vec![],
-            set_value,
-        }
-    }
-
-    /// Add an optional value.
-    #[must_use]
-    pub fn add_none(mut self) -> Self {
-        (self.set_value)(&mut self.values, None);
-        self
-    }
-
-    #[must_use]
-    pub fn add(mut self, value: T) -> Self {
-        (self.set_value)(&mut self.values, Some(value));
-        self
-    }
-
-    fn to_decoded_with(&self, values: PropValue) -> Vec<(DecodedProperty, PropertyEncoder)> {
-        vec![(
-            DecodedProperty {
-                name: self.name.clone(),
-                values,
-            },
-            PropertyEncoder::Scalar(self.enc),
-        )]
-    }
-}
-
-impl LayerProp for Prop<bool> {
-    fn to_decoded(&self) -> Vec<(DecodedProperty, PropertyEncoder)> {
-        self.to_decoded_with(Bool(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<i32> {
-    fn to_decoded(&self) -> Vec<(DecodedProperty, PropertyEncoder)> {
-        self.to_decoded_with(I32(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<u32> {
-    fn to_decoded(&self) -> Vec<(DecodedProperty, PropertyEncoder)> {
-        self.to_decoded_with(U32(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<i64> {
-    fn to_decoded(&self) -> Vec<(DecodedProperty, PropertyEncoder)> {
-        self.to_decoded_with(I64(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<u64> {
-    fn to_decoded(&self) -> Vec<(DecodedProperty, PropertyEncoder)> {
-        self.to_decoded_with(U64(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<f32> {
-    fn to_decoded(&self) -> Vec<(DecodedProperty, PropertyEncoder)> {
-        self.to_decoded_with(F32(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<f64> {
-    fn to_decoded(&self) -> Vec<(DecodedProperty, PropertyEncoder)> {
-        self.to_decoded_with(F64(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<String> {
-    fn to_decoded(&self) -> Vec<(DecodedProperty, PropertyEncoder)> {
-        self.to_decoded_with(Str(self.values.clone()))
-    }
-}
-
-/// Push closure: appends to the vec. Used as the dynamic accessor for all Prop<T>.
-fn push_value<T>(v: &mut Vec<Option<T>>, x: Option<T>) {
-    v.push(x);
-}
-
-pub fn bool(name: &str, enc: ScalarEncoder) -> Prop<bool> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn i32(name: &str, enc: ScalarEncoder) -> Prop<i32> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn u32(name: &str, enc: ScalarEncoder) -> Prop<u32> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn i64(name: &str, enc: ScalarEncoder) -> Prop<i64> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn u64(name: &str, enc: ScalarEncoder) -> Prop<u64> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn f32(name: &str, enc: ScalarEncoder) -> Prop<f32> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn f64(name: &str, enc: ScalarEncoder) -> Prop<f64> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn string(name: &str, enc: ScalarEncoder) -> Prop<String> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-/// Erased property: holds a pre-built decoded property and encoder (e.g. for I32, Str, etc.).
-#[derive(Clone)]
-pub struct DecodedProp {
-    prop: DecodedProperty,
-    enc: ScalarEncoder,
-}
-
-impl DecodedProp {
-    #[must_use]
-    pub fn new(prop: DecodedProperty, enc: ScalarEncoder) -> Self {
-        Self { prop, enc }
-    }
-}
-impl LayerProp for DecodedProp {
-    fn to_decoded(&self) -> Vec<(DecodedProperty, PropertyEncoder)> {
-        vec![(self.prop.clone(), PropertyEncoder::Scalar(self.enc))]
-    }
-}
-
 /// Builder for a shared dictionary struct column with multiple string sub-properties.
 ///
 /// Use [`SharedDict::new`] to create the builder, add columns with [`SharedDict::column`],
 /// then pass it to [`Layer::add_shared_dict`].
 pub struct SharedDict {
     encoder: SharedDictEncoder,
-    values: Vec<Vec<Option<String>>>,
+    items: Vec<SharedDictItem>,
 }
 
 impl SharedDict {
@@ -530,7 +367,7 @@ impl SharedDict {
                 dict_encoder,
                 items: vec![],
             },
-            values: vec![],
+            items: vec![],
         }
     }
 
@@ -549,35 +386,16 @@ impl SharedDict {
         offset: IntEncoder,
         values: impl IntoIterator<Item = Option<String>>,
     ) -> Self {
+        let child_name = child_name.into();
         self.encoder.items.push(SharedDictItemEncoder {
-            child_name: child_name.into(),
+            child_name: child_name.clone(),
             optional,
             offset,
         });
-        self.values.push(values.into_iter().collect());
+        self.items.push(SharedDictItem {
+            suffix: child_name,
+            values: values.into_iter().collect(),
+        });
         self
-    }
-}
-
-impl LayerProp for SharedDict {
-    fn to_decoded(&self) -> Vec<(DecodedProperty, PropertyEncoder)> {
-        self.encoder
-            .items
-            .iter()
-            .zip(&self.values)
-            .map(|(item, values)| {
-                let prop = DecodedProperty {
-                    name: item.child_name.clone(),
-                    values: Str(values.clone()),
-                };
-                let instruction = SharedDictEncoder {
-                    struct_name: self.encoder.struct_name.clone(),
-                    dict_encoder: self.encoder.dict_encoder,
-                    items: vec![item.clone()],
-                }
-                .into();
-                (prop, instruction)
-            })
-            .collect()
     }
 }

@@ -1,7 +1,6 @@
 mod optimizer;
 pub mod strings;
 
-use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Debug};
 use std::io::Write;
 
@@ -19,7 +18,7 @@ pub use crate::v01::property::optimizer::PropertyOptimizer;
 pub use crate::v01::property::strings::{
     EncodedSharedDictProp, EncodedStrProp, EncodedStructChild, SharedDictChild, SharedDictEncoder,
     SharedDictItemEncoder, SharedDictionaryGroup, StrEncoder, decode_shared_dict, decode_strings,
-    encode_shared_dictionary,
+    encode_shared_dict_prop, encode_shared_dictionary,
 };
 use crate::v01::{
     ColumnType, DictionaryType, FsstStrEncoder, IntEncoder, LengthType, OwnedStream, Stream,
@@ -617,65 +616,20 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
             });
         }
 
-        // Pass 1: collect struct child groups, preserving first-occurrence order of struct names.
-        // Each SharedDictEncoder references a struct_name. Multiple entries with the same
-        // struct_name are grouped together. The dict_encoder is taken from the first entry.
-        let mut struct_groups: HashMap<String, SharedDictionaryGroup> = HashMap::new();
-        let mut struct_order: Vec<String> = Vec::new();
-
-        for (prop, encoder) in properties.iter().zip(&prop_encs) {
-            if let PropertyEncoder::SharedDict(enc) = encoder {
-                // Each SharedDictEncoder should have exactly one item for this property
-                let item = enc
-                    .items
-                    .first()
-                    .ok_or(MltError::MissingStructEncoderForStruct)?;
-
-                let group = struct_groups
-                    .entry(enc.struct_name.clone())
-                    .or_insert_with(|| {
-                        struct_order.push(enc.struct_name.clone());
-                        SharedDictionaryGroup {
-                            shared: enc.dict_encoder,
-                            children: Vec::new(),
-                        }
-                    });
-                group.children.push(SharedDictChild {
-                    prop_value: prop,
-                    prop_name: item.child_name.clone(),
-                    optional: item.optional,
-                    offset: item.offset,
-                });
-            }
-        }
-
-        // Pre-encode all struct groups.
-        let mut encoded_structs: HashMap<String, OwnedEncodedProperty> = HashMap::new();
-        for struct_name in &struct_order {
-            let group = &struct_groups[struct_name];
-            encoded_structs.insert(
-                struct_name.clone(),
-                encode_shared_dictionary(struct_name, group)?,
-            );
-        }
-
-        // Pass 2: emit properties in input order; structs appear at their first child's position.
-        let mut result = Vec::new();
-        let mut emitted_structs = HashSet::new();
+        let mut result = Vec::with_capacity(properties.len());
 
         for (prop, encoder) in properties.iter().zip(prop_encs) {
             match encoder {
                 PropertyEncoder::Scalar(enc) => {
                     result.push(OwnedEncodedProperty::from_decoded(prop, enc)?);
                 }
-                PropertyEncoder::SharedDict(SharedDictEncoder { struct_name, .. }) => {
-                    if emitted_structs.insert(struct_name.clone()) {
-                        result.push(
-                            encoded_structs
-                                .remove(&struct_name)
-                                .expect("pre-encoded in pass 1"),
-                        );
-                    }
+                PropertyEncoder::SharedDict(enc) => {
+                    let PropValue::SharedDict(items) = &prop.values else {
+                        return Err(NotImplemented(
+                            "SharedDict encoder requires PropValue::SharedDict",
+                        ));
+                    };
+                    result.push(encode_shared_dict_prop(items, &enc)?);
                 }
             }
         }

@@ -644,6 +644,133 @@ pub fn encode_shared_dictionary(
     })
 }
 
+/// Encode a shared dictionary property directly from `PropValue::SharedDict` and `SharedDictEncoder`.
+pub fn encode_shared_dict_prop(
+    items: &[SharedDictItem],
+    encoder: &SharedDictEncoder,
+) -> Result<OwnedEncodedProperty, MltError> {
+    if items.len() != encoder.items.len() {
+        return Err(NotImplemented(
+            "SharedDict items count must match encoder items count",
+        ));
+    }
+
+    // Build shared dictionary: unique strings in first-occurrence insertion order.
+    let mut dict: Vec<&str> = Vec::new();
+    let mut dict_index: HashMap<&str, u32> = HashMap::new();
+
+    for item in items {
+        for s in item.values.iter().flatten() {
+            if let Entry::Vacant(e) = dict_index.entry(s) {
+                let idx = u32::try_from(dict.len())?;
+                e.insert(idx);
+                dict.push(s);
+            }
+        }
+    }
+
+    let dict_encoded = match encoder.dict_encoder {
+        StrEncoder::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
+            &dict,
+            string_lengths,
+            LengthType::Dictionary,
+            DictionaryType::Shared,
+        )?,
+        StrEncoder::Fsst(enc) => {
+            OwnedStream::encode_strings_fsst_plain_with_type(&dict, enc, DictionaryType::Single)?
+        }
+    };
+
+    // Encode each child column.
+    let mut children = Vec::with_capacity(items.len());
+    for (item, item_enc) in items.iter().zip(&encoder.items) {
+        // Presence stream
+        let optional = if item_enc.optional == PresenceStream::Present {
+            let present_bools: Vec<bool> = item.values.iter().map(Option::is_some).collect();
+            Some(OwnedStream::encode_presence(&present_bools)?)
+        } else {
+            None
+        };
+
+        // Offset indices for non-null values only.
+        let offsets: Vec<u32> = item
+            .values
+            .iter()
+            .filter_map(|v| v.as_deref())
+            .map(|s| dict_index[s])
+            .collect();
+
+        let data = OwnedStream::encode_u32s_of_type(
+            &offsets,
+            item_enc.offset,
+            StreamType::Offset(OffsetType::String),
+        )?;
+
+        children.push(OwnedEncodedStructChild {
+            name: item_enc.child_name.clone(),
+            typ: if item_enc.optional == PresenceStream::Present {
+                ColumnType::OptStr
+            } else {
+                ColumnType::Str
+            },
+            optional,
+            data,
+        });
+    }
+
+    let struct_prop = match dict_encoded {
+        OwnedEncodedStrProp::Plain {
+            lengths: enc_len,
+            data: enc_data,
+        } => OwnedEncodedSharedDictProp::Plain {
+            enc_len,
+            enc_data,
+            children,
+        },
+        OwnedEncodedStrProp::Dictionary {
+            lengths: enc_len,
+            offset: enc_off,
+            data: enc_data,
+        } => OwnedEncodedSharedDictProp::Dictionary {
+            enc_len,
+            enc_off,
+            enc_data,
+            children,
+        },
+        OwnedEncodedStrProp::FsstPlain {
+            symbol_lengths: enc_len_sym,
+            symbol_table,
+            length: enc_len_dic,
+            corpus,
+        } => OwnedEncodedSharedDictProp::FsstPlain {
+            enc_len_sym,
+            symbol_table,
+            enc_len_dic,
+            corpus,
+            children,
+        },
+        OwnedEncodedStrProp::FsstDictionary {
+            symbol_lengths: enc_len_sym,
+            symbol_table,
+            length: enc_len_dic,
+            corpus,
+            offset,
+        } => OwnedEncodedSharedDictProp::FsstDictionary {
+            enc_len_sym,
+            symbol_table,
+            enc_len_dic,
+            corpus,
+            offset,
+            children,
+        },
+    };
+
+    Ok(OwnedEncodedProperty {
+        name: encoder.struct_name.clone(),
+        value: OwnedEncodedPropValue::SharedDict(struct_prop),
+    })
+}
+
 impl OwnedEncodedStructChild {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         self.typ.write_to(writer)?;
