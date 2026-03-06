@@ -28,9 +28,13 @@
 //! `f64::NAN` (≡ `NaN` in JS), which the TS wrapper converts to `undefined`.
 //! IDs above `Number.MAX_SAFE_INTEGER` lose precision.
 
+use std::cell::RefCell;
+
 use js_sys::{Int32Array, Object, Reflect};
+use mlt_core::borrowme::{Borrow as _, ToOwned as _};
 use mlt_core::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, GeometryType, Id, PropValue, Property,
+    DecodedGeometry, DecodedId, DecodedProperty, GeometryType, Id, OwnedProperty, PropValue,
+    Property,
 };
 use mlt_core::{MltError, parse_layers};
 use wasm_bindgen::prelude::*;
@@ -41,14 +45,17 @@ struct DecodedLayer {
     geometry: DecodedGeometry,
     /// `None` when the layer carries no ID column at all.
     ids: Option<Vec<Option<u64>>>,
-    properties: Vec<DecodedProperty>,
+    /// Property
+    raw_props: RefCell<Vec<OwnedProperty>>,
+    /// Decoded property columns, populated lazily.  `None` until first access.
+    props: RefCell<Option<Vec<DecodedProperty>>>,
 }
 
 /// A fully-decoded MLT tile.
 ///
 /// Construct one via [`decode_tile`], then use the index-based accessors to
-/// read layer metadata and per-feature data.  All decoded data lives in Rust
-/// heap memory and is only marshalled to JS on demand.
+/// read layer metadata and per-feature data.  Geometry and IDs are decoded
+/// eagerly; property columns are decoded lazily on first access.
 #[wasm_bindgen]
 pub struct MltTile {
     layers: Vec<DecodedLayer>,
@@ -161,20 +168,45 @@ impl MltTile {
 
     /// Properties for a single feature as a plain JS object.
     ///
-    /// Only present (`Some`) values are included.  Null/absent optional
-    /// property values are omitted from the object entirely, matching the
-    /// behaviour of `@mapbox/vector-tile` which also skips null properties.
+    /// Property columns are decoded on the **first call** for each layer and
+    /// cached; subsequent calls for any feature in the same layer are cheap
+    /// index operations with no further parsing.
+    ///
+    /// Only present (`Some`) values are included.  Null/absent optional property
+    /// values are omitted from the object entirely, matching the behaviour of
+    /// `@mapbox/vector-tile` which also skips null properties.
     ///
     /// `SharedDict` (struct-typed) columns are not yet supported and are
     /// silently skipped.
-    ///
-    /// This method is intentionally not called in the `MltVectorTileFeature`
-    /// constructor on the TS side — it is only invoked when the `.properties`
-    /// getter is first accessed, keeping unused features allocation-free.
     #[must_use]
     pub fn feature_properties(&self, layer_idx: usize, feature_idx: usize) -> Object {
+        let layer = &self.layers[layer_idx];
+
+        // Lazy decode: on first access drain `raw_props` and decode all columns
+        // for this layer in one pass.  Every subsequent call just reads the cache.
+        if layer.props.borrow().is_none() {
+            let raw: Vec<OwnedProperty> = layer.raw_props.borrow_mut().drain(..).collect();
+            let decoded: Vec<DecodedProperty> = raw
+                .into_iter()
+                .flat_map(|p| {
+                    p.borrow()
+                        .decode_expand()
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter_map(|prop| match prop {
+                            Property::Decoded(d) => Some(d),
+                            Property::Encoded(_) => None,
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect();
+            *layer.props.borrow_mut() = Some(decoded);
+        }
+
         let obj = Object::new();
-        for prop in &self.layers[layer_idx].properties {
+        let guard = layer.props.borrow();
+        let props = guard.as_ref().expect("props must be initialised above");
+        for prop in props {
             if let Some(val) = prop_to_js(&prop.values, feature_idx) {
                 let _ = Reflect::set(&obj, &JsValue::from_str(&prop.name), &val);
             }
@@ -183,52 +215,75 @@ impl MltTile {
     }
 }
 
-/// Decode a raw MLT tile blob and return an [`MltTile`] whose data lives
-/// entirely in Rust heap memory until accessed from JS.
+/// Decode a raw MLT tile blob and return an [`MltTile`].
 ///
-/// All columns are decoded eagerly upfront so that subsequent per-feature
-/// accesses are cheap index operations with no further parsing.
+/// Geometry and ID columns are decoded eagerly so that `feature_type`,
+/// `feature_id`, and `feature_geometry` are always cheap index operations.
+/// Property columns are stored in their encoded form and decoded lazily on
+/// the first `feature_properties` call for each layer, avoiding work for
+/// features that are never rendered or inspected.
+///
+/// Decoded geometry and IDs are **moved** out of the parsed layer rather than
+/// cloned, keeping peak memory and allocation cost as low as possible.
 #[wasm_bindgen]
 pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
-    let mut raw_layers = parse_layers(data).map_err(|e| to_js_err(&e))?;
-
+    let raw_layers = parse_layers(data).map_err(|e| to_js_err(&e))?;
     let mut layers = Vec::with_capacity(raw_layers.len());
 
-    for raw_layer in &mut raw_layers {
-        raw_layer.decode_all().map_err(|e| to_js_err(&e))?;
+    for mut raw_layer in raw_layers {
+        // Skip non-Tag01 layers.
+        if !matches!(raw_layer, mlt_core::Layer::Tag01(_)) {
+            continue;
+        }
 
-        let layer01 = raw_layer
-            .as_layer01()
-            .ok_or_else(|| JsError::new("unsupported layer tag (expected 0x01)"))?;
+        // Phase 1 — mutably borrow to decode geometry + IDs and snapshot the
+        // encoded property columns as owned values.  The borrow is released
+        // at the end of this block so we can consume `raw_layer` below.
+        let raw_props: Vec<OwnedProperty> = {
+            let layer01 = match &mut raw_layer {
+                mlt_core::Layer::Tag01(l) => l,
+                mlt_core::Layer::Unknown(_) => unreachable!(),
+            };
 
-        let geometry = match &layer01.geometry {
-            mlt_core::v01::Geometry::Decoded(g) => g.clone(),
+            layer01
+                .decode_geometry_and_id()
+                .map_err(|e| to_js_err(&e))?;
+
+            // Snapshot encoded property columns as owned data so they can
+            // outlive `raw_layer` and be decoded lazily later.
+            layer01.properties.iter().map(|p| p.to_owned()).collect()
+        }; // mutable borrow of raw_layer ends here
+
+        // Phase 2 — consume `raw_layer` to MOVE the decoded geometry and IDs
+        // directly into `DecodedLayer`, with no intermediate clone.
+        let layer01 = match raw_layer {
+            mlt_core::Layer::Tag01(l) => l,
+            mlt_core::Layer::Unknown(_) => unreachable!(),
+        };
+
+        let name = layer01.name.to_string();
+        let extent = layer01.extent;
+
+        let geometry = match layer01.geometry {
+            mlt_core::v01::Geometry::Decoded(g) => g,
             mlt_core::v01::Geometry::Encoded(_) => {
                 return Err(JsError::new("geometry was not decoded"));
             }
         };
 
-        let ids = match &layer01.id {
-            Id::Decoded(DecodedId(v)) => v.clone(),
+        let ids = match layer01.id {
+            Id::Decoded(DecodedId(v)) => v,
             Id::None => None,
             Id::Encoded(_) => return Err(JsError::new("id was not decoded")),
         };
 
-        let properties = layer01
-            .properties
-            .iter()
-            .map(|p| match p {
-                Property::Decoded(d) => Ok(d.clone()),
-                Property::Encoded(_) => Err(JsError::new("property was not decoded")),
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
         layers.push(DecodedLayer {
-            name: layer01.name.to_string(),
-            extent: layer01.extent,
+            name,
+            extent,
             geometry,
             ids,
-            properties,
+            raw_props: RefCell::new(raw_props),
+            props: RefCell::new(None),
         });
     }
 
