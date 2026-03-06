@@ -593,6 +593,7 @@ pub enum PresenceStream {
     Absent,
 }
 
+/// Encoder config for all of layer's properties.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultiPropertyEncoder {
     pub(crate) properties: Vec<PropertyEncoder>,
