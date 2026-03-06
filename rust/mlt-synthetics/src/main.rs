@@ -124,10 +124,15 @@ fn generate_geometry(w: &SynthWriter) {
         morton_curve.push(c(x * scale, y * scale));
     }
     w.geo_varint()
-        .geo(LineString::new(morton_curve))
+        .geo(LineString::new(morton_curve.clone()))
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
         .write("line_morton_curve_morton");
+    w.geo_varint()
+        .geo(LineString::new(morton_curve))
+        .vertex_buffer_type(VertexBufferType::Vec2)
+        .vertex_offsets(E::delta_rle_varint())
+        .write("line_morton_curve_no_morton");
     w.geo_varint().geo(poly1()).write("poly");
     w.geo_fastpfor().geo(poly1()).write("poly_fpf");
     w.geo_varint().tessellated(poly1()).write("poly_tes");
