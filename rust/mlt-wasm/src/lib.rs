@@ -32,7 +32,7 @@ use std::cell::RefCell;
 use std::f64;
 
 use js_sys::{Int32Array, Object, Reflect};
-use mlt_core::borrowme::{Borrow as _, ToOwned as _};
+use mlt_core::borrowme::Borrow as _;
 use mlt_core::v01::{DecodedGeometry, DecodedId, GeometryType, Id, OwnedProperty, PropValue};
 use mlt_core::{MltError, parse_layers};
 use wasm_bindgen::prelude::*;
@@ -119,10 +119,7 @@ impl MltTile {
         self.layers[layer_idx]
             .ids
             .as_deref()
-            .map_or(f64::NAN, |ids| {
-                ids.get(feature_idx)
-                    .map_or(f64::NAN, |f| f64::try_from(*f).unwrap_or(f64::NAN))
-            })
+            .map_or(f64::NAN, |ids| *ids.get(feature_idx).unwrap_or(&f64::NAN))
     }
 
     /// Geometry for a single feature as a flat `Int32Array`.
@@ -192,10 +189,10 @@ impl MltTile {
         let obj = Object::new();
         let guard = layer.props.borrow();
         for p in &*guard {
-            if let OwnedProperty::Decoded(prop) = p {
-                if let Some(val) = prop_to_js(&prop.values, feature_idx) {
-                    let _ = Reflect::set(&obj, &JsValue::from_str(&prop.name), &val);
-                }
+            if let OwnedProperty::Decoded(prop) = p
+                && let Some(val) = prop_to_js(&prop.values, feature_idx)
+            {
+                let _ = Reflect::set(&obj, &JsValue::from_str(&prop.name), &val);
             }
         }
         obj
@@ -233,7 +230,11 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
                 .decode_geometry_and_id()
                 .map_err(|e| to_js_err(&e))?;
 
-            layer01.properties.iter().map(|p| p.to_owned()).collect()
+            layer01
+                .properties
+                .iter()
+                .map(mlt_core::borrowme::ToOwned::to_owned)
+                .collect()
         }; // mutable borrow of raw_layer ends here
 
         // Phase 2 — consume `raw_layer` to MOVE the decoded geometry and IDs
@@ -253,9 +254,14 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             }
         };
 
-        let ids = match layer01.id {
-            Id::Decoded(DecodedId(v)) => v,
-            Id::None => None,
+        let ids: Option<Vec<f64>> = match layer01.id {
+            Id::Decoded(DecodedId(Some(v))) => Some(
+                #[expect(clippy::cast_precision_loss)]
+                v.into_iter()
+                    .map(|f| f.map_or(f64::NAN, |f| f as f64))
+                    .collect(),
+            ),
+            Id::Decoded(DecodedId(None)) | Id::None => None,
             Id::Encoded(_) => return Err(JsError::new("id was not decoded")),
         };
 
