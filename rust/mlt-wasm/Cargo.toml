@@ -16,7 +16,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 js-sys.workspace = true
-mlt-core = { version = "0.2.0", path = "../mlt-core" }
+mlt-core.workspace = true
 wasm-bindgen.workspace = true
 wee_alloc = "0.4"
 
