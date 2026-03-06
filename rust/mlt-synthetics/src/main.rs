@@ -127,7 +127,7 @@ fn generate_geometry(w: &SynthWriter) {
         .geo(LineString::new(morton_curve))
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .write("line_morton");
+        .write("line_morton_curve_morton");
     w.geo_varint().geo(poly1()).write("polygon");
     w.geo_fastpfor().geo(poly1()).write("polygon_fpf");
     w.geo_varint().tessellated(poly1()).write("polygon_tes");
