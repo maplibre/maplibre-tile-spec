@@ -120,20 +120,13 @@ impl DecodedGeometry {
                 match (parts, rings) {
                     (Some(parts), Some(rings)) => geom_range
                         .map(|p| v(ring_off(rings, part_off(parts, p)?)?))
-                        .collect::<Result<Vec<_>, _>>()
-                        .map(|cs| {
-                            Geom32::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect()))
-                        }),
+                        .collect::<Result<Vec<_>, _>>(),
                     (Some(parts), None) => geom_range
                         .map(|p| v(part_off(parts, p)?))
-                        .collect::<Result<Vec<_>, _>>()
-                        .map(|cs| {
-                            Geom32::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect()))
-                        }),
-                    (None, _) => geom_range.map(&v).collect::<Result<Vec<_>, _>>().map(|cs| {
-                        Geom32::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect()))
-                    }),
+                        .collect::<Result<Vec<_>, _>>(),
+                    (None, _) => geom_range.map(&v).collect::<Result<Vec<_>, _>>(),
                 }
+                .map(|cs| Geom32::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect())))
             }
             GeometryType::MultiLineString => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
@@ -147,13 +140,12 @@ impl DecodedGeometry {
                     geom_range
                         .map(|p| line(ring_off_pair(rings, part_off(parts, p)?)?))
                         .collect::<Result<Vec<_>, _>>()
-                        .map(|ls| Geom32::MultiLineString(MultiLineString(ls)))
                 } else {
                     geom_range
                         .map(|p| line(part_off_pair(parts, p)?))
                         .collect::<Result<Vec<_>, _>>()
-                        .map(|ls| Geom32::MultiLineString(MultiLineString(ls)))
                 }
+                .map(|ls| Geom32::MultiLineString(MultiLineString(ls)))
             }
             GeometryType::MultiPolygon => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
