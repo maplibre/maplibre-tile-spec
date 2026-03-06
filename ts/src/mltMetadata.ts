@@ -1,14 +1,14 @@
 export enum ColumnDataType {
-    STRING,
-    FLOAT,
-    DOUBLE,
-    INT_64,
-    UINT_64,
-    BOOLEAN,
-    GEOMETRY,
-    GEOMETRY_M,
-    GEOMETRY_Z,
-    GEOMETRY_ZM,
+    STRING = 0,
+    FLOAT = 1,
+    DOUBLE = 2,
+    INT_64 = 3,
+    UINT_64 = 4,
+    BOOLEAN = 5,
+    GEOMETRY = 6,
+    GEOMETRY_M = 7,
+    GEOMETRY_Z = 8,
+    GEOMETRY_ZM = 9,
 }
 
 export enum ColumnEncoding {
@@ -16,16 +16,16 @@ export enum ColumnEncoding {
      * String -> no dictionary coding
      * Geometry -> standard unsorted encoding
      * */
-    PLAIN,
-    VARINT,
-    DELTA_VARINT,
-    RLE,
-    BOOLEAN_RLE,
-    BYTE_RLE,
-    DICTIONARY,
-    LOCALIZED_DICTIONARY,
-    ORDERED_GEOMETRY_ENCODING,
-    INDEXED_COORDINATE_ENCODING,
+    PLAIN = 0,
+    VARINT = 1,
+    DELTA_VARINT = 2,
+    RLE = 3,
+    BOOLEAN_RLE = 4,
+    BYTE_RLE = 5,
+    DICTIONARY = 6,
+    LOCALIZED_DICTIONARY = 7,
+    ORDERED_GEOMETRY_ENCODING = 8,
+    INDEXED_COORDINATE_ENCODING = 9,
 }
 
 export interface ColumnMetadata {

@@ -15,7 +15,6 @@ class ThreadPoolTaskRunner(
         }
     }
 
-    @Throws(InterruptedException::class)
     override fun awaitTermination() {
         threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)
     }
