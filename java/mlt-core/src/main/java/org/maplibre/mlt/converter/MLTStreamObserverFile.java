@@ -2,8 +2,11 @@ package org.maplibre.mlt.converter;
 
 import com.google.gson.Gson;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
@@ -29,7 +32,10 @@ public class MLTStreamObserverFile implements MLTStreamObserver {
 
   @Override
   public <T> void observeStream(
-      String streamName, Collection<T> values, byte[] rawMetaData, byte[] rawData)
+      @NotNull String streamName,
+      @NotNull Collection<T> values,
+      @NotNull ByteBuffer rawMetaData,
+      @NotNull ByteBuffer rawData)
       throws IOException {
     if (layerName == null) {
       throw new IllegalStateException("Layer name must be set before observing streams");
@@ -40,13 +46,27 @@ public class MLTStreamObserverFile implements MLTStreamObserver {
 
     final var keyFilename = sanitizeFilename(layerName) + "_" + sanitizeFilename(streamName);
 
-    if (rawMetaData != null && rawMetaData.length > 0) {
+    if (rawMetaData != null && rawMetaData.hasRemaining()) {
       final var path = basePath.resolve(keyFilename + ".meta.bin");
-      Files.write(path, rawMetaData);
+      try (final var channel =
+          FileChannel.open(
+              path,
+              StandardOpenOption.CREATE,
+              StandardOpenOption.WRITE,
+              StandardOpenOption.TRUNCATE_EXISTING)) {
+        channel.write(rawMetaData);
+      }
     }
-    if (rawData != null && rawData.length > 0) {
+    if (rawData != null && rawData.hasRemaining()) {
       final var path = basePath.resolve(keyFilename + ".bin");
-      Files.write(path, rawData);
+      try (final var channel =
+          FileChannel.open(
+              path,
+              StandardOpenOption.CREATE,
+              StandardOpenOption.WRITE,
+              StandardOpenOption.TRUNCATE_EXISTING)) {
+        channel.write(rawData);
+      }
     }
     if (values != null && !values.isEmpty()) {
       final var path = basePath.resolve(keyFilename + ".json");

@@ -2,7 +2,7 @@ package org.maplibre.mlt.converter.encodings;
 
 import jakarta.annotation.Nullable;
 import java.io.IOException;
-import java.util.Arrays;
+import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.commons.lang3.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
@@ -13,17 +13,17 @@ public class FloatEncoder {
 
   private FloatEncoder() {}
 
-  public static byte[] encodeFloatStream(
+  public static List<ByteBuffer> encodeFloatStream(
       List<Float> values, @NotNull MLTStreamObserver streamObserver, @Nullable String streamName)
       throws IOException {
     // TODO: add encodings -> RLE, Dictionary, PDE, ALP
-    float[] floatArray = new float[values.size()];
+    final float[] floatArray = new float[values.size()];
     for (int i = 0; i < values.size(); i++) {
       floatArray[i] = values.get(i);
     }
-    var encodedValueStream = EncodingUtils.encodeFloatsLE(floatArray);
+    final var encodedValueStream = EncodingUtils.encodeFloatsLE(floatArray);
 
-    var valuesMetadata =
+    final var valuesMetadata =
         new StreamMetadata(
                 PhysicalStreamType.DATA,
                 null,
@@ -35,10 +35,9 @@ public class FloatEncoder {
             .encode();
 
     streamObserver.observeStream(
-        streamName,
-        Arrays.asList(ArrayUtils.toObject(floatArray)),
-        valuesMetadata,
-        encodedValueStream);
-    return ArrayUtils.addAll(valuesMetadata, encodedValueStream);
+        streamName, ArrayUtils.toObject(floatArray), valuesMetadata, encodedValueStream);
+
+    valuesMetadata.add(ByteBuffer.wrap(encodedValueStream));
+    return valuesMetadata;
   }
 }

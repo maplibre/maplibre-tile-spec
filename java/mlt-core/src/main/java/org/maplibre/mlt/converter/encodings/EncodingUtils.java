@@ -66,7 +66,7 @@ public class EncodingUtils {
 
   // Source:
   // https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java
-  public static byte[] encodeVarints(int[] values, boolean zigZagEncode, boolean deltaEncode)
+  public static ByteBuffer encodeVarints(int[] values, boolean zigZagEncode, boolean deltaEncode)
       throws IOException {
     var encodedValues = values;
     if (deltaEncode) {
@@ -82,10 +82,10 @@ public class EncodingUtils {
     for (var value : encodedValues) {
       i = putVarInt(value, varintBuffer, i);
     }
-    return Arrays.copyOfRange(varintBuffer, 0, i);
+    return ByteBuffer.wrap(varintBuffer, 0, i);
   }
 
-  public static byte[] encodeVarints(long[] values, boolean zigZagEncode, boolean deltaEncode)
+  public static ByteBuffer encodeVarints(long[] values, boolean zigZagEncode, boolean deltaEncode)
       throws IOException {
     var encodedValues = values;
     if (deltaEncode) {
@@ -101,25 +101,25 @@ public class EncodingUtils {
     for (var value : encodedValues) {
       i = putVarInt(value, varintBuffer, i);
     }
-    return Arrays.copyOfRange(varintBuffer, 0, i);
+    return ByteBuffer.wrap(varintBuffer, 0, i);
   }
 
-  public static byte[] encodeVarints(
+  public static ByteBuffer encodeVarints(
       Collection<Integer> values, boolean zigZagEncode, boolean deltaEncode) throws IOException {
     return encodeVarints(CollectionUtils.unboxInts(values), zigZagEncode, deltaEncode);
   }
 
-  public static byte[] encodeLongVarints(long[] values, boolean zigZagEncode, boolean deltaEncode)
-      throws IOException {
+  public static ByteBuffer encodeLongVarints(
+      long[] values, boolean zigZagEncode, boolean deltaEncode) throws IOException {
     return encodeVarints(values, zigZagEncode, deltaEncode);
   }
 
-  public static byte[] encodeVarint(int value, boolean zigZagEncode) throws IOException {
+  public static ByteBuffer encodeVarint(int value, boolean zigZagEncode) throws IOException {
     if (zigZagEncode) {
       value = encodeZigZag(value);
     }
-    var varintBuffer = new byte[MAX_VARLONG_SIZE];
-    return Arrays.copyOfRange(varintBuffer, 0, putVarInt(value, varintBuffer, 0));
+    final var varintBuffer = new byte[MAX_VARLONG_SIZE];
+    return ByteBuffer.wrap(varintBuffer, 0, putVarInt(value, varintBuffer, 0));
   }
 
   // Source:
@@ -301,7 +301,8 @@ public class EncodingUtils {
     return Pair.of(CollectionUtils.unboxLongs(runsBuffer), CollectionUtils.unboxLongs(valueBuffer));
   }
 
-  public static byte[] encodeFastPfor128(int[] values, boolean zigZagEncode, boolean deltaEncode) {
+  public static ByteBuffer encodeFastPfor128(
+      int[] values, boolean zigZagEncode, boolean deltaEncode) {
     /*
      * Note that this does not use differential coding: if you are working on sorted lists,
      * you should first compute deltas, @see me.lemire.integercompression.differential.Delta#delta
@@ -318,26 +319,21 @@ public class EncodingUtils {
     IntegerCODEC ic = new Composition(new FastPFOR(), new VariableByte());
     IntWrapper inputoffset = new IntWrapper(0);
     IntWrapper outputoffset = new IntWrapper(0);
-    int[] compressed = new int[encodedValues.length + 1024];
+    final int[] compressed = new int[encodedValues.length + 1024];
     ic.compress(encodedValues, inputoffset, encodedValues.length, compressed, outputoffset);
-    var totalSize = outputoffset.intValue() * 4;
+    final var totalSize = outputoffset.intValue() * 4;
 
-    var compressedBuffer = new byte[totalSize];
+    final var compressedBuffer = new byte[totalSize];
     var valueCounter = 0;
     for (var i = 0; i < totalSize; i += 4) {
       var value = compressed[valueCounter++];
-      var val1 = (byte) (value >>> 24);
-      var val2 = (byte) (value >>> 16);
-      var val3 = (byte) (value >>> 8);
-      var val4 = (byte) value;
-
-      compressedBuffer[i] = val1;
-      compressedBuffer[i + 1] = val2;
-      compressedBuffer[i + 2] = val3;
-      compressedBuffer[i + 3] = val4;
+      compressedBuffer[i] = (byte) (value >>> 24);
+      compressedBuffer[i + 1] = (byte) (value >>> 16);
+      compressedBuffer[i + 2] = (byte) (value >>> 8);
+      compressedBuffer[i + 3] = (byte) value;
     }
 
-    return compressedBuffer;
+    return ByteBuffer.wrap(compressedBuffer);
   }
 
   public static byte[] encodeByteRle(byte[] values) throws IOException {
