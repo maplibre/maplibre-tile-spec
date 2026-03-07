@@ -1,5 +1,5 @@
-//! Optimizer that analyses a batch of [`DecodedProperty`] values and produces a
-//! [`MultiPropertyEncoder`] with near-optimal per-column encoding settings.
+//! Optimizer that analyses a batch of [`DecodedProperty`] values and produces
+//! [`Vec<PropertyEncoder>`] with near-optimal per-column encoding settings.
 //!
 //! # Pipeline
 //!
@@ -21,8 +21,7 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 use crate::utils::encode_zigzag;
 use crate::v01::property::strings::{SharedDictEncoder, SharedDictItemEncoder, StrEncoder};
 use crate::v01::property::{
-    DecodedProperty, MultiPropertyEncoder, PresenceStream, PropValue, PropertyEncoder,
-    ScalarEncoder, SharedDictItem,
+    DecodedProperty, PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, SharedDictItem,
 };
 use crate::v01::stream::IntEncoder;
 
@@ -49,28 +48,26 @@ struct StringProfile {
     min_hashes: Vec<u64>,
 }
 
-/// Analyzes a batch of [`DecodedProperty`] values and produces a
-/// [`MultiPropertyEncoder`] with near-optimal per-column encoding settings.
+/// Analyzes a batch of [`DecodedProperty`] values and produces
+/// [`Vec<PropertyEncoder>`] with near-optimal per-column encoding settings.
 pub struct PropertyOptimizer;
 
 impl PropertyOptimizer {
-    /// Analyze `properties` and return a configured [`MultiPropertyEncoder`].
+    /// Analyze `properties` and return a configured [`Vec<PropertyEncoder>`].
     ///
     /// This method mutates `properties` by combining similar string columns
     /// into `PropValue::SharedDict` values.
     #[must_use]
-    pub fn optimize(properties: &mut Vec<DecodedProperty>) -> MultiPropertyEncoder {
+    pub fn optimize(properties: &mut Vec<DecodedProperty>) -> Vec<PropertyEncoder> {
         if properties.is_empty() {
-            return MultiPropertyEncoder::new(Vec::new());
+            return Vec::new();
         }
 
         // Group similar string columns into SharedDicts, mutating properties in place
         group_string_columns(properties);
 
         // Build encoders for all properties
-        let encoders = properties.iter().map(build_encoder).collect();
-
-        MultiPropertyEncoder::new(encoders)
+        properties.iter().map(build_encoder).collect()
     }
 }
 
@@ -478,7 +475,7 @@ mod tests {
             PropValue::U32(vec![Some(1), Some(2), Some(3)]),
         )];
         let enc = PropertyOptimizer::optimize(&mut props);
-        let PropertyEncoder::Scalar(scalar) = &enc.properties[0] else {
+        let PropertyEncoder::Scalar(scalar) = &enc[0] else {
             panic!("expected Scalar");
         };
         assert_eq!(scalar.optional, PresenceStream::Absent);
@@ -488,7 +485,7 @@ mod tests {
     fn all_nulls_produces_present_presence() {
         let mut props = vec![make_prop("x", PropValue::I32(vec![None, None, None]))];
         let enc = PropertyOptimizer::optimize(&mut props);
-        let PropertyEncoder::Scalar(scalar) = &enc.properties[0] else {
+        let PropertyEncoder::Scalar(scalar) = &enc[0] else {
             panic!("expected Scalar");
         };
         assert_eq!(scalar.optional, PresenceStream::Present);
@@ -500,7 +497,7 @@ mod tests {
         let data: Vec<Option<u32>> = (0u32..1_000).map(Some).collect();
         let mut props = vec![make_prop("id", PropValue::U32(data))];
         let enc = PropertyOptimizer::optimize(&mut props);
-        let PropertyEncoder::Scalar(scalar) = &enc.properties[0] else {
+        let PropertyEncoder::Scalar(scalar) = &enc[0] else {
             panic!("expected Scalar");
         };
         let crate::v01::property::ScalarValueEncoder::Int(int_enc) = scalar.value else {
@@ -516,7 +513,7 @@ mod tests {
         let data: Vec<Option<u32>> = vec![Some(42); 500];
         let mut props = vec![make_prop("val", PropValue::U32(data))];
         let enc = PropertyOptimizer::optimize(&mut props);
-        let PropertyEncoder::Scalar(scalar) = &enc.properties[0] else {
+        let PropertyEncoder::Scalar(scalar) = &enc[0] else {
             panic!("expected Scalar");
         };
         let crate::v01::property::ScalarValueEncoder::Int(int_enc) = scalar.value else {
@@ -545,8 +542,8 @@ mod tests {
         assert_eq!(items[1].suffix, "city");
 
         // Encoder should be SharedDict
-        assert_eq!(enc.properties.len(), 1);
-        assert!(matches!(&enc.properties[0], PropertyEncoder::SharedDict(_)));
+        assert_eq!(enc.len(), 1);
+        assert!(matches!(&enc[0], PropertyEncoder::SharedDict(_)));
     }
 
     #[test]
@@ -575,7 +572,7 @@ mod tests {
         assert_eq!(props.len(), 2);
         assert!(matches!(&props[0].values, PropValue::Str(_)));
         assert!(matches!(&props[1].values, PropValue::Str(_)));
-        assert!(matches!(&enc.properties[0], PropertyEncoder::Scalar(_)));
-        assert!(matches!(&enc.properties[1], PropertyEncoder::Scalar(_)));
+        assert!(matches!(&enc[0], PropertyEncoder::Scalar(_)));
+        assert!(matches!(&enc[1], PropertyEncoder::Scalar(_)));
     }
 }

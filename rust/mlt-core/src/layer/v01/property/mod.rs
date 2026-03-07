@@ -589,35 +589,21 @@ pub enum PresenceStream {
     Absent,
 }
 
-/// Encoder config for all properties in a layer.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MultiPropertyEncoder {
-    pub(crate) properties: Vec<PropertyEncoder>,
-}
-
-impl MultiPropertyEncoder {
-    #[must_use]
-    pub fn new(properties: Vec<PropertyEncoder>) -> Self {
-        Self { properties }
-    }
-}
-
 impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
     type Input = Vec<DecodedProperty>;
-    type Encoder = MultiPropertyEncoder;
+    type Encoder = Vec<PropertyEncoder>;
 
     fn from_decoded(properties: &Self::Input, encoders: Self::Encoder) -> Result<Self, MltError> {
-        let prop_encs = encoders.properties;
-        if properties.len() != prop_encs.len() {
+        if properties.len() != encoders.len() {
             return Err(MltError::EncodingInstructionCountMismatch {
                 input_len: properties.len(),
-                config_len: prop_encs.len(),
+                config_len: encoders.len(),
             });
         }
 
         let mut result = Vec::with_capacity(properties.len());
 
-        for (prop, encoder) in properties.iter().zip(prop_encs) {
+        for (prop, encoder) in properties.iter().zip(encoders) {
             match encoder {
                 PropertyEncoder::Scalar(enc) => {
                     result.push(OwnedEncodedProperty::from_decoded(prop, enc)?);

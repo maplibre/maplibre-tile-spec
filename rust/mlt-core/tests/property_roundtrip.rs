@@ -1,7 +1,7 @@
 use mlt_core::v01::{
-    DecodedProperty, IntEncoder, LogicalEncoder, MultiPropertyEncoder, OwnedEncodedProperty,
-    PhysicalEncoder, PresenceStream, PropValue, Property, PropertyEncoder, ScalarEncoder,
-    SharedDictEncoder, SharedDictItem, SharedDictItemEncoder, StrEncoder,
+    DecodedProperty, IntEncoder, LogicalEncoder, OwnedEncodedProperty, PhysicalEncoder,
+    PresenceStream, PropValue, Property, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
+    SharedDictItem, SharedDictItemEncoder, StrEncoder,
 };
 use mlt_core::{FromDecoded as _, FromEncoded as _, MltError, borrowme};
 use proptest::prelude::*;
@@ -113,11 +113,8 @@ fn struct_encode_and_decode(
         items: item_encoders,
     };
 
-    let encoded = Vec::<OwnedEncodedProperty>::from_decoded(
-        &decoded,
-        MultiPropertyEncoder::new(vec![shared_enc.into()]),
-    )
-    .expect("encoding failed");
+    let encoded = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, vec![shared_enc.into()])
+        .expect("encoding failed");
     assert_eq!(encoded.len(), 1, "should produce one encoded property");
     decode_struct(&encoded[0])
 }
@@ -426,9 +423,7 @@ fn struct_mixed_with_scalars() {
         .into(),
         PropertyEncoder::Scalar(scalar_enc),
     ];
-    let encoded =
-        Vec::<OwnedEncodedProperty>::from_decoded(&props, MultiPropertyEncoder::new(prop_encs))
-            .unwrap();
+    let encoded = Vec::<OwnedEncodedProperty>::from_decoded(&props, prop_encs).unwrap();
 
     // Output order: scalar "population", struct "name:", scalar "rank"
     assert_eq!(encoded.len(), 3);
@@ -487,7 +482,7 @@ fn two_struct_groups_with_scalar_between() {
     let str_enc = StrEncoder::plain(IntEncoder::plain());
     let encoded = Vec::<OwnedEncodedProperty>::from_decoded(
         &decoded_props,
-        MultiPropertyEncoder::new(vec![
+        vec![
             SharedDictEncoder {
                 dict_encoder: str_enc,
                 items: vec![
@@ -517,7 +512,7 @@ fn two_struct_groups_with_scalar_between() {
                 ],
             }
             .into(),
-        ]),
+        ],
     )
     .unwrap();
 
@@ -546,11 +541,8 @@ fn two_struct_groups_with_scalar_between() {
 
 #[test]
 fn struct_instruction_count_mismatch() {
-    let err = Vec::<OwnedEncodedProperty>::from_decoded(
-        &vec![DecodedProperty::default()],
-        MultiPropertyEncoder::new(vec![]),
-    )
-    .unwrap_err();
+    let err = Vec::<OwnedEncodedProperty>::from_decoded(&vec![DecodedProperty::default()], vec![])
+        .unwrap_err();
     assert!(
         matches!(
             err,

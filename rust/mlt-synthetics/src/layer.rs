@@ -10,9 +10,9 @@ use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, GeometryEncoder, IdEncoder, IntEncoder,
-    MultiPropertyEncoder, OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01,
-    OwnedProperty, PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
-    SharedDictItem, SharedDictItemEncoder, StrEncoder, VertexBufferType,
+    OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PresenceStream,
+    PropValue, PropertyEncoder, ScalarEncoder, SharedDictEncoder, SharedDictItem,
+    SharedDictItemEncoder, StrEncoder, VertexBufferType,
 };
 use mlt_core::{Encodable as _, FromDecoded as _, OwnedLayer, parse_layers};
 
@@ -325,8 +325,8 @@ impl Layer {
             OwnedId::None
         };
 
-        let enc = MultiPropertyEncoder::new(self.prop_encoders);
-        let props = Vec::<OwnedEncodedProperty>::from_decoded(&self.properties, enc).unwrap();
+        let props = Vec::<OwnedEncodedProperty>::from_decoded(&self.properties, self.prop_encoders)
+            .unwrap();
 
         let layer = OwnedLayer::Tag01(OwnedLayer01 {
             name: "layer1".to_string(),
