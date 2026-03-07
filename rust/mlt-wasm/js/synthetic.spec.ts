@@ -31,42 +31,6 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
   ["poly_multi_fpf_tes", "FastPFor not supported"],
   ["poly_self_intersect_fpf", "FastPFor not supported"],
   ["poly_self_intersect_fpf_tes", "FastPFor not supported"],
-  [
-    "props_shared_dict",
-    "Purposefully not supported until after the currently ongoing refactoring",
-  ],
-  [
-    "props_shared_dict_fsst",
-    "Purposefully not supported until after the currently ongoing refactoring",
-  ],
-  [
-    "props_shared_dict_no_child_name",
-    "Purposefully not supported until after the currently ongoing refactoring",
-  ],
-  [
-    "props_shared_dict_no_child_name_fsst",
-    "Purposefully not supported until after the currently ongoing refactoring",
-  ],
-  [
-    "props_shared_dict_no_struct_name",
-    "Purposefully not supported until after the currently ongoing refactoring",
-  ],
-  [
-    "props_shared_dict_no_struct_name_fsst",
-    "Purposefully not supported until after the currently ongoing refactoring",
-  ],
-  [
-    "props_shared_dict_one_child",
-    "Purposefully not supported until after the currently ongoing refactoring",
-  ],
-  [
-    "props_shared_dict_one_child_fsst",
-    "Purposefully not supported until after the currently ongoing refactoring",
-  ],
-  [
-    "props_shared_dict",
-    "Purposefully not supported until after the currently ongoing refactoring",
-  ],
 ]);
 
 describe("MLT WASM Decoder - Synthetic tests", () => {
