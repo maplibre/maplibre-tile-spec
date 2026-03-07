@@ -31,13 +31,73 @@
 use std::cell::RefCell;
 use std::f64;
 
-use js_sys::{Float64Array, Int32Array, Object, Reflect, Uint8Array};
+use js_sys::{Float64Array, Int32Array, Object, Reflect, Uint8Array, Uint32Array};
 use mlt_core::borrowme::{Borrow, ToOwned};
 use mlt_core::v01::{
     DecodedId, GeometryType, Id, OwnedEncodedId, OwnedGeometry, OwnedProperty, PropValue,
 };
 use mlt_core::{MltError, parse_layers};
 use wasm_bindgen::prelude::*;
+
+/// All decoded geometry arrays for a single layer, fetched in one WASM call.
+///
+/// JS indexes into these typed arrays directly inside `loadGeometry()`, so
+/// there are **zero** per-feature WASM boundary crossings for geometry.
+///
+/// ## Array semantics (mirrors `DecodedGeometry`)
+///
+/// All offset arrays are cumulative: `offsets[i]` is the start index and
+/// `offsets[i+1]` is the exclusive end for feature/part/ring `i`.
+/// Vertex indices count whole vertices (pairs), so vertex `n` lives at
+/// `vertices[n*2]`, `vertices[n*2+1]`.
+///
+/// | Getter             | Present for                                         |
+/// |--------------------|-----------------------------------------------------|
+/// | `geometry_offsets` | MultiPoint, MultiLineString, MultiPolygon           |
+/// | `part_offsets`     | LineString, Polygon, MultiLineString, MultiPolygon  |
+/// | `ring_offsets`     | Polygon, MultiPolygon (+ LineString when mixed)     |
+/// | `vertices`         | always                                              |
+///
+/// Absent offset arrays are returned as zero-length `Uint32Array`s so JS can
+/// always branch on `.length` without a null-check.
+#[wasm_bindgen]
+pub struct LayerGeometry {
+    geometry_offsets: Uint32Array,
+    part_offsets: Uint32Array,
+    ring_offsets: Uint32Array,
+    vertices: Int32Array,
+}
+
+#[wasm_bindgen]
+impl LayerGeometry {
+    /// Cumulative offsets into `part_offsets` for multi-geometry types.
+    /// Zero-length when no multi-geometry features are present.
+    #[must_use]
+    pub fn geometry_offsets(&self) -> Uint32Array {
+        self.geometry_offsets.clone()
+    }
+
+    /// Cumulative offsets into `ring_offsets` (or directly into `vertices`
+    /// for LineString layers without rings).
+    /// Zero-length for pure Point layers.
+    #[must_use]
+    pub fn part_offsets(&self) -> Uint32Array {
+        self.part_offsets.clone()
+    }
+
+    /// Cumulative offsets into the vertex buffer (counting whole vertices).
+    /// Zero-length when no ring-level indirection is needed.
+    #[must_use]
+    pub fn ring_offsets(&self) -> Uint32Array {
+        self.ring_offsets.clone()
+    }
+
+    /// Flat vertex buffer: `[x0, y0, x1, y1, …]` in tile coordinates.
+    #[must_use]
+    pub fn vertices(&self) -> Int32Array {
+        self.vertices.clone()
+    }
+}
 
 enum IdState {
     Absent,
@@ -135,39 +195,55 @@ impl MltTile {
         Ok(Float64Array::from(ids))
     }
 
-    /// MVT geometry type for a feature.
+    /// All decoded geometry arrays for layer `layer_idx`, fetched in one call.
     ///
-    /// | Return | Meaning    |
-    /// |--------|------------|
-    /// | `1`    | Point      |
-    /// | `2`    | LineString |
-    /// | `3`    | Polygon    |
-    /// | `0`    | Unknown    |
+    /// Returns a [`LayerGeometry`] whose typed-array getters expose the raw
+    /// offset and vertex buffers so that JS can implement `loadGeometry(i)`
+    /// with zero WASM boundary crossings per feature.
     ///
-    /// Multi-part geometries (`MultiPoint`, `MultiLineString`, `MultiPolygon`) map
-    /// to the same value as their single-part counterpart — the multi-ness is
-    /// expressed through the ring structure returned by [`feature_geometry`].
-    #[must_use]
-    pub fn feature_type(&self, layer_idx: usize, feature_idx: usize) -> u8 {
-        match self.layers[layer_idx].vector_types.get(feature_idx) {
-            Some(GeometryType::Point | GeometryType::MultiPoint) => 1,
-            Some(GeometryType::LineString | GeometryType::MultiLineString) => 2,
-            Some(GeometryType::Polygon | GeometryType::MultiPolygon) => 3,
-            _ => 0,
-        }
-    }
+    /// The layer's geometry is decoded lazily on first access and cached, so
+    /// subsequent calls for the same layer are cheap views over existing data.
+    pub fn layer_geometry(&self, layer_idx: usize) -> Result<LayerGeometry, JsError> {
+        self.ensure_geometry_decoded(layer_idx)?;
 
-    /// Feature ID as `f64`, or `NaN` when the feature has no ID.
-    ///
-    /// The TS wrapper converts `NaN` → `undefined` to match the
-    /// `VectorTileFeatureLike.id: number | undefined` contract.
-    pub fn feature_id(&self, layer_idx: usize, feature_idx: usize) -> Result<f64, JsError> {
-        self.ensure_ids_decoded(layer_idx)?;
-        let guard = self.layers[layer_idx].ids.borrow();
-        match &*guard {
-            IdState::Decoded(ids) => Ok(*ids.get(feature_idx).unwrap_or(&f64::NAN)),
-            _ => Ok(f64::NAN),
-        }
+        let layer = &self.layers[layer_idx];
+        let guard = layer.geometry.borrow();
+        let d = match &*guard {
+            OwnedGeometry::Decoded(d) => d,
+            _ => unreachable!(),
+        };
+
+        let geometry_offsets = d
+            .geometry_offsets
+            .as_deref()
+            .map(Uint32Array::from)
+            .unwrap_or_else(|| Uint32Array::new_with_length(0));
+
+        let part_offsets = d
+            .part_offsets
+            .as_deref()
+            .map(Uint32Array::from)
+            .unwrap_or_else(|| Uint32Array::new_with_length(0));
+
+        let ring_offsets = d
+            .ring_offsets
+            .as_deref()
+            .map(Uint32Array::from)
+            .unwrap_or_else(|| Uint32Array::new_with_length(0));
+
+        // vertices is Vec<i32>; reinterpret as &[i32] slice for Int32Array.
+        let vertices = d
+            .vertices
+            .as_deref()
+            .map(Int32Array::from)
+            .unwrap_or_else(|| Int32Array::new_with_length(0));
+
+        Ok(LayerGeometry {
+            geometry_offsets,
+            part_offsets,
+            ring_offsets,
+            vertices,
+        })
     }
 
     /// Geometry for a single feature as a flat `Int32Array`.

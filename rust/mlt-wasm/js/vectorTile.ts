@@ -6,6 +6,21 @@ import type {
 } from "@maplibre/vt-pbf";
 import { decode_tile as wasmDecodeTile } from "../pkg/mlt_wasm.js";
 
+// ---------------------------------------------------------------------------
+// WASM interface
+// ---------------------------------------------------------------------------
+
+interface LayerGeometry {
+  /** Cumulative offsets into part_offsets (multi-geometry types only). Zero-length otherwise. */
+  geometry_offsets(): Uint32Array;
+  /** Cumulative offsets into ring_offsets or directly into vertices. Zero-length for pure Point layers. */
+  part_offsets(): Uint32Array;
+  /** Cumulative vertex-count offsets. Zero-length when no ring-level indirection is needed. */
+  ring_offsets(): Uint32Array;
+  /** Flat [x0, y0, x1, y1, …] vertex buffer in tile coordinates. */
+  vertices(): Int32Array;
+}
+
 interface WasmMltTile {
   layer_count(): number;
   layer_name(layer_idx: number): string;
@@ -19,10 +34,10 @@ interface WasmMltTile {
    */
   layer_ids(layer_idx: number): Float64Array;
   /**
-   * Flat Int32Array: [numRings, ring0_len, x0, y0, x1, y1, …, ring1_len, …]
-   * Rings are open (no repeated closing vertex).
+   * All decoded geometry arrays for the layer in one call.
+   * JS walks these directly — zero WASM calls per feature for geometry.
    */
-  feature_geometry(layer_idx: number, feature_idx: number): Int32Array;
+  layer_geometry(layer_idx: number): LayerGeometry;
   feature_properties(
     layer_idx: number,
     feature_idx: number,
@@ -30,26 +45,153 @@ interface WasmMltTile {
   free(): void;
 }
 
-function decodeGeometry(raw: Int32Array): Point[][] {
-  const rings: Point[][] = [];
-  let i = 0;
-  const numRings = raw[i++];
-  for (let r = 0; r < numRings; r++) {
-    const numPoints = raw[i++];
-    const ring: Point[] = new Array(numPoints) as Point[];
-    for (let p = 0; p < numPoints; p++) {
-      ring[p] = new Point(raw[i++], raw[i++]);
+// ---------------------------------------------------------------------------
+// Geometry constants (mirror Rust GeometryType → MVT mapping)
+// ---------------------------------------------------------------------------
+
+const POINT = 1;
+const LINESTRING = 2;
+const POLYGON = 3;
+
+// ---------------------------------------------------------------------------
+// loadGeometry — pure JS, zero WASM calls
+//
+// Faithfully replicates DecodedGeometry::to_mvt_rings from geotype.rs.
+//
+// Offset arrays are cumulative vertex-count arrays (not byte offsets).
+// Vertex n lives at vertices[n*2], vertices[n*2+1].
+// All returned rings are open (no repeated closing vertex).
+// ---------------------------------------------------------------------------
+
+/**
+ * Decodes the geometry for feature `featureIdx` from the pre-fetched bulk
+ * arrays. This is the JS equivalent of `DecodedGeometry::to_mvt_rings`.
+ *
+ * The MVT type byte (1/2/3) from `layer_types` does not distinguish
+ * single-part from multi-part geometry — that distinction is implicit in
+ * whether `geomOffsets` is present and in the offset ranges. We therefore
+ * dispatch on both the type byte and the presence of offset arrays.
+ */
+function loadGeometry(
+  mvtType: number,
+  featureIdx: number,
+  geomOffsets: Uint32Array,
+  partOffsets: Uint32Array,
+  ringOffsets: Uint32Array,
+  verts: Int32Array,
+): Point[][] {
+  const hasGeomOffsets = geomOffsets.length > 0;
+  const hasPartOffsets = partOffsets.length > 0;
+  const hasRingOffsets = ringOffsets.length > 0;
+
+  const openRing = (start: number, end: number): Point[] => {
+    const ring: Point[] = new Array(end - start) as Point[];
+    for (let i = start; i < end; i++) {
+      ring[i - start] = new Point(verts[i * 2], verts[i * 2 + 1]);
     }
-    rings.push(ring);
+    return ring;
+  };
+
+  if (mvtType === POINT) {
+    if (!hasGeomOffsets) {
+      // Plain Point: no geometry_offsets means direct vertex indexing.
+      // May have part/ring indirection if this is a mixed-type layer.
+      let idx = featureIdx;
+      if (hasPartOffsets) idx = partOffsets[idx];
+      if (hasRingOffsets) idx = ringOffsets[idx];
+      return [[new Point(verts[idx * 2], verts[idx * 2 + 1])]];
+    } else {
+      // MultiPoint: geometry_offsets[i..i+1] gives a range of point indices.
+      // Each point may be further indirected through part/ring offsets.
+      const gStart = geomOffsets[featureIdx];
+      const gEnd = geomOffsets[featureIdx + 1];
+      const rings: Point[][] = new Array(gEnd - gStart) as Point[][];
+      for (let g = gStart; g < gEnd; g++) {
+        let idx = g;
+        if (hasPartOffsets) idx = partOffsets[idx];
+        if (hasRingOffsets) idx = ringOffsets[idx];
+        rings[g - gStart] = [new Point(verts[idx * 2], verts[idx * 2 + 1])];
+      }
+      return rings;
+    }
   }
-  return rings;
+
+  if (mvtType === LINESTRING) {
+    if (!hasGeomOffsets) {
+      // Single LineString.
+      let start: number;
+      let end: number;
+      if (hasRingOffsets) {
+        const partIdx = partOffsets[featureIdx];
+        start = ringOffsets[partIdx];
+        end = ringOffsets[partIdx + 1];
+      } else {
+        start = partOffsets[featureIdx];
+        end = partOffsets[featureIdx + 1];
+      }
+      return [openRing(start, end)];
+    } else {
+      // MultiLineString: geometry_offsets[i..i+1] is a range of part indices.
+      const gStart = geomOffsets[featureIdx];
+      const gEnd = geomOffsets[featureIdx + 1];
+      const result: Point[][] = new Array(gEnd - gStart) as Point[][];
+      for (let g = gStart; g < gEnd; g++) {
+        let start: number;
+        let end: number;
+        if (hasRingOffsets) {
+          const partIdx = partOffsets[g];
+          start = ringOffsets[partIdx];
+          end = ringOffsets[partIdx + 1];
+        } else {
+          start = partOffsets[g];
+          end = partOffsets[g + 1];
+        }
+        result[g - gStart] = openRing(start, end);
+      }
+      return result;
+    }
+  }
+
+  if (mvtType === POLYGON) {
+    if (!hasGeomOffsets) {
+      // Single Polygon: part_offsets[i..i+1] iterates its ring indices.
+      const partStart = partOffsets[featureIdx];
+      const partEnd = partOffsets[featureIdx + 1];
+      const rings: Point[][] = new Array(partEnd - partStart) as Point[][];
+      for (let r = partStart; r < partEnd; r++) {
+        rings[r - partStart] = openRing(ringOffsets[r], ringOffsets[r + 1]);
+      }
+      return rings;
+    } else {
+      // MultiPolygon: geometry_offsets[i..i+1] iterates polygon indices;
+      // each polygon's part_offsets range iterates its ring indices.
+      // All rings are returned flat, matching to_mvt_rings behaviour.
+      const gStart = geomOffsets[featureIdx];
+      const gEnd = geomOffsets[featureIdx + 1];
+      const result: Point[][] = [];
+      for (let g = gStart; g < gEnd; g++) {
+        const partStart = partOffsets[g];
+        const partEnd = partOffsets[g + 1];
+        for (let r = partStart; r < partEnd; r++) {
+          result.push(openRing(ringOffsets[r], ringOffsets[r + 1]));
+        }
+      }
+      return result;
+    }
+  }
+
+  return [];
 }
+
+// ---------------------------------------------------------------------------
+// MltFeature
+// ---------------------------------------------------------------------------
 
 class MltFeature implements VectorTileFeatureLike {
   readonly extent: number;
 
   // Lazily populated from the bulk arrays owned by MltLayer.
-  // _type: undefined = not yet read; value = cached.
+  // _type: undefined = not yet read.
   // _id:   null      = sentinel "not yet read"; undefined = feature has no id.
   private _type: 0 | 1 | 2 | 3 | undefined;
   private _id: number | undefined | null;
@@ -63,6 +205,10 @@ class MltFeature implements VectorTileFeatureLike {
     extent: number,
     private readonly _types: Uint8Array,
     private readonly _ids: Float64Array,
+    private readonly _geomOffsets: Uint32Array,
+    private readonly _partOffsets: Uint32Array,
+    private readonly _ringOffsets: Uint32Array,
+    private readonly _verts: Int32Array,
   ) {
     this.extent = extent;
     this._id = null;
@@ -92,11 +238,20 @@ class MltFeature implements VectorTileFeatureLike {
   }
 
   loadGeometry(): Point[][] {
-    return decodeGeometry(
-      this._tile.feature_geometry(this._layerIdx, this._featureIdx),
+    return loadGeometry(
+      this.type,
+      this._featureIdx,
+      this._geomOffsets,
+      this._partOffsets,
+      this._ringOffsets,
+      this._verts,
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// MltLayer
+// ---------------------------------------------------------------------------
 
 class MltLayer implements VectorTileLayerLike {
   readonly version = 1 as const;
@@ -104,9 +259,13 @@ class MltLayer implements VectorTileLayerLike {
   readonly extent: number;
   readonly length: number;
 
-  // Fetched once per layer — 2 WASM calls total, not 2 per feature.
+  // All fetched once per layer — O(1) WASM calls regardless of feature count.
   private readonly _types: Uint8Array;
   private readonly _ids: Float64Array;
+  private readonly _geomOffsets: Uint32Array;
+  private readonly _partOffsets: Uint32Array;
+  private readonly _ringOffsets: Uint32Array;
+  private readonly _verts: Int32Array;
 
   constructor(
     private readonly _tile: WasmMltTile,
@@ -118,6 +277,11 @@ class MltLayer implements VectorTileLayerLike {
     this.length = _tile.feature_count(_layerIdx);
     this._types = _tile.layer_types(_layerIdx);
     this._ids = _tile.layer_ids(_layerIdx);
+    const geom = _tile.layer_geometry(_layerIdx);
+    this._geomOffsets = geom.geometry_offsets();
+    this._partOffsets = geom.part_offsets();
+    this._ringOffsets = geom.ring_offsets();
+    this._verts = geom.vertices();
   }
 
   feature(i: number): VectorTileFeatureLike {
@@ -128,6 +292,10 @@ class MltLayer implements VectorTileLayerLike {
       this.extent,
       this._types,
       this._ids,
+      this._geomOffsets,
+      this._partOffsets,
+      this._ringOffsets,
+      this._verts,
     );
   }
 }
