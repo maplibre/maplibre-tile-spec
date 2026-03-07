@@ -73,11 +73,15 @@ private fun getCacheManager(): CacheManager =
     CaffeineCacheManager().also {
         // `RangeReaderCache.SHARED_CACHE_NAME` is private
         val cacheName = "tileverse-rangereader-cache"
+        val maxMemory = Runtime.getRuntime().maxMemory()
+        val maxHeapUsage = cacheMaxHeap?.toLong() ?: (maxMemory * cacheMaxHeapPercent / 100).toLong()
 
+        logger.debug("Initializing cache with max size {}, max age {}", maxHeapUsage, cacheExpireAfterAccess)
         it.getCache(cacheName, {
             CaffeineCache
                 .newBuilder<ByteRange, ByteBuffer>()
-                .maxHeapPercent(cacheMaxHeapPercent, ::weigh)
+                .maximumWeight(maxHeapUsage)
+                .weigher(::weigh)
                 .averageWeight(DEFAULT_CACHE_AVERAGE_WEIGHT)
                 .expireAfterAccess(cacheExpireAfterAccess.toJavaDuration())
                 .scheduler(Scheduler.systemScheduler())
