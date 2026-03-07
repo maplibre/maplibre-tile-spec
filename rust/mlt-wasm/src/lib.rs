@@ -312,13 +312,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             Id::Decoded(DecodedId(None)) => IdState::Absent,
         });
 
-        let props = RefCell::new(
-            layer01
-                .properties
-                .iter()
-                .map(ToOwned::to_owned)
-                .collect(),
-        );
+        let props = RefCell::new(layer01.properties.iter().map(ToOwned::to_owned).collect());
 
         layers.push(DecodedLayer {
             name,
