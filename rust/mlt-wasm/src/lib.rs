@@ -32,17 +32,25 @@ use std::cell::RefCell;
 use std::f64;
 
 use js_sys::{Int32Array, Object, Reflect};
-use mlt_core::borrowme::Borrow as _;
-use mlt_core::v01::{DecodedGeometry, DecodedId, GeometryType, Id, OwnedProperty, PropValue};
+use mlt_core::borrowme::{Borrow, ToOwned};
+use mlt_core::v01::{
+    DecodedId, GeometryType, Id, OwnedEncodedId, OwnedGeometry, OwnedProperty, PropValue,
+};
 use mlt_core::{MltError, parse_layers};
 use wasm_bindgen::prelude::*;
+
+enum IdState {
+    Absent,
+    Encoded(OwnedEncodedId),
+    Decoded(Vec<f64>),
+}
 
 struct DecodedLayer {
     name: String,
     extent: u32,
-    geometry: DecodedGeometry,
-    /// `None` when the layer carries no ID column at all.
-    ids: Option<Vec<f64>>,
+    vector_types: Vec<GeometryType>,
+    geometry: RefCell<OwnedGeometry>,
+    ids: RefCell<IdState>,
     /// Property columns
     props: RefCell<Vec<OwnedProperty>>,
 }
@@ -50,8 +58,9 @@ struct DecodedLayer {
 /// A fully-decoded MLT tile.
 ///
 /// Construct one via [`decode_tile`], then use the index-based accessors to
-/// read layer metadata and per-feature data.  Geometry and IDs are decoded
-/// eagerly; property columns are decoded lazily on first access.
+/// read layer metadata and per-feature data.  Layer metadata and geometry types
+/// are decoded eagerly; ID, full geometry, and property columns are decoded
+/// lazily on first access.
 #[wasm_bindgen]
 pub struct MltTile {
     layers: Vec<DecodedLayer>,
@@ -80,7 +89,7 @@ impl MltTile {
     /// Number of features in layer `layer_idx`.
     #[must_use]
     pub fn feature_count(&self, layer_idx: usize) -> usize {
-        self.layers[layer_idx].geometry.vector_types.len()
+        self.layers[layer_idx].vector_types.len()
     }
 
     /// MVT geometry type for a feature.
@@ -97,11 +106,7 @@ impl MltTile {
     /// expressed through the ring structure returned by [`feature_geometry`].
     #[must_use]
     pub fn feature_type(&self, layer_idx: usize, feature_idx: usize) -> u8 {
-        match self.layers[layer_idx]
-            .geometry
-            .vector_types
-            .get(feature_idx)
-        {
+        match self.layers[layer_idx].vector_types.get(feature_idx) {
             Some(GeometryType::Point | GeometryType::MultiPoint) => 1,
             Some(GeometryType::LineString | GeometryType::MultiLineString) => 2,
             Some(GeometryType::Polygon | GeometryType::MultiPolygon) => 3,
@@ -113,13 +118,13 @@ impl MltTile {
     ///
     /// The TS wrapper converts `NaN` → `undefined` to match the
     /// `VectorTileFeatureLike.id: number | undefined` contract.
-    #[must_use]
-    #[allow(clippy::cast_precision_loss)]
-    pub fn feature_id(&self, layer_idx: usize, feature_idx: usize) -> f64 {
-        self.layers[layer_idx]
-            .ids
-            .as_deref()
-            .map_or(f64::NAN, |ids| *ids.get(feature_idx).unwrap_or(&f64::NAN))
+    pub fn feature_id(&self, layer_idx: usize, feature_idx: usize) -> Result<f64, JsError> {
+        self.ensure_ids_decoded(layer_idx)?;
+        let guard = self.layers[layer_idx].ids.borrow();
+        match &*guard {
+            IdState::Decoded(ids) => Ok(*ids.get(feature_idx).unwrap_or(&f64::NAN)),
+            _ => Ok(f64::NAN),
+        }
     }
 
     /// Geometry for a single feature as a flat `Int32Array`.
@@ -138,10 +143,15 @@ impl MltTile {
         layer_idx: usize,
         feature_idx: usize,
     ) -> Result<Int32Array, JsError> {
-        let rings = self.layers[layer_idx]
-            .geometry
-            .to_mvt_rings(feature_idx)
-            .map_err(|e| to_js_err(&e))?;
+        self.ensure_geometry_decoded(layer_idx)?;
+
+        let layer = &self.layers[layer_idx];
+        let geom_guard = layer.geometry.borrow();
+
+        let rings = match &*geom_guard {
+            OwnedGeometry::Decoded(d) => d.to_mvt_rings(feature_idx).map_err(|e| to_js_err(&e))?,
+            _ => unreachable!(),
+        };
 
         // Pre-compute exact capacity: 1 (numRings) + per ring: 1 (len) + 2*points
         let cap = 1 + rings.iter().map(|r| 1 + r.len() * 2).sum::<usize>();
@@ -210,80 +220,113 @@ impl MltTile {
         }
         obj
     }
+
+    fn ensure_geometry_decoded(&self, layer_idx: usize) -> Result<(), JsError> {
+        let layer = &self.layers[layer_idx];
+        let mut geom = layer.geometry.borrow_mut();
+        if let OwnedGeometry::Encoded(encoded) = &*geom {
+            let decoded = mlt_core::v01::Geometry::Encoded(encoded.borrow())
+                .decode()
+                .map_err(|e| to_js_err(&e))?;
+            *geom = OwnedGeometry::Decoded(decoded);
+        }
+        Ok(())
+    }
+
+    fn ensure_ids_decoded(&self, layer_idx: usize) -> Result<(), JsError> {
+        let layer = &self.layers[layer_idx];
+        let mut ids = layer.ids.borrow_mut();
+        if let IdState::Encoded(encoded) = &*ids {
+            let decoded = Id::Encoded(encoded.borrow())
+                .decode()
+                .map_err(|e| to_js_err(&e))?;
+
+            let converted = match decoded.0 {
+                Some(v) => v
+                    .into_iter()
+                    .map(|f| {
+                        #[expect(clippy::cast_precision_loss)]
+                        f.map_or(f64::NAN, |f| f as f64)
+                    })
+                    .collect(),
+                None => Vec::new(),
+            };
+            *ids = IdState::Decoded(converted);
+        }
+        Ok(())
+    }
 }
 
 /// Decode a raw MLT tile blob and return an [`MltTile`].
 ///
-/// All columns — geometry, IDs, and properties — are decoded eagerly so that
-/// every accessor is a cheap index operation with no further parsing.
-///
-/// Decoded geometry and IDs are **moved** out of the parsed layer rather than
-/// cloned, keeping peak memory and allocation cost as low as possible.
+/// Layer metadata and geometry types are decoded eagerly; ID, full geometry,
+/// and property columns are decoded lazily on first access.
 #[wasm_bindgen]
 pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
     let raw_layers = parse_layers(data).map_err(|e| to_js_err(&e))?;
     let mut layers = Vec::with_capacity(raw_layers.len());
 
-    for mut raw_layer in raw_layers {
+    for raw_layer in raw_layers {
         // Skip non-Tag01 layers.
-        if !matches!(raw_layer, mlt_core::Layer::Tag01(_)) {
+        let mlt_core::Layer::Tag01(layer01) = raw_layer else {
             continue;
-        }
-
-        // Phase 1 — mutably borrow to decode geometry, IDs, and properties.
-        // The borrow is released at the end of this block so we can consume
-        // `raw_layer` below.
-        let raw_props: Vec<OwnedProperty> = {
-            let layer01 = match &mut raw_layer {
-                mlt_core::Layer::Tag01(l) => l,
-                mlt_core::Layer::Unknown(_) => unreachable!(),
-            };
-
-            layer01
-                .decode_geometry_and_id()
-                .map_err(|e| to_js_err(&e))?;
-
-            layer01
-                .properties
-                .iter()
-                .map(mlt_core::borrowme::ToOwned::to_owned)
-                .collect()
-        }; // mutable borrow of raw_layer ends here
-
-        // Phase 2 — consume `raw_layer` to MOVE the decoded geometry and IDs
-        // directly into `DecodedLayer`, with no intermediate clone.
-        let layer01 = match raw_layer {
-            mlt_core::Layer::Tag01(l) => l,
-            mlt_core::Layer::Unknown(_) => unreachable!(),
         };
 
         let name = layer01.name.to_string();
         let extent = layer01.extent;
 
-        let geometry = match layer01.geometry {
-            mlt_core::v01::Geometry::Decoded(g) => g,
-            mlt_core::v01::Geometry::Encoded(_) => {
-                return Err(JsError::new("geometry was not decoded"));
-            }
+        // Decode ONLY geometry types to get the feature count and allow feature_type
+        // to stay fast without full geometry decode.
+        let vector_types = match &layer01.geometry {
+            mlt_core::v01::Geometry::Encoded(e) => e
+                .meta
+                .clone()
+                .decode_bits_u32()
+                .map_err(|e| to_js_err(&e))?
+                .decode_u32()
+                .map_err(|e| to_js_err(&e))?
+                .into_iter()
+                .map::<Result<GeometryType, JsError>, _>(|v| {
+                    Ok(u8::try_from(v)
+                        .map_err(|_| JsError::new("invalid geometry type"))?
+                        .try_into()
+                        .map_err(|_| JsError::new("invalid geometry type"))?)
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+            mlt_core::v01::Geometry::Decoded(d) => d.vector_types.clone(),
         };
 
-        let ids: Option<Vec<f64>> = match layer01.id {
-            Id::Decoded(DecodedId(Some(v))) => Some(
-                #[expect(clippy::cast_precision_loss)]
+        let geometry = RefCell::new(ToOwned::to_owned(&layer01.geometry));
+
+        let ids = RefCell::new(match layer01.id {
+            Id::None => IdState::Absent,
+            Id::Encoded(e) => IdState::Encoded(ToOwned::to_owned(&e)),
+            Id::Decoded(DecodedId(Some(v))) => IdState::Decoded(
                 v.into_iter()
-                    .map(|f| f.map_or(f64::NAN, |f| f as f64))
+                    .map(|f| {
+                        #[expect(clippy::cast_precision_loss)]
+                        f.map_or(f64::NAN, |f| f as f64)
+                    })
                     .collect(),
             ),
-            Id::Decoded(DecodedId(None)) | Id::None => None,
-            Id::Encoded(_) => return Err(JsError::new("id was not decoded")),
-        };
+            Id::Decoded(DecodedId(None)) => IdState::Absent,
+        });
+
+        let props = RefCell::new(
+            layer01
+                .properties
+                .iter()
+                .map(ToOwned::to_owned)
+                .collect(),
+        );
 
         layers.push(DecodedLayer {
             name,
             extent,
+            vector_types,
             geometry,
             ids,
-            props: RefCell::new(raw_props),
+            props,
         });
     }
 
