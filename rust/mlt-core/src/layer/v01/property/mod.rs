@@ -16,9 +16,8 @@ use crate::utils::{
 };
 pub use crate::v01::property::optimizer::PropertyOptimizer;
 pub use crate::v01::property::strings::{
-    EncodedSharedDictProp, EncodedStrProp, EncodedStructChild, SharedDictChild, SharedDictEncoder,
-    SharedDictItemEncoder, SharedDictionaryGroup, StrEncoder, decode_shared_dict, decode_strings,
-    encode_shared_dict_prop, encode_shared_dictionary,
+    EncodedSharedDictProp, EncodedStrProp, EncodedStructChild, SharedDictEncoder,
+    SharedDictItemEncoder, StrEncoder, decode_shared_dict, decode_strings, encode_shared_dict_prop,
 };
 use crate::v01::{
     ColumnType, DictionaryType, FsstStrEncoder, IntEncoder, LengthType, OwnedStream, Stream,
@@ -625,11 +624,15 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
                 }
                 PropertyEncoder::SharedDict(enc) => {
                     let PropValue::SharedDict(items) = &prop.values else {
-                        return Err(NotImplemented(
-                            "SharedDict encoder requires PropValue::SharedDict",
+                        return Err(UnsupportedPropertyEncoderCombination(
+                            prop.values.name(),
+                            "SharedDict",
                         ));
                     };
-                    result.push(encode_shared_dict_prop(items, &enc)?);
+                    result.push(OwnedEncodedProperty {
+                        name: prop.name.clone(),
+                        value: encode_shared_dict_prop(items, &enc)?,
+                    });
                 }
             }
         }

@@ -250,7 +250,7 @@ impl Layer {
     /// [`SharedDict::column`], and pass it to this method.
     #[must_use]
     pub fn add_shared_dict(mut self, shared_dict: SharedDict) -> Self {
-        let name = shared_dict.encoder.struct_name.clone();
+        let name = shared_dict.name;
         let values = PropValue::SharedDict(shared_dict.items);
         self.properties.push(DecodedProperty { name, values });
         self.prop_encoders.push(shared_dict.encoder.into());
@@ -349,6 +349,7 @@ impl Layer {
 /// Use [`SharedDict::new`] to create the builder, add columns with [`SharedDict::column`],
 /// then pass it to [`Layer::add_shared_dict`].
 pub struct SharedDict {
+    name: String,
     encoder: SharedDictEncoder,
     items: Vec<SharedDictItem>,
 }
@@ -357,13 +358,13 @@ impl SharedDict {
     /// Create a new shared dictionary builder.
     ///
     /// # Arguments
-    /// * `struct_name` - The name prefix for the struct column (e.g., `"name:"` for `"name:de"`, `"name:en"`).
+    /// * `name` - The name for the property (e.g., `"name:"` for `"name:de"`, `"name:en"`).
     /// * `dict_encoder` - The string encoder for the shared dictionary (plain or FSST).
     #[must_use]
-    pub fn new(struct_name: impl Into<String>, dict_encoder: StrEncoder) -> Self {
+    pub fn new(name: impl Into<String>, dict_encoder: StrEncoder) -> Self {
         Self {
+            name: name.into(),
             encoder: SharedDictEncoder {
-                struct_name: struct_name.into(),
                 dict_encoder,
                 items: vec![],
             },
@@ -374,28 +375,23 @@ impl SharedDict {
     /// Add a child column to the shared dictionary.
     ///
     /// # Arguments
-    /// * `child_name` - The suffix name for this child (e.g., `"de"` for `"name:de"`).
+    /// * `suffix` - The suffix name for this child (e.g., `"de"` for `"name:de"`).
     /// * `optional` - Whether to include a presence stream for null values.
     /// * `offset` - The integer encoder for the offset-index stream.
     /// * `values` - The string values for each feature.
     #[must_use]
     pub fn column(
         mut self,
-        child_name: impl Into<String>,
+        suffix: impl Into<String>,
         optional: PresenceStream,
         offset: IntEncoder,
         values: impl IntoIterator<Item = Option<String>>,
     ) -> Self {
-        let child_name = child_name.into();
-        self.encoder.items.push(SharedDictItemEncoder {
-            child_name: child_name.clone(),
-            optional,
-            offset,
-        });
-        self.items.push(SharedDictItem {
-            suffix: child_name,
-            values: values.into_iter().collect(),
-        });
+        let enc = SharedDictItemEncoder { optional, offset };
+        self.encoder.items.push(enc);
+        let suffix = suffix.into();
+        let values = values.into_iter().collect();
+        self.items.push(SharedDictItem { suffix, values });
         self
     }
 }

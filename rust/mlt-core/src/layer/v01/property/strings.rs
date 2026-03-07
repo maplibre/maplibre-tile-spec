@@ -64,8 +64,6 @@ pub enum EncodedSharedDictProp<'a> {
 /// Encoder for an individual sub-property within a shared dictionary.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SharedDictItemEncoder {
-    /// Name of this field within the struct column (suffix).
-    pub child_name: String,
     /// If a stream for optional values should be attached.
     pub optional: PresenceStream,
     /// Encoder used for the offset-index stream of this child.
@@ -75,8 +73,6 @@ pub struct SharedDictItemEncoder {
 /// Encoder for a shared dictionary property with multiple string sub-properties.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SharedDictEncoder {
-    /// Name of the struct column.
-    pub struct_name: String,
     /// Encoder for the shared dictionary strings (plain vs FSST).
     pub dict_encoder: StrEncoder,
     /// Encoders for individual sub-properties.
@@ -648,7 +644,7 @@ pub fn encode_shared_dictionary(
 pub fn encode_shared_dict_prop(
     items: &[SharedDictItem],
     encoder: &SharedDictEncoder,
-) -> Result<OwnedEncodedProperty, MltError> {
+) -> Result<OwnedEncodedPropValue, MltError> {
     if items.len() != encoder.items.len() {
         return Err(NotImplemented(
             "SharedDict items count must match encoder items count",
@@ -707,7 +703,7 @@ pub fn encode_shared_dict_prop(
         )?;
 
         children.push(OwnedEncodedStructChild {
-            name: item_enc.child_name.clone(),
+            name: item.suffix.clone(),
             typ: if item_enc.optional == PresenceStream::Present {
                 ColumnType::OptStr
             } else {
@@ -765,10 +761,7 @@ pub fn encode_shared_dict_prop(
         },
     };
 
-    Ok(OwnedEncodedProperty {
-        name: encoder.struct_name.clone(),
-        value: OwnedEncodedPropValue::SharedDict(struct_prop),
-    })
+    Ok(OwnedEncodedPropValue::SharedDict(struct_prop))
 }
 
 impl OwnedEncodedStructChild {

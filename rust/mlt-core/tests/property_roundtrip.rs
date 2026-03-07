@@ -1,7 +1,7 @@
 use mlt_core::v01::{
     DecodedProperty, IntEncoder, LogicalEncoder, MultiPropertyEncoder, OwnedEncodedProperty,
     PhysicalEncoder, PresenceStream, PropValue, Property, PropertyEncoder, ScalarEncoder,
-    SharedDictEncoder, SharedDictItemEncoder, StrEncoder,
+    SharedDictEncoder, SharedDictItem, SharedDictItemEncoder, StrEncoder,
 };
 use mlt_core::{FromDecoded as _, FromEncoded as _, MltError, borrowme};
 use proptest::prelude::*;
@@ -87,35 +87,38 @@ fn struct_encode_and_decode(
     offset_encoder: IntEncoder,
     dict_encoder: StrEncoder,
 ) -> DecodedProperty {
-    let decoded: Vec<DecodedProperty> = children
+    // Build a single DecodedProperty with PropValue::SharedDict
+    let items: Vec<SharedDictItem> = children
         .iter()
-        .map(|(child_name, values)| str_prop(child_name, values.clone()))
-        .collect();
-    let instructions: Vec<PropertyEncoder> = children
-        .iter()
-        .map(|(child_name, _)| {
-            SharedDictEncoder {
-                struct_name: struct_name.to_string(),
-                dict_encoder,
-                items: vec![SharedDictItemEncoder {
-                    child_name: (*child_name).to_string(),
-                    optional: presence,
-                    offset: offset_encoder,
-                }],
-            }
-            .into()
+        .map(|(suffix, values)| SharedDictItem {
+            suffix: (*suffix).to_string(),
+            values: values.clone(),
         })
         .collect();
+    let decoded = vec![DecodedProperty {
+        name: struct_name.to_string(),
+        values: PropValue::SharedDict(items),
+    }];
+
+    // Build encoder with matching item encoders
+    let item_encoders: Vec<SharedDictItemEncoder> = children
+        .iter()
+        .map(|_| SharedDictItemEncoder {
+            optional: presence,
+            offset: offset_encoder,
+        })
+        .collect();
+    let shared_enc = SharedDictEncoder {
+        dict_encoder,
+        items: item_encoders,
+    };
+
     let encoded = Vec::<OwnedEncodedProperty>::from_decoded(
         &decoded,
-        MultiPropertyEncoder::new(instructions),
+        MultiPropertyEncoder::new(vec![shared_enc.into()]),
     )
     .expect("encoding failed");
-    assert_eq!(
-        encoded.len(),
-        1,
-        "struct children must collapse to one column"
-    );
+    assert_eq!(encoded.len(), 1, "should produce one encoded property");
     decode_struct(&encoded[0])
 }
 
@@ -386,39 +389,39 @@ fn struct_mixed_with_scalars() {
         name: "population".to_string(),
         values: PropValue::U32(vec![Some(3_748_000), Some(1_787_000)]),
     };
-    let name_de = str_prop(":de", strs(&["Berlin", "Hamburg"]));
-    let name_en = str_prop(":en", strs(&["Berlin", "Hamburg"]));
+    let name_shared = DecodedProperty {
+        name: "name:".to_string(),
+        values: PropValue::SharedDict(vec![
+            SharedDictItem {
+                suffix: "de".to_string(),
+                values: strs(&["Berlin", "Hamburg"]),
+            },
+            SharedDictItem {
+                suffix: "en".to_string(),
+                values: strs(&["Berlin", "Hamburg"]),
+            },
+        ]),
+    };
     let rank = DecodedProperty {
         name: "rank".to_string(),
         values: PropValue::U32(vec![Some(1), Some(2)]),
     };
 
-    let props = vec![
-        population.clone(),
-        name_de.clone(),
-        name_en.clone(),
-        rank.clone(),
-    ];
+    let props = vec![population.clone(), name_shared.clone(), rank.clone()];
     let prop_encs = vec![
         PropertyEncoder::Scalar(scalar_enc),
         SharedDictEncoder {
-            struct_name: "name".to_string(),
             dict_encoder: str_enc,
-            items: vec![SharedDictItemEncoder {
-                child_name: ":de".to_string(),
-                optional: PresenceStream::Present,
-                offset: enc,
-            }],
-        }
-        .into(),
-        SharedDictEncoder {
-            struct_name: "name".to_string(),
-            dict_encoder: str_enc,
-            items: vec![SharedDictItemEncoder {
-                child_name: ":en".to_string(),
-                optional: PresenceStream::Present,
-                offset: enc,
-            }],
+            items: vec![
+                SharedDictItemEncoder {
+                    optional: PresenceStream::Present,
+                    offset: enc,
+                },
+                SharedDictItemEncoder {
+                    optional: PresenceStream::Present,
+                    offset: enc,
+                },
+            ],
         }
         .into(),
         PropertyEncoder::Scalar(scalar_enc),
@@ -427,38 +430,58 @@ fn struct_mixed_with_scalars() {
         Vec::<OwnedEncodedProperty>::from_decoded(&props, MultiPropertyEncoder::new(prop_encs))
             .unwrap();
 
-    // Output order: scalar "population", struct "name", scalar "rank"
+    // Output order: scalar "population", struct "name:", scalar "rank"
     assert_eq!(encoded.len(), 3);
     assert_eq!(decode_scalar(&encoded[0]), population);
     let name = decode_struct(&encoded[1]);
-    assert_eq!(name.name, "name");
+    assert_eq!(name.name, "name:");
     let PropValue::SharedDict(items) = &name.values else {
         panic!("Expected SharedDict");
     };
-    assert_eq!(items[0].suffix, ":de");
+    assert_eq!(items[0].suffix, "de");
     assert_eq!(items[0].values, strs(&["Berlin", "Hamburg"]));
-    assert_eq!(items[1].suffix, ":en");
+    assert_eq!(items[1].suffix, "en");
     assert_eq!(items[1].values, strs(&["Berlin", "Hamburg"]));
     assert_eq!(decode_scalar(&encoded[2]), rank);
 }
 
 #[test]
 fn two_struct_groups_with_scalar_between() {
-    let name_de = str_prop(":de", strs(&["Berlin", "Hamburg"]));
-    let name_en = str_prop(":en", strs(&["Berlin", "Hamburg"]));
+    let name_shared = DecodedProperty {
+        name: "name:".to_string(),
+        values: PropValue::SharedDict(vec![
+            SharedDictItem {
+                suffix: "de".to_string(),
+                values: strs(&["Berlin", "Hamburg"]),
+            },
+            SharedDictItem {
+                suffix: "en".to_string(),
+                values: strs(&["Berlin", "Hamburg"]),
+            },
+        ]),
+    };
     let population = DecodedProperty {
         name: "population".to_string(),
         values: PropValue::U32(vec![Some(3_748_000), Some(1_787_000)]),
     };
-    let label_de = str_prop(":de", strs(&["BE", "HH"]));
-    let label_en = str_prop(":en", strs(&["BER", "HAM"]));
+    let label_shared = DecodedProperty {
+        name: "label:".to_string(),
+        values: PropValue::SharedDict(vec![
+            SharedDictItem {
+                suffix: "de".to_string(),
+                values: strs(&["BE", "HH"]),
+            },
+            SharedDictItem {
+                suffix: "en".to_string(),
+                values: strs(&["BER", "HAM"]),
+            },
+        ]),
+    };
 
     let decoded_props = vec![
-        name_de.clone(),
-        name_en.clone(),
+        name_shared.clone(),
         population.clone(),
-        label_de.clone(),
-        label_en.clone(),
+        label_shared.clone(),
     ];
     let enc = IntEncoder::plain();
     let str_enc = StrEncoder::plain(IntEncoder::plain());
@@ -466,44 +489,32 @@ fn two_struct_groups_with_scalar_between() {
         &decoded_props,
         MultiPropertyEncoder::new(vec![
             SharedDictEncoder {
-                struct_name: "name:".to_string(),
                 dict_encoder: str_enc,
-                items: vec![SharedDictItemEncoder {
-                    child_name: "de".to_string(),
-                    optional: PresenceStream::Present,
-                    offset: enc,
-                }],
-            }
-            .into(),
-            SharedDictEncoder {
-                struct_name: "name:".to_string(),
-                dict_encoder: str_enc,
-                items: vec![SharedDictItemEncoder {
-                    child_name: "en".to_string(),
-                    optional: PresenceStream::Present,
-                    offset: enc,
-                }],
+                items: vec![
+                    SharedDictItemEncoder {
+                        optional: PresenceStream::Present,
+                        offset: enc,
+                    },
+                    SharedDictItemEncoder {
+                        optional: PresenceStream::Present,
+                        offset: enc,
+                    },
+                ],
             }
             .into(),
             ScalarEncoder::int(PresenceStream::Present, enc).into(),
             SharedDictEncoder {
-                struct_name: "label:".to_string(),
                 dict_encoder: str_enc,
-                items: vec![SharedDictItemEncoder {
-                    child_name: "de".to_string(),
-                    optional: PresenceStream::Present,
-                    offset: enc,
-                }],
-            }
-            .into(),
-            SharedDictEncoder {
-                struct_name: "label:".to_string(),
-                dict_encoder: str_enc,
-                items: vec![SharedDictItemEncoder {
-                    child_name: "en".to_string(),
-                    optional: PresenceStream::Present,
-                    offset: enc,
-                }],
+                items: vec![
+                    SharedDictItemEncoder {
+                        optional: PresenceStream::Present,
+                        offset: enc,
+                    },
+                    SharedDictItemEncoder {
+                        optional: PresenceStream::Present,
+                        offset: enc,
+                    },
+                ],
             }
             .into(),
         ]),

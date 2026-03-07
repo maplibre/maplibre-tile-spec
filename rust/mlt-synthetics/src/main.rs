@@ -902,6 +902,19 @@ fn generate_shared_dictionaries(w: &SynthWriter) {
                 .column("en", O::Present, E::varint(), [Some(long_string_value())]),
         )
         .write("props_shared_dict_fsst-rust"); // Rust FSST is not byte-for-byte consistent with Java's
+    p0(w)
+        // column names MUST be unique, but the shared dict prefix can duplicate
+        .add_shared_dict(
+            SharedDict::new("name", SE::plain(E::varint()))
+                .column(":de", O::Present, E::varint(), [Some(long_string_value())])
+                .column(":en", O::Present, E::varint(), [Some(long_string_value())]),
+        )
+        .add_shared_dict(
+            SharedDict::new("name", SE::plain(E::varint()))
+                .column(":fr", O::Present, E::varint(), [Some(long_string_value())])
+                .column(":he", O::Present, E::varint(), [Some(long_string_value())]),
+        )
+        .write("props_shared_dict_2_same_prefix-rust");
 
     // Empty struct name: keys "a" and "b" both become children of the "" struct.
     // FIXME: dump equal, but not binary equal
