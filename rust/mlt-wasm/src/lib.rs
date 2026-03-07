@@ -302,6 +302,6 @@ fn prop_to_js(pv: &PropValue, i: usize) -> Option<JsValue> {
         PropValue::F32(v) => v[i].map(|n| JsValue::from_f64(f64::from(n))),
         PropValue::F64(v) => v[i].map(JsValue::from_f64),
         PropValue::Str(v) => v[i].as_ref().map(|s| JsValue::from_str(s)),
-        PropValue::SharedDict => None,
+        PropValue::SharedDict(_) => None,
     }
 }
