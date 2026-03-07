@@ -80,11 +80,3 @@ missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 multiple_crate_versions = "allow"
 too_many_lines = "allow"
-
-[profile.wasm-release]
-inherits = "release"
-opt-level = 3
-lto = "fat"
-codegen-units = 1
-panic = "abort"
-strip = true

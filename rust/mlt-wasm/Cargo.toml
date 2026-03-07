@@ -21,3 +21,6 @@ wasm-bindgen.workspace = true
 
 [lints]
 workspace = true
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O3", "--enable-simd", "--enable-bulk-memory"]
