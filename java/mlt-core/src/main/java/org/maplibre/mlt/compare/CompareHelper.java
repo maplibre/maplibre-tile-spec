@@ -17,7 +17,8 @@ import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
 
-public class CompareHelper {
+public final class CompareHelper {
+  private CompareHelper() {}
 
   public enum CompareMode {
     LayersOnly,

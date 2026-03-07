@@ -6,7 +6,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.URI;
-import java.util.*;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -27,6 +34,7 @@ import org.maplibre.mlt.data.unsigned.U64;
 import org.maplibre.mlt.data.unsigned.U8;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
+import org.maplibre.mlt.util.ByteBufferUtil;
 
 public class MltConverter {
   /// Create tileset metadata from a MVT tile
@@ -482,7 +490,7 @@ public class MltConverter {
     var physicalLevelTechnique =
         config.getUseFastPFOR() ? PhysicalLevelTechnique.FAST_PFOR : PhysicalLevelTechnique.VARINT;
 
-    var mapLibreTileBuffer = new byte[0];
+    final var tileBuffers = new ArrayList<ByteBuffer>(mvt.layers().size() * 10);
     for (var mvtLayer : mvt.layers()) {
       final var featureTableName = mvtLayer.name();
       streamRecorder.setLayerName(featureTableName);
@@ -532,7 +540,7 @@ public class MltConverter {
           encodePropertyColumns(
               config, layerMetadata, sortedFeatures, featureTableOptimizations, streamRecorder);
 
-      var featureTableBodyBuffer = new byte[0];
+      List<ByteBuffer> featureTableBodyBuffer = new ArrayList<>();
       if (config.getIncludeIds()) {
         final var idMetadata =
             layerMetadata.columns.stream()
@@ -551,7 +559,7 @@ public class MltConverter {
             new MltMetadata.Column(name, new MltMetadata.ScalarField(rawType));
         scalarColumnMetadata.isNullable = idMetadata.isNullable;
         scalarColumnMetadata.columnScope = MltMetadata.ColumnScope.FEATURE;
-        featureTableBodyBuffer =
+        featureTableBodyBuffer.addAll(
             PropertyEncoder.encodeScalarPropertyColumn(
                 scalarColumnMetadata,
                 true,
@@ -560,36 +568,32 @@ public class MltConverter {
                 config.getUseFSST(),
                 config.getTypeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE,
                 config.getIntegerEncodingOption(),
-                streamRecorder);
+                streamRecorder));
       }
 
-      featureTableBodyBuffer =
-          CollectionUtils.concatByteArrays(
-              featureTableBodyBuffer,
-              encodedGeometryFieldMetadata,
-              encodedGeometryColumn.encodedValues(),
-              encodedPropertyColumns);
+      featureTableBodyBuffer.add(encodedGeometryFieldMetadata);
+      featureTableBodyBuffer.addAll(encodedGeometryColumn.encodedValues());
+      featureTableBodyBuffer.addAll(encodedPropertyColumns);
 
       final var metadataBuffer = createEmbeddedMetadata(layerMetadata, mvtLayer.tileExtent());
 
       final var tag = 1;
       final var tagBuffer = EncodingUtils.encodeVarint(tag, false);
       final var tagLength =
-          tagBuffer.length + metadataBuffer.length + featureTableBodyBuffer.length;
+          tagBuffer.remaining()
+              + metadataBuffer.length
+              + ByteBufferUtil.totalLength(featureTableBodyBuffer);
 
-      mapLibreTileBuffer =
-          CollectionUtils.concatByteArrays(
-              mapLibreTileBuffer,
-              EncodingUtils.encodeVarint(tagLength, false),
-              tagBuffer,
-              metadataBuffer,
-              featureTableBodyBuffer);
+      tileBuffers.add(EncodingUtils.encodeVarint(tagLength, false));
+      tileBuffers.add(tagBuffer);
+      tileBuffers.add(ByteBuffer.wrap(metadataBuffer));
+      tileBuffers.addAll(featureTableBodyBuffer);
     }
 
-    return mapLibreTileBuffer;
+    return ByteBufferUtil.concat(tileBuffers).array();
   }
 
-  private static byte[] encodePropertyColumns(
+  private static List<ByteBuffer> encodePropertyColumns(
       ConversionConfig config,
       MltMetadata.FeatureTable featureTableMetadata,
       List<Feature> sortedFeatures,

@@ -7,10 +7,16 @@ import com.carrotsearch.hppc.IntArrayList;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.net.URI;
-import java.util.*;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.Geometry;
@@ -22,17 +28,31 @@ import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
-import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption;
 import org.maplibre.mlt.converter.MLTStreamObserver;
-import org.maplibre.mlt.converter.geometry.*;
+import org.maplibre.mlt.converter.geometry.GeometryType;
+import org.maplibre.mlt.converter.geometry.GeometryUtils;
+import org.maplibre.mlt.converter.geometry.HilbertCurve;
+import org.maplibre.mlt.converter.geometry.SpaceFillingCurve;
+import org.maplibre.mlt.converter.geometry.Vertex;
+import org.maplibre.mlt.converter.geometry.ZOrderCurve;
 import org.maplibre.mlt.converter.tessellation.TessellationUtils;
-import org.maplibre.mlt.metadata.stream.*;
+import org.maplibre.mlt.metadata.stream.DictionaryType;
+import org.maplibre.mlt.metadata.stream.LengthType;
+import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.LogicalStreamType;
+import org.maplibre.mlt.metadata.stream.OffsetType;
+import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
+import org.maplibre.mlt.metadata.stream.StreamMetadata;
 
 public class GeometryEncoder {
 
   public record EncodedGeometryColumn(
-      int numStreams, byte[] encodedValues, int maxVertexValue, boolean geometryColumnSorted) {}
+      int numStreams,
+      List<ByteBuffer> encodedValues,
+      int maxVertexValue,
+      boolean geometryColumnSorted) {}
 
   public record SortSettings(boolean isSortable, List<Long> featureIds) {}
 
@@ -223,7 +243,7 @@ public class GeometryEncoder {
       }
     }
 
-    var encodedGeometryTypesStream =
+    final var encodedGeometryTypesStream =
         IntegerEncoder.encodeIntStream(
             geometryTypes,
             physicalLevelTechnique,
@@ -233,11 +253,12 @@ public class GeometryEncoder {
             encodingOption,
             streamObserver,
             "geom_types");
-    var encodedTopologyStreams = encodedGeometryTypesStream;
+
+    var encodedTopologyStreams = new ArrayList<>(encodedGeometryTypesStream);
     var numStreams = 1;
 
     if (!numGeometries.isEmpty()) {
-      var encodedNumGeometries =
+      final var encodedNumGeometries =
           IntegerEncoder.encodeIntStream(
               numGeometries,
               physicalLevelTechnique,
@@ -247,11 +268,11 @@ public class GeometryEncoder {
               encodingOption,
               streamObserver,
               "geom_num_geoms");
-      encodedTopologyStreams = ArrayUtils.addAll(encodedTopologyStreams, encodedNumGeometries);
+      encodedTopologyStreams.addAll(encodedNumGeometries);
       numStreams++;
     }
     if (!numParts.isEmpty()) {
-      var encodedNumParts =
+      final var encodedNumParts =
           IntegerEncoder.encodeIntStream(
               numParts,
               physicalLevelTechnique,
@@ -261,11 +282,11 @@ public class GeometryEncoder {
               encodingOption,
               streamObserver,
               "geom_num_parts");
-      encodedTopologyStreams = ArrayUtils.addAll(encodedTopologyStreams, encodedNumParts);
+      encodedTopologyStreams.addAll(encodedNumParts);
       numStreams++;
     }
     if (!numRings.isEmpty()) {
-      var encodedNumRings =
+      final var encodedNumRings =
           IntegerEncoder.encodeIntStream(
               numRings,
               physicalLevelTechnique,
@@ -275,17 +296,17 @@ public class GeometryEncoder {
               encodingOption,
               streamObserver,
               "geom_num_rings");
-      encodedTopologyStreams = ArrayUtils.addAll(encodedTopologyStreams, encodedNumRings);
+      encodedTopologyStreams.addAll(encodedNumRings);
       numStreams++;
     }
 
-    var plainVertexBufferSize = encodedVertexBuffer.encodedValues.length;
-    var dictionaryEncodedSize =
-        encodedDictionaryOffsets.encodedValues.length
-            + encodedVertexDictionary.encodedValues.length;
-    var mortonDictionaryEncodedSize =
-        encodedMortonEncodedDictionaryOffsets.encodedValues.length
-            + encodedMortonVertexDictionary.encodedValues.length;
+    final var plainVertexBufferSize = encodedVertexBuffer.encodedValues.remaining();
+    final var dictionaryEncodedSize =
+        encodedDictionaryOffsets.encodedValues.remaining()
+            + encodedVertexDictionary.encodedValues.remaining();
+    final var mortonDictionaryEncodedSize =
+        encodedMortonEncodedDictionaryOffsets.encodedValues.remaining()
+            + encodedMortonVertexDictionary.encodedValues.remaining();
 
     // TODO: move pre-tessellation column creation up to avoid doing unnecessary work
     /* Currently use pre-tessellation only if all geometries in a FeatureTable are Polygons or MultiPolygons */
@@ -298,7 +319,7 @@ public class GeometryEncoder {
               zigZagDeltaVertexBuffer, vertexBuffer, physicalLevelTechnique, streamObserver);
 
       if (encodePolygonOutlines) {
-        var encodedPretessellationStreams =
+        final var encodedPretessellationStreams =
             encodePolygonPretessellationStreamsWithOutlines(
                 physicalLevelTechnique,
                 encodingOption,
@@ -308,41 +329,33 @@ public class GeometryEncoder {
                 numTriangles,
                 indexBuffer,
                 streamObserver);
-        return new EncodedGeometryColumn(
-            7,
-            CollectionUtils.concatByteArrays(
-                encodedGeometryTypesStream,
-                encodedPretessellationStreams,
-                encodedVertexBufferStream),
-            maxVertexValue,
-            geometryColumnSorted);
+        final var data = encodedGeometryTypesStream;
+        data.addAll(encodedPretessellationStreams);
+        data.addAll(encodedVertexBufferStream);
+        return new EncodedGeometryColumn(7, data, maxVertexValue, geometryColumnSorted);
       }
 
       var encodedPretessellationStreams =
           encodePolygonPretessellationStreams(
               physicalLevelTechnique, encodingOption, numTriangles, indexBuffer, streamObserver);
-      return new EncodedGeometryColumn(
-          4,
-          CollectionUtils.concatByteArrays(
-              encodedGeometryTypesStream, encodedPretessellationStreams, encodedVertexBufferStream),
-          maxVertexValue,
-          geometryColumnSorted);
+      final var data = encodedGeometryTypesStream;
+      data.addAll(encodedPretessellationStreams);
+      data.addAll(encodedVertexBufferStream);
+      return new EncodedGeometryColumn(4, data, maxVertexValue, geometryColumnSorted);
     } else if (plainVertexBufferSize <= dictionaryEncodedSize
         && plainVertexBufferSize <= mortonDictionaryEncodedSize) {
       // TODO: get rid of extra conversion
-      var encodedVertexBufferStream =
+      final var encodedVertexBufferStream =
           encodeVertexBuffer(
               zigZagDeltaVertexBuffer, vertexBuffer, physicalLevelTechnique, streamObserver);
 
-      return new EncodedGeometryColumn(
-          numStreams + 1,
-          ArrayUtils.addAll(encodedTopologyStreams, encodedVertexBufferStream),
-          maxVertexValue,
-          geometryColumnSorted);
+      final var data = encodedTopologyStreams;
+      data.addAll(encodedVertexBufferStream);
+      return new EncodedGeometryColumn(numStreams + 1, data, maxVertexValue, geometryColumnSorted);
     } else if ((dictionaryEncodedSize < plainVertexBufferSize
             && dictionaryEncodedSize <= mortonDictionaryEncodedSize)
         || !useMortonEncoding) {
-      var encodedVertexOffsetStream =
+      final var encodedVertexOffsetStream =
           IntegerEncoder.encodeIntStream(
               dictionaryOffsets,
               physicalLevelTechnique,
@@ -353,25 +366,23 @@ public class GeometryEncoder {
               streamObserver,
               "geom_vertex_offsets");
 
-      var encodedVertexDictionaryStream =
+      final var encodedVertexDictionaryStream =
           encodeVertexBuffer(
               zigZagDeltaVertexDictionary,
               vertexDictionary.getRight(),
               physicalLevelTechnique,
               streamObserver);
 
-      return new EncodedGeometryColumn(
-          numStreams + 2,
-          CollectionUtils.concatByteArrays(
-              encodedTopologyStreams, encodedVertexOffsetStream, encodedVertexDictionaryStream),
-          maxVertexValue,
-          false);
+      final var data = encodedTopologyStreams;
+      data.addAll(encodedVertexOffsetStream);
+      data.addAll(encodedVertexDictionaryStream);
+      return new EncodedGeometryColumn(numStreams + 2, data, maxVertexValue, false);
     }
     // TODO: add morton again
     else {
       // Note: input values are morton-encoded as they're produced, so the values here are not the
       // raw values
-      var encodedMortonVertexOffsetStream =
+      final var encodedMortonVertexOffsetStream =
           IntegerEncoder.encodeIntStream(
               mortonEncodedDictionaryOffsets,
               physicalLevelTechnique,
@@ -382,32 +393,28 @@ public class GeometryEncoder {
               streamObserver,
               "geom_morton_vertex_offsets");
 
-      var encodedMortonEncodedVertexDictionaryStream =
+      final var encodedMortonEncodedVertexDictionaryStream =
           IntegerEncoder.encodeMortonStream(
               mortonEncodedDictionary,
               zOrderCurve.numBits(),
               zOrderCurve.coordinateShift(),
               physicalLevelTechnique);
 
-      return new EncodedGeometryColumn(
-          numStreams + 2,
-          CollectionUtils.concatByteArrays(
-              encodedTopologyStreams,
-              encodedMortonVertexOffsetStream,
-              encodedMortonEncodedVertexDictionaryStream),
-          maxVertexValue,
-          geometryColumnSorted);
+      final var data = encodedTopologyStreams;
+      data.addAll(encodedMortonVertexOffsetStream);
+      data.addAll(encodedMortonEncodedVertexDictionaryStream);
+      return new EncodedGeometryColumn(numStreams + 2, data, maxVertexValue, geometryColumnSorted);
     }
   }
 
-  private static byte[] encodePolygonPretessellationStreams(
+  private static List<ByteBuffer> encodePolygonPretessellationStreams(
       PhysicalLevelTechnique physicalLevelTechnique,
       @NotNull IntegerEncodingOption encodingOption,
       ArrayList<Integer> numTriangles,
       ArrayList<Integer> indexBuffer,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
-    var encodedNumTrianglesBuffer =
+    final var result =
         IntegerEncoder.encodeIntStream(
             numTriangles,
             physicalLevelTechnique,
@@ -417,7 +424,7 @@ public class GeometryEncoder {
             encodingOption,
             streamObserver,
             "geom_num_tris");
-    var encodedIndexBuffer =
+    result.addAll(
         IntegerEncoder.encodeIntStream(
             indexBuffer,
             physicalLevelTechnique,
@@ -426,12 +433,11 @@ public class GeometryEncoder {
             new LogicalStreamType(OffsetType.INDEX),
             encodingOption,
             streamObserver,
-            "geom_indexes");
-
-    return ArrayUtils.addAll(encodedNumTrianglesBuffer, encodedIndexBuffer);
+            "geom_indexes"));
+    return result;
   }
 
-  private static byte[] encodePolygonPretessellationStreamsWithOutlines(
+  private static List<ByteBuffer> encodePolygonPretessellationStreamsWithOutlines(
       PhysicalLevelTechnique physicalLevelTechnique,
       @NotNull IntegerEncodingOption encodingOption,
       ArrayList<Integer> numGeometries,
@@ -441,7 +447,7 @@ public class GeometryEncoder {
       ArrayList<Integer> indexBuffer,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
-    var encodedNumGeometries =
+    final var result =
         IntegerEncoder.encodeIntStream(
             numGeometries,
             physicalLevelTechnique,
@@ -451,7 +457,7 @@ public class GeometryEncoder {
             encodingOption,
             streamObserver,
             "geom_num_geoms");
-    var encodedNumParts =
+    result.addAll(
         IntegerEncoder.encodeIntStream(
             numParts,
             physicalLevelTechnique,
@@ -460,8 +466,8 @@ public class GeometryEncoder {
             new LogicalStreamType(LengthType.PARTS),
             encodingOption,
             streamObserver,
-            "geom_num_parts");
-    var encodedNumRings =
+            "geom_num_parts"));
+    result.addAll(
         IntegerEncoder.encodeIntStream(
             numRings,
             physicalLevelTechnique,
@@ -470,8 +476,8 @@ public class GeometryEncoder {
             new LogicalStreamType(LengthType.RINGS),
             encodingOption,
             streamObserver,
-            "geom_num_rings");
-    var encodedNumTrianglesBuffer =
+            "geom_num_rings"));
+    result.addAll(
         IntegerEncoder.encodeIntStream(
             numTriangles,
             physicalLevelTechnique,
@@ -480,8 +486,8 @@ public class GeometryEncoder {
             new LogicalStreamType(LengthType.TRIANGLES),
             encodingOption,
             streamObserver,
-            "geom_num_tris");
-    var encodedIndexBuffer =
+            "geom_num_tris"));
+    result.addAll(
         IntegerEncoder.encodeIntStream(
             indexBuffer,
             physicalLevelTechnique,
@@ -490,14 +496,9 @@ public class GeometryEncoder {
             new LogicalStreamType(OffsetType.INDEX),
             encodingOption,
             streamObserver,
-            "geom_indexes");
+            "geom_indexes"));
 
-    return CollectionUtils.concatByteArrays(
-        encodedNumGeometries,
-        encodedNumParts,
-        encodedNumRings,
-        encodedNumTrianglesBuffer,
-        encodedIndexBuffer);
+    return result;
   }
 
   private static boolean containsPolygon(List<Geometry> geometries) {
@@ -678,7 +679,7 @@ public class GeometryEncoder {
       }
     }
 
-    var encodedTopologyStreams =
+    final var result =
         IntegerEncoder.encodeIntStream(
             geometryTypes,
             physicalLevelTechnique,
@@ -701,7 +702,7 @@ public class GeometryEncoder {
               encodingOption,
               streamObserver,
               "geom_num_geoms");
-      encodedTopologyStreams = ArrayUtils.addAll(encodedTopologyStreams, encodedNumGeometries);
+      result.addAll(encodedNumGeometries);
       numStreams++;
     }
     if (!numParts.isEmpty()) {
@@ -715,7 +716,7 @@ public class GeometryEncoder {
               encodingOption,
               streamObserver,
               "geom_num_parts");
-      encodedTopologyStreams = ArrayUtils.addAll(encodedTopologyStreams, encodedNumParts);
+      result.addAll(encodedNumParts);
       numStreams++;
     }
     if (!numRings.isEmpty()) {
@@ -729,17 +730,17 @@ public class GeometryEncoder {
               encodingOption,
               streamObserver,
               "geom_num_rings");
-      encodedTopologyStreams = ArrayUtils.addAll(encodedTopologyStreams, encodedNumRings);
+      result.addAll(encodedNumRings);
       numStreams++;
     }
 
-    var plainVertexBufferSize = encodedVertexBuffer.encodedValues.length;
+    var plainVertexBufferSize = encodedVertexBuffer.encodedValues.remaining();
     var dictionaryEncodedSize =
-        encodedDictionaryOffsets.encodedValues.length
-            + encodedVertexDictionary.encodedValues.length;
+        encodedDictionaryOffsets.encodedValues.remaining()
+            + encodedVertexDictionary.encodedValues.remaining();
     var mortonDictionaryEncodedSize =
-        encodedMortonEncodedDictionaryOffsets.encodedValues.length
-            + encodedMortonVertexDictionary.encodedValues.length;
+        encodedMortonEncodedDictionaryOffsets.encodedValues.remaining()
+            + encodedMortonVertexDictionary.encodedValues.remaining();
 
     if (plainVertexBufferSize <= dictionaryEncodedSize
         && (!useMortonEncoding || plainVertexBufferSize <= mortonDictionaryEncodedSize)) {
@@ -748,11 +749,9 @@ public class GeometryEncoder {
           encodeVertexBuffer(
               zigZagDeltaVertexBuffer, vertexBuffer, physicalLevelTechnique, streamObserver);
 
+      result.addAll(encodedVertexBufferStream);
       return new EncodedGeometryColumn(
-          numStreams + 1,
-          ArrayUtils.addAll(encodedTopologyStreams, encodedVertexBufferStream),
-          maxVertexValue,
-          geometryColumnSorted);
+          numStreams + 1, result, maxVertexValue, geometryColumnSorted);
     } else if (dictionaryEncodedSize < plainVertexBufferSize
         && (!useMortonEncoding || dictionaryEncodedSize <= mortonDictionaryEncodedSize)) {
       var encodedVertexOffsetStream =
@@ -772,12 +771,9 @@ public class GeometryEncoder {
               physicalLevelTechnique,
               streamObserver);
 
-      return new EncodedGeometryColumn(
-          numStreams + 2,
-          CollectionUtils.concatByteArrays(
-              encodedTopologyStreams, encodedVertexOffsetStream, encodedVertexDictionaryStream),
-          maxVertexValue,
-          false);
+      result.addAll(encodedVertexOffsetStream);
+      result.addAll(encodedVertexDictionaryStream);
+      return new EncodedGeometryColumn(numStreams + 2, result, maxVertexValue, false);
     } else {
       // Note: input values are morton-encoded as they're produced, so the values here are not the
       // raw values
@@ -799,14 +795,10 @@ public class GeometryEncoder {
               zOrderCurve.coordinateShift(),
               physicalLevelTechnique);
 
+      result.addAll(encodedMortonVertexOffsetStream);
+      result.addAll(encodedMortonEncodedVertexDictionaryStream);
       return new EncodedGeometryColumn(
-          numStreams + 2,
-          CollectionUtils.concatByteArrays(
-              encodedTopologyStreams,
-              encodedMortonVertexOffsetStream,
-              encodedMortonEncodedVertexDictionaryStream),
-          maxVertexValue,
-          geometryColumnSorted);
+          numStreams + 2, result, maxVertexValue, geometryColumnSorted);
     }
   }
 
@@ -947,18 +939,18 @@ public class GeometryEncoder {
   /**
    * Encodes the StreamMetadata and applies the specified physical level technique to the values.
    */
-  private static byte[] encodeVertexBuffer(
+  private static List<ByteBuffer> encodeVertexBuffer(
       int[] values,
       Collection<Vertex> vertices,
       PhysicalLevelTechnique physicalLevelTechnique,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
-    var encodedValues =
+    final var encodedValues =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
             ? encodeFastPfor(values, false)
             : encodeVarint(values, false);
 
-    var encodedMetadata =
+    final var result =
         new StreamMetadata(
                 PhysicalStreamType.DATA,
                 new LogicalStreamType(DictionaryType.VERTEX),
@@ -966,13 +958,15 @@ public class GeometryEncoder {
                 LogicalLevelTechnique.NONE,
                 physicalLevelTechnique,
                 values.length,
-                encodedValues.length)
+                encodedValues.remaining())
             .encode();
 
     if (streamObserver.isActive()) {
-      final var rawValues = vertices.stream().flatMap(v -> Stream.of(v.x(), v.y())).toList();
-      streamObserver.observeStream("geom_vertex_buffer", rawValues, encodedMetadata, encodedValues);
+      final var rawValues =
+          vertices.stream().flatMap(v -> Stream.of(v.x(), v.y())).toArray(Integer[]::new);
+      streamObserver.observeStream("geom_vertex_buffer", rawValues, result, encodedValues);
     }
-    return ArrayUtils.addAll(encodedMetadata, encodedValues);
+    result.add(encodedValues);
+    return result;
   }
 }

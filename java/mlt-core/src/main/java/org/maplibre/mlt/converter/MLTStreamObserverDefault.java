@@ -1,5 +1,6 @@
 package org.maplibre.mlt.converter;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
 
 /** A no-operation implementation of the MLTStreamObserver interface. */
@@ -16,5 +17,5 @@ public class MLTStreamObserverDefault implements MLTStreamObserver {
 
   @Override
   public <T> void observeStream(
-      String streamName, Collection<T> values, byte[] rawMetaData, byte[] rawData) {}
+      String streamName, Collection<T> values, ByteBuffer rawMetaData, ByteBuffer rawData) {}
 }

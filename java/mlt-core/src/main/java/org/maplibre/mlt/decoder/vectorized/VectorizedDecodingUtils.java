@@ -1,7 +1,13 @@
 package org.maplibre.mlt.decoder.vectorized;
 
-import java.nio.*;
-import me.lemire.integercompression.*;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.IntBuffer;
+import me.lemire.integercompression.Composition;
+import me.lemire.integercompression.FastPFOR;
+import me.lemire.integercompression.IntWrapper;
+import me.lemire.integercompression.IntegerCODEC;
+import me.lemire.integercompression.VariableByte;
 
 /* the redundant implementations in this class are mainly to avoid branching and therefore speed up the decoding */
 public class VectorizedDecodingUtils {

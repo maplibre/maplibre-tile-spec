@@ -2,7 +2,10 @@ package org.maplibre.mlt.decoder;
 
 import java.io.IOException;
 import me.lemire.integercompression.IntWrapper;
-import org.maplibre.mlt.metadata.stream.*;
+import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.MortonEncodedStreamMetadata;
+import org.maplibre.mlt.metadata.stream.RleEncodedStreamMetadata;
+import org.maplibre.mlt.metadata.stream.StreamMetadata;
 
 public class StreamDecoder {
 
