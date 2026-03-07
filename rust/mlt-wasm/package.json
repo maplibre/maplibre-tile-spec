@@ -32,7 +32,8 @@
 		"build:wasm-gz": "gzip --best --no-name pkg/mlt.wasm --keep --force && du -sh pkg/*.wasm*",
 		"build:ts": "tsc",
 		"build": "npm run build:wasm && npm run build:wasm-opt && npm run build:ts && npm run build:wasm-gz",
-		"test": "vitest --coverage --coverage.reportOnFailure",
+		"test": "vitest --coverage --coverage.reportOnFailure --run",
+		"test:watch": "vitest --coverage --coverage.reportOnFailure --ui",
 		"bench": "vitest bench"
 	},
 	"dependencies": {
@@ -42,6 +43,7 @@
 	"devDependencies": {
 		"@types/node": "^24.10.2",
 		"@vitest/coverage-v8": "^4.0.1",
+		"@vitest/ui": "^4.0.18",
 		"typescript": "^5.9.3",
 		"vite-plugin-top-level-await": "^1.6.0",
 		"vite-plugin-wasm": "^3.5.0",
