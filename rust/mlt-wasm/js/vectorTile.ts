@@ -11,9 +11,13 @@ interface WasmMltTile {
   layer_name(layer_idx: number): string;
   layer_extent(layer_idx: number): number;
   feature_count(layer_idx: number): number;
-  feature_type(layer_idx: number, feature_idx: number): number;
-  /** NaN when the feature has no ID. */
-  feature_id(layer_idx: number, feature_idx: number): number;
+  /** Bulk geometry types for the whole layer as a Uint8Array (one byte per feature). */
+  layer_types(layer_idx: number): Uint8Array;
+  /**
+   * Bulk IDs for the whole layer as a Float64Array (one f64 per feature).
+   * NaN when the feature has no ID.
+   */
+  layer_ids(layer_idx: number): Float64Array;
   /**
    * Flat Int32Array: [numRings, ring0_len, x0, y0, x1, y1, …, ring1_len, …]
    * Rings are open (no repeated closing vertex).
@@ -42,9 +46,13 @@ function decodeGeometry(raw: Int32Array): Point[][] {
 }
 
 class MltFeature implements VectorTileFeatureLike {
-  readonly type: 0 | 1 | 2 | 3;
-  readonly id: number | undefined;
   readonly extent: number;
+
+  // Lazily populated from the bulk arrays owned by MltLayer.
+  // _type: undefined = not yet read; value = cached.
+  // _id:   null      = sentinel "not yet read"; undefined = feature has no id.
+  private _type: 0 | 1 | 2 | 3 | undefined;
+  private _id: number | undefined | null;
 
   private _properties: Record<string, number | string | boolean> | undefined;
 
@@ -53,11 +61,26 @@ class MltFeature implements VectorTileFeatureLike {
     private readonly _layerIdx: number,
     private readonly _featureIdx: number,
     extent: number,
+    private readonly _types: Uint8Array,
+    private readonly _ids: Float64Array,
   ) {
     this.extent = extent;
-    this.type = _tile.feature_type(_layerIdx, _featureIdx) as 0 | 1 | 2 | 3;
-    const rawId = _tile.feature_id(_layerIdx, _featureIdx);
-    this.id = Number.isNaN(rawId) ? undefined : rawId;
+    this._id = null;
+  }
+
+  get type(): 0 | 1 | 2 | 3 {
+    if (this._type === undefined) {
+      this._type = this._types[this._featureIdx] as 0 | 1 | 2 | 3;
+    }
+    return this._type;
+  }
+
+  get id(): number | undefined {
+    if (this._id === null) {
+      const raw = this._ids[this._featureIdx];
+      this._id = Number.isNaN(raw) ? undefined : raw;
+    }
+    return this._id as number | undefined;
   }
 
   get properties(): Record<string, number | string | boolean> {
@@ -81,6 +104,10 @@ class MltLayer implements VectorTileLayerLike {
   readonly extent: number;
   readonly length: number;
 
+  // Fetched once per layer — 2 WASM calls total, not 2 per feature.
+  private readonly _types: Uint8Array;
+  private readonly _ids: Float64Array;
+
   constructor(
     private readonly _tile: WasmMltTile,
     private readonly _layerIdx: number,
@@ -89,10 +116,19 @@ class MltLayer implements VectorTileLayerLike {
     this.name = name;
     this.extent = _tile.layer_extent(_layerIdx);
     this.length = _tile.feature_count(_layerIdx);
+    this._types = _tile.layer_types(_layerIdx);
+    this._ids = _tile.layer_ids(_layerIdx);
   }
 
   feature(i: number): VectorTileFeatureLike {
-    return new MltFeature(this._tile, this._layerIdx, i, this.extent);
+    return new MltFeature(
+      this._tile,
+      this._layerIdx,
+      i,
+      this.extent,
+      this._types,
+      this._ids,
+    );
   }
 }
 

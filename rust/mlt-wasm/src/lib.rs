@@ -31,7 +31,7 @@
 use std::cell::RefCell;
 use std::f64;
 
-use js_sys::{Int32Array, Object, Reflect};
+use js_sys::{Float64Array, Int32Array, Object, Reflect, Uint8Array};
 use mlt_core::borrowme::{Borrow, ToOwned};
 use mlt_core::v01::{
     DecodedId, GeometryType, Id, OwnedEncodedId, OwnedGeometry, OwnedProperty, PropValue,
@@ -53,6 +53,11 @@ struct DecodedLayer {
     ids: RefCell<IdState>,
     /// Property columns
     props: RefCell<Vec<OwnedProperty>>,
+    /// Cached JS string handles for property keys — built once on first
+    /// `feature_properties` call and reused for every subsequent feature.
+    /// Each entry corresponds 1-to-1 with the flattened key set produced by
+    /// iterating `props` in the same order as `feature_properties` does.
+    prop_keys: RefCell<Vec<JsValue>>,
 }
 
 /// A fully-decoded MLT tile.
@@ -90,6 +95,44 @@ impl MltTile {
     #[must_use]
     pub fn feature_count(&self, layer_idx: usize) -> usize {
         self.layers[layer_idx].vector_types.len()
+    }
+
+    /// All geometry types for every feature in `layer_idx` as a `Uint8Array`.
+    ///
+    /// One byte per feature, using the same mapping as [`feature_type`]:
+    /// `1` = Point, `2` = LineString, `3` = Polygon, `0` = Unknown.
+    ///
+    /// Fetching this once per layer (2 WASM calls total) and indexing into it
+    /// in JS is far cheaper than calling `feature_type` once per feature.
+    #[must_use]
+    pub fn layer_types(&self, layer_idx: usize) -> Uint8Array {
+        let types: Vec<u8> = self.layers[layer_idx]
+            .vector_types
+            .iter()
+            .map(|t| match t {
+                GeometryType::Point | GeometryType::MultiPoint => 1,
+                GeometryType::LineString | GeometryType::MultiLineString => 2,
+                GeometryType::Polygon | GeometryType::MultiPolygon => 3,
+                #[allow(unreachable_patterns)]
+                _ => 0,
+            })
+            .collect();
+        Uint8Array::from(types.as_slice())
+    }
+
+    /// All feature IDs for every feature in `layer_idx` as a `Float64Array`.
+    ///
+    /// One `f64` per feature. Absent IDs are represented as `NaN`, matching
+    /// the contract of [`feature_id`]. Fetching this once per layer and
+    /// indexing into it in JS eliminates per-feature WASM boundary crossings.
+    pub fn layer_ids(&self, layer_idx: usize) -> Result<Float64Array, JsError> {
+        self.ensure_ids_decoded(layer_idx)?;
+        let guard = self.layers[layer_idx].ids.borrow();
+        let ids: &[f64] = match &*guard {
+            IdState::Decoded(ids) => ids.as_slice(),
+            _ => &[],
+        };
+        Ok(Float64Array::from(ids))
     }
 
     /// MVT geometry type for a feature.
@@ -193,27 +236,52 @@ impl MltTile {
             }
         }
 
+        // Build the cached key vec on the very first feature access, then reuse
+        // it for every subsequent feature.  This eliminates one `JsValue::from_str`
+        // allocation per property key per feature — a measurable win when there
+        // are many features and a fixed set of column names.
+        {
+            let mut keys = layer.prop_keys.borrow_mut();
+            if keys.is_empty() {
+                let guard = layer.props.borrow();
+                for p in &*guard {
+                    if let OwnedProperty::Decoded(prop) = p {
+                        match &prop.values {
+                            PropValue::SharedDict(items) => {
+                                for item in items {
+                                    let key = format!("{}{}", prop.name, item.suffix);
+                                    keys.push(JsValue::from_str(&key));
+                                }
+                            }
+                            _ => {
+                                keys.push(JsValue::from_str(&prop.name));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         let obj = Object::new();
         let guard = layer.props.borrow();
+        let keys = layer.prop_keys.borrow();
+        let mut key_idx = 0usize;
         for p in &*guard {
             if let OwnedProperty::Decoded(prop) = p {
                 match &prop.values {
                     PropValue::SharedDict(items) => {
                         for item in items {
                             if let Some(val) = &item.values[feature_idx] {
-                                let key = format!("{}{}", prop.name, item.suffix);
-                                let _ = Reflect::set(
-                                    &obj,
-                                    &JsValue::from_str(&key),
-                                    &JsValue::from_str(val),
-                                );
+                                let _ = Reflect::set(&obj, &keys[key_idx], &JsValue::from_str(val));
                             }
+                            key_idx += 1;
                         }
                     }
                     _ => {
                         if let Some(val) = prop_to_js(&prop.values, feature_idx) {
-                            let _ = Reflect::set(&obj, &JsValue::from_str(&prop.name), &val);
+                            let _ = Reflect::set(&obj, &keys[key_idx], &val);
                         }
+                        key_idx += 1;
                     }
                 }
             }
@@ -321,6 +389,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             geometry,
             ids,
             props,
+            prop_keys: RefCell::new(Vec::new()),
         });
     }
 
