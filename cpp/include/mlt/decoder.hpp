@@ -14,8 +14,8 @@ public:
     using Geometry = geometry::Geometry;
     using GeometryFactory = geometry::GeometryFactory;
 
-    Decoder();
-    Decoder(std::unique_ptr<GeometryFactory>&&);
+    Decoder(bool supportFastPFOR);
+    Decoder(std::unique_ptr<GeometryFactory>&&, bool supportFastPFOR);
     ~Decoder() noexcept;
     Decoder(Decoder&&) = delete;
     Decoder& operator=(Decoder&&) = delete;

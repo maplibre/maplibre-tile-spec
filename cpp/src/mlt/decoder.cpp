@@ -29,8 +29,10 @@ using namespace decoder;
 using namespace util::decoding;
 
 struct Decoder::Impl {
-    Impl(std::unique_ptr<GeometryFactory>&& geometryFactory_)
-        : geometryFactory(std::move(geometryFactory_)) {}
+    Impl(std::unique_ptr<GeometryFactory>&& geometryFactory_, bool supportFastPFOR)
+        : integerDecoder(supportFastPFOR),
+          geometryDecoder(integerDecoder),
+          geometryFactory(std::move(geometryFactory_)) {}
 
     Layer parseBasicMVTEquivalent(BufferStream&);
     std::vector<Feature> makeFeatures(const std::vector<std::optional<Feature::id_t>>&,
@@ -125,11 +127,11 @@ std::vector<Feature> Decoder::Impl::makeFeatures(const std::vector<std::optional
     });
 }
 
-Decoder::Decoder()
-    : Decoder(std::make_unique<GeometryFactory>()) {}
+Decoder::Decoder(bool supportFastPFOR)
+    : Decoder(std::make_unique<GeometryFactory>(), supportFastPFOR) {}
 
-Decoder::Decoder(std::unique_ptr<GeometryFactory>&& geometryFactory)
-    : impl{std::make_unique<Impl>(std::move(geometryFactory))} {}
+Decoder::Decoder(std::unique_ptr<GeometryFactory>&& geometryFactory, bool supportFastPFOR)
+    : impl{std::make_unique<Impl>(std::move(geometryFactory), supportFastPFOR)} {}
 
 Decoder::~Decoder() noexcept = default;
 
