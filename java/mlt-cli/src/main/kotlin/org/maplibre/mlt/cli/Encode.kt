@@ -258,7 +258,7 @@ object Encode {
             }
         }
 
-        if (totalCompressedInput.get() > 0 && logger.isDebugEnabled) {
+        if (logger.isDebugEnabled) {
             val input = totalCompressedInput.get()
             val output = totalCompressedOutput.get()
             val compressed = totalCompressedTiles.get()
