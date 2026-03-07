@@ -16,7 +16,7 @@ export function decodeBigEndianInt32sInto(
     bytes: Uint8Array,
     offset: number,
     byteLength: number,
-    out: Int32Array,
+    out: Uint32Array,
 ): number {
     if (offset < 0 || byteLength < 0 || offset + byteLength > bytes.length) {
         throw new RangeError(

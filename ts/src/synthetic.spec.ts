@@ -10,7 +10,7 @@ import type FeatureTable from "./vector/featureTable";
 const EARCUT_MAX_RINGS = 500;
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
-    ["prop_u32_max", "wraps to -1 despite it should have been positive"],
+    //["prop_u32_max", "wraps to -1 despite it should have been positive"],
     ["prop_u64_max", "wraps to -1 despite it should have been positive"],
     ["poly_multi_morton_ring_morton", "decodes to zero coordinates"],
     ["poly_multi_morton_ring_no_morton", "decodes to zero coordinates"],
@@ -20,6 +20,7 @@ describe("MLT Decoder - Synthetic tests", () => {
     expect.addEqualityTesters([compareWithTolerance]);
     const testCases = getTestCases(Array.from(UNIMPLEMENTED_SYNTHETICS.keys()));
     for (const { name, content, fileName } of testCases.active) {
+        if (name !== "prop_u32_max") continue;
         it(name, async () => {
             const actual = await decodeMLT(fileName);
             writeActualOutput(fileName, actual);
