@@ -31,7 +31,19 @@ build:
 alias c := check
 # Quick compile without building a binary
 check: (just 'cargo-install' 'cargo-hack')
-    cargo hack check --all-targets --each-feature --workspace
+    cargo hack check --all-targets --each-feature \
+        --workspace --exclude mlt-core \
+        --exclude-no-default-features --exclude-all-features
+    cargo hack check --all-targets --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-rust,default \
+        --exclude-all-features \
+        --features fastpfor-cpp
+    cargo hack check --all-targets --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-cpp,default \
+        --exclude-all-features \
+        --features fastpfor-rust
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
