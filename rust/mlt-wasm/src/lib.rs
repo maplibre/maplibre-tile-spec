@@ -166,9 +166,6 @@ impl MltTile {
     /// Only present (`Some`) values are included.  Null/absent optional property
     /// values are omitted from the object entirely, matching the behaviour of
     /// `@mapbox/vector-tile` which also skips null properties.
-    ///
-    /// `SharedDict` (struct-typed) columns are not yet supported and are
-    /// silently skipped.
     #[must_use]
     pub fn feature_properties(&self, layer_idx: usize, feature_idx: usize) -> Object {
         let layer = &self.layers[layer_idx];
@@ -189,10 +186,26 @@ impl MltTile {
         let obj = Object::new();
         let guard = layer.props.borrow();
         for p in &*guard {
-            if let OwnedProperty::Decoded(prop) = p
-                && let Some(val) = prop_to_js(&prop.values, feature_idx)
-            {
-                let _ = Reflect::set(&obj, &JsValue::from_str(&prop.name), &val);
+            if let OwnedProperty::Decoded(prop) = p {
+                match &prop.values {
+                    PropValue::SharedDict(items) => {
+                        for item in items {
+                            if let Some(val) = &item.values[feature_idx] {
+                                let key = format!("{}{}", prop.name, item.suffix);
+                                let _ = Reflect::set(
+                                    &obj,
+                                    &JsValue::from_str(&key),
+                                    &JsValue::from_str(val),
+                                );
+                            }
+                        }
+                    }
+                    _ => {
+                        if let Some(val) = prop_to_js(&prop.values, feature_idx) {
+                            let _ = Reflect::set(&obj, &JsValue::from_str(&prop.name), &val);
+                        }
+                    }
+                }
             }
         }
         obj
