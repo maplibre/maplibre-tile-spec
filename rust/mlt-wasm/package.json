@@ -27,7 +27,7 @@
 		"gis"
 	],
 	"scripts": {
-		"build:wasm": "RUSTFLAGS=\"-Zunstable-options -Cpanic=immediate-abort\" CARGO_UNSTABLE_BUILD_STD=std,panic_abort RUSTUP_TOOLCHAIN=nightly wasm-pack build --target bundler --weak-refs --out-dir pkg",
+		"build:wasm": "RUSTFLAGS=\"-Zunstable-options -Cpanic=immediate-abort -Ctarget-feature=+simd128\" CARGO_UNSTABLE_BUILD_STD=std,panic_abort RUSTUP_TOOLCHAIN=nightly wasm-pack build --target bundler --weak-refs --out-dir pkg",
 		"build:wasm-gz": "gzip --best --no-name pkg/mlt_wasm_bg.wasm --keep --force && du -sh pkg/*.wasm*",
 		"build:ts": "tsc",
 		"build": "npm run build:wasm && npm run build:ts && npm run build:wasm-gz",
