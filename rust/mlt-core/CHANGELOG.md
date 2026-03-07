@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.2.0...rust-mlt-core-v0.3.0) - 2026-03-07
+
+### Added
+
+- *(rust)* property encoder optimiser ([#1042](https://github.com/maplibre/maplibre-tile-spec/pull/1042))
+- *(rust)* Id optimiser impl ([#1043](https://github.com/maplibre/maplibre-tile-spec/pull/1043))
+- *(rust)* Geometry optimiser ([#1045](https://github.com/maplibre/maplibre-tile-spec/pull/1045))
+
+### Other
+
+- *(rust)* major rework of the shared dict ([#1066](https://github.com/maplibre/maplibre-tile-spec/pull/1066))
+- *(rust)* a bit more geotype cleanup ([#1059](https://github.com/maplibre/maplibre-tile-spec/pull/1059))
+- *(rust)* cleanup geotype code ([#1058](https://github.com/maplibre/maplibre-tile-spec/pull/1058))
+- *(rust)* move geotype code to its own mod ([#1053](https://github.com/maplibre/maplibre-tile-spec/pull/1053))
+- *(rust)* Fuzz the return path for roundtrip-ability ([#1044](https://github.com/maplibre/maplibre-tile-spec/pull/1044))
+- *(rust)* bump fastpfor, enable SIMD test, cleanup ([#1052](https://github.com/maplibre/maplibre-tile-spec/pull/1052))
+- move property tests to be based on the public API ([#1038](https://github.com/maplibre/maplibre-tile-spec/pull/1038))
+
 ## [0.2.0](https://github.com/maplibre/maplibre-tile-spec/compare/mlt-core-v0.1.2...rust-mlt-core-v0.2.0) - 2026-03-04
 
 ### Added

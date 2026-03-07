@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.4...python-mlt-v0.1.5) - 2026-03-07
+
+### Other
+
+- *(rust)* major rework of the shared dict ([#1066](https://github.com/maplibre/maplibre-tile-spec/pull/1066))
+
 ## [0.1.4](https://github.com/maplibre/maplibre-tile-spec/compare/mlt-pyo3-v0.1.3...python-mlt-v0.1.4) - 2026-03-04
 
 ### Other
