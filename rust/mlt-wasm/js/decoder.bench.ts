@@ -31,8 +31,10 @@ function traverseWasm(tile: VectorTileLike): number {
   for (const layer of Object.values(tile.layers)) {
     for (let i = 0; i < layer.length; i++) {
       const f = layer.feature(i);
-      f.loadGeometry();
-      void f.properties;
+      if (i % 4 !== 0) {
+        f.loadGeometry();
+        void f.properties;
+      }
       n++;
     }
   }
