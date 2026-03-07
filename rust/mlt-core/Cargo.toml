@@ -20,7 +20,10 @@ name = "encoding"
 harness = false
 
 [features]
+default = ["fastpfor-cpp"]
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
+fastpfor-cpp  = ["fastpfor/cpp_portable"]
+fastpfor-rust = ["fastpfor/rust"]
 
 [dependencies]
 arbitrary = { workspace = true, optional = true }

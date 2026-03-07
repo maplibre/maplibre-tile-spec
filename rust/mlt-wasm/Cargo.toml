@@ -16,7 +16,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 js-sys.workspace = true
-mlt-core.workspace = true
+mlt-core = { workspace = true, default-features = false, features = ["fastpfor-rust"] }
 wasm-bindgen.workspace = true
 
 [lints]
