@@ -32,38 +32,36 @@ fn similar_strings_grouped_into_shared_dict() {
     assert_eq!(items[1].suffix, "de");
 
     // Encoder should be SharedDict
-    assert_debug_snapshot!(enc, @r#"
-    MultiPropertyEncoder {
-        properties: [
-            SharedDict(
-                SharedDictEncoder {
-                    dict_encoder: Plain {
-                        string_lengths: IntEncoder {
-                            logical: None,
+    assert_debug_snapshot!(enc, @"
+    [
+        SharedDict(
+            SharedDictEncoder {
+                dict_encoder: Plain {
+                    string_lengths: IntEncoder {
+                        logical: None,
+                        physical: VarInt,
+                    },
+                },
+                items: [
+                    SharedDictItemEncoder {
+                        optional: Absent,
+                        offset: IntEncoder {
+                            logical: Delta,
                             physical: VarInt,
                         },
                     },
-                    items: [
-                        SharedDictItemEncoder {
-                            optional: Absent,
-                            offset: IntEncoder {
-                                logical: Delta,
-                                physical: VarInt,
-                            },
+                    SharedDictItemEncoder {
+                        optional: Absent,
+                        offset: IntEncoder {
+                            logical: Delta,
+                            physical: VarInt,
                         },
-                        SharedDictItemEncoder {
-                            optional: Absent,
-                            offset: IntEncoder {
-                                logical: Delta,
-                                physical: VarInt,
-                            },
-                        },
-                    ],
-                },
-            ),
-        ],
-    }
-    "#);
+                    },
+                ],
+            },
+        ),
+    ]
+    ");
 }
 
 #[test]
@@ -84,45 +82,43 @@ fn multiple_similar_string_columns_grouped() {
     };
     assert_eq!(items.len(), 3);
 
-    assert_debug_snapshot!(enc, @r#"
-    MultiPropertyEncoder {
-        properties: [
-            SharedDict(
-                SharedDictEncoder {
-                    dict_encoder: Plain {
-                        string_lengths: IntEncoder {
-                            logical: None,
+    assert_debug_snapshot!(enc, @"
+    [
+        SharedDict(
+            SharedDictEncoder {
+                dict_encoder: Plain {
+                    string_lengths: IntEncoder {
+                        logical: None,
+                        physical: VarInt,
+                    },
+                },
+                items: [
+                    SharedDictItemEncoder {
+                        optional: Absent,
+                        offset: IntEncoder {
+                            logical: Delta,
                             physical: VarInt,
                         },
                     },
-                    items: [
-                        SharedDictItemEncoder {
-                            optional: Absent,
-                            offset: IntEncoder {
-                                logical: Delta,
-                                physical: VarInt,
-                            },
+                    SharedDictItemEncoder {
+                        optional: Absent,
+                        offset: IntEncoder {
+                            logical: Delta,
+                            physical: VarInt,
                         },
-                        SharedDictItemEncoder {
-                            optional: Absent,
-                            offset: IntEncoder {
-                                logical: Delta,
-                                physical: VarInt,
-                            },
+                    },
+                    SharedDictItemEncoder {
+                        optional: Absent,
+                        offset: IntEncoder {
+                            logical: Delta,
+                            physical: VarInt,
                         },
-                        SharedDictItemEncoder {
-                            optional: Absent,
-                            offset: IntEncoder {
-                                logical: Delta,
-                                physical: VarInt,
-                            },
-                        },
-                    ],
-                },
-            ),
-        ],
-    }
-    "#);
+                    },
+                ],
+            },
+        ),
+    ]
+    ");
 }
 
 #[test]
@@ -138,38 +134,36 @@ fn dissimilar_strings_stay_scalar() {
     assert!(matches!(&props[0].values, PropValue::Str(_)));
     assert!(matches!(&props[1].values, PropValue::Str(_)));
 
-    assert_debug_snapshot!(enc, @r#"
-    MultiPropertyEncoder {
-        properties: [
-            Scalar(
-                ScalarEncoder {
-                    optional: Absent,
-                    value: String(
-                        Plain {
-                            string_lengths: IntEncoder {
-                                logical: Delta,
-                                physical: VarInt,
-                            },
+    assert_debug_snapshot!(enc, @"
+    [
+        Scalar(
+            ScalarEncoder {
+                optional: Absent,
+                value: String(
+                    Plain {
+                        string_lengths: IntEncoder {
+                            logical: Delta,
+                            physical: VarInt,
                         },
-                    ),
-                },
-            ),
-            Scalar(
-                ScalarEncoder {
-                    optional: Absent,
-                    value: String(
-                        Plain {
-                            string_lengths: IntEncoder {
-                                logical: None,
-                                physical: VarInt,
-                            },
+                    },
+                ),
+            },
+        ),
+        Scalar(
+            ScalarEncoder {
+                optional: Absent,
+                value: String(
+                    Plain {
+                        string_lengths: IntEncoder {
+                            logical: None,
+                            physical: VarInt,
                         },
-                    ),
-                },
-            ),
-        ],
-    }
-    "#);
+                    },
+                ),
+            },
+        ),
+    ]
+    ");
 }
 
 #[test]
@@ -178,91 +172,83 @@ fn no_nulls_produces_absent_presence() {
         "pop",
         PropValue::U32(vec![Some(1), Some(2), Some(3)]),
     )];
-    assert_debug_snapshot!(PropertyOptimizer::optimize(&mut props), @r#"
-    MultiPropertyEncoder {
-        properties: [
-            Scalar(
-                ScalarEncoder {
-                    optional: Absent,
-                    value: Int(
-                        IntEncoder {
-                            logical: Delta,
-                            physical: VarInt,
-                        },
-                    ),
-                },
-            ),
-        ],
-    }
-    "#);
+    assert_debug_snapshot!(PropertyOptimizer::optimize(&mut props), @"
+    [
+        Scalar(
+            ScalarEncoder {
+                optional: Absent,
+                value: Int(
+                    IntEncoder {
+                        logical: Delta,
+                        physical: VarInt,
+                    },
+                ),
+            },
+        ),
+    ]
+    ");
 }
 
 #[test]
 fn all_nulls_produces_present_presence() {
     let mut props = vec![make_prop("x", PropValue::I32(vec![None, None, None]))];
-    assert_debug_snapshot!(PropertyOptimizer::optimize(&mut props), @r#"
-    MultiPropertyEncoder {
-        properties: [
-            Scalar(
-                ScalarEncoder {
-                    optional: Present,
-                    value: Int(
-                        IntEncoder {
-                            logical: None,
-                            physical: None,
-                        },
-                    ),
-                },
-            ),
-        ],
-    }
-    "#);
+    assert_debug_snapshot!(PropertyOptimizer::optimize(&mut props), @"
+    [
+        Scalar(
+            ScalarEncoder {
+                optional: Present,
+                value: Int(
+                    IntEncoder {
+                        logical: None,
+                        physical: None,
+                    },
+                ),
+            },
+        ),
+    ]
+    ");
 }
 
 #[test]
 fn sequential_u32_picks_delta() {
     let data: Vec<Option<u32>> = (0u32..1_000).map(Some).collect();
     let mut props = vec![make_prop("id", PropValue::U32(data))];
-    assert_debug_snapshot!(PropertyOptimizer::optimize(&mut props), @r#"
-    MultiPropertyEncoder {
-        properties: [
-            Scalar(
-                ScalarEncoder {
-                    optional: Absent,
-                    value: Int(
-                        IntEncoder {
-                            logical: Delta,
-                            physical: FastPFOR,
-                        },
-                    ),
-                },
-            ),
-        ],
-    }
-    "#);
+    assert_debug_snapshot!(PropertyOptimizer::optimize(&mut props), @"
+    [
+        Scalar(
+            ScalarEncoder {
+                optional: Absent,
+                value: Int(
+                    IntEncoder {
+                        logical: Delta,
+                        physical: FastPFOR,
+                    },
+                ),
+            },
+        ),
+    ]
+    ");
 }
 
 #[test]
 fn constant_u32_picks_rle() {
     let data: Vec<Option<u32>> = vec![Some(42); 500];
     let mut props = vec![make_prop("val", PropValue::U32(data))];
-    assert_debug_snapshot!(PropertyOptimizer::optimize(&mut props), @r#"
-    MultiPropertyEncoder {
-        properties: [
-            Scalar(
-                ScalarEncoder {
-                    optional: Absent,
-                    value: Int(
-                        IntEncoder {
-                            logical: Rle,
-                            physical: VarInt,
-                        },
-                    ),
-                },
-            ),
-        ],
-    }
-    "#);
+    assert_debug_snapshot!(PropertyOptimizer::optimize(&mut props), @"
+    [
+        Scalar(
+            ScalarEncoder {
+                optional: Absent,
+                value: Int(
+                    IntEncoder {
+                        logical: Rle,
+                        physical: VarInt,
+                    },
+                ),
+            },
+        ),
+    ]
+    ");
 }
 
 #[test]
@@ -286,58 +272,56 @@ fn mixed_scalars_and_grouped_strings() {
     assert!(matches!(&props[1].values, PropValue::SharedDict(_)));
     assert!(matches!(&props[2].values, PropValue::I32(_)));
 
-    assert_debug_snapshot!(enc, @r#"
-    MultiPropertyEncoder {
-        properties: [
-            Scalar(
-                ScalarEncoder {
-                    optional: Absent,
-                    value: Int(
-                        IntEncoder {
-                            logical: Delta,
-                            physical: VarInt,
-                        },
-                    ),
+    assert_debug_snapshot!(enc, @"
+    [
+        Scalar(
+            ScalarEncoder {
+                optional: Absent,
+                value: Int(
+                    IntEncoder {
+                        logical: Delta,
+                        physical: VarInt,
+                    },
+                ),
+            },
+        ),
+        SharedDict(
+            SharedDictEncoder {
+                dict_encoder: Plain {
+                    string_lengths: IntEncoder {
+                        logical: None,
+                        physical: VarInt,
+                    },
                 },
-            ),
-            SharedDict(
-                SharedDictEncoder {
-                    dict_encoder: Plain {
-                        string_lengths: IntEncoder {
-                            logical: None,
+                items: [
+                    SharedDictItemEncoder {
+                        optional: Absent,
+                        offset: IntEncoder {
+                            logical: Delta,
                             physical: VarInt,
                         },
                     },
-                    items: [
-                        SharedDictItemEncoder {
-                            optional: Absent,
-                            offset: IntEncoder {
-                                logical: Delta,
-                                physical: VarInt,
-                            },
-                        },
-                        SharedDictItemEncoder {
-                            optional: Absent,
-                            offset: IntEncoder {
-                                logical: Delta,
-                                physical: VarInt,
-                            },
-                        },
-                    ],
-                },
-            ),
-            Scalar(
-                ScalarEncoder {
-                    optional: Absent,
-                    value: Int(
-                        IntEncoder {
+                    SharedDictItemEncoder {
+                        optional: Absent,
+                        offset: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
                         },
-                    ),
-                },
-            ),
-        ],
-    }
-    "#);
+                    },
+                ],
+            },
+        ),
+        Scalar(
+            ScalarEncoder {
+                optional: Absent,
+                value: Int(
+                    IntEncoder {
+                        logical: Delta,
+                        physical: VarInt,
+                    },
+                ),
+            },
+        ),
+    ]
+    ");
 }
