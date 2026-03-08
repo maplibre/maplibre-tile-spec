@@ -1,4 +1,4 @@
-import { globSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -47,11 +47,10 @@ export function getTestCases(skipList: string[]): {
   active: { name: string; content: object; fileName: string }[];
   skipped: string[];
 } {
-  const mltFiles = [];
   const syntheticDir = resolve(__dirname, "../0x01");
-  for (const f of globSync(join(syntheticDir, "*.mlt"))) {
-    mltFiles.push(f);
-  }
+  const mltFiles = readdirSync(syntheticDir)
+    .filter((f) => f.endsWith(".mlt"))
+    .map((f) => join(syntheticDir, f));
   mltFiles.sort();
 
   const active: { name: string; content: object; fileName: string }[] = [];
