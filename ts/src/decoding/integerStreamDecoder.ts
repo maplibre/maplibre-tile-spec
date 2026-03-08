@@ -6,6 +6,7 @@ import {
     decodeDeltaRleInt32,
     decodeDeltaRleInt64,
     decodeFastPfor,
+    decodeUnsignedConstRleInt32,
     decodeUnsignedConstRleInt64,
     decodeUnsignedRleInt32,
     decodeUnsignedRleInt64,
@@ -108,7 +109,7 @@ export function decodeConstIntStream(
         return isSigned ? decodeZigZagInt32Value(values[0]) : values[0];
     }
 
-    return isSigned ? decodeZigZagConstRleInt32(values) : values[1];
+    return isSigned ? decodeZigZagConstRleInt32(values) : decodeUnsignedConstRleInt32(values);
 }
 
 export function decodeSequenceIntStream(
