@@ -421,11 +421,7 @@ export function getVectorType(
     return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
 }
 
-function decodeRleInt32(
-    data: Int32Array,
-    streamMetadata: RleEncodedStreamMetadata,
-    isSigned: boolean,
-): Int32Array {
+function decodeRleInt32(data: Int32Array, streamMetadata: RleEncodedStreamMetadata, isSigned: boolean): Int32Array {
     return isSigned
         ? decodeZigZagRleInt32(data, streamMetadata.runs, streamMetadata.numRleValues)
         : new Int32Array(decodeUnsignedRleInt32(data, streamMetadata.runs, streamMetadata.numRleValues));

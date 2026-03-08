@@ -8,9 +8,7 @@ import BitVector from "./vector/flat/bitVector";
 import {
     decodeConstIntStream,
     decodeConstLongStream,
-    decodeIntStream,
     decodeLongFloat64Stream,
-    decodeLongStream,
     decodeUnsignedIntStream,
     decodeUnsignedLongStream,
     decodeSequenceIntStream,
