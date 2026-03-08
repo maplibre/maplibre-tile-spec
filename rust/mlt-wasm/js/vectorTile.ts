@@ -38,6 +38,25 @@ interface WasmMltTile {
    * JS walks these directly — zero WASM calls per feature for geometry.
    */
   layer_geometry(layer_idx: number): LayerGeometry;
+  /** Column names for the layer, parallel to layer_properties(). */
+  layer_property_keys(layer_idx: number): string[];
+  /**
+   * All property values as an array of columns, parallel to layer_property_keys().
+   * Each column is a typed array (numeric) or plain Array (bool/string) of
+   * length feature_count. Index i gives the value for feature i; absent values
+   * are NaN (numeric) or undefined (bool/string).
+   */
+  layer_properties(
+    layer_idx: number,
+  ): Array<
+    | Int8Array
+    | Uint8Array
+    | Int32Array
+    | Uint32Array
+    | Float32Array
+    | Float64Array
+    | Array<boolean | string | undefined>
+  >;
   feature_properties(
     layer_idx: number,
     feature_idx: number,
@@ -196,11 +215,7 @@ class MltFeature implements VectorTileFeatureLike {
   private _type: 0 | 1 | 2 | 3 | undefined;
   private _id: number | undefined | null;
 
-  private _properties: Record<string, number | string | boolean> | undefined;
-
   constructor(
-    private readonly _tile: WasmMltTile,
-    private readonly _layerIdx: number,
     private readonly _featureIdx: number,
     extent: number,
     private readonly _types: Uint8Array,
@@ -209,6 +224,16 @@ class MltFeature implements VectorTileFeatureLike {
     private readonly _partOffsets: Uint32Array,
     private readonly _ringOffsets: Uint32Array,
     private readonly _verts: Int32Array,
+    private readonly _propKeys: string[],
+    private readonly _propCols: Array<
+      | Int8Array
+      | Uint8Array
+      | Int32Array
+      | Uint32Array
+      | Float32Array
+      | Float64Array
+      | Array<boolean | string | undefined>
+    >,
   ) {
     this.extent = extent;
     this._id = null;
@@ -230,11 +255,21 @@ class MltFeature implements VectorTileFeatureLike {
   }
 
   get properties(): Record<string, number | string | boolean> {
-    this._properties ??= this._tile.feature_properties(
-      this._layerIdx,
-      this._featureIdx,
-    );
-    return this._properties;
+    const result: Record<string, number | string | boolean> = {};
+    for (let k = 0; k < this._propKeys.length; k++) {
+      const col = this._propCols[k];
+      const val = col[this._featureIdx];
+      // Float columns encode absent as NaN; bool/string columns use undefined.
+      // Integer columns cannot encode absent (0 is used as placeholder) so
+      // those are always included — acceptable for the rendering fast path.
+      if (
+        val !== undefined &&
+        !(typeof val === "number" && Number.isNaN(val))
+      ) {
+        result[this._propKeys[k]] = val as number | string | boolean;
+      }
+    }
+    return result;
   }
 
   loadGeometry(): Point[][] {
@@ -266,6 +301,16 @@ class MltLayer implements VectorTileLayerLike {
   private readonly _partOffsets: Uint32Array;
   private readonly _ringOffsets: Uint32Array;
   private readonly _verts: Int32Array;
+  private readonly _propKeys: string[];
+  private readonly _propCols: Array<
+    | Int8Array
+    | Uint8Array
+    | Int32Array
+    | Uint32Array
+    | Float32Array
+    | Float64Array
+    | Array<boolean | string | undefined>
+  >;
 
   constructor(
     private readonly _tile: WasmMltTile,
@@ -282,12 +327,12 @@ class MltLayer implements VectorTileLayerLike {
     this._partOffsets = geom.part_offsets();
     this._ringOffsets = geom.ring_offsets();
     this._verts = geom.vertices();
+    this._propKeys = _tile.layer_property_keys(_layerIdx);
+    this._propCols = _tile.layer_properties(_layerIdx);
   }
 
   feature(i: number): VectorTileFeatureLike {
     return new MltFeature(
-      this._tile,
-      this._layerIdx,
       i,
       this.extent,
       this._types,
@@ -296,6 +341,8 @@ class MltLayer implements VectorTileLayerLike {
       this._partOffsets,
       this._ringOffsets,
       this._verts,
+      this._propKeys,
+      this._propCols,
     );
   }
 }
