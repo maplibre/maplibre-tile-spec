@@ -352,7 +352,7 @@ generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find') build
 
 # Build the mlt-wasm package (compiles Rust to WASM and TypeScript)
 [working-directory: 'mlt-wasm']
-wasm-build:
+wasm-build: (just 'cargo-install' 'wasm-pack')
     npm ci
     npm run build
 
