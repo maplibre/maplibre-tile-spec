@@ -1,8 +1,5 @@
 use borrowme::ToOwned as _;
-use mlt_core::v01::{
-    OwnedEncodedGeometry, OwnedEncodedId, OwnedEncodedProperty, OwnedGeometry, OwnedId,
-    OwnedLayer01, OwnedProperty,
-};
+use mlt_core::v01::{OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty};
 use mlt_core::{Layer, OwnedLayer};
 
 use crate::LayerInput;
