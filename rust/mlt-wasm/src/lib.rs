@@ -36,15 +36,14 @@ mod tile;
 use std::cell::RefCell;
 use std::f64;
 
+use ids::IdState;
 use js_sys::Uint8Array;
+use layer::DecodedLayer;
 use mlt_core::borrowme::ToOwned;
 use mlt_core::v01::{DecodedId, GeometryType, Id};
 use mlt_core::{MltError, parse_layers};
-use wasm_bindgen::prelude::*;
-
-use ids::IdState;
-use layer::DecodedLayer;
 use tile::MltTile;
+use wasm_bindgen::prelude::*;
 
 /// Decode a raw MLT tile blob and return an [`MltTile`].
 ///

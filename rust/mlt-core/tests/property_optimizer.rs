@@ -4,7 +4,7 @@ use mlt_core::v01::{DecodedProperty, PropValue, PropertyOptimizer};
 fn str_prop(name: &str, values: &[&str]) -> DecodedProperty {
     DecodedProperty {
         name: name.to_owned(),
-        values: PropValue::Str(values.iter().map(|s| Some(s.to_string())).collect()),
+        values: PropValue::Str(values.iter().map(|s| Some((*s).to_string())).collect()),
     }
 }
 

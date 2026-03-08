@@ -6,7 +6,11 @@ use mlt_core::utils::{decode_morton_codes, decode_morton_delta};
 const NUM_BITS: u32 = 15;
 const COORDINATE_SHIFT: u32 = 1 << (NUM_BITS - 1);
 
-const SIZES: &[u32] = &[64, 256, 1024];
+// This code runs in CI because of --all-targets, so make it run really fast.
+#[cfg(debug_assertions)]
+pub const BENCHMARKED_LENGTHS: [u32; 1] = [1];
+#[cfg(not(debug_assertions))]
+pub const BENCHMARKED_LENGTHS: [u32; 3] = [64, 256, 1024];
 
 fn make_morton_codes(n: u32) -> Vec<u32> {
     (0..n)
@@ -40,49 +44,35 @@ fn make_morton_deltas(n: u32) -> Vec<u32> {
         .collect()
 }
 
-fn bench_impls<I, O>(
+fn bench_impls<I: Clone, O>(
     c: &mut Criterion,
     group_name: &str,
-    make_input: impl Fn(u32) -> I,
-    impls: &[(&str, fn(&I) -> O)],
-) where
-    I: Clone + Send + 'static,
-{
+    make_input: impl Fn(u32) -> Vec<I>,
+    imp: impl Fn(&[I]) -> O,
+) {
     let mut group = c.benchmark_group(group_name);
-    for &n in SIZES {
+    for n in BENCHMARKED_LENGTHS {
         let input = make_input(n);
-        group.throughput(Throughput::Elements(n as u64));
-        for &(name, f) in impls {
-            group.bench_with_input(BenchmarkId::new(name, n), &input, |b, input| {
-                b.iter_batched(
-                    || input.clone(),
-                    |i| black_box(f(&i)),
-                    BatchSize::SmallInput,
-                );
-            });
-        }
+        group.throughput(Throughput::Elements(u64::from(n)));
+        group.bench_with_input(BenchmarkId::new("impl", n), &input, |b, input| {
+            b.iter_batched(
+                || input.clone(),
+                |i| black_box(imp(&i)),
+                BatchSize::SmallInput,
+            );
+        });
     }
     group.finish();
 }
 
 fn bench_morton(c: &mut Criterion) {
-    bench_impls(
-        c,
-        "morton/decode_codes",
-        make_morton_codes,
-        &[("simd", |v| {
-            decode_morton_codes(v, NUM_BITS, COORDINATE_SHIFT)
-        })],
-    );
+    bench_impls(c, "morton/decode_codes", make_morton_codes, |v| {
+        decode_morton_codes(v, NUM_BITS, COORDINATE_SHIFT)
+    });
 
-    bench_impls(
-        c,
-        "morton/decode_delta",
-        make_morton_deltas,
-        &[("simd", |v| {
-            decode_morton_delta(v, NUM_BITS, COORDINATE_SHIFT)
-        })],
-    );
+    bench_impls(c, "morton/decode_delta", make_morton_deltas, |v| {
+        decode_morton_delta(v, NUM_BITS, COORDINATE_SHIFT)
+    });
 }
 
 criterion_group!(benches, bench_morton);
