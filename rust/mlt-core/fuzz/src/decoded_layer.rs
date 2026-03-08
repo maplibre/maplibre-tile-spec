@@ -1,4 +1,8 @@
 use borrowme::ToOwned as _;
+use mlt_core::v01::{
+    OwnedEncodedGeometry, OwnedEncodedId, OwnedEncodedProperty, OwnedGeometry, OwnedId,
+    OwnedLayer01, OwnedProperty,
+};
 use mlt_core::{Layer, OwnedLayer};
 
 use crate::LayerInput;
@@ -8,18 +12,78 @@ use crate::LayerInput;
 /// Unlike [`LayerInput`] (which starts from raw bytes), this drives the fuzzer to generate
 /// valid [`OwnedLayer`] values directly and verifies that writing and re-parsing them yields
 /// an identical layer.
-#[derive(arbitrary::Arbitrary)]
+///
+/// All geometry, ID, and property columns are always generated in their `Encoded` form
 pub struct DecodedLayerInput {
     pub layer: OwnedLayer,
 }
 
+impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        let name: String = u.arbitrary()?;
+        let extent: u32 = u.arbitrary()?;
+
+        let id: OwnedId = if u.arbitrary()? {
+            OwnedId::Encoded(u.arbitrary()?)
+        } else {
+            OwnedId::None
+        };
+        let geometry = OwnedGeometry::Encoded(u.arbitrary()?);
+        let properties: Vec<OwnedProperty> = u
+            .arbitrary::<Vec<OwnedEncodedProperty>>()?
+            .into_iter()
+            .map(OwnedProperty::Encoded)
+            .collect();
+
+        // In fuzzing mode OwnedLayer01 carries an explicit layer_order field that drives the
+        // column serialisation order.  Build a valid ordering (1 Geometry, N Property, 0-or-1 Id)
+        // and then Fisher-Yates shuffle it using the fuzzer's unstructured data.
+        #[cfg(fuzzing)]
+        let layer_order = {
+            use mlt_core::v01::LayerOrdering;
+
+            let mut order: Vec<LayerOrdering> = Vec::new();
+            if id != OwnedId::None {
+                order.push(LayerOrdering::Id);
+            }
+            order.push(LayerOrdering::Geometry);
+            for _ in &properties {
+                order.push(LayerOrdering::Property);
+            }
+
+            let n = order.len();
+            for i in (1..n).rev() {
+                let j: usize = u.int_in_range(0..=i)?;
+                order.swap(i, j);
+            }
+            order
+        };
+
+        let layer01 = OwnedLayer01 {
+            name,
+            extent,
+            id,
+            geometry,
+            properties,
+            #[cfg(fuzzing)]
+            layer_order,
+        };
+
+        Ok(Self {
+            layer: OwnedLayer::Tag01(layer01),
+        })
+    }
+}
+
 impl DecodedLayerInput {
     pub fn fuzz_roundtrip(self) {
-        // Write the arbitrary layer to a buffer
+        // Write the arbitrary layer to a buffer.
+        // Every column is in its Encoded form, so write_to must not fail — treat any
+        // failure as a bug in the serialiser rather than a known gap.
         let mut buffer = Vec::<u8>::new();
-        let Ok(()) = self.layer.write_to(&mut buffer) else {
-            return; // FIXME: implement full layer writes
-        };
+        self.layer
+            .write_to(&mut buffer)
+            .expect("write_to cannot fail for a fully-Encoded layer");
 
         // Parse the written bytes back
         let Ok((remaining, parsed_back)) = Layer::parse(&buffer) else {
