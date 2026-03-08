@@ -162,9 +162,11 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateIds() throws IOException {
-    write("id0", idFeat(0), cfg().ids());
     write("id", idFeat(100), cfg().ids());
+    write("id_min", idFeat(0), cfg().ids());
+    write("id_max", idFeat(0xFFFF), cfg().ids());
     write("id64", idFeat(9_234_567_890L), cfg().ids());
+    write("id64_max", idFeat(0xFFFFFFFFL), cfg().ids());
 
     var ids32 = array(idFeat(103), idFeat(103), idFeat(103), idFeat(103));
     write(layer("ids", ids32), cfg().ids());
@@ -190,6 +192,11 @@ public class SyntheticMltGenerator {
     var optIds64 = array(idFeat(), idFeat(9_234_567_890L), idFeat(101), idFeat(105), idFeat(106));
     write(layer("ids64_opt", optIds64), cfg().ids());
     write(layer("ids64_opt_delta", optIds64), cfg(DELTA).ids());
+
+    // java doe not generate this as an ID64 if none of them are above the U32::Max threshold
+    var ids64MinMax = array(idFeat(0L), idFeat(0xFFFFFFFFL));
+    write(layer("ids64_minmax", ids64MinMax), cfg().ids());
+    write(layer("ids64_minmax_delta", ids64MinMax), cfg(DELTA).ids());
   }
 
   @SuppressWarnings("cast")
