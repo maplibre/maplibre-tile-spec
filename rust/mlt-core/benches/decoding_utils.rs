@@ -70,7 +70,7 @@ fn bench_morton(c: &mut Criterion) {
         c,
         "morton/decode_codes",
         make_morton_codes,
-        &[("scalar", |v| {
+        &[("simd", |v| {
             decode_morton_codes(v, NUM_BITS, COORDINATE_SHIFT)
         })],
     );
