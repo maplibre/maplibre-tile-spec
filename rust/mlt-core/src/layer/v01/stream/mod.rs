@@ -751,7 +751,7 @@ impl<'a> Stream<'a> {
         use PhysicalEncoding as PD;
         let (input, (meta, byte_length)) = StreamMeta::parse(input, is_bool)?;
 
-        let (input, data) = take(input, usize::try_from(byte_length)?)?;
+        let (input, data) = take(input, u64::from(byte_length))?;
 
         let stream_data = match meta.encoding.physical {
             PD::None | PD::FastPFOR => EncodedData::new(data),

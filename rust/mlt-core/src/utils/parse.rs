@@ -3,9 +3,9 @@ use integer_encoding::VarInt;
 use crate::{MltError, MltRefResult};
 
 #[inline]
-pub fn take(input: &[u8], size: usize) -> MltRefResult<'_, &[u8]> {
+pub fn take(input: &[u8], size: u64) -> MltRefResult<'_, &[u8]> {
     let (value, input) = input
-        .split_at_checked(size)
+        .split_at_checked(size.try_into()?)
         .ok_or(MltError::UnableToTake(size))?;
     Ok((input, value))
 }
@@ -14,7 +14,7 @@ pub fn all<T>((input, value): (&[u8], T)) -> Result<T, MltError> {
     if input.is_empty() {
         Ok(value)
     } else {
-        Err(MltError::BufferUnderflow(input.len(), 0))
+        Err(MltError::BufferUnderflow(u64::try_from(input.len())?, 0))
     }
 }
 
@@ -27,7 +27,7 @@ pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltRefResult<'_, T> {
             //
             // A varint is canonical if its last byte is non-zero (for multibyte encodings).
             // Value 0 must be encoded as a single 0x00 byte.
-            // For multibyte varints, the last byte (without continuation bit) must be non-zero.
+            // For multibyte VarInts, the last byte (without a continuation bit) must be non-zero.
             //
             // This ensures we're not using more bytes than necessary.
             // Using more bytes is an issue as it does violate the roundtrip-ability of MLT
@@ -36,7 +36,7 @@ pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltRefResult<'_, T> {
             }
             Ok((&input[consumed..], value))
         }
-        None => Err(MltError::BufferUnderflow(input.len() + 1, input.len())),
+        None => Err(MltError::BufferUnderflow(u64::try_from(input.len().saturating_add(1))?, input.len())),
     }
 }
 
@@ -57,7 +57,7 @@ where
 
 /// Parse a length-prefixed UTF-8 string from the input
 pub fn parse_string(input: &[u8]) -> MltRefResult<'_, &str> {
-    let (input, length) = parse_varint::<usize>(input)?;
+    let (input, length) = parse_varint::<u64>(input)?;
     let (input, value) = take(input, length)?;
     let value = str::from_utf8(value)?;
     Ok((input, value))
@@ -101,9 +101,9 @@ mod tests {
     #[case::underflow(&[0x80, 0x80, 0x80], Err(MltError::BufferUnderflow(4, 3)))]
     fn test_varint_parsing(
         #[case] bytes: &[u8],
-        #[case] expected: Result<(Vec<u8>, usize), MltError>,
+        #[case] expected: Result<(Vec<u8>, u64), MltError>,
     ) {
-        let actual = parse_varint::<usize>(bytes);
+        let actual = parse_varint::<u64>(bytes);
         // matching because MltError cannot implement PartialEq
         // effectively assert_eq!(actual, expected);
         match (actual, expected) {

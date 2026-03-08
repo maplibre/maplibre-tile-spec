@@ -717,14 +717,14 @@ fn raw_bytes(s: Stream<'_>) -> Vec<u8> {
 /// Split `data` into UTF-8 strings using `lengths` as byte lengths for each entry.
 fn split_to_strings(lengths: &[u32], data: &[u8]) -> Result<Vec<String>, MltError> {
     let mut strings = Vec::with_capacity(lengths.len());
-    let mut offset = 0;
+    let mut offset = 0_usize;
     for &len in lengths {
-        let len = len as usize;
-        let Some(v) = data.get(offset..offset + len) else {
-            return Err(BufferUnderflow(len, data.len().saturating_sub(offset)));
+        let len_usize = usize::try_from(len)?;
+        let Some(v) = data.get(offset..offset + len_usize) else {
+            return Err(BufferUnderflow(u64::from(len), data.len().saturating_sub(offset)));
         };
         strings.push(str::from_utf8(v)?.to_owned());
-        offset += len;
+        offset += len_usize;
     }
     Ok(strings)
 }

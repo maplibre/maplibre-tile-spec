@@ -68,10 +68,10 @@ impl Layer01<'_> {
 
         let (input, layer_name) = parse_string(input)?;
         let (input, extent) = parse_varint::<u32>(input)?;
-        let (input, column_count) = parse_varint::<usize>(input)?;
+        let (input, column_count) = parse_varint::<u64>(input)?;
 
         // Each column requires at least 1 byte (column type)
-        if input.len() < column_count {
+        if input.len() < usize::try_from(column_count)? {
             return Err(MltError::BufferUnderflow(column_count, input.len()));
         }
 
@@ -85,7 +85,7 @@ impl Layer01<'_> {
             .map(LayerOrdering::from)
             .collect();
 
-        let mut properties = Vec::with_capacity(prop_count);
+        let mut properties = Vec::with_capacity(usize::try_from(prop_count)?);
         let mut id_stream: Option<Id> = None;
         let mut geometry: Option<Geometry> = None;
 
@@ -196,9 +196,9 @@ fn parse_struct_children<'a>(
 ) -> MltRefResult<'a, Vec<EncodedStructChild<'a>>> {
     let mut children = Vec::with_capacity(column.children.len());
     for child in &column.children {
-        let (inp, sc) = parse_varint::<usize>(input)?;
+        let (inp, sc) = parse_varint::<u64>(input)?;
         let (inp, child_optional) = parse_optional(child.typ, inp)?;
-        let optional_stream_count = usize::from(child_optional.is_some());
+        let optional_stream_count = u64::from(child_optional.is_some());
         if let Some(data_count) = sc.checked_sub(optional_stream_count)
             && data_count != 1
         {
@@ -229,26 +229,28 @@ fn parse_geometry_column<'a>(
     input: &'a [u8],
     geometry: &mut Option<Geometry<'a>>,
 ) -> Result<&'a [u8], MltError> {
-    let (input, stream_count) = parse_varint::<usize>(input)?;
+    let (input, stream_count) = parse_varint::<u64>(input)?;
     if stream_count == 0 {
         return Err(MltError::GeometryWithoutStreams);
     }
     // Each stream requires at least 1 byte (physical stream type)
-    if input.len() < stream_count {
+    let stream_count_capa = usize::try_from(stream_count)?;
+    if input.len() < stream_count_capa {
         return Err(MltError::BufferUnderflow(stream_count, input.len()));
     }
     // metadata
     let (input, value) = Stream::parse(input)?;
     // geometry items
-    let (input, value_vec) = Stream::parse_multiple(input, stream_count - 1)?;
+    let (input, value_vec) = Stream::parse_multiple(input, stream_count_capa - 1)?;
     geometry.set_once(Geometry::new_encoded(value, value_vec))?;
     Ok(input)
 }
 
 fn parse_str_column(mut input: &[u8], typ: ColumnType) -> MltRefResult<'_, EncodedPropValue<'_>> {
-    let mut stream_count;
+    let stream_count;
+    (input, stream_count) = parse_varint::<u64>(input)?;
+    let mut stream_count = usize::try_from(stream_count)?;
     let opt;
-    (input, stream_count) = parse_varint::<usize>(input)?;
     (input, opt) = parse_optional(typ, input)?;
     if opt.is_some() {
         if stream_count == 0 {
@@ -285,10 +287,10 @@ fn parse_shared_dict_column<'a>(
 ) -> MltRefResult<'a, EncodedPropValue<'a>> {
     // Read header streams until we hit the dictionary DATA(Single|Shared) stream.
     let stream_count;
-    (input, stream_count) = parse_varint::<usize>(input)?;
+    (input, stream_count) = parse_varint::<u64>(input)?;
     let mut dict_streams = [None, None, None, None, None];
-    let mut streams_taken = 0;
-    while streams_taken < stream_count {
+    let mut streams_taken = 0_usize;
+    while streams_taken < usize::try_from(stream_count)? {
         let stream;
         (input, stream) = Stream::parse(input)?;
         let is_last = matches!(
@@ -323,11 +325,11 @@ fn parse_shared_dict_column<'a>(
 
 fn parse_columns_meta(
     mut input: &'_ [u8],
-    column_count: usize,
-) -> MltRefResult<'_, (Vec<Column<'_>>, usize)> {
+    column_count: u64,
+) -> MltRefResult<'_, (Vec<Column<'_>>, u64)> {
     use crate::v01::column::ColumnType::{Geometry, Id, LongId, OptId, OptLongId, SharedDict};
 
-    let mut col_info = Vec::with_capacity(column_count);
+    let mut col_info = Vec::with_capacity(usize::try_from(column_count)?);
     let mut geometries = 0;
     let mut ids = 0;
     for _ in 0..column_count {
@@ -337,15 +339,16 @@ fn parse_columns_meta(
             Geometry => geometries += 1,
             Id | OptId | LongId | OptLongId => ids += 1,
             SharedDict => {
-                // Yes, we need to parse children right here, otherwise this messes up the next column
+                // Yes, we need to parse children right here; otherwise this messes up the next column
                 let child_column_count;
-                (input, child_column_count) = parse_varint::<usize>(input)?;
+                (input, child_column_count) = parse_varint::<u64>(input)?;
 
-                // Each column requires at least 1 byte (ColumnType without name)
-                if input.len() < child_column_count {
+                // Each column requires at least 1 byte (ColumnType without a name)
+                let child_col_capacity = usize::try_from(child_column_count)?;
+                if input.len() < child_col_capacity {
                     return Err(MltError::BufferUnderflow(child_column_count, input.len()));
                 }
-                let mut children = Vec::with_capacity(child_column_count);
+                let mut children = Vec::with_capacity(child_col_capacity);
                 for _ in 0..child_column_count {
                     let child;
                     (input, child) = Column::parse(input)?;

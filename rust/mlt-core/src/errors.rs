@@ -45,7 +45,7 @@ pub enum MltError {
     #[error("found {0} bytes after the expected end of layer")]
     TrailingLayerData(usize),
     #[error("unexpected end of input (unable to take {0} bytes)")]
-    UnableToTake(usize),
+    UnableToTake(u64),
     #[error("unexpected stream type {0:?}")]
     UnexpectedStreamType(StreamType),
     #[error("unexpected stream type {0:?}, expected {1} for {2}")]
@@ -59,7 +59,7 @@ pub enum MltError {
 
     // Wire/codec decoding (bytes → primitives)
     #[error("buffer underflow: needed {0} bytes, but only {1} remain")]
-    BufferUnderflow(usize, usize),
+    BufferUnderflow(u64, usize),
     #[error("FastPFor decode failed: expected={0} got={1}")]
     FastPforDecode(usize, usize),
     #[error("invalid RLE run length (cannot convert to usize): value={0}")]
@@ -101,7 +101,7 @@ pub enum MltError {
     )]
     EncodingInstructionCountMismatch { input_len: usize, config_len: usize },
     #[error("struct child data streams expected exactly 1 value, got {0}")]
-    UnexpectedStructChildCount(usize),
+    UnexpectedStructChildCount(u64),
     #[error("unsupported physical encoding: {0}")]
     UnsupportedPhysicalEncoding(&'static str),
     #[error("unsupported physical encoding: {0:?} for {1}")]
