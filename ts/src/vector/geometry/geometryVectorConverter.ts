@@ -83,7 +83,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                 break;
             case GEOMETRY_TYPE.LINESTRING:
                 {
-                    let numVertices = 0;
+                    let numVertices: number;
                     if (containsPolygon) {
                         numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
                         ringOffsetsCounter++;
@@ -169,7 +169,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                     geometryOffsetsCounter++;
                     const lineStrings: CoordinatesArray = new Array(numLineStrings);
                     for (let j = 0; j < numLineStrings; j++) {
-                        let numVertices = 0;
+                        let numVertices: number;
                         if (containsPolygon) {
                             numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
                             ringOffsetsCounter++;
