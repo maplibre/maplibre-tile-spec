@@ -7,6 +7,8 @@ use crate::MltError::{BufferUnderflow, InvalidPairStreamSize, RleRunLenInvalid};
 use crate::utils::take;
 use crate::{MltError, MltRefResult};
 
+use wide::u32x8;
+
 /// Decode ([`ZigZag`] + delta) for Vec2s
 // TODO: The encoded process is (delta + ZigZag) for each component
 pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
@@ -99,47 +101,92 @@ pub fn decode_zigzag<T: ZigZag>(data: &[T::UInt]) -> Vec<T> {
     data.iter().map(|&v| T::decode(v)).collect()
 }
 
-/// Decode one Morton (Z-order) code to (x, y) with given `num_bits` and `coordinate_shift`.
-/// Matches Java ZOrderCurve.decode / IntegerDecoder.decodeMortonCode.
-#[inline]
-fn decode_morton_half(code: u32, num_bits: u32) -> u32 {
-    let mut coord = 0u32;
-    for i in 0..num_bits {
-        coord |= (code & (1 << (2 * i))) >> i;
-    }
-    coord
-}
-
 /// Decode a single Morton code to (x, y) as i32, applying `coordinate_shift`.
 #[expect(clippy::cast_possible_wrap)]
-pub fn decode_morton_one(morton_code: u32, num_bits: u32, coordinate_shift: u32) -> (i32, i32) {
-    let x = decode_morton_half(morton_code, num_bits) as i32 - coordinate_shift as i32;
-    let y = decode_morton_half(morton_code >> 1, num_bits) as i32 - coordinate_shift as i32;
-    (x, y)
+fn decode_morton_one(morton_code: u32, num_bits: u32, coordinate_shift: u32) -> (i32, i32) {
+    let mut x = 0u32;
+    let mut y = 0u32;
+    for i in 0..num_bits {
+        let bit_mask = 1u32 << (2 * i);
+        x |= (morton_code & bit_mask) >> i;
+        y |= ((morton_code >> 1) & bit_mask) >> i;
+    }
+    (
+        x as i32 - coordinate_shift as i32,
+        y as i32 - coordinate_shift as i32,
+    )
 }
 
 /// Decode Morton codes to flat [x0, y0, x1, y1, ...]. Deltas are raw (u32 reinterpreted as i32).
+///
+/// Delta decoding is inherently sequential (each code depends on the previous),
+/// so we resolve the prefix sum first, then decode the resulting codes in SIMD batches.
 #[expect(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
 pub fn decode_morton_delta(data: &[u32], num_bits: u32, coordinate_shift: u32) -> Vec<i32> {
-    let mut out = Vec::with_capacity(data.len() * 2);
     let mut prev = 0i32;
-    for &u in data {
-        prev = prev.wrapping_add(u as i32);
-        let (x, y) = decode_morton_one(prev as u32, num_bits, coordinate_shift);
-        out.push(x);
-        out.push(y);
-    }
-    out
+    let codes: Vec<u32> = data
+        .iter()
+        .map(|&d| {
+            prev = prev.wrapping_add(d as i32);
+            prev as u32
+        })
+        .collect();
+    decode_morton_codes(&codes, num_bits, coordinate_shift)
 }
 
 /// Decode Morton codes (no delta) to flat [x0, y0, x1, y1, ...].
+///
+/// Processes 8 codes at a time with `wide::u32x8`. Each lane extracts the
+/// compacted even-bit (x) and odd-bit (y) components in parallel, then applies
+/// the coordinate shift. A scalar tail handles any remaining codes.
+#[expect(clippy::cast_possible_wrap)]
 pub fn decode_morton_codes(data: &[u32], num_bits: u32, coordinate_shift: u32) -> Vec<i32> {
+    const LANES: usize = 8;
     let mut out = Vec::with_capacity(data.len() * 2);
-    for &code in data {
+    let shift_vec = u32x8::splat(coordinate_shift);
+
+    let chunks = data.chunks_exact(LANES);
+    let remainder = chunks.remainder();
+
+    for chunk in chunks {
+        // Load 8 Morton codes into a SIMD register.
+        let codes = u32x8::from([
+            chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6], chunk[7],
+        ]);
+        // y codes are the same values shifted right by 1 (odd bits become even).
+        let codes_y = codes >> 1;
+
+        let mut x_vec = u32x8::ZERO;
+        let mut y_vec = u32x8::ZERO;
+
+        for i in 0..num_bits {
+            // Mask for bit position 2*i in the original Morton code.
+            let bit_mask = u32x8::splat(1u32 << (2 * i));
+            // Extract bit 2*i from each code and shift it down to position i.
+            x_vec |= (codes & bit_mask) >> i;
+            y_vec |= (codes_y & bit_mask) >> i;
+        }
+
+        // Apply coordinate shift and cast to i32.
+        let x_shifted = x_vec - shift_vec;
+        let y_shifted = y_vec - shift_vec;
+
+        let xs: [u32; 8] = x_shifted.into();
+        let ys: [u32; 8] = y_shifted.into();
+
+        for lane in 0..LANES {
+            out.push(xs[lane] as i32);
+            out.push(ys[lane] as i32);
+        }
+    }
+
+    // Scalar tail for any codes that didn't fill a full SIMD chunk.
+    for &code in remainder {
         let (x, y) = decode_morton_one(code, num_bits, coordinate_shift);
         out.push(x);
         out.push(y);
     }
+
     out
 }
 
