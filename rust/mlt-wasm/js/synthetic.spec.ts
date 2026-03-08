@@ -14,11 +14,7 @@ import { decodeTile } from "./vectorTile";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EARCUT_MAX_RINGS = 500;
 
-// The WASM decoder handles F64, U32/U64 natively — skip list is much shorter
-// than the TS decoder's.
 const UNIMPLEMENTED_SYNTHETICS = new Map([
-  ["poly_multi_morton_ring_morton", "decodes to zero coordinates"],
-  ["poly_multi_morton_ring_no_morton", "decodes to zero coordinates"],
   ["poly_colinear_fpf", "FastPFor not supported"],
   ["poly_colinear_fpf_tes", "FastPFor not supported"],
   ["poly_fpf", "FastPFor not supported"],
