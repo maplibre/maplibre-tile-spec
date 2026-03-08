@@ -10,7 +10,7 @@ use crate::ids::IdState;
 use crate::layer::DecodedLayer;
 use crate::properties::{build_prop_cache, prop_to_js};
 
-/// A fully-decoded MLT tile.
+/// A fully decoded MLT tile.
 ///
 /// Construct one via [`crate::decode_tile`], then use the index-based accessors
 /// to read layer metadata and per-feature data.
@@ -304,7 +304,7 @@ impl MltTile {
 
         // Build the bulk cache if not already present.
         if layer.prop_cache.borrow().is_none() {
-            let n = layer.types_array.length() as usize;
+            let n = layer.types_array.length();
             let guard = layer.props.borrow();
             let cache = build_prop_cache(&guard, n);
             drop(guard);
