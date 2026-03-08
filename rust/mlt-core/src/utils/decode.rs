@@ -119,19 +119,59 @@ fn decode_morton_one(morton_code: u32, num_bits: u32, coordinate_shift: u32) -> 
 
 /// Decode Morton codes to flat [x0, y0, x1, y1, ...]. Deltas are raw (u32 reinterpreted as i32).
 ///
-/// Delta decoding is inherently sequential (each code depends on the previous),
-/// so we resolve the prefix sum first, then decode the resulting codes in SIMD batches.
+/// The sequential prefix sum is computed in chunks of 8 into a stack-allocated `[u32; 8]`
+/// buffer, which is immediately SIMD-decoded into the output. This keeps the working
+/// set in registers / L1 cache
 #[expect(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
 pub fn decode_morton_delta(data: &[u32], num_bits: u32, coordinate_shift: u32) -> Vec<i32> {
+    const LANES: usize = 8;
+    let mut out = Vec::with_capacity(data.len() * 2);
+    let shift_vec = u32x8::splat(coordinate_shift);
+
     let mut prev = 0i32;
-    let codes: Vec<u32> = data
-        .iter()
-        .map(|&d| {
+    let mut chunks = data.chunks_exact(LANES);
+
+    for chunk in chunks.by_ref() {
+        // Sequential prefix sum into a stack buffer — no heap allocation.
+        let mut buf = [0u32; LANES];
+        for (b, &d) in buf.iter_mut().zip(chunk.iter()) {
             prev = prev.wrapping_add(d as i32);
-            prev as u32
-        })
-        .collect();
-    decode_morton_codes(&codes, num_bits, coordinate_shift)
+            *b = prev as u32;
+        }
+
+        let codes = u32x8::from(buf);
+        let codes_y = codes >> 1;
+
+        let mut x_vec = u32x8::ZERO;
+        let mut y_vec = u32x8::ZERO;
+
+        for i in 0..num_bits {
+            let bit_mask = u32x8::splat(1u32 << (2 * i));
+            x_vec |= (codes & bit_mask) >> i;
+            y_vec |= (codes_y & bit_mask) >> i;
+        }
+
+        let x_shifted = x_vec - shift_vec;
+        let y_shifted = y_vec - shift_vec;
+
+        let xs: [u32; LANES] = x_shifted.into();
+        let ys: [u32; LANES] = y_shifted.into();
+
+        for lane in 0..LANES {
+            out.push(xs[lane] as i32);
+            out.push(ys[lane] as i32);
+        }
+    }
+
+    // Scalar tail for any codes that didn't fill a full SIMD chunk.
+    for &d in chunks.remainder() {
+        prev = prev.wrapping_add(d as i32);
+        let (x, y) = decode_morton_one(prev as u32, num_bits, coordinate_shift);
+        out.push(x);
+        out.push(y);
+    }
+
+    out
 }
 
 /// Decode Morton codes (no delta) to flat [x0, y0, x1, y1, ...].
