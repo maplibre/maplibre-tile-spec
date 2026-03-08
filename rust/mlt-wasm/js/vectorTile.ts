@@ -313,8 +313,8 @@ class MltLayer implements VectorTileLayerLike {
   >;
 
   constructor(
-    private readonly _tile: WasmMltTile,
-    private readonly _layerIdx: number,
+    readonly _tile: WasmMltTile,
+    readonly _layerIdx: number,
     name: string,
   ) {
     this.name = name;
