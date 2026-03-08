@@ -16,6 +16,7 @@ use crate::MltError;
 use crate::v01::Stream;
 
 /// Convert f32 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
+#[must_use]
 pub fn f32_to_json(f: f32) -> Value {
     if f.is_nan() {
         Value::String("f32::NAN".to_owned())
@@ -29,6 +30,7 @@ pub fn f32_to_json(f: f32) -> Value {
 }
 
 /// Convert f64 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
+#[must_use]
 pub fn f64_to_json(f: f64) -> Value {
     if f.is_nan() {
         Value::String("f64::NAN".to_owned())
