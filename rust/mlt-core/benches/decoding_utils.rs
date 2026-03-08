@@ -6,13 +6,13 @@ use mlt_core::utils::{decode_morton_codes, decode_morton_delta};
 const NUM_BITS: u32 = 15;
 const COORDINATE_SHIFT: u32 = 1 << (NUM_BITS - 1);
 
-const SIZES: &[usize] = &[64, 256, 1024];
+const SIZES: &[u32] = &[64, 256, 1024];
 
-fn make_morton_codes(n: usize) -> Vec<u32> {
+fn make_morton_codes(n: u32) -> Vec<u32> {
     (0..n)
         .map(|i| {
-            let x = (i as u32 * 7 + 13) & 0x7FFF;
-            let y = (i as u32 * 11 + 31) & 0x7FFF;
+            let x = (i * 7 + 13) & 0x7FFF;
+            let y = (i * 11 + 31) & 0x7FFF;
             let mut code = 0u32;
             for bit in 0..15u32 {
                 code |= ((x >> bit) & 1) << (2 * bit);
@@ -23,7 +23,7 @@ fn make_morton_codes(n: usize) -> Vec<u32> {
         .collect()
 }
 
-fn make_morton_deltas(n: usize) -> Vec<u32> {
+fn make_morton_deltas(n: u32) -> Vec<u32> {
     let codes = make_morton_codes(n);
     let mut prev = 0i32;
     codes
@@ -43,7 +43,7 @@ fn make_morton_deltas(n: usize) -> Vec<u32> {
 fn bench_impls<I, O>(
     c: &mut Criterion,
     group_name: &str,
-    make_input: impl Fn(usize) -> I,
+    make_input: impl Fn(u32) -> I,
     impls: &[(&str, fn(&I) -> O)],
 ) where
     I: Clone + Send + 'static,
