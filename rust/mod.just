@@ -16,17 +16,38 @@ just *args:
     {{just}} {{args}}
 
 # Run integration tests and save its output as the new expected output
-bless *args: (just 'cargo-install' 'cargo-insta')
-    cargo insta test --accept --unreferenced=delete --all-features {{args}}
+bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack')
+    cargo hack insta test --accept --unreferenced=delete --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-cpp,default \
+        --exclude-all-features \
+        --features fastpfor-rust \
+        {{args}}
 
 # Run benchmarks
-bench:
-    cargo bench --all-targets --all-features
+bench: (just 'cargo-install' 'cargo-hack')
+    cargo hack bench --all-targets --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-cpp,default \
+        --exclude-all-features \
+        --features fastpfor-rust
 
 alias b := build
 # Build the project
-build:
-    cargo build --all-targets --all-features
+build: (just 'cargo-install' 'cargo-hack')
+    cargo hack build --all-targets --each-feature \
+        --workspace --exclude mlt-core \
+        --exclude-no-default-features --exclude-all-features
+    cargo hack build --all-targets --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-rust,default \
+        --exclude-all-features \
+        --features fastpfor-cpp
+    cargo hack build --all-targets --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-cpp,default \
+        --exclude-all-features \
+        --features fastpfor-rust
 
 alias c := check
 # Quick compile without building a binary
@@ -151,8 +172,23 @@ clippy *args: (just 'cargo-install' 'cargo-hack')
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
 # Generate code coverage report. Installs `cargo llvm-cov`
-coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-llvm-cov')
-    cargo llvm-cov --all-targets --all-features --include-build-script {{args}}
+coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov')
+    cargo hack llvm-cov --all-targets --each-feature \
+        --workspace --exclude mlt-core \
+        --exclude-no-default-features --exclude-all-features \
+        --include-build-script {{args}}
+    cargo hack llvm-cov --all-targets --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-rust,default \
+        --exclude-all-features \
+        --features fastpfor-cpp \
+        --include-build-script {{args}}
+    cargo hack llvm-cov --all-targets --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-cpp,default \
+        --exclude-all-features \
+        --features fastpfor-rust \
+        --include-build-script {{args}}
 
 # Build and open code documentation
 docs *args='--open':
