@@ -1513,7 +1513,7 @@ dependencies = [
 
 [[package]]
 name = "mlt"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "clap",
@@ -1535,7 +1535,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "arbitrary",
  "borrowme",
@@ -1565,7 +1565,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-py"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "geo-types",
  "mlt-core",
