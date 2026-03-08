@@ -16,6 +16,7 @@ import {
     encodeFastPfor,
     encodeComponentwiseDeltaVec2,
     encodeComponentwiseDeltaVec2Scaled,
+    encodeZigZagDeltaInt32,
 } from "./integerEncodingUtils";
 import type BitVector from "../vector/flat/bitVector";
 import { packNullable } from "./packNullableUtils";
@@ -33,7 +34,7 @@ export function encodeIntStream(
     return encodePhysicalLevelTechnique(data, metadata);
 }
 
-function encodePhysicalLevelTechnique(data: Int32Array, streamMetadata: StreamMetadata): Uint8Array {
+function encodePhysicalLevelTechnique(data: Uint32Array, streamMetadata: StreamMetadata): Uint8Array {
     const physicalLevelTechnique = streamMetadata.physicalLevelTechnique;
     if (physicalLevelTechnique === PhysicalLevelTechnique.FAST_PFOR) {
         return encodeFastPfor(data);
@@ -56,38 +57,42 @@ function encodeInt32(
     isSigned: boolean,
     bitVector?: BitVector,
     scalingData?: GeometryScaling,
-): { data: Int32Array; runs?: number } {
-    const data = bitVector ? packNullable(values, bitVector) : new Int32Array(values);
+): { data: Uint32Array; runs?: number } {
+    values = bitVector ? packNullable(values, bitVector) : new Int32Array(values);
+    let data: Uint32Array;
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const encoded = encodeDeltaRleInt32(data);
+                const encoded = encodeDeltaRleInt32(values);
                 return { data: encoded.data, runs: encoded.runs };
+            } else {
+                data = encodeZigZagDeltaInt32(values);
+                return { data };
             }
-            encodeDeltaInt32(data);
-            encodeZigZagInt32(data);
-            return { data };
         case LogicalLevelTechnique.RLE: {
             if (isSigned) {
-                const encoded = encodeZigZagRleInt32(data);
+                const encoded = encodeZigZagRleInt32(values);
                 return { data: encoded.data, runs: encoded.runs };
             }
-            const encoded = encodeUnsignedRleInt32(data);
+            const encoded = encodeUnsignedRleInt32(new Uint32Array(values));
             return { data: encoded.data, runs: encoded.runs };
         }
         case LogicalLevelTechnique.MORTON:
-            encodeDeltaInt32(data);
+            encodeDeltaInt32(values);
+            data = new Uint32Array(values);
             return { data };
         case LogicalLevelTechnique.COMPONENTWISE_DELTA:
             if (scalingData && !bitVector) {
-                encodeComponentwiseDeltaVec2Scaled(data, scalingData.scale);
+                const data = encodeComponentwiseDeltaVec2Scaled(values, scalingData.scale);
                 return { data };
             }
-            encodeComponentwiseDeltaVec2(data);
+            data = encodeComponentwiseDeltaVec2(values);
             return { data };
         case LogicalLevelTechnique.NONE:
             if (isSigned) {
-                encodeZigZagInt32(data);
+                data = encodeZigZagInt32(values);
+            } else {
+                data = new Uint32Array(values);
             }
             return { data };
         default:

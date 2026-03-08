@@ -152,7 +152,7 @@ function decodeLongColumn(
     column: Column,
     sizeOrNullabilityBuffer: number | BitVector,
     scalarColumn: ScalarColumn,
-): Vector<BigInt64Array, bigint> {
+): Vector<BigInt64Array | BigUint64Array, bigint> {
     const dataStreamMetadata = decodeStreamMetadata(data, offset);
     const vectorType = getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset);
     const isSigned = scalarColumn.physicalType === ScalarType.INT_64;
@@ -171,7 +171,7 @@ function decodeLongColumn(
         );
     }
     const constValue = decodeConstLongStream(data, offset, dataStreamMetadata, isSigned);
-    return new LongConstVector(column.name, constValue, sizeOrNullabilityBuffer);
+    return new LongConstVector(column.name, constValue, sizeOrNullabilityBuffer, isSigned);
 }
 
 function decodeIntColumn(
@@ -180,7 +180,7 @@ function decodeIntColumn(
     column: Column,
     scalarColumn: ScalarColumn,
     sizeOrNullabilityBuffer: number | BitVector,
-): Vector<Int32Array, number> {
+): Vector<Int32Array | Uint32Array, number> {
     const dataStreamMetadata = decodeStreamMetadata(data, offset);
     const vectorType = getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset);
     const isSigned = scalarColumn.physicalType === ScalarType.INT_32;
@@ -200,7 +200,7 @@ function decodeIntColumn(
         );
     }
     const constValue = decodeConstIntStream(data, offset, dataStreamMetadata, isSigned);
-    return new IntConstVector(column.name, constValue, sizeOrNullabilityBuffer);
+    return new IntConstVector(column.name, constValue, sizeOrNullabilityBuffer, isSigned);
 }
 
 function isNullabilityBuffer(sizeOrNullabilityBuffer: number | BitVector): sizeOrNullabilityBuffer is BitVector {

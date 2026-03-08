@@ -15,15 +15,15 @@ const HEADER_BYTE_MASK = 0xff;
 const EXCEPTION_COUNT_SHIFT = 8;
 const MAX_BITS_SHIFT = 16;
 
-function createSingleBlockValuesWithExceptionOutliers(outlierValue: number): Int32Array {
-    const values = new Int32Array(BLOCK_SIZE);
+function createSingleBlockValuesWithExceptionOutliers(outlierValue: number): Uint32Array {
+    const values = new Uint32Array(BLOCK_SIZE);
     for (let i = 0; i < values.length; i++) values[i] = i % 2;
     values[10] = outlierValue;
     values[100] = outlierValue;
     return values;
 }
 
-function getSinglePageWordLayout(encodedWords: Int32Array) {
+function getSinglePageWordLayout(encodedWords: Uint32Array) {
     const metadataOffsetWordIndex = 1;
     const metadataOffsetInWords = encodedWords[metadataOffsetWordIndex] | 0;
     const packedDataEndWordIndex = (metadataOffsetWordIndex + metadataOffsetInWords) | 0;
@@ -43,28 +43,24 @@ function parseBlockHeaderWord(headerWord: number): { bitWidth: number; exception
 }
 
 describe("FastPFOR decoder", () => {
-    it("throws on invalid alignedLength (negative)", () => {
-        expect(() => decodeFastPforInt32(new Int32Array([-1]), 0)).toThrow(/invalid alignedLength/);
-    });
-
     it("throws on invalid alignedLength (not multiple of 256)", () => {
-        expect(() => decodeFastPforInt32(new Int32Array([1]), 0)).toThrow(/invalid alignedLength/);
+        expect(() => decodeFastPforInt32(new Uint32Array([1]), 0)).toThrow(/invalid alignedLength/);
     });
 
     it("throws when alignedLength exceeds output length", () => {
-        expect(() => decodeFastPforInt32(new Int32Array([BLOCK_SIZE]), 10)).toThrow(/output buffer too small/);
+        expect(() => decodeFastPforInt32(new Uint32Array([BLOCK_SIZE]), 10)).toThrow(/output buffer too small/);
     });
 
     it("round-trips empty input", () => {
-        const values = new Int32Array(0);
+        const values = new Uint32Array(0);
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         const decoded = decodeFastPforInt32(encoded, values.length);
         expect(decoded).toEqual(values);
     });
 
     it("decodes an empty encoded buffer", () => {
-        const decoded = decodeFastPforInt32(new Int32Array(0), 0);
-        expect(decoded).toEqual(new Int32Array(0));
+        const decoded = decodeFastPforInt32(new Uint32Array(0), 0);
+        expect(decoded).toEqual(new Uint32Array(0));
     });
 
     it("throws when wire decode workspace capacity is negative", () => {
@@ -84,7 +80,7 @@ describe("FastPFOR decoder", () => {
     });
 
     it("round-trips VByte-only payload (<256 values)", () => {
-        const values = new Int32Array(100);
+        const values = new Uint32Array(100);
         for (let i = 0; i < values.length; i++) values[i] = i * 7;
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         const decoded = decodeFastPforInt32(encoded, values.length);
@@ -92,7 +88,7 @@ describe("FastPFOR decoder", () => {
     });
 
     it("round-trips exactly one aligned block (256 values)", () => {
-        const values = new Int32Array(BLOCK_SIZE);
+        const values = new Uint32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = i * 31;
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         const decoded = decodeFastPforInt32(encoded, values.length);
@@ -100,7 +96,7 @@ describe("FastPFOR decoder", () => {
     });
 
     it("round-trips full-width signed values", () => {
-        const values = new Int32Array(BLOCK_SIZE);
+        const values = new Uint32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = -(i + 1);
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         const decoded = decodeFastPforInt32(encoded, values.length);
@@ -128,7 +124,7 @@ describe("FastPFOR decoder", () => {
         ] as const;
 
         for (const { bitWidth, samples } of bitWidthCases) {
-            const values = new Int32Array(BLOCK_SIZE);
+            const values = new Uint32Array(BLOCK_SIZE);
             for (let i = 0; i < values.length; i++) values[i] = samples[i % samples.length];
 
             const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
@@ -138,7 +134,7 @@ describe("FastPFOR decoder", () => {
     });
 
     it("round-trips aligned blocks plus VByte tail", () => {
-        const values = new Int32Array(BLOCK_SIZE * 2 + 3);
+        const values = new Uint32Array(BLOCK_SIZE * 2 + 3);
         for (let i = 0; i < values.length; i++) values[i] = i * 31;
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         const decoded = decodeFastPforInt32(encoded, values.length);
@@ -146,7 +142,7 @@ describe("FastPFOR decoder", () => {
     });
 
     it("round-trips values with outliers (exceptions path)", () => {
-        const values = new Int32Array(BLOCK_SIZE * 2);
+        const values = new Uint32Array(BLOCK_SIZE * 2);
         for (let i = 0; i < values.length; i++) values[i] = i % 16;
         values[10] = 2_147_483_647;
         values[200] = 1_073_741_824;
@@ -176,7 +172,7 @@ describe("FastPFOR decoder", () => {
         ] as const;
 
         for (const { exceptionBitWidth, outlierValue } of exceptionBitWidthCases) {
-            const values = new Int32Array(BLOCK_SIZE);
+            const values = new Uint32Array(BLOCK_SIZE);
             if (exceptionBitWidth === 32) {
                 values[0] = outlierValue;
             } else {
@@ -191,7 +187,7 @@ describe("FastPFOR decoder", () => {
     });
 
     it("round-trips exceptionBitWidth=1 fast-path", () => {
-        const values = new Int32Array(BLOCK_SIZE);
+        const values = new Uint32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = i & 1;
         values[42] = 2;
         values[128] = 2;
@@ -210,7 +206,7 @@ describe("FastPFOR decoder", () => {
 });
 
 describe("FastPFOR decoder error cases", () => {
-    function withForcedByteSizeAndNoExceptionStreams(encoded: Int32Array, forcedByteSize: number): Int32Array {
+    function withForcedByteSizeAndNoExceptionStreams(encoded: Uint32Array, forcedByteSize: number): Uint32Array {
         const corrupted = encoded.slice();
         const { packedDataEndWordIndex, byteContainerStartWordIndex } = getSinglePageWordLayout(corrupted);
         corrupted[packedDataEndWordIndex] = forcedByteSize;
@@ -221,7 +217,7 @@ describe("FastPFOR decoder error cases", () => {
     }
 
     it("throws on truncated input (missing page data)", () => {
-        const values = new Int32Array(BLOCK_SIZE);
+        const values = new Uint32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = i * 31;
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         const truncated = encoded.subarray(0, 5);
@@ -229,7 +225,7 @@ describe("FastPFOR decoder error cases", () => {
     });
 
     it("throws on invalid whereMeta in page header", () => {
-        const values = new Int32Array(BLOCK_SIZE);
+        const values = new Uint32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = i * 3;
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         const corruptedEncoded = encoded.slice();
@@ -239,7 +235,7 @@ describe("FastPFOR decoder error cases", () => {
     });
 
     it("throws on invalid block bitWidth in byte container", () => {
-        const values = new Int32Array(BLOCK_SIZE);
+        const values = new Uint32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = i * 7;
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         const { byteContainerStartWordIndex } = getSinglePageWordLayout(encoded);
@@ -252,7 +248,7 @@ describe("FastPFOR decoder error cases", () => {
     });
 
     it("throws on packed region mismatch when block metadata is inconsistent", () => {
-        const values = new Int32Array(BLOCK_SIZE);
+        const values = new Uint32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = i * 31;
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         const { byteContainerStartWordIndex } = getSinglePageWordLayout(encoded);
@@ -282,7 +278,7 @@ describe("FastPFOR decoder error cases", () => {
     });
 
     it("throws on invalid byteSize that moves bitmap out of bounds", () => {
-        const values = new Int32Array(BLOCK_SIZE);
+        const values = new Uint32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = i;
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         const { packedDataEndWordIndex } = getSinglePageWordLayout(encoded);
@@ -294,7 +290,7 @@ describe("FastPFOR decoder error cases", () => {
     });
 
     it("throws on truncated exception stream header", () => {
-        const values = new Int32Array(BLOCK_SIZE);
+        const values = new Uint32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = i * 11;
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         const { exceptionBitmapWordIndex } = getSinglePageWordLayout(encoded);
@@ -307,12 +303,12 @@ describe("FastPFOR decoder error cases", () => {
     });
 
     it("throws on truncated exception stream payload", () => {
-        const values = new Int32Array(BLOCK_SIZE);
+        const values = new Uint32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = i * 13;
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         const { exceptionBitmapWordIndex } = getSinglePageWordLayout(encoded);
 
-        const corruptedEncoded = new Int32Array(encoded.length + 1);
+        const corruptedEncoded = new Uint32Array(encoded.length + 1);
         corruptedEncoded.set(encoded);
         corruptedEncoded[exceptionBitmapWordIndex] = corruptedEncoded[exceptionBitmapWordIndex] | (1 << 1);
         corruptedEncoded[exceptionBitmapWordIndex + 1] = 1;
@@ -376,12 +372,12 @@ describe("FastPFOR decoder error cases", () => {
     });
 
     it("throws on unterminated VByte value", () => {
-        const encoded = new Int32Array([0, 0x7f7f7f7f, 0x0000007f]);
+        const encoded = new Uint32Array([0, 0x7f7f7f7f, 0x0000007f]);
         expect(() => decodeFastPforInt32(encoded, 1)).toThrow(/unterminated value/);
     });
 
     it("throws when numValues exceeds decoded count", () => {
-        const values = new Int32Array(100);
+        const values = new Uint32Array(100);
         for (let i = 0; i < values.length; i++) values[i] = i;
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
         expect(() => decodeFastPforInt32(encoded, 200)).toThrow(/truncated stream/);

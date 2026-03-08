@@ -1,13 +1,13 @@
 import { MASKS } from "./fastPforShared";
 
-export function fastUnpack32_1(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack32_1(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     const in0 = inValues[inPos] >>> 0;
     for (let i = 0; i < 32; i++) {
         out[outPos + i] = (in0 >>> i) & 1;
     }
 }
 
-export function fastUnpack32_2(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack32_2(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     const in0 = inValues[inPos] >>> 0;
     const in1 = inValues[inPos + 1] >>> 0;
@@ -45,7 +45,7 @@ export function fastUnpack32_2(inValues: Int32Array, inPos: number, out: Int32Ar
     out[op] = (in1 >>> 30) & 0x3;
 }
 
-export function fastUnpack32_3(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack32_3(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     const in0 = inValues[inPos] >>> 0;
     const in1 = inValues[inPos + 1] >>> 0;
@@ -84,7 +84,7 @@ export function fastUnpack32_3(inValues: Int32Array, inPos: number, out: Int32Ar
     out[op] = (in2 >>> 29) & 0x7;
 }
 
-export function fastUnpack32_4(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack32_4(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     const in0 = inValues[inPos] >>> 0;
     const in1 = inValues[inPos + 1] >>> 0;
@@ -124,7 +124,7 @@ export function fastUnpack32_4(inValues: Int32Array, inPos: number, out: Int32Ar
     out[op] = (in3 >>> 28) & 0xf;
 }
 
-export function fastUnpack32_5(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack32_5(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     const in0 = inValues[inPos] >>> 0;
     const in1 = inValues[inPos + 1] >>> 0;
@@ -165,7 +165,7 @@ export function fastUnpack32_5(inValues: Int32Array, inPos: number, out: Int32Ar
     out[op] = (in4 >>> 27) & 0x1f;
 }
 
-export function fastUnpack32_6(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack32_6(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     const in0 = inValues[inPos] >>> 0;
     const in1 = inValues[inPos + 1] >>> 0;
@@ -207,7 +207,7 @@ export function fastUnpack32_6(inValues: Int32Array, inPos: number, out: Int32Ar
     out[op] = (in5 >>> 26) & 0x3f;
 }
 
-export function fastUnpack32_7(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack32_7(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     const in0 = inValues[inPos] >>> 0;
     const in1 = inValues[inPos + 1] >>> 0;
@@ -250,7 +250,7 @@ export function fastUnpack32_7(inValues: Int32Array, inPos: number, out: Int32Ar
     out[op] = (in6 >>> 25) & 0x7f;
 }
 
-export function fastUnpack32_8(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack32_8(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     const in0 = inValues[inPos] >>> 0;
     const in1 = inValues[inPos + 1] >>> 0;
@@ -294,7 +294,7 @@ export function fastUnpack32_8(inValues: Int32Array, inPos: number, out: Int32Ar
     out[op] = (in7 >>> 24) & 0xff;
 }
 
-export function fastUnpack32_9(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack32_9(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     const in0 = inValues[inPos] >>> 0;
     const in1 = inValues[inPos + 1] >>> 0;
@@ -339,7 +339,7 @@ export function fastUnpack32_9(inValues: Int32Array, inPos: number, out: Int32Ar
     out[op] = (in8 >>> 23) & 0x1ff;
 }
 
-export function fastUnpack32_10(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack32_10(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     const in0 = inValues[inPos] >>> 0;
     const in1 = inValues[inPos + 1] >>> 0;
@@ -385,7 +385,7 @@ export function fastUnpack32_10(inValues: Int32Array, inPos: number, out: Int32A
     out[op] = (in9 >>> 22) & 0x3ff;
 }
 
-export function fastUnpack32_11(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack32_11(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     const in0 = inValues[inPos] >>> 0;
     const in1 = inValues[inPos + 1] >>> 0;
@@ -432,7 +432,7 @@ export function fastUnpack32_11(inValues: Int32Array, inPos: number, out: Int32A
     out[op] = (in10 >>> 21) & 0x7ff;
 }
 
-export function fastUnpack32_12(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack32_12(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     const in0 = inValues[inPos] >>> 0;
     const in1 = inValues[inPos + 1] >>> 0;
@@ -480,7 +480,7 @@ export function fastUnpack32_12(inValues: Int32Array, inPos: number, out: Int32A
     out[op] = (in11 >>> 20) & 0xfff;
 }
 
-export function fastUnpack32_16(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack32_16(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     const in0 = inValues[inPos] >>> 0;
     const in1 = inValues[inPos + 1] >>> 0;
@@ -532,7 +532,7 @@ export function fastUnpack32_16(inValues: Int32Array, inPos: number, out: Int32A
     out[op] = (in15 >>> 16) & 0xffff;
 }
 
-export function fastUnpack256_1(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack256_1(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     let ip = inPos;
     for (let c = 0; c < 8; c++) {
@@ -572,7 +572,7 @@ export function fastUnpack256_1(inValues: Int32Array, inPos: number, out: Int32A
     }
 }
 
-export function fastUnpack256_2(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack256_2(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     let ip = inPos;
     for (let c = 0; c < 8; c++) {
@@ -613,7 +613,7 @@ export function fastUnpack256_2(inValues: Int32Array, inPos: number, out: Int32A
     }
 }
 
-export function fastUnpack256_3(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack256_3(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     let ip = inPos;
     for (let c = 0; c < 8; c++) {
@@ -655,7 +655,7 @@ export function fastUnpack256_3(inValues: Int32Array, inPos: number, out: Int32A
     }
 }
 
-export function fastUnpack256_4(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack256_4(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     let ip = inPos;
     for (let c = 0; c < 8; c++) {
@@ -698,7 +698,7 @@ export function fastUnpack256_4(inValues: Int32Array, inPos: number, out: Int32A
     }
 }
 
-export function fastUnpack256_5(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack256_5(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     let ip = inPos;
     for (let c = 0; c < 8; c++) {
@@ -742,7 +742,7 @@ export function fastUnpack256_5(inValues: Int32Array, inPos: number, out: Int32A
     }
 }
 
-export function fastUnpack256_6(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack256_6(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     let ip = inPos;
     for (let c = 0; c < 8; c++) {
@@ -787,7 +787,7 @@ export function fastUnpack256_6(inValues: Int32Array, inPos: number, out: Int32A
     }
 }
 
-export function fastUnpack256_7(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack256_7(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     let ip = inPos;
     for (let c = 0; c < 8; c++) {
@@ -833,7 +833,7 @@ export function fastUnpack256_7(inValues: Int32Array, inPos: number, out: Int32A
     }
 }
 
-export function fastUnpack256_8(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack256_8(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     let ip = inPos;
     for (let c = 0; c < 8; c++) {
@@ -880,7 +880,7 @@ export function fastUnpack256_8(inValues: Int32Array, inPos: number, out: Int32A
     }
 }
 
-export function fastUnpack256_16(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+export function fastUnpack256_16(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     let op = outPos;
     let ip = inPos;
     for (let i = 0; i < 128; i++) {
@@ -891,9 +891,9 @@ export function fastUnpack256_16(inValues: Int32Array, inPos: number, out: Int32
 }
 
 export function fastUnpack256_Generic(
-    inValues: Int32Array,
+    inValues: Uint32Array,
     inPos: number,
-    out: Int32Array,
+    out: Uint32Array,
     outPos: number,
     bitWidth: number,
 ): void {
