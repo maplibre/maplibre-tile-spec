@@ -129,10 +129,10 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
 /// This is the inverse of `decode_fastpfor_composite`.
 ///
 /// Wire format:
-/// 1. First u32 = `n_primary` — number of values handed to FastPFOR
-///    (always a multiple of 256, or 0 when all values fit in VarInt alone)
-/// 2. Next `P` u32 words = FastPFOR compressed pages (absent when `n_primary == 0`)
-/// 3. Remaining u32 words = VarInt compressed remainder
+/// 1. First u32 = `n_primary` — number of values handed to `FastPFOR`
+///    (always a multiple of 256, or 0 when all values fit in `VarInt` alone)
+/// 2. Next `P` u32 words = `FastPFOR` compressed pages (absent when `n_primary == 0`)
+/// 3. Remaining u32 words = `VarInt` compressed remainder
 ///
 /// All u32 words are stored as big-endian bytes to match the Java wire format.
 pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {

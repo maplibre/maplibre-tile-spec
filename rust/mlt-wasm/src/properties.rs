@@ -38,26 +38,28 @@ pub(crate) fn build_prop_cache(props: &[OwnedProperty], feature_count: usize) ->
             continue;
         };
 
-        match &prop.values {
-            PropValue::SharedDict(items) => {
-                for item in items {
-                    let key = format!("{}{}", prop.name, item.suffix);
-                    keys.push(&JsValue::from_str(&key));
+        if let PropValue::SharedDict(items) = &prop.values {
+            for item in items {
+                let key = format!("{}{}", prop.name, item.suffix);
+                keys.push(&JsValue::from_str(&key));
 
-                    let col = Array::new_with_length(feature_count as u32);
-                    for (i, v) in item.values.iter().enumerate() {
-                        if let Some(s) = v {
-                            col.set(i as u32, JsValue::from_str(s));
-                        }
-                        // absent → undefined (Array slot default)
+                let col = Array::new_with_length(
+                    u32::try_from(feature_count).expect("feature count fits in u32"),
+                );
+                for (i, v) in item.values.iter().enumerate() {
+                    if let Some(s) = v {
+                        col.set(
+                            u32::try_from(i).expect("array index fits in u32"),
+                            JsValue::from_str(s),
+                        );
                     }
-                    columns.push(&col);
+                    // absent → undefined (Array slot default)
                 }
+                columns.push(&col);
             }
-            _ => {
-                keys.push(&JsValue::from_str(&prop.name));
-                columns.push(&prop_values_to_js_column(&prop.values, feature_count));
-            }
+        } else {
+            keys.push(&JsValue::from_str(&prop.name));
+            columns.push(&prop_values_to_js_column(&prop.values, feature_count));
         }
     }
 
@@ -75,16 +77,19 @@ pub(crate) fn build_prop_cache(props: &[OwnedProperty], feature_count: usize) ->
 pub(crate) fn prop_values_to_js_column(pv: &PropValue, n: usize) -> JsValue {
     match pv {
         PropValue::Bool(v) => {
-            let arr = Array::new_with_length(n as u32);
+            let arr = Array::new_with_length(u32::try_from(n).expect("feature count fits in u32"));
             for (i, val) in v.iter().enumerate() {
                 if let Some(b) = val {
-                    arr.set(i as u32, JsValue::from_bool(*b));
+                    arr.set(
+                        u32::try_from(i).expect("array index fits in u32"),
+                        JsValue::from_bool(*b),
+                    );
                 }
             }
             arr.into()
         }
         PropValue::I8(v) => {
-            let buf: Vec<i32> = v.iter().map(|x| x.map_or(0, |n| i32::from(n))).collect();
+            let buf: Vec<i32> = v.iter().map(|x| x.map_or(0, i32::from)).collect();
             Int32Array::from(buf.as_slice()).into()
         }
         PropValue::U8(v) => {
@@ -116,10 +121,13 @@ pub(crate) fn prop_values_to_js_column(pv: &PropValue, n: usize) -> JsValue {
             Float64Array::from(buf.as_slice()).into()
         }
         PropValue::Str(v) => {
-            let arr = Array::new_with_length(n as u32);
+            let arr = Array::new_with_length(u32::try_from(n).expect("feature count fits in u32"));
             for (i, val) in v.iter().enumerate() {
                 if let Some(s) = val {
-                    arr.set(i as u32, JsValue::from_str(s));
+                    arr.set(
+                        u32::try_from(i).expect("array index fits in u32"),
+                        JsValue::from_str(s),
+                    );
                 }
             }
             arr.into()

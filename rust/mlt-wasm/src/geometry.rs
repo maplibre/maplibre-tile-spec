@@ -15,9 +15,9 @@ use wasm_bindgen::prelude::*;
 ///
 /// | Getter             | Present for                                         |
 /// |--------------------|-----------------------------------------------------|
-/// | `geometry_offsets` | MultiPoint, MultiLineString, MultiPolygon           |
-/// | `part_offsets`     | LineString, Polygon, MultiLineString, MultiPolygon  |
-/// | `ring_offsets`     | Polygon, MultiPolygon (+ LineString when mixed)     |
+/// | `geometry_offsets` | `MultiPoint`, `MultiLineString`, `MultiPolygon`           |
+/// | `part_offsets`     | `LineString`, `Polygon`, `MultiLineString`, `MultiPolygon`  |
+/// | `ring_offsets`     | `Polygon`, `MultiPolygon` (+ `LineString` when mixed)     |
 /// | `vertices`         | always                                              |
 ///
 /// Absent offset arrays are returned as zero-length `Uint32Array`s so JS can
@@ -40,7 +40,7 @@ impl LayerGeometry {
     }
 
     /// Cumulative offsets into `ring_offsets` (or directly into `vertices`
-    /// for LineString layers without rings).
+    /// for `LineString` layers without rings).
     /// Zero-length for pure Point layers.
     #[must_use]
     pub fn part_offsets(&self) -> Uint32Array {

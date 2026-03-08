@@ -1,7 +1,7 @@
 use std::f64;
 
 use js_sys::{Array, Float64Array, Int32Array, Object, Reflect, Uint8Array, Uint32Array};
-use mlt_core::borrowme::Borrow;
+use mlt_core::borrowme::Borrow as _;
 use mlt_core::v01::{Id, OwnedGeometry, OwnedProperty, PropValue};
 use wasm_bindgen::prelude::*;
 
@@ -59,7 +59,7 @@ impl MltTile {
 
     /// All geometry types for every feature in `layer_idx` as a `Uint8Array`.
     ///
-    /// One byte per feature: `1` = Point, `2` = LineString, `3` = Polygon,
+    /// One byte per feature: `1` = Point, `2` = `LineString`, `3` = Polygon,
     /// `0` = Unknown.  Pre-built during `decode_tile` — this call is a cheap
     /// handle clone with no allocation.
     #[must_use]
@@ -105,34 +105,29 @@ impl MltTile {
 
         // Slow path: build the typed arrays once from the decoded geometry.
         let guard = layer.geometry.borrow();
-        let d = match &*guard {
-            OwnedGeometry::Decoded(d) => d,
-            _ => unreachable!(),
+        let OwnedGeometry::Decoded(d) = &*guard else {
+            unreachable!()
         };
 
         let geometry_offsets = d
             .geometry_offsets
             .as_deref()
-            .map(Uint32Array::from)
-            .unwrap_or_else(|| Uint32Array::new_with_length(0));
+            .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
 
         let part_offsets = d
             .part_offsets
             .as_deref()
-            .map(Uint32Array::from)
-            .unwrap_or_else(|| Uint32Array::new_with_length(0));
+            .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
 
         let ring_offsets = d
             .ring_offsets
             .as_deref()
-            .map(Uint32Array::from)
-            .unwrap_or_else(|| Uint32Array::new_with_length(0));
+            .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
 
         let vertices = d
             .vertices
             .as_deref()
-            .map(Int32Array::from)
-            .unwrap_or_else(|| Int32Array::new_with_length(0));
+            .map_or_else(|| Int32Array::new_with_length(0), Int32Array::from);
 
         drop(guard);
 
@@ -164,15 +159,15 @@ impl MltTile {
     ///
     /// Parallel to [`layer_properties`]: `keys[k]` is the name for `columns[k]`.
     /// Built once and cached — subsequent calls are handle clones.
-    pub fn layer_property_keys(&self, layer_idx: usize) -> Result<Array, JsError> {
-        self.ensure_props_cached(layer_idx)?;
-        Ok(self.layers[layer_idx]
+    pub fn layer_property_keys(&self, layer_idx: usize) -> Array {
+        self.ensure_props_cached(layer_idx);
+        self.layers[layer_idx]
             .prop_cache
             .borrow()
             .as_ref()
             .unwrap()
             .keys
-            .clone())
+            .clone()
     }
 
     /// All property values for layer `layer_idx` as a JS `Array` of columns.
@@ -186,15 +181,15 @@ impl MltTile {
     /// (`columns[col][featureIdx]`) — zero WASM calls during traversal.
     ///
     /// Built once and cached — subsequent calls are handle clones.
-    pub fn layer_properties(&self, layer_idx: usize) -> Result<Array, JsError> {
-        self.ensure_props_cached(layer_idx)?;
-        Ok(self.layers[layer_idx]
+    pub fn layer_properties(&self, layer_idx: usize) -> Array {
+        self.ensure_props_cached(layer_idx);
+        self.layers[layer_idx]
             .prop_cache
             .borrow()
             .as_ref()
             .unwrap()
             .columns
-            .clone())
+            .clone()
     }
 
     // -----------------------------------------------------------------------
@@ -210,7 +205,7 @@ impl MltTile {
     pub fn feature_properties(&self, layer_idx: usize, feature_idx: usize) -> Object {
         // Ensure columns are decoded and cached (ignoring error — returns empty
         // object on failure rather than panicking across the WASM boundary).
-        let _ = self.ensure_props_cached(layer_idx);
+        self.ensure_props_cached(layer_idx);
 
         let layer = &self.layers[layer_idx];
         let obj = Object::new();
@@ -221,25 +216,28 @@ impl MltTile {
 
         for p in &*guard {
             if let OwnedProperty::Decoded(prop) = p {
-                match &prop.values {
-                    PropValue::SharedDict(items) => {
-                        for item in items {
-                            if let Some(val) = &item.values[feature_idx] {
-                                let _ = Reflect::set(
-                                    &obj,
-                                    &pc.keys.get(key_idx as u32),
-                                    &JsValue::from_str(val),
-                                );
-                            }
-                            key_idx += 1;
-                        }
-                    }
-                    _ => {
-                        if let Some(val) = prop_to_js(&prop.values, feature_idx) {
-                            let _ = Reflect::set(&obj, &pc.keys.get(key_idx as u32), &val);
+                if let PropValue::SharedDict(items) = &prop.values {
+                    for item in items {
+                        if let Some(val) = &item.values[feature_idx] {
+                            let _ = Reflect::set(
+                                &obj,
+                                &pc.keys
+                                    .get(u32::try_from(key_idx).expect("key index fits in u32")),
+                                &JsValue::from_str(val),
+                            );
                         }
                         key_idx += 1;
                     }
+                } else {
+                    if let Some(val) = prop_to_js(&prop.values, feature_idx) {
+                        let _ = Reflect::set(
+                            &obj,
+                            &pc.keys
+                                .get(u32::try_from(key_idx).expect("key index fits in u32")),
+                            &val,
+                        );
+                    }
+                    key_idx += 1;
                 }
             }
         }
@@ -289,7 +287,7 @@ impl MltTile {
         Ok(())
     }
 
-    fn ensure_props_cached(&self, layer_idx: usize) -> Result<(), JsError> {
+    fn ensure_props_cached(&self, layer_idx: usize) {
         let layer = &self.layers[layer_idx];
 
         // Decode all encoded columns in-place on first call.
@@ -312,7 +310,5 @@ impl MltTile {
             drop(guard);
             *layer.prop_cache.borrow_mut() = Some(cache);
         }
-
-        Ok(())
     }
 }

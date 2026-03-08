@@ -77,10 +77,10 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
                 .map_err(|e| to_js_err(&e))?
                 .into_iter()
                 .map::<Result<GeometryType, JsError>, _>(|v| {
-                    Ok(u8::try_from(v)
+                    u8::try_from(v)
                         .map_err(|_| JsError::new("invalid geometry type"))?
                         .try_into()
-                        .map_err(|_| JsError::new("invalid geometry type"))?)
+                        .map_err(|_| JsError::new("invalid geometry type"))
                 })
                 .collect::<Result<Vec<_>, _>>()?,
             mlt_core::v01::Geometry::Decoded(d) => d.vector_types.clone(),
@@ -102,7 +102,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
         let geometry = RefCell::new(ToOwned::to_owned(&layer01.geometry));
 
         let ids = RefCell::new(match layer01.id {
-            Id::None => IdState::Absent,
+            Id::None | Id::Decoded(DecodedId(None)) => IdState::Absent,
             Id::Encoded(e) => IdState::Encoded(ToOwned::to_owned(&e)),
             Id::Decoded(DecodedId(Some(v))) => {
                 use js_sys::Float64Array;
@@ -115,7 +115,6 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
                     .collect();
                 IdState::Ready(Float64Array::from(floats.as_slice()))
             }
-            Id::Decoded(DecodedId(None)) => IdState::Absent,
         });
 
         let props = RefCell::new(layer01.properties.iter().map(ToOwned::to_owned).collect());

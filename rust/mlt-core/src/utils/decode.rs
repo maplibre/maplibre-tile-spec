@@ -185,10 +185,10 @@ pub fn decode_bytes_to_bools(bytes: &[u8], num_bools: usize) -> Vec<bool> {
 /// The Java MLT encoder uses `Composition(FastPFOR(), VariableByte())`, matching
 /// the C++ `CompositeCodec<FastPFor<8>, VariableByte>`. The wire format is:
 ///
-/// 1. First u32 = `n_primary` — number of values encoded by FastPFOR
-///    (always a multiple of 256, or 0 if all values fit in VarInt alone)
-/// 2. Next `P` u32 words = FastPFOR compressed pages (absent when `n_primary == 0`)
-/// 3. Remaining u32 words = VarInt compressed remainder
+/// 1. First u32 = `n_primary` — number of values encoded by `FastPFOR`
+///    (always a multiple of 256, or 0 if all values fit in `VarInt` alone)
+/// 2. Next `P` u32 words = `FastPFOR` compressed pages (absent when `n_primary == 0`)
+/// 3. Remaining u32 words = `VarInt` compressed remainder
 ///
 /// The compressed bytes are stored as big-endian u32 values by the Java encoder.
 pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u32>, MltError> {
@@ -246,8 +246,7 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
     {
         let n_primary = input[0] as usize;
 
-        let mut result = Vec::with_capacity(num_values + 1024);
-        result.resize(num_values + 1024, 0u32);
+        let mut result = vec![0u32; num_values + 1024];
 
         if n_primary == 0 {
             // All values encoded by VarInt alone (word[0] is a 0 placeholder).
@@ -272,7 +271,7 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
             // input[0..1+p].  input[0] already holds n_primary as the count.
             let fastpfor_codec = FastPFor256Codec::new();
             let decoded_primary = fastpfor_codec
-                .decode32(&input[0..1 + p], &mut result)
+                .decode32(&input[0..=p], &mut result)
                 .map_err(MltError::FastPforCpp)?;
             let primary_count = decoded_primary.len();
             if primary_count < n_primary {
@@ -306,7 +305,7 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
 ///
 /// This is needed for the C++ backend because `FastPFor256Codec::decode32` returns the
 /// number of *output* integers, not the number of *input* words consumed, so we cannot
-/// trivially split the stream between the FastPFOR and VarInt sections.
+/// trivially split the stream between the `FastPFOR` and `VarInt` sections.
 ///
 /// Page layout (matches `FastPFOR::encode_page` in the Rust source):
 /// ```text
