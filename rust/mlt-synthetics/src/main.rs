@@ -215,17 +215,23 @@ fn generate_extent(w: &SynthWriter) {
 
 fn generate_ids(w: &SynthWriter) {
     p0(w)
-        .ids(vec![Some(0)], IdEncoder::new(L::None, IdWidth::Id32))
-        .write("id0");
-    p0(w)
         .ids(vec![Some(100)], IdEncoder::new(L::None, IdWidth::Id32))
         .write("id");
+    p0(w)
+        .ids(vec![Some(u64::from(u32::MIN))], IdEncoder::new(L::None, IdWidth::Id32))
+        .write("id_min");
+    p0(w)
+        .ids(vec![Some(u64::from(u32::MAX))], IdEncoder::new(L::None, IdWidth::Id32))
+        .write("id_max-rust");
     p0(w)
         .ids(
             vec![Some(9_234_567_890)],
             IdEncoder::new(L::None, IdWidth::Id64),
         )
         .write("id64");
+    p0(w)
+        .ids(vec![Some(u64::MAX)], IdEncoder::new(L::None, IdWidth::Id64))
+        .write("id64_max-rust");
 
     let four_p0 = || w.geo_varint().meta(E::rle_varint()).geos([P0, P0, P0, P0]);
     four_p0()
@@ -326,6 +332,19 @@ fn generate_ids(w: &SynthWriter) {
             IdEncoder::new(L::Delta, IdWidth::OptId64),
         )
         .write("ids64_opt_delta");
+
+    four_p0()
+        .ids(
+            vec![Some(u64::MIN), Some(u64::MAX), Some(u64::MIN), Some(u64::MAX)],
+            IdEncoder::new(L::None, IdWidth::Id64),
+        )
+        .write("ids64_minmax-rust");
+    four_p0()
+        .ids(
+            vec![Some(u64::MIN), Some(u64::MAX), Some(u64::MIN), Some(u64::MAX)],
+            IdEncoder::new(L::Delta, IdWidth::Id64),
+        )
+        .write("ids64_minmax_delta-rust");
 }
 
 fn generate_properties(w: &SynthWriter) {
