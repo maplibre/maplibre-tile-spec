@@ -10,20 +10,8 @@ import type FeatureTable from "./vector/featureTable";
 const EARCUT_MAX_RINGS = 500;
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
-    ["props_mixed", "F32 very buggy and does not work"],
     ["prop_u32_max", "wraps to -1 despite it should have been positive"],
     ["prop_u64_max", "wraps to -1 despite it should have been positive"],
-    ["prop_f64", "does not parse f64 as f32"],
-    ["prop_f64_max", "does not parse f64 as f32"],
-    ["prop_f64_min_norm", "does not parse f64 as f32"],
-    ["prop_f64_min_val", "does not parse f64 as f32"],
-    ["prop_f64_nan", "does not parse f64 as f32"],
-    ["prop_f64_neg_inf", "does not parse f64 as f32"],
-    ["prop_f64_neg_zero", "does not parse f64 as f32"],
-    ["prop_f64_pos_inf", "does not parse f64 as f32"],
-    ["prop_f64_zero", "does not parse f64 as f32"],
-    ["prop_f64_null_val", "does not parse f64 as f32"],
-    ["prop_f64_val_null", "does not parse f64 as f32"],
     ["poly_multi_morton_ring_morton", "decodes to zero coordinates"],
     ["poly_multi_morton_ring_no_morton", "decodes to zero coordinates"],
 ]);

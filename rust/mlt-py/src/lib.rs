@@ -190,7 +190,19 @@ fn prop_value_to_py(py: Python<'_>, pv: &PropValue, i: usize) -> Py<PyAny> {
             Some(s) => s.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::SharedDict => py.None(),
+        PropValue::SharedDict(items) => {
+            let dict = pyo3::types::PyDict::new(py);
+            for item in items {
+                if let Some(ref s) = item.values[i] {
+                    dict.set_item(&item.suffix, s).unwrap();
+                }
+            }
+            if dict.is_empty() {
+                py.None()
+            } else {
+                dict.into_any().unbind()
+            }
+        }
     }
 }
 
@@ -443,7 +455,7 @@ mod tests {
 
     #[test]
     fn fixture_geom_to_wkb_produces_valid_output() {
-        let fixture_path = "../../test/synthetic/0x01/polygon.mlt";
+        let fixture_path = "../../test/synthetic/0x01/poly.mlt";
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
