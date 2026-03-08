@@ -292,11 +292,11 @@ sync-wasm-version:
     set -euo pipefail
     VERSION=$({{just}} rust::get-crate-field version mlt-wasm)
     PACKAGE_JSON="mlt-wasm/package.json"
-    jq ".version = \"$VERSION\"" "$PACKAGE_JSON" > "$PACKAGE_JSON.tmp" && mv "$PACKAGE_JSON.tmp" "$PACKAGE_JSON"
+    jq --arg VERSION "$VERSION" '.version = $VERSION' "$PACKAGE_JSON" > "$PACKAGE_JSON.tmp" && mv "$PACKAGE_JSON.tmp" "$PACKAGE_JSON"
     echo "Synced $PACKAGE_JSON to version $VERSION"
     if [ -f "mlt-wasm/package-lock.json" ]; then
         PACKAGE_LOCK="mlt-wasm/package-lock.json"
-        jq ".version = \"$VERSION\" | .packages[\"\"].version = \"$VERSION\"" "$PACKAGE_LOCK" > "$PACKAGE_LOCK.tmp" && mv "$PACKAGE_LOCK.tmp" "$PACKAGE_LOCK"
+        jq --arg VERSION "$VERSION" '.version = $VERSION | .packages[""].version = $VERSION' "$PACKAGE_LOCK" > "$PACKAGE_LOCK.tmp" && mv "$PACKAGE_LOCK.tmp" "$PACKAGE_LOCK"
         echo "Synced $PACKAGE_LOCK to version $VERSION"
     fi
 
