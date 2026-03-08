@@ -6,7 +6,6 @@ import {
     decodeDeltaRleInt32,
     decodeDeltaRleInt64,
     decodeFastPfor,
-    decodeUnsignedConstRleInt32,
     decodeUnsignedConstRleInt64,
     decodeUnsignedRleInt32,
     decodeUnsignedRleInt64,
@@ -54,6 +53,17 @@ export function decodeIntStream(
     return decodeInt32(values, streamMetadata, isSigned, scalingData, nullabilityBuffer);
 }
 
+export function decodeUnsignedIntStream(
+    data: Uint8Array,
+    offset: IntWrapper,
+    streamMetadata: StreamMetadata,
+    scalingData?: GeometryScaling,
+    nullabilityBuffer?: BitVector,
+): Uint32Array {
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+    return decodeUnsignedInt32(values, streamMetadata, scalingData, nullabilityBuffer);
+}
+
 export function decodeLengthStreamToOffsetBuffer(
     data: Uint8Array,
     offset: IntWrapper,
@@ -95,11 +105,10 @@ export function decodeConstIntStream(
     const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
 
     if (values.length === 1) {
-        const value = values[0];
-        return isSigned ? decodeZigZagInt32Value(value) : value;
+        return isSigned ? decodeZigZagInt32Value(values[0]) : values[0];
     }
 
-    return isSigned ? decodeZigZagConstRleInt32(values) : decodeUnsignedConstRleInt32(values);
+    return isSigned ? decodeZigZagConstRleInt32(values) : values[1];
 }
 
 export function decodeSequenceIntStream(
@@ -129,6 +138,16 @@ export function decodeLongStream(
 ): BigInt64Array {
     const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
     return decodeInt64(values, streamMetadata, isSigned, nullabilityBuffer);
+}
+
+export function decodeUnsignedLongStream(
+    data: Uint8Array,
+    offset: IntWrapper,
+    streamMetadata: StreamMetadata,
+    nullabilityBuffer?: BitVector,
+): BigUint64Array {
+    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
+    return decodeUnsignedInt64(values, streamMetadata, nullabilityBuffer);
 }
 
 export function decodeLongFloat64Stream(
@@ -221,6 +240,16 @@ function decodeInt32(
     return decodedValues;
 }
 
+function decodeUnsignedInt32(
+    values: Uint32Array,
+    streamMetadata: StreamMetadata,
+    scalingData?: GeometryScaling,
+    nullabilityBuffer?: BitVector,
+): Uint32Array {
+    const decodedValues = decodeInt32(values, streamMetadata, false, scalingData, nullabilityBuffer);
+    return reinterpretAsUint32(decodedValues);
+}
+
 function decodeInt64(
     values: BigUint64Array,
     streamMetadata: StreamMetadata,
@@ -261,6 +290,15 @@ function decodeInt64(
         return unpackNullable(decodedValues, nullabilityBuffer, 0n);
     }
     return decodedValues;
+}
+
+function decodeUnsignedInt64(
+    values: BigUint64Array,
+    streamMetadata: StreamMetadata,
+    nullabilityBuffer?: BitVector,
+): BigUint64Array {
+    const decodedValues = decodeInt64(values, streamMetadata, false, nullabilityBuffer);
+    return reinterpretAsBigUint64(decodedValues);
 }
 
 export function decodeFloat64(values: Float64Array, streamMetadata: StreamMetadata, isSigned: boolean): Float64Array {
@@ -403,4 +441,12 @@ function decodeRleFloat64(
     return isSigned
         ? decodeZigZagRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues)
         : decodeUnsignedRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues);
+}
+
+function reinterpretAsUint32(values: Int32Array): Uint32Array {
+    return new Uint32Array(values.buffer, values.byteOffset, values.length);
+}
+
+function reinterpretAsBigUint64(values: BigInt64Array): BigUint64Array {
+    return new BigUint64Array(values.buffer, values.byteOffset, values.length);
 }

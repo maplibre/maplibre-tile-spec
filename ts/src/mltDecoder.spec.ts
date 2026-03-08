@@ -147,6 +147,12 @@ function compareId(mltFeature: Feature, mvtFeature: VectorTileFeature, idWithinM
             return;
         }
 
+        // TODO(#1075): some OMT fixtures have large MVT IDs that are not safe JS integers,
+        // so the MVT-side comparison is not reliable for those cases.
+        if (!Number.isSafeInteger(mvtFeature.id)) {
+            return;
+        }
+
         assert.equal(actualId, mvtFeature.id);
     }
 }

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { decodeFloat64, decodeIntStream, decodeLongStream, getVectorType } from "./integerStreamDecoder";
+import {
+    decodeFloat64,
+    decodeIntStream,
+    decodeLongStream,
+    decodeUnsignedIntStream,
+    decodeUnsignedLongStream,
+    getVectorType,
+} from "./integerStreamDecoder";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { VectorType } from "../vector/vectorType";
@@ -63,10 +70,10 @@ describe("getVectorType", () => {
 
 describe("decodeIntStream", () => {
     it("should decode with PhysicalLevelTechnique.NONE", () => {
-        const expectedValues = new Int32Array([10, 20, 30]);
+        const expectedValues = new Uint32Array([10, 20, 30]);
         const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
-        const data = encodeIntStream(expectedValues, metadata, false);
-        const result = decodeIntStream(data, new IntWrapper(0), metadata, false);
+        const data = encodeIntStream(new Int32Array(expectedValues), metadata, false);
+        const result = decodeUnsignedIntStream(data, new IntWrapper(0), metadata);
         expect(result).toEqual(expectedValues);
     });
 
@@ -84,33 +91,33 @@ describe("decodeIntStream", () => {
     });
 
     it("should decode MORTON", () => {
-        const expectedValues = new Int32Array([10, 15, 18, 20]);
+        const expectedValues = new Uint32Array([10, 15, 18, 20]);
         const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON, LogicalLevelTechnique.NONE, 4);
-        const data = encodeIntStream(expectedValues, metadata, false);
-        const result = decodeIntStream(data, new IntWrapper(0), metadata, false);
+        const data = encodeIntStream(new Int32Array(expectedValues), metadata, false);
+        const result = decodeUnsignedIntStream(data, new IntWrapper(0), metadata);
 
         expect(result).toEqual(expectedValues);
     });
 
     it("should decode nullable MORTON fully populated", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON, LogicalLevelTechnique.NONE, 4);
-        const expectedValues = new Int32Array([10, 15, 18, 20]);
+        const expectedValues = new Uint32Array([10, 15, 18, 20]);
         const bitVector = new BitVector(new Uint8Array([0b1111]), 4);
-        const data = encodeIntStream(expectedValues, metadata, false, bitVector);
+        const data = encodeIntStream(new Int32Array(expectedValues), metadata, false, bitVector);
         const offset = new IntWrapper(0);
 
-        const result = decodeIntStream(data, offset, metadata, false, undefined, bitVector);
+        const result = decodeUnsignedIntStream(data, offset, metadata, undefined, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
 
     it("should decode nullable MORTON null values", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON, LogicalLevelTechnique.NONE, 3);
-        const expectedValues = new Int32Array([10, 0, 15, 0, 18]);
+        const expectedValues = new Uint32Array([10, 0, 15, 0, 18]);
         const bitVector = new BitVector(new Uint8Array([0b10101]), 5);
-        const data = encodeIntStream(expectedValues, metadata, false, bitVector);
+        const data = encodeIntStream(new Int32Array(expectedValues), metadata, false, bitVector);
 
-        const result = decodeIntStream(data, new IntWrapper(0), metadata, false, undefined, bitVector);
+        const result = decodeUnsignedIntStream(data, new IntWrapper(0), metadata, undefined, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
@@ -200,13 +207,13 @@ describe("decodeIntStream", () => {
 
     it("should decode nullable RLE Int32 partially populated", () => {
         let metadata = createStreamMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, 2);
-        const expectedValues = new Int32Array([0, 15, 0, 20]);
+        const expectedValues = new Uint32Array([0, 15, 0, 20]);
         const bitVector = new BitVector(new Uint8Array([0b1010]), 4);
-        const data = encodeIntStream(expectedValues, metadata, false, bitVector);
+        const data = encodeIntStream(new Int32Array(expectedValues), metadata, false, bitVector);
         metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, 2, 2);
-        const result = decodeIntStream(data, new IntWrapper(0), metadata, false, undefined, bitVector);
+        const result = decodeUnsignedIntStream(data, new IntWrapper(0), metadata, undefined, bitVector);
 
-        expect(result).toEqual(new Int32Array([0, 15, 0, 20]));
+        expect(result).toEqual(new Uint32Array([0, 15, 0, 20]));
     });
 
     it("should throw for unsupported technique", () => {
@@ -503,11 +510,11 @@ describe("decodeLongStream", () => {
 
         it("should decode NONE unsigned", () => {
             const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
-            const expectedValues = new BigInt64Array([1n, 2n, 3n]);
-            const data = encodeInt64UnsignedNone(expectedValues);
+            const expectedValues = new BigUint64Array([1n, 2n, 3n]);
+            const data = encodeInt64UnsignedNone(new BigInt64Array(expectedValues));
             const offset = new IntWrapper(0);
 
-            const result = decodeLongStream(data, offset, metadata, false);
+            const result = decodeUnsignedLongStream(data, offset, metadata);
 
             expect(result).toEqual(expectedValues);
         });
@@ -539,25 +546,25 @@ describe("decodeLongStream", () => {
 
         it("should decode NONE unsigned with all non-null values", () => {
             const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
-            const expectedValues = new BigInt64Array([1n, 2n, 3n]);
-            const data = encodeInt64UnsignedNone(expectedValues);
+            const expectedValues = new BigUint64Array([1n, 2n, 3n]);
+            const data = encodeInt64UnsignedNone(new BigInt64Array(expectedValues));
             const offset = new IntWrapper(0);
             const bitVector = new BitVector(new Uint8Array([0b00000111]), 3);
 
-            const result = decodeLongStream(data, offset, metadata, false, bitVector);
+            const result = decodeUnsignedLongStream(data, offset, metadata, bitVector);
 
             expect(result).toEqual(expectedValues);
         });
 
         it("should decode NONE unsigned with null values", () => {
             const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 5);
-            const expectedValues = new BigInt64Array([0n, 1n, 2n, 0n, 3n]);
+            const expectedValues = new BigUint64Array([0n, 1n, 2n, 0n, 3n]);
             const nonNullValues = new BigInt64Array([1n, 2n, 3n]);
             const data = encodeInt64UnsignedNone(nonNullValues);
             const offset = new IntWrapper(0);
             const bitVector = new BitVector(new Uint8Array([0b00010110]), 5);
 
-            const result = decodeLongStream(data, offset, metadata, false, bitVector);
+            const result = decodeUnsignedLongStream(data, offset, metadata, bitVector);
 
             expect(result).toEqual(expectedValues);
         });

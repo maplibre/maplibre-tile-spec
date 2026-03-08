@@ -17,6 +17,8 @@ import {
     decodeConstLongStream,
     decodeIntStream,
     decodeLongStream,
+    decodeUnsignedIntStream,
+    decodeUnsignedLongStream,
     decodeSequenceIntStream,
     decodeSequenceLongStream,
     getVectorType,
@@ -158,7 +160,9 @@ function decodeLongColumn(
     const isSigned = scalarColumn.physicalType === ScalarType.INT_64;
     if (vectorType === VectorType.FLAT) {
         const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
-        const dataStream = decodeLongStream(data, offset, dataStreamMetadata, isSigned, nullabilityBuffer);
+        const dataStream = isSigned
+            ? decodeLongStream(data, offset, dataStreamMetadata, true, nullabilityBuffer)
+            : decodeUnsignedLongStream(data, offset, dataStreamMetadata, nullabilityBuffer);
         return new LongFlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
     }
     if (vectorType === VectorType.SEQUENCE) {
@@ -187,7 +191,9 @@ function decodeIntColumn(
 
     if (vectorType === VectorType.FLAT) {
         const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
-        const dataStream = decodeIntStream(data, offset, dataStreamMetadata, isSigned, undefined, nullabilityBuffer);
+        const dataStream = isSigned
+            ? decodeIntStream(data, offset, dataStreamMetadata, true, undefined, nullabilityBuffer)
+            : decodeUnsignedIntStream(data, offset, dataStreamMetadata, undefined, nullabilityBuffer);
         return new IntFlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
     }
     if (vectorType === VectorType.SEQUENCE) {
