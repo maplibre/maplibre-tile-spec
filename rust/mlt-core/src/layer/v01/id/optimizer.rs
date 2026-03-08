@@ -28,7 +28,7 @@ use crate::v01::{DataProfile, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, Ph
 pub struct IdOptimizer;
 
 impl IdOptimizer {
-    /// Analyse and return a configured [`IdEncoder`].
+    /// Analyze and return a configured [`IdEncoder`].
     #[must_use]
     pub fn optimize(decoded: &DecodedId) -> IdEncoder {
         let Some(ids) = &decoded.0 else {

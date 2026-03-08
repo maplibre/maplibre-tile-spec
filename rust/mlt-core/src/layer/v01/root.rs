@@ -179,12 +179,21 @@ impl Layer01<'_> {
         }
     }
 
+    /// Decode only the geometry and ID columns, leaving properties in their encoded form.
+    ///
+    /// Use this instead of [`Self::decode_all`] when properties will be accessed lazily
+    pub fn decode_geometry_and_id(&mut self) -> Result<(), MltError> {
+        self.id.materialize()?;
+        self.geometry.materialize()?;
+        Ok(())
+    }
+
     pub fn decode_all(&mut self) -> Result<(), MltError> {
         self.id.materialize()?;
         self.geometry.materialize()?;
         let old_props = std::mem::take(&mut self.properties);
         for prop in old_props {
-            self.properties.extend(prop.decode_expand()?);
+            self.properties.push(Property::Decoded(prop.decode()?));
         }
         Ok(())
     }
@@ -307,14 +316,8 @@ fn parse_shared_dict_column<'a>(
     (input, children) = parse_struct_children(input, column)?;
     let shared_dict = match dict_streams {
         [Some(s1), Some(s2), None, None, None] => EncodedSharedDictProp::plain(s1, s2, children)?,
-        [Some(s1), Some(s2), Some(s3), None, None] => {
-            EncodedSharedDictProp::dictionary(s1, s2, s3, children)?
-        }
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
             EncodedSharedDictProp::fsst_plain(s1, s2, s3, s4, children)?
-        }
-        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
-            EncodedSharedDictProp::fsst_dictionary(s1, s2, s3, s4, s5, children)?
         }
         _ => Err(MltError::SharedDictRequiresStreams(streams_taken))?,
     };
