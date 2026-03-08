@@ -33,6 +33,7 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
 }
 
 /// Decode a vector of ZigZag-encoded unsigned deltas.
+#[must_use]
 pub fn decode_zigzag_delta<T: Copy + ZigZag + WrappingAdd + AsPrimitive<U>, U: 'static + Copy>(
     data: &[T::UInt],
 ) -> Vec<U> {
@@ -123,6 +124,7 @@ fn decode_morton_one(morton_code: u32, num_bits: u32, coordinate_shift: u32) -> 
 /// buffer, which is immediately SIMD-decoded into the output. This keeps the working
 /// set in registers / L1 cache
 #[expect(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
+#[must_use]
 pub fn decode_morton_delta(data: &[u32], num_bits: u32, coordinate_shift: u32) -> Vec<i32> {
     const LANES: usize = 8;
     let mut out = Vec::with_capacity(data.len() * 2);
@@ -180,6 +182,7 @@ pub fn decode_morton_delta(data: &[u32], num_bits: u32, coordinate_shift: u32) -
 /// compacted even-bit (x) and odd-bit (y) components in parallel, then applies
 /// the coordinate shift. A scalar tail handles any remaining codes.
 #[expect(clippy::cast_possible_wrap)]
+#[must_use]
 pub fn decode_morton_codes(data: &[u32], num_bits: u32, coordinate_shift: u32) -> Vec<i32> {
     const LANES: usize = 8;
     let mut out = Vec::with_capacity(data.len() * 2);
@@ -235,6 +238,7 @@ pub fn decode_morton_codes(data: &[u32], num_bits: u32, coordinate_shift: u32) -
 /// Format: control byte determines the run type:
 /// - `control >= 128`: literal run of `(256 - control)` bytes follow
 /// - `control < 128`: repeating run of `(control + 3)` copies of the next byte
+#[must_use]
 pub fn decode_byte_rle(input: &[u8], num_bytes: usize) -> Vec<u8> {
     let mut output = Vec::with_capacity(num_bytes);
     let mut pos = 0;
@@ -256,6 +260,7 @@ pub fn decode_byte_rle(input: &[u8], num_bytes: usize) -> Vec<u8> {
 }
 
 /// Helper to unpack a `Vec<u8>` into `Vec<bool>` where each byte represents 8 booleans.
+#[must_use]
 pub fn decode_bytes_to_bools(bytes: &[u8], num_bools: usize) -> Vec<bool> {
     debug_assert!(num_bools <= bytes.len() * 8);
     (0..num_bools)
