@@ -809,9 +809,11 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c62675ce4677bfc18b386e3e0920f6fc722be1207b7b3de9d294c5cd9f796d04"
 dependencies = [
+ "bytes",
  "cmake",
  "cxx",
  "cxx-build",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1582,6 +1584,15 @@ dependencies = [
  "pretty_assertions",
  "serde_json",
  "test_each_file",
+]
+
+[[package]]
+name = "mlt-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "mlt-core",
+ "wasm-bindgen",
 ]
 
 [[package]]

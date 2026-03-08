@@ -1,4 +1,7 @@
-use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
+#[cfg(feature = "fastpfor-cpp")]
+use fastpfor::cpp::{Codec32 as _, FastPFor256Codec, VarIntCodec};
+#[cfg(feature = "fastpfor-rust")]
+use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
 use integer_encoding::VarInt as _;
 use num_traits::{PrimInt, WrappingSub};
 use zigzag::ZigZag;
@@ -121,24 +124,102 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
     output
 }
 
-/// Encode a `u32` sequence using `FastPFOR256` (composite codec).
+/// Encode a `u32` sequence using the composite FastPFOR+VarInt codec.
 ///
-/// This is the inverse of `decode_fastpfor_composite`
+/// This is the inverse of `decode_fastpfor_composite`.
+///
+/// Wire format:
+/// 1. First u32 = `n_primary` — number of values handed to FastPFOR
+///    (always a multiple of 256, or 0 when all values fit in VarInt alone)
+/// 2. Next `P` u32 words = FastPFOR compressed pages (absent when `n_primary == 0`)
+/// 3. Remaining u32 words = VarInt compressed remainder
+///
+/// All u32 words are stored as big-endian bytes to match the Java wire format.
 pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
     if values.is_empty() {
         return Ok(Vec::new());
     }
-    let codec = FastPFor256Codec::new();
-    // Over-allocate: FastPFOR may write a header and padding beyond the input length.
-    let mut compressed = vec![0u32; values.len() + 1024];
-    let out = codec.encode32(values, &mut compressed)?;
 
-    // Convert u32 words to big-endian bytes to match the wire format.
-    let mut data = Vec::with_capacity(out.len() * 4);
-    for word in out.iter() {
-        data.extend_from_slice(&word.to_be_bytes());
+    #[cfg(feature = "fastpfor-rust")]
+    {
+        // Over-allocate: FastPFOR may write a header and padding beyond the input length.
+        let mut compressed = vec![0u32; values.len() + 1024];
+        let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
+        let mut input_offset = std::io::Cursor::new(0u32);
+        let mut output_offset = std::io::Cursor::new(0u32);
+
+        comp.compress(
+            values,
+            u32::try_from(values.len())?,
+            &mut input_offset,
+            &mut compressed,
+            &mut output_offset,
+        )?;
+
+        let written = usize::try_from(output_offset.position())?;
+
+        // Convert u32 words to big-endian bytes to match the wire format.
+        let mut data = Vec::with_capacity(written * 4);
+        for word in &compressed[..written] {
+            data.extend_from_slice(&word.to_be_bytes());
+        }
+        Ok(data)
     }
-    Ok(data)
+
+    #[cfg(feature = "fastpfor-cpp")]
+    {
+        const BLOCK_SIZE: usize = 256;
+
+        // n_primary is the largest multiple of 256 that fits in values.
+        let n_primary = (values.len() / BLOCK_SIZE) * BLOCK_SIZE;
+
+        // Over-allocate output word buffer.
+        let buf_words = values.len() + 1024;
+        let mut words = vec![0u32; buf_words];
+
+        let total_words;
+
+        if n_primary == 0 {
+            // All values go to VarInt; write a zero placeholder at word[0].
+            words[0] = 0;
+            let varint_codec = VarIntCodec::new();
+            let encoded = varint_codec
+                .encode32(values, &mut words[1..])
+                .map_err(MltError::FastPforCpp)?;
+            total_words = 1 + encoded.len();
+        } else {
+            // FastPFor256Codec::encode32 writes [count_word][page_data...] into its
+            // output buffer, where count_word == n_primary.  We copy that entire
+            // slice into words[0..] so word[0] already carries the count.
+            let fastpfor_codec = FastPFor256Codec::new();
+            let mut fastpfor_buf = vec![0u32; n_primary + 1024];
+            let encoded_primary = fastpfor_codec
+                .encode32(&values[..n_primary], &mut fastpfor_buf)
+                .map_err(MltError::FastPforCpp)?;
+            // fp_words includes the leading count word written by the C++ encoder.
+            let fp_words = encoded_primary.len();
+            words[..fp_words].copy_from_slice(encoded_primary);
+
+            // Encode the VarInt remainder immediately after the FastPFOR output.
+            let remainder = &values[n_primary..];
+            if remainder.is_empty() {
+                total_words = fp_words;
+            } else {
+                let varint_codec = VarIntCodec::new();
+                let encoded_remainder = varint_codec
+                    .encode32(remainder, &mut words[fp_words..])
+                    .map_err(MltError::FastPforCpp)?;
+                total_words = fp_words + encoded_remainder.len();
+            }
+        }
+
+        // Convert u32 words to big-endian bytes to match the Java wire format.
+        let mut data = Vec::with_capacity(total_words * 4);
+        for word in &words[..total_words] {
+            data.extend_from_slice(&word.to_be_bytes());
+        }
+        Ok(data)
+    }
 }
 
 pub fn encode_u32s_to_bytes(data: &[u32]) -> Vec<u8> {

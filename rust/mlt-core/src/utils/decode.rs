@@ -1,6 +1,9 @@
 use std::fmt::Debug;
 
-use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
+#[cfg(feature = "fastpfor-cpp")]
+use fastpfor::cpp::{Codec32 as _, FastPFor256Codec, VarIntCodec};
+#[cfg(feature = "fastpfor-rust")]
+use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd};
 use zigzag::ZigZag;
 
@@ -182,9 +185,10 @@ pub fn decode_bytes_to_bools(bytes: &[u8], num_bools: usize) -> Vec<bool> {
 /// The Java MLT encoder uses `Composition(FastPFOR(), VariableByte())`, matching
 /// the C++ `CompositeCodec<FastPFor<8>, VariableByte>`. The wire format is:
 ///
-/// 1. First u32 = number of compressed u32 words from the primary codec (`FastPFor`)
-/// 2. Next N u32 words = primary codec (`FastPFor`) compressed data
-/// 3. Remaining u32 words = secondary codec (`VByte`) compressed data
+/// 1. First u32 = `n_primary` — number of values encoded by FastPFOR
+///    (always a multiple of 256, or 0 if all values fit in VarInt alone)
+/// 2. Next `P` u32 words = FastPFOR compressed pages (absent when `n_primary == 0`)
+/// 3. Remaining u32 words = VarInt compressed remainder
 ///
 /// The compressed bytes are stored as big-endian u32 values by the Java encoder.
 pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u32>, MltError> {
@@ -211,21 +215,188 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
         return Err(MltError::FastPforDecode(num_values, 0));
     }
 
-    // The fastpfor crate's FastPFor256Codec is already a CompositeCodec<FastPFor<8>, VariableByte>.
-    // It handles the full Composition protocol internally (FastPFor header + VByte remainder).
+    #[cfg(feature = "fastpfor-rust")]
+    {
+        // Over-allocate output buffer — the codec may decode padding beyond num_values.
+        let buf_size = num_values + 1024;
+        let mut result = vec![0u32; buf_size];
 
-    // Over-allocate output buffer — the codec may decode padding beyond num_values.
-    let buf_size = num_values + 1024;
-    let mut result = vec![0u32; buf_size];
+        let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
+        let mut input_offset = std::io::Cursor::new(0u32);
+        let mut output_offset = std::io::Cursor::new(0u32);
 
-    let decoded = FastPFor256Codec::new().decode32(&input, &mut result)?;
+        comp.uncompress(
+            &input,
+            u32::try_from(input.len())?,
+            &mut input_offset,
+            &mut result,
+            &mut output_offset,
+        )?;
 
-    if decoded.len() < num_values {
-        return Err(MltError::FastPforDecode(num_values, decoded.len()));
+        let decoded = usize::try_from(output_offset.position())?;
+        if decoded < num_values {
+            return Err(MltError::FastPforDecode(num_values, decoded));
+        }
+
+        result.truncate(num_values);
+        Ok(result)
     }
 
-    result.truncate(num_values);
-    Ok(result)
+    #[cfg(feature = "fastpfor-cpp")]
+    {
+        let n_primary = input[0] as usize;
+
+        let mut result = Vec::with_capacity(num_values + 1024);
+        result.resize(num_values + 1024, 0u32);
+
+        if n_primary == 0 {
+            // All values encoded by VarInt alone (word[0] is a 0 placeholder).
+            let varint_codec = VarIntCodec::new();
+            let decoded = varint_codec
+                .decode32(&input[1..], &mut result)
+                .map_err(MltError::FastPforCpp)?;
+            let count = decoded.len();
+            if count < num_values {
+                return Err(MltError::FastPforDecode(num_values, count));
+            }
+            result.truncate(num_values);
+            Ok(result)
+        } else {
+            // Scan FastPFOR page data (input[1..]) to find P — the number of
+            // page-data words.  The count word (input[0] = n_primary) is NOT
+            // part of the page data, so the scanner receives input[1..].
+            let page_data = &input[1..];
+            let p = fastpfor_page_scanner(page_data, n_primary)?;
+
+            // FastPFor256Codec::decode32 expects [count_word][page_data], i.e.
+            // input[0..1+p].  input[0] already holds n_primary as the count.
+            let fastpfor_codec = FastPFor256Codec::new();
+            let decoded_primary = fastpfor_codec
+                .decode32(&input[0..1 + p], &mut result)
+                .map_err(MltError::FastPforCpp)?;
+            let primary_count = decoded_primary.len();
+            if primary_count < n_primary {
+                return Err(MltError::FastPforDecode(n_primary, primary_count));
+            }
+
+            // VarInt remainder follows immediately after the page data.
+            let remainder = num_values - n_primary;
+            if remainder > 0 {
+                let varint_input = &page_data[p..];
+                let mut varint_out = vec![0u32; remainder + 256];
+                let varint_codec = VarIntCodec::new();
+                let decoded_remainder = varint_codec
+                    .decode32(varint_input, &mut varint_out)
+                    .map_err(MltError::FastPforCpp)?;
+                let rem_count = decoded_remainder.len();
+                if rem_count < remainder {
+                    return Err(MltError::FastPforDecode(num_values, n_primary + rem_count));
+                }
+                result[n_primary..num_values].copy_from_slice(&varint_out[..remainder]);
+            }
+
+            result.truncate(num_values);
+            Ok(result)
+        }
+    }
+}
+
+/// Scan FastPFOR-compressed pages to determine how many u32 input words they occupy,
+/// without actually decompressing any values.
+///
+/// This is needed for the C++ backend because `FastPFor256Codec::decode32` returns the
+/// number of *output* integers, not the number of *input* words consumed, so we cannot
+/// trivially split the stream between the FastPFOR and VarInt sections.
+///
+/// Page layout (matches `FastPFOR::encode_page` in the Rust source):
+/// ```text
+/// page[0]            where_meta  — distance in u32 words from page[0] to metadata word
+/// page[1..]          bit-packed data blocks
+/// page[where_meta]   byte_size   — byte length of the metadata buffer
+/// page[where_meta+1..] metadata bytes (padded to 4-byte boundary, stored as u32s LE)
+/// page[where_meta+1+ceil(byte_size/4)]
+///                    bitmap      — bitmask: bit (k-1) set means exceptions of width k present
+/// bitmap+1..         for each set bit k (2..=32):
+///                        [0]  size  — number of exceptions at this width
+///                        [1..] bit-packed exception values
+///                               words = greatest_multiple(size+31, 32) * k / 32
+///                               (with overflow adjustment)
+/// ```
+///
+/// `n_primary` must be a multiple of the block size (256).
+#[cfg(feature = "fastpfor-cpp")]
+fn fastpfor_page_scanner(input: &[u32], n_primary: usize) -> Result<usize, MltError> {
+    const DEFAULT_PAGE_SIZE: usize = 65536;
+    const BLOCK_SIZE: usize = 256;
+
+    let mut cursor = 0usize;
+    let mut remaining = n_primary;
+
+    while remaining > 0 {
+        let this_page = remaining.min(DEFAULT_PAGE_SIZE);
+
+        if cursor >= input.len() {
+            return Err(MltError::FastPforDecode(n_primary, n_primary - remaining));
+        }
+
+        let where_meta = input[cursor] as usize;
+        // where_meta is the distance from page[0] to the metadata word.
+        // The data blocks occupy words [1 .. where_meta].
+        let meta_pos = cursor + where_meta;
+
+        if meta_pos >= input.len() {
+            return Err(MltError::FastPforDecode(n_primary, n_primary - remaining));
+        }
+
+        let byte_size = input[meta_pos] as usize;
+        let meta_words = byte_size.div_ceil(4);
+
+        // bitmap follows the metadata bytes
+        let bitmap_pos = meta_pos + 1 + meta_words;
+        if bitmap_pos >= input.len() {
+            return Err(MltError::FastPforDecode(n_primary, n_primary - remaining));
+        }
+
+        let bitmap = input[bitmap_pos];
+        let mut pos = bitmap_pos + 1;
+
+        // Walk each exception width that is present
+        for k in 2usize..=32 {
+            if (bitmap & (1 << (k - 1))) != 0 {
+                if pos >= input.len() {
+                    return Err(MltError::FastPforDecode(n_primary, n_primary - remaining));
+                }
+                let size = input[pos] as usize;
+                pos += 1;
+
+                // Number of words used by the bit-packed exceptions.
+                // greatest_multiple(size + 31, 32) gives the rounded-up count,
+                // then * k / 32 is the word count.  This matches the encode_page logic.
+                let rounded = greatest_multiple(size + 31, 32);
+                let mut words = rounded * k / 32;
+
+                // Overflow adjustment: mirrors the encoder's subtraction
+                let overflow = rounded - size;
+                words -= (overflow * k) / 32;
+
+                pos += words;
+            }
+        }
+
+        // pos is now one past the end of this page
+        cursor = pos;
+        remaining -= this_page;
+    }
+
+    Ok(cursor)
+}
+
+/// Round `n` up to the nearest multiple of `multiple`.
+/// Matches `helpers::greatest_multiple` in the fastpfor Rust source.
+#[cfg(feature = "fastpfor-cpp")]
+#[inline]
+fn greatest_multiple(n: usize, multiple: usize) -> usize {
+    n.div_ceil(multiple) * multiple
 }
 
 #[cfg(test)]
