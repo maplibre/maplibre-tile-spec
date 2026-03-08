@@ -1,6 +1,9 @@
 #![expect(dead_code)]
 #![doc = include_str!("../README.md")]
 
+#[cfg(not(any(feature = "fastpfor-cpp", feature = "fastpfor-rust")))]
+compile_error!("one of `fastpfor-cpp` or `fastpfor-rust` must be enabled");
+
 mod analyse;
 mod convert;
 mod decode;

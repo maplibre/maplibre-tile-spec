@@ -1,6 +1,5 @@
 use std::convert::Infallible;
 
-use fastpfor::cpp::Exception;
 use num_enum::TryFromPrimitiveError;
 
 use crate::v01::{GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType};
@@ -139,8 +138,12 @@ pub enum MltError {
     UnexpectedOffsetCombination(usize, GeometryType),
 
     // Wrapper errors, using `#[from]` to auto-convert from underlying error types
-    #[error("FastPFor FFI error: {0}")]
-    FastPforFfi(#[from] Exception),
+    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
+    #[error("FastPFor error: {0}")]
+    FastPforRust(#[from] fastpfor::rust::FastPForError),
+    #[cfg(feature = "fastpfor-cpp")]
+    #[error("FastPFor error: {0}")]
+    FastPforCpp(#[from] fastpfor::cpp::Exception),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("Serde JSON error: {0}")]

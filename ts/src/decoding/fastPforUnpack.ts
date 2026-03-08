@@ -42,7 +42,7 @@ export function fastUnpack32_2(inValues: Uint32Array, inPos: number, out: Uint32
     out[op++] = (in1 >>> 24) & 0x3;
     out[op++] = (in1 >>> 26) & 0x3;
     out[op++] = (in1 >>> 28) & 0x3;
-    out[op++] = (in1 >>> 30) & 0x3;
+    out[op] = (in1 >>> 30) & 0x3;
 }
 
 export function fastUnpack32_3(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
@@ -81,7 +81,7 @@ export function fastUnpack32_3(inValues: Uint32Array, inPos: number, out: Uint32
     out[op++] = (in2 >>> 20) & 0x7;
     out[op++] = (in2 >>> 23) & 0x7;
     out[op++] = (in2 >>> 26) & 0x7;
-    out[op++] = (in2 >>> 29) & 0x7;
+    out[op] = (in2 >>> 29) & 0x7;
 }
 
 export function fastUnpack32_4(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
@@ -121,7 +121,7 @@ export function fastUnpack32_4(inValues: Uint32Array, inPos: number, out: Uint32
     out[op++] = (in3 >>> 16) & 0xf;
     out[op++] = (in3 >>> 20) & 0xf;
     out[op++] = (in3 >>> 24) & 0xf;
-    out[op++] = (in3 >>> 28) & 0xf;
+    out[op] = (in3 >>> 28) & 0xf;
 }
 
 export function fastUnpack32_5(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
@@ -162,7 +162,7 @@ export function fastUnpack32_5(inValues: Uint32Array, inPos: number, out: Uint32
     out[op++] = (in4 >>> 12) & 0x1f;
     out[op++] = (in4 >>> 17) & 0x1f;
     out[op++] = (in4 >>> 22) & 0x1f;
-    out[op++] = (in4 >>> 27) & 0x1f;
+    out[op] = (in4 >>> 27) & 0x1f;
 }
 
 export function fastUnpack32_6(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
@@ -204,7 +204,7 @@ export function fastUnpack32_6(inValues: Uint32Array, inPos: number, out: Uint32
     out[op++] = (in5 >>> 8) & 0x3f;
     out[op++] = (in5 >>> 14) & 0x3f;
     out[op++] = (in5 >>> 20) & 0x3f;
-    out[op++] = (in5 >>> 26) & 0x3f;
+    out[op] = (in5 >>> 26) & 0x3f;
 }
 
 export function fastUnpack32_7(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
@@ -247,7 +247,7 @@ export function fastUnpack32_7(inValues: Uint32Array, inPos: number, out: Uint32
     out[op++] = (in6 >>> 4) & 0x7f;
     out[op++] = (in6 >>> 11) & 0x7f;
     out[op++] = (in6 >>> 18) & 0x7f;
-    out[op++] = (in6 >>> 25) & 0x7f;
+    out[op] = (in6 >>> 25) & 0x7f;
 }
 
 export function fastUnpack32_8(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
@@ -291,7 +291,7 @@ export function fastUnpack32_8(inValues: Uint32Array, inPos: number, out: Uint32
     out[op++] = (in7 >>> 0) & 0xff;
     out[op++] = (in7 >>> 8) & 0xff;
     out[op++] = (in7 >>> 16) & 0xff;
-    out[op++] = (in7 >>> 24) & 0xff;
+    out[op] = (in7 >>> 24) & 0xff;
 }
 
 export function fastUnpack32_9(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
@@ -336,7 +336,7 @@ export function fastUnpack32_9(inValues: Uint32Array, inPos: number, out: Uint32
     out[op++] = ((in7 >>> 28) | ((in8 & 0x1f) << 4)) & 0x1ff;
     out[op++] = (in8 >>> 5) & 0x1ff;
     out[op++] = (in8 >>> 14) & 0x1ff;
-    out[op++] = (in8 >>> 23) & 0x1ff;
+    out[op] = (in8 >>> 23) & 0x1ff;
 }
 
 export function fastUnpack32_10(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
@@ -382,7 +382,7 @@ export function fastUnpack32_10(inValues: Uint32Array, inPos: number, out: Uint3
     out[op++] = ((in8 >>> 24) | ((in9 & 0x3) << 8)) & 0x3ff;
     out[op++] = (in9 >>> 2) & 0x3ff;
     out[op++] = (in9 >>> 12) & 0x3ff;
-    out[op++] = (in9 >>> 22) & 0x3ff;
+    out[op] = (in9 >>> 22) & 0x3ff;
 }
 
 export function fastUnpack32_11(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
@@ -429,7 +429,7 @@ export function fastUnpack32_11(inValues: Uint32Array, inPos: number, out: Uint3
     out[op++] = (in9 >>> 20) & 0x7ff;
     out[op++] = ((in9 >>> 31) | ((in10 & 0x3ff) << 1)) & 0x7ff;
     out[op++] = (in10 >>> 10) & 0x7ff;
-    out[op++] = (in10 >>> 21) & 0x7ff;
+    out[op] = (in10 >>> 21) & 0x7ff;
 }
 
 export function fastUnpack32_12(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
@@ -477,7 +477,7 @@ export function fastUnpack32_12(inValues: Uint32Array, inPos: number, out: Uint3
     out[op++] = (in10 >>> 16) & 0xfff;
     out[op++] = ((in10 >>> 28) | ((in11 & 0xff) << 4)) & 0xfff;
     out[op++] = (in11 >>> 8) & 0xfff;
-    out[op++] = (in11 >>> 20) & 0xfff;
+    out[op] = (in11 >>> 20) & 0xfff;
 }
 
 export function fastUnpack32_16(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
@@ -529,7 +529,7 @@ export function fastUnpack32_16(inValues: Uint32Array, inPos: number, out: Uint3
     out[op++] = (in14 >>> 0) & 0xffff;
     out[op++] = (in14 >>> 16) & 0xffff;
     out[op++] = (in15 >>> 0) & 0xffff;
-    out[op++] = (in15 >>> 16) & 0xffff;
+    out[op] = (in15 >>> 16) & 0xffff;
 }
 
 export function fastUnpack256_1(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {

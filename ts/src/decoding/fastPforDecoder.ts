@@ -676,8 +676,7 @@ export function decodeFastPforInt32(
 
     const remainingLength = (encoded.length - inPos) | 0;
     const expectedTail = (numValues - outPos) | 0;
-    inPos = decodeVByte(encoded, inPos, remainingLength, decoded, outPos, expectedTail);
-    outPos = (outPos + expectedTail) | 0;
+    decodeVByte(encoded, inPos, remainingLength, decoded, outPos, expectedTail);
 
     return decoded;
 }

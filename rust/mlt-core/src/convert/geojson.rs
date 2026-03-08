@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use crate::MltError;
 use crate::layer::Layer;
-use crate::v01::{DecodedId, DecodedProperty, Geometry as MltGeometry, Id, Property};
+use crate::v01::{DecodedId, DecodedProperty, Geometry as MltGeometry, Id, PropValue, Property};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
 pub type Geom32 = geo_types::Geometry<i32>;
@@ -61,7 +61,16 @@ impl FeatureCollection {
                 let geometry = geom.to_geojson(i)?;
                 let mut properties = BTreeMap::new();
                 for prop in &props {
-                    if let Some(val) = prop.values.to_geojson(i) {
+                    // SharedDict properties are flattened to individual properties
+                    // with names like "struct_name:child_suffix"
+                    if let PropValue::SharedDict(items) = &prop.values {
+                        for item in items {
+                            if let Some(s) = &item.values[i] {
+                                let key = format!("{}{}", prop.name, item.suffix);
+                                properties.insert(key, Value::String(s.clone()));
+                            }
+                        }
+                    } else if let Some(val) = prop.values.to_geojson(i) {
                         properties.insert(prop.name.clone(), val);
                     }
                 }

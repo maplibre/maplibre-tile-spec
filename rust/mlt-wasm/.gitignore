@@ -1,0 +1,8 @@
+# wasm-pack output
+pkg/
+
+# TypeScript compiler output
+dist/
+
+# npm
+node_modules/
