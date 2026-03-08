@@ -508,7 +508,9 @@ pub fn encode_shared_dictionary(
             children,
         },
         OwnedEncodedStrProp::Dictionary { .. } | OwnedEncodedStrProp::FsstDictionary { .. } => {
-            unreachable!("shared dict encoding only produces Plain or FsstPlain")
+            return Err(NotImplemented(
+                "SharedDict only supports Plain or FsstPlain encoding",
+            ));
         }
     };
 
@@ -614,7 +616,9 @@ pub fn encode_shared_dict_prop(
             children,
         },
         OwnedEncodedStrProp::Dictionary { .. } | OwnedEncodedStrProp::FsstDictionary { .. } => {
-            unreachable!("shared dict encoding only produces Plain or FsstPlain")
+            return Err(NotImplemented(
+                "SharedDict only supports Plain or FsstPlain encoding",
+            ));
         }
     };
 
