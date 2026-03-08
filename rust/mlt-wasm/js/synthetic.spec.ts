@@ -33,6 +33,8 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
   ["prop_f64_nan", "needs investigation"],
   ["prop_u32_null_val", "needs investigation"],
   ["prop_u32_val_null", "needs investigation"],
+  ["prop_i32_null_val", "needs investigation"],
+  ["prop_i32_val_null", "needs investigation"],
 ]);
 
 describe("MLT WASM Decoder - Synthetic tests", () => {
