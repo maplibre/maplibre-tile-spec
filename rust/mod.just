@@ -358,8 +358,7 @@ wasm-build:
 
 # Run mlt-wasm tests
 [working-directory: 'mlt-wasm']
-wasm-test:
-    npm ci
+wasm-test: wasm-build
     npm run test
 
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
