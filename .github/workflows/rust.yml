@@ -34,7 +34,7 @@ jobs:
       - run: just -v rust::ci-test
 
   test-wasm:
-    name: Test
+    name: Test wasm
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
