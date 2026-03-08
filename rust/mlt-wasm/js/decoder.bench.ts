@@ -31,10 +31,8 @@ function traverseWasm(tile: VectorTileLike): number {
   for (const layer of Object.values(tile.layers)) {
     for (let i = 0; i < layer.length; i++) {
       const f = layer.feature(i);
-      if (i % 4 !== 0) {
-        f.loadGeometry();
-        void f.properties;
-      }
+      void f.properties;
+      f.loadGeometry();
       n++;
     }
   }
@@ -43,7 +41,17 @@ function traverseWasm(tile: VectorTileLike): number {
 
 function traverseTs(tables: FeatureTable[]): number {
   let n = 0;
-  for (const table of tables) n += table.getFeatures().length;
+  for (const table of tables) {
+    const geometries = table.geometryVector.getGeometries();
+    for (let i = 0; i < table.numFeatures; i++) {
+      void geometries[i];
+      for (const col of table.propertyVectors) {
+        if (col) col.getValue(i);
+      }
+
+      n++;
+    }
+  }
   return n;
 }
 
