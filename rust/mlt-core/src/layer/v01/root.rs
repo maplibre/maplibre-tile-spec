@@ -179,6 +179,15 @@ impl Layer01<'_> {
         }
     }
 
+    /// Decode only the geometry and ID columns, leaving properties in their encoded form.
+    ///
+    /// Use this instead of [`Self::decode_all`] when properties will be accessed lazily
+    pub fn decode_geometry_and_id(&mut self) -> Result<(), MltError> {
+        self.id.materialize()?;
+        self.geometry.materialize()?;
+        Ok(())
+    }
+
     pub fn decode_all(&mut self) -> Result<(), MltError> {
         self.id.materialize()?;
         self.geometry.materialize()?;
