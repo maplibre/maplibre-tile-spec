@@ -353,7 +353,7 @@ generate-synthetic-mlts:
 generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find') build
     fd . ../test/synthetic -e mlt -x sh -c 'target/debug/mlt dump {} > {.}.dump || echo "Failed to dump {}"'
 
-# Run mlt-wasm benchs
+# Run mlt-wasm benches
 [working-directory: 'mlt-wasm']
 wasm-bench: wasm-build
     npm run bench
