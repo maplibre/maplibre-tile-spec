@@ -44,7 +44,7 @@ import {
  * Workspace for the FastPFOR decoder.
  */
 export type FastPforDecoderWorkspace = {
-    dataToBePacked: Array<Uint32Array | undefined>;
+    dataToBePacked: Array<Uint32Array>;
     dataPointers: Int32Array;
     byteContainer: Uint8Array;
     byteContainerI32?: Int32Array;
