@@ -149,13 +149,12 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
         // Over-allocate: FastPFOR may write a header and padding beyond the input length.
         let mut compressed = vec![0u32; values.len() + 1024];
         let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
-        let mut input_offset = std::io::Cursor::new(0u32);
         let mut output_offset = std::io::Cursor::new(0u32);
 
         comp.compress(
             values,
             u32::try_from(values.len())?,
-            &mut input_offset,
+            &mut std::io::Cursor::new(0u32),
             &mut compressed,
             &mut output_offset,
         )?;
