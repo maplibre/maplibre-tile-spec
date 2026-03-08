@@ -6,11 +6,11 @@ on:
       - main
   pull_request:
     paths:
-      - 'justfile'
-      - 'rust/mod.just'
-      - '.github/**'
-      - 'rust/**'
-      - 'test/**'
+      - "justfile"
+      - "rust/mod.just"
+      - ".github/**"
+      - "rust/**"
+      - "test/**"
   workflow_dispatch:
 
 jobs:
@@ -59,16 +59,16 @@ jobs:
       # enable once we can reliably fuzz ourselves
       #- run: just -v rust::ci-fuzz-run ${{ matrix.target }}
 
-#  MSRV Testing is not really needed at this stage of code completeness
-#  test-msrv:
-#    name: Test MSRV
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v6.0.2
-#      - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
-#      - uses: ./.github/actions/mlt-setup-rust
-#        with: { toolchain: msrv }
-#      - run: just -v rust::ci-test-msrv
+  #  MSRV Testing is not really needed at this stage of code completeness
+  #  test-msrv:
+  #    name: Test MSRV
+  #    runs-on: ubuntu-latest
+  #    steps:
+  #      - uses: actions/checkout@v6.0.2
+  #      - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
+  #      - uses: ./.github/actions/mlt-setup-rust
+  #        with: { toolchain: msrv }
+  #      - run: just -v rust::ci-test-msrv
 
   coverage:
     name: Code Coverage
@@ -76,10 +76,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
+      - uses: ./.github/actions/mlt-setup-java # generate MLT test files
       - uses: ./.github/actions/mlt-setup-rust
       - uses: taiki-e/install-action@v2
-        with: { tool: 'cargo-llvm-cov' }
+        with: { tool: "cargo-llvm-cov" }
       - name: Generate code coverage
         run: just -v rust::ci-coverage
       - name: Upload coverage to Codecov
@@ -133,7 +133,7 @@ jobs:
   # This approach also allows some jobs to be skipped if they are not needed.
   ci-passed-rust:
     # needs: [ test, test-msrv, lint, build-release-binaries, test-publish ]
-    needs: [ test, test-wasm, lint, build-release-binaries, test-publish ]
+    needs: [test, test-wasm, lint, build-release-binaries, test-publish]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -144,7 +144,7 @@ jobs:
 
   # Release unpublished packages or create a PR with changes
   release-plz:
-    needs: [ ci-passed-rust ]
+    needs: [ci-passed-rust]
     if: |
       always()
       && needs.ci-passed-rust.result == 'success'
@@ -180,7 +180,7 @@ jobs:
 
   upload-release-binaries:
     name: Upload release binaries to GitHub releases
-    needs: [ release-plz ]
+    needs: [release-plz]
     if: ${{ needs.release-plz.outputs.releases_created == 'true' }}
     runs-on: ubuntu-latest
     permissions:
@@ -188,7 +188,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
       - uses: taiki-e/install-action@v2
-        with: { tool: 'just' }
+        with: { tool: "just" }
       - name: Get mlt version for release tag
         id: get_version
         shell: bash
