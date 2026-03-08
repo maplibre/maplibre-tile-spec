@@ -195,7 +195,7 @@ public class SyntheticMltGenerator {
     write(layer("ids64_opt", optIds64), cfg().ids());
     write(layer("ids64_opt_delta", optIds64), cfg(DELTA).ids());
 
-    // java doe not generate this as an ID64 if none of them are above the U32::Max threshold
+    // Java does not generate this as an ID64 if none of them are above the U32::Max threshold
     // FIXME: serialises as i64
     // var ids64MinMax = array(idFeat(0L), idFeat(0xFFFFFFFFFFFFFFFFL), idFeat(0L),
     // idFeat(0xFFFFFFFFFFFFFFFFL));
