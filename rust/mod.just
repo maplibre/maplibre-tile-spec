@@ -107,7 +107,7 @@ ci-test: ci-env-info (just 'java::gen-snippets') test
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run all tests as expected by CI for wasm
-ci-test-wasm: ci-env-info test-wasm
+ci-test-wasm: ci-env-info wasm-test
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run minimal subset of tests to ensure compatibility with MSRV
