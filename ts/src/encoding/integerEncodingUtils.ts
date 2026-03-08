@@ -23,6 +23,23 @@ export function encodeVarintInt32(values: Int32Array): Uint8Array {
     return buffer.slice(0, offset.get());
 }
 
+export function encodeVarintUint32(values: Uint32Array): Uint8Array {
+    const buffer = new Uint8Array(values.length * 5);
+    const offset = new IntWrapper(0);
+
+    for (const value of values) {
+        let v = value >>> 0;
+        while (v > 0x7f) {
+            buffer[offset.get()] = (v & 0x7f) | 0x80;
+            offset.increment();
+            v >>>= 7;
+        }
+        buffer[offset.get()] = v & 0x7f;
+        offset.increment();
+    }
+    return buffer.slice(0, offset.get());
+}
+
 export function encodeVarintInt64(values: BigUint64Array): Uint8Array {
     const buffer = new Uint8Array(values.length * 10);
     const offset = new IntWrapper(0);

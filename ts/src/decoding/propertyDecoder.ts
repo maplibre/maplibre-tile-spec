@@ -17,6 +17,8 @@ import {
     decodeConstLongStream,
     decodeIntStream,
     decodeLongStream,
+    decodeUnsignedIntStream,
+    decodeUnsignedLongStream,
     decodeSequenceIntStream,
     decodeSequenceLongStream,
     getVectorType,
@@ -152,13 +154,15 @@ function decodeLongColumn(
     column: Column,
     sizeOrNullabilityBuffer: number | BitVector,
     scalarColumn: ScalarColumn,
-): Vector<BigInt64Array, bigint> {
+): Vector<BigInt64Array | BigUint64Array, bigint> {
     const dataStreamMetadata = decodeStreamMetadata(data, offset);
     const vectorType = getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset);
     const isSigned = scalarColumn.physicalType === ScalarType.INT_64;
     if (vectorType === VectorType.FLAT) {
         const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
-        const dataStream = decodeLongStream(data, offset, dataStreamMetadata, isSigned, nullabilityBuffer);
+        const dataStream = isSigned
+            ? decodeLongStream(data, offset, dataStreamMetadata, true, nullabilityBuffer)
+            : decodeUnsignedLongStream(data, offset, dataStreamMetadata, nullabilityBuffer);
         return new LongFlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
     }
     if (vectorType === VectorType.SEQUENCE) {
@@ -180,14 +184,16 @@ function decodeIntColumn(
     column: Column,
     scalarColumn: ScalarColumn,
     sizeOrNullabilityBuffer: number | BitVector,
-): Vector<Int32Array, number> {
+): Vector<Int32Array | Uint32Array, number> {
     const dataStreamMetadata = decodeStreamMetadata(data, offset);
     const vectorType = getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset);
     const isSigned = scalarColumn.physicalType === ScalarType.INT_32;
 
     if (vectorType === VectorType.FLAT) {
         const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
-        const dataStream = decodeIntStream(data, offset, dataStreamMetadata, isSigned, undefined, nullabilityBuffer);
+        const dataStream = isSigned
+            ? decodeIntStream(data, offset, dataStreamMetadata, true, undefined, nullabilityBuffer)
+            : decodeUnsignedIntStream(data, offset, dataStreamMetadata, undefined, nullabilityBuffer);
         return new IntFlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
     }
     if (vectorType === VectorType.SEQUENCE) {

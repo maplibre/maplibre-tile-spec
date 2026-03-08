@@ -9,6 +9,7 @@ import { encodeBooleanRle, encodeFloatsLE, encodeDoubleLE } from "./encodingUtil
 import {
     encodeVarintInt32Value,
     encodeVarintInt32,
+    encodeVarintUint32,
     encodeVarintInt64,
     encodeZigZagInt32Value,
     encodeZigZagInt64Value,
@@ -130,7 +131,7 @@ export function encodeInt32NullableColumn(values: (number | null)[]): Uint8Array
  * Encodes UINT_32 values (no zigzag encoding)
  */
 export function encodeUint32Column(values: Uint32Array): Uint8Array {
-    const encodedData = encodeVarintInt32(new Int32Array(values));
+    const encodedData = encodeVarintUint32(values);
     const streamMetadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, values.length);
     return buildEncodedStream(streamMetadata, encodedData);
 }

@@ -11,6 +11,8 @@ import {
     decodeIntStream,
     decodeLongFloat64Stream,
     decodeLongStream,
+    decodeUnsignedIntStream,
+    decodeUnsignedLongStream,
     decodeSequenceIntStream,
     decodeSequenceLongStream,
     getVectorType,
@@ -192,11 +194,10 @@ function decodeIdColumn(
     if (idDataType === ScalarType.UINT_32) {
         switch (vectorType) {
             case VectorType.FLAT: {
-                const id = decodeIntStream(
+                const id = decodeUnsignedIntStream(
                     tile,
                     offset,
                     idDataStreamMetadata,
-                    false,
                     undefined,
                     typeof sizeOrNullabilityBuffer !== "number" ? sizeOrNullabilityBuffer : undefined,
                 );
@@ -213,7 +214,7 @@ function decodeIdColumn(
             }
             case VectorType.CONST: {
                 const id = decodeConstIntStream(tile, offset, idDataStreamMetadata, false);
-                return new IntConstVector(columnName, id, sizeOrNullabilityBuffer);
+                return new IntConstVector(columnName, id, sizeOrNullabilityBuffer, false);
             }
         }
     }
@@ -223,11 +224,10 @@ function decodeIdColumn(
                 const id = decodeLongFloat64Stream(tile, offset, idDataStreamMetadata, false);
                 return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
-            const id = decodeLongStream(
+            const id = decodeUnsignedLongStream(
                 tile,
                 offset,
                 idDataStreamMetadata,
-                false,
                 typeof sizeOrNullabilityBuffer !== "number" ? sizeOrNullabilityBuffer : undefined,
             );
             return new LongFlatVector(columnName, id, sizeOrNullabilityBuffer);
@@ -243,7 +243,7 @@ function decodeIdColumn(
         }
         case VectorType.CONST: {
             const id = decodeConstLongStream(tile, offset, idDataStreamMetadata, false);
-            return new LongConstVector(columnName, id, sizeOrNullabilityBuffer);
+            return new LongConstVector(columnName, id, sizeOrNullabilityBuffer, false);
         }
     }
 
