@@ -79,7 +79,7 @@ fn bench_morton(c: &mut Criterion) {
         c,
         "morton/decode_delta",
         make_morton_deltas,
-        &[("scalar", |v| {
+        &[("simd", |v| {
             decode_morton_delta(v, NUM_BITS, COORDINATE_SHIFT)
         })],
     );
