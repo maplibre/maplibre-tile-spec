@@ -50,7 +50,7 @@ jobs:
       matrix:
         include:
           - target: layer
-          # - target: decoded_layer
+          - target: decoded_layer
     steps:
       - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-rust
