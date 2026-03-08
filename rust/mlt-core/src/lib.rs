@@ -1,9 +1,6 @@
 #![expect(dead_code)]
 #![doc = include_str!("../README.md")]
 
-#[cfg(all(feature = "fastpfor-cpp", feature = "fastpfor-rust"))]
-compile_error!("features `fastpfor-cpp` and `fastpfor-rust` are mutually exclusive");
-
 #[cfg(not(any(feature = "fastpfor-cpp", feature = "fastpfor-rust")))]
 compile_error!("one of `fastpfor-cpp` or `fastpfor-rust` must be enabled");
 
