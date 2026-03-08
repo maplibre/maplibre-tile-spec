@@ -299,7 +299,7 @@ describe("IntegerDecodingUtils", () => {
             });
 
             it("should decode many vertices (unrolled loop test)", () => {
-                let numbers: number[] = [];
+                const numbers: number[] = [];
                 for (let i = 0; i < 100; i++) {
                     numbers.push(i * 10, i * 10);
                 }
