@@ -721,7 +721,10 @@ fn split_to_strings(lengths: &[u32], data: &[u8]) -> Result<Vec<String>, MltErro
     for &len in lengths {
         let len_usize = usize::try_from(len)?;
         let Some(v) = data.get(offset..offset + len_usize) else {
-            return Err(BufferUnderflow(u64::from(len), data.len().saturating_sub(offset)));
+            return Err(BufferUnderflow(
+                u64::from(len),
+                data.len().saturating_sub(offset),
+            ));
         };
         strings.push(str::from_utf8(v)?.to_owned());
         offset += len_usize;

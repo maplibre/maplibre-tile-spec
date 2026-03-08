@@ -36,7 +36,10 @@ pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltRefResult<'_, T> {
             }
             Ok((&input[consumed..], value))
         }
-        None => Err(MltError::BufferUnderflow(u64::try_from(input.len().saturating_add(1))?, input.len())),
+        None => Err(MltError::BufferUnderflow(
+            u64::try_from(input.len().saturating_add(1))?,
+            input.len(),
+        )),
     }
 }
 
