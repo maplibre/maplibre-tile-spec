@@ -131,8 +131,23 @@ clean:
     rm -f Cargo.lock
 
 # Run cargo clippy to lint the code
-clippy *args:
-    cargo clippy --workspace --all-targets --all-features {{args}}
+clippy *args: (just 'cargo-install' 'cargo-hack')
+    cargo hack clippy --all-targets --each-feature \
+        --workspace --exclude mlt-core \
+        --exclude-no-default-features --exclude-all-features \
+        {{args}}
+    cargo hack clippy --all-targets --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-rust,default \
+        --exclude-all-features \
+        --features fastpfor-cpp \
+        {{args}}
+    cargo hack clippy --all-targets --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-cpp,default \
+        --exclude-all-features \
+        --features fastpfor-rust \
+        {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
 # Generate code coverage report. Installs `cargo llvm-cov`
