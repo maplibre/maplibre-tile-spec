@@ -74,12 +74,13 @@ function decodePhysicalLevelTechnique(
             return decodeFastPfor(data, streamMetadata.numValues, streamMetadata.byteLength, offset);
         case PhysicalLevelTechnique.VARINT:
             return decodeVarintInt32(data, offset, streamMetadata.numValues);
-        case PhysicalLevelTechnique.NONE:
+        case PhysicalLevelTechnique.NONE: {
             const dataOffset = offset.get();
             const byteLength = streamMetadata.byteLength;
             offset.add(byteLength);
             const slice = data.subarray(dataOffset, offset.get());
             return new Uint32Array(slice);
+        }
         default:
             throw new Error(`Specified physicalLevelTechnique ${physicalLevelTechnique} is not supported (yet).`);
     }

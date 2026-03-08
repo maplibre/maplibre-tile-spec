@@ -57,7 +57,13 @@ export type FastPforEncoderWorkspace = {
     bestBitWidthPlan: Int32Array;
 };
 
-export function fastPack32(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number, bitWidth: number): void {
+export function fastPack32(
+    inValues: Uint32Array,
+    inPos: number,
+    out: Uint32Array,
+    outPos: number,
+    bitWidth: number,
+): void {
     if (bitWidth === 0) return;
     if (bitWidth === 32) {
         out.set(inValues.subarray(inPos, inPos + 32), outPos);
@@ -367,7 +373,12 @@ function encodeAlignedPages(
     }
 }
 
-function encode(inValues: Uint32Array, inLength: number, state: EncodeState, workspace: FastPforEncoderWorkspace): void {
+function encode(
+    inValues: Uint32Array,
+    inLength: number,
+    state: EncodeState,
+    workspace: FastPforEncoderWorkspace,
+): void {
     const alignedLength = greatestMultiple(inLength, BLOCK_SIZE);
     state.out = ensureInt32Capacity(state.out, state.outPos + 1);
     state.out[state.outPos++] = alignedLength;
@@ -425,7 +436,10 @@ function encodeVByte(
 /**
  * Encodes an int32 stream using the FastPFOR wire format (pages + VByte tail).
  */
-export function encodeFastPforInt32WithWorkspace(values: Uint32Array, workspace: FastPforEncoderWorkspace): Uint32Array {
+export function encodeFastPforInt32WithWorkspace(
+    values: Uint32Array,
+    workspace: FastPforEncoderWorkspace,
+): Uint32Array {
     const state: EncodeState = { inPos: 0, outPos: 0, out: new Uint32Array(values.length + 1024) };
 
     encode(values, values.length, state, workspace);

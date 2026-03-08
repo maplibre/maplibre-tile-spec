@@ -36,7 +36,7 @@ export function encodeInt32DeltaColumn(values: Int32Array): Uint8Array {
         deltaEncoded[i] = values[i] - values[i - 1];
     }
 
-    const zigzagEncoded = encodeZigZagInt32(deltaEncoded)
+    const zigzagEncoded = encodeZigZagInt32(deltaEncoded);
     const encodedData = encodeVarintInt32(zigzagEncoded);
     const streamMetadata = createStreamMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.NONE, values.length);
     return buildEncodedStream(streamMetadata, encodedData);

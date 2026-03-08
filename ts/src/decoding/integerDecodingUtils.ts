@@ -220,7 +220,11 @@ export function decodeZigZagFloat64(encodedData: Float64Array): void {
     }
 }
 
-export function decodeUnsignedRleInt32(encodedData: Uint32Array, numRuns: number, numTotalValues?: number): Uint32Array {
+export function decodeUnsignedRleInt32(
+    encodedData: Uint32Array,
+    numRuns: number,
+    numTotalValues?: number,
+): Uint32Array {
     // If numTotalValues not provided, calculate from runs (nullable case)
     if (numTotalValues === undefined) {
         numTotalValues = 0;
@@ -473,7 +477,12 @@ export function decodeComponentwiseDeltaVec2(data: Uint32Array): Int32Array {
     return decodedData;
 }
 
-export function decodeComponentwiseDeltaVec2Scaled(data: Uint32Array, scale: number, min: number, max: number): Int32Array {
+export function decodeComponentwiseDeltaVec2Scaled(
+    data: Uint32Array,
+    scale: number,
+    min: number,
+    max: number,
+): Int32Array {
     if (data.length < 2) return new Int32Array(data);
     const decodedData = new Int32Array(data.length);
     let previousVertexX = decodeZigZagInt32Value(data[0]);

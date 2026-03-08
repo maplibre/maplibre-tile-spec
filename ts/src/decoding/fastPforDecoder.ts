@@ -4,7 +4,7 @@ import {
     BLOCK_SIZE,
     greatestMultiple,
     roundUpToMultipleOf32,
-    normalizePageSize
+    normalizePageSize,
 } from "./fastPforShared";
 import {
     fastUnpack32_2,

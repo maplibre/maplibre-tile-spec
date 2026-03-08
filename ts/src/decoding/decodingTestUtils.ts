@@ -173,11 +173,15 @@ export function encodeSharedDictionary(
     const encodedDictionary = encodeStrings(dictionaryStrings);
     const dictionaryLengths = createStringLengths(dictionaryStrings);
 
-    const lengthStream = createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(new Uint32Array(dictionaryLengths)), {
-        logical: new LogicalStreamType(undefined, undefined, LengthType.DICTIONARY),
-        technique: PhysicalLevelTechnique.VARINT,
-        count: dictionaryLengths.length,
-    });
+    const lengthStream = createStream(
+        PhysicalStreamType.LENGTH,
+        encodeVarintInt32(new Uint32Array(dictionaryLengths)),
+        {
+            logical: new LogicalStreamType(undefined, undefined, LengthType.DICTIONARY),
+            technique: PhysicalLevelTechnique.VARINT,
+            count: dictionaryLengths.length,
+        },
+    );
 
     const dataStream = createStream(PhysicalStreamType.DATA, encodedDictionary, {
         logical: new LogicalStreamType(dictionaryType),
