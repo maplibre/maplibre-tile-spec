@@ -307,14 +307,8 @@ fn parse_shared_dict_column<'a>(
     (input, children) = parse_struct_children(input, column)?;
     let shared_dict = match dict_streams {
         [Some(s1), Some(s2), None, None, None] => EncodedSharedDictProp::plain(s1, s2, children)?,
-        [Some(s1), Some(s2), Some(s3), None, None] => {
-            EncodedSharedDictProp::dictionary(s1, s2, s3, children)?
-        }
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
             EncodedSharedDictProp::fsst_plain(s1, s2, s3, s4, children)?
-        }
-        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
-            EncodedSharedDictProp::fsst_dictionary(s1, s2, s3, s4, s5, children)?
         }
         _ => Err(MltError::SharedDictRequiresStreams(streams_taken))?,
     };
