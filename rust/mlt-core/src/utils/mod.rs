@@ -7,7 +7,7 @@ pub use serialize::*;
 mod parse;
 pub(crate) use parse::*;
 mod decode;
-pub(crate) use decode::*;
+pub use decode::*;
 pub(crate) mod formatter;
 pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt};
 use serde_json::{Number, Value};

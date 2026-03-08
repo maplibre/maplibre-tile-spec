@@ -19,6 +19,10 @@ harness = false
 name = "encoding"
 harness = false
 
+[[bench]]
+name = "morton"
+harness = false
+
 [features]
 default = ["fastpfor-cpp"]
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
