@@ -33,6 +33,15 @@ jobs:
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-test
 
+  test-wasm:
+    name: Test wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/mlt-setup-rust
+      - run: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
+      - run: just -v rust::ci-test-wasm
+
   fuzz:
     name: Fuzz ${{ matrix.target }}
     runs-on: ubuntu-latest
@@ -124,7 +133,7 @@ jobs:
   # This approach also allows some jobs to be skipped if they are not needed.
   ci-passed-rust:
     # needs: [ test, test-msrv, lint, build-release-binaries, test-publish ]
-    needs: [ test, lint, build-release-binaries, test-publish ]
+    needs: [ test, test-wasm, lint, build-release-binaries, test-publish ]
     if: always()
     runs-on: ubuntu-latest
     steps:
