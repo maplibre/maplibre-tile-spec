@@ -299,9 +299,11 @@ describe("IntegerDecodingUtils", () => {
             });
 
             it("should decode many vertices (unrolled loop test)", () => {
-                const data = new Int32Array([
-                    0, 0, 10, 10, 20, 20, 30, 30, 40, 40, 50, 50, 60, 60, 70, 70, 80, 80, 90, 90,
-                ]);
+                let numbers: number[] = [];
+                for (let i = 0; i < 100; i++) {
+                    numbers.push(i * 10, i * 10);
+                }
+                const data = new Int32Array(numbers);
                 const expected = new Int32Array(data);
                 const encoded = encodeComponentwiseDeltaVec2Scaled(data, scale);
                 const decoded = decodeComponentwiseDeltaVec2Scaled(encoded, scale, min, max);
