@@ -4,9 +4,7 @@ import {
     BLOCK_SIZE,
     greatestMultiple,
     roundUpToMultipleOf32,
-    normalizePageSize,
-    type Int32Buf,
-    type Uint8Buf,
+    normalizePageSize
 } from "./fastPforShared";
 import {
     fastUnpack32_2,
@@ -48,7 +46,7 @@ import {
 export type FastPforDecoderWorkspace = {
     dataToBePacked: Array<Uint32Array | undefined>;
     dataPointers: Int32Array;
-    byteContainer: Uint8Buf;
+    byteContainer: Uint8Array;
     byteContainerI32?: Int32Array;
     exceptionSizes: Int32Array;
 };
@@ -79,7 +77,7 @@ const BYTE_CONTAINER_SIZE = ((3 * PAGE_SIZE) / BLOCK_SIZE + PAGE_SIZE) | 0;
  * Reusing a workspace across calls avoids repeated allocations.
  */
 export function createDecoderWorkspace(): FastPforDecoderWorkspace {
-    const byteContainer = new Uint8Array(BYTE_CONTAINER_SIZE) as Uint8Buf;
+    const byteContainer = new Uint8Array(BYTE_CONTAINER_SIZE);
     return {
         dataToBePacked: new Array(BIT_WIDTH_SLOTS),
         dataPointers: new Int32Array(BIT_WIDTH_SLOTS),
@@ -123,9 +121,9 @@ function materializeByteContainer(
     byteContainerStart: number,
     byteSize: number,
     workspace: FastPforDecoderWorkspace,
-): Uint8Buf {
+): Uint8Array {
     if (workspace.byteContainer.length < byteSize) {
-        workspace.byteContainer = new Uint8Array(byteSize * 2) as Uint8Buf;
+        workspace.byteContainer = new Uint8Array(byteSize * 2);
         workspace.byteContainerI32 = undefined;
     }
     const byteContainer = workspace.byteContainer;
@@ -660,9 +658,9 @@ export function decodeFastPforInt32(
         const alignedLength = encoded[inPos] | 0;
         inPos = (inPos + 1) | 0;
 
-        if (alignedLength < 0 || (alignedLength & (BLOCK_SIZE - 1)) !== 0) {
+        if ((alignedLength & (BLOCK_SIZE - 1)) !== 0) {
             throw new Error(
-                `FastPFOR decode: invalid alignedLength=${alignedLength} (expected >= 0 and multiple of ${BLOCK_SIZE})`,
+                `FastPFOR decode: invalid alignedLength=${alignedLength} (expected multiple of ${BLOCK_SIZE})`,
             );
         }
 

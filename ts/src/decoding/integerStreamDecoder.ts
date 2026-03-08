@@ -81,7 +81,7 @@ function decodePhysicalLevelTechnique(
             const slice = data.subarray(dataOffset, offset.get());
             return new Uint32Array(slice);
         default:
-            throw new Error(`Specified physicalLevelTechnique ${physicalLevelTechnique}is not supported (yet).`);
+            throw new Error(`Specified physicalLevelTechnique ${physicalLevelTechnique} is not supported (yet).`);
     }
 }
 
@@ -193,6 +193,7 @@ function decodeInt32(
             break;
         case LogicalLevelTechnique.MORTON:
             fastInverseDelta(values);
+            decodedValues = new Int32Array(values);
             break;
         case LogicalLevelTechnique.COMPONENTWISE_DELTA:
             if (scalingData && !nullabilityBuffer) {

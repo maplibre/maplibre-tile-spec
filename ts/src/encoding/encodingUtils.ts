@@ -106,8 +106,8 @@ export function encodeStrings(strings: string[]): Uint8Array {
     return result;
 }
 
-export function createStringLengths(strings: string[]): Int32Array {
-    const lengths = new Int32Array(strings.length);
+export function createStringLengths(strings: string[]): Uint32Array {
+    const lengths = new Uint32Array(strings.length);
     const encoder = new TextEncoder();
     for (let i = 0; i < strings.length; i++) {
         lengths[i] = encoder.encode(strings[i]).length;

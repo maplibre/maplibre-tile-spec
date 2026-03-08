@@ -79,7 +79,7 @@ describe("decodeIntStream", () => {
             byteLength: 3,
         };
         expect(() => decodeIntStream(data, new IntWrapper(0), metadata, false)).toThrow(
-            "Specified physicalLevelTechnique is not supported (yet).",
+            "Specified physicalLevelTechnique ALP is not supported (yet).",
         );
     });
 
