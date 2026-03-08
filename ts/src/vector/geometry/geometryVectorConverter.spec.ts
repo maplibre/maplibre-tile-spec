@@ -541,7 +541,6 @@ describe("MULTIPOLYGON – Morton dictionary encoded, with holes", () => {
 
 describe("Vector with multiple geometries of different types", () => {
     it("converts geometries of different types in the same vector", () => {
-        console.log("start");
         const pointGv = encodePointGeometryVector(1, 2);
         const multiPointGv = encodeMultiPointGeometryVector([
             [3, 4],
