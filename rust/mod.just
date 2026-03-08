@@ -261,8 +261,13 @@ release *args='': (just 'cargo-install' 'release-plz')
     release-plz {{args}}
 
 # Check semver compatibility with prior published version
-semver *args: (just 'cargo-install' 'cargo-semver-checks')
-    cargo semver-checks --all-features {{args}}
+semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install' 'cargo-hack')
+    cargo hack semver-checks --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-rust,default \
+        --exclude-all-features \
+        --features fastpfor-cpp \
+        {{args}}
 
 # Regenerate the Python type stub for mlt-py
 sync-pyo3-stubs:
@@ -299,7 +304,7 @@ test: (just 'cargo-install' 'cargo-hack')
 
 # Test documentation generation
 test-doc: (docs '--document-private-items')
-    cargo test --doc --all-features
+    cargo test --doc --features fastpfor-cpp,arbitrary --package mlt-core
 
 # Test code formatting
 test-fmt: (fmt-toml '--check' '--check-format')
@@ -310,8 +315,20 @@ test-publish:
     cargo publish --workspace --dry-run
 
 # Find unused dependencies
-udeps: (just 'cargo-install' 'cargo-udeps')
-    cargo +nightly udeps --all-targets --all-features
+udeps: (just 'cargo-install' 'cargo-udeps') (just 'cargo-install' 'cargo-hack')
+    cargo hack +nightly udeps --all-targets --each-feature \
+        --workspace --exclude mlt-core \
+        --exclude-no-default-features --exclude-all-features
+    cargo hack +nightly udeps --all-targets --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-rust,default \
+        --exclude-all-features \
+        --features fastpfor-cpp
+    cargo hack +nightly udeps --all-targets --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-cpp,default \
+        --exclude-all-features \
+        --features fastpfor-rust
 
 # Update all dependencies, including breaking changes
 update:
