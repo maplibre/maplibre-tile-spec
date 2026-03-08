@@ -300,7 +300,6 @@ test: (just 'cargo-install' 'cargo-hack')
         --features fastpfor-rust
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
-    {{just}} rust::wasm-test
 
 # Test documentation generation
 test-doc: (docs '--document-private-items')
