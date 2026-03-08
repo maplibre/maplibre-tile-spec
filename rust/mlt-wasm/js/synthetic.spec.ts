@@ -27,14 +27,6 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
   ["poly_multi_fpf_tes", "FastPFor not supported"],
   ["poly_self_intersect_fpf", "FastPFor not supported"],
   ["poly_self_intersect_fpf_tes", "FastPFor not supported"],
-  ["poly_multi_morton_ring_morton", "needs investigation"],
-  ["poly_multi_morton_ring_no_morton", "needs investigation"],
-  ["prop_f32_nan", "needs investigation"],
-  ["prop_f64_nan", "needs investigation"],
-  ["prop_u32_null_val", "needs investigation"],
-  ["prop_u32_val_null", "needs investigation"],
-  ["prop_i32_null_val", "needs investigation"],
-  ["prop_i32_val_null", "needs investigation"],
 ]);
 
 describe("MLT WASM Decoder - Synthetic tests", () => {
@@ -69,16 +61,42 @@ function tileToFeatureCollection(
 ): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
   for (const layer of Object.values(tile.layers)) {
+    const propertyKeys = (layer as any)._propKeys;
+    const propertyCols = (layer as any)._propCols;
+
     for (let i = 0; i < layer.length; i++) {
       const feature = layer.feature(i);
+      const properties: Record<string, any> = {
+        _layer: layer.name,
+        _extent: layer.extent,
+      };
+
+      for (let k = 0; k < propertyKeys.length; k++) {
+        const key = propertyKeys[k];
+        const col = propertyCols[k];
+        let val = feature.properties[key];
+
+        if (typeof val === "number") {
+          if (Number.isNaN(val)) {
+            if (col instanceof Float32Array) val = "f32::NAN";
+            else if (col instanceof Float64Array) val = "f64::NAN";
+          } else if (val === Infinity) {
+            if (col instanceof Float32Array) val = "f32::INFINITY";
+            else if (col instanceof Float64Array) val = "f64::INFINITY";
+          } else if (val === -Infinity) {
+            if (col instanceof Float32Array) val = "f32::NEG_INFINITY";
+            else if (col instanceof Float64Array) val = "f64::NEG_INFINITY";
+          }
+        }
+        if (val !== undefined) {
+          properties[key] = val;
+        }
+      }
+
       const geojsonFeature: GeoJSON.Feature = {
         type: "Feature",
         geometry: getGeometry(feature),
-        properties: {
-          _layer: layer.name,
-          _extent: layer.extent,
-          ...feature.properties,
-        },
+        properties,
       };
       if (feature.id !== undefined) {
         geojsonFeature.id = feature.id;
@@ -146,10 +164,9 @@ function classifyRings(rings: Point[][], maxRings: number): Point[][][] {
 
   for (const ring of rings) {
     const area = signedArea(ring);
-    if (area === 0) continue;
     if (outerCCW === undefined) outerCCW = area < 0;
-    if (area < 0 === outerCCW) {
-      // same winding as the first ring → new outer ring
+    if (area < 0 === outerCCW || area === 0) {
+      // same winding as the first ring (or zero area) → new outer ring
       if (maxRings > 0 && polygons.length === maxRings) break;
       currentPolygon = [ring];
       polygons.push(currentPolygon);
