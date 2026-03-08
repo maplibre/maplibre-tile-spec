@@ -13,7 +13,7 @@ use crate::LayerInput;
 /// valid [`OwnedLayer`] values directly and verifies that writing and re-parsing them yields
 /// an identical layer.
 ///
-/// All geometry, ID, and property columns are always generated in their `Encoded` form
+/// All geometry, ID, and property columns are always generated in their `Encoded` form if present
 pub struct DecodedLayerInput {
     pub layer: OwnedLayer,
 }
