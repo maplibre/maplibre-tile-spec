@@ -455,7 +455,7 @@ mod tests {
 
     #[test]
     fn fixture_geom_to_wkb_produces_valid_output() {
-        let fixture_path = "../../test/synthetic/0x01/polygon.mlt";
+        let fixture_path = "../../test/synthetic/0x01/poly.mlt";
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 

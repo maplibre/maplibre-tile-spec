@@ -228,8 +228,20 @@ sync-pyo3-version:
 
 alias t := test
 # Run all tests
-test:
-    cargo test --all-features --all-targets
+test: (just 'cargo-install' 'cargo-hack')
+    cargo hack test --all-targets --each-feature \
+        --workspace --exclude mlt-core \
+        --exclude-no-default-features --exclude-all-features
+    cargo hack test --all-targets --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-rust,default \
+        --exclude-all-features \
+        --features fastpfor-cpp
+    cargo hack test --all-targets --feature-powerset \
+        --package mlt-core \
+        --exclude-features fastpfor-cpp,default \
+        --exclude-all-features \
+        --features fastpfor-rust
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
     {{just}} rust::wasm-test
