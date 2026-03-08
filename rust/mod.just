@@ -227,6 +227,36 @@ fuzz-seed target='layer': (just 'cargo-install' 'fd' 'fd-find')
 # Minimize the fuzz corpus for target (slow — run occasionally to prune redundant entries)
 fuzz-cmin target='layer': (cargo-fuzz 'cmin' target '--target' 'x86_64-unknown-linux-gnu')
 
+# Collect coverage from the fuzz corpus and open an HTML report (installs `cargo fuzz`, `rustfilt`)
+fuzz-cov target='layer': (cargo-fuzz 'coverage' target '--target' 'x86_64-unknown-linux-gnu') (just 'cargo-install' 'rustfilt')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup component add llvm-tools-preview --toolchain nightly
+
+    SYSROOT=$(rustup run nightly rustc --print sysroot)
+    HOST=$(rustc -vV | sed -n 's/^host: //p')
+    LLVM_COV="$SYSROOT/lib/rustlib/$HOST/bin/llvm-cov"
+
+    TRIPLE="x86_64-unknown-linux-gnu"
+    FUZZ_DIR="mlt-core/fuzz"
+    TARGET_BIN="$FUZZ_DIR/target/$TRIPLE/coverage/$TRIPLE/release/{{target}}"
+    PROFDATA="$FUZZ_DIR/coverage/{{target}}/coverage.profdata"
+    HTML_DIR="$FUZZ_DIR/coverage/{{target}}/html"
+
+    mkdir -p "$HTML_DIR"
+
+    "$LLVM_COV" show "$TARGET_BIN" \
+        --format=html \
+        --output-dir="$HTML_DIR" \
+        --instr-profile="$PROFDATA" \
+        --show-instantiations \
+        --show-line-counts-or-regions \
+        --ignore-filename-regex="(/.cargo/registry|/rustup/toolchains)" \
+        --Xdemangler=rustfilt
+
+    echo "Coverage report: $HTML_DIR/index.html"
+    xdg-open "$HTML_DIR/index.html" 2>/dev/null || open "$HTML_DIR/index.html" 2>/dev/null || true
+
 # Minimize the crash in file (installs `cargo fuzz`)
 fuzz-tmin file target='layer': (cargo-fuzz 'tmin' target file)
 
