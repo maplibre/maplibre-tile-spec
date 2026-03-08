@@ -33,8 +33,8 @@ globset = "0.4"
 hex = "0.4.3"
 insta = "1.43.2"
 integer-encoding = "4.0.2"
-mlt-core = { version = "0.3.0", path = "mlt-core", default-features = false }
 js-sys = "0.3"
+mlt-core = { version = "0.3.0", path = "mlt-core", default-features = false }
 mvt-reader = "2.3.0"
 num-traits = "0.2.19"
 num_enum = "0.7.4"
