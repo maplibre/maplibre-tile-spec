@@ -218,10 +218,16 @@ fn generate_ids(w: &SynthWriter) {
         .ids(vec![Some(100)], IdEncoder::new(L::None, IdWidth::Id32))
         .write("id");
     p0(w)
-        .ids(vec![Some(u64::from(u32::MIN))], IdEncoder::new(L::None, IdWidth::Id32))
+        .ids(
+            vec![Some(u64::from(u32::MIN))],
+            IdEncoder::new(L::None, IdWidth::Id32),
+        )
         .write("id_min");
     p0(w)
-        .ids(vec![Some(u64::from(u32::MAX))], IdEncoder::new(L::None, IdWidth::Id32))
+        .ids(
+            vec![Some(u64::from(u32::MAX))],
+            IdEncoder::new(L::None, IdWidth::Id32),
+        )
         .write("id_max-rust");
     p0(w)
         .ids(
@@ -335,13 +341,23 @@ fn generate_ids(w: &SynthWriter) {
 
     four_p0()
         .ids(
-            vec![Some(u64::MIN), Some(u64::MAX), Some(u64::MIN), Some(u64::MAX)],
+            vec![
+                Some(u64::MIN),
+                Some(u64::MAX),
+                Some(u64::MIN),
+                Some(u64::MAX),
+            ],
             IdEncoder::new(L::None, IdWidth::Id64),
         )
         .write("ids64_minmax-rust");
     four_p0()
         .ids(
-            vec![Some(u64::MIN), Some(u64::MAX), Some(u64::MIN), Some(u64::MAX)],
+            vec![
+                Some(u64::MIN),
+                Some(u64::MAX),
+                Some(u64::MIN),
+                Some(u64::MAX),
+            ],
             IdEncoder::new(L::Delta, IdWidth::Id64),
         )
         .write("ids64_minmax_delta-rust");
