@@ -247,7 +247,7 @@ function decodeUnsignedInt32(
     nullabilityBuffer?: BitVector,
 ): Uint32Array {
     const decodedValues = decodeInt32(values, streamMetadata, false, scalingData, nullabilityBuffer);
-    return reinterpretAsUint32(decodedValues);
+    return new Uint32Array(decodedValues.buffer, decodedValues.byteOffset, decodedValues.length);
 }
 
 function decodeInt64(
@@ -298,7 +298,7 @@ function decodeUnsignedInt64(
     nullabilityBuffer?: BitVector,
 ): BigUint64Array {
     const decodedValues = decodeInt64(values, streamMetadata, false, nullabilityBuffer);
-    return reinterpretAsBigUint64(decodedValues);
+    return new BigUint64Array(decodedValues.buffer, decodedValues.byteOffset, decodedValues.length);
 }
 
 export function decodeFloat64(values: Float64Array, streamMetadata: StreamMetadata, isSigned: boolean): Float64Array {
@@ -441,12 +441,4 @@ function decodeRleFloat64(
     return isSigned
         ? decodeZigZagRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues)
         : decodeUnsignedRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues);
-}
-
-function reinterpretAsUint32(values: Int32Array): Uint32Array {
-    return new Uint32Array(values.buffer, values.byteOffset, values.length);
-}
-
-function reinterpretAsBigUint64(values: BigInt64Array): BigUint64Array {
-    return new BigUint64Array(values.buffer, values.byteOffset, values.length);
 }
