@@ -20,7 +20,6 @@ describe("MLT Decoder - Synthetic tests", () => {
     expect.addEqualityTesters([compareWithTolerance]);
     const testCases = getTestCases(Array.from(UNIMPLEMENTED_SYNTHETICS.keys()));
     for (const { name, content, fileName } of testCases.active) {
-        if (name !== "prop_u32_max") continue;
         it(name, async () => {
             const actual = await decodeMLT(fileName);
             writeActualOutput(fileName, actual);
