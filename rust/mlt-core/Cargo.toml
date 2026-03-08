@@ -12,15 +12,15 @@ repository.workspace = true
 rust-version.workspace = true
 
 [[bench]]
-name = "decoding"
+name = "decoding_e2e"
 harness = false
 
 [[bench]]
-name = "encoding"
+name = "encoding_e2e"
 harness = false
 
 [[bench]]
-name = "morton"
+name = "decoding_utils"
 harness = false
 
 [features]
