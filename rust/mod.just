@@ -192,7 +192,7 @@ coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'c
 
 # Build and open code documentation
 docs *args='--open':
-    DOCS_RS=1 cargo doc --no-deps {{args}} --all-features --package mlt-core
+    DOCS_RS=1 cargo doc --no-deps {{args}} --features fastpfor-cpp,arbitrary --package mlt-core
 
 alias f := fmt
 # Reformat code. If nightly is available, use it for better results.
