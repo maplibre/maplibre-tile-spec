@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use super::encode::{encode_geometry, z_order_params};
 use super::{DecodedGeometry, GeometryEncoder, OwnedEncodedGeometry, VertexBufferType};
-use crate::MltError;
-use crate::v01::{DictionaryType, IntEncoder, LengthType, OffsetType, StreamType};
+use crate::optimizer::AutomaticOptimisation;
+use crate::v01::{DictionaryType, IntEncoder, LengthType, OffsetType, OwnedGeometry, StreamType};
+use crate::{FromDecoded as _, FromEncoded as _, MltError};
 
 /// If the ratio of unique vertices to total vertices is below this threshold,
 /// Morton dictionary encoding is preferred over Vec2 componentwise-delta.
@@ -24,15 +25,11 @@ const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.5;
 ///    `on_stream` callback that collects the raw `u32` payload for every stream.
 /// 2. **Select** - run [`IntEncoder::auto_u32`] on each payload to pick the best
 ///    physical/logical combination per stream.
-/// 3. **Encode** - call `encode_geometry` again with the optimized encoder.
 pub struct GeometryOptimizer;
 
 impl GeometryOptimizer {
-    /// Analyze `decoded` and encode it with automatically selected per-stream
-    /// encoders.
-    pub fn optimize_and_encode(
-        decoded: &DecodedGeometry,
-    ) -> Result<OwnedEncodedGeometry, MltError> {
+    /// Analyze `decoded` and encode it with automatically selected per-stream encoders.
+    pub fn optimize(decoded: &DecodedGeometry) -> Result<GeometryEncoder, MltError> {
         let vertex_buffer_type = decoded
             .vertices
             .as_deref()
@@ -98,9 +95,7 @@ impl GeometryOptimizer {
                 encoder.only_parts(parts_enc);
             }
         }
-
-        // Pass 2: encode with the optimized encoder.
-        encode_geometry(decoded, &encoder, None)
+        Ok(encoder)
     }
 
     /// Choose between Vec2 componentwise-delta and Morton dictionary encoding.
@@ -134,6 +129,25 @@ impl GeometryOptimizer {
             VertexBufferType::Morton
         } else {
             VertexBufferType::Vec2
+        }
+    }
+}
+
+impl AutomaticOptimisation for OwnedGeometry {
+    type UsedEncoder = GeometryEncoder;
+
+    fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
+        match self {
+            OwnedGeometry::Decoded(dec) => {
+                let enc = GeometryOptimizer::optimize(dec)?;
+                *self = OwnedGeometry::Encoded(OwnedEncodedGeometry::from_decoded(dec, enc)?);
+                Ok(enc)
+            }
+            OwnedGeometry::Encoded(e) => {
+                let dec = DecodedGeometry::from_encoded(borrowme::borrow(e))?;
+                *self = OwnedGeometry::Decoded(dec);
+                self.automatic_encoding_optimisation()
+            }
         }
     }
 }

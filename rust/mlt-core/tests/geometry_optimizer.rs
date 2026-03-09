@@ -6,12 +6,12 @@ use mlt_core::v01::{
     DecodedGeometry, DictionaryType, GeometryOptimizer, LengthType, OffsetType,
     OwnedEncodedGeometry, StreamType,
 };
-use mlt_core::{FromEncoded as _, borrowme};
+use mlt_core::{FromDecoded as _, FromEncoded as _, borrowme};
 use pretty_assertions::assert_eq;
 
 fn optimize_roundtrip(decoded: &DecodedGeometry) -> DecodedGeometry {
-    let encoded =
-        GeometryOptimizer::optimize_and_encode(decoded).expect("optimize_and_encode failed");
+    let enc = GeometryOptimizer::optimize(decoded).expect("optimize failed");
+    let encoded = OwnedEncodedGeometry::from_decoded(decoded, enc).unwrap();
     DecodedGeometry::from_encoded(borrowme::borrow(&encoded)).expect("from_encoded failed")
 }
 
@@ -87,8 +87,9 @@ fn roundtrip_multi_polygon() {
 fn vertex_strategy_all_unique_prefers_vec2() {
     // 10 distinct points - uniqueness ratio = 1.0 ≥ 0.5 → Vec2.
     let geoms: Vec<Geom32> = (0i32..10).map(|i| point! { x: i, y: i }.into()).collect();
-    let encoded =
-        GeometryOptimizer::optimize_and_encode(&push_geoms(&geoms)).expect("encode failed");
+    let decoded = push_geoms(&geoms);
+    let enc = GeometryOptimizer::optimize(&decoded).expect("encode failed");
+    let encoded = OwnedEncodedGeometry::from_decoded(&decoded, enc).expect("from_encoded failed");
     let types = encoded_stream_types(&encoded);
     assert!(
         types.contains(&StreamType::Data(DictionaryType::Vertex)),
@@ -104,8 +105,9 @@ fn vertex_strategy_all_unique_prefers_vec2() {
 fn vertex_strategy_high_repetition_prefers_morton() {
     // All 20 points share the same coordinate — uniqueness ratio = 1/20 < 0.5 → Morton.
     let geoms: Vec<Geom32> = std::iter::repeat_n(point! { x: 5, y: 5 }.into(), 20).collect();
-    let encoded =
-        GeometryOptimizer::optimize_and_encode(&push_geoms(&geoms)).expect("encode failed");
+    let decoded = push_geoms(&geoms);
+    let enc = GeometryOptimizer::optimize(&decoded).expect("encode failed");
+    let encoded = OwnedEncodedGeometry::from_decoded(&decoded, enc).expect("from_encoded failed");
     let types = encoded_stream_types(&encoded);
     assert!(
         types.contains(&StreamType::Data(DictionaryType::Morton)),
@@ -128,8 +130,9 @@ fn vertex_strategy_out_of_morton_range_falls_back_to_vec2() {
         50,
     )
     .collect();
-    let encoded =
-        GeometryOptimizer::optimize_and_encode(&push_geoms(&geoms)).expect("encode failed");
+    let decoded = push_geoms(&geoms);
+    let enc = GeometryOptimizer::optimize(&decoded).expect("encode failed");
+    let encoded = OwnedEncodedGeometry::from_decoded(&decoded, enc).expect("from_encoded failed");
     let types = encoded_stream_types(&encoded);
     assert!(
         types.contains(&StreamType::Data(DictionaryType::Vertex)),
@@ -145,8 +148,8 @@ fn vertex_strategy_out_of_morton_range_falls_back_to_vec2() {
 fn encoded_output_always_has_meta_stream() {
     let geoms = vec![Geom32::Point(Point(Coord32 { x: 1, y: 1 }))];
     let decoded = push_geoms(&geoms);
-    let encoded =
-        GeometryOptimizer::optimize_and_encode(&decoded).expect("optimize_and_encode failed");
+    let enc = GeometryOptimizer::optimize(&decoded).expect("encode failed");
+    let encoded = OwnedEncodedGeometry::from_decoded(&decoded, enc).expect("from_encoded failed");
     assert_eq!(
         encoded.meta.meta.stream_type,
         StreamType::Length(LengthType::VarBinary),
@@ -162,8 +165,8 @@ fn encoded_polygon_has_topology_streams() {
         .collect();
     let geoms = vec![Geom32::Polygon(Polygon::new(LineString(coords), vec![]))];
     let decoded = push_geoms(&geoms);
-    let encoded =
-        GeometryOptimizer::optimize_and_encode(&decoded).expect("optimize_and_encode failed");
+    let enc = GeometryOptimizer::optimize(&decoded).expect("encode failed");
+    let encoded = OwnedEncodedGeometry::from_decoded(&decoded, enc).expect("from_encoded failed");
     let stream_types = encoded_stream_types(&encoded);
     assert!(
         stream_types.contains(&StreamType::Length(LengthType::Rings))
@@ -178,8 +181,9 @@ fn encoded_repeated_points_uses_morton_streams() {
     let mut decoded = DecodedGeometry::default();
     let pts = wkt!(MULTIPOINT(5 5, 5 5, 5 5));
     decoded.push_geom(&pts.into());
-    let encoded =
-        GeometryOptimizer::optimize_and_encode(&decoded).expect("optimize_and_encode failed");
+    let enc = GeometryOptimizer::optimize(&decoded).expect("encode failed");
+    let encoded = OwnedEncodedGeometry::from_decoded(&decoded, enc).expect("from_encoded failed");
+
     let stream_types = encoded_stream_types(&encoded);
     assert!(
         stream_types.contains(&StreamType::Data(DictionaryType::Morton)),
