@@ -112,47 +112,74 @@ impl Layer01<'_> {
                 ColumnType::Bool | ColumnType::OptBool => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse_bool(input)?;
-                    properties.push(Property::new_encoded(name, EncVal::Bool(opt, value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        EncVal::Bool(EncodedValues::new(name, opt, value)),
+                    ));
                 }
                 ColumnType::I8 | ColumnType::OptI8 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(name, EncVal::I8(opt, value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        EncVal::I8(EncodedValues::new(name, opt, value)),
+                    ));
                 }
                 ColumnType::U8 | ColumnType::OptU8 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(name, EncVal::U8(opt, value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        EncVal::U8(EncodedValues::new(name, opt, value)),
+                    ));
                 }
                 ColumnType::I32 | ColumnType::OptI32 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(name, EncVal::I32(opt, value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        EncVal::I32(EncodedValues::new(name, opt, value)),
+                    ));
                 }
                 ColumnType::U32 | ColumnType::OptU32 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(name, EncVal::U32(opt, value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        EncVal::U32(EncodedValues::new(name, opt, value)),
+                    ));
                 }
                 ColumnType::I64 | ColumnType::OptI64 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(name, EncVal::I64(opt, value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        EncVal::I64(EncodedValues::new(name, opt, value)),
+                    ));
                 }
                 ColumnType::U64 | ColumnType::OptU64 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(name, EncVal::U64(opt, value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        EncVal::U64(EncodedValues::new(name, opt, value)),
+                    ));
                 }
                 ColumnType::F32 | ColumnType::OptF32 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(name, EncVal::F32(opt, value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        EncVal::F32(EncodedValues::new(name, opt, value)),
+                    ));
                 }
                 ColumnType::F64 | ColumnType::OptF64 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::new_encoded(name, EncVal::F64(opt, value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        EncVal::F64(EncodedValues::new(name, opt, value)),
+                    ));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
                     (input, enc_val) = parse_str_column(input, name, column.typ)?;
@@ -214,11 +241,11 @@ fn parse_struct_children<'a>(
             return Err(MltError::UnexpectedStructChildCount(data_count));
         }
         let (inp, child_data) = Stream::parse(inp)?;
-        children.push(EncodedValues {
-            name: child.name.unwrap_or(""),
-            presence: child_optional,
-            data: child_data,
-        });
+        children.push(EncodedValues::new(
+            child.name.unwrap_or(""),
+            child_optional,
+            child_data,
+        ));
         input = inp;
     }
     Ok((input, children))
@@ -264,9 +291,9 @@ fn parse_str_column<'a>(
         (input, stream_count_u32) = parse_varint::<u32>(input)?;
         usize::try_from(stream_count_u32)?
     };
-    let opt;
-    (input, opt) = parse_optional(typ, input)?;
-    if opt.is_some() {
+    let presence;
+    (input, presence) = parse_optional(typ, input)?;
+    if presence.is_some() {
         if stream_count == 0 {
             return Err(MltError::UnsupportedStringStreamCount(stream_count));
         }
@@ -282,17 +309,19 @@ fn parse_str_column<'a>(
         *slot = Some(stream);
     }
     let encoding = match str_streams {
-        [Some(s1), Some(s2), None, None, None] => EncodedStrings::plain(name, s1, s2)?,
-        [Some(s1), Some(s2), Some(s3), None, None] => EncodedStrings::dictionary(name, s1, s2, s3)?,
+        [Some(s1), Some(s2), None, None, None] => EncodedStrings::plain(name, presence, s1, s2)?,
+        [Some(s1), Some(s2), Some(s3), None, None] => {
+            EncodedStrings::dictionary(name, presence, s1, s2, s3)?
+        }
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
-            EncodedStrings::fsst_plain(name, s1, s2, s3, s4)?
+            EncodedStrings::fsst_plain(name, presence, s1, s2, s3, s4)?
         }
         [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
-            EncodedStrings::fsst_dictionary(name, s1, s2, s3, s4, s5)?
+            EncodedStrings::fsst_dictionary(name, presence, s1, s2, s3, s4, s5)?
         }
         _ => Err(MltError::UnsupportedStringStreamCount(stream_count))?,
     };
-    Ok((input, EncodedPropValue::Str(opt, encoding)))
+    Ok((input, EncodedPropValue::Str(encoding)))
 }
 
 fn parse_shared_dict_column<'a>(
