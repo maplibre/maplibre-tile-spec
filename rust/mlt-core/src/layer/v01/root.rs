@@ -215,7 +215,7 @@ fn parse_struct_children<'a>(
         }
         let (inp, child_data) = Stream::parse(inp)?;
         children.push(EncodedStructChild {
-            name: child.name.unwrap_or(""),
+            suffix: child.name.unwrap_or(""),
             typ: child.typ,
             optional: child_optional,
             data: child_data,
