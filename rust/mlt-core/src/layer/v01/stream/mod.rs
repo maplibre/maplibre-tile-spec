@@ -362,9 +362,9 @@ impl OwnedStream {
         Ok(OwnedEncodedStrProp::FsstDictionary {
             symbol_lengths: symbol_length_stream,
             symbol_table: symbol_table_stream,
-            length: value_length_stream,
+            lengths: value_length_stream,
             corpus: compressed_stream,
-            offset: offset_stream,
+            offsets: offset_stream,
         })
     }
 
@@ -439,7 +439,7 @@ impl OwnedStream {
         Ok(OwnedEncodedStrProp::FsstPlain {
             symbol_lengths: symbol_length_stream,
             symbol_table: symbol_table_stream,
-            length: value_length_stream,
+            lengths: value_length_stream,
             corpus: compressed_stream,
         })
     }
@@ -537,7 +537,8 @@ impl StreamMeta {
         is_bool: bool,
         byte_length: u32,
     ) -> io::Result<()> {
-        use {LogicalEncoding as LE, LogicalTechnique as LT};
+        use LogicalEncoding as LE;
+        use LogicalTechnique as LT;
 
         writer.write_u8(self.stream_type.as_u8())?;
         let logical_enc_u8: u8 = match self.encoding.logical {
