@@ -33,7 +33,7 @@ jobs:
         with: { tool: 'just,cargo-binstall' }
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version-file: 'cpp/.nvmrc'
 
