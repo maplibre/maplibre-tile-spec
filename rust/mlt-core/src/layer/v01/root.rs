@@ -215,9 +215,8 @@ fn parse_struct_children<'a>(
         }
         let (inp, child_data) = Stream::parse(inp)?;
         children.push(EncodedValues {
-            suffix: child.name.unwrap_or(""),
-            typ: child.typ,
-            optional: child_optional,
+            name: child.name.unwrap_or(""),
+            presence: child_optional,
             data: child_data,
         });
         input = inp;

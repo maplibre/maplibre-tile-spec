@@ -19,9 +19,8 @@ use crate::v01::{
 #[borrowme]
 #[derive(Clone, Debug, PartialEq)]
 pub struct EncodedValues<'a> {
-    pub suffix: &'a str,
-    pub typ: ColumnType,
-    pub optional: Option<Stream<'a>>,
+    pub name: &'a str,
+    pub presence: Option<Stream<'a>>,
     pub data: Stream<'a>,
 }
 
@@ -53,9 +52,9 @@ pub enum EncodedSharedDict<'a> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SharedDictItemEncoder {
     /// If a stream for optional values should be attached.
-    pub optional: PresenceStream,
+    pub presence: PresenceStream,
     /// Encoder used for the offset-index stream of this child.
-    pub offset: IntEncoder,
+    pub offsets: IntEncoder,
 }
 
 /// Encoder for a shared dictionary property with multiple string sub-properties.
@@ -335,12 +334,12 @@ impl<'a> EncodedSharedDict<'a> {
         }
     }
 
-    /// All streams in wire order: dict streams then each child's optional (if any) and data.
+    /// All streams in wire order: dict streams then each child's presence (if any) and data.
     #[must_use]
     pub fn streams(&self) -> Vec<&Stream<'_>> {
         let mut v = self.dict_streams();
         for c in self.children() {
-            if let Some(ref o) = c.optional {
+            if let Some(ref o) = c.presence {
                 v.push(o);
             }
             v.push(&c.data);
@@ -361,7 +360,7 @@ impl OwnedEncodedSharedDict {
     pub fn streams(&self) -> Vec<&OwnedStream> {
         let mut v = self.dict_streams();
         for c in self.children() {
-            if let Some(o) = &c.optional {
+            if let Some(o) = &c.presence {
                 v.push(o);
             }
             v.push(&c.data);
@@ -399,8 +398,8 @@ pub struct SharedDictionaryGroup<'a> {
 pub struct SharedDictChild<'a> {
     pub prop_value: &'a DecodedProperty,
     pub prop_name: String,
-    pub optional: PresenceStream,
-    pub offset: IntEncoder,
+    pub presence: PresenceStream,
+    pub offsets: IntEncoder,
 }
 
 /// Encode a group of decoded string properties into a single struct column with a shared
@@ -448,7 +447,7 @@ pub fn encode_shared_dictionary(
         };
 
         // Presence stream
-        let optional = if child.optional == PresenceStream::Present {
+        let presence = if child.presence == PresenceStream::Present {
             let present_bools: Vec<bool> = values.iter().map(Option::is_some).collect();
             Some(OwnedStream::encode_presence(&present_bools)?)
         } else {
@@ -464,18 +463,13 @@ pub fn encode_shared_dictionary(
 
         let data = OwnedStream::encode_u32s_of_type(
             &offsets,
-            child.offset,
+            child.offsets,
             StreamType::Offset(OffsetType::String),
         )?;
 
         children.push(OwnedEncodedValues {
-            suffix: child.prop_name.clone(),
-            typ: if child.optional == PresenceStream::Present {
-                ColumnType::OptStr
-            } else {
-                ColumnType::Str
-            },
-            optional,
+            name: child.prop_name.clone(),
+            presence,
             data,
         });
     }
@@ -552,7 +546,7 @@ pub fn encode_shared_dict_prop(
     let mut children = Vec::with_capacity(items.len());
     for (item, item_enc) in items.iter().zip(&encoder.items) {
         // Presence stream
-        let optional = if item_enc.optional == PresenceStream::Present {
+        let presence = if item_enc.presence == PresenceStream::Present {
             let present_bools: Vec<bool> = item.values.iter().map(Option::is_some).collect();
             Some(OwnedStream::encode_presence(&present_bools)?)
         } else {
@@ -569,18 +563,13 @@ pub fn encode_shared_dict_prop(
 
         let data = OwnedStream::encode_u32s_of_type(
             &offsets,
-            item_enc.offset,
+            item_enc.offsets,
             StreamType::Offset(OffsetType::String),
         )?;
 
         children.push(OwnedEncodedValues {
-            suffix: item.suffix.clone(),
-            typ: if item_enc.optional == PresenceStream::Present {
-                ColumnType::OptStr
-            } else {
-                ColumnType::Str
-            },
-            optional,
+            name: item.suffix.clone(),
+            presence,
             data,
         });
     }
@@ -615,8 +604,13 @@ pub fn encode_shared_dict_prop(
 
 impl OwnedEncodedValues {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        self.typ.write_to(writer)?;
-        writer.write_string(&self.suffix)?;
+        let typ = if self.presence.is_some() {
+            ColumnType::OptStr
+        } else {
+            ColumnType::Str
+        };
+        typ.write_to(writer)?;
+        writer.write_string(&self.name)?;
         Ok(())
     }
 }
@@ -739,9 +733,9 @@ pub fn decode_shared_dict(struct_data: &EncodedSharedDict<'_>) -> Result<PropVal
             .map(|child| -> Result<SharedDictItem, MltError> {
                 let offsets = child.data.clone().decode_bits_u32()?.decode_u32()?;
                 let strings = resolve_offsets(&dict, &offsets)?;
-                let values = apply_present(child.optional.clone(), strings)?;
+                let values = apply_present(child.presence.clone(), strings)?;
                 Ok(SharedDictItem {
-                    suffix: child.suffix.to_string(),
+                    suffix: child.name.to_string(),
                     values,
                 })
             })

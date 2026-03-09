@@ -104,8 +104,8 @@ fn struct_encode_and_decode(
     let item_encoders: Vec<SharedDictItemEncoder> = children
         .iter()
         .map(|_| SharedDictItemEncoder {
-            optional: presence,
-            offset: offset_encoder,
+            presence,
+            offsets: offset_encoder,
         })
         .collect();
     let shared_enc = SharedDictEncoder {
@@ -411,12 +411,12 @@ fn struct_mixed_with_scalars() {
             dict_encoder: str_enc,
             items: vec![
                 SharedDictItemEncoder {
-                    optional: PresenceStream::Present,
-                    offset: enc,
+                    presence: PresenceStream::Present,
+                    offsets: enc,
                 },
                 SharedDictItemEncoder {
-                    optional: PresenceStream::Present,
-                    offset: enc,
+                    presence: PresenceStream::Present,
+                    offsets: enc,
                 },
             ],
         }
@@ -487,12 +487,12 @@ fn two_struct_groups_with_scalar_between() {
                 dict_encoder: str_enc,
                 items: vec![
                     SharedDictItemEncoder {
-                        optional: PresenceStream::Present,
-                        offset: enc,
+                        presence: PresenceStream::Present,
+                        offsets: enc,
                     },
                     SharedDictItemEncoder {
-                        optional: PresenceStream::Present,
-                        offset: enc,
+                        presence: PresenceStream::Present,
+                        offsets: enc,
                     },
                 ],
             }
@@ -502,12 +502,12 @@ fn two_struct_groups_with_scalar_between() {
                 dict_encoder: str_enc,
                 items: vec![
                     SharedDictItemEncoder {
-                        optional: PresenceStream::Present,
-                        offset: enc,
+                        presence: PresenceStream::Present,
+                        offsets: enc,
                     },
                     SharedDictItemEncoder {
-                        optional: PresenceStream::Present,
-                        offset: enc,
+                        presence: PresenceStream::Present,
+                        offsets: enc,
                     },
                 ],
             }
