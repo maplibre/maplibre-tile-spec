@@ -36,7 +36,7 @@ export function encodePlainStrings(strings: (string | null)[]): Uint8Array {
     // Add LENGTH stream
     const lengths = createStringLengths(nonNullStrings);
     streams.push(
-        createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(new Int32Array(lengths)), {
+        createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(lengths), {
             logical: new LogicalStreamType(undefined, undefined, LengthType.VAR_BINARY),
             technique: PhysicalLevelTechnique.VARINT,
             count: lengths.length,
@@ -91,7 +91,7 @@ export function encodeDictionaryStrings(strings: (string | null)[]): Uint8Array 
 
     // Add OFFSET stream
     streams.push(
-        createStream(PhysicalStreamType.OFFSET, encodeVarintInt32(new Int32Array(offsets)), {
+        createStream(PhysicalStreamType.OFFSET, encodeVarintInt32(new Uint32Array(offsets)), {
             logical: new LogicalStreamType(undefined, OffsetType.STRING),
             technique: PhysicalLevelTechnique.VARINT,
             count: offsets.length,
@@ -100,7 +100,7 @@ export function encodeDictionaryStrings(strings: (string | null)[]): Uint8Array 
 
     // Add LENGTH stream (for dictionary)
     streams.push(
-        createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(new Int32Array(lengths)), {
+        createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(lengths), {
             logical: new LogicalStreamType(undefined, undefined, LengthType.DICTIONARY),
             technique: PhysicalLevelTechnique.VARINT,
             count: lengths.length,
@@ -200,14 +200,14 @@ function getLogicalSubtypeValue(metadata: StreamMetadata): number {
     }
 }
 
-function encodeNumStreams(numStreams: number): Uint8Array {
+function _encodeNumStreams(numStreams: number): Uint8Array {
     const buffer = new Uint8Array(5);
     const offset = new IntWrapper(0);
     encodeVarintInt32Value(numStreams, buffer, offset);
     return buffer.slice(0, offset.get());
 }
 
-function createPresentStream(presentValues: boolean[]): Uint8Array {
+function _createPresentStream(presentValues: boolean[]): Uint8Array {
     const metadata: StreamMetadata = {
         physicalStreamType: PhysicalStreamType.PRESENT,
         logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
@@ -221,7 +221,7 @@ function createPresentStream(presentValues: boolean[]): Uint8Array {
     return buildEncodedStream(metadata, encodeBooleanRle(presentValues));
 }
 
-function createOffsetStream(offsetIndices: number[]): Uint8Array {
+function _createOffsetStream(offsetIndices: number[]): Uint8Array {
     const metadata: StreamMetadata = {
         physicalStreamType: PhysicalStreamType.OFFSET,
         logicalStreamType: new LogicalStreamType(undefined, OffsetType.STRING),
@@ -232,5 +232,5 @@ function createOffsetStream(offsetIndices: number[]): Uint8Array {
         byteLength: 0,
         decompressedCount: offsetIndices.length,
     };
-    return buildEncodedStream(metadata, encodeVarintInt32(new Int32Array(offsetIndices)));
+    return buildEncodedStream(metadata, encodeVarintInt32(new Uint32Array(offsetIndices)));
 }

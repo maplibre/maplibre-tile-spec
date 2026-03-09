@@ -1,6 +1,9 @@
 #![expect(dead_code)]
 #![doc = include_str!("../README.md")]
 
+#[cfg(not(any(feature = "fastpfor-cpp", feature = "fastpfor-rust")))]
+compile_error!("one of `fastpfor-cpp` or `fastpfor-rust` must be enabled");
+
 mod analyse;
 mod convert;
 mod decode;
@@ -9,7 +12,8 @@ mod errors;
 pub use convert::{geojson, mvt};
 pub mod layer;
 pub use layer::{unknown, v01};
-mod utils;
+#[doc(hidden)]
+pub mod utils;
 
 pub use analyse::{Analyze, StatType};
 // reexport borrowme to make it easier to use in other crates

@@ -805,13 +805,15 @@ dependencies = [
 
 [[package]]
 name = "fastpfor"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5105ae5a636ac963a578c3dd3615f2ffa30b1f7acde4e1321334ba34191d04ad"
+checksum = "c62675ce4677bfc18b386e3e0920f6fc722be1207b7b3de9d294c5cd9f796d04"
 dependencies = [
+ "bytes",
  "cmake",
  "cxx",
  "cxx-build",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1511,7 +1513,7 @@ dependencies = [
 
 [[package]]
 name = "mlt"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "clap",
@@ -1533,7 +1535,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "arbitrary",
  "borrowme",
@@ -1547,6 +1549,7 @@ dependencies = [
  "mvt-reader",
  "num-traits",
  "num_enum",
+ "pretty_assertions",
  "probabilistic-collections",
  "proptest",
  "proptest-derive",
@@ -1556,12 +1559,14 @@ dependencies = [
  "strum 0.28.0",
  "test_each_file",
  "thiserror 2.0.18",
+ "union-find",
+ "wide",
  "zigzag",
 ]
 
 [[package]]
 name = "mlt-py"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "geo-types",
  "mlt-core",
@@ -1580,6 +1585,15 @@ dependencies = [
  "pretty_assertions",
  "serde_json",
  "test_each_file",
+]
+
+[[package]]
+name = "mlt-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "mlt-core",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2713,6 +2727,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
+name = "safe_arch"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f7caad094bd561859bcd467734a720c3c1f5d1f338995351fefe2190c45efed"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "same-file"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3209,9 +3232,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "1.0.3+spec-1.1.0"
+version = "1.0.6+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7614eaf19ad818347db24addfa201729cf2a9b6fdfd9eb0ab870fcacc606c0c"
+checksum = "399b1124a3c9e16766831c6bba21e50192572cdd98706ea114f9502509686ffc"
 dependencies = [
  "indexmap",
  "serde_core",
@@ -3233,9 +3256,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.25.3+spec-1.1.0"
+version = "0.25.4+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0a07913e63758bc95142d9863a5a45173b71515e68b690cad70cf99c3255ce1"
+checksum = "7193cbd0ce53dc966037f54351dbbcf0d5a642c7f0038c382ef9e677ce8c13f2"
 dependencies = [
  "indexmap",
  "toml_datetime",
@@ -3386,6 +3409,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "union-find"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "039142448432983c34b64739f8526f8f233a1eec7a66e61b6ab29acfa781194e"
+
+[[package]]
 name = "utf8parse"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3393,9 +3422,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.21.0"
+version = "1.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b672338555252d43fd2240c714dc444b8c6fb0a5c5335e65a07bba7742735ddb"
+checksum = "a68d3c8f01c0cfa54a75291d83601161799e4a89a39e0929f4b0354d88757a37"
 dependencies = [
  "atomic",
  "getrandom 0.4.2",
@@ -3629,6 +3658,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wide"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac11b009ebeae802ed758530b6496784ebfee7a87b9abfbcaf3bbe25b814eb25"
+dependencies = [
+ "bytemuck",
+ "safe_arch",
+]
+
+[[package]]
 name = "winapi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3802,9 +3841,9 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
 name = "winnow"
-version = "0.7.14"
+version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a5364e9d77fcdeeaa6062ced926ee3381faa2ee02d3eb83a5c27a8825540829"
+checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
 dependencies = [
  "memchr",
 ]

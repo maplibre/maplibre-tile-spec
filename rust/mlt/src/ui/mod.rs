@@ -283,7 +283,29 @@ fn stat_line(name: &str, val: &dyn std::fmt::Display) -> Line<'static> {
 
 const DIVIDER_GRAB: u16 = 2;
 
-fn divider_hit(col: u16, row: u16, left: Rect, tree: Rect) -> Option<ResizeHandle> {
+fn divider_hit(
+    col: u16,
+    row: u16,
+    left: Rect,
+    tree: Rect,
+    geom: Option<Rect>,
+) -> Option<ResizeHandle> {
+    let horiz_hit = |dy: u16| {
+        row >= dy.saturating_sub(DIVIDER_GRAB)
+            && row < dy.saturating_add(DIVIDER_GRAB)
+            && col >= left.x
+            && col < left.x + left.width
+    };
+
+    // Check horizontal dividers (most specific first)
+    if geom.is_some_and(|g| horiz_hit(g.y)) {
+        return Some(ResizeHandle::PropertiesGeometry);
+    }
+    if horiz_hit(tree.y + tree.height) {
+        return Some(ResizeHandle::FeaturesProperties);
+    }
+
+    // Check vertical divider (between left panel and map)
     let dx = left.x + left.width;
     if col >= dx.saturating_sub(DIVIDER_GRAB)
         && col < dx.saturating_add(DIVIDER_GRAB)
@@ -292,14 +314,7 @@ fn divider_hit(col: u16, row: u16, left: Rect, tree: Rect) -> Option<ResizeHandl
     {
         return Some(ResizeHandle::LeftRight);
     }
-    let dy = tree.y + tree.height;
-    if row >= dy.saturating_sub(DIVIDER_GRAB)
-        && row < dy.saturating_add(DIVIDER_GRAB)
-        && col >= left.x
-        && col < left.x + left.width
-    {
-        return Some(ResizeHandle::FeaturesProperties);
-    }
+
     None
 }
 
@@ -359,6 +374,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
     let mut map_area: Option<Rect> = None;
     let mut tree_area: Option<Rect> = None;
     let mut props_area: Option<Rect> = None;
+    let mut geom_area: Option<Rect> = None;
     let mut left_area: Option<Rect> = None;
     let mut filter_area: Option<Rect> = None;
     let mut info_area: Option<Rect> = None;
@@ -478,10 +494,11 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             ])
                             .split(cols[0]);
                         render_tree_panel(f, left[0], app);
-                        render_properties_panel(f, left[1], app);
+                        let ga = render_properties_panel(f, left[1], app);
                         render_map_panel(f, cols[1], app);
                         tree_area = Some(left[0]);
                         props_area = Some(left[1]);
+                        geom_area = Some(ga);
                         left_area = Some(cols[0]);
                         map_area = Some(cols[1]);
                     }
@@ -600,6 +617,11 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 }
                                 ResizeHandle::FeaturesProperties => {
                                     app.features_pct = pct_at(mouse.row, la.y, la.height);
+                                }
+                                ResizeHandle::PropertiesGeometry => {
+                                    if let Some(pa) = props_area {
+                                        app.properties_pct = pct_at(mouse.row, pa.y, pa.height);
+                                    }
                                 }
                                 ResizeHandle::FileBrowserLeftRight => {
                                     app.file_left_pct = pct_at(mouse.column, area.x, area.width);
@@ -733,26 +755,27 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 }
                             }
                             if let (Some(pa), Some(fa)) = (preview_area, filter_area) {
+                                let mut invalidate = |value: u16, resizer: ResizeHandle| {
+                                    if mouse.row >= value.saturating_sub(DIVIDER_GRAB)
+                                        && mouse.row < value.saturating_add(DIVIDER_GRAB)
+                                        && right_col.is_some_and(|rc| {
+                                            point_in_rect(mouse.column, mouse.row, rc)
+                                        })
+                                    {
+                                        app.resizing = Some(resizer);
+                                        app.invalidate();
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                };
+
                                 let dy_preview = pa.y + pa.height;
-                                if mouse.row >= dy_preview.saturating_sub(DIVIDER_GRAB)
-                                    && mouse.row < dy_preview.saturating_add(DIVIDER_GRAB)
-                                    && right_col.is_some_and(|rc| {
-                                        point_in_rect(mouse.column, mouse.row, rc)
-                                    })
-                                {
-                                    app.resizing = Some(ResizeHandle::FileBrowserPreviewFilter);
-                                    app.invalidate();
+                                if invalidate(dy_preview, ResizeHandle::FileBrowserPreviewFilter) {
                                     continue;
                                 }
                                 let dy_filter = fa.y + fa.height;
-                                if mouse.row >= dy_filter.saturating_sub(DIVIDER_GRAB)
-                                    && mouse.row < dy_filter.saturating_add(DIVIDER_GRAB)
-                                    && right_col.is_some_and(|rc| {
-                                        point_in_rect(mouse.column, mouse.row, rc)
-                                    })
-                                {
-                                    app.resizing = Some(ResizeHandle::FileBrowserFilterInfo);
-                                    app.invalidate();
+                                if invalidate(dy_filter, ResizeHandle::FileBrowserFilterInfo) {
                                     continue;
                                 }
                             }
@@ -812,7 +835,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             }
                         } else if app.mode == ViewMode::LayerOverview {
                             if let (Some(la), Some(ta)) = (left_area, tree_area)
-                                && let Some(h) = divider_hit(mouse.column, mouse.row, la, ta)
+                                && let Some(h) =
+                                    divider_hit(mouse.column, mouse.row, la, ta, geom_area)
                             {
                                 app.resizing = Some(h);
                                 app.invalidate();

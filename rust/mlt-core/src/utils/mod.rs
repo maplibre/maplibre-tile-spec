@@ -7,15 +7,16 @@ pub use serialize::*;
 mod parse;
 pub(crate) use parse::*;
 mod decode;
-pub(crate) use decode::*;
-mod formatter;
-pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt, fmt_byte_array};
+pub use decode::*;
+pub(crate) mod formatter;
+pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt};
 use serde_json::{Number, Value};
 
 use crate::MltError;
 use crate::v01::Stream;
 
 /// Convert f32 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
+#[must_use]
 pub fn f32_to_json(f: f32) -> Value {
     if f.is_nan() {
         Value::String("f32::NAN".to_owned())
@@ -29,6 +30,7 @@ pub fn f32_to_json(f: f32) -> Value {
 }
 
 /// Convert f64 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
+#[must_use]
 pub fn f64_to_json(f: f64) -> Value {
     if f.is_nan() {
         Value::String("f64::NAN".to_owned())

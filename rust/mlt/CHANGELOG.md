@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.4...rust-mlt-v0.1.5) - 2026-03-08
+
+### Other
+
+- *(rust)* bump fastpfor, enable SIMD test, cleanup ([#1052](https://github.com/maplibre/maplibre-tile-spec/pull/1052))
+
 ## [0.1.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.3...rust-mlt-v0.1.4) - 2026-03-04
 
 ### Fixed

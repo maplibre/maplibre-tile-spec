@@ -79,7 +79,7 @@ describe("decodeIntStream", () => {
             byteLength: 3,
         };
         expect(() => decodeIntStream(data, new IntWrapper(0), metadata, false)).toThrow(
-            "Specified physicalLevelTechnique is not supported (yet).",
+            "Specified physicalLevelTechnique ALP is not supported (yet).",
         );
     });
 
@@ -482,6 +482,17 @@ describe("decodeLongStream", () => {
         it("should decode NONE signed", () => {
             const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
             const expectedValues = new BigInt64Array([2n, -4n, 6n]);
+            const data = encodeInt64SignedNone(expectedValues);
+            const offset = new IntWrapper(0);
+
+            const result = decodeLongStream(data, offset, metadata, true);
+
+            expect(result).toEqual(expectedValues);
+        });
+
+        it("should decode NONE signed min int64", () => {
+            const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 1);
+            const expectedValues = new BigInt64Array([-(2n ** 63n)]);
             const data = encodeInt64SignedNone(expectedValues);
             const offset = new IntWrapper(0);
 

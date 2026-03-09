@@ -5,7 +5,7 @@ import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique"
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import { LengthType } from "../metadata/tile/lengthType";
 import { OffsetType } from "../metadata/tile/offsetType";
-import { type RleEncodedStreamMetadata, type StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
+import type { RleEncodedStreamMetadata, StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import IntWrapper from "./intWrapper";
 import { type Column, type Field, ComplexType, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { encodeBooleanRle, encodeStrings, createStringLengths } from "../encoding/encodingUtils";
@@ -17,7 +17,7 @@ import { encodeVarintInt32Value, encodeVarintInt32 } from "../encoding/integerEn
 export function createStreamMetadata(
     logicalTechnique1: LogicalLevelTechnique,
     logicalTechnique2: LogicalLevelTechnique = LogicalLevelTechnique.NONE,
-    numValues: number = 3,
+    numValues = 3,
 ): StreamMetadata {
     return {
         physicalStreamType: PhysicalStreamType.DATA,
@@ -118,10 +118,10 @@ export function createStream(
  */
 export function encodeFsstStrings(): Uint8Array {
     const symbolTable = new Uint8Array([99, 97, 116, 100, 111, 103]); // "catdog"
-    const symbolLengths = new Int32Array([3, 3]);
+    const symbolLengths = new Uint32Array([3, 3]);
     const compressedDictionary = new Uint8Array([0, 1]);
-    const dictionaryLengths = new Int32Array([3, 3]);
-    const offsets = new Int32Array([0, 1, 0]); // "cat", "dog", "cat"
+    const dictionaryLengths = new Uint32Array([3, 3]);
+    const offsets = new Uint32Array([0, 1, 0]); // "cat", "dog", "cat"
     const numValues = 3;
 
     return concatenateBuffers(
@@ -173,11 +173,15 @@ export function encodeSharedDictionary(
     const encodedDictionary = encodeStrings(dictionaryStrings);
     const dictionaryLengths = createStringLengths(dictionaryStrings);
 
-    const lengthStream = createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(new Int32Array(dictionaryLengths)), {
-        logical: new LogicalStreamType(undefined, undefined, LengthType.DICTIONARY),
-        technique: PhysicalLevelTechnique.VARINT,
-        count: dictionaryLengths.length,
-    });
+    const lengthStream = createStream(
+        PhysicalStreamType.LENGTH,
+        encodeVarintInt32(new Uint32Array(dictionaryLengths)),
+        {
+            logical: new LogicalStreamType(undefined, undefined, LengthType.DICTIONARY),
+            technique: PhysicalLevelTechnique.VARINT,
+            count: dictionaryLengths.length,
+        },
+    );
 
     const dataStream = createStream(PhysicalStreamType.DATA, encodedDictionary, {
         logical: new LogicalStreamType(dictionaryType),
@@ -186,7 +190,7 @@ export function encodeSharedDictionary(
 
     if (useFsst) {
         const symbolTable = new Uint8Array([99, 97, 116, 100, 111, 103]); // "catdog"
-        const symbolLengths = new Int32Array([3, 3]);
+        const symbolLengths = new Uint32Array([3, 3]);
 
         const symbolLengthStream = createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(symbolLengths), {
             logical: new LogicalStreamType(undefined, undefined, LengthType.SYMBOL),
@@ -212,11 +216,7 @@ export function encodeSharedDictionary(
  * @param isPresent - Whether the field itself is present
  * @returns Encoded streams for the field
  */
-export function encodeStructField(
-    offsetIndices: number[],
-    presentValues: boolean[],
-    isPresent: boolean = true,
-): Uint8Array {
+export function encodeStructField(offsetIndices: number[], presentValues: boolean[], isPresent = true): Uint8Array {
     if (!isPresent) {
         return encodeNumStreams(0);
     }
@@ -260,7 +260,7 @@ function createOffsetStream(offsetIndices: number[]): Uint8Array {
         byteLength: 0,
         decompressedCount: offsetIndices.length,
     };
-    return buildEncodedStream(metadata, encodeVarintInt32(new Int32Array(offsetIndices)));
+    return buildEncodedStream(metadata, encodeVarintInt32(new Uint32Array(offsetIndices)));
 }
 
 /**

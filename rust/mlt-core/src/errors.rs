@@ -1,6 +1,5 @@
 use std::convert::Infallible;
 
-use fastpfor::cpp::Exception;
 use num_enum::TryFromPrimitiveError;
 
 use crate::v01::{GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType};
@@ -90,8 +89,8 @@ pub enum MltError {
     NotImplemented(&'static str),
     #[error("unsupported property value and encoder combination: {0:?} + {1:?}")]
     UnsupportedPropertyEncoderCombination(&'static str, &'static str),
-    #[error("struct shared dictionary requires at least 2 streams, got {0}")]
-    StructSharedDictRequiresStreams(usize),
+    #[error("shared dictionary requires at least 2 streams, got {0}")]
+    SharedDictRequiresStreams(usize),
     #[error("unsupported string stream count (expected between 2 and 5): {0}")]
     UnsupportedStringStreamCount(usize),
     #[error("Structs are not allowed to be optional")]
@@ -139,8 +138,12 @@ pub enum MltError {
     UnexpectedOffsetCombination(usize, GeometryType),
 
     // Wrapper errors, using `#[from]` to auto-convert from underlying error types
-    #[error("FastPFor FFI error: {0}")]
-    FastPforFfi(#[from] Exception),
+    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
+    #[error("FastPFor error: {0}")]
+    FastPforRust(#[from] fastpfor::rust::FastPForError),
+    #[cfg(feature = "fastpfor-cpp")]
+    #[error("FastPFor error: {0}")]
+    FastPforCpp(#[from] fastpfor::cpp::Exception),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("Serde JSON error: {0}")]

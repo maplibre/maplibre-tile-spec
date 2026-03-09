@@ -1,5 +1,5 @@
 import { GpuVector } from "./gpuVector";
-import type TopologyVector from "./topologyVector";
+import type { TopologyVector } from "./topologyVector";
 
 export function createConstGpuVector(
     numGeometries: number,
@@ -25,7 +25,7 @@ export class ConstGpuVector extends GpuVector {
         super(triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
     }
 
-    geometryType(index: number): number {
+    geometryType(_index: number): number {
         return this._geometryType;
     }
 

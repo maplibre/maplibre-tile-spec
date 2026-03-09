@@ -1,6 +1,3 @@
-export type Int32Buf = Int32Array<ArrayBufferLike>;
-export type Uint8Buf = Uint8Array<ArrayBufferLike>;
-
 /**
  * Bit masks for each bitwidth 0-32.
  * DO NOT MUTATE - this is a shared constant.

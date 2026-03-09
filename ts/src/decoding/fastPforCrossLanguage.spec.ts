@@ -4,11 +4,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import IntWrapper from "./intWrapper";
 import { decodeBigEndianInt32sInto } from "./bigEndianDecode";
 import { encodeFastPfor } from "../encoding/integerEncodingUtils";
-import {
-    createFastPforWireDecodeWorkspace,
-    decodeFastPfor,
-    decodeFastPforWithWorkspace,
-} from "./integerDecodingUtils";
+import { createFastPforWireDecodeWorkspace, decodeFastPfor, decodeFastPforWithWorkspace } from "./integerDecodingUtils";
 
 describe("decodeFastPfor (wire format fixtures)", () => {
     const FIXTURES_DIR_URL = new URL("../../../test/fixtures/fastpfor/", import.meta.url);
@@ -29,10 +25,10 @@ describe("decodeFastPfor (wire format fixtures)", () => {
         return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
     }
 
-    function readExpectedFixtureValues(name: string): Int32Array {
+    function readExpectedFixtureValues(name: string): Uint32Array {
         const buf = readFileSync(fixtureUrl(`${name}_decoded.bin`));
         const bytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
-        const out = new Int32Array(bytes.byteLength >>> 2);
+        const out = new Uint32Array(bytes.byteLength >>> 2);
         decodeBigEndianInt32sInto(bytes, 0, bytes.byteLength, out);
         return out;
     }

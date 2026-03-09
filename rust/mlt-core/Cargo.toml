@@ -1,7 +1,7 @@
 [package]
 name = "mlt-core"
 description = "MapLibre Tile library code"
-version = "0.2.0"
+version = "0.3.0"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -12,15 +12,22 @@ repository.workspace = true
 rust-version.workspace = true
 
 [[bench]]
-name = "decoding"
+name = "decoding_e2e"
 harness = false
 
 [[bench]]
-name = "encoding"
+name = "encoding_e2e"
+harness = false
+
+[[bench]]
+name = "decoding_utils"
 harness = false
 
 [features]
+default = ["fastpfor-cpp"]
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
+fastpfor-cpp  = ["fastpfor/cpp_portable"]
+fastpfor-rust = ["fastpfor/rust"]
 
 [dependencies]
 arbitrary = { workspace = true, optional = true }
@@ -38,12 +45,15 @@ serde.workspace = true
 serde_json.workspace = true
 strum.workspace = true
 thiserror.workspace = true
+union-find.workspace = true
+wide.workspace = true
 zigzag.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
 geo-types = { workspace = true, features = ["arbitrary"] }
 insta.workspace = true
+pretty_assertions.workspace = true
 proptest.workspace = true
 proptest-derive.workspace = true
 rstest.workspace = true

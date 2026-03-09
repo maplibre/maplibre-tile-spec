@@ -1,4 +1,3 @@
-import type { Int32Buf, Uint8Buf } from "../decoding/fastPforShared";
 import {
     MASKS,
     DEFAULT_PAGE_SIZE,
@@ -19,7 +18,7 @@ function requiredBits(value: number): number {
     return 32 - Math.clz32(value >>> 0);
 }
 
-function ensureInt32Capacity(buffer: Int32Buf, requiredLength: number): Int32Buf {
+function ensureInt32Capacity(buffer: Uint32Array, requiredLength: number): Uint32Array {
     if (requiredLength <= buffer.length) return buffer;
 
     let newLength = buffer.length === 0 ? 1 : buffer.length;
@@ -27,12 +26,12 @@ function ensureInt32Capacity(buffer: Int32Buf, requiredLength: number): Int32Buf
         newLength *= 2;
     }
 
-    const next = new Int32Array(newLength) as Int32Buf;
+    const next = new Uint32Array(newLength);
     next.set(buffer);
     return next;
 }
 
-function ensureUint8Capacity(buffer: Uint8Buf, requiredLength: number): Uint8Buf {
+function ensureUint8Capacity(buffer: Uint8Array, requiredLength: number): Uint8Array {
     if (requiredLength <= buffer.length) return buffer;
 
     let newLength = buffer.length === 0 ? 1 : buffer.length;
@@ -40,7 +39,7 @@ function ensureUint8Capacity(buffer: Uint8Buf, requiredLength: number): Uint8Buf
         newLength *= 2;
     }
 
-    const next = new Uint8Array(newLength) as Uint8Buf;
+    const next = new Uint8Array(newLength);
     next.set(buffer);
     return next;
 }
@@ -51,14 +50,20 @@ function ensureUint8Capacity(buffer: Uint8Buf, requiredLength: number): Uint8Buf
  * Use one workspace per concurrent encode call.
  */
 export type FastPforEncoderWorkspace = {
-    dataToBePacked: Array<Int32Array | undefined>;
+    dataToBePacked: Array<Uint32Array | undefined>;
     dataPointers: Int32Array;
-    byteContainer: Uint8Buf;
+    byteContainer: Uint8Array;
     bitWidthFrequencies: Int32Array;
     bestBitWidthPlan: Int32Array;
 };
 
-export function fastPack32(inValues: Int32Array, inPos: number, out: Int32Buf, outPos: number, bitWidth: number): void {
+export function fastPack32(
+    inValues: Uint32Array,
+    inPos: number,
+    out: Uint32Array,
+    outPos: number,
+    bitWidth: number,
+): void {
     if (bitWidth === 0) return;
     if (bitWidth === 32) {
         out.set(inValues.subarray(inPos, inPos + 32), outPos);
@@ -91,25 +96,24 @@ export function fastPack32(inValues: Int32Array, inPos: number, out: Int32Buf, o
             bitOffset = bitWidth - lowBits;
         }
     }
-
 }
 
 export function createFastPforEncoderWorkspace(): FastPforEncoderWorkspace {
-    const dataToBePacked: Array<Int32Array | undefined> = new Array(BIT_WIDTH_SLOTS);
+    const dataToBePacked: Array<Uint32Array | undefined> = new Array(BIT_WIDTH_SLOTS);
     for (let k = 1; k < BIT_WIDTH_SLOTS; k++) {
-        dataToBePacked[k] = new Int32Array(INITIAL_PACKED_BUFFER_SIZE_WORDS);
+        dataToBePacked[k] = new Uint32Array(INITIAL_PACKED_BUFFER_SIZE_WORDS);
     }
 
     return {
         dataToBePacked,
         dataPointers: new Int32Array(BIT_WIDTH_SLOTS),
-        byteContainer: new Uint8Array(BYTE_CONTAINER_SIZE) as Uint8Buf,
+        byteContainer: new Uint8Array(BYTE_CONTAINER_SIZE),
         bitWidthFrequencies: new Int32Array(BIT_WIDTH_SLOTS),
         bestBitWidthPlan: new Int32Array(3),
     };
 }
 
-function computeBestBitWidthPlan(inValues: Int32Array, pos: number, workspace: FastPforEncoderWorkspace): void {
+function computeBestBitWidthPlan(inValues: Uint32Array, pos: number, workspace: FastPforEncoderWorkspace): void {
     const bitWidthFrequencies = workspace.bitWidthFrequencies;
     const bestBitWidthPlan = workspace.bestBitWidthPlan;
     bitWidthFrequencies.fill(0);
@@ -157,7 +161,7 @@ function writeByte(workspace: FastPforEncoderWorkspace, byteContainerPos: number
 }
 
 function ensureExceptionValuesCapacity(
-    dataToBePacked: Array<Int32Array | undefined>,
+    dataToBePacked: Array<Uint32Array | undefined>,
     dataPointers: Int32Array,
     exceptionBitWidth: number,
     exceptionCount: number,
@@ -169,7 +173,7 @@ function ensureExceptionValuesCapacity(
     if (!currentExceptionValues || needed >= currentExceptionValues.length) {
         let newSize = 2 * needed;
         newSize = roundUpToMultipleOf32(newSize);
-        const next = new Int32Array(newSize);
+        const next = new Uint32Array(newSize);
         if (currentExceptionValues) next.set(currentExceptionValues);
         dataToBePacked[exceptionBitWidth] = next;
     }
@@ -192,7 +196,7 @@ function writeBlockHeader(
 
 function recordBlockExceptions(
     workspace: FastPforEncoderWorkspace,
-    inValues: Int32Array,
+    inValues: Uint32Array,
     blockPos: number,
     bitWidth: number,
     exceptionCount: number,
@@ -220,14 +224,9 @@ function recordBlockExceptions(
     return byteContainerPos;
 }
 
-type EncodeState = { inPos: number; out: Int32Buf; outPos: number };
+type EncodeState = { inPos: number; out: Uint32Array; outPos: number };
 
-function packBlock(
-    inValues: Int32Array,
-    blockPos: number,
-    bitWidth: number,
-    state: EncodeState,
-): void {
+function packBlock(inValues: Uint32Array, blockPos: number, bitWidth: number, state: EncodeState): void {
     for (let k = 0; k < BLOCK_SIZE; k += 32) {
         state.out = ensureInt32Capacity(state.out, state.outPos + bitWidth);
         fastPack32(inValues, blockPos + k, state.out, state.outPos, bitWidth);
@@ -269,16 +268,13 @@ function computeExceptionBitmap(dataPointers: Int32Array): number {
     let bitmap = 0;
     for (let k = 2; k <= MAX_BIT_WIDTH; k++) {
         if (dataPointers[k] !== 0) {
-            bitmap |= (k === MAX_BIT_WIDTH) ? 0x80000000 : (1 << (k - 1));
+            bitmap |= k === MAX_BIT_WIDTH ? 0x80000000 : 1 << (k - 1);
         }
     }
     return bitmap;
 }
 
-function writeExceptionStreams(
-    workspace: FastPforEncoderWorkspace,
-    state: EncodeState,
-): void {
+function writeExceptionStreams(workspace: FastPforEncoderWorkspace, state: EncodeState): void {
     const dataPointers = workspace.dataPointers;
     const dataToBePacked = workspace.dataToBePacked;
 
@@ -301,13 +297,13 @@ function writeExceptionStreams(
             }
 
             const overflow = j - size;
-            state.outPos -= ((overflow * k) >>> 5);
+            state.outPos -= (overflow * k) >>> 5;
         }
     }
 }
 
 function encodePage(
-    inValues: Int32Array,
+    inValues: Uint32Array,
     thisSize: number,
     state: EncodeState,
     workspace: FastPforEncoderWorkspace,
@@ -332,7 +328,7 @@ function encodePage(
         const exceptionCount = bestBitWidthPlan[1];
         const maxBitWidth = bestBitWidthPlan[2];
 
-        const exceptionBitWidth = exceptionCount > 0 ? (maxBitWidth - bitWidth) : 0;
+        const exceptionBitWidth = exceptionCount > 0 ? maxBitWidth - bitWidth : 0;
         byteContainerPos = writeBlockHeader(workspace, byteContainerPos, bitWidth, exceptionCount, maxBitWidth);
         byteContainerPos = recordBlockExceptions(
             workspace,
@@ -363,7 +359,7 @@ function encodePage(
 }
 
 function encodeAlignedPages(
-    inValues: Int32Array,
+    inValues: Uint32Array,
     inLength: number,
     state: EncodeState,
     workspace: FastPforEncoderWorkspace,
@@ -378,7 +374,7 @@ function encodeAlignedPages(
 }
 
 function encode(
-    inValues: Int32Array,
+    inValues: Uint32Array,
     inLength: number,
     state: EncodeState,
     workspace: FastPforEncoderWorkspace,
@@ -396,7 +392,7 @@ function encode(
  * Note: Inverts standard Protobuf Varint (MSB=0 terminator), so we cannot reuse generic methods.
  */
 function encodeVByte(
-    inValues: Int32Array,
+    inValues: Uint32Array,
     inLength: number,
     state: EncodeState,
     workspace: FastPforEncoderWorkspace,
@@ -441,10 +437,10 @@ function encodeVByte(
  * Encodes an int32 stream using the FastPFOR wire format (pages + VByte tail).
  */
 export function encodeFastPforInt32WithWorkspace(
-    values: Int32Array,
+    values: Uint32Array,
     workspace: FastPforEncoderWorkspace,
-): Int32Buf {
-    const state: EncodeState = { inPos: 0, outPos: 0, out: new Int32Array(values.length + 1024) as Int32Buf };
+): Uint32Array {
+    const state: EncodeState = { inPos: 0, outPos: 0, out: new Uint32Array(values.length + 1024) };
 
     encode(values, values.length, state, workspace);
 

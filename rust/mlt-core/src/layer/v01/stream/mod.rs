@@ -537,8 +537,7 @@ impl StreamMeta {
         is_bool: bool,
         byte_length: u32,
     ) -> io::Result<()> {
-        use LogicalEncoding as LE;
-        use LogicalTechnique as LT;
+        use {LogicalEncoding as LE, LogicalTechnique as LT};
 
         writer.write_u8(self.stream_type.as_u8())?;
         let logical_enc_u8: u8 = match self.encoding.logical {
@@ -694,12 +693,12 @@ macro_rules! stream_data {
             }
             impl<'a> Debug for $ty<'a> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    $crate::utils::fmt_byte_array(self.data, f)
+                    $crate::utils::formatter::fmt_byte_array(self.data, f)
                 }
             }
             impl<'a> Debug for $owned {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    $crate::utils::fmt_byte_array(&self.data, f)
+                    $crate::utils::formatter::fmt_byte_array(&self.data, f)
                 }
             }
         )+
@@ -1114,7 +1113,6 @@ mod tests {
 
     #[rstest]
     #[case::basic(vec![1, 2, 3, 4, 5, 100, 1000])]
-    #[ignore = "FIXME - executes AVX (?) code despite neither using inline assembly. Maybe UB. Does only happen on AMD Server CPUs"]
     #[case::large(vec![1_000_000; 256])]
     #[case::edge_values(vec![0, 1, 2, 4, 8, 16, 1024, 65535, 1_000_000_000, u32::MAX])]
     #[case::empty(vec![])]

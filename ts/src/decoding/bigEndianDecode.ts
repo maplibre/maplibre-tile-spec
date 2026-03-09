@@ -16,7 +16,7 @@ export function decodeBigEndianInt32sInto(
     bytes: Uint8Array,
     offset: number,
     byteLength: number,
-    out: Int32Array,
+    out: Uint32Array,
 ): number {
     if (offset < 0 || byteLength < 0 || offset + byteLength > bytes.length) {
         throw new RangeError(
@@ -42,12 +42,7 @@ export function decodeBigEndianInt32sInto(
         } else {
             for (let i = 0; i < numCompleteInts; i++) {
                 const base = offset + i * 4;
-                out[i] =
-                    (bytes[base] << 24) |
-                    (bytes[base + 1] << 16) |
-                    (bytes[base + 2] << 8) |
-                    bytes[base + 3] |
-                    0;
+                out[i] = (bytes[base] << 24) | (bytes[base + 1] << 16) | (bytes[base + 2] << 8) | bytes[base + 3] | 0;
             }
         }
     }

@@ -5,23 +5,21 @@ import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import type { StreamMetadata, RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import IntWrapper from "../decoding/intWrapper";
-import { encodeBooleanRle, encodeFloatsLE } from "./encodingUtils";
+import { encodeBooleanRle, encodeFloatsLE, encodeDoubleLE } from "./encodingUtils";
 import {
     encodeVarintInt32Value,
     encodeVarintInt32,
     encodeVarintInt64,
     encodeZigZagInt32Value,
     encodeZigZagInt64Value,
+    encodeZigZagInt32,
 } from "./integerEncodingUtils";
 
 /**
  * Encodes INT_32 values with NONE encoding (no delta, no RLE)
  */
 export function encodeInt32NoneColumn(values: Int32Array): Uint8Array {
-    const zigzagEncoded = new Int32Array(values.length);
-    for (let i = 0; i < values.length; i++) {
-        zigzagEncoded[i] = encodeZigZagInt32Value(values[i]);
-    }
+    const zigzagEncoded = encodeZigZagInt32(values);
     const encodedData = encodeVarintInt32(zigzagEncoded);
     const streamMetadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, values.length);
     return buildEncodedStream(streamMetadata, encodedData);
@@ -38,10 +36,7 @@ export function encodeInt32DeltaColumn(values: Int32Array): Uint8Array {
         deltaEncoded[i] = values[i] - values[i - 1];
     }
 
-    const zigzagEncoded = new Int32Array(deltaEncoded.length);
-    for (let i = 0; i < deltaEncoded.length; i++) {
-        zigzagEncoded[i] = encodeZigZagInt32Value(deltaEncoded[i]);
-    }
+    const zigzagEncoded = encodeZigZagInt32(deltaEncoded);
     const encodedData = encodeVarintInt32(zigzagEncoded);
     const streamMetadata = createStreamMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.NONE, values.length);
     return buildEncodedStream(streamMetadata, encodedData);
@@ -63,7 +58,7 @@ export function encodeInt32RleColumn(runs: Array<[number, number]>): Uint8Array 
     }
 
     const rleValues = [...runLengths, ...values];
-    const encodedData = encodeVarintInt32(new Int32Array(rleValues));
+    const encodedData = encodeVarintInt32(new Uint32Array(rleValues));
     const streamMetadata = createRleMetadata(
         LogicalLevelTechnique.RLE,
         LogicalLevelTechnique.NONE,
@@ -89,7 +84,7 @@ export function encodeInt32DeltaRleColumn(runs: Array<[number, number]>): Uint8A
     }
 
     const rleValues = [...runLengths, ...values];
-    const encodedData = encodeVarintInt32(new Int32Array(rleValues));
+    const encodedData = encodeVarintInt32(new Uint32Array(rleValues));
     const streamMetadata = createRleMetadata(
         LogicalLevelTechnique.DELTA,
         LogicalLevelTechnique.RLE,
@@ -104,7 +99,7 @@ export function encodeInt32DeltaRleColumn(runs: Array<[number, number]>): Uint8A
  */
 export function encodeInt32NullableColumn(values: (number | null)[]): Uint8Array {
     const nonNullValues = values.filter((v): v is number => v !== null);
-    const zigzagEncoded = new Int32Array(nonNullValues.map((v) => encodeZigZagInt32Value(v)));
+    const zigzagEncoded = new Uint32Array(nonNullValues.map((v) => encodeZigZagInt32Value(v)));
     const encodedData = encodeVarintInt32(zigzagEncoded);
     const dataStreamMetadata = createStreamMetadata(
         LogicalLevelTechnique.NONE,
@@ -130,7 +125,7 @@ export function encodeInt32NullableColumn(values: (number | null)[]): Uint8Array
  * Encodes UINT_32 values (no zigzag encoding)
  */
 export function encodeUint32Column(values: Uint32Array): Uint8Array {
-    const encodedData = encodeVarintInt32(new Int32Array(values));
+    const encodedData = encodeVarintInt32(values);
     const streamMetadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, values.length);
     return buildEncodedStream(streamMetadata, encodedData);
 }
@@ -139,7 +134,7 @@ export function encodeUint32Column(values: Uint32Array): Uint8Array {
  * Encodes INT_64 values with NONE encoding
  */
 export function encodeInt64NoneColumn(values: BigInt64Array): Uint8Array {
-    const zigzagEncoded = new BigInt64Array(Array.from(values, (val) => encodeZigZagInt64Value(val)));
+    const zigzagEncoded = new BigUint64Array(Array.from(values, (val) => encodeZigZagInt64Value(val)));
     const encodedData = encodeVarintInt64(zigzagEncoded);
     const streamMetadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, values.length);
     return buildEncodedStream(streamMetadata, encodedData);
@@ -155,7 +150,7 @@ export function encodeInt64DeltaColumn(values: BigInt64Array): Uint8Array {
         deltaEncoded[i] = values[i] - values[i - 1];
     }
 
-    const zigzagEncoded = new BigInt64Array(deltaEncoded.length);
+    const zigzagEncoded = new BigUint64Array(deltaEncoded.length);
     for (let i = 0; i < deltaEncoded.length; i++) {
         zigzagEncoded[i] = encodeZigZagInt64Value(deltaEncoded[i]);
     }
@@ -179,7 +174,7 @@ export function encodeInt64RleColumn(runs: Array<[number, bigint]>): Uint8Array 
     }
 
     const rleValues = [...runLengths, ...values];
-    const encodedData = encodeVarintInt64(new BigInt64Array(rleValues));
+    const encodedData = encodeVarintInt64(new BigUint64Array(rleValues));
     const streamMetadata = createRleMetadata(
         LogicalLevelTechnique.RLE,
         LogicalLevelTechnique.NONE,
@@ -204,7 +199,7 @@ export function encodeInt64DeltaRleColumn(runs: Array<[number, bigint]>): Uint8A
     }
 
     const rleValues = [...runLengths, ...values];
-    const encodedData = encodeVarintInt64(new BigInt64Array(rleValues));
+    const encodedData = encodeVarintInt64(new BigUint64Array(rleValues));
     const streamMetadata = createRleMetadata(
         LogicalLevelTechnique.DELTA,
         LogicalLevelTechnique.RLE,
@@ -219,7 +214,7 @@ export function encodeInt64DeltaRleColumn(runs: Array<[number, bigint]>): Uint8A
  */
 export function encodeInt64NullableColumn(values: (bigint | null)[]): Uint8Array {
     const nonNullValues = values.filter((v): v is bigint => v !== null);
-    const zigzagEncoded = new BigInt64Array(Array.from(nonNullValues, (val) => encodeZigZagInt64Value(val)));
+    const zigzagEncoded = new BigUint64Array(Array.from(nonNullValues, (val) => encodeZigZagInt64Value(val)));
     const encodedData = encodeVarintInt64(zigzagEncoded);
     const dataStreamMetadata = createStreamMetadata(
         LogicalLevelTechnique.NONE,
@@ -244,7 +239,7 @@ export function encodeInt64NullableColumn(values: (bigint | null)[]): Uint8Array
  * Encodes UINT_64 values (no zigzag encoding)
  */
 export function encodeUint64Column(values: BigUint64Array): Uint8Array {
-    const encodedData = encodeVarintInt64(new BigInt64Array(values));
+    const encodedData = encodeVarintInt64(values);
     const streamMetadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, values.length);
     return buildEncodedStream(streamMetadata, encodedData);
 }
@@ -254,7 +249,7 @@ export function encodeUint64Column(values: BigUint64Array): Uint8Array {
  */
 export function encodeUint64NullableColumn(values: (bigint | null)[]): Uint8Array {
     const nonNullValues = values.filter((v): v is bigint => v !== null);
-    const encodedData = encodeVarintInt64(new BigInt64Array(nonNullValues));
+    const encodedData = encodeVarintInt64(new BigUint64Array(nonNullValues));
     const dataStreamMetadata = createStreamMetadata(
         LogicalLevelTechnique.NONE,
         LogicalLevelTechnique.NONE,
@@ -309,20 +304,20 @@ export function encodeFloatNullableColumn(values: (number | null)[]): Uint8Array
 }
 
 /**
- * Encodes DOUBLE values (doubles currently written as floats)
+ * Encodes DOUBLE values
  */
-export function encodeDoubleColumn(values: Float32Array): Uint8Array {
-    const encodedData = encodeFloatsLE(values);
+export function encodeDoubleColumn(values: Float64Array): Uint8Array {
+    const encodedData = encodeDoubleLE(values);
     const streamMetadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, values.length);
     return buildEncodedStream(streamMetadata, encodedData);
 }
 
 /**
- * Encodes nullable DOUBLE values (doubles currently written as floats)
+ * Encodes nullable DOUBLE values
  */
 export function encodeDoubleNullableColumn(values: (number | null)[]): Uint8Array {
     const nonNullValues = values.filter((v): v is number => v !== null);
-    const encodedData = encodeFloatsLE(new Float32Array(nonNullValues));
+    const encodedData = encodeDoubleLE(new Float64Array(nonNullValues));
     const dataStreamMetadata = createStreamMetadata(
         LogicalLevelTechnique.NONE,
         LogicalLevelTechnique.NONE,
@@ -379,7 +374,7 @@ export function encodeBooleanNullableColumn(values: (boolean | null)[]): Uint8Ar
 function createStreamMetadata(
     logicalTechnique1: LogicalLevelTechnique,
     logicalTechnique2: LogicalLevelTechnique = LogicalLevelTechnique.NONE,
-    numValues: number = 3,
+    numValues = 3,
 ): StreamMetadata {
     return {
         physicalStreamType: PhysicalStreamType.DATA,

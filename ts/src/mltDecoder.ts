@@ -18,7 +18,7 @@ import {
 import { IntSequenceVector } from "./vector/sequence/intSequenceVector";
 import { LongFlatVector } from "./vector/flat/longFlatVector";
 import { LongSequenceVector } from "./vector/sequence/longSequenceVector";
-import { type IntVector } from "./vector/intVector";
+import type { IntVector } from "./vector/intVector";
 import { decodeVarintInt32 } from "./decoding/integerDecodingUtils";
 import { decodeGeometryColumn } from "./decoding/geometryDecoder";
 import { decodePropertyColumn } from "./decoding/propertyDecoder";
@@ -29,10 +29,10 @@ import { decodeBooleanRle } from "./decoding/decodingUtils";
 import { DoubleFlatVector } from "./vector/flat/doubleFlatVector";
 import { decodeEmbeddedTileSetMetadata } from "./metadata/tileset/embeddedTilesetMetadataDecoder";
 import { hasStreamCount, isGeometryColumn, isLogicalIdColumn } from "./metadata/tileset/typeMap";
-import { type StreamMetadata } from "./metadata/tile/streamMetadataDecoder";
-import { type GeometryVector } from "./vector/geometry/geometryVector";
+import type { StreamMetadata } from "./metadata/tile/streamMetadataDecoder";
+import type { GeometryVector } from "./vector/geometry/geometryVector";
 import type Vector from "./vector/vector";
-import { type GpuVector } from "./vector/geometry/gpuVector";
+import type { GpuVector } from "./vector/geometry/gpuVector";
 
 /**
  * Decodes a tile with embedded metadata (Tag 0x01 format).
@@ -175,7 +175,7 @@ function decodeIdColumn(
     columnName: string,
     idDataStreamMetadata: StreamMetadata,
     sizeOrNullabilityBuffer: number | BitVector,
-    idWithinMaxSafeInteger: boolean = false,
+    idWithinMaxSafeInteger = false,
 ): IntVector {
     const scalarTypeMetadata = columnMetadata.scalarType;
     if (
@@ -213,38 +213,37 @@ function decodeIdColumn(
             }
             case VectorType.CONST: {
                 const id = decodeConstIntStream(tile, offset, idDataStreamMetadata, false);
-                return new IntConstVector(columnName, id, sizeOrNullabilityBuffer);
+                return new IntConstVector(columnName, id, sizeOrNullabilityBuffer, true);
             }
         }
-    } else {
-        switch (vectorType) {
-            case VectorType.FLAT: {
-                if (idWithinMaxSafeInteger) {
-                    const id = decodeLongFloat64Stream(tile, offset, idDataStreamMetadata, false);
-                    return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
-                }
-                const id = decodeLongStream(
-                    tile,
-                    offset,
-                    idDataStreamMetadata,
-                    false,
-                    typeof sizeOrNullabilityBuffer !== "number" ? sizeOrNullabilityBuffer : undefined,
-                );
-                return new LongFlatVector(columnName, id, sizeOrNullabilityBuffer);
+    }
+    switch (vectorType) {
+        case VectorType.FLAT: {
+            if (idWithinMaxSafeInteger) {
+                const id = decodeLongFloat64Stream(tile, offset, idDataStreamMetadata, false);
+                return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
-            case VectorType.SEQUENCE: {
-                const id = decodeSequenceLongStream(tile, offset, idDataStreamMetadata);
-                return new LongSequenceVector(
-                    columnName,
-                    id[0],
-                    id[1],
-                    (idDataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
-                );
-            }
-            case VectorType.CONST: {
-                const id = decodeConstLongStream(tile, offset, idDataStreamMetadata, false);
-                return new LongConstVector(columnName, id, sizeOrNullabilityBuffer);
-            }
+            const id = decodeLongStream(
+                tile,
+                offset,
+                idDataStreamMetadata,
+                false,
+                typeof sizeOrNullabilityBuffer !== "number" ? sizeOrNullabilityBuffer : undefined,
+            );
+            return new LongFlatVector(columnName, id, sizeOrNullabilityBuffer);
+        }
+        case VectorType.SEQUENCE: {
+            const id = decodeSequenceLongStream(tile, offset, idDataStreamMetadata);
+            return new LongSequenceVector(
+                columnName,
+                id[0],
+                id[1],
+                (idDataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
+            );
+        }
+        case VectorType.CONST: {
+            const id = decodeConstLongStream(tile, offset, idDataStreamMetadata, false);
+            return new LongConstVector(columnName, id, sizeOrNullabilityBuffer, true);
         }
     }
 
