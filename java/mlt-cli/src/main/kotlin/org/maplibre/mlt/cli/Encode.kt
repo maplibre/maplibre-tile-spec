@@ -277,7 +277,7 @@ object Encode {
         outputPath: Path,
         config: EncodeConfig,
     ) {
-        val willCompare = config.compareProp || config.compareGeom
+        val willCompare = config.compareMode != CompareMode.None
         val inputTilePath = Paths.get(tileFileName)
         val decodedMvTile = MvtUtils.decodeMvt(inputTilePath)
 
@@ -335,29 +335,16 @@ object Encode {
                 System.out.write(decodedTile.toJson().toByteArray(StandardCharsets.UTF_8))
             }
             if (willCompare) {
-                val mode =
-                    if (config.compareGeom && config.compareProp) {
-                        CompareMode.All
-                    } else {
-                        (
-                            if (config.compareGeom) {
-                                CompareMode.Geometry
-                            } else {
-                                CompareMode.Properties
-                            }
-                        )
-                    }
-
-                val result =
+                val difference =
                     CompareHelper.compareTiles(
                         decodedTile,
                         decodedMvTile,
-                        mode,
+                        config.compareMode,
                         targetConfig.layerFilterPattern,
                         targetConfig.layerFilterInvert,
                     )
-                if (result.isPresent) {
-                    logger.warn("Tiles do not match: {}", result)
+                if (difference.isPresent) {
+                    logger.warn("Tiles do not match: {}", difference)
                 } else {
                     logger.debug("Tiles match: {}:{},{}", z, x, y)
                 }

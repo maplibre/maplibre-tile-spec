@@ -448,10 +448,7 @@ Add an explicit column mapping on the specified layers:
                     .hasArg(false)
                     .desc(
                         (
-                            "Assert that geometry in the decoded tile is the same as the input tile. " +
-                                "Only applies with --" +
-                                INPUT_TILE_ARG +
-                                "."
+                            "Assert that geometry in the decoded tile is the same as the input tile."
                         ),
                     ).required(false)
                     .get(),
@@ -463,10 +460,7 @@ Add an explicit column mapping on the specified layers:
                     .hasArg(false)
                     .desc(
                         (
-                            "Assert that properties in the decoded tile is the same as the input tile. " +
-                                "Only applies with --" +
-                                INPUT_TILE_ARG +
-                                "."
+                            "Assert that properties in the decoded tile is the same as the input tile."
                         ),
                     ).required(false)
                     .get(),

@@ -1,5 +1,6 @@
 package org.maplibre.mlt.compare;
 
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -21,7 +22,8 @@ public final class CompareHelper {
   private CompareHelper() {}
 
   public enum CompareMode {
-    LayersOnly,
+    None,
+    Layers,
     Geometry,
     Properties,
     All
@@ -233,10 +235,23 @@ public final class CompareHelper {
               .layerName(mvtLayer.name())
               .build());
     }
-    for (var j = 0; j < mvtFeatures.size(); j++) {
-      final var mvtFeature = mvtFeatures.get(j);
-      // Expect features to be written in the same order
-      final var mltFeature = mltFeatures.get(j);
+
+    // Allow features to be sorted by ID and still match if all features have IDs
+    final var haveIds =
+        mvtFeatures.stream().allMatch(Feature::hasId)
+            && mltFeatures.stream().allMatch(Feature::hasId);
+    final var maybeSortedMvtFeatures =
+        haveIds
+            ? mvtFeatures.stream().sorted(Comparator.comparing(Feature::id)).toList()
+            : mvtFeatures;
+    final var maybeSortedMltFeatures =
+        haveIds
+            ? mltFeatures.stream().sorted(Comparator.comparing(Feature::id)).toList()
+            : mltFeatures;
+
+    for (var j = 0; j < maybeSortedMvtFeatures.size(); j++) {
+      final var mvtFeature = maybeSortedMvtFeatures.get(j);
+      final var mltFeature = maybeSortedMltFeatures.get(j);
       final var featureResult =
           compareFeature(mltFeature, mvtFeature, compareMode, j, mvtLayer.name());
       if (featureResult.isPresent()) {
@@ -358,7 +373,7 @@ public final class CompareHelper {
     return Optional.empty();
   }
 
-  /// Returns the values that are in set a but not in set b
+  /// Returns the values that are in set `a` but not in set `b`
   private static <T> Set<T> getAsymmetricSetDiff(Set<T> a, Set<T> b) {
     Set<T> diff = new HashSet<>(a);
     diff.removeAll(b);

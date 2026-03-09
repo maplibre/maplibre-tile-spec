@@ -8,11 +8,14 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream
 import org.apache.commons.compress.compressors.gzip.GzipParameters
 import org.apache.commons.lang3.mutable.MutableBoolean
+import org.maplibre.mlt.compare.CompareHelper
+import org.maplibre.mlt.compare.CompareHelper.CompareMode
 import org.maplibre.mlt.converter.ConversionConfig
 import org.maplibre.mlt.converter.FeatureTableOptimizations
 import org.maplibre.mlt.converter.MltConverter
 import org.maplibre.mlt.converter.mvt.ColumnMapping
 import org.maplibre.mlt.converter.mvt.MvtUtils
+import org.maplibre.mlt.decoder.MltDecoder
 import org.maplibre.mlt.metadata.tileset.MltMetadata
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
@@ -204,6 +207,7 @@ fun convertTile(
             )
 
         // Apply compression if specified.
+        val uncompressedTileData = tileData
         if (config.compressionType != null) {
             ByteArrayOutputStream().use { outputStream ->
                 createCompressStream(
@@ -267,6 +271,23 @@ fun convertTile(
                         didCompress.setFalse()
                     }
                 }
+            }
+        }
+        if (config.compareMode != CompareMode.None) {
+            logger.trace("Decoding converted tile {}:{},{} for comparison", z, x, y)
+            val decodedTile = MltDecoder.decodeMlTile(uncompressedTileData)
+            val difference =
+                CompareHelper.compareTiles(
+                    decodedTile,
+                    decodedMvTile,
+                    config.compareMode,
+                    targetConfig.layerFilterPattern,
+                    targetConfig.layerFilterInvert,
+                )
+            if (difference.isPresent) {
+                logger.warn("Decoded tile {}:{},{} doesn't match: {}", z, x, y, difference)
+            } else {
+                logger.trace("Tiles match: {}:{},{}", z, x, y)
             }
         }
         return tileData
