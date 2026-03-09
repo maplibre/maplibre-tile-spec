@@ -56,7 +56,7 @@ fn roundtrip(decoded: &DecodedProperty, encoder: ScalarEncoder) -> DecodedProper
 }
 
 fn strs(vals: &[&str]) -> Vec<Option<String>> {
-    vals.iter().map(|v| Some(v.to_string())).collect()
+    vals.iter().map(|v| Some((*v).to_string())).collect()
 }
 
 fn opt_strs(vals: &[Option<&str>]) -> Vec<Option<String>> {

@@ -14,6 +14,7 @@ pub fn encode_str(data: &mut Vec<u8>, value: &[u8]) {
     data.extend_from_slice(value);
 }
 
+#[must_use]
 pub fn encode_zigzag<T: ZigZag>(data: &[T]) -> Vec<T::UInt> {
     data.iter().map(|&v| T::encode(v)).collect()
 }
@@ -30,10 +31,12 @@ fn encode_delta<T: Copy + WrappingSub>(data: &[T]) -> Vec<T> {
     result
 }
 
+#[must_use]
 pub fn encode_zigzag_delta<T: Copy + ZigZag + WrappingSub<Output = T>>(data: &[T]) -> Vec<T::UInt> {
     encode_zigzag(&encode_delta(data))
 }
 
+#[must_use]
 pub fn encode_rle<T: PrimInt>(data: &[T]) -> (Vec<T>, Vec<T>) {
     if data.is_empty() {
         return (Vec::new(), Vec::new());
@@ -66,6 +69,7 @@ pub fn encode_rle<T: PrimInt>(data: &[T]) -> (Vec<T>, Vec<T>) {
 /// Format: control byte determines the run type:
 /// - `control >= 128`: literal run of `(256 - control)` bytes follow
 /// - `control < 128`: repeating run of `(control + 3)` copies of the next byte
+#[must_use]
 pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
     let mut output = Vec::new();
     let mut pos = 0;
@@ -170,6 +174,7 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
     }
 }
 
+#[must_use]
 pub fn encode_u32s_to_bytes(data: &[u32]) -> Vec<u8> {
     let mut output = Vec::with_capacity(data.len() * 4);
     for &val in data {
@@ -178,6 +183,7 @@ pub fn encode_u32s_to_bytes(data: &[u32]) -> Vec<u8> {
     output
 }
 
+#[must_use]
 pub fn encode_u64s_to_bytes(data: &[u64]) -> Vec<u8> {
     let mut output = Vec::with_capacity(data.len() * 8);
     for &val in data {
@@ -192,6 +198,7 @@ pub fn encode_u64s_to_bytes(data: &[u64]) -> Vec<u8> {
 /// Output: `[zigzag(x0-0), zigzag(y0-0), zigzag(x1-x0), zigzag(y1-y0), ...]`
 ///
 /// This is the inverse of `decode_componentwise_delta_vec2s`.
+#[must_use]
 pub fn encode_componentwise_delta_vec2s<T>(data: &[T]) -> Vec<T::UInt>
 where
     T: ZigZag + WrappingSub,
@@ -209,6 +216,7 @@ where
 }
 
 /// Helper to pack a `Vec<bool>` into `Vec<u8>` where each byte represents 8 booleans.
+#[must_use]
 pub fn encode_bools_to_bytes(bools: &[bool]) -> Vec<u8> {
     let num_bytes = bools.len().div_ceil(8);
     let mut bytes = vec![0u8; num_bytes];

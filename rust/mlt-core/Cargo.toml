@@ -12,11 +12,15 @@ repository.workspace = true
 rust-version.workspace = true
 
 [[bench]]
-name = "decoding"
+name = "decoding_e2e"
 harness = false
 
 [[bench]]
-name = "encoding"
+name = "encoding_e2e"
+harness = false
+
+[[bench]]
+name = "decoding_utils"
 harness = false
 
 [features]
@@ -42,6 +46,7 @@ serde_json.workspace = true
 strum.workspace = true
 thiserror.workspace = true
 union-find.workspace = true
+wide.workspace = true
 zigzag.workspace = true
 
 [dev-dependencies]
