@@ -122,15 +122,16 @@ fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
     }
 }
 
-fn extent_from_fc(fc: &FeatureCollection) -> f64 {
+fn extent_from_fc(fc: &FeatureCollection) -> u32 {
     fc.features
         .first()
         .and_then(|f| {
             f.properties
                 .get("_extent")
-                .and_then(serde_json::Value::as_f64)
+                .and_then(serde_json::Value::as_u64)
         })
-        .unwrap_or(4096.0)
+        .map(|e| e as u32)
+        .unwrap_or(4096)
 }
 
 fn refresh_tile_preview(app: &mut App) {
@@ -160,8 +161,9 @@ fn group_by_layer(fc: &FeatureCollection) -> Vec<LayerGroup> {
         let extent = f
             .properties
             .get("_extent")
-            .and_then(serde_json::Value::as_f64)
-            .unwrap_or(4096.0);
+            .and_then(serde_json::Value::as_u64)
+            .map(|e| e as u32)
+            .unwrap_or(4096);
         if let Some(g) = groups.iter_mut().find(|g| g.name == name) {
             g.feature_indices.push(i);
         } else {
