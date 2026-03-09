@@ -818,15 +818,17 @@ impl<'a> Stream<'a> {
     }
 
     /// Decode a byte-RLE encoded stream into a Vec<u8>
+    ///
+    /// Fallbacks to [`Self::decode_u8s`] if the logical encoding is not RLE.
     pub fn decode_byte_rle_u8s(self) -> Result<Vec<u8>, MltError> {
-        let num_values = self.meta.num_values as usize;
-        let raw = match &self.data {
-            StreamData::Encoded(d) => d.data,
-            StreamData::VarInt(_) => {
-                return Err(MltError::NotImplemented("varint byte-RLE decoding"));
-            }
-        };
-        Ok(decode_byte_rle(raw, num_values))
+        if let StreamData::Encoded(d) = &self.data
+            && matches!(self.meta.encoding.logical, LogicalEncoding::Rle(_))
+        {
+            let num_values = usize::try_from(self.meta.num_values)?;
+            Ok(decode_byte_rle(d.data, num_values))
+        } else {
+            self.decode_u8s()
+        }
     }
 
     pub fn decode_i32s(self) -> Result<Vec<i32>, MltError> {
