@@ -62,9 +62,9 @@ fn zorder_params(vertices: &[i32]) -> Result<(u32, u32), MltError> {
     let tile_extent = i64::from(max_v) + i64::from(coordinate_shift);
     let num_bits = if let Ok(extent) = u32::try_from(tile_extent) {
         // ceil(log2(extent + 1)), matching Java's Math.ceil(Math.log(...) / Math.log(2)).
-        // Computed with integer arithmetic: for te >= 1, this equals `u64::BITS - te.leading_zeros()`.
+        // Computed with integer arithmetic: for te >= 1, this equals `u32::BITS - te.leading_zeros()`.
         // Capped at 16: Morton codes are u32, so each axis may use at most 16 bits.
-        let required_bits = u64::BITS - extent.leading_zeros();
+        let required_bits = u32::BITS - extent.leading_zeros();
         if required_bits > 16 {
             return Err(MltError::VertexMortonNotCompatibleWithExtent {
                 extent,
