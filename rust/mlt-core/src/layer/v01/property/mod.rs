@@ -321,33 +321,33 @@ impl Analyze for DecodedProperty {
 impl PropValue {
     fn as_presence_stream(&self) -> Result<Vec<bool>, MltError> {
         Ok(match self {
-            PropValue::Bool(v) => v.iter().map(Option::is_some).collect(),
-            PropValue::I8(v) => v.iter().map(Option::is_some).collect(),
-            PropValue::U8(v) => v.iter().map(Option::is_some).collect(),
-            PropValue::I32(v) => v.iter().map(Option::is_some).collect(),
-            PropValue::U32(v) => v.iter().map(Option::is_some).collect(),
-            PropValue::I64(v) => v.iter().map(Option::is_some).collect(),
-            PropValue::U64(v) => v.iter().map(Option::is_some).collect(),
-            PropValue::F32(v) => v.iter().map(Option::is_some).collect(),
-            PropValue::F64(v) => v.iter().map(Option::is_some).collect(),
-            PropValue::Str(v) => v.iter().map(Option::is_some).collect(),
-            PropValue::SharedDict(_) => Err(NotImplemented("presence stream for shared dict"))?,
+            Self::Bool(v) => v.iter().map(Option::is_some).collect(),
+            Self::I8(v) => v.iter().map(Option::is_some).collect(),
+            Self::U8(v) => v.iter().map(Option::is_some).collect(),
+            Self::I32(v) => v.iter().map(Option::is_some).collect(),
+            Self::U32(v) => v.iter().map(Option::is_some).collect(),
+            Self::I64(v) => v.iter().map(Option::is_some).collect(),
+            Self::U64(v) => v.iter().map(Option::is_some).collect(),
+            Self::F32(v) => v.iter().map(Option::is_some).collect(),
+            Self::F64(v) => v.iter().map(Option::is_some).collect(),
+            Self::Str(v) => v.iter().map(Option::is_some).collect(),
+            Self::SharedDict(_) => Err(NotImplemented("presence stream for shared dict"))?,
         })
     }
 
     fn name(&self) -> &'static str {
         match self {
-            PropValue::Bool(_) => "bool",
-            PropValue::I8(_) => "i8",
-            PropValue::U8(_) => "u8",
-            PropValue::I32(_) => "i32",
-            PropValue::U32(_) => "u32",
-            PropValue::I64(_) => "i64",
-            PropValue::U64(_) => "u64",
-            PropValue::F32(_) => "f32",
-            PropValue::F64(_) => "f64",
-            PropValue::Str(_) => "str",
-            PropValue::SharedDict(_) => "shared_dict",
+            Self::Bool(_) => "bool",
+            Self::I8(_) => "i8",
+            Self::U8(_) => "u8",
+            Self::I32(_) => "i32",
+            Self::U32(_) => "u32",
+            Self::I64(_) => "i64",
+            Self::U64(_) => "u64",
+            Self::F32(_) => "f32",
+            Self::F64(_) => "f64",
+            Self::Str(_) => "str",
+            Self::SharedDict(_) => "shared_dict",
         }
     }
 }
@@ -542,10 +542,10 @@ pub enum ScalarValueEncoder {
 impl ScalarValueEncoder {
     fn name(self) -> &'static str {
         match self {
-            ScalarValueEncoder::Int(_) => "int",
-            ScalarValueEncoder::String(_) => "string",
-            ScalarValueEncoder::Float => "float",
-            ScalarValueEncoder::Bool => "bool",
+            Self::Int(_) => "int",
+            Self::String(_) => "string",
+            Self::Float => "float",
+            Self::Bool => "bool",
         }
     }
 }
