@@ -1,23 +1,13 @@
-use borrowme::borrowme;
-use num_enum::TryFromPrimitive;
-
 use crate::MltError::ParsingStreamType;
 use crate::utils::{
     encode_fastpfor, encode_u32s_to_bytes, encode_u64s_to_bytes, encode_varint, parse_u8,
 };
 use crate::v01::{
     DictionaryType, LengthType, OffsetType, OwnedDataVarInt, OwnedEncodedData, OwnedStreamData,
+    PhysicalEncoding, StreamType,
 };
 use crate::{MltError, MltRefResult};
 
-/// How should the stream be interpreted at the physical level (first pass of decoding)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum StreamType {
-    Present,
-    Data(DictionaryType),
-    Offset(OffsetType),
-    Length(LengthType),
-}
 impl StreamType {
     pub fn parse(input: &'_ [u8]) -> MltRefResult<'_, Self> {
         let (input, value) = parse_u8(input)?;
@@ -58,22 +48,6 @@ impl StreamType {
         debug_assert!(low4 <= 0x0F, "secondary types should not exceed 4 bit");
         high4 | low4
     }
-}
-
-/// Physical encoding used for a column, as stored in the tile
-#[borrowme]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
-#[repr(u8)]
-pub enum PhysicalEncoding {
-    None = 0,
-    /// Preferred, tends to produce the best compression ratio and decoding performance.
-    /// But currently limited to 32-bit integer.
-    FastPFOR = 1,
-    /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
-    /// Simple compression scheme where the encoding is easier to implement compared to `FastPfor`.
-    VarInt = 2,
-    /// Adaptive Lossless floating-Point Compression
-    Alp = 3,
 }
 
 impl PhysicalEncoding {

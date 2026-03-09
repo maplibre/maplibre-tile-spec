@@ -1,12 +1,10 @@
 use super::DecodedId;
-use crate::{
-    FromDecoded as _, FromEncoded as _, MltError,
-    optimizer::AutomaticOptimisation,
-    v01::{
-        DataProfile, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, OwnedEncodedId, OwnedId,
-        PhysicalEncoder,
-    },
+use crate::optimizer::AutomaticOptimisation;
+use crate::v01::{
+    DataProfile, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, OwnedEncodedId, OwnedId,
+    PhysicalEncoder,
 };
+use crate::{FromDecoded as _, FromEncoded as _, MltError};
 
 /// Analyses a [`DecodedId`] and returns an [`IdEncoder`] with near-optimal
 /// encoding settings.

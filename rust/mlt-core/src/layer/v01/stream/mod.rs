@@ -2,14 +2,14 @@ mod encoder;
 mod logical;
 mod optimizer;
 mod physical;
+mod structs;
 
 use std::fmt::Debug;
 use std::io::Write;
 use std::{fmt, io};
 
-use borrowme::borrowme;
 use integer_encoding::VarIntWriter as _;
-use num_enum::TryFromPrimitive;
+pub use structs::*;
 
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{
@@ -17,40 +17,12 @@ use crate::utils::{
     decode_bytes_to_u64s, decode_fastpfor_composite, encode_bools_to_bytes, encode_byte_rle,
     parse_u8, parse_varint, parse_varint_vec, take,
 };
-use crate::v01::property::strings::OwnedEncodedStrings;
+use crate::v01::OwnedEncodedStrings;
 pub use crate::v01::stream::encoder::{FsstStrEncoder, IntEncoder};
-pub use crate::v01::stream::logical::{
-    LogicalData, LogicalEncoder, LogicalEncoding, LogicalTechnique, LogicalValue,
-};
+pub use crate::v01::stream::logical::LogicalEncoder;
 pub use crate::v01::stream::optimizer::DataProfile;
-pub use crate::v01::stream::physical::{PhysicalEncoder, PhysicalEncoding, StreamType};
+pub use crate::v01::stream::physical::PhysicalEncoder;
 use crate::{MltError, MltRefResult};
-
-#[derive(Clone, Copy, PartialEq)]
-pub struct IntEncoding {
-    pub logical: LogicalEncoding,
-    pub physical: PhysicalEncoding,
-}
-
-impl IntEncoding {
-    #[must_use]
-    pub const fn new(logical: LogicalEncoding, physical: PhysicalEncoding) -> Self {
-        Self { logical, physical }
-    }
-
-    #[must_use]
-    pub const fn none() -> Self {
-        Self::new(LogicalEncoding::None, PhysicalEncoding::None)
-    }
-}
-
-/// Representation of an encoded stream
-#[borrowme]
-#[derive(Debug, PartialEq, Clone)]
-pub struct Stream<'a> {
-    pub meta: StreamMeta,
-    pub data: StreamData<'a>,
-}
 
 impl Analyze for Stream<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
@@ -450,13 +422,7 @@ impl OwnedStream {
         })
     }
 }
-/// Metadata about an encoded stream
-#[derive(Clone, Copy, PartialEq)]
-pub struct StreamMeta {
-    pub stream_type: StreamType,
-    pub encoding: IntEncoding,
-    pub num_values: u32,
-}
+
 impl StreamMeta {
     #[must_use]
     pub fn new(stream_type: StreamType, encoding: IntEncoding, num_values: u32) -> Self {
@@ -615,107 +581,6 @@ impl Debug for StreamMeta {
             .finish()
     }
 }
-
-/// Dictionary type used for a column, as stored in the tile
-#[borrowme]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
-#[repr(u8)]
-pub enum DictionaryType {
-    None = 0,
-    Single = 1,
-    Shared = 2,
-    Vertex = 3,
-    Morton = 4,
-    Fsst = 5,
-}
-
-/// Offset type used for a column, as stored in the tile
-#[borrowme]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
-#[repr(u8)]
-pub enum OffsetType {
-    Vertex = 0,
-    Index = 1,
-    String = 2,
-    Key = 3,
-}
-
-/// Length type used for a column, as stored in the tile
-#[borrowme]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
-#[repr(u8)]
-pub enum LengthType {
-    VarBinary = 0,
-    Geometries = 1,
-    Parts = 2,
-    Rings = 3,
-    Triangles = 4,
-    Symbol = 5,
-    Dictionary = 6,
-}
-
-/// Metadata for RLE decoding
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct RleMeta {
-    pub runs: u32,
-    pub num_rle_values: u32,
-}
-
-/// Metadata for Morton decoding
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct MortonMeta {
-    pub num_bits: u32,
-    pub coordinate_shift: u32,
-}
-
-/// Representation of the raw stream data, in various physical formats
-macro_rules! stream_data {
-    ($($enm:ident : $ty:ident / $owned:ident),+ $(,)?) => {
-        #[borrowme]
-        #[derive(Debug, PartialEq, Clone)]
-        pub enum StreamData<'a> {
-            $($enm($ty<'a>),)+
-        }
-
-    impl crate::Analyze for StreamData<'_> {
-        fn collect_statistic(&self, stat: crate::StatType) -> usize {
-            match &self {
-                $(StreamData::$enm(d) => d.data.collect_statistic(stat),)+
-            }
-        }
-    }
-
-        $(
-            #[borrowme]
-            #[derive(PartialEq, Clone)]
-            pub struct $ty<'a> {
-                #[borrowme(borrow_with = Vec::as_slice)]
-                pub data: &'a [u8],
-            }
-            impl<'a> $ty<'a> {
-                #[expect(clippy::new_ret_no_self)]
-                pub fn new(data: &'a [u8]) -> StreamData<'a> {
-                    StreamData::$enm(Self { data } )
-                }
-            }
-            impl<'a> Debug for $ty<'a> {
-                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    $crate::utils::formatter::fmt_byte_array(self.data, f)
-                }
-            }
-            impl<'a> Debug for $owned {
-                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    $crate::utils::formatter::fmt_byte_array(&self.data, f)
-                }
-            }
-        )+
-    };
-}
-
-stream_data![
-    VarInt: DataVarInt / OwnedDataVarInt,
-    Encoded: EncodedData / OwnedEncodedData,
-];
 
 impl OwnedStreamData {
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
@@ -978,7 +843,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::v01::property::strings::{EncodedStrings, decode_strings};
+    use crate::v01::{EncodedStrings, decode_strings};
 
     /// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
     fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {

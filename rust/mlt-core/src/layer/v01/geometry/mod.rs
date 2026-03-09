@@ -2,11 +2,11 @@ mod decode;
 mod encode;
 mod geotype;
 mod optimizer;
+mod structs;
 
 use std::fmt::Debug;
 use std::io::Write;
 
-use borrowme::borrowme;
 use decode::{
     decode_geometry_types, decode_level1_length_stream,
     decode_level1_without_ring_buffer_length_stream, decode_level2_length_stream,
@@ -14,33 +14,19 @@ use decode::{
 };
 pub use encode::GeometryEncoder;
 use integer_encoding::VarIntWriter as _;
-use num_enum::TryFromPrimitive;
 pub use optimizer::GeometryOptimizer;
-use serde::{Deserialize, Serialize};
+pub use structs::*;
 
 use crate::MltError::NotImplemented;
 use crate::analyse::{Analyze, StatType};
 use crate::decode::impl_decodable;
 use crate::encode::impl_encodable;
 use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _, checked_sum2};
-use crate::v01::column::ColumnType;
 use crate::v01::{
-    DictionaryType, IntEncoding, LengthType, OffsetType, OwnedStream, Stream, StreamMeta,
-    StreamType,
+    ColumnType, DictionaryType, IntEncoding, LengthType, OffsetType, OwnedStream, Stream,
+    StreamMeta, StreamType,
 };
 use crate::{FromDecoded, FromEncoded, MltError};
-
-/// Geometry column representation, either encoded or decoded
-#[borrowme]
-#[derive(Debug, PartialEq, Clone)]
-#[cfg_attr(
-    all(not(test), feature = "arbitrary"),
-    owned_attr(derive(arbitrary::Arbitrary))
-)]
-pub enum Geometry<'a> {
-    Encoded(EncodedGeometry<'a>),
-    Decoded(DecodedGeometry),
-}
 
 impl Analyze for Geometry<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
@@ -74,14 +60,6 @@ impl OwnedGeometry {
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
-}
-
-/// Unparsed geometry data as read directly from the tile
-#[borrowme]
-#[derive(Debug, PartialEq, Clone)]
-pub struct EncodedGeometry<'a> {
-    pub meta: Stream<'a>,
-    pub items: Vec<Stream<'a>>,
 }
 
 impl Default for OwnedEncodedGeometry {
@@ -149,20 +127,6 @@ impl OwnedEncodedGeometry {
     }
 }
 
-/// Decoded geometry data
-#[derive(Clone, Default, PartialEq)]
-pub struct DecodedGeometry {
-    // pub vector_type: VectorType,
-    // pub vertex_buffer_type: VertexBufferType,
-    pub vector_types: Vec<GeometryType>,
-    pub geometry_offsets: Option<Vec<u32>>,
-    pub part_offsets: Option<Vec<u32>>,
-    pub ring_offsets: Option<Vec<u32>>,
-    pub index_buffer: Option<Vec<u32>>,
-    pub triangles: Option<Vec<u32>>,
-    pub vertices: Option<Vec<i32>>,
-}
-
 impl Analyze for DecodedGeometry {
     fn collect_statistic(&self, stat: StatType) -> usize {
         match stat {
@@ -179,33 +143,6 @@ impl Analyze for DecodedGeometry {
             StatType::FeatureCount => self.vector_types.len(),
         }
     }
-}
-
-/// Types of geometries supported in MLT
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    PartialOrd,
-    Eq,
-    Hash,
-    Ord,
-    TryFromPrimitive,
-    strum::Display,
-    strum::IntoStaticStr,
-    Serialize,
-    Deserialize,
-)]
-#[repr(u8)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-pub enum GeometryType {
-    Point,
-    LineString,
-    Polygon,
-    MultiPoint,
-    MultiLineString,
-    MultiPolygon,
 }
 
 impl GeometryType {
@@ -234,29 +171,6 @@ impl Analyze for GeometryType {
         size_of::<Self>()
     }
 }
-
-/// Describes how the vertex buffer should be encoded.
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum VertexBufferType {
-    /// Standard 2D `(x, y)` pairs encoded with componentwise delta.
-    #[default]
-    Vec2,
-    /// Morton (Z-order) dictionary encoding:
-    /// Unique vertices are sorted by their Morton code and stored once.
-    /// Each vertex position in the stream is replaced by its index into that dictionary.
-    Morton,
-}
-
-// #[derive(Debug, Clone, Copy, PartialEq)]
-// pub enum VectorType {
-//     Flat,
-//     Const,
-//     Sequence,
-//     // Dictionary,
-//     // FsstDictionary,
-// }
 
 impl_decodable!(Geometry<'a>, EncodedGeometry<'a>, DecodedGeometry);
 impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedEncodedGeometry);

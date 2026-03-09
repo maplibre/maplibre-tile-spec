@@ -1,11 +1,12 @@
 mod optimizer;
 pub mod strings;
+mod structs;
 
 use std::fmt::{self, Debug};
 use std::io::Write;
 
-use borrowme::borrowme;
 use integer_encoding::VarIntWriter as _;
+pub use structs::*;
 
 use crate::MltError::{NotImplemented, UnsupportedPropertyEncoderCombination};
 use crate::analyse::{Analyze, StatType};
@@ -15,28 +16,13 @@ use crate::utils::{
 };
 pub use crate::v01::property::optimizer::PropertyOptimizer;
 pub use crate::v01::property::strings::{
-    EncodedSharedDict, EncodedStrings, EncodedValues, SharedDictEncoder, SharedDictItemEncoder,
-    StrEncoder, decode_shared_dict, decode_strings, decode_strings_with_presence,
-    encode_shared_dict_prop,
+    SharedDictEncoder, SharedDictItemEncoder, StrEncoder, decode_shared_dict, decode_strings,
+    decode_strings_with_presence, encode_shared_dict_prop,
 };
-use crate::v01::strings::OwnedEncodedValues;
 use crate::v01::{
     ColumnType, DictionaryType, FsstStrEncoder, IntEncoder, LengthType, OwnedStream, Stream,
 };
 use crate::{FromDecoded, MltError, impl_encodable};
-
-/// Property representation, either encoded or decoded
-#[expect(clippy::large_enum_variant)]
-#[borrowme]
-#[derive(Debug, PartialEq)]
-#[cfg_attr(
-    all(not(test), feature = "arbitrary"),
-    owned_attr(derive(arbitrary::Arbitrary))
-)]
-pub enum Property<'a> {
-    Encoded(EncodedProperty<'a>),
-    Decoded(DecodedProperty),
-}
 
 impl Analyze for Property<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
@@ -103,22 +89,6 @@ impl OwnedProperty {
             },
         }
     }
-}
-
-pub enum AproxPropertyType {
-    Bool,
-    Integer,
-    Float,
-    String,
-    SharedDict,
-}
-
-/// Unparsed property data as read directly from the tile
-#[borrowme]
-#[derive(Debug, PartialEq)]
-pub struct EncodedProperty<'a> {
-    name: &'a str,
-    pub(crate) value: EncodedPropValue<'a>,
 }
 
 impl<'a> EncodedProperty<'a> {
@@ -308,23 +278,6 @@ impl arbitrary::Arbitrary<'_> for OwnedEncodedProperty {
     }
 }
 
-/// A sequence of encoded property values of various types
-#[borrowme]
-#[derive(Debug, PartialEq)]
-pub enum EncodedPropValue<'a> {
-    Bool(EncodedValues<'a>),
-    I8(EncodedValues<'a>),
-    U8(EncodedValues<'a>),
-    I32(EncodedValues<'a>),
-    U32(EncodedValues<'a>),
-    I64(EncodedValues<'a>),
-    U64(EncodedValues<'a>),
-    F32(EncodedValues<'a>),
-    F64(EncodedValues<'a>),
-    Str(EncodedStrings<'a>),
-    SharedDict(EncodedSharedDict<'a>),
-}
-
 impl Analyze for EncodedPropValue<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         match self {
@@ -354,14 +307,6 @@ impl Analyze for EncodedPropValue<'_> {
     }
 }
 
-/// Decoded property values as a name and a vector of optional typed values
-#[derive(Debug, Clone, Default, PartialEq)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct DecodedProperty {
-    pub name: String,
-    pub values: PropValue,
-}
-
 impl Analyze for DecodedProperty {
     fn collect_statistic(&self, stat: StatType) -> usize {
         let meta = if stat == StatType::DecodedMetaSize {
@@ -370,40 +315,6 @@ impl Analyze for DecodedProperty {
             0
         };
         meta + self.values.collect_statistic(stat)
-    }
-}
-
-/// A single sub-property within a shared dictionary decoded value.
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct SharedDictItem {
-    /// The suffix name of this sub-property (appended to parent struct name).
-    pub suffix: String,
-    /// The string values for each feature (None = null).
-    pub values: Vec<Option<String>>,
-}
-
-/// Decoded property value types
-#[derive(Clone, PartialEq)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum PropValue {
-    Bool(Vec<Option<bool>>),
-    I8(Vec<Option<i8>>),
-    U8(Vec<Option<u8>>),
-    I32(Vec<Option<i32>>),
-    U32(Vec<Option<u32>>),
-    I64(Vec<Option<i64>>),
-    U64(Vec<Option<u64>>),
-    F32(Vec<Option<f32>>),
-    F64(Vec<Option<f64>>),
-    Str(Vec<Option<String>>),
-    /// Shared dictionary with multiple string sub-properties.
-    SharedDict(Vec<SharedDictItem>),
-}
-
-impl Default for PropValue {
-    fn default() -> Self {
-        Self::Bool(Vec::new())
     }
 }
 
@@ -637,15 +548,6 @@ impl ScalarValueEncoder {
             ScalarValueEncoder::Bool => "bool",
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumIter)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum PresenceStream {
-    /// Attaches a nullability stream
-    Present,
-    /// If there are nulls, drop them
-    Absent,
 }
 
 impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {

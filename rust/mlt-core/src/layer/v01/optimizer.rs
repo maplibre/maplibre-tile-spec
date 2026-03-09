@@ -1,8 +1,6 @@
-use crate::{
-    MltError,
-    optimizer::AutomaticOptimisation,
-    v01::{GeometryEncoder, IdEncoder, OwnedLayer01, PropertyEncoder},
-};
+use crate::MltError;
+use crate::optimizer::AutomaticOptimisation;
+use crate::v01::{GeometryEncoder, IdEncoder, OwnedLayer01, PropertyEncoder};
 
 impl AutomaticOptimisation for OwnedLayer01 {
     type UsedEncoder = Tag01Encoder;
