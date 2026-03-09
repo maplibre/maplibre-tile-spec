@@ -25,8 +25,8 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
             ctx.draw(&Rectangle {
                 x: 0.0,
                 y: 0.0,
-                width: ext as f64,
-                height: ext as f64,
+                width: f64::from(ext),
+                height: f64::from(ext),
                 color: CLR_EXTENT,
             });
 
@@ -72,14 +72,14 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
 pub fn render_tile_preview(f: &mut Frame<'_>, area: Rect, fc: &FeatureCollection, extent: u32) {
     let canvas = Canvas::default()
         .block(block_with_title("Tile Preview"))
-        .x_bounds([0.0, extent as f64])
-        .y_bounds([0.0, extent as f64])
+        .x_bounds([0.0, f64::from(extent)])
+        .y_bounds([0.0, f64::from(extent)])
         .paint(|ctx| {
             ctx.draw(&Rectangle {
                 x: 0.0,
                 y: 0.0,
-                width: extent as f64,
-                height: extent as f64,
+                width: f64::from(extent),
+                height: f64::from(extent),
                 color: CLR_EXTENT,
             });
             for feat in &fc.features {

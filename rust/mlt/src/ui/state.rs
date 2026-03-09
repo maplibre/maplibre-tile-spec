@@ -695,8 +695,8 @@ impl App {
 
         x0 = x0.min(0.0);
         y0 = y0.min(0.0);
-        x1 = x1.max(ext as f64);
-        y1 = y1.max(ext as f64);
+        x1 = x1.max(f64::from(ext));
+        y1 = y1.max(f64::from(ext));
         let px = (x1 - x0) * 0.1;
         let py = (y1 - y0) * 0.1;
         (x0 - px, y0 - py, x1 + px, y1 + py)

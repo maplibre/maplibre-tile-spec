@@ -130,8 +130,7 @@ fn extent_from_fc(fc: &FeatureCollection) -> u32 {
                 .get("_extent")
                 .and_then(serde_json::Value::as_u64)
         })
-        .map(|e| e as u32)
-        .unwrap_or(4096)
+        .map_or(4096, |v| u32::try_from(v).expect("_extent is valid u32"))
 }
 
 fn refresh_tile_preview(app: &mut App) {
@@ -162,8 +161,7 @@ fn group_by_layer(fc: &FeatureCollection) -> Vec<LayerGroup> {
             .properties
             .get("_extent")
             .and_then(serde_json::Value::as_u64)
-            .map(|e| e as u32)
-            .unwrap_or(4096);
+            .map_or(4096, |v| u32::try_from(v).expect("_extent is valid u32"));
         if let Some(g) = groups.iter_mut().find(|g| g.name == name) {
             g.feature_indices.push(i);
         } else {
