@@ -54,14 +54,14 @@ impl IntEncoder {
     #[must_use]
     pub fn auto_u32(values: &[u32]) -> IntEncoder {
         let enc = DataProfile::prune_candidates::<i32>(values);
-        DataProfile::min_size_encoding_u32s(&enc, values)
+        DataProfile::compete_u32(&enc, values)
     }
 
     /// Automatically select the best encoder for a `u64` stream.
     #[must_use]
     pub fn auto_u64(values: &[u64]) -> IntEncoder {
         let enc = DataProfile::prune_candidates::<i64>(values);
-        DataProfile::min_size_encoding_u64s(&enc, values)
+        DataProfile::compete_u64(&enc, values)
     }
 }
 
