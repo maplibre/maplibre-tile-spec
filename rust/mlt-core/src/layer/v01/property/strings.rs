@@ -34,12 +34,14 @@ pub struct EncodedValues<'a> {
 pub enum EncodedSharedDict<'a> {
     /// Plain shared dict (2 streams): lengths + data.
     Plain {
+        prefix: &'a str,
         lengths: Stream<'a>,
         data: Stream<'a>,
         children: Vec<EncodedValues<'a>>,
     },
     /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
     FsstPlain {
+        prefix: &'a str,
         symbol_lengths: Stream<'a>,
         symbol_table: Stream<'a>,
         lengths: Stream<'a>,
@@ -96,17 +98,20 @@ impl StrEncoder {
 pub enum EncodedStrings<'a> {
     /// Plain: length stream + data stream
     Plain {
+        name: &'a str,
         lengths: Stream<'a>,
         data: Stream<'a>,
     },
     /// Dictionary: lengths + offsets + dictionary data
     Dictionary {
+        name: &'a str,
         lengths: Stream<'a>,
         offsets: Stream<'a>,
         data: Stream<'a>,
     },
     /// FSST plain (4 streams): symbol lengths, symbol table, value lengths, compressed corpus. No offsets.
     FsstPlain {
+        name: &'a str,
         symbol_lengths: Stream<'a>,
         symbol_table: Stream<'a>,
         lengths: Stream<'a>,
@@ -114,6 +119,7 @@ pub enum EncodedStrings<'a> {
     },
     /// FSST dictionary (5 streams): symbol lengths, symbol table, value lengths, compressed corpus, offsets.
     FsstDictionary {
+        name: &'a str,
         symbol_lengths: Stream<'a>,
         symbol_table: Stream<'a>,
         lengths: Stream<'a>,
@@ -136,16 +142,21 @@ macro_rules! validate_stream {
 }
 
 impl<'a> EncodedStrings<'a> {
-    pub fn plain(lengths: Stream<'a>, data: Stream<'a>) -> Result<Self, MltError> {
+    pub fn plain(name: &'a str, lengths: Stream<'a>, data: Stream<'a>) -> Result<Self, MltError> {
         validate_stream!(lengths, StreamType::Length(LengthType::VarBinary));
         validate_stream!(
             data,
             StreamType::Data(DictionaryType::None | DictionaryType::Single)
         );
-        Ok(Self::Plain { lengths, data })
+        Ok(Self::Plain {
+            name,
+            lengths,
+            data,
+        })
     }
 
     pub fn dictionary(
+        name: &'a str,
         lengths: Stream<'a>,
         offsets: Stream<'a>,
         data: Stream<'a>,
@@ -154,6 +165,7 @@ impl<'a> EncodedStrings<'a> {
         validate_stream!(offsets, StreamType::Offset(OffsetType::String));
         validate_stream!(data, StreamType::Data(DictionaryType::Single));
         Ok(Self::Dictionary {
+            name,
             lengths,
             offsets,
             data,
@@ -161,6 +173,7 @@ impl<'a> EncodedStrings<'a> {
     }
 
     pub fn fsst_plain(
+        name: &'a str,
         symbol_lengths: Stream<'a>,
         symbol_table: Stream<'a>,
         lengths: Stream<'a>,
@@ -171,6 +184,7 @@ impl<'a> EncodedStrings<'a> {
         validate_stream!(lengths, StreamType::Length(LengthType::Dictionary));
         validate_stream!(corpus, StreamType::Data(DictionaryType::Single));
         Ok(Self::FsstPlain {
+            name,
             symbol_lengths,
             symbol_table,
             lengths,
@@ -179,6 +193,7 @@ impl<'a> EncodedStrings<'a> {
     }
 
     pub fn fsst_dictionary(
+        name: &'a str,
         symbol_lengths: Stream<'a>,
         symbol_table: Stream<'a>,
         lengths: Stream<'a>,
@@ -191,6 +206,7 @@ impl<'a> EncodedStrings<'a> {
         validate_stream!(corpus, StreamType::Data(DictionaryType::Single));
         validate_stream!(offsets, StreamType::Offset(OffsetType::String));
         Ok(Self::FsstDictionary {
+            name,
             symbol_lengths,
             symbol_table,
             lengths,
@@ -203,17 +219,19 @@ impl<'a> EncodedStrings<'a> {
     #[must_use]
     pub fn streams(&self) -> Vec<&Stream<'_>> {
         match self {
-            Self::Plain { lengths, data } => vec![lengths, data],
+            Self::Plain { lengths, data, .. } => vec![lengths, data],
             Self::Dictionary {
                 lengths,
                 offsets,
                 data,
+                ..
             } => vec![lengths, offsets, data],
             Self::FsstPlain {
                 symbol_lengths,
                 symbol_table,
                 lengths,
                 corpus,
+                ..
             } => vec![symbol_lengths, symbol_table, lengths, corpus],
             Self::FsstDictionary {
                 symbol_lengths,
@@ -221,6 +239,7 @@ impl<'a> EncodedStrings<'a> {
                 lengths,
                 corpus,
                 offsets,
+                ..
             } => vec![symbol_lengths, symbol_table, lengths, corpus, offsets],
         }
     }
@@ -231,17 +250,19 @@ impl OwnedEncodedStrings {
     #[must_use]
     pub fn streams(&self) -> Vec<&OwnedStream> {
         match self {
-            Self::Plain { lengths, data } => vec![lengths, data],
+            Self::Plain { lengths, data, .. } => vec![lengths, data],
             Self::Dictionary {
                 lengths,
                 offsets,
                 data,
+                ..
             } => vec![lengths, offsets, data],
             Self::FsstPlain {
                 symbol_lengths,
                 symbol_table,
                 lengths,
                 corpus,
+                ..
             } => vec![symbol_lengths, symbol_table, lengths, corpus],
             Self::FsstDictionary {
                 symbol_lengths,
@@ -249,6 +270,7 @@ impl OwnedEncodedStrings {
                 lengths,
                 corpus,
                 offsets,
+                ..
             } => vec![symbol_lengths, symbol_table, lengths, corpus, offsets],
         }
     }
@@ -257,6 +279,7 @@ impl OwnedEncodedStrings {
 impl<'a> EncodedSharedDict<'a> {
     /// Plain shared dict (2 streams): lengths + data.
     pub fn plain(
+        prefix: &'a str,
         lengths: Stream<'a>,
         data: Stream<'a>,
         children: Vec<EncodedValues<'a>>,
@@ -264,6 +287,7 @@ impl<'a> EncodedSharedDict<'a> {
         validate_stream!(lengths, StreamType::Length(LengthType::Dictionary));
         validate_stream!(data, StreamType::Data(DictionaryType::Shared));
         Ok(Self::Plain {
+            prefix,
             lengths,
             data,
             children,
@@ -272,6 +296,7 @@ impl<'a> EncodedSharedDict<'a> {
 
     /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
     pub fn fsst_plain(
+        prefix: &'a str,
         symbol_lengths: Stream<'a>,
         symbol_table: Stream<'a>,
         lengths: Stream<'a>,
@@ -286,6 +311,7 @@ impl<'a> EncodedSharedDict<'a> {
             StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
         );
         Ok(Self::FsstPlain {
+            prefix,
             symbol_lengths,
             symbol_table,
             lengths,
@@ -475,7 +501,8 @@ pub fn encode_shared_dictionary(
     }
 
     let struct_prop = match dict_encoded {
-        OwnedEncodedStrings::Plain { lengths, data } => OwnedEncodedSharedDict::Plain {
+        OwnedEncodedStrings::Plain { lengths, data, .. } => OwnedEncodedSharedDict::Plain {
+            prefix: name.to_owned(),
             lengths,
             data,
             children,
@@ -485,7 +512,9 @@ pub fn encode_shared_dictionary(
             symbol_table,
             lengths,
             corpus,
+            ..
         } => OwnedEncodedSharedDict::FsstPlain {
+            prefix: name.to_owned(),
             symbol_lengths,
             symbol_table,
             lengths,
@@ -507,6 +536,7 @@ pub fn encode_shared_dictionary(
 
 /// Encode a shared dictionary property directly from `PropValue::SharedDict` and `SharedDictEncoder`.
 pub fn encode_shared_dict_prop(
+    prefix: &str,
     items: &[SharedDictItem],
     encoder: &SharedDictEncoder,
 ) -> Result<OwnedEncodedPropValue, MltError> {
@@ -575,7 +605,8 @@ pub fn encode_shared_dict_prop(
     }
 
     let struct_prop = match dict_encoded {
-        OwnedEncodedStrings::Plain { lengths, data } => OwnedEncodedSharedDict::Plain {
+        OwnedEncodedStrings::Plain { lengths, data, .. } => OwnedEncodedSharedDict::Plain {
+            prefix: prefix.to_owned(),
             lengths,
             data,
             children,
@@ -585,7 +616,9 @@ pub fn encode_shared_dict_prop(
             symbol_table,
             lengths,
             corpus,
+            ..
         } => OwnedEncodedSharedDict::FsstPlain {
+            prefix: prefix.to_owned(),
             symbol_lengths,
             symbol_table,
             lengths,
@@ -618,7 +651,7 @@ impl OwnedEncodedValues {
 /// Decode string property from its encoded stream encoding.
 pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltError> {
     match encoding {
-        EncodedStrings::Plain { lengths, data } => {
+        EncodedStrings::Plain { lengths, data, .. } => {
             let lens = lengths.decode_bits_u32()?.decode_u32()?;
             let data_bytes = raw_bytes(data);
             split_to_strings(&lens, &data_bytes)
@@ -627,6 +660,7 @@ pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltEr
             lengths,
             offsets,
             data,
+            ..
         } => {
             let dict_lens = lengths.decode_bits_u32()?.decode_u32()?;
             let dict_bytes = raw_bytes(data);
@@ -639,6 +673,7 @@ pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltEr
             symbol_table,
             lengths,
             corpus,
+            ..
         } => {
             let sym_lens = symbol_lengths.decode_bits_u32()?.decode_u32()?;
             let sym_data = raw_bytes(symbol_table);
@@ -653,6 +688,7 @@ pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltEr
             lengths,
             corpus,
             offsets,
+            ..
         } => {
             let sym_lens = symbol_lengths.decode_bits_u32()?.decode_u32()?;
             let sym_data = raw_bytes(symbol_table);

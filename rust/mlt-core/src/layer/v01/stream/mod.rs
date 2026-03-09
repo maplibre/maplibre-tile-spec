@@ -251,6 +251,7 @@ impl OwnedStream {
             .collect();
 
         Ok(OwnedEncodedStrings::Plain {
+            name: String::new(),
             lengths: Self::encode_u32s_of_type(
                 &lengths,
                 length_encoding,
@@ -360,6 +361,7 @@ impl OwnedStream {
         )?;
 
         Ok(OwnedEncodedStrings::FsstDictionary {
+            name: String::new(),
             symbol_lengths: symbol_length_stream,
             symbol_table: symbol_table_stream,
             lengths: value_length_stream,
@@ -437,6 +439,7 @@ impl OwnedStream {
         };
 
         Ok(OwnedEncodedStrings::FsstPlain {
+            name: String::new(),
             symbol_lengths: symbol_length_stream,
             symbol_table: symbol_table_stream,
             lengths: value_length_stream,
@@ -1383,15 +1386,21 @@ mod tests {
             }
 
             let encoding = match parsed_streams.len() {
-                2 => EncodedStrings::plain(parsed_streams[0].clone(), parsed_streams[1].clone())
-                    .unwrap(),
+                2 => EncodedStrings::plain(
+                    "",
+                    parsed_streams[0].clone(),
+                    parsed_streams[1].clone(),
+                )
+                .unwrap(),
                 3 => EncodedStrings::dictionary(
+                    "",
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
                     parsed_streams[2].clone(),
                 )
                 .unwrap(),
                 4 => EncodedStrings::fsst_plain(
+                    "",
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
                     parsed_streams[2].clone(),
@@ -1399,6 +1408,7 @@ mod tests {
                 )
                 .unwrap(),
                 5 => EncodedStrings::fsst_dictionary(
+                    "",
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
                     parsed_streams[2].clone(),

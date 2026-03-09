@@ -622,7 +622,7 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
                     };
                     result.push(OwnedEncodedProperty {
                         name: prop.name.clone(),
-                        value: encode_shared_dict_prop(items, &enc)?,
+                        value: encode_shared_dict_prop(&prop.name, items, &enc)?,
                     });
                 }
             }
