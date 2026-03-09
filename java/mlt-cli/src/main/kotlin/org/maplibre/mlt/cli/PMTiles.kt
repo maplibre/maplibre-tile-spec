@@ -205,7 +205,7 @@ private fun encodePMTiles(
             }
 
             if (state.success.get()) {
-                logger.debug("Finalizing MBTiles file")
+                logger.debug("Finalizing PMTiles file")
                 writer.finish(newMetadata)
             }
 

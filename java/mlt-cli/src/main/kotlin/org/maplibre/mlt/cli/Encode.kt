@@ -359,7 +359,7 @@ object Encode {
                 if (result.isPresent) {
                     logger.warn("Tiles do not match: {}", result)
                 } else {
-                    logger.debug("Tiles match")
+                    logger.debug("Tiles match: {}:{},{}", z, x, y)
                 }
             }
         }
