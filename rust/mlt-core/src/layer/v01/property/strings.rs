@@ -18,7 +18,7 @@ use crate::v01::{
 /// A single child field within a `SharedDict` column
 #[borrowme]
 #[derive(Clone, Debug, PartialEq)]
-pub struct EncodedStructChild<'a> {
+pub struct EncodedValues<'a> {
     pub suffix: &'a str,
     pub typ: ColumnType,
     pub optional: Option<Stream<'a>>,
@@ -27,17 +27,17 @@ pub struct EncodedStructChild<'a> {
 
 /// Encoded data for a `SharedDict` column with shared dictionary encoding.
 ///
-/// Unlike `EncodedStrProp`, shared dictionaries do NOT have their own offset stream.
+/// Unlike `EncodedStrings`, shared dictionaries do NOT have their own offset stream.
 /// Instead, each child column has its own offset stream that references the shared dictionary.
 /// This is why only `Plain` and `FsstPlain` variants exist here.
 #[borrowme]
 #[derive(Debug, Clone, PartialEq)]
-pub enum EncodedSharedDictProp<'a> {
+pub enum EncodedSharedDict<'a> {
     /// Plain shared dict (2 streams): lengths + data.
     Plain {
         lengths: Stream<'a>,
         data: Stream<'a>,
-        children: Vec<EncodedStructChild<'a>>,
+        children: Vec<EncodedValues<'a>>,
     },
     /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
     FsstPlain {
@@ -45,7 +45,7 @@ pub enum EncodedSharedDictProp<'a> {
         symbol_table: Stream<'a>,
         lengths: Stream<'a>,
         corpus: Stream<'a>,
-        children: Vec<EncodedStructChild<'a>>,
+        children: Vec<EncodedValues<'a>>,
     },
 }
 
@@ -94,7 +94,7 @@ impl StrEncoder {
 /// `encodeDictionary` / `encodeFsstDictionary`.
 #[borrowme]
 #[derive(Debug, Clone, PartialEq)]
-pub enum EncodedStrProp<'a> {
+pub enum EncodedStrings<'a> {
     /// Plain: length stream + data stream
     Plain {
         lengths: Stream<'a>,
@@ -136,7 +136,7 @@ macro_rules! validate_stream {
     };
 }
 
-impl<'a> EncodedStrProp<'a> {
+impl<'a> EncodedStrings<'a> {
     pub fn plain(lengths: Stream<'a>, data: Stream<'a>) -> Result<Self, MltError> {
         validate_stream!(lengths, StreamType::Length(LengthType::VarBinary));
         validate_stream!(
@@ -227,7 +227,7 @@ impl<'a> EncodedStrProp<'a> {
     }
 }
 
-impl OwnedEncodedStrProp {
+impl OwnedEncodedStrings {
     /// Streams in wire order for serialization.
     #[must_use]
     pub fn streams(&self) -> Vec<&OwnedStream> {
@@ -255,12 +255,12 @@ impl OwnedEncodedStrProp {
     }
 }
 
-impl<'a> EncodedSharedDictProp<'a> {
+impl<'a> EncodedSharedDict<'a> {
     /// Plain shared dict (2 streams): lengths + data.
     pub fn plain(
         lengths: Stream<'a>,
         data: Stream<'a>,
-        children: Vec<EncodedStructChild<'a>>,
+        children: Vec<EncodedValues<'a>>,
     ) -> Result<Self, MltError> {
         validate_stream!(lengths, StreamType::Length(LengthType::Dictionary));
         validate_stream!(data, StreamType::Data(DictionaryType::Shared));
@@ -277,7 +277,7 @@ impl<'a> EncodedSharedDictProp<'a> {
         symbol_table: Stream<'a>,
         lengths: Stream<'a>,
         corpus: Stream<'a>,
-        children: Vec<EncodedStructChild<'a>>,
+        children: Vec<EncodedValues<'a>>,
     ) -> Result<Self, MltError> {
         validate_stream!(symbol_lengths, StreamType::Length(LengthType::Symbol));
         validate_stream!(symbol_table, StreamType::Data(DictionaryType::Fsst));
@@ -349,14 +349,14 @@ impl<'a> EncodedSharedDictProp<'a> {
     }
 
     #[must_use]
-    pub fn children(&self) -> &[EncodedStructChild<'a>] {
+    pub fn children(&self) -> &[EncodedValues<'a>] {
         match self {
             Self::Plain { children, .. } | Self::FsstPlain { children, .. } => children,
         }
     }
 }
 
-impl OwnedEncodedSharedDictProp {
+impl OwnedEncodedSharedDict {
     #[must_use]
     pub fn streams(&self) -> Vec<&OwnedStream> {
         let mut v = self.dict_streams();
@@ -384,7 +384,7 @@ impl OwnedEncodedSharedDictProp {
     }
 
     #[must_use]
-    pub fn children(&self) -> &[OwnedEncodedStructChild] {
+    pub fn children(&self) -> &[OwnedEncodedValues] {
         match self {
             Self::Plain { children, .. } | Self::FsstPlain { children, .. } => children,
         }
@@ -468,7 +468,7 @@ pub fn encode_shared_dictionary(
             StreamType::Offset(OffsetType::String),
         )?;
 
-        children.push(OwnedEncodedStructChild {
+        children.push(OwnedEncodedValues {
             suffix: child.prop_name.clone(),
             typ: if child.optional == PresenceStream::Present {
                 ColumnType::OptStr
@@ -481,24 +481,24 @@ pub fn encode_shared_dictionary(
     }
 
     let struct_prop = match dict_encoded {
-        OwnedEncodedStrProp::Plain { lengths, data } => OwnedEncodedSharedDictProp::Plain {
+        OwnedEncodedStrings::Plain { lengths, data } => OwnedEncodedSharedDict::Plain {
             lengths,
             data,
             children,
         },
-        OwnedEncodedStrProp::FsstPlain {
+        OwnedEncodedStrings::FsstPlain {
             symbol_lengths,
             symbol_table,
             lengths,
             corpus,
-        } => OwnedEncodedSharedDictProp::FsstPlain {
+        } => OwnedEncodedSharedDict::FsstPlain {
             symbol_lengths,
             symbol_table,
             lengths,
             corpus,
             children,
         },
-        OwnedEncodedStrProp::Dictionary { .. } | OwnedEncodedStrProp::FsstDictionary { .. } => {
+        OwnedEncodedStrings::Dictionary { .. } | OwnedEncodedStrings::FsstDictionary { .. } => {
             return Err(NotImplemented(
                 "SharedDict only supports Plain or FsstPlain encoding",
             ));
@@ -573,7 +573,7 @@ pub fn encode_shared_dict_prop(
             StreamType::Offset(OffsetType::String),
         )?;
 
-        children.push(OwnedEncodedStructChild {
+        children.push(OwnedEncodedValues {
             suffix: item.suffix.clone(),
             typ: if item_enc.optional == PresenceStream::Present {
                 ColumnType::OptStr
@@ -586,24 +586,24 @@ pub fn encode_shared_dict_prop(
     }
 
     let struct_prop = match dict_encoded {
-        OwnedEncodedStrProp::Plain { lengths, data } => OwnedEncodedSharedDictProp::Plain {
+        OwnedEncodedStrings::Plain { lengths, data } => OwnedEncodedSharedDict::Plain {
             lengths,
             data,
             children,
         },
-        OwnedEncodedStrProp::FsstPlain {
+        OwnedEncodedStrings::FsstPlain {
             symbol_lengths,
             symbol_table,
             lengths,
             corpus,
-        } => OwnedEncodedSharedDictProp::FsstPlain {
+        } => OwnedEncodedSharedDict::FsstPlain {
             symbol_lengths,
             symbol_table,
             lengths,
             corpus,
             children,
         },
-        OwnedEncodedStrProp::Dictionary { .. } | OwnedEncodedStrProp::FsstDictionary { .. } => {
+        OwnedEncodedStrings::Dictionary { .. } | OwnedEncodedStrings::FsstDictionary { .. } => {
             return Err(NotImplemented(
                 "SharedDict only supports Plain or FsstPlain encoding",
             ));
@@ -613,7 +613,7 @@ pub fn encode_shared_dict_prop(
     Ok(OwnedEncodedPropValue::SharedDict(struct_prop))
 }
 
-impl OwnedEncodedStructChild {
+impl OwnedEncodedValues {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         self.typ.write_to(writer)?;
         writer.write_string(&self.suffix)?;
@@ -622,14 +622,14 @@ impl OwnedEncodedStructChild {
 }
 
 /// Decode string property from its encoded stream encoding.
-pub fn decode_strings(encoding: EncodedStrProp<'_>) -> Result<Vec<String>, MltError> {
+pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltError> {
     match encoding {
-        EncodedStrProp::Plain { lengths, data } => {
+        EncodedStrings::Plain { lengths, data } => {
             let lens = lengths.decode_bits_u32()?.decode_u32()?;
             let data_bytes = raw_bytes(data);
             split_to_strings(&lens, &data_bytes)
         }
-        EncodedStrProp::Dictionary {
+        EncodedStrings::Dictionary {
             lengths,
             offsets,
             data,
@@ -640,7 +640,7 @@ pub fn decode_strings(encoding: EncodedStrProp<'_>) -> Result<Vec<String>, MltEr
             let offset_vals = offsets.decode_bits_u32()?.decode_u32()?;
             resolve_offsets(&dict, &offset_vals)
         }
-        EncodedStrProp::FsstPlain {
+        EncodedStrings::FsstPlain {
             symbol_lengths,
             symbol_table,
             lengths,
@@ -653,7 +653,7 @@ pub fn decode_strings(encoding: EncodedStrProp<'_>) -> Result<Vec<String>, MltEr
             let decompressed = decode_fsst(&sym_data, &sym_lens, &compressed);
             split_to_strings(&dict_lens, &decompressed)
         }
-        EncodedStrProp::FsstDictionary {
+        EncodedStrings::FsstDictionary {
             symbol_lengths,
             symbol_table,
             lengths,
@@ -730,7 +730,7 @@ fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec
 }
 
 /// Decode a struct with shared dictionary into a single decoded property with all children.
-pub fn decode_shared_dict(struct_data: &EncodedSharedDictProp<'_>) -> Result<PropValue, MltError> {
+pub fn decode_shared_dict(struct_data: &EncodedSharedDict<'_>) -> Result<PropValue, MltError> {
     let dict = struct_data.decode_dictionary()?;
     Ok(PropValue::SharedDict(
         struct_data
