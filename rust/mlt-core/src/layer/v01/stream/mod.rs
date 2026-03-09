@@ -17,7 +17,7 @@ use crate::utils::{
     decode_bytes_to_u64s, decode_fastpfor_composite, encode_bools_to_bytes, encode_byte_rle,
     parse_u8, parse_varint, parse_varint_vec, take,
 };
-use crate::v01::property::strings::OwnedEncodedStrProp;
+use crate::v01::property::strings::OwnedEncodedStrings;
 pub use crate::v01::stream::encoder::{FsstStrEncoder, IntEncoder};
 pub use crate::v01::stream::logical::{
     LogicalData, LogicalEncoder, LogicalEncoding, LogicalTechnique, LogicalValue,
@@ -240,7 +240,7 @@ impl OwnedStream {
         length_encoding: IntEncoder,
         length_type: LengthType,
         dict_type: DictionaryType,
-    ) -> Result<OwnedEncodedStrProp, MltError> {
+    ) -> Result<OwnedEncodedStrings, MltError> {
         let lengths: Vec<u32> = values
             .iter()
             .map(|s| u32::try_from(s.as_ref().len()))
@@ -250,7 +250,7 @@ impl OwnedStream {
             .flat_map(|s| s.as_ref().as_bytes().iter().copied())
             .collect();
 
-        Ok(OwnedEncodedStrProp::Plain {
+        Ok(OwnedEncodedStrings::Plain {
             lengths: Self::encode_u32s_of_type(
                 &lengths,
                 length_encoding,
@@ -275,7 +275,7 @@ impl OwnedStream {
         values: &[S],
         encoding: FsstStrEncoder,
         dict_type: DictionaryType,
-    ) -> Result<OwnedEncodedStrProp, MltError> {
+    ) -> Result<OwnedEncodedStrings, MltError> {
         use fsst::Compressor;
 
         // Build byte slices for training
@@ -359,7 +359,7 @@ impl OwnedStream {
             StreamType::Offset(OffsetType::String),
         )?;
 
-        Ok(OwnedEncodedStrProp::FsstDictionary {
+        Ok(OwnedEncodedStrings::FsstDictionary {
             symbol_lengths: symbol_length_stream,
             symbol_table: symbol_table_stream,
             lengths: value_length_stream,
@@ -374,7 +374,7 @@ impl OwnedStream {
         values: &[S],
         encoding: FsstStrEncoder,
         dict_type: DictionaryType,
-    ) -> Result<OwnedEncodedStrProp, MltError> {
+    ) -> Result<OwnedEncodedStrings, MltError> {
         use fsst::Compressor;
 
         let byte_slices: Vec<&[u8]> = values.iter().map(|s| s.as_ref().as_bytes()).collect();
@@ -436,7 +436,7 @@ impl OwnedStream {
             data: OwnedStreamData::Encoded(OwnedEncodedData { data: compressed }),
         };
 
-        Ok(OwnedEncodedStrProp::FsstPlain {
+        Ok(OwnedEncodedStrings::FsstPlain {
             symbol_lengths: symbol_length_stream,
             symbol_table: symbol_table_stream,
             lengths: value_length_stream,
@@ -972,7 +972,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::v01::property::strings::{EncodedStrProp, decode_strings};
+    use crate::v01::property::strings::{EncodedStrings, decode_strings};
 
     /// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
     fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {
@@ -1383,22 +1383,22 @@ mod tests {
             }
 
             let encoding = match parsed_streams.len() {
-                2 => EncodedStrProp::plain(parsed_streams[0].clone(), parsed_streams[1].clone())
+                2 => EncodedStrings::plain(parsed_streams[0].clone(), parsed_streams[1].clone())
                     .unwrap(),
-                3 => EncodedStrProp::dictionary(
+                3 => EncodedStrings::dictionary(
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
                     parsed_streams[2].clone(),
                 )
                 .unwrap(),
-                4 => EncodedStrProp::fsst_plain(
+                4 => EncodedStrings::fsst_plain(
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
                     parsed_streams[2].clone(),
                     parsed_streams[3].clone(),
                 )
                 .unwrap(),
-                5 => EncodedStrProp::fsst_dictionary(
+                5 => EncodedStrings::fsst_dictionary(
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
                     parsed_streams[2].clone(),

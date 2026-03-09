@@ -7,8 +7,8 @@ use crate::analyse::{Analyze, StatType};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::column::ColumnType;
 use crate::v01::{
-    Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedSharedDictProp,
-    EncodedStrProp, EncodedStructChild, Geometry, Id, OwnedId, Property, Stream, StreamType,
+    Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedSharedDict, EncodedStrings,
+    EncodedValues, Geometry, Id, OwnedId, Property, Stream, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -202,7 +202,7 @@ impl Layer01<'_> {
 fn parse_struct_children<'a>(
     mut input: &'a [u8],
     column: &Column<'a>,
-) -> MltRefResult<'a, Vec<EncodedStructChild<'a>>> {
+) -> MltRefResult<'a, Vec<EncodedValues<'a>>> {
     let mut children = Vec::with_capacity(column.children.len());
     for child in &column.children {
         let (inp, sc) = parse_varint::<u32>(input)?;
@@ -214,7 +214,7 @@ fn parse_struct_children<'a>(
             return Err(MltError::UnexpectedStructChildCount(data_count));
         }
         let (inp, child_data) = Stream::parse(inp)?;
-        children.push(EncodedStructChild {
+        children.push(EncodedValues {
             suffix: child.name.unwrap_or(""),
             typ: child.typ,
             optional: child_optional,
@@ -279,13 +279,13 @@ fn parse_str_column(mut input: &[u8], typ: ColumnType) -> MltRefResult<'_, Encod
         *slot = Some(stream);
     }
     let encoding = match str_streams {
-        [Some(s1), Some(s2), None, None, None] => EncodedStrProp::plain(s1, s2)?,
-        [Some(s1), Some(s2), Some(s3), None, None] => EncodedStrProp::dictionary(s1, s2, s3)?,
+        [Some(s1), Some(s2), None, None, None] => EncodedStrings::plain(s1, s2)?,
+        [Some(s1), Some(s2), Some(s3), None, None] => EncodedStrings::dictionary(s1, s2, s3)?,
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
-            EncodedStrProp::fsst_plain(s1, s2, s3, s4)?
+            EncodedStrings::fsst_plain(s1, s2, s3, s4)?
         }
         [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
-            EncodedStrProp::fsst_dictionary(s1, s2, s3, s4, s5)?
+            EncodedStrings::fsst_dictionary(s1, s2, s3, s4, s5)?
         }
         _ => Err(MltError::UnsupportedStringStreamCount(stream_count))?,
     };
@@ -319,9 +319,9 @@ fn parse_shared_dict_column<'a>(
     let children;
     (input, children) = parse_struct_children(input, column)?;
     let shared_dict = match dict_streams {
-        [Some(s1), Some(s2), None, None, None] => EncodedSharedDictProp::plain(s1, s2, children)?,
+        [Some(s1), Some(s2), None, None, None] => EncodedSharedDict::plain(s1, s2, children)?,
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
-            EncodedSharedDictProp::fsst_plain(s1, s2, s3, s4, children)?
+            EncodedSharedDict::fsst_plain(s1, s2, s3, s4, children)?
         }
         _ => Err(MltError::SharedDictRequiresStreams(streams_taken))?,
     };
