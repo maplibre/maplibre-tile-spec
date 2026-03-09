@@ -15,7 +15,7 @@ pub enum Property<'a> {
     Decoded(DecodedProperty),
 }
 
-pub enum AproxPropertyType {
+pub enum ApproxPropertyType {
     Bool,
     Integer,
     Float,

@@ -58,8 +58,8 @@ impl OwnedProperty {
     }
 
     #[must_use]
-    pub fn approx_type(&self) -> AproxPropertyType {
-        use AproxPropertyType as T;
+    pub fn approx_type(&self) -> ApproxPropertyType {
+        use ApproxPropertyType as T;
         use OwnedEncodedPropValue as Enc;
         use PropValue as Dec;
         match self {
