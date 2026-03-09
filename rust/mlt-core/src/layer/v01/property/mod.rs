@@ -16,8 +16,8 @@ use crate::utils::{
 };
 pub use crate::v01::property::optimizer::PropertyOptimizer;
 pub use crate::v01::property::strings::{
-    EncodedSharedDictProp, EncodedStrProp, EncodedStructChild, SharedDictEncoder,
-    SharedDictItemEncoder, StrEncoder, decode_shared_dict, decode_strings, encode_shared_dict_prop,
+    EncodedSharedDict, EncodedStrings, EncodedValues, SharedDictEncoder, SharedDictItemEncoder,
+    StrEncoder, decode_shared_dict, decode_strings, encode_shared_dict_prop,
 };
 use crate::v01::{
     ColumnType, DictionaryType, FsstStrEncoder, IntEncoder, LengthType, OwnedStream, Stream,
@@ -265,8 +265,8 @@ pub enum EncodedPropValue<'a> {
     U64(Option<Stream<'a>>, Stream<'a>),
     F32(Option<Stream<'a>>, Stream<'a>),
     F64(Option<Stream<'a>>, Stream<'a>),
-    Str(Option<Stream<'a>>, EncodedStrProp<'a>),
-    SharedDict(EncodedSharedDictProp<'a>),
+    Str(Option<Stream<'a>>, EncodedStrings<'a>),
+    SharedDict(EncodedSharedDict<'a>),
 }
 
 impl Analyze for EncodedPropValue<'_> {
