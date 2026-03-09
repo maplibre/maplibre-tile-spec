@@ -382,13 +382,13 @@ impl OwnedLayer01 {
         use utils::BinarySerializer as _;
 
         writer.write_string(&self.name)?;
-        writer.write_varint(u64::from(self.extent))?;
+        writer.write_varint(self.extent)?;
 
         // write size
         let has_id = !matches!(self.id, OwnedId::None);
-        let id_columns_count = u64::from(has_id);
+        let id_columns_count = u32::from(has_id);
         let geometry_column_count = 1;
-        let property_column_count = u64::try_from(self.properties.len()).map_err(MltError::from)?;
+        let property_column_count = u32::try_from(self.properties.len()).map_err(MltError::from)?;
         let column_count = property_column_count + id_columns_count + geometry_column_count;
         writer.write_varint(column_count)?;
 

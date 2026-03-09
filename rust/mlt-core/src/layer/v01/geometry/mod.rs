@@ -138,7 +138,7 @@ impl OwnedEncodedGeometry {
     }
 
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        let items_len = u64::try_from(self.items.len())?;
+        let items_len = u32::try_from(self.items.len())?;
         let items_len = checked_sum2(items_len, 1)?;
         writer.write_varint(items_len)?;
         writer.write_stream(&self.meta)?;

@@ -80,8 +80,8 @@ impl OwnedLayer {
             OwnedLayer::Unknown(unknown) => (unknown.tag, Cow::Borrowed(&unknown.value)),
         };
 
-        let size = checked_sum2(buffer.len(), 1)?;
-        let size = u64::try_from(size).map_err(MltError::from)?;
+        let buffer_len = u32::try_from(buffer.len()).map_err(MltError::from)?;
+        let size = checked_sum2(buffer_len, 1)?;
         writer.write_varint(size)?;
         writer.write_u8(tag)?;
         writer.write_all(&buffer)
