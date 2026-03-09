@@ -256,9 +256,11 @@ fn parse_geometry_column<'a>(
 }
 
 fn parse_str_column(mut input: &[u8], typ: ColumnType) -> MltRefResult<'_, EncodedPropValue<'_>> {
-    let stream_count;
-    (input, stream_count) = parse_varint::<u32>(input)?;
-    let mut stream_count = usize::try_from(stream_count)?;
+    let mut stream_count = {
+        let stream_count_u32;
+        (input, stream_count_u32) = parse_varint::<u32>(input)?;
+        usize::try_from(stream_count_u32)?
+    };
     let opt;
     (input, opt) = parse_optional(typ, input)?;
     if opt.is_some() {
