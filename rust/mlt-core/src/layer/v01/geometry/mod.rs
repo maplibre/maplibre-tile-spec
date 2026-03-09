@@ -105,7 +105,7 @@ impl<'a> EncodedGeometry<'a> {
     pub fn parse(input: &'a [u8]) -> crate::MltRefResult<'a, Self> {
         use crate::utils::parse_varint;
 
-        let (input, stream_count) = parse_varint::<u64>(input)?;
+        let (input, stream_count) = parse_varint::<u32>(input)?;
         let stream_count = usize::try_from(stream_count)?;
         if stream_count == 0 {
             return Ok((

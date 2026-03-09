@@ -41,7 +41,7 @@ impl<'a> Layer<'a> {
 
     /// Parse a single tuple that consists of `size (varint)`, `tag (varint)`, and `value (bytes)`
     pub fn parse(input: &'a [u8]) -> MltRefResult<'a, Layer<'a>> {
-        let (input, size) = parse_varint::<usize>(input)?;
+        let (input, size) = parse_varint::<u32>(input)?;
 
         // tag is a varint, but we know fewer than 127 tags for now,
         // so we can use a faster u8 and fail if it is bigger than 127.
