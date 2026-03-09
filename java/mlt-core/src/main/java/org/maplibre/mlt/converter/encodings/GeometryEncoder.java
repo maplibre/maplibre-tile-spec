@@ -58,8 +58,7 @@ public class GeometryEncoder {
   /**
    * Backward-compatible overload that uses {@link IntegerEncodingOption#AUTO} for geometry stream
    * encoding. Prefer {@link #encodePretessellatedGeometryColumn(List, PhysicalLevelTechnique,
-   * SortSettings, boolean, boolean, URI, IntegerEncodingOption, MLTStreamObserver)} when you need
-   * to control encoding.
+   * SortSettings, boolean, boolean, URI, IntegerEncodingOption)} when you need to control encoding.
    */
   public static EncodedGeometryColumn encodePretessellatedGeometryColumn(
       List<Geometry> geometries,
@@ -479,7 +478,7 @@ public class GeometryEncoder {
   /**
    * Backward-compatible overload that uses {@link IntegerEncodingOption#AUTO} for geometry stream
    * encoding. Prefer {@link #encodeGeometryColumn(List, PhysicalLevelTechnique, SortSettings,
-   * boolean, IntegerEncodingOption, MLTStreamObserver)} when you need to control encoding.
+   * boolean, IntegerEncodingOption)} when you need to control encoding.
    */
   public static EncodedGeometryColumn encodeGeometryColumn(
       List<Geometry> geometries,
