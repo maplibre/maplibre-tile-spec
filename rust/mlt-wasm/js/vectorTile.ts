@@ -259,13 +259,7 @@ class MltFeature implements VectorTileFeatureLike {
     for (let k = 0; k < this._propKeys.length; k++) {
       const col = this._propCols[k];
       const val = col[this._featureIdx];
-      // Float columns encode absent as NaN; bool/string columns use undefined.
-      // Integer columns cannot encode absent (0 is used as placeholder) so
-      // those are always included — acceptable for the rendering fast path.
-      if (
-        val !== undefined &&
-        !(typeof val === "number" && Number.isNaN(val))
-      ) {
+      if (val !== undefined) {
         result[this._propKeys[k]] = val as number | string | boolean;
       }
     }
