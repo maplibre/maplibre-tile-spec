@@ -387,7 +387,10 @@ impl SharedDict {
         offset: IntEncoder,
         values: impl IntoIterator<Item = Option<String>>,
     ) -> Self {
-        let enc = SharedDictItemEncoder { optional, offset };
+        let enc = SharedDictItemEncoder {
+            presence: optional,
+            offsets: offset,
+        };
         self.encoder.items.push(enc);
         let suffix = suffix.into();
         let values = values.into_iter().collect();
