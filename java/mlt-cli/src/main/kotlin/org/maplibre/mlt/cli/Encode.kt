@@ -339,13 +339,11 @@ object Encode {
                     if (config.compareGeom && config.compareProp) {
                         CompareMode.All
                     } else {
-                        (
-                            if (config.compareGeom) {
-                                CompareMode.Geometry
-                            } else {
-                                CompareMode.Properties
-                            }
-                        )
+                        if (config.compareGeom) {
+                            CompareMode.Geometry
+                        } else {
+                            CompareMode.Properties
+                        }
                     }
 
                 val result =
