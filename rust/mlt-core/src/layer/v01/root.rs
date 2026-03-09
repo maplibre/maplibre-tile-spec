@@ -155,7 +155,7 @@ impl Layer01<'_> {
                     properties.push(Property::new_encoded(name, EncVal::F64(opt, value)));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
-                    (input, enc_val) = parse_str_column(input, column.typ)?;
+                    (input, enc_val) = parse_str_column(input, name, column.typ)?;
                     properties.push(Property::new_encoded(name, enc_val));
                 }
                 ColumnType::SharedDict => {
@@ -254,7 +254,11 @@ fn parse_geometry_column<'a>(
     Ok(input)
 }
 
-fn parse_str_column(mut input: &[u8], typ: ColumnType) -> MltRefResult<'_, EncodedPropValue<'_>> {
+fn parse_str_column<'a>(
+    mut input: &'a [u8],
+    name: &'a str,
+    typ: ColumnType,
+) -> MltRefResult<'a, EncodedPropValue<'a>> {
     let mut stream_count = {
         let stream_count_u32;
         (input, stream_count_u32) = parse_varint::<u32>(input)?;
@@ -278,13 +282,13 @@ fn parse_str_column(mut input: &[u8], typ: ColumnType) -> MltRefResult<'_, Encod
         *slot = Some(stream);
     }
     let encoding = match str_streams {
-        [Some(s1), Some(s2), None, None, None] => EncodedStrings::plain(s1, s2)?,
-        [Some(s1), Some(s2), Some(s3), None, None] => EncodedStrings::dictionary(s1, s2, s3)?,
+        [Some(s1), Some(s2), None, None, None] => EncodedStrings::plain(name, s1, s2)?,
+        [Some(s1), Some(s2), Some(s3), None, None] => EncodedStrings::dictionary(name, s1, s2, s3)?,
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
-            EncodedStrings::fsst_plain(s1, s2, s3, s4)?
+            EncodedStrings::fsst_plain(name, s1, s2, s3, s4)?
         }
         [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
-            EncodedStrings::fsst_dictionary(s1, s2, s3, s4, s5)?
+            EncodedStrings::fsst_dictionary(name, s1, s2, s3, s4, s5)?
         }
         _ => Err(MltError::UnsupportedStringStreamCount(stream_count))?,
     };
@@ -317,10 +321,13 @@ fn parse_shared_dict_column<'a>(
     }
     let children;
     (input, children) = parse_struct_children(input, column)?;
+    let prefix = column.name.unwrap_or("");
     let shared_dict = match dict_streams {
-        [Some(s1), Some(s2), None, None, None] => EncodedSharedDict::plain(s1, s2, children)?,
+        [Some(s1), Some(s2), None, None, None] => {
+            EncodedSharedDict::plain(prefix, s1, s2, children)?
+        }
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
-            EncodedSharedDict::fsst_plain(s1, s2, s3, s4, children)?
+            EncodedSharedDict::fsst_plain(prefix, s1, s2, s3, s4, children)?
         }
         _ => Err(MltError::SharedDictRequiresStreams(streams_taken))?,
     };

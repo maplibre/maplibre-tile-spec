@@ -383,14 +383,11 @@ impl SharedDict {
     pub fn column(
         mut self,
         suffix: impl Into<String>,
-        optional: PresenceStream,
-        offset: IntEncoder,
+        presence: PresenceStream,
+        offsets: IntEncoder,
         values: impl IntoIterator<Item = Option<String>>,
     ) -> Self {
-        let enc = SharedDictItemEncoder {
-            presence: optional,
-            offsets: offset,
-        };
+        let enc = SharedDictItemEncoder { presence, offsets };
         self.encoder.items.push(enc);
         let suffix = suffix.into();
         let values = values.into_iter().collect();
