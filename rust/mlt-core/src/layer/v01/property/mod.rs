@@ -639,7 +639,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
         use OwnedEncodedPropValue as EncVal;
         use PropValue as Val;
-        let optional = if encoder.presence == PresenceStream::Present {
+        let presence = if encoder.presence == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
             Some(OwnedStream::encode_presence(&present_vec)?)
         } else {
@@ -648,39 +648,39 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
 
         let value = match (&decoded.values, encoder.value) {
             (Val::Bool(b), ScalarValueEncoder::Bool) => {
-                EncVal::Bool(optional, OwnedStream::encode_bools(&unapply_presence(b))?)
+                EncVal::Bool(presence, OwnedStream::encode_bools(&unapply_presence(b))?)
             }
             (Val::I8(i), ScalarValueEncoder::Int(enc)) => {
                 let vals = unapply_presence(i);
-                EncVal::I8(optional, OwnedStream::encode_i8s(&vals, enc)?)
+                EncVal::I8(presence, OwnedStream::encode_i8s(&vals, enc)?)
             }
             (Val::U8(u), ScalarValueEncoder::Int(enc)) => {
                 let values = unapply_presence(u);
-                EncVal::U8(optional, OwnedStream::encode_u8s(&values, enc)?)
+                EncVal::U8(presence, OwnedStream::encode_u8s(&values, enc)?)
             }
             (Val::I32(i), ScalarValueEncoder::Int(enc)) => {
                 let vals = unapply_presence(i);
-                EncVal::I32(optional, OwnedStream::encode_i32s(&vals, enc)?)
+                EncVal::I32(presence, OwnedStream::encode_i32s(&vals, enc)?)
             }
             (Val::U32(u), ScalarValueEncoder::Int(enc)) => {
                 let vals = unapply_presence(u);
-                EncVal::U32(optional, OwnedStream::encode_u32s(&vals, enc)?)
+                EncVal::U32(presence, OwnedStream::encode_u32s(&vals, enc)?)
             }
             (Val::I64(i), ScalarValueEncoder::Int(enc)) => {
                 let vals = unapply_presence(i);
-                EncVal::I64(optional, OwnedStream::encode_i64s(&vals, enc)?)
+                EncVal::I64(presence, OwnedStream::encode_i64s(&vals, enc)?)
             }
             (Val::U64(u), ScalarValueEncoder::Int(enc)) => {
                 let vals = unapply_presence(u);
-                EncVal::U64(optional, OwnedStream::encode_u64s(&vals, enc)?)
+                EncVal::U64(presence, OwnedStream::encode_u64s(&vals, enc)?)
             }
             (Val::F32(f), ScalarValueEncoder::Float) => {
                 let vals = unapply_presence(f);
-                EncVal::F32(optional, OwnedStream::encode_f32(&vals)?)
+                EncVal::F32(presence, OwnedStream::encode_f32(&vals)?)
             }
             (Val::F64(d), ScalarValueEncoder::Float) => {
                 let vals = unapply_presence(d);
-                EncVal::F64(optional, OwnedStream::encode_f64(&vals)?)
+                EncVal::F64(presence, OwnedStream::encode_f64(&vals)?)
             }
             (Val::Str(s), ScalarValueEncoder::String(enc)) => {
                 let values = unapply_presence(s);
@@ -697,7 +697,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                         DictionaryType::Single,
                     )?,
                 };
-                EncVal::Str(optional, encoding)
+                EncVal::Str(presence, encoding)
             }
             (Val::SharedDict(_), _) => Err(NotImplemented(
                 "SharedDict cannot be encoded via ScalarEncoder",
