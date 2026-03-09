@@ -11,14 +11,15 @@ use crate::MltError::{NotImplemented, UnsupportedPropertyEncoderCombination};
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::utils::{
-    BinarySerializer as _, FmtOptVec, apply_present, checked_sum2, checked_sum3, f32_to_json,
-    f64_to_json,
+    BinarySerializer as _, FmtOptVec, apply_present, checked_sum3, f32_to_json, f64_to_json,
 };
 pub use crate::v01::property::optimizer::PropertyOptimizer;
 pub use crate::v01::property::strings::{
     EncodedSharedDict, EncodedStrings, EncodedValues, SharedDictEncoder, SharedDictItemEncoder,
-    StrEncoder, decode_shared_dict, decode_strings, encode_shared_dict_prop,
+    StrEncoder, decode_shared_dict, decode_strings, decode_strings_with_presence,
+    encode_shared_dict_prop,
 };
+use crate::v01::strings::OwnedEncodedValues;
 use crate::v01::{
     ColumnType, DictionaryType, FsstStrEncoder, IntEncoder, LengthType, OwnedStream, Stream,
 };
@@ -134,30 +135,81 @@ impl Analyze for EncodedProperty<'_> {
 
 impl OwnedEncodedProperty {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        // type
-        match &self.value {
-            OwnedEncodedPropValue::Bool(Some(_), _) => ColumnType::OptBool.write_to(writer)?,
-            OwnedEncodedPropValue::Bool(None, _) => ColumnType::Bool.write_to(writer)?,
-            OwnedEncodedPropValue::I8(Some(_), _) => ColumnType::OptI8.write_to(writer)?,
-            OwnedEncodedPropValue::I8(None, _) => ColumnType::I8.write_to(writer)?,
-            OwnedEncodedPropValue::U8(Some(_), _) => ColumnType::OptU8.write_to(writer)?,
-            OwnedEncodedPropValue::U8(None, _) => ColumnType::U8.write_to(writer)?,
-            OwnedEncodedPropValue::I32(Some(_), _) => ColumnType::OptI32.write_to(writer)?,
-            OwnedEncodedPropValue::I32(None, _) => ColumnType::I32.write_to(writer)?,
-            OwnedEncodedPropValue::U32(Some(_), _) => ColumnType::OptU32.write_to(writer)?,
-            OwnedEncodedPropValue::U32(None, _) => ColumnType::U32.write_to(writer)?,
-            OwnedEncodedPropValue::I64(Some(_), _) => ColumnType::OptI64.write_to(writer)?,
-            OwnedEncodedPropValue::I64(None, _) => ColumnType::I64.write_to(writer)?,
-            OwnedEncodedPropValue::U64(Some(_), _) => ColumnType::OptU64.write_to(writer)?,
-            OwnedEncodedPropValue::U64(None, _) => ColumnType::U64.write_to(writer)?,
-            OwnedEncodedPropValue::F32(Some(_), _) => ColumnType::OptF32.write_to(writer)?,
-            OwnedEncodedPropValue::F32(None, _) => ColumnType::F32.write_to(writer)?,
-            OwnedEncodedPropValue::F64(Some(_), _) => ColumnType::OptF64.write_to(writer)?,
-            OwnedEncodedPropValue::F64(None, _) => ColumnType::F64.write_to(writer)?,
-            OwnedEncodedPropValue::Str(Some(_), _) => ColumnType::OptStr.write_to(writer)?,
-            OwnedEncodedPropValue::Str(None, _) => ColumnType::Str.write_to(writer)?,
-            OwnedEncodedPropValue::SharedDict(_) => ColumnType::SharedDict.write_to(writer)?,
-        }
+        use OwnedEncodedPropValue as Val;
+        let col_type = match &self.value {
+            Val::Bool(v) => {
+                if v.presence.is_some() {
+                    ColumnType::OptBool
+                } else {
+                    ColumnType::Bool
+                }
+            }
+            Val::I8(v) => {
+                if v.presence.is_some() {
+                    ColumnType::OptI8
+                } else {
+                    ColumnType::I8
+                }
+            }
+            Val::U8(v) => {
+                if v.presence.is_some() {
+                    ColumnType::OptU8
+                } else {
+                    ColumnType::U8
+                }
+            }
+            Val::I32(v) => {
+                if v.presence.is_some() {
+                    ColumnType::OptI32
+                } else {
+                    ColumnType::I32
+                }
+            }
+            Val::U32(v) => {
+                if v.presence.is_some() {
+                    ColumnType::OptU32
+                } else {
+                    ColumnType::U32
+                }
+            }
+            Val::I64(v) => {
+                if v.presence.is_some() {
+                    ColumnType::OptI64
+                } else {
+                    ColumnType::I64
+                }
+            }
+            Val::U64(v) => {
+                if v.presence.is_some() {
+                    ColumnType::OptU64
+                } else {
+                    ColumnType::U64
+                }
+            }
+            Val::F32(v) => {
+                if v.presence.is_some() {
+                    ColumnType::OptF32
+                } else {
+                    ColumnType::F32
+                }
+            }
+            Val::F64(v) => {
+                if v.presence.is_some() {
+                    ColumnType::OptF64
+                } else {
+                    ColumnType::F64
+                }
+            }
+            Val::Str(enc) => {
+                if enc.presence().is_some() {
+                    ColumnType::OptStr
+                } else {
+                    ColumnType::Str
+                }
+            }
+            Val::SharedDict(_) => ColumnType::SharedDict,
+        };
+        col_type.write_to(writer)?;
 
         // name
         writer.write_string(&self.name)?;
@@ -177,29 +229,29 @@ impl OwnedEncodedProperty {
         use OwnedEncodedPropValue as Val;
 
         match &self.value {
-            Val::Bool(opt, val) => {
-                writer.write_optional_stream(opt.as_ref())?;
-                writer.write_boolean_stream(val)?;
+            Val::Bool(v) => {
+                writer.write_optional_stream(v.presence.as_ref())?;
+                writer.write_boolean_stream(&v.data)?;
             }
-            Val::I8(opt, val)
-            | Val::U8(opt, val)
-            | Val::I32(opt, val)
-            | Val::U32(opt, val)
-            | Val::I64(opt, val)
-            | Val::U64(opt, val)
-            | Val::F32(opt, val)
-            | Val::F64(opt, val) => {
-                writer.write_optional_stream(opt.as_ref())?;
-                writer.write_stream(val)?;
+            Val::I8(v)
+            | Val::U8(v)
+            | Val::I32(v)
+            | Val::U32(v)
+            | Val::I64(v)
+            | Val::U64(v)
+            | Val::F32(v)
+            | Val::F64(v) => {
+                writer.write_optional_stream(v.presence.as_ref())?;
+                writer.write_stream(&v.data)?;
             }
-            Val::Str(opt, encoding) => {
-                let streams = encoding.streams();
-                let stream_len = u32::try_from(streams.len()).map_err(MltError::from)?;
-
-                let stream_count = checked_sum2(stream_len, u32::from(opt.is_some()))?;
+            Val::Str(encoding) => {
+                let content = encoding.content_streams();
+                let presence = encoding.presence();
+                let stream_count = u32::try_from(content.len() + usize::from(presence.is_some()))
+                    .map_err(MltError::from)?;
                 writer.write_varint(stream_count)?;
-                writer.write_optional_stream(opt.as_ref())?;
-                for s in streams {
+                writer.write_optional_stream(presence)?;
+                for s in content {
                     writer.write_stream(s)?;
                 }
             }
@@ -236,7 +288,11 @@ impl Default for OwnedEncodedProperty {
     fn default() -> Self {
         Self {
             name: String::default(),
-            value: OwnedEncodedPropValue::Bool(None, OwnedStream::empty_without_encoding()),
+            value: OwnedEncodedPropValue::Bool(OwnedEncodedValues {
+                name: String::new(),
+                presence: None,
+                data: OwnedStream::empty_without_encoding(),
+            }),
         }
     }
 }
@@ -256,43 +312,41 @@ impl arbitrary::Arbitrary<'_> for OwnedEncodedProperty {
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum EncodedPropValue<'a> {
-    Bool(Option<Stream<'a>>, Stream<'a>),
-    I8(Option<Stream<'a>>, Stream<'a>),
-    U8(Option<Stream<'a>>, Stream<'a>),
-    I32(Option<Stream<'a>>, Stream<'a>),
-    U32(Option<Stream<'a>>, Stream<'a>),
-    I64(Option<Stream<'a>>, Stream<'a>),
-    U64(Option<Stream<'a>>, Stream<'a>),
-    F32(Option<Stream<'a>>, Stream<'a>),
-    F64(Option<Stream<'a>>, Stream<'a>),
-    Str(Option<Stream<'a>>, EncodedStrings<'a>),
+    Bool(EncodedValues<'a>),
+    I8(EncodedValues<'a>),
+    U8(EncodedValues<'a>),
+    I32(EncodedValues<'a>),
+    U32(EncodedValues<'a>),
+    I64(EncodedValues<'a>),
+    U64(EncodedValues<'a>),
+    F32(EncodedValues<'a>),
+    F64(EncodedValues<'a>),
+    Str(EncodedStrings<'a>),
     SharedDict(EncodedSharedDict<'a>),
 }
 
 impl Analyze for EncodedPropValue<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         match self {
-            Self::Bool(opt, stream)
-            | Self::I8(opt, stream)
-            | Self::U8(opt, stream)
-            | Self::I32(opt, stream)
-            | Self::U32(opt, stream)
-            | Self::I64(opt, stream)
-            | Self::U64(opt, stream)
-            | Self::F32(opt, stream)
-            | Self::F64(opt, stream) => {
-                opt.for_each_stream(cb);
-                stream.for_each_stream(cb);
+            Self::Bool(v)
+            | Self::I8(v)
+            | Self::U8(v)
+            | Self::I32(v)
+            | Self::U32(v)
+            | Self::I64(v)
+            | Self::U64(v)
+            | Self::F32(v)
+            | Self::F64(v) => {
+                v.presence.for_each_stream(cb);
+                v.data.for_each_stream(cb);
             }
-            Self::Str(opt, encoding) => {
-                opt.for_each_stream(cb);
-                for s in encoding.streams() {
+            Self::Str(enc) => {
+                for s in enc.streams() {
                     cb(s);
                 }
             }
             Self::SharedDict(sp) => {
-                let streams = sp.streams();
-                for s in &streams {
+                for s in &sp.streams() {
                     cb(s);
                 }
             }
@@ -639,6 +693,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
         use OwnedEncodedPropValue as EncVal;
         use PropValue as Val;
+
         let presence = if encoder.presence == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
             Some(OwnedStream::encode_presence(&present_vec)?)
@@ -646,45 +701,44 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             None
         };
 
+        // Helper: build OwnedEncodedValues from a presence stream and a data stream.
+        let enc_vals = |data| OwnedEncodedValues {
+            name: decoded.name.clone(),
+            presence: presence.clone(),
+            data,
+        };
+
         let value = match (&decoded.values, encoder.value) {
             (Val::Bool(b), ScalarValueEncoder::Bool) => {
-                EncVal::Bool(presence, OwnedStream::encode_bools(&unapply_presence(b))?)
+                EncVal::Bool(enc_vals(OwnedStream::encode_bools(&unapply_presence(b))?))
             }
-            (Val::I8(i), ScalarValueEncoder::Int(enc)) => {
-                let vals = unapply_presence(i);
-                EncVal::I8(presence, OwnedStream::encode_i8s(&vals, enc)?)
-            }
-            (Val::U8(u), ScalarValueEncoder::Int(enc)) => {
-                let values = unapply_presence(u);
-                EncVal::U8(presence, OwnedStream::encode_u8s(&values, enc)?)
-            }
-            (Val::I32(i), ScalarValueEncoder::Int(enc)) => {
-                let vals = unapply_presence(i);
-                EncVal::I32(presence, OwnedStream::encode_i32s(&vals, enc)?)
-            }
-            (Val::U32(u), ScalarValueEncoder::Int(enc)) => {
-                let vals = unapply_presence(u);
-                EncVal::U32(presence, OwnedStream::encode_u32s(&vals, enc)?)
-            }
-            (Val::I64(i), ScalarValueEncoder::Int(enc)) => {
-                let vals = unapply_presence(i);
-                EncVal::I64(presence, OwnedStream::encode_i64s(&vals, enc)?)
-            }
-            (Val::U64(u), ScalarValueEncoder::Int(enc)) => {
-                let vals = unapply_presence(u);
-                EncVal::U64(presence, OwnedStream::encode_u64s(&vals, enc)?)
-            }
+            (Val::I8(i), ScalarValueEncoder::Int(enc)) => EncVal::I8(enc_vals(
+                OwnedStream::encode_i8s(&unapply_presence(i), enc)?,
+            )),
+            (Val::U8(u), ScalarValueEncoder::Int(enc)) => EncVal::U8(enc_vals(
+                OwnedStream::encode_u8s(&unapply_presence(u), enc)?,
+            )),
+            (Val::I32(i), ScalarValueEncoder::Int(enc)) => EncVal::I32(enc_vals(
+                OwnedStream::encode_i32s(&unapply_presence(i), enc)?,
+            )),
+            (Val::U32(u), ScalarValueEncoder::Int(enc)) => EncVal::U32(enc_vals(
+                OwnedStream::encode_u32s(&unapply_presence(u), enc)?,
+            )),
+            (Val::I64(i), ScalarValueEncoder::Int(enc)) => EncVal::I64(enc_vals(
+                OwnedStream::encode_i64s(&unapply_presence(i), enc)?,
+            )),
+            (Val::U64(u), ScalarValueEncoder::Int(enc)) => EncVal::U64(enc_vals(
+                OwnedStream::encode_u64s(&unapply_presence(u), enc)?,
+            )),
             (Val::F32(f), ScalarValueEncoder::Float) => {
-                let vals = unapply_presence(f);
-                EncVal::F32(presence, OwnedStream::encode_f32(&vals)?)
+                EncVal::F32(enc_vals(OwnedStream::encode_f32(&unapply_presence(f))?))
             }
             (Val::F64(d), ScalarValueEncoder::Float) => {
-                let vals = unapply_presence(d);
-                EncVal::F64(presence, OwnedStream::encode_f64(&vals)?)
+                EncVal::F64(enc_vals(OwnedStream::encode_f64(&unapply_presence(d))?))
             }
             (Val::Str(s), ScalarValueEncoder::String(enc)) => {
                 let values = unapply_presence(s);
-                let encoding = match enc {
+                let mut str_enc = match enc {
                     StrEncoder::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
                         &values,
                         string_lengths,
@@ -697,7 +751,9 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                         DictionaryType::Single,
                     )?,
                 };
-                EncVal::Str(presence, encoding)
+                str_enc.set_name(decoded.name.clone());
+                str_enc.set_presence(presence);
+                EncVal::Str(str_enc)
             }
             (Val::SharedDict(_), _) => Err(NotImplemented(
                 "SharedDict cannot be encoded via ScalarEncoder",
@@ -723,16 +779,19 @@ impl<'a> FromEncoded<'a> for DecodedProperty {
         use EncodedPropValue as EncVal;
         use PropValue as Val;
         let values = match v.value {
-            EncVal::Bool(o, s) => Val::Bool(apply_present(o, s.decode_bools()?)?),
-            EncVal::I8(o, s) => Val::I8(apply_present(o, s.decode_i8s()?)?),
-            EncVal::U8(o, s) => Val::U8(apply_present(o, s.decode_u8s()?)?),
-            EncVal::I32(o, s) => Val::I32(apply_present(o, s.decode_i32s()?)?),
-            EncVal::U32(o, s) => Val::U32(apply_present(o, s.decode_u32s()?)?),
-            EncVal::I64(o, s) => Val::I64(apply_present(o, s.decode_i64()?)?),
-            EncVal::U64(o, s) => Val::U64(apply_present(o, s.decode_u64()?)?),
-            EncVal::F32(o, s) => Val::F32(apply_present(o, s.decode_f32()?)?),
-            EncVal::F64(o, s) => Val::F64(apply_present(o, s.decode_f64()?)?),
-            EncVal::Str(o, s) => Val::Str(apply_present(o, decode_strings(s)?)?),
+            EncVal::Bool(e) => Val::Bool(apply_present(e.presence, e.data.decode_bools()?)?),
+            EncVal::I8(e) => Val::I8(apply_present(e.presence, e.data.decode_i8s()?)?),
+            EncVal::U8(e) => Val::U8(apply_present(e.presence, e.data.decode_u8s()?)?),
+            EncVal::I32(e) => Val::I32(apply_present(e.presence, e.data.decode_i32s()?)?),
+            EncVal::U32(e) => Val::U32(apply_present(e.presence, e.data.decode_u32s()?)?),
+            EncVal::I64(e) => Val::I64(apply_present(e.presence, e.data.decode_i64()?)?),
+            EncVal::U64(e) => Val::U64(apply_present(e.presence, e.data.decode_u64()?)?),
+            EncVal::F32(e) => Val::F32(apply_present(e.presence, e.data.decode_f32()?)?),
+            EncVal::F64(e) => Val::F64(apply_present(e.presence, e.data.decode_f64()?)?),
+            EncVal::Str(s) => {
+                let (presence, strings) = decode_strings_with_presence(s)?;
+                Val::Str(apply_present(presence, strings)?)
+            }
             EncVal::SharedDict(sd) => decode_shared_dict(&sd)?,
         };
         Ok(DecodedProperty {

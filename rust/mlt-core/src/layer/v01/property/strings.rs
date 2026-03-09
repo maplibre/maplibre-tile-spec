@@ -24,6 +24,17 @@ pub struct EncodedValues<'a> {
     pub data: Stream<'a>,
 }
 
+impl<'a> EncodedValues<'a> {
+    #[must_use]
+    pub fn new(name: &'a str, presence: Option<Stream<'a>>, data: Stream<'a>) -> Self {
+        Self {
+            name,
+            presence,
+            data,
+        }
+    }
+}
+
 /// Encoded data for a `SharedDict` column with shared dictionary encoding.
 ///
 /// Unlike `EncodedStrings`, shared dictionaries do NOT have their own offset stream.
@@ -99,12 +110,14 @@ pub enum EncodedStrings<'a> {
     /// Plain: length stream + data stream
     Plain {
         name: &'a str,
+        presence: Option<Stream<'a>>,
         lengths: Stream<'a>,
         data: Stream<'a>,
     },
     /// Dictionary: lengths + offsets + dictionary data
     Dictionary {
         name: &'a str,
+        presence: Option<Stream<'a>>,
         lengths: Stream<'a>,
         offsets: Stream<'a>,
         data: Stream<'a>,
@@ -112,6 +125,7 @@ pub enum EncodedStrings<'a> {
     /// FSST plain (4 streams): symbol lengths, symbol table, value lengths, compressed corpus. No offsets.
     FsstPlain {
         name: &'a str,
+        presence: Option<Stream<'a>>,
         symbol_lengths: Stream<'a>,
         symbol_table: Stream<'a>,
         lengths: Stream<'a>,
@@ -120,6 +134,7 @@ pub enum EncodedStrings<'a> {
     /// FSST dictionary (5 streams): symbol lengths, symbol table, value lengths, compressed corpus, offsets.
     FsstDictionary {
         name: &'a str,
+        presence: Option<Stream<'a>>,
         symbol_lengths: Stream<'a>,
         symbol_table: Stream<'a>,
         lengths: Stream<'a>,
@@ -142,7 +157,12 @@ macro_rules! validate_stream {
 }
 
 impl<'a> EncodedStrings<'a> {
-    pub fn plain(name: &'a str, lengths: Stream<'a>, data: Stream<'a>) -> Result<Self, MltError> {
+    pub fn plain(
+        name: &'a str,
+        presence: Option<Stream<'a>>,
+        lengths: Stream<'a>,
+        data: Stream<'a>,
+    ) -> Result<Self, MltError> {
         validate_stream!(lengths, StreamType::Length(LengthType::VarBinary));
         validate_stream!(
             data,
@@ -150,6 +170,7 @@ impl<'a> EncodedStrings<'a> {
         );
         Ok(Self::Plain {
             name,
+            presence,
             lengths,
             data,
         })
@@ -157,6 +178,7 @@ impl<'a> EncodedStrings<'a> {
 
     pub fn dictionary(
         name: &'a str,
+        presence: Option<Stream<'a>>,
         lengths: Stream<'a>,
         offsets: Stream<'a>,
         data: Stream<'a>,
@@ -166,6 +188,7 @@ impl<'a> EncodedStrings<'a> {
         validate_stream!(data, StreamType::Data(DictionaryType::Single));
         Ok(Self::Dictionary {
             name,
+            presence,
             lengths,
             offsets,
             data,
@@ -174,6 +197,7 @@ impl<'a> EncodedStrings<'a> {
 
     pub fn fsst_plain(
         name: &'a str,
+        presence: Option<Stream<'a>>,
         symbol_lengths: Stream<'a>,
         symbol_table: Stream<'a>,
         lengths: Stream<'a>,
@@ -185,6 +209,7 @@ impl<'a> EncodedStrings<'a> {
         validate_stream!(corpus, StreamType::Data(DictionaryType::Single));
         Ok(Self::FsstPlain {
             name,
+            presence,
             symbol_lengths,
             symbol_table,
             lengths,
@@ -194,6 +219,7 @@ impl<'a> EncodedStrings<'a> {
 
     pub fn fsst_dictionary(
         name: &'a str,
+        presence: Option<Stream<'a>>,
         symbol_lengths: Stream<'a>,
         symbol_table: Stream<'a>,
         lengths: Stream<'a>,
@@ -207,6 +233,7 @@ impl<'a> EncodedStrings<'a> {
         validate_stream!(offsets, StreamType::Offset(OffsetType::String));
         Ok(Self::FsstDictionary {
             name,
+            presence,
             symbol_lengths,
             symbol_table,
             lengths,
@@ -215,28 +242,43 @@ impl<'a> EncodedStrings<'a> {
         })
     }
 
-    /// Streams in an order suitable for classification [`decode_strings`]
+    /// Returns the presence stream if this column is optional.
+    #[must_use]
+    pub fn presence(&self) -> Option<&Stream<'_>> {
+        match self {
+            Self::Plain { presence, .. }
+            | Self::Dictionary { presence, .. }
+            | Self::FsstPlain { presence, .. }
+            | Self::FsstDictionary { presence, .. } => presence.as_ref(),
+        }
+    }
+
+    /// Streams in wire order: presence (if any) then content streams.
     #[must_use]
     pub fn streams(&self) -> Vec<&Stream<'_>> {
+        let mut v: Vec<&Stream<'_>> = self.presence().into_iter().collect();
         match self {
             Self::Plain {
                 lengths,
                 data,
                 name: _,
-            } => vec![lengths, data],
+                presence: _,
+            } => v.extend([lengths, data]),
             Self::Dictionary {
                 lengths,
                 offsets,
                 data,
                 name: _,
-            } => vec![lengths, offsets, data],
+                presence: _,
+            } => v.extend([lengths, offsets, data]),
             Self::FsstPlain {
                 symbol_lengths,
                 symbol_table,
                 lengths,
                 corpus,
                 name: _,
-            } => vec![symbol_lengths, symbol_table, lengths, corpus],
+                presence: _,
+            } => v.extend([symbol_lengths, symbol_table, lengths, corpus]),
             Self::FsstDictionary {
                 symbol_lengths,
                 symbol_table,
@@ -244,26 +286,41 @@ impl<'a> EncodedStrings<'a> {
                 corpus,
                 offsets,
                 name: _,
-            } => vec![symbol_lengths, symbol_table, lengths, corpus, offsets],
+                presence: _,
+            } => v.extend([symbol_lengths, symbol_table, lengths, corpus, offsets]),
         }
+        v
     }
 }
 
 impl OwnedEncodedStrings {
-    /// Streams in wire order for serialization.
+    /// Returns the presence stream if this column is optional.
     #[must_use]
-    pub fn streams(&self) -> Vec<&OwnedStream> {
+    pub fn presence(&self) -> Option<&OwnedStream> {
+        match self {
+            Self::Plain { presence, .. }
+            | Self::Dictionary { presence, .. }
+            | Self::FsstPlain { presence, .. }
+            | Self::FsstDictionary { presence, .. } => presence.as_ref(),
+        }
+    }
+
+    /// Content streams only (excluding presence).
+    #[must_use]
+    pub fn content_streams(&self) -> Vec<&OwnedStream> {
         match self {
             Self::Plain {
                 lengths,
                 data,
                 name: _,
+                presence: _,
             } => vec![lengths, data],
             Self::Dictionary {
                 lengths,
                 offsets,
                 data,
                 name: _,
+                presence: _,
             } => vec![lengths, offsets, data],
             Self::FsstPlain {
                 symbol_lengths,
@@ -271,7 +328,10 @@ impl OwnedEncodedStrings {
                 lengths,
                 corpus,
                 name: _,
-            } => vec![symbol_lengths, symbol_table, lengths, corpus],
+                presence: _,
+            } => {
+                vec![symbol_lengths, symbol_table, lengths, corpus]
+            }
             Self::FsstDictionary {
                 symbol_lengths,
                 symbol_table,
@@ -279,7 +339,36 @@ impl OwnedEncodedStrings {
                 corpus,
                 offsets,
                 name: _,
+                presence: _,
             } => vec![symbol_lengths, symbol_table, lengths, corpus, offsets],
+        }
+    }
+
+    /// Streams in wire order: presence (if any) then content streams.
+    #[must_use]
+    pub fn streams(&self) -> Vec<&OwnedStream> {
+        let mut v: Vec<&OwnedStream> = self.presence().into_iter().collect();
+        v.extend(self.content_streams());
+        v
+    }
+}
+
+impl OwnedEncodedStrings {
+    pub fn set_name(&mut self, n: String) {
+        match self {
+            Self::Plain { name, .. }
+            | Self::Dictionary { name, .. }
+            | Self::FsstPlain { name, .. }
+            | Self::FsstDictionary { name, .. } => *name = n,
+        }
+    }
+
+    pub fn set_presence(&mut self, p: Option<OwnedStream>) {
+        match self {
+            Self::Plain { presence, .. }
+            | Self::Dictionary { presence, .. }
+            | Self::FsstPlain { presence, .. }
+            | Self::FsstDictionary { presence, .. } => *presence = p,
         }
     }
 }
@@ -509,7 +598,12 @@ pub fn encode_shared_dictionary(
     }
 
     let struct_prop = match dict_encoded {
-        OwnedEncodedStrings::Plain { lengths, data, .. } => OwnedEncodedSharedDict::Plain {
+        OwnedEncodedStrings::Plain {
+            lengths,
+            data,
+            name: _,
+            presence: _,
+        } => OwnedEncodedSharedDict::Plain {
             prefix: name.to_owned(),
             lengths,
             data,
@@ -521,6 +615,7 @@ pub fn encode_shared_dictionary(
             lengths,
             corpus,
             name: _,
+            presence: _,
         } => OwnedEncodedSharedDict::FsstPlain {
             prefix: name.to_owned(),
             symbol_lengths,
@@ -617,6 +712,7 @@ pub fn encode_shared_dict_prop(
             lengths,
             data,
             name: _,
+            presence: _,
         } => OwnedEncodedSharedDict::Plain {
             prefix: prefix.to_owned(),
             lengths,
@@ -629,6 +725,7 @@ pub fn encode_shared_dict_prop(
             lengths,
             corpus,
             name: _,
+            presence: _,
         } => OwnedEncodedSharedDict::FsstPlain {
             prefix: prefix.to_owned(),
             symbol_lengths,
@@ -660,6 +757,20 @@ impl OwnedEncodedValues {
     }
 }
 
+/// Decode string property, returning the presence stream and decoded string values.
+pub fn decode_strings_with_presence(
+    encoding: EncodedStrings<'_>,
+) -> Result<(Option<Stream<'_>>, Vec<String>), MltError> {
+    let presence = match &encoding {
+        EncodedStrings::Plain { presence, .. }
+        | EncodedStrings::Dictionary { presence, .. }
+        | EncodedStrings::FsstPlain { presence, .. }
+        | EncodedStrings::FsstDictionary { presence, .. } => presence.clone(),
+    };
+    let strings = decode_strings(encoding)?;
+    Ok((presence, strings))
+}
+
 /// Decode string property from its encoded stream encoding.
 pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltError> {
     match encoding {
@@ -667,6 +778,7 @@ pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltEr
             lengths,
             data,
             name: _,
+            presence: _,
         } => {
             let lens = lengths.decode_bits_u32()?.decode_u32()?;
             let data_bytes = raw_bytes(data);
@@ -677,6 +789,7 @@ pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltEr
             offsets,
             data,
             name: _,
+            presence: _,
         } => {
             let dict_lens = lengths.decode_bits_u32()?.decode_u32()?;
             let dict_bytes = raw_bytes(data);
@@ -690,6 +803,7 @@ pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltEr
             lengths,
             corpus,
             name: _,
+            presence: _,
         } => {
             let sym_lens = symbol_lengths.decode_bits_u32()?.decode_u32()?;
             let sym_data = raw_bytes(symbol_table);
@@ -705,6 +819,7 @@ pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltEr
             corpus,
             offsets,
             name: _,
+            presence: _,
         } => {
             let sym_lens = symbol_lengths.decode_bits_u32()?.decode_u32()?;
             let sym_data = raw_bytes(symbol_table);
