@@ -1,4 +1,4 @@
-use crate::{MltError, OwnedLayer, optimiser::AutomaticOptimisation, v01::Tag01Encoder};
+use crate::{MltError, OwnedLayer, optimizer::AutomaticOptimisation, v01::Tag01Encoder};
 
 impl AutomaticOptimisation for OwnedLayer {
     type UsedEncoder = LayerEncoder;

@@ -1,7 +1,7 @@
 use super::DecodedId;
 use crate::{
     FromDecoded as _, FromEncoded as _, MltError,
-    optimiser::AutomaticOptimisation,
+    optimizer::AutomaticOptimisation,
     v01::{
         DataProfile, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, OwnedEncodedId, OwnedId,
         PhysicalEncoder,

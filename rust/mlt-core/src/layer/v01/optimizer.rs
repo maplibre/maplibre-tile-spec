@@ -1,6 +1,6 @@
 use crate::{
     MltError,
-    optimiser::AutomaticOptimisation,
+    optimizer::AutomaticOptimisation,
     v01::{GeometryEncoder, IdEncoder, OwnedLayer01, PropertyEncoder},
 };
 

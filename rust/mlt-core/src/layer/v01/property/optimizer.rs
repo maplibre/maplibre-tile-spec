@@ -18,7 +18,7 @@ use fsst::Compressor;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
-use crate::optimiser::AutomaticOptimisation;
+use crate::optimizer::AutomaticOptimisation;
 use crate::utils::encode_zigzag;
 use crate::v01::property::strings::{SharedDictEncoder, SharedDictItemEncoder, StrEncoder};
 use crate::v01::property::{

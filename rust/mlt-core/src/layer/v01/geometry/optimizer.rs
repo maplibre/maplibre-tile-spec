@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use super::encode::{encode_geometry, z_order_params};
 use super::{DecodedGeometry, GeometryEncoder, OwnedEncodedGeometry, VertexBufferType};
-use crate::optimiser::AutomaticOptimisation;
+use crate::optimizer::AutomaticOptimisation;
 use crate::v01::{DictionaryType, IntEncoder, LengthType, OffsetType, OwnedGeometry, StreamType};
 use crate::{FromDecoded as _, FromEncoded as _, MltError};
 

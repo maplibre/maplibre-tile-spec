@@ -1,4 +1,4 @@
-mod optimiser;
+mod optimizer;
 pub mod unknown;
 pub mod v01;
 

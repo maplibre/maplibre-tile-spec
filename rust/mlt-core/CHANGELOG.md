@@ -11,9 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- *(rust)* property encoder optimiser ([#1042](https://github.com/maplibre/maplibre-tile-spec/pull/1042))
-- *(rust)* Id optimiser impl ([#1043](https://github.com/maplibre/maplibre-tile-spec/pull/1043))
-- *(rust)* Geometry optimiser ([#1045](https://github.com/maplibre/maplibre-tile-spec/pull/1045))
+- *(rust)* property encoder optimizer ([#1042](https://github.com/maplibre/maplibre-tile-spec/pull/1042))
+- *(rust)* Id optimizer impl ([#1043](https://github.com/maplibre/maplibre-tile-spec/pull/1043))
+- *(rust)* Geometry optimizer ([#1045](https://github.com/maplibre/maplibre-tile-spec/pull/1045))
 
 ### Other
 
@@ -67,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- *(rust)* Stream encoding optimiser ([#950](https://github.com/maplibre/maplibre-tile-spec/pull/950))
+- *(rust)* Stream encoding optimizer ([#950](https://github.com/maplibre/maplibre-tile-spec/pull/950))
 - *(rust)* Synthetic generation ([#947](https://github.com/maplibre/maplibre-tile-spec/pull/947))
 - *(rust)* FastPFOR encoding support ([#936](https://github.com/maplibre/maplibre-tile-spec/pull/936))
 - *(rust)* implement geometry encoding functionality ([#933](https://github.com/maplibre/maplibre-tile-spec/pull/933))
