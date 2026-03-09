@@ -178,7 +178,7 @@ fn encode_level1_length_stream(
     let mut part_idx = 0;
 
     for (i, &geom_type) in geometry_types.iter().enumerate() {
-        let num_geoms = (geometry_offsets[i + 1] - geometry_offsets[i]) as usize;
+        let num_geoms = geometry_offsets[i + 1] - geometry_offsets[i];
 
         let needs_length =
             geom_type.is_polygon() || (is_line_string_present && geom_type.is_linestring());
@@ -242,7 +242,7 @@ fn encode_level2_length_stream(
     let mut ring_idx = 0;
 
     for (i, &geom_type) in geometry_types.iter().enumerate() {
-        let num_geoms = (geometry_offsets[i + 1] - geometry_offsets[i]) as usize;
+        let num_geoms = geometry_offsets[i + 1] - geometry_offsets[i];
 
         // Only Polygon and MultiPolygon have ring data in level 2
         // LineStrings with Polygon present add their vertex counts directly to ring_offsets,
@@ -250,7 +250,7 @@ fn encode_level2_length_stream(
         if geom_type.is_polygon() {
             // Polygon/MultiPolygon: iterate through sub-polygons, each has parts (ring counts)
             for _ in 0..num_geoms {
-                let num_parts = (part_offsets[part_idx + 1] - part_offsets[part_idx]) as usize;
+                let num_parts = part_offsets[part_idx + 1] - part_offsets[part_idx];
                 part_idx += 1;
                 for _ in 0..num_parts {
                     let start = ring_offsets[ring_idx];

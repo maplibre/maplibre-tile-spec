@@ -163,7 +163,7 @@ impl OwnedEncodedProperty {
         // Struct children metadata must be written inline here so subsequent column
         // metadata offsets remain correct.
         if let OwnedEncodedPropValue::SharedDict(s) = &self.value {
-            writer.write_varint(u64::try_from(s.children().len())?)?;
+            writer.write_varint(u32::try_from(s.children().len())?)?;
             for child in s.children() {
                 child.write_columns_meta_to(writer)?;
             }
@@ -192,8 +192,9 @@ impl OwnedEncodedProperty {
             }
             Val::Str(opt, encoding) => {
                 let streams = encoding.streams();
-                let stream_count =
-                    checked_sum2(u64::try_from(streams.len())?, u64::from(opt.is_some()))?;
+                let stream_len = u32::try_from(streams.len()).map_err(MltError::from)?;
+
+                let stream_count = checked_sum2(stream_len, u32::from(opt.is_some()))?;
                 writer.write_varint(stream_count)?;
                 writer.write_optional_stream(opt.as_ref())?;
                 for s in streams {
@@ -203,18 +204,22 @@ impl OwnedEncodedProperty {
             Val::SharedDict(s) => {
                 let dict_streams = s.dict_streams();
                 let children = s.children();
-                writer.write_varint(checked_sum3(
-                    dict_streams.len(),
-                    children.len(),
-                    children.iter().filter(|c| c.optional.is_some()).count(),
-                )?)?;
+                let dict_stream_len = u32::try_from(dict_streams.len()).map_err(MltError::from)?;
+                let children_len = u32::try_from(children.len()).map_err(MltError::from)?;
+                let optional_children_count =
+                    children.iter().filter(|c| c.optional.is_some()).count();
+                let optional_children_len =
+                    u32::try_from(optional_children_count).map_err(MltError::from)?;
+                let stream_len =
+                    checked_sum3(dict_stream_len, children_len, optional_children_len)?;
+                writer.write_varint(stream_len)?;
                 for stream in dict_streams {
                     writer.write_stream(stream)?;
                 }
                 for child in children {
                     // stream_count => data + (0 or 1 for optional stream)
-                    // must be usize because we don't want to zigzag
-                    writer.write_varint(1 + usize::from(child.optional.is_some()))?;
+                    // must be u32 because we don't want to zigzag
+                    writer.write_varint(1 + u32::from(child.optional.is_some()))?;
                     writer.write_optional_stream(child.optional.as_ref())?;
                     writer.write_stream(&child.data)?;
                 }
