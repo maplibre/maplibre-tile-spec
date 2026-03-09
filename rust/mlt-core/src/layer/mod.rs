@@ -1,6 +1,6 @@
+mod optimiser;
 pub mod unknown;
 pub mod v01;
-mod optimiser;
 
 use std::borrow::Cow;
 use std::io;
