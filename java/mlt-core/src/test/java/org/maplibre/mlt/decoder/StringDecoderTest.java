@@ -19,7 +19,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.locationtech.jts.util.Assert;
 import org.maplibre.mlt.TestSettings;
-import org.maplibre.mlt.converter.MLTStreamObserverDefault;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.encodings.StringEncoder;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
@@ -27,16 +26,16 @@ import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
+import org.maplibre.mlt.util.ByteArrayUtil;
 
 public class StringDecoderTest {
 
-  public static Pair<Integer, byte[]> encodeSharedDictionary(
+  public static Pair<Integer, ArrayList<byte[]>> encodeSharedDictionary(
       List<List<String>> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFsstEncoding)
       throws IOException {
-    return StringEncoder.encodeSharedDictionary(
-        values, physicalLevelTechnique, useFsstEncoding, new MLTStreamObserverDefault(), null);
+    return StringEncoder.encodeSharedDictionary(values, physicalLevelTechnique, useFsstEncoding);
   }
 
   @Test
@@ -65,7 +64,7 @@ public class StringDecoderTest {
 
     var decodedValues =
         StringDecoder.decodeSharedDictionary(
-            encodedValues.getRight(), new IntWrapper(0), tileMetadata);
+            ByteArrayUtil.concat(encodedValues.getRight()), new IntWrapper(0), tileMetadata);
 
     var v = decodedValues.getRight();
     Assert.equals(values1, v.get(":Test"));
@@ -87,7 +86,7 @@ public class StringDecoderTest {
 
     var decodedValues =
         StringDecoder.decodeSharedDictionary(
-            encodedValues.getRight(), new IntWrapper(0), tileMetadata);
+            ByteArrayUtil.concat(encodedValues.getRight()), new IntWrapper(0), tileMetadata);
 
     var v = decodedValues.getRight();
     Assert.equals(values1, v.get("ParentTest"));
@@ -124,7 +123,7 @@ public class StringDecoderTest {
 
     final var decodeResults =
         StringDecoder.decodeSharedDictionary(
-            encodedValues.getRight(), new IntWrapper(0), tileMetadata);
+            ByteArrayUtil.concat(encodedValues.getRight()), new IntWrapper(0), tileMetadata);
     final var decodedPresentValues = decodeResults.getMiddle();
     final var decodedValues = decodeResults.getRight();
 
@@ -184,7 +183,7 @@ public class StringDecoderTest {
 
     final var decodeResult =
         StringDecoder.decodeSharedDictionary(
-            encodedValues.getRight(), new IntWrapper(0), tileMetadata);
+            ByteArrayUtil.concat(encodedValues.getRight()), new IntWrapper(0), tileMetadata);
 
     final var decodedValues = decodeResult.getRight();
     final var decodedPresentValues = decodeResult.getMiddle();
@@ -239,7 +238,7 @@ public class StringDecoderTest {
     tileMetadata.isNullable = true;
     var decodeResult =
         StringDecoder.decodeSharedDictionary(
-            encodedValues.getRight(), new IntWrapper(0), tileMetadata);
+            ByteArrayUtil.concat(encodedValues.getRight()), new IntWrapper(0), tileMetadata);
     var decodedValues = decodeResult.getRight().get("TestParent:TestChild");
     Assert.equals(values, decodedValues);
   }
@@ -281,7 +280,7 @@ public class StringDecoderTest {
 
     final var decodeResult =
         StringDecoder.decodeSharedDictionary(
-            encodedValues.getRight(), new IntWrapper(0), fieldMetadata);
+            ByteArrayUtil.concat(encodedValues.getRight()), new IntWrapper(0), fieldMetadata);
     final var decodedValues = decodeResult.getRight();
 
     for (var column : fieldMetadata.complexType.children) {

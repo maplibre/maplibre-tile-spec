@@ -1,6 +1,7 @@
 package org.maplibre.mlt.tools;
 
-import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.*;
+import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.AUTO;
+import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.PLAIN;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,7 +13,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.LinearRing;
+import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.MultiPoint;
+import org.locationtech.jts.geom.MultiPolygon;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.maplibre.mlt.cli.JsonHelper;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;

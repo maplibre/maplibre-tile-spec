@@ -2,6 +2,7 @@ package org.maplibre.mlt.converter.encodings;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
@@ -47,16 +48,18 @@ public class VarintTest {
   @Test
   public void testVarIntEncoding() throws IOException {
     for (int value : Arrays.stream(intTestValues).flatMap(x -> IntStream.of(x, -x)).toArray()) {
-      final var encoded = new byte[EncodingUtils.MAX_VARINT_SIZE];
-      final var offset = EncodingUtils.putVarInt(value, encoded, 0);
-      Assert.equals(EncodingUtils.getVarIntSize(value), offset);
-      final var decoded1 = DecodingUtils.decodeVarints(encoded, new IntWrapper(0), 1)[0];
+      final var encoded =
+          EncodingUtils.putVarInt(value, ByteBuffer.wrap(new byte[EncodingUtils.MAX_VARINT_SIZE]))
+              .flip();
+      Assert.equals(EncodingUtils.getVarIntSize(value), encoded.limit());
+      final var decoded1 = DecodingUtils.decodeVarints(encoded.array(), new IntWrapper(0), 1)[0];
       Assert.equals(value, decoded1);
-      final var decoded2 = DecodingUtils.decodeVarint(new ByteArrayInputStream(encoded));
+      final var decoded2 = DecodingUtils.decodeVarint(new ByteArrayInputStream(encoded.array()));
       Assert.equals(value, decoded2);
-      final var decoded3 = DecodingUtils.decodeVarintWithLength(new ByteArrayInputStream(encoded));
+      final var decoded3 =
+          DecodingUtils.decodeVarintWithLength(new ByteArrayInputStream(encoded.array()));
       Assert.equals(value, decoded3.getLeft());
-      Assert.equals(offset, decoded3.getRight());
+      Assert.equals(encoded.limit(), decoded3.getRight());
     }
   }
 
@@ -65,10 +68,11 @@ public class VarintTest {
     final var ints = Arrays.stream(intTestValues).asLongStream().flatMap(x -> LongStream.of(x, -x));
     final var longs = Arrays.stream(longTestValues).flatMap(x -> LongStream.of(x, -x));
     for (long value : LongStream.concat(ints, longs).toArray()) {
-      final var encoded = new byte[EncodingUtils.MAX_VARLONG_SIZE];
-      final var offset = EncodingUtils.putVarInt(value, encoded, 0);
-      Assert.equals(EncodingUtils.getVarLongSize(value), offset);
-      final var decoded = DecodingUtils.decodeLongVarint(encoded, new IntWrapper(0));
+      final var encoded =
+          EncodingUtils.putVarInt(value, ByteBuffer.wrap(new byte[EncodingUtils.MAX_VARLONG_SIZE]))
+              .flip();
+      Assert.equals(EncodingUtils.getVarLongSize(value), encoded.limit());
+      final var decoded = DecodingUtils.decodeLongVarint(encoded.array(), new IntWrapper(0));
       Assert.equals(value, decoded);
     }
   }

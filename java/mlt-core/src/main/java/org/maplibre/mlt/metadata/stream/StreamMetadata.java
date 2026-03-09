@@ -1,7 +1,7 @@
 package org.maplibre.mlt.metadata.stream;
 
-import com.google.common.primitives.Bytes;
 import java.io.IOException;
+import java.util.ArrayList;
 import me.lemire.integercompression.IntWrapper;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.decoder.DecodingUtils;
@@ -50,7 +50,7 @@ public class StreamMetadata {
     return logicalStreamType.offsetType().ordinal();
   }
 
-  public byte[] encode() throws IOException {
+  public ArrayList<byte[]> encode() throws IOException {
     final var encodedStreamType = (byte) ((physicalStreamType.ordinal()) << 4 | getLogicalType());
     final var encodedEncodingScheme =
         (byte)
@@ -59,7 +59,10 @@ public class StreamMetadata {
                 | physicalLevelTechnique.ordinal());
     final var encodedLengthInfo =
         EncodingUtils.encodeVarints(new int[] {numValues, byteLength}, false, false);
-    return Bytes.concat(new byte[] {encodedStreamType, encodedEncodingScheme}, encodedLengthInfo);
+    final var result = new ArrayList<byte[]>(2);
+    result.add(new byte[] {encodedStreamType, encodedEncodingScheme});
+    result.add(encodedLengthInfo);
+    return result;
   }
 
   public static StreamMetadata decode(byte[] tile, IntWrapper offset) throws IOException {
