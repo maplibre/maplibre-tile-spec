@@ -1,12 +1,8 @@
 package org.maplibre.mlt.converter.encodings;
 
-import jakarta.annotation.Nullable;
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.List;
-import org.jetbrains.annotations.NotNull;
-import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
@@ -19,12 +15,8 @@ public class BooleanEncoder {
   /*
    * Combines a BitVector encoding with the Byte RLE encoding form the ORC format
    * */
-  public static List<ByteBuffer> encodeBooleanStream(
-      Boolean[] values,
-      PhysicalStreamType streamType,
-      @NotNull MLTStreamObserver streamObserver,
-      @Nullable String streamName)
-      throws IOException {
+  public static ArrayList<byte[]> encodeBooleanStream(
+      Boolean[] values, PhysicalStreamType streamType) throws IOException {
     final var valueStream = new BitSet(values.length);
     for (var i = 0; i < values.length; i++) {
       valueStream.set(i, values[i]);
@@ -43,8 +35,7 @@ public class BooleanEncoder {
                 encodedValueStream.length)
             .encode();
 
-    streamObserver.observeStream(streamName, values, result, encodedValueStream);
-    result.add(ByteBuffer.wrap(encodedValueStream));
+    result.add(encodedValueStream);
     return result;
   }
 }

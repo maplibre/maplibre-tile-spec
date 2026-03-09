@@ -3,16 +3,14 @@ package org.maplibre.mlt.converter.encodings;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
-import jakarta.annotation.Nullable;
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.BiFunction;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption;
-import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.metadata.stream.DictionaryType;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.LogicalStreamType;
@@ -34,7 +32,7 @@ public class IntegerEncoder {
   public static class IntegerEncodingResult {
     public LogicalLevelTechnique logicalLevelTechnique1;
     public LogicalLevelTechnique logicalLevelTechnique2;
-    public ByteBuffer encodedValues;
+    public byte[] encodedValues;
     /* If rle or delta-rle encoding is used, otherwise can be ignored */
     public int numRuns;
     public int physicalLevelEncodedValuesLength;
@@ -49,7 +47,7 @@ public class IntegerEncoder {
 
   private IntegerEncoder() {}
 
-  public static List<ByteBuffer> encodeMortonStream(
+  public static ArrayList<byte[]> encodeMortonStream(
       int[] values, int numBits, int coordinateShift, PhysicalLevelTechnique physicalLevelTechnique)
       throws IOException {
     final var encodedValueStream = encodeMortonCodes(values, physicalLevelTechnique);
@@ -61,7 +59,7 @@ public class IntegerEncoder {
             encodedValueStream.logicalLevelTechnique2,
             physicalLevelTechnique,
             encodedValueStream.physicalLevelEncodedValuesLength,
-            encodedValueStream.encodedValues.remaining(),
+            encodedValueStream.encodedValues.length,
             numBits,
             coordinateShift);
 
@@ -71,34 +69,28 @@ public class IntegerEncoder {
   }
 
   // Encodes integer stream with AUTO encoding option (backward compatibility).
-  public static List<ByteBuffer> encodeIntStream(
+  public static ArrayList<byte[]> encodeIntStream(
       List<Integer> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
       PhysicalStreamType streamType,
-      LogicalStreamType logicalStreamType,
-      @NotNull MLTStreamObserver streamObserver,
-      @Nullable String streamName)
+      LogicalStreamType logicalStreamType)
       throws IOException {
     return encodeIntStream(
         CollectionUtils.unboxInts(values),
         physicalLevelTechnique,
         isSigned,
         streamType,
-        logicalStreamType,
-        streamObserver,
-        streamName);
+        logicalStreamType);
   }
 
   // Encodes integer stream with AUTO encoding option (backward compatibility).
-  public static List<ByteBuffer> encodeIntStream(
+  public static ArrayList<byte[]> encodeIntStream(
       int[] values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
       PhysicalStreamType streamType,
-      LogicalStreamType logicalStreamType,
-      @NotNull MLTStreamObserver streamObserver,
-      @Nullable String streamName)
+      LogicalStreamType logicalStreamType)
       throws IOException {
     return encodeIntStream(
         values,
@@ -106,20 +98,16 @@ public class IntegerEncoder {
         isSigned,
         streamType,
         logicalStreamType,
-        IntegerEncodingOption.AUTO,
-        streamObserver,
-        streamName);
+        IntegerEncodingOption.AUTO);
   }
 
-  public static List<ByteBuffer> encodeIntStream(
+  public static ArrayList<byte[]> encodeIntStream(
       List<Integer> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
       PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
-      @NotNull IntegerEncodingOption encodingOption,
-      @NotNull MLTStreamObserver streamObserver,
-      @Nullable String streamName)
+      @NotNull IntegerEncodingOption encodingOption)
       throws IOException {
     return encodeIntStream(
         CollectionUtils.unboxInts(values),
@@ -127,20 +115,16 @@ public class IntegerEncoder {
         isSigned,
         streamType,
         logicalStreamType,
-        encodingOption,
-        streamObserver,
-        streamName);
+        encodingOption);
   }
 
-  public static List<ByteBuffer> encodeIntStream(
+  public static ArrayList<byte[]> encodeIntStream(
       int[] values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
       PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
-      @NotNull IntegerEncodingOption encodingOption,
-      @NotNull MLTStreamObserver streamObserver,
-      @Nullable String streamName)
+      @NotNull IntegerEncodingOption encodingOption)
       throws IOException {
     final var encodedValueStream =
         IntegerEncoder.encodeInt(values, physicalLevelTechnique, isSigned, encodingOption);
@@ -156,7 +140,7 @@ public class IntegerEncoder {
                 encodedValueStream.logicalLevelTechnique2,
                 physicalLevelTechnique,
                 encodedValueStream.physicalLevelEncodedValuesLength,
-                encodedValueStream.encodedValues.remaining(),
+                encodedValueStream.encodedValues.length,
                 encodedValueStream.numRuns,
                 values.length)
             : new StreamMetadata(
@@ -166,40 +150,29 @@ public class IntegerEncoder {
                 encodedValueStream.logicalLevelTechnique2,
                 physicalLevelTechnique,
                 encodedValueStream.physicalLevelEncodedValuesLength,
-                encodedValueStream.encodedValues.remaining());
+                encodedValueStream.encodedValues.length);
     final var result = streamMetadata.encode();
-    streamObserver.observeStream(streamName, values, result, encodedValueStream.encodedValues);
     result.add(encodedValueStream.encodedValues);
     return result;
   }
 
   // Encodes long stream with AUTO encoding option (backward compatibility).
-  public static List<ByteBuffer> encodeLongStream(
+  public static ArrayList<byte[]> encodeLongStream(
       long[] values,
       boolean isSigned,
       PhysicalStreamType streamType,
-      LogicalStreamType logicalStreamType,
-      @NotNull MLTStreamObserver streamObserver,
-      @Nullable String streamName)
+      LogicalStreamType logicalStreamType)
       throws IOException {
     return encodeLongStream(
-        values,
-        isSigned,
-        streamType,
-        logicalStreamType,
-        IntegerEncodingOption.AUTO,
-        streamObserver,
-        streamName);
+        values, isSigned, streamType, logicalStreamType, IntegerEncodingOption.AUTO);
   }
 
-  public static List<ByteBuffer> encodeLongStream(
+  public static ArrayList<byte[]> encodeLongStream(
       long[] values,
       boolean isSigned,
       PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
-      @NotNull IntegerEncodingOption encodingOption,
-      @NotNull MLTStreamObserver streamObserver,
-      @Nullable String streamName)
+      @NotNull IntegerEncodingOption encodingOption)
       throws IOException {
     final var encodedValueStream = IntegerEncoder.encodeLong(values, isSigned, encodingOption);
 
@@ -214,7 +187,7 @@ public class IntegerEncoder {
                 encodedValueStream.logicalLevelTechnique2,
                 PhysicalLevelTechnique.VARINT,
                 encodedValueStream.physicalLevelEncodedValuesLength,
-                encodedValueStream.encodedValues.remaining(),
+                encodedValueStream.encodedValues.length,
                 encodedValueStream.numRuns,
                 values.length)
             : new StreamMetadata(
@@ -224,9 +197,8 @@ public class IntegerEncoder {
                 encodedValueStream.logicalLevelTechnique2,
                 PhysicalLevelTechnique.VARINT,
                 encodedValueStream.physicalLevelEncodedValuesLength,
-                encodedValueStream.encodedValues.remaining());
+                encodedValueStream.encodedValues.length);
     final var result = streamMetadata.encode();
-    streamObserver.observeStream(streamName, values, result, encodedValueStream.encodedValues);
     result.add(encodedValueStream.encodedValues);
     return result;
   }
@@ -294,7 +266,7 @@ public class IntegerEncoder {
       previousDelta = delta;
     }
 
-    BiFunction<int[], Boolean, ByteBuffer> encoder =
+    BiFunction<int[], Boolean, byte[]> encoder =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
             ? IntegerEncoder::encodeFastPfor
             : (v, s) -> {
@@ -328,8 +300,8 @@ public class IntegerEncoder {
     var plainEncodedValues = encoder.apply(values, isSigned);
     var deltaEncodedValues = encoder.apply(deltaValues, true);
     var encodedValues = Lists.newArrayList(plainEncodedValues, deltaEncodedValues);
-    ByteBuffer rleEncodedValues = null;
-    ByteBuffer deltaRleEncodedValues = null;
+    byte[] rleEncodedValues = null;
+    byte[] deltaRleEncodedValues = null;
     var rlePhysicalLevelEncodedValuesLength = 0;
     var deltaRlePhysicalLevelEncodedValuesLength = 0;
 
@@ -395,7 +367,7 @@ public class IntegerEncoder {
 
     // TODO: refactor -> find proper solution
     final var encodedValuesSizes =
-        encodedValues.stream().map(v -> v == null ? Integer.MAX_VALUE : v.remaining()).toList();
+        encodedValues.stream().map(v -> v == null ? Integer.MAX_VALUE : v.length).toList();
     final var index =
         isConstStream
             ? LogicalLevelIntegerTechnique.RLE.ordinal()
@@ -455,7 +427,7 @@ public class IntegerEncoder {
       previousDelta = delta;
     }
 
-    BiFunction<long[], Boolean, ByteBuffer> encoder =
+    BiFunction<long[], Boolean, byte[]> encoder =
         (v, s) -> {
           try {
             return EncodingUtils.encodeLongVarints(v, s, false);
@@ -486,8 +458,8 @@ public class IntegerEncoder {
     final var deltaEncodedValues = encoder.apply(deltaValues, true);
     final var encodedValues = Lists.newArrayList(plainEncodedValues, deltaEncodedValues);
 
-    ByteBuffer rleEncodedValues = null;
-    ByteBuffer deltaRleEncodedValues = null;
+    byte[] rleEncodedValues = null;
+    byte[] deltaRleEncodedValues = null;
     var rlePhysicalLevelEncodedValuesLength = 0;
     var deltaRlePhysicalLevelEncodedValuesLength = 0;
     var isConstStream = false;
@@ -547,7 +519,7 @@ public class IntegerEncoder {
 
     // TODO: refactor -> find proper solution
     final var encodedValuesSizes =
-        encodedValues.stream().map(v -> v == null ? Integer.MAX_VALUE : v.remaining()).toList();
+        encodedValues.stream().map(v -> v == null ? Integer.MAX_VALUE : v.length).toList();
     final var index =
         isConstStream
             ? LogicalLevelIntegerTechnique.RLE.ordinal()
@@ -578,15 +550,15 @@ public class IntegerEncoder {
     return result;
   }
 
-  public static ByteBuffer encodeFastPfor(int[] values, boolean signed) {
+  public static byte[] encodeFastPfor(int[] values, boolean signed) {
     return EncodingUtils.encodeFastPfor128(values, signed, false);
   }
 
-  public static ByteBuffer encodeVarint(int[] values, boolean signed) throws IOException {
+  public static byte[] encodeVarint(int[] values, boolean signed) throws IOException {
     return EncodingUtils.encodeVarints(values, signed, false);
   }
 
-  public static ByteBuffer encodeLongVarint(long[] values, boolean signed) throws IOException {
+  public static byte[] encodeLongVarint(long[] values, boolean signed) throws IOException {
     return EncodingUtils.encodeLongVarints(values, signed, false);
   }
 }

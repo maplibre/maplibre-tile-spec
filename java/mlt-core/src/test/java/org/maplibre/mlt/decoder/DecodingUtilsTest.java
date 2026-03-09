@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.util.Assert;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.decoder.vectorized.VectorizedDecodingUtils;
-import org.maplibre.mlt.util.ByteBufferUtil;
 
 public class DecodingUtilsTest {
 
@@ -18,9 +17,7 @@ public class DecodingUtilsTest {
     var value2 = (long) Math.pow(2, 17);
     var value3 = (long) Math.pow(2, 57);
     var encodedValues =
-        ByteBufferUtil.concat(
-                EncodingUtils.encodeVarints(new long[] {value, value2, value3}, false, false))
-            .array();
+        EncodingUtils.encodeVarints(new long[] {value, value2, value3}, false, false);
 
     final var pos = new IntWrapper(0);
     final var decodedValue = DecodingUtils.decodeLongVarints(encodedValues, pos, 3);
@@ -49,8 +46,7 @@ public class DecodingUtilsTest {
   @Test
   void decodeFastPfor() {
     var values = new int[] {5, 10, 15, 20, 25, 30, 35, 40};
-    var encoded =
-        ByteBufferUtil.concat(EncodingUtils.encodeFastPfor128(values, false, false)).array();
+    var encoded = EncodingUtils.encodeFastPfor128(values, false, false);
     var pos = new IntWrapper(0);
     var decoded =
         VectorizedDecodingUtils.decodeFastPfor(encoded, values.length, encoded.length, pos);

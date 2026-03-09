@@ -1,8 +1,7 @@
 package org.maplibre.mlt.metadata.stream;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.List;
+import java.util.ArrayList;
 import me.lemire.integercompression.IntWrapper;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.decoder.DecodingUtils;
@@ -42,7 +41,7 @@ public class RleEncodedStreamMetadata extends StreamMetadata {
     this.numRleValues = numRleValues;
   }
 
-  public List<ByteBuffer> encode() throws IOException {
+  public ArrayList<byte[]> encode() throws IOException {
     final var result = super.encode();
     result.add(EncodingUtils.encodeVarints(new int[] {runs, numRleValues}, false, false));
     return result;

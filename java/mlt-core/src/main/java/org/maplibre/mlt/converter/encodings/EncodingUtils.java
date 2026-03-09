@@ -69,7 +69,7 @@ public class EncodingUtils {
 
   // Source:
   // https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java
-  public static ByteBuffer encodeVarints(int[] values, boolean zigZagEncode, boolean deltaEncode)
+  public static byte[] encodeVarints(int[] values, boolean zigZagEncode, boolean deltaEncode)
       throws IOException {
     var encodedValues = values;
     if (deltaEncode) {
@@ -80,14 +80,16 @@ public class EncodingUtils {
       encodedValues = encodeZigZag(encodedValues);
     }
 
-    var varintBuffer = ByteBuffer.wrap(new byte[values.length * MAX_VARLONG_SIZE]);
+    var varintBuffer =
+        ByteBuffer.wrap(
+            new byte[Arrays.stream(encodedValues).map(EncodingUtils::getVarIntSize).sum()]);
     for (var value : encodedValues) {
       putVarInt(value, varintBuffer);
     }
-    return varintBuffer.flip();
+    return varintBuffer.array();
   }
 
-  public static ByteBuffer encodeVarints(long[] values, boolean zigZagEncode, boolean deltaEncode)
+  public static byte[] encodeVarints(long[] values, boolean zigZagEncode, boolean deltaEncode)
       throws IOException {
     var encodedValues = values;
     if (deltaEncode) {
@@ -98,28 +100,31 @@ public class EncodingUtils {
       encodedValues = encodeZigZag(encodedValues);
     }
 
-    var varintBuffer = ByteBuffer.wrap(new byte[values.length * MAX_VARLONG_SIZE]);
+    var varintBuffer =
+        ByteBuffer.wrap(
+            new byte[Arrays.stream(encodedValues).mapToInt(EncodingUtils::getVarLongSize).sum()]);
     for (var value : encodedValues) {
       putVarInt(value, varintBuffer);
     }
-    return varintBuffer.flip();
+    return varintBuffer.array();
   }
 
-  public static ByteBuffer encodeVarints(
+  public static byte[] encodeVarints(
       Collection<Integer> values, boolean zigZagEncode, boolean deltaEncode) throws IOException {
     return encodeVarints(CollectionUtils.unboxInts(values), zigZagEncode, deltaEncode);
   }
 
-  public static ByteBuffer encodeLongVarints(
-      long[] values, boolean zigZagEncode, boolean deltaEncode) throws IOException {
+  public static byte[] encodeLongVarints(long[] values, boolean zigZagEncode, boolean deltaEncode)
+      throws IOException {
     return encodeVarints(values, zigZagEncode, deltaEncode);
   }
 
-  public static ByteBuffer encodeVarint(int value, boolean zigZagEncode) throws IOException {
+  public static byte[] encodeVarint(int value, boolean zigZagEncode) throws IOException {
     if (zigZagEncode) {
       value = encodeZigZag(value);
     }
-    return putVarInt(value, ByteBuffer.wrap(new byte[MAX_VARLONG_SIZE])).flip();
+    final var buffer = ByteBuffer.wrap(new byte[getVarIntSize(value)]);
+    return putVarInt(value, buffer).array();
   }
 
   // Source:
@@ -277,8 +282,7 @@ public class EncodingUtils {
     return Pair.of(CollectionUtils.unboxLongs(runsBuffer), CollectionUtils.unboxLongs(valueBuffer));
   }
 
-  public static ByteBuffer encodeFastPfor128(
-      int[] values, boolean zigZagEncode, boolean deltaEncode) {
+  public static byte[] encodeFastPfor128(int[] values, boolean zigZagEncode, boolean deltaEncode) {
     /*
      * Note that this does not use differential coding: if you are working on sorted lists,
      * you should first compute deltas, @see me.lemire.integercompression.differential.Delta#delta
@@ -309,7 +313,7 @@ public class EncodingUtils {
       compressedBuffer[i + 3] = (byte) value;
     }
 
-    return ByteBuffer.wrap(compressedBuffer);
+    return compressedBuffer;
   }
 
   public static byte[] encodeByteRle(byte[] values) throws IOException {

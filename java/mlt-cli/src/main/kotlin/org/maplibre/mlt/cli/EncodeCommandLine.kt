@@ -65,7 +65,6 @@ internal object EncodeCommandLine {
     private const val COMPRESS_OPTION_NONE = "none"
     private const val COMPRESS_OPTION_BROTLI = "brotli"
     private const val COMPRESS_OPTION_ZSTD = "zstd"
-    const val DUMP_STREAMS_OPTION = "rawstreams"
     const val PARALLEL_OPTION = "parallel"
     const val VERBOSE_OPTION = "verbose"
     const val CONTINUE_OPTION = "continue"
@@ -489,21 +488,6 @@ Add an explicit column mapping on the specified layers:
                     .desc("Use the vectorized decoding path.")
                     .required(false)
                     .deprecated()
-                    .get(),
-            )
-            options.addOption(
-                Option
-                    .builder()
-                    .longOpt(DUMP_STREAMS_OPTION)
-                    .hasArg(false)
-                    .desc(
-                        (
-                            "Dump the raw contents of the individual streams. " +
-                                "Only applies with --" +
-                                INPUT_TILE_ARG +
-                                "."
-                        ),
-                    ).required(false)
                     .get(),
             )
             options.addOption(

@@ -21,7 +21,6 @@ data class EncodeConfig(
     val compareProp: Boolean,
     val compareGeom: Boolean,
     val willTime: Boolean,
-    val dumpStreams: Boolean,
     val taskRunner: TaskRunner,
     val continueOnError: Boolean,
 )

@@ -1,12 +1,8 @@
 package org.maplibre.mlt.converter.encodings;
 
-import jakarta.annotation.Nullable;
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
-import org.apache.commons.lang3.ArrayUtils;
-import org.jetbrains.annotations.NotNull;
-import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
@@ -16,9 +12,7 @@ public class FloatEncoder {
 
   private FloatEncoder() {}
 
-  public static List<ByteBuffer> encodeFloatStream(
-      List<Float> values, @NotNull MLTStreamObserver streamObserver, @Nullable String streamName)
-      throws IOException {
+  public static ArrayList<byte[]> encodeFloatStream(List<Float> values) throws IOException {
     // TODO: add encodings -> RLE, Dictionary, PDE, ALP
     final float[] floatArray = new float[values.size()];
     for (int i = 0; i < values.size(); i++) {
@@ -37,10 +31,7 @@ public class FloatEncoder {
                 encodedValueStream.length)
             .encode();
 
-    streamObserver.observeStream(
-        streamName, ArrayUtils.toObject(floatArray), valuesMetadata, encodedValueStream);
-
-    valuesMetadata.add(ByteBuffer.wrap(encodedValueStream));
+    valuesMetadata.add(encodedValueStream);
     return valuesMetadata;
   }
 }

@@ -8,9 +8,6 @@ import org.maplibre.mlt.cli.EncodeCommandLine.getColumnMappings
 import org.maplibre.mlt.compare.CompareHelper
 import org.maplibre.mlt.compare.CompareHelper.CompareMode
 import org.maplibre.mlt.converter.ConversionConfig
-import org.maplibre.mlt.converter.MLTStreamObserver
-import org.maplibre.mlt.converter.MLTStreamObserverDefault
-import org.maplibre.mlt.converter.MLTStreamObserverFile
 import org.maplibre.mlt.converter.MltConverter
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder
 import org.maplibre.mlt.converter.encodings.fsst.FsstJni
@@ -194,7 +191,6 @@ object Encode {
                     cmd.hasOption(EncodeCommandLine.COMPARE_GEOM_OPTION) ||
                         cmd.hasOption(EncodeCommandLine.COMPARE_ALL_OPTION),
                 willTime = cmd.hasOption(EncodeCommandLine.TIMER_OPTION),
-                dumpStreams = cmd.hasOption(EncodeCommandLine.DUMP_STREAMS_OPTION),
                 taskRunner = taskRunner,
                 continueOnError = cmd.hasOption(EncodeCommandLine.CONTINUE_OPTION),
             )
@@ -212,15 +208,8 @@ object Encode {
                     continue
                 }
 
-                var streamPath: Path? = null
-                if (encodeConfig.dumpStreams) {
-                    val fileName = MLTStreamObserverFile.sanitizeFilename(tileFileName)
-                    streamPath = getOutputPath(cmd, fileName, null, true)
-                }
-
                 logger.debug("Converting {} to {}", tileFileName, outputPath)
-
-                encodeTile(0, 0, 0, tileFileName, outputPath, streamPath, encodeConfig)
+                encodeTile(0, 0, 0, tileFileName, outputPath, encodeConfig)
             }
         } else if (cmd.hasOption(EncodeCommandLine.INPUT_MBTILES_ARG)) {
             // Converting all the tiles in an MBTiles file
@@ -274,7 +263,6 @@ object Encode {
         z: Int,
         tileFileName: String,
         outputPath: Path,
-        streamPath: Path?,
         config: EncodeConfig,
     ) {
         val willCompare = config.compareProp || config.compareGeom
@@ -297,21 +285,12 @@ object Encode {
 
         val targetConfig = applyColumnMappingsToConversionConfig(config, metadata)
 
-        var streamObserver: MLTStreamObserver = MLTStreamObserverDefault()
-        if (config.dumpStreams) {
-            if (streamPath != null) {
-                streamObserver = MLTStreamObserverFile(streamPath)
-                Files.createDirectories(streamPath)
-                logger.debug("Writing raw streams to {}", streamPath)
-            }
-        }
         val mlTile =
             MltConverter.convertMvt(
                 decodedMvTile,
                 metadata,
                 targetConfig,
                 config.tessellateSource,
-                streamObserver,
             )
         if (willTime) {
             timer!!.stop("encoding")
