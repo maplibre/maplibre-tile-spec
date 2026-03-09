@@ -1,5 +1,6 @@
 package org.maplibre.mlt.cli
 
+import org.maplibre.mlt.compare.CompareHelper.CompareMode
 import org.maplibre.mlt.converter.ConversionConfig
 import org.maplibre.mlt.converter.mvt.ColumnMappingConfig
 import java.net.URI
@@ -23,4 +24,15 @@ data class EncodeConfig(
     val willTime: Boolean,
     val taskRunner: TaskRunner,
     val continueOnError: Boolean,
-)
+) {
+    val compareMode get() =
+        if (compareGeom && compareProp) {
+            CompareMode.All
+        } else if (compareGeom) {
+            CompareMode.Geometry
+        } else if (compareProp) {
+            CompareMode.Properties
+        } else {
+            CompareMode.None
+        }
+}

@@ -22,7 +22,8 @@ public final class CompareHelper {
   private CompareHelper() {}
 
   public enum CompareMode {
-    LayersOnly,
+    None,
+    Layers,
     Geometry,
     Properties,
     All
@@ -372,7 +373,7 @@ public final class CompareHelper {
     return Optional.empty();
   }
 
-  /// Returns the values that are in set a but not in set b
+  /// Returns the values that are in set `a` but not in set `b`
   private static <T> Set<T> getAsymmetricSetDiff(Set<T> a, Set<T> b) {
     Set<T> diff = new HashSet<>(a);
     diff.removeAll(b);

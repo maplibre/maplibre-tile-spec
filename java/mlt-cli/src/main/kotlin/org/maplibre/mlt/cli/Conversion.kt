@@ -273,28 +273,19 @@ fun convertTile(
                 }
             }
         }
-        if (config.compareGeom || config.compareProp) {
+        if (config.compareMode != CompareMode.None) {
             logger.trace("Decoding converted tile {}:{},{} for comparison", z, x, y)
             val decodedTile = MltDecoder.decodeMlTile(uncompressedTileData)
-            val mode =
-                if (config.compareGeom && config.compareProp) {
-                    CompareMode.All
-                } else if (config.compareGeom) {
-                    CompareMode.Geometry
-                } else {
-                    CompareMode.Properties
-                }
-
-            val result =
+            val difference =
                 CompareHelper.compareTiles(
                     decodedTile,
                     decodedMvTile,
-                    mode,
+                    config.compareMode,
                     targetConfig.layerFilterPattern,
                     targetConfig.layerFilterInvert,
                 )
-            if (result.isPresent) {
-                logger.warn("Decoded tile {}:{},{} doesn't match: {}", z, x, y, result)
+            if (difference.isPresent) {
+                logger.warn("Decoded tile {}:{},{} doesn't match: {}", z, x, y, difference)
             } else {
                 logger.trace("Tiles match: {}:{},{}", z, x, y)
             }
