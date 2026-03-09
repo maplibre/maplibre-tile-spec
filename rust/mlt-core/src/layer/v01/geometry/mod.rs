@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::MltError::NotImplemented;
 use crate::analyse::{Analyze, StatType};
-use crate::decode::{FromEncoded, impl_decodable};
+use crate::decode::impl_decodable;
 use crate::encode::impl_encodable;
 use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _, checked_sum2};
 use crate::v01::column::ColumnType;
@@ -28,7 +28,7 @@ use crate::v01::{
     DictionaryType, IntEncoding, LengthType, OffsetType, OwnedStream, Stream, StreamMeta,
     StreamType,
 };
-use crate::{FromDecoded, MltError};
+use crate::{FromDecoded, FromEncoded, MltError};
 
 /// Geometry column representation, either encoded or decoded
 #[borrowme]
@@ -105,7 +105,7 @@ impl<'a> EncodedGeometry<'a> {
     pub fn parse(input: &'a [u8]) -> crate::MltRefResult<'a, Self> {
         use crate::utils::parse_varint;
 
-        let (input, stream_count) = parse_varint::<u64>(input)?;
+        let (input, stream_count) = parse_varint::<u32>(input)?;
         let stream_count = usize::try_from(stream_count)?;
         if stream_count == 0 {
             return Ok((
@@ -138,7 +138,7 @@ impl OwnedEncodedGeometry {
     }
 
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        let items_len = u64::try_from(self.items.len())?;
+        let items_len = u32::try_from(self.items.len())?;
         let items_len = checked_sum2(items_len, 1)?;
         writer.write_varint(items_len)?;
         writer.write_stream(&self.meta)?;

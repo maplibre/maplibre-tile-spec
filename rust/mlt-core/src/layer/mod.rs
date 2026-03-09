@@ -1,3 +1,4 @@
+mod optimizer;
 pub mod unknown;
 pub mod v01;
 
@@ -41,7 +42,7 @@ impl<'a> Layer<'a> {
 
     /// Parse a single tuple that consists of `size (varint)`, `tag (varint)`, and `value (bytes)`
     pub fn parse(input: &'a [u8]) -> MltRefResult<'a, Layer<'a>> {
-        let (input, size) = parse_varint::<usize>(input)?;
+        let (input, size) = parse_varint::<u32>(input)?;
 
         // tag is a varint, but we know fewer than 127 tags for now,
         // so we can use a faster u8 and fail if it is bigger than 127.
@@ -80,8 +81,8 @@ impl OwnedLayer {
             OwnedLayer::Unknown(unknown) => (unknown.tag, Cow::Borrowed(&unknown.value)),
         };
 
-        let size = checked_sum2(buffer.len(), 1)?;
-        let size = u64::try_from(size).map_err(MltError::from)?;
+        let buffer_len = u32::try_from(buffer.len()).map_err(MltError::from)?;
+        let size = checked_sum2(buffer_len, 1)?;
         writer.write_varint(size)?;
         writer.write_u8(tag)?;
         writer.write_all(&buffer)

@@ -1,5 +1,12 @@
 use super::DecodedId;
-use crate::v01::{DataProfile, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, PhysicalEncoder};
+use crate::{
+    FromDecoded as _, FromEncoded as _, MltError,
+    optimizer::AutomaticOptimisation,
+    v01::{
+        DataProfile, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, OwnedEncodedId, OwnedId,
+        PhysicalEncoder,
+    },
+};
 
 /// Analyses a [`DecodedId`] and returns an [`IdEncoder`] with near-optimal
 /// encoding settings.
@@ -28,7 +35,7 @@ use crate::v01::{DataProfile, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, Ph
 pub struct IdOptimizer;
 
 impl IdOptimizer {
-    /// Analyse and return a configured [`IdEncoder`].
+    /// Analyze and return a configured [`IdEncoder`].
     #[must_use]
     pub fn optimize(decoded: &DecodedId) -> IdEncoder {
         let Some(ids) = &decoded.0 else {
@@ -134,13 +141,13 @@ impl IdOptimizer {
                 let vals: Vec<u32> = ids.iter().flatten().map(|&v| v as u32).collect();
                 let candidates = DataProfile::prune_candidates::<i32>(&vals);
                 let varint_candidates = Self::filter_varint(&candidates);
-                DataProfile::min_size_encoding_u32s(&varint_candidates, &vals).logical
+                DataProfile::compete_u32(&varint_candidates, &vals).logical
             }
             IdWidth::Id64 | IdWidth::OptId64 => {
                 let vals: Vec<u64> = ids.iter().flatten().copied().collect();
                 let candidates = DataProfile::prune_candidates::<i64>(&vals);
                 let varint_candidates = Self::filter_varint(&candidates);
-                DataProfile::min_size_encoding_u64s(&varint_candidates, &vals).logical
+                DataProfile::compete_u64(&varint_candidates, &vals).logical
             }
         }
     }
@@ -160,6 +167,26 @@ impl IdOptimizer {
             vec![IntEncoder::varint()]
         } else {
             filtered
+        }
+    }
+}
+
+impl AutomaticOptimisation for OwnedId {
+    type UsedEncoder = Option<IdEncoder>;
+
+    fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
+        match self {
+            OwnedId::Decoded(dec) => {
+                let enc = IdOptimizer::optimize(dec);
+                *self = OwnedId::Encoded(OwnedEncodedId::from_decoded(dec, enc)?);
+                Ok(Some(enc))
+            }
+            OwnedId::Encoded(e) => {
+                let dec = DecodedId::from_encoded(borrowme::borrow(e))?;
+                *self = OwnedId::Decoded(dec);
+                self.automatic_encoding_optimisation()
+            }
+            OwnedId::None => Ok(None),
         }
     }
 }

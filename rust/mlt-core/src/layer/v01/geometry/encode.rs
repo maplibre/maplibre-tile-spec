@@ -59,11 +59,11 @@ pub(super) fn z_order_params(vertices: &[i32]) -> Result<(u32, u32), MltError> {
     let max_v = vertices.iter().copied().max().unwrap_or(0);
     let coordinate_shift: u32 = if min_v < 0 { min_v.unsigned_abs() } else { 0 };
     let tile_extent = i64::from(max_v) + i64::from(coordinate_shift);
-    let num_bits = if let Ok(extent) = u64::try_from(tile_extent) {
+    let num_bits = if let Ok(extent) = u32::try_from(tile_extent) {
         // ceil(log2(extent + 1)), matching Java's Math.ceil(Math.log(...) / Math.log(2)).
-        // Computed with integer arithmetic: for te >= 1, this equals `u64::BITS - te.leading_zeros()`.
+        // Computed with integer arithmetic: for te >= 1, this equals `u32::BITS - te.leading_zeros()`.
         // Capped at 16: Morton codes are u32, so each axis may use at most 16 bits.
-        let required_bits = u64::BITS - extent.leading_zeros();
+        let required_bits = u32::BITS - extent.leading_zeros();
         if required_bits > 16 {
             return Err(MltError::VertexMortonNotCompatibleWithExtent {
                 extent,
@@ -178,7 +178,7 @@ fn encode_level1_length_stream(
     let mut part_idx = 0;
 
     for (i, &geom_type) in geometry_types.iter().enumerate() {
-        let num_geoms = (geometry_offsets[i + 1] - geometry_offsets[i]) as usize;
+        let num_geoms = geometry_offsets[i + 1] - geometry_offsets[i];
 
         let needs_length =
             geom_type.is_polygon() || (is_line_string_present && geom_type.is_linestring());
@@ -242,7 +242,7 @@ fn encode_level2_length_stream(
     let mut ring_idx = 0;
 
     for (i, &geom_type) in geometry_types.iter().enumerate() {
-        let num_geoms = (geometry_offsets[i + 1] - geometry_offsets[i]) as usize;
+        let num_geoms = geometry_offsets[i + 1] - geometry_offsets[i];
 
         // Only Polygon and MultiPolygon have ring data in level 2
         // LineStrings with Polygon present add their vertex counts directly to ring_offsets,
@@ -250,7 +250,7 @@ fn encode_level2_length_stream(
         if geom_type.is_polygon() {
             // Polygon/MultiPolygon: iterate through sub-polygons, each has parts (ring counts)
             for _ in 0..num_geoms {
-                let num_parts = (part_offsets[part_idx + 1] - part_offsets[part_idx]) as usize;
+                let num_parts = part_offsets[part_idx + 1] - part_offsets[part_idx];
                 part_idx += 1;
                 for _ in 0..num_parts {
                     let start = ring_offsets[ring_idx];

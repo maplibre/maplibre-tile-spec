@@ -213,7 +213,7 @@ function decodeIdColumn(
             }
             case VectorType.CONST: {
                 const id = decodeConstIntStream(tile, offset, idDataStreamMetadata, false);
-                return new IntConstVector(columnName, id, sizeOrNullabilityBuffer);
+                return new IntConstVector(columnName, id, sizeOrNullabilityBuffer, true);
             }
         }
     }
@@ -243,7 +243,7 @@ function decodeIdColumn(
         }
         case VectorType.CONST: {
             const id = decodeConstLongStream(tile, offset, idDataStreamMetadata, false);
-            return new LongConstVector(columnName, id, sizeOrNullabilityBuffer);
+            return new LongConstVector(columnName, id, sizeOrNullabilityBuffer, true);
         }
     }
 

@@ -77,12 +77,12 @@ impl HoveredInfo {
 
 pub struct LayerGroup {
     pub(crate) name: String,
-    pub(crate) extent: f64,
+    pub(crate) extent: u32,
     pub(crate) feature_indices: Vec<usize>,
 }
 
 impl LayerGroup {
-    pub fn new(name: String, extent: f64, feature_indices: Vec<usize>) -> Self {
+    pub fn new(name: String, extent: u32, feature_indices: Vec<usize>) -> Self {
         Self {
             name,
             extent,
@@ -91,7 +91,7 @@ impl LayerGroup {
     }
 }
 
-pub type PreviewValue = (PathBuf, Result<(FeatureCollection, f64), ()>);
+pub type PreviewValue = (PathBuf, Result<(FeatureCollection, u32), ()>);
 
 pub struct App {
     pub(crate) mode: ViewMode,
@@ -141,7 +141,7 @@ pub struct App {
     pub(crate) file_info_scroll: u16,
     pub(crate) preview_tile_path: Option<PathBuf>,
     pub(crate) preview_fc: Option<FeatureCollection>,
-    pub(crate) preview_extent: f64,
+    pub(crate) preview_extent: u32,
     pub(crate) preview_rx: Option<mpsc::Receiver<PreviewValue>>,
     pub(crate) preview_load_requested: Option<PathBuf>,
 }
@@ -198,7 +198,7 @@ impl Default for App {
             file_info_scroll: 0,
             preview_tile_path: None,
             preview_fc: None,
-            preview_extent: 4096.0,
+            preview_extent: 4096,
             preview_rx: None,
             preview_load_requested: None,
         }
@@ -296,8 +296,8 @@ impl App {
         &self.fc.features[self.global_idx(layer, feat)]
     }
 
-    pub(crate) fn extent(&self) -> f64 {
-        self.layer_groups.first().map_or(4096.0, |g| g.extent)
+    pub(crate) fn extent(&self) -> u32 {
+        self.layer_groups.first().map_or(4096, |g| g.extent)
     }
 
     pub(crate) fn selected_item(&self) -> &TreeItem {
@@ -698,8 +698,8 @@ impl App {
 
         x0 = x0.min(0.0);
         y0 = y0.min(0.0);
-        x1 = x1.max(ext);
-        y1 = y1.max(ext);
+        x1 = x1.max(f64::from(ext));
+        y1 = y1.max(f64::from(ext));
         let px = (x1 - x0) * 0.1;
         let py = (y1 - y0) * 0.1;
         (x0 - px, y0 - py, x1 + px, y1 + py)

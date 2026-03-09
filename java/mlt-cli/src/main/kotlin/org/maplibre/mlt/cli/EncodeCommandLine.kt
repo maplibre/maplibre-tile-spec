@@ -676,6 +676,8 @@ Add an explicit column mapping on the specified layers:
                     ")\n  " +
                     ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maximum heap size (default: " +
                     DEFAULT_CACHE_MAX_HEAP_PERCENT + ")\n  " +
+                    ENV_CACHE_MAX_HEAP + ": Maximum cache size in bytes.  Overrides percent if non-zero. (default: " +
+                    DEFAULT_CACHE_MAX_HEAP + ")\n  " +
                     ENV_CACHE_EXPIRE + ": Cache expiration duration after access, in ISO-8601 format (e.g. P1.2S) \n" +
                     "    or plain (e.g., 1.2s) (default: " + DEFAULT_CACHE_EXPIRE.toString() + ")\n"
             )

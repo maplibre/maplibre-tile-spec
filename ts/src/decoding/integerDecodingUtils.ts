@@ -10,8 +10,8 @@ export type { FastPforWireDecodeWorkspace } from "./fastPforDecoder";
 export { createFastPforWireDecodeWorkspace } from "./fastPforDecoder";
 
 //based on https://github.com/mapbox/pbf/blob/main/index.js
-export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, numValues: number): Int32Array {
-    const dst = new Int32Array(numValues);
+export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, numValues: number): Uint32Array {
+    const dst = new Uint32Array(numValues);
     let dstOffset = 0;
     let offset = bufferOffset.get();
     for (let i = 0; i < dst.length; i++) {
@@ -154,7 +154,7 @@ export function decodeFastPfor(
     expectedValueCount: number,
     encodedByteLength: number,
     offset: IntWrapper,
-): Int32Array {
+): Uint32Array {
     const workspace = createFastPforWireDecodeWorkspace(encodedByteLength >>> 2);
     return decodeFastPforWithWorkspace(encodedBytes, expectedValueCount, encodedByteLength, offset, workspace);
 }
@@ -165,7 +165,7 @@ export function decodeFastPforWithWorkspace(
     encodedByteLength: number,
     offset: IntWrapper,
     workspace: FastPforWireDecodeWorkspace,
-): Int32Array {
+): Uint32Array {
     const inputByteOffset = offset.get();
     if ((encodedByteLength & 3) !== 0) {
         throw new Error(
@@ -198,10 +198,12 @@ export function decodeZigZagFloat64Value(encoded: number): number {
     return encoded % 2 === 1 ? (encoded + 1) / -2 : encoded / 2;
 }
 
-export function decodeZigZagInt32(encodedData: Int32Array): void {
+export function decodeZigZagInt32(encodedData: Uint32Array): Int32Array {
+    const decodedValues = new Int32Array(encodedData.length);
     for (let i = 0; i < encodedData.length; i++) {
-        encodedData[i] = decodeZigZagInt32Value(encodedData[i]);
+        decodedValues[i] = decodeZigZagInt32Value(encodedData[i]);
     }
+    return decodedValues;
 }
 
 export function decodeZigZagInt64(encodedData: BigUint64Array): BigInt64Array {
@@ -218,7 +220,11 @@ export function decodeZigZagFloat64(encodedData: Float64Array): void {
     }
 }
 
-export function decodeUnsignedRleInt32(encodedData: Int32Array, numRuns: number, numTotalValues?: number): Int32Array {
+export function decodeUnsignedRleInt32(
+    encodedData: Uint32Array,
+    numRuns: number,
+    numTotalValues?: number,
+): Uint32Array {
     // If numTotalValues not provided, calculate from runs (nullable case)
     if (numTotalValues === undefined) {
         numTotalValues = 0;
@@ -227,7 +233,7 @@ export function decodeUnsignedRleInt32(encodedData: Int32Array, numRuns: number,
         }
     }
 
-    const decodedValues = new Int32Array(numTotalValues);
+    const decodedValues = new Uint32Array(numTotalValues);
     let offset = 0;
     for (let i = 0; i < numRuns; i++) {
         const runLength = encodedData[i];
@@ -282,8 +288,9 @@ export function decodeUnsignedRleFloat64(
  * In place decoding of the zigzag encoded delta values.
  * Inspired by https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
  */
-export function decodeZigZagDeltaInt32(data: Int32Array) {
-    data[0] = decodeZigZagInt32Value(data[0]);
+export function decodeZigZagDeltaInt32(data: Uint32Array): Int32Array {
+    const decodedValues = new Int32Array(data.length);
+    decodedValues[0] = decodeZigZagInt32Value(data[0]);
     const sz0 = (data.length / 4) * 4;
     let i = 1;
     if (sz0 >= 4) {
@@ -293,16 +300,17 @@ export function decodeZigZagDeltaInt32(data: Int32Array) {
             const data3 = data[i + 2];
             const data4 = data[i + 3];
 
-            data[i] = decodeZigZagInt32Value(data1) + data[i - 1];
-            data[i + 1] = decodeZigZagInt32Value(data2) + data[i];
-            data[i + 2] = decodeZigZagInt32Value(data3) + data[i + 1];
-            data[i + 3] = decodeZigZagInt32Value(data4) + data[i + 2];
+            decodedValues[i] = decodeZigZagInt32Value(data1) + decodedValues[i - 1];
+            decodedValues[i + 1] = decodeZigZagInt32Value(data2) + decodedValues[i];
+            decodedValues[i + 2] = decodeZigZagInt32Value(data3) + decodedValues[i + 1];
+            decodedValues[i + 3] = decodeZigZagInt32Value(data4) + decodedValues[i + 2];
         }
     }
 
     for (; i !== data.length; ++i) {
-        data[i] = decodeZigZagInt32Value(data[i]) + data[i - 1];
+        decodedValues[i] = decodeZigZagInt32Value(data[i]) + decodedValues[i - 1];
     }
+    return decodedValues;
 }
 
 export function decodeZigZagDeltaInt64(data: BigInt64Array | BigUint64Array): BigInt64Array {
@@ -353,7 +361,7 @@ export function decodeZigZagDeltaFloat64(data: Float64Array) {
     }
 }
 
-export function decodeZigZagRleInt32(data: Int32Array, numRuns: number, numTotalValues?: number): Int32Array {
+export function decodeZigZagRleInt32(data: Uint32Array, numRuns: number, numTotalValues?: number): Int32Array {
     // If numTotalValues not provided, calculate from runs (nullable case)
     if (numTotalValues === undefined) {
         numTotalValues = 0;
@@ -429,7 +437,7 @@ export function fastInverseDelta(data: Uint32Array | Int32Array) {
     }
 }
 
-export function inverseDelta(data: Int32Array) {
+export function inverseDelta(data: Uint32Array) {
     let prevValue = 0;
     for (let i = 0; i < data.length; i++) {
         data[i] += prevValue;
@@ -441,10 +449,11 @@ export function inverseDelta(data: Int32Array) {
  * In place decoding of the zigzag delta encoded Vec2.
  * Inspired by https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
  */
-export function decodeComponentwiseDeltaVec2(data: Int32Array): void {
-    if (data.length < 2) return;
-    data[0] = decodeZigZagInt32Value(data[0]);
-    data[1] = decodeZigZagInt32Value(data[1]);
+export function decodeComponentwiseDeltaVec2(data: Uint32Array): Int32Array {
+    if (data.length < 2) return new Int32Array(data);
+    const decodedData = new Int32Array(data.length);
+    decodedData[0] = decodeZigZagInt32Value(data[0]);
+    decodedData[1] = decodeZigZagInt32Value(data[1]);
     const sz0 = (data.length / 4) * 4;
     let i = 2;
     if (sz0 >= 4) {
@@ -454,25 +463,32 @@ export function decodeComponentwiseDeltaVec2(data: Int32Array): void {
             const x2 = data[i + 2];
             const y2 = data[i + 3];
 
-            data[i] = decodeZigZagInt32Value(x1) + data[i - 2];
-            data[i + 1] = decodeZigZagInt32Value(y1) + data[i - 1];
-            data[i + 2] = decodeZigZagInt32Value(x2) + data[i];
-            data[i + 3] = decodeZigZagInt32Value(y2) + data[i + 1];
+            decodedData[i] = decodeZigZagInt32Value(x1) + decodedData[i - 2];
+            decodedData[i + 1] = decodeZigZagInt32Value(y1) + decodedData[i - 1];
+            decodedData[i + 2] = decodeZigZagInt32Value(x2) + decodedData[i];
+            decodedData[i + 3] = decodeZigZagInt32Value(y2) + decodedData[i + 1];
         }
     }
 
     for (; i !== data.length; i += 2) {
-        data[i] = decodeZigZagInt32Value(data[i]) + data[i - 2];
-        data[i + 1] = decodeZigZagInt32Value(data[i + 1]) + data[i - 1];
+        decodedData[i] = decodeZigZagInt32Value(data[i]) + decodedData[i - 2];
+        decodedData[i + 1] = decodeZigZagInt32Value(data[i + 1]) + decodedData[i - 1];
     }
+    return decodedData;
 }
 
-export function decodeComponentwiseDeltaVec2Scaled(data: Int32Array, scale: number, min: number, max: number): void {
-    if (data.length < 2) return;
+export function decodeComponentwiseDeltaVec2Scaled(
+    data: Uint32Array,
+    scale: number,
+    min: number,
+    max: number,
+): Int32Array {
+    if (data.length < 2) return new Int32Array(data);
+    const decodedData = new Int32Array(data.length);
     let previousVertexX = decodeZigZagInt32Value(data[0]);
     let previousVertexY = decodeZigZagInt32Value(data[1]);
-    data[0] = clamp(Math.round(previousVertexX * scale), min, max);
-    data[1] = clamp(Math.round(previousVertexY * scale), min, max);
+    decodedData[0] = clamp(Math.round(previousVertexX * scale), min, max);
+    decodedData[1] = clamp(Math.round(previousVertexY * scale), min, max);
     const sz0 = data.length / 16;
     let i = 2;
     if (sz0 >= 4) {
@@ -481,24 +497,25 @@ export function decodeComponentwiseDeltaVec2Scaled(data: Int32Array, scale: numb
             const y1 = data[i + 1];
             const currentVertexX = decodeZigZagInt32Value(x1) + previousVertexX;
             const currentVertexY = decodeZigZagInt32Value(y1) + previousVertexY;
-            data[i] = clamp(Math.round(currentVertexX * scale), min, max);
-            data[i + 1] = clamp(Math.round(currentVertexY * scale), min, max);
+            decodedData[i] = clamp(Math.round(currentVertexX * scale), min, max);
+            decodedData[i + 1] = clamp(Math.round(currentVertexY * scale), min, max);
 
             const x2 = data[i + 2];
             const y2 = data[i + 3];
             previousVertexX = decodeZigZagInt32Value(x2) + currentVertexX;
             previousVertexY = decodeZigZagInt32Value(y2) + currentVertexY;
-            data[i + 2] = clamp(Math.round(previousVertexX * scale), min, max);
-            data[i + 3] = clamp(Math.round(previousVertexY * scale), min, max);
+            decodedData[i + 2] = clamp(Math.round(previousVertexX * scale), min, max);
+            decodedData[i + 3] = clamp(Math.round(previousVertexY * scale), min, max);
         }
     }
 
     for (; i !== data.length; i += 2) {
         previousVertexX += decodeZigZagInt32Value(data[i]);
         previousVertexY += decodeZigZagInt32Value(data[i + 1]);
-        data[i] = clamp(Math.round(previousVertexX * scale), min, max);
-        data[i + 1] = clamp(Math.round(previousVertexY * scale), min, max);
+        decodedData[i] = clamp(Math.round(previousVertexX * scale), min, max);
+        decodedData[i + 1] = clamp(Math.round(previousVertexY * scale), min, max);
     }
+    return decodedData;
 }
 
 function clamp(n: number, min: number, max: number): number {
@@ -507,7 +524,7 @@ function clamp(n: number, min: number, max: number): number {
 
 /* Transform data to allow util access ------------------------------------------------------------------------ */
 
-export function decodeZigZagDeltaOfDeltaInt32(data: Int32Array): Uint32Array {
+export function decodeZigZagDeltaOfDeltaInt32(data: Uint32Array): Uint32Array {
     const decodedData = new Int32Array(data.length + 1);
     decodedData[0] = 0;
     decodedData[1] = decodeZigZagInt32Value(data[0]);
@@ -522,7 +539,7 @@ export function decodeZigZagDeltaOfDeltaInt32(data: Int32Array): Uint32Array {
     return new Uint32Array(decodedData);
 }
 
-export function decodeZigZagRleDeltaInt32(data: Int32Array, numRuns: number, numTotalValues: number): Uint32Array {
+export function decodeZigZagRleDeltaInt32(data: Uint32Array, numRuns: number, numTotalValues: number): Int32Array {
     const decodedValues = new Int32Array(numTotalValues + 1);
     decodedValues[0] = 0;
     let offset = 1;
@@ -538,11 +555,11 @@ export function decodeZigZagRleDeltaInt32(data: Int32Array, numRuns: number, num
 
         offset += runLength;
     }
-    return new Uint32Array(decodedValues);
+    return decodedValues;
 }
 
-export function decodeRleDeltaInt32(data: Int32Array, numRuns: number, numTotalValues: number): Uint32Array {
-    const decodedValues = new Int32Array(numTotalValues + 1);
+export function decodeRleDeltaInt32(data: Uint32Array, numRuns: number, numTotalValues: number): Uint32Array {
+    const decodedValues = new Uint32Array(numTotalValues + 1);
     decodedValues[0] = 0;
     let offset = 1;
     let previousValue = decodedValues[0];
@@ -557,7 +574,7 @@ export function decodeRleDeltaInt32(data: Int32Array, numRuns: number, numTotalV
         offset += runLength;
     }
 
-    return new Uint32Array(decodedValues);
+    return decodedValues;
 }
 
 /**
@@ -568,7 +585,7 @@ export function decodeRleDeltaInt32(data: Int32Array, numRuns: number, numTotalV
  * @param numValues Total number of values to reconstruct
  * @returns Reconstructed values with deltas applied
  */
-export function decodeDeltaRleInt32(data: Int32Array, numRuns: number, numValues: number): Int32Array {
+export function decodeDeltaRleInt32(data: Uint32Array, numRuns: number, numValues: number): Int32Array {
     const result = new Int32Array(numValues);
     let outPos = 0;
     let previousValue = 0;
@@ -609,15 +626,15 @@ export function decodeDeltaRleInt64(data: BigUint64Array, numRuns: number, numVa
     return result;
 }
 
-export function decodeUnsignedConstRleInt32(data: Int32Array): number {
+export function decodeUnsignedConstRleInt32(data: Int32Array | Uint32Array): number {
     return data[1];
 }
 
-export function decodeZigZagConstRleInt32(data: Int32Array): number {
+export function decodeZigZagConstRleInt32(data: Int32Array | Uint32Array): number {
     return decodeZigZagInt32Value(data[1]);
 }
 
-export function decodeZigZagSequenceRleInt32(data: Int32Array): [baseValue: number, delta: number] {
+export function decodeZigZagSequenceRleInt32(data: Int32Array | Uint32Array): [baseValue: number, delta: number] {
     /* base value and delta value are equal */
     if (data.length === 2) {
         const value = decodeZigZagInt32Value(data[1]);

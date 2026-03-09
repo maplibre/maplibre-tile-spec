@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
-use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd};
+use wide::u32x8;
 use zigzag::ZigZag;
 
 use crate::MltError::{BufferUnderflow, InvalidPairStreamSize, RleRunLenInvalid};
@@ -32,6 +32,7 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
 }
 
 /// Decode a vector of ZigZag-encoded unsigned deltas.
+#[must_use]
 pub fn decode_zigzag_delta<T: Copy + ZigZag + WrappingAdd + AsPrimitive<U>, U: 'static + Copy>(
     data: &[T::UInt],
 ) -> Vec<U> {
@@ -62,8 +63,10 @@ pub fn decode_rle<T: PrimInt + Debug>(
 }
 /// Decode a slice of bytes into a vector of u64 values assuming little-endian encoding
 pub fn decode_bytes_to_u64s(mut input: &[u8], num_values: u32) -> MltRefResult<'_, Vec<u64>> {
-    let expected_bytes = num_values as usize * 8;
-    if input.len() < expected_bytes {
+    let Some(expected_bytes) = num_values.checked_mul(8) else {
+        return Err(BufferUnderflow(u32::MAX, input.len()));
+    };
+    if input.len() < usize::try_from(expected_bytes)? {
         return Err(BufferUnderflow(expected_bytes, input.len()));
     }
 
@@ -81,8 +84,10 @@ pub fn decode_bytes_to_u64s(mut input: &[u8], num_values: u32) -> MltRefResult<'
 
 /// Decode a slice of bytes into a vector of u32 values assuming little-endian encoding
 pub fn decode_bytes_to_u32s(mut input: &[u8], num_values: u32) -> MltRefResult<'_, Vec<u32>> {
-    let expected_bytes = num_values as usize * 4;
-    if input.len() < expected_bytes {
+    let Some(expected_bytes) = num_values.checked_mul(4) else {
+        return Err(BufferUnderflow(u32::MAX, input.len()));
+    };
+    if input.len() < usize::try_from(expected_bytes)? {
         return Err(BufferUnderflow(expected_bytes, input.len()));
     }
 
@@ -100,47 +105,134 @@ pub fn decode_zigzag<T: ZigZag>(data: &[T::UInt]) -> Vec<T> {
     data.iter().map(|&v| T::decode(v)).collect()
 }
 
-/// Decode one Morton (Z-order) code to (x, y) with given `num_bits` and `coordinate_shift`.
-/// Matches Java ZOrderCurve.decode / IntegerDecoder.decodeMortonCode.
-#[inline]
-fn decode_morton_half(code: u32, num_bits: u32) -> u32 {
-    let mut coord = 0u32;
-    for i in 0..num_bits {
-        coord |= (code & (1 << (2 * i))) >> i;
-    }
-    coord
-}
-
 /// Decode a single Morton code to (x, y) as i32, applying `coordinate_shift`.
 #[expect(clippy::cast_possible_wrap)]
-pub fn decode_morton_one(morton_code: u32, num_bits: u32, coordinate_shift: u32) -> (i32, i32) {
-    let x = decode_morton_half(morton_code, num_bits) as i32 - coordinate_shift as i32;
-    let y = decode_morton_half(morton_code >> 1, num_bits) as i32 - coordinate_shift as i32;
-    (x, y)
+fn decode_morton_one(morton_code: u32, num_bits: u32, coordinate_shift: u32) -> (i32, i32) {
+    let mut x = 0u32;
+    let mut y = 0u32;
+    for i in 0..num_bits {
+        let bit_mask = 1u32 << (2 * i);
+        x |= (morton_code & bit_mask) >> i;
+        y |= ((morton_code >> 1) & bit_mask) >> i;
+    }
+    (
+        x as i32 - coordinate_shift as i32,
+        y as i32 - coordinate_shift as i32,
+    )
 }
 
 /// Decode Morton codes to flat [x0, y0, x1, y1, ...]. Deltas are raw (u32 reinterpreted as i32).
+///
+/// The sequential prefix sum is computed in chunks of 8 into a stack-allocated `[u32; 8]`
+/// buffer, which is immediately SIMD-decoded into the output. This keeps the working
+/// set in registers / L1 cache
 #[expect(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
+#[must_use]
 pub fn decode_morton_delta(data: &[u32], num_bits: u32, coordinate_shift: u32) -> Vec<i32> {
+    const LANES: usize = 8;
     let mut out = Vec::with_capacity(data.len() * 2);
+    let shift_vec = u32x8::splat(coordinate_shift);
+
     let mut prev = 0i32;
-    for &u in data {
-        prev = prev.wrapping_add(u as i32);
+    let mut chunks = data.chunks_exact(LANES);
+
+    for chunk in chunks.by_ref() {
+        // Sequential prefix sum into a stack buffer — no heap allocation.
+        let mut buf = [0u32; LANES];
+        for (b, &d) in buf.iter_mut().zip(chunk.iter()) {
+            prev = prev.wrapping_add(d as i32);
+            *b = prev as u32;
+        }
+
+        let codes = u32x8::from(buf);
+        let codes_y = codes >> 1;
+
+        let mut x_vec = u32x8::ZERO;
+        let mut y_vec = u32x8::ZERO;
+
+        for i in 0..num_bits {
+            let bit_mask = u32x8::splat(1u32 << (2 * i));
+            x_vec |= (codes & bit_mask) >> i;
+            y_vec |= (codes_y & bit_mask) >> i;
+        }
+
+        let x_shifted = x_vec - shift_vec;
+        let y_shifted = y_vec - shift_vec;
+
+        let xs: [u32; LANES] = x_shifted.into();
+        let ys: [u32; LANES] = y_shifted.into();
+
+        for lane in 0..LANES {
+            out.push(xs[lane] as i32);
+            out.push(ys[lane] as i32);
+        }
+    }
+
+    // Scalar tail for any codes that didn't fill a full SIMD chunk.
+    for &d in chunks.remainder() {
+        prev = prev.wrapping_add(d as i32);
         let (x, y) = decode_morton_one(prev as u32, num_bits, coordinate_shift);
         out.push(x);
         out.push(y);
     }
+
     out
 }
 
 /// Decode Morton codes (no delta) to flat [x0, y0, x1, y1, ...].
+///
+/// Processes 8 codes at a time with `wide::u32x8`. Each lane extracts the
+/// compacted even-bit (x) and odd-bit (y) components in parallel, then applies
+/// the coordinate shift. A scalar tail handles any remaining codes.
+#[expect(clippy::cast_possible_wrap)]
+#[must_use]
 pub fn decode_morton_codes(data: &[u32], num_bits: u32, coordinate_shift: u32) -> Vec<i32> {
+    const LANES: usize = 8;
     let mut out = Vec::with_capacity(data.len() * 2);
-    for &code in data {
+    let shift_vec = u32x8::splat(coordinate_shift);
+
+    let chunks = data.chunks_exact(LANES);
+    let remainder = chunks.remainder();
+
+    for chunk in chunks {
+        // Load 8 Morton codes into a SIMD register.
+        let codes = u32x8::from([
+            chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6], chunk[7],
+        ]);
+        // y codes are the same values shifted right by 1 (odd bits become even).
+        let codes_y = codes >> 1;
+
+        let mut x_vec = u32x8::ZERO;
+        let mut y_vec = u32x8::ZERO;
+
+        for i in 0..num_bits {
+            // Mask for bit position 2*i in the original Morton code.
+            let bit_mask = u32x8::splat(1u32 << (2 * i));
+            // Extract bit 2*i from each code and shift it down to position i.
+            x_vec |= (codes & bit_mask) >> i;
+            y_vec |= (codes_y & bit_mask) >> i;
+        }
+
+        // Apply coordinate shift and cast to i32.
+        let x_shifted = x_vec - shift_vec;
+        let y_shifted = y_vec - shift_vec;
+
+        let xs: [u32; 8] = x_shifted.into();
+        let ys: [u32; 8] = y_shifted.into();
+
+        for lane in 0..LANES {
+            out.push(xs[lane] as i32);
+            out.push(ys[lane] as i32);
+        }
+    }
+
+    // Scalar tail for any codes that didn't fill a full SIMD chunk.
+    for &code in remainder {
         let (x, y) = decode_morton_one(code, num_bits, coordinate_shift);
         out.push(x);
         out.push(y);
     }
+
     out
 }
 
@@ -149,6 +241,7 @@ pub fn decode_morton_codes(data: &[u32], num_bits: u32, coordinate_shift: u32) -
 /// Format: control byte determines the run type:
 /// - `control >= 128`: literal run of `(256 - control)` bytes follow
 /// - `control < 128`: repeating run of `(control + 3)` copies of the next byte
+#[must_use]
 pub fn decode_byte_rle(input: &[u8], num_bytes: usize) -> Vec<u8> {
     let mut output = Vec::with_capacity(num_bytes);
     let mut pos = 0;
@@ -170,6 +263,7 @@ pub fn decode_byte_rle(input: &[u8], num_bytes: usize) -> Vec<u8> {
 }
 
 /// Helper to unpack a `Vec<u8>` into `Vec<bool>` where each byte represents 8 booleans.
+#[must_use]
 pub fn decode_bytes_to_bools(bytes: &[u8], num_bools: usize) -> Vec<bool> {
     debug_assert!(num_bools <= bytes.len() * 8);
     (0..num_bools)
@@ -211,21 +305,51 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
         return Err(MltError::FastPforDecode(num_values, 0));
     }
 
-    // The fastpfor crate's FastPFor256Codec is already a CompositeCodec<FastPFor<8>, VariableByte>.
-    // It handles the full Composition protocol internally (FastPFor header + VByte remainder).
+    #[cfg(feature = "fastpfor-cpp")]
+    {
+        use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
+        // The fastpfor crate's FastPFor256Codec is already a CompositeCodec<FastPFor<8>, VariableByte>.
+        // It handles the full Composition protocol internally (FastPFor header + VByte remainder).
 
-    // Over-allocate output buffer — the codec may decode padding beyond num_values.
-    let buf_size = num_values + 1024;
-    let mut result = vec![0u32; buf_size];
+        // Over-allocate output buffer — the codec may decode padding beyond num_values.
+        let buf_size = num_values + 1024;
+        let mut result = vec![0u32; buf_size];
 
-    let decoded = FastPFor256Codec::new().decode32(&input, &mut result)?;
+        let decoded = FastPFor256Codec::new().decode32(&input, &mut result)?;
 
-    if decoded.len() < num_values {
-        return Err(MltError::FastPforDecode(num_values, decoded.len()));
+        if decoded.len() < num_values {
+            return Err(MltError::FastPforDecode(num_values, decoded.len()));
+        }
+
+        result.truncate(num_values);
+        Ok(result)
     }
+    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
+    {
+        use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
+        // Over-allocate output buffer - the codec may decode padding beyond num_values.
+        let buf_size = num_values + 1024;
+        let mut result = vec![0u32; buf_size];
 
-    result.truncate(num_values);
-    Ok(result)
+        let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
+        let mut output_offset = std::io::Cursor::new(0u32);
+
+        comp.uncompress(
+            &input,
+            u32::try_from(input.len())?,
+            &mut std::io::Cursor::new(0u32),
+            &mut result,
+            &mut output_offset,
+        )?;
+
+        let decoded = usize::try_from(output_offset.position())?;
+        if decoded < num_values {
+            return Err(MltError::FastPforDecode(num_values, decoded));
+        }
+
+        result.truncate(num_values);
+        Ok(result)
+    }
 }
 
 #[cfg(test)]

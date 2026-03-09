@@ -6,11 +6,11 @@ on:
       - main
   pull_request:
     paths:
-      - 'justfile'
-      - 'rust/mod.just'
-      - '.github/**'
-      - 'rust/**'
-      - 'test/**'
+      - "justfile"
+      - "rust/mod.just"
+      - ".github/**"
+      - "rust/**"
+      - "test/**"
   workflow_dispatch:
 
 jobs:
@@ -33,6 +33,15 @@ jobs:
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-test
 
+  test-wasm:
+    name: Test wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/mlt-setup-rust
+      - run: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
+      - run: just -v rust::ci-test-wasm
+
   fuzz:
     name: Fuzz ${{ matrix.target }}
     runs-on: ubuntu-latest
@@ -41,7 +50,7 @@ jobs:
       matrix:
         include:
           - target: layer
-          # - target: decoded_layer
+          - target: decoded_layer
     steps:
       - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-rust
@@ -50,16 +59,16 @@ jobs:
       # enable once we can reliably fuzz ourselves
       #- run: just -v rust::ci-fuzz-run ${{ matrix.target }}
 
-#  MSRV Testing is not really needed at this stage of code completeness
-#  test-msrv:
-#    name: Test MSRV
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v6.0.2
-#      - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
-#      - uses: ./.github/actions/mlt-setup-rust
-#        with: { toolchain: msrv }
-#      - run: just -v rust::ci-test-msrv
+  #  MSRV Testing is not really needed at this stage of code completeness
+  #  test-msrv:
+  #    name: Test MSRV
+  #    runs-on: ubuntu-latest
+  #    steps:
+  #      - uses: actions/checkout@v6.0.2
+  #      - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
+  #      - uses: ./.github/actions/mlt-setup-rust
+  #        with: { toolchain: msrv }
+  #      - run: just -v rust::ci-test-msrv
 
   coverage:
     name: Code Coverage
@@ -67,10 +76,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
+      - uses: ./.github/actions/mlt-setup-java # generate MLT test files
       - uses: ./.github/actions/mlt-setup-rust
       - uses: taiki-e/install-action@v2
-        with: { tool: 'cargo-llvm-cov' }
+        with: { tool: "cargo-llvm-cov" }
       - name: Generate code coverage
         run: just -v rust::ci-coverage
       - name: Upload coverage to Codecov
@@ -120,11 +129,58 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_name }}
 
+  build-wasm-npm:
+    name: Build @maplibre/mlt-wasm npm package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/mlt-setup-rust
+        with: { toolchain: nightly }
+      - run: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: "rust/mlt-wasm/.nvmrc"
+          cache: "npm"
+          cache-dependency-path: "rust/mlt-wasm/package-lock.json"
+
+      - name: Build
+        run: just -v rust::wasm-build
+
+      - name: Merge license files into LICENSE.txt
+        working-directory: rust/mlt-wasm
+        run: |
+          {
+            echo "===== MIT License ====="
+            cat ../../LICENSE-MIT
+            echo
+            echo "===== Apache License 2.0 ====="
+            cat ../../LICENSE-APACHE
+          } > LICENSE.txt
+
+      - name: Pack
+        working-directory: rust/mlt-wasm
+        run: npm pack
+
+      - name: Upload npm package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: mlt-wasm-npm
+          path: rust/mlt-wasm/maplibre-mlt-wasm-*.tgz
+
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
   ci-passed-rust:
-    # needs: [ test, test-msrv, lint, build-release-binaries, test-publish ]
-    needs: [ test, lint, build-release-binaries, test-publish ]
+    needs:
+      - test
+      # re-enable once we have stability guarantees regarding MSRV
+      # - test-msrv
+      - test-wasm
+      - lint
+      - build-release-binaries
+      - test-publish
+      - build-wasm-npm
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -135,7 +191,7 @@ jobs:
 
   # Release unpublished packages or create a PR with changes
   release-plz:
-    needs: [ ci-passed-rust ]
+    needs: [ci-passed-rust]
     if: |
       always()
       && needs.ci-passed-rust.result == 'success'
@@ -168,10 +224,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
+      releases: ${{ steps.release.outputs.releases }}
 
   upload-release-binaries:
     name: Upload release binaries to GitHub releases
-    needs: [ release-plz ]
+    needs: [release-plz]
     if: ${{ needs.release-plz.outputs.releases_created == 'true' }}
     runs-on: ubuntu-latest
     permissions:
@@ -179,7 +236,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
       - uses: taiki-e/install-action@v2
-        with: { tool: 'just' }
+        with: { tool: "just" }
       - name: Get mlt version for release tag
         id: get_version
         shell: bash
@@ -195,3 +252,63 @@ jobs:
             artifacts/**/*.tar.gz
             artifacts/**/*.zip
           fail_on_unmatched_files: true
+
+  # Publish @maplibre/mlt-wasm to npm after mlt-wasm is released to crates.io.
+  # The npm package tarball was already built and uploaded as an artifact by build-wasm-npm.
+  publish-wasm-npm:
+    name: Publish @maplibre/mlt-wasm to npm
+    needs: [release-plz]
+    if: |
+      needs.release-plz.outputs.releases_created == 'true'
+      && contains(fromJSON(needs.release-plz.outputs.releases || '[]').*.package_name, 'mlt-wasm')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Get mlt-wasm release version
+        id: version
+        env:
+          RELEASES: ${{ needs.release-plz.outputs.releases }}
+        run: |
+          echo "value=$(echo "$RELEASES" | jq -r '.[] | select(.package_name == "mlt-wasm") | .version')" >> $GITHUB_OUTPUT
+
+      - name: Set prerelease flag
+        run: |
+          version="${{ steps.version.outputs.value }}"
+          echo version="$version" >> "$GITHUB_ENV"
+          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo prerelease=false >> "$GITHUB_ENV"
+          else
+            echo prerelease=true >> "$GITHUB_ENV"
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Download npm package artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: mlt-wasm-npm
+          path: mlt-wasm-pkg
+
+      - name: Release (GitHub) - Create Draft
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        with:
+          name: mlt-wasm-js-v${{ env.version }}
+          tag_name: mlt-wasm-js-v${{ env.version }}
+          prerelease: ${{ env.prerelease }}
+          draft: true
+
+      - name: Publish npm package
+        run: npm publish mlt-wasm-pkg/maplibre-mlt-wasm-*.tgz --access=public
+
+      - name: Publish GitHub release (remove draft)
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        with:
+          tag_name: mlt-wasm-js-v${{ env.version }}
+          name: mlt-wasm-js-v${{ env.version }}
+          draft: false

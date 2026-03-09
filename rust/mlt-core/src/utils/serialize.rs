@@ -11,7 +11,7 @@ pub trait BinarySerializer: Write + VarIntWriter {
         self.write_all(&[value])
     }
     fn write_string(&mut self, value: &str) -> io::Result<()> {
-        let size = u64::try_from(value.len()).map_err(MltError::from)?;
+        let size = u32::try_from(value.len()).map_err(MltError::from)?;
         self.write_varint(size)?;
         self.write_all(value.as_bytes())
     }

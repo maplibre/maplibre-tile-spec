@@ -74,21 +74,21 @@ impl Analyze for Id<'_> {
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct EncodedId<'a> {
-    optional: Option<Stream<'a>>,
+    presence: Option<Stream<'a>>,
     value: EncodedIdValue<'a>,
 }
 
 impl Default for OwnedEncodedId {
     fn default() -> Self {
         Self {
-            optional: None,
+            presence: None,
             value: OwnedEncodedIdValue::Id32(OwnedStream::empty_without_encoding()),
         }
     }
 }
 impl OwnedEncodedId {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        match (&self.optional, &self.value) {
+        match (&self.presence, &self.value) {
             (None, OwnedEncodedIdValue::Id32(_)) => ColumnType::Id.write_to(writer)?,
             (None, OwnedEncodedIdValue::Id64(_)) => ColumnType::LongId.write_to(writer)?,
             (Some(_), OwnedEncodedIdValue::Id32(_)) => ColumnType::OptId.write_to(writer)?,
@@ -98,7 +98,7 @@ impl OwnedEncodedId {
     }
 
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        writer.write_optional_stream(self.optional.as_ref())?;
+        writer.write_optional_stream(self.presence.as_ref())?;
         match &self.value {
             OwnedEncodedIdValue::Id32(s) | OwnedEncodedIdValue::Id64(s) => {
                 writer.write_stream(s)?;
@@ -110,7 +110,7 @@ impl OwnedEncodedId {
 
 impl Analyze for EncodedId<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
-        self.optional.for_each_stream(cb);
+        self.presence.for_each_stream(cb);
         self.value.for_each_stream(cb);
     }
 }
@@ -175,8 +175,8 @@ impl<'a> From<EncodedId<'a>> for Id<'a> {
 
 impl<'a> Id<'a> {
     #[must_use]
-    pub fn new_encoded(optional: Option<Stream<'a>>, value: EncodedIdValue<'a>) -> Self {
-        Self::Encoded(EncodedId { optional, value })
+    pub fn new_encoded(presence: Option<Stream<'a>>, value: EncodedIdValue<'a>) -> Self {
+        Self::Encoded(EncodedId { presence, value })
     }
 
     #[inline]
@@ -192,7 +192,7 @@ impl<'a> Id<'a> {
 impl<'a> FromEncoded<'a> for DecodedId {
     type Input = EncodedId<'a>;
 
-    fn from_encoded(EncodedId { optional, value }: EncodedId<'_>) -> Result<Self, MltError> {
+    fn from_encoded(EncodedId { presence, value }: EncodedId<'_>) -> Result<Self, MltError> {
         // Decode the ID values first
         let ids_u64: Vec<u64> = match value {
             EncodedIdValue::Id32(stream) => {
@@ -206,7 +206,7 @@ impl<'a> FromEncoded<'a> for DecodedId {
             }
         };
 
-        let ids_optional = apply_present(optional, ids_u64)?;
+        let ids_optional = apply_present(presence, ids_u64)?;
 
         Ok(DecodedId(Some(ids_optional)))
     }
@@ -252,7 +252,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
             return Err(MltError::IdsMissingForEncoding);
         };
 
-        let optional = if matches!(encoder.id_width, CFG::OptId32 | CFG::OptId64) {
+        let presence = if matches!(encoder.id_width, CFG::OptId32 | CFG::OptId64) {
             let present: Vec<bool> = ids.iter().map(Option::is_some).collect();
             let num_values = u32::try_from(present.len())?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present));
@@ -297,7 +297,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
             )?)
         };
 
-        Ok(Self { optional, value })
+        Ok(Self { presence, value })
     }
 }
 
@@ -340,8 +340,8 @@ mod tests {
         }
 
         match id_width {
-            OptId32 | OptId64 => assert!(encoded.optional.is_some()),
-            Id32 | Id64 => assert!(encoded.optional.is_none()),
+            OptId32 | OptId64 => assert!(encoded.presence.is_some()),
+            Id32 | Id64 => assert!(encoded.presence.is_none()),
         }
     }
 
@@ -512,11 +512,11 @@ mod tests {
 
         if matches!(encoder.id_width, OptId32 | OptId64) {
             prop_assert!(
-                enc_id.optional.is_some(),
+                enc_id.presence.is_some(),
                 "Expected optional stream to be present"
             );
         } else {
-            prop_assert!(enc_id.optional.is_none(), "Expected no optional stream");
+            prop_assert!(enc_id.presence.is_none(), "Expected no optional stream");
         }
         Ok(())
     }

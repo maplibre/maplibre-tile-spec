@@ -1,4 +1,3 @@
-use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
 use integer_encoding::VarInt as _;
 use num_traits::{PrimInt, WrappingSub};
 use zigzag::ZigZag;
@@ -15,6 +14,7 @@ pub fn encode_str(data: &mut Vec<u8>, value: &[u8]) {
     data.extend_from_slice(value);
 }
 
+#[must_use]
 pub fn encode_zigzag<T: ZigZag>(data: &[T]) -> Vec<T::UInt> {
     data.iter().map(|&v| T::encode(v)).collect()
 }
@@ -31,10 +31,12 @@ fn encode_delta<T: Copy + WrappingSub>(data: &[T]) -> Vec<T> {
     result
 }
 
+#[must_use]
 pub fn encode_zigzag_delta<T: Copy + ZigZag + WrappingSub<Output = T>>(data: &[T]) -> Vec<T::UInt> {
     encode_zigzag(&encode_delta(data))
 }
 
+#[must_use]
 pub fn encode_rle<T: PrimInt>(data: &[T]) -> (Vec<T>, Vec<T>) {
     if data.is_empty() {
         return (Vec::new(), Vec::new());
@@ -67,6 +69,7 @@ pub fn encode_rle<T: PrimInt>(data: &[T]) -> (Vec<T>, Vec<T>) {
 /// Format: control byte determines the run type:
 /// - `control >= 128`: literal run of `(256 - control)` bytes follow
 /// - `control < 128`: repeating run of `(control + 3)` copies of the next byte
+#[must_use]
 pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
     let mut output = Vec::new();
     let mut pos = 0;
@@ -128,19 +131,50 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
     if values.is_empty() {
         return Ok(Vec::new());
     }
-    let codec = FastPFor256Codec::new();
-    // Over-allocate: FastPFOR may write a header and padding beyond the input length.
-    let mut compressed = vec![0u32; values.len() + 1024];
-    let out = codec.encode32(values, &mut compressed)?;
 
-    // Convert u32 words to big-endian bytes to match the wire format.
-    let mut data = Vec::with_capacity(out.len() * 4);
-    for word in out.iter() {
-        data.extend_from_slice(&word.to_be_bytes());
+    #[cfg(feature = "fastpfor-cpp")]
+    {
+        use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
+        let codec = FastPFor256Codec::new();
+        // Over-allocate: FastPFOR may write a header and padding beyond the input length.
+        let mut compressed = vec![0u32; values.len() + 1024];
+        let out = codec.encode32(values, &mut compressed)?;
+
+        // Convert u32 words to big-endian bytes to match the wire format.
+        let mut data = Vec::with_capacity(out.len() * 4);
+        for word in out.iter() {
+            data.extend_from_slice(&word.to_be_bytes());
+        }
+        Ok(data)
     }
-    Ok(data)
+    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
+    {
+        use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
+        // Over-allocate: FastPFOR may write a header and padding beyond the input length.
+        let mut compressed = vec![0u32; values.len() + 1024];
+        let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
+        let mut output_offset = std::io::Cursor::new(0u32);
+
+        comp.compress(
+            values,
+            u32::try_from(values.len())?,
+            &mut std::io::Cursor::new(0u32),
+            &mut compressed,
+            &mut output_offset,
+        )?;
+
+        let written = usize::try_from(output_offset.position())?;
+
+        // Convert u32 words to big-endian bytes to match the wire format.
+        let mut data = Vec::with_capacity(written * 4);
+        for word in &compressed[..written] {
+            data.extend_from_slice(&word.to_be_bytes());
+        }
+        Ok(data)
+    }
 }
 
+#[must_use]
 pub fn encode_u32s_to_bytes(data: &[u32]) -> Vec<u8> {
     let mut output = Vec::with_capacity(data.len() * 4);
     for &val in data {
@@ -149,6 +183,7 @@ pub fn encode_u32s_to_bytes(data: &[u32]) -> Vec<u8> {
     output
 }
 
+#[must_use]
 pub fn encode_u64s_to_bytes(data: &[u64]) -> Vec<u8> {
     let mut output = Vec::with_capacity(data.len() * 8);
     for &val in data {
@@ -163,6 +198,7 @@ pub fn encode_u64s_to_bytes(data: &[u64]) -> Vec<u8> {
 /// Output: `[zigzag(x0-0), zigzag(y0-0), zigzag(x1-x0), zigzag(y1-y0), ...]`
 ///
 /// This is the inverse of `decode_componentwise_delta_vec2s`.
+#[must_use]
 pub fn encode_componentwise_delta_vec2s<T>(data: &[T]) -> Vec<T::UInt>
 where
     T: ZigZag + WrappingSub,
@@ -180,6 +216,7 @@ where
 }
 
 /// Helper to pack a `Vec<bool>` into `Vec<u8>` where each byte represents 8 booleans.
+#[must_use]
 pub fn encode_bools_to_bytes(bools: &[bool]) -> Vec<u8> {
     let num_bytes = bools.len().div_ceil(8);
     let mut bytes = vec![0u8; num_bytes];
