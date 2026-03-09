@@ -18,12 +18,15 @@ use fsst::Compressor;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
+use crate::optimiser::AutomaticOptimisation;
 use crate::utils::encode_zigzag;
 use crate::v01::property::strings::{SharedDictEncoder, SharedDictItemEncoder, StrEncoder};
 use crate::v01::property::{
     DecodedProperty, PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, SharedDictItem,
 };
 use crate::v01::stream::IntEncoder;
+use crate::v01::{OwnedEncodedProperty, OwnedProperty};
+use crate::{FromDecoded as _, FromEncoded as _, MltError};
 
 /// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;
@@ -46,6 +49,26 @@ struct StringProfile {
     /// `MinHash` signature computed over the set of unique non-null values.
     /// Empty when the column contains no non-null values (all-null column).
     min_hashes: Vec<u64>,
+}
+
+impl AutomaticOptimisation for Vec<OwnedProperty> {
+    type UsedEncoder = Vec<PropertyEncoder>;
+
+    fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
+        let mut decoded = Vec::with_capacity(self.len());
+        for d in &mut *self {
+            let dec = match d {
+                OwnedProperty::Encoded(e) => DecodedProperty::from_encoded(borrowme::borrow(e))?,
+                OwnedProperty::Decoded(d) => d.clone(),
+            };
+            decoded.push(dec);
+        }
+
+        let enc = PropertyOptimizer::optimize(&mut decoded);
+        let encs = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc.clone())?;
+        *self = encs.into_iter().map(OwnedProperty::Encoded).collect();
+        Ok(enc)
+    }
 }
 
 /// Analyzes a batch of [`DecodedProperty`] values and produces

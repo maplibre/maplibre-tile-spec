@@ -11,6 +11,7 @@ mod encode;
 mod errors;
 pub use convert::{geojson, mvt};
 pub mod layer;
+pub mod optimiser;
 pub use layer::{unknown, v01};
 #[doc(hidden)]
 pub mod utils;

@@ -1,5 +1,12 @@
 use super::DecodedId;
-use crate::v01::{DataProfile, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, PhysicalEncoder};
+use crate::{
+    FromDecoded as _, FromEncoded as _, MltError,
+    optimiser::AutomaticOptimisation,
+    v01::{
+        DataProfile, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, OwnedEncodedId, OwnedId,
+        PhysicalEncoder,
+    },
+};
 
 /// Analyses a [`DecodedId`] and returns an [`IdEncoder`] with near-optimal
 /// encoding settings.
@@ -160,6 +167,26 @@ impl IdOptimizer {
             vec![IntEncoder::varint()]
         } else {
             filtered
+        }
+    }
+}
+
+impl AutomaticOptimisation for OwnedId {
+    type UsedEncoder = Option<IdEncoder>;
+
+    fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
+        match self {
+            OwnedId::Decoded(dec) => {
+                let enc = IdOptimizer::optimize(dec);
+                *self = OwnedId::Encoded(OwnedEncodedId::from_decoded(dec, enc)?);
+                Ok(Some(enc))
+            }
+            OwnedId::Encoded(e) => {
+                let dec = DecodedId::from_encoded(borrowme::borrow(e))?;
+                *self = OwnedId::Decoded(dec);
+                self.automatic_encoding_optimisation()
+            }
+            OwnedId::None => Ok(None),
         }
     }
 }

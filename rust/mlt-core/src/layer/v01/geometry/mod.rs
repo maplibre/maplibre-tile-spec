@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::MltError::NotImplemented;
 use crate::analyse::{Analyze, StatType};
-use crate::decode::{FromEncoded, impl_decodable};
+use crate::decode::impl_decodable;
 use crate::encode::impl_encodable;
 use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _, checked_sum2};
 use crate::v01::column::ColumnType;
@@ -28,7 +28,7 @@ use crate::v01::{
     DictionaryType, IntEncoding, LengthType, OffsetType, OwnedStream, Stream, StreamMeta,
     StreamType,
 };
-use crate::{FromDecoded, MltError};
+use crate::{FromDecoded, FromEncoded, MltError};
 
 /// Geometry column representation, either encoded or decoded
 #[borrowme]
