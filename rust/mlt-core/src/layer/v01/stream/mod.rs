@@ -123,6 +123,28 @@ impl OwnedStream {
         })
     }
 
+    /// Encode a u8 data stream using byte-RLE
+    pub fn encode_byte_rle_u8s(values: &[u8], stream_type: StreamType) -> Result<Self, MltError> {
+        let num_values = u32::try_from(values.len())?;
+        let data = encode_byte_rle(values);
+        let num_rle_bytes = u32::try_from(data.len())?;
+        let meta = StreamMeta::new(
+            stream_type,
+            IntEncoding::new(
+                LogicalEncoding::Rle(RleMeta {
+                    runs: num_values,
+                    num_rle_values: num_rle_bytes,
+                }),
+                PhysicalEncoding::None,
+            ),
+            num_values,
+        );
+        Ok(Self {
+            meta,
+            data: OwnedStreamData::Encoded(OwnedEncodedData { data }),
+        })
+    }
+
     /// Encodes `f32`s into a stream
     pub fn encode_f32(values: &[f32]) -> Result<Self, MltError> {
         let num_values = u32::try_from(values.len())?;
@@ -793,6 +815,18 @@ impl<'a> Stream<'a> {
             .map(u8::try_from)
             .collect::<Result<Vec<u8>, _>>()?;
         Ok(decoded)
+    }
+
+    /// Decode a byte-RLE encoded stream into a Vec<u8>
+    pub fn decode_byte_rle_u8s(self) -> Result<Vec<u8>, MltError> {
+        let num_values = self.meta.num_values as usize;
+        let raw = match &self.data {
+            StreamData::Encoded(d) => d.data,
+            StreamData::VarInt(_) => {
+                return Err(MltError::NotImplemented("varint byte-RLE decoding"));
+            }
+        };
+        Ok(decode_byte_rle(raw, num_values))
     }
 
     pub fn decode_i32s(self) -> Result<Vec<i32>, MltError> {

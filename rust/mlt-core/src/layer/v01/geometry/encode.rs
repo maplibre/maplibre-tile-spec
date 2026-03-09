@@ -513,13 +513,13 @@ pub fn encode_geometry(
 
     // Encode geometry types (meta stream)
     let meta = {
-        let vector_types_u32: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
         if let Some(cb) = &mut on_stream {
+            let vector_types_u32: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
             cb(StreamType::Length(LengthType::VarBinary), &vector_types_u32);
         }
-        OwnedStream::encode_u32s_of_type(
-            &vector_types_u32,
-            encoder.meta,
+        let vector_types_u8: Vec<u8> = vector_types.iter().map(|t| *t as u8).collect();
+        OwnedStream::encode_byte_rle_u8s(
+            &vector_types_u8,
             StreamType::Length(LengthType::VarBinary),
         )?
     };

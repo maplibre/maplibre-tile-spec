@@ -787,9 +787,8 @@ mod tests {
         };
 
         // meta: single LineString
-        let meta = OwnedStream::encode_u32s_of_type(
-            &[GeometryType::LineString as u32],
-            IntEncoder::varint(),
+        let meta = OwnedStream::encode_byte_rle_u8s(
+            &[GeometryType::LineString as u8],
             StreamType::Length(LengthType::VarBinary),
         )
         .unwrap();
