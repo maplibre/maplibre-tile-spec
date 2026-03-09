@@ -1,7 +1,4 @@
-use js_sys::{
-    Array, BigInt64Array, BigUint64Array, Float32Array, Float64Array, Int8Array, Int32Array,
-    Uint8Array, Uint32Array,
-};
+use js_sys::{Array, Float32Array, Float64Array, Int8Array, Int32Array, Uint8Array, Uint32Array};
 use mlt_core::v01::{OwnedProperty, PropValue};
 use wasm_bindgen::prelude::*;
 
@@ -137,8 +134,13 @@ pub(crate) fn prop_values_to_js_column(pv: &PropValue, n: u32) -> JsValue {
                 }
                 arr.into()
             } else {
-                let buf = v.iter().flatten().copied().collect::<Vec<_>>();
-                BigInt64Array::from(buf.as_slice()).into()
+                let buf = v
+                    .iter()
+                    .flatten()
+                    .copied()
+                    .map(|n| n as f64)
+                    .collect::<Vec<_>>();
+                Float64Array::from(buf.as_slice()).into()
             }
         }
         PropValue::U64(v) => {
@@ -151,8 +153,13 @@ pub(crate) fn prop_values_to_js_column(pv: &PropValue, n: u32) -> JsValue {
                 }
                 arr.into()
             } else {
-                let buf = v.iter().flatten().copied().collect::<Vec<_>>();
-                BigUint64Array::from(buf.as_slice()).into()
+                let buf = v
+                    .iter()
+                    .flatten()
+                    .copied()
+                    .map(|n| n as f64)
+                    .collect::<Vec<_>>();
+                Float64Array::from(buf.as_slice()).into()
             }
         }
         PropValue::F32(v) => {
