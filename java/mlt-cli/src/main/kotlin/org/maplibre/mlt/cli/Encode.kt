@@ -1,7 +1,6 @@
 package org.maplibre.mlt.cli
 
 import org.apache.commons.cli.CommandLine
-import org.apache.commons.cli.ParseException
 import org.apache.commons.io.FilenameUtils
 import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.core.config.Configurator
@@ -22,17 +21,12 @@ import org.slf4j.LoggerFactory
 import java.io.File
 import java.io.IOException
 import java.net.URI
-import java.net.URISyntaxException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.ThreadPoolExecutor
-import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
-import kotlin.math.max
 
 object Encode {
     @JvmStatic
@@ -264,11 +258,23 @@ object Encode {
             }
         }
 
-        if (totalCompressedInput.get() > 0 && logger.isDebugEnabled) {
+        if (logger.isDebugEnabled) {
             val input = totalCompressedInput.get()
             val output = totalCompressedOutput.get()
-            val percentStr = String.format("%.1f", 100.0 * output / input)
-            logger.debug("Compressed {} bytes to {} bytes ({}%)", input, output, percentStr)
+            val compressed = totalCompressedTiles.get()
+            val uncompressed = totalUncompressedTiles.get()
+            val total = compressed + uncompressed
+            val sizePercentStr = if (input > 0) String.format(" (%.1f%%)", 100.0 * output / input) else ""
+            val countPercentStr = if (total > 0) String.format(" (%.1f%%)", 100.0 * compressed / total) else ""
+            logger.debug(
+                "Compressed {} bytes to {} bytes{} in {} of {}{} tiles",
+                input,
+                output,
+                sizePercentStr,
+                compressed,
+                total,
+                countPercentStr,
+            )
         }
         return true
     }
