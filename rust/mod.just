@@ -316,6 +316,20 @@ sync-pyo3-version:
     sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$PYPROJECT"
     echo "Synced $PYPROJECT to version $VERSION"
 
+# Sync the version field in mlt-wasm/package.json to match mlt-wasm/Cargo.toml
+sync-wasm-version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VERSION=$({{just}} rust::get-crate-field version mlt-wasm)
+    PACKAGE_JSON="mlt-wasm/package.json"
+    jq --arg VERSION "$VERSION" '.version = $VERSION' "$PACKAGE_JSON" > "$PACKAGE_JSON.tmp" && mv "$PACKAGE_JSON.tmp" "$PACKAGE_JSON"
+    echo "Synced $PACKAGE_JSON to version $VERSION"
+    if [ -f "mlt-wasm/package-lock.json" ]; then
+        PACKAGE_LOCK="mlt-wasm/package-lock.json"
+        jq --arg VERSION "$VERSION" '.version = $VERSION | .packages[""].version = $VERSION' "$PACKAGE_LOCK" > "$PACKAGE_LOCK.tmp" && mv "$PACKAGE_LOCK.tmp" "$PACKAGE_LOCK"
+        echo "Synced $PACKAGE_LOCK to version $VERSION"
+    fi
+
 alias t := test
 # Run all tests
 test: (just 'cargo-install' 'cargo-hack')
