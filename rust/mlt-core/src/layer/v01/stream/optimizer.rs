@@ -28,7 +28,7 @@ const DELTA_BIT_SAVINGS_THRESHOLD: u8 = 4;
 /// 1. [`Self::prune_candidates`] - **"Prune"**:
 ///    Compute lightweight statistics over a representative sample
 ///    of the data (average run length, sort order, max bit-width) and use them to prune obviously unsuitable candidates early.
-/// 2. [`Self::min_size_encoding_u32s`] / [`Self::min_size_encoding_u64s`] - **"Compete"**:
+/// 2. [`Self::compete_u32`] / [`Self::compete_u64`] - **"Compete"**:
 ///    Encode the same sample with every surviving candidate and
 ///    pick the one whose encoded output is smallest.
 ///    In case of a tie
@@ -124,14 +124,14 @@ impl DataProfile {
         profile.candidates(T::zero().count_zeros() == 32)
     }
 
-    pub fn min_size_encoding_u32s(candidates: &[IntEncoder], data: &[u32]) -> IntEncoder {
+    pub fn compete_u32(candidates: &[IntEncoder], data: &[u32]) -> IntEncoder {
         candidates
             .iter()
             .copied()
             .min_by_key(|&enc| encoded_size_u32(data, enc))
             .unwrap_or_else(IntEncoder::fastpfor)
     }
-    pub fn min_size_encoding_u64s(candidates: &[IntEncoder], data: &[u64]) -> IntEncoder {
+    pub fn compete_u64(candidates: &[IntEncoder], data: &[u64]) -> IntEncoder {
         candidates
             .iter()
             .copied()
@@ -324,7 +324,7 @@ mod tests {
             },
         ]
         ");
-        let enc = DataProfile::min_size_encoding_u64s(&candidates, &data);
+        let enc = DataProfile::compete_u64(&candidates, &data);
         assert_eq!(
             enc,
             IntEncoder {
@@ -358,7 +358,7 @@ mod tests {
             },
         ]
         ");
-        let enc = DataProfile::min_size_encoding_u32s(&enc, &data);
+        let enc = DataProfile::compete_u32(&enc, &data);
         assert_eq!(
             enc,
             IntEncoder {
@@ -408,7 +408,7 @@ mod tests {
             },
         ]
         ");
-        let enc = DataProfile::min_size_encoding_u32s(&enc, &data);
+        let enc = DataProfile::compete_u32(&enc, &data);
         assert_eq!(
             enc,
             IntEncoder {
@@ -434,7 +434,7 @@ mod tests {
             },
         ]
         ");
-        let enc = DataProfile::min_size_encoding_u64s(&enc, &data);
+        let enc = DataProfile::compete_u64(&enc, &data);
         assert_eq!(
             enc,
             IntEncoder {
@@ -448,7 +448,7 @@ mod tests {
     fn select_u32_empty_fallback() {
         let enc = DataProfile::prune_candidates::<i32>(&[]);
         assert_eq!(enc, vec![IntEncoder::plain()]);
-        let enc = DataProfile::min_size_encoding_u64s(&enc, &[]);
+        let enc = DataProfile::compete_u64(&enc, &[]);
         assert_eq!(enc, IntEncoder::plain());
     }
 
@@ -456,7 +456,7 @@ mod tests {
     fn select_u64_empty_fallback() {
         let enc = DataProfile::prune_candidates::<i64>(&[]);
         assert_eq!(enc, vec![IntEncoder::plain()]);
-        let enc = DataProfile::min_size_encoding_u32s(&enc, &[]);
+        let enc = DataProfile::compete_u32(&enc, &[]);
         assert_eq!(enc, IntEncoder::plain());
     }
 }

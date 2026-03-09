@@ -134,13 +134,13 @@ impl IdOptimizer {
                 let vals: Vec<u32> = ids.iter().flatten().map(|&v| v as u32).collect();
                 let candidates = DataProfile::prune_candidates::<i32>(&vals);
                 let varint_candidates = Self::filter_varint(&candidates);
-                DataProfile::min_size_encoding_u32s(&varint_candidates, &vals).logical
+                DataProfile::compete_u32(&varint_candidates, &vals).logical
             }
             IdWidth::Id64 | IdWidth::OptId64 => {
                 let vals: Vec<u64> = ids.iter().flatten().copied().collect();
                 let candidates = DataProfile::prune_candidates::<i64>(&vals);
                 let varint_candidates = Self::filter_varint(&candidates);
-                DataProfile::min_size_encoding_u64s(&varint_candidates, &vals).logical
+                DataProfile::compete_u64(&varint_candidates, &vals).logical
             }
         }
     }
