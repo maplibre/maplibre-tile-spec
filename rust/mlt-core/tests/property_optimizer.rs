@@ -44,15 +44,15 @@ fn similar_strings_grouped_into_shared_dict() {
                 },
                 items: [
                     SharedDictItemEncoder {
-                        optional: Absent,
-                        offset: IntEncoder {
+                        presence: Absent,
+                        offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
                         },
                     },
                     SharedDictItemEncoder {
-                        optional: Absent,
-                        offset: IntEncoder {
+                        presence: Absent,
+                        offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
                         },
@@ -94,22 +94,22 @@ fn multiple_similar_string_columns_grouped() {
                 },
                 items: [
                     SharedDictItemEncoder {
-                        optional: Absent,
-                        offset: IntEncoder {
+                        presence: Absent,
+                        offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
                         },
                     },
                     SharedDictItemEncoder {
-                        optional: Absent,
-                        offset: IntEncoder {
+                        presence: Absent,
+                        offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
                         },
                     },
                     SharedDictItemEncoder {
-                        optional: Absent,
-                        offset: IntEncoder {
+                        presence: Absent,
+                        offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
                         },
@@ -138,7 +138,7 @@ fn dissimilar_strings_stay_scalar() {
     [
         Scalar(
             ScalarEncoder {
-                optional: Absent,
+                presence: Absent,
                 value: String(
                     Plain {
                         string_lengths: IntEncoder {
@@ -151,7 +151,7 @@ fn dissimilar_strings_stay_scalar() {
         ),
         Scalar(
             ScalarEncoder {
-                optional: Absent,
+                presence: Absent,
                 value: String(
                     Plain {
                         string_lengths: IntEncoder {
@@ -176,7 +176,7 @@ fn no_nulls_produces_absent_presence() {
     [
         Scalar(
             ScalarEncoder {
-                optional: Absent,
+                presence: Absent,
                 value: Int(
                     IntEncoder {
                         logical: Delta,
@@ -196,7 +196,7 @@ fn all_nulls_produces_present_presence() {
     [
         Scalar(
             ScalarEncoder {
-                optional: Present,
+                presence: Present,
                 value: Int(
                     IntEncoder {
                         logical: None,
@@ -217,7 +217,7 @@ fn sequential_u32_picks_delta() {
     [
         Scalar(
             ScalarEncoder {
-                optional: Absent,
+                presence: Absent,
                 value: Int(
                     IntEncoder {
                         logical: Delta,
@@ -238,7 +238,7 @@ fn constant_u32_picks_rle() {
     [
         Scalar(
             ScalarEncoder {
-                optional: Absent,
+                presence: Absent,
                 value: Int(
                     IntEncoder {
                         logical: Rle,
@@ -276,7 +276,7 @@ fn mixed_scalars_and_grouped_strings() {
     [
         Scalar(
             ScalarEncoder {
-                optional: Absent,
+                presence: Absent,
                 value: Int(
                     IntEncoder {
                         logical: Delta,
@@ -295,15 +295,15 @@ fn mixed_scalars_and_grouped_strings() {
                 },
                 items: [
                     SharedDictItemEncoder {
-                        optional: Absent,
-                        offset: IntEncoder {
+                        presence: Absent,
+                        offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
                         },
                     },
                     SharedDictItemEncoder {
-                        optional: Absent,
-                        offset: IntEncoder {
+                        presence: Absent,
+                        offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
                         },
@@ -313,7 +313,7 @@ fn mixed_scalars_and_grouped_strings() {
         ),
         Scalar(
             ScalarEncoder {
-                optional: Absent,
+                presence: Absent,
                 value: Int(
                     IntEncoder {
                         logical: Delta,

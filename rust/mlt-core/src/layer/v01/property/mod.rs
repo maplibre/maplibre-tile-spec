@@ -16,8 +16,8 @@ use crate::utils::{
 };
 pub use crate::v01::property::optimizer::PropertyOptimizer;
 pub use crate::v01::property::strings::{
-    EncodedSharedDictProp, EncodedStrProp, EncodedStructChild, SharedDictEncoder,
-    SharedDictItemEncoder, StrEncoder, decode_shared_dict, decode_strings, encode_shared_dict_prop,
+    EncodedSharedDict, EncodedStrings, EncodedValues, SharedDictEncoder, SharedDictItemEncoder,
+    StrEncoder, decode_shared_dict, decode_strings, encode_shared_dict_prop,
 };
 use crate::v01::{
     ColumnType, DictionaryType, FsstStrEncoder, IntEncoder, LengthType, OwnedStream, Stream,
@@ -209,7 +209,7 @@ impl OwnedEncodedProperty {
                 let dict_stream_len = u32::try_from(dict_streams.len()).map_err(MltError::from)?;
                 let children_len = u32::try_from(children.len()).map_err(MltError::from)?;
                 let optional_children_count =
-                    children.iter().filter(|c| c.optional.is_some()).count();
+                    children.iter().filter(|c| c.presence.is_some()).count();
                 let optional_children_len =
                     u32::try_from(optional_children_count).map_err(MltError::from)?;
                 let stream_len =
@@ -219,10 +219,10 @@ impl OwnedEncodedProperty {
                     writer.write_stream(stream)?;
                 }
                 for child in children {
-                    // stream_count => data + (0 or 1 for optional stream)
+                    // stream_count => data + (0 or 1 for presence stream)
                     // must be u32 because we don't want to zigzag
-                    writer.write_varint(1 + u32::from(child.optional.is_some()))?;
-                    writer.write_optional_stream(child.optional.as_ref())?;
+                    writer.write_varint(1 + u32::from(child.presence.is_some()))?;
+                    writer.write_optional_stream(child.presence.as_ref())?;
                     writer.write_stream(&child.data)?;
                 }
             }
@@ -265,8 +265,8 @@ pub enum EncodedPropValue<'a> {
     U64(Option<Stream<'a>>, Stream<'a>),
     F32(Option<Stream<'a>>, Stream<'a>),
     F64(Option<Stream<'a>>, Stream<'a>),
-    Str(Option<Stream<'a>>, EncodedStrProp<'a>),
-    SharedDict(EncodedSharedDictProp<'a>),
+    Str(Option<Stream<'a>>, EncodedStrings<'a>),
+    SharedDict(EncodedSharedDict<'a>),
 }
 
 impl Analyze for EncodedPropValue<'_> {
@@ -509,31 +509,31 @@ impl From<ScalarEncoder> for PropertyEncoder {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ScalarEncoder {
-    pub optional: PresenceStream,
+    pub presence: PresenceStream,
     pub value: ScalarValueEncoder,
 }
 
 impl ScalarEncoder {
     #[must_use]
-    pub fn str(optional: PresenceStream, string_lengths: IntEncoder) -> Self {
+    pub fn str(presence: PresenceStream, string_lengths: IntEncoder) -> Self {
         let enc = StrEncoder::Plain { string_lengths };
         Self {
-            optional,
+            presence,
             value: ScalarValueEncoder::String(enc),
         }
     }
     /// Create a property encoder with integer encoding
     #[must_use]
-    pub fn int(optional: PresenceStream, enc: IntEncoder) -> Self {
+    pub fn int(presence: PresenceStream, enc: IntEncoder) -> Self {
         Self {
-            optional,
+            presence,
             value: ScalarValueEncoder::Int(enc),
         }
     }
     /// Create a property encoder with FSST string encoding
     #[must_use]
     pub fn str_fsst(
-        optional: PresenceStream,
+        presence: PresenceStream,
         symbol_lengths: IntEncoder,
         dict_lengths: IntEncoder,
     ) -> Self {
@@ -542,23 +542,23 @@ impl ScalarEncoder {
             dict_lengths,
         };
         Self {
-            optional,
+            presence,
             value: ScalarValueEncoder::String(StrEncoder::Fsst(enc)),
         }
     }
     /// Create a property encoder for boolean values
     #[must_use]
-    pub fn bool(optional: PresenceStream) -> Self {
+    pub fn bool(presence: PresenceStream) -> Self {
         Self {
-            optional,
+            presence,
             value: ScalarValueEncoder::Bool,
         }
     }
     /// Create a property encoder for float values
     #[must_use]
-    pub fn float(optional: PresenceStream) -> Self {
+    pub fn float(presence: PresenceStream) -> Self {
         Self {
-            optional,
+            presence,
             value: ScalarValueEncoder::Float,
         }
     }
@@ -639,7 +639,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
         use OwnedEncodedPropValue as EncVal;
         use PropValue as Val;
-        let optional = if encoder.optional == PresenceStream::Present {
+        let optional = if encoder.presence == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
             Some(OwnedStream::encode_presence(&present_vec)?)
         } else {

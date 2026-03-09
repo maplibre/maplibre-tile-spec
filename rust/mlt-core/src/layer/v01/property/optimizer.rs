@@ -323,9 +323,9 @@ fn build_shared_dict_encoder(items: &[SharedDictItem]) -> PropertyEncoder {
     let item_encoders: Vec<SharedDictItemEncoder> = items
         .iter()
         .map(|item| {
-            let optional = to_presence(count_nulls(&item.values));
-            let offset = compute_offset_encoder(items, item);
-            SharedDictItemEncoder { optional, offset }
+            let presence = to_presence(count_nulls(&item.values));
+            let offsets = compute_offset_encoder(items, item);
+            SharedDictItemEncoder { presence, offsets }
         })
         .collect();
 
@@ -478,7 +478,7 @@ mod tests {
         let PropertyEncoder::Scalar(scalar) = &enc[0] else {
             panic!("expected Scalar");
         };
-        assert_eq!(scalar.optional, PresenceStream::Absent);
+        assert_eq!(scalar.presence, PresenceStream::Absent);
     }
 
     #[test]
@@ -488,7 +488,7 @@ mod tests {
         let PropertyEncoder::Scalar(scalar) = &enc[0] else {
             panic!("expected Scalar");
         };
-        assert_eq!(scalar.optional, PresenceStream::Present);
+        assert_eq!(scalar.presence, PresenceStream::Present);
     }
 
     #[test]
