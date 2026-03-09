@@ -219,19 +219,23 @@ impl<'a> EncodedStrings<'a> {
     #[must_use]
     pub fn streams(&self) -> Vec<&Stream<'_>> {
         match self {
-            Self::Plain { lengths, data, .. } => vec![lengths, data],
+            Self::Plain {
+                lengths,
+                data,
+                name: _,
+            } => vec![lengths, data],
             Self::Dictionary {
                 lengths,
                 offsets,
                 data,
-                ..
+                name: _,
             } => vec![lengths, offsets, data],
             Self::FsstPlain {
                 symbol_lengths,
                 symbol_table,
                 lengths,
                 corpus,
-                ..
+                name: _,
             } => vec![symbol_lengths, symbol_table, lengths, corpus],
             Self::FsstDictionary {
                 symbol_lengths,
@@ -239,7 +243,7 @@ impl<'a> EncodedStrings<'a> {
                 lengths,
                 corpus,
                 offsets,
-                ..
+                name: _,
             } => vec![symbol_lengths, symbol_table, lengths, corpus, offsets],
         }
     }
@@ -250,19 +254,23 @@ impl OwnedEncodedStrings {
     #[must_use]
     pub fn streams(&self) -> Vec<&OwnedStream> {
         match self {
-            Self::Plain { lengths, data, .. } => vec![lengths, data],
+            Self::Plain {
+                lengths,
+                data,
+                name: _,
+            } => vec![lengths, data],
             Self::Dictionary {
                 lengths,
                 offsets,
                 data,
-                ..
+                name: _,
             } => vec![lengths, offsets, data],
             Self::FsstPlain {
                 symbol_lengths,
                 symbol_table,
                 lengths,
                 corpus,
-                ..
+                name: _,
             } => vec![symbol_lengths, symbol_table, lengths, corpus],
             Self::FsstDictionary {
                 symbol_lengths,
@@ -270,7 +278,7 @@ impl OwnedEncodedStrings {
                 lengths,
                 corpus,
                 offsets,
-                ..
+                name: _,
             } => vec![symbol_lengths, symbol_table, lengths, corpus, offsets],
         }
     }
@@ -512,7 +520,7 @@ pub fn encode_shared_dictionary(
             symbol_table,
             lengths,
             corpus,
-            ..
+            name: _,
         } => OwnedEncodedSharedDict::FsstPlain {
             prefix: name.to_owned(),
             symbol_lengths,
@@ -605,7 +613,11 @@ pub fn encode_shared_dict_prop(
     }
 
     let struct_prop = match dict_encoded {
-        OwnedEncodedStrings::Plain { lengths, data, .. } => OwnedEncodedSharedDict::Plain {
+        OwnedEncodedStrings::Plain {
+            lengths,
+            data,
+            name: _,
+        } => OwnedEncodedSharedDict::Plain {
             prefix: prefix.to_owned(),
             lengths,
             data,
@@ -616,7 +628,7 @@ pub fn encode_shared_dict_prop(
             symbol_table,
             lengths,
             corpus,
-            ..
+            name: _,
         } => OwnedEncodedSharedDict::FsstPlain {
             prefix: prefix.to_owned(),
             symbol_lengths,
@@ -651,7 +663,11 @@ impl OwnedEncodedValues {
 /// Decode string property from its encoded stream encoding.
 pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltError> {
     match encoding {
-        EncodedStrings::Plain { lengths, data, .. } => {
+        EncodedStrings::Plain {
+            lengths,
+            data,
+            name: _,
+        } => {
             let lens = lengths.decode_bits_u32()?.decode_u32()?;
             let data_bytes = raw_bytes(data);
             split_to_strings(&lens, &data_bytes)
@@ -660,7 +676,7 @@ pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltEr
             lengths,
             offsets,
             data,
-            ..
+            name: _,
         } => {
             let dict_lens = lengths.decode_bits_u32()?.decode_u32()?;
             let dict_bytes = raw_bytes(data);
@@ -673,7 +689,7 @@ pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltEr
             symbol_table,
             lengths,
             corpus,
-            ..
+            name: _,
         } => {
             let sym_lens = symbol_lengths.decode_bits_u32()?.decode_u32()?;
             let sym_data = raw_bytes(symbol_table);
@@ -688,7 +704,7 @@ pub fn decode_strings(encoding: EncodedStrings<'_>) -> Result<Vec<String>, MltEr
             lengths,
             corpus,
             offsets,
-            ..
+            name: _,
         } => {
             let sym_lens = symbol_lengths.decode_bits_u32()?.decode_u32()?;
             let sym_data = raw_bytes(symbol_table);
