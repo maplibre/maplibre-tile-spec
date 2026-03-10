@@ -112,7 +112,7 @@ fn test_manual_optimisation_applies_encoder() {
 }
 
 /// Manual encoding with a too-narrow IdWidth silently truncates values.
-/// u32::MAX + 42 == 4_294_967_337; modulo 2^32 that is 41.
+/// `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
 #[test]
 fn test_manual_optimisation_truncation() {
     let large_value = u64::from(u32::MAX) + 42;
