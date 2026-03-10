@@ -111,7 +111,7 @@ fn test_manual_optimisation_applies_encoder() {
     assert_eq!(borrowme::borrow(&owned).decode().unwrap(), decoded);
 }
 
-/// Manual encoding with a too-narrow IdWidth silently truncates values.
+/// Manual encoding with a too-narrow `IdWidth` silently truncates values.
 /// `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
 #[test]
 fn test_manual_optimisation_truncation() {
