@@ -68,10 +68,10 @@ jobs:
         run: just -v rust::fuzz-seed ${{ matrix.target }}
       - run: just -v rust::ci-fuzz-run ${{ matrix.target }}
       - name: Generate fuzz coverage
-        if: github.event_name != 'release' && github.repository_owner == 'maplibre'
+        if: github.repository_owner == 'maplibre'
         run: just -v rust::ci-fuzz-cov ${{ matrix.target }}
       - name: Upload fuzz coverage artifact
-        if: github.event_name != 'release' && github.repository_owner == 'maplibre'
+        if: github.repository_owner == 'maplibre'
         uses: actions/upload-artifact@v7
         with:
           name: fuzz-coverage-${{ matrix.target }}
