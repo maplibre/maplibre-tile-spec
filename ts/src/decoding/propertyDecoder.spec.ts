@@ -193,6 +193,19 @@ describe("decodePropertyColumn - UINT_32", () => {
         expect(resultVec.getValue(0)).toBe(0xffffffff);
         expect(resultVec.getValue(1)).toBe(1);
     });
+
+    it("should decode UINT_32 CONST vector", () => {
+        const expectedValue = 0xffffffff;
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.UINT_32, false);
+        const encodedData = encodeUint32Column(new Uint32Array([expectedValue]));
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, 1);
+
+        expect(result).toBeInstanceOf(IntConstVector);
+        const constVec = result as IntConstVector;
+        expect(constVec.getValue(0)).toBe(expectedValue);
+    });
 });
 
 describe("decodePropertyColumn - INT_64", () => {
@@ -338,6 +351,19 @@ describe("decodePropertyColumn - UINT_64", () => {
         const resultVec = result as LongFlatVector;
         expect(resultVec.getValue(0)).toBe(0xffffffffffffffffn);
         expect(resultVec.getValue(1)).toBe(1n);
+    });
+
+    it("should decode UINT_64 CONST vector", () => {
+        const expectedValue = 0xffffffffffffffffn;
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.UINT_64, false);
+        const encodedData = encodeUint64Column(new BigUint64Array([expectedValue]));
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, 1);
+
+        expect(result).toBeInstanceOf(LongConstVector);
+        const constVec = result as LongConstVector;
+        expect(constVec.getValue(0)).toBe(expectedValue);
     });
 
     it("should decode nullable UINT_64 column with null values", () => {

@@ -13,11 +13,13 @@ import { IntFlatVector } from "../vector/flat/intFlatVector";
 import { IntConstVector } from "../vector/constant/intConstVector";
 import { decodeBooleanRle, decodeDoublesLE, decodeFloatsLE, skipColumn } from "./decodingUtils";
 import {
-    decodeConstIntStream,
-    decodeConstLongStream,
-    decodeIntStream,
-    decodeLongStream,
+    decodeSignedConstIntStream,
+    decodeSignedConstLongStream,
+    decodeSignedIntStream,
+    decodeSignedLongStream,
     decodeUnsignedIntStream,
+    decodeUnsignedConstIntStream,
+    decodeUnsignedConstLongStream,
     decodeUnsignedLongStream,
     decodeSequenceIntStream,
     decodeSequenceLongStream,
@@ -68,11 +70,9 @@ function decodeScalarPropertyColumn(
 ) {
     let nullabilityBuffer: BitVector = null;
     if (numStreams === 0) {
-        /* Skip since this column has no values */
         return null;
     }
 
-    // Read nullability stream if column is nullable
     if (columnMetadata.nullable) {
         const presentStreamMetadata = decodeStreamMetadata(data, offset);
         const numValues = presentStreamMetadata.numValues;
@@ -161,7 +161,7 @@ function decodeLongColumn(
     if (vectorType === VectorType.FLAT) {
         const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
         const dataStream = isSigned
-            ? decodeLongStream(data, offset, dataStreamMetadata, true, nullabilityBuffer)
+            ? decodeSignedLongStream(data, offset, dataStreamMetadata, nullabilityBuffer)
             : decodeUnsignedLongStream(data, offset, dataStreamMetadata, nullabilityBuffer);
         return new LongFlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
     }
@@ -174,7 +174,9 @@ function decodeLongColumn(
             (dataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
         );
     }
-    const constValue = decodeConstLongStream(data, offset, dataStreamMetadata, isSigned);
+    const constValue = isSigned
+        ? decodeSignedConstLongStream(data, offset, dataStreamMetadata)
+        : decodeUnsignedConstLongStream(data, offset, dataStreamMetadata);
     return new LongConstVector(column.name, constValue, sizeOrNullabilityBuffer, isSigned);
 }
 
@@ -192,7 +194,7 @@ function decodeIntColumn(
     if (vectorType === VectorType.FLAT) {
         const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
         const dataStream = isSigned
-            ? decodeIntStream(data, offset, dataStreamMetadata, true, undefined, nullabilityBuffer)
+            ? decodeSignedIntStream(data, offset, dataStreamMetadata, undefined, nullabilityBuffer)
             : decodeUnsignedIntStream(data, offset, dataStreamMetadata, undefined, nullabilityBuffer);
         return new IntFlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
     }
@@ -205,7 +207,9 @@ function decodeIntColumn(
             (dataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
         );
     }
-    const constValue = decodeConstIntStream(data, offset, dataStreamMetadata, isSigned);
+    const constValue = isSigned
+        ? decodeSignedConstIntStream(data, offset, dataStreamMetadata)
+        : decodeUnsignedConstIntStream(data, offset, dataStreamMetadata);
     return new IntConstVector(column.name, constValue, sizeOrNullabilityBuffer, isSigned);
 }
 

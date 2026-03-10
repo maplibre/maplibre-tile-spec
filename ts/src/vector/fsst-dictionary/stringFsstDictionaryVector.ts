@@ -10,7 +10,7 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
 
     constructor(
         name: string,
-        private readonly indexBuffer: Int32Array,
+        private readonly indexBuffer: Uint32Array,
         offsetBuffer: Uint32Array,
         dictionaryBuffer: Uint8Array,
         private readonly symbolOffsetBuffer: Uint32Array,

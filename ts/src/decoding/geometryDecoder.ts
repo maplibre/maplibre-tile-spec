@@ -1,9 +1,10 @@
 import { decodeStreamMetadata, type MortonEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import type IntWrapper from "./intWrapper";
 import {
-    decodeConstIntStream,
-    decodeIntStream,
+    decodeSignedIntStream,
     decodeLengthStreamToOffsetBuffer,
+    decodeUnsignedConstIntStream,
+    decodeUnsignedIntStream,
     getVectorType,
 } from "./integerStreamDecoder";
 import { VectorType } from "../vector/vectorType";
@@ -33,14 +34,14 @@ export function decodeGeometryColumn(
     const geometryTypeMetadata = decodeStreamMetadata(tile, offset);
     const geometryTypesVectorType = getVectorType(geometryTypeMetadata, numFeatures, tile, offset);
 
-    let vertexOffsets: Int32Array = null;
-    let vertexBuffer: Int32Array = null;
+    let vertexOffsets: Uint32Array | null = null;
+    let vertexBuffer: Int32Array | Uint32Array = null;
     let mortonSettings: MortonSettings = null;
-    let indexBuffer: Int32Array = null;
+    let indexBuffer: Uint32Array = null;
 
     if (geometryTypesVectorType === VectorType.CONST) {
-        /* All geometries in the colum have the same geometry type */
-        const geometryType = decodeConstIntStream(tile, offset, geometryTypeMetadata, false);
+        /* All geometries in the column have the same geometry type */
+        const geometryType = decodeUnsignedConstIntStream(tile, offset, geometryTypeMetadata);
 
         // Variables for const geometry path (directly decoded as offsets)
         let geometryOffsets: Uint32Array = null;
@@ -71,24 +72,24 @@ export function decodeGeometryColumn(
                 case PhysicalStreamType.OFFSET: {
                     switch (geometryStreamMetadata.logicalStreamType.offsetType) {
                         case OffsetType.VERTEX:
-                            vertexOffsets = decodeIntStream(tile, offset, geometryStreamMetadata, false);
+                            vertexOffsets = decodeUnsignedIntStream(tile, offset, geometryStreamMetadata);
                             break;
                         case OffsetType.INDEX:
-                            indexBuffer = decodeIntStream(tile, offset, geometryStreamMetadata, false);
+                            indexBuffer = decodeUnsignedIntStream(tile, offset, geometryStreamMetadata);
                             break;
                     }
                     break;
                 }
                 case PhysicalStreamType.DATA: {
                     if (DictionaryType.VERTEX === geometryStreamMetadata.logicalStreamType.dictionaryType) {
-                        vertexBuffer = decodeIntStream(tile, offset, geometryStreamMetadata, true, scalingData);
+                        vertexBuffer = decodeSignedIntStream(tile, offset, geometryStreamMetadata, scalingData);
                     } else {
                         const mortonMetadata = geometryStreamMetadata as MortonEncodedStreamMetadata;
                         mortonSettings = {
                             numBits: mortonMetadata.numBits,
                             coordinateShift: mortonMetadata.coordinateShift,
                         };
-                        vertexBuffer = decodeIntStream(tile, offset, geometryStreamMetadata, false, scalingData);
+                        vertexBuffer = decodeUnsignedIntStream(tile, offset, geometryStreamMetadata, scalingData);
                     }
                     break;
                 }
@@ -133,12 +134,12 @@ export function decodeGeometryColumn(
     }
 
     /* Different geometry types are mixed in the geometry column */
-    const geometryTypeVector = decodeIntStream(tile, offset, geometryTypeMetadata, false);
+    const geometryTypeVector = decodeUnsignedIntStream(tile, offset, geometryTypeMetadata);
 
     // Variables for flat geometry path (decoded as lengths, then converted to offsets)
-    let geometryLengths: Int32Array = null;
-    let partLengths: Int32Array = null;
-    let ringLengths: Int32Array = null;
+    let geometryLengths: Uint32Array = null;
+    let partLengths: Uint32Array = null;
+    let ringLengths: Uint32Array = null;
     //TODO: use geometryOffsets for that? -> but then tessellated polygons can't be used with normal polygons
     // in one FeatureTable?
     let triangleOffsets: Uint32Array = null;
@@ -149,13 +150,13 @@ export function decodeGeometryColumn(
             case PhysicalStreamType.LENGTH:
                 switch (geometryStreamMetadata.logicalStreamType.lengthType) {
                     case LengthType.GEOMETRIES:
-                        geometryLengths = decodeIntStream(tile, offset, geometryStreamMetadata, false);
+                        geometryLengths = decodeUnsignedIntStream(tile, offset, geometryStreamMetadata);
                         break;
                     case LengthType.PARTS:
-                        partLengths = decodeIntStream(tile, offset, geometryStreamMetadata, false);
+                        partLengths = decodeUnsignedIntStream(tile, offset, geometryStreamMetadata);
                         break;
                     case LengthType.RINGS:
-                        ringLengths = decodeIntStream(tile, offset, geometryStreamMetadata, false);
+                        ringLengths = decodeUnsignedIntStream(tile, offset, geometryStreamMetadata);
                         break;
                     case LengthType.TRIANGLES:
                         triangleOffsets = decodeLengthStreamToOffsetBuffer(tile, offset, geometryStreamMetadata);
@@ -164,23 +165,23 @@ export function decodeGeometryColumn(
             case PhysicalStreamType.OFFSET:
                 switch (geometryStreamMetadata.logicalStreamType.offsetType) {
                     case OffsetType.VERTEX:
-                        vertexOffsets = decodeIntStream(tile, offset, geometryStreamMetadata, false);
+                        vertexOffsets = decodeUnsignedIntStream(tile, offset, geometryStreamMetadata);
                         break;
                     case OffsetType.INDEX:
-                        indexBuffer = decodeIntStream(tile, offset, geometryStreamMetadata, false);
+                        indexBuffer = decodeUnsignedIntStream(tile, offset, geometryStreamMetadata);
                         break;
                 }
                 break;
             case PhysicalStreamType.DATA:
                 if (DictionaryType.VERTEX === geometryStreamMetadata.logicalStreamType.dictionaryType) {
-                    vertexBuffer = decodeIntStream(tile, offset, geometryStreamMetadata, true, scalingData);
+                    vertexBuffer = decodeSignedIntStream(tile, offset, geometryStreamMetadata, scalingData);
                 } else {
                     const mortonMetadata = geometryStreamMetadata as MortonEncodedStreamMetadata;
                     mortonSettings = {
                         numBits: mortonMetadata.numBits,
                         coordinateShift: mortonMetadata.coordinateShift,
                     };
-                    vertexBuffer = decodeIntStream(tile, offset, geometryStreamMetadata, false, scalingData);
+                    vertexBuffer = decodeUnsignedIntStream(tile, offset, geometryStreamMetadata, scalingData);
                 }
                 break;
         }
@@ -243,8 +244,8 @@ export function decodeGeometryColumn(
  * branching and improve the performance
  */
 function decodeRootLengthStream(
-    geometryTypes: Int32Array,
-    rootLengthStream: Int32Array | Uint32Array,
+    geometryTypes: Uint32Array,
+    rootLengthStream: Uint32Array,
     bufferId: number,
 ): Uint32Array {
     const rootBufferOffsets = new Uint32Array(geometryTypes.length + 1);
@@ -265,9 +266,9 @@ function decodeRootLengthStream(
 }
 
 function decodeLevel1LengthStream(
-    geometryTypes: Int32Array,
+    geometryTypes: Uint32Array,
     rootOffsetBuffer: Uint32Array,
-    level1LengthBuffer: Int32Array,
+    level1LengthBuffer: Uint32Array,
     isLineStringPresent: boolean,
 ): Uint32Array {
     const level1BufferOffsets = new Uint32Array(rootOffsetBuffer[rootOffsetBuffer.length - 1] + 1);
@@ -305,9 +306,9 @@ function decodeLevel1LengthStream(
  * Case where no ring buffer exists so no MultiPolygon or Polygon geometry is part of the buffer
  */
 function decodeLevel1WithoutRingBufferLengthStream(
-    geometryTypes: Int32Array,
+    geometryTypes: Uint32Array,
     rootOffsetBuffer: Uint32Array,
-    level1LengthBuffer: Int32Array,
+    level1LengthBuffer: Uint32Array,
 ): Uint32Array {
     const level1BufferOffsets = new Uint32Array(rootOffsetBuffer[rootOffsetBuffer.length - 1] + 1);
     let previousOffset = 0;
@@ -335,10 +336,10 @@ function decodeLevel1WithoutRingBufferLengthStream(
 }
 
 function decodeLevel2LengthStream(
-    geometryTypes: Int32Array,
+    geometryTypes: Uint32Array,
     rootOffsetBuffer: Uint32Array,
     level1OffsetBuffer: Uint32Array,
-    level2LengthBuffer: Int32Array,
+    level2LengthBuffer: Uint32Array,
 ): Uint32Array {
     const level2BufferOffsets = new Uint32Array(level1OffsetBuffer[level1OffsetBuffer.length - 1] + 1);
     let previousOffset = 0;

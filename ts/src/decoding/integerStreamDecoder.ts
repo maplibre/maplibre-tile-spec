@@ -42,16 +42,15 @@ import { VectorType } from "../vector/vectorType";
 import type GeometryScaling from "./geometryScaling";
 import { unpackNullable } from "./unpackNullableUtils";
 
-export function decodeIntStream(
+export function decodeSignedIntStream(
     data: Uint8Array,
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
-    isSigned: boolean,
     scalingData?: GeometryScaling,
     nullabilityBuffer?: BitVector,
 ): Int32Array {
     const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    return decodeInt32(values, streamMetadata, isSigned, scalingData, nullabilityBuffer);
+    return decodeInt32(values, streamMetadata, true, scalingData, nullabilityBuffer);
 }
 
 export function decodeUnsignedIntStream(
@@ -97,19 +96,32 @@ function decodePhysicalLevelTechnique(
     }
 }
 
-export function decodeConstIntStream(
+export function decodeSignedConstIntStream(
     data: Uint8Array,
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
-    isSigned: boolean,
 ): number {
     const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
 
     if (values.length === 1) {
-        return isSigned ? decodeZigZagInt32Value(values[0]) : values[0];
+        return decodeZigZagInt32Value(values[0]);
     }
 
-    return isSigned ? decodeZigZagConstRleInt32(values) : decodeUnsignedConstRleInt32(values);
+    return decodeZigZagConstRleInt32(values);
+}
+
+export function decodeUnsignedConstIntStream(
+    data: Uint8Array,
+    offset: IntWrapper,
+    streamMetadata: StreamMetadata,
+): number {
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+
+    if (values.length === 1) {
+        return values[0];
+    }
+
+    return decodeUnsignedConstRleInt32(values);
 }
 
 export function decodeSequenceIntStream(
@@ -130,15 +142,14 @@ export function decodeSequenceLongStream(
     return decodeZigZagSequenceRleInt64(values);
 }
 
-export function decodeLongStream(
+export function decodeSignedLongStream(
     data: Uint8Array,
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
-    isSigned: boolean,
     nullabilityBuffer?: BitVector,
 ): BigInt64Array {
     const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
-    return decodeInt64(values, streamMetadata, isSigned, nullabilityBuffer);
+    return decodeInt64(values, streamMetadata, true, nullabilityBuffer);
 }
 
 export function decodeUnsignedLongStream(
@@ -151,30 +162,50 @@ export function decodeUnsignedLongStream(
     return decodeUnsignedInt64(values, streamMetadata, nullabilityBuffer);
 }
 
-export function decodeLongFloat64Stream(
+export function decodeSignedLongFloat64Stream(
     data: Uint8Array,
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
-    isSigned: boolean,
 ): Float64Array {
     const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
-    return decodeFloat64(values, streamMetadata, isSigned);
+    return decodeFloat64Values(values, streamMetadata, true);
 }
 
-export function decodeConstLongStream(
+export function decodeUnsignedLongFloat64Stream(
     data: Uint8Array,
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
-    isSigned: boolean,
+): Float64Array {
+    const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
+    return decodeFloat64Values(values, streamMetadata, false);
+}
+
+export function decodeSignedConstLongStream(
+    data: Uint8Array,
+    offset: IntWrapper,
+    streamMetadata: StreamMetadata,
 ): bigint {
     const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
 
     if (values.length === 1) {
-        const value = values[0];
-        return isSigned ? decodeZigZagInt64Value(value) : value;
+        return decodeZigZagInt64Value(values[0]);
     }
 
-    return isSigned ? decodeZigZagConstRleInt64(values) : decodeUnsignedConstRleInt64(values);
+    return decodeZigZagConstRleInt64(values);
+}
+
+export function decodeUnsignedConstLongStream(
+    data: Uint8Array,
+    offset: IntWrapper,
+    streamMetadata: StreamMetadata,
+): bigint {
+    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
+
+    if (values.length === 1) {
+        return values[0];
+    }
+
+    return decodeUnsignedConstRleInt64(values);
 }
 
 /**
@@ -302,7 +333,7 @@ function decodeUnsignedInt64(
     return new BigUint64Array(decodedValues.buffer, decodedValues.byteOffset, decodedValues.length);
 }
 
-export function decodeFloat64(values: Float64Array, streamMetadata: StreamMetadata, isSigned: boolean): Float64Array {
+function decodeFloat64Values(values: Float64Array, streamMetadata: StreamMetadata, isSigned: boolean): Float64Array {
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {

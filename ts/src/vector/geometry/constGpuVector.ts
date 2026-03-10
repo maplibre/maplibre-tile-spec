@@ -5,8 +5,8 @@ export function createConstGpuVector(
     numGeometries: number,
     geometryType: number,
     triangleOffsets: Uint32Array,
-    indexBuffer: Int32Array,
-    vertexBuffer: Int32Array,
+    indexBuffer: Uint32Array,
+    vertexBuffer: Int32Array | Uint32Array,
     topologyVector?: TopologyVector | null,
 ): GpuVector {
     return new ConstGpuVector(numGeometries, geometryType, triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
@@ -18,8 +18,8 @@ export class ConstGpuVector extends GpuVector {
         private readonly _numGeometries: number,
         private readonly _geometryType: number,
         triangleOffsets: Uint32Array,
-        indexBuffer: Int32Array,
-        vertexBuffer: Int32Array,
+        indexBuffer: Uint32Array,
+        vertexBuffer: Int32Array | Uint32Array,
         topologyVector?: TopologyVector | null,
     ) {
         super(triangleOffsets, indexBuffer, vertexBuffer, topologyVector);

@@ -4,22 +4,21 @@ import { VertexBufferType } from "./vertexBufferType";
 import type { TopologyVector } from "../../vector/geometry/topologyVector";
 
 export function createFlatGeometryVector(
-    geometryTypes: Int32Array,
+    geometryTypes: Uint32Array,
     topologyVector: TopologyVector,
-    vertexOffsets: Int32Array,
-    vertexBuffer: Int32Array,
+    vertexOffsets: Uint32Array | null,
+    vertexBuffer: Int32Array | Uint32Array,
 ): FlatGeometryVector {
     return new FlatGeometryVector(VertexBufferType.VEC_2, geometryTypes, topologyVector, vertexOffsets, vertexBuffer);
 }
 
 export function createFlatGeometryVectorMortonEncoded(
-    geometryTypes: Int32Array,
+    geometryTypes: Uint32Array,
     topologyVector: TopologyVector,
-    vertexOffsets: Int32Array,
-    vertexBuffer: Int32Array,
+    vertexOffsets: Uint32Array | null,
+    vertexBuffer: Int32Array | Uint32Array,
     mortonInfo: MortonSettings,
 ): FlatGeometryVector {
-    //TODO: refactor to use unsigned integers
     return new FlatGeometryVector(
         VertexBufferType.MORTON,
         geometryTypes,
@@ -33,11 +32,11 @@ export function createFlatGeometryVectorMortonEncoded(
 export class FlatGeometryVector extends GeometryVector {
     constructor(
         vertexBufferType: VertexBufferType,
-        //TODO: refactor -> use UInt8Array
-        private readonly _geometryTypes: Int32Array,
+        // TODO: geometry type codes fit in Uint8Array, but the current decoding pipeline still produces Uint32Array.
+        private readonly _geometryTypes: Uint32Array,
         topologyVector: TopologyVector,
-        vertexOffsets: Int32Array,
-        vertexBuffer: Int32Array,
+        vertexOffsets: Uint32Array | null,
+        vertexBuffer: Int32Array | Uint32Array,
         mortonSettings?: MortonSettings,
     ) {
         super(vertexBufferType, topologyVector, vertexOffsets, vertexBuffer, mortonSettings);
