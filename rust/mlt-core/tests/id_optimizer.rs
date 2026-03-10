@@ -191,8 +191,6 @@ fn test_profile_roundtrip(#[case] decoded: DecodedId) {
     assert_eq!(decoded_back, decoded);
 }
 
-// --- IdProfile ---
-
 #[test]
 fn test_profile_from_sample_is_nonempty() {
     let profile = IdProfile::from_sample(&create_u32_range_ids());
