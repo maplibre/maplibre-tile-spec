@@ -87,7 +87,6 @@ pub fn decode_zigzag<T: ZigZag>(data: &[T::UInt]) -> Vec<T> {
 }
 
 /// Decode a single Morton code to (x, y) as i32, applying `coordinate_shift`.
-#[expect(clippy::cast_possible_wrap)]
 fn decode_morton_one(morton_code: u32, num_bits: u32, coordinate_shift: u32) -> (i32, i32) {
     let mut x = 0u32;
     let mut y = 0u32;
@@ -108,17 +107,15 @@ fn decode_morton_one(morton_code: u32, num_bits: u32, coordinate_shift: u32) -> 
 /// relative to the previous Morton code. The sequential prefix sum is computed
 /// in chunks of 8 into a stack-allocated buffer, which is then SIMD-decoded.
 /// This keeps the working set in registers / L1 cache.
-#[expect(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
 #[must_use]
 pub fn decode_morton_delta(data: &[u32], num_bits: u32, coordinate_shift: u32) -> Vec<i32> {
     let mut out = Vec::with_capacity(data.len() * 2);
     let shift_vec = u32x8::splat(coordinate_shift);
 
     let mut prev = 0i32;
-    let chunks = data.chunks_exact(8);
-    let remainder = chunks.remainder();
+    let mut chunks = data.chunks_exact(8);
 
-    for chunk in chunks {
+    for chunk in chunks.by_ref() {
         // Sequential prefix sum into a stack buffer — no heap allocation.
         let mut buf = [0u32; 8];
         for (b, &d) in buf.iter_mut().zip(chunk.iter()) {
@@ -129,7 +126,7 @@ pub fn decode_morton_delta(data: &[u32], num_bits: u32, coordinate_shift: u32) -
     }
 
     // Scalar tail for any codes that didn't fill a full SIMD chunk.
-    for &d in remainder {
+    for &d in chunks.remainder() {
         prev = prev.wrapping_add(d as i32);
         let (x, y) = decode_morton_one(prev as u32, num_bits, coordinate_shift);
         out.push(x);
@@ -149,10 +146,9 @@ pub fn decode_morton_codes(data: &[u32], num_bits: u32, coordinate_shift: u32) -
     let mut out = Vec::with_capacity(data.len() * 2);
     let shift_vec = u32x8::splat(coordinate_shift);
 
-    let chunks = data.chunks_exact(8);
-    let remainder = chunks.remainder();
+    let mut chunks = data.chunks_exact(8);
 
-    for chunk in chunks {
+    for chunk in chunks.by_ref() {
         let buf = [
             chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6], chunk[7],
         ];
@@ -160,7 +156,7 @@ pub fn decode_morton_codes(data: &[u32], num_bits: u32, coordinate_shift: u32) -
     }
 
     // Scalar tail for any codes that didn't fill a full SIMD chunk.
-    for &code in remainder {
+    for &code in chunks.remainder() {
         let (x, y) = decode_morton_one(code, num_bits, coordinate_shift);
         out.push(x);
         out.push(y);
@@ -173,7 +169,6 @@ pub fn decode_morton_codes(data: &[u32], num_bits: u32, coordinate_shift: u32) -
 ///
 /// Each code has already been resolved to its absolute value (no delta pending).
 /// Even-indexed bits encode x, odd-indexed bits encode y.
-#[expect(clippy::cast_possible_wrap)]
 #[inline]
 fn decode_morton_chunk(buf: [u32; 8], num_bits: u32, shift_vec: u32x8, out: &mut Vec<i32>) {
     let codes = u32x8::from(buf);
@@ -447,10 +442,10 @@ mod tests {
 
     // --- Morton helpers used across multiple tests ---
 
-    /// Interleave two 15-bit values into a 30-bit Morton code.
+    /// Interleave two `NUM_BITS`-wide values into a Morton code.
     fn encode_morton(x: u32, y: u32) -> u32 {
         let mut code = 0u32;
-        for bit in 0..15u32 {
+        for bit in 0..NUM_BITS {
             code |= ((x >> bit) & 1) << (2 * bit);
             code |= ((y >> bit) & 1) << (2 * bit + 1);
         }
@@ -572,7 +567,6 @@ mod tests {
     }
 
     #[test]
-    #[expect(clippy::cast_sign_loss)]
     fn test_decode_morton_delta_wrapping() {
         // A single wrapping delta: start from a large code, subtract more than it — should
         // still round-trip correctly via wrapping arithmetic.
@@ -600,7 +594,6 @@ mod tests {
     }
 
     /// Compute signed deltas (wrapping).
-    #[expect(clippy::cast_sign_loss)]
     fn test_delta_morton(codes: &[u32]) -> Vec<u32> {
         let mut prev = 0i32;
         codes
