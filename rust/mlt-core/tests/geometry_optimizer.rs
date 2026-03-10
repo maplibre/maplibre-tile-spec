@@ -7,7 +7,7 @@ use mlt_core::v01::{
     DecodedGeometry, DictionaryType, LengthType, OffsetType, OwnedEncodedGeometry, OwnedGeometry,
     StreamType,
 };
-use mlt_core::{Encodable as _, borrowme};
+use mlt_core::{Encodable as _, FromEncoded as _, borrowme};
 use pretty_assertions::assert_eq;
 
 fn optimize_roundtrip(decoded: &DecodedGeometry) -> DecodedGeometry {
