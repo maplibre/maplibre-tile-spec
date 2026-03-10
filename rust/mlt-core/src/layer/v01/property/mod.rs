@@ -493,11 +493,6 @@ impl DecodedProperty<'static> {
     }
 }
 
-impl Default for DecodedProperty<'_> {
-    fn default() -> Self {
-        Self::Bool(String::new(), Vec::new())
-    }
-}
 
 impl BorrowmeToOwned for DecodedProperty<'_> {
     type Owned = DecodedProperty<'static>;
