@@ -159,7 +159,6 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
         }
 
         Ok(DecodedGeometry {
-            // vertex_buffer_type: VertexBufferType::Vec2, // Morton not supported yet
             vector_types,
             geometry_offsets,
             part_offsets,
