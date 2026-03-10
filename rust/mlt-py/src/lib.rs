@@ -188,9 +188,9 @@ fn prop_value_to_py(py: Python<'_>, prop: &DecodedProperty, i: usize) -> Py<PyAn
             Some(s) => s.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::SharedDict(_, shared_dict, items) => {
+        DecodedProperty::SharedDict(shared_dict) => {
             let dict = PyDict::new(py);
-            for item in items {
+            for item in &shared_dict.items {
                 if let Some(s) = item.get(shared_dict, i) {
                     dict.set_item(&item.suffix, s).unwrap();
                 }

@@ -27,8 +27,8 @@ pub(crate) fn build_prop_cache(props: &[OwnedProperty], feature_count: u32) -> P
             continue;
         };
 
-        if let DecodedProperty::SharedDict(_, shared_dict, items) = prop {
-            for item in items {
+        if let DecodedProperty::SharedDict(shared_dict) = prop {
+            for item in &shared_dict.items {
                 let key = format!("{}{}", prop.name(), item.suffix);
                 keys.push(&JsValue::from_str(&key));
 

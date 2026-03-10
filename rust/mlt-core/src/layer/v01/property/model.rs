@@ -63,8 +63,8 @@ pub enum DecodedProperty<'a> {
     F32(String, Vec<Option<f32>>),
     F64(String, Vec<Option<f64>>),
     Str(String, DecodedStrings<'a>),
-    /// Shared dictionary payload plus child references into it.
-    SharedDict(String, DecodedSharedDict<'a>, Vec<DecodedSharedDictItem>),
+    /// Shared dictionary payload, prefix, and child references.
+    SharedDict(DecodedSharedDict<'a>),
 }
 
 /// A single sub-property within a shared dictionary decoded value.
@@ -105,7 +105,9 @@ pub struct DecodedStrings<'a> {
 /// Decoded shared dictionary payload shared by one or more child string properties.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DecodedSharedDict<'a> {
+    pub prefix: String,
     pub data: Cow<'a, str>,
+    pub items: Vec<DecodedSharedDictItem>,
 }
 
 /// Compatibility helper for constructing typed decoded properties.
@@ -122,8 +124,8 @@ pub enum PropValue {
     F32(Vec<Option<f32>>),
     F64(Vec<Option<f64>>),
     Str(DecodedStrings<'static>),
-    /// Shared dictionary payload plus child references into it.
-    SharedDict(DecodedSharedDict<'static>, Vec<DecodedSharedDictItem>),
+    /// Shared dictionary payload, prefix, and child references.
+    SharedDict(DecodedSharedDict<'static>),
 }
 pub type SharedDictItem = DecodedSharedDictItem;
 

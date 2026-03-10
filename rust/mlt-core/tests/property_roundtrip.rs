@@ -77,8 +77,8 @@ fn shared_dict_prop(
     name: &str,
     children: Vec<(String, DecodedStrings<'static>)>,
 ) -> DecodedProperty<'static> {
-    let (shared_dict, items) = build_decoded_shared_dict(children).expect("build shared dict");
-    DecodedProperty::SharedDict(name.to_string(), shared_dict, items)
+    let shared_dict = build_decoded_shared_dict(name, children).expect("build shared dict");
+    DecodedProperty::SharedDict(shared_dict)
 }
 
 fn make_prop(name: &str, values: PropValue) -> DecodedProperty<'static> {
@@ -303,9 +303,10 @@ fn fsst_struct_shared_dict_roundtrip() {
         StrEncoder::plain(IntEncoder::plain()),
     );
     assert_eq!(result.name(), "name");
-    let DecodedProperty::SharedDict(_, shared_dict, items) = &result else {
+    let DecodedProperty::SharedDict(shared_dict) = &result else {
         panic!("Expected SharedDict");
     };
+    let items = &shared_dict.items;
     assert_eq!(items.len(), 2);
     assert_eq!(items[0].suffix, ":de");
     assert_eq!(items[0].materialize(shared_dict), de);
@@ -325,9 +326,10 @@ fn struct_with_nulls() {
         StrEncoder::plain(IntEncoder::plain()),
     );
     assert_eq!(result.name(), "name");
-    let DecodedProperty::SharedDict(_, shared_dict, items) = &result else {
+    let DecodedProperty::SharedDict(shared_dict) = &result else {
         panic!("Expected SharedDict");
     };
+    let items = &shared_dict.items;
     assert_eq!(items.len(), 2);
     assert_eq!(items[0].suffix, ":de");
     assert_eq!(items[0].materialize(shared_dict), de);
@@ -346,9 +348,10 @@ fn struct_shared_dict_inline_ranges_track_nulls_and_empty_strings() {
             (":en".to_string(), DecodedStrings::from(en.clone())),
         ],
     );
-    let DecodedProperty::SharedDict(_, shared_dict, items) = &prop else {
+    let DecodedProperty::SharedDict(shared_dict) = &prop else {
         panic!("Expected SharedDict");
     };
+    let items = &shared_dict.items;
 
     assert_eq!(items[0].materialize(shared_dict), de);
     assert_eq!(items[1].materialize(shared_dict), en);
@@ -376,9 +379,10 @@ fn struct_no_nulls() {
         StrEncoder::plain(IntEncoder::plain()),
     );
     assert_eq!(result.name(), "name");
-    let DecodedProperty::SharedDict(_, shared_dict, items) = &result else {
+    let DecodedProperty::SharedDict(shared_dict) = &result else {
         panic!("Expected SharedDict");
     };
+    let items = &shared_dict.items;
     assert_eq!(items[0].materialize(shared_dict), de);
     assert_eq!(items[1].materialize(shared_dict), en);
 }
@@ -394,9 +398,10 @@ fn struct_shared_dict_deduplication() {
         IntEncoder::plain(),
         StrEncoder::plain(IntEncoder::plain()),
     );
-    let DecodedProperty::SharedDict(_, shared_dict, items) = &result else {
+    let DecodedProperty::SharedDict(shared_dict) = &result else {
         panic!("Expected SharedDict");
     };
+    let items = &shared_dict.items;
     assert_eq!(items[0].materialize(shared_dict), de);
     assert_eq!(items[1].materialize(shared_dict), en);
 }
@@ -461,9 +466,10 @@ fn struct_mixed_with_scalars() {
     assert_eq!(decode_scalar(&encoded[0]), population);
     let name = decode_struct(&encoded[1]);
     assert_eq!(name.name(), "name:");
-    let DecodedProperty::SharedDict(_, shared_dict, items) = &name else {
+    let DecodedProperty::SharedDict(shared_dict) = &name else {
         panic!("Expected SharedDict");
     };
+    let items = &shared_dict.items;
     assert_eq!(items[0].suffix, "de");
     assert_eq!(
         items[0].materialize(shared_dict),
@@ -577,9 +583,10 @@ fn two_struct_groups_with_scalar_between() {
     assert_eq!(encoded.len(), 3);
     let name = decode_struct(&encoded[0]);
     assert_eq!(name.name(), "name:");
-    let DecodedProperty::SharedDict(_, name_shared_dict, name_items) = &name else {
+    let DecodedProperty::SharedDict(name_shared_dict) = &name else {
         panic!("Expected SharedDict");
     };
+    let name_items = &name_shared_dict.items;
     assert_eq!(name_items[0].suffix, "de");
     assert_eq!(
         name_items[0].materialize(name_shared_dict),
@@ -593,9 +600,10 @@ fn two_struct_groups_with_scalar_between() {
     assert_eq!(decode_scalar(&encoded[1]), population);
     let label = decode_struct(&encoded[2]);
     assert_eq!(label.name(), "label:");
-    let DecodedProperty::SharedDict(_, label_shared_dict, label_items) = &label else {
+    let DecodedProperty::SharedDict(label_shared_dict) = &label else {
         panic!("Expected SharedDict");
     };
+    let label_items = &label_shared_dict.items;
     assert_eq!(label_items[0].suffix, "de");
     assert_eq!(
         label_items[0].materialize(label_shared_dict),
@@ -650,11 +658,12 @@ proptest! {
             string_enc,
         );
         prop_assert_eq!(result.name(), struct_name.as_str());
-        let DecodedProperty::SharedDict(_, shared_dict, items) = result else {
+        let DecodedProperty::SharedDict(shared_dict) = result else {
             return Err(TestCaseError::Fail("Expected SharedDict".into()));
         };
+        let items = &shared_dict.items;
         prop_assert_eq!(items.len(), children.len());
-        for (item, (child_name, values)) in items.into_iter().zip(children.iter()) {
+        for (item, (child_name, values)) in items.iter().zip(children.iter()) {
             prop_assert_eq!(&item.suffix, child_name);
             prop_assert_eq!(item.materialize(&shared_dict), values.clone());
         }

@@ -253,10 +253,9 @@ impl Layer {
     pub fn add_shared_dict(mut self, shared_dict: SharedDict) -> Self {
         let name = shared_dict.name;
         let encoder = shared_dict.encoder;
-        let (dict, items) = build_decoded_shared_dict(shared_dict.items)
+        let dict = build_decoded_shared_dict(name, shared_dict.items)
             .expect("shared dict builder should be valid");
-        self.properties
-            .push(DecodedProperty::SharedDict(name, dict, items));
+        self.properties.push(DecodedProperty::SharedDict(dict));
         self.prop_encoders.push(encoder.into());
         self
     }

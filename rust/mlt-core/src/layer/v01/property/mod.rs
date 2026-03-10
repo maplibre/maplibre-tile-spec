@@ -367,8 +367,8 @@ impl DecodedProperty<'_> {
             | Self::U64(name, _)
             | Self::F32(name, _)
             | Self::F64(name, _)
-            | Self::Str(name, _)
-            | Self::SharedDict(name, _, _) => name,
+            | Self::Str(name, _) => name,
+            Self::SharedDict(shared_dict) => &shared_dict.prefix,
         }
     }
 
@@ -432,7 +432,8 @@ impl DecodedProperty<'_> {
             Self::F32(_, v) => v.collect_statistic(stat),
             Self::F64(_, v) => v.collect_statistic(stat),
             Self::Str(_, v) => v.collect_statistic(stat),
-            Self::SharedDict(_, shared_dict, items) => items
+            Self::SharedDict(shared_dict) => shared_dict
+                .items
                 .iter()
                 .map(|item| item.materialize(shared_dict).collect_statistic(stat))
                 .sum(),
@@ -457,9 +458,9 @@ impl DecodedProperty<'_> {
             Self::Str(_, values) => values
                 .get(u32::try_from(i).ok()?)
                 .map(|s| Value::String(s.to_string())),
-            Self::SharedDict(_, shared_dict, items) => {
+            Self::SharedDict(shared_dict) => {
                 let mut obj = serde_json::Map::new();
-                for item in items {
+                for item in &shared_dict.items {
                     if let Some(s) = item.get(shared_dict, i) {
                         obj.insert(item.suffix.clone(), Value::String(s.to_string()));
                     }
@@ -488,7 +489,10 @@ impl DecodedProperty<'static> {
             PropValue::F32(v) => Self::F32(name, v),
             PropValue::F64(v) => Self::F64(name, v),
             PropValue::Str(values) => Self::Str(name, values),
-            PropValue::SharedDict(shared_dict, items) => Self::SharedDict(name, shared_dict, items),
+            PropValue::SharedDict(mut shared_dict) => {
+                shared_dict.prefix = name;
+                Self::SharedDict(shared_dict)
+            }
         }
     }
 }
@@ -510,11 +514,9 @@ impl BorrowmeToOwned for DecodedProperty<'_> {
             Self::Str(name, values) => {
                 DecodedProperty::Str(name.clone(), BorrowmeToOwned::to_owned(values))
             }
-            Self::SharedDict(name, shared_dict, items) => DecodedProperty::SharedDict(
-                name.clone(),
-                BorrowmeToOwned::to_owned(shared_dict),
-                items.clone(),
-            ),
+            Self::SharedDict(shared_dict) => {
+                DecodedProperty::SharedDict(BorrowmeToOwned::to_owned(shared_dict))
+            }
         }
     }
 }
@@ -539,11 +541,9 @@ impl BorrowmeBorrow for DecodedProperty<'static> {
             Self::Str(name, values) => {
                 DecodedProperty::Str(name.clone(), BorrowmeBorrow::borrow(values))
             }
-            Self::SharedDict(name, shared_dict, items) => DecodedProperty::SharedDict(
-                name.clone(),
-                BorrowmeBorrow::borrow(shared_dict),
-                items.clone(),
-            ),
+            Self::SharedDict(shared_dict) => {
+                DecodedProperty::SharedDict(BorrowmeBorrow::borrow(shared_dict))
+            }
         }
     }
 }
@@ -622,10 +622,10 @@ impl Debug for DecodedProperty<'_> {
                     .field(&FmtOptVec(&values))
                     .finish()
             }
-            Self::SharedDict(name, _, items) => f
+            Self::SharedDict(shared_dict) => f
                 .debug_tuple("SharedDict")
-                .field(name)
-                .field(items)
+                .field(&shared_dict.prefix)
+                .field(&shared_dict.items)
                 .finish(),
         }
     }
@@ -779,13 +779,13 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
                     result.push(OwnedEncodedProperty::from_decoded(prop, enc)?);
                 }
                 PropertyEncoder::SharedDict(enc) => {
-                    let DecodedProperty::SharedDict(name, shared_dict, items) = prop else {
+                    let DecodedProperty::SharedDict(shared_dict) = prop else {
                         return Err(UnsupportedPropertyEncoderCombination(
                             prop.kind_name(),
                             "SharedDict",
                         ));
                     };
-                    result.push(encode_shared_dict_prop(name, shared_dict, items, &enc)?);
+                    result.push(encode_shared_dict_prop(shared_dict, &enc)?);
                 }
             }
         }
@@ -924,8 +924,7 @@ impl<'a> FromEncoded<'a> for DecodedProperty<'a> {
                 Self::Str(name, decode_strings_with_presence(presence, s)?)
             }
             EncodedProperty::SharedDict(_, sd, children) => {
-                let (shared_dict, items) = decode_shared_dict(&sd, &children)?;
-                Self::SharedDict(name, shared_dict, items)
+                Self::SharedDict(decode_shared_dict(name, &sd, &children)?)
             }
         })
     }

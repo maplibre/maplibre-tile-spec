@@ -14,7 +14,7 @@ use crate::v01::{
     DictionaryType, EncodedPresence, EncodedSharedDict, EncodedSharedDictChild, EncodedStrings,
     FsstStrEncoder, IntEncoder, LengthType, OffsetType, OwnedEncodedProperty,
     OwnedEncodedSharedDict, OwnedEncodedSharedDictChild, OwnedEncodedStrings, OwnedName,
-    OwnedStream, PresenceStream, SharedDictItem, Stream, StreamData, StreamType,
+    OwnedStream, PresenceStream, Stream, StreamData, StreamType,
 };
 use crate::{Analyze, MltError, StatType};
 
@@ -55,15 +55,6 @@ impl StrEncoder {
             symbol_lengths,
             dict_lengths,
         })
-    }
-}
-
-impl Default for DecodedStrings<'_> {
-    fn default() -> Self {
-        Self {
-            lengths: Vec::new(),
-            data: Cow::Borrowed(""),
-        }
     }
 }
 
@@ -139,7 +130,9 @@ impl BorrowmeToOwned for DecodedSharedDict<'_> {
 
     fn to_owned(&self) -> Self::Owned {
         DecodedSharedDict {
+            prefix: self.prefix.clone(),
             data: Cow::Owned(self.data.as_ref().to_string()),
+            items: self.items.clone(),
         }
     }
 }
@@ -152,7 +145,9 @@ impl BorrowmeBorrow for DecodedSharedDict<'static> {
 
     fn borrow(&self) -> Self::Target<'_> {
         DecodedSharedDict {
+            prefix: self.prefix.clone(),
             data: Cow::Borrowed(self.data.as_ref()),
+            items: self.items.clone(),
         }
     }
 }
@@ -160,13 +155,16 @@ impl BorrowmeBorrow for DecodedSharedDict<'static> {
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl<'a> arbitrary::Arbitrary<'a> for DecodedSharedDict<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let prefix: String = u.arbitrary()?;
         let values: Vec<String> = u.arbitrary()?;
         let mut data = String::new();
         for value in values {
             data.push_str(&value);
         }
         Ok(Self {
+            prefix,
             data: Cow::Owned(data),
+            items: u.arbitrary()?,
         })
     }
 }
@@ -669,18 +667,16 @@ pub fn encode_shared_dictionary(
 
 /// Encode a shared dictionary property directly from `PropValue::SharedDict` and `SharedDictEncoder`.
 pub fn encode_shared_dict_prop(
-    prefix: &str,
     shared_dict: &DecodedSharedDict<'_>,
-    items: &[SharedDictItem],
     encoder: &SharedDictEncoder,
 ) -> Result<OwnedEncodedProperty, MltError> {
-    if items.len() != encoder.items.len() {
+    if shared_dict.items.len() != encoder.items.len() {
         return Err(NotImplemented(
             "SharedDict items count must match encoder items count",
         ));
     }
 
-    let dict_spans = collect_shared_dict_spans(items);
+    let dict_spans = collect_shared_dict_spans(&shared_dict.items);
     let dict: Vec<&str> = dict_spans
         .iter()
         .map(|&span| {
@@ -704,8 +700,8 @@ pub fn encode_shared_dict_prop(
     };
 
     // Encode each child column.
-    let mut children = Vec::with_capacity(items.len());
-    for (item, item_enc) in items.iter().zip(&encoder.items) {
+    let mut children = Vec::with_capacity(shared_dict.items.len());
+    for (item, item_enc) in shared_dict.items.iter().zip(&encoder.items) {
         // Presence stream
         let presence = if item_enc.presence == PresenceStream::Present {
             let present_bools = item.presence_bools();
@@ -762,15 +758,17 @@ pub fn encode_shared_dict_prop(
     };
 
     Ok(OwnedEncodedProperty::SharedDict(
-        OwnedName(prefix.to_string()),
+        OwnedName(shared_dict.prefix.clone()),
         struct_prop,
         children,
     ))
 }
 
 pub fn build_decoded_shared_dict(
+    prefix: impl Into<String>,
     items: impl IntoIterator<Item = (String, DecodedStrings<'static>)>,
-) -> Result<(DecodedSharedDict<'static>, Vec<DecodedSharedDictItem>), MltError> {
+) -> Result<DecodedSharedDict<'static>, MltError> {
+    let prefix = prefix.into();
     let items = items.into_iter().collect::<Vec<_>>();
     let mut dict_entries = Vec::<String>::new();
     let mut dict_index = HashMap::<String, u32>::new();
@@ -795,7 +793,6 @@ pub fn build_decoded_shared_dict(
         data.push_str(value);
     }
 
-    let shared_dict = DecodedSharedDict { data: data.into() };
     let items = items
         .into_iter()
         .map(
@@ -818,7 +815,11 @@ pub fn build_decoded_shared_dict(
         )
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok((shared_dict, items))
+    Ok(DecodedSharedDict {
+        prefix,
+        data: data.into(),
+        items,
+    })
 }
 
 impl OwnedEncodedSharedDictChild {
@@ -1058,9 +1059,11 @@ fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec
 
 /// Decode a struct with shared dictionary into a single decoded property with all children.
 pub fn decode_shared_dict(
+    prefix: impl Into<String>,
     struct_data: &EncodedSharedDict<'_>,
     children: &[EncodedSharedDictChild<'_>],
-) -> Result<(DecodedSharedDict<'static>, Vec<DecodedSharedDictItem>), MltError> {
+) -> Result<DecodedSharedDict<'static>, MltError> {
+    let prefix = prefix.into();
     let (shared_dict, dict_spans) = match struct_data {
         EncodedSharedDict::Plain { lengths, data } => {
             let lengths = lengths.clone().decode_bits_u32()?.decode_u32()?;
@@ -1074,7 +1077,9 @@ pub fn decode_shared_dict(
                 .collect::<Vec<_>>();
             (
                 DecodedSharedDict {
+                    prefix: String::new(),
                     data: str::from_utf8(&raw_bytes(data.clone()))?.to_string().into(),
+                    items: Vec::new(),
                 },
                 dict_spans,
             )
@@ -1100,64 +1105,68 @@ pub fn decode_shared_dict(
                 .collect::<Vec<_>>();
             (
                 DecodedSharedDict {
+                    prefix: String::new(),
                     data: str::from_utf8(&decoded)?.to_string().into(),
+                    items: Vec::new(),
                 },
                 dict_spans,
             )
         }
     };
-    Ok((
-        shared_dict,
-        children
-            .iter()
-            .map(|child| -> Result<DecodedSharedDictItem, MltError> {
-                let offsets = child.data.clone().decode_bits_u32()?.decode_u32()?;
-                let presence = child
-                    .presence
-                    .0
-                    .clone()
-                    .map(Stream::decode_bools)
-                    .transpose()?;
-                let mut next = offsets.into_iter();
-                let ranges = if let Some(presence) = presence {
-                    let mut ranges = Vec::with_capacity(presence.len());
-                    for present in presence {
-                        if present {
-                            let idx = next.next().ok_or(MltError::PresenceValueCountMismatch(
-                                ranges.iter().filter(|&&(s, e)| (s, e) != (-1, -1)).count(),
-                                ranges.len() + 1,
-                            ))?;
-                            let span = dict_spans
-                                .get(idx as usize)
-                                .copied()
-                                .ok_or(DictIndexOutOfBounds(idx, dict_spans.len()))?;
-                            ranges.push(encode_shared_dict_range(span.0, span.1)?);
-                        } else {
-                            ranges.push((-1, -1));
-                        }
-                    }
-                    if next.next().is_some() {
-                        return Err(MltError::PresenceValueCountMismatch(
-                            ranges.iter().filter(|&&(s, e)| (s, e) != (-1, -1)).count() + 1,
-                            ranges.len(),
-                        ));
-                    }
-                    ranges
-                } else {
-                    next.map(|idx| {
+    let items = children
+        .iter()
+        .map(|child| -> Result<DecodedSharedDictItem, MltError> {
+            let offsets = child.data.clone().decode_bits_u32()?.decode_u32()?;
+            let presence = child
+                .presence
+                .0
+                .clone()
+                .map(Stream::decode_bools)
+                .transpose()?;
+            let mut next = offsets.into_iter();
+            let ranges = if let Some(presence) = presence {
+                let mut ranges = Vec::with_capacity(presence.len());
+                for present in presence {
+                    if present {
+                        let idx = next.next().ok_or(MltError::PresenceValueCountMismatch(
+                            ranges.iter().filter(|&&(s, e)| (s, e) != (-1, -1)).count(),
+                            ranges.len() + 1,
+                        ))?;
                         let span = dict_spans
                             .get(idx as usize)
                             .copied()
                             .ok_or(DictIndexOutOfBounds(idx, dict_spans.len()))?;
-                        encode_shared_dict_range(span.0, span.1)
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-                };
-                Ok(DecodedSharedDictItem {
-                    suffix: child.name.0.to_string(),
-                    ranges,
+                        ranges.push(encode_shared_dict_range(span.0, span.1)?);
+                    } else {
+                        ranges.push((-1, -1));
+                    }
+                }
+                if next.next().is_some() {
+                    return Err(MltError::PresenceValueCountMismatch(
+                        ranges.iter().filter(|&&(s, e)| (s, e) != (-1, -1)).count() + 1,
+                        ranges.len(),
+                    ));
+                }
+                ranges
+            } else {
+                next.map(|idx| {
+                    let span = dict_spans
+                        .get(idx as usize)
+                        .copied()
+                        .ok_or(DictIndexOutOfBounds(idx, dict_spans.len()))?;
+                    encode_shared_dict_range(span.0, span.1)
                 })
+                .collect::<Result<Vec<_>, _>>()?
+            };
+            Ok(DecodedSharedDictItem {
+                suffix: child.name.0.to_string(),
+                ranges,
             })
-            .collect::<Result<Vec<_>, _>>()?,
-    ))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(DecodedSharedDict {
+        prefix,
+        data: shared_dict.data,
+        items,
+    })
 }

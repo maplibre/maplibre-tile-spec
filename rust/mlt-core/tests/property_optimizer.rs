@@ -26,9 +26,10 @@ fn similar_strings_grouped_into_shared_dict() {
     // Properties should be transformed into a single SharedDict
     assert_eq!(props.len(), 1);
     assert_eq!(props[0].name(), "name:");
-    let DecodedProperty::SharedDict(_, _, items) = &props[0] else {
+    let DecodedProperty::SharedDict(shared_dict) = &props[0] else {
         panic!("expected SharedDict");
     };
+    let items = &shared_dict.items;
     assert_eq!(items.len(), 2);
     assert_eq!(items[0].suffix, "en");
     assert_eq!(items[1].suffix, "de");
@@ -79,9 +80,10 @@ fn multiple_similar_string_columns_grouped() {
     // All three should be grouped into one SharedDict
     assert_eq!(props.len(), 1);
     assert_eq!(props[0].name(), "addr:");
-    let DecodedProperty::SharedDict(_, _, items) = &props[0] else {
+    let DecodedProperty::SharedDict(shared_dict) = &props[0] else {
         panic!("expected SharedDict");
     };
+    let items = &shared_dict.items;
     assert_eq!(items.len(), 3);
 
     assert_debug_snapshot!(enc, @"

@@ -214,8 +214,8 @@ impl MltTile {
 
         for p in &*guard {
             if let OwnedProperty::Decoded(prop) = p {
-                if let DecodedProperty::SharedDict(_, shared_dict, items) = prop {
-                    for item in items {
+                if let DecodedProperty::SharedDict(shared_dict) = prop {
+                    for item in &shared_dict.items {
                         if let Some(val) = item.get(shared_dict, feature_idx) {
                             let _ = Reflect::set(
                                 &obj,

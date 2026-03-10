@@ -236,7 +236,7 @@ fn merge_str_to_shared_dicts(properties: &mut Vec<DecodedProperty<'_>>, groups: 
         if group.len() < 2 {
             continue;
         }
-
+        // TODO: technically we should only be dealing with (String + DecodedStrings) pairs here
         let names: Vec<&str> = group.iter().map(|&ci| properties[ci].name()).collect();
         let prefix = common_prefix_name(&names);
 
@@ -255,12 +255,12 @@ fn merge_str_to_shared_dicts(properties: &mut Vec<DecodedProperty<'_>>, groups: 
                 (suffix, borrowme::ToOwned::to_owned(values))
             })
             .collect::<Vec<_>>();
-        let (shared_dict, items) = build_decoded_shared_dict(items)
+        let shared_dict = build_decoded_shared_dict(prefix.clone(), items)
             .expect("building decoded shared dictionary from string columns should succeed");
 
         // Replace first property with SharedDict
         let first_idx = group[0];
-        properties[first_idx] = DecodedProperty::SharedDict(prefix, shared_dict, items);
+        properties[first_idx] = DecodedProperty::SharedDict(shared_dict);
 
         // Mark other properties for removal
         for &col_idx in &group[1..] {
@@ -342,8 +342,8 @@ fn build_encoder(prop: &DecodedProperty<'_>) -> PropertyEncoder {
             let non_null: Vec<&str> = owned_values.iter().map(String::as_str).collect();
             scalar_str_encoder(presence, &non_null)
         }
-        DecodedProperty::SharedDict(_, shared_dict, items) => {
-            build_shared_dict_encoder(shared_dict, items)
+        DecodedProperty::SharedDict(shared_dict) => {
+            build_shared_dict_encoder(shared_dict, &shared_dict.items)
         }
     }
 }
@@ -579,9 +579,10 @@ mod tests {
         // Should produce one SharedDict property
         assert_eq!(props.len(), 1);
         assert_eq!(props[0].name(), "addr:");
-        let DecodedProperty::SharedDict(_, _, items) = &props[0] else {
+        let DecodedProperty::SharedDict(shared_dict) = &props[0] else {
             panic!("expected SharedDict");
         };
+        let items = &shared_dict.items;
         assert_eq!(items.len(), 2);
         assert_eq!(items[0].suffix, "street");
         assert_eq!(items[1].suffix, "city");

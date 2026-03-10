@@ -44,10 +44,10 @@ impl FeatureCollection {
                     let prop = prop.decoded_property()?;
                     // SharedDict properties are flattened to individual properties
                     // with names like "struct_name:child_suffix"
-                    if let DecodedProperty::SharedDict(prefix, dict, items) = prop {
-                        for item in items {
+                    if let DecodedProperty::SharedDict(dict) = prop {
+                        for item in &dict.items {
                             if let Some(s) = item.get(dict, i) {
-                                let key = format!("{prefix}{}", item.suffix);
+                                let key = format!("{}{}", dict.prefix, item.suffix);
                                 properties.insert(key, Value::String(s.to_string()));
                             }
                         }
