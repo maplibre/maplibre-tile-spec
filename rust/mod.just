@@ -206,17 +206,17 @@ clippy *args: (just 'cargo-install' 'cargo-hack')
 
 # Generate code coverage report. Installs `cargo llvm-cov`
 coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov')
-    cargo hack llvm-cov --all-targets --each-feature \
+    cargo hack llvm-cov --lib --bins --tests --benches --examples --each-feature \
         --workspace --exclude mlt-core \
         --exclude-no-default-features --exclude-all-features \
         --include-build-script {{args}}
-    cargo hack llvm-cov --all-targets --feature-powerset \
+    cargo hack llvm-cov --lib --bins --tests --benches --examples --feature-powerset \
         --package mlt-core \
         --exclude-features fastpfor-rust,default \
         --exclude-all-features \
         --features fastpfor-cpp \
         --include-build-script {{args}}
-    cargo hack llvm-cov --all-targets --feature-powerset \
+    cargo hack llvm-cov --lib --bins --tests --benches --examples --feature-powerset \
         --package mlt-core \
         --exclude-features fastpfor-cpp,default \
         --exclude-all-features \
