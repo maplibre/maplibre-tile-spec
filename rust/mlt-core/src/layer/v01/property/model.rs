@@ -149,6 +149,7 @@ pub enum PresenceStream {
 
 // String-related types from property/strings.rs
 
+/// A single child field within a `SharedDict` column
 #[borrowme]
 #[derive(Clone, Debug, PartialEq)]
 pub struct EncodedSharedDictChild<'a> {
