@@ -25,7 +25,7 @@ const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.5;
 ///    `on_stream` callback that collects the raw `u32` payload for every stream.
 /// 2. **Select** - run [`IntEncoder::auto_u32`] on each payload to pick the best
 ///    physical/logical combination per stream.
-pub struct GeometryOptimizer;
+struct GeometryOptimizer;
 
 impl GeometryOptimizer {
     /// Analyze `decoded` and encode it with automatically selected per-stream encoders.

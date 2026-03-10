@@ -15,7 +15,6 @@ use decode::{
 pub use encode::GeometryEncoder;
 use integer_encoding::VarIntWriter as _;
 pub use model::*;
-pub use optimizer::GeometryOptimizer;
 
 use crate::MltError::NotImplemented;
 use crate::analyse::{Analyze, StatType};

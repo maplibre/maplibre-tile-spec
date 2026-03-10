@@ -37,7 +37,7 @@ const MINHASH_PERMUTATIONS: usize = 128;
 
 /// String columns whose estimated Jaccard similarity exceeds this threshold are
 /// grouped into a single shared dictionary.
-pub const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.6;
+const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.6;
 
 /// Minimum total raw byte size of a column before attempting FSST compression.
 /// Below this the symbol-table overhead dominates and FSST never wins.
@@ -106,7 +106,7 @@ impl AutomaticOptimisation for Vec<OwnedProperty> {
 
 /// Analyzes a batch of [`DecodedProperty`] values and produces
 /// [`Vec<PropertyEncoder>`] with near-optimal per-column encoding settings.
-pub struct PropertyOptimizer;
+struct PropertyOptimizer;
 
 impl PropertyOptimizer {
     /// Analyze `properties` and return a configured [`Vec<PropertyEncoder>`].

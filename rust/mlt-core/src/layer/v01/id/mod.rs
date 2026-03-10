@@ -5,7 +5,6 @@ use std::fmt::{Debug, Formatter};
 use std::io::Write;
 
 pub use model::*;
-pub use optimizer::IdOptimizer;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
