@@ -68,10 +68,27 @@ check: (just 'cargo-install' 'cargo-hack')
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: ci-env-info (just 'java::gen-snippets')
+ci-coverage: ci-env-info (just 'java::gen-snippets') (just 'cargo-install' 'cargo-llvm-cov')
     mkdir -p target/llvm-cov
+
+    @echo "::group::Generate synthetic MLTs"
+    rm -rf ../test/synthetic/0x01-rust
+    cargo llvm-cov run --no-report -p mlt-synthetics
+    @echo "::endgroup::"
+
+    @echo "::group::Validate synthetic MLTs"
+    {{just}} rust::validate-synthetic
+    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
+    {{just}} rust::_verify-synthetic-equality
+    {{just}} rust::_assert-synthetic-mlt-identity
+    @echo "::endgroup::"
+
     # ATTENTION: the output-path here is used in the CI workflow
-    {{just}} rust::coverage '--codecov --output-path target/llvm-cov/codecov.info'
+    # --no-clean preserves profdata accumulated by the synthetic generation run above
+    # --doctests requires nightly (test job uses nightly toolchain) and may not be mixed with the main
+    {{just}} rust::coverage '--no-clean'
+    # target coverage and docktest coverage cannot be mixed
+    cargo llvm-cov --doctests --no-clean --workspace --codecov --output-path target/llvm-cov/codecov.info
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-check: ci-env-info check
@@ -128,6 +145,18 @@ ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linu
 
 # Fuzz the target for 90 seconds (installs `cargo fuzz`)
 ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '--max_len=300')
+
+# Run coverage against a previously generated corpus and export LCOV for Codecov upload.
+# Output: target/llvm-cov/fuzz-<target>.lcov
+[working-directory: 'mlt-core']
+ci-fuzz-cov target: (just 'cargo-install' 'cargo-fuzz')
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    LCOV_OUT="../target/llvm-cov/fuzz-{{target}}.lcov"
+    mkdir -p "$(dirname "$LCOV_OUT")"
+    {{just}} rust::fuzz-llvm-cov {{target}} "$LCOV_OUT" export --format=lcov
+    echo "Fuzz coverage LCOV: $LCOV_OUT"
 
 # Build and package release binary for CI
 ci-build-release target artifact_name:
@@ -221,39 +250,26 @@ fuzz target='layer' *args: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-l
 # Seed the layer fuzz corpus from all .mlt test files (run once, or after new .mlts are added)
 fuzz-seed target='layer': (just 'cargo-install' 'fd' 'fd-find')
     mkdir -p mlt-core/fuzz/corpus/{{target}}
-    fd . ../test -e mlt -x cp {} mlt-core/fuzz/corpus/{{target}}/
+    fd . ../test --extension mlt --threads=1 --exec cp --force {} mlt-core/fuzz/corpus/{{target}}/
     {{just}} rust::fuzz-cmin {{target}}
 
 # Minimize the fuzz corpus for target (slow — run occasionally to prune redundant entries)
 fuzz-cmin target='layer': (cargo-fuzz 'cmin' target '--target' 'x86_64-unknown-linux-gnu')
 
 # Collect coverage from the fuzz corpus and open an HTML report (installs `cargo fuzz`, `rustfilt`)
-fuzz-cov target='layer': (cargo-fuzz 'coverage' target '--target' 'x86_64-unknown-linux-gnu') (just 'cargo-install' 'rustfilt')
+[working-directory: 'mlt-core']
+fuzz-cov target='layer': (just 'cargo-install' 'cargo-fuzz') (just 'cargo-install' 'rustfilt')
     #!/usr/bin/env bash
     set -euo pipefail
-    rustup component add llvm-tools-preview --toolchain nightly
 
-    SYSROOT=$(rustup run nightly rustc --print sysroot)
-    HOST=$(rustc -vV | sed -n 's/^host: //p')
-    LLVM_COV="$SYSROOT/lib/rustlib/$HOST/bin/llvm-cov"
-
-    TRIPLE="x86_64-unknown-linux-gnu"
-    FUZZ_DIR="mlt-core/fuzz"
-    TARGET_BIN="$FUZZ_DIR/target/$TRIPLE/coverage/$TRIPLE/release/{{target}}"
-    PROFDATA="$FUZZ_DIR/coverage/{{target}}/coverage.profdata"
-    HTML_DIR="$FUZZ_DIR/coverage/{{target}}/html"
-
+    HTML_DIR="fuzz/coverage/{{target}}/html"
     mkdir -p "$HTML_DIR"
-
-    "$LLVM_COV" show "$TARGET_BIN" \
+    {{just}} rust::fuzz-llvm-cov {{target}} "" show \
         --format=html \
         --output-dir="$HTML_DIR" \
-        --instr-profile="$PROFDATA" \
         --show-instantiations \
         --show-line-counts-or-regions \
-        --ignore-filename-regex="(/.cargo/registry|/rustup/toolchains)" \
         --Xdemangler=rustfilt
-
     echo "Coverage report: $HTML_DIR/index.html"
     xdg-open "$HTML_DIR/index.html" 2>/dev/null || open "$HTML_DIR/index.html" 2>/dev/null || true
 
@@ -503,8 +519,30 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
       fi
     done
 
-
 [private]
 [working-directory: 'mlt-core']
 cargo-fuzz *args:  (just 'cargo-install' 'cargo-fuzz')
     cargo +nightly fuzz {{args}}
+
+# Resolve llvm-cov from the nightly sysroot and run it against the fuzz profdata for target.
+# Pass output_file="" to write to stdout, or a path to redirect stdout there.
+[private]
+[working-directory: 'mlt-core']
+fuzz-llvm-cov target output_file *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    rustup component add llvm-tools-preview --toolchain nightly
+    cargo +nightly fuzz coverage {{target}} --target x86_64-unknown-linux-gnu
+
+    SYSROOT=$(rustup run nightly rustc --print sysroot)
+    HOST=$(rustup run nightly rustc -vV | sed -n 's/^host: //p')
+    LLVM_COV="$SYSROOT/lib/rustlib/$HOST/bin/llvm-cov"
+    FUZZ_DIR="fuzz"
+    TARGET_BIN=$(find target -type f -name '{{target}}' -path '*/coverage/*/release/{{target}}' 2>/dev/null | head -1)
+    echo "target_bin: $TARGET_BIN" >&2
+    PROFDATA="$FUZZ_DIR/coverage/{{target}}/coverage.profdata"
+    [ -n "{{output_file}}" ] && exec > "{{output_file}}"
+    "$LLVM_COV" {{args}} "$TARGET_BIN" \
+        --instr-profile="$PROFDATA" \
+        --ignore-filename-regex="(/.cargo/registry|/rustup/toolchains)"
