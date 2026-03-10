@@ -1,5 +1,24 @@
 use crate::MltError;
 
+pub trait ManualOptimisation {
+    type UsedEncoder;
+
+    /// Applies a given encoder
+    fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError>;
+}
+
+pub trait ProfileOptimisation {
+    type UsedEncoder;
+    type Profile;
+    /// Automatic Profile Optimisation
+    ///
+    /// Only searches over the given profile and its parameters.
+    fn profile_driven_optimisation(
+        &mut self,
+        profile: &Self::Profile,
+    ) -> Result<Self::UsedEncoder, MltError>;
+}
+
 pub trait AutomaticOptimisation {
     type UsedEncoder;
     /// Fully Automatic Layer Encoder
