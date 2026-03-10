@@ -21,9 +21,9 @@ impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
         let extent: u32 = u.arbitrary()?;
 
         let id: OwnedId = if u.arbitrary()? {
-            OwnedId::Encoded(u.arbitrary()?)
+            OwnedId::Encoded(Some(u.arbitrary()?))
         } else {
-            OwnedId::None
+            OwnedId::Encoded(None)
         };
         let geometry = OwnedGeometry::Encoded(u.arbitrary()?);
         let properties: Vec<OwnedProperty> = u
@@ -40,7 +40,7 @@ impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
             use mlt_core::v01::LayerOrdering;
 
             let mut order: Vec<LayerOrdering> = Vec::new();
-            if id != OwnedId::None {
+            if id.is_present() {
                 order.push(LayerOrdering::Id);
             }
             order.push(LayerOrdering::Geometry);

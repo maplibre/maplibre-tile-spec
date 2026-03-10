@@ -19,8 +19,10 @@ pub trait Decodable<'a>: Sized {
     fn take_encoded(&mut self) -> Option<Self::EncodedType>;
     /// Borrow the decoded data if available
     fn borrow_decoded(&self) -> Option<&Self::DecodedType>;
+    /// Borrow the decoded data mutably if available
+    fn borrow_decoded_mut(&mut self) -> Option<&mut Self::DecodedType>;
 
-    fn materialize(&mut self) -> Result<&Self, MltError> {
+    fn materialize(&mut self) -> Result<&mut Self::DecodedType, MltError> {
         if self.is_encoded() {
             // Temporarily replace self with a default value to take ownership of the raw data
             let Some(enc) = self.take_encoded() else {
@@ -29,7 +31,8 @@ pub trait Decodable<'a>: Sized {
             let res = Self::DecodedType::from_encoded(enc)?;
             *self = Self::new_decoded(res);
         }
-        Ok(self)
+        self.borrow_decoded_mut()
+            .ok_or(MltError::NotDecoded("decoded data"))
     }
 }
 
@@ -60,6 +63,14 @@ macro_rules! impl_decodable {
             }
 
             fn borrow_decoded(&self) -> Option<&Self::DecodedType> {
+                if let Self::Decoded(decoded) = self {
+                    Some(decoded)
+                } else {
+                    None
+                }
+            }
+
+            fn borrow_decoded_mut(&mut self) -> Option<&mut Self::DecodedType> {
                 if let Self::Decoded(decoded) = self {
                     Some(decoded)
                 } else {

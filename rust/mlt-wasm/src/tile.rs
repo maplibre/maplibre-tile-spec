@@ -1,8 +1,6 @@
-use std::f64;
-
 use js_sys::{Array, Float64Array, Int32Array, Object, Reflect, Uint8Array, Uint32Array};
 use mlt_core::borrowme::Borrow as _;
-use mlt_core::v01::{Id, OwnedGeometry, OwnedProperty, PropValue};
+use mlt_core::v01::{DecodedProperty, Geometry, Id, OwnedGeometry, OwnedProperty};
 use wasm_bindgen::prelude::*;
 
 use crate::geometry::LayerGeometry;
@@ -216,9 +214,9 @@ impl MltTile {
 
         for p in &*guard {
             if let OwnedProperty::Decoded(prop) = p {
-                if let PropValue::SharedDict(items) = &prop.values {
-                    for item in items {
-                        if let Some(val) = &item.values[feature_idx] {
+                if let DecodedProperty::SharedDict(shared_dict) = prop {
+                    for item in &shared_dict.items {
+                        if let Some(val) = item.get(shared_dict, feature_idx) {
                             let _ = Reflect::set(
                                 &obj,
                                 &pc.keys
@@ -229,7 +227,7 @@ impl MltTile {
                         key_idx += 1;
                     }
                 } else {
-                    if let Some(val) = prop_to_js(&prop.values, feature_idx) {
+                    if let Some(val) = prop_to_js(prop, feature_idx) {
                         let _ = Reflect::set(
                             &obj,
                             &pc.keys
@@ -253,7 +251,7 @@ impl MltTile {
         let layer = &self.layers[layer_idx];
         let mut geom = layer.geometry.borrow_mut();
         if let OwnedGeometry::Encoded(encoded) = &*geom {
-            let decoded = mlt_core::v01::Geometry::Encoded(encoded.borrow())
+            let decoded = Geometry::Encoded(encoded.borrow())
                 .decode()
                 .map_err(|e| crate::to_js_err(&e))?;
             *geom = OwnedGeometry::Decoded(decoded);
@@ -265,23 +263,20 @@ impl MltTile {
         let layer = &self.layers[layer_idx];
         let mut ids = layer.ids.borrow_mut();
         if let IdState::Encoded(encoded) = &*ids {
-            let decoded = Id::Encoded(encoded.borrow())
+            let decoded = Id::Encoded(Some(encoded.borrow()))
                 .decode()
                 .map_err(|e| crate::to_js_err(&e))?;
 
-            let arr = match decoded.0 {
-                Some(v) => {
-                    let floats: Vec<f64> = v
-                        .into_iter()
-                        .map(|f| {
-                            #[expect(clippy::cast_precision_loss)]
-                            f.map_or(f64::NAN, |f| f as f64)
-                        })
-                        .collect();
-                    Float64Array::from(floats.as_slice())
-                }
-                None => Float64Array::new_with_length(0),
-            };
+            let floats: Vec<f64> = decoded
+                .values()
+                .iter()
+                .copied()
+                .map(|f| {
+                    #[expect(clippy::cast_precision_loss)]
+                    f.map_or(f64::NAN, |f| f as f64)
+                })
+                .collect();
+            let arr = Float64Array::from(floats.as_slice());
             *ids = IdState::Ready(arr);
         }
         Ok(())
@@ -297,7 +292,11 @@ impl MltTile {
                 let taken = std::mem::take(&mut *guard);
                 *guard = taken
                     .into_iter()
-                    .filter_map(|p| p.borrow().decode().ok().map(OwnedProperty::Decoded))
+                    .filter_map(|p| {
+                        p.borrow().decode().ok().map(|decoded| {
+                            OwnedProperty::Decoded(mlt_core::borrowme::ToOwned::to_owned(&decoded))
+                        })
+                    })
                     .collect();
             }
         }

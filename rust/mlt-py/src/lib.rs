@@ -6,9 +6,7 @@ use std::ops::Deref;
 
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, Geometry, Id, PropValue, Property,
-};
+use mlt_core::v01::{DecodedGeometry, DecodedProperty, Geometry, Id, Property};
 use mlt_core::{MltError, parse_layers};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -148,52 +146,52 @@ fn geom_to_wkb(
     Ok(buf)
 }
 
-fn prop_value_to_py(py: Python<'_>, pv: &PropValue, i: usize) -> Py<PyAny> {
-    match pv {
-        PropValue::Bool(v) => match v[i] {
+fn prop_value_to_py(py: Python<'_>, prop: &DecodedProperty, i: usize) -> Py<PyAny> {
+    match prop {
+        DecodedProperty::Bool(v) => match v.values[i] {
             Some(b) => b.into_pyobject(py).unwrap().to_owned().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::I8(v) => match v[i] {
+        DecodedProperty::I8(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::U8(v) => match v[i] {
+        DecodedProperty::U8(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::I32(v) => match v[i] {
+        DecodedProperty::I32(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::U32(v) => match v[i] {
+        DecodedProperty::U32(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::I64(v) => match v[i] {
+        DecodedProperty::I64(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::U64(v) => match v[i] {
+        DecodedProperty::U64(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::F32(v) => match v[i] {
+        DecodedProperty::F32(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::F64(v) => match v[i] {
+        DecodedProperty::F64(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::Str(v) => match &v[i] {
+        DecodedProperty::Str(_, v) => match u32::try_from(i).ok().and_then(|i| v.get(i)) {
             Some(s) => s.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::SharedDict(items) => {
-            let dict = pyo3::types::PyDict::new(py);
-            for item in items {
-                if let Some(ref s) = item.values[i] {
+        DecodedProperty::SharedDict(shared_dict) => {
+            let dict = PyDict::new(py);
+            for item in &shared_dict.items {
+                if let Some(s) = item.get(shared_dict, i) {
                     dict.set_item(&item.suffix, s).unwrap();
                 }
             }
@@ -225,7 +223,7 @@ fn build_features(
 
         let prop_dict = PyDict::new(py);
         for p in props {
-            prop_dict.set_item(&p.name, prop_value_to_py(py, &p.values, i))?;
+            prop_dict.set_item(p.name(), prop_value_to_py(py, p, i))?;
         }
 
         let feat = Py::new(
@@ -280,8 +278,7 @@ fn decode_mlt(
         };
 
         let ids = match &layer.id {
-            Id::Decoded(DecodedId(v)) => v.as_deref(),
-            Id::None => None,
+            Id::Decoded(decoded) => decoded.as_ref().map(|decoded| decoded.values()),
             Id::Encoded(_) => Err(PyValueError::new_err("id not decoded"))?,
         };
 
@@ -314,7 +311,7 @@ fn decode_mlt_to_geojson(
     for layer in &mut layers {
         layer.decode_all().map_err(mlt_err)?;
     }
-    let fc = FeatureCollection::from_layers(&layers).map_err(mlt_err)?;
+    let fc = FeatureCollection::from_layers(&mut layers).map_err(mlt_err)?;
     serde_json::to_string(&fc).map_err(|e| PyValueError::new_err(format!("JSON error: {e}")))
 }
 
@@ -446,7 +443,8 @@ mod tests {
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
         assert!(!l.name.is_empty(), "layer name should be non-empty");
 
-        let fc = FeatureCollection::from_layers(&layers).expect("FeatureCollection should succeed");
+        let fc =
+            FeatureCollection::from_layers(&mut layers).expect("FeatureCollection should succeed");
         assert!(
             !fc.features.is_empty(),
             "feature collection should have features"

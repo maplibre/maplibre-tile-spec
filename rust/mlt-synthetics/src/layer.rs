@@ -9,10 +9,10 @@ use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, GeometryEncoder, IdEncoder, IntEncoder,
-    OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PresenceStream,
-    PropValue, PropertyEncoder, ScalarEncoder, SharedDictEncoder, SharedDictItem,
-    SharedDictItemEncoder, StrEncoder, VertexBufferType,
+    DecodedGeometry, DecodedId, DecodedProperty, DecodedStrings, GeometryEncoder, IdEncoder,
+    IntEncoder, OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty,
+    PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
+    SharedDictItemEncoder, StrEncoder, VertexBufferType, build_decoded_shared_dict,
 };
 use mlt_core::{Encodable as _, FromDecoded as _, OwnedLayer, parse_layers};
 
@@ -99,7 +99,7 @@ pub struct Layer {
     pub geometry_items: Vec<Geom32>,
     /// Polygons that are also tessellated; triangle data is merged when building decoded geometry.
     pub tessellated_polygons: Vec<Option<Polygon<i32>>>,
-    pub properties: Vec<DecodedProperty>,
+    pub properties: Vec<DecodedProperty<'static>>,
     pub prop_encoders: Vec<PropertyEncoder>,
     pub extent: Option<u32>,
     pub ids: Option<(Vec<Option<u64>>, IdEncoder)>,
@@ -239,7 +239,8 @@ impl Layer {
         values: PropValue,
     ) -> Self {
         let name = name.into();
-        self.properties.push(DecodedProperty { name, values });
+        self.properties
+            .push(DecodedProperty::from_parts(name, values));
         self.prop_encoders.push(PropertyEncoder::Scalar(encoder));
         self
     }
@@ -251,9 +252,11 @@ impl Layer {
     #[must_use]
     pub fn add_shared_dict(mut self, shared_dict: SharedDict) -> Self {
         let name = shared_dict.name;
-        let values = PropValue::SharedDict(shared_dict.items);
-        self.properties.push(DecodedProperty { name, values });
-        self.prop_encoders.push(shared_dict.encoder.into());
+        let encoder = shared_dict.encoder;
+        let dict = build_decoded_shared_dict(name, shared_dict.items)
+            .expect("shared dict builder should be valid");
+        self.properties.push(DecodedProperty::SharedDict(dict));
+        self.prop_encoders.push(encoder.into());
         self
     }
 
@@ -305,7 +308,7 @@ impl Layer {
         for l in &mut data {
             l.decode_all().unwrap();
         }
-        let fc = FeatureCollection::from_layers(&data).unwrap();
+        let fc = FeatureCollection::from_layers(&mut data).unwrap();
         let mut json = serde_json::to_string_pretty(&fc).unwrap();
         json.push('\n');
         let mut out_file = Self::open_new(&dir.join(format!("{name}.json"))).unwrap();
@@ -318,11 +321,11 @@ impl Layer {
         geometry.encode_with(self.geometry_encoder).unwrap();
 
         let id = if let Some((ids, ids_encoder)) = self.ids {
-            let mut id = OwnedId::Decoded(DecodedId(Some(ids)));
+            let mut id = OwnedId::Decoded(Some(DecodedId(ids)));
             id.encode_with(ids_encoder).unwrap();
             id
         } else {
-            OwnedId::None
+            OwnedId::Decoded(None)
         };
 
         let props = Vec::<OwnedEncodedProperty>::from_decoded(&self.properties, self.prop_encoders)
@@ -351,7 +354,7 @@ impl Layer {
 pub struct SharedDict {
     name: String,
     encoder: SharedDictEncoder,
-    items: Vec<SharedDictItem>,
+    items: Vec<(String, DecodedStrings<'static>)>,
 }
 
 impl SharedDict {
@@ -390,8 +393,8 @@ impl SharedDict {
         let enc = SharedDictItemEncoder { presence, offsets };
         self.encoder.items.push(enc);
         let suffix = suffix.into();
-        let values = values.into_iter().collect();
-        self.items.push(SharedDictItem { suffix, values });
+        let values: Vec<Option<String>> = values.into_iter().collect();
+        self.items.push((suffix, DecodedStrings::from(values)));
         self
     }
 }

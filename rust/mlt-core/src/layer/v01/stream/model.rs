@@ -1,8 +1,6 @@
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
-use crate::analyse::Analyze;
-
 // Logical encoding types
 
 /// Logical encoding technique used for a column, as stored in the tile
@@ -133,18 +131,6 @@ pub struct IntEncoding {
     pub physical: PhysicalEncoding,
 }
 
-impl IntEncoding {
-    #[must_use]
-    pub const fn new(logical: LogicalEncoding, physical: PhysicalEncoding) -> Self {
-        Self { logical, physical }
-    }
-
-    #[must_use]
-    pub const fn none() -> Self {
-        Self::new(LogicalEncoding::None, PhysicalEncoding::None)
-    }
-}
-
 /// Metadata about an encoded stream
 #[derive(Clone, Copy, PartialEq)]
 pub struct StreamMeta {
@@ -158,54 +144,5 @@ pub struct StreamMeta {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Stream<'a> {
     pub meta: StreamMeta,
-    pub data: StreamData<'a>,
+    pub data: super::StreamData<'a>,
 }
-
-/// Representation of the raw stream data, in various physical formats
-macro_rules! stream_data {
-    ($($enm:ident : $ty:ident / $owned:ident),+ $(,)?) => {
-        #[borrowme]
-        #[derive(Debug, PartialEq, Clone)]
-        pub enum StreamData<'a> {
-            $($enm($ty<'a>),)+
-        }
-
-        impl Analyze for StreamData<'_> {
-            fn collect_statistic(&self, stat: crate::StatType) -> usize {
-                match &self {
-                    $(StreamData::$enm(d) => d.data.collect_statistic(stat),)+
-                }
-            }
-        }
-
-        $(
-            #[borrowme]
-            #[derive(PartialEq, Clone)]
-            pub struct $ty<'a> {
-                #[borrowme(borrow_with = Vec::as_slice)]
-                pub data: &'a [u8],
-            }
-            impl<'a> $ty<'a> {
-                #[expect(clippy::new_ret_no_self)]
-                pub fn new(data: &'a [u8]) -> StreamData<'a> {
-                    StreamData::$enm(Self { data } )
-                }
-            }
-            impl<'a> std::fmt::Debug for $ty<'a> {
-                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    crate::utils::formatter::fmt_byte_array(self.data, f)
-                }
-            }
-            impl std::fmt::Debug for $owned {
-                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    crate::utils::formatter::fmt_byte_array(&self.data, f)
-                }
-            }
-        )+
-    };
-}
-
-stream_data![
-    VarInt: DataVarInt / OwnedDataVarInt,
-    Encoded: EncodedData / OwnedEncodedData,
-];

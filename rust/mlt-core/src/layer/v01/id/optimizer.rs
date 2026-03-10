@@ -36,9 +36,7 @@ impl IdOptimizer {
     /// Analyze and return a configured [`IdEncoder`].
     #[must_use]
     pub fn optimize(decoded: &DecodedId) -> IdEncoder {
-        let Some(ids) = &decoded.0 else {
-            return IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);
-        };
+        let ids = &decoded.0;
         let (is_sequential, is_constant, id_width) = match Self::single_pass_statistics(ids) {
             Ok(value) => value,
             Err(value) => return value,
@@ -174,8 +172,8 @@ impl ManualOptimisation for OwnedId {
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
         let dec = borrowme::borrow(self).decode()?;
-        if let DecodedId(Some(_)) = dec {
-            *self = OwnedId::Encoded(OwnedEncodedId::from_decoded(&dec, encoder)?);
+        if !dec.0.is_empty() {
+            *self = OwnedId::Encoded(Some(OwnedEncodedId::from_decoded(&dec, encoder)?));
         }
         Ok(())
     }
@@ -200,17 +198,20 @@ impl AutomaticOptimisation for OwnedId {
 
     fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
         match self {
-            OwnedId::Decoded(dec) => {
+            OwnedId::Decoded(None) => {
+                *self = OwnedId::Encoded(None);
+                Ok(None)
+            }
+            OwnedId::Decoded(Some(dec)) => {
                 let enc = IdOptimizer::optimize(dec);
-                *self = OwnedId::Encoded(OwnedEncodedId::from_decoded(dec, enc)?);
+                *self = OwnedId::Encoded(Some(OwnedEncodedId::from_decoded(dec, enc)?));
                 Ok(Some(enc))
             }
             OwnedId::Encoded(e) => {
-                let dec = DecodedId::from_encoded(borrowme::borrow(e))?;
+                let dec = Option::<DecodedId>::from_encoded(e.as_ref().map(borrowme::borrow))?;
                 *self = OwnedId::Decoded(dec);
                 self.automatic_encoding_optimisation()
             }
-            OwnedId::None => Ok(None),
         }
     }
 }

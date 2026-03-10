@@ -373,3 +373,10 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
         })
     }
 }
+
+impl DecodedGeometry {
+    #[must_use]
+    pub fn feature_count(&self) -> usize {
+        self.vector_types.len()
+    }
+}

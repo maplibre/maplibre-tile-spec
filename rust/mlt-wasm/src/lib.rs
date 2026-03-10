@@ -40,7 +40,7 @@ use ids::IdState;
 use js_sys::Uint8Array;
 use layer::DecodedLayer;
 use mlt_core::borrowme::ToOwned;
-use mlt_core::v01::{DecodedId, Geometry, GeometryType, Id};
+use mlt_core::v01::{Geometry, GeometryType, Id};
 use mlt_core::{MltError, parse_layers};
 use tile::MltTile;
 use wasm_bindgen::prelude::*;
@@ -67,7 +67,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
         // Decode geometry types eagerly — cheap, needed for feature_count and
         // layer_types on every tile traversal.
         let vector_types: Vec<GeometryType> = match &layer01.geometry {
-            Geometry::Encoded(e) => e
+            Geometry::Encoded(encoded) => encoded
                 .meta
                 .clone()
                 .decode_bits_u32()
@@ -82,7 +82,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
                         .map_err(|_| JsError::new("invalid geometry type"))
                 })
                 .collect::<Result<Vec<_>, _>>()?,
-            Geometry::Decoded(d) => d.vector_types.clone(),
+            Geometry::Decoded(decoded) => decoded.vector_types.clone(),
         };
 
         // Build types_array once up front; layer_types() returns a handle clone.
@@ -100,13 +100,15 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
 
         let geometry = RefCell::new(ToOwned::to_owned(&layer01.geometry));
 
-        let ids = RefCell::new(match layer01.id {
-            Id::None | Id::Decoded(DecodedId(None)) => IdState::Absent,
-            Id::Encoded(e) => IdState::Encoded(ToOwned::to_owned(&e)),
-            Id::Decoded(DecodedId(Some(v))) => {
+        let ids = RefCell::new(match &layer01.id {
+            Id::Encoded(Some(encoded)) => IdState::Encoded(ToOwned::to_owned(encoded)),
+            Id::Encoded(None) | Id::Decoded(None) => IdState::Absent,
+            Id::Decoded(Some(decoded)) => {
                 use js_sys::Float64Array;
-                let floats: Vec<f64> = v
-                    .into_iter()
+                let floats: Vec<f64> = decoded
+                    .values()
+                    .iter()
+                    .copied()
                     .map(|f| {
                         #[expect(clippy::cast_precision_loss)]
                         f.map_or(f64::NAN, |f| f as f64)

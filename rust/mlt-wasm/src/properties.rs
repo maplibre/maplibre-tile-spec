@@ -1,5 +1,5 @@
 use js_sys::{Array, Float32Array, Float64Array, Int8Array, Int32Array, Uint8Array, Uint32Array};
-use mlt_core::v01::{OwnedProperty, PropValue};
+use mlt_core::v01::{DecodedProperty, OwnedProperty};
 use wasm_bindgen::prelude::*;
 
 /// Cached bulk-property data for a single layer, built once on first access.
@@ -27,22 +27,22 @@ pub(crate) fn build_prop_cache(props: &[OwnedProperty], feature_count: u32) -> P
             continue;
         };
 
-        if let PropValue::SharedDict(items) = &prop.values {
-            for item in items {
-                let key = format!("{}{}", prop.name, item.suffix);
+        if let DecodedProperty::SharedDict(shared_dict) = prop {
+            for item in &shared_dict.items {
+                let key = format!("{}{}", prop.name(), item.suffix);
                 keys.push(&JsValue::from_str(&key));
 
                 let col = Array::new_with_length(feature_count);
-                for (v, i) in item.values.iter().zip(0_u32..) {
-                    if let Some(s) = v {
+                for i in 0_u32..feature_count {
+                    if let Some(s) = item.get(shared_dict, i as usize) {
                         col.set(i, JsValue::from_str(s));
                     }
                 }
                 columns.push(&col);
             }
         } else {
-            keys.push(&JsValue::from_str(&prop.name));
-            columns.push(&prop_values_to_js_column(&prop.values, feature_count));
+            keys.push(&JsValue::from_str(prop.name()));
+            columns.push(&prop_values_to_js_column(prop, feature_count));
         }
     }
 
@@ -57,77 +57,77 @@ pub(crate) fn build_prop_cache(props: &[OwnedProperty], feature_count: u32) -> P
 /// - Integer columns (`I8`, `U8`, `I32`, `U32`) → `0` (or `undefined` if optional)
 /// - Bool / string columns → `undefined` (Array slot left unset)
 #[allow(clippy::cast_precision_loss)]
-pub(crate) fn prop_values_to_js_column(pv: &PropValue, n: u32) -> JsValue {
-    match pv {
-        PropValue::Bool(v) => {
+pub(crate) fn prop_values_to_js_column(prop: &DecodedProperty, n: u32) -> JsValue {
+    match prop {
+        DecodedProperty::Bool(v) => {
             let arr = Array::new_with_length(n);
-            for (val, i) in v.iter().zip(0_u32..) {
+            for (val, i) in v.values.iter().zip(0_u32..) {
                 if let Some(b) = val {
                     arr.set(i, JsValue::from_bool(*b));
                 }
             }
             arr.into()
         }
-        PropValue::I8(v) => {
-            if v.iter().any(Option::is_none) {
+        DecodedProperty::I8(v) => {
+            if v.values.iter().any(Option::is_none) {
                 let arr = Array::new_with_length(n);
-                for (val, i) in v.iter().zip(0_u32..) {
+                for (val, i) in v.values.iter().zip(0_u32..) {
                     if let Some(n) = val {
                         arr.set(i, JsValue::from_f64(f64::from(*n)));
                     }
                 }
                 arr.into()
             } else {
-                let buf = v.iter().flatten().copied().collect::<Vec<_>>();
+                let buf = v.values.iter().flatten().copied().collect::<Vec<_>>();
                 Int8Array::from(buf.as_slice()).into()
             }
         }
-        PropValue::U8(v) => {
-            if v.iter().any(Option::is_none) {
+        DecodedProperty::U8(v) => {
+            if v.values.iter().any(Option::is_none) {
                 let arr = Array::new_with_length(n);
-                for (val, i) in v.iter().zip(0_u32..) {
+                for (val, i) in v.values.iter().zip(0_u32..) {
                     if let Some(n) = val {
                         arr.set(i, JsValue::from_f64(f64::from(*n)));
                     }
                 }
                 arr.into()
             } else {
-                let buf = v.iter().flatten().copied().collect::<Vec<_>>();
+                let buf = v.values.iter().flatten().copied().collect::<Vec<_>>();
                 Uint8Array::from(buf.as_slice()).into()
             }
         }
-        PropValue::I32(v) => {
-            if v.iter().any(Option::is_none) {
+        DecodedProperty::I32(v) => {
+            if v.values.iter().any(Option::is_none) {
                 let arr = Array::new_with_length(n);
-                for (val, i) in v.iter().zip(0_u32..) {
+                for (val, i) in v.values.iter().zip(0_u32..) {
                     if let Some(n) = val {
                         arr.set(i, JsValue::from_f64(f64::from(*n)));
                     }
                 }
                 arr.into()
             } else {
-                let buf = v.iter().flatten().copied().collect::<Vec<_>>();
+                let buf = v.values.iter().flatten().copied().collect::<Vec<_>>();
                 Int32Array::from(buf.as_slice()).into()
             }
         }
-        PropValue::U32(v) => {
-            if v.iter().any(Option::is_none) {
+        DecodedProperty::U32(v) => {
+            if v.values.iter().any(Option::is_none) {
                 let arr = Array::new_with_length(n);
-                for (val, i) in v.iter().zip(0_u32..) {
+                for (val, i) in v.values.iter().zip(0_u32..) {
                     if let Some(n) = val {
                         arr.set(i, JsValue::from_f64(f64::from(*n)));
                     }
                 }
                 arr.into()
             } else {
-                let buf = v.iter().flatten().copied().collect::<Vec<_>>();
+                let buf = v.values.iter().flatten().copied().collect::<Vec<_>>();
                 Uint32Array::from(buf.as_slice()).into()
             }
         }
-        PropValue::I64(v) => {
-            if v.iter().any(Option::is_none) {
+        DecodedProperty::I64(v) => {
+            if v.values.iter().any(Option::is_none) {
                 let arr = Array::new_with_length(n);
-                for (val, i) in v.iter().zip(0_u32..) {
+                for (val, i) in v.values.iter().zip(0_u32..) {
                     if let Some(n) = val {
                         arr.set(i, JsValue::from_f64(*n as f64));
                     }
@@ -135,6 +135,7 @@ pub(crate) fn prop_values_to_js_column(pv: &PropValue, n: u32) -> JsValue {
                 arr.into()
             } else {
                 let buf = v
+                    .values
                     .iter()
                     .flatten()
                     .copied()
@@ -143,10 +144,10 @@ pub(crate) fn prop_values_to_js_column(pv: &PropValue, n: u32) -> JsValue {
                 Float64Array::from(buf.as_slice()).into()
             }
         }
-        PropValue::U64(v) => {
-            if v.iter().any(Option::is_none) {
+        DecodedProperty::U64(v) => {
+            if v.values.iter().any(Option::is_none) {
                 let arr = Array::new_with_length(n);
-                for (val, i) in v.iter().zip(0_u32..) {
+                for (val, i) in v.values.iter().zip(0_u32..) {
                     if let Some(n) = val {
                         arr.set(i, JsValue::from_f64(*n as f64));
                     }
@@ -154,6 +155,7 @@ pub(crate) fn prop_values_to_js_column(pv: &PropValue, n: u32) -> JsValue {
                 arr.into()
             } else {
                 let buf = v
+                    .values
                     .iter()
                     .flatten()
                     .copied()
@@ -162,44 +164,44 @@ pub(crate) fn prop_values_to_js_column(pv: &PropValue, n: u32) -> JsValue {
                 Float64Array::from(buf.as_slice()).into()
             }
         }
-        PropValue::F32(v) => {
-            if v.iter().any(Option::is_none) {
+        DecodedProperty::F32(v) => {
+            if v.values.iter().any(Option::is_none) {
                 let arr = Array::new_with_length(n);
-                for (val, i) in v.iter().zip(0_u32..) {
+                for (val, i) in v.values.iter().zip(0_u32..) {
                     if let Some(n) = val {
                         arr.set(i, JsValue::from_f64(f64::from(*n)));
                     }
                 }
                 arr.into()
             } else {
-                let buf = v.iter().flatten().copied().collect::<Vec<_>>();
+                let buf = v.values.iter().flatten().copied().collect::<Vec<_>>();
                 Float32Array::from(buf.as_slice()).into()
             }
         }
-        PropValue::F64(v) => {
-            if v.iter().any(Option::is_none) {
+        DecodedProperty::F64(v) => {
+            if v.values.iter().any(Option::is_none) {
                 let arr = Array::new_with_length(n);
-                for (val, i) in v.iter().zip(0_u32..) {
+                for (val, i) in v.values.iter().zip(0_u32..) {
                     if let Some(n) = val {
                         arr.set(i, JsValue::from_f64(*n));
                     }
                 }
                 arr.into()
             } else {
-                let buf = v.iter().flatten().copied().collect::<Vec<_>>();
+                let buf = v.values.iter().flatten().copied().collect::<Vec<_>>();
                 Float64Array::from(buf.as_slice()).into()
             }
         }
-        PropValue::Str(v) => {
+        DecodedProperty::Str(_, v) => {
             let arr = Array::new_with_length(n);
-            for (val, i) in v.iter().zip(0_u32..) {
-                if let Some(s) = val {
+            for i in 0_u32..n {
+                if let Some(s) = v.get(i) {
                     arr.set(i, JsValue::from_str(s));
                 }
             }
             arr.into()
         }
-        PropValue::SharedDict(_) => {
+        DecodedProperty::SharedDict(..) => {
             unreachable!("SharedDict is expanded by build_prop_cache before reaching here.")
         }
     }
@@ -211,20 +213,23 @@ pub(crate) fn prop_values_to_js_column(pv: &PropValue, n: u32) -> JsValue {
 /// path.  Returns `None` for absent values so the caller can omit the key from
 /// the output object entirely, matching `@mapbox/vector-tile` behaviour.
 #[allow(clippy::cast_precision_loss)]
-pub(crate) fn prop_to_js(pv: &PropValue, i: usize) -> Option<JsValue> {
-    match pv {
-        PropValue::Bool(v) => v[i].map(JsValue::from_bool),
-        PropValue::I8(v) => v[i].map(|n| JsValue::from_f64(f64::from(n))),
-        PropValue::U8(v) => v[i].map(|n| JsValue::from_f64(f64::from(n))),
-        PropValue::I32(v) => v[i].map(|n| JsValue::from_f64(f64::from(n))),
-        PropValue::U32(v) => v[i].map(|n| JsValue::from_f64(f64::from(n))),
+pub(crate) fn prop_to_js(prop: &DecodedProperty, i: usize) -> Option<JsValue> {
+    match prop {
+        DecodedProperty::Bool(v) => v.values[i].map(JsValue::from_bool),
+        DecodedProperty::I8(v) => v.values[i].map(|n| JsValue::from_f64(f64::from(n))),
+        DecodedProperty::U8(v) => v.values[i].map(|n| JsValue::from_f64(f64::from(n))),
+        DecodedProperty::I32(v) => v.values[i].map(|n| JsValue::from_f64(f64::from(n))),
+        DecodedProperty::U32(v) => v.values[i].map(|n| JsValue::from_f64(f64::from(n))),
         // i64/u64 may lose precision beyond 2^53; matches the TS decoder and the
         // VectorTileFeatureLike contract (properties typed as `number | string | boolean`).
-        PropValue::I64(v) => v[i].map(|n| JsValue::from_f64(n as f64)),
-        PropValue::U64(v) => v[i].map(|n| JsValue::from_f64(n as f64)),
-        PropValue::F32(v) => v[i].map(|n| JsValue::from_f64(f64::from(n))),
-        PropValue::F64(v) => v[i].map(JsValue::from_f64),
-        PropValue::Str(v) => v[i].as_ref().map(|s| JsValue::from_str(s)),
-        PropValue::SharedDict(_) => None,
+        DecodedProperty::I64(v) => v.values[i].map(|n| JsValue::from_f64(n as f64)),
+        DecodedProperty::U64(v) => v.values[i].map(|n| JsValue::from_f64(n as f64)),
+        DecodedProperty::F32(v) => v.values[i].map(|n| JsValue::from_f64(f64::from(n))),
+        DecodedProperty::F64(v) => v.values[i].map(JsValue::from_f64),
+        DecodedProperty::Str(_, v) => u32::try_from(i)
+            .ok()
+            .and_then(|i| v.get(i))
+            .map(JsValue::from_str),
+        DecodedProperty::SharedDict(..) => None,
     }
 }

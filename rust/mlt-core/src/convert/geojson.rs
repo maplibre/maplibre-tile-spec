@@ -5,9 +5,9 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::MltError;
 use crate::layer::Layer;
-use crate::v01::{DecodedId, DecodedProperty, Geometry, Id, PropValue, Property};
+use crate::v01::{DecodedId, DecodedProperty};
+use crate::{Decodable as _, MltError};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
 pub type Geom32 = geo_types::Geometry<i32>;
@@ -31,47 +31,28 @@ pub struct FeatureCollection {
 
 impl FeatureCollection {
     /// Convert decoded layers to a `GeoJSON` [`FeatureCollection`]
-    pub fn from_layers(layers: &[Layer<'_>]) -> Result<FeatureCollection, MltError> {
+    pub fn from_layers(layers: &mut [Layer<'_>]) -> Result<FeatureCollection, MltError> {
         let mut features = Vec::new();
-        for layer in layers {
-            let l = layer
-                .as_layer01()
-                .ok_or(MltError::NotDecoded("expected Tag01 layer"))?;
-            let geom = match &l.geometry {
-                Geometry::Decoded(g) => g,
-                Geometry::Encoded(_) => {
-                    return Err(MltError::NotDecoded("geometry"));
-                }
-            };
-            let ids = match &l.id {
-                Id::Decoded(DecodedId(Some(v))) => Some(v.as_slice()),
-                Id::Decoded(DecodedId(None)) | Id::None => None,
-                Id::Encoded(_) => return Err(MltError::NotDecoded("id")),
-            };
-            let props: Vec<&DecodedProperty> = l
-                .properties
-                .iter()
-                .map(|p| match p {
-                    Property::Decoded(d) => Ok(d),
-                    Property::Encoded(_) => Err(MltError::NotDecoded("property")),
-                })
-                .collect::<Result<_, _>>()?;
-
+        for layer in layers.iter_mut() {
+            let l = layer.decoded_layer01_mut()?;
+            let geom = l.geometry.materialize()?;
+            let ids: Option<&[Option<u64>]> = l.id.materialize()?.as_ref().map(DecodedId::values);
             for i in 0..geom.vector_types.len() {
                 let geometry = geom.to_geojson(i)?;
                 let mut properties = BTreeMap::new();
-                for prop in &props {
+                for prop in &mut l.properties {
+                    let prop = prop.decoded_property()?;
                     // SharedDict properties are flattened to individual properties
                     // with names like "struct_name:child_suffix"
-                    if let PropValue::SharedDict(items) = &prop.values {
-                        for item in items {
-                            if let Some(s) = &item.values[i] {
-                                let key = format!("{}{}", prop.name, item.suffix);
-                                properties.insert(key, Value::String(s.clone()));
+                    if let DecodedProperty::SharedDict(dict) = prop {
+                        for item in &dict.items {
+                            if let Some(s) = item.get(dict, i) {
+                                let key = format!("{}{}", dict.prefix, item.suffix);
+                                properties.insert(key, Value::String(s.to_string()));
                             }
                         }
-                    } else if let Some(val) = prop.values.to_geojson(i) {
-                        properties.insert(prop.name.clone(), val);
+                    } else if let Some(val) = prop.to_geojson(i) {
+                        properties.insert(prop.name().to_string(), val);
                     }
                 }
                 properties.insert("_layer".into(), Value::String(l.name.to_string()));

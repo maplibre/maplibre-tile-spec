@@ -20,9 +20,13 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::utils::encode_zigzag;
-use crate::v01::property::strings::{SharedDictEncoder, SharedDictItemEncoder, StrEncoder};
+use crate::v01::property::strings::{
+    SharedDictEncoder, SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
+    collect_shared_dict_spans,
+};
 use crate::v01::property::{
-    DecodedProperty, PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, SharedDictItem,
+    DecodedProperty, DecodedSharedDict, DecodedSharedDictItem, PresenceStream, PropertyEncoder,
+    ScalarEncoder,
 };
 use crate::v01::stream::IntEncoder;
 use crate::v01::{OwnedEncodedProperty, OwnedProperty};
@@ -58,7 +62,7 @@ impl ManualOptimisation for Vec<OwnedProperty> {
         let mut decoded = Vec::with_capacity(self.len());
         for d in &mut *self {
             let d = borrowme::borrow(d).decode()?;
-            decoded.push(d);
+            decoded.push(borrowme::ToOwned::to_owned(&d));
         }
         *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, encoder)?
             .into_iter()
@@ -88,7 +92,7 @@ impl AutomaticOptimisation for Vec<OwnedProperty> {
         let mut decoded = Vec::with_capacity(self.len());
         for d in &mut *self {
             let d = borrowme::borrow(d).decode()?;
-            decoded.push(d);
+            decoded.push(borrowme::ToOwned::to_owned(&d));
         }
 
         let enc = PropertyOptimizer::optimize(&mut decoded);
@@ -110,7 +114,7 @@ impl PropertyOptimizer {
     /// This method mutates `properties` by combining similar string columns
     /// into `PropValue::SharedDict` values.
     #[must_use]
-    pub fn optimize(properties: &mut Vec<DecodedProperty>) -> Vec<PropertyEncoder> {
+    pub fn optimize(properties: &mut Vec<DecodedProperty<'_>>) -> Vec<PropertyEncoder> {
         if properties.is_empty() {
             return Vec::new();
         }
@@ -130,7 +134,7 @@ impl PropertyOptimizer {
 /// 2. Groups similar columns using union-find
 /// 3. Transforms grouped columns into `PropValue::SharedDict`
 /// 4. Removes the merged columns from the properties vector
-fn group_string_columns(properties: &mut Vec<DecodedProperty>) {
+fn group_string_columns(properties: &mut Vec<DecodedProperty<'_>>) {
     // Profile string columns: compute MinHash signatures
     let min_hash = MinHash::<IntoIter<&str>, &str>::new(MINHASH_PERMUTATIONS);
     let profiles = profile_string_columns(properties, &min_hash);
@@ -145,18 +149,16 @@ fn group_string_columns(properties: &mut Vec<DecodedProperty>) {
 
 /// Profile string columns by computing `MinHash` signatures.
 fn profile_string_columns(
-    properties: &[DecodedProperty],
+    properties: &[DecodedProperty<'_>],
     min_hash: &MinHash<IntoIter<&str>, &str>,
 ) -> Vec<StringProfile> {
     properties
         .iter()
         .enumerate()
         .filter_map(|(col_idx, prop)| {
-            if let PropValue::Str(values) = &prop.values {
-                let mut unique_set: HashSet<&str> = HashSet::new();
-                for s in values.iter().flatten() {
-                    unique_set.insert(s.as_str());
-                }
+            if let DecodedProperty::Str(_, values) = prop {
+                let owned_values = values.dense_values();
+                let unique_set: HashSet<&str> = owned_values.iter().map(String::as_str).collect();
 
                 // Guard against all-null columns - MinHash panics on an empty iterator.
                 let min_hashes = if unique_set.is_empty() {
@@ -227,46 +229,38 @@ fn compute_string_groups(
 /// - Builds `SharedDictItem` for each child
 /// - Replaces the first property with `PropValue::SharedDict`
 /// - Removes the other properties from the vector
-fn merge_str_to_shared_dicts(properties: &mut Vec<DecodedProperty>, groups: &[Vec<usize>]) {
+fn merge_str_to_shared_dicts(properties: &mut Vec<DecodedProperty<'_>>, groups: &[Vec<usize>]) {
     let mut indices_to_remove: HashSet<usize> = HashSet::new();
 
     for group in groups {
         if group.len() < 2 {
             continue;
         }
-
-        let names: Vec<&str> = group
-            .iter()
-            .map(|&ci| properties[ci].name.as_str())
-            .collect();
+        // TODO: technically we should only be dealing with (String + DecodedStrings) pairs here
+        let names: Vec<&str> = group.iter().map(|&ci| properties[ci].name()).collect();
         let prefix = common_prefix_name(&names);
 
-        // Build SharedDictItem for each child
-        let items: Vec<SharedDictItem> = group
+        let items = group
             .iter()
             .map(|&col_idx| {
                 let prop = &properties[col_idx];
                 let suffix = prop
-                    .name
+                    .name()
                     .strip_prefix(&prefix)
-                    .unwrap_or(&prop.name)
+                    .unwrap_or(prop.name())
                     .to_owned();
-                let PropValue::Str(values) = &prop.values else {
+                let DecodedProperty::Str(_, values) = prop else {
                     unreachable!("group should only contain Str columns");
                 };
-                SharedDictItem {
-                    suffix,
-                    values: values.clone(),
-                }
+                (suffix, borrowme::ToOwned::to_owned(values))
             })
-            .collect();
+            .collect::<Vec<_>>();
+        let shared_dict = build_decoded_shared_dict(prefix.clone(), items)
+            .expect("building decoded shared dictionary from string columns should succeed");
 
         // Replace first property with SharedDict
         let first_idx = group[0];
-        properties[first_idx] = DecodedProperty {
-            name: prefix,
-            values: PropValue::SharedDict(items),
-        };
+        properties[first_idx] = DecodedProperty::SharedDict(shared_dict);
 
         // Mark other properties for removal
         for &col_idx in &group[1..] {
@@ -283,21 +277,22 @@ fn merge_str_to_shared_dicts(properties: &mut Vec<DecodedProperty>, groups: &[Ve
 }
 
 /// Build an encoder for any property type.
-fn build_encoder(prop: &DecodedProperty) -> PropertyEncoder {
-    match &prop.values {
-        PropValue::Bool(v) => {
-            PropertyEncoder::Scalar(ScalarEncoder::bool(to_presence(count_nulls(v))))
+fn build_encoder(prop: &DecodedProperty<'_>) -> PropertyEncoder {
+    match prop {
+        DecodedProperty::Bool(v) => {
+            PropertyEncoder::Scalar(ScalarEncoder::bool(presence_stream(has_nulls(&v.values))))
         }
-        PropValue::F32(v) => {
-            PropertyEncoder::Scalar(ScalarEncoder::float(to_presence(count_nulls(v))))
+        DecodedProperty::F32(v) => {
+            PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(&v.values))))
         }
-        PropValue::F64(v) => {
-            PropertyEncoder::Scalar(ScalarEncoder::float(to_presence(count_nulls(v))))
+        DecodedProperty::F64(v) => {
+            PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(&v.values))))
         }
-        PropValue::I8(v) => {
-            let presence = to_presence(count_nulls(v));
+        DecodedProperty::I8(v) => {
+            let presence = presence_stream(has_nulls(&v.values));
             // FIXME: inaccurate, but encoders don't support i8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
             let non_null = v
+                .values
                 .iter()
                 .flatten()
                 .copied()
@@ -306,57 +301,64 @@ fn build_encoder(prop: &DecodedProperty) -> PropertyEncoder {
             let enc = encode_zigzag(&non_null);
             PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
         }
-        PropValue::U8(v) => {
-            let presence = to_presence(count_nulls(v));
+        DecodedProperty::U8(v) => {
+            let presence = presence_stream(has_nulls(&v.values));
             // FIXME: inaccurate, but encoders don't support u8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
-            let non_null: Vec<u32> = v.iter().flatten().copied().map(u32::from).collect();
+            let non_null: Vec<u32> = v.values.iter().flatten().copied().map(u32::from).collect();
             PropertyEncoder::Scalar(ScalarEncoder::int(
                 presence,
                 IntEncoder::auto_u32(&non_null),
             ))
         }
-        PropValue::I32(v) => {
-            let presence = to_presence(count_nulls(v));
-            let non_null = v.iter().flatten().copied().collect::<Vec<i32>>();
+        DecodedProperty::I32(v) => {
+            let presence = presence_stream(has_nulls(&v.values));
+            let non_null = v.values.iter().flatten().copied().collect::<Vec<i32>>();
             let enc = encode_zigzag(&non_null);
             PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
         }
-        PropValue::U32(v) => {
-            let presence = to_presence(count_nulls(v));
-            let non_null: Vec<u32> = v.iter().flatten().copied().collect();
+        DecodedProperty::U32(v) => {
+            let presence = presence_stream(has_nulls(&v.values));
+            let non_null: Vec<u32> = v.values.iter().flatten().copied().collect();
             PropertyEncoder::Scalar(ScalarEncoder::int(
                 presence,
                 IntEncoder::auto_u32(&non_null),
             ))
         }
-        PropValue::I64(v) => {
-            let presence = to_presence(count_nulls(v));
-            let non_null = v.iter().flatten().copied().collect::<Vec<i64>>();
-            let enc = encode_zigzag(&non_null);
+        DecodedProperty::I64(v) => {
+            let presence = presence_stream(has_nulls(&v.values));
+            let non_null = &v.values.iter().flatten().copied().collect::<Vec<i64>>();
+            let enc = encode_zigzag(non_null);
             PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u64(&enc)))
         }
-        PropValue::U64(v) => {
-            let non_null: Vec<u64> = v.iter().flatten().copied().collect();
+        DecodedProperty::U64(v) => {
+            let non_null: Vec<u64> = v.values.iter().flatten().copied().collect();
             PropertyEncoder::Scalar(ScalarEncoder::int(
-                to_presence(count_nulls(v)),
+                presence_stream(has_nulls(&v.values)),
                 IntEncoder::auto_u64(&non_null),
             ))
         }
-        PropValue::Str(v) => {
-            let presence = to_presence(count_nulls(v));
-            let non_null: Vec<&str> = v.iter().flatten().map(String::as_str).collect();
+        DecodedProperty::Str(_, v) => {
+            let presence = presence_stream(v.has_nulls());
+            let owned_values = v.dense_values();
+            let non_null: Vec<&str> = owned_values.iter().map(String::as_str).collect();
             scalar_str_encoder(presence, &non_null)
         }
-        PropValue::SharedDict(items) => build_shared_dict_encoder(items),
+        DecodedProperty::SharedDict(shared_dict) => {
+            build_shared_dict_encoder(shared_dict, &shared_dict.items)
+        }
     }
 }
 
 /// Build a `SharedDictEncoder` for a `PropValue::SharedDict`.
-fn build_shared_dict_encoder(items: &[SharedDictItem]) -> PropertyEncoder {
+fn build_shared_dict_encoder(
+    shared_dict: &DecodedSharedDict<'_>,
+    items: &[DecodedSharedDictItem],
+) -> PropertyEncoder {
+    let dict_spans = collect_shared_dict_spans(items);
     // Collect all strings for FSST viability check
-    let all_strings: Vec<&str> = items
+    let all_strings: Vec<&str> = dict_spans
         .iter()
-        .flat_map(|item| item.values.iter().flatten().map(String::as_str))
+        .filter_map(|&span| shared_dict.get(span))
         .collect();
 
     let dict_encoder = if fsst_is_viable(&all_strings) {
@@ -375,7 +377,7 @@ fn build_shared_dict_encoder(items: &[SharedDictItem]) -> PropertyEncoder {
     let item_encoders: Vec<SharedDictItemEncoder> = items
         .iter()
         .map(|item| {
-            let presence = to_presence(count_nulls(&item.values));
+            let presence = presence_stream(item.has_nulls());
             let offsets = compute_offset_encoder(items, item);
             SharedDictItemEncoder { presence, offsets }
         })
@@ -391,30 +393,20 @@ fn build_shared_dict_encoder(items: &[SharedDictItem]) -> PropertyEncoder {
 /// Compute the optimal `IntEncoder` for the offset stream of one item
 /// in a shared dictionary.
 fn compute_offset_encoder(
-    all_items: &[SharedDictItem],
-    target_item: &SharedDictItem,
+    items: &[DecodedSharedDictItem],
+    target_item: &DecodedSharedDictItem,
 ) -> IntEncoder {
-    // Build the shared dictionary in item order
-    let mut dict_index: HashMap<&str, u32> = HashMap::new();
-    let mut dict_size = 0u32;
-    for item in all_items {
-        for s in item.values.iter().flatten() {
-            if !dict_index.contains_key(s.as_str()) {
-                dict_index.insert(s.as_str(), dict_size);
-                dict_size = dict_size.saturating_add(1);
-            }
-        }
-    }
-
-    // Map target item's values to dictionary offsets
+    let dict_index: HashMap<(u32, u32), u32> = collect_shared_dict_spans(items)
+        .into_iter()
+        .zip(0_u32..)
+        .collect();
     let offsets: Vec<u32> = target_item
-        .values
+        .dense_spans()
         .iter()
-        .flatten()
-        .map(|s| {
+        .map(|span| {
             *dict_index
-                .get(s.as_str())
-                .expect("non-null string missing from shared dictionary")
+                .get(span)
+                .expect("non-null string span missing from shared dictionary")
         })
         .collect();
 
@@ -425,15 +417,15 @@ fn compute_offset_encoder(
     }
 }
 
-fn count_nulls<T>(values: &[Option<T>]) -> usize {
-    values.iter().filter(|v| v.is_none()).count()
+fn has_nulls<T>(values: &[Option<T>]) -> bool {
+    values.iter().any(Option::is_none)
 }
 
-fn to_presence(num_nulls: usize) -> PresenceStream {
-    if num_nulls == 0 {
-        PresenceStream::Absent
-    } else {
+fn presence_stream(has_nulls: bool) -> PresenceStream {
+    if has_nulls {
         PresenceStream::Present
+    } else {
+        PresenceStream::Absent
     }
 }
 
@@ -512,12 +504,14 @@ fn fsst_is_viable(strings: &[&str]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::v01::{DecodedStrings, PropValue};
 
-    fn make_prop(name: &str, values: PropValue) -> DecodedProperty {
-        DecodedProperty {
-            name: name.to_owned(),
-            values,
-        }
+    fn str_value(values: Vec<Option<String>>) -> PropValue {
+        PropValue::Str(DecodedStrings::from(values))
+    }
+
+    fn make_prop(name: &str, values: PropValue) -> DecodedProperty<'static> {
+        DecodedProperty::from_parts(name.to_owned(), values)
     }
 
     #[test]
@@ -578,17 +572,18 @@ mod tests {
     fn similar_strings_grouped_into_shared_dict() {
         let vocab: Vec<Option<String>> = (0..20).map(|i| Some(format!("val{i}"))).collect();
         let mut props = vec![
-            make_prop("addr:street", PropValue::Str(vocab.clone())),
-            make_prop("addr:city", PropValue::Str(vocab)),
+            make_prop("addr:street", str_value(vocab.clone())),
+            make_prop("addr:city", str_value(vocab)),
         ];
         let enc = PropertyOptimizer::optimize(&mut props);
 
         // Should produce one SharedDict property
         assert_eq!(props.len(), 1);
-        assert_eq!(props[0].name, "addr:");
-        let PropValue::SharedDict(items) = &props[0].values else {
+        assert_eq!(props[0].name(), "addr:");
+        let DecodedProperty::SharedDict(shared_dict) = &props[0] else {
             panic!("expected SharedDict");
         };
+        let items = &shared_dict.items;
         assert_eq!(items.len(), 2);
         assert_eq!(items[0].suffix, "street");
         assert_eq!(items[1].suffix, "city");
@@ -603,7 +598,7 @@ mod tests {
         let mut props = vec![
             make_prop(
                 "city:de",
-                PropValue::Str(vec![
+                str_value(vec![
                     Some("Munich".to_string()),
                     Some("Manheim".to_string()),
                     Some("Garching".to_string()),
@@ -611,7 +606,7 @@ mod tests {
             ),
             make_prop(
                 "city:Colorado",
-                PropValue::Str(vec![
+                str_value(vec![
                     Some("Black".to_string()),
                     Some("Red".to_string()),
                     Some("Gold".to_string()),
@@ -622,8 +617,8 @@ mod tests {
 
         // Should stay as two separate properties (dissimilar values)
         assert_eq!(props.len(), 2);
-        assert!(matches!(&props[0].values, PropValue::Str(_)));
-        assert!(matches!(&props[1].values, PropValue::Str(_)));
+        assert!(matches!(&props[0], DecodedProperty::Str(..)));
+        assert!(matches!(&props[1], DecodedProperty::Str(..)));
         assert!(matches!(&enc[0], PropertyEncoder::Scalar(_)));
         assert!(matches!(&enc[1], PropertyEncoder::Scalar(_)));
     }

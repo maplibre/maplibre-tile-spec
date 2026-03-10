@@ -31,6 +31,70 @@ impl Analyze for Stream<'_> {
     }
 }
 
+impl IntEncoding {
+    #[must_use]
+    pub const fn new(logical: LogicalEncoding, physical: PhysicalEncoding) -> Self {
+        Self { logical, physical }
+    }
+
+    #[must_use]
+    pub const fn none() -> Self {
+        Self::new(LogicalEncoding::None, PhysicalEncoding::None)
+    }
+}
+
+/// Representation of the raw stream data, in various physical formats.
+macro_rules! stream_data {
+    ($($enm:ident : $ty:ident / $owned:ident),+ $(,)?) => {
+        #[borrowme::borrowme]
+        #[derive(Debug, PartialEq, Clone)]
+        pub enum StreamData<'a> {
+            $($enm($ty<'a>),)+
+        }
+
+        impl Analyze for StreamData<'_> {
+            fn collect_statistic(&self, stat: crate::StatType) -> usize {
+                match &self {
+                    $(StreamData::$enm(d) => d.data.collect_statistic(stat),)+
+                }
+            }
+        }
+
+        $(
+            #[borrowme::borrowme]
+            #[derive(PartialEq, Clone)]
+            pub struct $ty<'a> {
+                #[borrowme(borrow_with = Vec::as_slice)]
+                pub data: &'a [u8],
+            }
+
+            impl<'a> $ty<'a> {
+                #[expect(clippy::new_ret_no_self)]
+                pub fn new(data: &'a [u8]) -> StreamData<'a> {
+                    StreamData::$enm(Self { data })
+                }
+            }
+
+            impl<'a> fmt::Debug for $ty<'a> {
+                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    crate::utils::formatter::fmt_byte_array(self.data, f)
+                }
+            }
+
+            impl fmt::Debug for $owned {
+                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    crate::utils::formatter::fmt_byte_array(&self.data, f)
+                }
+            }
+        )+
+    };
+}
+
+stream_data![
+    VarInt: DataVarInt / OwnedDataVarInt,
+    Encoded: EncodedData / OwnedEncodedData,
+];
+
 impl OwnedStream {
     /// Creates an empty stream
     #[must_use]
@@ -224,8 +288,6 @@ impl OwnedStream {
             .collect();
 
         Ok(OwnedEncodedStrings::Plain {
-            name: String::new(),
-            presence: None,
             lengths: Self::encode_u32s_of_type(
                 &lengths,
                 length_encoding,
@@ -335,8 +397,6 @@ impl OwnedStream {
         )?;
 
         Ok(OwnedEncodedStrings::FsstDictionary {
-            name: String::new(),
-            presence: None,
             symbol_lengths: symbol_length_stream,
             symbol_table: symbol_table_stream,
             lengths: value_length_stream,
@@ -414,8 +474,6 @@ impl OwnedStream {
         };
 
         Ok(OwnedEncodedStrings::FsstPlain {
-            name: String::new(),
-            presence: None,
             symbol_lengths: symbol_length_stream,
             symbol_table: symbol_table_stream,
             lengths: value_length_stream,
@@ -840,7 +898,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::v01::{EncodedStrings, decode_strings};
+    use crate::v01::{EncodedPresence, EncodedStrings, decode_strings};
 
     /// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
     fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {
@@ -1251,24 +1309,15 @@ mod tests {
             }
 
             let encoding = match parsed_streams.len() {
-                2 => EncodedStrings::plain(
-                    "",
-                    None,
-                    parsed_streams[0].clone(),
-                    parsed_streams[1].clone(),
-                )
-                .unwrap(),
+                2 => EncodedStrings::plain(parsed_streams[0].clone(), parsed_streams[1].clone())
+                    .unwrap(),
                 3 => EncodedStrings::dictionary(
-                    "",
-                    None,
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
                     parsed_streams[2].clone(),
                 )
                 .unwrap(),
                 4 => EncodedStrings::fsst_plain(
-                    "",
-                    None,
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
                     parsed_streams[2].clone(),
@@ -1276,8 +1325,6 @@ mod tests {
                 )
                 .unwrap(),
                 5 => EncodedStrings::fsst_dictionary(
-                    "",
-                    None,
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
                     parsed_streams[2].clone(),
@@ -1287,8 +1334,8 @@ mod tests {
                 .unwrap(),
                 n => panic!("unexpected stream count {n}"),
             };
-            let decoded_values = decode_strings(encoding).unwrap();
-            assert_eq!(decoded_values, values);
+            let decoded_values = decode_strings(EncodedPresence(None), encoding).unwrap();
+            assert_eq!(decoded_values, values.into());
         }
     }
 }

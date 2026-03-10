@@ -2,18 +2,16 @@ use borrowme::borrowme;
 
 use crate::v01::Stream;
 
-/// ID column representation, either encoded or decoded, or none if there are no IDs
+/// ID column representation, either encoded or decoded.
 #[borrowme]
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, PartialEq)]
 #[cfg_attr(
     all(not(test), feature = "arbitrary"),
     owned_attr(derive(arbitrary::Arbitrary))
 )]
 pub enum Id<'a> {
-    #[default]
-    None,
-    Encoded(EncodedId<'a>),
-    Decoded(DecodedId),
+    Encoded(Option<EncodedId<'a>>),
+    Decoded(Option<DecodedId>),
 }
 
 /// Unparsed ID data as read directly from the tile
@@ -35,7 +33,7 @@ pub enum EncodedIdValue<'a> {
 /// Decoded ID values as a vector of optional 64-bit unsigned integers
 #[derive(Clone, Default, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct DecodedId(pub Option<Vec<Option<u64>>>);
+pub struct DecodedId(pub Vec<Option<u64>>);
 
 /// How wide are the IDs
 #[derive(Debug, Clone, Copy, PartialEq, strum::EnumIter)]

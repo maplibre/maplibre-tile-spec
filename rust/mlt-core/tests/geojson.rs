@@ -13,6 +13,6 @@ fn geojson_test([mlt]: [&Path; 1]) {
     for layer in &mut layers {
         layer.decode_all().unwrap();
     }
-    let fc = FeatureCollection::from_layers(&layers).unwrap();
+    let fc = FeatureCollection::from_layers(&mut layers).unwrap();
     assert!(!fc.features.is_empty(), "expected at least one feature");
 }
