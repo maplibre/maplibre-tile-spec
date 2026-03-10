@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
-use super::encode::{encode_geometry, z_order_params};
-use super::{DecodedGeometry, GeometryEncoder, OwnedEncodedGeometry, VertexBufferType};
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
-use crate::v01::{DictionaryType, IntEncoder, LengthType, OffsetType, OwnedGeometry, StreamType};
+use crate::v01::geometry::encode::{encode_geometry, z_order_params};
+use crate::v01::{
+    DecodedGeometry, DictionaryType, GeometryEncoder, IntEncoder, LengthType, OffsetType,
+    OwnedEncodedGeometry, OwnedGeometry, StreamType, VertexBufferType,
+};
 use crate::{FromDecoded as _, FromEncoded as _, MltError};
 
 /// If the ratio of unique vertices to total vertices is below this threshold,

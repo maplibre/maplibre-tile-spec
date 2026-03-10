@@ -1,11 +1,10 @@
-use super::model::Stream;
 use crate::MltError;
 use crate::errors::AsMltError as _;
 use crate::utils::{
     AsUsize as _, all, decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s,
     decode_bytes_to_u64s, decode_fastpfor_composite, parse_varint_vec,
 };
-use crate::v01::{LogicalData, LogicalValue, PhysicalEncoding, StreamData};
+use crate::v01::{LogicalData, LogicalValue, PhysicalEncoding, Stream, StreamData};
 
 impl Stream<'_> {
     /// Decode a boolean stream: byte-RLE → packed bitmap → `Vec<bool>`
