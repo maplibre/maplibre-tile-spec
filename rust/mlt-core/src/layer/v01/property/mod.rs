@@ -58,22 +58,27 @@ impl OwnedProperty {
 
     #[must_use]
     pub fn approx_type(&self) -> ApproxPropertyType {
-        use ApproxPropertyType as T;
-        use OwnedEncodedProperty as Enc;
         match self {
-            Self::Encoded(Enc::Bool(..)) => T::Bool,
-            Self::Encoded(
-                Enc::I8(..)
-                | Enc::I32(..)
-                | Enc::I64(..)
-                | Enc::U8(..)
-                | Enc::U32(..)
-                | Enc::U64(..),
-            ) => T::Integer,
-            Self::Encoded(Enc::F32(..) | Enc::F64(..)) => T::Float,
-            Self::Encoded(Enc::Str(..)) => T::String,
-            Self::Encoded(Enc::SharedDict(..)) => T::SharedDict,
+            Self::Encoded(r) => r.approx_type(),
             Self::Decoded(r) => r.approx_type(),
+        }
+    }
+}
+
+impl OwnedEncodedProperty {
+    fn approx_type(&self) -> ApproxPropertyType {
+        use ApproxPropertyType as T;
+        match self {
+            Self::Bool(..) => T::Bool,
+            Self::I8(..)
+            | Self::I32(..)
+            | Self::I64(..)
+            | Self::U8(..)
+            | Self::U32(..)
+            | Self::U64(..) => T::Integer,
+            Self::F32(..) | Self::F64(..) => T::Float,
+            Self::Str(..) => T::String,
+            Self::SharedDict(..) => T::SharedDict,
         }
     }
 }
