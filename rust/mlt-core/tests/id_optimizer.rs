@@ -24,8 +24,6 @@ fn create_constant_ids() -> DecodedId {
     DecodedId(vec![Some(42), Some(42), Some(42), Some(42), Some(42)])
 }
 
-// --- Automatic optimisation ---
-
 #[rstest]
 #[case::empty(
     DecodedId(vec![]),
@@ -35,7 +33,6 @@ fn create_constant_ids() -> DecodedId {
     DecodedId(vec![None, None]),
     IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
 )]
-// len <= 2 fast path: bypasses all other checks.
 #[case::short_sequence(
     DecodedId(vec![Some(1), Some(2)]),
     IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
@@ -72,8 +69,6 @@ fn test_automatic_optimisation_none_variant() {
     assert!(matches!(owned, OwnedId::Encoded(None)));
 }
 
-/// Calling automatic optimisation a second time (from Encoded state) must
-/// produce the same encoder choice and preserve the original values.
 #[test]
 fn test_automatic_optimisation_idempotency() {
     let decoded = create_u32_range_ids();
@@ -111,8 +106,6 @@ fn test_manual_optimisation_applies_encoder() {
     assert_eq!(borrowme::borrow(&owned).decode().unwrap(), decoded);
 }
 
-/// Manual encoding with a too-narrow `IdWidth` silently truncates values.
-/// `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
 #[test]
 fn test_manual_optimisation_truncation() {
     let large_value = u64::from(u32::MAX) + 42;
@@ -122,11 +115,12 @@ fn test_manual_optimisation_truncation() {
     owned.manual_optimisation(manual_enc).unwrap();
 
     let decoded_back = borrowme::borrow(&owned).decode().unwrap();
+    
+    // Manual encoding with a too-narrow `IdWidth` silently truncates values.
+    // `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
     assert_eq!(decoded_back.0[0], Some(41));
 }
 
-/// After a suboptimal manual encoding, automatic optimisation re-derives the
-/// correct encoder from the decoded values.
 #[test]
 fn test_reoptimisation_improves_manual_encoding() {
     let decoded = create_u32_range_ids();
@@ -140,8 +134,6 @@ fn test_reoptimisation_improves_manual_encoding() {
     assert_eq!(auto_enc, Some(expected));
 }
 
-/// Width is always re-derived from the tile being encoded, not the sample
-/// used to build the profile. Logical encoder comes from the profile candidates.
 #[test]
 fn test_profile_applies_candidates_and_rederives_width() {
     let u32_sample = create_u32_range_ids();
@@ -172,8 +164,6 @@ fn test_profile_none_variant() {
     assert!(matches!(owned, OwnedId::Encoded(None)));
 }
 
-/// Starting from an already-encoded state, profile-driven optimisation must
-/// decode first and then re-encode correctly.
 #[test]
 fn test_profile_already_encoded_roundtrip() {
     let decoded = create_u32_range_ids();
