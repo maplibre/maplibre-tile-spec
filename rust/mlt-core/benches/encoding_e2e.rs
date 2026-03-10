@@ -2,8 +2,8 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
-    ApproxPropertyType, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder,
-    PhysicalEncoder, PresenceStream, ScalarEncoder,
+    GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, PhysicalEncoder,
+    PresenceStream, PropertyKind, ScalarEncoder,
 };
 use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
 use strum::IntoEnumIterator as _;
@@ -132,22 +132,22 @@ fn bench_encode_properties(c: &mut Criterion) {
                                         if let OwnedLayer::Tag01(l) = layer {
                                             for prop in &mut l.properties {
                                                 let int_enc = IntEncoder::new(logical, physical);
-                                                let enc = match prop.approx_type() {
-                                                    ApproxPropertyType::Bool => {
+                                                let enc = match prop.kind() {
+                                                    PropertyKind::Bool => {
                                                         ScalarEncoder::bool(presence)
                                                     }
-                                                    ApproxPropertyType::Integer => {
+                                                    PropertyKind::Integer => {
                                                         ScalarEncoder::int(presence, int_enc)
                                                     }
-                                                    ApproxPropertyType::Float => {
+                                                    PropertyKind::Float => {
                                                         ScalarEncoder::float(presence)
                                                     }
-                                                    ApproxPropertyType::String => {
+                                                    PropertyKind::String => {
                                                         ScalarEncoder::str_fsst(
                                                             presence, int_enc, int_enc,
                                                         )
                                                     }
-                                                    ApproxPropertyType::SharedDict => {
+                                                    PropertyKind::SharedDict => {
                                                         unreachable!("unimplemented")
                                                     }
                                                 };

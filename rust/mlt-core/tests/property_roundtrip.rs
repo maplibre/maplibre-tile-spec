@@ -82,7 +82,8 @@ fn shared_dict_prop(
     name: &str,
     children: Vec<(String, DecodedStrings<'static>)>,
 ) -> DecodedProperty<'static> {
-    let shared_dict = build_decoded_shared_dict(name, children).expect("build shared dict");
+    let shared_dict =
+        build_decoded_shared_dict(name.to_string(), children).expect("build shared dict");
     DecodedProperty::SharedDict(shared_dict)
 }
 

@@ -2,6 +2,7 @@ mod model;
 mod optimizer;
 pub mod strings;
 
+use std::borrow::Cow;
 use std::fmt::{self, Debug};
 use std::io::Write;
 
@@ -12,7 +13,9 @@ pub use model::*;
 use crate::MltError::{NotImplemented, UnsupportedPropertyEncoderCombination};
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
-use crate::utils::{BinarySerializer as _, FmtOptVec, checked_sum3, f32_to_json, f64_to_json};
+use crate::utils::{
+    BinarySerializer as _, FmtOptVec, apply_present, checked_sum3, f32_to_json, f64_to_json,
+};
 pub use crate::v01::property::strings::{
     SharedDictEncoder, SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
     decode_shared_dict, decode_strings, decode_strings_with_presence, encode_shared_dict_prop,
@@ -56,17 +59,17 @@ impl OwnedProperty {
     }
 
     #[must_use]
-    pub fn approx_type(&self) -> ApproxPropertyType {
+    pub fn kind(&self) -> PropertyKind {
         match self {
-            Self::Encoded(r) => r.approx_type(),
-            Self::Decoded(r) => r.approx_type(),
+            Self::Encoded(r) => r.kind(),
+            Self::Decoded(r) => r.kind(),
         }
     }
 }
 
 impl OwnedEncodedProperty {
-    fn approx_type(&self) -> ApproxPropertyType {
-        use ApproxPropertyType as T;
+    fn kind(&self) -> PropertyKind {
+        use PropertyKind as T;
         match self {
             Self::Bool(..) => T::Bool,
             Self::I8(..)
@@ -369,24 +372,24 @@ impl DecodedProperty<'_> {
             Self::U64(v) => &v.name,
             Self::F32(v) => &v.name,
             Self::F64(v) => &v.name,
-            Self::Str(name, _) => name,
+            Self::Str(v) => &v.name,
             Self::SharedDict(shared_dict) => &shared_dict.prefix,
         }
     }
 
     #[must_use]
-    pub fn approx_type(&self) -> ApproxPropertyType {
+    pub fn kind(&self) -> PropertyKind {
         match self {
-            Self::Bool(_) => ApproxPropertyType::Bool,
+            Self::Bool(_) => PropertyKind::Bool,
             Self::I8(_)
             | Self::U8(_)
             | Self::I32(_)
             | Self::U32(_)
             | Self::I64(_)
-            | Self::U64(_) => ApproxPropertyType::Integer,
-            Self::F32(_) | Self::F64(_) => ApproxPropertyType::Float,
-            Self::Str(..) => ApproxPropertyType::String,
-            Self::SharedDict(..) => ApproxPropertyType::SharedDict,
+            | Self::U64(_) => PropertyKind::Integer,
+            Self::F32(_) | Self::F64(_) => PropertyKind::Float,
+            Self::Str(..) => PropertyKind::String,
+            Self::SharedDict(..) => PropertyKind::SharedDict,
         }
     }
 
@@ -417,7 +420,7 @@ impl DecodedProperty<'_> {
             Self::U64(v) => v.values.iter().map(Option::is_some).collect(),
             Self::F32(v) => v.values.iter().map(Option::is_some).collect(),
             Self::F64(v) => v.values.iter().map(Option::is_some).collect(),
-            Self::Str(_, values) => values.presence_bools(),
+            Self::Str(v) => v.presence_bools(),
             Self::SharedDict(..) => Err(NotImplemented("presence stream for shared dict"))?,
         })
     }
@@ -433,7 +436,7 @@ impl DecodedProperty<'_> {
             Self::U64(v) => v.values.collect_statistic(stat),
             Self::F32(v) => v.values.collect_statistic(stat),
             Self::F64(v) => v.values.collect_statistic(stat),
-            Self::Str(_, values) => values.collect_statistic(stat),
+            Self::Str(v) => v.collect_statistic(stat),
             Self::SharedDict(shared_dict) => shared_dict
                 .items
                 .iter()
@@ -457,7 +460,7 @@ impl DecodedProperty<'_> {
             Self::U64(v) => v.values[i].map(Value::from),
             Self::F32(v) => v.values[i].map(f32_to_json),
             Self::F64(v) => v.values[i].map(f64_to_json),
-            Self::Str(_, values) => values
+            Self::Str(v) => v
                 .get(u32::try_from(i).ok()?)
                 .map(|s| Value::String(s.to_string())),
             Self::SharedDict(shared_dict) => {
@@ -492,12 +495,33 @@ impl DecodedProperty<'static> {
             V::U64(v) => Self::U64(S::new(name, v)),
             V::F32(v) => Self::F32(S::new(name, v)),
             V::F64(v) => Self::F64(S::new(name, v)),
-            V::Str(values) => Self::Str(name, values),
+            V::Str(mut values) => {
+                values.name = Cow::Owned(name);
+                Self::Str(values)
+            }
             V::SharedDict(mut shared_dict) => {
-                shared_dict.prefix = name;
+                shared_dict.prefix = Cow::Owned(name);
                 Self::SharedDict(shared_dict)
             }
         }
+    }
+}
+
+impl<T: Copy + PartialEq> DecodedScalar<T> {
+    #[must_use]
+    pub fn new(name: String, values: Vec<Option<T>>) -> Self {
+        Self { name, values }
+    }
+
+    pub fn from_parts(
+        name: String,
+        presence: EncodedPresence,
+        values: Vec<T>,
+    ) -> Result<Self, MltError> {
+        Ok(Self {
+            name,
+            values: apply_present(presence.0, values)?,
+        })
     }
 }
 
@@ -515,9 +539,7 @@ impl BorrowmeToOwned for DecodedProperty<'_> {
             Self::U64(v) => DecodedProperty::U64(v.clone()),
             Self::F32(v) => DecodedProperty::F32(v.clone()),
             Self::F64(v) => DecodedProperty::F64(v.clone()),
-            Self::Str(name, values) => {
-                DecodedProperty::Str(name.clone(), BorrowmeToOwned::to_owned(values))
-            }
+            Self::Str(values) => DecodedProperty::Str(BorrowmeToOwned::to_owned(values)),
             Self::SharedDict(shared_dict) => {
                 DecodedProperty::SharedDict(BorrowmeToOwned::to_owned(shared_dict))
             }
@@ -544,7 +566,7 @@ impl BorrowmeBorrow for DecodedProperty<'static> {
             Self::U64(v) => P::U64(S::new(v.name.clone(), v.values.clone())),
             Self::F32(v) => P::F32(S::new(v.name.clone(), v.values.clone())),
             Self::F64(v) => P::F64(S::new(v.name.clone(), v.values.clone())),
-            Self::Str(name, values) => P::Str(name.clone(), BorrowmeBorrow::borrow(values)),
+            Self::Str(values) => P::Str(BorrowmeBorrow::borrow(values)),
             Self::SharedDict(shared_dict) => P::SharedDict(BorrowmeBorrow::borrow(shared_dict)),
         }
     }
@@ -563,7 +585,7 @@ impl<'a> arbitrary::Arbitrary<'a> for DecodedProperty<'static> {
             6 => Self::U64(u.arbitrary()?),
             7 => Self::F32(u.arbitrary()?),
             8 => Self::F64(u.arbitrary()?),
-            _ => Self::Str(u.arbitrary()?, u.arbitrary()?),
+            _ => Self::Str(u.arbitrary()?),
         })
     }
 }
@@ -616,13 +638,11 @@ impl Debug for DecodedProperty<'_> {
                 .field(&v.name)
                 .field(&FmtOptVec(&v.values))
                 .finish(),
-            Self::Str(name, values) => {
-                let values = values.materialize();
-                f.debug_tuple("Str")
-                    .field(name)
-                    .field(&FmtOptVec(&values))
-                    .finish()
-            }
+            Self::Str(v) => f
+                .debug_tuple("Str")
+                .field(&v.name)
+                .field(&FmtOptVec(&v.materialize()))
+                .finish(),
             Self::SharedDict(shared_dict) => f
                 .debug_tuple("SharedDict")
                 .field(&shared_dict.prefix)
@@ -861,26 +881,23 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                 OwnedEncodedPresence(presence.clone()),
                 OwnedStream::encode_f64(&unapply_presence(&v.values))?,
             )),
-            (D::Str(name, s), ScalarValueEncoder::String(enc)) => {
-                let str_enc = match enc {
+            (D::Str(v), ScalarValueEncoder::String(enc)) => Ok(Self::Str(
+                OwnedName(v.name.as_ref().to_string()),
+                OwnedEncodedPresence(presence),
+                match enc {
                     StrEncoder::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
-                        &s.dense_values(),
+                        &v.dense_values(),
                         string_lengths,
                         LengthType::VarBinary,
                         DictionaryType::None,
                     )?,
                     StrEncoder::Fsst(enc) => OwnedStream::encode_strings_fsst_with_type(
-                        &s.dense_values(),
+                        &v.dense_values(),
                         enc,
                         DictionaryType::Single,
                     )?,
-                };
-                Ok(Self::Str(
-                    OwnedName(name.clone()),
-                    OwnedEncodedPresence(presence),
-                    str_enc,
-                ))
-            }
+                },
+            )),
             (D::SharedDict(..), _) => Err(NotImplemented(
                 "SharedDict cannot be encoded via ScalarEncoder",
             ))?,
@@ -948,7 +965,11 @@ impl<'a> FromEncoded<'a> for DecodedProperty<'a> {
                 presence,
                 data.decode_f64()?,
             )?),
-            E::Str(_, presence, s) => Self::Str(name, decode_strings_with_presence(presence, s)?),
+            E::Str(_, presence, s) => {
+                let mut decoded = decode_strings_with_presence(presence, s)?;
+                decoded.name = Cow::Owned(name);
+                Self::Str(decoded)
+            }
             E::SharedDict(_, sd, children) => {
                 Self::SharedDict(decode_shared_dict(name, &sd, &children)?)
             }

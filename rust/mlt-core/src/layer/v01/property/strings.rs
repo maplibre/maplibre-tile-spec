@@ -87,6 +87,7 @@ impl DecodedStrings<'static> {
             }
         }
         Self {
+            name: Cow::Borrowed(""),
             lengths,
             data: Cow::Owned(data),
         }
@@ -98,6 +99,7 @@ impl BorrowmeToOwned for DecodedStrings<'_> {
 
     fn to_owned(&self) -> Self::Owned {
         DecodedStrings {
+            name: Cow::Owned(self.name.as_ref().to_string()),
             lengths: self.lengths.clone(),
             data: Cow::Owned(self.data.as_ref().to_string()),
         }
@@ -112,6 +114,7 @@ impl BorrowmeBorrow for DecodedStrings<'static> {
 
     fn borrow(&self) -> Self::Target<'_> {
         DecodedStrings {
+            name: Cow::Borrowed(self.name.as_ref()),
             lengths: self.lengths.clone(),
             data: Cow::Borrowed(self.data.as_ref()),
         }
@@ -130,7 +133,7 @@ impl BorrowmeToOwned for DecodedSharedDict<'_> {
 
     fn to_owned(&self) -> Self::Owned {
         DecodedSharedDict {
-            prefix: self.prefix.clone(),
+            prefix: Cow::Owned(self.prefix.as_ref().to_string()),
             data: Cow::Owned(self.data.as_ref().to_string()),
             items: self.items.clone(),
         }
@@ -145,7 +148,7 @@ impl BorrowmeBorrow for DecodedSharedDict<'static> {
 
     fn borrow(&self) -> Self::Target<'_> {
         DecodedSharedDict {
-            prefix: self.prefix.clone(),
+            prefix: Cow::Borrowed(self.prefix.as_ref()),
             data: Cow::Borrowed(self.data.as_ref()),
             items: self.items.clone(),
         }
@@ -156,6 +159,7 @@ impl BorrowmeBorrow for DecodedSharedDict<'static> {
 impl<'a> arbitrary::Arbitrary<'a> for DecodedSharedDict<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let prefix: String = u.arbitrary()?;
+        let prefix = Cow::Owned(prefix);
         let values: Vec<String> = u.arbitrary()?;
         let mut data = String::new();
         for value in values {
@@ -576,7 +580,7 @@ pub fn encode_shared_dictionary(
 
     for child in &group.children {
         match child.prop_value {
-            DecodedProperty::Str(_, values) => {
+            DecodedProperty::Str(values) => {
                 for value in values.dense_values() {
                     if let Entry::Vacant(e) = dict_index.entry(value.clone()) {
                         let idx = u32::try_from(dict.len())?;
@@ -604,7 +608,7 @@ pub fn encode_shared_dictionary(
     // Encode each child column.
     let mut children = Vec::with_capacity(group.children.len());
     for child in &group.children {
-        let DecodedProperty::Str(_, values) = child.prop_value else {
+        let DecodedProperty::Str(values) = child.prop_value else {
             return Err(NotImplemented("generic struct child encoding"));
         };
 
@@ -758,14 +762,14 @@ pub fn encode_shared_dict_prop(
     };
 
     Ok(OwnedEncodedProperty::SharedDict(
-        OwnedName(shared_dict.prefix.clone()),
+        OwnedName(shared_dict.prefix.as_ref().to_string()),
         struct_prop,
         children,
     ))
 }
 
 pub fn build_decoded_shared_dict(
-    prefix: impl Into<String>,
+    prefix: impl Into<Cow<'static, str>>,
     items: impl IntoIterator<Item = (String, DecodedStrings<'static>)>,
 ) -> Result<DecodedSharedDict<'static>, MltError> {
     let prefix = prefix.into();
@@ -850,6 +854,7 @@ pub fn decode_strings(
     let presence = presence.0.map(Stream::decode_bools).transpose()?;
     Ok(match encoding {
         EncodedStrings::Plain { lengths, data } => DecodedStrings {
+            name: Cow::Borrowed(""),
             lengths: to_absolute_lengths(
                 &lengths.decode_bits_u32()?.decode_u32()?,
                 presence.as_deref(),
@@ -878,6 +883,7 @@ pub fn decode_strings(
             let compressed = raw_bytes(corpus);
             let decompressed = decode_fsst(&sym_data, &sym_lens, &compressed);
             DecodedStrings {
+                name: Cow::Borrowed(""),
                 lengths: to_absolute_lengths(&value_lens, presence.as_deref())?,
                 data: str::from_utf8(&decompressed)?.to_string().into(),
             }
@@ -990,6 +996,7 @@ fn decode_dictionary_strings(
         }
     }
     Ok(DecodedStrings {
+        name: Cow::Borrowed(""),
         lengths,
         data: Cow::Owned(data),
     })
@@ -1059,7 +1066,7 @@ fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec
 
 /// Decode a struct with shared dictionary into a single decoded property with all children.
 pub fn decode_shared_dict(
-    prefix: impl Into<String>,
+    prefix: impl Into<Cow<'static, str>>,
     struct_data: &EncodedSharedDict<'_>,
     children: &[EncodedSharedDictChild<'_>],
 ) -> Result<DecodedSharedDict<'static>, MltError> {
@@ -1077,7 +1084,7 @@ pub fn decode_shared_dict(
                 .collect::<Vec<_>>();
             (
                 DecodedSharedDict {
-                    prefix: String::new(),
+                    prefix: Cow::Borrowed(""),
                     data: str::from_utf8(&raw_bytes(data.clone()))?.to_string().into(),
                     items: Vec::new(),
                 },
@@ -1105,7 +1112,7 @@ pub fn decode_shared_dict(
                 .collect::<Vec<_>>();
             (
                 DecodedSharedDict {
-                    prefix: String::new(),
+                    prefix: Cow::Borrowed(""),
                     data: str::from_utf8(&decoded)?.to_string().into(),
                     items: Vec::new(),
                 },
