@@ -129,7 +129,7 @@ ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linu
 # Fuzz the target for 90 seconds (installs `cargo fuzz`)
 ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '--max_len=300')
 
-# Seed corpus from test .mlt files, run coverage against it, and export LCOV for Codecov upload.
+# Run coverage against a previously generated corpus and export LCOV for Codecov upload.
 # Output: target/llvm-cov/fuzz-<target>.lcov
 [working-directory: 'mlt-core']
 ci-fuzz-cov target: (just 'cargo-install' 'cargo-fuzz')
