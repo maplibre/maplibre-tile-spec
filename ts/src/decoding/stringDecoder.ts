@@ -25,7 +25,6 @@ export function decodeString(
     let dictionaryStream: Uint8Array = null;
     let symbolLengthStream: Uint32Array = null;
     let symbolTableStream: Uint8Array = null;
-    let presentStream: BitVector = null;
     let nullabilityBuffer: BitVector = bitVector ?? null;
     let plainLengthStream: Uint32Array = null;
     let plainDataStream: Uint8Array = null;
@@ -36,7 +35,7 @@ export function decodeString(
         switch (streamMetadata.physicalStreamType) {
             case PhysicalStreamType.PRESENT: {
                 const presentData = decodeBooleanRle(data, streamMetadata.numValues, streamMetadata.byteLength, offset);
-                presentStream = new BitVector(presentData, streamMetadata.numValues);
+                const presentStream = new BitVector(presentData, streamMetadata.numValues);
                 nullabilityBuffer = bitVector ?? presentStream;
                 break;
             }
