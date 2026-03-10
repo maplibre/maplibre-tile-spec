@@ -1,8 +1,10 @@
+use mlt_core::borrowme;
 use mlt_core::optimizer::{
     AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
 };
-use mlt_core::v01::{DecodedId, IdEncoder, IdWidth, LogicalEncoder, OwnedId};
-use mlt_core::{MltError, borrowme};
+use mlt_core::v01::{
+    DecodedId, IdEncoder, IdProfile, IdWidth, IntEncoder, LogicalEncoder, OwnedId,
+};
 use rstest::rstest;
 
 fn create_u32_range_ids() -> DecodedId {
@@ -18,6 +20,10 @@ fn create_ids_with_nulls() -> DecodedId {
     DecodedId(vec![Some(10), None, Some(20), None, Some(30)])
 }
 
+fn create_constant_ids() -> DecodedId {
+    DecodedId(vec![Some(42), Some(42), Some(42), Some(42), Some(42)])
+}
+
 #[rstest]
 #[case::empty(
     DecodedId(vec![]),
@@ -27,13 +33,21 @@ fn create_ids_with_nulls() -> DecodedId {
     DecodedId(vec![None, None]),
     IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
 )]
+#[case::short_sequence(
+    DecodedId(vec![Some(1), Some(2)]),
+    IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
+)]
 #[case::sequential_u32(
     create_u32_range_ids(),
     IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::Id32)
 )]
-#[case::large_values(
+#[case::sequential_u64(
     create_u64_range_ids(),
     IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::Id64)
+)]
+#[case::constant(
+    create_constant_ids(),
+    IdEncoder::new(LogicalEncoder::Rle, IdWidth::Id32)
 )]
 #[case::with_nulls(
     create_ids_with_nulls(),
@@ -44,6 +58,15 @@ fn test_automatic_optimisation_selection(#[case] input: DecodedId, #[case] expec
     let result = owned.automatic_encoding_optimisation().unwrap();
     assert_eq!(result, Some(expected));
     assert!(matches!(owned, OwnedId::Encoded(Some(_))));
+}
+
+#[test]
+fn test_automatic_optimisation_none_variant() {
+    let mut owned = OwnedId::Decoded(None);
+    let result = owned.automatic_encoding_optimisation().unwrap();
+
+    assert_eq!(result, None);
+    assert!(matches!(owned, OwnedId::Encoded(None)));
 }
 
 #[test]
@@ -58,13 +81,17 @@ fn test_automatic_optimisation_idempotency() {
     assert_eq!(borrowme::borrow(&owned).decode().unwrap(), decoded);
 }
 
-#[test]
-fn test_automatic_optimisation_none_variant() {
-    let mut owned = OwnedId::Decoded(None);
-    let result = owned.automatic_encoding_optimisation().unwrap();
+#[rstest]
+#[case::sequential_u32(create_u32_range_ids())]
+#[case::sequential_u64(create_u64_range_ids())]
+#[case::constant(create_constant_ids())]
+#[case::with_nulls(create_ids_with_nulls())]
+fn test_automatic_optimisation_roundtrip(#[case] decoded: DecodedId) {
+    let mut owned = OwnedId::Decoded(Some(decoded.clone()));
+    owned.automatic_encoding_optimisation().unwrap();
 
-    assert_eq!(result, None);
-    assert!(matches!(owned, OwnedId::Encoded(None)));
+    let decoded_back = borrowme::borrow(&owned).decode().expect("decoding failed");
+    assert_eq!(decoded_back, decoded);
 }
 
 #[test]
@@ -75,20 +102,8 @@ fn test_manual_optimisation_applies_encoder() {
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id64);
     owned.manual_optimisation(manual_enc).unwrap();
 
-    assert!(!matches!(owned, OwnedId::Decoded(_)));
+    assert!(matches!(owned, OwnedId::Encoded(Some(_))));
     assert_eq!(borrowme::borrow(&owned).decode().unwrap(), decoded);
-}
-
-#[test]
-fn test_manual_optimisation_override() {
-    let mut owned = OwnedId::Decoded(Some(create_u32_range_ids()));
-
-    owned.automatic_encoding_optimisation().unwrap();
-
-    let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id64);
-    owned.manual_optimisation(manual_enc).unwrap();
-
-    assert!(!matches!(owned, OwnedId::Decoded(_)));
 }
 
 #[test]
@@ -100,6 +115,9 @@ fn test_manual_optimisation_truncation() {
     owned.manual_optimisation(manual_enc).unwrap();
 
     let decoded_back = borrowme::borrow(&owned).decode().unwrap();
+
+    // Manual encoding with a too-narrow `IdWidth` silently truncates values.
+    // `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
     assert_eq!(decoded_back.0[0], Some(41));
 }
 
@@ -117,20 +135,110 @@ fn test_reoptimisation_improves_manual_encoding() {
 }
 
 #[test]
-fn test_profile_optimisation_unimplemented() {
-    let mut owned = OwnedId::Decoded(Some(create_u32_range_ids()));
-    let result = owned.profile_driven_optimisation(&());
-    assert!(matches!(result, Err(MltError::NotImplemented(_))));
+fn test_profile_applies_candidates_and_rederives_width() {
+    let u32_sample = create_u32_range_ids();
+    let profile = IdProfile::from_sample(&u32_sample);
+
+    let u64_decoded = create_u64_range_ids();
+    let mut owned = OwnedId::Decoded(Some(u64_decoded.clone()));
+    let enc = owned
+        .profile_driven_optimisation(&profile)
+        .unwrap()
+        .unwrap();
+
+    // Width must reflect the u64 tile data, not the u32 sample.
+    assert_eq!(enc.id_width, IdWidth::Id64);
+    // Both samples are sequential (>4 values), so the fast path fires: DeltaRle.
+    assert_eq!(enc.logical, LogicalEncoder::DeltaRle);
+    assert_eq!(borrowme::borrow(&owned).decode().unwrap(), u64_decoded);
+}
+
+#[test]
+fn test_profile_none_variant() {
+    let mut owned = OwnedId::Decoded(None);
+    let profile = IdProfile::from_sample(&create_u32_range_ids());
+
+    let result = owned.profile_driven_optimisation(&profile).unwrap();
+
+    assert_eq!(result, None);
+    assert!(matches!(owned, OwnedId::Encoded(None)));
+}
+
+#[test]
+fn test_profile_already_encoded_roundtrip() {
+    let decoded = create_u32_range_ids();
+    let mut owned = OwnedId::Decoded(Some(decoded.clone()));
+    owned.automatic_encoding_optimisation().unwrap();
+
+    let profile = IdProfile::from_sample(&decoded);
+    owned.profile_driven_optimisation(&profile).unwrap();
+
+    let decoded_back = borrowme::borrow(&owned).decode().unwrap();
+    assert_eq!(decoded_back, decoded);
 }
 
 #[rstest]
 #[case::sequential_u32(create_u32_range_ids())]
 #[case::sequential_u64(create_u64_range_ids())]
+#[case::constant(create_constant_ids())]
 #[case::with_nulls(create_ids_with_nulls())]
-fn test_automatic_optimisation_roundtrip(#[case] decoded: DecodedId) {
+fn test_profile_roundtrip(#[case] decoded: DecodedId) {
+    let profile = IdProfile::from_sample(&decoded);
     let mut owned = OwnedId::Decoded(Some(decoded.clone()));
-    owned.automatic_encoding_optimisation().unwrap();
+    owned.profile_driven_optimisation(&profile).unwrap();
 
-    let decoded_back = borrowme::borrow(&owned).decode().expect("decoding failed");
+    let decoded_back = borrowme::borrow(&owned).decode().expect("decode failed");
     assert_eq!(decoded_back, decoded);
+}
+
+#[test]
+fn test_profile_from_sample_is_nonempty() {
+    let profile = IdProfile::from_sample(&create_u32_range_ids());
+    insta::assert_debug_snapshot!(profile, @"
+    IdProfile {
+        candidates: [
+            IntEncoder {
+                logical: Delta,
+                physical: VarInt,
+            },
+            IntEncoder {
+                logical: None,
+                physical: VarInt,
+            },
+        ],
+    }
+    ");
+}
+
+#[test]
+fn test_profile_merge_is_union() {
+    let p1 = IdProfile::new(vec![IntEncoder::varint()]);
+    let p2 = IdProfile::new(vec![IntEncoder::varint(), IntEncoder::fastpfor()]);
+    let merged = p1.merge(&p2);
+    insta::assert_debug_snapshot!(merged, @"
+    IdProfile {
+        candidates: [
+            IntEncoder {
+                logical: None,
+                physical: VarInt,
+            },
+            IntEncoder {
+                logical: None,
+                physical: FastPFOR,
+            },
+        ],
+    }
+    ");
+}
+
+#[test]
+fn test_profile_merge_empty() {
+    let p1 = IdProfile::new(vec![]);
+    let p2 = IdProfile::new(vec![]);
+    let merged = p1.merge(&p2);
+    insta::assert_debug_snapshot!(merged, @"
+    IdProfile {
+        candidates: [],
+    }
+    ");
 }
