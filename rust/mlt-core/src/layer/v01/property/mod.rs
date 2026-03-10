@@ -493,7 +493,6 @@ impl DecodedProperty<'static> {
     }
 }
 
-
 impl BorrowmeToOwned for DecodedProperty<'_> {
     type Owned = DecodedProperty<'static>;
 
