@@ -1,8 +1,10 @@
+use mlt_core::borrowme;
 use mlt_core::optimizer::{
     AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
 };
-use mlt_core::v01::{DecodedId, IdEncoder, IdWidth, LogicalEncoder, OwnedId};
-use mlt_core::{MltError, borrowme};
+use mlt_core::v01::{
+    DecodedId, IdEncoder, IdProfile, IdWidth, IntEncoder, LogicalEncoder, OwnedId, PhysicalEncoder,
+};
 use rstest::rstest;
 
 fn create_u32_range_ids() -> DecodedId {
@@ -117,10 +119,101 @@ fn test_reoptimisation_improves_manual_encoding() {
 }
 
 #[test]
-fn test_profile_optimisation_unimplemented() {
-    let mut owned = OwnedId::Decoded(Some(create_u32_range_ids()));
-    let result = owned.profile_driven_optimisation(&());
-    assert!(matches!(result, Err(MltError::NotImplemented(_))));
+fn test_profile_none_falls_back_to_automatic() {
+    let decoded = create_u32_range_ids();
+    let mut owned = OwnedId::Decoded(Some(decoded));
+
+    let result = owned.profile_driven_optimisation(&None).unwrap();
+
+    // No profile supplied: automatic picks DeltaRle for sequential u32 IDs.
+    assert_eq!(
+        result,
+        Some(IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::Id32))
+    );
+}
+
+#[test]
+fn test_profile_applies_candidates_and_rederives_width() {
+    // Profile built from u32 data; applied to u64 data.
+    // Logical encoding comes from the profile; IdWidth is re-derived from the tile.
+    let u32_sample = create_u32_range_ids();
+    let profile = Some(IdProfile::from_sample(&u32_sample));
+
+    let u64_decoded = create_u64_range_ids();
+    let mut owned = OwnedId::Decoded(Some(u64_decoded.clone()));
+    let result = owned.profile_driven_optimisation(&profile).unwrap();
+
+    // Width must reflect the actual u64 data, not the u32 sample.
+    let enc = result.unwrap();
+    assert_eq!(enc.id_width, IdWidth::Id64);
+    assert_eq!(borrowme::borrow(&owned).decode().unwrap(), u64_decoded);
+}
+
+#[test]
+fn test_profile_none_variant() {
+    let mut owned = OwnedId::Decoded(None);
+    let profile = Some(IdProfile::from_sample(&create_u32_range_ids()));
+
+    let result = owned.profile_driven_optimisation(&profile).unwrap();
+
+    assert_eq!(result, None);
+    assert!(matches!(owned, OwnedId::Encoded(None)));
+}
+
+#[test]
+fn test_profile_roundtrip() {
+    for decoded in [
+        create_u32_range_ids(),
+        create_u64_range_ids(),
+        create_ids_with_nulls(),
+    ] {
+        let profile = Some(IdProfile::from_sample(&decoded));
+        let mut owned = OwnedId::Decoded(Some(decoded.clone()));
+        owned.profile_driven_optimisation(&profile).unwrap();
+
+        let decoded_back = borrowme::borrow(&owned).decode().expect("decode failed");
+        assert_eq!(decoded_back, decoded);
+    }
+}
+
+#[test]
+fn test_profile_from_sample_is_nonempty() {
+    let profile = IdProfile::from_sample(&create_u32_range_ids());
+    assert!(!profile.candidates.is_empty());
+}
+
+#[test]
+fn test_profile_merge_is_union() {
+    let p1 = IdProfile {
+        candidates: vec![IntEncoder::varint()],
+    };
+    let p2 = IdProfile {
+        candidates: vec![
+            IntEncoder::varint(),
+            IntEncoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt),
+        ],
+    };
+    let merged = p1.merge(&p2);
+    assert_eq!(merged.candidates.len(), 2);
+    assert!(merged.candidates.contains(&IntEncoder::varint()));
+    assert!(merged.candidates.contains(&IntEncoder::new(
+        LogicalEncoder::Rle,
+        PhysicalEncoder::VarInt
+    )));
+}
+
+#[test]
+fn test_profile_already_encoded_roundtrip() {
+    let decoded = create_u32_range_ids();
+    let mut owned = OwnedId::Decoded(Some(decoded.clone()));
+    owned.automatic_encoding_optimisation().unwrap();
+
+    // Re-optimise from encoded state using a profile.
+    let profile = Some(IdProfile::from_sample(&decoded));
+    owned.profile_driven_optimisation(&profile).unwrap();
+
+    let decoded_back = borrowme::borrow(&owned).decode().unwrap();
+    assert_eq!(decoded_back, decoded);
 }
 
 #[rstest]
