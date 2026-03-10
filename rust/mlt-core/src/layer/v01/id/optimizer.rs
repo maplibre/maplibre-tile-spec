@@ -22,9 +22,8 @@ use crate::{FromDecoded as _, FromEncoded as _, MltError};
 pub struct IdProfile {
     /// Encoder candidates to use during competition.
     ///
-    /// Always filtered to [`PhysicalEncoder::VarInt`]. An empty list causes
-    /// the caller to fall back to automatic optimisation.
-    pub candidates: Vec<IntEncoder>,
+    /// An empty list causes the caller to fall back to automatic optimisation.
+    candidates: Vec<IntEncoder>,
 }
 
 impl IdProfile {
