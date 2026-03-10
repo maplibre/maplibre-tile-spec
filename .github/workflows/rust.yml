@@ -31,7 +31,15 @@ jobs:
       - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
-      - run: just -v rust::ci-test
+      - uses: taiki-e/install-action@v2
+        with: { tool: "cargo-llvm-cov" }
+      - run: just -v rust::ci-coverage
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: rust/target/llvm-cov/codecov.info
+      - run: just -v assert-git-is-clean
 
   test-wasm:
     name: Test wasm
@@ -56,8 +64,16 @@ jobs:
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly }
       - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
-      # enable once we can reliably fuzz ourselves
-      #- run: just -v rust::ci-fuzz-run ${{ matrix.target }}
+      - run: just -v rust::ci-fuzz-run ${{ matrix.target }}
+      - name: Generate fuzz coverage
+        if: github.event_name != 'release' && github.repository_owner == 'maplibre'
+        run: just -v rust::ci-fuzz-cov ${{ matrix.target }}
+      - name: Upload fuzz coverage artifact
+        if: github.event_name != 'release' && github.repository_owner == 'maplibre'
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-coverage-${{ matrix.target }}
+          path: rust/target/llvm-cov/fuzz-${{ matrix.target }}.lcov
 
   #  MSRV Testing is not really needed at this stage of code completeness
   #  test-msrv:
@@ -70,25 +86,23 @@ jobs:
   #        with: { toolchain: msrv }
   #      - run: just -v rust::ci-test-msrv
 
-  coverage:
-    name: Code Coverage
-    if: github.event_name != 'release' && github.repository_owner == 'maplibre'
+  upload-coverage:
+    name: Upload coverage to Codecov
+    needs: [test, fuzz]
+    if: github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/mlt-setup-java # generate MLT test files
-      - uses: ./.github/actions/mlt-setup-rust
-      - uses: taiki-e/install-action@v2
-        with: { tool: "cargo-llvm-cov" }
-      - name: Generate code coverage
-        run: just -v rust::ci-coverage
-      - name: Upload coverage to Codecov
-        if: github.repository_owner == 'maplibre'
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: "*coverage*"
+          path: coverage
+          merge-multiple: true
+      - name: Upload to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: rust/target/llvm-cov/codecov.info
-      - run: just -v assert-git-is-clean
+          directory: coverage
 
   test-publish:
     name: Test workspace publishing using --dry-run

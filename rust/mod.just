@@ -129,6 +129,25 @@ ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linu
 # Fuzz the target for 90 seconds (installs `cargo fuzz`)
 ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '--max_len=300')
 
+# Seed corpus from test .mlt files, run coverage against it, and export LCOV for Codecov upload.
+# Output: target/llvm-cov/fuzz-<target>.lcov
+ci-fuzz-cov target: (just 'cargo-install' 'cargo-fuzz')
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Seed corpus from the checked-in test MLT files so coverage has real inputs to profile
+    mkdir -p mlt-core/fuzz/corpus/{{target}}
+    find ../test -name "*.mlt" -exec cp {} mlt-core/fuzz/corpus/{{target}}/ \; 2>/dev/null || true
+
+    # llvm-tools-preview must be present before cargo fuzz coverage (needs llvm-profdata internally)
+    rustup component add llvm-tools-preview --toolchain nightly
+    cargo +nightly fuzz coverage {{target}} --target x86_64-unknown-linux-gnu
+
+    LCOV_OUT="target/llvm-cov/fuzz-{{target}}.lcov"
+    mkdir -p "$(dirname "$LCOV_OUT")"
+    {{just}} rust::fuzz-llvm-cov {{target}} "$LCOV_OUT" export --format=lcov
+    echo "Fuzz coverage LCOV: $LCOV_OUT"
+
 # Build and package release binary for CI
 ci-build-release target artifact_name:
     #!/usr/bin/env bash
@@ -228,32 +247,20 @@ fuzz-seed target='layer': (just 'cargo-install' 'fd' 'fd-find')
 fuzz-cmin target='layer': (cargo-fuzz 'cmin' target '--target' 'x86_64-unknown-linux-gnu')
 
 # Collect coverage from the fuzz corpus and open an HTML report (installs `cargo fuzz`, `rustfilt`)
-fuzz-cov target='layer': (cargo-fuzz 'coverage' target '--target' 'x86_64-unknown-linux-gnu') (just 'cargo-install' 'rustfilt')
+fuzz-cov target='layer': (just 'cargo-install' 'cargo-fuzz') (just 'cargo-install' 'rustfilt')
     #!/usr/bin/env bash
     set -euo pipefail
+    # llvm-tools-preview must be present before cargo fuzz coverage (needs llvm-profdata internally)
     rustup component add llvm-tools-preview --toolchain nightly
-
-    SYSROOT=$(rustup run nightly rustc --print sysroot)
-    HOST=$(rustc -vV | sed -n 's/^host: //p')
-    LLVM_COV="$SYSROOT/lib/rustlib/$HOST/bin/llvm-cov"
-
-    TRIPLE="x86_64-unknown-linux-gnu"
-    FUZZ_DIR="mlt-core/fuzz"
-    TARGET_BIN="$FUZZ_DIR/target/$TRIPLE/coverage/$TRIPLE/release/{{target}}"
-    PROFDATA="$FUZZ_DIR/coverage/{{target}}/coverage.profdata"
-    HTML_DIR="$FUZZ_DIR/coverage/{{target}}/html"
-
+    cargo +nightly fuzz coverage {{target}} --target x86_64-unknown-linux-gnu
+    HTML_DIR="mlt-core/fuzz/coverage/{{target}}/html"
     mkdir -p "$HTML_DIR"
-
-    "$LLVM_COV" show "$TARGET_BIN" \
+    {{just}} rust::fuzz-llvm-cov {{target}} "" show \
         --format=html \
         --output-dir="$HTML_DIR" \
-        --instr-profile="$PROFDATA" \
         --show-instantiations \
         --show-line-counts-or-regions \
-        --ignore-filename-regex="(/.cargo/registry|/rustup/toolchains)" \
         --Xdemangler=rustfilt
-
     echo "Coverage report: $HTML_DIR/index.html"
     xdg-open "$HTML_DIR/index.html" 2>/dev/null || open "$HTML_DIR/index.html" 2>/dev/null || true
 
@@ -508,3 +515,22 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
 [working-directory: 'mlt-core']
 cargo-fuzz *args:  (just 'cargo-install' 'cargo-fuzz')
     cargo +nightly fuzz {{args}}
+
+# Resolve llvm-cov from the nightly sysroot and run it against the fuzz profdata for target.
+# Pass output_file="" to write to stdout, or a path to redirect stdout there.
+[private]
+fuzz-llvm-cov target output_file *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup component add llvm-tools-preview --toolchain nightly
+    SYSROOT=$(rustup run nightly rustc --print sysroot)
+    HOST=$(rustc -vV | sed -n 's/^host: //p')
+    LLVM_COV="$SYSROOT/lib/rustlib/$HOST/bin/llvm-cov"
+    TRIPLE="x86_64-unknown-linux-gnu"
+    FUZZ_DIR="mlt-core/fuzz"
+    TARGET_BIN="$FUZZ_DIR/target/$TRIPLE/coverage/$TRIPLE/release/{{target}}"
+    PROFDATA="$FUZZ_DIR/coverage/{{target}}/coverage.profdata"
+    [ -n "{{output_file}}" ] && exec > "{{output_file}}"
+    "$LLVM_COV" {{args}} "$TARGET_BIN" \
+        --instr-profile="$PROFDATA" \
+        --ignore-filename-regex="(/.cargo/registry|/rustup/toolchains)"
