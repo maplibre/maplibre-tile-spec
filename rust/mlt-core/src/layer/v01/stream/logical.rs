@@ -95,13 +95,11 @@ impl LogicalValue {
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
             },
             LogicalEncoding::Delta => match self.data {
-                LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, _>(data.as_slice())),
+                LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, _>(&data)),
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
             },
             LogicalEncoding::DeltaRle(rle) => match self.data {
-                LogicalData::VecU32(data) => {
-                    Ok(decode_zigzag_delta::<i32, _>(rle.decode(&data)?.as_slice()))
-                }
+                LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, _>(&rle.decode(&data)?)),
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
             },
             LogicalEncoding::Morton(meta) => match self.data {
@@ -142,13 +140,11 @@ impl LogicalValue {
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "u32")),
             },
             LogicalEncoding::Delta => match self.data {
-                LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, u32>(data.as_slice())),
+                LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, _>(&data)),
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "u32")),
             },
             LogicalEncoding::DeltaRle(rle) => match self.data {
-                LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, u32>(
-                    rle.decode(&data)?.as_slice(),
-                )),
+                LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, _>(&rle.decode(&data)?)),
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "u32")),
             },
             _ => Err(UnsupportedLogicalEncoding(
@@ -165,13 +161,11 @@ impl LogicalValue {
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "i64")),
             },
             LogicalEncoding::Delta => match self.data {
-                LogicalData::VecU64(data) => Ok(decode_zigzag_delta::<i64, i64>(data.as_slice())),
+                LogicalData::VecU64(data) => Ok(decode_zigzag_delta::<i64, _>(&data)),
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "i64")),
             },
             LogicalEncoding::DeltaRle(rle) => match self.data {
-                LogicalData::VecU64(data) => Ok(decode_zigzag_delta::<i64, i64>(
-                    rle.decode(&data)?.as_slice(),
-                )),
+                LogicalData::VecU64(data) => Ok(decode_zigzag_delta::<i64, _>(&rle.decode(&data)?)),
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "i64")),
             },
             LogicalEncoding::Rle(rle) => match self.data {
@@ -196,13 +190,11 @@ impl LogicalValue {
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "u64")),
             },
             LogicalEncoding::Delta => match self.data {
-                LogicalData::VecU64(data) => Ok(decode_zigzag_delta::<i64, u64>(data.as_slice())),
+                LogicalData::VecU64(data) => Ok(decode_zigzag_delta::<i64, _>(&data)),
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "u64")),
             },
             LogicalEncoding::DeltaRle(rle) => match self.data {
-                LogicalData::VecU64(data) => Ok(decode_zigzag_delta::<i64, u64>(
-                    rle.decode(&data)?.as_slice(),
-                )),
+                LogicalData::VecU64(data) => Ok(decode_zigzag_delta::<i64, _>(&rle.decode(&data)?)),
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "u64")),
             },
             _ => Err(UnsupportedLogicalEncoding(
