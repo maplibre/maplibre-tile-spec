@@ -7,7 +7,7 @@ export function createConstGeometryVector(
     numGeometries: number,
     geometryType: number,
     topologyVector: TopologyVector,
-    vertexOffsets: Uint32Array | null,
+    vertexOffsets: Uint32Array | undefined,
     vertexBuffer: Int32Array | Uint32Array,
 ): ConstGeometryVector {
     return new ConstGeometryVector(
@@ -24,7 +24,7 @@ export function createMortonEncodedConstGeometryVector(
     numGeometries: number,
     geometryType: number,
     topologyVector: TopologyVector,
-    vertexOffsets: Uint32Array | null,
+    vertexOffsets: Uint32Array | undefined,
     vertexBuffer: Int32Array | Uint32Array,
     mortonInfo: MortonSettings,
 ): ConstGeometryVector {
@@ -45,7 +45,7 @@ export class ConstGeometryVector extends GeometryVector {
         private readonly _geometryType: number,
         vertexBufferType: VertexBufferType,
         topologyVector: TopologyVector,
-        vertexOffsets: Uint32Array | null,
+        vertexOffsets: Uint32Array | undefined,
         vertexBuffer: Int32Array | Uint32Array,
         mortonSettings?: MortonSettings,
     ) {

@@ -6,7 +6,7 @@ import type { TopologyVector } from "../../vector/geometry/topologyVector";
 export function createFlatGeometryVector(
     geometryTypes: Uint32Array,
     topologyVector: TopologyVector,
-    vertexOffsets: Uint32Array | null,
+    vertexOffsets: Uint32Array | undefined,
     vertexBuffer: Int32Array | Uint32Array,
 ): FlatGeometryVector {
     return new FlatGeometryVector(VertexBufferType.VEC_2, geometryTypes, topologyVector, vertexOffsets, vertexBuffer);
@@ -15,7 +15,7 @@ export function createFlatGeometryVector(
 export function createFlatGeometryVectorMortonEncoded(
     geometryTypes: Uint32Array,
     topologyVector: TopologyVector,
-    vertexOffsets: Uint32Array | null,
+    vertexOffsets: Uint32Array | undefined,
     vertexBuffer: Int32Array | Uint32Array,
     mortonInfo: MortonSettings,
 ): FlatGeometryVector {
@@ -32,10 +32,9 @@ export function createFlatGeometryVectorMortonEncoded(
 export class FlatGeometryVector extends GeometryVector {
     constructor(
         vertexBufferType: VertexBufferType,
-        // TODO: geometry type codes fit in Uint8Array, but the current decoding pipeline still produces Uint32Array.
         private readonly _geometryTypes: Uint32Array,
         topologyVector: TopologyVector,
-        vertexOffsets: Uint32Array | null,
+        vertexOffsets: Uint32Array | undefined,
         vertexBuffer: Int32Array | Uint32Array,
         mortonSettings?: MortonSettings,
     ) {

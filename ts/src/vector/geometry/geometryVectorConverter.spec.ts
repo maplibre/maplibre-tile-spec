@@ -80,9 +80,9 @@ describe("POINT – Morton dictionary encoded", () => {
             GEOMETRY_TYPE.POINT,
             VertexBufferType.MORTON,
             {
-                geometryOffsets: null,
-                partOffsets: null,
-                ringOffsets: null,
+                geometryOffsets: undefined,
+                partOffsets: undefined,
+                ringOffsets: undefined,
             },
             new Uint32Array([0]),
             new Int32Array([code]),
@@ -116,8 +116,8 @@ describe("MULTIPOINT – VEC_2 dictionary encoded", () => {
             VertexBufferType.VEC_2,
             {
                 geometryOffsets: new Uint32Array([0, 2]),
-                partOffsets: null,
-                ringOffsets: null,
+                partOffsets: undefined,
+                ringOffsets: undefined,
             },
             new Uint32Array([0, 2]),
             new Int32Array([10, 20, 99, 99, 30, 40]),
@@ -147,9 +147,9 @@ describe("LINESTRING – sequential vertex buffer, polygon context (uses ringOff
         const gv = {
             numGeometries: 1,
             vertexBuffer: new Int32Array([1, 2, 3, 4]),
-            vertexOffsets: null,
+            vertexOffsets: undefined,
             topologyVector: {
-                geometryOffsets: null,
+                geometryOffsets: undefined,
                 partOffsets: new Uint32Array([0, 1]),
                 ringOffsets: new Uint32Array([0, 2]),
             },
@@ -171,9 +171,9 @@ describe("LINESTRING – VEC_2 dictionary encoded", () => {
             vertexOffsets: new Uint32Array([0, 1]),
             vertexBufferType: VertexBufferType.VEC_2,
             topologyVector: {
-                geometryOffsets: null,
+                geometryOffsets: undefined,
                 partOffsets: new Uint32Array([0, 2]),
-                ringOffsets: null,
+                ringOffsets: undefined,
             },
             geometryType: () => GEOMETRY_TYPE.LINESTRING,
             containsPolygonGeometry: () => false,
@@ -578,7 +578,7 @@ describe("Vector with multiple geometries of different types", () => {
                 partOffsets: new Uint32Array([0, 1, 2, 3, 4, 5, 6]),
                 ringOffsets: new Uint32Array([0, 1, 2, 3, 5, 8, 10]),
             },
-            null,
+            undefined,
             new Int32Array([
                 ...pointGv.vertexBuffer,
                 ...multiPointGv.vertexBuffer,
@@ -634,9 +634,9 @@ describe("Edge cases", () => {
             GEOMETRY_TYPE.POINT,
             VertexBufferType.VEC_2,
             {
-                geometryOffsets: null,
-                partOffsets: null,
-                ringOffsets: null,
+                geometryOffsets: undefined,
+                partOffsets: undefined,
+                ringOffsets: undefined,
             },
             new Uint32Array([]), // length === 0 → same as undefined
             new Int32Array([3, 9]),

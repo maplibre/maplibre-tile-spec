@@ -34,22 +34,22 @@ export function decodeGeometryColumn(
     const geometryTypeMetadata = decodeStreamMetadata(tile, offset);
     const geometryTypesVectorType = getVectorType(geometryTypeMetadata, numFeatures, tile, offset);
 
-    let vertexOffsets: Uint32Array | null = null;
-    let vertexBuffer: Int32Array | Uint32Array = null;
-    let mortonSettings: MortonSettings = null;
-    let indexBuffer: Uint32Array = null;
+    let vertexOffsets: Uint32Array | undefined;
+    let vertexBuffer: Int32Array | Uint32Array | undefined;
+    let mortonSettings: MortonSettings | undefined;
+    let indexBuffer: Uint32Array | undefined;
 
     if (geometryTypesVectorType === VectorType.CONST) {
         /* All geometries in the column have the same geometry type */
         const geometryType = decodeUnsignedConstIntStream(tile, offset, geometryTypeMetadata);
 
         // Variables for const geometry path (directly decoded as offsets)
-        let geometryOffsets: Uint32Array = null;
-        let partOffsets: Uint32Array = null;
-        let ringOffsets: Uint32Array = null;
+        let geometryOffsets: Uint32Array | undefined;
+        let partOffsets: Uint32Array | undefined;
+        let ringOffsets: Uint32Array | undefined;
         //TODO: use geometryOffsets for that? -> but then tessellated polygons can't be used with normal polygons
         // in one FeatureTable?
-        let triangleOffsets: Uint32Array = null;
+        let triangleOffsets: Uint32Array | undefined;
 
         for (let i = 0; i < numStreams - 1; i++) {
             const geometryStreamMetadata = decodeStreamMetadata(tile, offset);
@@ -96,8 +96,8 @@ export function decodeGeometryColumn(
             }
         }
 
-        if (indexBuffer !== null) {
-            if (geometryOffsets != null || partOffsets != null) {
+        if (indexBuffer) {
+            if (geometryOffsets !== undefined || partOffsets !== undefined) {
                 /* Case when the indices of a Polygon outline are encoded in the tile */
                 const topologyVector = { geometryOffsets, partOffsets, ringOffsets };
                 return createConstGpuVector(
@@ -114,7 +114,7 @@ export function decodeGeometryColumn(
             return createConstGpuVector(numFeatures, geometryType, triangleOffsets, indexBuffer, vertexBuffer);
         }
 
-        return mortonSettings === null
+        return mortonSettings === undefined
             ? /* Currently only 2D coordinates (Vec2) are implemented in the encoder  */
               createConstGeometryVector(
                   numFeatures,
@@ -137,12 +137,12 @@ export function decodeGeometryColumn(
     const geometryTypeVector = decodeUnsignedIntStream(tile, offset, geometryTypeMetadata);
 
     // Variables for flat geometry path (decoded as lengths, then converted to offsets)
-    let geometryLengths: Uint32Array = null;
-    let partLengths: Uint32Array = null;
-    let ringLengths: Uint32Array = null;
+    let geometryLengths: Uint32Array | undefined;
+    let partLengths: Uint32Array | undefined;
+    let ringLengths: Uint32Array | undefined;
     //TODO: use geometryOffsets for that? -> but then tessellated polygons can't be used with normal polygons
     // in one FeatureTable?
-    let triangleOffsets: Uint32Array = null;
+    let triangleOffsets: Uint32Array | undefined;
 
     for (let i = 0; i < numStreams - 1; i++) {
         const geometryStreamMetadata = decodeStreamMetadata(tile, offset);
@@ -189,32 +189,32 @@ export function decodeGeometryColumn(
 
     // TODO: refactor the following instructions -> decode in one pass for performance reasons
     /* Calculate the offsets from the length buffer for util access */
-    let geometryOffsets: Uint32Array = null;
-    let partOffsets: Uint32Array = null;
-    let ringOffsets: Uint32Array = null;
+    let geometryOffsets: Uint32Array | undefined;
+    let partOffsets: Uint32Array | undefined;
+    let ringOffsets: Uint32Array | undefined;
 
-    if (geometryLengths !== null) {
+    if (geometryLengths) {
         geometryOffsets = decodeRootLengthStream(geometryTypeVector, geometryLengths, 2);
-        if (partLengths !== null && ringLengths !== null) {
+        if (partLengths && ringLengths) {
             partOffsets = decodeLevel1LengthStream(geometryTypeVector, geometryOffsets, partLengths, false);
             ringOffsets = decodeLevel2LengthStream(geometryTypeVector, geometryOffsets, partOffsets, ringLengths);
-        } else if (partLengths !== null) {
+        } else if (partLengths) {
             partOffsets = decodeLevel1WithoutRingBufferLengthStream(geometryTypeVector, geometryOffsets, partLengths);
         }
-    } else if (partLengths !== null && ringLengths !== null) {
+    } else if (partLengths && ringLengths) {
         partOffsets = decodeRootLengthStream(geometryTypeVector, partLengths, 1);
         ringOffsets = decodeLevel1LengthStream(geometryTypeVector, partOffsets, ringLengths, true);
-    } else if (partLengths !== null) {
+    } else if (partLengths) {
         partOffsets = decodeRootLengthStream(geometryTypeVector, partLengths, 0);
     }
 
-    if (indexBuffer !== null && partOffsets === null) {
+    if (indexBuffer && !partOffsets) {
         /* Case when the indices of a Polygon outline are not encoded in the data so no
          *  topology data are present in the tile */
         return createFlatGpuVector(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer);
     }
 
-    if (indexBuffer !== null) {
+    if (indexBuffer) {
         /* Case when the indices of a Polygon outline are encoded in the tile */
         return createFlatGpuVector(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer, {
             geometryOffsets,
@@ -223,7 +223,7 @@ export function decodeGeometryColumn(
         });
     }
 
-    return mortonSettings === null /* Currently only 2D coordinates (Vec2) are implemented in the encoder  */
+    return mortonSettings === undefined /* Currently only 2D coordinates (Vec2) are implemented in the encoder  */
         ? createFlatGeometryVector(
               geometryTypeVector,
               { geometryOffsets, partOffsets, ringOffsets },

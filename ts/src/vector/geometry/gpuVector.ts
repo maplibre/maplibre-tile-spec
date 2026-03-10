@@ -8,7 +8,7 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
         private readonly _triangleOffsets: Uint32Array,
         private readonly _indexBuffer: Uint32Array,
         private readonly _vertexBuffer: Int32Array | Uint32Array,
-        private readonly _topologyVector?: TopologyVector | null,
+        private readonly _topologyVector?: TopologyVector,
     ) {}
 
     abstract geometryType(index: number): number;
@@ -29,7 +29,7 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
         return this._vertexBuffer;
     }
 
-    get topologyVector(): TopologyVector | null {
+    get topologyVector(): TopologyVector | undefined {
         return this._topologyVector;
     }
 
