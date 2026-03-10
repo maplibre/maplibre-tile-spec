@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use geo_types::{LineString, Point, Polygon, point, wkt};
 use mlt_core::Encodable as _;
 use mlt_core::geojson::{Coord32, Geom32};
-use mlt_core::optimizer::AutomaticOptimisation;
+use mlt_core::optimizer::{AutomaticOptimisation as _, ManualOptimisation as _};
 use mlt_core::v01::{
     DecodedGeometry, DictionaryType, LengthType, OffsetType, OwnedEncodedGeometry, OwnedGeometry,
     StreamType,
@@ -19,7 +19,7 @@ fn optimize_roundtrip(decoded: &DecodedGeometry) -> DecodedGeometry {
         OwnedGeometry::Encoded(encoded) => {
             DecodedGeometry::from_encoded(borrowme::borrow(&encoded)).expect("from_encoded failed")
         }
-        _ => panic!("Expected encoded geometry"),
+        OwnedGeometry::Decoded(_) => panic!("Expected encoded geometry"),
     }
 }
 
@@ -227,7 +227,6 @@ fn encoded_repeated_points_uses_morton_streams() {
 
 #[test]
 fn manual_optimisation_works() {
-    use mlt_core::optimizer::ManualOptimisation;
     use mlt_core::v01::{GeometryEncoder, IntEncoder, VertexBufferType};
 
     let geoms = vec![wkt!(POINT(10 20)).into()];
@@ -242,11 +241,11 @@ fn manual_optimisation_works() {
     geom.manual_optimisation(encoder)
         .expect("manual optimization failed");
 
-    let encoded = geom.borrow_encoded().expect("must be encoded");
-    let types = encoded_stream_types(encoded);
+    let enc = geom.borrow_encoded().expect("must be encoded");
+    let types = encoded_stream_types(enc);
     assert!(types.contains(&StreamType::Data(DictionaryType::Vertex)));
 
     let decoded_back =
-        DecodedGeometry::from_encoded(borrowme::borrow(encoded)).expect("decode failed");
+        DecodedGeometry::from_encoded(borrowme::borrow(enc)).expect("decode failed");
     assert_eq!(decoded, decoded_back);
 }

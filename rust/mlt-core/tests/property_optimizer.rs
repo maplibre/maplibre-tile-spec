@@ -1,5 +1,5 @@
 use insta::assert_debug_snapshot;
-use mlt_core::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
+use mlt_core::optimizer::{AutomaticOptimisation as _, ManualOptimisation as _};
 use mlt_core::v01::{DecodedProperty, DecodedStrings, OwnedProperty, PropValue};
 
 fn str_prop(name: &str, values: &[&str]) -> OwnedProperty {
@@ -327,10 +327,4 @@ fn manual_optimisation_rejects_mismatched_encoder_count() {
         make_prop("b", PropValue::U32(vec![Some(3), Some(4)])),
     ];
     assert!(props.manual_optimisation(enc).is_err());
-}
-
-#[test]
-fn profile_optimisation_is_not_yet_implemented() {
-    let mut props = vec![make_prop("x", PropValue::U32(vec![Some(1), Some(2)]))];
-    assert!(props.profile_driven_optimisation(&()).is_err());
 }
