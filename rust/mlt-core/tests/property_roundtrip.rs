@@ -1,9 +1,10 @@
 use mlt_core::v01::{
-    DecodedProperty, DecodedStrings, IntEncoder, LogicalEncoder, OwnedEncodedProperty,
-    PhysicalEncoder, PresenceStream, PropValue, Property, PropertyEncoder, ScalarEncoder,
-    SharedDictEncoder, SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
+    DecodedProperty, DecodedStrings, IntEncoder, LogicalEncoder, OwnedProperty, PhysicalEncoder,
+    PresenceStream, PropValue, Property, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
+    SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
 };
-use mlt_core::{FromDecoded as _, FromEncoded as _, MltError, borrowme};
+use mlt_core::optimizer::ManualOptimisation as _;
+use mlt_core::{MltError, borrowme};
 use proptest::prelude::*;
 
 // proptest_derive::Arbitrary is only derived for these types inside the crate
@@ -52,9 +53,15 @@ fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
 
 fn roundtrip(decoded: &DecodedProperty<'_>, encoder: ScalarEncoder) -> DecodedProperty<'static> {
     let owned = mlt_core::borrowme::ToOwned::to_owned(decoded);
-    let enc = OwnedEncodedProperty::from_decoded(&owned, encoder).expect("encoding failed");
+    let mut props = vec![OwnedProperty::Decoded(owned)];
+    props
+        .manual_optimisation(vec![PropertyEncoder::Scalar(encoder)])
+        .expect("encoding failed");
+    let enc = props.pop().unwrap();
     mlt_core::borrowme::ToOwned::to_owned(
-        &DecodedProperty::from_encoded(borrowme::borrow(&enc)).expect("decoding failed"),
+        &Property::from(borrowme::borrow(&enc))
+            .decode()
+            .expect("decoding failed"),
     )
 }
 
@@ -85,7 +92,7 @@ fn make_prop(name: &str, values: PropValue) -> DecodedProperty<'static> {
     DecodedProperty::from_parts(name.to_string(), values)
 }
 
-fn decode_struct(prop: &OwnedEncodedProperty) -> DecodedProperty<'static> {
+fn decode_struct(prop: &OwnedProperty) -> DecodedProperty<'static> {
     mlt_core::borrowme::ToOwned::to_owned(
         &Property::from(borrowme::borrow(prop))
             .decode()
@@ -93,9 +100,11 @@ fn decode_struct(prop: &OwnedEncodedProperty) -> DecodedProperty<'static> {
     )
 }
 
-fn decode_scalar(prop: &OwnedEncodedProperty) -> DecodedProperty<'static> {
+fn decode_scalar(prop: &OwnedProperty) -> DecodedProperty<'static> {
     mlt_core::borrowme::ToOwned::to_owned(
-        &DecodedProperty::from_encoded(borrowme::borrow(prop)).expect("decode failed"),
+        &Property::from(borrowme::borrow(prop))
+            .decode()
+            .expect("decode failed"),
     )
 }
 
@@ -111,7 +120,7 @@ fn struct_encode_and_decode(
         .iter()
         .map(|(suffix, values)| ((*suffix).to_string(), DecodedStrings::from(values.clone())))
         .collect();
-    let decoded = vec![shared_dict_prop(struct_name, items)];
+    let decoded = shared_dict_prop(struct_name, items);
 
     // Build encoder with matching item encoders
     let item_encoders: Vec<SharedDictItemEncoder> = children
@@ -126,10 +135,12 @@ fn struct_encode_and_decode(
         items: item_encoders,
     };
 
-    let encoded = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, vec![shared_enc.into()])
+    let mut properties = vec![OwnedProperty::Decoded(decoded)];
+    properties
+        .manual_optimisation(vec![shared_enc.into()])
         .expect("encoding failed");
-    assert_eq!(encoded.len(), 1, "should produce one encoded property");
-    decode_struct(&encoded[0])
+    assert_eq!(properties.len(), 1, "should produce one encoded property");
+    decode_struct(&properties[0])
 }
 
 // Absent mode has no presence stream on the wire, so only all-Some inputs are
@@ -459,7 +470,8 @@ fn struct_mixed_with_scalars() {
         .into(),
         PropertyEncoder::Scalar(scalar_enc),
     ];
-    let encoded = Vec::<OwnedEncodedProperty>::from_decoded(&props, prop_encs).unwrap();
+    let mut encoded: Vec<OwnedProperty> = props.into_iter().map(OwnedProperty::Decoded).collect();
+    encoded.manual_optimisation(prop_encs).unwrap();
 
     // Output order: scalar "population", struct "name:", scalar "rank"
     assert_eq!(encoded.len(), 3);
@@ -543,9 +555,12 @@ fn two_struct_groups_with_scalar_between() {
     ];
     let enc = IntEncoder::plain();
     let str_enc = StrEncoder::plain(IntEncoder::plain());
-    let encoded = Vec::<OwnedEncodedProperty>::from_decoded(
-        &decoded_props,
-        vec![
+    let mut encoded: Vec<OwnedProperty> = decoded_props
+        .into_iter()
+        .map(OwnedProperty::Decoded)
+        .collect();
+    encoded
+        .manual_optimisation(vec![
             SharedDictEncoder {
                 dict_encoder: str_enc,
                 items: vec![
@@ -575,9 +590,8 @@ fn two_struct_groups_with_scalar_between() {
                 ],
             }
             .into(),
-        ],
-    )
-    .unwrap();
+        ])
+        .unwrap();
 
     // Output order: struct "name:", scalar "population", struct "label:"
     assert_eq!(encoded.len(), 3);
@@ -618,8 +632,8 @@ fn two_struct_groups_with_scalar_between() {
 
 #[test]
 fn struct_instruction_count_mismatch() {
-    let err = Vec::<OwnedEncodedProperty>::from_decoded(&vec![DecodedProperty::default()], vec![])
-        .unwrap_err();
+    let mut properties = vec![OwnedProperty::Decoded(DecodedProperty::default())];
+    let err = properties.manual_optimisation(vec![]).unwrap_err();
     assert!(
         matches!(
             err,

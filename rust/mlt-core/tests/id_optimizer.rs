@@ -3,7 +3,7 @@ use mlt_core::optimizer::{
     AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
 };
 use mlt_core::v01::{DecodedId, IdEncoder, IdWidth, LogicalEncoder, OwnedId};
-use mlt_core::{Encodable as _, borrowme};
+use mlt_core::{borrowme};
 use rstest::rstest;
 
 fn create_u32_range_ids() -> DecodedId {
@@ -44,7 +44,7 @@ fn test_automatic_optimisation_selection(#[case] input: DecodedId, #[case] expec
     let mut owned = OwnedId::Decoded(Some(input));
     let result = owned.automatic_encoding_optimisation().unwrap();
     assert_eq!(result, Some(expected));
-    assert!(owned.borrow_encoded().is_some());
+    assert!(matches!(owned, OwnedId::Encoded(Some(_))));
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn test_manual_optimisation_applies_encoder() {
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id64);
     owned.manual_optimisation(manual_enc).unwrap();
 
-    assert!(!owned.is_decoded());
+    assert!(!matches!(owned, OwnedId::Decoded(_)));
     assert_eq!(borrowme::borrow(&owned).decode().unwrap(), decoded);
 }
 
@@ -89,7 +89,7 @@ fn test_manual_optimisation_override() {
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id64);
     owned.manual_optimisation(manual_enc).unwrap();
 
-    assert!(!owned.is_decoded());
+    assert!(!matches!(owned, OwnedId::Decoded(_)));
 }
 
 #[test]

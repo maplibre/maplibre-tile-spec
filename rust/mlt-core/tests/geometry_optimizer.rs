@@ -8,19 +8,14 @@ use mlt_core::v01::{
     DecodedGeometry, DictionaryType, LengthType, OffsetType, OwnedEncodedGeometry, OwnedGeometry,
     StreamType,
 };
-use mlt_core::{FromEncoded as _, borrowme};
+use mlt_core::{borrowme};
 use pretty_assertions::assert_eq;
 
 fn optimize_roundtrip(decoded: &DecodedGeometry) -> DecodedGeometry {
     let mut geom = OwnedGeometry::Decoded(decoded.clone());
     geom.automatic_encoding_optimisation()
         .expect("optimize failed");
-    match geom {
-        OwnedGeometry::Encoded(encoded) => {
-            DecodedGeometry::from_encoded(borrowme::borrow(&encoded)).expect("from_encoded failed")
-        }
-        OwnedGeometry::Decoded(_) => panic!("Expected encoded geometry"),
-    }
+    borrowme::borrow(&geom).decode().expect("decode failed")
 }
 
 fn push_geoms(geoms: &[Geom32]) -> DecodedGeometry {

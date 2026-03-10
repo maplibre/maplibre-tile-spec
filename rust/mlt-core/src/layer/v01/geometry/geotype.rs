@@ -521,27 +521,28 @@ mod tests {
 
     use super::*;
     use crate::geojson::Coord32;
-    use crate::v01::{EncodedGeometry, GeometryEncoder, IntEncoding, OwnedEncodedGeometry};
-    use crate::{FromDecoded as _, FromEncoded as _};
+    use crate::v01::{
+        EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, OwnedEncodedGeometry,
+        OwnedGeometry,
+    };
+    use crate::optimizer::ManualOptimisation as _;
 
     /// Encode, serialize, parse, and decode a `DecodedGeometry`.
     /// The input must already be in the dense canonical form that `from_encoded`
     /// produces (i.e. built via a previous `roundtrip` call, not via `push_*`).
     fn roundtrip(decoded: &DecodedGeometry, encoder: GeometryEncoder) -> DecodedGeometry {
-        let encoded_geom = OwnedEncodedGeometry::from_decoded(decoded, encoder);
-        let encoded_geom = encoded_geom.expect("Failed to encode");
+        let mut geom = OwnedGeometry::Decoded(decoded.clone());
+        geom.manual_optimisation(encoder).expect("Failed to encode");
 
         // Serialize to bytes (write_to includes the stream count varint)
         let mut buffer = Vec::new();
-        encoded_geom
-            .write_to(&mut buffer)
-            .expect("Failed to serialize");
+        geom.write_to(&mut buffer).expect("Failed to serialize");
 
         // Now parse (parse expects varint stream count + streams)
         let (remaining, parsed) = EncodedGeometry::parse(&buffer).expect("Failed to parse");
         assert!(remaining.is_empty(), "Remaining bytes after parse");
 
-        DecodedGeometry::from_encoded(parsed).expect("Failed to decode")
+        Geometry::Encoded(parsed).decode().expect("Failed to decode")
     }
 
     /// Build a `DecodedGeometry` from a sequence of `Geom32` values via
@@ -848,7 +849,7 @@ mod tests {
         owned.write_to(&mut buffer).unwrap();
         let (remaining, parsed) = EncodedGeometry::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
-        let decoded = DecodedGeometry::from_encoded(parsed).unwrap();
+        let decoded = Geometry::Encoded(parsed).decode().unwrap();
 
         assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));
 
