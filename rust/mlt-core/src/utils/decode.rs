@@ -4,7 +4,10 @@ use num_traits::{AsPrimitive, PrimInt, WrappingAdd};
 use wide::u32x8;
 use zigzag::ZigZag;
 
-use crate::MltError::{BufferUnderflow, InvalidPairStreamSize, RleRunLenInvalid};
+use crate::MltError::{
+    BufferUnderflow, InvalidDecodingStreamSize, InvalidPairStreamSize, RleRunLenInvalid,
+};
+use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, take};
 use crate::{MltError, MltRefResult};
 
@@ -45,13 +48,17 @@ pub fn decode_zigzag_delta<T: Copy + ZigZag + WrappingAdd + AsPrimitive<U>, U: '
 }
 
 /// Decode RLE (Run-Length Encoding) data
-/// It serves the same purpose as the `decodeUnsignedRLE` and `decodeRLE` methods in the Java code.
 pub fn decode_rle<T: PrimInt + Debug>(
     data: &[T],
     runs: u32,
     num_rle_values: u32,
 ) -> Result<Vec<T>, MltError> {
-    let (run_lens, values) = data.split_at(runs.as_usize());
+    let runs_usize = runs.as_usize();
+    let expected_len = runs_usize.checked_mul(2).or_overflow()?;
+    if data.len() != expected_len {
+        return Err(InvalidDecodingStreamSize(expected_len, data.len()));
+    }
+    let (run_lens, values) = data.split_at(runs_usize);
     let mut result = Vec::with_capacity(num_rle_values.as_usize());
     for (&run, &val) in run_lens.iter().zip(values.iter()) {
         let run_len = run
@@ -466,6 +473,14 @@ mod tests {
     #[test]
     fn test_decode_rle_empty() {
         assert!(decode_rle::<u32>(&[], 0, 0).unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_decode_rle_invalid_stream_size() {
+        // Valid RLE for runs=2 needs 4 elements (2 run lengths + 2 values). Only 3 provided.
+        let data = [1u32, 2, 3];
+        let err = decode_rle::<u32>(&data, 2, 3).unwrap_err();
+        assert!(matches!(err, InvalidDecodingStreamSize(4, 3)));
     }
 
     #[test]

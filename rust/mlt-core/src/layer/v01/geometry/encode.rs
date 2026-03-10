@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use super::{DecodedGeometry, OwnedEncodedGeometry, VertexBufferType};
 use crate::MltError;
+use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, encode_componentwise_delta_vec2s};
 use crate::v01::{
     DictionaryType, GeometryType, IntEncoder, IntEncoding, LengthType, LogicalEncoding, MortonMeta,
@@ -113,10 +114,7 @@ fn build_morton_dict(
 
     let offsets: Vec<u32> = codes
         .iter()
-        .map(|&code| {
-            u32::try_from(dict.partition_point(|&c| c < code))
-                .map_err(|_| MltError::IntegerOverflow)
-        })
+        .map(|&code| u32::try_from(dict.partition_point(|&c| c < code)).or_overflow())
         .collect::<Result<_, _>>()?;
 
     Ok((dict, offsets))

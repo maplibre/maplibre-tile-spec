@@ -9,10 +9,13 @@ pub(crate) use parse::*;
 mod decode;
 pub use decode::*;
 pub(crate) mod formatter;
+use std::mem::size_of;
+
 pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt};
 use serde_json::{Number, Value};
 
 use crate::MltError;
+use crate::errors::AsMltError as _;
 use crate::v01::Stream;
 
 /// Convert f32 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
@@ -92,7 +95,7 @@ pub fn apply_present<T>(
 /// Perform checked addition of three values, returning an error if any overflow occurs.
 #[inline]
 pub fn checked_sum2<T: CheckedAdd + Copy>(v1: T, v2: T) -> Result<T, MltError> {
-    v1.checked_add(&v2).ok_or(MltError::IntegerOverflow)
+    v1.checked_add(&v2).or_overflow()
 }
 
 /// Perform checked addition of three values, returning an error if any overflow occurs.
@@ -100,7 +103,7 @@ pub fn checked_sum2<T: CheckedAdd + Copy>(v1: T, v2: T) -> Result<T, MltError> {
 pub fn checked_sum3<T: CheckedAdd + Copy>(v1: T, v2: T, v3: T) -> Result<T, MltError> {
     v1.checked_add(&v2)
         .and_then(|sum| sum.checked_add(&v3))
-        .ok_or(MltError::IntegerOverflow)
+        .or_overflow()
 }
 
 pub trait AsUsize {

@@ -1,3 +1,4 @@
+use crate::errors::AsMltError as _;
 mod encoder;
 mod logical;
 mod optimizer;
@@ -755,9 +756,7 @@ impl<'a> Stream<'a> {
             }
         };
         let num = self.meta.num_values.as_usize();
-        let Some(expected_bytes) = num.checked_mul(4) else {
-            return Err(MltError::IntegerOverflow);
-        };
+        let expected_bytes = num.checked_mul(4).or_overflow()?;
         if raw.len() != expected_bytes {
             return Err(MltError::InvalidDecodingStreamSize(
                 raw.len(),
@@ -784,9 +783,7 @@ impl<'a> Stream<'a> {
             }
         };
         let num = self.meta.num_values.as_usize();
-        let Some(expected_bytes) = num.checked_mul(8) else {
-            return Err(MltError::IntegerOverflow);
-        };
+        let expected_bytes = num.checked_mul(8).or_overflow()?;
         if raw.len() != expected_bytes {
             return Err(MltError::InvalidDecodingStreamSize(
                 raw.len(),
