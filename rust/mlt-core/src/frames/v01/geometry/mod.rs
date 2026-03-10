@@ -7,6 +7,6 @@ mod model;
 mod optimizer;
 mod serialize;
 
-pub use optimizer::GeometryProfile;
 pub use encode::GeometryEncoder;
 pub use model::*;
+pub use optimizer::GeometryProfile;
