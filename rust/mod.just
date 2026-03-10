@@ -250,7 +250,7 @@ fuzz target='layer' *args: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-l
 # Seed the layer fuzz corpus from all .mlt test files (run once, or after new .mlts are added)
 fuzz-seed target='layer': (just 'cargo-install' 'fd' 'fd-find')
     mkdir -p mlt-core/fuzz/corpus/{{target}}
-    fd . ../test -e mlt -x cp -f {} mlt-core/fuzz/corpus/{{target}}/
+    fd . ../test --extension mlt --threads=1 --exec cp --force {} mlt-core/fuzz/corpus/{{target}}/
     {{just}} rust::fuzz-cmin {{target}}
 
 # Minimize the fuzz corpus for target (slow — run occasionally to prune redundant entries)
