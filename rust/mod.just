@@ -86,7 +86,7 @@ ci-coverage: ci-env-info (just 'java::gen-snippets') (just 'cargo-install' 'carg
     # ATTENTION: the output-path here is used in the CI workflow
     # --no-clean preserves profdata accumulated by the synthetic generation run above
     # --doctests requires nightly (test job uses nightly toolchain) and may not be mixed with the main
-    {{just}} rust::coverage '--no-clean --no-report'
+    {{just}} rust::coverage '--no-clean'
     # target coverage and docktest coverage cannot be mixed
     cargo llvm-cov --doctests --no-clean --workspace --codecov --output-path target/llvm-cov/codecov.info
 
