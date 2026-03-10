@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use super::encode::{encode_geometry, z_order_params};
 use super::{DecodedGeometry, GeometryEncoder, OwnedEncodedGeometry, VertexBufferType};
-use crate::optimizer::AutomaticOptimisation;
+use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::{DictionaryType, IntEncoder, LengthType, OffsetType, OwnedGeometry, StreamType};
 use crate::{FromDecoded as _, FromEncoded as _, MltError};
 
@@ -130,6 +130,30 @@ impl GeometryOptimizer {
         } else {
             VertexBufferType::Vec2
         }
+    }
+}
+
+impl ManualOptimisation for OwnedGeometry {
+    type UsedEncoder = GeometryEncoder;
+
+    fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
+        let dec = borrowme::borrow(self).decode()?;
+        *self = OwnedGeometry::Encoded(OwnedEncodedGeometry::from_decoded(&dec, encoder)?);
+        Ok(())
+    }
+}
+
+impl ProfileOptimisation for OwnedGeometry {
+    type UsedEncoder = GeometryEncoder;
+    type Profile = ();
+
+    fn profile_driven_optimisation(
+        &mut self,
+        _profile: &Self::Profile,
+    ) -> Result<Self::UsedEncoder, MltError> {
+        Err(MltError::NotImplemented(
+            "ProfileOptimisation::profile_driven_optimisation",
+        ))
     }
 }
 

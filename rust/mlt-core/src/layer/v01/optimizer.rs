@@ -1,6 +1,43 @@
 use crate::MltError;
-use crate::optimizer::AutomaticOptimisation;
+use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::{GeometryEncoder, IdEncoder, OwnedLayer01, PropertyEncoder};
+
+impl ManualOptimisation for OwnedLayer01 {
+    type UsedEncoder = Tag01Encoder;
+
+    fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
+        if let Some(id) = encoder.id {
+            self.id.manual_optimisation(id)?;
+        }
+        self.properties.manual_optimisation(encoder.properties)?;
+        self.geometry.manual_optimisation(encoder.geometry)?;
+        Ok(())
+    }
+}
+
+impl ProfileOptimisation for OwnedLayer01 {
+    type UsedEncoder = Tag01Encoder;
+    type Profile = Tag01Profile;
+
+    fn profile_driven_optimisation(
+        &mut self,
+        profile: &Self::Profile,
+    ) -> Result<Self::UsedEncoder, MltError> {
+        let id = self.id.profile_driven_optimisation(&profile.id)?;
+        let properties = self
+            .properties
+            .profile_driven_optimisation(&profile.properties)?;
+        let geometry = self
+            .geometry
+            .profile_driven_optimisation(&profile.geometry)?;
+
+        Ok(Tag01Encoder {
+            id,
+            properties,
+            geometry,
+        })
+    }
+}
 
 impl AutomaticOptimisation for OwnedLayer01 {
     type UsedEncoder = Tag01Encoder;
@@ -22,4 +59,11 @@ pub struct Tag01Encoder {
     pub id: Option<IdEncoder>,
     pub properties: Vec<PropertyEncoder>,
     pub geometry: GeometryEncoder,
+}
+
+#[derive(Debug, Clone)]
+pub struct Tag01Profile {
+    pub id: (),
+    pub properties: (),
+    pub geometry: (),
 }
