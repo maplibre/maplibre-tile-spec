@@ -1,5 +1,5 @@
 use super::DecodedId;
-use crate::optimizer::AutomaticOptimisation;
+use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::{
     DataProfile, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, OwnedEncodedId, OwnedId,
     PhysicalEncoder,
@@ -164,6 +164,32 @@ impl IdOptimizer {
         } else {
             filtered
         }
+    }
+}
+
+impl ManualOptimisation for OwnedId {
+    type UsedEncoder = IdEncoder;
+
+    fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
+        let dec = borrowme::borrow(self).decode()?;
+        if let DecodedId(Some(_)) = dec {
+            *self = OwnedId::Encoded(OwnedEncodedId::from_decoded(&dec, encoder)?);
+        }
+        Ok(())
+    }
+}
+
+impl ProfileOptimisation for OwnedId {
+    type UsedEncoder = Option<IdEncoder>;
+    type Profile = ();
+
+    fn profile_driven_optimisation(
+        &mut self,
+        _profile: &Self::Profile,
+    ) -> Result<Self::UsedEncoder, MltError> {
+        Err(MltError::NotImplemented(
+            "ProfileOptimisation::profile_driven_optimisation",
+        ))
     }
 }
 

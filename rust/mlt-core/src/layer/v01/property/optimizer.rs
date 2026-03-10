@@ -18,7 +18,7 @@ use fsst::Compressor;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
-use crate::optimizer::AutomaticOptimisation;
+use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::utils::encode_zigzag;
 use crate::v01::property::strings::{
     SharedDictEncoder, SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
@@ -29,7 +29,7 @@ use crate::v01::property::{
 };
 use crate::v01::stream::IntEncoder;
 use crate::v01::{OwnedEncodedProperty, OwnedProperty};
-use crate::{FromDecoded as _, FromEncoded as _, MltError};
+use crate::{FromDecoded as _, MltError};
 
 /// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;
@@ -54,26 +54,51 @@ struct StringProfile {
     min_hashes: Vec<u64>,
 }
 
-impl AutomaticOptimisation for Vec<OwnedProperty> {
+impl ManualOptimisation for Vec<OwnedProperty> {
     type UsedEncoder = Vec<PropertyEncoder>;
 
+    fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
+        let mut decoded = Vec::with_capacity(self.len());
+        for d in &mut *self {
+            let d = borrowme::borrow(d).decode()?;
+            decoded.push(d);
+        }
+        *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, encoder)?
+            .into_iter()
+            .map(OwnedProperty::Encoded)
+            .collect();
+        Ok(())
+    }
+}
+
+impl ProfileOptimisation for Vec<OwnedProperty> {
+    type UsedEncoder = Vec<PropertyEncoder>;
+    type Profile = ();
+
+    fn profile_driven_optimisation(
+        &mut self,
+        _profile: &Self::Profile,
+    ) -> Result<Self::UsedEncoder, MltError> {
+        Err(MltError::NotImplemented(
+            "ProfileOptimisation::profile_driven_optimisation",
+        ))
+    }
+}
+
+impl AutomaticOptimisation for Vec<OwnedProperty> {
+    type UsedEncoder = Vec<PropertyEncoder>;
     fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
         let mut decoded = Vec::with_capacity(self.len());
         for d in &mut *self {
-            let dec = match d {
-                OwnedProperty::Encoded(e) => DecodedProperty::from_encoded(borrowme::borrow(e))?,
-                OwnedProperty::Decoded(d) => d.clone(),
-            };
-            decoded.push(dec);
+            let d = borrowme::borrow(d).decode()?;
+            decoded.push(d);
         }
 
         let enc = PropertyOptimizer::optimize(&mut decoded);
-        let owned_decoded = decoded
-            .iter()
-            .map(borrowme::ToOwned::to_owned)
-            .collect::<Vec<_>>();
-        let encs = Vec::<OwnedEncodedProperty>::from_decoded(&owned_decoded, enc.clone())?;
-        *self = encs.into_iter().map(OwnedProperty::Encoded).collect();
+        *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc.clone())?
+            .into_iter()
+            .map(OwnedProperty::Encoded)
+            .collect();
         Ok(enc)
     }
 }
