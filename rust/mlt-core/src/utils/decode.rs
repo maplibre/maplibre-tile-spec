@@ -96,8 +96,8 @@ fn decode_morton_one(morton_code: u32, num_bits: u32, coordinate_shift: u32) -> 
         y |= ((morton_code >> 1) & bit_mask) >> i;
     }
     (
-        x as i32 - coordinate_shift as i32,
-        y as i32 - coordinate_shift as i32,
+        x.cast_signed() - coordinate_shift.cast_signed(),
+        y.cast_signed() - coordinate_shift.cast_signed(),
     )
 }
 
@@ -119,16 +119,16 @@ pub fn decode_morton_delta(data: &[u32], num_bits: u32, coordinate_shift: u32) -
         // Sequential prefix sum into a stack buffer — no heap allocation.
         let mut buf = [0u32; 8];
         for (b, &d) in buf.iter_mut().zip(chunk.iter()) {
-            prev = prev.wrapping_add(d as i32);
-            *b = prev as u32;
+            prev = prev.wrapping_add(d.cast_signed());
+            *b = prev.cast_unsigned();
         }
         decode_morton_chunk(buf, num_bits, shift_vec, &mut out);
     }
 
     // Scalar tail for any codes that didn't fill a full SIMD chunk.
     for &d in chunks.remainder() {
-        prev = prev.wrapping_add(d as i32);
-        let (x, y) = decode_morton_one(prev as u32, num_bits, coordinate_shift);
+        prev = prev.wrapping_add(d.cast_signed());
+        let (x, y) = decode_morton_one(prev.cast_unsigned(), num_bits, coordinate_shift);
         out.push(x);
         out.push(y);
     }
@@ -189,8 +189,8 @@ fn decode_morton_chunk(buf: [u32; 8], num_bits: u32, shift_vec: u32x8, out: &mut
     let ys: [u32; 8] = (y_vec - shift_vec).into();
 
     for lane in 0..8 {
-        out.push(xs[lane] as i32);
-        out.push(ys[lane] as i32);
+        out.push(xs[lane].cast_signed());
+        out.push(ys[lane].cast_signed());
     }
 }
 
@@ -572,7 +572,10 @@ mod tests {
         // still round-trip correctly via wrapping arithmetic.
         let code_a = encode_morton(500, 300);
         let code_b = encode_morton(10, 10); // numerically smaller than code_a
-        let delta_b = code_b.cast_signed().wrapping_sub(code_a.cast_signed()) as u32;
+        let delta_b = code_b
+            .cast_signed()
+            .wrapping_sub(code_a.cast_signed())
+            .cast_unsigned();
         let deltas = vec![code_a, delta_b];
         let codes = vec![code_a, code_b];
         assert_eq!(
@@ -599,7 +602,7 @@ mod tests {
         codes
             .iter()
             .map(|&c| {
-                let delta = c.cast_signed().wrapping_sub(prev) as u32;
+                let delta = c.cast_signed().wrapping_sub(prev).cast_unsigned();
                 prev = c.cast_signed();
                 delta
             })
