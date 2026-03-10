@@ -68,10 +68,27 @@ check: (just 'cargo-install' 'cargo-hack')
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: ci-env-info (just 'java::gen-snippets')
+ci-coverage: ci-env-info (just 'java::gen-snippets') (just 'cargo-install' 'cargo-llvm-cov')
     mkdir -p target/llvm-cov
+
+    @echo "::group::Generate synthetic MLTs"
+    rm -rf ../test/synthetic/0x01-rust
+    cargo llvm-cov run --no-report -p mlt-synthetics
+    @echo "::endgroup::"
+
+    @echo "::group::Validate synthetic MLTs"
+    {{just}} rust::validate-synthetic
+    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
+    {{just}} rust::_verify-synthetic-equality
+    {{just}} rust::_assert-synthetic-mlt-identity
+    @echo "::endgroup::"
+
     # ATTENTION: the output-path here is used in the CI workflow
-    {{just}} rust::coverage '--codecov --output-path target/llvm-cov/codecov.info'
+    # --no-clean preserves profdata accumulated by the synthetic generation run above
+    # --doctests requires nightly (test job uses nightly toolchain)
+    @echo "::group::Coverage report"
+    {{just}} rust::coverage '--no-clean --doctests --codecov --output-path target/llvm-cov/codecov.info'
+    @echo "::endgroup::"
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-check: ci-env-info check
