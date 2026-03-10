@@ -136,7 +136,7 @@ ci-fuzz-cov target: (just 'cargo-install' 'cargo-fuzz')
     #!/usr/bin/env bash
     set -euo pipefail
 
-    {{just}} cargo-fuzz 'coverage' {{target}} --target x86_64-unknown-linux-gnu
+    cargo +nightly fuzz coverage {{target}} --target x86_64-unknown-linux-gnu
 
     LCOV_OUT="../target/llvm-cov/fuzz-{{target}}.lcov"
     mkdir -p "$(dirname "$LCOV_OUT")"
@@ -235,7 +235,7 @@ fuzz target='layer' *args: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-l
 # Seed the layer fuzz corpus from all .mlt test files (run once, or after new .mlts are added)
 fuzz-seed target='layer': (just 'cargo-install' 'fd' 'fd-find')
     mkdir -p mlt-core/fuzz/corpus/{{target}}
-    fd . ../test -e mlt -x cp {} mlt-core/fuzz/corpus/{{target}}/
+    fd . ../test -e mlt -x cp -f {} mlt-core/fuzz/corpus/{{target}}/
     {{just}} rust::fuzz-cmin {{target}}
 
 # Minimize the fuzz corpus for target (slow — run occasionally to prune redundant entries)
@@ -247,7 +247,7 @@ fuzz-cov target='layer': (just 'cargo-install' 'cargo-fuzz') (just 'cargo-instal
     #!/usr/bin/env bash
     set -euo pipefail
 
-    {{just}} cargo-fuzz 'coverage' {{target}} --target x86_64-unknown-linux-gnu
+    cargo +nightly fuzz coverage {{target}} --target x86_64-unknown-linux-gnu
 
     HTML_DIR="fuzz/coverage/{{target}}/html"
     mkdir -p "$HTML_DIR"
@@ -505,7 +505,6 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
         echo "Missing in $DIR_B but present in $DIR_A: $rel_path"
       fi
     done
-
 
 [private]
 [working-directory: 'mlt-core']
