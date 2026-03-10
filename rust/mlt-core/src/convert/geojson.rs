@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::layer::Layer;
+use crate::frames::Layer;
 use crate::v01::{DecodedId, DecodedProperty};
 use crate::{Decodable as _, MltError};
 

@@ -10,9 +10,9 @@ mod decode;
 mod encode;
 mod errors;
 pub use convert::{geojson, mvt};
-pub mod layer;
+pub mod frames;
 pub mod optimizer;
-pub use layer::{unknown, v01};
+pub use frames::{unknown, v01};
 #[doc(hidden)]
 pub mod utils;
 
@@ -22,7 +22,7 @@ pub use borrowme;
 pub use decode::*;
 pub use encode::*;
 pub use errors::{MltError, MltRefResult};
-pub use layer::{Layer, OwnedLayer};
+pub use frames::{Layer, OwnedLayer};
 
 /// Parse a sequence of binary layers
 pub fn parse_layers(mut input: &[u8]) -> Result<Vec<Layer<'_>>, MltError> {
