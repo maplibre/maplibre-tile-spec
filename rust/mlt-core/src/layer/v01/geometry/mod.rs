@@ -21,7 +21,7 @@ use crate::MltError::NotImplemented;
 use crate::analyse::{Analyze, StatType};
 use crate::decode::impl_decodable;
 use crate::encode::impl_encodable;
-use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _, checked_sum2};
+use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, SetOptionOnce as _, checked_sum2};
 use crate::v01::{
     ColumnType, DictionaryType, IntEncoding, LengthType, OffsetType, OwnedStream, Stream,
     StreamMeta, StreamType,
@@ -84,7 +84,7 @@ impl<'a> EncodedGeometry<'a> {
         use crate::utils::parse_varint;
 
         let (input, stream_count) = parse_varint::<u32>(input)?;
-        let stream_count = usize::try_from(stream_count)?;
+        let stream_count = stream_count.as_usize();
         if stream_count == 0 {
             return Ok((
                 input,
@@ -354,7 +354,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
                 offsets
                     .iter()
                     .flat_map(|&i| {
-                        let i = i as usize;
+                        let i = i.as_usize();
                         [dict[i * 2], dict[i * 2 + 1]]
                     })
                     .collect(),

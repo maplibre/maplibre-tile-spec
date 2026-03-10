@@ -163,6 +163,7 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
             &mut output_offset,
         )?;
 
+        // FIXME: handle usize casting to be within u32?
         let written = usize::try_from(output_offset.position())?;
 
         // Convert u32 words to big-endian bytes to match the wire format.
@@ -261,11 +262,12 @@ mod tests {
 
         #[test]
         fn test_rle_roundtrip_u32(data: Vec<u32>) {
-            let num_values = data.len();
+            let num_values = u32::try_from(data.len()).unwrap();
             let (runs, vals) = encode_rle(&data);
             let mut combined = runs.clone();
             combined.extend(vals);
-            let decoded = decode_rle(&combined, runs.len(), num_values).unwrap();
+            let runs = u32::try_from(runs.len()).unwrap();
+            let decoded = decode_rle(&combined, runs, num_values).unwrap();
             prop_assert_eq!(data, decoded);
         }
 

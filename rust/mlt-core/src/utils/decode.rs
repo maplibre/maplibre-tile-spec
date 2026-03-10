@@ -5,7 +5,7 @@ use wide::u32x8;
 use zigzag::ZigZag;
 
 use crate::MltError::{BufferUnderflow, InvalidPairStreamSize, RleRunLenInvalid};
-use crate::utils::take;
+use crate::utils::{AsUsize as _, take};
 use crate::{MltError, MltRefResult};
 
 /// Decode ([`ZigZag`] + delta) for Vec2s
@@ -48,11 +48,11 @@ pub fn decode_zigzag_delta<T: Copy + ZigZag + WrappingAdd + AsPrimitive<U>, U: '
 /// It serves the same purpose as the `decodeUnsignedRLE` and `decodeRLE` methods in the Java code.
 pub fn decode_rle<T: PrimInt + Debug>(
     data: &[T],
-    runs: usize,
-    num_rle_values: usize,
+    runs: u32,
+    num_rle_values: u32,
 ) -> Result<Vec<T>, MltError> {
-    let (run_lens, values) = data.split_at(runs);
-    let mut result = Vec::with_capacity(num_rle_values);
+    let (run_lens, values) = data.split_at(runs.as_usize());
+    let mut result = Vec::with_capacity(num_rle_values.as_usize());
     for (&run, &val) in run_lens.iter().zip(values.iter()) {
         let run_len = run
             .to_usize()
@@ -66,11 +66,11 @@ pub fn decode_bytes_to_u64s(mut input: &[u8], num_values: u32) -> MltRefResult<'
     let Some(expected_bytes) = num_values.checked_mul(8) else {
         return Err(BufferUnderflow(u32::MAX, input.len()));
     };
-    if input.len() < usize::try_from(expected_bytes)? {
+    if input.len() < expected_bytes.as_usize() {
         return Err(BufferUnderflow(expected_bytes, input.len()));
     }
 
-    let mut values = Vec::with_capacity(num_values as usize);
+    let mut values = Vec::with_capacity(num_values.as_usize());
     for _ in 0..num_values {
         let (new_input, bytes) = take(input, 8)?;
         let value = u64::from_le_bytes([
@@ -87,11 +87,11 @@ pub fn decode_bytes_to_u32s(mut input: &[u8], num_values: u32) -> MltRefResult<'
     let Some(expected_bytes) = num_values.checked_mul(4) else {
         return Err(BufferUnderflow(u32::MAX, input.len()));
     };
-    if input.len() < usize::try_from(expected_bytes)? {
+    if input.len() < expected_bytes.as_usize() {
         return Err(BufferUnderflow(expected_bytes, input.len()));
     }
 
-    let mut values = Vec::with_capacity(num_values as usize);
+    let mut values = Vec::with_capacity(num_values.as_usize());
     for _ in 0..num_values {
         let (new_input, bytes) = take(input, 4)?;
         let value = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
@@ -342,6 +342,7 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
             &mut output_offset,
         )?;
 
+        // FIXME: handle usize casting to be within u32?
         let decoded = usize::try_from(output_offset.position())?;
         if decoded < num_values {
             return Err(MltError::FastPforDecode(num_values, decoded));
