@@ -136,8 +136,6 @@ ci-fuzz-cov target: (just 'cargo-install' 'cargo-fuzz')
     #!/usr/bin/env bash
     set -euo pipefail
 
-    cargo +nightly fuzz coverage {{target}} --target x86_64-unknown-linux-gnu
-
     LCOV_OUT="../target/llvm-cov/fuzz-{{target}}.lcov"
     mkdir -p "$(dirname "$LCOV_OUT")"
     {{just}} rust::fuzz-llvm-cov {{target}} "$LCOV_OUT" export --format=lcov
@@ -246,8 +244,6 @@ fuzz-cmin target='layer': (cargo-fuzz 'cmin' target '--target' 'x86_64-unknown-l
 fuzz-cov target='layer': (just 'cargo-install' 'cargo-fuzz') (just 'cargo-install' 'rustfilt')
     #!/usr/bin/env bash
     set -euo pipefail
-
-    cargo +nightly fuzz coverage {{target}} --target x86_64-unknown-linux-gnu
 
     HTML_DIR="fuzz/coverage/{{target}}/html"
     mkdir -p "$HTML_DIR"
@@ -520,6 +516,7 @@ fuzz-llvm-cov target output_file *args:
     set -euo pipefail
 
     rustup component add llvm-tools-preview --toolchain nightly
+    cargo +nightly fuzz coverage {{target}} --target x86_64-unknown-linux-gnu
 
     SYSROOT=$(rustup run nightly rustc --print sysroot)
     HOST=$(rustup run nightly rustc -vV | sed -n 's/^host: //p')
