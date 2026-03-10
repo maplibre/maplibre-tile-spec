@@ -5,7 +5,6 @@ use std::fmt::{Debug, Formatter};
 use std::io::Write;
 
 pub use model::*;
-pub use optimizer::IdOptimizer;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
@@ -278,13 +277,13 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::{Decodable as _, Encodable as _};
+    use crate::optimizer::ManualOptimisation as _;
 
     // Helper function to encode and decode for roundtrip testing
     fn roundtrip(decoded: &DecodedId, config: IdEncoder) -> DecodedId {
-        let encoded = OwnedEncodedId::from_decoded(decoded, config).expect("Failed to encode");
-        let borrowed_encoded = borrowme::borrow(&encoded);
-        DecodedId::from_encoded(borrowed_encoded).expect("Failed to decode")
+        let mut owned = OwnedId::Decoded(Some(decoded.clone()));
+        owned.manual_optimisation(config).expect("Failed to encode");
+        borrowme::borrow(&owned).decode().expect("Failed to decode")
     }
 
     // Test that each config produces the correct variant and optional stream presence
@@ -433,7 +432,7 @@ mod tests {
         Ok(())
     }
 
-    /// Helper: Asserts that the Encodable trait API works correctly (encode -> materialize -> decode)
+    /// Helper: Asserts that the `ManualOptimisation` API works correctly (encode -> decode)
     fn assert_encodable_api_works(
         ids: Vec<Option<u64>>,
         config: IdEncoder,
@@ -441,17 +440,23 @@ mod tests {
         let decoded = DecodedId(ids.clone());
 
         let mut id_enum = OwnedId::Decoded(Some(decoded));
-        id_enum.encode_with(config).expect("Failed to encode");
+        id_enum
+            .manual_optimisation(config)
+            .expect("Failed to encode");
 
-        prop_assert!(!id_enum.is_decoded(), "Should be Encoded after encoding");
         prop_assert!(
-            id_enum.borrow_encoded().is_some(),
+            !matches!(id_enum, OwnedId::Decoded(_)),
+            "Should be Encoded after encoding"
+        );
+        prop_assert!(
+            matches!(id_enum, OwnedId::Encoded(Some(_))),
             "Encoded variant should be Some"
         );
 
-        let mut borrowed_id = borrowme::borrow(&id_enum);
-        let decoded_back = borrowed_id.materialize().expect("Failed to materialize");
-        prop_assert_eq!(decoded_back, &mut Some(DecodedId(ids)));
+        let decoded_back = borrowme::borrow(&id_enum)
+            .decode()
+            .expect("Failed to decode");
+        prop_assert_eq!(decoded_back, DecodedId(ids));
         Ok(())
     }
 

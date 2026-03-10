@@ -30,7 +30,7 @@ use crate::{FromDecoded as _, FromEncoded as _, MltError};
 ///      retain only `VarInt` physical encoders (the only physical encoder used by ID streams),
 ///      then pick the winner with `DataProfile::min_size_encoding_*`.
 /// 4. **Assemble and return `IdEncoder`.**
-pub struct IdOptimizer;
+struct IdOptimizer;
 
 impl IdOptimizer {
     /// Analyze and return a configured [`IdEncoder`].

@@ -13,7 +13,6 @@ use crate::MltError::{NotImplemented, UnsupportedPropertyEncoderCombination};
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::utils::{BinarySerializer as _, FmtOptVec, checked_sum3, f32_to_json, f64_to_json};
-pub use crate::v01::property::optimizer::PropertyOptimizer;
 pub use crate::v01::property::strings::{
     SharedDictEncoder, SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
     decode_shared_dict, decode_strings, decode_strings_with_presence, encode_shared_dict_prop,
