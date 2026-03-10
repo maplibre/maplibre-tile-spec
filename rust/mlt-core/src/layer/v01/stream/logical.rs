@@ -83,7 +83,7 @@ impl LogicalValue {
     pub fn decode_i32(self) -> Result<Vec<i32>, MltError> {
         match self.meta.encoding.logical {
             LogicalEncoding::None => match self.data {
-                LogicalData::VecU32(data) => Ok(decode_zigzag::<i32>(&data)),
+                LogicalData::VecU32(data) => Ok(decode_zigzag(&data)),
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
             },
             LogicalEncoding::Rle(rle) => match self.data {
