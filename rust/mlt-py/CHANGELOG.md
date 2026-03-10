@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.5...python-mlt-v0.1.6) - 2026-03-10
+
+### Other
+
+- *(rust)* rework our internal data model ([#1099](https://github.com/maplibre/maplibre-tile-spec/pull/1099))
+- *(rust)* move all structs to structs.rs ([#1094](https://github.com/maplibre/maplibre-tile-spec/pull/1094))
+
 ## [0.1.5](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.4...python-mlt-v0.1.5) - 2026-03-08
 
 ### Other
