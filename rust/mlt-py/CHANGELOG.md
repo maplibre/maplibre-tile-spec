@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.6...python-mlt-v0.1.7) - 2026-03-10
+
+### Other
+
+- *(rust)* move name into DecodedStrings ([#1108](https://github.com/maplibre/maplibre-tile-spec/pull/1108))
+
 ## [0.1.6](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.5...python-mlt-v0.1.6) - 2026-03-10
 
 ### Other

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.4.0...rust-mlt-core-v0.5.0) - 2026-03-10
+
+### Added
+
+- *(rust)* PGO based Id optimiser ([#1105](https://github.com/maplibre/maplibre-tile-spec/pull/1105))
+
+### Other
+
+- *(rust)* move name into DecodedStrings ([#1108](https://github.com/maplibre/maplibre-tile-spec/pull/1108))
+- *(rust)* change tests to be based on the new trait based optimisation api ([#1104](https://github.com/maplibre/maplibre-tile-spec/pull/1104))
+
 ## [0.4.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.3.0...rust-mlt-core-v0.4.0) - 2026-03-10
 
 ### Added
