@@ -165,17 +165,23 @@ impl BorrowmeBorrow for DecodedSharedDict<'static> {
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl<'a> arbitrary::Arbitrary<'a> for DecodedSharedDict<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        let prefix: String = u.arbitrary()?;
-        let prefix = Cow::Owned(prefix);
-        let values: Vec<String> = u.arbitrary()?;
+        let prefix = Cow::Owned(u.arbitrary()?);
         let mut data = String::new();
-        for value in values {
+        for value in u.arbitrary::<Vec<String>>()? {
             data.push_str(&value);
         }
+        let items: Vec<(String, Vec<(i32, i32)>)> = u.arbitrary()?;
+        let items = items
+            .into_iter()
+            .map(|(suffix, ranges)| DecodedSharedDictItem {
+                suffix: Cow::Owned(suffix),
+                ranges,
+            })
+            .collect();
         Ok(Self {
             prefix,
             data: Cow::Owned(data),
-            items: u.arbitrary()?,
+            items,
         })
     }
 }

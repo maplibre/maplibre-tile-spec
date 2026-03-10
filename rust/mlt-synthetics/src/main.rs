@@ -6,6 +6,7 @@
 mod layer;
 
 use std::fmt::Write as _;
+use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
 
