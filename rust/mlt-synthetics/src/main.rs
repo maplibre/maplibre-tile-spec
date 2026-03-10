@@ -453,27 +453,19 @@ fn generate_ids(w: &SynthWriter) {
         )
         .write("ids64_opt_delta");
 
+    let min_max = || {
+        vec![
+            Some(u64::MIN),
+            Some(u64::MAX),
+            Some(u64::MIN),
+            Some(u64::MAX),
+        ]
+    };
     four_p0()
-        .ids(
-            vec![
-                Some(u64::MIN),
-                Some(u64::MAX),
-                Some(u64::MIN),
-                Some(u64::MAX),
-            ],
-            IdEncoder::new(L::None, IdWidth::Id64),
-        )
+        .ids(min_max(), IdEncoder::new(L::None, IdWidth::Id64))
         .write("ids64_minmax-rust");
     four_p0()
-        .ids(
-            vec![
-                Some(u64::MIN),
-                Some(u64::MAX),
-                Some(u64::MIN),
-                Some(u64::MAX),
-            ],
-            IdEncoder::new(L::Delta, IdWidth::Id64),
-        )
+        .ids(min_max(), IdEncoder::new(L::Delta, IdWidth::Id64))
         .write("ids64_minmax_delta-rust");
 }
 
