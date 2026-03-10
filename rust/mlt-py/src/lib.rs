@@ -184,7 +184,7 @@ fn prop_value_to_py(py: Python<'_>, prop: &DecodedProperty, i: usize) -> Py<PyAn
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::Str(_, v) => match u32::try_from(i).ok().and_then(|i| v.get(i)) {
+        DecodedProperty::Str(v) => match u32::try_from(i).ok().and_then(|i| v.get(i)) {
             Some(s) => s.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },

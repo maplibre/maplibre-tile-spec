@@ -156,7 +156,7 @@ fn profile_string_columns(
         .iter()
         .enumerate()
         .filter_map(|(col_idx, prop)| {
-            if let DecodedProperty::Str(_, values) = prop {
+            if let DecodedProperty::Str(values) = prop {
                 let owned_values = values.dense_values();
                 let unique_set: HashSet<&str> = owned_values.iter().map(String::as_str).collect();
 
@@ -249,7 +249,7 @@ fn merge_str_to_shared_dicts(properties: &mut Vec<DecodedProperty<'_>>, groups: 
                     .strip_prefix(&prefix)
                     .unwrap_or(prop.name())
                     .to_owned();
-                let DecodedProperty::Str(_, values) = prop else {
+                let DecodedProperty::Str(values) = prop else {
                     unreachable!("group should only contain Str columns");
                 };
                 (suffix, borrowme::ToOwned::to_owned(values))
@@ -337,7 +337,7 @@ fn build_encoder(prop: &DecodedProperty<'_>) -> PropertyEncoder {
                 IntEncoder::auto_u64(&non_null),
             ))
         }
-        DecodedProperty::Str(_, v) => {
+        DecodedProperty::Str(v) => {
             let presence = presence_stream(v.has_nulls());
             let owned_values = v.dense_values();
             let non_null: Vec<&str> = owned_values.iter().map(String::as_str).collect();

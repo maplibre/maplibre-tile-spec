@@ -192,7 +192,7 @@ pub(crate) fn prop_values_to_js_column(prop: &DecodedProperty, n: u32) -> JsValu
                 Float64Array::from(buf.as_slice()).into()
             }
         }
-        DecodedProperty::Str(_, v) => {
+        DecodedProperty::Str(v) => {
             let arr = Array::new_with_length(n);
             for i in 0_u32..n {
                 if let Some(s) = v.get(i) {
@@ -226,7 +226,7 @@ pub(crate) fn prop_to_js(prop: &DecodedProperty, i: usize) -> Option<JsValue> {
         DecodedProperty::U64(v) => v.values[i].map(|n| JsValue::from_f64(n as f64)),
         DecodedProperty::F32(v) => v.values[i].map(|n| JsValue::from_f64(f64::from(n))),
         DecodedProperty::F64(v) => v.values[i].map(JsValue::from_f64),
-        DecodedProperty::Str(_, v) => u32::try_from(i)
+        DecodedProperty::Str(v) => u32::try_from(i)
             .ok()
             .and_then(|i| v.get(i))
             .map(JsValue::from_str),

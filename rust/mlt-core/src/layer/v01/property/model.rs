@@ -2,8 +2,6 @@ use std::borrow::Cow;
 
 use borrowme::borrowme;
 
-use crate::MltError;
-use crate::utils::apply_present;
 use crate::v01::Stream;
 
 #[borrowme(name = OwnedName)]
@@ -23,7 +21,7 @@ pub enum Property<'a> {
     Decoded(DecodedProperty<'a>),
 }
 
-pub enum ApproxPropertyType {
+pub enum PropertyKind {
     Bool,
     Integer,
     Float,
@@ -64,8 +62,7 @@ pub enum DecodedProperty<'a> {
     U64(DecodedScalar<u64>),
     F32(DecodedScalar<f32>),
     F64(DecodedScalar<f64>),
-    Str(String, DecodedStrings<'a>),
-    /// Shared dictionary payload, prefix, and child references.
+    Str(DecodedStrings<'a>),
     SharedDict(DecodedSharedDict<'a>),
 }
 
@@ -75,28 +72,12 @@ pub struct DecodedScalar<T: Copy + PartialEq> {
     pub name: String,
     pub values: Vec<Option<T>>,
 }
-impl<T: Copy + PartialEq> DecodedScalar<T> {
-    #[must_use]
-    pub fn new(name: String, values: Vec<Option<T>>) -> Self {
-        Self { name, values }
-    }
-
-    pub fn from_parts(
-        name: String,
-        presence: EncodedPresence,
-        values: Vec<T>,
-    ) -> Result<Self, MltError> {
-        Ok(Self {
-            name,
-            values: apply_present(presence.0, values)?,
-        })
-    }
-}
 
 /// A single sub-property within a shared dictionary decoded value.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct DecodedSharedDictItem {
+    // TODO: suffix should be Cow<'a, str>
     /// The suffix name of this sub-property (appended to parent struct name).
     pub suffix: String,
     /// Per-feature `(start, end)` byte offsets into the decoded shared corpus.
@@ -110,6 +91,7 @@ pub struct DecodedSharedDictItem {
 /// Decoded string values for a single property.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DecodedStrings<'a> {
+    pub name: Cow<'a, str>,
     /// Per-feature cumulative end offsets into `data`.
     /// Non-negative values indicate a present string and store its exclusive
     /// end offset in `data`.
@@ -131,7 +113,7 @@ pub struct DecodedStrings<'a> {
 /// Decoded shared dictionary payload shared by one or more child string properties.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DecodedSharedDict<'a> {
-    pub prefix: String,
+    pub prefix: Cow<'a, str>,
     pub data: Cow<'a, str>,
     pub items: Vec<DecodedSharedDictItem>,
 }
@@ -150,7 +132,6 @@ pub enum PropValue {
     F32(Vec<Option<f32>>),
     F64(Vec<Option<f64>>),
     Str(DecodedStrings<'static>),
-    /// Shared dictionary payload, prefix, and child references.
     SharedDict(DecodedSharedDict<'static>),
 }
 pub type SharedDictItem = DecodedSharedDictItem;
