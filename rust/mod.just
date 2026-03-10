@@ -85,10 +85,10 @@ ci-coverage: ci-env-info (just 'java::gen-snippets') (just 'cargo-install' 'carg
 
     # ATTENTION: the output-path here is used in the CI workflow
     # --no-clean preserves profdata accumulated by the synthetic generation run above
-    # --doctests requires nightly (test job uses nightly toolchain)
-    @echo "::group::Coverage report"
-    {{just}} rust::coverage '--no-clean --doctests --codecov --output-path target/llvm-cov/codecov.info'
-    @echo "::endgroup::"
+    # --doctests requires nightly (test job uses nightly toolchain) and may not be mixed with the main
+    {{just}} rust::coverage '--no-clean --no-report'
+    # target coverage and docktest coverage cannot be mixed
+    cargo llvm-cov --doctests --no-clean --workspace --codecov --output-path target/llvm-cov/codecov.info
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-check: ci-env-info check
@@ -206,17 +206,17 @@ clippy *args: (just 'cargo-install' 'cargo-hack')
 
 # Generate code coverage report. Installs `cargo llvm-cov`
 coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov')
-    cargo hack llvm-cov --lib --bins --tests --benches --examples --each-feature \
+    cargo hack llvm-cov --all-targets --each-feature \
         --workspace --exclude mlt-core \
         --exclude-no-default-features --exclude-all-features \
         --include-build-script {{args}}
-    cargo hack llvm-cov --lib --bins --tests --benches --examples --feature-powerset \
+    cargo hack llvm-cov --all-targets --feature-powerset \
         --package mlt-core \
         --exclude-features fastpfor-rust,default \
         --exclude-all-features \
         --features fastpfor-cpp \
         --include-build-script {{args}}
-    cargo hack llvm-cov --lib --bins --tests --benches --examples --feature-powerset \
+    cargo hack llvm-cov --all-targets --feature-powerset \
         --package mlt-core \
         --exclude-features fastpfor-cpp,default \
         --exclude-all-features \
