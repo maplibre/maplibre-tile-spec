@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.5...rust-mlt-v0.1.6) - 2026-03-10
+
+### Fixed
+
+- *(rust)* migrate part of our lengths from usize to u32 ([#1078](https://github.com/maplibre/maplibre-tile-spec/pull/1078))
+
+### Other
+
+- *(rust)* rework our internal data model ([#1099](https://github.com/maplibre/maplibre-tile-spec/pull/1099))
+
 ## [0.1.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.4...rust-mlt-v0.1.5) - 2026-03-08
 
 ### Other

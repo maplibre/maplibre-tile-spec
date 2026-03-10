@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.3.0...rust-mlt-core-v0.4.0) - 2026-03-10
+
+### Added
+
+- plumbing for ProfileOptimisation ([#1101](https://github.com/maplibre/maplibre-tile-spec/pull/1101))
+- *(rust)* trait based automatic optimiser ([#1093](https://github.com/maplibre/maplibre-tile-spec/pull/1093))
+
+### Fixed
+
+- *(rust)* migrate part of our lengths from usize to u32 ([#1078](https://github.com/maplibre/maplibre-tile-spec/pull/1078))
+
+### Other
+
+- *(rust)* rework our internal data model ([#1099](https://github.com/maplibre/maplibre-tile-spec/pull/1099))
+- *(rust)* rename structs to model ([#1100](https://github.com/maplibre/maplibre-tile-spec/pull/1100))
+- *(rust)* handle u32->usize, int overflows ([#1097](https://github.com/maplibre/maplibre-tile-spec/pull/1097))
+- *(rust)* move all structs to structs.rs ([#1094](https://github.com/maplibre/maplibre-tile-spec/pull/1094))
+- renamings in the encoder ([#1090](https://github.com/maplibre/maplibre-tile-spec/pull/1090))
+- *(rust)* refactoring step 3 ([#1088](https://github.com/maplibre/maplibre-tile-spec/pull/1088))
+- *(rust)* refactor name storage ([#1087](https://github.com/maplibre/maplibre-tile-spec/pull/1087))
+- *(rust)* more core renames, rm EncodedValues::typ ([#1084](https://github.com/maplibre/maplibre-tile-spec/pull/1084))
+- *(rust)* some more renames of internals ([#1082](https://github.com/maplibre/maplibre-tile-spec/pull/1082))
+- *(rust)* noop, only renames for future refactoring ([#1081](https://github.com/maplibre/maplibre-tile-spec/pull/1081))
+- make sure we write u32 varints instead of u64 varints ([#1080](https://github.com/maplibre/maplibre-tile-spec/pull/1080))
+- use simd for morton decoding ([#1069](https://github.com/maplibre/maplibre-tile-spec/pull/1069))
+
 ## [0.3.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.2.0...rust-mlt-core-v0.3.0) - 2026-03-08
 
 ### Added
