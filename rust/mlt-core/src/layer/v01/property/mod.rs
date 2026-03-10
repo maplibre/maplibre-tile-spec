@@ -12,9 +12,7 @@ pub use model::*;
 use crate::MltError::{NotImplemented, UnsupportedPropertyEncoderCombination};
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
-use crate::utils::{
-    BinarySerializer as _, FmtOptVec, apply_present, checked_sum3, f32_to_json, f64_to_json,
-};
+use crate::utils::{BinarySerializer as _, FmtOptVec, checked_sum3, f32_to_json, f64_to_json};
 pub use crate::v01::property::optimizer::PropertyOptimizer;
 pub use crate::v01::property::strings::{
     SharedDictEncoder, SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
@@ -358,16 +356,16 @@ impl DecodedProperty<'_> {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Self::Bool(name, _)
-            | Self::I8(name, _)
-            | Self::U8(name, _)
-            | Self::I32(name, _)
-            | Self::U32(name, _)
-            | Self::I64(name, _)
-            | Self::U64(name, _)
-            | Self::F32(name, _)
-            | Self::F64(name, _)
-            | Self::Str(name, _) => name,
+            Self::Bool(v) => &v.name,
+            Self::I8(v) => &v.name,
+            Self::U8(v) => &v.name,
+            Self::I32(v) => &v.name,
+            Self::U32(v) => &v.name,
+            Self::I64(v) => &v.name,
+            Self::U64(v) => &v.name,
+            Self::F32(v) => &v.name,
+            Self::F64(v) => &v.name,
+            Self::Str(name, _) => name,
             Self::SharedDict(shared_dict) => &shared_dict.prefix,
         }
     }
@@ -375,14 +373,14 @@ impl DecodedProperty<'_> {
     #[must_use]
     pub fn approx_type(&self) -> ApproxPropertyType {
         match self {
-            Self::Bool(..) => ApproxPropertyType::Bool,
-            Self::I8(..)
-            | Self::U8(..)
-            | Self::I32(..)
-            | Self::U32(..)
-            | Self::I64(..)
-            | Self::U64(..) => ApproxPropertyType::Integer,
-            Self::F32(..) | Self::F64(..) => ApproxPropertyType::Float,
+            Self::Bool(_) => ApproxPropertyType::Bool,
+            Self::I8(_)
+            | Self::U8(_)
+            | Self::I32(_)
+            | Self::U32(_)
+            | Self::I64(_)
+            | Self::U64(_) => ApproxPropertyType::Integer,
+            Self::F32(_) | Self::F64(_) => ApproxPropertyType::Float,
             Self::Str(..) => ApproxPropertyType::String,
             Self::SharedDict(..) => ApproxPropertyType::SharedDict,
         }
@@ -406,15 +404,15 @@ impl DecodedProperty<'_> {
 
     fn as_presence_stream(&self) -> Result<Vec<bool>, MltError> {
         Ok(match self {
-            Self::Bool(_, v) => v.iter().map(Option::is_some).collect(),
-            Self::I8(_, v) => v.iter().map(Option::is_some).collect(),
-            Self::U8(_, v) => v.iter().map(Option::is_some).collect(),
-            Self::I32(_, v) => v.iter().map(Option::is_some).collect(),
-            Self::U32(_, v) => v.iter().map(Option::is_some).collect(),
-            Self::I64(_, v) => v.iter().map(Option::is_some).collect(),
-            Self::U64(_, v) => v.iter().map(Option::is_some).collect(),
-            Self::F32(_, v) => v.iter().map(Option::is_some).collect(),
-            Self::F64(_, v) => v.iter().map(Option::is_some).collect(),
+            Self::Bool(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::I8(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::U8(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::I32(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::U32(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::I64(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::U64(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::F32(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::F64(v) => v.values.iter().map(Option::is_some).collect(),
             Self::Str(_, values) => values.presence_bools(),
             Self::SharedDict(..) => Err(NotImplemented("presence stream for shared dict"))?,
         })
@@ -422,16 +420,16 @@ impl DecodedProperty<'_> {
 
     fn collect_value_statistic(&self, stat: StatType) -> usize {
         match self {
-            Self::Bool(_, v) => v.collect_statistic(stat),
-            Self::I8(_, v) => v.collect_statistic(stat),
-            Self::U8(_, v) => v.collect_statistic(stat),
-            Self::I32(_, v) => v.collect_statistic(stat),
-            Self::U32(_, v) => v.collect_statistic(stat),
-            Self::I64(_, v) => v.collect_statistic(stat),
-            Self::U64(_, v) => v.collect_statistic(stat),
-            Self::F32(_, v) => v.collect_statistic(stat),
-            Self::F64(_, v) => v.collect_statistic(stat),
-            Self::Str(_, v) => v.collect_statistic(stat),
+            Self::Bool(v) => v.values.collect_statistic(stat),
+            Self::I8(v) => v.values.collect_statistic(stat),
+            Self::U8(v) => v.values.collect_statistic(stat),
+            Self::I32(v) => v.values.collect_statistic(stat),
+            Self::U32(v) => v.values.collect_statistic(stat),
+            Self::I64(v) => v.values.collect_statistic(stat),
+            Self::U64(v) => v.values.collect_statistic(stat),
+            Self::F32(v) => v.values.collect_statistic(stat),
+            Self::F64(v) => v.values.collect_statistic(stat),
+            Self::Str(_, values) => values.collect_statistic(stat),
             Self::SharedDict(shared_dict) => shared_dict
                 .items
                 .iter()
@@ -446,15 +444,15 @@ impl DecodedProperty<'_> {
         use serde_json::Value;
 
         match self {
-            Self::Bool(_, v) => v[i].map(Value::Bool),
-            Self::I8(_, v) => v[i].map(Value::from),
-            Self::U8(_, v) => v[i].map(Value::from),
-            Self::I32(_, v) => v[i].map(Value::from),
-            Self::U32(_, v) => v[i].map(Value::from),
-            Self::I64(_, v) => v[i].map(Value::from),
-            Self::U64(_, v) => v[i].map(Value::from),
-            Self::F32(_, v) => v[i].map(f32_to_json),
-            Self::F64(_, v) => v[i].map(f64_to_json),
+            Self::Bool(v) => v.values[i].map(Value::Bool),
+            Self::I8(v) => v.values[i].map(Value::from),
+            Self::U8(v) => v.values[i].map(Value::from),
+            Self::I32(v) => v.values[i].map(Value::from),
+            Self::U32(v) => v.values[i].map(Value::from),
+            Self::I64(v) => v.values[i].map(Value::from),
+            Self::U64(v) => v.values[i].map(Value::from),
+            Self::F32(v) => v.values[i].map(f32_to_json),
+            Self::F64(v) => v.values[i].map(f64_to_json),
             Self::Str(_, values) => values
                 .get(u32::try_from(i).ok()?)
                 .map(|s| Value::String(s.to_string())),
@@ -477,29 +475,25 @@ impl DecodedProperty<'_> {
 
 impl DecodedProperty<'static> {
     pub fn from_parts(name: impl Into<String>, values: PropValue) -> Self {
+        use DecodedScalar as S;
+        use PropValue as V;
         let name = name.into();
         match values {
-            PropValue::Bool(v) => Self::Bool(name, v),
-            PropValue::I8(v) => Self::I8(name, v),
-            PropValue::U8(v) => Self::U8(name, v),
-            PropValue::I32(v) => Self::I32(name, v),
-            PropValue::U32(v) => Self::U32(name, v),
-            PropValue::I64(v) => Self::I64(name, v),
-            PropValue::U64(v) => Self::U64(name, v),
-            PropValue::F32(v) => Self::F32(name, v),
-            PropValue::F64(v) => Self::F64(name, v),
-            PropValue::Str(values) => Self::Str(name, values),
-            PropValue::SharedDict(mut shared_dict) => {
+            V::Bool(v) => Self::Bool(S::new(name, v)),
+            V::I8(v) => Self::I8(S::new(name, v)),
+            V::U8(v) => Self::U8(S::new(name, v)),
+            V::I32(v) => Self::I32(S::new(name, v)),
+            V::U32(v) => Self::U32(S::new(name, v)),
+            V::I64(v) => Self::I64(S::new(name, v)),
+            V::U64(v) => Self::U64(S::new(name, v)),
+            V::F32(v) => Self::F32(S::new(name, v)),
+            V::F64(v) => Self::F64(S::new(name, v)),
+            V::Str(values) => Self::Str(name, values),
+            V::SharedDict(mut shared_dict) => {
                 shared_dict.prefix = name;
                 Self::SharedDict(shared_dict)
             }
         }
-    }
-}
-
-impl Default for DecodedProperty<'_> {
-    fn default() -> Self {
-        Self::Bool(String::new(), Vec::new())
     }
 }
 
@@ -508,15 +502,15 @@ impl BorrowmeToOwned for DecodedProperty<'_> {
 
     fn to_owned(&self) -> Self::Owned {
         match self {
-            Self::Bool(name, values) => DecodedProperty::Bool(name.clone(), values.clone()),
-            Self::I8(name, values) => DecodedProperty::I8(name.clone(), values.clone()),
-            Self::U8(name, values) => DecodedProperty::U8(name.clone(), values.clone()),
-            Self::I32(name, values) => DecodedProperty::I32(name.clone(), values.clone()),
-            Self::U32(name, values) => DecodedProperty::U32(name.clone(), values.clone()),
-            Self::I64(name, values) => DecodedProperty::I64(name.clone(), values.clone()),
-            Self::U64(name, values) => DecodedProperty::U64(name.clone(), values.clone()),
-            Self::F32(name, values) => DecodedProperty::F32(name.clone(), values.clone()),
-            Self::F64(name, values) => DecodedProperty::F64(name.clone(), values.clone()),
+            Self::Bool(v) => DecodedProperty::Bool(v.clone()),
+            Self::I8(v) => DecodedProperty::I8(v.clone()),
+            Self::U8(v) => DecodedProperty::U8(v.clone()),
+            Self::I32(v) => DecodedProperty::I32(v.clone()),
+            Self::U32(v) => DecodedProperty::U32(v.clone()),
+            Self::I64(v) => DecodedProperty::I64(v.clone()),
+            Self::U64(v) => DecodedProperty::U64(v.clone()),
+            Self::F32(v) => DecodedProperty::F32(v.clone()),
+            Self::F64(v) => DecodedProperty::F64(v.clone()),
             Self::Str(name, values) => {
                 DecodedProperty::Str(name.clone(), BorrowmeToOwned::to_owned(values))
             }
@@ -534,22 +528,20 @@ impl BorrowmeBorrow for DecodedProperty<'static> {
         Self: 'a;
 
     fn borrow(&self) -> Self::Target<'_> {
+        use DecodedProperty as P;
+        use DecodedScalar as S;
         match self {
-            Self::Bool(name, values) => DecodedProperty::Bool(name.clone(), values.clone()),
-            Self::I8(name, values) => DecodedProperty::I8(name.clone(), values.clone()),
-            Self::U8(name, values) => DecodedProperty::U8(name.clone(), values.clone()),
-            Self::I32(name, values) => DecodedProperty::I32(name.clone(), values.clone()),
-            Self::U32(name, values) => DecodedProperty::U32(name.clone(), values.clone()),
-            Self::I64(name, values) => DecodedProperty::I64(name.clone(), values.clone()),
-            Self::U64(name, values) => DecodedProperty::U64(name.clone(), values.clone()),
-            Self::F32(name, values) => DecodedProperty::F32(name.clone(), values.clone()),
-            Self::F64(name, values) => DecodedProperty::F64(name.clone(), values.clone()),
-            Self::Str(name, values) => {
-                DecodedProperty::Str(name.clone(), BorrowmeBorrow::borrow(values))
-            }
-            Self::SharedDict(shared_dict) => {
-                DecodedProperty::SharedDict(BorrowmeBorrow::borrow(shared_dict))
-            }
+            Self::Bool(v) => P::Bool(S::new(v.name.clone(), v.values.clone())),
+            Self::I8(v) => P::I8(S::new(v.name.clone(), v.values.clone())),
+            Self::U8(v) => P::U8(S::new(v.name.clone(), v.values.clone())),
+            Self::I32(v) => P::I32(S::new(v.name.clone(), v.values.clone())),
+            Self::U32(v) => P::U32(S::new(v.name.clone(), v.values.clone())),
+            Self::I64(v) => P::I64(S::new(v.name.clone(), v.values.clone())),
+            Self::U64(v) => P::U64(S::new(v.name.clone(), v.values.clone())),
+            Self::F32(v) => P::F32(S::new(v.name.clone(), v.values.clone())),
+            Self::F64(v) => P::F64(S::new(v.name.clone(), v.values.clone())),
+            Self::Str(name, values) => P::Str(name.clone(), BorrowmeBorrow::borrow(values)),
+            Self::SharedDict(shared_dict) => P::SharedDict(BorrowmeBorrow::borrow(shared_dict)),
         }
     }
 }
@@ -557,18 +549,17 @@ impl BorrowmeBorrow for DecodedProperty<'static> {
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl<'a> arbitrary::Arbitrary<'a> for DecodedProperty<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        let name: String = u.arbitrary()?;
         Ok(match u.int_in_range(0..=9)? {
-            0 => Self::Bool(name, u.arbitrary()?),
-            1 => Self::I8(name, u.arbitrary()?),
-            2 => Self::U8(name, u.arbitrary()?),
-            3 => Self::I32(name, u.arbitrary()?),
-            4 => Self::U32(name, u.arbitrary()?),
-            5 => Self::I64(name, u.arbitrary()?),
-            6 => Self::U64(name, u.arbitrary()?),
-            7 => Self::F32(name, u.arbitrary()?),
-            8 => Self::F64(name, u.arbitrary()?),
-            _ => Self::Str(name, u.arbitrary()?),
+            0 => Self::Bool(u.arbitrary()?),
+            1 => Self::I8(u.arbitrary()?),
+            2 => Self::U8(u.arbitrary()?),
+            3 => Self::I32(u.arbitrary()?),
+            4 => Self::U32(u.arbitrary()?),
+            5 => Self::I64(u.arbitrary()?),
+            6 => Self::U64(u.arbitrary()?),
+            7 => Self::F32(u.arbitrary()?),
+            8 => Self::F64(u.arbitrary()?),
+            _ => Self::Str(u.arbitrary()?, u.arbitrary()?),
         })
     }
 }
@@ -576,50 +567,50 @@ impl<'a> arbitrary::Arbitrary<'a> for DecodedProperty<'static> {
 impl Debug for DecodedProperty<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Bool(name, v) => f
+            Self::Bool(v) => f
                 .debug_tuple("Bool")
-                .field(name)
-                .field(&FmtOptVec(v))
+                .field(&v.name)
+                .field(&FmtOptVec(&v.values))
                 .finish(),
-            Self::I8(name, v) => f
+            Self::I8(v) => f
                 .debug_tuple("I8")
-                .field(name)
-                .field(&FmtOptVec(v))
+                .field(&v.name)
+                .field(&FmtOptVec(&v.values))
                 .finish(),
-            Self::U8(name, v) => f
+            Self::U8(v) => f
                 .debug_tuple("U8")
-                .field(name)
-                .field(&FmtOptVec(v))
+                .field(&v.name)
+                .field(&FmtOptVec(&v.values))
                 .finish(),
-            Self::I32(name, v) => f
+            Self::I32(v) => f
                 .debug_tuple("I32")
-                .field(name)
-                .field(&FmtOptVec(v))
+                .field(&v.name)
+                .field(&FmtOptVec(&v.values))
                 .finish(),
-            Self::U32(name, v) => f
+            Self::U32(v) => f
                 .debug_tuple("U32")
-                .field(name)
-                .field(&FmtOptVec(v))
+                .field(&v.name)
+                .field(&FmtOptVec(&v.values))
                 .finish(),
-            Self::I64(name, v) => f
+            Self::I64(v) => f
                 .debug_tuple("I64")
-                .field(name)
-                .field(&FmtOptVec(v))
+                .field(&v.name)
+                .field(&FmtOptVec(&v.values))
                 .finish(),
-            Self::U64(name, v) => f
+            Self::U64(v) => f
                 .debug_tuple("U64")
-                .field(name)
-                .field(&FmtOptVec(v))
+                .field(&v.name)
+                .field(&FmtOptVec(&v.values))
                 .finish(),
-            Self::F32(name, v) => f
+            Self::F32(v) => f
                 .debug_tuple("F32")
-                .field(name)
-                .field(&FmtOptVec(v))
+                .field(&v.name)
+                .field(&FmtOptVec(&v.values))
                 .finish(),
-            Self::F64(name, v) => f
+            Self::F64(v) => f
                 .debug_tuple("F64")
-                .field(name)
-                .field(&FmtOptVec(v))
+                .field(&v.name)
+                .field(&FmtOptVec(&v.values))
                 .finish(),
             Self::Str(name, values) => {
                 let values = values.materialize();
@@ -634,6 +625,13 @@ impl Debug for DecodedProperty<'_> {
                 .field(&shared_dict.items)
                 .finish(),
         }
+    }
+}
+
+// for impl_decodable
+impl Default for DecodedProperty<'_> {
+    fn default() -> Self {
+        Self::Bool(DecodedScalar::new(String::new(), Vec::new()))
     }
 }
 
@@ -805,6 +803,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
     type Encoder = ScalarEncoder;
 
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
+        use DecodedProperty as D;
         let presence = if encoder.presence == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.as_presence_stream()?;
             Some(OwnedStream::encode_presence(&present_vec)?)
@@ -813,52 +812,52 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
         };
 
         match (decoded, encoder.value) {
-            (DecodedProperty::Bool(name, b), ScalarValueEncoder::Bool) => Ok(Self::Bool(
-                OwnedName(name.clone()),
+            (D::Bool(v), ScalarValueEncoder::Bool) => Ok(Self::Bool(
+                OwnedName(v.name.clone()),
                 OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_bools(&unapply_presence(b))?,
+                OwnedStream::encode_bools(&unapply_presence(&v.values))?,
             )),
-            (DecodedProperty::I8(name, i), ScalarValueEncoder::Int(enc)) => Ok(Self::I8(
-                OwnedName(name.clone()),
+            (D::I8(v), ScalarValueEncoder::Int(enc)) => Ok(Self::I8(
+                OwnedName(v.name.clone()),
                 OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_i8s(&unapply_presence(i), enc)?,
+                OwnedStream::encode_i8s(&unapply_presence(&v.values), enc)?,
             )),
-            (DecodedProperty::U8(name, u), ScalarValueEncoder::Int(enc)) => Ok(Self::U8(
-                OwnedName(name.clone()),
+            (D::U8(v), ScalarValueEncoder::Int(enc)) => Ok(Self::U8(
+                OwnedName(v.name.clone()),
                 OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_u8s(&unapply_presence(u), enc)?,
+                OwnedStream::encode_u8s(&unapply_presence(&v.values), enc)?,
             )),
-            (DecodedProperty::I32(name, i), ScalarValueEncoder::Int(enc)) => Ok(Self::I32(
-                OwnedName(name.clone()),
+            (D::I32(v), ScalarValueEncoder::Int(enc)) => Ok(Self::I32(
+                OwnedName(v.name.clone()),
                 OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_i32s(&unapply_presence(i), enc)?,
+                OwnedStream::encode_i32s(&unapply_presence(&v.values), enc)?,
             )),
-            (DecodedProperty::U32(name, u), ScalarValueEncoder::Int(enc)) => Ok(Self::U32(
-                OwnedName(name.clone()),
+            (D::U32(v), ScalarValueEncoder::Int(enc)) => Ok(Self::U32(
+                OwnedName(v.name.clone()),
                 OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_u32s(&unapply_presence(u), enc)?,
+                OwnedStream::encode_u32s(&unapply_presence(&v.values), enc)?,
             )),
-            (DecodedProperty::I64(name, i), ScalarValueEncoder::Int(enc)) => Ok(Self::I64(
-                OwnedName(name.clone()),
+            (D::I64(v), ScalarValueEncoder::Int(enc)) => Ok(Self::I64(
+                OwnedName(v.name.clone()),
                 OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_i64s(&unapply_presence(i), enc)?,
+                OwnedStream::encode_i64s(&unapply_presence(&v.values), enc)?,
             )),
-            (DecodedProperty::U64(name, u), ScalarValueEncoder::Int(enc)) => Ok(Self::U64(
-                OwnedName(name.clone()),
+            (D::U64(v), ScalarValueEncoder::Int(enc)) => Ok(Self::U64(
+                OwnedName(v.name.clone()),
                 OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_u64s(&unapply_presence(u), enc)?,
+                OwnedStream::encode_u64s(&unapply_presence(&v.values), enc)?,
             )),
-            (DecodedProperty::F32(name, f), ScalarValueEncoder::Float) => Ok(Self::F32(
-                OwnedName(name.clone()),
+            (D::F32(v), ScalarValueEncoder::Float) => Ok(Self::F32(
+                OwnedName(v.name.clone()),
                 OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_f32(&unapply_presence(f))?,
+                OwnedStream::encode_f32(&unapply_presence(&v.values))?,
             )),
-            (DecodedProperty::F64(name, d), ScalarValueEncoder::Float) => Ok(Self::F64(
-                OwnedName(name.clone()),
+            (D::F64(v), ScalarValueEncoder::Float) => Ok(Self::F64(
+                OwnedName(v.name.clone()),
                 OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_f64(&unapply_presence(d))?,
+                OwnedStream::encode_f64(&unapply_presence(&v.values))?,
             )),
-            (DecodedProperty::Str(name, s), ScalarValueEncoder::String(enc)) => {
+            (D::Str(name, s), ScalarValueEncoder::String(enc)) => {
                 let str_enc = match enc {
                     StrEncoder::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
                         &s.dense_values(),
@@ -878,7 +877,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                     str_enc,
                 ))
             }
-            (DecodedProperty::SharedDict(..), _) => Err(NotImplemented(
+            (D::SharedDict(..), _) => Err(NotImplemented(
                 "SharedDict cannot be encoded via ScalarEncoder",
             ))?,
             (v, e) => Err(UnsupportedPropertyEncoderCombination(
@@ -897,39 +896,56 @@ impl<'a> FromEncoded<'a> for DecodedProperty<'a> {
     type Input = EncodedProperty<'a>;
 
     fn from_encoded(v: EncodedProperty<'_>) -> Result<Self, MltError> {
+        use EncodedProperty as E;
         let name = v.name().to_string();
         Ok(match v {
-            EncodedProperty::Bool(_, presence, data) => {
-                Self::Bool(name, apply_present(presence.0, data.decode_bools()?)?)
-            }
-            EncodedProperty::I8(_, presence, data) => {
-                Self::I8(name, apply_present(presence.0, data.decode_i8s()?)?)
-            }
-            EncodedProperty::U8(_, presence, data) => {
-                Self::U8(name, apply_present(presence.0, data.decode_u8s()?)?)
-            }
-            EncodedProperty::I32(_, presence, data) => {
-                Self::I32(name, apply_present(presence.0, data.decode_i32s()?)?)
-            }
-            EncodedProperty::U32(_, presence, data) => {
-                Self::U32(name, apply_present(presence.0, data.decode_u32s()?)?)
-            }
-            EncodedProperty::I64(_, presence, data) => {
-                Self::I64(name, apply_present(presence.0, data.decode_i64()?)?)
-            }
-            EncodedProperty::U64(_, presence, data) => {
-                Self::U64(name, apply_present(presence.0, data.decode_u64()?)?)
-            }
-            EncodedProperty::F32(_, presence, data) => {
-                Self::F32(name, apply_present(presence.0, data.decode_f32()?)?)
-            }
-            EncodedProperty::F64(_, presence, data) => {
-                Self::F64(name, apply_present(presence.0, data.decode_f64()?)?)
-            }
-            EncodedProperty::Str(_, presence, s) => {
-                Self::Str(name, decode_strings_with_presence(presence, s)?)
-            }
-            EncodedProperty::SharedDict(_, sd, children) => {
+            E::Bool(_, presence, data) => Self::Bool(DecodedScalar::from_parts(
+                name,
+                presence,
+                data.decode_bools()?,
+            )?),
+            E::I8(_, presence, data) => Self::I8(DecodedScalar::from_parts(
+                name,
+                presence,
+                data.decode_i8s()?,
+            )?),
+            E::U8(_, presence, data) => Self::U8(DecodedScalar::from_parts(
+                name,
+                presence,
+                data.decode_u8s()?,
+            )?),
+            E::I32(_, presence, data) => Self::I32(DecodedScalar::from_parts(
+                name,
+                presence,
+                data.decode_i32s()?,
+            )?),
+            E::U32(_, presence, data) => Self::U32(DecodedScalar::from_parts(
+                name,
+                presence,
+                data.decode_u32s()?,
+            )?),
+            E::I64(_, presence, data) => Self::I64(DecodedScalar::from_parts(
+                name,
+                presence,
+                data.decode_i64()?,
+            )?),
+            E::U64(_, presence, data) => Self::U64(DecodedScalar::from_parts(
+                name,
+                presence,
+                data.decode_u64()?,
+            )?),
+            E::F32(_, presence, data) => Self::F32(DecodedScalar::from_parts(
+                name,
+                presence,
+                data.decode_f32()?,
+            )?),
+            E::F64(_, presence, data) => Self::F64(DecodedScalar::from_parts(
+                name,
+                presence,
+                data.decode_f64()?,
+            )?),
+            E::Str(_, presence, s) => Self::Str(name, decode_strings_with_presence(presence, s)?),
+            E::SharedDict(_, sd, children) => {
                 Self::SharedDict(decode_shared_dict(name, &sd, &children)?)
             }
         })

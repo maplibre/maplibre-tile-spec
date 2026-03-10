@@ -148,39 +148,39 @@ fn geom_to_wkb(
 
 fn prop_value_to_py(py: Python<'_>, prop: &DecodedProperty, i: usize) -> Py<PyAny> {
     match prop {
-        DecodedProperty::Bool(_, v) => match v[i] {
+        DecodedProperty::Bool(v) => match v.values[i] {
             Some(b) => b.into_pyobject(py).unwrap().to_owned().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::I8(_, v) => match v[i] {
+        DecodedProperty::I8(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::U8(_, v) => match v[i] {
+        DecodedProperty::U8(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::I32(_, v) => match v[i] {
+        DecodedProperty::I32(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::U32(_, v) => match v[i] {
+        DecodedProperty::U32(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::I64(_, v) => match v[i] {
+        DecodedProperty::I64(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::U64(_, v) => match v[i] {
+        DecodedProperty::U64(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::F32(_, v) => match v[i] {
+        DecodedProperty::F32(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::F64(_, v) => match v[i] {
+        DecodedProperty::F64(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },

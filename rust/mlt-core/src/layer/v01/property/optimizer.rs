@@ -279,19 +279,20 @@ fn merge_str_to_shared_dicts(properties: &mut Vec<DecodedProperty<'_>>, groups: 
 /// Build an encoder for any property type.
 fn build_encoder(prop: &DecodedProperty<'_>) -> PropertyEncoder {
     match prop {
-        DecodedProperty::Bool(_, v) => {
-            PropertyEncoder::Scalar(ScalarEncoder::bool(presence_stream(has_nulls(v))))
+        DecodedProperty::Bool(v) => {
+            PropertyEncoder::Scalar(ScalarEncoder::bool(presence_stream(has_nulls(&v.values))))
         }
-        DecodedProperty::F32(_, v) => {
-            PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(v))))
+        DecodedProperty::F32(v) => {
+            PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(&v.values))))
         }
-        DecodedProperty::F64(_, v) => {
-            PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(v))))
+        DecodedProperty::F64(v) => {
+            PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(&v.values))))
         }
-        DecodedProperty::I8(_, v) => {
-            let presence = presence_stream(has_nulls(v));
+        DecodedProperty::I8(v) => {
+            let presence = presence_stream(has_nulls(&v.values));
             // FIXME: inaccurate, but encoders don't support i8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
             let non_null = v
+                .values
                 .iter()
                 .flatten()
                 .copied()
@@ -300,39 +301,39 @@ fn build_encoder(prop: &DecodedProperty<'_>) -> PropertyEncoder {
             let enc = encode_zigzag(&non_null);
             PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
         }
-        DecodedProperty::U8(_, v) => {
-            let presence = presence_stream(has_nulls(v));
+        DecodedProperty::U8(v) => {
+            let presence = presence_stream(has_nulls(&v.values));
             // FIXME: inaccurate, but encoders don't support u8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
-            let non_null: Vec<u32> = v.iter().flatten().copied().map(u32::from).collect();
+            let non_null: Vec<u32> = v.values.iter().flatten().copied().map(u32::from).collect();
             PropertyEncoder::Scalar(ScalarEncoder::int(
                 presence,
                 IntEncoder::auto_u32(&non_null),
             ))
         }
-        DecodedProperty::I32(_, v) => {
-            let presence = presence_stream(has_nulls(v));
-            let non_null = v.iter().flatten().copied().collect::<Vec<i32>>();
+        DecodedProperty::I32(v) => {
+            let presence = presence_stream(has_nulls(&v.values));
+            let non_null = v.values.iter().flatten().copied().collect::<Vec<i32>>();
             let enc = encode_zigzag(&non_null);
             PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
         }
-        DecodedProperty::U32(_, v) => {
-            let presence = presence_stream(has_nulls(v));
-            let non_null: Vec<u32> = v.iter().flatten().copied().collect();
+        DecodedProperty::U32(v) => {
+            let presence = presence_stream(has_nulls(&v.values));
+            let non_null: Vec<u32> = v.values.iter().flatten().copied().collect();
             PropertyEncoder::Scalar(ScalarEncoder::int(
                 presence,
                 IntEncoder::auto_u32(&non_null),
             ))
         }
-        DecodedProperty::I64(_, v) => {
-            let presence = presence_stream(has_nulls(v));
-            let non_null = v.iter().flatten().copied().collect::<Vec<i64>>();
-            let enc = encode_zigzag(&non_null);
+        DecodedProperty::I64(v) => {
+            let presence = presence_stream(has_nulls(&v.values));
+            let non_null = &v.values.iter().flatten().copied().collect::<Vec<i64>>();
+            let enc = encode_zigzag(non_null);
             PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u64(&enc)))
         }
-        DecodedProperty::U64(_, v) => {
-            let non_null: Vec<u64> = v.iter().flatten().copied().collect();
+        DecodedProperty::U64(v) => {
+            let non_null: Vec<u64> = v.values.iter().flatten().copied().collect();
             PropertyEncoder::Scalar(ScalarEncoder::int(
-                presence_stream(has_nulls(v)),
+                presence_stream(has_nulls(&v.values)),
                 IntEncoder::auto_u64(&non_null),
             ))
         }

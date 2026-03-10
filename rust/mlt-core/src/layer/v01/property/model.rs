@@ -2,6 +2,8 @@ use std::borrow::Cow;
 
 use borrowme::borrowme;
 
+use crate::MltError;
+use crate::utils::apply_present;
 use crate::v01::Stream;
 
 #[borrowme(name = OwnedName)]
@@ -53,18 +55,42 @@ pub enum EncodedProperty<'a> {
 /// Decoded property values in a typed enum form.
 #[derive(Clone, PartialEq)]
 pub enum DecodedProperty<'a> {
-    Bool(String, Vec<Option<bool>>),
-    I8(String, Vec<Option<i8>>),
-    U8(String, Vec<Option<u8>>),
-    I32(String, Vec<Option<i32>>),
-    U32(String, Vec<Option<u32>>),
-    I64(String, Vec<Option<i64>>),
-    U64(String, Vec<Option<u64>>),
-    F32(String, Vec<Option<f32>>),
-    F64(String, Vec<Option<f64>>),
+    Bool(DecodedScalar<bool>),
+    I8(DecodedScalar<i8>),
+    U8(DecodedScalar<u8>),
+    I32(DecodedScalar<i32>),
+    U32(DecodedScalar<u32>),
+    I64(DecodedScalar<i64>),
+    U64(DecodedScalar<u64>),
+    F32(DecodedScalar<f32>),
+    F64(DecodedScalar<f64>),
     Str(String, DecodedStrings<'a>),
     /// Shared dictionary payload, prefix, and child references.
     SharedDict(DecodedSharedDict<'a>),
+}
+
+#[derive(Clone, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub struct DecodedScalar<T: Copy + PartialEq> {
+    pub name: String,
+    pub values: Vec<Option<T>>,
+}
+impl<T: Copy + PartialEq> DecodedScalar<T> {
+    #[must_use]
+    pub fn new(name: String, values: Vec<Option<T>>) -> Self {
+        Self { name, values }
+    }
+
+    pub fn from_parts(
+        name: String,
+        presence: EncodedPresence,
+        values: Vec<T>,
+    ) -> Result<Self, MltError> {
+        Ok(Self {
+            name,
+            values: apply_present(presence.0, values)?,
+        })
+    }
 }
 
 /// A single sub-property within a shared dictionary decoded value.
