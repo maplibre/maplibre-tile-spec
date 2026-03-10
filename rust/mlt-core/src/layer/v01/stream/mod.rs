@@ -1,16 +1,16 @@
 use crate::errors::AsMltError as _;
 mod encoder;
 mod logical;
+mod model;
 mod optimizer;
 mod physical;
-mod structs;
 
 use std::fmt::Debug;
 use std::io::Write;
 use std::{fmt, io};
 
 use integer_encoding::VarIntWriter as _;
-pub use structs::*;
+pub use model::*;
 
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{

@@ -1,8 +1,8 @@
 mod decode;
 mod encode;
 mod geotype;
+mod model;
 mod optimizer;
-mod structs;
 
 use std::fmt::Debug;
 use std::io::Write;
@@ -14,8 +14,8 @@ use decode::{
 };
 pub use encode::GeometryEncoder;
 use integer_encoding::VarIntWriter as _;
+pub use model::*;
 pub use optimizer::GeometryOptimizer;
-pub use structs::*;
 
 use crate::MltError::NotImplemented;
 use crate::analyse::{Analyze, StatType};

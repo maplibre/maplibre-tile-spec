@@ -1,11 +1,11 @@
+mod model;
 mod optimizer;
-mod structs;
 
 use std::fmt::{Debug, Formatter};
 use std::io::Write;
 
+pub use model::*;
 pub use optimizer::IdOptimizer;
-pub use structs::*;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
