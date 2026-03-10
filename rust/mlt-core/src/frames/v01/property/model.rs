@@ -203,7 +203,7 @@ pub enum EncodedStrings<'a> {
 pub struct EncodedPresence<'a>(pub Option<Stream<'a>>);
 
 /// Instruction for how to encode a single decoded property when batch-encoding a
-/// [`Vec<DecodedProperty>`] via [`FromDecoded`].
+/// [`Vec<DecodedProperty>`] via [`crate::FromDecoded`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PropertyEncoder {
     /// How to encode a scalar property
