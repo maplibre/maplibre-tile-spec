@@ -135,7 +135,14 @@ impl BorrowmeToOwned for DecodedSharedDict<'_> {
         DecodedSharedDict {
             prefix: Cow::Owned(self.prefix.as_ref().to_string()),
             data: Cow::Owned(self.data.as_ref().to_string()),
-            items: self.items.clone(),
+            items: self
+                .items
+                .iter()
+                .map(|item| DecodedSharedDictItem {
+                    suffix: Cow::Owned(item.suffix.as_ref().to_string()),
+                    ranges: item.ranges.clone(),
+                })
+                .collect(),
         }
     }
 }
@@ -278,7 +285,7 @@ pub(crate) fn collect_shared_dict_spans(items: &[DecodedSharedDictItem]) -> Vec<
     spans
 }
 
-impl DecodedSharedDictItem {
+impl DecodedSharedDictItem<'_> {
     #[must_use]
     pub fn feature_count(&self) -> usize {
         self.ranges.len()
@@ -669,7 +676,7 @@ pub fn encode_shared_dictionary(
     ))
 }
 
-/// Encode a shared dictionary property directly from `PropValue::SharedDict` and `SharedDictEncoder`.
+/// Encode a shared dictionary property directly from `DecodedProperty::SharedDict` and `SharedDictEncoder`.
 pub fn encode_shared_dict_prop(
     shared_dict: &DecodedSharedDict<'_>,
     encoder: &SharedDictEncoder,
@@ -733,7 +740,7 @@ pub fn encode_shared_dict_prop(
         )?;
 
         children.push(OwnedEncodedSharedDictChild {
-            name: OwnedName(item.suffix.clone()),
+            name: OwnedName(item.suffix.to_string()),
             presence: crate::v01::OwnedEncodedPresence(presence),
             data,
         });
@@ -814,7 +821,10 @@ pub fn build_decoded_shared_dict(
                         ranges.push((-1, -1));
                     }
                 }
-                Ok(DecodedSharedDictItem { suffix, ranges })
+                Ok(DecodedSharedDictItem {
+                    suffix: suffix.into(),
+                    ranges,
+                })
             },
         )
         .collect::<Result<Vec<_>, _>>()?;
@@ -1166,7 +1176,7 @@ pub fn decode_shared_dict(
                 .collect::<Result<Vec<_>, _>>()?
             };
             Ok(DecodedSharedDictItem {
-                suffix: child.name.0.to_string(),
+                suffix: child.name.0.to_string().into(),
                 ranges,
             })
         })

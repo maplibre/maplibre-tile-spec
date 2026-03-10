@@ -467,7 +467,7 @@ impl DecodedProperty<'_> {
                 let mut obj = serde_json::Map::new();
                 for item in &shared_dict.items {
                     if let Some(s) = item.get(shared_dict, i) {
-                        obj.insert(item.suffix.clone(), Value::String(s.to_string()));
+                        obj.insert(item.suffix.to_string(), Value::String(s.to_string()));
                     }
                 }
                 if obj.is_empty() {
@@ -480,37 +480,58 @@ impl DecodedProperty<'_> {
     }
 }
 
-impl DecodedProperty<'static> {
-    pub fn from_parts(name: impl Into<String>, values: PropValue) -> Self {
-        use DecodedScalar as S;
-        use PropValue as V;
-        let name = name.into();
-        match values {
-            V::Bool(v) => Self::Bool(S::new(name, v)),
-            V::I8(v) => Self::I8(S::new(name, v)),
-            V::U8(v) => Self::U8(S::new(name, v)),
-            V::I32(v) => Self::I32(S::new(name, v)),
-            V::U32(v) => Self::U32(S::new(name, v)),
-            V::I64(v) => Self::I64(S::new(name, v)),
-            V::U64(v) => Self::U64(S::new(name, v)),
-            V::F32(v) => Self::F32(S::new(name, v)),
-            V::F64(v) => Self::F64(S::new(name, v)),
-            V::Str(mut values) => {
-                values.name = Cow::Owned(name);
-                Self::Str(values)
-            }
-            V::SharedDict(mut shared_dict) => {
-                shared_dict.prefix = Cow::Owned(name);
-                Self::SharedDict(shared_dict)
-            }
-        }
+impl<'a> DecodedProperty<'a> {
+    #[must_use]
+    pub fn bool(name: impl Into<Cow<'a, str>>, values: Vec<Option<bool>>) -> Self {
+        Self::Bool(DecodedScalar::new(name.into().into_owned(), values))
+    }
+    #[must_use]
+    pub fn i8(name: impl Into<Cow<'a, str>>, values: Vec<Option<i8>>) -> Self {
+        Self::I8(DecodedScalar::new(name.into().into_owned(), values))
+    }
+    #[must_use]
+    pub fn u8(name: impl Into<Cow<'a, str>>, values: Vec<Option<u8>>) -> Self {
+        Self::U8(DecodedScalar::new(name.into().into_owned(), values))
+    }
+    #[must_use]
+    pub fn i32(name: impl Into<Cow<'a, str>>, values: Vec<Option<i32>>) -> Self {
+        Self::I32(DecodedScalar::new(name.into().into_owned(), values))
+    }
+    #[must_use]
+    pub fn u32(name: impl Into<Cow<'a, str>>, values: Vec<Option<u32>>) -> Self {
+        Self::U32(DecodedScalar::new(name.into().into_owned(), values))
+    }
+    #[must_use]
+    pub fn i64(name: impl Into<Cow<'a, str>>, values: Vec<Option<i64>>) -> Self {
+        Self::I64(DecodedScalar::new(name.into().into_owned(), values))
+    }
+    #[must_use]
+    pub fn u64(name: impl Into<Cow<'a, str>>, values: Vec<Option<u64>>) -> Self {
+        Self::U64(DecodedScalar::new(name.into().into_owned(), values))
+    }
+    #[must_use]
+    pub fn f32(name: impl Into<Cow<'a, str>>, values: Vec<Option<f32>>) -> Self {
+        Self::F32(DecodedScalar::new(name.into().into_owned(), values))
+    }
+    #[must_use]
+    pub fn f64(name: impl Into<Cow<'a, str>>, values: Vec<Option<f64>>) -> Self {
+        Self::F64(DecodedScalar::new(name.into().into_owned(), values))
+    }
+    #[must_use]
+    pub fn str(name: impl Into<Cow<'a, str>>, values: Vec<Option<String>>) -> Self {
+        let mut s = DecodedStrings::from(values);
+        s.name = name.into();
+        Self::Str(s)
     }
 }
 
 impl<T: Copy + PartialEq> DecodedScalar<T> {
     #[must_use]
-    pub fn new(name: String, values: Vec<Option<T>>) -> Self {
-        Self { name, values }
+    pub fn new(name: impl Into<String>, values: Vec<Option<T>>) -> Self {
+        Self {
+            name: name.into(),
+            values,
+        }
     }
 
     pub fn from_parts(

@@ -1,29 +1,22 @@
 use insta::assert_debug_snapshot;
 use mlt_core::optimizer::{AutomaticOptimisation as _, ManualOptimisation as _};
-use mlt_core::v01::{DecodedProperty, DecodedStrings, OwnedProperty, PropValue};
+use mlt_core::v01::{DecodedProperty, OwnedProperty};
 
 fn str_prop(name: &str, values: &[&str]) -> OwnedProperty {
-    OwnedProperty::Decoded(DecodedProperty::from_parts(
-        name,
-        PropValue::Str(DecodedStrings::from(
-            values
-                .iter()
-                .map(|s| Some((*s).to_string()))
-                .collect::<Vec<_>>(),
-        )),
-    ))
+    let owned: Vec<Option<String>> = values.iter().map(|s| Some((*s).to_string())).collect();
+    OwnedProperty::Decoded(DecodedProperty::str(name.to_string(), owned))
 }
 
-fn make_prop(name: &str, values: PropValue) -> OwnedProperty {
-    OwnedProperty::Decoded(DecodedProperty::from_parts(name, values))
+fn make_prop(prop: DecodedProperty<'static>) -> OwnedProperty {
+    OwnedProperty::Decoded(prop)
 }
 
 #[test]
 fn no_nulls_produces_absent_presence() {
-    let mut props = vec![make_prop(
+    let mut props = vec![make_prop(DecodedProperty::u32(
         "pop",
-        PropValue::U32(vec![Some(1), Some(2), Some(3)]),
-    )];
+        vec![Some(1), Some(2), Some(3)],
+    ))];
     assert_debug_snapshot!(props.automatic_encoding_optimisation().unwrap(), @"
     [
         Scalar(
@@ -43,7 +36,7 @@ fn no_nulls_produces_absent_presence() {
 
 #[test]
 fn all_nulls_produces_present_presence() {
-    let mut props = vec![make_prop("x", PropValue::I32(vec![None, None, None]))];
+    let mut props = vec![make_prop(DecodedProperty::i32("x", vec![None, None, None]))];
     assert_debug_snapshot!(props.automatic_encoding_optimisation().unwrap(), @"
     [
         Scalar(
@@ -63,10 +56,10 @@ fn all_nulls_produces_present_presence() {
 
 #[test]
 fn sequential_u32_picks_delta() {
-    let mut props = vec![make_prop(
+    let mut props = vec![make_prop(DecodedProperty::u32(
         "id",
-        PropValue::U32((0u32..1_000).map(Some).collect()),
-    )];
+        (0u32..1_000).map(Some).collect(),
+    ))];
     assert_debug_snapshot!(props.automatic_encoding_optimisation().unwrap(), @"
     [
         Scalar(
@@ -86,7 +79,7 @@ fn sequential_u32_picks_delta() {
 
 #[test]
 fn constant_u32_picks_rle() {
-    let mut props = vec![make_prop("val", PropValue::U32(vec![Some(42); 500]))];
+    let mut props = vec![make_prop(DecodedProperty::u32("val", vec![Some(42); 500]))];
     assert_debug_snapshot!(props.automatic_encoding_optimisation().unwrap(), @"
     [
         Scalar(
@@ -238,10 +231,13 @@ fn dissimilar_strings_stay_scalar() {
 fn mixed_scalars_and_grouped_strings() {
     let vocab = &["alpha", "beta", "gamma"];
     let mut props = vec![
-        make_prop("id", PropValue::U32(vec![Some(1), Some(2), Some(3)])),
+        make_prop(DecodedProperty::u32("id", vec![Some(1), Some(2), Some(3)])),
         str_prop("name:en", vocab),
         str_prop("name:de", vocab),
-        make_prop("count", PropValue::I32(vec![Some(10), Some(20), Some(30)])),
+        make_prop(DecodedProperty::i32(
+            "count",
+            vec![Some(10), Some(20), Some(30)],
+        )),
     ];
     let enc = props.automatic_encoding_optimisation().unwrap();
 
@@ -302,16 +298,16 @@ fn mixed_scalars_and_grouped_strings() {
 
 #[test]
 fn manual_optimisation_reuses_derived_encoder() {
-    let mut ref_props = vec![make_prop(
+    let mut ref_props = vec![make_prop(DecodedProperty::u32(
         "id",
-        PropValue::U32((0u32..1_000).map(Some).collect()),
-    )];
+        (0u32..1_000).map(Some).collect(),
+    ))];
     let enc = ref_props.automatic_encoding_optimisation().unwrap();
 
-    let mut props = vec![make_prop(
+    let mut props = vec![make_prop(DecodedProperty::u32(
         "id",
-        PropValue::U32((1_000u32..2_000).map(Some).collect()),
-    )];
+        (1_000u32..2_000).map(Some).collect(),
+    ))];
     props.manual_optimisation(enc).unwrap();
 
     assert_eq!(props.len(), 1);
@@ -319,12 +315,12 @@ fn manual_optimisation_reuses_derived_encoder() {
 
 #[test]
 fn manual_optimisation_rejects_mismatched_encoder_count() {
-    let mut ref_props = vec![make_prop("a", PropValue::U32(vec![Some(1), Some(2)]))];
+    let mut ref_props = vec![make_prop(DecodedProperty::u32("a", vec![Some(1), Some(2)]))];
     let enc = ref_props.automatic_encoding_optimisation().unwrap();
 
     let mut props = vec![
-        make_prop("a", PropValue::U32(vec![Some(1), Some(2)])),
-        make_prop("b", PropValue::U32(vec![Some(3), Some(4)])),
+        make_prop(DecodedProperty::u32("a", vec![Some(1), Some(2)])),
+        make_prop(DecodedProperty::u32("b", vec![Some(3), Some(4)])),
     ];
     assert!(props.manual_optimisation(enc).is_err());
 }

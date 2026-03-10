@@ -11,7 +11,7 @@ use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, DecodedStrings, GeometryEncoder, IdEncoder,
-    IntEncoder, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PresenceStream, PropValue,
+    IntEncoder, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PresenceStream,
     PropertyEncoder, ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StrEncoder,
     VertexBufferType, build_decoded_shared_dict,
 };
@@ -233,15 +233,8 @@ impl Layer {
 
     /// Add a scalar property.
     #[must_use]
-    pub fn add_prop(
-        mut self,
-        encoder: ScalarEncoder,
-        name: impl Into<String>,
-        values: PropValue,
-    ) -> Self {
-        let name = name.into();
-        self.properties
-            .push(DecodedProperty::from_parts(name, values));
+    pub fn add_prop(mut self, encoder: ScalarEncoder, prop: DecodedProperty<'static>) -> Self {
+        self.properties.push(prop);
         self.prop_encoders.push(PropertyEncoder::Scalar(encoder));
         self
     }
