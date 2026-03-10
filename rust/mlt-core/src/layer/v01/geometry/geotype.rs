@@ -7,6 +7,7 @@ use crate::MltError::{
     NoGeometryOffsets, NoPartOffsets, NoRingOffsets,
 };
 use crate::geojson::{Coord32, Geom32};
+use crate::utils::AsUsize as _;
 use crate::v01::{DecodedGeometry, GeometryType};
 
 impl DecodedGeometry {
@@ -34,12 +35,14 @@ impl DecodedGeometry {
         let rings = self.ring_offsets.as_deref();
 
         let off = |s: &[u32], idx: usize, field: &'static str| -> Result<usize, MltError> {
-            s.get(idx).map(|&v| v as usize).ok_or(GeometryOutOfBounds {
-                index,
-                field,
-                idx,
-                len: s.len(),
-            })
+            s.get(idx)
+                .map(|&v| v.as_usize())
+                .ok_or(GeometryOutOfBounds {
+                    index,
+                    field,
+                    idx,
+                    len: s.len(),
+                })
         };
         let off_pair =
             |s: &[u32], idx: usize, field: &'static str| -> Result<Range<usize>, MltError> {
@@ -152,12 +155,14 @@ impl DecodedGeometry {
         let rings = self.ring_offsets.as_deref();
 
         let off = |s: &[u32], idx: usize, field: &'static str| -> Result<usize, MltError> {
-            s.get(idx).map(|&v| v as usize).ok_or(GeometryOutOfBounds {
-                index,
-                field,
-                idx,
-                len: s.len(),
-            })
+            s.get(idx)
+                .map(|&v| v.as_usize())
+                .ok_or(GeometryOutOfBounds {
+                    index,
+                    field,
+                    idx,
+                    len: s.len(),
+                })
         };
         let off_pair =
             |s: &[u32], idx: usize, field: &'static str| -> Result<Range<usize>, MltError> {

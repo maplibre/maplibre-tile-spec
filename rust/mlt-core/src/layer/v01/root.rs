@@ -4,7 +4,7 @@ use std::io::Write;
 use borrowme::borrowme;
 
 use crate::analyse::{Analyze, StatType};
-use crate::utils::{SetOptionOnce as _, parse_string, parse_varint};
+use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::{
     Column, ColumnType, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedSharedDict,
     EncodedStrings, EncodedValues, Geometry, Id, OwnedId, Property, Stream, StreamType,
@@ -70,7 +70,7 @@ impl Layer01<'_> {
         let (input, column_count) = parse_varint::<u32>(input)?;
 
         // Each column requires at least 1 byte (column type)
-        if input.len() < usize::try_from(column_count)? {
+        if input.len() < column_count.as_usize() {
             return Err(MltError::BufferUnderflow(column_count, input.len()));
         }
 
@@ -84,7 +84,7 @@ impl Layer01<'_> {
             .map(LayerOrdering::from)
             .collect();
 
-        let mut properties = Vec::with_capacity(usize::try_from(prop_count)?);
+        let mut properties = Vec::with_capacity(prop_count.as_usize());
         let mut id_stream: Option<Id> = None;
         let mut geometry: Option<Geometry> = None;
 
@@ -268,7 +268,7 @@ fn parse_geometry_column<'a>(
         return Err(MltError::GeometryWithoutStreams);
     }
     // Each stream requires at least 1 byte (physical stream type)
-    let stream_count_capa = usize::try_from(stream_count)?;
+    let stream_count_capa = stream_count.as_usize();
     if input.len() < stream_count_capa {
         return Err(MltError::BufferUnderflow(stream_count, input.len()));
     }
@@ -288,7 +288,7 @@ fn parse_str_column<'a>(
     let mut stream_count = {
         let stream_count_u32;
         (input, stream_count_u32) = parse_varint::<u32>(input)?;
-        usize::try_from(stream_count_u32)?
+        stream_count_u32.as_usize()
     };
     let presence;
     (input, presence) = parse_optional(typ, input)?;
@@ -332,7 +332,7 @@ fn parse_shared_dict_column<'a>(
     (input, stream_count) = parse_varint::<u32>(input)?;
     let mut dict_streams = [None, None, None, None, None];
     let mut streams_taken = 0_usize;
-    while streams_taken < usize::try_from(stream_count)? {
+    while streams_taken < stream_count.as_usize() {
         let stream;
         (input, stream) = Stream::parse(input)?;
         let is_last = matches!(
@@ -368,7 +368,7 @@ fn parse_columns_meta(
 ) -> MltRefResult<'_, (Vec<Column<'_>>, u32)> {
     use crate::v01::ColumnType::{Geometry, Id, LongId, OptId, OptLongId, SharedDict};
 
-    let mut col_info = Vec::with_capacity(usize::try_from(column_count)?);
+    let mut col_info = Vec::with_capacity(column_count.as_usize());
     let mut geometries = 0;
     let mut ids = 0;
     for _ in 0..column_count {
@@ -383,7 +383,7 @@ fn parse_columns_meta(
                 (input, child_column_count) = parse_varint::<u32>(input)?;
 
                 // Each column requires at least 1 byte (ColumnType without a name)
-                let child_col_capacity = usize::try_from(child_column_count)?;
+                let child_col_capacity = child_column_count.as_usize();
                 if input.len() < child_col_capacity {
                     return Err(MltError::BufferUnderflow(child_column_count, input.len()));
                 }

@@ -2,7 +2,8 @@ use std::collections::BTreeSet;
 
 use super::{DecodedGeometry, OwnedEncodedGeometry, VertexBufferType};
 use crate::MltError;
-use crate::utils::encode_componentwise_delta_vec2s;
+use crate::errors::AsMltError as _;
+use crate::utils::{AsUsize as _, encode_componentwise_delta_vec2s};
 use crate::v01::{
     DictionaryType, GeometryType, IntEncoder, IntEncoding, LengthType, LogicalEncoding, MortonMeta,
     OffsetType, OwnedStream, PhysicalEncoder, StreamMeta, StreamType,
@@ -113,10 +114,7 @@ fn build_morton_dict(
 
     let offsets: Vec<u32> = codes
         .iter()
-        .map(|&code| {
-            u32::try_from(dict.partition_point(|&c| c < code))
-                .map_err(|_| MltError::IntegerOverflow)
-        })
+        .map(|&code| u32::try_from(dict.partition_point(|&c| c < code)).or_overflow())
         .collect::<Result<_, _>>()?;
 
     Ok((dict, offsets))
@@ -216,8 +214,8 @@ fn encode_ring_lengths_for_mixed(
         let needs_length =
             geom_type.is_polygon() || (is_line_string_present && geom_type.is_linestring());
         if needs_length {
-            let slot_start = part_offsets[i] as usize;
-            let slot_end = part_offsets[i + 1] as usize;
+            let slot_start = part_offsets[i].as_usize();
+            let slot_end = part_offsets[i + 1].as_usize();
             for slot in slot_start..slot_end {
                 lengths.push(ring_offsets[slot + 1] - ring_offsets[slot]);
             }
@@ -288,7 +286,7 @@ fn encode_level1_without_ring_buffer_length_stream(
     let mut part_idx = 0;
 
     for (i, &geom_type) in geometry_types.iter().enumerate() {
-        let num_geoms = (geometry_offsets[i + 1] - geometry_offsets[i]) as usize;
+        let num_geoms = (geometry_offsets[i + 1] - geometry_offsets[i]).as_usize();
 
         if geom_type.is_linestring() || geom_type.is_polygon() {
             for _ in 0..num_geoms {
@@ -401,7 +399,7 @@ fn normalize_geometry_offsets(vector_types: &[GeometryType], geometry_offsets: &
 /// for encoding functions that expect one.
 fn create_unit_geometry_offsets(vector_types: &[GeometryType]) -> Vec<u32> {
     let size = u32::try_from(vector_types.len() + 1).expect("geometry count overflow");
-    let mut offsets = Vec::with_capacity(size as usize);
+    let mut offsets = Vec::with_capacity(size.as_usize());
     for i in 0..size {
         offsets.push(i);
     }

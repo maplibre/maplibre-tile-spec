@@ -163,6 +163,7 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
             &mut output_offset,
         )?;
 
+        // FIXME: handle usize casting to be within u32?
         let written = usize::try_from(output_offset.position())?;
 
         // Convert u32 words to big-endian bytes to match the wire format.
@@ -233,9 +234,10 @@ mod tests {
     use super::*;
     use crate::utils::{
         decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s,
-        decode_componentwise_delta_vec2s, decode_fastpfor_composite, decode_rle, decode_zigzag,
+        decode_componentwise_delta_vec2s, decode_fastpfor_composite, decode_zigzag,
         decode_zigzag_delta,
     };
+    use crate::v01::RleMeta;
 
     proptest! {
         #[test]
@@ -261,11 +263,13 @@ mod tests {
 
         #[test]
         fn test_rle_roundtrip_u32(data: Vec<u32>) {
-            let num_values = data.len();
             let (runs, vals) = encode_rle(&data);
             let mut combined = runs.clone();
             combined.extend(vals);
-            let decoded = decode_rle(&combined, runs.len(), num_values).unwrap();
+            let runs = u32::try_from(runs.len()).unwrap();
+            let num_rle_values = u32::try_from(data.len()).unwrap();
+            let rle = RleMeta { runs, num_rle_values };
+            let decoded = rle.decode(&combined).unwrap();
             prop_assert_eq!(data, decoded);
         }
 

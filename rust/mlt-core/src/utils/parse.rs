@@ -1,5 +1,6 @@
 use integer_encoding::VarInt;
 
+use crate::utils::AsUsize as _;
 use crate::{MltError, MltRefResult};
 
 #[inline]
@@ -49,7 +50,7 @@ where
     U: TryFrom<T>,
     MltError: From<<U as TryFrom<T>>::Error>,
 {
-    let mut values = Vec::with_capacity(usize::try_from(size)?);
+    let mut values = Vec::with_capacity(size.as_usize());
     let mut val;
     for _ in 0..size {
         (input, val) = parse_varint::<T>(input)?;

@@ -1,4 +1,5 @@
 use std::convert::Infallible;
+use std::num::TryFromIntError;
 
 use num_enum::TryFromPrimitiveError;
 
@@ -149,7 +150,7 @@ pub enum MltError {
     #[error("Serde JSON error: {0}")]
     SerdeJsonError(#[from] serde_json::Error),
     #[error("integer conversion error: {0}")]
-    TryFromIntError(#[from] std::num::TryFromIntError),
+    TryFromIntError(#[from] TryFromIntError),
     #[error("num_enum conversion error: {0}")]
     TryFromPrimitive(#[from] TryFromPrimitiveError<GeometryType>),
     #[error("UTF-8 decode error: {0}")]
@@ -168,5 +169,23 @@ impl From<MltError> for std::io::Error {
             MltError::Io(e) => e,
             other => std::io::Error::other(other),
         }
+    }
+}
+
+pub trait AsMltError<T> {
+    fn or_overflow(&self) -> Result<T, MltError>;
+}
+
+impl<T: Copy> AsMltError<T> for Option<T> {
+    #[inline]
+    fn or_overflow(&self) -> Result<T, MltError> {
+        self.ok_or(MltError::IntegerOverflow)
+    }
+}
+
+impl AsMltError<u32> for Result<u32, TryFromIntError> {
+    #[inline]
+    fn or_overflow(&self) -> Result<u32, MltError> {
+        self.map_err(|_| MltError::IntegerOverflow)
     }
 }

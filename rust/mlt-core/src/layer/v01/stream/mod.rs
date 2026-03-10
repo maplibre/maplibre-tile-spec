@@ -1,3 +1,4 @@
+use crate::errors::AsMltError as _;
 mod encoder;
 mod logical;
 mod optimizer;
@@ -13,9 +14,9 @@ pub use structs::*;
 
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{
-    BinarySerializer as _, all, decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s,
-    decode_bytes_to_u64s, decode_fastpfor_composite, encode_bools_to_bytes, encode_byte_rle,
-    parse_u8, parse_varint, parse_varint_vec, take,
+    AsUsize as _, BinarySerializer as _, all, decode_byte_rle, decode_bytes_to_bools,
+    decode_bytes_to_u32s, decode_bytes_to_u64s, decode_fastpfor_composite, encode_bools_to_bytes,
+    encode_byte_rle, parse_u8, parse_varint, parse_varint_vec, take,
 };
 use crate::v01::OwnedEncodedStrings;
 pub use crate::v01::stream::encoder::{FsstStrEncoder, IntEncoder};
@@ -635,7 +636,7 @@ impl<'a> Stream<'a> {
 
     /// Decode a boolean stream: byte-RLE → packed bitmap → `Vec<bool>`
     pub fn decode_bools(self) -> Result<Vec<bool>, MltError> {
-        let num_values = self.meta.num_values as usize;
+        let num_values = self.meta.num_values.as_usize();
         let num_bytes = num_values.div_ceil(8);
         let raw = match &self.data {
             StreamData::Encoded(d) => d.data,
@@ -696,7 +697,7 @@ impl<'a> Stream<'a> {
             PhysicalEncoding::FastPFOR => match self.data {
                 StreamData::Encoded(data) => Ok(decode_fastpfor_composite(
                     data.data,
-                    self.meta.num_values as usize,
+                    self.meta.num_values.as_usize(),
                 )?),
                 StreamData::VarInt(_) => {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
@@ -754,10 +755,8 @@ impl<'a> Stream<'a> {
                 return Err(MltError::NotImplemented("varint f32 decoding"));
             }
         };
-        let num = usize::try_from(self.meta.num_values)?;
-        let Some(expected_bytes) = num.checked_mul(4) else {
-            return Err(MltError::IntegerOverflow);
-        };
+        let num = self.meta.num_values.as_usize();
+        let expected_bytes = num.checked_mul(4).or_overflow()?;
         if raw.len() != expected_bytes {
             return Err(MltError::InvalidDecodingStreamSize(
                 raw.len(),
@@ -783,10 +782,8 @@ impl<'a> Stream<'a> {
                 return Err(MltError::NotImplemented("varint f64 decoding"));
             }
         };
-        let num = usize::try_from(self.meta.num_values)?;
-        let Some(expected_bytes) = num.checked_mul(8) else {
-            return Err(MltError::IntegerOverflow);
-        };
+        let num = self.meta.num_values.as_usize();
+        let expected_bytes = num.checked_mul(8).or_overflow()?;
         if raw.len() != expected_bytes {
             return Err(MltError::InvalidDecodingStreamSize(
                 raw.len(),

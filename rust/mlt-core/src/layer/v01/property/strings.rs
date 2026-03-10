@@ -6,7 +6,7 @@ use crate::MltError;
 use crate::MltError::{
     BufferUnderflow, DictIndexOutOfBounds, NotImplemented, UnexpectedStreamType2,
 };
-use crate::utils::{BinarySerializer as _, apply_present};
+use crate::utils::{AsUsize as _, BinarySerializer as _, apply_present};
 use crate::v01::{
     ColumnType, DecodedProperty, DictionaryType, EncodedSharedDict, EncodedStrings, EncodedValues,
     FsstStrEncoder, IntEncoder, LengthType, OffsetType, OwnedEncodedPropValue,
@@ -760,7 +760,7 @@ fn resolve_offsets(dict: &[String], offsets: &[u32]) -> Result<Vec<String>, MltE
     offsets
         .iter()
         .map(|&idx| {
-            dict.get(idx as usize)
+            dict.get(idx.as_usize())
                 .cloned()
                 .ok_or(DictIndexOutOfBounds(idx, dict.len()))
         })
@@ -779,7 +779,7 @@ fn split_to_strings(lengths: &[u32], data: &[u8]) -> Result<Vec<String>, MltErro
     let mut strings = Vec::with_capacity(lengths.len());
     let mut offset = 0_usize;
     for &len in lengths {
-        let len_usize = usize::try_from(len)?;
+        let len_usize = len.as_usize();
         let Some(v) = data.get(offset..offset + len_usize) else {
             return Err(BufferUnderflow(len, data.len().saturating_sub(offset)));
         };
@@ -798,13 +798,13 @@ fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec
     let mut output = Vec::new();
     let mut i = 0;
     while i < compressed.len() {
-        let sym_idx = compressed[i] as usize;
+        let sym_idx = usize::from(compressed[i]);
         if sym_idx == 255 {
             i += 1;
             output.push(compressed[i]);
         } else if sym_idx < symbol_lengths.len() {
-            let len = symbol_lengths[sym_idx] as usize;
-            let off = symbol_offsets[sym_idx] as usize;
+            let len = symbol_lengths[sym_idx].as_usize();
+            let off = symbol_offsets[sym_idx].as_usize();
             output.extend_from_slice(&symbols[off..off + len]);
         }
         i += 1;
