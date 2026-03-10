@@ -234,9 +234,10 @@ mod tests {
     use super::*;
     use crate::utils::{
         decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s,
-        decode_componentwise_delta_vec2s, decode_fastpfor_composite, decode_rle, decode_zigzag,
+        decode_componentwise_delta_vec2s, decode_fastpfor_composite, decode_zigzag,
         decode_zigzag_delta,
     };
+    use crate::v01::RleMeta;
 
     proptest! {
         #[test]
@@ -262,12 +263,13 @@ mod tests {
 
         #[test]
         fn test_rle_roundtrip_u32(data: Vec<u32>) {
-            let num_values = u32::try_from(data.len()).unwrap();
             let (runs, vals) = encode_rle(&data);
             let mut combined = runs.clone();
             combined.extend(vals);
             let runs = u32::try_from(runs.len()).unwrap();
-            let decoded = decode_rle(&combined, runs, num_values).unwrap();
+            let num_rle_values = u32::try_from(data.len()).unwrap();
+            let rle = RleMeta { runs, num_rle_values };
+            let decoded = rle.decode(&combined).unwrap();
             prop_assert_eq!(data, decoded);
         }
 
