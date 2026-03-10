@@ -32,13 +32,10 @@ impl IdProfile {
     #[must_use]
     pub fn from_sample(decoded: &DecodedId) -> Self {
         let ids = &decoded.0;
-        let id_width = match single_pass_statistics(ids) {
-            Ok((_, _, width)) => width,
-            Err(_) => {
-                return Self {
-                    candidates: vec![IntEncoder::varint()],
-                };
-            }
+        let Ok((_, _, id_width)) = single_pass_statistics(ids) else {
+            return Self {
+                candidates: vec![IntEncoder::varint()],
+            };
         };
         Self {
             candidates: pruned_candidates(ids, id_width),
@@ -269,7 +266,7 @@ impl ProfileOptimisation for OwnedId {
             OwnedId::Encoded(e) => {
                 let dec = Option::<DecodedId>::from_encoded(e.as_ref().map(borrowme::borrow))?;
                 *self = OwnedId::Decoded(dec);
-                self.profile_driven_optimisation(&profile)
+                self.profile_driven_optimisation(profile)
             }
         }
     }

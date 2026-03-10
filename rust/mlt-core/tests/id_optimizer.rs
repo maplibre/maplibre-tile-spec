@@ -119,25 +119,11 @@ fn test_reoptimisation_improves_manual_encoding() {
 }
 
 #[test]
-fn test_profile_none_falls_back_to_automatic() {
-    let decoded = create_u32_range_ids();
-    let mut owned = OwnedId::Decoded(Some(decoded));
-
-    let result = owned.profile_driven_optimisation(&None).unwrap();
-
-    // No profile supplied: automatic picks DeltaRle for sequential u32 IDs.
-    assert_eq!(
-        result,
-        Some(IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::Id32))
-    );
-}
-
-#[test]
 fn test_profile_applies_candidates_and_rederives_width() {
     // Profile built from u32 data; applied to u64 data.
     // Logical encoding comes from the profile; IdWidth is re-derived from the tile.
     let u32_sample = create_u32_range_ids();
-    let profile = Some(IdProfile::from_sample(&u32_sample));
+    let profile = IdProfile::from_sample(&u32_sample);
 
     let u64_decoded = create_u64_range_ids();
     let mut owned = OwnedId::Decoded(Some(u64_decoded.clone()));
@@ -152,7 +138,7 @@ fn test_profile_applies_candidates_and_rederives_width() {
 #[test]
 fn test_profile_none_variant() {
     let mut owned = OwnedId::Decoded(None);
-    let profile = Some(IdProfile::from_sample(&create_u32_range_ids()));
+    let profile = IdProfile::from_sample(&create_u32_range_ids());
 
     let result = owned.profile_driven_optimisation(&profile).unwrap();
 
@@ -167,7 +153,7 @@ fn test_profile_roundtrip() {
         create_u64_range_ids(),
         create_ids_with_nulls(),
     ] {
-        let profile = Some(IdProfile::from_sample(&decoded));
+        let profile = IdProfile::from_sample(&decoded);
         let mut owned = OwnedId::Decoded(Some(decoded.clone()));
         owned.profile_driven_optimisation(&profile).unwrap();
 
@@ -209,7 +195,7 @@ fn test_profile_already_encoded_roundtrip() {
     owned.automatic_encoding_optimisation().unwrap();
 
     // Re-optimise from encoded state using a profile.
-    let profile = Some(IdProfile::from_sample(&decoded));
+    let profile = IdProfile::from_sample(&decoded);
     owned.profile_driven_optimisation(&profile).unwrap();
 
     let decoded_back = borrowme::borrow(&owned).decode().unwrap();
