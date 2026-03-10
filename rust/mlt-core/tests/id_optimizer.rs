@@ -3,7 +3,7 @@ use mlt_core::optimizer::{
     AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
 };
 use mlt_core::v01::{
-    DecodedId, IdEncoder, IdProfile, IdWidth, IntEncoder, LogicalEncoder, OwnedId, PhysicalEncoder,
+    DecodedId, IdEncoder, IdProfile, IdWidth, IntEncoder, LogicalEncoder, OwnedId,
 };
 use rstest::rstest;
 
@@ -194,25 +194,51 @@ fn test_profile_roundtrip(#[case] decoded: DecodedId) {
 #[test]
 fn test_profile_from_sample_is_nonempty() {
     let profile = IdProfile::from_sample(&create_u32_range_ids());
-    assert!(!profile.candidates.is_empty());
+    insta::assert_debug_snapshot!(profile, @"
+    IdProfile {
+        candidates: [
+            IntEncoder {
+                logical: Delta,
+                physical: VarInt,
+            },
+            IntEncoder {
+                logical: None,
+                physical: VarInt,
+            },
+        ],
+    }
+    ");
 }
 
 #[test]
 fn test_profile_merge_is_union() {
-    let p1 = IdProfile {
-        candidates: vec![IntEncoder::varint()],
-    };
-    let p2 = IdProfile {
-        candidates: vec![
-            IntEncoder::varint(),
-            IntEncoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt),
-        ],
-    };
+    let p1 = IdProfile::new(vec![IntEncoder::varint()]);
+    let p2 = IdProfile::new(vec![IntEncoder::varint(), IntEncoder::fastpfor()]);
     let merged = p1.merge(&p2);
-    assert_eq!(merged.candidates.len(), 2);
-    assert!(merged.candidates.contains(&IntEncoder::varint()));
-    assert!(merged.candidates.contains(&IntEncoder::new(
-        LogicalEncoder::Rle,
-        PhysicalEncoder::VarInt
-    )));
+    insta::assert_debug_snapshot!(merged, @"
+    IdProfile {
+        candidates: [
+            IntEncoder {
+                logical: None,
+                physical: VarInt,
+            },
+            IntEncoder {
+                logical: None,
+                physical: FastPFOR,
+            },
+        ],
+    }
+    ");
+}
+
+#[test]
+fn test_profile_merge_empty() {
+    let p1 = IdProfile::new(vec![]);
+    let p2 = IdProfile::new(vec![]);
+    let merged = p1.merge(&p2);
+    insta::assert_debug_snapshot!(merged, @"
+    IdProfile {
+        candidates: [],
+    }
+    ");
 }

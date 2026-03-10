@@ -27,6 +27,12 @@ pub struct IdProfile {
 }
 
 impl IdProfile {
+    #[doc(hidden)]
+    #[must_use]
+    pub fn new(candidates: Vec<IntEncoder>) -> Self {
+        Self { candidates }
+    }
+
     /// Build a profile from a sample of decoded IDs.
     #[must_use]
     pub fn from_sample(decoded: &DecodedId) -> Self {
