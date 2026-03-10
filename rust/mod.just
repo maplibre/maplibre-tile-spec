@@ -521,9 +521,9 @@ fuzz-llvm-cov target output_file *args:
     SYSROOT=$(rustup run nightly rustc --print sysroot)
     HOST=$(rustup run nightly rustc -vV | sed -n 's/^host: //p')
     LLVM_COV="$SYSROOT/lib/rustlib/$HOST/bin/llvm-cov"
-    TRIPLE="x86_64-unknown-linux-gnu"
     FUZZ_DIR="fuzz"
-    TARGET_BIN="target/$TRIPLE/coverage/{{target}}"
+    TARGET_BIN=$(find target -type f -name '{{target}}' -path '*/coverage/*/release/{{target}}' 2>/dev/null | head -1)
+    echo "target_bin: $TARGET_BIN" >&2
     PROFDATA="$FUZZ_DIR/coverage/{{target}}/coverage.profdata"
     [ -n "{{output_file}}" ] && exec > "{{output_file}}"
     "$LLVM_COV" {{args}} "$TARGET_BIN" \
