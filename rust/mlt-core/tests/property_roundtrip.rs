@@ -1,7 +1,7 @@
 use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
-    DecodedProperty, DecodedStrings, IntEncoder, LogicalEncoder, OwnedProperty, PhysicalEncoder,
-    PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
+    DecodedProperty, DecodedScalar, DecodedStrings, IntEncoder, LogicalEncoder, OwnedProperty,
+    PhysicalEncoder, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
     SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
 };
 use mlt_core::{MltError, borrowme};
@@ -71,13 +71,6 @@ fn opt_strs(vals: &[Option<&str>]) -> Vec<Option<String>> {
     vals.iter().map(|v| v.map(ToString::to_string)).collect()
 }
 
-fn str_prop(name: &str, values: Vec<Option<String>>) -> DecodedProperty<'static> {
-    DecodedProperty::from_parts(
-        name.to_string(),
-        PropValue::Str(DecodedStrings::from(values)),
-    )
-}
-
 fn shared_dict_prop(
     name: &str,
     children: Vec<(String, DecodedStrings<'static>)>,
@@ -85,10 +78,6 @@ fn shared_dict_prop(
     let shared_dict =
         build_decoded_shared_dict(name.to_string(), children).expect("build shared dict");
     DecodedProperty::SharedDict(shared_dict)
-}
-
-fn make_prop(name: &str, values: PropValue) -> DecodedProperty<'static> {
-    DecodedProperty::from_parts(name.to_string(), values)
 }
 
 fn decode_struct(prop: &OwnedProperty) -> DecodedProperty<'static> {
@@ -106,7 +95,7 @@ fn struct_encode_and_decode(
     offset_encoder: IntEncoder,
     dict_encoder: StrEncoder,
 ) -> DecodedProperty<'static> {
-    // Build a single DecodedProperty with PropValue::SharedDict
+    // Build a single DecodedProperty::SharedDict
     let items = children
         .iter()
         .map(|(suffix, values)| ((*suffix).to_string(), DecodedStrings::from(values.clone())))
@@ -144,7 +133,7 @@ macro_rules! integer_roundtrip_proptests {
                 values in prop::collection::vec(prop::option::of(any::<$ty>()), 0..100),
                 enc in $int_encoder,
             ) {
-                let prop = make_prop("x", PropValue::$variant(values));
+                let prop = DecodedProperty::$variant(DecodedScalar::new("x".to_string(), values));
                 let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
                 prop_assert_eq!(roundtrip(&prop, scalar_enc), prop);
             }
@@ -155,7 +144,7 @@ macro_rules! integer_roundtrip_proptests {
                 enc in $int_encoder,
             ) {
                 let opt: Vec<Option<$ty>> = values.into_iter().map(Some).collect();
-                let prop = make_prop("x", PropValue::$variant(opt));
+                let prop = DecodedProperty::$variant(DecodedScalar::new("x".to_string(), opt));
                 let scalar_enc = ScalarEncoder::int(PresenceStream::Absent, enc);
                 prop_assert_eq!(roundtrip(&prop, scalar_enc), prop);
             }
@@ -186,9 +175,9 @@ integer_roundtrip_proptests!(
 
 #[test]
 fn bool_specific_values() {
-    let prop = make_prop(
+    let prop = DecodedProperty::bool(
         "active",
-        PropValue::Bool(vec![Some(true), None, Some(false), Some(true), None]),
+        vec![Some(true), None, Some(false), Some(true), None],
     );
     assert_eq!(
         roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present)),
@@ -198,7 +187,7 @@ fn bool_specific_values() {
 
 #[test]
 fn bool_all_null() {
-    let prop = make_prop("active", PropValue::Bool(vec![None, None, None]));
+    let prop = DecodedProperty::bool("active", vec![None, None, None]);
     assert_eq!(
         roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present)),
         prop
@@ -210,7 +199,7 @@ proptest! {
     fn bool_roundtrip(
         values in prop::collection::vec(prop::option::of(any::<bool>()), 0..100),
     ) {
-        let prop = make_prop("flag", PropValue::Bool(values));
+        let prop = DecodedProperty::bool("flag", values);
         prop_assert_eq!(roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present)), prop);
     }
 }
@@ -224,7 +213,7 @@ proptest! {
             0..100,
         ),
     ) {
-        let prop = make_prop("score", PropValue::F32(values));
+        let prop = DecodedProperty::f32("score", values);
         prop_assert_eq!(roundtrip(&prop, ScalarEncoder::float(PresenceStream::Present)), prop);
     }
 
@@ -235,14 +224,14 @@ proptest! {
             0..100,
         ),
     ) {
-        let prop = make_prop("score", PropValue::F64(values));
+        let prop = DecodedProperty::f64("score", values);
         prop_assert_eq!(roundtrip(&prop, ScalarEncoder::float(PresenceStream::Present)), prop);
     }
 }
 
 #[test]
 fn str_scalar_with_nulls() {
-    let prop = str_prop(
+    let prop = DecodedProperty::str(
         "city",
         opt_strs(&[Some("Berlin"), None, Some("Hamburg"), None]),
     );
@@ -252,14 +241,14 @@ fn str_scalar_with_nulls() {
 
 #[test]
 fn str_scalar_all_null() {
-    let prop = str_prop("city", opt_strs(&[None, None, None]));
+    let prop = DecodedProperty::str("city", opt_strs(&[None, None, None]));
     let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
     assert_eq!(roundtrip(&prop, enc), prop);
 }
 
 #[test]
 fn str_scalar_empty() {
-    let prop = str_prop("unused", vec![]);
+    let prop = DecodedProperty::str("unused", vec![]);
     let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
     assert_eq!(roundtrip(&prop, enc), prop);
 }
@@ -272,7 +261,7 @@ proptest! {
             0..50,
         ),
     ) {
-        let prop = str_prop("name", values);
+        let prop = DecodedProperty::str("name", values);
         let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
         prop_assert_eq!(roundtrip(&prop, enc), prop);
     }
@@ -286,7 +275,7 @@ fn fsst_scalar_string_roundtrip() {
         IntEncoder::plain(),
         IntEncoder::plain(),
     );
-    let prop = str_prop(
+    let prop = DecodedProperty::str(
         "name",
         strs(&["Berlin", "Brandenburg", "Bremen", "Braunschweig"]),
     );
@@ -413,10 +402,7 @@ fn struct_mixed_with_scalars() {
     let enc = IntEncoder::plain();
     let str_enc = StrEncoder::plain(enc);
     let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
-    let population = make_prop(
-        "population",
-        PropValue::U32(vec![Some(3_748_000), Some(1_787_000)]),
-    );
+    let population = DecodedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
     let name_shared = shared_dict_prop(
         "name:",
         vec![
@@ -440,7 +426,7 @@ fn struct_mixed_with_scalars() {
             ),
         ],
     );
-    let rank = make_prop("rank", PropValue::U32(vec![Some(1), Some(2)]));
+    let rank = DecodedProperty::u32("rank", vec![Some(1), Some(2)]);
 
     let props = vec![population.clone(), name_shared.clone(), rank.clone()];
     let prop_encs = vec![
@@ -511,10 +497,7 @@ fn two_struct_groups_with_scalar_between() {
             ),
         ],
     );
-    let population = make_prop(
-        "population",
-        PropValue::U32(vec![Some(3_748_000), Some(1_787_000)]),
-    );
+    let population = DecodedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
     let label_shared = shared_dict_prop(
         "label:",
         vec![

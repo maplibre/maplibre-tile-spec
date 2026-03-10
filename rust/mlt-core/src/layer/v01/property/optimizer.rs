@@ -5,7 +5,7 @@
 //!
 //! 1. **Profile & Group** - compute `MinHash` signatures for string columns and
 //!    cluster similar columns into shared dictionaries using union-find.
-//! 2. **Transform** - merge grouped string columns into `PropValue::SharedDict`.
+//! 2. **Transform** - merge grouped string columns into `DecodedProperty::SharedDict`.
 //! 3. **Compete & Select** - choose the best `IntEncoder` for integer columns
 //!    via `auto_u32` / `auto_u64` pruning-competition; decide between
 //!    `Plain` and `Fsst` string encodings using an FSST viability probe;
@@ -112,7 +112,7 @@ impl PropertyOptimizer {
     /// Analyze `properties` and return a configured [`Vec<PropertyEncoder>`].
     ///
     /// This method mutates `properties` by combining similar string columns
-    /// into `PropValue::SharedDict` values.
+    /// into `DecodedProperty::SharedDict` values.
     #[must_use]
     pub fn optimize(properties: &mut Vec<DecodedProperty<'_>>) -> Vec<PropertyEncoder> {
         if properties.is_empty() {
@@ -127,12 +127,12 @@ impl PropertyOptimizer {
     }
 }
 
-/// Group similar string columns into `PropValue::SharedDict`.
+/// Group similar string columns into `DecodedProperty::SharedDict`.
 ///
 /// This function:
 /// 1. Profiles string columns by computing `MinHash` signatures
 /// 2. Groups similar columns using union-find
-/// 3. Transforms grouped columns into `PropValue::SharedDict`
+/// 3. Transforms grouped columns into `DecodedProperty::SharedDict`
 /// 4. Removes the merged columns from the properties vector
 fn group_string_columns(properties: &mut Vec<DecodedProperty<'_>>) {
     // Profile string columns: compute MinHash signatures
@@ -222,12 +222,12 @@ fn compute_string_groups(
     groups
 }
 
-/// Transform multi-member groups into `PropValue::SharedDict`.
+/// Transform multi-member groups into [`DecodedProperty::SharedDict`].
 ///
 /// For each group with 2+ members:
 /// - Computes the common prefix name
-/// - Builds `SharedDictItem` for each child
-/// - Replaces the first property with `PropValue::SharedDict`
+/// - Builds [`DecodedSharedDictItem`] for each child
+/// - Replaces the first property with [`DecodedProperty::SharedDict`]
 /// - Removes the other properties from the vector
 fn merge_str_to_shared_dicts(properties: &mut Vec<DecodedProperty<'_>>, groups: &[Vec<usize>]) {
     let mut indices_to_remove: HashSet<usize> = HashSet::new();
@@ -349,7 +349,7 @@ fn build_encoder(prop: &DecodedProperty<'_>) -> PropertyEncoder {
     }
 }
 
-/// Build a `SharedDictEncoder` for a `PropValue::SharedDict`.
+/// Build a `SharedDictEncoder` for a `DecodedProperty::SharedDict`.
 fn build_shared_dict_encoder(
     shared_dict: &DecodedSharedDict<'_>,
     items: &[DecodedSharedDictItem],

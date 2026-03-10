@@ -76,10 +76,9 @@ pub struct DecodedScalar<T: Copy + PartialEq> {
 /// A single sub-property within a shared dictionary decoded value.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct DecodedSharedDictItem {
-    // TODO: suffix should be Cow<'a, str>
+pub struct DecodedSharedDictItem<'a> {
     /// The suffix name of this sub-property (appended to parent struct name).
-    pub suffix: String,
+    pub suffix: Cow<'a, str>,
     /// Per-feature `(start, end)` byte offsets into the decoded shared corpus.
     /// Non-negative pairs indicate a present string stored as
     /// `shared_dict.corpus()[start..end]`.
@@ -115,26 +114,8 @@ pub struct DecodedStrings<'a> {
 pub struct DecodedSharedDict<'a> {
     pub prefix: Cow<'a, str>,
     pub data: Cow<'a, str>,
-    pub items: Vec<DecodedSharedDictItem>,
+    pub items: Vec<DecodedSharedDictItem<'a>>,
 }
-
-/// Compatibility helper for constructing typed decoded properties.
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum PropValue {
-    Bool(Vec<Option<bool>>),
-    I8(Vec<Option<i8>>),
-    U8(Vec<Option<u8>>),
-    I32(Vec<Option<i32>>),
-    U32(Vec<Option<u32>>),
-    I64(Vec<Option<i64>>),
-    U64(Vec<Option<u64>>),
-    F32(Vec<Option<f32>>),
-    F64(Vec<Option<f64>>),
-    Str(DecodedStrings<'static>),
-    SharedDict(DecodedSharedDict<'static>),
-}
-pub type SharedDictItem = DecodedSharedDictItem;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
