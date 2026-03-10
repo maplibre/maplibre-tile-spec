@@ -2,10 +2,12 @@ use std::collections::HashSet;
 
 use geo_types::{LineString, Point, Polygon, point, wkt};
 use mlt_core::geojson::{Coord32, Geom32};
-use mlt_core::optimizer::{AutomaticOptimisation as _, ManualOptimisation as _};
+use mlt_core::optimizer::{
+    AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
+};
 use mlt_core::v01::{
-    DecodedGeometry, DictionaryType, LengthType, OffsetType, OwnedEncodedGeometry, OwnedGeometry,
-    StreamType,
+    DecodedGeometry, DictionaryType, GeometryProfile, LengthType, OffsetType, OwnedEncodedGeometry,
+    OwnedGeometry, StreamType,
 };
 use mlt_core::{Encodable as _, FromEncoded as _, borrowme};
 use pretty_assertions::assert_eq;
@@ -216,6 +218,177 @@ fn encoded_repeated_points_uses_morton_streams() {
         encoded.meta.meta.stream_type,
         StreamType::Length(LengthType::VarBinary),
         "meta stream must always be present"
+    );
+}
+
+// ── GeometryProfile / ProfileOptimisation ─────────────────────────────────────
+
+/// Build a profile from `sample`, then apply it to `target` and return the
+/// decoded result.
+fn profile_roundtrip(sample: &DecodedGeometry, target: &DecodedGeometry) -> DecodedGeometry {
+    let profile = GeometryProfile::from_sample(sample).expect("from_sample failed");
+    let mut geom = OwnedGeometry::Decoded(target.clone());
+    geom.profile_driven_optimisation(&profile)
+        .expect("profile_driven_optimisation failed");
+    borrowme::borrow(&geom).decode().expect("decode failed")
+}
+
+#[test]
+fn profile_roundtrip_single_point() {
+    let geoms = vec![wkt!(POINT(10 20)).into()];
+    let decoded = push_geoms(&geoms);
+    let result = profile_roundtrip(&decoded, &decoded);
+    assert_eq!(decoded, result);
+}
+
+#[test]
+fn profile_roundtrip_linestring() {
+    let geoms = vec![wkt!(LINESTRING(10 20, 30 40, 50 60)).into()];
+    let decoded = push_geoms(&geoms);
+    let result = profile_roundtrip(&decoded, &decoded);
+    assert_eq!(decoded, result);
+}
+
+#[test]
+fn profile_roundtrip_polygon() {
+    let geoms = vec![wkt!(POLYGON((0 0, 100 0, 100 100, 0 100, 0 0))).into()];
+    let decoded = push_geoms(&geoms);
+    let result = profile_roundtrip(&decoded, &decoded);
+    assert_eq!(decoded, result);
+}
+
+#[test]
+fn profile_roundtrip_mixed_geometry_types() {
+    // Mixed geometry types undergo a normalisation step during encode/decode, so
+    // the first pass produces a "canonical" form.  Like the automatic roundtrip
+    // test, we verify stability (two passes agree) rather than identity with the
+    // raw original.
+    let point = wkt!(POINT(1 2)).into();
+    let ls = wkt!(LINESTRING(0 0, 1 1, 2 2)).into();
+    let poly = wkt!(POLYGON((0 0, 10 0, 10 10, 0 0))).into();
+    let original = push_geoms(&[point, ls, poly]);
+    let canonical = profile_roundtrip(&original, &original);
+    let output = profile_roundtrip(&canonical, &canonical);
+    assert_eq!(canonical, output);
+}
+
+#[test]
+fn profile_applied_to_different_tile_roundtrips() {
+    // Build the profile from a polygon tile, apply it to a linestring tile.
+    // The topology is completely different — apply_profile must still produce a
+    // valid encoding because it re-runs the probe pass on the actual tile data.
+    let sample = push_geoms(&[wkt!(POLYGON((0 0, 50 0, 50 50, 0 50, 0 0))).into()]);
+    let target = push_geoms(&[wkt!(LINESTRING(0 0, 10 10, 20 0, 30 10)).into()]);
+
+    let profile = GeometryProfile::from_sample(&sample).expect("from_sample failed");
+    let mut geom = OwnedGeometry::Decoded(target.clone());
+    geom.profile_driven_optimisation(&profile)
+        .expect("profile_driven_optimisation failed");
+    let result = borrowme::borrow(&geom).decode().expect("decode failed");
+    assert_eq!(target, result);
+}
+
+#[test]
+fn profile_merge_roundtrips() {
+    // Build two profiles from different geometry types and merge them.
+    // The merged profile must still produce a valid encoding for both geometries.
+    let poly = push_geoms(&[wkt!(POLYGON((0 0, 100 0, 100 100, 0 0))).into()]);
+    let ls = push_geoms(&[wkt!(LINESTRING(0 0, 10 10, 20 20)).into()]);
+
+    let profile_a = GeometryProfile::from_sample(&poly).expect("from_sample poly failed");
+    let profile_b = GeometryProfile::from_sample(&ls).expect("from_sample ls failed");
+    let merged = profile_a.merge(&profile_b);
+
+    // Apply the merged profile to both geometry types.
+    for (label, target) in [("poly", &poly), ("ls", &ls)] {
+        let mut geom = OwnedGeometry::Decoded(target.clone());
+        geom.profile_driven_optimisation(&merged)
+            .unwrap_or_else(|e| panic!("profile_driven_optimisation failed for {label}: {e}"));
+        let result = borrowme::borrow(&geom).decode().expect("decode failed");
+        assert_eq!(
+            *target, result,
+            "merged profile roundtrip failed for {label}"
+        );
+    }
+}
+
+#[test]
+fn profile_rederives_vertex_strategy_from_actual_data() {
+    // Sample is built from high-repetition points (→ Morton in profile).
+    // Target has all-unique coordinates in Vec2-only range.
+    // apply_profile must re-derive the vertex strategy from the target data
+    // and select Vec2, not blindly reuse Morton from the sample.
+    let sample_geoms: Vec<Geom32> = std::iter::repeat_n(point! { x: 5, y: 5 }.into(), 20).collect();
+    let sample = push_geoms(&sample_geoms);
+
+    let target_geoms: Vec<Geom32> = (0i32..10).map(|i| point! { x: i, y: i }.into()).collect();
+    let target = push_geoms(&target_geoms);
+
+    let profile = GeometryProfile::from_sample(&sample).expect("from_sample failed");
+    let mut geom = OwnedGeometry::Decoded(target.clone());
+    geom.profile_driven_optimisation(&profile)
+        .expect("profile_driven_optimisation failed");
+
+    let encoded = geom.borrow_encoded().expect("must be encoded");
+    let types = encoded_stream_types(encoded);
+
+    // All-unique coordinates must have been detected at apply time → Vec2.
+    assert!(
+        types.contains(&StreamType::Data(DictionaryType::Vertex)),
+        "apply_profile must re-derive Vec2 for all-unique target vertices"
+    );
+    assert!(
+        !types.contains(&StreamType::Data(DictionaryType::Morton)),
+        "apply_profile must not blindly reuse Morton from the sample profile"
+    );
+
+    // And the decoded result must still match the original.
+    let result = borrowme::borrow(&geom).decode().expect("decode failed");
+    assert_eq!(target, result);
+}
+
+#[test]
+fn profile_starting_from_encoded_state_roundtrips() {
+    // profile_driven_optimisation must also work when OwnedGeometry starts
+    // in the Encoded state (it should decode first, then re-encode).
+    let geoms = vec![wkt!(LINESTRING(0 0, 5 10, 15 20)).into()];
+    let decoded = push_geoms(&geoms);
+
+    // First encode it automatically so we start in Encoded state.
+    let mut geom = OwnedGeometry::Decoded(decoded.clone());
+    geom.automatic_encoding_optimisation()
+        .expect("automatic optimisation failed");
+    assert!(
+        geom.borrow_encoded().is_some(),
+        "must be encoded after auto"
+    );
+
+    // Build profile from the decoded geometry, then apply it to the Encoded geom.
+    let profile = GeometryProfile::from_sample(&decoded).expect("from_sample failed");
+    geom.profile_driven_optimisation(&profile)
+        .expect("profile_driven_optimisation on Encoded state failed");
+
+    let result = borrowme::borrow(&geom).decode().expect("decode failed");
+    assert_eq!(decoded, result);
+}
+
+#[test]
+fn profile_and_automatic_both_roundtrip_consistently() {
+    // Both paths must produce semantically identical decoded output for the
+    // same input — they may choose different encoders, but the data must match.
+    let geoms = vec![
+        wkt!(POLYGON((0 0, 80 0, 80 80, 0 80, 0 0))).into(),
+        wkt!(POLYGON((10 10, 20 10, 20 20, 10 20, 10 10))).into(),
+    ];
+    let decoded = push_geoms(&geoms);
+
+    let auto_result = optimize_roundtrip(&decoded);
+
+    let profile_result = profile_roundtrip(&decoded, &decoded);
+
+    assert_eq!(
+        auto_result, profile_result,
+        "automatic and profile-driven paths must decode to the same geometry"
     );
 }
 
