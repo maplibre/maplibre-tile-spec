@@ -521,11 +521,11 @@ mod tests {
 
     use super::*;
     use crate::geojson::Coord32;
+    use crate::optimizer::ManualOptimisation as _;
     use crate::v01::{
         EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, OwnedEncodedGeometry,
         OwnedGeometry,
     };
-    use crate::optimizer::ManualOptimisation as _;
 
     /// Encode, serialize, parse, and decode a `DecodedGeometry`.
     /// The input must already be in the dense canonical form that `from_encoded`
@@ -542,7 +542,9 @@ mod tests {
         let (remaining, parsed) = EncodedGeometry::parse(&buffer).expect("Failed to parse");
         assert!(remaining.is_empty(), "Remaining bytes after parse");
 
-        Geometry::Encoded(parsed).decode().expect("Failed to decode")
+        Geometry::Encoded(parsed)
+            .decode()
+            .expect("Failed to decode")
     }
 
     /// Build a `DecodedGeometry` from a sequence of `Geom32` values via

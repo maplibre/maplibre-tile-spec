@@ -1,9 +1,8 @@
-use mlt_core::MltError;
 use mlt_core::optimizer::{
     AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
 };
 use mlt_core::v01::{DecodedId, IdEncoder, IdWidth, LogicalEncoder, OwnedId};
-use mlt_core::{borrowme};
+use mlt_core::{MltError, borrowme};
 use rstest::rstest;
 
 fn create_u32_range_ids() -> DecodedId {

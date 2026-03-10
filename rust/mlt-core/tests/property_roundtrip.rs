@@ -1,9 +1,9 @@
+use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
     DecodedProperty, DecodedStrings, IntEncoder, LogicalEncoder, OwnedProperty, PhysicalEncoder,
-    PresenceStream, PropValue, Property, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
+    PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
     SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
 };
-use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::{MltError, borrowme};
 use proptest::prelude::*;
 
@@ -59,9 +59,7 @@ fn roundtrip(decoded: &DecodedProperty<'_>, encoder: ScalarEncoder) -> DecodedPr
         .expect("encoding failed");
     let enc = props.pop().unwrap();
     mlt_core::borrowme::ToOwned::to_owned(
-        &Property::from(borrowme::borrow(&enc))
-            .decode()
-            .expect("decoding failed"),
+        &borrowme::borrow(&enc).decode().expect("decoding failed"),
     )
 }
 
@@ -93,19 +91,11 @@ fn make_prop(name: &str, values: PropValue) -> DecodedProperty<'static> {
 }
 
 fn decode_struct(prop: &OwnedProperty) -> DecodedProperty<'static> {
-    mlt_core::borrowme::ToOwned::to_owned(
-        &Property::from(borrowme::borrow(prop))
-            .decode()
-            .expect("decode failed"),
-    )
+    mlt_core::borrowme::ToOwned::to_owned(&borrowme::borrow(prop).decode().expect("decode failed"))
 }
 
 fn decode_scalar(prop: &OwnedProperty) -> DecodedProperty<'static> {
-    mlt_core::borrowme::ToOwned::to_owned(
-        &Property::from(borrowme::borrow(prop))
-            .decode()
-            .expect("decode failed"),
-    )
+    mlt_core::borrowme::ToOwned::to_owned(&borrowme::borrow(prop).decode().expect("decode failed"))
 }
 
 fn struct_encode_and_decode(

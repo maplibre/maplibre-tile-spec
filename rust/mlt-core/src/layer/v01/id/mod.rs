@@ -283,9 +283,7 @@ mod tests {
     fn roundtrip(decoded: &DecodedId, config: IdEncoder) -> DecodedId {
         let mut owned = OwnedId::Decoded(Some(decoded.clone()));
         owned.manual_optimisation(config).expect("Failed to encode");
-        borrowme::borrow(&owned)
-            .decode()
-            .expect("Failed to decode")
+        borrowme::borrow(&owned).decode().expect("Failed to decode")
     }
 
     // Test that each config produces the correct variant and optional stream presence
@@ -434,7 +432,7 @@ mod tests {
         Ok(())
     }
 
-    /// Helper: Asserts that the ManualOptimisation API works correctly (encode -> decode)
+    /// Helper: Asserts that the `ManualOptimisation` API works correctly (encode -> decode)
     fn assert_encodable_api_works(
         ids: Vec<Option<u64>>,
         config: IdEncoder,

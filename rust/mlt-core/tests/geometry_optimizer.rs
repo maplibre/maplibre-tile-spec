@@ -1,14 +1,13 @@
 use std::collections::HashSet;
 
 use geo_types::{LineString, Point, Polygon, point, wkt};
-use mlt_core::Encodable as _;
 use mlt_core::geojson::{Coord32, Geom32};
 use mlt_core::optimizer::{AutomaticOptimisation as _, ManualOptimisation as _};
 use mlt_core::v01::{
     DecodedGeometry, DictionaryType, LengthType, OffsetType, OwnedEncodedGeometry, OwnedGeometry,
     StreamType,
 };
-use mlt_core::{borrowme};
+use mlt_core::{Encodable as _, borrowme};
 use pretty_assertions::assert_eq;
 
 fn optimize_roundtrip(decoded: &DecodedGeometry) -> DecodedGeometry {
