@@ -140,9 +140,7 @@ fn test_reoptimisation_improves_manual_encoding() {
     assert_eq!(auto_enc, Some(expected));
 }
 
-// --- Profile-driven optimisation ---
-
-/// IdWidth is always re-derived from the tile being encoded, not the sample
+/// Width is always re-derived from the tile being encoded, not the sample
 /// used to build the profile. Logical encoder comes from the profile candidates.
 #[test]
 fn test_profile_applies_candidates_and_rederives_width() {
