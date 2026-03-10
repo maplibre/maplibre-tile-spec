@@ -336,6 +336,35 @@ fn struct_with_nulls() {
 }
 
 #[test]
+fn struct_shared_dict_inline_ranges_track_nulls_and_empty_strings() {
+    let de = opt_strs(&[Some(""), None, Some("Berlin")]);
+    let en = opt_strs(&[Some(""), Some("Berlin"), Some("")]);
+    let prop = shared_dict_prop(
+        "name",
+        vec![
+            (":de".to_string(), DecodedStrings::from(de.clone())),
+            (":en".to_string(), DecodedStrings::from(en.clone())),
+        ],
+    );
+    let DecodedProperty::SharedDict(_, shared_dict, items) = &prop else {
+        panic!("Expected SharedDict");
+    };
+
+    assert_eq!(items[0].materialize(shared_dict), de);
+    assert_eq!(items[1].materialize(shared_dict), en);
+
+    assert_eq!(items[0].ranges[1], (-1, -1));
+    assert_eq!(items[0].get(shared_dict, 1), None);
+
+    let empty_de = items[0].ranges[0];
+    let empty_en = items[1].ranges[0];
+    assert_ne!(empty_de, (-1, -1));
+    assert_ne!(empty_en, (-1, -1));
+    assert_eq!(empty_de.0, empty_de.1);
+    assert_eq!(empty_en.0, empty_en.1);
+}
+
+#[test]
 fn struct_no_nulls() {
     let de = strs(&["Berlin", "München", "Hamburg"]);
     let en = strs(&["Berlin", "Munich", "Hamburg"]);

@@ -10,9 +10,9 @@ use crate::MltError::{
 };
 use crate::utils::AsUsize as _;
 use crate::v01::{
-    ColumnType, DecodedPresence, DecodedProperty, DecodedSharedDict, DecodedSharedDictItem,
-    DecodedStrings, DictionaryType, EncodedPresence, EncodedSharedDict, EncodedSharedDictChild,
-    EncodedStrings, FsstStrEncoder, IntEncoder, LengthType, OffsetType, OwnedEncodedProperty,
+    ColumnType, DecodedProperty, DecodedSharedDict, DecodedSharedDictItem, DecodedStrings,
+    DictionaryType, EncodedPresence, EncodedSharedDict, EncodedSharedDictChild, EncodedStrings,
+    FsstStrEncoder, IntEncoder, LengthType, OffsetType, OwnedEncodedProperty,
     OwnedEncodedSharedDict, OwnedEncodedSharedDictChild, OwnedEncodedStrings, OwnedName,
     OwnedStream, PresenceStream, SharedDictItem, Stream, StreamData, StreamType,
 };
@@ -138,22 +138,8 @@ impl BorrowmeToOwned for DecodedSharedDict<'_> {
     type Owned = DecodedSharedDict<'static>;
 
     fn to_owned(&self) -> Self::Owned {
-        match self {
-            Self::Plain { lengths, data } => DecodedSharedDict::Plain {
-                lengths: lengths.clone(),
-                data: Cow::Owned(data.as_ref().to_string()),
-            },
-            Self::FsstPlain {
-                symbol_lengths,
-                symbol_table,
-                lengths,
-                corpus,
-            } => DecodedSharedDict::FsstPlain {
-                symbol_lengths: symbol_lengths.clone(),
-                symbol_table: symbol_table.clone(),
-                lengths: lengths.clone(),
-                corpus: Cow::Owned(corpus.as_ref().to_string()),
-            },
+        DecodedSharedDict {
+            data: Cow::Owned(self.data.as_ref().to_string()),
         }
     }
 }
@@ -165,22 +151,8 @@ impl BorrowmeBorrow for DecodedSharedDict<'static> {
         Self: 'a;
 
     fn borrow(&self) -> Self::Target<'_> {
-        match self {
-            Self::Plain { lengths, data } => DecodedSharedDict::Plain {
-                lengths: lengths.clone(),
-                data: Cow::Borrowed(data.as_ref()),
-            },
-            Self::FsstPlain {
-                symbol_lengths,
-                symbol_table,
-                lengths,
-                corpus,
-            } => DecodedSharedDict::FsstPlain {
-                symbol_lengths: symbol_lengths.clone(),
-                symbol_table: symbol_table.clone(),
-                lengths: lengths.clone(),
-                corpus: Cow::Borrowed(corpus.as_ref()),
-            },
+        DecodedSharedDict {
+            data: Cow::Borrowed(self.data.as_ref()),
         }
     }
 }
@@ -189,16 +161,11 @@ impl BorrowmeBorrow for DecodedSharedDict<'static> {
 impl<'a> arbitrary::Arbitrary<'a> for DecodedSharedDict<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let values: Vec<String> = u.arbitrary()?;
-        let lengths = values
-            .iter()
-            .map(|value| u32::try_from(value.len()).unwrap_or(u32::MAX))
-            .collect();
         let mut data = String::new();
         for value in values {
             data.push_str(&value);
         }
-        Ok(Self::Plain {
-            lengths,
+        Ok(Self {
             data: Cow::Owned(data),
         })
     }
@@ -273,90 +240,90 @@ impl Analyze for DecodedStrings<'_> {
     }
 }
 
+fn encode_shared_dict_range(start: u32, end: u32) -> Result<(i32, i32), MltError> {
+    Ok((i32::try_from(start)?, i32::try_from(end)?))
+}
+
+fn decode_shared_dict_range(range: (i32, i32)) -> Option<(u32, u32)> {
+    if let (Ok(start), Ok(end)) = (u32::try_from(range.0), u32::try_from(range.1)) {
+        Some((start, end))
+    } else {
+        None
+    }
+}
+
 impl DecodedSharedDict<'_> {
     #[must_use]
-    pub fn lengths(&self) -> &[u32] {
-        match self {
-            Self::Plain { lengths, .. } | Self::FsstPlain { lengths, .. } => lengths,
-        }
-    }
-
-    #[must_use]
     pub fn corpus(&self) -> &str {
-        match self {
-            Self::Plain { data, .. } => data,
-            Self::FsstPlain { corpus, .. } => corpus,
-        }
-    }
-
-    #[must_use]
-    pub fn spans(&self) -> Vec<(u32, u32)> {
-        let mut offset = 0_u32;
-        self.lengths()
-            .iter()
-            .map(|len| {
-                let span = (offset, *len);
-                offset = offset.saturating_add(*len);
-                span
-            })
-            .collect()
+        &self.data
     }
 
     #[must_use]
     pub fn get(&self, span: (u32, u32)) -> Option<&str> {
         let start = span.0.as_usize();
-        let len = span.1.as_usize();
-        self.corpus().get(start..start + len)
+        let end = span.1.as_usize();
+        self.corpus().get(start..end)
     }
+}
+
+pub(crate) fn collect_shared_dict_spans(items: &[DecodedSharedDictItem]) -> Vec<(u32, u32)> {
+    let mut spans = items
+        .iter()
+        .flat_map(DecodedSharedDictItem::dense_spans)
+        .collect::<Vec<_>>();
+    spans.sort_unstable();
+    spans.dedup();
+    spans
 }
 
 impl DecodedSharedDictItem {
     #[must_use]
     pub fn feature_count(&self) -> usize {
-        self.presence.feature_count(self.spans.len())
+        self.ranges.len()
+    }
+
+    #[must_use]
+    pub fn has_nulls(&self) -> bool {
+        self.ranges
+            .iter()
+            .any(|&range| decode_shared_dict_range(range).is_none())
+    }
+
+    #[must_use]
+    pub fn presence_bools(&self) -> Vec<bool> {
+        self.ranges
+            .iter()
+            .map(|&range| decode_shared_dict_range(range).is_some())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn dense_spans(&self) -> Vec<(u32, u32)> {
+        self.ranges
+            .iter()
+            .filter_map(|&range| decode_shared_dict_range(range))
+            .collect()
     }
 
     #[must_use]
     pub fn materialize(&self, shared_dict: &DecodedSharedDict<'_>) -> Vec<Option<String>> {
-        match &self.presence.0 {
-            None => self
-                .spans
-                .iter()
-                .map(|&span| shared_dict.get(span).map(str::to_string))
-                .collect(),
-            Some(presence) => {
-                let mut next = self.spans.iter();
-                presence
-                    .iter()
-                    .map(|present| {
-                        if *present {
-                            next.next()
-                                .and_then(|&span| shared_dict.get(span))
-                                .map(str::to_string)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
-            }
-        }
+        self.ranges
+            .iter()
+            .map(|&range| {
+                decode_shared_dict_range(range)
+                    .and_then(|span| shared_dict.get(span))
+                    .map(str::to_string)
+            })
+            .collect()
     }
 
     #[must_use]
     pub fn get<'a>(&self, shared_dict: &'a DecodedSharedDict<'_>, i: usize) -> Option<&'a str> {
-        match &self.presence.0 {
-            None => self.spans.get(i).and_then(|&span| shared_dict.get(span)),
-            Some(presence) => {
-                let present = *presence.get(i)?;
-                if !present {
-                    return None;
-                }
-                let offset = presence[..i].iter().filter(|v| **v).count();
-                self.spans
-                    .get(offset)
-                    .and_then(|&span| shared_dict.get(span))
-            }
-        }
+        self.ranges
+            .get(i)
+            .copied()
+            .and_then(decode_shared_dict_range)
+            .and_then(|span| shared_dict.get(span))
     }
 }
 
@@ -713,7 +680,7 @@ pub fn encode_shared_dict_prop(
         ));
     }
 
-    let dict_spans = shared_dict.spans();
+    let dict_spans = collect_shared_dict_spans(items);
     let dict: Vec<&str> = dict_spans
         .iter()
         .map(|&span| {
@@ -741,7 +708,7 @@ pub fn encode_shared_dict_prop(
     for (item, item_enc) in items.iter().zip(&encoder.items) {
         // Presence stream
         let presence = if item_enc.presence == PresenceStream::Present {
-            let present_bools = item.presence.bools(item.spans.len());
+            let present_bools = item.presence_bools();
             Some(OwnedStream::encode_presence(&present_bools)?)
         } else {
             None
@@ -749,7 +716,7 @@ pub fn encode_shared_dict_prop(
 
         // Offset indices for non-null values only.
         let offsets: Vec<u32> = item
-            .spans
+            .dense_spans()
             .iter()
             .map(|span| {
                 dict_index
@@ -818,41 +785,35 @@ pub fn build_decoded_shared_dict(
         }
     }
 
-    let mut lengths = Vec::with_capacity(dict_entries.len());
-    let mut spans = Vec::with_capacity(dict_entries.len());
+    let mut dict_ranges = Vec::with_capacity(dict_entries.len());
     let mut data = String::new();
     for value in &dict_entries {
         let offset = u32::try_from(data.len())?;
         let len = u32::try_from(value.len())?;
-        lengths.push(len);
-        spans.push((offset, len));
+        let end = offset.saturating_add(len);
+        dict_ranges.push((offset, end));
         data.push_str(value);
     }
 
-    let shared_dict = DecodedSharedDict::Plain {
-        lengths,
-        data: data.into(),
-    };
+    let shared_dict = DecodedSharedDict { data: data.into() };
     let items = items
         .into_iter()
         .map(
             |(suffix, values)| -> Result<DecodedSharedDictItem, MltError> {
-                let dense_values = values.dense_values();
-                let spans = dense_values
-                    .iter()
-                    .map(|value| {
+                let mut ranges = Vec::with_capacity(values.feature_count());
+                for i in 0..u32::try_from(values.feature_count())? {
+                    if let Some(value) = values.get(i) {
                         let idx = dict_index
                             .get(value)
                             .copied()
                             .ok_or(DictIndexOutOfBounds(0, dict_entries.len()))?;
-                        Ok(spans[idx as usize])
-                    })
-                    .collect::<Result<Vec<_>, MltError>>()?;
-                Ok(DecodedSharedDictItem {
-                    suffix,
-                    presence: DecodedPresence::from(values.presence_bools()),
-                    spans,
-                })
+                        let span = dict_ranges[idx as usize];
+                        ranges.push(encode_shared_dict_range(span.0, span.1)?);
+                    } else {
+                        ranges.push((-1, -1));
+                    }
+                }
+                Ok(DecodedSharedDictItem { suffix, ranges })
             },
         )
         .collect::<Result<Vec<_>, _>>()?;
@@ -1100,11 +1061,24 @@ pub fn decode_shared_dict(
     struct_data: &EncodedSharedDict<'_>,
     children: &[EncodedSharedDictChild<'_>],
 ) -> Result<(DecodedSharedDict<'static>, Vec<DecodedSharedDictItem>), MltError> {
-    let shared_dict = match struct_data {
-        EncodedSharedDict::Plain { lengths, data } => DecodedSharedDict::Plain {
-            lengths: lengths.clone().decode_bits_u32()?.decode_u32()?,
-            data: str::from_utf8(&raw_bytes(data.clone()))?.to_string().into(),
-        },
+    let (shared_dict, dict_spans) = match struct_data {
+        EncodedSharedDict::Plain { lengths, data } => {
+            let lengths = lengths.clone().decode_bits_u32()?.decode_u32()?;
+            let dict_spans = lengths
+                .iter()
+                .scan(0_u32, |offset, len| {
+                    let start = *offset;
+                    *offset = offset.saturating_add(*len);
+                    Some((start, *offset))
+                })
+                .collect::<Vec<_>>();
+            (
+                DecodedSharedDict {
+                    data: str::from_utf8(&raw_bytes(data.clone()))?.to_string().into(),
+                },
+                dict_spans,
+            )
+        }
         EncodedSharedDict::FsstPlain {
             symbol_lengths,
             symbol_table,
@@ -1116,40 +1090,72 @@ pub fn decode_shared_dict(
             let lengths = lengths.clone().decode_bits_u32()?.decode_u32()?;
             let compressed = raw_bytes(corpus.clone());
             let decoded = decode_fsst(&symbol_table, &symbol_lengths, &compressed);
-            DecodedSharedDict::FsstPlain {
-                symbol_lengths,
-                symbol_table,
-                lengths,
-                corpus: str::from_utf8(&decoded)?.to_string().into(),
-            }
+            let dict_spans = lengths
+                .iter()
+                .scan(0_u32, |offset, len| {
+                    let start = *offset;
+                    *offset = offset.saturating_add(*len);
+                    Some((start, *offset))
+                })
+                .collect::<Vec<_>>();
+            (
+                DecodedSharedDict {
+                    data: str::from_utf8(&decoded)?.to_string().into(),
+                },
+                dict_spans,
+            )
         }
     };
-    let dict_spans = shared_dict.spans();
     Ok((
         shared_dict,
         children
             .iter()
             .map(|child| -> Result<DecodedSharedDictItem, MltError> {
                 let offsets = child.data.clone().decode_bits_u32()?.decode_u32()?;
-                Ok(DecodedSharedDictItem {
-                    suffix: child.name.0.to_string(),
-                    presence: DecodedPresence::from(
-                        child
-                            .presence
-                            .0
-                            .clone()
-                            .map(Stream::decode_bools)
-                            .transpose()?,
-                    ),
-                    spans: offsets
-                        .into_iter()
-                        .map(|idx| {
-                            dict_spans
+                let presence = child
+                    .presence
+                    .0
+                    .clone()
+                    .map(Stream::decode_bools)
+                    .transpose()?;
+                let mut next = offsets.into_iter();
+                let ranges = if let Some(presence) = presence {
+                    let mut ranges = Vec::with_capacity(presence.len());
+                    for present in presence {
+                        if present {
+                            let idx = next.next().ok_or(MltError::PresenceValueCountMismatch(
+                                ranges.iter().filter(|&&(s, e)| (s, e) != (-1, -1)).count(),
+                                ranges.len() + 1,
+                            ))?;
+                            let span = dict_spans
                                 .get(idx as usize)
                                 .copied()
-                                .ok_or(DictIndexOutOfBounds(idx, dict_spans.len()))
-                        })
-                        .collect::<Result<Vec<_>, _>>()?,
+                                .ok_or(DictIndexOutOfBounds(idx, dict_spans.len()))?;
+                            ranges.push(encode_shared_dict_range(span.0, span.1)?);
+                        } else {
+                            ranges.push((-1, -1));
+                        }
+                    }
+                    if next.next().is_some() {
+                        return Err(MltError::PresenceValueCountMismatch(
+                            ranges.iter().filter(|&&(s, e)| (s, e) != (-1, -1)).count() + 1,
+                            ranges.len(),
+                        ));
+                    }
+                    ranges
+                } else {
+                    next.map(|idx| {
+                        let span = dict_spans
+                            .get(idx as usize)
+                            .copied()
+                            .ok_or(DictIndexOutOfBounds(idx, dict_spans.len()))?;
+                        encode_shared_dict_range(span.0, span.1)
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+                };
+                Ok(DecodedSharedDictItem {
+                    suffix: child.name.0.to_string(),
+                    ranges,
                 })
             })
             .collect::<Result<Vec<_>, _>>()?,

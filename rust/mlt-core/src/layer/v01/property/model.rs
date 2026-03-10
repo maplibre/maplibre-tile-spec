@@ -73,10 +73,12 @@ pub enum DecodedProperty<'a> {
 pub struct DecodedSharedDictItem {
     /// The suffix name of this sub-property (appended to parent struct name).
     pub suffix: String,
-    /// Nullability for each feature.
-    pub presence: DecodedPresence,
-    /// One span per non-null value, stored as `(offset, len)` within the decoded dictionary corpus.
-    pub spans: Vec<(u32, u32)>,
+    /// Per-feature `(start, end)` byte offsets into the decoded shared corpus.
+    /// Non-negative pairs indicate a present string stored as
+    /// `shared_dict.corpus()[start..end]`.
+    /// `(-1, -1)` indicates NULL.
+    /// Equal `start` and `end` indicate an empty string.
+    pub ranges: Vec<(i32, i32)>,
 }
 
 /// Decoded string values for a single property.
@@ -102,17 +104,8 @@ pub struct DecodedStrings<'a> {
 
 /// Decoded shared dictionary payload shared by one or more child string properties.
 #[derive(Debug, Clone, PartialEq)]
-pub enum DecodedSharedDict<'a> {
-    Plain {
-        lengths: Vec<u32>,
-        data: Cow<'a, str>,
-    },
-    FsstPlain {
-        symbol_lengths: Vec<u32>,
-        symbol_table: Vec<u8>,
-        lengths: Vec<u32>,
-        corpus: Cow<'a, str>,
-    },
+pub struct DecodedSharedDict<'a> {
+    pub data: Cow<'a, str>,
 }
 
 /// Compatibility helper for constructing typed decoded properties.

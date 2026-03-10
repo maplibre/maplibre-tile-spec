@@ -22,6 +22,7 @@ use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimis
 use crate::utils::encode_zigzag;
 use crate::v01::property::strings::{
     SharedDictEncoder, SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
+    collect_shared_dict_spans,
 };
 use crate::v01::property::{
     DecodedProperty, DecodedSharedDict, DecodedSharedDictItem, PresenceStream, PropertyEncoder,
@@ -352,9 +353,9 @@ fn build_shared_dict_encoder(
     shared_dict: &DecodedSharedDict<'_>,
     items: &[DecodedSharedDictItem],
 ) -> PropertyEncoder {
+    let dict_spans = collect_shared_dict_spans(items);
     // Collect all strings for FSST viability check
-    let all_strings: Vec<&str> = shared_dict
-        .spans()
+    let all_strings: Vec<&str> = dict_spans
         .iter()
         .filter_map(|&span| shared_dict.get(span))
         .collect();
@@ -375,12 +376,8 @@ fn build_shared_dict_encoder(
     let item_encoders: Vec<SharedDictItemEncoder> = items
         .iter()
         .map(|item| {
-            let presence = if item.presence.0.is_some() {
-                PresenceStream::Present
-            } else {
-                PresenceStream::Absent
-            };
-            let offsets = compute_offset_encoder(shared_dict, item);
+            let presence = presence_stream(item.has_nulls());
+            let offsets = compute_offset_encoder(items, item);
             SharedDictItemEncoder { presence, offsets }
         })
         .collect();
@@ -395,13 +392,15 @@ fn build_shared_dict_encoder(
 /// Compute the optimal `IntEncoder` for the offset stream of one item
 /// in a shared dictionary.
 fn compute_offset_encoder(
-    shared_dict: &DecodedSharedDict<'_>,
+    items: &[DecodedSharedDictItem],
     target_item: &DecodedSharedDictItem,
 ) -> IntEncoder {
-    let dict_index: HashMap<(u32, u32), u32> =
-        shared_dict.spans().into_iter().zip(0_u32..).collect();
+    let dict_index: HashMap<(u32, u32), u32> = collect_shared_dict_spans(items)
+        .into_iter()
+        .zip(0_u32..)
+        .collect();
     let offsets: Vec<u32> = target_item
-        .spans
+        .dense_spans()
         .iter()
         .map(|span| {
             *dict_index
