@@ -115,7 +115,7 @@ fn test_manual_optimisation_truncation() {
     owned.manual_optimisation(manual_enc).unwrap();
 
     let decoded_back = borrowme::borrow(&owned).decode().unwrap();
-    
+
     // Manual encoding with a too-narrow `IdWidth` silently truncates values.
     // `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
     assert_eq!(decoded_back.0[0], Some(41));
