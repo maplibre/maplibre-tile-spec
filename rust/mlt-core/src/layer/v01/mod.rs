@@ -1,16 +1,16 @@
 mod column;
 mod geometry;
 mod id;
+mod model;
 mod optimizer;
 mod property;
 mod root;
 pub(crate) mod stream;
-mod structs;
 
 pub use geometry::*;
 pub use id::*;
+pub use model::*;
 pub use optimizer::*;
 pub use property::*;
 pub use root::*;
 pub use stream::*;
-pub use structs::*;

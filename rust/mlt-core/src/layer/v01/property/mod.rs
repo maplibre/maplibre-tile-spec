@@ -1,12 +1,12 @@
+mod model;
 mod optimizer;
 pub mod strings;
-mod structs;
 
 use std::fmt::{self, Debug};
 use std::io::Write;
 
 use integer_encoding::VarIntWriter as _;
-pub use structs::*;
+pub use model::*;
 
 use crate::MltError::{NotImplemented, UnsupportedPropertyEncoderCombination};
 use crate::analyse::{Analyze, StatType};
