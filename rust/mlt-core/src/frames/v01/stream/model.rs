@@ -1,8 +1,6 @@
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
-// Logical encoding types
-
 /// Logical encoding technique used for a column, as stored in the tile
 #[borrowme]
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
@@ -144,5 +142,5 @@ pub struct StreamMeta {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Stream<'a> {
     pub meta: StreamMeta,
-    pub data: super::StreamData<'a>,
+    pub data: super::data::StreamData<'a>,
 }
