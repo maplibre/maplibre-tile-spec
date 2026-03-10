@@ -170,54 +170,29 @@ class ReadablePmtiles(
         maxZoom: Int? = null,
     ) = getTileCoordRanges(rootDir, minZoom?.let(::zoomStartIndex) ?: 0, maxZoom?.let(::zoomEndIndex) ?: Long.MAX_VALUE)
 
-    /** Generate tile ranges for the Hilbert given tile indexes (inclusive)
+    /** Generate tile ranges for the Hilbert given tile indexes (half-closed range)
      * @param dir the directory to search
-     * @param minTileIndex the minimum tile index to include, or null to include all
-     * @param maxTileIndex the maximum tile index to include, or null to include all
+     * @param startTileIndex the first tile index to include
+     * @param endTileIndex the first tile index to exclude
      * */
     private fun getTileCoordRanges(
         dir: Iterable<Pmtiles.Entry>,
-        minTileIndex: Long,
-        maxTileIndex: Long,
+        startTileIndex: Long,
+        endTileIndex: Long,
     ): Sequence<TileCoordRange> =
         dir
             .asSequence()
             .flatMap<Pmtiles.Entry, TileCoordRange> { entry ->
-                // Run-length zero is a directory reference
-                if (entry.runLength() == 0) {
-                    if (entry.tileId() <= maxTileIndex) {
-                        // continue exploring this branch
-                        getTileCoordRanges(readDir(entry), minTileIndex, maxTileIndex)
-                    } else {
-                        // stop exploring this branch
-                        sequenceOf()
-                    }
-                } else {
-                    // Run-length non-zero is a tile range
-                    if (minTileIndex <= entry.tileId() && entry.tileId() + entry.runLength() <= maxTileIndex) {
-                        // use the full range
-                        sequenceOf(TileCoordRange(entry, header))
-                    } else if (maxTileIndex < entry.tileId() || entry.tileId() + entry.runLength() - 1 < minTileIndex) {
-                        // discard this range
-                        sequenceOf()
-                    } else {
-                        // use a partial range
-                        val start = entry.tileId().coerceAtLeast(minTileIndex)
-                        val end = (entry.tileId() + entry.runLength()).coerceAtMost(maxTileIndex)
-                        sequenceOf(
-                            TileCoordRange(
-                                start,
-                                (end - start + 1).toInt(),
-                                ByteRange(header.tileDataOffset() + entry.offset(), entry.length()),
-                            ),
-                        )
-                    }
+                mapDirectory(entry, startTileIndex, endTileIndex, header) {
+                    getTileCoordRanges(readDir(entry), startTileIndex, endTileIndex)
                 }
             }
 
+    /** Zoom start index, sum of previous tile counts */
     private fun zoomStartIndex(zoom: Int) = ZOOM_START_INDEX[zoom.coerceIn(0..MAX_ZOOM)]
 
-    private fun zoomEndIndex(zoom: Int) = ZOOM_START_INDEX[zoom.coerceIn(0..MAX_ZOOM) + 1] - 1
+    /** Zoom end index, first index of the next zoom */
+    private fun zoomEndIndex(zoom: Int) = ZOOM_START_INDEX[zoom.coerceIn(0..MAX_ZOOM) + 1]
 
     val header by lazy { Pmtiles.Header.fromBytes(getBytes(0, HEADER_LEN.toLong())) }
 
@@ -233,7 +208,7 @@ class ReadablePmtiles(
         private fun buildZoomIndex(): LongArray {
             val indexes = LongArray(MAX_ZOOM + 2)
             var index = 0L
-            (0..MAX_ZOOM + 1).map {
+            (0..MAX_ZOOM + 1).forEach {
                 indexes[it] = index
                 val width = (1L shl it)
                 index += width * width
@@ -276,6 +251,41 @@ class ReadablePmtiles(
                 }
             }
             return null
+        }
+
+        internal fun mapDirectory(
+            entry: Pmtiles.Entry,
+            startTileIndex: Long,
+            endTileIndex: Long,
+            header: Pmtiles.Header,
+            recurse: (entry: Pmtiles.Entry) -> Sequence<TileCoordRange>,
+        ): Sequence<TileCoordRange> {
+            // Run-length zero is a directory reference
+            if (entry.runLength() == 0) {
+                // continue exploring this branch?
+                if (entry.tileId() < endTileIndex) {
+                    return recurse(entry)
+                }
+            } else {
+                // Run-length non-zero is a tile range
+                var rangeEnd = entry.tileId() + entry.runLength()
+                if (startTileIndex <= entry.tileId() && rangeEnd <= endTileIndex) {
+                    // use the full range
+                    return sequenceOf(TileCoordRange(entry, header))
+                } else if (entry.tileId() < endTileIndex && startTileIndex < rangeEnd) {
+                    // use a partial range
+                    val start = entry.tileId().coerceAtLeast(startTileIndex)
+                    val end = (entry.tileId() + entry.runLength()).coerceAtMost(endTileIndex)
+                    return sequenceOf(
+                        TileCoordRange(
+                            start,
+                            (end - start).toInt(),
+                            ByteRange(header.tileDataOffset() + entry.offset(), entry.length()),
+                        ),
+                    )
+                }
+            }
+            return sequenceOf()
         }
     }
 }
