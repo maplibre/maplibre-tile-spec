@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use crate::MltError;
 use crate::layer::Layer;
-use crate::v01::{DecodedId, DecodedProperty, Geometry as MltGeometry, Id, PropValue, Property};
+use crate::v01::{DecodedId, DecodedProperty, Geometry, Id, PropValue, Property};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
 pub type Geom32 = geo_types::Geometry<i32>;
@@ -38,8 +38,8 @@ impl FeatureCollection {
                 .as_layer01()
                 .ok_or(MltError::NotDecoded("expected Tag01 layer"))?;
             let geom = match &l.geometry {
-                MltGeometry::Decoded(g) => g,
-                MltGeometry::Encoded(_) => {
+                Geometry::Decoded(g) => g,
+                Geometry::Encoded(_) => {
                     return Err(MltError::NotDecoded("geometry"));
                 }
             };

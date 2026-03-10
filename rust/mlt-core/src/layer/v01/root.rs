@@ -5,10 +5,9 @@ use borrowme::borrowme;
 
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_varint};
-use crate::v01::column::ColumnType;
 use crate::v01::{
-    Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedSharedDict, EncodedStrings,
-    EncodedValues, Geometry, Id, OwnedId, Property, Stream, StreamType,
+    Column, ColumnType, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedSharedDict,
+    EncodedStrings, EncodedValues, Geometry, Id, OwnedId, Property, Stream, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -367,7 +366,7 @@ fn parse_columns_meta(
     mut input: &'_ [u8],
     column_count: u32,
 ) -> MltRefResult<'_, (Vec<Column<'_>>, u32)> {
-    use crate::v01::column::ColumnType::{Geometry, Id, LongId, OptId, OptLongId, SharedDict};
+    use crate::v01::ColumnType::{Geometry, Id, LongId, OptId, OptLongId, SharedDict};
 
     let mut col_info = Vec::with_capacity(usize::try_from(column_count)?);
     let mut geometries = 0;

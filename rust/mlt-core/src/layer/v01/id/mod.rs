@@ -1,9 +1,11 @@
 mod optimizer;
+mod structs;
+
 use std::fmt::{Debug, Formatter};
 use std::io::Write;
 
-use borrowme::borrowme;
 pub use optimizer::IdOptimizer;
+pub use structs::*;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
@@ -17,20 +19,6 @@ use crate::v01::{
     OwnedStream, OwnedStreamData, PhysicalEncoder, PhysicalEncoding, RleMeta, Stream, StreamMeta,
     StreamType,
 };
-
-/// ID column representation, either encoded or decoded, or none if there are no IDs
-#[borrowme]
-#[derive(Debug, Default, PartialEq)]
-#[cfg_attr(
-    all(not(test), feature = "arbitrary"),
-    owned_attr(derive(arbitrary::Arbitrary))
-)]
-pub enum Id<'a> {
-    #[default]
-    None,
-    Encoded(EncodedId<'a>),
-    Decoded(DecodedId),
-}
 
 impl OwnedId {
     #[doc(hidden)]
@@ -68,14 +56,6 @@ impl Analyze for Id<'_> {
             Self::Decoded(d) => d.for_each_stream(cb),
         }
     }
-}
-
-/// Unparsed ID data as read directly from the tile
-#[borrowme]
-#[derive(Debug, PartialEq)]
-pub struct EncodedId<'a> {
-    presence: Option<Stream<'a>>,
-    value: EncodedIdValue<'a>,
 }
 
 impl Default for OwnedEncodedId {
@@ -126,14 +106,6 @@ impl arbitrary::Arbitrary<'_> for OwnedEncodedId {
     }
 }
 
-/// A sequence of encoded ID values, either 32-bit or 64-bit unsigned integers
-#[borrowme]
-#[derive(Debug, PartialEq)]
-pub enum EncodedIdValue<'a> {
-    Id32(Stream<'a>),
-    Id64(Stream<'a>),
-}
-
 impl Analyze for EncodedIdValue<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         match self {
@@ -142,19 +114,14 @@ impl Analyze for EncodedIdValue<'_> {
     }
 }
 
-/// Decoded ID values as a vector of optional 64-bit unsigned integers
-#[derive(Clone, Default, PartialEq)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct DecodedId(pub Option<Vec<Option<u64>>>);
+impl_decodable!(Id<'a>, EncodedId<'a>, DecodedId);
+impl_encodable!(OwnedId, DecodedId, OwnedEncodedId);
 
 impl Analyze for DecodedId {
     fn collect_statistic(&self, stat: StatType) -> usize {
         self.0.collect_statistic(stat)
     }
 }
-
-impl_decodable!(Id<'a>, EncodedId<'a>, DecodedId);
-impl_encodable!(OwnedId, DecodedId, OwnedEncodedId);
 
 impl Debug for DecodedId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -224,20 +191,6 @@ impl IdEncoder {
     pub fn new(logical: LogicalEncoder, id_width: IdWidth) -> Self {
         Self { logical, id_width }
     }
-}
-
-/// How wide are the IDs
-#[derive(Debug, Clone, Copy, PartialEq, strum::EnumIter)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum IdWidth {
-    /// 32-bit encoding
-    Id32,
-    /// 32-bit encoding with nulls
-    OptId32,
-    /// 64-bit encoding (delta + zigzag + varint)
-    Id64,
-    /// 64-bit encoding with nulls
-    OptId64,
 }
 
 impl FromDecoded<'_> for OwnedEncodedId {

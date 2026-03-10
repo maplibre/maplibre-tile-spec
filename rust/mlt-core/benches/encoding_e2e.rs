@@ -2,7 +2,7 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
-    AproxPropertyType, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder,
+    ApproxPropertyType, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder,
     PhysicalEncoder, PresenceStream, ScalarEncoder,
 };
 use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
@@ -133,21 +133,21 @@ fn bench_encode_properties(c: &mut Criterion) {
                                             for prop in &mut l.properties {
                                                 let int_enc = IntEncoder::new(logical, physical);
                                                 let enc = match prop.approx_type() {
-                                                    AproxPropertyType::Bool => {
+                                                    ApproxPropertyType::Bool => {
                                                         ScalarEncoder::bool(presence)
                                                     }
-                                                    AproxPropertyType::Integer => {
+                                                    ApproxPropertyType::Integer => {
                                                         ScalarEncoder::int(presence, int_enc)
                                                     }
-                                                    AproxPropertyType::Float => {
+                                                    ApproxPropertyType::Float => {
                                                         ScalarEncoder::float(presence)
                                                     }
-                                                    AproxPropertyType::String => {
+                                                    ApproxPropertyType::String => {
                                                         ScalarEncoder::str_fsst(
                                                             presence, int_enc, int_enc,
                                                         )
                                                     }
-                                                    AproxPropertyType::SharedDict => {
+                                                    ApproxPropertyType::SharedDict => {
                                                         unreachable!("unimplemented")
                                                     }
                                                 };

@@ -106,7 +106,7 @@ impl MltTile {
         // Slow path: build the typed arrays once from the decoded geometry.
         let guard = layer.geometry.borrow();
         let OwnedGeometry::Decoded(d) = &*guard else {
-            unreachable!()
+            unreachable!("geometry should be decoded here");
         };
 
         let geometry_offsets = d

@@ -1,8 +1,6 @@
 use std::fmt;
 use std::fmt::Debug;
 
-use borrowme::borrowme;
-use num_enum::TryFromPrimitive;
 use num_traits::PrimInt;
 
 use crate::MltError;
@@ -11,39 +9,9 @@ use crate::utils::{
     decode_componentwise_delta_vec2s, decode_morton_codes, decode_morton_delta, decode_rle,
     decode_zigzag, decode_zigzag_delta, encode_rle, encode_zigzag, encode_zigzag_delta,
 };
-use crate::v01::{MortonMeta, RleMeta, StreamMeta};
-
-/// Logical encoding technique used for a column, as stored in the tile
-#[borrowme]
-#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
-#[repr(u8)]
-pub enum LogicalTechnique {
-    None = 0,
-    Delta = 1,
-    ComponentwiseDelta = 2,
-    Rle = 3,
-    Morton = 4,
-    PseudoDecimal = 5,
-}
-
-impl LogicalTechnique {
-    pub fn parse(value: u8) -> Result<Self, MltError> {
-        Self::try_from(value).or(Err(ParsingLogicalTechnique(value)))
-    }
-}
-/// How should the stream be interpreted at the logical level (second pass of decoding)
-#[derive(Clone, Copy, PartialEq)]
-pub enum LogicalEncoding {
-    None,
-    Delta,
-    DeltaRle(RleMeta),
-    ComponentwiseDelta,
-    Rle(RleMeta),
-    Morton(MortonMeta),
-    MortonDelta(MortonMeta),
-    MortonRle(MortonMeta),
-    PseudoDecimal,
-}
+use crate::v01::{
+    LogicalData, LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta,
+};
 
 /// RLE-encode a sequence into `[run-lengths | unique-values]` and return the matching `RleMeta`.
 /// `num_logical` is the expanded output length (stored in `RleMeta::num_rle_values`).
@@ -61,6 +29,12 @@ fn apply_rle<T: PrimInt + Debug>(
     Ok((combined, meta))
 }
 
+impl LogicalTechnique {
+    pub fn parse(value: u8) -> Result<Self, MltError> {
+        Self::try_from(value).or(Err(ParsingLogicalTechnique(value)))
+    }
+}
+
 impl Debug for LogicalEncoding {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -75,22 +49,6 @@ impl Debug for LogicalEncoding {
             Self::MortonRle(v) => write!(f, "MortonRle({v:?})"),
         }
     }
-}
-
-/// Representation of decoded stream data
-/// TODO: decoded stream data representation has not been finalized yet
-#[derive(Debug, PartialEq)]
-pub enum LogicalData {
-    VecU32(Vec<u32>),
-    VecU64(Vec<u64>),
-}
-
-/// Representation of a decoded value
-/// TODO: decoded stream data representation has not been finalized yet
-#[derive(Debug, PartialEq)]
-pub struct LogicalValue {
-    meta: StreamMeta,
-    data: LogicalData,
 }
 
 impl LogicalValue {
@@ -368,8 +326,7 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::v01::stream::physical::{PhysicalEncoding, StreamType};
-    use crate::v01::{DictionaryType, IntEncoding};
+    use crate::v01::{DictionaryType, IntEncoding, PhysicalEncoding, StreamType};
 
     fn make_meta(logical_encoding: LogicalEncoding, num_values: usize) -> StreamMeta {
         let num_values =

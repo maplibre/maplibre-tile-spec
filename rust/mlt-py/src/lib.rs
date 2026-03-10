@@ -7,7 +7,7 @@ use std::ops::Deref;
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, Geometry as MltGeometry, Id, PropValue, Property,
+    DecodedGeometry, DecodedId, DecodedProperty, Geometry, Id, PropValue, Property,
 };
 use mlt_core::{MltError, parse_layers};
 use pyo3::exceptions::PyValueError;
@@ -275,14 +275,14 @@ fn decode_mlt(
         };
 
         let geom = match &layer.geometry {
-            MltGeometry::Decoded(g) => g,
-            _ => return Err(PyValueError::new_err("geometry not decoded")),
+            Geometry::Decoded(g) => g,
+            Geometry::Encoded(_) => Err(PyValueError::new_err("geometry not decoded"))?,
         };
 
         let ids = match &layer.id {
             Id::Decoded(DecodedId(v)) => v.as_deref(),
             Id::None => None,
-            _ => return Err(PyValueError::new_err("id not decoded")),
+            Id::Encoded(_) => Err(PyValueError::new_err("id not decoded"))?,
         };
 
         let props: Vec<&DecodedProperty> = layer
@@ -465,9 +465,8 @@ mod tests {
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let geom = match &l.geometry {
-            MltGeometry::Decoded(g) => g,
-            _ => panic!("geometry not decoded"),
+        let Geometry::Decoded(geom) = &l.geometry else {
+            panic!("geometry not decoded");
         };
 
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");
@@ -495,9 +494,8 @@ mod tests {
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let geom = match &l.geometry {
-            MltGeometry::Decoded(g) => g,
-            _ => panic!("geometry not decoded"),
+        let Geometry::Decoded(geom) = &l.geometry else {
+            panic!("geometry not decoded");
         };
 
         let xf = TileTransform::from_zxy(0, 0, 0, l.extent, false).unwrap();
@@ -528,9 +526,8 @@ mod tests {
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let geom = match &l.geometry {
-            MltGeometry::Decoded(g) => g,
-            _ => panic!("geometry not decoded"),
+        let Geometry::Decoded(geom) = &l.geometry else {
+            panic!("geometry not decoded");
         };
 
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");

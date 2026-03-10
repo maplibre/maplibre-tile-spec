@@ -2,27 +2,17 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::io::Write;
 
-use borrowme::borrowme;
-
 use crate::MltError;
 use crate::MltError::{
     BufferUnderflow, DictIndexOutOfBounds, NotImplemented, UnexpectedStreamType2,
 };
 use crate::utils::{BinarySerializer as _, apply_present};
 use crate::v01::{
-    ColumnType, DecodedProperty, DictionaryType, FsstStrEncoder, IntEncoder, LengthType,
-    OffsetType, OwnedEncodedPropValue, OwnedEncodedProperty, OwnedStream, PresenceStream,
-    PropValue, SharedDictItem, Stream, StreamData, StreamType,
+    ColumnType, DecodedProperty, DictionaryType, EncodedSharedDict, EncodedStrings, EncodedValues,
+    FsstStrEncoder, IntEncoder, LengthType, OffsetType, OwnedEncodedPropValue,
+    OwnedEncodedProperty, OwnedEncodedSharedDict, OwnedEncodedStrings, OwnedEncodedValues,
+    OwnedStream, PresenceStream, PropValue, SharedDictItem, Stream, StreamData, StreamType,
 };
-
-/// A single child field within a `SharedDict` column
-#[borrowme]
-#[derive(Clone, Debug, PartialEq)]
-pub struct EncodedValues<'a> {
-    pub name: &'a str,
-    pub presence: Option<Stream<'a>>,
-    pub data: Stream<'a>,
-}
 
 impl<'a> EncodedValues<'a> {
     #[must_use]
@@ -33,32 +23,6 @@ impl<'a> EncodedValues<'a> {
             data,
         }
     }
-}
-
-/// Encoded data for a `SharedDict` column with shared dictionary encoding.
-///
-/// Unlike `EncodedStrings`, shared dictionaries do NOT have their own offset stream.
-/// Instead, each child column has its own offset stream that references the shared dictionary.
-/// This is why only `Plain` and `FsstPlain` variants exist here.
-#[borrowme]
-#[derive(Debug, Clone, PartialEq)]
-pub enum EncodedSharedDict<'a> {
-    /// Plain shared dict (2 streams): lengths + data.
-    Plain {
-        prefix: &'a str,
-        lengths: Stream<'a>,
-        data: Stream<'a>,
-        children: Vec<EncodedValues<'a>>,
-    },
-    /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
-    FsstPlain {
-        prefix: &'a str,
-        symbol_lengths: Stream<'a>,
-        symbol_table: Stream<'a>,
-        lengths: Stream<'a>,
-        corpus: Stream<'a>,
-        children: Vec<EncodedValues<'a>>,
-    },
 }
 
 /// Encoder for an individual sub-property within a shared dictionary.
@@ -99,48 +63,6 @@ impl StrEncoder {
             dict_lengths,
         })
     }
-}
-
-/// String column encoding as produced by the encoder (plain, dictionary, or FSST).
-/// Stream order matches the encoder: see `StringEncoder.encode()` and `encodePlain` /
-/// `encodeDictionary` / `encodeFsstDictionary`.
-#[borrowme]
-#[derive(Debug, Clone, PartialEq)]
-pub enum EncodedStrings<'a> {
-    /// Plain: length stream + data stream
-    Plain {
-        name: &'a str,
-        presence: Option<Stream<'a>>,
-        lengths: Stream<'a>,
-        data: Stream<'a>,
-    },
-    /// Dictionary: lengths + offsets + dictionary data
-    Dictionary {
-        name: &'a str,
-        presence: Option<Stream<'a>>,
-        lengths: Stream<'a>,
-        offsets: Stream<'a>,
-        data: Stream<'a>,
-    },
-    /// FSST plain (4 streams): symbol lengths, symbol table, value lengths, compressed corpus. No offsets.
-    FsstPlain {
-        name: &'a str,
-        presence: Option<Stream<'a>>,
-        symbol_lengths: Stream<'a>,
-        symbol_table: Stream<'a>,
-        lengths: Stream<'a>,
-        corpus: Stream<'a>,
-    },
-    /// FSST dictionary (5 streams): symbol lengths, symbol table, value lengths, compressed corpus, offsets.
-    FsstDictionary {
-        name: &'a str,
-        presence: Option<Stream<'a>>,
-        symbol_lengths: Stream<'a>,
-        symbol_table: Stream<'a>,
-        lengths: Stream<'a>,
-        corpus: Stream<'a>,
-        offsets: Stream<'a>,
-    },
 }
 
 /// a helper to validate stream type to match expectation using matches! syntax
