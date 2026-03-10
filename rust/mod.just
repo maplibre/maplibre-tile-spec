@@ -523,7 +523,7 @@ fuzz-llvm-cov target output_file *args:
     LLVM_COV="$SYSROOT/lib/rustlib/$HOST/bin/llvm-cov"
     TRIPLE="x86_64-unknown-linux-gnu"
     FUZZ_DIR="fuzz"
-    TARGET_BIN="target/$TRIPLE/coverage/$TRIPLE/release/{{target}}"
+    TARGET_BIN="target/$TRIPLE/coverage/{{target}}"
     PROFDATA="$FUZZ_DIR/coverage/{{target}}/coverage.profdata"
     [ -n "{{output_file}}" ] && exec > "{{output_file}}"
     "$LLVM_COV" {{args}} "$TARGET_BIN" \
