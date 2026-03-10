@@ -1,13 +1,14 @@
 package org.maplibre.mlt.cli
 
 import com.onthegomap.planetiler.pmtiles.Pmtiles
-import io.tileverse.io.ByteRange
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 
+/** Tests for directory traversal logic in `ReadablePmtiles` */
 class ReadablePmtilesMapDirectoryTest {
     private fun mockEntry(
         tileId: Long,
@@ -44,6 +45,20 @@ class ReadablePmtilesMapDirectoryTest {
     }
 
     @Test
+    fun `directory reference entry does not call recurse when tileId not less than endTileIndex`() {
+        val entry = mockEntry(tileId = 10, runLength = 0)
+        val header = mockHeader()
+        var recurseCalled = false
+        val recurse: (Pmtiles.Entry) -> Sequence<ReadablePmtiles.TileCoordRange> = {
+            recurseCalled = true
+            emptySequence()
+        }
+        val result = ReadablePmtiles.mapDirectory(entry, 0, 10, header, recurse)
+        assertFalse(recurseCalled)
+        assertTrue(result.toList().isEmpty())
+    }
+
+    @Test
     fun `tile range entry returns full range when within bounds`() {
         val entry = mockEntry(tileId = 2, runLength = 3, offset = 10, length = 5)
         val header = mockHeader(tileDataOffset = 100)
@@ -54,7 +69,7 @@ class ReadablePmtilesMapDirectoryTest {
         val range = ranges[0]
         assertEquals(2, range.startTileId)
         assertEquals(3, range.tileCount)
-        assertEquals(ByteRange(110, 5), range.byteRange)
+        assertEquals(ReadablePmtiles.ByteRange(110, 5), range.byteRange)
     }
 
     @Test
@@ -68,7 +83,7 @@ class ReadablePmtilesMapDirectoryTest {
         val range = ranges[0]
         assertEquals(7, range.startTileId)
         assertEquals(3, range.tileCount)
-        assertEquals(ByteRange(70, 10), range.byteRange)
+        assertEquals(ReadablePmtiles.ByteRange(70, 10), range.byteRange)
     }
 
     @Test

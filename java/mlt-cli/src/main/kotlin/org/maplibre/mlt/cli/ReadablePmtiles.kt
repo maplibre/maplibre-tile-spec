@@ -10,7 +10,8 @@ import org.locationtech.jts.geom.Coordinate
 import java.io.IOException
 import java.io.UncheckedIOException
 
-/** Thread-safe partial copy of Planetiler's Pmtiles reader.
+/** Potentially thread-safe partial copy of Planetiler's Pmtiles reader.
+ * This class is thread-safe as long as the provided DataReader is.
  * Also exposes run-length encoded tile coordinate ranges
  * which are not currently exposed by Planetiler's API. */
 class ReadablePmtiles(
@@ -22,7 +23,22 @@ class ReadablePmtiles(
         val offset: Long,
         /** The number of bytes in the range */
         val length: Int,
-    )
+    ) {
+        init {
+            if (offset < 0) {
+                throw IllegalArgumentException("ByteRange offset must be non-negative")
+            }
+            if (length < 1) {
+                throw IllegalArgumentException("ByteRange length must be positive")
+            }
+        }
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+            other as ByteRange
+            return (offset == other.offset && length == other.length)
+        }
+    }
 
     interface DataReader {
         fun read(
