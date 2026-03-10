@@ -588,7 +588,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<
             let expected: FeatureCollection =
                 serde_json::from_str(&fs::read_to_string(&json_path)?)
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
-            let actual = FeatureCollection::from_layers(&layers)?;
+            let actual = FeatureCollection::from_layers(&mut layers)?;
             let expected_val = normalize_tiny_floats(serde_json::to_value(&expected)?);
             let actual_val = normalize_tiny_floats(serde_json::to_value(&actual)?);
             Some(json_values_equal(&expected_val, &actual_val))

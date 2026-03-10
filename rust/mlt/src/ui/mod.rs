@@ -116,7 +116,7 @@ fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
         for layer in &mut layers {
             layer.decode_all()?;
         }
-        Ok(FeatureCollection::from_layers(&layers)?)
+        Ok(FeatureCollection::from_layers(&mut layers)?)
     } else {
         Ok(mvt_to_feature_collection(buf)?)
     }

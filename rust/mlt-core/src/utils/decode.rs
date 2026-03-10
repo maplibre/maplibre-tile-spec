@@ -308,6 +308,7 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
     #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
     {
         use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
+
         // Over-allocate output buffer - the codec may decode padding beyond num_values.
         let buf_size = num_values + 1024;
         let mut result = vec![0u32; buf_size];

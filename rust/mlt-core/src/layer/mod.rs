@@ -40,6 +40,23 @@ impl<'a> Layer<'a> {
         }
     }
 
+    /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
+    #[must_use]
+    pub fn as_layer01_mut(&mut self) -> Option<&mut Layer01<'a>> {
+        match self {
+            Layer::Tag01(l) => Some(l),
+            Layer::Unknown(_) => None,
+        }
+    }
+
+    pub fn decoded_layer01_mut(&mut self) -> Result<&mut Layer01<'a>, MltError> {
+        let layer = self
+            .as_layer01_mut()
+            .ok_or(MltError::NotDecoded("expected Tag01 layer"))?;
+        layer.decode_geometry_and_id()?;
+        Ok(layer)
+    }
+
     /// Parse a single tuple that consists of `size (varint)`, `tag (varint)`, and `value (bytes)`
     pub fn parse(input: &'a [u8]) -> MltRefResult<'a, Layer<'a>> {
         let (input, size) = parse_varint::<u32>(input)?;

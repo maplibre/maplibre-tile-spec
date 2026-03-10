@@ -5,16 +5,16 @@ use mlt_core::{FromDecoded as _, borrowme};
 use rstest::rstest;
 
 fn make_ids(values: &[Option<u64>]) -> DecodedId {
-    DecodedId(Some(values.to_vec()))
+    DecodedId(values.to_vec())
 }
 
 fn u32_range_ids() -> DecodedId {
-    DecodedId(Some((1u64..=100).map(Some).collect()))
+    DecodedId((1u64..=100).map(Some).collect())
 }
 
 fn u64_range_ids() -> DecodedId {
     let base = u64::from(u32::MAX) + 1;
-    DecodedId(Some((base..base + 50).map(Some).collect()))
+    DecodedId((base..base + 50).map(Some).collect())
 }
 
 fn u64_range_ids_with_nulls() -> DecodedId {
@@ -30,11 +30,11 @@ fn u64_range_ids_with_nulls() -> DecodedId {
 }
 
 fn sequential_ids_large() -> DecodedId {
-    DecodedId(Some((1u64..=1_000).map(Some).collect()))
+    DecodedId((1u64..=1_000).map(Some).collect())
 }
 
 fn sequential_ids_from_zero() -> DecodedId {
-    DecodedId(Some((0u64..500).map(Some).collect()))
+    DecodedId((0u64..500).map(Some).collect())
 }
 
 fn constant_ids() -> DecodedId {
@@ -53,8 +53,7 @@ fn non_sequential_u64_ids() -> DecodedId {
 }
 
 #[rstest]
-#[case::none_input(DecodedId(None))]
-#[case::empty_vec(DecodedId(Some(vec![])))]
+#[case::empty_vec(DecodedId(vec![]))]
 #[case::all_nulls(make_ids(&[None, None, None]))]
 fn returns_default_encoder(#[case] decoded: DecodedId) {
     let enc = IdOptimizer::optimize(&decoded);
@@ -111,7 +110,7 @@ fn produces_expected_encoder(#[case] decoded: DecodedId, #[case] expected: IdEnc
     let encoder = IdOptimizer::optimize(&decoded);
     assert_eq!(encoder, expected);
     let owned = OwnedEncodedId::from_decoded(&decoded, encoder).expect("encoding failed");
-    let decoded_back = Id::Encoded(borrowme::borrow(&owned))
+    let decoded_back = Id::Encoded(Some(borrowme::borrow(&owned)))
         .decode()
         .expect("decoding failed");
     assert_eq!(decoded_back, decoded);

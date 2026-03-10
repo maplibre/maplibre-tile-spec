@@ -16,11 +16,15 @@ use geo_types::{
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
-    IdEncoder, IdWidth, IntEncoder as E, LogicalEncoder as L, PresenceStream as O, PropValue,
-    ScalarEncoder as S, StrEncoder as SE, VertexBufferType,
+    DecodedStrings, IdEncoder, IdWidth, IntEncoder as E, LogicalEncoder as L, PresenceStream as O,
+    PropValue, ScalarEncoder as S, StrEncoder as SE, VertexBufferType,
 };
 
 use crate::layer::{Layer, SharedDict, SynthWriter};
+
+fn str_value(values: Vec<Option<String>>) -> PropValue {
+    PropValue::Str(DecodedStrings::from(values))
+}
 
 const C0: Coord<i32> = coord! { x: 13, y: 42 };
 // triangle 1, clockwise winding, X ends in 1, Y ends in 2
@@ -714,60 +718,52 @@ fn generate_properties(w: &SynthWriter) {
 
     let enc = S::str(O::Present, E::varint());
     p0(w)
-        .add_prop(enc, "val", PropValue::Str(vec![Some(String::new())]))
+        .add_prop(enc, "val", str_value(vec![Some(String::new())]))
         .write("prop_str_empty");
     p0(w)
-        .add_prop(enc, "val", PropValue::Str(vec![Some("42".to_string())]))
+        .add_prop(enc, "val", str_value(vec![Some("42".to_string())]))
         .write("prop_str_ascii");
     p0(w)
         .add_prop(
             enc,
             "val",
-            PropValue::Str(vec![Some("Line1\n\t\"quoted\"\\path".to_string())]),
+            str_value(vec![Some("Line1\n\t\"quoted\"\\path".to_string())]),
         )
         .write("prop_str_escape");
     p0(w)
         .add_prop(
             enc,
             "val",
-            PropValue::Str(vec![Some("München 📍 cafe\u{0301}".to_string())]),
+            str_value(vec![Some("München 📍 cafe\u{0301}".to_string())]),
         )
         .write("prop_str_unicode");
     p0(w)
         .add_prop(
             enc,
             "val",
-            PropValue::Str(vec![Some("hello\u{0000} world\n".to_string())]),
+            str_value(vec![Some("hello\u{0000} world\n".to_string())]),
         )
         .write("prop_str_special");
     // Two-feature optional str variants
     w.geo_varint()
         .meta(E::rle_varint())
         .geos([P0, P0])
-        .add_prop(
-            enc,
-            "val",
-            PropValue::Str(vec![Some("42".to_string()), None]),
-        )
+        .add_prop(enc, "val", str_value(vec![Some("42".to_string()), None]))
         .write("prop_str_val_null");
     w.geo_varint()
         .meta(E::rle_varint())
         .geos([P0, P0])
-        .add_prop(
-            enc,
-            "val",
-            PropValue::Str(vec![None, Some("42".to_string())]),
-        )
+        .add_prop(enc, "val", str_value(vec![None, Some("42".to_string())]))
         .write("prop_str_null_val");
     w.geo_varint()
         .meta(E::rle_varint())
         .geos([P0, P0])
-        .add_prop(enc, "val", PropValue::Str(vec![Some(String::new()), None]))
+        .add_prop(enc, "val", str_value(vec![Some(String::new()), None]))
         .write("prop_str_val_empty");
     w.geo_varint()
         .meta(E::rle_varint())
         .geos([P0, P0])
-        .add_prop(enc, "val", PropValue::Str(vec![None, Some(String::new())]))
+        .add_prop(enc, "val", str_value(vec![None, Some(String::new())]))
         .write("prop_str_empty_val");
 
     p0(w)
@@ -799,7 +795,7 @@ fn generate_properties(w: &SynthWriter) {
         .add_prop(
             S::str(O::Present, E::varint()),
             "name",
-            PropValue::Str(vec![Some("Test Point".to_string())]),
+            str_value(vec![Some("Test Point".to_string())]),
         )
         .add_prop(
             S::float(O::Present),
@@ -884,7 +880,7 @@ fn generate_props_str(w: &SynthWriter) {
             .geos([P1, P2, P3, PH1, PH2, PH3])
     };
     let values = || {
-        PropValue::Str(vec![
+        str_value(vec![
             Some("residential_zone_north_sector_1".to_string()),
             Some("commercial_zone_south_sector_2".to_string()),
             Some("industrial_zone_east_sector_3".to_string()),
@@ -913,12 +909,12 @@ fn generate_shared_dictionaries(w: &SynthWriter) {
         .add_prop(
             S::str(O::Present, E::varint()),
             "name:de",
-            PropValue::Str(vec![Some(long_string_value())]),
+            str_value(vec![Some(long_string_value())]),
         )
         .add_prop(
             S::str(O::Present, E::varint()),
             "name:en",
-            PropValue::Str(vec![Some(long_string_value())]),
+            str_value(vec![Some(long_string_value())]),
         )
         .write("props_no_shared_dict");
 

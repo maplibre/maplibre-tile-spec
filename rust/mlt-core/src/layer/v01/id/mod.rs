@@ -1,11 +1,11 @@
+mod model;
 mod optimizer;
-mod structs;
 
 use std::fmt::{Debug, Formatter};
 use std::io::Write;
 
+pub use model::*;
 pub use optimizer::IdOptimizer;
-pub use structs::*;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
@@ -21,11 +21,16 @@ use crate::v01::{
 };
 
 impl OwnedId {
+    #[must_use]
+    pub fn is_present(&self) -> bool {
+        matches!(self, Self::Encoded(Some(_)) | Self::Decoded(Some(_)))
+    }
+
     #[doc(hidden)]
     pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
-            Self::None => Ok(()),
-            Self::Encoded(r) => r.write_columns_meta_to(writer),
+            Self::Encoded(Some(r)) => r.write_columns_meta_to(writer),
+            Self::Encoded(None) | Self::Decoded(None) => Ok(()),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -33,8 +38,8 @@ impl OwnedId {
     #[doc(hidden)]
     pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
-            Self::None => Ok(()),
-            Self::Encoded(r) => r.write_to(writer),
+            Self::Encoded(Some(r)) => r.write_to(writer),
+            Self::Encoded(None) | Self::Decoded(None) => Ok(()),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -43,26 +48,17 @@ impl OwnedId {
 impl Analyze for Id<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         match self {
-            Self::None => 0,
-            Self::Encoded(d) => d.collect_statistic(stat),
-            Self::Decoded(d) => d.collect_statistic(stat),
+            Self::Encoded(Some(d)) => d.collect_statistic(stat),
+            Self::Decoded(Some(d)) => d.collect_statistic(stat),
+            Self::Encoded(None) | Self::Decoded(None) => 0,
         }
     }
 
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         match self {
-            Self::None => {}
-            Self::Encoded(d) => d.for_each_stream(cb),
-            Self::Decoded(d) => d.for_each_stream(cb),
-        }
-    }
-}
-
-impl Default for OwnedEncodedId {
-    fn default() -> Self {
-        Self {
-            presence: None,
-            value: OwnedEncodedIdValue::Id32(OwnedStream::empty_without_encoding()),
+            Self::Encoded(Some(d)) => d.for_each_stream(cb),
+            Self::Decoded(Some(d)) => d.for_each_stream(cb),
+            Self::Encoded(None) | Self::Decoded(None) => {}
         }
     }
 }
@@ -114,8 +110,8 @@ impl Analyze for EncodedIdValue<'_> {
     }
 }
 
-impl_decodable!(Id<'a>, EncodedId<'a>, DecodedId);
-impl_encodable!(OwnedId, DecodedId, OwnedEncodedId);
+impl_decodable!(Id<'a>, Option<EncodedId<'a>>, Option<DecodedId>);
+impl_encodable!(OwnedId, Option<DecodedId>, Option<OwnedEncodedId>);
 
 impl Analyze for DecodedId {
     fn collect_statistic(&self, stat: StatType) -> usize {
@@ -125,34 +121,35 @@ impl Analyze for DecodedId {
 
 impl Debug for DecodedId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self.0 {
-            None => write!(f, "DecodedId(None)"),
-            Some(ids) => {
-                write!(f, "DecodedId({:?})", &OptSeqOpt(Some(ids)))
-            }
-        }
+        write!(f, "DecodedId({:?})", &OptSeqOpt(Some(&self.0)))
     }
 }
 
 impl<'a> From<EncodedId<'a>> for Id<'a> {
     fn from(value: EncodedId<'a>) -> Self {
-        Self::Encoded(value)
+        Self::Encoded(Some(value))
     }
 }
 
 impl<'a> Id<'a> {
     #[must_use]
     pub fn new_encoded(presence: Option<Stream<'a>>, value: EncodedIdValue<'a>) -> Self {
-        Self::Encoded(EncodedId { presence, value })
+        Self::Encoded(Some(EncodedId { presence, value }))
     }
 
     #[inline]
     pub fn decode(self) -> Result<DecodedId, MltError> {
         Ok(match self {
-            Self::Encoded(v) => DecodedId::from_encoded(v)?,
-            Self::Decoded(v) => v,
-            Self::None => DecodedId(None),
+            Self::Encoded(v) => Option::<DecodedId>::from_encoded(v)?.unwrap_or_default(),
+            Self::Decoded(v) => v.unwrap_or_default(),
         })
+    }
+}
+
+impl DecodedId {
+    #[must_use]
+    pub fn values(&self) -> &[Option<u64>] {
+        &self.0
     }
 }
 
@@ -175,7 +172,15 @@ impl<'a> FromEncoded<'a> for DecodedId {
 
         let ids_optional = apply_present(presence, ids_u64)?;
 
-        Ok(DecodedId(Some(ids_optional)))
+        Ok(DecodedId(ids_optional))
+    }
+}
+
+impl<'a> FromEncoded<'a> for Option<DecodedId> {
+    type Input = Option<EncodedId<'a>>;
+
+    fn from_encoded(input: Option<EncodedId<'_>>) -> Result<Self, MltError> {
+        input.map(DecodedId::from_encoded).transpose()
     }
 }
 
@@ -200,13 +205,8 @@ impl FromDecoded<'_> for OwnedEncodedId {
     fn from_decoded(decoded: &Self::Input, encoder: IdEncoder) -> Result<Self, MltError> {
         use IdWidth as CFG;
 
-        // skipped one level higher via Id::None
-        let DecodedId(Some(ids)) = decoded else {
-            return Err(MltError::IdsMissingForEncoding);
-        };
-
         let presence = if matches!(encoder.id_width, CFG::OptId32 | CFG::OptId64) {
-            let present: Vec<bool> = ids.iter().map(Option::is_some).collect();
+            let present: Vec<bool> = decoded.0.iter().map(Option::is_some).collect();
             let num_values = u32::try_from(present.len())?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present));
 
@@ -237,13 +237,18 @@ impl FromDecoded<'_> for OwnedEncodedId {
 
         let value = if matches!(encoder.id_width, CFG::Id32 | CFG::OptId32) {
             #[expect(clippy::cast_possible_truncation, reason = "truncation was requested")]
-            let vals: Vec<u32> = ids.iter().filter_map(|&id| id).map(|v| v as u32).collect();
+            let vals: Vec<u32> = decoded
+                .0
+                .iter()
+                .filter_map(|&id| id)
+                .map(|v| v as u32)
+                .collect();
             OwnedEncodedIdValue::Id32(OwnedStream::encode_u32s(
                 &vals,
                 IntEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
             )?)
         } else {
-            let vals: Vec<u64> = ids.iter().filter_map(|&id| id).collect();
+            let vals: Vec<u64> = decoded.0.iter().filter_map(|&id| id).collect();
             OwnedEncodedIdValue::Id64(OwnedStream::encode_u64s(
                 &vals,
                 IntEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
@@ -251,6 +256,18 @@ impl FromDecoded<'_> for OwnedEncodedId {
         };
 
         Ok(Self { presence, value })
+    }
+}
+
+impl FromDecoded<'_> for Option<OwnedEncodedId> {
+    type Input = Option<DecodedId>;
+    type Encoder = IdEncoder;
+
+    fn from_decoded(decoded: &Self::Input, encoder: IdEncoder) -> Result<Self, MltError> {
+        decoded
+            .as_ref()
+            .map(|decoded| OwnedEncodedId::from_decoded(decoded, encoder))
+            .transpose()
     }
 }
 
@@ -280,7 +297,7 @@ mod tests {
         #[case] id_width: IdWidth,
         #[case] ids: Vec<Option<u64>>,
     ) {
-        let input = DecodedId(Some(ids));
+        let input = DecodedId(ids);
         let config = IdEncoder {
             logical: LogicalEncoder::None,
             id_width,
@@ -313,7 +330,7 @@ mod tests {
     #[case::opt_id64_all_nulls(OptId64, &[None, None, None])]
     #[case::none(Id32, &[])]
     fn test_roundtrip(#[case] id_width: IdWidth, #[case] ids: &[Option<u64>]) {
-        let input = DecodedId(Some(ids.to_vec()));
+        let input = DecodedId(ids.to_vec());
         let config = IdEncoder {
             logical: LogicalEncoder::None,
             id_width,
@@ -327,7 +344,7 @@ mod tests {
         #[values(LogicalEncoder::None)] logical: LogicalEncoder,
         #[values(Id32, OptId32, Id64, OptId64)] id_width: IdWidth,
     ) {
-        let input = DecodedId(Some((1..=100).map(Some).collect()));
+        let input = DecodedId((1..=100).map(Some).collect());
         let config = IdEncoder { logical, id_width };
         let output = roundtrip(&input, config);
         assert_eq!(output, input);
@@ -410,9 +427,9 @@ mod tests {
         ids: Vec<Option<u64>>,
         config: IdEncoder,
     ) -> Result<(), TestCaseError> {
-        let input = DecodedId(Some(ids.clone()));
+        let input = DecodedId(ids.clone());
         let output = roundtrip(&input, config);
-        prop_assert_eq!(output, DecodedId(Some(ids)));
+        prop_assert_eq!(output, DecodedId(ids));
         Ok(())
     }
 
@@ -421,9 +438,9 @@ mod tests {
         ids: Vec<Option<u64>>,
         config: IdEncoder,
     ) -> Result<(), TestCaseError> {
-        let decoded = DecodedId(Some(ids.clone()));
+        let decoded = DecodedId(ids.clone());
 
-        let mut id_enum = OwnedId::Decoded(decoded);
+        let mut id_enum = OwnedId::Decoded(Some(decoded));
         id_enum.encode_with(config).expect("Failed to encode");
 
         prop_assert!(!id_enum.is_decoded(), "Should be Encoded after encoding");
@@ -433,13 +450,8 @@ mod tests {
         );
 
         let mut borrowed_id = borrowme::borrow(&id_enum);
-        borrowed_id.materialize().expect("Failed to materialize");
-
-        if let Id::Decoded(decoded_back) = borrowed_id {
-            prop_assert_eq!(decoded_back, DecodedId(Some(ids)));
-        } else {
-            TestCaseError::fail("Expected Decoded variant after materialization");
-        }
+        let decoded_back = borrowed_id.materialize().expect("Failed to materialize");
+        prop_assert_eq!(decoded_back, &mut Some(DecodedId(ids)));
         Ok(())
     }
 
@@ -448,7 +460,7 @@ mod tests {
         ids: Vec<Option<u64>>,
         encoder: IdEncoder,
     ) -> Result<(), TestCaseError> {
-        let input = DecodedId(Some(ids));
+        let input = DecodedId(ids);
         let enc_id = OwnedEncodedId::from_decoded(&input, encoder).expect("Failed to encode");
 
         if matches!(encoder.id_width, Id32 | OptId32) {

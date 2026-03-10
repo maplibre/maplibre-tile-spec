@@ -1,18 +1,20 @@
 use insta::assert_debug_snapshot;
-use mlt_core::v01::{DecodedProperty, PropValue, PropertyOptimizer};
+use mlt_core::v01::{DecodedProperty, DecodedStrings, PropValue, PropertyOptimizer};
 
-fn str_prop(name: &str, values: &[&str]) -> DecodedProperty {
-    DecodedProperty {
-        name: name.to_owned(),
-        values: PropValue::Str(values.iter().map(|s| Some((*s).to_string())).collect()),
-    }
+fn str_prop(name: &str, values: &[&str]) -> DecodedProperty<'static> {
+    DecodedProperty::from_parts(
+        name.to_owned(),
+        PropValue::Str(DecodedStrings::from(
+            values
+                .iter()
+                .map(|s| Some((*s).to_string()))
+                .collect::<Vec<_>>(),
+        )),
+    )
 }
 
-fn make_prop(name: &str, values: PropValue) -> DecodedProperty {
-    DecodedProperty {
-        name: name.to_owned(),
-        values,
-    }
+fn make_prop(name: &str, values: PropValue) -> DecodedProperty<'static> {
+    DecodedProperty::from_parts(name.to_owned(), values)
 }
 
 #[test]
@@ -23,8 +25,8 @@ fn similar_strings_grouped_into_shared_dict() {
 
     // Properties should be transformed into a single SharedDict
     assert_eq!(props.len(), 1);
-    assert_eq!(props[0].name, "name:");
-    let PropValue::SharedDict(items) = &props[0].values else {
+    assert_eq!(props[0].name(), "name:");
+    let DecodedProperty::SharedDict(_, _, items) = &props[0] else {
         panic!("expected SharedDict");
     };
     assert_eq!(items.len(), 2);
@@ -76,8 +78,8 @@ fn multiple_similar_string_columns_grouped() {
 
     // All three should be grouped into one SharedDict
     assert_eq!(props.len(), 1);
-    assert_eq!(props[0].name, "addr:");
-    let PropValue::SharedDict(items) = &props[0].values else {
+    assert_eq!(props[0].name(), "addr:");
+    let DecodedProperty::SharedDict(_, _, items) = &props[0] else {
         panic!("expected SharedDict");
     };
     assert_eq!(items.len(), 3);
@@ -131,8 +133,8 @@ fn dissimilar_strings_stay_scalar() {
 
     // Should stay as two separate scalar properties (dissimilar values)
     assert_eq!(props.len(), 2);
-    assert!(matches!(&props[0].values, PropValue::Str(_)));
-    assert!(matches!(&props[1].values, PropValue::Str(_)));
+    assert!(matches!(&props[0], DecodedProperty::Str(..)));
+    assert!(matches!(&props[1], DecodedProperty::Str(..)));
 
     assert_debug_snapshot!(enc, @"
     [
@@ -264,13 +266,13 @@ fn mixed_scalars_and_grouped_strings() {
 
     // Should have 3 properties: id, name: (SharedDict), count
     assert_eq!(props.len(), 3);
-    assert_eq!(props[0].name, "id");
-    assert_eq!(props[1].name, "name:");
-    assert_eq!(props[2].name, "count");
+    assert_eq!(props[0].name(), "id");
+    assert_eq!(props[1].name(), "name:");
+    assert_eq!(props[2].name(), "count");
 
-    assert!(matches!(&props[0].values, PropValue::U32(_)));
-    assert!(matches!(&props[1].values, PropValue::SharedDict(_)));
-    assert!(matches!(&props[2].values, PropValue::I32(_)));
+    assert!(matches!(&props[0], DecodedProperty::U32(..)));
+    assert!(matches!(&props[1], DecodedProperty::SharedDict(..)));
+    assert!(matches!(&props[2], DecodedProperty::I32(..)));
 
     assert_debug_snapshot!(enc, @"
     [
