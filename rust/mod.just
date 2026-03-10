@@ -521,7 +521,7 @@ fuzz-llvm-cov target output_file *args:
     rustup component add llvm-tools-preview --toolchain nightly
 
     SYSROOT=$(rustup run nightly rustc --print sysroot)
-    HOST=$(rustc -vV | sed -n 's/^host: //p')
+    HOST=$(rustup run nightly rustc -vV | sed -n 's/^host: //p')
     LLVM_COV="$SYSROOT/lib/rustlib/$HOST/bin/llvm-cov"
     TRIPLE="x86_64-unknown-linux-gnu"
     FUZZ_DIR="fuzz"
