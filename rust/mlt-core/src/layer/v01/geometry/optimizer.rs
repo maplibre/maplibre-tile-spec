@@ -156,6 +156,7 @@ impl ProfileOptimisation for OwnedGeometry {
         ))
     }
 }
+
 impl AutomaticOptimisation for OwnedGeometry {
     type UsedEncoder = GeometryEncoder;
 
