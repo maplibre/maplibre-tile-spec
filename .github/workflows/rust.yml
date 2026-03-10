@@ -64,6 +64,8 @@ jobs:
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly }
       - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
+      - if: matrix.target == 'layer'
+        run: just -v rust::fuzz-seed ${{ matrix.target }}
       - run: just -v rust::ci-fuzz-run ${{ matrix.target }}
       - name: Generate fuzz coverage
         if: github.event_name != 'release' && github.repository_owner == 'maplibre'

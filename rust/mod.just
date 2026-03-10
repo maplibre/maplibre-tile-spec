@@ -136,6 +136,8 @@ ci-fuzz-cov target: (just 'cargo-install' 'cargo-fuzz')
     #!/usr/bin/env bash
     set -euo pipefail
 
+    {{just}} cargo-fuzz 'coverage' {{target}} --target x86_64-unknown-linux-gnu
+
     LCOV_OUT="../target/llvm-cov/fuzz-{{target}}.lcov"
     mkdir -p "$(dirname "$LCOV_OUT")"
     {{just}} rust::fuzz-llvm-cov {{target}} "$LCOV_OUT" export --format=lcov
