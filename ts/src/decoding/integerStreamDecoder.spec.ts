@@ -74,7 +74,7 @@ describe("getVectorType", () => {
     });
 });
 
-describe("decodeSignedIntStream / decodeUnsignedIntStream", () => {
+describe("decodeUnsignedIntStream", () => {
     it("should decode with PhysicalLevelTechnique.NONE", () => {
         const expectedValues = new Uint32Array([10, 20, 30]);
         const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
@@ -127,7 +127,9 @@ describe("decodeSignedIntStream / decodeUnsignedIntStream", () => {
 
         expect(result).toEqual(expectedValues);
     });
+});
 
+describe("decodeSignedIntStream / decodeSignedConstIntStream", () => {
     it("should decode NONE signed with Int32", () => {
         const expectedValues = new Int32Array([2, -4, 6, -8]);
         const metadata = createStreamMetadata(
@@ -230,7 +232,9 @@ describe("decodeSignedIntStream / decodeUnsignedIntStream", () => {
 
         expect(result).toBe(-8);
     });
+});
 
+describe("decodeUnsignedIntStream / decodeUnsignedConstIntStream", () => {
     it("should decode unsigned const Int32", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 1);
         const data = encodeIntStream(new Int32Array([0xffffffff]), metadata, false);
@@ -251,7 +255,7 @@ describe("decodeSignedIntStream / decodeUnsignedIntStream", () => {
     });
 });
 
-describe("decodeSignedLongFloat64Stream / decodeUnsignedLongFloat64Stream", () => {
+describe("decodeLongFloat64Stream", () => {
     it("should decode NONE unsigned", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
         const expectedValues = new Float64Array([1, 2, 3]);
@@ -340,7 +344,7 @@ describe("decodeSignedLongFloat64Stream / decodeUnsignedLongFloat64Stream", () =
     });
 });
 
-describe("decodeSignedLongStream / decodeUnsignedLongStream", () => {
+describe("decodeLongStream", () => {
     describe("DELTA with RLE", () => {
         it("should decode DELTA with RLE", () => {
             const numRleValues = 5;
