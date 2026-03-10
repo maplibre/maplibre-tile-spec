@@ -1,17 +1,13 @@
 package org.maplibre.mlt.cli
 
-import com.onthegomap.planetiler.archive.ReadableTileArchive
-import com.onthegomap.planetiler.archive.Tile
 import com.onthegomap.planetiler.archive.TileArchiveMetadata
 import com.onthegomap.planetiler.archive.TileCompression
 import com.onthegomap.planetiler.archive.TileFormat
 import com.onthegomap.planetiler.geo.TileCoord
 import com.onthegomap.planetiler.pmtiles.Pmtiles
-import com.onthegomap.planetiler.util.CloseableIterator
 import com.onthegomap.planetiler.util.Gzip
 import io.tileverse.io.ByteRange
 import io.tileverse.rangereader.RangeReader
-import org.apache.commons.lang3.NotImplementedException
 import org.locationtech.jts.geom.Coordinate
 import java.io.IOException
 import java.io.UncheckedIOException
@@ -22,7 +18,7 @@ import java.io.UncheckedIOException
 class ReadablePmtiles(
     private val channel: RangeReader,
     private val closeSourceChannel: Boolean = true,
-) : ReadableTileArchive {
+) : AutoCloseable {
     private fun getBytes(
         start: Long,
         length: Long,
@@ -74,11 +70,7 @@ class ReadablePmtiles(
         return null
     }
 
-    override fun getAllTileCoords(): CloseableIterator<TileCoord> = throw NotImplementedException()
-
-    override fun getAllTiles(): CloseableIterator<Tile> = throw NotImplementedException()
-
-    override fun getTile(
+    fun getTile(
         x: Int,
         y: Int,
         z: Int,
@@ -94,7 +86,7 @@ class ReadablePmtiles(
         Pmtiles.JsonMetadata.fromBytes(getHeaderBytes(header.jsonMetadataOffset(), header.jsonMetadataLength().toInt().toLong()))
     }
 
-    override fun metadata(): TileArchiveMetadata {
+    fun metadata(): TileArchiveMetadata {
         val tileCompression =
             when (header.tileCompression()) {
                 Pmtiles.Compression.GZIP -> TileCompression.GZIP
@@ -173,18 +165,59 @@ class ReadablePmtiles(
         val tileCoords get() = tileIds.map { TileCoord.hilbertDecode(it.toInt()) }
     }
 
-    private fun getTileCoordRanges(dir: Iterable<Pmtiles.Entry>): Sequence<TileCoordRange> =
+    fun getTileCoordRanges(
+        minZoom: Int? = null,
+        maxZoom: Int? = null,
+    ) = getTileCoordRanges(rootDir, minZoom?.let(::zoomStartIndex) ?: 0, maxZoom?.let(::zoomEndIndex) ?: Long.MAX_VALUE)
+
+    /** Generate tile ranges for the Hilbert given tile indexes (inclusive)
+     * @param dir the directory to search
+     * @param minTileIndex the minimum tile index to include, or null to include all
+     * @param maxTileIndex the maximum tile index to include, or null to include all
+     * */
+    private fun getTileCoordRanges(
+        dir: Iterable<Pmtiles.Entry>,
+        minTileIndex: Long,
+        maxTileIndex: Long,
+    ): Sequence<TileCoordRange> =
         dir
             .asSequence()
             .flatMap<Pmtiles.Entry, TileCoordRange> { entry ->
+                // Run-length zero is a directory reference
                 if (entry.runLength() == 0) {
-                    getTileCoordRanges(readDir(entry))
+                    if (entry.tileId() <= maxTileIndex) {
+                        // continue exploring this branch
+                        getTileCoordRanges(readDir(entry), minTileIndex, maxTileIndex)
+                    } else {
+                        // stop exploring this branch
+                        sequenceOf()
+                    }
                 } else {
-                    sequenceOf(TileCoordRange(entry, header))
+                    // Run-length non-zero is a tile range
+                    if (minTileIndex <= entry.tileId() && entry.tileId() + entry.runLength() <= maxTileIndex) {
+                        // use the full range
+                        sequenceOf(TileCoordRange(entry, header))
+                    } else if (maxTileIndex < entry.tileId() || entry.tileId() + entry.runLength() - 1 < minTileIndex) {
+                        // discard this range
+                        sequenceOf()
+                    } else {
+                        // use a partial range
+                        val start = entry.tileId().coerceAtLeast(minTileIndex)
+                        val end = (entry.tileId() + entry.runLength()).coerceAtMost(maxTileIndex)
+                        sequenceOf(
+                            TileCoordRange(
+                                start,
+                                (end - start + 1).toInt(),
+                                ByteRange(header.tileDataOffset() + entry.offset(), entry.length()),
+                            ),
+                        )
+                    }
                 }
             }
 
-    val allTileCoordRanges get() = getTileCoordRanges(rootDir)
+    private fun zoomStartIndex(zoom: Int) = ZOOM_START_INDEX[zoom.coerceIn(0..MAX_ZOOM)]
+
+    private fun zoomEndIndex(zoom: Int) = ZOOM_START_INDEX[zoom.coerceIn(0..MAX_ZOOM) + 1] - 1
 
     val header by lazy { Pmtiles.Header.fromBytes(getBytes(0, HEADER_LEN.toLong())) }
 
@@ -192,6 +225,24 @@ class ReadablePmtiles(
 
     companion object {
         const val HEADER_LEN: Int = 127 // Pmtiles.HEADER_LEN is inaccessible
+
+        const val MAX_ZOOM = 16
+
+        private val ZOOM_START_INDEX = buildZoomIndex()
+
+        private fun buildZoomIndex(): LongArray {
+            val indexes = LongArray(MAX_ZOOM + 2)
+            var index = 0L
+            (0..MAX_ZOOM + 1).map {
+                indexes[it] = index
+                val width = (1L shl it)
+                index += width * width
+                if (index < indexes[it]) {
+                    throw IllegalStateException("Too many zoom levels")
+                }
+            }
+            return indexes
+        }
 
         /**
          * Finds the relevant entry for a tileId in a list of entries.

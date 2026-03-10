@@ -173,7 +173,6 @@ private fun encodePMTiles(
             targetConfig,
             AtomicLong(0),
             AtomicLong(0),
-            AtomicLong(0),
             AtomicBoolean(false),
             AtomicBoolean(true),
             if (logger.isDebugEnabled) ConcurrentHashMap<Long, ConcurrentSkipListSet<TileCoord>>() else null,
@@ -262,16 +261,10 @@ private fun processAllTiles(
     maxZoom: Int,
 ) {
     reader
-        .allTileCoordRanges
+        .getTileCoordRanges(minZoom, maxZoom)
         .forEach { tileRef ->
             if (state.encodeConfig.continueOnError || state.success.get()) {
                 state.totalTileCount.addAndGet(tileRef.tileCount.toLong())
-                state.filteredTileCount.addAndGet(
-                    tileRef.tileCoords
-                        .filter { coord -> coord.z() in minZoom..maxZoom }
-                        .size
-                        .toLong(),
-                )
                 try {
                     taskRunner.run(
                         {
@@ -287,8 +280,7 @@ private fun processAllTiles(
         }
     state.directoryComplete.set(true)
     logger.debug(
-        "Directory read complete. Processing {} of {} total tiles.",
-        String.format("%,d", state.filteredTileCount.get()),
+        "Directory read complete. Processing {} total tiles.",
         String.format("%,d", state.totalTileCount.get()),
     )
     taskRunner.shutdown()
@@ -320,12 +312,12 @@ private fun processTileRange(
         val prevBatch = prevTileCount.toULong().div(tileLogInterval)
         val curBatch = curTileCount.toULong().div(tileLogInterval)
         // If we're the range that crosses a log interval boundary, log the progress.
-        if (prevTileCount == 0L || curBatch != prevBatch) {
+        if (prevTileCount == 0L || curBatch != prevBatch || (state.directoryComplete.get() && curTileCount == state.totalTileCount.get())) {
             if (!state.directoryComplete.get()) {
                 // Still fetching tile coordinates, we can't show a percentage.
                 logger.debug("Processing tile {} : {}", String.format("%,d", curTileCount), tileLabel)
             } else {
-                val totalTiles = state.filteredTileCount.get()
+                val totalTiles = state.totalTileCount.get()
                 logger.debug(
                     "Processing tiles: {} / {} ({}%) : {}",
                     String.format("%,d", curTileCount),
@@ -463,8 +455,6 @@ private data class ConversionState(
     val tilesProcessed: AtomicLong,
     // The total number of tiles seen in the directory so far
     val totalTileCount: AtomicLong,
-    // The total number of tiles seen that we'll convert
-    val filteredTileCount: AtomicLong,
     // Whether we've finished reading the directory
     val directoryComplete: AtomicBoolean,
     // Whether the conversion is successful so far
