@@ -62,7 +62,7 @@ impl ManualOptimisation for Vec<OwnedProperty> {
         let mut decoded = Vec::with_capacity(self.len());
         for d in &mut *self {
             let d = borrowme::borrow(d).decode()?;
-            decoded.push(d);
+            decoded.push(borrowme::ToOwned::to_owned(&d));
         }
         *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, encoder)?
             .into_iter()
@@ -92,7 +92,7 @@ impl AutomaticOptimisation for Vec<OwnedProperty> {
         let mut decoded = Vec::with_capacity(self.len());
         for d in &mut *self {
             let d = borrowme::borrow(d).decode()?;
-            decoded.push(d);
+            decoded.push(borrowme::ToOwned::to_owned(&d));
         }
 
         let enc = PropertyOptimizer::optimize(&mut decoded);

@@ -172,8 +172,8 @@ impl ManualOptimisation for OwnedId {
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
         let dec = borrowme::borrow(self).decode()?;
-        if let DecodedId(Some(_)) = dec {
-            *self = OwnedId::Encoded(OwnedEncodedId::from_decoded(&dec, encoder)?);
+        if !dec.0.is_empty() {
+            *self = OwnedId::Encoded(Some(OwnedEncodedId::from_decoded(&dec, encoder)?));
         }
         Ok(())
     }
