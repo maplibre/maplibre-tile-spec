@@ -82,13 +82,7 @@ export function decodeString(
             symbolLengthStream,
             nullabilityBuffer,
         ) ??
-        decodeDictionaryVector(
-            name,
-            dictionaryStream,
-            offsetStream,
-            dictionaryLengthStream,
-            nullabilityBuffer,
-        ) ??
+        decodeDictionaryVector(name, dictionaryStream, offsetStream, dictionaryLengthStream, nullabilityBuffer) ??
         decodePlainStringVector(name, plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer)
     );
 }
