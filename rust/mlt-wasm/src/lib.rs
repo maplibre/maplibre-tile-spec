@@ -40,7 +40,7 @@ use ids::IdState;
 use js_sys::Uint8Array;
 use layer::DecodedLayer;
 use mlt_core::borrowme::ToOwned;
-use mlt_core::v01::{DecodedId, GeometryType, Id};
+use mlt_core::v01::{DecodedId, Geometry, GeometryType, Id};
 use mlt_core::{MltError, parse_layers};
 use tile::MltTile;
 use wasm_bindgen::prelude::*;
@@ -67,7 +67,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
         // Decode geometry types eagerly — cheap, needed for feature_count and
         // layer_types on every tile traversal.
         let vector_types: Vec<GeometryType> = match &layer01.geometry {
-            mlt_core::v01::Geometry::Encoded(e) => e
+            Geometry::Encoded(e) => e
                 .meta
                 .clone()
                 .decode_bits_u32()
@@ -82,7 +82,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
                         .map_err(|_| JsError::new("invalid geometry type"))
                 })
                 .collect::<Result<Vec<_>, _>>()?,
-            mlt_core::v01::Geometry::Decoded(d) => d.vector_types.clone(),
+            Geometry::Decoded(d) => d.vector_types.clone(),
         };
 
         // Build types_array once up front; layer_types() returns a handle clone.
