@@ -32,21 +32,17 @@ class ReadablePmtiles(
                 throw IllegalArgumentException("ByteRange length must be positive")
             }
         }
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (javaClass != other?.javaClass) return false
-            other as ByteRange
-            return (offset == other.offset && length == other.length)
-        }
+
+        override fun equals(other: Any?) = this === other || (other is ByteRange && offset == other.offset && length == other.length)
     }
 
-    interface DataReader {
+    interface DataReader : AutoCloseable {
         fun read(
             offset: Long,
             length: Int,
         ): ByteArray
 
-        fun close() {}
+        override fun close() {}
     }
 
     private fun getBytes(
