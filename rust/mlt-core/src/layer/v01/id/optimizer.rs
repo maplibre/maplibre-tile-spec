@@ -6,164 +6,235 @@ use crate::v01::{
 };
 use crate::{FromDecoded as _, FromEncoded as _, MltError};
 
-/// Analyses a [`DecodedId`] and returns an [`IdEncoder`] with near-optimal
-/// encoding settings.
+/// A pre-computed set of [`IntEncoder`] candidates derived from a representative
+/// sample of tiles.
 ///
-/// The returned encoder is guaranteed to be compatible with
-/// `OwnedEncodedId::from_decoded`,
-/// which unconditionally uses [`PhysicalEncoder::VarInt`].
+/// Building a profile once from sample tiles avoids re-running
+/// [`DataProfile::prune_candidates`] on every subsequent tile; the profile's
+/// candidate list is used directly in the competition step instead.
 ///
-/// # Pipeline
+/// [`IdWidth`] is not stored because it is always re-derived from the actual
+/// data of the tile being encoded.
 ///
-/// 1. If the input contains no data, immediately return a zero-cost default.
-/// 2. **Single-pass deduction**
-///    One iteration over `Vec<Option<u64>>` collects `has_nulls`, `max_value`,
-///    `is_sequential`, and `is_constant` simultaneously.  `IdWidth` is derived
-///    deterministically from `has_nulls` and `max_value` - it is not a choice
-///    but a strict consequence of the data.
-/// 3. **Select `LogicalEncoder`**
-///    * **Fast-path:**
-///      * `is_sequential` -> `DeltaRle`
-///      * `is_constant` -> `Rle`.
-///    * **Competition:**
-///      Extract non-null values, prune candidates via `DataProfile::prune_candidates`,
-///      retain only `VarInt` physical encoders (the only physical encoder used by ID streams),
-///      then pick the winner with `DataProfile::min_size_encoding_*`.
-/// 4. **Assemble and return `IdEncoder`.**
-pub struct IdOptimizer;
+/// Profiles from multiple samples are combined with [`IdProfile::merge`], which
+/// takes the union of both candidate sets.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IdProfile {
+    /// Encoder candidates to use during competition.
+    ///
+    /// An empty list causes the caller to fall back to automatic optimisation.
+    candidates: Vec<IntEncoder>,
+}
 
-impl IdOptimizer {
-    /// Analyze and return a configured [`IdEncoder`].
+impl IdProfile {
+    #[doc(hidden)]
     #[must_use]
-    pub fn optimize(decoded: &DecodedId) -> IdEncoder {
+    pub fn new(candidates: Vec<IntEncoder>) -> Self {
+        Self { candidates }
+    }
+
+    /// Build a profile from a sample of decoded IDs.
+    #[must_use]
+    pub fn from_sample(decoded: &DecodedId) -> Self {
         let ids = &decoded.0;
-        let (is_sequential, is_constant, id_width) = match Self::single_pass_statistics(ids) {
-            Ok(value) => value,
-            Err(value) => return value,
+        let Ok((_, _, id_width)) = single_pass_statistics(ids) else {
+            return Self {
+                candidates: vec![IntEncoder::varint()],
+            };
         };
-
-        // None is optimal; skip allocation and trial encoding.
-        if ids.len() <= 2 {
-            return IdEncoder::new(LogicalEncoder::None, id_width);
+        Self {
+            candidates: pruned_candidates(ids, id_width),
         }
-
-        // Fast-path: all consecutive non-null values increment by exactly 1.
-        // DeltaRle is optimal; skip allocation and trial encoding.
-        if is_sequential && ids.len() > 4 {
-            return IdEncoder::new(LogicalEncoder::DeltaRle, id_width);
-        }
-
-        // Fast-path: every non-null value is identical.
-        // Rle is optimal; skip allocation and trial encoding.
-        if is_constant {
-            return IdEncoder::new(LogicalEncoder::Rle, id_width);
-        }
-        // Profile, prune, filter, and compete to find the best logical encoder.
-        let logical = Self::compete(ids, id_width);
-        IdEncoder::new(logical, id_width)
     }
 
-    fn single_pass_statistics(ids: &[Option<u64>]) -> Result<(bool, bool, IdWidth), IdEncoder> {
-        let mut has_nulls = false;
-        let mut is_sequential = true;
-        let mut is_constant = true;
+    /// Merge two profiles by taking the union of their candidate sets.
+    ///
+    /// Encoders already present in `self` are not duplicated.
+    #[must_use]
+    pub fn merge(mut self, other: &Self) -> Self {
+        for &enc in &other.candidates {
+            if !self.candidates.contains(&enc) {
+                self.candidates.push(enc);
+            }
+        }
+        self
+    }
+}
 
-        // Find first non-null
-        let mut ids_iter = ids.iter();
-        let first_non_null = loop {
-            if let Some(opt_id) = ids_iter.next() {
-                if let Some(id) = opt_id {
-                    break *id;
+/// Analyse `decoded` and return a near-optimal [`IdEncoder`].
+///
+/// Fast paths (short sequences, sequential, constant) are checked first.
+/// Otherwise the full pruning + competition pipeline runs.
+fn optimize(decoded: &DecodedId) -> IdEncoder {
+    let ids = &decoded.0;
+    let (is_sequential, is_constant, id_width) = match single_pass_statistics(ids) {
+        Ok(stats) => stats,
+        Err(default_enc) => return default_enc,
+    };
+
+    if ids.len() <= 2 {
+        return IdEncoder::new(LogicalEncoder::None, id_width);
+    }
+
+    if is_sequential && ids.len() > 4 {
+        return IdEncoder::new(LogicalEncoder::DeltaRle, id_width);
+    }
+
+    if is_constant {
+        return IdEncoder::new(LogicalEncoder::Rle, id_width);
+    }
+
+    let candidates = pruned_candidates(ids, id_width);
+    let logical = compete_with(ids, id_width, &candidates);
+    IdEncoder::new(logical, id_width)
+}
+
+/// Apply a profile to `decoded`, re-deriving [`IdWidth`] from the tile's data.
+///
+/// The same fast paths as [`optimize`] are applied first. For the general case,
+/// competition is run over the profile's pre-computed candidate list rather
+/// than re-running the full pruning analysis.
+fn apply_profile(decoded: &DecodedId, profile: &IdProfile) -> IdEncoder {
+    let ids = &decoded.0;
+    let (is_sequential, is_constant, id_width) = match single_pass_statistics(ids) {
+        Ok(stats) => stats,
+        Err(default_enc) => return default_enc,
+    };
+
+    if ids.len() <= 2 {
+        return IdEncoder::new(LogicalEncoder::None, id_width);
+    }
+
+    if is_sequential && ids.len() > 4 {
+        return IdEncoder::new(LogicalEncoder::DeltaRle, id_width);
+    }
+
+    if is_constant {
+        return IdEncoder::new(LogicalEncoder::Rle, id_width);
+    }
+
+    let logical = compete_with(ids, id_width, &profile.candidates);
+    IdEncoder::new(logical, id_width)
+}
+
+/// Collect `is_sequential`, `is_constant`, and [`IdWidth`] in a single pass.
+///
+/// Returns `Err(default_encoder)` for the empty or all-null case so callers
+/// can return early.
+fn single_pass_statistics(ids: &[Option<u64>]) -> Result<(bool, bool, IdWidth), IdEncoder> {
+    let mut has_nulls = false;
+    let mut is_sequential = true;
+    let mut is_constant = true;
+
+    let mut ids_iter = ids.iter();
+    let first_non_null = loop {
+        match ids_iter.next() {
+            Some(Some(id)) => break *id,
+            Some(None) => has_nulls = true,
+            None => return Err(IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)),
+        }
+    };
+
+    let mut max_value = first_non_null;
+    let mut prev_non_null = first_non_null;
+
+    for &id in ids_iter {
+        match id {
+            None => has_nulls = true,
+            Some(v) => {
+                max_value = max_value.max(v);
+                if v != prev_non_null.wrapping_add(1) {
+                    is_sequential = false;
                 }
-                has_nulls = true;
-            } else {
-                // Either empty or all values are null; return early with the trivial default.
-                return Err(IdEncoder::new(LogicalEncoder::None, IdWidth::Id32));
-            }
-        };
-
-        let mut max_value = first_non_null;
-        let mut prev_non_null = first_non_null;
-
-        for &id in ids_iter {
-            match id {
-                None => has_nulls = true,
-                Some(v) => {
-                    max_value = max_value.max(v);
-                    // Sequential: each consecutive non-null must be exactly prev_non_null + 1
-                    if v != prev_non_null.wrapping_add(1) {
-                        is_sequential = false;
-                    }
-                    // Constant: every non-null must equal the first
-                    if v != first_non_null {
-                        is_constant = false;
-                    }
-                    prev_non_null = v;
+                if v != first_non_null {
+                    is_constant = false;
                 }
-            }
-        }
-
-        let id_width = Self::deduce_width(has_nulls, max_value);
-        Ok((is_sequential, is_constant, id_width))
-    }
-
-    /// Determine the narrowest correct `IdWidth` for the given data.
-    ///
-    /// Width and nullability are properties of the data, not choices to optimise.
-    #[inline]
-    fn deduce_width(has_nulls: bool, max_value: u64) -> IdWidth {
-        let fits_u32 = u32::try_from(max_value).is_ok();
-        match (has_nulls, fits_u32) {
-            (false, true) => IdWidth::Id32,
-            (true, true) => IdWidth::OptId32,
-            (false, false) => IdWidth::Id64,
-            (true, false) => IdWidth::OptId64,
-        }
-    }
-
-    /// Run the profiling-competition pipeline to select the best [`LogicalEncoder`].
-    ///
-    /// Candidates are pruned by [`DataProfile::prune_candidates`] and then
-    /// filtered to retain only those with `physical == VarInt`, because
-    /// `OwnedEncodedId::from_decoded`
-    /// always uses [`PhysicalEncoder::VarInt`] for ID streams.
-    fn compete(ids: &[Option<u64>], id_width: IdWidth) -> LogicalEncoder {
-        match id_width {
-            IdWidth::Id32 | IdWidth::OptId32 => {
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    reason = "width was deduced as ≤ u32::MAX so truncation is safe"
-                )]
-                let vals: Vec<u32> = ids.iter().flatten().map(|&v| v as u32).collect();
-                let candidates = DataProfile::prune_candidates::<i32>(&vals);
-                let varint_candidates = Self::filter_varint(&candidates);
-                DataProfile::compete_u32(&varint_candidates, &vals).logical
-            }
-            IdWidth::Id64 | IdWidth::OptId64 => {
-                let vals: Vec<u64> = ids.iter().flatten().copied().collect();
-                let candidates = DataProfile::prune_candidates::<i64>(&vals);
-                let varint_candidates = Self::filter_varint(&candidates);
-                DataProfile::compete_u64(&varint_candidates, &vals).logical
+                prev_non_null = v;
             }
         }
     }
 
-    /// Retain only candidates whose physical encoder is [`PhysicalEncoder::VarInt`].
-    ///
-    /// Falls back to a single plain `VarInt` encoder if filtering would produce
-    /// an empty list (defensive; should not occur in practice since u64 pruning
-    /// never emits `FastPFOR`).
-    fn filter_varint(candidates: &[IntEncoder]) -> Vec<IntEncoder> {
-        let filtered: Vec<IntEncoder> = candidates
-            .iter()
-            .copied()
-            .filter(|enc| enc.physical == PhysicalEncoder::VarInt)
-            .collect();
-        if filtered.is_empty() {
-            vec![IntEncoder::varint()]
-        } else {
-            filtered
+    Ok((
+        is_sequential,
+        is_constant,
+        deduce_width(has_nulls, max_value),
+    ))
+}
+
+/// Determine the narrowest correct [`IdWidth`] for the given data.
+#[inline]
+fn deduce_width(has_nulls: bool, max_value: u64) -> IdWidth {
+    let fits_u32 = u32::try_from(max_value).is_ok();
+    match (has_nulls, fits_u32) {
+        (false, true) => IdWidth::Id32,
+        (true, true) => IdWidth::OptId32,
+        (false, false) => IdWidth::Id64,
+        (true, false) => IdWidth::OptId64,
+    }
+}
+
+/// Run [`DataProfile::prune_candidates`] and filter the result to VarInt-only.
+///
+/// This is the analysis half of automatic optimisation; the competition half
+/// is [`compete_with`]. Splitting them lets [`IdProfile`] cache the result.
+fn pruned_candidates(ids: &[Option<u64>], id_width: IdWidth) -> Vec<IntEncoder> {
+    match id_width {
+        IdWidth::Id32 | IdWidth::OptId32 => {
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "width was deduced as ≤ u32::MAX so truncation is safe"
+            )]
+            let vals: Vec<u32> = ids.iter().flatten().map(|&v| v as u32).collect();
+            filter_varint(&DataProfile::prune_candidates::<i32>(&vals))
         }
+        IdWidth::Id64 | IdWidth::OptId64 => {
+            let vals: Vec<u64> = ids.iter().flatten().copied().collect();
+            filter_varint(&DataProfile::prune_candidates::<i64>(&vals))
+        }
+    }
+}
+
+/// Run trial encodings over `candidates` and return the [`LogicalEncoder`] that
+/// produces the smallest output for `ids`.
+fn compete_with(
+    ids: &[Option<u64>],
+    id_width: IdWidth,
+    candidates: &[IntEncoder],
+) -> LogicalEncoder {
+    let candidates = if candidates.is_empty() {
+        &[IntEncoder::varint()][..]
+    } else {
+        candidates
+    };
+
+    match id_width {
+        IdWidth::Id32 | IdWidth::OptId32 => {
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "width was deduced as ≤ u32::MAX so truncation is safe"
+            )]
+            let vals: Vec<u32> = ids.iter().flatten().map(|&v| v as u32).collect();
+            DataProfile::compete_u32(candidates, &vals).logical
+        }
+        IdWidth::Id64 | IdWidth::OptId64 => {
+            let vals: Vec<u64> = ids.iter().flatten().copied().collect();
+            DataProfile::compete_u64(candidates, &vals).logical
+        }
+    }
+}
+
+/// Retain only candidates whose physical encoder is [`PhysicalEncoder::VarInt`],
+/// falling back to a single plain `VarInt` if the result would be empty.
+fn filter_varint(candidates: &[IntEncoder]) -> Vec<IntEncoder> {
+    let filtered: Vec<IntEncoder> = candidates
+        .iter()
+        .copied()
+        .filter(|enc| enc.physical == PhysicalEncoder::VarInt)
+        .collect();
+    if filtered.is_empty() {
+        vec![IntEncoder::varint()]
+    } else {
+        filtered
     }
 }
 
@@ -181,15 +252,28 @@ impl ManualOptimisation for OwnedId {
 
 impl ProfileOptimisation for OwnedId {
     type UsedEncoder = Option<IdEncoder>;
-    type Profile = ();
+    type Profile = IdProfile;
 
     fn profile_driven_optimisation(
         &mut self,
-        _profile: &Self::Profile,
+        profile: &Self::Profile,
     ) -> Result<Self::UsedEncoder, MltError> {
-        Err(MltError::NotImplemented(
-            "ProfileOptimisation::profile_driven_optimisation",
-        ))
+        match self {
+            OwnedId::Decoded(None) => {
+                *self = OwnedId::Encoded(None);
+                Ok(None)
+            }
+            OwnedId::Decoded(Some(dec)) => {
+                let enc = apply_profile(dec, profile);
+                *self = OwnedId::Encoded(Some(OwnedEncodedId::from_decoded(dec, enc)?));
+                Ok(Some(enc))
+            }
+            OwnedId::Encoded(e) => {
+                let dec = Option::<DecodedId>::from_encoded(e.as_ref().map(borrowme::borrow))?;
+                *self = OwnedId::Decoded(dec);
+                self.profile_driven_optimisation(profile)
+            }
+        }
     }
 }
 
@@ -203,7 +287,7 @@ impl AutomaticOptimisation for OwnedId {
                 Ok(None)
             }
             OwnedId::Decoded(Some(dec)) => {
-                let enc = IdOptimizer::optimize(dec);
+                let enc = optimize(dec);
                 *self = OwnedId::Encoded(Some(OwnedEncodedId::from_decoded(dec, enc)?));
                 Ok(Some(enc))
             }

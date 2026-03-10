@@ -8,13 +8,14 @@ use std::{fs, io};
 use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
+use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, DecodedStrings, GeometryEncoder, IdEncoder,
-    IntEncoder, OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty,
-    PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
-    SharedDictItemEncoder, StrEncoder, VertexBufferType, build_decoded_shared_dict,
+    IntEncoder, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PresenceStream, PropValue,
+    PropertyEncoder, ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StrEncoder,
+    VertexBufferType, build_decoded_shared_dict,
 };
-use mlt_core::{Encodable as _, FromDecoded as _, OwnedLayer, parse_layers};
+use mlt_core::{OwnedLayer, parse_layers};
 
 /// Tessellate a polygon using the geo crate's earcut algorithm.
 ///
@@ -318,25 +319,29 @@ impl Layer {
     fn write_mlt(self, path: &Path) {
         let decoded_geom = self.build_decoded_geometry();
         let mut geometry = OwnedGeometry::Decoded(decoded_geom);
-        geometry.encode_with(self.geometry_encoder).unwrap();
+        geometry.manual_optimisation(self.geometry_encoder).unwrap();
 
         let id = if let Some((ids, ids_encoder)) = self.ids {
             let mut id = OwnedId::Decoded(Some(DecodedId(ids)));
-            id.encode_with(ids_encoder).unwrap();
+            id.manual_optimisation(ids_encoder).unwrap();
             id
         } else {
             OwnedId::Decoded(None)
         };
 
-        let props = Vec::<OwnedEncodedProperty>::from_decoded(&self.properties, self.prop_encoders)
-            .unwrap();
+        let mut properties: Vec<OwnedProperty> = self
+            .properties
+            .into_iter()
+            .map(OwnedProperty::Decoded)
+            .collect();
+        properties.manual_optimisation(self.prop_encoders).unwrap();
 
         let layer = OwnedLayer::Tag01(OwnedLayer01 {
             name: "layer1".to_string(),
             extent: self.extent.unwrap_or(80),
             id,
             geometry,
-            properties: props.into_iter().map(OwnedProperty::Encoded).collect(),
+            properties,
         });
 
         let mut file = Self::open_new(path)
