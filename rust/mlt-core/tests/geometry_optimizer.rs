@@ -245,7 +245,6 @@ fn manual_optimisation_works() {
     let types = encoded_stream_types(enc);
     assert!(types.contains(&StreamType::Data(DictionaryType::Vertex)));
 
-    let decoded_back =
-        DecodedGeometry::from_encoded(borrowme::borrow(enc)).expect("decode failed");
+    let decoded_back = DecodedGeometry::from_encoded(borrowme::borrow(enc)).expect("decode failed");
     assert_eq!(decoded, decoded_back);
 }
