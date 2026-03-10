@@ -51,7 +51,14 @@ fun encodePMTiles(
             .build()
             .use { cachingReader ->
                 // This reader is thread-safe
-                ReadablePmtiles(cachingReader, false)
+                val reader =
+                    object : ReadablePmtiles.DataReader {
+                        override fun read(
+                            offset: Long,
+                            length: Int,
+                        ) = cachingReader.readRange(offset, length).array()
+                    }
+                ReadablePmtiles(reader, false)
                     .use { reader ->
                         logger.debug("Opened '{}' for reading", inputURI)
                         WriteablePmtiles.newWriteToFile(outputPath).use { writer ->

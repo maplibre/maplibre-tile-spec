@@ -6,8 +6,6 @@ import com.onthegomap.planetiler.archive.TileFormat
 import com.onthegomap.planetiler.geo.TileCoord
 import com.onthegomap.planetiler.pmtiles.Pmtiles
 import com.onthegomap.planetiler.util.Gzip
-import io.tileverse.io.ByteRange
-import io.tileverse.rangereader.RangeReader
 import org.locationtech.jts.geom.Coordinate
 import java.io.IOException
 import java.io.UncheckedIOException
@@ -16,15 +14,31 @@ import java.io.UncheckedIOException
  * Also exposes run-length encoded tile coordinate ranges
  * which are not currently exposed by Planetiler's API. */
 class ReadablePmtiles(
-    private val channel: RangeReader,
+    private val channel: DataReader,
     private val closeSourceChannel: Boolean = true,
 ) : AutoCloseable {
+    data class ByteRange(
+        /** The starting position of the range */
+        val offset: Long,
+        /** The number of bytes in the range */
+        val length: Int,
+    )
+
+    interface DataReader {
+        fun read(
+            offset: Long,
+            length: Int,
+        ): ByteArray
+
+        fun close() {}
+    }
+
     private fun getBytes(
         start: Long,
         length: Long,
-    ) = channel.readRange(start, Math.toIntExact(length)).array()
+    ) = channel.read(start, Math.toIntExact(length))
 
-    fun getBytes(range: ByteRange) = getBytes(range.offset(), range.length().toLong())
+    fun getBytes(range: ByteRange) = getBytes(range.offset, range.length.toLong())
 
     private fun getHeaderBytes(
         offset: Long,
@@ -201,7 +215,7 @@ class ReadablePmtiles(
     companion object {
         const val HEADER_LEN: Int = 127 // Pmtiles.HEADER_LEN is inaccessible
 
-        const val MAX_ZOOM = 16
+        const val MAX_ZOOM = 16 // Planetiler currently only supports 15
 
         private val ZOOM_START_INDEX = buildZoomIndex()
 
