@@ -92,7 +92,8 @@ export default class FeatureTable {
     private containsMaxSafeIntegerValues(idVector: IdVector) {
         return (
             idVector instanceof Int32FlatVector ||
-            (idVector instanceof Int32ConstVector && idVector instanceof Int32SequenceVector) ||
+            idVector instanceof Int32ConstVector ||
+            idVector instanceof Int32SequenceVector ||
             idVector instanceof DoubleFlatVector
         );
     }
