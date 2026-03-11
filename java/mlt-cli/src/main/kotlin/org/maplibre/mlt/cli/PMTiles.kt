@@ -24,6 +24,7 @@ import org.apache.commons.lang3.ArrayUtils
 import org.apache.commons.lang3.mutable.MutableBoolean
 import java.io.ByteArrayInputStream
 import java.io.IOException
+import java.lang.ref.WeakReference
 import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.file.Path
@@ -56,7 +57,7 @@ fun encodePMTiles(
                     }
                 }.also {
                     if (config.logCacheStats) {
-                        rangeReaderCache?.also(::logCacheStats)
+                        rangeReaderCache.get()?.also(::logCacheStats)
                     }
                 }
         }
@@ -74,28 +75,30 @@ private fun getCacheManager(config: EncodeConfig) =
 
         logger.debug("Initializing cache with max size {}, max age {}", maxHeapUsage, cacheExpireAfterAccess)
         rangeReaderCache =
-            it.getCache(cacheName, {
-                CaffeineCache
-                    .newBuilder<ByteRange, ByteBuffer>()
-                    .maximumWeight(maxHeapUsage)
-                    .weigher(::weigh)
-                    .scheduler(Scheduler.systemScheduler())
-                    .also {
-                        if (cacheAverageEntrySize > 0) {
-                            it.averageWeight(weigh(cacheAverageEntrySize))
-                        }
-                        if (cacheExpireAfterAccess.isPositive()) {
-                            it.expireAfterAccess(cacheExpireAfterAccess.toJavaDuration())
-                        }
-                        if (config.logCacheStats) {
-                            it.recordStats()
-                            it.removalListener(::onRemoval)
-                        }
-                    }.build()
-            })
+            WeakReference(
+                it.getCache(cacheName, {
+                    CaffeineCache
+                        .newBuilder<ByteRange, ByteBuffer>()
+                        .maximumWeight(maxHeapUsage)
+                        .weigher(::weigh)
+                        .scheduler(Scheduler.systemScheduler())
+                        .also {
+                            if (cacheAverageEntrySize > 0) {
+                                it.averageWeight(weigh(cacheAverageEntrySize))
+                            }
+                            if (cacheExpireAfterAccess.isPositive()) {
+                                it.expireAfterAccess(cacheExpireAfterAccess.toJavaDuration())
+                            }
+                            if (config.logCacheStats) {
+                                it.recordStats()
+                                it.removalListener(::onRemoval)
+                            }
+                        }.build()
+                }),
+            )
     }
 
-private var rangeReaderCache: CaffeineCache<ByteRange, ByteBuffer>? = null
+private var rangeReaderCache: WeakReference<CaffeineCache<ByteRange, ByteBuffer>> = WeakReference(null)
 
 private fun getCachingReader(
     rawReader: RangeReader,
@@ -354,7 +357,7 @@ private fun processTileRange(
                 )
             }
             if (prevTileCount > 0 && config.logCacheStats) {
-                rangeReaderCache?.also(::logCacheStats)
+                rangeReaderCache.get()?.also(::logCacheStats)
             }
         }
     }
