@@ -4,7 +4,7 @@ use borrowme::borrow;
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
     DecodedStrings, DictionaryType, EncodedPresence, IntEncoder, LengthType, LogicalEncoder,
-    OwnedEncodedProperty, OwnedStream, PhysicalEncoder, PresenceStream, SharedDictEncoder,
+    NameRef, OwnedEncodedProperty, OwnedStream, PhysicalEncoder, PresenceStream, SharedDictEncoder,
     SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict, decode_shared_dict,
     decode_strings, encode_shared_dict_prop,
 };
@@ -111,7 +111,7 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
                             || borrow(encoded),
                             |enc| {
                                 black_box(
-                                    decode_strings(EncodedPresence(None), enc)
+                                    decode_strings(NameRef(""), EncodedPresence(None), enc)
                                         .expect("decode_strings failed"),
                                 )
                             },
@@ -147,7 +147,7 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
                             || borrow(encoded),
                             |enc| {
                                 black_box(
-                                    decode_strings(EncodedPresence(None), enc)
+                                    decode_strings(NameRef(""), EncodedPresence(None), enc)
                                         .expect("decode_strings failed"),
                                 )
                             },
@@ -177,7 +177,8 @@ fn bench_encoding_type(c: &mut Criterion) {
                 || borrow(encoded),
                 |enc| {
                     black_box(
-                        decode_strings(EncodedPresence(None), enc).expect("decode_strings failed"),
+                        decode_strings(NameRef(""), EncodedPresence(None), enc)
+                            .expect("decode_strings failed"),
                     )
                 },
                 BatchSize::SmallInput,
@@ -190,7 +191,8 @@ fn bench_encoding_type(c: &mut Criterion) {
                 || borrow(encoded),
                 |enc| {
                     black_box(
-                        decode_strings(EncodedPresence(None), enc).expect("decode_strings failed"),
+                        decode_strings(NameRef(""), EncodedPresence(None), enc)
+                            .expect("decode_strings failed"),
                     )
                 },
                 BatchSize::SmallInput,
@@ -221,7 +223,7 @@ fn bench_presence(c: &mut Criterion) {
                     || borrow(encoded),
                     |enc| {
                         black_box(
-                            decode_strings(EncodedPresence(None), enc)
+                            decode_strings(NameRef(""), EncodedPresence(None), enc)
                                 .expect("decode_strings failed"),
                         )
                     },
@@ -247,7 +249,7 @@ fn bench_presence(c: &mut Criterion) {
                     || (borrow(pres), borrow(enc)),
                     |(p, e)| {
                         black_box(
-                            decode_strings(EncodedPresence(Some(p)), e)
+                            decode_strings(NameRef(""), EncodedPresence(Some(p)), e)
                                 .expect("decode_strings failed"),
                         )
                     },
@@ -284,10 +286,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
                 || (borrow(encoded), borrow(encoded)),
                 |(e1, e2)| {
                     black_box(
-                        decode_strings(EncodedPresence(None), e1).expect("decode_strings failed"),
+                        decode_strings(NameRef(""), EncodedPresence(None), e1)
+                            .expect("decode_strings failed"),
                     );
                     black_box(
-                        decode_strings(EncodedPresence(None), e2).expect("decode_strings failed"),
+                        decode_strings(NameRef(""), EncodedPresence(None), e2)
+                            .expect("decode_strings failed"),
                     );
                 },
                 BatchSize::SmallInput,
@@ -400,10 +404,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
                 || (borrow(encoded), borrow(encoded)),
                 |(e1, e2)| {
                     black_box(
-                        decode_strings(EncodedPresence(None), e1).expect("decode_strings failed"),
+                        decode_strings(NameRef(""), EncodedPresence(None), e1)
+                            .expect("decode_strings failed"),
                     );
                     black_box(
-                        decode_strings(EncodedPresence(None), e2).expect("decode_strings failed"),
+                        decode_strings(NameRef(""), EncodedPresence(None), e2)
+                            .expect("decode_strings failed"),
                     );
                 },
                 BatchSize::SmallInput,
