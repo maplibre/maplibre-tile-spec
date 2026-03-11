@@ -23,6 +23,10 @@ harness = false
 name = "decoding_utils"
 harness = false
 
+[[bench]]
+name = "decoding_strings"
+harness = false
+
 [features]
 default = ["fastpfor-cpp"]
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]

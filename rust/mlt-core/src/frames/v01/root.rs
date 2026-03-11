@@ -230,13 +230,21 @@ impl Layer01<'_> {
         Ok(())
     }
 
-    pub fn decode_all(&mut self) -> Result<(), MltError> {
-        self.id.materialize()?;
-        self.geometry.materialize()?;
+    /// Decode only the properties columns, leaving the ID and geometry columns in their encoded form.
+    ///
+    /// Use this instead of [`Self::decode_all`] when the ID or geometry will be accessed lazily
+    pub fn decode_properties(&mut self) -> Result<(), MltError> {
         let old_props = std::mem::take(&mut self.properties);
         for prop in old_props {
             self.properties.push(Property::Decoded(prop.decode()?));
         }
+        Ok(())
+    }
+
+    pub fn decode_all(&mut self) -> Result<(), MltError> {
+        self.decode_id()?;
+        self.decode_geometry()?;
+        self.decode_properties()?;
         Ok(())
     }
 }
