@@ -1,6 +1,5 @@
-use super::model::{DecodedGeometry, EncodedGeometry, Geometry, GeometryType};
 use crate::analyse::{Analyze, StatType};
-use crate::v01::Stream;
+use crate::v01::{DecodedGeometry, EncodedGeometry, Geometry, GeometryType, Stream};
 
 impl Analyze for Geometry<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {

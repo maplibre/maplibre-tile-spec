@@ -1,19 +1,17 @@
 use std::borrow::Cow;
 
-use super::model::{
-    DecodedPresence, DecodedScalar, DecodedStrings, EncodedPresence, EncodedProperty,
-    OwnedEncodedPresence, OwnedEncodedProperty, OwnedName, OwnedProperty, Property,
-    PropertyEncoder, ScalarEncoder, ScalarValueEncoder,
-};
-use super::strings::{
-    StrEncoder, decode_shared_dict, decode_strings_with_presence, encode_shared_dict_prop,
-};
 use crate::Decodable as _;
 use crate::MltError::{self, NotImplemented, UnsupportedPropertyEncoderCombination};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::encode::{FromDecoded, impl_encodable};
 use crate::utils::apply_present;
-use crate::v01::{DictionaryType, LengthType, OwnedStream};
+use crate::v01::{
+    DecodedPresence, DecodedProperty, DecodedScalar, DecodedStrings, DictionaryType,
+    EncodedPresence, EncodedProperty, LengthType, OwnedEncodedPresence, OwnedEncodedProperty,
+    OwnedName, OwnedProperty, OwnedStream, PresenceStream, Property, PropertyEncoder,
+    ScalarEncoder, ScalarValueEncoder, StrEncoder, decode_shared_dict,
+    decode_strings_with_presence, encode_shared_dict_prop,
+};
 
 impl_decodable!(Property<'a>, EncodedProperty<'a>, DecodedProperty<'a>);
 impl_encodable!(
@@ -21,8 +19,6 @@ impl_encodable!(
     DecodedProperty<'static>,
     OwnedEncodedProperty
 );
-
-use super::model::DecodedProperty;
 
 /// FIXME: why should there be a default???
 impl Default for OwnedEncodedProperty {
@@ -240,7 +236,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
 
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
         use DecodedProperty as D;
-        let presence = if encoder.presence == super::model::PresenceStream::Present {
+        let presence = if encoder.presence == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.as_presence_stream()?;
             Some(OwnedStream::encode_presence(&present_vec)?)
         } else {

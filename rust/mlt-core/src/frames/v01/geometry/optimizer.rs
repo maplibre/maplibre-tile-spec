@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use super::encode::{encode_geometry, z_order_params};
-use super::{DecodedGeometry, GeometryEncoder, OwnedEncodedGeometry, VertexBufferType};
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::{
     DataProfile, DictionaryType, IntEncoder, LengthType, OffsetType, OwnedGeometry, StreamType,

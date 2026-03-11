@@ -1,9 +1,8 @@
 use std::fmt::{Debug, Formatter};
 
-use super::model::{DecodedId, EncodedId, EncodedIdValue, Id};
 use crate::analyse::{Analyze, StatType};
 use crate::utils::OptSeqOpt;
-use crate::v01::Stream;
+use crate::v01::{DecodedId, EncodedId, EncodedIdValue, Id, Stream};
 
 impl Analyze for Id<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {

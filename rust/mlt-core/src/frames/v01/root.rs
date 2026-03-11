@@ -523,7 +523,7 @@ impl arbitrary::Arbitrary<'_> for OwnedLayer01 {
         let properties: Vec<OwnedProperty> = u.arbitrary()?;
 
         // Build a valid layer_order: 1 Geometry, N Property (one per property),
-        // and optionally 1 Id when the layer carries an ID column, then shuffle.
+        // and optionally 1 ID when the layer carries an ID column, then shuffle.
         let mut layer_order: Vec<LayerOrdering> = Vec::new();
         if id.is_present() {
             layer_order.push(LayerOrdering::Id);
