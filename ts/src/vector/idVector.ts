@@ -7,10 +7,10 @@ import type { Int64SequenceVector } from "./sequence/int64SequenceVector";
 import type { DoubleFlatVector } from "./flat/doubleFlatVector";
 
 export type IdVector =
-  | Int32FlatVector
-  | Int64FlatVector
-  | DoubleFlatVector
-  | Int32SequenceVector
-  | Int64SequenceVector
-  | Int32ConstVector
-  | Int64ConstVector;
+    | Int32FlatVector
+    | Int64FlatVector
+    | DoubleFlatVector
+    | Int32SequenceVector
+    | Int64SequenceVector
+    | Int32ConstVector
+    | Int64ConstVector;
