@@ -1,6 +1,9 @@
 use crate::MltError;
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
-use crate::v01::{GeometryEncoder, IdEncoder, IdProfile, OwnedLayer01, PropertyEncoder};
+use crate::v01::{
+    GeometryEncoder, GeometryProfile, IdEncoder, IdProfile, OwnedLayer01, PropertyEncoder,
+    PropertyProfile,
+};
 
 impl ManualOptimisation for OwnedLayer01 {
     type UsedEncoder = Tag01Encoder;
@@ -55,7 +58,7 @@ impl AutomaticOptimisation for OwnedLayer01 {
 }
 
 /// Fully-specified encoder configuration for a v01 layer, produced by any of
-/// the three optimisation paths (manual, automatic, or profile-driven).
+/// the three optimization paths (manual, automatic, or profile-driven).
 #[derive(Debug, Clone)]
 pub struct Tag01Encoder {
     pub id: Option<IdEncoder>,
@@ -63,11 +66,11 @@ pub struct Tag01Encoder {
     pub geometry: GeometryEncoder,
 }
 
-/// Profile for a v01 layer, built by running automatic optimisation over a
+/// Profile for a v01 layer, built by running automatic optimization over a
 /// representative sample of tiles and capturing the chosen encoders.
 #[derive(Debug, Clone)]
 pub struct Tag01Profile {
     pub id: IdProfile,
-    pub properties: (),
-    pub geometry: (),
+    pub properties: PropertyProfile,
+    pub geometry: GeometryProfile,
 }

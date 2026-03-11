@@ -16,7 +16,7 @@ pub struct Unknown<'a> {
 impl arbitrary::Arbitrary<'_> for OwnedUnknown {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
         let mut tag: u8 = u.arbitrary()?;
-        // Tag 1 is the known Tag01 format; producing it as Unknown would break roundtrippability
+        // Tag 1 is the known Tag01 format; producing it as Unknown would break round-trip-ability
         if tag == 1 {
             tag = 0;
         }

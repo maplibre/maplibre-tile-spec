@@ -25,12 +25,13 @@ bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-h
         {{args}}
 
 # Run benchmarks
-bench: (just 'cargo-install' 'cargo-hack')
+bench *args: (just 'cargo-install' 'cargo-hack')
     cargo hack bench --all-targets --feature-powerset \
         --package mlt-core \
         --exclude-features fastpfor-cpp,default \
         --exclude-all-features \
-        --features fastpfor-rust
+        --features fastpfor-rust \
+        {{args}}
 
 alias b := build
 # Build the project

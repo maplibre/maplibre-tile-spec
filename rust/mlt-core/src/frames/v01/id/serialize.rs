@@ -1,9 +1,8 @@
 use std::io::Write;
 
-use super::model::{OwnedEncodedId, OwnedEncodedIdValue, OwnedId};
 use crate::MltError;
 use crate::utils::BinarySerializer as _;
-use crate::v01::ColumnType;
+use crate::v01::{ColumnType, OwnedEncodedId, OwnedEncodedIdValue, OwnedId};
 
 impl OwnedId {
     #[must_use]

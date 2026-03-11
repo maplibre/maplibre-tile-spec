@@ -1,11 +1,10 @@
-use super::model::Stream;
 use crate::MltError;
 use crate::errors::AsMltError as _;
 use crate::utils::{
     AsUsize as _, all, decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s,
     decode_bytes_to_u64s, decode_fastpfor_composite, parse_varint_vec,
 };
-use crate::v01::{LogicalData, LogicalValue, PhysicalEncoding, StreamData};
+use crate::v01::{LogicalData, LogicalValue, PhysicalEncoding, Stream, StreamData};
 
 impl Stream<'_> {
     /// Decode a boolean stream: byte-RLE → packed bitmap → `Vec<bool>`
@@ -49,9 +48,9 @@ impl Stream<'_> {
         self.decode_bits_u32()?.decode_u32()
     }
 
-    pub fn decode_bits_u32(self) -> Result<LogicalValue, MltError> {
+    pub fn decode_bits_u32(&self) -> Result<LogicalValue, MltError> {
         let value = match self.meta.encoding.physical {
-            PhysicalEncoding::VarInt => match self.data {
+            PhysicalEncoding::VarInt => match &self.data {
                 StreamData::VarInt(data) => all(parse_varint_vec::<u32, u32>(
                     data.data,
                     self.meta.num_values,
@@ -60,7 +59,7 @@ impl Stream<'_> {
                     return Err(MltError::StreamDataMismatch("VarInt", "Encoded"));
                 }
             },
-            PhysicalEncoding::None => match self.data {
+            PhysicalEncoding::None => match &self.data {
                 StreamData::Encoded(data) => {
                     all(decode_bytes_to_u32s(data.data, self.meta.num_values)?)
                 }
@@ -68,7 +67,7 @@ impl Stream<'_> {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
                 }
             },
-            PhysicalEncoding::FastPFOR => match self.data {
+            PhysicalEncoding::FastPFOR => match &self.data {
                 StreamData::Encoded(data) => Ok(decode_fastpfor_composite(
                     data.data,
                     self.meta.num_values.as_usize(),

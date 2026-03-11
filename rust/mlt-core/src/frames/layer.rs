@@ -5,11 +5,10 @@ use std::io::Write;
 use integer_encoding::VarIntWriter as _;
 use utils::BinarySerializer as _;
 
-use super::model::{Layer, OwnedLayer};
 use crate::frames::unknown::Unknown;
 use crate::frames::v01::Layer01;
 use crate::utils::{checked_sum2, parse_u8, parse_varint, take};
-use crate::{MltError, MltRefResult, utils};
+use crate::{Layer, MltError, MltRefResult, OwnedLayer, utils};
 
 impl<'a> Layer<'a> {
     /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
@@ -34,7 +33,8 @@ impl<'a> Layer<'a> {
         let layer = self
             .as_layer01_mut()
             .ok_or(MltError::NotDecoded("expected Tag01 layer"))?;
-        layer.decode_geometry_and_id()?;
+        layer.decode_id()?;
+        layer.decode_geometry()?;
         Ok(layer)
     }
 

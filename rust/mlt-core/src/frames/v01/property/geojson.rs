@@ -53,22 +53,6 @@ impl DecodedProperty<'_> {
         }
     }
 
-    pub(super) fn kind_name(&self) -> &'static str {
-        match self {
-            Self::Bool(..) => "bool",
-            Self::I8(..) => "i8",
-            Self::U8(..) => "u8",
-            Self::I32(..) => "i32",
-            Self::U32(..) => "u32",
-            Self::I64(..) => "i64",
-            Self::U64(..) => "u64",
-            Self::F32(..) => "f32",
-            Self::F64(..) => "f64",
-            Self::Str(..) => "str",
-            Self::SharedDict(..) => "shared_dict",
-        }
-    }
-
     /// Convert the value at index `i` to a [`serde_json::Value`]
     #[must_use]
     pub fn to_geojson(&self, i: usize) -> Option<serde_json::Value> {

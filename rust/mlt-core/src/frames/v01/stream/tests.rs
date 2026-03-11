@@ -7,10 +7,10 @@ use crate::utils::BinarySerializer as _;
 use crate::v01::stream::encoder::IntEncoder;
 use crate::v01::stream::logical::LogicalEncoder;
 use crate::v01::{
-    DataVarInt, DictionaryType, EncodedData, EncodedPresence, EncodedStrings, IntEncoding,
-    LengthType, LogicalData, LogicalEncoding, LogicalValue, MortonMeta, OffsetType,
-    OwnedDataVarInt, OwnedEncodedData, OwnedStream, OwnedStreamData, PhysicalEncoder,
-    PhysicalEncoding, RleMeta, Stream, StreamMeta, StreamType, decode_strings,
+    DataVarInt, DictionaryType, EncodedData, EncodedPresence, EncodedStrings, FsstData,
+    IntEncoding, LengthType, LogicalData, LogicalEncoding, LogicalValue, MortonMeta, NameRef,
+    OffsetType, OwnedDataVarInt, OwnedEncodedData, OwnedStream, OwnedStreamData, PhysicalEncoder,
+    PhysicalEncoding, PlainData, RleMeta, Stream, StreamMeta, StreamType, decode_strings,
 };
 
 /// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
@@ -419,32 +419,31 @@ proptest! {
         }
 
         let encoding = match parsed_streams.len() {
-            2 => EncodedStrings::plain(parsed_streams[0].clone(), parsed_streams[1].clone())
-                .unwrap(),
+            2 => EncodedStrings::plain(PlainData::new(parsed_streams[0].clone(), parsed_streams[1].clone()).unwrap()),
             3 => EncodedStrings::dictionary(
-                parsed_streams[0].clone(),
+                PlainData::new(parsed_streams[0].clone(), parsed_streams[2].clone()).unwrap(),
                 parsed_streams[1].clone(),
-                parsed_streams[2].clone(),
-            )
-            .unwrap(),
+            ).unwrap(),
             4 => EncodedStrings::fsst_plain(
-                parsed_streams[0].clone(),
-                parsed_streams[1].clone(),
-                parsed_streams[2].clone(),
-                parsed_streams[3].clone(),
-            )
-            .unwrap(),
+                FsstData::new(
+                    parsed_streams[0].clone(),
+                    parsed_streams[1].clone(),
+                    parsed_streams[2].clone(),
+                    parsed_streams[3].clone(),
+                ).unwrap()
+            ),
             5 => EncodedStrings::fsst_dictionary(
-                parsed_streams[0].clone(),
-                parsed_streams[1].clone(),
-                parsed_streams[2].clone(),
-                parsed_streams[3].clone(),
+                FsstData::new(
+                    parsed_streams[0].clone(),
+                    parsed_streams[1].clone(),
+                    parsed_streams[2].clone(),
+                    parsed_streams[3].clone()
+                ).unwrap(),
                 parsed_streams[4].clone(),
-            )
-            .unwrap(),
+            ).unwrap(),
             n => panic!("unexpected stream count {n}"),
         };
-        let decoded_values = decode_strings(EncodedPresence(None), encoding).unwrap();
+        let decoded_values = decode_strings(NameRef(""), EncodedPresence(None), encoding).unwrap();
         assert_eq!(decoded_values, values.into());
     }
 }

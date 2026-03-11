@@ -8,7 +8,7 @@ mod serialize;
 pub mod strings;
 
 pub use model::*;
+pub use optimizer::PropertyProfile;
 pub use strings::{
-    SharedDictEncoder, SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
-    decode_shared_dict, decode_strings, decode_strings_with_presence, encode_shared_dict_prop,
+    build_decoded_shared_dict, decode_shared_dict, decode_strings, encode_shared_dict_prop,
 };

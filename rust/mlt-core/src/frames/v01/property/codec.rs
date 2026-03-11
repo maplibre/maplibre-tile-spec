@@ -1,19 +1,17 @@
 use std::borrow::Cow;
 
-use super::model::{
-    DecodedPresence, DecodedScalar, DecodedStrings, EncodedPresence, EncodedProperty,
-    OwnedEncodedPresence, OwnedEncodedProperty, OwnedName, OwnedProperty, Property,
-    PropertyEncoder, ScalarEncoder, ScalarValueEncoder,
-};
-use super::strings::{
-    StrEncoder, decode_shared_dict, decode_strings_with_presence, encode_shared_dict_prop,
-};
 use crate::Decodable as _;
 use crate::MltError::{self, NotImplemented, UnsupportedPropertyEncoderCombination};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::encode::{FromDecoded, impl_encodable};
 use crate::utils::apply_present;
-use crate::v01::{DictionaryType, LengthType, OwnedStream};
+use crate::v01::{
+    DecodedPresence, DecodedProperty, DecodedScalar, DecodedStrings, DictionaryType,
+    EncodedPresence, EncodedProperty, LengthType, OwnedEncodedPresence, OwnedEncodedProperty,
+    OwnedName, OwnedProperty, OwnedStream, PresenceStream, Property, PropertyEncoder,
+    ScalarEncoder, ScalarValueEncoder, StrEncoder, decode_shared_dict, decode_strings,
+    encode_shared_dict_prop,
+};
 
 impl_decodable!(Property<'a>, EncodedProperty<'a>, DecodedProperty<'a>);
 impl_encodable!(
@@ -21,8 +19,6 @@ impl_encodable!(
     DecodedProperty<'static>,
     OwnedEncodedProperty
 );
-
-use super::model::DecodedProperty;
 
 /// FIXME: why should there be a default???
 impl Default for OwnedEncodedProperty {
@@ -221,8 +217,8 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
                 PropertyEncoder::SharedDict(enc) => {
                     let DecodedProperty::SharedDict(shared_dict) = prop else {
                         return Err(UnsupportedPropertyEncoderCombination(
-                            prop.kind_name(),
-                            "SharedDict",
+                            prop.into(),
+                            "shared_dict",
                         ));
                     };
                     result.push(encode_shared_dict_prop(shared_dict, &enc)?);
@@ -240,7 +236,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
 
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
         use DecodedProperty as D;
-        let presence = if encoder.presence == super::model::PresenceStream::Present {
+        let presence = if encoder.presence == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.as_presence_stream()?;
             Some(OwnedStream::encode_presence(&present_vec)?)
         } else {
@@ -313,10 +309,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             (D::SharedDict(..), _) => Err(NotImplemented(
                 "SharedDict cannot be encoded via ScalarEncoder",
             ))?,
-            (v, e) => Err(UnsupportedPropertyEncoderCombination(
-                v.kind_name(),
-                e.name(),
-            ))?,
+            (v, e) => Err(UnsupportedPropertyEncoderCombination(v.into(), e.into()))?,
         }
     }
 }
@@ -328,62 +321,57 @@ fn unapply_presence<T: Clone>(v: &[Option<T>]) -> Vec<T> {
 impl<'a> FromEncoded<'a> for DecodedProperty<'a> {
     type Input = EncodedProperty<'a>;
 
-    fn from_encoded(v: EncodedProperty<'_>) -> Result<Self, MltError> {
+    fn from_encoded(v: EncodedProperty<'a>) -> Result<Self, MltError> {
         use EncodedProperty as E;
-        let name = v.name().to_string();
         Ok(match v {
-            E::Bool(_, presence, data) => Self::Bool(DecodedScalar::from_parts(
-                name,
+            E::Bool(name, presence, data) => Self::Bool(DecodedScalar::from_parts(
+                name.0.to_string(),
                 presence,
                 data.decode_bools()?,
             )?),
-            E::I8(_, presence, data) => Self::I8(DecodedScalar::from_parts(
-                name,
+            E::I8(name, presence, data) => Self::I8(DecodedScalar::from_parts(
+                name.0.to_string(),
                 presence,
                 data.decode_i8s()?,
             )?),
-            E::U8(_, presence, data) => Self::U8(DecodedScalar::from_parts(
-                name,
+            E::U8(name, presence, data) => Self::U8(DecodedScalar::from_parts(
+                name.0.to_string(),
                 presence,
                 data.decode_u8s()?,
             )?),
-            E::I32(_, presence, data) => Self::I32(DecodedScalar::from_parts(
-                name,
+            E::I32(name, presence, data) => Self::I32(DecodedScalar::from_parts(
+                name.0.to_string(),
                 presence,
                 data.decode_i32s()?,
             )?),
-            E::U32(_, presence, data) => Self::U32(DecodedScalar::from_parts(
-                name,
+            E::U32(name, presence, data) => Self::U32(DecodedScalar::from_parts(
+                name.0.to_string(),
                 presence,
                 data.decode_u32s()?,
             )?),
-            E::I64(_, presence, data) => Self::I64(DecodedScalar::from_parts(
-                name,
+            E::I64(name, presence, data) => Self::I64(DecodedScalar::from_parts(
+                name.0.to_string(),
                 presence,
                 data.decode_i64()?,
             )?),
-            E::U64(_, presence, data) => Self::U64(DecodedScalar::from_parts(
-                name,
+            E::U64(name, presence, data) => Self::U64(DecodedScalar::from_parts(
+                name.0.to_string(),
                 presence,
                 data.decode_u64()?,
             )?),
-            E::F32(_, presence, data) => Self::F32(DecodedScalar::from_parts(
-                name,
+            E::F32(name, presence, data) => Self::F32(DecodedScalar::from_parts(
+                name.0.to_string(),
                 presence,
                 data.decode_f32()?,
             )?),
-            E::F64(_, presence, data) => Self::F64(DecodedScalar::from_parts(
-                name,
+            E::F64(name, presence, data) => Self::F64(DecodedScalar::from_parts(
+                name.0.to_string(),
                 presence,
                 data.decode_f64()?,
             )?),
-            E::Str(_, presence, s) => {
-                let mut decoded = decode_strings_with_presence(presence, s)?;
-                decoded.name = Cow::Owned(name);
-                Self::Str(decoded)
-            }
-            E::SharedDict(_, sd, children) => {
-                Self::SharedDict(decode_shared_dict(name, &sd, &children)?)
+            E::Str(name, presence, s) => Self::Str(decode_strings(name, presence, s)?),
+            E::SharedDict(prefix, sd, children) => {
+                Self::SharedDict(decode_shared_dict(prefix.0, &sd, &children)?)
             }
         })
     }

@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { VectorTileLike } from "@maplibre/vt-pbf";
-import { bench, describe } from "vitest";
+import { beforeAll, bench, describe } from "vitest";
 import tsDecodeTile from "../../ts/src/mltDecoder";
 import type FeatureTable from "../../ts/src/vector/featureTable";
 import { decodeTile as wasmDecodeTile } from "./vectorTile";
@@ -48,21 +48,35 @@ function traverseTs(tables: FeatureTable[]): number {
       for (const col of table.propertyVectors) {
         if (col) col.getValue(i);
       }
-
       n++;
     }
   }
   return n;
 }
 
-const OPTIONS = { warmupIterations: 10, time: 2000 } as const;
+// Requires Node to be started with --expose-gc (done by the bench npm script); no-op otherwise.
+function drainGC(): void {
+  const _gc = (globalThis as { gc?: () => void }).gc;
+  if (typeof _gc === "function") {
+    _gc();
+    _gc();
+  }
+}
+
+const OPTIONS = {
+  warmupTime: 500,
+  time: 2000,
+  minSamples: 40,
+} as const;
 
 for (const { label, pool } of POOLS) {
   describe(`decode + traverse - ${label}`, () => {
-    // Independent counters: each bench rotates through the pool on its own
-    // so neither decoder sees the same Uint8Array twice in a row.
-    let wi = 0;
     let ti = 0;
+    let wi = 0;
+
+    // Drain heap garbage left by the previous describe block so GC does not
+    // fire at an unpredictable point inside this block's measurement window.
+    beforeAll(drainGC);
 
     bench(
       "TS decoder",

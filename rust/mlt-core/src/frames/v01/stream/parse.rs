@@ -3,13 +3,11 @@ use std::io::{self, Write};
 
 use integer_encoding::VarIntWriter as _;
 
-use super::data::{DataVarInt, EncodedData};
-use super::model::{IntEncoding, Stream};
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{BinarySerializer as _, parse_u8, parse_varint, take};
 use crate::v01::{
-    LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RleMeta, StreamMeta,
-    StreamType,
+    DataVarInt, EncodedData, IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta,
+    PhysicalEncoding, RleMeta, Stream, StreamData, StreamMeta, StreamType,
 };
 use crate::{MltError, MltRefResult};
 
@@ -186,8 +184,16 @@ impl Debug for StreamMeta {
 
 impl<'a> Stream<'a> {
     #[must_use]
-    pub fn new(meta: StreamMeta, data: super::data::StreamData<'a>) -> Self {
+    pub fn new(meta: StreamMeta, data: StreamData<'a>) -> Self {
         Self { meta, data }
+    }
+
+    #[must_use]
+    pub fn as_bytes(&self) -> &'a [u8] {
+        match &self.data {
+            StreamData::Encoded(d) => d.data,
+            StreamData::VarInt(d) => d.data,
+        }
     }
 
     pub fn parse(input: &'a [u8]) -> MltRefResult<'a, Self> {

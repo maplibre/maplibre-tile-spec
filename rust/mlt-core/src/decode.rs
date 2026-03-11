@@ -1,13 +1,13 @@
 use crate::MltError;
 
 /// Trait for types that can be constructed from encoded data
-pub trait FromEncoded<'a>: Sized {
+pub(crate) trait FromEncoded<'a>: Sized {
     type Input: 'a;
     fn from_encoded(input: Self::Input) -> Result<Self, MltError>;
 }
 
 /// Trait for enums that can be in either encoded or decoded form
-pub trait Decodable<'a>: Sized {
+pub(crate) trait Decodable<'a>: Sized {
     type EncodedType;
     type DecodedType: FromEncoded<'a, Input = Self::EncodedType>;
 

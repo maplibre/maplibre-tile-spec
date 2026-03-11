@@ -2,12 +2,23 @@ use std::borrow::Cow;
 
 use borrowme::borrowme;
 
-pub use super::strings::{SharedDictEncoder, StrEncoder};
 use crate::v01::{FsstStrEncoder, IntEncoder, Stream};
 
 #[borrowme(name = OwnedName)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NameRef<'a>(pub &'a str);
+
+impl<'a> From<NameRef<'a>> for Cow<'a, str> {
+    fn from(value: NameRef<'a>) -> Self {
+        Cow::Borrowed(value.0)
+    }
+}
+
+impl<'a> From<&NameRef<'a>> for Cow<'a, str> {
+    fn from(value: &NameRef<'a>) -> Self {
+        Cow::Borrowed(value.0)
+    }
+}
 
 /// Property representation, either encoded or decoded
 #[allow(clippy::large_enum_variant)]
@@ -52,7 +63,8 @@ pub enum EncodedProperty<'a> {
 }
 
 /// Decoded property values in a typed enum form.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
 pub enum DecodedProperty<'a> {
     Bool(DecodedScalar<bool>),
     I8(DecodedScalar<i8>),
@@ -142,6 +154,22 @@ pub struct EncodedSharedDictChild<'a> {
     pub data: Stream<'a>,
 }
 
+#[borrowme]
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlainData<'a> {
+    pub lengths: Stream<'a>,
+    pub data: Stream<'a>,
+}
+
+#[borrowme]
+#[derive(Debug, Clone, PartialEq)]
+pub struct FsstData<'a> {
+    pub symbol_lengths: Stream<'a>,
+    pub symbol_table: Stream<'a>,
+    pub lengths: Stream<'a>,
+    pub corpus: Stream<'a>,
+}
+
 /// Encoded data for a `SharedDict` column with shared dictionary encoding.
 ///
 /// Unlike `EncodedStrings`, shared dictionaries do NOT have their own offset stream.
@@ -151,17 +179,9 @@ pub struct EncodedSharedDictChild<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum EncodedSharedDict<'a> {
     /// Plain shared dict (2 streams): lengths + data.
-    Plain {
-        lengths: Stream<'a>,
-        data: Stream<'a>,
-    },
+    Plain(PlainData<'a>),
     /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
-    FsstPlain {
-        symbol_lengths: Stream<'a>,
-        symbol_table: Stream<'a>,
-        lengths: Stream<'a>,
-        corpus: Stream<'a>,
-    },
+    FsstPlain(FsstData<'a>),
 }
 
 /// String column encoding as produced by the encoder (plain, dictionary, or FSST).
@@ -171,29 +191,17 @@ pub enum EncodedSharedDict<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum EncodedStrings<'a> {
     /// Plain: length stream + data stream
-    Plain {
-        lengths: Stream<'a>,
-        data: Stream<'a>,
-    },
+    Plain(PlainData<'a>),
     /// Dictionary: lengths + offsets + dictionary data
     Dictionary {
-        lengths: Stream<'a>,
+        plain_data: PlainData<'a>,
         offsets: Stream<'a>,
-        data: Stream<'a>,
     },
     /// FSST plain (4 streams): symbol lengths, symbol table, value lengths, compressed corpus. No offsets.
-    FsstPlain {
-        symbol_lengths: Stream<'a>,
-        symbol_table: Stream<'a>,
-        lengths: Stream<'a>,
-        corpus: Stream<'a>,
-    },
+    FsstPlain(FsstData<'a>),
     /// FSST dictionary (5 streams): symbol lengths, symbol table, value lengths, compressed corpus, offsets.
     FsstDictionary {
-        symbol_lengths: Stream<'a>,
-        symbol_table: Stream<'a>,
-        lengths: Stream<'a>,
-        corpus: Stream<'a>,
+        fsst_data: FsstData<'a>,
         offsets: Stream<'a>,
     },
 }
@@ -203,7 +211,7 @@ pub enum EncodedStrings<'a> {
 pub struct EncodedPresence<'a>(pub Option<Stream<'a>>);
 
 /// Instruction for how to encode a single decoded property when batch-encoding a
-/// [`Vec<DecodedProperty>`] via [`crate::FromDecoded`].
+/// [`Vec<DecodedProperty>`] via [`crate::optimizer::ManualOptimisation`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PropertyEncoder {
     /// How to encode a scalar property
@@ -283,7 +291,8 @@ impl ScalarEncoder {
 }
 
 /// How to encode scalar property values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum ScalarValueEncoder {
     Int(IntEncoder),
@@ -292,13 +301,28 @@ pub enum ScalarValueEncoder {
     Bool,
 }
 
-impl ScalarValueEncoder {
-    pub(crate) fn name(self) -> &'static str {
-        match self {
-            Self::Int(_) => "int",
-            Self::String(_) => "string",
-            Self::Float => "float",
-            Self::Bool => "bool",
-        }
-    }
+/// Encoder for an individual sub-property within a shared dictionary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedDictItemEncoder {
+    /// If a stream for optional values should be attached.
+    pub presence: PresenceStream,
+    /// Encoder used for the offset-index stream of this child.
+    pub offsets: IntEncoder,
+}
+
+/// Encoder for a shared dictionary property with multiple string sub-properties.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedDictEncoder {
+    /// Encoder for the shared dictionary strings (plain vs FSST).
+    pub dict_encoder: StrEncoder,
+    /// Encoders for individual sub-properties.
+    pub items: Vec<SharedDictItemEncoder>,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum StrEncoder {
+    Plain { string_lengths: IntEncoder },
+    Fsst(FsstStrEncoder),
 }

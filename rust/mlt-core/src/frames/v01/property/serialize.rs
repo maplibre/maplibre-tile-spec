@@ -2,10 +2,9 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter as _;
 
-use super::model::{OwnedEncodedProperty, OwnedProperty, PropertyKind};
 use crate::MltError;
 use crate::utils::{BinarySerializer as _, checked_sum3};
-use crate::v01::ColumnType;
+use crate::v01::{ColumnType, OwnedEncodedProperty, OwnedProperty, PropertyKind};
 
 impl OwnedProperty {
     #[doc(hidden)]

@@ -1,5 +1,5 @@
+use crate::frames::{LayerEncoder, LayerProfile};
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
-use crate::v01::{Tag01Encoder, Tag01Profile};
 use crate::{MltError, OwnedLayer};
 
 impl ManualOptimisation for OwnedLayer {
@@ -43,16 +43,4 @@ impl AutomaticOptimisation for OwnedLayer {
             OwnedLayer::Unknown(_) => Ok(LayerEncoder::Unknown),
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum LayerEncoder {
-    Tag01(Tag01Encoder),
-    Unknown,
-}
-
-#[derive(Debug, Clone)]
-pub enum LayerProfile {
-    Tag01(Tag01Profile),
-    Unknown,
 }

@@ -76,9 +76,32 @@ To avoid copying bytes, we employ `borrowme`:
   This allows in-place decoding, e.g. it is possible to decode just one property column / ID / Geometry, while keeping the rest in their encoded form.
   The enum also has a corresponding `borrowme`-generated `OwnedId`.
 
-Converting between encoded and decoded representations is done via:
-- `DecodedId::from_encoded` / `OwnedEncodedId::from_decoded` for the struct-level conversions, and
-- `Id::decode`, `Encodable::encode_with`, and `Decodable::materialize` for working with the `Id` enum.
+**Decoding** is done through concrete methods on the column enum types and on the layer itself:
+
+- `Geometry::decode()`, `Id::decode()`, `Property::decode()` — consume the column enum and return
+  the decoded form. Useful when you have already parsed a layer and want to decode a single column.
+- `OwnedEncodedGeometry::decode()` — decodes an owned encoded geometry directly, without going
+  through the enum.
+- `layer.decode_{geometry, id}()` — decodes only the specific columns of a layer in place,
+  leaving properties in their encoded form for lazy access. This is the recommended entry point when
+  you need geometry for rendering but want to defer property decoding.
+- `layer.decode_all()` — decodes every column of a layer in place. Use this when you need full
+  access to all properties.
+
+**Encoding** (re-encoding decoded data, e.g. after mutation or for storage) is performed through the
+optimiser traits in `mlt_core::optimizer`:
+
+- `ManualOptimisation::manual_optimisation(encoder)` — encodes in place using an explicitly
+  supplied encoder configuration. Suitable when you already know the best encoding for your data.
+- `AutomaticOptimisation::automatic_encoding_optimisation()` — probes the data and selects the
+  best per-stream encoder automatically. Returns the chosen encoder so it can be used to build a
+  reusable profile.
+- `ProfileOptimisation::profile_driven_optimisation(profile)` — encodes using a pre-computed
+  `GeometryProfile` / `IdProfile` / `PropertyProfile` built from a representative sample of tiles.
+  This avoids the full probe pass on every tile while still adapting to the actual data.
+
+After any of the above encoding steps, `Encodable::borrow_encoded()` provides read-only access to
+the resulting encoded form.
 
 ## Tools
 
