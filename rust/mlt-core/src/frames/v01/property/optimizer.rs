@@ -55,6 +55,83 @@ struct StringProfile {
     min_hashes: Vec<u64>,
 }
 
+/// A pre-computed set of string column groupings derived from a representative
+/// sample of tiles.
+///
+/// Building a profile once from sample tiles avoids re-running the expensive
+/// `MinHash` similarity analysis on every subsequent tile; the profile's
+/// pre-computed string groups are applied directly during the grouping step
+/// instead.
+///
+/// Profiles from multiple samples are combined with [`PropertyProfile::merge`],
+/// which takes the union of both sets of string groups.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PropertyProfile {
+    /// Pre-computed string column groupings by column name.
+    ///
+    /// Each inner vec contains 2 or more column names that should share a
+    /// dictionary. An absent entry causes the caller to skip shared-dict
+    /// merging for that group.
+    string_groups: Vec<Vec<String>>,
+}
+
+impl PropertyProfile {
+    #[doc(hidden)]
+    #[must_use]
+    pub fn new(string_groups: Vec<Vec<String>>) -> Self {
+        Self { string_groups }
+    }
+
+    /// Build a profile from a sample of decoded properties.
+    ///
+    /// Runs `MinHash` similarity analysis over all string columns and records
+    /// which column names should be grouped into shared dictionaries.
+    #[must_use]
+    pub fn from_sample(properties: &[DecodedProperty<'_>]) -> Self {
+        let min_hash = MinHash::<IntoIter<&str>, &str>::new(MINHASH_PERMUTATIONS);
+        let profiles = profile_string_columns(properties, &min_hash);
+
+        let string_groups = if profiles.is_empty() {
+            Vec::new()
+        } else {
+            compute_string_groups(&profiles, &min_hash)
+                .into_iter()
+                .filter(|g| g.len() >= 2)
+                .map(|group| {
+                    group
+                        .iter()
+                        .map(|&ci| properties[ci].name().to_owned())
+                        .collect()
+                })
+                .collect()
+        };
+
+        Self { string_groups }
+    }
+
+    /// Merge two profiles by taking the union of their string groups.
+    ///
+    /// Groups that share at least one column name are merged together.
+    /// Groups already present in `self` are not duplicated.
+    #[must_use]
+    pub fn merge(mut self, other: &Self) -> Self {
+        'outer: for other_group in &other.string_groups {
+            for self_group in &mut self.string_groups {
+                if other_group.iter().any(|n| self_group.contains(n)) {
+                    for name in other_group {
+                        if !self_group.contains(name) {
+                            self_group.push(name.clone());
+                        }
+                    }
+                    continue 'outer;
+                }
+            }
+            self.string_groups.push(other_group.clone());
+        }
+        self
+    }
+}
+
 impl ManualOptimisation for Vec<OwnedProperty> {
     type UsedEncoder = Vec<PropertyEncoder>;
 
@@ -74,28 +151,18 @@ impl ManualOptimisation for Vec<OwnedProperty> {
 
 impl ProfileOptimisation for Vec<OwnedProperty> {
     type UsedEncoder = Vec<PropertyEncoder>;
-    type Profile = ();
+    type Profile = PropertyProfile;
 
     fn profile_driven_optimisation(
         &mut self,
-        _profile: &Self::Profile,
+        profile: &Self::Profile,
     ) -> Result<Self::UsedEncoder, MltError> {
-        Err(MltError::NotImplemented(
-            "ProfileOptimisation::profile_driven_optimisation",
-        ))
-    }
-}
-
-impl AutomaticOptimisation for Vec<OwnedProperty> {
-    type UsedEncoder = Vec<PropertyEncoder>;
-    fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
         let mut decoded = Vec::with_capacity(self.len());
         for d in &mut *self {
             let d = borrowme::borrow(d).decode()?;
             decoded.push(borrowme::ToOwned::to_owned(&d));
         }
-
-        let enc = PropertyOptimizer::optimize(&mut decoded);
+        let enc = apply_profile(&mut decoded, profile);
         *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc.clone())?
             .into_iter()
             .map(OwnedProperty::Encoded)
@@ -104,46 +171,76 @@ impl AutomaticOptimisation for Vec<OwnedProperty> {
     }
 }
 
-/// Analyzes a batch of [`DecodedProperty`] values and produces
-/// [`Vec<PropertyEncoder>`] with near-optimal per-column encoding settings.
-struct PropertyOptimizer;
+impl AutomaticOptimisation for Vec<OwnedProperty> {
+    type UsedEncoder = Vec<PropertyEncoder>;
 
-impl PropertyOptimizer {
-    /// Analyze `properties` and return a configured [`Vec<PropertyEncoder>`].
-    ///
-    /// This method mutates `properties` by combining similar string columns
-    /// into `DecodedProperty::SharedDict` values.
-    #[must_use]
-    pub fn optimize(properties: &mut Vec<DecodedProperty<'_>>) -> Vec<PropertyEncoder> {
-        if properties.is_empty() {
-            return Vec::new();
+    fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
+        let mut decoded = Vec::with_capacity(self.len());
+        for d in &mut *self {
+            let d = borrowme::borrow(d).decode()?;
+            decoded.push(borrowme::ToOwned::to_owned(&d));
         }
-
-        // Group similar string columns into SharedDicts, mutating properties in place
-        group_string_columns(properties);
-
-        // Build encoders for all properties
-        properties.iter().map(build_encoder).collect()
+        let enc = optimize(&mut decoded);
+        *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc.clone())?
+            .into_iter()
+            .map(OwnedProperty::Encoded)
+            .collect();
+        Ok(enc)
     }
 }
 
-/// Group similar string columns into `DecodedProperty::SharedDict`.
+/// Analyze `properties` and return a configured [`Vec<PropertyEncoder>`].
 ///
-/// This function:
-/// 1. Profiles string columns by computing `MinHash` signatures
-/// 2. Groups similar columns using union-find
-/// 3. Transforms grouped columns into `DecodedProperty::SharedDict`
-/// 4. Removes the merged columns from the properties vector
-fn group_string_columns(properties: &mut Vec<DecodedProperty<'_>>) {
-    // Profile string columns: compute MinHash signatures
-    let min_hash = MinHash::<IntoIter<&str>, &str>::new(MINHASH_PERMUTATIONS);
-    let profiles = profile_string_columns(properties, &min_hash);
-    if !profiles.is_empty() {
-        // Group by MinHash similarity using union-find
-        let groups = compute_string_groups(&profiles, &min_hash);
+/// This function mutates `properties` by combining similar string columns
+/// into `DecodedProperty::SharedDict` values.
+fn optimize(properties: &mut Vec<DecodedProperty<'_>>) -> Vec<PropertyEncoder> {
+    let profile = PropertyProfile::from_sample(properties);
+    apply_profile(properties, &profile)
+}
 
-        // Transform multi-member groups into SharedDicts
-        merge_str_to_shared_dicts(properties, &groups);
+/// Apply a profile to `properties`, using the pre-computed string groups
+/// instead of re-running the `MinHash` similarity analysis.
+///
+/// The same encoder selection logic as [`optimize`] is applied after grouping.
+fn apply_profile(
+    properties: &mut Vec<DecodedProperty<'_>>,
+    profile: &PropertyProfile,
+) -> Vec<PropertyEncoder> {
+    if properties.is_empty() {
+        return Vec::new();
+    }
+    apply_string_groups(properties, &profile.string_groups);
+    properties.iter().map(build_encoder).collect()
+}
+
+/// Apply pre-computed string groups to `properties` by matching column names.
+///
+/// Columns present in the profile's groups but absent from this tile are
+/// silently skipped. Groups that resolve to fewer than 2 present columns are
+/// also skipped.
+fn apply_string_groups(properties: &mut Vec<DecodedProperty<'_>>, string_groups: &[Vec<String>]) {
+    let matched_groups: Vec<Vec<usize>> = string_groups
+        .iter()
+        .filter_map(|group| {
+            let mut indices: Vec<usize> = group
+                .iter()
+                .filter_map(|name| {
+                    properties.iter().position(|p| {
+                        matches!(p, DecodedProperty::Str(_)) && p.name() == name.as_str()
+                    })
+                })
+                .collect();
+            indices.sort_unstable();
+            if indices.len() >= 2 {
+                Some(indices)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if !matched_groups.is_empty() {
+        merge_str_to_shared_dicts(properties, &matched_groups);
     }
 }
 
