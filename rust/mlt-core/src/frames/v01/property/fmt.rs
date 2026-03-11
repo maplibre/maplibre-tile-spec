@@ -2,8 +2,8 @@ use std::fmt::{self, Debug};
 
 use borrowme::{Borrow as BorrowmeBorrow, ToOwned as BorrowmeToOwned};
 
-use super::model::{DecodedProperty, DecodedScalar};
 use crate::utils::FmtOptVec;
+use crate::v01::{DecodedProperty, DecodedScalar};
 
 impl Debug for DecodedProperty<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

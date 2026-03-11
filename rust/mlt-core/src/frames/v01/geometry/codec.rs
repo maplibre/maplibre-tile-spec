@@ -1,17 +1,17 @@
-use super::decode::{
-    decode_geometry_types, decode_level1_length_stream,
-    decode_level1_without_ring_buffer_length_stream, decode_level2_length_stream,
-    decode_root_length_stream,
-};
-use super::encode::GeometryEncoder;
-use super::model::{
-    DecodedGeometry, EncodedGeometry, Geometry, OwnedEncodedGeometry, OwnedGeometry,
-};
 use crate::MltError::{self, NotImplemented};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::encode::{FromDecoded, impl_encodable};
 use crate::utils::{AsUsize as _, SetOptionOnce as _};
-use crate::v01::{DictionaryType, GeometryType, LengthType, OffsetType, StreamType};
+use crate::v01::geometry::decode::{
+    decode_geometry_types, decode_level1_length_stream,
+    decode_level1_without_ring_buffer_length_stream, decode_level2_length_stream,
+    decode_root_length_stream,
+};
+use crate::v01::geometry::encode::encode_geometry;
+use crate::v01::{
+    DecodedGeometry, DictionaryType, EncodedGeometry, Geometry, GeometryEncoder, GeometryType,
+    LengthType, OffsetType, OwnedEncodedGeometry, OwnedGeometry, StreamType,
+};
 
 impl_decodable!(Geometry<'a>, EncodedGeometry<'a>, DecodedGeometry);
 impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedEncodedGeometry);
@@ -21,7 +21,7 @@ impl FromDecoded<'_> for OwnedEncodedGeometry {
     type Encoder = GeometryEncoder;
 
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
-        super::encode::encode_geometry(decoded, &encoder, None)
+        encode_geometry(decoded, &encoder, None)
     }
 }
 
@@ -75,6 +75,8 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
         if index_buffer.is_some() && part_offsets.is_none() {
             // Case when the indices of a Polygon outline are not encoded in the data so no
             // topology data are present in the tile
+            //
+            // return FlatGpuVector::new(vector_types, triangles, index_buffer, vertices);
             return Err(NotImplemented(
                 "index_buffer.is_some() && part_offsets.is_none() case",
             ));
@@ -131,6 +133,9 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
                 ));
             }
         }
+
+        // Case when the indices of a Polygon outline are encoded in the tile
+        // This is handled by including index_buffer in the DecodedGeometry
 
         // Expand vertex dictionary:
         // If a vertex offset stream was present,

@@ -1,6 +1,5 @@
-use super::model::{DecodedProperty, EncodedProperty, Property};
 use crate::analyse::{Analyze, StatType};
-use crate::v01::Stream;
+use crate::v01::{DecodedProperty, EncodedProperty, Property, Stream};
 
 impl Analyze for Property<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {

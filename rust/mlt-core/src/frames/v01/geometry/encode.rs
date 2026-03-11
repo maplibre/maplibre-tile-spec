@@ -1,12 +1,12 @@
 use std::collections::BTreeSet;
 
-use super::{DecodedGeometry, OwnedEncodedGeometry, VertexBufferType};
 use crate::MltError;
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, encode_componentwise_delta_vec2s};
 use crate::v01::{
-    DictionaryType, GeometryType, IntEncoder, IntEncoding, LengthType, LogicalEncoding, MortonMeta,
-    OffsetType, OwnedStream, PhysicalEncoder, StreamMeta, StreamType,
+    DecodedGeometry, DictionaryType, GeometryType, IntEncoder, IntEncoding, LengthType,
+    LogicalEncoding, MortonMeta, OffsetType, OwnedEncodedGeometry, OwnedStream, PhysicalEncoder,
+    StreamMeta, StreamType, VertexBufferType,
 };
 
 /// Encode vertex buffer using componentwise delta encoding

@@ -1,8 +1,7 @@
-use super::DecodedId;
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::{
-    DataProfile, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, OwnedEncodedId, OwnedId,
-    PhysicalEncoder,
+    DataProfile, DecodedId, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, OwnedEncodedId,
+    OwnedId, PhysicalEncoder,
 };
 use crate::{FromDecoded as _, FromEncoded as _, MltError};
 
@@ -22,7 +21,7 @@ use crate::{FromDecoded as _, FromEncoded as _, MltError};
 pub struct IdProfile {
     /// Encoder candidates to use during competition.
     ///
-    /// An empty list causes the caller to fall back to automatic optimisation.
+    /// An empty list causes the caller to fall back to automatic optimization.
     candidates: Vec<IntEncoder>,
 }
 
@@ -61,10 +60,10 @@ impl IdProfile {
     }
 }
 
-/// Analyse `decoded` and return a near-optimal [`IdEncoder`].
+/// Analyze `decoded` and return a near-optimal [`IdEncoder`].
 ///
 /// Fast paths (short sequences, sequential, constant) are checked first.
-/// Otherwise the full pruning + competition pipeline runs.
+/// Otherwise, the full pruning + competition pipeline runs.
 fn optimize(decoded: &DecodedId) -> IdEncoder {
     let ids = &decoded.0;
     let (is_sequential, is_constant, id_width) = match single_pass_statistics(ids) {
@@ -175,7 +174,7 @@ fn deduce_width(has_nulls: bool, max_value: u64) -> IdWidth {
 
 /// Run [`DataProfile::prune_candidates`] and filter the result to VarInt-only.
 ///
-/// This is the analysis half of automatic optimisation; the competition half
+/// This is the analysis half of automatic optimization; the competition half
 /// is [`compete_with`]. Splitting them lets [`IdProfile`] cache the result.
 fn pruned_candidates(ids: &[Option<u64>], id_width: IdWidth) -> Vec<IntEncoder> {
     match id_width {

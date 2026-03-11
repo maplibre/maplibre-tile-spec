@@ -2,8 +2,7 @@ use std::borrow::Cow;
 
 use borrowme::borrowme;
 
-pub use super::strings::{SharedDictEncoder, StrEncoder};
-use crate::v01::{FsstStrEncoder, IntEncoder, Stream};
+use crate::v01::{FsstStrEncoder, IntEncoder, SharedDictEncoder, StrEncoder, Stream};
 
 #[borrowme(name = OwnedName)]
 #[derive(Debug, Clone, PartialEq, Eq)]
