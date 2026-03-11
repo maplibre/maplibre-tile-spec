@@ -20,16 +20,15 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::utils::encode_zigzag;
-use crate::v01::property::strings::{
-    SharedDictEncoder, SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
-    collect_shared_dict_spans,
-};
+use crate::v01::property::strings::{build_decoded_shared_dict, collect_shared_dict_spans};
 use crate::v01::property::{
     DecodedProperty, DecodedSharedDict, DecodedSharedDictItem, PresenceStream, PropertyEncoder,
     ScalarEncoder,
 };
 use crate::v01::stream::IntEncoder;
-use crate::v01::{OwnedEncodedProperty, OwnedProperty};
+use crate::v01::{
+    OwnedEncodedProperty, OwnedProperty, SharedDictEncoder, SharedDictItemEncoder, StrEncoder,
+};
 use crate::{FromDecoded as _, MltError};
 
 /// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
@@ -225,9 +224,9 @@ fn apply_string_groups(properties: &mut Vec<DecodedProperty<'_>>, string_groups:
             let mut indices: Vec<usize> = group
                 .iter()
                 .filter_map(|name| {
-                    properties.iter().position(|p| {
-                        matches!(p, DecodedProperty::Str(_)) && p.name() == name.as_str()
-                    })
+                    properties.iter().position(
+                        |p| matches!(p, DecodedProperty::Str(v) if v.name == name.as_str()),
+                    )
                 })
                 .collect();
             indices.sort_unstable();

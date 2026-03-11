@@ -188,6 +188,14 @@ impl<'a> Stream<'a> {
         Self { meta, data }
     }
 
+    #[must_use]
+    pub fn as_bytes(&self) -> &'a [u8] {
+        match &self.data {
+            StreamData::Encoded(d) => d.data,
+            StreamData::VarInt(d) => d.data,
+        }
+    }
+
     pub fn parse(input: &'a [u8]) -> MltRefResult<'a, Self> {
         Self::parse_internal(input, false)
     }

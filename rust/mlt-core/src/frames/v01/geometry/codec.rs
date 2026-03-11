@@ -31,7 +31,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
     fn from_encoded(
         EncodedGeometry { meta, items }: EncodedGeometry<'a>,
     ) -> Result<Self, MltError> {
-        let vector_types = decode_geometry_types(meta)?;
+        let vector_types = decode_geometry_types(&meta)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;
         let mut part_offsets: Option<Vec<u32>> = None;
         let mut ring_offsets: Option<Vec<u32>> = None;

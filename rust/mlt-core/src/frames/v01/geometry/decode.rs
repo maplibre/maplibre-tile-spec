@@ -2,7 +2,7 @@ use crate::MltError;
 use crate::utils::AsUsize as _;
 use crate::v01::{GeometryType, Stream};
 
-pub fn decode_geometry_types(meta: Stream) -> Result<Vec<GeometryType>, MltError> {
+pub fn decode_geometry_types(meta: &Stream) -> Result<Vec<GeometryType>, MltError> {
     // TODO: simplify this, e.g. use u8 or even GeometryType directly rather than going via Vec<u32>
     let vector_types: Vec<u32> = meta.decode_bits_u32()?.decode_u32()?;
     let vector_types: Vec<GeometryType> = vector_types

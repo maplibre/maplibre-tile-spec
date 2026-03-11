@@ -7,8 +7,8 @@ use crate::analyse::{Analyze, StatType};
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::{
     Column, ColumnType, DictionaryType, EncodedIdValue, EncodedPresence, EncodedProperty,
-    EncodedSharedDict, EncodedSharedDictChild, EncodedStrings, Geometry, Id, NameRef, Property,
-    Stream, StreamType,
+    EncodedSharedDict, EncodedSharedDictChild, EncodedStrings, FsstData, Geometry, Id, NameRef,
+    PlainData, Property, Stream, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -230,9 +230,9 @@ impl Layer01<'_> {
         Ok(())
     }
 
-    /// Decode only the properties columns, leaving the ID and geometry columns in their encoded form.
+    /// Decode only the properties columns, leaving properties in their encoded form.
     ///
-    /// Use this instead of [`Self::decode_all`] when the ID or geometry will be accessed lazily
+    /// Use this instead of [`Self::decode_all`] when properties will be accessed lazily
     pub fn decode_properties(&mut self) -> Result<(), MltError> {
         let old_props = std::mem::take(&mut self.properties);
         for prop in old_props {
@@ -332,13 +332,15 @@ fn parse_str_column<'a>(
         *slot = Some(stream);
     }
     let encoding = match str_streams {
-        [Some(s1), Some(s2), None, None, None] => EncodedStrings::plain(s1, s2)?,
-        [Some(s1), Some(s2), Some(s3), None, None] => EncodedStrings::dictionary(s1, s2, s3)?,
+        [Some(s1), Some(s2), None, None, None] => EncodedStrings::plain(PlainData::new(s1, s2)?),
+        [Some(s1), Some(s2), Some(s3), None, None] => {
+            EncodedStrings::dictionary(PlainData::new(s1, s3)?, s2)?
+        }
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
-            EncodedStrings::fsst_plain(s1, s2, s3, s4)?
+            EncodedStrings::fsst_plain(FsstData::new(s1, s2, s3, s4)?)
         }
         [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
-            EncodedStrings::fsst_dictionary(s1, s2, s3, s4, s5)?
+            EncodedStrings::fsst_dictionary(FsstData::new(s1, s2, s3, s4)?, s5)?
         }
         _ => Err(MltError::UnsupportedStringStreamCount(stream_count))?,
     };
@@ -376,9 +378,9 @@ fn parse_shared_dict_column<'a>(
     (input, children) = parse_struct_children(input, column)?;
     let prefix = NameRef(column.name.unwrap_or(""));
     let shared_dict = match dict_streams {
-        [Some(s1), Some(s2), None, None, None] => EncodedSharedDict::plain(s1, s2)?,
+        [Some(s1), Some(s2), None, None, None] => EncodedSharedDict::plain(PlainData::new(s1, s2)?),
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
-            EncodedSharedDict::fsst_plain(s1, s2, s3, s4)?
+            EncodedSharedDict::fsst_plain(FsstData::new(s1, s2, s3, s4)?)
         }
         _ => Err(MltError::SharedDictRequiresStreams(streams_taken))?,
     };
