@@ -263,8 +263,7 @@ fn encoded_size_u64(values: &[u64], encoder: IntEncoder) -> usize {
 /// Return the byte length stored inside an `OwnedStreamData`.
 fn data_byte_len(data: OwnedStreamData) -> usize {
     match data {
-        OwnedStreamData::VarInt(d) => d.data.len(),
-        OwnedStreamData::Encoded(d) => d.data.len(),
+        OwnedStreamData::VarInt(v) | OwnedStreamData::Encoded(v) => v.len(),
     }
 }
 

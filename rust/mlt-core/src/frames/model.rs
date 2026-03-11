@@ -1,6 +1,5 @@
 use borrowme::borrowme;
 
-use crate::frames::unknown::Unknown;
 use crate::frames::v01::Layer01;
 use crate::v01::{Tag01Encoder, Tag01Profile};
 
@@ -17,6 +16,15 @@ pub enum Layer<'a> {
     Tag01(Layer01<'a>),
     /// Unknown layer with tag, size, and value
     Unknown(Unknown<'a>),
+}
+
+/// Unknown layer data, stored as encoded bytes
+#[borrowme]
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Unknown<'a> {
+    pub tag: u8,
+    #[borrowme(borrow_with = Vec::as_slice)]
+    pub value: &'a [u8],
 }
 
 #[derive(Debug, Clone)]

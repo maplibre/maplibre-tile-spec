@@ -1,7 +1,9 @@
 use borrowme::borrowme;
+use enum_dispatch::enum_dispatch;
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
+use crate::analyse::{Analyze, StatType};
 use crate::v01::Stream;
 
 /// Geometry column representation, either encoded or decoded
@@ -11,6 +13,7 @@ use crate::v01::Stream;
     all(not(test), feature = "arbitrary"),
     owned_attr(derive(arbitrary::Arbitrary))
 )]
+#[enum_dispatch(Analyze)]
 pub enum Geometry<'a> {
     Encoded(EncodedGeometry<'a>),
     Decoded(DecodedGeometry),

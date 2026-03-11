@@ -6,8 +6,8 @@ use integer_encoding::VarIntWriter as _;
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{BinarySerializer as _, parse_u8, parse_varint, take};
 use crate::v01::{
-    DataVarInt, EncodedData, IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta,
-    PhysicalEncoding, RleMeta, Stream, StreamData, StreamMeta, StreamType,
+    IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RleMeta, Stream,
+    StreamData, StreamMeta, StreamType,
 };
 use crate::{MltError, MltRefResult};
 
@@ -191,8 +191,7 @@ impl<'a> Stream<'a> {
     #[must_use]
     pub fn as_bytes(&self) -> &'a [u8] {
         match &self.data {
-            StreamData::Encoded(d) => d.data,
-            StreamData::VarInt(d) => d.data,
+            StreamData::Encoded(v) | StreamData::VarInt(v) => v,
         }
     }
 
@@ -224,8 +223,8 @@ impl<'a> Stream<'a> {
         let (input, data) = take(input, byte_length)?;
 
         let stream_data = match meta.encoding.physical {
-            PD::None | PD::FastPFOR => EncodedData::new(data),
-            PD::VarInt => DataVarInt::new(data),
+            PD::None | PD::FastPFOR => StreamData::Encoded(data),
+            PD::VarInt => StreamData::VarInt(data),
             PD::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
         };
 

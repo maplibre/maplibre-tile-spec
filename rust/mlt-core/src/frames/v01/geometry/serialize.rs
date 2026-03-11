@@ -6,7 +6,7 @@ use integer_encoding::VarIntWriter as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2, parse_varint};
 use crate::v01::{
     ColumnType, DecodedGeometry, DictionaryType, EncodedGeometry, Geometry, IntEncoding,
-    OwnedEncodedGeometry, OwnedGeometry, OwnedStream, Stream, StreamMeta, StreamType,
+    OwnedEncodedGeometry, OwnedGeometry, OwnedStream, Stream, StreamData, StreamMeta, StreamType,
 };
 use crate::{FromEncoded as _, MltError};
 
@@ -52,7 +52,7 @@ impl<'a> EncodedGeometry<'a> {
                             IntEncoding::none(),
                             0,
                         ),
-                        crate::v01::EncodedData::new(&[]),
+                        StreamData::Encoded(&[]),
                     ),
                     items: Vec::new(),
                 },
@@ -109,12 +109,6 @@ impl Debug for DecodedGeometry {
             .field("triangles", &OptSeq(triangles.as_deref()))
             .field("vertices", &OptSeq(vertices.as_deref()))
             .finish()
-    }
-}
-
-impl<'a> From<EncodedGeometry<'a>> for Geometry<'a> {
-    fn from(value: EncodedGeometry<'a>) -> Self {
-        Self::Encoded(value)
     }
 }
 
