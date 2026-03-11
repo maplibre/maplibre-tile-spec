@@ -244,7 +244,11 @@ function decodeSignedInt32(
             }
             break;
         case LogicalLevelTechnique.RLE:
-            decodedValues = decodeSignedRleInt32(values, streamMetadata as RleEncodedStreamMetadata);
+            decodedValues = decodeZigZagRleInt32(
+                values,
+                (streamMetadata as RleEncodedStreamMetadata).runs,
+                (streamMetadata as RleEncodedStreamMetadata).numRleValues,
+            );
             break;
         case LogicalLevelTechnique.MORTON:
             fastInverseDelta(values);
@@ -346,7 +350,11 @@ function decodeSignedInt64(
             }
             break;
         case LogicalLevelTechnique.RLE:
-            decodedValues = decodeSignedRleInt64(values, streamMetadata as RleEncodedStreamMetadata);
+            decodedValues = decodeZigZagRleInt64(
+                values,
+                (streamMetadata as RleEncodedStreamMetadata).runs,
+                (streamMetadata as RleEncodedStreamMetadata).numRleValues,
+            );
             break;
         case LogicalLevelTechnique.NONE:
             decodedValues = decodeZigZagInt64(values);
@@ -515,14 +523,6 @@ export function getVectorType(
         return VectorType.SEQUENCE;
     }
     return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
-}
-
-function decodeSignedRleInt32(data: Uint32Array, streamMetadata: RleEncodedStreamMetadata): Int32Array {
-    return decodeZigZagRleInt32(data, streamMetadata.runs, streamMetadata.numRleValues);
-}
-
-function decodeSignedRleInt64(data: BigUint64Array, streamMetadata: RleEncodedStreamMetadata): BigInt64Array {
-    return decodeZigZagRleInt64(data, streamMetadata.runs, streamMetadata.numRleValues);
 }
 
 function decodeRleFloat64(
