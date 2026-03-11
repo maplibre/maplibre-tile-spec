@@ -67,6 +67,11 @@ impl<'a> EncodedGeometry<'a> {
 }
 
 impl OwnedEncodedGeometry {
+    /// Decode this encoded geometry into its decoded form.
+    pub fn decode(&self) -> Result<DecodedGeometry, MltError> {
+        DecodedGeometry::from_encoded(borrowme::borrow(self))
+    }
+
     pub(crate) fn write_columns_meta_to<W: Write>(writer: &mut W) -> Result<(), MltError> {
         ColumnType::Geometry.write_to(writer)?;
         Ok(())
