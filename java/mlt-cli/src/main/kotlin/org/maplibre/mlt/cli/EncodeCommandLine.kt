@@ -74,7 +74,7 @@ internal object EncodeCommandLine {
     const val HELP_OPTION = "help"
     const val SERVER_ARG = "server"
 
-    private fun getAllowedCompressions(cmd: CommandLine): Stream<String> {
+    internal fun getAllowedCompressions(cmd: CommandLine): Stream<String> {
         val extra = if (cmd.hasOption(INPUT_PMTILES_ARG)) Stream.of(COMPRESS_OPTION_BROTLI, COMPRESS_OPTION_ZSTD) else Stream.of()
         return Stream.concat(
             Stream.of(
@@ -714,9 +714,9 @@ Add an explicit column mapping on the specified layers:
             if (strings != null) {
                 for (item in strings) {
                     val matcher = colMapListPattern.matcher(item)
-                    if (matcher.matches()) {
+                    if (matcher.matches() && matcher.groupCount() == 2) {
                         // matcher doesn't support multiple group matches, split them separately
-                        val layers = parseLayerPatterns(matcher.group(1))
+                        val layers = parseLayerPatterns(matcher.group(1) ?: "")
                         val list = matcher.group(2)
                         val columnNames =
                             Arrays
@@ -725,18 +725,18 @@ Add an explicit column mapping on the specified layers:
                                         .split(",".toRegex())
                                         .dropLastWhile { it.isEmpty() }
                                         .toTypedArray(),
-                                ).map<String?> { obj: String? -> obj!!.trim { it <= ' ' } }
-                                .filter { s: String? -> !s!!.isEmpty() }
-                                .collect(Collectors.toList())
+                                ).map<String> { obj: String -> obj.trim { it <= ' ' } }
+                                .filter { s: String -> !s.isEmpty() }
+                                .toList()
                         result.merge(
                             layers,
                             listOf(ColumnMapping(columnNames, true)),
-                        ) { oldList: MutableList<ColumnMapping?>?, newList: MutableList<ColumnMapping?>? ->
+                        ) { oldList: MutableList<ColumnMapping>, newList: MutableList<ColumnMapping> ->
                             Stream
-                                .of<MutableList<ColumnMapping?>?>(
+                                .of<MutableList<ColumnMapping>>(
                                     oldList,
                                     newList,
-                                ).flatMap<ColumnMapping?> { obj: MutableList<ColumnMapping?>? -> obj!!.stream() }
+                                ).flatMap<ColumnMapping> { it.stream() }
                                 .toList()
                         }
                     } else {
@@ -785,13 +785,11 @@ Add an explicit column mapping on the specified layers:
         return result
     }
 
-    private fun parseLayerPatterns(pattern: String?): Pattern? =
+    private fun parseLayerPatterns(pattern: String): Pattern =
         if (StringUtils.isBlank(pattern)) {
             colMapMatchAll
         } else {
-            parsePattern(
-                pattern!!,
-            )
+            parsePattern(pattern)
         }
 
     private fun parsePattern(pattern: String): Pattern {

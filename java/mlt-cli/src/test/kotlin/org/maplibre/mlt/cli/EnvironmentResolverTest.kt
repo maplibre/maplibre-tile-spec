@@ -6,7 +6,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.seconds
@@ -162,9 +161,6 @@ class EnvironmentResolverTest {
         envResolver = { name -> if (name == ENV_CACHE_AVERAGE_WEIGHT) "-1" else null }
         assertThrows(illegalArgType) { computeCacheAverageEntrySize() }.andContains("not be negative")
     }
-
-    private fun Exception.andContains(str: String) =
-        assertTrue(this.message?.contains(str) ?: false, "Expected exception message to contain '$str', but was '${this.message}'")
 
     private val illegalArgType = IllegalArgumentException::class.java
 }
