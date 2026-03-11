@@ -1,6 +1,8 @@
 use crate::MltError;
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
-use crate::v01::{GeometryEncoder, IdEncoder, IdProfile, OwnedLayer01, PropertyEncoder};
+use crate::v01::{
+    GeometryEncoder, GeometryProfile, IdEncoder, IdProfile, OwnedLayer01, PropertyEncoder,
+};
 
 impl ManualOptimisation for OwnedLayer01 {
     type UsedEncoder = Tag01Encoder;
@@ -69,5 +71,5 @@ pub struct Tag01Encoder {
 pub struct Tag01Profile {
     pub id: IdProfile,
     pub properties: (),
-    pub geometry: (),
+    pub geometry: GeometryProfile,
 }

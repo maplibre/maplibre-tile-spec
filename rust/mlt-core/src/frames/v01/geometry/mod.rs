@@ -9,3 +9,4 @@ mod serialize;
 
 pub use encode::GeometryEncoder;
 pub use model::*;
+pub use optimizer::GeometryProfile;
