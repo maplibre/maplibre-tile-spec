@@ -791,21 +791,17 @@ Add an explicit column mapping on the specified layers:
         }
     }
 
-    // val getMinZoom get() = cmd.getParsedOptionValue<Long>(EncodeCommandLine.MIN_ZOOM_OPTION, 0L).toInt()
-    //        val maxZoom =
-    //
-
     private val logger: Logger = LoggerFactory.getLogger(EncodeCommandLine::class.java)
 }
 
 val CommandLine.minZoom get() = getParsedOptionValue<Long>(EncodeCommandLine.MIN_ZOOM_OPTION, 0L).toInt()
 val CommandLine.maxZoom get() = getParsedOptionValue<Long>(EncodeCommandLine.MAX_ZOOM_OPTION, Int.MAX_VALUE.toLong()).toInt()
 val CommandLine.logLevel get() =
-    if (hasOption(EncodeCommandLine.VERBOSE_OPTION)) {
+    (if (hasOption(EncodeCommandLine.VERBOSE_OPTION)) {
         Level.toLevel(getOptionValue(EncodeCommandLine.VERBOSE_OPTION), Level.DEBUG)
     } else {
         Level.INFO
-    }.coerceAtLeast(if (hasOption(EncodeCommandLine.CACHE_STATS_OPTION)) Level.DEBUG else Level.OFF)
+    }).coerceAtLeast(if (hasOption(EncodeCommandLine.CACHE_STATS_OPTION)) Level.DEBUG else Level.OFF)
 val CommandLine.sortFeaturesPattern get() =
     if (hasOption(EncodeCommandLine.SORT_FEATURES_OPTION)) {
         Pattern.compile(getOptionValue(EncodeCommandLine.SORT_FEATURES_OPTION, ".*"))

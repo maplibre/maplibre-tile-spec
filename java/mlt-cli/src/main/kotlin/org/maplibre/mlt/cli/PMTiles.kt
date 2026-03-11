@@ -203,10 +203,10 @@ private fun encodePMTiles(
         )
     }
 
-    if (header.tileType() != TileType.MVT) {
+    if (header.tileType != TileType.MVT) {
         logger.error(
             "Input PMTiles tile type is {}, expected {}",
-            header.tileType(),
+            header.tileType,
             TileType.MVT,
         )
         return false
@@ -216,13 +216,13 @@ private fun encodePMTiles(
     // use the source compression type mapped to supported types.
     val targetCompressType =
         if (config.compressionType == null) {
-            toTileCompression(header.tileCompression())
+            toTileCompression(header.tileCompression)
         } else {
             TileCompression.fromId(config.compressionType)
         }
 
-    val minZoom = max(header.minZoom().toInt(), config.minZoom)
-    val maxZoom = min(header.maxZoom().toInt(), config.maxZoom)
+    val minZoom = max(header.minZoom.toInt(), config.minZoom)
+    val maxZoom = min(header.maxZoom.toInt(), config.maxZoom)
 
     // re-create the config with the resolved compression type
     val targetConfig = config.copy(compressionType = toCompressionOption(targetCompressType))
@@ -237,9 +237,8 @@ private fun encodePMTiles(
             // Completes when the directory has been fully read and all tasks have been created.
             config.taskRunner.run(
                 {
-                    var tiles = reader.getTileCoordRanges(minZoom, maxZoom)
                     processTiles(
-                        tiles,
+                        reader.getTileCoordRanges(minZoom, maxZoom),
                         reader,
                         tileWriter,
                         config.taskRunner,
@@ -372,7 +371,7 @@ private fun processTileRange(
     }
 
     state.offsetToHashMap?.get(tileRef.byteRange.offset)?.let { tileHash ->
-        // Already processed this input tile for a different tile coordiante range.
+        // Already processed this input tile for a different tile coordinate range.
         // Pass an empty result with the same hash to the writer.  Rely on
         // `WritablePmtiles.DeduplicatingTileArchiveWriter` to locate the previous entry and
         // never write this empty result, though it provides no feedback we can use to check.

@@ -19,13 +19,13 @@ internal val compressMarker = MarkerFactory.getMarker("COMPRESSION")
 internal val colMapMarker = MarkerFactory.getMarker("COLMAP")
 
 private val sizeUnits = arrayOf<String>("B", "kiB", "MiB", "GiB", "TiB", "PiB", "EiB")
-private val sizeFormatter = DecimalFormat("#,##0.#")
 
 // org.apache.commons.io.FileUtils.byteCountToDisplaySize does this, but always rounds down to GB
 fun formatSize(size: Long): String {
     if (size <= 0) return "0"
     val digitGroups = Math.floor((log10(size.toDouble()) / log10(1024.0)))
-    return sizeFormatter.format(size / 1024.0.pow(digitGroups)) + " " + sizeUnits[digitGroups.toInt()]
+    val formatter = DecimalFormat("#,##0.#")
+    return formatter.format(size / 1024.0.pow(digitGroups)) + " " + sizeUnits[digitGroups.toInt()]
 }
 
 fun formatNanosecDuration(nanos: Double) =

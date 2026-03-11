@@ -109,19 +109,19 @@ class ReadablePmtiles(
     }
 
     val jsonMetadata by lazy {
-        Pmtiles.JsonMetadata.fromBytes(getHeaderBytes(header.jsonMetadataOffset(), header.jsonMetadataLength().toInt().toLong()))
+        Pmtiles.JsonMetadata.fromBytes(getHeaderBytes(header.jsonMetadataOffset, header.jsonMetadataLength))
     }
 
     fun metadata(): TileArchiveMetadata {
         val tileCompression =
-            when (header.tileCompression()) {
+            when (header.tileCompression) {
                 Pmtiles.Compression.GZIP -> TileCompression.GZIP
                 Pmtiles.Compression.NONE -> TileCompression.NONE
                 Pmtiles.Compression.UNKNOWN -> TileCompression.UNKNOWN
             }
 
         val format =
-            when (header.tileType()) {
+            when (header.tileType) {
                 Pmtiles.TileType.MVT -> TileFormat.MVT
                 Pmtiles.TileType.MLT -> TileFormat.MLT
                 else -> null
@@ -129,7 +129,7 @@ class ReadablePmtiles(
 
         try {
             val jsonMetadata = this.jsonMetadata
-            val map = LinkedHashMap<String, String?>(jsonMetadata.otherMetadata())
+            val map = LinkedHashMap<String, String?>(jsonMetadata.otherMetadata)
             return TileArchiveMetadata(
                 map.remove(TileArchiveMetadata.NAME_KEY),
                 map.remove(TileArchiveMetadata.DESCRIPTION_KEY),
@@ -141,11 +141,11 @@ class ReadablePmtiles(
                 Coordinate(
                     header.center().getX(),
                     header.center().getY(),
-                    header.centerZoom().toDouble(),
+                    header.centerZoom.toDouble(),
                 ),
-                header.minZoom().toInt(),
-                header.maxZoom().toInt(),
-                TileArchiveMetadata.TileArchiveMetadataJson.create(jsonMetadata.vectorLayers()),
+                header.minZoom.toInt(),
+                header.maxZoom.toInt(),
+                TileArchiveMetadata.TileArchiveMetadataJson.create(jsonMetadata.vectorLayers),
                 map,
                 tileCompression,
             )
