@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::utils::{decode_morton_codes, decode_morton_delta};
+use mlt_core::utils::{decode_morton_codes, decode_morton_delta, encode_morton_15};
 
 const NUM_BITS: u32 = 15;
 const COORDINATE_SHIFT: u32 = 1 << (NUM_BITS - 1);
@@ -17,12 +17,7 @@ fn make_morton_codes(n: u32) -> Vec<u32> {
         .map(|i| {
             let x = (i * 7 + 13) & 0x7FFF;
             let y = (i * 11 + 31) & 0x7FFF;
-            let mut code = 0u32;
-            for bit in 0..15u32 {
-                code |= ((x >> bit) & 1) << (2 * bit);
-                code |= ((y >> bit) & 1) << (2 * bit + 1);
-            }
-            code
+            encode_morton_15(x, y)
         })
         .collect()
 }
@@ -33,12 +28,8 @@ fn make_morton_deltas(n: u32) -> Vec<u32> {
     codes
         .iter()
         .map(|&c| {
-            #[expect(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
-            let delta = (c as i32).wrapping_sub(prev) as u32;
-            #[expect(clippy::cast_possible_wrap)]
-            {
-                prev = c as i32;
-            }
+            let delta = c.cast_signed().wrapping_sub(prev).cast_unsigned();
+            prev = c.cast_signed();
             delta
         })
         .collect()

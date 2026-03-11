@@ -318,6 +318,7 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::encode_morton_15;
 
     #[test]
     fn test_bytes_to_u32s_valid() {
@@ -445,16 +446,6 @@ mod tests {
 
     // --- Morton helpers used across multiple tests ---
 
-    /// Interleave two `NUM_BITS`-wide values into a Morton code.
-    fn encode_morton(x: u32, y: u32) -> u32 {
-        let mut code = 0u32;
-        for bit in 0..NUM_BITS {
-            code |= ((x >> bit) & 1) << (2 * bit);
-            code |= ((y >> bit) & 1) << (2 * bit + 1);
-        }
-        code
-    }
-
     const NUM_BITS: u32 = 15;
     const COORD_SHIFT: u32 = 1 << (NUM_BITS - 1); // 16384
 
@@ -468,7 +459,7 @@ mod tests {
     #[test]
     fn test_decode_morton_codes_origin() {
         // Morton code for (COORD_SHIFT, COORD_SHIFT) should decode to (0, 0).
-        let code = encode_morton(COORD_SHIFT, COORD_SHIFT);
+        let code = encode_morton_15(COORD_SHIFT, COORD_SHIFT);
         assert_eq!(decode_morton_codes(&[code], NUM_BITS, COORD_SHIFT), [0, 0]);
     }
 
@@ -477,7 +468,7 @@ mod tests {
         // x=1, y=2 (pre-shift) → decoded (1 - COORD_SHIFT, 2 - COORD_SHIFT)
         let x: u32 = 1;
         let y: u32 = 2;
-        let code = encode_morton(x, y);
+        let code = encode_morton_15(x, y);
         let expected_x = x.cast_signed() - COORD_SHIFT.cast_signed();
         let expected_y = y.cast_signed() - COORD_SHIFT.cast_signed();
         assert_eq!(
@@ -490,7 +481,7 @@ mod tests {
     fn test_decode_morton_codes_scalar_tail() {
         // 3 codes — exercises the scalar tail path (< 8 codes).
         let pairs = [(0u32, 1u32), (2, 3), (4, 5)];
-        let codes: Vec<u32> = pairs.iter().map(|&(x, y)| encode_morton(x, y)).collect();
+        let codes: Vec<u32> = pairs.iter().map(|&(x, y)| encode_morton_15(x, y)).collect();
         let result = decode_morton_codes(&codes, NUM_BITS, COORD_SHIFT);
         let expected = test_morton(&pairs);
         assert_eq!(result, expected);
@@ -509,7 +500,7 @@ mod tests {
             (10, 9),
             (15, 15),
         ];
-        let codes: Vec<u32> = pairs.iter().map(|&(x, y)| encode_morton(x, y)).collect();
+        let codes: Vec<u32> = pairs.iter().map(|&(x, y)| encode_morton_15(x, y)).collect();
         let result = decode_morton_codes(&codes, NUM_BITS, COORD_SHIFT);
         let expected = test_morton(&pairs);
         assert_eq!(result, expected);
@@ -519,7 +510,7 @@ mod tests {
     fn test_decode_morton_codes_simd_plus_tail() {
         // 11 codes — one full SIMD chunk of 8 plus a scalar tail of 3.
         let pairs: Vec<(u32, u32)> = (0..11u32).map(|i| (i * 3 % 100, i * 7 % 100)).collect();
-        let codes: Vec<u32> = pairs.iter().map(|&(x, y)| encode_morton(x, y)).collect();
+        let codes: Vec<u32> = pairs.iter().map(|&(x, y)| encode_morton_15(x, y)).collect();
         let result = decode_morton_codes(&codes, NUM_BITS, COORD_SHIFT);
         let expected = test_morton(&pairs);
         assert_eq!(result, expected);
@@ -547,7 +538,7 @@ mod tests {
         // decode_morton_delta produces the same output as decode_morton_codes on the
         // original absolute codes.
         let pairs: Vec<(u32, u32)> = (0..11u32).map(|i| (i * 5 % 200, i * 9 % 200)).collect();
-        let codes: Vec<u32> = pairs.iter().map(|&(x, y)| encode_morton(x, y)).collect();
+        let codes: Vec<u32> = pairs.iter().map(|&(x, y)| encode_morton_15(x, y)).collect();
         let deltas: Vec<u32> = test_delta_morton(&codes);
 
         let from_codes = decode_morton_codes(&codes, NUM_BITS, COORD_SHIFT);
@@ -559,9 +550,9 @@ mod tests {
     fn test_decode_morton_delta_scalar_tail() {
         // 3 codes via deltas — scalar tail path only.
         let codes: Vec<u32> = vec![
-            encode_morton(10, 20),
-            encode_morton(30, 40),
-            encode_morton(50, 60),
+            encode_morton_15(10, 20),
+            encode_morton_15(30, 40),
+            encode_morton_15(50, 60),
         ];
         let deltas: Vec<u32> = test_delta_morton(&codes);
         let from_codes = decode_morton_codes(&codes, NUM_BITS, COORD_SHIFT);
@@ -573,8 +564,8 @@ mod tests {
     fn test_decode_morton_delta_wrapping() {
         // A single wrapping delta: start from a large code, subtract more than it — should
         // still round-trip correctly via wrapping arithmetic.
-        let code_a = encode_morton(500, 300);
-        let code_b = encode_morton(10, 10); // numerically smaller than code_a
+        let code_a = encode_morton_15(500, 300);
+        let code_b = encode_morton_15(10, 10); // numerically smaller than code_a
         let delta_b = code_b
             .cast_signed()
             .wrapping_sub(code_a.cast_signed())
