@@ -9,7 +9,7 @@ use mlt_core::v01::{
     DecodedGeometry, DictionaryType, GeometryProfile, LengthType, OffsetType, OwnedEncodedGeometry,
     OwnedGeometry, StreamType,
 };
-use mlt_core::{Encodable as _, FromEncoded as _, borrowme};
+use mlt_core::{Encodable as _, borrowme};
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
@@ -278,6 +278,6 @@ fn manual_optimisation_works() {
     let types = encoded_stream_types(enc);
     assert!(types.contains(&StreamType::Data(DictionaryType::Vertex)));
 
-    let decoded_back = DecodedGeometry::from_encoded(borrowme::borrow(enc)).expect("decode failed");
+    let decoded_back = enc.decode().expect("decode failed");
     assert_eq!(decoded, decoded_back);
 }

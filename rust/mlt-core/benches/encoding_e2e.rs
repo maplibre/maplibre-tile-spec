@@ -1,11 +1,12 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
     GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, PhysicalEncoder,
-    PresenceStream, PropertyKind, ScalarEncoder,
+    PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder,
 };
-use mlt_core::{Encodable as _, OwnedLayer, parse_layers};
+use mlt_core::{OwnedLayer, parse_layers};
 use strum::IntoEnumIterator as _;
 
 #[path = "bench_utils.rs"]
@@ -57,7 +58,7 @@ fn bench_encode_geometry(c: &mut Criterion) {
                                 for layer in &mut layers {
                                     if let OwnedLayer::Tag01(l) = layer {
                                         l.geometry
-                                            .encode_with(geometry_encoder)
+                                            .manual_optimisation(geometry_encoder)
                                             .expect("geometry encode failed");
                                     }
                                 }
@@ -94,7 +95,8 @@ fn bench_encode_ids(c: &mut Criterion) {
                             |mut layers| {
                                 for layer in &mut layers {
                                     if let OwnedLayer::Tag01(l) = layer {
-                                        l.id.encode_with(id_encoder).expect("id encode failed");
+                                        l.id.manual_optimisation(id_encoder)
+                                            .expect("id encode failed");
                                     }
                                 }
                                 black_box(layers);
@@ -130,30 +132,34 @@ fn bench_encode_properties(c: &mut Criterion) {
                                 |mut layers| {
                                     for layer in &mut layers {
                                         if let OwnedLayer::Tag01(l) = layer {
-                                            for prop in &mut l.properties {
-                                                let int_enc = IntEncoder::new(logical, physical);
-                                                let enc = match prop.kind() {
+                                            let int_enc = IntEncoder::new(logical, physical);
+                                            let encoders: Vec<PropertyEncoder> = l
+                                                .properties
+                                                .iter()
+                                                .map(|prop| match prop.kind() {
                                                     PropertyKind::Bool => {
-                                                        ScalarEncoder::bool(presence)
+                                                        ScalarEncoder::bool(presence).into()
                                                     }
                                                     PropertyKind::Integer => {
-                                                        ScalarEncoder::int(presence, int_enc)
+                                                        ScalarEncoder::int(presence, int_enc).into()
                                                     }
                                                     PropertyKind::Float => {
-                                                        ScalarEncoder::float(presence)
+                                                        ScalarEncoder::float(presence).into()
                                                     }
                                                     PropertyKind::String => {
                                                         ScalarEncoder::str_fsst(
                                                             presence, int_enc, int_enc,
                                                         )
+                                                        .into()
                                                     }
                                                     PropertyKind::SharedDict => {
                                                         unreachable!("unimplemented")
                                                     }
-                                                };
-
-                                                prop.encode_with(enc).expect("prop encode failed");
-                                            }
+                                                })
+                                                .collect();
+                                            l.properties
+                                                .manual_optimisation(encoders)
+                                                .expect("prop encode failed");
                                         }
                                     }
                                     black_box(layers);

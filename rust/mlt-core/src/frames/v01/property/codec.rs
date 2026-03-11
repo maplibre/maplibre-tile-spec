@@ -217,8 +217,8 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
                 PropertyEncoder::SharedDict(enc) => {
                     let DecodedProperty::SharedDict(shared_dict) = prop else {
                         return Err(UnsupportedPropertyEncoderCombination(
-                            prop.kind_name(),
-                            "SharedDict",
+                            prop.into(),
+                            "shared_dict",
                         ));
                     };
                     result.push(encode_shared_dict_prop(shared_dict, &enc)?);
@@ -309,10 +309,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             (D::SharedDict(..), _) => Err(NotImplemented(
                 "SharedDict cannot be encoded via ScalarEncoder",
             ))?,
-            (v, e) => Err(UnsupportedPropertyEncoderCombination(
-                v.kind_name(),
-                e.name(),
-            ))?,
+            (v, e) => Err(UnsupportedPropertyEncoderCombination(v.into(), e.into()))?,
         }
     }
 }

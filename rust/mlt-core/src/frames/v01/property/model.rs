@@ -63,7 +63,8 @@ pub enum EncodedProperty<'a> {
 }
 
 /// Decoded property values in a typed enum form.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
 pub enum DecodedProperty<'a> {
     Bool(DecodedScalar<bool>),
     I8(DecodedScalar<i8>),
@@ -210,7 +211,7 @@ pub enum EncodedStrings<'a> {
 pub struct EncodedPresence<'a>(pub Option<Stream<'a>>);
 
 /// Instruction for how to encode a single decoded property when batch-encoding a
-/// [`Vec<DecodedProperty>`] via [`crate::FromDecoded`].
+/// [`Vec<DecodedProperty>`] via [`crate::optimizer::ManualOptimisation`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PropertyEncoder {
     /// How to encode a scalar property
@@ -290,24 +291,14 @@ impl ScalarEncoder {
 }
 
 /// How to encode scalar property values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum ScalarValueEncoder {
     Int(IntEncoder),
     String(StrEncoder),
     Float,
     Bool,
-}
-
-impl ScalarValueEncoder {
-    pub(crate) fn name(self) -> &'static str {
-        match self {
-            Self::Int(_) => "int",
-            Self::String(_) => "string",
-            Self::Float => "float",
-            Self::Bool => "bool",
-        }
-    }
 }
 
 /// Encoder for an individual sub-property within a shared dictionary.
