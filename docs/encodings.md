@@ -9,7 +9,6 @@
 No compression is applied to the data.
 Depending on the data type, values are stored in the following formats:
 
-- **Boolean**: Least-significant bit ordering within bytes
 - **Integer**: Little-Endian byte order
 - **Long**: Little-Endian byte order
 - **Float**: IEEE754 floating-point numbers in Little-Endian byte order
