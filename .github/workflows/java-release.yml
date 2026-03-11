@@ -28,7 +28,7 @@ jobs:
       - name: Get version from tag
         id: get_version
         run: |
-          version="$(just extract-version java ${{ github.ref_name }})"
+          version="$(just ci-extract-version java ${{ github.ref_name }})"
           echo version="$version" >> "$GITHUB_ENV"
 
       - name: Make gradlew executable
