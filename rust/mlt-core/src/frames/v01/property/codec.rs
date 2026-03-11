@@ -325,7 +325,7 @@ fn unapply_presence<T: Clone>(v: &[Option<T>]) -> Vec<T> {
 impl<'a> FromEncoded<'a> for DecodedProperty<'a> {
     type Input = EncodedProperty<'a>;
 
-    fn from_encoded(v: EncodedProperty<'a>) -> Result<Self, MltError> {
+    fn from_encoded(v: EncodedProperty<'a>) -> Result<DecodedProperty<'a>, MltError> {
         use EncodedProperty as E;
         Ok(match v {
             E::Bool(name, presence, data) => Self::Bool(DecodedScalar::from_parts(

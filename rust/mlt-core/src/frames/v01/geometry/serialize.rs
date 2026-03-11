@@ -5,8 +5,8 @@ use integer_encoding::VarIntWriter as _;
 
 use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2, parse_varint};
 use crate::v01::{
-    ColumnType, DecodedGeometry, DictionaryType, EncodedGeometry, Geometry, IntEncoding,
-    OwnedEncodedGeometry, OwnedGeometry, OwnedStream, Stream, StreamMeta, StreamType,
+    ColumnType, DecodedGeometry, DictionaryType, EncodedData, EncodedGeometry, Geometry,
+    IntEncoding, OwnedEncodedGeometry, OwnedGeometry, OwnedStream, Stream, StreamMeta, StreamType,
 };
 use crate::{FromEncoded as _, MltError};
 
@@ -52,7 +52,7 @@ impl<'a> EncodedGeometry<'a> {
                             IntEncoding::none(),
                             0,
                         ),
-                        crate::v01::EncodedData::new(&[]),
+                        EncodedData::new(&[]),
                     ),
                     items: Vec::new(),
                 },

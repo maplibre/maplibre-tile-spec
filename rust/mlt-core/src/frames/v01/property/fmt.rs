@@ -83,18 +83,19 @@ impl BorrowMe for DecodedProperty<'_> {
     type Owned = DecodedProperty<'static>;
 
     fn to_owned(&self) -> Self::Owned {
+        use DecodedProperty as P;
         match self {
-            Self::Bool(v) => DecodedProperty::Bool(BorrowMe::to_owned(&v)),
-            Self::I8(v) => DecodedProperty::I8(BorrowMe::to_owned(v)),
-            Self::U8(v) => DecodedProperty::U8(BorrowMe::to_owned(v)),
-            Self::I32(v) => DecodedProperty::I32(BorrowMe::to_owned(v)),
-            Self::U32(v) => DecodedProperty::U32(BorrowMe::to_owned(v)),
-            Self::I64(v) => DecodedProperty::I64(BorrowMe::to_owned(v)),
-            Self::U64(v) => DecodedProperty::U64(BorrowMe::to_owned(v)),
-            Self::F32(v) => DecodedProperty::F32(BorrowMe::to_owned(v)),
-            Self::F64(v) => DecodedProperty::F64(BorrowMe::to_owned(v)),
-            Self::Str(v) => DecodedProperty::Str(BorrowMe::to_owned(v)),
-            Self::SharedDict(v) => DecodedProperty::SharedDict(BorrowMe::to_owned(v)),
+            Self::Bool(v) => P::Bool(BorrowMe::to_owned(&v)),
+            Self::I8(v) => P::I8(BorrowMe::to_owned(v)),
+            Self::U8(v) => P::U8(BorrowMe::to_owned(v)),
+            Self::I32(v) => P::I32(BorrowMe::to_owned(v)),
+            Self::U32(v) => P::U32(BorrowMe::to_owned(v)),
+            Self::I64(v) => P::I64(BorrowMe::to_owned(v)),
+            Self::U64(v) => P::U64(BorrowMe::to_owned(v)),
+            Self::F32(v) => P::F32(BorrowMe::to_owned(v)),
+            Self::F64(v) => P::F64(BorrowMe::to_owned(v)),
+            Self::Str(v) => P::Str(BorrowMe::to_owned(v)),
+            Self::SharedDict(v) => P::SharedDict(BorrowMe::to_owned(v)),
         }
     }
 }

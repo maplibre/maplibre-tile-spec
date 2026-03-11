@@ -29,6 +29,11 @@ macro_rules! impl_statistics_fixed {
             fn collect_statistic(&self, _stat: StatType) -> usize {
                 size_of::<$ty>()
             }
+        }
+        impl Analyze for &[$ty] {
+            fn collect_statistic(&self, _stat: StatType) -> usize {
+                size_of::<$ty>() * self.len()
+            }
         })+
     };
 }
@@ -45,7 +50,6 @@ impl<T: Analyze> Analyze for Option<T> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         self.as_ref().map_or(0, |v| v.collect_statistic(stat))
     }
-
     fn for_each_stream(&self, cb: &mut dyn FnMut(&crate::v01::Stream<'_>)) {
         if let Some(v) = self {
             v.for_each_stream(cb);
@@ -57,7 +61,6 @@ impl<T: Analyze> Analyze for [T] {
     fn collect_statistic(&self, stat: StatType) -> usize {
         self.iter().map(|v| v.collect_statistic(stat)).sum()
     }
-
     fn for_each_stream(&self, cb: &mut dyn FnMut(&crate::v01::Stream<'_>)) {
         for v in self {
             v.for_each_stream(cb);
@@ -69,7 +72,6 @@ impl<T: Analyze> Analyze for Vec<T> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         self.as_slice().collect_statistic(stat)
     }
-
     fn for_each_stream(&self, cb: &mut dyn FnMut(&crate::v01::Stream<'_>)) {
         self.as_slice().for_each_stream(cb);
     }
