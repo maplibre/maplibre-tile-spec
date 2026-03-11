@@ -33,7 +33,8 @@ impl<'a> Layer<'a> {
         let layer = self
             .as_layer01_mut()
             .ok_or(MltError::NotDecoded("expected Tag01 layer"))?;
-        layer.decode_geometry_and_id()?;
+        layer.decode_id()?;
+        layer.decode_geometry()?;
         Ok(layer)
     }
 
