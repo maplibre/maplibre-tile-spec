@@ -37,7 +37,7 @@ impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
         // and then Fisher-Yates shuffle it using the fuzzer's unstructured data.
         #[cfg(fuzzing)]
         let layer_order = {
-            use mlt_core::v01::LayerOrdering;
+            use mlt_core::frames::v01::root::LayerOrdering;
 
             let mut order: Vec<LayerOrdering> = Vec::new();
             if id.is_present() {
