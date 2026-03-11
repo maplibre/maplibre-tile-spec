@@ -54,7 +54,7 @@ function traverseTs(tables: FeatureTable[]): number {
   return n;
 }
 
-// Requires NODE_OPTIONS=--expose-gc (set in the bench npm script); no-op otherwise.
+// Requires Node to be started with --expose-gc (done by the bench npm script); no-op otherwise.
 function drainGC(): void {
   const _gc = (globalThis as { gc?: () => void }).gc;
   if (typeof _gc === "function") {
