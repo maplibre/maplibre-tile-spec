@@ -71,6 +71,15 @@ val threadQueueSize by lazy {
     }
 }
 
+const val ENV_PMTILES_DEDUP = "MLT_PMTILES_DEDUP"
+const val DEFAULT_PMTILES_DEDUP = false
+val pmTilesDedup by lazy {
+    resolveConfigValue(ENV_PMTILES_DEDUP, DEFAULT_PMTILES_DEDUP) {
+        // Accept empty (just defined), true, or non-zero to enable
+        it.isEmpty() || it.toBoolean() || (it.toIntOrNull() ?: 0) > 0
+    }
+}
+
 /** Parse using the provided function, use default on null or error */
 private fun <T> resolveConfigValue(
     name: String,

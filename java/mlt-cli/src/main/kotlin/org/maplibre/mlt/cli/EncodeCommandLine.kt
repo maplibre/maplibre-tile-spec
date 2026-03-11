@@ -652,29 +652,30 @@ Add an explicit column mapping on the specified layers:
         val header =
             "Convert an MVT tile or a container file containing MVT tiles to MLT format.\n"
         val footer =
-            (
-                "\nExample usages:\n" +
-                    " Encode a single tile:\n" +
-                    "    encode --mvt input.mvt --mlt output.mlt\n" +
-                    " Encode all tiles in an MBTiles file, with compression and parallel encoding:\n" +
-                    "    encode --mbtiles input.mbtiles --dir output_dir --compress gzip -j\n" +
-                    " Start an encoding server on port 8080:\n" +
-                    "    encode --server 8080\n" +
-                    "\nEnvironment variables:\n" +
-                    "  " + ENV_TILE_LOG_INTERVAL + ": Number of tiles between status log messages (default: 10000)\n" +
-                    "  " + ENV_COMPRESSION_RATIO_THRESHOLD + ": Minimum compression ratio to apply compression (default: " +
-                    DEFAULT_COMPRESSION_RATIO_THRESHOLD +
-                    ")\n  " +
-                    ENV_COMPRESSION_FIXED_THRESHOLD + ": Minimum savings in bytes for a tile to be compressed (default: " +
-                    DEFAULT_COMPRESSION_FIXED_THRESHOLD +
-                    ")\n  " +
-                    ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maximum heap size (default: " +
-                    DEFAULT_CACHE_MAX_HEAP_PERCENT + ")\n  " +
-                    ENV_CACHE_MAX_HEAP + ": Maximum cache size in bytes.  Overrides percent if non-zero. (default: " +
-                    DEFAULT_CACHE_MAX_HEAP + ")\n  " +
-                    ENV_CACHE_EXPIRE + ": Cache expiration duration after access, in ISO-8601 format (e.g. P1.2S) \n" +
-                    "    or plain (e.g., 1.2s) (default: " + DEFAULT_CACHE_EXPIRE.toString() + ")\n"
-            )
+            "\nExample usages:\n" +
+                " Encode a single tile:\n" +
+                "    encode --mvt input.mvt --mlt output.mlt\n" +
+                " Encode all tiles in an MBTiles file, with compression and parallel encoding:\n" +
+                "    encode --mbtiles input.mbtiles --dir output_dir --compress gzip -j\n" +
+                " Start an encoding server on port 8080:\n" +
+                "    encode --server 8080\n" +
+                "\nEnvironment variables:\n" +
+                "  " + ENV_TILE_LOG_INTERVAL + ": Number of tiles between status log messages (default: 10000)\n" +
+                "  " + ENV_COMPRESSION_RATIO_THRESHOLD + ": Minimum compression ratio to apply compression (default: " +
+                DEFAULT_COMPRESSION_RATIO_THRESHOLD +
+                ")\n  " +
+                ENV_COMPRESSION_FIXED_THRESHOLD + ": Minimum savings in bytes for a tile to be compressed (default: " +
+                DEFAULT_COMPRESSION_FIXED_THRESHOLD +
+                ")\n  " +
+                ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maximum heap size (default: " +
+                DEFAULT_CACHE_MAX_HEAP_PERCENT + ")\n  " +
+                ENV_CACHE_MAX_HEAP + ": Maximum cache size in bytes.  Overrides percent if non-zero. (default: " +
+                DEFAULT_CACHE_MAX_HEAP + ")\n  " +
+                ENV_CACHE_EXPIRE + ": Cache expiration duration after access, in ISO-8601 format (e.g. P1.2S) \n" +
+                "    or plain (e.g., 1.2s) (default: " + DEFAULT_CACHE_EXPIRE.toString() + ")\n  " +
+                ENV_PMTILES_DEDUP + ": Detect duplicate PMTiles tiles and convert them only once.  Enable to reduce\n" +
+                "    the number of conversions at the cost of ~32 bytes/tile of additional memory use. (default: " + DEFAULT_PMTILES_DEDUP +
+                ")\n"
 
         val target = TextHelpAppendable(System.err)
 
