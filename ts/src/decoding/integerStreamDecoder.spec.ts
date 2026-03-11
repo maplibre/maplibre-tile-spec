@@ -28,7 +28,7 @@ import {
     encodeInt64UnsignedNone,
     encodeUnsignedInt32Stream,
 } from "../encoding/integerStreamEncoder";
-import { encodeVarintFloat64 } from "../encoding/integerEncodingUtils";
+import { encodeVarintFloat64, encodeVarintInt64, encodeZigZagInt64Value } from "../encoding/integerEncodingUtils";
 
 describe("getVectorType", () => {
     it("should return FLAT for RLE with 0 runs", () => {
@@ -125,6 +125,21 @@ describe("decodeUnsignedInt32Stream", () => {
         const data = encodeUnsignedInt32Stream(expectedValues, metadata, bitVector);
 
         const result = decodeUnsignedInt32Stream(data, new IntWrapper(0), metadata, undefined, bitVector);
+
+        expect(result).toEqual(expectedValues);
+    });
+
+    it("should decode DELTA with RLE", () => {
+        const expectedValues = new Uint32Array([10, 12, 14, 15, 16]);
+        const metadata = createRleMetadata(
+            LogicalLevelTechnique.DELTA,
+            LogicalLevelTechnique.RLE,
+            3,
+            expectedValues.length,
+        );
+        const data = encodeUnsignedInt32Stream(expectedValues, metadata);
+
+        const result = decodeUnsignedInt32Stream(data, new IntWrapper(0), metadata);
 
         expect(result).toEqual(expectedValues);
     });
@@ -346,6 +361,32 @@ describe("decodeInt64AsFloat64Stream", () => {
 });
 
 describe("decodeInt64Stream", () => {
+    describe("unsigned DELTA with RLE", () => {
+        it("should decode unsigned DELTA with RLE", () => {
+            const expectedValues = new BigUint64Array([10n, 12n, 14n, 15n, 16n]);
+            const metadata = createRleMetadata(
+                LogicalLevelTechnique.DELTA,
+                LogicalLevelTechnique.RLE,
+                3,
+                expectedValues.length,
+            );
+            const encodedValues = new BigUint64Array([
+                1n,
+                2n,
+                2n,
+                encodeZigZagInt64Value(10n),
+                encodeZigZagInt64Value(2n),
+                encodeZigZagInt64Value(1n),
+            ]);
+            const data = encodeVarintInt64(encodedValues);
+            const offset = new IntWrapper(0);
+
+            const result = decodeUnsignedInt64Stream(data, offset, metadata);
+
+            expect(result).toEqual(expectedValues);
+        });
+    });
+
     describe("DELTA with RLE", () => {
         it("should decode DELTA with RLE", () => {
             const numRleValues = 5;
