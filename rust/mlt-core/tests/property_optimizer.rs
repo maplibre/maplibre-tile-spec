@@ -21,10 +21,7 @@ fn decoded_str(name: &str, values: &[&str]) -> DecodedProperty<'static> {
 }
 
 fn to_owned_props(decoded: Vec<DecodedProperty<'static>>) -> Vec<OwnedProperty> {
-    decoded
-        .into_iter()
-        .map(OwnedProperty::Decoded)
-        .collect()
+    decoded.into_iter().map(OwnedProperty::Decoded).collect()
 }
 
 #[test]
