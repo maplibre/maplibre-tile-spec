@@ -294,8 +294,11 @@ impl OwnedStream {
     /// 1. Symbol lengths stream (Length, `LengthType::Symbol`)
     /// 2. Symbol table data stream (Data, `DictionaryType::Fsst`)
     /// 3. Value lengths stream (Length, `LengthType::Dictionary`)
-    /// 4. Compressed corpus stream (Data, `DictionaryType::Single`)
+    /// 4. Compressed corpus stream (Data, `dict_type`)
     /// 5. Offset indices stream (Offset, `OffsetType::String`)
+    ///
+    /// The dictionary type of the compressed corpus stream is determined by the
+    /// `dict_type` argument passed to this function.
     ///
     /// Note: The FSST algorithm implementation may differ from Java's, so the
     /// compressed output may not be byte-for-byte identical. Both implementations
