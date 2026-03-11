@@ -72,8 +72,8 @@ fun encodeOfflineDB(
 
                                 config.taskRunner.run(
                                     {
-                                        val count = tileCount.incrementAndGet().toULong()
-                                        if (count.mod(tileLogInterval) == 0UL) {
+                                        val count = tileCount.incrementAndGet()
+                                        if ((count % tileLogInterval) == 0L) {
                                             logger.debug(
                                                 "Processing tile {} : {}:{},{}",
                                                 count,

@@ -19,7 +19,6 @@ import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.net.URI
 import java.net.URISyntaxException
-import java.util.Arrays
 import java.util.regex.Pattern
 import java.util.regex.PatternSyntaxException
 import java.util.stream.Collectors
@@ -657,13 +656,14 @@ Add an explicit column mapping on the specified layers:
                 " " + ENV_COMPRESSION_FIXED_THRESHOLD + ": Minimum savings in bytes for a tile to be compressed (default: " +
                 " " + DEFAULT_COMPRESSION_FIXED_THRESHOLD + ")\n" +
                 "  Only applies with --" + INPUT_MBTILES_ARG + ".\n" +
-                " " + ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maximum heap size (default: " +
-                DEFAULT_CACHE_MAX_HEAP_PERCENT + ")\n" +
-                " " + ENV_CACHE_MAX_HEAP + ": Maximum cache size in bytes.  Overrides percent if non-zero. (default: " +
-                DEFAULT_CACHE_MAX_HEAP + ")\n" +
-                " " + ENV_CACHE_EXPIRE + ": Cache expiration duration after access, in ISO-8601 format (e.g. P1.2S) \n" +
+                " " + ENV_CACHE_MAX + ": Maximum cache size in bytes. (default: " + DEFAULT_CACHE_MAX + ")\n" +
+                " " + ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maximum heap size.\n" +
+                "  Overrides " + ENV_CACHE_MAX + " if non-zero. (default: " + DEFAULT_CACHE_MAX_HEAP_PERCENT + ")\n" +
+                " " + ENV_CACHE_EXPIRE + ": Cache expiration duration after access, in ISO-8601 format (e.g. P1.2S)\n" +
                 "  or plain (e.g., 1.2s). (default: " + DEFAULT_CACHE_EXPIRE.toString() + ")\n" +
-                "  Zero causes cache entries to never expire.\n" +
+                "  Zero causes cache entries to be evicted only due to size.\n" +
+                " " + ENV_CACHE_BLOCK_SIZE + ": If zero, individual tiles will be cached. If non-zero, the cache will\n" +
+                "  store aligned blocks of that size. (default: " + DEFAULT_CACHE_BLOCK_SIZE.toString() + ")\n" +
                 " " + ENV_CACHE_AVERAGE_WEIGHT + ": Average size of tiles in bytes. (default: " + DEFAULT_CACHE_AVERAGE_WEIGHT + ")\n" +
                 "  Zero disables initial cache size estimation.\n" +
                 " All cache options only apply with --" + INPUT_PMTILES_ARG + ".\n"

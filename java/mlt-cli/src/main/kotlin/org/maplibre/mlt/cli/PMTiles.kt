@@ -71,15 +71,24 @@ private fun getCacheManager(config: EncodeConfig) =
         // `RangeReaderCache.SHARED_CACHE_NAME` is private
         val cacheName = "tileverse-rangereader-cache"
         val maxMemory = Runtime.getRuntime().maxMemory()
-        val maxHeapUsage = cacheMaxHeap?.toLong() ?: (maxMemory * cacheMaxHeapPercent / 100).toLong()
+        val cacheSize =
+            if (cacheMaxHeapPercent > 0) {
+                (cacheMaxHeapPercent / 100 * maxMemory).toLong()
+            } else {
+                cacheMaxSize
+            }
 
-        logger.debug("Initializing cache with max size {}, max age {}", maxHeapUsage, cacheExpireAfterAccess)
+        logger.debug(
+            "Initializing cache with max size {}, max age {}",
+            formatSize(cacheSize),
+            cacheExpireAfterAccess,
+        )
         rangeReaderCache =
             WeakReference(
                 it.getCache(cacheName, {
                     CaffeineCache
                         .newBuilder<ByteRange, ByteBuffer>()
-                        .maximumWeight(maxHeapUsage)
+                        .maximumWeight(cacheSize)
                         .weigher(::weigh)
                         .scheduler(Scheduler.systemScheduler())
                         .also {
@@ -106,8 +115,8 @@ private fun getCachingReader(
 ) = CachingRangeReader
     .builder(rawReader)
     .cacheManager(cacheManager)
-    .withHeaderBuffer()
-    .withBlockAlignment()
+    .withoutHeaderBuffer()
+    .blockSize(cacheBlockSize)
     .build()
 
 private fun logCacheStats(cache: CaffeineCache<ByteRange, ByteBuffer>) {
@@ -333,10 +342,10 @@ private fun processTileRange(
 
     // Log every Nth tile at debug level
     if (logger.isDebugEnabled) {
-        val prevBatch = prevTileCount.toULong().div(tileLogInterval)
-        val curBatch = curTileCount.toULong().div(tileLogInterval)
+        val prevBatch = prevTileCount / tileLogInterval
+        val curBatch = curTileCount / tileLogInterval
         // If we're the range that crosses a log interval boundary, log the progress.
-        if (prevTileCount == 0L || curBatch != prevBatch || (state.directoryComplete.get() && curTileCount == state.totalTileCount.get())) {
+        if (curBatch != prevBatch || (state.directoryComplete.get() && curTileCount == state.totalTileCount.get())) {
             if (!state.directoryComplete.get()) {
                 // Still fetching tile coordinates, we can't show a percentage.
                 logger.debug(
@@ -356,7 +365,7 @@ private fun processTileRange(
                     tileLabel,
                 )
             }
-            if (prevTileCount > 0 && config.logCacheStats) {
+            if (config.logCacheStats) {
                 rangeReaderCache.get()?.also(::logCacheStats)
             }
         }

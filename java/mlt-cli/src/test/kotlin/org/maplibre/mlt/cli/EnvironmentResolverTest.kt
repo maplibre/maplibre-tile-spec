@@ -4,7 +4,6 @@ import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.core.config.Configurator
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -61,7 +60,7 @@ class EnvironmentResolverTest {
     @Test
     fun `computeTileLogInterval success`() {
         envResolver = { name -> if (name == ENV_TILE_LOG_INTERVAL) "12345" else null }
-        assertEquals(12345UL, computeTileLogInterval())
+        assertEquals(12345L, computeTileLogInterval())
     }
 
     @Test
@@ -73,7 +72,7 @@ class EnvironmentResolverTest {
     @Test
     fun `computeTileLogInterval zero treated as never`() {
         envResolver = { name -> if (name == ENV_TILE_LOG_INTERVAL) "0" else null }
-        assertEquals(ULong.MAX_VALUE, computeTileLogInterval())
+        assertEquals(Long.MAX_VALUE, computeTileLogInterval())
     }
 
     @Test
@@ -102,22 +101,21 @@ class EnvironmentResolverTest {
 
     @Test
     fun `cache max heap valid`() {
-        envResolver = { name -> if (name == ENV_CACHE_MAX_HEAP) "12345" else null }
-        assertEquals(12345UL, computeCacheMaxHeap())
+        envResolver = { name -> if (name == ENV_CACHE_MAX) "12345" else null }
+        assertEquals(12345L, computeCacheMaxSize())
     }
 
     @Test
-    fun `cache max heap zero produces null`() {
-        envResolver = { name -> if (name == ENV_CACHE_MAX_HEAP) "0" else null }
-        assertNull(computeCacheMaxHeap())
+    fun `cache max zero throws`() {
+        envResolver = { name -> if (name == ENV_CACHE_MAX) "0" else null }
+        assertThrows(illegalArgType) { computeCacheMaxSize() }.andContains("positive")
     }
 
     @Test
-    fun `cache max heap too large throws`() {
+    fun `cache max negative throws`() {
         // larger than Long.MAX_VALUE
-        val big = (Long.MAX_VALUE.toULong() + 1UL).toString()
-        envResolver = { name -> if (name == ENV_CACHE_MAX_HEAP) big else null }
-        assertThrows(illegalArgType) { computeCacheMaxHeap() }.andContains("at most")
+        envResolver = { name -> if (name == ENV_CACHE_MAX) "-1" else null }
+        assertThrows(illegalArgType) { computeCacheMaxSize() }.andContains("positive")
     }
 
     @Test
@@ -160,6 +158,24 @@ class EnvironmentResolverTest {
     fun `computeCacheAverageEntrySize negative throws`() {
         envResolver = { name -> if (name == ENV_CACHE_AVERAGE_WEIGHT) "-1" else null }
         assertThrows(illegalArgType) { computeCacheAverageEntrySize() }.andContains("not be negative")
+    }
+
+    @Test
+    fun `computeCacheBlockSize success`() {
+        envResolver = { name -> if (name == ENV_CACHE_BLOCK_SIZE) "2048" else null }
+        assertEquals(2048, computeCacheBlockSize())
+    }
+
+    @Test
+    fun `computeCacheBlockSize parser failure returns default`() {
+        envResolver = { name -> if (name == ENV_CACHE_BLOCK_SIZE) "x" else null }
+        assertEquals(DEFAULT_CACHE_BLOCK_SIZE, computeCacheBlockSize())
+    }
+
+    @Test
+    fun `computeCacheBlockSize negative throws`() {
+        envResolver = { name -> if (name == ENV_CACHE_BLOCK_SIZE) "-1" else null }
+        assertThrows(illegalArgType) { computeCacheBlockSize() }.andContains("not be negative")
     }
 
     private val illegalArgType = IllegalArgumentException::class.java
