@@ -28,6 +28,14 @@ fn encode_vertex_buffer(
     })
 }
 
+/// Delta-encode a sorted slice of Morton codes: `[codes[0], codes[1]-codes[0], ...]`.
+#[inline]
+fn morton_deltas(codes: &[u32]) -> Vec<u32> {
+    std::iter::once(codes[0])
+        .chain(codes.windows(2).map(|w| w[1] - w[0]))
+        .collect()
+}
+
 /// Encode a Morton vertex dictionary stream.
 ///
 /// `codes` must be the sorted unique Morton codes for the dictionary.
@@ -37,9 +45,7 @@ fn encode_morton_vertex_buffer(
     meta: MortonMeta,
     physical: PhysicalEncoder,
 ) -> Result<OwnedStream, MltError> {
-    let deltas: Vec<u32> = std::iter::once(codes[0])
-        .chain(codes.windows(2).map(|w| w[1] - w[0]))
-        .collect();
+    let deltas = morton_deltas(codes);
     let num_values = u32::try_from(deltas.len())?;
     let (data, physical_encoding) = physical.encode_u32s(deltas)?;
     Ok(OwnedStream {
@@ -704,10 +710,10 @@ pub fn encode_geometry(
                 };
                 if let Some(cb) = &mut on_stream {
                     cb(StreamType::Offset(OffsetType::Vertex), &offsets);
-                    let deltas: Vec<u32> = std::iter::once(dict[0])
-                        .chain(dict.windows(2).map(|w| w[1] - w[0]))
-                        .collect();
-                    cb(StreamType::Data(DictionaryType::Morton), &deltas);
+                    cb(
+                        StreamType::Data(DictionaryType::Morton),
+                        &morton_deltas(&dict),
+                    );
                 }
                 items.push(OwnedStream::encode_u32s_of_type(
                     &offsets,

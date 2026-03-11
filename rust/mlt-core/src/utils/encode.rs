@@ -217,6 +217,21 @@ where
     result
 }
 
+/// Interleave `x` and `y` into a single Morton code using `num_bits` bits per component.
+///
+/// Even bit positions encode `x`, odd positions encode `y`.
+/// This is the inverse of the Morton decode in `decode_morton_codes` / `decode_morton_delta`.
+#[must_use]
+#[inline]
+pub fn encode_morton_15(x: u32, y: u32) -> u32 {
+    let mut code = 0u32;
+    for bit in 0..15 {
+        code |= ((x >> bit) & 1) << (2 * bit);
+        code |= ((y >> bit) & 1) << (2 * bit + 1);
+    }
+    code
+}
+
 /// Helper to pack a `Vec<bool>` into `Vec<u8>` where each byte represents 8 booleans.
 #[must_use]
 pub fn encode_bools_to_bytes(bools: &[bool]) -> Vec<u8> {
