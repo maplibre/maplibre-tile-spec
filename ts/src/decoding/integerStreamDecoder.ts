@@ -6,11 +6,15 @@ import {
     decodeDeltaRleInt32,
     decodeDeltaRleInt64,
     decodeFastPfor,
+    decodeUnsignedComponentwiseDeltaVec2,
+    decodeUnsignedComponentwiseDeltaVec2Scaled,
     decodeUnsignedConstRleInt32,
     decodeUnsignedConstRleInt64,
     decodeUnsignedRleInt32,
     decodeUnsignedRleInt64,
     decodeUnsignedRleFloat64,
+    decodeUnsignedZigZagDeltaInt32,
+    decodeUnsignedZigZagDeltaInt64,
     decodeVarintInt32,
     decodeVarintInt64,
     decodeVarintFloat64,
@@ -529,47 +533,4 @@ function decodeRleFloat64(
     return isSigned
         ? decodeZigZagRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues)
         : decodeUnsignedRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues);
-}
-
-function decodeUnsignedZigZagDeltaInt32(data: Uint32Array): Uint32Array {
-    const decodedValues = new Uint32Array(data.length);
-    decodedValues[0] = decodeZigZagInt32Value(data[0]) >>> 0;
-    for (let i = 1; i < data.length; i++) {
-        decodedValues[i] = (decodedValues[i - 1] + decodeZigZagInt32Value(data[i])) >>> 0;
-    }
-    return decodedValues;
-}
-
-function decodeUnsignedZigZagDeltaInt64(data: BigUint64Array): BigUint64Array {
-    const decodedValues = new BigUint64Array(data.length);
-    decodedValues[0] = BigInt.asUintN(64, decodeZigZagInt64Value(data[0]));
-    for (let i = 1; i < data.length; i++) {
-        decodedValues[i] = BigInt.asUintN(64, decodedValues[i - 1] + decodeZigZagInt64Value(data[i]));
-    }
-    return decodedValues;
-}
-
-function decodeUnsignedComponentwiseDeltaVec2(data: Uint32Array): Uint32Array {
-    if (data.length < 2) {
-        return new Uint32Array(data);
-    }
-
-    const decodedData = new Uint32Array(data.length);
-    decodedData[0] = decodeZigZagInt32Value(data[0]) >>> 0;
-    decodedData[1] = decodeZigZagInt32Value(data[1]) >>> 0;
-    for (let i = 2; i < data.length; i += 2) {
-        decodedData[i] = (decodedData[i - 2] + decodeZigZagInt32Value(data[i])) >>> 0;
-        decodedData[i + 1] = (decodedData[i - 1] + decodeZigZagInt32Value(data[i + 1])) >>> 0;
-    }
-    return decodedData;
-}
-
-function decodeUnsignedComponentwiseDeltaVec2Scaled(
-    data: Uint32Array,
-    scale: number,
-    min: number,
-    max: number,
-): Uint32Array {
-    const scaledValues = decodeComponentwiseDeltaVec2Scaled(data, scale, min, max);
-    return new Uint32Array(scaledValues);
 }
