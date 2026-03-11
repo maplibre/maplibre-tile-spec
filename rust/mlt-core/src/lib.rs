@@ -18,12 +18,11 @@ pub use analyse::{Analyze, StatType};
 // reexport borrowme to make it easier to use in other crates
 pub use borrowme;
 pub use convert::{geojson, mvt};
+pub(crate) use decode::*;
 pub use encode::Encodable;
+pub(crate) use encode::FromDecoded;
 pub use errors::{MltError, MltRefResult};
 pub use frames::{Layer, OwnedLayer, unknown, v01};
-
-pub(crate) use decode::*;
-pub(crate) use encode::FromDecoded;
 
 /// Parse a sequence of binary layers
 pub fn parse_layers(mut input: &[u8]) -> Result<Vec<Layer<'_>>, MltError> {
