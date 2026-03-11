@@ -1,6 +1,8 @@
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
+use crate::v01::{Geometry, Id, Property};
+
 /// Column definition
 #[borrowme]
 #[derive(Debug, PartialEq)]
@@ -40,4 +42,33 @@ pub enum ColumnType {
     Str = 28,
     OptStr = 29,
     SharedDict = 30,
+}
+
+/// Representation of a feature table layer encoded as MLT tag `0x01`
+#[cfg(not(fuzzing))]
+#[borrowme]
+#[derive(Debug, PartialEq)]
+#[cfg_attr(
+    all(not(test), not(fuzzing), feature = "arbitrary"),
+    owned_attr(derive(arbitrary::Arbitrary))
+)]
+pub struct Layer01<'a> {
+    pub name: &'a str,
+    pub extent: u32,
+    pub id: Id<'a>,
+    pub geometry: Geometry<'a>,
+    pub properties: Vec<Property<'a>>,
+}
+
+/// FIXME: fuzzing is only adding layer_order but this borrowme does not codegen correctly in this case
+#[cfg(fuzzing)]
+#[borrowme]
+#[derive(Debug, PartialEq)]
+pub struct Layer01<'a> {
+    pub name: &'a str,
+    pub extent: u32,
+    pub id: Id<'a>,
+    pub geometry: Geometry<'a>,
+    pub properties: Vec<Property<'a>>,
+    pub layer_order: Vec<crate::frames::v01::root::LayerOrdering>,
 }

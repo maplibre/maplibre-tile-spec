@@ -3,13 +3,7 @@ use std::io::Write;
 
 use crate::analyse::{Analyze, StatType};
 use crate::utils::formatter::fmt_byte_array;
-
-#[borrowme::borrowme]
-#[derive(PartialEq, Clone)]
-pub enum StreamData<'a> {
-    VarInt(#[borrowme(borrow_with=Vec::as_slice)] &'a [u8]),
-    Encoded(#[borrowme(borrow_with=Vec::as_slice)] &'a [u8]),
-}
+use crate::v01::{OwnedStreamData, StreamData};
 
 impl StreamData<'_> {
     #[must_use]

@@ -1,45 +1,14 @@
 use std::io;
 use std::io::Write;
 
-use borrowme::borrowme;
-
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::{
     Column, ColumnType, DictionaryType, EncodedIdValue, EncodedPresence, EncodedProperty,
-    EncodedSharedDict, EncodedSharedDictChild, EncodedStrings, FsstData, Geometry, Id, NameRef,
-    PlainData, Property, Stream, StreamType,
+    EncodedSharedDict, EncodedSharedDictChild, EncodedStrings, FsstData, Geometry, Id, Layer01,
+    NameRef, OwnedLayer01, PlainData, Property, Stream, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
-
-/// Representation of a feature table layer encoded as MLT tag `0x01`
-#[cfg(not(fuzzing))]
-#[borrowme]
-#[derive(Debug, PartialEq)]
-#[cfg_attr(
-    all(not(test), not(fuzzing), feature = "arbitrary"),
-    owned_attr(derive(arbitrary::Arbitrary))
-)]
-pub struct Layer01<'a> {
-    pub name: &'a str,
-    pub extent: u32,
-    pub id: Id<'a>,
-    pub geometry: Geometry<'a>,
-    pub properties: Vec<Property<'a>>,
-}
-
-/// FIXME: fuzzing is only adding layer_order but this borrowme does not codegen correctly in this case
-#[cfg(fuzzing)]
-#[borrowme]
-#[derive(Debug, PartialEq)]
-pub struct Layer01<'a> {
-    pub name: &'a str,
-    pub extent: u32,
-    pub id: Id<'a>,
-    pub geometry: Geometry<'a>,
-    pub properties: Vec<Property<'a>>,
-    pub layer_order: Vec<LayerOrdering>,
-}
 
 impl Analyze for Layer01<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {

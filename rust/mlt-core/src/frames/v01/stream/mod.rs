@@ -11,7 +11,6 @@ mod physical;
 #[cfg(test)]
 mod tests;
 
-pub use data::*;
 pub use encoder::{FsstStrEncoder, IntEncoder};
 pub use logical::LogicalEncoder;
 pub use model::*;

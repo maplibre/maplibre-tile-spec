@@ -12,5 +12,4 @@ pub use id::*;
 pub use model::*;
 pub use optimizer::*;
 pub use property::*;
-pub use root::*;
 pub use stream::*;
