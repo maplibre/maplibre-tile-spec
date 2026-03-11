@@ -604,25 +604,6 @@ export function decodeDeltaRleInt32(data: Uint32Array, numRuns: number, numValue
     return result;
 }
 
-export function decodeUnsignedDeltaRleInt32(data: Uint32Array, numRuns: number, numValues: number): Uint32Array {
-    const result = new Uint32Array(numValues);
-    let outPos = 0;
-    let previousValue = 0;
-
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = data[i];
-        const zigZagDelta = data[i + numRuns];
-        const delta = decodeZigZagInt32Value(zigZagDelta);
-
-        for (let j = 0; j < runLength; j++) {
-            previousValue = (previousValue + delta) >>> 0;
-            result[outPos++] = previousValue;
-        }
-    }
-
-    return result;
-}
-
 /**
  * Decode Delta-RLE with multiple runs for 64-bit integers.
  */
@@ -638,25 +619,6 @@ export function decodeDeltaRleInt64(data: BigUint64Array, numRuns: number, numVa
 
         for (let j = 0; j < runLength; j++) {
             previousValue += delta;
-            result[outPos++] = previousValue;
-        }
-    }
-
-    return result;
-}
-
-export function decodeUnsignedDeltaRleInt64(data: BigUint64Array, numRuns: number, numValues: number): BigUint64Array {
-    const result = new BigUint64Array(numValues);
-    let outPos = 0;
-    let previousValue = 0n;
-
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = Number(data[i]);
-        const zigZagDelta = data[i + numRuns];
-        const delta = decodeZigZagInt64Value(zigZagDelta);
-
-        for (let j = 0; j < runLength; j++) {
-            previousValue = BigInt.asUintN(64, previousValue + delta);
             result[outPos++] = previousValue;
         }
     }

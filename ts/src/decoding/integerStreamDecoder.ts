@@ -10,8 +10,6 @@ import {
     decodeUnsignedComponentwiseDeltaVec2Scaled,
     decodeUnsignedConstRleInt32,
     decodeUnsignedConstRleInt64,
-    decodeUnsignedDeltaRleInt32,
-    decodeUnsignedDeltaRleInt64,
     decodeUnsignedRleInt32,
     decodeUnsignedRleInt64,
     decodeUnsignedRleFloat64,
@@ -288,9 +286,6 @@ function decodeUnsignedInt32(
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                 const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                if (!nullabilityBuffer) {
-                    return decodeUnsignedDeltaRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-                }
                 const deltaValues = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
                 decodedValues = decodeUnsignedZigZagDeltaInt32(deltaValues);
             } else {
@@ -386,9 +381,6 @@ function decodeUnsignedInt64(
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                 const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                if (!nullabilityBuffer) {
-                    return decodeUnsignedDeltaRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
-                }
                 const deltaValues = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
                 decodedValues = decodeUnsignedZigZagDeltaInt64(deltaValues);
             } else {
