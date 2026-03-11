@@ -1,228 +1,267 @@
 import type { StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import {
-    encodeDeltaRleInt32,
-    encodeZigZagInt32,
-    encodeZigZagRleInt32,
-    encodeUnsignedRleInt32,
-    encodeDeltaInt32,
-    encodeUnsignedRleFloat64,
-    encodeZigZagDeltaFloat64,
-    encodeZigZagFloat64,
-    encodeZigZagRleFloat64,
-    encodeVarintInt32,
-    encodeVarintInt64,
-    encodeZigZagInt64Value,
-    encodeFastPfor,
-    encodeComponentwiseDeltaVec2,
-    encodeComponentwiseDeltaVec2Scaled,
-    encodeZigZagDeltaInt32,
+  encodeDeltaRleInt32,
+  encodeZigZagInt32,
+  encodeZigZagRleInt32,
+  encodeUnsignedRleInt32,
+  encodeDeltaInt32,
+  encodeUnsignedRleFloat64,
+  encodeZigZagDeltaFloat64,
+  encodeZigZagFloat64,
+  encodeZigZagRleFloat64,
+  encodeVarintInt32,
+  encodeVarintInt64,
+  encodeZigZagInt64Value,
+  encodeFastPfor,
+  encodeComponentwiseDeltaVec2,
+  encodeComponentwiseDeltaVec2Scaled,
+  encodeZigZagDeltaInt32,
 } from "./integerEncodingUtils";
 import type BitVector from "../vector/flat/bitVector";
 import { packNullable } from "./packNullableUtils";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import type GeometryScaling from "../decoding/geometryScaling";
 
-export function encodeIntStream(
-    values: Int32Array,
-    metadata: StreamMetadata,
-    isSigned: boolean,
-    bitVector?: BitVector,
-    scalingData?: GeometryScaling,
+export function encodeSignedInt32Stream(
+  values: Int32Array,
+  metadata: StreamMetadata,
+  bitVector?: BitVector,
+  scalingData?: GeometryScaling,
 ): Uint8Array {
-    const { data } = isSigned
-        ? encodeSignedInt32(values, metadata, bitVector, scalingData)
-        : encodeUnsignedInt32(new Uint32Array(values.buffer, values.byteOffset, values.length), metadata, bitVector, scalingData);
-    return encodePhysicalLevelTechnique(data, metadata);
+  const { data } = encodeSignedInt32(values, metadata, bitVector, scalingData);
+  return encodePhysicalLevelTechnique(data, metadata);
 }
 
-function encodePhysicalLevelTechnique(data: Uint32Array, streamMetadata: StreamMetadata): Uint8Array {
-    const physicalLevelTechnique = streamMetadata.physicalLevelTechnique;
-    if (physicalLevelTechnique === PhysicalLevelTechnique.FAST_PFOR) {
-        return encodeFastPfor(data);
-    }
-    if (physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
-        return encodeVarintInt32(data);
-    }
+export function encodeUnsignedInt32Stream(
+  values: Uint32Array,
+  metadata: StreamMetadata,
+  bitVector?: BitVector,
+  scalingData?: GeometryScaling,
+): Uint8Array {
+  const { data } = encodeUnsignedInt32(
+    values,
+    metadata,
+    bitVector,
+    scalingData,
+  );
+  return encodePhysicalLevelTechnique(data, metadata);
+}
 
-    if (physicalLevelTechnique === PhysicalLevelTechnique.NONE) {
-        const slice = data.subarray(0, streamMetadata.byteLength);
-        return new Uint8Array(slice);
-    }
+function encodePhysicalLevelTechnique(
+  data: Uint32Array,
+  streamMetadata: StreamMetadata,
+): Uint8Array {
+  const physicalLevelTechnique = streamMetadata.physicalLevelTechnique;
+  if (physicalLevelTechnique === PhysicalLevelTechnique.FAST_PFOR) {
+    return encodeFastPfor(data);
+  }
+  if (physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
+    return encodeVarintInt32(data);
+  }
 
-    throw new Error("Specified physicalLevelTechnique is not supported (yet).");
+  if (physicalLevelTechnique === PhysicalLevelTechnique.NONE) {
+    const slice = data.subarray(0, streamMetadata.byteLength);
+    return new Uint8Array(slice);
+  }
+
+  throw new Error("Specified physicalLevelTechnique is not supported (yet).");
 }
 
 function encodeSignedInt32(
-    values: Int32Array,
-    streamMetadata: StreamMetadata,
-    bitVector?: BitVector,
-    scalingData?: GeometryScaling,
+  values: Int32Array,
+  streamMetadata: StreamMetadata,
+  bitVector?: BitVector,
+  scalingData?: GeometryScaling,
 ): { data: Uint32Array; runs?: number } {
-    values = bitVector ? packNullable(values, bitVector) : new Int32Array(values);
-    let data: Uint32Array;
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const encoded = encodeDeltaRleInt32(values);
-                return { data: encoded.data, runs: encoded.runs };
-            } else {
-                data = encodeZigZagDeltaInt32(values);
-                return { data };
-            }
-        case LogicalLevelTechnique.RLE: {
-            const encoded = encodeZigZagRleInt32(values);
-            return { data: encoded.data, runs: encoded.runs };
-        }
-        case LogicalLevelTechnique.MORTON:
-            encodeDeltaInt32(values);
-            data = new Uint32Array(values);
-            return { data };
-        case LogicalLevelTechnique.COMPONENTWISE_DELTA:
-            if (scalingData && !bitVector) {
-                const data = encodeComponentwiseDeltaVec2Scaled(values, scalingData.scale);
-                return { data };
-            }
-            data = encodeComponentwiseDeltaVec2(values);
-            return { data };
-        case LogicalLevelTechnique.NONE:
-            data = encodeZigZagInt32(values);
-            return { data };
-        default:
-            throw new Error(
-                `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
-            );
+  values = bitVector ? packNullable(values, bitVector) : new Int32Array(values);
+  let data: Uint32Array;
+  switch (streamMetadata.logicalLevelTechnique1) {
+    case LogicalLevelTechnique.DELTA:
+      if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+        const encoded = encodeDeltaRleInt32(values);
+        return { data: encoded.data, runs: encoded.runs };
+      } else {
+        data = encodeZigZagDeltaInt32(values);
+        return { data };
+      }
+    case LogicalLevelTechnique.RLE: {
+      const encoded = encodeZigZagRleInt32(values);
+      return { data: encoded.data, runs: encoded.runs };
     }
+    case LogicalLevelTechnique.MORTON:
+      encodeDeltaInt32(values);
+      data = new Uint32Array(values);
+      return { data };
+    case LogicalLevelTechnique.COMPONENTWISE_DELTA:
+      if (scalingData && !bitVector) {
+        const data = encodeComponentwiseDeltaVec2Scaled(
+          values,
+          scalingData.scale,
+        );
+        return { data };
+      }
+      data = encodeComponentwiseDeltaVec2(values);
+      return { data };
+    case LogicalLevelTechnique.NONE:
+      data = encodeZigZagInt32(values);
+      return { data };
+    default:
+      throw new Error(
+        `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+      );
+  }
 }
 
 function encodeUnsignedInt32(
-    values: Uint32Array,
-    streamMetadata: StreamMetadata,
-    bitVector?: BitVector,
-    scalingData?: GeometryScaling,
+  values: Uint32Array,
+  streamMetadata: StreamMetadata,
+  bitVector?: BitVector,
+  scalingData?: GeometryScaling,
 ): { data: Uint32Array; runs?: number } {
-    values = bitVector ? packNullable(values, bitVector) : new Uint32Array(values);
-    let data: Uint32Array;
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const encoded = encodeDeltaRleInt32(new Int32Array(values.buffer, values.byteOffset, values.length));
-                return { data: encoded.data, runs: encoded.runs };
-            }
-            data = encodeZigZagDeltaInt32(new Int32Array(values.buffer, values.byteOffset, values.length));
-            return { data };
-        case LogicalLevelTechnique.RLE: {
-            const encoded = encodeUnsignedRleInt32(values);
-            return { data: encoded.data, runs: encoded.runs };
-        }
-        case LogicalLevelTechnique.MORTON:
-            encodeDeltaInt32(values);
-            data = values;
-            return { data };
-        case LogicalLevelTechnique.COMPONENTWISE_DELTA:
-            if (scalingData && !bitVector) {
-                const data = encodeComponentwiseDeltaVec2Scaled(new Int32Array(values), scalingData.scale);
-                return { data };
-            }
-            data = encodeComponentwiseDeltaVec2(new Int32Array(values));
-            return { data };
-        case LogicalLevelTechnique.NONE:
-            data = values;
-            return { data };
-        default:
-            throw new Error(
-                `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
-            );
+  values = bitVector
+    ? packNullable(values, bitVector)
+    : new Uint32Array(values);
+  let data: Uint32Array;
+  switch (streamMetadata.logicalLevelTechnique1) {
+    case LogicalLevelTechnique.DELTA:
+      if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+        const encoded = encodeDeltaRleInt32(
+          new Int32Array(values.buffer, values.byteOffset, values.length),
+        );
+        return { data: encoded.data, runs: encoded.runs };
+      }
+      data = encodeZigZagDeltaInt32(
+        new Int32Array(values.buffer, values.byteOffset, values.length),
+      );
+      return { data };
+    case LogicalLevelTechnique.RLE: {
+      const encoded = encodeUnsignedRleInt32(values);
+      return { data: encoded.data, runs: encoded.runs };
     }
+    case LogicalLevelTechnique.MORTON:
+      encodeDeltaInt32(values);
+      data = values;
+      return { data };
+    case LogicalLevelTechnique.COMPONENTWISE_DELTA:
+      if (scalingData && !bitVector) {
+        const data = encodeComponentwiseDeltaVec2Scaled(
+          new Int32Array(values),
+          scalingData.scale,
+        );
+        return { data };
+      }
+      data = encodeComponentwiseDeltaVec2(new Int32Array(values));
+      return { data };
+    case LogicalLevelTechnique.NONE:
+      data = values;
+      return { data };
+    default:
+      throw new Error(
+        `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+      );
+  }
 }
 
-export function encodeFloat64(values: Float64Array, streamMetadata: StreamMetadata, isSigned: boolean): Float64Array {
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            encodeZigZagDeltaFloat64(values);
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                values = encodeUnsignedRleFloat64(values).data;
-            }
-            return values;
-        case LogicalLevelTechnique.RLE:
-            return encodeRleFloat64(values, isSigned);
-        case LogicalLevelTechnique.NONE:
-            if (isSigned) {
-                encodeZigZagFloat64(values);
-            }
-            return values;
-        default:
-            throw new Error(
-                `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
-            );
-    }
+export function encodeFloat64(
+  values: Float64Array,
+  streamMetadata: StreamMetadata,
+  isSigned: boolean,
+): Float64Array {
+  switch (streamMetadata.logicalLevelTechnique1) {
+    case LogicalLevelTechnique.DELTA:
+      encodeZigZagDeltaFloat64(values);
+      if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+        values = encodeUnsignedRleFloat64(values).data;
+      }
+      return values;
+    case LogicalLevelTechnique.RLE:
+      return encodeRleFloat64(values, isSigned);
+    case LogicalLevelTechnique.NONE:
+      if (isSigned) {
+        encodeZigZagFloat64(values);
+      }
+      return values;
+    default:
+      throw new Error(
+        `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+      );
+  }
 }
 
 function encodeRleFloat64(data: Float64Array, isSigned: boolean): Float64Array {
-    return isSigned ? encodeZigZagRleFloat64(data).data : encodeUnsignedRleFloat64(data).data;
+  return isSigned
+    ? encodeZigZagRleFloat64(data).data
+    : encodeUnsignedRleFloat64(data).data;
 }
 
 /**
  * Encodes BigInt64 values with zigzag encoding and varint compression
  */
 export function encodeInt64SignedNone(values: BigInt64Array): Uint8Array {
-    const zigzagEncoded = new BigUint64Array(Array.from(values, (val) => encodeZigZagInt64Value(val)));
-    return encodeVarintInt64(zigzagEncoded);
+  const zigzagEncoded = new BigUint64Array(
+    Array.from(values, (val) => encodeZigZagInt64Value(val)),
+  );
+  return encodeVarintInt64(zigzagEncoded);
 }
 
 /**
  * Encodes BigInt64 values with delta encoding, zigzag, and varint
  */
 export function encodeInt64SignedDelta(values: BigInt64Array): Uint8Array {
-    const deltaEncoded = new BigInt64Array(values.length);
-    deltaEncoded[0] = values[0];
-    for (let i = 1; i < values.length; i++) {
-        deltaEncoded[i] = values[i] - values[i - 1];
-    }
-    const zigzagEncoded = new BigUint64Array(deltaEncoded.length);
-    for (let i = 0; i < deltaEncoded.length; i++) {
-        zigzagEncoded[i] = encodeZigZagInt64Value(deltaEncoded[i]);
-    }
-    return encodeVarintInt64(zigzagEncoded);
+  const deltaEncoded = new BigInt64Array(values.length);
+  deltaEncoded[0] = values[0];
+  for (let i = 1; i < values.length; i++) {
+    deltaEncoded[i] = values[i] - values[i - 1];
+  }
+  const zigzagEncoded = new BigUint64Array(deltaEncoded.length);
+  for (let i = 0; i < deltaEncoded.length; i++) {
+    zigzagEncoded[i] = encodeZigZagInt64Value(deltaEncoded[i]);
+  }
+  return encodeVarintInt64(zigzagEncoded);
 }
 
 /**
  * Encodes BigInt64 values with RLE, zigzag, and varint
  * @param runs - Array of [runLength, value] pairs
  */
-export function encodeInt64SignedRle(runs: Array<[number, bigint]>): Uint8Array {
-    const runLengths: bigint[] = [];
-    const values: bigint[] = [];
+export function encodeInt64SignedRle(
+  runs: Array<[number, bigint]>,
+): Uint8Array {
+  const runLengths: bigint[] = [];
+  const values: bigint[] = [];
 
-    for (const [runLength, value] of runs) {
-        runLengths.push(BigInt(runLength));
-        values.push(encodeZigZagInt64Value(value));
-    }
+  for (const [runLength, value] of runs) {
+    runLengths.push(BigInt(runLength));
+    values.push(encodeZigZagInt64Value(value));
+  }
 
-    const rleValues = [...runLengths, ...values];
-    return encodeVarintInt64(new BigUint64Array(rleValues));
+  const rleValues = [...runLengths, ...values];
+  return encodeVarintInt64(new BigUint64Array(rleValues));
 }
 
 /**
  * Encodes BigInt64 values with delta+RLE, zigzag, and varint
  * @param runs - Array of [runLength, deltaValue] pairs representing RLE-encoded delta values
  */
-export function encodeInt64SignedDeltaRle(runs: Array<[number, bigint]>): Uint8Array {
-    const runLengths: bigint[] = [];
-    const values: bigint[] = [];
+export function encodeInt64SignedDeltaRle(
+  runs: Array<[number, bigint]>,
+): Uint8Array {
+  const runLengths: bigint[] = [];
+  const values: bigint[] = [];
 
-    for (const [runLength, value] of runs) {
-        runLengths.push(BigInt(runLength));
-        values.push(encodeZigZagInt64Value(value));
-    }
+  for (const [runLength, value] of runs) {
+    runLengths.push(BigInt(runLength));
+    values.push(encodeZigZagInt64Value(value));
+  }
 
-    const rleValues = [...runLengths, ...values];
-    return encodeVarintInt64(new BigUint64Array(rleValues));
+  const rleValues = [...runLengths, ...values];
+  return encodeVarintInt64(new BigUint64Array(rleValues));
 }
 
 /**
  * Encodes unsigned BigInt64 values with varint compression (no zigzag)
  */
 export function encodeInt64UnsignedNone(values: BigInt64Array): Uint8Array {
-    return encodeVarintInt64(new BigUint64Array(values));
+  return encodeVarintInt64(new BigUint64Array(values));
 }

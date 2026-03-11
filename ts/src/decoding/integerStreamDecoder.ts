@@ -1,211 +1,231 @@
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import type IntWrapper from "./intWrapper";
 import {
-    decodeComponentwiseDeltaVec2,
-    decodeComponentwiseDeltaVec2Scaled,
-    decodeDeltaRleInt32,
-    decodeDeltaRleInt64,
-    decodeFastPfor,
-    decodeUnsignedConstRleInt32,
-    decodeUnsignedConstRleInt64,
-    decodeUnsignedRleInt32,
-    decodeUnsignedRleInt64,
-    decodeUnsignedRleFloat64,
-    decodeVarintInt32,
-    decodeVarintInt64,
-    decodeVarintFloat64,
-    decodeZigZagInt32,
-    decodeZigZagInt64,
-    decodeZigZagFloat64,
-    decodeZigZagConstRleInt32,
-    decodeZigZagConstRleInt64,
-    decodeZigZagDeltaInt32,
-    decodeZigZagDeltaInt64,
-    decodeZigZagDeltaFloat64,
-    decodeZigZagSequenceRleInt32,
-    decodeZigZagSequenceRleInt64,
-    decodeZigZagInt32Value,
-    decodeZigZagInt64Value,
-    fastInverseDelta,
-    inverseDelta,
-    decodeRleDeltaInt32,
-    decodeZigZagDeltaOfDeltaInt32,
-    decodeZigZagRleDeltaInt32,
-    decodeZigZagRleInt32,
-    decodeZigZagRleInt64,
-    decodeZigZagRleFloat64,
+  decodeComponentwiseDeltaVec2,
+  decodeComponentwiseDeltaVec2Scaled,
+  decodeDeltaRleInt32,
+  decodeDeltaRleInt64,
+  decodeFastPfor,
+  decodeUnsignedConstRleInt32,
+  decodeUnsignedConstRleInt64,
+  decodeUnsignedRleInt32,
+  decodeUnsignedRleInt64,
+  decodeUnsignedRleFloat64,
+  decodeVarintInt32,
+  decodeVarintInt64,
+  decodeVarintFloat64,
+  decodeZigZagInt32,
+  decodeZigZagInt64,
+  decodeZigZagFloat64,
+  decodeZigZagConstRleInt32,
+  decodeZigZagConstRleInt64,
+  decodeZigZagDeltaInt32,
+  decodeZigZagDeltaInt64,
+  decodeZigZagDeltaFloat64,
+  decodeZigZagSequenceRleInt32,
+  decodeZigZagSequenceRleInt64,
+  decodeZigZagInt32Value,
+  decodeZigZagInt64Value,
+  fastInverseDelta,
+  inverseDelta,
+  decodeRleDeltaInt32,
+  decodeZigZagDeltaOfDeltaInt32,
+  decodeZigZagRleDeltaInt32,
+  decodeZigZagRleInt32,
+  decodeZigZagRleInt64,
+  decodeZigZagRleFloat64,
 } from "./integerDecodingUtils";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
-import type { StreamMetadata, RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
+import type {
+  StreamMetadata,
+  RleEncodedStreamMetadata,
+} from "../metadata/tile/streamMetadataDecoder";
 import BitVector from "../vector/flat/bitVector";
 import { VectorType } from "../vector/vectorType";
 import type GeometryScaling from "./geometryScaling";
 import { unpackNullable } from "./unpackNullableUtils";
 
-export function decodeSignedIntStream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
-    scalingData?: GeometryScaling,
-    nullabilityBuffer?: BitVector,
+export function decodeSignedInt32Stream(
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
+  scalingData?: GeometryScaling,
+  nullabilityBuffer?: BitVector,
 ): Int32Array {
-    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    return decodeSignedInt32(values, streamMetadata, scalingData, nullabilityBuffer);
+  const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+  return decodeSignedInt32(
+    values,
+    streamMetadata,
+    scalingData,
+    nullabilityBuffer,
+  );
 }
 
-export function decodeUnsignedIntStream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
-    scalingData?: GeometryScaling,
-    nullabilityBuffer?: BitVector,
+export function decodeUnsignedInt32Stream(
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
+  scalingData?: GeometryScaling,
+  nullabilityBuffer?: BitVector,
 ): Uint32Array {
-    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    return decodeUnsignedInt32(values, streamMetadata, scalingData, nullabilityBuffer);
+  const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+  return decodeUnsignedInt32(
+    values,
+    streamMetadata,
+    scalingData,
+    nullabilityBuffer,
+  );
 }
 
 export function decodeLengthStreamToOffsetBuffer(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
 ): Uint32Array {
-    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    return decodeLengthToOffsetBuffer(values, streamMetadata);
+  const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+  return decodeLengthToOffsetBuffer(values, streamMetadata);
 }
 
 function decodePhysicalLevelTechnique(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
 ): Uint32Array {
-    const physicalLevelTechnique = streamMetadata.physicalLevelTechnique;
-    switch (physicalLevelTechnique) {
-        case PhysicalLevelTechnique.FAST_PFOR:
-            return decodeFastPfor(data, streamMetadata.numValues, streamMetadata.byteLength, offset);
-        case PhysicalLevelTechnique.VARINT:
-            return decodeVarintInt32(data, offset, streamMetadata.numValues);
-        case PhysicalLevelTechnique.NONE: {
-            const dataOffset = offset.get();
-            const byteLength = streamMetadata.byteLength;
-            offset.add(byteLength);
-            const slice = data.subarray(dataOffset, offset.get());
-            return new Uint32Array(slice);
-        }
-        default:
-            throw new Error(`Specified physicalLevelTechnique ${physicalLevelTechnique} is not supported (yet).`);
+  const physicalLevelTechnique = streamMetadata.physicalLevelTechnique;
+  switch (physicalLevelTechnique) {
+    case PhysicalLevelTechnique.FAST_PFOR:
+      return decodeFastPfor(
+        data,
+        streamMetadata.numValues,
+        streamMetadata.byteLength,
+        offset,
+      );
+    case PhysicalLevelTechnique.VARINT:
+      return decodeVarintInt32(data, offset, streamMetadata.numValues);
+    case PhysicalLevelTechnique.NONE: {
+      const dataOffset = offset.get();
+      const byteLength = streamMetadata.byteLength;
+      offset.add(byteLength);
+      const slice = data.subarray(dataOffset, offset.get());
+      return new Uint32Array(slice);
     }
+    default:
+      throw new Error(
+        `Specified physicalLevelTechnique ${physicalLevelTechnique} is not supported (yet).`,
+      );
+  }
 }
 
-export function decodeSignedConstIntStream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
+export function decodeSignedConstInt32Stream(
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
 ): number {
-    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+  const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
 
-    if (values.length === 1) {
-        return decodeZigZagInt32Value(values[0]);
-    }
+  if (values.length === 1) {
+    return decodeZigZagInt32Value(values[0]);
+  }
 
-    return decodeZigZagConstRleInt32(values);
+  return decodeZigZagConstRleInt32(values);
 }
 
-export function decodeUnsignedConstIntStream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
+export function decodeUnsignedConstInt32Stream(
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
 ): number {
-    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+  const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
 
-    if (values.length === 1) {
-        return values[0];
-    }
+  if (values.length === 1) {
+    return values[0];
+  }
 
-    return decodeUnsignedConstRleInt32(values);
+  return decodeUnsignedConstRleInt32(values);
 }
 
-export function decodeSequenceIntStream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
+export function decodeSequenceInt32Stream(
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
 ): [baseValue: number, delta: number] {
-    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    return decodeZigZagSequenceRleInt32(values);
+  const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+  return decodeZigZagSequenceRleInt32(values);
 }
 
-export function decodeSequenceLongStream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
+export function decodeSequenceInt64Stream(
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
 ): [baseValue: bigint, delta: bigint] {
-    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
-    return decodeZigZagSequenceRleInt64(values);
+  const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
+  return decodeZigZagSequenceRleInt64(values);
 }
 
-export function decodeSignedLongStream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
-    nullabilityBuffer?: BitVector,
+export function decodeSignedInt64Stream(
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
+  nullabilityBuffer?: BitVector,
 ): BigInt64Array {
-    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
-    return decodeSignedInt64(values, streamMetadata, nullabilityBuffer);
+  const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
+  return decodeSignedInt64(values, streamMetadata, nullabilityBuffer);
 }
 
-export function decodeUnsignedLongStream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
-    nullabilityBuffer?: BitVector,
+export function decodeUnsignedInt64Stream(
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
+  nullabilityBuffer?: BitVector,
 ): BigUint64Array {
-    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
-    return decodeUnsignedInt64(values, streamMetadata, nullabilityBuffer);
+  const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
+  return decodeUnsignedInt64(values, streamMetadata, nullabilityBuffer);
 }
 
-export function decodeSignedLongFloat64Stream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
+export function decodeSignedInt64AsFloat64Stream(
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
 ): Float64Array {
-    const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
-    return decodeFloat64Values(values, streamMetadata, true);
+  const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
+  return decodeFloat64Values(values, streamMetadata, true);
 }
 
-export function decodeUnsignedLongFloat64Stream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
+export function decodeUnsignedInt64AsFloat64Stream(
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
 ): Float64Array {
-    const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
-    return decodeFloat64Values(values, streamMetadata, false);
+  const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
+  return decodeFloat64Values(values, streamMetadata, false);
 }
 
-export function decodeSignedConstLongStream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
+export function decodeSignedConstInt64Stream(
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
 ): bigint {
-    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
+  const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
 
-    if (values.length === 1) {
-        return decodeZigZagInt64Value(values[0]);
-    }
+  if (values.length === 1) {
+    return decodeZigZagInt64Value(values[0]);
+  }
 
-    return decodeZigZagConstRleInt64(values);
+  return decodeZigZagConstRleInt64(values);
 }
 
-export function decodeUnsignedConstLongStream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
+export function decodeUnsignedConstInt64Stream(
+  data: Uint8Array,
+  offset: IntWrapper,
+  streamMetadata: StreamMetadata,
 ): bigint {
-    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
+  const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
 
-    if (values.length === 1) {
-        return values[0];
-    }
+  if (values.length === 1) {
+    return values[0];
+  }
 
-    return decodeUnsignedConstRleInt64(values);
+  return decodeUnsignedConstRleInt64(values);
 }
 
 /**
@@ -220,356 +240,453 @@ export function decodeUnsignedConstLongStream(
  *   - Componentwise Delta -> always ZigZag encoding is used
  */
 function decodeSignedInt32(
-    values: Uint32Array,
-    streamMetadata: StreamMetadata,
-    scalingData?: GeometryScaling,
-    nullabilityBuffer?: BitVector,
+  values: Uint32Array,
+  streamMetadata: StreamMetadata,
+  scalingData?: GeometryScaling,
+  nullabilityBuffer?: BitVector,
 ): Int32Array {
-    let decodedValues: Int32Array;
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                if (!nullabilityBuffer) {
-                    return decodeDeltaRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-                }
-                values = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-                decodedValues = decodeZigZagDeltaInt32(values);
-            } else {
-                decodedValues = decodeZigZagDeltaInt32(values);
-            }
-            break;
-        case LogicalLevelTechnique.RLE:
-            decodedValues = decodeSignedRleInt32(values, streamMetadata as RleEncodedStreamMetadata);
-            break;
-        case LogicalLevelTechnique.MORTON:
-            fastInverseDelta(values);
-            decodedValues = new Int32Array(values);
-            break;
-        case LogicalLevelTechnique.COMPONENTWISE_DELTA:
-            if (scalingData && !nullabilityBuffer) {
-                return decodeComponentwiseDeltaVec2Scaled(values, scalingData.scale, scalingData.min, scalingData.max);
-            }
-            decodedValues = decodeComponentwiseDeltaVec2(values);
-            break;
-        case LogicalLevelTechnique.NONE:
-            decodedValues = decodeZigZagInt32(values);
-            break;
-        default:
-            throw new Error(
-                `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
-            );
-    }
+  let decodedValues: Int32Array;
+  switch (streamMetadata.logicalLevelTechnique1) {
+    case LogicalLevelTechnique.DELTA:
+      if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+        const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+        if (!nullabilityBuffer) {
+          return decodeDeltaRleInt32(
+            values,
+            rleMetadata.runs,
+            rleMetadata.numRleValues,
+          );
+        }
+        values = decodeUnsignedRleInt32(
+          values,
+          rleMetadata.runs,
+          rleMetadata.numRleValues,
+        );
+        decodedValues = decodeZigZagDeltaInt32(values);
+      } else {
+        decodedValues = decodeZigZagDeltaInt32(values);
+      }
+      break;
+    case LogicalLevelTechnique.RLE:
+      decodedValues = decodeSignedRleInt32(
+        values,
+        streamMetadata as RleEncodedStreamMetadata,
+      );
+      break;
+    case LogicalLevelTechnique.MORTON:
+      fastInverseDelta(values);
+      decodedValues = new Int32Array(values);
+      break;
+    case LogicalLevelTechnique.COMPONENTWISE_DELTA:
+      if (scalingData && !nullabilityBuffer) {
+        return decodeComponentwiseDeltaVec2Scaled(
+          values,
+          scalingData.scale,
+          scalingData.min,
+          scalingData.max,
+        );
+      }
+      decodedValues = decodeComponentwiseDeltaVec2(values);
+      break;
+    case LogicalLevelTechnique.NONE:
+      decodedValues = decodeZigZagInt32(values);
+      break;
+    default:
+      throw new Error(
+        `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+      );
+  }
 
-    if (nullabilityBuffer) {
-        return unpackNullable(decodedValues, nullabilityBuffer, 0);
-    }
-    return decodedValues;
+  if (nullabilityBuffer) {
+    return unpackNullable(decodedValues, nullabilityBuffer, 0);
+  }
+  return decodedValues;
 }
 
 function decodeUnsignedInt32(
-    values: Uint32Array,
-    streamMetadata: StreamMetadata,
-    scalingData?: GeometryScaling,
-    nullabilityBuffer?: BitVector,
+  values: Uint32Array,
+  streamMetadata: StreamMetadata,
+  scalingData?: GeometryScaling,
+  nullabilityBuffer?: BitVector,
 ): Uint32Array {
-    let decodedValues: Uint32Array;
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                const deltaValues = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-                decodedValues = decodeUnsignedZigZagDeltaInt32(deltaValues);
-            } else {
-                decodedValues = decodeUnsignedZigZagDeltaInt32(values);
-            }
-            break;
-        case LogicalLevelTechnique.RLE:
-            decodedValues = decodeUnsignedRleInt32(
-                values,
-                (streamMetadata as RleEncodedStreamMetadata).runs,
-                (streamMetadata as RleEncodedStreamMetadata).numRleValues,
-            );
-            break;
-        case LogicalLevelTechnique.MORTON:
-            fastInverseDelta(values);
-            decodedValues = values;
-            break;
-        case LogicalLevelTechnique.COMPONENTWISE_DELTA:
-            if (scalingData && !nullabilityBuffer) {
-                decodedValues = decodeUnsignedComponentwiseDeltaVec2Scaled(
-                    values,
-                    scalingData.scale,
-                    scalingData.min,
-                    scalingData.max,
-                );
-            } else {
-                decodedValues = decodeUnsignedComponentwiseDeltaVec2(values);
-            }
-            break;
-        case LogicalLevelTechnique.NONE:
-            decodedValues = values;
-            break;
-        default:
-            throw new Error(
-                `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
-            );
-    }
+  let decodedValues: Uint32Array;
+  switch (streamMetadata.logicalLevelTechnique1) {
+    case LogicalLevelTechnique.DELTA:
+      if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+        const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+        const deltaValues = decodeUnsignedRleInt32(
+          values,
+          rleMetadata.runs,
+          rleMetadata.numRleValues,
+        );
+        decodedValues = decodeUnsignedZigZagDeltaInt32(deltaValues);
+      } else {
+        decodedValues = decodeUnsignedZigZagDeltaInt32(values);
+      }
+      break;
+    case LogicalLevelTechnique.RLE:
+      decodedValues = decodeUnsignedRleInt32(
+        values,
+        (streamMetadata as RleEncodedStreamMetadata).runs,
+        (streamMetadata as RleEncodedStreamMetadata).numRleValues,
+      );
+      break;
+    case LogicalLevelTechnique.MORTON:
+      fastInverseDelta(values);
+      decodedValues = values;
+      break;
+    case LogicalLevelTechnique.COMPONENTWISE_DELTA:
+      if (scalingData && !nullabilityBuffer) {
+        decodedValues = decodeUnsignedComponentwiseDeltaVec2Scaled(
+          values,
+          scalingData.scale,
+          scalingData.min,
+          scalingData.max,
+        );
+      } else {
+        decodedValues = decodeUnsignedComponentwiseDeltaVec2(values);
+      }
+      break;
+    case LogicalLevelTechnique.NONE:
+      decodedValues = values;
+      break;
+    default:
+      throw new Error(
+        `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+      );
+  }
 
-    if (nullabilityBuffer) {
-        return unpackNullable(decodedValues, nullabilityBuffer, 0);
-    }
-    return decodedValues;
+  if (nullabilityBuffer) {
+    return unpackNullable(decodedValues, nullabilityBuffer, 0);
+  }
+  return decodedValues;
 }
 
 function decodeSignedInt64(
-    values: BigUint64Array,
-    streamMetadata: StreamMetadata,
-    nullabilityBuffer?: BitVector,
+  values: BigUint64Array,
+  streamMetadata: StreamMetadata,
+  nullabilityBuffer?: BitVector,
 ): BigInt64Array {
-    let decodedValues: BigInt64Array;
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                if (!nullabilityBuffer) {
-                    return decodeDeltaRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
-                }
-                values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
-                decodedValues = decodeZigZagDeltaInt64(values);
-            } else {
-                decodedValues = decodeZigZagDeltaInt64(values);
-            }
-            break;
-        case LogicalLevelTechnique.RLE:
-            decodedValues = decodeSignedRleInt64(values, streamMetadata as RleEncodedStreamMetadata);
-            break;
-        case LogicalLevelTechnique.NONE:
-            decodedValues = decodeZigZagInt64(values);
-            break;
-        default:
-            throw new Error(
-                `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
-            );
-    }
+  let decodedValues: BigInt64Array;
+  switch (streamMetadata.logicalLevelTechnique1) {
+    case LogicalLevelTechnique.DELTA:
+      if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+        const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+        if (!nullabilityBuffer) {
+          return decodeDeltaRleInt64(
+            values,
+            rleMetadata.runs,
+            rleMetadata.numRleValues,
+          );
+        }
+        values = decodeUnsignedRleInt64(
+          values,
+          rleMetadata.runs,
+          rleMetadata.numRleValues,
+        );
+        decodedValues = decodeZigZagDeltaInt64(values);
+      } else {
+        decodedValues = decodeZigZagDeltaInt64(values);
+      }
+      break;
+    case LogicalLevelTechnique.RLE:
+      decodedValues = decodeSignedRleInt64(
+        values,
+        streamMetadata as RleEncodedStreamMetadata,
+      );
+      break;
+    case LogicalLevelTechnique.NONE:
+      decodedValues = decodeZigZagInt64(values);
+      break;
+    default:
+      throw new Error(
+        `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+      );
+  }
 
-    if (nullabilityBuffer) {
-        return unpackNullable(decodedValues, nullabilityBuffer, 0n);
-    }
-    return decodedValues;
+  if (nullabilityBuffer) {
+    return unpackNullable(decodedValues, nullabilityBuffer, 0n);
+  }
+  return decodedValues;
 }
 
 function decodeUnsignedInt64(
-    values: BigUint64Array,
-    streamMetadata: StreamMetadata,
-    nullabilityBuffer?: BitVector,
+  values: BigUint64Array,
+  streamMetadata: StreamMetadata,
+  nullabilityBuffer?: BitVector,
 ): BigUint64Array {
-    let decodedValues: BigUint64Array;
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                const deltaValues = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
-                decodedValues = decodeUnsignedZigZagDeltaInt64(deltaValues);
-            } else {
-                decodedValues = decodeUnsignedZigZagDeltaInt64(values);
-            }
-            break;
-        case LogicalLevelTechnique.RLE:
-            decodedValues = decodeUnsignedRleInt64(
-                values,
-                (streamMetadata as RleEncodedStreamMetadata).runs,
-                (streamMetadata as RleEncodedStreamMetadata).numRleValues,
-            );
-            break;
-        case LogicalLevelTechnique.NONE:
-            decodedValues = values;
-            break;
-        default:
-            throw new Error(
-                `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
-            );
-    }
+  let decodedValues: BigUint64Array;
+  switch (streamMetadata.logicalLevelTechnique1) {
+    case LogicalLevelTechnique.DELTA:
+      if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+        const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+        const deltaValues = decodeUnsignedRleInt64(
+          values,
+          rleMetadata.runs,
+          rleMetadata.numRleValues,
+        );
+        decodedValues = decodeUnsignedZigZagDeltaInt64(deltaValues);
+      } else {
+        decodedValues = decodeUnsignedZigZagDeltaInt64(values);
+      }
+      break;
+    case LogicalLevelTechnique.RLE:
+      decodedValues = decodeUnsignedRleInt64(
+        values,
+        (streamMetadata as RleEncodedStreamMetadata).runs,
+        (streamMetadata as RleEncodedStreamMetadata).numRleValues,
+      );
+      break;
+    case LogicalLevelTechnique.NONE:
+      decodedValues = values;
+      break;
+    default:
+      throw new Error(
+        `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+      );
+  }
 
-    if (nullabilityBuffer) {
-        return unpackNullable(decodedValues, nullabilityBuffer, 0n);
-    }
-    return decodedValues;
+  if (nullabilityBuffer) {
+    return unpackNullable(decodedValues, nullabilityBuffer, 0n);
+  }
+  return decodedValues;
 }
 
-function decodeFloat64Values(values: Float64Array, streamMetadata: StreamMetadata, isSigned: boolean): Float64Array {
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                values = decodeUnsignedRleFloat64(values, rleMetadata.runs, rleMetadata.numRleValues);
-            }
-            decodeZigZagDeltaFloat64(values);
-            return values;
-        case LogicalLevelTechnique.RLE:
-            return decodeRleFloat64(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
-        case LogicalLevelTechnique.NONE:
-            if (isSigned) {
-                decodeZigZagFloat64(values);
-            }
-            return values;
-        default:
-            throw new Error(
-                `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
-            );
-    }
+function decodeFloat64Values(
+  values: Float64Array,
+  streamMetadata: StreamMetadata,
+  isSigned: boolean,
+): Float64Array {
+  switch (streamMetadata.logicalLevelTechnique1) {
+    case LogicalLevelTechnique.DELTA:
+      if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+        const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+        values = decodeUnsignedRleFloat64(
+          values,
+          rleMetadata.runs,
+          rleMetadata.numRleValues,
+        );
+      }
+      decodeZigZagDeltaFloat64(values);
+      return values;
+    case LogicalLevelTechnique.RLE:
+      return decodeRleFloat64(
+        values,
+        streamMetadata as RleEncodedStreamMetadata,
+        isSigned,
+      );
+    case LogicalLevelTechnique.NONE:
+      if (isSigned) {
+        decodeZigZagFloat64(values);
+      }
+      return values;
+    default:
+      throw new Error(
+        `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+      );
+  }
 }
 
-function decodeLengthToOffsetBuffer(values: Uint32Array, streamMetadata: StreamMetadata): Uint32Array {
-    if (
-        streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
-        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
-    ) {
-        return decodeZigZagDeltaOfDeltaInt32(values);
-    }
+function decodeLengthToOffsetBuffer(
+  values: Uint32Array,
+  streamMetadata: StreamMetadata,
+): Uint32Array {
+  if (
+    streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
+    streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
+  ) {
+    return decodeZigZagDeltaOfDeltaInt32(values);
+  }
 
-    if (
-        streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.RLE &&
-        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
-    ) {
-        const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-        return decodeRleDeltaInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-    }
+  if (
+    streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.RLE &&
+    streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
+  ) {
+    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+    return decodeRleDeltaInt32(
+      values,
+      rleMetadata.runs,
+      rleMetadata.numRleValues,
+    );
+  }
 
-    if (
-        streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.NONE &&
-        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
-    ) {
-        //TODO: use fastInverseDelta again and check what are the performance problems in zoom 14
-        //fastInverseDelta(values);
-        inverseDelta(values);
-        const offsets = new Uint32Array(streamMetadata.numValues + 1);
-        offsets[0] = 0;
-        offsets.set(values, 1);
-        return offsets;
-    }
+  if (
+    streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.NONE &&
+    streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
+  ) {
+    //TODO: use fastInverseDelta again and check what are the performance problems in zoom 14
+    //fastInverseDelta(values);
+    inverseDelta(values);
+    const offsets = new Uint32Array(streamMetadata.numValues + 1);
+    offsets[0] = 0;
+    offsets.set(values, 1);
+    return offsets;
+  }
 
-    if (
-        streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
-        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE
-    ) {
-        const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-        const decodedValues = decodeZigZagRleDeltaInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-        fastInverseDelta(decodedValues);
-        return new Uint32Array(decodedValues);
-    }
+  if (
+    streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
+    streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE
+  ) {
+    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+    const decodedValues = decodeZigZagRleDeltaInt32(
+      values,
+      rleMetadata.runs,
+      rleMetadata.numRleValues,
+    );
+    fastInverseDelta(decodedValues);
+    return new Uint32Array(decodedValues);
+  }
 
-    throw new Error("Only delta encoding is supported for transforming length to offset streams yet.");
+  throw new Error(
+    "Only delta encoding is supported for transforming length to offset streams yet.",
+  );
 }
 
 export function getVectorType(
-    streamMetadata: StreamMetadata,
-    sizeOrNullabilityBuffer: number | BitVector,
-    data: Uint8Array,
-    offset: IntWrapper,
+  streamMetadata: StreamMetadata,
+  sizeOrNullabilityBuffer: number | BitVector,
+  data: Uint8Array,
+  offset: IntWrapper,
 ): VectorType {
-    const logicalLevelTechnique1 = streamMetadata.logicalLevelTechnique1;
-    if (logicalLevelTechnique1 === LogicalLevelTechnique.RLE) {
-        return (streamMetadata as RleEncodedStreamMetadata).runs === 1 ? VectorType.CONST : VectorType.FLAT;
-    }
+  const logicalLevelTechnique1 = streamMetadata.logicalLevelTechnique1;
+  if (logicalLevelTechnique1 === LogicalLevelTechnique.RLE) {
+    return (streamMetadata as RleEncodedStreamMetadata).runs === 1
+      ? VectorType.CONST
+      : VectorType.FLAT;
+  }
 
-    if (
-        logicalLevelTechnique1 !== LogicalLevelTechnique.DELTA ||
-        streamMetadata.logicalLevelTechnique2 !== LogicalLevelTechnique.RLE
-    ) {
-        return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
-    }
-    const numFeatures =
-        sizeOrNullabilityBuffer instanceof BitVector ? sizeOrNullabilityBuffer.size() : sizeOrNullabilityBuffer;
-    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-
-    if (rleMetadata.numRleValues !== numFeatures) {
-        return VectorType.FLAT;
-    }
-    // Single run is always a sequence
-    if (rleMetadata.runs === 1) {
-        return VectorType.SEQUENCE;
-    }
-
-    if (rleMetadata.runs !== 2) {
-        return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
-    }
-    // Two runs can be a sequence if both deltas are equal to 1
-    const savedOffset = offset.get();
-
-    let values: Int32Array;
-    if (streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
-        values = new Int32Array(decodeVarintInt32(data, offset, 4));
-    } else {
-        const byteOffset = offset.get();
-        values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
-    }
-    offset.set(savedOffset);
-    // Check if both deltas are encoded 1
-    const zigZagOne = 2;
-    if (values[2] === zigZagOne && values[3] === zigZagOne) {
-        return VectorType.SEQUENCE;
-    }
+  if (
+    logicalLevelTechnique1 !== LogicalLevelTechnique.DELTA ||
+    streamMetadata.logicalLevelTechnique2 !== LogicalLevelTechnique.RLE
+  ) {
     return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
+  }
+  const numFeatures =
+    sizeOrNullabilityBuffer instanceof BitVector
+      ? sizeOrNullabilityBuffer.size()
+      : sizeOrNullabilityBuffer;
+  const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+
+  if (rleMetadata.numRleValues !== numFeatures) {
+    return VectorType.FLAT;
+  }
+  // Single run is always a sequence
+  if (rleMetadata.runs === 1) {
+    return VectorType.SEQUENCE;
+  }
+
+  if (rleMetadata.runs !== 2) {
+    return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
+  }
+  // Two runs can be a sequence if both deltas are equal to 1
+  const savedOffset = offset.get();
+
+  let values: Int32Array;
+  if (streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
+    values = new Int32Array(decodeVarintInt32(data, offset, 4));
+  } else {
+    const byteOffset = offset.get();
+    values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
+  }
+  offset.set(savedOffset);
+  // Check if both deltas are encoded 1
+  const zigZagOne = 2;
+  if (values[2] === zigZagOne && values[3] === zigZagOne) {
+    return VectorType.SEQUENCE;
+  }
+  return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
 }
 
-function decodeSignedRleInt32(data: Uint32Array, streamMetadata: RleEncodedStreamMetadata): Int32Array {
-    return decodeZigZagRleInt32(data, streamMetadata.runs, streamMetadata.numRleValues);
+function decodeSignedRleInt32(
+  data: Uint32Array,
+  streamMetadata: RleEncodedStreamMetadata,
+): Int32Array {
+  return decodeZigZagRleInt32(
+    data,
+    streamMetadata.runs,
+    streamMetadata.numRleValues,
+  );
 }
 
-function decodeSignedRleInt64(data: BigUint64Array, streamMetadata: RleEncodedStreamMetadata): BigInt64Array {
-    return decodeZigZagRleInt64(data, streamMetadata.runs, streamMetadata.numRleValues);
+function decodeSignedRleInt64(
+  data: BigUint64Array,
+  streamMetadata: RleEncodedStreamMetadata,
+): BigInt64Array {
+  return decodeZigZagRleInt64(
+    data,
+    streamMetadata.runs,
+    streamMetadata.numRleValues,
+  );
 }
 
 function decodeRleFloat64(
-    data: Float64Array,
-    streamMetadata: RleEncodedStreamMetadata,
-    isSigned: boolean,
+  data: Float64Array,
+  streamMetadata: RleEncodedStreamMetadata,
+  isSigned: boolean,
 ): Float64Array {
-    return isSigned
-        ? decodeZigZagRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues)
-        : decodeUnsignedRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues);
+  return isSigned
+    ? decodeZigZagRleFloat64(
+        data,
+        streamMetadata.runs,
+        streamMetadata.numRleValues,
+      )
+    : decodeUnsignedRleFloat64(
+        data,
+        streamMetadata.runs,
+        streamMetadata.numRleValues,
+      );
 }
 
 function decodeUnsignedZigZagDeltaInt32(data: Uint32Array): Uint32Array {
-    const decodedValues = new Uint32Array(data.length);
-    decodedValues[0] = decodeZigZagInt32Value(data[0]) >>> 0;
-    for (let i = 1; i < data.length; i++) {
-        decodedValues[i] = (decodedValues[i - 1] + decodeZigZagInt32Value(data[i])) >>> 0;
-    }
-    return decodedValues;
+  const decodedValues = new Uint32Array(data.length);
+  decodedValues[0] = decodeZigZagInt32Value(data[0]) >>> 0;
+  for (let i = 1; i < data.length; i++) {
+    decodedValues[i] =
+      (decodedValues[i - 1] + decodeZigZagInt32Value(data[i])) >>> 0;
+  }
+  return decodedValues;
 }
 
 function decodeUnsignedZigZagDeltaInt64(data: BigUint64Array): BigUint64Array {
-    const decodedValues = new BigUint64Array(data.length);
-    decodedValues[0] = BigInt.asUintN(64, decodeZigZagInt64Value(data[0]));
-    for (let i = 1; i < data.length; i++) {
-        decodedValues[i] = BigInt.asUintN(64, decodedValues[i - 1] + decodeZigZagInt64Value(data[i]));
-    }
-    return decodedValues;
+  const decodedValues = new BigUint64Array(data.length);
+  decodedValues[0] = BigInt.asUintN(64, decodeZigZagInt64Value(data[0]));
+  for (let i = 1; i < data.length; i++) {
+    decodedValues[i] = BigInt.asUintN(
+      64,
+      decodedValues[i - 1] + decodeZigZagInt64Value(data[i]),
+    );
+  }
+  return decodedValues;
 }
 
 function decodeUnsignedComponentwiseDeltaVec2(data: Uint32Array): Uint32Array {
-    if (data.length < 2) {
-        return new Uint32Array(data);
-    }
+  if (data.length < 2) {
+    return new Uint32Array(data);
+  }
 
-    const decodedData = new Uint32Array(data.length);
-    decodedData[0] = decodeZigZagInt32Value(data[0]) >>> 0;
-    decodedData[1] = decodeZigZagInt32Value(data[1]) >>> 0;
-    for (let i = 2; i < data.length; i += 2) {
-        decodedData[i] = (decodedData[i - 2] + decodeZigZagInt32Value(data[i])) >>> 0;
-        decodedData[i + 1] = (decodedData[i - 1] + decodeZigZagInt32Value(data[i + 1])) >>> 0;
-    }
-    return decodedData;
+  const decodedData = new Uint32Array(data.length);
+  decodedData[0] = decodeZigZagInt32Value(data[0]) >>> 0;
+  decodedData[1] = decodeZigZagInt32Value(data[1]) >>> 0;
+  for (let i = 2; i < data.length; i += 2) {
+    decodedData[i] =
+      (decodedData[i - 2] + decodeZigZagInt32Value(data[i])) >>> 0;
+    decodedData[i + 1] =
+      (decodedData[i - 1] + decodeZigZagInt32Value(data[i + 1])) >>> 0;
+  }
+  return decodedData;
 }
 
 function decodeUnsignedComponentwiseDeltaVec2Scaled(
-    data: Uint32Array,
-    scale: number,
-    min: number,
-    max: number,
+  data: Uint32Array,
+  scale: number,
+  min: number,
+  max: number,
 ): Uint32Array {
-    const scaledValues = decodeComponentwiseDeltaVec2Scaled(data, scale, min, max);
-    return new Uint32Array(scaledValues);
+  const scaledValues = decodeComponentwiseDeltaVec2Scaled(
+    data,
+    scale,
+    min,
+    max,
+  );
+  return new Uint32Array(scaledValues);
 }
