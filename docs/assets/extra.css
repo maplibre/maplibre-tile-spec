@@ -43,3 +43,15 @@
   background-color: #ffc107;
   color: #000;
 }
+
+/* Mermaid: ensure diagram boxes fit their content (no clipping) */
+.mermaid svg {
+  max-width: 100%;
+  overflow: visible;
+}
+.mermaid foreignObject {
+  overflow: visible !important;
+}
+.mermaid foreignObject body {
+  overflow: visible !important;
+}
