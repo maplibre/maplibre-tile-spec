@@ -1,50 +1,55 @@
 use crate::MltError;
 
-/// Trait for types that can be created from decoded data
-pub trait FromDecoded<'a>: Sized {
+/// Trait for types that can be created from decoded data.
+///
+/// This is a crate-internal implementation trait.  External code should use
+/// the higher-level [`ManualOptimisation`], [`AutomaticOptimisation`], or
+/// [`ProfileOptimisation`] APIs instead.
+///
+/// [`ManualOptimisation`]: crate::optimizer::ManualOptimisation
+/// [`AutomaticOptimisation`]: crate::optimizer::AutomaticOptimisation
+/// [`ProfileOptimisation`]: crate::optimizer::ProfileOptimisation
+pub(crate) trait FromDecoded<'a>: Sized {
     type Input: 'a;
     type Encoder;
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError>;
 }
 
-/// Trait for enums that can be in either decoded or encoded form
-pub trait Encodable<'a>: Sized {
+/// Trait for column types that can exist in either decoded or encoded form.
+///
+/// This trait is the public half of the encode/decode duality.  It provides
+/// read-only access to the encoded representation ([`borrow_encoded`]) and
+/// low-level plumbing used by the optimisation traits.  Encoding itself is
+/// performed through the [`ManualOptimisation`], [`AutomaticOptimisation`],
+/// and [`ProfileOptimisation`] traits, which are the intended entry points
+/// for callers.
+///
+/// [`borrow_encoded`]: Encodable::borrow_encoded
+/// [`ManualOptimisation`]: crate::optimizer::ManualOptimisation
+/// [`AutomaticOptimisation`]: crate::optimizer::AutomaticOptimisation
+/// [`ProfileOptimisation`]: crate::optimizer::ProfileOptimisation
+pub trait Encodable: Sized {
     type DecodedType;
-    type EncodedType: FromDecoded<'a, Input = Self::DecodedType>;
+    type EncodedType;
 
-    /// Check if the data is still in decoded form
+    /// Returns `true` if the data is in decoded form.
     fn is_decoded(&self) -> bool;
-    /// Create a new instance from encoded data
+    /// Wrap an already-encoded value in this type.
     fn new_encoded(encoded: Self::EncodedType) -> Self;
-    /// Temporarily replace self with a default value to take ownership of the decoded data
+    /// Temporarily replace `self` with a sentinel so decoded data can be
+    /// taken by value.
     fn take_decoded(&mut self) -> Option<Self::DecodedType>;
-    /// Borrow the encoded data if available
+    /// Borrow the encoded data, or `None` if the data is still decoded.
     fn borrow_encoded(&self) -> Option<&Self::EncodedType>;
-
-    fn encode_with(
-        &mut self,
-        config: <Self::EncodedType as FromDecoded<'a>>::Encoder,
-    ) -> Result<&Self, MltError>
-    where
-        Self::EncodedType: FromDecoded<'a>,
-    {
-        if self.is_decoded() {
-            // Temporarily replace self with a default value to take ownership of the decoded data
-            let Some(decoded) = self.take_decoded() else {
-                return Err(MltError::NotEncoded)?;
-            };
-            let res = Self::EncodedType::from_decoded(&decoded, config)?;
-            *self = Self::new_encoded(res);
-        }
-        Ok(self)
-    }
 }
 
-/// Macro to implement the Encodable trait for enum types with Decoded and Encoded variants
-/// This macro is internal to the crate and not exposed to external users
+/// Macro to implement the [`Encodable`] trait for enum types with `Decoded`
+/// and `Encoded` variants.
+///
+/// This macro is internal to the crate and not exposed to external users.
 macro_rules! impl_encodable {
     ($enum_type:ty, $decoded_type:ty, $encoded_type:ty) => {
-        impl<'a> $crate::Encodable<'a> for $enum_type {
+        impl $crate::Encodable for $enum_type {
             type DecodedType = $decoded_type;
             type EncodedType = $encoded_type;
 
@@ -77,5 +82,5 @@ macro_rules! impl_encodable {
     };
 }
 
-// Make the macro available within this module
+// Make the macro available within the crate.
 pub(crate) use impl_encodable;
