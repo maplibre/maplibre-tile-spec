@@ -145,7 +145,7 @@ describe("decodeUnsignedInt32Stream", () => {
     });
 });
 
-describe("decodeSignedInt32Stream / decodeSignedConstInt32Stream", () => {
+describe("decodeSignedInt32Stream", () => {
     it("should decode NONE signed with Int32", () => {
         const expectedValues = new Int32Array([2, -4, 6, -8]);
         const metadata = createStreamMetadata(
@@ -239,7 +239,9 @@ describe("decodeSignedInt32Stream / decodeSignedConstInt32Stream", () => {
 
         expect(result).toEqual(new Uint32Array([0, 15, 0, 20]));
     });
+});
 
+describe("decodeSignedConstInt32Stream", () => {
     it("should decode signed const Int32", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 1);
         const data = encodeSignedInt32Stream(new Int32Array([-8]), metadata);
@@ -250,7 +252,7 @@ describe("decodeSignedInt32Stream / decodeSignedConstInt32Stream", () => {
     });
 });
 
-describe("decodeUnsignedInt32Stream / decodeUnsignedConstInt32Stream", () => {
+describe("decodeUnsignedConstInt32Stream", () => {
     it("should decode unsigned const Int32", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 1);
         const data = encodeUnsignedInt32Stream(new Uint32Array([0xffffffff]), metadata);
