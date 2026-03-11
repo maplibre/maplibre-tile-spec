@@ -709,80 +709,63 @@ Add an explicit column mapping on the specified layers:
         if (cmd.hasOption(COLUMN_MAPPING_AUTO_OPTION)) {
             throw NotImplementedException("Auto column mappings are not implemented yet")
         }
-        if (cmd.hasOption(COLUMN_MAPPING_LIST_OPTION)) {
-            val strings = cmd.getOptionValues(COLUMN_MAPPING_LIST_OPTION)
-            if (strings != null) {
-                for (item in strings) {
-                    val matcher = colMapListPattern.matcher(item)
-                    if (matcher.matches() && matcher.groupCount() == 2) {
-                        // matcher doesn't support multiple group matches, split them separately
-                        val layers = parseLayerPatterns(matcher.group(1) ?: "")
-                        val list = matcher.group(2)
-                        val columnNames =
-                            Arrays
-                                .stream<String>(
-                                    list
-                                        .split(",".toRegex())
-                                        .dropLastWhile { it.isEmpty() }
-                                        .toTypedArray(),
-                                ).map<String> { obj: String -> obj.trim { it <= ' ' } }
-                                .filter { s: String -> !s.isEmpty() }
-                                .toList()
-                        result.merge(
-                            layers,
-                            listOf(ColumnMapping(columnNames, true)),
-                        ) { oldList: MutableList<ColumnMapping>, newList: MutableList<ColumnMapping> ->
-                            Stream
-                                .of<MutableList<ColumnMapping>>(
-                                    oldList,
-                                    newList,
-                                ).flatMap<ColumnMapping> { it.stream() }
-                                .toList()
-                        }
-                    } else {
-                        logger.warn(
-                            "Invalid column mapping ignored: '{}'. Expected pattern is: {}",
-                            item,
-                            colMapListPattern,
-                        )
-                    }
-                }
+        for (item in cmd.getOptionValues(COLUMN_MAPPING_LIST_OPTION) ?: arrayOf()) {
+            val matcher = colMapListPattern.matcher(item)
+            if (matcher.matches() && matcher.groupCount() == 2) {
+                // matcher doesn't support multiple group matches, split them separately
+                val layers = parseLayerPatterns(matcher.group(1) ?: "")
+                val list = matcher.group(2) ?: ""
+                val columnNames =
+                    list
+                        .split(",")
+                        .map { obj -> obj.trim { it <= ' ' } }
+                        .filter { !it.isEmpty() }
+                        .toList()
+                addColumnMapping(result, layers, ColumnMapping(columnNames, true))
+            } else {
+                logger.warn(
+                    "Invalid column mapping ignored: '{}'. Expected pattern is: {}",
+                    item,
+                    colMapListPattern,
+                )
             }
         }
-        val strings = cmd.getOptionValues(COLUMN_MAPPING_DELIM_OPTION)
-        if (strings != null) {
-            for (item in strings) {
-                var matcher = colMapSeparatorPattern1.matcher(item)
-                if (!matcher.matches()) {
-                    matcher = colMapSeparatorPattern2.matcher(item)
+
+        for (item in cmd.getOptionValues(COLUMN_MAPPING_DELIM_OPTION) ?: arrayOf()) {
+            val matcher =
+                colMapSeparatorPattern1.matcher(item).let {
+                    if (it.matches()) it else colMapSeparatorPattern2.matcher(item)
                 }
-                if (matcher.matches()) {
-                    // matcher doesn't support multiple group matches, split them separately
-                    val layers = parseLayerPatterns(matcher.group(1))
-                    val prefix = parsePattern(matcher.group(2))
-                    val delimiter = parsePattern(matcher.group(3))
-                    result.merge(
-                        layers,
-                        listOf(ColumnMapping(prefix, delimiter, true)),
-                    ) { oldList: MutableList<ColumnMapping?>?, newList: MutableList<ColumnMapping?>? ->
-                        Stream
-                            .of<MutableList<ColumnMapping?>?>(
-                                oldList,
-                                newList,
-                            ).flatMap<ColumnMapping?> { obj: MutableList<ColumnMapping?>? -> obj!!.stream() }
-                            .toList()
-                    }
-                } else {
-                    logger.warn(
-                        "Invalid column mapping ignored: '{}'. Expected pattern is: {} or {}",
-                        item,
-                        colMapSeparatorPattern1,
-                        colMapSeparatorPattern2,
-                    )
-                }
+            if (matcher.matches() && matcher.groupCount() == 3) {
+                // matcher doesn't support multiple group matches, split them separately
+                val layers = parseLayerPatterns(matcher.group(1) ?: "")
+                val prefix = parsePattern(matcher.group(2) ?: "")
+                val delimiter = parsePattern(matcher.group(3) ?: "")
+                addColumnMapping(result, layers, ColumnMapping(prefix, delimiter, true))
+            } else {
+                logger.warn(
+                    "Invalid column mapping ignored: '{}'. Expected pattern is: {} or {}",
+                    item,
+                    colMapSeparatorPattern1,
+                    colMapSeparatorPattern2,
+                )
             }
         }
         return result
+    }
+
+    /** Add a new item, appending the mappings to any existing mappings for the same layer pattern */
+    private fun addColumnMapping(
+        result: ColumnMappingConfig,
+        newLayer: Pattern,
+        newMapping: ColumnMapping,
+    ) {
+        result.merge(
+            newLayer,
+            listOf(newMapping),
+        ) { oldList, newList ->
+            Stream.of(oldList, newList).flatMap { it.stream() }.toList()
+        }
     }
 
     private fun parseLayerPatterns(pattern: String): Pattern =

@@ -47,7 +47,7 @@ class EncodeCommandLineTest {
                 .argName("map")
                 .get(),
         )
-        val args = arrayOf("--${EncodeCommandLine.COLUMN_MAPPING_DELIM_OPTION}", "[roads]name:")
+        val args = arrayOf("--${EncodeCommandLine.COLUMN_MAPPING_DELIM_OPTION}", "[roads]name/[:_]/")
         val cmd = DefaultParser().parse(options, args)
         val cfg = EncodeCommandLine.getColumnMappings(cmd)
 
@@ -58,7 +58,7 @@ class EncodeCommandLineTest {
         val m = entry.value[0]
         assertFalse(m.hasColumnNames())
         assertEquals("name", m.prefix.pattern())
-        assertEquals(":", m.delimiter.pattern())
+        assertEquals("[:_]", m.delimiter.pattern())
     }
 
     @Test
