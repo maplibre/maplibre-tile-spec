@@ -181,6 +181,7 @@ fn decode_morton_chunk(buf: [u32; 8], num_bits: u32, shift_vec: u32x8, out: &mut
     for i in 0..num_bits {
         // Mask for the bit position 2*i in the original Morton code.
         let bit_mask = u32x8::splat(1u32 << (2 * i));
+        // Extract bit 2*i from each code and shift it down to position i.
         x_vec |= (codes & bit_mask) >> i;
         y_vec |= (codes_y & bit_mask) >> i;
     }
