@@ -261,24 +261,29 @@ fn resolve_dict_spans(
     let present_count = presence.map_or(offsets.len(), <[bool]>::len);
     let mut resolved = Vec::with_capacity(present_count);
     let mut next = offsets.iter().copied();
-    let mut non_null_count = 0_usize;
 
     if let Some(presence) = presence {
+        let fail = || {
+            MltError::PresenceValueCountMismatch(
+                presence.iter().filter(|&&v| v).count(),
+                offsets.len(),
+            )
+        };
         for &present in presence {
             if !present {
                 resolved.push(None);
                 continue;
             }
-            non_null_count += 1;
-            let idx = next.next().ok_or(MltError::PresenceValueCountMismatch(
-                non_null_count,
-                offsets.len(),
-            ))?;
+            let idx = next.next().ok_or_else(fail)?;
             let span = dict_spans
                 .get(idx as usize)
                 .copied()
                 .ok_or(DictIndexOutOfBounds(idx, dict_spans.len()))?;
             resolved.push(Some(span));
+        }
+
+        if next.next().is_some() {
+            return Err(fail());
         }
     } else {
         for &idx in offsets {
@@ -288,13 +293,6 @@ fn resolve_dict_spans(
                 .ok_or(DictIndexOutOfBounds(idx, dict_spans.len()))?;
             resolved.push(Some(span));
         }
-    }
-
-    if next.next().is_some() {
-        return Err(MltError::PresenceValueCountMismatch(
-            non_null_count,
-            offsets.len(),
-        ));
     }
 
     Ok(resolved)
@@ -538,7 +536,7 @@ impl<'a> EncodedStrings<'a> {
                 offsets,
             } => {
                 let mut streams = plain_data.streams();
-                streams.insert(1, offsets); // FIXME: consider making offset last
+                streams.insert(1, offsets); // Offset stays here to preserve the current wire order.
                 streams
             }
             Self::FsstPlain(fsst_data) => fsst_data.streams(),
@@ -562,7 +560,7 @@ impl OwnedEncodedStrings {
                 offsets,
             } => {
                 let mut streams = plain_data.streams();
-                streams.insert(1, offsets); // FIXME: consider making offset last
+                streams.insert(1, offsets); // Offset stays here to preserve the current wire order.
                 streams
             }
             Self::FsstPlain(fsst_data) => fsst_data.streams(),

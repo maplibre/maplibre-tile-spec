@@ -160,7 +160,7 @@ pub enum MltError {
     #[error("UTF-8 decode error: {0}")]
     Utf8(#[from] std::str::Utf8Error),
     #[error("UTF-8 decode error: {0}")]
-    UtfStr8(#[from] std::string::FromUtf8Error),
+    FromUtf8(#[from] std::string::FromUtf8Error),
 }
 
 impl From<Infallible> for MltError {
