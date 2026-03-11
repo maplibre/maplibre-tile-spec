@@ -41,7 +41,7 @@ val cacheMaxHeap by lazy {
     }
 }
 
-const val DEFAULT_CACHE_MAX_HEAP_PERCENT = 20.0
+const val DEFAULT_CACHE_MAX_HEAP_PERCENT = 10.0
 const val ENV_CACHE_MAX_HEAP_PERCENT = "MLT_CACHE_MAX_HEAP_PERCENT"
 val cacheMaxHeapPercent by lazy {
     resolveConfigValue(ENV_CACHE_MAX_HEAP_PERCENT, DEFAULT_CACHE_MAX_HEAP_PERCENT, String::toDouble).also {
@@ -71,12 +71,13 @@ val threadQueueSize by lazy {
     }
 }
 
-const val ENV_PMTILES_DEDUP = "MLT_PMTILES_DEDUP"
-const val DEFAULT_PMTILES_DEDUP = false
-val pmTilesDedup by lazy {
-    resolveConfigValue(ENV_PMTILES_DEDUP, DEFAULT_PMTILES_DEDUP) {
-        // Accept empty (just defined), true, or non-zero to enable
-        it.isEmpty() || it.toBoolean() || (it.toIntOrNull() ?: 0) > 0
+const val ENV_CACHE_AVERAGE_WEIGHT = "MLT_CACHE_AVERAGE_SIZE"
+const val DEFAULT_CACHE_AVERAGE_WEIGHT = 4 * 1024
+val cacheAverageEntrySize by lazy {
+    resolveConfigValue(ENV_CACHE_AVERAGE_WEIGHT, DEFAULT_CACHE_AVERAGE_WEIGHT, String::toInt).also {
+        if (it < 0) {
+            throw IllegalArgumentException("Cache average weight must not be negative")
+        }
     }
 }
 
@@ -92,5 +93,3 @@ private fun <T> resolveConfigValue(
         logger.warn("Failed to parse {}, using default value {}", name, def, e)
         def
     }
-
-const val DEFAULT_CACHE_AVERAGE_WEIGHT = 256 * 1024

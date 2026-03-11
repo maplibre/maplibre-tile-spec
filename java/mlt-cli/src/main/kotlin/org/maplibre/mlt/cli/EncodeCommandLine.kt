@@ -10,6 +10,7 @@ import org.apache.commons.cli.help.HelpFormatter
 import org.apache.commons.cli.help.TextHelpAppendable
 import org.apache.commons.lang3.NotImplementedException
 import org.apache.commons.lang3.StringUtils
+import org.apache.logging.log4j.Level
 import org.maplibre.mlt.converter.encodings.fsst.FsstJni
 import org.maplibre.mlt.converter.mvt.ColumnMapping
 import org.maplibre.mlt.converter.mvt.ColumnMappingConfig
@@ -29,6 +30,7 @@ internal object EncodeCommandLine {
     const val INPUT_MBTILES_ARG = "mbtiles"
     const val INPUT_OFFLINEDB_ARG = "offlinedb"
     const val INPUT_PMTILES_ARG = "pmtiles"
+    const val PMTILES_TRACK_OPTION = "pmtiles-no-track"
     const val OUTPUT_DIR_ARG = "dir"
     const val OUTPUT_FILE_ARG = "mlt"
     const val EXCLUDE_IDS_OPTION = "noids"
@@ -67,6 +69,7 @@ internal object EncodeCommandLine {
     private const val COMPRESS_OPTION_ZSTD = "zstd"
     const val PARALLEL_OPTION = "parallel"
     const val VERBOSE_OPTION = "verbose"
+    const val CACHE_STATS_OPTION = "cache-stats"
     const val CONTINUE_OPTION = "continue"
     const val HELP_OPTION = "help"
     const val SERVER_ARG = "server"
@@ -182,7 +185,8 @@ internal object EncodeCommandLine {
                     .optionalArg(true)
                     .argName("pattern")
                     .desc(
-                        "Re-generate ID values of matching layers (default all).  Sequential values are assigned for optimal encoding, when ID values have no special meaning.",
+                        "Re-generate ID values of matching layers (default all).  " +
+                            "Sequential values are assigned for optimal encoding, when ID values have no special meaning.",
                     ).required(false)
                     .get(),
             )
@@ -212,12 +216,10 @@ internal object EncodeCommandLine {
                     .optionalArg(false)
                     .argName("level")
                     .desc(
-                        (
-                            "Minimum zoom level to encode tiles.  Only applies with --" +
-                                INPUT_MBTILES_ARG +
-                                " or --" +
-                                INPUT_PMTILES_ARG
-                        ),
+                        "Minimum zoom level to encode tiles.  Only applies with --" +
+                            INPUT_MBTILES_ARG +
+                            " or --" +
+                            INPUT_PMTILES_ARG,
                     ).required(false)
                     .converter(Converter.NUMBER)
                     .get(),
@@ -243,16 +245,11 @@ internal object EncodeCommandLine {
             options.addOption(
                 Option
                     .builder()
-                    .longOpt(INCLUDE_METADATA_OPTION)
+                    .longOpt(PMTILES_TRACK_OPTION)
                     .hasArg(false)
-                    .deprecated()
                     .desc(
-                        (
-                            "Write tile metadata alongside the output tile (adding '.meta'). " +
-                                "Only applies with --" +
-                                INPUT_TILE_ARG +
-                                "."
-                        ),
+                        "Disable an optimization of PMTiles processing to reduce memory use." +
+                            "  Only applies with --" + INPUT_PMTILES_ARG,
                     ).required(false)
                     .get(),
             )
@@ -298,11 +295,9 @@ internal object EncodeCommandLine {
                     .longOpt(FSST_NATIVE_ENCODING_OPTION)
                     .hasArg(false)
                     .desc(
-                        (
-                            "Enable FSST encodings of string columns (Native implementation: " +
-                                (if (FsstJni.isLoaded()) "" else "Not ") +
-                                " available)"
-                        ),
+                        "Enable FSST encodings of string columns (Native implementation: " +
+                            (if (FsstJni.isLoaded()) "" else "Not ") +
+                            " available)",
                     ).required(false)
                     .get(),
             )
@@ -402,12 +397,10 @@ Add an explicit column mapping on the specified layers:
                     .longOpt(DECODE_OPTION)
                     .hasArg(false)
                     .desc(
-                        (
-                            "Test decoding the tile after encoding it. " +
-                                "Only applies with --" +
-                                INPUT_TILE_ARG +
-                                "."
-                        ),
+                        "Test decoding the tile after encoding it. " +
+                            "Only applies with --" +
+                            INPUT_TILE_ARG +
+                            ".",
                     ).required(false)
                     .get(),
             )
@@ -432,12 +425,10 @@ Add an explicit column mapping on the specified layers:
                     .longOpt(PRINT_MVT_OPTION)
                     .hasArg(false)
                     .desc(
-                        (
-                            "Print the round-tripped MVT tile to stdout. " +
-                                "Only applies with --" +
-                                INPUT_TILE_ARG +
-                                "."
-                        ),
+                        "Print the round-tripped MVT tile to stdout. " +
+                            "Only applies with --" +
+                            INPUT_TILE_ARG +
+                            ".",
                     ).required(false)
                     .get(),
             )
@@ -446,11 +437,8 @@ Add an explicit column mapping on the specified layers:
                     .builder()
                     .longOpt(COMPARE_GEOM_OPTION)
                     .hasArg(false)
-                    .desc(
-                        (
-                            "Assert that geometry in the decoded tile is the same as the input tile."
-                        ),
-                    ).required(false)
+                    .desc("Assert that geometry in the decoded tile is the same as the input tile.")
+                    .required(false)
                     .get(),
             )
             options.addOption(
@@ -458,11 +446,8 @@ Add an explicit column mapping on the specified layers:
                     .builder()
                     .longOpt(COMPARE_PROP_OPTION)
                     .hasArg(false)
-                    .desc(
-                        (
-                            "Assert that properties in the decoded tile is the same as the input tile."
-                        ),
-                    ).required(false)
+                    .desc("Assert that properties in the decoded tile is the same as the input tile.")
+                    .required(false)
                     .get(),
             )
             options.addOption(
@@ -500,17 +485,15 @@ Add an explicit column mapping on the specified layers:
                     .hasArg(true)
                     .argName("algorithm")
                     .desc(
-                        (
-                            "Compress tile data with one of 'deflate', 'gzip', or 'none'. " +
-                                "Only applies with --" +
-                                INPUT_MBTILES_ARG +
-                                ", --" +
-                                INPUT_PMTILES_ARG +
-                                " or --" +
-                                INPUT_OFFLINEDB_ARG +
-                                "." +
-                                " Default: none for MBTiles and offline database, keep existing for PMTiles."
-                        ),
+                        "Compress tile data with one of 'deflate', 'gzip', or 'none'. " +
+                            "Only applies with --" +
+                            INPUT_MBTILES_ARG +
+                            ", --" +
+                            INPUT_PMTILES_ARG +
+                            " or --" +
+                            INPUT_OFFLINEDB_ARG +
+                            "." +
+                            " Default: none for MBTiles and offline database, keep existing for PMTiles.",
                     ).required(false)
                     .get(),
             )
@@ -523,14 +506,12 @@ Add an explicit column mapping on the specified layers:
                     .optionalArg(true)
                     .argName("threads")
                     .desc(
-                        (
-                            "Enable parallel encoding of tiles.  Only applies with --" +
-                                INPUT_MBTILES_ARG +
-                                ", --" +
-                                INPUT_OFFLINEDB_ARG +
-                                ", or --" +
-                                INPUT_PMTILES_ARG
-                        ),
+                        "Enable parallel encoding of tiles.  Only applies with --" +
+                            INPUT_MBTILES_ARG +
+                            ", --" +
+                            INPUT_OFFLINEDB_ARG +
+                            ", or --" +
+                            INPUT_PMTILES_ARG,
                     ).required(false)
                     .converter(Converter.NUMBER)
                     .get(),
@@ -553,13 +534,22 @@ Add an explicit column mapping on the specified layers:
                     .optionalArg(true)
                     .argName("level")
                     .desc(
-                        (
-                            "Select output verbosity for status and information on stderr. " +
-                                "Optionally specify a level: off, fatal, error, warn, info, debug, trace. " +
-                                "Default is info, or debug if --" +
-                                VERBOSE_OPTION +
-                                " is specified without a level."
-                        ),
+                        "Select output verbosity for status and information on stderr. " +
+                            "Optionally specify a level: off, fatal, error, warn, info, debug, trace. " +
+                            "Default is info, or debug if --" +
+                            VERBOSE_OPTION +
+                            " is specified without a level.",
+                    ).required(false)
+                    .get(),
+            )
+            options.addOption(
+                Option
+                    .builder()
+                    .longOpt(CACHE_STATS_OPTION)
+                    .hasArg(false)
+                    .desc(
+                        "Show cache stats. Implies verbose output. Only applies with --" +
+                            INPUT_PMTILES_ARG,
                     ).required(false)
                     .get(),
             )
@@ -590,13 +580,13 @@ Add an explicit column mapping on the specified layers:
             val tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, null as String?)
             if (tessellateSource != null) {
                 // throw if it's not a valid URI
-                val ignored = URI(tessellateSource)
+                URI(tessellateSource)
             }
 
             val filterRegex = cmd.getOptionValue(FILTER_LAYERS_OPTION, null as String?)
             if (filterRegex != null) {
                 // throw if it's not a valid regex
-                val ignored = Pattern.compile(filterRegex)
+                Pattern.compile(filterRegex)
             }
 
             val compressOption = cmd.getOptionValue(COMPRESS_OPTION, COMPRESS_OPTION_NONE)
@@ -654,28 +644,29 @@ Add an explicit column mapping on the specified layers:
         val footer =
             "\nExample usages:\n" +
                 " Encode a single tile:\n" +
-                "    encode --mvt input.mvt --mlt output.mlt\n" +
+                "  encode --mvt input.mvt --mlt output.mlt\n" +
                 " Encode all tiles in an MBTiles file, with compression and parallel encoding:\n" +
-                "    encode --mbtiles input.mbtiles --dir output_dir --compress gzip -j\n" +
+                "  encode --mbtiles input.mbtiles --dir output_dir --compress gzip -j\n" +
                 " Start an encoding server on port 8080:\n" +
-                "    encode --server 8080\n" +
-                "\nEnvironment variables:\n" +
-                "  " + ENV_TILE_LOG_INTERVAL + ": Number of tiles between status log messages (default: 10000)\n" +
-                "  " + ENV_COMPRESSION_RATIO_THRESHOLD + ": Minimum compression ratio to apply compression (default: " +
-                DEFAULT_COMPRESSION_RATIO_THRESHOLD +
-                ")\n  " +
-                ENV_COMPRESSION_FIXED_THRESHOLD + ": Minimum savings in bytes for a tile to be compressed (default: " +
-                DEFAULT_COMPRESSION_FIXED_THRESHOLD +
-                ")\n  " +
-                ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maximum heap size (default: " +
-                DEFAULT_CACHE_MAX_HEAP_PERCENT + ")\n  " +
-                ENV_CACHE_MAX_HEAP + ": Maximum cache size in bytes.  Overrides percent if non-zero. (default: " +
-                DEFAULT_CACHE_MAX_HEAP + ")\n  " +
-                ENV_CACHE_EXPIRE + ": Cache expiration duration after access, in ISO-8601 format (e.g. P1.2S) \n" +
-                "    or plain (e.g., 1.2s) (default: " + DEFAULT_CACHE_EXPIRE.toString() + ")\n  " +
-                ENV_PMTILES_DEDUP + ": Detect duplicate PMTiles tiles and convert them only once.  Enable to reduce\n" +
-                "    the number of conversions at the cost of ~32 bytes/tile of additional memory use. (default: " + DEFAULT_PMTILES_DEDUP +
-                ")\n"
+                "  encode --server 8080\n\n" +
+                "Environment variables:\n" +
+                " " + ENV_TILE_LOG_INTERVAL + ": Number of tiles between status log messages (default: 10000)\n" +
+                " " + ENV_COMPRESSION_RATIO_THRESHOLD + ": Minimum compression ratio to apply compression (default: " +
+                DEFAULT_COMPRESSION_RATIO_THRESHOLD + ")\n" +
+                "  Only applies with --" + INPUT_MBTILES_ARG + ".\n" +
+                " " + ENV_COMPRESSION_FIXED_THRESHOLD + ": Minimum savings in bytes for a tile to be compressed (default: " +
+                " " + DEFAULT_COMPRESSION_FIXED_THRESHOLD + ")\n" +
+                "  Only applies with --" + INPUT_MBTILES_ARG + ".\n" +
+                " " + ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maximum heap size (default: " +
+                DEFAULT_CACHE_MAX_HEAP_PERCENT + ")\n" +
+                " " + ENV_CACHE_MAX_HEAP + ": Maximum cache size in bytes.  Overrides percent if non-zero. (default: " +
+                DEFAULT_CACHE_MAX_HEAP + ")\n" +
+                " " + ENV_CACHE_EXPIRE + ": Cache expiration duration after access, in ISO-8601 format (e.g. P1.2S) \n" +
+                "  or plain (e.g., 1.2s). (default: " + DEFAULT_CACHE_EXPIRE.toString() + ")\n" +
+                "  Zero causes cache entries to never expire.\n" +
+                " " + ENV_CACHE_AVERAGE_WEIGHT + ": Average size of tiles in bytes. (default: " + DEFAULT_CACHE_AVERAGE_WEIGHT + ")\n" +
+                "  Zero disables initial cache size estimation.\n" +
+                " All cache options only apply with --" + INPUT_PMTILES_ARG + ".\n"
 
         val target = TextHelpAppendable(System.err)
 
@@ -819,5 +810,60 @@ Add an explicit column mapping on the specified layers:
         }
     }
 
+    // val getMinZoom get() = cmd.getParsedOptionValue<Long>(EncodeCommandLine.MIN_ZOOM_OPTION, 0L).toInt()
+    //        val maxZoom =
+    //
+
     private val logger: Logger = LoggerFactory.getLogger(EncodeCommandLine::class.java)
 }
+
+val CommandLine.minZoom get() = getParsedOptionValue<Long>(EncodeCommandLine.MIN_ZOOM_OPTION, 0L).toInt()
+val CommandLine.maxZoom get() = getParsedOptionValue<Long>(EncodeCommandLine.MAX_ZOOM_OPTION, Int.MAX_VALUE.toLong()).toInt()
+val CommandLine.logLevel get() =
+    if (hasOption(EncodeCommandLine.VERBOSE_OPTION)) {
+        Level.toLevel(getOptionValue(EncodeCommandLine.VERBOSE_OPTION), Level.DEBUG)
+    } else {
+        Level.INFO
+    }.coerceAtLeast(if (hasOption(EncodeCommandLine.CACHE_STATS_OPTION)) Level.DEBUG else Level.OFF)
+val CommandLine.sortFeaturesPattern get() =
+    if (hasOption(EncodeCommandLine.SORT_FEATURES_OPTION)) {
+        Pattern.compile(getOptionValue(EncodeCommandLine.SORT_FEATURES_OPTION, ".*"))
+    } else {
+        null
+    }
+val CommandLine.regenIDsPattern get() =
+    if (hasOption(EncodeCommandLine.REGEN_IDS_OPTION)) {
+        Pattern.compile(getOptionValue(EncodeCommandLine.REGEN_IDS_OPTION, ".*"))
+    } else {
+        null
+    }
+val CommandLine.outlineFeatureTables get() =
+    getOptionValues(EncodeCommandLine.OUTLINE_FEATURE_TABLES_OPTION)
+val CommandLine.useFSSTJava get() = hasOption(EncodeCommandLine.FSST_ENCODING_OPTION)
+val CommandLine.useFSSTNative get() = hasOption(EncodeCommandLine.FSST_NATIVE_ENCODING_OPTION)
+val CommandLine.tessellateSource get() =
+    getOptionValue(EncodeCommandLine.TESSELLATE_URL_OPTION, null as String?)
+val CommandLine.tessellatePolygons get() =
+    (tessellateSource != null) || hasOption(EncodeCommandLine.PRE_TESSELLATE_OPTION)
+val CommandLine.compressionType get() =
+    getOptionValue(EncodeCommandLine.COMPRESS_OPTION, null as String?)
+val CommandLine.enableCoerceOnTypeMismatch get() = hasOption(EncodeCommandLine.ALLOW_COERCE_OPTION)
+val CommandLine.enableElideOnTypeMismatch get() = hasOption(EncodeCommandLine.ALLOW_ELISION_OPTION)
+val CommandLine.filterRegex get() =
+    getOptionValue(EncodeCommandLine.FILTER_LAYERS_OPTION, null as String?)
+val CommandLine.filterPattern get() = filterRegex?.let(Pattern::compile)
+val CommandLine.filterInvert get() = hasOption(EncodeCommandLine.FILTER_LAYERS_INVERT_OPTION)
+val CommandLine.threadCount get() =
+    if (hasOption(EncodeCommandLine.PARALLEL_OPTION)) {
+        getParsedOptionValue<Long>(EncodeCommandLine.PARALLEL_OPTION, 0L).toInt()
+    } else {
+        1
+    }.let {
+        if (it > 0) {
+            it
+        } else {
+            Runtime
+                .getRuntime()
+                .availableProcessors()
+        }
+    }

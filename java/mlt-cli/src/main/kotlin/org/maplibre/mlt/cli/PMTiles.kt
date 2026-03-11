@@ -43,7 +43,7 @@ fun encodePMTiles(
     outputPath: Path,
     config: EncodeConfig,
 ): Boolean {
-    val cacheManager = getCacheManager()
+    val cacheManager = getCacheManager(config)
     return RangeReaderFactory.create(inputURI).use { rawReader ->
         logger.debug("Opened '{}' for reading", inputURI)
         getCachingReader(rawReader, cacheManager).use { cachingReader ->
@@ -55,8 +55,8 @@ fun encodePMTiles(
                         encodePMTiles(inputURI, pmTilesReader, writer, outputPath, config)
                     }
                 }.also {
-                    cacheManager.stats().forEach { (name, value) ->
-                        logger.debug(cacheMarker, "Cache '{}' : {}", name, value)
+                    if (config.logCacheStats) {
+                        rangeReaderCache?.also(::logCacheStats)
                     }
                 }
         }
@@ -65,7 +65,7 @@ fun encodePMTiles(
 
 // To have any effect on the cache size limit, we have to entirely replace the cache setup.
 // See `io.tileverse.rangereader.cache.RangeReaderCache.buildSharedCache`
-private fun getCacheManager() =
+private fun getCacheManager(config: EncodeConfig) =
     CaffeineCacheManager().also {
         // `RangeReaderCache.SHARED_CACHE_NAME` is private
         val cacheName = "tileverse-rangereader-cache"
@@ -73,19 +73,29 @@ private fun getCacheManager() =
         val maxHeapUsage = cacheMaxHeap?.toLong() ?: (maxMemory * cacheMaxHeapPercent / 100).toLong()
 
         logger.debug("Initializing cache with max size {}, max age {}", maxHeapUsage, cacheExpireAfterAccess)
-        it.getCache(cacheName, {
-            CaffeineCache
-                .newBuilder<ByteRange, ByteBuffer>()
-                .maximumWeight(maxHeapUsage)
-                .weigher(::weigh)
-                .averageWeight(DEFAULT_CACHE_AVERAGE_WEIGHT)
-                .expireAfterAccess(cacheExpireAfterAccess.toJavaDuration())
-                .scheduler(Scheduler.systemScheduler())
-                .removalListener(::onRemoval)
-                .recordStats()
-                .build()
-        })
+        rangeReaderCache =
+            it.getCache(cacheName, {
+                CaffeineCache
+                    .newBuilder<ByteRange, ByteBuffer>()
+                    .maximumWeight(maxHeapUsage)
+                    .weigher(::weigh)
+                    .scheduler(Scheduler.systemScheduler())
+                    .also {
+                        if (cacheAverageEntrySize > 0) {
+                            it.averageWeight(weigh(cacheAverageEntrySize))
+                        }
+                        if (cacheExpireAfterAccess.isPositive()) {
+                            it.expireAfterAccess(cacheExpireAfterAccess.toJavaDuration())
+                        }
+                        if (config.logCacheStats) {
+                            it.recordStats()
+                            it.removalListener(::onRemoval)
+                        }
+                    }.build()
+            })
     }
+
+private var rangeReaderCache: CaffeineCache<ByteRange, ByteBuffer>? = null
 
 private fun getCachingReader(
     rawReader: RangeReader,
@@ -96,6 +106,25 @@ private fun getCachingReader(
     .withHeaderBuffer()
     .withBlockAlignment()
     .build()
+
+private fun logCacheStats(cache: CaffeineCache<ByteRange, ByteBuffer>) {
+    val stats = cache.stats()
+    val runtime = Runtime.getRuntime()
+    val usedMem = runtime.totalMemory() - runtime.freeMemory()
+    val freeMem = runtime.maxMemory() - usedMem
+    logger.debug(
+        cacheMarker,
+        "Cache: entries={} hits={} ({}%) misses={} averageLoadTime={} evictions={} evictionWeight={} free mem={}",
+        String.format("%,d", stats.entryCount),
+        String.format("%,d", stats.hitCount),
+        String.format("%.1f", 100 * stats.hitRate),
+        String.format("%,d", stats.missCount),
+        formatNanosecDuration(stats.averageLoadTime),
+        String.format("%,d", stats.evictionCount),
+        formatSize(stats.evictionWeight),
+        formatSize(freeMem),
+    )
+}
 
 private fun getReaderAdapter(reader: AbstractRangeReader) =
     object : ReadablePmtiles.DataReader {
@@ -108,11 +137,13 @@ private fun getReaderAdapter(reader: AbstractRangeReader) =
 private fun weigh(
     key: ByteRange,
     value: ByteBuffer,
-): Int {
+) = weigh(value.capacity())
+
+private fun weigh(size: Int): Int {
     // Approximate overhead of the key record (long + int + object header)
     val keyWeight = 24
     // Value weight: object header + int field + the actual data in the ByteBuffer
-    val valueWeight = 16 + value.capacity()
+    val valueWeight = 16 + size
     return keyWeight + valueWeight
 }
 
@@ -133,28 +164,32 @@ private fun encodePMTiles(
     outputPath: Path,
     config: EncodeConfig,
 ): Boolean {
-    val timer = Timer()
+    val timer = if (config.willTime) Timer() else null
     val header = reader.header
-    val tilesPresentPct =
-        if (header.numAddressedTiles() > 0) {
-            String.format(
-                " (%.1f%%)",
-                100.0 * header.numTileContents() / header.numAddressedTiles(),
-            )
-        } else {
-            ""
-        }
-    logger.debug(
-        "PMTiles: version={}, tileType={}, tileCompression={}, minZoom={}, maxZoom={}, numAddressedTiles={}, numTileContents={}{}",
-        header.specVersion(),
-        header.tileType(),
-        header.tileCompression(),
-        header.minZoom(),
-        header.maxZoom(),
-        header.numAddressedTiles(),
-        header.numTileContents(),
-        tilesPresentPct,
-    )
+
+    if (logger.isDebugEnabled) {
+        val tilesPresentPct =
+            if (header.numAddressedTiles > 0) {
+                String.format(
+                    " (%.1f%%)",
+                    100.0 * header.numTileContents / header.numAddressedTiles,
+                )
+            } else {
+                ""
+            }
+
+        logger.debug(
+            "PMTiles: version={}, tileType={}, tileCompression={}, minZoom={}, maxZoom={}, numAddressedTiles={}, numTileContents={}{}",
+            header.specVersion,
+            header.tileType,
+            header.tileCompression,
+            header.minZoom,
+            header.maxZoom,
+            String.format("%,d", header.numAddressedTiles),
+            String.format("%,d", header.numTileContents),
+            tilesPresentPct,
+        )
+    }
 
     if (header.tileType() != TileType.MVT) {
         logger.error(
@@ -182,7 +217,7 @@ private fun encodePMTiles(
 
     val newMetadata =
         updateMetadata(reader.metadata(), minZoom, maxZoom, targetCompressType)
-    val state = ConversionState(targetConfig, if (pmTilesDedup) ConcurrentHashMap() else null)
+    val state = ConversionState(targetConfig, if (config.trackPmtiles) ConcurrentHashMap() else null)
 
     try {
         writer.newTileWriter().use { tileWriter ->
@@ -196,6 +231,7 @@ private fun encodePMTiles(
                         reader,
                         tileWriter,
                         config.taskRunner,
+                        config,
                         state,
                     )
                     config.taskRunner.shutdown()
@@ -214,6 +250,8 @@ private fun encodePMTiles(
                 logger.debug("Finalizing PMTiles file")
                 writer.finish(newMetadata)
             }
+
+            timer?.stop("PMTiles")
 
             return state.success.get()
         }
@@ -250,6 +288,7 @@ private fun processTiles(
     reader: ReadablePmtiles,
     tileWriter: WriteableTileArchive.TileWriter,
     taskRunner: TaskRunner,
+    config: EncodeConfig,
     state: ConversionState,
 ) {
     tileSeq.forEach { tileRange ->
@@ -258,7 +297,7 @@ private fun processTiles(
             try {
                 taskRunner.run(
                     {
-                        if (!processTileRange(tileRange, reader, tileWriter, state)) {
+                        if (!processTileRange(tileRange, reader, tileWriter, config, state)) {
                             state.success.set(false)
                         }
                     },
@@ -280,6 +319,7 @@ private fun processTileRange(
     tileRef: ReadablePmtiles.TileCoordRange,
     reader: ReadablePmtiles,
     writer: WriteableTileArchive.TileWriter,
+    config: EncodeConfig,
     state: ConversionState,
 ): Boolean {
     val tileCoords = tileRef.tileCoords
@@ -312,6 +352,9 @@ private fun processTileRange(
                     String.format("%.1f", 100.0 * curTileCount / totalTiles),
                     tileLabel,
                 )
+            }
+            if (prevTileCount > 0 && config.logCacheStats) {
+                rangeReaderCache?.also(::logCacheStats)
             }
         }
     }
@@ -432,32 +475,16 @@ private fun writeTiles(
 
 private fun toTileCompression(compression: Pmtiles.Compression): TileCompression =
     when (compression) {
-        Pmtiles.Compression.NONE -> {
-            TileCompression.NONE
-        }
-
-        Pmtiles.Compression.GZIP -> {
-            TileCompression.GZIP
-        }
-
-        else -> {
-            throw IllegalArgumentException("Unsupported compression type: $compression")
-        }
+        Pmtiles.Compression.NONE -> TileCompression.NONE
+        Pmtiles.Compression.GZIP -> TileCompression.GZIP
+        else -> throw IllegalArgumentException("Unsupported compression type: $compression")
     }
 
 private fun toCompressionOption(compression: TileCompression): String? =
     when (compression) {
-        TileCompression.NONE -> {
-            null
-        }
-
-        TileCompression.GZIP -> {
-            "gzip"
-        }
-
-        else -> {
-            throw IllegalArgumentException("Unsupported compression type: $compression")
-        }
+        TileCompression.NONE -> null
+        TileCompression.GZIP -> "gzip"
+        else -> throw IllegalArgumentException("Unsupported compression type: $compression")
     }
 
 private data class ConversionState(

@@ -23,7 +23,6 @@ import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.util.regex.Pattern
 
 object Encode {
     @JvmStatic
@@ -55,53 +54,23 @@ object Encode {
 
     private fun run(cmd: CommandLine): Boolean {
         val tileFileNames = cmd.getOptionValues(EncodeCommandLine.INPUT_TILE_ARG)
-        val sortFeaturesPattern =
-            if (cmd.hasOption(EncodeCommandLine.SORT_FEATURES_OPTION)) {
-                Pattern.compile(cmd.getOptionValue(EncodeCommandLine.SORT_FEATURES_OPTION, ".*"))
-            } else {
-                null
-            }
-        val regenIDsPattern =
-            if (cmd.hasOption(EncodeCommandLine.REGEN_IDS_OPTION)) {
-                Pattern.compile(cmd.getOptionValue(EncodeCommandLine.REGEN_IDS_OPTION, ".*"))
-            } else {
-                null
-            }
-        val outlineFeatureTables =
-            cmd.getOptionValues(EncodeCommandLine.OUTLINE_FEATURE_TABLES_OPTION)
-        val useFSSTJava = cmd.hasOption(EncodeCommandLine.FSST_ENCODING_OPTION)
-        val useFSSTNative = cmd.hasOption(EncodeCommandLine.FSST_NATIVE_ENCODING_OPTION)
-        val tessellateSource =
-            cmd.getOptionValue(EncodeCommandLine.TESSELLATE_URL_OPTION, null as String?)
-        val tessellateURI = if (tessellateSource != null) URI(tessellateSource) else null
-        val tessellatePolygons =
-            (tessellateSource != null) || cmd.hasOption(EncodeCommandLine.PRE_TESSELLATE_OPTION)
-        val compressionType =
-            cmd.getOptionValue(EncodeCommandLine.COMPRESS_OPTION, null as String?)
-        val enableCoerceOnTypeMismatch = cmd.hasOption(EncodeCommandLine.ALLOW_COERCE_OPTION)
-        val enableElideOnTypeMismatch = cmd.hasOption(EncodeCommandLine.ALLOW_ELISION_OPTION)
-        val filterRegex =
-            cmd.getOptionValue(EncodeCommandLine.FILTER_LAYERS_OPTION, null as String?)
-        val filterPattern = if (filterRegex != null) Pattern.compile(filterRegex) else null
-        val filterInvert = cmd.hasOption(EncodeCommandLine.FILTER_LAYERS_INVERT_OPTION)
-        val columnMappings = getColumnMappings(cmd)
-        val minZoom =
-            cmd.getParsedOptionValue<Long?>(EncodeCommandLine.MIN_ZOOM_OPTION, 0L)!!.toInt()
-        val maxZoom =
-            cmd
-                .getParsedOptionValue<Long?>(
-                    EncodeCommandLine.MAX_ZOOM_OPTION,
-                    Int.MAX_VALUE
-                        .toLong(),
-                )!!
-                .toInt()
+        val sortFeaturesPattern = cmd.sortFeaturesPattern
+        val regenIDsPattern = cmd.regenIDsPattern
+        val outlineFeatureTables = cmd.outlineFeatureTables
+        val useFSSTJava = cmd.useFSSTJava
+        val useFSSTNative = cmd.useFSSTNative
+        val tessellateURI = cmd.tessellateSource?.let { URI(it) }
+        val tessellatePolygons = cmd.tessellatePolygons
+        val compressionType = cmd.compressionType
+        val enableCoerce = cmd.enableCoerceOnTypeMismatch
+        val enableElide = cmd.enableElideOnTypeMismatch
+        val filterPattern = cmd.filterPattern
+        val filterInvert = cmd.filterInvert
+        val minZoom = cmd.minZoom
+        val maxZoom = cmd.maxZoom
+        val logLevel = cmd.logLevel
+        val threadCount = cmd.threadCount
 
-        val logLevel =
-            if (cmd.hasOption(EncodeCommandLine.VERBOSE_OPTION)) {
-                Level.toLevel(cmd.getOptionValue(EncodeCommandLine.VERBOSE_OPTION), Level.DEBUG)
-            } else {
-                Level.INFO
-            }
         Configurator.setRootLevel(logLevel)
 
         // PMTiles logs stats at INFO.  Enable that only if the user has selected at least debug.
@@ -111,20 +80,8 @@ object Encode {
             if (logLevel.isLessSpecificThan(Level.DEBUG)) Level.INFO else Level.OFF,
         )
 
-        val threadCountOption =
-            if (cmd.hasOption(EncodeCommandLine.PARALLEL_OPTION)) {
-                cmd.getParsedOptionValue<Long?>(EncodeCommandLine.PARALLEL_OPTION, 0L)!!.toInt()
-            } else {
-                1
-            }
-        val threadCount =
-            if (threadCountOption > 0) {
-                threadCountOption
-            } else {
-                Runtime
-                    .getRuntime()
-                    .availableProcessors()
-            }
+        val columnMappings = getColumnMappings(cmd)
+
         val taskRunner = createBoundedNonRejectingTaskRunner(threadCount)
         logger.debug("Using {} thread(s)", taskRunner.threadCount + 1)
 
@@ -152,7 +109,7 @@ object Encode {
                 .includeIds(!cmd.hasOption(EncodeCommandLine.EXCLUDE_IDS_OPTION))
                 .useFastPFOR(cmd.hasOption(EncodeCommandLine.FASTPFOR_ENCODING_OPTION))
                 .useFSST(useFSST)
-                .mismatchPolicy(enableCoerceOnTypeMismatch, enableElideOnTypeMismatch)
+                .mismatchPolicy(enableCoerce, enableElide)
                 .preTessellatePolygons(tessellatePolygons)
                 .useMortonEncoding(!cmd.hasOption(EncodeCommandLine.NO_MORTON_OPTION))
                 .outlineFeatureTableNames(
@@ -193,6 +150,8 @@ object Encode {
                 willTime = cmd.hasOption(EncodeCommandLine.TIMER_OPTION),
                 taskRunner = taskRunner,
                 continueOnError = cmd.hasOption(EncodeCommandLine.CONTINUE_OPTION),
+                trackPmtiles = !cmd.hasOption(EncodeCommandLine.PMTILES_TRACK_OPTION),
+                logCacheStats = cmd.hasOption(EncodeCommandLine.CACHE_STATS_OPTION),
             )
 
         if (tileFileNames != null && tileFileNames.size > 0) {
@@ -203,7 +162,7 @@ object Encode {
                 )
             }
             for (tileFileName in tileFileNames) {
-                val outputPath = getOutputPath(cmd, tileFileName!!, "mlt")
+                val outputPath = getOutputPath(cmd, tileFileName, "mlt")
                 if (outputPath == null) {
                     continue
                 }
@@ -221,7 +180,7 @@ object Encode {
         } else if (cmd.hasOption(EncodeCommandLine.INPUT_OFFLINEDB_ARG)) {
             val inputPath = cmd.getOptionValue(EncodeCommandLine.INPUT_OFFLINEDB_ARG)
             var ext = FilenameUtils.getExtension(inputPath)
-            if (!ext!!.isEmpty()) {
+            if (ext != null && !ext.isEmpty()) {
                 ext = "." + ext
             }
             val outputPath = getOutputPath(cmd, inputPath, "mlt" + ext)
@@ -231,7 +190,7 @@ object Encode {
         } else if (cmd.hasOption(EncodeCommandLine.INPUT_PMTILES_ARG)) {
             val inputPath = cmd.getOptionValue(EncodeCommandLine.INPUT_PMTILES_ARG)
             var ext = FilenameUtils.getExtension(inputPath)
-            if (!ext!!.isEmpty()) {
+            if (ext != null && !ext.isEmpty()) {
                 ext = "." + ext
             }
             var outputPath = getOutputPath(cmd, inputPath, "mlt" + ext)
@@ -304,9 +263,7 @@ object Encode {
                 targetConfig,
                 config.tessellateSource,
             )
-        if (willTime) {
-            timer!!.stop("encoding")
-        }
+        timer?.stop("encoding")
 
         if (config.willOutput) {
             logger.debug("Writing converted tile to {}", outputPath)
@@ -323,14 +280,10 @@ object Encode {
         val needsDecoding = config.willDecode || willCompare || config.willPrintMLT
         if (needsDecoding) {
             logger.debug("Decoding converted tile...")
-            if (willTime) {
-                timer!!.restart()
-            }
+            timer?.restart()
 
             val decodedTile = MltDecoder.decodeMlTile(mlTile)
-            if (willTime) {
-                timer!!.stop("decoding")
-            }
+            timer?.stop("decoding")
             if (config.willPrintMLT) {
                 System.out.write(decodedTile.toJson().toByteArray(StandardCharsets.UTF_8))
             }

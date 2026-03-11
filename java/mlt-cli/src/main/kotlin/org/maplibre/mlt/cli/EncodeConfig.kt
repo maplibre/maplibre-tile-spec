@@ -24,6 +24,8 @@ data class EncodeConfig(
     val willTime: Boolean,
     val taskRunner: TaskRunner,
     val continueOnError: Boolean,
+    val trackPmtiles: Boolean,
+    val logCacheStats: Boolean,
 ) {
     val compareMode get() =
         if (compareGeom && compareProp) {
