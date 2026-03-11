@@ -112,12 +112,6 @@ impl Debug for DecodedGeometry {
     }
 }
 
-impl<'a> From<EncodedGeometry<'a>> for Geometry<'a> {
-    fn from(value: EncodedGeometry<'a>) -> Self {
-        Self::Encoded(value)
-    }
-}
-
 impl<'a> Geometry<'a> {
     #[must_use]
     pub fn new_encoded(meta: Stream<'a>, items: Vec<Stream<'a>>) -> Self {

@@ -1,3 +1,5 @@
+use enum_dispatch::enum_dispatch;
+
 /// What to calculate with [`Analyze::collect_statistic`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StatType {
@@ -10,6 +12,7 @@ pub enum StatType {
 }
 
 /// Trait for estimating various size/count metrics.
+#[enum_dispatch]
 pub trait Analyze {
     fn collect_statistic(&self, _stat: StatType) -> usize {
         0

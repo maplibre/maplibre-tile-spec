@@ -36,6 +36,7 @@ fastpfor-rust = ["fastpfor/rust"]
 [dependencies]
 arbitrary = { workspace = true, optional = true }
 borrowme.workspace = true
+enum_dispatch = "0.3"
 fastpfor.workspace = true
 fsst-rs.workspace = true
 geo-types.workspace = true

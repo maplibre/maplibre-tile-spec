@@ -1,6 +1,7 @@
+use std::borrow::Cow;
 use std::fmt::{self, Debug};
 
-use borrowme::{Borrow as BorrowmeBorrow, ToOwned as BorrowmeToOwned};
+use borrowme::{Borrow as BorrowmeBorrow, ToOwned as BorrowMe};
 
 use crate::utils::FmtOptVec;
 use crate::v01::{DecodedProperty, DecodedScalar};
@@ -67,24 +68,33 @@ impl Debug for DecodedProperty<'_> {
     }
 }
 
-impl BorrowmeToOwned for DecodedProperty<'_> {
+impl<T: Copy + PartialEq> BorrowMe for DecodedScalar<'_, T> {
+    type Owned = DecodedScalar<'static, T>;
+
+    fn to_owned(&self) -> Self::Owned {
+        DecodedScalar {
+            name: Cow::Owned(self.name.as_ref().to_string()),
+            values: self.values.clone(),
+        }
+    }
+}
+
+impl BorrowMe for DecodedProperty<'_> {
     type Owned = DecodedProperty<'static>;
 
     fn to_owned(&self) -> Self::Owned {
         match self {
-            Self::Bool(v) => DecodedProperty::Bool(v.clone()),
-            Self::I8(v) => DecodedProperty::I8(v.clone()),
-            Self::U8(v) => DecodedProperty::U8(v.clone()),
-            Self::I32(v) => DecodedProperty::I32(v.clone()),
-            Self::U32(v) => DecodedProperty::U32(v.clone()),
-            Self::I64(v) => DecodedProperty::I64(v.clone()),
-            Self::U64(v) => DecodedProperty::U64(v.clone()),
-            Self::F32(v) => DecodedProperty::F32(v.clone()),
-            Self::F64(v) => DecodedProperty::F64(v.clone()),
-            Self::Str(values) => DecodedProperty::Str(BorrowmeToOwned::to_owned(values)),
-            Self::SharedDict(shared_dict) => {
-                DecodedProperty::SharedDict(BorrowmeToOwned::to_owned(shared_dict))
-            }
+            Self::Bool(v) => DecodedProperty::Bool(BorrowMe::to_owned(&v)),
+            Self::I8(v) => DecodedProperty::I8(BorrowMe::to_owned(v)),
+            Self::U8(v) => DecodedProperty::U8(BorrowMe::to_owned(v)),
+            Self::I32(v) => DecodedProperty::I32(BorrowMe::to_owned(v)),
+            Self::U32(v) => DecodedProperty::U32(BorrowMe::to_owned(v)),
+            Self::I64(v) => DecodedProperty::I64(BorrowMe::to_owned(v)),
+            Self::U64(v) => DecodedProperty::U64(BorrowMe::to_owned(v)),
+            Self::F32(v) => DecodedProperty::F32(BorrowMe::to_owned(v)),
+            Self::F64(v) => DecodedProperty::F64(BorrowMe::to_owned(v)),
+            Self::Str(v) => DecodedProperty::Str(BorrowMe::to_owned(v)),
+            Self::SharedDict(v) => DecodedProperty::SharedDict(BorrowMe::to_owned(v)),
         }
     }
 }
@@ -108,8 +118,8 @@ impl BorrowmeBorrow for DecodedProperty<'static> {
             Self::U64(v) => P::U64(S::new(v.name.clone(), v.values.clone())),
             Self::F32(v) => P::F32(S::new(v.name.clone(), v.values.clone())),
             Self::F64(v) => P::F64(S::new(v.name.clone(), v.values.clone())),
-            Self::Str(values) => P::Str(BorrowmeBorrow::borrow(values)),
-            Self::SharedDict(shared_dict) => P::SharedDict(BorrowmeBorrow::borrow(shared_dict)),
+            Self::Str(v) => P::Str(BorrowmeBorrow::borrow(v)),
+            Self::SharedDict(v) => P::SharedDict(BorrowmeBorrow::borrow(v)),
         }
     }
 }
@@ -117,6 +127,6 @@ impl BorrowmeBorrow for DecodedProperty<'static> {
 // for impl_decodable
 impl Default for DecodedProperty<'_> {
     fn default() -> Self {
-        Self::Bool(DecodedScalar::new(String::new(), Vec::new()))
+        Self::Bool(DecodedScalar::new("", Vec::new()))
     }
 }

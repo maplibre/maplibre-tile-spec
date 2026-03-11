@@ -1,19 +1,11 @@
+use borrowme::Borrow as _;
+
 use crate::analyse::{Analyze, StatType};
-use crate::v01::{DecodedProperty, EncodedProperty, Property, Stream};
+use crate::v01::{DecodedScalar, DecodedSharedDict, EncodedProperty, Stream};
 
-impl Analyze for Property<'_> {
-    fn collect_statistic(&self, stat: StatType) -> usize {
-        match self {
-            Self::Encoded(d) => d.collect_statistic(stat),
-            Self::Decoded(d) => d.collect_statistic(stat),
-        }
-    }
-
+impl Analyze for crate::v01::OwnedEncodedProperty {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
-        match self {
-            Self::Encoded(d) => d.for_each_stream(cb),
-            Self::Decoded(d) => d.for_each_stream(cb),
-        }
+        self.borrow().for_each_stream(cb);
     }
 }
 
@@ -51,35 +43,28 @@ impl Analyze for EncodedProperty<'_> {
     }
 }
 
-impl Analyze for DecodedProperty<'_> {
+impl<T: Analyze + Copy + PartialEq> Analyze for DecodedScalar<'_, T> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         let meta = if stat == StatType::DecodedMetaSize {
-            self.name().len()
+            self.name.len()
         } else {
             0
         };
-        meta + self.collect_value_statistic(stat)
+        meta + self.values.collect_statistic(stat)
     }
 }
 
-impl DecodedProperty<'_> {
-    pub(super) fn collect_value_statistic(&self, stat: StatType) -> usize {
-        match self {
-            Self::Bool(v) => v.values.collect_statistic(stat),
-            Self::I8(v) => v.values.collect_statistic(stat),
-            Self::U8(v) => v.values.collect_statistic(stat),
-            Self::I32(v) => v.values.collect_statistic(stat),
-            Self::U32(v) => v.values.collect_statistic(stat),
-            Self::I64(v) => v.values.collect_statistic(stat),
-            Self::U64(v) => v.values.collect_statistic(stat),
-            Self::F32(v) => v.values.collect_statistic(stat),
-            Self::F64(v) => v.values.collect_statistic(stat),
-            Self::Str(v) => v.collect_statistic(stat),
-            Self::SharedDict(shared_dict) => shared_dict
-                .items
-                .iter()
-                .map(|item| item.materialize(shared_dict).collect_statistic(stat))
-                .sum(),
-        }
+impl Analyze for DecodedSharedDict<'_> {
+    fn collect_statistic(&self, stat: StatType) -> usize {
+        let meta = if stat == StatType::DecodedMetaSize {
+            self.prefix.len()
+        } else {
+            0
+        };
+        meta + self
+            .items
+            .iter()
+            .map(|item| item.materialize(self).collect_statistic(stat))
+            .sum::<usize>()
     }
 }
