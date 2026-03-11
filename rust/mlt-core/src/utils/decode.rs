@@ -6,6 +6,8 @@ use crate::MltError::{BufferUnderflow, InvalidPairStreamSize};
 use crate::utils::{AsUsize as _, take};
 use crate::{MltError, MltRefResult};
 
+const LANES: usize = 8;
+
 /// Decode ([`ZigZag`] + delta) for Vec2s
 // TODO: The encoded process is (delta + ZigZag) for each component
 pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
@@ -113,11 +115,11 @@ pub fn decode_morton_delta(data: &[u32], num_bits: u32, coordinate_shift: u32) -
     let shift_vec = u32x8::splat(coordinate_shift);
 
     let mut prev = 0i32;
-    let mut chunks = data.chunks_exact(8);
+    let mut chunks = data.chunks_exact(LANES);
 
     for chunk in chunks.by_ref() {
         // Sequential prefix sum into a stack buffer — no heap allocation.
-        let mut buf = [0u32; 8];
+        let mut buf = [0u32; LANES];
         for (b, &d) in buf.iter_mut().zip(chunk.iter()) {
             prev = prev.wrapping_add(d.cast_signed());
             *b = prev.cast_unsigned();
@@ -146,7 +148,7 @@ pub fn decode_morton_codes(data: &[u32], num_bits: u32, coordinate_shift: u32) -
     let mut out = Vec::with_capacity(data.len() * 2);
     let shift_vec = u32x8::splat(coordinate_shift);
 
-    let mut chunks = data.chunks_exact(8);
+    let mut chunks = data.chunks_exact(LANES);
 
     for chunk in chunks.by_ref() {
         let buf = [
@@ -170,7 +172,7 @@ pub fn decode_morton_codes(data: &[u32], num_bits: u32, coordinate_shift: u32) -
 /// Each code has already been resolved to its absolute value (no delta pending).
 /// Even-indexed bits encode x, odd-indexed bits encode y.
 #[inline]
-fn decode_morton_chunk(buf: [u32; 8], num_bits: u32, shift_vec: u32x8, out: &mut Vec<i32>) {
+fn decode_morton_chunk(buf: [u32; LANES], num_bits: u32, shift_vec: u32x8, out: &mut Vec<i32>) {
     let codes = u32x8::from(buf);
     // Odd bits become even after shifting right by 1, giving the y component.
     let codes_y = codes >> 1;
@@ -186,10 +188,10 @@ fn decode_morton_chunk(buf: [u32; 8], num_bits: u32, shift_vec: u32x8, out: &mut
         y_vec |= (codes_y & bit_mask) >> i;
     }
 
-    let xs: [u32; 8] = (x_vec - shift_vec).into();
-    let ys: [u32; 8] = (y_vec - shift_vec).into();
+    let xs: [u32; LANES] = (x_vec - shift_vec).into();
+    let ys: [u32; LANES] = (y_vec - shift_vec).into();
 
-    for lane in 0..8 {
+    for lane in 0..LANES {
         out.push(xs[lane].cast_signed());
         out.push(ys[lane].cast_signed());
     }
