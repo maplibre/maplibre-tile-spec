@@ -7,7 +7,9 @@ import kotlin.math.log10
 import kotlin.math.pow
 
 /** Logger class for free functions */
-private class CommonLogger
+private class CommonLogger {
+    private constructor()
+}
 
 internal val logger = LoggerFactory.getLogger(CommonLogger::class.java)
 internal val readMarker = MarkerFactory.getMarker("READ")

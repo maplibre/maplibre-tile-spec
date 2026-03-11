@@ -5,33 +5,71 @@ import kotlin.time.Duration.Companion.seconds
 
 const val ENV_COMPRESSION_RATIO_THRESHOLD = "MLT_COMPRESSION_RATIO_THRESHOLD"
 const val DEFAULT_COMPRESSION_RATIO_THRESHOLD = 0.98
-val compressionRatioThreshold by lazy {
+val compressionRatioThreshold by lazy { computeCompressionRatioThreshold() }
+
+const val ENV_COMPRESSION_FIXED_THRESHOLD = "MLT_COMPRESSION_FIXED_THRESHOLD"
+const val DEFAULT_COMPRESSION_FIXED_THRESHOLD = 20L
+val compressionFixedThreshold by lazy { computeCompressionFixedThreshold() }
+
+const val ENV_TILE_LOG_INTERVAL = "MLT_TILE_LOG_INTERVAL"
+const val DEFAULT_TILE_LOG_INTERVAL = 10_000UL
+val tileLogInterval by lazy { computeTileLogInterval() }
+
+const val ENV_CACHE_MAX_HEAP = "MLT_CACHE_MAX_HEAP"
+const val DEFAULT_CACHE_MAX_HEAP = 0UL
+val cacheMaxHeap by lazy { computeCacheMaxHeap() }
+
+const val DEFAULT_CACHE_MAX_HEAP_PERCENT = 10.0
+const val ENV_CACHE_MAX_HEAP_PERCENT = "MLT_CACHE_MAX_HEAP_PERCENT"
+val cacheMaxHeapPercent by lazy { computeCacheMaxHeapPercent() }
+
+const val ENV_CACHE_EXPIRE = "MLT_CACHE_EXPIRE"
+val DEFAULT_CACHE_EXPIRE = 10.seconds
+val cacheExpireAfterAccess by lazy { computeCacheExpireAfterAccess() }
+
+const val ENV_THREAD_QUEUE_SIZE = "MLT_THREAD_QUEUE_SIZE"
+const val DEFAULT_THREAD_QUEUE_SIZE = 10_000
+val threadQueueSize by lazy { computeThreadQueueSize() }
+
+const val ENV_CACHE_AVERAGE_WEIGHT = "MLT_CACHE_AVERAGE_SIZE"
+const val DEFAULT_CACHE_AVERAGE_WEIGHT = 4 * 1024
+val cacheAverageEntrySize by lazy { computeCacheAverageEntrySize() }
+
+val defaultEnvResolver: (String) -> String? = { name -> System.getenv(name) }
+
+/** Use the provided function to resolve environment variables.
+ */
+var envResolver = defaultEnvResolver
+
+private fun <T> resolveConfigValue(
+    name: String,
+    def: T,
+    parser: (String) -> T,
+): T =
+    try {
+        envResolver(name)?.let { parser(it) } ?: def
+    } catch (e: Exception) {
+        logger.warn("Failed to parse {}, using default value {}", name, def, e)
+        def
+    }
+
+internal fun computeCompressionRatioThreshold() =
     resolveConfigValue(ENV_COMPRESSION_RATIO_THRESHOLD, DEFAULT_COMPRESSION_RATIO_THRESHOLD, String::toDouble).also {
         if (it < 0.0) {
             throw IllegalArgumentException("Compression ratio threshold must be non-negative")
         }
     }
-}
 
-const val ENV_COMPRESSION_FIXED_THRESHOLD = "MLT_COMPRESSION_FIXED_THRESHOLD"
-const val DEFAULT_COMPRESSION_FIXED_THRESHOLD = 20L
-
-val compressionFixedThreshold by lazy {
+internal fun computeCompressionFixedThreshold() =
     resolveConfigValue(ENV_COMPRESSION_FIXED_THRESHOLD, DEFAULT_COMPRESSION_FIXED_THRESHOLD, String::toLong)
-}
 
-const val ENV_TILE_LOG_INTERVAL = "MLT_TILE_LOG_INTERVAL"
-const val DEFAULT_TILE_LOG_INTERVAL = 10_000UL
-val tileLogInterval by lazy {
+internal fun computeTileLogInterval() =
     resolveConfigValue(ENV_TILE_LOG_INTERVAL, DEFAULT_TILE_LOG_INTERVAL, String::toULong).let {
         // treat zero as "never"
         if (it < 1UL) ULong.MAX_VALUE else it
     }
-}
 
-const val ENV_CACHE_MAX_HEAP = "MLT_CACHE_MAX_HEAP"
-const val DEFAULT_CACHE_MAX_HEAP = 0UL
-val cacheMaxHeap by lazy {
+internal fun computeCacheMaxHeap() =
     resolveConfigValue(ENV_CACHE_MAX_HEAP, DEFAULT_CACHE_MAX_HEAP, String::toULong).let {
         if (it > Long.MAX_VALUE.toULong()) {
             // Cache API uses `Long`, so don't let it go negative
@@ -39,57 +77,31 @@ val cacheMaxHeap by lazy {
         }
         if (it > 0UL) it else null
     }
-}
 
-const val DEFAULT_CACHE_MAX_HEAP_PERCENT = 10.0
-const val ENV_CACHE_MAX_HEAP_PERCENT = "MLT_CACHE_MAX_HEAP_PERCENT"
-val cacheMaxHeapPercent by lazy {
+internal fun computeCacheMaxHeapPercent() =
     resolveConfigValue(ENV_CACHE_MAX_HEAP_PERCENT, DEFAULT_CACHE_MAX_HEAP_PERCENT, String::toDouble).also {
-        if (!it.isFinite() || !(0.0 <= it && it <= 100.0)) {
+        if (!it.isFinite() || !(0.0 <= it && it < 100.0)) {
             throw IllegalArgumentException("Cache max heap percent must be between 0 and 100")
         }
     }
-}
 
-const val ENV_CACHE_EXPIRE = "MLT_CACHE_EXPIRE"
-val DEFAULT_CACHE_EXPIRE = 10.seconds
-val cacheExpireAfterAccess by lazy {
+internal fun computeCacheExpireAfterAccess() =
     resolveConfigValue(ENV_CACHE_EXPIRE, DEFAULT_CACHE_EXPIRE, Duration::parse).also {
         if (it.isNegative()) {
             throw IllegalArgumentException("Cache expire duration must be non-negative")
         }
     }
-}
 
-const val ENV_THREAD_QUEUE_SIZE = "MLT_THREAD_QUEUE_SIZE"
-const val DEFAULT_THREAD_QUEUE_SIZE = 10_000
-val threadQueueSize by lazy {
+internal fun computeThreadQueueSize() =
     resolveConfigValue(ENV_THREAD_QUEUE_SIZE, DEFAULT_THREAD_QUEUE_SIZE, String::toInt).also {
         if (it < 1) {
             throw IllegalArgumentException("Thread queue size must be positive")
         }
     }
-}
 
-const val ENV_CACHE_AVERAGE_WEIGHT = "MLT_CACHE_AVERAGE_SIZE"
-const val DEFAULT_CACHE_AVERAGE_WEIGHT = 4 * 1024
-val cacheAverageEntrySize by lazy {
+internal fun computeCacheAverageEntrySize() =
     resolveConfigValue(ENV_CACHE_AVERAGE_WEIGHT, DEFAULT_CACHE_AVERAGE_WEIGHT, String::toInt).also {
         if (it < 0) {
             throw IllegalArgumentException("Cache average weight must not be negative")
         }
-    }
-}
-
-/** Parse using the provided function, use default on null or error */
-private fun <T> resolveConfigValue(
-    name: String,
-    def: T,
-    parser: (String) -> T,
-): T =
-    try {
-        System.getenv(name)?.let { parser(it) } ?: def
-    } catch (e: Exception) {
-        logger.warn("Failed to parse {}, using default value {}", name, def, e)
-        def
     }
