@@ -3,8 +3,7 @@ use crate::utils::{
     encode_fastpfor, encode_u32s_to_bytes, encode_u64s_to_bytes, encode_varint, parse_u8,
 };
 use crate::v01::{
-    DictionaryType, LengthType, OffsetType, OwnedDataVarInt, OwnedEncodedData, OwnedStreamData,
-    PhysicalEncoding, StreamType,
+    DictionaryType, LengthType, OffsetType, OwnedStreamData, PhysicalEncoding, StreamType,
 };
 use crate::{MltError, MltRefResult};
 
@@ -79,7 +78,7 @@ impl PhysicalEncoder {
         match self {
             Self::None => {
                 let data = encode_u32s_to_bytes(&values);
-                let stream = OwnedStreamData::Encoded(OwnedEncodedData { data });
+                let stream = OwnedStreamData::Encoded(data);
                 Ok((stream, PhysicalEncoding::None))
             }
             Self::VarInt => {
@@ -87,12 +86,12 @@ impl PhysicalEncoder {
                 for v in values {
                     encode_varint(&mut data, u64::from(v));
                 }
-                let stream = OwnedStreamData::VarInt(OwnedDataVarInt { data });
+                let stream = OwnedStreamData::VarInt(data);
                 Ok((stream, PhysicalEncoding::VarInt))
             }
             Self::FastPFOR => {
                 let data = encode_fastpfor(&values)?;
-                let stream = OwnedStreamData::Encoded(OwnedEncodedData { data });
+                let stream = OwnedStreamData::Encoded(data);
                 Ok((stream, PhysicalEncoding::FastPFOR))
             }
         }
@@ -106,7 +105,7 @@ impl PhysicalEncoder {
         match self {
             Self::None => {
                 let data = encode_u64s_to_bytes(&values);
-                let stream = OwnedStreamData::Encoded(OwnedEncodedData { data });
+                let stream = OwnedStreamData::Encoded(data);
                 Ok((stream, PhysicalEncoding::None))
             }
             Self::VarInt => {
@@ -114,7 +113,7 @@ impl PhysicalEncoder {
                 for v in values {
                     encode_varint(&mut data, v);
                 }
-                let stream = OwnedStreamData::VarInt(OwnedDataVarInt { data });
+                let stream = OwnedStreamData::VarInt(data);
                 Ok((stream, PhysicalEncoding::VarInt))
             }
             Self::FastPFOR => Err(MltError::UnsupportedPhysicalEncoding("FastPFOR on u64")),

@@ -2,8 +2,8 @@ use crate::MltError;
 use crate::utils::{encode_bools_to_bytes, encode_byte_rle};
 use crate::v01::{
     DictionaryType, FsstStrEncoder, IntEncoder, IntEncoding, LengthType, LogicalEncoding,
-    OffsetType, OwnedEncodedData, OwnedEncodedStrings, OwnedFsstData, OwnedPlainData, OwnedStream,
-    OwnedStreamData, PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+    OffsetType, OwnedEncodedStrings, OwnedFsstData, OwnedPlainData, OwnedStream, OwnedStreamData,
+    PhysicalEncoding, RleMeta, StreamMeta, StreamType,
 };
 
 impl OwnedStream {
@@ -16,7 +16,7 @@ impl OwnedStream {
                 IntEncoding::none(),
                 0,
             ),
-            data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
+            data: OwnedStreamData::Encoded(Vec::new()),
         }
     }
 
@@ -29,7 +29,7 @@ impl OwnedStream {
     #[must_use]
     fn plain_with_type(data: Vec<u8>, num_values: u32, dict_type: DictionaryType) -> OwnedStream {
         let meta = StreamMeta::new(StreamType::Data(dict_type), IntEncoding::none(), num_values);
-        let data = OwnedStreamData::Encoded(OwnedEncodedData { data });
+        let data = OwnedStreamData::Encoded(data);
         Self { meta, data }
     }
 
@@ -67,7 +67,7 @@ impl OwnedStream {
         );
         Ok(Self {
             meta,
-            data: OwnedStreamData::Encoded(OwnedEncodedData { data }),
+            data: OwnedStreamData::Encoded(data),
         })
     }
 
@@ -270,7 +270,7 @@ impl OwnedStream {
                     IntEncoding::none(),
                     u32::try_from(symbol_lengths.len())?,
                 ),
-                data: OwnedStreamData::Encoded(OwnedEncodedData { data: symbol_bytes }),
+                data: OwnedStreamData::Encoded(symbol_bytes),
             },
             lengths: Self::encode_u32s_of_type(
                 &value_lengths,
@@ -283,7 +283,7 @@ impl OwnedStream {
                     IntEncoding::none(),
                     u32::try_from(values.len())?,
                 ),
-                data: OwnedStreamData::Encoded(OwnedEncodedData { data: compressed }),
+                data: OwnedStreamData::Encoded(compressed),
             },
         })
     }
