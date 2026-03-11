@@ -33,7 +33,7 @@
     "build": "npm run build:wasm && npm run build:ts && npm run build:wasm-gz",
     "test": "vitest --coverage --coverage.reportOnFailure --run",
     "test:watch": "vitest --coverage --coverage.reportOnFailure --ui",
-    "bench": "NODE_OPTIONS=--expose-gc vitest bench"
+    "bench": "node --expose-gc --no-liftoff --no-wasm-tier-up node_modules/.bin/vitest bench"
   },
   "dependencies": {
     "@mapbox/point-geometry": "1.1.0"
