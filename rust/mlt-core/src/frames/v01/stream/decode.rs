@@ -48,9 +48,9 @@ impl Stream<'_> {
         self.decode_bits_u32()?.decode_u32()
     }
 
-    pub fn decode_bits_u32(self) -> Result<LogicalValue, MltError> {
+    pub fn decode_bits_u32(&self) -> Result<LogicalValue, MltError> {
         let value = match self.meta.encoding.physical {
-            PhysicalEncoding::VarInt => match self.data {
+            PhysicalEncoding::VarInt => match &self.data {
                 StreamData::VarInt(data) => all(parse_varint_vec::<u32, u32>(
                     data.data,
                     self.meta.num_values,
@@ -59,7 +59,7 @@ impl Stream<'_> {
                     return Err(MltError::StreamDataMismatch("VarInt", "Encoded"));
                 }
             },
-            PhysicalEncoding::None => match self.data {
+            PhysicalEncoding::None => match &self.data {
                 StreamData::Encoded(data) => {
                     all(decode_bytes_to_u32s(data.data, self.meta.num_values)?)
                 }
@@ -67,7 +67,7 @@ impl Stream<'_> {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
                 }
             },
-            PhysicalEncoding::FastPFOR => match self.data {
+            PhysicalEncoding::FastPFOR => match &self.data {
                 StreamData::Encoded(data) => Ok(decode_fastpfor_composite(
                     data.data,
                     self.meta.num_values.as_usize(),
