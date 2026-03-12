@@ -1,9 +1,12 @@
 use std::borrow::Cow;
 
+use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
+
+use crate::geojson::{Coord32, Geom32};
 use crate::utils::{hilbert_curve_params, hilbert_sort_key, morton_sort_key};
 use crate::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, DecodedStrings, OwnedGeometry, OwnedId,
-    OwnedLayer01, OwnedProperty,
+    DecodedGeometry, DecodedId, DecodedProperty, DecodedStrings, GeometryType, OwnedGeometry,
+    OwnedId, OwnedLayer01, OwnedProperty,
 };
 use crate::{DecodeInto as _, MltError};
 
@@ -74,6 +77,12 @@ pub(crate) fn reorder_features(
         return Ok(());
     }
 
+    let geoms = if let OwnedGeometry::Decoded(ref g) = layer.geometry {
+        extract_geometries(g)?
+    } else {
+        vec![]
+    };
+
     if let Some(strategy) = strategy {
         // Skip tessellated layers — index_buffer / triangles are not permutable
         // without retessellating.
@@ -86,9 +95,9 @@ pub(crate) fn reorder_features(
             return Ok(());
         }
 
-        let keys = compute_sort_keys(layer, strategy, n)?;
+        let keys = compute_sort_keys(layer, strategy, n, &geoms)?;
         let perm = build_permutation(&keys);
-        apply_permutation(layer, &perm)?;
+        apply_permutation(layer, &perm, &geoms)?;
     }
 
     if allow_id_regeneration {
@@ -96,6 +105,212 @@ pub(crate) fn reorder_features(
     }
 
     Ok(())
+}
+
+fn extract_geometries(decoded: &DecodedGeometry) -> Result<Vec<Geom32>, MltError> {
+    let n = decoded.vector_types.len();
+    let mut result = Vec::with_capacity(n);
+
+    let verts = decoded.vertices.as_deref().unwrap_or(&[]);
+    let geoms = decoded.geometry_offsets.as_deref();
+    let parts = decoded.part_offsets.as_deref();
+    let rings = decoded.ring_offsets.as_deref();
+
+    let mut geom_ptr = 0;
+    let mut part_ptr = 0;
+    let mut vtx_ptr = 0;
+
+    let get_off = |s: &[u32], idx: usize, field: &'static str| -> Result<usize, MltError> {
+        s.get(idx)
+            .map(|&v| v as usize)
+            .ok_or(MltError::GeometryOutOfBounds {
+                index: 0,
+                field,
+                idx,
+                len: s.len(),
+            })
+    };
+
+    let get_vert = |idx: usize| -> Result<Coord32, MltError> {
+        verts
+            .get(idx * 2..idx * 2 + 2)
+            .map(|s| Coord { x: s[0], y: s[1] })
+            .ok_or(MltError::GeometryVertexOutOfBounds {
+                index: 0,
+                vertex: idx,
+                count: verts.len() / 2,
+            })
+    };
+
+    for i in 0..n {
+        let geom_type = decoded.vector_types[i];
+        let geom = match geom_type {
+            GeometryType::Point => {
+                if geoms.is_some() {
+                    geom_ptr += 1;
+                }
+                let res = Geom32::Point(Point(get_vert(vtx_ptr)?));
+                vtx_ptr += 1;
+                res
+            }
+            GeometryType::LineString => {
+                let part_count = if let Some(g) = geoms {
+                    let start = get_off(g, geom_ptr, "geometry_offsets")?;
+                    let end = get_off(g, geom_ptr + 1, "geometry_offsets")?;
+                    geom_ptr += 1;
+                    end - start
+                } else {
+                    1
+                };
+
+                let mut all_ls_verts = Vec::new();
+                for _ in 0..part_count {
+                    let vtx_count = if let Some(r) = rings {
+                        let p = parts.ok_or(MltError::NoPartOffsets(i, geom_type))?;
+                        let r_idx = get_off(p, part_ptr, "part_offsets")?;
+                        part_ptr += 1;
+                        let v_start = get_off(r, r_idx, "ring_offsets")?;
+                        let v_end = get_off(r, r_idx + 1, "ring_offsets")?;
+                        v_end - v_start
+                    } else {
+                        let p = parts.ok_or(MltError::NoPartOffsets(i, geom_type))?;
+                        let v_start = get_off(p, part_ptr, "part_offsets")?;
+                        let v_end = get_off(p, part_ptr + 1, "part_offsets")?;
+                        part_ptr += 1;
+                        v_end - v_start
+                    };
+                    for _ in 0..vtx_count {
+                        all_ls_verts.push(get_vert(vtx_ptr)?);
+                        vtx_ptr += 1;
+                    }
+                }
+                Geom32::LineString(LineString(all_ls_verts))
+            }
+            GeometryType::Polygon => {
+                let part_count = if let Some(g) = geoms {
+                    let start = get_off(g, geom_ptr, "geometry_offsets")?;
+                    let end = get_off(g, geom_ptr + 1, "geometry_offsets")?;
+                    geom_ptr += 1;
+                    end - start
+                } else {
+                    1
+                };
+
+                let mut polys = Vec::with_capacity(part_count);
+                for _ in 0..part_count {
+                    let p = parts.ok_or(MltError::NoPartOffsets(i, geom_type))?;
+                    let r = rings.ok_or(MltError::NoRingOffsets(i, geom_type))?;
+                    let r_start = get_off(p, part_ptr, "part_offsets")?;
+                    let r_end = get_off(p, part_ptr + 1, "part_offsets")?;
+                    part_ptr += 1;
+
+                    let mut polygon_rings = Vec::with_capacity(r_end - r_start);
+                    for r_idx in r_start..r_end {
+                        let v_start = get_off(r, r_idx, "ring_offsets")?;
+                        let v_end = get_off(r, r_idx + 1, "ring_offsets")?;
+                        let mut coords = Vec::with_capacity(v_end - v_start + 1);
+                        for _ in v_start..v_end {
+                            coords.push(get_vert(vtx_ptr)?);
+                            vtx_ptr += 1;
+                        }
+                        if let Some(&first) = coords.first() {
+                            coords.push(first);
+                        }
+                        polygon_rings.push(LineString(coords));
+                    }
+                    let mut iter = polygon_rings.into_iter();
+                    polys.push(Polygon::new(
+                        iter.next().unwrap_or_else(|| LineString(vec![])),
+                        iter.collect(),
+                    ));
+                }
+                Geom32::Polygon(
+                    polys
+                        .into_iter()
+                        .next()
+                        .unwrap_or_else(|| Polygon::new(LineString(vec![]), vec![])),
+                )
+            }
+            GeometryType::MultiPoint => {
+                let g = geoms.ok_or(MltError::NoGeometryOffsets(i, geom_type))?;
+                let v_start = get_off(g, geom_ptr, "geometry_offsets")?;
+                let v_end = get_off(g, geom_ptr + 1, "geometry_offsets")?;
+                geom_ptr += 1;
+                let mut points = Vec::with_capacity(v_end - v_start);
+                for _ in v_start..v_end {
+                    points.push(Point(get_vert(vtx_ptr)?));
+                    vtx_ptr += 1;
+                }
+                Geom32::MultiPoint(MultiPoint(points))
+            }
+            GeometryType::MultiLineString => {
+                let g = geoms.ok_or(MltError::NoGeometryOffsets(i, geom_type))?;
+                let p_start = get_off(g, geom_ptr, "geometry_offsets")?;
+                let p_end = get_off(g, geom_ptr + 1, "geometry_offsets")?;
+                geom_ptr += 1;
+                let mut lines = Vec::with_capacity(p_end - p_start);
+                for p_idx in p_start..p_end {
+                    let vtx_count = if let Some(r) = rings {
+                        let p = parts.ok_or(MltError::NoPartOffsets(i, geom_type))?;
+                        let r_idx = get_off(p, p_idx, "part_offsets")?;
+                        let v_start = get_off(r, r_idx, "ring_offsets")?;
+                        let v_end = get_off(r, r_idx + 1, "ring_offsets")?;
+                        v_end - v_start
+                    } else {
+                        let p = parts.ok_or(MltError::NoPartOffsets(i, geom_type))?;
+                        let v_start = get_off(p, p_idx, "part_offsets")?;
+                        let v_end = get_off(p, p_idx + 1, "part_offsets")?;
+                        v_end - v_start
+                    };
+                    let mut coords = Vec::with_capacity(vtx_count);
+                    for _ in 0..vtx_count {
+                        coords.push(get_vert(vtx_ptr)?);
+                        vtx_ptr += 1;
+                    }
+                    lines.push(LineString(coords));
+                }
+                part_ptr = p_end;
+                Geom32::MultiLineString(MultiLineString(lines))
+            }
+            GeometryType::MultiPolygon => {
+                let g = geoms.ok_or(MltError::NoGeometryOffsets(i, geom_type))?;
+                let p_start = get_off(g, geom_ptr, "geometry_offsets")?;
+                let p_end = get_off(g, geom_ptr + 1, "geometry_offsets")?;
+                geom_ptr += 1;
+                let mut polys = Vec::with_capacity(p_end - p_start);
+                for p_idx in p_start..p_end {
+                    let p = parts.ok_or(MltError::NoPartOffsets(i, geom_type))?;
+                    let r = rings.ok_or(MltError::NoRingOffsets(i, geom_type))?;
+                    let r_start = get_off(p, p_idx, "part_offsets")?;
+                    let r_end = get_off(p, p_idx + 1, "part_offsets")?;
+                    let mut polygon_rings = Vec::with_capacity(r_end - r_start);
+                    for r_idx in r_start..r_end {
+                        let v_start = get_off(r, r_idx, "ring_offsets")?;
+                        let v_end = get_off(r, r_idx + 1, "ring_offsets")?;
+                        let mut coords = Vec::with_capacity(v_end - v_start + 1);
+                        for _ in v_start..v_end {
+                            coords.push(get_vert(vtx_ptr)?);
+                            vtx_ptr += 1;
+                        }
+                        if let Some(&first) = coords.first() {
+                            coords.push(first);
+                        }
+                        polygon_rings.push(LineString(coords));
+                    }
+                    let mut iter = polygon_rings.into_iter();
+                    polys.push(Polygon::new(
+                        iter.next().unwrap_or_else(|| LineString(vec![])),
+                        iter.collect(),
+                    ));
+                }
+                part_ptr = p_end;
+                Geom32::MultiPolygon(MultiPolygon(polys))
+            }
+        };
+        result.push(geom);
+    }
+
+    Ok(result)
 }
 
 fn regenerate_ids(layer: &mut OwnedLayer01, n: usize) {
@@ -109,6 +324,7 @@ fn compute_sort_keys(
     layer: &OwnedLayer01,
     strategy: SortStrategy,
     n: usize,
+    geoms: &[Geom32],
 ) -> Result<Vec<u64>, MltError> {
     match strategy {
         SortStrategy::SpatialMorton | SortStrategy::SpatialHilbert => {
@@ -117,11 +333,11 @@ fn compute_sort_keys(
                 SortStrategy::SpatialHilbert => SpaceFillingCurve::Hilbert,
                 _ => unreachable!("only morton and hilbert sort strategies are supported"),
             };
-            let geom = match &layer.geometry {
+            let geom_data = match &layer.geometry {
                 OwnedGeometry::Decoded(g) => g,
                 OwnedGeometry::Encoded(_) => return Err(MltError::NotDecoded("geometry")),
             };
-            Ok(spatial_sort_keys(geom, n, curve)
+            Ok(spatial_sort_keys(geom_data, n, curve, geoms)
                 .into_iter()
                 .map(u64::from)
                 .collect())
@@ -145,21 +361,26 @@ fn compute_sort_keys(
 /// Return one sort key per feature using the first vertex of each feature as
 /// the representative point.  Features without a vertex receive `u32::MAX`
 /// so they sort to the end.
-fn spatial_sort_keys(decoded: &DecodedGeometry, n: usize, curve: SpaceFillingCurve) -> Vec<u32> {
+fn spatial_sort_keys(
+    decoded: &DecodedGeometry,
+    n: usize,
+    curve: SpaceFillingCurve,
+    geoms: &[Geom32],
+) -> Vec<u32> {
     let verts = decoded.vertices.as_deref().unwrap_or(&[]);
     let (shift, num_bits) = hilbert_curve_params(verts);
 
     match curve {
         SpaceFillingCurve::Morton => (0..n)
             .map(|i| {
-                first_vertex(i, decoded)
+                first_vertex(&geoms[i])
                     .map_or(u32::MAX, |(x, y)| morton_sort_key(x, y, shift, num_bits))
             })
             .collect(),
 
         SpaceFillingCurve::Hilbert => (0..n)
             .map(|i| {
-                first_vertex(i, decoded)
+                first_vertex(&geoms[i])
                     .map_or(u32::MAX, |(x, y)| hilbert_sort_key(x, y, shift, num_bits))
             })
             .collect(),
@@ -167,15 +388,22 @@ fn spatial_sort_keys(decoded: &DecodedGeometry, n: usize, curve: SpaceFillingCur
 }
 
 /// Extract the `(x, y)` coordinate of the first vertex for feature `i`.
-///
-/// Navigates the offset hierarchy present in `decoded` to find the correct
-/// position in the flat vertex buffer.  Returns `None` if there are no
-/// vertices or the index is out of range.
-fn first_vertex(i: usize, decoded: &DecodedGeometry) -> Option<(i32, i32)> {
-    let rings = decoded.to_mvt_rings(i).ok()?;
-    let first_ring = rings.first()?;
-    let first_vtx = first_ring.first()?;
-    Some((first_vtx[0], first_vtx[1]))
+fn first_vertex(geom: &Geom32) -> Option<(i32, i32)> {
+    match geom {
+        Geom32::Point(p) => Some((p.0.x, p.0.y)),
+        Geom32::Line(l) => Some((l.start.x, l.start.y)),
+        Geom32::LineString(ls) => ls.0.first().map(|c| (c.x, c.y)),
+        Geom32::Polygon(p) => p.exterior().0.first().map(|c| (c.x, c.y)),
+        Geom32::MultiPoint(mp) => mp.0.first().map(|p| (p.0.x, p.0.y)),
+        Geom32::MultiLineString(mls) => mls.0.first().and_then(|ls| ls.0.first().map(|c| (c.x, c.y))),
+        Geom32::MultiPolygon(mp) => mp
+            .0
+            .first()
+            .and_then(|p| p.exterior().0.first().map(|c| (c.x, c.y))),
+        Geom32::Triangle(t) => Some((t.0.x, t.0.y)),
+        Geom32::Rect(r) => Some((r.min().x, r.min().y)),
+        Geom32::GeometryCollection(gc) => gc.0.first().and_then(first_vertex),
+    }
 }
 
 /// Build a permutation such that `perm[new_position] = old_position`.
@@ -189,9 +417,13 @@ fn build_permutation<K: Ord>(keys: &[K]) -> Vec<usize> {
 }
 
 #[allow(clippy::unnecessary_wraps)]
-fn apply_permutation(layer: &mut OwnedLayer01, perm: &[usize]) -> Result<(), MltError> {
+fn apply_permutation(
+    layer: &mut OwnedLayer01,
+    perm: &[usize],
+    geoms: &[Geom32],
+) -> Result<(), MltError> {
     if let OwnedGeometry::Decoded(geom) = &mut layer.geometry {
-        permute_geometry(geom, perm);
+        permute_geometry(geom, perm, geoms);
     }
     if let OwnedId::Decoded(Some(id)) = &mut layer.id {
         permute_id(id, perm);
@@ -243,13 +475,7 @@ pub(crate) fn ensure_decoded(layer: &mut OwnedLayer01) -> Result<(), MltError> {
 /// | Some             | None         | None         | MultiPoints           |
 /// | Some             | Some         | None         | MultiLines / mixed    |
 /// | Some             | Some         | Some         | MultiPolygons / mixed |
-fn permute_geometry(decoded: &mut DecodedGeometry, perm: &[usize]) {
-    let n = decoded.vector_types.len();
-    let mut geoms = Vec::with_capacity(n);
-    for i in 0..n {
-        geoms.push(decoded.to_geojson(i).unwrap());
-    }
-
+fn permute_geometry(decoded: &mut DecodedGeometry, perm: &[usize], geoms: &[Geom32]) {
     let mut new_decoded = DecodedGeometry::default();
     for &i in perm {
         new_decoded.push_geom(&geoms[i]);
