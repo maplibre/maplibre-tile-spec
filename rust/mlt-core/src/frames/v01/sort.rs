@@ -560,3 +560,253 @@ pub(crate) fn geometry_feature_count(geom: &OwnedGeometry) -> Result<usize, MltE
         OwnedGeometry::Encoded(_) => Err(MltError::NotDecoded("geometry")),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use geo_types::{Coord, Geometry as GeoGeom, LineString, Point, Polygon};
+
+    use super::*;
+    use crate::geojson::Geom32;
+    use crate::optimizer::ManualOptimisation as _;
+    use crate::v01::{
+        DecodedGeometry, DecodedId, EncodedGeometry, Geometry, GeometryEncoder, GeometryType,
+        IntEncoder, OwnedGeometry, OwnedId, OwnedLayer01,
+    };
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    /// Encode + serialize + parse + decode a `DecodedGeometry`.
+    ///
+    /// This is the canonical round-trip: it exercises the full wire path and
+    /// converts sparse `push_*` offset arrays into the dense form that the
+    /// decoder always produces.
+    fn roundtrip_geom(decoded: &DecodedGeometry) -> DecodedGeometry {
+        let mut geom = OwnedGeometry::Decoded(decoded.clone());
+        geom.manual_optimisation(GeometryEncoder::all(IntEncoder::varint()))
+            .expect("encode failed");
+
+        let mut buf = Vec::new();
+        geom.write_to(&mut buf).expect("serialize failed");
+
+        let (remaining, parsed) = EncodedGeometry::parse(&buf).expect("parse failed");
+        assert!(
+            remaining.is_empty(),
+            "unexpected trailing bytes after parse"
+        );
+
+        Geometry::Encoded(parsed).decode().expect("decode failed")
+    }
+
+    /// Build the canonical (dense, wire-decoded) form of an ordered geometry
+    /// sequence.  This is the reference representation used in assertions.
+    fn canonical(geoms: &[Geom32]) -> DecodedGeometry {
+        let mut decoded = DecodedGeometry::default();
+        for g in geoms {
+            decoded.push_geom(g);
+        }
+        roundtrip_geom(&decoded)
+    }
+
+    /// Build a layer with `push_*` geometry (sparse offsets, no pre-canonicalization),
+    /// apply `reorder_features`, and return the resulting `DecodedGeometry`.
+    ///
+    /// Does NOT call `roundtrip_geom` before sorting.  The geometry handed to
+    /// `reorder_features` is exactly what `push_*` produces — the same state
+    /// that application code would see before any encoding step.
+    fn layer_after_sort(geoms: &[Geom32], ids: &[u64], strategy: SortStrategy) -> OwnedLayer01 {
+        let mut decoded_geom = DecodedGeometry::default();
+        for g in geoms {
+            decoded_geom.push_geom(g);
+        }
+
+        let mut layer = OwnedLayer01 {
+            name: "test".to_string(),
+            extent: 4096,
+            id: OwnedId::Decoded(Some(DecodedId(ids.iter().map(|&id| Some(id)).collect()))),
+            geometry: OwnedGeometry::Decoded(decoded_geom),
+            properties: vec![],
+        };
+
+        reorder_features(&mut layer, Some(strategy)).expect("reorder_features failed");
+        layer
+    }
+
+    /// Sort, then encode+decode the result and compare to `canonical(expected)`.
+    ///
+    /// This is the core round-trip assertion: the geometry that comes out of
+    /// `reorder_features` must survive a full wire encode/decode cycle and
+    /// equal the expected canonical representation.
+    fn assert_sort_roundtrip(
+        geoms: &[Geom32],
+        ids: &[u64],
+        strategy: SortStrategy,
+        expected: &[Geom32],
+    ) {
+        let layer = layer_after_sort(geoms, ids, strategy);
+
+        let sorted_geom = match layer.geometry {
+            OwnedGeometry::Decoded(g) => g,
+            _ => panic!("geometry was not decoded after reorder_features"),
+        };
+
+        let after_roundtrip = roundtrip_geom(&sorted_geom);
+        let expected_canonical = canonical(expected);
+
+        assert_eq!(
+            after_roundtrip, expected_canonical,
+            "\nsorted geometry did not match expected after encode→decode round-trip\
+             \nvector_types after sort: {:?}\
+             \nvector_types expected:   {:?}",
+            sorted_geom.vector_types, expected_canonical.vector_types,
+        );
+    }
+
+    fn pt(x: i32, y: i32) -> Geom32 {
+        GeoGeom::Point(Point::new(x, y))
+    }
+
+    fn ls(coords: &[(i32, i32)]) -> Geom32 {
+        GeoGeom::LineString(LineString::new(
+            coords.iter().map(|&(x, y)| Coord { x, y }).collect(),
+        ))
+    }
+
+    fn poly_square(x0: i32, y0: i32, side: i32) -> Geom32 {
+        let ring = LineString::new(vec![
+            Coord { x: x0, y: y0 },
+            Coord {
+                x: x0 + side,
+                y: y0,
+            },
+            Coord {
+                x: x0 + side,
+                y: y0 + side,
+            },
+            Coord {
+                x: x0,
+                y: y0 + side,
+            },
+            Coord { x: x0, y: y0 }, // closed
+        ]);
+        GeoGeom::Polygon(Polygon::new(ring, vec![]))
+    }
+
+    // ── pure Points ──────────────────────────────────────────────────────────
+
+    /// IDs [3, 2, 1] fully reverse three points.
+    #[test]
+    fn pure_points_id_sort_roundtrip() {
+        assert_sort_roundtrip(
+            &[pt(0, 0), pt(1, 1), pt(2, 2)],
+            &[3, 2, 1],
+            SortStrategy::Id,
+            &[pt(2, 2), pt(1, 1), pt(0, 0)],
+        );
+    }
+
+    // ── pure LineStrings ─────────────────────────────────────────────────────
+
+    /// IDs [2, 1] swap two linestrings.
+    #[test]
+    fn pure_linestrings_id_sort_roundtrip() {
+        assert_sort_roundtrip(
+            &[ls(&[(0, 0), (0, 10)]), ls(&[(5, 5), (10, 10)])],
+            &[2, 1],
+            SortStrategy::Id,
+            &[ls(&[(5, 5), (10, 10)]), ls(&[(0, 0), (0, 10)])],
+        );
+    }
+
+    // ── [Point, LineString, Point] ────────────────────────────────────────────
+
+    /// IDs [3, 1, 2] → permutation [1, 2, 0] → [LineString, Point, Point].
+    #[test]
+    fn point_line_point_id_sort_to_line_point_point_roundtrip() {
+        assert_sort_roundtrip(
+            &[pt(0, 0), ls(&[(1, 0), (1, 5)]), pt(5, 5)],
+            &[3, 1, 2],
+            SortStrategy::Id,
+            &[ls(&[(1, 0), (1, 5)]), pt(5, 5), pt(0, 0)],
+        );
+    }
+
+    /// IDs [1, 3, 2] → permutation [0, 2, 1] → [Point, Point, LineString].
+    #[test]
+    fn point_line_point_id_sort_to_point_point_line_roundtrip() {
+        assert_sort_roundtrip(
+            &[pt(0, 0), ls(&[(1, 0), (1, 5)]), pt(5, 5)],
+            &[1, 3, 2],
+            SortStrategy::Id,
+            &[pt(0, 0), pt(5, 5), ls(&[(1, 0), (1, 5)])],
+        );
+    }
+
+    // ── [Point, Polygon, Point] ───────────────────────────────────────────────
+
+    /// IDs [2, 1, 3] → permutation [1, 0, 2] → [Polygon, Point, Point].
+    #[test]
+    fn point_polygon_point_id_sort_roundtrip() {
+        assert_sort_roundtrip(
+            &[pt(0, 0), poly_square(10, 10, 5), pt(5, 5)],
+            &[2, 1, 3],
+            SortStrategy::Id,
+            &[poly_square(10, 10, 5), pt(0, 0), pt(5, 5)],
+        );
+    }
+
+    // ── spatial Morton sort ───────────────────────────────────────────────────
+
+    /// Coordinates chosen so Morton keys are unambiguous:
+    ///   Point(2,0)           → Morton 4
+    ///   LineString first (0,0) → Morton 0
+    ///   Point(1,0)           → Morton 1
+    /// Expected order after sort: [LineString, Point(1,0), Point(2,0)].
+    #[test]
+    fn point_line_point_morton_sort_roundtrip() {
+        assert_sort_roundtrip(
+            &[pt(2, 0), ls(&[(0, 0), (0, 5)]), pt(1, 0)],
+            &[1, 2, 3],
+            SortStrategy::SpatialMorton,
+            &[ls(&[(0, 0), (0, 5)]), pt(1, 0), pt(2, 0)],
+        );
+    }
+
+    // ── already-sorted is identity ────────────────────────────────────────────
+
+    #[test]
+    fn id_sort_already_sorted_is_identity_roundtrip() {
+        let geoms = &[pt(0, 0), ls(&[(1, 0), (1, 5)]), pt(5, 5)];
+        assert_sort_roundtrip(geoms, &[1, 2, 3], SortStrategy::Id, geoms);
+    }
+
+    // ── ID column co-permuted with geometry ───────────────────────────────────
+
+    /// Verifies that IDs and vector_types are both reordered consistently.
+    #[test]
+    fn id_column_co_permuted_with_geometry() {
+        let layer = layer_after_sort(
+            &[pt(0, 0), ls(&[(1, 0), (1, 5)]), pt(5, 5)],
+            &[3, 1, 2],
+            SortStrategy::Id,
+        );
+
+        let ids = match &layer.id {
+            OwnedId::Decoded(Some(d)) => d.0.clone(),
+            _ => panic!("expected decoded IDs after sort"),
+        };
+        assert_eq!(ids, vec![Some(1u64), Some(2), Some(3)]);
+
+        let types = match &layer.geometry {
+            OwnedGeometry::Decoded(g) => g.vector_types.clone(),
+            _ => panic!("expected decoded geometry after sort"),
+        };
+        assert_eq!(
+            types,
+            vec![
+                GeometryType::LineString,
+                GeometryType::Point,
+                GeometryType::Point
+            ],
+        );
+    }
+}
