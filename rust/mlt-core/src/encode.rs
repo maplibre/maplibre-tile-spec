@@ -36,9 +36,6 @@ pub trait Encodable: Sized {
     fn is_decoded(&self) -> bool;
     /// Wrap an already-encoded value in this type.
     fn new_encoded(encoded: Self::EncodedType) -> Self;
-    /// Temporarily replace `self` with a sentinel so decoded data can be
-    /// taken by value.
-    fn take_decoded(&mut self) -> Option<Self::DecodedType>;
     /// Borrow the encoded data, or `None` if the data is still decoded.
     fn borrow_encoded(&self) -> Option<&Self::EncodedType>;
 }
@@ -59,16 +56,6 @@ macro_rules! impl_encodable {
 
             fn new_encoded(encoded: Self::EncodedType) -> Self {
                 Self::Encoded(encoded)
-            }
-
-            fn take_decoded(&mut self) -> Option<Self::DecodedType> {
-                if let Self::Decoded(decoded) =
-                    std::mem::replace(self, Self::Encoded(Self::EncodedType::default()))
-                {
-                    Some(decoded)
-                } else {
-                    None
-                }
             }
 
             fn borrow_encoded(&self) -> Option<&Self::EncodedType> {

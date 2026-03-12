@@ -20,17 +20,6 @@ impl_encodable!(
     OwnedEncodedProperty
 );
 
-/// FIXME: why should there be a default???
-impl Default for OwnedEncodedProperty {
-    fn default() -> Self {
-        Self::Bool(
-            OwnedName(String::default()),
-            OwnedEncodedPresence(None),
-            OwnedStream::empty_without_encoding(),
-        )
-    }
-}
-
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl arbitrary::Arbitrary<'_> for OwnedEncodedProperty {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
