@@ -57,7 +57,7 @@ pub struct Layer01<'a> {
 }
 
 /// Representation of a feature table layer encoded as MLT tag `0x01`
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(
     all(not(test), not(fuzzing), feature = "arbitrary"),
     derive(arbitrary::Arbitrary)

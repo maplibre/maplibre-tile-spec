@@ -1,14 +1,11 @@
 use std::borrow::Cow;
 
-use crate::MltError;
-use crate::decode::FromEncoded as _;
 use crate::utils::{hilbert_curve_params, hilbert_sort_key, morton_sort_key};
 use crate::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, DecodedStrings, OwnedGeometry, OwnedId,
     OwnedLayer01, OwnedProperty,
 };
-
-// ─── Public types ─────────────────────────────────────────────────────────────
+use crate::{DecodeInto as _, MltError};
 
 /// The space-filling curve used when sorting features spatially.
 ///
@@ -258,12 +255,12 @@ fn apply_permutation(layer: &mut OwnedLayer01, perm: &[usize]) -> Result<(), Mlt
 /// Each column is a no-op if it is already in the `Decoded` variant.
 pub(crate) fn ensure_decoded(layer: &mut OwnedLayer01) -> Result<(), MltError> {
     if let OwnedGeometry::Encoded(e) = &layer.geometry {
-        let dec = DecodedGeometry::from_encoded(borrowme::borrow(e))?;
+        let dec = borrowme::borrow(e).decode_into()?;
         layer.geometry = OwnedGeometry::Decoded(dec);
     }
 
     if let OwnedId::Encoded(e) = &layer.id {
-        let dec = Option::<DecodedId>::from_encoded(e.as_ref().map(borrowme::borrow))?;
+        let dec = e.as_ref().map(borrowme::borrow).decode_into()?;
         layer.id = OwnedId::Decoded(dec);
     }
 
