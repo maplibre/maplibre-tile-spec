@@ -98,8 +98,8 @@ fun encodeMBTiles(
 
                         config.taskRunner.run(
                             Runnable {
-                                val count = tileCount.incrementAndGet().toULong()
-                                if (count.mod(tileLogInterval) == 0UL) {
+                                val count = tileCount.incrementAndGet()
+                                if ((count % tileLogInterval) == 0L) {
                                     logger.trace(
                                         "Processing tile {} : {}:{},{}",
                                         count,
