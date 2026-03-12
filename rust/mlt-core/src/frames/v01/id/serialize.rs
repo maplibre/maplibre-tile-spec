@@ -5,16 +5,10 @@ use crate::utils::BinarySerializer as _;
 use crate::v01::{ColumnType, OwnedEncodedId, OwnedEncodedIdValue, OwnedId};
 
 impl OwnedId {
-    #[must_use]
-    pub fn is_present(&self) -> bool {
-        matches!(self, Self::Encoded(Some(_)) | Self::Decoded(Some(_)))
-    }
-
     #[doc(hidden)]
     pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
-            Self::Encoded(Some(r)) => r.write_columns_meta_to(writer),
-            Self::Encoded(None) | Self::Decoded(None) => Ok(()),
+            Self::Encoded(r) => r.write_columns_meta_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -22,8 +16,7 @@ impl OwnedId {
     #[doc(hidden)]
     pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
-            Self::Encoded(Some(r)) => r.write_to(writer),
-            Self::Encoded(None) | Self::Decoded(None) => Ok(()),
+            Self::Encoded(r) => r.write_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }

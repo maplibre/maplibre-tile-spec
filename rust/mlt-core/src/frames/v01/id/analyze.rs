@@ -1,24 +1,14 @@
 use std::fmt::{Debug, Formatter};
 
+use borrowme::Borrow as _;
+
 use crate::analyse::{Analyze, StatType};
 use crate::utils::OptSeqOpt;
-use crate::v01::{DecodedId, EncodedId, EncodedIdValue, Id, Stream};
+use crate::v01::{DecodedId, EncodedId, EncodedIdValue, Stream};
 
-impl Analyze for Id<'_> {
-    fn collect_statistic(&self, stat: StatType) -> usize {
-        match self {
-            Self::Encoded(Some(d)) => d.collect_statistic(stat),
-            Self::Decoded(Some(d)) => d.collect_statistic(stat),
-            Self::Encoded(None) | Self::Decoded(None) => 0,
-        }
-    }
-
+impl Analyze for crate::v01::OwnedEncodedId {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
-        match self {
-            Self::Encoded(Some(d)) => d.for_each_stream(cb),
-            Self::Decoded(Some(d)) => d.for_each_stream(cb),
-            Self::Encoded(None) | Self::Decoded(None) => {}
-        }
+        self.borrow().for_each_stream(cb);
     }
 }
 

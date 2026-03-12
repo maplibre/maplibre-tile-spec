@@ -49,7 +49,7 @@ pub enum ColumnType {
 pub struct Layer01<'a> {
     pub name: &'a str,
     pub extent: u32,
-    pub id: Id<'a>,
+    pub id: Option<Id<'a>>,
     pub geometry: Geometry<'a>,
     pub properties: Vec<Property<'a>>,
     #[cfg(fuzzing)]
@@ -65,7 +65,7 @@ pub struct Layer01<'a> {
 pub struct OwnedLayer01 {
     pub name: String,
     pub extent: u32,
-    pub id: OwnedId,
+    pub id: Option<OwnedId>,
     pub geometry: OwnedGeometry,
     pub properties: Vec<OwnedProperty>,
     #[cfg(fuzzing)]

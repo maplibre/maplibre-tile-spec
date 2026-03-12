@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::frames::Layer;
-use crate::v01::{DecodedId, DecodedProperty};
+use crate::v01::DecodedProperty;
 use crate::{Decodable as _, MltError};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
@@ -36,7 +36,11 @@ impl FeatureCollection {
         for layer in layers.iter_mut() {
             let l = layer.decoded_layer01_mut()?;
             let geom = l.geometry.materialize()?;
-            let ids: Option<&[Option<u64>]> = l.id.materialize()?.as_ref().map(DecodedId::values);
+            let ids: Option<&[Option<u64>]> = if let Some(v) = l.id.as_mut() {
+                Some(v.materialize()?.values())
+            } else {
+                None
+            };
             for i in 0..geom.vector_types.len() {
                 let geometry = geom.to_geojson(i)?;
                 let mut properties = BTreeMap::new();

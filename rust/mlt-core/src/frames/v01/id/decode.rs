@@ -4,26 +4,20 @@ use crate::utils::apply_present;
 use crate::v01::{DecodedId, EncodedId, EncodedIdValue, Id, OwnedEncodedId, OwnedId, Stream};
 use crate::{Decode, DecodeInto as _, MltError};
 
-impl_decodable!(Id<'a>, Option<EncodedId<'a>>, Option<DecodedId>);
-impl_encodable!(OwnedId, Option<DecodedId>, Option<OwnedEncodedId>);
-
-impl<'a> From<EncodedId<'a>> for Id<'a> {
-    fn from(value: EncodedId<'a>) -> Self {
-        Self::Encoded(Some(value))
-    }
-}
+impl_decodable!(Id<'a>, EncodedId<'a>, DecodedId);
+impl_encodable!(OwnedId, DecodedId, OwnedEncodedId);
 
 impl<'a> Id<'a> {
     #[must_use]
     pub fn new_encoded(presence: Option<Stream<'a>>, value: EncodedIdValue<'a>) -> Self {
-        Self::Encoded(Some(EncodedId { presence, value }))
+        Self::Encoded(EncodedId { presence, value })
     }
 
     #[inline]
     pub fn decode(self) -> Result<DecodedId, MltError> {
         Ok(match self {
-            Self::Encoded(v) => Option::<DecodedId>::decode(v)?.unwrap_or_default(),
-            Self::Decoded(v) => v.unwrap_or_default(),
+            Self::Encoded(v) => v.decode_into()?,
+            Self::Decoded(v) => v,
         })
     }
 }
@@ -55,8 +49,8 @@ impl TryFrom<EncodedId<'_>> for DecodedId {
     }
 }
 
-impl<'a> Decode<Option<EncodedId<'a>>> for Option<DecodedId> {
-    fn decode(input: Option<EncodedId<'a>>) -> Result<Self, MltError> {
-        input.map(DecodedId::try_from).transpose()
+impl<'a> Decode<EncodedId<'a>> for DecodedId {
+    fn decode(input: EncodedId<'a>) -> Result<Self, MltError> {
+        DecodedId::try_from(input)
     }
 }
