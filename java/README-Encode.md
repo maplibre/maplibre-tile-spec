@@ -37,7 +37,7 @@ Tile compression within an MBTiles file is optional.  The encoder will only stor
 
 PMTiles files can be extremely large, and may benefit from careful selection of extended configuration parameters.
 
-PMTiles conversion requires about X bytes of memory per tile.
+PMTiles conversion can use substantial memory, especially for large archives, high cache sizes, and many parallel worker threads.
 
 - `MLT_CACHE_MAX`: Maximum cache size in bytes.
 - `MLT_CACHE_MAX_HEAP_PERCENT`: Maximum cache size as a percentage of maximum heap size.
