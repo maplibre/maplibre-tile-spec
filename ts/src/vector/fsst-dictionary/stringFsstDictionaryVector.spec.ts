@@ -3,7 +3,7 @@ import BitVector from "../flat/bitVector";
 import { StringFsstDictionaryVector } from "./stringFsstDictionaryVector";
 
 describe("StringFsstDictionaryVector", () => {
-    let indexBuffer: Int32Array;
+    let indexBuffer: Uint32Array;
     let offsetBuffer: Uint32Array;
     let dictionaryBuffer: Uint8Array;
     let symbolOffsetBuffer: Uint32Array;
@@ -11,7 +11,7 @@ describe("StringFsstDictionaryVector", () => {
     let nullabilityBuffer: BitVector;
 
     beforeEach(() => {
-        indexBuffer = new Int32Array([0, 1, 2]);
+        indexBuffer = new Uint32Array([0, 1, 2]);
         offsetBuffer = new Uint32Array([0, 5, 10]);
         dictionaryBuffer = new Uint8Array([
             /* mock data */

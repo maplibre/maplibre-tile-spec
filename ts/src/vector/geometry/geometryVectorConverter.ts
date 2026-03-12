@@ -260,8 +260,8 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
 
 function decodeDictionaryEncodedLineStringOrRing(
     vertexBufferType: VertexBufferType,
-    vertexBuffer: Int32Array,
-    vertexOffsets: Int32Array,
+    vertexBuffer: Int32Array | Uint32Array,
+    vertexOffsets: Uint32Array,
     vertexOffset: number,
     numVertices: number,
     closeLineString: boolean,
@@ -288,7 +288,7 @@ function decodeDictionaryEncodedLineStringOrRing(
 }
 
 function getLineStringOrRing(
-    vertexBuffer: Int32Array,
+    vertexBuffer: Int32Array | Uint32Array,
     startIndex: number,
     numVertices: number,
     closeLineString: boolean,
@@ -307,8 +307,8 @@ function getLineStringOrRing(
 }
 
 function decodeDictionaryEncodedLineString(
-    vertexBuffer: Int32Array,
-    vertexOffsets: Int32Array,
+    vertexBuffer: Int32Array | Uint32Array,
+    vertexOffsets: Uint32Array,
     vertexOffset: number,
     numVertices: number,
     closeLineString: boolean,
@@ -328,8 +328,8 @@ function decodeDictionaryEncodedLineString(
 }
 
 function decodeMortonDictionaryEncodedLineString(
-    vertexBuffer: Int32Array,
-    vertexOffsets: Int32Array,
+    vertexBuffer: Int32Array | Uint32Array,
+    vertexOffsets: Uint32Array,
     vertexOffset: number,
     numVertices: number,
     closeLineString: boolean,

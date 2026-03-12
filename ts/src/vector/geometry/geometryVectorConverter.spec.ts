@@ -84,7 +84,7 @@ describe("POINT – Morton dictionary encoded", () => {
                 partOffsets: undefined,
                 ringOffsets: undefined,
             },
-            new Int32Array([0]),
+            new Uint32Array([0]),
             new Int32Array([code]),
             settings,
         );
@@ -119,7 +119,7 @@ describe("MULTIPOINT – VEC_2 dictionary encoded", () => {
                 partOffsets: undefined,
                 ringOffsets: undefined,
             },
-            new Int32Array([0, 2]),
+            new Uint32Array([0, 2]),
             new Int32Array([10, 20, 99, 99, 30, 40]),
         );
 
@@ -168,7 +168,7 @@ describe("LINESTRING – VEC_2 dictionary encoded", () => {
         const gv = {
             numGeometries: 1,
             vertexBuffer: new Int32Array([5, 10, 15, 20]),
-            vertexOffsets: new Int32Array([0, 1]),
+            vertexOffsets: new Uint32Array([0, 1]),
             vertexBufferType: VertexBufferType.VEC_2,
             topologyVector: {
                 geometryOffsets: undefined,
@@ -566,7 +566,7 @@ describe("Vector with multiple geometries of different types", () => {
 
         const gv = new FlatGeometryVector(
             VertexBufferType.VEC_2,
-            new Int32Array([
+            new Uint32Array([
                 GEOMETRY_TYPE.POINT,
                 GEOMETRY_TYPE.MULTIPOINT,
                 GEOMETRY_TYPE.LINESTRING,
@@ -638,7 +638,7 @@ describe("Edge cases", () => {
                 partOffsets: undefined,
                 ringOffsets: undefined,
             },
-            new Int32Array([]), // length === 0 → same as undefined
+            new Uint32Array([]), // length === 0 → same as undefined
             new Int32Array([3, 9]),
         );
 

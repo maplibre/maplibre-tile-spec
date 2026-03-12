@@ -1,6 +1,6 @@
 import { SequenceVector } from "./sequenceVector";
 
-export class LongSequenceVector extends SequenceVector<BigInt64Array, bigint> {
+export class Int64SequenceVector extends SequenceVector<BigInt64Array, bigint> {
     public constructor(name: string, baseValue: bigint, delta: bigint, size: number) {
         super(name, BigInt64Array.of(baseValue), delta, size);
     }
