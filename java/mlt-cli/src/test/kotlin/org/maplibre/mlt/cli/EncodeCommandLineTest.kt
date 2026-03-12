@@ -156,7 +156,14 @@ class EncodeCommandLineTest {
 
     @Test
     fun `cache stats forces debug log level`() {
-        val args = arrayOf("--" + EncodeCommandLine.INPUT_PMTILES_ARG, "input.pmtiles", "--" + EncodeCommandLine.CACHE_STATS_OPTION, "--" + EncodeCommandLine.VERBOSE_OPTION, "error")
+        val args =
+            arrayOf(
+                "--" + EncodeCommandLine.INPUT_PMTILES_ARG,
+                "input.pmtiles",
+                "--" + EncodeCommandLine.CACHE_STATS_OPTION,
+                "--" + EncodeCommandLine.VERBOSE_OPTION,
+                "error",
+            )
         val cmd = EncodeCommandLine.getCommandLine(args)
         assertNotNull(cmd)
         cmd!!
