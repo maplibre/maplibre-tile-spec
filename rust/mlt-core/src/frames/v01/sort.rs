@@ -56,7 +56,10 @@ pub enum SortStrategy {
 ///
 /// Tessellated geometry (`index_buffer` / `triangles` fields) is not yet
 /// supported: layers containing either field are left unchanged.
-pub fn reorder_features(layer: &mut OwnedLayer01, strategy: SortStrategy) -> Result<(), MltError> {
+pub(crate) fn reorder_features(
+    layer: &mut OwnedLayer01,
+    strategy: SortStrategy,
+) -> Result<(), MltError> {
     if strategy == SortStrategy::None {
         return Ok(());
     }
@@ -581,4 +584,3 @@ pub(crate) fn geometry_feature_count(geom: &OwnedGeometry) -> Result<usize, MltE
         OwnedGeometry::Encoded(_) => Err(MltError::NotDecoded("geometry")),
     }
 }
-

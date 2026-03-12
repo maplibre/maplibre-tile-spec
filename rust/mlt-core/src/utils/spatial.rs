@@ -37,11 +37,22 @@ pub fn morton_sort_key(x: i32, y: i32, x_shift: u32, y_shift: u32) -> u32 {
 /// adjacent codes, giving Z-order locality when used as a sort key.
 #[must_use]
 pub fn interleave_bits(x: u32, y: u32) -> u32 {
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "masked to 16 bits before casting"
-    )]
-    zorder::index_of([x as u16, y as u16])
+    // Spread each input's lower 16 bits into every other bit position, then
+    // OR the two together: x occupies even positions (0, 2, 4, …) and y
+    // occupies odd positions (1, 3, 5, …).
+    let mut sx = x & 0xFFFF;
+    sx = (sx | (sx << 8)) & 0x00FF_00FF;
+    sx = (sx | (sx << 4)) & 0x0F0F_0F0F;
+    sx = (sx | (sx << 2)) & 0x3333_3333;
+    sx = (sx | (sx << 1)) & 0x5555_5555;
+
+    let mut sy = y & 0xFFFF;
+    sy = (sy | (sy << 8)) & 0x00FF_00FF;
+    sy = (sy | (sy << 4)) & 0x0F0F_0F0F;
+    sy = (sy | (sy << 2)) & 0x3333_3333;
+    sy = (sy | (sy << 1)) & 0x5555_5555;
+
+    sx | (sy << 1)
 }
 
 /// Return the 1-D Hilbert curve index for `(x, y)` at the given `level`.
