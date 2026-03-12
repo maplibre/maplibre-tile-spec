@@ -71,9 +71,11 @@ object Decode {
         } catch (ex: ParseException) {
             System.err.println(ex.message)
             showHelp(options)
+            throw ex
         } catch (ex: Exception) {
             System.err.println("Failed: " + ex.message)
             ex.printStackTrace(System.err)
+            throw ex
         }
     }
 
