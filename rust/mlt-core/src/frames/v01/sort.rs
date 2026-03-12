@@ -48,8 +48,8 @@ pub enum SortStrategy {
 /// Reorder all columns of `layer` according to `strategy`.
 ///
 /// All columns are decoded in-place before the permutation is applied.
-/// If the layer has zero or one features, or if the strategy is
-/// [`SortStrategy::None`], this is a no-op.
+/// If the layer has zero or one features, or if `strategy` is [`None`],
+/// this is a no-op.
 ///
 /// Tessellated geometry (`index_buffer` / `triangles` fields) is not yet
 /// supported: layers containing either field are left unchanged.
