@@ -1,7 +1,7 @@
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
-use crate::v01::{Geometry, Id, Property};
+use crate::v01::{Geometry, Id, OwnedGeometry, OwnedId, OwnedProperty, Property};
 
 /// Column definition
 #[borrowme]
@@ -45,30 +45,29 @@ pub enum ColumnType {
 }
 
 /// Representation of a feature table layer encoded as MLT tag `0x01`
-#[cfg(not(fuzzing))]
-#[borrowme]
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(
-    all(not(test), not(fuzzing), feature = "arbitrary"),
-    owned_attr(derive(arbitrary::Arbitrary))
-)]
+#[derive(Debug, PartialEq)]
 pub struct Layer01<'a> {
     pub name: &'a str,
     pub extent: u32,
     pub id: Id<'a>,
     pub geometry: Geometry<'a>,
     pub properties: Vec<Property<'a>>,
+    #[cfg(fuzzing)]
+    pub layer_order: Vec<crate::frames::v01::root::LayerOrdering>,
 }
 
-/// FIXME: fuzzing is only adding layer_order but this borrowme does not codegen correctly in this case
-#[cfg(fuzzing)]
-#[borrowme]
-#[derive(Debug, Clone, PartialEq)]
-pub struct Layer01<'a> {
-    pub name: &'a str,
+/// Representation of a feature table layer encoded as MLT tag `0x01`
+#[derive(Debug, PartialEq)]
+#[cfg_attr(
+    all(not(test), not(fuzzing), feature = "arbitrary"),
+    derive(arbitrary::Arbitrary)
+)]
+pub struct OwnedLayer01 {
+    pub name: String,
     pub extent: u32,
-    pub id: Id<'a>,
-    pub geometry: Geometry<'a>,
-    pub properties: Vec<Property<'a>>,
+    pub id: OwnedId,
+    pub geometry: OwnedGeometry,
+    pub properties: Vec<OwnedProperty>,
+    #[cfg(fuzzing)]
     pub layer_order: Vec<crate::frames::v01::root::LayerOrdering>,
 }
