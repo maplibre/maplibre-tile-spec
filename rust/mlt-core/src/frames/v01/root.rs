@@ -17,7 +17,7 @@ impl Analyze for Layer01<'_> {
         match stat {
             StatType::DecodedMetaSize => self.name.len() + size_of::<u32>(),
             StatType::DecodedDataSize => {
-                self.id.collect_statistic(stat)
+                self.id.as_ref().map_or(0, |id| id.collect_statistic(stat))
                     + self.geometry.collect_statistic(stat)
                     + self.properties.collect_statistic(stat)
             }
@@ -26,7 +26,9 @@ impl Analyze for Layer01<'_> {
     }
 
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
-        self.id.for_each_stream(cb);
+        if let Some(ref id) = self.id {
+            id.for_each_stream(cb);
+        }
         self.geometry.for_each_stream(cb);
         self.properties.for_each_stream(cb);
     }
@@ -55,7 +57,7 @@ impl Layer01<'_> {
             .collect();
 
         let mut properties = Vec::with_capacity(prop_count.as_usize());
-        let mut id_stream: Option<Id> = None;
+        let mut id_column: Option<Id> = None;
         let mut geometry: Option<Geometry> = None;
 
         for column in col_info {
@@ -67,12 +69,12 @@ impl Layer01<'_> {
                 ColumnType::Id | ColumnType::OptId => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    id_stream.set_once(Id::new_encoded(opt, EncodedIdValue::Id32(value)))?;
+                    id_column.set_once(Id::new_encoded(opt, EncodedIdValue::Id32(value)))?;
                 }
                 ColumnType::LongId | ColumnType::OptLongId => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    id_stream.set_once(Id::new_encoded(opt, EncodedIdValue::Id64(value)))?;
+                    id_column.set_once(Id::new_encoded(opt, EncodedIdValue::Id64(value)))?;
                 }
                 ColumnType::Geometry => {
                     input = parse_geometry_column(input, &mut geometry)?;
@@ -174,7 +176,7 @@ impl Layer01<'_> {
             Ok(Layer01 {
                 name: layer_name,
                 extent,
-                id: id_stream.unwrap_or(Id::Encoded(None)),
+                id: id_column,
                 geometry: geometry.ok_or(MltError::MissingGeometry)?,
                 properties,
                 #[cfg(fuzzing)]
@@ -189,7 +191,9 @@ impl Layer01<'_> {
     ///
     /// Use this instead of [`Self::decode_all`] when properties will be accessed lazily
     pub fn decode_id(&mut self) -> Result<(), MltError> {
-        self.id.materialize()?;
+        if let Some(id) = &mut self.id {
+            id.materialize()?;
+        }
         Ok(())
     }
 
@@ -227,7 +231,7 @@ impl borrowme::ToOwned for Layer01<'_> {
         OwnedLayer01 {
             name: borrowme::ToOwned::to_owned(self.name),
             extent: self.extent,
-            id: borrowme::ToOwned::to_owned(&self.id),
+            id: self.id.as_ref().map(borrowme::ToOwned::to_owned),
             geometry: borrowme::ToOwned::to_owned(&self.geometry),
             properties: borrowme::ToOwned::to_owned(&self.properties),
             #[cfg(fuzzing)]
@@ -243,7 +247,7 @@ impl Borrow for OwnedLayer01 {
         Layer01 {
             name: Borrow::borrow(&self.name),
             extent: self.extent,
-            id: Borrow::borrow(&self.id),
+            id: self.id.as_ref().map(Borrow::borrow),
             geometry: Borrow::borrow(&self.geometry),
             properties: Borrow::borrow(&self.properties),
             #[cfg(fuzzing)]
@@ -450,8 +454,7 @@ impl OwnedLayer01 {
         writer.write_varint(self.extent)?;
 
         // write size
-        let has_id = self.id.is_present();
-        let id_columns_count = u32::from(has_id);
+        let id_columns_count = u32::from(self.id.is_some());
         let geometry_column_count = 1;
         let property_column_count = u32::try_from(self.properties.len()).map_err(MltError::from)?;
         let column_count = property_column_count + id_columns_count + geometry_column_count;
@@ -469,7 +472,9 @@ impl OwnedLayer01 {
 
     #[cfg(not(fuzzing))]
     fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        self.id.write_columns_meta_to(writer)?;
+        if let Some(ref id) = self.id {
+            id.write_columns_meta_to(writer)?;
+        }
         self.geometry.write_columns_meta_to(writer)?;
         for prop in &self.properties {
             prop.write_columns_meta_to(writer)?;
@@ -481,7 +486,11 @@ impl OwnedLayer01 {
         let props = &mut self.properties.iter();
         for ord in &self.layer_order {
             match ord {
-                LayerOrdering::Id => self.id.write_columns_meta_to(writer)?,
+                LayerOrdering::Id => {
+                    if let Some(ref id) = self.id {
+                        id.write_columns_meta_to(writer)?;
+                    }
+                }
                 LayerOrdering::Geometry => self.geometry.write_columns_meta_to(writer)?,
                 LayerOrdering::Property => {
                     let prop = props.next().expect(
@@ -495,7 +504,9 @@ impl OwnedLayer01 {
     }
     #[cfg(not(fuzzing))]
     fn write_columns_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        self.id.write_to(writer)?;
+        if let Some(ref id) = self.id {
+            id.write_to(writer)?;
+        }
         self.geometry.write_to(writer)?;
         for prop in &self.properties {
             prop.write_to(writer)?;
@@ -507,7 +518,11 @@ impl OwnedLayer01 {
         let props = &mut self.properties.iter();
         for ord in &self.layer_order {
             match ord {
-                LayerOrdering::Id => self.id.write_to(writer)?,
+                LayerOrdering::Id => {
+                    if let Some(ref id) = self.id {
+                        id.write_to(writer)?;
+                    }
+                }
                 LayerOrdering::Geometry => self.geometry.write_to(writer)?,
                 LayerOrdering::Property => {
                     let prop = props.next().expect(
@@ -538,14 +553,14 @@ impl arbitrary::Arbitrary<'_> for OwnedLayer01 {
 
         let name: String = u.arbitrary()?;
         let extent: u32 = u.arbitrary()?;
-        let id: OwnedId = u.arbitrary()?;
+        let id: Option<OwnedId> = u.arbitrary()?;
         let geometry: OwnedGeometry = u.arbitrary()?;
         let properties: Vec<OwnedProperty> = u.arbitrary()?;
 
         // Build a valid layer_order: 1 Geometry, N Property (one per property),
         // and optionally 1 ID when the layer carries an ID column, then shuffle.
         let mut layer_order: Vec<LayerOrdering> = Vec::new();
-        if id.is_present() {
+        if id.is_some() {
             layer_order.push(LayerOrdering::Id);
         }
         layer_order.push(LayerOrdering::Geometry);

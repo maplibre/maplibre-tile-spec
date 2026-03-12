@@ -94,8 +94,10 @@ fn bench_encode_ids(c: &mut Criterion) {
                             || decode_to_owned(tiles),
                             |mut layers| {
                                 for layer in &mut layers {
-                                    if let OwnedLayer::Tag01(l) = layer {
-                                        l.id.manual_optimisation(id_encoder)
+                                    if let OwnedLayer::Tag01(l) = layer
+                                        && let Some(id) = &mut l.id
+                                    {
+                                        id.manual_optimisation(id_encoder)
                                             .expect("id encode failed");
                                     }
                                 }

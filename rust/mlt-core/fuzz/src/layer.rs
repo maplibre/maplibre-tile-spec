@@ -188,12 +188,14 @@ fn print_corresponding_bytes(layer: OwnedLayer) {
             println!("layer extent: {extent} -> varint({extent})");
             {
                 println!("layer id: {id:?}");
-                let mut metadata = Vec::new();
-                id.write_columns_meta_to(&mut metadata).unwrap();
-                println!("\tlayer id metadata: {}", metadata.encode_hex::<String>());
-                let mut data = Vec::new();
-                id.write_to(&mut data).unwrap();
-                println!("\tlayer id data: {}", data.encode_hex::<String>());
+                if let Some(ref id) = id {
+                    let mut metadata = Vec::new();
+                    id.write_columns_meta_to(&mut metadata).unwrap();
+                    println!("\tlayer id metadata: {}", metadata.encode_hex::<String>());
+                    let mut data = Vec::new();
+                    id.write_to(&mut data).unwrap();
+                    println!("\tlayer id data: {}", data.encode_hex::<String>());
+                }
             }
             for (i, prop) in properties.iter().enumerate() {
                 println!("{i}. property -> {prop:?}");

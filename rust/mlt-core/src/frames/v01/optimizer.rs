@@ -15,8 +15,8 @@ impl ManualOptimisation for OwnedLayer01 {
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
         reorder_features(self, encoder.sort_strategy, encoder.allow_id_regeneration)?;
-        if let Some(id) = encoder.id {
-            self.id.manual_optimisation(id)?;
+        if let (Some(id_enc), Some(id)) = (encoder.id, &mut self.id) {
+            id.manual_optimisation(id_enc)?;
         }
         self.properties.manual_optimisation(encoder.properties)?;
         self.geometry.manual_optimisation(encoder.geometry)?;
@@ -34,7 +34,10 @@ impl ProfileOptimisation for OwnedLayer01 {
     ) -> Result<Self::UsedEncoder, MltError> {
         let sort_strategy = profile.sort_strategy();
         reorder_features(self, sort_strategy, false)?;
-        let id = self.id.profile_driven_optimisation(&profile.id)?;
+        let id = match &mut self.id {
+            Some(id) => id.profile_driven_optimisation(&profile.id)?,
+            None => None,
+        };
         let properties = self
             .properties
             .profile_driven_optimisation(&profile.properties)?;
@@ -121,7 +124,10 @@ impl AutomaticOptimisation for OwnedLayer01 {
             let mut trial = self.clone();
             reorder_features(&mut trial, strategy, false)?;
 
-            let id = trial.id.automatic_encoding_optimisation()?;
+            let id = match &mut self.id {
+                Some(id) => id.automatic_encoding_optimisation()?,
+                None => None,
+            };
             let properties = trial.properties.automatic_encoding_optimisation()?;
             let geometry = trial.geometry.automatic_encoding_optimisation()?;
 

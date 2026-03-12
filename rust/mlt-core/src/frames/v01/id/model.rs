@@ -1,5 +1,7 @@
 use borrowme::borrowme;
+use enum_dispatch::enum_dispatch;
 
+use crate::analyse::{Analyze, StatType};
 use crate::v01::Stream;
 
 /// ID column representation, either encoded or decoded.
@@ -9,9 +11,10 @@ use crate::v01::Stream;
     all(not(test), feature = "arbitrary"),
     owned_attr(derive(arbitrary::Arbitrary))
 )]
+#[enum_dispatch(Analyze)]
 pub enum Id<'a> {
-    Encoded(Option<EncodedId<'a>>),
-    Decoded(Option<DecodedId>),
+    Encoded(EncodedId<'a>),
+    Decoded(DecodedId),
 }
 
 /// Unparsed ID data as read directly from the tile

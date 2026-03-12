@@ -263,7 +263,7 @@ impl MltTile {
         let layer = &self.layers[layer_idx];
         let mut ids = layer.ids.borrow_mut();
         if let IdState::Encoded(encoded) = &*ids {
-            let decoded = Id::Encoded(Some(encoded.borrow()))
+            let decoded = Id::Encoded(encoded.borrow())
                 .decode()
                 .map_err(|e| crate::to_js_err(&e))?;
 
