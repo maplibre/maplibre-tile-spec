@@ -60,7 +60,7 @@ PMTiles conversion can use substantial memory, especially for large archives, hi
   - Very small values may lead to queue starvation and reduced performance.
 
 In addition, it may be beneficial to adjust the JVM heap parameters to allow for a heap size larger than the default, e.g.:
-  - `-Xmx32G` to allow up to 64 GB of heap memory
+  - `-Xmx32G` to allow up to 32 GB of heap memory
   - `-Xms16G` to pre-allocate 16 GB of heap memory at startup
 
 Cache hits are more important when using a remote source, but a very large cache (1GB+) seems to be counterproductive.
