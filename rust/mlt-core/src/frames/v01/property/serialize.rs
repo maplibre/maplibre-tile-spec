@@ -36,14 +36,20 @@ impl OwnedEncodedProperty {
     pub(super) fn kind(&self) -> PropertyKind {
         use PropertyKind as T;
         match self {
-            Self::Bool(..) => T::Bool,
+            Self::Bool(..) | Self::BoolOpt(..) => T::Bool,
             Self::I8(..)
+            | Self::I8Opt(..)
             | Self::I32(..)
+            | Self::I32Opt(..)
             | Self::I64(..)
+            | Self::I64Opt(..)
             | Self::U8(..)
+            | Self::U8Opt(..)
             | Self::U32(..)
-            | Self::U64(..) => T::Integer,
-            Self::F32(..) | Self::F64(..) => T::Float,
+            | Self::U32Opt(..)
+            | Self::U64(..)
+            | Self::U64Opt(..) => T::Integer,
+            Self::F32(..) | Self::F32Opt(..) | Self::F64(..) | Self::F64Opt(..) => T::Float,
             Self::Str(..) => T::String,
             Self::SharedDict(..) => T::SharedDict,
         }
@@ -51,69 +57,24 @@ impl OwnedEncodedProperty {
 
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         let col_type = match self {
-            Self::Bool(_, presence, _) => {
-                if presence.0.is_some() {
-                    ColumnType::OptBool
-                } else {
-                    ColumnType::Bool
-                }
-            }
-            Self::I8(_, presence, _) => {
-                if presence.0.is_some() {
-                    ColumnType::OptI8
-                } else {
-                    ColumnType::I8
-                }
-            }
-            Self::U8(_, presence, _) => {
-                if presence.0.is_some() {
-                    ColumnType::OptU8
-                } else {
-                    ColumnType::U8
-                }
-            }
-            Self::I32(_, presence, _) => {
-                if presence.0.is_some() {
-                    ColumnType::OptI32
-                } else {
-                    ColumnType::I32
-                }
-            }
-            Self::U32(_, presence, _) => {
-                if presence.0.is_some() {
-                    ColumnType::OptU32
-                } else {
-                    ColumnType::U32
-                }
-            }
-            Self::I64(_, presence, _) => {
-                if presence.0.is_some() {
-                    ColumnType::OptI64
-                } else {
-                    ColumnType::I64
-                }
-            }
-            Self::U64(_, presence, _) => {
-                if presence.0.is_some() {
-                    ColumnType::OptU64
-                } else {
-                    ColumnType::U64
-                }
-            }
-            Self::F32(_, presence, _) => {
-                if presence.0.is_some() {
-                    ColumnType::OptF32
-                } else {
-                    ColumnType::F32
-                }
-            }
-            Self::F64(_, presence, _) => {
-                if presence.0.is_some() {
-                    ColumnType::OptF64
-                } else {
-                    ColumnType::F64
-                }
-            }
+            Self::Bool(..) => ColumnType::Bool,
+            Self::BoolOpt(..) => ColumnType::OptBool,
+            Self::I8(..) => ColumnType::I8,
+            Self::I8Opt(..) => ColumnType::OptI8,
+            Self::U8(..) => ColumnType::U8,
+            Self::U8Opt(..) => ColumnType::OptU8,
+            Self::I32(..) => ColumnType::I32,
+            Self::I32Opt(..) => ColumnType::OptI32,
+            Self::U32(..) => ColumnType::U32,
+            Self::U32Opt(..) => ColumnType::OptU32,
+            Self::I64(..) => ColumnType::I64,
+            Self::I64Opt(..) => ColumnType::OptI64,
+            Self::U64(..) => ColumnType::U64,
+            Self::U64Opt(..) => ColumnType::OptU64,
+            Self::F32(..) => ColumnType::F32,
+            Self::F32Opt(..) => ColumnType::OptF32,
+            Self::F64(..) => ColumnType::F64,
+            Self::F64Opt(..) => ColumnType::OptF64,
             Self::Str(_, presence, _) => {
                 if presence.0.is_some() {
                     ColumnType::OptStr
@@ -125,16 +86,26 @@ impl OwnedEncodedProperty {
         };
         col_type.write_to(writer)?;
 
+        #[allow(clippy::match_same_arms)]
         let name = match self {
-            Self::Bool(name, _, _)
-            | Self::I8(name, _, _)
-            | Self::U8(name, _, _)
-            | Self::I32(name, _, _)
-            | Self::U32(name, _, _)
-            | Self::I64(name, _, _)
-            | Self::U64(name, _, _)
-            | Self::F32(name, _, _)
-            | Self::F64(name, _, _)
+            Self::Bool(name, _)
+            | Self::I8(name, _)
+            | Self::U8(name, _)
+            | Self::I32(name, _)
+            | Self::U32(name, _)
+            | Self::I64(name, _)
+            | Self::U64(name, _)
+            | Self::F32(name, _)
+            | Self::F64(name, _) => &name.0,
+            Self::BoolOpt(name, _, _)
+            | Self::I8Opt(name, _, _)
+            | Self::U8Opt(name, _, _)
+            | Self::I32Opt(name, _, _)
+            | Self::U32Opt(name, _, _)
+            | Self::I64Opt(name, _, _)
+            | Self::U64Opt(name, _, _)
+            | Self::F32Opt(name, _, _)
+            | Self::F64Opt(name, _, _)
             | Self::Str(name, _, _)
             | Self::SharedDict(name, _, _) => &name.0,
         };
@@ -154,18 +125,31 @@ impl OwnedEncodedProperty {
 
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
-            Self::Bool(_, presence, data) => {
+            Self::Bool(_, data) => {
+                writer.write_boolean_stream(data)?;
+            }
+            Self::BoolOpt(_, presence, data) => {
                 writer.write_optional_stream(presence.0.as_ref())?;
                 writer.write_boolean_stream(data)?;
             }
-            Self::I8(_, presence, data)
-            | Self::U8(_, presence, data)
-            | Self::I32(_, presence, data)
-            | Self::U32(_, presence, data)
-            | Self::I64(_, presence, data)
-            | Self::U64(_, presence, data)
-            | Self::F32(_, presence, data)
-            | Self::F64(_, presence, data) => {
+            Self::I8(_, data)
+            | Self::U8(_, data)
+            | Self::I32(_, data)
+            | Self::U32(_, data)
+            | Self::I64(_, data)
+            | Self::U64(_, data)
+            | Self::F32(_, data)
+            | Self::F64(_, data) => {
+                writer.write_stream(data)?;
+            }
+            Self::I8Opt(_, presence, data)
+            | Self::U8Opt(_, presence, data)
+            | Self::I32Opt(_, presence, data)
+            | Self::U32Opt(_, presence, data)
+            | Self::I64Opt(_, presence, data)
+            | Self::U64Opt(_, presence, data)
+            | Self::F32Opt(_, presence, data)
+            | Self::F64Opt(_, presence, data) => {
                 writer.write_optional_stream(presence.0.as_ref())?;
                 writer.write_stream(data)?;
             }

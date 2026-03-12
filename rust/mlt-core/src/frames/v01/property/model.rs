@@ -48,15 +48,24 @@ pub enum PropertyKind {
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum EncodedProperty<'a> {
-    Bool(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    I8(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    U8(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    I32(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    U32(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    I64(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    U64(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    F32(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    F64(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
+    Bool(NameRef<'a>, Stream<'a>),
+    BoolOpt(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
+    I8(NameRef<'a>, Stream<'a>),
+    I8Opt(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
+    U8(NameRef<'a>, Stream<'a>),
+    U8Opt(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
+    I32(NameRef<'a>, Stream<'a>),
+    I32Opt(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
+    U32(NameRef<'a>, Stream<'a>),
+    U32Opt(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
+    I64(NameRef<'a>, Stream<'a>),
+    I64Opt(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
+    U64(NameRef<'a>, Stream<'a>),
+    U64Opt(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
+    F32(NameRef<'a>, Stream<'a>),
+    F32Opt(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
+    F64(NameRef<'a>, Stream<'a>),
+    F64Opt(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
     Str(NameRef<'a>, EncodedPresence<'a>, EncodedStrings<'a>),
     SharedDict(
         NameRef<'a>,
@@ -71,14 +80,23 @@ pub enum EncodedProperty<'a> {
 #[enum_dispatch(Analyze)]
 pub enum DecodedProperty<'a> {
     Bool(DecodedScalar<'a, bool>),
+    BoolOpt(DecodedOptScalar<'a, bool>),
     I8(DecodedScalar<'a, i8>),
+    I8Opt(DecodedOptScalar<'a, i8>),
     U8(DecodedScalar<'a, u8>),
+    U8Opt(DecodedOptScalar<'a, u8>),
     I32(DecodedScalar<'a, i32>),
+    I32Opt(DecodedOptScalar<'a, i32>),
     U32(DecodedScalar<'a, u32>),
+    U32Opt(DecodedOptScalar<'a, u32>),
     I64(DecodedScalar<'a, i64>),
+    I64Opt(DecodedOptScalar<'a, i64>),
     U64(DecodedScalar<'a, u64>),
+    U64Opt(DecodedOptScalar<'a, u64>),
     F32(DecodedScalar<'a, f32>),
+    F32Opt(DecodedOptScalar<'a, f32>),
     F64(DecodedScalar<'a, f64>),
+    F64Opt(DecodedOptScalar<'a, f64>),
     Str(DecodedStrings<'a>),
     SharedDict(DecodedSharedDict<'a>),
 }
@@ -86,6 +104,13 @@ pub enum DecodedProperty<'a> {
 #[derive(Clone, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct DecodedScalar<'a, T: Copy + PartialEq> {
+    pub name: Cow<'a, str>,
+    pub values: Vec<T>,
+}
+
+#[derive(Clone, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub struct DecodedOptScalar<'a, T: Copy + PartialEq> {
     pub name: Cow<'a, str>,
     pub values: Vec<Option<T>>,
 }

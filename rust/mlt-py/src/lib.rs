@@ -148,39 +148,53 @@ fn geom_to_wkb(
 
 fn prop_value_to_py(py: Python<'_>, prop: &DecodedProperty, i: usize) -> Py<PyAny> {
     match prop {
-        DecodedProperty::Bool(v) => match v.values[i] {
+        DecodedProperty::Bool(v) => v.values[i]
+            .into_pyobject(py)
+            .unwrap()
+            .to_owned()
+            .into_any()
+            .unbind(),
+        DecodedProperty::BoolOpt(v) => match v.values[i] {
             Some(b) => b.into_pyobject(py).unwrap().to_owned().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::I8(v) => match v.values[i] {
+        DecodedProperty::I8(v) => v.values[i].into_pyobject(py).unwrap().into_any().unbind(),
+        DecodedProperty::I8Opt(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::U8(v) => match v.values[i] {
+        DecodedProperty::U8(v) => v.values[i].into_pyobject(py).unwrap().into_any().unbind(),
+        DecodedProperty::U8Opt(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::I32(v) => match v.values[i] {
+        DecodedProperty::I32(v) => v.values[i].into_pyobject(py).unwrap().into_any().unbind(),
+        DecodedProperty::I32Opt(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::U32(v) => match v.values[i] {
+        DecodedProperty::U32(v) => v.values[i].into_pyobject(py).unwrap().into_any().unbind(),
+        DecodedProperty::U32Opt(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::I64(v) => match v.values[i] {
+        DecodedProperty::I64(v) => v.values[i].into_pyobject(py).unwrap().into_any().unbind(),
+        DecodedProperty::I64Opt(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::U64(v) => match v.values[i] {
+        DecodedProperty::U64(v) => v.values[i].into_pyobject(py).unwrap().into_any().unbind(),
+        DecodedProperty::U64Opt(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::F32(v) => match v.values[i] {
+        DecodedProperty::F32(v) => v.values[i].into_pyobject(py).unwrap().into_any().unbind(),
+        DecodedProperty::F32Opt(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::F64(v) => match v.values[i] {
+        DecodedProperty::F64(v) => v.values[i].into_pyobject(py).unwrap().into_any().unbind(),
+        DecodedProperty::F64Opt(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },

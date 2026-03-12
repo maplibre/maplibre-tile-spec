@@ -75,82 +75,118 @@ impl Layer01<'_> {
                 ColumnType::Geometry => {
                     input = parse_geometry_column(input, &mut geometry)?;
                 }
-                ColumnType::Bool | ColumnType::OptBool => {
+                ColumnType::Bool => {
+                    (input, value) = Stream::parse_bool(input)?;
+                    properties.push(Property::from(EncodedProperty::Bool(NameRef(name), value)));
+                }
+                ColumnType::OptBool => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse_bool(input)?;
-                    properties.push(Property::from(EncodedProperty::Bool(
+                    properties.push(Property::from(EncodedProperty::BoolOpt(
                         NameRef(name),
                         EncodedPresence(opt),
                         value,
                     )));
                 }
-                ColumnType::I8 | ColumnType::OptI8 => {
+                ColumnType::I8 => {
+                    (input, value) = Stream::parse(input)?;
+                    properties.push(Property::from(EncodedProperty::I8(NameRef(name), value)));
+                }
+                ColumnType::OptI8 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::I8(
+                    properties.push(Property::from(EncodedProperty::I8Opt(
                         NameRef(name),
                         EncodedPresence(opt),
                         value,
                     )));
                 }
-                ColumnType::U8 | ColumnType::OptU8 => {
+                ColumnType::U8 => {
+                    (input, value) = Stream::parse(input)?;
+                    properties.push(Property::from(EncodedProperty::U8(NameRef(name), value)));
+                }
+                ColumnType::OptU8 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::U8(
+                    properties.push(Property::from(EncodedProperty::U8Opt(
                         NameRef(name),
                         EncodedPresence(opt),
                         value,
                     )));
                 }
-                ColumnType::I32 | ColumnType::OptI32 => {
+                ColumnType::I32 => {
+                    (input, value) = Stream::parse(input)?;
+                    properties.push(Property::from(EncodedProperty::I32(NameRef(name), value)));
+                }
+                ColumnType::OptI32 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::I32(
+                    properties.push(Property::from(EncodedProperty::I32Opt(
                         NameRef(name),
                         EncodedPresence(opt),
                         value,
                     )));
                 }
-                ColumnType::U32 | ColumnType::OptU32 => {
+                ColumnType::U32 => {
+                    (input, value) = Stream::parse(input)?;
+                    properties.push(Property::from(EncodedProperty::U32(NameRef(name), value)));
+                }
+                ColumnType::OptU32 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::U32(
+                    properties.push(Property::from(EncodedProperty::U32Opt(
                         NameRef(name),
                         EncodedPresence(opt),
                         value,
                     )));
                 }
-                ColumnType::I64 | ColumnType::OptI64 => {
+                ColumnType::I64 => {
+                    (input, value) = Stream::parse(input)?;
+                    properties.push(Property::from(EncodedProperty::I64(NameRef(name), value)));
+                }
+                ColumnType::OptI64 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::I64(
+                    properties.push(Property::from(EncodedProperty::I64Opt(
                         NameRef(name),
                         EncodedPresence(opt),
                         value,
                     )));
                 }
-                ColumnType::U64 | ColumnType::OptU64 => {
+                ColumnType::U64 => {
+                    (input, value) = Stream::parse(input)?;
+                    properties.push(Property::from(EncodedProperty::U64(NameRef(name), value)));
+                }
+                ColumnType::OptU64 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::U64(
+                    properties.push(Property::from(EncodedProperty::U64Opt(
                         NameRef(name),
                         EncodedPresence(opt),
                         value,
                     )));
                 }
-                ColumnType::F32 | ColumnType::OptF32 => {
+                ColumnType::F32 => {
+                    (input, value) = Stream::parse(input)?;
+                    properties.push(Property::from(EncodedProperty::F32(NameRef(name), value)));
+                }
+                ColumnType::OptF32 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::F32(
+                    properties.push(Property::from(EncodedProperty::F32Opt(
                         NameRef(name),
                         EncodedPresence(opt),
                         value,
                     )));
                 }
-                ColumnType::F64 | ColumnType::OptF64 => {
+                ColumnType::F64 => {
+                    (input, value) = Stream::parse(input)?;
+                    properties.push(Property::from(EncodedProperty::F64(NameRef(name), value)));
+                }
+                ColumnType::OptF64 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::F64(
+                    properties.push(Property::from(EncodedProperty::F64Opt(
                         NameRef(name),
                         EncodedPresence(opt),
                         value,

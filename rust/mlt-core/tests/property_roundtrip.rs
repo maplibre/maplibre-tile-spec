@@ -1,8 +1,8 @@
 use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
-    DecodedProperty, DecodedScalar, DecodedStrings, IntEncoder, LogicalEncoder, OwnedProperty,
-    PhysicalEncoder, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
-    SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
+    DecodedOptScalar, DecodedProperty, DecodedScalar, DecodedStrings, IntEncoder, LogicalEncoder,
+    OwnedProperty, PhysicalEncoder, PresenceStream, PropertyEncoder, ScalarEncoder,
+    SharedDictEncoder, SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
 };
 use mlt_core::{MltError, borrowme};
 use proptest::prelude::*;
@@ -126,14 +126,14 @@ fn struct_encode_and_decode(
 // Absent mode has no presence stream on the wire, so only all-Some inputs are
 // valid for those variants.
 macro_rules! integer_roundtrip_proptests {
-    ($present:ident, $absent:ident, $variant:ident, $ty:ty, $int_encoder:expr) => {
+    ($present:ident, $absent:ident, $variant:ident, $variant_opt:ident, $ty:ty, $int_encoder:expr) => {
         proptest! {
             #[test]
             fn $present(
                 values in prop::collection::vec(prop::option::of(any::<$ty>()), 0..100),
                 enc in $int_encoder,
             ) {
-                let prop = DecodedProperty::$variant(DecodedScalar::new("x".to_string(), values));
+                let prop = DecodedProperty::$variant_opt(DecodedOptScalar::new("x".to_string(), values));
                 let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
                 prop_assert_eq!(roundtrip(&prop, scalar_enc), prop);
             }
@@ -143,8 +143,7 @@ macro_rules! integer_roundtrip_proptests {
                 values in prop::collection::vec(any::<$ty>(), 0..100),
                 enc in $int_encoder,
             ) {
-                let opt: Vec<Option<$ty>> = values.into_iter().map(Some).collect();
-                let prop = DecodedProperty::$variant(DecodedScalar::new("x".to_string(), opt));
+                let prop = DecodedProperty::$variant(DecodedScalar::new("x".to_string(), values));
                 let scalar_enc = ScalarEncoder::int(PresenceStream::Absent, enc);
                 prop_assert_eq!(roundtrip(&prop, scalar_enc), prop);
             }
@@ -153,15 +152,16 @@ macro_rules! integer_roundtrip_proptests {
 }
 
 // i8, u8, i32, u32 — all physical encoders are valid.
-integer_roundtrip_proptests!(i8_present, i8_absent, I8, i8, arb_int_encoder());
-integer_roundtrip_proptests!(u8_present, u8_absent, U8, u8, arb_int_encoder());
-integer_roundtrip_proptests!(i32_present, i32_absent, I32, i32, arb_int_encoder());
-integer_roundtrip_proptests!(u32_present, u32_absent, U32, u32, arb_int_encoder());
+integer_roundtrip_proptests!(i8_present, i8_absent, I8, I8Opt, i8, arb_int_encoder());
+integer_roundtrip_proptests!(u8_present, u8_absent, U8, U8Opt, u8, arb_int_encoder());
+integer_roundtrip_proptests!(i32_present, i32_absent, I32, I32Opt, i32, arb_int_encoder());
+integer_roundtrip_proptests!(u32_present, u32_absent, U32, U32Opt, u32, arb_int_encoder());
 // FastPFOR does not support 64-bit integers.
 integer_roundtrip_proptests!(
     i64_present,
     i64_absent,
     I64,
+    I64Opt,
     i64,
     arb_int_encoder_no_fastpfor()
 );
@@ -169,13 +169,14 @@ integer_roundtrip_proptests!(
     u64_present,
     u64_absent,
     U64,
+    U64Opt,
     u64,
     arb_int_encoder_no_fastpfor()
 );
 
 #[test]
 fn bool_specific_values() {
-    let prop = DecodedProperty::bool(
+    let prop = DecodedProperty::bool_opt(
         "active",
         vec![Some(true), None, Some(false), Some(true), None],
     );
@@ -187,7 +188,7 @@ fn bool_specific_values() {
 
 #[test]
 fn bool_all_null() {
-    let prop = DecodedProperty::bool("active", vec![None, None, None]);
+    let prop = DecodedProperty::bool_opt("active", vec![None, None, None]);
     assert_eq!(
         roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present)),
         prop
@@ -199,7 +200,7 @@ proptest! {
     fn bool_roundtrip(
         values in prop::collection::vec(prop::option::of(any::<bool>()), 0..100),
     ) {
-        let prop = DecodedProperty::bool("flag", values);
+        let prop = DecodedProperty::bool_opt("flag", values);
         prop_assert_eq!(roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present)), prop);
     }
 }
@@ -213,7 +214,7 @@ proptest! {
             0..100,
         ),
     ) {
-        let prop = DecodedProperty::f32("score", values);
+        let prop = DecodedProperty::f32_opt("score", values);
         prop_assert_eq!(roundtrip(&prop, ScalarEncoder::float(PresenceStream::Present)), prop);
     }
 
@@ -224,7 +225,7 @@ proptest! {
             0..100,
         ),
     ) {
-        let prop = DecodedProperty::f64("score", values);
+        let prop = DecodedProperty::f64_opt("score", values);
         prop_assert_eq!(roundtrip(&prop, ScalarEncoder::float(PresenceStream::Present)), prop);
     }
 }
@@ -402,7 +403,7 @@ fn struct_mixed_with_scalars() {
     let enc = IntEncoder::plain();
     let str_enc = StrEncoder::plain(enc);
     let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
-    let population = DecodedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let population = DecodedProperty::u32_opt("population", vec![Some(3_748_000), Some(1_787_000)]);
     let name_shared = shared_dict_prop(
         "name:",
         vec![
@@ -426,7 +427,7 @@ fn struct_mixed_with_scalars() {
             ),
         ],
     );
-    let rank = DecodedProperty::u32("rank", vec![Some(1), Some(2)]);
+    let rank = DecodedProperty::u32_opt("rank", vec![Some(1), Some(2)]);
 
     let props = vec![population.clone(), name_shared.clone(), rank.clone()];
     let prop_encs = vec![
@@ -497,7 +498,7 @@ fn two_struct_groups_with_scalar_between() {
             ),
         ],
     );
-    let population = DecodedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let population = DecodedProperty::u32_opt("population", vec![Some(3_748_000), Some(1_787_000)]);
     let label_shared = shared_dict_prop(
         "label:",
         vec![
