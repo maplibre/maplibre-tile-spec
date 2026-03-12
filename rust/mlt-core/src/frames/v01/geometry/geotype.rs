@@ -10,6 +10,27 @@ use crate::geojson::{Coord32, Geom32};
 use crate::utils::AsUsize as _;
 use crate::v01::{DecodedGeometry, GeometryType};
 
+impl GeometryType {
+    #[must_use]
+    pub fn is_polygon(self) -> bool {
+        matches!(self, GeometryType::Polygon | GeometryType::MultiPolygon)
+    }
+    #[must_use]
+    pub fn is_linestring(self) -> bool {
+        matches!(
+            self,
+            GeometryType::LineString | GeometryType::MultiLineString
+        )
+    }
+    #[must_use]
+    pub fn is_multi(self) -> bool {
+        matches!(
+            self,
+            GeometryType::MultiPoint | GeometryType::MultiLineString | GeometryType::MultiPolygon
+        )
+    }
+}
+
 impl DecodedGeometry {
     /// Build the `loadGeometry()` ring representation for a single feature at index `i`.
     ///

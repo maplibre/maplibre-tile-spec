@@ -4,9 +4,9 @@ use borrowme::borrow;
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
     DecodedStrings, DictionaryType, EncodedPresence, IntEncoder, LengthType, LogicalEncoder,
-    NameRef, OwnedEncodedProperty, OwnedStream, PhysicalEncoder, PresenceStream, SharedDictEncoder,
-    SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict, decode_shared_dict,
-    decode_strings, encode_shared_dict_prop,
+    NameRef, OwnedEncodedProperty, OwnedEncodedStrings, OwnedStream, PhysicalEncoder,
+    PresenceStream, SharedDictEncoder, SharedDictItemEncoder, StrEncoder,
+    build_decoded_shared_dict, decode_shared_dict, decode_strings, encode_shared_dict_prop,
 };
 use strum::IntoEnumIterator as _;
 
@@ -71,7 +71,7 @@ fn make_nullable_strings(n: usize) -> Vec<Option<String>> {
     )
 }
 
-fn encode_plain(strings: &[String], int_enc: IntEncoder) -> mlt_core::v01::OwnedEncodedStrings {
+fn encode_plain(strings: &[String], int_enc: IntEncoder) -> OwnedEncodedStrings {
     OwnedStream::encode_strings_with_type(
         strings,
         int_enc,
@@ -81,7 +81,7 @@ fn encode_plain(strings: &[String], int_enc: IntEncoder) -> mlt_core::v01::Owned
     .expect("encode_plain failed")
 }
 
-fn encode_fsst(strings: &[String], int_enc: IntEncoder) -> mlt_core::v01::OwnedEncodedStrings {
+fn encode_fsst(strings: &[String], int_enc: IntEncoder) -> OwnedEncodedStrings {
     // StrEncoder::fsst builds the FsstStrEncoder internally; its fields are private.
     let StrEncoder::Fsst(enc) = StrEncoder::fsst(int_enc, int_enc) else {
         unreachable!()
