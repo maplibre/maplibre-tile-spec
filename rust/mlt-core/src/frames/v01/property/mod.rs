@@ -4,8 +4,9 @@ mod fmt;
 mod geojson;
 mod model;
 mod optimizer;
+mod scalars;
 mod serialize;
-pub mod strings;
+mod strings;
 
 pub use model::*;
 pub use optimizer::PropertyProfile;

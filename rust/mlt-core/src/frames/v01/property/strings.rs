@@ -14,8 +14,8 @@ use crate::v01::{
     EncodedPresence, EncodedSharedDict, EncodedSharedDictChild, EncodedStrings, FsstData,
     FsstStrEncoder, IntEncoder, LengthType, NameRef, OffsetType, OwnedEncodedProperty,
     OwnedEncodedSharedDict, OwnedEncodedSharedDictChild, OwnedEncodedStrings, OwnedFsstData,
-    OwnedName, OwnedPlainData, OwnedStream, PlainData, PresenceStream, SharedDictEncoder,
-    StrEncoder, Stream, StreamType,
+    OwnedName, OwnedPlainData, OwnedStream, PlainData, PresenceStream, PropertyEncoder,
+    SharedDictEncoder, StrEncoder, Stream, StreamType,
 };
 use crate::{Analyze, MltError, StatType};
 
@@ -983,4 +983,22 @@ pub fn decode_shared_dict<'a>(
         data,
         items,
     })
+}
+
+impl<'a> From<NameRef<'a>> for Cow<'a, str> {
+    fn from(value: NameRef<'a>) -> Self {
+        Cow::Borrowed(value.0)
+    }
+}
+
+impl<'a> From<&NameRef<'a>> for Cow<'a, str> {
+    fn from(value: &NameRef<'a>) -> Self {
+        Cow::Borrowed(value.0)
+    }
+}
+
+impl From<SharedDictEncoder> for PropertyEncoder {
+    fn from(encoder: SharedDictEncoder) -> Self {
+        Self::SharedDict(encoder)
+    }
 }
