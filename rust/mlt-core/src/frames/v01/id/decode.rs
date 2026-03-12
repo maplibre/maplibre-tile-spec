@@ -1,11 +1,6 @@
-use crate::decode::impl_decodable;
-use crate::encode::impl_encodable;
 use crate::utils::apply_present;
-use crate::v01::{DecodedId, EncodedId, EncodedIdValue, Id, OwnedEncodedId, OwnedId, Stream};
+use crate::v01::{DecodedId, EncodedId, EncodedIdValue, Id, Stream};
 use crate::{Decode, DecodeInto as _, MltError};
-
-impl_decodable!(Id<'a>, EncodedId<'a>, DecodedId);
-impl_encodable!(OwnedId, DecodedId, OwnedEncodedId);
 
 impl<'a> Id<'a> {
     #[must_use]

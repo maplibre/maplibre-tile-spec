@@ -1,23 +1,15 @@
-use borrowme::borrowme;
-use enum_dispatch::enum_dispatch;
+use borrowme::{Borrow as BorrowmeBorrow, ToOwned as BorrowmeToOwned, borrowme};
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
-use crate::analyse::{Analyze, StatType};
+use crate::EncDec;
 use crate::v01::Stream;
 
 /// Geometry column representation, either encoded or decoded
-#[borrowme]
-#[derive(Debug, PartialEq, Clone)]
-#[cfg_attr(
-    all(not(test), feature = "arbitrary"),
-    owned_attr(derive(arbitrary::Arbitrary))
-)]
-#[enum_dispatch(Analyze)]
-pub enum Geometry<'a> {
-    Encoded(EncodedGeometry<'a>),
-    Decoded(DecodedGeometry),
-}
+pub type Geometry<'a> = EncDec<EncodedGeometry<'a>, DecodedGeometry>;
+
+/// Owned geometry column representation, either encoded or decoded.
+pub type OwnedGeometry = EncDec<OwnedEncodedGeometry, DecodedGeometry>;
 
 /// Unparsed geometry data as read directly from the tile
 #[borrowme]
@@ -39,6 +31,25 @@ pub struct DecodedGeometry {
     pub index_buffer: Option<Vec<u32>>,
     pub triangles: Option<Vec<u32>>,
     pub vertices: Option<Vec<i32>>,
+}
+
+impl BorrowmeToOwned for DecodedGeometry {
+    type Owned = Self;
+
+    fn to_owned(&self) -> Self::Owned {
+        self.clone()
+    }
+}
+
+impl BorrowmeBorrow for DecodedGeometry {
+    type Target<'a>
+        = Self
+    where
+        Self: 'a;
+
+    fn borrow(&self) -> Self::Target<'_> {
+        self.clone()
+    }
 }
 
 // #[derive(Debug, Clone, Copy, PartialEq)]

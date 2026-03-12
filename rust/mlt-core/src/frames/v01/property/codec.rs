@@ -2,23 +2,15 @@ use std::borrow::Cow;
 
 use crate::Decodable as _;
 use crate::MltError::{self, NotImplemented, UnsupportedPropertyEncoderCombination};
-use crate::decode::{Decode, DecodeInto as _, impl_decodable};
-use crate::encode::{FromDecoded, impl_encodable};
+use crate::decode::{Decode, DecodeInto as _};
+use crate::encode::FromDecoded;
 use crate::utils::apply_present;
 use crate::v01::{
     DecodedPresence, DecodedProperty, DecodedScalar, DecodedStrings, DictionaryType,
     EncodedPresence, EncodedProperty, LengthType, OwnedEncodedPresence, OwnedEncodedProperty,
-    OwnedName, OwnedProperty, OwnedStream, PresenceStream, Property, PropertyEncoder,
-    ScalarEncoder, ScalarValueEncoder, StrEncoder, decode_shared_dict, decode_strings,
-    encode_shared_dict_prop,
+    OwnedName, OwnedStream, PresenceStream, Property, PropertyEncoder, ScalarEncoder,
+    ScalarValueEncoder, StrEncoder, decode_shared_dict, decode_strings, encode_shared_dict_prop,
 };
-
-impl_decodable!(Property<'a>, EncodedProperty<'a>, DecodedProperty<'a>);
-impl_encodable!(
-    OwnedProperty,
-    DecodedProperty<'static>,
-    OwnedEncodedProperty
-);
 
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl arbitrary::Arbitrary<'_> for OwnedEncodedProperty {

@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use borrowme::borrowme;
 use enum_dispatch::enum_dispatch;
 
+use crate::EncDec;
 use crate::analyse::{Analyze, StatType};
 use crate::v01::{FsstStrEncoder, IntEncoder, Stream};
 
@@ -11,18 +12,10 @@ use crate::v01::{FsstStrEncoder, IntEncoder, Stream};
 pub struct NameRef<'a>(pub &'a str);
 
 /// Property representation, either encoded or decoded
-#[allow(clippy::large_enum_variant)]
-#[borrowme]
-#[derive(Debug, PartialEq)]
-#[cfg_attr(
-    all(not(test), feature = "arbitrary"),
-    owned_attr(derive(arbitrary::Arbitrary))
-)]
-#[enum_dispatch(Analyze)]
-pub enum Property<'a> {
-    Encoded(EncodedProperty<'a>),
-    Decoded(DecodedProperty<'a>),
-}
+pub type Property<'a> = EncDec<EncodedProperty<'a>, DecodedProperty<'a>>;
+
+/// Owned property representation, either encoded or decoded.
+pub type OwnedProperty = EncDec<OwnedEncodedProperty, DecodedProperty<'static>>;
 
 pub enum PropertyKind {
     Bool,

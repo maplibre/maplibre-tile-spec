@@ -1,21 +1,13 @@
-use borrowme::borrowme;
-use enum_dispatch::enum_dispatch;
+use borrowme::{Borrow as BorrowmeBorrow, ToOwned as BorrowmeToOwned, borrowme};
 
-use crate::analyse::{Analyze, StatType};
+use crate::EncDec;
 use crate::v01::Stream;
 
 /// ID column representation, either encoded or decoded.
-#[borrowme]
-#[derive(Debug, PartialEq)]
-#[cfg_attr(
-    all(not(test), feature = "arbitrary"),
-    owned_attr(derive(arbitrary::Arbitrary))
-)]
-#[enum_dispatch(Analyze)]
-pub enum Id<'a> {
-    Encoded(EncodedId<'a>),
-    Decoded(DecodedId),
-}
+pub type Id<'a> = EncDec<EncodedId<'a>, DecodedId>;
+
+/// Owned ID column representation, either encoded or decoded.
+pub type OwnedId = EncDec<OwnedEncodedId, DecodedId>;
 
 /// Unparsed ID data as read directly from the tile
 #[borrowme]
@@ -37,6 +29,25 @@ pub enum EncodedIdValue<'a> {
 #[derive(Clone, Default, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct DecodedId(pub Vec<Option<u64>>);
+
+impl BorrowmeToOwned for DecodedId {
+    type Owned = Self;
+
+    fn to_owned(&self) -> Self::Owned {
+        self.clone()
+    }
+}
+
+impl BorrowmeBorrow for DecodedId {
+    type Target<'a>
+        = Self
+    where
+        Self: 'a;
+
+    fn borrow(&self) -> Self::Target<'_> {
+        self.clone()
+    }
+}
 
 /// How wide are the IDs
 #[derive(Debug, Clone, Copy, PartialEq, strum::EnumIter)]
