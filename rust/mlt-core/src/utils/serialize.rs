@@ -6,7 +6,7 @@ use integer_encoding::VarIntWriter;
 use crate::MltError;
 use crate::v01::{OwnedStream, OwnedStreamData};
 
-pub trait BinarySerializer: Write + VarIntWriter {
+pub trait BinarySerializer: Write + VarIntWriter + Sized {
     fn write_u8(&mut self, value: u8) -> io::Result<()> {
         self.write_all(&[value])
     }
@@ -17,10 +17,7 @@ pub trait BinarySerializer: Write + VarIntWriter {
     }
 
     /// Reverses [`Stream::parse`](crate::v01::stream::Stream::parse)
-    fn write_stream(&mut self, stream: &OwnedStream) -> io::Result<()>
-    where
-        Self: Sized,
-    {
+    fn write_stream(&mut self, stream: &OwnedStream) -> io::Result<()> {
         let byte_length = match &stream.data {
             OwnedStreamData::VarInt(v) | OwnedStreamData::Encoded(v) => v.len(),
         };
@@ -31,10 +28,7 @@ pub trait BinarySerializer: Write + VarIntWriter {
     }
 
     /// Serializes an optional stream, which is a stream with boolean values indicating presence of values in another stream.
-    fn write_optional_stream(&mut self, stream: Option<&OwnedStream>) -> io::Result<()>
-    where
-        Self: Sized,
-    {
+    fn write_optional_stream(&mut self, stream: Option<&OwnedStream>) -> io::Result<()> {
         if let Some(s) = stream {
             self.write_boolean_stream(s)
         } else {
@@ -43,10 +37,7 @@ pub trait BinarySerializer: Write + VarIntWriter {
     }
 
     /// Reverses [`Stream::parse_bool`](crate::v01::stream::Stream::parse_bool)
-    fn write_boolean_stream(&mut self, stream: &OwnedStream) -> io::Result<()>
-    where
-        Self: Sized,
-    {
+    fn write_boolean_stream(&mut self, stream: &OwnedStream) -> io::Result<()> {
         let byte_length = match &stream.data {
             OwnedStreamData::VarInt(v) | OwnedStreamData::Encoded(v) => v.len(),
         };
