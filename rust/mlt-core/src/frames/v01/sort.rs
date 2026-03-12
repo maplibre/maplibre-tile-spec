@@ -315,7 +315,7 @@ fn extract_geometries(decoded: &DecodedGeometry) -> Result<Vec<Geom32>, MltError
 
 fn regenerate_ids(layer: &mut OwnedLayer01, n: usize) {
     let new_ids = (0..n as u64).map(Some).collect();
-    layer.id = OwnedId::Decoded(Some(DecodedId(new_ids)));
+    layer.id = Some(OwnedId::Decoded(DecodedId(new_ids)));
 }
 
 /// Compute one sort key per feature.  The key type is `u64` so that both
@@ -347,12 +347,12 @@ fn compute_sort_keys(
 
         SortStrategy::Id => {
             let ids = match &layer.id {
-                OwnedId::Decoded(Some(d)) => d,
-                OwnedId::Decoded(None) => {
-                    // No ID column — produce a stable identity permutation.
+                Some(OwnedId::Decoded(d)) => d,
+                None => {
+                    // No ID column => use identity permutation
                     return Ok((0..n as u64).collect());
                 }
-                OwnedId::Encoded(_) => return Err(MltError::NotDecoded("id")),
+                Some(OwnedId::Encoded(_)) => return Err(MltError::NotDecoded("id")),
             };
             // Null IDs sort first (0), followed by Some(id) shifted to (id + 1).
             Ok(ids
@@ -434,7 +434,7 @@ fn apply_permutation(
     if let OwnedGeometry::Decoded(geom) = &mut layer.geometry {
         permute_geometry(geom, perm, geoms);
     }
-    if let OwnedId::Decoded(Some(id)) = &mut layer.id {
+    if let Some(OwnedId::Decoded(id)) = &mut layer.id {
         permute_id(id, perm);
     }
     for prop in &mut layer.properties {
@@ -455,9 +455,9 @@ pub fn ensure_decoded(layer: &mut OwnedLayer01) -> Result<(), MltError> {
         layer.geometry = OwnedGeometry::Decoded(dec);
     }
 
-    if let OwnedId::Encoded(e) = &layer.id {
-        let dec = e.as_ref().map(borrowme::borrow).decode_into()?;
-        layer.id = OwnedId::Decoded(dec);
+    if let Some(OwnedId::Encoded(e)) = &layer.id {
+        let dec = borrowme::borrow(e).decode_into()?;
+        layer.id = Some(OwnedId::Decoded(dec));
     }
 
     for prop in &mut layer.properties {
