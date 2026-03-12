@@ -1,7 +1,7 @@
 /// Compute a Z-order (Morton) sort key from signed integer `(x, y)` coordinates.
 ///
-/// `x_shift` and `y_shift` are applied before bit-interleaving to move the
-/// coordinate origin into the non-negative range.  They should be computed
+/// `shift` is applied to both `x` and `y` before bit-interleaving to move the
+/// coordinate origin into the non-negative range. It should be computed
 /// once across the entire feature set (typically `min.unsigned_abs()` when
 /// `min < 0`, else `0`) so that the keys are comparable across features.
 ///
