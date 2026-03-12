@@ -1582,7 +1582,6 @@ dependencies = [
  "union-find",
  "wide",
  "zigzag",
- "zorder",
 ]
 
 [[package]]
@@ -3997,12 +3996,3 @@ name = "zmij"
 version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
-
-[[package]]
-name = "zorder"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ea8734a87d9de83816351d459ad98e276a9f60adc993f524504606cc126fb01"
-dependencies = [
- "num-traits",
-]

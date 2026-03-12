@@ -54,7 +54,6 @@ thiserror.workspace = true
 union-find.workspace = true
 wide.workspace = true
 zigzag.workspace = true
-zorder.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

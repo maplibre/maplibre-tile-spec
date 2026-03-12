@@ -62,7 +62,6 @@ union-find = "0.4.3"
 wasm-bindgen = "0.2"
 wide = "1.1.1"
 zigzag = "0.1.0"
-zorder = "0.2.2"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
