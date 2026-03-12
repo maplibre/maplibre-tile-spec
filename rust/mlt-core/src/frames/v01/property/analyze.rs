@@ -12,29 +12,29 @@ impl Analyze for crate::v01::OwnedEncodedProperty {
 impl Analyze for EncodedProperty<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         match self {
-            Self::Bool(_, presence, data)
-            | Self::I8(_, presence, data)
-            | Self::U8(_, presence, data)
-            | Self::I32(_, presence, data)
-            | Self::U32(_, presence, data)
-            | Self::I64(_, presence, data)
-            | Self::U64(_, presence, data)
-            | Self::F32(_, presence, data)
-            | Self::F64(_, presence, data) => {
-                presence.0.for_each_stream(cb);
-                data.for_each_stream(cb);
+            Self::Bool(s)
+            | Self::I8(s)
+            | Self::U8(s)
+            | Self::I32(s)
+            | Self::U32(s)
+            | Self::I64(s)
+            | Self::U64(s)
+            | Self::F32(s)
+            | Self::F64(s) => {
+                s.presence.0.for_each_stream(cb);
+                s.data.for_each_stream(cb);
             }
-            Self::Str(_, presence, enc) => {
-                presence.0.for_each_stream(cb);
-                for s in enc.streams() {
-                    cb(s);
-                }
-            }
-            Self::SharedDict(_, shared, children) => {
-                for stream in shared.dict_streams() {
+            Self::Str(s) => {
+                s.presence.0.for_each_stream(cb);
+                for stream in s.encoding.streams() {
                     cb(stream);
                 }
-                for child in children {
+            }
+            Self::SharedDict(s) => {
+                for stream in s.encoding.dict_streams() {
+                    cb(stream);
+                }
+                for child in &s.children {
                     child.presence.0.for_each_stream(cb);
                     child.data.for_each_stream(cb);
                 }

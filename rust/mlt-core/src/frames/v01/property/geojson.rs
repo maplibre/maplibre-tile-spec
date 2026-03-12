@@ -4,17 +4,17 @@ use crate::v01::{DecodedProperty, EncodedProperty, PropertyKind};
 impl<'a> EncodedProperty<'a> {
     pub(super) fn name(&self) -> &'a str {
         match self {
-            Self::Bool(name, _, _)
-            | Self::I8(name, _, _)
-            | Self::U8(name, _, _)
-            | Self::I32(name, _, _)
-            | Self::U32(name, _, _)
-            | Self::I64(name, _, _)
-            | Self::U64(name, _, _)
-            | Self::F32(name, _, _)
-            | Self::F64(name, _, _)
-            | Self::Str(name, _, _)
-            | Self::SharedDict(name, _, _) => name.0,
+            Self::Bool(s)
+            | Self::I8(s)
+            | Self::U8(s)
+            | Self::I32(s)
+            | Self::U32(s)
+            | Self::I64(s)
+            | Self::U64(s)
+            | Self::F32(s)
+            | Self::F64(s) => s.name.0,
+            Self::Str(s) => s.name.0,
+            Self::SharedDict(s) => s.name.0,
         }
     }
 }

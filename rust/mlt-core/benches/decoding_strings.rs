@@ -3,10 +3,10 @@ use std::hint::black_box;
 use borrowme::borrow;
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
-    DecodedStrings, DictionaryType, EncodedPresence, IntEncoder, LengthType, LogicalEncoder,
-    NameRef, OwnedEncodedProperty, OwnedStream, PhysicalEncoder, PresenceStream, SharedDictEncoder,
-    SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict, decode_shared_dict,
-    decode_strings, encode_shared_dict_prop,
+    DecodedStrings, DictionaryType, EncodedPresence, EncodedSharedDict, EncodedStrings, IntEncoder,
+    LengthType, LogicalEncoder, NameRef, OwnedEncodedProperty, OwnedStream, OwnedStringsEncoding,
+    PhysicalEncoder, PresenceStream, SharedDictEncoder, SharedDictItemEncoder, StrEncoder,
+    build_decoded_shared_dict, decode_shared_dict, decode_strings, encode_shared_dict_prop,
 };
 use strum::IntoEnumIterator as _;
 
@@ -71,7 +71,7 @@ fn make_nullable_strings(n: usize) -> Vec<Option<String>> {
     )
 }
 
-fn encode_plain(strings: &[String], int_enc: IntEncoder) -> mlt_core::v01::OwnedEncodedStrings {
+fn encode_plain(strings: &[String], int_enc: IntEncoder) -> OwnedStringsEncoding {
     OwnedStream::encode_strings_with_type(
         strings,
         int_enc,
@@ -81,7 +81,7 @@ fn encode_plain(strings: &[String], int_enc: IntEncoder) -> mlt_core::v01::Owned
     .expect("encode_plain failed")
 }
 
-fn encode_fsst(strings: &[String], int_enc: IntEncoder) -> mlt_core::v01::OwnedEncodedStrings {
+fn encode_fsst(strings: &[String], int_enc: IntEncoder) -> OwnedStringsEncoding {
     // StrEncoder::fsst builds the FsstStrEncoder internally; its fields are private.
     let StrEncoder::Fsst(enc) = StrEncoder::fsst(int_enc, int_enc) else {
         unreachable!()
@@ -111,8 +111,12 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
                             || borrow(encoded),
                             |enc| {
                                 black_box(
-                                    decode_strings(NameRef(""), EncodedPresence(None), enc)
-                                        .expect("decode_strings failed"),
+                                    decode_strings(EncodedStrings::new(
+                                        NameRef(""),
+                                        EncodedPresence(None),
+                                        enc,
+                                    ))
+                                    .expect("decode_strings failed"),
                                 )
                             },
                             BatchSize::SmallInput,
@@ -147,8 +151,12 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
                             || borrow(encoded),
                             |enc| {
                                 black_box(
-                                    decode_strings(NameRef(""), EncodedPresence(None), enc)
-                                        .expect("decode_strings failed"),
+                                    decode_strings(EncodedStrings::new(
+                                        NameRef(""),
+                                        EncodedPresence(None),
+                                        enc,
+                                    ))
+                                    .expect("decode_strings failed"),
                                 )
                             },
                             BatchSize::SmallInput,
@@ -177,8 +185,12 @@ fn bench_encoding_type(c: &mut Criterion) {
                 || borrow(encoded),
                 |enc| {
                     black_box(
-                        decode_strings(NameRef(""), EncodedPresence(None), enc)
-                            .expect("decode_strings failed"),
+                        decode_strings(EncodedStrings::new(
+                            NameRef(""),
+                            EncodedPresence(None),
+                            enc,
+                        ))
+                        .expect("decode_strings failed"),
                     )
                 },
                 BatchSize::SmallInput,
@@ -191,8 +203,12 @@ fn bench_encoding_type(c: &mut Criterion) {
                 || borrow(encoded),
                 |enc| {
                     black_box(
-                        decode_strings(NameRef(""), EncodedPresence(None), enc)
-                            .expect("decode_strings failed"),
+                        decode_strings(EncodedStrings::new(
+                            NameRef(""),
+                            EncodedPresence(None),
+                            enc,
+                        ))
+                        .expect("decode_strings failed"),
                     )
                 },
                 BatchSize::SmallInput,
@@ -223,8 +239,12 @@ fn bench_presence(c: &mut Criterion) {
                     || borrow(encoded),
                     |enc| {
                         black_box(
-                            decode_strings(NameRef(""), EncodedPresence(None), enc)
-                                .expect("decode_strings failed"),
+                            decode_strings(EncodedStrings::new(
+                                NameRef(""),
+                                EncodedPresence(None),
+                                enc,
+                            ))
+                            .expect("decode_strings failed"),
                         )
                     },
                     BatchSize::SmallInput,
@@ -249,8 +269,12 @@ fn bench_presence(c: &mut Criterion) {
                     || (borrow(pres), borrow(enc)),
                     |(p, e)| {
                         black_box(
-                            decode_strings(NameRef(""), EncodedPresence(Some(p)), e)
-                                .expect("decode_strings failed"),
+                            decode_strings(EncodedStrings::new(
+                                NameRef(""),
+                                EncodedPresence(Some(p)),
+                                e,
+                            ))
+                            .expect("decode_strings failed"),
                         )
                     },
                     BatchSize::SmallInput,
@@ -286,11 +310,11 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
                 || (borrow(encoded), borrow(encoded)),
                 |(e1, e2)| {
                     black_box(
-                        decode_strings(NameRef(""), EncodedPresence(None), e1)
+                        decode_strings(EncodedStrings::new(NameRef(""), EncodedPresence(None), e1))
                             .expect("decode_strings failed"),
                     );
                     black_box(
-                        decode_strings(NameRef(""), EncodedPresence(None), e2)
+                        decode_strings(EncodedStrings::new(NameRef(""), EncodedPresence(None), e2))
                             .expect("decode_strings failed"),
                     );
                 },
@@ -333,15 +357,13 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         };
         let encoded_prop_plain = encode_shared_dict_prop(&decoded_shared, &encoder_plain)
             .expect("encode_shared_dict_prop failed");
-        let OwnedEncodedProperty::SharedDict(_, ref sd_plain, ref children_plain) =
-            encoded_prop_plain
-        else {
+        let OwnedEncodedProperty::SharedDict(ref sd_plain) = encoded_prop_plain else {
             panic!("expected SharedDict property");
         };
 
         group.bench_with_input(
             BenchmarkId::new("shared_dict_plain", n),
-            &(sd_plain.clone(), children_plain.clone()),
+            &(sd_plain.encoding.clone(), sd_plain.children.clone()),
             |b, (sd, children)| {
                 b.iter_batched(
                     || {
@@ -351,8 +373,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
                     },
                     |(sd_ref, ch_refs)| {
                         black_box(
-                            decode_shared_dict("place:", &sd_ref, &ch_refs)
-                                .expect("decode_shared_dict failed"),
+                            decode_shared_dict(EncodedSharedDict::new(
+                                NameRef("place:"),
+                                sd_ref,
+                                ch_refs,
+                            ))
+                            .expect("decode_shared_dict failed"),
                         )
                     },
                     BatchSize::SmallInput,
@@ -371,14 +397,13 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         };
         let encoded_prop_fsst = encode_shared_dict_prop(&decoded_shared, &encoder_fsst)
             .expect("encode_shared_dict_prop (fsst) failed");
-        let OwnedEncodedProperty::SharedDict(_, ref sd_fsst, ref children_fsst) = encoded_prop_fsst
-        else {
+        let OwnedEncodedProperty::SharedDict(ref sd_fsst) = encoded_prop_fsst else {
             panic!("expected SharedDict property");
         };
 
         group.bench_with_input(
             BenchmarkId::new("shared_dict_fsst", n),
-            &(sd_fsst.clone(), children_fsst.clone()),
+            &(sd_fsst.encoding.clone(), sd_fsst.children.clone()),
             |b, (sd, children)| {
                 b.iter_batched(
                     || {
@@ -388,8 +413,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
                     },
                     |(sd_ref, ch_refs)| {
                         black_box(
-                            decode_shared_dict("place:", &sd_ref, &ch_refs)
-                                .expect("decode_shared_dict failed"),
+                            decode_shared_dict(EncodedSharedDict::new(
+                                NameRef("place:"),
+                                sd_ref,
+                                ch_refs,
+                            ))
+                            .expect("decode_shared_dict failed"),
                         )
                     },
                     BatchSize::SmallInput,
@@ -404,11 +433,11 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
                 || (borrow(encoded), borrow(encoded)),
                 |(e1, e2)| {
                     black_box(
-                        decode_strings(NameRef(""), EncodedPresence(None), e1)
+                        decode_strings(EncodedStrings::new(NameRef(""), EncodedPresence(None), e1))
                             .expect("decode_strings failed"),
                     );
                     black_box(
-                        decode_strings(NameRef(""), EncodedPresence(None), e2)
+                        decode_strings(EncodedStrings::new(NameRef(""), EncodedPresence(None), e2))
                             .expect("decode_strings failed"),
                     );
                 },

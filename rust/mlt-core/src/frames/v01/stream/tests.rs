@@ -10,7 +10,7 @@ use crate::v01::{
     DictionaryType, EncodedPresence, EncodedStrings, FsstData, IntEncoding, LengthType,
     LogicalData, LogicalEncoding, LogicalValue, MortonMeta, NameRef, OffsetType, OwnedStream,
     OwnedStreamData, PhysicalEncoder, PhysicalEncoding, PlainData, RleMeta, Stream, StreamData,
-    StreamMeta, StreamType, decode_strings,
+    StreamMeta, StreamType, StringsEncoding, decode_strings,
 };
 
 /// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
@@ -415,12 +415,12 @@ proptest! {
         }
 
         let encoding = match parsed_streams.len() {
-            2 => EncodedStrings::plain(PlainData::new(parsed_streams[0].clone(), parsed_streams[1].clone()).unwrap()),
-            3 => EncodedStrings::dictionary(
+            2 => StringsEncoding::plain(PlainData::new(parsed_streams[0].clone(), parsed_streams[1].clone()).unwrap()),
+            3 => StringsEncoding::dictionary(
                 PlainData::new(parsed_streams[0].clone(), parsed_streams[2].clone()).unwrap(),
                 parsed_streams[1].clone(),
             ).unwrap(),
-            4 => EncodedStrings::fsst_plain(
+            4 => StringsEncoding::fsst_plain(
                 FsstData::new(
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
@@ -428,7 +428,7 @@ proptest! {
                     parsed_streams[3].clone(),
                 ).unwrap()
             ),
-            5 => EncodedStrings::fsst_dictionary(
+            5 => StringsEncoding::fsst_dictionary(
                 FsstData::new(
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
@@ -439,7 +439,7 @@ proptest! {
             ).unwrap(),
             n => panic!("unexpected stream count {n}"),
         };
-        let decoded_values = decode_strings(NameRef(""), EncodedPresence(None), encoding).unwrap();
+        let decoded_values = decode_strings(EncodedStrings::new(NameRef(""), EncodedPresence(None), encoding)).unwrap();
         assert_eq!(decoded_values, values.into());
     }
 }

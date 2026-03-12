@@ -48,21 +48,17 @@ pub enum PropertyKind {
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum EncodedProperty<'a> {
-    Bool(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    I8(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    U8(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    I32(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    U32(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    I64(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    U64(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    F32(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    F64(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    Str(NameRef<'a>, EncodedPresence<'a>, EncodedStrings<'a>),
-    SharedDict(
-        NameRef<'a>,
-        EncodedSharedDict<'a>,
-        Vec<EncodedSharedDictChild<'a>>,
-    ),
+    Bool(EncodedScalar<'a>),
+    I8(EncodedScalar<'a>),
+    U8(EncodedScalar<'a>),
+    I32(EncodedScalar<'a>),
+    U32(EncodedScalar<'a>),
+    I64(EncodedScalar<'a>),
+    U64(EncodedScalar<'a>),
+    F32(EncodedScalar<'a>),
+    F64(EncodedScalar<'a>),
+    Str(EncodedStrings<'a>),
+    SharedDict(EncodedSharedDict<'a>),
 }
 
 /// Decoded property values in a typed enum form.
@@ -174,26 +170,27 @@ pub struct FsstData<'a> {
     pub corpus: Stream<'a>,
 }
 
-/// Encoded data for a `SharedDict` column with shared dictionary encoding.
+/// Raw encoding payload for a `SharedDict` column.
 ///
-/// Unlike `EncodedStrings`, shared dictionaries do NOT have their own offset stream.
+/// Unlike [`StringsEncoding`], shared dictionaries do NOT have their own offset stream.
 /// Instead, each child column has its own offset stream that references the shared dictionary.
 /// This is why only `Plain` and `FsstPlain` variants exist here.
 #[borrowme]
 #[derive(Debug, Clone, PartialEq)]
-pub enum EncodedSharedDict<'a> {
+pub enum SharedDictEncoding<'a> {
     /// Plain shared dict (2 streams): lengths + data.
     Plain(PlainData<'a>),
     /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
     FsstPlain(FsstData<'a>),
 }
 
-/// String column encoding as produced by the encoder (plain, dictionary, or FSST).
+/// Raw string-column encoding payload (plain, dictionary, or FSST variants).
+///
 /// Stream order matches the encoder: see `StringEncoder.encode()` and `encodePlain` /
 /// `encodeDictionary` / `encodeFsstDictionary`.
 #[borrowme]
 #[derive(Debug, Clone, PartialEq)]
-pub enum EncodedStrings<'a> {
+pub enum StringsEncoding<'a> {
     /// Plain: length stream + data stream
     Plain(PlainData<'a>),
     /// Dictionary: lengths + offsets + dictionary data
@@ -208,6 +205,33 @@ pub enum EncodedStrings<'a> {
         fsst_data: FsstData<'a>,
         offsets: Stream<'a>,
     },
+}
+
+/// Encoded scalar column (bool, integer, or float) as read directly from the tile.
+#[borrowme]
+#[derive(Debug, Clone, PartialEq)]
+pub struct EncodedScalar<'a> {
+    pub name: NameRef<'a>,
+    pub presence: EncodedPresence<'a>,
+    pub data: Stream<'a>,
+}
+
+/// Encoded string column as read directly from the tile.
+#[borrowme]
+#[derive(Debug, Clone, PartialEq)]
+pub struct EncodedStrings<'a> {
+    pub name: NameRef<'a>,
+    pub presence: EncodedPresence<'a>,
+    pub encoding: StringsEncoding<'a>,
+}
+
+/// Encoded shared-dictionary column as read directly from the tile.
+#[borrowme]
+#[derive(Debug, Clone, PartialEq)]
+pub struct EncodedSharedDict<'a> {
+    pub name: NameRef<'a>,
+    pub encoding: SharedDictEncoding<'a>,
+    pub children: Vec<EncodedSharedDictChild<'a>>,
 }
 
 #[borrowme]

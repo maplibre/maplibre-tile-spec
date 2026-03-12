@@ -8,9 +8,9 @@ use crate::utils::apply_present;
 use crate::v01::{
     DecodedPresence, DecodedProperty, DecodedScalar, DecodedStrings, DictionaryType,
     EncodedPresence, EncodedProperty, LengthType, OwnedEncodedPresence, OwnedEncodedProperty,
-    OwnedName, OwnedProperty, OwnedStream, PresenceStream, Property, PropertyEncoder,
-    ScalarEncoder, ScalarValueEncoder, StrEncoder, decode_shared_dict, decode_strings,
-    encode_shared_dict_prop,
+    OwnedEncodedScalar, OwnedEncodedStrings, OwnedName, OwnedProperty, OwnedStream, PresenceStream,
+    Property, PropertyEncoder, ScalarEncoder, ScalarValueEncoder, StrEncoder, decode_shared_dict,
+    decode_strings, encode_shared_dict_prop,
 };
 
 impl_decodable!(Property<'a>, EncodedProperty<'a>, DecodedProperty<'a>);
@@ -236,56 +236,55 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             None
         };
 
+        macro_rules! scalar {
+            ($name:expr, $data:expr) => {
+                OwnedEncodedScalar {
+                    name: OwnedName($name.as_ref().to_string()),
+                    presence: OwnedEncodedPresence(presence.clone()),
+                    data: $data,
+                }
+            };
+        }
+
         match (decoded, encoder.value) {
-            (D::Bool(v), ScalarValueEncoder::Bool) => Ok(Self::Bool(
-                OwnedName(v.name.as_ref().to_string()),
-                OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_bools(&unapply_presence(&v.values))?,
-            )),
-            (D::I8(v), ScalarValueEncoder::Int(enc)) => Ok(Self::I8(
-                OwnedName(v.name.as_ref().to_string()),
-                OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_i8s(&unapply_presence(&v.values), enc)?,
-            )),
-            (D::U8(v), ScalarValueEncoder::Int(enc)) => Ok(Self::U8(
-                OwnedName(v.name.as_ref().to_string()),
-                OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_u8s(&unapply_presence(&v.values), enc)?,
-            )),
-            (D::I32(v), ScalarValueEncoder::Int(enc)) => Ok(Self::I32(
-                OwnedName(v.name.as_ref().to_string()),
-                OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_i32s(&unapply_presence(&v.values), enc)?,
-            )),
-            (D::U32(v), ScalarValueEncoder::Int(enc)) => Ok(Self::U32(
-                OwnedName(v.name.as_ref().to_string()),
-                OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_u32s(&unapply_presence(&v.values), enc)?,
-            )),
-            (D::I64(v), ScalarValueEncoder::Int(enc)) => Ok(Self::I64(
-                OwnedName(v.name.as_ref().to_string()),
-                OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_i64s(&unapply_presence(&v.values), enc)?,
-            )),
-            (D::U64(v), ScalarValueEncoder::Int(enc)) => Ok(Self::U64(
-                OwnedName(v.name.as_ref().to_string()),
-                OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_u64s(&unapply_presence(&v.values), enc)?,
-            )),
-            (D::F32(v), ScalarValueEncoder::Float) => Ok(Self::F32(
-                OwnedName(v.name.as_ref().to_string()),
-                OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_f32(&unapply_presence(&v.values))?,
-            )),
-            (D::F64(v), ScalarValueEncoder::Float) => Ok(Self::F64(
-                OwnedName(v.name.as_ref().to_string()),
-                OwnedEncodedPresence(presence.clone()),
-                OwnedStream::encode_f64(&unapply_presence(&v.values))?,
-            )),
-            (D::Str(v), ScalarValueEncoder::String(enc)) => Ok(Self::Str(
-                OwnedName(v.name.as_ref().to_string()),
-                OwnedEncodedPresence(presence),
-                match enc {
+            (D::Bool(v), ScalarValueEncoder::Bool) => Ok(Self::Bool(scalar!(
+                v.name,
+                OwnedStream::encode_bools(&unapply_presence(&v.values))?
+            ))),
+            (D::I8(v), ScalarValueEncoder::Int(enc)) => Ok(Self::I8(scalar!(
+                v.name,
+                OwnedStream::encode_i8s(&unapply_presence(&v.values), enc)?
+            ))),
+            (D::U8(v), ScalarValueEncoder::Int(enc)) => Ok(Self::U8(scalar!(
+                v.name,
+                OwnedStream::encode_u8s(&unapply_presence(&v.values), enc)?
+            ))),
+            (D::I32(v), ScalarValueEncoder::Int(enc)) => Ok(Self::I32(scalar!(
+                v.name,
+                OwnedStream::encode_i32s(&unapply_presence(&v.values), enc)?
+            ))),
+            (D::U32(v), ScalarValueEncoder::Int(enc)) => Ok(Self::U32(scalar!(
+                v.name,
+                OwnedStream::encode_u32s(&unapply_presence(&v.values), enc)?
+            ))),
+            (D::I64(v), ScalarValueEncoder::Int(enc)) => Ok(Self::I64(scalar!(
+                v.name,
+                OwnedStream::encode_i64s(&unapply_presence(&v.values), enc)?
+            ))),
+            (D::U64(v), ScalarValueEncoder::Int(enc)) => Ok(Self::U64(scalar!(
+                v.name,
+                OwnedStream::encode_u64s(&unapply_presence(&v.values), enc)?
+            ))),
+            (D::F32(v), ScalarValueEncoder::Float) => Ok(Self::F32(scalar!(
+                v.name,
+                OwnedStream::encode_f32(&unapply_presence(&v.values))?
+            ))),
+            (D::F64(v), ScalarValueEncoder::Float) => Ok(Self::F64(scalar!(
+                v.name,
+                OwnedStream::encode_f64(&unapply_presence(&v.values))?
+            ))),
+            (D::Str(v), ScalarValueEncoder::String(enc)) => {
+                let encoding = match enc {
                     StrEncoder::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
                         &v.dense_values(),
                         string_lengths,
@@ -297,8 +296,13 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                         enc,
                         DictionaryType::Single,
                     )?,
-                },
-            )),
+                };
+                Ok(Self::Str(OwnedEncodedStrings {
+                    name: OwnedName(v.name.as_ref().to_string()),
+                    presence: OwnedEncodedPresence(presence),
+                    encoding,
+                }))
+            }
             (D::SharedDict(..), _) => Err(NotImplemented(
                 "SharedDict cannot be encoded via ScalarEncoder",
             ))?,
@@ -317,55 +321,53 @@ impl<'a> FromEncoded<'a> for DecodedProperty<'a> {
     fn from_encoded(v: EncodedProperty<'a>) -> Result<DecodedProperty<'a>, MltError> {
         use EncodedProperty as E;
         Ok(match v {
-            E::Bool(name, presence, data) => Self::Bool(DecodedScalar::from_parts(
-                name,
-                presence,
-                data.decode_bools()?,
+            E::Bool(s) => Self::Bool(DecodedScalar::from_parts(
+                s.name,
+                s.presence,
+                s.data.decode_bools()?,
             )?),
-            E::I8(name, presence, data) => Self::I8(DecodedScalar::from_parts(
-                name,
-                presence,
-                data.decode_i8s()?,
+            E::I8(s) => Self::I8(DecodedScalar::from_parts(
+                s.name,
+                s.presence,
+                s.data.decode_i8s()?,
             )?),
-            E::U8(name, presence, data) => Self::U8(DecodedScalar::from_parts(
-                name,
-                presence,
-                data.decode_u8s()?,
+            E::U8(s) => Self::U8(DecodedScalar::from_parts(
+                s.name,
+                s.presence,
+                s.data.decode_u8s()?,
             )?),
-            E::I32(name, presence, data) => Self::I32(DecodedScalar::from_parts(
-                name,
-                presence,
-                data.decode_i32s()?,
+            E::I32(s) => Self::I32(DecodedScalar::from_parts(
+                s.name,
+                s.presence,
+                s.data.decode_i32s()?,
             )?),
-            E::U32(name, presence, data) => Self::U32(DecodedScalar::from_parts(
-                name,
-                presence,
-                data.decode_u32s()?,
+            E::U32(s) => Self::U32(DecodedScalar::from_parts(
+                s.name,
+                s.presence,
+                s.data.decode_u32s()?,
             )?),
-            E::I64(name, presence, data) => Self::I64(DecodedScalar::from_parts(
-                name,
-                presence,
-                data.decode_i64()?,
+            E::I64(s) => Self::I64(DecodedScalar::from_parts(
+                s.name,
+                s.presence,
+                s.data.decode_i64()?,
             )?),
-            E::U64(name, presence, data) => Self::U64(DecodedScalar::from_parts(
-                name,
-                presence,
-                data.decode_u64()?,
+            E::U64(s) => Self::U64(DecodedScalar::from_parts(
+                s.name,
+                s.presence,
+                s.data.decode_u64()?,
             )?),
-            E::F32(name, presence, data) => Self::F32(DecodedScalar::from_parts(
-                name,
-                presence,
-                data.decode_f32()?,
+            E::F32(s) => Self::F32(DecodedScalar::from_parts(
+                s.name,
+                s.presence,
+                s.data.decode_f32()?,
             )?),
-            E::F64(name, presence, data) => Self::F64(DecodedScalar::from_parts(
-                name,
-                presence,
-                data.decode_f64()?,
+            E::F64(s) => Self::F64(DecodedScalar::from_parts(
+                s.name,
+                s.presence,
+                s.data.decode_f64()?,
             )?),
-            E::Str(name, presence, s) => Self::Str(decode_strings(name, presence, s)?),
-            E::SharedDict(prefix, sd, children) => {
-                Self::SharedDict(decode_shared_dict(prefix.0, &sd, &children)?)
-            }
+            E::Str(s) => Self::Str(decode_strings(s)?),
+            E::SharedDict(s) => Self::SharedDict(decode_shared_dict(s)?),
         })
     }
 }
