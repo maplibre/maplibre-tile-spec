@@ -1,6 +1,8 @@
 use std::io;
 use std::io::Write;
 
+use borrowme::Borrow;
+
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::{
@@ -215,6 +217,38 @@ impl Layer01<'_> {
         self.decode_geometry()?;
         self.decode_properties()?;
         Ok(())
+    }
+}
+
+impl borrowme::ToOwned for Layer01<'_> {
+    type Owned = OwnedLayer01;
+
+    fn to_owned(&self) -> Self::Owned {
+        OwnedLayer01 {
+            name: borrowme::ToOwned::to_owned(self.name),
+            extent: self.extent,
+            id: borrowme::ToOwned::to_owned(&self.id),
+            geometry: borrowme::ToOwned::to_owned(&self.geometry),
+            properties: borrowme::ToOwned::to_owned(&self.properties),
+            #[cfg(fuzzing)]
+            layer_order: self.layer_order.clone(),
+        }
+    }
+}
+
+impl Borrow for OwnedLayer01 {
+    type Target<'this> = Layer01<'this>;
+
+    fn borrow(&self) -> Self::Target<'_> {
+        Layer01 {
+            name: Borrow::borrow(&self.name),
+            extent: self.extent,
+            id: Borrow::borrow(&self.id),
+            geometry: Borrow::borrow(&self.geometry),
+            properties: Borrow::borrow(&self.properties),
+            #[cfg(fuzzing)]
+            layer_order: self.layer_order.clone(),
+        }
     }
 }
 
