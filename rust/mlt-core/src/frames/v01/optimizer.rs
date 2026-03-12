@@ -1,4 +1,4 @@
-use strum::{EnumCount, IntoEnumIterator};
+use strum::{EnumCount as _, IntoEnumIterator as _};
 
 use crate::MltError;
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};

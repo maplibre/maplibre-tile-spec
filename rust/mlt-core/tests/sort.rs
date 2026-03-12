@@ -1,9 +1,9 @@
-use geo_types::{Coord, LineString, Point, Polygon};
+use geo_types::{Coord, LineString, Point};
 use mlt_core::geojson::Geom32;
-use mlt_core::optimizer::ManualOptimisation;
+use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
-    DecodedGeometry, DecodedId, GeometryEncoder, IntEncoder, OwnedGeometry, OwnedId, OwnedLayer01,
-    SortStrategy, Tag01Encoder,
+    DecodedGeometry, DecodedId, GeometryEncoder, GeometryType, IntEncoder, OwnedGeometry, OwnedId,
+    OwnedLayer01, SortStrategy, Tag01Encoder,
 };
 
 /// Helper to build a layer from geometries and IDs.
@@ -61,7 +61,7 @@ fn test_shared_morton_shift() {
 
     let types = match &layer.geometry {
         OwnedGeometry::Decoded(g) => g.vertices.as_ref().unwrap().clone(),
-        _ => panic!("expected decoded geometry"),
+        OwnedGeometry::Encoded(_) => panic!("expected decoded geometry"),
     };
     // Expected order: P2 (-10, 0), then P1 (0, -10)
     // Because interleave(-10+10, 0+10) = interleave(0, 10) = 2
@@ -85,11 +85,11 @@ fn test_shared_morton_shift() {
     // y bits all 0.
     // Result: (1 << 6) | (1 << 2) = 64 + 4 = 68.
     //
-    // So P2 (10, 0) [shifted] has key 68, P1 (0, 10) [shifted] has key 136.
-    // P2 should come first.
-    // P2 is (-10, 0) in raw coords. P1 is (0, -10).
-    // So expected order: [(-10, 0), (0, -10)].
-    assert_eq!(types, vec![-10, 0, 0, -10]);
+    // So P1 (10, 0) [shifted] has key 68, P2 (0, 10) [shifted] has key 136.
+    // P1 should come first.
+    // P1 is (0, -10) in raw coords. P2 is (-10, 0).
+    // So expected order: [(0, -10), (-10, 0)].
+    assert_eq!(types, vec![0, -10, -10, 0]);
 }
 
 #[test]
@@ -106,7 +106,7 @@ fn test_id_sort_nulls_first() {
 
     let verts = match &layer.geometry {
         OwnedGeometry::Decoded(g) => g.vertices.as_ref().unwrap().clone(),
-        _ => panic!("expected decoded geometry"),
+        OwnedGeometry::Encoded(_) => panic!("expected decoded geometry"),
     };
     // Corresponding verts: [pt(1,1), pt(0,0), pt(2,2)]
     assert_eq!(verts, vec![1, 1, 0, 0, 2, 2]);
@@ -129,9 +129,8 @@ fn test_mixed_geometry_morton_sort() {
 
     let types = match &layer.geometry {
         OwnedGeometry::Decoded(g) => g.vector_types.clone(),
-        _ => panic!("expected decoded geometry"),
+        OwnedGeometry::Encoded(_) => panic!("expected decoded geometry"),
     };
-    use mlt_core::v01::GeometryType;
     assert_eq!(
         types,
         vec![
@@ -143,7 +142,7 @@ fn test_mixed_geometry_morton_sort() {
 
     let verts = match &layer.geometry {
         OwnedGeometry::Decoded(g) => g.vertices.as_ref().unwrap().clone(),
-        _ => panic!("expected decoded geometry"),
+        OwnedGeometry::Encoded(_) => panic!("expected decoded geometry"),
     };
     // Expected vertices: LS(0,0,0,5), P2(1,0), P1(2,0)
     assert_eq!(verts, vec![0, 0, 0, 5, 1, 0, 2, 0]);

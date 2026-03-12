@@ -331,7 +331,9 @@ fn compute_sort_keys(
             let curve = match strategy {
                 SortStrategy::SpatialMorton => SpaceFillingCurve::Morton,
                 SortStrategy::SpatialHilbert => SpaceFillingCurve::Hilbert,
-                _ => unreachable!("only morton and hilbert sort strategies are supported"),
+                SortStrategy::Id => {
+                    unreachable!("only morton and hilbert sort strategies are supported")
+                }
             };
             let geom_data = match &layer.geometry {
                 OwnedGeometry::Decoded(g) => g,
@@ -352,8 +354,12 @@ fn compute_sort_keys(
                 }
                 OwnedId::Encoded(_) => return Err(MltError::NotDecoded("id")),
             };
-            // Null IDs sort last (u64::MAX).
-            Ok(ids.0.iter().map(|id| id.unwrap_or(u64::MAX)).collect())
+            // Null IDs sort first (0), followed by Some(id) shifted to (id + 1).
+            Ok(ids
+                .0
+                .iter()
+                .map(|id| id.map_or(0, |v| v.saturating_add(1)))
+                .collect())
         }
     }
 }
@@ -395,11 +401,14 @@ fn first_vertex(geom: &Geom32) -> Option<(i32, i32)> {
         Geom32::LineString(ls) => ls.0.first().map(|c| (c.x, c.y)),
         Geom32::Polygon(p) => p.exterior().0.first().map(|c| (c.x, c.y)),
         Geom32::MultiPoint(mp) => mp.0.first().map(|p| (p.0.x, p.0.y)),
-        Geom32::MultiLineString(mls) => mls.0.first().and_then(|ls| ls.0.first().map(|c| (c.x, c.y))),
-        Geom32::MultiPolygon(mp) => mp
+        Geom32::MultiLineString(mls) => mls
             .0
             .first()
-            .and_then(|p| p.exterior().0.first().map(|c| (c.x, c.y))),
+            .and_then(|ls| ls.0.first().map(|c| (c.x, c.y))),
+        Geom32::MultiPolygon(mp) => {
+            mp.0.first()
+                .and_then(|p| p.exterior().0.first().map(|c| (c.x, c.y)))
+        }
         Geom32::Triangle(t) => Some((t.0.x, t.0.y)),
         Geom32::Rect(r) => Some((r.min().x, r.min().y)),
         Geom32::GeometryCollection(gc) => gc.0.first().and_then(first_vertex),
@@ -440,7 +449,7 @@ fn apply_permutation(
 /// to the plain decoded values.
 ///
 /// Each column is a no-op if it is already in the `Decoded` variant.
-pub(crate) fn ensure_decoded(layer: &mut OwnedLayer01) -> Result<(), MltError> {
+pub fn ensure_decoded(layer: &mut OwnedLayer01) -> Result<(), MltError> {
     if let OwnedGeometry::Encoded(e) = &layer.geometry {
         let dec = borrowme::borrow(e).decode_into()?;
         layer.geometry = OwnedGeometry::Decoded(dec);
@@ -662,9 +671,8 @@ mod tests {
     ) {
         let layer = layer_after_sort(geoms, ids, strategy);
 
-        let sorted_geom = match layer.geometry {
-            OwnedGeometry::Decoded(g) => g,
-            _ => panic!("geometry was not decoded after reorder_features"),
+        let OwnedGeometry::Decoded(sorted_geom) = layer.geometry else {
+            panic!("geometry was not decoded after reorder_features")
         };
 
         let after_roundtrip = roundtrip_geom(&sorted_geom);
@@ -737,7 +745,7 @@ mod tests {
 
     // ── [Point, LineString, Point] ────────────────────────────────────────────
 
-    /// IDs [3, 1, 2] → permutation [1, 2, 0] → [LineString, Point, Point].
+    /// IDs [3, 1, 2] → permutation [1, 2, 0] → [`LineString`, Point, Point].
     #[test]
     fn point_line_point_id_sort_to_line_point_point_roundtrip() {
         assert_sort_roundtrip(
@@ -748,7 +756,7 @@ mod tests {
         );
     }
 
-    /// IDs [1, 3, 2] → permutation [0, 2, 1] → [Point, Point, LineString].
+    /// IDs [1, 3, 2] → permutation [0, 2, 1] → [Point, Point, `LineString`].
     #[test]
     fn point_line_point_id_sort_to_point_point_line_roundtrip() {
         assert_sort_roundtrip(
@@ -776,9 +784,9 @@ mod tests {
 
     /// Coordinates chosen so Morton keys are unambiguous:
     ///   Point(2,0)           → Morton 4
-    ///   LineString first (0,0) → Morton 0
+    ///   `LineString` first (0,0) → Morton 0
     ///   Point(1,0)           → Morton 1
-    /// Expected order after sort: [LineString, Point(1,0), Point(2,0)].
+    /// Expected order after sort: [`LineString`, Point(1,0), Point(2,0)].
     #[test]
     fn point_line_point_morton_sort_roundtrip() {
         assert_sort_roundtrip(
@@ -799,7 +807,7 @@ mod tests {
 
     // ── ID column co-permuted with geometry ───────────────────────────────────
 
-    /// Verifies that IDs and vector_types are both reordered consistently.
+    /// Verifies that IDs and `vector_types` are both reordered consistently.
     #[test]
     fn id_column_co_permuted_with_geometry() {
         let layer = layer_after_sort(
@@ -816,7 +824,7 @@ mod tests {
 
         let types = match &layer.geometry {
             OwnedGeometry::Decoded(g) => g.vector_types.clone(),
-            _ => panic!("expected decoded geometry after sort"),
+            OwnedGeometry::Encoded(_) => panic!("expected decoded geometry after sort"),
         };
         assert_eq!(
             types,
