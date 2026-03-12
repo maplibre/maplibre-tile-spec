@@ -10,7 +10,7 @@ use crate::v01::{
     DictionaryType, EncodedPresence, EncodedStrings, FsstData, IntEncoding, LengthType,
     LogicalData, LogicalEncoding, LogicalValue, MortonMeta, NameRef, OffsetType, OwnedStream,
     OwnedStreamData, PhysicalEncoder, PhysicalEncoding, PlainData, RleMeta, Stream, StreamData,
-    StreamMeta, StreamType, StringsEncoding, decode_strings,
+    StreamMeta, StreamType, StringsEncoding,
 };
 
 /// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
@@ -257,7 +257,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_i8s().unwrap();
+        let decoded_values: Vec<i8> = parsed_stream.try_into().unwrap();
         assert_eq!(decoded_values, values);
     }
 
@@ -274,7 +274,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_u8s().unwrap();
+        let decoded_values: Vec<u8> = parsed_stream.try_into().unwrap();
         assert_eq!(decoded_values, values);
     }
 
@@ -360,7 +360,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_f32().unwrap();
+        let decoded_values:Vec<f32> = parsed_stream.try_into().unwrap();
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {
             assert_eq!(
@@ -381,7 +381,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_f64().unwrap();
+        let decoded_values: Vec<f64> = parsed_stream.try_into().unwrap();
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {
             assert_eq!(
@@ -439,7 +439,7 @@ proptest! {
             ).unwrap(),
             n => panic!("unexpected stream count {n}"),
         };
-        let decoded_values = decode_strings(EncodedStrings::new(NameRef(""), EncodedPresence(None), encoding)).unwrap();
+        let decoded_values = EncodedStrings::new(NameRef(""), EncodedPresence(None), encoding).into_decoded().unwrap();
         assert_eq!(decoded_values, values.into());
     }
 }

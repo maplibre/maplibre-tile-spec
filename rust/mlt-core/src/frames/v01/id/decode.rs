@@ -48,7 +48,7 @@ impl<'a> FromEncoded<'a> for DecodedId {
             }
             EncodedIdValue::Id64(stream) => {
                 // Decode 64-bit IDs directly as u64
-                stream.decode_u64()?
+                stream.try_into()?
             }
         };
 

@@ -67,8 +67,8 @@ pub fn apply_present<T>(
     present: Option<Stream>,
     values: Vec<T>,
 ) -> Result<Vec<Option<T>>, MltError> {
-    let present = if let Some(p) = present {
-        p.decode_bools()?
+    let present: Vec<bool> = if let Some(p) = present {
+        p.try_into()?
     } else {
         return Ok(values.into_iter().map(Some).collect());
     };

@@ -1,9 +1,130 @@
 use borrowme::Borrow as _;
 
 use crate::analyse::{Analyze, StatType};
-use crate::v01::{DecodedScalar, DecodedSharedDict, EncodedProperty, Stream};
+use crate::v01::{
+    DecodedScalar, DecodedSharedDict, EncodedProperty, EncodedScalar, EncodedSharedDict,
+    EncodedSharedDictChild, EncodedStrings, FsstData, OwnedEncodedProperty, OwnedEncodedScalar,
+    OwnedEncodedSharedDict, OwnedEncodedStrings, OwnedFsstData, OwnedPlainData,
+    OwnedSharedDictEncoding, OwnedStringsEncoding, PlainData, SharedDictEncoding, Stream,
+    StringsEncoding,
+};
 
-impl Analyze for crate::v01::OwnedEncodedProperty {
+impl Analyze for PlainData<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.lengths.for_each_stream(cb);
+        self.data.for_each_stream(cb);
+    }
+}
+
+impl Analyze for OwnedPlainData {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.borrow().for_each_stream(cb);
+    }
+}
+
+impl Analyze for FsstData<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.symbol_lengths.for_each_stream(cb);
+        self.symbol_table.for_each_stream(cb);
+        self.lengths.for_each_stream(cb);
+        self.corpus.for_each_stream(cb);
+    }
+}
+
+impl Analyze for OwnedFsstData {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.borrow().for_each_stream(cb);
+    }
+}
+
+impl Analyze for StringsEncoding<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        match self {
+            Self::Plain(plain_data) => plain_data.for_each_stream(cb),
+            Self::Dictionary {
+                plain_data,
+                offsets,
+            } => {
+                plain_data.for_each_stream(cb);
+                offsets.for_each_stream(cb);
+            }
+            Self::FsstPlain(fsst_data) => fsst_data.for_each_stream(cb),
+            Self::FsstDictionary { fsst_data, offsets } => {
+                fsst_data.for_each_stream(cb);
+                offsets.for_each_stream(cb);
+            }
+        }
+    }
+}
+
+impl Analyze for OwnedStringsEncoding {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.borrow().for_each_stream(cb);
+    }
+}
+
+impl Analyze for SharedDictEncoding<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        match self {
+            Self::Plain(plain_data) => plain_data.for_each_stream(cb),
+            Self::FsstPlain(fsst_data) => fsst_data.for_each_stream(cb),
+        }
+    }
+}
+
+impl Analyze for OwnedSharedDictEncoding {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.borrow().for_each_stream(cb);
+    }
+}
+
+impl Analyze for EncodedScalar<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.presence.0.for_each_stream(cb);
+        self.data.for_each_stream(cb);
+    }
+}
+
+impl Analyze for OwnedEncodedScalar {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.borrow().for_each_stream(cb);
+    }
+}
+
+impl Analyze for EncodedStrings<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.presence.0.for_each_stream(cb);
+        self.encoding.for_each_stream(cb);
+    }
+}
+
+impl Analyze for OwnedEncodedStrings {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.borrow().for_each_stream(cb);
+    }
+}
+
+impl Analyze for EncodedSharedDict<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.encoding.for_each_stream(cb);
+        self.children.iter().for_each(|v| v.for_each_stream(cb));
+    }
+}
+
+impl Analyze for EncodedSharedDictChild<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.presence.0.for_each_stream(cb);
+        self.data.for_each_stream(cb);
+    }
+}
+
+impl Analyze for OwnedEncodedSharedDict {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.borrow().for_each_stream(cb);
+    }
+}
+
+impl Analyze for OwnedEncodedProperty {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         self.borrow().for_each_stream(cb);
     }
@@ -20,25 +141,9 @@ impl Analyze for EncodedProperty<'_> {
             | Self::I64(s)
             | Self::U64(s)
             | Self::F32(s)
-            | Self::F64(s) => {
-                s.presence.0.for_each_stream(cb);
-                s.data.for_each_stream(cb);
-            }
-            Self::Str(s) => {
-                s.presence.0.for_each_stream(cb);
-                for stream in s.encoding.streams() {
-                    cb(stream);
-                }
-            }
-            Self::SharedDict(s) => {
-                for stream in s.encoding.dict_streams() {
-                    cb(stream);
-                }
-                for child in &s.children {
-                    child.presence.0.for_each_stream(cb);
-                    child.data.for_each_stream(cb);
-                }
-            }
+            | Self::F64(s) => s.for_each_stream(cb),
+            Self::Str(s) => s.for_each_stream(cb),
+            Self::SharedDict(s) => s.for_each_stream(cb),
         }
     }
 }

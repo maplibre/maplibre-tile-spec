@@ -10,18 +10,6 @@ use crate::v01::{FsstStrEncoder, IntEncoder, Stream};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NameRef<'a>(pub &'a str);
 
-impl<'a> From<NameRef<'a>> for Cow<'a, str> {
-    fn from(value: NameRef<'a>) -> Self {
-        Cow::Borrowed(value.0)
-    }
-}
-
-impl<'a> From<&NameRef<'a>> for Cow<'a, str> {
-    fn from(value: &NameRef<'a>) -> Self {
-        Cow::Borrowed(value.0)
-    }
-}
-
 /// Property representation, either encoded or decoded
 #[allow(clippy::large_enum_variant)]
 #[borrowme]
@@ -248,74 +236,12 @@ pub enum PropertyEncoder {
     SharedDict(SharedDictEncoder),
 }
 
-impl From<SharedDictEncoder> for PropertyEncoder {
-    fn from(encoder: SharedDictEncoder) -> Self {
-        Self::SharedDict(encoder)
-    }
-}
-impl From<ScalarEncoder> for PropertyEncoder {
-    fn from(encoder: ScalarEncoder) -> Self {
-        Self::Scalar(encoder)
-    }
-}
-
 /// How to encode properties
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ScalarEncoder {
     pub presence: PresenceStream,
     pub value: ScalarValueEncoder,
-}
-
-impl ScalarEncoder {
-    #[must_use]
-    pub fn str(presence: PresenceStream, string_lengths: IntEncoder) -> Self {
-        let enc = StrEncoder::Plain { string_lengths };
-        Self {
-            presence,
-            value: ScalarValueEncoder::String(enc),
-        }
-    }
-    /// Create a property encoder with integer encoding
-    #[must_use]
-    pub fn int(presence: PresenceStream, enc: IntEncoder) -> Self {
-        Self {
-            presence,
-            value: ScalarValueEncoder::Int(enc),
-        }
-    }
-    /// Create a property encoder with FSST string encoding
-    #[must_use]
-    pub fn str_fsst(
-        presence: PresenceStream,
-        symbol_lengths: IntEncoder,
-        dict_lengths: IntEncoder,
-    ) -> Self {
-        let enc = FsstStrEncoder {
-            symbol_lengths,
-            dict_lengths,
-        };
-        Self {
-            presence,
-            value: ScalarValueEncoder::String(StrEncoder::Fsst(enc)),
-        }
-    }
-    /// Create a property encoder for boolean values
-    #[must_use]
-    pub fn bool(presence: PresenceStream) -> Self {
-        Self {
-            presence,
-            value: ScalarValueEncoder::Bool,
-        }
-    }
-    /// Create a property encoder for float values
-    #[must_use]
-    pub fn float(presence: PresenceStream) -> Self {
-        Self {
-            presence,
-            value: ScalarValueEncoder::Float,
-        }
-    }
 }
 
 /// How to encode scalar property values.
