@@ -244,7 +244,7 @@ java -jar mlt-cli/build/libs/encode.jar --pmtiles /path/to/input.pmtiles --mlt /
 Example of decoding MLT files:
 
 ```console
-java -jar mlt-cli/build/libs/decode.jar -mlt /tmp/point-boolean.mlt
+java -jar mlt-cli/build/libs/decode.jar --mlt /tmp/point-boolean.mlt
 ```
 
 For more details, see [README-Encode.md](README-Encode.md) and [README-Encode.md](README-Decode.md).
