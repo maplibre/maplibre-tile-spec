@@ -199,7 +199,6 @@ fn test_stream_roundtrip(
     let stream_data = match physical_encoding {
         PhysicalEncoding::None | PhysicalEncoding::FastPFOR => OwnedStreamData::Encoded(data_bytes),
         PhysicalEncoding::VarInt => OwnedStreamData::VarInt(data_bytes),
-        PhysicalEncoding::Alp => panic!("ALP not supported"),
     };
     let stream = OwnedStream {
         meta: StreamMeta::new(

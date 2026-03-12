@@ -128,7 +128,6 @@ impl StreamMeta {
             PhysicalEncoding::None => 0x0,
             PhysicalEncoding::FastPFOR => 0x1,
             PhysicalEncoding::VarInt => 0x2,
-            PhysicalEncoding::Alp => 0x3,
         };
         writer.write_u8(logical_enc_u8 | physical_enc_u8)?;
         writer.write_varint(self.num_values)?;
@@ -225,7 +224,6 @@ impl<'a> Stream<'a> {
         let stream_data = match meta.encoding.physical {
             PD::None | PD::FastPFOR => StreamData::Encoded(data),
             PD::VarInt => StreamData::VarInt(data),
-            PD::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
         };
 
         Ok((input, Stream::new(meta, stream_data)))

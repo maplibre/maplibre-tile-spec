@@ -73,7 +73,6 @@ impl Stream<'_> {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
                 }
             },
-            PhysicalEncoding::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
         }?;
 
         Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
@@ -109,7 +108,6 @@ impl Stream<'_> {
                     "FastPFOR decoding u64",
                 ));
             }
-            PhysicalEncoding::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
         }?;
 
         Ok(LogicalValue::new(self.meta, LogicalData::VecU64(value)))

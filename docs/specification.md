@@ -432,12 +432,12 @@ The following encoding pool was selected based on analysis of compression ratio 
 | --------- | ---------------------------- | ----------------------------------- | ----------- |
 | Boolean   | [Boolean RLE](https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding) | | |
 | Integer   | Plain, RLE, Delta, Delta-RLE | [SIMD-FastPFOR](https://arxiv.org/pdf/1209.2137.pdf), [Varint](https://protobuf.dev/programming-guides/encoding/#varints) | |
-| Float     | Plain, RLE, Dictionary, [ALP](https://dl.acm.org/doi/pdf/10.1145/3626717) | | |
+| Float     | Plain, RLE, Dictionary | | |
 | String    | Plain, Dictionary, [FSST](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf) Dictionary | | |
 | Geometry  | Plain, Dictionary, Morton-Dictionary | | |
 
 !!! NOTE
-    `ALP`, `FSST`, and `FastPFOR` encodings are <span class="experimental"></span>.
+    `FSST`, and `FastPFOR` encodings are <span class="experimental"></span>.
 
 SIMD-FastPFOR is generally preferred over Varint encoding due to its smaller output and faster decoding speed.
 Varint encoding is included mainly for compatibility and simplicity, and it can be more efficient when combined with heavyweight compression like GZip.
