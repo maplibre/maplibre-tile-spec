@@ -3,7 +3,7 @@ use crate::v01::{
     DataProfile, DecodedId, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, OwnedEncodedId,
     OwnedId, PhysicalEncoder,
 };
-use crate::{FromDecoded as _, FromEncoded as _, MltError};
+use crate::{FromDecoded as _, MltError};
 
 /// A pre-computed set of [`IntEncoder`] candidates derived from a representative
 /// sample of tiles.
@@ -268,7 +268,11 @@ impl ProfileOptimisation for OwnedId {
                 Ok(Some(enc))
             }
             OwnedId::Encoded(e) => {
-                let dec = Option::<DecodedId>::from_encoded(e.as_ref().map(borrowme::borrow))?;
+                let dec = e
+                    .as_ref()
+                    .map(borrowme::borrow)
+                    .map(DecodedId::try_from)
+                    .transpose()?;
                 *self = OwnedId::Decoded(dec);
                 self.profile_driven_optimisation(profile)
             }
@@ -291,7 +295,11 @@ impl AutomaticOptimisation for OwnedId {
                 Ok(Some(enc))
             }
             OwnedId::Encoded(e) => {
-                let dec = Option::<DecodedId>::from_encoded(e.as_ref().map(borrowme::borrow))?;
+                let dec = e
+                    .as_ref()
+                    .map(borrowme::borrow)
+                    .map(DecodedId::try_from)
+                    .transpose()?;
                 *self = OwnedId::Decoded(dec);
                 self.automatic_encoding_optimisation()
             }

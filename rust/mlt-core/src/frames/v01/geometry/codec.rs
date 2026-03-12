@@ -1,5 +1,5 @@
 use crate::MltError::{self, NotImplemented};
-use crate::decode::{FromEncoded, impl_decodable};
+use crate::decode::{Decode, DecodeInto as _, impl_decodable};
 use crate::encode::{FromDecoded, impl_encodable};
 use crate::utils::{AsUsize as _, SetOptionOnce as _};
 use crate::v01::geometry::decode::{
@@ -25,12 +25,8 @@ impl FromDecoded<'_> for OwnedEncodedGeometry {
     }
 }
 
-impl<'a> FromEncoded<'a> for DecodedGeometry {
-    type Input = EncodedGeometry<'a>;
-
-    fn from_encoded(
-        EncodedGeometry { meta, items }: EncodedGeometry<'a>,
-    ) -> Result<Self, MltError> {
+impl<'a> Decode<EncodedGeometry<'a>> for DecodedGeometry {
+    fn decode(EncodedGeometry { meta, items }: EncodedGeometry<'a>) -> Result<Self, MltError> {
         let vector_types = decode_geometry_types(&meta)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;
         let mut part_offsets: Option<Vec<u32>> = None;
@@ -45,8 +41,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
                 StreamType::Present => {}
                 StreamType::Data(v) => match v {
                     DictionaryType::Vertex | DictionaryType::Morton => {
-                        let v = stream.decode_bits_u32()?.decode_i32()?;
-                        vertices.set_once(v)?;
+                        vertices.set_once(stream.decode_into()?)?;
                     }
                     _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                 },
@@ -56,7 +51,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
                         OffsetType::Index => &mut index_buffer,
                         _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
-                    target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
+                    target.set_once(stream.decode_into()?)?;
                 }
                 StreamType::Length(v) => {
                     let target = match v {
@@ -67,7 +62,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
                         _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
                     // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamEncoding<T>
-                    target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
+                    target.set_once(stream.decode_into()?)?;
                 }
             }
         }

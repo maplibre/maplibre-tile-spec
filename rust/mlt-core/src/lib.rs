@@ -18,7 +18,7 @@ pub use analyse::{Analyze, StatType};
 // reexport borrowme to make it easier to use in other crates
 pub use borrowme;
 pub use convert::{geojson, mvt};
-pub(crate) use decode::*;
+pub(crate) use decode::{Decodable, Decode, DecodeInto};
 pub use encode::Encodable;
 pub(crate) use encode::FromDecoded;
 pub use errors::{MltError, MltRefResult};

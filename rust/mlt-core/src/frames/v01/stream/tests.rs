@@ -3,6 +3,7 @@
 use proptest::prelude::*;
 use rstest::rstest;
 
+use crate::decode::DecodeInto as _;
 use crate::utils::BinarySerializer as _;
 use crate::v01::stream::encoder::IntEncoder;
 use crate::v01::stream::logical::LogicalEncoder;
@@ -257,7 +258,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_i8s().unwrap();
+        let decoded_values: Vec<i8> = parsed_stream.decode_into().unwrap();
         assert_eq!(decoded_values, values);
     }
 
@@ -274,7 +275,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_u8s().unwrap();
+        let decoded_values: Vec<u8> = parsed_stream.decode_into().unwrap();
         assert_eq!(decoded_values, values);
     }
 
@@ -327,7 +328,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_bits_u64().unwrap().decode_u64().unwrap();
+        let decoded_values: Vec<u64> = parsed_stream.decode_into().unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -345,7 +346,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_bits_u64().unwrap().decode_i64().unwrap();
+        let decoded_values: Vec<i64> = parsed_stream.decode_into().unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -360,7 +361,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_f32().unwrap();
+        let decoded_values: Vec<f32> = parsed_stream.decode_into().unwrap();
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {
             assert_eq!(
@@ -381,7 +382,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_f64().unwrap();
+        let decoded_values: Vec<f64> = parsed_stream.decode_into().unwrap();
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {
             assert_eq!(

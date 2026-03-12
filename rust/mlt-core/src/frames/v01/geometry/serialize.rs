@@ -3,12 +3,13 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter as _;
 
+use crate::MltError;
+use crate::decode::Decode as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2, parse_varint};
 use crate::v01::{
     ColumnType, DecodedGeometry, DictionaryType, EncodedGeometry, Geometry, IntEncoding,
     OwnedEncodedGeometry, OwnedGeometry, Stream, StreamData, StreamMeta, StreamType,
 };
-use crate::{FromEncoded as _, MltError};
 
 impl OwnedGeometry {
     #[doc(hidden)]
@@ -60,7 +61,7 @@ impl<'a> EncodedGeometry<'a> {
 impl OwnedEncodedGeometry {
     /// Decode this encoded geometry into its decoded form.
     pub fn decode(&self) -> Result<DecodedGeometry, MltError> {
-        DecodedGeometry::from_encoded(borrowme::borrow(self))
+        DecodedGeometry::decode(borrowme::borrow(self))
     }
 
     pub(crate) fn write_columns_meta_to<W: Write>(writer: &mut W) -> Result<(), MltError> {
@@ -112,7 +113,7 @@ impl<'a> Geometry<'a> {
     #[inline]
     pub fn decode(self) -> Result<DecodedGeometry, MltError> {
         Ok(match self {
-            Self::Encoded(v) => DecodedGeometry::from_encoded(v)?,
+            Self::Encoded(v) => DecodedGeometry::decode(v)?,
             Self::Decoded(v) => v,
         })
     }
