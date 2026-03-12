@@ -4,7 +4,7 @@ use crate::v01::Stream;
 
 /// ID column representation, either encoded or decoded.
 #[borrowme]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(
     all(not(test), feature = "arbitrary"),
     owned_attr(derive(arbitrary::Arbitrary))
@@ -16,7 +16,7 @@ pub enum Id<'a> {
 
 /// Unparsed ID data as read directly from the tile
 #[borrowme]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EncodedId<'a> {
     pub(crate) presence: Option<Stream<'a>>,
     pub(crate) value: EncodedIdValue<'a>,
@@ -24,7 +24,7 @@ pub struct EncodedId<'a> {
 
 /// A sequence of encoded ID values, either 32-bit or 64-bit unsigned integers
 #[borrowme]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum EncodedIdValue<'a> {
     Id32(Stream<'a>),
     Id64(Stream<'a>),

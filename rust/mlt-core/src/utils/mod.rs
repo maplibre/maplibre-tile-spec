@@ -1,7 +1,9 @@
 mod encode;
+mod spatial;
 
 pub use encode::*;
 use num_traits::CheckedAdd;
+pub use spatial::*;
 mod serialize;
 pub use serialize::*;
 mod parse;

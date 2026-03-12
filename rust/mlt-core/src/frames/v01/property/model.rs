@@ -25,7 +25,7 @@ impl<'a> From<&NameRef<'a>> for Cow<'a, str> {
 /// Property representation, either encoded or decoded
 #[allow(clippy::large_enum_variant)]
 #[borrowme]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(
     all(not(test), feature = "arbitrary"),
     owned_attr(derive(arbitrary::Arbitrary))
@@ -46,7 +46,7 @@ pub enum PropertyKind {
 
 /// Unparsed property data as read directly from the tile.
 #[borrowme]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum EncodedProperty<'a> {
     Bool(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
     I8(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),

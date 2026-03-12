@@ -5,6 +5,7 @@ mod model;
 mod optimizer;
 mod property;
 mod root;
+pub mod sort;
 pub(crate) mod stream;
 
 pub use geometry::*;
@@ -14,4 +15,5 @@ pub use optimizer::*;
 pub use property::*;
 #[cfg(fuzzing)]
 pub use root::LayerOrdering;
+pub use sort::{reorder_features, SortStrategy, SpaceFillingCurve};
 pub use stream::*;

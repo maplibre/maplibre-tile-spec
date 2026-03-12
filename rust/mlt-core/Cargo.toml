@@ -41,6 +41,7 @@ fastpfor.workspace = true
 fsst-rs.workspace = true
 geo-types.workspace = true
 hex.workspace = true
+hilbert_2d.workspace = true
 integer-encoding.workspace = true
 mvt-reader.workspace = true
 num-traits.workspace = true
@@ -53,6 +54,7 @@ thiserror.workspace = true
 union-find.workspace = true
 wide.workspace = true
 zigzag.workspace = true
+zorder.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

@@ -47,7 +47,7 @@ pub enum ColumnType {
 /// Representation of a feature table layer encoded as MLT tag `0x01`
 #[cfg(not(fuzzing))]
 #[borrowme]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(
     all(not(test), not(fuzzing), feature = "arbitrary"),
     owned_attr(derive(arbitrary::Arbitrary))
@@ -63,7 +63,7 @@ pub struct Layer01<'a> {
 /// FIXME: fuzzing is only adding layer_order but this borrowme does not codegen correctly in this case
 #[cfg(fuzzing)]
 #[borrowme]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Layer01<'a> {
     pub name: &'a str,
     pub extent: u32,
