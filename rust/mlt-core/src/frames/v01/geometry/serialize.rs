@@ -58,12 +58,17 @@ impl<'a> EncodedGeometry<'a> {
     }
 }
 
-impl OwnedEncodedGeometry {
-    /// Decode this encoded geometry into its decoded form.
-    pub fn decode(&self) -> Result<DecodedGeometry, MltError> {
-        DecodedGeometry::decode(self.as_borrowed())
-    }
+impl TryFrom<OwnedEncodedGeometry> for DecodedGeometry {
+    type Error = MltError;
 
+    fn try_from(encoded: OwnedEncodedGeometry) -> Result<Self, MltError> {
+        let meta = encoded.meta.as_borrowed();
+        let items: Vec<_> = encoded.items.iter().map(|s| s.as_borrowed()).collect();
+        DecodedGeometry::decode(EncodedGeometry { meta, items })
+    }
+}
+
+impl OwnedEncodedGeometry {
     pub(crate) fn write_columns_meta_to<W: Write>(writer: &mut W) -> Result<(), MltError> {
         ColumnType::Geometry.write_to(writer)?;
         Ok(())
@@ -127,18 +132,14 @@ impl<'a> Geometry<'a> {
     }
 }
 
-impl OwnedGeometry {
-    #[must_use]
-    pub fn as_borrowed(&self) -> Geometry<'_> {
-        match self {
-            Self::Encoded(encoded) => Geometry::Encoded(encoded.as_borrowed()),
-            Self::Decoded(decoded) => Geometry::Decoded(decoded.as_borrowed()),
-        }
-    }
+impl TryFrom<OwnedGeometry> for DecodedGeometry {
+    type Error = MltError;
 
-    #[inline]
-    pub fn decode(&self) -> Result<DecodedGeometry, MltError> {
-        self.as_borrowed().decode()
+    fn try_from(owned: OwnedGeometry) -> Result<Self, MltError> {
+        match owned {
+            OwnedGeometry::Encoded(encoded) => DecodedGeometry::try_from(encoded),
+            OwnedGeometry::Decoded(decoded) => Ok(decoded),
+        }
     }
 }
 

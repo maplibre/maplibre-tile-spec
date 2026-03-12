@@ -6,7 +6,7 @@ use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint}
 use crate::v01::{
     Column, ColumnType, DictionaryType, EncodedIdValue, EncodedPresence, EncodedProperty,
     EncodedSharedDict, EncodedSharedDictChild, EncodedStrings, FsstData, Geometry, Id, Layer01,
-    NameRef, OwnedId, OwnedLayer01, OwnedProperty, PlainData, Property, Stream, StreamType,
+    NameRef, OwnedLayer01, PlainData, Property, Stream, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -23,7 +23,7 @@ impl Analyze for Layer01<'_> {
         }
     }
 
-    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(crate::v01::StreamMeta)) {
         if let Some(ref id) = self.id {
             id.for_each_stream(cb);
         }
@@ -209,7 +209,8 @@ impl Layer01<'_> {
     pub fn decode_properties(&mut self) -> Result<(), MltError> {
         let old_props = std::mem::take(&mut self.properties);
         for prop in old_props {
-            self.properties.push(Property::Decoded(prop.decode()?));
+            self.properties
+                .push(Property::Decoded(prop.into_decoded()?));
         }
         Ok(())
     }
@@ -231,25 +232,6 @@ impl Layer01<'_> {
             id: self.id.as_ref().map(Id::to_owned),
             geometry: self.geometry.to_owned(),
             properties: self.properties.iter().map(Property::to_owned).collect(),
-            #[cfg(fuzzing)]
-            layer_order: self.layer_order.clone(),
-        }
-    }
-}
-
-impl OwnedLayer01 {
-    #[must_use]
-    pub fn as_borrowed(&self) -> Layer01<'_> {
-        Layer01 {
-            name: &self.name,
-            extent: self.extent,
-            id: self.id.as_ref().map(OwnedId::as_borrowed),
-            geometry: self.geometry.as_borrowed(),
-            properties: self
-                .properties
-                .iter()
-                .map(OwnedProperty::as_borrowed)
-                .collect(),
             #[cfg(fuzzing)]
             layer_order: self.layer_order.clone(),
         }

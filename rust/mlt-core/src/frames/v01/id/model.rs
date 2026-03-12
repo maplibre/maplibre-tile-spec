@@ -43,11 +43,6 @@ impl DecodedId {
     pub fn to_owned(&self) -> Self {
         self.clone()
     }
-
-    #[must_use]
-    pub fn as_borrowed(&self) -> Self {
-        self.clone()
-    }
 }
 
 impl EncodedId<'_> {
@@ -60,32 +55,12 @@ impl EncodedId<'_> {
     }
 }
 
-impl OwnedEncodedId {
-    #[must_use]
-    pub fn as_borrowed(&self) -> EncodedId<'_> {
-        EncodedId {
-            presence: self.presence.as_ref().map(OwnedStream::as_borrowed),
-            value: self.value.as_borrowed(),
-        }
-    }
-}
-
 impl EncodedIdValue<'_> {
     #[must_use]
     pub fn to_owned(&self) -> OwnedEncodedIdValue {
         match self {
             Self::Id32(stream) => OwnedEncodedIdValue::Id32(stream.to_owned()),
             Self::Id64(stream) => OwnedEncodedIdValue::Id64(stream.to_owned()),
-        }
-    }
-}
-
-impl OwnedEncodedIdValue {
-    #[must_use]
-    pub fn as_borrowed(&self) -> EncodedIdValue<'_> {
-        match self {
-            Self::Id32(stream) => EncodedIdValue::Id32(stream.as_borrowed()),
-            Self::Id64(stream) => EncodedIdValue::Id64(stream.as_borrowed()),
         }
     }
 }

@@ -131,14 +131,16 @@ impl PropertyProfile {
     }
 }
 
+fn decode_all(props: &mut Vec<OwnedProperty>) -> Result<Vec<DecodedProperty<'static>>, MltError> {
+    let owned = std::mem::take(props);
+    owned.into_iter().map(DecodedProperty::try_from).collect()
+}
+
 impl ManualOptimisation for Vec<OwnedProperty> {
     type UsedEncoder = Vec<PropertyEncoder>;
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        let mut decoded = Vec::with_capacity(self.len());
-        for d in &mut *self {
-            decoded.push(d.decode()?.to_owned());
-        }
+        let decoded = decode_all(self)?;
         *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, encoder)?
             .into_iter()
             .map(OwnedProperty::Encoded)
@@ -155,10 +157,7 @@ impl ProfileOptimisation for Vec<OwnedProperty> {
         &mut self,
         profile: &Self::Profile,
     ) -> Result<Self::UsedEncoder, MltError> {
-        let mut decoded = Vec::with_capacity(self.len());
-        for d in &mut *self {
-            decoded.push(d.decode()?.to_owned());
-        }
+        let mut decoded = decode_all(self)?;
         let enc = apply_profile(&mut decoded, profile);
         *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc.clone())?
             .into_iter()
@@ -172,10 +171,7 @@ impl AutomaticOptimisation for Vec<OwnedProperty> {
     type UsedEncoder = Vec<PropertyEncoder>;
 
     fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
-        let mut decoded = Vec::with_capacity(self.len());
-        for d in &mut *self {
-            decoded.push(d.decode()?.to_owned());
-        }
+        let mut decoded = decode_all(self)?;
         let enc = optimize(&mut decoded);
         *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc.clone())?
             .into_iter()

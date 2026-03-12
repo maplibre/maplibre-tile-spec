@@ -259,24 +259,10 @@ impl NameRef<'_> {
     }
 }
 
-impl OwnedName {
-    #[must_use]
-    pub fn as_borrowed(&self) -> NameRef<'_> {
-        NameRef(&self.0)
-    }
-}
-
 impl EncodedPresence<'_> {
     #[must_use]
     pub fn to_owned(&self) -> OwnedEncodedPresence {
         OwnedEncodedPresence(self.0.as_ref().map(Stream::to_owned))
-    }
-}
-
-impl OwnedEncodedPresence {
-    #[must_use]
-    pub fn as_borrowed(&self) -> EncodedPresence<'_> {
-        EncodedPresence(self.0.as_ref().map(OwnedStream::as_borrowed))
     }
 }
 
@@ -291,33 +277,12 @@ impl EncodedSharedDictChild<'_> {
     }
 }
 
-impl OwnedEncodedSharedDictChild {
-    #[must_use]
-    pub fn as_borrowed(&self) -> EncodedSharedDictChild<'_> {
-        EncodedSharedDictChild {
-            name: self.name.as_borrowed(),
-            presence: self.presence.as_borrowed(),
-            data: self.data.as_borrowed(),
-        }
-    }
-}
-
 impl PlainData<'_> {
     #[must_use]
     pub fn to_owned(&self) -> OwnedPlainData {
         OwnedPlainData {
             lengths: self.lengths.to_owned(),
             data: self.data.to_owned(),
-        }
-    }
-}
-
-impl OwnedPlainData {
-    #[must_use]
-    pub fn as_borrowed(&self) -> PlainData<'_> {
-        PlainData {
-            lengths: self.lengths.as_borrowed(),
-            data: self.data.as_borrowed(),
         }
     }
 }
@@ -334,34 +299,12 @@ impl FsstData<'_> {
     }
 }
 
-impl OwnedFsstData {
-    #[must_use]
-    pub fn as_borrowed(&self) -> FsstData<'_> {
-        FsstData {
-            symbol_lengths: self.symbol_lengths.as_borrowed(),
-            symbol_table: self.symbol_table.as_borrowed(),
-            lengths: self.lengths.as_borrowed(),
-            corpus: self.corpus.as_borrowed(),
-        }
-    }
-}
-
 impl EncodedSharedDict<'_> {
     #[must_use]
     pub fn to_owned(&self) -> OwnedEncodedSharedDict {
         match self {
             Self::Plain(data) => OwnedEncodedSharedDict::Plain(data.to_owned()),
             Self::FsstPlain(data) => OwnedEncodedSharedDict::FsstPlain(data.to_owned()),
-        }
-    }
-}
-
-impl OwnedEncodedSharedDict {
-    #[must_use]
-    pub fn as_borrowed(&self) -> EncodedSharedDict<'_> {
-        match self {
-            Self::Plain(data) => EncodedSharedDict::Plain(data.as_borrowed()),
-            Self::FsstPlain(data) => EncodedSharedDict::FsstPlain(data.as_borrowed()),
         }
     }
 }
@@ -382,27 +325,6 @@ impl EncodedStrings<'_> {
             Self::FsstDictionary { fsst_data, offsets } => OwnedEncodedStrings::FsstDictionary {
                 fsst_data: fsst_data.to_owned(),
                 offsets: offsets.to_owned(),
-            },
-        }
-    }
-}
-
-impl OwnedEncodedStrings {
-    #[must_use]
-    pub fn as_borrowed(&self) -> EncodedStrings<'_> {
-        match self {
-            Self::Plain(data) => EncodedStrings::Plain(data.as_borrowed()),
-            Self::Dictionary {
-                plain_data,
-                offsets,
-            } => EncodedStrings::Dictionary {
-                plain_data: plain_data.as_borrowed(),
-                offsets: offsets.as_borrowed(),
-            },
-            Self::FsstPlain(data) => EncodedStrings::FsstPlain(data.as_borrowed()),
-            Self::FsstDictionary { fsst_data, offsets } => EncodedStrings::FsstDictionary {
-                fsst_data: fsst_data.as_borrowed(),
-                offsets: offsets.as_borrowed(),
             },
         }
     }
@@ -448,72 +370,6 @@ impl EncodedProperty<'_> {
                 children
                     .iter()
                     .map(EncodedSharedDictChild::to_owned)
-                    .collect(),
-            ),
-        }
-    }
-}
-
-impl OwnedEncodedProperty {
-    #[must_use]
-    pub fn as_borrowed(&self) -> EncodedProperty<'_> {
-        match self {
-            Self::Bool(name, presence, data) => EncodedProperty::Bool(
-                name.as_borrowed(),
-                presence.as_borrowed(),
-                data.as_borrowed(),
-            ),
-            Self::I8(name, presence, data) => EncodedProperty::I8(
-                name.as_borrowed(),
-                presence.as_borrowed(),
-                data.as_borrowed(),
-            ),
-            Self::U8(name, presence, data) => EncodedProperty::U8(
-                name.as_borrowed(),
-                presence.as_borrowed(),
-                data.as_borrowed(),
-            ),
-            Self::I32(name, presence, data) => EncodedProperty::I32(
-                name.as_borrowed(),
-                presence.as_borrowed(),
-                data.as_borrowed(),
-            ),
-            Self::U32(name, presence, data) => EncodedProperty::U32(
-                name.as_borrowed(),
-                presence.as_borrowed(),
-                data.as_borrowed(),
-            ),
-            Self::I64(name, presence, data) => EncodedProperty::I64(
-                name.as_borrowed(),
-                presence.as_borrowed(),
-                data.as_borrowed(),
-            ),
-            Self::U64(name, presence, data) => EncodedProperty::U64(
-                name.as_borrowed(),
-                presence.as_borrowed(),
-                data.as_borrowed(),
-            ),
-            Self::F32(name, presence, data) => EncodedProperty::F32(
-                name.as_borrowed(),
-                presence.as_borrowed(),
-                data.as_borrowed(),
-            ),
-            Self::F64(name, presence, data) => EncodedProperty::F64(
-                name.as_borrowed(),
-                presence.as_borrowed(),
-                data.as_borrowed(),
-            ),
-            Self::Str(name, presence, strings) => EncodedProperty::Str(
-                name.as_borrowed(),
-                presence.as_borrowed(),
-                strings.as_borrowed(),
-            ),
-            Self::SharedDict(name, dict, children) => EncodedProperty::SharedDict(
-                name.as_borrowed(),
-                dict.as_borrowed(),
-                children
-                    .iter()
-                    .map(OwnedEncodedSharedDictChild::as_borrowed)
                     .collect(),
             ),
         }

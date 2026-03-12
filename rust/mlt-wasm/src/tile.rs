@@ -1,5 +1,5 @@
 use js_sys::{Array, Float64Array, Int32Array, Object, Reflect, Uint8Array, Uint32Array};
-use mlt_core::v01::{DecodedProperty, Geometry, Id, OwnedGeometry, OwnedProperty};
+use mlt_core::v01::{DecodedProperty, OwnedGeometry, OwnedProperty};
 use wasm_bindgen::prelude::*;
 
 use crate::geometry::LayerGeometry;
@@ -249,9 +249,15 @@ impl MltTile {
     fn ensure_geometry_decoded(&self, layer_idx: usize) -> Result<(), JsError> {
         let layer = &self.layers[layer_idx];
         let mut geom = layer.geometry.borrow_mut();
-        if let OwnedGeometry::Encoded(encoded) = &*geom {
-            let decoded = Geometry::Encoded(encoded.as_borrowed())
-                .decode()
+        if matches!(&*geom, OwnedGeometry::Encoded(_)) {
+            let owned = std::mem::replace(
+                &mut *geom,
+                OwnedGeometry::Decoded(mlt_core::v01::DecodedGeometry::default()),
+            );
+            let OwnedGeometry::Encoded(encoded) = owned else {
+                unreachable!()
+            };
+            let decoded = mlt_core::v01::DecodedGeometry::try_from(encoded)
                 .map_err(|e| crate::to_js_err(&e))?;
             *geom = OwnedGeometry::Decoded(decoded);
         }
@@ -261,10 +267,13 @@ impl MltTile {
     fn ensure_ids_decoded(&self, layer_idx: usize) -> Result<(), JsError> {
         let layer = &self.layers[layer_idx];
         let mut ids = layer.ids.borrow_mut();
-        if let IdState::Encoded(encoded) = &*ids {
-            let decoded = Id::Encoded(encoded.as_borrowed())
-                .decode()
-                .map_err(|e| crate::to_js_err(&e))?;
+        if matches!(&*ids, IdState::Encoded(_)) {
+            let prev = std::mem::replace(&mut *ids, IdState::Absent);
+            let IdState::Encoded(encoded) = prev else {
+                unreachable!()
+            };
+            let decoded =
+                mlt_core::v01::DecodedId::try_from(encoded).map_err(|e| crate::to_js_err(&e))?;
 
             let floats: Vec<f64> = decoded
                 .values()
@@ -292,9 +301,9 @@ impl MltTile {
                 *guard = taken
                     .into_iter()
                     .filter_map(|p| {
-                        p.decode()
+                        DecodedProperty::try_from(p)
                             .ok()
-                            .map(|decoded| OwnedProperty::Decoded(decoded.to_owned()))
+                            .map(OwnedProperty::Decoded)
                     })
                     .collect();
             }

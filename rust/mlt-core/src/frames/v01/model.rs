@@ -29,17 +29,6 @@ impl Column<'_> {
     }
 }
 
-impl OwnedColumn {
-    #[must_use]
-    pub fn as_borrowed(&self) -> Column<'_> {
-        Column {
-            typ: self.typ,
-            name: self.name.as_deref(),
-            children: self.children.iter().map(Self::as_borrowed).collect(),
-        }
-    }
-}
-
 /// Column data type, as stored in the tile
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]

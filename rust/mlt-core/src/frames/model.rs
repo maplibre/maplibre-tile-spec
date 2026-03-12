@@ -44,32 +44,12 @@ impl Unknown<'_> {
     }
 }
 
-impl OwnedUnknown {
-    #[must_use]
-    pub fn as_borrowed(&self) -> Unknown<'_> {
-        Unknown {
-            tag: self.tag,
-            value: &self.value,
-        }
-    }
-}
-
 impl Layer<'_> {
     #[must_use]
     pub fn to_owned(&self) -> OwnedLayer {
         match self {
             Self::Tag01(layer) => OwnedLayer::Tag01(layer.to_owned()),
             Self::Unknown(unknown) => OwnedLayer::Unknown(unknown.to_owned()),
-        }
-    }
-}
-
-impl OwnedLayer {
-    #[must_use]
-    pub fn as_borrowed(&self) -> Layer<'_> {
-        match self {
-            Self::Tag01(layer) => Layer::Tag01(layer.as_borrowed()),
-            Self::Unknown(unknown) => Layer::Unknown(unknown.as_borrowed()),
         }
     }
 }

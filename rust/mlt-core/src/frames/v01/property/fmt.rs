@@ -96,27 +96,6 @@ impl DecodedProperty<'_> {
     }
 }
 
-impl DecodedProperty<'static> {
-    #[must_use]
-    pub fn as_borrowed(&self) -> DecodedProperty<'_> {
-        use DecodedProperty as P;
-        use DecodedScalar as S;
-        match self {
-            Self::Bool(v) => P::Bool(S::new(v.name.clone(), v.values.clone())),
-            Self::I8(v) => P::I8(S::new(v.name.clone(), v.values.clone())),
-            Self::U8(v) => P::U8(S::new(v.name.clone(), v.values.clone())),
-            Self::I32(v) => P::I32(S::new(v.name.clone(), v.values.clone())),
-            Self::U32(v) => P::U32(S::new(v.name.clone(), v.values.clone())),
-            Self::I64(v) => P::I64(S::new(v.name.clone(), v.values.clone())),
-            Self::U64(v) => P::U64(S::new(v.name.clone(), v.values.clone())),
-            Self::F32(v) => P::F32(S::new(v.name.clone(), v.values.clone())),
-            Self::F64(v) => P::F64(S::new(v.name.clone(), v.values.clone())),
-            Self::Str(v) => P::Str(v.as_borrowed()),
-            Self::SharedDict(v) => P::SharedDict(v.as_borrowed()),
-        }
-    }
-}
-
 // for impl_decodable
 impl Default for DecodedProperty<'_> {
     fn default() -> Self {

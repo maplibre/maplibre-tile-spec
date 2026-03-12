@@ -78,17 +78,6 @@ impl DecodedStrings<'_> {
     }
 }
 
-impl DecodedStrings<'static> {
-    #[must_use]
-    pub fn as_borrowed(&self) -> DecodedStrings<'_> {
-        DecodedStrings {
-            name: Cow::Borrowed(self.name.as_ref()),
-            lengths: self.lengths.clone(),
-            data: Cow::Borrowed(self.data.as_ref()),
-        }
-    }
-}
-
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl<'a> arbitrary::Arbitrary<'a> for DecodedStrings<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
@@ -110,17 +99,6 @@ impl DecodedSharedDict<'_> {
                     ranges: item.ranges.clone(),
                 })
                 .collect(),
-        }
-    }
-}
-
-impl DecodedSharedDict<'static> {
-    #[must_use]
-    pub fn as_borrowed(&self) -> DecodedSharedDict<'_> {
-        DecodedSharedDict {
-            prefix: Cow::Borrowed(self.prefix.as_ref()),
-            data: Cow::Borrowed(self.data.as_ref()),
-            items: self.items.clone(),
         }
     }
 }

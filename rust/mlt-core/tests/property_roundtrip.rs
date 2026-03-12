@@ -58,7 +58,7 @@ fn roundtrip(decoded: &DecodedProperty<'_>, encoder: ScalarEncoder) -> DecodedPr
         .manual_optimisation(vec![PropertyEncoder::Scalar(encoder)])
         .expect("encoding failed");
     let enc = props.pop().unwrap();
-    enc.decode().expect("decoding failed").to_owned()
+    DecodedProperty::try_from(enc).expect("decoding failed")
 }
 
 fn strs(vals: &[&str]) -> Vec<Option<String>> {
@@ -79,11 +79,11 @@ fn shared_dict_prop(
 }
 
 fn decode_struct(prop: &OwnedProperty) -> DecodedProperty<'static> {
-    prop.decode().expect("decode failed").to_owned()
+    DecodedProperty::try_from(prop.clone()).expect("decode failed")
 }
 
 fn decode_scalar(prop: &OwnedProperty) -> DecodedProperty<'static> {
-    prop.decode().expect("decode failed").to_owned()
+    DecodedProperty::try_from(prop.clone()).expect("decode failed")
 }
 
 fn struct_encode_and_decode(

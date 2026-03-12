@@ -42,11 +42,6 @@ impl DecodedGeometry {
     pub fn to_owned(&self) -> Self {
         self.clone()
     }
-
-    #[must_use]
-    pub fn as_borrowed(&self) -> Self {
-        self.clone()
-    }
 }
 
 impl EncodedGeometry<'_> {
@@ -55,16 +50,6 @@ impl EncodedGeometry<'_> {
         OwnedEncodedGeometry {
             meta: self.meta.to_owned(),
             items: self.items.iter().map(Stream::to_owned).collect(),
-        }
-    }
-}
-
-impl OwnedEncodedGeometry {
-    #[must_use]
-    pub fn as_borrowed(&self) -> EncodedGeometry<'_> {
-        EncodedGeometry {
-            meta: self.meta.as_borrowed(),
-            items: self.items.iter().map(OwnedStream::as_borrowed).collect(),
         }
     }
 }

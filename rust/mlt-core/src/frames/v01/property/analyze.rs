@@ -1,14 +1,44 @@
 use crate::analyse::{Analyze, StatType};
-use crate::v01::{DecodedScalar, DecodedSharedDict, EncodedProperty, Stream};
+use crate::v01::{
+    DecodedScalar, DecodedSharedDict, EncodedProperty, OwnedEncodedProperty, StreamMeta,
+};
 
-impl Analyze for crate::v01::OwnedEncodedProperty {
-    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
-        self.as_borrowed().for_each_stream(cb);
+impl Analyze for OwnedEncodedProperty {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
+        match self {
+            OwnedEncodedProperty::Bool(_, pres, data)
+            | OwnedEncodedProperty::I8(_, pres, data)
+            | OwnedEncodedProperty::U8(_, pres, data)
+            | OwnedEncodedProperty::I32(_, pres, data)
+            | OwnedEncodedProperty::U32(_, pres, data)
+            | OwnedEncodedProperty::I64(_, pres, data)
+            | OwnedEncodedProperty::U64(_, pres, data)
+            | OwnedEncodedProperty::F32(_, pres, data)
+            | OwnedEncodedProperty::F64(_, pres, data) => {
+                pres.0.for_each_stream(cb);
+                data.for_each_stream(cb);
+            }
+            OwnedEncodedProperty::Str(_, pres, enc) => {
+                pres.0.for_each_stream(cb);
+                for s in enc.streams() {
+                    s.for_each_stream(cb);
+                }
+            }
+            OwnedEncodedProperty::SharedDict(_, shared, children) => {
+                for s in shared.dict_streams() {
+                    s.for_each_stream(cb);
+                }
+                for child in children {
+                    child.presence.0.for_each_stream(cb);
+                    child.data.for_each_stream(cb);
+                }
+            }
+        }
     }
 }
 
 impl Analyze for EncodedProperty<'_> {
-    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         match self {
             Self::Bool(_, presence, data)
             | Self::I8(_, presence, data)
@@ -25,12 +55,12 @@ impl Analyze for EncodedProperty<'_> {
             Self::Str(_, presence, enc) => {
                 presence.0.for_each_stream(cb);
                 for s in enc.streams() {
-                    cb(s);
+                    s.for_each_stream(cb);
                 }
             }
             Self::SharedDict(_, shared, children) => {
                 for stream in shared.dict_streams() {
-                    cb(stream);
+                    stream.for_each_stream(cb);
                 }
                 for child in children {
                     child.presence.0.for_each_stream(cb);

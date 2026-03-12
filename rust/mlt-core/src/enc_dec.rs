@@ -93,7 +93,7 @@ where
         }
     }
 
-    fn for_each_stream(&self, cb: &mut dyn FnMut(&crate::v01::Stream<'_>)) {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(crate::v01::StreamMeta)) {
         match self {
             Self::Encoded(encoded) => encoded.for_each_stream(cb),
             Self::Decoded(decoded) => decoded.for_each_stream(cb),
