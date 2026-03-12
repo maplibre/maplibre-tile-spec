@@ -30,6 +30,30 @@ import {
 } from "../encoding/integerStreamEncoder";
 import { encodeVarintFloat64, encodeVarintInt64, encodeZigZagInt64Value } from "../encoding/integerEncodingUtils";
 
+function createInt32PhysicalNoneMetadata(
+    numValues: number,
+    logicalTechnique1 = LogicalLevelTechnique.NONE,
+    logicalTechnique2 = LogicalLevelTechnique.NONE,
+) {
+    return {
+        ...createStreamMetadata(logicalTechnique1, logicalTechnique2, numValues),
+        physicalLevelTechnique: PhysicalLevelTechnique.NONE,
+        byteLength: numValues * Uint32Array.BYTES_PER_ELEMENT,
+    };
+}
+
+function createInt64PhysicalNoneMetadata(
+    numValues: number,
+    logicalTechnique1 = LogicalLevelTechnique.NONE,
+    logicalTechnique2 = LogicalLevelTechnique.NONE,
+) {
+    return {
+        ...createStreamMetadata(logicalTechnique1, logicalTechnique2, numValues),
+        physicalLevelTechnique: PhysicalLevelTechnique.NONE,
+        byteLength: numValues * BigUint64Array.BYTES_PER_ELEMENT,
+    };
+}
+
 describe("getVectorType", () => {
     it("should return FLAT for RLE with 0 runs", () => {
         const metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.RLE, 0, 0);
@@ -78,10 +102,21 @@ describe("getVectorType", () => {
 describe("decodeUnsignedInt32Stream", () => {
     it("should decode with PhysicalLevelTechnique.NONE", () => {
         const expectedValues = new Uint32Array([10, 20, 30]);
-        const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
+        const metadata = createInt32PhysicalNoneMetadata(expectedValues.length);
         const data = encodeUnsignedInt32Stream(expectedValues, metadata);
         const result = decodeUnsignedInt32Stream(data, new IntWrapper(0), metadata);
         expect(result).toEqual(expectedValues);
+    });
+
+    it("should decode little-endian uint32 words with PhysicalLevelTechnique.NONE", () => {
+        const metadata = createInt32PhysicalNoneMetadata(3);
+        const data = new Uint8Array([
+            0x78, 0x56, 0x34, 0x12, 0xef, 0xcd, 0xab, 0x90, 0x01, 0x00, 0x00, 0x00,
+        ]);
+
+        const result = decodeUnsignedInt32Stream(data, new IntWrapper(0), metadata);
+
+        expect(result).toEqual(new Uint32Array([0x12345678, 0x90abcdef, 1]));
     });
 
     it("should throw for unsupported PhysicalLevelTechnique", () => {
@@ -146,6 +181,17 @@ describe("decodeUnsignedInt32Stream", () => {
 });
 
 describe("decodeSignedInt32Stream", () => {
+    it("should decode little-endian zigzag-encoded uint32 words with PhysicalLevelTechnique.NONE", () => {
+        const metadata = createInt32PhysicalNoneMetadata(3);
+        const data = new Uint8Array([
+            0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
+        ]);
+
+        const result = decodeSignedInt32Stream(data, new IntWrapper(0), metadata);
+
+        expect(result).toEqual(new Int32Array([-1, 1, -2]));
+    });
+
     it("should decode NONE signed with Int32", () => {
         const expectedValues = new Int32Array([2, -4, 6, -8]);
         const metadata = createStreamMetadata(
@@ -565,7 +611,7 @@ describe("decodeInt64Stream", () => {
 
     describe("NONE", () => {
         it("should decode NONE signed", () => {
-            const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
+            const metadata = createInt64PhysicalNoneMetadata(3);
             const expectedValues = new BigInt64Array([2n, -4n, 6n]);
             const data = encodeInt64SignedNone(expectedValues);
             const offset = new IntWrapper(0);
@@ -576,7 +622,7 @@ describe("decodeInt64Stream", () => {
         });
 
         it("should decode NONE signed min int64", () => {
-            const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 1);
+            const metadata = createInt64PhysicalNoneMetadata(1);
             const expectedValues = new BigInt64Array([-(2n ** 63n)]);
             const data = encodeInt64SignedNone(expectedValues);
             const offset = new IntWrapper(0);
@@ -587,7 +633,7 @@ describe("decodeInt64Stream", () => {
         });
 
         it("should decode NONE unsigned", () => {
-            const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
+            const metadata = createInt64PhysicalNoneMetadata(3);
             const expectedValues = new BigUint64Array([1n, 2n, 3n]);
             const data = encodeInt64UnsignedNone(new BigInt64Array(expectedValues));
             const offset = new IntWrapper(0);
@@ -598,7 +644,7 @@ describe("decodeInt64Stream", () => {
         });
 
         it("should decode signed const Int64", () => {
-            const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 1);
+            const metadata = createInt64PhysicalNoneMetadata(1);
             const data = encodeInt64SignedNone(new BigInt64Array([-8n]));
 
             const result = decodeSignedConstInt64Stream(data, new IntWrapper(0), metadata);
@@ -607,7 +653,7 @@ describe("decodeInt64Stream", () => {
         });
 
         it("should decode unsigned const Int64", () => {
-            const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 1);
+            const metadata = createInt64PhysicalNoneMetadata(1);
             const data = encodeInt64UnsignedNone(new BigInt64Array([0xffffffffffffffffn]));
 
             const result = decodeUnsignedConstInt64Stream(data, new IntWrapper(0), metadata);
@@ -616,7 +662,7 @@ describe("decodeInt64Stream", () => {
         });
 
         it("should decode NONE signed with all non-null values", () => {
-            const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
+            const metadata = createInt64PhysicalNoneMetadata(3);
             const expectedValues = new BigInt64Array([2n, -4n, 6n]);
             const data = encodeInt64SignedNone(expectedValues);
             const offset = new IntWrapper(0);
@@ -628,7 +674,7 @@ describe("decodeInt64Stream", () => {
         });
 
         it("should decode NONE signed with null values", () => {
-            const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 5);
+            const metadata = createInt64PhysicalNoneMetadata(3);
             const expectedValues = new BigInt64Array([2n, 0n, -4n, 0n, 6n]);
             const nonNullValues = new BigInt64Array([2n, -4n, 6n]);
             const data = encodeInt64SignedNone(nonNullValues);
@@ -641,7 +687,7 @@ describe("decodeInt64Stream", () => {
         });
 
         it("should decode NONE unsigned with all non-null values", () => {
-            const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
+            const metadata = createInt64PhysicalNoneMetadata(3);
             const expectedValues = new BigUint64Array([1n, 2n, 3n]);
             const data = encodeInt64UnsignedNone(new BigInt64Array(expectedValues));
             const offset = new IntWrapper(0);
@@ -653,7 +699,7 @@ describe("decodeInt64Stream", () => {
         });
 
         it("should decode NONE unsigned with null values", () => {
-            const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 5);
+            const metadata = createInt64PhysicalNoneMetadata(3);
             const expectedValues = new BigUint64Array([0n, 1n, 2n, 0n, 3n]);
             const nonNullValues = new BigInt64Array([1n, 2n, 3n]);
             const data = encodeInt64UnsignedNone(nonNullValues);
@@ -664,11 +710,29 @@ describe("decodeInt64Stream", () => {
 
             expect(result).toEqual(expectedValues);
         });
+
+        it("should decode little-endian signed Int64 words with PhysicalLevelTechnique.NONE", () => {
+            const metadata = createInt64PhysicalNoneMetadata(1);
+            const data = new Uint8Array([0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+
+            const result = decodeSignedConstInt64Stream(data, new IntWrapper(0), metadata);
+
+            expect(result).toBe(-8n);
+        });
+
+        it("should decode little-endian unsigned Int64 words with PhysicalLevelTechnique.NONE", () => {
+            const metadata = createInt64PhysicalNoneMetadata(1);
+            const data = new Uint8Array([0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11]);
+
+            const result = decodeUnsignedConstInt64Stream(data, new IntWrapper(0), metadata);
+
+            expect(result).toBe(0x1122334455667788n);
+        });
     });
 
     describe("error handling", () => {
         it("should throw for unsupported technique", () => {
-            const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON);
+            const metadata = createInt64PhysicalNoneMetadata(3, LogicalLevelTechnique.MORTON);
             const data = encodeInt64UnsignedNone(new BigInt64Array([1n, 2n, 3n]));
             const offset = new IntWrapper(0);
             expect(() => decodeSignedInt64Stream(data, offset, metadata)).toThrow(
@@ -677,7 +741,7 @@ describe("decodeInt64Stream", () => {
         });
 
         it("should throw for unsupported technique with nullable", () => {
-            const metadata = createStreamMetadata(LogicalLevelTechnique.COMPONENTWISE_DELTA);
+            const metadata = createInt64PhysicalNoneMetadata(3, LogicalLevelTechnique.COMPONENTWISE_DELTA);
             const values = new BigInt64Array([1n, 2n, 3n]);
             const data = encodeInt64UnsignedNone(values);
             const offset = new IntWrapper(0);
