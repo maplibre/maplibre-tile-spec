@@ -69,7 +69,6 @@ describe("decodeIntStream", () => {
         expect(result).toEqual(expectedValues);
     });
 
-
     it("should decode MORTON", () => {
         const expectedValues = new Int32Array([10, 15, 18, 20]);
         const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON, LogicalLevelTechnique.NONE, 4);
