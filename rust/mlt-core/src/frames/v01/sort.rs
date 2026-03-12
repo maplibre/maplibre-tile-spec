@@ -39,7 +39,7 @@ pub enum SortStrategy {
     /// Sort features by the space-filling curve index of their first vertex.
     ///
     /// Spatially close features end up adjacent in the stream, which improves
-    /// RLE run lengths/ Detlas for properties that correlate with location (e.g.
+    /// RLE run lengths and deltas for properties that correlate with location (e.g.
     /// `class`, `admin_level`, `house_number`) and may improve CPU cache locality during
     /// client-side decoding for some very large tiles.
     Spatial(SpaceFillingCurve),
