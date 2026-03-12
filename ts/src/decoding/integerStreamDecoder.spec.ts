@@ -110,9 +110,7 @@ describe("decodeUnsignedInt32Stream", () => {
 
     it("should decode little-endian uint32 words with PhysicalLevelTechnique.NONE", () => {
         const metadata = createInt32PhysicalNoneMetadata(3);
-        const data = new Uint8Array([
-            0x78, 0x56, 0x34, 0x12, 0xef, 0xcd, 0xab, 0x90, 0x01, 0x00, 0x00, 0x00,
-        ]);
+        const data = new Uint8Array([0x78, 0x56, 0x34, 0x12, 0xef, 0xcd, 0xab, 0x90, 0x01, 0x00, 0x00, 0x00]);
 
         const result = decodeUnsignedInt32Stream(data, new IntWrapper(0), metadata);
 
@@ -183,9 +181,7 @@ describe("decodeUnsignedInt32Stream", () => {
 describe("decodeSignedInt32Stream", () => {
     it("should decode little-endian zigzag-encoded uint32 words with PhysicalLevelTechnique.NONE", () => {
         const metadata = createInt32PhysicalNoneMetadata(3);
-        const data = new Uint8Array([
-            0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
-        ]);
+        const data = new Uint8Array([0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00]);
 
         const result = decodeSignedInt32Stream(data, new IntWrapper(0), metadata);
 
