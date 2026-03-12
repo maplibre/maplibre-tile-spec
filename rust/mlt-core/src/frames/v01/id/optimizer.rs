@@ -243,7 +243,7 @@ impl ManualOptimisation for OwnedId {
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
         let dec = borrowme::borrow(self).decode()?;
         if !dec.0.is_empty() {
-            *self = OwnedId::Encoded(Some(OwnedEncodedId::from_decoded(&dec, encoder)?));
+            *self = OwnedId::Encoded(OwnedEncodedId::from_decoded(&dec, encoder)?);
         }
         Ok(())
     }
@@ -258,21 +258,13 @@ impl ProfileOptimisation for OwnedId {
         profile: &Self::Profile,
     ) -> Result<Self::UsedEncoder, MltError> {
         match self {
-            OwnedId::Decoded(None) => {
-                *self = OwnedId::Encoded(None);
-                Ok(None)
-            }
-            OwnedId::Decoded(Some(dec)) => {
+            OwnedId::Decoded(dec) => {
                 let enc = apply_profile(dec, profile);
-                *self = OwnedId::Encoded(Some(OwnedEncodedId::from_decoded(dec, enc)?));
+                *self = OwnedId::Encoded(OwnedEncodedId::from_decoded(dec, enc)?);
                 Ok(Some(enc))
             }
             OwnedId::Encoded(e) => {
-                let dec = e
-                    .as_ref()
-                    .map(borrowme::borrow)
-                    .map(DecodedId::try_from)
-                    .transpose()?;
+                let dec = DecodedId::try_from(borrowme::borrow(e))?;
                 *self = OwnedId::Decoded(dec);
                 self.profile_driven_optimisation(profile)
             }
@@ -285,21 +277,13 @@ impl AutomaticOptimisation for OwnedId {
 
     fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
         match self {
-            OwnedId::Decoded(None) => {
-                *self = OwnedId::Encoded(None);
-                Ok(None)
-            }
-            OwnedId::Decoded(Some(dec)) => {
+            OwnedId::Decoded(dec) => {
                 let enc = optimize(dec);
-                *self = OwnedId::Encoded(Some(OwnedEncodedId::from_decoded(dec, enc)?));
+                *self = OwnedId::Encoded(OwnedEncodedId::from_decoded(dec, enc)?);
                 Ok(Some(enc))
             }
             OwnedId::Encoded(e) => {
-                let dec = e
-                    .as_ref()
-                    .map(borrowme::borrow)
-                    .map(DecodedId::try_from)
-                    .transpose()?;
+                let dec = DecodedId::try_from(borrowme::borrow(e))?;
                 *self = OwnedId::Decoded(dec);
                 self.automatic_encoding_optimisation()
             }

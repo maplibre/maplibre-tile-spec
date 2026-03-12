@@ -54,25 +54,16 @@ fn create_constant_ids() -> DecodedId {
     IdEncoder::new(LogicalEncoder::Delta, IdWidth::OptId32)
 )]
 fn test_automatic_optimisation_selection(#[case] input: DecodedId, #[case] expected: IdEncoder) {
-    let mut owned = OwnedId::Decoded(Some(input));
+    let mut owned = OwnedId::Decoded(input);
     let result = owned.automatic_encoding_optimisation().unwrap();
     assert_eq!(result, Some(expected));
-    assert!(matches!(owned, OwnedId::Encoded(Some(_))));
-}
-
-#[test]
-fn test_automatic_optimisation_none_variant() {
-    let mut owned = OwnedId::Decoded(None);
-    let result = owned.automatic_encoding_optimisation().unwrap();
-
-    assert_eq!(result, None);
-    assert!(matches!(owned, OwnedId::Encoded(None)));
+    assert!(matches!(owned, OwnedId::Encoded(_)));
 }
 
 #[test]
 fn test_automatic_optimisation_idempotency() {
     let decoded = create_u32_range_ids();
-    let mut owned = OwnedId::Decoded(Some(decoded.clone()));
+    let mut owned = OwnedId::Decoded(decoded.clone());
 
     let enc1 = owned.automatic_encoding_optimisation().unwrap();
     let enc2 = owned.automatic_encoding_optimisation().unwrap();
@@ -87,7 +78,7 @@ fn test_automatic_optimisation_idempotency() {
 #[case::constant(create_constant_ids())]
 #[case::with_nulls(create_ids_with_nulls())]
 fn test_automatic_optimisation_roundtrip(#[case] decoded: DecodedId) {
-    let mut owned = OwnedId::Decoded(Some(decoded.clone()));
+    let mut owned = OwnedId::Decoded(decoded.clone());
     owned.automatic_encoding_optimisation().unwrap();
 
     let decoded_back = borrowme::borrow(&owned).decode().expect("decoding failed");
@@ -97,19 +88,19 @@ fn test_automatic_optimisation_roundtrip(#[case] decoded: DecodedId) {
 #[test]
 fn test_manual_optimisation_applies_encoder() {
     let decoded = create_u32_range_ids();
-    let mut owned = OwnedId::Decoded(Some(decoded.clone()));
+    let mut owned = OwnedId::Decoded(decoded.clone());
 
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id64);
     owned.manual_optimisation(manual_enc).unwrap();
 
-    assert!(matches!(owned, OwnedId::Encoded(Some(_))));
+    assert!(matches!(owned, OwnedId::Encoded(_)));
     assert_eq!(borrowme::borrow(&owned).decode().unwrap(), decoded);
 }
 
 #[test]
 fn test_manual_optimisation_truncation() {
     let large_value = u64::from(u32::MAX) + 42;
-    let mut owned = OwnedId::Decoded(Some(DecodedId(vec![Some(large_value)])));
+    let mut owned = OwnedId::Decoded(DecodedId(vec![Some(large_value)]));
 
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);
     owned.manual_optimisation(manual_enc).unwrap();
@@ -124,7 +115,7 @@ fn test_manual_optimisation_truncation() {
 #[test]
 fn test_reoptimisation_improves_manual_encoding() {
     let decoded = create_u32_range_ids();
-    let mut owned = OwnedId::Decoded(Some(decoded));
+    let mut owned = OwnedId::Decoded(decoded);
 
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id64);
     owned.manual_optimisation(manual_enc).unwrap();
@@ -140,7 +131,7 @@ fn test_profile_applies_candidates_and_rederives_width() {
     let profile = IdProfile::from_sample(&u32_sample);
 
     let u64_decoded = create_u64_range_ids();
-    let mut owned = OwnedId::Decoded(Some(u64_decoded.clone()));
+    let mut owned = OwnedId::Decoded(u64_decoded.clone());
     let enc = owned
         .profile_driven_optimisation(&profile)
         .unwrap()
@@ -154,20 +145,9 @@ fn test_profile_applies_candidates_and_rederives_width() {
 }
 
 #[test]
-fn test_profile_none_variant() {
-    let mut owned = OwnedId::Decoded(None);
-    let profile = IdProfile::from_sample(&create_u32_range_ids());
-
-    let result = owned.profile_driven_optimisation(&profile).unwrap();
-
-    assert_eq!(result, None);
-    assert!(matches!(owned, OwnedId::Encoded(None)));
-}
-
-#[test]
 fn test_profile_already_encoded_roundtrip() {
     let decoded = create_u32_range_ids();
-    let mut owned = OwnedId::Decoded(Some(decoded.clone()));
+    let mut owned = OwnedId::Decoded(decoded.clone());
     owned.automatic_encoding_optimisation().unwrap();
 
     let profile = IdProfile::from_sample(&decoded);
@@ -184,7 +164,7 @@ fn test_profile_already_encoded_roundtrip() {
 #[case::with_nulls(create_ids_with_nulls())]
 fn test_profile_roundtrip(#[case] decoded: DecodedId) {
     let profile = IdProfile::from_sample(&decoded);
-    let mut owned = OwnedId::Decoded(Some(decoded.clone()));
+    let mut owned = OwnedId::Decoded(decoded.clone());
     owned.profile_driven_optimisation(&profile).unwrap();
 
     let decoded_back = borrowme::borrow(&owned).decode().expect("decode failed");

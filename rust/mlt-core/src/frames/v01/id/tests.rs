@@ -14,7 +14,7 @@ use crate::v01::LogicalEncoder;
 
 // Helper function to encode and decode for roundtrip testing
 fn roundtrip(decoded: &DecodedId, config: IdEncoder) -> DecodedId {
-    let mut owned = OwnedId::Decoded(Some(decoded.clone()));
+    let mut owned = OwnedId::Decoded(decoded.clone());
     owned.manual_optimisation(config).expect("Failed to encode");
     borrowme::borrow(&owned).decode().expect("Failed to decode")
 }
@@ -167,7 +167,7 @@ fn assert_encodable_api_works(
 ) -> Result<(), TestCaseError> {
     let decoded = DecodedId(ids.clone());
 
-    let mut id_enum = OwnedId::Decoded(Some(decoded));
+    let mut id_enum = OwnedId::Decoded(decoded);
     id_enum
         .manual_optimisation(config)
         .expect("Failed to encode");
@@ -177,8 +177,8 @@ fn assert_encodable_api_works(
         "Should be Encoded after encoding"
     );
     prop_assert!(
-        matches!(id_enum, OwnedId::Encoded(Some(_))),
-        "Encoded variant should be Some"
+        matches!(id_enum, OwnedId::Encoded(_)),
+        "Should be Encoded variant"
     );
 
     let decoded_back = borrowme::borrow(&id_enum)

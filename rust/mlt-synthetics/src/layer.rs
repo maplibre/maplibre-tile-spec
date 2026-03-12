@@ -315,11 +315,11 @@ impl Layer {
         geometry.manual_optimisation(self.geometry_encoder).unwrap();
 
         let id = if let Some((ids, ids_encoder)) = self.ids {
-            let mut id = OwnedId::Decoded(Some(DecodedId(ids)));
+            let mut id = OwnedId::Decoded(DecodedId(ids));
             id.manual_optimisation(ids_encoder).unwrap();
-            id
+            Some(id)
         } else {
-            OwnedId::Decoded(None)
+            None
         };
 
         let mut properties: Vec<OwnedProperty> = self

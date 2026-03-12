@@ -9,8 +9,8 @@ impl ManualOptimisation for OwnedLayer01 {
     type UsedEncoder = Tag01Encoder;
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        if let Some(id) = encoder.id {
-            self.id.manual_optimisation(id)?;
+        if let (Some(id_enc), Some(id)) = (encoder.id, &mut self.id) {
+            id.manual_optimisation(id_enc)?;
         }
         self.properties.manual_optimisation(encoder.properties)?;
         self.geometry.manual_optimisation(encoder.geometry)?;
@@ -26,7 +26,10 @@ impl ProfileOptimisation for OwnedLayer01 {
         &mut self,
         profile: &Self::Profile,
     ) -> Result<Self::UsedEncoder, MltError> {
-        let id = self.id.profile_driven_optimisation(&profile.id)?;
+        let id = match &mut self.id {
+            Some(id) => id.profile_driven_optimisation(&profile.id)?,
+            None => None,
+        };
         let properties = self
             .properties
             .profile_driven_optimisation(&profile.properties)?;
@@ -46,7 +49,10 @@ impl AutomaticOptimisation for OwnedLayer01 {
     type UsedEncoder = Tag01Encoder;
 
     fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
-        let id = self.id.automatic_encoding_optimisation()?;
+        let id = match &mut self.id {
+            Some(id) => id.automatic_encoding_optimisation()?,
+            None => None,
+        };
         let properties = self.properties.automatic_encoding_optimisation()?;
         let geometry = self.geometry.automatic_encoding_optimisation()?;
         Ok(Tag01Encoder {

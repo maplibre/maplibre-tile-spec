@@ -278,8 +278,9 @@ fn decode_mlt(
         };
 
         let ids = match &layer.id {
-            Id::Decoded(decoded) => decoded.as_ref().map(|decoded| decoded.values()),
-            Id::Encoded(_) => Err(PyValueError::new_err("id not decoded"))?,
+            None => None,
+            Some(Id::Decoded(decoded)) => Some(decoded.values()),
+            Some(Id::Encoded(_)) => Err(PyValueError::new_err("id not decoded"))?,
         };
 
         let props: Vec<&DecodedProperty> = layer

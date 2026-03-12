@@ -101,15 +101,15 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
         let geometry = RefCell::new(ToOwned::to_owned(&layer01.geometry));
 
         let ids = RefCell::new(match &layer01.id {
-            Id::Encoded(Some(encoded)) => IdState::Encoded(ToOwned::to_owned(encoded)),
-            Id::Encoded(None) | Id::Decoded(None) => IdState::Absent,
-            Id::Decoded(Some(decoded)) => {
+            None => IdState::Absent,
+            Some(Id::Encoded(encoded)) => IdState::Encoded(ToOwned::to_owned(encoded)),
+            Some(Id::Decoded(decoded)) => {
                 use js_sys::Float64Array;
                 let floats: Vec<f64> = decoded
                     .values()
                     .iter()
                     .copied()
-                    .map(|f| {
+                    .map(|f: Option<u64>| {
                         #[expect(clippy::cast_precision_loss)]
                         f.map_or(f64::NAN, |f| f as f64)
                     })

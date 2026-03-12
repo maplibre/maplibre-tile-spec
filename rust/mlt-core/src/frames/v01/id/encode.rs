@@ -93,15 +93,3 @@ impl FromDecoded<'_> for OwnedEncodedId {
         Ok(Self { presence, value })
     }
 }
-
-impl FromDecoded<'_> for Option<OwnedEncodedId> {
-    type Input = Option<DecodedId>;
-    type Encoder = IdEncoder;
-
-    fn from_decoded(decoded: &Self::Input, encoder: IdEncoder) -> Result<Self, MltError> {
-        decoded
-            .as_ref()
-            .map(|decoded| OwnedEncodedId::from_decoded(decoded, encoder))
-            .transpose()
-    }
-}
