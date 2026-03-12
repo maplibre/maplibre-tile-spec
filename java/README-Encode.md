@@ -27,7 +27,7 @@ For efficient conversion the `--parallel` option should generally be used to tak
 Tile compression within an MBTiles file is optional.  The encoder will only store compressed MLT tiles if they are slightly smaller than the uncompressed MLT data.  To be stored compressed, a tile must meet both criteria, as controlled by the following environment variables:
 
 - `MLT_COMPRESSION_RATIO_THRESHOLD`: Minimum compression ratio to apply compression (default: 0.98)
-  - If compressed tile is larger than his fraction of the uncompressed tile, it will be discarded and the uncompressed tile will be stored instead.
+  - If compressed tile is larger than this fraction of the uncompressed tile, it will be discarded and the uncompressed tile will be stored instead.
   - This value may be greater than 1.0 to indicate that tiles should be stored in compressed form even if it increases their size.
 - `MLT_COMPRESSION_FIXED_THRESHOLD`: Minimum savings in bytes for a tile to be compressed (default:  20)
   - If the compressed tile size plus this value is greater than the uncompressed tile size, the compressed tile will be discarded and the uncompressed tile will be stored instead.
