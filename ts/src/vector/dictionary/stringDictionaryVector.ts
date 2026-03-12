@@ -5,7 +5,7 @@ import { decodeString } from "../../decoding/decodingUtils";
 export class StringDictionaryVector extends VariableSizeVector<Uint8Array, string> {
     constructor(
         name: string,
-        private readonly indexBuffer: Int32Array,
+        private readonly indexBuffer: Uint32Array,
         offsetBuffer: Uint32Array,
         dictionaryBuffer: Uint8Array,
         nullabilityBuffer?: BitVector,

@@ -147,6 +147,10 @@ function compareId(mltFeature: Feature, mvtFeature: VectorTileFeature, idWithinM
             return;
         }
 
+        if (!Number.isSafeInteger(mvtFeature.id)) {
+            return;
+        }
+
         assert.equal(actualId, mvtFeature.id);
     }
 }

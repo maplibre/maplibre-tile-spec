@@ -23,14 +23,23 @@ import { packNullable } from "./packNullableUtils";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import type GeometryScaling from "../decoding/geometryScaling";
 
-export function encodeIntStream(
+export function encodeSignedInt32Stream(
     values: Int32Array,
     metadata: StreamMetadata,
-    isSigned: boolean,
     bitVector?: BitVector,
     scalingData?: GeometryScaling,
 ): Uint8Array {
-    const { data } = encodeInt32(values, metadata, isSigned, bitVector, scalingData);
+    const { data } = encodeSignedInt32(values, metadata, bitVector, scalingData);
+    return encodePhysicalLevelTechnique(data, metadata);
+}
+
+export function encodeUnsignedInt32Stream(
+    values: Uint32Array,
+    metadata: StreamMetadata,
+    bitVector?: BitVector,
+    scalingData?: GeometryScaling,
+): Uint8Array {
+    const { data } = encodeUnsignedInt32(values, metadata, bitVector, scalingData);
     return encodePhysicalLevelTechnique(data, metadata);
 }
 
@@ -51,10 +60,9 @@ function encodePhysicalLevelTechnique(data: Uint32Array, streamMetadata: StreamM
     throw new Error("Specified physicalLevelTechnique is not supported (yet).");
 }
 
-function encodeInt32(
+function encodeSignedInt32(
     values: Int32Array,
     streamMetadata: StreamMetadata,
-    isSigned: boolean,
     bitVector?: BitVector,
     scalingData?: GeometryScaling,
 ): { data: Uint32Array; runs?: number } {
@@ -70,11 +78,7 @@ function encodeInt32(
                 return { data };
             }
         case LogicalLevelTechnique.RLE: {
-            if (isSigned) {
-                const encoded = encodeZigZagRleInt32(values);
-                return { data: encoded.data, runs: encoded.runs };
-            }
-            const encoded = encodeUnsignedRleInt32(new Uint32Array(values));
+            const encoded = encodeZigZagRleInt32(values);
             return { data: encoded.data, runs: encoded.runs };
         }
         case LogicalLevelTechnique.MORTON:
@@ -89,11 +93,48 @@ function encodeInt32(
             data = encodeComponentwiseDeltaVec2(values);
             return { data };
         case LogicalLevelTechnique.NONE:
-            if (isSigned) {
-                data = encodeZigZagInt32(values);
-            } else {
-                data = new Uint32Array(values);
+            data = encodeZigZagInt32(values);
+            return { data };
+        default:
+            throw new Error(
+                `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+            );
+    }
+}
+
+function encodeUnsignedInt32(
+    values: Uint32Array,
+    streamMetadata: StreamMetadata,
+    bitVector?: BitVector,
+    scalingData?: GeometryScaling,
+): { data: Uint32Array; runs?: number } {
+    values = bitVector ? packNullable(values, bitVector) : new Uint32Array(values);
+    let data: Uint32Array;
+    switch (streamMetadata.logicalLevelTechnique1) {
+        case LogicalLevelTechnique.DELTA:
+            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+                const encoded = encodeDeltaRleInt32(new Int32Array(values.buffer, values.byteOffset, values.length));
+                return { data: encoded.data, runs: encoded.runs };
             }
+            data = encodeZigZagDeltaInt32(new Int32Array(values.buffer, values.byteOffset, values.length));
+            return { data };
+        case LogicalLevelTechnique.RLE: {
+            const encoded = encodeUnsignedRleInt32(values);
+            return { data: encoded.data, runs: encoded.runs };
+        }
+        case LogicalLevelTechnique.MORTON:
+            encodeDeltaInt32(values);
+            data = values;
+            return { data };
+        case LogicalLevelTechnique.COMPONENTWISE_DELTA:
+            if (scalingData && !bitVector) {
+                const data = encodeComponentwiseDeltaVec2Scaled(new Int32Array(values), scalingData.scale);
+                return { data };
+            }
+            data = encodeComponentwiseDeltaVec2(new Int32Array(values));
+            return { data };
+        case LogicalLevelTechnique.NONE:
+            data = values;
             return { data };
         default:
             throw new Error(

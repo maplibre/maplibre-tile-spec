@@ -35,7 +35,7 @@ export function encodePointGeometryVectorWithOffset(x: number, y: number): Geome
             partOffsets: new Uint32Array([0]),
             ringOffsets: new Uint32Array([0]),
         },
-        new Int32Array([1]),
+        new Uint32Array([1]),
         new Int32Array([99, 99, x, y]),
     );
 }
@@ -51,7 +51,7 @@ export function encodePointGeometryVectorWithMortonEncoding(x: number, y: number
             partOffsets: new Uint32Array([0]),
             ringOffsets: new Uint32Array([0]),
         },
-        new Int32Array([0]),
+        new Uint32Array([0]),
         new Int32Array([mortonEncoded]),
         DEFAULT_MORTON_SETTINGS,
     );
@@ -107,7 +107,7 @@ export function encodeLineStringGeometryVector(lines: [number, number][]): Geome
 export function encodeLineStringGeometryVectorWithMortonEncoding(line: [number, number][]): GeometryVector {
     const numVertices = line.length;
     const vertexBuffer = new Int32Array(numVertices);
-    const offsetBuffer = new Int32Array(numVertices);
+    const offsetBuffer = new Uint32Array(numVertices);
     for (let i = 0; i < numVertices; i++) {
         vertexBuffer[i] = encode(line[i][0], line[i][1]);
         offsetBuffer[i] = i;
@@ -161,7 +161,7 @@ export function encodePolygonGeometryVectorWithOffsets(polygon: [number, number]
         ringOffsets[ringIndex] = ringOffsets[ringIndex - 1] + ring.length;
         ringIndex++;
     }
-    const offsetBuffer = new Int32Array(vertexBuffer.length / 2);
+    const offsetBuffer = new Uint32Array(vertexBuffer.length / 2);
     for (let i = 0; i < offsetBuffer.length; i++) {
         offsetBuffer[i] = i;
     }
@@ -189,7 +189,7 @@ export function encodePolygonGeometryVectorWithMortonOffsets(polygon: [number, n
         ringOffsets[ringIndex] = ringOffsets[ringIndex - 1] + ring.length;
         ringIndex++;
     }
-    const offsetBuffer = new Int32Array(vertexBuffer.length);
+    const offsetBuffer = new Uint32Array(vertexBuffer.length);
     for (let i = 0; i < offsetBuffer.length; i++) {
         offsetBuffer[i] = i;
     }
@@ -242,7 +242,7 @@ export function encodeMultiLineStringGeometryVectorWithOffsets(lines: [number, n
         partOffsets[partIndex] = partOffsets[partIndex - 1] + line.length;
         partIndex++;
     }
-    const offsetBuffer = new Int32Array(vertexBuffer.length / 2);
+    const offsetBuffer = new Uint32Array(vertexBuffer.length / 2);
     for (let i = 0; i < offsetBuffer.length; i++) {
         offsetBuffer[i] = i;
     }
@@ -269,7 +269,7 @@ export function encodeMultiLineStringGeometryVectorWithMortonOffsets(lines: [num
         partOffsets[partIndex] = partOffsets[partIndex - 1] + line.length;
         partIndex++;
     }
-    const offsetBuffer = new Int32Array(vertexBuffer.length);
+    const offsetBuffer = new Uint32Array(vertexBuffer.length);
     for (let i = 0; i < offsetBuffer.length; i++) {
         offsetBuffer[i] = i;
     }
@@ -339,7 +339,7 @@ export function encodeMultiPolygonGeometryVectorWithOffsets(polygons: [number, n
         partOffsets[partIndex] = partOffsets[partIndex - 1] + polygon.length;
         partIndex++;
     }
-    const offsetBuffer = new Int32Array(vertexBuffer.length / 2);
+    const offsetBuffer = new Uint32Array(vertexBuffer.length / 2);
     for (let i = 0; i < offsetBuffer.length; i++) {
         offsetBuffer[i] = i;
     }
@@ -376,7 +376,7 @@ export function encodeMultiPolygonGeometryVectorWithMortonOffsets(polygons: [num
         partOffsets[partIndex] = partOffsets[partIndex - 1] + polygon.length;
         partIndex++;
     }
-    const offsetBuffer = new Int32Array(vertexBuffer.length);
+    const offsetBuffer = new Uint32Array(vertexBuffer.length);
     for (let i = 0; i < offsetBuffer.length; i++) {
         offsetBuffer[i] = i;
     }
