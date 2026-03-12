@@ -10,7 +10,7 @@ See the `--help` output for the full list of options.
 
 At a minimum, the input file(s) must be specified with `--mvt`, `--mbtiles`, `--offlinedb`, or `--pmtiles`.
 
-In the case of `--pmtiles`, the input may be a URL, in which case the data will be seletively downloaded, allowing rapid conversion of zoom-level subsets.
+In the case of `--pmtiles`, the input may be a URL, in which case the data will be selectively downloaded, allowing rapid conversion of zoom-level subsets.
 
 By default, the output file will be the input basename with the `.mlt` extension added, placed in the working directory.  This can be overridden with the `--mlt` option.  The `--dir` option changes the output directory.
 
