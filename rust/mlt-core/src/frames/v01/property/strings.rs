@@ -782,12 +782,16 @@ impl OwnedEncodedSharedDictChild {
 impl<'a, T> FromEncoded<'a> for DecodedScalar<'a, T>
 where
     T: Copy + PartialEq,
-    Vec<T>: TryFrom<Stream<'a>, Error = MltError>,
+    Vec<T>: FromEncoded<'a, Input = Stream<'a>>,
 {
     type Input = EncodedScalar<'a>;
 
     fn from_encoded(input: Self::Input) -> Result<Self, MltError> {
-        DecodedScalar::from_parts(input.name, input.presence, input.data.try_into()?)
+        DecodedScalar::from_parts(
+            input.name,
+            input.presence,
+            FromEncoded::from_encoded(input.data)?,
+        )
     }
 }
 
@@ -808,7 +812,8 @@ impl<'a> EncodedStrings<'a> {
     /// Decode string property from its encoded column.
     pub fn into_decoded(self) -> Result<DecodedStrings<'a>, MltError> {
         let name = self.name;
-        let presence: Option<Vec<bool>> = self.presence.0.map(TryInto::try_into).transpose()?;
+        let presence: Option<Vec<bool>> =
+            self.presence.0.map(FromEncoded::from_encoded).transpose()?;
         match self.encoding {
             StringsEncoding::Plain(plain_data) => {
                 let (data, lengths) = plain_data.decode()?;
@@ -826,7 +831,7 @@ impl<'a> EncodedStrings<'a> {
                 decode_dictionary_strings(
                     &name,
                     &lengths,
-                    &offsets.decode_bits_u32()?.decode_u32()?,
+                    &<Vec<u32>>::from_encoded(offsets)?,
                     presence.as_deref(),
                     data,
                 )
@@ -844,7 +849,7 @@ impl<'a> EncodedStrings<'a> {
                 decode_dictionary_strings(
                     &name,
                     &lengths,
-                    &offsets.decode_bits_u32()?.decode_u32()?,
+                    &<Vec<u32>>::from_encoded(offsets)?,
                     presence.as_deref(),
                     &decompressed,
                 )
@@ -992,14 +997,14 @@ impl<'a> EncodedSharedDict<'a> {
         };
         let items = self
             .children
-            .iter()
+            .into_iter()
             .map(|child| -> Result<DecodedSharedDictItem, MltError> {
-                let offsets = child.data.decode_bits_u32()?.decode_u32()?;
+                let offsets: Vec<u32> = FromEncoded::from_encoded(child.data)?;
                 let presence: Option<Vec<bool>> = child
                     .presence
                     .0
                     .clone()
-                    .map(TryInto::try_into)
+                    .map(FromEncoded::from_encoded)
                     .transpose()?;
                 let ranges = resolve_dict_spans(&offsets, presence.as_deref(), &dict_spans)?
                     .into_iter()

@@ -1,4 +1,5 @@
 use crate::MltError;
+use crate::decode::FromEncoded;
 use crate::errors::AsMltError as _;
 use crate::utils::{
     AsUsize as _, all, decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s,
@@ -6,14 +7,14 @@ use crate::utils::{
 };
 use crate::v01::{LogicalData, LogicalValue, PhysicalEncoding, Stream, StreamData};
 
-impl TryFrom<Stream<'_>> for Vec<bool> {
-    type Error = MltError;
+impl<'a> FromEncoded<'a> for Vec<bool> {
+    type Input = Stream<'a>;
 
     /// Decode a boolean stream: byte-RLE → packed bitmap → `Vec<bool>`
-    fn try_from(stream: Stream<'_>) -> Result<Self, Self::Error> {
-        let num_values = stream.meta.num_values.as_usize();
+    fn from_encoded(input: Self::Input) -> Result<Self, MltError> {
+        let num_values = input.meta.num_values.as_usize();
         let num_bytes = num_values.div_ceil(8);
-        let raw = match &stream.data {
+        let raw = match &input.data {
             StreamData::Encoded(v) => v,
             StreamData::VarInt(_) => {
                 return Err(MltError::NotImplemented("varint bool decoding"));
@@ -24,11 +25,11 @@ impl TryFrom<Stream<'_>> for Vec<bool> {
     }
 }
 
-impl TryFrom<Stream<'_>> for Vec<i8> {
-    type Error = MltError;
+impl<'a> FromEncoded<'a> for Vec<i8> {
+    type Input = Stream<'a>;
 
-    fn try_from(stream: Stream<'_>) -> Result<Self, Self::Error> {
-        stream
+    fn from_encoded(input: Self::Input) -> Result<Self, MltError> {
+        input
             .decode_bits_u32()?
             .decode_i32()?
             .into_iter()
@@ -38,11 +39,11 @@ impl TryFrom<Stream<'_>> for Vec<i8> {
     }
 }
 
-impl TryFrom<Stream<'_>> for Vec<u8> {
-    type Error = MltError;
+impl<'a> FromEncoded<'a> for Vec<u8> {
+    type Input = Stream<'a>;
 
-    fn try_from(stream: Stream<'_>) -> Result<Self, Self::Error> {
-        Ok(stream
+    fn from_encoded(input: Self::Input) -> Result<Self, MltError> {
+        Ok(input
             .decode_bits_u32()?
             .decode_u32()?
             .into_iter()
@@ -51,49 +52,49 @@ impl TryFrom<Stream<'_>> for Vec<u8> {
     }
 }
 
-impl TryFrom<Stream<'_>> for Vec<i32> {
-    type Error = MltError;
+impl<'a> FromEncoded<'a> for Vec<i32> {
+    type Input = Stream<'a>;
 
-    fn try_from(stream: Stream<'_>) -> Result<Self, Self::Error> {
-        stream.decode_bits_u32()?.decode_i32()
+    fn from_encoded(input: Self::Input) -> Result<Self, MltError> {
+        input.decode_bits_u32()?.decode_i32()
     }
 }
-impl TryFrom<Stream<'_>> for Vec<u32> {
-    type Error = MltError;
+impl<'a> FromEncoded<'a> for Vec<u32> {
+    type Input = Stream<'a>;
 
-    fn try_from(stream: Stream<'_>) -> Result<Self, Self::Error> {
-        stream.decode_bits_u32()?.decode_u32()
+    fn from_encoded(input: Self::Input) -> Result<Self, MltError> {
+        input.decode_bits_u32()?.decode_u32()
     }
 }
 
-impl TryFrom<Stream<'_>> for Vec<u64> {
-    type Error = MltError;
+impl<'a> FromEncoded<'a> for Vec<u64> {
+    type Input = Stream<'a>;
 
-    fn try_from(stream: Stream<'_>) -> Result<Self, Self::Error> {
-        stream.decode_bits_u64()?.decode_u64()
+    fn from_encoded(input: Self::Input) -> Result<Self, MltError> {
+        input.decode_bits_u64()?.decode_u64()
     }
 }
-impl TryFrom<Stream<'_>> for Vec<i64> {
-    type Error = MltError;
+impl<'a> FromEncoded<'a> for Vec<i64> {
+    type Input = Stream<'a>;
 
     /// Decode a signed i64 stream
-    fn try_from(stream: Stream<'_>) -> Result<Self, Self::Error> {
-        stream.decode_bits_u64()?.decode_i64()
+    fn from_encoded(input: Self::Input) -> Result<Self, MltError> {
+        input.decode_bits_u64()?.decode_i64()
     }
 }
 
-impl TryFrom<Stream<'_>> for Vec<f32> {
-    type Error = MltError;
+impl<'a> FromEncoded<'a> for Vec<f32> {
+    type Input = Stream<'a>;
 
     /// Decode a stream of f32 values from raw little-endian bytes
-    fn try_from(stream: Stream<'_>) -> Result<Self, Self::Error> {
-        let raw = match &stream.data {
+    fn from_encoded(input: Self::Input) -> Result<Self, MltError> {
+        let raw = match &input.data {
             StreamData::Encoded(v) => v,
             StreamData::VarInt(_) => {
                 return Err(MltError::NotImplemented("varint f32 decoding"));
             }
         };
-        let num = stream.meta.num_values.as_usize();
+        let num = input.meta.num_values.as_usize();
         let expected_bytes = num.checked_mul(4).or_overflow()?;
         if raw.len() != expected_bytes {
             return Err(MltError::InvalidDecodingStreamSize(
@@ -113,18 +114,18 @@ impl TryFrom<Stream<'_>> for Vec<f32> {
     }
 }
 
-impl TryFrom<Stream<'_>> for Vec<f64> {
-    type Error = MltError;
+impl<'a> FromEncoded<'a> for Vec<f64> {
+    type Input = Stream<'a>;
 
     /// Decode a stream of f64 values from raw little-endian bytes
-    fn try_from(stream: Stream<'_>) -> Result<Self, Self::Error> {
-        let raw = match &stream.data {
+    fn from_encoded(input: Self::Input) -> Result<Self, MltError> {
+        let raw = match &input.data {
             StreamData::Encoded(v) => v,
             StreamData::VarInt(_) => {
                 return Err(MltError::NotImplemented("varint f64 decoding"));
             }
         };
-        let num = stream.meta.num_values.as_usize();
+        let num = input.meta.num_values.as_usize();
         let expected_bytes = num.checked_mul(8).or_overflow()?;
         if raw.len() != expected_bytes {
             return Err(MltError::InvalidDecodingStreamSize(
@@ -176,7 +177,7 @@ impl Stream<'_> {
         Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
     }
 
-    pub fn decode_bits_u64(self) -> Result<LogicalValue, MltError> {
+    pub fn decode_bits_u64(&self) -> Result<LogicalValue, MltError> {
         let value = match self.meta.encoding.physical {
             PhysicalEncoding::VarInt => match self.data {
                 StreamData::VarInt(v) => {

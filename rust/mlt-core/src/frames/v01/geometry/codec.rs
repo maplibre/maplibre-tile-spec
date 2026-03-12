@@ -56,7 +56,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
                         OffsetType::Index => &mut index_buffer,
                         _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
-                    target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
+                    target.set_once(FromEncoded::from_encoded(stream)?)?;
                 }
                 StreamType::Length(v) => {
                     let target = match v {
@@ -67,7 +67,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
                         _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
                     // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamEncoding<T>
-                    target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
+                    target.set_once(FromEncoded::from_encoded(stream)?)?;
                 }
             }
         }

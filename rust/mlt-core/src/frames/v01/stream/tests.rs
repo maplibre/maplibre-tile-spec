@@ -3,6 +3,7 @@
 use proptest::prelude::*;
 use rstest::rstest;
 
+use crate::decode::FromEncoded;
 use crate::utils::BinarySerializer as _;
 use crate::v01::stream::encoder::IntEncoder;
 use crate::v01::stream::logical::LogicalEncoder;
@@ -257,7 +258,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values: Vec<i8> = parsed_stream.try_into().unwrap();
+        let decoded_values: Vec<i8> = FromEncoded::from_encoded(parsed_stream).unwrap();
         assert_eq!(decoded_values, values);
     }
 
@@ -274,7 +275,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values: Vec<u8> = parsed_stream.try_into().unwrap();
+        let decoded_values: Vec<u8> = FromEncoded::from_encoded(parsed_stream).unwrap();
         assert_eq!(decoded_values, values);
     }
 
@@ -360,7 +361,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values:Vec<f32> = parsed_stream.try_into().unwrap();
+        let decoded_values:Vec<f32> = FromEncoded::from_encoded(parsed_stream).unwrap();
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {
             assert_eq!(
@@ -381,7 +382,7 @@ proptest! {
         let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values: Vec<f64> = parsed_stream.try_into().unwrap();
+        let decoded_values: Vec<f64> = FromEncoded::from_encoded(parsed_stream).unwrap();
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {
             assert_eq!(

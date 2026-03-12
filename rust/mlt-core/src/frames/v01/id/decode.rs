@@ -43,12 +43,12 @@ impl<'a> FromEncoded<'a> for DecodedId {
         let ids_u64: Vec<u64> = match value {
             EncodedIdValue::Id32(stream) => {
                 // Decode 32-bit IDs as u32, then convert to u64
-                let ids: Vec<u32> = stream.decode_bits_u32()?.decode_u32()?;
+                let ids: Vec<u32> = FromEncoded::from_encoded(stream)?;
                 ids.into_iter().map(u64::from).collect()
             }
             EncodedIdValue::Id64(stream) => {
                 // Decode 64-bit IDs directly as u64
-                stream.try_into()?
+                FromEncoded::from_encoded(stream)?
             }
         };
 
