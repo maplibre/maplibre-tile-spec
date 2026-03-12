@@ -15,6 +15,7 @@ pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt};
 use serde_json::{Number, Value};
 
 use crate::MltError;
+use crate::decode::DecodeInto as _;
 use crate::errors::AsMltError as _;
 use crate::v01::Stream;
 
@@ -67,8 +68,8 @@ pub fn apply_present<T>(
     present: Option<Stream>,
     values: Vec<T>,
 ) -> Result<Vec<Option<T>>, MltError> {
-    let present = if let Some(p) = present {
-        p.decode_bools()?
+    let present: Vec<bool> = if let Some(p) = present {
+        p.decode_into()?
     } else {
         return Ok(values.into_iter().map(Some).collect());
     };
