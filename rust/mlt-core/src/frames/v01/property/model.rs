@@ -26,43 +26,139 @@ pub enum PropertyKind {
     SharedDict,
 }
 
+/// Encoded scalar column (bool, integer, or float) as read directly from the tile.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EncodedScalar<'a> {
+    pub name: NameRef<'a>,
+    pub presence: EncodedPresence<'a>,
+    pub data: Stream<'a>,
+}
+
+/// Owned variant of [`EncodedScalar`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct OwnedEncodedScalar {
+    pub name: OwnedName,
+    pub presence: OwnedEncodedPresence,
+    pub data: OwnedStream,
+}
+
+/// Raw encoding payload for a string column (plain, dictionary, or FSST variants).
+///
+/// Stream order matches the encoder: see `StringEncoder.encode()`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum StringsEncoding<'a> {
+    /// Plain: length stream + data stream
+    Plain(PlainData<'a>),
+    /// Dictionary: lengths + offsets + dictionary data
+    Dictionary {
+        plain_data: PlainData<'a>,
+        offsets: Stream<'a>,
+    },
+    /// FSST plain (4 streams): symbol lengths, symbol table, value lengths, compressed corpus. No offsets.
+    FsstPlain(FsstData<'a>),
+    /// FSST dictionary (5 streams): symbol lengths, symbol table, value lengths, compressed corpus, offsets.
+    FsstDictionary {
+        fsst_data: FsstData<'a>,
+        offsets: Stream<'a>,
+    },
+}
+
+/// Owned variant of [`StringsEncoding`].
+#[derive(Debug, Clone, PartialEq)]
+pub enum OwnedStringsEncoding {
+    Plain(OwnedPlainData),
+    Dictionary {
+        plain_data: OwnedPlainData,
+        offsets: OwnedStream,
+    },
+    FsstPlain(OwnedFsstData),
+    FsstDictionary {
+        fsst_data: OwnedFsstData,
+        offsets: OwnedStream,
+    },
+}
+
+/// Encoded string column as read directly from the tile.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EncodedStrings<'a> {
+    pub name: NameRef<'a>,
+    pub presence: EncodedPresence<'a>,
+    pub encoding: StringsEncoding<'a>,
+}
+
+/// Owned variant of [`EncodedStrings`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct OwnedEncodedStrings {
+    pub name: OwnedName,
+    pub presence: OwnedEncodedPresence,
+    pub encoding: OwnedStringsEncoding,
+}
+
+/// Raw encoding payload for a `SharedDict` column.
+///
+/// Unlike [`StringsEncoding`], shared dictionaries do NOT have their own offset stream.
+/// Instead, each child column has its own offset stream that references the shared dictionary.
+/// This is why only `Plain` and `FsstPlain` variants exist here.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SharedDictEncoding<'a> {
+    /// Plain shared dict (2 streams): lengths + data.
+    Plain(PlainData<'a>),
+    /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
+    FsstPlain(FsstData<'a>),
+}
+
+/// Owned variant of [`SharedDictEncoding`].
+#[derive(Debug, Clone, PartialEq)]
+pub enum OwnedSharedDictEncoding {
+    Plain(OwnedPlainData),
+    FsstPlain(OwnedFsstData),
+}
+
+/// Encoded shared-dictionary column as read directly from the tile.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EncodedSharedDict<'a> {
+    pub name: NameRef<'a>,
+    pub encoding: SharedDictEncoding<'a>,
+    pub children: Vec<EncodedSharedDictChild<'a>>,
+}
+
+/// Owned variant of [`EncodedSharedDict`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct OwnedEncodedSharedDict {
+    pub name: OwnedName,
+    pub encoding: OwnedSharedDictEncoding,
+    pub children: Vec<OwnedEncodedSharedDictChild>,
+}
+
 /// Unparsed property data as read directly from the tile.
 #[derive(Debug, PartialEq)]
 pub enum EncodedProperty<'a> {
-    Bool(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    I8(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    U8(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    I32(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    U32(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    I64(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    U64(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    F32(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    F64(NameRef<'a>, EncodedPresence<'a>, Stream<'a>),
-    Str(NameRef<'a>, EncodedPresence<'a>, EncodedStrings<'a>),
-    SharedDict(
-        NameRef<'a>,
-        EncodedSharedDict<'a>,
-        Vec<EncodedSharedDictChild<'a>>,
-    ),
+    Bool(EncodedScalar<'a>),
+    I8(EncodedScalar<'a>),
+    U8(EncodedScalar<'a>),
+    I32(EncodedScalar<'a>),
+    U32(EncodedScalar<'a>),
+    I64(EncodedScalar<'a>),
+    U64(EncodedScalar<'a>),
+    F32(EncodedScalar<'a>),
+    F64(EncodedScalar<'a>),
+    Str(EncodedStrings<'a>),
+    SharedDict(EncodedSharedDict<'a>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OwnedEncodedProperty {
-    Bool(OwnedName, OwnedEncodedPresence, OwnedStream),
-    I8(OwnedName, OwnedEncodedPresence, OwnedStream),
-    U8(OwnedName, OwnedEncodedPresence, OwnedStream),
-    I32(OwnedName, OwnedEncodedPresence, OwnedStream),
-    U32(OwnedName, OwnedEncodedPresence, OwnedStream),
-    I64(OwnedName, OwnedEncodedPresence, OwnedStream),
-    U64(OwnedName, OwnedEncodedPresence, OwnedStream),
-    F32(OwnedName, OwnedEncodedPresence, OwnedStream),
-    F64(OwnedName, OwnedEncodedPresence, OwnedStream),
-    Str(OwnedName, OwnedEncodedPresence, OwnedEncodedStrings),
-    SharedDict(
-        OwnedName,
-        OwnedEncodedSharedDict,
-        Vec<OwnedEncodedSharedDictChild>,
-    ),
+    Bool(OwnedEncodedScalar),
+    I8(OwnedEncodedScalar),
+    U8(OwnedEncodedScalar),
+    I32(OwnedEncodedScalar),
+    U32(OwnedEncodedScalar),
+    I64(OwnedEncodedScalar),
+    U64(OwnedEncodedScalar),
+    F32(OwnedEncodedScalar),
+    F64(OwnedEncodedScalar),
+    Str(OwnedEncodedStrings),
+    SharedDict(OwnedEncodedSharedDict),
 }
 
 /// Decoded property values in a typed enum form.
@@ -192,60 +288,6 @@ pub struct OwnedFsstData {
     pub corpus: OwnedStream,
 }
 
-/// Encoded data for a `SharedDict` column with shared dictionary encoding.
-///
-/// Unlike `EncodedStrings`, shared dictionaries do NOT have their own offset stream.
-/// Instead, each child column has its own offset stream that references the shared dictionary.
-/// This is why only `Plain` and `FsstPlain` variants exist here.
-#[derive(Debug, Clone, PartialEq)]
-pub enum EncodedSharedDict<'a> {
-    /// Plain shared dict (2 streams): lengths + data.
-    Plain(PlainData<'a>),
-    /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
-    FsstPlain(FsstData<'a>),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum OwnedEncodedSharedDict {
-    Plain(OwnedPlainData),
-    FsstPlain(OwnedFsstData),
-}
-
-/// String column encoding as produced by the encoder (plain, dictionary, or FSST).
-/// Stream order matches the encoder: see `StringEncoder.encode()` and `encodePlain` /
-/// `encodeDictionary` / `encodeFsstDictionary`.
-#[derive(Debug, Clone, PartialEq)]
-pub enum EncodedStrings<'a> {
-    /// Plain: length stream + data stream
-    Plain(PlainData<'a>),
-    /// Dictionary: lengths + offsets + dictionary data
-    Dictionary {
-        plain_data: PlainData<'a>,
-        offsets: Stream<'a>,
-    },
-    /// FSST plain (4 streams): symbol lengths, symbol table, value lengths, compressed corpus. No offsets.
-    FsstPlain(FsstData<'a>),
-    /// FSST dictionary (5 streams): symbol lengths, symbol table, value lengths, compressed corpus, offsets.
-    FsstDictionary {
-        fsst_data: FsstData<'a>,
-        offsets: Stream<'a>,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum OwnedEncodedStrings {
-    Plain(OwnedPlainData),
-    Dictionary {
-        plain_data: OwnedPlainData,
-        offsets: OwnedStream,
-    },
-    FsstPlain(OwnedFsstData),
-    FsstDictionary {
-        fsst_data: OwnedFsstData,
-        offsets: OwnedStream,
-    },
-}
-
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct EncodedPresence<'a>(pub Option<Stream<'a>>);
 
@@ -299,12 +341,44 @@ impl FsstData<'_> {
     }
 }
 
-impl EncodedSharedDict<'_> {
+impl SharedDictEncoding<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedEncodedSharedDict {
+    pub fn to_owned(&self) -> OwnedSharedDictEncoding {
         match self {
-            Self::Plain(data) => OwnedEncodedSharedDict::Plain(data.to_owned()),
-            Self::FsstPlain(data) => OwnedEncodedSharedDict::FsstPlain(data.to_owned()),
+            Self::Plain(data) => OwnedSharedDictEncoding::Plain(data.to_owned()),
+            Self::FsstPlain(data) => OwnedSharedDictEncoding::FsstPlain(data.to_owned()),
+        }
+    }
+}
+
+impl StringsEncoding<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedStringsEncoding {
+        match self {
+            Self::Plain(data) => OwnedStringsEncoding::Plain(data.to_owned()),
+            Self::Dictionary {
+                plain_data,
+                offsets,
+            } => OwnedStringsEncoding::Dictionary {
+                plain_data: plain_data.to_owned(),
+                offsets: offsets.to_owned(),
+            },
+            Self::FsstPlain(data) => OwnedStringsEncoding::FsstPlain(data.to_owned()),
+            Self::FsstDictionary { fsst_data, offsets } => OwnedStringsEncoding::FsstDictionary {
+                fsst_data: fsst_data.to_owned(),
+                offsets: offsets.to_owned(),
+            },
+        }
+    }
+}
+
+impl EncodedScalar<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedEncodedScalar {
+        OwnedEncodedScalar {
+            name: self.name.to_owned(),
+            presence: self.presence.to_owned(),
+            data: self.data.to_owned(),
         }
     }
 }
@@ -312,20 +386,25 @@ impl EncodedSharedDict<'_> {
 impl EncodedStrings<'_> {
     #[must_use]
     pub fn to_owned(&self) -> OwnedEncodedStrings {
-        match self {
-            Self::Plain(data) => OwnedEncodedStrings::Plain(data.to_owned()),
-            Self::Dictionary {
-                plain_data,
-                offsets,
-            } => OwnedEncodedStrings::Dictionary {
-                plain_data: plain_data.to_owned(),
-                offsets: offsets.to_owned(),
-            },
-            Self::FsstPlain(data) => OwnedEncodedStrings::FsstPlain(data.to_owned()),
-            Self::FsstDictionary { fsst_data, offsets } => OwnedEncodedStrings::FsstDictionary {
-                fsst_data: fsst_data.to_owned(),
-                offsets: offsets.to_owned(),
-            },
+        OwnedEncodedStrings {
+            name: self.name.to_owned(),
+            presence: self.presence.to_owned(),
+            encoding: self.encoding.to_owned(),
+        }
+    }
+}
+
+impl EncodedSharedDict<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedEncodedSharedDict {
+        OwnedEncodedSharedDict {
+            name: self.name.to_owned(),
+            encoding: self.encoding.to_owned(),
+            children: self
+                .children
+                .iter()
+                .map(EncodedSharedDictChild::to_owned)
+                .collect(),
         }
     }
 }
@@ -334,44 +413,17 @@ impl EncodedProperty<'_> {
     #[must_use]
     pub fn to_owned(&self) -> OwnedEncodedProperty {
         match self {
-            Self::Bool(name, presence, data) => {
-                OwnedEncodedProperty::Bool(name.to_owned(), presence.to_owned(), data.to_owned())
-            }
-            Self::I8(name, presence, data) => {
-                OwnedEncodedProperty::I8(name.to_owned(), presence.to_owned(), data.to_owned())
-            }
-            Self::U8(name, presence, data) => {
-                OwnedEncodedProperty::U8(name.to_owned(), presence.to_owned(), data.to_owned())
-            }
-            Self::I32(name, presence, data) => {
-                OwnedEncodedProperty::I32(name.to_owned(), presence.to_owned(), data.to_owned())
-            }
-            Self::U32(name, presence, data) => {
-                OwnedEncodedProperty::U32(name.to_owned(), presence.to_owned(), data.to_owned())
-            }
-            Self::I64(name, presence, data) => {
-                OwnedEncodedProperty::I64(name.to_owned(), presence.to_owned(), data.to_owned())
-            }
-            Self::U64(name, presence, data) => {
-                OwnedEncodedProperty::U64(name.to_owned(), presence.to_owned(), data.to_owned())
-            }
-            Self::F32(name, presence, data) => {
-                OwnedEncodedProperty::F32(name.to_owned(), presence.to_owned(), data.to_owned())
-            }
-            Self::F64(name, presence, data) => {
-                OwnedEncodedProperty::F64(name.to_owned(), presence.to_owned(), data.to_owned())
-            }
-            Self::Str(name, presence, strings) => {
-                OwnedEncodedProperty::Str(name.to_owned(), presence.to_owned(), strings.to_owned())
-            }
-            Self::SharedDict(name, dict, children) => OwnedEncodedProperty::SharedDict(
-                name.to_owned(),
-                dict.to_owned(),
-                children
-                    .iter()
-                    .map(EncodedSharedDictChild::to_owned)
-                    .collect(),
-            ),
+            Self::Bool(s) => OwnedEncodedProperty::Bool(s.to_owned()),
+            Self::I8(s) => OwnedEncodedProperty::I8(s.to_owned()),
+            Self::U8(s) => OwnedEncodedProperty::U8(s.to_owned()),
+            Self::I32(s) => OwnedEncodedProperty::I32(s.to_owned()),
+            Self::U32(s) => OwnedEncodedProperty::U32(s.to_owned()),
+            Self::I64(s) => OwnedEncodedProperty::I64(s.to_owned()),
+            Self::U64(s) => OwnedEncodedProperty::U64(s.to_owned()),
+            Self::F32(s) => OwnedEncodedProperty::F32(s.to_owned()),
+            Self::F64(s) => OwnedEncodedProperty::F64(s.to_owned()),
+            Self::Str(s) => OwnedEncodedProperty::Str(s.to_owned()),
+            Self::SharedDict(s) => OwnedEncodedProperty::SharedDict(s.to_owned()),
         }
     }
 }

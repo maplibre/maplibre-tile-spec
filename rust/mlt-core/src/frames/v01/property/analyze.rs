@@ -6,29 +6,29 @@ use crate::v01::{
 impl Analyze for OwnedEncodedProperty {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         match self {
-            OwnedEncodedProperty::Bool(_, pres, data)
-            | OwnedEncodedProperty::I8(_, pres, data)
-            | OwnedEncodedProperty::U8(_, pres, data)
-            | OwnedEncodedProperty::I32(_, pres, data)
-            | OwnedEncodedProperty::U32(_, pres, data)
-            | OwnedEncodedProperty::I64(_, pres, data)
-            | OwnedEncodedProperty::U64(_, pres, data)
-            | OwnedEncodedProperty::F32(_, pres, data)
-            | OwnedEncodedProperty::F64(_, pres, data) => {
-                pres.0.for_each_stream(cb);
-                data.for_each_stream(cb);
+            OwnedEncodedProperty::Bool(s)
+            | OwnedEncodedProperty::I8(s)
+            | OwnedEncodedProperty::U8(s)
+            | OwnedEncodedProperty::I32(s)
+            | OwnedEncodedProperty::U32(s)
+            | OwnedEncodedProperty::I64(s)
+            | OwnedEncodedProperty::U64(s)
+            | OwnedEncodedProperty::F32(s)
+            | OwnedEncodedProperty::F64(s) => {
+                s.presence.0.for_each_stream(cb);
+                s.data.for_each_stream(cb);
             }
-            OwnedEncodedProperty::Str(_, pres, enc) => {
-                pres.0.for_each_stream(cb);
-                for s in enc.streams() {
-                    s.for_each_stream(cb);
+            OwnedEncodedProperty::Str(s) => {
+                s.presence.0.for_each_stream(cb);
+                for stream in s.encoding.streams() {
+                    stream.for_each_stream(cb);
                 }
             }
-            OwnedEncodedProperty::SharedDict(_, shared, children) => {
-                for s in shared.dict_streams() {
-                    s.for_each_stream(cb);
+            OwnedEncodedProperty::SharedDict(s) => {
+                for stream in s.encoding.dict_streams() {
+                    stream.for_each_stream(cb);
                 }
-                for child in children {
+                for child in &s.children {
                     child.presence.0.for_each_stream(cb);
                     child.data.for_each_stream(cb);
                 }
@@ -40,29 +40,29 @@ impl Analyze for OwnedEncodedProperty {
 impl Analyze for EncodedProperty<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         match self {
-            Self::Bool(_, presence, data)
-            | Self::I8(_, presence, data)
-            | Self::U8(_, presence, data)
-            | Self::I32(_, presence, data)
-            | Self::U32(_, presence, data)
-            | Self::I64(_, presence, data)
-            | Self::U64(_, presence, data)
-            | Self::F32(_, presence, data)
-            | Self::F64(_, presence, data) => {
-                presence.0.for_each_stream(cb);
-                data.for_each_stream(cb);
+            Self::Bool(s)
+            | Self::I8(s)
+            | Self::U8(s)
+            | Self::I32(s)
+            | Self::U32(s)
+            | Self::I64(s)
+            | Self::U64(s)
+            | Self::F32(s)
+            | Self::F64(s) => {
+                s.presence.0.for_each_stream(cb);
+                s.data.for_each_stream(cb);
             }
-            Self::Str(_, presence, enc) => {
-                presence.0.for_each_stream(cb);
-                for s in enc.streams() {
-                    s.for_each_stream(cb);
-                }
-            }
-            Self::SharedDict(_, shared, children) => {
-                for stream in shared.dict_streams() {
+            Self::Str(s) => {
+                s.presence.0.for_each_stream(cb);
+                for stream in s.encoding.streams() {
                     stream.for_each_stream(cb);
                 }
-                for child in children {
+            }
+            Self::SharedDict(s) => {
+                for stream in s.encoding.dict_streams() {
+                    stream.for_each_stream(cb);
+                }
+                for child in &s.children {
                     child.presence.0.for_each_stream(cb);
                     child.data.for_each_stream(cb);
                 }
