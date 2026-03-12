@@ -68,7 +68,6 @@ object Decode {
         try {
             val cmd = DefaultParser().parse(options, args)
             run(cmd)
-            System.out.println("x")
         } catch (ex: ParseException) {
             System.err.println(ex.message)
             showHelp(options)
