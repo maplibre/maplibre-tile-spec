@@ -9,24 +9,20 @@
 /// the returned key fits in a `u32` (32 interleaved bits).  This is
 /// sufficient for any tile coordinate system with extent ≤ 65 535.
 #[must_use]
-pub fn morton_sort_key(x: i32, y: i32, x_shift: u32, y_shift: u32) -> u32 {
-    // The caller guarantees that x_shift = min_x.unsigned_abs() (when min_x < 0)
-    // so the shifted value is always non-negative and, for any tile coordinate
-    // system with extent ≤ 65 535, fits comfortably in a u16.  The subsequent
-    // `& 0xFFFF` mask makes the truncation to u32 and the sign-loss explicit and
-    // harmless.
+pub fn morton_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
+    debug_assert!((1..=16).contains(&num_bits));
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
     )]
-    let sx = ((i64::from(x) + i64::from(x_shift)) as u32) & 0xFFFF;
+    let sx = ((i64::from(x) + i64::from(shift)) as u32) & 0xFFFF;
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
     )]
-    let sy = ((i64::from(y) + i64::from(y_shift)) as u32) & 0xFFFF;
+    let sy = ((i64::from(y) + i64::from(shift)) as u32) & 0xFFFF;
     interleave_bits(sx, sy)
 }
 
@@ -192,40 +188,40 @@ mod tests {
 
     #[test]
     fn origin_maps_to_zero() {
-        assert_eq!(morton_sort_key(0, 0, 0, 0), 0);
+        assert_eq!(morton_sort_key(0, 0, 0, 16), 0);
     }
 
     #[test]
     fn x_axis_produces_even_bits() {
         // x=1, y=0  →  only bit 0 of x is set → Morton bit 0 set → code = 1
-        assert_eq!(morton_sort_key(1, 0, 0, 0), 1);
+        assert_eq!(morton_sort_key(1, 0, 0, 16), 1);
         // x=2, y=0  →  only bit 1 of x is set → Morton bit 2 set → code = 4
-        assert_eq!(morton_sort_key(2, 0, 0, 0), 4);
+        assert_eq!(morton_sort_key(2, 0, 0, 16), 4);
     }
 
     #[test]
     fn y_axis_produces_odd_bits() {
         // x=0, y=1  →  only bit 0 of y is set → Morton bit 1 set → code = 2
-        assert_eq!(morton_sort_key(0, 1, 0, 0), 2);
+        assert_eq!(morton_sort_key(0, 1, 0, 16), 2);
         // x=0, y=2  →  only bit 1 of y is set → Morton bit 3 set → code = 8
-        assert_eq!(morton_sort_key(0, 2, 0, 0), 8);
+        assert_eq!(morton_sort_key(0, 2, 0, 16), 8);
     }
 
     #[test]
     fn negative_coords_shift_correctly() {
-        // Shifting (-1, -1) by (1, 1) maps to (0, 0) → Morton code 0
-        assert_eq!(morton_sort_key(-1, -1, 1, 1), 0);
-        // Shifting (-1, 0) by (1, 0) maps to (0, 0) → Morton code 0
-        assert_eq!(morton_sort_key(-1, 0, 1, 0), 0);
+        // Shifting (-1, -1) by 1 maps to (0, 0) → Morton code 0
+        assert_eq!(morton_sort_key(-1, -1, 1, 16), 0);
+        // Shifting (-1, 0) by 1 maps to (0, 1) → Morton code 2
+        assert_eq!(morton_sort_key(-1, 0, 1, 16), 2);
     }
 
     #[test]
     fn spatial_locality_z_order() {
         // After shifting, (0,0) < (1,0) < (0,1) < (1,1) in Z-order
-        let k00 = morton_sort_key(0, 0, 0, 0);
-        let k10 = morton_sort_key(1, 0, 0, 0);
-        let k01 = morton_sort_key(0, 1, 0, 0);
-        let k11 = morton_sort_key(1, 1, 0, 0);
+        let k00 = morton_sort_key(0, 0, 0, 16);
+        let k10 = morton_sort_key(1, 0, 0, 16);
+        let k01 = morton_sort_key(0, 1, 0, 16);
+        let k11 = morton_sort_key(1, 1, 0, 16);
         assert!(k00 < k10);
         assert!(k10 < k01);
         assert!(k01 < k11);

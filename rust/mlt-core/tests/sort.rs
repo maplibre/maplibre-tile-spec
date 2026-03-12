@@ -26,6 +26,7 @@ fn build_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> OwnedLayer01 {
 fn sort_layer(layer: &mut OwnedLayer01, strategy: SortStrategy) {
     let encoder = Tag01Encoder {
         sort_strategy: Some(strategy),
+        allow_id_regeneration: false,
         id: None,
         properties: vec![],
         geometry: GeometryEncoder::all(IntEncoder::varint()),

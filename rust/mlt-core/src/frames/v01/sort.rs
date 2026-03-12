@@ -56,30 +56,51 @@ pub enum SortStrategy {
 pub(crate) fn reorder_features(
     layer: &mut OwnedLayer01,
     strategy: Option<SortStrategy>,
+    allow_id_regeneration: bool,
 ) -> Result<(), MltError> {
-    let Some(strategy) = strategy else {
+    if strategy.is_none() && !allow_id_regeneration {
         return Ok(());
-    };
+    }
 
     // Everything must be in decoded form before we can permute it.
     ensure_decoded(layer)?;
 
     let n = geometry_feature_count(&layer.geometry)?;
     if n <= 1 {
+        // Still might want to regenerate IDs for single feature (to 0).
+        if allow_id_regeneration {
+            regenerate_ids(layer, n);
+        }
         return Ok(());
     }
 
-    // Skip tessellated layers — index_buffer / triangles are not permutable
-    // without retessellating.
-    if let OwnedGeometry::Decoded(ref g) = layer.geometry
-        && (g.index_buffer.is_some() || g.triangles.is_some())
-    {
-        return Ok(());
+    if let Some(strategy) = strategy {
+        // Skip tessellated layers — index_buffer / triangles are not permutable
+        // without retessellating.
+        if let OwnedGeometry::Decoded(ref g) = layer.geometry
+            && (g.index_buffer.is_some() || g.triangles.is_some())
+        {
+            if allow_id_regeneration {
+                regenerate_ids(layer, n);
+            }
+            return Ok(());
+        }
+
+        let keys = compute_sort_keys(layer, strategy, n)?;
+        let perm = build_permutation(&keys);
+        apply_permutation(layer, &perm)?;
     }
 
-    let keys = compute_sort_keys(layer, strategy, n)?;
-    let perm = build_permutation(&keys);
-    apply_permutation(layer, &perm)
+    if allow_id_regeneration {
+        regenerate_ids(layer, n);
+    }
+
+    Ok(())
+}
+
+fn regenerate_ids(layer: &mut OwnedLayer01, n: usize) {
+    let new_ids = (0..n as u64).map(Some).collect();
+    layer.id = OwnedId::Decoded(Some(DecodedId(new_ids)));
 }
 
 /// Compute one sort key per feature.  The key type is `u64` so that both
@@ -125,43 +146,24 @@ fn compute_sort_keys(
 /// the representative point.  Features without a vertex receive `u32::MAX`
 /// so they sort to the end.
 fn spatial_sort_keys(decoded: &DecodedGeometry, n: usize, curve: SpaceFillingCurve) -> Vec<u32> {
+    let verts = decoded.vertices.as_deref().unwrap_or(&[]);
+    let (shift, num_bits) = hilbert_curve_params(verts);
+
     match curve {
-        SpaceFillingCurve::Morton => {
-            let (x_shift, y_shift) = morton_coordinate_shifts(decoded);
-            (0..n)
-                .map(|i| {
-                    first_vertex(i, decoded)
-                        .map_or(u32::MAX, |(x, y)| morton_sort_key(x, y, x_shift, y_shift))
-                })
-                .collect()
-        }
+        SpaceFillingCurve::Morton => (0..n)
+            .map(|i| {
+                first_vertex(i, decoded)
+                    .map_or(u32::MAX, |(x, y)| morton_sort_key(x, y, shift, num_bits))
+            })
+            .collect(),
 
-        SpaceFillingCurve::Hilbert => {
-            let verts = decoded.vertices.as_deref().unwrap_or(&[]);
-            let (shift, num_bits) = hilbert_curve_params(verts);
-            (0..n)
-                .map(|i| {
-                    first_vertex(i, decoded)
-                        .map_or(u32::MAX, |(x, y)| hilbert_sort_key(x, y, shift, num_bits))
-                })
-                .collect()
-        }
+        SpaceFillingCurve::Hilbert => (0..n)
+            .map(|i| {
+                first_vertex(i, decoded)
+                    .map_or(u32::MAX, |(x, y)| hilbert_sort_key(x, y, shift, num_bits))
+            })
+            .collect(),
     }
-}
-
-/// Compute per-axis non-negative shifts for Morton coding.
-///
-/// Returns `(x_shift, y_shift)` where each shift equals `min.unsigned_abs()`
-/// when the axis minimum is negative, and `0` otherwise.
-fn morton_coordinate_shifts(decoded: &DecodedGeometry) -> (u32, u32) {
-    let Some(verts) = decoded.vertices.as_deref() else {
-        return (0, 0);
-    };
-    let min_x = verts.iter().copied().step_by(2).min().unwrap_or(0);
-    let min_y = verts.iter().copied().skip(1).step_by(2).min().unwrap_or(0);
-    let x_shift = if min_x < 0 { min_x.unsigned_abs() } else { 0 };
-    let y_shift = if min_y < 0 { min_y.unsigned_abs() } else { 0 };
-    (x_shift, y_shift)
 }
 
 /// Extract the `(x, y)` coordinate of the first vertex for feature `i`.
@@ -170,52 +172,10 @@ fn morton_coordinate_shifts(decoded: &DecodedGeometry) -> (u32, u32) {
 /// position in the flat vertex buffer.  Returns `None` if there are no
 /// vertices or the index is out of range.
 fn first_vertex(i: usize, decoded: &DecodedGeometry) -> Option<(i32, i32)> {
-    let verts = decoded.vertices.as_deref()?;
-
-    let vtx_pair_idx = match (
-        decoded.geometry_offsets.as_deref(),
-        decoded.part_offsets.as_deref(),
-        decoded.ring_offsets.as_deref(),
-    ) {
-        // Points: 1:1 with vertex pairs.
-        (None, None, None) => i,
-
-        // LineStrings / mixed Point+LineString:
-        // part_offsets[i] = start vertex pair for feature i.
-        (None, Some(parts), None) => *parts.get(i)? as usize,
-
-        // Polygons / mixed with rings:
-        // part_offsets[i] = start ring for feature i;
-        // ring_offsets[ring] = start vertex pair for that ring.
-        (None, Some(parts), Some(rings)) => {
-            let ring_start = *parts.get(i)? as usize;
-            *rings.get(ring_start)? as usize
-        }
-
-        // MultiPoint: geometry_offsets[i] = start vertex pair.
-        (Some(geoms), None, None) => *geoms.get(i)? as usize,
-
-        // Multi + parts: geometry_offsets[i] = start sub-geom;
-        //                part_offsets[sub-geom] = start vertex pair.
-        (Some(geoms), Some(parts), None) => {
-            let geom_start = *geoms.get(i)? as usize;
-            *parts.get(geom_start)? as usize
-        }
-
-        // Full hierarchy: geometry → sub-geom → ring → vertex.
-        (Some(geoms), Some(parts), Some(rings)) => {
-            let geom_start = *geoms.get(i)? as usize;
-            let part_start = *parts.get(geom_start)? as usize;
-            *rings.get(part_start)? as usize
-        }
-
-        // Any other combination is unexpected.
-        _ => return None,
-    };
-
-    let x = *verts.get(2 * vtx_pair_idx)?;
-    let y = *verts.get(2 * vtx_pair_idx + 1)?;
-    Some((x, y))
+    let rings = decoded.to_mvt_rings(i).ok()?;
+    let first_ring = rings.first()?;
+    let first_vtx = first_ring.first()?;
+    Some((first_vtx[0], first_vtx[1]))
 }
 
 /// Build a permutation such that `perm[new_position] = old_position`.
@@ -284,185 +244,17 @@ pub(crate) fn ensure_decoded(layer: &mut OwnedLayer01) -> Result<(), MltError> {
 /// | Some             | Some         | None         | MultiLines / mixed    |
 /// | Some             | Some         | Some         | MultiPolygons / mixed |
 fn permute_geometry(decoded: &mut DecodedGeometry, perm: &[usize]) {
-    let n = perm.len();
-
-    let old_types = std::mem::take(&mut decoded.vector_types);
-    decoded.vector_types = perm.iter().map(|&i| old_types[i]).collect();
-
-    let old_geom_offs = decoded.geometry_offsets.take();
-    let old_part_offs = decoded.part_offsets.take();
-    let old_ring_offs = decoded.ring_offsets.take();
-    let Some(old_verts) = decoded.vertices.take() else {
-        decoded.geometry_offsets = old_geom_offs;
-        decoded.part_offsets = old_part_offs;
-        decoded.ring_offsets = old_ring_offs;
-        return;
-    };
-
-    match (old_geom_offs, old_part_offs, old_ring_offs) {
-        // ── Case 1: Points ────────────────────────────────────────────────
-        (None, None, None) => {
-            decoded.vertices = Some(
-                perm.iter()
-                    .flat_map(|&i| [old_verts[2 * i], old_verts[2 * i + 1]])
-                    .collect(),
-            );
-        }
-
-        // ── Case 2: LineStrings (part_offsets → vertex pairs) ─────────────
-        (None, Some(old_parts), None) => {
-            let mut new_parts = Vec::with_capacity(n + 1);
-            let mut new_verts = Vec::new();
-            new_parts.push(0u32);
-            for &i in perm {
-                let vs = old_parts[i] as usize;
-                let ve = old_parts[i + 1] as usize;
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    reason = "offset differences originate as u32 values"
-                )]
-                new_parts.push(*new_parts.last().unwrap() + (ve - vs) as u32);
-                new_verts.extend_from_slice(&old_verts[2 * vs..2 * ve]);
-            }
-            decoded.part_offsets = Some(new_parts);
-            decoded.vertices = Some(new_verts);
-        }
-
-        // ── Case 3: Polygons (part_offsets → ring_offsets → vtx) ──────────
-        (None, Some(old_parts), Some(old_rings)) => {
-            let mut new_parts = Vec::with_capacity(n + 1);
-            let mut new_rings = Vec::new();
-            let mut new_verts = Vec::new();
-            new_parts.push(0u32);
-            new_rings.push(0u32);
-            for &i in perm {
-                let rs = old_parts[i] as usize;
-                let re = old_parts[i + 1] as usize;
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    reason = "offset differences originate as u32 values"
-                )]
-                new_parts.push(*new_parts.last().unwrap() + (re - rs) as u32);
-                for r in rs..re {
-                    let vs = old_rings[r] as usize;
-                    let ve = old_rings[r + 1] as usize;
-                    #[expect(
-                        clippy::cast_possible_truncation,
-                        reason = "offset differences originate as u32 values"
-                    )]
-                    new_rings.push(*new_rings.last().unwrap() + (ve - vs) as u32);
-                    new_verts.extend_from_slice(&old_verts[2 * vs..2 * ve]);
-                }
-            }
-            decoded.part_offsets = Some(new_parts);
-            decoded.ring_offsets = Some(new_rings);
-            decoded.vertices = Some(new_verts);
-        }
-
-        // ── Case 4: MultiPoints (geometry_offsets → vertex pairs) ─────────
-        (Some(old_geoms), None, None) => {
-            let mut new_geoms = Vec::with_capacity(n + 1);
-            let mut new_verts = Vec::new();
-            new_geoms.push(0u32);
-            for &i in perm {
-                let vs = old_geoms[i] as usize;
-                let ve = old_geoms[i + 1] as usize;
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    reason = "offset differences originate as u32 values"
-                )]
-                new_geoms.push(*new_geoms.last().unwrap() + (ve - vs) as u32);
-                new_verts.extend_from_slice(&old_verts[2 * vs..2 * ve]);
-            }
-            decoded.geometry_offsets = Some(new_geoms);
-            decoded.vertices = Some(new_verts);
-        }
-
-        // ── Case 5: MultiLines (geom_offs → part_offs → vertex pairs) ─────
-        (Some(old_geoms), Some(old_parts), None) => {
-            let total_geoms = *old_geoms.last().unwrap_or(&0) as usize;
-            let mut new_geoms = Vec::with_capacity(n + 1);
-            let mut new_parts = Vec::with_capacity(total_geoms + 1);
-            let mut new_verts = Vec::new();
-            new_geoms.push(0u32);
-            new_parts.push(0u32);
-            for &i in perm {
-                let gs = old_geoms[i] as usize;
-                let ge = old_geoms[i + 1] as usize;
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    reason = "offset differences originate as u32 values"
-                )]
-                new_geoms.push(*new_geoms.last().unwrap() + (ge - gs) as u32);
-                for g in gs..ge {
-                    let vs = old_parts[g] as usize;
-                    let ve = old_parts[g + 1] as usize;
-                    #[expect(
-                        clippy::cast_possible_truncation,
-                        reason = "offset differences originate as u32 values"
-                    )]
-                    new_parts.push(*new_parts.last().unwrap() + (ve - vs) as u32);
-                    new_verts.extend_from_slice(&old_verts[2 * vs..2 * ve]);
-                }
-            }
-            decoded.geometry_offsets = Some(new_geoms);
-            decoded.part_offsets = Some(new_parts);
-            decoded.vertices = Some(new_verts);
-        }
-
-        // ── Case 6: MultiPolygons (geom → part → ring → vertex pairs) ─────
-        (Some(old_geoms), Some(old_parts), Some(old_rings)) => {
-            let total_geoms = *old_geoms.last().unwrap_or(&0) as usize;
-            let total_parts = *old_parts.last().unwrap_or(&0) as usize;
-            let mut new_geoms = Vec::with_capacity(n + 1);
-            let mut new_parts = Vec::with_capacity(total_geoms + 1);
-            let mut new_rings = Vec::with_capacity(total_parts + 1);
-            let mut new_verts = Vec::new();
-            new_geoms.push(0u32);
-            new_parts.push(0u32);
-            new_rings.push(0u32);
-            for &i in perm {
-                let gs = old_geoms[i] as usize;
-                let ge = old_geoms[i + 1] as usize;
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    reason = "offset differences originate as u32 values"
-                )]
-                new_geoms.push(*new_geoms.last().unwrap() + (ge - gs) as u32);
-                for g in gs..ge {
-                    let ps = old_parts[g] as usize;
-                    let pe = old_parts[g + 1] as usize;
-                    #[expect(
-                        clippy::cast_possible_truncation,
-                        reason = "offset differences originate as u32 values"
-                    )]
-                    new_parts.push(*new_parts.last().unwrap() + (pe - ps) as u32);
-                    for r in ps..pe {
-                        let vs = old_rings[r] as usize;
-                        let ve = old_rings[r + 1] as usize;
-                        #[expect(
-                            clippy::cast_possible_truncation,
-                            reason = "offset differences originate as u32 values"
-                        )]
-                        new_rings.push(*new_rings.last().unwrap() + (ve - vs) as u32);
-                        new_verts.extend_from_slice(&old_verts[2 * vs..2 * ve]);
-                    }
-                }
-            }
-            decoded.geometry_offsets = Some(new_geoms);
-            decoded.part_offsets = Some(new_parts);
-            decoded.ring_offsets = Some(new_rings);
-            decoded.vertices = Some(new_verts);
-        }
-
-        // Unexpected combination — restore everything unchanged.
-        (old_geom_offs, old_part_offs, old_ring_offs) => {
-            decoded.geometry_offsets = old_geom_offs;
-            decoded.part_offsets = old_part_offs;
-            decoded.ring_offsets = old_ring_offs;
-            decoded.vertices = Some(old_verts);
-        }
+    let n = decoded.vector_types.len();
+    let mut geoms = Vec::with_capacity(n);
+    for i in 0..n {
+        geoms.push(decoded.to_geojson(i).unwrap());
     }
+
+    let mut new_decoded = DecodedGeometry::default();
+    for &i in perm {
+        new_decoded.push_geom(&geoms[i]);
+    }
+    *decoded = new_decoded;
 }
 
 fn permute_id(id: &mut DecodedId, perm: &[usize]) {
@@ -627,7 +419,7 @@ mod tests {
             properties: vec![],
         };
 
-        reorder_features(&mut layer, Some(strategy)).expect("reorder_features failed");
+        reorder_features(&mut layer, Some(strategy), false).expect("reorder_features failed");
         layer
     }
 

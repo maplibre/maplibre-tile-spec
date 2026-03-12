@@ -14,7 +14,7 @@ impl ManualOptimisation for OwnedLayer01 {
     type UsedEncoder = Tag01Encoder;
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        reorder_features(self, encoder.sort_strategy)?;
+        reorder_features(self, encoder.sort_strategy, encoder.allow_id_regeneration)?;
         if let Some(id) = encoder.id {
             self.id.manual_optimisation(id)?;
         }
@@ -33,7 +33,7 @@ impl ProfileOptimisation for OwnedLayer01 {
         profile: &Self::Profile,
     ) -> Result<Self::UsedEncoder, MltError> {
         let sort_strategy = profile.sort_strategy();
-        reorder_features(self, sort_strategy)?;
+        reorder_features(self, sort_strategy, false)?;
         let id = self.id.profile_driven_optimisation(&profile.id)?;
         let properties = self
             .properties
@@ -44,6 +44,7 @@ impl ProfileOptimisation for OwnedLayer01 {
 
         Ok(Tag01Encoder {
             sort_strategy,
+            allow_id_regeneration: false,
             id,
             properties,
             geometry,
@@ -118,7 +119,7 @@ impl AutomaticOptimisation for OwnedLayer01 {
 
         for &strategy in candidates {
             let mut trial = self.clone();
-            reorder_features(&mut trial, strategy)?;
+            reorder_features(&mut trial, strategy, false)?;
 
             let id = trial.id.automatic_encoding_optimisation()?;
             let properties = trial.properties.automatic_encoding_optimisation()?;
@@ -126,6 +127,7 @@ impl AutomaticOptimisation for OwnedLayer01 {
 
             let encoder = Tag01Encoder {
                 sort_strategy: strategy,
+                allow_id_regeneration: false,
                 id,
                 properties,
                 geometry,
@@ -165,6 +167,9 @@ pub struct Tag01Encoder {
     /// How to reorder features before encoding.  `None` preserves the
     /// original input order.
     pub sort_strategy: Option<SortStrategy>,
+    /// If true, feature IDs are reassigned to a continuous sequence (0, 1, 2, ...)
+    /// after sorting. This can significantly improve ID column compression.
+    pub allow_id_regeneration: bool,
     pub id: Option<IdEncoder>,
     pub properties: Vec<PropertyEncoder>,
     pub geometry: GeometryEncoder,
@@ -208,6 +213,9 @@ pub struct Tag01Profile {
     /// Index 0 is always `Option::None` (no sort); indices 1..=COUNT map to
     /// `SortStrategy::iter()` in declaration order.
     strategy_votes: [u32; SortStrategy::COUNT + 1],
+    /// If true, feature IDs are reassigned to a continuous sequence (0, 1, 2, ...)
+    /// after sorting. This can significantly improve ID column compression.
+    pub allow_id_regeneration: bool,
 
     pub id: IdProfile,
     pub properties: PropertyProfile,
@@ -224,6 +232,7 @@ impl Tag01Profile {
     #[must_use]
     pub fn new(
         sort_strategy: Option<SortStrategy>,
+        allow_id_regeneration: bool,
         id: IdProfile,
         properties: PropertyProfile,
         geometry: GeometryProfile,
@@ -232,6 +241,7 @@ impl Tag01Profile {
         strategy_votes[sort_strategy_index(sort_strategy)] = 1;
         Self {
             strategy_votes,
+            allow_id_regeneration,
             id,
             properties,
             geometry,
@@ -298,6 +308,7 @@ impl Tag01Profile {
 
         Self {
             strategy_votes: votes,
+            allow_id_regeneration: !self.allow_id_regeneration && !other.allow_id_regeneration,
             id: self.id.merge(&other.id),
             properties: self.properties.merge(&other.properties),
             geometry: self.geometry.merge(&other.geometry),
