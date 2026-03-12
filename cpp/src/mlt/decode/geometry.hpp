@@ -158,8 +158,6 @@ public:
                                 case PhysicalLevelTechnique::FAST_PFOR:
                                     throw std::runtime_error("FastPfor encoding for geometries is not yet supported.");
                                 case PhysicalLevelTechnique::NONE:
-                                case PhysicalLevelTechnique::ALP:
-                                    // TODO: other implementations are not clear on whether these are valid
                                 case PhysicalLevelTechnique::VARINT:
                                     intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t>(
                                         tileData, vertices, *geomStreamMetadata, /*isSigned=*/true);

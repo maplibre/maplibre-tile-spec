@@ -76,7 +76,7 @@ fn create_stream_from_test_case(test_case: &StreamTestCase) -> Stream<'_> {
     let data = match test_case.meta.encoding.physical {
         PhysicalEncoding::VarInt => StreamData::VarInt(test_case.data),
         PhysicalEncoding::None => StreamData::Encoded(test_case.data),
-        _ => panic!(
+        PhysicalEncoding::FastPFOR => panic!(
             "Unsupported physical encoding in test: {:?}",
             test_case.meta.encoding.physical
         ),
@@ -199,7 +199,6 @@ fn test_stream_roundtrip(
     let stream_data = match physical_encoding {
         PhysicalEncoding::None | PhysicalEncoding::FastPFOR => OwnedStreamData::Encoded(data_bytes),
         PhysicalEncoding::VarInt => OwnedStreamData::VarInt(data_bytes),
-        PhysicalEncoding::Alp => panic!("ALP not supported"),
     };
     let stream = OwnedStream {
         meta: StreamMeta::new(
