@@ -1,15 +1,32 @@
 use crate::MltError;
 
-/// Trait for types that can be constructed from encoded data
-pub(crate) trait FromEncoded<'a>: Sized {
-    type Input: 'a;
-    fn from_encoded(input: Self::Input) -> Result<Self, MltError>;
+/// Decoding counterpart to [`TryFrom`], used as a trait bound on [`Decodable::DecodedType`].
+///
+/// Mirrors the structure of [`TryFrom`] but is defined in this crate, which allows
+/// implementing it for foreign types like `Option<DecodedId>` without hitting the
+/// orphan rule that would block `impl TryFrom<Option<EncodedId<'_>>> for Option<DecodedId>`.
+pub trait Decode<Input>: Sized {
+    fn decode(input: Input) -> Result<Self, MltError>;
+}
+
+/// Decoding counterpart to [`TryInto`]: consume `self` and decode into `Output`.
+///
+/// A blanket impl is provided: any type that implements [`Decode<I>`] for `Self` as the input
+/// type gets `DecodeInto<Self>` implemented for `I`.
+pub trait DecodeInto<Output>: Sized {
+    fn decode_into(self) -> Result<Output, MltError>;
+}
+
+impl<I: Sized, O: Decode<I>> DecodeInto<O> for I {
+    fn decode_into(self) -> Result<O, MltError> {
+        O::decode(self)
+    }
 }
 
 /// Trait for enums that can be in either encoded or decoded form
 pub(crate) trait Decodable<'a>: Sized {
     type EncodedType;
-    type DecodedType: FromEncoded<'a, Input = Self::EncodedType>;
+    type DecodedType: Decode<Self::EncodedType>;
 
     /// Check if the data is still in encoded form
     fn is_encoded(&self) -> bool;
@@ -28,7 +45,7 @@ pub(crate) trait Decodable<'a>: Sized {
             let Some(enc) = self.take_encoded() else {
                 return Err(MltError::NotDecoded("decoded data"))?;
             };
-            let res = Self::DecodedType::from_encoded(enc)?;
+            let res: Self::DecodedType = enc.decode_into()?;
             *self = Self::new_decoded(res);
         }
         self.borrow_decoded_mut()
@@ -36,8 +53,9 @@ pub(crate) trait Decodable<'a>: Sized {
     }
 }
 
-/// Macro to implement the Decodable trait for enum types with Encoded and Decoded variants
-/// This macro is internal to the crate and not exposed to external users
+/// Macro to implement the Decodable trait for enum types with Encoded and Decoded variants.
+/// This macro is internal to the crate and not exposed to external users.
+/// Requires `DecodedType: Decode<EncodedType>` (satisfied by any `TryFrom<EncodedType, Error = MltError>`).
 macro_rules! impl_decodable {
     ($enum_type:ty, $encoded_type:ty, $decoded_type:ty) => {
         impl<'a> $crate::Decodable<'a> for $enum_type {

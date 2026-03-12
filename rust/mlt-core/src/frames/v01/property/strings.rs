@@ -17,7 +17,7 @@ use crate::v01::{
     OwnedName, OwnedPlainData, OwnedStream, PlainData, PresenceStream, PropertyEncoder,
     SharedDictEncoder, StrEncoder, Stream, StreamType,
 };
-use crate::{Analyze, MltError, StatType};
+use crate::{Analyze, DecodeInto, MltError, StatType};
 
 impl StrEncoder {
     #[must_use]
@@ -783,7 +783,10 @@ pub fn decode_strings<'a>(
     presence: EncodedPresence<'a>,
     encoding: EncodedStrings<'a>,
 ) -> Result<DecodedStrings<'a>, MltError> {
-    let presence = presence.0.map(Stream::decode_bools).transpose()?;
+    let presence = presence
+        .0
+        .map(DecodeInto::<Vec<bool>>::decode_into)
+        .transpose()?;
     match encoding {
         EncodedStrings::Plain(plain_data) => {
             let (data, lengths) = plain_data.decode()?;
@@ -798,13 +801,8 @@ pub fn decode_strings<'a>(
             offsets,
         } => {
             let (data, lengths) = plain_data.decode()?;
-            decode_dictionary_strings(
-                &name,
-                &lengths,
-                &offsets.decode_bits_u32()?.decode_u32()?,
-                presence.as_deref(),
-                data,
-            )
+            let offsets: Vec<u32> = offsets.decode_into()?;
+            decode_dictionary_strings(&name, &lengths, &offsets, presence.as_deref(), data)
         }
         EncodedStrings::FsstPlain(fsst_data) => {
             let (data, dict_lens) = fsst_data.decode()?;
@@ -815,14 +813,9 @@ pub fn decode_strings<'a>(
             })
         }
         EncodedStrings::FsstDictionary { fsst_data, offsets } => {
-            let (decompressed, lengths) = fsst_data.decode()?;
-            decode_dictionary_strings(
-                &name,
-                &lengths,
-                &offsets.decode_bits_u32()?.decode_u32()?,
-                presence.as_deref(),
-                &decompressed,
-            )
+            let (data, lengths) = fsst_data.decode()?;
+            let offsets: Vec<u32> = offsets.decode_into()?;
+            decode_dictionary_strings(&name, &lengths, &offsets, presence.as_deref(), &data)
         }
     }
 }
@@ -962,7 +955,7 @@ pub fn decode_shared_dict<'a>(
                 .presence
                 .0
                 .clone()
-                .map(Stream::decode_bools)
+                .map(DecodeInto::<Vec<bool>>::decode_into)
                 .transpose()?;
             let ranges = resolve_dict_spans(&offsets, presence.as_deref(), &dict_spans)?
                 .into_iter()

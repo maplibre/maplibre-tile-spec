@@ -1,8 +1,8 @@
-use crate::MltError;
-use crate::decode::{FromEncoded, impl_decodable};
+use crate::decode::impl_decodable;
 use crate::encode::impl_encodable;
 use crate::utils::apply_present;
 use crate::v01::{DecodedId, EncodedId, EncodedIdValue, Id, OwnedEncodedId, OwnedId, Stream};
+use crate::{Decode, DecodeInto as _, MltError};
 
 impl_decodable!(Id<'a>, Option<EncodedId<'a>>, Option<DecodedId>);
 impl_encodable!(OwnedId, Option<DecodedId>, Option<OwnedEncodedId>);
@@ -22,7 +22,7 @@ impl<'a> Id<'a> {
     #[inline]
     pub fn decode(self) -> Result<DecodedId, MltError> {
         Ok(match self {
-            Self::Encoded(v) => Option::<DecodedId>::from_encoded(v)?.unwrap_or_default(),
+            Self::Encoded(v) => Option::<DecodedId>::decode(v)?.unwrap_or_default(),
             Self::Decoded(v) => v.unwrap_or_default(),
         })
     }
@@ -35,33 +35,28 @@ impl DecodedId {
     }
 }
 
-impl<'a> FromEncoded<'a> for DecodedId {
-    type Input = EncodedId<'a>;
+impl TryFrom<EncodedId<'_>> for DecodedId {
+    type Error = MltError;
 
-    fn from_encoded(EncodedId { presence, value }: EncodedId<'_>) -> Result<Self, MltError> {
+    fn try_from(EncodedId { presence, value }: EncodedId<'_>) -> Result<Self, MltError> {
         // Decode the ID values first
         let ids_u64: Vec<u64> = match value {
             EncodedIdValue::Id32(stream) => {
                 // Decode 32-bit IDs as u32, then convert to u64
-                let ids: Vec<u32> = stream.decode_bits_u32()?.decode_u32()?;
+                let ids: Vec<u32> = stream.decode_into()?;
                 ids.into_iter().map(u64::from).collect()
             }
             EncodedIdValue::Id64(stream) => {
                 // Decode 64-bit IDs directly as u64
-                stream.decode_u64()?
+                stream.decode_into()?
             }
         };
-
-        let ids_optional = apply_present(presence, ids_u64)?;
-
-        Ok(DecodedId(ids_optional))
+        Ok(DecodedId(apply_present(presence, ids_u64)?))
     }
 }
 
-impl<'a> FromEncoded<'a> for Option<DecodedId> {
-    type Input = Option<EncodedId<'a>>;
-
-    fn from_encoded(input: Option<EncodedId<'_>>) -> Result<Self, MltError> {
-        input.map(DecodedId::from_encoded).transpose()
+impl<'a> Decode<Option<EncodedId<'a>>> for Option<DecodedId> {
+    fn decode(input: Option<EncodedId<'a>>) -> Result<Self, MltError> {
+        input.map(DecodedId::try_from).transpose()
     }
 }

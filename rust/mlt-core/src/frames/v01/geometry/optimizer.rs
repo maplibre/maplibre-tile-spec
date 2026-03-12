@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
+use crate::decode::Decode as _;
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::encode::{encode_geometry, z_order_params};
 use crate::v01::{
     DataProfile, DecodedGeometry, DictionaryType, GeometryEncoder, IntEncoder, LengthType,
     OffsetType, OwnedEncodedGeometry, OwnedGeometry, StreamType, VertexBufferType,
 };
-use crate::{FromDecoded as _, FromEncoded as _, MltError};
+use crate::{FromDecoded as _, MltError};
 
 /// If the ratio of unique vertices to total vertices is below this threshold,
 /// Morton dictionary encoding is preferred over Vec2 componentwise-delta.
@@ -268,7 +269,7 @@ impl ProfileOptimisation for OwnedGeometry {
                 Ok(enc)
             }
             OwnedGeometry::Encoded(e) => {
-                let dec = DecodedGeometry::from_encoded(borrowme::borrow(e))?;
+                let dec = DecodedGeometry::decode(borrowme::borrow(e))?;
                 *self = OwnedGeometry::Decoded(dec);
                 self.profile_driven_optimisation(profile)
             }
@@ -287,7 +288,7 @@ impl AutomaticOptimisation for OwnedGeometry {
                 Ok(enc)
             }
             OwnedGeometry::Encoded(e) => {
-                let dec = DecodedGeometry::from_encoded(borrowme::borrow(e))?;
+                let dec = DecodedGeometry::decode(borrowme::borrow(e))?;
                 *self = OwnedGeometry::Decoded(dec);
                 self.automatic_encoding_optimisation()
             }
