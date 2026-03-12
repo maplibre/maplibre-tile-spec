@@ -247,7 +247,7 @@ Example of decoding MLT files:
 java -jar mlt-cli/build/libs/decode.jar --mlt /tmp/point-boolean.mlt
 ```
 
-For more details, see [README-Encode.md](README-Encode.md) and [README-Encode.md](README-Decode.md).
+For more details, see [README-Encode.md](README-Encode.md) and [README-Decode.md](README-Decode.md).
 
 ## Contributing
 
