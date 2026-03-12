@@ -63,7 +63,7 @@ object Decode {
 
         if (args.isEmpty()) {
             showHelp(options)
-            return
+            System.exit(1)
         }
         try {
             val cmd = DefaultParser().parse(options, args)
