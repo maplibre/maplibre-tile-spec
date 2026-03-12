@@ -12,5 +12,6 @@ pub use id::*;
 pub use model::*;
 pub use optimizer::*;
 pub use property::*;
-pub use root::*;
+#[cfg(fuzzing)]
+pub use root::LayerOrdering;
 pub use stream::*;

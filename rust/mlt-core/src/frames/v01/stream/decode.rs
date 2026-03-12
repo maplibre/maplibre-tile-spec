@@ -12,7 +12,7 @@ impl Stream<'_> {
         let num_values = self.meta.num_values.as_usize();
         let num_bytes = num_values.div_ceil(8);
         let raw = match &self.data {
-            StreamData::Encoded(d) => d.data,
+            StreamData::Encoded(v) => v,
             StreamData::VarInt(_) => {
                 return Err(MltError::NotImplemented("varint bool decoding"));
             }
@@ -51,25 +51,22 @@ impl Stream<'_> {
     pub fn decode_bits_u32(&self) -> Result<LogicalValue, MltError> {
         let value = match self.meta.encoding.physical {
             PhysicalEncoding::VarInt => match &self.data {
-                StreamData::VarInt(data) => all(parse_varint_vec::<u32, u32>(
-                    data.data,
-                    self.meta.num_values,
-                )?),
+                StreamData::VarInt(v) => {
+                    all(parse_varint_vec::<u32, u32>(v, self.meta.num_values)?)
+                }
                 StreamData::Encoded(_) => {
                     return Err(MltError::StreamDataMismatch("VarInt", "Encoded"));
                 }
             },
             PhysicalEncoding::None => match &self.data {
-                StreamData::Encoded(data) => {
-                    all(decode_bytes_to_u32s(data.data, self.meta.num_values)?)
-                }
+                StreamData::Encoded(v) => all(decode_bytes_to_u32s(v, self.meta.num_values)?),
                 StreamData::VarInt(_) => {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
                 }
             },
             PhysicalEncoding::FastPFOR => match &self.data {
-                StreamData::Encoded(data) => Ok(decode_fastpfor_composite(
-                    data.data,
+                StreamData::Encoded(v) => Ok(decode_fastpfor_composite(
+                    v,
                     self.meta.num_values.as_usize(),
                 )?),
                 StreamData::VarInt(_) => {
@@ -94,18 +91,15 @@ impl Stream<'_> {
     pub fn decode_bits_u64(self) -> Result<LogicalValue, MltError> {
         let value = match self.meta.encoding.physical {
             PhysicalEncoding::VarInt => match self.data {
-                StreamData::VarInt(data) => all(parse_varint_vec::<u64, u64>(
-                    data.data,
-                    self.meta.num_values,
-                )?),
+                StreamData::VarInt(v) => {
+                    all(parse_varint_vec::<u64, u64>(v, self.meta.num_values)?)
+                }
                 StreamData::Encoded(_) => {
                     return Err(MltError::StreamDataMismatch("VarInt", "Encoded"));
                 }
             },
             PhysicalEncoding::None => match self.data {
-                StreamData::Encoded(data) => {
-                    all(decode_bytes_to_u64s(data.data, self.meta.num_values)?)
-                }
+                StreamData::Encoded(v) => all(decode_bytes_to_u64s(v, self.meta.num_values)?),
                 StreamData::VarInt(_) => {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
                 }
@@ -124,7 +118,7 @@ impl Stream<'_> {
     /// Decode a stream of f32 values from raw little-endian bytes
     pub fn decode_f32(self) -> Result<Vec<f32>, MltError> {
         let raw = match &self.data {
-            StreamData::Encoded(d) => d.data,
+            StreamData::Encoded(v) => v,
             StreamData::VarInt(_) => {
                 return Err(MltError::NotImplemented("varint f32 decoding"));
             }
@@ -151,7 +145,7 @@ impl Stream<'_> {
     /// Decode a stream of f64 values from raw little-endian bytes
     pub fn decode_f64(self) -> Result<Vec<f64>, MltError> {
         let raw = match &self.data {
-            StreamData::Encoded(d) => d.data,
+            StreamData::Encoded(v) => v,
             StreamData::VarInt(_) => {
                 return Err(MltError::NotImplemented("varint f64 decoding"));
             }

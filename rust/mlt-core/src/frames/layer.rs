@@ -5,7 +5,7 @@ use std::io::Write;
 use integer_encoding::VarIntWriter as _;
 use utils::BinarySerializer as _;
 
-use crate::frames::unknown::Unknown;
+use crate::frames::Unknown;
 use crate::frames::v01::Layer01;
 use crate::utils::{checked_sum2, parse_u8, parse_varint, take};
 use crate::{Layer, MltError, MltRefResult, OwnedLayer, utils};

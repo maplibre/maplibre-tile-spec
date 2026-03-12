@@ -226,7 +226,12 @@ impl DecodedStrings<'_> {
 
 impl Analyze for DecodedStrings<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
-        self.dense_values().collect_statistic(stat)
+        let meta = if stat == StatType::DecodedMetaSize {
+            self.name.len()
+        } else {
+            0
+        };
+        meta + self.dense_values().collect_statistic(stat)
     }
 }
 

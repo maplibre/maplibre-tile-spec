@@ -1,7 +1,9 @@
 use std::borrow::Cow;
 
 use borrowme::borrowme;
+use enum_dispatch::enum_dispatch;
 
+use crate::analyse::{Analyze, StatType};
 use crate::v01::{FsstStrEncoder, IntEncoder, Stream};
 
 #[borrowme(name = OwnedName)]
@@ -28,6 +30,7 @@ impl<'a> From<&NameRef<'a>> for Cow<'a, str> {
     all(not(test), feature = "arbitrary"),
     owned_attr(derive(arbitrary::Arbitrary))
 )]
+#[enum_dispatch(Analyze)]
 pub enum Property<'a> {
     Encoded(EncodedProperty<'a>),
     Decoded(DecodedProperty<'a>),
@@ -65,24 +68,25 @@ pub enum EncodedProperty<'a> {
 /// Decoded property values in a typed enum form.
 #[derive(Clone, PartialEq, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
+#[enum_dispatch(Analyze)]
 pub enum DecodedProperty<'a> {
-    Bool(DecodedScalar<bool>),
-    I8(DecodedScalar<i8>),
-    U8(DecodedScalar<u8>),
-    I32(DecodedScalar<i32>),
-    U32(DecodedScalar<u32>),
-    I64(DecodedScalar<i64>),
-    U64(DecodedScalar<u64>),
-    F32(DecodedScalar<f32>),
-    F64(DecodedScalar<f64>),
+    Bool(DecodedScalar<'a, bool>),
+    I8(DecodedScalar<'a, i8>),
+    U8(DecodedScalar<'a, u8>),
+    I32(DecodedScalar<'a, i32>),
+    U32(DecodedScalar<'a, u32>),
+    I64(DecodedScalar<'a, i64>),
+    U64(DecodedScalar<'a, u64>),
+    F32(DecodedScalar<'a, f32>),
+    F64(DecodedScalar<'a, f64>),
     Str(DecodedStrings<'a>),
     SharedDict(DecodedSharedDict<'a>),
 }
 
 #[derive(Clone, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct DecodedScalar<T: Copy + PartialEq> {
-    pub name: String,
+pub struct DecodedScalar<'a, T: Copy + PartialEq> {
+    pub name: Cow<'a, str>,
     pub values: Vec<Option<T>>,
 }
 

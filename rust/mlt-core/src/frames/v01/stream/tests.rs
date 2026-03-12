@@ -7,10 +7,10 @@ use crate::utils::BinarySerializer as _;
 use crate::v01::stream::encoder::IntEncoder;
 use crate::v01::stream::logical::LogicalEncoder;
 use crate::v01::{
-    DataVarInt, DictionaryType, EncodedData, EncodedPresence, EncodedStrings, FsstData,
-    IntEncoding, LengthType, LogicalData, LogicalEncoding, LogicalValue, MortonMeta, NameRef,
-    OffsetType, OwnedDataVarInt, OwnedEncodedData, OwnedStream, OwnedStreamData, PhysicalEncoder,
-    PhysicalEncoding, PlainData, RleMeta, Stream, StreamMeta, StreamType, decode_strings,
+    DictionaryType, EncodedPresence, EncodedStrings, FsstData, IntEncoding, LengthType,
+    LogicalData, LogicalEncoding, LogicalValue, MortonMeta, NameRef, OffsetType, OwnedStream,
+    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, PlainData, RleMeta, Stream, StreamData,
+    StreamMeta, StreamType, decode_strings,
 };
 
 /// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
@@ -74,8 +74,8 @@ fn generate_stream_test_cases() -> Vec<StreamTestCase> {
 
 fn create_stream_from_test_case(test_case: &StreamTestCase) -> Stream<'_> {
     let data = match test_case.meta.encoding.physical {
-        PhysicalEncoding::VarInt => DataVarInt::new(test_case.data),
-        PhysicalEncoding::None => EncodedData::new(test_case.data),
+        PhysicalEncoding::VarInt => StreamData::VarInt(test_case.data),
+        PhysicalEncoding::None => StreamData::Encoded(test_case.data),
         _ => panic!(
             "Unsupported physical encoding in test: {:?}",
             test_case.meta.encoding.physical
@@ -196,13 +196,9 @@ fn test_stream_roundtrip(
     #[case] data_bytes: Vec<u8>,
     #[case] is_bool: bool,
 ) {
-    use crate::v01::StreamData;
-
     let stream_data = match physical_encoding {
-        PhysicalEncoding::None | PhysicalEncoding::FastPFOR => {
-            OwnedStreamData::Encoded(OwnedEncodedData { data: data_bytes })
-        }
-        PhysicalEncoding::VarInt => OwnedStreamData::VarInt(OwnedDataVarInt { data: data_bytes }),
+        PhysicalEncoding::None | PhysicalEncoding::FastPFOR => OwnedStreamData::Encoded(data_bytes),
+        PhysicalEncoding::VarInt => OwnedStreamData::VarInt(data_bytes),
         PhysicalEncoding::Alp => panic!("ALP not supported"),
     };
     let stream = OwnedStream {
@@ -234,10 +230,10 @@ fn test_stream_roundtrip(
 
     match (&stream.data, &parsed.data) {
         (OwnedStreamData::Encoded(exp), StreamData::Encoded(act)) => {
-            assert_eq!(exp.data.as_slice(), act.data, "raw data mismatch");
+            assert_eq!(exp.as_slice(), *act, "raw data mismatch");
         }
         (OwnedStreamData::VarInt(exp), StreamData::VarInt(act)) => {
-            assert_eq!(exp.data.as_slice(), act.data, "varint data mismatch");
+            assert_eq!(exp.as_slice(), *act, "varint data mismatch");
         }
         _ => panic!("data type mismatch"),
     }

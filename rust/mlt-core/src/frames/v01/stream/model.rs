@@ -1,8 +1,6 @@
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
-use crate::v01::StreamData;
-
 /// Logical encoding technique used for a column, as stored in the tile
 #[borrowme]
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
@@ -145,4 +143,11 @@ pub struct StreamMeta {
 pub struct Stream<'a> {
     pub meta: StreamMeta,
     pub data: StreamData<'a>,
+}
+
+#[borrowme::borrowme]
+#[derive(PartialEq, Clone)]
+pub enum StreamData<'a> {
+    VarInt(#[borrowme(borrow_with=Vec::as_slice)] &'a [u8]),
+    Encoded(#[borrowme(borrow_with=Vec::as_slice)] &'a [u8]),
 }

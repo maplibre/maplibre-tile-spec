@@ -2,9 +2,9 @@ use crate::MltError;
 use crate::encode::FromDecoded;
 use crate::utils::{encode_bools_to_bytes, encode_byte_rle};
 use crate::v01::{
-    DecodedId, IdWidth, IntEncoder, IntEncoding, LogicalEncoder, LogicalEncoding, OwnedEncodedData,
-    OwnedEncodedId, OwnedEncodedIdValue, OwnedStream, OwnedStreamData, PhysicalEncoder,
-    PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+    DecodedId, IdWidth, IntEncoder, IntEncoding, LogicalEncoder, LogicalEncoding, OwnedEncodedId,
+    OwnedEncodedIdValue, OwnedStream, OwnedStreamData, PhysicalEncoder, PhysicalEncoding, RleMeta,
+    StreamMeta, StreamType,
 };
 
 /// How to encode IDs
@@ -64,7 +64,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
 
             Some(OwnedStream {
                 meta,
-                data: OwnedStreamData::Encoded(OwnedEncodedData { data }),
+                data: OwnedStreamData::Encoded(data),
             })
         } else {
             None
