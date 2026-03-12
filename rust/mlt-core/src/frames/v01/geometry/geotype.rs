@@ -1,8 +1,8 @@
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 
 use crate::MltError::{
-    self, GeometryOutOfBounds, GeometryVertexOutOfBounds,
-    NoGeometryOffsets, NoPartOffsets, NoRingOffsets,
+    self, GeometryOutOfBounds, GeometryVertexOutOfBounds, NoGeometryOffsets, NoPartOffsets,
+    NoRingOffsets,
 };
 use crate::geojson::{Coord32, Geom32};
 use crate::utils::AsUsize as _;

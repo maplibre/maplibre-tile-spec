@@ -55,7 +55,7 @@ fn test_shared_morton_shift() {
     // P1: sx = -10 + 10 = 0, sy = 0 + 10 = 10 -> key interleave(0, 10)
     // P2: sx = 0 + 10 = 10, sy = -10 + 10 = 0 -> key interleave(10, 0)
     // No collision. P1 should come before P2 in interleave(0,10) < interleave(10,0).
-    
+
     let mut layer = build_layer(&[pt(0, -10), pt(-10, 0)], &[Some(1), Some(2)]);
     sort_layer(&mut layer, SortStrategy::SpatialMorton);
 
@@ -94,10 +94,7 @@ fn test_shared_morton_shift() {
 
 #[test]
 fn test_id_sort_nulls_first() {
-    let mut layer = build_layer(
-        &[pt(2, 2), pt(1, 1), pt(0, 0)],
-        &[Some(10), None, Some(5)],
-    );
+    let mut layer = build_layer(&[pt(2, 2), pt(1, 1), pt(0, 0)], &[Some(10), None, Some(5)]);
     sort_layer(&mut layer, SortStrategy::Id);
 
     let ids = match &layer.id {
@@ -123,7 +120,7 @@ fn test_mixed_geometry_morton_sort() {
     // LS(0,0) -> 0
     // P2(1,0) -> 1
     // Expected order: [LS, P2, P1]
-    
+
     let mut layer = build_layer(
         &[pt(2, 0), ls(&[(0, 0), (0, 5)]), pt(1, 0)],
         &[Some(1), Some(2), Some(3)],
