@@ -229,7 +229,7 @@ private fun encodePMTiles(
 
     val newMetadata =
         updateMetadata(reader.metadata(), minZoom, maxZoom, targetCompressType)
-    val state = ConversionState(targetConfig, if (config.trackPmtiles) ConcurrentHashMap() else null)
+    val state = ConversionState(targetConfig)
 
     try {
         writer.newTileWriter().use { tileWriter ->
@@ -370,14 +370,16 @@ private fun processTileRange(
         }
     }
 
-    state.offsetToHashMap?.get(tileRef.byteRange.offset)?.let { tileHash ->
-        // Already processed this input tile for a different tile coordinate range.
-        // Pass an empty result with the same hash to the writer.  Rely on
-        // `WritablePmtiles.DeduplicatingTileArchiveWriter` to locate the previous entry and
-        // never write this empty result, though it provides no feedback we can use to check.
-        writeTiles(ArrayUtils.EMPTY_BYTE_ARRAY, OptionalLong.of(tileHash), tileCoords, writer)
-        // nothing more to do for this tile range
-        return@processTileRange true
+    if (tileRef.byteRange.length <= maxTileTrackSize) {
+        state.offsetToHashMap.get(tileRef.byteRange.offset)?.let { tileHash ->
+            // Already processed this input tile for a different tile coordinate range.
+            // Pass an empty result with the same hash to the writer.  Rely on
+            // `WritablePmtiles.DeduplicatingTileArchiveWriter` to locate the previous entry and
+            // never write this empty result, though it provides no feedback we can use to check.
+            writeTiles(ArrayUtils.EMPTY_BYTE_ARRAY, OptionalLong.of(tileHash), tileCoords, writer)
+            // nothing more to do for this tile range
+            return@processTileRange true
+        }
     }
 
     // Get the raw tile contents
@@ -428,7 +430,12 @@ private fun processTileRange(
     if (mltData != null && mltData.size > 0) {
         val hash = OptionalLong.of(TileArchiveWriter.generateContentHash(mltData))
 
-        val existingHash = state.offsetToHashMap?.putIfAbsent(tileRef.byteRange.offset, hash.asLong)
+        val existingHash =
+            if (tileRef.byteRange.length <= maxTileTrackSize) {
+                state.offsetToHashMap.putIfAbsent(tileRef.byteRange.offset, hash.asLong)
+            } else {
+                null
+            }
         if (existingHash != null) {
             // The value was already present.  This indicates that another thread processed the
             // same input tile since we checked above, and this thread's result will be ignored.
@@ -503,7 +510,7 @@ private data class ConversionState(
     val encodeConfig: EncodeConfig,
     // Used to track tile hashes to identify repeated tiles in separate tile ranges.
     // Maps from the byte offset in the source file to the hash of the generated contents.
-    val offsetToHashMap: ConcurrentHashMap<Long, Long>?,
+    val offsetToHashMap: ConcurrentHashMap<Long, Long> = ConcurrentHashMap(),
     // The number of tiles processed so far
     val tilesProcessed: AtomicLong = AtomicLong(0),
     val tilesConverted: AtomicLong = AtomicLong(0),

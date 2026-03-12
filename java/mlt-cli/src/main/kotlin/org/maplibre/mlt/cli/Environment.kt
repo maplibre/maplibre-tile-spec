@@ -40,6 +40,10 @@ const val ENV_CACHE_BLOCK_SIZE = "MLT_CACHE_BLOCK_SIZE"
 const val DEFAULT_CACHE_BLOCK_SIZE = 16 * 1024
 val cacheBlockSize by lazy { computeCacheBlockSize() }
 
+const val ENV_MAX_TILE_TRACK_SIZE = "MLT_MAX_TILE_TRACK_SIZE"
+const val DEFAULT_MAX_TILE_TRACK_SIZE = 1024
+val maxTileTrackSize by lazy { computeMaxTileTrackSize() }
+
 val defaultEnvResolver: (String) -> String? = { name -> System.getenv(name) }
 
 /** Use the provided function to resolve environment variables.
@@ -113,3 +117,6 @@ internal fun computeCacheBlockSize() =
             throw IllegalArgumentException("Cache block size must not be negative")
         }
     }
+
+internal fun computeMaxTileTrackSize() =
+    resolveConfigValue(ENV_MAX_TILE_TRACK_SIZE, DEFAULT_MAX_TILE_TRACK_SIZE, String::toInt).let { it.coerceAtLeast(0) }

@@ -178,5 +178,25 @@ class EnvironmentResolverTest {
         assertThrows(illegalArgType) { computeCacheBlockSize() }.andContains("not be negative")
     }
 
+    @Test
+    fun `maxTileTrackSize success`() {
+        envResolver = { name -> if (name == ENV_MAX_TILE_TRACK_SIZE) "12345" else null }
+        assertEquals(12345, computeMaxTileTrackSize())
+    }
+
+    @Test
+    fun `maxTileTrackSize parser failure returns default`() {
+        envResolver = { name -> if (name == ENV_MAX_TILE_TRACK_SIZE) "x" else null }
+        assertEquals(DEFAULT_MAX_TILE_TRACK_SIZE, computeMaxTileTrackSize())
+    }
+
+    @Test
+    fun `maxTileTrackSize accepts zero and negative`() {
+        envResolver = { name -> if (name == ENV_MAX_TILE_TRACK_SIZE) "0" else null }
+        assertEquals(0, computeMaxTileTrackSize())
+        envResolver = { name -> if (name == ENV_MAX_TILE_TRACK_SIZE) "-1" else null }
+        assertEquals(0, computeMaxTileTrackSize())
+    }
+
     private val illegalArgType = IllegalArgumentException::class.java
 }

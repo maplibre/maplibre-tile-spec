@@ -150,7 +150,6 @@ object Encode {
                 willTime = cmd.hasOption(EncodeCommandLine.TIMER_OPTION),
                 taskRunner = taskRunner,
                 continueOnError = cmd.hasOption(EncodeCommandLine.CONTINUE_OPTION),
-                trackPmtiles = !cmd.hasOption(EncodeCommandLine.PMTILES_TRACK_OPTION),
                 logCacheStats = cmd.hasOption(EncodeCommandLine.CACHE_STATS_OPTION),
             )
 

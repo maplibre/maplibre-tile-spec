@@ -29,7 +29,6 @@ internal object EncodeCommandLine {
     const val INPUT_MBTILES_ARG = "mbtiles"
     const val INPUT_OFFLINEDB_ARG = "offlinedb"
     const val INPUT_PMTILES_ARG = "pmtiles"
-    const val PMTILES_TRACK_OPTION = "pmtiles-no-track"
     const val OUTPUT_DIR_ARG = "dir"
     const val OUTPUT_FILE_ARG = "mlt"
     const val EXCLUDE_IDS_OPTION = "noids"
@@ -239,17 +238,6 @@ internal object EncodeCommandLine {
                         ),
                     ).required(false)
                     .converter(Converter.NUMBER)
-                    .get(),
-            )
-            options.addOption(
-                Option
-                    .builder()
-                    .longOpt(PMTILES_TRACK_OPTION)
-                    .hasArg(false)
-                    .desc(
-                        "Disable an optimization of PMTiles processing to reduce memory use." +
-                            "  Only applies with --" + INPUT_PMTILES_ARG,
-                    ).required(false)
                     .get(),
             )
             options.addOption(
@@ -666,6 +654,9 @@ Add an explicit column mapping on the specified layers:
                 "  store aligned blocks of that size. (default: " + DEFAULT_CACHE_BLOCK_SIZE.toString() + ")\n" +
                 " " + ENV_CACHE_AVERAGE_WEIGHT + ": Average size of tiles in bytes. (default: " + DEFAULT_CACHE_AVERAGE_WEIGHT + ")\n" +
                 "  Zero disables initial cache size estimation.\n" +
+                " " + ENV_MAX_TILE_TRACK_SIZE + ": Maximum size of PMTiles tiles to track for duplicate detection. (default: " +
+                DEFAULT_MAX_TILE_TRACK_SIZE +
+                ")\n" +
                 " All cache options only apply with --" + INPUT_PMTILES_ARG + ".\n"
 
         val target = TextHelpAppendable(System.err)
