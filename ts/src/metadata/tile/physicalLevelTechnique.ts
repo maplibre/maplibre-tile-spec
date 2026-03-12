@@ -10,8 +10,4 @@ export enum PhysicalLevelTechnique {
      * Simple compression scheme where the decoder are easier to implement compared to FastPfor.
      */
     VARINT = "VARINT",
-    /**
-     * Adaptive Lossless floating-Point Compression
-     */
-    ALP = "ALP",
 }
