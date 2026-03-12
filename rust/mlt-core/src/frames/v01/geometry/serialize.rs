@@ -6,7 +6,7 @@ use integer_encoding::VarIntWriter as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2, parse_varint};
 use crate::v01::{
     ColumnType, DecodedGeometry, DictionaryType, EncodedGeometry, Geometry, IntEncoding,
-    OwnedEncodedGeometry, OwnedGeometry, OwnedStream, Stream, StreamData, StreamMeta, StreamType,
+    OwnedEncodedGeometry, OwnedGeometry, Stream, StreamData, StreamMeta, StreamType,
 };
 use crate::{FromEncoded as _, MltError};
 
@@ -24,15 +24,6 @@ impl OwnedGeometry {
         match self {
             Self::Encoded(r) => r.write_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
-        }
-    }
-}
-
-impl Default for OwnedEncodedGeometry {
-    fn default() -> Self {
-        Self {
-            meta: OwnedStream::empty_without_encoding(),
-            items: Vec::new(),
         }
     }
 }
