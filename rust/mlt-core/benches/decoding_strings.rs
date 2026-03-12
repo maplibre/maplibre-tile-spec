@@ -1,6 +1,5 @@
 use std::hint::black_box;
 
-use borrowme::borrow;
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
     DecodedStrings, DictionaryType, EncodedPresence, IntEncoder, LengthType, LogicalEncoder,
@@ -108,7 +107,7 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
                     &encoded,
                     |b, encoded| {
                         b.iter_batched(
-                            || borrow(encoded),
+                            || encoded.as_borrowed(),
                             |enc| {
                                 black_box(
                                     decode_strings(NameRef(""), EncodedPresence(None), enc)
@@ -144,7 +143,7 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
                     &encoded,
                     |b, encoded| {
                         b.iter_batched(
-                            || borrow(encoded),
+                            || encoded.as_borrowed(),
                             |enc| {
                                 black_box(
                                     decode_strings(NameRef(""), EncodedPresence(None), enc)
@@ -174,7 +173,7 @@ fn bench_encoding_type(c: &mut Criterion) {
         let plain = encode_plain(&strings, int_enc);
         group.bench_with_input(BenchmarkId::new("plain", n), &plain, |b, encoded| {
             b.iter_batched(
-                || borrow(encoded),
+                || encoded.as_borrowed(),
                 |enc| {
                     black_box(
                         decode_strings(NameRef(""), EncodedPresence(None), enc)
@@ -188,7 +187,7 @@ fn bench_encoding_type(c: &mut Criterion) {
         let fsst = encode_fsst(&strings, int_enc);
         group.bench_with_input(BenchmarkId::new("fsst", n), &fsst, |b, encoded| {
             b.iter_batched(
-                || borrow(encoded),
+                || encoded.as_borrowed(),
                 |enc| {
                     black_box(
                         decode_strings(NameRef(""), EncodedPresence(None), enc)
@@ -220,7 +219,7 @@ fn bench_presence(c: &mut Criterion) {
             &enc_no_nulls,
             |b, encoded| {
                 b.iter_batched(
-                    || borrow(encoded),
+                    || encoded.as_borrowed(),
                     |enc| {
                         black_box(
                             decode_strings(NameRef(""), EncodedPresence(None), enc)
@@ -246,7 +245,7 @@ fn bench_presence(c: &mut Criterion) {
             &with_nulls,
             |b, (pres, enc)| {
                 b.iter_batched(
-                    || (borrow(pres), borrow(enc)),
+                    || (pres.as_borrowed(), enc.as_borrowed()),
                     |(p, e)| {
                         black_box(
                             decode_strings(NameRef(""), EncodedPresence(Some(p)), e)
@@ -283,7 +282,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         let enc_plain = encode_plain(&strings, int_enc);
         group.bench_with_input(BenchmarkId::new("plain_x2", n), &enc_plain, |b, encoded| {
             b.iter_batched(
-                || (borrow(encoded), borrow(encoded)),
+                || (encoded.as_borrowed(), encoded.as_borrowed()),
                 |(e1, e2)| {
                     black_box(
                         decode_strings(NameRef(""), EncodedPresence(None), e1)
@@ -345,8 +344,9 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             |b, (sd, children)| {
                 b.iter_batched(
                     || {
-                        let sd_ref = borrow(sd);
-                        let ch_refs: Vec<_> = children.iter().map(borrow).collect();
+                        let sd_ref = sd.as_borrowed();
+                        let ch_refs: Vec<_> =
+                            children.iter().map(|child| child.as_borrowed()).collect();
                         (sd_ref, ch_refs)
                     },
                     |(sd_ref, ch_refs)| {
@@ -382,8 +382,9 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             |b, (sd, children)| {
                 b.iter_batched(
                     || {
-                        let sd_ref = borrow(sd);
-                        let ch_refs: Vec<_> = children.iter().map(borrow).collect();
+                        let sd_ref = sd.as_borrowed();
+                        let ch_refs: Vec<_> =
+                            children.iter().map(|child| child.as_borrowed()).collect();
                         (sd_ref, ch_refs)
                     },
                     |(sd_ref, ch_refs)| {
@@ -401,7 +402,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         let enc_fsst = encode_fsst(&strings, int_enc);
         group.bench_with_input(BenchmarkId::new("fsst_x2", n), &enc_fsst, |b, encoded| {
             b.iter_batched(
-                || (borrow(encoded), borrow(encoded)),
+                || (encoded.as_borrowed(), encoded.as_borrowed()),
                 |(e1, e2)| {
                     black_box(
                         decode_strings(NameRef(""), EncodedPresence(None), e1)

@@ -1,5 +1,5 @@
 use crate::utils::apply_present;
-use crate::v01::{DecodedId, EncodedId, EncodedIdValue, Id, Stream};
+use crate::v01::{DecodedId, EncodedId, EncodedIdValue, Id, OwnedId, Stream};
 use crate::{Decode, DecodeInto as _, MltError};
 
 impl<'a> Id<'a> {
@@ -14,6 +14,29 @@ impl<'a> Id<'a> {
             Self::Encoded(v) => v.decode_into()?,
             Self::Decoded(v) => v,
         })
+    }
+
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedId {
+        match self {
+            Self::Encoded(encoded) => OwnedId::Encoded(encoded.to_owned()),
+            Self::Decoded(decoded) => OwnedId::Decoded(decoded.to_owned()),
+        }
+    }
+}
+
+impl OwnedId {
+    #[must_use]
+    pub fn as_borrowed(&self) -> Id<'_> {
+        match self {
+            Self::Encoded(encoded) => Id::Encoded(encoded.as_borrowed()),
+            Self::Decoded(decoded) => Id::Decoded(decoded.as_borrowed()),
+        }
+    }
+
+    #[inline]
+    pub fn decode(&self) -> Result<DecodedId, MltError> {
+        self.as_borrowed().decode()
     }
 }
 

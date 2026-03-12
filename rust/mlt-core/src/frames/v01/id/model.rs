@@ -1,7 +1,5 @@
-use borrowme::{Borrow as BorrowmeBorrow, ToOwned as BorrowmeToOwned, borrowme};
-
 use crate::EncDec;
-use crate::v01::Stream;
+use crate::v01::{OwnedStream, Stream};
 
 /// ID column representation, either encoded or decoded.
 pub type Id<'a> = EncDec<EncodedId<'a>, DecodedId>;
@@ -10,19 +8,29 @@ pub type Id<'a> = EncDec<EncodedId<'a>, DecodedId>;
 pub type OwnedId = EncDec<OwnedEncodedId, DecodedId>;
 
 /// Unparsed ID data as read directly from the tile
-#[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct EncodedId<'a> {
     pub(crate) presence: Option<Stream<'a>>,
     pub(crate) value: EncodedIdValue<'a>,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct OwnedEncodedId {
+    pub(crate) presence: Option<OwnedStream>,
+    pub(crate) value: OwnedEncodedIdValue,
+}
+
 /// A sequence of encoded ID values, either 32-bit or 64-bit unsigned integers
-#[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum EncodedIdValue<'a> {
     Id32(Stream<'a>),
     Id64(Stream<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum OwnedEncodedIdValue {
+    Id32(OwnedStream),
+    Id64(OwnedStream),
 }
 
 /// Decoded ID values as a vector of optional 64-bit unsigned integers
@@ -30,22 +38,55 @@ pub enum EncodedIdValue<'a> {
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct DecodedId(pub Vec<Option<u64>>);
 
-impl BorrowmeToOwned for DecodedId {
-    type Owned = Self;
+impl DecodedId {
+    #[must_use]
+    pub fn to_owned(&self) -> Self {
+        self.clone()
+    }
 
-    fn to_owned(&self) -> Self::Owned {
+    #[must_use]
+    pub fn as_borrowed(&self) -> Self {
         self.clone()
     }
 }
 
-impl BorrowmeBorrow for DecodedId {
-    type Target<'a>
-        = Self
-    where
-        Self: 'a;
+impl EncodedId<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedEncodedId {
+        OwnedEncodedId {
+            presence: self.presence.as_ref().map(Stream::to_owned),
+            value: self.value.to_owned(),
+        }
+    }
+}
 
-    fn borrow(&self) -> Self::Target<'_> {
-        self.clone()
+impl OwnedEncodedId {
+    #[must_use]
+    pub fn as_borrowed(&self) -> EncodedId<'_> {
+        EncodedId {
+            presence: self.presence.as_ref().map(OwnedStream::as_borrowed),
+            value: self.value.as_borrowed(),
+        }
+    }
+}
+
+impl EncodedIdValue<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedEncodedIdValue {
+        match self {
+            Self::Id32(stream) => OwnedEncodedIdValue::Id32(stream.to_owned()),
+            Self::Id64(stream) => OwnedEncodedIdValue::Id64(stream.to_owned()),
+        }
+    }
+}
+
+impl OwnedEncodedIdValue {
+    #[must_use]
+    pub fn as_borrowed(&self) -> EncodedIdValue<'_> {
+        match self {
+            Self::Id32(stream) => EncodedIdValue::Id32(stream.as_borrowed()),
+            Self::Id64(stream) => EncodedIdValue::Id64(stream.as_borrowed()),
+        }
     }
 }
 

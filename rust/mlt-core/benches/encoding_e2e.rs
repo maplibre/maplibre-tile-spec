@@ -31,7 +31,7 @@ fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<OwnedLayer> {
             }
             layers
                 .iter()
-                .map(borrowme::ToOwned::to_owned)
+                .map(mlt_core::Layer::to_owned)
                 .collect::<Vec<_>>()
         })
         .collect()

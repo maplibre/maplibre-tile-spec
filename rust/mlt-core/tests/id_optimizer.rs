@@ -1,4 +1,3 @@
-use mlt_core::borrowme;
 use mlt_core::optimizer::{
     AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
 };
@@ -69,7 +68,7 @@ fn test_automatic_optimisation_idempotency() {
     let enc2 = owned.automatic_encoding_optimisation().unwrap();
 
     assert_eq!(enc1, enc2);
-    assert_eq!(borrowme::borrow(&owned).decode().unwrap(), decoded);
+    assert_eq!(owned.decode().unwrap(), decoded);
 }
 
 #[rstest]
@@ -81,7 +80,7 @@ fn test_automatic_optimisation_roundtrip(#[case] decoded: DecodedId) {
     let mut owned = OwnedId::Decoded(decoded.clone());
     owned.automatic_encoding_optimisation().unwrap();
 
-    let decoded_back = borrowme::borrow(&owned).decode().expect("decoding failed");
+    let decoded_back = owned.decode().expect("decoding failed");
     assert_eq!(decoded_back, decoded);
 }
 
@@ -94,7 +93,7 @@ fn test_manual_optimisation_applies_encoder() {
     owned.manual_optimisation(manual_enc).unwrap();
 
     assert!(matches!(owned, OwnedId::Encoded(_)));
-    assert_eq!(borrowme::borrow(&owned).decode().unwrap(), decoded);
+    assert_eq!(owned.decode().unwrap(), decoded);
 }
 
 #[test]
@@ -105,7 +104,7 @@ fn test_manual_optimisation_truncation() {
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);
     owned.manual_optimisation(manual_enc).unwrap();
 
-    let decoded_back = borrowme::borrow(&owned).decode().unwrap();
+    let decoded_back = owned.decode().unwrap();
 
     // Manual encoding with a too-narrow `IdWidth` silently truncates values.
     // `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
@@ -141,7 +140,7 @@ fn test_profile_applies_candidates_and_rederives_width() {
     assert_eq!(enc.id_width, IdWidth::Id64);
     // Both samples are sequential (>4 values), so the fast path fires: DeltaRle.
     assert_eq!(enc.logical, LogicalEncoder::DeltaRle);
-    assert_eq!(borrowme::borrow(&owned).decode().unwrap(), u64_decoded);
+    assert_eq!(owned.decode().unwrap(), u64_decoded);
 }
 
 #[test]
@@ -153,7 +152,7 @@ fn test_profile_already_encoded_roundtrip() {
     let profile = IdProfile::from_sample(&decoded);
     owned.profile_driven_optimisation(&profile).unwrap();
 
-    let decoded_back = borrowme::borrow(&owned).decode().unwrap();
+    let decoded_back = owned.decode().unwrap();
     assert_eq!(decoded_back, decoded);
 }
 
@@ -167,7 +166,7 @@ fn test_profile_roundtrip(#[case] decoded: DecodedId) {
     let mut owned = OwnedId::Decoded(decoded.clone());
     owned.profile_driven_optimisation(&profile).unwrap();
 
-    let decoded_back = borrowme::borrow(&owned).decode().expect("decode failed");
+    let decoded_back = owned.decode().expect("decode failed");
     assert_eq!(decoded_back, decoded);
 }
 

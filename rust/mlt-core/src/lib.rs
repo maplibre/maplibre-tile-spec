@@ -16,8 +16,6 @@ pub mod optimizer;
 pub mod utils;
 
 pub use analyse::{Analyze, StatType};
-// reexport borrowme to make it easier to use in other crates
-pub use borrowme;
 pub use convert::{geojson, mvt};
 pub(crate) use decode::{Decodable, Decode, DecodeInto};
 pub use enc_dec::EncDec;

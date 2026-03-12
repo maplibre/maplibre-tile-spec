@@ -61,7 +61,7 @@ impl<'a> EncodedGeometry<'a> {
 impl OwnedEncodedGeometry {
     /// Decode this encoded geometry into its decoded form.
     pub fn decode(&self) -> Result<DecodedGeometry, MltError> {
-        DecodedGeometry::decode(borrowme::borrow(self))
+        DecodedGeometry::decode(self.as_borrowed())
     }
 
     pub(crate) fn write_columns_meta_to<W: Write>(writer: &mut W) -> Result<(), MltError> {
@@ -116,6 +116,29 @@ impl<'a> Geometry<'a> {
             Self::Encoded(v) => DecodedGeometry::decode(v)?,
             Self::Decoded(v) => v,
         })
+    }
+
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedGeometry {
+        match self {
+            Self::Encoded(encoded) => OwnedGeometry::Encoded(encoded.to_owned()),
+            Self::Decoded(decoded) => OwnedGeometry::Decoded(decoded.to_owned()),
+        }
+    }
+}
+
+impl OwnedGeometry {
+    #[must_use]
+    pub fn as_borrowed(&self) -> Geometry<'_> {
+        match self {
+            Self::Encoded(encoded) => Geometry::Encoded(encoded.as_borrowed()),
+            Self::Decoded(decoded) => Geometry::Decoded(decoded.as_borrowed()),
+        }
+    }
+
+    #[inline]
+    pub fn decode(&self) -> Result<DecodedGeometry, MltError> {
+        self.as_borrowed().decode()
     }
 }
 

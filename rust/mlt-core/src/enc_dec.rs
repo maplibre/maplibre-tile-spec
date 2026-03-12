@@ -1,5 +1,3 @@
-use borrowme::{Borrow as BorrowmeBorrow, ToOwned as BorrowmeToOwned};
-
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{Decodable, Decode};
@@ -99,39 +97,6 @@ where
         match self {
             Self::Encoded(encoded) => encoded.for_each_stream(cb),
             Self::Decoded(decoded) => decoded.for_each_stream(cb),
-        }
-    }
-}
-
-impl<Encoded, Decoded> BorrowmeToOwned for EncDec<Encoded, Decoded>
-where
-    Encoded: BorrowmeToOwned,
-    Decoded: BorrowmeToOwned,
-{
-    type Owned = EncDec<Encoded::Owned, Decoded::Owned>;
-
-    fn to_owned(&self) -> Self::Owned {
-        match self {
-            Self::Encoded(encoded) => EncDec::Encoded(BorrowmeToOwned::to_owned(encoded)),
-            Self::Decoded(decoded) => EncDec::Decoded(BorrowmeToOwned::to_owned(decoded)),
-        }
-    }
-}
-
-impl<Encoded, Decoded> BorrowmeBorrow for EncDec<Encoded, Decoded>
-where
-    Encoded: BorrowmeBorrow,
-    Decoded: BorrowmeBorrow,
-{
-    type Target<'a>
-        = EncDec<Encoded::Target<'a>, Decoded::Target<'a>>
-    where
-        Self: 'a;
-
-    fn borrow(&self) -> Self::Target<'_> {
-        match self {
-            Self::Encoded(encoded) => EncDec::Encoded(BorrowmeBorrow::borrow(encoded)),
-            Self::Decoded(decoded) => EncDec::Decoded(BorrowmeBorrow::borrow(decoded)),
         }
     }
 }

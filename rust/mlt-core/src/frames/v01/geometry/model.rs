@@ -1,9 +1,8 @@
-use borrowme::{Borrow as BorrowmeBorrow, ToOwned as BorrowmeToOwned, borrowme};
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
 use crate::EncDec;
-use crate::v01::Stream;
+use crate::v01::{OwnedStream, Stream};
 
 /// Geometry column representation, either encoded or decoded
 pub type Geometry<'a> = EncDec<EncodedGeometry<'a>, DecodedGeometry>;
@@ -12,11 +11,16 @@ pub type Geometry<'a> = EncDec<EncodedGeometry<'a>, DecodedGeometry>;
 pub type OwnedGeometry = EncDec<OwnedEncodedGeometry, DecodedGeometry>;
 
 /// Unparsed geometry data as read directly from the tile
-#[borrowme]
 #[derive(Debug, PartialEq, Clone)]
 pub struct EncodedGeometry<'a> {
     pub meta: Stream<'a>,
     pub items: Vec<Stream<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct OwnedEncodedGeometry {
+    pub meta: OwnedStream,
+    pub items: Vec<OwnedStream>,
 }
 
 /// Decoded geometry data
@@ -33,22 +37,35 @@ pub struct DecodedGeometry {
     pub vertices: Option<Vec<i32>>,
 }
 
-impl BorrowmeToOwned for DecodedGeometry {
-    type Owned = Self;
+impl DecodedGeometry {
+    #[must_use]
+    pub fn to_owned(&self) -> Self {
+        self.clone()
+    }
 
-    fn to_owned(&self) -> Self::Owned {
+    #[must_use]
+    pub fn as_borrowed(&self) -> Self {
         self.clone()
     }
 }
 
-impl BorrowmeBorrow for DecodedGeometry {
-    type Target<'a>
-        = Self
-    where
-        Self: 'a;
+impl EncodedGeometry<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedEncodedGeometry {
+        OwnedEncodedGeometry {
+            meta: self.meta.to_owned(),
+            items: self.items.iter().map(Stream::to_owned).collect(),
+        }
+    }
+}
 
-    fn borrow(&self) -> Self::Target<'_> {
-        self.clone()
+impl OwnedEncodedGeometry {
+    #[must_use]
+    pub fn as_borrowed(&self) -> EncodedGeometry<'_> {
+        EncodedGeometry {
+            meta: self.meta.as_borrowed(),
+            items: self.items.iter().map(OwnedStream::as_borrowed).collect(),
+        }
     }
 }
 

@@ -39,7 +39,6 @@ use std::f64;
 use ids::IdState;
 use js_sys::Uint8Array;
 use layer::DecodedLayer;
-use mlt_core::borrowme::ToOwned;
 use mlt_core::v01::{Geometry, GeometryType, Id};
 use mlt_core::{MltError, parse_layers};
 use tile::MltTile;
@@ -98,11 +97,11 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             .collect();
         let types_array = Uint8Array::from(types_bytes.as_slice());
 
-        let geometry = RefCell::new(ToOwned::to_owned(&layer01.geometry));
+        let geometry = RefCell::new(layer01.geometry.to_owned());
 
         let ids = RefCell::new(match &layer01.id {
             None => IdState::Absent,
-            Some(Id::Encoded(encoded)) => IdState::Encoded(ToOwned::to_owned(encoded)),
+            Some(Id::Encoded(encoded)) => IdState::Encoded(encoded.to_owned()),
             Some(Id::Decoded(decoded)) => {
                 use js_sys::Float64Array;
                 let floats: Vec<f64> = decoded
@@ -118,7 +117,13 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             }
         });
 
-        let props = RefCell::new(layer01.properties.iter().map(ToOwned::to_owned).collect());
+        let props = RefCell::new(
+            layer01
+                .properties
+                .iter()
+                .map(mlt_core::v01::Property::to_owned)
+                .collect(),
+        );
 
         layers.push(DecodedLayer {
             name,

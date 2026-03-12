@@ -8,8 +8,9 @@ use crate::utils::apply_present;
 use crate::v01::{
     DecodedPresence, DecodedProperty, DecodedScalar, DecodedStrings, DictionaryType,
     EncodedPresence, EncodedProperty, LengthType, OwnedEncodedPresence, OwnedEncodedProperty,
-    OwnedName, OwnedStream, PresenceStream, Property, PropertyEncoder, ScalarEncoder,
-    ScalarValueEncoder, StrEncoder, decode_shared_dict, decode_strings, encode_shared_dict_prop,
+    OwnedName, OwnedProperty, OwnedStream, PresenceStream, Property, PropertyEncoder,
+    ScalarEncoder, ScalarValueEncoder, StrEncoder, decode_shared_dict, decode_strings,
+    encode_shared_dict_prop,
 };
 
 #[cfg(all(not(test), feature = "arbitrary"))]
@@ -62,6 +63,29 @@ impl<'a> Property<'a> {
 
     pub fn decoded_property(&mut self) -> Result<&DecodedProperty<'a>, MltError> {
         Ok(self.materialize()?)
+    }
+
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedProperty {
+        match self {
+            Self::Encoded(encoded) => OwnedProperty::Encoded(encoded.to_owned()),
+            Self::Decoded(decoded) => OwnedProperty::Decoded(decoded.to_owned()),
+        }
+    }
+}
+
+impl OwnedProperty {
+    #[must_use]
+    pub fn as_borrowed(&self) -> Property<'_> {
+        match self {
+            Self::Encoded(encoded) => Property::Encoded(encoded.as_borrowed()),
+            Self::Decoded(decoded) => Property::Decoded(decoded.as_borrowed()),
+        }
+    }
+
+    #[inline]
+    pub fn decode(&self) -> Result<DecodedProperty<'_>, MltError> {
+        self.as_borrowed().decode()
     }
 }
 

@@ -1,10 +1,10 @@
+use mlt_core::MltError;
 use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
     DecodedProperty, DecodedScalar, DecodedStrings, IntEncoder, LogicalEncoder, OwnedProperty,
     PhysicalEncoder, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
     SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict,
 };
-use mlt_core::{MltError, borrowme};
 use proptest::prelude::*;
 
 // proptest_derive::Arbitrary is only derived for these types inside the crate
@@ -52,15 +52,13 @@ fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
 }
 
 fn roundtrip(decoded: &DecodedProperty<'_>, encoder: ScalarEncoder) -> DecodedProperty<'static> {
-    let owned = mlt_core::borrowme::ToOwned::to_owned(decoded);
+    let owned = decoded.to_owned();
     let mut props = vec![OwnedProperty::Decoded(owned)];
     props
         .manual_optimisation(vec![PropertyEncoder::Scalar(encoder)])
         .expect("encoding failed");
     let enc = props.pop().unwrap();
-    mlt_core::borrowme::ToOwned::to_owned(
-        &borrowme::borrow(&enc).decode().expect("decoding failed"),
-    )
+    enc.decode().expect("decoding failed").to_owned()
 }
 
 fn strs(vals: &[&str]) -> Vec<Option<String>> {
@@ -81,11 +79,11 @@ fn shared_dict_prop(
 }
 
 fn decode_struct(prop: &OwnedProperty) -> DecodedProperty<'static> {
-    mlt_core::borrowme::ToOwned::to_owned(&borrowme::borrow(prop).decode().expect("decode failed"))
+    prop.decode().expect("decode failed").to_owned()
 }
 
 fn decode_scalar(prop: &OwnedProperty) -> DecodedProperty<'static> {
-    mlt_core::borrowme::ToOwned::to_owned(&borrowme::borrow(prop).decode().expect("decode failed"))
+    prop.decode().expect("decode failed").to_owned()
 }
 
 fn struct_encode_and_decode(

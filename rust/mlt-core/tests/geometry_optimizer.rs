@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use geo_types::{LineString, Point, Polygon, point, wkt};
+use mlt_core::Encodable as _;
 use mlt_core::geojson::{Coord32, Geom32};
 use mlt_core::optimizer::{
     AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
@@ -9,7 +10,6 @@ use mlt_core::v01::{
     DecodedGeometry, DictionaryType, GeometryProfile, LengthType, OffsetType, OwnedEncodedGeometry,
     OwnedGeometry, StreamType,
 };
-use mlt_core::{Encodable as _, borrowme};
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
@@ -17,7 +17,7 @@ fn optimize_roundtrip(decoded: &DecodedGeometry) -> DecodedGeometry {
     let mut geom = OwnedGeometry::Decoded(decoded.clone());
     geom.automatic_encoding_optimisation()
         .expect("optimize failed");
-    borrowme::borrow(&geom).decode().expect("decode failed")
+    geom.decode().expect("decode failed")
 }
 
 fn profile_roundtrip(sample: &DecodedGeometry, target: &DecodedGeometry) -> DecodedGeometry {
@@ -25,7 +25,7 @@ fn profile_roundtrip(sample: &DecodedGeometry, target: &DecodedGeometry) -> Deco
     let mut geom = OwnedGeometry::Decoded(target.clone());
     geom.profile_driven_optimisation(&profile)
         .expect("profile_driven_optimisation failed");
-    borrowme::borrow(&geom).decode().expect("decode failed")
+    geom.decode().expect("decode failed")
 }
 
 fn push_geoms(geoms: &[Geom32]) -> DecodedGeometry {
@@ -179,7 +179,7 @@ fn profile_applied_to_different_tile_roundtrips() {
     let mut geom = OwnedGeometry::Decoded(target.clone());
     geom.profile_driven_optimisation(&profile)
         .expect("profile_driven_optimisation failed");
-    let result = borrowme::borrow(&geom).decode().expect("decode failed");
+    let result = geom.decode().expect("decode failed");
     assert_eq!(target, result);
 }
 
@@ -198,7 +198,7 @@ fn profile_merge_roundtrips() {
         let mut geom = OwnedGeometry::Decoded(target.clone());
         geom.profile_driven_optimisation(&merged)
             .unwrap_or_else(|e| panic!("profile_driven_optimisation failed for {label}: {e}"));
-        let result = borrowme::borrow(&geom).decode().expect("decode failed");
+        let result = geom.decode().expect("decode failed");
         assert_eq!(
             *target, result,
             "merged profile roundtrip failed for {label}"
@@ -236,7 +236,7 @@ fn profile_rederives_vertex_strategy_from_actual_data() {
         "apply_profile must not blindly reuse Morton from the sample profile"
     );
 
-    let result = borrowme::borrow(&geom).decode().expect("decode failed");
+    let result = geom.decode().expect("decode failed");
     assert_eq!(target, result);
 }
 
@@ -258,7 +258,7 @@ fn profile_starting_from_encoded_state_roundtrips() {
     geom.profile_driven_optimisation(&profile)
         .expect("profile_driven_optimisation on Encoded state failed");
 
-    let result = borrowme::borrow(&geom).decode().expect("decode failed");
+    let result = geom.decode().expect("decode failed");
     assert_eq!(decoded, result);
 }
 

@@ -248,7 +248,7 @@ impl ManualOptimisation for OwnedGeometry {
     type UsedEncoder = GeometryEncoder;
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        let dec = borrowme::borrow(self).decode()?;
+        let dec = self.decode()?;
         *self = OwnedGeometry::Encoded(OwnedEncodedGeometry::from_decoded(&dec, encoder)?);
         Ok(())
     }
@@ -269,7 +269,7 @@ impl ProfileOptimisation for OwnedGeometry {
                 Ok(enc)
             }
             OwnedGeometry::Encoded(e) => {
-                let dec = DecodedGeometry::decode(borrowme::borrow(e))?;
+                let dec = DecodedGeometry::decode(e.as_borrowed())?;
                 *self = OwnedGeometry::Decoded(dec);
                 self.profile_driven_optimisation(profile)
             }
@@ -288,7 +288,7 @@ impl AutomaticOptimisation for OwnedGeometry {
                 Ok(enc)
             }
             OwnedGeometry::Encoded(e) => {
-                let dec = DecodedGeometry::decode(borrowme::borrow(e))?;
+                let dec = DecodedGeometry::decode(e.as_borrowed())?;
                 *self = OwnedGeometry::Decoded(dec);
                 self.automatic_encoding_optimisation()
             }

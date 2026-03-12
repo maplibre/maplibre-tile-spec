@@ -35,7 +35,6 @@ fastpfor-rust = ["fastpfor/rust"]
 
 [dependencies]
 arbitrary = { workspace = true, optional = true }
-borrowme.workspace = true
 enum_dispatch.workspace = true
 fastpfor.workspace = true
 fsst-rs.workspace = true

@@ -1,11 +1,9 @@
-use borrowme::Borrow as _;
-
 use crate::analyse::{Analyze, StatType};
 use crate::v01::{DecodedScalar, DecodedSharedDict, EncodedProperty, Stream};
 
 impl Analyze for crate::v01::OwnedEncodedProperty {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
-        self.borrow().for_each_stream(cb);
+        self.as_borrowed().for_each_stream(cb);
     }
 }
 

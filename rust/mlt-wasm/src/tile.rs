@@ -1,5 +1,4 @@
 use js_sys::{Array, Float64Array, Int32Array, Object, Reflect, Uint8Array, Uint32Array};
-use mlt_core::borrowme::Borrow as _;
 use mlt_core::v01::{DecodedProperty, Geometry, Id, OwnedGeometry, OwnedProperty};
 use wasm_bindgen::prelude::*;
 
@@ -251,7 +250,7 @@ impl MltTile {
         let layer = &self.layers[layer_idx];
         let mut geom = layer.geometry.borrow_mut();
         if let OwnedGeometry::Encoded(encoded) = &*geom {
-            let decoded = Geometry::Encoded(encoded.borrow())
+            let decoded = Geometry::Encoded(encoded.as_borrowed())
                 .decode()
                 .map_err(|e| crate::to_js_err(&e))?;
             *geom = OwnedGeometry::Decoded(decoded);
@@ -263,7 +262,7 @@ impl MltTile {
         let layer = &self.layers[layer_idx];
         let mut ids = layer.ids.borrow_mut();
         if let IdState::Encoded(encoded) = &*ids {
-            let decoded = Id::Encoded(encoded.borrow())
+            let decoded = Id::Encoded(encoded.as_borrowed())
                 .decode()
                 .map_err(|e| crate::to_js_err(&e))?;
 
@@ -293,9 +292,9 @@ impl MltTile {
                 *guard = taken
                     .into_iter()
                     .filter_map(|p| {
-                        p.borrow().decode().ok().map(|decoded| {
-                            OwnedProperty::Decoded(mlt_core::borrowme::ToOwned::to_owned(&decoded))
-                        })
+                        p.decode()
+                            .ok()
+                            .map(|decoded| OwnedProperty::Decoded(decoded.to_owned()))
                     })
                     .collect();
             }

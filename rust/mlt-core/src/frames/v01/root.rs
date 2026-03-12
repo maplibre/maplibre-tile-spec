@@ -1,14 +1,12 @@
 use std::io;
 use std::io::Write;
 
-use borrowme::Borrow;
-
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::{
     Column, ColumnType, DictionaryType, EncodedIdValue, EncodedPresence, EncodedProperty,
     EncodedSharedDict, EncodedSharedDictChild, EncodedStrings, FsstData, Geometry, Id, Layer01,
-    NameRef, OwnedLayer01, PlainData, Property, Stream, StreamType,
+    NameRef, OwnedId, OwnedLayer01, OwnedProperty, PlainData, Property, Stream, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -224,32 +222,34 @@ impl Layer01<'_> {
     }
 }
 
-impl borrowme::ToOwned for Layer01<'_> {
-    type Owned = OwnedLayer01;
-
-    fn to_owned(&self) -> Self::Owned {
+impl Layer01<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedLayer01 {
         OwnedLayer01 {
-            name: borrowme::ToOwned::to_owned(self.name),
+            name: self.name.to_string(),
             extent: self.extent,
-            id: self.id.as_ref().map(borrowme::ToOwned::to_owned),
-            geometry: borrowme::ToOwned::to_owned(&self.geometry),
-            properties: borrowme::ToOwned::to_owned(&self.properties),
+            id: self.id.as_ref().map(Id::to_owned),
+            geometry: self.geometry.to_owned(),
+            properties: self.properties.iter().map(Property::to_owned).collect(),
             #[cfg(fuzzing)]
             layer_order: self.layer_order.clone(),
         }
     }
 }
 
-impl Borrow for OwnedLayer01 {
-    type Target<'this> = Layer01<'this>;
-
-    fn borrow(&self) -> Self::Target<'_> {
+impl OwnedLayer01 {
+    #[must_use]
+    pub fn as_borrowed(&self) -> Layer01<'_> {
         Layer01 {
-            name: Borrow::borrow(&self.name),
+            name: &self.name,
             extent: self.extent,
-            id: self.id.as_ref().map(Borrow::borrow),
-            geometry: Borrow::borrow(&self.geometry),
-            properties: Borrow::borrow(&self.properties),
+            id: self.id.as_ref().map(OwnedId::as_borrowed),
+            geometry: self.geometry.as_borrowed(),
+            properties: self
+                .properties
+                .iter()
+                .map(OwnedProperty::as_borrowed)
+                .collect(),
             #[cfg(fuzzing)]
             layer_order: self.layer_order.clone(),
         }

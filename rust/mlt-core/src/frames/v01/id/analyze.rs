@@ -1,14 +1,12 @@
 use std::fmt::{Debug, Formatter};
 
-use borrowme::Borrow as _;
-
 use crate::analyse::{Analyze, StatType};
 use crate::utils::OptSeqOpt;
 use crate::v01::{DecodedId, EncodedId, EncodedIdValue, Stream};
 
 impl Analyze for crate::v01::OwnedEncodedId {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
-        self.borrow().for_each_stream(cb);
+        self.as_borrowed().for_each_stream(cb);
     }
 }
 

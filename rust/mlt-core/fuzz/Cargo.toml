@@ -29,7 +29,6 @@ bench = false
 
 [dependencies]
 arbitrary = { version = "1.4.2", features = ["derive"] }
-borrowme = "0.0.15"
 hex = "0.4.3"
 libfuzzer-sys = "0.4"
 mlt-core = { path = "..", features = ["arbitrary"] }

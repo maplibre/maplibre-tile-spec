@@ -137,8 +137,7 @@ impl ManualOptimisation for Vec<OwnedProperty> {
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
         let mut decoded = Vec::with_capacity(self.len());
         for d in &mut *self {
-            let d = borrowme::borrow(d).decode()?;
-            decoded.push(borrowme::ToOwned::to_owned(&d));
+            decoded.push(d.decode()?.to_owned());
         }
         *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, encoder)?
             .into_iter()
@@ -158,8 +157,7 @@ impl ProfileOptimisation for Vec<OwnedProperty> {
     ) -> Result<Self::UsedEncoder, MltError> {
         let mut decoded = Vec::with_capacity(self.len());
         for d in &mut *self {
-            let d = borrowme::borrow(d).decode()?;
-            decoded.push(borrowme::ToOwned::to_owned(&d));
+            decoded.push(d.decode()?.to_owned());
         }
         let enc = apply_profile(&mut decoded, profile);
         *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc.clone())?
@@ -176,8 +174,7 @@ impl AutomaticOptimisation for Vec<OwnedProperty> {
     fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
         let mut decoded = Vec::with_capacity(self.len());
         for d in &mut *self {
-            let d = borrowme::borrow(d).decode()?;
-            decoded.push(borrowme::ToOwned::to_owned(&d));
+            decoded.push(d.decode()?.to_owned());
         }
         let enc = optimize(&mut decoded);
         *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc.clone())?
@@ -348,7 +345,7 @@ fn merge_str_to_shared_dicts(properties: &mut Vec<DecodedProperty<'_>>, groups: 
                 let DecodedProperty::Str(values) = prop else {
                     unreachable!("group should only contain Str columns");
                 };
-                (suffix, borrowme::ToOwned::to_owned(values))
+                (suffix, values.to_owned())
             })
             .collect::<Vec<_>>();
         let shared_dict = build_decoded_shared_dict(prefix.clone(), items)

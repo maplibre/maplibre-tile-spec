@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::io::Write;
 
-use borrowme::{Borrow as BorrowmeBorrow, ToOwned as BorrowmeToOwned};
-
 use crate::MltError::{
     BufferUnderflow, DictIndexOutOfBounds, NotImplemented, UnexpectedStreamType2,
 };
@@ -69,10 +67,9 @@ impl DecodedStrings<'static> {
     }
 }
 
-impl BorrowmeToOwned for DecodedStrings<'_> {
-    type Owned = DecodedStrings<'static>;
-
-    fn to_owned(&self) -> Self::Owned {
+impl DecodedStrings<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> DecodedStrings<'static> {
         DecodedStrings {
             name: Cow::Owned(self.name.as_ref().to_string()),
             lengths: self.lengths.clone(),
@@ -81,13 +78,9 @@ impl BorrowmeToOwned for DecodedStrings<'_> {
     }
 }
 
-impl BorrowmeBorrow for DecodedStrings<'static> {
-    type Target<'a>
-        = DecodedStrings<'a>
-    where
-        Self: 'a;
-
-    fn borrow(&self) -> Self::Target<'_> {
+impl DecodedStrings<'static> {
+    #[must_use]
+    pub fn as_borrowed(&self) -> DecodedStrings<'_> {
         DecodedStrings {
             name: Cow::Borrowed(self.name.as_ref()),
             lengths: self.lengths.clone(),
@@ -103,10 +96,9 @@ impl<'a> arbitrary::Arbitrary<'a> for DecodedStrings<'static> {
     }
 }
 
-impl BorrowmeToOwned for DecodedSharedDict<'_> {
-    type Owned = DecodedSharedDict<'static>;
-
-    fn to_owned(&self) -> Self::Owned {
+impl DecodedSharedDict<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> DecodedSharedDict<'static> {
         DecodedSharedDict {
             prefix: Cow::Owned(self.prefix.as_ref().to_string()),
             data: Cow::Owned(self.data.as_ref().to_string()),
@@ -122,13 +114,9 @@ impl BorrowmeToOwned for DecodedSharedDict<'_> {
     }
 }
 
-impl BorrowmeBorrow for DecodedSharedDict<'static> {
-    type Target<'a>
-        = DecodedSharedDict<'a>
-    where
-        Self: 'a;
-
-    fn borrow(&self) -> Self::Target<'_> {
+impl DecodedSharedDict<'static> {
+    #[must_use]
+    pub fn as_borrowed(&self) -> DecodedSharedDict<'_> {
         DecodedSharedDict {
             prefix: Cow::Borrowed(self.prefix.as_ref()),
             data: Cow::Borrowed(self.data.as_ref()),

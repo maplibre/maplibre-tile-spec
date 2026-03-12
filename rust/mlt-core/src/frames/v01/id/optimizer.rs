@@ -241,7 +241,7 @@ impl ManualOptimisation for OwnedId {
     type UsedEncoder = IdEncoder;
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        let dec = borrowme::borrow(self).decode()?;
+        let dec = self.decode()?;
         if !dec.0.is_empty() {
             *self = OwnedId::Encoded(OwnedEncodedId::from_decoded(&dec, encoder)?);
         }
@@ -264,7 +264,7 @@ impl ProfileOptimisation for OwnedId {
                 Ok(Some(enc))
             }
             OwnedId::Encoded(e) => {
-                let dec = DecodedId::try_from(borrowme::borrow(e))?;
+                let dec = DecodedId::try_from(e.as_borrowed())?;
                 *self = OwnedId::Decoded(dec);
                 self.profile_driven_optimisation(profile)
             }
@@ -283,7 +283,7 @@ impl AutomaticOptimisation for OwnedId {
                 Ok(Some(enc))
             }
             OwnedId::Encoded(e) => {
-                let dec = DecodedId::try_from(borrowme::borrow(e))?;
+                let dec = DecodedId::try_from(e.as_borrowed())?;
                 *self = OwnedId::Decoded(dec);
                 self.automatic_encoding_optimisation()
             }
