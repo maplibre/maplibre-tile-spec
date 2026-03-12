@@ -127,8 +127,13 @@ pub fn hilbert_curve_params(vertices: &[i32]) -> (u32, u32) {
     if vertices.is_empty() {
         return (0, 1);
     }
-    let min_val = vertices.iter().copied().min().unwrap_or(0);
-    let max_val = vertices.iter().copied().max().unwrap_or(0);
+    let (min_val, max_val) = vertices
+        .iter()
+        .copied()
+        .fold((i32::MAX, i32::MIN), |(min_v, max_v), v| {
+            (min_v.min(v), max_v.max(v))
+        });
+
     let shift: u32 = if min_val < 0 {
         min_val.unsigned_abs()
     } else {

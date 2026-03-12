@@ -15,5 +15,5 @@ pub use optimizer::*;
 pub use property::*;
 #[cfg(fuzzing)]
 pub use root::LayerOrdering;
-pub use sort::{SortStrategy, SpaceFillingCurve};
+pub use sort::SortStrategy;
 pub use stream::*;

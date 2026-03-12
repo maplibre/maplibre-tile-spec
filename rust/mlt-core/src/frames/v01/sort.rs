@@ -14,7 +14,7 @@ use crate::{DecodeInto as _, MltError};
 /// cache locality.  Hilbert generally achieves better spatial locality than
 /// Morton (Z-order) but is more expensive to compute.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum SpaceFillingCurve {
+pub(crate) enum SpaceFillingCurve {
     /// Z-order (Morton) curve.  Fast to compute; good locality.
     #[default]
     Morton,
@@ -26,20 +26,20 @@ pub enum SpaceFillingCurve {
 ///
 /// Reordering features changes their position in every parallel column
 /// (geometry, ID, and all properties simultaneously), so the caller must
-/// opt in explicitly.  The default is [`SortStrategy::None`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// opt in explicitly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumIter, strum::EnumCount)]
 pub enum SortStrategy {
-    /// Preserve the original input order - no implicit ordering assumptions made by the map creator are violated.
-    #[default]
-    None,
-
-    /// Sort features by the space-filling curve index of their first vertex.
+    /// Sort features by the Z-order (Morton) curve index of their first vertex.
     ///
-    /// Spatially close features end up adjacent in the stream, which improves
-    /// RLE run lengths and deltas for properties that correlate with location (e.g.
-    /// `class`, `admin_level`, `house_number`) and may improve CPU cache locality during
-    /// client-side decoding for some very large tiles.
-    Spatial(SpaceFillingCurve),
+    /// Fast to compute.  Spatially close features end up adjacent in the
+    /// stream, improving RLE run lengths for location-correlated properties
+    /// and CPU cache locality during client-side decoding.
+    SpatialMorton,
+
+    /// Sort features by the Hilbert curve index of their first vertex.
+    ///
+    /// Slower to compute than Morton but achieves superior spatial locality.
+    SpatialHilbert,
 
     /// Sort features by their feature ID in ascending order.
     Id,
@@ -55,11 +55,11 @@ pub enum SortStrategy {
 /// supported: layers containing either field are left unchanged.
 pub(crate) fn reorder_features(
     layer: &mut OwnedLayer01,
-    strategy: SortStrategy,
+    strategy: Option<SortStrategy>,
 ) -> Result<(), MltError> {
-    if strategy == SortStrategy::None {
+    let Some(strategy) = strategy else {
         return Ok(());
-    }
+    };
 
     // Everything must be in decoded form before we can permute it.
     ensure_decoded(layer)?;
@@ -82,8 +82,6 @@ pub(crate) fn reorder_features(
     apply_permutation(layer, &perm)
 }
 
-// ─── Sort key computation ─────────────────────────────────────────────────────
-
 /// Compute one sort key per feature.  The key type is `u64` so that both
 /// curve codes (u32) and raw IDs (u64) can share the same return type.
 fn compute_sort_keys(
@@ -92,9 +90,12 @@ fn compute_sort_keys(
     n: usize,
 ) -> Result<Vec<u64>, MltError> {
     match strategy {
-        SortStrategy::None => unreachable!("None is filtered before calling this"),
-
-        SortStrategy::Spatial(curve) => {
+        SortStrategy::SpatialMorton | SortStrategy::SpatialHilbert => {
+            let curve = match strategy {
+                SortStrategy::SpatialMorton => SpaceFillingCurve::Morton,
+                SortStrategy::SpatialHilbert => SpaceFillingCurve::Hilbert,
+                _ => unreachable!("only morton and hilbert sort strategies are supported"),
+            };
             let geom = match &layer.geometry {
                 OwnedGeometry::Decoded(g) => g,
                 OwnedGeometry::Encoded(_) => return Err(MltError::NotDecoded("geometry")),
@@ -217,8 +218,6 @@ fn first_vertex(i: usize, decoded: &DecodedGeometry) -> Option<(i32, i32)> {
     Some((x, y))
 }
 
-// ─── Permutation builder ──────────────────────────────────────────────────────
-
 /// Build a permutation such that `perm[new_position] = old_position`.
 ///
 /// Uses a stable sort so that features with equal keys retain their original
@@ -228,8 +227,6 @@ fn build_permutation<K: Ord>(keys: &[K]) -> Vec<usize> {
     indices.sort_by(|&a, &b| keys[a].cmp(&keys[b]));
     indices
 }
-
-// ─── Permutation application ──────────────────────────────────────────────────
 
 #[allow(clippy::unnecessary_wraps)]
 fn apply_permutation(layer: &mut OwnedLayer01, perm: &[usize]) -> Result<(), MltError> {
@@ -246,8 +243,6 @@ fn apply_permutation(layer: &mut OwnedLayer01, perm: &[usize]) -> Result<(), Mlt
     }
     Ok(())
 }
-
-// ─── Decode-in-place ──────────────────────────────────────────────────────────
 
 /// Decode all columns of `layer` in-place so that permutation can be applied
 /// to the plain decoded values.
@@ -274,8 +269,6 @@ pub(crate) fn ensure_decoded(layer: &mut OwnedLayer01) -> Result<(), MltError> {
 
     Ok(())
 }
-
-// ─── Geometry permutation ─────────────────────────────────────────────────────
 
 /// Apply `perm` to all arrays inside `decoded` so that the feature at new
 /// position `k` is the feature that was at old position `perm[k]`.
@@ -472,14 +465,10 @@ fn permute_geometry(decoded: &mut DecodedGeometry, perm: &[usize]) {
     }
 }
 
-// ─── ID permutation ───────────────────────────────────────────────────────────
-
 fn permute_id(id: &mut DecodedId, perm: &[usize]) {
     let old = id.0.clone();
     id.0 = perm.iter().map(|&i| old[i]).collect();
 }
-
-// ─── Property permutation ─────────────────────────────────────────────────────
 
 fn permute_property(prop: &mut DecodedProperty<'_>, perm: &[usize]) {
     match prop {
@@ -520,8 +509,6 @@ fn permute_strings(s: &mut DecodedStrings<'_>, perm: &[usize]) {
     s.name = name;
 }
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
-
 /// Return `true` if a spatial sort is likely to reduce compressed size.
 ///
 /// The heuristic: if the vertex bounding box spans more than
@@ -548,22 +535,14 @@ pub(crate) fn spatial_sort_likely_to_help(layer: &OwnedLayer01) -> bool {
         return true;
     }
 
-    let min_x = vertices.iter().copied().step_by(2).min().unwrap_or(0);
-    let max_x = vertices.iter().copied().step_by(2).max().unwrap_or(0);
-    let min_y = vertices
-        .iter()
-        .copied()
-        .skip(1)
-        .step_by(2)
-        .min()
-        .unwrap_or(0);
-    let max_y = vertices
-        .iter()
-        .copied()
-        .skip(1)
-        .step_by(2)
-        .max()
-        .unwrap_or(0);
+    let (min_x, max_x, min_y, max_y) = vertices.chunks_exact(2).fold(
+        (i32::MAX, i32::MIN, i32::MAX, i32::MIN),
+        |(min_x, max_x, min_y, max_y), chunk| {
+            let x = chunk[0];
+            let y = chunk[1];
+            (min_x.min(x), max_x.max(x), min_y.min(y), max_y.max(y))
+        },
+    );
 
     let range_x = f64::from(max_x - min_x);
     let range_y = f64::from(max_y - min_y);

@@ -34,22 +34,12 @@ pub enum LayerEncoder {
 }
 
 impl LayerEncoder {
-    /// Set the [`SortStrategy`] on a `Tag01` encoder, returning `self` for chaining.
-    /// Has no effect on [`LayerEncoder::Unknown`].
+    /// Return the active sort strategy, or [`None`] for unknown layers.
     #[must_use]
-    pub fn with_sort(mut self, strategy: SortStrategy) -> Self {
-        if let LayerEncoder::Tag01(ref mut enc) = self {
-            enc.sort_strategy = strategy;
-        }
-        self
-    }
-
-    /// Return the active [`SortStrategy`], or [`SortStrategy::None`] for unknown layers.
-    #[must_use]
-    pub fn sort_strategy(&self) -> SortStrategy {
+    pub fn sort_strategy(&self) -> Option<SortStrategy> {
         match self {
             LayerEncoder::Tag01(enc) => enc.sort_strategy,
-            LayerEncoder::Unknown => SortStrategy::None,
+            LayerEncoder::Unknown => None,
         }
     }
 }
@@ -67,23 +57,12 @@ pub enum LayerProfile {
 }
 
 impl LayerProfile {
-    /// Set the [`SortStrategy`] on a `Tag01` profile, returning `self` for
-    /// chaining.  Has no effect on [`LayerProfile::Unknown`].
+    /// Return the active sort strategy, or [`None`] for unknown layers.
     #[must_use]
-    pub fn with_sort(mut self, strategy: SortStrategy) -> Self {
-        if let LayerProfile::Tag01(ref mut p) = self {
-            p.preferred_sort_strategy = strategy;
-        }
-        self
-    }
-
-    /// Return the active [`SortStrategy`], or [`SortStrategy::None`] for
-    /// unknown layers.
-    #[must_use]
-    pub fn sort_strategy(&self) -> SortStrategy {
+    pub fn sort_strategy(&self) -> Option<SortStrategy> {
         match self {
-            LayerProfile::Tag01(p) => p.preferred_sort_strategy,
-            LayerProfile::Unknown => SortStrategy::None,
+            LayerProfile::Tag01(p) => p.sort_strategy(),
+            LayerProfile::Unknown => None,
         }
     }
 }

@@ -1,3 +1,5 @@
+use strum::{EnumCount, IntoEnumIterator};
+
 use crate::MltError;
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::sort::{
@@ -5,7 +7,7 @@ use crate::v01::sort::{
 };
 use crate::v01::{
     GeometryEncoder, GeometryProfile, IdEncoder, IdProfile, OwnedLayer01, PropertyEncoder,
-    PropertyProfile, SortStrategy, SpaceFillingCurve,
+    PropertyProfile, SortStrategy,
 };
 
 impl ManualOptimisation for OwnedLayer01 {
@@ -30,7 +32,8 @@ impl ProfileOptimisation for OwnedLayer01 {
         &mut self,
         profile: &Self::Profile,
     ) -> Result<Self::UsedEncoder, MltError> {
-        reorder_features(self, profile.preferred_sort_strategy)?;
+        let sort_strategy = profile.sort_strategy();
+        reorder_features(self, sort_strategy)?;
         let id = self.id.profile_driven_optimisation(&profile.id)?;
         let properties = self
             .properties
@@ -40,15 +43,13 @@ impl ProfileOptimisation for OwnedLayer01 {
             .profile_driven_optimisation(&profile.geometry)?;
 
         Ok(Tag01Encoder {
-            sort_strategy: profile.preferred_sort_strategy,
+            sort_strategy,
             id,
             properties,
             geometry,
         })
     }
 }
-
-// ─── Automatic competitive trialing ──────────────────────────────────────────
 
 /// Feature-count threshold above which the spatial trial is subject to the
 /// bounding-box pruning heuristic.
@@ -62,10 +63,10 @@ const SORT_TRIAL_THRESHOLD: usize = 512;
 /// Morton is preferred over Hilbert in the automatic path because it is
 /// cheaper to compute; Hilbert can be selected explicitly via manual or
 /// profile-driven optimisation.
-const TRIAL_STRATEGIES: [SortStrategy; 3] = [
-    SortStrategy::None,
-    SortStrategy::Spatial(SpaceFillingCurve::Morton),
-    SortStrategy::Id,
+const TRIAL_STRATEGIES: [Option<SortStrategy>; 3] = [
+    None,
+    Some(SortStrategy::SpatialMorton),
+    Some(SortStrategy::Id),
 ];
 
 impl AutomaticOptimisation for OwnedLayer01 {
@@ -77,7 +78,7 @@ impl AutomaticOptimisation for OwnedLayer01 {
     /// # Algorithm
     ///
     /// 1. Bring the layer into decoded form and read the feature count `N`.
-    /// 2. Build a candidate set: `[None, Spatial(Morton), Id]`.
+    /// 2. Build a candidate set: `[None, Some(Spatial(Morton)), Some(Id)]`.
     ///    - When `N >= 512`, apply a bounding-box heuristic: if the vertex
     ///      spread covers more than 80% of the tile extent on both axes,
     ///      spatial sorting is unlikely to cluster features and is dropped from
@@ -103,17 +104,15 @@ impl AutomaticOptimisation for OwnedLayer01 {
         let n = geometry_feature_count(&self.geometry)?;
 
         // Build the candidate slice, optionally pruning spatial sort.
-        let filtered: [SortStrategy; 2];
-        let candidates: &[SortStrategy] =
+        let filtered: [Option<SortStrategy>; 2];
+        let candidates: &[Option<SortStrategy>] =
             if n < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(self) {
                 &TRIAL_STRATEGIES
             } else {
                 // Bounding box is too spread out — skip the spatial trial.
-                filtered = [SortStrategy::None, SortStrategy::Id];
+                filtered = [None, Some(SortStrategy::Id)];
                 &filtered
             };
-
-        // ── Competitive trial loop ────────────────────────────────────────────
 
         let mut best: Option<TrialResult> = None;
 
@@ -147,7 +146,7 @@ impl AutomaticOptimisation for OwnedLayer01 {
             }
         }
 
-        // `candidates` always contains at least `SortStrategy::None`, so the
+        // `candidates` always contains at least `None` (no-op sort), so the
         // loop runs at least once and `best` is always `Some` here.
         let winner = best.unwrap();
         *self = winner.layer;
@@ -155,56 +154,42 @@ impl AutomaticOptimisation for OwnedLayer01 {
     }
 }
 
-// ─── Layer encoder ────────────────────────────────────────────────────────────
-
 /// Fully-specified encoder configuration for a v01 layer, produced by any of
 /// the three optimization paths (manual, automatic, or profile-driven).
 ///
 /// The `sort_strategy` field controls whether features are reordered before
-/// stream-level encoding takes place.  It defaults to [`SortStrategy::None`]
-/// so that existing callers that construct `Tag01Encoder` directly are
-/// unaffected.
+/// stream-level encoding takes place.  It defaults to [`None`] so that
+/// existing callers that construct `Tag01Encoder` directly are unaffected.
 #[derive(Debug, Clone)]
 pub struct Tag01Encoder {
-    /// How to reorder features before encoding.  Defaults to
-    /// [`SortStrategy::None`] (preserve original order).
-    pub sort_strategy: SortStrategy,
+    /// How to reorder features before encoding.  `None` preserves the
+    /// original input order.
+    pub sort_strategy: Option<SortStrategy>,
     pub id: Option<IdEncoder>,
     pub properties: Vec<PropertyEncoder>,
     pub geometry: GeometryEncoder,
 }
 
-// ─── Layer profile ────────────────────────────────────────────────────────────
-
-/// All concrete [`SortStrategy`] variants in their canonical order.
+/// Map `Option<SortStrategy>` to a vote-array index.
 ///
-/// The position of each variant in this array is its *vote index* — the
-/// index used inside [`Tag01Profile::strategy_votes`] and returned by
-/// [`strategy_index`].  The ordering (None first) doubles as the tie-breaking
-/// rule in [`Tag01Profile::merge`]: ties favour the simpler strategy.
-const STRATEGY_VARIANTS: [SortStrategy; 4] = [
-    SortStrategy::None,
-    SortStrategy::Spatial(SpaceFillingCurve::Morton),
-    SortStrategy::Spatial(SpaceFillingCurve::Hilbert),
-    SortStrategy::Id,
-];
-
-/// Map a [`SortStrategy`] to its position in [`STRATEGY_VARIANTS`].
-fn strategy_index(s: SortStrategy) -> usize {
+/// `None` is always index 0; concrete variants follow in `SortStrategy::iter()`
+/// declaration order starting at 1.
+fn sort_strategy_index(s: Option<SortStrategy>) -> usize {
     match s {
-        SortStrategy::None => 0,
-        SortStrategy::Spatial(SpaceFillingCurve::Morton) => 1,
-        SortStrategy::Spatial(SpaceFillingCurve::Hilbert) => 2,
-        SortStrategy::Id => 3,
+        None => 0,
+        Some(s) => {
+            1 + SortStrategy::iter()
+                .position(|v| v == s)
+                .expect("variant must be present in iter()")
+        }
     }
 }
 
 /// Profile for a v01 layer, built by running automatic optimisation over a
 /// representative sample of tiles and capturing the chosen encoders.
 ///
-/// `preferred_sort_strategy` records the sorting policy that was used (or
-/// should be used) so that profile-driven encoding can reproduce the same
-/// feature ordering on subsequent tiles.
+/// The active sort strategy is derived on demand from `strategy_votes` via
+/// [`Tag01Profile::sort_strategy`].
 ///
 /// ## Profile merging
 ///
@@ -217,15 +202,12 @@ fn strategy_index(s: SortStrategy) -> usize {
 /// `Spatial(Hilbert)` > `Id`).
 #[derive(Debug, Clone)]
 pub struct Tag01Profile {
-    /// The sort strategy to apply before encoding each tile under this profile.
-    pub preferred_sort_strategy: SortStrategy,
-
     /// Per-strategy vote counts used by [`Tag01Profile::merge`] to resolve
     /// conflicts across profiles built from multiple sample tiles.
     ///
-    /// Index mapping mirrors [`STRATEGY_VARIANTS`]:
-    /// `[None, Spatial(Morton), Spatial(Hilbert), Id]`.
-    strategy_votes: [u32; 4],
+    /// Index 0 is always `Option::None` (no sort); indices 1..=COUNT map to
+    /// `SortStrategy::iter()` in declaration order.
+    strategy_votes: [u32; SortStrategy::COUNT + 1],
 
     pub id: IdProfile,
     pub properties: PropertyProfile,
@@ -233,7 +215,7 @@ pub struct Tag01Profile {
 }
 
 impl Tag01Profile {
-    /// Construct a profile that votes once for `preferred_sort_strategy`.
+    /// Construct a profile that votes once for `sort_strategy`.
     ///
     /// This is the standard constructor.  It initialises the `strategy_votes`
     /// tally with a single vote for the given strategy so that
@@ -241,15 +223,14 @@ impl Tag01Profile {
     /// from multiple sample tiles.
     #[must_use]
     pub fn new(
-        preferred_sort_strategy: SortStrategy,
+        sort_strategy: Option<SortStrategy>,
         id: IdProfile,
         properties: PropertyProfile,
         geometry: GeometryProfile,
     ) -> Self {
-        let mut strategy_votes = [0u32; 4];
-        strategy_votes[strategy_index(preferred_sort_strategy)] = 1;
+        let mut strategy_votes = [0u32; SortStrategy::COUNT + 1];
+        strategy_votes[sort_strategy_index(sort_strategy)] = 1;
         Self {
-            preferred_sort_strategy,
             strategy_votes,
             id,
             properties,
@@ -257,15 +238,50 @@ impl Tag01Profile {
         }
     }
 
+    /// Derive the winning sort strategy from accumulated votes.
+    ///
+    /// Returns the [`SortStrategy`] that received the most votes, or `None`
+    /// if no-sort is winning.  Ties break in favour of the lower-index
+    /// variant (declaration order in [`SortStrategy`], with `None` first).
+    #[must_use]
+    pub fn sort_strategy(&self) -> Option<SortStrategy> {
+        let winner_idx = self
+            .strategy_votes
+            .iter()
+            .enumerate()
+            .fold(0usize, |best, (i, &v)| {
+                if v > self.strategy_votes[best] {
+                    i
+                } else {
+                    best
+                }
+            });
+        if winner_idx == 0 {
+            None
+        } else {
+            SortStrategy::iter().nth(winner_idx - 1)
+        }
+    }
+
+    /// Override the sort strategy, replacing all accumulated votes with a
+    /// single vote for `strategy`.
+    ///
+    /// This is useful when constructing a profile via a builder chain and you
+    /// want to force a particular ordering regardless of any prior votes.
+    pub fn set_sort_strategy(&mut self, strategy: Option<SortStrategy>) {
+        self.strategy_votes = [0u32; SortStrategy::COUNT + 1];
+        self.strategy_votes[sort_strategy_index(strategy)] = 1;
+    }
+
     /// Merge two profiles into one.
     ///
     /// ## Sort strategy resolution
     ///
     /// The `strategy_votes` tallies are summed element-wise.  The strategy
-    /// with the highest total vote count becomes the new
-    /// `preferred_sort_strategy`.  Ties are broken by strategy index (lowest
-    /// index wins), giving a conservative preference for `SortStrategy::None`
-    /// when no clear winner emerges.
+    /// with the highest total vote count is returned by [`sort_strategy`].
+    /// Ties are broken by strategy index (lowest index wins), giving a
+    /// conservative preference for `None` (no sorting) when no clear winner
+    /// emerges.
     ///
     /// ## Sub-profile merging
     ///
@@ -280,18 +296,7 @@ impl Tag01Profile {
             *v = v.saturating_add(o);
         }
 
-        // Pick the first (lowest-index) strategy with the highest vote count.
-        // Ties therefore break in favour of the simpler strategy.
-        let winner_idx =
-            votes.iter().enumerate().fold(
-                0usize,
-                |best, (i, &v)| if v > votes[best] { i } else { best },
-            );
-
-        let preferred_sort_strategy = STRATEGY_VARIANTS[winner_idx];
-
         Self {
-            preferred_sort_strategy,
             strategy_votes: votes,
             id: self.id.merge(&other.id),
             properties: self.properties.merge(&other.properties),
