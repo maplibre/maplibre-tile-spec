@@ -2,7 +2,7 @@ use mlt_core::optimizer::{
     AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
 };
 use mlt_core::v01::{
-    ParsedId, IdEncoder, IdProfile, IdWidth, IntEncoder, LogicalEncoder, StagedId,
+    IdEncoder, IdProfile, IdWidth, IntEncoder, LogicalEncoder, ParsedId, StagedId,
 };
 use rstest::rstest;
 

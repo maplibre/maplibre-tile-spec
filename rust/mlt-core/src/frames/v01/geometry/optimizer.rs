@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::encode::{encode_geometry, z_order_params};
 use crate::v01::{
-    DataProfile, ParsedGeometry, DictionaryType, GeometryEncoder, IntEncoder, LengthType,
-    OffsetType, EncodedGeometry, StagedGeometry, StreamType, VertexBufferType,
+    DataProfile, DictionaryType, EncodedGeometry, GeometryEncoder, IntEncoder, LengthType,
+    OffsetType, ParsedGeometry, StagedGeometry, StreamType, VertexBufferType,
 };
 use crate::{FromDecoded as _, MltError};
 

@@ -6,9 +6,7 @@ use rstest::rstest;
 
 use crate::encode::FromDecoded as _;
 use crate::frames::v01::id::encode::IdEncoder;
-use crate::frames::v01::id::model::{
-    EncodedId, EncodedIdValue, ParsedId, IdWidth, StagedId,
-};
+use crate::frames::v01::id::model::{EncodedId, EncodedIdValue, IdWidth, ParsedId, StagedId};
 use crate::optimizer::ManualOptimisation as _;
 use crate::v01::LogicalEncoder;
 

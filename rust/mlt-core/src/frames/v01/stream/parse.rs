@@ -6,8 +6,8 @@ use integer_encoding::VarIntWriter as _;
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{BinarySerializer as _, parse_u8, parse_varint, take};
 use crate::v01::{
-    IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RleMeta, RawStream,
-    RawStreamData, StreamMeta, StreamType,
+    IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RawStream,
+    RawStreamData, RleMeta, StreamMeta, StreamType,
 };
 use crate::{MltError, MltRefResult};
 

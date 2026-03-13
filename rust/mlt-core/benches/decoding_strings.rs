@@ -2,13 +2,11 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
-    ParsedStrings, DictionaryType, EncodedSharedDict,
-    RawFsstData, IntEncoder, LengthType, LogicalEncoder, RawName,
-    EncodedProperty, EncodedSharedDictEncoding, EncodedStream,
-    EncodedStringsEncoding, PhysicalEncoder, RawPlainData, RawPresence, RawSharedDict,
-    RawSharedDictChild, RawSharedDictEncoding, RawStrings, RawStringsEncoding, PresenceStream,
-    SharedDictEncoder, SharedDictItemEncoder, StrEncoder,
-    build_decoded_shared_dict, encode_shared_dict_prop,
+    DictionaryType, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
+    EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, ParsedStrings, PhysicalEncoder,
+    PresenceStream, RawFsstData, RawName, RawPlainData, RawPresence, RawSharedDict,
+    RawSharedDictChild, RawSharedDictEncoding, RawStrings, RawStringsEncoding, SharedDictEncoder,
+    SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict, encode_shared_dict_prop,
 };
 use strum::IntoEnumIterator as _;
 

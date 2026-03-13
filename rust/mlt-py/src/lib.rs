@@ -6,7 +6,7 @@ use std::ops::Deref;
 
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::v01::{ParsedGeometry, ParsedProperty, Geometry, Id, Property};
+use mlt_core::v01::{Geometry, Id, ParsedGeometry, ParsedProperty, Property};
 use mlt_core::{MltError, parse_layers};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

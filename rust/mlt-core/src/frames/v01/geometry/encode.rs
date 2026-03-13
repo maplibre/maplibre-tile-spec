@@ -4,8 +4,8 @@ use crate::MltError;
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, encode_componentwise_delta_vec2s};
 use crate::v01::{
-    ParsedGeometry, DictionaryType, GeometryType, IntEncoder, IntEncoding, LengthType,
-    LogicalEncoding, MortonMeta, OffsetType, EncodedGeometry, EncodedStream, PhysicalEncoder,
+    DictionaryType, EncodedGeometry, EncodedStream, GeometryType, IntEncoder, IntEncoding,
+    LengthType, LogicalEncoding, MortonMeta, OffsetType, ParsedGeometry, PhysicalEncoder,
     StreamMeta, StreamType, VertexBufferType,
 };
 

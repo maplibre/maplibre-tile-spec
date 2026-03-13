@@ -31,8 +31,8 @@ Each stage has a distinct role and type-naming convention:
 |-------|--------|-------------|
 | 1 | `Raw*` | Zero-copy borrowed views of input bytes (`&'a [u8]`). Parsing only, no allocation. |
 | 2 | `Parsed*` | Fully owned, decoded Rust values (e.g. `Vec<Option<u64>>`). Ready for business logic. |
-| 3 | `TileLayer` / `TileFeature` / `PropValue` | Row-oriented feature representation. Uses `geo_types::Geometry<i32>` and `PropValue` enum. |
-| 4 | `Staged*` | Columnar owned data ready for encoding. Internally a `EncDec<Encoded*, Parsed*>` alias. |
+| 3 | `TileLayer01` / `TileFeature` / `PropValue` | Row-oriented feature representation (module `v01::tile`). Uses `geo_types::Geometry<i32>` and `PropValue` enum. |
+| 4 | `Staged*` (`StagedLayer01`, `StagedGeometry`, …) | Columnar owned data ready for encoding. Internally a `EncDec<Encoded*, Parsed*>` alias. |
 | 5 | `Encoded*` | Wire-ready owned byte buffers. Can be serialized directly to a file or stream. |
 
 ### Conversion rules
@@ -41,7 +41,8 @@ Each stage has a distinct role and type-naming convention:
 - `Raw*` constructor: `pub fn parse(input: &'a [u8]) -> MltRefResult<'a, Self>`.
 - `Parsed*` → `Staged*`: wrap with `Staged*::Decoded(parsed_value)`.
 - `Staged*` → `Encoded*`: call optimizer traits (`ManualOptimisation`, `AutomaticOptimisation`, `ProfileOptimisation`).
-- `Encoded*` → bytes: call `write_to(&mut writer)`.
+- `Encoded*` → bytes: call `write_to(&mut writer)` on the `Encoded*` type.
+  To get from `Staged*` to `Encoded*`, use `staged.as_encoded()?`.
 - **No backwards conversions** — `Parsed*` cannot become `Raw*`, `Encoded*` cannot become `Staged*`.
 
 ---
@@ -131,9 +132,14 @@ would suffice.
 
 - **Columnar** (`Raw*`, `Parsed*`, `Staged*`, `Encoded*`): data is stored column-by-column.
   This is the native on-wire format and the format used by the optimizer.
-- **Row-oriented** (`TileLayer01`, `TileFeature`, `PropValue`): data is stored feature-by-feature.
-  This is the convenient working form for business logic, sorting, and user-facing APIs.
-  Geometry uses `geo_types::Geometry<i32>`, and individual property values use the `PropValue` enum.
+- **Row-oriented** (`TileLayer01`, `TileFeature`, `PropValue`): data is stored feature-by-feature,
+  living in `mlt_core::v01::tile`. This is the convenient working form for business logic, sorting,
+  and user-facing APIs. Geometry is `geo_types::Geometry<i32>`, and individual property values use
+  the `PropValue` enum. `SharedDict` columns are flattened: each sub-field becomes its own
+  `PropValue::Str` entry.
+
+The optimizer converts `StagedLayer01` ↔ `TileLayer01` at its entry and exit boundaries. Users
+working at the tile level interact only with `TileLayer01`/`TileFeature`/`PropValue`.
 
 ---
 

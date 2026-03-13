@@ -8,14 +8,14 @@ use utils::BinarySerializer as _;
 use crate::frames::Unknown;
 use crate::frames::v01::Layer01;
 use crate::utils::{checked_sum2, parse_u8, parse_varint, take};
-use crate::{Layer, MltError, MltRefResult, OwnedLayer, utils};
+use crate::{Layer, MltError, MltRefResult, StagedLayer, utils};
 
 impl<'a> Layer<'a> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedLayer {
+    pub fn to_owned(&self) -> StagedLayer {
         match self {
-            Self::Tag01(layer) => OwnedLayer::Tag01(layer.to_owned()),
-            Self::Unknown(unknown) => OwnedLayer::Unknown(unknown.to_owned()),
+            Self::Tag01(layer) => StagedLayer::Tag01(layer.to_owned()),
+            Self::Unknown(unknown) => StagedLayer::Unknown(unknown.to_owned()),
         }
     }
 
@@ -74,17 +74,17 @@ impl<'a> Layer<'a> {
     }
 }
 
-impl OwnedLayer {
+impl StagedLayer {
     /// Write layer's binary representation to a Write stream
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         // (size, tag, data) => need to encode to a buffer to write the size
         let (tag, buffer) = match self {
-            OwnedLayer::Tag01(layer) => {
+            StagedLayer::Tag01(layer) => {
                 let mut buffer = Vec::new();
                 layer.write_to(&mut buffer)?;
                 (1_u8, Cow::Owned(buffer))
             }
-            OwnedLayer::Unknown(unknown) => (unknown.tag, Cow::Borrowed(&unknown.value)),
+            StagedLayer::Unknown(unknown) => (unknown.tag, Cow::Borrowed(&unknown.value)),
         };
 
         let buffer_len = u32::try_from(buffer.len()).map_err(MltError::from)?;

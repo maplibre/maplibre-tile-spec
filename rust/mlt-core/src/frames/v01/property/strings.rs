@@ -8,13 +8,13 @@ use crate::MltError::{
 };
 use crate::utils::AsUsize as _;
 use crate::v01::{
-    ColumnType, DictionaryType, EncodedFsstData, EncodedName, EncodedPlainData,
-    EncodedProperty, EncodedSharedDict, EncodedSharedDictChild, EncodedSharedDictEncoding,
-    EncodedStream, EncodedStrings, EncodedStringsEncoding, FsstStrEncoder, IntEncoder, LengthType,
-    OffsetType, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, PresenceStream,
-    PropertyEncoder, RawFsstData, RawName, RawPlainData, RawPresence, RawSharedDict,
-    RawSharedDictChild, RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding,
-    SharedDictEncoder, StrEncoder, StreamType,
+    ColumnType, DictionaryType, EncodedFsstData, EncodedName, EncodedPlainData, EncodedProperty,
+    EncodedSharedDict, EncodedSharedDictChild, EncodedSharedDictEncoding, EncodedStream,
+    EncodedStrings, EncodedStringsEncoding, FsstStrEncoder, IntEncoder, LengthType, OffsetType,
+    ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, PresenceStream, PropertyEncoder,
+    RawFsstData, RawName, RawPlainData, RawPresence, RawSharedDict, RawSharedDictChild,
+    RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding, SharedDictEncoder,
+    StrEncoder, StreamType,
 };
 use crate::{Analyze, DecodeInto, MltError, StatType};
 
@@ -480,7 +480,10 @@ impl<'a> RawStringsEncoding<'a> {
         Self::Plain(plain_data)
     }
 
-    pub fn dictionary(plain_data: RawPlainData<'a>, offsets: RawStream<'a>) -> Result<Self, MltError> {
+    pub fn dictionary(
+        plain_data: RawPlainData<'a>,
+        offsets: RawStream<'a>,
+    ) -> Result<Self, MltError> {
         validate_stream!(offsets, StreamType::Offset(OffsetType::String));
         Ok(Self::Dictionary {
             plain_data,
@@ -493,7 +496,10 @@ impl<'a> RawStringsEncoding<'a> {
         Self::FsstPlain(fsst_data)
     }
 
-    pub fn fsst_dictionary(fsst_data: RawFsstData<'a>, offsets: RawStream<'a>) -> Result<Self, MltError> {
+    pub fn fsst_dictionary(
+        fsst_data: RawFsstData<'a>,
+        offsets: RawStream<'a>,
+    ) -> Result<Self, MltError> {
         validate_stream!(offsets, StreamType::Offset(OffsetType::String));
         Ok(Self::FsstDictionary { fsst_data, offsets })
     }
@@ -687,8 +693,11 @@ pub fn encode_shared_dict_prop(
 
     let encoding = match dict_encoded {
         EncodedStringsEncoding::Plain(plain_data) => EncodedSharedDictEncoding::Plain(plain_data),
-        EncodedStringsEncoding::FsstPlain(fsst_data) => EncodedSharedDictEncoding::FsstPlain(fsst_data),
-        EncodedStringsEncoding::Dictionary { .. } | EncodedStringsEncoding::FsstDictionary { .. } => {
+        EncodedStringsEncoding::FsstPlain(fsst_data) => {
+            EncodedSharedDictEncoding::FsstPlain(fsst_data)
+        }
+        EncodedStringsEncoding::Dictionary { .. }
+        | EncodedStringsEncoding::FsstDictionary { .. } => {
             return Err(NotImplemented(
                 "SharedDict only supports Plain or FsstPlain encoding",
             ));

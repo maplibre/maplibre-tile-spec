@@ -10,12 +10,12 @@ use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
-    ParsedGeometry, ParsedId, ParsedProperty, ParsedStrings, GeometryEncoder, IdEncoder,
-    IntEncoder, StagedGeometry, StagedId, OwnedLayer01, StagedProperty, PresenceStream,
-    PropertyEncoder, ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StrEncoder,
+    GeometryEncoder, IdEncoder, IntEncoder, ParsedGeometry, ParsedId, ParsedProperty,
+    ParsedStrings, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
+    SharedDictItemEncoder, StagedGeometry, StagedId, StagedLayer01, StagedProperty, StrEncoder,
     VertexBufferType, build_decoded_shared_dict,
 };
-use mlt_core::{OwnedLayer, parse_layers};
+use mlt_core::{StagedLayer, parse_layers};
 
 /// Tessellate a polygon using the geo crate's earcut algorithm.
 ///
@@ -329,7 +329,7 @@ impl Layer {
             .collect();
         properties.manual_optimisation(self.prop_encoders).unwrap();
 
-        let layer = OwnedLayer::Tag01(OwnedLayer01 {
+        let layer = StagedLayer::Tag01(StagedLayer01 {
             name: "layer1".to_string(),
             extent: self.extent.unwrap_or(80),
             id,

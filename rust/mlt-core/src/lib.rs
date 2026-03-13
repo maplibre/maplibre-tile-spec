@@ -22,7 +22,7 @@ pub use enc_dec::EncDec;
 pub use encode::Encodable;
 pub(crate) use encode::FromDecoded;
 pub use errors::{MltError, MltRefResult};
-pub use frames::{Layer, OwnedLayer, unknown, v01};
+pub use frames::{Layer, StagedLayer, unknown, v01};
 
 /// Parse a sequence of binary layers
 pub fn parse_layers(mut input: &[u8]) -> Result<Vec<Layer<'_>>, MltError> {

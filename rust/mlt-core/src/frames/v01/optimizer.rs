@@ -3,19 +3,30 @@ use strum::{EnumCount as _, IntoEnumIterator as _};
 use crate::MltError;
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::sort::{reorder_features, spatial_sort_likely_to_help};
-use crate::v01::source::SourceLayer01;
+use crate::v01::tile::TileLayer01;
 use crate::v01::{
-    GeometryEncoder, GeometryProfile, IdEncoder, IdProfile, OwnedLayer01, PropertyEncoder,
-    PropertyProfile, SortStrategy,
+    GeometryEncoder, GeometryProfile, IdEncoder, IdProfile, PropertyEncoder, PropertyProfile,
+    SortStrategy, StagedLayer01,
 };
 
-impl ManualOptimisation for OwnedLayer01 {
+impl StagedLayer01 {
+    /// Encode this layer using the given encoder, producing a wire-ready `StagedLayer01`
+    /// where every column is in the `Encoded` variant and ready to be serialized.
+    ///
+    /// This is a convenience wrapper over `ManualOptimisation::manual_optimisation`.
+    pub fn encode(&mut self, encoder: Tag01Encoder) -> Result<(), MltError> {
+        use crate::optimizer::ManualOptimisation as _;
+        self.manual_optimisation(encoder)
+    }
+}
+
+impl ManualOptimisation for StagedLayer01 {
     type UsedEncoder = Tag01Encoder;
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        let mut source = SourceLayer01::try_from(std::mem::replace(self, dummy_layer()))?;
+        let mut source = TileLayer01::try_from(std::mem::replace(self, dummy_layer()))?;
         reorder_features(&mut source, encoder.sort_strategy);
-        *self = OwnedLayer01::from(source);
+        *self = StagedLayer01::from(source);
 
         if let (Some(id_enc), Some(id)) = (encoder.id, &mut self.id) {
             id.manual_optimisation(id_enc)?;
@@ -26,7 +37,7 @@ impl ManualOptimisation for OwnedLayer01 {
     }
 }
 
-impl ProfileOptimisation for OwnedLayer01 {
+impl ProfileOptimisation for StagedLayer01 {
     type UsedEncoder = Tag01Encoder;
     type Profile = Tag01Profile;
 
@@ -36,9 +47,9 @@ impl ProfileOptimisation for OwnedLayer01 {
     ) -> Result<Self::UsedEncoder, MltError> {
         let sort_strategy = profile.sort_strategy();
 
-        let mut source = SourceLayer01::try_from(std::mem::replace(self, dummy_layer()))?;
+        let mut source = TileLayer01::try_from(std::mem::replace(self, dummy_layer()))?;
         reorder_features(&mut source, sort_strategy);
-        *self = OwnedLayer01::from(source);
+        *self = StagedLayer01::from(source);
 
         let id = match &mut self.id {
             Some(id) => id.profile_driven_optimisation(&profile.id)?,
@@ -78,7 +89,7 @@ const TRIAL_STRATEGIES: [Option<SortStrategy>; 3] = [
     Some(SortStrategy::Id),
 ];
 
-impl AutomaticOptimisation for OwnedLayer01 {
+impl AutomaticOptimisation for StagedLayer01 {
     type UsedEncoder = Tag01Encoder;
 
     /// Automatically select the best sort strategy and stream-level encoders by
@@ -86,7 +97,7 @@ impl AutomaticOptimisation for OwnedLayer01 {
     ///
     /// # Algorithm
     ///
-    /// 1. Convert to [`SourceLayer01`] (decoded, row-oriented).
+    /// 1. Convert to [`TileLayer01`] (decoded, row-oriented).
     /// 2. Build a candidate set: `[None, Some(Spatial(Morton)), Some(Id)]`.
     ///    - When `N >= 512`, apply a bounding-box heuristic: if the vertex
     ///      spread covers more than 80% of the tile extent on both axes,
@@ -95,7 +106,7 @@ impl AutomaticOptimisation for OwnedLayer01 {
     /// 3. For each candidate strategy:
     ///    - Clone the source layer.
     ///    - Apply `reorder_features` to the clone.
-    ///    - Convert the clone back to `OwnedLayer01` and run automatic
+    ///    - Convert the clone back to `StagedLayer01` and run automatic
     ///      stream-level optimisation on id, properties, and geometry.
     ///    - Serialise the fully-encoded clone to a scratch buffer and record
     ///      its byte count.
@@ -103,13 +114,13 @@ impl AutomaticOptimisation for OwnedLayer01 {
     ///    `self` with the winning encoded layer.
     fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
         struct TrialResult {
-            layer: OwnedLayer01,
+            layer: StagedLayer01,
             encoder: Tag01Encoder,
             byte_count: usize,
         }
 
         // Convert to source form once; every trial clones this.
-        let source = SourceLayer01::try_from(std::mem::replace(self, dummy_layer()))?;
+        let source = TileLayer01::try_from(std::mem::replace(self, dummy_layer()))?;
         let n = source.features.len();
 
         // Build the candidate slice, optionally pruning spatial sort.
@@ -127,7 +138,7 @@ impl AutomaticOptimisation for OwnedLayer01 {
         for &strategy in candidates {
             let mut trial_source = source.clone();
             reorder_features(&mut trial_source, strategy);
-            let mut trial = OwnedLayer01::from(trial_source);
+            let mut trial = StagedLayer01::from(trial_source);
 
             let id = match &mut trial.id {
                 Some(id) => id.automatic_encoding_optimisation()?,
@@ -165,11 +176,11 @@ impl AutomaticOptimisation for OwnedLayer01 {
     }
 }
 
-/// Produce a cheap placeholder `OwnedLayer01` used with `std::mem::replace`
+/// Produce a cheap placeholder `StagedLayer01` used with `std::mem::replace`
 /// to take ownership of `self` without cloning.
-fn dummy_layer() -> OwnedLayer01 {
+fn dummy_layer() -> StagedLayer01 {
     use crate::v01::{ParsedGeometry, StagedGeometry};
-    OwnedLayer01 {
+    StagedLayer01 {
         name: String::new(),
         extent: 0,
         id: None,

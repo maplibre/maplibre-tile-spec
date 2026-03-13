@@ -5,25 +5,18 @@ use crate::utils::BinarySerializer as _;
 use crate::v01::{ColumnType, EncodedId, EncodedIdValue, StagedId};
 
 impl StagedId {
-    #[doc(hidden)]
-    pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    /// Return the inner [`EncodedId`] if this is in the `Encoded` state,
+    /// or an error if it still needs to be encoded first.
+    pub fn as_encoded(&self) -> Result<&EncodedId, MltError> {
         match self {
-            Self::Encoded(r) => r.write_columns_meta_to(writer),
-            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
-        }
-    }
-
-    #[doc(hidden)]
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        match self {
-            Self::Encoded(r) => r.write_to(writer),
+            Self::Encoded(r) => Ok(r),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
 }
 
 impl EncodedId {
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match (&self.presence, &self.value) {
             (None, EncodedIdValue::Id32(_)) => ColumnType::Id.write_to(writer)?,
             (None, EncodedIdValue::Id64(_)) => ColumnType::LongId.write_to(writer)?,
@@ -33,7 +26,7 @@ impl EncodedId {
         Ok(())
     }
 
-    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         writer.write_optional_stream(self.presence.as_ref())?;
         match &self.value {
             EncodedIdValue::Id32(s) | EncodedIdValue::Id64(s) => {

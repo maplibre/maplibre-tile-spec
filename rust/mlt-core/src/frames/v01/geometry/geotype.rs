@@ -8,7 +8,7 @@ use crate::MltError::{
 };
 use crate::geojson::{Coord32, Geom32};
 use crate::utils::AsUsize as _;
-use crate::v01::{ParsedGeometry, GeometryType};
+use crate::v01::{GeometryType, ParsedGeometry};
 
 impl GeometryType {
     #[must_use]
@@ -410,8 +410,7 @@ mod tests {
     use crate::geojson::Coord32;
     use crate::optimizer::ManualOptimisation as _;
     use crate::v01::{
-        EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, RawGeometry,
-        StagedGeometry,
+        EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, RawGeometry, StagedGeometry,
     };
 
     /// Encode, serialize, parse, and decode a `ParsedGeometry`.
@@ -423,7 +422,10 @@ mod tests {
 
         // Serialize to bytes (write_to includes the stream count varint)
         let mut buffer = Vec::new();
-        geom.write_to(&mut buffer).expect("Failed to serialize");
+        geom.as_encoded()
+            .expect("should be encoded")
+            .write_to(&mut buffer)
+            .expect("Failed to serialize");
 
         // Now parse (parse expects varint stream count + streams)
         let (remaining, parsed) = RawGeometry::parse(&buffer).expect("Failed to parse");
@@ -677,8 +679,8 @@ mod tests {
     #[test]
     fn test_morton_vertex_dictionary_expansion() {
         use crate::v01::{
-            DictionaryType, IntEncoder, LengthType, LogicalEncoding, MortonMeta, OffsetType,
-            EncodedStream, StreamMeta, StreamType,
+            DictionaryType, EncodedStream, IntEncoder, LengthType, LogicalEncoding, MortonMeta,
+            OffsetType, StreamMeta, StreamType,
         };
 
         // meta: single LineString

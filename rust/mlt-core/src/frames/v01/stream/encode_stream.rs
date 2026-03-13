@@ -1,9 +1,9 @@
 use crate::MltError;
 use crate::utils::{encode_bools_to_bytes, encode_byte_rle};
 use crate::v01::{
-    DictionaryType, FsstStrEncoder, IntEncoder, IntEncoding, LengthType, LogicalEncoding,
-    OffsetType, EncodedFsstData, EncodedPlainData, EncodedStream, EncodedStreamData, EncodedStringsEncoding,
-    PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+    DictionaryType, EncodedFsstData, EncodedPlainData, EncodedStream, EncodedStreamData,
+    EncodedStringsEncoding, FsstStrEncoder, IntEncoder, IntEncoding, LengthType, LogicalEncoding,
+    OffsetType, PhysicalEncoding, RleMeta, StreamMeta, StreamType,
 };
 
 impl EncodedStream {

@@ -12,18 +12,11 @@ use crate::v01::{
 };
 
 impl StagedGeometry {
-    #[doc(hidden)]
-    pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    /// Return the inner [`EncodedGeometry`] if this is in the `Encoded` state,
+    /// or an error if it still needs to be encoded first.
+    pub fn as_encoded(&self) -> Result<&EncodedGeometry, MltError> {
         match self {
-            Self::Encoded(_) => EncodedGeometry::write_columns_meta_to(writer),
-            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
-        }
-    }
-
-    #[doc(hidden)]
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        match self {
-            Self::Encoded(r) => r.write_to(writer),
+            Self::Encoded(r) => Ok(r),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -58,6 +51,14 @@ impl<'a> RawGeometry<'a> {
     }
 }
 
+impl TryFrom<RawGeometry<'_>> for ParsedGeometry {
+    type Error = MltError;
+
+    fn try_from(raw: RawGeometry<'_>) -> Result<Self, MltError> {
+        ParsedGeometry::decode(raw)
+    }
+}
+
 impl TryFrom<EncodedGeometry> for ParsedGeometry {
     type Error = MltError;
 
@@ -69,12 +70,12 @@ impl TryFrom<EncodedGeometry> for ParsedGeometry {
 }
 
 impl EncodedGeometry {
-    pub(crate) fn write_columns_meta_to<W: Write>(writer: &mut W) -> Result<(), MltError> {
+    pub fn write_columns_meta_to<W: Write>(writer: &mut W) -> Result<(), MltError> {
         ColumnType::Geometry.write_to(writer)?;
         Ok(())
     }
 
-    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         let items_len = u32::try_from(self.items.len())?;
         let items_len = checked_sum2(items_len, 1)?;
         writer.write_varint(items_len)?;

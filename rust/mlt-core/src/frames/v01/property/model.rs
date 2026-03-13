@@ -4,7 +4,7 @@ use enum_dispatch::enum_dispatch;
 
 use crate::EncDec;
 use crate::analyse::{Analyze, StatType};
-use crate::v01::{FsstStrEncoder, IntEncoder, EncodedStream, RawStream};
+use crate::v01::{EncodedStream, FsstStrEncoder, IntEncoder, RawStream};
 
 /// Name borrowed from input bytes (Stage 1)
 #[derive(Debug, Clone, PartialEq, Eq)]

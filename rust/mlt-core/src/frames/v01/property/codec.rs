@@ -293,12 +293,14 @@ impl FromDecoded<'_> for EncodedProperty {
                 name: EncodedName(v.name.as_ref().to_string()),
                 presence: EncodedPresence(presence),
                 encoding: match enc {
-                    StrEncoder::Plain { string_lengths } => EncodedStream::encode_strings_with_type(
-                        &v.dense_values(),
-                        string_lengths,
-                        LengthType::VarBinary,
-                        DictionaryType::None,
-                    )?,
+                    StrEncoder::Plain { string_lengths } => {
+                        EncodedStream::encode_strings_with_type(
+                            &v.dense_values(),
+                            string_lengths,
+                            LengthType::VarBinary,
+                            DictionaryType::None,
+                        )?
+                    }
                     StrEncoder::Fsst(enc) => EncodedStream::encode_strings_fsst_with_type(
                         &v.dense_values(),
                         enc,
@@ -316,6 +318,14 @@ impl FromDecoded<'_> for EncodedProperty {
 
 fn unapply_presence<T: Clone>(v: &[Option<T>]) -> Vec<T> {
     v.iter().filter_map(|x| x.as_ref()).cloned().collect()
+}
+
+impl<'a> TryFrom<RawProperty<'a>> for ParsedProperty<'a> {
+    type Error = MltError;
+
+    fn try_from(raw: RawProperty<'a>) -> Result<Self, MltError> {
+        ParsedProperty::decode(raw)
+    }
 }
 
 impl<'a> Decode<RawProperty<'a>> for ParsedProperty<'a> {

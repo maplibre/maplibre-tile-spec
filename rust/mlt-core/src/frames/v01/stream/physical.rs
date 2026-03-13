@@ -3,7 +3,7 @@ use integer_encoding::VarInt as _;
 use crate::MltError::ParsingStreamType;
 use crate::utils::{encode_fastpfor, encode_u32s_to_bytes, encode_u64s_to_bytes, parse_u8};
 use crate::v01::{
-    DictionaryType, LengthType, OffsetType, EncodedStreamData, PhysicalEncoding, StreamType,
+    DictionaryType, EncodedStreamData, LengthType, OffsetType, PhysicalEncoding, StreamType,
 };
 use crate::{MltError, MltRefResult};
 

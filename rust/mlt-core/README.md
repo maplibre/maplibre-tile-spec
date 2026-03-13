@@ -63,7 +63,7 @@ For any new features and encodings we will simply use a new tag ID, likely reusi
 
 All data flowing through `mlt-core` follows a five-stage pipeline:
 
-```
+```text
 RawBytes ──► Raw* ──► Parsed* ──► TileLayer* / TileFeature / PropValue ──► Staged* ──► Encoded* ──► RawBytes
 ```
 

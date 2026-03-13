@@ -3,7 +3,7 @@ use zigzag::ZigZag;
 
 use crate::MltError;
 use crate::v01::stream::IntEncoder;
-use crate::v01::{LogicalEncoder, EncodedStreamData, PhysicalEncoder};
+use crate::v01::{EncodedStreamData, LogicalEncoder, PhysicalEncoder};
 
 /// Minimum number of values to profile / compete on.
 ///

@@ -1,5 +1,7 @@
 use crate::utils::apply_present;
-use crate::v01::{EncodedId, EncodedIdValue, EncodedStream, Id, ParsedId, RawId, RawIdValue, StagedId, RawStream};
+use crate::v01::{
+    EncodedId, EncodedIdValue, EncodedStream, Id, ParsedId, RawId, RawIdValue, RawStream, StagedId,
+};
 use crate::{Decode, DecodeInto as _, MltError};
 
 impl<'a> Id<'a> {

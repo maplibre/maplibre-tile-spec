@@ -27,7 +27,7 @@ use crate::v01::property::{
 };
 use crate::v01::stream::IntEncoder;
 use crate::v01::{
-    EncodedProperty, StagedProperty, SharedDictEncoder, SharedDictItemEncoder, StrEncoder,
+    EncodedProperty, SharedDictEncoder, SharedDictItemEncoder, StagedProperty, StrEncoder,
 };
 use crate::{FromDecoded as _, MltError};
 

@@ -7,7 +7,7 @@ use mlt_core::optimizer::{
     AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
 };
 use mlt_core::v01::{
-    ParsedGeometry, DictionaryType, GeometryProfile, LengthType, OffsetType, EncodedGeometry,
+    DictionaryType, EncodedGeometry, GeometryProfile, LengthType, OffsetType, ParsedGeometry,
     StagedGeometry, StreamType,
 };
 use pretty_assertions::assert_eq;

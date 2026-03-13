@@ -2,7 +2,7 @@ use insta::assert_debug_snapshot;
 use mlt_core::optimizer::{
     AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
 };
-use mlt_core::v01::{ParsedProperty, StagedProperty, PropertyProfile};
+use mlt_core::v01::{ParsedProperty, PropertyProfile, StagedProperty};
 use rstest::rstest;
 
 fn str_prop(name: &str, values: &[&str]) -> StagedProperty {

@@ -1,12 +1,12 @@
 //! Row-oriented "source form" for the optimizer.
 //!
-//! [`SourceLayer01`] holds one [`SourceFeature`] per map feature, each owning
+//! [`TileLayer01`] holds one [`TileFeature`] per map feature, each owning
 //! its geometry as a [`geo_types::Geometry<i32>`] and its property values as a
-//! plain `Vec<SourceValue>`.  This is the working form used throughout the
+//! plain `Vec<PropValue>`.  This is the working form used throughout the
 //! optimizer and sorting pipeline: it is cheap to clone, trivially sortable,
 //! and free from any encoded/decoded duality.
 //!
-//! The only conversions to/from [`OwnedLayer01`] happen at the optimizer entry
+//! The only conversions to/from [`StagedLayer01`] happen at the optimizer entry
 //! and exit boundaries.
 
 use std::borrow::Cow;
@@ -16,45 +16,45 @@ use geo_types::Geometry;
 use crate::MltError;
 use crate::optimizer::ManualOptimisation as _;
 use crate::v01::{
-    ParsedGeometry, ParsedId, ParsedProperty, ParsedScalar, ParsedSharedDict,
-    ParsedSharedDictItem, ParsedStrings, GeometryEncoder, IntEncoder, StagedGeometry, StagedId,
-    OwnedLayer01, StagedProperty,
+    GeometryEncoder, IntEncoder, ParsedGeometry, ParsedId, ParsedProperty, ParsedScalar,
+    ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, StagedGeometry, StagedId, StagedLayer01,
+    StagedProperty,
 };
 
 /// Row-oriented working form for the optimizer.
 ///
-/// All features are stored as a flat [`Vec<SourceFeature>`] so that sorting is
+/// All features are stored as a flat [`Vec<TileFeature>`] so that sorting is
 /// a single `sort_by_cached_key` call.  The `property_names` vec is parallel
-/// to every `SourceFeature::properties` slice in this layer.
+/// to every `TileFeature::properties` slice in this layer.
 #[derive(Debug, Clone)]
-pub struct SourceLayer01 {
+pub struct TileLayer01 {
     pub name: String,
     pub extent: u32,
-    /// Column names, parallel to `SourceFeature::properties`.
+    /// Column names, parallel to `TileFeature::properties`.
     pub property_names: Vec<String>,
-    pub features: Vec<SourceFeature>,
+    pub features: Vec<TileFeature>,
 }
 
 /// A single map feature in row form.
 #[derive(Debug, Clone, PartialEq)]
-pub struct SourceFeature {
+pub struct TileFeature {
     pub id: Option<u64>,
     /// Geometry in `geo_types` / `Geom32` form.
     pub geometry: Geometry<i32>,
     /// One value per property column, in the same order as
-    /// [`SourceLayer01::property_names`].
-    pub properties: Vec<SourceValue>,
+    /// [`TileLayer01::property_names`].
+    pub properties: Vec<PropValue>,
 }
 
 /// A single typed value for one property of one feature.
 ///
 /// Mirrors the scalar variants of [`ParsedProperty`] at the per-feature
 /// level. `SharedDict` items are flattened: each sub-field becomes its own
-/// `SourceValue::Str` entry in `SourceFeature::properties`, with the
-/// corresponding entry in `SourceLayer01::property_names` set to
+/// `PropValue::Str` entry in `TileFeature::properties`, with the
+/// corresponding entry in `TileLayer01::property_names` set to
 /// `"prefix:suffix"`.
 #[derive(Debug, Clone, PartialEq)]
-pub enum SourceValue {
+pub enum PropValue {
     Bool(Option<bool>),
     I8(Option<i8>),
     U8(Option<u8>),
@@ -67,12 +67,12 @@ pub enum SourceValue {
     Str(Option<String>),
 }
 
-// ── OwnedLayer01 → SourceLayer01 ─────────────────────────────────────────────
+// ── StagedLayer01 → TileLayer01 ─────────────────────────────────────────────
 
-impl TryFrom<OwnedLayer01> for SourceLayer01 {
+impl TryFrom<StagedLayer01> for TileLayer01 {
     type Error = MltError;
 
-    fn try_from(mut layer: OwnedLayer01) -> Result<Self, Self::Error> {
+    fn try_from(mut layer: StagedLayer01) -> Result<Self, Self::Error> {
         // Decode all columns that are still in encoded form.
         decode_layer(&mut layer)?;
 
@@ -127,14 +127,14 @@ impl TryFrom<OwnedLayer01> for SourceLayer01 {
                 }
             }
 
-            features.push(SourceFeature {
+            features.push(TileFeature {
                 id,
                 geometry,
                 properties,
             });
         }
 
-        Ok(SourceLayer01 {
+        Ok(TileLayer01 {
             name: layer.name,
             extent: layer.extent,
             property_names,
@@ -145,36 +145,36 @@ impl TryFrom<OwnedLayer01> for SourceLayer01 {
 
 /// Extract the per-feature value at index `i` from a decoded property column
 /// and push it (or them, for `SharedDict`) into `out`.
-fn extract_values(prop: &ParsedProperty<'_>, i: usize, out: &mut Vec<SourceValue>) {
+fn extract_values(prop: &ParsedProperty<'_>, i: usize, out: &mut Vec<PropValue>) {
     match prop {
-        ParsedProperty::Bool(s) => out.push(SourceValue::Bool(s.values[i])),
-        ParsedProperty::I8(s) => out.push(SourceValue::I8(s.values[i])),
-        ParsedProperty::U8(s) => out.push(SourceValue::U8(s.values[i])),
-        ParsedProperty::I32(s) => out.push(SourceValue::I32(s.values[i])),
-        ParsedProperty::U32(s) => out.push(SourceValue::U32(s.values[i])),
-        ParsedProperty::I64(s) => out.push(SourceValue::I64(s.values[i])),
-        ParsedProperty::U64(s) => out.push(SourceValue::U64(s.values[i])),
-        ParsedProperty::F32(s) => out.push(SourceValue::F32(s.values[i])),
-        ParsedProperty::F64(s) => out.push(SourceValue::F64(s.values[i])),
+        ParsedProperty::Bool(s) => out.push(PropValue::Bool(s.values[i])),
+        ParsedProperty::I8(s) => out.push(PropValue::I8(s.values[i])),
+        ParsedProperty::U8(s) => out.push(PropValue::U8(s.values[i])),
+        ParsedProperty::I32(s) => out.push(PropValue::I32(s.values[i])),
+        ParsedProperty::U32(s) => out.push(PropValue::U32(s.values[i])),
+        ParsedProperty::I64(s) => out.push(PropValue::I64(s.values[i])),
+        ParsedProperty::U64(s) => out.push(PropValue::U64(s.values[i])),
+        ParsedProperty::F32(s) => out.push(PropValue::F32(s.values[i])),
+        ParsedProperty::F64(s) => out.push(PropValue::F64(s.values[i])),
         ParsedProperty::Str(s) => {
             let val = s
                 .get(u32::try_from(i).unwrap_or(u32::MAX))
                 .map(str::to_string);
-            out.push(SourceValue::Str(val));
+            out.push(PropValue::Str(val));
         }
         ParsedProperty::SharedDict(sd) => {
             for item in &sd.items {
                 let val = item.get(sd, i).map(str::to_string);
-                out.push(SourceValue::Str(val));
+                out.push(PropValue::Str(val));
             }
         }
     }
 }
 
-// ── SourceLayer01 → OwnedLayer01 ─────────────────────────────────────────────
+// ── TileLayer01 → StagedLayer01 ─────────────────────────────────────────────
 
-impl From<SourceLayer01> for OwnedLayer01 {
-    fn from(source: SourceLayer01) -> Self {
+impl From<TileLayer01> for StagedLayer01 {
+    fn from(source: TileLayer01) -> Self {
         // Rebuild geometry column
         let mut geom = ParsedGeometry::default();
         for f in &source.features {
@@ -191,12 +191,12 @@ impl From<SourceLayer01> for OwnedLayer01 {
             None
         };
 
-        // Rebuild property columns from the flattened SourceValue rows.
+        // Rebuild property columns from the flattened PropValue rows.
         // We need to reconstruct each column as a Vec of per-feature values.
         let num_cols = source.property_names.len();
         let properties = rebuild_properties(&source.property_names, &source.features, num_cols);
 
-        OwnedLayer01 {
+        StagedLayer01 {
             name: source.name,
             extent: source.extent,
             id,
@@ -208,14 +208,14 @@ impl From<SourceLayer01> for OwnedLayer01 {
     }
 }
 
-/// Rebuild the property columns from per-feature `SourceValue` rows.
+/// Rebuild the property columns from per-feature `PropValue` rows.
 ///
 /// Each column index `c` maps to a column name in `property_names[c]`.
 /// A `SharedDict` column is detected by two or more consecutive names sharing
 /// the same `"prefix:"` portion.  All other columns become scalar columns.
 fn rebuild_properties(
     names: &[String],
-    features: &[SourceFeature],
+    features: &[TileFeature],
     num_cols: usize,
 ) -> Vec<StagedProperty> {
     if num_cols == 0 {
@@ -272,7 +272,7 @@ fn split_prefix(name: &str) -> (Option<&str>, &str) {
     }
 }
 
-fn rebuild_scalar_column(name: &str, col: usize, features: &[SourceFeature]) -> StagedProperty {
+fn rebuild_scalar_column(name: &str, col: usize, features: &[TileFeature]) -> StagedProperty {
     // Determine the variant by looking at the first non-None feature value.
     // Fall back to Str if all values are None or the column is empty.
     let first_val = features.iter().find_map(|f| f.properties.get(col));
@@ -282,7 +282,7 @@ fn rebuild_scalar_column(name: &str, col: usize, features: &[SourceFeature]) -> 
             let values: Vec<Option<$ty>> = features
                 .iter()
                 .map(|f| {
-                    if let Some(SourceValue::$sv(v)) = f.properties.get(col) {
+                    if let Some(PropValue::$sv(v)) = f.properties.get(col) {
                         *v
                     } else {
                         None
@@ -297,20 +297,20 @@ fn rebuild_scalar_column(name: &str, col: usize, features: &[SourceFeature]) -> 
     }
 
     match first_val {
-        Some(SourceValue::Bool(_)) => scalar_col!(Bool, bool, Bool),
-        Some(SourceValue::I8(_)) => scalar_col!(I8, i8, I8),
-        Some(SourceValue::U8(_)) => scalar_col!(U8, u8, U8),
-        Some(SourceValue::I32(_)) => scalar_col!(I32, i32, I32),
-        Some(SourceValue::U32(_)) => scalar_col!(U32, u32, U32),
-        Some(SourceValue::I64(_)) => scalar_col!(I64, i64, I64),
-        Some(SourceValue::U64(_)) => scalar_col!(U64, u64, U64),
-        Some(SourceValue::F32(_)) => scalar_col!(F32, f32, F32),
-        Some(SourceValue::F64(_)) => scalar_col!(F64, f64, F64),
-        Some(SourceValue::Str(_)) | None => {
+        Some(PropValue::Bool(_)) => scalar_col!(Bool, bool, Bool),
+        Some(PropValue::I8(_)) => scalar_col!(I8, i8, I8),
+        Some(PropValue::U8(_)) => scalar_col!(U8, u8, U8),
+        Some(PropValue::I32(_)) => scalar_col!(I32, i32, I32),
+        Some(PropValue::U32(_)) => scalar_col!(U32, u32, U32),
+        Some(PropValue::I64(_)) => scalar_col!(I64, i64, I64),
+        Some(PropValue::U64(_)) => scalar_col!(U64, u64, U64),
+        Some(PropValue::F32(_)) => scalar_col!(F32, f32, F32),
+        Some(PropValue::F64(_)) => scalar_col!(F64, f64, F64),
+        Some(PropValue::Str(_)) | None => {
             let values: Vec<Option<String>> = features
                 .iter()
                 .map(|f| {
-                    if let Some(SourceValue::Str(v)) = f.properties.get(col) {
+                    if let Some(PropValue::Str(v)) = f.properties.get(col) {
                         v.clone()
                     } else {
                         None
@@ -327,7 +327,7 @@ fn rebuild_scalar_column(name: &str, col: usize, features: &[SourceFeature]) -> 
 fn rebuild_shared_dict(
     prefix: &str,
     names: &[String],
-    features: &[SourceFeature],
+    features: &[TileFeature],
     start_col: usize,
     end_col: usize,
 ) -> ParsedSharedDict<'static> {
@@ -349,7 +349,7 @@ fn rebuild_shared_dict(
         for (item_idx, item) in items.iter_mut().enumerate() {
             let col = start_col + item_idx;
             let val = f.properties.get(col).and_then(|v| {
-                if let SourceValue::Str(s) = v {
+                if let PropValue::Str(s) = v {
                     s.as_deref()
                 } else {
                     None
@@ -383,7 +383,7 @@ fn rebuild_shared_dict(
 /// layout that differs from the "dense" layout produced by the wire
 /// encode→decode round-trip.  [`ParsedGeometry::to_geojson`] requires the
 /// dense form, so we canonicalize by encoding and decoding the geometry here.
-fn decode_layer(layer: &mut OwnedLayer01) -> Result<(), MltError> {
+fn decode_layer(layer: &mut StagedLayer01) -> Result<(), MltError> {
     // Always canonicalize geometry through encode→decode to get dense offsets.
     layer
         .geometry

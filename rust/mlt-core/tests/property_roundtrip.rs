@@ -1,11 +1,11 @@
 use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
-    EncodedProperty, EncodedScalar,
-    EncodedSharedDictEncoding, EncodedStringsEncoding, IntEncoder, LogicalEncoder,
-    ParsedProperty, ParsedScalar, ParsedStrings, PhysicalEncoder, PresenceStream, PropertyEncoder,
-    RawFsstData, RawName, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
-    RawSharedDictChild, RawSharedDictEncoding, RawStrings, RawStringsEncoding, ScalarEncoder,
-    SharedDictEncoder, SharedDictItemEncoder, StagedProperty, StrEncoder, build_decoded_shared_dict,
+    EncodedProperty, EncodedScalar, EncodedSharedDictEncoding, EncodedStringsEncoding, IntEncoder,
+    LogicalEncoder, ParsedProperty, ParsedScalar, ParsedStrings, PhysicalEncoder, PresenceStream,
+    PropertyEncoder, RawFsstData, RawName, RawPlainData, RawPresence, RawProperty, RawScalar,
+    RawSharedDict, RawSharedDictChild, RawSharedDictEncoding, RawStrings, RawStringsEncoding,
+    ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedProperty, StrEncoder,
+    build_decoded_shared_dict,
 };
 use mlt_core::{Decode, MltError};
 use proptest::prelude::*;
@@ -107,12 +107,14 @@ pub fn decode_for_test(prop: &StagedProperty) -> Result<ParsedProperty<'static>,
                     },
                     offsets: offsets.as_borrowed(),
                 },
-                EncodedStringsEncoding::FsstPlain(d) => RawStringsEncoding::FsstPlain(RawFsstData {
-                    symbol_lengths: d.symbol_lengths.as_borrowed(),
-                    symbol_table: d.symbol_table.as_borrowed(),
-                    lengths: d.lengths.as_borrowed(),
-                    corpus: d.corpus.as_borrowed(),
-                }),
+                EncodedStringsEncoding::FsstPlain(d) => {
+                    RawStringsEncoding::FsstPlain(RawFsstData {
+                        symbol_lengths: d.symbol_lengths.as_borrowed(),
+                        symbol_table: d.symbol_table.as_borrowed(),
+                        lengths: d.lengths.as_borrowed(),
+                        corpus: d.corpus.as_borrowed(),
+                    })
+                }
                 EncodedStringsEncoding::FsstDictionary { fsst_data, offsets } => {
                     RawStringsEncoding::FsstDictionary {
                         fsst_data: RawFsstData {
@@ -133,12 +135,14 @@ pub fn decode_for_test(prop: &StagedProperty) -> Result<ParsedProperty<'static>,
                     lengths: d.lengths.as_borrowed(),
                     data: d.data.as_borrowed(),
                 }),
-                EncodedSharedDictEncoding::FsstPlain(d) => RawSharedDictEncoding::FsstPlain(RawFsstData {
-                    symbol_lengths: d.symbol_lengths.as_borrowed(),
-                    symbol_table: d.symbol_table.as_borrowed(),
-                    lengths: d.lengths.as_borrowed(),
-                    corpus: d.corpus.as_borrowed(),
-                }),
+                EncodedSharedDictEncoding::FsstPlain(d) => {
+                    RawSharedDictEncoding::FsstPlain(RawFsstData {
+                        symbol_lengths: d.symbol_lengths.as_borrowed(),
+                        symbol_table: d.symbol_table.as_borrowed(),
+                        lengths: d.lengths.as_borrowed(),
+                        corpus: d.corpus.as_borrowed(),
+                    })
+                }
             },
             children: s
                 .children

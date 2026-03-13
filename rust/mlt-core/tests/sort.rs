@@ -1,20 +1,20 @@
 use geo_types::{Coord, LineString, Point};
 use mlt_core::geojson::Geom32;
 use mlt_core::optimizer::ManualOptimisation as _;
-use mlt_core::v01::source::SourceLayer01;
+use mlt_core::v01::tile::TileLayer01;
 use mlt_core::v01::{
-    ParsedGeometry, ParsedId, GeometryEncoder, GeometryType, IntEncoder, StagedGeometry, StagedId,
-    OwnedLayer01, SortStrategy, Tag01Encoder,
+    GeometryEncoder, GeometryType, IntEncoder, ParsedGeometry, ParsedId, SortStrategy,
+    StagedGeometry, StagedId, StagedLayer01, Tag01Encoder,
 };
 
 /// Helper to build a layer from geometries and IDs.
-fn build_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> OwnedLayer01 {
+fn build_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> StagedLayer01 {
     let mut decoded_geom = ParsedGeometry::default();
     for g in geoms {
         decoded_geom.push_geom(g);
     }
 
-    OwnedLayer01 {
+    StagedLayer01 {
         name: "test".to_string(),
         extent: 4096,
         id: Some(StagedId::Decoded(ParsedId(ids.to_vec()))),
@@ -24,7 +24,7 @@ fn build_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> OwnedLayer01 {
 }
 
 /// Helper to sort a layer manually and return the decoded source form.
-fn sort_and_decode(layer: &mut OwnedLayer01, strategy: SortStrategy) -> SourceLayer01 {
+fn sort_and_decode(layer: &mut StagedLayer01, strategy: SortStrategy) -> TileLayer01 {
     let encoder = Tag01Encoder {
         sort_strategy: Some(strategy),
         id: None,
@@ -34,9 +34,9 @@ fn sort_and_decode(layer: &mut OwnedLayer01, strategy: SortStrategy) -> SourceLa
     layer.manual_optimisation(encoder).expect("sort failed");
     // After manual_optimisation the layer is encoded; convert to source form to
     // inspect the sorted feature order.
-    SourceLayer01::try_from(std::mem::replace(
+    TileLayer01::try_from(std::mem::replace(
         layer,
-        OwnedLayer01 {
+        StagedLayer01 {
             name: String::new(),
             extent: 0,
             id: None,
@@ -58,7 +58,7 @@ fn ls(coords: &[(i32, i32)]) -> Geom32 {
 }
 
 /// Rebuild a flat vertex buffer from the feature geometries in source order.
-fn vertices_from_source(source: &SourceLayer01) -> Vec<i32> {
+fn vertices_from_source(source: &TileLayer01) -> Vec<i32> {
     let mut geom = ParsedGeometry::default();
     for f in &source.features {
         geom.push_geom(&f.geometry);
@@ -67,7 +67,7 @@ fn vertices_from_source(source: &SourceLayer01) -> Vec<i32> {
 }
 
 /// Rebuild the `GeometryType` list from source order.
-fn geom_types_from_source(source: &SourceLayer01) -> Vec<GeometryType> {
+fn geom_types_from_source(source: &TileLayer01) -> Vec<GeometryType> {
     source
         .features
         .iter()

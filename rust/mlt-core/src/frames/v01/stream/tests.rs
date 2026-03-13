@@ -8,10 +8,10 @@ use crate::utils::BinarySerializer as _;
 use crate::v01::stream::encoder::IntEncoder;
 use crate::v01::stream::logical::LogicalEncoder;
 use crate::v01::{
-    DictionaryType, RawFsstData, IntEncoding, LengthType,
-    LogicalData, LogicalEncoding, LogicalValue, MortonMeta, RawName, OffsetType, EncodedStream,
-    EncodedStreamData, PhysicalEncoder, PhysicalEncoding, RawPlainData, RawPresence, RleMeta,
-    RawStream, RawStreamData, RawStrings, StreamMeta, StreamType, RawStringsEncoding,
+    DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, LogicalData,
+    LogicalEncoding, LogicalValue, MortonMeta, OffsetType, PhysicalEncoder, PhysicalEncoding,
+    RawFsstData, RawName, RawPlainData, RawPresence, RawStream, RawStreamData, RawStrings,
+    RawStringsEncoding, RleMeta, StreamMeta, StreamType,
 };
 
 /// Test case for stream decoding tests
@@ -187,7 +187,9 @@ fn test_stream_roundtrip(
     #[case] is_bool: bool,
 ) {
     let stream_data = match physical_encoding {
-        PhysicalEncoding::None | PhysicalEncoding::FastPFOR => EncodedStreamData::Encoded(data_bytes),
+        PhysicalEncoding::None | PhysicalEncoding::FastPFOR => {
+            EncodedStreamData::Encoded(data_bytes)
+        }
         PhysicalEncoding::VarInt => EncodedStreamData::VarInt(data_bytes),
         PhysicalEncoding::Alp => panic!("ALP not supported"),
     };

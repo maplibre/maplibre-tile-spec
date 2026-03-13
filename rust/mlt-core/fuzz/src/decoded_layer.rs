@@ -1,17 +1,17 @@
-use mlt_core::v01::{EncodedProperty, StagedGeometry, StagedId, OwnedLayer01, StagedProperty};
-use mlt_core::{Layer, OwnedLayer};
+use mlt_core::v01::{EncodedProperty, StagedGeometry, StagedId, StagedLayer01, StagedProperty};
+use mlt_core::{Layer, StagedLayer};
 
 use crate::LayerInput;
 
 /// Fuzz input that starts from an already-decoded layer and tests encode → decode roundtrip.
 ///
 /// Unlike [`LayerInput`] (which starts from raw bytes), this drives the fuzzer to generate
-/// valid [`OwnedLayer`] values directly and verifies that writing and re-parsing them yields
+/// valid [`StagedLayer`] values directly and verifies that writing and re-parsing them yields
 /// an identical layer.
 ///
 /// All geometry, ID, and property columns are always generated in their `Encoded` form if present
 pub struct DecodedLayerInput {
-    pub layer: OwnedLayer,
+    pub layer: StagedLayer,
 }
 
 impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
@@ -31,7 +31,7 @@ impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
             .map(StagedProperty::Encoded)
             .collect();
 
-        // In fuzzing mode OwnedLayer01 carries an explicit layer_order field that drives the
+        // In fuzzing mode StagedLayer01 carries an explicit layer_order field that drives the
         // column serialisation order.  Build a valid ordering (1 Geometry, N Property, 0-or-1 Id)
         // and then Fisher-Yates shuffle it using the fuzzer's unstructured data.
         #[cfg(fuzzing)]
@@ -55,7 +55,7 @@ impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
             order
         };
 
-        let layer01 = OwnedLayer01 {
+        let layer01 = StagedLayer01 {
             name,
             extent,
             id,
@@ -66,7 +66,7 @@ impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
         };
 
         Ok(Self {
-            layer: OwnedLayer::Tag01(layer01),
+            layer: StagedLayer::Tag01(layer01),
         })
     }
 }

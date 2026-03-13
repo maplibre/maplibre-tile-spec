@@ -1,7 +1,7 @@
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::{
     DataProfile, EncodedId, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, ParsedId,
-    StagedId, PhysicalEncoder,
+    PhysicalEncoder, StagedId,
 };
 use crate::{FromDecoded as _, MltError};
 
