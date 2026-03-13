@@ -37,23 +37,6 @@ pub struct DecodedGeometry {
     pub vertices: Option<Vec<i32>>,
 }
 
-impl DecodedGeometry {
-    #[must_use]
-    pub fn to_owned(&self) -> Self {
-        self.clone()
-    }
-}
-
-impl EncodedGeometry<'_> {
-    #[must_use]
-    pub fn to_owned(&self) -> OwnedEncodedGeometry {
-        OwnedEncodedGeometry {
-            meta: self.meta.to_owned(),
-            items: self.items.iter().map(Stream::to_owned).collect(),
-        }
-    }
-}
-
 // #[derive(Debug, Clone, Copy, PartialEq)]
 // pub enum VectorType {
 //     Flat,

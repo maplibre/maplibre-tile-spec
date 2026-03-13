@@ -4,6 +4,7 @@ mod fmt;
 mod geojson;
 mod model;
 mod optimizer;
+mod owned;
 mod scalars;
 mod serialize;
 mod strings;

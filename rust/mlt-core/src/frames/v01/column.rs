@@ -4,9 +4,18 @@ use std::io::Write;
 use crate::MltError::ParsingColumnType;
 use crate::MltRefResult;
 use crate::utils::{BinarySerializer as _, parse_string, parse_u8};
-use crate::v01::{Column, ColumnType};
+use crate::v01::{Column, ColumnType, OwnedColumn};
 
 impl Column<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedColumn {
+        OwnedColumn {
+            typ: self.typ,
+            name: self.name.map(ToString::to_string),
+            children: self.children.iter().map(Self::to_owned).collect(),
+        }
+    }
+
     /// Parse a single column definition
     pub fn parse(input: &[u8]) -> MltRefResult<'_, Column<'_>> {
         let (mut input, typ) = ColumnType::parse(input)?;

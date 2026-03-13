@@ -11,6 +11,14 @@ use crate::utils::{checked_sum2, parse_u8, parse_varint, take};
 use crate::{Layer, MltError, MltRefResult, OwnedLayer, utils};
 
 impl<'a> Layer<'a> {
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedLayer {
+        match self {
+            Self::Tag01(layer) => OwnedLayer::Tag01(layer.to_owned()),
+            Self::Unknown(unknown) => OwnedLayer::Unknown(unknown.to_owned()),
+        }
+    }
+
     /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
     #[must_use]
     pub fn as_layer01(&self) -> Option<&Layer01<'a>> {

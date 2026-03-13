@@ -18,17 +18,6 @@ pub struct OwnedColumn {
     pub children: Vec<OwnedColumn>,
 }
 
-impl Column<'_> {
-    #[must_use]
-    pub fn to_owned(&self) -> OwnedColumn {
-        OwnedColumn {
-            typ: self.typ,
-            name: self.name.map(ToString::to_string),
-            children: self.children.iter().map(Self::to_owned).collect(),
-        }
-    }
-}
-
 /// Column data type, as stored in the tile
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]

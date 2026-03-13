@@ -34,26 +34,6 @@ pub struct OwnedUnknown {
     pub value: Vec<u8>,
 }
 
-impl Unknown<'_> {
-    #[must_use]
-    pub fn to_owned(&self) -> OwnedUnknown {
-        OwnedUnknown {
-            tag: self.tag,
-            value: self.value.to_vec(),
-        }
-    }
-}
-
-impl Layer<'_> {
-    #[must_use]
-    pub fn to_owned(&self) -> OwnedLayer {
-        match self {
-            Self::Tag01(layer) => OwnedLayer::Tag01(layer.to_owned()),
-            Self::Unknown(unknown) => OwnedLayer::Unknown(unknown.to_owned()),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum LayerEncoder {
     Tag01(Tag01Encoder),
