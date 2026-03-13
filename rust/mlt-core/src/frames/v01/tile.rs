@@ -12,10 +12,9 @@
 use geo_types::Geometry;
 
 use crate::MltError;
-use crate::optimizer::ManualOptimisation as _;
 use crate::v01::{
-    GeometryEncoder, IntEncoder, ParsedGeometry, ParsedId, StagedGeometry, StagedId, StagedLayer01,
-    StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, build_staged_shared_dict,
+    ParsedGeometry, ParsedId, StagedLayer01, StagedProperty, StagedScalar, StagedSharedDict,
+    StagedStrings, build_staged_shared_dict,
 };
 
 /// Row-oriented working form for the optimizer.
@@ -72,14 +71,9 @@ pub enum PropValue {
 impl TryFrom<StagedLayer01> for TileLayer01 {
     type Error = MltError;
 
-    fn try_from(mut layer: StagedLayer01) -> Result<Self, Self::Error> {
-        // Decode all columns that are still in encoded form.
-        decode_layer(&mut layer)?;
-
-        let geom = match &layer.geometry {
-            StagedGeometry::Decoded(g) => g,
-            StagedGeometry::Encoded(_) => return Err(MltError::NotDecoded("geometry")),
-        };
+    fn try_from(layer: StagedLayer01) -> Result<Self, Self::Error> {
+        // Canonicalize geometry by encoding and decoding to ensure dense offset form.
+        let geom = canonicalize_geometry(layer.geometry)?;
 
         let n = geom.vector_types.len();
 
@@ -94,16 +88,11 @@ impl TryFrom<StagedLayer01> for TileLayer01 {
                         property_names.push(format!("{}:{}", sd.prefix, item.suffix));
                     }
                 }
-                StagedProperty::Encoded(_) => return Err(MltError::NotDecoded("property")),
                 other => property_names.push(other.name().to_string()),
             }
         }
 
-        let ids: Option<&[Option<u64>]> = match &layer.id {
-            Some(StagedId::Decoded(d)) => Some(&d.0),
-            None => None,
-            Some(StagedId::Encoded(_)) => return Err(MltError::NotDecoded("id")),
-        };
+        let ids: Option<&[Option<u64>]> = layer.id.as_ref().map(|d| d.0.as_slice());
 
         let mut features = Vec::with_capacity(n);
         for i in 0..n {
@@ -112,10 +101,7 @@ impl TryFrom<StagedLayer01> for TileLayer01 {
             let mut properties = Vec::with_capacity(property_names.len());
 
             for prop in &layer.properties {
-                match prop {
-                    StagedProperty::Encoded(_) => return Err(MltError::NotDecoded("property")),
-                    other => extract_staged_values(other, i, &mut properties)?,
-                }
+                extract_staged_values(prop, i, &mut properties);
             }
 
             features.push(TileFeature {
@@ -136,11 +122,7 @@ impl TryFrom<StagedLayer01> for TileLayer01 {
 
 /// Extract the per-feature value at index `i` from a staged property column
 /// and push it (or them, for `SharedDict`) into `out`.
-fn extract_staged_values(
-    prop: &StagedProperty,
-    i: usize,
-    out: &mut Vec<PropValue>,
-) -> Result<(), MltError> {
+fn extract_staged_values(prop: &StagedProperty, i: usize, out: &mut Vec<PropValue>) {
     match prop {
         StagedProperty::Bool(s) => out.push(PropValue::Bool(s.values[i])),
         StagedProperty::I8(s) => out.push(PropValue::I8(s.values[i])),
@@ -163,9 +145,7 @@ fn extract_staged_values(
                 out.push(PropValue::Str(val));
             }
         }
-        StagedProperty::Encoded(_) => return Err(MltError::NotDecoded("property")),
     }
-    Ok(())
 }
 
 // ── TileLayer01 → StagedLayer01 ─────────────────────────────────────────────
@@ -181,15 +161,12 @@ impl From<TileLayer01> for StagedLayer01 {
         // Rebuild ID column (only if at least one feature has a non-None id)
         let has_ids = source.features.iter().any(|f| f.id.is_some());
         let id = if has_ids || !source.features.is_empty() {
-            Some(StagedId::Decoded(ParsedId(
-                source.features.iter().map(|f| f.id).collect(),
-            )))
+            Some(ParsedId(source.features.iter().map(|f| f.id).collect()))
         } else {
             None
         };
 
         // Rebuild property columns from the flattened PropValue rows.
-        // We need to reconstruct each column as a Vec of per-feature values.
         let num_cols = source.property_names.len();
         let properties = rebuild_properties(&source.property_names, &source.features, num_cols);
 
@@ -197,10 +174,8 @@ impl From<TileLayer01> for StagedLayer01 {
             name: source.name,
             extent: source.extent,
             id,
-            geometry: StagedGeometry::Decoded(geom),
+            geometry: geom,
             properties,
-            #[cfg(fuzzing)]
-            layer_order: vec![],
         }
     }
 }
@@ -354,34 +329,12 @@ fn rebuild_shared_dict(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/// Decode (and canonicalize) all columns of `layer` that are still in encoded
-/// or sparse-decoded form.
+/// Canonicalize geometry by encoding and decoding to produce the dense offset form
+/// required by [`ParsedGeometry::to_geojson`].
 ///
-/// Geometry that was built with `push_geom` is in a "sparse" offset-array
-/// layout that differs from the "dense" layout produced by the wire
-/// encode→decode round-trip.  [`ParsedGeometry::to_geojson`] requires the
-/// dense form, so we canonicalize by encoding and decoding the geometry here.
-fn decode_layer(layer: &mut StagedLayer01) -> Result<(), MltError> {
-    // Always canonicalize geometry through encode→decode to get dense offsets.
-    layer
-        .geometry
-        .manual_optimisation(GeometryEncoder::all(IntEncoder::varint()))?;
-    let geom = std::mem::replace(
-        &mut layer.geometry,
-        StagedGeometry::Decoded(ParsedGeometry::default()),
-    );
-    layer.geometry = StagedGeometry::Decoded(ParsedGeometry::try_from(geom)?);
-
-    if let Some(id) = layer.id.take() {
-        layer.id = Some(StagedId::Decoded(ParsedId::try_from(id)?));
-    }
-
-    // Properties must already be decoded; encoded properties are not expected here.
-    for prop in &layer.properties {
-        if let StagedProperty::Encoded(_) = prop {
-            return Err(MltError::NotDecoded("property"));
-        }
-    }
-
-    Ok(())
+/// Geometry built with `push_geom` uses a "sparse" offset-array layout that
+/// differs from the "dense" layout produced by the wire encode→decode round-trip.
+fn canonicalize_geometry(geom: ParsedGeometry) -> Result<ParsedGeometry, MltError> {
+    let (encoded, _enc) = geom.encode_auto()?;
+    ParsedGeometry::try_from(encoded)
 }

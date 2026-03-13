@@ -1,6 +1,6 @@
 use hex::ToHex as _;
 use mlt_core::frames::EncodedUnknown;
-use mlt_core::v01::{EncodedGeometry, StagedLayer01};
+use mlt_core::v01::StagedLayer01;
 use mlt_core::{Layer, StagedLayer};
 
 #[derive(arbitrary::Arbitrary)]
@@ -84,7 +84,9 @@ fn panic_with_helpful_diff(input: &[u8], output: &[u8], parsed_input: &StagedLay
         );
     });
     let written_owned = out.to_owned().unwrap_or_else(|e| {
-        panic!("to_owned failed: {e}\nInput parsed to a layer and debug printed:\n{parsed_input:#?}")
+        panic!(
+            "to_owned failed: {e}\nInput parsed to a layer and debug printed:\n{parsed_input:#?}"
+        )
     });
     LayerInput::try_panic_if_debug_is_different(parsed_input, &written_owned);
     if *parsed_input == written_owned {
@@ -177,44 +179,17 @@ fn print_corresponding_bytes(layer: StagedLayer) {
                 id,
                 geometry,
                 properties,
-                #[cfg(fuzzing)]
-                layer_order,
             } = l1;
-            #[cfg(fuzzing)]
-            println!("layer_order: {layer_order:?}");
             println!(
                 "layer name {name} -> {}",
                 name.as_bytes().encode_hex::<String>()
             );
             println!("layer extent: {extent} -> varint({extent})");
-            {
-                println!("layer id: {id:?}");
-                if let Some(ref id) = id {
-                    let mut metadata = Vec::new();
-                    id.as_encoded().unwrap().write_columns_meta_to(&mut metadata).unwrap();
-                    println!("\tlayer id metadata: {}", metadata.encode_hex::<String>());
-                    let mut data = Vec::new();
-                    id.as_encoded().unwrap().write_to(&mut data).unwrap();
-                    println!("\tlayer id data: {}", data.encode_hex::<String>());
-                }
-            }
+            println!("layer id: {id:?}");
+            println!("geometry: {geometry:?}");
+            println!("properties ({} columns):", properties.len());
             for (i, prop) in properties.iter().enumerate() {
-                println!("{i}. property -> {prop:?}");
-                let mut metadata = Vec::new();
-                prop.as_encoded().unwrap().write_columns_meta_to(&mut metadata).unwrap();
-                println!("\tprop metadata: {}", metadata.encode_hex::<String>());
-                let mut buf = Vec::new();
-                prop.as_encoded().unwrap().write_to(&mut buf).unwrap();
-                println!("\tprop data: {}", buf.encode_hex::<String>());
-            }
-            {
-                println!("{geometry:?}");
-                let mut metadata = Vec::new();
-                EncodedGeometry::write_columns_meta_to(&mut metadata).unwrap();
-                println!("\tprop metadata: {}", metadata.encode_hex::<String>());
-                let mut buf = Vec::new();
-                geometry.as_encoded().unwrap().write_to(&mut buf).unwrap();
-                println!("\tgeometry data: {}", buf.encode_hex::<String>());
+                println!("  {i}. {prop:?}");
             }
         }
         StagedLayer::Unknown(u) => {

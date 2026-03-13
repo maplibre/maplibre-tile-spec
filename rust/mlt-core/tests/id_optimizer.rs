@@ -1,9 +1,4 @@
-use mlt_core::optimizer::{
-    AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
-};
-use mlt_core::v01::{
-    IdEncoder, IdProfile, IdWidth, IntEncoder, LogicalEncoder, ParsedId, StagedId,
-};
+use mlt_core::v01::{IdEncoder, IdProfile, IdWidth, IntEncoder, LogicalEncoder, ParsedId};
 use rstest::rstest;
 
 fn create_u32_range_ids() -> ParsedId {
@@ -53,22 +48,16 @@ fn create_constant_ids() -> ParsedId {
     IdEncoder::new(LogicalEncoder::Delta, IdWidth::OptId32)
 )]
 fn test_automatic_optimisation_selection(#[case] input: ParsedId, #[case] expected: IdEncoder) {
-    let mut owned = StagedId::Decoded(input);
-    let result = owned.automatic_encoding_optimisation().unwrap();
-    assert_eq!(result, Some(expected));
-    assert!(matches!(owned, StagedId::Encoded(_)));
+    let is_empty = input.0.is_empty();
+    let (_encoded, enc) = input.encode_auto().unwrap();
+    assert_eq!(enc, if is_empty { None } else { Some(expected) });
 }
 
 #[test]
-fn test_automatic_optimisation_idempotency() {
-    let decoded = create_u32_range_ids();
-    let mut owned = StagedId::Decoded(decoded.clone());
-
-    let enc1 = owned.automatic_encoding_optimisation().unwrap();
-    let enc2 = owned.automatic_encoding_optimisation().unwrap();
-
-    assert_eq!(enc1, enc2);
-    assert_eq!(ParsedId::try_from(owned).unwrap(), decoded);
+fn test_automatic_optimisation_roundtrip_empty() {
+    let decoded = ParsedId(vec![]);
+    let (encoded, _enc) = decoded.clone().encode_auto().unwrap();
+    assert!(encoded.is_none(), "empty ID list should produce None");
 }
 
 #[rstest]
@@ -77,51 +66,38 @@ fn test_automatic_optimisation_idempotency() {
 #[case::constant(create_constant_ids())]
 #[case::with_nulls(create_ids_with_nulls())]
 fn test_automatic_optimisation_roundtrip(#[case] decoded: ParsedId) {
-    let mut owned = StagedId::Decoded(decoded.clone());
-    owned.automatic_encoding_optimisation().unwrap();
-
-    let decoded_back = ParsedId::try_from(owned).expect("decoding failed");
+    let (encoded, _) = decoded.clone().encode_auto().unwrap();
+    let encoded = encoded.expect("non-empty IDs should produce Some");
+    let decoded_back = ParsedId::try_from(encoded).expect("decoding failed");
     assert_eq!(decoded_back, decoded);
 }
 
 #[test]
 fn test_manual_optimisation_applies_encoder() {
     let decoded = create_u32_range_ids();
-    let mut owned = StagedId::Decoded(decoded.clone());
-
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id64);
-    owned.manual_optimisation(manual_enc).unwrap();
-
-    assert!(matches!(owned, StagedId::Encoded(_)));
-    assert_eq!(ParsedId::try_from(owned).unwrap(), decoded);
+    let encoded = decoded
+        .clone()
+        .encode(manual_enc)
+        .unwrap()
+        .expect("should produce encoded");
+    let decoded_back = ParsedId::try_from(encoded).unwrap();
+    assert_eq!(decoded_back, decoded);
 }
 
 #[test]
 fn test_manual_optimisation_truncation() {
     let large_value = u64::from(u32::MAX) + 42;
-    let mut owned = StagedId::Decoded(ParsedId(vec![Some(large_value)]));
-
+    let ids = ParsedId(vec![Some(large_value)]);
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);
-    owned.manual_optimisation(manual_enc).unwrap();
-
-    let decoded_back = ParsedId::try_from(owned).unwrap();
-
+    let encoded = ids
+        .encode(manual_enc)
+        .unwrap()
+        .expect("should produce encoded");
+    let decoded_back = ParsedId::try_from(encoded).unwrap();
     // Manual encoding with a too-narrow `IdWidth` silently truncates values.
     // `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
     assert_eq!(decoded_back.0[0], Some(41));
-}
-
-#[test]
-fn test_reoptimisation_improves_manual_encoding() {
-    let decoded = create_u32_range_ids();
-    let mut owned = StagedId::Decoded(decoded);
-
-    let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id64);
-    owned.manual_optimisation(manual_enc).unwrap();
-
-    let auto_enc = owned.automatic_encoding_optimisation().unwrap();
-    let expected = IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::Id32);
-    assert_eq!(auto_enc, Some(expected));
 }
 
 #[test]
@@ -130,30 +106,15 @@ fn test_profile_applies_candidates_and_rederives_width() {
     let profile = IdProfile::from_sample(&u32_sample);
 
     let u64_decoded = create_u64_range_ids();
-    let mut owned = StagedId::Decoded(u64_decoded.clone());
-    let enc = owned
-        .profile_driven_optimisation(&profile)
-        .unwrap()
-        .unwrap();
+    let (encoded, enc) = u64_decoded.clone().encode_with_profile(&profile).unwrap();
+    let enc = enc.unwrap();
+    let encoded = encoded.unwrap();
 
     // Width must reflect the u64 tile data, not the u32 sample.
     assert_eq!(enc.id_width, IdWidth::Id64);
     // Both samples are sequential (>4 values), so the fast path fires: DeltaRle.
     assert_eq!(enc.logical, LogicalEncoder::DeltaRle);
-    assert_eq!(ParsedId::try_from(owned).unwrap(), u64_decoded);
-}
-
-#[test]
-fn test_profile_already_encoded_roundtrip() {
-    let decoded = create_u32_range_ids();
-    let mut owned = StagedId::Decoded(decoded.clone());
-    owned.automatic_encoding_optimisation().unwrap();
-
-    let profile = IdProfile::from_sample(&decoded);
-    owned.profile_driven_optimisation(&profile).unwrap();
-
-    let decoded_back = ParsedId::try_from(owned).unwrap();
-    assert_eq!(decoded_back, decoded);
+    assert_eq!(ParsedId::try_from(encoded).unwrap(), u64_decoded);
 }
 
 #[rstest]
@@ -163,10 +124,9 @@ fn test_profile_already_encoded_roundtrip() {
 #[case::with_nulls(create_ids_with_nulls())]
 fn test_profile_roundtrip(#[case] decoded: ParsedId) {
     let profile = IdProfile::from_sample(&decoded);
-    let mut owned = StagedId::Decoded(decoded.clone());
-    owned.profile_driven_optimisation(&profile).unwrap();
-
-    let decoded_back = ParsedId::try_from(owned).unwrap();
+    let (encoded, _) = decoded.clone().encode_with_profile(&profile).unwrap();
+    let encoded = encoded.expect("non-empty IDs should produce Some");
+    let decoded_back = ParsedId::try_from(encoded).unwrap();
     assert_eq!(decoded_back, decoded);
 }
 

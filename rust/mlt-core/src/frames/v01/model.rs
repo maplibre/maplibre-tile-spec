@@ -1,6 +1,9 @@
 use num_enum::TryFromPrimitive;
 
-use crate::v01::{Geometry, Id, Property, StagedGeometry, StagedId, StagedProperty};
+use crate::v01::{
+    EncodedGeometry, EncodedId, EncodedProperty, Geometry, Id, ParsedGeometry, ParsedId, Property,
+    StagedProperty,
+};
 
 /// Column definition
 #[derive(Debug, PartialEq)]
@@ -62,18 +65,31 @@ pub struct Layer01<'a> {
     pub layer_order: Vec<crate::frames::v01::root::LayerOrdering>,
 }
 
-/// Representation of a feature table layer encoded as MLT tag `0x01`
+/// Columnar layer data being prepared for encoding (stage 2 of the encoding pipeline).
+///
+/// Holds fully-owned columnar data. Constructed directly (synthetics, benches) or
+/// converted from [`TileLayer01`][crate::v01::tile::TileLayer01].
+/// Consumed by encoding to produce [`EncodedLayer01`].
 #[derive(Debug, PartialEq, Clone)]
-#[cfg_attr(
-    all(not(test), not(fuzzing), feature = "arbitrary"),
-    derive(arbitrary::Arbitrary)
-)]
 pub struct StagedLayer01 {
     pub name: String,
     pub extent: u32,
-    pub id: Option<StagedId>,
-    pub geometry: StagedGeometry,
+    pub id: Option<ParsedId>,
+    pub geometry: ParsedGeometry,
     pub properties: Vec<StagedProperty>,
+}
+
+/// Wire-ready layer data (stage 3 of the encoding pipeline).
+///
+/// Produced by encoding a [`StagedLayer01`]. Can be serialised directly to bytes
+/// via [`EncodedLayer01::write_to`].
+#[derive(Debug, PartialEq, Clone)]
+pub struct EncodedLayer01 {
+    pub name: String,
+    pub extent: u32,
+    pub id: Option<EncodedId>,
+    pub geometry: EncodedGeometry,
+    pub properties: Vec<EncodedProperty>,
     #[cfg(fuzzing)]
     pub layer_order: Vec<crate::frames::v01::root::LayerOrdering>,
 }

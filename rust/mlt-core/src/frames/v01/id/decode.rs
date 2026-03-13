@@ -1,6 +1,6 @@
 use crate::utils::apply_present;
 use crate::v01::{
-    EncodedId, EncodedIdValue, EncodedStream, Id, ParsedId, RawId, RawIdValue, RawStream, StagedId,
+    EncodedId, EncodedIdValue, EncodedStream, Id, ParsedId, RawId, RawIdValue, RawStream,
 };
 use crate::{Decode, DecodeInto as _, MltError};
 
@@ -18,22 +18,11 @@ impl<'a> Id<'a> {
         })
     }
 
-    #[must_use]
-    pub fn to_owned(&self) -> StagedId {
+    /// Decode this ID column, producing an owned [`ParsedId`].
+    pub fn to_owned(&self) -> Result<ParsedId, MltError> {
         match self {
-            Self::Encoded(encoded) => StagedId::Encoded(encoded.to_owned()),
-            Self::Decoded(decoded) => StagedId::Decoded(decoded.to_owned()),
-        }
-    }
-}
-
-impl TryFrom<StagedId> for ParsedId {
-    type Error = MltError;
-
-    fn try_from(owned: StagedId) -> Result<Self, MltError> {
-        match owned {
-            StagedId::Encoded(encoded) => ParsedId::try_from(encoded),
-            StagedId::Decoded(decoded) => Ok(decoded),
+            Self::Encoded(raw) => ParsedId::try_from(raw.to_owned()),
+            Self::Decoded(decoded) => Ok(decoded.clone()),
         }
     }
 }

@@ -8,19 +8,8 @@ use crate::decode::Decode as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2, parse_varint};
 use crate::v01::{
     ColumnType, DictionaryType, EncodedGeometry, Geometry, IntEncoding, ParsedGeometry,
-    RawGeometry, RawStream, RawStreamData, StagedGeometry, StreamMeta, StreamType,
+    RawGeometry, RawStream, RawStreamData, StreamMeta, StreamType,
 };
-
-impl StagedGeometry {
-    /// Return the inner [`EncodedGeometry`] if this is in the `Encoded` state,
-    /// or an error if it still needs to be encoded first.
-    pub fn as_encoded(&self) -> Result<&EncodedGeometry, MltError> {
-        match self {
-            Self::Encoded(r) => Ok(r),
-            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
-        }
-    }
-}
 
 impl<'a> RawGeometry<'a> {
     /// Parse encoded geometry from bytes (expects varint stream count + streams)
@@ -124,22 +113,11 @@ impl<'a> Geometry<'a> {
         })
     }
 
-    #[must_use]
-    pub fn to_owned(&self) -> StagedGeometry {
+    /// Decode and take ownership of the geometry data.
+    pub fn to_owned(&self) -> Result<ParsedGeometry, MltError> {
         match self {
-            Self::Encoded(encoded) => StagedGeometry::Encoded(encoded.to_owned()),
-            Self::Decoded(decoded) => StagedGeometry::Decoded(decoded.to_owned()),
-        }
-    }
-}
-
-impl TryFrom<StagedGeometry> for ParsedGeometry {
-    type Error = MltError;
-
-    fn try_from(owned: StagedGeometry) -> Result<Self, MltError> {
-        match owned {
-            StagedGeometry::Encoded(encoded) => ParsedGeometry::try_from(encoded),
-            StagedGeometry::Decoded(decoded) => Ok(decoded),
+            Self::Encoded(raw) => ParsedGeometry::try_from(raw.to_owned()),
+            Self::Decoded(decoded) => Ok(decoded.clone()),
         }
     }
 }

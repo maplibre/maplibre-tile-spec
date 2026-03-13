@@ -2,18 +2,7 @@ use std::io::Write;
 
 use crate::MltError;
 use crate::utils::BinarySerializer as _;
-use crate::v01::{ColumnType, EncodedId, EncodedIdValue, StagedId};
-
-impl StagedId {
-    /// Return the inner [`EncodedId`] if this is in the `Encoded` state,
-    /// or an error if it still needs to be encoded first.
-    pub fn as_encoded(&self) -> Result<&EncodedId, MltError> {
-        match self {
-            Self::Encoded(r) => Ok(r),
-            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
-        }
-    }
-}
+use crate::v01::{ColumnType, EncodedId, EncodedIdValue};
 
 impl EncodedId {
     pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {

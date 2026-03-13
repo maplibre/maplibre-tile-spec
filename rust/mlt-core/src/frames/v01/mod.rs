@@ -1,4 +1,5 @@
 mod column;
+mod encoded;
 mod geometry;
 mod id;
 mod model;

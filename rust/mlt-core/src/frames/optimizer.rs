@@ -1,47 +1,42 @@
-use crate::frames::{LayerEncoder, LayerProfile};
-use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
+use crate::frames::{EncodedLayer, LayerEncoder, LayerProfile};
 use crate::{MltError, StagedLayer};
 
-impl ManualOptimisation for StagedLayer {
-    type UsedEncoder = LayerEncoder;
-
-    fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        use LayerEncoder as E;
-        use StagedLayer as L;
+impl StagedLayer {
+    /// Encode using a specific [`LayerEncoder`], consuming `self` and producing [`EncodedLayer`].
+    pub fn encode(self, encoder: LayerEncoder) -> Result<EncodedLayer, MltError> {
         match (self, encoder) {
-            (L::Tag01(t), E::Tag01(e)) => Ok(t.manual_optimisation(e)?),
-            (L::Unknown(_), E::Unknown) => Ok(()),
-            (L::Tag01(_) | L::Unknown(_), _) => Err(MltError::BadEncoderDataCombination),
+            (Self::Tag01(t), LayerEncoder::Tag01(e)) => Ok(EncodedLayer::Tag01(t.encode(e)?)),
+            (Self::Unknown(u), LayerEncoder::Unknown) => Ok(EncodedLayer::Unknown(u)),
+            _ => Err(MltError::BadEncoderDataCombination),
         }
     }
-}
 
-impl ProfileOptimisation for StagedLayer {
-    type UsedEncoder = LayerEncoder;
-    type Profile = LayerProfile;
-
-    fn profile_driven_optimisation(
-        &mut self,
-        profile: &Self::Profile,
-    ) -> Result<Self::UsedEncoder, MltError> {
-        use LayerEncoder as E;
-        use LayerProfile as P;
-        use StagedLayer as L;
+    /// Profile-driven encode, consuming `self` and producing `(EncodedLayer, LayerEncoder)`.
+    pub fn encode_with_profile(
+        self,
+        profile: &LayerProfile,
+    ) -> Result<(EncodedLayer, LayerEncoder), MltError> {
         match (self, profile) {
-            (L::Tag01(t), P::Tag01(p)) => Ok(E::Tag01(t.profile_driven_optimisation(p)?)),
-            (L::Unknown(_), P::Unknown) => Ok(E::Unknown),
-            (L::Tag01(_) | L::Unknown(_), _) => Err(MltError::BadProfileDataCombination),
+            (Self::Tag01(t), LayerProfile::Tag01(p)) => {
+                let (encoded, enc) = t.encode_with_profile(p)?;
+                Ok((EncodedLayer::Tag01(encoded), LayerEncoder::Tag01(enc)))
+            }
+            (Self::Unknown(u), LayerProfile::Unknown) => {
+                Ok((EncodedLayer::Unknown(u), LayerEncoder::Unknown))
+            }
+            _ => Err(MltError::BadProfileDataCombination),
         }
     }
-}
 
-impl AutomaticOptimisation for StagedLayer {
-    type UsedEncoder = LayerEncoder;
-
-    fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
+    /// Automatically select the best encoders, consuming `self` and producing
+    /// `(EncodedLayer, LayerEncoder)`.
+    pub fn encode_auto(self) -> Result<(EncodedLayer, LayerEncoder), MltError> {
         match self {
-            StagedLayer::Tag01(t) => Ok(LayerEncoder::Tag01(t.automatic_encoding_optimisation()?)),
-            StagedLayer::Unknown(_) => Ok(LayerEncoder::Unknown),
+            Self::Tag01(t) => {
+                let (encoded, enc) = t.encode_auto()?;
+                Ok((EncodedLayer::Tag01(encoded), LayerEncoder::Tag01(enc)))
+            }
+            Self::Unknown(u) => Ok((EncodedLayer::Unknown(u), LayerEncoder::Unknown)),
         }
     }
 }

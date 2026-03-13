@@ -1,10 +1,9 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
-    GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, PhysicalEncoder,
-    PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder,
+    EncodeProperties as _, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder,
+    PhysicalEncoder, PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder,
 };
 use mlt_core::{StagedLayer, parse_layers};
 use strum::IntoEnumIterator as _;
@@ -54,15 +53,16 @@ fn bench_encode_geometry(c: &mut Criterion) {
                     |b, tiles| {
                         b.iter_batched(
                             || decode_to_owned(tiles),
-                            |mut layers| {
-                                for layer in &mut layers {
+                            |layers| {
+                                for layer in layers {
                                     if let StagedLayer::Tag01(l) = layer {
-                                        l.geometry
-                                            .manual_optimisation(geometry_encoder)
-                                            .expect("geometry encode failed");
+                                        black_box(
+                                            l.geometry
+                                                .encode(geometry_encoder)
+                                                .expect("geometry encode failed"),
+                                        );
                                     }
                                 }
-                                black_box(layers);
                             },
                             BatchSize::SmallInput,
                         );
@@ -92,16 +92,15 @@ fn bench_encode_ids(c: &mut Criterion) {
                     |b, tiles| {
                         b.iter_batched(
                             || decode_to_owned(tiles),
-                            |mut layers| {
-                                for layer in &mut layers {
-                                    if let StagedLayer::Tag01(l) = layer
-                                        && let Some(id) = &mut l.id
-                                    {
-                                        id.manual_optimisation(id_encoder)
-                                            .expect("id encode failed");
+                            |layers| {
+                                for layer in layers {
+                                    if let StagedLayer::Tag01(l) = layer {
+                                        let Some(id) = l.id else { continue };
+                                        black_box(
+                                            id.encode(id_encoder).expect("id encode failed"),
+                                        );
                                     }
                                 }
-                                black_box(layers);
                             },
                             BatchSize::SmallInput,
                         );
@@ -159,8 +158,9 @@ fn bench_encode_properties(c: &mut Criterion) {
                                                     }
                                                 })
                                                 .collect();
-                                            l.properties
-                                                .manual_optimisation(encoders)
+                                            let props = std::mem::take(&mut l.properties);
+                                            let _ = props
+                                                .encode(encoders)
                                                 .expect("prop encode failed");
                                         }
                                     }

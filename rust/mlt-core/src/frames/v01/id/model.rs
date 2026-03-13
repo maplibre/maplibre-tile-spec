@@ -4,9 +4,6 @@ use crate::v01::{EncodedStream, RawStream};
 /// ID column representation, either raw (borrowed from bytes) or parsed.
 pub type Id<'a> = EncDec<RawId<'a>, ParsedId>;
 
-/// Staged ID column: can hold either encoded or decoded form (used during encoding pipeline).
-pub type StagedId = EncDec<EncodedId, ParsedId>;
-
 /// Unparsed ID data as read directly from the tile (borrows from input bytes)
 #[derive(Debug, PartialEq)]
 pub struct RawId<'a> {

@@ -10,5 +10,5 @@ mod serialize;
 mod strings;
 
 pub use model::*;
-pub use optimizer::PropertyProfile;
+pub use optimizer::{EncodeProperties, PropertyProfile};
 pub use strings::{build_staged_shared_dict, encode_shared_dict_prop};

@@ -7,20 +7,10 @@ use crate::utils::{BinarySerializer as _, checked_sum3};
 use crate::v01::{ColumnType, EncodedProperty, PropertyKind, StagedProperty};
 
 impl StagedProperty {
-    /// Return the inner [`EncodedProperty`] if this is in the `Encoded` state,
-    /// or an error if it still needs to be encoded first.
-    pub fn as_encoded(&self) -> Result<&EncodedProperty, MltError> {
-        match self {
-            Self::Encoded(r) => Ok(r.as_ref()),
-            _ => Err(MltError::NeedsEncodingBeforeWriting),
-        }
-    }
-
     #[must_use]
     pub fn kind(&self) -> PropertyKind {
         use PropertyKind as T;
         match self {
-            Self::Encoded(r) => r.as_ref().kind(),
             Self::Bool(_) => T::Bool,
             Self::I8(_)
             | Self::I32(_)
@@ -36,22 +26,6 @@ impl StagedProperty {
 }
 
 impl EncodedProperty {
-    pub(super) fn kind(&self) -> PropertyKind {
-        use PropertyKind as T;
-        match self {
-            Self::Bool(..) => T::Bool,
-            Self::I8(..)
-            | Self::I32(..)
-            | Self::I64(..)
-            | Self::U8(..)
-            | Self::U32(..)
-            | Self::U64(..) => T::Integer,
-            Self::F32(..) | Self::F64(..) => T::Float,
-            Self::Str(..) => T::String,
-            Self::SharedDict(..) => T::SharedDict,
-        }
-    }
-
     pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         let col_type = match self {
             Self::Bool(s) => {

@@ -408,26 +408,17 @@ mod tests {
 
     use super::*;
     use crate::geojson::Coord32;
-    use crate::optimizer::ManualOptimisation as _;
-    use crate::v01::{
-        EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, RawGeometry, StagedGeometry,
-    };
+    use crate::v01::{EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, RawGeometry};
 
     /// Encode, serialize, parse, and decode a `ParsedGeometry`.
     /// The input must already be in the dense canonical form that `from_encoded`
     /// produces (i.e. built via a previous `roundtrip` call, not via `push_*`).
     fn roundtrip(decoded: &ParsedGeometry, encoder: GeometryEncoder) -> ParsedGeometry {
-        let mut geom = StagedGeometry::Decoded(decoded.clone());
-        geom.manual_optimisation(encoder).expect("Failed to encode");
+        let enc_geom = decoded.clone().encode(encoder).expect("Failed to encode");
 
-        // Serialize to bytes (write_to includes the stream count varint)
         let mut buffer = Vec::new();
-        geom.as_encoded()
-            .expect("should be encoded")
-            .write_to(&mut buffer)
-            .expect("Failed to serialize");
+        enc_geom.write_to(&mut buffer).expect("Failed to serialize");
 
-        // Now parse (parse expects varint stream count + streams)
         let (remaining, parsed) = RawGeometry::parse(&buffer).expect("Failed to parse");
         assert!(remaining.is_empty(), "Remaining bytes after parse");
 

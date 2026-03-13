@@ -8,14 +8,13 @@ use std::{fs, io};
 use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
-    GeometryEncoder, IdEncoder, IntEncoder, ParsedGeometry, ParsedId, PresenceStream,
-    PropertyEncoder, ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedGeometry,
-    StagedId, StagedLayer01, StagedProperty, StagedStrings, StrEncoder, VertexBufferType,
+    EncodeProperties as _, EncodedLayer01, GeometryEncoder, IdEncoder, IntEncoder, ParsedGeometry,
+    ParsedId, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
+    SharedDictItemEncoder, StagedProperty, StagedStrings, StrEncoder, VertexBufferType,
     build_staged_shared_dict,
 };
-use mlt_core::{StagedLayer, parse_layers};
+use mlt_core::{EncodedLayer, parse_layers};
 
 /// Tessellate a polygon using the geo crate's earcut algorithm.
 ///
@@ -310,27 +309,30 @@ impl Layer {
     }
 
     fn write_mlt(self, path: &Path) {
-        let decoded_geom = self.build_decoded_geometry();
-        let mut geometry = StagedGeometry::Decoded(decoded_geom);
-        geometry.manual_optimisation(self.geometry_encoder).unwrap();
+        let geometry = self.build_decoded_geometry();
+        let encoded_geometry = geometry
+            .encode(self.geometry_encoder)
+            .unwrap_or_else(|e| panic!("cannot encode geometry: {e}"));
 
         let id = if let Some((ids, ids_encoder)) = self.ids {
-            let mut id = StagedId::Decoded(ParsedId(ids));
-            id.manual_optimisation(ids_encoder).unwrap();
-            Some(id)
+            ParsedId(ids)
+                .encode(ids_encoder)
+                .unwrap_or_else(|e| panic!("cannot encode id: {e}"))
         } else {
             None
         };
 
-        let mut properties: Vec<StagedProperty> = self.properties;
-        properties.manual_optimisation(self.prop_encoders).unwrap();
+        let encoded_properties = self
+            .properties
+            .encode(self.prop_encoders)
+            .unwrap_or_else(|e| panic!("cannot encode properties: {e}"));
 
-        let layer = StagedLayer::Tag01(StagedLayer01 {
+        let layer = EncodedLayer::Tag01(EncodedLayer01 {
             name: "layer1".to_string(),
             extent: self.extent.unwrap_or(80),
             id,
-            geometry,
-            properties,
+            geometry: encoded_geometry,
+            properties: encoded_properties,
         });
 
         let mut file = Self::open_new(path)
