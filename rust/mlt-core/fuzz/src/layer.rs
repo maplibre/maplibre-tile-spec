@@ -29,7 +29,7 @@ impl LayerInput {
         let consumed_input_bytes_size = total_len - remaining.len();
         let consumed_input = &self.bytes[..consumed_input_bytes_size];
 
-        let Ok(owned_layer) = layer.to_owned().unwrap();
+        let owned_layer = layer.to_owned().unwrap();
 
         // Write the layer to a buffer
         let mut buffer = Vec::<u8>::with_capacity(consumed_input_bytes_size);
