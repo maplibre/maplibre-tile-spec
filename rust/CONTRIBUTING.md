@@ -22,7 +22,7 @@ the correct feature combinations and flag sets that match the CI pipeline.
 All data flowing through `mlt-core` follows a strict five-stage pipeline:
 
 ```
-RawBytes ──► Raw* ──► Parsed* ──► TileLayer* / TileFeature / PropValue ──► Staged* ──► Encoded* ──► RawBytes
+&[u8] ──► Raw* ──► Parsed* ──► TileLayer* / TileFeature / PropValue ──► Staged* ──► Encoded* ──► Buffer / Vec<u8>
 ```
 
 Each stage has a distinct role and type-naming convention:
