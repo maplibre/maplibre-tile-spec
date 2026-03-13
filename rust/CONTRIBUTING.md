@@ -4,39 +4,45 @@
 All commands must be run from the repository root using [`just`](https://github.com/casey/just).
 Do **not** use bare `cargo` commands; `just` recipes ensure the correct feature flags and CI-matching environments.
 
-| Command | Description |
-| :--- | :--- |
-| `just rust::check` | Fast compilation check (no binaries). |
-| `just rust::test` | Run full test suite (including property-based tests). |
-| `just rust::fmt` | Format code according to project style. |
-| `just rust::lint` | Run `clippy` lints. |
-| `just rust::bless` | Regenerate expected `insta` test snapshots. |
+| Command                              | Description                                                             |
+|:-------------------------------------|:------------------------------------------------------------------------|
+| `just rust::check`                   | Fast compilation check (no binaries).                                   |
+| `just rust::test`                    | Run full test suite (including property-based tests).                   |
+| `just rust::fmt`                     | Format code according to project style.                                 |
+| `just rust::lint`                    | Run `clippy` lints.                                                     |
+| `just rust::generate-synthetic-mlts` | Generate synthetic MLT files for testing. Do not delete files manually. |
+| `just rust::bless`                   | Regenerate expected `insta` test snapshots.                             |
 
-## The Five-Stage Data Pipeline
-Data in `mlt-core` moves through a strict linear pipeline:
+## Decoding Data
+When decoding data, `mlt-core` moves through a strict linear pipeline, minimizing unnecessary allocations and copies.  Both raw and parsed data is stored in the container structs (e.g., `TileLayer01`) as variants of the `EncDec<Raw,Parsed>` generic enum to allow for partial lazy decoding for any column like `id`, `geometry`, `property`, `sub-property`. Some internal owned types may be used inside both the `Parsed*` (decoding) and `Staged*` (encoding) data structures.
 
-| Stage | Prefix | Ownership | Purpose |
-| :--- | :--- | :--- | :--- |
-| **1** | `Raw*` | Borrowed (`&'a [u8]`) | Zero-copy views of input bytes. No allocation. |
-| **2** | `Parsed*` | Owned (`'static`) | Fully decoded Rust values (e.g., `Vec<u64>`). |
-| **3** | `Tile*` | Owned | **Row-oriented** features (e.g., `v01::tile`). Uses `geo_types`. |
-| **4** | `Staged*` | Owned | **Columnar** data being prepared for encoding. |
-| **5** | `Encoded*` | Owned | Wire-ready byte buffers. |
+| Stage | Prefix         | Ownership                | Purpose                                                                       |
+|:------|:---------------|:-------------------------|:------------------------------------------------------------------------------|
+| **-** | `<Name>`       | Borrowed (`&'a`)         | Container structs to allow partial lazy decoding.                             |
+| **1** | `Raw<Name>`    | Borrowed (`&'a`)         | Zero-copy views of input bytes. No allocation.                                |
+| **2** | `Parsed<Name>` | Owned or Borrowed (`'a`) | Fully decoded Rust values (e.g., `Vec<u64>`), or could reference input bytes. |
+| **3** | `Tile*`        | Owned                    | **Row-oriented** features using `geo_types::Geometry<i32>` for geometries.    |
+
+These are the Conversion Rules:
+* **Forward Only:** Data moves $1 \rightarrow 3$. No backwards conversions (e.g., `Tile*` cannot become `Parsed*`).
+* **Slicing:** Original input bytes are sliced into `Raw*` structures. No copying. Uses `Raw*::parse(&[u8]) -> MltRefResult<Raw*>` constructors. Not to be confused with `Parsed*` parsing into Parsed stage.
+* **Parsing:** `Raw*` $\rightarrow$ `Parsed*` via `TryFrom`.
+* **Row-based tiles:** `Parsed*` $\rightarrow$ `Tile*` via `TryFrom`. This is mostly used for GeoJSON generation by CLI and debugging tools, and should probably not be needed for most users like data access via WASM.
+
+## Encoding Data
+Encoding is more complex, and requires owned data structures to support optimizations and transformations. The pipeline is as follows:
+
+| Stage | Prefix     | Ownership             | Purpose                                                                    |
+|:------|:-----------|:----------------------|:---------------------------------------------------------------------------|
+| **1** | `Tile*`    | Owned                 | **Row-oriented** features using `geo_types::Geometry<i32>` for geometries. |
+| **2** | `Staged*`  | Owned                 | **Columnar** data being prepared for encoding.                             |
+| **3** | `Encoded*` | Owned                 | Wire-ready byte buffers.                                                   |
 
 These are the Conversion Rules:
 * **Forward Only:** Data moves $1 \rightarrow 5$. No backwards conversions (e.g., `Encoded` cannot become `Staged`).
-* **Parsing:** `Raw*` $\rightarrow$ `Parsed*` via `TryFrom` or `pub fn parse()`.
-* **Staging:** `Parsed*` $\rightarrow$ `Staged*` via `Staged*::Decoded(value)`.
-* **Encoding:** `Staged*` $\rightarrow$ `Encoded*` via optimizer traits (`Manual`, `Automatic`, or `Profile`).
+* All progression steps will use an `Encoder*` types that has some state of **how** to encode, the data of the stage, and return the next stage types, e.g. `TileLayer01` via `Tile01Encoder::encode(&mut self, data: &mut TileLayer01) -> Result<StagedLayer01, MltError>` $\rightarrow$ `StagedLayer01`. Note that both `self` and `data` are mutable references, as the encoder may need to mutate internal state and the data being encoded (e.g., for optimizations like reordering features or updating profiling information).
+* **Staging:** `Tile*` $\rightarrow$ `Staged*`.
+* **Encoding:** `Staged*` $\rightarrow$ `Encoded*`.
 * **Serialization:** `Encoded*` $\rightarrow$ bytes via `write_to(&mut writer)`.
-
-## Core Types & Abstractions
-
-* **Columnar** (`Raw`, `Parsed`, `Staged`, `Encoded`): The native on-wire format. Used for storage and optimization.
-* **Row-Oriented** (`TileLayer01`, `TileFeature`, `PropValue`): Located in `mlt_core::v01::tile`. Used for business logic and user APIs.
-* **Transition:** The optimizer handles the conversion between `StagedLayer01` (Columnar) and `TileLayer01` (Row) at the pipeline boundaries.
-
-## Testing Standards
-* **Round-trips:** Tests live in `mlt-core/tests/` (e.g., `property_roundtrip.rs`).
-* **Property-based:** Use `proptest` for edge-case discovery in codecs.
-* **Snapshots:** Use `insta` for output verification. Update with `just rust::bless`.
+* In some use cases, user may want to construct `Staged*` directly (e.g., to generate synthetic MLT files or in benchmarking), and skip the `Tile*` stage.
+* There should not be a need to convert from `Parsed*` to `Staged*`, as the former is for decoding and the latter is for encoding. For round trip testing, the workflow should be `Tile*` $\rightarrow$ `Staged*` $\rightarrow$ `Encoded*` $\rightarrow$ `Vec<u8>` buffer $\rightarrow$ `Raw*` $\rightarrow$ `Parsed*` $\rightarrow$ `Tile*`.  It should be possible to compare `Staged*` and `Parsed*` for testing purposes, but not convert from one to another.
