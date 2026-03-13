@@ -378,6 +378,7 @@ pub struct StagedSharedDictItem {
 
 /// Owned string column for the encoding pipeline.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct StagedStrings {
     pub name: String,
     pub lengths: Vec<i32>,
@@ -386,6 +387,7 @@ pub struct StagedStrings {
 
 /// Owned shared-dictionary column for the encoding pipeline.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct StagedSharedDict {
     pub prefix: String,
     pub data: String,

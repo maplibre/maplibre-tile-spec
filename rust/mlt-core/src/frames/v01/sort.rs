@@ -36,7 +36,7 @@ pub enum SortStrategy {
 ///
 /// If `strategy` is [`None`] this is a no-op.
 /// If the layer has zero or one features the sort is trivially a no-op.
-pub(crate) fn reorder_features(layer: &mut TileLayer01, strategy: Option<SortStrategy>) {
+pub fn reorder_features(layer: &mut TileLayer01, strategy: Option<SortStrategy>) {
     let Some(strategy) = strategy else {
         return;
     };
@@ -217,11 +217,8 @@ mod tests {
 
     use super::*;
     use crate::geojson::Geom32;
-    use crate::optimizer::ManualOptimisation as _;
     use crate::v01::tile::{TileFeature, TileLayer01};
-    use crate::v01::{
-        Geometry, GeometryEncoder, IntEncoder, ParsedGeometry, RawGeometry, StagedGeometry,
-    };
+    use crate::v01::{Geometry, GeometryEncoder, IntEncoder, ParsedGeometry, RawGeometry};
 
     // ── geometry test helpers ──────────────────────────────────────────────────
 
@@ -257,15 +254,13 @@ mod tests {
 
     /// Encode + serialize + parse + decode a `ParsedGeometry` (round-trip).
     fn roundtrip_geom(decoded: &ParsedGeometry) -> ParsedGeometry {
-        let mut geom = StagedGeometry::Decoded(decoded.clone());
-        geom.manual_optimisation(GeometryEncoder::all(IntEncoder::varint()))
+        let encoded = decoded
+            .clone()
+            .encode(GeometryEncoder::all(IntEncoder::varint()))
             .expect("encode failed");
 
         let mut buf = Vec::new();
-        geom.as_encoded()
-            .expect("should be encoded")
-            .write_to(&mut buf)
-            .expect("serialize failed");
+        encoded.write_to(&mut buf).expect("serialize failed");
 
         let (remaining, parsed) = RawGeometry::parse(&buf).expect("parse failed");
         assert!(

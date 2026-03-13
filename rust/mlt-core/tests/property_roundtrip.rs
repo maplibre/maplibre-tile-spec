@@ -1,11 +1,10 @@
-use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
     EncodedProperty, EncodedScalar, EncodedSharedDictEncoding, EncodedStringsEncoding, IntEncoder,
     LogicalEncoder, ParsedProperty, ParsedScalar, ParsedStrings, PhysicalEncoder, PresenceStream,
     PropertyEncoder, RawFsstData, RawName, RawPlainData, RawPresence, RawProperty, RawScalar,
     RawSharedDict, RawSharedDictChild, RawSharedDictEncoding, RawStrings, RawStringsEncoding,
     ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedProperty, StrEncoder,
-    build_decoded_shared_dict,
+    build_decoded_shared_dict, encode_properties,
 };
 use mlt_core::{Decode, MltError};
 use proptest::prelude::*;
@@ -55,18 +54,14 @@ fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
 }
 
 fn roundtrip(decoded: &ParsedProperty<'_>, encoder: ScalarEncoder) -> ParsedProperty<'static> {
-    let owned = decoded.to_owned();
-    let mut props = vec![StagedProperty::Decoded(owned)];
-    props
-        .manual_optimisation(vec![PropertyEncoder::Scalar(encoder)])
+    let staged = StagedProperty::from(decoded.clone().into_static());
+    let mut encoded = encode_properties(&[staged], vec![PropertyEncoder::Scalar(encoder)])
         .expect("encoding failed");
-    decode_for_test(&props.pop().unwrap()).expect("decoding failed")
+    decode_for_test(encoded.pop().unwrap()).expect("decoding failed")
 }
 
 /// Decode this owned property by temporarily borrowing its data.
-/// FIXME: This function should NOT exist, round-trip should go through public api
-///   all the way to bytes and back.
-pub fn decode_for_test(prop: &StagedProperty) -> Result<ParsedProperty<'static>, MltError> {
+pub fn decode_for_test(encoded: EncodedProperty) -> Result<ParsedProperty<'static>, MltError> {
     fn borrow_scalar(s: &EncodedScalar) -> RawScalar<'_> {
         RawScalar {
             name: RawName(&s.name.0),
@@ -75,11 +70,7 @@ pub fn decode_for_test(prop: &StagedProperty) -> Result<ParsedProperty<'static>,
         }
     }
 
-    let encoded = match prop {
-        StagedProperty::Encoded(e) => e,
-        StagedProperty::Decoded(d) => return Ok(d.to_owned()),
-    };
-    let borrowed: RawProperty<'_> = match encoded {
+    let borrowed: RawProperty<'_> = match &encoded {
         EncodedProperty::Bool(s) => RawProperty::Bool(borrow_scalar(s)),
         EncodedProperty::I8(s) => RawProperty::I8(borrow_scalar(s)),
         EncodedProperty::U8(s) => RawProperty::U8(borrow_scalar(s)),
@@ -155,7 +146,7 @@ pub fn decode_for_test(prop: &StagedProperty) -> Result<ParsedProperty<'static>,
                 .collect(),
         }),
     };
-    Ok(<ParsedProperty<'_> as Decode<RawProperty<'_>>>::decode(borrowed)?.to_owned())
+    Ok(<ParsedProperty<'_> as Decode<RawProperty<'_>>>::decode(borrowed)?.into_static())
 }
 
 fn strs(vals: &[&str]) -> Vec<Option<String>> {
@@ -202,12 +193,11 @@ fn struct_encode_and_decode(
         items: item_encoders,
     };
 
-    let mut properties = vec![StagedProperty::Decoded(decoded)];
-    properties
-        .manual_optimisation(vec![shared_enc.into()])
-        .expect("encoding failed");
-    assert_eq!(properties.len(), 1, "should produce one encoded property");
-    decode_for_test(&properties[0]).unwrap()
+    let staged = StagedProperty::from(decoded);
+    let mut encoded =
+        encode_properties(&[staged], vec![shared_enc.into()]).expect("encoding failed");
+    assert_eq!(encoded.len(), 1, "should produce one encoded property");
+    decode_for_test(encoded.pop().unwrap()).unwrap()
 }
 
 // Absent mode has no presence stream on the wire, so only all-Some inputs are
@@ -534,13 +524,16 @@ fn struct_mixed_with_scalars() {
         .into(),
         PropertyEncoder::Scalar(scalar_enc),
     ];
-    let mut encoded: Vec<StagedProperty> = props.into_iter().map(StagedProperty::Decoded).collect();
-    encoded.manual_optimisation(prop_encs).unwrap();
+    let staged: Vec<StagedProperty> = props.into_iter().map(StagedProperty::from).collect();
+    let mut encoded = encode_properties(&staged, prop_encs).unwrap();
 
     // Output order: scalar "population", struct "name:", scalar "rank"
     assert_eq!(encoded.len(), 3);
-    assert_eq!(decode_for_test(&encoded[0]).unwrap(), population);
-    let name = decode_for_test(&encoded[1]).unwrap();
+    let rank_enc = encoded.pop().unwrap();
+    let name_enc = encoded.pop().unwrap();
+    let pop_enc = encoded.pop().unwrap();
+    assert_eq!(decode_for_test(pop_enc).unwrap(), population);
+    let name = decode_for_test(name_enc).unwrap();
     assert_eq!(name.name(), "name:");
     let ParsedProperty::SharedDict(shared_dict) = &name else {
         panic!("Expected SharedDict");
@@ -556,7 +549,7 @@ fn struct_mixed_with_scalars() {
         items[1].materialize(shared_dict),
         strs(&["Berlin", "Hamburg"])
     );
-    assert_eq!(decode_for_test(&encoded[2]).unwrap(), rank);
+    assert_eq!(decode_for_test(rank_enc).unwrap(), rank);
 }
 
 #[test]
@@ -616,12 +609,13 @@ fn two_struct_groups_with_scalar_between() {
     ];
     let enc = IntEncoder::plain();
     let str_enc = StrEncoder::plain(IntEncoder::plain());
-    let mut encoded: Vec<StagedProperty> = decoded_props
+    let staged: Vec<StagedProperty> = decoded_props
         .into_iter()
-        .map(StagedProperty::Decoded)
+        .map(StagedProperty::from)
         .collect();
-    encoded
-        .manual_optimisation(vec![
+    let mut encoded = encode_properties(
+        &staged,
+        vec![
             SharedDictEncoder {
                 dict_encoder: str_enc,
                 items: vec![
@@ -651,12 +645,16 @@ fn two_struct_groups_with_scalar_between() {
                 ],
             }
             .into(),
-        ])
-        .unwrap();
+        ],
+    )
+    .unwrap();
 
     // Output order: struct "name:", scalar "population", struct "label:"
     assert_eq!(encoded.len(), 3);
-    let name = decode_for_test(&encoded[0]).unwrap();
+    let label_enc = encoded.pop().unwrap();
+    let pop_enc = encoded.pop().unwrap();
+    let name_enc = encoded.pop().unwrap();
+    let name = decode_for_test(name_enc).unwrap();
     assert_eq!(name.name(), "name:");
     let ParsedProperty::SharedDict(name_shared_dict) = &name else {
         panic!("Expected SharedDict");
@@ -672,8 +670,8 @@ fn two_struct_groups_with_scalar_between() {
         name_items[1].materialize(name_shared_dict),
         strs(&["Berlin", "Hamburg"])
     );
-    assert_eq!(decode_for_test(&encoded[1]).unwrap(), population);
-    let label = decode_for_test(&encoded[2]).unwrap();
+    assert_eq!(decode_for_test(pop_enc).unwrap(), population);
+    let label = decode_for_test(label_enc).unwrap();
     assert_eq!(label.name(), "label:");
     let ParsedProperty::SharedDict(label_shared_dict) = &label else {
         panic!("Expected SharedDict");
@@ -693,8 +691,8 @@ fn two_struct_groups_with_scalar_between() {
 
 #[test]
 fn struct_instruction_count_mismatch() {
-    let mut properties = vec![StagedProperty::Decoded(ParsedProperty::default())];
-    let err = properties.manual_optimisation(vec![]).unwrap_err();
+    let properties = vec![StagedProperty::from(ParsedProperty::default())];
+    let err = encode_properties(&properties, vec![]).unwrap_err();
     assert!(
         matches!(
             err,

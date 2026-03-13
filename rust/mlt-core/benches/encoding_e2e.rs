@@ -2,11 +2,11 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::parse_layers;
-use mlt_core::v01::property::optimizer::encode_properties;
 use mlt_core::v01::tile::TileLayer01;
 use mlt_core::v01::{
     GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, PhysicalEncoder,
-    PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer01,
+    PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder, SharedDictEncoder,
+    SharedDictItemEncoder, StagedLayer01, StagedProperty, StrEncoder, encode_properties,
 };
 use strum::IntoEnumIterator as _;
 
@@ -151,7 +151,23 @@ fn bench_encode_properties(c: &mut Criterion) {
                                                 )
                                                 .into(),
                                                 PropertyKind::SharedDict => {
-                                                    unreachable!("unimplemented")
+                                                    let StagedProperty::SharedDict(sd) = prop
+                                                    else {
+                                                        unreachable!()
+                                                    };
+                                                    let str_enc = StrEncoder::plain(int_enc);
+                                                    SharedDictEncoder {
+                                                        dict_encoder: str_enc,
+                                                        items: sd
+                                                            .items
+                                                            .iter()
+                                                            .map(|_| SharedDictItemEncoder {
+                                                                presence,
+                                                                offsets: int_enc,
+                                                            })
+                                                            .collect(),
+                                                    }
+                                                    .into()
                                                 }
                                             })
                                             .collect();

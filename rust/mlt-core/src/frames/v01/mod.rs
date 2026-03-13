@@ -5,7 +5,7 @@ mod model;
 mod optimizer;
 mod property;
 mod root;
-pub(crate) mod sort;
+pub mod sort;
 pub(crate) mod stream;
 pub mod tile;
 

@@ -6,15 +6,13 @@ use rstest::rstest;
 
 use crate::encode::FromDecoded as _;
 use crate::frames::v01::id::encode::IdEncoder;
-use crate::frames::v01::id::model::{EncodedId, EncodedIdValue, IdWidth, ParsedId, StagedId};
-use crate::optimizer::ManualOptimisation as _;
+use crate::frames::v01::id::model::{EncodedId, EncodedIdValue, IdWidth, ParsedId};
 use crate::v01::LogicalEncoder;
 
 // Helper function to encode and decode for roundtrip testing
 fn roundtrip(decoded: &ParsedId, config: IdEncoder) -> ParsedId {
-    let mut owned = StagedId::Decoded(decoded.clone());
-    owned.manual_optimisation(config).expect("Failed to encode");
-    ParsedId::try_from(owned).expect("Failed to decode")
+    let encoded = EncodedId::from_decoded(decoded, config).expect("Failed to encode");
+    ParsedId::try_from(encoded).expect("Failed to decode")
 }
 
 // Test that each config produces the correct variant and optional stream presence
@@ -164,22 +162,8 @@ fn assert_encodable_api_works(
     config: IdEncoder,
 ) -> Result<(), TestCaseError> {
     let decoded = ParsedId(ids.clone());
-
-    let mut id_enum = StagedId::Decoded(decoded);
-    id_enum
-        .manual_optimisation(config)
-        .expect("Failed to encode");
-
-    prop_assert!(
-        !matches!(id_enum, StagedId::Decoded(_)),
-        "Should be Encoded after encoding"
-    );
-    prop_assert!(
-        matches!(id_enum, StagedId::Encoded(_)),
-        "Should be Encoded variant"
-    );
-
-    let decoded_back = ParsedId::try_from(id_enum).expect("Failed to decode");
+    let encoded = EncodedId::from_decoded(&decoded, config).expect("Failed to encode");
+    let decoded_back = ParsedId::try_from(encoded).expect("Failed to decode");
     prop_assert_eq!(decoded_back, ParsedId(ids));
     Ok(())
 }

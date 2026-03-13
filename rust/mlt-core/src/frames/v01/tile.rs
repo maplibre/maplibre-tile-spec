@@ -433,23 +433,30 @@ fn rebuild_shared_dict(
         })
         .collect();
 
+    // Build a shared corpus of unique string values.  Two values that are equal
+    // must map to the same byte span so that `collect_shared_dict_spans` can
+    // deduplicate them, which is required for correct encoding.
     let mut corpus = String::new();
+    let mut unique: std::collections::HashMap<String, (i32, i32)> =
+        std::collections::HashMap::new();
 
     for f in features {
         for (item_idx, item) in items.iter_mut().enumerate() {
             let col = start_col + item_idx;
             let val = f.properties.get(col).and_then(|v| {
                 if let PropValue::Str(s) = v {
-                    s.as_deref()
+                    s.clone()
                 } else {
                     None
                 }
             });
             let range = if let Some(s) = val {
-                let start = i32::try_from(corpus.len()).unwrap_or(i32::MAX);
-                corpus.push_str(s);
-                let end = i32::try_from(corpus.len()).unwrap_or(i32::MAX);
-                (start, end)
+                *unique.entry(s.clone()).or_insert_with(|| {
+                    let start = i32::try_from(corpus.len()).unwrap_or(i32::MAX);
+                    corpus.push_str(&s);
+                    let end = i32::try_from(corpus.len()).unwrap_or(i32::MAX);
+                    (start, end)
+                })
             } else {
                 (-1, -1)
             };
