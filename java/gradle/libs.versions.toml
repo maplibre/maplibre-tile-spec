@@ -28,7 +28,7 @@ junit-jupiter-platform-launcher = { group = "org.junit.platform", name = "junit-
 kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlin-jvm" }
 mapbox-vector-tile-java = { group = "io.github.sebasbaumh", name = "mapbox-vector-tile-java", version = "25.1.0" }
 mbtiles4j = { group = "org.imintel", name = "mbtiles4j", version = "1.0.6" }
-planetiler-core = { module= "com.onthegomap.planetiler:planetiler-core", version="0.10.0" }
+planetiler-core = { module= "com.onthegomap.planetiler:planetiler-core", version="0.10.1" }
 protobuf-java = { group = "com.google.protobuf", name = "protobuf-java", version = "4.34.0" }
 log4j-api = { group = "org.apache.logging.log4j", name = "log4j-api", version = "2.25.3" }
 log4j-slf4j-impl = { group = "org.apache.logging.log4j", name = "log4j-slf4j-impl", version = "2.25.3" }
@@ -37,7 +37,7 @@ tileverse-io = { group = "io.tileverse", name = "tileverse-bom", version.ref = "
 tileverse-rangereader-all = { module= "io.tileverse.rangereader:tileverse-rangereader-all" }
 
 [plugins]
-diffplug-spotless = { id = "com.diffplug.spotless", version = "8.2.1"}
+diffplug-spotless = { id = "com.diffplug.spotless", version = "8.3.0"}
 gradleup-shadow = { id = "com.gradleup.shadow", version = "9.3.2"}
 me-champeau-jmh = { id = "me.champeau.jmh", version = "0.7.3" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.36.0" }
