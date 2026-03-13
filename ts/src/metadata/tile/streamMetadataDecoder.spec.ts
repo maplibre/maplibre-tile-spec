@@ -64,7 +64,9 @@ describe("decodeStreamMetadata", () => {
         const encoded = new Uint8Array([0x00, 0x00, 0x80]);
         const offset = new IntWrapper(0);
 
-        expect(() => decodeStreamMetadata(encoded, offset)).toThrow(/truncated stream metadata while reading numValues/);
+        expect(() => decodeStreamMetadata(encoded, offset)).toThrow(
+            /truncated stream metadata while reading numValues/,
+        );
         expect(offset.get()).toBe(0);
     });
 
@@ -104,7 +106,9 @@ describe("decodeStreamMetadata", () => {
         const encoded = concatenate(encodeStreamMetadata(metadata), new Uint8Array([0x80]));
         const offset = new IntWrapper(0);
 
-        expect(() => decodeStreamMetadata(encoded, offset)).toThrow(/truncated stream metadata while reading rle metadata/);
+        expect(() => decodeStreamMetadata(encoded, offset)).toThrow(
+            /truncated stream metadata while reading rle metadata/,
+        );
         expect(offset.get()).toBe(0);
     });
 

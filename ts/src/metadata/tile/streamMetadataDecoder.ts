@@ -66,7 +66,12 @@ const DICTIONARY_TYPE_BY_ID: readonly DictionaryType[] = [
     DictionaryType.FSST,
 ];
 
-const OFFSET_TYPE_BY_ID: readonly OffsetType[] = [OffsetType.VERTEX, OffsetType.INDEX, OffsetType.STRING, OffsetType.KEY];
+const OFFSET_TYPE_BY_ID: readonly OffsetType[] = [
+    OffsetType.VERTEX,
+    OffsetType.INDEX,
+    OffsetType.STRING,
+    OffsetType.KEY,
+];
 
 const LENGTH_TYPE_BY_ID: readonly LengthType[] = [
     LengthType.VAR_BINARY,
@@ -79,7 +84,9 @@ const LENGTH_TYPE_BY_ID: readonly LengthType[] = [
 ];
 
 const DEFAULT_LOGICAL_STREAM_TYPE = new LogicalStreamType();
-const DATA_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = DICTIONARY_TYPE_BY_ID.map((type) => new LogicalStreamType(type));
+const DATA_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = DICTIONARY_TYPE_BY_ID.map(
+    (type) => new LogicalStreamType(type),
+);
 const OFFSET_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = OFFSET_TYPE_BY_ID.map(
     (type) => new LogicalStreamType(undefined, type),
 );
@@ -231,7 +238,9 @@ function decodeMetadataVarint(tile: Uint8Array, offset: IntWrapper, context: str
             );
         }
         if (error instanceof Error) {
-            throw new Error(`invalid stream metadata while reading ${context} at offset=${currentOffset}: ${error.message}`);
+            throw new Error(
+                `invalid stream metadata while reading ${context} at offset=${currentOffset}: ${error.message}`,
+            );
         }
         throw error;
     }

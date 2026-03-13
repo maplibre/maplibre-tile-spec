@@ -150,7 +150,10 @@ describe("IntegerDecodingUtils", () => {
         });
 
         it("throws on malformed 5-byte Int32 varints without advancing the offset", () => {
-            const malformedInputs = [new Uint8Array([0xff, 0xff, 0xff, 0xff, 0x10]), new Uint8Array([0xff, 0xff, 0xff, 0xff, 0x80])];
+            const malformedInputs = [
+                new Uint8Array([0xff, 0xff, 0xff, 0xff, 0x10]),
+                new Uint8Array([0xff, 0xff, 0xff, 0xff, 0x80]),
+            ];
 
             for (const malformed of malformedInputs) {
                 const batchOffset = new IntWrapper(0);
