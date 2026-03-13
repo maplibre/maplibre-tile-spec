@@ -17,7 +17,8 @@ pub mod utils;
 
 pub use analyse::{Analyze, StatType};
 pub use convert::{geojson, mvt};
-pub(crate) use decode::{Decodable, Decode, DecodeInto};
+pub use decode::Decode;
+pub(crate) use decode::{Decodable, DecodeInto};
 pub use enc_dec::EncDec;
 pub use encode::Encodable;
 pub(crate) use encode::FromDecoded;

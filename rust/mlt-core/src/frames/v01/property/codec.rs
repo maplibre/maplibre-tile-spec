@@ -7,11 +7,10 @@ use crate::encode::FromDecoded;
 use crate::utils::apply_present;
 use crate::v01::{
     DecodedPresence, DecodedProperty, DecodedScalar, DecodedStrings, DictionaryType,
-    EncodedPresence, EncodedProperty, EncodedScalar, EncodedSharedDict, EncodedStrings, LengthType,
-    OwnedEncodedPresence, OwnedEncodedProperty, OwnedEncodedScalar, OwnedEncodedStrings, OwnedName,
-    OwnedProperty, OwnedStream, OwnedStringsEncoding, PlainData, PresenceStream, Property,
-    PropertyEncoder, ScalarEncoder, ScalarValueEncoder, StrEncoder, StringsEncoding,
-    decode_shared_dict, decode_strings, encode_shared_dict_prop,
+    EncodedPresence, EncodedProperty, LengthType, OwnedEncodedPresence, OwnedEncodedProperty,
+    OwnedEncodedScalar, OwnedEncodedStrings, OwnedName, OwnedProperty, OwnedStream, PresenceStream,
+    Property, PropertyEncoder, ScalarEncoder, ScalarValueEncoder, StrEncoder, decode_shared_dict,
+    decode_strings, encode_shared_dict_prop,
 };
 
 #[cfg(all(not(test), feature = "arbitrary"))]
@@ -71,110 +70,6 @@ impl<'a> Property<'a> {
         match self {
             Self::Encoded(encoded) => OwnedProperty::Encoded(encoded.to_owned()),
             Self::Decoded(decoded) => OwnedProperty::Decoded(decoded.to_owned()),
-        }
-    }
-}
-
-impl TryFrom<OwnedEncodedProperty> for DecodedProperty<'static> {
-    type Error = MltError;
-
-    fn try_from(encoded: OwnedEncodedProperty) -> Result<Self, MltError> {
-        fn borrow_scalar(s: &OwnedEncodedScalar) -> EncodedScalar<'_> {
-            EncodedScalar {
-                name: crate::v01::NameRef(&s.name.0),
-                presence: EncodedPresence(s.presence.0.as_ref().map(|s| s.as_borrowed())),
-                data: s.data.as_borrowed(),
-            }
-        }
-        let borrowed: EncodedProperty<'_> = match &encoded {
-            OwnedEncodedProperty::Bool(s) => EncodedProperty::Bool(borrow_scalar(s)),
-            OwnedEncodedProperty::I8(s) => EncodedProperty::I8(borrow_scalar(s)),
-            OwnedEncodedProperty::U8(s) => EncodedProperty::U8(borrow_scalar(s)),
-            OwnedEncodedProperty::I32(s) => EncodedProperty::I32(borrow_scalar(s)),
-            OwnedEncodedProperty::U32(s) => EncodedProperty::U32(borrow_scalar(s)),
-            OwnedEncodedProperty::I64(s) => EncodedProperty::I64(borrow_scalar(s)),
-            OwnedEncodedProperty::U64(s) => EncodedProperty::U64(borrow_scalar(s)),
-            OwnedEncodedProperty::F32(s) => EncodedProperty::F32(borrow_scalar(s)),
-            OwnedEncodedProperty::F64(s) => EncodedProperty::F64(borrow_scalar(s)),
-            OwnedEncodedProperty::Str(s) => EncodedProperty::Str(EncodedStrings {
-                name: crate::v01::NameRef(&s.name.0),
-                presence: EncodedPresence(s.presence.0.as_ref().map(|p| p.as_borrowed())),
-                encoding: match &s.encoding {
-                    OwnedStringsEncoding::Plain(d) => StringsEncoding::Plain(PlainData {
-                        lengths: d.lengths.as_borrowed(),
-                        data: d.data.as_borrowed(),
-                    }),
-                    OwnedStringsEncoding::Dictionary {
-                        plain_data,
-                        offsets,
-                    } => StringsEncoding::Dictionary {
-                        plain_data: PlainData {
-                            lengths: plain_data.lengths.as_borrowed(),
-                            data: plain_data.data.as_borrowed(),
-                        },
-                        offsets: offsets.as_borrowed(),
-                    },
-                    OwnedStringsEncoding::FsstPlain(d) => {
-                        StringsEncoding::FsstPlain(crate::v01::FsstData {
-                            symbol_lengths: d.symbol_lengths.as_borrowed(),
-                            symbol_table: d.symbol_table.as_borrowed(),
-                            lengths: d.lengths.as_borrowed(),
-                            corpus: d.corpus.as_borrowed(),
-                        })
-                    }
-                    OwnedStringsEncoding::FsstDictionary { fsst_data, offsets } => {
-                        StringsEncoding::FsstDictionary {
-                            fsst_data: crate::v01::FsstData {
-                                symbol_lengths: fsst_data.symbol_lengths.as_borrowed(),
-                                symbol_table: fsst_data.symbol_table.as_borrowed(),
-                                lengths: fsst_data.lengths.as_borrowed(),
-                                corpus: fsst_data.corpus.as_borrowed(),
-                            },
-                            offsets: offsets.as_borrowed(),
-                        }
-                    }
-                },
-            }),
-            OwnedEncodedProperty::SharedDict(s) => EncodedProperty::SharedDict(EncodedSharedDict {
-                name: crate::v01::NameRef(&s.name.0),
-                encoding: match &s.encoding {
-                    crate::v01::OwnedSharedDictEncoding::Plain(d) => {
-                        crate::v01::SharedDictEncoding::Plain(PlainData {
-                            lengths: d.lengths.as_borrowed(),
-                            data: d.data.as_borrowed(),
-                        })
-                    }
-                    crate::v01::OwnedSharedDictEncoding::FsstPlain(d) => {
-                        crate::v01::SharedDictEncoding::FsstPlain(crate::v01::FsstData {
-                            symbol_lengths: d.symbol_lengths.as_borrowed(),
-                            symbol_table: d.symbol_table.as_borrowed(),
-                            lengths: d.lengths.as_borrowed(),
-                            corpus: d.corpus.as_borrowed(),
-                        })
-                    }
-                },
-                children: s
-                    .children
-                    .iter()
-                    .map(|c| crate::v01::EncodedSharedDictChild {
-                        name: crate::v01::NameRef(&c.name.0),
-                        presence: EncodedPresence(c.presence.0.as_ref().map(|s| s.as_borrowed())),
-                        data: c.data.as_borrowed(),
-                    })
-                    .collect(),
-            }),
-        };
-        Ok(<DecodedProperty<'_> as Decode<EncodedProperty<'_>>>::decode(borrowed)?.to_owned())
-    }
-}
-
-impl TryFrom<OwnedProperty> for DecodedProperty<'static> {
-    type Error = MltError;
-
-    fn try_from(owned: OwnedProperty) -> Result<Self, MltError> {
-        match owned {
-            OwnedProperty::Encoded(encoded) => DecodedProperty::try_from(encoded),
-            OwnedProperty::Decoded(decoded) => Ok(decoded.to_owned()),
         }
     }
 }

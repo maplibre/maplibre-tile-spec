@@ -293,22 +293,6 @@ impl MltTile {
     fn ensure_props_cached(&self, layer_idx: usize) {
         let layer = &self.layers[layer_idx];
 
-        // Decode all encoded columns in-place on first call.
-        {
-            let mut guard = layer.props.borrow_mut();
-            if guard.iter().any(|p| matches!(p, OwnedProperty::Encoded(_))) {
-                let taken = std::mem::take(&mut *guard);
-                *guard = taken
-                    .into_iter()
-                    .filter_map(|p| {
-                        DecodedProperty::try_from(p)
-                            .ok()
-                            .map(OwnedProperty::Decoded)
-                    })
-                    .collect();
-            }
-        }
-
         // Build the bulk cache if not already present.
         if layer.prop_cache.borrow().is_none() {
             let n = layer.types_array.length();

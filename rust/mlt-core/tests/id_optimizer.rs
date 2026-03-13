@@ -166,7 +166,7 @@ fn test_profile_roundtrip(#[case] decoded: DecodedId) {
     let mut owned = OwnedId::Decoded(decoded.clone());
     owned.profile_driven_optimisation(&profile).unwrap();
 
-    let decoded_back = DecodedId::try_from(owned).expect("decode failed");
+    let decoded_back = DecodedId::try_from(owned).unwrap();
     assert_eq!(decoded_back, decoded);
 }
 

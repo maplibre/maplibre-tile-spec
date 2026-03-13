@@ -133,7 +133,13 @@ impl PropertyProfile {
 
 fn decode_all(props: &mut Vec<OwnedProperty>) -> Result<Vec<DecodedProperty<'static>>, MltError> {
     let owned = std::mem::take(props);
-    owned.into_iter().map(DecodedProperty::try_from).collect()
+    owned
+        .into_iter()
+        .map(|p| match p {
+            OwnedProperty::Decoded(d) => Ok(d),
+            OwnedProperty::Encoded(_) => Err(MltError::NotDecoded("property")),
+        })
+        .collect()
 }
 
 impl ManualOptimisation for Vec<OwnedProperty> {

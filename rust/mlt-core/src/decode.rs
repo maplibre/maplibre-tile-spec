@@ -1,6 +1,6 @@
 use crate::MltError;
 
-/// Decoding counterpart to [`TryFrom`], used as a trait bound on [`Decodable::DecodedType`].
+/// Decoding counterpart to [`TryFrom`], used as a trait bound on `Decodable::DecodedType`.
 ///
 /// Mirrors the structure of [`TryFrom`] but is defined in this crate, which allows
 /// implementing it for foreign types like `Option<DecodedId>` without hitting the
