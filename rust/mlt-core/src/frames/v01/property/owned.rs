@@ -1,18 +1,11 @@
 use super::{
     EncodedFsstData, EncodedName, EncodedPlainData, EncodedPresence, EncodedProperty,
     EncodedScalar, EncodedSharedDict, EncodedSharedDictChild, EncodedSharedDictEncoding,
-    EncodedStrings, EncodedStringsEncoding, RawFsstData, RawName, RawPlainData, RawPresence,
-    RawProperty, RawScalar, RawSharedDict, RawSharedDictChild, RawSharedDictEncoding, RawStrings,
+    EncodedStrings, EncodedStringsEncoding, RawFsstData, RawPlainData, RawPresence, RawProperty,
+    RawScalar, RawSharedDict, RawSharedDictChild, RawSharedDictEncoding, RawStrings,
     RawStringsEncoding,
 };
 use crate::v01::RawStream;
-
-impl RawName<'_> {
-    #[must_use]
-    pub fn to_owned(&self) -> EncodedName {
-        EncodedName(self.0.to_string())
-    }
-}
 
 impl RawPresence<'_> {
     #[must_use]
@@ -25,7 +18,7 @@ impl RawSharedDictChild<'_> {
     #[must_use]
     pub fn to_owned(&self) -> EncodedSharedDictChild {
         EncodedSharedDictChild {
-            name: self.name.to_owned(),
+            name: EncodedName(self.name.to_string()),
             presence: self.presence.to_owned(),
             data: self.data.to_owned(),
         }
@@ -89,7 +82,7 @@ impl RawScalar<'_> {
     #[must_use]
     pub fn to_owned(&self) -> EncodedScalar {
         EncodedScalar {
-            name: self.name.to_owned(),
+            name: EncodedName(self.name.to_string()),
             presence: self.presence.to_owned(),
             data: self.data.to_owned(),
         }
@@ -100,7 +93,7 @@ impl RawStrings<'_> {
     #[must_use]
     pub fn to_owned(&self) -> EncodedStrings {
         EncodedStrings {
-            name: self.name.to_owned(),
+            name: EncodedName(self.name.to_string()),
             presence: self.presence.to_owned(),
             encoding: self.encoding.to_owned(),
         }
@@ -111,7 +104,7 @@ impl RawSharedDict<'_> {
     #[must_use]
     pub fn to_owned(&self) -> EncodedSharedDict {
         EncodedSharedDict {
-            name: self.name.to_owned(),
+            name: EncodedName(self.name.to_string()),
             encoding: self.encoding.to_owned(),
             children: self
                 .children

@@ -12,7 +12,7 @@ use crate::v01::{
     EncodedSharedDict, EncodedSharedDictChild, EncodedSharedDictEncoding, EncodedStream,
     EncodedStrings, EncodedStringsEncoding, FsstStrEncoder, IntEncoder, LengthType, OffsetType,
     ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, PresenceStream, PropertyEncoder,
-    RawFsstData, RawName, RawPlainData, RawPresence, RawSharedDict, RawSharedDictChild,
+    RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictChild,
     RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding, SharedDictEncoder,
     StrEncoder, StreamType,
 };
@@ -786,11 +786,7 @@ impl EncodedSharedDictChild {
 
 impl<'a> RawStrings<'a> {
     #[must_use]
-    pub fn new(
-        name: RawName<'a>,
-        presence: RawPresence<'a>,
-        encoding: RawStringsEncoding<'a>,
-    ) -> Self {
+    pub fn new(name: &'a str, presence: RawPresence<'a>, encoding: RawStringsEncoding<'a>) -> Self {
         Self {
             name,
             presence,
@@ -810,7 +806,7 @@ impl<'a> RawStrings<'a> {
             RawStringsEncoding::Plain(plain_data) => {
                 let (data, lengths) = plain_data.decode()?;
                 Ok(ParsedStrings {
-                    name: name.into(),
+                    name: Cow::Borrowed(name),
                     lengths: to_absolute_lengths(&lengths, presence.as_deref())?,
                     data: data.into(),
                 })
@@ -821,12 +817,12 @@ impl<'a> RawStrings<'a> {
             } => {
                 let (data, lengths) = plain_data.decode()?;
                 let offsets: Vec<u32> = offsets.decode_into()?;
-                decode_dictionary_strings(&name, &lengths, &offsets, presence.as_deref(), data)
+                decode_dictionary_strings(name, &lengths, &offsets, presence.as_deref(), data)
             }
             RawStringsEncoding::FsstPlain(fsst_data) => {
                 let (data, dict_lens) = fsst_data.decode()?;
                 Ok(ParsedStrings {
-                    name: name.into(),
+                    name: Cow::Borrowed(name),
                     lengths: to_absolute_lengths(&dict_lens, presence.as_deref())?,
                     data: data.into(),
                 })
@@ -834,7 +830,7 @@ impl<'a> RawStrings<'a> {
             RawStringsEncoding::FsstDictionary { fsst_data, offsets } => {
                 let (data, lengths) = fsst_data.decode()?;
                 let offsets: Vec<u32> = offsets.decode_into()?;
-                decode_dictionary_strings(&name, &lengths, &offsets, presence.as_deref(), &data)
+                decode_dictionary_strings(name, &lengths, &offsets, presence.as_deref(), &data)
             }
         }
     }
@@ -873,7 +869,7 @@ fn to_absolute_lengths(lengths: &[u32], presence: Option<&[bool]>) -> Result<Vec
 }
 
 fn decode_dictionary_strings<'a>(
-    name: &RawName<'a>,
+    name: &'a str,
     dict_lengths: &[u32],
     offsets: &[u32],
     presence: Option<&[bool]>,
@@ -895,7 +891,7 @@ fn decode_dictionary_strings<'a>(
         }
     }
     Ok(ParsedStrings {
-        name: name.into(),
+        name: Cow::Borrowed(name),
         lengths,
         data: Cow::Owned(data),
     })
@@ -951,7 +947,7 @@ fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec
 impl<'a> RawSharedDict<'a> {
     #[must_use]
     pub fn new(
-        name: RawName<'a>,
+        name: &'a str,
         encoding: RawSharedDictEncoding<'a>,
         children: Vec<RawSharedDictChild<'a>>,
     ) -> Self {
@@ -964,7 +960,7 @@ impl<'a> RawSharedDict<'a> {
 
     /// Decode a shared-dictionary column into its decoded form.
     pub fn into_decoded(self) -> Result<ParsedSharedDict<'a>, MltError> {
-        let prefix = Cow::Borrowed(self.name.0);
+        let prefix = Cow::Borrowed(self.name);
         let (data, dict_spans) = match self.encoding {
             RawSharedDictEncoding::Plain(plain_data) => {
                 let (decoded, lengths) = plain_data.decode()?;
@@ -995,7 +991,7 @@ impl<'a> RawSharedDict<'a> {
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(ParsedSharedDictItem {
-                    suffix: Cow::Borrowed(child.name.0),
+                    suffix: Cow::Borrowed(child.name),
                     ranges,
                 })
             })
@@ -1006,18 +1002,6 @@ impl<'a> RawSharedDict<'a> {
             data,
             items,
         })
-    }
-}
-
-impl<'a> From<RawName<'a>> for Cow<'a, str> {
-    fn from(value: RawName<'a>) -> Self {
-        Cow::Borrowed(value.0)
-    }
-}
-
-impl<'a> From<&RawName<'a>> for Cow<'a, str> {
-    fn from(value: &RawName<'a>) -> Self {
-        Cow::Borrowed(value.0)
     }
 }
 

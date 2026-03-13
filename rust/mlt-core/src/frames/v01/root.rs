@@ -5,9 +5,9 @@ use crate::analyse::{Analyze, StatType};
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::{
     Column, ColumnType, DictionaryType, EncodedGeometry, Geometry, Id, Layer01, Property,
-    RawFsstData, RawIdValue, RawName, RawPlainData, RawPresence, RawProperty, RawScalar,
-    RawSharedDict, RawSharedDictChild, RawSharedDictEncoding, RawStream, RawStrings,
-    RawStringsEncoding, StagedLayer01, StreamType,
+    RawFsstData, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
+    RawSharedDictChild, RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding,
+    StagedLayer01, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -82,7 +82,7 @@ impl Layer01<'_> {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse_bool(input)?;
                     properties.push(Property::from(RawProperty::Bool(RawScalar {
-                        name: RawName(name),
+                        name,
                         presence: RawPresence(opt),
                         data: value,
                     })));
@@ -91,7 +91,7 @@ impl Layer01<'_> {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
                     properties.push(Property::from(RawProperty::I8(RawScalar {
-                        name: RawName(name),
+                        name,
                         presence: RawPresence(opt),
                         data: value,
                     })));
@@ -100,7 +100,7 @@ impl Layer01<'_> {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
                     properties.push(Property::from(RawProperty::U8(RawScalar {
-                        name: RawName(name),
+                        name,
                         presence: RawPresence(opt),
                         data: value,
                     })));
@@ -109,7 +109,7 @@ impl Layer01<'_> {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
                     properties.push(Property::from(RawProperty::I32(RawScalar {
-                        name: RawName(name),
+                        name,
                         presence: RawPresence(opt),
                         data: value,
                     })));
@@ -118,7 +118,7 @@ impl Layer01<'_> {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
                     properties.push(Property::from(RawProperty::U32(RawScalar {
-                        name: RawName(name),
+                        name,
                         presence: RawPresence(opt),
                         data: value,
                     })));
@@ -127,7 +127,7 @@ impl Layer01<'_> {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
                     properties.push(Property::from(RawProperty::I64(RawScalar {
-                        name: RawName(name),
+                        name,
                         presence: RawPresence(opt),
                         data: value,
                     })));
@@ -136,7 +136,7 @@ impl Layer01<'_> {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
                     properties.push(Property::from(RawProperty::U64(RawScalar {
-                        name: RawName(name),
+                        name,
                         presence: RawPresence(opt),
                         data: value,
                     })));
@@ -145,7 +145,7 @@ impl Layer01<'_> {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
                     properties.push(Property::from(RawProperty::F32(RawScalar {
-                        name: RawName(name),
+                        name,
                         presence: RawPresence(opt),
                         data: value,
                     })));
@@ -154,7 +154,7 @@ impl Layer01<'_> {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
                     properties.push(Property::from(RawProperty::F64(RawScalar {
-                        name: RawName(name),
+                        name,
                         presence: RawPresence(opt),
                         data: value,
                     })));
@@ -255,7 +255,7 @@ fn parse_struct_children<'a>(
         }
         let (inp, child_data) = RawStream::parse(inp)?;
         children.push(RawSharedDictChild {
-            name: RawName(child.name.unwrap_or("")),
+            name: child.name.unwrap_or(""),
             presence: RawPresence(child_optional),
             data: child_data,
         });
@@ -339,7 +339,7 @@ fn parse_str_column<'a>(
     Ok((
         input,
         RawProperty::Str(RawStrings {
-            name: RawName(name),
+            name,
             presence: RawPresence(presence),
             encoding,
         }),
@@ -372,7 +372,7 @@ fn parse_shared_dict_column<'a>(
     }
     let children;
     (input, children) = parse_struct_children(input, column)?;
-    let name = RawName(column.name.unwrap_or(""));
+    let name = column.name.unwrap_or("");
     let encoding = match dict_streams {
         [Some(s1), Some(s2), None, None, None] => {
             RawSharedDictEncoding::plain(RawPlainData::new(s1, s2)?)
