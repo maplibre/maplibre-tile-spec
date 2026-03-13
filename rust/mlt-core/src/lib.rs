@@ -1,4 +1,3 @@
-#![expect(dead_code)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(not(any(feature = "fastpfor-cpp", feature = "fastpfor-rust")))]

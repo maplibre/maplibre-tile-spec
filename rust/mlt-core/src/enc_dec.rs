@@ -64,14 +64,6 @@ where
         }
     }
 
-    fn borrow_decoded(&self) -> Option<&Self::DecodedType> {
-        if let Self::Decoded(decoded) = self {
-            Some(decoded)
-        } else {
-            None
-        }
-    }
-
     fn borrow_decoded_mut(&mut self) -> Option<&mut Self::DecodedType> {
         if let Self::Decoded(decoded) = self {
             Some(decoded)

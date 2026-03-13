@@ -14,19 +14,12 @@ use crate::v01::{
     StreamMeta, StreamType, StringsEncoding,
 };
 
-/// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
-fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {
-    any::<PhysicalEncoder>().prop_filter("not fastpfor", |v| *v != PhysicalEncoder::FastPFOR)
-}
-
 /// Test case for stream decoding tests
 #[derive(Debug)]
 struct StreamTestCase {
-    name: &'static str,
     meta: StreamMeta,
     data: &'static [u8],
     expected_u32_logical_value: Option<LogicalValue>,
-    expected_u64_logical_value: Option<LogicalValue>,
 }
 
 /// Generator function that creates a set of test cases for stream decoding
@@ -34,7 +27,6 @@ fn generate_stream_test_cases() -> Vec<StreamTestCase> {
     vec![
         // Basic VarInt test case
         StreamTestCase {
-            name: "simple_varint_u32",
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::None),
                 IntEncoding::new(LogicalEncoding::None, PhysicalEncoding::VarInt),
@@ -49,11 +41,9 @@ fn generate_stream_test_cases() -> Vec<StreamTestCase> {
                 ),
                 LogicalData::VecU32(vec![4, 3, 2, 1]),
             )),
-            expected_u64_logical_value: None,
         },
         // Basic Encoded test case
         StreamTestCase {
-            name: "simple_raw_bytes_to_u32",
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::None),
                 IntEncoding::none(),
@@ -68,7 +58,6 @@ fn generate_stream_test_cases() -> Vec<StreamTestCase> {
                 ),
                 LogicalData::VecU32(vec![0x0102_0304]),
             )),
-            expected_u64_logical_value: None,
         },
     ]
 }

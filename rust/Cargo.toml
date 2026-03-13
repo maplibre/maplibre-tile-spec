@@ -21,7 +21,6 @@ arbitrary = { version = "1.4", features = ["derive"] }
 clap = { version = "4.5.58", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 crossterm = "0.29.0"
-derive_builder = "0.20"
 enum_dispatch = "0.3"
 fastpfor = { version = "0.8", default-features = false }
 flate2 = "1"

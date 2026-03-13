@@ -1,23 +1,5 @@
 use crate::utils::{f32_to_json, f64_to_json};
-use crate::v01::{DecodedProperty, EncodedProperty, PropertyKind};
-
-impl<'a> EncodedProperty<'a> {
-    pub(super) fn name(&self) -> &'a str {
-        match self {
-            Self::Bool(s)
-            | Self::I8(s)
-            | Self::U8(s)
-            | Self::I32(s)
-            | Self::U32(s)
-            | Self::I64(s)
-            | Self::U64(s)
-            | Self::F32(s)
-            | Self::F64(s) => s.name.0,
-            Self::Str(s) => s.name.0,
-            Self::SharedDict(s) => s.name.0,
-        }
-    }
-}
+use crate::v01::{DecodedProperty, PropertyKind};
 
 impl DecodedProperty<'_> {
     #[must_use]

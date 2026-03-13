@@ -34,8 +34,6 @@ pub(crate) trait Decodable<'a>: Sized {
     fn new_decoded(decoded: Self::DecodedType) -> Self;
     /// Temporarily replace self with a default value to take ownership of the raw data
     fn take_encoded(&mut self) -> Option<Self::EncodedType>;
-    /// Borrow the decoded data if available
-    fn borrow_decoded(&self) -> Option<&Self::DecodedType>;
     /// Borrow the decoded data mutably if available
     fn borrow_decoded_mut(&mut self) -> Option<&mut Self::DecodedType>;
 
