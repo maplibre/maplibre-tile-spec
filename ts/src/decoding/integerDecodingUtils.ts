@@ -18,9 +18,12 @@ export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, num
             dst[i] = decodeVarintInt32Value(buf, localOffset);
         } catch (error) {
             if (error instanceof RangeError) {
-                throw new RangeError(`truncated varint at offset=${localOffset.get()} while decoding value index=${i}`, {
-                    cause: error,
-                });
+                throw new RangeError(
+                    `truncated varint at offset=${localOffset.get()} while decoding value index=${i}`,
+                    {
+                        cause: error,
+                    },
+                );
             }
             if (error instanceof Error) {
                 throw new Error(`invalid varint32 at offset=${localOffset.get()} while decoding value index=${i}`, {
