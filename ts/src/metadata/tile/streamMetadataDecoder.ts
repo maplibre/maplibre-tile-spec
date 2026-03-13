@@ -235,12 +235,13 @@ function decodeMetadataVarint(tile: Uint8Array, offset: IntWrapper, context: str
         if (error instanceof RangeError) {
             throw new RangeError(
                 `truncated stream metadata while reading ${context} at offset=${currentOffset} (remaining=${remaining})`,
+                { cause: error },
             );
         }
         if (error instanceof Error) {
-            throw new Error(
-                `invalid stream metadata while reading ${context} at offset=${currentOffset}: ${error.message}`,
-            );
+            throw new Error(`invalid stream metadata while reading ${context} at offset=${currentOffset}: ${error.message}`, {
+                cause: error,
+            });
         }
         throw error;
     }
