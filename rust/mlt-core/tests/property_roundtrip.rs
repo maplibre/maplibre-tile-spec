@@ -2,9 +2,9 @@ use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
     EncodedProperty, EncodedScalar, EncodedSharedDictEncoding, EncodedStringsEncoding, IntEncoder,
     LogicalEncoder, ParsedProperty, ParsedScalar, ParsedStrings, PhysicalEncoder, PresenceStream,
-    PropertyEncoder, RawFsstData, RawName, RawPlainData, RawPresence, RawProperty, RawScalar,
-    RawSharedDict, RawSharedDictChild, RawSharedDictEncoding, RawStrings, RawStringsEncoding,
-    ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedProperty, StrEncoder,
+    PropertyEncoder, RawFsstData, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
+    RawSharedDictChild, RawSharedDictEncoding, RawStrings, RawStringsEncoding, ScalarEncoder,
+    SharedDictEncoder, SharedDictItemEncoder, StagedProperty, StrEncoder,
     build_decoded_shared_dict,
 };
 use mlt_core::{Decode, MltError};
@@ -69,7 +69,7 @@ fn roundtrip(decoded: &ParsedProperty<'_>, encoder: ScalarEncoder) -> ParsedProp
 pub fn decode_for_test(prop: &StagedProperty) -> Result<ParsedProperty<'static>, MltError> {
     fn borrow_scalar(s: &EncodedScalar) -> RawScalar<'_> {
         RawScalar {
-            name: RawName(&s.name.0),
+            name: &s.name.0,
             presence: RawPresence(s.presence.0.as_ref().map(|s| s.as_borrowed())),
             data: s.data.as_borrowed(),
         }
@@ -90,7 +90,7 @@ pub fn decode_for_test(prop: &StagedProperty) -> Result<ParsedProperty<'static>,
         EncodedProperty::F32(s) => RawProperty::F32(borrow_scalar(s)),
         EncodedProperty::F64(s) => RawProperty::F64(borrow_scalar(s)),
         EncodedProperty::Str(s) => RawProperty::Str(RawStrings {
-            name: RawName(&s.name.0),
+            name: &s.name.0,
             presence: RawPresence(s.presence.0.as_ref().map(|p| p.as_borrowed())),
             encoding: match &s.encoding {
                 EncodedStringsEncoding::Plain(d) => RawStringsEncoding::Plain(RawPlainData {
@@ -129,7 +129,7 @@ pub fn decode_for_test(prop: &StagedProperty) -> Result<ParsedProperty<'static>,
             },
         }),
         EncodedProperty::SharedDict(s) => RawProperty::SharedDict(RawSharedDict {
-            name: RawName(&s.name.0),
+            name: &s.name.0,
             encoding: match &s.encoding {
                 EncodedSharedDictEncoding::Plain(d) => RawSharedDictEncoding::Plain(RawPlainData {
                     lengths: d.lengths.as_borrowed(),
@@ -148,7 +148,7 @@ pub fn decode_for_test(prop: &StagedProperty) -> Result<ParsedProperty<'static>,
                 .children
                 .iter()
                 .map(|c| RawSharedDictChild {
-                    name: RawName(&c.name.0),
+                    name: &c.name.0,
                     presence: RawPresence(c.presence.0.as_ref().map(|s| s.as_borrowed())),
                     data: c.data.as_borrowed(),
                 })

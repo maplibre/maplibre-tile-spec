@@ -4,8 +4,8 @@ use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, 
 use mlt_core::v01::{
     DictionaryType, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
     EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, ParsedStrings, PhysicalEncoder,
-    PresenceStream, RawFsstData, RawName, RawPlainData, RawPresence, RawSharedDict,
-    RawSharedDictChild, RawSharedDictEncoding, RawStrings, RawStringsEncoding, SharedDictEncoder,
+    PresenceStream, RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictChild,
+    RawSharedDictEncoding, RawStrings, RawStringsEncoding, SharedDictEncoder,
     SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict, encode_shared_dict_prop,
 };
 use strum::IntoEnumIterator as _;
@@ -95,7 +95,7 @@ fn encode_fsst(strings: &[String], int_enc: IntEncoder) -> EncodedStringsEncodin
 /// and only leaf-level `EncodedStream::as_borrowed()` calls are made.
 fn borrow_enc_strings<'a>(
     enc: &'a EncodedStringsEncoding,
-    name: RawName<'a>,
+    name: &'a str,
     presence: Option<mlt_core::v01::RawStream<'a>>,
 ) -> RawStrings<'a> {
     let encoding = match enc {
@@ -159,13 +159,13 @@ fn borrow_owned_shared_dict(sd: &EncodedSharedDict) -> RawSharedDict<'_> {
         .children
         .iter()
         .map(|c| RawSharedDictChild {
-            name: RawName(&c.name.0),
+            name: &c.name.0,
             presence: RawPresence(c.presence.0.as_ref().map(|s| s.as_borrowed())),
             data: c.data.as_borrowed(),
         })
         .collect();
     RawSharedDict {
-        name: RawName(&sd.name.0),
+        name: &sd.name.0,
         encoding,
         children,
     }
@@ -190,7 +190,7 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
                     |b, encoded| {
                         b.iter(|| {
                             black_box(
-                                borrow_enc_strings(encoded, RawName(""), None)
+                                borrow_enc_strings(encoded, "", None)
                                     .into_decoded()
                                     .unwrap(),
                             )
@@ -223,7 +223,7 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
                     |b, encoded| {
                         b.iter(|| {
                             black_box(
-                                borrow_enc_strings(encoded, RawName(""), None)
+                                borrow_enc_strings(encoded, "", None)
                                     .into_decoded()
                                     .unwrap(),
                             )
@@ -250,7 +250,7 @@ fn bench_encoding_type(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("plain", n), &plain, |b, encoded| {
             b.iter(|| {
                 black_box(
-                    borrow_enc_strings(encoded, RawName(""), None)
+                    borrow_enc_strings(encoded, "", None)
                         .into_decoded()
                         .unwrap(),
                 )
@@ -261,7 +261,7 @@ fn bench_encoding_type(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("fsst", n), &fsst, |b, encoded| {
             b.iter(|| {
                 black_box(
-                    borrow_enc_strings(encoded, RawName(""), None)
+                    borrow_enc_strings(encoded, "", None)
                         .into_decoded()
                         .unwrap(),
                 )
@@ -290,7 +290,7 @@ fn bench_presence(c: &mut Criterion) {
             |b, encoded| {
                 b.iter(|| {
                     black_box(
-                        borrow_enc_strings(encoded, RawName(""), None)
+                        borrow_enc_strings(encoded, "", None)
                             .into_decoded()
                             .unwrap(),
                     )
@@ -313,11 +313,7 @@ fn bench_presence(c: &mut Criterion) {
             |b, (pres, enc)| {
                 b.iter(|| {
                     let p = pres.as_borrowed();
-                    black_box(
-                        borrow_enc_strings(enc, RawName(""), Some(p))
-                            .into_decoded()
-                            .unwrap(),
-                    )
+                    black_box(borrow_enc_strings(enc, "", Some(p)).into_decoded().unwrap())
                 });
             },
         );
@@ -348,12 +344,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("plain_x2", n), &enc_plain, |b, encoded| {
             b.iter(|| {
                 black_box(
-                    borrow_enc_strings(encoded, RawName(""), None)
+                    borrow_enc_strings(encoded, "", None)
                         .into_decoded()
                         .unwrap(),
                 );
                 black_box(
-                    borrow_enc_strings(encoded, RawName(""), None)
+                    borrow_enc_strings(encoded, "", None)
                         .into_decoded()
                         .unwrap(),
                 );
@@ -439,12 +435,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("fsst_x2", n), &enc_fsst, |b, encoded| {
             b.iter(|| {
                 black_box(
-                    borrow_enc_strings(encoded, RawName(""), None)
+                    borrow_enc_strings(encoded, "", None)
                         .into_decoded()
                         .unwrap(),
                 );
                 black_box(
-                    borrow_enc_strings(encoded, RawName(""), None)
+                    borrow_enc_strings(encoded, "", None)
                         .into_decoded()
                         .unwrap(),
                 );

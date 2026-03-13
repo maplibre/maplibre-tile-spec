@@ -10,7 +10,7 @@ use crate::v01::stream::logical::LogicalEncoder;
 use crate::v01::{
     DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, LogicalData,
     LogicalEncoding, LogicalValue, MortonMeta, OffsetType, PhysicalEncoder, PhysicalEncoding,
-    RawFsstData, RawName, RawPlainData, RawPresence, RawStream, RawStreamData, RawStrings,
+    RawFsstData, RawPlainData, RawPresence, RawStream, RawStreamData, RawStrings,
     RawStringsEncoding, RleMeta, StreamMeta, StreamType,
 };
 
@@ -431,7 +431,7 @@ proptest! {
             ).unwrap(),
             n => panic!("unexpected stream count {n}"),
         };
-        let decoded_values = RawStrings { name: RawName(""), presence: RawPresence(None), encoding: strings_encoding }.into_decoded().unwrap();
+        let decoded_values = RawStrings { name: "", presence: RawPresence(None), encoding: strings_encoding }.into_decoded().unwrap();
         assert_eq!(decoded_values, values.into());
     }
 }

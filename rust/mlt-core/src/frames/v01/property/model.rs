@@ -6,10 +6,6 @@ use crate::EncDec;
 use crate::analyse::{Analyze, StatType};
 use crate::v01::{EncodedStream, FsstStrEncoder, IntEncoder, RawStream};
 
-/// Name borrowed from input bytes (Stage 1)
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RawName<'a>(pub &'a str);
-
 /// Owned name string (Stage 4/5)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EncodedName(pub String);
@@ -31,7 +27,7 @@ pub enum PropertyKind {
 /// Raw scalar column (bool, integer, or float) as read directly from the tile.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawScalar<'a> {
-    pub name: RawName<'a>,
+    pub name: &'a str,
     pub presence: RawPresence<'a>,
     pub data: RawStream<'a>,
 }
@@ -83,7 +79,7 @@ pub enum EncodedStringsEncoding {
 /// Raw string column as read directly from the tile.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawStrings<'a> {
-    pub name: RawName<'a>,
+    pub name: &'a str,
     pub presence: RawPresence<'a>,
     pub encoding: RawStringsEncoding<'a>,
 }
@@ -119,7 +115,7 @@ pub enum EncodedSharedDictEncoding {
 /// Raw shared-dictionary column as read directly from the tile.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawSharedDict<'a> {
-    pub name: RawName<'a>,
+    pub name: &'a str,
     pub encoding: RawSharedDictEncoding<'a>,
     pub children: Vec<RawSharedDictChild<'a>>,
 }
@@ -249,7 +245,7 @@ pub enum PresenceStream {
 /// A single child field within a `SharedDict` raw column
 #[derive(Clone, Debug, PartialEq)]
 pub struct RawSharedDictChild<'a> {
-    pub name: RawName<'a>,
+    pub name: &'a str,
     pub presence: RawPresence<'a>,
     pub data: RawStream<'a>,
 }
