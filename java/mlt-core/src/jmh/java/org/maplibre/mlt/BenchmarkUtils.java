@@ -14,8 +14,9 @@ import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.data.MapboxVectorTile;
 
 public class BenchmarkUtils {
 
@@ -37,7 +38,7 @@ public class BenchmarkUtils {
 
     var columnMapping = new ColumnMapping("name", ":", true);
     var columnMappings = List.of(columnMapping);
-    var columnMappingMap = Map.of(Pattern.compile(".*"), columnMappings);
+    var columnMappingMap = ColumnMappingConfig.of(Pattern.compile(".*"), columnMappings);
     final var isIdPresent = true;
     var metadata =
         MltConverter.createTilesetMetadata(

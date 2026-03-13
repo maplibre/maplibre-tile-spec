@@ -24,19 +24,14 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Polygon;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.data.Feature;
-import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.MapboxVectorTile;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltGenerator {
@@ -230,78 +225,6 @@ public class MltGenerator {
     var compressedTile = EncodingUtils.gzip(tile);
     var compressedTileName = path.resolve(y + tileExtension + ".gz");
     Files.write(compressedTileName, compressedTile);
-  }
-
-  private Layer createDebugLayer() {
-    var layer = new Layer("debug", new ArrayList<>(), 4096);
-    var features = layer.features();
-    var geometryFactory = new GeometryFactory();
-    var shell1 =
-        geometryFactory.createLinearRing(
-            new Coordinate[] {
-              new Coordinate(100, 100),
-              new Coordinate(1800, 100),
-              new Coordinate(1800, 1800),
-              new Coordinate(100, 1800),
-              new Coordinate(400, 1000),
-              new Coordinate(100, 100)
-            });
-    /*var hole1 = geometryFactory.createLinearRing(new Coordinate[]{
-            new Coordinate(500, 500),
-            new Coordinate(500, 1000),
-            new Coordinate(1000, 1000),
-            new Coordinate(1000, 500),
-            new Coordinate(700, 500),
-            new Coordinate(600, 500),
-            new Coordinate(500, 500)
-    });
-    var hole2 = geometryFactory.createLinearRing(new Coordinate[]{
-            new Coordinate(1200, 700),
-            new Coordinate(1200, 1400),
-            new Coordinate(1700, 1400),
-            new Coordinate(1500, 1000),
-            new Coordinate(1200, 700)
-    });*/
-    var shell2 =
-        geometryFactory.createLinearRing(
-            new Coordinate[] {
-              new Coordinate(2100, 100),
-              new Coordinate(3800, 100),
-              new Coordinate(3800, 3800),
-              new Coordinate(2100, 3800),
-              new Coordinate(2100, 100)
-            });
-    /*var hole4 = geometryFactory.createLinearRing(new Coordinate[]{
-            new Coordinate(2500, 500),
-            new Coordinate(2500, 3200),
-            new Coordinate(3200, 3200),
-            new Coordinate(3200, 500),
-            new Coordinate(2500, 500)
-    });*/
-    var shell4 =
-        geometryFactory.createLinearRing(
-            new Coordinate[] {
-              new Coordinate(2100, 3810),
-              new Coordinate(2100, 3990),
-              new Coordinate(3950, 3990),
-              new Coordinate(3990, 3810),
-              new Coordinate(3000, 3810),
-              new Coordinate(2100, 3810)
-            });
-    var polygon1 = geometryFactory.createPolygon(shell1);
-    var polygon2 = geometryFactory.createPolygon(shell2);
-    var multiPolygon = geometryFactory.createMultiPolygon(new Polygon[] {polygon1, polygon2});
-
-    Map<String, Object> properties = Map.of("key", "test");
-    var feature = new Feature(1, multiPolygon, properties);
-    features.add(feature);
-
-    var polygon4 = geometryFactory.createPolygon(shell4);
-    Map<String, Object> properties2 = Map.of("key", "test");
-    var feature2 = new Feature(1, polygon4, properties2);
-    features.add(feature2);
-
-    return layer;
   }
 }
 

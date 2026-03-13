@@ -15,6 +15,7 @@ import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.MapboxVectorTile;
 
 public class MvtTestUtils {
   private static final String ID_KEY = "id";
@@ -49,19 +50,18 @@ public class MvtTestUtils {
             new TagKeyValueMapConverter(true, ID_KEY));
     final var mvtLayers = result.getLayers();
 
-    var layers = new ArrayList<Layer>();
+    final var layers = new ArrayList<Layer>();
     for (var layer : mvtLayers) {
-      var name = layer.getName();
-      var mvtFeatures = layer.getGeometries();
-      var features = new ArrayList<Feature>();
+      final var name = layer.getName();
+      final var mvtFeatures = layer.getGeometries();
+      final var features = new ArrayList<Feature>();
       for (var mvtFeature : mvtFeatures) {
-        Map<?, ?> properties =
+        final var properties =
             mvtFeature.getUserData() instanceof Map<?, ?> map ? map : new LinkedHashMap<>();
-        var id = (long) properties.get(ID_KEY);
         properties.remove(ID_KEY);
         // TODO: handle nested properties
         // var transformedProperties = MvtUtils.transformNestedPropertyNames(properties, List.of());
-        // var feature = new Feature(id, mvtFeature, transformedProperties);
+        // var feature = new MVTFeature(id, mvtFeature, transformedProperties);
         // features.add(feature);
       }
 

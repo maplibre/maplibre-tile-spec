@@ -4,14 +4,14 @@ import java.util.HashMap;
 import java.util.Iterator;
 import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.Geometry;
-import org.maplibre.mlt.data.Feature;
+import org.maplibre.mlt.data.MVTFeature;
 import org.maplibre.mlt.vector.constant.IntConstVector;
 import org.maplibre.mlt.vector.flat.IntFlatVector;
 import org.maplibre.mlt.vector.geometry.GeometryVector;
 import org.maplibre.mlt.vector.sequence.IntSequenceVector;
 
 /** In-Memory representation of MLT storage format for efficient processing */
-public class FeatureTable implements Iterable<Feature> {
+public class FeatureTable implements Iterable<MVTFeature> {
   private final String name;
 
   private final Vector<?, ?> idColumn;
@@ -37,7 +37,7 @@ public class FeatureTable implements Iterable<Feature> {
 
   @Override
   @NotNull
-  public Iterator<Feature> iterator() {
+  public Iterator<MVTFeature> iterator() {
     return new Iterator<>() {
       private int index = 0;
       private final Iterator<Geometry> geometryIterator = geometryColumn.iterator();
@@ -48,7 +48,7 @@ public class FeatureTable implements Iterable<Feature> {
       }
 
       @Override
-      public Feature next() {
+      public MVTFeature next() {
         var geometry = geometryIterator.next();
 
         var properties = new HashMap<String, Object>();
@@ -61,24 +61,19 @@ public class FeatureTable implements Iterable<Feature> {
           }
         }
 
-        Feature feature;
+        final var builder = MVTFeature.builder().geometry(geometry).properties(properties);
         if (idColumn != null) {
-          var idValue = idColumn.getValue(index);
+          final var idValue = idColumn.getValue(index);
           if (idValue.isPresent()) {
-            long id =
+            builder.id(
                 isIntVector(idColumn)
                     ? ((Integer) idValue.get()).longValue()
-                    : (Long) idValue.get();
-            feature = new Feature(id, geometry, properties);
-          } else {
-            feature = new Feature(geometry, properties);
+                    : (Long) idValue.get());
           }
-        } else {
-          feature = new Feature(geometry, properties);
         }
 
         index++;
-        return feature;
+        return builder.build();
       }
     };
   }

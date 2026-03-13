@@ -2,9 +2,9 @@ package org.maplibre.mlt.compare;
 
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.SequencedCollection;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -13,10 +13,12 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.locationtech.jts.geom.Geometry;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
+import org.maplibre.mlt.data.MapboxVectorTile;
+import org.maplibre.mlt.data.Property;
+import org.maplibre.mlt.util.StreamUtil;
 
 public final class CompareHelper {
   private CompareHelper() {}
@@ -194,9 +196,9 @@ public final class CompareHelper {
       @NotNull CompareMode compareMode,
       @NotNull Predicate<Layer> layerFilter) {
     final var mvtLayers =
-        mvTile.layers().stream().filter(x -> !x.features().isEmpty()).filter(layerFilter).toList();
+        mvTile.getLayerStream().filter(x -> !x.features().isEmpty()).filter(layerFilter).toList();
     final var mltLayers =
-        mlTile.layers().stream().filter(x -> !x.features().isEmpty()).filter(layerFilter).toList();
+        mlTile.getLayerStream().filter(x -> !x.features().isEmpty()).filter(layerFilter).toList();
     if (mltLayers.size() != mvtLayers.size()) {
       final var mvtNames = mvtLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
       final var mltNames = mltLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
@@ -227,38 +229,49 @@ public final class CompareHelper {
               .items(mvtLayer.name(), mltLayer.name())
               .build());
     }
+    return compareFeatures(
+        mltFeatures, mvtFeatures, compareMode, layerIndex, mvtLayer.name(), true);
+  }
+
+  public static Optional<Difference> compareFeatures(
+      SequencedCollection<Feature> mltFeatures,
+      SequencedCollection<Feature> mvtFeatures,
+      @NotNull CompareMode compareMode,
+      int layerIndex,
+      String layerName,
+      boolean allowFeatureSort) {
     if (mltFeatures.size() != mvtFeatures.size()) {
       return Optional.of(
           Difference.builder("Number of features differ")
               .items(String.valueOf(mvtFeatures.size()), String.valueOf(mltFeatures.size()))
               .layerIndex(layerIndex)
-              .layerName(mvtLayer.name())
+              .layerName(layerName)
               .build());
     }
 
     // Allow features to be sorted by ID and still match if all features have IDs
-    final var haveIds =
-        mvtFeatures.stream().allMatch(Feature::hasId)
+    final var sortableIDs =
+        allowFeatureSort
+            && mvtFeatures.stream().allMatch(Feature::hasId)
             && mltFeatures.stream().allMatch(Feature::hasId);
     final var maybeSortedMvtFeatures =
-        haveIds
-            ? mvtFeatures.stream().sorted(Comparator.comparing(Feature::id)).toList()
-            : mvtFeatures;
+        sortableIDs
+            ? mvtFeatures.stream().sorted(Comparator.comparing(Feature::getId))
+            : mvtFeatures.stream();
     final var maybeSortedMltFeatures =
-        haveIds
-            ? mltFeatures.stream().sorted(Comparator.comparing(Feature::id)).toList()
-            : mltFeatures;
+        sortableIDs
+            ? mltFeatures.stream().sorted(Comparator.comparing(Feature::getId))
+            : mltFeatures.stream();
 
-    for (var j = 0; j < maybeSortedMvtFeatures.size(); j++) {
-      final var mvtFeature = maybeSortedMvtFeatures.get(j);
-      final var mltFeature = maybeSortedMltFeatures.get(j);
-      final var featureResult =
-          compareFeature(mltFeature, mvtFeature, compareMode, j, mvtLayer.name());
-      if (featureResult.isPresent()) {
-        return featureResult;
-      }
-    }
-    return Optional.empty();
+    final var featureIndex = new int[] {0};
+    return StreamUtil.zip(
+            maybeSortedMltFeatures,
+            maybeSortedMvtFeatures,
+            (mltFeature, mvtFeature) ->
+                compareFeature(mltFeature, mvtFeature, compareMode, featureIndex[0]++, layerName))
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .findFirst();
   }
 
   private static Optional<Difference> compareFeature(
@@ -272,7 +285,7 @@ public final class CompareHelper {
           Difference.builder("Feature IDs differ")
               .layerName(layerName)
               .featureIndex(featureIndex)
-              .items(String.valueOf(mvtFeature.id()), String.valueOf(mltFeature.id()))
+              .items(String.valueOf(mvtFeature.getId()), String.valueOf(mltFeature.getId()))
               .build());
     }
     if (compareMode == CompareMode.Geometry || compareMode == CompareMode.All) {
@@ -292,9 +305,9 @@ public final class CompareHelper {
 
   private static Optional<Difference> compareGeometry(
       Feature mltFeature, Feature mvtFeature, int featureIndex, String layerName) {
-    final var mltGeometry = mltFeature.geometry();
+    final var mltGeometry = mltFeature.getGeometry();
     final var mltGeomValid = mltGeometry.isValid();
-    final var mvtGeometry = mvtFeature.geometry();
+    final var mvtGeometry = mvtFeature.getGeometry();
     final var mvtGeomValid = mvtGeometry.isValid();
     if (mltGeomValid != mvtGeomValid) {
       return Optional.of(
@@ -317,10 +330,16 @@ public final class CompareHelper {
     return Optional.empty();
   }
 
-  private static boolean propertyValuesEqual(Object a, Object b) {
+  private static boolean propertyValuesEqual(Property pa, Property pb) {
+    final var a = pa.getValue();
+    final var b = pb.getValue();
+
     // Try simple equality
     if (Objects.equals(a, b)) {
       return true;
+    }
+    if (a == null || b == null) {
+      return false;
     }
     // Allow for, e.g., int32 and int64 representations of the same number by comparing strings
     return a.toString().equals(b.toString());
@@ -328,19 +347,24 @@ public final class CompareHelper {
 
   private static Optional<Difference> compareProperties(
       Feature mltFeature, Feature mvtFeature, int featureIndex, String layerName) {
-    final var mltProperties = mltFeature.properties();
-    final var mvtProperties = mvtFeature.properties();
-    final var mvtPropertyKeys = mvtProperties.keySet();
+    final var nonNullMVTKeys =
+        mvtFeature
+            .getPropertyStream()
+            .filter(p -> p.getValue() != null)
+            .map(Property::getName)
+            .collect(Collectors.toSet());
+
     final var nonNullMLTKeys =
-        mltProperties.entrySet().stream()
-            .filter(entry -> entry.getValue() != null)
-            .map(Map.Entry::getKey)
-            .collect(Collectors.toUnmodifiableSet());
+        mltFeature
+            .getPropertyStream()
+            .filter(p -> p.getValue() != null)
+            .map(Property::getName)
+            .collect(Collectors.toSet());
     // compare keys
-    if (!mvtPropertyKeys.equals(nonNullMLTKeys)) {
-      final var mvtKeys = getAsymmetricSetDiff(mvtPropertyKeys, nonNullMLTKeys);
+    if (!nonNullMVTKeys.equals(nonNullMLTKeys)) {
+      final var mvtKeys = getAsymmetricSetDiff(nonNullMVTKeys, nonNullMLTKeys);
       final var mvtKeyStr = mvtKeys.isEmpty() ? "(none)" : String.join(", ", mvtKeys);
-      final var mltKeys = getAsymmetricSetDiff(nonNullMLTKeys, mvtPropertyKeys);
+      final var mltKeys = getAsymmetricSetDiff(nonNullMLTKeys, nonNullMVTKeys);
       final var mltKeyStr = mltKeys.isEmpty() ? "(none)" : String.join(", ", mltKeys);
       return Optional.of(
           Difference.builder("Property keys do not match")
@@ -351,17 +375,35 @@ public final class CompareHelper {
     }
     // compare values
     final var unequalKeys =
-        mvtProperties.keySet().stream()
-            .filter(key -> !propertyValuesEqual(mvtProperties.get(key), mltProperties.get(key)))
+        mvtFeature
+            .getPropertyStream()
+            .filter(p -> !propertyValuesEqual(p, mltFeature.findProperty(p.getName()).orElse(null)))
+            .map(Property::getName)
             .toList();
     if (!unequalKeys.isEmpty()) {
       final var mvtValues =
           unequalKeys.stream()
-              .map(key -> key + ": " + mvtProperties.get(key))
+              .map(
+                  key ->
+                      key
+                          + ": "
+                          + mvtFeature
+                              .findProperty(key)
+                              .map(Property::getValue)
+                              .map(String::valueOf)
+                              .orElse("null"))
               .collect(Collectors.joining(", "));
       final var mltValues =
           unequalKeys.stream()
-              .map(key -> key + ": " + mltProperties.get(key))
+              .map(
+                  key ->
+                      key
+                          + ": "
+                          + mltFeature
+                              .findProperty(key)
+                              .map(Property::getValue)
+                              .map(String::valueOf)
+                              .orElse("null"))
               .collect(Collectors.joining(", "));
       return Optional.of(
           Difference.builder("Property values do not match")

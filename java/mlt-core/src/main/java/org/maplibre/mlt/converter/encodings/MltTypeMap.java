@@ -53,28 +53,31 @@ public class MltTypeMap {
     /// The inverse of `getTag1TypeEncoding``
     public static MltMetadata.Column decodeColumnType(int typeCode) {
       if (10 <= typeCode && typeCode <= 29) {
+        final var isNullable = (typeCode & 1) != 0;
         final var column =
-            new MltMetadata.Column(null, new MltMetadata.ScalarField(getScalarType(typeCode)));
-        column.isNullable = (typeCode & 1) != 0;
+            new MltMetadata.Column(
+                null, new MltMetadata.ScalarField(getScalarType(typeCode)), isNullable);
         return column;
       } else if (0 <= typeCode && typeCode <= 3) {
+        final var isNullable = (typeCode & 1) != 0;
+        final var hasLongId = (typeCode > 1);
         final var column =
             new MltMetadata.Column(
-                null, new MltMetadata.ScalarField(MltMetadata.LogicalScalarType.ID));
-        column.isNullable = (typeCode & 1) != 0;
-        column.scalarType.hasLongId = (typeCode > 1);
+                null,
+                new MltMetadata.ScalarField(MltMetadata.LogicalScalarType.ID, hasLongId),
+                isNullable);
         return column;
       } else if (4 == typeCode) {
+        final var isNullable = false;
         final var column =
             new MltMetadata.Column(
-                null, new MltMetadata.ComplexField(MltMetadata.ComplexType.GEOMETRY));
-        column.isNullable = false;
+                null, new MltMetadata.ComplexField(MltMetadata.ComplexType.GEOMETRY), isNullable);
         return column;
       } else if (30 == typeCode) {
+        final var isNullable = false;
         final var column =
             new MltMetadata.Column(
-                null, new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT));
-        column.isNullable = false;
+                null, new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT), isNullable);
         return column;
       } else {
         throw new IllegalStateException("Unsupported Type " + typeCode);

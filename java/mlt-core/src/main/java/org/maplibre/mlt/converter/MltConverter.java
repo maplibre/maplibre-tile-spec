@@ -7,16 +7,19 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.SequencedCollection;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
@@ -26,11 +29,10 @@ import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.converter.encodings.PropertyEncoder;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
-import org.maplibre.mlt.data.unsigned.U32;
-import org.maplibre.mlt.data.unsigned.U64;
-import org.maplibre.mlt.data.unsigned.U8;
+import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.MapboxVectorTile;
+import org.maplibre.mlt.data.Property;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 import org.maplibre.mlt.util.ByteArrayUtil;
@@ -114,102 +116,115 @@ public class MltConverter {
       boolean includeIdIfPresent) {
 
     // TODO: Allow determining whether ID is present automatically
-    // TODO: Allow nullable ID columns
 
-    var tileset = new MltMetadata.TileSetMetadata();
-
-    for (var layer : tile.layers()) {
-      final LinkedHashMap<String, MltMetadata.Column> columnSchemas = new LinkedHashMap<>();
-      final LinkedHashMap<ColumnMapping, MltMetadata.ComplexField> complexPropertyColumnSchemas =
-          new LinkedHashMap<>();
-
-      var hasId = false;
-      var hasLongId = false;
-      var hasNullId = false;
-      var featureIndex = 0;
-      for (var feature : layer.features()) {
-        final var currentFeatureIndex = featureIndex;
-        feature.properties().entrySet().stream()
-            .sorted(Map.Entry.comparingByKey())
-            .forEach(
-                property -> {
-                  resolveColumnType(
-                      property,
-                      layer.name(),
-                      currentFeatureIndex,
-                      columnMappingConfig,
-                      columnSchemas,
-                      complexPropertyColumnSchemas,
-                      typeMismatchPolicy);
-                });
-
-        if (includeIdIfPresent) {
-          if (feature.hasId()) {
-            hasId = true;
-            if ((!hasLongId && feature.id() > Integer.MAX_VALUE)
-                || feature.id() < Integer.MIN_VALUE) {
-              hasLongId = true;
-            }
-          } else {
-            hasNullId = true;
-          }
-        }
-        featureIndex++;
-      }
-
-      for (var complexPropertyColumnScheme : complexPropertyColumnSchemas.entrySet()) {
-        final var schema = complexPropertyColumnScheme.getValue();
-        final var parentName = resolveComplexColumnMapping(schema);
-
-        // Each complex column scheme needs to have a unique entry name in the column map, but there
-        // is no specific column to which it maps.  For now, just ensure that the value is unique.
-        final var column = createColumn(parentName, schema);
-        IntStream.iterate(0, i -> i + 1)
-            .mapToObj(i -> parentName + i)
-            .filter(name -> !columnSchemas.containsKey(name))
-            .findFirst()
-            .ifPresent(name -> columnSchemas.put(name, column));
-      }
-
-      var featureTableSchema = new MltMetadata.FeatureTable(layer.name());
-
-      // If present, `id` must be the first column
-      if (columnSchemas.values().stream().anyMatch(MltTypeMap.Tag0x01::isID)) {
-        throw new RuntimeException("Unexpected ID Column");
-      }
-      if (hasId) {
-        final var newColumn =
-            new MltMetadata.Column(
-                null, new MltMetadata.ScalarField(MltMetadata.LogicalScalarType.ID));
-        newColumn.isNullable = hasNullId;
-        newColumn.columnScope = MltMetadata.ColumnScope.FEATURE;
-        newColumn.scalarType.hasLongId = hasLongId;
-        featureTableSchema.columns.add(newColumn);
-      }
-
-      // The `geometry` column is mandatory and has to be the first column after `ID`
-      featureTableSchema.columns.add(
-          createComplexColumnScheme(null, false, MltMetadata.ComplexType.GEOMETRY));
-
-      featureTableSchema.columns.addAll(columnSchemas.values());
-      tileset.featureTables.add(featureTableSchema);
-    }
-
+    final var tileset = new MltMetadata.TileSetMetadata();
+    tileset.featureTables =
+        tile.getLayerStream()
+            .map(
+                layer ->
+                    createTilesetMetadata(
+                        tile, layer, typeMismatchPolicy, columnMappingConfig, includeIdIfPresent))
+            .toList();
     return tileset;
   }
 
+  private static MltMetadata.FeatureTable createTilesetMetadata(
+      @NotNull MapboxVectorTile tile,
+      @NotNull Layer layer,
+      @NotNull ConversionConfig.TypeMismatchPolicy typeMismatchPolicy,
+      @Nullable ColumnMappingConfig columnMappingConfig,
+      boolean includeIdIfPresent) {
+    final LinkedHashMap<String, MltMetadata.Column> columnSchemas = new LinkedHashMap<>();
+    final LinkedHashMap<ColumnMapping, MltMetadata.ComplexField> complexPropertyColumnSchemas =
+        new LinkedHashMap<>();
+
+    var hasId = false;
+    var hasLongId = false;
+    var hasNullId = false;
+    var featureIndex = 0;
+    for (var feature : layer.features()) {
+      final var currentFeatureIndex = featureIndex;
+
+      feature
+          .getPropertyStream()
+          .forEach(
+              property -> {
+                resolveColumnType(
+                    property,
+                    layer.name(),
+                    currentFeatureIndex,
+                    columnMappingConfig,
+                    columnSchemas,
+                    complexPropertyColumnSchemas,
+                    typeMismatchPolicy);
+              });
+
+      if (includeIdIfPresent) {
+        if (feature.hasId()) {
+          hasId = true;
+          if ((!hasLongId && feature.getId() > Integer.MAX_VALUE)
+              || feature.getId() < Integer.MIN_VALUE) {
+            hasLongId = true;
+          }
+        } else {
+          hasNullId = true;
+        }
+      }
+      featureIndex++;
+    }
+
+    for (var complexPropertyColumnScheme : complexPropertyColumnSchemas.entrySet()) {
+      final var schema = complexPropertyColumnScheme.getValue();
+      final var parentName = resolveComplexColumnMapping(schema);
+
+      // Each complex column scheme needs to have a unique entry name in the column map, but there
+      // is no specific column to which it maps.  For now, just ensure that the value is unique.
+      final var column = createColumn(parentName, schema);
+      IntStream.iterate(0, i -> i + 1)
+          .mapToObj(i -> parentName + i)
+          .filter(name -> !columnSchemas.containsKey(name))
+          .findFirst()
+          .ifPresent(name -> columnSchemas.put(name, column));
+    }
+
+    var featureTableSchema = new MltMetadata.FeatureTable(layer.name());
+
+    // If present, `id` must be the first column
+    if (columnSchemas.values().stream().anyMatch(MltTypeMap.Tag0x01::isID)) {
+      throw new RuntimeException("Unexpected ID Column");
+    }
+    if (hasId) {
+      final var newColumn =
+          new MltMetadata.Column(
+              null,
+              new MltMetadata.ScalarField(MltMetadata.LogicalScalarType.ID, hasLongId),
+              hasNullId);
+      newColumn.columnScope = MltMetadata.ColumnScope.FEATURE;
+      featureTableSchema.columns.add(newColumn);
+    }
+
+    // The `geometry` column is mandatory and has to be the first column after `ID`
+    featureTableSchema.columns.add(
+        createComplexColumnScheme(null, false, MltMetadata.ComplexType.GEOMETRY));
+
+    featureTableSchema.columns.addAll(columnSchemas.values());
+    return featureTableSchema;
+  }
+
   private static void resolveColumnType(
-      @NotNull Map.Entry<String, Object> property,
+      @NotNull Property property,
       @NotNull String layerName,
       int featureIndex,
       @Nullable ColumnMappingConfig columnMappingConfig,
       @NotNull LinkedHashMap<String, MltMetadata.Column> columnSchemas,
       @NotNull LinkedHashMap<ColumnMapping, MltMetadata.ComplexField> complexColumnSchemas,
       @NotNull ConversionConfig.TypeMismatchPolicy typeMismatchPolicy) {
-    final var mvtPropertyName = property.getKey();
+    final var mvtPropertyName = property.getName();
 
-    /* MVT can only contain scalar types */
-    final var scalarType = getScalarType(property);
+    if (property.isNestedProperty()) {
+      throw new NotImplementedException("Nested property types are not yet supported");
+    }
+    final var scalarType = property.getType();
 
     // If this property already has a column...
     final var previousSchema = columnSchemas.get(mvtPropertyName);
@@ -224,7 +239,12 @@ public class MltConverter {
             if (prevPhysicalType == MltMetadata.ScalarType.INT_32
                 && scalarType == MltMetadata.ScalarType.INT_64) {
               // Allow implicit upgrade from INT_32 to INT_64
-              previousSchema.scalarType.physicalType = MltMetadata.ScalarType.INT_64;
+              columnSchemas.put(
+                  mvtPropertyName,
+                  new MltMetadata.Column(
+                      previousSchema.name,
+                      new MltMetadata.ScalarField(MltMetadata.ScalarType.INT_64),
+                      previousSchema.isNullable));
             } else if (prevPhysicalType == MltMetadata.ScalarType.INT_64
                 && scalarType == MltMetadata.ScalarType.INT_32) {
               // no-op
@@ -232,14 +252,24 @@ public class MltConverter {
             } else if (prevPhysicalType == MltMetadata.ScalarType.FLOAT
                 && scalarType == MltMetadata.ScalarType.DOUBLE) {
               // Allow implicit upgrade from FLOAT to DOUBLE
-              previousSchema.scalarType.physicalType = MltMetadata.ScalarType.DOUBLE;
+              columnSchemas.put(
+                  mvtPropertyName,
+                  new MltMetadata.Column(
+                      previousSchema.name,
+                      new MltMetadata.ScalarField(MltMetadata.ScalarType.DOUBLE),
+                      previousSchema.isNullable));
             } else if (prevPhysicalType == MltMetadata.ScalarType.DOUBLE
                 && scalarType == MltMetadata.ScalarType.FLOAT) {
               // no-op
               // keep DOUBLE
             } else if (typeMismatchPolicy == ConversionConfig.TypeMismatchPolicy.COERCE) {
               if (prevPhysicalType != MltMetadata.ScalarType.STRING) {
-                previousSchema.scalarType.physicalType = MltMetadata.ScalarType.STRING;
+                columnSchemas.put(
+                    mvtPropertyName,
+                    new MltMetadata.Column(
+                        previousSchema.name,
+                        new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING),
+                        previousSchema.isNullable));
               }
             } else if (typeMismatchPolicy != ConversionConfig.TypeMismatchPolicy.ELIDE) {
               throw new RuntimeException(
@@ -247,7 +277,7 @@ public class MltConverter {
                       "Layer '%s' Feature index %d Property '%s' has different type: %s / %s",
                       layerName,
                       featureIndex,
-                      property.getKey(),
+                      property.getName(),
                       scalarType.name(),
                       prevPhysicalType.name()));
             }
@@ -311,13 +341,16 @@ public class MltConverter {
     pbMetadata.minZoom.ifPresent(integer -> root.put("minZoom", integer));
     pbMetadata.maxZoom.ifPresent(integer -> root.put("maxZoom", integer));
 
-    var bounds = new ArrayList<Map<String, Object>>();
-    for (int i = 0; i < (pbMetadata.bounds.size() / 4); ++i) {
-      var bound = new TreeMap<String, Object>();
-      bound.put("left", pbMetadata.bounds.get(4 * i));
-      bound.put("top", pbMetadata.bounds.get((4 * i) + 1));
-      bound.put("right", pbMetadata.bounds.get((4 * i) + 2));
-      bound.put("bottom", pbMetadata.bounds.get((4 * i) + 3));
+    final var bounds = new ArrayList<Map<String, Object>>();
+    if (pbMetadata.bounds.size() % 4 != 0) {
+      throw new IllegalArgumentException("Invalid bounds length");
+    }
+    for (var iterator = pbMetadata.bounds.iterator(); iterator.hasNext(); ) {
+      final var bound = new TreeMap<String, Object>();
+      bound.put("left", iterator.next());
+      bound.put("top", iterator.next());
+      bound.put("right", iterator.next());
+      bound.put("bottom", iterator.next());
       bounds.add(bound);
     }
     if (!bounds.isEmpty()) {
@@ -465,11 +498,11 @@ public class MltConverter {
                       throw new RuntimeException("duplicate key");
                     }));
 
-    var physicalLevelTechnique =
+    final var physicalLevelTechnique =
         config.getUseFastPFOR() ? PhysicalLevelTechnique.FAST_PFOR : PhysicalLevelTechnique.VARINT;
 
-    final var tileBuffers = new ArrayList<byte[]>(mvt.layers().size() * 10);
-    for (var mvtLayer : mvt.layers()) {
+    final var tileBuffers = new ArrayList<byte[]>((int) mvt.getLayerCount() * 10);
+    for (var mvtLayer : mvt.getLayerStream().toArray(Layer[]::new)) {
       final var featureTableName = mvtLayer.name();
 
       if (config.getLayerFilterPattern() != null) {
@@ -512,7 +545,7 @@ public class MltConverter {
       final var encodedGeometryFieldMetadata =
           EncodingUtils.encodeVarint(encodedGeometryColumn.numStreams(), false);
 
-      var encodedPropertyColumns =
+      final var encodedPropertyColumns =
           encodePropertyColumns(config, layerMetadata, sortedFeatures, featureTableOptimizations);
 
       final var featureTableBodyBuffer = new ArrayList<byte[]>(20);
@@ -529,10 +562,9 @@ public class MltConverter {
             idMetadata.scalarType.hasLongId
                 ? MltMetadata.ScalarType.UINT_64
                 : MltMetadata.ScalarType.UINT_32;
-        final var name = "id"; // Name is used only for stream capture
         final var scalarColumnMetadata =
-            new MltMetadata.Column(name, new MltMetadata.ScalarField(rawType));
-        scalarColumnMetadata.isNullable = idMetadata.isNullable;
+            new MltMetadata.Column(
+                null, new MltMetadata.ScalarField(rawType), idMetadata.isNullable);
         scalarColumnMetadata.columnScope = MltMetadata.ColumnScope.FEATURE;
         featureTableBodyBuffer.addAll(
             PropertyEncoder.encodeScalarPropertyColumn(
@@ -545,14 +577,9 @@ public class MltConverter {
                 config.getIntegerEncodingOption()));
       }
 
-      var z = ByteArrayUtil.totalLength(tileBuffers);
-      var a = ByteArrayUtil.totalLength(featureTableBodyBuffer);
-      var b = ByteArrayUtil.totalLength(encodedGeometryColumn.encodedValues());
-      var c = ByteArrayUtil.totalLength(encodedPropertyColumns);
       featureTableBodyBuffer.add(encodedGeometryFieldMetadata);
       featureTableBodyBuffer.addAll(encodedGeometryColumn.encodedValues());
       featureTableBodyBuffer.addAll(encodedPropertyColumns);
-      var d = ByteArrayUtil.totalLength(featureTableBodyBuffer);
 
       final var metadataBuffer = createEmbeddedMetadata(layerMetadata, mvtLayer.tileExtent());
 
@@ -575,7 +602,7 @@ public class MltConverter {
   private static ArrayList<byte[]> encodePropertyColumns(
       ConversionConfig config,
       MltMetadata.FeatureTable featureTableMetadata,
-      List<Feature> sortedFeatures,
+      SequencedCollection<Feature> sortedFeatures,
       FeatureTableOptimizations featureTableOptimizations)
       throws IOException {
     final var propertyColumns = filterPropertyColumns(featureTableMetadata);
@@ -593,12 +620,12 @@ public class MltConverter {
         config.getIntegerEncodingOption());
   }
 
-  private static Pair<List<Feature>, GeometryEncoder.EncodedGeometryColumn>
+  private static Pair<SequencedCollection<Feature>, GeometryEncoder.EncodedGeometryColumn>
       sortFeaturesAndEncodeGeometryColumn(
           ConversionConfig config,
           FeatureTableOptimizations featureTableOptimizations,
-          List<Feature> sortedFeatures,
-          List<Feature> mvtFeatures,
+          SequencedCollection<Feature> sortedFeatures,
+          SequencedCollection<Feature> mvtFeatures,
           PhysicalLevelTechnique physicalLevelTechnique,
           boolean encodePolygonOutlines,
           @Nullable URI tessellateSource)
@@ -622,11 +649,11 @@ public class MltConverter {
             && featureTableOptimizations != null
             && featureTableOptimizations.allowSorting();
     if (isColumnSortable && !featureTableOptimizations.allowIdRegeneration()) {
-      sortedFeatures = sortFeaturesById(mvtFeatures);
+      sortedFeatures = sortFeaturesById(mvtFeatures).toList();
     }
 
     var ids = sortedFeatures.stream().map(Feature::idOrNull).collect(Collectors.toList());
-    var geometries = sortedFeatures.stream().map(Feature::geometry).collect(Collectors.toList());
+    var geometries = sortedFeatures.stream().map(Feature::getGeometry).collect(Collectors.toList());
 
     if (geometries.isEmpty()) {
       throw new IllegalArgumentException("No geometries to encode");
@@ -672,7 +699,7 @@ public class MltConverter {
     if (config.getIncludeIds()
         && featureTableOptimizations != null
         && featureTableOptimizations.allowIdRegeneration()) {
-      sortedFeatures = generateSequenceIds(sortedFeatures);
+      sortedFeatures = generateSequenceIds(sortedFeatures).toList();
     }
 
     return Pair.of(sortedFeatures, encodedGeometryColumn);
@@ -685,47 +712,22 @@ public class MltConverter {
         .collect(Collectors.toList());
   }
 
-  private static List<Feature> sortFeaturesById(List<Feature> features) {
+  private static Stream<Feature> sortFeaturesById(Collection<Feature> features) {
     return features.stream()
-        .sorted(Comparator.comparing(Feature::hasId).thenComparingLong(Feature::id))
-        .collect(Collectors.toList());
+        .sorted(Comparator.comparing(Feature::hasId).thenComparingLong(Feature::getId));
   }
 
-  private static List<Feature> generateSequenceIds(List<Feature> features) {
-    var sortedFeatures = new ArrayList<Feature>();
-    long idCounter = 0;
-    for (var feature : features) {
-      sortedFeatures.add(new Feature(idCounter++, feature.geometry(), feature.properties()));
-    }
-    return sortedFeatures;
-  }
-
-  private static MltMetadata.ScalarType getScalarType(Map.Entry<String, Object> property) {
-    var propertyValue = property.getValue();
-    return switch (propertyValue) {
-      case Boolean v -> MltMetadata.ScalarType.BOOLEAN;
-      case U8 v -> MltMetadata.ScalarType.UINT_8;
-      case U32 v -> MltMetadata.ScalarType.UINT_32;
-      case U64 v -> MltMetadata.ScalarType.UINT_64;
-      case Byte v -> MltMetadata.ScalarType.INT_8;
-      case Integer v -> MltMetadata.ScalarType.INT_32;
-      case Long v ->
-          (v > Integer.MAX_VALUE || v < Integer.MIN_VALUE)
-              ? MltMetadata.ScalarType.INT_64
-              : MltMetadata.ScalarType.INT_32;
-      case Float v -> MltMetadata.ScalarType.FLOAT;
-      case Double v -> MltMetadata.ScalarType.DOUBLE;
-      case String v -> MltMetadata.ScalarType.STRING;
-      default -> throw new IllegalArgumentException("Specified data type currently not supported.");
-    };
+  private static Stream<Feature> generateSequenceIds(Collection<Feature> features) {
+    final var idCounter = new long[] {0};
+    return features.stream().map(feature -> feature.asBuilder().id(idCounter[0]++).build());
   }
 
   private static MltMetadata.Column createScalarColumnScheme(
       String columnName,
       @SuppressWarnings("SameParameterValue") boolean nullable,
       MltMetadata.ScalarType type) {
-    final var column = new MltMetadata.Column(columnName, new MltMetadata.ScalarField(type));
-    column.isNullable = nullable;
+    final var column =
+        new MltMetadata.Column(columnName, new MltMetadata.ScalarField(type), nullable);
     column.columnScope = MltMetadata.ColumnScope.FEATURE;
     return column;
   }
@@ -734,8 +736,8 @@ public class MltConverter {
       String fieldName,
       @SuppressWarnings("SameParameterValue") boolean nullable,
       MltMetadata.ScalarType type) {
-    final var column = new MltMetadata.Column(fieldName, new MltMetadata.ScalarField(type));
-    column.isNullable = nullable;
+    final var column =
+        new MltMetadata.Column(fieldName, new MltMetadata.ScalarField(type), nullable);
     return column;
   }
 
@@ -743,8 +745,8 @@ public class MltConverter {
       @SuppressWarnings("SameParameterValue") @Nullable String columnName,
       @SuppressWarnings("SameParameterValue") boolean nullable,
       @SuppressWarnings("SameParameterValue") MltMetadata.ComplexType type) {
-    final var column = new MltMetadata.Column(columnName, new MltMetadata.ComplexField(type));
-    column.isNullable = nullable;
+    final var column =
+        new MltMetadata.Column(columnName, new MltMetadata.ComplexField(type), nullable);
     column.columnScope = MltMetadata.ColumnScope.FEATURE;
     return column;
   }
@@ -755,8 +757,8 @@ public class MltConverter {
 
   private static MltMetadata.Column createColumn(
       String columnName, MltMetadata.ComplexField complexField) {
-    final var column = new MltMetadata.Column(columnName, complexField);
-    column.isNullable = false; // See `PropertyDecoder.decodePropertyColumn()`
+    final var isNullable = false; // See `PropertyDecoder.decodePropertyColumn()`
+    final var column = new MltMetadata.Column(columnName, complexField, isNullable);
     column.columnScope = MltMetadata.ColumnScope.FEATURE;
     return column;
   }

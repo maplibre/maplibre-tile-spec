@@ -3,6 +3,7 @@ package org.maplibre.mlt.metadata.tileset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.SequencedCollection;
 
 public final class MltMetadata {
   private MltMetadata() {}
@@ -32,6 +33,7 @@ public final class MltMetadata {
   public enum ComplexType {
     GEOMETRY,
     STRUCT,
+    MAP, // nested property map
     UNRECOGNIZED
   }
 
@@ -45,7 +47,7 @@ public final class MltMetadata {
     BINARY,
     /**
      * physical type: map&lt;vec2&lt;double, T&gt;&gt; -&gt; special data structure which can be
-     * used for a efficient representation of linear referencing
+     * used for an efficient representation of linear referencing
      */
     RANGE_MAP,
     UNRECOGNIZED
@@ -55,7 +57,7 @@ public final class MltMetadata {
     public List<FeatureTable> featureTables = new ArrayList<>();
     public String name;
     public String description;
-    public java.lang.Object attribution;
+    public Object attribution;
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public Optional<Integer> minZoom = Optional.empty();
@@ -74,34 +76,50 @@ public final class MltMetadata {
     }
 
     public String name;
-    public List<Column> columns;
+    public SequencedCollection<Column> columns;
   }
 
-  public static class Field {
-    public Field(String name, ScalarField type) {
-      this.name = name;
+  public static class FieldType {
+    public FieldType(ScalarField type, boolean isNullable) {
       this.scalarType = type;
+      this.complexType = null;
+      this.isNullable = isNullable;
     }
 
-    public Field(String name, ComplexField type) {
-      this.name = name;
+    public FieldType(ComplexField type, boolean isNullable) {
+      this.scalarType = null;
       this.complexType = type;
+      this.isNullable = isNullable;
+    }
+
+    public final boolean isNullable;
+    public final ComplexField complexType;
+    public final ScalarField scalarType;
+  }
+
+  public static class Field extends FieldType {
+    public Field(String name, ScalarField type, boolean isNullable) {
+      super(type, isNullable);
+      this.name = name;
+    }
+
+    public Field(String name, ComplexField type, boolean isNullable) {
+      super(type, isNullable);
+      this.name = name;
+      this.name = name;
     }
 
     public String name;
-    public boolean isNullable;
-    public ComplexField complexType;
-    public ScalarField scalarType;
   }
 
   /** Column are top-level types in the schema */
   public static final class Column extends Field {
-    public Column(String name, ScalarField type) {
-      super(name, type);
+    public Column(String name, ScalarField type, boolean isNullable) {
+      super(name, type, isNullable);
     }
 
-    public Column(String name, ComplexField type) {
-      super(name, type);
+    public Column(String name, ComplexField type, boolean isNullable) {
+      super(name, type, isNullable);
     }
 
     public ColumnScope columnScope;
@@ -110,15 +128,19 @@ public final class MltMetadata {
   public static final class ScalarField {
     public ScalarField(ScalarType type) {
       physicalType = type;
+      logicalType = null;
+      hasLongId = false;
     }
 
-    public ScalarField(LogicalScalarType type) {
+    public ScalarField(LogicalScalarType type, boolean hasLongId) {
+      physicalType = null;
       logicalType = type;
+      this.hasLongId = hasLongId;
     }
 
-    public ScalarType physicalType;
-    public LogicalScalarType logicalType;
-    public boolean hasLongId;
+    public final ScalarType physicalType;
+    public final LogicalScalarType logicalType;
+    public final boolean hasLongId;
   }
 
   public static final class ComplexField {

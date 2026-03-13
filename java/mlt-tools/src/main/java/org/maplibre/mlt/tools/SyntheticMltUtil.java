@@ -30,9 +30,10 @@ import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.MVTFeature;
+import org.maplibre.mlt.data.MapboxVectorTile;
 import org.maplibre.mlt.decoder.MltDecoder;
 
 /** Utility helpers for synthetic MLT generation. */
@@ -237,21 +238,21 @@ class SyntheticMltUtil {
   }
 
   static Feature feat(Geometry geom) {
-    return new Feature(geom, Map.of());
+    return MVTFeature.builder().geometry(geom).build();
   }
 
-  static Feature feat(Geometry geom, Map<String, Object> props) {
-    return new Feature(geom, props);
+  static MVTFeature feat(Geometry geom, Map<String, Object> props) {
+    return MVTFeature.builder().geometry(geom).properties(props).build();
   }
 
   /** for testing IDs - always use the same geometry */
   static Feature idFeat(long id) {
-    return new Feature(id, p0, Map.of());
+    return MVTFeature.builder().id(id).geometry(p0).build();
   }
 
   /** for testing IDs - simulate missing ID */
-  static Feature idFeat() {
-    return new Feature(p0, Map.of());
+  static Feature noIdFeat() {
+    return feat(p0);
   }
 
   static Layer layer(String name, Feature... features) {

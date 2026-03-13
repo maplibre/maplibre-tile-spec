@@ -4,12 +4,13 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import org.locationtech.jts.geom.Geometry
 import org.locationtech.jts.io.geojson.GeoJsonWriter
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile
 import org.maplibre.mlt.data.Feature
 import org.maplibre.mlt.data.Layer
 import org.maplibre.mlt.data.MapLibreTile
+import org.maplibre.mlt.data.MapboxVectorTile
 import java.util.SortedMap
 import kotlin.math.floor
+import kotlin.streams.asSequence
 
 // GeoJSON does not support non-numeric floats; use Rust-style string tokens for cross-implementation consistency.
 private const val F32_NAN = "f32::NAN"
@@ -84,8 +85,7 @@ private fun floatsAsStrings(obj: Any?): Any? =
 private fun toJsonObjects(mlTile: MapLibreTile): Map<String, Any?> =
     mutableMapOf<String, Any?>(
         "layers" to
-            mlTile.layers
-                .stream()
+            mlTile.layerStream
                 .map { obj: Layer -> toJson(obj) }
                 .toList(),
     )
@@ -98,7 +98,7 @@ private fun toJson(layer: Layer): Map<String, Any?> {
         "features",
         layer.features
             .stream()
-            .map { obj: Feature -> toJson(obj) }
+            .map(::toJson)
             .toList(),
     )
     return map
@@ -106,7 +106,7 @@ private fun toJson(layer: Layer): Map<String, Any?> {
 
 private fun toJson(feature: Feature): Map<String, Any?> {
     val map = mutableMapOf<String, Any?>()
-    if (feature.hasId) {
+    if (feature.hasId()) {
         map.put("id", feature.id)
     }
     map.put("geometry", feature.geometry.toString())
@@ -114,11 +114,11 @@ private fun toJson(feature: Feature): Map<String, Any?> {
     // values to facilitate direct comparison with MVT output.
     map.put(
         "properties",
-        feature.properties.entries
+        feature.propertyStream
             .asSequence()
             .filter { entry -> entry.value != null }
             .associate { entry ->
-                entry.key to entry.value
+                entry.name to entry.value
             },
     )
     return map
@@ -127,27 +127,23 @@ private fun toJson(feature: Feature): Map<String, Any?> {
 private fun toGeoJsonObjects(
     mlTile: MapLibreTile,
     gson: Gson,
-): Map<String, Any?> {
-    val fc = mutableMapOf<String, Any?>()
-    fc.put("type", "FeatureCollection")
-    fc.put(
-        "features",
-        mlTile.layers
-            .stream()
-            .flatMap { layer: Layer ->
-                layer.features
-                    .stream()
-                    .map { feature: Feature ->
-                        featureToGeoJson(
-                            layer,
-                            feature,
-                            gson,
-                        )
-                    }
-            }.toList(),
+): Map<String, Any?> =
+    mapOf(
+        "type" to "FeatureCollection",
+        "features" to
+            mlTile.layerStream
+                .flatMap { layer: Layer ->
+                    layer.features
+                        .stream()
+                        .map { feature ->
+                            featureToGeoJson(
+                                layer,
+                                feature,
+                                gson,
+                            )
+                        }
+                }.toList(),
     )
-    return fc
-}
 
 private fun featureToGeoJson(
     layer: Layer,
@@ -156,25 +152,24 @@ private fun featureToGeoJson(
 ): Map<String, Any?> {
     val f = mutableMapOf<String, Any?>()
     f.put("type", "Feature")
-    if (feature.hasId) {
+    if (feature.hasId()) {
         f.put("id", feature.id)
     }
     val props = getSortedNonNullProperties(feature)
     props.put("_layer", layer.name)
     props.put("_extent", layer.tileExtent)
     f.put("properties", floatsAsStrings(props))
-    val geom = feature.geometry
-    f.put("geometry", if (geom == null) null else geometryToGeoJson(geom, gson))
+    f.put("geometry", geometryToGeoJson(feature.geometry, gson))
     return f
 }
 
 // Filters out null values and returns properties sorted by key.
 // Duplicate keys (if any) keep the first value.
 private fun getSortedNonNullProperties(feature: Feature): SortedMap<String, Any?> =
-    feature.properties.entries
+    feature.propertyStream
         .asSequence()
         .filter { entry -> entry.value != null }
-        .associate { entry -> entry.key to entry.value }
+        .associate { entry -> entry.name to entry.value }
         .toSortedMap()
 
 private fun geometryToGeoJson(
@@ -207,9 +202,7 @@ private fun intifyCoordinates(obj: Any?): Any? {
 private fun toJsonObjects(mvTile: MapboxVectorTile): Map<String, Any?> =
     mutableMapOf(
         "layers" to
-            mvTile
-                .layers()
-                .stream()
-                .map { obj: Layer -> toJson(obj) }
+            mvTile.layerStream
+                .map(::toJson)
                 .toList(),
     )
