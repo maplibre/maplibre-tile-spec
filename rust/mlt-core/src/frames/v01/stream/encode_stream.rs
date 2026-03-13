@@ -2,7 +2,7 @@ use crate::MltError;
 use crate::utils::{encode_bools_to_bytes, encode_byte_rle};
 use crate::v01::{
     DictionaryType, FsstStrEncoder, IntEncoder, IntEncoding, LengthType, LogicalEncoding,
-    OffsetType, OwnedEncodedStrings, OwnedFsstData, OwnedPlainData, OwnedStream, OwnedStreamData,
+    OffsetType, OwnedFsstData, OwnedPlainData, OwnedStream, OwnedStreamData, OwnedStringsEncoding,
     PhysicalEncoding, RleMeta, StreamMeta, StreamType,
 };
 
@@ -193,7 +193,7 @@ impl OwnedStream {
         length_encoding: IntEncoder,
         length_type: LengthType,
         dict_type: DictionaryType,
-    ) -> Result<OwnedEncodedStrings, MltError> {
+    ) -> Result<OwnedStringsEncoding, MltError> {
         let lengths: Vec<u32> = values
             .iter()
             .map(|s| u32::try_from(s.as_ref().len()))
@@ -202,7 +202,7 @@ impl OwnedStream {
             .iter()
             .flat_map(|s| s.as_ref().as_bytes().iter().copied())
             .collect();
-        Ok(OwnedEncodedStrings::Plain(OwnedPlainData::new(
+        Ok(OwnedStringsEncoding::Plain(OwnedPlainData::new(
             Self::encode_u32s_of_type(&lengths, length_encoding, StreamType::Length(length_type))?,
             Self::plain_with_type(data, u32::try_from(values.len())?, dict_type),
         )?))
@@ -307,7 +307,7 @@ impl OwnedStream {
         values: &[S],
         encoding: FsstStrEncoder,
         dict_type: DictionaryType,
-    ) -> Result<OwnedEncodedStrings, MltError> {
+    ) -> Result<OwnedStringsEncoding, MltError> {
         let fsst_data = Self::compress_fsst(values, encoding, dict_type)?;
         let value_cnt = u32::try_from(values.len())?;
         let offsets = (0..value_cnt).collect::<Vec<_>>();
@@ -316,7 +316,7 @@ impl OwnedStream {
             encoding.dict_lengths,
             StreamType::Offset(OffsetType::String),
         )?;
-        Ok(OwnedEncodedStrings::FsstDictionary { fsst_data, offsets })
+        Ok(OwnedStringsEncoding::FsstDictionary { fsst_data, offsets })
     }
 
     /// Encode strings with FSST (4 streams, no offset). For shared dictionary struct columns;
@@ -325,8 +325,8 @@ impl OwnedStream {
         values: &[S],
         encoding: FsstStrEncoder,
         dict_type: DictionaryType,
-    ) -> Result<OwnedEncodedStrings, MltError> {
-        Ok(OwnedEncodedStrings::FsstPlain(Self::compress_fsst(
+    ) -> Result<OwnedStringsEncoding, MltError> {
+        Ok(OwnedStringsEncoding::FsstPlain(Self::compress_fsst(
             values, encoding, dict_type,
         )?))
     }

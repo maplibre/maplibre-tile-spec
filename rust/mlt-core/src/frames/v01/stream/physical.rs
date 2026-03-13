@@ -1,7 +1,7 @@
+use integer_encoding::VarInt as _;
+
 use crate::MltError::ParsingStreamType;
-use crate::utils::{
-    encode_fastpfor, encode_u32s_to_bytes, encode_u64s_to_bytes, encode_varint, parse_u8,
-};
+use crate::utils::{encode_fastpfor, encode_u32s_to_bytes, encode_u64s_to_bytes, parse_u8};
 use crate::v01::{
     DictionaryType, LengthType, OffsetType, OwnedStreamData, PhysicalEncoding, StreamType,
 };
@@ -84,7 +84,7 @@ impl PhysicalEncoder {
             Self::VarInt => {
                 let mut data = Vec::new();
                 for v in values {
-                    encode_varint(&mut data, u64::from(v));
+                    data.extend_from_slice(&u64::from(v).encode_var_vec());
                 }
                 let stream = OwnedStreamData::VarInt(data);
                 Ok((stream, PhysicalEncoding::VarInt))
@@ -111,7 +111,7 @@ impl PhysicalEncoder {
             Self::VarInt => {
                 let mut data = Vec::new();
                 for v in values {
-                    encode_varint(&mut data, v);
+                    data.extend_from_slice(&v.encode_var_vec());
                 }
                 let stream = OwnedStreamData::VarInt(data);
                 Ok((stream, PhysicalEncoding::VarInt))

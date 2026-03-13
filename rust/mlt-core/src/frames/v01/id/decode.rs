@@ -1,11 +1,6 @@
-use crate::decode::impl_decodable;
-use crate::encode::impl_encodable;
 use crate::utils::apply_present;
 use crate::v01::{DecodedId, EncodedId, EncodedIdValue, Id, OwnedEncodedId, OwnedId, Stream};
 use crate::{Decode, DecodeInto as _, MltError};
-
-impl_decodable!(Id<'a>, EncodedId<'a>, DecodedId);
-impl_encodable!(OwnedId, DecodedId, OwnedEncodedId);
 
 impl<'a> Id<'a> {
     #[must_use]
@@ -19,6 +14,25 @@ impl<'a> Id<'a> {
             Self::Encoded(v) => v.decode_into()?,
             Self::Decoded(v) => v,
         })
+    }
+
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedId {
+        match self {
+            Self::Encoded(encoded) => OwnedId::Encoded(encoded.to_owned()),
+            Self::Decoded(decoded) => OwnedId::Decoded(decoded.to_owned()),
+        }
+    }
+}
+
+impl TryFrom<OwnedId> for DecodedId {
+    type Error = MltError;
+
+    fn try_from(owned: OwnedId) -> Result<Self, MltError> {
+        match owned {
+            OwnedId::Encoded(encoded) => DecodedId::try_from(encoded),
+            OwnedId::Decoded(decoded) => Ok(decoded),
+        }
     }
 }
 
@@ -52,5 +66,19 @@ impl TryFrom<EncodedId<'_>> for DecodedId {
 impl<'a> Decode<EncodedId<'a>> for DecodedId {
     fn decode(input: EncodedId<'a>) -> Result<Self, MltError> {
         DecodedId::try_from(input)
+    }
+}
+
+impl TryFrom<OwnedEncodedId> for DecodedId {
+    type Error = MltError;
+
+    fn try_from(encoded: OwnedEncodedId) -> Result<Self, MltError> {
+        use crate::v01::{OwnedEncodedIdValue, OwnedStream};
+        let presence = encoded.presence.as_ref().map(OwnedStream::as_borrowed);
+        let value = match &encoded.value {
+            OwnedEncodedIdValue::Id32(s) => EncodedIdValue::Id32(s.as_borrowed()),
+            OwnedEncodedIdValue::Id64(s) => EncodedIdValue::Id64(s.as_borrowed()),
+        };
+        DecodedId::try_from(EncodedId { presence, value })
     }
 }

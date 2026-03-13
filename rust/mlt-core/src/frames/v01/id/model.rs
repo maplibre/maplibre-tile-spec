@@ -1,36 +1,36 @@
-use borrowme::borrowme;
-use enum_dispatch::enum_dispatch;
-
-use crate::analyse::{Analyze, StatType};
-use crate::v01::Stream;
+use crate::EncDec;
+use crate::v01::{OwnedStream, Stream};
 
 /// ID column representation, either encoded or decoded.
-#[borrowme]
-#[derive(Debug, PartialEq)]
-#[cfg_attr(
-    all(not(test), feature = "arbitrary"),
-    owned_attr(derive(arbitrary::Arbitrary))
-)]
-#[enum_dispatch(Analyze)]
-pub enum Id<'a> {
-    Encoded(EncodedId<'a>),
-    Decoded(DecodedId),
-}
+pub type Id<'a> = EncDec<EncodedId<'a>, DecodedId>;
+
+/// Owned ID column representation, either encoded or decoded.
+pub type OwnedId = EncDec<OwnedEncodedId, DecodedId>;
 
 /// Unparsed ID data as read directly from the tile
-#[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct EncodedId<'a> {
     pub(crate) presence: Option<Stream<'a>>,
     pub(crate) value: EncodedIdValue<'a>,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct OwnedEncodedId {
+    pub(crate) presence: Option<OwnedStream>,
+    pub(crate) value: OwnedEncodedIdValue,
+}
+
 /// A sequence of encoded ID values, either 32-bit or 64-bit unsigned integers
-#[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum EncodedIdValue<'a> {
     Id32(Stream<'a>),
     Id64(Stream<'a>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum OwnedEncodedIdValue {
+    Id32(OwnedStream),
+    Id64(OwnedStream),
 }
 
 /// Decoded ID values as a vector of optional 64-bit unsigned integers

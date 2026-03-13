@@ -1,6 +1,5 @@
 use js_sys::{Array, Float64Array, Int32Array, Object, Reflect, Uint8Array, Uint32Array};
-use mlt_core::borrowme::Borrow as _;
-use mlt_core::v01::{DecodedProperty, Geometry, Id, OwnedGeometry, OwnedProperty};
+use mlt_core::v01::{DecodedProperty, OwnedGeometry, OwnedProperty};
 use wasm_bindgen::prelude::*;
 
 use crate::geometry::LayerGeometry;
@@ -250,9 +249,15 @@ impl MltTile {
     fn ensure_geometry_decoded(&self, layer_idx: usize) -> Result<(), JsError> {
         let layer = &self.layers[layer_idx];
         let mut geom = layer.geometry.borrow_mut();
-        if let OwnedGeometry::Encoded(encoded) = &*geom {
-            let decoded = Geometry::Encoded(encoded.borrow())
-                .decode()
+        if matches!(&*geom, OwnedGeometry::Encoded(_)) {
+            let owned = std::mem::replace(
+                &mut *geom,
+                OwnedGeometry::Decoded(mlt_core::v01::DecodedGeometry::default()),
+            );
+            let OwnedGeometry::Encoded(encoded) = owned else {
+                unreachable!()
+            };
+            let decoded = mlt_core::v01::DecodedGeometry::try_from(encoded)
                 .map_err(|e| crate::to_js_err(&e))?;
             *geom = OwnedGeometry::Decoded(decoded);
         }
@@ -262,10 +267,13 @@ impl MltTile {
     fn ensure_ids_decoded(&self, layer_idx: usize) -> Result<(), JsError> {
         let layer = &self.layers[layer_idx];
         let mut ids = layer.ids.borrow_mut();
-        if let IdState::Encoded(encoded) = &*ids {
-            let decoded = Id::Encoded(encoded.borrow())
-                .decode()
-                .map_err(|e| crate::to_js_err(&e))?;
+        if matches!(&*ids, IdState::Encoded(_)) {
+            let prev = std::mem::replace(&mut *ids, IdState::Absent);
+            let IdState::Encoded(encoded) = prev else {
+                unreachable!()
+            };
+            let decoded =
+                mlt_core::v01::DecodedId::try_from(encoded).map_err(|e| crate::to_js_err(&e))?;
 
             let floats: Vec<f64> = decoded
                 .values()
@@ -284,22 +292,6 @@ impl MltTile {
 
     fn ensure_props_cached(&self, layer_idx: usize) {
         let layer = &self.layers[layer_idx];
-
-        // Decode all encoded columns in-place on first call.
-        {
-            let mut guard = layer.props.borrow_mut();
-            if guard.iter().any(|p| matches!(p, OwnedProperty::Encoded(_))) {
-                let taken = std::mem::take(&mut *guard);
-                *guard = taken
-                    .into_iter()
-                    .filter_map(|p| {
-                        p.borrow().decode().ok().map(|decoded| {
-                            OwnedProperty::Decoded(mlt_core::borrowme::ToOwned::to_owned(&decoded))
-                        })
-                    })
-                    .collect();
-            }
-        }
 
         // Build the bulk cache if not already present.
         if layer.prop_cache.borrow().is_none() {

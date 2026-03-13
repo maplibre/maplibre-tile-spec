@@ -1,6 +1,6 @@
 use crate::MltError;
 
-/// Decoding counterpart to [`TryFrom`], used as a trait bound on [`Decodable::DecodedType`].
+/// Decoding counterpart to [`TryFrom`], used as a trait bound on `Decodable::DecodedType`.
 ///
 /// Mirrors the structure of [`TryFrom`] but is defined in this crate, which allows
 /// implementing it for foreign types like `Option<DecodedId>` without hitting the
@@ -23,7 +23,7 @@ impl<I: Sized, O: Decode<I>> DecodeInto<O> for I {
     }
 }
 
-/// Trait for enums that can be in either encoded or decoded form
+/// Trait for types that can be in either encoded or decoded form.
 pub(crate) trait Decodable<'a>: Sized {
     type EncodedType;
     type DecodedType: Decode<Self::EncodedType>;
@@ -34,8 +34,6 @@ pub(crate) trait Decodable<'a>: Sized {
     fn new_decoded(decoded: Self::DecodedType) -> Self;
     /// Temporarily replace self with a default value to take ownership of the raw data
     fn take_encoded(&mut self) -> Option<Self::EncodedType>;
-    /// Borrow the decoded data if available
-    fn borrow_decoded(&self) -> Option<&Self::DecodedType>;
     /// Borrow the decoded data mutably if available
     fn borrow_decoded_mut(&mut self) -> Option<&mut Self::DecodedType>;
 
@@ -52,52 +50,3 @@ pub(crate) trait Decodable<'a>: Sized {
             .ok_or(MltError::NotDecoded("decoded data"))
     }
 }
-
-/// Macro to implement the Decodable trait for enum types with Encoded and Decoded variants.
-/// This macro is internal to the crate and not exposed to external users.
-/// Requires `DecodedType: Decode<EncodedType>`, which must be provided by an explicit `Decode<EncodedType>` implementation.
-macro_rules! impl_decodable {
-    ($enum_type:ty, $encoded_type:ty, $decoded_type:ty) => {
-        impl<'a> $crate::Decodable<'a> for $enum_type {
-            type EncodedType = $encoded_type;
-            type DecodedType = $decoded_type;
-
-            fn is_encoded(&self) -> bool {
-                matches!(self, Self::Encoded(_))
-            }
-
-            fn new_decoded(decoded: Self::DecodedType) -> Self {
-                Self::Decoded(decoded)
-            }
-
-            fn take_encoded(&mut self) -> Option<Self::EncodedType> {
-                if let Self::Encoded(enc) =
-                    std::mem::replace(self, Self::Decoded(Self::DecodedType::default()))
-                {
-                    Some(enc)
-                } else {
-                    None
-                }
-            }
-
-            fn borrow_decoded(&self) -> Option<&Self::DecodedType> {
-                if let Self::Decoded(decoded) = self {
-                    Some(decoded)
-                } else {
-                    None
-                }
-            }
-
-            fn borrow_decoded_mut(&mut self) -> Option<&mut Self::DecodedType> {
-                if let Self::Decoded(decoded) = self {
-                    Some(decoded)
-                } else {
-                    None
-                }
-            }
-        }
-    };
-}
-
-// Make the macro available within this module
-pub(crate) use impl_decodable;

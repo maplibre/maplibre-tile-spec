@@ -16,7 +16,7 @@ use crate::v01::LogicalEncoder;
 fn roundtrip(decoded: &DecodedId, config: IdEncoder) -> DecodedId {
     let mut owned = OwnedId::Decoded(decoded.clone());
     owned.manual_optimisation(config).expect("Failed to encode");
-    borrowme::borrow(&owned).decode().expect("Failed to decode")
+    DecodedId::try_from(owned).expect("Failed to decode")
 }
 
 // Test that each config produces the correct variant and optional stream presence
@@ -181,9 +181,7 @@ fn assert_encodable_api_works(
         "Should be Encoded variant"
     );
 
-    let decoded_back = borrowme::borrow(&id_enum)
-        .decode()
-        .expect("Failed to decode");
+    let decoded_back = DecodedId::try_from(id_enum).expect("Failed to decode");
     prop_assert_eq!(decoded_back, DecodedId(ids));
     Ok(())
 }

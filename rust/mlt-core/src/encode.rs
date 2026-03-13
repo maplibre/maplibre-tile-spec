@@ -39,35 +39,3 @@ pub trait Encodable: Sized {
     /// Borrow the encoded data, or `None` if the data is still decoded.
     fn borrow_encoded(&self) -> Option<&Self::EncodedType>;
 }
-
-/// Macro to implement the [`Encodable`] trait for enum types with `Decoded`
-/// and `Encoded` variants.
-///
-/// This macro is internal to the crate and not exposed to external users.
-macro_rules! impl_encodable {
-    ($enum_type:ty, $decoded_type:ty, $encoded_type:ty) => {
-        impl $crate::Encodable for $enum_type {
-            type DecodedType = $decoded_type;
-            type EncodedType = $encoded_type;
-
-            fn is_decoded(&self) -> bool {
-                matches!(self, Self::Decoded(_))
-            }
-
-            fn new_encoded(encoded: Self::EncodedType) -> Self {
-                Self::Encoded(encoded)
-            }
-
-            fn borrow_encoded(&self) -> Option<&Self::EncodedType> {
-                if let Self::Encoded(enc) = self {
-                    Some(enc)
-                } else {
-                    None
-                }
-            }
-        }
-    };
-}
-
-// Make the macro available within the crate.
-pub(crate) use impl_encodable;

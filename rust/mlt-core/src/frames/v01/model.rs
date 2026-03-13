@@ -1,15 +1,21 @@
-use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
 use crate::v01::{Geometry, Id, OwnedGeometry, OwnedId, OwnedProperty, Property};
 
 /// Column definition
-#[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct Column<'a> {
     pub typ: ColumnType,
     pub name: Option<&'a str>,
     pub children: Vec<Column<'a>>,
+}
+
+/// Owned variant of [`Column`].
+#[derive(Debug, PartialEq, Clone)]
+pub struct OwnedColumn {
+    pub typ: ColumnType,
+    pub name: Option<String>,
+    pub children: Vec<OwnedColumn>,
 }
 
 /// Column data type, as stored in the tile
@@ -57,7 +63,7 @@ pub struct Layer01<'a> {
 }
 
 /// Representation of a feature table layer encoded as MLT tag `0x01`
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(
     all(not(test), not(fuzzing), feature = "arbitrary"),
     derive(arbitrary::Arbitrary)

@@ -11,22 +11,15 @@ use crate::v01::{
     DictionaryType, EncodedPresence, EncodedStrings, FsstData, IntEncoding, LengthType,
     LogicalData, LogicalEncoding, LogicalValue, MortonMeta, NameRef, OffsetType, OwnedStream,
     OwnedStreamData, PhysicalEncoder, PhysicalEncoding, PlainData, RleMeta, Stream, StreamData,
-    StreamMeta, StreamType, decode_strings,
+    StreamMeta, StreamType, StringsEncoding,
 };
-
-/// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
-fn physical_no_fastpfor() -> impl Strategy<Value = PhysicalEncoder> {
-    any::<PhysicalEncoder>().prop_filter("not fastpfor", |v| *v != PhysicalEncoder::FastPFOR)
-}
 
 /// Test case for stream decoding tests
 #[derive(Debug)]
 struct StreamTestCase {
-    name: &'static str,
     meta: StreamMeta,
     data: &'static [u8],
     expected_u32_logical_value: Option<LogicalValue>,
-    expected_u64_logical_value: Option<LogicalValue>,
 }
 
 /// Generator function that creates a set of test cases for stream decoding
@@ -34,7 +27,6 @@ fn generate_stream_test_cases() -> Vec<StreamTestCase> {
     vec![
         // Basic VarInt test case
         StreamTestCase {
-            name: "simple_varint_u32",
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::None),
                 IntEncoding::new(LogicalEncoding::None, PhysicalEncoding::VarInt),
@@ -49,11 +41,9 @@ fn generate_stream_test_cases() -> Vec<StreamTestCase> {
                 ),
                 LogicalData::VecU32(vec![4, 3, 2, 1]),
             )),
-            expected_u64_logical_value: None,
         },
         // Basic Encoded test case
         StreamTestCase {
-            name: "simple_raw_bytes_to_u32",
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::None),
                 IntEncoding::none(),
@@ -68,7 +58,6 @@ fn generate_stream_test_cases() -> Vec<StreamTestCase> {
                 ),
                 LogicalData::VecU32(vec![0x0102_0304]),
             )),
-            expected_u64_logical_value: None,
         },
     ]
 }
@@ -415,13 +404,13 @@ proptest! {
             parsed_streams.push(parsed_stream);
         }
 
-        let encoding = match parsed_streams.len() {
-            2 => EncodedStrings::plain(PlainData::new(parsed_streams[0].clone(), parsed_streams[1].clone()).unwrap()),
-            3 => EncodedStrings::dictionary(
+        let strings_encoding = match parsed_streams.len() {
+            2 => StringsEncoding::plain(PlainData::new(parsed_streams[0].clone(), parsed_streams[1].clone()).unwrap()),
+            3 => StringsEncoding::dictionary(
                 PlainData::new(parsed_streams[0].clone(), parsed_streams[2].clone()).unwrap(),
                 parsed_streams[1].clone(),
             ).unwrap(),
-            4 => EncodedStrings::fsst_plain(
+            4 => StringsEncoding::fsst_plain(
                 FsstData::new(
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
@@ -429,7 +418,7 @@ proptest! {
                     parsed_streams[3].clone(),
                 ).unwrap()
             ),
-            5 => EncodedStrings::fsst_dictionary(
+            5 => StringsEncoding::fsst_dictionary(
                 FsstData::new(
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
@@ -440,7 +429,7 @@ proptest! {
             ).unwrap(),
             n => panic!("unexpected stream count {n}"),
         };
-        let decoded_values = decode_strings(NameRef(""), EncodedPresence(None), encoding).unwrap();
+        let decoded_values = EncodedStrings::new(NameRef(""), EncodedPresence(None), strings_encoding).into_decoded().unwrap();
         assert_eq!(decoded_values, values.into());
     }
 }
