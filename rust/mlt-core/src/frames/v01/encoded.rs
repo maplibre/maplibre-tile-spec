@@ -102,10 +102,9 @@ impl EncodedLayer01 {
     }
 }
 
-#[cfg(all(fuzzing, feature = "arbitrary"))]
+#[cfg(all(not(test), feature = "arbitrary"))]
 impl arbitrary::Arbitrary<'_> for EncodedLayer01 {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        use crate::v01::root::LayerOrdering;
         use crate::v01::{EncodedId, EncodedProperty};
 
         let name: String = u.arbitrary()?;
@@ -118,28 +117,31 @@ impl arbitrary::Arbitrary<'_> for EncodedLayer01 {
         let geometry = u.arbitrary()?;
         let properties: Vec<EncodedProperty> = u.arbitrary()?;
 
-        // Build a valid layer_order and Fisher-Yates shuffle it.
-        let mut layer_order: Vec<LayerOrdering> = Vec::new();
-        if id.is_some() {
-            layer_order.push(LayerOrdering::Id);
-        }
-        layer_order.push(LayerOrdering::Geometry);
-        for _ in &properties {
-            layer_order.push(LayerOrdering::Property);
-        }
-        let n = layer_order.len();
-        for i in (1..n).rev() {
-            let j: usize = u.int_in_range(0..=i)?;
-            layer_order.swap(i, j);
-        }
-
         Ok(EncodedLayer01 {
             name,
             extent,
             id,
             geometry,
             properties,
-            layer_order,
+            #[cfg(fuzzing)]
+            layer_order: {
+                use crate::v01::root::LayerOrdering;
+                // Build a valid layer_order and Fisher-Yates shuffle it.
+                let mut layer_order: Vec<LayerOrdering> = Vec::new();
+                if id.is_some() {
+                    layer_order.push(LayerOrdering::Id);
+                }
+                layer_order.push(LayerOrdering::Geometry);
+                for _ in &properties {
+                    layer_order.push(LayerOrdering::Property);
+                }
+                let n = layer_order.len();
+                for i in (1..n).rev() {
+                    let j: usize = u.int_in_range(0..=i)?;
+                    layer_order.swap(i, j);
+                }
+                layer_order
+            },
         })
     }
 }

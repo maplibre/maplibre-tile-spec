@@ -96,9 +96,7 @@ fn bench_encode_ids(c: &mut Criterion) {
                                 for layer in layers {
                                     if let StagedLayer::Tag01(l) = layer {
                                         let Some(id) = l.id else { continue };
-                                        black_box(
-                                            id.encode(id_encoder).expect("id encode failed"),
-                                        );
+                                        black_box(id.encode(id_encoder).expect("id encode failed"));
                                     }
                                 }
                             },
@@ -159,9 +157,8 @@ fn bench_encode_properties(c: &mut Criterion) {
                                                 })
                                                 .collect();
                                             let props = std::mem::take(&mut l.properties);
-                                            let _ = props
-                                                .encode(encoders)
-                                                .expect("prop encode failed");
+                                            let _ =
+                                                props.encode(encoders).expect("prop encode failed");
                                         }
                                     }
                                     black_box(layers);

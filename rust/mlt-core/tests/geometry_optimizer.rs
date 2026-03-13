@@ -236,7 +236,10 @@ fn manual_encode_works() {
 
     let mut geom_enc = GeometryEncoder::all(IntEncoder::varint());
     geom_enc.vertex_buffer_type(VertexBufferType::Vec2);
-    let result = decoded.clone().encode(geom_enc).expect("manual encode failed");
+    let result = decoded
+        .clone()
+        .encode(geom_enc)
+        .expect("manual encode failed");
     let types = encoded_stream_types(&result);
     assert!(types.contains(&StreamType::Data(DictionaryType::Vertex)));
 

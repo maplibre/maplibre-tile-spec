@@ -71,6 +71,7 @@ pub struct Layer01<'a> {
 /// converted from [`TileLayer01`][crate::v01::tile::TileLayer01].
 /// Consumed by encoding to produce [`EncodedLayer01`].
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct StagedLayer01 {
     pub name: String,
     pub extent: u32,
