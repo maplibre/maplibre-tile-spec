@@ -160,9 +160,9 @@ impl Stream<'_> {
         Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
     }
 
-    pub fn decode_bits_u64(self) -> Result<LogicalValue, MltError> {
+    pub fn decode_bits_u64(&self) -> Result<LogicalValue, MltError> {
         let value = match self.meta.encoding.physical {
-            PhysicalEncoding::VarInt => match self.data {
+            PhysicalEncoding::VarInt => match &self.data {
                 StreamData::VarInt(v) => {
                     all(parse_varint_vec::<u64, u64>(v, self.meta.num_values)?)
                 }
@@ -170,7 +170,7 @@ impl Stream<'_> {
                     return Err(MltError::StreamDataMismatch("VarInt", "Encoded"));
                 }
             },
-            PhysicalEncoding::None => match self.data {
+            PhysicalEncoding::None => match &self.data {
                 StreamData::Encoded(v) => all(decode_bytes_to_u64s(v, self.meta.num_values)?),
                 StreamData::VarInt(_) => {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));

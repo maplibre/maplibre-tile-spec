@@ -9,8 +9,8 @@ use crate::v01::{
     DecodedPresence, DecodedProperty, DecodedScalar, DecodedStrings, DictionaryType,
     EncodedPresence, EncodedProperty, LengthType, OwnedEncodedPresence, OwnedEncodedProperty,
     OwnedEncodedScalar, OwnedEncodedStrings, OwnedName, OwnedProperty, OwnedStream, PresenceStream,
-    Property, PropertyEncoder, ScalarEncoder, ScalarValueEncoder, StrEncoder, decode_shared_dict,
-    decode_strings, encode_shared_dict_prop,
+    Property, PropertyEncoder, ScalarEncoder, ScalarValueEncoder, StrEncoder,
+    encode_shared_dict_prop,
 };
 
 #[cfg(all(not(test), feature = "arbitrary"))]
@@ -368,8 +368,8 @@ impl<'a> Decode<EncodedProperty<'a>> for DecodedProperty<'a> {
                 s.presence,
                 s.data.decode_into()?,
             )?),
-            E::Str(s) => Self::Str(decode_strings(s)?),
-            E::SharedDict(s) => Self::SharedDict(decode_shared_dict(s)?),
+            E::Str(s) => Self::Str(s.into_decoded()?),
+            E::SharedDict(s) => Self::SharedDict(s.into_decoded()?),
         })
     }
 }

@@ -11,7 +11,7 @@ use crate::v01::{
     DictionaryType, EncodedPresence, EncodedStrings, FsstData, IntEncoding, LengthType,
     LogicalData, LogicalEncoding, LogicalValue, MortonMeta, NameRef, OffsetType, OwnedStream,
     OwnedStreamData, PhysicalEncoder, PhysicalEncoding, PlainData, RleMeta, Stream, StreamData,
-    StreamMeta, StreamType, StringsEncoding, decode_strings,
+    StreamMeta, StreamType, StringsEncoding,
 };
 
 /// Strategy for `PhysicalEncoder` that excludes `FastPFOR` to support 64bit ints
@@ -440,8 +440,7 @@ proptest! {
             ).unwrap(),
             n => panic!("unexpected stream count {n}"),
         };
-        let encoding = EncodedStrings { name: NameRef(""), presence: EncodedPresence(None), encoding: strings_encoding };
-        let decoded_values = decode_strings(encoding).unwrap();
+        let decoded_values = EncodedStrings::new(NameRef(""), EncodedPresence(None), strings_encoding).into_decoded().unwrap();
         assert_eq!(decoded_values, values.into());
     }
 }

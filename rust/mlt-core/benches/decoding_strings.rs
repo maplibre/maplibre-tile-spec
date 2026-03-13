@@ -7,7 +7,7 @@ use mlt_core::v01::{
     OwnedEncodedProperty, OwnedEncodedSharedDict, OwnedSharedDictEncoding, OwnedStream,
     OwnedStringsEncoding, PhysicalEncoder, PlainData, PresenceStream, SharedDictEncoder,
     SharedDictEncoding, SharedDictItemEncoder, StrEncoder, StringsEncoding,
-    build_decoded_shared_dict, decode_shared_dict, decode_strings, encode_shared_dict_prop,
+    build_decoded_shared_dict, encode_shared_dict_prop,
 };
 use strum::IntoEnumIterator as _;
 
@@ -191,8 +191,9 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
                     |b, encoded| {
                         b.iter(|| {
                             black_box(
-                                decode_strings(borrow_enc_strings(encoded, NameRef(""), None))
-                                    .expect("decode_strings failed"),
+                                borrow_enc_strings(encoded, NameRef(""), None)
+                                    .into_decoded()
+                                    .unwrap(),
                             )
                         });
                     },
@@ -223,8 +224,9 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
                     |b, encoded| {
                         b.iter(|| {
                             black_box(
-                                decode_strings(borrow_enc_strings(encoded, NameRef(""), None))
-                                    .expect("decode_strings failed"),
+                                borrow_enc_strings(encoded, NameRef(""), None)
+                                    .into_decoded()
+                                    .unwrap(),
                             )
                         });
                     },
@@ -249,8 +251,9 @@ fn bench_encoding_type(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("plain", n), &plain, |b, encoded| {
             b.iter(|| {
                 black_box(
-                    decode_strings(borrow_enc_strings(encoded, NameRef(""), None))
-                        .expect("decode_strings failed"),
+                    borrow_enc_strings(encoded, NameRef(""), None)
+                        .into_decoded()
+                        .unwrap(),
                 )
             });
         });
@@ -259,8 +262,9 @@ fn bench_encoding_type(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("fsst", n), &fsst, |b, encoded| {
             b.iter(|| {
                 black_box(
-                    decode_strings(borrow_enc_strings(encoded, NameRef(""), None))
-                        .expect("decode_strings failed"),
+                    borrow_enc_strings(encoded, NameRef(""), None)
+                        .into_decoded()
+                        .unwrap(),
                 )
             });
         });
@@ -287,8 +291,9 @@ fn bench_presence(c: &mut Criterion) {
             |b, encoded| {
                 b.iter(|| {
                     black_box(
-                        decode_strings(borrow_enc_strings(encoded, NameRef(""), None))
-                            .expect("decode_strings failed"),
+                        borrow_enc_strings(encoded, NameRef(""), None)
+                            .into_decoded()
+                            .unwrap(),
                     )
                 });
             },
@@ -310,8 +315,9 @@ fn bench_presence(c: &mut Criterion) {
                 b.iter(|| {
                     let p = pres.as_borrowed();
                     black_box(
-                        decode_strings(borrow_enc_strings(enc, NameRef(""), Some(p)))
-                            .expect("decode_strings failed"),
+                        borrow_enc_strings(enc, NameRef(""), Some(p))
+                            .into_decoded()
+                            .unwrap(),
                     )
                 });
             },
@@ -343,12 +349,14 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("plain_x2", n), &enc_plain, |b, encoded| {
             b.iter(|| {
                 black_box(
-                    decode_strings(borrow_enc_strings(encoded, NameRef(""), None))
-                        .expect("decode_strings failed"),
+                    borrow_enc_strings(encoded, NameRef(""), None)
+                        .into_decoded()
+                        .unwrap(),
                 );
                 black_box(
-                    decode_strings(borrow_enc_strings(encoded, NameRef(""), None))
-                        .expect("decode_strings failed"),
+                    borrow_enc_strings(encoded, NameRef(""), None)
+                        .into_decoded()
+                        .unwrap(),
                 );
             });
         });
@@ -398,9 +406,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             |b, sd| {
                 b.iter_batched(
                     || borrow_owned_shared_dict(sd),
-                    |sd_ref| {
-                        black_box(decode_shared_dict(sd_ref).expect("decode_shared_dict failed"))
-                    },
+                    |sd_ref| black_box(sd_ref.into_decoded().unwrap()),
                     BatchSize::SmallInput,
                 );
             },
@@ -424,7 +430,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("shared_dict_fsst", n), sd_fsst, |b, sd| {
             b.iter_batched(
                 || borrow_owned_shared_dict(sd),
-                |sd_ref| black_box(decode_shared_dict(sd_ref).expect("decode_shared_dict failed")),
+                |sd_ref| black_box(sd_ref.into_decoded().unwrap()),
                 BatchSize::SmallInput,
             );
         });
@@ -434,12 +440,14 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("fsst_x2", n), &enc_fsst, |b, encoded| {
             b.iter(|| {
                 black_box(
-                    decode_strings(borrow_enc_strings(encoded, NameRef(""), None))
-                        .expect("decode_strings failed"),
+                    borrow_enc_strings(encoded, NameRef(""), None)
+                        .into_decoded()
+                        .unwrap(),
                 );
                 black_box(
-                    decode_strings(borrow_enc_strings(encoded, NameRef(""), None))
-                        .expect("decode_strings failed"),
+                    borrow_enc_strings(encoded, NameRef(""), None)
+                        .into_decoded()
+                        .unwrap(),
                 );
             });
         });
