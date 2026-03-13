@@ -4,10 +4,10 @@ use std::io::Write;
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::{
-    Column, ColumnType, DictionaryType, EncodedIdValue, EncodedPresence, EncodedProperty,
-    EncodedScalar, EncodedSharedDict, EncodedSharedDictChild, EncodedStrings, FsstData, Geometry,
-    Id, Layer01, NameRef, OwnedLayer01, PlainData, Property, SharedDictEncoding, Stream,
-    StreamType, StringsEncoding,
+    Column, ColumnType, DictionaryType, EncodedGeometry, Geometry, Id, Layer01, Property,
+    RawFsstData, RawIdValue, RawName, RawPlainData, RawPresence, RawProperty, RawScalar,
+    RawSharedDict, RawSharedDictChild, RawSharedDictEncoding, RawStream, RawStrings,
+    RawStringsEncoding, StagedLayer01, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -67,95 +67,95 @@ impl Layer01<'_> {
             match column.typ {
                 ColumnType::Id | ColumnType::OptId => {
                     (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = Stream::parse(input)?;
-                    id_column.set_once(Id::new_encoded(opt, EncodedIdValue::Id32(value)))?;
+                    (input, value) = RawStream::parse(input)?;
+                    id_column.set_once(Id::new_encoded(opt, RawIdValue::Id32(value)))?;
                 }
                 ColumnType::LongId | ColumnType::OptLongId => {
                     (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = Stream::parse(input)?;
-                    id_column.set_once(Id::new_encoded(opt, EncodedIdValue::Id64(value)))?;
+                    (input, value) = RawStream::parse(input)?;
+                    id_column.set_once(Id::new_encoded(opt, RawIdValue::Id64(value)))?;
                 }
                 ColumnType::Geometry => {
                     input = parse_geometry_column(input, &mut geometry)?;
                 }
                 ColumnType::Bool | ColumnType::OptBool => {
                     (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = Stream::parse_bool(input)?;
-                    properties.push(Property::from(EncodedProperty::Bool(EncodedScalar {
-                        name: NameRef(name),
-                        presence: EncodedPresence(opt),
+                    (input, value) = RawStream::parse_bool(input)?;
+                    properties.push(Property::from(RawProperty::Bool(RawScalar {
+                        name: RawName(name),
+                        presence: RawPresence(opt),
                         data: value,
                     })));
                 }
                 ColumnType::I8 | ColumnType::OptI8 => {
                     (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::I8(EncodedScalar {
-                        name: NameRef(name),
-                        presence: EncodedPresence(opt),
+                    (input, value) = RawStream::parse(input)?;
+                    properties.push(Property::from(RawProperty::I8(RawScalar {
+                        name: RawName(name),
+                        presence: RawPresence(opt),
                         data: value,
                     })));
                 }
                 ColumnType::U8 | ColumnType::OptU8 => {
                     (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::U8(EncodedScalar {
-                        name: NameRef(name),
-                        presence: EncodedPresence(opt),
+                    (input, value) = RawStream::parse(input)?;
+                    properties.push(Property::from(RawProperty::U8(RawScalar {
+                        name: RawName(name),
+                        presence: RawPresence(opt),
                         data: value,
                     })));
                 }
                 ColumnType::I32 | ColumnType::OptI32 => {
                     (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::I32(EncodedScalar {
-                        name: NameRef(name),
-                        presence: EncodedPresence(opt),
+                    (input, value) = RawStream::parse(input)?;
+                    properties.push(Property::from(RawProperty::I32(RawScalar {
+                        name: RawName(name),
+                        presence: RawPresence(opt),
                         data: value,
                     })));
                 }
                 ColumnType::U32 | ColumnType::OptU32 => {
                     (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::U32(EncodedScalar {
-                        name: NameRef(name),
-                        presence: EncodedPresence(opt),
+                    (input, value) = RawStream::parse(input)?;
+                    properties.push(Property::from(RawProperty::U32(RawScalar {
+                        name: RawName(name),
+                        presence: RawPresence(opt),
                         data: value,
                     })));
                 }
                 ColumnType::I64 | ColumnType::OptI64 => {
                     (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::I64(EncodedScalar {
-                        name: NameRef(name),
-                        presence: EncodedPresence(opt),
+                    (input, value) = RawStream::parse(input)?;
+                    properties.push(Property::from(RawProperty::I64(RawScalar {
+                        name: RawName(name),
+                        presence: RawPresence(opt),
                         data: value,
                     })));
                 }
                 ColumnType::U64 | ColumnType::OptU64 => {
                     (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::U64(EncodedScalar {
-                        name: NameRef(name),
-                        presence: EncodedPresence(opt),
+                    (input, value) = RawStream::parse(input)?;
+                    properties.push(Property::from(RawProperty::U64(RawScalar {
+                        name: RawName(name),
+                        presence: RawPresence(opt),
                         data: value,
                     })));
                 }
                 ColumnType::F32 | ColumnType::OptF32 => {
                     (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::F32(EncodedScalar {
-                        name: NameRef(name),
-                        presence: EncodedPresence(opt),
+                    (input, value) = RawStream::parse(input)?;
+                    properties.push(Property::from(RawProperty::F32(RawScalar {
+                        name: RawName(name),
+                        presence: RawPresence(opt),
                         data: value,
                     })));
                 }
                 ColumnType::F64 | ColumnType::OptF64 => {
                     (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = Stream::parse(input)?;
-                    properties.push(Property::from(EncodedProperty::F64(EncodedScalar {
-                        name: NameRef(name),
-                        presence: EncodedPresence(opt),
+                    (input, value) = RawStream::parse(input)?;
+                    properties.push(Property::from(RawProperty::F64(RawScalar {
+                        name: RawName(name),
+                        presence: RawPresence(opt),
                         data: value,
                     })));
                 }
@@ -226,8 +226,8 @@ impl Layer01<'_> {
 
 impl Layer01<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedLayer01 {
-        OwnedLayer01 {
+    pub fn to_owned(&self) -> StagedLayer01 {
+        StagedLayer01 {
             name: self.name.to_string(),
             extent: self.extent,
             id: self.id.as_ref().map(Id::to_owned),
@@ -242,7 +242,7 @@ impl Layer01<'_> {
 fn parse_struct_children<'a>(
     mut input: &'a [u8],
     column: &Column<'a>,
-) -> MltRefResult<'a, Vec<EncodedSharedDictChild<'a>>> {
+) -> MltRefResult<'a, Vec<RawSharedDictChild<'a>>> {
     let mut children = Vec::with_capacity(column.children.len());
     for child in &column.children {
         let (inp, sc) = parse_varint::<u32>(input)?;
@@ -253,10 +253,10 @@ fn parse_struct_children<'a>(
         {
             return Err(MltError::UnexpectedStructChildCount(data_count));
         }
-        let (inp, child_data) = Stream::parse(inp)?;
-        children.push(EncodedSharedDictChild {
-            name: NameRef(child.name.unwrap_or("")),
-            presence: EncodedPresence(child_optional),
+        let (inp, child_data) = RawStream::parse(inp)?;
+        children.push(RawSharedDictChild {
+            name: RawName(child.name.unwrap_or("")),
+            presence: RawPresence(child_optional),
             data: child_data,
         });
         input = inp;
@@ -264,9 +264,9 @@ fn parse_struct_children<'a>(
     Ok((input, children))
 }
 
-fn parse_optional(typ: ColumnType, input: &[u8]) -> MltRefResult<'_, Option<Stream<'_>>> {
+fn parse_optional(typ: ColumnType, input: &[u8]) -> MltRefResult<'_, Option<RawStream<'_>>> {
     if typ.is_optional() {
-        let (input, optional) = Stream::parse_bool(input)?;
+        let (input, optional) = RawStream::parse_bool(input)?;
         Ok((input, Some(optional)))
     } else {
         Ok((input, None))
@@ -287,9 +287,9 @@ fn parse_geometry_column<'a>(
         return Err(MltError::BufferUnderflow(stream_count, input.len()));
     }
     // metadata
-    let (input, value) = Stream::parse(input)?;
+    let (input, value) = RawStream::parse(input)?;
     // geometry items
-    let (input, value_vec) = Stream::parse_multiple(input, stream_count_capa - 1)?;
+    let (input, value_vec) = RawStream::parse_multiple(input, stream_count_capa - 1)?;
     geometry.set_once(Geometry::new_encoded(value, value_vec))?;
     Ok(input)
 }
@@ -298,7 +298,7 @@ fn parse_str_column<'a>(
     mut input: &'a [u8],
     name: &'a str,
     typ: ColumnType,
-) -> MltRefResult<'a, EncodedProperty<'a>> {
+) -> MltRefResult<'a, RawProperty<'a>> {
     let mut stream_count = {
         let stream_count_u32;
         (input, stream_count_u32) = parse_varint::<u32>(input)?;
@@ -318,27 +318,29 @@ fn parse_str_column<'a>(
     }
     for slot in str_streams.iter_mut().take(stream_count) {
         let stream;
-        (input, stream) = Stream::parse(input)?;
+        (input, stream) = RawStream::parse(input)?;
         *slot = Some(stream);
     }
     let encoding = match str_streams {
-        [Some(s1), Some(s2), None, None, None] => StringsEncoding::plain(PlainData::new(s1, s2)?),
+        [Some(s1), Some(s2), None, None, None] => {
+            RawStringsEncoding::plain(RawPlainData::new(s1, s2)?)
+        }
         [Some(s1), Some(s2), Some(s3), None, None] => {
-            StringsEncoding::dictionary(PlainData::new(s1, s3)?, s2)?
+            RawStringsEncoding::dictionary(RawPlainData::new(s1, s3)?, s2)?
         }
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
-            StringsEncoding::fsst_plain(FsstData::new(s1, s2, s3, s4)?)
+            RawStringsEncoding::fsst_plain(RawFsstData::new(s1, s2, s3, s4)?)
         }
         [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
-            StringsEncoding::fsst_dictionary(FsstData::new(s1, s2, s3, s4)?, s5)?
+            RawStringsEncoding::fsst_dictionary(RawFsstData::new(s1, s2, s3, s4)?, s5)?
         }
         _ => Err(MltError::UnsupportedStringStreamCount(stream_count))?,
     };
     Ok((
         input,
-        EncodedProperty::Str(EncodedStrings {
-            name: NameRef(name),
-            presence: EncodedPresence(presence),
+        RawProperty::Str(RawStrings {
+            name: RawName(name),
+            presence: RawPresence(presence),
             encoding,
         }),
     ))
@@ -347,7 +349,7 @@ fn parse_str_column<'a>(
 fn parse_shared_dict_column<'a>(
     mut input: &'a [u8],
     column: &Column<'a>,
-) -> MltRefResult<'a, EncodedProperty<'a>> {
+) -> MltRefResult<'a, RawProperty<'a>> {
     // Read header streams until we hit the dictionary DATA(Single|Shared) stream.
     let stream_count;
     (input, stream_count) = parse_varint::<u32>(input)?;
@@ -355,7 +357,7 @@ fn parse_shared_dict_column<'a>(
     let mut streams_taken = 0_usize;
     while streams_taken < stream_count.as_usize() {
         let stream;
-        (input, stream) = Stream::parse(input)?;
+        (input, stream) = RawStream::parse(input)?;
         let is_last = matches!(
             stream.meta.stream_type,
             StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
@@ -370,19 +372,19 @@ fn parse_shared_dict_column<'a>(
     }
     let children;
     (input, children) = parse_struct_children(input, column)?;
-    let name = NameRef(column.name.unwrap_or(""));
+    let name = RawName(column.name.unwrap_or(""));
     let encoding = match dict_streams {
         [Some(s1), Some(s2), None, None, None] => {
-            SharedDictEncoding::plain(PlainData::new(s1, s2)?)
+            RawSharedDictEncoding::plain(RawPlainData::new(s1, s2)?)
         }
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
-            SharedDictEncoding::fsst_plain(FsstData::new(s1, s2, s3, s4)?)
+            RawSharedDictEncoding::fsst_plain(RawFsstData::new(s1, s2, s3, s4)?)
         }
         _ => Err(MltError::SharedDictRequiresStreams(streams_taken))?,
     };
     Ok((
         input,
-        EncodedProperty::SharedDict(EncodedSharedDict {
+        RawProperty::SharedDict(RawSharedDict {
             name,
             encoding,
             children,
@@ -437,7 +439,7 @@ fn parse_columns_meta(
     Ok((input, (col_info, column_count - geometries - ids)))
 }
 
-impl OwnedLayer01 {
+impl StagedLayer01 {
     /// Write Layer's binary representation to a Write stream without allocating a Vec
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         use integer_encoding::VarIntWriter as _;
@@ -466,11 +468,11 @@ impl OwnedLayer01 {
     #[cfg(not(fuzzing))]
     fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         if let Some(ref id) = self.id {
-            id.write_columns_meta_to(writer)?;
+            id.as_encoded()?.write_columns_meta_to(writer)?;
         }
-        self.geometry.write_columns_meta_to(writer)?;
+        EncodedGeometry::write_columns_meta_to(writer)?;
         for prop in &self.properties {
-            prop.write_columns_meta_to(writer)?;
+            prop.as_encoded()?.write_columns_meta_to(writer)?;
         }
         Ok(())
     }
@@ -481,15 +483,15 @@ impl OwnedLayer01 {
             match ord {
                 LayerOrdering::Id => {
                     if let Some(ref id) = self.id {
-                        id.write_columns_meta_to(writer)?;
+                        id.as_encoded()?.write_columns_meta_to(writer)?;
                     }
                 }
-                LayerOrdering::Geometry => self.geometry.write_columns_meta_to(writer)?,
+                LayerOrdering::Geometry => EncodedGeometry::write_columns_meta_to(writer)?,
                 LayerOrdering::Property => {
                     let prop = props.next().expect(
                         "the number of layer order elements must match the number of properties",
                     );
-                    prop.write_columns_meta_to(writer)?;
+                    prop.as_encoded()?.write_columns_meta_to(writer)?;
                 }
             }
         }
@@ -498,11 +500,11 @@ impl OwnedLayer01 {
     #[cfg(not(fuzzing))]
     fn write_columns_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         if let Some(ref id) = self.id {
-            id.write_to(writer)?;
+            id.as_encoded()?.write_to(writer)?;
         }
-        self.geometry.write_to(writer)?;
+        self.geometry.as_encoded()?.write_to(writer)?;
         for prop in &self.properties {
-            prop.write_to(writer)?;
+            prop.as_encoded()?.write_to(writer)?;
         }
         Ok(())
     }
@@ -513,15 +515,15 @@ impl OwnedLayer01 {
             match ord {
                 LayerOrdering::Id => {
                     if let Some(ref id) = self.id {
-                        id.write_to(writer)?;
+                        id.as_encoded()?.write_to(writer)?;
                     }
                 }
-                LayerOrdering::Geometry => self.geometry.write_to(writer)?,
+                LayerOrdering::Geometry => self.geometry.as_encoded()?.write_to(writer)?,
                 LayerOrdering::Property => {
                     let prop = props.next().expect(
                         "the number of layer order elements must match the number of properties",
                     );
-                    prop.write_to(writer)?;
+                    prop.as_encoded()?.write_to(writer)?;
                 }
             }
         }
@@ -540,15 +542,15 @@ pub enum LayerOrdering {
 }
 
 #[cfg(all(fuzzing, feature = "arbitrary"))]
-impl arbitrary::Arbitrary<'_> for OwnedLayer01 {
+impl arbitrary::Arbitrary<'_> for StagedLayer01 {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        use crate::v01::{OwnedGeometry, OwnedId, OwnedProperty};
+        use crate::v01::{StagedGeometry, StagedId, StagedProperty};
 
         let name: String = u.arbitrary()?;
         let extent: u32 = u.arbitrary()?;
-        let id: Option<OwnedId> = u.arbitrary()?;
-        let geometry: OwnedGeometry = u.arbitrary()?;
-        let properties: Vec<OwnedProperty> = u.arbitrary()?;
+        let id: Option<StagedId> = u.arbitrary()?;
+        let geometry: StagedGeometry = u.arbitrary()?;
+        let properties: Vec<StagedProperty> = u.arbitrary()?;
 
         // Build a valid layer_order: 1 Geometry, N Property (one per property),
         // and optionally 1 ID when the layer carries an ID column, then shuffle.
@@ -568,7 +570,7 @@ impl arbitrary::Arbitrary<'_> for OwnedLayer01 {
             layer_order.swap(i, j);
         }
 
-        Ok(OwnedLayer01 {
+        Ok(StagedLayer01 {
             name,
             extent,
             id,

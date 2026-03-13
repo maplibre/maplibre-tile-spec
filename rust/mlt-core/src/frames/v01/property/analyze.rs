@@ -1,30 +1,28 @@
 use crate::analyse::{Analyze, StatType};
-use crate::v01::{
-    DecodedScalar, DecodedSharedDict, EncodedProperty, OwnedEncodedProperty, StreamMeta,
-};
+use crate::v01::{EncodedProperty, ParsedScalar, ParsedSharedDict, RawProperty, StreamMeta};
 
-impl Analyze for OwnedEncodedProperty {
+impl Analyze for EncodedProperty {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         match self {
-            OwnedEncodedProperty::Bool(s)
-            | OwnedEncodedProperty::I8(s)
-            | OwnedEncodedProperty::U8(s)
-            | OwnedEncodedProperty::I32(s)
-            | OwnedEncodedProperty::U32(s)
-            | OwnedEncodedProperty::I64(s)
-            | OwnedEncodedProperty::U64(s)
-            | OwnedEncodedProperty::F32(s)
-            | OwnedEncodedProperty::F64(s) => {
+            EncodedProperty::Bool(s)
+            | EncodedProperty::I8(s)
+            | EncodedProperty::U8(s)
+            | EncodedProperty::I32(s)
+            | EncodedProperty::U32(s)
+            | EncodedProperty::I64(s)
+            | EncodedProperty::U64(s)
+            | EncodedProperty::F32(s)
+            | EncodedProperty::F64(s) => {
                 s.presence.0.for_each_stream(cb);
                 s.data.for_each_stream(cb);
             }
-            OwnedEncodedProperty::Str(s) => {
+            EncodedProperty::Str(s) => {
                 s.presence.0.for_each_stream(cb);
                 for stream in s.encoding.streams() {
                     stream.for_each_stream(cb);
                 }
             }
-            OwnedEncodedProperty::SharedDict(s) => {
+            EncodedProperty::SharedDict(s) => {
                 for stream in s.encoding.dict_streams() {
                     stream.for_each_stream(cb);
                 }
@@ -37,7 +35,7 @@ impl Analyze for OwnedEncodedProperty {
     }
 }
 
-impl Analyze for EncodedProperty<'_> {
+impl Analyze for RawProperty<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         match self {
             Self::Bool(s)
@@ -71,7 +69,7 @@ impl Analyze for EncodedProperty<'_> {
     }
 }
 
-impl<T: Analyze + Copy + PartialEq> Analyze for DecodedScalar<'_, T> {
+impl<T: Analyze + Copy + PartialEq> Analyze for ParsedScalar<'_, T> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         let meta = if stat == StatType::DecodedMetaSize {
             self.name.len()
@@ -82,7 +80,7 @@ impl<T: Analyze + Copy + PartialEq> Analyze for DecodedScalar<'_, T> {
     }
 }
 
-impl Analyze for DecodedSharedDict<'_> {
+impl Analyze for ParsedSharedDict<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         let meta = if stat == StatType::DecodedMetaSize {
             self.prefix.len()

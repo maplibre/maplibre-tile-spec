@@ -1,29 +1,29 @@
-use super::{DecodedId, EncodedId, EncodedIdValue, OwnedEncodedId, OwnedEncodedIdValue};
-use crate::v01::Stream;
+use super::{EncodedId, EncodedIdValue, ParsedId, RawId, RawIdValue};
+use crate::v01::RawStream;
 
-impl DecodedId {
+impl ParsedId {
     #[must_use]
     pub fn to_owned(&self) -> Self {
         self.clone()
     }
 }
 
-impl EncodedId<'_> {
+impl RawId<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedEncodedId {
-        OwnedEncodedId {
-            presence: self.presence.as_ref().map(Stream::to_owned),
+    pub fn to_owned(&self) -> EncodedId {
+        EncodedId {
+            presence: self.presence.as_ref().map(RawStream::to_owned),
             value: self.value.to_owned(),
         }
     }
 }
 
-impl EncodedIdValue<'_> {
+impl RawIdValue<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedEncodedIdValue {
+    pub fn to_owned(&self) -> EncodedIdValue {
         match self {
-            Self::Id32(stream) => OwnedEncodedIdValue::Id32(stream.to_owned()),
-            Self::Id64(stream) => OwnedEncodedIdValue::Id64(stream.to_owned()),
+            Self::Id32(stream) => EncodedIdValue::Id32(stream.to_owned()),
+            Self::Id64(stream) => EncodedIdValue::Id64(stream.to_owned()),
         }
     }
 }

@@ -1,12 +1,12 @@
 use crate::MltError;
 use crate::utils::{encode_bools_to_bytes, encode_byte_rle};
 use crate::v01::{
-    DictionaryType, FsstStrEncoder, IntEncoder, IntEncoding, LengthType, LogicalEncoding,
-    OffsetType, OwnedFsstData, OwnedPlainData, OwnedStream, OwnedStreamData, OwnedStringsEncoding,
-    PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+    DictionaryType, EncodedFsstData, EncodedPlainData, EncodedStream, EncodedStreamData,
+    EncodedStringsEncoding, FsstStrEncoder, IntEncoder, IntEncoding, LengthType, LogicalEncoding,
+    OffsetType, PhysicalEncoding, RleMeta, StreamMeta, StreamType,
 };
 
-impl OwnedStream {
+impl EncodedStream {
     /// Creates an empty stream
     #[must_use]
     pub fn empty_without_encoding() -> Self {
@@ -16,20 +16,20 @@ impl OwnedStream {
                 IntEncoding::none(),
                 0,
             ),
-            data: OwnedStreamData::Encoded(Vec::new()),
+            data: EncodedStreamData::Encoded(Vec::new()),
         }
     }
 
     #[must_use]
-    fn plain(data: Vec<u8>, num_values: u32) -> OwnedStream {
+    fn plain(data: Vec<u8>, num_values: u32) -> EncodedStream {
         Self::plain_with_type(data, num_values, DictionaryType::None)
     }
 
     /// Creates a plain stream with values encoded literally
     #[must_use]
-    fn plain_with_type(data: Vec<u8>, num_values: u32, dict_type: DictionaryType) -> OwnedStream {
+    fn plain_with_type(data: Vec<u8>, num_values: u32, dict_type: DictionaryType) -> EncodedStream {
         let meta = StreamMeta::new(StreamType::Data(dict_type), IntEncoding::none(), num_values);
-        let data = OwnedStreamData::Encoded(data);
+        let data = EncodedStreamData::Encoded(data);
         Self { meta, data }
     }
 
@@ -67,7 +67,7 @@ impl OwnedStream {
         );
         Ok(Self {
             meta,
-            data: OwnedStreamData::Encoded(data),
+            data: EncodedStreamData::Encoded(data),
         })
     }
 
@@ -193,7 +193,7 @@ impl OwnedStream {
         length_encoding: IntEncoder,
         length_type: LengthType,
         dict_type: DictionaryType,
-    ) -> Result<OwnedStringsEncoding, MltError> {
+    ) -> Result<EncodedStringsEncoding, MltError> {
         let lengths: Vec<u32> = values
             .iter()
             .map(|s| u32::try_from(s.as_ref().len()))
@@ -202,14 +202,14 @@ impl OwnedStream {
             .iter()
             .flat_map(|s| s.as_ref().as_bytes().iter().copied())
             .collect();
-        Ok(OwnedStringsEncoding::Plain(OwnedPlainData::new(
+        Ok(EncodedStringsEncoding::Plain(EncodedPlainData::new(
             Self::encode_u32s_of_type(&lengths, length_encoding, StreamType::Length(length_type))?,
             Self::plain_with_type(data, u32::try_from(values.len())?, dict_type),
         )?))
     }
 
     /// Shared FSST compression kernel: train a compressor on `values`, compress the corpus,
-    /// and return the 4 streams as an [`OwnedFsstData`].
+    /// and return the 4 streams as an [`EncodedFsstData`].
     ///
     /// 1. Symbol lengths stream (Length, `LengthType::Symbol`)
     /// 2. Symbol table data stream (Data, `DictionaryType::Fsst`)
@@ -223,7 +223,7 @@ impl OwnedStream {
         values: &[S],
         encoding: FsstStrEncoder,
         dict_type: DictionaryType,
-    ) -> Result<OwnedFsstData, MltError> {
+    ) -> Result<EncodedFsstData, MltError> {
         // Build byte slices for training
         let byte_slices: Vec<&[u8]> = values.iter().map(|s| s.as_ref().as_bytes()).collect();
         // Train FSST compressor on the corpus
@@ -258,7 +258,7 @@ impl OwnedStream {
             .map(|s| u32::try_from(s.as_ref().len()))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(OwnedFsstData {
+        Ok(EncodedFsstData {
             symbol_lengths: Self::encode_u32s_of_type(
                 &symbol_lengths,
                 encoding.symbol_lengths,
@@ -270,7 +270,7 @@ impl OwnedStream {
                     IntEncoding::none(),
                     u32::try_from(symbol_lengths.len())?,
                 ),
-                data: OwnedStreamData::Encoded(symbol_bytes),
+                data: EncodedStreamData::Encoded(symbol_bytes),
             },
             lengths: Self::encode_u32s_of_type(
                 &value_lengths,
@@ -283,7 +283,7 @@ impl OwnedStream {
                     IntEncoding::none(),
                     u32::try_from(values.len())?,
                 ),
-                data: OwnedStreamData::Encoded(compressed),
+                data: EncodedStreamData::Encoded(compressed),
             },
         })
     }
@@ -307,7 +307,7 @@ impl OwnedStream {
         values: &[S],
         encoding: FsstStrEncoder,
         dict_type: DictionaryType,
-    ) -> Result<OwnedStringsEncoding, MltError> {
+    ) -> Result<EncodedStringsEncoding, MltError> {
         let fsst_data = Self::compress_fsst(values, encoding, dict_type)?;
         let value_cnt = u32::try_from(values.len())?;
         let offsets = (0..value_cnt).collect::<Vec<_>>();
@@ -316,7 +316,7 @@ impl OwnedStream {
             encoding.dict_lengths,
             StreamType::Offset(OffsetType::String),
         )?;
-        Ok(OwnedStringsEncoding::FsstDictionary { fsst_data, offsets })
+        Ok(EncodedStringsEncoding::FsstDictionary { fsst_data, offsets })
     }
 
     /// Encode strings with FSST (4 streams, no offset). For shared dictionary struct columns;
@@ -325,8 +325,8 @@ impl OwnedStream {
         values: &[S],
         encoding: FsstStrEncoder,
         dict_type: DictionaryType,
-    ) -> Result<OwnedStringsEncoding, MltError> {
-        Ok(OwnedStringsEncoding::FsstPlain(Self::compress_fsst(
+    ) -> Result<EncodedStringsEncoding, MltError> {
+        Ok(EncodedStringsEncoding::FsstPlain(Self::compress_fsst(
             values, encoding, dict_type,
         )?))
     }

@@ -6,7 +6,7 @@ use mlt_core::v01::{
     GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, PhysicalEncoder,
     PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder,
 };
-use mlt_core::{OwnedLayer, parse_layers};
+use mlt_core::{StagedLayer, parse_layers};
 use strum::IntoEnumIterator as _;
 
 #[path = "bench_utils.rs"]
@@ -21,7 +21,7 @@ fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
     }
 }
 
-fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<OwnedLayer> {
+fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer> {
     tiles
         .iter()
         .flat_map(|(_, data)| {
@@ -56,7 +56,7 @@ fn bench_encode_geometry(c: &mut Criterion) {
                             || decode_to_owned(tiles),
                             |mut layers| {
                                 for layer in &mut layers {
-                                    if let OwnedLayer::Tag01(l) = layer {
+                                    if let StagedLayer::Tag01(l) = layer {
                                         l.geometry
                                             .manual_optimisation(geometry_encoder)
                                             .expect("geometry encode failed");
@@ -94,7 +94,7 @@ fn bench_encode_ids(c: &mut Criterion) {
                             || decode_to_owned(tiles),
                             |mut layers| {
                                 for layer in &mut layers {
-                                    if let OwnedLayer::Tag01(l) = layer
+                                    if let StagedLayer::Tag01(l) = layer
                                         && let Some(id) = &mut l.id
                                     {
                                         id.manual_optimisation(id_encoder)
@@ -133,7 +133,7 @@ fn bench_encode_properties(c: &mut Criterion) {
                                 || decode_to_owned(tiles),
                                 |mut layers| {
                                     for layer in &mut layers {
-                                        if let OwnedLayer::Tag01(l) = layer {
+                                        if let StagedLayer::Tag01(l) = layer {
                                             let int_enc = IntEncoder::new(logical, physical);
                                             let encoders: Vec<PropertyEncoder> = l
                                                 .properties

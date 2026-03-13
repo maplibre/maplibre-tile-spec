@@ -2,32 +2,24 @@ use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
 use crate::EncDec;
-use crate::v01::{OwnedStream, Stream};
+use crate::v01::{EncodedStream, RawStream};
 
-/// Geometry column representation, either encoded or decoded
-pub type Geometry<'a> = EncDec<EncodedGeometry<'a>, DecodedGeometry>;
+/// Geometry column representation, either raw (borrowed from bytes) or parsed.
+pub type Geometry<'a> = EncDec<RawGeometry<'a>, ParsedGeometry>;
 
-/// Owned geometry column representation, either encoded or decoded.
-pub type OwnedGeometry = EncDec<OwnedEncodedGeometry, DecodedGeometry>;
+/// Staged geometry column: can hold either encoded or decoded form (used during encoding pipeline).
+pub type StagedGeometry = EncDec<EncodedGeometry, ParsedGeometry>;
 
-/// Unparsed geometry data as read directly from the tile
+/// Raw geometry data as read directly from the tile (borrows from input bytes)
 #[derive(Debug, PartialEq, Clone)]
-pub struct EncodedGeometry<'a> {
-    pub meta: Stream<'a>,
-    pub items: Vec<Stream<'a>>,
+pub struct RawGeometry<'a> {
+    pub meta: RawStream<'a>,
+    pub items: Vec<RawStream<'a>>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct OwnedEncodedGeometry {
-    pub meta: OwnedStream,
-    pub items: Vec<OwnedStream>,
-}
-
-/// Decoded geometry data
+/// Parsed (decoded) geometry data
 #[derive(Clone, Default, PartialEq)]
-pub struct DecodedGeometry {
-    // pub vector_type: VectorType,
-    // pub vertex_buffer_type: VertexBufferType,
+pub struct ParsedGeometry {
     pub vector_types: Vec<GeometryType>,
     pub geometry_offsets: Option<Vec<u32>>,
     pub part_offsets: Option<Vec<u32>>,
@@ -37,14 +29,12 @@ pub struct DecodedGeometry {
     pub vertices: Option<Vec<i32>>,
 }
 
-// #[derive(Debug, Clone, Copy, PartialEq)]
-// pub enum VectorType {
-//     Flat,
-//     Const,
-//     Sequence,
-//     // Dictionary,
-//     // FsstDictionary,
-// }
+/// Wire-ready encoded geometry data (owns its byte buffers)
+#[derive(Debug, PartialEq, Clone)]
+pub struct EncodedGeometry {
+    pub meta: EncodedStream,
+    pub items: Vec<EncodedStream>,
+}
 
 /// Types of geometries supported in MLT
 #[derive(

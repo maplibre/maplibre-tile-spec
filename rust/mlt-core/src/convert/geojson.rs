@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::frames::Layer;
-use crate::v01::DecodedProperty;
+use crate::v01::ParsedProperty;
 use crate::{Decodable as _, MltError};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
@@ -48,7 +48,7 @@ impl FeatureCollection {
                     let prop = prop.decoded_property()?;
                     // SharedDict properties are flattened to individual properties
                     // with names like "struct_name:child_suffix"
-                    if let DecodedProperty::SharedDict(dict) = prop {
+                    if let ParsedProperty::SharedDict(dict) = prop {
                         for item in &dict.items {
                             if let Some(s) = item.get(dict, i) {
                                 let key = format!("{}{}", dict.prefix, item.suffix);

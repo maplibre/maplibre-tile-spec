@@ -1,7 +1,7 @@
 use crate::utils::{f32_to_json, f64_to_json};
-use crate::v01::{DecodedProperty, PropertyKind};
+use crate::v01::{ParsedProperty, PropertyKind};
 
-impl DecodedProperty<'_> {
+impl ParsedProperty<'_> {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {

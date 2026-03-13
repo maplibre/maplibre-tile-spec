@@ -4,8 +4,8 @@ use crate::MltError;
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, encode_componentwise_delta_vec2s};
 use crate::v01::{
-    DecodedGeometry, DictionaryType, GeometryType, IntEncoder, IntEncoding, LengthType,
-    LogicalEncoding, MortonMeta, OffsetType, OwnedEncodedGeometry, OwnedStream, PhysicalEncoder,
+    DictionaryType, EncodedGeometry, EncodedStream, GeometryType, IntEncoder, IntEncoding,
+    LengthType, LogicalEncoding, MortonMeta, OffsetType, ParsedGeometry, PhysicalEncoder,
     StreamMeta, StreamType, VertexBufferType,
 };
 
@@ -13,12 +13,12 @@ use crate::v01::{
 fn encode_vertex_buffer(
     vertices: &[i32],
     physical: PhysicalEncoder,
-) -> Result<OwnedStream, MltError> {
+) -> Result<EncodedStream, MltError> {
     // Componentwise delta encoding: delta X and Y separately
     let physical_u32 = encode_componentwise_delta_vec2s(vertices);
     let num_values = u32::try_from(physical_u32.len())?;
     let (data, physical_encoding) = physical.encode_u32s(physical_u32)?;
-    Ok(OwnedStream {
+    Ok(EncodedStream {
         meta: StreamMeta::new(
             StreamType::Data(DictionaryType::Vertex),
             IntEncoding::new(LogicalEncoding::ComponentwiseDelta, physical_encoding),
@@ -44,11 +44,11 @@ fn encode_morton_vertex_buffer(
     codes: &[u32],
     meta: MortonMeta,
     physical: PhysicalEncoder,
-) -> Result<OwnedStream, MltError> {
+) -> Result<EncodedStream, MltError> {
     let deltas = morton_deltas(codes);
     let num_values = u32::try_from(deltas.len())?;
     let (data, physical_encoding) = physical.encode_u32s(deltas)?;
-    Ok(OwnedStream {
+    Ok(EncodedStream {
         meta: StreamMeta::new(
             StreamType::Data(DictionaryType::Morton),
             IntEncoding::new(LogicalEncoding::MortonDelta(meta), physical_encoding),
@@ -408,11 +408,11 @@ fn normalize_part_offsets_for_rings(
 /// topology logic.
 #[expect(clippy::type_complexity)]
 pub fn encode_geometry(
-    decoded: &DecodedGeometry,
+    decoded: &ParsedGeometry,
     encoder: &GeometryEncoder,
     mut on_stream: Option<&mut dyn FnMut(StreamType, &[u32])>,
-) -> Result<OwnedEncodedGeometry, MltError> {
-    let DecodedGeometry {
+) -> Result<EncodedGeometry, MltError> {
+    let ParsedGeometry {
         vector_types,
         geometry_offsets,
         part_offsets,
@@ -457,7 +457,7 @@ pub fn encode_geometry(
         if let Some(cb) = &mut on_stream {
             cb(StreamType::Length(LengthType::VarBinary), &vector_types_u32);
         }
-        OwnedStream::encode_u32s_of_type(
+        EncodedStream::encode_u32s_of_type(
             &vector_types_u32,
             encoder.meta,
             StreamType::Length(LengthType::VarBinary),
@@ -481,7 +481,7 @@ pub fn encode_geometry(
             if let Some(cb) = &mut on_stream {
                 cb(StreamType::Length(LengthType::Geometries), &lengths);
             }
-            items.push(OwnedStream::encode_u32s_of_type(
+            items.push(EncodedStream::encode_u32s_of_type(
                 &lengths,
                 encoder.geometries,
                 StreamType::Length(LengthType::Geometries),
@@ -503,7 +503,7 @@ pub fn encode_geometry(
                     if let Some(cb) = &mut on_stream {
                         cb(StreamType::Length(LengthType::Parts), &part_lengths);
                     }
-                    items.push(OwnedStream::encode_u32s_of_type(
+                    items.push(EncodedStream::encode_u32s_of_type(
                         &part_lengths,
                         encoder.rings,
                         StreamType::Length(LengthType::Parts),
@@ -516,7 +516,7 @@ pub fn encode_geometry(
                     if let Some(cb) = &mut on_stream {
                         cb(StreamType::Length(LengthType::Rings), &ring_lengths);
                     }
-                    items.push(OwnedStream::encode_u32s_of_type(
+                    items.push(EncodedStream::encode_u32s_of_type(
                         &ring_lengths,
                         encoder.rings2,
                         StreamType::Length(LengthType::Rings),
@@ -533,7 +533,7 @@ pub fn encode_geometry(
                     if let Some(cb) = &mut on_stream {
                         cb(StreamType::Length(LengthType::Parts), &part_lengths);
                     }
-                    items.push(OwnedStream::encode_u32s_of_type(
+                    items.push(EncodedStream::encode_u32s_of_type(
                         &part_lengths,
                         encoder.no_rings,
                         StreamType::Length(LengthType::Parts),
@@ -551,7 +551,7 @@ pub fn encode_geometry(
                 if let Some(cb) = &mut on_stream {
                     cb(StreamType::Length(LengthType::Geometries), &[]);
                 }
-                items.push(OwnedStream::encode_u32s_of_type(
+                items.push(EncodedStream::encode_u32s_of_type(
                     &[],
                     encoder.geometries,
                     StreamType::Length(LengthType::Geometries),
@@ -564,7 +564,7 @@ pub fn encode_geometry(
                 if let Some(cb) = &mut on_stream {
                     cb(StreamType::Length(LengthType::Parts), &part_lengths);
                 }
-                items.push(OwnedStream::encode_u32s_of_type(
+                items.push(EncodedStream::encode_u32s_of_type(
                     &part_lengths,
                     encoder.parts,
                     StreamType::Length(LengthType::Parts),
@@ -581,7 +581,7 @@ pub fn encode_geometry(
                 if let Some(cb) = &mut on_stream {
                     cb(StreamType::Length(LengthType::Rings), &ring_lengths);
                 }
-                items.push(OwnedStream::encode_u32s_of_type(
+                items.push(EncodedStream::encode_u32s_of_type(
                     &ring_lengths,
                     encoder.parts_ring,
                     StreamType::Length(LengthType::Rings),
@@ -594,7 +594,7 @@ pub fn encode_geometry(
                 if let Some(cb) = &mut on_stream {
                     cb(StreamType::Length(LengthType::Parts), &lengths);
                 }
-                items.push(OwnedStream::encode_u32s_of_type(
+                items.push(EncodedStream::encode_u32s_of_type(
                     &lengths,
                     encoder.only_parts,
                     StreamType::Length(LengthType::Parts),
@@ -608,7 +608,7 @@ pub fn encode_geometry(
         if let Some(cb) = &mut on_stream {
             cb(StreamType::Length(LengthType::Triangles), tris);
         }
-        items.push(OwnedStream::encode_u32s_of_type(
+        items.push(EncodedStream::encode_u32s_of_type(
             tris,
             encoder.triangles,
             StreamType::Length(LengthType::Triangles),
@@ -620,7 +620,7 @@ pub fn encode_geometry(
         if let Some(cb) = &mut on_stream {
             cb(StreamType::Offset(OffsetType::Index), idx_buf);
         }
-        items.push(OwnedStream::encode_u32s_of_type(
+        items.push(EncodedStream::encode_u32s_of_type(
             idx_buf,
             encoder.triangles_indexes,
             StreamType::Offset(OffsetType::Index),
@@ -651,7 +651,7 @@ pub fn encode_geometry(
                         &morton_deltas(&dict),
                     );
                 }
-                items.push(OwnedStream::encode_u32s_of_type(
+                items.push(EncodedStream::encode_u32s_of_type(
                     &offsets,
                     encoder.vertex_offsets,
                     StreamType::Offset(OffsetType::Vertex),
@@ -665,7 +665,7 @@ pub fn encode_geometry(
         }
     }
 
-    Ok(OwnedEncodedGeometry { meta, items })
+    Ok(EncodedGeometry { meta, items })
 }
 
 /// How to encode Geometry

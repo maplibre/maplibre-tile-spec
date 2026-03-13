@@ -1,13 +1,13 @@
 //! Feature reordering for the optimizer.
 //!
-//! All sorting operates on [`SourceLayer01`] — the row-oriented working form
+//! All sorting operates on [`TileLayer01`] — the row-oriented working form
 //! that the optimizer uses.  A sort is a single `Vec::sort_by_cached_key`
 //! call; there is no permutation machinery, no column-by-column scatter, and
 //! no encoded/decoded conversions inside this module.
 
 use crate::geojson::Geom32;
 use crate::utils::{hilbert_curve_params, hilbert_sort_key, morton_sort_key};
-use crate::v01::source::{SourceFeature, SourceLayer01};
+use crate::v01::tile::{TileFeature, TileLayer01};
 
 /// Controls how features inside a layer are reordered before encoding.
 ///
@@ -36,7 +36,7 @@ pub enum SortStrategy {
 ///
 /// If `strategy` is [`None`] this is a no-op.
 /// If the layer has zero or one features the sort is trivially a no-op.
-pub(crate) fn reorder_features(layer: &mut SourceLayer01, strategy: Option<SortStrategy>) {
+pub(crate) fn reorder_features(layer: &mut TileLayer01, strategy: Option<SortStrategy>) {
     let Some(strategy) = strategy else {
         return;
     };
@@ -52,7 +52,7 @@ pub(crate) fn reorder_features(layer: &mut SourceLayer01, strategy: Option<SortS
 }
 
 /// Compute the sort key for a single feature under `strategy`.
-fn sort_key(f: &SourceFeature, strategy: SortStrategy, params: &CurveParams) -> u64 {
+fn sort_key(f: &TileFeature, strategy: SortStrategy, params: &CurveParams) -> u64 {
     match strategy {
         SortStrategy::SpatialMorton => first_vertex(&f.geometry).map_or(u64::MAX, |(x, y)| {
             u64::from(morton_sort_key(x, y, params.shift, params.num_bits))
@@ -73,7 +73,7 @@ pub(crate) struct CurveParams {
 
 /// Collect all vertex coordinates from `features` and compute the Hilbert/Morton
 /// curve parameters (coordinate shift and bit width).
-pub(crate) fn curve_params_from_features(features: &[SourceFeature]) -> CurveParams {
+pub(crate) fn curve_params_from_features(features: &[TileFeature]) -> CurveParams {
     // Collect a flat `[x0, y0, x1, y1, …]` vertex array from all features,
     // then reuse the existing `hilbert_curve_params` utility.
     let verts: Vec<i32> = features
@@ -179,7 +179,7 @@ fn first_vertex(geom: &Geom32) -> Option<(i32, i32)> {
 /// `SPATIAL_HELP_COVERAGE` of the layer's tile extent on **both** axes, the
 /// features are too spread-out for locality clustering to help, so spatial
 /// sorting is skipped.
-pub(crate) fn spatial_sort_likely_to_help(layer: &SourceLayer01) -> bool {
+pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer01) -> bool {
     const SPATIAL_HELP_COVERAGE: f64 = 0.8;
 
     let extent = f64::from(layer.extent);
@@ -218,9 +218,9 @@ mod tests {
     use super::*;
     use crate::geojson::Geom32;
     use crate::optimizer::ManualOptimisation as _;
-    use crate::v01::source::{SourceFeature, SourceLayer01};
+    use crate::v01::tile::{TileFeature, TileLayer01};
     use crate::v01::{
-        DecodedGeometry, EncodedGeometry, Geometry, GeometryEncoder, IntEncoder, OwnedGeometry,
+        Geometry, GeometryEncoder, IntEncoder, ParsedGeometry, RawGeometry, StagedGeometry,
     };
 
     // ── geometry test helpers ──────────────────────────────────────────────────
@@ -255,16 +255,19 @@ mod tests {
         GeoGeom::Polygon(Polygon::new(ring, vec![]))
     }
 
-    /// Encode + serialize + parse + decode a `DecodedGeometry` (round-trip).
-    fn roundtrip_geom(decoded: &DecodedGeometry) -> DecodedGeometry {
-        let mut geom = OwnedGeometry::Decoded(decoded.clone());
+    /// Encode + serialize + parse + decode a `ParsedGeometry` (round-trip).
+    fn roundtrip_geom(decoded: &ParsedGeometry) -> ParsedGeometry {
+        let mut geom = StagedGeometry::Decoded(decoded.clone());
         geom.manual_optimisation(GeometryEncoder::all(IntEncoder::varint()))
             .expect("encode failed");
 
         let mut buf = Vec::new();
-        geom.write_to(&mut buf).expect("serialize failed");
+        geom.as_encoded()
+            .expect("should be encoded")
+            .write_to(&mut buf)
+            .expect("serialize failed");
 
-        let (remaining, parsed) = EncodedGeometry::parse(&buf).expect("parse failed");
+        let (remaining, parsed) = RawGeometry::parse(&buf).expect("parse failed");
         assert!(
             remaining.is_empty(),
             "unexpected trailing bytes after parse"
@@ -274,28 +277,28 @@ mod tests {
     }
 
     /// Build the canonical (dense, wire-decoded) form of an ordered geometry sequence.
-    fn canonical(geoms: &[Geom32]) -> DecodedGeometry {
-        let mut decoded = DecodedGeometry::default();
+    fn canonical(geoms: &[Geom32]) -> ParsedGeometry {
+        let mut decoded = ParsedGeometry::default();
         for g in geoms {
             decoded.push_geom(g);
         }
         roundtrip_geom(&decoded)
     }
 
-    /// Build a `SourceLayer01` from `geoms` and `ids`, apply `reorder_features`,
+    /// Build a `TileLayer01` from `geoms` and `ids`, apply `reorder_features`,
     /// and return it.
-    fn layer_after_sort(geoms: &[Geom32], ids: &[u64], strategy: SortStrategy) -> SourceLayer01 {
-        let features: Vec<SourceFeature> = geoms
+    fn layer_after_sort(geoms: &[Geom32], ids: &[u64], strategy: SortStrategy) -> TileLayer01 {
+        let features: Vec<TileFeature> = geoms
             .iter()
             .zip(ids.iter())
-            .map(|(g, &id)| SourceFeature {
+            .map(|(g, &id)| TileFeature {
                 id: Some(id),
                 geometry: g.clone(),
                 properties: vec![],
             })
             .collect();
 
-        let mut layer = SourceLayer01 {
+        let mut layer = TileLayer01 {
             name: "test".to_string(),
             extent: 4096,
             property_names: vec![],
@@ -315,7 +318,7 @@ mod tests {
     ) {
         let layer = layer_after_sort(geoms, ids, strategy);
 
-        let mut sorted_decoded = DecodedGeometry::default();
+        let mut sorted_decoded = ParsedGeometry::default();
         for f in &layer.features {
             sorted_decoded.push_geom(&f.geometry);
         }

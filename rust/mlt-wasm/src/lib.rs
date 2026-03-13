@@ -39,7 +39,7 @@ use std::f64;
 use ids::IdState;
 use js_sys::Uint8Array;
 use layer::DecodedLayer;
-use mlt_core::v01::{Geometry, GeometryType, Id, OwnedProperty};
+use mlt_core::v01::{Geometry, GeometryType, Id, StagedProperty};
 use mlt_core::{MltError, parse_layers};
 use tile::MltTile;
 use wasm_bindgen::prelude::*;
@@ -121,7 +121,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             layer01
                 .properties
                 .into_iter()
-                .map(|p| p.decode().map(|d| OwnedProperty::Decoded(d.to_owned())))
+                .map(|p| p.decode().map(|d| StagedProperty::Decoded(d.to_owned())))
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| to_js_err(&e))?,
         );

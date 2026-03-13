@@ -1,13 +1,13 @@
 use crate::frames::{LayerEncoder, LayerProfile};
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
-use crate::{MltError, OwnedLayer};
+use crate::{MltError, StagedLayer};
 
-impl ManualOptimisation for OwnedLayer {
+impl ManualOptimisation for StagedLayer {
     type UsedEncoder = LayerEncoder;
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
         use LayerEncoder as E;
-        use OwnedLayer as L;
+        use StagedLayer as L;
         match (self, encoder) {
             (L::Tag01(t), E::Tag01(e)) => Ok(t.manual_optimisation(e)?),
             (L::Unknown(_), E::Unknown) => Ok(()),
@@ -16,7 +16,7 @@ impl ManualOptimisation for OwnedLayer {
     }
 }
 
-impl ProfileOptimisation for OwnedLayer {
+impl ProfileOptimisation for StagedLayer {
     type UsedEncoder = LayerEncoder;
     type Profile = LayerProfile;
 
@@ -26,7 +26,7 @@ impl ProfileOptimisation for OwnedLayer {
     ) -> Result<Self::UsedEncoder, MltError> {
         use LayerEncoder as E;
         use LayerProfile as P;
-        use OwnedLayer as L;
+        use StagedLayer as L;
         match (self, profile) {
             (L::Tag01(t), P::Tag01(p)) => Ok(E::Tag01(t.profile_driven_optimisation(p)?)),
             (L::Unknown(_), P::Unknown) => Ok(E::Unknown),
@@ -35,13 +35,13 @@ impl ProfileOptimisation for OwnedLayer {
     }
 }
 
-impl AutomaticOptimisation for OwnedLayer {
+impl AutomaticOptimisation for StagedLayer {
     type UsedEncoder = LayerEncoder;
 
     fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
         match self {
-            OwnedLayer::Tag01(t) => Ok(LayerEncoder::Tag01(t.automatic_encoding_optimisation()?)),
-            OwnedLayer::Unknown(_) => Ok(LayerEncoder::Unknown),
+            StagedLayer::Tag01(t) => Ok(LayerEncoder::Tag01(t.automatic_encoding_optimisation()?)),
+            StagedLayer::Unknown(_) => Ok(LayerEncoder::Unknown),
         }
     }
 }

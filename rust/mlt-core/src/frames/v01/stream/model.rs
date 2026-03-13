@@ -115,7 +115,7 @@ pub enum PhysicalEncoding {
     Alp = 3,
 }
 
-// Stream types
+// RawStream types
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct IntEncoding {
@@ -133,26 +133,26 @@ pub struct StreamMeta {
 
 /// Representation of an encoded stream
 #[derive(Debug, PartialEq, Clone)]
-pub struct Stream<'a> {
+pub struct RawStream<'a> {
     pub meta: StreamMeta,
-    pub data: StreamData<'a>,
+    pub data: RawStreamData<'a>,
 }
 
-/// Owned variant of [`Stream`].
+/// Owned variant of [`RawStream`].
 #[derive(Debug, PartialEq, Clone)]
-pub struct OwnedStream {
+pub struct EncodedStream {
     pub meta: StreamMeta,
-    pub data: OwnedStreamData,
+    pub data: EncodedStreamData,
 }
 
 #[derive(PartialEq, Clone)]
-pub enum StreamData<'a> {
+pub enum RawStreamData<'a> {
     VarInt(&'a [u8]),
     Encoded(&'a [u8]),
 }
 
 #[derive(PartialEq, Clone)]
-pub enum OwnedStreamData {
+pub enum EncodedStreamData {
     VarInt(Vec<u8>),
     Encoded(Vec<u8>),
 }

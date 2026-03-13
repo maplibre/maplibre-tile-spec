@@ -9,12 +9,12 @@ use crate::v01::geometry::decode::{
 };
 use crate::v01::geometry::encode::encode_geometry;
 use crate::v01::{
-    DecodedGeometry, DictionaryType, EncodedGeometry, GeometryEncoder, GeometryType, LengthType,
-    OffsetType, OwnedEncodedGeometry, StreamType,
+    DictionaryType, EncodedGeometry, GeometryEncoder, GeometryType, LengthType, OffsetType,
+    ParsedGeometry, RawGeometry, StreamType,
 };
 
-impl FromDecoded<'_> for OwnedEncodedGeometry {
-    type Input = DecodedGeometry;
+impl FromDecoded<'_> for EncodedGeometry {
+    type Input = ParsedGeometry;
     type Encoder = GeometryEncoder;
 
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
@@ -22,8 +22,8 @@ impl FromDecoded<'_> for OwnedEncodedGeometry {
     }
 }
 
-impl<'a> Decode<EncodedGeometry<'a>> for DecodedGeometry {
-    fn decode(EncodedGeometry { meta, items }: EncodedGeometry<'a>) -> Result<Self, MltError> {
+impl<'a> Decode<RawGeometry<'a>> for ParsedGeometry {
+    fn decode(RawGeometry { meta, items }: RawGeometry<'a>) -> Result<Self, MltError> {
         let vector_types = decode_geometry_types(&meta)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;
         let mut part_offsets: Option<Vec<u32>> = None;
@@ -127,14 +127,14 @@ impl<'a> Decode<EncodedGeometry<'a>> for DecodedGeometry {
         }
 
         // Case when the indices of a Polygon outline are encoded in the tile
-        // This is handled by including index_buffer in the DecodedGeometry
+        // This is handled by including index_buffer in the ParsedGeometry
 
         // Expand vertex dictionary:
         // If a vertex offset stream was present,
         // - `vertices` holds only the unique dictionary entries and
         // - `vertex_offsets` holds per-vertex indices into it.
         //
-        // Expand them into a single flat (x, y) sequence so that `DecodedGeometry` always
+        // Expand them into a single flat (x, y) sequence so that `ParsedGeometry` always
         // represents fully decoded data, regardless of the encoding that was used.
         if let Some(offsets) = vertex_offsets.take()
             && let Some(dict) = vertices.as_deref()
@@ -150,7 +150,7 @@ impl<'a> Decode<EncodedGeometry<'a>> for DecodedGeometry {
             );
         }
 
-        Ok(DecodedGeometry {
+        Ok(ParsedGeometry {
             vector_types,
             geometry_offsets,
             part_offsets,
