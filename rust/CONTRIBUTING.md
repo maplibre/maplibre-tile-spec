@@ -24,10 +24,10 @@ When decoding data, `mlt-core` moves through a strict linear pipeline, minimizin
 | **3** | `Tile*`        | Owned                    | **Row-oriented** features using `geo_types::Geometry<i32>` for geometries.    |
 
 These are the Conversion Rules:
-* **Forward Only:** Data moves $1 \rightarrow 3$. No backwards conversions (e.g., `Tile*` cannot become `Parsed*`).
-* **Slicing:** Original input bytes are sliced into `Raw*` structures. No copying. Uses `Raw*::parse(&[u8]) -> MltRefResult<Raw*>` constructors. Not to be confused with `Parsed*` parsing into Parsed stage.
-* **Parsing:** `Raw*` $\rightarrow$ `Parsed*` via `TryFrom`.
-* **Row-based tiles:** `Parsed*` $\rightarrow$ `Tile*` via `TryFrom`. This is mostly used for GeoJSON generation by CLI and debugging tools, and should probably not be needed for most users like data access via WASM.
+* **Forward Only:** Data moves `1` -> `3`. No backwards conversions (e.g., `Tile*` cannot become `Parsed*`).
+* **Slicing:** Original input bytes are sliced into `Raw*` structures. No copying. Uses `Raw*::parse(&[u8])` -> `MltRefResult<Raw*>` constructors. Not to be confused with `Parsed*` parsing into Parsed stage.
+* **Parsing:** `Raw*` `->` `Parsed*` via `TryFrom`.
+* **Row-based tiles:** `Parsed*` `->` `Tile*` via `TryFrom`. This is mostly used for GeoJSON generation by CLI and debugging tools, and should probably not be needed for most users like data access via WASM.
 
 ## Encoding Data
 Encoding is more complex, and requires owned data structures to support optimizations and transformations. The pipeline is as follows:
@@ -39,10 +39,10 @@ Encoding is more complex, and requires owned data structures to support optimiza
 | **3** | `Encoded*` | Owned                 | Wire-ready byte buffers.                                                   |
 
 These are the Conversion Rules:
-* **Forward Only:** Data moves $1 \rightarrow 5$. No backwards conversions (e.g., `Encoded` cannot become `Staged`).
-* All progression steps will use an `Encoder*` types that has some state of **how** to encode, the data of the stage, and return the next stage types, e.g. `TileLayer01` via `Tile01Encoder::encode(&mut self, data: &mut TileLayer01) -> Result<StagedLayer01, MltError>` $\rightarrow$ `StagedLayer01`. Note that both `self` and `data` are mutable references, as the encoder may need to mutate internal state and the data being encoded (e.g., for optimizations like reordering features or updating profiling information).
-* **Staging:** `Tile*` $\rightarrow$ `Staged*`.
-* **Encoding:** `Staged*` $\rightarrow$ `Encoded*`.
-* **Serialization:** `Encoded*` $\rightarrow$ bytes via `write_to(&mut writer)`.
+* **Forward Only:** Data moves `1` -> `5`. No backwards conversions (e.g., `Encoded` cannot become `Staged`).
+* All progression steps will use an `Encoder*` types that has some state of **how** to encode, the data of the stage, and return the next stage types, e.g. `TileLayer01` via `Tile01Encoder::encode(&mut self, data: &mut TileLayer01)` -> `Result<StagedLayer01, MltError>` `->` `StagedLayer01`. Note that both `self` and `data` are mutable references, as the encoder may need to mutate internal state and the data being encoded (e.g., for optimizations like reordering features or updating profiling information).
+* **Staging:** `Tile*` `->` `Staged*`.
+* **Encoding:** `Staged*` `->` `Encoded*`.
+* **Serialization:** `Encoded*` `->` bytes via `write_to(&mut writer)`.
 * In some use cases, user may want to construct `Staged*` directly (e.g., to generate synthetic MLT files or in benchmarking), and skip the `Tile*` stage.
-* There should not be a need to convert from `Parsed*` to `Staged*`, as the former is for decoding and the latter is for encoding. For round trip testing, the workflow should be `Tile*` $\rightarrow$ `Staged*` $\rightarrow$ `Encoded*` $\rightarrow$ `Vec<u8>` buffer $\rightarrow$ `Raw*` $\rightarrow$ `Parsed*` $\rightarrow$ `Tile*`.  It should be possible to compare `Staged*` and `Parsed*` for testing purposes, but not convert from one to another.
+* There should not be a need to convert from `Parsed*` to `Staged*`, as the former is for decoding and the latter is for encoding. For round trip testing, the workflow should be `Tile*` `->` `Staged*` `->` `Encoded*` `->` `Vec<u8>` buffer `->` `Raw*` `->` `Parsed*` `->` `Tile*`.  It should be possible to compare `Staged*` and `Parsed*` for testing purposes, but not convert from one to another.
