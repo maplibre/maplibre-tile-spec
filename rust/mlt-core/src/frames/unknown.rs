@@ -1,10 +1,10 @@
 use std::io;
 use std::io::Write;
 
-use crate::frames::{OwnedUnknown, Unknown};
+use crate::frames::{EncodedUnknown, Unknown};
 
 #[cfg(all(not(test), feature = "arbitrary"))]
-impl arbitrary::Arbitrary<'_> for OwnedUnknown {
+impl arbitrary::Arbitrary<'_> for EncodedUnknown {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
         let mut tag: u8 = u.arbitrary()?;
         // Tag 1 is the known Tag01 format; producing it as Unknown would break round-trip-ability
@@ -20,8 +20,8 @@ impl arbitrary::Arbitrary<'_> for OwnedUnknown {
 
 impl Unknown<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedUnknown {
-        OwnedUnknown {
+    pub fn to_owned(&self) -> EncodedUnknown {
+        EncodedUnknown {
             tag: self.tag,
             value: self.value.to_vec(),
         }

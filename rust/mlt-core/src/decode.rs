@@ -3,8 +3,8 @@ use crate::MltError;
 /// Decoding counterpart to [`TryFrom`], used as a trait bound on `Decodable::DecodedType`.
 ///
 /// Mirrors the structure of [`TryFrom`] but is defined in this crate, which allows
-/// implementing it for foreign types like `Option<DecodedId>` without hitting the
-/// orphan rule that would block `impl TryFrom<Option<EncodedId<'_>>> for Option<DecodedId>`.
+/// implementing it for foreign types like `Option<ParsedId>` without hitting the
+/// orphan rule that would block `impl TryFrom<Option<RawId<'_>>> for Option<ParsedId>`.
 pub trait Decode<Input>: Sized {
     fn decode(input: Input) -> Result<Self, MltError>;
 }

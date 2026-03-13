@@ -19,7 +19,7 @@ use serde_json::{Number, Value};
 use crate::MltError;
 use crate::decode::DecodeInto as _;
 use crate::errors::AsMltError as _;
-use crate::v01::Stream;
+use crate::v01::RawStream;
 
 /// Convert f32 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
 #[must_use]
@@ -67,7 +67,7 @@ impl<T> SetOptionOnce<T> for Option<T> {
 /// If present is None (non-optional column), all values are wrapped in Some.
 /// If present is Some, values are interleaved with None according to the bitmap.
 pub fn apply_present<T>(
-    present: Option<Stream>,
+    present: Option<RawStream<'_>>,
     values: Vec<T>,
 ) -> Result<Vec<Option<T>>, MltError> {
     let present: Vec<bool> = if let Some(p) = present {

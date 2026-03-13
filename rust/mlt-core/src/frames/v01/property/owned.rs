@@ -1,30 +1,30 @@
 use super::{
-    EncodedPresence, EncodedProperty, EncodedScalar, EncodedSharedDict, EncodedSharedDictChild,
-    EncodedStrings, FsstData, NameRef, OwnedEncodedPresence, OwnedEncodedProperty,
-    OwnedEncodedScalar, OwnedEncodedSharedDict, OwnedEncodedSharedDictChild, OwnedEncodedStrings,
-    OwnedFsstData, OwnedName, OwnedPlainData, OwnedSharedDictEncoding, OwnedStringsEncoding,
-    PlainData, SharedDictEncoding, StringsEncoding,
+    EncodedFsstData, EncodedName, EncodedPlainData, EncodedPresence, EncodedProperty,
+    EncodedScalar, EncodedSharedDict, EncodedSharedDictChild, EncodedSharedDictEncoding,
+    EncodedStrings, EncodedStringsEncoding, RawFsstData, RawName, RawPlainData, RawPresence,
+    RawProperty, RawScalar, RawSharedDict, RawSharedDictChild, RawSharedDictEncoding, RawStrings,
+    RawStringsEncoding,
 };
-use crate::v01::Stream;
+use crate::v01::RawStream;
 
-impl NameRef<'_> {
+impl RawName<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedName {
-        OwnedName(self.0.to_string())
+    pub fn to_owned(&self) -> EncodedName {
+        EncodedName(self.0.to_string())
     }
 }
 
-impl EncodedPresence<'_> {
+impl RawPresence<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedEncodedPresence {
-        OwnedEncodedPresence(self.0.as_ref().map(Stream::to_owned))
+    pub fn to_owned(&self) -> EncodedPresence {
+        EncodedPresence(self.0.as_ref().map(RawStream::to_owned))
     }
 }
 
-impl EncodedSharedDictChild<'_> {
+impl RawSharedDictChild<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedEncodedSharedDictChild {
-        OwnedEncodedSharedDictChild {
+    pub fn to_owned(&self) -> EncodedSharedDictChild {
+        EncodedSharedDictChild {
             name: self.name.to_owned(),
             presence: self.presence.to_owned(),
             data: self.data.to_owned(),
@@ -32,20 +32,20 @@ impl EncodedSharedDictChild<'_> {
     }
 }
 
-impl PlainData<'_> {
+impl RawPlainData<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedPlainData {
-        OwnedPlainData {
+    pub fn to_owned(&self) -> EncodedPlainData {
+        EncodedPlainData {
             lengths: self.lengths.to_owned(),
             data: self.data.to_owned(),
         }
     }
 }
 
-impl FsstData<'_> {
+impl RawFsstData<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedFsstData {
-        OwnedFsstData {
+    pub fn to_owned(&self) -> EncodedFsstData {
+        EncodedFsstData {
             symbol_lengths: self.symbol_lengths.to_owned(),
             symbol_table: self.symbol_table.to_owned(),
             lengths: self.lengths.to_owned(),
@@ -54,30 +54,30 @@ impl FsstData<'_> {
     }
 }
 
-impl SharedDictEncoding<'_> {
+impl RawSharedDictEncoding<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedSharedDictEncoding {
+    pub fn to_owned(&self) -> EncodedSharedDictEncoding {
         match self {
-            Self::Plain(data) => OwnedSharedDictEncoding::Plain(data.to_owned()),
-            Self::FsstPlain(data) => OwnedSharedDictEncoding::FsstPlain(data.to_owned()),
+            Self::Plain(data) => EncodedSharedDictEncoding::Plain(data.to_owned()),
+            Self::FsstPlain(data) => EncodedSharedDictEncoding::FsstPlain(data.to_owned()),
         }
     }
 }
 
-impl StringsEncoding<'_> {
+impl RawStringsEncoding<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedStringsEncoding {
+    pub fn to_owned(&self) -> EncodedStringsEncoding {
         match self {
-            Self::Plain(data) => OwnedStringsEncoding::Plain(data.to_owned()),
+            Self::Plain(data) => EncodedStringsEncoding::Plain(data.to_owned()),
             Self::Dictionary {
                 plain_data,
                 offsets,
-            } => OwnedStringsEncoding::Dictionary {
+            } => EncodedStringsEncoding::Dictionary {
                 plain_data: plain_data.to_owned(),
                 offsets: offsets.to_owned(),
             },
-            Self::FsstPlain(data) => OwnedStringsEncoding::FsstPlain(data.to_owned()),
-            Self::FsstDictionary { fsst_data, offsets } => OwnedStringsEncoding::FsstDictionary {
+            Self::FsstPlain(data) => EncodedStringsEncoding::FsstPlain(data.to_owned()),
+            Self::FsstDictionary { fsst_data, offsets } => EncodedStringsEncoding::FsstDictionary {
                 fsst_data: fsst_data.to_owned(),
                 offsets: offsets.to_owned(),
             },
@@ -85,10 +85,10 @@ impl StringsEncoding<'_> {
     }
 }
 
-impl EncodedScalar<'_> {
+impl RawScalar<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedEncodedScalar {
-        OwnedEncodedScalar {
+    pub fn to_owned(&self) -> EncodedScalar {
+        EncodedScalar {
             name: self.name.to_owned(),
             presence: self.presence.to_owned(),
             data: self.data.to_owned(),
@@ -96,10 +96,10 @@ impl EncodedScalar<'_> {
     }
 }
 
-impl EncodedStrings<'_> {
+impl RawStrings<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedEncodedStrings {
-        OwnedEncodedStrings {
+    pub fn to_owned(&self) -> EncodedStrings {
+        EncodedStrings {
             name: self.name.to_owned(),
             presence: self.presence.to_owned(),
             encoding: self.encoding.to_owned(),
@@ -107,36 +107,36 @@ impl EncodedStrings<'_> {
     }
 }
 
-impl EncodedSharedDict<'_> {
+impl RawSharedDict<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedEncodedSharedDict {
-        OwnedEncodedSharedDict {
+    pub fn to_owned(&self) -> EncodedSharedDict {
+        EncodedSharedDict {
             name: self.name.to_owned(),
             encoding: self.encoding.to_owned(),
             children: self
                 .children
                 .iter()
-                .map(EncodedSharedDictChild::to_owned)
+                .map(RawSharedDictChild::to_owned)
                 .collect(),
         }
     }
 }
 
-impl EncodedProperty<'_> {
+impl RawProperty<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedEncodedProperty {
+    pub fn to_owned(&self) -> EncodedProperty {
         match self {
-            Self::Bool(s) => OwnedEncodedProperty::Bool(s.to_owned()),
-            Self::I8(s) => OwnedEncodedProperty::I8(s.to_owned()),
-            Self::U8(s) => OwnedEncodedProperty::U8(s.to_owned()),
-            Self::I32(s) => OwnedEncodedProperty::I32(s.to_owned()),
-            Self::U32(s) => OwnedEncodedProperty::U32(s.to_owned()),
-            Self::I64(s) => OwnedEncodedProperty::I64(s.to_owned()),
-            Self::U64(s) => OwnedEncodedProperty::U64(s.to_owned()),
-            Self::F32(s) => OwnedEncodedProperty::F32(s.to_owned()),
-            Self::F64(s) => OwnedEncodedProperty::F64(s.to_owned()),
-            Self::Str(s) => OwnedEncodedProperty::Str(s.to_owned()),
-            Self::SharedDict(s) => OwnedEncodedProperty::SharedDict(s.to_owned()),
+            Self::Bool(s) => EncodedProperty::Bool(s.to_owned()),
+            Self::I8(s) => EncodedProperty::I8(s.to_owned()),
+            Self::U8(s) => EncodedProperty::U8(s.to_owned()),
+            Self::I32(s) => EncodedProperty::I32(s.to_owned()),
+            Self::U32(s) => EncodedProperty::U32(s.to_owned()),
+            Self::I64(s) => EncodedProperty::I64(s.to_owned()),
+            Self::U64(s) => EncodedProperty::U64(s.to_owned()),
+            Self::F32(s) => EncodedProperty::F32(s.to_owned()),
+            Self::F64(s) => EncodedProperty::F64(s.to_owned()),
+            Self::Str(s) => EncodedProperty::Str(s.to_owned()),
+            Self::SharedDict(s) => EncodedProperty::SharedDict(s.to_owned()),
         }
     }
 }

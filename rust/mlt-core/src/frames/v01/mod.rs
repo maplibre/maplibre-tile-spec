@@ -6,8 +6,8 @@ mod optimizer;
 mod property;
 mod root;
 pub(crate) mod sort;
-pub mod source;
 pub(crate) mod stream;
+pub mod tile;
 
 pub use geometry::*;
 pub use id::*;
@@ -17,5 +17,5 @@ pub use property::*;
 #[cfg(fuzzing)]
 pub use root::LayerOrdering;
 pub use sort::SortStrategy;
-pub use source::{SourceFeature, SourceLayer01, SourceValue};
 pub use stream::*;
+pub use tile::{PropValue, TileFeature, TileLayer01};

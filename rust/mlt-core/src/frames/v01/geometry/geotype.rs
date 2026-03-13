@@ -8,7 +8,7 @@ use crate::MltError::{
 };
 use crate::geojson::{Coord32, Geom32};
 use crate::utils::AsUsize as _;
-use crate::v01::{DecodedGeometry, GeometryType};
+use crate::v01::{GeometryType, ParsedGeometry};
 
 impl GeometryType {
     #[must_use]
@@ -31,7 +31,7 @@ impl GeometryType {
     }
 }
 
-impl DecodedGeometry {
+impl ParsedGeometry {
     /// Build a `GeoJSON` geometry for a single feature at index `i`.
     /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec
     /// (MLT omits the closing vertex).
@@ -378,10 +378,10 @@ impl From<ArbitraryGeometry> for Geom32 {
 }
 
 #[cfg(all(not(test), feature = "arbitrary"))]
-impl arbitrary::Arbitrary<'_> for DecodedGeometry {
+impl arbitrary::Arbitrary<'_> for ParsedGeometry {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
         let geoms = u.arbitrary_iter::<ArbitraryGeometry>()?;
-        let mut decoded = DecodedGeometry::default();
+        let mut decoded = ParsedGeometry::default();
         for geo in geoms {
             decoded.push_geom(&Geom32::from(geo?));
         }
@@ -390,7 +390,7 @@ impl arbitrary::Arbitrary<'_> for DecodedGeometry {
 }
 
 #[cfg(all(not(test), feature = "arbitrary"))]
-impl arbitrary::Arbitrary<'_> for crate::v01::OwnedEncodedGeometry {
+impl arbitrary::Arbitrary<'_> for crate::v01::EncodedGeometry {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
         use crate::encode::FromDecoded as _;
         let decoded = u.arbitrary()?;
@@ -410,23 +410,25 @@ mod tests {
     use crate::geojson::Coord32;
     use crate::optimizer::ManualOptimisation as _;
     use crate::v01::{
-        EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, OwnedEncodedGeometry,
-        OwnedGeometry,
+        EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, RawGeometry, StagedGeometry,
     };
 
-    /// Encode, serialize, parse, and decode a `DecodedGeometry`.
+    /// Encode, serialize, parse, and decode a `ParsedGeometry`.
     /// The input must already be in the dense canonical form that `from_encoded`
     /// produces (i.e. built via a previous `roundtrip` call, not via `push_*`).
-    fn roundtrip(decoded: &DecodedGeometry, encoder: GeometryEncoder) -> DecodedGeometry {
-        let mut geom = OwnedGeometry::Decoded(decoded.clone());
+    fn roundtrip(decoded: &ParsedGeometry, encoder: GeometryEncoder) -> ParsedGeometry {
+        let mut geom = StagedGeometry::Decoded(decoded.clone());
         geom.manual_optimisation(encoder).expect("Failed to encode");
 
         // Serialize to bytes (write_to includes the stream count varint)
         let mut buffer = Vec::new();
-        geom.write_to(&mut buffer).expect("Failed to serialize");
+        geom.as_encoded()
+            .expect("should be encoded")
+            .write_to(&mut buffer)
+            .expect("Failed to serialize");
 
         // Now parse (parse expects varint stream count + streams)
-        let (remaining, parsed) = EncodedGeometry::parse(&buffer).expect("Failed to parse");
+        let (remaining, parsed) = RawGeometry::parse(&buffer).expect("Failed to parse");
         assert!(remaining.is_empty(), "Remaining bytes after parse");
 
         Geometry::Encoded(parsed)
@@ -434,7 +436,7 @@ mod tests {
             .expect("Failed to decode")
     }
 
-    /// Build a `DecodedGeometry` from a sequence of `Geom32` values via
+    /// Build a `ParsedGeometry` from a sequence of `Geom32` values via
     /// `push_geom` and perform a two-cycle encode/decode:
     ///
     /// 1. push -> encode -> decode  (`canonical`): exercises `push_geom` and
@@ -448,8 +450,8 @@ mod tests {
     fn roundtrip_via_push(
         geoms: &[Geom32],
         encoder: GeometryEncoder,
-    ) -> (DecodedGeometry, DecodedGeometry) {
-        let mut pushed = DecodedGeometry::default();
+    ) -> (ParsedGeometry, ParsedGeometry) {
+        let mut pushed = ParsedGeometry::default();
         for g in geoms {
             pushed.push_geom(g);
         }
@@ -673,16 +675,16 @@ mod tests {
     }
 
     /// Verifies that a Morton-encoded vertex dictionary is fully expanded inside `from_encoded`.
-    /// This ensures `DecodedGeometry` always holds flat `(x, y)` pairs.
+    /// This ensures `ParsedGeometry` always holds flat `(x, y)` pairs.
     #[test]
     fn test_morton_vertex_dictionary_expansion() {
         use crate::v01::{
-            DictionaryType, IntEncoder, LengthType, LogicalEncoding, MortonMeta, OffsetType,
-            OwnedStream, StreamMeta, StreamType,
+            DictionaryType, EncodedStream, IntEncoder, LengthType, LogicalEncoding, MortonMeta,
+            OffsetType, StreamMeta, StreamType,
         };
 
         // meta: single LineString
-        let meta = OwnedStream::encode_u32s_of_type(
+        let meta = EncodedStream::encode_u32s_of_type(
             &[GeometryType::LineString as u32],
             IntEncoder::varint(),
             StreamType::Length(LengthType::VarBinary),
@@ -690,7 +692,7 @@ mod tests {
         .unwrap();
 
         // parts: one LineString of length 4
-        let parts = OwnedStream::encode_u32s_of_type(
+        let parts = EncodedStream::encode_u32s_of_type(
             &[4u32],
             IntEncoder::varint(),
             StreamType::Length(LengthType::Parts),
@@ -698,7 +700,7 @@ mod tests {
         .unwrap();
 
         // vertex offsets: per-vertex indices into the Morton dictionary
-        let vertex_offsets_stream = OwnedStream::encode_u32s_of_type(
+        let vertex_offsets_stream = EncodedStream::encode_u32s_of_type(
             &[0u32, 1, 2, 1],
             IntEncoder::varint(),
             StreamType::Offset(OffsetType::Vertex),
@@ -714,7 +716,7 @@ mod tests {
             .physical
             .encode_u32s(morton_deltas)
             .unwrap();
-        let morton_dict = OwnedStream {
+        let morton_dict = EncodedStream {
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::Morton),
                 IntEncoding::new(
@@ -730,13 +732,13 @@ mod tests {
         };
 
         // Assemble, serialize, parse, decode
-        let owned = OwnedEncodedGeometry {
+        let owned = EncodedGeometry {
             meta,
             items: vec![parts, vertex_offsets_stream, morton_dict],
         };
         let mut buffer = Vec::new();
         owned.write_to(&mut buffer).unwrap();
-        let (remaining, parsed) = EncodedGeometry::parse(&buffer).unwrap();
+        let (remaining, parsed) = RawGeometry::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
         let decoded = Geometry::Encoded(parsed).decode().unwrap();
 

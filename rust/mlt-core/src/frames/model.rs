@@ -1,5 +1,5 @@
 use crate::frames::v01::Layer01;
-use crate::v01::{OwnedLayer01, SortStrategy, Tag01Encoder, Tag01Profile};
+use crate::v01::{SortStrategy, StagedLayer01, Tag01Encoder, Tag01Profile};
 
 /// A layer that can be one of the known types, or an unknown
 #[derive(Debug, PartialEq)]
@@ -15,9 +15,9 @@ pub enum Layer<'a> {
 #[derive(Debug, PartialEq, Clone)]
 #[expect(clippy::large_enum_variant)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum OwnedLayer {
-    Tag01(OwnedLayer01),
-    Unknown(OwnedUnknown),
+pub enum StagedLayer {
+    Tag01(StagedLayer01),
+    Unknown(EncodedUnknown),
 }
 
 /// Unknown layer data, stored as encoded bytes
@@ -29,7 +29,7 @@ pub struct Unknown<'a> {
 
 /// Owned variant of [`Unknown`].
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct OwnedUnknown {
+pub struct EncodedUnknown {
     pub tag: u8,
     pub value: Vec<u8>,
 }

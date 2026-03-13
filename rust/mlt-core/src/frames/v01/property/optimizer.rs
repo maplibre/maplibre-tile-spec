@@ -1,11 +1,11 @@
-//! Optimizer that analyses a batch of [`DecodedProperty`] values and produces
+//! Optimizer that analyses a batch of [`ParsedProperty`] values and produces
 //! [`Vec<PropertyEncoder>`] with near-optimal per-column encoding settings.
 //!
 //! # Pipeline
 //!
 //! 1. **Profile & Group** - compute `MinHash` signatures for string columns and
 //!    cluster similar columns into shared dictionaries using union-find.
-//! 2. **Transform** - merge grouped string columns into `DecodedProperty::SharedDict`.
+//! 2. **Transform** - merge grouped string columns into `ParsedProperty::SharedDict`.
 //! 3. **Compete & Select** - choose the best `IntEncoder` for integer columns
 //!    via `auto_u32` / `auto_u64` pruning-competition; decide between
 //!    `Plain` and `Fsst` string encodings using an FSST viability probe;
@@ -22,12 +22,12 @@ use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimis
 use crate::utils::encode_zigzag;
 use crate::v01::property::strings::{build_decoded_shared_dict, collect_shared_dict_spans};
 use crate::v01::property::{
-    DecodedProperty, DecodedSharedDict, DecodedSharedDictItem, PresenceStream, PropertyEncoder,
+    ParsedProperty, ParsedSharedDict, ParsedSharedDictItem, PresenceStream, PropertyEncoder,
     ScalarEncoder,
 };
 use crate::v01::stream::IntEncoder;
 use crate::v01::{
-    OwnedEncodedProperty, OwnedProperty, SharedDictEncoder, SharedDictItemEncoder, StrEncoder,
+    EncodedProperty, SharedDictEncoder, SharedDictItemEncoder, StagedProperty, StrEncoder,
 };
 use crate::{FromDecoded as _, MltError};
 
@@ -86,7 +86,7 @@ impl PropertyProfile {
     /// Runs `MinHash` similarity analysis over all string columns and records
     /// which column names should be grouped into shared dictionaries.
     #[must_use]
-    pub fn from_sample(properties: &[DecodedProperty<'_>]) -> Self {
+    pub fn from_sample(properties: &[ParsedProperty<'_>]) -> Self {
         let min_hash = MinHash::<IntoIter<&str>, &str>::new(MINHASH_PERMUTATIONS);
         let profiles = profile_string_columns(properties, &min_hash);
 
@@ -131,31 +131,31 @@ impl PropertyProfile {
     }
 }
 
-fn decode_all(props: &mut Vec<OwnedProperty>) -> Result<Vec<DecodedProperty<'static>>, MltError> {
+fn decode_all(props: &mut Vec<StagedProperty>) -> Result<Vec<ParsedProperty<'static>>, MltError> {
     let owned = std::mem::take(props);
     owned
         .into_iter()
         .map(|p| match p {
-            OwnedProperty::Decoded(d) => Ok(d),
-            OwnedProperty::Encoded(_) => Err(MltError::NotDecoded("property")),
+            StagedProperty::Decoded(d) => Ok(d),
+            StagedProperty::Encoded(_) => Err(MltError::NotDecoded("property")),
         })
         .collect()
 }
 
-impl ManualOptimisation for Vec<OwnedProperty> {
+impl ManualOptimisation for Vec<StagedProperty> {
     type UsedEncoder = Vec<PropertyEncoder>;
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
         let decoded = decode_all(self)?;
-        *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, encoder)?
+        *self = Vec::<EncodedProperty>::from_decoded(&decoded, encoder)?
             .into_iter()
-            .map(OwnedProperty::Encoded)
+            .map(StagedProperty::Encoded)
             .collect();
         Ok(())
     }
 }
 
-impl ProfileOptimisation for Vec<OwnedProperty> {
+impl ProfileOptimisation for Vec<StagedProperty> {
     type UsedEncoder = Vec<PropertyEncoder>;
     type Profile = PropertyProfile;
 
@@ -165,23 +165,23 @@ impl ProfileOptimisation for Vec<OwnedProperty> {
     ) -> Result<Self::UsedEncoder, MltError> {
         let mut decoded = decode_all(self)?;
         let enc = apply_profile(&mut decoded, profile);
-        *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc.clone())?
+        *self = Vec::<EncodedProperty>::from_decoded(&decoded, enc.clone())?
             .into_iter()
-            .map(OwnedProperty::Encoded)
+            .map(StagedProperty::Encoded)
             .collect();
         Ok(enc)
     }
 }
 
-impl AutomaticOptimisation for Vec<OwnedProperty> {
+impl AutomaticOptimisation for Vec<StagedProperty> {
     type UsedEncoder = Vec<PropertyEncoder>;
 
     fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
         let mut decoded = decode_all(self)?;
         let enc = optimize(&mut decoded);
-        *self = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc.clone())?
+        *self = Vec::<EncodedProperty>::from_decoded(&decoded, enc.clone())?
             .into_iter()
-            .map(OwnedProperty::Encoded)
+            .map(StagedProperty::Encoded)
             .collect();
         Ok(enc)
     }
@@ -190,8 +190,8 @@ impl AutomaticOptimisation for Vec<OwnedProperty> {
 /// Analyze `properties` and return a configured [`Vec<PropertyEncoder>`].
 ///
 /// This function mutates `properties` by combining similar string columns
-/// into `DecodedProperty::SharedDict` values.
-fn optimize(properties: &mut Vec<DecodedProperty<'_>>) -> Vec<PropertyEncoder> {
+/// into `ParsedProperty::SharedDict` values.
+fn optimize(properties: &mut Vec<ParsedProperty<'_>>) -> Vec<PropertyEncoder> {
     let profile = PropertyProfile::from_sample(properties);
     apply_profile(properties, &profile)
 }
@@ -201,7 +201,7 @@ fn optimize(properties: &mut Vec<DecodedProperty<'_>>) -> Vec<PropertyEncoder> {
 ///
 /// The same encoder selection logic as [`optimize`] is applied after grouping.
 fn apply_profile(
-    properties: &mut Vec<DecodedProperty<'_>>,
+    properties: &mut Vec<ParsedProperty<'_>>,
     profile: &PropertyProfile,
 ) -> Vec<PropertyEncoder> {
     if properties.is_empty() {
@@ -216,7 +216,7 @@ fn apply_profile(
 /// Columns present in the profile's groups but absent from this tile are
 /// silently skipped. Groups that resolve to fewer than 2 present columns are
 /// also skipped.
-fn apply_string_groups(properties: &mut Vec<DecodedProperty<'_>>, string_groups: &[Vec<String>]) {
+fn apply_string_groups(properties: &mut Vec<ParsedProperty<'_>>, string_groups: &[Vec<String>]) {
     let matched_groups: Vec<Vec<usize>> = string_groups
         .iter()
         .filter_map(|group| {
@@ -224,7 +224,7 @@ fn apply_string_groups(properties: &mut Vec<DecodedProperty<'_>>, string_groups:
                 .iter()
                 .filter_map(|name| {
                     properties.iter().position(
-                        |p| matches!(p, DecodedProperty::Str(v) if v.name == name.as_str()),
+                        |p| matches!(p, ParsedProperty::Str(v) if v.name == name.as_str()),
                     )
                 })
                 .collect();
@@ -244,14 +244,14 @@ fn apply_string_groups(properties: &mut Vec<DecodedProperty<'_>>, string_groups:
 
 /// Profile string columns by computing `MinHash` signatures.
 fn profile_string_columns(
-    properties: &[DecodedProperty<'_>],
+    properties: &[ParsedProperty<'_>],
     min_hash: &MinHash<IntoIter<&str>, &str>,
 ) -> Vec<StringProfile> {
     properties
         .iter()
         .enumerate()
         .filter_map(|(col_idx, prop)| {
-            if let DecodedProperty::Str(values) = prop {
+            if let ParsedProperty::Str(values) = prop {
                 let owned_values = values.dense_values();
                 let unique_set: HashSet<&str> = owned_values.iter().map(String::as_str).collect();
 
@@ -317,21 +317,21 @@ fn compute_string_groups(
     groups
 }
 
-/// Transform multi-member groups into [`DecodedProperty::SharedDict`].
+/// Transform multi-member groups into [`ParsedProperty::SharedDict`].
 ///
 /// For each group with 2+ members:
 /// - Computes the common prefix name
-/// - Builds [`DecodedSharedDictItem`] for each child
-/// - Replaces the first property with [`DecodedProperty::SharedDict`]
+/// - Builds [`ParsedSharedDictItem`] for each child
+/// - Replaces the first property with [`ParsedProperty::SharedDict`]
 /// - Removes the other properties from the vector
-fn merge_str_to_shared_dicts(properties: &mut Vec<DecodedProperty<'_>>, groups: &[Vec<usize>]) {
+fn merge_str_to_shared_dicts(properties: &mut Vec<ParsedProperty<'_>>, groups: &[Vec<usize>]) {
     let mut indices_to_remove: HashSet<usize> = HashSet::new();
 
     for group in groups {
         if group.len() < 2 {
             continue;
         }
-        // TODO: technically we should only be dealing with (String + DecodedStrings) pairs here
+        // TODO: technically we should only be dealing with (String + ParsedStrings) pairs here
         let names: Vec<&str> = group.iter().map(|&ci| properties[ci].name()).collect();
         let prefix = common_prefix_name(&names);
 
@@ -344,7 +344,7 @@ fn merge_str_to_shared_dicts(properties: &mut Vec<DecodedProperty<'_>>, groups: 
                     .strip_prefix(&prefix)
                     .unwrap_or(prop.name())
                     .to_owned();
-                let DecodedProperty::Str(values) = prop else {
+                let ParsedProperty::Str(values) = prop else {
                     unreachable!("group should only contain Str columns");
                 };
                 (suffix, values.to_owned())
@@ -355,7 +355,7 @@ fn merge_str_to_shared_dicts(properties: &mut Vec<DecodedProperty<'_>>, groups: 
 
         // Replace first property with SharedDict
         let first_idx = group[0];
-        properties[first_idx] = DecodedProperty::SharedDict(shared_dict);
+        properties[first_idx] = ParsedProperty::SharedDict(shared_dict);
 
         // Mark other properties for removal
         for &col_idx in &group[1..] {
@@ -372,18 +372,18 @@ fn merge_str_to_shared_dicts(properties: &mut Vec<DecodedProperty<'_>>, groups: 
 }
 
 /// Build an encoder for any property type.
-fn build_encoder(prop: &DecodedProperty<'_>) -> PropertyEncoder {
+fn build_encoder(prop: &ParsedProperty<'_>) -> PropertyEncoder {
     match prop {
-        DecodedProperty::Bool(v) => {
+        ParsedProperty::Bool(v) => {
             PropertyEncoder::Scalar(ScalarEncoder::bool(presence_stream(has_nulls(&v.values))))
         }
-        DecodedProperty::F32(v) => {
+        ParsedProperty::F32(v) => {
             PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(&v.values))))
         }
-        DecodedProperty::F64(v) => {
+        ParsedProperty::F64(v) => {
             PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(&v.values))))
         }
-        DecodedProperty::I8(v) => {
+        ParsedProperty::I8(v) => {
             let presence = presence_stream(has_nulls(&v.values));
             // FIXME: inaccurate, but encoders don't support i8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
             let non_null = v
@@ -396,7 +396,7 @@ fn build_encoder(prop: &DecodedProperty<'_>) -> PropertyEncoder {
             let enc = encode_zigzag(&non_null);
             PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
         }
-        DecodedProperty::U8(v) => {
+        ParsedProperty::U8(v) => {
             let presence = presence_stream(has_nulls(&v.values));
             // FIXME: inaccurate, but encoders don't support u8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
             let non_null: Vec<u32> = v.values.iter().flatten().copied().map(u32::from).collect();
@@ -405,13 +405,13 @@ fn build_encoder(prop: &DecodedProperty<'_>) -> PropertyEncoder {
                 IntEncoder::auto_u32(&non_null),
             ))
         }
-        DecodedProperty::I32(v) => {
+        ParsedProperty::I32(v) => {
             let presence = presence_stream(has_nulls(&v.values));
             let non_null = v.values.iter().flatten().copied().collect::<Vec<i32>>();
             let enc = encode_zigzag(&non_null);
             PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
         }
-        DecodedProperty::U32(v) => {
+        ParsedProperty::U32(v) => {
             let presence = presence_stream(has_nulls(&v.values));
             let non_null: Vec<u32> = v.values.iter().flatten().copied().collect();
             PropertyEncoder::Scalar(ScalarEncoder::int(
@@ -419,35 +419,35 @@ fn build_encoder(prop: &DecodedProperty<'_>) -> PropertyEncoder {
                 IntEncoder::auto_u32(&non_null),
             ))
         }
-        DecodedProperty::I64(v) => {
+        ParsedProperty::I64(v) => {
             let presence = presence_stream(has_nulls(&v.values));
             let non_null = &v.values.iter().flatten().copied().collect::<Vec<i64>>();
             let enc = encode_zigzag(non_null);
             PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u64(&enc)))
         }
-        DecodedProperty::U64(v) => {
+        ParsedProperty::U64(v) => {
             let non_null: Vec<u64> = v.values.iter().flatten().copied().collect();
             PropertyEncoder::Scalar(ScalarEncoder::int(
                 presence_stream(has_nulls(&v.values)),
                 IntEncoder::auto_u64(&non_null),
             ))
         }
-        DecodedProperty::Str(v) => {
+        ParsedProperty::Str(v) => {
             let presence = presence_stream(v.has_nulls());
             let owned_values = v.dense_values();
             let non_null: Vec<&str> = owned_values.iter().map(String::as_str).collect();
             scalar_str_encoder(presence, &non_null)
         }
-        DecodedProperty::SharedDict(shared_dict) => {
+        ParsedProperty::SharedDict(shared_dict) => {
             build_shared_dict_encoder(shared_dict, &shared_dict.items)
         }
     }
 }
 
-/// Build a `SharedDictEncoder` for a `DecodedProperty::SharedDict`.
+/// Build a `SharedDictEncoder` for a `ParsedProperty::SharedDict`.
 fn build_shared_dict_encoder(
-    shared_dict: &DecodedSharedDict<'_>,
-    items: &[DecodedSharedDictItem],
+    shared_dict: &ParsedSharedDict<'_>,
+    items: &[ParsedSharedDictItem],
 ) -> PropertyEncoder {
     let dict_spans = collect_shared_dict_spans(items);
     // Collect all strings for FSST viability check
@@ -488,8 +488,8 @@ fn build_shared_dict_encoder(
 /// Compute the optimal `IntEncoder` for the offset stream of one item
 /// in a shared dictionary.
 fn compute_offset_encoder(
-    items: &[DecodedSharedDictItem],
-    target_item: &DecodedSharedDictItem,
+    items: &[ParsedSharedDictItem],
+    target_item: &ParsedSharedDictItem,
 ) -> IntEncoder {
     let dict_index: HashMap<(u32, u32), u32> = collect_shared_dict_spans(items)
         .into_iter()

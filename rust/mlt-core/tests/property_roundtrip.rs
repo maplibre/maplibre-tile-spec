@@ -1,11 +1,11 @@
 use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
-    DecodedProperty, DecodedScalar, DecodedStrings, EncodedPresence, EncodedProperty,
-    EncodedScalar, EncodedSharedDict, EncodedSharedDictChild, EncodedStrings, FsstData, IntEncoder,
-    LogicalEncoder, NameRef, OwnedEncodedProperty, OwnedEncodedScalar, OwnedProperty,
-    OwnedSharedDictEncoding, OwnedStringsEncoding, PhysicalEncoder, PlainData, PresenceStream,
-    PropertyEncoder, ScalarEncoder, SharedDictEncoder, SharedDictEncoding, SharedDictItemEncoder,
-    StrEncoder, StringsEncoding, build_decoded_shared_dict,
+    EncodedProperty, EncodedScalar, EncodedSharedDictEncoding, EncodedStringsEncoding, IntEncoder,
+    LogicalEncoder, ParsedProperty, ParsedScalar, ParsedStrings, PhysicalEncoder, PresenceStream,
+    PropertyEncoder, RawFsstData, RawName, RawPlainData, RawPresence, RawProperty, RawScalar,
+    RawSharedDict, RawSharedDictChild, RawSharedDictEncoding, RawStrings, RawStringsEncoding,
+    ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedProperty, StrEncoder,
+    build_decoded_shared_dict,
 };
 use mlt_core::{Decode, MltError};
 use proptest::prelude::*;
@@ -54,9 +54,9 @@ fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
     ]
 }
 
-fn roundtrip(decoded: &DecodedProperty<'_>, encoder: ScalarEncoder) -> DecodedProperty<'static> {
+fn roundtrip(decoded: &ParsedProperty<'_>, encoder: ScalarEncoder) -> ParsedProperty<'static> {
     let owned = decoded.to_owned();
-    let mut props = vec![OwnedProperty::Decoded(owned)];
+    let mut props = vec![StagedProperty::Decoded(owned)];
     props
         .manual_optimisation(vec![PropertyEncoder::Scalar(encoder)])
         .expect("encoding failed");
@@ -66,56 +66,58 @@ fn roundtrip(decoded: &DecodedProperty<'_>, encoder: ScalarEncoder) -> DecodedPr
 /// Decode this owned property by temporarily borrowing its data.
 /// FIXME: This function should NOT exist, round-trip should go through public api
 ///   all the way to bytes and back.
-pub fn decode_for_test(prop: &OwnedProperty) -> Result<DecodedProperty<'static>, MltError> {
-    fn borrow_scalar(s: &OwnedEncodedScalar) -> EncodedScalar<'_> {
-        EncodedScalar {
-            name: NameRef(&s.name.0),
-            presence: EncodedPresence(s.presence.0.as_ref().map(|s| s.as_borrowed())),
+pub fn decode_for_test(prop: &StagedProperty) -> Result<ParsedProperty<'static>, MltError> {
+    fn borrow_scalar(s: &EncodedScalar) -> RawScalar<'_> {
+        RawScalar {
+            name: RawName(&s.name.0),
+            presence: RawPresence(s.presence.0.as_ref().map(|s| s.as_borrowed())),
             data: s.data.as_borrowed(),
         }
     }
 
     let encoded = match prop {
-        OwnedProperty::Encoded(e) => e,
-        OwnedProperty::Decoded(d) => return Ok(d.to_owned()),
+        StagedProperty::Encoded(e) => e,
+        StagedProperty::Decoded(d) => return Ok(d.to_owned()),
     };
-    let borrowed: EncodedProperty<'_> = match encoded {
-        OwnedEncodedProperty::Bool(s) => EncodedProperty::Bool(borrow_scalar(s)),
-        OwnedEncodedProperty::I8(s) => EncodedProperty::I8(borrow_scalar(s)),
-        OwnedEncodedProperty::U8(s) => EncodedProperty::U8(borrow_scalar(s)),
-        OwnedEncodedProperty::I32(s) => EncodedProperty::I32(borrow_scalar(s)),
-        OwnedEncodedProperty::U32(s) => EncodedProperty::U32(borrow_scalar(s)),
-        OwnedEncodedProperty::I64(s) => EncodedProperty::I64(borrow_scalar(s)),
-        OwnedEncodedProperty::U64(s) => EncodedProperty::U64(borrow_scalar(s)),
-        OwnedEncodedProperty::F32(s) => EncodedProperty::F32(borrow_scalar(s)),
-        OwnedEncodedProperty::F64(s) => EncodedProperty::F64(borrow_scalar(s)),
-        OwnedEncodedProperty::Str(s) => EncodedProperty::Str(EncodedStrings {
-            name: NameRef(&s.name.0),
-            presence: EncodedPresence(s.presence.0.as_ref().map(|p| p.as_borrowed())),
+    let borrowed: RawProperty<'_> = match encoded {
+        EncodedProperty::Bool(s) => RawProperty::Bool(borrow_scalar(s)),
+        EncodedProperty::I8(s) => RawProperty::I8(borrow_scalar(s)),
+        EncodedProperty::U8(s) => RawProperty::U8(borrow_scalar(s)),
+        EncodedProperty::I32(s) => RawProperty::I32(borrow_scalar(s)),
+        EncodedProperty::U32(s) => RawProperty::U32(borrow_scalar(s)),
+        EncodedProperty::I64(s) => RawProperty::I64(borrow_scalar(s)),
+        EncodedProperty::U64(s) => RawProperty::U64(borrow_scalar(s)),
+        EncodedProperty::F32(s) => RawProperty::F32(borrow_scalar(s)),
+        EncodedProperty::F64(s) => RawProperty::F64(borrow_scalar(s)),
+        EncodedProperty::Str(s) => RawProperty::Str(RawStrings {
+            name: RawName(&s.name.0),
+            presence: RawPresence(s.presence.0.as_ref().map(|p| p.as_borrowed())),
             encoding: match &s.encoding {
-                OwnedStringsEncoding::Plain(d) => StringsEncoding::Plain(PlainData {
+                EncodedStringsEncoding::Plain(d) => RawStringsEncoding::Plain(RawPlainData {
                     lengths: d.lengths.as_borrowed(),
                     data: d.data.as_borrowed(),
                 }),
-                OwnedStringsEncoding::Dictionary {
+                EncodedStringsEncoding::Dictionary {
                     plain_data,
                     offsets,
-                } => StringsEncoding::Dictionary {
-                    plain_data: PlainData {
+                } => RawStringsEncoding::Dictionary {
+                    plain_data: RawPlainData {
                         lengths: plain_data.lengths.as_borrowed(),
                         data: plain_data.data.as_borrowed(),
                     },
                     offsets: offsets.as_borrowed(),
                 },
-                OwnedStringsEncoding::FsstPlain(d) => StringsEncoding::FsstPlain(FsstData {
-                    symbol_lengths: d.symbol_lengths.as_borrowed(),
-                    symbol_table: d.symbol_table.as_borrowed(),
-                    lengths: d.lengths.as_borrowed(),
-                    corpus: d.corpus.as_borrowed(),
-                }),
-                OwnedStringsEncoding::FsstDictionary { fsst_data, offsets } => {
-                    StringsEncoding::FsstDictionary {
-                        fsst_data: FsstData {
+                EncodedStringsEncoding::FsstPlain(d) => {
+                    RawStringsEncoding::FsstPlain(RawFsstData {
+                        symbol_lengths: d.symbol_lengths.as_borrowed(),
+                        symbol_table: d.symbol_table.as_borrowed(),
+                        lengths: d.lengths.as_borrowed(),
+                        corpus: d.corpus.as_borrowed(),
+                    })
+                }
+                EncodedStringsEncoding::FsstDictionary { fsst_data, offsets } => {
+                    RawStringsEncoding::FsstDictionary {
+                        fsst_data: RawFsstData {
                             symbol_lengths: fsst_data.symbol_lengths.as_borrowed(),
                             symbol_table: fsst_data.symbol_table.as_borrowed(),
                             lengths: fsst_data.lengths.as_borrowed(),
@@ -126,32 +128,34 @@ pub fn decode_for_test(prop: &OwnedProperty) -> Result<DecodedProperty<'static>,
                 }
             },
         }),
-        OwnedEncodedProperty::SharedDict(s) => EncodedProperty::SharedDict(EncodedSharedDict {
-            name: NameRef(&s.name.0),
+        EncodedProperty::SharedDict(s) => RawProperty::SharedDict(RawSharedDict {
+            name: RawName(&s.name.0),
             encoding: match &s.encoding {
-                OwnedSharedDictEncoding::Plain(d) => SharedDictEncoding::Plain(PlainData {
+                EncodedSharedDictEncoding::Plain(d) => RawSharedDictEncoding::Plain(RawPlainData {
                     lengths: d.lengths.as_borrowed(),
                     data: d.data.as_borrowed(),
                 }),
-                OwnedSharedDictEncoding::FsstPlain(d) => SharedDictEncoding::FsstPlain(FsstData {
-                    symbol_lengths: d.symbol_lengths.as_borrowed(),
-                    symbol_table: d.symbol_table.as_borrowed(),
-                    lengths: d.lengths.as_borrowed(),
-                    corpus: d.corpus.as_borrowed(),
-                }),
+                EncodedSharedDictEncoding::FsstPlain(d) => {
+                    RawSharedDictEncoding::FsstPlain(RawFsstData {
+                        symbol_lengths: d.symbol_lengths.as_borrowed(),
+                        symbol_table: d.symbol_table.as_borrowed(),
+                        lengths: d.lengths.as_borrowed(),
+                        corpus: d.corpus.as_borrowed(),
+                    })
+                }
             },
             children: s
                 .children
                 .iter()
-                .map(|c| EncodedSharedDictChild {
-                    name: NameRef(&c.name.0),
-                    presence: EncodedPresence(c.presence.0.as_ref().map(|s| s.as_borrowed())),
+                .map(|c| RawSharedDictChild {
+                    name: RawName(&c.name.0),
+                    presence: RawPresence(c.presence.0.as_ref().map(|s| s.as_borrowed())),
                     data: c.data.as_borrowed(),
                 })
                 .collect(),
         }),
     };
-    Ok(<DecodedProperty<'_> as Decode<EncodedProperty<'_>>>::decode(borrowed)?.to_owned())
+    Ok(<ParsedProperty<'_> as Decode<RawProperty<'_>>>::decode(borrowed)?.to_owned())
 }
 
 fn strs(vals: &[&str]) -> Vec<Option<String>> {
@@ -164,11 +168,11 @@ fn opt_strs(vals: &[Option<&str>]) -> Vec<Option<String>> {
 
 fn shared_dict_prop(
     name: &str,
-    children: Vec<(String, DecodedStrings<'static>)>,
-) -> DecodedProperty<'static> {
+    children: Vec<(String, ParsedStrings<'static>)>,
+) -> ParsedProperty<'static> {
     let shared_dict =
         build_decoded_shared_dict(name.to_string(), children).expect("build shared dict");
-    DecodedProperty::SharedDict(shared_dict)
+    ParsedProperty::SharedDict(shared_dict)
 }
 
 fn struct_encode_and_decode(
@@ -177,11 +181,11 @@ fn struct_encode_and_decode(
     presence: PresenceStream,
     offset_encoder: IntEncoder,
     dict_encoder: StrEncoder,
-) -> DecodedProperty<'static> {
-    // Build a single DecodedProperty::SharedDict
+) -> ParsedProperty<'static> {
+    // Build a single ParsedProperty::SharedDict
     let items = children
         .iter()
-        .map(|(suffix, values)| ((*suffix).to_string(), DecodedStrings::from(values.clone())))
+        .map(|(suffix, values)| ((*suffix).to_string(), ParsedStrings::from(values.clone())))
         .collect();
     let decoded = shared_dict_prop(struct_name, items);
 
@@ -198,7 +202,7 @@ fn struct_encode_and_decode(
         items: item_encoders,
     };
 
-    let mut properties = vec![OwnedProperty::Decoded(decoded)];
+    let mut properties = vec![StagedProperty::Decoded(decoded)];
     properties
         .manual_optimisation(vec![shared_enc.into()])
         .expect("encoding failed");
@@ -216,7 +220,7 @@ macro_rules! integer_roundtrip_proptests {
                 values in prop::collection::vec(prop::option::of(any::<$ty>()), 0..100),
                 enc in $int_encoder,
             ) {
-                let prop = DecodedProperty::$variant(DecodedScalar::new("x".to_string(), values));
+                let prop = ParsedProperty::$variant(ParsedScalar::new("x".to_string(), values));
                 let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
                 prop_assert_eq!(roundtrip(&prop, scalar_enc), prop);
             }
@@ -227,7 +231,7 @@ macro_rules! integer_roundtrip_proptests {
                 enc in $int_encoder,
             ) {
                 let opt: Vec<Option<$ty>> = values.into_iter().map(Some).collect();
-                let prop = DecodedProperty::$variant(DecodedScalar::new("x".to_string(), opt));
+                let prop = ParsedProperty::$variant(ParsedScalar::new("x".to_string(), opt));
                 let scalar_enc = ScalarEncoder::int(PresenceStream::Absent, enc);
                 prop_assert_eq!(roundtrip(&prop, scalar_enc), prop);
             }
@@ -258,7 +262,7 @@ integer_roundtrip_proptests!(
 
 #[test]
 fn bool_specific_values() {
-    let prop = DecodedProperty::bool(
+    let prop = ParsedProperty::bool(
         "active",
         vec![Some(true), None, Some(false), Some(true), None],
     );
@@ -270,7 +274,7 @@ fn bool_specific_values() {
 
 #[test]
 fn bool_all_null() {
-    let prop = DecodedProperty::bool("active", vec![None, None, None]);
+    let prop = ParsedProperty::bool("active", vec![None, None, None]);
     assert_eq!(
         roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present)),
         prop
@@ -282,7 +286,7 @@ proptest! {
     fn bool_roundtrip(
         values in prop::collection::vec(prop::option::of(any::<bool>()), 0..100),
     ) {
-        let prop = DecodedProperty::bool("flag", values);
+        let prop = ParsedProperty::bool("flag", values);
         prop_assert_eq!(roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present)), prop);
     }
 }
@@ -296,7 +300,7 @@ proptest! {
             0..100,
         ),
     ) {
-        let prop = DecodedProperty::f32("score", values);
+        let prop = ParsedProperty::f32("score", values);
         prop_assert_eq!(roundtrip(&prop, ScalarEncoder::float(PresenceStream::Present)), prop);
     }
 
@@ -307,14 +311,14 @@ proptest! {
             0..100,
         ),
     ) {
-        let prop = DecodedProperty::f64("score", values);
+        let prop = ParsedProperty::f64("score", values);
         prop_assert_eq!(roundtrip(&prop, ScalarEncoder::float(PresenceStream::Present)), prop);
     }
 }
 
 #[test]
 fn str_scalar_with_nulls() {
-    let prop = DecodedProperty::str(
+    let prop = ParsedProperty::str(
         "city",
         opt_strs(&[Some("Berlin"), None, Some("Hamburg"), None]),
     );
@@ -324,14 +328,14 @@ fn str_scalar_with_nulls() {
 
 #[test]
 fn str_scalar_all_null() {
-    let prop = DecodedProperty::str("city", opt_strs(&[None, None, None]));
+    let prop = ParsedProperty::str("city", opt_strs(&[None, None, None]));
     let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
     assert_eq!(roundtrip(&prop, enc), prop);
 }
 
 #[test]
 fn str_scalar_empty() {
-    let prop = DecodedProperty::str("unused", vec![]);
+    let prop = ParsedProperty::str("unused", vec![]);
     let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
     assert_eq!(roundtrip(&prop, enc), prop);
 }
@@ -344,7 +348,7 @@ proptest! {
             0..50,
         ),
     ) {
-        let prop = DecodedProperty::str("name", values);
+        let prop = ParsedProperty::str("name", values);
         let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
         prop_assert_eq!(roundtrip(&prop, enc), prop);
     }
@@ -358,7 +362,7 @@ fn fsst_scalar_string_roundtrip() {
         IntEncoder::plain(),
         IntEncoder::plain(),
     );
-    let prop = DecodedProperty::str(
+    let prop = ParsedProperty::str(
         "name",
         strs(&["Berlin", "Brandenburg", "Bremen", "Braunschweig"]),
     );
@@ -377,7 +381,7 @@ fn fsst_struct_shared_dict_roundtrip() {
         StrEncoder::plain(IntEncoder::plain()),
     );
     assert_eq!(result.name(), "name");
-    let DecodedProperty::SharedDict(shared_dict) = &result else {
+    let ParsedProperty::SharedDict(shared_dict) = &result else {
         panic!("Expected SharedDict");
     };
     let items = &shared_dict.items;
@@ -400,7 +404,7 @@ fn struct_with_nulls() {
         StrEncoder::plain(IntEncoder::plain()),
     );
     assert_eq!(result.name(), "name");
-    let DecodedProperty::SharedDict(shared_dict) = &result else {
+    let ParsedProperty::SharedDict(shared_dict) = &result else {
         panic!("Expected SharedDict");
     };
     let items = &shared_dict.items;
@@ -418,11 +422,11 @@ fn struct_shared_dict_inline_ranges_track_nulls_and_empty_strings() {
     let prop = shared_dict_prop(
         "name",
         vec![
-            (":de".to_string(), DecodedStrings::from(de.clone())),
-            (":en".to_string(), DecodedStrings::from(en.clone())),
+            (":de".to_string(), ParsedStrings::from(de.clone())),
+            (":en".to_string(), ParsedStrings::from(en.clone())),
         ],
     );
-    let DecodedProperty::SharedDict(shared_dict) = &prop else {
+    let ParsedProperty::SharedDict(shared_dict) = &prop else {
         panic!("Expected SharedDict");
     };
     let items = &shared_dict.items;
@@ -453,7 +457,7 @@ fn struct_no_nulls() {
         StrEncoder::plain(IntEncoder::plain()),
     );
     assert_eq!(result.name(), "name");
-    let DecodedProperty::SharedDict(shared_dict) = &result else {
+    let ParsedProperty::SharedDict(shared_dict) = &result else {
         panic!("Expected SharedDict");
     };
     let items = &shared_dict.items;
@@ -472,7 +476,7 @@ fn struct_shared_dict_deduplication() {
         IntEncoder::plain(),
         StrEncoder::plain(IntEncoder::plain()),
     );
-    let DecodedProperty::SharedDict(shared_dict) = &result else {
+    let ParsedProperty::SharedDict(shared_dict) = &result else {
         panic!("Expected SharedDict");
     };
     let items = &shared_dict.items;
@@ -485,13 +489,13 @@ fn struct_mixed_with_scalars() {
     let enc = IntEncoder::plain();
     let str_enc = StrEncoder::plain(enc);
     let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
-    let population = DecodedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let population = ParsedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
     let name_shared = shared_dict_prop(
         "name:",
         vec![
             (
                 "de".to_string(),
-                DecodedStrings::from(
+                ParsedStrings::from(
                     strs(&["Berlin", "Hamburg"])
                         .into_iter()
                         .flatten()
@@ -500,7 +504,7 @@ fn struct_mixed_with_scalars() {
             ),
             (
                 "en".to_string(),
-                DecodedStrings::from(
+                ParsedStrings::from(
                     strs(&["Berlin", "Hamburg"])
                         .into_iter()
                         .flatten()
@@ -509,7 +513,7 @@ fn struct_mixed_with_scalars() {
             ),
         ],
     );
-    let rank = DecodedProperty::u32("rank", vec![Some(1), Some(2)]);
+    let rank = ParsedProperty::u32("rank", vec![Some(1), Some(2)]);
 
     let props = vec![population.clone(), name_shared.clone(), rank.clone()];
     let prop_encs = vec![
@@ -530,7 +534,7 @@ fn struct_mixed_with_scalars() {
         .into(),
         PropertyEncoder::Scalar(scalar_enc),
     ];
-    let mut encoded: Vec<OwnedProperty> = props.into_iter().map(OwnedProperty::Decoded).collect();
+    let mut encoded: Vec<StagedProperty> = props.into_iter().map(StagedProperty::Decoded).collect();
     encoded.manual_optimisation(prop_encs).unwrap();
 
     // Output order: scalar "population", struct "name:", scalar "rank"
@@ -538,7 +542,7 @@ fn struct_mixed_with_scalars() {
     assert_eq!(decode_for_test(&encoded[0]).unwrap(), population);
     let name = decode_for_test(&encoded[1]).unwrap();
     assert_eq!(name.name(), "name:");
-    let DecodedProperty::SharedDict(shared_dict) = &name else {
+    let ParsedProperty::SharedDict(shared_dict) = &name else {
         panic!("Expected SharedDict");
     };
     let items = &shared_dict.items;
@@ -562,7 +566,7 @@ fn two_struct_groups_with_scalar_between() {
         vec![
             (
                 "de".to_string(),
-                DecodedStrings::from(
+                ParsedStrings::from(
                     strs(&["Berlin", "Hamburg"])
                         .into_iter()
                         .flatten()
@@ -571,7 +575,7 @@ fn two_struct_groups_with_scalar_between() {
             ),
             (
                 "en".to_string(),
-                DecodedStrings::from(
+                ParsedStrings::from(
                     strs(&["Berlin", "Hamburg"])
                         .into_iter()
                         .flatten()
@@ -580,13 +584,13 @@ fn two_struct_groups_with_scalar_between() {
             ),
         ],
     );
-    let population = DecodedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let population = ParsedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
     let label_shared = shared_dict_prop(
         "label:",
         vec![
             (
                 "de".to_string(),
-                DecodedStrings::from(
+                ParsedStrings::from(
                     strs(&["BE", "HH"])
                         .into_iter()
                         .flatten()
@@ -595,7 +599,7 @@ fn two_struct_groups_with_scalar_between() {
             ),
             (
                 "en".to_string(),
-                DecodedStrings::from(
+                ParsedStrings::from(
                     strs(&["BER", "HAM"])
                         .into_iter()
                         .flatten()
@@ -612,9 +616,9 @@ fn two_struct_groups_with_scalar_between() {
     ];
     let enc = IntEncoder::plain();
     let str_enc = StrEncoder::plain(IntEncoder::plain());
-    let mut encoded: Vec<OwnedProperty> = decoded_props
+    let mut encoded: Vec<StagedProperty> = decoded_props
         .into_iter()
-        .map(OwnedProperty::Decoded)
+        .map(StagedProperty::Decoded)
         .collect();
     encoded
         .manual_optimisation(vec![
@@ -654,7 +658,7 @@ fn two_struct_groups_with_scalar_between() {
     assert_eq!(encoded.len(), 3);
     let name = decode_for_test(&encoded[0]).unwrap();
     assert_eq!(name.name(), "name:");
-    let DecodedProperty::SharedDict(name_shared_dict) = &name else {
+    let ParsedProperty::SharedDict(name_shared_dict) = &name else {
         panic!("Expected SharedDict");
     };
     let name_items = &name_shared_dict.items;
@@ -671,7 +675,7 @@ fn two_struct_groups_with_scalar_between() {
     assert_eq!(decode_for_test(&encoded[1]).unwrap(), population);
     let label = decode_for_test(&encoded[2]).unwrap();
     assert_eq!(label.name(), "label:");
-    let DecodedProperty::SharedDict(label_shared_dict) = &label else {
+    let ParsedProperty::SharedDict(label_shared_dict) = &label else {
         panic!("Expected SharedDict");
     };
     let label_items = &label_shared_dict.items;
@@ -689,7 +693,7 @@ fn two_struct_groups_with_scalar_between() {
 
 #[test]
 fn struct_instruction_count_mismatch() {
-    let mut properties = vec![OwnedProperty::Decoded(DecodedProperty::default())];
+    let mut properties = vec![StagedProperty::Decoded(ParsedProperty::default())];
     let err = properties.manual_optimisation(vec![]).unwrap_err();
     assert!(
         matches!(
@@ -729,7 +733,7 @@ proptest! {
             string_enc,
         );
         prop_assert_eq!(result.name(), struct_name.as_str());
-        let DecodedProperty::SharedDict(shared_dict) = result else {
+        let ParsedProperty::SharedDict(shared_dict) = result else {
             return Err(TestCaseError::Fail("Expected SharedDict".into()));
         };
         let items = &shared_dict.items;

@@ -1,7 +1,7 @@
 use hex::ToHex as _;
-use mlt_core::frames::OwnedUnknown;
-use mlt_core::v01::OwnedLayer01;
-use mlt_core::{Layer, OwnedLayer};
+use mlt_core::frames::EncodedUnknown;
+use mlt_core::v01::{EncodedGeometry, StagedLayer01};
+use mlt_core::{Layer, StagedLayer};
 
 #[derive(arbitrary::Arbitrary)]
 pub struct LayerInput {
@@ -44,8 +44,8 @@ impl LayerInput {
     }
 
     /// We try to remove prefixes of serialized things that we know are good
-    pub(crate) fn minimize_unequal_but_debug_equal(input: &OwnedLayer, output: &OwnedLayer) -> ! {
-        use OwnedLayer as OL;
+    pub(crate) fn minimize_unequal_but_debug_equal(input: &StagedLayer, output: &StagedLayer) -> ! {
+        use StagedLayer as OL;
         match (input, output) {
             (OL::Tag01(input), OL::Tag01(output)) => {
                 minimize_layer1_unequal_but_debug_equal(input, output)
@@ -60,7 +60,7 @@ impl LayerInput {
     }
 
     /// If the diff shows up in the debug output, this is very much simpler to debug
-    pub(crate) fn try_panic_if_debug_is_different(input: &OwnedLayer, output: &OwnedLayer) {
+    pub(crate) fn try_panic_if_debug_is_different(input: &StagedLayer, output: &StagedLayer) {
         pretty_assertions::assert_eq!(
             format!("{input:#?}"),
             format!("{output:#?}"),
@@ -75,7 +75,7 @@ impl LayerInput {
     }
 }
 
-fn panic_with_helpful_diff(input: &[u8], output: &[u8], parsed_input: &OwnedLayer) -> ! {
+fn panic_with_helpful_diff(input: &[u8], output: &[u8], parsed_input: &StagedLayer) -> ! {
     print_hex_diff(input, output);
     let (_, out) = Layer::parse(input).unwrap_or_else(|e| {
         panic!(
@@ -100,8 +100,8 @@ fn panic_with_helpful_diff(input: &[u8], output: &[u8], parsed_input: &OwnedLaye
     }
 }
 
-fn minimize_layer1_unequal_but_debug_equal(input: &OwnedLayer01, output: &OwnedLayer01) -> ! {
-    let OwnedLayer01 {
+fn minimize_layer1_unequal_but_debug_equal(input: &StagedLayer01, output: &StagedLayer01) -> ! {
+    let StagedLayer01 {
         name,
         extent,
         id,
@@ -132,8 +132,8 @@ fn minimize_layer1_unequal_but_debug_equal(input: &OwnedLayer01, output: &OwnedL
     unreachable!("all props are compared equal, but the outer does not compare equal");
 }
 
-fn minimize_unknown_inequal_but_debug_equal(input: &OwnedUnknown, output: &OwnedUnknown) -> ! {
-    let OwnedUnknown { value, tag } = input;
+fn minimize_unknown_inequal_but_debug_equal(input: &EncodedUnknown, output: &EncodedUnknown) -> ! {
+    let EncodedUnknown { value, tag } = input;
     assert_eq!(*tag, output.tag, "Unknown tag with different tags");
     assert_eq!(*value, output.value, "Unknown tag with different values");
     unreachable!("all props are compared equal, but the outer does not compare equal");
@@ -164,12 +164,12 @@ fn print_hex_diff(input: &[u8], output: &[u8]) {
     );
 }
 
-fn print_corresponding_bytes(layer: OwnedLayer) {
+fn print_corresponding_bytes(layer: StagedLayer) {
     println!("DEBUG - Here is what the layer looks like as bytes.");
     println!("IMPORTANT: ordering is arbitrary and does not match MLT");
     match layer {
-        OwnedLayer::Tag01(l1) => {
-            let OwnedLayer01 {
+        StagedLayer::Tag01(l1) => {
+            let StagedLayer01 {
                 name,
                 extent,
                 id,
@@ -189,33 +189,33 @@ fn print_corresponding_bytes(layer: OwnedLayer) {
                 println!("layer id: {id:?}");
                 if let Some(ref id) = id {
                     let mut metadata = Vec::new();
-                    id.write_columns_meta_to(&mut metadata).unwrap();
+                    id.as_encoded().unwrap().write_columns_meta_to(&mut metadata).unwrap();
                     println!("\tlayer id metadata: {}", metadata.encode_hex::<String>());
                     let mut data = Vec::new();
-                    id.write_to(&mut data).unwrap();
+                    id.as_encoded().unwrap().write_to(&mut data).unwrap();
                     println!("\tlayer id data: {}", data.encode_hex::<String>());
                 }
             }
             for (i, prop) in properties.iter().enumerate() {
                 println!("{i}. property -> {prop:?}");
                 let mut metadata = Vec::new();
-                prop.write_columns_meta_to(&mut metadata).unwrap();
+                prop.as_encoded().unwrap().write_columns_meta_to(&mut metadata).unwrap();
                 println!("\tprop metadata: {}", metadata.encode_hex::<String>());
                 let mut buf = Vec::new();
-                prop.write_to(&mut buf).unwrap();
+                prop.as_encoded().unwrap().write_to(&mut buf).unwrap();
                 println!("\tprop data: {}", buf.encode_hex::<String>());
             }
             {
                 println!("{geometry:?}");
                 let mut metadata = Vec::new();
-                geometry.write_columns_meta_to(&mut metadata).unwrap();
+                EncodedGeometry::write_columns_meta_to(&mut metadata).unwrap();
                 println!("\tprop metadata: {}", metadata.encode_hex::<String>());
                 let mut buf = Vec::new();
-                geometry.write_to(&mut buf).unwrap();
+                geometry.as_encoded().unwrap().write_to(&mut buf).unwrap();
                 println!("\tgeometry data: {}", buf.encode_hex::<String>());
             }
         }
-        OwnedLayer::Unknown(u) => {
+        StagedLayer::Unknown(u) => {
             println!("tag: {}", u.tag);
             println!("value: {}", u.value.encode_hex::<String>());
         }

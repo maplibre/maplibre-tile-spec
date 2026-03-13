@@ -4,21 +4,14 @@ use integer_encoding::VarIntWriter as _;
 
 use crate::MltError;
 use crate::utils::{BinarySerializer as _, checked_sum3};
-use crate::v01::{ColumnType, OwnedEncodedProperty, OwnedProperty, PropertyKind};
+use crate::v01::{ColumnType, EncodedProperty, PropertyKind, StagedProperty};
 
-impl OwnedProperty {
-    #[doc(hidden)]
-    pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+impl StagedProperty {
+    /// Return the inner [`EncodedProperty`] if this is in the `Encoded` state,
+    /// or an error if it still needs to be encoded first.
+    pub fn as_encoded(&self) -> Result<&EncodedProperty, MltError> {
         match self {
-            Self::Encoded(r) => r.write_columns_meta_to(writer),
-            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
-        }
-    }
-
-    #[doc(hidden)]
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        match self {
-            Self::Encoded(r) => r.write_to(writer),
+            Self::Encoded(r) => Ok(r),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -32,7 +25,7 @@ impl OwnedProperty {
     }
 }
 
-impl OwnedEncodedProperty {
+impl EncodedProperty {
     pub(super) fn kind(&self) -> PropertyKind {
         use PropertyKind as T;
         match self {
@@ -49,7 +42,7 @@ impl OwnedEncodedProperty {
         }
     }
 
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         let col_type = match self {
             Self::Bool(s) => {
                 if s.presence.0.is_some() {
@@ -152,7 +145,7 @@ impl OwnedEncodedProperty {
         Ok(())
     }
 
-    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::Bool(s) => {
                 writer.write_optional_stream(s.presence.0.as_ref())?;

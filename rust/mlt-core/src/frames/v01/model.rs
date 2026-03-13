@@ -1,6 +1,6 @@
 use num_enum::TryFromPrimitive;
 
-use crate::v01::{Geometry, Id, OwnedGeometry, OwnedId, OwnedProperty, Property};
+use crate::v01::{Geometry, Id, Property, StagedGeometry, StagedId, StagedProperty};
 
 /// Column definition
 #[derive(Debug, PartialEq)]
@@ -68,12 +68,12 @@ pub struct Layer01<'a> {
     all(not(test), not(fuzzing), feature = "arbitrary"),
     derive(arbitrary::Arbitrary)
 )]
-pub struct OwnedLayer01 {
+pub struct StagedLayer01 {
     pub name: String,
     pub extent: u32,
-    pub id: Option<OwnedId>,
-    pub geometry: OwnedGeometry,
-    pub properties: Vec<OwnedProperty>,
+    pub id: Option<StagedId>,
+    pub geometry: StagedGeometry,
+    pub properties: Vec<StagedProperty>,
     #[cfg(fuzzing)]
     pub layer_order: Vec<crate::frames::v01::root::LayerOrdering>,
 }

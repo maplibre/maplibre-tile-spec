@@ -60,37 +60,44 @@ For any new features and encodings we will simply use a new tag ID, likely reusi
     - TODO...
 
 ## Code Structure
-Given the encoded input bytes, the parser quickly runs over the input slice and only stores references to the streams and their metadata.
-Later, decoding can be done on-demand, either for all columns, or just for the specific ones needed.
-This example is for `Id`, but the same idea applies to `Geometry`, and `Property` entities.
 
-To avoid decoding everything eagerly, the library keeps a clear split between
-borrowed parsed views and explicit owned mirrors:
-* **`EncodedId` struct** contains references into the original input data.
-  The values are not decoded, just some metadata is parsed. Most data is stored as `Stream<'a>` instances, which hold references to parts of the original input and are tied to the input lifetime.
-* **`OwnedEncodedId` struct** mirrors `EncodedId`, but owns its buffers and nested streams.
-  This is useful when you want to store an `EncodedId` struct beyond the lifetime of the original input slice, or when you want to modify it or store the result of the encoding before storing it into a file.
-* **`DecodedId` struct** is used to store the decoded value.
-  At the moment, only `DecodedGeometry` is implemented, but the same idea applies to other entities.
-  The decoded values are stored in standard Rust types, e.g. `Vec<u64>` for IDs.
-* **`Id` enum** contains `Encoded(EncodedId)` and `Decoded(DecodedId)` variants, with values described above.
-  This allows in-place decoding, e.g. it is possible to decode just one property column / ID / Geometry, while keeping the rest in their encoded form.
-  The enum also has a corresponding owned `OwnedId`.
+All data flowing through `mlt-core` follows a five-stage pipeline:
+
+```text
+RawBytes ──► Raw* ──► Parsed* ──► TileLayer* / TileFeature / PropValue ──► Staged* ──► Encoded* ──► RawBytes
+```
+
+Given the encoded input bytes, the parser quickly runs over the input slice and only stores references
+to the streams and their metadata. Later, decoding can be done on-demand.
+This example is for `Id`, but the same idea applies to `Geometry` and `Property` entities.
+
+To avoid decoding everything eagerly, the library keeps a clear split between stages:
+
+* **`RawId<'a>` struct** — zero-copy: contains only references (`&'a [u8]`) into the original input.
+  No memory is allocated; values are not decoded, just stream metadata is parsed.
+  Backed by `RawStream<'a>` instances tied to the input lifetime.
+* **`ParsedId` struct** — owns its decoded values as standard Rust types (e.g. `Vec<Option<u64>>`).
+  Produced by calling `decode()` on a `Raw*` type or `Id<'a>` enum.
+* **`EncodedId` struct** — wire-ready owned byte buffers produced by the encoding pipeline.
+  Can be serialized directly to a file or network stream.
+* **`Id<'a>` type alias** (`EncDec<RawId<'a>, ParsedId>`) — holds data in either raw-bytes or
+  decoded form, enabling lazy in-place decoding of individual columns while leaving others raw.
+* **`StagedId` type alias** (`EncDec<EncodedId, ParsedId>`) — used by the optimizer pipeline to
+  hold data that is either decoded (awaiting encoding) or already encoded (ready to write).
 
 **Decoding** is done through concrete methods on the column enum types and on the layer itself:
 
 - `Geometry::decode()`, `Id::decode()`, `Property::decode()` — consume the column enum and return
-  the decoded form. Useful when you have already parsed a layer and want to decode a single column.
-- `OwnedEncodedGeometry::decode()` — decodes an owned encoded geometry directly, without going
-  through the enum.
+  the decoded (`Parsed*`) form. Useful when you have already parsed a layer and want to decode a
+  single column.
 - `layer.decode_{geometry, id}()` — decodes only the specific columns of a layer in place,
-  leaving properties in their encoded form for lazy access. This is the recommended entry point when
+  leaving properties in their raw form for lazy access. This is the recommended entry point when
   you need geometry for rendering but want to defer property decoding.
 - `layer.decode_all()` — decodes every column of a layer in place. Use this when you need full
   access to all properties.
 
-**Encoding** (re-encoding decoded data, e.g. after mutation or for storage) is performed through the
-optimiser traits in `mlt_core::optimizer`:
+**Encoding** (encoding `Parsed*` data into wire format for storage or transmission) is performed
+through the optimizer traits in `mlt_core::optimizer`:
 
 - `ManualOptimisation::manual_optimisation(encoder)` — encodes in place using an explicitly
   supplied encoder configuration. Suitable when you already know the best encoding for your data.
@@ -101,8 +108,11 @@ optimiser traits in `mlt_core::optimizer`:
   `GeometryProfile` / `IdProfile` / `PropertyProfile` built from a representative sample of tiles.
   This avoids the full probe pass on every tile while still adapting to the actual data.
 
-After any of the above encoding steps, `Encodable::borrow_encoded()` provides read-only access to
-the resulting encoded form.
+After any encoding step, call `write_to(&mut writer)` on the resulting `Encoded*` type (or the
+`Staged*` wrapper) to serialize to bytes.
+
+See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for a full description of the naming conventions and
+the five-stage pipeline.
 
 ## Tools
 
