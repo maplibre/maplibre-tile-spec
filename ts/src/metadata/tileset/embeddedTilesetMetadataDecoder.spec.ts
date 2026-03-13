@@ -192,6 +192,19 @@ describe("embeddedTilesetMetadataDecoder", () => {
                     decodeField(buffer, new IntWrapper(0));
                 }).toThrow("Unsupported field type code 999. Supported: 10-29(scalars), 30(STRUCT)");
             });
+
+            it("should throw on truncated field name bytes and restore the string offset", () => {
+                const buffer = concatenateBuffers(
+                    encodeTypeCode(scalarTypeCode(ScalarType.STRING, false)),
+                    new Uint8Array([4, 0x74, 0x65]),
+                );
+                const offset = new IntWrapper(0);
+
+                expect(() => decodeField(buffer, offset)).toThrow(
+                    /truncated embedded tileset metadata while reading string bytes/,
+                );
+                expect(offset.get()).toBe(1);
+            });
         });
     });
 

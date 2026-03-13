@@ -19,7 +19,7 @@ import { Int32SequenceVector } from "./vector/sequence/int32SequenceVector";
 import { Int64FlatVector } from "./vector/flat/int64FlatVector";
 import { Int64SequenceVector } from "./vector/sequence/int64SequenceVector";
 import type { IdVector } from "./vector/idVector";
-import { decodeVarintInt32 } from "./decoding/integerDecodingUtils";
+import { decodeVarintInt32Value } from "./decoding/integerDecodingUtils";
 import { decodeGeometryColumn } from "./decoding/geometryDecoder";
 import { decodePropertyColumn } from "./decoding/propertyDecoder";
 import { Int32ConstVector } from "./vector/constant/int32ConstVector";
@@ -51,14 +51,14 @@ export default function decodeTile(
     const featureTables: FeatureTable[] = [];
 
     while (offset.get() < tile.length) {
-        const blockLength = decodeVarintInt32(tile, offset, 1)[0] >>> 0;
+        const blockLength = decodeVarintInt32Value(tile, offset) >>> 0;
         const blockStart = offset.get();
         const blockEnd = blockStart + blockLength;
         if (blockEnd > tile.length) {
             throw new Error(`Block overruns tile: ${blockEnd} > ${tile.length}`);
         }
 
-        const tag = decodeVarintInt32(tile, offset, 1)[0] >>> 0;
+        const tag = decodeVarintInt32Value(tile, offset) >>> 0;
         if (tag !== 1) {
             // Skip unknown block types
             offset.set(blockEnd);
@@ -106,7 +106,7 @@ export default function decodeTile(
                     idWithinMaxSafeInteger,
                 );
             } else if (isGeometryColumn(columnMetadata)) {
-                const numStreams = decodeVarintInt32(tile, offset, 1)[0];
+                const numStreams = decodeVarintInt32Value(tile, offset);
 
                 // If no ID column, get numFeatures from geometry type stream metadata
                 if (numFeatures === 0) {
@@ -123,7 +123,7 @@ export default function decodeTile(
                 geometryVector = decodeGeometryColumn(tile, numStreams, offset, numFeatures, geometryScaling);
             } else {
                 const columnHasStreamCount = hasStreamCount(columnMetadata);
-                const numStreams = columnHasStreamCount ? decodeVarintInt32(tile, offset, 1)[0] : 1;
+                const numStreams = columnHasStreamCount ? decodeVarintInt32Value(tile, offset) : 1;
 
                 if (numStreams === 0) {
                     continue;

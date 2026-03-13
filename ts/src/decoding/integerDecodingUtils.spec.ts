@@ -4,6 +4,7 @@ import {
     decodeFastPfor,
     decodeFastPforWithWorkspace,
     decodeVarintInt32,
+    decodeVarintInt32Value,
     decodeVarintInt64,
     decodeVarintFloat64,
     decodeZigZagInt32,
@@ -34,6 +35,7 @@ import {
 } from "./integerDecodingUtils";
 import IntWrapper from "./intWrapper";
 import {
+    encodeVarintInt32Value,
     encodeVarintInt32,
     encodeVarintInt64,
     encodeDeltaInt32,
@@ -62,11 +64,45 @@ import {
 
 describe("IntegerDecodingUtils", () => {
     describe("Varint decoding", () => {
+        it("should decode single-byte Int32 values", () => {
+            const encoded = encodeVarintInt32(new Uint32Array([42]));
+            const offset = new IntWrapper(0);
+
+            const decoded = decodeVarintInt32(encoded, offset, 1);
+
+            expect(decoded[0]).toEqual(42);
+            expect(offset.get()).toBe(encoded.length);
+        });
+
         it("should decode Int32", () => {
             const value = 2 ** 10;
             const encoded = encodeVarintInt32(new Uint32Array([value]));
-            const decoded = decodeVarintInt32(encoded, new IntWrapper(0), 1);
+            const offset = new IntWrapper(0);
+            const decoded = decodeVarintInt32(encoded, offset, 1);
             expect(decoded[0]).toEqual(value);
+            expect(offset.get()).toBe(encoded.length);
+        });
+
+        it("should decode multi-byte Int32 values", () => {
+            const value = 0xffffffff;
+            const encoded = encodeVarintInt32(new Uint32Array([value]));
+            const offset = new IntWrapper(0);
+
+            const decoded = decodeVarintInt32(encoded, offset, 1);
+
+            expect(decoded[0]).toEqual(value);
+            expect(offset.get()).toBe(encoded.length);
+        });
+
+        it("should decode a scalar Int32 varint value", () => {
+            const value = 0xffffffff;
+            const encoded = encodeVarintInt32(new Uint32Array([value]));
+            const offset = new IntWrapper(0);
+
+            const decoded = decodeVarintInt32Value(encoded, offset);
+
+            expect(decoded).toEqual(value);
+            expect(offset.get()).toBe(encoded.length);
         });
 
         it("should decode Int64", () => {
@@ -81,6 +117,50 @@ describe("IntegerDecodingUtils", () => {
             const varintEncoded = encodeVarintFloat64(new Float64Array([value]));
             const actualValues = decodeVarintFloat64(varintEncoded, new IntWrapper(0), 1);
             expect(actualValues[0]).toEqual(value);
+        });
+
+        it("throws on truncated Int32 varints after 1 to 4 bytes without advancing the offset", () => {
+            const buffer = new Uint8Array(5);
+            const writeOffset = new IntWrapper(0);
+            encodeVarintInt32Value(0xffffffff, buffer, writeOffset);
+            const encoded = buffer.subarray(0, writeOffset.get());
+
+            for (let length = 1; length <= 4; length++) {
+                const truncated = encoded.subarray(0, length);
+                const offset = new IntWrapper(0);
+
+                expect(() => decodeVarintInt32(truncated, offset, 1)).toThrow(/truncated varint at offset=0/);
+                expect(offset.get()).toBe(0);
+            }
+        });
+
+        it("throws on truncated scalar Int32 varints without advancing the offset", () => {
+            const buffer = new Uint8Array(5);
+            const writeOffset = new IntWrapper(0);
+            encodeVarintInt32Value(0xffffffff, buffer, writeOffset);
+            const encoded = buffer.subarray(0, writeOffset.get());
+
+            for (let length = 1; length <= 4; length++) {
+                const truncated = encoded.subarray(0, length);
+                const offset = new IntWrapper(0);
+
+                expect(() => decodeVarintInt32Value(truncated, offset)).toThrow(/truncated varint at offset=0/);
+                expect(offset.get()).toBe(0);
+            }
+        });
+
+        it("throws on malformed 5-byte Int32 varints without advancing the offset", () => {
+            const malformedInputs = [new Uint8Array([0xff, 0xff, 0xff, 0xff, 0x10]), new Uint8Array([0xff, 0xff, 0xff, 0xff, 0x80])];
+
+            for (const malformed of malformedInputs) {
+                const batchOffset = new IntWrapper(0);
+                expect(() => decodeVarintInt32(malformed, batchOffset, 1)).toThrow(/invalid varint32 at offset=0/);
+                expect(batchOffset.get()).toBe(0);
+
+                const scalarOffset = new IntWrapper(0);
+                expect(() => decodeVarintInt32Value(malformed, scalarOffset)).toThrow(/invalid varint32 at offset=0/);
+                expect(scalarOffset.get()).toBe(0);
+            }
         });
     });
 

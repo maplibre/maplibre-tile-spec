@@ -117,6 +117,17 @@ describe("decodePropertyColumn - INT_32", () => {
         }
     });
 
+    it("should surface truncated stream metadata before deeper decoder errors", () => {
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_32, false);
+        const offset = new IntWrapper(0);
+        const truncatedMetadata = new Uint8Array([0x00]);
+
+        expect(() => decodePropertyColumn(truncatedMetadata, offset, columnMetadata, 1, 1)).toThrow(
+            /truncated stream metadata while reading encodings_header/,
+        );
+        expect(offset.get()).toBe(0);
+    });
+
     it("should decode nullable INT_32 column with null values", () => {
         const expectedValues = [2, null, -4, null, 6];
         const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_32, true);

@@ -1,4 +1,4 @@
-import type IntWrapper from "./intWrapper";
+import IntWrapper from "./intWrapper";
 import {
     createFastPforWireDecodeWorkspace,
     decodeFastPforInt32,
@@ -12,44 +12,79 @@ export { createFastPforWireDecodeWorkspace } from "./fastPforDecoder";
 //based on https://github.com/mapbox/pbf/blob/main/index.js
 export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, numValues: number): Uint32Array {
     const dst = new Uint32Array(numValues);
-    let dstOffset = 0;
-    let offset = bufferOffset.get();
+    const localOffset = new IntWrapper(bufferOffset.get());
     for (let i = 0; i < dst.length; i++) {
-        let b = buf[offset++];
-        let val = b & 0x7f;
-        if (b < 0x80) {
-            dst[dstOffset++] = val;
-            continue;
+        try {
+            dst[i] = decodeVarintInt32Value(buf, localOffset);
+        } catch (error) {
+            if (error instanceof RangeError) {
+                throw new RangeError(`truncated varint at offset=${localOffset.get()} while decoding value index=${i}`);
+            }
+            if (error instanceof Error) {
+                throw new Error(`invalid varint32 at offset=${localOffset.get()} while decoding value index=${i}`);
+            }
+            throw error;
         }
-
-        b = buf[offset++];
-        val |= (b & 0x7f) << 7;
-        if (b < 0x80) {
-            dst[dstOffset++] = val;
-            continue;
-        }
-
-        b = buf[offset++];
-        val |= (b & 0x7f) << 14;
-        if (b < 0x80) {
-            dst[dstOffset++] = val;
-            continue;
-        }
-
-        b = buf[offset++];
-        val |= (b & 0x7f) << 21;
-        if (b < 0x80) {
-            dst[dstOffset++] = val;
-            continue;
-        }
-
-        b = buf[offset++];
-        val |= (b & 0x0f) << 28;
-        dst[dstOffset++] = val;
     }
 
-    bufferOffset.set(offset);
+    bufferOffset.set(localOffset.get());
     return dst;
+}
+
+export function decodeVarintInt32Value(buf: Uint8Array, bufferOffset: IntWrapper): number {
+    const valueOffset = bufferOffset.get();
+    let offset = valueOffset;
+    if (offset >= buf.length) {
+        throw new RangeError(`truncated varint at offset=${valueOffset}`);
+    }
+
+    let b = buf[offset++];
+    let val = b & 0x7f;
+    if (b < 0x80) {
+        bufferOffset.set(offset);
+        return val >>> 0;
+    }
+
+    if (offset >= buf.length) {
+        throw new RangeError(`truncated varint at offset=${valueOffset}`);
+    }
+    b = buf[offset++];
+    val |= (b & 0x7f) << 7;
+    if (b < 0x80) {
+        bufferOffset.set(offset);
+        return val >>> 0;
+    }
+
+    if (offset >= buf.length) {
+        throw new RangeError(`truncated varint at offset=${valueOffset}`);
+    }
+    b = buf[offset++];
+    val |= (b & 0x7f) << 14;
+    if (b < 0x80) {
+        bufferOffset.set(offset);
+        return val >>> 0;
+    }
+
+    if (offset >= buf.length) {
+        throw new RangeError(`truncated varint at offset=${valueOffset}`);
+    }
+    b = buf[offset++];
+    val |= (b & 0x7f) << 21;
+    if (b < 0x80) {
+        bufferOffset.set(offset);
+        return val >>> 0;
+    }
+
+    if (offset >= buf.length) {
+        throw new RangeError(`truncated varint at offset=${valueOffset}`);
+    }
+    b = buf[offset++];
+    if ((b & 0xf0) !== 0) {
+        throw new Error(`invalid varint32 at offset=${valueOffset}`);
+    }
+    val |= (b & 0x0f) << 28;
+    bufferOffset.set(offset);
+    return val >>> 0;
 }
 
 export function decodeVarintInt64(src: Uint8Array, offset: IntWrapper, numValues: number): BigUint64Array {
