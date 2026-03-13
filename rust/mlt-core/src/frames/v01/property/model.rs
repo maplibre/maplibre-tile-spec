@@ -46,7 +46,7 @@ pub struct EncodedScalar {
 
 /// Raw encoding payload for a string column (plain, dictionary, or FSST variants).
 ///
-/// RawStream order matches the encoder: see `StringEncoder.encode()`.
+/// `RawStream` order matches the encoder: see `StringEncoder.encode()`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RawStringsEncoding<'a> {
     /// Plain: length stream + data stream
