@@ -40,6 +40,7 @@ pub enum LayerEncoder {
     Unknown,
 }
 
+/// FIXME: move out of the model.rs file
 impl LayerEncoder {
     /// Return the active sort strategy, or [`None`] for unknown layers.
     #[must_use]
@@ -63,6 +64,7 @@ pub enum LayerProfile {
     Unknown,
 }
 
+/// FIXME: move out of the model.rs file
 impl LayerProfile {
     /// Return the active sort strategy, or [`None`] for unknown layers.
     #[must_use]

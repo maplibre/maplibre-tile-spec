@@ -13,6 +13,10 @@ Do **not** use bare `cargo` commands; `just` recipes ensure the correct feature 
 | `just rust::generate-synthetic-mlts` | Generate synthetic MLT files for testing. Do not delete files manually. |
 | `just rust::bless`                   | Regenerate expected `insta` test snapshots.                             |
 
+## Code Structure
+* Most structs and enums live in `model.rs` files, while the specific functionality for those types live in impl blocks of various files like `decoding.rs`, `encoding.rs`, etc. This is not very Rust-idiomatic, but it allows for better organization of the codebase by feature (e.g., all decoding logic in one file, all encoding logic in another file) rather than by type.
+* We try to keep encoding and decoding logic separate, as they have different requirements and optimizations. For example, decoding can be more flexible and allow for partial lazy decoding, while encoding needs to operate on owned data structures and may require more complex transformations and optimizations (e.g., reordering features for better compression).
+
 ## Decoding Data
 When decoding data, `mlt-core` moves through a strict linear pipeline, minimizing unnecessary allocations and copies.  Both raw and parsed data is stored in the container structs (e.g., `TileLayer01`) as variants of the `EncDec<Raw,Parsed>` generic enum to allow for partial lazy decoding for any column like `id`, `geometry`, `property`, `sub-property`. Some internal owned types may be used inside both the `Parsed*` (decoding) and `Staged*` (encoding) data structures.
 

@@ -225,17 +225,21 @@ impl Layer01<'_> {
 }
 
 impl Layer01<'_> {
-    #[must_use]
-    pub fn to_owned(&self) -> StagedLayer01 {
-        StagedLayer01 {
+    /// TODO: This should be removed later, once we separate parsing and staging
+    pub fn to_owned(&self) -> Result<StagedLayer01, MltError> {
+        Ok(StagedLayer01 {
             name: self.name.to_string(),
             extent: self.extent,
             id: self.id.as_ref().map(Id::to_owned),
             geometry: self.geometry.to_owned(),
-            properties: self.properties.iter().map(Property::to_owned).collect(),
+            properties: self
+                .properties
+                .iter()
+                .map(Property::to_staged)
+                .collect::<Result<_, _>>()?,
             #[cfg(fuzzing)]
             layer_order: self.layer_order.clone(),
-        }
+        })
     }
 }
 

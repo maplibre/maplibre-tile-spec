@@ -11,16 +11,26 @@ impl StagedProperty {
     /// or an error if it still needs to be encoded first.
     pub fn as_encoded(&self) -> Result<&EncodedProperty, MltError> {
         match self {
-            Self::Encoded(r) => Ok(r),
-            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
+            Self::Encoded(r) => Ok(r.as_ref()),
+            _ => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
 
     #[must_use]
     pub fn kind(&self) -> PropertyKind {
+        use PropertyKind as T;
         match self {
-            Self::Encoded(r) => r.kind(),
-            Self::Decoded(r) => r.kind(),
+            Self::Encoded(r) => r.as_ref().kind(),
+            Self::Bool(_) => T::Bool,
+            Self::I8(_)
+            | Self::I32(_)
+            | Self::I64(_)
+            | Self::U8(_)
+            | Self::U32(_)
+            | Self::U64(_) => T::Integer,
+            Self::F32(_) | Self::F64(_) => T::Float,
+            Self::Str(_) => T::String,
+            Self::SharedDict(_) => T::SharedDict,
         }
     }
 }

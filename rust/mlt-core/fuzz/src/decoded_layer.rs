@@ -28,7 +28,7 @@ impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
         let properties: Vec<StagedProperty> = u
             .arbitrary::<Vec<EncodedProperty>>()?
             .into_iter()
-            .map(StagedProperty::Encoded)
+            .map(|e| StagedProperty::Encoded(Box::new(e)))
             .collect();
 
         // In fuzzing mode StagedLayer01 carries an explicit layer_order field that drives the
@@ -95,7 +95,12 @@ impl DecodedLayerInput {
             self.layer
         );
 
-        let owned_parsed_back = parsed_back.to_owned();
+        let Ok(owned_parsed_back) = parsed_back.to_owned() else {
+            panic!(
+                "to_owned failed after re-parsing\nOriginal layer:\n{:#?}",
+                self.layer
+            );
+        };
 
         if self.layer != owned_parsed_back {
             LayerInput::try_panic_if_debug_is_different(&self.layer, &owned_parsed_back);

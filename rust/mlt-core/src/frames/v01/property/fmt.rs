@@ -4,6 +4,7 @@ use std::fmt::{self, Debug};
 use crate::utils::FmtOptVec;
 use crate::v01::{ParsedProperty, ParsedScalar};
 
+/// Custom implementation to ensure values are printed without newlines
 impl Debug for ParsedProperty<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -68,7 +69,7 @@ impl Debug for ParsedProperty<'_> {
 
 impl<T: Copy + PartialEq> ParsedScalar<'_, T> {
     #[must_use]
-    pub fn to_owned(&self) -> ParsedScalar<'static, T> {
+    pub fn to_owned_cow(&self) -> ParsedScalar<'static, T> {
         ParsedScalar {
             name: Cow::Owned(self.name.as_ref().to_string()),
             values: self.values.clone(),
@@ -77,19 +78,21 @@ impl<T: Copy + PartialEq> ParsedScalar<'_, T> {
 }
 
 impl ParsedProperty<'_> {
+    /// Clone this property into a fully-owned `ParsedProperty<'static>`.
+    /// TODO: This should be removed later, once we separate parsing and staging
     #[must_use]
     pub fn to_owned(&self) -> ParsedProperty<'static> {
         use ParsedProperty as P;
         match self {
-            Self::Bool(v) => P::Bool(v.to_owned()),
-            Self::I8(v) => P::I8(v.to_owned()),
-            Self::U8(v) => P::U8(v.to_owned()),
-            Self::I32(v) => P::I32(v.to_owned()),
-            Self::U32(v) => P::U32(v.to_owned()),
-            Self::I64(v) => P::I64(v.to_owned()),
-            Self::U64(v) => P::U64(v.to_owned()),
-            Self::F32(v) => P::F32(v.to_owned()),
-            Self::F64(v) => P::F64(v.to_owned()),
+            Self::Bool(v) => P::Bool(v.to_owned_cow()),
+            Self::I8(v) => P::I8(v.to_owned_cow()),
+            Self::U8(v) => P::U8(v.to_owned_cow()),
+            Self::I32(v) => P::I32(v.to_owned_cow()),
+            Self::U32(v) => P::U32(v.to_owned_cow()),
+            Self::I64(v) => P::I64(v.to_owned_cow()),
+            Self::U64(v) => P::U64(v.to_owned_cow()),
+            Self::F32(v) => P::F32(v.to_owned_cow()),
+            Self::F64(v) => P::F64(v.to_owned_cow()),
             Self::Str(v) => P::Str(v.to_owned()),
             Self::SharedDict(v) => P::SharedDict(v.to_owned()),
         }

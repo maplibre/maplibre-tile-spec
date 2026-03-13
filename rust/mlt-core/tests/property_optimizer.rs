@@ -2,31 +2,21 @@ use insta::assert_debug_snapshot;
 use mlt_core::optimizer::{
     AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
 };
-use mlt_core::v01::{ParsedProperty, PropertyProfile, StagedProperty};
+use mlt_core::v01::{PropertyProfile, StagedProperty};
 use rstest::rstest;
 
 fn str_prop(name: &str, values: &[&str]) -> StagedProperty {
     let owned: Vec<Option<String>> = values.iter().map(|s| Some((*s).to_string())).collect();
-    StagedProperty::Decoded(ParsedProperty::str(name.to_string(), owned))
+    StagedProperty::str(name, owned)
 }
 
-fn make_prop(prop: ParsedProperty<'static>) -> StagedProperty {
-    StagedProperty::Decoded(prop)
-}
-
-/// Like `str_prop` but returns a `ParsedProperty` directly (for `from_sample` calls).
-fn decoded_str(name: &str, values: &[&str]) -> ParsedProperty<'static> {
-    let owned: Vec<Option<String>> = values.iter().map(|s| Some((*s).to_string())).collect();
-    ParsedProperty::str(name.to_string(), owned)
-}
-
-fn to_owned_props(decoded: Vec<ParsedProperty<'static>>) -> Vec<StagedProperty> {
-    decoded.into_iter().map(StagedProperty::Decoded).collect()
+fn make_prop(prop: StagedProperty) -> StagedProperty {
+    prop
 }
 
 #[test]
 fn no_nulls_produces_absent_presence() {
-    let mut props = vec![make_prop(ParsedProperty::u32(
+    let mut props = vec![make_prop(StagedProperty::u32(
         "pop",
         vec![Some(1), Some(2), Some(3)],
     ))];
@@ -49,7 +39,7 @@ fn no_nulls_produces_absent_presence() {
 
 #[test]
 fn all_nulls_produces_present_presence() {
-    let mut props = vec![make_prop(ParsedProperty::i32("x", vec![None, None, None]))];
+    let mut props = vec![make_prop(StagedProperty::i32("x", vec![None, None, None]))];
     assert_debug_snapshot!(props.automatic_encoding_optimisation().unwrap(), @"
     [
         Scalar(
@@ -69,7 +59,7 @@ fn all_nulls_produces_present_presence() {
 
 #[test]
 fn sequential_u32_picks_delta() {
-    let mut props = vec![make_prop(ParsedProperty::u32(
+    let mut props = vec![make_prop(StagedProperty::u32(
         "id",
         (0u32..1_000).map(Some).collect(),
     ))];
@@ -92,7 +82,7 @@ fn sequential_u32_picks_delta() {
 
 #[test]
 fn constant_u32_picks_rle() {
-    let mut props = vec![make_prop(ParsedProperty::u32("val", vec![Some(42); 500]))];
+    let mut props = vec![make_prop(StagedProperty::u32("val", vec![Some(42); 500]))];
     assert_debug_snapshot!(props.automatic_encoding_optimisation().unwrap(), @"
     [
         Scalar(
@@ -244,10 +234,10 @@ fn dissimilar_strings_stay_scalar() {
 fn mixed_scalars_and_grouped_strings() {
     let vocab = &["alpha", "beta", "gamma"];
     let mut props = vec![
-        make_prop(ParsedProperty::u32("id", vec![Some(1), Some(2), Some(3)])),
+        make_prop(StagedProperty::u32("id", vec![Some(1), Some(2), Some(3)])),
         str_prop("name:en", vocab),
         str_prop("name:de", vocab),
-        make_prop(ParsedProperty::i32(
+        make_prop(StagedProperty::i32(
             "count",
             vec![Some(10), Some(20), Some(30)],
         )),
@@ -311,13 +301,13 @@ fn mixed_scalars_and_grouped_strings() {
 
 #[test]
 fn manual_optimisation_reuses_derived_encoder() {
-    let mut ref_props = vec![make_prop(ParsedProperty::u32(
+    let mut ref_props = vec![make_prop(StagedProperty::u32(
         "id",
         (0u32..1_000).map(Some).collect(),
     ))];
     let enc = ref_props.automatic_encoding_optimisation().unwrap();
 
-    let mut props = vec![make_prop(ParsedProperty::u32(
+    let mut props = vec![make_prop(StagedProperty::u32(
         "id",
         (1_000u32..2_000).map(Some).collect(),
     ))];
@@ -329,7 +319,7 @@ fn manual_optimisation_reuses_derived_encoder() {
 #[test]
 fn from_sample_similar_strings_groups_them() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
-    let props = vec![decoded_str("name:en", vocab), decoded_str("name:de", vocab)];
+    let props = vec![str_prop("name:en", vocab), str_prop("name:de", vocab)];
     let profile = PropertyProfile::from_sample(&props);
     assert_debug_snapshot!(profile, @"
     PropertyProfile {
@@ -346,8 +336,8 @@ fn from_sample_similar_strings_groups_them() {
 #[test]
 fn from_sample_dissimilar_strings_no_groups() {
     let props = vec![
-        decoded_str("city:de", &["Munich", "Mannheim", "Garching"]),
-        decoded_str("city:us", &["Chicago", "Seattle", "Austin"]),
+        str_prop("city:de", &["Munich", "Mannheim", "Garching"]),
+        str_prop("city:us", &["Chicago", "Seattle", "Austin"]),
     ];
     let profile = PropertyProfile::from_sample(&props);
     assert_debug_snapshot!(profile, @"
@@ -360,7 +350,7 @@ fn from_sample_dissimilar_strings_no_groups() {
 #[test]
 fn from_sample_single_string_column_no_groups() {
     // Single-element groups are always filtered out.
-    let props = vec![decoded_str("name", &["Alice", "Bob"])];
+    let props = vec![str_prop("name", &["Alice", "Bob"])];
     let profile = PropertyProfile::from_sample(&props);
     assert_debug_snapshot!(profile, @"
     PropertyProfile {
@@ -372,8 +362,8 @@ fn from_sample_single_string_column_no_groups() {
 #[test]
 fn from_sample_no_string_columns_empty_profile() {
     let props = vec![
-        ParsedProperty::u32("pop", vec![Some(1), Some(2), Some(3)]),
-        ParsedProperty::i32("delta", vec![Some(-1), Some(0), Some(1)]),
+        StagedProperty::u32("pop", vec![Some(1), Some(2), Some(3)]),
+        StagedProperty::i32("delta", vec![Some(-1), Some(0), Some(1)]),
     ];
     let profile = PropertyProfile::from_sample(&props);
     assert_debug_snapshot!(profile, @"
@@ -388,10 +378,10 @@ fn from_sample_multiple_similar_groups() {
     let alpha_vocab = &["alpha", "beta", "gamma"];
     let name_vocab = &["Alice", "Bob", "Carol"];
     let props = vec![
-        decoded_str("addr:zip", alpha_vocab),
-        decoded_str("addr:city", alpha_vocab),
-        decoded_str("name:en", name_vocab),
-        decoded_str("name:de", name_vocab),
+        str_prop("addr:zip", alpha_vocab),
+        str_prop("addr:city", alpha_vocab),
+        str_prop("name:en", name_vocab),
+        str_prop("name:de", name_vocab),
     ];
     let profile = PropertyProfile::from_sample(&props);
     // Two independent groups, order determined by first column index.
@@ -481,38 +471,38 @@ fn merge_duplicate_group_not_added_twice() {
 
 #[rstest]
 #[case::sequential_u32(vec![
-    ParsedProperty::u32("id", (0u32..100).map(Some).collect()),
+    StagedProperty::u32("id", (0u32..100).map(Some).collect()),
 ])]
 #[case::constant_u32(vec![
-    ParsedProperty::u32("val", vec![Some(42u32); 200]),
+    StagedProperty::u32("val", vec![Some(42u32); 200]),
 ])]
 #[case::signed_i32(vec![
-    ParsedProperty::i32("delta", (-50i32..50).map(Some).collect()),
+    StagedProperty::i32("delta", (-50i32..50).map(Some).collect()),
 ])]
 #[case::multiple_int_columns(vec![
-    ParsedProperty::u32("pop", (0u32..50).map(Some).collect()),
-    ParsedProperty::i32("rank", (0i32..50).map(Some).collect()),
+    StagedProperty::u32("pop", (0u32..50).map(Some).collect()),
+    StagedProperty::i32("rank", (0i32..50).map(Some).collect()),
 ])]
 #[case::similar_strings(vec![
-    decoded_str("name:en", &["Alice", "Bob", "Carol", "Dave"]),
-    decoded_str("name:de", &["Alice", "Bob", "Carol", "Dave"]),
+    str_prop("name:en", &["Alice", "Bob", "Carol", "Dave"]),
+    str_prop("name:de", &["Alice", "Bob", "Carol", "Dave"]),
 ])]
 #[case::dissimilar_strings(vec![
-    decoded_str("city:de", &["Munich", "Mannheim", "Garching"]),
-    decoded_str("city:us", &["Chicago", "Seattle", "Austin"]),
+    str_prop("city:de", &["Munich", "Mannheim", "Garching"]),
+    str_prop("city:us", &["Chicago", "Seattle", "Austin"]),
 ])]
 #[case::mixed_int_and_similar_strings(vec![
-    ParsedProperty::u32("id", (0u32..10).map(Some).collect()),
-    decoded_str("name:en", &["alpha", "beta", "gamma"]),
-    decoded_str("name:de", &["alpha", "beta", "gamma"]),
+    StagedProperty::u32("id", (0u32..10).map(Some).collect()),
+    str_prop("name:en", &["alpha", "beta", "gamma"]),
+    str_prop("name:de", &["alpha", "beta", "gamma"]),
 ])]
-fn profile_driven_matches_automatic(#[case] decoded: Vec<ParsedProperty<'static>>) {
-    let profile = PropertyProfile::from_sample(&decoded);
+fn profile_driven_matches_automatic(#[case] props: Vec<StagedProperty>) {
+    let profile = PropertyProfile::from_sample(&props);
 
-    let mut auto_props = to_owned_props(decoded.clone());
+    let mut auto_props = props.clone();
     let auto_enc = auto_props.automatic_encoding_optimisation().unwrap();
 
-    let mut profile_props = to_owned_props(decoded);
+    let mut profile_props = props;
     let profile_enc = profile_props.profile_driven_optimisation(&profile).unwrap();
 
     assert_eq!(auto_enc, profile_enc);
@@ -522,7 +512,7 @@ fn profile_driven_matches_automatic(#[case] decoded: Vec<ParsedProperty<'static>
 fn profile_applied_to_partial_tile_skips_missing_columns() {
     // Profile says "name:en" and "name:de" should be grouped.
     let vocab = &["Alice", "Bob", "Carol"];
-    let sample = vec![decoded_str("name:en", vocab), decoded_str("name:de", vocab)];
+    let sample = vec![str_prop("name:en", vocab), str_prop("name:de", vocab)];
     let profile = PropertyProfile::from_sample(&sample);
 
     // Tile only has "name:en" – group resolves to 1 column, so it is skipped.
@@ -559,8 +549,8 @@ fn profile_applies_grouping_to_different_tile_data() {
     // same column names but different string values.
     let sample_vocab = &["Alice", "Bob", "Carol", "Dave"];
     let sample = vec![
-        decoded_str("name:en", sample_vocab),
-        decoded_str("name:de", sample_vocab),
+        str_prop("name:en", sample_vocab),
+        str_prop("name:de", sample_vocab),
     ];
     let profile = PropertyProfile::from_sample(&sample);
 
@@ -613,7 +603,7 @@ fn profile_ignores_unrecognised_columns() {
 
     let mut props = vec![
         str_prop("highway", &["motorway", "trunk", "primary"]),
-        make_prop(ParsedProperty::u32(
+        make_prop(StagedProperty::u32(
             "lanes",
             vec![Some(2), Some(4), Some(3)],
         )),
@@ -653,12 +643,12 @@ fn profile_ignores_unrecognised_columns() {
 
 #[test]
 fn manual_optimisation_rejects_mismatched_encoder_count() {
-    let mut ref_props = vec![make_prop(ParsedProperty::u32("a", vec![Some(1), Some(2)]))];
+    let mut ref_props = vec![make_prop(StagedProperty::u32("a", vec![Some(1), Some(2)]))];
     let enc = ref_props.automatic_encoding_optimisation().unwrap();
 
     let mut props = vec![
-        make_prop(ParsedProperty::u32("a", vec![Some(1), Some(2)])),
-        make_prop(ParsedProperty::u32("b", vec![Some(3), Some(4)])),
+        make_prop(StagedProperty::u32("a", vec![Some(1), Some(2)])),
+        make_prop(StagedProperty::u32("b", vec![Some(3), Some(4)])),
     ];
     assert!(props.manual_optimisation(enc).is_err());
 }

@@ -6,7 +6,8 @@ use mlt_core::v01::{
     EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, ParsedStrings, PhysicalEncoder,
     PresenceStream, RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictChild,
     RawSharedDictEncoding, RawStrings, RawStringsEncoding, SharedDictEncoder,
-    SharedDictItemEncoder, StrEncoder, build_decoded_shared_dict, encode_shared_dict_prop,
+    SharedDictItemEncoder, StagedStrings, StrEncoder, build_staged_shared_dict,
+    encode_shared_dict_prop,
 };
 use strum::IntoEnumIterator as _;
 
@@ -360,26 +361,26 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         //
         // Build a decoded shared dict from two sub-properties; the second child
         // has every 3rd entry as NULL so the child presence path is exercised.
-        let child1: ParsedStrings = strings
+        let child1: StagedStrings = strings
             .iter()
             .map(|s| Some(s.clone()))
             .collect::<Vec<_>>()
             .into();
-        let child2: ParsedStrings = strings
+        let child2: StagedStrings = strings
             .iter()
             .enumerate()
             .map(|(i, s)| if i % 3 == 0 { None } else { Some(s.clone()) })
             .collect::<Vec<_>>()
             .into();
 
-        let decoded_shared = build_decoded_shared_dict(
+        let decoded_shared = build_staged_shared_dict(
             "place:",
             [
                 ("type".to_string(), child1),
                 ("subtype".to_string(), child2),
             ],
         )
-        .expect("build_decoded_shared_dict failed");
+        .expect("build_staged_shared_dict failed");
 
         let item_enc = SharedDictItemEncoder {
             presence: PresenceStream::Absent,
