@@ -18,18 +18,16 @@ use fsst::Compressor;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
-use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
+use crate::MltError;
 use crate::utils::encode_zigzag;
+use crate::v01::property::codec::encode_staged_properties;
 use crate::v01::property::strings::{build_decoded_shared_dict, collect_shared_dict_spans};
 use crate::v01::property::{
     ParsedProperty, ParsedSharedDict, ParsedSharedDictItem, PresenceStream, PropertyEncoder,
-    ScalarEncoder,
+    ScalarEncoder, StagedProperty,
 };
 use crate::v01::stream::IntEncoder;
-use crate::v01::{
-    EncodedProperty, SharedDictEncoder, SharedDictItemEncoder, StagedProperty, StrEncoder,
-};
-use crate::{FromDecoded as _, MltError};
+use crate::v01::{EncodedProperty, SharedDictEncoder, SharedDictItemEncoder, StrEncoder};
 
 /// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;
@@ -81,12 +79,20 @@ impl PropertyProfile {
         Self { string_groups }
     }
 
+    /// Build a profile from a sample of staged (encoding-pipeline) properties.
+    #[must_use]
+    pub fn from_sample(properties: &[StagedProperty]) -> Self {
+        let parsed: Vec<ParsedProperty<'_>> =
+            properties.iter().map(StagedProperty::as_parsed).collect();
+        Self::from_parsed_sample(&parsed)
+    }
+
     /// Build a profile from a sample of decoded properties.
     ///
     /// Runs `MinHash` similarity analysis over all string columns and records
     /// which column names should be grouped into shared dictionaries.
     #[must_use]
-    pub fn from_sample(properties: &[ParsedProperty<'_>]) -> Self {
+    pub fn from_parsed_sample(properties: &[ParsedProperty<'_>]) -> Self {
         let min_hash = MinHash::<IntoIter<&str>, &str>::new(MINHASH_PERMUTATIONS);
         let profiles = profile_string_columns(properties, &min_hash);
 
@@ -131,60 +137,41 @@ impl PropertyProfile {
     }
 }
 
-fn decode_all(props: &mut Vec<StagedProperty>) -> Result<Vec<ParsedProperty<'static>>, MltError> {
-    let owned = std::mem::take(props);
-    owned
-        .into_iter()
-        .map(|p| match p {
-            StagedProperty::Decoded(d) => Ok(d),
-            StagedProperty::Encoded(_) => Err(MltError::NotDecoded("property")),
-        })
-        .collect()
+/// Encode a slice of [`StagedProperty`] values with the given encoder configuration.
+pub fn encode_properties(
+    props: &[StagedProperty],
+    encoder: Vec<PropertyEncoder>,
+) -> Result<Vec<EncodedProperty>, MltError> {
+    encode_staged_properties(props, encoder)
 }
 
-impl ManualOptimisation for Vec<StagedProperty> {
-    type UsedEncoder = Vec<PropertyEncoder>;
-
-    fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        let decoded = decode_all(self)?;
-        *self = Vec::<EncodedProperty>::from_decoded(&decoded, encoder)?
-            .into_iter()
-            .map(StagedProperty::Encoded)
-            .collect();
-        Ok(())
-    }
+/// Encode a `Vec<StagedProperty>` using automatically selected encoder settings.
+///
+/// The vec may be mutated (similar string columns are merged into shared dicts).
+pub fn encode_properties_automatic(
+    props: &mut Vec<StagedProperty>,
+) -> Result<(Vec<EncodedProperty>, Vec<PropertyEncoder>), MltError> {
+    let mut parsed: Vec<ParsedProperty<'_>> = props.iter().map(StagedProperty::as_parsed).collect();
+    let enc = optimize(&mut parsed);
+    // Sync mutations (SharedDict merges — e.g. multiple Str columns merged into SharedDict) back.
+    *props = parsed.into_iter().map(StagedProperty::from).collect();
+    let encoded = encode_staged_properties(props, enc.clone())?;
+    Ok((encoded, enc))
 }
 
-impl ProfileOptimisation for Vec<StagedProperty> {
-    type UsedEncoder = Vec<PropertyEncoder>;
-    type Profile = PropertyProfile;
-
-    fn profile_driven_optimisation(
-        &mut self,
-        profile: &Self::Profile,
-    ) -> Result<Self::UsedEncoder, MltError> {
-        let mut decoded = decode_all(self)?;
-        let enc = apply_profile(&mut decoded, profile);
-        *self = Vec::<EncodedProperty>::from_decoded(&decoded, enc.clone())?
-            .into_iter()
-            .map(StagedProperty::Encoded)
-            .collect();
-        Ok(enc)
-    }
-}
-
-impl AutomaticOptimisation for Vec<StagedProperty> {
-    type UsedEncoder = Vec<PropertyEncoder>;
-
-    fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
-        let mut decoded = decode_all(self)?;
-        let enc = optimize(&mut decoded);
-        *self = Vec::<EncodedProperty>::from_decoded(&decoded, enc.clone())?
-            .into_iter()
-            .map(StagedProperty::Encoded)
-            .collect();
-        Ok(enc)
-    }
+/// Encode a `Vec<StagedProperty>` using profile-driven encoder settings.
+///
+/// The vec may be mutated (string columns merged according to the profile's groups).
+pub fn encode_properties_with_profile(
+    props: &mut Vec<StagedProperty>,
+    profile: &PropertyProfile,
+) -> Result<(Vec<EncodedProperty>, Vec<PropertyEncoder>), MltError> {
+    let mut parsed: Vec<ParsedProperty<'_>> = props.iter().map(StagedProperty::as_parsed).collect();
+    let enc = apply_profile(&mut parsed, profile);
+    // Sync mutations back.
+    *props = parsed.into_iter().map(StagedProperty::from).collect();
+    let encoded = encode_staged_properties(props, enc.clone())?;
+    Ok((encoded, enc))
 }
 
 /// Analyze `properties` and return a configured [`Vec<PropertyEncoder>`].
@@ -192,7 +179,7 @@ impl AutomaticOptimisation for Vec<StagedProperty> {
 /// This function mutates `properties` by combining similar string columns
 /// into `ParsedProperty::SharedDict` values.
 fn optimize(properties: &mut Vec<ParsedProperty<'_>>) -> Vec<PropertyEncoder> {
-    let profile = PropertyProfile::from_sample(properties);
+    let profile = PropertyProfile::from_parsed_sample(properties);
     apply_profile(properties, &profile)
 }
 
@@ -594,4 +581,39 @@ fn fsst_is_viable(strings: &[&str]) -> bool {
         .map(|s| compressor.compress(s.as_bytes()).len())
         .sum();
     symbol_overhead + compressed_size < plain_size
+}
+
+// ── Optimizer trait impls on Vec<StagedProperty> ─────────────────────────────
+
+use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
+
+impl ManualOptimisation for Vec<StagedProperty> {
+    type UsedEncoder = Vec<PropertyEncoder>;
+
+    fn manual_optimisation(&mut self, encoder: Vec<PropertyEncoder>) -> Result<(), MltError> {
+        encode_properties(self, encoder)?;
+        Ok(())
+    }
+}
+
+impl AutomaticOptimisation for Vec<StagedProperty> {
+    type UsedEncoder = Vec<PropertyEncoder>;
+
+    fn automatic_encoding_optimisation(&mut self) -> Result<Vec<PropertyEncoder>, MltError> {
+        let (_, enc) = encode_properties_automatic(self)?;
+        Ok(enc)
+    }
+}
+
+impl ProfileOptimisation for Vec<StagedProperty> {
+    type UsedEncoder = Vec<PropertyEncoder>;
+    type Profile = PropertyProfile;
+
+    fn profile_driven_optimisation(
+        &mut self,
+        profile: &PropertyProfile,
+    ) -> Result<Vec<PropertyEncoder>, MltError> {
+        let (_, enc) = encode_properties_with_profile(self, profile)?;
+        Ok(enc)
+    }
 }

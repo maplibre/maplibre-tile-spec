@@ -1,5 +1,5 @@
 use js_sys::{Array, Float32Array, Float64Array, Int8Array, Int32Array, Uint8Array, Uint32Array};
-use mlt_core::v01::{ParsedProperty, StagedProperty};
+use mlt_core::v01::ParsedProperty;
 use wasm_bindgen::prelude::*;
 
 /// Cached bulk-property data for a single layer, built once on first access.
@@ -14,19 +14,12 @@ pub(crate) struct PropCache {
     pub(crate) columns: Array,
 }
 
-/// Build a [`PropCache`] from already-decoded property columns.
-///
-/// All entries in `props` must be `StagedProperty::Decoded` before calling this;
-/// encoded entries are silently skipped.
-pub(crate) fn build_prop_cache(props: &[StagedProperty], feature_count: u32) -> PropCache {
+/// Build a [`PropCache`] from decoded property columns.
+pub(crate) fn build_prop_cache(props: &[ParsedProperty<'_>], feature_count: u32) -> PropCache {
     let keys = Array::new();
     let columns = Array::new();
 
-    for p in props {
-        let StagedProperty::Decoded(prop) = p else {
-            continue;
-        };
-
+    for prop in props {
         if let ParsedProperty::SharedDict(shared_dict) = prop {
             for item in &shared_dict.items {
                 let key = format!("{}{}", prop.name(), item.suffix);

@@ -39,7 +39,7 @@ use std::f64;
 use ids::IdState;
 use js_sys::Uint8Array;
 use layer::DecodedLayer;
-use mlt_core::v01::{Geometry, GeometryType, Id, StagedProperty};
+use mlt_core::v01::{Geometry, GeometryType, Id};
 use mlt_core::{MltError, parse_layers};
 use tile::MltTile;
 use wasm_bindgen::prelude::*;
@@ -97,7 +97,13 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             .collect();
         let types_array = Uint8Array::from(types_bytes.as_slice());
 
-        let geometry = RefCell::new(layer01.geometry.to_owned());
+        // Decode geometry eagerly: geometry types are already needed above,
+        // and decoding the full geometry is cheap relative to the tile parse.
+        let geometry = RefCell::new(Some(match layer01.geometry {
+            Geometry::Decoded(g) => g,
+            Geometry::Encoded(raw) => mlt_core::v01::ParsedGeometry::try_from(raw.to_owned())
+                .map_err(|e| to_js_err(&e))?,
+        }));
 
         let ids = RefCell::new(match &layer01.id {
             None => IdState::Absent,
@@ -121,7 +127,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             layer01
                 .properties
                 .into_iter()
-                .map(|p| p.decode().map(|d| StagedProperty::Decoded(d.to_owned())))
+                .map(|p| p.decode().map(|p| p.into_static()))
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| to_js_err(&e))?,
         );

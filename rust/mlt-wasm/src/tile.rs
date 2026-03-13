@@ -1,5 +1,5 @@
 use js_sys::{Array, Float64Array, Int32Array, Object, Reflect, Uint8Array, Uint32Array};
-use mlt_core::v01::{ParsedProperty, StagedGeometry, StagedProperty};
+use mlt_core::v01::{ParsedGeometry, ParsedProperty};
 use wasm_bindgen::prelude::*;
 
 use crate::geometry::LayerGeometry;
@@ -102,9 +102,9 @@ impl MltTile {
 
         // Slow path: build the typed arrays once from the decoded geometry.
         let guard = layer.geometry.borrow();
-        let StagedGeometry::Decoded(d) = &*guard else {
-            unreachable!("geometry should be decoded here");
-        };
+        let d: &ParsedGeometry = guard
+            .as_ref()
+            .expect("geometry should always be Some after init");
 
         let geometry_offsets = d
             .geometry_offsets
@@ -211,31 +211,29 @@ impl MltTile {
         let guard = layer.props.borrow();
         let mut key_idx = 0usize;
 
-        for p in &*guard {
-            if let StagedProperty::Decoded(prop) = p {
-                if let ParsedProperty::SharedDict(shared_dict) = prop {
-                    for item in &shared_dict.items {
-                        if let Some(val) = item.get(shared_dict, feature_idx) {
-                            let _ = Reflect::set(
-                                &obj,
-                                &pc.keys
-                                    .get(u32::try_from(key_idx).expect("key index fits in u32")),
-                                &JsValue::from_str(val),
-                            );
-                        }
-                        key_idx += 1;
-                    }
-                } else {
-                    if let Some(val) = prop_to_js(prop, feature_idx) {
+        for prop in &*guard {
+            if let ParsedProperty::SharedDict(shared_dict) = prop {
+                for item in &shared_dict.items {
+                    if let Some(val) = item.get(shared_dict, feature_idx) {
                         let _ = Reflect::set(
                             &obj,
                             &pc.keys
                                 .get(u32::try_from(key_idx).expect("key index fits in u32")),
-                            &val,
+                            &JsValue::from_str(val),
                         );
                     }
                     key_idx += 1;
                 }
+            } else {
+                if let Some(val) = prop_to_js(prop, feature_idx) {
+                    let _ = Reflect::set(
+                        &obj,
+                        &pc.keys
+                            .get(u32::try_from(key_idx).expect("key index fits in u32")),
+                        &val,
+                    );
+                }
+                key_idx += 1;
             }
         }
 
@@ -246,21 +244,8 @@ impl MltTile {
     // Private helpers
     // -----------------------------------------------------------------------
 
-    fn ensure_geometry_decoded(&self, layer_idx: usize) -> Result<(), JsError> {
-        let layer = &self.layers[layer_idx];
-        let mut geom = layer.geometry.borrow_mut();
-        if matches!(&*geom, StagedGeometry::Encoded(_)) {
-            let owned = std::mem::replace(
-                &mut *geom,
-                StagedGeometry::Decoded(mlt_core::v01::ParsedGeometry::default()),
-            );
-            let StagedGeometry::Encoded(encoded) = owned else {
-                unreachable!()
-            };
-            let decoded = mlt_core::v01::ParsedGeometry::try_from(encoded)
-                .map_err(|e| crate::to_js_err(&e))?;
-            *geom = StagedGeometry::Decoded(decoded);
-        }
+    fn ensure_geometry_decoded(&self, _layer_idx: usize) -> Result<(), JsError> {
+        // Geometry is decoded eagerly during tile parsing, so nothing to do here.
         Ok(())
     }
 

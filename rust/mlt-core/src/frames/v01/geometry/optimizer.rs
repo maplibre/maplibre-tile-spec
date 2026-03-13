@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
-use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::encode::{encode_geometry, z_order_params};
 use crate::v01::{
     DataProfile, DictionaryType, EncodedGeometry, GeometryEncoder, IntEncoder, LengthType,
-    OffsetType, ParsedGeometry, StagedGeometry, StreamType, VertexBufferType,
+    OffsetType, ParsedGeometry, StreamType, VertexBufferType,
 };
 use crate::{FromDecoded as _, MltError};
 
@@ -243,63 +242,24 @@ fn select_vertex_strategy(vertices: &[i32]) -> VertexBufferType {
     }
 }
 
-impl ManualOptimisation for StagedGeometry {
-    type UsedEncoder = GeometryEncoder;
-
-    fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        let owned = std::mem::replace(self, StagedGeometry::Decoded(ParsedGeometry::default()));
-        let dec = ParsedGeometry::try_from(owned)?;
-        *self = StagedGeometry::Encoded(EncodedGeometry::from_decoded(&dec, encoder)?);
-        Ok(())
+impl ParsedGeometry {
+    /// Encode using the specified encoder, returning a wire-ready [`EncodedGeometry`].
+    pub fn encode(&self, encoder: GeometryEncoder) -> Result<EncodedGeometry, MltError> {
+        EncodedGeometry::from_decoded(self, encoder)
     }
-}
 
-impl ProfileOptimisation for StagedGeometry {
-    type UsedEncoder = GeometryEncoder;
-    type Profile = GeometryProfile;
-
-    fn profile_driven_optimisation(
-        &mut self,
-        profile: &Self::Profile,
-    ) -> Result<Self::UsedEncoder, MltError> {
-        match self {
-            StagedGeometry::Decoded(dec) => {
-                let enc = apply_profile(dec, profile)?;
-                *self = StagedGeometry::Encoded(EncodedGeometry::from_decoded(dec, enc)?);
-                Ok(enc)
-            }
-            StagedGeometry::Encoded(_) => {
-                let enc =
-                    std::mem::replace(self, StagedGeometry::Decoded(ParsedGeometry::default()));
-                let StagedGeometry::Encoded(e) = enc else {
-                    unreachable!()
-                };
-                *self = StagedGeometry::Decoded(ParsedGeometry::try_from(e)?);
-                self.profile_driven_optimisation(profile)
-            }
-        }
+    /// Encode using automatically selected per-stream encoder settings.
+    pub fn encode_automatic(&self) -> Result<(EncodedGeometry, GeometryEncoder), MltError> {
+        let enc = optimize(self)?;
+        Ok((EncodedGeometry::from_decoded(self, enc)?, enc))
     }
-}
 
-impl AutomaticOptimisation for StagedGeometry {
-    type UsedEncoder = GeometryEncoder;
-
-    fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
-        match self {
-            StagedGeometry::Decoded(dec) => {
-                let enc = optimize(dec)?;
-                *self = StagedGeometry::Encoded(EncodedGeometry::from_decoded(dec, enc)?);
-                Ok(enc)
-            }
-            StagedGeometry::Encoded(_) => {
-                let enc =
-                    std::mem::replace(self, StagedGeometry::Decoded(ParsedGeometry::default()));
-                let StagedGeometry::Encoded(e) = enc else {
-                    unreachable!()
-                };
-                *self = StagedGeometry::Decoded(ParsedGeometry::try_from(e)?);
-                self.automatic_encoding_optimisation()
-            }
-        }
+    /// Encode using the given profile's pre-computed encoder candidates.
+    pub fn encode_with_profile(
+        &self,
+        profile: &GeometryProfile,
+    ) -> Result<(EncodedGeometry, GeometryEncoder), MltError> {
+        let enc = apply_profile(self, profile)?;
+        Ok((EncodedGeometry::from_decoded(self, enc)?, enc))
     }
 }

@@ -17,9 +17,6 @@ pub struct EncodedName(pub String);
 /// Property representation, either raw (borrowed from bytes) or parsed.
 pub type Property<'a> = EncDec<RawProperty<'a>, ParsedProperty<'a>>;
 
-/// Staged property column: can hold either encoded or decoded form (used during encoding pipeline).
-pub type StagedProperty = EncDec<EncodedProperty, ParsedProperty<'static>>;
-
 pub enum PropertyKind {
     Bool,
     Integer,
@@ -355,4 +352,63 @@ pub struct SharedDictEncoder {
 pub enum StrEncoder {
     Plain { string_lengths: IntEncoder },
     Fsst(FsstStrEncoder),
+}
+
+// ── Staged (encoding-pipeline) property types ────────────────────────────────
+//
+// These are fully owned mirrors of the `Parsed*` types above.  They carry no
+// lifetime and use `String` everywhere `Parsed*` uses `Cow<'_, str>`.
+// The only way to obtain a `StagedProperty` is via `From<ParsedProperty<'_>>`.
+
+/// Owned scalar column for the encoding pipeline (bool, integer, or float).
+#[derive(Clone, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub struct StagedScalar<T: Copy + PartialEq> {
+    pub name: String,
+    pub values: Vec<Option<T>>,
+}
+
+/// Owned sub-property item within a staged shared-dictionary column.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub struct StagedSharedDictItem {
+    pub suffix: String,
+    pub ranges: Vec<(i32, i32)>,
+}
+
+/// Owned string column for the encoding pipeline.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StagedStrings {
+    pub name: String,
+    pub lengths: Vec<i32>,
+    pub data: String,
+}
+
+/// Owned shared-dictionary column for the encoding pipeline.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StagedSharedDict {
+    pub prefix: String,
+    pub data: String,
+    pub items: Vec<StagedSharedDictItem>,
+}
+
+/// Fully-owned property column for the encoding pipeline.
+///
+/// Mirrors [`ParsedProperty`] but holds all strings as [`String`] rather than
+/// `Cow<'_, str>`, so it carries no lifetime parameter.  The only conversion
+/// into `StagedProperty` is via `From<ParsedProperty<'_>>`.
+#[derive(Clone, PartialEq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum StagedProperty {
+    Bool(StagedScalar<bool>),
+    I8(StagedScalar<i8>),
+    U8(StagedScalar<u8>),
+    I32(StagedScalar<i32>),
+    U32(StagedScalar<u32>),
+    I64(StagedScalar<i64>),
+    U64(StagedScalar<u64>),
+    F32(StagedScalar<f32>),
+    F64(StagedScalar<f64>),
+    Str(StagedStrings),
+    SharedDict(StagedSharedDict),
 }

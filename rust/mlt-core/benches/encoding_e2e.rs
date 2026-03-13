@@ -1,12 +1,13 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::optimizer::ManualOptimisation as _;
+use mlt_core::parse_layers;
+use mlt_core::v01::property::optimizer::encode_properties;
+use mlt_core::v01::tile::TileLayer01;
 use mlt_core::v01::{
     GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, PhysicalEncoder,
-    PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder,
+    PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer01,
 };
-use mlt_core::{StagedLayer, parse_layers};
 use strum::IntoEnumIterator as _;
 
 #[path = "bench_utils.rs"]
@@ -21,18 +22,21 @@ fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
     }
 }
 
-fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer> {
+fn decode_to_staged(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer01> {
     tiles
         .iter()
         .flat_map(|(_, data)| {
             let mut layers = parse_layers(data).expect("mlt parse failed");
-            for layer in &mut layers {
-                layer.decode_all().expect("mlt decode_all failed");
+            let mut staged = Vec::new();
+            for layer in layers.drain(..) {
+                let mlt_core::Layer::Tag01(mut layer01) = layer else {
+                    continue;
+                };
+                layer01.decode_all().expect("mlt decode_all failed");
+                let tile_layer = TileLayer01::from_layer01(layer01).expect("to tile layer failed");
+                staged.push(StagedLayer01::from(tile_layer));
             }
-            layers
-                .iter()
-                .map(mlt_core::Layer::to_owned)
-                .collect::<Vec<_>>()
+            staged
         })
         .collect()
 }
@@ -53,16 +57,14 @@ fn bench_encode_geometry(c: &mut Criterion) {
                     &tiles,
                     |b, tiles| {
                         b.iter_batched(
-                            || decode_to_owned(tiles),
-                            |mut layers| {
-                                for layer in &mut layers {
-                                    if let StagedLayer::Tag01(l) = layer {
-                                        l.geometry
-                                            .manual_optimisation(geometry_encoder)
-                                            .expect("geometry encode failed");
-                                    }
+                            || decode_to_staged(tiles),
+                            |layers| {
+                                for l in layers {
+                                    l.geometry
+                                        .encode(geometry_encoder)
+                                        .expect("geometry encode failed");
                                 }
-                                black_box(layers);
+                                black_box(());
                             },
                             BatchSize::SmallInput,
                         );
@@ -91,17 +93,14 @@ fn bench_encode_ids(c: &mut Criterion) {
                     &tiles,
                     |b, tiles| {
                         b.iter_batched(
-                            || decode_to_owned(tiles),
-                            |mut layers| {
-                                for layer in &mut layers {
-                                    if let StagedLayer::Tag01(l) = layer
-                                        && let Some(id) = &mut l.id
-                                    {
-                                        id.manual_optimisation(id_encoder)
-                                            .expect("id encode failed");
+                            || decode_to_staged(tiles),
+                            |layers| {
+                                for l in layers {
+                                    if let Some(id) = &l.id {
+                                        id.encode(id_encoder).expect("id encode failed");
                                     }
                                 }
-                                black_box(layers);
+                                black_box(());
                             },
                             BatchSize::SmallInput,
                         );
@@ -130,41 +129,36 @@ fn bench_encode_properties(c: &mut Criterion) {
                         &tiles,
                         |b, tiles| {
                             b.iter_batched(
-                                || decode_to_owned(tiles),
-                                |mut layers| {
-                                    for layer in &mut layers {
-                                        if let StagedLayer::Tag01(l) = layer {
-                                            let int_enc = IntEncoder::new(logical, physical);
-                                            let encoders: Vec<PropertyEncoder> = l
-                                                .properties
-                                                .iter()
-                                                .map(|prop| match prop.kind() {
-                                                    PropertyKind::Bool => {
-                                                        ScalarEncoder::bool(presence).into()
-                                                    }
-                                                    PropertyKind::Integer => {
-                                                        ScalarEncoder::int(presence, int_enc).into()
-                                                    }
-                                                    PropertyKind::Float => {
-                                                        ScalarEncoder::float(presence).into()
-                                                    }
-                                                    PropertyKind::String => {
-                                                        ScalarEncoder::str_fsst(
-                                                            presence, int_enc, int_enc,
-                                                        )
-                                                        .into()
-                                                    }
-                                                    PropertyKind::SharedDict => {
-                                                        unreachable!("unimplemented")
-                                                    }
-                                                })
-                                                .collect();
-                                            l.properties
-                                                .manual_optimisation(encoders)
-                                                .expect("prop encode failed");
-                                        }
+                                || decode_to_staged(tiles),
+                                |layers| {
+                                    for l in layers {
+                                        let int_enc = IntEncoder::new(logical, physical);
+                                        let encoders: Vec<PropertyEncoder> = l
+                                            .properties
+                                            .iter()
+                                            .map(|prop| match prop.kind() {
+                                                PropertyKind::Bool => {
+                                                    ScalarEncoder::bool(presence).into()
+                                                }
+                                                PropertyKind::Integer => {
+                                                    ScalarEncoder::int(presence, int_enc).into()
+                                                }
+                                                PropertyKind::Float => {
+                                                    ScalarEncoder::float(presence).into()
+                                                }
+                                                PropertyKind::String => ScalarEncoder::str_fsst(
+                                                    presence, int_enc, int_enc,
+                                                )
+                                                .into(),
+                                                PropertyKind::SharedDict => {
+                                                    unreachable!("unimplemented")
+                                                }
+                                            })
+                                            .collect();
+                                        encode_properties(&l.properties, encoders)
+                                            .expect("prop encode failed");
                                     }
-                                    black_box(layers);
+                                    black_box(());
                                 },
                                 BatchSize::SmallInput,
                             );
@@ -182,6 +176,6 @@ criterion_group!(
     benches,
     bench_encode_geometry,
     bench_encode_ids,
-    bench_encode_properties,
+    bench_encode_properties
 );
 criterion_main!(benches);

@@ -8,14 +8,13 @@ use std::{fs, io};
 use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
-    GeometryEncoder, IdEncoder, IntEncoder, ParsedGeometry, ParsedId, ParsedProperty,
+    EncodedLayer01, GeometryEncoder, IdEncoder, IntEncoder, ParsedGeometry, ParsedId,
     ParsedStrings, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
-    SharedDictItemEncoder, StagedGeometry, StagedId, StagedLayer01, StagedProperty, StrEncoder,
-    VertexBufferType, build_decoded_shared_dict,
+    SharedDictItemEncoder, StagedProperty, StagedSharedDict, StagedSharedDictItem, StrEncoder,
+    VertexBufferType, encode_properties,
 };
-use mlt_core::{StagedLayer, parse_layers};
+use mlt_core::{EncodedLayer, parse_layers};
 
 /// Tessellate a polygon using the geo crate's earcut algorithm.
 ///
@@ -100,7 +99,7 @@ pub struct Layer {
     pub geometry_items: Vec<Geom32>,
     /// Polygons that are also tessellated; triangle data is merged when building decoded geometry.
     pub tessellated_polygons: Vec<Option<Polygon<i32>>>,
-    pub properties: Vec<ParsedProperty<'static>>,
+    pub properties: Vec<StagedProperty>,
     pub prop_encoders: Vec<PropertyEncoder>,
     pub extent: Option<u32>,
     pub ids: Option<(Vec<Option<u64>>, IdEncoder)>,
@@ -233,7 +232,7 @@ impl Layer {
 
     /// Add a scalar property.
     #[must_use]
-    pub fn add_prop(mut self, encoder: ScalarEncoder, prop: ParsedProperty<'static>) -> Self {
+    pub fn add_prop(mut self, encoder: ScalarEncoder, prop: StagedProperty) -> Self {
         self.properties.push(prop);
         self.prop_encoders.push(PropertyEncoder::Scalar(encoder));
         self
@@ -245,11 +244,9 @@ impl Layer {
     /// [`SharedDict::column`], and pass it to this method.
     #[must_use]
     pub fn add_shared_dict(mut self, shared_dict: SharedDict) -> Self {
-        let name = shared_dict.name;
         let encoder = shared_dict.encoder;
-        let dict = build_decoded_shared_dict(name, shared_dict.items)
-            .expect("shared dict builder should be valid");
-        self.properties.push(ParsedProperty::SharedDict(dict));
+        let dict = build_staged_shared_dict(shared_dict.name, shared_dict.items);
+        self.properties.push(StagedProperty::SharedDict(dict));
         self.prop_encoders.push(encoder.into());
         self
     }
@@ -311,30 +308,25 @@ impl Layer {
 
     fn write_mlt(self, path: &Path) {
         let decoded_geom = self.build_decoded_geometry();
-        let mut geometry = StagedGeometry::Decoded(decoded_geom);
-        geometry.manual_optimisation(self.geometry_encoder).unwrap();
+        let geometry = decoded_geom
+            .encode(self.geometry_encoder)
+            .unwrap_or_else(|e| panic!("cannot encode geometry: {e}"));
 
-        let id = if let Some((ids, ids_encoder)) = self.ids {
-            let mut id = StagedId::Decoded(ParsedId(ids));
-            id.manual_optimisation(ids_encoder).unwrap();
-            Some(id)
-        } else {
-            None
-        };
+        let id = self.ids.and_then(|(ids, ids_encoder)| {
+            ParsedId(ids)
+                .encode(ids_encoder)
+                .unwrap_or_else(|e| panic!("cannot encode id: {e}"))
+        });
 
-        let mut properties: Vec<StagedProperty> = self
-            .properties
-            .into_iter()
-            .map(StagedProperty::Decoded)
-            .collect();
-        properties.manual_optimisation(self.prop_encoders).unwrap();
+        let encoded_properties = encode_properties(&self.properties, self.prop_encoders)
+            .unwrap_or_else(|e| panic!("cannot encode properties: {e}"));
 
-        let layer = StagedLayer::Tag01(StagedLayer01 {
+        let layer = EncodedLayer::Tag01(EncodedLayer01 {
             name: "layer1".to_string(),
             extent: self.extent.unwrap_or(80),
             id,
             geometry,
-            properties,
+            properties: encoded_properties,
         });
 
         let mut file = Self::open_new(path)
@@ -342,6 +334,44 @@ impl Layer {
         layer
             .write_to(&mut file)
             .unwrap_or_else(|e| panic!("cannot encode {}: {e}", path.display()));
+    }
+}
+
+/// Build a [`StagedSharedDict`] from named string columns.
+///
+/// The shared corpus is built by merging unique values from all columns.
+fn build_staged_shared_dict(
+    prefix: String,
+    items: Vec<(String, ParsedStrings<'static>)>,
+) -> StagedSharedDict {
+    let mut corpus = String::new();
+
+    let staged_items: Vec<StagedSharedDictItem> = items
+        .iter()
+        .map(|(suffix, parsed)| {
+            let mut ranges = Vec::with_capacity(parsed.feature_count());
+            for i in 0..u32::try_from(parsed.feature_count()).unwrap_or(u32::MAX) {
+                let range = if let Some(s) = parsed.get(i) {
+                    let start = i32::try_from(corpus.len()).unwrap_or(i32::MAX);
+                    corpus.push_str(s);
+                    let end = i32::try_from(corpus.len()).unwrap_or(i32::MAX);
+                    (start, end)
+                } else {
+                    (-1, -1)
+                };
+                ranges.push(range);
+            }
+            StagedSharedDictItem {
+                suffix: suffix.clone(),
+                ranges,
+            }
+        })
+        .collect();
+
+    StagedSharedDict {
+        prefix,
+        data: corpus,
+        items: staged_items,
     }
 }
 

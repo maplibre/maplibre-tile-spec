@@ -7,11 +7,11 @@ use rstest::rstest;
 
 fn str_prop(name: &str, values: &[&str]) -> StagedProperty {
     let owned: Vec<Option<String>> = values.iter().map(|s| Some((*s).to_string())).collect();
-    StagedProperty::Decoded(ParsedProperty::str(name.to_string(), owned))
+    StagedProperty::str(name, owned)
 }
 
 fn make_prop(prop: ParsedProperty<'static>) -> StagedProperty {
-    StagedProperty::Decoded(prop)
+    StagedProperty::from(prop)
 }
 
 /// Like `str_prop` but returns a `ParsedProperty` directly (for `from_sample` calls).
@@ -21,7 +21,7 @@ fn decoded_str(name: &str, values: &[&str]) -> ParsedProperty<'static> {
 }
 
 fn to_owned_props(decoded: Vec<ParsedProperty<'static>>) -> Vec<StagedProperty> {
-    decoded.into_iter().map(StagedProperty::Decoded).collect()
+    decoded.into_iter().map(StagedProperty::from).collect()
 }
 
 #[test]
@@ -330,7 +330,7 @@ fn manual_optimisation_reuses_derived_encoder() {
 fn from_sample_similar_strings_groups_them() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
     let props = vec![decoded_str("name:en", vocab), decoded_str("name:de", vocab)];
-    let profile = PropertyProfile::from_sample(&props);
+    let profile = PropertyProfile::from_parsed_sample(&props);
     assert_debug_snapshot!(profile, @"
     PropertyProfile {
         string_groups: [
@@ -349,7 +349,7 @@ fn from_sample_dissimilar_strings_no_groups() {
         decoded_str("city:de", &["Munich", "Mannheim", "Garching"]),
         decoded_str("city:us", &["Chicago", "Seattle", "Austin"]),
     ];
-    let profile = PropertyProfile::from_sample(&props);
+    let profile = PropertyProfile::from_parsed_sample(&props);
     assert_debug_snapshot!(profile, @"
     PropertyProfile {
         string_groups: [],
@@ -361,7 +361,7 @@ fn from_sample_dissimilar_strings_no_groups() {
 fn from_sample_single_string_column_no_groups() {
     // Single-element groups are always filtered out.
     let props = vec![decoded_str("name", &["Alice", "Bob"])];
-    let profile = PropertyProfile::from_sample(&props);
+    let profile = PropertyProfile::from_parsed_sample(&props);
     assert_debug_snapshot!(profile, @"
     PropertyProfile {
         string_groups: [],
@@ -375,7 +375,7 @@ fn from_sample_no_string_columns_empty_profile() {
         ParsedProperty::u32("pop", vec![Some(1), Some(2), Some(3)]),
         ParsedProperty::i32("delta", vec![Some(-1), Some(0), Some(1)]),
     ];
-    let profile = PropertyProfile::from_sample(&props);
+    let profile = PropertyProfile::from_parsed_sample(&props);
     assert_debug_snapshot!(profile, @"
     PropertyProfile {
         string_groups: [],
@@ -393,7 +393,7 @@ fn from_sample_multiple_similar_groups() {
         decoded_str("name:en", name_vocab),
         decoded_str("name:de", name_vocab),
     ];
-    let profile = PropertyProfile::from_sample(&props);
+    let profile = PropertyProfile::from_parsed_sample(&props);
     // Two independent groups, order determined by first column index.
     assert_debug_snapshot!(profile, @"
     PropertyProfile {
@@ -507,7 +507,7 @@ fn merge_duplicate_group_not_added_twice() {
     decoded_str("name:de", &["alpha", "beta", "gamma"]),
 ])]
 fn profile_driven_matches_automatic(#[case] decoded: Vec<ParsedProperty<'static>>) {
-    let profile = PropertyProfile::from_sample(&decoded);
+    let profile = PropertyProfile::from_parsed_sample(&decoded);
 
     let mut auto_props = to_owned_props(decoded.clone());
     let auto_enc = auto_props.automatic_encoding_optimisation().unwrap();
@@ -523,7 +523,7 @@ fn profile_applied_to_partial_tile_skips_missing_columns() {
     // Profile says "name:en" and "name:de" should be grouped.
     let vocab = &["Alice", "Bob", "Carol"];
     let sample = vec![decoded_str("name:en", vocab), decoded_str("name:de", vocab)];
-    let profile = PropertyProfile::from_sample(&sample);
+    let profile = PropertyProfile::from_parsed_sample(&sample);
 
     // Tile only has "name:en" – group resolves to 1 column, so it is skipped.
     let mut props = vec![str_prop("name:en", vocab)];
@@ -562,7 +562,7 @@ fn profile_applies_grouping_to_different_tile_data() {
         decoded_str("name:en", sample_vocab),
         decoded_str("name:de", sample_vocab),
     ];
-    let profile = PropertyProfile::from_sample(&sample);
+    let profile = PropertyProfile::from_parsed_sample(&sample);
 
     let tile_vocab = &["Eve", "Frank", "Grace", "Heidi"];
     let mut props = vec![

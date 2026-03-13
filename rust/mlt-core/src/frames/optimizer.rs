@@ -1,47 +1,5 @@
-use crate::frames::{LayerEncoder, LayerProfile};
-use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
-use crate::{MltError, StagedLayer};
-
-impl ManualOptimisation for StagedLayer {
-    type UsedEncoder = LayerEncoder;
-
-    fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        use LayerEncoder as E;
-        use StagedLayer as L;
-        match (self, encoder) {
-            (L::Tag01(t), E::Tag01(e)) => Ok(t.manual_optimisation(e)?),
-            (L::Unknown(_), E::Unknown) => Ok(()),
-            (L::Tag01(_) | L::Unknown(_), _) => Err(MltError::BadEncoderDataCombination),
-        }
-    }
-}
-
-impl ProfileOptimisation for StagedLayer {
-    type UsedEncoder = LayerEncoder;
-    type Profile = LayerProfile;
-
-    fn profile_driven_optimisation(
-        &mut self,
-        profile: &Self::Profile,
-    ) -> Result<Self::UsedEncoder, MltError> {
-        use LayerEncoder as E;
-        use LayerProfile as P;
-        use StagedLayer as L;
-        match (self, profile) {
-            (L::Tag01(t), P::Tag01(p)) => Ok(E::Tag01(t.profile_driven_optimisation(p)?)),
-            (L::Unknown(_), P::Unknown) => Ok(E::Unknown),
-            (L::Tag01(_) | L::Unknown(_), _) => Err(MltError::BadProfileDataCombination),
-        }
-    }
-}
-
-impl AutomaticOptimisation for StagedLayer {
-    type UsedEncoder = LayerEncoder;
-
-    fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
-        match self {
-            StagedLayer::Tag01(t) => Ok(LayerEncoder::Tag01(t.automatic_encoding_optimisation()?)),
-            StagedLayer::Unknown(_) => Ok(LayerEncoder::Unknown),
-        }
-    }
-}
+// Layer-level optimizer impls have been removed along with StagedLayer.
+// Encoding is now done directly on StagedLayer01 via:
+//   StagedLayer01::encode(encoder) -> Result<EncodedLayer01, MltError>
+//   StagedLayer01::encode_with_profile(profile) -> Result<(EncodedLayer01, Tag01Encoder), MltError>
+//   StagedLayer01::encode_automatic() -> Result<(EncodedLayer01, Tag01Encoder), MltError>

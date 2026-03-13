@@ -5,10 +5,8 @@ use crate::EncDec;
 use crate::v01::{EncodedStream, RawStream};
 
 /// Geometry column representation, either raw (borrowed from bytes) or parsed.
+/// Only used in the decoding pipeline.
 pub type Geometry<'a> = EncDec<RawGeometry<'a>, ParsedGeometry>;
-
-/// Staged geometry column: can hold either encoded or decoded form (used during encoding pipeline).
-pub type StagedGeometry = EncDec<EncodedGeometry, ParsedGeometry>;
 
 /// Raw geometry data as read directly from the tile (borrows from input bytes)
 #[derive(Debug, PartialEq, Clone)]

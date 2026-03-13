@@ -1,5 +1,5 @@
 use crate::frames::v01::Layer01;
-use crate::v01::{SortStrategy, StagedLayer01, Tag01Encoder, Tag01Profile};
+use crate::v01::{EncodedLayer01, SortStrategy, Tag01Encoder, Tag01Profile};
 
 /// A layer that can be one of the known types, or an unknown
 #[derive(Debug, PartialEq)]
@@ -11,12 +11,11 @@ pub enum Layer<'a> {
     Unknown(Unknown<'a>),
 }
 
-/// Owned variant of [`Layer`].
+/// Wire-ready encoded layer, ready for serialization.
 #[derive(Debug, PartialEq, Clone)]
 #[expect(clippy::large_enum_variant)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum StagedLayer {
-    Tag01(StagedLayer01),
+pub enum EncodedLayer {
+    Tag01(EncodedLayer01),
     Unknown(EncodedUnknown),
 }
 

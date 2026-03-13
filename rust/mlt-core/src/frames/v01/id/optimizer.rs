@@ -1,7 +1,6 @@
-use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::{
     DataProfile, EncodedId, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, ParsedId,
-    PhysicalEncoder, StagedId,
+    PhysicalEncoder,
 };
 use crate::{FromDecoded as _, MltError};
 
@@ -237,63 +236,33 @@ fn filter_varint(candidates: &[IntEncoder]) -> Vec<IntEncoder> {
     }
 }
 
-impl ManualOptimisation for StagedId {
-    type UsedEncoder = IdEncoder;
-
-    fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        let owned = std::mem::replace(self, StagedId::Decoded(ParsedId::default()));
-        let dec = ParsedId::try_from(owned)?;
-        if !dec.0.is_empty() {
-            *self = StagedId::Encoded(EncodedId::from_decoded(&dec, encoder)?);
+impl ParsedId {
+    /// Encode using the specified encoder, returning a wire-ready [`EncodedId`].
+    pub fn encode(&self, encoder: IdEncoder) -> Result<Option<EncodedId>, MltError> {
+        if self.0.is_empty() {
+            return Ok(None);
         }
-        Ok(())
+        Ok(Some(EncodedId::from_decoded(self, encoder)?))
     }
-}
 
-impl ProfileOptimisation for StagedId {
-    type UsedEncoder = Option<IdEncoder>;
-    type Profile = IdProfile;
-
-    fn profile_driven_optimisation(
-        &mut self,
-        profile: &Self::Profile,
-    ) -> Result<Self::UsedEncoder, MltError> {
-        match self {
-            StagedId::Decoded(dec) => {
-                let enc = apply_profile(dec, profile);
-                *self = StagedId::Encoded(EncodedId::from_decoded(dec, enc)?);
-                Ok(Some(enc))
-            }
-            StagedId::Encoded(_) => {
-                let enc = std::mem::replace(self, StagedId::Decoded(ParsedId::default()));
-                let StagedId::Encoded(e) = enc else {
-                    unreachable!()
-                };
-                *self = StagedId::Decoded(ParsedId::try_from(e)?);
-                self.profile_driven_optimisation(profile)
-            }
+    /// Encode using automatically selected encoder settings.
+    pub fn encode_automatic(&self) -> Result<(Option<EncodedId>, Option<IdEncoder>), MltError> {
+        if self.0.is_empty() {
+            return Ok((None, None));
         }
+        let enc = optimize(self);
+        Ok((Some(EncodedId::from_decoded(self, enc)?), Some(enc)))
     }
-}
 
-impl AutomaticOptimisation for StagedId {
-    type UsedEncoder = Option<IdEncoder>;
-
-    fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
-        match self {
-            StagedId::Decoded(dec) => {
-                let enc = optimize(dec);
-                *self = StagedId::Encoded(EncodedId::from_decoded(dec, enc)?);
-                Ok(Some(enc))
-            }
-            StagedId::Encoded(_) => {
-                let enc = std::mem::replace(self, StagedId::Decoded(ParsedId::default()));
-                let StagedId::Encoded(e) = enc else {
-                    unreachable!()
-                };
-                *self = StagedId::Decoded(ParsedId::try_from(e)?);
-                self.automatic_encoding_optimisation()
-            }
+    /// Encode using the given profile's pre-computed encoder candidates.
+    pub fn encode_with_profile(
+        &self,
+        profile: &IdProfile,
+    ) -> Result<(Option<EncodedId>, Option<IdEncoder>), MltError> {
+        if self.0.is_empty() {
+            return Ok((None, None));
         }
+        let enc = apply_profile(self, profile);
+        Ok((Some(EncodedId::from_decoded(self, enc)?), Some(enc)))
     }
 }

@@ -60,15 +60,82 @@ impl<'a> Property<'a> {
         })
     }
 
+    /// Decode and promote all borrowed string slices to owned, yielding a `'static` result.
+    ///
+    /// This is useful when the decoded data needs to outlive the original byte slice
+    /// (e.g., storing decoded properties in a cache or WASM struct).
+    #[inline]
+    pub fn decode_to_static(self) -> Result<ParsedProperty<'static>, MltError> {
+        Ok(self.decode()?.into_static())
+    }
+
     pub fn decoded_property(&mut self) -> Result<&ParsedProperty<'a>, MltError> {
         Ok(self.materialize()?)
     }
+}
 
+impl<'a> ParsedProperty<'a> {
+    /// Promote all borrowed string slices to owned, yielding a `'static` lifetime.
     #[must_use]
-    pub fn to_owned(&self) -> StagedProperty {
+    pub fn into_static(self) -> ParsedProperty<'static> {
+        use std::borrow::Cow;
         match self {
-            Self::Encoded(encoded) => StagedProperty::Encoded(encoded.to_owned()),
-            Self::Decoded(decoded) => StagedProperty::Decoded(decoded.to_owned()),
+            Self::Bool(s) => ParsedProperty::Bool(ParsedScalar {
+                name: Cow::Owned(s.name.into_owned()),
+                values: s.values,
+            }),
+            Self::I8(s) => ParsedProperty::I8(ParsedScalar {
+                name: Cow::Owned(s.name.into_owned()),
+                values: s.values,
+            }),
+            Self::U8(s) => ParsedProperty::U8(ParsedScalar {
+                name: Cow::Owned(s.name.into_owned()),
+                values: s.values,
+            }),
+            Self::I32(s) => ParsedProperty::I32(ParsedScalar {
+                name: Cow::Owned(s.name.into_owned()),
+                values: s.values,
+            }),
+            Self::U32(s) => ParsedProperty::U32(ParsedScalar {
+                name: Cow::Owned(s.name.into_owned()),
+                values: s.values,
+            }),
+            Self::I64(s) => ParsedProperty::I64(ParsedScalar {
+                name: Cow::Owned(s.name.into_owned()),
+                values: s.values,
+            }),
+            Self::U64(s) => ParsedProperty::U64(ParsedScalar {
+                name: Cow::Owned(s.name.into_owned()),
+                values: s.values,
+            }),
+            Self::F32(s) => ParsedProperty::F32(ParsedScalar {
+                name: Cow::Owned(s.name.into_owned()),
+                values: s.values,
+            }),
+            Self::F64(s) => ParsedProperty::F64(ParsedScalar {
+                name: Cow::Owned(s.name.into_owned()),
+                values: s.values,
+            }),
+            Self::Str(s) => ParsedProperty::Str(ParsedStrings {
+                name: Cow::Owned(s.name.into_owned()),
+                lengths: s.lengths,
+                data: Cow::Owned(s.data.into_owned()),
+            }),
+            Self::SharedDict(sd) => {
+                use crate::v01::{ParsedSharedDict, ParsedSharedDictItem};
+                ParsedProperty::SharedDict(ParsedSharedDict {
+                    prefix: Cow::Owned(sd.prefix.into_owned()),
+                    data: Cow::Owned(sd.data.into_owned()),
+                    items: sd
+                        .items
+                        .into_iter()
+                        .map(|item| ParsedSharedDictItem {
+                            suffix: Cow::Owned(item.suffix.into_owned()),
+                            ranges: item.ranges,
+                        })
+                        .collect(),
+                })
+            }
         }
     }
 }
@@ -314,6 +381,164 @@ impl FromDecoded<'_> for EncodedProperty {
             (v, e) => Err(UnsupportedPropertyEncoderCombination(v.into(), e.into()))?,
         }
     }
+}
+
+/// Encode a slice of [`StagedProperty`] values using the provided encoders.
+///
+/// This is the primary encoding entry-point for the encoding pipeline.
+/// It operates directly on owned `StagedProperty` data without ever touching
+/// the `ParsedProperty<'_>` parsing types or `'static` promotions.
+pub(crate) fn encode_staged_properties(
+    properties: &[StagedProperty],
+    encoders: Vec<PropertyEncoder>,
+) -> Result<Vec<EncodedProperty>, MltError> {
+    if properties.len() != encoders.len() {
+        return Err(MltError::EncodingInstructionCountMismatch {
+            input_len: properties.len(),
+            config_len: encoders.len(),
+        });
+    }
+
+    let mut result = Vec::with_capacity(properties.len());
+    for (staged, encoder) in properties.iter().zip(encoders) {
+        result.push(encode_staged_property(staged, encoder)?);
+    }
+    Ok(result)
+}
+
+fn encode_staged_property(
+    staged: &StagedProperty,
+    encoder: PropertyEncoder,
+) -> Result<EncodedProperty, MltError> {
+    use StagedProperty as S;
+
+    match encoder {
+        PropertyEncoder::Scalar(enc) => {
+            let presence = if enc.presence == PresenceStream::Present {
+                let present_vec: Vec<bool> = staged.as_presence_stream()?;
+                Some(EncodedStream::encode_presence(&present_vec)?)
+            } else {
+                None
+            };
+
+            let mk_scalar =
+                |name: &str, presence: Option<EncodedStream>, data: EncodedStream| EncodedScalar {
+                    name: EncodedName(name.to_string()),
+                    presence: EncodedPresence(presence),
+                    data,
+                };
+
+            match (staged, enc.value) {
+                (S::Bool(v), ScalarValueEncoder::Bool) => Ok(EncodedProperty::Bool(mk_scalar(
+                    &v.name,
+                    presence,
+                    EncodedStream::encode_bools(&unapply_presence(&v.values))?,
+                ))),
+                (S::I8(v), ScalarValueEncoder::Int(e)) => Ok(EncodedProperty::I8(mk_scalar(
+                    &v.name,
+                    presence,
+                    EncodedStream::encode_i8s(&unapply_presence(&v.values), e)?,
+                ))),
+                (S::U8(v), ScalarValueEncoder::Int(e)) => Ok(EncodedProperty::U8(mk_scalar(
+                    &v.name,
+                    presence,
+                    EncodedStream::encode_u8s(&unapply_presence(&v.values), e)?,
+                ))),
+                (S::I32(v), ScalarValueEncoder::Int(e)) => Ok(EncodedProperty::I32(mk_scalar(
+                    &v.name,
+                    presence,
+                    EncodedStream::encode_i32s(&unapply_presence(&v.values), e)?,
+                ))),
+                (S::U32(v), ScalarValueEncoder::Int(e)) => Ok(EncodedProperty::U32(mk_scalar(
+                    &v.name,
+                    presence,
+                    EncodedStream::encode_u32s(&unapply_presence(&v.values), e)?,
+                ))),
+                (S::I64(v), ScalarValueEncoder::Int(e)) => Ok(EncodedProperty::I64(mk_scalar(
+                    &v.name,
+                    presence,
+                    EncodedStream::encode_i64s(&unapply_presence(&v.values), e)?,
+                ))),
+                (S::U64(v), ScalarValueEncoder::Int(e)) => Ok(EncodedProperty::U64(mk_scalar(
+                    &v.name,
+                    presence,
+                    EncodedStream::encode_u64s(&unapply_presence(&v.values), e)?,
+                ))),
+                (S::F32(v), ScalarValueEncoder::Float) => Ok(EncodedProperty::F32(mk_scalar(
+                    &v.name,
+                    presence,
+                    EncodedStream::encode_f32(&unapply_presence(&v.values))?,
+                ))),
+                (S::F64(v), ScalarValueEncoder::Float) => Ok(EncodedProperty::F64(mk_scalar(
+                    &v.name,
+                    presence,
+                    EncodedStream::encode_f64(&unapply_presence(&v.values))?,
+                ))),
+                (S::Str(v), ScalarValueEncoder::String(enc)) => {
+                    let dense = staged_strings_dense(v);
+                    Ok(EncodedProperty::Str(EncodedStrings {
+                        name: EncodedName(v.name.clone()),
+                        presence: EncodedPresence(presence),
+                        encoding: match enc {
+                            StrEncoder::Plain { string_lengths } => {
+                                EncodedStream::encode_strings_with_type(
+                                    &dense,
+                                    string_lengths,
+                                    LengthType::VarBinary,
+                                    DictionaryType::None,
+                                )?
+                            }
+                            StrEncoder::Fsst(e) => EncodedStream::encode_strings_fsst_with_type(
+                                &dense,
+                                e,
+                                DictionaryType::Single,
+                            )?,
+                        },
+                    }))
+                }
+                (S::SharedDict(..), _) => Err(NotImplemented(
+                    "SharedDict cannot be encoded via ScalarEncoder",
+                )),
+                (v, e) => Err(UnsupportedPropertyEncoderCombination(
+                    v.kind_str(),
+                    e.into(),
+                )),
+            }
+        }
+        PropertyEncoder::SharedDict(enc) => {
+            let S::SharedDict(_) = staged else {
+                return Err(UnsupportedPropertyEncoderCombination(
+                    staged.kind_str(),
+                    "shared_dict",
+                ));
+            };
+            // Borrow via as_parsed() to reuse the existing shared-dict encoder.
+            let prop = staged.as_parsed();
+            let ParsedProperty::SharedDict(shared_dict) = &prop else {
+                unreachable!("as_parsed on SharedDict yields SharedDict");
+            };
+            encode_shared_dict_prop(shared_dict, &enc)
+        }
+    }
+}
+
+/// Collect the dense (non-null) string values from a `StagedStrings` column.
+fn staged_strings_dense(s: &crate::v01::StagedStrings) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut start: usize = 0;
+    for &end_raw in &s.lengths {
+        if end_raw >= 0 {
+            let end = end_raw as usize;
+            if let Some(v) = s.data.get(start..end) {
+                result.push(v.to_string());
+            }
+            start = end;
+        } else {
+            // NULL — current offset is `!end_raw`
+            start = (!end_raw) as usize;
+        }
+    }
+    result
 }
 
 fn unapply_presence<T: Clone>(v: &[Option<T>]) -> Vec<T> {

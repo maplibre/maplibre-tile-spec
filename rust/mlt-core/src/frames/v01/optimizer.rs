@@ -1,99 +1,95 @@
 use strum::{EnumCount as _, IntoEnumIterator as _};
 
 use crate::MltError;
-use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
+use crate::v01::property::optimizer::{
+    encode_properties, encode_properties_automatic, encode_properties_with_profile,
+};
 use crate::v01::sort::{reorder_features, spatial_sort_likely_to_help};
 use crate::v01::tile::TileLayer01;
 use crate::v01::{
-    GeometryEncoder, GeometryProfile, IdEncoder, IdProfile, PropertyEncoder, PropertyProfile,
-    SortStrategy, StagedLayer01,
+    EncodedLayer01, GeometryEncoder, GeometryProfile, IdEncoder, IdProfile, PropertyEncoder,
+    PropertyProfile, SortStrategy, StagedLayer01,
 };
-
-impl StagedLayer01 {
-    /// Encode this layer using the given encoder, producing a wire-ready `StagedLayer01`
-    /// where every column is in the `Encoded` variant and ready to be serialized.
-    ///
-    /// This is a convenience wrapper over `ManualOptimisation::manual_optimisation`.
-    pub fn encode(&mut self, encoder: Tag01Encoder) -> Result<(), MltError> {
-        use crate::optimizer::ManualOptimisation as _;
-        self.manual_optimisation(encoder)
-    }
-}
-
-impl ManualOptimisation for StagedLayer01 {
-    type UsedEncoder = Tag01Encoder;
-
-    fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        let mut source = TileLayer01::try_from(std::mem::replace(self, dummy_layer()))?;
-        reorder_features(&mut source, encoder.sort_strategy);
-        *self = StagedLayer01::from(source);
-
-        if let (Some(id_enc), Some(id)) = (encoder.id, &mut self.id) {
-            id.manual_optimisation(id_enc)?;
-        }
-        self.properties.manual_optimisation(encoder.properties)?;
-        self.geometry.manual_optimisation(encoder.geometry)?;
-        Ok(())
-    }
-}
-
-impl ProfileOptimisation for StagedLayer01 {
-    type UsedEncoder = Tag01Encoder;
-    type Profile = Tag01Profile;
-
-    fn profile_driven_optimisation(
-        &mut self,
-        profile: &Self::Profile,
-    ) -> Result<Self::UsedEncoder, MltError> {
-        let sort_strategy = profile.sort_strategy();
-
-        let mut source = TileLayer01::try_from(std::mem::replace(self, dummy_layer()))?;
-        reorder_features(&mut source, sort_strategy);
-        *self = StagedLayer01::from(source);
-
-        let id = match &mut self.id {
-            Some(id) => id.profile_driven_optimisation(&profile.id)?,
-            None => None,
-        };
-        let properties = self
-            .properties
-            .profile_driven_optimisation(&profile.properties)?;
-        let geometry = self
-            .geometry
-            .profile_driven_optimisation(&profile.geometry)?;
-
-        Ok(Tag01Encoder {
-            sort_strategy,
-            id,
-            properties,
-            geometry,
-        })
-    }
-}
 
 /// Feature-count threshold above which the spatial trial is subject to the
 /// bounding-box pruning heuristic.
-///
-/// Below this count every candidate is always trialed unconditionally — the
-/// cost is negligible for small layers and edge-case gains are worth capturing.
 const SORT_TRIAL_THRESHOLD: usize = 512;
 
 /// Candidate sort strategies evaluated during automatic competitive trialing.
-///
-/// Morton is preferred over Hilbert in the automatic path because it is
-/// cheaper to compute; Hilbert can be selected explicitly via manual or
-/// profile-driven optimisation.
 const TRIAL_STRATEGIES: [Option<SortStrategy>; 3] = [
     None,
     Some(SortStrategy::SpatialMorton),
     Some(SortStrategy::Id),
 ];
 
-impl AutomaticOptimisation for StagedLayer01 {
-    type UsedEncoder = Tag01Encoder;
+impl StagedLayer01 {
+    /// Encode this layer using the given encoder, producing a wire-ready [`EncodedLayer01`].
+    pub fn encode(self, encoder: Tag01Encoder) -> Result<EncodedLayer01, MltError> {
+        let mut source = TileLayer01::from(self);
+        reorder_features(&mut source, encoder.sort_strategy);
+        let staged = StagedLayer01::from(source);
+
+        let id = match (encoder.id, staged.id) {
+            (Some(id_enc), Some(id)) => id.encode(id_enc)?,
+            _ => None,
+        };
+        let geometry = staged.geometry.encode(encoder.geometry)?;
+        let properties = encode_properties(&staged.properties, encoder.properties)?;
+
+        Ok(EncodedLayer01 {
+            name: staged.name,
+            extent: staged.extent,
+            id,
+            geometry,
+            properties,
+            #[cfg(fuzzing)]
+            layer_order: staged.layer_order,
+        })
+    }
+
+    /// Encode using profile-driven encoder settings. Returns the encoded layer and
+    /// the encoder configuration that was chosen.
+    pub fn encode_with_profile(
+        self,
+        profile: &Tag01Profile,
+    ) -> Result<(EncodedLayer01, Tag01Encoder), MltError> {
+        let sort_strategy = profile.sort_strategy();
+        let mut source = TileLayer01::from(self);
+        reorder_features(&mut source, sort_strategy);
+        let staged = StagedLayer01::from(source);
+
+        let (id_encoded, id_encoder) = match staged.id {
+            Some(ref id) => id.encode_with_profile(&profile.id)?,
+            None => (None, None),
+        };
+        let mut props = staged.properties;
+        let (properties, prop_encoder) =
+            encode_properties_with_profile(&mut props, &profile.properties)?;
+        let (geometry, geom_encoder) = staged.geometry.encode_with_profile(&profile.geometry)?;
+
+        let encoder = Tag01Encoder {
+            sort_strategy,
+            id: id_encoder,
+            properties: prop_encoder,
+            geometry: geom_encoder,
+        };
+
+        Ok((
+            EncodedLayer01 {
+                name: staged.name,
+                extent: staged.extent,
+                id: id_encoded,
+                geometry,
+                properties,
+                #[cfg(fuzzing)]
+                layer_order: staged.layer_order,
+            },
+            encoder,
+        ))
+    }
 
     /// Automatically select the best sort strategy and stream-level encoders by
-    /// competitive trialing.
+    /// competitive trialing. Returns the encoded layer and the chosen encoder.
     ///
     /// # Algorithm
     ///
@@ -106,24 +102,19 @@ impl AutomaticOptimisation for StagedLayer01 {
     /// 3. For each candidate strategy:
     ///    - Clone the source layer.
     ///    - Apply `reorder_features` to the clone.
-    ///    - Convert the clone back to `StagedLayer01` and run automatic
-    ///      stream-level optimisation on id, properties, and geometry.
-    ///    - Serialise the fully-encoded clone to a scratch buffer and record
-    ///      its byte count.
-    /// 4. Keep the trial that produced the smallest byte count and replace
-    ///    `self` with the winning encoded layer.
-    fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
+    ///    - Encode with automatic stream-level optimisation.
+    ///    - Serialise to a scratch buffer and record byte count.
+    /// 4. Return the trial with the smallest byte count.
+    pub fn encode_automatic(self) -> Result<(EncodedLayer01, Tag01Encoder), MltError> {
         struct TrialResult {
-            layer: StagedLayer01,
+            layer: EncodedLayer01,
             encoder: Tag01Encoder,
             byte_count: usize,
         }
 
-        // Convert to source form once; every trial clones this.
-        let source = TileLayer01::try_from(std::mem::replace(self, dummy_layer()))?;
+        let source = TileLayer01::from(self);
         let n = source.features.len();
 
-        // Build the candidate slice, optionally pruning spatial sort.
         let filtered: [Option<SortStrategy>; 2];
         let candidates: &[Option<SortStrategy>] =
             if n < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(&source) {
@@ -138,31 +129,40 @@ impl AutomaticOptimisation for StagedLayer01 {
         for &strategy in candidates {
             let mut trial_source = source.clone();
             reorder_features(&mut trial_source, strategy);
-            let mut trial = StagedLayer01::from(trial_source);
+            let staged = StagedLayer01::from(trial_source);
 
-            let id = match &mut trial.id {
-                Some(id) => id.automatic_encoding_optimisation()?,
-                None => None,
+            let (id_encoded, id_encoder) = match staged.id {
+                Some(ref id) => id.encode_automatic()?,
+                None => (None, None),
             };
-            let properties = trial.properties.automatic_encoding_optimisation()?;
-            let geometry = trial.geometry.automatic_encoding_optimisation()?;
+            let mut props = staged.properties;
+            let (properties, prop_encoder) = encode_properties_automatic(&mut props)?;
+            let (geometry, geom_encoder) = staged.geometry.encode_automatic()?;
 
             let encoder = Tag01Encoder {
                 sort_strategy: strategy,
-                id,
-                properties,
-                geometry,
+                id: id_encoder,
+                properties: prop_encoder,
+                geometry: geom_encoder,
             };
 
-            // Serialise to a scratch buffer to measure the total byte cost of
-            // this sort strategy (geometry + IDs + properties combined).
+            let trial_layer = EncodedLayer01 {
+                name: staged.name,
+                extent: staged.extent,
+                id: id_encoded,
+                geometry,
+                properties,
+                #[cfg(fuzzing)]
+                layer_order: staged.layer_order,
+            };
+
             let mut buf: Vec<u8> = Vec::new();
-            trial.write_to(&mut buf)?;
+            trial_layer.write_to(&mut buf)?;
             let byte_count = buf.len();
 
             if best.as_ref().is_none_or(|b| byte_count < b.byte_count) {
                 best = Some(TrialResult {
-                    layer: trial,
+                    layer: trial_layer,
                     encoder,
                     byte_count,
                 });
@@ -171,23 +171,7 @@ impl AutomaticOptimisation for StagedLayer01 {
 
         // `candidates` always contains at least `None`, so `best` is always `Some`.
         let winner = best.unwrap();
-        *self = winner.layer;
-        Ok(winner.encoder)
-    }
-}
-
-/// Produce a cheap placeholder `StagedLayer01` used with `std::mem::replace`
-/// to take ownership of `self` without cloning.
-fn dummy_layer() -> StagedLayer01 {
-    use crate::v01::{ParsedGeometry, StagedGeometry};
-    StagedLayer01 {
-        name: String::new(),
-        extent: 0,
-        id: None,
-        geometry: StagedGeometry::Decoded(ParsedGeometry::default()),
-        properties: Vec::new(),
-        #[cfg(fuzzing)]
-        layer_order: vec![],
+        Ok((winner.layer, winner.encoder))
     }
 }
 

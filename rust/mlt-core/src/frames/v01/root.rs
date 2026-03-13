@@ -4,10 +4,10 @@ use std::io::Write;
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::{
-    Column, ColumnType, DictionaryType, EncodedGeometry, Geometry, Id, Layer01, Property,
-    RawFsstData, RawIdValue, RawName, RawPlainData, RawPresence, RawProperty, RawScalar,
+    Column, ColumnType, DictionaryType, EncodedGeometry, EncodedLayer01, Geometry, Id, Layer01,
+    Property, RawFsstData, RawIdValue, RawName, RawPlainData, RawPresence, RawProperty, RawScalar,
     RawSharedDict, RawSharedDictChild, RawSharedDictEncoding, RawStream, RawStrings,
-    RawStringsEncoding, StagedLayer01, StreamType,
+    RawStringsEncoding, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -224,21 +224,6 @@ impl Layer01<'_> {
     }
 }
 
-impl Layer01<'_> {
-    #[must_use]
-    pub fn to_owned(&self) -> StagedLayer01 {
-        StagedLayer01 {
-            name: self.name.to_string(),
-            extent: self.extent,
-            id: self.id.as_ref().map(Id::to_owned),
-            geometry: self.geometry.to_owned(),
-            properties: self.properties.iter().map(Property::to_owned).collect(),
-            #[cfg(fuzzing)]
-            layer_order: self.layer_order.clone(),
-        }
-    }
-}
-
 fn parse_struct_children<'a>(
     mut input: &'a [u8],
     column: &Column<'a>,
@@ -439,7 +424,7 @@ fn parse_columns_meta(
     Ok((input, (col_info, column_count - geometries - ids)))
 }
 
-impl StagedLayer01 {
+impl EncodedLayer01 {
     /// Write Layer's binary representation to a Write stream without allocating a Vec
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         use integer_encoding::VarIntWriter as _;
@@ -468,11 +453,11 @@ impl StagedLayer01 {
     #[cfg(not(fuzzing))]
     fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         if let Some(ref id) = self.id {
-            id.as_encoded()?.write_columns_meta_to(writer)?;
+            id.write_columns_meta_to(writer)?;
         }
         EncodedGeometry::write_columns_meta_to(writer)?;
         for prop in &self.properties {
-            prop.as_encoded()?.write_columns_meta_to(writer)?;
+            prop.write_columns_meta_to(writer)?;
         }
         Ok(())
     }
@@ -483,7 +468,7 @@ impl StagedLayer01 {
             match ord {
                 LayerOrdering::Id => {
                     if let Some(ref id) = self.id {
-                        id.as_encoded()?.write_columns_meta_to(writer)?;
+                        id.write_columns_meta_to(writer)?;
                     }
                 }
                 LayerOrdering::Geometry => EncodedGeometry::write_columns_meta_to(writer)?,
@@ -491,7 +476,7 @@ impl StagedLayer01 {
                     let prop = props.next().expect(
                         "the number of layer order elements must match the number of properties",
                     );
-                    prop.as_encoded()?.write_columns_meta_to(writer)?;
+                    prop.write_columns_meta_to(writer)?;
                 }
             }
         }
@@ -500,11 +485,11 @@ impl StagedLayer01 {
     #[cfg(not(fuzzing))]
     fn write_columns_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         if let Some(ref id) = self.id {
-            id.as_encoded()?.write_to(writer)?;
+            id.write_to(writer)?;
         }
-        self.geometry.as_encoded()?.write_to(writer)?;
+        self.geometry.write_to(writer)?;
         for prop in &self.properties {
-            prop.as_encoded()?.write_to(writer)?;
+            prop.write_to(writer)?;
         }
         Ok(())
     }
@@ -515,15 +500,15 @@ impl StagedLayer01 {
             match ord {
                 LayerOrdering::Id => {
                     if let Some(ref id) = self.id {
-                        id.as_encoded()?.write_to(writer)?;
+                        id.write_to(writer)?;
                     }
                 }
-                LayerOrdering::Geometry => self.geometry.as_encoded()?.write_to(writer)?,
+                LayerOrdering::Geometry => self.geometry.write_to(writer)?,
                 LayerOrdering::Property => {
                     let prop = props.next().expect(
                         "the number of layer order elements must match the number of properties",
                     );
-                    prop.as_encoded()?.write_to(writer)?;
+                    prop.write_to(writer)?;
                 }
             }
         }
@@ -542,15 +527,15 @@ pub enum LayerOrdering {
 }
 
 #[cfg(all(fuzzing, feature = "arbitrary"))]
-impl arbitrary::Arbitrary<'_> for StagedLayer01 {
+impl arbitrary::Arbitrary<'_> for EncodedLayer01 {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        use crate::v01::{StagedGeometry, StagedId, StagedProperty};
+        use crate::v01::{EncodedGeometry, EncodedId, EncodedProperty, StagedProperty};
 
         let name: String = u.arbitrary()?;
         let extent: u32 = u.arbitrary()?;
-        let id: Option<StagedId> = u.arbitrary()?;
-        let geometry: StagedGeometry = u.arbitrary()?;
-        let properties: Vec<StagedProperty> = u.arbitrary()?;
+        let id: Option<EncodedId> = u.arbitrary()?;
+        let geometry: EncodedGeometry = u.arbitrary()?;
+        let properties: Vec<EncodedProperty> = u.arbitrary()?;
 
         // Build a valid layer_order: 1 Geometry, N Property (one per property),
         // and optionally 1 ID when the layer carries an ID column, then shuffle.
@@ -570,7 +555,7 @@ impl arbitrary::Arbitrary<'_> for StagedLayer01 {
             layer_order.swap(i, j);
         }
 
-        Ok(StagedLayer01 {
+        Ok(EncodedLayer01 {
             name,
             extent,
             id,

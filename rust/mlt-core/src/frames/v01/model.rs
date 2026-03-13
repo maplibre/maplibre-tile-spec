@@ -1,6 +1,9 @@
 use num_enum::TryFromPrimitive;
 
-use crate::v01::{Geometry, Id, Property, StagedGeometry, StagedId, StagedProperty};
+use crate::v01::{
+    EncodedGeometry, EncodedProperty, Geometry, Id, ParsedGeometry, ParsedId, Property,
+    StagedProperty,
+};
 
 /// Column definition
 #[derive(Debug, PartialEq)]
@@ -62,7 +65,8 @@ pub struct Layer01<'a> {
     pub layer_order: Vec<crate::frames::v01::root::LayerOrdering>,
 }
 
-/// Representation of a feature table layer encoded as MLT tag `0x01`
+/// Representation of a feature table layer in the staging pipeline.
+/// Holds parsed (decoded) data ready for encoding.
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(
     all(not(test), not(fuzzing), feature = "arbitrary"),
@@ -71,9 +75,22 @@ pub struct Layer01<'a> {
 pub struct StagedLayer01 {
     pub name: String,
     pub extent: u32,
-    pub id: Option<StagedId>,
-    pub geometry: StagedGeometry,
+    pub id: Option<ParsedId>,
+    pub geometry: ParsedGeometry,
     pub properties: Vec<StagedProperty>,
+    #[cfg(fuzzing)]
+    pub layer_order: Vec<crate::frames::v01::root::LayerOrdering>,
+}
+
+/// Wire-ready encoded representation of a feature table layer (MLT tag `0x01`).
+/// Holds all data in encoded form, ready for serialization to bytes.
+#[derive(Debug, PartialEq, Clone)]
+pub struct EncodedLayer01 {
+    pub name: String,
+    pub extent: u32,
+    pub id: Option<crate::v01::EncodedId>,
+    pub geometry: EncodedGeometry,
+    pub properties: Vec<EncodedProperty>,
     #[cfg(fuzzing)]
     pub layer_order: Vec<crate::frames::v01::root::LayerOrdering>,
 }

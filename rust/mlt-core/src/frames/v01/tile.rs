@@ -1,4 +1,4 @@
-//! Row-oriented "source form" for the optimizer.
+//! Row-oriented "source form" for the encoder.
 //!
 //! [`TileLayer01`] holds one [`TileFeature`] per map feature, each owning
 //! its geometry as a [`geo_types::Geometry<i32>`] and its property values as a
@@ -6,22 +6,23 @@
 //! optimizer and sorting pipeline: it is cheap to clone, trivially sortable,
 //! and free from any encoded/decoded duality.
 //!
-//! The only conversions to/from [`StagedLayer01`] happen at the optimizer entry
-//! and exit boundaries.
-
-use std::borrow::Cow;
+//! ## Pipeline
+//!
+//! **Decoding** (one-way, no `to_owned`):
+//! `raw bytes` → `Layer01<'a>` → `TileLayer01` (via `TileLayer01::from_layer01`)
+//!
+//! **Encoding**:
+//! `TileLayer01` → `StagedLayer01` → (encode) → `EncodedLayer01` → `write_to` bytes
 
 use geo_types::Geometry;
 
-use crate::MltError;
-use crate::optimizer::ManualOptimisation as _;
 use crate::v01::{
-    GeometryEncoder, IntEncoder, ParsedGeometry, ParsedId, ParsedProperty, ParsedScalar,
-    ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, StagedGeometry, StagedId, StagedLayer01,
-    StagedProperty,
+    Layer01, ParsedGeometry, ParsedId, ParsedProperty, StagedLayer01, StagedProperty, StagedScalar,
+    StagedSharedDict, StagedSharedDictItem, StagedStrings,
 };
+use crate::{EncDec, MltError};
 
-/// Row-oriented working form for the optimizer.
+/// Row-oriented working form for the encoder.
 ///
 /// All features are stored as a flat [`Vec<TileFeature>`] so that sorting is
 /// a single `sort_by_cached_key` call.  The `property_names` vec is parallel
@@ -67,64 +68,60 @@ pub enum PropValue {
     Str(Option<String>),
 }
 
-// ── StagedLayer01 → TileLayer01 ─────────────────────────────────────────────
+// ── Layer01 → TileLayer01 ────────────────────────────────────────────────────
 
-impl TryFrom<StagedLayer01> for TileLayer01 {
-    type Error = MltError;
-
-    fn try_from(mut layer: StagedLayer01) -> Result<Self, Self::Error> {
-        // Decode all columns that are still in encoded form.
-        decode_layer(&mut layer)?;
-
-        let geom = match &layer.geometry {
-            StagedGeometry::Decoded(g) => g,
-            StagedGeometry::Encoded(_) => return Err(MltError::NotDecoded("geometry")),
+impl TileLayer01 {
+    /// Decode a fully-decoded `Layer01` into row-oriented `TileLayer01`.
+    ///
+    /// The caller must ensure the layer has been fully decoded (via
+    /// `layer.decode_all()`) before calling this — geometry and properties
+    /// must be in the `Decoded` variant.
+    pub fn from_layer01(layer: Layer01<'_>) -> Result<Self, MltError> {
+        let geom = match layer.geometry {
+            EncDec::Decoded(g) => g,
+            EncDec::Encoded(_) => return Err(MltError::NotDecoded("geometry")),
         };
 
         let n = geom.vector_types.len();
 
-        // Collect property names and decoded property references.
-        // SharedDict columns are expanded: one entry per sub-field.
         let mut property_names: Vec<String> = Vec::new();
-        let decoded_props: Vec<&StagedProperty> = layer.properties.iter().collect();
+        let mut decoded_props: Vec<ParsedProperty<'_>> = Vec::new();
 
-        for prop in &decoded_props {
+        for prop in layer.properties {
             match prop {
-                StagedProperty::Decoded(dp) => match dp {
-                    ParsedProperty::SharedDict(sd) => {
-                        for item in &sd.items {
-                            property_names.push(format!(
-                                "{}:{}",
-                                sd.prefix.as_ref(),
-                                item.suffix.as_ref()
-                            ));
+                EncDec::Decoded(dp) => {
+                    match &dp {
+                        ParsedProperty::SharedDict(sd) => {
+                            for item in &sd.items {
+                                property_names.push(format!(
+                                    "{}:{}",
+                                    sd.prefix.as_ref(),
+                                    item.suffix.as_ref()
+                                ));
+                            }
                         }
+                        other => property_names.push(other.name().to_string()),
                     }
-                    other => property_names.push(other.name().to_string()),
-                },
-                StagedProperty::Encoded(_) => return Err(MltError::NotDecoded("property")),
+                    decoded_props.push(dp);
+                }
+                EncDec::Encoded(_) => return Err(MltError::NotDecoded("property")),
             }
         }
 
-        let ids: Option<&[Option<u64>]> = match &layer.id {
-            Some(StagedId::Decoded(d)) => Some(&d.0),
+        let ids: Option<Vec<Option<u64>>> = match layer.id {
+            Some(EncDec::Decoded(d)) => Some(d.0),
             None => None,
-            Some(StagedId::Encoded(_)) => return Err(MltError::NotDecoded("id")),
+            Some(EncDec::Encoded(_)) => return Err(MltError::NotDecoded("id")),
         };
 
         let mut features = Vec::with_capacity(n);
         for i in 0..n {
-            let id = ids.and_then(|ids| ids.get(i).copied().flatten());
+            let id = ids.as_ref().and_then(|ids| ids.get(i).copied().flatten());
             let geometry = geom.to_geojson(i)?;
             let mut properties = Vec::with_capacity(property_names.len());
 
             for prop in &decoded_props {
-                match prop {
-                    StagedProperty::Decoded(dp) => {
-                        extract_values(dp, i, &mut properties);
-                    }
-                    StagedProperty::Encoded(_) => return Err(MltError::NotDecoded("property")),
-                }
+                extract_values(prop, i, &mut properties);
             }
 
             features.push(TileFeature {
@@ -135,7 +132,7 @@ impl TryFrom<StagedLayer01> for TileLayer01 {
         }
 
         Ok(TileLayer01 {
-            name: layer.name,
+            name: layer.name.to_string(),
             extent: layer.extent,
             property_names,
             features,
@@ -171,6 +168,114 @@ fn extract_values(prop: &ParsedProperty<'_>, i: usize, out: &mut Vec<PropValue>)
     }
 }
 
+// ── StagedLayer01 → TileLayer01 ─────────────────────────────────────────────
+
+impl From<StagedLayer01> for TileLayer01 {
+    /// Convert a staged (columnar) layer into row-oriented form for sorting.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any geometry index is out of bounds. This is only used during
+    /// the encoding pipeline where geometry is always valid.
+    fn from(layer: StagedLayer01) -> Self {
+        let geom = &layer.geometry;
+        let n = geom.vector_types.len();
+
+        let mut property_names: Vec<String> = Vec::new();
+        for prop in &layer.properties {
+            match prop {
+                StagedProperty::SharedDict(sd) => {
+                    for item in &sd.items {
+                        property_names.push(format!("{}:{}", sd.prefix, item.suffix));
+                    }
+                }
+                other => property_names.push(other.name().to_string()),
+            }
+        }
+
+        let ids: Option<&[Option<u64>]> = layer.id.as_ref().map(|id| id.0.as_slice());
+
+        let mut features = Vec::with_capacity(n);
+        for i in 0..n {
+            let id = ids.and_then(|ids| ids.get(i).copied().flatten());
+            let geometry = geom
+                .to_geojson(i)
+                .expect("geometry index in bounds during encode");
+            let mut properties = Vec::with_capacity(property_names.len());
+            for prop in &layer.properties {
+                staged_extract_values(prop, i, &mut properties);
+            }
+            features.push(TileFeature {
+                id,
+                geometry,
+                properties,
+            });
+        }
+
+        TileLayer01 {
+            name: layer.name,
+            extent: layer.extent,
+            property_names,
+            features,
+        }
+    }
+}
+
+/// Extract the per-feature value at index `i` from a `StagedProperty` column.
+fn staged_extract_values(prop: &StagedProperty, i: usize, out: &mut Vec<PropValue>) {
+    match prop {
+        StagedProperty::Bool(s) => out.push(PropValue::Bool(s.values[i])),
+        StagedProperty::I8(s) => out.push(PropValue::I8(s.values[i])),
+        StagedProperty::U8(s) => out.push(PropValue::U8(s.values[i])),
+        StagedProperty::I32(s) => out.push(PropValue::I32(s.values[i])),
+        StagedProperty::U32(s) => out.push(PropValue::U32(s.values[i])),
+        StagedProperty::I64(s) => out.push(PropValue::I64(s.values[i])),
+        StagedProperty::U64(s) => out.push(PropValue::U64(s.values[i])),
+        StagedProperty::F32(s) => out.push(PropValue::F32(s.values[i])),
+        StagedProperty::F64(s) => out.push(PropValue::F64(s.values[i])),
+        StagedProperty::Str(s) => out.push(PropValue::Str(staged_str_get(s, i))),
+        StagedProperty::SharedDict(sd) => {
+            for item in &sd.items {
+                let val = staged_shared_dict_get(sd, item, i);
+                out.push(PropValue::Str(val));
+            }
+        }
+    }
+}
+
+/// Get the string value at feature index `i` from a `StagedStrings` column.
+///
+/// Uses the same lengths encoding as `ParsedStrings::get()`: non-negative values are
+/// end offsets, negative values encode the current offset as `!end` (two's complement).
+fn staged_str_get(s: &StagedStrings, i: usize) -> Option<String> {
+    let end_raw = *s.lengths.get(i)?;
+    if end_raw < 0 {
+        return None;
+    }
+    let end = end_raw as usize;
+    let start = i
+        .checked_sub(1)
+        .and_then(|prev| s.lengths.get(prev).copied())
+        .map_or(0, |v| if v < 0 { (!v) as usize } else { v as usize });
+    s.data.get(start..end).map(str::to_string)
+}
+
+/// Get the string value at feature index `i` from a `StagedSharedDict` item.
+fn staged_shared_dict_get(
+    sd: &StagedSharedDict,
+    item: &StagedSharedDictItem,
+    i: usize,
+) -> Option<String> {
+    let (start, end) = item.ranges.get(i).copied().unwrap_or((-1, -1));
+    if start < 0 {
+        None
+    } else {
+        let s = usize::try_from(start).ok()?;
+        let e = usize::try_from(end).ok()?;
+        sd.data.get(s..e).map(str::to_string)
+    }
+}
+
 // ── TileLayer01 → StagedLayer01 ─────────────────────────────────────────────
 
 impl From<TileLayer01> for StagedLayer01 {
@@ -181,18 +286,14 @@ impl From<TileLayer01> for StagedLayer01 {
             geom.push_geom(&f.geometry);
         }
 
-        // Rebuild ID column (only if at least one feature has a non-None id)
+        // Rebuild ID column
         let has_ids = source.features.iter().any(|f| f.id.is_some());
         let id = if has_ids || !source.features.is_empty() {
-            Some(StagedId::Decoded(ParsedId(
-                source.features.iter().map(|f| f.id).collect(),
-            )))
+            Some(ParsedId(source.features.iter().map(|f| f.id).collect()))
         } else {
             None
         };
 
-        // Rebuild property columns from the flattened PropValue rows.
-        // We need to reconstruct each column as a Vec of per-feature values.
         let num_cols = source.property_names.len();
         let properties = rebuild_properties(&source.property_names, &source.features, num_cols);
 
@@ -200,7 +301,7 @@ impl From<TileLayer01> for StagedLayer01 {
             name: source.name,
             extent: source.extent,
             id,
-            geometry: StagedGeometry::Decoded(geom),
+            geometry: geom,
             properties,
             #[cfg(fuzzing)]
             layer_order: vec![],
@@ -209,10 +310,6 @@ impl From<TileLayer01> for StagedLayer01 {
 }
 
 /// Rebuild the property columns from per-feature `PropValue` rows.
-///
-/// Each column index `c` maps to a column name in `property_names[c]`.
-/// A `SharedDict` column is detected by two or more consecutive names sharing
-/// the same `"prefix:"` portion.  All other columns become scalar columns.
 fn rebuild_properties(
     names: &[String],
     features: &[TileFeature],
@@ -226,7 +323,6 @@ fn rebuild_properties(
     let mut col = 0;
 
     while col < num_cols {
-        // Check if the next column(s) form a SharedDict group (share the same prefix).
         let (prefix, _suffix) = split_prefix(&names[col]);
 
         if let Some(dict_prefix) = prefix {
@@ -242,18 +338,14 @@ fn rebuild_properties(
             }
 
             if group_end > start_col + 1 {
-                // Multiple columns with the same prefix → SharedDict
                 let shared_dict =
                     rebuild_shared_dict(dict_prefix, names, features, start_col, group_end);
-                result.push(StagedProperty::Decoded(ParsedProperty::SharedDict(
-                    shared_dict,
-                )));
+                result.push(StagedProperty::SharedDict(shared_dict));
                 col = group_end;
                 continue;
             }
         }
 
-        // Single scalar column
         let prop = rebuild_scalar_column(&names[col], col, features);
         result.push(prop);
         col += 1;
@@ -273,8 +365,6 @@ fn split_prefix(name: &str) -> (Option<&str>, &str) {
 }
 
 fn rebuild_scalar_column(name: &str, col: usize, features: &[TileFeature]) -> StagedProperty {
-    // Determine the variant by looking at the first non-None feature value.
-    // Fall back to Str if all values are None or the column is empty.
     let first_val = features.iter().find_map(|f| f.properties.get(col));
 
     macro_rules! scalar_col {
@@ -289,10 +379,10 @@ fn rebuild_scalar_column(name: &str, col: usize, features: &[TileFeature]) -> St
                     }
                 })
                 .collect();
-            StagedProperty::Decoded(ParsedProperty::$variant(ParsedScalar {
-                name: Cow::Owned(name.to_string()),
+            StagedProperty::$variant(StagedScalar {
+                name: name.to_string(),
                 values,
-            }))
+            })
         }};
     }
 
@@ -307,19 +397,21 @@ fn rebuild_scalar_column(name: &str, col: usize, features: &[TileFeature]) -> St
         Some(PropValue::F32(_)) => scalar_col!(F32, f32, F32),
         Some(PropValue::F64(_)) => scalar_col!(F64, f64, F64),
         Some(PropValue::Str(_)) | None => {
-            let values: Vec<Option<String>> = features
-                .iter()
-                .map(|f| {
-                    if let Some(PropValue::Str(v)) = f.properties.get(col) {
-                        v.clone()
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            let mut ds: ParsedStrings<'static> = values.into();
-            ds.name = Cow::Owned(name.to_string());
-            StagedProperty::Decoded(ParsedProperty::Str(ds))
+            let mut lengths = Vec::with_capacity(features.len());
+            let mut data = String::new();
+            for f in features {
+                if let Some(PropValue::Str(Some(v))) = f.properties.get(col) {
+                    lengths.push(i32::try_from(v.len()).unwrap_or(i32::MAX));
+                    data.push_str(v);
+                } else {
+                    lengths.push(-1);
+                }
+            }
+            StagedProperty::Str(StagedStrings {
+                name: name.to_string(),
+                lengths,
+                data,
+            })
         }
     }
 }
@@ -330,14 +422,12 @@ fn rebuild_shared_dict(
     features: &[TileFeature],
     start_col: usize,
     end_col: usize,
-) -> ParsedSharedDict<'static> {
-    // Build a shared corpus of all non-null strings across all sub-columns,
-    // and per-item (start,end) ranges into that corpus.
-    let mut items: Vec<ParsedSharedDictItem<'static>> = (start_col..end_col)
+) -> StagedSharedDict {
+    let mut items: Vec<StagedSharedDictItem> = (start_col..end_col)
         .map(|c| {
             let (_, suffix) = split_prefix(&names[c]);
-            ParsedSharedDictItem {
-                suffix: Cow::Owned(suffix.to_string()),
+            StagedSharedDictItem {
+                suffix: suffix.to_string(),
                 ranges: Vec::with_capacity(features.len()),
             }
         })
@@ -367,43 +457,9 @@ fn rebuild_shared_dict(
         }
     }
 
-    ParsedSharedDict {
-        prefix: Cow::Owned(prefix.to_string()),
-        data: Cow::Owned(corpus),
+    StagedSharedDict {
+        prefix: prefix.to_string(),
+        data: corpus,
         items,
     }
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/// Decode (and canonicalize) all columns of `layer` that are still in encoded
-/// or sparse-decoded form.
-///
-/// Geometry that was built with `push_geom` is in a "sparse" offset-array
-/// layout that differs from the "dense" layout produced by the wire
-/// encode→decode round-trip.  [`ParsedGeometry::to_geojson`] requires the
-/// dense form, so we canonicalize by encoding and decoding the geometry here.
-fn decode_layer(layer: &mut StagedLayer01) -> Result<(), MltError> {
-    // Always canonicalize geometry through encode→decode to get dense offsets.
-    layer
-        .geometry
-        .manual_optimisation(GeometryEncoder::all(IntEncoder::varint()))?;
-    let geom = std::mem::replace(
-        &mut layer.geometry,
-        StagedGeometry::Decoded(ParsedGeometry::default()),
-    );
-    layer.geometry = StagedGeometry::Decoded(ParsedGeometry::try_from(geom)?);
-
-    if let Some(id) = layer.id.take() {
-        layer.id = Some(StagedId::Decoded(ParsedId::try_from(id)?));
-    }
-
-    // Properties must already be decoded; encoded properties are not expected here.
-    for prop in &layer.properties {
-        if let StagedProperty::Encoded(_) = prop {
-            return Err(MltError::NotDecoded("property"));
-        }
-    }
-
-    Ok(())
 }
