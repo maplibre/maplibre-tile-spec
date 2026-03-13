@@ -10,6 +10,7 @@ This is a multi-project Gradle build with two main components:
 
 - **`mlt-core`** - The core library containing the MLT encoding/decoding functionality
 - **`mlt-cli`** - Command-line tools for converting between MVT and MLT formats
+- **`mlt-tools`** - Utilities for working with MLT, currently only used for testing
 
 The core library is published to Maven Central, while the CLI tools are built locally for development use.
 
@@ -26,7 +27,7 @@ repositories {
 }
 
 dependencies {
-  implementation 'org.maplibre:mlt:0.0.1'
+  implementation 'org.maplibre:mlt:0.0.10'
 }
 ```
 
@@ -41,7 +42,7 @@ repositories {
 }
 
 dependencies {
-  implementation("org.maplibre:mlt:0.0.1")
+  implementation("org.maplibre:mlt:0.0.10")
 }
 ```
 
@@ -63,10 +64,12 @@ dependencies {
   <dependency>
     <groupId>org.maplibre</groupId>
     <artifactId>mlt</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.10</version>
   </dependency>
 </dependencies>
 ```
+
+See the [Maven Central Repository](https://mvnrepository.com/artifact/org.maplibre/mlt) for the latest published versions and syntax for other build systems.
 
 ## Usage Examples
 
@@ -241,8 +244,10 @@ java -jar mlt-cli/build/libs/encode.jar --pmtiles /path/to/input.pmtiles --mlt /
 Example of decoding MLT files:
 
 ```console
-java -jar mlt-cli/build/libs/decode.jar -mlt /tmp/point-boolean.mlt
+java -jar mlt-cli/build/libs/decode.jar --mlt /tmp/point-boolean.mlt
 ```
+
+For more details, see [README-Encode.md](README-Encode.md) and [README-Decode.md](README-Decode.md).
 
 ## Contributing
 
