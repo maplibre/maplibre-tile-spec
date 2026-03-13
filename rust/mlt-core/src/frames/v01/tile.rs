@@ -9,16 +9,13 @@
 //! The only conversions to/from [`StagedLayer01`] happen at the optimizer entry
 //! and exit boundaries.
 
-use std::borrow::Cow;
-
 use geo_types::Geometry;
 
 use crate::MltError;
 use crate::optimizer::ManualOptimisation as _;
 use crate::v01::{
-    GeometryEncoder, IntEncoder, ParsedGeometry, ParsedId, ParsedProperty, ParsedScalar,
-    ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, StagedGeometry, StagedId, StagedLayer01,
-    StagedProperty,
+    GeometryEncoder, IntEncoder, ParsedGeometry, ParsedId, StagedGeometry, StagedId, StagedLayer01,
+    StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, build_staged_shared_dict,
 };
 
 /// Row-oriented working form for the optimizer.
@@ -26,6 +23,7 @@ use crate::v01::{
 /// All features are stored as a flat [`Vec<TileFeature>`] so that sorting is
 /// a single `sort_by_cached_key` call.  The `property_names` vec is parallel
 /// to every `TileFeature::properties` slice in this layer.
+/// FIXME: move this type without impl to the model.rs file
 #[derive(Debug, Clone)]
 pub struct TileLayer01 {
     pub name: String,
@@ -36,6 +34,7 @@ pub struct TileLayer01 {
 }
 
 /// A single map feature in row form.
+/// FIXME: move this type without impl to the model.rs file
 #[derive(Debug, Clone, PartialEq)]
 pub struct TileFeature {
     pub id: Option<u64>,
@@ -48,11 +47,12 @@ pub struct TileFeature {
 
 /// A single typed value for one property of one feature.
 ///
-/// Mirrors the scalar variants of [`ParsedProperty`] at the per-feature
+/// Mirrors the scalar variants of `ParsedProperty` at the per-feature
 /// level. `SharedDict` items are flattened: each sub-field becomes its own
 /// `PropValue::Str` entry in `TileFeature::properties`, with the
 /// corresponding entry in `TileLayer01::property_names` set to
 /// `"prefix:suffix"`.
+/// FIXME: move this type without impl to the model.rs file
 #[derive(Debug, Clone, PartialEq)]
 pub enum PropValue {
     Bool(Option<bool>),
@@ -86,23 +86,16 @@ impl TryFrom<StagedLayer01> for TileLayer01 {
         // Collect property names and decoded property references.
         // SharedDict columns are expanded: one entry per sub-field.
         let mut property_names: Vec<String> = Vec::new();
-        let decoded_props: Vec<&StagedProperty> = layer.properties.iter().collect();
 
-        for prop in &decoded_props {
+        for prop in &layer.properties {
             match prop {
-                StagedProperty::Decoded(dp) => match dp {
-                    ParsedProperty::SharedDict(sd) => {
-                        for item in &sd.items {
-                            property_names.push(format!(
-                                "{}:{}",
-                                sd.prefix.as_ref(),
-                                item.suffix.as_ref()
-                            ));
-                        }
+                StagedProperty::SharedDict(sd) => {
+                    for item in &sd.items {
+                        property_names.push(format!("{}:{}", sd.prefix, item.suffix));
                     }
-                    other => property_names.push(other.name().to_string()),
-                },
+                }
                 StagedProperty::Encoded(_) => return Err(MltError::NotDecoded("property")),
+                other => property_names.push(other.name().to_string()),
             }
         }
 
@@ -118,12 +111,10 @@ impl TryFrom<StagedLayer01> for TileLayer01 {
             let geometry = geom.to_geojson(i)?;
             let mut properties = Vec::with_capacity(property_names.len());
 
-            for prop in &decoded_props {
+            for prop in &layer.properties {
                 match prop {
-                    StagedProperty::Decoded(dp) => {
-                        extract_values(dp, i, &mut properties);
-                    }
                     StagedProperty::Encoded(_) => return Err(MltError::NotDecoded("property")),
+                    other => extract_staged_values(other, i, &mut properties)?,
                 }
             }
 
@@ -143,32 +134,38 @@ impl TryFrom<StagedLayer01> for TileLayer01 {
     }
 }
 
-/// Extract the per-feature value at index `i` from a decoded property column
+/// Extract the per-feature value at index `i` from a staged property column
 /// and push it (or them, for `SharedDict`) into `out`.
-fn extract_values(prop: &ParsedProperty<'_>, i: usize, out: &mut Vec<PropValue>) {
+fn extract_staged_values(
+    prop: &StagedProperty,
+    i: usize,
+    out: &mut Vec<PropValue>,
+) -> Result<(), MltError> {
     match prop {
-        ParsedProperty::Bool(s) => out.push(PropValue::Bool(s.values[i])),
-        ParsedProperty::I8(s) => out.push(PropValue::I8(s.values[i])),
-        ParsedProperty::U8(s) => out.push(PropValue::U8(s.values[i])),
-        ParsedProperty::I32(s) => out.push(PropValue::I32(s.values[i])),
-        ParsedProperty::U32(s) => out.push(PropValue::U32(s.values[i])),
-        ParsedProperty::I64(s) => out.push(PropValue::I64(s.values[i])),
-        ParsedProperty::U64(s) => out.push(PropValue::U64(s.values[i])),
-        ParsedProperty::F32(s) => out.push(PropValue::F32(s.values[i])),
-        ParsedProperty::F64(s) => out.push(PropValue::F64(s.values[i])),
-        ParsedProperty::Str(s) => {
+        StagedProperty::Bool(s) => out.push(PropValue::Bool(s.values[i])),
+        StagedProperty::I8(s) => out.push(PropValue::I8(s.values[i])),
+        StagedProperty::U8(s) => out.push(PropValue::U8(s.values[i])),
+        StagedProperty::I32(s) => out.push(PropValue::I32(s.values[i])),
+        StagedProperty::U32(s) => out.push(PropValue::U32(s.values[i])),
+        StagedProperty::I64(s) => out.push(PropValue::I64(s.values[i])),
+        StagedProperty::U64(s) => out.push(PropValue::U64(s.values[i])),
+        StagedProperty::F32(s) => out.push(PropValue::F32(s.values[i])),
+        StagedProperty::F64(s) => out.push(PropValue::F64(s.values[i])),
+        StagedProperty::Str(s) => {
             let val = s
                 .get(u32::try_from(i).unwrap_or(u32::MAX))
                 .map(str::to_string);
             out.push(PropValue::Str(val));
         }
-        ParsedProperty::SharedDict(sd) => {
+        StagedProperty::SharedDict(sd) => {
             for item in &sd.items {
                 let val = item.get(sd, i).map(str::to_string);
                 out.push(PropValue::Str(val));
             }
         }
+        StagedProperty::Encoded(_) => return Err(MltError::NotDecoded("property")),
     }
+    Ok(())
 }
 
 // ── TileLayer01 → StagedLayer01 ─────────────────────────────────────────────
@@ -245,9 +242,7 @@ fn rebuild_properties(
                 // Multiple columns with the same prefix → SharedDict
                 let shared_dict =
                     rebuild_shared_dict(dict_prefix, names, features, start_col, group_end);
-                result.push(StagedProperty::Decoded(ParsedProperty::SharedDict(
-                    shared_dict,
-                )));
+                result.push(StagedProperty::SharedDict(shared_dict));
                 col = group_end;
                 continue;
             }
@@ -289,10 +284,10 @@ fn rebuild_scalar_column(name: &str, col: usize, features: &[TileFeature]) -> St
                     }
                 })
                 .collect();
-            StagedProperty::Decoded(ParsedProperty::$variant(ParsedScalar {
-                name: Cow::Owned(name.to_string()),
+            StagedProperty::$variant(StagedScalar {
+                name: name.to_string(),
                 values,
-            }))
+            })
         }};
     }
 
@@ -317,9 +312,9 @@ fn rebuild_scalar_column(name: &str, col: usize, features: &[TileFeature]) -> St
                     }
                 })
                 .collect();
-            let mut ds: ParsedStrings<'static> = values.into();
-            ds.name = Cow::Owned(name.to_string());
-            StagedProperty::Decoded(ParsedProperty::Str(ds))
+            let mut ds = StagedStrings::from(values);
+            ds.name = name.to_string();
+            StagedProperty::Str(ds)
         }
     }
 }
@@ -330,48 +325,31 @@ fn rebuild_shared_dict(
     features: &[TileFeature],
     start_col: usize,
     end_col: usize,
-) -> ParsedSharedDict<'static> {
-    // Build a shared corpus of all non-null strings across all sub-columns,
-    // and per-item (start,end) ranges into that corpus.
-    let mut items: Vec<ParsedSharedDictItem<'static>> = (start_col..end_col)
+) -> StagedSharedDict {
+    // Build per-item (start,end) ranges from raw feature data, then
+    // call build_staged_shared_dict to deduplicate into a shared corpus.
+    let items_raw: Vec<(String, StagedStrings)> = (start_col..end_col)
         .map(|c| {
             let (_, suffix) = split_prefix(&names[c]);
-            ParsedSharedDictItem {
-                suffix: Cow::Owned(suffix.to_string()),
-                ranges: Vec::with_capacity(features.len()),
-            }
+            let values: Vec<Option<String>> = features
+                .iter()
+                .map(|f| {
+                    if let Some(PropValue::Str(s)) = f.properties.get(c) {
+                        s.clone()
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            (suffix.to_string(), StagedStrings::from(values))
         })
         .collect();
 
-    let mut corpus = String::new();
-
-    for f in features {
-        for (item_idx, item) in items.iter_mut().enumerate() {
-            let col = start_col + item_idx;
-            let val = f.properties.get(col).and_then(|v| {
-                if let PropValue::Str(s) = v {
-                    s.as_deref()
-                } else {
-                    None
-                }
-            });
-            let range = if let Some(s) = val {
-                let start = i32::try_from(corpus.len()).unwrap_or(i32::MAX);
-                corpus.push_str(s);
-                let end = i32::try_from(corpus.len()).unwrap_or(i32::MAX);
-                (start, end)
-            } else {
-                (-1, -1)
-            };
-            item.ranges.push(range);
-        }
-    }
-
-    ParsedSharedDict {
-        prefix: Cow::Owned(prefix.to_string()),
-        data: Cow::Owned(corpus),
-        items,
-    }
+    // Set the suffix names on each StagedStrings (for the corpus-dedup step).
+    // The names aren't stored in StagedStrings.name here; they're passed as the
+    // tuple key to build_staged_shared_dict.
+    build_staged_shared_dict(prefix.to_string(), items_raw)
+        .expect("rebuild_shared_dict should always succeed for valid feature data")
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

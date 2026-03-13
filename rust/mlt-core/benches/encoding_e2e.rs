@@ -31,7 +31,7 @@ fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer> {
             }
             layers
                 .iter()
-                .map(mlt_core::Layer::to_owned)
+                .filter_map(|l| mlt_core::Layer::to_owned(l).ok())
                 .collect::<Vec<_>>()
         })
         .collect()

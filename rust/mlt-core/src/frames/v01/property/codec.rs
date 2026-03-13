@@ -9,13 +9,14 @@ use crate::v01::{
     DictionaryType, EncodedName, EncodedPresence, EncodedProperty, EncodedScalar, EncodedStream,
     EncodedStrings, LengthType, ParsedPresence, ParsedProperty, ParsedScalar, ParsedStrings,
     PresenceStream, Property, PropertyEncoder, RawPresence, RawProperty, ScalarEncoder,
-    ScalarValueEncoder, StagedProperty, StrEncoder, encode_shared_dict_prop,
+    ScalarValueEncoder, StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, StrEncoder,
+    encode_shared_dict_prop,
 };
 
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl arbitrary::Arbitrary<'_> for EncodedProperty {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        let decoded: ParsedProperty<'static> = u.arbitrary()?;
+        let decoded: StagedProperty = u.arbitrary()?;
         let encoder: ScalarEncoder = u.arbitrary()?;
         let prop: Self =
             Self::from_decoded(&decoded, encoder).map_err(|_| arbitrary::Error::IncorrectFormat)?;
@@ -24,30 +25,10 @@ impl arbitrary::Arbitrary<'_> for EncodedProperty {
 }
 
 #[cfg(all(not(test), feature = "arbitrary"))]
-fn arbitrary_decoded_scalar<'a, T: arbitrary::Arbitrary<'a> + Copy + PartialEq>(
-    u: &mut arbitrary::Unstructured<'a>,
-) -> arbitrary::Result<ParsedScalar<'static, T>> {
-    Ok(ParsedScalar {
-        name: Cow::Owned(u.arbitrary()?),
-        values: u.arbitrary()?,
-    })
-}
-
-#[cfg(all(not(test), feature = "arbitrary"))]
-impl<'a> arbitrary::Arbitrary<'a> for ParsedProperty<'static> {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(match u.int_in_range(0..=9)? {
-            0 => Self::Bool(arbitrary_decoded_scalar(u)?),
-            1 => Self::I8(arbitrary_decoded_scalar(u)?),
-            2 => Self::U8(arbitrary_decoded_scalar(u)?),
-            3 => Self::I32(arbitrary_decoded_scalar(u)?),
-            4 => Self::U32(arbitrary_decoded_scalar(u)?),
-            5 => Self::I64(arbitrary_decoded_scalar(u)?),
-            6 => Self::U64(arbitrary_decoded_scalar(u)?),
-            7 => Self::F32(arbitrary_decoded_scalar(u)?),
-            8 => Self::F64(arbitrary_decoded_scalar(u)?),
-            _ => Self::Str(u.arbitrary()?),
-        })
+impl arbitrary::Arbitrary<'_> for StagedProperty {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        // Always produce an Encoded variant for fuzz targets (DecodedLayerInput needs it)
+        Ok(Self::Encoded(Box::new(u.arbitrary()?)))
     }
 }
 
@@ -64,12 +45,83 @@ impl<'a> Property<'a> {
         Ok(self.materialize()?)
     }
 
-    #[must_use]
-    pub fn to_owned(&self) -> StagedProperty {
-        match self {
-            Self::Encoded(encoded) => StagedProperty::Encoded(encoded.to_owned()),
-            Self::Decoded(decoded) => StagedProperty::Decoded(decoded.to_owned()),
-        }
+    /// Convert to a fully-owned [`StagedProperty`] for use in the encoding pipeline.
+    ///
+    /// The layer's properties must have been decoded first (via `Layer01::decode_properties`
+    /// or `Layer01::decode_all`). Returns `Err` if any property is still in raw encoded form.
+    pub fn to_staged(&self) -> Result<StagedProperty, MltError> {
+        let parsed: ParsedProperty<'_> = match self {
+            Self::Encoded(_) => return Err(MltError::NotDecoded("property")),
+            Self::Decoded(parsed) => parsed.clone(),
+        };
+        Ok(parsed_to_staged(parsed))
+    }
+}
+
+impl<'a> From<ParsedProperty<'a>> for StagedProperty {
+    fn from(p: ParsedProperty<'a>) -> Self {
+        parsed_to_staged(p)
+    }
+}
+
+/// Convert a decoded [`ParsedProperty`] into a fully-owned [`StagedProperty`].
+/// TODO: This should be removed later, once we separate parsing and staging
+fn parsed_to_staged(p: ParsedProperty<'_>) -> StagedProperty {
+    use ParsedProperty as P;
+    match p {
+        P::Bool(v) => StagedProperty::Bool(StagedScalar {
+            name: v.name.into_owned(),
+            values: v.values,
+        }),
+        P::I8(v) => StagedProperty::I8(StagedScalar {
+            name: v.name.into_owned(),
+            values: v.values,
+        }),
+        P::U8(v) => StagedProperty::U8(StagedScalar {
+            name: v.name.into_owned(),
+            values: v.values,
+        }),
+        P::I32(v) => StagedProperty::I32(StagedScalar {
+            name: v.name.into_owned(),
+            values: v.values,
+        }),
+        P::U32(v) => StagedProperty::U32(StagedScalar {
+            name: v.name.into_owned(),
+            values: v.values,
+        }),
+        P::I64(v) => StagedProperty::I64(StagedScalar {
+            name: v.name.into_owned(),
+            values: v.values,
+        }),
+        P::U64(v) => StagedProperty::U64(StagedScalar {
+            name: v.name.into_owned(),
+            values: v.values,
+        }),
+        P::F32(v) => StagedProperty::F32(StagedScalar {
+            name: v.name.into_owned(),
+            values: v.values,
+        }),
+        P::F64(v) => StagedProperty::F64(StagedScalar {
+            name: v.name.into_owned(),
+            values: v.values,
+        }),
+        P::Str(v) => StagedProperty::Str(StagedStrings {
+            name: v.name.into_owned(),
+            lengths: v.lengths,
+            data: v.data.into_owned(),
+        }),
+        P::SharedDict(v) => StagedProperty::SharedDict(StagedSharedDict {
+            prefix: v.prefix.into_owned(),
+            data: v.data.into_owned(),
+            items: v
+                .items
+                .into_iter()
+                .map(|item| crate::v01::StagedSharedDictItem {
+                    suffix: item.suffix.into_owned(),
+                    ranges: item.ranges,
+                })
+                .collect(),
+        }),
     }
 }
 
@@ -170,8 +222,80 @@ impl<'a> ParsedProperty<'a> {
     }
 }
 
-impl ParsedProperty<'_> {
-    pub(super) fn as_presence_stream(&self) -> Result<Vec<bool>, MltError> {
+impl StagedProperty {
+    #[must_use]
+    pub fn bool(name: impl Into<String>, values: Vec<Option<bool>>) -> Self {
+        Self::Bool(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn i8(name: impl Into<String>, values: Vec<Option<i8>>) -> Self {
+        Self::I8(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn u8(name: impl Into<String>, values: Vec<Option<u8>>) -> Self {
+        Self::U8(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn i32(name: impl Into<String>, values: Vec<Option<i32>>) -> Self {
+        Self::I32(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn u32(name: impl Into<String>, values: Vec<Option<u32>>) -> Self {
+        Self::U32(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn i64(name: impl Into<String>, values: Vec<Option<i64>>) -> Self {
+        Self::I64(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn u64(name: impl Into<String>, values: Vec<Option<u64>>) -> Self {
+        Self::U64(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn f32(name: impl Into<String>, values: Vec<Option<f32>>) -> Self {
+        Self::F32(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn f64(name: impl Into<String>, values: Vec<Option<f64>>) -> Self {
+        Self::F64(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn str(name: impl Into<String>, values: Vec<Option<String>>) -> Self {
+        let mut s = StagedStrings::from(values);
+        s.name = name.into();
+        Self::Str(s)
+    }
+}
+
+impl StagedProperty {
+    fn as_presence_stream(&self) -> Result<Vec<bool>, MltError> {
         Ok(match self {
             Self::Bool(v) => v.values.iter().map(Option::is_some).collect(),
             Self::I8(v) => v.values.iter().map(Option::is_some).collect(),
@@ -184,12 +308,15 @@ impl ParsedProperty<'_> {
             Self::F64(v) => v.values.iter().map(Option::is_some).collect(),
             Self::Str(v) => v.presence_bools(),
             Self::SharedDict(..) => Err(NotImplemented("presence stream for shared dict"))?,
+            Self::Encoded(_) => Err(NotImplemented(
+                "presence stream for already-encoded property",
+            ))?,
         })
     }
 }
 
 impl FromDecoded<'_> for Vec<EncodedProperty> {
-    type Input = Vec<ParsedProperty<'static>>;
+    type Input = Vec<StagedProperty>;
     type Encoder = Vec<PropertyEncoder>;
 
     fn from_decoded(properties: &Self::Input, encoders: Self::Encoder) -> Result<Self, MltError> {
@@ -208,7 +335,7 @@ impl FromDecoded<'_> for Vec<EncodedProperty> {
                     result.push(EncodedProperty::from_decoded(prop, enc)?);
                 }
                 PropertyEncoder::SharedDict(enc) => {
-                    let ParsedProperty::SharedDict(shared_dict) = prop else {
+                    let StagedProperty::SharedDict(shared_dict) = prop else {
                         return Err(UnsupportedPropertyEncoderCombination(
                             prop.into(),
                             "shared_dict",
@@ -224,11 +351,11 @@ impl FromDecoded<'_> for Vec<EncodedProperty> {
 }
 
 impl FromDecoded<'_> for EncodedProperty {
-    type Input = ParsedProperty<'static>;
+    type Input = StagedProperty;
     type Encoder = ScalarEncoder;
 
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
-        use ParsedProperty as D;
+        use StagedProperty as D;
         let presence = if encoder.presence == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.as_presence_stream()?;
             Some(EncodedStream::encode_presence(&present_vec)?)
@@ -290,7 +417,7 @@ impl FromDecoded<'_> for EncodedProperty {
                 EncodedStream::encode_f64(&unapply_presence(&v.values))?,
             ))),
             (D::Str(v), ScalarValueEncoder::String(enc)) => Ok(Self::Str(EncodedStrings {
-                name: EncodedName(v.name.as_ref().to_string()),
+                name: EncodedName(v.name.clone()),
                 presence: EncodedPresence(presence),
                 encoding: match enc {
                     StrEncoder::Plain { string_lengths } => {
@@ -380,5 +507,54 @@ impl<'a> Decode<RawProperty<'a>> for ParsedProperty<'a> {
             E::Str(s) => Self::Str(s.into_decoded()?),
             E::SharedDict(s) => Self::SharedDict(s.into_decoded()?),
         })
+    }
+}
+
+impl StagedProperty {
+    /// Returns the column name regardless of variant.
+    #[must_use]
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Bool(v) => &v.name,
+            Self::I8(v) => &v.name,
+            Self::U8(v) => &v.name,
+            Self::I32(v) => &v.name,
+            Self::U32(v) => &v.name,
+            Self::I64(v) => &v.name,
+            Self::U64(v) => &v.name,
+            Self::F32(v) => &v.name,
+            Self::F64(v) => &v.name,
+            Self::Str(v) => &v.name,
+            Self::SharedDict(v) => &v.prefix,
+            Self::Encoded(_) => "",
+        }
+    }
+}
+
+// `Into<&'static str>` for error messages
+impl From<&StagedProperty> for &'static str {
+    fn from(v: &StagedProperty) -> Self {
+        match v {
+            StagedProperty::Bool(_) => "bool",
+            StagedProperty::I8(_) => "i8",
+            StagedProperty::U8(_) => "u8",
+            StagedProperty::I32(_) => "i32",
+            StagedProperty::U32(_) => "u32",
+            StagedProperty::I64(_) => "i64",
+            StagedProperty::U64(_) => "u64",
+            StagedProperty::F32(_) => "f32",
+            StagedProperty::F64(_) => "f64",
+            StagedProperty::Str(_) => "str",
+            StagedProperty::SharedDict(_) => "shared_dict",
+            StagedProperty::Encoded(_) => "encoded",
+        }
+    }
+}
+
+// Keep `arbitrary::Arbitrary` for StagedStrings (used in fuzz and tests via the arbitrary feature)
+#[cfg(all(not(test), feature = "arbitrary"))]
+impl arbitrary::Arbitrary<'_> for StagedStrings {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        Ok(Self::from(u.arbitrary::<Vec<Option<String>>>()?))
     }
 }

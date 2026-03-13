@@ -4,8 +4,7 @@ use mlt_core::v01::{
     LogicalEncoder, ParsedProperty, ParsedScalar, ParsedStrings, PhysicalEncoder, PresenceStream,
     PropertyEncoder, RawFsstData, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
     RawSharedDictChild, RawSharedDictEncoding, RawStrings, RawStringsEncoding, ScalarEncoder,
-    SharedDictEncoder, SharedDictItemEncoder, StagedProperty, StrEncoder,
-    build_decoded_shared_dict,
+    SharedDictEncoder, SharedDictItemEncoder, StagedProperty, StrEncoder, build_staged_shared_dict,
 };
 use mlt_core::{Decode, MltError};
 use proptest::prelude::*;
@@ -55,8 +54,8 @@ fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
 }
 
 fn roundtrip(decoded: &ParsedProperty<'_>, encoder: ScalarEncoder) -> ParsedProperty<'static> {
-    let owned = decoded.to_owned();
-    let mut props = vec![StagedProperty::Decoded(owned)];
+    let staged: StagedProperty = decoded.clone().into();
+    let mut props = vec![staged];
     props
         .manual_optimisation(vec![PropertyEncoder::Scalar(encoder)])
         .expect("encoding failed");
@@ -76,8 +75,67 @@ pub fn decode_for_test(prop: &StagedProperty) -> Result<ParsedProperty<'static>,
     }
 
     let encoded = match prop {
-        StagedProperty::Encoded(e) => e,
-        StagedProperty::Decoded(d) => return Ok(d.to_owned()),
+        StagedProperty::Encoded(e) => e.as_ref(),
+        StagedProperty::Bool(v) => {
+            return Ok(ParsedProperty::Bool(ParsedScalar::new(
+                v.name.clone(),
+                v.values.clone(),
+            )));
+        }
+        StagedProperty::I8(v) => {
+            return Ok(ParsedProperty::I8(ParsedScalar::new(
+                v.name.clone(),
+                v.values.clone(),
+            )));
+        }
+        StagedProperty::U8(v) => {
+            return Ok(ParsedProperty::U8(ParsedScalar::new(
+                v.name.clone(),
+                v.values.clone(),
+            )));
+        }
+        StagedProperty::I32(v) => {
+            return Ok(ParsedProperty::I32(ParsedScalar::new(
+                v.name.clone(),
+                v.values.clone(),
+            )));
+        }
+        StagedProperty::U32(v) => {
+            return Ok(ParsedProperty::U32(ParsedScalar::new(
+                v.name.clone(),
+                v.values.clone(),
+            )));
+        }
+        StagedProperty::I64(v) => {
+            return Ok(ParsedProperty::I64(ParsedScalar::new(
+                v.name.clone(),
+                v.values.clone(),
+            )));
+        }
+        StagedProperty::U64(v) => {
+            return Ok(ParsedProperty::U64(ParsedScalar::new(
+                v.name.clone(),
+                v.values.clone(),
+            )));
+        }
+        StagedProperty::F32(v) => {
+            return Ok(ParsedProperty::F32(ParsedScalar::new(
+                v.name.clone(),
+                v.values.clone(),
+            )));
+        }
+        StagedProperty::F64(v) => {
+            return Ok(ParsedProperty::F64(ParsedScalar::new(
+                v.name.clone(),
+                v.values.clone(),
+            )));
+        }
+        StagedProperty::Str(v) => return Ok(ParsedProperty::str(v.name.clone(), v.materialize())),
+        StagedProperty::SharedDict(_) => {
+            return Err(MltError::NotImplemented(
+                "decode_for_test on staged SharedDict",
+            ));
+        }
     };
     let borrowed: RawProperty<'_> = match encoded {
         EncodedProperty::Bool(s) => RawProperty::Bool(borrow_scalar(s)),
@@ -166,13 +224,15 @@ fn opt_strs(vals: &[Option<&str>]) -> Vec<Option<String>> {
     vals.iter().map(|v| v.map(ToString::to_string)).collect()
 }
 
-fn shared_dict_prop(
-    name: &str,
-    children: Vec<(String, ParsedStrings<'static>)>,
-) -> ParsedProperty<'static> {
+fn shared_dict_prop(name: &str, children: Vec<(String, ParsedStrings<'static>)>) -> StagedProperty {
+    use mlt_core::v01::StagedStrings;
+    let staged_children: Vec<(String, StagedStrings)> = children
+        .into_iter()
+        .map(|(suffix, ps)| (suffix, StagedStrings::from(ps.materialize())))
+        .collect();
     let shared_dict =
-        build_decoded_shared_dict(name.to_string(), children).expect("build shared dict");
-    ParsedProperty::SharedDict(shared_dict)
+        build_staged_shared_dict(name.to_string(), staged_children).expect("build shared dict");
+    StagedProperty::SharedDict(shared_dict)
 }
 
 fn struct_encode_and_decode(
@@ -182,12 +242,15 @@ fn struct_encode_and_decode(
     offset_encoder: IntEncoder,
     dict_encoder: StrEncoder,
 ) -> ParsedProperty<'static> {
-    // Build a single ParsedProperty::SharedDict
-    let items = children
+    use mlt_core::v01::StagedStrings;
+    // Build a single StagedProperty::SharedDict
+    let items: Vec<(String, StagedStrings)> = children
         .iter()
-        .map(|(suffix, values)| ((*suffix).to_string(), ParsedStrings::from(values.clone())))
+        .map(|(suffix, values)| ((*suffix).to_string(), StagedStrings::from(values.clone())))
         .collect();
-    let decoded = shared_dict_prop(struct_name, items);
+    let decoded = StagedProperty::SharedDict(
+        build_staged_shared_dict(struct_name.to_string(), items).expect("build shared dict"),
+    );
 
     // Build encoder with matching item encoders
     let item_encoders: Vec<SharedDictItemEncoder> = children
@@ -202,7 +265,7 @@ fn struct_encode_and_decode(
         items: item_encoders,
     };
 
-    let mut properties = vec![StagedProperty::Decoded(decoded)];
+    let mut properties = vec![decoded];
     properties
         .manual_optimisation(vec![shared_enc.into()])
         .expect("encoding failed");
@@ -426,7 +489,7 @@ fn struct_shared_dict_inline_ranges_track_nulls_and_empty_strings() {
             (":en".to_string(), ParsedStrings::from(en.clone())),
         ],
     );
-    let ParsedProperty::SharedDict(shared_dict) = &prop else {
+    let StagedProperty::SharedDict(shared_dict) = &prop else {
         panic!("Expected SharedDict");
     };
     let items = &shared_dict.items;
@@ -489,7 +552,7 @@ fn struct_mixed_with_scalars() {
     let enc = IntEncoder::plain();
     let str_enc = StrEncoder::plain(enc);
     let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
-    let population = ParsedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let population = StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
     let name_shared = shared_dict_prop(
         "name:",
         vec![
@@ -513,9 +576,12 @@ fn struct_mixed_with_scalars() {
             ),
         ],
     );
-    let rank = ParsedProperty::u32("rank", vec![Some(1), Some(2)]);
+    let rank = StagedProperty::u32("rank", vec![Some(1), Some(2)]);
+    let population_parsed =
+        ParsedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let rank_parsed = ParsedProperty::u32("rank", vec![Some(1), Some(2)]);
 
-    let props = vec![population.clone(), name_shared.clone(), rank.clone()];
+    let props = vec![population, name_shared, rank];
     let prop_encs = vec![
         PropertyEncoder::Scalar(scalar_enc),
         SharedDictEncoder {
@@ -534,12 +600,12 @@ fn struct_mixed_with_scalars() {
         .into(),
         PropertyEncoder::Scalar(scalar_enc),
     ];
-    let mut encoded: Vec<StagedProperty> = props.into_iter().map(StagedProperty::Decoded).collect();
+    let mut encoded = props;
     encoded.manual_optimisation(prop_encs).unwrap();
 
     // Output order: scalar "population", struct "name:", scalar "rank"
     assert_eq!(encoded.len(), 3);
-    assert_eq!(decode_for_test(&encoded[0]).unwrap(), population);
+    assert_eq!(decode_for_test(&encoded[0]).unwrap(), population_parsed);
     let name = decode_for_test(&encoded[1]).unwrap();
     assert_eq!(name.name(), "name:");
     let ParsedProperty::SharedDict(shared_dict) = &name else {
@@ -556,7 +622,7 @@ fn struct_mixed_with_scalars() {
         items[1].materialize(shared_dict),
         strs(&["Berlin", "Hamburg"])
     );
-    assert_eq!(decode_for_test(&encoded[2]).unwrap(), rank);
+    assert_eq!(decode_for_test(&encoded[2]).unwrap(), rank_parsed);
 }
 
 #[test]
@@ -584,7 +650,9 @@ fn two_struct_groups_with_scalar_between() {
             ),
         ],
     );
-    let population = ParsedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let population = StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let population_parsed =
+        ParsedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
     let label_shared = shared_dict_prop(
         "label:",
         vec![
@@ -609,17 +677,10 @@ fn two_struct_groups_with_scalar_between() {
         ],
     );
 
-    let decoded_props = vec![
-        name_shared.clone(),
-        population.clone(),
-        label_shared.clone(),
-    ];
+    let decoded_props = vec![name_shared, population, label_shared];
     let enc = IntEncoder::plain();
     let str_enc = StrEncoder::plain(IntEncoder::plain());
-    let mut encoded: Vec<StagedProperty> = decoded_props
-        .into_iter()
-        .map(StagedProperty::Decoded)
-        .collect();
+    let mut encoded: Vec<StagedProperty> = decoded_props;
     encoded
         .manual_optimisation(vec![
             SharedDictEncoder {
@@ -672,7 +733,7 @@ fn two_struct_groups_with_scalar_between() {
         name_items[1].materialize(name_shared_dict),
         strs(&["Berlin", "Hamburg"])
     );
-    assert_eq!(decode_for_test(&encoded[1]).unwrap(), population);
+    assert_eq!(decode_for_test(&encoded[1]).unwrap(), population_parsed);
     let label = decode_for_test(&encoded[2]).unwrap();
     assert_eq!(label.name(), "label:");
     let ParsedProperty::SharedDict(label_shared_dict) = &label else {
@@ -693,7 +754,7 @@ fn two_struct_groups_with_scalar_between() {
 
 #[test]
 fn struct_instruction_count_mismatch() {
-    let mut properties = vec![StagedProperty::Decoded(ParsedProperty::default())];
+    let mut properties = vec![StagedProperty::bool("", vec![])];
     let err = properties.manual_optimisation(vec![]).unwrap_err();
     assert!(
         matches!(

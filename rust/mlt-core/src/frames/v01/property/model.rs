@@ -13,9 +13,6 @@ pub struct EncodedName(pub String);
 /// Property representation, either raw (borrowed from bytes) or parsed.
 pub type Property<'a> = EncDec<RawProperty<'a>, ParsedProperty<'a>>;
 
-/// Staged property column: can hold either encoded or decoded form (used during encoding pipeline).
-pub type StagedProperty = EncDec<EncodedProperty, ParsedProperty<'static>>;
-
 pub enum PropertyKind {
     Bool,
     Integer,
@@ -176,6 +173,31 @@ pub enum ParsedProperty<'a> {
     F64(ParsedScalar<'a, f64>),
     Str(ParsedStrings<'a>),
     SharedDict(ParsedSharedDict<'a>),
+}
+
+/// Staged property column (encode-side, fully owned).
+///
+/// Unlike `ParsedProperty` (decode-side, potentially borrowed), all string names
+/// and corpus data are owned `String`s.  No lifetime parameter needed.
+///
+/// The `Encoded` variant holds wire-ready data after the `Staged*` → `Encoded*`
+/// encoding step has been applied. This allows `StagedLayer01` to hold a mix of
+/// staged and encoded properties before serialization.
+#[derive(Debug, Clone, PartialEq)]
+pub enum StagedProperty {
+    Bool(StagedScalar<bool>),
+    I8(StagedScalar<i8>),
+    U8(StagedScalar<u8>),
+    I32(StagedScalar<i32>),
+    U32(StagedScalar<u32>),
+    I64(StagedScalar<i64>),
+    U64(StagedScalar<u64>),
+    F32(StagedScalar<f32>),
+    F64(StagedScalar<f64>),
+    Str(StagedStrings),
+    SharedDict(StagedSharedDict),
+    /// Wire-ready form after encoding; used when serializing the layer.
+    Encoded(Box<EncodedProperty>),
 }
 
 #[derive(Clone, PartialEq)]
@@ -351,4 +373,39 @@ pub struct SharedDictEncoder {
 pub enum StrEncoder {
     Plain { string_lengths: IntEncoder },
     Fsst(FsstStrEncoder),
+}
+
+// ── Staged* types (encode-side, fully owned) ─────────────────────────────────
+
+/// Owned scalar column prepared for encoding (bool, integer, or float).
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+pub struct StagedScalar<T: Copy + PartialEq + 'static> {
+    pub name: String,
+    pub values: Vec<Option<T>>,
+}
+
+/// Owned string column prepared for encoding.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StagedStrings {
+    pub name: String,
+    /// Per-feature cumulative end offsets into `data` (same encoding as [`ParsedStrings::lengths`]).
+    pub lengths: Vec<i32>,
+    pub data: String,
+}
+
+/// A single child within a staged shared-dictionary column.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StagedSharedDictItem {
+    pub suffix: String,
+    /// Per-feature `(start, end)` byte offsets into the shared corpus.
+    pub ranges: Vec<(i32, i32)>,
+}
+
+/// Owned shared-dictionary column prepared for encoding.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StagedSharedDict {
+    pub prefix: String,
+    pub data: String,
+    pub items: Vec<StagedSharedDictItem>,
 }

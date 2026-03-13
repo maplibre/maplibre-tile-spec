@@ -1,5 +1,5 @@
 use js_sys::{Array, Float64Array, Int32Array, Object, Reflect, Uint8Array, Uint32Array};
-use mlt_core::v01::{ParsedProperty, StagedGeometry, StagedProperty};
+use mlt_core::v01::{ParsedProperty, StagedGeometry};
 use wasm_bindgen::prelude::*;
 
 use crate::geometry::LayerGeometry;
@@ -211,31 +211,29 @@ impl MltTile {
         let guard = layer.props.borrow();
         let mut key_idx = 0usize;
 
-        for p in &*guard {
-            if let StagedProperty::Decoded(prop) = p {
-                if let ParsedProperty::SharedDict(shared_dict) = prop {
-                    for item in &shared_dict.items {
-                        if let Some(val) = item.get(shared_dict, feature_idx) {
-                            let _ = Reflect::set(
-                                &obj,
-                                &pc.keys
-                                    .get(u32::try_from(key_idx).expect("key index fits in u32")),
-                                &JsValue::from_str(val),
-                            );
-                        }
-                        key_idx += 1;
-                    }
-                } else {
-                    if let Some(val) = prop_to_js(prop, feature_idx) {
+        for prop in &*guard {
+            if let ParsedProperty::SharedDict(shared_dict) = prop {
+                for item in &shared_dict.items {
+                    if let Some(val) = item.get(shared_dict, feature_idx) {
                         let _ = Reflect::set(
                             &obj,
                             &pc.keys
                                 .get(u32::try_from(key_idx).expect("key index fits in u32")),
-                            &val,
+                            &JsValue::from_str(val),
                         );
                     }
                     key_idx += 1;
                 }
+            } else {
+                if let Some(val) = prop_to_js(prop, feature_idx) {
+                    let _ = Reflect::set(
+                        &obj,
+                        &pc.keys
+                            .get(u32::try_from(key_idx).expect("key index fits in u32")),
+                        &val,
+                    );
+                }
+                key_idx += 1;
             }
         }
 

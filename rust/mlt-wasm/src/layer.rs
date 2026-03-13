@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use js_sys::Uint8Array;
-use mlt_core::v01::{StagedGeometry, StagedProperty};
+use mlt_core::v01::{ParsedProperty, StagedGeometry};
 
 use crate::geometry::LayerGeometry;
 use crate::ids::IdState;
@@ -28,8 +28,8 @@ pub(crate) struct DecodedLayer {
     /// Encode/decode state of the feature-ID column.
     pub(crate) ids: RefCell<IdState>,
 
-    /// Property columns, decoded lazily from encoded form.
-    pub(crate) props: RefCell<Vec<StagedProperty>>,
+    /// Property columns, fully decoded.
+    pub(crate) props: RefCell<Vec<ParsedProperty<'static>>>,
 
     /// Cached bulk property arrays — built once on first `layer_properties` call.
     pub(crate) prop_cache: RefCell<Option<PropCache>>,

@@ -29,7 +29,7 @@ impl LayerInput {
         let consumed_input_bytes_size = total_len - remaining.len();
         let consumed_input = &self.bytes[..consumed_input_bytes_size];
 
-        let owned_layer = layer.to_owned();
+        let owned_layer = layer.to_owned().unwrap();
 
         // Write the layer to a buffer
         let mut buffer = Vec::<u8>::with_capacity(consumed_input_bytes_size);
@@ -83,7 +83,9 @@ fn panic_with_helpful_diff(input: &[u8], output: &[u8], parsed_input: &StagedLay
             Input parsed to a layer and debug printed:\n{parsed_input:#?}"
         );
     });
-    let written_owned = out.to_owned();
+    let written_owned = out.to_owned().unwrap_or_else(|e| {
+        panic!("to_owned failed: {e}\nInput parsed to a layer and debug printed:\n{parsed_input:#?}")
+    });
     LayerInput::try_panic_if_debug_is_different(parsed_input, &written_owned);
     if *parsed_input == written_owned {
         // this will not be fun to debug :(

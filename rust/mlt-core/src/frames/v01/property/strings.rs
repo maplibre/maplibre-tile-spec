@@ -14,7 +14,7 @@ use crate::v01::{
     ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, PresenceStream, PropertyEncoder,
     RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictChild,
     RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding, SharedDictEncoder,
-    StrEncoder, StreamType,
+    StagedSharedDict, StagedSharedDictItem, StagedStrings, StrEncoder, StreamType,
 };
 use crate::{Analyze, DecodeInto, MltError, StatType};
 
@@ -127,6 +127,185 @@ impl<'a> arbitrary::Arbitrary<'a> for ParsedSharedDict<'static> {
         })
     }
 }
+
+// ── StagedStrings ─────────────────────────────────────────────────────────────
+
+impl From<Vec<Option<String>>> for StagedStrings {
+    fn from(values: Vec<Option<String>>) -> Self {
+        Self::from_optional_strings(values)
+    }
+}
+
+impl From<Vec<String>> for StagedStrings {
+    fn from(values: Vec<String>) -> Self {
+        Self::from_optional_strings(values.into_iter().map(Some).collect())
+    }
+}
+
+impl StagedStrings {
+    fn from_optional_strings(values: Vec<Option<String>>) -> Self {
+        let mut lengths = Vec::with_capacity(values.len());
+        let mut data = String::new();
+        let mut end = 0_i32;
+        for value in values {
+            match value {
+                Some(value) => {
+                    end = checked_string_end(end, value.len())
+                        .expect("staged string corpus exceeds supported i32 range");
+                    lengths.push(end);
+                    data.push_str(&value);
+                }
+                None => lengths.push(encode_null_end(end)),
+            }
+        }
+        Self {
+            name: String::new(),
+            lengths,
+            data,
+        }
+    }
+
+    #[must_use]
+    pub fn feature_count(&self) -> usize {
+        self.lengths.len()
+    }
+
+    fn bounds(&self, i: u32) -> Option<(u32, u32)> {
+        let i = i.as_usize();
+        let end = *self.lengths.get(i)?;
+        if end < 0 {
+            return None;
+        }
+        let end = end.cast_unsigned();
+        let start = if i == 0 {
+            0
+        } else {
+            let prev = self.lengths[i - 1];
+            if prev < 0 {
+                (!prev).cast_unsigned()
+            } else {
+                prev.cast_unsigned()
+            }
+        };
+        Some((start, end))
+    }
+
+    #[must_use]
+    pub fn has_nulls(&self) -> bool {
+        self.lengths.iter().any(|&end| end < 0)
+    }
+
+    #[must_use]
+    pub fn presence_bools(&self) -> Vec<bool> {
+        self.lengths.iter().map(|&end| end >= 0).collect()
+    }
+
+    #[must_use]
+    pub fn get(&self, i: u32) -> Option<&str> {
+        let (start, end) = self.bounds(i)?;
+        self.data.get(start.as_usize()..end.as_usize())
+    }
+
+    #[must_use]
+    pub fn dense_values(&self) -> Vec<String> {
+        let mut values = Vec::new();
+        let mut start = 0_u32;
+        for &end in &self.lengths {
+            if end >= 0 {
+                let end = end.cast_unsigned();
+                values.push(self.data[start.as_usize()..end.as_usize()].to_string());
+                start = end;
+            } else {
+                start = (!end).cast_unsigned();
+            }
+        }
+        values
+    }
+
+    #[must_use]
+    pub fn materialize(&self) -> Vec<Option<String>> {
+        (0..u32::try_from(self.feature_count()).unwrap_or(u32::MAX))
+            .map(|i| self.get(i).map(str::to_string))
+            .collect()
+    }
+}
+
+// ── StagedSharedDict ──────────────────────────────────────────────────────────
+
+impl StagedSharedDict {
+    #[must_use]
+    pub fn corpus(&self) -> &str {
+        &self.data
+    }
+
+    #[must_use]
+    pub fn get(&self, span: (u32, u32)) -> Option<&str> {
+        self.corpus().get(span.0.as_usize()..span.1.as_usize())
+    }
+}
+
+pub(crate) fn collect_staged_shared_dict_spans(items: &[StagedSharedDictItem]) -> Vec<(u32, u32)> {
+    let mut spans = items
+        .iter()
+        .flat_map(StagedSharedDictItem::dense_spans)
+        .collect::<Vec<_>>();
+    spans.sort_unstable();
+    spans.dedup();
+    spans
+}
+
+impl StagedSharedDictItem {
+    #[must_use]
+    pub fn feature_count(&self) -> usize {
+        self.ranges.len()
+    }
+
+    #[must_use]
+    pub fn has_nulls(&self) -> bool {
+        self.ranges
+            .iter()
+            .any(|&range| decode_shared_dict_range(range).is_none())
+    }
+
+    #[must_use]
+    pub fn presence_bools(&self) -> Vec<bool> {
+        self.ranges
+            .iter()
+            .map(|&range| decode_shared_dict_range(range).is_some())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn dense_spans(&self) -> Vec<(u32, u32)> {
+        self.ranges
+            .iter()
+            .filter_map(|&range| decode_shared_dict_range(range))
+            .collect()
+    }
+
+    #[must_use]
+    pub fn get<'a>(&self, shared_dict: &'a StagedSharedDict, i: usize) -> Option<&'a str> {
+        self.ranges
+            .get(i)
+            .copied()
+            .and_then(decode_shared_dict_range)
+            .and_then(|span| shared_dict.get(span))
+    }
+
+    #[must_use]
+    pub fn materialize(&self, shared_dict: &StagedSharedDict) -> Vec<Option<String>> {
+        self.ranges
+            .iter()
+            .map(|&range| {
+                decode_shared_dict_range(range)
+                    .and_then(|span| shared_dict.get(span))
+                    .map(str::to_string)
+            })
+            .collect()
+    }
+}
+
+// ── ParsedStrings ─────────────────────────────────────────────────────────────
 
 impl ParsedStrings<'_> {
     #[must_use]
@@ -293,16 +472,6 @@ impl ParsedSharedDict<'_> {
         let end = span.1.as_usize();
         self.corpus().get(start..end)
     }
-}
-
-pub(crate) fn collect_shared_dict_spans(items: &[ParsedSharedDictItem]) -> Vec<(u32, u32)> {
-    let mut spans = items
-        .iter()
-        .flat_map(ParsedSharedDictItem::dense_spans)
-        .collect::<Vec<_>>();
-    spans.sort_unstable();
-    spans.dedup();
-    spans
 }
 
 impl ParsedSharedDictItem<'_> {
@@ -621,9 +790,9 @@ impl EncodedSharedDict {
     }
 }
 
-/// Encode a shared dictionary property directly from `ParsedProperty::SharedDict` and `SharedDictEncoder`.
+/// Encode a staged shared dictionary property using `SharedDictEncoder`.
 pub fn encode_shared_dict_prop(
-    shared_dict: &ParsedSharedDict<'_>,
+    shared_dict: &StagedSharedDict,
     encoder: &SharedDictEncoder,
 ) -> Result<EncodedProperty, MltError> {
     if shared_dict.items.len() != encoder.items.len() {
@@ -632,7 +801,7 @@ pub fn encode_shared_dict_prop(
         ));
     }
 
-    let dict_spans = collect_shared_dict_spans(&shared_dict.items);
+    let dict_spans = collect_staged_shared_dict_spans(&shared_dict.items);
     let dict: Vec<&str> = dict_spans
         .iter()
         .map(|&span| {
@@ -685,7 +854,7 @@ pub fn encode_shared_dict_prop(
         )?;
 
         children.push(EncodedSharedDictChild {
-            name: EncodedName(item.suffix.to_string()),
+            name: EncodedName(item.suffix.clone()),
             presence: crate::v01::EncodedPresence(presence),
             data,
         });
@@ -705,16 +874,20 @@ pub fn encode_shared_dict_prop(
     };
 
     Ok(EncodedProperty::SharedDict(EncodedSharedDict {
-        name: EncodedName(shared_dict.prefix.as_ref().to_string()),
+        name: EncodedName(shared_dict.prefix.clone()),
         encoding,
         children,
     }))
 }
 
-pub fn build_decoded_shared_dict(
-    prefix: impl Into<Cow<'static, str>>,
-    items: impl IntoIterator<Item = (String, ParsedStrings<'static>)>,
-) -> Result<ParsedSharedDict<'static>, MltError> {
+/// Build a [`StagedSharedDict`] from a list of `(suffix, values)` pairs.
+///
+/// Deduplicates string values into a shared corpus and records per-feature
+/// byte-range offsets into it.
+pub fn build_staged_shared_dict(
+    prefix: impl Into<String>,
+    items: impl IntoIterator<Item = (String, StagedStrings)>,
+) -> Result<StagedSharedDict, MltError> {
     let prefix = prefix.into();
     let items = items.into_iter().collect::<Vec<_>>();
     let mut dict_entries = Vec::<String>::new();
@@ -743,7 +916,7 @@ pub fn build_decoded_shared_dict(
     let items = items
         .into_iter()
         .map(
-            |(suffix, values)| -> Result<ParsedSharedDictItem, MltError> {
+            |(suffix, values)| -> Result<StagedSharedDictItem, MltError> {
                 let mut ranges = Vec::with_capacity(values.feature_count());
                 for i in 0..u32::try_from(values.feature_count())? {
                     if let Some(value) = values.get(i) {
@@ -757,17 +930,14 @@ pub fn build_decoded_shared_dict(
                         ranges.push((-1, -1));
                     }
                 }
-                Ok(ParsedSharedDictItem {
-                    suffix: suffix.into(),
-                    ranges,
-                })
+                Ok(StagedSharedDictItem { suffix, ranges })
             },
         )
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(ParsedSharedDict {
+    Ok(StagedSharedDict {
         prefix,
-        data: data.into(),
+        data,
         items,
     })
 }

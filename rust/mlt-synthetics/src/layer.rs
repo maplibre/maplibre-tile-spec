@@ -10,10 +10,10 @@ use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
-    GeometryEncoder, IdEncoder, IntEncoder, ParsedGeometry, ParsedId, ParsedProperty,
-    ParsedStrings, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
-    SharedDictItemEncoder, StagedGeometry, StagedId, StagedLayer01, StagedProperty, StrEncoder,
-    VertexBufferType, build_decoded_shared_dict,
+    GeometryEncoder, IdEncoder, IntEncoder, ParsedGeometry, ParsedId, PresenceStream,
+    PropertyEncoder, ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedGeometry,
+    StagedId, StagedLayer01, StagedProperty, StagedStrings, StrEncoder, VertexBufferType,
+    build_staged_shared_dict,
 };
 use mlt_core::{StagedLayer, parse_layers};
 
@@ -100,7 +100,7 @@ pub struct Layer {
     pub geometry_items: Vec<Geom32>,
     /// Polygons that are also tessellated; triangle data is merged when building decoded geometry.
     pub tessellated_polygons: Vec<Option<Polygon<i32>>>,
-    pub properties: Vec<ParsedProperty<'static>>,
+    pub properties: Vec<StagedProperty>,
     pub prop_encoders: Vec<PropertyEncoder>,
     pub extent: Option<u32>,
     pub ids: Option<(Vec<Option<u64>>, IdEncoder)>,
@@ -233,7 +233,7 @@ impl Layer {
 
     /// Add a scalar property.
     #[must_use]
-    pub fn add_prop(mut self, encoder: ScalarEncoder, prop: ParsedProperty<'static>) -> Self {
+    pub fn add_prop(mut self, encoder: ScalarEncoder, prop: StagedProperty) -> Self {
         self.properties.push(prop);
         self.prop_encoders.push(PropertyEncoder::Scalar(encoder));
         self
@@ -247,9 +247,9 @@ impl Layer {
     pub fn add_shared_dict(mut self, shared_dict: SharedDict) -> Self {
         let name = shared_dict.name;
         let encoder = shared_dict.encoder;
-        let dict = build_decoded_shared_dict(name, shared_dict.items)
+        let dict = build_staged_shared_dict(name, shared_dict.items)
             .expect("shared dict builder should be valid");
-        self.properties.push(ParsedProperty::SharedDict(dict));
+        self.properties.push(StagedProperty::SharedDict(dict));
         self.prop_encoders.push(encoder.into());
         self
     }
@@ -322,11 +322,7 @@ impl Layer {
             None
         };
 
-        let mut properties: Vec<StagedProperty> = self
-            .properties
-            .into_iter()
-            .map(StagedProperty::Decoded)
-            .collect();
+        let mut properties: Vec<StagedProperty> = self.properties;
         properties.manual_optimisation(self.prop_encoders).unwrap();
 
         let layer = StagedLayer::Tag01(StagedLayer01 {
@@ -352,7 +348,7 @@ impl Layer {
 pub struct SharedDict {
     name: String,
     encoder: SharedDictEncoder,
-    items: Vec<(String, ParsedStrings<'static>)>,
+    items: Vec<(String, StagedStrings)>,
 }
 
 impl SharedDict {
@@ -392,7 +388,7 @@ impl SharedDict {
         self.encoder.items.push(enc);
         let suffix = suffix.into();
         let values: Vec<Option<String>> = values.into_iter().collect();
-        self.items.push((suffix, ParsedStrings::from(values)));
+        self.items.push((suffix, StagedStrings::from(values)));
         self
     }
 }
