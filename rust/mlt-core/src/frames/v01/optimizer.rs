@@ -2,9 +2,8 @@ use strum::{EnumCount as _, IntoEnumIterator as _};
 
 use crate::MltError;
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
-use crate::v01::sort::{
-    ensure_decoded, geometry_feature_count, reorder_features, spatial_sort_likely_to_help,
-};
+use crate::v01::sort::{reorder_features, spatial_sort_likely_to_help};
+use crate::v01::source::SourceLayer01;
 use crate::v01::{
     GeometryEncoder, GeometryProfile, IdEncoder, IdProfile, OwnedLayer01, PropertyEncoder,
     PropertyProfile, SortStrategy,
@@ -14,7 +13,17 @@ impl ManualOptimisation for OwnedLayer01 {
     type UsedEncoder = Tag01Encoder;
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        reorder_features(self, encoder.sort_strategy, encoder.allow_id_regeneration)?;
+        // Convert to source form, sort, optionally regenerate IDs, convert back.
+        let mut source = SourceLayer01::try_from(std::mem::replace(self, dummy_layer()))?;
+
+        reorder_features(&mut source, encoder.sort_strategy);
+
+        if encoder.allow_id_regeneration {
+            regenerate_ids(&mut source);
+        }
+
+        *self = OwnedLayer01::from(source);
+
         if let (Some(id_enc), Some(id)) = (encoder.id, &mut self.id) {
             id.manual_optimisation(id_enc)?;
         }
@@ -33,7 +42,11 @@ impl ProfileOptimisation for OwnedLayer01 {
         profile: &Self::Profile,
     ) -> Result<Self::UsedEncoder, MltError> {
         let sort_strategy = profile.sort_strategy();
-        reorder_features(self, sort_strategy, false)?;
+
+        let mut source = SourceLayer01::try_from(std::mem::replace(self, dummy_layer()))?;
+        reorder_features(&mut source, sort_strategy);
+        *self = OwnedLayer01::from(source);
+
         let id = match &mut self.id {
             Some(id) => id.profile_driven_optimisation(&profile.id)?,
             None => None,
@@ -81,17 +94,17 @@ impl AutomaticOptimisation for OwnedLayer01 {
     ///
     /// # Algorithm
     ///
-    /// 1. Bring the layer into decoded form and read the feature count `N`.
+    /// 1. Convert to [`SourceLayer01`] (decoded, row-oriented).
     /// 2. Build a candidate set: `[None, Some(Spatial(Morton)), Some(Id)]`.
     ///    - When `N >= 512`, apply a bounding-box heuristic: if the vertex
     ///      spread covers more than 80% of the tile extent on both axes,
     ///      spatial sorting is unlikely to cluster features and is dropped from
     ///      the candidates.
     /// 3. For each candidate strategy:
-    ///    - Clone the (decoded) layer.
+    ///    - Clone the source layer.
     ///    - Apply `reorder_features` to the clone.
-    ///    - Run automatic stream-level optimisation on id, properties, and
-    ///      geometry.
+    ///    - Convert the clone back to `OwnedLayer01` and run automatic
+    ///      stream-level optimisation on id, properties, and geometry.
     ///    - Serialise the fully-encoded clone to a scratch buffer and record
     ///      its byte count.
     /// 4. Keep the trial that produced the smallest byte count and replace
@@ -103,17 +116,16 @@ impl AutomaticOptimisation for OwnedLayer01 {
             byte_count: usize,
         }
 
-        // Bring into decoded form so every trial starts from identical data.
-        ensure_decoded(self)?;
-        let n = geometry_feature_count(&self.geometry)?;
+        // Convert to source form once; every trial clones this.
+        let source = SourceLayer01::try_from(std::mem::replace(self, dummy_layer()))?;
+        let n = source.features.len();
 
         // Build the candidate slice, optionally pruning spatial sort.
         let filtered: [Option<SortStrategy>; 2];
         let candidates: &[Option<SortStrategy>] =
-            if n < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(self) {
+            if n < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(&source) {
                 &TRIAL_STRATEGIES
             } else {
-                // Bounding box is too spread out — skip the spatial trial.
                 filtered = [None, Some(SortStrategy::Id)];
                 &filtered
             };
@@ -121,10 +133,11 @@ impl AutomaticOptimisation for OwnedLayer01 {
         let mut best: Option<TrialResult> = None;
 
         for &strategy in candidates {
-            let mut trial = self.clone();
-            reorder_features(&mut trial, strategy, false)?;
+            let mut trial_source = source.clone();
+            reorder_features(&mut trial_source, strategy);
+            let mut trial = OwnedLayer01::from(trial_source);
 
-            let id = match &mut self.id {
+            let id = match &mut trial.id {
                 Some(id) => id.automatic_encoding_optimisation()?,
                 None => None,
             };
@@ -154,11 +167,32 @@ impl AutomaticOptimisation for OwnedLayer01 {
             }
         }
 
-        // `candidates` always contains at least `None` (no-op sort), so the
-        // loop runs at least once and `best` is always `Some` here.
+        // `candidates` always contains at least `None`, so `best` is always `Some`.
         let winner = best.unwrap();
         *self = winner.layer;
         Ok(winner.encoder)
+    }
+}
+
+/// Assign sequential IDs `0, 1, 2, …` to all features in the source layer.
+fn regenerate_ids(source: &mut SourceLayer01) {
+    for (i, f) in source.features.iter_mut().enumerate() {
+        f.id = Some(i as u64);
+    }
+}
+
+/// Produce a cheap placeholder `OwnedLayer01` used with `std::mem::replace`
+/// to take ownership of `self` without cloning.
+fn dummy_layer() -> OwnedLayer01 {
+    use crate::v01::{DecodedGeometry, OwnedGeometry};
+    OwnedLayer01 {
+        name: String::new(),
+        extent: 0,
+        id: None,
+        geometry: OwnedGeometry::Decoded(DecodedGeometry::default()),
+        properties: Vec::new(),
+        #[cfg(fuzzing)]
+        layer_order: vec![],
     }
 }
 
