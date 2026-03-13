@@ -1,4 +1,3 @@
-#![expect(dead_code)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(not(any(feature = "fastpfor-cpp", feature = "fastpfor-rust")))]
@@ -7,6 +6,7 @@ compile_error!("one of `fastpfor-cpp` or `fastpfor-rust` must be enabled");
 mod analyse;
 mod convert;
 mod decode;
+mod enc_dec;
 mod encode;
 mod errors;
 pub mod frames;
@@ -15,10 +15,10 @@ pub mod optimizer;
 pub mod utils;
 
 pub use analyse::{Analyze, StatType};
-// reexport borrowme to make it easier to use in other crates
-pub use borrowme;
 pub use convert::{geojson, mvt};
-pub(crate) use decode::{Decodable, Decode, DecodeInto};
+pub use decode::Decode;
+pub(crate) use decode::{Decodable, DecodeInto};
+pub use enc_dec::EncDec;
 pub use encode::Encodable;
 pub(crate) use encode::FromDecoded;
 pub use errors::{MltError, MltRefResult};

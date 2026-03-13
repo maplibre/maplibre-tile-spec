@@ -174,18 +174,6 @@ mod tests {
         tx
     }
 
-    /// Compute the prefix XOR-scan of `tx` (every bit becomes the XOR of itself
-    /// and all higher bits).
-    fn prefix_scan(mut tx: u32) -> u32 {
-        tx = (tx >> 8) ^ tx;
-        tx = (tx >> 4) ^ tx;
-        tx = (tx >> 2) ^ tx;
-        tx = (tx >> 1) ^ tx;
-        tx
-    }
-
-    // ── Morton ───────────────────────────────────────────────────────────────
-
     #[test]
     fn origin_maps_to_zero() {
         assert_eq!(morton_sort_key(0, 0, 0, 16), 0);

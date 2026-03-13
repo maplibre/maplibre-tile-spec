@@ -76,16 +76,6 @@ pub fn parse_u8(input: &[u8]) -> MltRefResult<'_, u8> {
     }
 }
 
-/// Parse a single byte from the input when we know the value is less than 128
-pub fn parse_u7(input: &[u8]) -> MltRefResult<'_, u8> {
-    let (input, value) = parse_u8(input)?;
-    if value < 128 {
-        Ok((input, value))
-    } else {
-        Err(MltError::Parsing7BitInt(value))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use rstest::rstest;

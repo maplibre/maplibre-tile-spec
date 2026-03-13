@@ -37,7 +37,7 @@ const DELTA_BIT_SAVINGS_THRESHOLD: u8 = 4;
 #[derive(Debug, Clone, Default)]
 pub struct DataProfile {
     /// Number of values in the sample that was analyzed.
-    sample_len: usize,
+    _sample_len: usize,
 
     /// Average run length in the sample.
     ///
@@ -98,7 +98,7 @@ impl DataProfile {
         }
 
         Self {
-            sample_len: sample.len(),
+            _sample_len: sample.len(),
             avg_run_length: sample.len() as f64 / runs as f64,
             is_sorted: is_sorted_rising || is_sorted_falling,
             max_bit_width: (T::zero().leading_zeros() - max_val.leading_zeros()) as u8,

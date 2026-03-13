@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::io::Write;
 
-use borrowme::{Borrow as BorrowmeBorrow, ToOwned as BorrowmeToOwned};
-
 use crate::MltError::{
     BufferUnderflow, DictIndexOutOfBounds, NotImplemented, UnexpectedStreamType2,
 };
@@ -14,8 +12,9 @@ use crate::v01::{
     EncodedPresence, EncodedSharedDict, EncodedSharedDictChild, EncodedStrings, FsstData,
     FsstStrEncoder, IntEncoder, LengthType, NameRef, OffsetType, OwnedEncodedProperty,
     OwnedEncodedSharedDict, OwnedEncodedSharedDictChild, OwnedEncodedStrings, OwnedFsstData,
-    OwnedName, OwnedPlainData, OwnedStream, PlainData, PresenceStream, PropertyEncoder,
-    SharedDictEncoder, StrEncoder, Stream, StreamType,
+    OwnedName, OwnedPlainData, OwnedSharedDictEncoding, OwnedStream, OwnedStringsEncoding,
+    PlainData, PresenceStream, PropertyEncoder, SharedDictEncoder, SharedDictEncoding, StrEncoder,
+    Stream, StreamType, StringsEncoding,
 };
 use crate::{Analyze, DecodeInto, MltError, StatType};
 
@@ -69,29 +68,13 @@ impl DecodedStrings<'static> {
     }
 }
 
-impl BorrowmeToOwned for DecodedStrings<'_> {
-    type Owned = DecodedStrings<'static>;
-
-    fn to_owned(&self) -> Self::Owned {
+impl DecodedStrings<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> DecodedStrings<'static> {
         DecodedStrings {
             name: Cow::Owned(self.name.as_ref().to_string()),
             lengths: self.lengths.clone(),
             data: Cow::Owned(self.data.as_ref().to_string()),
-        }
-    }
-}
-
-impl BorrowmeBorrow for DecodedStrings<'static> {
-    type Target<'a>
-        = DecodedStrings<'a>
-    where
-        Self: 'a;
-
-    fn borrow(&self) -> Self::Target<'_> {
-        DecodedStrings {
-            name: Cow::Borrowed(self.name.as_ref()),
-            lengths: self.lengths.clone(),
-            data: Cow::Borrowed(self.data.as_ref()),
         }
     }
 }
@@ -103,10 +86,9 @@ impl<'a> arbitrary::Arbitrary<'a> for DecodedStrings<'static> {
     }
 }
 
-impl BorrowmeToOwned for DecodedSharedDict<'_> {
-    type Owned = DecodedSharedDict<'static>;
-
-    fn to_owned(&self) -> Self::Owned {
+impl DecodedSharedDict<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> DecodedSharedDict<'static> {
         DecodedSharedDict {
             prefix: Cow::Owned(self.prefix.as_ref().to_string()),
             data: Cow::Owned(self.data.as_ref().to_string()),
@@ -118,21 +100,6 @@ impl BorrowmeToOwned for DecodedSharedDict<'_> {
                     ranges: item.ranges.clone(),
                 })
                 .collect(),
-        }
-    }
-}
-
-impl BorrowmeBorrow for DecodedSharedDict<'static> {
-    type Target<'a>
-        = DecodedSharedDict<'a>
-    where
-        Self: 'a;
-
-    fn borrow(&self) -> Self::Target<'_> {
-        DecodedSharedDict {
-            prefix: Cow::Borrowed(self.prefix.as_ref()),
-            data: Cow::Borrowed(self.data.as_ref()),
-            items: self.items.clone(),
         }
     }
 }
@@ -507,7 +474,7 @@ impl OwnedFsstData {
     }
 }
 
-impl<'a> EncodedStrings<'a> {
+impl<'a> StringsEncoding<'a> {
     #[must_use]
     pub fn plain(plain_data: PlainData<'a>) -> Self {
         Self::Plain(plain_data)
@@ -554,7 +521,7 @@ impl<'a> EncodedStrings<'a> {
     }
 }
 
-impl OwnedEncodedStrings {
+impl OwnedStringsEncoding {
     /// Content streams only.
     #[must_use]
     pub fn content_streams(&self) -> Vec<&OwnedStream> {
@@ -584,7 +551,23 @@ impl OwnedEncodedStrings {
     }
 }
 
-impl<'a> EncodedSharedDict<'a> {
+impl EncodedStrings<'_> {
+    /// Content streams in wire order.
+    #[must_use]
+    pub fn streams(&self) -> Vec<&Stream<'_>> {
+        self.encoding.streams()
+    }
+}
+
+impl OwnedEncodedStrings {
+    /// Streams in wire order.
+    #[must_use]
+    pub fn streams(&self) -> Vec<&OwnedStream> {
+        self.encoding.streams()
+    }
+}
+
+impl<'a> SharedDictEncoding<'a> {
     /// Plain shared dict (2 streams): lengths + data.
     #[must_use]
     pub fn plain(plain_data: PlainData<'a>) -> Self {
@@ -607,13 +590,28 @@ impl<'a> EncodedSharedDict<'a> {
     }
 }
 
-impl OwnedEncodedSharedDict {
+impl OwnedSharedDictEncoding {
     #[must_use]
     pub fn dict_streams(&self) -> Vec<&OwnedStream> {
         match self {
             Self::Plain(plain_data) => plain_data.streams(),
             Self::FsstPlain(fsst_data) => fsst_data.streams(),
         }
+    }
+}
+
+impl EncodedSharedDict<'_> {
+    /// Dict streams in wire order (for serialization).
+    #[must_use]
+    pub fn dict_streams(&self) -> Vec<&Stream<'_>> {
+        self.encoding.dict_streams()
+    }
+}
+
+impl OwnedEncodedSharedDict {
+    #[must_use]
+    pub fn dict_streams(&self) -> Vec<&OwnedStream> {
+        self.encoding.dict_streams()
     }
 }
 
@@ -687,21 +685,21 @@ pub fn encode_shared_dict_prop(
         });
     }
 
-    let struct_prop = match dict_encoded {
-        OwnedEncodedStrings::Plain(plain_data) => OwnedEncodedSharedDict::Plain(plain_data),
-        OwnedEncodedStrings::FsstPlain(fsst_data) => OwnedEncodedSharedDict::FsstPlain(fsst_data),
-        OwnedEncodedStrings::Dictionary { .. } | OwnedEncodedStrings::FsstDictionary { .. } => {
+    let encoding = match dict_encoded {
+        OwnedStringsEncoding::Plain(plain_data) => OwnedSharedDictEncoding::Plain(plain_data),
+        OwnedStringsEncoding::FsstPlain(fsst_data) => OwnedSharedDictEncoding::FsstPlain(fsst_data),
+        OwnedStringsEncoding::Dictionary { .. } | OwnedStringsEncoding::FsstDictionary { .. } => {
             return Err(NotImplemented(
                 "SharedDict only supports Plain or FsstPlain encoding",
             ));
         }
     };
 
-    Ok(OwnedEncodedProperty::SharedDict(
-        OwnedName(shared_dict.prefix.as_ref().to_string()),
-        struct_prop,
+    Ok(OwnedEncodedProperty::SharedDict(OwnedEncodedSharedDict {
+        name: OwnedName(shared_dict.prefix.as_ref().to_string()),
+        encoding,
         children,
-    ))
+    }))
 }
 
 pub fn build_decoded_shared_dict(
@@ -777,45 +775,58 @@ impl OwnedEncodedSharedDictChild {
     }
 }
 
-/// Decode string property from its encoded stream encoding.
-pub fn decode_strings<'a>(
-    name: NameRef<'a>,
-    presence: EncodedPresence<'a>,
-    encoding: EncodedStrings<'a>,
-) -> Result<DecodedStrings<'a>, MltError> {
-    let presence = presence
-        .0
-        .map(DecodeInto::<Vec<bool>>::decode_into)
-        .transpose()?;
-    match encoding {
-        EncodedStrings::Plain(plain_data) => {
-            let (data, lengths) = plain_data.decode()?;
-            Ok(DecodedStrings {
-                name: name.into(),
-                lengths: to_absolute_lengths(&lengths, presence.as_deref())?,
-                data: data.into(),
-            })
+impl<'a> EncodedStrings<'a> {
+    #[must_use]
+    pub fn new(
+        name: NameRef<'a>,
+        presence: EncodedPresence<'a>,
+        encoding: StringsEncoding<'a>,
+    ) -> Self {
+        Self {
+            name,
+            presence,
+            encoding,
         }
-        EncodedStrings::Dictionary {
-            plain_data,
-            offsets,
-        } => {
-            let (data, lengths) = plain_data.decode()?;
-            let offsets: Vec<u32> = offsets.decode_into()?;
-            decode_dictionary_strings(&name, &lengths, &offsets, presence.as_deref(), data)
-        }
-        EncodedStrings::FsstPlain(fsst_data) => {
-            let (data, dict_lens) = fsst_data.decode()?;
-            Ok(DecodedStrings {
-                name: name.into(),
-                lengths: to_absolute_lengths(&dict_lens, presence.as_deref())?,
-                data: data.into(),
-            })
-        }
-        EncodedStrings::FsstDictionary { fsst_data, offsets } => {
-            let (data, lengths) = fsst_data.decode()?;
-            let offsets: Vec<u32> = offsets.decode_into()?;
-            decode_dictionary_strings(&name, &lengths, &offsets, presence.as_deref(), &data)
+    }
+
+    /// Decode string property from its encoded column.
+    pub fn into_decoded(self) -> Result<DecodedStrings<'a>, MltError> {
+        let name = self.name;
+        let presence = self
+            .presence
+            .0
+            .map(DecodeInto::<Vec<bool>>::decode_into)
+            .transpose()?;
+        match self.encoding {
+            StringsEncoding::Plain(plain_data) => {
+                let (data, lengths) = plain_data.decode()?;
+                Ok(DecodedStrings {
+                    name: name.into(),
+                    lengths: to_absolute_lengths(&lengths, presence.as_deref())?,
+                    data: data.into(),
+                })
+            }
+            StringsEncoding::Dictionary {
+                plain_data,
+                offsets,
+            } => {
+                let (data, lengths) = plain_data.decode()?;
+                let offsets: Vec<u32> = offsets.decode_into()?;
+                decode_dictionary_strings(&name, &lengths, &offsets, presence.as_deref(), data)
+            }
+            StringsEncoding::FsstPlain(fsst_data) => {
+                let (data, dict_lens) = fsst_data.decode()?;
+                Ok(DecodedStrings {
+                    name: name.into(),
+                    lengths: to_absolute_lengths(&dict_lens, presence.as_deref())?,
+                    data: data.into(),
+                })
+            }
+            StringsEncoding::FsstDictionary { fsst_data, offsets } => {
+                let (data, lengths) = fsst_data.decode()?;
+                let offsets: Vec<u32> = offsets.decode_into()?;
+                decode_dictionary_strings(&name, &lengths, &offsets, presence.as_deref(), &data)
+            }
         }
     }
 }
@@ -928,54 +939,65 @@ fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec
     output
 }
 
-/// Decode a struct with shared dictionary into a single decoded property with all children.
-pub fn decode_shared_dict<'a>(
-    prefix: impl Into<Cow<'a, str>>,
-    struct_data: &EncodedSharedDict<'a>,
-    children: &[EncodedSharedDictChild<'a>],
-) -> Result<DecodedSharedDict<'a>, MltError> {
-    let prefix = prefix.into();
-    let (data, dict_spans) = match struct_data {
-        EncodedSharedDict::Plain(plain_data) => {
-            let (decoded, lengths) = plain_data.decode()?;
-            let dict_spans = shared_dict_spans(&lengths);
-            (Cow::Borrowed(decoded), dict_spans)
+impl<'a> EncodedSharedDict<'a> {
+    #[must_use]
+    pub fn new(
+        name: NameRef<'a>,
+        encoding: SharedDictEncoding<'a>,
+        children: Vec<EncodedSharedDictChild<'a>>,
+    ) -> Self {
+        Self {
+            name,
+            encoding,
+            children,
         }
-        EncodedSharedDict::FsstPlain(fsst_data) => {
-            let (decoded, lengths) = fsst_data.decode()?;
-            let dict_spans = shared_dict_spans(&lengths);
-            (decoded.into(), dict_spans)
-        }
-    };
-    let items = children
-        .iter()
-        .map(|child| -> Result<DecodedSharedDictItem, MltError> {
-            let offsets = child.data.decode_bits_u32()?.decode_u32()?;
-            let presence = child
-                .presence
-                .0
-                .clone()
-                .map(DecodeInto::<Vec<bool>>::decode_into)
-                .transpose()?;
-            let ranges = resolve_dict_spans(&offsets, presence.as_deref(), &dict_spans)?
-                .into_iter()
-                .map(|span| match span {
-                    Some(span) => encode_shared_dict_range(span.0, span.1),
-                    None => Ok((-1, -1)),
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            Ok(DecodedSharedDictItem {
-                suffix: Cow::Borrowed(child.name.0),
-                ranges,
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    }
 
-    Ok(DecodedSharedDict {
-        prefix,
-        data,
-        items,
-    })
+    /// Decode a shared-dictionary column into its decoded form.
+    pub fn into_decoded(self) -> Result<DecodedSharedDict<'a>, MltError> {
+        let prefix = Cow::Borrowed(self.name.0);
+        let (data, dict_spans) = match self.encoding {
+            SharedDictEncoding::Plain(plain_data) => {
+                let (decoded, lengths) = plain_data.decode()?;
+                let dict_spans = shared_dict_spans(&lengths);
+                (Cow::Borrowed(decoded), dict_spans)
+            }
+            SharedDictEncoding::FsstPlain(fsst_data) => {
+                let (decoded, lengths) = fsst_data.decode()?;
+                let dict_spans = shared_dict_spans(&lengths);
+                (decoded.into(), dict_spans)
+            }
+        };
+        let items = self
+            .children
+            .into_iter()
+            .map(|child| -> Result<DecodedSharedDictItem, MltError> {
+                let offsets: Vec<u32> = child.data.decode_into()?;
+                let presence = child
+                    .presence
+                    .0
+                    .map(DecodeInto::<Vec<bool>>::decode_into)
+                    .transpose()?;
+                let ranges = resolve_dict_spans(&offsets, presence.as_deref(), &dict_spans)?
+                    .into_iter()
+                    .map(|span| match span {
+                        Some(span) => encode_shared_dict_range(span.0, span.1),
+                        None => Ok((-1, -1)),
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(DecodedSharedDictItem {
+                    suffix: Cow::Borrowed(child.name.0),
+                    ranges,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(DecodedSharedDict {
+            prefix,
+            data,
+            items,
+        })
+    }
 }
 
 impl<'a> From<NameRef<'a>> for Cow<'a, str> {

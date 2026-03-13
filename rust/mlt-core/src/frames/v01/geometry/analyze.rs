@@ -1,16 +1,15 @@
-use borrowme::Borrow as _;
-
 use crate::analyse::{Analyze, StatType};
-use crate::v01::{DecodedGeometry, EncodedGeometry, GeometryType, Stream};
+use crate::v01::{DecodedGeometry, EncodedGeometry, GeometryType, StreamMeta};
 
 impl Analyze for crate::v01::OwnedEncodedGeometry {
-    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
-        self.borrow().for_each_stream(cb);
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
+        self.meta.for_each_stream(cb);
+        self.items.for_each_stream(cb);
     }
 }
 
 impl Analyze for EncodedGeometry<'_> {
-    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         self.meta.for_each_stream(cb);
         self.items.for_each_stream(cb);
     }

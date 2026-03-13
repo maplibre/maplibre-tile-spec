@@ -1,8 +1,6 @@
-use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
 /// Logical encoding technique used for a column, as stored in the tile
-#[borrowme]
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum LogicalTechnique {
@@ -59,7 +57,6 @@ pub struct LogicalValue {
 // Physical encoding types
 
 /// Dictionary type used for a column, as stored in the tile
-#[borrowme]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
 pub enum DictionaryType {
@@ -72,7 +69,6 @@ pub enum DictionaryType {
 }
 
 /// Offset type used for a column, as stored in the tile
-#[borrowme]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
 pub enum OffsetType {
@@ -83,7 +79,6 @@ pub enum OffsetType {
 }
 
 /// Length type used for a column, as stored in the tile
-#[borrowme]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
 pub enum LengthType {
@@ -106,7 +101,6 @@ pub enum StreamType {
 }
 
 /// Physical encoding used for a column, as stored in the tile
-#[borrowme]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
 pub enum PhysicalEncoding {
@@ -138,16 +132,27 @@ pub struct StreamMeta {
 }
 
 /// Representation of an encoded stream
-#[borrowme]
 #[derive(Debug, PartialEq, Clone)]
 pub struct Stream<'a> {
     pub meta: StreamMeta,
     pub data: StreamData<'a>,
 }
 
-#[borrowme::borrowme]
+/// Owned variant of [`Stream`].
+#[derive(Debug, PartialEq, Clone)]
+pub struct OwnedStream {
+    pub meta: StreamMeta,
+    pub data: OwnedStreamData,
+}
+
 #[derive(PartialEq, Clone)]
 pub enum StreamData<'a> {
-    VarInt(#[borrowme(borrow_with=Vec::as_slice)] &'a [u8]),
-    Encoded(#[borrowme(borrow_with=Vec::as_slice)] &'a [u8]),
+    VarInt(&'a [u8]),
+    Encoded(&'a [u8]),
+}
+
+#[derive(PartialEq, Clone)]
+pub enum OwnedStreamData {
+    VarInt(Vec<u8>),
+    Encoded(Vec<u8>),
 }

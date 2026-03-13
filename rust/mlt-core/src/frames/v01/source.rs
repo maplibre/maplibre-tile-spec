@@ -13,13 +13,13 @@ use std::borrow::Cow;
 
 use geo_types::Geometry;
 
+use crate::MltError;
 use crate::optimizer::ManualOptimisation as _;
 use crate::v01::{
     DecodedGeometry, DecodedId, DecodedProperty, DecodedScalar, DecodedSharedDict,
     DecodedSharedDictItem, DecodedStrings, GeometryEncoder, IntEncoder, OwnedGeometry, OwnedId,
     OwnedLayer01, OwnedProperty,
 };
-use crate::MltError;
 
 /// Row-oriented working form for the optimizer.
 ///
@@ -93,8 +93,11 @@ impl TryFrom<OwnedLayer01> for SourceLayer01 {
                 OwnedProperty::Decoded(dp) => match dp {
                     DecodedProperty::SharedDict(sd) => {
                         for item in &sd.items {
-                            property_names
-                                .push(format!("{}:{}", sd.prefix.as_ref(), item.suffix.as_ref()));
+                            property_names.push(format!(
+                                "{}:{}",
+                                sd.prefix.as_ref(),
+                                item.suffix.as_ref()
+                            ));
                         }
                     }
                     other => property_names.push(other.name().to_string()),
@@ -154,7 +157,9 @@ fn extract_values(prop: &DecodedProperty<'_>, i: usize, out: &mut Vec<SourceValu
         DecodedProperty::F32(s) => out.push(SourceValue::F32(s.values[i])),
         DecodedProperty::F64(s) => out.push(SourceValue::F64(s.values[i])),
         DecodedProperty::Str(s) => {
-            let val = s.get(u32::try_from(i).unwrap_or(u32::MAX)).map(str::to_string);
+            let val = s
+                .get(u32::try_from(i).unwrap_or(u32::MAX))
+                .map(str::to_string);
             out.push(SourceValue::Str(val));
         }
         DecodedProperty::SharedDict(sd) => {
@@ -170,7 +175,6 @@ fn extract_values(prop: &DecodedProperty<'_>, i: usize, out: &mut Vec<SourceValu
 
 impl From<SourceLayer01> for OwnedLayer01 {
     fn from(source: SourceLayer01) -> Self {
-
         // Rebuild geometry column
         let mut geom = DecodedGeometry::default();
         for f in &source.features {
@@ -384,28 +388,22 @@ fn decode_layer(layer: &mut OwnedLayer01) -> Result<(), MltError> {
     layer
         .geometry
         .manual_optimisation(GeometryEncoder::all(IntEncoder::varint()))?;
-    if let OwnedGeometry::Encoded(e) = &layer.geometry {
-        let dec = e.decode()?;
-        layer.geometry = OwnedGeometry::Decoded(dec);
+    let geom = std::mem::replace(
+        &mut layer.geometry,
+        OwnedGeometry::Decoded(DecodedGeometry::default()),
+    );
+    layer.geometry = OwnedGeometry::Decoded(DecodedGeometry::try_from(geom)?);
+
+    if let Some(id) = layer.id.take() {
+        layer.id = Some(OwnedId::Decoded(DecodedId::try_from(id)?));
     }
 
-    if let Some(OwnedId::Encoded(e)) = &layer.id {
-        let dec = DecodedId::try_from(borrowme::borrow(e))?;
-        layer.id = Some(OwnedId::Decoded(dec));
-    }
-
-    let mut decoded_props = Vec::with_capacity(layer.properties.len());
+    // Properties must already be decoded; encoded properties are not expected here.
     for prop in &layer.properties {
-        if let OwnedProperty::Decoded(_) = prop {
-            decoded_props.push(prop.clone());
-        } else {
-            let decoded_ref = borrowme::borrow(prop).decode()?;
-            decoded_props.push(OwnedProperty::Decoded(
-                borrowme::ToOwned::to_owned(&decoded_ref),
-            ));
+        if let OwnedProperty::Encoded(_) = prop {
+            return Err(MltError::NotDecoded("property"));
         }
     }
-    layer.properties = decoded_props;
 
     Ok(())
 }

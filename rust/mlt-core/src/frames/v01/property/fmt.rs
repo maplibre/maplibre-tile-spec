@@ -1,8 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug};
 
-use borrowme::{Borrow as BorrowmeBorrow, ToOwned as BorrowMe};
-
 use crate::utils::FmtOptVec;
 use crate::v01::{DecodedProperty, DecodedScalar};
 
@@ -68,10 +66,9 @@ impl Debug for DecodedProperty<'_> {
     }
 }
 
-impl<T: Copy + PartialEq> BorrowMe for DecodedScalar<'_, T> {
-    type Owned = DecodedScalar<'static, T>;
-
-    fn to_owned(&self) -> Self::Owned {
+impl<T: Copy + PartialEq> DecodedScalar<'_, T> {
+    #[must_use]
+    pub fn to_owned(&self) -> DecodedScalar<'static, T> {
         DecodedScalar {
             name: Cow::Owned(self.name.as_ref().to_string()),
             values: self.values.clone(),
@@ -79,48 +76,22 @@ impl<T: Copy + PartialEq> BorrowMe for DecodedScalar<'_, T> {
     }
 }
 
-impl BorrowMe for DecodedProperty<'_> {
-    type Owned = DecodedProperty<'static>;
-
-    fn to_owned(&self) -> Self::Owned {
+impl DecodedProperty<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> DecodedProperty<'static> {
         use DecodedProperty as P;
         match self {
-            Self::Bool(v) => P::Bool(BorrowMe::to_owned(&v)),
-            Self::I8(v) => P::I8(BorrowMe::to_owned(v)),
-            Self::U8(v) => P::U8(BorrowMe::to_owned(v)),
-            Self::I32(v) => P::I32(BorrowMe::to_owned(v)),
-            Self::U32(v) => P::U32(BorrowMe::to_owned(v)),
-            Self::I64(v) => P::I64(BorrowMe::to_owned(v)),
-            Self::U64(v) => P::U64(BorrowMe::to_owned(v)),
-            Self::F32(v) => P::F32(BorrowMe::to_owned(v)),
-            Self::F64(v) => P::F64(BorrowMe::to_owned(v)),
-            Self::Str(v) => P::Str(BorrowMe::to_owned(v)),
-            Self::SharedDict(v) => P::SharedDict(BorrowMe::to_owned(v)),
-        }
-    }
-}
-
-impl BorrowmeBorrow for DecodedProperty<'static> {
-    type Target<'a>
-        = DecodedProperty<'a>
-    where
-        Self: 'a;
-
-    fn borrow(&self) -> Self::Target<'_> {
-        use DecodedProperty as P;
-        use DecodedScalar as S;
-        match self {
-            Self::Bool(v) => P::Bool(S::new(v.name.clone(), v.values.clone())),
-            Self::I8(v) => P::I8(S::new(v.name.clone(), v.values.clone())),
-            Self::U8(v) => P::U8(S::new(v.name.clone(), v.values.clone())),
-            Self::I32(v) => P::I32(S::new(v.name.clone(), v.values.clone())),
-            Self::U32(v) => P::U32(S::new(v.name.clone(), v.values.clone())),
-            Self::I64(v) => P::I64(S::new(v.name.clone(), v.values.clone())),
-            Self::U64(v) => P::U64(S::new(v.name.clone(), v.values.clone())),
-            Self::F32(v) => P::F32(S::new(v.name.clone(), v.values.clone())),
-            Self::F64(v) => P::F64(S::new(v.name.clone(), v.values.clone())),
-            Self::Str(v) => P::Str(BorrowmeBorrow::borrow(v)),
-            Self::SharedDict(v) => P::SharedDict(BorrowmeBorrow::borrow(v)),
+            Self::Bool(v) => P::Bool(v.to_owned()),
+            Self::I8(v) => P::I8(v.to_owned()),
+            Self::U8(v) => P::U8(v.to_owned()),
+            Self::I32(v) => P::I32(v.to_owned()),
+            Self::U32(v) => P::U32(v.to_owned()),
+            Self::I64(v) => P::I64(v.to_owned()),
+            Self::U64(v) => P::U64(v.to_owned()),
+            Self::F32(v) => P::F32(v.to_owned()),
+            Self::F64(v) => P::F64(v.to_owned()),
+            Self::Str(v) => P::Str(v.to_owned()),
+            Self::SharedDict(v) => P::SharedDict(v.to_owned()),
         }
     }
 }

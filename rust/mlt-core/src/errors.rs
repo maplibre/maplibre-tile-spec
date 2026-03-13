@@ -32,8 +32,6 @@ pub enum MltError {
     NotDecoded(&'static str),
     #[error("decoded data is not in encoded form")]
     NotEncoded,
-    #[error("error 7-bit integer (must be < 128): value={0}")]
-    Parsing7BitInt(u8),
     #[error("error parsing column type: code={0}")]
     ParsingColumnType(u8),
     #[error("error parsing logical technique: code={0}")]

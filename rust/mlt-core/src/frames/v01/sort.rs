@@ -1,7 +1,7 @@
 //! Feature reordering for the optimizer.
 //!
 //! All sorting operates on [`SourceLayer01`] — the row-oriented working form
-//! that the optimizer uses.  A sort is a single [`Vec::sort_by_cached_key`]
+//! that the optimizer uses.  A sort is a single `Vec::sort_by_cached_key`
 //! call; there is no permutation machinery, no column-by-column scatter, and
 //! no encoded/decoded conversions inside this module.
 
@@ -30,14 +30,6 @@ pub enum SortStrategy {
 
     /// Sort features by their feature ID in ascending order.
     Id,
-}
-
-/// The space-filling curve used when sorting features spatially.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub(crate) enum SpaceFillingCurve {
-    #[default]
-    Morton,
-    Hilbert,
 }
 
 /// Reorder all features of `layer` according to `strategy`.

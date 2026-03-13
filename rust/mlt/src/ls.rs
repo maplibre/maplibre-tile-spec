@@ -15,7 +15,7 @@ use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::{
     DictionaryType, Geometry, GeometryType, LengthType, LogicalEncoding, OffsetType,
-    PhysicalEncoding, Stream, StreamType,
+    PhysicalEncoding, StreamType,
 };
 use mlt_core::{Analyze as _, parse_layers};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
@@ -555,9 +555,9 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<
     let mut algorithms: HashSet<StreamStat> = HashSet::new();
     for layer in &layers {
         if let Some(layer01) = layer.as_layer01() {
-            layer01.for_each_stream(&mut |stream| {
+            layer01.for_each_stream(&mut |stream_meta| {
                 stream_count += 1;
-                collect_stream_info(stream, &mut algorithms);
+                collect_stream_info(stream_meta, &mut algorithms);
             });
         }
     }
@@ -750,11 +750,11 @@ impl From<LogicalEncoding> for StatLogicalCodec {
     }
 }
 
-fn collect_stream_info(stream: &Stream, algo: &mut HashSet<StreamStat>) {
+fn collect_stream_info(meta: mlt_core::v01::StreamMeta, algo: &mut HashSet<StreamStat>) {
     algo.insert((
-        stream.meta.stream_type,
-        stream.meta.encoding.physical,
-        StatLogicalCodec::from(stream.meta.encoding.logical),
+        meta.stream_type,
+        meta.encoding.physical,
+        StatLogicalCodec::from(meta.encoding.logical),
     ));
 }
 

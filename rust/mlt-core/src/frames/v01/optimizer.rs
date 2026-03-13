@@ -328,7 +328,7 @@ impl Tag01Profile {
     /// ## Sort strategy resolution
     ///
     /// The `strategy_votes` tallies are summed element-wise.  The strategy
-    /// with the highest total vote count is returned by [`sort_strategy`].
+    /// with the highest total vote count is returned by `sort_strategy`.
     /// Ties are broken by strategy index (lowest index wins), giving a
     /// conservative preference for `None` (no sorting) when no clear winner
     /// emerges.

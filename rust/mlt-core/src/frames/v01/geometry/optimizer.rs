@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use crate::decode::Decode as _;
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::encode::{encode_geometry, z_order_params};
 use crate::v01::{
@@ -248,7 +247,8 @@ impl ManualOptimisation for OwnedGeometry {
     type UsedEncoder = GeometryEncoder;
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        let dec = borrowme::borrow(self).decode()?;
+        let owned = std::mem::replace(self, OwnedGeometry::Decoded(DecodedGeometry::default()));
+        let dec = DecodedGeometry::try_from(owned)?;
         *self = OwnedGeometry::Encoded(OwnedEncodedGeometry::from_decoded(&dec, encoder)?);
         Ok(())
     }
@@ -268,9 +268,13 @@ impl ProfileOptimisation for OwnedGeometry {
                 *self = OwnedGeometry::Encoded(OwnedEncodedGeometry::from_decoded(dec, enc)?);
                 Ok(enc)
             }
-            OwnedGeometry::Encoded(e) => {
-                let dec = DecodedGeometry::decode(borrowme::borrow(e))?;
-                *self = OwnedGeometry::Decoded(dec);
+            OwnedGeometry::Encoded(_) => {
+                let enc =
+                    std::mem::replace(self, OwnedGeometry::Decoded(DecodedGeometry::default()));
+                let OwnedGeometry::Encoded(e) = enc else {
+                    unreachable!()
+                };
+                *self = OwnedGeometry::Decoded(DecodedGeometry::try_from(e)?);
                 self.profile_driven_optimisation(profile)
             }
         }
@@ -287,9 +291,13 @@ impl AutomaticOptimisation for OwnedGeometry {
                 *self = OwnedGeometry::Encoded(OwnedEncodedGeometry::from_decoded(dec, enc)?);
                 Ok(enc)
             }
-            OwnedGeometry::Encoded(e) => {
-                let dec = DecodedGeometry::decode(borrowme::borrow(e))?;
-                *self = OwnedGeometry::Decoded(dec);
+            OwnedGeometry::Encoded(_) => {
+                let enc =
+                    std::mem::replace(self, OwnedGeometry::Decoded(DecodedGeometry::default()));
+                let OwnedGeometry::Encoded(e) = enc else {
+                    unreachable!()
+                };
+                *self = OwnedGeometry::Decoded(DecodedGeometry::try_from(e)?);
                 self.automatic_encoding_optimisation()
             }
         }

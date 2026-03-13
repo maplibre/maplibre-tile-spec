@@ -1,11 +1,39 @@
 use std::fmt;
 use std::io::Write;
 
+use super::{OwnedStream, OwnedStreamData, Stream, StreamData};
 use crate::analyse::{Analyze, StatType};
 use crate::utils::formatter::fmt_byte_array;
-use crate::v01::{OwnedStreamData, StreamData};
+
+impl Stream<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedStream {
+        OwnedStream {
+            meta: self.meta,
+            data: self.data.to_owned(),
+        }
+    }
+}
+
+impl OwnedStream {
+    #[must_use]
+    pub fn as_borrowed(&self) -> Stream<'_> {
+        Stream {
+            meta: self.meta,
+            data: self.data.as_borrowed(),
+        }
+    }
+}
 
 impl StreamData<'_> {
+    #[must_use]
+    pub fn to_owned(&self) -> OwnedStreamData {
+        match self {
+            Self::VarInt(data) => OwnedStreamData::VarInt(data.to_vec()),
+            Self::Encoded(data) => OwnedStreamData::Encoded(data.to_vec()),
+        }
+    }
+
     #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         match self {
@@ -15,6 +43,14 @@ impl StreamData<'_> {
 }
 
 impl OwnedStreamData {
+    #[must_use]
+    pub fn as_borrowed(&self) -> StreamData<'_> {
+        match self {
+            Self::VarInt(data) => StreamData::VarInt(data),
+            Self::Encoded(data) => StreamData::Encoded(data),
+        }
+    }
+
     pub fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
         match self {
             OwnedStreamData::VarInt(d) | OwnedStreamData::Encoded(d) => writer.write_all(d),

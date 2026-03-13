@@ -1,6 +1,6 @@
 use crate::MltError::{self, NotImplemented};
-use crate::decode::{Decode, DecodeInto as _, impl_decodable};
-use crate::encode::{FromDecoded, impl_encodable};
+use crate::decode::{Decode, DecodeInto as _};
+use crate::encode::FromDecoded;
 use crate::utils::{AsUsize as _, SetOptionOnce as _};
 use crate::v01::geometry::decode::{
     decode_geometry_types, decode_level1_length_stream,
@@ -9,12 +9,9 @@ use crate::v01::geometry::decode::{
 };
 use crate::v01::geometry::encode::encode_geometry;
 use crate::v01::{
-    DecodedGeometry, DictionaryType, EncodedGeometry, Geometry, GeometryEncoder, GeometryType,
-    LengthType, OffsetType, OwnedEncodedGeometry, OwnedGeometry, StreamType,
+    DecodedGeometry, DictionaryType, EncodedGeometry, GeometryEncoder, GeometryType, LengthType,
+    OffsetType, OwnedEncodedGeometry, StreamType,
 };
-
-impl_decodable!(Geometry<'a>, EncodedGeometry<'a>, DecodedGeometry);
-impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedEncodedGeometry);
 
 impl FromDecoded<'_> for OwnedEncodedGeometry {
     type Input = DecodedGeometry;
