@@ -4,7 +4,7 @@ use std::io::Write;
 use integer_encoding::VarIntWriter;
 
 use crate::MltError;
-use crate::v01::{OwnedStream, OwnedStreamData};
+use crate::v01::{EncodedStream, EncodedStreamData};
 
 pub trait BinarySerializer: Write + VarIntWriter + Sized {
     fn write_u8(&mut self, value: u8) -> io::Result<()> {
@@ -16,10 +16,10 @@ pub trait BinarySerializer: Write + VarIntWriter + Sized {
         self.write_all(value.as_bytes())
     }
 
-    /// Reverses [`Stream::parse`](crate::v01::stream::Stream::parse)
-    fn write_stream(&mut self, stream: &OwnedStream) -> io::Result<()> {
+    /// Reverses [`RawStream::parse`](crate::v01::stream::RawStream::parse)
+    fn write_stream(&mut self, stream: &EncodedStream) -> io::Result<()> {
         let byte_length = match &stream.data {
-            OwnedStreamData::VarInt(v) | OwnedStreamData::Encoded(v) => v.len(),
+            EncodedStreamData::VarInt(v) | EncodedStreamData::Encoded(v) => v.len(),
         };
         let byte_length = u32::try_from(byte_length).map_err(MltError::from)?;
         stream.meta.write_to(self, false, byte_length)?;
@@ -28,7 +28,7 @@ pub trait BinarySerializer: Write + VarIntWriter + Sized {
     }
 
     /// Serializes an optional stream, which is a stream with boolean values indicating presence of values in another stream.
-    fn write_optional_stream(&mut self, stream: Option<&OwnedStream>) -> io::Result<()> {
+    fn write_optional_stream(&mut self, stream: Option<&EncodedStream>) -> io::Result<()> {
         if let Some(s) = stream {
             self.write_boolean_stream(s)
         } else {
@@ -36,10 +36,10 @@ pub trait BinarySerializer: Write + VarIntWriter + Sized {
         }
     }
 
-    /// Reverses [`Stream::parse_bool`](crate::v01::stream::Stream::parse_bool)
-    fn write_boolean_stream(&mut self, stream: &OwnedStream) -> io::Result<()> {
+    /// Reverses [`RawStream::parse_bool`](crate::v01::stream::RawStream::parse_bool)
+    fn write_boolean_stream(&mut self, stream: &EncodedStream) -> io::Result<()> {
         let byte_length = match &stream.data {
-            OwnedStreamData::VarInt(v) | OwnedStreamData::Encoded(v) => v.len(),
+            EncodedStreamData::VarInt(v) | EncodedStreamData::Encoded(v) => v.len(),
         };
         let byte_length = u32::try_from(byte_length).map_err(MltError::from)?;
         stream.meta.write_to(self, true, byte_length)?;

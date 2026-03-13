@@ -2,8 +2,8 @@ use crate::MltError;
 use crate::encode::FromDecoded;
 use crate::utils::{encode_bools_to_bytes, encode_byte_rle};
 use crate::v01::{
-    DecodedId, IdWidth, IntEncoder, IntEncoding, LogicalEncoder, LogicalEncoding, OwnedEncodedId,
-    OwnedEncodedIdValue, OwnedStream, OwnedStreamData, PhysicalEncoder, PhysicalEncoding, RleMeta,
+    EncodedId, EncodedIdValue, EncodedStream, EncodedStreamData, IdWidth, IntEncoder, IntEncoding,
+    LogicalEncoder, LogicalEncoding, ParsedId, PhysicalEncoder, PhysicalEncoding, RleMeta,
     StreamMeta, StreamType,
 };
 
@@ -23,9 +23,9 @@ impl IdEncoder {
 }
 
 #[cfg(all(not(test), feature = "arbitrary"))]
-impl arbitrary::Arbitrary<'_> for OwnedEncodedId {
+impl arbitrary::Arbitrary<'_> for EncodedId {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        let parsed: DecodedId = u.arbitrary()?;
+        let parsed: ParsedId = u.arbitrary()?;
         let encoder: IdEncoder = u.arbitrary()?;
         let owned_id =
             Self::from_decoded(&parsed, encoder).map_err(|_| arbitrary::Error::IncorrectFormat)?;
@@ -33,8 +33,8 @@ impl arbitrary::Arbitrary<'_> for OwnedEncodedId {
     }
 }
 
-impl FromDecoded<'_> for OwnedEncodedId {
-    type Input = DecodedId;
+impl FromDecoded<'_> for EncodedId {
+    type Input = ParsedId;
     type Encoder = IdEncoder;
 
     fn from_decoded(decoded: &Self::Input, encoder: IdEncoder) -> Result<Self, MltError> {
@@ -62,9 +62,9 @@ impl FromDecoded<'_> for OwnedEncodedId {
                 num_values,
             );
 
-            Some(OwnedStream {
+            Some(EncodedStream {
                 meta,
-                data: OwnedStreamData::Encoded(data),
+                data: EncodedStreamData::Encoded(data),
             })
         } else {
             None
@@ -78,13 +78,13 @@ impl FromDecoded<'_> for OwnedEncodedId {
                 .filter_map(|&id| id)
                 .map(|v| v as u32)
                 .collect();
-            OwnedEncodedIdValue::Id32(OwnedStream::encode_u32s(
+            EncodedIdValue::Id32(EncodedStream::encode_u32s(
                 &vals,
                 IntEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
             )?)
         } else {
             let vals: Vec<u64> = decoded.0.iter().filter_map(|&id| id).collect();
-            OwnedEncodedIdValue::Id64(OwnedStream::encode_u64s(
+            EncodedIdValue::Id64(EncodedStream::encode_u64s(
                 &vals,
                 IntEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
             )?)

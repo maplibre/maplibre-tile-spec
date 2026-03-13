@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::*;
 /// JS indexes into these typed arrays directly inside `loadGeometry()`, so
 /// there are **zero** per-feature WASM boundary crossings for geometry.
 ///
-/// ## Array semantics (mirrors `DecodedGeometry`)
+/// ## Array semantics (mirrors `ParsedGeometry`)
 ///
 /// All offset arrays are cumulative: `offsets[i]` is the start index and
 /// `offsets[i+1]` is the exclusive end for feature/part/ring `i`.

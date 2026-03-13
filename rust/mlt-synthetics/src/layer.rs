@@ -10,8 +10,8 @@ use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, DecodedStrings, GeometryEncoder, IdEncoder,
-    IntEncoder, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty, PresenceStream,
+    ParsedGeometry, ParsedId, ParsedProperty, ParsedStrings, GeometryEncoder, IdEncoder,
+    IntEncoder, StagedGeometry, StagedId, OwnedLayer01, StagedProperty, PresenceStream,
     PropertyEncoder, ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StrEncoder,
     VertexBufferType, build_decoded_shared_dict,
 };
@@ -100,7 +100,7 @@ pub struct Layer {
     pub geometry_items: Vec<Geom32>,
     /// Polygons that are also tessellated; triangle data is merged when building decoded geometry.
     pub tessellated_polygons: Vec<Option<Polygon<i32>>>,
-    pub properties: Vec<DecodedProperty<'static>>,
+    pub properties: Vec<ParsedProperty<'static>>,
     pub prop_encoders: Vec<PropertyEncoder>,
     pub extent: Option<u32>,
     pub ids: Option<(Vec<Option<u64>>, IdEncoder)>,
@@ -233,7 +233,7 @@ impl Layer {
 
     /// Add a scalar property.
     #[must_use]
-    pub fn add_prop(mut self, encoder: ScalarEncoder, prop: DecodedProperty<'static>) -> Self {
+    pub fn add_prop(mut self, encoder: ScalarEncoder, prop: ParsedProperty<'static>) -> Self {
         self.properties.push(prop);
         self.prop_encoders.push(PropertyEncoder::Scalar(encoder));
         self
@@ -249,7 +249,7 @@ impl Layer {
         let encoder = shared_dict.encoder;
         let dict = build_decoded_shared_dict(name, shared_dict.items)
             .expect("shared dict builder should be valid");
-        self.properties.push(DecodedProperty::SharedDict(dict));
+        self.properties.push(ParsedProperty::SharedDict(dict));
         self.prop_encoders.push(encoder.into());
         self
     }
@@ -268,8 +268,8 @@ impl Layer {
         self
     }
 
-    fn build_decoded_geometry(&self) -> DecodedGeometry {
-        let mut geom = DecodedGeometry::default();
+    fn build_decoded_geometry(&self) -> ParsedGeometry {
+        let mut geom = ParsedGeometry::default();
         for g in &self.geometry_items {
             geom.push_geom(g);
         }
@@ -311,21 +311,21 @@ impl Layer {
 
     fn write_mlt(self, path: &Path) {
         let decoded_geom = self.build_decoded_geometry();
-        let mut geometry = OwnedGeometry::Decoded(decoded_geom);
+        let mut geometry = StagedGeometry::Decoded(decoded_geom);
         geometry.manual_optimisation(self.geometry_encoder).unwrap();
 
         let id = if let Some((ids, ids_encoder)) = self.ids {
-            let mut id = OwnedId::Decoded(DecodedId(ids));
+            let mut id = StagedId::Decoded(ParsedId(ids));
             id.manual_optimisation(ids_encoder).unwrap();
             Some(id)
         } else {
             None
         };
 
-        let mut properties: Vec<OwnedProperty> = self
+        let mut properties: Vec<StagedProperty> = self
             .properties
             .into_iter()
-            .map(OwnedProperty::Decoded)
+            .map(StagedProperty::Decoded)
             .collect();
         properties.manual_optimisation(self.prop_encoders).unwrap();
 
@@ -352,7 +352,7 @@ impl Layer {
 pub struct SharedDict {
     name: String,
     encoder: SharedDictEncoder,
-    items: Vec<(String, DecodedStrings<'static>)>,
+    items: Vec<(String, ParsedStrings<'static>)>,
 }
 
 impl SharedDict {
@@ -392,7 +392,7 @@ impl SharedDict {
         self.encoder.items.push(enc);
         let suffix = suffix.into();
         let values: Vec<Option<String>> = values.into_iter().collect();
-        self.items.push((suffix, DecodedStrings::from(values)));
+        self.items.push((suffix, ParsedStrings::from(values)));
         self
     }
 }

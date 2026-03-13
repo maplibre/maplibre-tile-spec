@@ -7,16 +7,16 @@ use rstest::rstest;
 use crate::encode::FromDecoded as _;
 use crate::frames::v01::id::encode::IdEncoder;
 use crate::frames::v01::id::model::{
-    DecodedId, IdWidth, OwnedEncodedId, OwnedEncodedIdValue, OwnedId,
+    EncodedId, EncodedIdValue, ParsedId, IdWidth, StagedId,
 };
 use crate::optimizer::ManualOptimisation as _;
 use crate::v01::LogicalEncoder;
 
 // Helper function to encode and decode for roundtrip testing
-fn roundtrip(decoded: &DecodedId, config: IdEncoder) -> DecodedId {
-    let mut owned = OwnedId::Decoded(decoded.clone());
+fn roundtrip(decoded: &ParsedId, config: IdEncoder) -> ParsedId {
+    let mut owned = StagedId::Decoded(decoded.clone());
     owned.manual_optimisation(config).expect("Failed to encode");
-    DecodedId::try_from(owned).expect("Failed to decode")
+    ParsedId::try_from(owned).expect("Failed to decode")
 }
 
 // Test that each config produces the correct variant and optional stream presence
@@ -26,16 +26,16 @@ fn roundtrip(decoded: &DecodedId, config: IdEncoder) -> DecodedId {
 #[case::id64(Id64, vec![Some(1), Some(2), Some(3)])]
 #[case::opt_id64(OptId64, vec![Some(1), None, Some(3)])]
 fn test_config_produces_correct_variant(#[case] id_width: IdWidth, #[case] ids: Vec<Option<u64>>) {
-    let input = DecodedId(ids);
+    let input = ParsedId(ids);
     let config = IdEncoder {
         logical: LogicalEncoder::None,
         id_width,
     };
-    let encoded = OwnedEncodedId::from_decoded(&input, config).unwrap();
+    let encoded = EncodedId::from_decoded(&input, config).unwrap();
 
     match id_width {
-        OptId32 | Id32 => assert!(matches!(encoded.value, OwnedEncodedIdValue::Id32(_))),
-        Id64 | OptId64 => assert!(matches!(encoded.value, OwnedEncodedIdValue::Id64(_))),
+        OptId32 | Id32 => assert!(matches!(encoded.value, EncodedIdValue::Id32(_))),
+        Id64 | OptId64 => assert!(matches!(encoded.value, EncodedIdValue::Id64(_))),
     }
 
     match id_width {
@@ -59,7 +59,7 @@ fn test_config_produces_correct_variant(#[case] id_width: IdWidth, #[case] ids: 
 #[case::opt_id64_all_nulls(OptId64, &[None, None, None])]
 #[case::none(Id32, &[])]
 fn test_roundtrip(#[case] id_width: IdWidth, #[case] ids: &[Option<u64>]) {
-    let input = DecodedId(ids.to_vec());
+    let input = ParsedId(ids.to_vec());
     let config = IdEncoder {
         logical: LogicalEncoder::None,
         id_width,
@@ -73,7 +73,7 @@ fn test_sequential_ids(
     #[values(LogicalEncoder::None)] logical: LogicalEncoder,
     #[values(Id32, OptId32, Id64, OptId64)] id_width: IdWidth,
 ) {
-    let input = DecodedId((1..=100).map(Some).collect());
+    let input = ParsedId((1..=100).map(Some).collect());
     let config = IdEncoder { logical, id_width };
     let output = roundtrip(&input, config);
     assert_eq!(output, input);
@@ -155,9 +155,9 @@ fn assert_roundtrip_succeeds(
     ids: Vec<Option<u64>>,
     config: IdEncoder,
 ) -> Result<(), TestCaseError> {
-    let input = DecodedId(ids.clone());
+    let input = ParsedId(ids.clone());
     let output = roundtrip(&input, config);
-    prop_assert_eq!(output, DecodedId(ids));
+    prop_assert_eq!(output, ParsedId(ids));
     Ok(())
 }
 
@@ -165,24 +165,24 @@ fn assert_encodable_api_works(
     ids: Vec<Option<u64>>,
     config: IdEncoder,
 ) -> Result<(), TestCaseError> {
-    let decoded = DecodedId(ids.clone());
+    let decoded = ParsedId(ids.clone());
 
-    let mut id_enum = OwnedId::Decoded(decoded);
+    let mut id_enum = StagedId::Decoded(decoded);
     id_enum
         .manual_optimisation(config)
         .expect("Failed to encode");
 
     prop_assert!(
-        !matches!(id_enum, OwnedId::Decoded(_)),
+        !matches!(id_enum, StagedId::Decoded(_)),
         "Should be Encoded after encoding"
     );
     prop_assert!(
-        matches!(id_enum, OwnedId::Encoded(_)),
+        matches!(id_enum, StagedId::Encoded(_)),
         "Should be Encoded variant"
     );
 
-    let decoded_back = DecodedId::try_from(id_enum).expect("Failed to decode");
-    prop_assert_eq!(decoded_back, DecodedId(ids));
+    let decoded_back = ParsedId::try_from(id_enum).expect("Failed to decode");
+    prop_assert_eq!(decoded_back, ParsedId(ids));
     Ok(())
 }
 
@@ -190,17 +190,17 @@ fn assert_produces_correct_variant(
     ids: Vec<Option<u64>>,
     encoder: IdEncoder,
 ) -> Result<(), TestCaseError> {
-    let input = DecodedId(ids);
-    let enc_id = OwnedEncodedId::from_decoded(&input, encoder).expect("Failed to encode");
+    let input = ParsedId(ids);
+    let enc_id = EncodedId::from_decoded(&input, encoder).expect("Failed to encode");
 
     if matches!(encoder.id_width, Id32 | OptId32) {
         prop_assert!(
-            matches!(enc_id.value, OwnedEncodedIdValue::Id32(_)),
+            matches!(enc_id.value, EncodedIdValue::Id32(_)),
             "Expected Id32 variant"
         );
     } else {
         prop_assert!(
-            matches!(enc_id.value, OwnedEncodedIdValue::Id64(_)),
+            matches!(enc_id.value, EncodedIdValue::Id64(_)),
             "Expected Id64 variant"
         );
     }

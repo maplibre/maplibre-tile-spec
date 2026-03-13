@@ -7,15 +7,15 @@ use crate::MltError;
 use crate::decode::Decode as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2, parse_varint};
 use crate::v01::{
-    ColumnType, DecodedGeometry, DictionaryType, EncodedGeometry, Geometry, IntEncoding,
-    OwnedEncodedGeometry, OwnedGeometry, Stream, StreamData, StreamMeta, StreamType,
+    ColumnType, DictionaryType, EncodedGeometry, Geometry, IntEncoding, ParsedGeometry,
+    RawGeometry, RawStream, RawStreamData, StagedGeometry, StreamMeta, StreamType,
 };
 
-impl OwnedGeometry {
+impl StagedGeometry {
     #[doc(hidden)]
     pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
-            Self::Encoded(_) => OwnedEncodedGeometry::write_columns_meta_to(writer),
+            Self::Encoded(_) => EncodedGeometry::write_columns_meta_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -29,7 +29,7 @@ impl OwnedGeometry {
     }
 }
 
-impl<'a> EncodedGeometry<'a> {
+impl<'a> RawGeometry<'a> {
     /// Parse encoded geometry from bytes (expects varint stream count + streams)
     pub fn parse(input: &'a [u8]) -> crate::MltRefResult<'a, Self> {
         let (input, stream_count) = parse_varint::<u32>(input)?;
@@ -38,37 +38,37 @@ impl<'a> EncodedGeometry<'a> {
             return Ok((
                 input,
                 Self {
-                    meta: Stream::new(
+                    meta: RawStream::new(
                         StreamMeta::new(
                             StreamType::Data(DictionaryType::None),
                             IntEncoding::none(),
                             0,
                         ),
-                        StreamData::Encoded(&[]),
+                        RawStreamData::Encoded(&[]),
                     ),
                     items: Vec::new(),
                 },
             ));
         }
 
-        let (input, meta) = Stream::parse(input)?;
-        let (input, items) = Stream::parse_multiple(input, stream_count - 1)?;
+        let (input, meta) = RawStream::parse(input)?;
+        let (input, items) = RawStream::parse_multiple(input, stream_count - 1)?;
 
         Ok((input, Self { meta, items }))
     }
 }
 
-impl TryFrom<OwnedEncodedGeometry> for DecodedGeometry {
+impl TryFrom<EncodedGeometry> for ParsedGeometry {
     type Error = MltError;
 
-    fn try_from(encoded: OwnedEncodedGeometry) -> Result<Self, MltError> {
+    fn try_from(encoded: EncodedGeometry) -> Result<Self, MltError> {
         let meta = encoded.meta.as_borrowed();
         let items: Vec<_> = encoded.items.iter().map(|s| s.as_borrowed()).collect();
-        DecodedGeometry::decode(EncodedGeometry { meta, items })
+        ParsedGeometry::decode(RawGeometry { meta, items })
     }
 }
 
-impl OwnedEncodedGeometry {
+impl EncodedGeometry {
     pub(crate) fn write_columns_meta_to<W: Write>(writer: &mut W) -> Result<(), MltError> {
         ColumnType::Geometry.write_to(writer)?;
         Ok(())
@@ -86,9 +86,9 @@ impl OwnedEncodedGeometry {
     }
 }
 
-impl Debug for DecodedGeometry {
+impl Debug for ParsedGeometry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let DecodedGeometry {
+        let ParsedGeometry {
             vector_types,
             geometry_offsets,
             part_offsets,
@@ -97,7 +97,7 @@ impl Debug for DecodedGeometry {
             triangles,
             vertices,
         } = self;
-        f.debug_struct("DecodedGeometry")
+        f.debug_struct("ParsedGeometry")
             .field("vector_types", &OptSeq(Some(vector_types)))
             .field("geometry_offsets", &OptSeq(geometry_offsets.as_deref()))
             .field("part_offsets", &OptSeq(part_offsets.as_deref()))
@@ -111,39 +111,39 @@ impl Debug for DecodedGeometry {
 
 impl<'a> Geometry<'a> {
     #[must_use]
-    pub fn new_encoded(meta: Stream<'a>, items: Vec<Stream<'a>>) -> Self {
-        Self::Encoded(EncodedGeometry { meta, items })
+    pub fn new_encoded(meta: RawStream<'a>, items: Vec<RawStream<'a>>) -> Self {
+        Self::Encoded(RawGeometry { meta, items })
     }
 
     #[inline]
-    pub fn decode(self) -> Result<DecodedGeometry, MltError> {
+    pub fn decode(self) -> Result<ParsedGeometry, MltError> {
         Ok(match self {
-            Self::Encoded(v) => DecodedGeometry::decode(v)?,
+            Self::Encoded(v) => ParsedGeometry::decode(v)?,
             Self::Decoded(v) => v,
         })
     }
 
     #[must_use]
-    pub fn to_owned(&self) -> OwnedGeometry {
+    pub fn to_owned(&self) -> StagedGeometry {
         match self {
-            Self::Encoded(encoded) => OwnedGeometry::Encoded(encoded.to_owned()),
-            Self::Decoded(decoded) => OwnedGeometry::Decoded(decoded.to_owned()),
+            Self::Encoded(encoded) => StagedGeometry::Encoded(encoded.to_owned()),
+            Self::Decoded(decoded) => StagedGeometry::Decoded(decoded.to_owned()),
         }
     }
 }
 
-impl TryFrom<OwnedGeometry> for DecodedGeometry {
+impl TryFrom<StagedGeometry> for ParsedGeometry {
     type Error = MltError;
 
-    fn try_from(owned: OwnedGeometry) -> Result<Self, MltError> {
+    fn try_from(owned: StagedGeometry) -> Result<Self, MltError> {
         match owned {
-            OwnedGeometry::Encoded(encoded) => DecodedGeometry::try_from(encoded),
-            OwnedGeometry::Decoded(decoded) => Ok(decoded),
+            StagedGeometry::Encoded(encoded) => ParsedGeometry::try_from(encoded),
+            StagedGeometry::Decoded(decoded) => Ok(decoded),
         }
     }
 }
 
-impl DecodedGeometry {
+impl ParsedGeometry {
     #[must_use]
     pub fn feature_count(&self) -> usize {
         self.vector_types.len()

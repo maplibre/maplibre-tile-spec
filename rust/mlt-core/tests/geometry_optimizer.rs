@@ -7,29 +7,29 @@ use mlt_core::optimizer::{
     AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
 };
 use mlt_core::v01::{
-    DecodedGeometry, DictionaryType, GeometryProfile, LengthType, OffsetType, OwnedEncodedGeometry,
-    OwnedGeometry, StreamType,
+    ParsedGeometry, DictionaryType, GeometryProfile, LengthType, OffsetType, EncodedGeometry,
+    StagedGeometry, StreamType,
 };
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
-fn optimize_roundtrip(decoded: &DecodedGeometry) -> DecodedGeometry {
-    let mut geom = OwnedGeometry::Decoded(decoded.clone());
+fn optimize_roundtrip(decoded: &ParsedGeometry) -> ParsedGeometry {
+    let mut geom = StagedGeometry::Decoded(decoded.clone());
     geom.automatic_encoding_optimisation()
         .expect("optimize failed");
-    DecodedGeometry::try_from(geom).unwrap()
+    ParsedGeometry::try_from(geom).unwrap()
 }
 
-fn profile_roundtrip(sample: &DecodedGeometry, target: &DecodedGeometry) -> DecodedGeometry {
+fn profile_roundtrip(sample: &ParsedGeometry, target: &ParsedGeometry) -> ParsedGeometry {
     let profile = GeometryProfile::from_sample(sample).expect("from_sample failed");
-    let mut geom = OwnedGeometry::Decoded(target.clone());
+    let mut geom = StagedGeometry::Decoded(target.clone());
     geom.profile_driven_optimisation(&profile)
         .expect("profile_driven_optimisation failed");
-    DecodedGeometry::try_from(geom).unwrap()
+    ParsedGeometry::try_from(geom).unwrap()
 }
 
-fn push_geoms(geoms: &[Geom32]) -> DecodedGeometry {
-    let mut d = DecodedGeometry::default();
+fn push_geoms(geoms: &[Geom32]) -> ParsedGeometry {
+    let mut d = ParsedGeometry::default();
     for g in geoms {
         d.push_geom(g);
     }
@@ -37,7 +37,7 @@ fn push_geoms(geoms: &[Geom32]) -> DecodedGeometry {
 }
 
 /// Collect all stream types present in an encoded geometry (meta + items).
-fn encoded_stream_types(encoded: &OwnedEncodedGeometry) -> HashSet<StreamType> {
+fn encoded_stream_types(encoded: &EncodedGeometry) -> HashSet<StreamType> {
     std::iter::once(encoded.meta.meta.stream_type)
         .chain(encoded.items.iter().map(|s| s.meta.stream_type))
         .collect()
@@ -49,7 +49,7 @@ fn encoded_stream_types(encoded: &OwnedEncodedGeometry) -> HashSet<StreamType> {
 #[case::polygon(push_geoms(&[wkt!(POLYGON((0 0, 100 0, 100 100, 0 100, 0 0))).into()]))]
 #[case::multi_polygon(push_geoms(&[wkt!(MULTIPOLYGON(((0 0, 10 0, 10 10, 0 0),(5 5, 15 5, 15 15, 5 15)))).into()]))]
 #[case::mixed(push_geoms(&[wkt!(POINT(1 2)).into(), wkt!(LINESTRING(0 0, 1 1, 2 2)).into(), wkt!(POLYGON((0 0, 10 0, 10 10, 0 0))).into()]))]
-fn roundtrip_is_stable(#[case] decoded: DecodedGeometry) {
+fn roundtrip_is_stable(#[case] decoded: ParsedGeometry) {
     let auto_pass1 = optimize_roundtrip(&decoded);
     let auto_pass2 = optimize_roundtrip(&auto_pass1);
     assert_eq!(
@@ -81,7 +81,7 @@ fn roundtrip_is_stable(#[case] decoded: DecodedGeometry) {
     DictionaryType::Vertex,
 )]
 fn vertex_strategy_selects_correct_encoding(
-    #[case] decoded: DecodedGeometry,
+    #[case] decoded: ParsedGeometry,
     #[case] expected: DictionaryType,
 ) {
     let unexpected = if expected == DictionaryType::Vertex {
@@ -90,7 +90,7 @@ fn vertex_strategy_selects_correct_encoding(
         DictionaryType::Vertex
     };
 
-    let mut geom = OwnedGeometry::Decoded(decoded);
+    let mut geom = StagedGeometry::Decoded(decoded);
     geom.automatic_encoding_optimisation()
         .expect("encode failed");
     let encoded = geom.borrow_encoded().expect("must be encoded");
@@ -109,7 +109,7 @@ fn vertex_strategy_selects_correct_encoding(
 #[test]
 fn encoded_output_always_has_meta_stream() {
     let decoded = push_geoms(&[Geom32::Point(Point(Coord32 { x: 1, y: 1 }))]);
-    let mut geom = OwnedGeometry::Decoded(decoded);
+    let mut geom = StagedGeometry::Decoded(decoded);
     geom.automatic_encoding_optimisation()
         .expect("encode failed");
     let encoded = geom.borrow_encoded().expect("must be encoded");
@@ -128,7 +128,7 @@ fn encoded_polygon_has_topology_streams() {
         .map(|(x, y)| Coord32 { x, y })
         .collect();
     let decoded = push_geoms(&[Geom32::Polygon(Polygon::new(LineString(coords), vec![]))]);
-    let mut geom = OwnedGeometry::Decoded(decoded);
+    let mut geom = StagedGeometry::Decoded(decoded);
     geom.automatic_encoding_optimisation()
         .expect("encode failed");
     let encoded = geom.borrow_encoded().expect("must be encoded");
@@ -144,9 +144,9 @@ fn encoded_polygon_has_topology_streams() {
 #[test]
 fn encoded_repeated_points_uses_morton_streams() {
     // All vertices identical: uniqueness ratio = 1/3 < 0.5, so optimizer picks Morton.
-    let mut decoded = DecodedGeometry::default();
+    let mut decoded = ParsedGeometry::default();
     decoded.push_geom(&wkt!(MULTIPOINT(5 5, 5 5, 5 5)).into());
-    let mut geom = OwnedGeometry::Decoded(decoded);
+    let mut geom = StagedGeometry::Decoded(decoded);
     geom.automatic_encoding_optimisation()
         .expect("encode failed");
     let encoded = geom.borrow_encoded().expect("must be encoded");
@@ -176,10 +176,10 @@ fn profile_applied_to_different_tile_roundtrips() {
     let target = push_geoms(&[wkt!(LINESTRING(0 0, 10 10, 20 0, 30 10)).into()]);
 
     let profile = GeometryProfile::from_sample(&sample).expect("from_sample failed");
-    let mut geom = OwnedGeometry::Decoded(target.clone());
+    let mut geom = StagedGeometry::Decoded(target.clone());
     geom.profile_driven_optimisation(&profile)
         .expect("profile_driven_optimisation failed");
-    let result = DecodedGeometry::try_from(geom).unwrap();
+    let result = ParsedGeometry::try_from(geom).unwrap();
     assert_eq!(target, result);
 }
 
@@ -195,10 +195,10 @@ fn profile_merge_roundtrips() {
         .merge(&GeometryProfile::from_sample(&ls).expect("from_sample ls failed"));
 
     for (label, target) in [("poly", &poly), ("ls", &ls)] {
-        let mut geom = OwnedGeometry::Decoded(target.clone());
+        let mut geom = StagedGeometry::Decoded(target.clone());
         geom.profile_driven_optimisation(&merged)
             .unwrap_or_else(|e| panic!("profile_driven_optimisation failed for {label}: {e}"));
-        let result = DecodedGeometry::try_from(geom).unwrap();
+        let result = ParsedGeometry::try_from(geom).unwrap();
         assert_eq!(
             *target, result,
             "merged profile roundtrip failed for {label}"
@@ -221,7 +221,7 @@ fn profile_rederives_vertex_strategy_from_actual_data() {
     );
 
     let profile = GeometryProfile::from_sample(&sample).expect("from_sample failed");
-    let mut geom = OwnedGeometry::Decoded(target.clone());
+    let mut geom = StagedGeometry::Decoded(target.clone());
     geom.profile_driven_optimisation(&profile)
         .expect("profile_driven_optimisation failed");
 
@@ -236,17 +236,17 @@ fn profile_rederives_vertex_strategy_from_actual_data() {
         "apply_profile must not blindly reuse Morton from the sample profile"
     );
 
-    let result = DecodedGeometry::try_from(geom).unwrap();
+    let result = ParsedGeometry::try_from(geom).unwrap();
     assert_eq!(target, result);
 }
 
 #[test]
 fn profile_starting_from_encoded_state_roundtrips() {
-    // profile_driven_optimisation must also work when OwnedGeometry starts in
+    // profile_driven_optimisation must also work when StagedGeometry starts in
     // the Encoded state (it should decode first, then re-encode).
     let decoded = push_geoms(&[wkt!(LINESTRING(0 0, 5 10, 15 20)).into()]);
 
-    let mut geom = OwnedGeometry::Decoded(decoded.clone());
+    let mut geom = StagedGeometry::Decoded(decoded.clone());
     geom.automatic_encoding_optimisation()
         .expect("automatic optimisation failed");
     assert!(
@@ -258,7 +258,7 @@ fn profile_starting_from_encoded_state_roundtrips() {
     geom.profile_driven_optimisation(&profile)
         .expect("profile_driven_optimisation on Encoded state failed");
 
-    let result = DecodedGeometry::try_from(geom).unwrap();
+    let result = ParsedGeometry::try_from(geom).unwrap();
     assert_eq!(decoded, result);
 }
 
@@ -267,7 +267,7 @@ fn manual_optimisation_works() {
     use mlt_core::v01::{GeometryEncoder, IntEncoder, VertexBufferType};
 
     let decoded = push_geoms(&[wkt!(POINT(10 20)).into()]);
-    let mut geom = OwnedGeometry::Decoded(decoded.clone());
+    let mut geom = StagedGeometry::Decoded(decoded.clone());
 
     let mut encoder = GeometryEncoder::all(IntEncoder::varint());
     encoder.vertex_buffer_type(VertexBufferType::Vec2);
@@ -278,6 +278,6 @@ fn manual_optimisation_works() {
     let types = encoded_stream_types(enc);
     assert!(types.contains(&StreamType::Data(DictionaryType::Vertex)));
 
-    let decoded_back = DecodedGeometry::try_from(enc.clone()).unwrap();
+    let decoded_back = ParsedGeometry::try_from(enc.clone()).unwrap();
     assert_eq!(decoded, decoded_back);
 }

@@ -168,12 +168,12 @@ impl AutomaticOptimisation for OwnedLayer01 {
 /// Produce a cheap placeholder `OwnedLayer01` used with `std::mem::replace`
 /// to take ownership of `self` without cloning.
 fn dummy_layer() -> OwnedLayer01 {
-    use crate::v01::{DecodedGeometry, OwnedGeometry};
+    use crate::v01::{ParsedGeometry, StagedGeometry};
     OwnedLayer01 {
         name: String::new(),
         extent: 0,
         id: None,
-        geometry: OwnedGeometry::Decoded(DecodedGeometry::default()),
+        geometry: StagedGeometry::Decoded(ParsedGeometry::default()),
         properties: Vec::new(),
         #[cfg(fuzzing)]
         layer_order: vec![],

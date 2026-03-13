@@ -220,7 +220,7 @@ mod tests {
     use crate::optimizer::ManualOptimisation as _;
     use crate::v01::source::{SourceFeature, SourceLayer01};
     use crate::v01::{
-        DecodedGeometry, EncodedGeometry, Geometry, GeometryEncoder, IntEncoder, OwnedGeometry,
+        ParsedGeometry, Geometry, GeometryEncoder, IntEncoder, RawGeometry, StagedGeometry,
     };
 
     // ── geometry test helpers ──────────────────────────────────────────────────
@@ -255,16 +255,16 @@ mod tests {
         GeoGeom::Polygon(Polygon::new(ring, vec![]))
     }
 
-    /// Encode + serialize + parse + decode a `DecodedGeometry` (round-trip).
-    fn roundtrip_geom(decoded: &DecodedGeometry) -> DecodedGeometry {
-        let mut geom = OwnedGeometry::Decoded(decoded.clone());
+    /// Encode + serialize + parse + decode a `ParsedGeometry` (round-trip).
+    fn roundtrip_geom(decoded: &ParsedGeometry) -> ParsedGeometry {
+        let mut geom = StagedGeometry::Decoded(decoded.clone());
         geom.manual_optimisation(GeometryEncoder::all(IntEncoder::varint()))
             .expect("encode failed");
 
         let mut buf = Vec::new();
         geom.write_to(&mut buf).expect("serialize failed");
 
-        let (remaining, parsed) = EncodedGeometry::parse(&buf).expect("parse failed");
+        let (remaining, parsed) = RawGeometry::parse(&buf).expect("parse failed");
         assert!(
             remaining.is_empty(),
             "unexpected trailing bytes after parse"
@@ -274,8 +274,8 @@ mod tests {
     }
 
     /// Build the canonical (dense, wire-decoded) form of an ordered geometry sequence.
-    fn canonical(geoms: &[Geom32]) -> DecodedGeometry {
-        let mut decoded = DecodedGeometry::default();
+    fn canonical(geoms: &[Geom32]) -> ParsedGeometry {
+        let mut decoded = ParsedGeometry::default();
         for g in geoms {
             decoded.push_geom(g);
         }
@@ -315,7 +315,7 @@ mod tests {
     ) {
         let layer = layer_after_sort(geoms, ids, strategy);
 
-        let mut sorted_decoded = DecodedGeometry::default();
+        let mut sorted_decoded = ParsedGeometry::default();
         for f in &layer.features {
             sorted_decoded.push_geom(&f.geometry);
         }

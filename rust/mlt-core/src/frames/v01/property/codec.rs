@@ -6,17 +6,16 @@ use crate::decode::{Decode, DecodeInto as _};
 use crate::encode::FromDecoded;
 use crate::utils::apply_present;
 use crate::v01::{
-    DecodedPresence, DecodedProperty, DecodedScalar, DecodedStrings, DictionaryType,
-    EncodedPresence, EncodedProperty, LengthType, OwnedEncodedPresence, OwnedEncodedProperty,
-    OwnedEncodedScalar, OwnedEncodedStrings, OwnedName, OwnedProperty, OwnedStream, PresenceStream,
-    Property, PropertyEncoder, ScalarEncoder, ScalarValueEncoder, StrEncoder,
-    encode_shared_dict_prop,
+    DictionaryType, EncodedName, EncodedPresence, EncodedProperty, EncodedScalar, EncodedStream,
+    EncodedStrings, LengthType, ParsedPresence, ParsedProperty, ParsedScalar, ParsedStrings,
+    PresenceStream, Property, PropertyEncoder, RawPresence, RawProperty, ScalarEncoder,
+    ScalarValueEncoder, StagedProperty, StrEncoder, encode_shared_dict_prop,
 };
 
 #[cfg(all(not(test), feature = "arbitrary"))]
-impl arbitrary::Arbitrary<'_> for OwnedEncodedProperty {
+impl arbitrary::Arbitrary<'_> for EncodedProperty {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        let decoded: DecodedProperty<'static> = u.arbitrary()?;
+        let decoded: ParsedProperty<'static> = u.arbitrary()?;
         let encoder: ScalarEncoder = u.arbitrary()?;
         let prop: Self =
             Self::from_decoded(&decoded, encoder).map_err(|_| arbitrary::Error::IncorrectFormat)?;
@@ -27,15 +26,15 @@ impl arbitrary::Arbitrary<'_> for OwnedEncodedProperty {
 #[cfg(all(not(test), feature = "arbitrary"))]
 fn arbitrary_decoded_scalar<'a, T: arbitrary::Arbitrary<'a> + Copy + PartialEq>(
     u: &mut arbitrary::Unstructured<'a>,
-) -> arbitrary::Result<DecodedScalar<'static, T>> {
-    Ok(DecodedScalar {
+) -> arbitrary::Result<ParsedScalar<'static, T>> {
+    Ok(ParsedScalar {
         name: Cow::Owned(u.arbitrary()?),
         values: u.arbitrary()?,
     })
 }
 
 #[cfg(all(not(test), feature = "arbitrary"))]
-impl<'a> arbitrary::Arbitrary<'a> for DecodedProperty<'static> {
+impl<'a> arbitrary::Arbitrary<'a> for ParsedProperty<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(match u.int_in_range(0..=9)? {
             0 => Self::Bool(arbitrary_decoded_scalar(u)?),
@@ -54,27 +53,27 @@ impl<'a> arbitrary::Arbitrary<'a> for DecodedProperty<'static> {
 
 impl<'a> Property<'a> {
     #[inline]
-    pub fn decode(self) -> Result<DecodedProperty<'a>, MltError> {
+    pub fn decode(self) -> Result<ParsedProperty<'a>, MltError> {
         Ok(match self {
             Self::Encoded(v) => v.decode_into()?,
             Self::Decoded(v) => v,
         })
     }
 
-    pub fn decoded_property(&mut self) -> Result<&DecodedProperty<'a>, MltError> {
+    pub fn decoded_property(&mut self) -> Result<&ParsedProperty<'a>, MltError> {
         Ok(self.materialize()?)
     }
 
     #[must_use]
-    pub fn to_owned(&self) -> OwnedProperty {
+    pub fn to_owned(&self) -> StagedProperty {
         match self {
-            Self::Encoded(encoded) => OwnedProperty::Encoded(encoded.to_owned()),
-            Self::Decoded(decoded) => OwnedProperty::Decoded(decoded.to_owned()),
+            Self::Encoded(encoded) => StagedProperty::Encoded(encoded.to_owned()),
+            Self::Decoded(decoded) => StagedProperty::Decoded(decoded.to_owned()),
         }
     }
 }
 
-impl<'a, T: Copy + PartialEq> DecodedScalar<'a, T> {
+impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
     #[must_use]
     pub fn new(name: impl Into<Cow<'a, str>>, values: Vec<Option<T>>) -> Self {
         Self {
@@ -85,7 +84,7 @@ impl<'a, T: Copy + PartialEq> DecodedScalar<'a, T> {
 
     pub fn from_parts(
         name: impl Into<Cow<'a, str>>,
-        presence: EncodedPresence,
+        presence: RawPresence<'a>,
         values: Vec<T>,
     ) -> Result<Self, MltError> {
         Ok(Self {
@@ -95,7 +94,7 @@ impl<'a, T: Copy + PartialEq> DecodedScalar<'a, T> {
     }
 }
 
-impl DecodedPresence {
+impl ParsedPresence {
     #[must_use]
     pub fn bools(&self, non_null_count: usize) -> Vec<bool> {
         self.0.clone().unwrap_or_else(|| vec![true; non_null_count])
@@ -107,7 +106,7 @@ impl DecodedPresence {
     }
 }
 
-impl From<Vec<bool>> for DecodedPresence {
+impl From<Vec<bool>> for ParsedPresence {
     fn from(values: Vec<bool>) -> Self {
         if values.iter().all(|v| *v) {
             Self(None)
@@ -117,7 +116,7 @@ impl From<Vec<bool>> for DecodedPresence {
     }
 }
 
-impl From<Option<Vec<bool>>> for DecodedPresence {
+impl From<Option<Vec<bool>>> for ParsedPresence {
     fn from(values: Option<Vec<bool>>) -> Self {
         match values {
             Some(values) => Self::from(values),
@@ -126,52 +125,52 @@ impl From<Option<Vec<bool>>> for DecodedPresence {
     }
 }
 
-impl<'a> DecodedProperty<'a> {
+impl<'a> ParsedProperty<'a> {
     #[must_use]
     pub fn bool(name: impl Into<Cow<'a, str>>, values: Vec<Option<bool>>) -> Self {
-        Self::Bool(DecodedScalar::new(name, values))
+        Self::Bool(ParsedScalar::new(name, values))
     }
     #[must_use]
     pub fn i8(name: impl Into<Cow<'a, str>>, values: Vec<Option<i8>>) -> Self {
-        Self::I8(DecodedScalar::new(name, values))
+        Self::I8(ParsedScalar::new(name, values))
     }
     #[must_use]
     pub fn u8(name: impl Into<Cow<'a, str>>, values: Vec<Option<u8>>) -> Self {
-        Self::U8(DecodedScalar::new(name, values))
+        Self::U8(ParsedScalar::new(name, values))
     }
     #[must_use]
     pub fn i32(name: impl Into<Cow<'a, str>>, values: Vec<Option<i32>>) -> Self {
-        Self::I32(DecodedScalar::new(name, values))
+        Self::I32(ParsedScalar::new(name, values))
     }
     #[must_use]
     pub fn u32(name: impl Into<Cow<'a, str>>, values: Vec<Option<u32>>) -> Self {
-        Self::U32(DecodedScalar::new(name, values))
+        Self::U32(ParsedScalar::new(name, values))
     }
     #[must_use]
     pub fn i64(name: impl Into<Cow<'a, str>>, values: Vec<Option<i64>>) -> Self {
-        Self::I64(DecodedScalar::new(name, values))
+        Self::I64(ParsedScalar::new(name, values))
     }
     #[must_use]
     pub fn u64(name: impl Into<Cow<'a, str>>, values: Vec<Option<u64>>) -> Self {
-        Self::U64(DecodedScalar::new(name, values))
+        Self::U64(ParsedScalar::new(name, values))
     }
     #[must_use]
     pub fn f32(name: impl Into<Cow<'a, str>>, values: Vec<Option<f32>>) -> Self {
-        Self::F32(DecodedScalar::new(name, values))
+        Self::F32(ParsedScalar::new(name, values))
     }
     #[must_use]
     pub fn f64(name: impl Into<Cow<'a, str>>, values: Vec<Option<f64>>) -> Self {
-        Self::F64(DecodedScalar::new(name, values))
+        Self::F64(ParsedScalar::new(name, values))
     }
     #[must_use]
     pub fn str(name: impl Into<Cow<'a, str>>, values: Vec<Option<String>>) -> Self {
-        let mut s = DecodedStrings::from(values);
+        let mut s = ParsedStrings::from(values);
         s.name = name.into();
         Self::Str(s)
     }
 }
 
-impl DecodedProperty<'_> {
+impl ParsedProperty<'_> {
     pub(super) fn as_presence_stream(&self) -> Result<Vec<bool>, MltError> {
         Ok(match self {
             Self::Bool(v) => v.values.iter().map(Option::is_some).collect(),
@@ -189,8 +188,8 @@ impl DecodedProperty<'_> {
     }
 }
 
-impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
-    type Input = Vec<DecodedProperty<'static>>;
+impl FromDecoded<'_> for Vec<EncodedProperty> {
+    type Input = Vec<ParsedProperty<'static>>;
     type Encoder = Vec<PropertyEncoder>;
 
     fn from_decoded(properties: &Self::Input, encoders: Self::Encoder) -> Result<Self, MltError> {
@@ -206,10 +205,10 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
         for (prop, encoder) in properties.iter().zip(encoders) {
             match encoder {
                 PropertyEncoder::Scalar(enc) => {
-                    result.push(OwnedEncodedProperty::from_decoded(prop, enc)?);
+                    result.push(EncodedProperty::from_decoded(prop, enc)?);
                 }
                 PropertyEncoder::SharedDict(enc) => {
-                    let DecodedProperty::SharedDict(shared_dict) = prop else {
+                    let ParsedProperty::SharedDict(shared_dict) = prop else {
                         return Err(UnsupportedPropertyEncoderCombination(
                             prop.into(),
                             "shared_dict",
@@ -224,23 +223,23 @@ impl FromDecoded<'_> for Vec<OwnedEncodedProperty> {
     }
 }
 
-impl FromDecoded<'_> for OwnedEncodedProperty {
-    type Input = DecodedProperty<'static>;
+impl FromDecoded<'_> for EncodedProperty {
+    type Input = ParsedProperty<'static>;
     type Encoder = ScalarEncoder;
 
     fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
-        use DecodedProperty as D;
+        use ParsedProperty as D;
         let presence = if encoder.presence == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.as_presence_stream()?;
-            Some(OwnedStream::encode_presence(&present_vec)?)
+            Some(EncodedStream::encode_presence(&present_vec)?)
         } else {
             None
         };
 
         let mk_scalar =
-            |name: &str, presence: Option<OwnedStream>, data: OwnedStream| OwnedEncodedScalar {
-                name: OwnedName(name.to_string()),
-                presence: OwnedEncodedPresence(presence),
+            |name: &str, presence: Option<EncodedStream>, data: EncodedStream| EncodedScalar {
+                name: EncodedName(name.to_string()),
+                presence: EncodedPresence(presence),
                 data,
             };
 
@@ -248,59 +247,59 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             (D::Bool(v), ScalarValueEncoder::Bool) => Ok(Self::Bool(mk_scalar(
                 &v.name,
                 presence,
-                OwnedStream::encode_bools(&unapply_presence(&v.values))?,
+                EncodedStream::encode_bools(&unapply_presence(&v.values))?,
             ))),
             (D::I8(v), ScalarValueEncoder::Int(enc)) => Ok(Self::I8(mk_scalar(
                 &v.name,
                 presence,
-                OwnedStream::encode_i8s(&unapply_presence(&v.values), enc)?,
+                EncodedStream::encode_i8s(&unapply_presence(&v.values), enc)?,
             ))),
             (D::U8(v), ScalarValueEncoder::Int(enc)) => Ok(Self::U8(mk_scalar(
                 &v.name,
                 presence,
-                OwnedStream::encode_u8s(&unapply_presence(&v.values), enc)?,
+                EncodedStream::encode_u8s(&unapply_presence(&v.values), enc)?,
             ))),
             (D::I32(v), ScalarValueEncoder::Int(enc)) => Ok(Self::I32(mk_scalar(
                 &v.name,
                 presence,
-                OwnedStream::encode_i32s(&unapply_presence(&v.values), enc)?,
+                EncodedStream::encode_i32s(&unapply_presence(&v.values), enc)?,
             ))),
             (D::U32(v), ScalarValueEncoder::Int(enc)) => Ok(Self::U32(mk_scalar(
                 &v.name,
                 presence,
-                OwnedStream::encode_u32s(&unapply_presence(&v.values), enc)?,
+                EncodedStream::encode_u32s(&unapply_presence(&v.values), enc)?,
             ))),
             (D::I64(v), ScalarValueEncoder::Int(enc)) => Ok(Self::I64(mk_scalar(
                 &v.name,
                 presence,
-                OwnedStream::encode_i64s(&unapply_presence(&v.values), enc)?,
+                EncodedStream::encode_i64s(&unapply_presence(&v.values), enc)?,
             ))),
             (D::U64(v), ScalarValueEncoder::Int(enc)) => Ok(Self::U64(mk_scalar(
                 &v.name,
                 presence,
-                OwnedStream::encode_u64s(&unapply_presence(&v.values), enc)?,
+                EncodedStream::encode_u64s(&unapply_presence(&v.values), enc)?,
             ))),
             (D::F32(v), ScalarValueEncoder::Float) => Ok(Self::F32(mk_scalar(
                 &v.name,
                 presence,
-                OwnedStream::encode_f32(&unapply_presence(&v.values))?,
+                EncodedStream::encode_f32(&unapply_presence(&v.values))?,
             ))),
             (D::F64(v), ScalarValueEncoder::Float) => Ok(Self::F64(mk_scalar(
                 &v.name,
                 presence,
-                OwnedStream::encode_f64(&unapply_presence(&v.values))?,
+                EncodedStream::encode_f64(&unapply_presence(&v.values))?,
             ))),
-            (D::Str(v), ScalarValueEncoder::String(enc)) => Ok(Self::Str(OwnedEncodedStrings {
-                name: OwnedName(v.name.as_ref().to_string()),
-                presence: OwnedEncodedPresence(presence),
+            (D::Str(v), ScalarValueEncoder::String(enc)) => Ok(Self::Str(EncodedStrings {
+                name: EncodedName(v.name.as_ref().to_string()),
+                presence: EncodedPresence(presence),
                 encoding: match enc {
-                    StrEncoder::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
+                    StrEncoder::Plain { string_lengths } => EncodedStream::encode_strings_with_type(
                         &v.dense_values(),
                         string_lengths,
                         LengthType::VarBinary,
                         DictionaryType::None,
                     )?,
-                    StrEncoder::Fsst(enc) => OwnedStream::encode_strings_fsst_with_type(
+                    StrEncoder::Fsst(enc) => EncodedStream::encode_strings_fsst_with_type(
                         &v.dense_values(),
                         enc,
                         DictionaryType::Single,
@@ -319,51 +318,51 @@ fn unapply_presence<T: Clone>(v: &[Option<T>]) -> Vec<T> {
     v.iter().filter_map(|x| x.as_ref()).cloned().collect()
 }
 
-impl<'a> Decode<EncodedProperty<'a>> for DecodedProperty<'a> {
-    fn decode(v: EncodedProperty<'a>) -> Result<DecodedProperty<'a>, MltError> {
-        use EncodedProperty as E;
+impl<'a> Decode<RawProperty<'a>> for ParsedProperty<'a> {
+    fn decode(v: RawProperty<'a>) -> Result<ParsedProperty<'a>, MltError> {
+        use RawProperty as E;
         Ok(match v {
-            E::Bool(s) => Self::Bool(DecodedScalar::from_parts(
+            E::Bool(s) => Self::Bool(ParsedScalar::from_parts(
                 s.name,
                 s.presence,
                 s.data.decode_into()?,
             )?),
-            E::I8(s) => Self::I8(DecodedScalar::from_parts(
+            E::I8(s) => Self::I8(ParsedScalar::from_parts(
                 s.name,
                 s.presence,
                 s.data.decode_into()?,
             )?),
-            E::U8(s) => Self::U8(DecodedScalar::from_parts(
+            E::U8(s) => Self::U8(ParsedScalar::from_parts(
                 s.name,
                 s.presence,
                 s.data.decode_into()?,
             )?),
-            E::I32(s) => Self::I32(DecodedScalar::from_parts(
+            E::I32(s) => Self::I32(ParsedScalar::from_parts(
                 s.name,
                 s.presence,
                 s.data.decode_into()?,
             )?),
-            E::U32(s) => Self::U32(DecodedScalar::from_parts(
+            E::U32(s) => Self::U32(ParsedScalar::from_parts(
                 s.name,
                 s.presence,
                 s.data.decode_into()?,
             )?),
-            E::I64(s) => Self::I64(DecodedScalar::from_parts(
+            E::I64(s) => Self::I64(ParsedScalar::from_parts(
                 s.name,
                 s.presence,
                 s.data.decode_into()?,
             )?),
-            E::U64(s) => Self::U64(DecodedScalar::from_parts(
+            E::U64(s) => Self::U64(ParsedScalar::from_parts(
                 s.name,
                 s.presence,
                 s.data.decode_into()?,
             )?),
-            E::F32(s) => Self::F32(DecodedScalar::from_parts(
+            E::F32(s) => Self::F32(ParsedScalar::from_parts(
                 s.name,
                 s.presence,
                 s.data.decode_into()?,
             )?),
-            E::F64(s) => Self::F64(DecodedScalar::from_parts(
+            E::F64(s) => Self::F64(ParsedScalar::from_parts(
                 s.name,
                 s.presence,
                 s.data.decode_into()?,

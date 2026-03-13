@@ -4,19 +4,21 @@ use enum_dispatch::enum_dispatch;
 
 use crate::EncDec;
 use crate::analyse::{Analyze, StatType};
-use crate::v01::{FsstStrEncoder, IntEncoder, OwnedStream, Stream};
+use crate::v01::{FsstStrEncoder, IntEncoder, EncodedStream, RawStream};
 
+/// Name borrowed from input bytes (Stage 1)
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NameRef<'a>(pub &'a str);
+pub struct RawName<'a>(pub &'a str);
 
+/// Owned name string (Stage 4/5)
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OwnedName(pub String);
+pub struct EncodedName(pub String);
 
-/// Property representation, either encoded or decoded
-pub type Property<'a> = EncDec<EncodedProperty<'a>, DecodedProperty<'a>>;
+/// Property representation, either raw (borrowed from bytes) or parsed.
+pub type Property<'a> = EncDec<RawProperty<'a>, ParsedProperty<'a>>;
 
-/// Owned property representation, either encoded or decoded.
-pub type OwnedProperty = EncDec<OwnedEncodedProperty, DecodedProperty<'static>>;
+/// Staged property column: can hold either encoded or decoded form (used during encoding pipeline).
+pub type StagedProperty = EncDec<EncodedProperty, ParsedProperty<'static>>;
 
 pub enum PropertyKind {
     Bool,
@@ -26,173 +28,174 @@ pub enum PropertyKind {
     SharedDict,
 }
 
-/// Encoded scalar column (bool, integer, or float) as read directly from the tile.
+/// Raw scalar column (bool, integer, or float) as read directly from the tile.
 #[derive(Debug, Clone, PartialEq)]
-pub struct EncodedScalar<'a> {
-    pub name: NameRef<'a>,
-    pub presence: EncodedPresence<'a>,
-    pub data: Stream<'a>,
+pub struct RawScalar<'a> {
+    pub name: RawName<'a>,
+    pub presence: RawPresence<'a>,
+    pub data: RawStream<'a>,
 }
 
-/// Owned variant of [`EncodedScalar`].
+/// Wire-ready encoded scalar column (owns its byte buffers).
 #[derive(Debug, Clone, PartialEq)]
-pub struct OwnedEncodedScalar {
-    pub name: OwnedName,
-    pub presence: OwnedEncodedPresence,
-    pub data: OwnedStream,
+pub struct EncodedScalar {
+    pub name: EncodedName,
+    pub presence: EncodedPresence,
+    pub data: EncodedStream,
 }
 
 /// Raw encoding payload for a string column (plain, dictionary, or FSST variants).
 ///
-/// Stream order matches the encoder: see `StringEncoder.encode()`.
+/// RawStream order matches the encoder: see `StringEncoder.encode()`.
 #[derive(Debug, Clone, PartialEq)]
-pub enum StringsEncoding<'a> {
+pub enum RawStringsEncoding<'a> {
     /// Plain: length stream + data stream
-    Plain(PlainData<'a>),
+    Plain(RawPlainData<'a>),
     /// Dictionary: lengths + offsets + dictionary data
     Dictionary {
-        plain_data: PlainData<'a>,
-        offsets: Stream<'a>,
+        plain_data: RawPlainData<'a>,
+        offsets: RawStream<'a>,
     },
     /// FSST plain (4 streams): symbol lengths, symbol table, value lengths, compressed corpus. No offsets.
-    FsstPlain(FsstData<'a>),
+    FsstPlain(RawFsstData<'a>),
     /// FSST dictionary (5 streams): symbol lengths, symbol table, value lengths, compressed corpus, offsets.
     FsstDictionary {
-        fsst_data: FsstData<'a>,
-        offsets: Stream<'a>,
+        fsst_data: RawFsstData<'a>,
+        offsets: RawStream<'a>,
     },
 }
 
-/// Owned variant of [`StringsEncoding`].
+/// Wire-ready encoded strings encoding (owns byte buffers).
 #[derive(Debug, Clone, PartialEq)]
-pub enum OwnedStringsEncoding {
-    Plain(OwnedPlainData),
+pub enum EncodedStringsEncoding {
+    Plain(EncodedPlainData),
     Dictionary {
-        plain_data: OwnedPlainData,
-        offsets: OwnedStream,
+        plain_data: EncodedPlainData,
+        offsets: EncodedStream,
     },
-    FsstPlain(OwnedFsstData),
+    FsstPlain(EncodedFsstData),
     FsstDictionary {
-        fsst_data: OwnedFsstData,
-        offsets: OwnedStream,
+        fsst_data: EncodedFsstData,
+        offsets: EncodedStream,
     },
 }
 
-/// Encoded string column as read directly from the tile.
+/// Raw string column as read directly from the tile.
 #[derive(Debug, Clone, PartialEq)]
-pub struct EncodedStrings<'a> {
-    pub name: NameRef<'a>,
-    pub presence: EncodedPresence<'a>,
-    pub encoding: StringsEncoding<'a>,
+pub struct RawStrings<'a> {
+    pub name: RawName<'a>,
+    pub presence: RawPresence<'a>,
+    pub encoding: RawStringsEncoding<'a>,
 }
 
-/// Owned variant of [`EncodedStrings`].
+/// Wire-ready encoded string column (owns its byte buffers).
 #[derive(Debug, Clone, PartialEq)]
-pub struct OwnedEncodedStrings {
-    pub name: OwnedName,
-    pub presence: OwnedEncodedPresence,
-    pub encoding: OwnedStringsEncoding,
+pub struct EncodedStrings {
+    pub name: EncodedName,
+    pub presence: EncodedPresence,
+    pub encoding: EncodedStringsEncoding,
 }
 
 /// Raw encoding payload for a `SharedDict` column.
 ///
-/// Unlike [`StringsEncoding`], shared dictionaries do NOT have their own offset stream.
+/// Unlike [`RawStringsEncoding`], shared dictionaries do NOT have their own offset stream.
 /// Instead, each child column has its own offset stream that references the shared dictionary.
 /// This is why only `Plain` and `FsstPlain` variants exist here.
 #[derive(Debug, Clone, PartialEq)]
-pub enum SharedDictEncoding<'a> {
+pub enum RawSharedDictEncoding<'a> {
     /// Plain shared dict (2 streams): lengths + data.
-    Plain(PlainData<'a>),
+    Plain(RawPlainData<'a>),
     /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
-    FsstPlain(FsstData<'a>),
+    FsstPlain(RawFsstData<'a>),
 }
 
-/// Owned variant of [`SharedDictEncoding`].
+/// Wire-ready encoded shared dict encoding (owns byte buffers).
 #[derive(Debug, Clone, PartialEq)]
-pub enum OwnedSharedDictEncoding {
-    Plain(OwnedPlainData),
-    FsstPlain(OwnedFsstData),
+pub enum EncodedSharedDictEncoding {
+    Plain(EncodedPlainData),
+    FsstPlain(EncodedFsstData),
 }
 
-/// Encoded shared-dictionary column as read directly from the tile.
+/// Raw shared-dictionary column as read directly from the tile.
 #[derive(Debug, Clone, PartialEq)]
-pub struct EncodedSharedDict<'a> {
-    pub name: NameRef<'a>,
-    pub encoding: SharedDictEncoding<'a>,
-    pub children: Vec<EncodedSharedDictChild<'a>>,
+pub struct RawSharedDict<'a> {
+    pub name: RawName<'a>,
+    pub encoding: RawSharedDictEncoding<'a>,
+    pub children: Vec<RawSharedDictChild<'a>>,
 }
 
-/// Owned variant of [`EncodedSharedDict`].
+/// Wire-ready encoded shared-dictionary column (owns its byte buffers).
 #[derive(Debug, Clone, PartialEq)]
-pub struct OwnedEncodedSharedDict {
-    pub name: OwnedName,
-    pub encoding: OwnedSharedDictEncoding,
-    pub children: Vec<OwnedEncodedSharedDictChild>,
+pub struct EncodedSharedDict {
+    pub name: EncodedName,
+    pub encoding: EncodedSharedDictEncoding,
+    pub children: Vec<EncodedSharedDictChild>,
 }
 
-/// Unparsed property data as read directly from the tile.
+/// Raw property data as read directly from the tile.
 #[derive(Debug, PartialEq)]
-pub enum EncodedProperty<'a> {
-    Bool(EncodedScalar<'a>),
-    I8(EncodedScalar<'a>),
-    U8(EncodedScalar<'a>),
-    I32(EncodedScalar<'a>),
-    U32(EncodedScalar<'a>),
-    I64(EncodedScalar<'a>),
-    U64(EncodedScalar<'a>),
-    F32(EncodedScalar<'a>),
-    F64(EncodedScalar<'a>),
-    Str(EncodedStrings<'a>),
-    SharedDict(EncodedSharedDict<'a>),
+pub enum RawProperty<'a> {
+    Bool(RawScalar<'a>),
+    I8(RawScalar<'a>),
+    U8(RawScalar<'a>),
+    I32(RawScalar<'a>),
+    U32(RawScalar<'a>),
+    I64(RawScalar<'a>),
+    U64(RawScalar<'a>),
+    F32(RawScalar<'a>),
+    F64(RawScalar<'a>),
+    Str(RawStrings<'a>),
+    SharedDict(RawSharedDict<'a>),
 }
 
+/// Wire-ready encoded property data (owns its byte buffers).
 #[derive(Debug, Clone, PartialEq)]
-pub enum OwnedEncodedProperty {
-    Bool(OwnedEncodedScalar),
-    I8(OwnedEncodedScalar),
-    U8(OwnedEncodedScalar),
-    I32(OwnedEncodedScalar),
-    U32(OwnedEncodedScalar),
-    I64(OwnedEncodedScalar),
-    U64(OwnedEncodedScalar),
-    F32(OwnedEncodedScalar),
-    F64(OwnedEncodedScalar),
-    Str(OwnedEncodedStrings),
-    SharedDict(OwnedEncodedSharedDict),
+pub enum EncodedProperty {
+    Bool(EncodedScalar),
+    I8(EncodedScalar),
+    U8(EncodedScalar),
+    I32(EncodedScalar),
+    U32(EncodedScalar),
+    I64(EncodedScalar),
+    U64(EncodedScalar),
+    F32(EncodedScalar),
+    F64(EncodedScalar),
+    Str(EncodedStrings),
+    SharedDict(EncodedSharedDict),
 }
 
-/// Decoded property values in a typed enum form.
+/// Parsed property values in a typed enum form.
 #[derive(Clone, PartialEq, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 #[enum_dispatch(Analyze)]
-pub enum DecodedProperty<'a> {
-    Bool(DecodedScalar<'a, bool>),
-    I8(DecodedScalar<'a, i8>),
-    U8(DecodedScalar<'a, u8>),
-    I32(DecodedScalar<'a, i32>),
-    U32(DecodedScalar<'a, u32>),
-    I64(DecodedScalar<'a, i64>),
-    U64(DecodedScalar<'a, u64>),
-    F32(DecodedScalar<'a, f32>),
-    F64(DecodedScalar<'a, f64>),
-    Str(DecodedStrings<'a>),
-    SharedDict(DecodedSharedDict<'a>),
+pub enum ParsedProperty<'a> {
+    Bool(ParsedScalar<'a, bool>),
+    I8(ParsedScalar<'a, i8>),
+    U8(ParsedScalar<'a, u8>),
+    I32(ParsedScalar<'a, i32>),
+    U32(ParsedScalar<'a, u32>),
+    I64(ParsedScalar<'a, i64>),
+    U64(ParsedScalar<'a, u64>),
+    F32(ParsedScalar<'a, f32>),
+    F64(ParsedScalar<'a, f64>),
+    Str(ParsedStrings<'a>),
+    SharedDict(ParsedSharedDict<'a>),
 }
 
 #[derive(Clone, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct DecodedScalar<'a, T: Copy + PartialEq> {
+pub struct ParsedScalar<'a, T: Copy + PartialEq> {
     pub name: Cow<'a, str>,
     pub values: Vec<Option<T>>,
 }
 
-/// A single sub-property within a shared dictionary decoded value.
+/// A single sub-property within a shared dictionary parsed value.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct DecodedSharedDictItem<'a> {
+pub struct ParsedSharedDictItem<'a> {
     /// The suffix name of this sub-property (appended to parent struct name).
     pub suffix: Cow<'a, str>,
-    /// Per-feature `(start, end)` byte offsets into the decoded shared corpus.
+    /// Per-feature `(start, end)` byte offsets into the parsed shared corpus.
     /// Non-negative pairs indicate a present string stored as
     /// `shared_dict.corpus()[start..end]`.
     /// `(-1, -1)` indicates NULL.
@@ -200,9 +203,9 @@ pub struct DecodedSharedDictItem<'a> {
     pub ranges: Vec<(i32, i32)>,
 }
 
-/// Decoded string values for a single property.
+/// Parsed string values for a single property.
 #[derive(Debug, Clone, PartialEq)]
-pub struct DecodedStrings<'a> {
+pub struct ParsedStrings<'a> {
     pub name: Cow<'a, str>,
     /// Per-feature cumulative end offsets into `data`.
     /// Non-negative values indicate a present string and store its exclusive
@@ -222,17 +225,17 @@ pub struct DecodedStrings<'a> {
     pub data: Cow<'a, str>,
 }
 
-/// Decoded shared dictionary payload shared by one or more child string properties.
+/// Parsed shared dictionary payload shared by one or more child string properties.
 #[derive(Debug, Clone, PartialEq)]
-pub struct DecodedSharedDict<'a> {
+pub struct ParsedSharedDict<'a> {
     pub prefix: Cow<'a, str>,
     pub data: Cow<'a, str>,
-    pub items: Vec<DecodedSharedDictItem<'a>>,
+    pub items: Vec<ParsedSharedDictItem<'a>>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct DecodedPresence(pub Option<Vec<bool>>);
+pub struct ParsedPresence(pub Option<Vec<bool>>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumIter)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
@@ -243,59 +246,64 @@ pub enum PresenceStream {
     Absent,
 }
 
-// String-related types from property/strings.rs
-
-/// A single child field within a `SharedDict` column
+/// A single child field within a `SharedDict` raw column
 #[derive(Clone, Debug, PartialEq)]
-pub struct EncodedSharedDictChild<'a> {
-    pub name: NameRef<'a>,
-    pub presence: EncodedPresence<'a>,
-    pub data: Stream<'a>,
+pub struct RawSharedDictChild<'a> {
+    pub name: RawName<'a>,
+    pub presence: RawPresence<'a>,
+    pub data: RawStream<'a>,
 }
 
+/// Wire-ready encoded shared dict child column (owns its byte buffers).
 #[derive(Clone, Debug, PartialEq)]
-pub struct OwnedEncodedSharedDictChild {
-    pub name: OwnedName,
-    pub presence: OwnedEncodedPresence,
-    pub data: OwnedStream,
+pub struct EncodedSharedDictChild {
+    pub name: EncodedName,
+    pub presence: EncodedPresence,
+    pub data: EncodedStream,
 }
 
+/// Raw plain data (length stream + data stream) borrowed from input bytes.
 #[derive(Debug, Clone, PartialEq)]
-pub struct PlainData<'a> {
-    pub lengths: Stream<'a>,
-    pub data: Stream<'a>,
+pub struct RawPlainData<'a> {
+    pub lengths: RawStream<'a>,
+    pub data: RawStream<'a>,
 }
 
+/// Wire-ready encoded plain data (owns its byte buffers).
 #[derive(Debug, Clone, PartialEq)]
-pub struct OwnedPlainData {
-    pub lengths: OwnedStream,
-    pub data: OwnedStream,
+pub struct EncodedPlainData {
+    pub lengths: EncodedStream,
+    pub data: EncodedStream,
 }
 
+/// Raw FSST-compressed data (4 streams) borrowed from input bytes.
 #[derive(Debug, Clone, PartialEq)]
-pub struct FsstData<'a> {
-    pub symbol_lengths: Stream<'a>,
-    pub symbol_table: Stream<'a>,
-    pub lengths: Stream<'a>,
-    pub corpus: Stream<'a>,
+pub struct RawFsstData<'a> {
+    pub symbol_lengths: RawStream<'a>,
+    pub symbol_table: RawStream<'a>,
+    pub lengths: RawStream<'a>,
+    pub corpus: RawStream<'a>,
 }
 
+/// Wire-ready encoded FSST data (owns its byte buffers).
 #[derive(Debug, Clone, PartialEq)]
-pub struct OwnedFsstData {
-    pub symbol_lengths: OwnedStream,
-    pub symbol_table: OwnedStream,
-    pub lengths: OwnedStream,
-    pub corpus: OwnedStream,
+pub struct EncodedFsstData {
+    pub symbol_lengths: EncodedStream,
+    pub symbol_table: EncodedStream,
+    pub lengths: EncodedStream,
+    pub corpus: EncodedStream,
 }
 
+/// Raw presence/nullability stream borrowed from input bytes.
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct EncodedPresence<'a>(pub Option<Stream<'a>>);
+pub struct RawPresence<'a>(pub Option<RawStream<'a>>);
 
+/// Wire-ready encoded presence/nullability stream (owns its byte buffers).
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct OwnedEncodedPresence(pub Option<OwnedStream>);
+pub struct EncodedPresence(pub Option<EncodedStream>);
 
-/// Instruction for how to encode a single decoded property when batch-encoding a
-/// [`Vec<DecodedProperty>`] via [`crate::optimizer::ManualOptimisation`].
+/// Instruction for how to encode a single parsed property when batch-encoding a
+/// [`Vec<ParsedProperty>`] via [`crate::optimizer::ManualOptimisation`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PropertyEncoder {
     /// How to encode a scalar property

@@ -2,9 +2,9 @@ use std::io::Write;
 
 use crate::MltError;
 use crate::utils::BinarySerializer as _;
-use crate::v01::{ColumnType, OwnedEncodedId, OwnedEncodedIdValue, OwnedId};
+use crate::v01::{ColumnType, EncodedId, EncodedIdValue, StagedId};
 
-impl OwnedId {
+impl StagedId {
     #[doc(hidden)]
     pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
@@ -22,13 +22,13 @@ impl OwnedId {
     }
 }
 
-impl OwnedEncodedId {
+impl EncodedId {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match (&self.presence, &self.value) {
-            (None, OwnedEncodedIdValue::Id32(_)) => ColumnType::Id.write_to(writer)?,
-            (None, OwnedEncodedIdValue::Id64(_)) => ColumnType::LongId.write_to(writer)?,
-            (Some(_), OwnedEncodedIdValue::Id32(_)) => ColumnType::OptId.write_to(writer)?,
-            (Some(_), OwnedEncodedIdValue::Id64(_)) => ColumnType::OptLongId.write_to(writer)?,
+            (None, EncodedIdValue::Id32(_)) => ColumnType::Id.write_to(writer)?,
+            (None, EncodedIdValue::Id64(_)) => ColumnType::LongId.write_to(writer)?,
+            (Some(_), EncodedIdValue::Id32(_)) => ColumnType::OptId.write_to(writer)?,
+            (Some(_), EncodedIdValue::Id64(_)) => ColumnType::OptLongId.write_to(writer)?,
         }
         Ok(())
     }
@@ -36,7 +36,7 @@ impl OwnedEncodedId {
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         writer.write_optional_stream(self.presence.as_ref())?;
         match &self.value {
-            OwnedEncodedIdValue::Id32(s) | OwnedEncodedIdValue::Id64(s) => {
+            EncodedIdValue::Id32(s) | EncodedIdValue::Id64(s) => {
                 writer.write_stream(s)?;
             }
         }

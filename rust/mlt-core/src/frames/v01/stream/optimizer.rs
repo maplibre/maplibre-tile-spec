@@ -3,7 +3,7 @@ use zigzag::ZigZag;
 
 use crate::MltError;
 use crate::v01::stream::IntEncoder;
-use crate::v01::{LogicalEncoder, OwnedStreamData, PhysicalEncoder};
+use crate::v01::{LogicalEncoder, EncodedStreamData, PhysicalEncoder};
 
 /// Minimum number of values to profile / compete on.
 ///
@@ -260,10 +260,10 @@ fn encoded_size_u64(values: &[u64], encoder: IntEncoder) -> usize {
     result.unwrap_or(usize::MAX)
 }
 
-/// Return the byte length stored inside an `OwnedStreamData`.
-fn data_byte_len(data: OwnedStreamData) -> usize {
+/// Return the byte length stored inside an `EncodedStreamData`.
+fn data_byte_len(data: EncodedStreamData) -> usize {
     match data {
-        OwnedStreamData::VarInt(v) | OwnedStreamData::Encoded(v) => v.len(),
+        EncodedStreamData::VarInt(v) | EncodedStreamData::Encoded(v) => v.len(),
     }
 }
 

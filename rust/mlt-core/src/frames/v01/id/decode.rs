@@ -1,15 +1,15 @@
 use crate::utils::apply_present;
-use crate::v01::{DecodedId, EncodedId, EncodedIdValue, Id, OwnedEncodedId, OwnedId, Stream};
+use crate::v01::{EncodedId, EncodedIdValue, EncodedStream, Id, ParsedId, RawId, RawIdValue, StagedId, RawStream};
 use crate::{Decode, DecodeInto as _, MltError};
 
 impl<'a> Id<'a> {
     #[must_use]
-    pub fn new_encoded(presence: Option<Stream<'a>>, value: EncodedIdValue<'a>) -> Self {
-        Self::Encoded(EncodedId { presence, value })
+    pub fn new_encoded(presence: Option<RawStream<'a>>, value: RawIdValue<'a>) -> Self {
+        Self::Encoded(RawId { presence, value })
     }
 
     #[inline]
-    pub fn decode(self) -> Result<DecodedId, MltError> {
+    pub fn decode(self) -> Result<ParsedId, MltError> {
         Ok(match self {
             Self::Encoded(v) => v.decode_into()?,
             Self::Decoded(v) => v,
@@ -17,68 +17,67 @@ impl<'a> Id<'a> {
     }
 
     #[must_use]
-    pub fn to_owned(&self) -> OwnedId {
+    pub fn to_owned(&self) -> StagedId {
         match self {
-            Self::Encoded(encoded) => OwnedId::Encoded(encoded.to_owned()),
-            Self::Decoded(decoded) => OwnedId::Decoded(decoded.to_owned()),
+            Self::Encoded(encoded) => StagedId::Encoded(encoded.to_owned()),
+            Self::Decoded(decoded) => StagedId::Decoded(decoded.to_owned()),
         }
     }
 }
 
-impl TryFrom<OwnedId> for DecodedId {
+impl TryFrom<StagedId> for ParsedId {
     type Error = MltError;
 
-    fn try_from(owned: OwnedId) -> Result<Self, MltError> {
+    fn try_from(owned: StagedId) -> Result<Self, MltError> {
         match owned {
-            OwnedId::Encoded(encoded) => DecodedId::try_from(encoded),
-            OwnedId::Decoded(decoded) => Ok(decoded),
+            StagedId::Encoded(encoded) => ParsedId::try_from(encoded),
+            StagedId::Decoded(decoded) => Ok(decoded),
         }
     }
 }
 
-impl DecodedId {
+impl ParsedId {
     #[must_use]
     pub fn values(&self) -> &[Option<u64>] {
         &self.0
     }
 }
 
-impl TryFrom<EncodedId<'_>> for DecodedId {
+impl TryFrom<RawId<'_>> for ParsedId {
     type Error = MltError;
 
-    fn try_from(EncodedId { presence, value }: EncodedId<'_>) -> Result<Self, MltError> {
+    fn try_from(RawId { presence, value }: RawId<'_>) -> Result<Self, MltError> {
         // Decode the ID values first
         let ids_u64: Vec<u64> = match value {
-            EncodedIdValue::Id32(stream) => {
+            RawIdValue::Id32(stream) => {
                 // Decode 32-bit IDs as u32, then convert to u64
                 let ids: Vec<u32> = stream.decode_into()?;
                 ids.into_iter().map(u64::from).collect()
             }
-            EncodedIdValue::Id64(stream) => {
+            RawIdValue::Id64(stream) => {
                 // Decode 64-bit IDs directly as u64
                 stream.decode_into()?
             }
         };
-        Ok(DecodedId(apply_present(presence, ids_u64)?))
+        Ok(ParsedId(apply_present(presence, ids_u64)?))
     }
 }
 
-impl<'a> Decode<EncodedId<'a>> for DecodedId {
-    fn decode(input: EncodedId<'a>) -> Result<Self, MltError> {
-        DecodedId::try_from(input)
+impl<'a> Decode<RawId<'a>> for ParsedId {
+    fn decode(input: RawId<'a>) -> Result<Self, MltError> {
+        ParsedId::try_from(input)
     }
 }
 
-impl TryFrom<OwnedEncodedId> for DecodedId {
+impl TryFrom<EncodedId> for ParsedId {
     type Error = MltError;
 
-    fn try_from(encoded: OwnedEncodedId) -> Result<Self, MltError> {
-        use crate::v01::{OwnedEncodedIdValue, OwnedStream};
-        let presence = encoded.presence.as_ref().map(OwnedStream::as_borrowed);
+    fn try_from(encoded: EncodedId) -> Result<Self, MltError> {
+        let presence = encoded.presence.as_ref().map(EncodedStream::as_borrowed);
         let value = match &encoded.value {
-            OwnedEncodedIdValue::Id32(s) => EncodedIdValue::Id32(s.as_borrowed()),
-            OwnedEncodedIdValue::Id64(s) => EncodedIdValue::Id64(s.as_borrowed()),
+            EncodedIdValue::Id32(s) => RawIdValue::Id32(s.as_borrowed()),
+            EncodedIdValue::Id64(s) => RawIdValue::Id64(s.as_borrowed()),
         };
-        DecodedId::try_from(EncodedId { presence, value })
+        ParsedId::try_from(RawId { presence, value })
     }
 }

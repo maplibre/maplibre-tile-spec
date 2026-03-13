@@ -3,7 +3,7 @@ use integer_encoding::VarInt as _;
 use crate::MltError::ParsingStreamType;
 use crate::utils::{encode_fastpfor, encode_u32s_to_bytes, encode_u64s_to_bytes, parse_u8};
 use crate::v01::{
-    DictionaryType, LengthType, OffsetType, OwnedStreamData, PhysicalEncoding, StreamType,
+    DictionaryType, LengthType, OffsetType, EncodedStreamData, PhysicalEncoding, StreamType,
 };
 use crate::{MltError, MltRefResult};
 
@@ -70,15 +70,15 @@ pub enum PhysicalEncoder {
 }
 
 impl PhysicalEncoder {
-    /// Physically encode a `u32` sequence into the appropriate `OwnedStreamData` variant.
+    /// Physically encode a `u32` sequence into the appropriate `EncodedStreamData` variant.
     pub fn encode_u32s(
         self,
         values: Vec<u32>,
-    ) -> Result<(OwnedStreamData, PhysicalEncoding), MltError> {
+    ) -> Result<(EncodedStreamData, PhysicalEncoding), MltError> {
         match self {
             Self::None => {
                 let data = encode_u32s_to_bytes(&values);
-                let stream = OwnedStreamData::Encoded(data);
+                let stream = EncodedStreamData::Encoded(data);
                 Ok((stream, PhysicalEncoding::None))
             }
             Self::VarInt => {
@@ -86,26 +86,26 @@ impl PhysicalEncoder {
                 for v in values {
                     data.extend_from_slice(&u64::from(v).encode_var_vec());
                 }
-                let stream = OwnedStreamData::VarInt(data);
+                let stream = EncodedStreamData::VarInt(data);
                 Ok((stream, PhysicalEncoding::VarInt))
             }
             Self::FastPFOR => {
                 let data = encode_fastpfor(&values)?;
-                let stream = OwnedStreamData::Encoded(data);
+                let stream = EncodedStreamData::Encoded(data);
                 Ok((stream, PhysicalEncoding::FastPFOR))
             }
         }
     }
 
-    /// Physically encode a `u64` sequence into the appropriate `OwnedStreamData` variant.
+    /// Physically encode a `u64` sequence into the appropriate `EncodedStreamData` variant.
     pub fn encode_u64s(
         self,
         values: Vec<u64>,
-    ) -> Result<(OwnedStreamData, PhysicalEncoding), MltError> {
+    ) -> Result<(EncodedStreamData, PhysicalEncoding), MltError> {
         match self {
             Self::None => {
                 let data = encode_u64s_to_bytes(&values);
-                let stream = OwnedStreamData::Encoded(data);
+                let stream = EncodedStreamData::Encoded(data);
                 Ok((stream, PhysicalEncoding::None))
             }
             Self::VarInt => {
@@ -113,7 +113,7 @@ impl PhysicalEncoder {
                 for v in values {
                     data.extend_from_slice(&v.encode_var_vec());
                 }
-                let stream = OwnedStreamData::VarInt(data);
+                let stream = EncodedStreamData::VarInt(data);
                 Ok((stream, PhysicalEncoding::VarInt))
             }
             Self::FastPFOR => Err(MltError::UnsupportedPhysicalEncoding("FastPFOR on u64")),

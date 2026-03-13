@@ -1,19 +1,19 @@
-use super::{DecodedGeometry, EncodedGeometry, OwnedEncodedGeometry};
-use crate::v01::Stream;
+use super::{EncodedGeometry, ParsedGeometry, RawGeometry};
+use crate::v01::RawStream;
 
-impl DecodedGeometry {
+impl ParsedGeometry {
     #[must_use]
     pub fn to_owned(&self) -> Self {
         self.clone()
     }
 }
 
-impl EncodedGeometry<'_> {
+impl RawGeometry<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> OwnedEncodedGeometry {
-        OwnedEncodedGeometry {
+    pub fn to_owned(&self) -> EncodedGeometry {
+        EncodedGeometry {
             meta: self.meta.to_owned(),
-            items: self.items.iter().map(Stream::to_owned).collect(),
+            items: self.items.iter().map(RawStream::to_owned).collect(),
         }
     }
 }

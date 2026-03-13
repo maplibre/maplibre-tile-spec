@@ -1,42 +1,44 @@
 use crate::EncDec;
-use crate::v01::{OwnedStream, Stream};
+use crate::v01::{EncodedStream, RawStream};
 
-/// ID column representation, either encoded or decoded.
-pub type Id<'a> = EncDec<EncodedId<'a>, DecodedId>;
+/// ID column representation, either raw (borrowed from bytes) or parsed.
+pub type Id<'a> = EncDec<RawId<'a>, ParsedId>;
 
-/// Owned ID column representation, either encoded or decoded.
-pub type OwnedId = EncDec<OwnedEncodedId, DecodedId>;
+/// Staged ID column: can hold either encoded or decoded form (used during encoding pipeline).
+pub type StagedId = EncDec<EncodedId, ParsedId>;
 
-/// Unparsed ID data as read directly from the tile
+/// Unparsed ID data as read directly from the tile (borrows from input bytes)
 #[derive(Debug, PartialEq)]
-pub struct EncodedId<'a> {
-    pub(crate) presence: Option<Stream<'a>>,
-    pub(crate) value: EncodedIdValue<'a>,
+pub struct RawId<'a> {
+    pub(crate) presence: Option<RawStream<'a>>,
+    pub(crate) value: RawIdValue<'a>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct OwnedEncodedId {
-    pub(crate) presence: Option<OwnedStream>,
-    pub(crate) value: OwnedEncodedIdValue,
-}
-
-/// A sequence of encoded ID values, either 32-bit or 64-bit unsigned integers
+/// A sequence of raw ID values, either 32-bit or 64-bit unsigned integers
 #[derive(Debug, PartialEq)]
-pub enum EncodedIdValue<'a> {
-    Id32(Stream<'a>),
-    Id64(Stream<'a>),
+pub enum RawIdValue<'a> {
+    Id32(RawStream<'a>),
+    Id64(RawStream<'a>),
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum OwnedEncodedIdValue {
-    Id32(OwnedStream),
-    Id64(OwnedStream),
-}
-
-/// Decoded ID values as a vector of optional 64-bit unsigned integers
+/// Parsed ID values as a vector of optional 64-bit unsigned integers
 #[derive(Clone, Default, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct DecodedId(pub Vec<Option<u64>>);
+pub struct ParsedId(pub Vec<Option<u64>>);
+
+/// Wire-ready encoded ID data (owns its byte buffers)
+#[derive(Debug, PartialEq, Clone)]
+pub struct EncodedId {
+    pub(crate) presence: Option<EncodedStream>,
+    pub(crate) value: EncodedIdValue,
+}
+
+/// Wire-ready encoded ID value, either 32-bit or 64-bit
+#[derive(Debug, PartialEq, Clone)]
+pub enum EncodedIdValue {
+    Id32(EncodedStream),
+    Id64(EncodedStream),
+}
 
 /// How wide are the IDs
 #[derive(Debug, Clone, Copy, PartialEq, strum::EnumIter)]

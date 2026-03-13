@@ -8,10 +8,10 @@ use crate::utils::BinarySerializer as _;
 use crate::v01::stream::encoder::IntEncoder;
 use crate::v01::stream::logical::LogicalEncoder;
 use crate::v01::{
-    DictionaryType, EncodedPresence, EncodedStrings, FsstData, IntEncoding, LengthType,
-    LogicalData, LogicalEncoding, LogicalValue, MortonMeta, NameRef, OffsetType, OwnedStream,
-    OwnedStreamData, PhysicalEncoder, PhysicalEncoding, PlainData, RleMeta, Stream, StreamData,
-    StreamMeta, StreamType, StringsEncoding,
+    DictionaryType, RawFsstData, IntEncoding, LengthType,
+    LogicalData, LogicalEncoding, LogicalValue, MortonMeta, RawName, OffsetType, EncodedStream,
+    EncodedStreamData, PhysicalEncoder, PhysicalEncoding, RawPlainData, RawPresence, RleMeta,
+    RawStream, RawStreamData, RawStrings, StreamMeta, StreamType, RawStringsEncoding,
 };
 
 /// Test case for stream decoding tests
@@ -62,16 +62,16 @@ fn generate_stream_test_cases() -> Vec<StreamTestCase> {
     ]
 }
 
-fn create_stream_from_test_case(test_case: &StreamTestCase) -> Stream<'_> {
+fn create_stream_from_test_case(test_case: &StreamTestCase) -> RawStream<'_> {
     let data = match test_case.meta.encoding.physical {
-        PhysicalEncoding::VarInt => StreamData::VarInt(test_case.data),
-        PhysicalEncoding::None => StreamData::Encoded(test_case.data),
+        PhysicalEncoding::VarInt => RawStreamData::VarInt(test_case.data),
+        PhysicalEncoding::None => RawStreamData::Encoded(test_case.data),
         _ => panic!(
             "Unsupported physical encoding in test: {:?}",
             test_case.meta.encoding.physical
         ),
     };
-    Stream::new(test_case.meta, data)
+    RawStream::new(test_case.meta, data)
 }
 
 #[test]
@@ -148,12 +148,12 @@ fn test_decode_u32(
 #[case::empty(vec![])]
 fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
     let encoder = IntEncoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR);
-    let owned_stream = OwnedStream::encode_u32s(&values, encoder).unwrap();
+    let owned_stream = EncodedStream::encode_u32s(&values, encoder).unwrap();
 
     let mut buffer = Vec::new();
     buffer.write_stream(&owned_stream).unwrap();
 
-    let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+    let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
     assert!(remaining.is_empty());
 
     let decoded_values = parsed_stream
@@ -187,11 +187,11 @@ fn test_stream_roundtrip(
     #[case] is_bool: bool,
 ) {
     let stream_data = match physical_encoding {
-        PhysicalEncoding::None | PhysicalEncoding::FastPFOR => OwnedStreamData::Encoded(data_bytes),
-        PhysicalEncoding::VarInt => OwnedStreamData::VarInt(data_bytes),
+        PhysicalEncoding::None | PhysicalEncoding::FastPFOR => EncodedStreamData::Encoded(data_bytes),
+        PhysicalEncoding::VarInt => EncodedStreamData::VarInt(data_bytes),
         PhysicalEncoding::Alp => panic!("ALP not supported"),
     };
-    let stream = OwnedStream {
+    let stream = EncodedStream {
         meta: StreamMeta::new(
             stream_type,
             IntEncoding::new(logical_encoding, physical_encoding),
@@ -210,19 +210,19 @@ fn test_stream_roundtrip(
 
     // Parse back
     let (remaining, parsed) = if is_bool {
-        Stream::parse_bool(&buffer).unwrap()
+        RawStream::parse_bool(&buffer).unwrap()
     } else {
-        Stream::parse(&buffer).unwrap()
+        RawStream::parse(&buffer).unwrap()
     };
 
     assert!(remaining.is_empty(), "{} bytes remain", remaining.len());
     assert_eq!(parsed.meta, stream.meta, "metadata mismatch");
 
     match (&stream.data, &parsed.data) {
-        (OwnedStreamData::Encoded(exp), StreamData::Encoded(act)) => {
+        (EncodedStreamData::Encoded(exp), RawStreamData::Encoded(act)) => {
             assert_eq!(exp.as_slice(), *act, "raw data mismatch");
         }
-        (OwnedStreamData::VarInt(exp), StreamData::VarInt(act)) => {
+        (EncodedStreamData::VarInt(exp), RawStreamData::VarInt(act)) => {
             assert_eq!(exp.as_slice(), *act, "varint data mismatch");
         }
         _ => panic!("data type mismatch"),
@@ -239,12 +239,12 @@ proptest! {
         values in prop::collection::vec(any::<i8>(), 0..100),
         encoding in any::<IntEncoder>(),
     ) {
-        let owned_stream = OwnedStream::encode_i8s(&values, encoding).unwrap();
+        let owned_stream = EncodedStream::encode_i8s(&values, encoding).unwrap();
 
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values: Vec<i8> = parsed_stream.decode_into().unwrap();
@@ -256,12 +256,12 @@ proptest! {
         values in prop::collection::vec(any::<u8>(), 0..100),
         encoding in any::<IntEncoder>()
     ) {
-        let owned_stream = OwnedStream::encode_u8s(&values, encoding).unwrap();
+        let owned_stream = EncodedStream::encode_u8s(&values, encoding).unwrap();
 
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values: Vec<u8> = parsed_stream.decode_into().unwrap();
@@ -273,12 +273,12 @@ proptest! {
         values in prop::collection::vec(any::<u32>(), 0..100),
         encoding in any::<IntEncoder>()
     ) {
-        let owned_stream = OwnedStream::encode_u32s(&values, encoding).unwrap();
+        let owned_stream = EncodedStream::encode_u32s(&values, encoding).unwrap();
 
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_bits_u32().unwrap().decode_u32().unwrap();
@@ -291,12 +291,12 @@ proptest! {
         values in prop::collection::vec(any::<i32>(), 0..100),
         encoding in any::<IntEncoder>(),
     ) {
-        let owned_stream = OwnedStream::encode_i32s(&values, encoding).unwrap();
+        let owned_stream = EncodedStream::encode_i32s(&values, encoding).unwrap();
 
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_bits_u32().unwrap().decode_i32().unwrap();
@@ -309,12 +309,12 @@ proptest! {
         values in prop::collection::vec(any::<u64>(), 0..100),
         encoding in encoding_no_fastpfor()
     ) {
-        let owned_stream = OwnedStream::encode_u64s(&values, encoding).unwrap();
+        let owned_stream = EncodedStream::encode_u64s(&values, encoding).unwrap();
 
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values: Vec<u64> = parsed_stream.decode_into().unwrap();
@@ -327,12 +327,12 @@ proptest! {
         values in prop::collection::vec(any::<i64>(), 0..100),
         encoding in encoding_no_fastpfor()
     ) {
-        let owned_stream = OwnedStream::encode_i64s(&values, encoding).unwrap();
+        let owned_stream = EncodedStream::encode_i64s(&values, encoding).unwrap();
 
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values: Vec<i64> = parsed_stream.decode_into().unwrap();
@@ -342,12 +342,12 @@ proptest! {
 
     #[test]
     fn test_f32_roundtrip(values in prop::collection::vec(any::<f32>(), 0..100)) {
-        let owned_stream = OwnedStream::encode_f32(&values).unwrap();
+        let owned_stream = EncodedStream::encode_f32(&values).unwrap();
 
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values: Vec<f32> = parsed_stream.decode_into().unwrap();
@@ -363,12 +363,12 @@ proptest! {
 
     #[test]
     fn test_f64_roundtrip(values in prop::collection::vec(any::<f64>(), 0..100)) {
-        let owned_stream = OwnedStream::encode_f64(&values).unwrap();
+        let owned_stream = EncodedStream::encode_f64(&values).unwrap();
 
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values: Vec<f64> = parsed_stream.decode_into().unwrap();
@@ -387,7 +387,7 @@ proptest! {
         values in prop::collection::vec(any::<String>(), 0..100),
         encoding in any::<IntEncoder>(),
     ) {
-        let encoded = OwnedStream::encode_strings_with_type(&values, encoding, LengthType::VarBinary, DictionaryType::None).unwrap();
+        let encoded = EncodedStream::encode_strings_with_type(&values, encoding, LengthType::VarBinary, DictionaryType::None).unwrap();
         let owned_streams = encoded.streams();
 
         let mut buffers: Vec<Vec<u8>> = Vec::new();
@@ -399,27 +399,27 @@ proptest! {
 
         let mut parsed_streams = Vec::new();
         for buffer in &buffers {
-            let (remaining, parsed_stream) = Stream::parse(buffer).unwrap();
+            let (remaining, parsed_stream) = RawStream::parse(buffer).unwrap();
             assert!(remaining.is_empty());
             parsed_streams.push(parsed_stream);
         }
 
         let strings_encoding = match parsed_streams.len() {
-            2 => StringsEncoding::plain(PlainData::new(parsed_streams[0].clone(), parsed_streams[1].clone()).unwrap()),
-            3 => StringsEncoding::dictionary(
-                PlainData::new(parsed_streams[0].clone(), parsed_streams[2].clone()).unwrap(),
+            2 => RawStringsEncoding::plain(RawPlainData::new(parsed_streams[0].clone(), parsed_streams[1].clone()).unwrap()),
+            3 => RawStringsEncoding::dictionary(
+                RawPlainData::new(parsed_streams[0].clone(), parsed_streams[2].clone()).unwrap(),
                 parsed_streams[1].clone(),
             ).unwrap(),
-            4 => StringsEncoding::fsst_plain(
-                FsstData::new(
+            4 => RawStringsEncoding::fsst_plain(
+                RawFsstData::new(
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
                     parsed_streams[2].clone(),
                     parsed_streams[3].clone(),
                 ).unwrap()
             ),
-            5 => StringsEncoding::fsst_dictionary(
-                FsstData::new(
+            5 => RawStringsEncoding::fsst_dictionary(
+                RawFsstData::new(
                     parsed_streams[0].clone(),
                     parsed_streams[1].clone(),
                     parsed_streams[2].clone(),
@@ -429,7 +429,7 @@ proptest! {
             ).unwrap(),
             n => panic!("unexpected stream count {n}"),
         };
-        let decoded_values = EncodedStrings::new(NameRef(""), EncodedPresence(None), strings_encoding).into_decoded().unwrap();
+        let decoded_values = RawStrings { name: RawName(""), presence: RawPresence(None), encoding: strings_encoding }.into_decoded().unwrap();
         assert_eq!(decoded_values, values.into());
     }
 }

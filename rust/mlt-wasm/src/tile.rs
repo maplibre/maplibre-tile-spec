@@ -1,5 +1,5 @@
 use js_sys::{Array, Float64Array, Int32Array, Object, Reflect, Uint8Array, Uint32Array};
-use mlt_core::v01::{DecodedProperty, OwnedGeometry, OwnedProperty};
+use mlt_core::v01::{ParsedProperty, StagedGeometry, StagedProperty};
 use wasm_bindgen::prelude::*;
 
 use crate::geometry::LayerGeometry;
@@ -102,7 +102,7 @@ impl MltTile {
 
         // Slow path: build the typed arrays once from the decoded geometry.
         let guard = layer.geometry.borrow();
-        let OwnedGeometry::Decoded(d) = &*guard else {
+        let StagedGeometry::Decoded(d) = &*guard else {
             unreachable!("geometry should be decoded here");
         };
 
@@ -212,8 +212,8 @@ impl MltTile {
         let mut key_idx = 0usize;
 
         for p in &*guard {
-            if let OwnedProperty::Decoded(prop) = p {
-                if let DecodedProperty::SharedDict(shared_dict) = prop {
+            if let StagedProperty::Decoded(prop) = p {
+                if let ParsedProperty::SharedDict(shared_dict) = prop {
                     for item in &shared_dict.items {
                         if let Some(val) = item.get(shared_dict, feature_idx) {
                             let _ = Reflect::set(
@@ -249,17 +249,17 @@ impl MltTile {
     fn ensure_geometry_decoded(&self, layer_idx: usize) -> Result<(), JsError> {
         let layer = &self.layers[layer_idx];
         let mut geom = layer.geometry.borrow_mut();
-        if matches!(&*geom, OwnedGeometry::Encoded(_)) {
+        if matches!(&*geom, StagedGeometry::Encoded(_)) {
             let owned = std::mem::replace(
                 &mut *geom,
-                OwnedGeometry::Decoded(mlt_core::v01::DecodedGeometry::default()),
+                StagedGeometry::Decoded(mlt_core::v01::ParsedGeometry::default()),
             );
-            let OwnedGeometry::Encoded(encoded) = owned else {
+            let StagedGeometry::Encoded(encoded) = owned else {
                 unreachable!()
             };
-            let decoded = mlt_core::v01::DecodedGeometry::try_from(encoded)
+            let decoded = mlt_core::v01::ParsedGeometry::try_from(encoded)
                 .map_err(|e| crate::to_js_err(&e))?;
-            *geom = OwnedGeometry::Decoded(decoded);
+            *geom = StagedGeometry::Decoded(decoded);
         }
         Ok(())
     }
@@ -273,15 +273,15 @@ impl MltTile {
                 unreachable!()
             };
             let decoded =
-                mlt_core::v01::DecodedId::try_from(encoded).map_err(|e| crate::to_js_err(&e))?;
+                mlt_core::v01::ParsedId::try_from(encoded).map_err(|e| crate::to_js_err(&e))?;
 
             let floats: Vec<f64> = decoded
                 .values()
                 .iter()
                 .copied()
-                .map(|f| {
+                .map(|f: Option<u64>| {
                     #[expect(clippy::cast_precision_loss)]
-                    f.map_or(f64::NAN, |f| f as f64)
+                    f.map_or(f64::NAN, |v| v as f64)
                 })
                 .collect();
             let arr = Float64Array::from(floats.as_slice());

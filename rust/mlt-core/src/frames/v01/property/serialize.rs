@@ -4,9 +4,9 @@ use integer_encoding::VarIntWriter as _;
 
 use crate::MltError;
 use crate::utils::{BinarySerializer as _, checked_sum3};
-use crate::v01::{ColumnType, OwnedEncodedProperty, OwnedProperty, PropertyKind};
+use crate::v01::{ColumnType, EncodedProperty, StagedProperty, PropertyKind};
 
-impl OwnedProperty {
+impl StagedProperty {
     #[doc(hidden)]
     pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
@@ -32,7 +32,7 @@ impl OwnedProperty {
     }
 }
 
-impl OwnedEncodedProperty {
+impl EncodedProperty {
     pub(super) fn kind(&self) -> PropertyKind {
         use PropertyKind as T;
         match self {

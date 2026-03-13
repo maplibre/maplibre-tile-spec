@@ -1,4 +1,4 @@
-use mlt_core::v01::{OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01, OwnedProperty};
+use mlt_core::v01::{EncodedProperty, StagedGeometry, StagedId, OwnedLayer01, StagedProperty};
 use mlt_core::{Layer, OwnedLayer};
 
 use crate::LayerInput;
@@ -19,16 +19,16 @@ impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
         let name: String = u.arbitrary()?;
         let extent: u32 = u.arbitrary()?;
 
-        let id: Option<OwnedId> = if u.arbitrary()? {
-            Some(OwnedId::Encoded(u.arbitrary()?))
+        let id: Option<StagedId> = if u.arbitrary()? {
+            Some(StagedId::Encoded(u.arbitrary()?))
         } else {
             None
         };
-        let geometry = OwnedGeometry::Encoded(u.arbitrary()?);
-        let properties: Vec<OwnedProperty> = u
-            .arbitrary::<Vec<OwnedEncodedProperty>>()?
+        let geometry = StagedGeometry::Encoded(u.arbitrary()?);
+        let properties: Vec<StagedProperty> = u
+            .arbitrary::<Vec<EncodedProperty>>()?
             .into_iter()
-            .map(OwnedProperty::Encoded)
+            .map(StagedProperty::Encoded)
             .collect();
 
         // In fuzzing mode OwnedLayer01 carries an explicit layer_order field that drives the

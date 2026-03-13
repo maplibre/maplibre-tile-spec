@@ -6,7 +6,7 @@ use std::ops::Deref;
 
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::v01::{DecodedGeometry, DecodedProperty, Geometry, Id, Property};
+use mlt_core::v01::{ParsedGeometry, ParsedProperty, Geometry, Id, Property};
 use mlt_core::{MltError, parse_layers};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -99,7 +99,7 @@ fn push_polygon(buf: &mut Vec<u8>, poly: &Polygon<i32>, xf: Option<TileTransform
 }
 
 fn geom_to_wkb(
-    geom: &DecodedGeometry,
+    geom: &ParsedGeometry,
     index: usize,
     xf: Option<TileTransform>,
 ) -> Result<Vec<u8>, MltError> {
@@ -146,49 +146,49 @@ fn geom_to_wkb(
     Ok(buf)
 }
 
-fn prop_value_to_py(py: Python<'_>, prop: &DecodedProperty, i: usize) -> Py<PyAny> {
+fn prop_value_to_py(py: Python<'_>, prop: &ParsedProperty, i: usize) -> Py<PyAny> {
     match prop {
-        DecodedProperty::Bool(v) => match v.values[i] {
+        ParsedProperty::Bool(v) => match v.values[i] {
             Some(b) => b.into_pyobject(py).unwrap().to_owned().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::I8(v) => match v.values[i] {
+        ParsedProperty::I8(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::U8(v) => match v.values[i] {
+        ParsedProperty::U8(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::I32(v) => match v.values[i] {
+        ParsedProperty::I32(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::U32(v) => match v.values[i] {
+        ParsedProperty::U32(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::I64(v) => match v.values[i] {
+        ParsedProperty::I64(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::U64(v) => match v.values[i] {
+        ParsedProperty::U64(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::F32(v) => match v.values[i] {
+        ParsedProperty::F32(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::F64(v) => match v.values[i] {
+        ParsedProperty::F64(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::Str(v) => match u32::try_from(i).ok().and_then(|i| v.get(i)) {
+        ParsedProperty::Str(v) => match u32::try_from(i).ok().and_then(|i| v.get(i)) {
             Some(s) => s.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        DecodedProperty::SharedDict(shared_dict) => {
+        ParsedProperty::SharedDict(shared_dict) => {
             let dict = PyDict::new(py);
             for item in &shared_dict.items {
                 if let Some(s) = item.get(shared_dict, i) {
@@ -206,9 +206,9 @@ fn prop_value_to_py(py: Python<'_>, prop: &DecodedProperty, i: usize) -> Py<PyAn
 
 fn build_features(
     py: Python<'_>,
-    geom: &DecodedGeometry,
+    geom: &ParsedGeometry,
     ids: Option<&[Option<u64>]>,
-    props: &[&DecodedProperty],
+    props: &[&ParsedProperty],
     xf: Option<TileTransform>,
 ) -> PyResult<Vec<Py<MltFeature>>> {
     let count = geom.vector_types.len();
@@ -283,7 +283,7 @@ fn decode_mlt(
             Some(Id::Encoded(_)) => Err(PyValueError::new_err("id not decoded"))?,
         };
 
-        let props: Vec<&DecodedProperty> = layer
+        let props: Vec<&ParsedProperty> = layer
             .properties
             .iter()
             .map(|p| match p {

@@ -3,13 +3,13 @@ use mlt_core::geojson::Geom32;
 use mlt_core::optimizer::ManualOptimisation as _;
 use mlt_core::v01::source::SourceLayer01;
 use mlt_core::v01::{
-    DecodedGeometry, DecodedId, GeometryEncoder, GeometryType, IntEncoder, OwnedGeometry, OwnedId,
+    ParsedGeometry, ParsedId, GeometryEncoder, GeometryType, IntEncoder, StagedGeometry, StagedId,
     OwnedLayer01, SortStrategy, Tag01Encoder,
 };
 
 /// Helper to build a layer from geometries and IDs.
 fn build_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> OwnedLayer01 {
-    let mut decoded_geom = DecodedGeometry::default();
+    let mut decoded_geom = ParsedGeometry::default();
     for g in geoms {
         decoded_geom.push_geom(g);
     }
@@ -17,8 +17,8 @@ fn build_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> OwnedLayer01 {
     OwnedLayer01 {
         name: "test".to_string(),
         extent: 4096,
-        id: Some(OwnedId::Decoded(DecodedId(ids.to_vec()))),
-        geometry: OwnedGeometry::Decoded(decoded_geom),
+        id: Some(StagedId::Decoded(ParsedId(ids.to_vec()))),
+        geometry: StagedGeometry::Decoded(decoded_geom),
         properties: vec![],
     }
 }
@@ -40,7 +40,7 @@ fn sort_and_decode(layer: &mut OwnedLayer01, strategy: SortStrategy) -> SourceLa
             name: String::new(),
             extent: 0,
             id: None,
-            geometry: OwnedGeometry::Decoded(DecodedGeometry::default()),
+            geometry: StagedGeometry::Decoded(ParsedGeometry::default()),
             properties: vec![],
         },
     ))
@@ -59,7 +59,7 @@ fn ls(coords: &[(i32, i32)]) -> Geom32 {
 
 /// Rebuild a flat vertex buffer from the feature geometries in source order.
 fn vertices_from_source(source: &SourceLayer01) -> Vec<i32> {
-    let mut geom = DecodedGeometry::default();
+    let mut geom = ParsedGeometry::default();
     for f in &source.features {
         geom.push_geom(&f.geometry);
     }

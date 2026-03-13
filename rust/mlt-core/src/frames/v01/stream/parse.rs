@@ -6,8 +6,8 @@ use integer_encoding::VarIntWriter as _;
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{BinarySerializer as _, parse_u8, parse_varint, take};
 use crate::v01::{
-    IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RleMeta, Stream,
-    StreamData, StreamMeta, StreamType,
+    IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RleMeta, RawStream,
+    RawStreamData, StreamMeta, StreamType,
 };
 use crate::{MltError, MltRefResult};
 
@@ -182,16 +182,16 @@ impl Debug for StreamMeta {
     }
 }
 
-impl<'a> Stream<'a> {
+impl<'a> RawStream<'a> {
     #[must_use]
-    pub fn new(meta: StreamMeta, data: StreamData<'a>) -> Self {
+    pub fn new(meta: StreamMeta, data: RawStreamData<'a>) -> Self {
         Self { meta, data }
     }
 
     #[must_use]
     pub fn as_bytes(&self) -> &'a [u8] {
         match &self.data {
-            StreamData::Encoded(v) | StreamData::VarInt(v) => v,
+            RawStreamData::Encoded(v) | RawStreamData::VarInt(v) => v,
         }
     }
 
@@ -203,7 +203,7 @@ impl<'a> Stream<'a> {
         let mut result = Vec::with_capacity(count);
         for _ in 0..count {
             let stream;
-            (input, stream) = Stream::parse_internal(input, false)?;
+            (input, stream) = RawStream::parse_internal(input, false)?;
             result.push(stream);
         }
         Ok((input, result))
@@ -223,11 +223,11 @@ impl<'a> Stream<'a> {
         let (input, data) = take(input, byte_length)?;
 
         let stream_data = match meta.encoding.physical {
-            PD::None | PD::FastPFOR => StreamData::Encoded(data),
-            PD::VarInt => StreamData::VarInt(data),
+            PD::None | PD::FastPFOR => RawStreamData::Encoded(data),
+            PD::VarInt => RawStreamData::VarInt(data),
             PD::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
         };
 
-        Ok((input, Stream::new(meta, stream_data)))
+        Ok((input, RawStream::new(meta, stream_data)))
     }
 }

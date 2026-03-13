@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use js_sys::Uint8Array;
-use mlt_core::v01::{OwnedGeometry, OwnedProperty};
+use mlt_core::v01::{StagedGeometry, StagedProperty};
 
 use crate::geometry::LayerGeometry;
 use crate::ids::IdState;
@@ -20,7 +20,7 @@ pub(crate) struct DecodedLayer {
     pub(crate) types_array: Uint8Array,
 
     /// Encoded or decoded geometry column.
-    pub(crate) geometry: RefCell<OwnedGeometry>,
+    pub(crate) geometry: RefCell<StagedGeometry>,
 
     /// Cached geometry typed arrays — built once on first `layer_geometry` call.
     pub(crate) geometry_cache: RefCell<Option<LayerGeometry>>,
@@ -29,7 +29,7 @@ pub(crate) struct DecodedLayer {
     pub(crate) ids: RefCell<IdState>,
 
     /// Property columns, decoded lazily from encoded form.
-    pub(crate) props: RefCell<Vec<OwnedProperty>>,
+    pub(crate) props: RefCell<Vec<StagedProperty>>,
 
     /// Cached bulk property arrays — built once on first `layer_properties` call.
     pub(crate) prop_cache: RefCell<Option<PropCache>>,

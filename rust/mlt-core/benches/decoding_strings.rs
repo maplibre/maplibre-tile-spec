@@ -2,11 +2,12 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
-    DecodedStrings, DictionaryType, EncodedPresence, EncodedSharedDict, EncodedSharedDictChild,
-    EncodedStrings, FsstData, IntEncoder, LengthType, LogicalEncoder, NameRef,
-    OwnedEncodedProperty, OwnedEncodedSharedDict, OwnedSharedDictEncoding, OwnedStream,
-    OwnedStringsEncoding, PhysicalEncoder, PlainData, PresenceStream, SharedDictEncoder,
-    SharedDictEncoding, SharedDictItemEncoder, StrEncoder, StringsEncoding,
+    ParsedStrings, DictionaryType, EncodedSharedDict,
+    RawFsstData, IntEncoder, LengthType, LogicalEncoder, RawName,
+    EncodedProperty, EncodedSharedDictEncoding, EncodedStream,
+    EncodedStringsEncoding, PhysicalEncoder, RawPlainData, RawPresence, RawSharedDict,
+    RawSharedDictChild, RawSharedDictEncoding, RawStrings, RawStringsEncoding, PresenceStream,
+    SharedDictEncoder, SharedDictItemEncoder, StrEncoder,
     build_decoded_shared_dict, encode_shared_dict_prop,
 };
 use strum::IntoEnumIterator as _;
@@ -72,8 +73,8 @@ fn make_nullable_strings(n: usize) -> Vec<Option<String>> {
     )
 }
 
-fn encode_plain(strings: &[String], int_enc: IntEncoder) -> OwnedStringsEncoding {
-    OwnedStream::encode_strings_with_type(
+fn encode_plain(strings: &[String], int_enc: IntEncoder) -> EncodedStringsEncoding {
+    EncodedStream::encode_strings_with_type(
         strings,
         int_enc,
         LengthType::VarBinary,
@@ -82,47 +83,47 @@ fn encode_plain(strings: &[String], int_enc: IntEncoder) -> OwnedStringsEncoding
     .expect("encode_plain failed")
 }
 
-fn encode_fsst(strings: &[String], int_enc: IntEncoder) -> OwnedStringsEncoding {
+fn encode_fsst(strings: &[String], int_enc: IntEncoder) -> EncodedStringsEncoding {
     // StrEncoder::fsst builds the FsstStrEncoder internally; its fields are private.
     let StrEncoder::Fsst(enc) = StrEncoder::fsst(int_enc, int_enc) else {
         unreachable!()
     };
-    OwnedStream::encode_strings_fsst_with_type(strings, enc, DictionaryType::Single)
+    EncodedStream::encode_strings_fsst_with_type(strings, enc, DictionaryType::Single)
         .expect("encode_fsst failed")
 }
 
-/// Borrow an [`OwnedStringsEncoding`] as [`EncodedStrings<'_>`] for decoding.
+/// Borrow an [`EncodedStringsEncoding`] as [`RawStrings<'_>`] for decoding.
 /// This is the benchmark-only helper: owned data stays in the outer scope,
-/// and only leaf-level `OwnedStream::as_borrowed()` calls are made.
+/// and only leaf-level `EncodedStream::as_borrowed()` calls are made.
 fn borrow_enc_strings<'a>(
-    enc: &'a OwnedStringsEncoding,
-    name: NameRef<'a>,
-    presence: Option<mlt_core::v01::Stream<'a>>,
-) -> EncodedStrings<'a> {
+    enc: &'a EncodedStringsEncoding,
+    name: RawName<'a>,
+    presence: Option<mlt_core::v01::RawStream<'a>>,
+) -> RawStrings<'a> {
     let encoding = match enc {
-        OwnedStringsEncoding::Plain(d) => StringsEncoding::Plain(PlainData {
+        EncodedStringsEncoding::Plain(d) => RawStringsEncoding::Plain(RawPlainData {
             lengths: d.lengths.as_borrowed(),
             data: d.data.as_borrowed(),
         }),
-        OwnedStringsEncoding::Dictionary {
+        EncodedStringsEncoding::Dictionary {
             plain_data,
             offsets,
-        } => StringsEncoding::Dictionary {
-            plain_data: PlainData {
+        } => RawStringsEncoding::Dictionary {
+            plain_data: RawPlainData {
                 lengths: plain_data.lengths.as_borrowed(),
                 data: plain_data.data.as_borrowed(),
             },
             offsets: offsets.as_borrowed(),
         },
-        OwnedStringsEncoding::FsstPlain(d) => StringsEncoding::FsstPlain(FsstData {
+        EncodedStringsEncoding::FsstPlain(d) => RawStringsEncoding::FsstPlain(RawFsstData {
             symbol_lengths: d.symbol_lengths.as_borrowed(),
             symbol_table: d.symbol_table.as_borrowed(),
             lengths: d.lengths.as_borrowed(),
             corpus: d.corpus.as_borrowed(),
         }),
-        OwnedStringsEncoding::FsstDictionary { fsst_data, offsets } => {
-            StringsEncoding::FsstDictionary {
-                fsst_data: FsstData {
+        EncodedStringsEncoding::FsstDictionary { fsst_data, offsets } => {
+            RawStringsEncoding::FsstDictionary {
+                fsst_data: RawFsstData {
                     symbol_lengths: fsst_data.symbol_lengths.as_borrowed(),
                     symbol_table: fsst_data.symbol_table.as_borrowed(),
                     lengths: fsst_data.lengths.as_borrowed(),
@@ -132,41 +133,41 @@ fn borrow_enc_strings<'a>(
             }
         }
     };
-    EncodedStrings {
+    RawStrings {
         name,
-        presence: EncodedPresence(presence),
+        presence: RawPresence(presence),
         encoding,
     }
 }
 
-/// Borrow an [`OwnedEncodedSharedDict`] as [`EncodedSharedDict<'_>`] for decoding.
-fn borrow_owned_shared_dict(sd: &OwnedEncodedSharedDict) -> EncodedSharedDict<'_> {
+/// Borrow an [`EncodedSharedDict`] as [`RawSharedDict<'_>`] for decoding.
+fn borrow_owned_shared_dict(sd: &EncodedSharedDict) -> RawSharedDict<'_> {
     let encoding = match &sd.encoding {
-        OwnedSharedDictEncoding::Plain(d) => SharedDictEncoding::Plain(PlainData {
+        EncodedSharedDictEncoding::Plain(d) => RawSharedDictEncoding::Plain(RawPlainData {
             lengths: d.lengths.as_borrowed(),
             data: d.data.as_borrowed(),
         }),
-        OwnedSharedDictEncoding::FsstPlain(d) => SharedDictEncoding::FsstPlain(
-            FsstData::new(
+        EncodedSharedDictEncoding::FsstPlain(d) => RawSharedDictEncoding::FsstPlain(
+            RawFsstData::new(
                 d.symbol_lengths.as_borrowed(),
                 d.symbol_table.as_borrowed(),
                 d.lengths.as_borrowed(),
                 d.corpus.as_borrowed(),
             )
-            .expect("FsstData::new failed"),
+            .expect("RawFsstData::new failed"),
         ),
     };
     let children = sd
         .children
         .iter()
-        .map(|c| EncodedSharedDictChild {
-            name: NameRef(&c.name.0),
-            presence: EncodedPresence(c.presence.0.as_ref().map(|s| s.as_borrowed())),
+        .map(|c| RawSharedDictChild {
+            name: RawName(&c.name.0),
+            presence: RawPresence(c.presence.0.as_ref().map(|s| s.as_borrowed())),
             data: c.data.as_borrowed(),
         })
         .collect();
-    EncodedSharedDict {
-        name: NameRef(&sd.name.0),
+    RawSharedDict {
+        name: RawName(&sd.name.0),
         encoding,
         children,
     }
@@ -191,7 +192,7 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
                     |b, encoded| {
                         b.iter(|| {
                             black_box(
-                                borrow_enc_strings(encoded, NameRef(""), None)
+                                borrow_enc_strings(encoded, RawName(""), None)
                                     .into_decoded()
                                     .unwrap(),
                             )
@@ -224,7 +225,7 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
                     |b, encoded| {
                         b.iter(|| {
                             black_box(
-                                borrow_enc_strings(encoded, NameRef(""), None)
+                                borrow_enc_strings(encoded, RawName(""), None)
                                     .into_decoded()
                                     .unwrap(),
                             )
@@ -251,7 +252,7 @@ fn bench_encoding_type(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("plain", n), &plain, |b, encoded| {
             b.iter(|| {
                 black_box(
-                    borrow_enc_strings(encoded, NameRef(""), None)
+                    borrow_enc_strings(encoded, RawName(""), None)
                         .into_decoded()
                         .unwrap(),
                 )
@@ -262,7 +263,7 @@ fn bench_encoding_type(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("fsst", n), &fsst, |b, encoded| {
             b.iter(|| {
                 black_box(
-                    borrow_enc_strings(encoded, NameRef(""), None)
+                    borrow_enc_strings(encoded, RawName(""), None)
                         .into_decoded()
                         .unwrap(),
                 )
@@ -291,7 +292,7 @@ fn bench_presence(c: &mut Criterion) {
             |b, encoded| {
                 b.iter(|| {
                     black_box(
-                        borrow_enc_strings(encoded, NameRef(""), None)
+                        borrow_enc_strings(encoded, RawName(""), None)
                             .into_decoded()
                             .unwrap(),
                     )
@@ -300,10 +301,10 @@ fn bench_presence(c: &mut Criterion) {
         );
 
         // Nullable: attach a presence bitmap and only encode the non-null values.
-        let nullable: DecodedStrings = make_nullable_strings(n).into();
+        let nullable: ParsedStrings = make_nullable_strings(n).into();
         let presence_bools = nullable.presence_bools();
         let presence_stream =
-            OwnedStream::encode_presence(&presence_bools).expect("encode_presence failed");
+            EncodedStream::encode_presence(&presence_bools).expect("encode_presence failed");
         let dense = nullable.dense_values();
         let enc_values = encode_plain(&dense, int_enc);
 
@@ -315,7 +316,7 @@ fn bench_presence(c: &mut Criterion) {
                 b.iter(|| {
                     let p = pres.as_borrowed();
                     black_box(
-                        borrow_enc_strings(enc, NameRef(""), Some(p))
+                        borrow_enc_strings(enc, RawName(""), Some(p))
                             .into_decoded()
                             .unwrap(),
                     )
@@ -349,12 +350,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("plain_x2", n), &enc_plain, |b, encoded| {
             b.iter(|| {
                 black_box(
-                    borrow_enc_strings(encoded, NameRef(""), None)
+                    borrow_enc_strings(encoded, RawName(""), None)
                         .into_decoded()
                         .unwrap(),
                 );
                 black_box(
-                    borrow_enc_strings(encoded, NameRef(""), None)
+                    borrow_enc_strings(encoded, RawName(""), None)
                         .into_decoded()
                         .unwrap(),
                 );
@@ -365,12 +366,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         //
         // Build a decoded shared dict from two sub-properties; the second child
         // has every 3rd entry as NULL so the child presence path is exercised.
-        let child1: DecodedStrings = strings
+        let child1: ParsedStrings = strings
             .iter()
             .map(|s| Some(s.clone()))
             .collect::<Vec<_>>()
             .into();
-        let child2: DecodedStrings = strings
+        let child2: ParsedStrings = strings
             .iter()
             .enumerate()
             .map(|(i, s)| if i % 3 == 0 { None } else { Some(s.clone()) })
@@ -396,7 +397,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         };
         let encoded_prop_plain = encode_shared_dict_prop(&decoded_shared, &encoder_plain)
             .expect("encode_shared_dict_prop failed");
-        let OwnedEncodedProperty::SharedDict(ref sd_plain) = encoded_prop_plain else {
+        let EncodedProperty::SharedDict(ref sd_plain) = encoded_prop_plain else {
             panic!("expected SharedDict property");
         };
 
@@ -406,7 +407,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             |b, sd| {
                 b.iter_batched(
                     || borrow_owned_shared_dict(sd),
-                    |sd_ref| black_box(sd_ref.into_decoded().unwrap()),
+                    |sd_ref: RawSharedDict<'_>| black_box(sd_ref.into_decoded().unwrap()),
                     BatchSize::SmallInput,
                 );
             },
@@ -423,14 +424,14 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         };
         let encoded_prop_fsst = encode_shared_dict_prop(&decoded_shared, &encoder_fsst)
             .expect("encode_shared_dict_prop (fsst) failed");
-        let OwnedEncodedProperty::SharedDict(ref sd_fsst) = encoded_prop_fsst else {
+        let EncodedProperty::SharedDict(ref sd_fsst) = encoded_prop_fsst else {
             panic!("expected SharedDict property");
         };
 
         group.bench_with_input(BenchmarkId::new("shared_dict_fsst", n), sd_fsst, |b, sd| {
             b.iter_batched(
                 || borrow_owned_shared_dict(sd),
-                |sd_ref| black_box(sd_ref.into_decoded().unwrap()),
+                |sd_ref: RawSharedDict<'_>| black_box(sd_ref.into_decoded().unwrap()),
                 BatchSize::SmallInput,
             );
         });
@@ -440,12 +441,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("fsst_x2", n), &enc_fsst, |b, encoded| {
             b.iter(|| {
                 black_box(
-                    borrow_enc_strings(encoded, NameRef(""), None)
+                    borrow_enc_strings(encoded, RawName(""), None)
                         .into_decoded()
                         .unwrap(),
                 );
                 black_box(
-                    borrow_enc_strings(encoded, NameRef(""), None)
+                    borrow_enc_strings(encoded, RawName(""), None)
                         .into_decoded()
                         .unwrap(),
                 );

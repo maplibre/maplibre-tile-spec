@@ -2,9 +2,9 @@ use std::borrow::Cow;
 use std::fmt::{self, Debug};
 
 use crate::utils::FmtOptVec;
-use crate::v01::{DecodedProperty, DecodedScalar};
+use crate::v01::{ParsedProperty, ParsedScalar};
 
-impl Debug for DecodedProperty<'_> {
+impl Debug for ParsedProperty<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Bool(v) => f
@@ -66,20 +66,20 @@ impl Debug for DecodedProperty<'_> {
     }
 }
 
-impl<T: Copy + PartialEq> DecodedScalar<'_, T> {
+impl<T: Copy + PartialEq> ParsedScalar<'_, T> {
     #[must_use]
-    pub fn to_owned(&self) -> DecodedScalar<'static, T> {
-        DecodedScalar {
+    pub fn to_owned(&self) -> ParsedScalar<'static, T> {
+        ParsedScalar {
             name: Cow::Owned(self.name.as_ref().to_string()),
             values: self.values.clone(),
         }
     }
 }
 
-impl DecodedProperty<'_> {
+impl ParsedProperty<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> DecodedProperty<'static> {
-        use DecodedProperty as P;
+    pub fn to_owned(&self) -> ParsedProperty<'static> {
+        use ParsedProperty as P;
         match self {
             Self::Bool(v) => P::Bool(v.to_owned()),
             Self::I8(v) => P::I8(v.to_owned()),
@@ -97,8 +97,8 @@ impl DecodedProperty<'_> {
 }
 
 // for impl_decodable
-impl Default for DecodedProperty<'_> {
+impl Default for ParsedProperty<'_> {
     fn default() -> Self {
-        Self::Bool(DecodedScalar::new("", Vec::new()))
+        Self::Bool(ParsedScalar::new("", Vec::new()))
     }
 }

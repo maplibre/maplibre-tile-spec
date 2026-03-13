@@ -8,13 +8,13 @@ use crate::MltError::{
 };
 use crate::utils::AsUsize as _;
 use crate::v01::{
-    ColumnType, DecodedSharedDict, DecodedSharedDictItem, DecodedStrings, DictionaryType,
-    EncodedPresence, EncodedSharedDict, EncodedSharedDictChild, EncodedStrings, FsstData,
-    FsstStrEncoder, IntEncoder, LengthType, NameRef, OffsetType, OwnedEncodedProperty,
-    OwnedEncodedSharedDict, OwnedEncodedSharedDictChild, OwnedEncodedStrings, OwnedFsstData,
-    OwnedName, OwnedPlainData, OwnedSharedDictEncoding, OwnedStream, OwnedStringsEncoding,
-    PlainData, PresenceStream, PropertyEncoder, SharedDictEncoder, SharedDictEncoding, StrEncoder,
-    Stream, StreamType, StringsEncoding,
+    ColumnType, DictionaryType, EncodedFsstData, EncodedName, EncodedPlainData,
+    EncodedProperty, EncodedSharedDict, EncodedSharedDictChild, EncodedSharedDictEncoding,
+    EncodedStream, EncodedStrings, EncodedStringsEncoding, FsstStrEncoder, IntEncoder, LengthType,
+    OffsetType, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, PresenceStream,
+    PropertyEncoder, RawFsstData, RawName, RawPlainData, RawPresence, RawSharedDict,
+    RawSharedDictChild, RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding,
+    SharedDictEncoder, StrEncoder, StreamType,
 };
 use crate::{Analyze, DecodeInto, MltError, StatType};
 
@@ -32,19 +32,19 @@ impl StrEncoder {
     }
 }
 
-impl From<Vec<Option<String>>> for DecodedStrings<'static> {
+impl From<Vec<Option<String>>> for ParsedStrings<'static> {
     fn from(values: Vec<Option<String>>) -> Self {
         Self::from_optional_strings(values)
     }
 }
 
-impl From<Vec<String>> for DecodedStrings<'static> {
+impl From<Vec<String>> for ParsedStrings<'static> {
     fn from(values: Vec<String>) -> Self {
         Self::from_optional_strings(values.into_iter().map(Some).collect())
     }
 }
 
-impl DecodedStrings<'static> {
+impl ParsedStrings<'static> {
     fn from_optional_strings(values: Vec<Option<String>>) -> Self {
         let mut lengths = Vec::with_capacity(values.len());
         let mut data = String::new();
@@ -68,10 +68,10 @@ impl DecodedStrings<'static> {
     }
 }
 
-impl DecodedStrings<'_> {
+impl ParsedStrings<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> DecodedStrings<'static> {
-        DecodedStrings {
+    pub fn to_owned(&self) -> ParsedStrings<'static> {
+        ParsedStrings {
             name: Cow::Owned(self.name.as_ref().to_string()),
             lengths: self.lengths.clone(),
             data: Cow::Owned(self.data.as_ref().to_string()),
@@ -80,22 +80,22 @@ impl DecodedStrings<'_> {
 }
 
 #[cfg(all(not(test), feature = "arbitrary"))]
-impl<'a> arbitrary::Arbitrary<'a> for DecodedStrings<'static> {
+impl<'a> arbitrary::Arbitrary<'a> for ParsedStrings<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self::from(u.arbitrary::<Vec<Option<String>>>()?))
     }
 }
 
-impl DecodedSharedDict<'_> {
+impl ParsedSharedDict<'_> {
     #[must_use]
-    pub fn to_owned(&self) -> DecodedSharedDict<'static> {
-        DecodedSharedDict {
+    pub fn to_owned(&self) -> ParsedSharedDict<'static> {
+        ParsedSharedDict {
             prefix: Cow::Owned(self.prefix.as_ref().to_string()),
             data: Cow::Owned(self.data.as_ref().to_string()),
             items: self
                 .items
                 .iter()
-                .map(|item| DecodedSharedDictItem {
+                .map(|item| ParsedSharedDictItem {
                     suffix: Cow::Owned(item.suffix.as_ref().to_string()),
                     ranges: item.ranges.clone(),
                 })
@@ -105,7 +105,7 @@ impl DecodedSharedDict<'_> {
 }
 
 #[cfg(all(not(test), feature = "arbitrary"))]
-impl<'a> arbitrary::Arbitrary<'a> for DecodedSharedDict<'static> {
+impl<'a> arbitrary::Arbitrary<'a> for ParsedSharedDict<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let prefix = Cow::Owned(u.arbitrary()?);
         let mut data = String::new();
@@ -115,7 +115,7 @@ impl<'a> arbitrary::Arbitrary<'a> for DecodedSharedDict<'static> {
         let items: Vec<(String, Vec<(i32, i32)>)> = u.arbitrary()?;
         let items = items
             .into_iter()
-            .map(|(suffix, ranges)| DecodedSharedDictItem {
+            .map(|(suffix, ranges)| ParsedSharedDictItem {
                 suffix: Cow::Owned(suffix),
                 ranges,
             })
@@ -128,7 +128,7 @@ impl<'a> arbitrary::Arbitrary<'a> for DecodedSharedDict<'static> {
     }
 }
 
-impl DecodedStrings<'_> {
+impl ParsedStrings<'_> {
     #[must_use]
     pub fn feature_count(&self) -> usize {
         self.lengths.len()
@@ -191,7 +191,7 @@ impl DecodedStrings<'_> {
     }
 }
 
-impl Analyze for DecodedStrings<'_> {
+impl Analyze for ParsedStrings<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         let meta = if stat == StatType::DecodedMetaSize {
             self.name.len()
@@ -281,7 +281,7 @@ fn dict_span_str(dict_data: &str, span: (u32, u32)) -> Result<&str, MltError> {
     Ok(str::from_utf8(value)?)
 }
 
-impl DecodedSharedDict<'_> {
+impl ParsedSharedDict<'_> {
     #[must_use]
     pub fn corpus(&self) -> &str {
         &self.data
@@ -295,17 +295,17 @@ impl DecodedSharedDict<'_> {
     }
 }
 
-pub(crate) fn collect_shared_dict_spans(items: &[DecodedSharedDictItem]) -> Vec<(u32, u32)> {
+pub(crate) fn collect_shared_dict_spans(items: &[ParsedSharedDictItem]) -> Vec<(u32, u32)> {
     let mut spans = items
         .iter()
-        .flat_map(DecodedSharedDictItem::dense_spans)
+        .flat_map(ParsedSharedDictItem::dense_spans)
         .collect::<Vec<_>>();
     spans.sort_unstable();
     spans.dedup();
     spans
 }
 
-impl DecodedSharedDictItem<'_> {
+impl ParsedSharedDictItem<'_> {
     #[must_use]
     pub fn feature_count(&self) -> usize {
         self.ranges.len()
@@ -335,7 +335,7 @@ impl DecodedSharedDictItem<'_> {
     }
 
     #[must_use]
-    pub fn materialize(&self, shared_dict: &DecodedSharedDict<'_>) -> Vec<Option<String>> {
+    pub fn materialize(&self, shared_dict: &ParsedSharedDict<'_>) -> Vec<Option<String>> {
         self.ranges
             .iter()
             .map(|&range| {
@@ -347,7 +347,7 @@ impl DecodedSharedDictItem<'_> {
     }
 
     #[must_use]
-    pub fn get<'a>(&self, shared_dict: &'a DecodedSharedDict<'_>, i: usize) -> Option<&'a str> {
+    pub fn get<'a>(&self, shared_dict: &'a ParsedSharedDict<'_>, i: usize) -> Option<&'a str> {
         self.ranges
             .get(i)
             .copied()
@@ -369,8 +369,8 @@ macro_rules! validate_stream {
     };
 }
 
-impl<'a> PlainData<'a> {
-    pub fn new(lengths: Stream<'a>, data: Stream<'a>) -> Result<Self, MltError> {
+impl<'a> RawPlainData<'a> {
+    pub fn new(lengths: RawStream<'a>, data: RawStream<'a>) -> Result<Self, MltError> {
         validate_stream!(
             lengths,
             StreamType::Length(LengthType::VarBinary | LengthType::Dictionary)
@@ -392,13 +392,13 @@ impl<'a> PlainData<'a> {
     }
 
     #[must_use]
-    pub fn streams(&self) -> Vec<&Stream<'_>> {
+    pub fn streams(&self) -> Vec<&RawStream<'_>> {
         vec![&self.lengths, &self.data]
     }
 }
 
-impl OwnedPlainData {
-    pub fn new(lengths: OwnedStream, data: OwnedStream) -> Result<Self, MltError> {
+impl EncodedPlainData {
+    pub fn new(lengths: EncodedStream, data: EncodedStream) -> Result<Self, MltError> {
         validate_stream!(
             lengths,
             StreamType::Length(LengthType::VarBinary | LengthType::Dictionary)
@@ -413,17 +413,17 @@ impl OwnedPlainData {
     }
 
     #[must_use]
-    pub fn streams(&self) -> Vec<&OwnedStream> {
+    pub fn streams(&self) -> Vec<&EncodedStream> {
         vec![&self.lengths, &self.data]
     }
 }
 
-impl<'a> FsstData<'a> {
+impl<'a> RawFsstData<'a> {
     pub fn new(
-        symbol_lengths: Stream<'a>,
-        symbol_table: Stream<'a>,
-        lengths: Stream<'a>,
-        corpus: Stream<'a>,
+        symbol_lengths: RawStream<'a>,
+        symbol_table: RawStream<'a>,
+        lengths: RawStream<'a>,
+        corpus: RawStream<'a>,
     ) -> Result<Self, MltError> {
         validate_stream!(symbol_lengths, StreamType::Length(LengthType::Symbol));
         validate_stream!(symbol_table, StreamType::Data(DictionaryType::Fsst));
@@ -452,7 +452,7 @@ impl<'a> FsstData<'a> {
     }
 
     #[must_use]
-    pub fn streams(&self) -> Vec<&Stream<'_>> {
+    pub fn streams(&self) -> Vec<&RawStream<'_>> {
         vec![
             &self.symbol_lengths,
             &self.symbol_table,
@@ -462,9 +462,9 @@ impl<'a> FsstData<'a> {
     }
 }
 
-impl OwnedFsstData {
+impl EncodedFsstData {
     #[must_use]
-    pub fn streams(&self) -> Vec<&OwnedStream> {
+    pub fn streams(&self) -> Vec<&EncodedStream> {
         vec![
             &self.symbol_lengths,
             &self.symbol_table,
@@ -474,13 +474,13 @@ impl OwnedFsstData {
     }
 }
 
-impl<'a> StringsEncoding<'a> {
+impl<'a> RawStringsEncoding<'a> {
     #[must_use]
-    pub fn plain(plain_data: PlainData<'a>) -> Self {
+    pub fn plain(plain_data: RawPlainData<'a>) -> Self {
         Self::Plain(plain_data)
     }
 
-    pub fn dictionary(plain_data: PlainData<'a>, offsets: Stream<'a>) -> Result<Self, MltError> {
+    pub fn dictionary(plain_data: RawPlainData<'a>, offsets: RawStream<'a>) -> Result<Self, MltError> {
         validate_stream!(offsets, StreamType::Offset(OffsetType::String));
         Ok(Self::Dictionary {
             plain_data,
@@ -489,18 +489,18 @@ impl<'a> StringsEncoding<'a> {
     }
 
     #[must_use]
-    pub fn fsst_plain(fsst_data: FsstData<'a>) -> Self {
+    pub fn fsst_plain(fsst_data: RawFsstData<'a>) -> Self {
         Self::FsstPlain(fsst_data)
     }
 
-    pub fn fsst_dictionary(fsst_data: FsstData<'a>, offsets: Stream<'a>) -> Result<Self, MltError> {
+    pub fn fsst_dictionary(fsst_data: RawFsstData<'a>, offsets: RawStream<'a>) -> Result<Self, MltError> {
         validate_stream!(offsets, StreamType::Offset(OffsetType::String));
         Ok(Self::FsstDictionary { fsst_data, offsets })
     }
 
     /// Content streams in wire order.
     #[must_use]
-    pub fn streams(&self) -> Vec<&Stream<'_>> {
+    pub fn streams(&self) -> Vec<&RawStream<'_>> {
         match self {
             Self::Plain(plain_data) => plain_data.streams(),
             Self::Dictionary {
@@ -521,10 +521,10 @@ impl<'a> StringsEncoding<'a> {
     }
 }
 
-impl OwnedStringsEncoding {
+impl EncodedStringsEncoding {
     /// Content streams only.
     #[must_use]
-    pub fn content_streams(&self) -> Vec<&OwnedStream> {
+    pub fn content_streams(&self) -> Vec<&EncodedStream> {
         match self {
             Self::Plain(plain_data) => plain_data.streams(),
             Self::Dictionary {
@@ -546,43 +546,43 @@ impl OwnedStringsEncoding {
 
     /// Streams in wire order.
     #[must_use]
-    pub fn streams(&self) -> Vec<&OwnedStream> {
+    pub fn streams(&self) -> Vec<&EncodedStream> {
         self.content_streams()
     }
 }
 
-impl EncodedStrings<'_> {
+impl RawStrings<'_> {
     /// Content streams in wire order.
     #[must_use]
-    pub fn streams(&self) -> Vec<&Stream<'_>> {
+    pub fn streams(&self) -> Vec<&RawStream<'_>> {
         self.encoding.streams()
     }
 }
 
-impl OwnedEncodedStrings {
+impl EncodedStrings {
     /// Streams in wire order.
     #[must_use]
-    pub fn streams(&self) -> Vec<&OwnedStream> {
+    pub fn streams(&self) -> Vec<&EncodedStream> {
         self.encoding.streams()
     }
 }
 
-impl<'a> SharedDictEncoding<'a> {
+impl<'a> RawSharedDictEncoding<'a> {
     /// Plain shared dict (2 streams): lengths + data.
     #[must_use]
-    pub fn plain(plain_data: PlainData<'a>) -> Self {
+    pub fn plain(plain_data: RawPlainData<'a>) -> Self {
         Self::Plain(plain_data)
     }
 
     /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
     #[must_use]
-    pub fn fsst_plain(fsst_data: FsstData<'a>) -> Self {
+    pub fn fsst_plain(fsst_data: RawFsstData<'a>) -> Self {
         Self::FsstPlain(fsst_data)
     }
 
     /// Dict streams in wire order (for serialization).
     #[must_use]
-    pub fn dict_streams(&self) -> Vec<&Stream<'_>> {
+    pub fn dict_streams(&self) -> Vec<&RawStream<'_>> {
         match self {
             Self::Plain(plain_data) => plain_data.streams(),
             Self::FsstPlain(fsst_data) => fsst_data.streams(),
@@ -590,9 +590,9 @@ impl<'a> SharedDictEncoding<'a> {
     }
 }
 
-impl OwnedSharedDictEncoding {
+impl EncodedSharedDictEncoding {
     #[must_use]
-    pub fn dict_streams(&self) -> Vec<&OwnedStream> {
+    pub fn dict_streams(&self) -> Vec<&EncodedStream> {
         match self {
             Self::Plain(plain_data) => plain_data.streams(),
             Self::FsstPlain(fsst_data) => fsst_data.streams(),
@@ -600,26 +600,26 @@ impl OwnedSharedDictEncoding {
     }
 }
 
-impl EncodedSharedDict<'_> {
+impl RawSharedDict<'_> {
     /// Dict streams in wire order (for serialization).
     #[must_use]
-    pub fn dict_streams(&self) -> Vec<&Stream<'_>> {
+    pub fn dict_streams(&self) -> Vec<&RawStream<'_>> {
         self.encoding.dict_streams()
     }
 }
 
-impl OwnedEncodedSharedDict {
+impl EncodedSharedDict {
     #[must_use]
-    pub fn dict_streams(&self) -> Vec<&OwnedStream> {
+    pub fn dict_streams(&self) -> Vec<&EncodedStream> {
         self.encoding.dict_streams()
     }
 }
 
-/// Encode a shared dictionary property directly from `DecodedProperty::SharedDict` and `SharedDictEncoder`.
+/// Encode a shared dictionary property directly from `ParsedProperty::SharedDict` and `SharedDictEncoder`.
 pub fn encode_shared_dict_prop(
-    shared_dict: &DecodedSharedDict<'_>,
+    shared_dict: &ParsedSharedDict<'_>,
     encoder: &SharedDictEncoder,
-) -> Result<OwnedEncodedProperty, MltError> {
+) -> Result<EncodedProperty, MltError> {
     if shared_dict.items.len() != encoder.items.len() {
         return Err(NotImplemented(
             "SharedDict items count must match encoder items count",
@@ -638,14 +638,14 @@ pub fn encode_shared_dict_prop(
     let dict_index: HashMap<(u32, u32), u32> = dict_spans.iter().copied().zip(0_u32..).collect();
 
     let dict_encoded = match encoder.dict_encoder {
-        StrEncoder::Plain { string_lengths } => OwnedStream::encode_strings_with_type(
+        StrEncoder::Plain { string_lengths } => EncodedStream::encode_strings_with_type(
             &dict,
             string_lengths,
             LengthType::Dictionary,
             DictionaryType::Shared,
         )?,
         StrEncoder::Fsst(enc) => {
-            OwnedStream::encode_strings_fsst_plain_with_type(&dict, enc, DictionaryType::Single)?
+            EncodedStream::encode_strings_fsst_plain_with_type(&dict, enc, DictionaryType::Single)?
         }
     };
 
@@ -655,7 +655,7 @@ pub fn encode_shared_dict_prop(
         // Presence stream
         let presence = if item_enc.presence == PresenceStream::Present {
             let present_bools = item.presence_bools();
-            Some(OwnedStream::encode_presence(&present_bools)?)
+            Some(EncodedStream::encode_presence(&present_bools)?)
         } else {
             None
         };
@@ -672,31 +672,31 @@ pub fn encode_shared_dict_prop(
             })
             .collect::<Result<_, _>>()?;
 
-        let data = OwnedStream::encode_u32s_of_type(
+        let data = EncodedStream::encode_u32s_of_type(
             &offsets,
             item_enc.offsets,
             StreamType::Offset(OffsetType::String),
         )?;
 
-        children.push(OwnedEncodedSharedDictChild {
-            name: OwnedName(item.suffix.to_string()),
-            presence: crate::v01::OwnedEncodedPresence(presence),
+        children.push(EncodedSharedDictChild {
+            name: EncodedName(item.suffix.to_string()),
+            presence: crate::v01::EncodedPresence(presence),
             data,
         });
     }
 
     let encoding = match dict_encoded {
-        OwnedStringsEncoding::Plain(plain_data) => OwnedSharedDictEncoding::Plain(plain_data),
-        OwnedStringsEncoding::FsstPlain(fsst_data) => OwnedSharedDictEncoding::FsstPlain(fsst_data),
-        OwnedStringsEncoding::Dictionary { .. } | OwnedStringsEncoding::FsstDictionary { .. } => {
+        EncodedStringsEncoding::Plain(plain_data) => EncodedSharedDictEncoding::Plain(plain_data),
+        EncodedStringsEncoding::FsstPlain(fsst_data) => EncodedSharedDictEncoding::FsstPlain(fsst_data),
+        EncodedStringsEncoding::Dictionary { .. } | EncodedStringsEncoding::FsstDictionary { .. } => {
             return Err(NotImplemented(
                 "SharedDict only supports Plain or FsstPlain encoding",
             ));
         }
     };
 
-    Ok(OwnedEncodedProperty::SharedDict(OwnedEncodedSharedDict {
-        name: OwnedName(shared_dict.prefix.as_ref().to_string()),
+    Ok(EncodedProperty::SharedDict(EncodedSharedDict {
+        name: EncodedName(shared_dict.prefix.as_ref().to_string()),
         encoding,
         children,
     }))
@@ -704,8 +704,8 @@ pub fn encode_shared_dict_prop(
 
 pub fn build_decoded_shared_dict(
     prefix: impl Into<Cow<'static, str>>,
-    items: impl IntoIterator<Item = (String, DecodedStrings<'static>)>,
-) -> Result<DecodedSharedDict<'static>, MltError> {
+    items: impl IntoIterator<Item = (String, ParsedStrings<'static>)>,
+) -> Result<ParsedSharedDict<'static>, MltError> {
     let prefix = prefix.into();
     let items = items.into_iter().collect::<Vec<_>>();
     let mut dict_entries = Vec::<String>::new();
@@ -734,7 +734,7 @@ pub fn build_decoded_shared_dict(
     let items = items
         .into_iter()
         .map(
-            |(suffix, values)| -> Result<DecodedSharedDictItem, MltError> {
+            |(suffix, values)| -> Result<ParsedSharedDictItem, MltError> {
                 let mut ranges = Vec::with_capacity(values.feature_count());
                 for i in 0..u32::try_from(values.feature_count())? {
                     if let Some(value) = values.get(i) {
@@ -748,7 +748,7 @@ pub fn build_decoded_shared_dict(
                         ranges.push((-1, -1));
                     }
                 }
-                Ok(DecodedSharedDictItem {
+                Ok(ParsedSharedDictItem {
                     suffix: suffix.into(),
                     ranges,
                 })
@@ -756,14 +756,14 @@ pub fn build_decoded_shared_dict(
         )
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(DecodedSharedDict {
+    Ok(ParsedSharedDict {
         prefix,
         data: data.into(),
         items,
     })
 }
 
-impl OwnedEncodedSharedDictChild {
+impl EncodedSharedDictChild {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         let typ = if self.presence.0.is_some() {
             ColumnType::OptStr
@@ -775,12 +775,12 @@ impl OwnedEncodedSharedDictChild {
     }
 }
 
-impl<'a> EncodedStrings<'a> {
+impl<'a> RawStrings<'a> {
     #[must_use]
     pub fn new(
-        name: NameRef<'a>,
-        presence: EncodedPresence<'a>,
-        encoding: StringsEncoding<'a>,
+        name: RawName<'a>,
+        presence: RawPresence<'a>,
+        encoding: RawStringsEncoding<'a>,
     ) -> Self {
         Self {
             name,
@@ -790,7 +790,7 @@ impl<'a> EncodedStrings<'a> {
     }
 
     /// Decode string property from its encoded column.
-    pub fn into_decoded(self) -> Result<DecodedStrings<'a>, MltError> {
+    pub fn into_decoded(self) -> Result<ParsedStrings<'a>, MltError> {
         let name = self.name;
         let presence = self
             .presence
@@ -798,15 +798,15 @@ impl<'a> EncodedStrings<'a> {
             .map(DecodeInto::<Vec<bool>>::decode_into)
             .transpose()?;
         match self.encoding {
-            StringsEncoding::Plain(plain_data) => {
+            RawStringsEncoding::Plain(plain_data) => {
                 let (data, lengths) = plain_data.decode()?;
-                Ok(DecodedStrings {
+                Ok(ParsedStrings {
                     name: name.into(),
                     lengths: to_absolute_lengths(&lengths, presence.as_deref())?,
                     data: data.into(),
                 })
             }
-            StringsEncoding::Dictionary {
+            RawStringsEncoding::Dictionary {
                 plain_data,
                 offsets,
             } => {
@@ -814,15 +814,15 @@ impl<'a> EncodedStrings<'a> {
                 let offsets: Vec<u32> = offsets.decode_into()?;
                 decode_dictionary_strings(&name, &lengths, &offsets, presence.as_deref(), data)
             }
-            StringsEncoding::FsstPlain(fsst_data) => {
+            RawStringsEncoding::FsstPlain(fsst_data) => {
                 let (data, dict_lens) = fsst_data.decode()?;
-                Ok(DecodedStrings {
+                Ok(ParsedStrings {
                     name: name.into(),
                     lengths: to_absolute_lengths(&dict_lens, presence.as_deref())?,
                     data: data.into(),
                 })
             }
-            StringsEncoding::FsstDictionary { fsst_data, offsets } => {
+            RawStringsEncoding::FsstDictionary { fsst_data, offsets } => {
                 let (data, lengths) = fsst_data.decode()?;
                 let offsets: Vec<u32> = offsets.decode_into()?;
                 decode_dictionary_strings(&name, &lengths, &offsets, presence.as_deref(), &data)
@@ -864,12 +864,12 @@ fn to_absolute_lengths(lengths: &[u32], presence: Option<&[bool]>) -> Result<Vec
 }
 
 fn decode_dictionary_strings<'a>(
-    name: &NameRef<'a>,
+    name: &RawName<'a>,
     dict_lengths: &[u32],
     offsets: &[u32],
     presence: Option<&[bool]>,
     dict_data: &str,
-) -> Result<DecodedStrings<'a>, MltError> {
+) -> Result<ParsedStrings<'a>, MltError> {
     let dict_spans = shared_dict_spans(dict_lengths);
     let resolved_spans = resolve_dict_spans(offsets, presence, &dict_spans)?;
     let mut lengths = Vec::with_capacity(resolved_spans.len());
@@ -885,7 +885,7 @@ fn decode_dictionary_strings<'a>(
             lengths.push(encode_null_end(end));
         }
     }
-    Ok(DecodedStrings {
+    Ok(ParsedStrings {
         name: name.into(),
         lengths,
         data: Cow::Owned(data),
@@ -939,12 +939,12 @@ fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec
     output
 }
 
-impl<'a> EncodedSharedDict<'a> {
+impl<'a> RawSharedDict<'a> {
     #[must_use]
     pub fn new(
-        name: NameRef<'a>,
-        encoding: SharedDictEncoding<'a>,
-        children: Vec<EncodedSharedDictChild<'a>>,
+        name: RawName<'a>,
+        encoding: RawSharedDictEncoding<'a>,
+        children: Vec<RawSharedDictChild<'a>>,
     ) -> Self {
         Self {
             name,
@@ -954,15 +954,15 @@ impl<'a> EncodedSharedDict<'a> {
     }
 
     /// Decode a shared-dictionary column into its decoded form.
-    pub fn into_decoded(self) -> Result<DecodedSharedDict<'a>, MltError> {
+    pub fn into_decoded(self) -> Result<ParsedSharedDict<'a>, MltError> {
         let prefix = Cow::Borrowed(self.name.0);
         let (data, dict_spans) = match self.encoding {
-            SharedDictEncoding::Plain(plain_data) => {
+            RawSharedDictEncoding::Plain(plain_data) => {
                 let (decoded, lengths) = plain_data.decode()?;
                 let dict_spans = shared_dict_spans(&lengths);
                 (Cow::Borrowed(decoded), dict_spans)
             }
-            SharedDictEncoding::FsstPlain(fsst_data) => {
+            RawSharedDictEncoding::FsstPlain(fsst_data) => {
                 let (decoded, lengths) = fsst_data.decode()?;
                 let dict_spans = shared_dict_spans(&lengths);
                 (decoded.into(), dict_spans)
@@ -971,7 +971,7 @@ impl<'a> EncodedSharedDict<'a> {
         let items = self
             .children
             .into_iter()
-            .map(|child| -> Result<DecodedSharedDictItem, MltError> {
+            .map(|child| -> Result<ParsedSharedDictItem, MltError> {
                 let offsets: Vec<u32> = child.data.decode_into()?;
                 let presence = child
                     .presence
@@ -985,14 +985,14 @@ impl<'a> EncodedSharedDict<'a> {
                         None => Ok((-1, -1)),
                     })
                     .collect::<Result<Vec<_>, _>>()?;
-                Ok(DecodedSharedDictItem {
+                Ok(ParsedSharedDictItem {
                     suffix: Cow::Borrowed(child.name.0),
                     ranges,
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(DecodedSharedDict {
+        Ok(ParsedSharedDict {
             prefix,
             data,
             items,
@@ -1000,14 +1000,14 @@ impl<'a> EncodedSharedDict<'a> {
     }
 }
 
-impl<'a> From<NameRef<'a>> for Cow<'a, str> {
-    fn from(value: NameRef<'a>) -> Self {
+impl<'a> From<RawName<'a>> for Cow<'a, str> {
+    fn from(value: RawName<'a>) -> Self {
         Cow::Borrowed(value.0)
     }
 }
 
-impl<'a> From<&NameRef<'a>> for Cow<'a, str> {
-    fn from(value: &NameRef<'a>) -> Self {
+impl<'a> From<&RawName<'a>> for Cow<'a, str> {
+    fn from(value: &RawName<'a>) -> Self {
         Cow::Borrowed(value.0)
     }
 }

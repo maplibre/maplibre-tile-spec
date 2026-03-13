@@ -1,7 +1,7 @@
 use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::v01::{
-    DataProfile, DecodedId, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, OwnedEncodedId,
-    OwnedId, PhysicalEncoder,
+    DataProfile, EncodedId, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, ParsedId,
+    StagedId, PhysicalEncoder,
 };
 use crate::{FromDecoded as _, MltError};
 
@@ -34,7 +34,7 @@ impl IdProfile {
 
     /// Build a profile from a sample of decoded IDs.
     #[must_use]
-    pub fn from_sample(decoded: &DecodedId) -> Self {
+    pub fn from_sample(decoded: &ParsedId) -> Self {
         let ids = &decoded.0;
         let Ok((_, _, id_width)) = single_pass_statistics(ids) else {
             return Self {
@@ -64,7 +64,7 @@ impl IdProfile {
 ///
 /// Fast paths (short sequences, sequential, constant) are checked first.
 /// Otherwise, the full pruning + competition pipeline runs.
-fn optimize(decoded: &DecodedId) -> IdEncoder {
+fn optimize(decoded: &ParsedId) -> IdEncoder {
     let ids = &decoded.0;
     let (is_sequential, is_constant, id_width) = match single_pass_statistics(ids) {
         Ok(stats) => stats,
@@ -93,7 +93,7 @@ fn optimize(decoded: &DecodedId) -> IdEncoder {
 /// The same fast paths as [`optimize`] are applied first. For the general case,
 /// competition is run over the profile's pre-computed candidate list rather
 /// than re-running the full pruning analysis.
-fn apply_profile(decoded: &DecodedId, profile: &IdProfile) -> IdEncoder {
+fn apply_profile(decoded: &ParsedId, profile: &IdProfile) -> IdEncoder {
     let ids = &decoded.0;
     let (is_sequential, is_constant, id_width) = match single_pass_statistics(ids) {
         Ok(stats) => stats,
@@ -237,20 +237,20 @@ fn filter_varint(candidates: &[IntEncoder]) -> Vec<IntEncoder> {
     }
 }
 
-impl ManualOptimisation for OwnedId {
+impl ManualOptimisation for StagedId {
     type UsedEncoder = IdEncoder;
 
     fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        let owned = std::mem::replace(self, OwnedId::Decoded(DecodedId::default()));
-        let dec = DecodedId::try_from(owned)?;
+        let owned = std::mem::replace(self, StagedId::Decoded(ParsedId::default()));
+        let dec = ParsedId::try_from(owned)?;
         if !dec.0.is_empty() {
-            *self = OwnedId::Encoded(OwnedEncodedId::from_decoded(&dec, encoder)?);
+            *self = StagedId::Encoded(EncodedId::from_decoded(&dec, encoder)?);
         }
         Ok(())
     }
 }
 
-impl ProfileOptimisation for OwnedId {
+impl ProfileOptimisation for StagedId {
     type UsedEncoder = Option<IdEncoder>;
     type Profile = IdProfile;
 
@@ -259,39 +259,39 @@ impl ProfileOptimisation for OwnedId {
         profile: &Self::Profile,
     ) -> Result<Self::UsedEncoder, MltError> {
         match self {
-            OwnedId::Decoded(dec) => {
+            StagedId::Decoded(dec) => {
                 let enc = apply_profile(dec, profile);
-                *self = OwnedId::Encoded(OwnedEncodedId::from_decoded(dec, enc)?);
+                *self = StagedId::Encoded(EncodedId::from_decoded(dec, enc)?);
                 Ok(Some(enc))
             }
-            OwnedId::Encoded(_) => {
-                let enc = std::mem::replace(self, OwnedId::Decoded(DecodedId::default()));
-                let OwnedId::Encoded(e) = enc else {
+            StagedId::Encoded(_) => {
+                let enc = std::mem::replace(self, StagedId::Decoded(ParsedId::default()));
+                let StagedId::Encoded(e) = enc else {
                     unreachable!()
                 };
-                *self = OwnedId::Decoded(DecodedId::try_from(e)?);
+                *self = StagedId::Decoded(ParsedId::try_from(e)?);
                 self.profile_driven_optimisation(profile)
             }
         }
     }
 }
 
-impl AutomaticOptimisation for OwnedId {
+impl AutomaticOptimisation for StagedId {
     type UsedEncoder = Option<IdEncoder>;
 
     fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
         match self {
-            OwnedId::Decoded(dec) => {
+            StagedId::Decoded(dec) => {
                 let enc = optimize(dec);
-                *self = OwnedId::Encoded(OwnedEncodedId::from_decoded(dec, enc)?);
+                *self = StagedId::Encoded(EncodedId::from_decoded(dec, enc)?);
                 Ok(Some(enc))
             }
-            OwnedId::Encoded(_) => {
-                let enc = std::mem::replace(self, OwnedId::Decoded(DecodedId::default()));
-                let OwnedId::Encoded(e) = enc else {
+            StagedId::Encoded(_) => {
+                let enc = std::mem::replace(self, StagedId::Decoded(ParsedId::default()));
+                let StagedId::Encoded(e) = enc else {
                     unreachable!()
                 };
-                *self = OwnedId::Decoded(DecodedId::try_from(e)?);
+                *self = StagedId::Decoded(ParsedId::try_from(e)?);
                 self.automatic_encoding_optimisation()
             }
         }
