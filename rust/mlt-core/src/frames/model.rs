@@ -1,5 +1,5 @@
 use crate::frames::v01::Layer01;
-use crate::v01::{OwnedLayer01, Tag01Encoder, Tag01Profile};
+use crate::v01::{OwnedLayer01, SortStrategy, Tag01Encoder, Tag01Profile};
 
 /// A layer that can be one of the known types, or an unknown
 #[derive(Debug, PartialEq)]
@@ -40,8 +40,36 @@ pub enum LayerEncoder {
     Unknown,
 }
 
+impl LayerEncoder {
+    /// Return the active sort strategy, or [`None`] for unknown layers.
+    #[must_use]
+    pub fn sort_strategy(&self) -> Option<SortStrategy> {
+        match self {
+            LayerEncoder::Tag01(enc) => enc.sort_strategy,
+            LayerEncoder::Unknown => None,
+        }
+    }
+}
+
+/// Profile for a layer, built by running automatic optimisation over a
+/// representative sample of tiles and capturing the chosen encoders.
+///
+/// The [`SortStrategy`] stored inside the inner [`Tag01Profile`] is recorded
+/// so that profile-driven encoding can reproduce the same feature ordering on
+/// subsequent tiles.
 #[derive(Debug, Clone)]
 pub enum LayerProfile {
     Tag01(Tag01Profile),
     Unknown,
+}
+
+impl LayerProfile {
+    /// Return the active sort strategy, or [`None`] for unknown layers.
+    #[must_use]
+    pub fn sort_strategy(&self) -> Option<SortStrategy> {
+        match self {
+            LayerProfile::Tag01(p) => p.sort_strategy(),
+            LayerProfile::Unknown => None,
+        }
+    }
 }
