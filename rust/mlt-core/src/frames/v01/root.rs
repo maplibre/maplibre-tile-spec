@@ -529,7 +529,7 @@ pub enum LayerOrdering {
 #[cfg(all(fuzzing, feature = "arbitrary"))]
 impl arbitrary::Arbitrary<'_> for EncodedLayer01 {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        use crate::v01::{EncodedGeometry, EncodedId, EncodedProperty, StagedProperty};
+        use crate::v01::{EncodedGeometry, EncodedId, EncodedProperty};
 
         let name: String = u.arbitrary()?;
         let extent: u32 = u.arbitrary()?;
