@@ -528,11 +528,7 @@ export function getVectorType(
     return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
 }
 
-function isDeltaRleSequenceVarintWidth(
-    data: Uint8Array,
-    offset: IntWrapper,
-    varintWidth: "int32" | "int64",
-): boolean {
+function isDeltaRleSequenceVarintWidth(data: Uint8Array, offset: IntWrapper, varintWidth: "int32" | "int64"): boolean {
     const savedOffset = offset.get();
 
     if (varintWidth === "int64") {
