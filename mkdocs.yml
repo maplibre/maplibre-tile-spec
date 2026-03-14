@@ -1,7 +1,7 @@
-site_name: MapLibre Tile Specification
+site_name: MapLibre Tile (MLT) – Open Vector Tile Specification
 site_url: https://www.maplibre.org/maplibre-tile-spec
 repo_url: https://github.com/maplibre/maplibre-tile-spec
-site_description: MapLibre Tile Specification
+site_description: "Open-source vector tile specification: up to 6× better compression than MVT, fast SIMD decoding, 3D support, and complex property types for modern maps."
 edit_uri: edit/main/docs
 extra_css:
   - assets/extra.css
