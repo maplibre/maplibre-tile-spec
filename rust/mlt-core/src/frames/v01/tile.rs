@@ -198,9 +198,9 @@ fn extract_staged_values(prop: &StagedProperty, i: usize, out: &mut Vec<PropValu
 impl From<TileLayer01> for StagedLayer01 {
     fn from(source: TileLayer01) -> Self {
         // Rebuild geometry column
-        let mut geom = GeometryValues::default();
+        let mut geometry = GeometryValues::default();
         for f in &source.features {
-            geom.push_geom(&f.geometry);
+            geometry.push_geom(&f.geometry);
         }
 
         let id = if source.features.iter().any(|f| f.id.is_some()) {
@@ -216,7 +216,7 @@ impl From<TileLayer01> for StagedLayer01 {
             name: source.name,
             extent: source.extent,
             id,
-            geometry: geom,
+            geometry,
             properties,
         }
     }
