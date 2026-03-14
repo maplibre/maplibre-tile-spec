@@ -20,7 +20,6 @@ pub use decode::Decode;
 pub(crate) use decode::{Decodable, DecodeInto};
 pub use enc_dec::EncDec;
 pub use encode::Encodable;
-pub(crate) use encode::FromDecoded;
 pub use errors::{MltError, MltRefResult};
 pub use frames::{EncodedLayer, Layer, StagedLayer, unknown, v01};
 

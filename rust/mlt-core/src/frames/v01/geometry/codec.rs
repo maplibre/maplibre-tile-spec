@@ -1,26 +1,14 @@
 use crate::MltError::{self, NotImplemented};
 use crate::decode::{Decode, DecodeInto as _};
-use crate::encode::FromDecoded;
 use crate::utils::{AsUsize as _, SetOptionOnce as _};
 use crate::v01::geometry::decode::{
     decode_geometry_types, decode_level1_length_stream,
     decode_level1_without_ring_buffer_length_stream, decode_level2_length_stream,
     decode_root_length_stream,
 };
-use crate::v01::geometry::encode::encode_geometry;
 use crate::v01::{
-    DictionaryType, EncodedGeometry, GeometryEncoder, GeometryType, GeometryValues, LengthType,
-    OffsetType, RawGeometry, StreamType,
+    DictionaryType, GeometryType, GeometryValues, LengthType, OffsetType, RawGeometry, StreamType,
 };
-
-impl FromDecoded<'_> for EncodedGeometry {
-    type Input = GeometryValues;
-    type Encoder = GeometryEncoder;
-
-    fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
-        encode_geometry(decoded, &encoder, None)
-    }
-}
 
 impl<'a> Decode<RawGeometry<'a>> for GeometryValues {
     fn decode(RawGeometry { meta, items }: RawGeometry<'a>) -> Result<Self, MltError> {

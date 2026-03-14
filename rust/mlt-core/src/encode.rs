@@ -1,20 +1,3 @@
-use crate::MltError;
-
-/// Trait for types that can be created from decoded data.
-///
-/// This is a crate-internal implementation trait.  External code should use
-/// the higher-level [`ManualOptimisation`], [`AutomaticOptimisation`], or
-/// [`ProfileOptimisation`] APIs instead.
-///
-/// [`ManualOptimisation`]: crate::optimizer::ManualOptimisation
-/// [`AutomaticOptimisation`]: crate::optimizer::AutomaticOptimisation
-/// [`ProfileOptimisation`]: crate::optimizer::ProfileOptimisation
-pub(crate) trait FromDecoded<'a>: Sized {
-    type Input: 'a;
-    type Encoder;
-    fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError>;
-}
-
 /// Trait for column types that can exist in either decoded or encoded form.
 ///
 /// This trait is the public half of the encode/decode duality.  It provides

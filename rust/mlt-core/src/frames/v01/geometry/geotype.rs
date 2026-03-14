@@ -392,11 +392,9 @@ impl arbitrary::Arbitrary<'_> for GeometryValues {
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl arbitrary::Arbitrary<'_> for crate::v01::EncodedGeometry {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        use crate::encode::FromDecoded as _;
         let decoded = u.arbitrary()?;
         let enc = u.arbitrary()?;
-        let geom =
-            Self::from_decoded(&decoded, enc).map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        let geom = Self::encode(&decoded, enc).map_err(|_| arbitrary::Error::IncorrectFormat)?;
         Ok(geom)
     }
 }

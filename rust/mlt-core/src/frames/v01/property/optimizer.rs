@@ -18,7 +18,9 @@ use fsst::Compressor;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
+use crate::MltError;
 use crate::utils::encode_zigzag;
+use crate::v01::property::codec::encode_properties;
 use crate::v01::property::strings::{build_staged_shared_dict, collect_staged_shared_dict_spans};
 use crate::v01::property::{
     PresenceStream, PropertyEncoder, ScalarEncoder, StagedProperty, StagedSharedDict,
@@ -26,7 +28,6 @@ use crate::v01::property::{
 };
 use crate::v01::stream::IntEncoder;
 use crate::v01::{EncodedProperty, SharedDictEncoder, SharedDictItemEncoder, StrEncoder};
-use crate::{FromDecoded as _, MltError};
 
 /// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;
@@ -143,7 +144,7 @@ pub trait EncodeProperties: Sized {
 
 impl EncodeProperties for Vec<StagedProperty> {
     fn encode(self, encoder: Vec<PropertyEncoder>) -> Result<Vec<EncodedProperty>, MltError> {
-        Vec::<EncodedProperty>::from_decoded(&self, encoder)
+        encode_properties(&self, encoder)
     }
 
     fn encode_with_profile(
@@ -151,13 +152,13 @@ impl EncodeProperties for Vec<StagedProperty> {
         profile: &PropertyProfile,
     ) -> Result<(Vec<EncodedProperty>, Vec<PropertyEncoder>), MltError> {
         let enc = apply_profile(&mut self, profile);
-        let encoded = Vec::<EncodedProperty>::from_decoded(&self, enc.clone())?;
+        let encoded = encode_properties(&self, enc.clone())?;
         Ok((encoded, enc))
     }
 
     fn encode_auto(mut self) -> Result<(Vec<EncodedProperty>, Vec<PropertyEncoder>), MltError> {
         let enc = optimize(&mut self);
-        let encoded = Vec::<EncodedProperty>::from_decoded(&self, enc.clone())?;
+        let encoded = encode_properties(&self, enc.clone())?;
         Ok((encoded, enc))
     }
 }
