@@ -53,14 +53,13 @@ fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
     ]
 }
 
-fn roundtrip(decoded: &ParsedProperty<'_>, encoder: ScalarEncoder) {
-    let staged: StagedProperty = decoded.clone().into();
+fn roundtrip(staged: StagedProperty, expected: &ParsedProperty<'_>, encoder: ScalarEncoder) {
     let mut enc_props = vec![staged]
         .encode(vec![PropertyEncoder::Scalar(encoder)])
         .expect("encoding failed");
     let enc_prop = enc_props.pop().expect("one encoded prop");
     let result = decode_encoded_for_test(&enc_prop).expect("decoding failed");
-    assert_eq!(&result, decoded);
+    assert_eq!(&result, expected);
 }
 
 /// Decode an [`EncodedProperty`] by temporarily borrowing its data.
@@ -218,16 +217,17 @@ fn struct_encode_and_decode<F>(
 // Absent mode has no presence stream on the wire, so only all-Some inputs are
 // valid for those variants.
 macro_rules! integer_roundtrip_proptests {
-    ($present:ident, $absent:ident, $variant:ident, $ty:ty, $int_encoder:expr) => {
+    ($present:ident, $absent:ident, $variant:ident, $staged_fn:ident, $ty:ty, $int_encoder:expr) => {
         proptest! {
             #[test]
             fn $present(
                 values in prop::collection::vec(prop::option::of(any::<$ty>()), 0..100),
                 enc in $int_encoder,
             ) {
-                let prop = ParsedProperty::$variant(ParsedScalar::new("x".to_string(), values));
+                let expected = ParsedProperty::$variant(ParsedScalar::new("x", values.clone()));
+                let staged = StagedProperty::$staged_fn("x", values);
                 let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
-                roundtrip(&prop, scalar_enc);
+                roundtrip(staged, &expected, scalar_enc);
             }
 
             #[test]
@@ -236,24 +236,26 @@ macro_rules! integer_roundtrip_proptests {
                 enc in $int_encoder,
             ) {
                 let opt: Vec<Option<$ty>> = values.into_iter().map(Some).collect();
-                let prop = ParsedProperty::$variant(ParsedScalar::new("x".to_string(), opt));
+                let expected = ParsedProperty::$variant(ParsedScalar::new("x", opt.clone()));
+                let staged = StagedProperty::$staged_fn("x", opt);
                 let scalar_enc = ScalarEncoder::int(PresenceStream::Absent, enc);
-                roundtrip(&prop, scalar_enc);
+                roundtrip(staged, &expected, scalar_enc);
             }
         }
     };
 }
 
 // i8, u8, i32, u32 — all physical encoders are valid.
-integer_roundtrip_proptests!(i8_present, i8_absent, I8, i8, arb_int_encoder());
-integer_roundtrip_proptests!(u8_present, u8_absent, U8, u8, arb_int_encoder());
-integer_roundtrip_proptests!(i32_present, i32_absent, I32, i32, arb_int_encoder());
-integer_roundtrip_proptests!(u32_present, u32_absent, U32, u32, arb_int_encoder());
+integer_roundtrip_proptests!(i8_present, i8_absent, I8, i8, i8, arb_int_encoder());
+integer_roundtrip_proptests!(u8_present, u8_absent, U8, u8, u8, arb_int_encoder());
+integer_roundtrip_proptests!(i32_present, i32_absent, I32, i32, i32, arb_int_encoder());
+integer_roundtrip_proptests!(u32_present, u32_absent, U32, u32, u32, arb_int_encoder());
 // FastPFOR does not support 64-bit integers.
 integer_roundtrip_proptests!(
     i64_present,
     i64_absent,
     I64,
+    i64,
     i64,
     arb_int_encoder_no_fastpfor()
 );
@@ -262,22 +264,32 @@ integer_roundtrip_proptests!(
     u64_absent,
     U64,
     u64,
+    u64,
     arb_int_encoder_no_fastpfor()
 );
 
 #[test]
 fn bool_specific_values() {
-    let prop = ParsedProperty::bool(
-        "active",
-        vec![Some(true), None, Some(false), Some(true), None],
+    let values = vec![Some(true), None, Some(false), Some(true), None];
+    let expected = ParsedProperty::bool("active", values.clone());
+    let staged = StagedProperty::bool("active", values);
+    roundtrip(
+        staged,
+        &expected,
+        ScalarEncoder::bool(PresenceStream::Present),
     );
-    roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present));
 }
 
 #[test]
 fn bool_all_null() {
-    let prop = ParsedProperty::bool("active", vec![None, None, None]);
-    roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present));
+    let values = vec![None, None, None];
+    let expected = ParsedProperty::bool("active", values.clone());
+    let staged = StagedProperty::bool("active", values);
+    roundtrip(
+        staged,
+        &expected,
+        ScalarEncoder::bool(PresenceStream::Present),
+    );
 }
 
 proptest! {
@@ -285,8 +297,9 @@ proptest! {
     fn bool_roundtrip(
         values in prop::collection::vec(prop::option::of(any::<bool>()), 0..100),
     ) {
-        let prop = ParsedProperty::bool("flag", values);
-        roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present));
+        let expected = ParsedProperty::bool("flag", values.clone());
+        let staged = StagedProperty::bool("flag", values);
+        roundtrip(staged, &expected, ScalarEncoder::bool(PresenceStream::Present));
     }
 }
 
@@ -299,8 +312,9 @@ proptest! {
             0..100,
         ),
     ) {
-        let prop = ParsedProperty::f32("score", values);
-        roundtrip(&prop, ScalarEncoder::float(PresenceStream::Present));
+        let expected = ParsedProperty::f32("score", values.clone());
+        let staged = StagedProperty::f32("score", values);
+        roundtrip(staged, &expected, ScalarEncoder::float(PresenceStream::Present));
     }
 
     #[test]
@@ -310,33 +324,36 @@ proptest! {
             0..100,
         ),
     ) {
-        let prop = ParsedProperty::f64("score", values);
-        roundtrip(&prop, ScalarEncoder::float(PresenceStream::Present));
+        let expected = ParsedProperty::f64("score", values.clone());
+        let staged = StagedProperty::f64("score", values);
+        roundtrip(staged, &expected, ScalarEncoder::float(PresenceStream::Present));
     }
 }
 
 #[test]
 fn str_scalar_with_nulls() {
-    let prop = ParsedProperty::str(
-        "city",
-        opt_strs(&[Some("Berlin"), None, Some("Hamburg"), None]),
-    );
+    let values = opt_strs(&[Some("Berlin"), None, Some("Hamburg"), None]);
+    let expected = ParsedProperty::str("city", values.clone());
+    let staged = StagedProperty::str("city", values);
     let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-    roundtrip(&prop, enc);
+    roundtrip(staged, &expected, enc);
 }
 
 #[test]
 fn str_scalar_all_null() {
-    let prop = ParsedProperty::str("city", opt_strs(&[None, None, None]));
+    let values = opt_strs(&[None, None, None]);
+    let expected = ParsedProperty::str("city", values.clone());
+    let staged = StagedProperty::str("city", values);
     let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-    roundtrip(&prop, enc);
+    roundtrip(staged, &expected, enc);
 }
 
 #[test]
 fn str_scalar_empty() {
-    let prop = ParsedProperty::str("unused", vec![]);
+    let expected = ParsedProperty::str("unused", vec![]);
+    let staged = StagedProperty::str("unused", vec![]);
     let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-    roundtrip(&prop, enc);
+    roundtrip(staged, &expected, enc);
 }
 
 proptest! {
@@ -347,9 +364,10 @@ proptest! {
             0..50,
         ),
     ) {
-        let prop = ParsedProperty::str("name", values);
+        let expected = ParsedProperty::str("name", values.clone());
+        let staged = StagedProperty::str("name", values);
         let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-        roundtrip(&prop, enc);
+        roundtrip(staged, &expected, enc);
     }
 }
 
@@ -361,11 +379,10 @@ fn fsst_scalar_string_roundtrip() {
         IntEncoder::plain(),
         IntEncoder::plain(),
     );
-    let prop = ParsedProperty::str(
-        "name",
-        strs(&["Berlin", "Brandenburg", "Bremen", "Braunschweig"]),
-    );
-    roundtrip(&prop, enc);
+    let values = strs(&["Berlin", "Brandenburg", "Bremen", "Braunschweig"]);
+    let expected = ParsedProperty::str("name", values.clone());
+    let staged = StagedProperty::str("name", values);
+    roundtrip(staged, &expected, enc);
 }
 
 #[test]

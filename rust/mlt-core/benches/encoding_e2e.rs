@@ -4,7 +4,7 @@ use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, 
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder,
     PhysicalEncoder, PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer01,
-    StagedProperty,
+    tile::TileLayer01,
 };
 use mlt_core::{Layer, StagedLayer, parse_layers};
 use strum::IntoEnumIterator as _;
@@ -23,39 +23,21 @@ fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
 
 /// Build `StagedLayer01` values from decoded tiles for encode benchmarks.
 ///
-/// Per CONTRIBUTING.md, the encode path starts from `Staged*`.  The
-/// benchmark constructs `StagedLayer01` directly from the decoded `Layer01`
-/// fields, which is an explicitly permitted pattern (benchmarks may
-/// construct `Staged*` directly).
+/// Goes through `Layer01 → TileLayer01 → StagedLayer01`, which is the correct
+/// encode-pipeline entry point per CONTRIBUTING.md.
 fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer> {
     tiles
         .iter()
         .flat_map(|(_, data)| {
-            let mut layers = parse_layers(data).expect("mlt parse failed");
-            for layer in &mut layers {
-                layer.decode_all().expect("mlt decode_all failed");
-            }
+            let layers = parse_layers(data).expect("mlt parse failed");
             layers
                 .into_iter()
                 .filter_map(|layer| {
                     let Layer::Tag01(layer01) = layer else {
                         return None;
                     };
-                    let id = layer01.id.map(mlt_core::v01::Id::decode).transpose().ok()?;
-                    let geometry = layer01.geometry.decode().ok()?;
-                    let properties = layer01
-                        .properties
-                        .into_iter()
-                        .map(|p| p.decode().map(StagedProperty::from))
-                        .collect::<Result<Vec<_>, _>>()
-                        .ok()?;
-                    Some(StagedLayer::Tag01(StagedLayer01 {
-                        name: layer01.name.to_string(),
-                        extent: layer01.extent,
-                        id,
-                        geometry,
-                        properties,
-                    }))
+                    let tile = TileLayer01::try_from(layer01).ok()?;
+                    Some(StagedLayer::Tag01(StagedLayer01::from(tile)))
                 })
                 .collect::<Vec<_>>()
         })

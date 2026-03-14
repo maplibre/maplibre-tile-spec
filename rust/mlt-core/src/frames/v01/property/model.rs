@@ -201,7 +201,7 @@ pub enum StagedProperty {
 #[derive(Clone, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ParsedScalar<'a, T: Copy + PartialEq> {
-    pub name: Cow<'a, str>,
+    pub name: &'a str,
     pub values: Vec<Option<T>>,
 }
 
@@ -210,7 +210,7 @@ pub struct ParsedScalar<'a, T: Copy + PartialEq> {
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ParsedSharedDictItem<'a> {
     /// The suffix name of this sub-property (appended to parent struct name).
-    pub suffix: Cow<'a, str>,
+    pub suffix: &'a str,
     /// Per-feature `(start, end)` byte offsets into the parsed shared corpus.
     /// Non-negative pairs indicate a present string stored as
     /// `shared_dict.corpus()[start..end]`.
@@ -222,7 +222,7 @@ pub struct ParsedSharedDictItem<'a> {
 /// Parsed string values for a single property.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParsedStrings<'a> {
-    pub name: Cow<'a, str>,
+    pub name: &'a str,
     /// Per-feature cumulative end offsets into `data`.
     /// Non-negative values indicate a present string and store its exclusive
     /// end offset in `data`.
@@ -244,7 +244,7 @@ pub struct ParsedStrings<'a> {
 /// Parsed shared dictionary payload shared by one or more child string properties.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParsedSharedDict<'a> {
-    pub prefix: Cow<'a, str>,
+    pub prefix: &'a str,
     pub data: Cow<'a, str>,
     pub items: Vec<ParsedSharedDictItem<'a>>,
 }

@@ -67,6 +67,7 @@ impl Debug for ParsedProperty<'_> {
 }
 
 // for impl_decodable
+// FIXME: try to remove
 impl Default for ParsedProperty<'_> {
     fn default() -> Self {
         Self::Bool(ParsedScalar::new("", Vec::new()))
