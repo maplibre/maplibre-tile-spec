@@ -122,10 +122,10 @@ impl TryFrom<StagedLayer01> for TileLayer01 {
 
 // ── Layer01 → TileLayer01 ────────────────────────────────────────────────────
 
-/// Convert a fully-decoded [`Layer01`] into a [`TileLayer01`] by consuming it.
+/// Convert a [`Layer01`] into a [`TileLayer01`] by consuming it.
 ///
-/// All fields must already be decoded (i.e. `decode_all` called beforehand).
-/// Any still-encoded field is decoded on the fly.
+/// This implementation decodes the layer's `id`, `geometry`, and `properties`
+/// as needed; callers do not need to pre-call `decode_all` on the source layer.
 impl TryFrom<Layer01<'_>> for TileLayer01 {
     type Error = MltError;
 
