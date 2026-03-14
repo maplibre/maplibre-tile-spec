@@ -9,32 +9,21 @@ use crate::v01::{
 };
 
 impl StagedLayer01 {
-    /// Encode using a specific [`Tag01Encoder`], consuming `self` and producing [`EncodedLayer01`].
-    ///
-    /// If `encoder.sort_strategy` is `Some`, features are reordered before encoding.
-    pub fn encode(self, encoder: Tag01Encoder) -> Result<EncodedLayer01, MltError> {
-        // Apply sort strategy if requested (Stage 5 will move this into Tile01Encoder).
-        let this = if let Some(strategy) = encoder.sort_strategy {
-            let mut tile = TileLayer01::try_from(self)?;
-            reorder_features(&mut tile, Some(strategy));
-            StagedLayer01::from(tile)
-        } else {
-            self
-        };
+    /// Encode using a specific [`StagedLayer01Encoder`], consuming `self` and producing [`EncodedLayer01`].
+    pub fn encode(self, encoder: StagedLayer01Encoder) -> Result<EncodedLayer01, MltError> {
+        let geometry = self.geometry.encode(encoder.geometry)?;
 
-        let geometry = this.geometry.encode(encoder.geometry)?;
-
-        let id = match (encoder.id, this.id) {
+        let id = match (encoder.id, self.id) {
             (Some(id_enc), Some(id)) => id.encode(id_enc)?,
             (None, Some(id)) => id.encode_auto()?.0,
             _ => None,
         };
 
-        let properties = this.properties.encode(encoder.properties)?;
+        let properties = self.properties.encode(encoder.properties)?;
 
         Ok(EncodedLayer01 {
-            name: this.name,
-            extent: this.extent,
+            name: self.name,
+            extent: self.extent,
             id,
             geometry,
             properties,
@@ -43,13 +32,14 @@ impl StagedLayer01 {
         })
     }
 
-    /// Profile-driven encode, consuming `self` and producing `(EncodedLayer01, Tag01Encoder)`.
+    /// Profile-driven encode, consuming `self` and producing `(EncodedLayer01, StagedLayer01Encoder)`.
+    ///
+    /// Note: sort ordering is not applied here; call [`Tile01Encoder::encode`] before this method
+    /// if feature ordering matters.
     pub fn encode_with_profile(
         self,
         profile: &Tag01Profile,
-    ) -> Result<(EncodedLayer01, Tag01Encoder), MltError> {
-        let sort_strategy = profile.sort_strategy();
-
+    ) -> Result<(EncodedLayer01, StagedLayer01Encoder), MltError> {
         let (geometry, geom_enc) = self.geometry.encode_with_profile(&profile.geometry)?;
 
         let id_enc;
@@ -65,8 +55,7 @@ impl StagedLayer01 {
 
         let (properties, props_enc) = self.properties.encode_with_profile(&profile.properties)?;
 
-        let encoder = Tag01Encoder {
-            sort_strategy,
+        let encoder = StagedLayer01Encoder {
             id: id_enc,
             properties: props_enc,
             geometry: geom_enc,
@@ -86,93 +75,35 @@ impl StagedLayer01 {
         ))
     }
 
-    /// Automatically select the best sort strategy and stream-level encoders by
-    /// competitive trialing.
+    /// Automatically select the best stream-level encoders by competitive trialing.
     ///
-    /// # Algorithm
-    ///
-    /// 1. Convert to [`TileLayer01`] (decoded, row-oriented).
-    /// 2. Build a candidate set: `[None, Some(Spatial(Morton)), Some(Id)]`.
-    ///    - When `N >= 512`, apply a bounding-box heuristic: if the vertex
-    ///      spread covers more than 80% of the tile extent on both axes,
-    ///      spatial sorting is unlikely to cluster features and is dropped from
-    ///      the candidates.
-    /// 3. For each candidate strategy:
-    ///    - Clone the source layer.
-    ///    - Apply `reorder_features` to the clone.
-    ///    - Convert the clone back to `StagedLayer01` and run automatic
-    ///      stream-level optimisation on id, geometry, and properties.
-    ///    - Serialise the fully-encoded clone to a scratch buffer and record
-    ///      its byte count.
-    /// 4. Return the trial that produced the smallest byte count.
-    pub fn encode_auto(self) -> Result<(EncodedLayer01, Tag01Encoder), MltError> {
-        struct TrialResult {
-            layer: EncodedLayer01,
-            encoder: Tag01Encoder,
-            byte_count: usize,
-        }
+    /// This method does **not** attempt different sort strategies; call
+    /// [`Tile01Encoder::encode_auto`] instead when sort optimisation is also desired.
+    pub fn encode_auto(self) -> Result<(EncodedLayer01, StagedLayer01Encoder), MltError> {
+        let (geom_enc_result, geom_enc) = self.geometry.encode_auto()?;
+        let (id_enc_result, id_enc) = match self.id {
+            Some(parsed_id) => parsed_id.encode_auto()?,
+            None => (None, None),
+        };
+        let (encoded_properties, props_enc) = self.properties.encode_auto()?;
 
-        // Convert to source form once; every trial clones this.
-        let source = TileLayer01::try_from(self)?;
-        let n = source.features.len();
+        let stream_encoder = StagedLayer01Encoder {
+            id: id_enc,
+            properties: props_enc,
+            geometry: geom_enc,
+        };
 
-        let filtered: [Option<SortStrategy>; 2];
-        let candidates: &[Option<SortStrategy>] =
-            if n < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(&source) {
-                &TRIAL_STRATEGIES
-            } else {
-                filtered = [None, Some(SortStrategy::Id)];
-                &filtered
-            };
+        let layer = EncodedLayer01 {
+            name: self.name,
+            extent: self.extent,
+            id: id_enc_result,
+            geometry: geom_enc_result,
+            properties: encoded_properties,
+            #[cfg(fuzzing)]
+            layer_order: vec![],
+        };
 
-        let mut best: Option<TrialResult> = None;
-
-        for &strategy in candidates {
-            let mut trial_source = source.clone();
-            reorder_features(&mut trial_source, strategy);
-            let trial_staged = StagedLayer01::from(trial_source);
-
-            let (geom_enc_result, geom_enc) = trial_staged.geometry.clone().encode_auto()?;
-            let (id_enc_result, id_enc) = match trial_staged.id.clone() {
-                Some(parsed_id) => parsed_id.encode_auto()?,
-                None => (None, None),
-            };
-
-            let (encoded_properties, props_enc) = trial_staged.properties.clone().encode_auto()?;
-
-            let encoder = Tag01Encoder {
-                sort_strategy: strategy,
-                id: id_enc,
-                properties: props_enc,
-                geometry: geom_enc,
-            };
-
-            let trial_encoded = EncodedLayer01 {
-                name: trial_staged.name,
-                extent: trial_staged.extent,
-                id: id_enc_result,
-                geometry: geom_enc_result,
-                properties: encoded_properties,
-                #[cfg(fuzzing)]
-                layer_order: vec![],
-            };
-
-            let mut buf: Vec<u8> = Vec::new();
-            trial_encoded.write_to(&mut buf)?;
-            let byte_count = buf.len();
-
-            if best.as_ref().is_none_or(|b| byte_count < b.byte_count) {
-                best = Some(TrialResult {
-                    layer: trial_encoded,
-                    encoder,
-                    byte_count,
-                });
-            }
-        }
-
-        // `candidates` always contains at least `None`, so `best` is always `Some`.
-        let winner = best.unwrap();
-        Ok((winner.layer, winner.encoder))
+        Ok((layer, stream_encoder))
     }
 }
 
@@ -187,20 +118,101 @@ const TRIAL_STRATEGIES: [Option<SortStrategy>; 3] = [
     Some(SortStrategy::Id),
 ];
 
-/// Fully-specified encoder configuration for a v01 layer, produced by any of
-/// the three optimization paths (manual, automatic, or profile-driven).
+/// Stream-level encoder configuration for a v01 layer.
 ///
-/// The `sort_strategy` field controls whether features are reordered before
-/// stream-level encoding takes place.  It defaults to [`None`] so that
-/// existing callers that construct `Tag01Encoder` directly are unaffected.
+/// Produced by any of the three optimisation paths (manual, automatic, or profile-driven)
+/// and consumed by [`StagedLayer01::encode`].  Sort ordering is handled separately by
+/// [`Tile01Encoder`] before this stage.
 #[derive(Debug, Clone)]
-pub struct Tag01Encoder {
-    /// How to reorder features before encoding.  `None` preserves the
-    /// original input order.
-    pub sort_strategy: Option<SortStrategy>,
+pub struct StagedLayer01Encoder {
     pub id: Option<IdEncoder>,
     pub properties: Vec<PropertyEncoder>,
     pub geometry: GeometryEncoder,
+}
+
+/// Entry-point encoder that converts a [`TileLayer01`] into a [`StagedLayer01`] and
+/// optionally reorders features according to a [`SortStrategy`].
+///
+/// For automatic sort-strategy selection, use [`Tile01Encoder::encode_auto`].
+#[derive(Debug, Clone, Default)]
+pub struct Tile01Encoder {
+    /// How to reorder features before columnar staging.  `None` preserves the
+    /// original input order.
+    pub sort_strategy: Option<SortStrategy>,
+}
+
+impl Tile01Encoder {
+    /// Reorder features in `data` according to the configured sort strategy
+    /// (no-op when `sort_strategy` is `None`), then convert to [`StagedLayer01`].
+    pub fn encode(&self, data: &mut TileLayer01) -> StagedLayer01 {
+        reorder_features(data, self.sort_strategy);
+        StagedLayer01::from(data.clone())
+    }
+
+    /// Automatically select the best sort strategy and stream-level encoders by
+    /// competitive trialing.
+    ///
+    /// # Algorithm
+    ///
+    /// 1. Build a candidate set: `[None, Some(Spatial(Morton)), Some(Id)]`.
+    ///    - When `N >= 512`, apply a bounding-box heuristic: if the vertex
+    ///      spread covers more than 80% of the tile extent on both axes,
+    ///      spatial sorting is unlikely to cluster features and is dropped from
+    ///      the candidates.
+    /// 2. For each candidate strategy:
+    ///    - Clone the source layer.
+    ///    - Apply `reorder_features` to the clone.
+    ///    - Convert the clone to `StagedLayer01` and run automatic
+    ///      stream-level optimisation on id, geometry, and properties.
+    ///    - Serialise the fully-encoded clone to a scratch buffer and record
+    ///      its byte count.
+    /// 3. Return the trial that produced the smallest byte count.
+    pub fn encode_auto(
+        source: &TileLayer01,
+    ) -> Result<(EncodedLayer01, StagedLayer01Encoder), MltError> {
+        struct TrialResult {
+            layer: EncodedLayer01,
+            stream_enc: StagedLayer01Encoder,
+            byte_count: usize,
+        }
+
+        let n = source.features.len();
+
+        let filtered: [Option<SortStrategy>; 2];
+        let candidates: &[Option<SortStrategy>] =
+            if n < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(source) {
+                &TRIAL_STRATEGIES
+            } else {
+                filtered = [None, Some(SortStrategy::Id)];
+                &filtered
+            };
+
+        let mut best: Option<TrialResult> = None;
+
+        for &strategy in candidates {
+            let mut trial_source = source.clone();
+            reorder_features(&mut trial_source, strategy);
+            let trial_staged = StagedLayer01::from(trial_source);
+
+            let (trial_layer, trial_stream_enc) = trial_staged.encode_auto()?;
+
+            let mut buf: Vec<u8> = Vec::new();
+            trial_layer.write_to(&mut buf)?;
+            let byte_count = buf.len();
+
+            if best.as_ref().is_none_or(|b| byte_count < b.byte_count) {
+                best = Some(TrialResult {
+                    layer: trial_layer,
+                    stream_enc: trial_stream_enc,
+                    byte_count,
+                });
+            }
+        }
+
+        // `candidates` always contains at least `None`, so `best` is always `Some`.
+        let winner = best.unwrap();
+        Ok((winner.layer, winner.stream_enc))
+    }
 }
 
 /// Map `Option<SortStrategy>` to a vote-array index.

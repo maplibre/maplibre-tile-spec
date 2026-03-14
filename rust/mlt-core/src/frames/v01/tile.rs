@@ -135,19 +135,84 @@ impl TryFrom<Layer01<'_>> for TileLayer01 {
 
     fn try_from(layer: Layer01<'_>) -> Result<Self, Self::Error> {
         let id = layer.id.map(crate::v01::Id::decode).transpose()?;
-        let geometry = layer.geometry.decode()?;
-        let properties = layer
+        let geometry = canonicalize_geometry(layer.geometry.decode()?)?;
+        #[allow(clippy::redundant_closure_for_method_calls)]
+        let properties: Vec<crate::v01::ParsedProperty<'_>> = layer
             .properties
             .into_iter()
-            .map(|p| p.decode().map(StagedProperty::from))
+            .map(|p| p.decode())
             .collect::<Result<Vec<_>, _>>()?;
-        TileLayer01::try_from(StagedLayer01 {
+
+        let n = geometry.vector_types.len();
+
+        let mut property_names: Vec<String> = Vec::new();
+        for prop in &properties {
+            match prop {
+                crate::v01::ParsedProperty::SharedDict(sd) => {
+                    for item in &sd.items {
+                        property_names.push(format!("{}{}", sd.prefix, item.suffix));
+                    }
+                }
+                other => property_names.push(other.name().to_string()),
+            }
+        }
+
+        let ids: Option<&[Option<u64>]> = id.as_ref().map(|d| d.0.as_slice());
+
+        let mut features = Vec::with_capacity(n);
+        for i in 0..n {
+            let feat_id = ids.and_then(|ids| ids.get(i).copied().flatten());
+            let geom = geometry.to_geojson(i)?;
+            let mut values = Vec::with_capacity(property_names.len());
+            for prop in &properties {
+                extract_parsed_values(prop, i, &mut values);
+            }
+            features.push(TileFeature {
+                id: feat_id,
+                geometry: geom,
+                properties: values,
+            });
+        }
+
+        Ok(TileLayer01 {
             name: layer.name.to_string(),
             extent: layer.extent,
-            id,
-            geometry,
-            properties,
+            property_names,
+            features,
         })
+    }
+}
+
+/// Extract the per-feature value at index `i` from a parsed property column
+/// and push it (or them, for `SharedDict`) into `out`.
+fn extract_parsed_values(
+    prop: &crate::v01::ParsedProperty<'_>,
+    i: usize,
+    out: &mut Vec<PropValue>,
+) {
+    use crate::v01::ParsedProperty as P;
+    match prop {
+        P::Bool(s) => out.push(PropValue::Bool(s.values[i])),
+        P::I8(s) => out.push(PropValue::I8(s.values[i])),
+        P::U8(s) => out.push(PropValue::U8(s.values[i])),
+        P::I32(s) => out.push(PropValue::I32(s.values[i])),
+        P::U32(s) => out.push(PropValue::U32(s.values[i])),
+        P::I64(s) => out.push(PropValue::I64(s.values[i])),
+        P::U64(s) => out.push(PropValue::U64(s.values[i])),
+        P::F32(s) => out.push(PropValue::F32(s.values[i])),
+        P::F64(s) => out.push(PropValue::F64(s.values[i])),
+        P::Str(s) => {
+            let val = s
+                .get(u32::try_from(i).unwrap_or(u32::MAX))
+                .map(str::to_string);
+            out.push(PropValue::Str(val));
+        }
+        P::SharedDict(sd) => {
+            for item in &sd.items {
+                let val = item.get(sd, i).map(str::to_string);
+                out.push(PropValue::Str(val));
+            }
+        }
     }
 }
 

@@ -300,7 +300,8 @@ fn bench_presence(c: &mut Criterion) {
         );
 
         // Nullable: attach a presence bitmap and only encode the non-null values.
-        let nullable: ParsedStrings = make_nullable_strings(n).into();
+        let nullable: ParsedStrings =
+            ParsedStrings::from_optional_strings("", make_nullable_strings(n));
         let presence_bools = nullable.presence_bools();
         let presence_stream =
             EncodedStream::encode_presence(&presence_bools).expect("encode_presence failed");

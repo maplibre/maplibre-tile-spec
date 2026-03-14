@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use crate::Decodable as _;
 use crate::MltError::{self, NotImplemented, UnsupportedPropertyEncoderCombination};
 use crate::decode::{Decode, DecodeInto as _};
@@ -9,7 +7,7 @@ use crate::v01::{
     DictionaryType, EncodedName, EncodedPresence, EncodedProperty, EncodedScalar, EncodedStream,
     EncodedStrings, LengthType, ParsedPresence, ParsedProperty, ParsedScalar, ParsedStrings,
     PresenceStream, Property, PropertyEncoder, RawPresence, RawProperty, ScalarEncoder,
-    ScalarValueEncoder, StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, StrEncoder,
+    ScalarValueEncoder, StagedProperty, StagedScalar, StagedStrings, StrEncoder,
     encode_shared_dict_prop,
 };
 
@@ -44,103 +42,21 @@ impl<'a> Property<'a> {
     pub fn decoded_property(&mut self) -> Result<&ParsedProperty<'a>, MltError> {
         Ok(self.materialize()?)
     }
-
-    /// Convert to a fully-owned [`StagedProperty`] for use in the encoding pipeline.
-    ///
-    /// The layer's properties must have been decoded first (via `Layer01::decode_properties`
-    /// or `Layer01::decode_all`). Returns `Err` if any property is still in raw encoded form.
-    pub fn to_staged(&self) -> Result<StagedProperty, MltError> {
-        let parsed: ParsedProperty<'_> = match self {
-            Self::Encoded(_) => return Err(MltError::NotDecoded("property")),
-            Self::Decoded(parsed) => parsed.clone(),
-        };
-        Ok(parsed_to_staged(parsed))
-    }
-}
-
-impl<'a> From<ParsedProperty<'a>> for StagedProperty {
-    fn from(p: ParsedProperty<'a>) -> Self {
-        parsed_to_staged(p)
-    }
-}
-
-/// Convert a decoded [`ParsedProperty`] into a fully-owned [`StagedProperty`].
-/// TODO: This should be removed later, once we separate parsing and staging
-fn parsed_to_staged(p: ParsedProperty<'_>) -> StagedProperty {
-    use ParsedProperty as P;
-    match p {
-        P::Bool(v) => StagedProperty::Bool(StagedScalar {
-            name: v.name.into_owned(),
-            values: v.values,
-        }),
-        P::I8(v) => StagedProperty::I8(StagedScalar {
-            name: v.name.into_owned(),
-            values: v.values,
-        }),
-        P::U8(v) => StagedProperty::U8(StagedScalar {
-            name: v.name.into_owned(),
-            values: v.values,
-        }),
-        P::I32(v) => StagedProperty::I32(StagedScalar {
-            name: v.name.into_owned(),
-            values: v.values,
-        }),
-        P::U32(v) => StagedProperty::U32(StagedScalar {
-            name: v.name.into_owned(),
-            values: v.values,
-        }),
-        P::I64(v) => StagedProperty::I64(StagedScalar {
-            name: v.name.into_owned(),
-            values: v.values,
-        }),
-        P::U64(v) => StagedProperty::U64(StagedScalar {
-            name: v.name.into_owned(),
-            values: v.values,
-        }),
-        P::F32(v) => StagedProperty::F32(StagedScalar {
-            name: v.name.into_owned(),
-            values: v.values,
-        }),
-        P::F64(v) => StagedProperty::F64(StagedScalar {
-            name: v.name.into_owned(),
-            values: v.values,
-        }),
-        P::Str(v) => StagedProperty::Str(StagedStrings {
-            name: v.name.into_owned(),
-            lengths: v.lengths,
-            data: v.data.into_owned(),
-        }),
-        P::SharedDict(v) => StagedProperty::SharedDict(StagedSharedDict {
-            prefix: v.prefix.into_owned(),
-            data: v.data.into_owned(),
-            items: v
-                .items
-                .into_iter()
-                .map(|item| crate::v01::StagedSharedDictItem {
-                    suffix: item.suffix.into_owned(),
-                    ranges: item.ranges,
-                })
-                .collect(),
-        }),
-    }
 }
 
 impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
     #[must_use]
-    pub fn new(name: impl Into<Cow<'a, str>>, values: Vec<Option<T>>) -> Self {
-        Self {
-            name: name.into(),
-            values,
-        }
+    pub fn new(name: &'a str, values: Vec<Option<T>>) -> Self {
+        Self { name, values }
     }
 
     pub fn from_parts(
-        name: impl Into<Cow<'a, str>>,
+        name: &'a str,
         presence: RawPresence<'a>,
         values: Vec<T>,
     ) -> Result<Self, MltError> {
         Ok(Self {
-            name: name.into(),
+            name,
             values: apply_present(presence.0, values)?,
         })
     }
@@ -179,46 +95,44 @@ impl From<Option<Vec<bool>>> for ParsedPresence {
 
 impl<'a> ParsedProperty<'a> {
     #[must_use]
-    pub fn bool(name: impl Into<Cow<'a, str>>, values: Vec<Option<bool>>) -> Self {
+    pub fn bool(name: &'a str, values: Vec<Option<bool>>) -> Self {
         Self::Bool(ParsedScalar::new(name, values))
     }
     #[must_use]
-    pub fn i8(name: impl Into<Cow<'a, str>>, values: Vec<Option<i8>>) -> Self {
+    pub fn i8(name: &'a str, values: Vec<Option<i8>>) -> Self {
         Self::I8(ParsedScalar::new(name, values))
     }
     #[must_use]
-    pub fn u8(name: impl Into<Cow<'a, str>>, values: Vec<Option<u8>>) -> Self {
+    pub fn u8(name: &'a str, values: Vec<Option<u8>>) -> Self {
         Self::U8(ParsedScalar::new(name, values))
     }
     #[must_use]
-    pub fn i32(name: impl Into<Cow<'a, str>>, values: Vec<Option<i32>>) -> Self {
+    pub fn i32(name: &'a str, values: Vec<Option<i32>>) -> Self {
         Self::I32(ParsedScalar::new(name, values))
     }
     #[must_use]
-    pub fn u32(name: impl Into<Cow<'a, str>>, values: Vec<Option<u32>>) -> Self {
+    pub fn u32(name: &'a str, values: Vec<Option<u32>>) -> Self {
         Self::U32(ParsedScalar::new(name, values))
     }
     #[must_use]
-    pub fn i64(name: impl Into<Cow<'a, str>>, values: Vec<Option<i64>>) -> Self {
+    pub fn i64(name: &'a str, values: Vec<Option<i64>>) -> Self {
         Self::I64(ParsedScalar::new(name, values))
     }
     #[must_use]
-    pub fn u64(name: impl Into<Cow<'a, str>>, values: Vec<Option<u64>>) -> Self {
+    pub fn u64(name: &'a str, values: Vec<Option<u64>>) -> Self {
         Self::U64(ParsedScalar::new(name, values))
     }
     #[must_use]
-    pub fn f32(name: impl Into<Cow<'a, str>>, values: Vec<Option<f32>>) -> Self {
+    pub fn f32(name: &'a str, values: Vec<Option<f32>>) -> Self {
         Self::F32(ParsedScalar::new(name, values))
     }
     #[must_use]
-    pub fn f64(name: impl Into<Cow<'a, str>>, values: Vec<Option<f64>>) -> Self {
+    pub fn f64(name: &'a str, values: Vec<Option<f64>>) -> Self {
         Self::F64(ParsedScalar::new(name, values))
     }
     #[must_use]
-    pub fn str(name: impl Into<Cow<'a, str>>, values: Vec<Option<String>>) -> Self {
-        let mut s = ParsedStrings::from(values);
-        s.name = name.into();
-        Self::Str(s)
+    pub fn str(name: &'a str, values: Vec<Option<String>>) -> Self {
+        Self::Str(ParsedStrings::from_optional_strings(name, values))
     }
 }
 

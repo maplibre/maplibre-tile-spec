@@ -192,7 +192,7 @@ fn prop_value_to_py(py: Python<'_>, prop: &ParsedProperty, i: usize) -> Py<PyAny
             let dict = PyDict::new(py);
             for item in &shared_dict.items {
                 if let Some(s) = item.get(shared_dict, i) {
-                    dict.set_item(&item.suffix, s).unwrap();
+                    dict.set_item(item.suffix, s).unwrap();
                 }
             }
             if dict.is_empty() {

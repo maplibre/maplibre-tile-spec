@@ -3,7 +3,7 @@ use mlt_core::geojson::Geom32;
 use mlt_core::v01::tile::TileLayer01;
 use mlt_core::v01::{
     GeometryEncoder, GeometryType, IntEncoder, ParsedGeometry, ParsedId, SortStrategy,
-    StagedLayer01, Tag01Encoder,
+    StagedLayer01, StagedLayer01Encoder, Tile01Encoder,
 };
 
 /// Helper to build a layer from geometries and IDs.
@@ -27,13 +27,17 @@ fn build_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> StagedLayer01 {
 fn sort_encode_decode(layer: StagedLayer01, strategy: SortStrategy) -> TileLayer01 {
     use mlt_core::{EncodedLayer, Layer};
 
-    let encoder = Tag01Encoder {
+    let tile_encoder = Tile01Encoder {
         sort_strategy: Some(strategy),
+    };
+    let mut tile = TileLayer01::try_from(layer).expect("to TileLayer01 failed");
+    let staged = tile_encoder.encode(&mut tile);
+    let stream_encoder = StagedLayer01Encoder {
         id: None, // auto-encode IDs
         properties: vec![],
         geometry: GeometryEncoder::all(IntEncoder::varint()),
     };
-    let layer_enc = layer.encode(encoder).expect("encode failed");
+    let layer_enc = staged.encode(stream_encoder).expect("encode failed");
 
     // Serialize to bytes and re-parse to get a `Layer01`.
     let mut buf = Vec::new();
