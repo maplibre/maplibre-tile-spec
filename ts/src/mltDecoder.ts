@@ -189,7 +189,7 @@ function decodeIdColumn(
         sizeOrNullabilityBuffer,
         tile,
         offset,
-        idDataType === ScalarType.UINT_64 ? { varintWidth: "int64" } : undefined,
+        idDataType === ScalarType.UINT_64 ? "int64" : "int32",
     );
     if (idDataType === ScalarType.UINT_32) {
         switch (vectorType) {

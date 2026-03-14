@@ -479,7 +479,7 @@ export function getVectorType(
     sizeOrNullabilityBuffer: number | BitVector,
     data: Uint8Array,
     offset: IntWrapper,
-    options?: { varintWidth?: "int32" | "int64" },
+    varintWidth: "int32" | "int64" = "int32",
 ): VectorType {
     const logicalLevelTechnique1 = streamMetadata.logicalLevelTechnique1;
     if (logicalLevelTechnique1 === LogicalLevelTechnique.RLE) {
@@ -511,7 +511,7 @@ export function getVectorType(
     const savedOffset = offset.get();
 
     if (streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
-        if (isDeltaRleSequenceVarintWidth(data, offset, options?.varintWidth ?? "int32")) {
+        if (isDeltaRleSequenceVarintWidth(data, offset, varintWidth)) {
             return VectorType.SEQUENCE;
         }
         return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;

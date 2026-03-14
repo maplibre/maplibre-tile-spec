@@ -81,9 +81,7 @@ describe("getVectorType", () => {
             [3, 0n],
         ]);
 
-        const result = getVectorType(metadata, 4, data, new IntWrapper(0), {
-            varintWidth: "int64",
-        });
+        const result = getVectorType(metadata, 4, data, new IntWrapper(0), "int64");
 
         expect(result).toBe(VectorType.FLAT);
     });
