@@ -1,5 +1,5 @@
 import type IntWrapper from "../../decoding/intWrapper";
-import { decodeVarintInt32Value } from "../../decoding/integerDecodingUtils";
+import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
 import type { Column, FeatureTableSchema, Field, TileSetMetadata } from "./tilesetMetadata";
 import { columnTypeHasChildren, columnTypeHasName, decodeColumnType } from "./typeMap";
 
@@ -13,7 +13,7 @@ const SUPPORTED_FIELD_TYPES = "10-29(scalars), 30(STRUCT)";
  * Layout: [len: varint32][bytes: len]
  */
 function decodeString(src: Uint8Array, offset: IntWrapper): string {
-    const length = decodeVarintInt32Value(src, offset);
+    const length = decodeVarintInt32(src, offset, 1)[0];
     if (length === 0) {
         return "";
     }
@@ -42,7 +42,7 @@ function columnToField(column: Column): Field {
  * Decodes a Field used as part of complex types (STRUCT children).
  */
 export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
-    const typeCode = decodeVarintInt32Value(src, offset) >>> 0;
+    const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
 
     if (typeCode < 10 || typeCode > 30) {
         throw new Error(`Unsupported field type code ${typeCode}. Supported: ${SUPPORTED_FIELD_TYPES}`);
@@ -55,7 +55,7 @@ export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
     }
 
     if (columnTypeHasChildren(typeCode)) {
-        const childCount = decodeVarintInt32Value(src, offset) >>> 0;
+        const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
         column.complexType.children = new Array(childCount);
         for (let i = 0; i < childCount; i++) {
             column.complexType.children[i] = decodeField(src, offset);
@@ -69,7 +69,7 @@ export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
  * The typeCode encodes the column type, nullable flag, and whether it has name/children.
  */
 function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
-    const typeCode = decodeVarintInt32Value(src, offset) >>> 0;
+    const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
     const column = decodeColumnType(typeCode);
 
     if (!column) {
@@ -89,7 +89,7 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
 
     if (columnTypeHasChildren(typeCode)) {
         // Only STRUCT (typeCode 30) has children
-        const childCount = decodeVarintInt32Value(src, offset) >>> 0;
+        const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
         const complexCol = column.complexType;
         complexCol.children = new Array(childCount);
         for (let i = 0; i < childCount; i++) {
@@ -113,9 +113,9 @@ export function decodeEmbeddedTileSetMetadata(bytes: Uint8Array, offset: IntWrap
 
     const table = {} as FeatureTableSchema;
     table.name = decodeString(bytes, offset);
-    const extent = decodeVarintInt32Value(bytes, offset) >>> 0;
+    const extent = decodeVarintInt32(bytes, offset, 1)[0] >>> 0;
 
-    const columnCount = decodeVarintInt32Value(bytes, offset) >>> 0;
+    const columnCount = decodeVarintInt32(bytes, offset, 1)[0] >>> 0;
     table.columns = new Array(columnCount);
     for (let j = 0; j < columnCount; j++) {
         table.columns[j] = decodeColumn(bytes, offset);

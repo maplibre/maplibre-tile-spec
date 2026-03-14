@@ -1,6 +1,6 @@
 import { LogicalLevelTechnique } from "./logicalLevelTechnique";
 import { PhysicalLevelTechnique } from "./physicalLevelTechnique";
-import { decodeVarintInt32Value } from "../../decoding/integerDecodingUtils";
+import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
 import { PhysicalStreamType } from "./physicalStreamType";
 import { LogicalStreamType } from "./logicalStreamType";
 import { DictionaryType } from "./dictionaryType";
@@ -116,8 +116,7 @@ function decodePartialMortonEncodedStreamMetadata(
     tile: Uint8Array,
     offset: IntWrapper,
 ): MortonEncodedStreamMetadata {
-    const numBits = decodeVarintInt32Value(tile, offset);
-    const coordinateShift = decodeVarintInt32Value(tile, offset);
+    const mortonInfo = decodeVarintInt32(tile, offset, 2);
     return {
         physicalStreamType: streamMetadata.physicalStreamType,
         logicalStreamType: streamMetadata.logicalStreamType,
@@ -127,8 +126,8 @@ function decodePartialMortonEncodedStreamMetadata(
         numValues: streamMetadata.numValues,
         byteLength: streamMetadata.byteLength,
         decompressedCount: streamMetadata.decompressedCount,
-        numBits,
-        coordinateShift,
+        numBits: mortonInfo[0],
+        coordinateShift: mortonInfo[1],
     };
 }
 
@@ -137,8 +136,7 @@ function decodePartialRleEncodedStreamMetadata(
     tile: Uint8Array,
     offset: IntWrapper,
 ): RleEncodedStreamMetadata {
-    const runs = decodeVarintInt32Value(tile, offset);
-    const numRleValues = decodeVarintInt32Value(tile, offset);
+    const rleInfo = decodeVarintInt32(tile, offset, 2);
     return {
         physicalStreamType: streamMetadata.physicalStreamType,
         logicalStreamType: streamMetadata.logicalStreamType,
@@ -147,9 +145,9 @@ function decodePartialRleEncodedStreamMetadata(
         physicalLevelTechnique: streamMetadata.physicalLevelTechnique,
         numValues: streamMetadata.numValues,
         byteLength: streamMetadata.byteLength,
-        decompressedCount: numRleValues,
-        runs,
-        numRleValues,
+        decompressedCount: rleInfo[1],
+        runs: rleInfo[0],
+        numRleValues: rleInfo[1],
     };
 }
 
@@ -177,8 +175,9 @@ function decodeStreamMetadataInternal(tile: Uint8Array, offset: IntWrapper): Str
     const plt = PHYSICAL_LEVEL_TECHNIQUE_BY_ID[encodings_header & 0x3];
     offset.increment();
 
-    const numValues = decodeVarintInt32Value(tile, offset);
-    const byteLength = decodeVarintInt32Value(tile, offset);
+    const sizeInfo = decodeVarintInt32(tile, offset, 2);
+    const numValues = sizeInfo[0];
+    const byteLength = sizeInfo[1];
 
     return {
         physicalStreamType,

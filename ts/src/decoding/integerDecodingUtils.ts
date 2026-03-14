@@ -12,38 +12,44 @@ export { createFastPforWireDecodeWorkspace } from "./fastPforDecoder";
 //based on https://github.com/mapbox/pbf/blob/main/index.js
 export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, numValues: number): Uint32Array {
     const dst = new Uint32Array(numValues);
+    let dstOffset = 0;
+    let offset = bufferOffset.get();
     for (let i = 0; i < dst.length; i++) {
-        dst[i] = decodeVarintInt32Value(buf, bufferOffset);
+        let b = buf[offset++];
+        let val = b & 0x7f;
+        if (b < 0x80) {
+            dst[dstOffset++] = val;
+            continue;
+        }
+
+        b = buf[offset++];
+        val |= (b & 0x7f) << 7;
+        if (b < 0x80) {
+            dst[dstOffset++] = val;
+            continue;
+        }
+
+        b = buf[offset++];
+        val |= (b & 0x7f) << 14;
+        if (b < 0x80) {
+            dst[dstOffset++] = val;
+            continue;
+        }
+
+        b = buf[offset++];
+        val |= (b & 0x7f) << 21;
+        if (b < 0x80) {
+            dst[dstOffset++] = val;
+            continue;
+        }
+
+        b = buf[offset++];
+        val |= (b & 0x0f) << 28;
+        dst[dstOffset++] = val;
     }
+
+    bufferOffset.set(offset);
     return dst;
-}
-
-//based on https://github.com/mapbox/pbf/blob/main/index.js
-export function decodeVarintInt32Value(buf: Uint8Array, offset: IntWrapper): number {
-    let b = buf[offset.get()];
-    offset.increment();
-    let val = b & 0x7f;
-    if (b < 0x80) return val >>> 0;
-
-    b = buf[offset.get()];
-    offset.increment();
-    val |= (b & 0x7f) << 7;
-    if (b < 0x80) return val >>> 0;
-
-    b = buf[offset.get()];
-    offset.increment();
-    val |= (b & 0x7f) << 14;
-    if (b < 0x80) return val >>> 0;
-
-    b = buf[offset.get()];
-    offset.increment();
-    val |= (b & 0x7f) << 21;
-    if (b < 0x80) return val >>> 0;
-
-    b = buf[offset.get()];
-    offset.increment();
-    val |= (b & 0x0f) << 28;
-    return val >>> 0;
 }
 
 export function decodeVarintInt64(src: Uint8Array, offset: IntWrapper, numValues: number): BigUint64Array {

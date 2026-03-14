@@ -9,7 +9,7 @@ import { DictionaryType } from "../metadata/tile/dictionaryType";
 import { LengthType } from "../metadata/tile/lengthType";
 import { decodeUnsignedInt32Stream, decodeLengthStreamToOffsetBuffer } from "./integerStreamDecoder";
 import { type Column, ScalarType } from "../metadata/tileset/tilesetMetadata";
-import { decodeVarintInt32Value } from "./integerDecodingUtils";
+import { decodeVarintInt32 } from "./integerDecodingUtils";
 import { decodeBooleanRle, skipColumn } from "./decodingUtils";
 import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
 
@@ -207,7 +207,7 @@ export function decodeSharedDictionary(
     const stringDictionaryVectors = [];
     let i = 0;
     for (const childField of childFields) {
-        const numStreams = decodeVarintInt32Value(data, offset);
+        const numStreams = decodeVarintInt32(data, offset, 1)[0];
         if (numStreams === 0) {
             /* Column is not present in the tile */
             continue;
