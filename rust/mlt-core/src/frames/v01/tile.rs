@@ -85,10 +85,7 @@ impl TryFrom<StagedLayer01> for TileLayer01 {
             match prop {
                 StagedProperty::SharedDict(sd) => {
                     for item in &sd.items {
-                        // The wire-format prefix may already end with ':' (e.g. "name:"),
-                        // so concatenate directly rather than adding a separator.
-                        let name = format!("{}{}", sd.prefix, item.suffix);
-                        property_names.push(name);
+                        property_names.push(format!("{prefix}{suffix}", prefix=sd.prefix, suffix=item.suffix));
                     }
                 }
                 other => property_names.push(other.name().to_string()),
