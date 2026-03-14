@@ -85,6 +85,34 @@ describe("getVectorType", () => {
 
         expect(result).toBe(VectorType.FLAT);
     });
+
+    it("should detect SEQUENCE for DELTA+RLE direct int32 payloads with unit deltas", () => {
+        const metadata = {
+            ...createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 2, 5),
+            physicalLevelTechnique: PhysicalLevelTechnique.NONE,
+            byteLength: 16,
+        };
+        const encodedDeltaRleProbe = new Int32Array([1, 4, 2, 2]);
+        const data = new Uint8Array(encodedDeltaRleProbe.buffer.slice(0));
+
+        const result = getVectorType(metadata, 5, data, new IntWrapper(0));
+
+        expect(result).toBe(VectorType.SEQUENCE);
+    });
+
+    it("should return FLAT for DELTA+RLE direct int32 payloads with non-unit deltas", () => {
+        const metadata = {
+            ...createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 2, 5),
+            physicalLevelTechnique: PhysicalLevelTechnique.NONE,
+            byteLength: 16,
+        };
+        const encodedDeltaRleProbe = new Int32Array([1, 4, 2, 4]);
+        const data = new Uint8Array(encodedDeltaRleProbe.buffer.slice(0));
+
+        const result = getVectorType(metadata, 5, data, new IntWrapper(0));
+
+        expect(result).toBe(VectorType.FLAT);
+    });
 });
 
 describe("decodeUnsignedInt32Stream", () => {
