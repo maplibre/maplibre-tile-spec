@@ -197,9 +197,15 @@ describe("decodeSignedInt32Stream", () => {
     });
 
     it("should decode nullable DELTA signed Int32 with null values", () => {
-        const metadata = createStreamMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.NONE, 5);
+        const logicalValueCount = 5;
+        const physicalValueCount = 3;
+        const metadata = createStreamMetadata(
+            LogicalLevelTechnique.DELTA,
+            LogicalLevelTechnique.NONE,
+            physicalValueCount,
+        );
         const expectedValues = new Int32Array([0, 2, 0, 4, 6]);
-        const bitVector = new BitVector(new Uint8Array([0b00011010]), 5);
+        const bitVector = new BitVector(new Uint8Array([0b00011010]), logicalValueCount);
         const data = encodeSignedInt32Stream(expectedValues, metadata, bitVector);
 
         const result = decodeSignedInt32Stream(data, new IntWrapper(0), metadata, undefined, bitVector);
