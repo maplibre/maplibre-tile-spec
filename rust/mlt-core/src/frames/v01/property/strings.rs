@@ -75,7 +75,6 @@ impl<'a> arbitrary::Arbitrary<'a> for ParsedStrings<'static> {
     }
 }
 
-impl ParsedSharedDict<'_> {}
 
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl<'a> arbitrary::Arbitrary<'a> for ParsedSharedDict<'static> {
