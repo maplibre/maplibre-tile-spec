@@ -1,5 +1,5 @@
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
-import type IntWrapper from "./intWrapper";
+import IntWrapper from "./intWrapper";
 import {
     decodeComponentwiseDeltaVec2,
     decodeComponentwiseDeltaVec2Scaled,
@@ -529,16 +529,14 @@ export function getVectorType(
 }
 
 function isDeltaRleSequenceVarintWidth(data: Uint8Array, offset: IntWrapper, varintWidth: "int32" | "int64"): boolean {
-    const savedOffset = offset.get();
+    const peekOffset = new IntWrapper(offset.get());
 
     if (varintWidth === "int64") {
-        const values = decodeVarintInt64(data, offset, 4);
-        offset.set(savedOffset);
+        const values = decodeVarintInt64(data, peekOffset, 4);
         return values[2] === 2n && values[3] === 2n;
     }
 
-    const values = decodeVarintInt32(data, offset, 4);
-    offset.set(savedOffset);
+    const values = decodeVarintInt32(data, peekOffset, 4);
     return values[2] === 2 && values[3] === 2;
 }
 
