@@ -4,7 +4,7 @@ use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, 
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder,
     PhysicalEncoder, PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer01,
-    tile::TileLayer01,
+    TileLayer01,
 };
 use mlt_core::{Layer, StagedLayer, parse_layers};
 use strum::IntoEnumIterator as _;
@@ -139,6 +139,13 @@ fn bench_encode_properties(c: &mut Criterion) {
                                 |mut layers| {
                                     for layer in &mut layers {
                                         if let StagedLayer::Tag01(l) = layer {
+                                            // Skip layers that contain SharedDict properties;
+                                            // this bench focuses on scalar encoding only.
+                                            if l.properties.iter().any(|p| {
+                                                matches!(p.kind(), PropertyKind::SharedDict)
+                                            }) {
+                                                continue;
+                                            }
                                             let int_enc = IntEncoder::new(logical, physical);
                                             let encoders: Vec<PropertyEncoder> = l
                                                 .properties
@@ -159,9 +166,7 @@ fn bench_encode_properties(c: &mut Criterion) {
                                                         )
                                                         .into()
                                                     }
-                                                    PropertyKind::SharedDict => {
-                                                        unreachable!("unimplemented")
-                                                    }
+                                                    PropertyKind::SharedDict => unreachable!(),
                                                 })
                                                 .collect();
                                             let props = std::mem::take(&mut l.properties);

@@ -1,4 +1,5 @@
 mod column;
+mod compare;
 mod encoded;
 mod geometry;
 mod id;
@@ -19,4 +20,3 @@ pub use property::*;
 pub use root::LayerOrdering;
 pub use sort::SortStrategy;
 pub use stream::*;
-pub use tile::{PropValue, TileFeature, TileLayer01};

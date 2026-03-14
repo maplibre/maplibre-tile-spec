@@ -18,7 +18,7 @@ Do **not** use bare `cargo` commands; `just` recipes ensure the correct feature 
 * We try to keep encoding and decoding logic separate, as they have different requirements and optimizations. For example, decoding can be more flexible and allow for partial lazy decoding, while encoding needs to operate on owned data structures and may require more complex transformations and optimizations (e.g., reordering features for better compression).
 
 ## Decoding Data
-When decoding data, `mlt-core` moves through a strict linear pipeline, minimizing unnecessary allocations and copies.  Both raw and parsed data is stored in the container structs (e.g., `TileLayer01`) as variants of the `EncDec<Raw,Parsed>` generic enum to allow for partial lazy decoding for any column like `id`, `geometry`, `property`, `sub-property`. Some internal owned types may be used inside both the `Parsed*` (decoding) and `Staged*` (encoding) data structures.
+When decoding data, `mlt-core` moves through a strict linear pipeline, minimizing unnecessary allocations and copies.  Both raw and parsed data is stored in the container structs (e.g., `TileLayer01`) as variants of the `EncDec<Raw,Parsed>` generic enum to allow for partial lazy decoding for any column like `id`, `geometry`, `property`, `sub-property`. Some internal owned types may be used inside both the `Parsed*` (decoding) and `Staged*` (encoding) data structures. `Parsed*` structs should not be created in any way other than from the `Raw*` structs. When testing, create corresponding `Staged*` struct to compare with the Parsed* ones - there should be an equality trait for them all.
 
 | Stage | Prefix         | Ownership                | Purpose                                                                       |
 |:------|:---------------|:-------------------------|:------------------------------------------------------------------------------|
@@ -32,6 +32,7 @@ These are the Conversion Rules:
 * **Slicing:** Original input bytes are sliced into `Raw*` structures. No copying. Uses `Raw*::parse(&[u8])` -> `MltRefResult<Raw*>` constructors. Not to be confused with `Parsed*` parsing into Parsed stage.
 * **Parsing:** `Raw*` `->` `Parsed*` via `TryFrom`.
 * **Row-based tiles:** `Parsed*` `->` `Tile*` via `TryFrom`. This is mostly used for GeoJSON generation by CLI and debugging tools, and should probably not be needed for most users like data access via WASM.
+
 
 ## Encoding Data
 Encoding is more complex, and requires owned data structures to support optimizations and transformations. The pipeline is as follows:

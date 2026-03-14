@@ -1,3 +1,4 @@
+use geo_types::Geometry as GeoGeometry;
 use num_enum::TryFromPrimitive;
 
 use crate::v01::{
@@ -68,7 +69,7 @@ pub struct Layer01<'a> {
 /// Columnar layer data being prepared for encoding (stage 2 of the encoding pipeline).
 ///
 /// Holds fully-owned columnar data. Constructed directly (synthetics, benches) or
-/// converted from [`TileLayer01`][crate::v01::tile::TileLayer01].
+/// converted from [`TileLayer01`].
 /// Consumed by encoding to produce [`EncodedLayer01`].
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
@@ -93,4 +94,50 @@ pub struct EncodedLayer01 {
     pub properties: Vec<EncodedProperty>,
     #[cfg(fuzzing)]
     pub layer_order: Vec<crate::frames::v01::root::LayerOrdering>,
+}
+
+/// Row-oriented working form for the optimizer.
+///
+/// All features are stored as a flat [`Vec<TileFeature>`] so that sorting is
+/// a single `sort_by_cached_key` call.  The `property_names` vec is parallel
+/// to every `TileFeature::properties` slice in this layer.
+#[derive(Debug, Clone)]
+pub struct TileLayer01 {
+    pub name: String,
+    pub extent: u32,
+    /// Column names, parallel to `TileFeature::properties`.
+    pub property_names: Vec<String>,
+    pub features: Vec<TileFeature>,
+}
+
+/// A single map feature in row form.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TileFeature {
+    pub id: Option<u64>,
+    /// Geometry in `geo_types` / `Geom32` form.
+    pub geometry: GeoGeometry<i32>,
+    /// One value per property column, in the same order as
+    /// [`TileLayer01::property_names`].
+    pub properties: Vec<PropValue>,
+}
+
+/// A single typed value for one property of one feature.
+///
+/// Mirrors the scalar variants of `ParsedProperty` at the per-feature
+/// level. `SharedDict` items are flattened: each sub-field becomes its own
+/// `PropValue::Str` entry in `TileFeature::properties`, with the
+/// corresponding entry in `TileLayer01::property_names` set to
+/// `"prefix:suffix"`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PropValue {
+    Bool(Option<bool>),
+    I8(Option<i8>),
+    U8(Option<u8>),
+    I32(Option<i32>),
+    U32(Option<u32>),
+    I64(Option<i64>),
+    U64(Option<u64>),
+    F32(Option<f32>),
+    F64(Option<f64>),
+    Str(Option<String>),
 }

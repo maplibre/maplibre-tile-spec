@@ -1,9 +1,8 @@
 use geo_types::{Coord, LineString, Point};
 use mlt_core::geojson::Geom32;
-use mlt_core::v01::tile::TileLayer01;
 use mlt_core::v01::{
     GeometryEncoder, GeometryType, IntEncoder, ParsedGeometry, ParsedId, SortStrategy,
-    StagedLayer01, StagedLayer01Encoder, Tile01Encoder,
+    StagedLayer01, StagedLayer01Encoder, Tile01Encoder, TileLayer01,
 };
 
 /// Helper to build a layer from geometries and IDs.

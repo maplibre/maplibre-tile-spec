@@ -1,5 +1,17 @@
 use crate::frames::{EncodedLayer, LayerEncoder, LayerProfile};
+use crate::v01::SortStrategy;
 use crate::{MltError, StagedLayer};
+
+impl LayerProfile {
+    /// Return the active sort strategy, or [`None`] for unknown layers.
+    #[must_use]
+    pub fn sort_strategy(&self) -> Option<SortStrategy> {
+        match self {
+            LayerProfile::Tag01(p) => p.sort_strategy(),
+            LayerProfile::Unknown => None,
+        }
+    }
+}
 
 impl StagedLayer {
     /// Encode using a specific [`LayerEncoder`], consuming `self` and producing [`EncodedLayer`].
