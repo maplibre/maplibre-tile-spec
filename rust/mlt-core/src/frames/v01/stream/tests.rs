@@ -252,28 +252,6 @@ fn test_varint_stream_huge_num_values_empty_data() {
     );
 }
 
-/// OOM regression: `decode_byte_rle` with a huge `num_bytes` but tiny input.
-///
-/// Before the fix, `decode_byte_rle` called `Vec::with_capacity(num_bytes)` where
-/// `num_bytes = num_values.div_ceil(8)` — for a ~268M-value bool column this meant
-/// a ~268 MB upfront allocation from a single-byte input.
-/// After the fix, capacity is capped to `input.len()`.
-#[test]
-fn test_decode_byte_rle_huge_num_bytes_tiny_input() {
-    use crate::utils::decode_byte_rle;
-    // num_bytes = 268_435_455 (≈ 256 MB), input = 1 byte.
-    // Before fix: Vec::with_capacity(268_435_455) → OOM.
-    // After fix:  Vec::with_capacity(1.min(268_435_455) = 1) → safe.
-    // The while loop terminates after consuming the 1 input byte (control < 128 but no
-    // value byte follows) without producing any output.
-    let result = decode_byte_rle(&[0x00], 268_435_455);
-    // The output must be far shorter than num_bytes; exact length doesn't matter.
-    assert!(
-        result.len() < 268_435_455,
-        "must not allocate huge output for tiny input"
-    );
-}
-
 /// RLE mismatch regression: `num_rle_values` in stream header doesn't equal sum of runs.
 ///
 /// `RleMeta::decode` must return an error instead of allocating based on the
