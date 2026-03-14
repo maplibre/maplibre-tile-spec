@@ -155,7 +155,7 @@ function decodePartialRleEncodedStreamMetadata(
 
 function decodeStreamMetadataInternal(tile: Uint8Array, offset: IntWrapper): StreamMetadata {
     const stream_type = tile[offset.get()];
-    const physicalStreamType = PHYSICAL_STREAM_TYPE_BY_ID[stream_type >> 4] as PhysicalStreamType;
+    const physicalStreamType = PHYSICAL_STREAM_TYPE_BY_ID[stream_type >> 4];
     let logicalStreamType = DEFAULT_LOGICAL_STREAM_TYPE;
 
     switch (physicalStreamType) {
@@ -172,9 +172,9 @@ function decodeStreamMetadataInternal(tile: Uint8Array, offset: IntWrapper): Str
     offset.increment();
 
     const encodings_header = tile[offset.get()];
-    const llt1 = LOGICAL_LEVEL_TECHNIQUE_BY_ID[encodings_header >> 5] as LogicalLevelTechnique;
-    const llt2 = LOGICAL_LEVEL_TECHNIQUE_BY_ID[(encodings_header >> 2) & 0x7] as LogicalLevelTechnique;
-    const plt = PHYSICAL_LEVEL_TECHNIQUE_BY_ID[encodings_header & 0x3] as PhysicalLevelTechnique;
+    const llt1 = LOGICAL_LEVEL_TECHNIQUE_BY_ID[encodings_header >> 5];
+    const llt2 = LOGICAL_LEVEL_TECHNIQUE_BY_ID[(encodings_header >> 2) & 0x7];
+    const plt = PHYSICAL_LEVEL_TECHNIQUE_BY_ID[encodings_header & 0x3];
     offset.increment();
 
     const numValues = decodeVarintInt32Value(tile, offset);
