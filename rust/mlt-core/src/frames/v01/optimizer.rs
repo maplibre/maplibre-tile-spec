@@ -38,6 +38,8 @@ impl StagedLayer01 {
             id,
             geometry,
             properties,
+            #[cfg(fuzzing)]
+            layer_order: vec![],
         })
     }
 
@@ -77,6 +79,8 @@ impl StagedLayer01 {
                 id,
                 geometry,
                 properties,
+                #[cfg(fuzzing)]
+                layer_order: vec![],
             },
             encoder,
         ))
@@ -149,6 +153,8 @@ impl StagedLayer01 {
                 id: id_enc_result,
                 geometry: geom_enc_result,
                 properties: encoded_properties,
+                #[cfg(fuzzing)]
+                layer_order: vec![],
             };
 
             let mut buf: Vec<u8> = Vec::new();

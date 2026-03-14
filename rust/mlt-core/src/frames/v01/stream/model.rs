@@ -13,6 +13,10 @@ pub enum LogicalTechnique {
 }
 
 /// Metadata for RLE decoding
+/// TODO v2 optimizations:
+///   * runs is identical to half the size of the associated array
+///   * num_rle_values is identical to the size of the sum of the first half of the array.
+///     Computing checked sum should not be too expensive.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RleMeta {
     pub runs: u32,

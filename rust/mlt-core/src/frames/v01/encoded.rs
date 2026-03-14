@@ -117,6 +117,26 @@ impl arbitrary::Arbitrary<'_> for EncodedLayer01 {
         let geometry = u.arbitrary()?;
         let properties: Vec<EncodedProperty> = u.arbitrary()?;
 
+        #[cfg(fuzzing)]
+        let layer_order = {
+            use crate::v01::root::LayerOrdering;
+            // Build a valid layer_order and Fisher-Yates shuffle it.
+            let mut layer_order: Vec<LayerOrdering> = Vec::new();
+            if id.is_some() {
+                layer_order.push(LayerOrdering::Id);
+            }
+            layer_order.push(LayerOrdering::Geometry);
+            for _ in &properties {
+                layer_order.push(LayerOrdering::Property);
+            }
+            let n = layer_order.len();
+            for i in (1..n).rev() {
+                let j: usize = u.int_in_range(0..=i)?;
+                layer_order.swap(i, j);
+            }
+            layer_order
+        };
+
         Ok(EncodedLayer01 {
             name,
             extent,
@@ -124,24 +144,7 @@ impl arbitrary::Arbitrary<'_> for EncodedLayer01 {
             geometry,
             properties,
             #[cfg(fuzzing)]
-            layer_order: {
-                use crate::v01::root::LayerOrdering;
-                // Build a valid layer_order and Fisher-Yates shuffle it.
-                let mut layer_order: Vec<LayerOrdering> = Vec::new();
-                if id.is_some() {
-                    layer_order.push(LayerOrdering::Id);
-                }
-                layer_order.push(LayerOrdering::Geometry);
-                for _ in &properties {
-                    layer_order.push(LayerOrdering::Property);
-                }
-                let n = layer_order.len();
-                for i in (1..n).rev() {
-                    let j: usize = u.int_in_range(0..=i)?;
-                    layer_order.swap(i, j);
-                }
-                layer_order
-            },
+            layer_order,
         })
     }
 }

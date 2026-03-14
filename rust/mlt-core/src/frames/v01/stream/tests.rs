@@ -231,6 +231,71 @@ fn test_stream_roundtrip(
     }
 }
 
+/// OOM regression: `VarInt` stream with huge `num_values` but `byte_length=0`.
+///
+/// `Wire: stream_type=0x00 | enc=0x02(VarInt) | num_values=0xd5_ff_d5_ff_03 | byte_length=0x00`
+/// Before the fix, `parse_varint_vec` called `Vec::with_capacity(1_073_053_653)` → ~4 GB OOM.
+#[test]
+fn test_varint_stream_huge_num_values_empty_data() {
+    // enc_byte = 0x02 → logical1=0(None), logical2=0(None), physical=2(VarInt)
+    // num_values = 0xd5 0xff 0xd5 0xff 0x03 = 1_073_053_653 (valid u32, 5-byte varint)
+    // byte_length = 0x00 → 0 bytes of data
+    let wire: &[u8] = &[0x00, 0x02, 0xd5, 0xff, 0xd5, 0xff, 0x03, 0x00];
+    let (remaining, stream) = RawStream::parse(wire).expect("parse must succeed");
+    assert!(remaining.is_empty());
+    assert_eq!(stream.meta.num_values, 1_073_053_653);
+    // Decoding must return an error, not OOM or panic.
+    let result = stream.decode_bits_u32();
+    assert!(
+        result.is_err(),
+        "decode must fail on empty data with huge num_values"
+    );
+}
+
+/// OOM regression: `decode_byte_rle` with a huge `num_bytes` but tiny input.
+///
+/// Before the fix, `decode_byte_rle` called `Vec::with_capacity(num_bytes)` where
+/// `num_bytes = num_values.div_ceil(8)` — for a ~268M-value bool column this meant
+/// a ~268 MB upfront allocation from a single-byte input.
+/// After the fix, capacity is capped to `input.len()`.
+#[test]
+fn test_decode_byte_rle_huge_num_bytes_tiny_input() {
+    use crate::utils::decode_byte_rle;
+    // num_bytes = 268_435_455 (≈ 256 MB), input = 1 byte.
+    // Before fix: Vec::with_capacity(268_435_455) → OOM.
+    // After fix:  Vec::with_capacity(1.min(268_435_455) = 1) → safe.
+    // The while loop terminates after consuming the 1 input byte (control < 128 but no
+    // value byte follows) without producing any output.
+    let result = decode_byte_rle(&[0x00], 268_435_455);
+    // The output must be far shorter than num_bytes; exact length doesn't matter.
+    assert!(
+        result.len() < 268_435_455,
+        "must not allocate huge output for tiny input"
+    );
+}
+
+/// RLE mismatch regression: `num_rle_values` in stream header doesn't equal sum of runs.
+///
+/// `RleMeta::decode` must return an error instead of allocating based on the
+/// header-declared `num_rle_values` when the actual run sum differs.
+#[test]
+fn test_rle_num_rle_values_mismatch() {
+    // runs=1, num_rle_values=u32::MAX (declared), but the single run has value 1.
+    // Sum of runs = 1 ≠ u32::MAX → must error before allocating ~16 GB.
+    use crate::v01::RleMeta;
+    let rle = RleMeta {
+        runs: 1,
+        num_rle_values: u32::MAX,
+    };
+    // data = [run_len=1, value=42] (1 run of length 1 with value 42)
+    let data = [1u32, 42u32];
+    let result = rle.decode::<u32>(&data);
+    assert!(
+        result.is_err(),
+        "must reject mismatched num_rle_values before allocating"
+    );
+}
+
 fn encoding_no_fastpfor() -> impl Strategy<Value = IntEncoder> {
     any::<IntEncoder>().prop_filter("not fastpfor", |v| v.physical != PhysicalEncoder::FastPFOR)
 }
