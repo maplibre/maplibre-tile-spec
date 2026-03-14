@@ -1,5 +1,5 @@
 use mlt_core::v01::EncodedLayer01;
-use mlt_core::{EncodedLayer, Layer};
+use mlt_core::{Decoder, EncodedLayer, Layer};
 
 /// Fuzz input that starts from an already-encoded layer and tests encode → decode roundtrip.
 ///
@@ -43,7 +43,7 @@ impl DecodedLayerInput {
 
         // Fully decode the layer — must not fail.
         parsed_back
-            .decode_all()
+            .decode_all(&mut Decoder::default())
             .expect("decode_all after roundtrip should not fail");
     }
 }

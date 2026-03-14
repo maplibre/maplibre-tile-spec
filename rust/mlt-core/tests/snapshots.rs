@@ -5,7 +5,7 @@ use std::fs;
 use std::path::Path;
 
 use insta::{assert_debug_snapshot, with_settings};
-use mlt_core::parse_layers;
+use mlt_core::{Decoder, parse_layers};
 use test_each_file::test_each_path;
 
 //
@@ -37,8 +37,9 @@ fn parse_one_file(path: impl AsRef<Path>) {
     match parse_layers(&buffer) {
         Ok(mut layers) => {
             assert_debug_snapshot!(format!("{file_name}-parsed"), layers);
+            let mut dec = Decoder::default();
             for layer in &mut layers {
-                if let Err(e) = layer.decode_all() {
+                if let Err(e) = layer.decode_all(&mut dec) {
                     assert_debug_snapshot!(format!("{file_name}___bad-decode"), e);
                     break;
                 }

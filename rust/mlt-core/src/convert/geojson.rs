@@ -1,13 +1,12 @@
 //! `GeoJSON` -like data to represent decoded MLT data with i32 coordinates
-
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::frames::Layer;
-use crate::v01::ParsedProperty;
-use crate::{Decodable as _, MltError};
+use crate::v01::{Geometry, Id, ParsedProperty, Property};
+use crate::{Decoder, MltError};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
 pub type Geom32 = geo_types::Geometry<i32>;
@@ -31,21 +30,33 @@ pub struct FeatureCollection {
 
 impl FeatureCollection {
     /// Convert decoded layers to a `GeoJSON` [`FeatureCollection`]
-    pub fn from_layers(layers: &mut [Layer<'_>]) -> Result<FeatureCollection, MltError> {
+    pub fn from_layers(
+        layers: &mut [Layer<'_>],
+        dec: &mut Decoder,
+    ) -> Result<FeatureCollection, MltError> {
         let mut features = Vec::new();
         for layer in layers.iter_mut() {
-            let l = layer.decoded_layer01_mut()?;
-            let geom = l.geometry.materialize()?;
-            let ids: Option<&[Option<u64>]> = if let Some(v) = l.id.as_mut() {
-                Some(v.materialize()?.values())
-            } else {
-                None
+            let l = layer.decoded_layer01_mut(dec)?;
+            l.decode_properties(dec)?;
+            let geom = match &l.geometry {
+                Geometry::Decoded(v) => v,
+                Geometry::Encoded(_) => return Err(MltError::NotDecoded("geometry")),
             };
+            let ids: Option<&[Option<u64>]> = l.id.as_ref().and_then(|v| {
+                if let Id::Decoded(d) = v {
+                    Some(d.values())
+                } else {
+                    None
+                }
+            });
             for i in 0..geom.vector_types.len() {
                 let geometry = geom.to_geojson(i)?;
                 let mut properties = BTreeMap::new();
-                for prop in &mut l.properties {
-                    let prop = prop.decoded_property()?;
+                for prop in &l.properties {
+                    let prop = match prop {
+                        Property::Decoded(p) => p,
+                        Property::Encoded(_) => return Err(MltError::NotDecoded("property")),
+                    };
                     // SharedDict properties are flattened to individual properties
                     // with names like "struct_name:child_suffix"
                     if let ParsedProperty::SharedDict(dict) = prop {

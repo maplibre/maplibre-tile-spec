@@ -1,11 +1,12 @@
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::{
-    Column, ColumnType, DictionaryType, Geometry, Id, Layer01, Property, RawFsstData, RawIdValue,
-    RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictChild,
-    RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding, StreamType,
+    Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, Layer01, Property,
+    RawFsstData, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
+    RawSharedDictChild, RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding,
+    StreamType,
 };
-use crate::{Decodable as _, MltError, MltRefResult};
+use crate::{Decoder, MltError, MltRefResult};
 
 impl Analyze for Layer01<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
@@ -182,40 +183,45 @@ impl Layer01<'_> {
         }
     }
 
-    /// Decode only the ID column, leaving properties in their encoded form.
+    /// Decode only the ID column, leaving other columns in their encoded form.
     ///
-    /// Use this instead of [`Self::decode_all`] when properties will be accessed lazily
-    pub fn decode_id(&mut self) -> Result<(), MltError> {
-        if let Some(id) = &mut self.id {
-            id.materialize()?;
+    /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
+    pub fn decode_id(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
+        if let Some(id) = self.id.take() {
+            self.id = Some(Id::Decoded(id.decode(dec)?));
         }
         Ok(())
     }
 
-    /// Decode only the geometry column, leaving properties in their encoded form.
+    /// Decode only the geometry column, leaving other columns in their encoded form.
     ///
-    /// Use this instead of [`Self::decode_all`] when properties will be accessed lazily
-    pub fn decode_geometry(&mut self) -> Result<(), MltError> {
-        self.geometry.materialize()?;
+    /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
+    pub fn decode_geometry(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
+        // Swap out the geometry with a temporary default (Decoded(GeometryValues::default()))
+        // so we can take ownership of the raw value without unsafe code.
+        let geom = std::mem::replace(
+            &mut self.geometry,
+            Geometry::Decoded(GeometryValues::default()),
+        );
+        self.geometry = Geometry::Decoded(geom.decode(dec)?);
         Ok(())
     }
 
-    /// Decode only the properties columns, leaving properties in their encoded form.
+    /// Decode only the property columns, leaving other columns in their encoded form.
     ///
-    /// Use this instead of [`Self::decode_all`] when properties will be accessed lazily
-    pub fn decode_properties(&mut self) -> Result<(), MltError> {
+    /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
+    pub fn decode_properties(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
         let old_props = std::mem::take(&mut self.properties);
         for prop in old_props {
-            self.properties
-                .push(Property::Decoded(prop.into_decoded()?));
+            self.properties.push(Property::Decoded(prop.decode(dec)?));
         }
         Ok(())
     }
 
-    pub fn decode_all(&mut self) -> Result<(), MltError> {
-        self.decode_id()?;
-        self.decode_geometry()?;
-        self.decode_properties()?;
+    pub fn decode_all(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
+        self.decode_id(dec)?;
+        self.decode_geometry(dec)?;
+        self.decode_properties(dec)?;
         Ok(())
     }
 }

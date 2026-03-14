@@ -2,10 +2,12 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::io::Write;
+use std::mem::size_of;
 
 use crate::MltError::{
     BufferUnderflow, DictIndexOutOfBounds, NotImplemented, UnexpectedStreamType2,
 };
+use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 use crate::v01::{
     ColumnType, DictionaryType, EncodedFsstData, EncodedName, EncodedPlainData, EncodedProperty,
@@ -16,7 +18,7 @@ use crate::v01::{
     RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding, SharedDictEncoder,
     StagedSharedDict, StagedSharedDictItem, StagedStrings, StrEncoder, StreamType,
 };
-use crate::{Analyze, DecodeInto, MltError, StatType};
+use crate::{Analyze, Decoder, MltError, StatType};
 
 impl StrEncoder {
     #[must_use]
@@ -488,10 +490,10 @@ impl<'a> RawPlainData<'a> {
         Ok(Self { lengths, data })
     }
 
-    pub fn decode(&self) -> Result<(&'a str, Vec<u32>), MltError> {
+    pub fn decode(self, dec: &mut Decoder) -> Result<(&'a str, Vec<u32>), MltError> {
         Ok((
             str::from_utf8(self.data.as_bytes())?,
-            self.lengths.decode_bits_u32()?.decode_u32()?,
+            self.lengths.decode_u32s(dec)?,
         ))
     }
 
@@ -544,15 +546,16 @@ impl<'a> RawFsstData<'a> {
         })
     }
 
-    pub fn decode(&self) -> Result<(String, Vec<u32>), MltError> {
-        let sym_lens = self.symbol_lengths.decode_bits_u32()?.decode_u32()?;
-        let sym_data = self.symbol_table.as_bytes();
-        let compressed = self.corpus.as_bytes();
-        let decompressed = decode_fsst(sym_data, &sym_lens, compressed);
-        Ok((
-            String::from_utf8(decompressed)?,
-            self.lengths.decode_bits_u32()?.decode_u32()?,
-        ))
+    pub fn decode(self, dec: &mut Decoder) -> Result<(String, Vec<u32>), MltError> {
+        let RawFsstData {
+            symbol_lengths,
+            symbol_table,
+            lengths,
+            corpus,
+        } = self;
+        let sym_lens = symbol_lengths.decode_u32s(dec)?;
+        let decompressed = decode_fsst(symbol_table.as_bytes(), &sym_lens, corpus.as_bytes());
+        Ok((String::from_utf8(decompressed)?, lengths.decode_u32s(dec)?))
     }
 
     #[must_use]
@@ -900,44 +903,49 @@ impl<'a> RawStrings<'a> {
     }
 
     /// Decode string property from its encoded column.
-    pub fn into_decoded(self) -> Result<ParsedStrings<'a>, MltError> {
+    pub fn decode(self, dec: &mut Decoder) -> Result<ParsedStrings<'a>, MltError> {
         let name = self.name;
-        let presence = self
-            .presence
-            .0
-            .map(DecodeInto::<Vec<bool>>::decode_into)
-            .transpose()?;
-        match self.encoding {
+        let presence = match self.presence.0 {
+            Some(s) => Some(s.decode_bools(dec)?),
+            None => None,
+        };
+
+        let parsed = match self.encoding {
             RawStringsEncoding::Plain(plain_data) => {
-                let (data, lengths) = plain_data.decode()?;
-                Ok(ParsedStrings {
+                let (data, lengths) = plain_data.decode(dec)?;
+                ParsedStrings {
                     name,
                     lengths: to_absolute_lengths(&lengths, presence.as_deref())?,
                     data: data.into(),
-                })
+                }
             }
             RawStringsEncoding::Dictionary {
                 plain_data,
                 offsets,
             } => {
-                let (data, lengths) = plain_data.decode()?;
-                let offsets: Vec<u32> = offsets.decode_into()?;
-                decode_dictionary_strings(name, &lengths, &offsets, presence.as_deref(), data)
+                let (data, lengths) = plain_data.decode(dec)?;
+                let offsets: Vec<u32> = offsets.decode_u32s(dec)?;
+                decode_dictionary_strings(name, &lengths, &offsets, presence.as_deref(), data)?
             }
             RawStringsEncoding::FsstPlain(fsst_data) => {
-                let (data, dict_lens) = fsst_data.decode()?;
-                Ok(ParsedStrings {
+                let (data, dict_lens) = fsst_data.decode(dec)?;
+                ParsedStrings {
                     name,
                     lengths: to_absolute_lengths(&dict_lens, presence.as_deref())?,
                     data: data.into(),
-                })
+                }
             }
             RawStringsEncoding::FsstDictionary { fsst_data, offsets } => {
-                let (data, lengths) = fsst_data.decode()?;
-                let offsets: Vec<u32> = offsets.decode_into()?;
-                decode_dictionary_strings(name, &lengths, &offsets, presence.as_deref(), &data)
+                let (data, lengths) = fsst_data.decode(dec)?;
+                let offsets: Vec<u32> = offsets.decode_u32s(dec)?;
+                decode_dictionary_strings(name, &lengths, &offsets, presence.as_deref(), &data)?
             }
-        }
+        };
+        // String corpus size is only known after decompression; charge after.
+        let bytes = u32::try_from(parsed.lengths.len() * size_of::<i32>()).or_overflow()?
+            + u32::try_from(parsed.data.len()).or_overflow()?;
+        dec.consume(bytes)?;
+        Ok(parsed)
     }
 }
 
@@ -1064,49 +1072,55 @@ impl<'a> RawSharedDict<'a> {
     }
 
     /// Decode a shared-dictionary column into its decoded form.
-    pub fn into_decoded(self) -> Result<ParsedSharedDict<'a>, MltError> {
+    pub fn decode(self, dec: &mut Decoder) -> Result<ParsedSharedDict<'a>, MltError> {
         let prefix = self.name;
         let (data, dict_spans) = match self.encoding {
             RawSharedDictEncoding::Plain(plain_data) => {
-                let (decoded, lengths) = plain_data.decode()?;
+                let (decoded, lengths) = plain_data.decode(dec)?;
                 let dict_spans = shared_dict_spans(&lengths);
                 (Cow::Borrowed(decoded), dict_spans)
             }
             RawSharedDictEncoding::FsstPlain(fsst_data) => {
-                let (decoded, lengths) = fsst_data.decode()?;
+                let (decoded, lengths) = fsst_data.decode(dec)?;
                 let dict_spans = shared_dict_spans(&lengths);
                 (decoded.into(), dict_spans)
             }
         };
-        let items = self
-            .children
-            .into_iter()
-            .map(|child| -> Result<ParsedSharedDictItem, MltError> {
-                let offsets: Vec<u32> = child.data.decode_into()?;
-                let presence = child
-                    .presence
-                    .0
-                    .map(DecodeInto::<Vec<bool>>::decode_into)
-                    .transpose()?;
-                let ranges = resolve_dict_spans(&offsets, presence.as_deref(), &dict_spans)?
-                    .into_iter()
-                    .map(|span| match span {
-                        Some(span) => encode_shared_dict_range(span.0, span.1),
-                        None => Ok((-1, -1)),
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                Ok(ParsedSharedDictItem {
-                    suffix: child.name,
-                    ranges,
+        let mut items = Vec::with_capacity(self.children.len());
+        for child in self.children {
+            let offsets: Vec<u32> = child.data.decode_u32s(dec)?;
+            let presence = match child.presence.0 {
+                Some(s) => Some(s.decode_bools(dec)?),
+                None => None,
+            };
+            let ranges = resolve_dict_spans(&offsets, presence.as_deref(), &dict_spans)?
+                .into_iter()
+                .map(|span| match span {
+                    Some(span) => encode_shared_dict_range(span.0, span.1),
+                    None => Ok((-1, -1)),
                 })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<Vec<_>, _>>()?;
+            items.push(ParsedSharedDictItem {
+                suffix: child.name,
+                ranges,
+            });
+        }
 
-        Ok(ParsedSharedDict {
+        let parsed = ParsedSharedDict {
             prefix,
             data,
             items,
-        })
+        };
+        // Corpus size is only known after decompression; charge after.
+        let bytes = parsed.items.iter().try_fold(
+            u32::try_from(parsed.data.len()).or_overflow()?,
+            |acc, item| {
+                let n = u32::try_from(item.ranges.len() * size_of::<(i32, i32)>()).or_overflow()?;
+                acc.checked_add(n).ok_or(MltError::IntegerOverflow)
+            },
+        )?;
+        dec.consume(bytes)?;
+        Ok(parsed)
     }
 }
 

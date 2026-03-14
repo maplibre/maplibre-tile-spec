@@ -16,10 +16,9 @@ use std::mem::size_of;
 pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt};
 use serde_json::{Number, Value};
 
-use crate::MltError;
-use crate::decode::DecodeInto as _;
 use crate::errors::AsMltError as _;
 use crate::v01::RawStream;
+use crate::{Decoder, MltError};
 
 /// Convert f32 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
 #[must_use]
@@ -69,9 +68,10 @@ impl<T> SetOptionOnce<T> for Option<T> {
 pub fn apply_present<T>(
     present: Option<RawStream<'_>>,
     values: Vec<T>,
+    dec: &mut Decoder,
 ) -> Result<Vec<Option<T>>, MltError> {
     let present: Vec<bool> = if let Some(p) = present {
-        p.decode_into()?
+        p.decode_bools(dec)?
     } else {
         return Ok(values.into_iter().map(Some).collect());
     };
@@ -109,8 +109,15 @@ pub fn checked_sum3<T: CheckedAdd + Copy>(v1: T, v2: T, v3: T) -> Result<T, MltE
         .or_overflow()
 }
 
-pub trait AsUsize {
+pub trait AsUsize: Eq + Copy {
     fn as_usize(&self) -> usize;
+}
+
+impl AsUsize for usize {
+    #[inline]
+    fn as_usize(&self) -> usize {
+        *self
+    }
 }
 
 impl AsUsize for u32 {

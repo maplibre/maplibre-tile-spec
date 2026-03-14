@@ -3,6 +3,7 @@ use std::num::TryFromIntError;
 
 use num_enum::TryFromPrimitiveError;
 
+use crate::utils::AsUsize;
 use crate::v01::{GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType};
 
 pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
@@ -88,6 +89,12 @@ pub enum MltError {
     MvtParse(String),
     #[error("need to encode before being able to write")]
     NeedsEncodingBeforeWriting,
+    #[error("memory limit exceeded: limit={limit}, used={used}, requested={requested}")]
+    MemoryLimitExceeded {
+        limit: u32,
+        used: u32,
+        requested: u32,
+    },
     #[error("not implemented: {0}")]
     NotImplemented(&'static str),
     #[error("unsupported property value and encoder combination: {0:?} + {1:?}")]
@@ -191,5 +198,17 @@ impl AsMltError<u32> for Result<u32, TryFromIntError> {
     #[inline]
     fn or_overflow(&self) -> Result<u32, MltError> {
         self.map_err(|_| MltError::IntegerOverflow)
+    }
+}
+
+#[inline]
+pub fn fail_if_invalid_stream_size<T: AsUsize>(actual: T, expected: T) -> Result<(), MltError> {
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(MltError::InvalidDecodingStreamSize(
+            actual.as_usize(),
+            expected.as_usize(),
+        ))
     }
 }

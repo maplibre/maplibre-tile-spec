@@ -1,6 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use mlt_core::Decoder;
 use mlt_core::v01::{
     DictionaryType, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
     EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, PhysicalEncoder,
@@ -192,7 +193,7 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
                         b.iter(|| {
                             black_box(
                                 borrow_enc_strings(encoded, "", None)
-                                    .into_decoded()
+                                    .decode(&mut Decoder::default())
                                     .unwrap(),
                             )
                         });
@@ -225,7 +226,7 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
                         b.iter(|| {
                             black_box(
                                 borrow_enc_strings(encoded, "", None)
-                                    .into_decoded()
+                                    .decode(&mut Decoder::default())
                                     .unwrap(),
                             )
                         });
@@ -252,7 +253,7 @@ fn bench_encoding_type(c: &mut Criterion) {
             b.iter(|| {
                 black_box(
                     borrow_enc_strings(encoded, "", None)
-                        .into_decoded()
+                        .decode(&mut Decoder::default())
                         .unwrap(),
                 )
             });
@@ -263,7 +264,7 @@ fn bench_encoding_type(c: &mut Criterion) {
             b.iter(|| {
                 black_box(
                     borrow_enc_strings(encoded, "", None)
-                        .into_decoded()
+                        .decode(&mut Decoder::default())
                         .unwrap(),
                 )
             });
@@ -292,7 +293,7 @@ fn bench_presence(c: &mut Criterion) {
                 b.iter(|| {
                     black_box(
                         borrow_enc_strings(encoded, "", None)
-                            .into_decoded()
+                            .decode(&mut Decoder::default())
                             .unwrap(),
                     )
                 });
@@ -314,7 +315,11 @@ fn bench_presence(c: &mut Criterion) {
             |b, (pres, enc)| {
                 b.iter(|| {
                     let p = pres.as_borrowed();
-                    black_box(borrow_enc_strings(enc, "", Some(p)).into_decoded().unwrap())
+                    black_box(
+                        borrow_enc_strings(enc, "", Some(p))
+                            .decode(&mut Decoder::default())
+                            .unwrap(),
+                    )
                 });
             },
         );
@@ -346,12 +351,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             b.iter(|| {
                 black_box(
                     borrow_enc_strings(encoded, "", None)
-                        .into_decoded()
+                        .decode(&mut Decoder::default())
                         .unwrap(),
                 );
                 black_box(
                     borrow_enc_strings(encoded, "", None)
-                        .into_decoded()
+                        .decode(&mut Decoder::default())
                         .unwrap(),
                 );
             });
@@ -402,7 +407,9 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             |b, sd| {
                 b.iter_batched(
                     || borrow_owned_shared_dict(sd),
-                    |sd_ref: RawSharedDict<'_>| black_box(sd_ref.into_decoded().unwrap()),
+                    |sd_ref: RawSharedDict<'_>| {
+                        black_box(sd_ref.decode(&mut Decoder::default()).unwrap())
+                    },
                     BatchSize::SmallInput,
                 );
             },
@@ -426,7 +433,9 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("shared_dict_fsst", n), sd_fsst, |b, sd| {
             b.iter_batched(
                 || borrow_owned_shared_dict(sd),
-                |sd_ref: RawSharedDict<'_>| black_box(sd_ref.into_decoded().unwrap()),
+                |sd_ref: RawSharedDict<'_>| {
+                    black_box(sd_ref.decode(&mut Decoder::default()).unwrap())
+                },
                 BatchSize::SmallInput,
             );
         });
@@ -437,12 +446,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             b.iter(|| {
                 black_box(
                     borrow_enc_strings(encoded, "", None)
-                        .into_decoded()
+                        .decode(&mut Decoder::default())
                         .unwrap(),
                 );
                 black_box(
                     borrow_enc_strings(encoded, "", None)
-                        .into_decoded()
+                        .decode(&mut Decoder::default())
                         .unwrap(),
                 );
             });
