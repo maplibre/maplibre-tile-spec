@@ -15,7 +15,7 @@ pub struct RawGeometry<'a> {
 }
 
 /// Parsed (decoded) geometry data
-#[derive(Clone, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct ParsedGeometry {
     pub vector_types: Vec<GeometryType>,
     pub geometry_offsets: Option<Vec<u32>>,

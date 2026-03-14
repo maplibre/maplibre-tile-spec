@@ -51,7 +51,7 @@ pub enum LayerEncoder {
 /// Profile for a layer, built by running automatic optimisation over a
 /// representative sample of tiles and capturing the chosen encoders.
 ///
-/// The [`SortStrategy`] stored inside the inner [`Tag01Profile`] is recorded
+/// The `SortStrategy` stored inside the inner [`Tag01Profile`] is recorded
 /// so that profile-driven encoding can reproduce the same feature ordering on
 /// subsequent tiles.
 #[derive(Debug, Clone)]

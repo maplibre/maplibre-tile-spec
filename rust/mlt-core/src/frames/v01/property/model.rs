@@ -206,7 +206,7 @@ pub struct ParsedScalar<'a, T: Copy + PartialEq> {
 }
 
 /// A single sub-property within a shared dictionary parsed value.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ParsedSharedDictItem<'a> {
     /// The suffix name of this sub-property (appended to parent struct name).
@@ -220,7 +220,7 @@ pub struct ParsedSharedDictItem<'a> {
 }
 
 /// Parsed string values for a single property.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedStrings<'a> {
     pub name: &'a str,
     /// Per-feature cumulative end offsets into `data`.
@@ -242,14 +242,14 @@ pub struct ParsedStrings<'a> {
 }
 
 /// Parsed shared dictionary payload shared by one or more child string properties.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedSharedDict<'a> {
     pub prefix: &'a str,
     pub data: Cow<'a, str>,
     pub items: Vec<ParsedSharedDictItem<'a>>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ParsedPresence(pub Option<Vec<bool>>);
 
@@ -384,7 +384,7 @@ pub struct StagedScalar<T: Copy + PartialEq + 'static> {
 }
 
 /// Owned string column prepared for encoding.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedStrings {
     pub name: String,
     /// Per-feature cumulative end offsets into `data` (same encoding as [`ParsedStrings::lengths`]).
@@ -393,7 +393,7 @@ pub struct StagedStrings {
 }
 
 /// A single child within a staged shared-dictionary column.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedSharedDictItem {
     pub suffix: String,
     /// Per-feature `(start, end)` byte offsets into the shared corpus.
@@ -401,7 +401,7 @@ pub struct StagedSharedDictItem {
 }
 
 /// Owned shared-dictionary column prepared for encoding.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedSharedDict {
     pub prefix: String,
     pub data: String,
