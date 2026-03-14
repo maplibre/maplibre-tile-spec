@@ -6,7 +6,7 @@ use std::ops::Deref;
 
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::v01::{Geometry, Id, ParsedGeometry, ParsedProperty, Property};
+use mlt_core::v01::{Geometry, GeometryValues, Id, ParsedProperty, Property};
 use mlt_core::{MltError, parse_layers};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -99,7 +99,7 @@ fn push_polygon(buf: &mut Vec<u8>, poly: &Polygon<i32>, xf: Option<TileTransform
 }
 
 fn geom_to_wkb(
-    geom: &ParsedGeometry,
+    geom: &GeometryValues,
     index: usize,
     xf: Option<TileTransform>,
 ) -> Result<Vec<u8>, MltError> {
@@ -206,7 +206,7 @@ fn prop_value_to_py(py: Python<'_>, prop: &ParsedProperty, i: usize) -> Py<PyAny
 
 fn build_features(
     py: Python<'_>,
-    geom: &ParsedGeometry,
+    geom: &GeometryValues,
     ids: Option<&[Option<u64>]>,
     props: &[&ParsedProperty],
     xf: Option<TileTransform>,

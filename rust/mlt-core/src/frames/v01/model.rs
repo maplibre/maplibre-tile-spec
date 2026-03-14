@@ -2,7 +2,7 @@ use geo_types::Geometry as GeoGeometry;
 use num_enum::TryFromPrimitive;
 
 use crate::v01::{
-    EncodedGeometry, EncodedId, EncodedProperty, Geometry, Id, ParsedGeometry, ParsedId, Property,
+    EncodedGeometry, EncodedId, EncodedProperty, Geometry, GeometryValues, Id, IdValues, Property,
     StagedProperty,
 };
 
@@ -76,8 +76,8 @@ pub struct Layer01<'a> {
 pub struct StagedLayer01 {
     pub name: String,
     pub extent: u32,
-    pub id: Option<ParsedId>,
-    pub geometry: ParsedGeometry,
+    pub id: Option<IdValues>,
+    pub geometry: GeometryValues,
     pub properties: Vec<StagedProperty>,
 }
 

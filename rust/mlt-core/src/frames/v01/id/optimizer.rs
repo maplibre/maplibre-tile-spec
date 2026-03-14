@@ -1,5 +1,5 @@
 use crate::v01::{
-    DataProfile, EncodedId, IdEncoder, IdWidth, IntEncoder, LogicalEncoder, ParsedId,
+    DataProfile, EncodedId, IdEncoder, IdValues, IdWidth, IntEncoder, LogicalEncoder,
     PhysicalEncoder,
 };
 use crate::{FromDecoded as _, MltError};
@@ -33,7 +33,7 @@ impl IdProfile {
 
     /// Build a profile from a sample of decoded IDs.
     #[must_use]
-    pub fn from_sample(decoded: &ParsedId) -> Self {
+    pub fn from_sample(decoded: &IdValues) -> Self {
         let ids = &decoded.0;
         let Ok((_, _, id_width)) = single_pass_statistics(ids) else {
             return Self {
@@ -63,7 +63,7 @@ impl IdProfile {
 ///
 /// Fast paths (short sequences, sequential, constant) are checked first.
 /// Otherwise, the full pruning + competition pipeline runs.
-fn optimize(decoded: &ParsedId) -> IdEncoder {
+fn optimize(decoded: &IdValues) -> IdEncoder {
     let ids = &decoded.0;
     let (is_sequential, is_constant, id_width) = match single_pass_statistics(ids) {
         Ok(stats) => stats,
@@ -92,7 +92,7 @@ fn optimize(decoded: &ParsedId) -> IdEncoder {
 /// The same fast paths as [`optimize`] are applied first. For the general case,
 /// competition is run over the profile's pre-computed candidate list rather
 /// than re-running the full pruning analysis.
-fn apply_profile(decoded: &ParsedId, profile: &IdProfile) -> IdEncoder {
+fn apply_profile(decoded: &IdValues, profile: &IdProfile) -> IdEncoder {
     let ids = &decoded.0;
     let (is_sequential, is_constant, id_width) = match single_pass_statistics(ids) {
         Ok(stats) => stats,
@@ -236,7 +236,7 @@ fn filter_varint(candidates: &[IntEncoder]) -> Vec<IntEncoder> {
     }
 }
 
-impl ParsedId {
+impl IdValues {
     /// Encode this ID column using the given encoder, consuming `self`.
     /// Returns `None` if the ID list is empty.
     pub fn encode(self, encoder: IdEncoder) -> Result<Option<EncodedId>, MltError> {

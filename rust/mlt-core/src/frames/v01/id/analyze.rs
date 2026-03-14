@@ -2,7 +2,7 @@ use std::fmt::{Debug, Formatter};
 
 use crate::analyse::{Analyze, StatType};
 use crate::utils::OptSeqOpt;
-use crate::v01::{EncodedId, EncodedIdValue, ParsedId, RawId, RawIdValue, StreamMeta};
+use crate::v01::{EncodedId, EncodedIdValue, IdValues, RawId, RawIdValue, StreamMeta};
 
 impl Analyze for EncodedId {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
@@ -36,14 +36,14 @@ impl Analyze for RawIdValue<'_> {
     }
 }
 
-impl Analyze for ParsedId {
+impl Analyze for IdValues {
     fn collect_statistic(&self, stat: StatType) -> usize {
         self.0.collect_statistic(stat)
     }
 }
 
-impl Debug for ParsedId {
+impl Debug for IdValues {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ParsedId({:?})", &OptSeqOpt(Some(&self.0)))
+        write!(f, "IdValues({:?})", &OptSeqOpt(Some(&self.0)))
     }
 }

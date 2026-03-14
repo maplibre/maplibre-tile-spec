@@ -5,7 +5,7 @@ use crate::EncDec;
 use crate::v01::{EncodedStream, RawStream};
 
 /// Geometry column representation, either raw (borrowed from bytes) or parsed.
-pub type Geometry<'a> = EncDec<RawGeometry<'a>, ParsedGeometry>;
+pub type Geometry<'a> = EncDec<RawGeometry<'a>, GeometryValues>;
 
 /// Raw geometry data as read directly from the tile (borrows from input bytes)
 #[derive(Debug, PartialEq, Clone)]
@@ -16,7 +16,7 @@ pub struct RawGeometry<'a> {
 
 /// Parsed (decoded) geometry data
 #[derive(Clone, Default, PartialEq, Eq)]
-pub struct ParsedGeometry {
+pub struct GeometryValues {
     pub vector_types: Vec<GeometryType>,
     pub geometry_offsets: Option<Vec<u32>>,
     pub part_offsets: Option<Vec<u32>>,

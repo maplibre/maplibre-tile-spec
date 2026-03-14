@@ -76,13 +76,13 @@ To avoid decoding everything eagerly, the library keeps a clear split between st
 * **`RawId<'a>` struct** — zero-copy: contains only references (`&'a [u8]`) into the original input.
   No memory is allocated; values are not decoded, just stream metadata is parsed.
   Backed by `RawStream<'a>` instances tied to the input lifetime.
-* **`ParsedId` struct** — owns its decoded values as standard Rust types (e.g. `Vec<Option<u64>>`).
+* **`IdValues` struct** — owns its decoded values as standard Rust types (e.g. `Vec<Option<u64>>`).
   Produced by calling `decode()` on a `Raw*` type or `Id<'a>` enum.
 * **`EncodedId` struct** — wire-ready owned byte buffers produced by the encoding pipeline.
   Can be serialized directly to a file or network stream.
-* **`Id<'a>` type alias** (`EncDec<RawId<'a>, ParsedId>`) — holds data in either raw-bytes or
+* **`Id<'a>` type alias** (`EncDec<RawId<'a>, IdValues>`) — holds data in either raw-bytes or
   decoded form, enabling lazy in-place decoding of individual columns while leaving others raw.
-* **`StagedId` type alias** (`EncDec<EncodedId, ParsedId>`) — used by the optimizer pipeline to
+* **`StagedId` type alias** (`EncDec<EncodedId, IdValues>`) — used by the optimizer pipeline to
   hold data that is either decoded (awaiting encoding) or already encoded (ready to write).
 
 **Decoding** is done through concrete methods on the column enum types and on the layer itself:

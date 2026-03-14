@@ -8,7 +8,7 @@ use crate::MltError::{
 };
 use crate::geojson::{Coord32, Geom32};
 use crate::utils::AsUsize as _;
-use crate::v01::{GeometryType, ParsedGeometry};
+use crate::v01::{GeometryType, GeometryValues};
 
 impl GeometryType {
     #[must_use]
@@ -31,7 +31,7 @@ impl GeometryType {
     }
 }
 
-impl ParsedGeometry {
+impl GeometryValues {
     /// Build a `GeoJSON` geometry for a single feature at index `i`.
     /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec
     /// (MLT omits the closing vertex).
@@ -378,10 +378,10 @@ impl From<ArbitraryGeometry> for Geom32 {
 }
 
 #[cfg(all(not(test), feature = "arbitrary"))]
-impl arbitrary::Arbitrary<'_> for ParsedGeometry {
+impl arbitrary::Arbitrary<'_> for GeometryValues {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
         let geoms = u.arbitrary_iter::<ArbitraryGeometry>()?;
-        let mut decoded = ParsedGeometry::default();
+        let mut decoded = GeometryValues::default();
         for geo in geoms {
             decoded.push_geom(&Geom32::from(geo?));
         }
@@ -410,10 +410,10 @@ mod tests {
     use crate::geojson::Coord32;
     use crate::v01::{EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, RawGeometry};
 
-    /// Encode, serialize, parse, and decode a `ParsedGeometry`.
+    /// Encode, serialize, parse, and decode a `GeometryValues`.
     /// The input must already be in the dense canonical form that `from_encoded`
     /// produces (i.e. built via a previous `roundtrip` call, not via `push_*`).
-    fn roundtrip(decoded: &ParsedGeometry, encoder: GeometryEncoder) -> ParsedGeometry {
+    fn roundtrip(decoded: &GeometryValues, encoder: GeometryEncoder) -> GeometryValues {
         let enc_geom = decoded.clone().encode(encoder).expect("Failed to encode");
 
         let mut buffer = Vec::new();
@@ -427,7 +427,7 @@ mod tests {
             .expect("Failed to decode")
     }
 
-    /// Build a `ParsedGeometry` from a sequence of `Geom32` values via
+    /// Build a `GeometryValues` from a sequence of `Geom32` values via
     /// `push_geom` and perform a two-cycle encode/decode:
     ///
     /// 1. push -> encode -> decode  (`canonical`): exercises `push_geom` and
@@ -441,8 +441,8 @@ mod tests {
     fn roundtrip_via_push(
         geoms: &[Geom32],
         encoder: GeometryEncoder,
-    ) -> (ParsedGeometry, ParsedGeometry) {
-        let mut pushed = ParsedGeometry::default();
+    ) -> (GeometryValues, GeometryValues) {
+        let mut pushed = GeometryValues::default();
         for g in geoms {
             pushed.push_geom(g);
         }
@@ -666,7 +666,7 @@ mod tests {
     }
 
     /// Verifies that a Morton-encoded vertex dictionary is fully expanded inside `from_encoded`.
-    /// This ensures `ParsedGeometry` always holds flat `(x, y)` pairs.
+    /// This ensures `GeometryValues` always holds flat `(x, y)` pairs.
     #[test]
     fn test_morton_vertex_dictionary_expansion() {
         use crate::v01::{

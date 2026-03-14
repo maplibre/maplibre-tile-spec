@@ -1,6 +1,6 @@
 use mlt_core::MltError;
 use mlt_core::v01::{
-    EncodeProperties as _, GeometryEncoder, IntEncoder, Layer01, LogicalEncoder, ParsedGeometry,
+    EncodeProperties as _, GeometryEncoder, GeometryValues, IntEncoder, Layer01, LogicalEncoder,
     ParsedProperty, ParsedScalar, ParsedStrings, PhysicalEncoder, PresenceStream, PropertyEncoder,
     ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder,
     StagedProperty, StrEncoder, build_staged_shared_dict,
@@ -77,7 +77,7 @@ fn props_to_layer_bytes(
         name: "test".to_string(),
         extent: 4096,
         id: None,
-        geometry: ParsedGeometry::default(),
+        geometry: GeometryValues::default(),
         properties: props,
     };
     let encoded = layer.encode(StagedLayer01Encoder {

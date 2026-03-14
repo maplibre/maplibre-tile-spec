@@ -1,34 +1,34 @@
-use mlt_core::v01::{IdEncoder, IdProfile, IdWidth, IntEncoder, LogicalEncoder, ParsedId};
+use mlt_core::v01::{IdEncoder, IdProfile, IdValues, IdWidth, IntEncoder, LogicalEncoder};
 use rstest::rstest;
 
-fn create_u32_range_ids() -> ParsedId {
-    ParsedId((1u64..=100).map(Some).collect())
+fn create_u32_range_ids() -> IdValues {
+    IdValues((1u64..=100).map(Some).collect())
 }
 
-fn create_u64_range_ids() -> ParsedId {
+fn create_u64_range_ids() -> IdValues {
     let base = u64::from(u32::MAX) + 1;
-    ParsedId((base..base + 50).map(Some).collect())
+    IdValues((base..base + 50).map(Some).collect())
 }
 
-fn create_ids_with_nulls() -> ParsedId {
-    ParsedId(vec![Some(10), None, Some(20), None, Some(30)])
+fn create_ids_with_nulls() -> IdValues {
+    IdValues(vec![Some(10), None, Some(20), None, Some(30)])
 }
 
-fn create_constant_ids() -> ParsedId {
-    ParsedId(vec![Some(42), Some(42), Some(42), Some(42), Some(42)])
+fn create_constant_ids() -> IdValues {
+    IdValues(vec![Some(42), Some(42), Some(42), Some(42), Some(42)])
 }
 
 #[rstest]
 #[case::empty(
-    ParsedId(vec![]),
+    IdValues(vec![]),
     IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
 )]
 #[case::all_nulls(
-    ParsedId(vec![None, None]),
+    IdValues(vec![None, None]),
     IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
 )]
 #[case::short_sequence(
-    ParsedId(vec![Some(1), Some(2)]),
+    IdValues(vec![Some(1), Some(2)]),
     IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
 )]
 #[case::sequential_u32(
@@ -47,7 +47,7 @@ fn create_constant_ids() -> ParsedId {
     create_ids_with_nulls(),
     IdEncoder::new(LogicalEncoder::Delta, IdWidth::OptId32)
 )]
-fn test_automatic_optimisation_selection(#[case] input: ParsedId, #[case] expected: IdEncoder) {
+fn test_automatic_optimisation_selection(#[case] input: IdValues, #[case] expected: IdEncoder) {
     let is_empty = input.0.is_empty();
     let (_encoded, enc) = input.encode_auto().unwrap();
     assert_eq!(enc, if is_empty { None } else { Some(expected) });
@@ -55,7 +55,7 @@ fn test_automatic_optimisation_selection(#[case] input: ParsedId, #[case] expect
 
 #[test]
 fn test_automatic_optimisation_roundtrip_empty() {
-    let decoded = ParsedId(vec![]);
+    let decoded = IdValues(vec![]);
     let (encoded, _enc) = decoded.clone().encode_auto().unwrap();
     assert!(encoded.is_none(), "empty ID list should produce None");
 }
@@ -65,10 +65,10 @@ fn test_automatic_optimisation_roundtrip_empty() {
 #[case::sequential_u64(create_u64_range_ids())]
 #[case::constant(create_constant_ids())]
 #[case::with_nulls(create_ids_with_nulls())]
-fn test_automatic_optimisation_roundtrip(#[case] decoded: ParsedId) {
+fn test_automatic_optimisation_roundtrip(#[case] decoded: IdValues) {
     let (encoded, _) = decoded.clone().encode_auto().unwrap();
     let encoded = encoded.expect("non-empty IDs should produce Some");
-    let decoded_back = ParsedId::try_from(encoded).expect("decoding failed");
+    let decoded_back = IdValues::try_from(encoded).expect("decoding failed");
     assert_eq!(decoded_back, decoded);
 }
 
@@ -81,20 +81,20 @@ fn test_manual_optimisation_applies_encoder() {
         .encode(manual_enc)
         .unwrap()
         .expect("should produce encoded");
-    let decoded_back = ParsedId::try_from(encoded).unwrap();
+    let decoded_back = IdValues::try_from(encoded).unwrap();
     assert_eq!(decoded_back, decoded);
 }
 
 #[test]
 fn test_manual_optimisation_truncation() {
     let large_value = u64::from(u32::MAX) + 42;
-    let ids = ParsedId(vec![Some(large_value)]);
+    let ids = IdValues(vec![Some(large_value)]);
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);
     let encoded = ids
         .encode(manual_enc)
         .unwrap()
         .expect("should produce encoded");
-    let decoded_back = ParsedId::try_from(encoded).unwrap();
+    let decoded_back = IdValues::try_from(encoded).unwrap();
     // Manual encoding with a too-narrow `IdWidth` silently truncates values.
     // `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
     assert_eq!(decoded_back.0[0], Some(41));
@@ -114,7 +114,7 @@ fn test_profile_applies_candidates_and_rederives_width() {
     assert_eq!(enc.id_width, IdWidth::Id64);
     // Both samples are sequential (>4 values), so the fast path fires: DeltaRle.
     assert_eq!(enc.logical, LogicalEncoder::DeltaRle);
-    assert_eq!(ParsedId::try_from(encoded).unwrap(), u64_decoded);
+    assert_eq!(IdValues::try_from(encoded).unwrap(), u64_decoded);
 }
 
 #[rstest]
@@ -122,11 +122,11 @@ fn test_profile_applies_candidates_and_rederives_width() {
 #[case::sequential_u64(create_u64_range_ids())]
 #[case::constant(create_constant_ids())]
 #[case::with_nulls(create_ids_with_nulls())]
-fn test_profile_roundtrip(#[case] decoded: ParsedId) {
+fn test_profile_roundtrip(#[case] decoded: IdValues) {
     let profile = IdProfile::from_sample(&decoded);
     let (encoded, _) = decoded.clone().encode_with_profile(&profile).unwrap();
     let encoded = encoded.expect("non-empty IDs should produce Some");
-    let decoded_back = ParsedId::try_from(encoded).unwrap();
+    let decoded_back = IdValues::try_from(encoded).unwrap();
     assert_eq!(decoded_back, decoded);
 }
 

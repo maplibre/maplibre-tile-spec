@@ -2,7 +2,7 @@ use crate::EncDec;
 use crate::v01::{EncodedStream, RawStream};
 
 /// ID column representation, either raw (borrowed from bytes) or parsed.
-pub type Id<'a> = EncDec<RawId<'a>, ParsedId>;
+pub type Id<'a> = EncDec<RawId<'a>, IdValues>;
 
 /// Unparsed ID data as read directly from the tile (borrows from input bytes)
 #[derive(Debug, PartialEq)]
@@ -21,7 +21,7 @@ pub enum RawIdValue<'a> {
 /// Parsed ID values as a vector of optional 64-bit unsigned integers
 #[derive(Clone, Default, PartialEq, Eq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct ParsedId(pub Vec<Option<u64>>);
+pub struct IdValues(pub Vec<Option<u64>>);
 
 /// Wire-ready encoded ID data (owns its byte buffers)
 #[derive(Debug, PartialEq, Clone)]

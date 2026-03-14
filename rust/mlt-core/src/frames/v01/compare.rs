@@ -6,13 +6,13 @@
 /// one side first.
 use crate::frames::model::{EncodedUnknown, Layer, StagedLayer, Unknown};
 use crate::v01::{
-    Geometry, Id, Layer01, ParsedGeometry, ParsedId, Property, StagedLayer01, StagedProperty,
+    Geometry, GeometryValues, Id, IdValues, Layer01, Property, StagedLayer01, StagedProperty,
 };
 
 // ── Id ────────────────────────────────────────────────────────────────────────
 
-impl PartialEq<ParsedId> for Id<'_> {
-    fn eq(&self, other: &ParsedId) -> bool {
+impl PartialEq<IdValues> for Id<'_> {
+    fn eq(&self, other: &IdValues) -> bool {
         match self {
             Self::Decoded(parsed) => parsed == other,
             Self::Encoded(_) => false,
@@ -20,7 +20,7 @@ impl PartialEq<ParsedId> for Id<'_> {
     }
 }
 
-impl PartialEq<Id<'_>> for ParsedId {
+impl PartialEq<Id<'_>> for IdValues {
     fn eq(&self, other: &Id<'_>) -> bool {
         other == self
     }
@@ -28,8 +28,8 @@ impl PartialEq<Id<'_>> for ParsedId {
 
 // ── Geometry ──────────────────────────────────────────────────────────────────
 
-impl PartialEq<ParsedGeometry> for Geometry<'_> {
-    fn eq(&self, other: &ParsedGeometry) -> bool {
+impl PartialEq<GeometryValues> for Geometry<'_> {
+    fn eq(&self, other: &GeometryValues) -> bool {
         match self {
             Self::Decoded(parsed) => parsed == other,
             Self::Encoded(_) => false,
@@ -37,7 +37,7 @@ impl PartialEq<ParsedGeometry> for Geometry<'_> {
     }
 }
 
-impl PartialEq<Geometry<'_>> for ParsedGeometry {
+impl PartialEq<Geometry<'_>> for GeometryValues {
     fn eq(&self, other: &Geometry<'_>) -> bool {
         other == self
     }

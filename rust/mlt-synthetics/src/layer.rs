@@ -9,8 +9,8 @@ use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{
-    EncodeProperties as _, EncodedLayer01, GeometryEncoder, IdEncoder, IntEncoder, ParsedGeometry,
-    ParsedId, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
+    EncodeProperties as _, EncodedLayer01, GeometryEncoder, GeometryValues, IdEncoder, IdValues,
+    IntEncoder, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
     SharedDictItemEncoder, StagedProperty, StagedStrings, StrEncoder, VertexBufferType,
     build_staged_shared_dict,
 };
@@ -267,8 +267,8 @@ impl Layer {
         self
     }
 
-    fn build_decoded_geometry(&self) -> ParsedGeometry {
-        let mut geom = ParsedGeometry::default();
+    fn build_decoded_geometry(&self) -> GeometryValues {
+        let mut geom = GeometryValues::default();
         for g in &self.geometry_items {
             geom.push_geom(g);
         }
@@ -315,7 +315,7 @@ impl Layer {
             .unwrap_or_else(|e| panic!("cannot encode geometry: {e}"));
 
         let id = if let Some((ids, ids_encoder)) = self.ids {
-            ParsedId(ids)
+            IdValues(ids)
                 .encode(ids_encoder)
                 .unwrap_or_else(|e| panic!("cannot encode id: {e}"))
         } else {
