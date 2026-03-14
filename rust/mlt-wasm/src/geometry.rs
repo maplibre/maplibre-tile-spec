@@ -64,7 +64,7 @@ impl LayerGeometry {
 
 impl LayerGeometry {
     /// Build a [`LayerGeometry`] from a decoded [`GeometryValues`].
-    pub(crate) fn from_parsed(geom: &GeometryValues) -> LayerGeometry {
+    pub(crate) fn from_values(geom: &GeometryValues) -> LayerGeometry {
         let geometry_offsets = geom
             .geometry_offsets
             .as_deref()

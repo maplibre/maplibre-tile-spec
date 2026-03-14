@@ -79,7 +79,7 @@ impl MltTile {
     /// All decoded geometry arrays for layer `layer_idx`, in one call.
     #[must_use]
     pub fn layer_geometry(&self, layer_idx: usize) -> LayerGeometry {
-        LayerGeometry::from_parsed(&self.layers[layer_idx].geometry)
+        LayerGeometry::from_values(&self.layers[layer_idx].geometry)
     }
 
     // -----------------------------------------------------------------------

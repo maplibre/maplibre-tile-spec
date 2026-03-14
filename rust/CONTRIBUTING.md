@@ -20,7 +20,7 @@ Before committing, make sure that `just rust::fmt`, `just rust::lint`, and `just
 * We try to keep encoding and decoding logic separate, as they have different requirements and optimizations. For example, decoding can be more flexible and allow for partial lazy decoding, while encoding needs to operate on owned data structures and may require more complex transformations and optimizations (e.g., reordering features for better compression).
 
 ## Decoding Data
-When decoding data, `mlt-core` moves through a strict linear pipeline, minimizing unnecessary allocations and copies.  Both raw and parsed data is stored in the container structs (e.g., `TileLayer01`) as variants of the `EncDec<Raw,Parsed>` generic enum to allow for partial lazy decoding for any column like `id`, `geometry`, `property`, `sub-property`. Some internal owned types may be used inside both the `Parsed*` (decoding) and `Staged*` (encoding) data structures. `Parsed*` structs should not be created in any way other than from the `Raw*` structs. When testing, create corresponding `Staged*` struct to compare with the Parsed* ones - there should be an equality trait for them all. Some types might be shared between encoding and decoding types. If shared, these types should not have any intermediat prefixes, i.e. raw, parsed, staged, or encoded. If conflicted, the type should be named like `Owned*` or just by its name without a prefix.
+When decoding data, `mlt-core` moves through a strict linear pipeline, minimizing unnecessary allocations and copies.  Both raw and parsed data is stored in the container structs (e.g., `TileLayer01`) as variants of the `EncDec<Raw,Parsed>` generic enum to allow for partial lazy decoding for any column like `id`, `geometry`, `property`, `sub-property`. Some internal owned types may be used inside both the `Parsed*` (decoding) and `Staged*` (encoding) data structures. `Parsed*` structs should not be created in any way other than from the `Raw*` structs. When testing, create corresponding `Staged*` struct to compare with the Parsed* ones - there should be an equality trait for them all. Some types might be shared between encoding and decoding types. If shared, these types should not have any intermediate prefixes, i.e. raw, parsed, staged, or encoded. If conflicted, the type should be named like `Owned*` or just by its name without a prefix.
 
 
 | Stage | Prefix         | Ownership                | Purpose                                                                       |
@@ -48,7 +48,7 @@ Encoding is more complex, and requires owned data structures to support optimiza
 | **3** | `Encoded*` | Owned                 | Wire-ready byte buffers.                                                   |
 
 ### Notes
-* **Forward Only:** Data moves `1` -> `5`. No backwards conversions (e.g., `Encoded` cannot become `Staged`).
+* **Forward Only:** Data moves `1` -> `3`. No backwards conversions (e.g., `Encoded` cannot become `Staged`).
 * All progression steps will use an `Encoder*` types that has some state of **how** to encode, the data of the stage, and return the next stage types, e.g. `TileLayer01` via `Tile01Encoder::encode(&mut self, data: &mut TileLayer01)` -> `Result<StagedLayer01, MltError>` `->` `StagedLayer01`. Note that both `self` and `data` are mutable references, as the encoder may need to mutate internal state and the data being encoded (e.g., for optimizations like reordering features or updating profiling information).
 * **Staging:** `Tile*` `->` `Staged*`.
 * **Encoding:** `Staged*` `->` `Encoded*`.

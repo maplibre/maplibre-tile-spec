@@ -203,15 +203,12 @@ impl From<TileLayer01> for StagedLayer01 {
             geom.push_geom(&f.geometry);
         }
 
-        // Rebuild ID column (only if at least one feature has a non-None id)
-        let has_ids = source.features.iter().any(|f| f.id.is_some());
-        let id = if has_ids || !source.features.is_empty() {
+        let id = if source.features.iter().any(|f| f.id.is_some()) {
             Some(IdValues(source.features.iter().map(|f| f.id).collect()))
         } else {
             None
         };
 
-        // Rebuild property columns from the flattened PropValue rows.
         let num_cols = source.property_names.len();
         let properties = rebuild_properties(&source.property_names, &source.features, num_cols);
 
