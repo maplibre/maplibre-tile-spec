@@ -442,8 +442,14 @@ fn struct_shared_dict_inline_ranges_track_nulls_and_empty_strings() {
     let prop = shared_dict_prop(
         "name",
         vec![
-            (":de".to_string(), ParsedStrings::from(de.clone())),
-            (":en".to_string(), ParsedStrings::from(en.clone())),
+            (
+                ":de".to_string(),
+                ParsedStrings::from_optional_strings("", de.clone()),
+            ),
+            (
+                ":en".to_string(),
+                ParsedStrings::from_optional_strings("", en.clone()),
+            ),
         ],
     );
     let StagedProperty::SharedDict(shared_dict) = &prop else {
@@ -519,19 +525,23 @@ fn struct_mixed_with_scalars() {
         vec![
             (
                 "de".to_string(),
-                ParsedStrings::from(
+                ParsedStrings::from_optional_strings(
+                    "",
                     strs(&["Berlin", "Hamburg"])
                         .into_iter()
                         .flatten()
+                        .map(Some)
                         .collect::<Vec<_>>(),
                 ),
             ),
             (
                 "en".to_string(),
-                ParsedStrings::from(
+                ParsedStrings::from_optional_strings(
+                    "",
                     strs(&["Berlin", "Hamburg"])
                         .into_iter()
                         .flatten()
+                        .map(Some)
                         .collect::<Vec<_>>(),
                 ),
             ),
@@ -595,19 +605,23 @@ fn two_struct_groups_with_scalar_between() {
         vec![
             (
                 "de".to_string(),
-                ParsedStrings::from(
+                ParsedStrings::from_optional_strings(
+                    "",
                     strs(&["Berlin", "Hamburg"])
                         .into_iter()
                         .flatten()
+                        .map(Some)
                         .collect::<Vec<_>>(),
                 ),
             ),
             (
                 "en".to_string(),
-                ParsedStrings::from(
+                ParsedStrings::from_optional_strings(
+                    "",
                     strs(&["Berlin", "Hamburg"])
                         .into_iter()
                         .flatten()
+                        .map(Some)
                         .collect::<Vec<_>>(),
                 ),
             ),
@@ -621,19 +635,23 @@ fn two_struct_groups_with_scalar_between() {
         vec![
             (
                 "de".to_string(),
-                ParsedStrings::from(
+                ParsedStrings::from_optional_strings(
+                    "",
                     strs(&["BE", "HH"])
                         .into_iter()
                         .flatten()
+                        .map(Some)
                         .collect::<Vec<_>>(),
                 ),
             ),
             (
                 "en".to_string(),
-                ParsedStrings::from(
+                ParsedStrings::from_optional_strings(
+                    "",
                     strs(&["BER", "HAM"])
                         .into_iter()
                         .flatten()
+                        .map(Some)
                         .collect::<Vec<_>>(),
                 ),
             ),

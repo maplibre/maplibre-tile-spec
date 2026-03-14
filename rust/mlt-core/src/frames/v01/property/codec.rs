@@ -132,11 +132,7 @@ impl<'a> ParsedProperty<'a> {
     }
     #[must_use]
     pub fn str(name: &'a str, values: Vec<Option<String>>) -> Self {
-        // FIXME: don't use From, use a constructor
-        //   Delete From trait impl for this
-        let mut s = ParsedStrings::from(values);
-        s.name = name;
-        Self::Str(s)
+        Self::Str(ParsedStrings::from_optional_strings(name, values))
     }
 }
 

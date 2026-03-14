@@ -32,22 +32,13 @@ impl StrEncoder {
     }
 }
 
-/// FIXME: delete?
-impl From<Vec<Option<String>>> for ParsedStrings<'static> {
-    fn from(values: Vec<Option<String>>) -> Self {
-        Self::from_optional_strings(values)
-    }
-}
-
-/// FIXME: delete?
-impl From<Vec<String>> for ParsedStrings<'static> {
-    fn from(values: Vec<String>) -> Self {
-        Self::from_optional_strings(values.into_iter().map(Some).collect())
-    }
-}
-
-impl ParsedStrings<'static> {
-    fn from_optional_strings(values: Vec<Option<String>>) -> Self {
+/// FIXME: delete - we should not accept owned strings here, but rather use a data blob
+impl ParsedStrings<'_> {
+    #[must_use]
+    pub fn from_optional_strings<'a>(
+        name: &'a str,
+        values: Vec<Option<String>>,
+    ) -> ParsedStrings<'a> {
         let mut lengths = Vec::with_capacity(values.len());
         let mut data = String::new();
         let mut end = 0_i32;
@@ -62,8 +53,8 @@ impl ParsedStrings<'static> {
                 None => lengths.push(encode_null_end(end)),
             }
         }
-        Self {
-            name: "",
+        ParsedStrings::<'a> {
+            name,
             lengths,
             data: Cow::Owned(data),
         }
@@ -73,7 +64,10 @@ impl ParsedStrings<'static> {
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl<'a> arbitrary::Arbitrary<'a> for ParsedStrings<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self::from(u.arbitrary::<Vec<Option<String>>>()?))
+        Ok(Self::from_optional_strings(
+            "",
+            u.arbitrary::<Vec<Option<String>>>()?,
+        ))
     }
 }
 
@@ -276,7 +270,16 @@ impl StagedSharedDictItem {
 
 // ── ParsedStrings ─────────────────────────────────────────────────────────────
 
-impl ParsedStrings<'_> {
+impl<'a> ParsedStrings<'a> {
+    #[must_use]
+    pub fn new(name: &'a str, lengths: Vec<i32>, data: Cow<'a, str>) -> Self {
+        ParsedStrings {
+            name,
+            lengths,
+            data,
+        }
+    }
+
     #[must_use]
     pub fn feature_count(&self) -> usize {
         self.lengths.len()
