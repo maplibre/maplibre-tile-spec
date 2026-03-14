@@ -4,11 +4,11 @@
 
 | Integration | Status |
 |---|---|
-| MapLibre Native | Supported since MapLibre Android 12.1.0, MapLibre iOS 6.2.0. PR: [#3246](https://github.com/maplibre/maplibre-native/pull/3246). |
-| MapLibre GL JS | Supported since version 5.12.0. PR: [#6570](https://github.com/maplibre/maplibre-gl-js/pull/6570). |
+| [MapLibre Native](https://maplibre.org/maplibre-native/) | Supported since MapLibre Android 12.1.0, MapLibre iOS 6.2.0. PR: [#3246](https://github.com/maplibre/maplibre-native/pull/3246). |
+| [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/) | Supported since version 5.12.0. PR: [#6570](https://github.com/maplibre/maplibre-gl-js/pull/6570). |
 | Planetiler | Can generate tiles in MLT since version [0.10.0](https://github.com/onthegomap/planetiler/releases/tag/v0.10.0). |
 | PMTiles | Can store MLT, see [PMTiles v3 spec - Tile Type](https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md#tile-type-tt). |
-| Martin Tileserver | Can detect and serve MLT since version [1.3.0](https://github.com/maplibre/martin/releases/tag/martin-v1.3.0). PR: [#2512](https://github.com/maplibre/martin/pull/2512) |
+| [Martin tile server](https://maplibre.org/martin/) | Can detect and serve MLT since version [1.3.0](https://github.com/maplibre/martin/releases/tag/martin-v1.3.0). PR: [#2512](https://github.com/maplibre/martin/pull/2512). |
 
 ## Implementations
 
