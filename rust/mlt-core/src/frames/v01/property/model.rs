@@ -378,7 +378,7 @@ pub enum StrEncoder {
 /// Owned scalar column prepared for encoding (bool, integer, or float).
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-pub struct StagedScalar<T: Copy + PartialEq + 'static> {
+pub struct StagedScalar<T: Copy + PartialEq> {
     pub name: String,
     pub values: Vec<Option<T>>,
 }

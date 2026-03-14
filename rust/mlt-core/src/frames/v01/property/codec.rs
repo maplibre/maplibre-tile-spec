@@ -5,10 +5,9 @@ use crate::encode::FromDecoded;
 use crate::utils::apply_present;
 use crate::v01::{
     DictionaryType, EncodedName, EncodedPresence, EncodedProperty, EncodedScalar, EncodedStream,
-    EncodedStrings, LengthType, ParsedPresence, ParsedProperty, ParsedScalar, ParsedStrings,
-    PresenceStream, Property, PropertyEncoder, RawPresence, RawProperty, ScalarEncoder,
-    ScalarValueEncoder, StagedProperty, StagedScalar, StagedStrings, StrEncoder,
-    encode_shared_dict_prop,
+    EncodedStrings, LengthType, ParsedPresence, ParsedProperty, ParsedScalar, PresenceStream,
+    Property, PropertyEncoder, RawPresence, RawProperty, ScalarEncoder, ScalarValueEncoder,
+    StagedProperty, StagedScalar, StagedStrings, StrEncoder, encode_shared_dict_prop,
 };
 
 #[cfg(all(not(test), feature = "arbitrary"))]
@@ -129,12 +128,6 @@ impl<'a> ParsedProperty<'a> {
     #[must_use]
     pub fn f64(name: &'a str, values: Vec<Option<f64>>) -> Self {
         Self::F64(ParsedScalar::new(name, values))
-    }
-    // FIXME: `str` should be a constructor for Str,
-    //   not a test helper with static lifetime
-    #[must_use]
-    pub fn str(name: &'a str, values: Vec<Option<String>>) -> Self {
-        Self::Str(ParsedStrings::from_optional_strings(name, values))
     }
 }
 

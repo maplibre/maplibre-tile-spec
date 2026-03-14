@@ -1,9 +1,9 @@
 use mlt_core::MltError;
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, GeometryValues, IntEncoder, Layer01, LogicalEncoder,
-    ParsedProperty, ParsedScalar, ParsedStrings, PhysicalEncoder, PresenceStream, PropertyEncoder,
-    ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder,
-    StagedProperty, StrEncoder, build_staged_shared_dict,
+    ParsedProperty, PhysicalEncoder, PresenceStream, PropertyEncoder, ScalarEncoder,
+    SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty,
+    StagedStrings, StrEncoder, build_staged_shared_dict,
 };
 use proptest::prelude::*;
 
@@ -51,7 +51,7 @@ fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
     ]
 }
 
-fn roundtrip(staged: StagedProperty, expected: &ParsedProperty<'_>, encoder: ScalarEncoder) {
+fn roundtrip(staged: StagedProperty, expected: &StagedProperty, encoder: ScalarEncoder) {
     let bytes = props_to_layer_bytes(vec![staged], vec![PropertyEncoder::Scalar(encoder)]).unwrap();
     let layer = Layer01::parse(&bytes).expect("layer parse failed");
     let result = layer
@@ -98,14 +98,9 @@ fn opt_strs(vals: &[Option<&str>]) -> Vec<Option<String>> {
     vals.iter().map(|v| v.map(ToString::to_string)).collect()
 }
 
-fn shared_dict_prop(name: &str, children: Vec<(String, ParsedStrings<'static>)>) -> StagedProperty {
-    use mlt_core::v01::StagedStrings;
-    let staged_children: Vec<(String, StagedStrings)> = children
-        .into_iter()
-        .map(|(suffix, ps)| (suffix, StagedStrings::from(ps.materialize())))
-        .collect();
+fn shared_dict_prop(name: &str, children: Vec<(String, StagedStrings)>) -> StagedProperty {
     let shared_dict =
-        build_staged_shared_dict(name.to_string(), staged_children).expect("build shared dict");
+        build_staged_shared_dict(name.to_string(), children).expect("build shared dict");
     StagedProperty::SharedDict(shared_dict)
 }
 
@@ -165,10 +160,9 @@ macro_rules! integer_roundtrip_proptests {
                 values in prop::collection::vec(prop::option::of(any::<$ty>()), 0..100),
                 enc in $int_encoder,
             ) {
-                let expected = ParsedProperty::$variant(ParsedScalar::new("x", values.clone()));
                 let staged = StagedProperty::$staged_fn("x", values);
                 let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
-                roundtrip(staged, &expected, scalar_enc);
+                roundtrip(staged.clone(), &staged, scalar_enc);
             }
 
             #[test]
@@ -177,10 +171,9 @@ macro_rules! integer_roundtrip_proptests {
                 enc in $int_encoder,
             ) {
                 let opt: Vec<Option<$ty>> = values.into_iter().map(Some).collect();
-                let expected = ParsedProperty::$variant(ParsedScalar::new("x", opt.clone()));
                 let staged = StagedProperty::$staged_fn("x", opt);
                 let scalar_enc = ScalarEncoder::int(PresenceStream::Absent, enc);
-                roundtrip(staged, &expected, scalar_enc);
+                roundtrip(staged.clone(), &staged, scalar_enc);
             }
         }
     };
@@ -212,11 +205,10 @@ integer_roundtrip_proptests!(
 #[test]
 fn bool_specific_values() {
     let values = vec![Some(true), None, Some(false), Some(true), None];
-    let expected = ParsedProperty::bool("active", values.clone());
     let staged = StagedProperty::bool("active", values);
     roundtrip(
-        staged,
-        &expected,
+        staged.clone(),
+        &staged,
         ScalarEncoder::bool(PresenceStream::Present),
     );
 }
@@ -224,11 +216,10 @@ fn bool_specific_values() {
 #[test]
 fn bool_all_null() {
     let values = vec![None, None, None];
-    let expected = ParsedProperty::bool("active", values.clone());
     let staged = StagedProperty::bool("active", values);
     roundtrip(
-        staged,
-        &expected,
+        staged.clone(),
+        &staged,
         ScalarEncoder::bool(PresenceStream::Present),
     );
 }
@@ -238,9 +229,8 @@ proptest! {
     fn bool_roundtrip(
         values in prop::collection::vec(prop::option::of(any::<bool>()), 0..100),
     ) {
-        let expected = ParsedProperty::bool("flag", values.clone());
         let staged = StagedProperty::bool("flag", values);
-        roundtrip(staged, &expected, ScalarEncoder::bool(PresenceStream::Present));
+        roundtrip(staged.clone(), &staged, ScalarEncoder::bool(PresenceStream::Present));
     }
 }
 
@@ -253,9 +243,8 @@ proptest! {
             0..100,
         ),
     ) {
-        let expected = ParsedProperty::f32("score", values.clone());
         let staged = StagedProperty::f32("score", values);
-        roundtrip(staged, &expected, ScalarEncoder::float(PresenceStream::Present));
+        roundtrip(staged.clone(), &staged, ScalarEncoder::float(PresenceStream::Present));
     }
 
     #[test]
@@ -265,36 +254,32 @@ proptest! {
             0..100,
         ),
     ) {
-        let expected = ParsedProperty::f64("score", values.clone());
         let staged = StagedProperty::f64("score", values);
-        roundtrip(staged, &expected, ScalarEncoder::float(PresenceStream::Present));
+        roundtrip(staged.clone(), &staged, ScalarEncoder::float(PresenceStream::Present));
     }
 }
 
 #[test]
 fn str_scalar_with_nulls() {
     let values = opt_strs(&[Some("Berlin"), None, Some("Hamburg"), None]);
-    let expected = ParsedProperty::str("city", values.clone());
     let staged = StagedProperty::str("city", values);
     let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-    roundtrip(staged, &expected, enc);
+    roundtrip(staged.clone(), &staged, enc);
 }
 
 #[test]
 fn str_scalar_all_null() {
     let values = opt_strs(&[None, None, None]);
-    let expected = ParsedProperty::str("city", values.clone());
     let staged = StagedProperty::str("city", values);
     let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-    roundtrip(staged, &expected, enc);
+    roundtrip(staged.clone(), &staged, enc);
 }
 
 #[test]
 fn str_scalar_empty() {
-    let expected = ParsedProperty::str("unused", vec![]);
     let staged = StagedProperty::str("unused", vec![]);
     let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-    roundtrip(staged, &expected, enc);
+    roundtrip(staged.clone(), &staged, enc);
 }
 
 proptest! {
@@ -305,10 +290,9 @@ proptest! {
             0..50,
         ),
     ) {
-        let expected = ParsedProperty::str("name", values.clone());
         let staged = StagedProperty::str("name", values);
         let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-        roundtrip(staged, &expected, enc);
+        roundtrip(staged.clone(), &staged, enc);
     }
 }
 
@@ -321,9 +305,8 @@ fn fsst_scalar_string_roundtrip() {
         IntEncoder::plain(),
     );
     let values = strs(&["Berlin", "Brandenburg", "Bremen", "Braunschweig"]);
-    let expected = ParsedProperty::str("name", values.clone());
     let staged = StagedProperty::str("name", values);
-    roundtrip(staged, &expected, enc);
+    roundtrip(staged.clone(), &staged, enc);
 }
 
 #[test]
@@ -383,14 +366,8 @@ fn struct_shared_dict_inline_ranges_track_nulls_and_empty_strings() {
     let prop = shared_dict_prop(
         "name",
         vec![
-            (
-                ":de".to_string(),
-                ParsedStrings::from_optional_strings("", de.clone()),
-            ),
-            (
-                ":en".to_string(),
-                ParsedStrings::from_optional_strings("", en.clone()),
-            ),
+            (":de".to_string(), StagedStrings::from(de.clone())),
+            (":en".to_string(), StagedStrings::from(en.clone())),
         ],
     );
     let StagedProperty::SharedDict(shared_dict) = &prop else {
@@ -466,32 +443,18 @@ fn struct_mixed_with_scalars() {
         vec![
             (
                 "de".to_string(),
-                ParsedStrings::from_optional_strings(
-                    "",
-                    strs(&["Berlin", "Hamburg"])
-                        .into_iter()
-                        .flatten()
-                        .map(Some)
-                        .collect::<Vec<_>>(),
-                ),
+                StagedStrings::from(strs(&["Berlin", "Hamburg"])),
             ),
             (
                 "en".to_string(),
-                ParsedStrings::from_optional_strings(
-                    "",
-                    strs(&["Berlin", "Hamburg"])
-                        .into_iter()
-                        .flatten()
-                        .map(Some)
-                        .collect::<Vec<_>>(),
-                ),
+                StagedStrings::from(strs(&["Berlin", "Hamburg"])),
             ),
         ],
     );
     let rank = StagedProperty::u32("rank", vec![Some(1), Some(2)]);
-    let population_parsed =
-        ParsedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
-    let rank_parsed = ParsedProperty::u32("rank", vec![Some(1), Some(2)]);
+    let population_staged =
+        StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let rank_staged = StagedProperty::u32("rank", vec![Some(1), Some(2)]);
 
     let props = vec![population, name_shared, rank];
     let prop_encs = vec![
@@ -522,7 +485,7 @@ fn struct_mixed_with_scalars() {
 
     // Output order: scalar "population", struct "name:", scalar "rank"
     assert_eq!(decoded_props.len(), 3);
-    assert_eq!(decoded_props[0], population_parsed);
+    assert_eq!(decoded_props[0], population_staged);
     let name = decoded_props.remove(1);
     assert_eq!(name.name(), "name:");
     let ParsedProperty::SharedDict(shared_dict) = &name else {
@@ -539,7 +502,7 @@ fn struct_mixed_with_scalars() {
         items[1].materialize(shared_dict),
         strs(&["Berlin", "Hamburg"])
     );
-    assert_eq!(decoded_props[1], rank_parsed);
+    assert_eq!(decoded_props[1], rank_staged);
 }
 
 #[test]
@@ -549,56 +512,22 @@ fn two_struct_groups_with_scalar_between() {
         vec![
             (
                 "de".to_string(),
-                ParsedStrings::from_optional_strings(
-                    "",
-                    strs(&["Berlin", "Hamburg"])
-                        .into_iter()
-                        .flatten()
-                        .map(Some)
-                        .collect::<Vec<_>>(),
-                ),
+                StagedStrings::from(strs(&["Berlin", "Hamburg"])),
             ),
             (
                 "en".to_string(),
-                ParsedStrings::from_optional_strings(
-                    "",
-                    strs(&["Berlin", "Hamburg"])
-                        .into_iter()
-                        .flatten()
-                        .map(Some)
-                        .collect::<Vec<_>>(),
-                ),
+                StagedStrings::from(strs(&["Berlin", "Hamburg"])),
             ),
         ],
     );
     let population = StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
-    let population_parsed =
-        ParsedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let population_staged =
+        StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
     let label_shared = shared_dict_prop(
         "label:",
         vec![
-            (
-                "de".to_string(),
-                ParsedStrings::from_optional_strings(
-                    "",
-                    strs(&["BE", "HH"])
-                        .into_iter()
-                        .flatten()
-                        .map(Some)
-                        .collect::<Vec<_>>(),
-                ),
-            ),
-            (
-                "en".to_string(),
-                ParsedStrings::from_optional_strings(
-                    "",
-                    strs(&["BER", "HAM"])
-                        .into_iter()
-                        .flatten()
-                        .map(Some)
-                        .collect::<Vec<_>>(),
-                ),
-            ),
+            ("de".to_string(), StagedStrings::from(strs(&["BE", "HH"]))),
+            ("en".to_string(), StagedStrings::from(strs(&["BER", "HAM"]))),
         ],
     );
 
@@ -663,7 +592,7 @@ fn two_struct_groups_with_scalar_between() {
         name_items[1].materialize(name_shared_dict),
         strs(&["Berlin", "Hamburg"])
     );
-    assert_eq!(decoded_props[1], population_parsed);
+    assert_eq!(decoded_props[1], population_staged);
     let label = &decoded_props[2];
     assert_eq!(label.name(), "label:");
     let ParsedProperty::SharedDict(label_shared_dict) = label else {

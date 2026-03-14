@@ -5,7 +5,6 @@ pub(super) mod encode;
 mod geotype;
 mod model;
 mod optimizer;
-mod owned;
 mod serialize;
 
 pub use encode::GeometryEncoder;
