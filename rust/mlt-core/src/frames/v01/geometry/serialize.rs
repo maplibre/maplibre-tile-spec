@@ -48,6 +48,10 @@ impl TryFrom<RawGeometry<'_>> for GeometryValues {
     }
 }
 
+/// Decode from a wire-ready [`EncodedGeometry`], borrowing its byte buffers.
+///
+/// This conversion is not part of the standard decoding pipeline (`Raw* → Values`),
+/// but is provided for round-trip testing and internal use (e.g., `canonicalize_geometry`).
 impl TryFrom<EncodedGeometry> for GeometryValues {
     type Error = MltError;
 

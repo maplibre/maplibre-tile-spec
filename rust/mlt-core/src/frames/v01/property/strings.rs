@@ -32,66 +32,29 @@ impl StrEncoder {
     }
 }
 
-/// FIXME: delete - we should not accept owned strings here, but rather use a data blob
-impl ParsedStrings<'_> {
-    #[must_use]
-    pub fn from_optional_strings<'a>(
-        name: &'a str,
-        values: Vec<Option<String>>,
-    ) -> ParsedStrings<'a> {
-        let mut lengths = Vec::with_capacity(values.len());
-        let mut data = String::new();
-        let mut end = 0_i32;
-        for value in values {
-            match value {
-                Some(value) => {
-                    end = checked_string_end(end, value.len())
-                        .expect("decoded string corpus exceeds supported i32 range");
-                    lengths.push(end);
-                    data.push_str(&value);
-                }
-                None => lengths.push(encode_null_end(end)),
-            }
-        }
-        ParsedStrings::<'a> {
-            name,
-            lengths,
-            data: Cow::Owned(data),
-        }
-    }
-}
+// ── StagedStrings / StagedSharedDict arbitrary impls ─────────────────────────
+// StagedStrings::Arbitrary is in codec.rs alongside the other Staged* impls.
 
 #[cfg(all(not(test), feature = "arbitrary"))]
-impl<'a> arbitrary::Arbitrary<'a> for ParsedStrings<'static> {
+impl<'a> arbitrary::Arbitrary<'a> for StagedSharedDict {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self::from_optional_strings(
-            "",
-            u.arbitrary::<Vec<Option<String>>>()?,
-        ))
-    }
-}
-
-#[cfg(all(not(test), feature = "arbitrary"))]
-impl<'a> arbitrary::Arbitrary<'a> for ParsedSharedDict<'static> {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        let mut data = String::new();
-        for value in u.arbitrary::<Vec<String>>()? {
-            data.push_str(&value);
+        let items_raw: Vec<(String, Vec<Option<String>>)> = u.arbitrary()?;
+        if items_raw.is_empty() {
+            return Ok(Self {
+                prefix: u.arbitrary()?,
+                data: String::new(),
+                items: Vec::new(),
+            });
         }
-        let items: Vec<Vec<(i32, i32)>> = u.arbitrary()?;
-        let items = items
+        let prefix: String = u.arbitrary()?;
+        let staged_items: Vec<(String, StagedStrings)> = items_raw
             .into_iter()
-            .map(|ranges| ParsedSharedDictItem { suffix: "", ranges })
+            .map(|(suffix, vals)| (suffix, StagedStrings::from(vals)))
             .collect();
-        Ok(Self {
-            prefix: "",
-            data: Cow::Owned(data),
-            items,
-        })
+        build_staged_shared_dict(prefix, staged_items)
+            .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
-
-// ── StagedStrings ─────────────────────────────────────────────────────────────
 
 impl From<Vec<Option<String>>> for StagedStrings {
     fn from(values: Vec<Option<String>>) -> Self {

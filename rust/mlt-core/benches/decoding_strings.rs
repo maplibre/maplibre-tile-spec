@@ -3,7 +3,7 @@ use std::hint::black_box;
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
     DictionaryType, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
-    EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, ParsedStrings, PhysicalEncoder,
+    EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, PhysicalEncoder,
     PresenceStream, RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictChild,
     RawSharedDictEncoding, RawStrings, RawStringsEncoding, SharedDictEncoder,
     SharedDictItemEncoder, StagedStrings, StrEncoder, build_staged_shared_dict,
@@ -300,8 +300,7 @@ fn bench_presence(c: &mut Criterion) {
         );
 
         // Nullable: attach a presence bitmap and only encode the non-null values.
-        let nullable: ParsedStrings =
-            ParsedStrings::from_optional_strings("", make_nullable_strings(n));
+        let nullable = StagedStrings::from(make_nullable_strings(n));
         let presence_bools = nullable.presence_bools();
         let presence_stream =
             EncodedStream::encode_presence(&presence_bools).expect("encode_presence failed");

@@ -52,6 +52,10 @@ impl<'a> Decode<RawId<'a>> for IdValues {
     }
 }
 
+/// Decode from a wire-ready [`EncodedId`], borrowing its byte buffers.
+///
+/// This conversion is not part of the standard decoding pipeline (`Raw* → Values`),
+/// but is provided for round-trip testing (encode then decode back).
 impl TryFrom<EncodedId> for IdValues {
     type Error = MltError;
 

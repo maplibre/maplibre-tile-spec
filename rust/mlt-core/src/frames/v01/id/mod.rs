@@ -3,7 +3,6 @@ mod decode;
 mod encode;
 mod model;
 mod optimizer;
-mod owned;
 mod serialize;
 #[cfg(test)]
 mod tests;
