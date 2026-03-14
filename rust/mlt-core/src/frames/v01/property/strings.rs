@@ -68,39 +68,10 @@ impl ParsedStrings<'static> {
     }
 }
 
-impl ParsedStrings<'_> {
-    #[must_use]
-    pub fn to_owned(&self) -> ParsedStrings<'static> {
-        ParsedStrings {
-            name: Cow::Owned(self.name.as_ref().to_string()),
-            lengths: self.lengths.clone(),
-            data: Cow::Owned(self.data.as_ref().to_string()),
-        }
-    }
-}
-
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl<'a> arbitrary::Arbitrary<'a> for ParsedStrings<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self::from(u.arbitrary::<Vec<Option<String>>>()?))
-    }
-}
-
-impl ParsedSharedDict<'_> {
-    #[must_use]
-    pub fn to_owned(&self) -> ParsedSharedDict<'static> {
-        ParsedSharedDict {
-            prefix: Cow::Owned(self.prefix.as_ref().to_string()),
-            data: Cow::Owned(self.data.as_ref().to_string()),
-            items: self
-                .items
-                .iter()
-                .map(|item| ParsedSharedDictItem {
-                    suffix: Cow::Owned(item.suffix.as_ref().to_string()),
-                    ranges: item.ranges.clone(),
-                })
-                .collect(),
-        }
     }
 }
 

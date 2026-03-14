@@ -17,14 +17,6 @@ impl<'a> Id<'a> {
             Self::Decoded(v) => v,
         })
     }
-
-    /// Decode this ID column, producing an owned [`ParsedId`].
-    pub fn to_owned(&self) -> Result<ParsedId, MltError> {
-        match self {
-            Self::Encoded(raw) => ParsedId::try_from(raw.to_owned()),
-            Self::Decoded(decoded) => Ok(decoded.clone()),
-        }
-    }
 }
 
 impl ParsedId {

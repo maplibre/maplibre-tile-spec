@@ -13,8 +13,8 @@ use geo_types::Geometry;
 
 use crate::MltError;
 use crate::v01::{
-    ParsedGeometry, ParsedId, StagedLayer01, StagedProperty, StagedScalar, StagedSharedDict,
-    StagedStrings, build_staged_shared_dict,
+    Layer01, ParsedGeometry, ParsedId, StagedLayer01, StagedProperty, StagedScalar,
+    StagedSharedDict, StagedStrings, build_staged_shared_dict,
 };
 
 /// Row-oriented working form for the optimizer.
@@ -116,6 +116,33 @@ impl TryFrom<StagedLayer01> for TileLayer01 {
             extent: layer.extent,
             property_names,
             features,
+        })
+    }
+}
+
+// ── Layer01 → TileLayer01 ────────────────────────────────────────────────────
+
+/// Convert a [`Layer01`] into a [`TileLayer01`] by consuming it.
+///
+/// This implementation decodes the layer's `id`, `geometry`, and `properties`
+/// as needed; callers do not need to pre-call `decode_all` on the source layer.
+impl TryFrom<Layer01<'_>> for TileLayer01 {
+    type Error = MltError;
+
+    fn try_from(layer: Layer01<'_>) -> Result<Self, Self::Error> {
+        let id = layer.id.map(crate::v01::Id::decode).transpose()?;
+        let geometry = layer.geometry.decode()?;
+        let properties = layer
+            .properties
+            .into_iter()
+            .map(|p| p.decode().map(StagedProperty::from))
+            .collect::<Result<Vec<_>, _>>()?;
+        TileLayer01::try_from(StagedLayer01 {
+            name: layer.name.to_string(),
+            extent: layer.extent,
+            id,
+            geometry,
+            properties,
         })
     }
 }

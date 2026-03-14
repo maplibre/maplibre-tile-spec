@@ -1,12 +1,5 @@
-use super::{EncodedId, EncodedIdValue, ParsedId, RawId, RawIdValue};
+use super::{EncodedId, EncodedIdValue, RawId, RawIdValue};
 use crate::v01::RawStream;
-
-impl ParsedId {
-    #[must_use]
-    pub fn to_owned(&self) -> Self {
-        self.clone()
-    }
-}
 
 impl RawId<'_> {
     #[must_use]

@@ -37,10 +37,10 @@ use std::cell::RefCell;
 use std::f64;
 
 use ids::IdState;
-use js_sys::Uint8Array;
+use js_sys::{Float64Array, Uint8Array};
 use layer::DecodedLayer;
-use mlt_core::v01::{Geometry, GeometryType, Id};
-use mlt_core::{EncDec, MltError, parse_layers};
+use mlt_core::v01::{Geometry, GeometryType, Id, ParsedProperty};
+use mlt_core::{EncDec, Layer, MltError, parse_layers};
 use tile::MltTile;
 use wasm_bindgen::prelude::*;
 
@@ -56,7 +56,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
 
     for raw_layer in raw_layers {
         // Skip non-Tag01 layers.
-        let mlt_core::Layer::Tag01(layer01) = raw_layer else {
+        let Layer::Tag01(layer01) = raw_layer else {
             continue;
         };
 
@@ -106,7 +106,6 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             None => IdState::Absent,
             Some(Id::Encoded(encoded)) => IdState::Encoded(encoded.to_owned()),
             Some(Id::Decoded(decoded)) => {
-                use js_sys::Float64Array;
                 let floats: Vec<f64> = decoded
                     .values()
                     .iter()
@@ -124,7 +123,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             layer01
                 .properties
                 .into_iter()
-                .map(|p| p.decode().map(|d| d.to_owned()))
+                .map(|p| p.decode().map(ParsedProperty::into_static))
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| to_js_err(&e))?,
         );
