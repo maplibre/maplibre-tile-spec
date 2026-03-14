@@ -25,7 +25,7 @@ fn build_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> StagedLayer01 {
 /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer01`.
 /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
 fn sort_encode_decode(layer: StagedLayer01, strategy: SortStrategy) -> TileLayer01 {
-    use mlt_core::{EncodedLayer, Layer, StagedLayer};
+    use mlt_core::{EncodedLayer, Layer};
 
     let encoder = Tag01Encoder {
         sort_strategy: Some(strategy),
@@ -44,12 +44,11 @@ fn sort_encode_decode(layer: StagedLayer01, strategy: SortStrategy) -> TileLayer
     let (remaining, layer_back) = Layer::parse(&buf).expect("parse failed");
     assert!(remaining.is_empty());
 
-    let staged_back = layer_back.to_owned().expect("to_owned failed");
-    let StagedLayer::Tag01(staged_layer) = staged_back else {
+    let Layer::Tag01(layer01) = layer_back else {
         panic!("expected Tag01 layer");
     };
 
-    TileLayer01::try_from(staged_layer).expect("decode after sort failed")
+    TileLayer01::try_from(layer01).expect("decode after sort failed")
 }
 
 fn pt(x: i32, y: i32) -> Geom32 {

@@ -3,9 +3,10 @@ use std::hint::black_box;
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder,
-    PhysicalEncoder, PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder,
+    PhysicalEncoder, PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer01,
+    StagedProperty,
 };
-use mlt_core::{StagedLayer, parse_layers};
+use mlt_core::{Layer, StagedLayer, parse_layers};
 use strum::IntoEnumIterator as _;
 
 #[path = "bench_utils.rs"]
@@ -20,6 +21,12 @@ fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
     }
 }
 
+/// Build `StagedLayer01` values from decoded tiles for encode benchmarks.
+///
+/// Per CONTRIBUTING.md, the encode path starts from `Staged*`.  The
+/// benchmark constructs `StagedLayer01` directly from the decoded `Layer01`
+/// fields, which is an explicitly permitted pattern (benchmarks may
+/// construct `Staged*` directly).
 fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer> {
     tiles
         .iter()
@@ -29,8 +36,27 @@ fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer> {
                 layer.decode_all().expect("mlt decode_all failed");
             }
             layers
-                .iter()
-                .filter_map(|l| mlt_core::Layer::to_owned(l).ok())
+                .into_iter()
+                .filter_map(|layer| {
+                    let Layer::Tag01(layer01) = layer else {
+                        return None;
+                    };
+                    let id = layer01.id.map(mlt_core::v01::Id::decode).transpose().ok()?;
+                    let geometry = layer01.geometry.decode().ok()?;
+                    let properties = layer01
+                        .properties
+                        .into_iter()
+                        .map(|p| p.decode().map(StagedProperty::from))
+                        .collect::<Result<Vec<_>, _>>()
+                        .ok()?;
+                    Some(StagedLayer::Tag01(StagedLayer01 {
+                        name: layer01.name.to_string(),
+                        extent: layer01.extent,
+                        id,
+                        geometry,
+                        properties,
+                    }))
+                })
                 .collect::<Vec<_>>()
         })
         .collect()

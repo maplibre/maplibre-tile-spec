@@ -112,14 +112,6 @@ impl<'a> Geometry<'a> {
             Self::Decoded(v) => v,
         })
     }
-
-    /// Decode and take ownership of the geometry data.
-    pub fn to_owned(&self) -> Result<ParsedGeometry, MltError> {
-        match self {
-            Self::Encoded(raw) => ParsedGeometry::try_from(raw.to_owned()),
-            Self::Decoded(decoded) => Ok(decoded.clone()),
-        }
-    }
 }
 
 impl ParsedGeometry {

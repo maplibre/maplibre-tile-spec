@@ -151,7 +151,7 @@ pub fn decode_encoded_for_test(
                 .collect(),
         }),
     };
-    Ok(<ParsedProperty<'_> as Decode<RawProperty<'_>>>::decode(borrowed)?.to_owned())
+    Ok(<ParsedProperty<'_> as Decode<RawProperty<'_>>>::decode(borrowed)?.into_static())
 }
 
 fn strs(vals: &[&str]) -> Vec<Option<String>> {

@@ -1,12 +1,5 @@
-use super::{EncodedGeometry, ParsedGeometry, RawGeometry};
+use super::{EncodedGeometry, RawGeometry};
 use crate::v01::RawStream;
-
-impl ParsedGeometry {
-    #[must_use]
-    pub fn to_owned(&self) -> Self {
-        self.clone()
-    }
-}
 
 impl RawGeometry<'_> {
     #[must_use]

@@ -3,7 +3,7 @@ use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint}
 use crate::v01::{
     Column, ColumnType, DictionaryType, Geometry, Id, Layer01, Property, RawFsstData, RawIdValue,
     RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictChild,
-    RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding, StagedLayer01, StreamType,
+    RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding, StreamType,
 };
 use crate::{Decodable as _, MltError, MltRefResult};
 
@@ -217,26 +217,6 @@ impl Layer01<'_> {
         self.decode_geometry()?;
         self.decode_properties()?;
         Ok(())
-    }
-}
-
-impl Layer01<'_> {
-    /// Decode and clone this layer into a fully-owned [`StagedLayer01`].
-    ///
-    /// All borrowed data (names, geometry, IDs, properties) is decoded and cloned
-    /// into owned allocations.
-    pub fn to_owned(&self) -> Result<StagedLayer01, MltError> {
-        Ok(StagedLayer01 {
-            name: self.name.to_string(),
-            extent: self.extent,
-            id: self.id.as_ref().map(Id::to_owned).transpose()?,
-            geometry: self.geometry.to_owned()?,
-            properties: self
-                .properties
-                .iter()
-                .map(Property::to_staged)
-                .collect::<Result<_, _>>()?,
-        })
     }
 }
 

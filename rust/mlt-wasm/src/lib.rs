@@ -124,7 +124,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             layer01
                 .properties
                 .into_iter()
-                .map(|p| p.decode().map(|d| d.to_owned()))
+                .map(|p| p.decode().map(mlt_core::v01::ParsedProperty::into_static))
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| to_js_err(&e))?,
         );

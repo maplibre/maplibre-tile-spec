@@ -8,16 +8,9 @@ use utils::BinarySerializer as _;
 use crate::frames::Unknown;
 use crate::frames::v01::Layer01;
 use crate::utils::{checked_sum2, parse_u8, parse_varint, take};
-use crate::{EncodedLayer, Layer, MltError, MltRefResult, StagedLayer, utils};
+use crate::{EncodedLayer, Layer, MltError, MltRefResult, utils};
 
 impl<'a> Layer<'a> {
-    pub fn to_owned(&self) -> Result<StagedLayer, MltError> {
-        Ok(match self {
-            Self::Tag01(layer) => StagedLayer::Tag01(layer.to_owned()?),
-            Self::Unknown(unknown) => StagedLayer::Unknown(unknown.to_owned()),
-        })
-    }
-
     /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
     #[must_use]
     pub fn as_layer01(&self) -> Option<&Layer01<'a>> {
