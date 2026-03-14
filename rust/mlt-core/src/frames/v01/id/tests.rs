@@ -4,7 +4,6 @@ use IdWidth::*;
 use proptest::prelude::*;
 use rstest::rstest;
 
-use crate::encode::FromDecoded as _;
 use crate::frames::v01::id::encode::IdEncoder;
 use crate::frames::v01::id::model::{EncodedId, EncodedIdValue, IdValues, IdWidth};
 use crate::v01::LogicalEncoder;
@@ -29,7 +28,7 @@ fn test_config_produces_correct_variant(#[case] id_width: IdWidth, #[case] ids: 
         logical: LogicalEncoder::None,
         id_width,
     };
-    let encoded = EncodedId::from_decoded(&input, config).unwrap();
+    let encoded = EncodedId::encode(&input, config).unwrap();
 
     match id_width {
         OptId32 | Id32 => assert!(matches!(encoded.value, EncodedIdValue::Id32(_))),
@@ -180,7 +179,7 @@ fn assert_produces_correct_variant(
     encoder: IdEncoder,
 ) -> Result<(), TestCaseError> {
     let input = IdValues(ids);
-    let enc_id = EncodedId::from_decoded(&input, encoder).expect("Failed to encode");
+    let enc_id = EncodedId::encode(&input, encoder).expect("Failed to encode");
 
     if matches!(encoder.id_width, Id32 | OptId32) {
         prop_assert!(

@@ -1,5 +1,4 @@
 use crate::MltError;
-use crate::encode::FromDecoded;
 use crate::utils::{encode_bools_to_bytes, encode_byte_rle};
 use crate::v01::{
     EncodedId, EncodedIdValue, EncodedStream, EncodedStreamData, IdValues, IdWidth, IntEncoder,
@@ -28,20 +27,17 @@ impl arbitrary::Arbitrary<'_> for EncodedId {
         let parsed: IdValues = u.arbitrary()?;
         let encoder: IdEncoder = u.arbitrary()?;
         let owned_id =
-            Self::from_decoded(&parsed, encoder).map_err(|_| arbitrary::Error::IncorrectFormat)?;
+            Self::encode(&parsed, encoder).map_err(|_| arbitrary::Error::IncorrectFormat)?;
         Ok(owned_id)
     }
 }
 
-impl FromDecoded<'_> for EncodedId {
-    type Input = IdValues;
-    type Encoder = IdEncoder;
-
-    fn from_decoded(decoded: &Self::Input, encoder: IdEncoder) -> Result<Self, MltError> {
+impl EncodedId {
+    pub(crate) fn encode(value: &IdValues, encoder: IdEncoder) -> Result<Self, MltError> {
         use IdWidth as CFG;
 
         let presence = if matches!(encoder.id_width, CFG::OptId32 | CFG::OptId64) {
-            let present: Vec<bool> = decoded.0.iter().map(Option::is_some).collect();
+            let present: Vec<bool> = value.0.iter().map(Option::is_some).collect();
             let num_values = u32::try_from(present.len())?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present));
 
@@ -70,9 +66,9 @@ impl FromDecoded<'_> for EncodedId {
             None
         };
 
-        let value = if matches!(encoder.id_width, CFG::Id32 | CFG::OptId32) {
+        let value_stream = if matches!(encoder.id_width, CFG::Id32 | CFG::OptId32) {
             #[expect(clippy::cast_possible_truncation, reason = "truncation was requested")]
-            let vals: Vec<u32> = decoded
+            let vals: Vec<u32> = value
                 .0
                 .iter()
                 .filter_map(|&id| id)
@@ -83,13 +79,16 @@ impl FromDecoded<'_> for EncodedId {
                 IntEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
             )?)
         } else {
-            let vals: Vec<u64> = decoded.0.iter().filter_map(|&id| id).collect();
+            let vals: Vec<u64> = value.0.iter().filter_map(|&id| id).collect();
             EncodedIdValue::Id64(EncodedStream::encode_u64s(
                 &vals,
                 IntEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
             )?)
         };
 
-        Ok(Self { presence, value })
+        Ok(Self {
+            presence,
+            value: value_stream,
+        })
     }
 }

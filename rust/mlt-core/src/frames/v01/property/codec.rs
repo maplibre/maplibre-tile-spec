@@ -1,7 +1,6 @@
 use crate::Decodable as _;
 use crate::MltError::{self, NotImplemented, UnsupportedPropertyEncoderCombination};
 use crate::decode::{Decode, DecodeInto as _};
-use crate::encode::FromDecoded;
 use crate::utils::apply_present;
 use crate::v01::{
     DictionaryType, EncodedName, EncodedPresence, EncodedProperty, EncodedScalar, EncodedStream,
@@ -16,7 +15,7 @@ impl arbitrary::Arbitrary<'_> for EncodedProperty {
         let decoded: StagedProperty = u.arbitrary()?;
         let encoder: ScalarEncoder = u.arbitrary()?;
         let prop: Self =
-            Self::from_decoded(&decoded, encoder).map_err(|_| arbitrary::Error::IncorrectFormat)?;
+            Self::encode(&decoded, encoder).map_err(|_| arbitrary::Error::IncorrectFormat)?;
         Ok(prop)
     }
 }
@@ -221,49 +220,44 @@ impl StagedProperty {
     }
 }
 
-impl FromDecoded<'_> for Vec<EncodedProperty> {
-    type Input = Vec<StagedProperty>;
-    type Encoder = Vec<PropertyEncoder>;
+pub(crate) fn encode_properties(
+    value: &[StagedProperty],
+    encoders: Vec<PropertyEncoder>,
+) -> Result<Vec<EncodedProperty>, MltError> {
+    if value.len() != encoders.len() {
+        return Err(MltError::EncodingInstructionCountMismatch {
+            input_len: value.len(),
+            config_len: encoders.len(),
+        });
+    }
 
-    fn from_decoded(properties: &Self::Input, encoders: Self::Encoder) -> Result<Self, MltError> {
-        if properties.len() != encoders.len() {
-            return Err(MltError::EncodingInstructionCountMismatch {
-                input_len: properties.len(),
-                config_len: encoders.len(),
-            });
-        }
+    let mut result = Vec::with_capacity(value.len());
 
-        let mut result = Vec::with_capacity(properties.len());
-
-        for (prop, encoder) in properties.iter().zip(encoders) {
-            match encoder {
-                PropertyEncoder::Scalar(enc) => {
-                    result.push(EncodedProperty::from_decoded(prop, enc)?);
-                }
-                PropertyEncoder::SharedDict(enc) => {
-                    let StagedProperty::SharedDict(shared_dict) = prop else {
-                        return Err(UnsupportedPropertyEncoderCombination(
-                            prop.into(),
-                            "shared_dict",
-                        ));
-                    };
-                    result.push(encode_shared_dict_prop(shared_dict, &enc)?);
-                }
+    for (prop, encoder) in value.iter().zip(encoders) {
+        match encoder {
+            PropertyEncoder::Scalar(enc) => {
+                result.push(EncodedProperty::encode(prop, enc)?);
+            }
+            PropertyEncoder::SharedDict(enc) => {
+                let StagedProperty::SharedDict(shared_dict) = prop else {
+                    return Err(UnsupportedPropertyEncoderCombination(
+                        prop.into(),
+                        "shared_dict",
+                    ));
+                };
+                result.push(encode_shared_dict_prop(shared_dict, &enc)?);
             }
         }
-
-        Ok(result)
     }
+
+    Ok(result)
 }
 
-impl FromDecoded<'_> for EncodedProperty {
-    type Input = StagedProperty;
-    type Encoder = ScalarEncoder;
-
-    fn from_decoded(decoded: &Self::Input, encoder: Self::Encoder) -> Result<Self, MltError> {
+impl EncodedProperty {
+    pub(crate) fn encode(value: &StagedProperty, encoder: ScalarEncoder) -> Result<Self, MltError> {
         use StagedProperty as D;
         let presence = if encoder.presence == PresenceStream::Present {
-            let present_vec: Vec<bool> = decoded.as_presence_stream()?;
+            let present_vec: Vec<bool> = value.as_presence_stream()?;
             Some(EncodedStream::encode_presence(&present_vec)?)
         } else {
             None
@@ -276,7 +270,7 @@ impl FromDecoded<'_> for EncodedProperty {
                 data,
             };
 
-        match (decoded, encoder.value) {
+        match (value, encoder.value) {
             (D::Bool(v), ScalarValueEncoder::Bool) => Ok(Self::Bool(mk_scalar(
                 &v.name,
                 presence,

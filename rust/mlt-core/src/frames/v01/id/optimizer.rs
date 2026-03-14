@@ -1,8 +1,8 @@
+use crate::MltError;
 use crate::v01::{
     DataProfile, EncodedId, IdEncoder, IdValues, IdWidth, IntEncoder, LogicalEncoder,
     PhysicalEncoder,
 };
-use crate::{FromDecoded as _, MltError};
 
 /// A pre-computed set of [`IntEncoder`] candidates derived from a representative
 /// sample of tiles.
@@ -243,7 +243,7 @@ impl IdValues {
         if self.0.is_empty() {
             Ok(None)
         } else {
-            Ok(Some(EncodedId::from_decoded(&self, encoder)?))
+            Ok(Some(EncodedId::encode(&self, encoder)?))
         }
     }
 
@@ -256,7 +256,7 @@ impl IdValues {
             return Ok((None, None));
         }
         let enc = apply_profile(self, profile);
-        let encoded = EncodedId::from_decoded(self, enc)?;
+        let encoded = EncodedId::encode(self, enc)?;
         Ok((Some(encoded), Some(enc)))
     }
 
@@ -266,7 +266,7 @@ impl IdValues {
             return Ok((None, None));
         }
         let enc = optimize(&self);
-        let encoded = EncodedId::from_decoded(&self, enc)?;
+        let encoded = EncodedId::encode(&self, enc)?;
         Ok((Some(encoded), Some(enc)))
     }
 }

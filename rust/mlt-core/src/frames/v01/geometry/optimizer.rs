@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
+use crate::MltError;
 use crate::v01::encode::{encode_geometry, z_order_params};
 use crate::v01::{
     DataProfile, DictionaryType, EncodedGeometry, GeometryEncoder, GeometryValues, IntEncoder,
     LengthType, OffsetType, StreamType, VertexBufferType,
 };
-use crate::{FromDecoded as _, MltError};
 
 /// If the ratio of unique vertices to total vertices is below this threshold,
 /// Morton dictionary encoding is preferred over Vec2 componentwise-delta.
@@ -245,7 +245,7 @@ fn select_vertex_strategy(vertices: &[i32]) -> VertexBufferType {
 impl GeometryValues {
     /// Encode this geometry using the given encoder, consuming `self`.
     pub fn encode(self, encoder: GeometryEncoder) -> Result<EncodedGeometry, MltError> {
-        EncodedGeometry::from_decoded(&self, encoder)
+        EncodedGeometry::encode(&self, encoder)
     }
 
     /// Encode this geometry using the profile to select the best encoder.
@@ -254,14 +254,14 @@ impl GeometryValues {
         profile: &GeometryProfile,
     ) -> Result<(EncodedGeometry, GeometryEncoder), MltError> {
         let enc = apply_profile(self, profile)?;
-        let encoded = EncodedGeometry::from_decoded(self, enc)?;
+        let encoded = EncodedGeometry::encode(self, enc)?;
         Ok((encoded, enc))
     }
 
     /// Automatically select the best encoder and encode, consuming `self`.
     pub fn encode_auto(self) -> Result<(EncodedGeometry, GeometryEncoder), MltError> {
         let enc = optimize(&self)?;
-        let encoded = EncodedGeometry::from_decoded(&self, enc)?;
+        let encoded = EncodedGeometry::encode(&self, enc)?;
         Ok((encoded, enc))
     }
 }

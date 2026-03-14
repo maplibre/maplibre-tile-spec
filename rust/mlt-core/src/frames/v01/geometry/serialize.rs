@@ -6,9 +6,10 @@ use integer_encoding::VarIntWriter as _;
 use crate::MltError;
 use crate::decode::Decode as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2, parse_varint};
+use crate::v01::geometry::encode::encode_geometry;
 use crate::v01::{
-    ColumnType, DictionaryType, EncodedGeometry, Geometry, GeometryValues, IntEncoding,
-    RawGeometry, RawStream, RawStreamData, StreamMeta, StreamType,
+    ColumnType, DictionaryType, EncodedGeometry, Geometry, GeometryEncoder, GeometryValues,
+    IntEncoding, RawGeometry, RawStream, RawStreamData, StreamMeta, StreamType,
 };
 
 impl<'a> RawGeometry<'a> {
@@ -77,6 +78,13 @@ impl EncodedGeometry {
             writer.write_stream(item)?;
         }
         Ok(())
+    }
+
+    pub(crate) fn encode(
+        value: &GeometryValues,
+        encoder: GeometryEncoder,
+    ) -> Result<Self, MltError> {
+        encode_geometry(value, &encoder, None)
     }
 }
 
