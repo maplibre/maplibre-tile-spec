@@ -52,6 +52,34 @@ export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, num
     return dst;
 }
 
+//based on https://github.com/mapbox/pbf/blob/main/index.js
+export function decodeVarintInt32Value(buf: Uint8Array, offset: IntWrapper): number {
+    let b = buf[offset.get()];
+    offset.increment();
+    let val = b & 0x7f;
+    if (b < 0x80) return val;
+
+    b = buf[offset.get()];
+    offset.increment();
+    val |= (b & 0x7f) << 7;
+    if (b < 0x80) return val;
+
+    b = buf[offset.get()];
+    offset.increment();
+    val |= (b & 0x7f) << 14;
+    if (b < 0x80) return val;
+
+    b = buf[offset.get()];
+    offset.increment();
+    val |= (b & 0x7f) << 21;
+    if (b < 0x80) return val;
+
+    b = buf[offset.get()];
+    offset.increment();
+    val |= (b & 0x0f) << 28;
+    return val;
+}
+
 export function decodeVarintInt64(src: Uint8Array, offset: IntWrapper, numValues: number): BigUint64Array {
     const dst = new BigUint64Array(numValues);
     for (let i = 0; i < dst.length; i++) {
