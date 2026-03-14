@@ -73,6 +73,20 @@ describe("getVectorType", () => {
         const result = getVectorType(metadata, 5, data, new IntWrapper(0));
         expect(result).toBe(VectorType.SEQUENCE);
     });
+
+    it("should probe 64-bit varints without throwing for large DELTA+RLE base values", () => {
+        const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 2, 4);
+        const data = encodeInt64SignedDeltaRle([
+            [1, 9_234_567_890n],
+            [3, 0n],
+        ]);
+
+        const result = getVectorType(metadata, 4, data, new IntWrapper(0), {
+            varintWidth: "int64",
+        });
+
+        expect(result).toBe(VectorType.FLAT);
+    });
 });
 
 describe("decodeUnsignedInt32Stream", () => {

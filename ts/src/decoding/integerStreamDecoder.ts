@@ -479,6 +479,7 @@ export function getVectorType(
     sizeOrNullabilityBuffer: number | BitVector,
     data: Uint8Array,
     offset: IntWrapper,
+    options?: { varintWidth?: "int32" | "int64" },
 ): VectorType {
     const logicalLevelTechnique1 = streamMetadata.logicalLevelTechnique1;
     if (logicalLevelTechnique1 === LogicalLevelTechnique.RLE) {
@@ -509,13 +510,15 @@ export function getVectorType(
     // Two runs can be a sequence if both deltas are equal to 1
     const savedOffset = offset.get();
 
-    let values: Int32Array;
     if (streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
-        values = new Int32Array(decodeVarintInt32(data, offset, 4));
-    } else {
-        const byteOffset = offset.get();
-        values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
+        if (isDeltaRleSequenceVarintWidth(data, offset, options?.varintWidth ?? "int32")) {
+            return VectorType.SEQUENCE;
+        }
+        return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
     }
+
+    const byteOffset = offset.get();
+    const values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
     offset.set(savedOffset);
     // Check if both deltas are encoded 1
     const zigZagOne = 2;
@@ -523,6 +526,20 @@ export function getVectorType(
         return VectorType.SEQUENCE;
     }
     return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
+}
+
+function isDeltaRleSequenceVarintWidth(data: Uint8Array, offset: IntWrapper, varintWidth: "int32" | "int64"): boolean {
+    const savedOffset = offset.get();
+
+    if (varintWidth === "int64") {
+        const values = decodeVarintInt64(data, offset, 4);
+        offset.set(savedOffset);
+        return values[2] === 2n && values[3] === 2n;
+    }
+
+    const values = decodeVarintInt32(data, offset, 4);
+    offset.set(savedOffset);
+    return values[2] === 2 && values[3] === 2;
 }
 
 function decodeRleFloat64(
