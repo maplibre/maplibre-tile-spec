@@ -156,7 +156,9 @@ function decodeInt64Column(
     scalarColumn: ScalarColumn,
 ): Vector<BigInt64Array | BigUint64Array, bigint> {
     const dataStreamMetadata = decodeStreamMetadata(data, offset);
-    const vectorType = getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset);
+    const vectorType = getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset, {
+        varintWidth: "int64",
+    });
     const isSigned = scalarColumn.physicalType === ScalarType.INT_64;
     if (vectorType === VectorType.FLAT) {
         const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
