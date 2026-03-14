@@ -18,7 +18,6 @@ use fsst::Compressor;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
-use crate::optimizer::{AutomaticOptimisation, ManualOptimisation, ProfileOptimisation};
 use crate::utils::encode_zigzag;
 use crate::v01::property::strings::{build_staged_shared_dict, collect_staged_shared_dict_spans};
 use crate::v01::property::{
@@ -129,48 +128,37 @@ impl PropertyProfile {
     }
 }
 
-impl ManualOptimisation for Vec<StagedProperty> {
-    type UsedEncoder = Vec<PropertyEncoder>;
-
-    fn manual_optimisation(&mut self, encoder: Self::UsedEncoder) -> Result<(), MltError> {
-        let props = std::mem::take(self);
-        *self = Vec::<EncodedProperty>::from_decoded(&props, encoder)?
-            .into_iter()
-            .map(|e| StagedProperty::Encoded(Box::new(e)))
-            .collect();
-        Ok(())
-    }
+/// Extension trait for consuming-style encoding of staged property columns.
+pub trait EncodeProperties: Sized {
+    /// Encode with a specific encoder, consuming `self`.
+    fn encode(self, encoder: Vec<PropertyEncoder>) -> Result<Vec<EncodedProperty>, MltError>;
+    /// Profile-driven encode, consuming `self`.
+    fn encode_with_profile(
+        self,
+        profile: &PropertyProfile,
+    ) -> Result<(Vec<EncodedProperty>, Vec<PropertyEncoder>), MltError>;
+    /// Automatic encoding, consuming `self`.
+    fn encode_auto(self) -> Result<(Vec<EncodedProperty>, Vec<PropertyEncoder>), MltError>;
 }
 
-impl ProfileOptimisation for Vec<StagedProperty> {
-    type UsedEncoder = Vec<PropertyEncoder>;
-    type Profile = PropertyProfile;
-
-    fn profile_driven_optimisation(
-        &mut self,
-        profile: &Self::Profile,
-    ) -> Result<Self::UsedEncoder, MltError> {
-        let mut props = std::mem::take(self);
-        let enc = apply_profile(&mut props, profile);
-        *self = Vec::<EncodedProperty>::from_decoded(&props, enc.clone())?
-            .into_iter()
-            .map(|e| StagedProperty::Encoded(Box::new(e)))
-            .collect();
-        Ok(enc)
+impl EncodeProperties for Vec<StagedProperty> {
+    fn encode(self, encoder: Vec<PropertyEncoder>) -> Result<Vec<EncodedProperty>, MltError> {
+        Vec::<EncodedProperty>::from_decoded(&self, encoder)
     }
-}
 
-impl AutomaticOptimisation for Vec<StagedProperty> {
-    type UsedEncoder = Vec<PropertyEncoder>;
+    fn encode_with_profile(
+        mut self,
+        profile: &PropertyProfile,
+    ) -> Result<(Vec<EncodedProperty>, Vec<PropertyEncoder>), MltError> {
+        let enc = apply_profile(&mut self, profile);
+        let encoded = Vec::<EncodedProperty>::from_decoded(&self, enc.clone())?;
+        Ok((encoded, enc))
+    }
 
-    fn automatic_encoding_optimisation(&mut self) -> Result<Self::UsedEncoder, MltError> {
-        let mut props = std::mem::take(self);
-        let enc = optimize(&mut props);
-        *self = Vec::<EncodedProperty>::from_decoded(&props, enc.clone())?
-            .into_iter()
-            .map(|e| StagedProperty::Encoded(Box::new(e)))
-            .collect();
-        Ok(enc)
+    fn encode_auto(mut self) -> Result<(Vec<EncodedProperty>, Vec<PropertyEncoder>), MltError> {
+        let enc = optimize(&mut self);
+        let encoded = Vec::<EncodedProperty>::from_decoded(&self, enc.clone())?;
+        Ok((encoded, enc))
     }
 }
 
@@ -425,11 +413,6 @@ fn build_encoder(prop: &StagedProperty) -> PropertyEncoder {
             scalar_str_encoder(presence, &non_null)
         }
         StagedProperty::SharedDict(shared_dict) => build_shared_dict_encoder(shared_dict),
-        StagedProperty::Encoded(_) => {
-            panic!(
-                "cannot build encoder from already-encoded StagedProperty; call encode methods on staged properties before optimization"
-            )
-        }
     }
 }
 

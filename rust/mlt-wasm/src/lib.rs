@@ -40,7 +40,7 @@ use ids::IdState;
 use js_sys::Uint8Array;
 use layer::DecodedLayer;
 use mlt_core::v01::{Geometry, GeometryType, Id};
-use mlt_core::{MltError, parse_layers};
+use mlt_core::{EncDec, MltError, parse_layers};
 use tile::MltTile;
 use wasm_bindgen::prelude::*;
 
@@ -97,7 +97,10 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             .collect();
         let types_array = Uint8Array::from(types_bytes.as_slice());
 
-        let geometry = RefCell::new(layer01.geometry.to_owned());
+        let geometry = RefCell::new(match layer01.geometry {
+            Geometry::Encoded(raw) => EncDec::Encoded(raw.to_owned()),
+            Geometry::Decoded(decoded) => EncDec::Decoded(decoded),
+        });
 
         let ids = RefCell::new(match &layer01.id {
             None => IdState::Absent,

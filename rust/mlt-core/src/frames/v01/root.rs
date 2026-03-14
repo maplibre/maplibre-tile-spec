@@ -1,15 +1,11 @@
-use std::io;
-use std::io::Write;
-
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::{
-    Column, ColumnType, DictionaryType, EncodedGeometry, Geometry, Id, Layer01, Property,
-    RawFsstData, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
-    RawSharedDictChild, RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding,
-    StagedLayer01, StreamType,
+    Column, ColumnType, DictionaryType, Geometry, Id, Layer01, Property, RawFsstData, RawIdValue,
+    RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictChild,
+    RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding, StagedLayer01, StreamType,
 };
-use crate::{Decodable as _, MltError, MltRefResult, utils};
+use crate::{Decodable as _, MltError, MltRefResult};
 
 impl Analyze for Layer01<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
@@ -225,20 +221,21 @@ impl Layer01<'_> {
 }
 
 impl Layer01<'_> {
-    /// TODO: This should be removed later, once we separate parsing and staging
+    /// Decode and clone this layer into a fully-owned [`StagedLayer01`].
+    ///
+    /// All borrowed data (names, geometry, IDs, properties) is decoded and cloned
+    /// into owned allocations.
     pub fn to_owned(&self) -> Result<StagedLayer01, MltError> {
         Ok(StagedLayer01 {
             name: self.name.to_string(),
             extent: self.extent,
-            id: self.id.as_ref().map(Id::to_owned),
-            geometry: self.geometry.to_owned(),
+            id: self.id.as_ref().map(Id::to_owned).transpose()?,
+            geometry: self.geometry.to_owned()?,
             properties: self
                 .properties
                 .iter()
                 .map(Property::to_staged)
                 .collect::<Result<_, _>>()?,
-            #[cfg(fuzzing)]
-            layer_order: self.layer_order.clone(),
         })
     }
 }
@@ -443,98 +440,6 @@ fn parse_columns_meta(
     Ok((input, (col_info, column_count - geometries - ids)))
 }
 
-impl StagedLayer01 {
-    /// Write Layer's binary representation to a Write stream without allocating a Vec
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        use integer_encoding::VarIntWriter as _;
-        use utils::BinarySerializer as _;
-
-        writer.write_string(&self.name)?;
-        writer.write_varint(self.extent)?;
-
-        // write size
-        let id_columns_count = u32::from(self.id.is_some());
-        let geometry_column_count = 1;
-        let property_column_count = u32::try_from(self.properties.len()).map_err(MltError::from)?;
-        let column_count = property_column_count + id_columns_count + geometry_column_count;
-        writer.write_varint(column_count)?;
-
-        let map_error_to_io = |e: MltError| match e {
-            MltError::Io(e) => e,
-            e => io::Error::other(e),
-        };
-        self.write_columns_meta_to(writer)
-            .map_err(map_error_to_io)?;
-        self.write_columns_to(writer).map_err(map_error_to_io)?;
-        Ok(())
-    }
-
-    #[cfg(not(fuzzing))]
-    fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        if let Some(ref id) = self.id {
-            id.as_encoded()?.write_columns_meta_to(writer)?;
-        }
-        EncodedGeometry::write_columns_meta_to(writer)?;
-        for prop in &self.properties {
-            prop.as_encoded()?.write_columns_meta_to(writer)?;
-        }
-        Ok(())
-    }
-    #[cfg(fuzzing)]
-    fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        let props = &mut self.properties.iter();
-        for ord in &self.layer_order {
-            match ord {
-                LayerOrdering::Id => {
-                    if let Some(ref id) = self.id {
-                        id.as_encoded()?.write_columns_meta_to(writer)?;
-                    }
-                }
-                LayerOrdering::Geometry => EncodedGeometry::write_columns_meta_to(writer)?,
-                LayerOrdering::Property => {
-                    let prop = props.next().expect(
-                        "the number of layer order elements must match the number of properties",
-                    );
-                    prop.as_encoded()?.write_columns_meta_to(writer)?;
-                }
-            }
-        }
-        Ok(())
-    }
-    #[cfg(not(fuzzing))]
-    fn write_columns_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        if let Some(ref id) = self.id {
-            id.as_encoded()?.write_to(writer)?;
-        }
-        self.geometry.as_encoded()?.write_to(writer)?;
-        for prop in &self.properties {
-            prop.as_encoded()?.write_to(writer)?;
-        }
-        Ok(())
-    }
-    #[cfg(fuzzing)]
-    fn write_columns_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        let props = &mut self.properties.iter();
-        for ord in &self.layer_order {
-            match ord {
-                LayerOrdering::Id => {
-                    if let Some(ref id) = self.id {
-                        id.as_encoded()?.write_to(writer)?;
-                    }
-                }
-                LayerOrdering::Geometry => self.geometry.as_encoded()?.write_to(writer)?,
-                LayerOrdering::Property => {
-                    let prop = props.next().expect(
-                        "the number of layer order elements must match the number of properties",
-                    );
-                    prop.as_encoded()?.write_to(writer)?;
-                }
-            }
-        }
-        Ok(())
-    }
-}
-
 #[cfg(fuzzing)]
 /// To make sure we serialize out in the same order as the original file, we need to store the order in which we parsed the columns
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -543,46 +448,6 @@ pub enum LayerOrdering {
     Id,
     Geometry,
     Property,
-}
-
-#[cfg(all(fuzzing, feature = "arbitrary"))]
-impl arbitrary::Arbitrary<'_> for StagedLayer01 {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        use crate::v01::{StagedGeometry, StagedId, StagedProperty};
-
-        let name: String = u.arbitrary()?;
-        let extent: u32 = u.arbitrary()?;
-        let id: Option<StagedId> = u.arbitrary()?;
-        let geometry: StagedGeometry = u.arbitrary()?;
-        let properties: Vec<StagedProperty> = u.arbitrary()?;
-
-        // Build a valid layer_order: 1 Geometry, N Property (one per property),
-        // and optionally 1 ID when the layer carries an ID column, then shuffle.
-        let mut layer_order: Vec<LayerOrdering> = Vec::new();
-        if id.is_some() {
-            layer_order.push(LayerOrdering::Id);
-        }
-        layer_order.push(LayerOrdering::Geometry);
-        for _ in &properties {
-            layer_order.push(LayerOrdering::Property);
-        }
-
-        // Fisher-Yates shuffle using arbitrary indices
-        let n = layer_order.len();
-        for i in (1..n).rev() {
-            let j: usize = u.int_in_range(0..=i)?;
-            layer_order.swap(i, j);
-        }
-
-        Ok(StagedLayer01 {
-            name,
-            extent,
-            id,
-            geometry,
-            properties,
-            layer_order,
-        })
-    }
 }
 
 #[cfg(fuzzing)]

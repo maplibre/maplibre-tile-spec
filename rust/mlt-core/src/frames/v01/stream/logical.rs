@@ -1,7 +1,8 @@
 use std::fmt;
 use std::fmt::Debug;
+use std::iter::repeat_n;
 
-use num_traits::PrimInt;
+use num_traits::{PrimInt, ToPrimitive as _};
 
 use crate::MltError;
 use crate::MltError::{
@@ -41,14 +42,31 @@ impl RleMeta {
             return Err(InvalidDecodingStreamSize(expected_len, data.len()));
         }
         let (run_lens, values) = data.split_at(self.runs.as_usize());
+
+        let total = Self::calc_size(run_lens)?;
+        if total != self.num_rle_values {
+            return Err(InvalidDecodingStreamSize(
+                self.num_rle_values.as_usize(),
+                total.as_usize(),
+            ));
+        }
+
         let mut result = Vec::with_capacity(self.num_rle_values.as_usize());
-        for (&run, &val) in run_lens.iter().zip(values.iter()) {
-            let run_len = run
+        for (&run_len, &val) in run_lens.iter().zip(values.iter()) {
+            let run = run_len
                 .to_usize()
-                .ok_or_else(|| RleRunLenInvalid(run.to_i128().unwrap_or_default()))?;
-            result.extend(std::iter::repeat_n(val, run_len));
+                .ok_or_else(|| RleRunLenInvalid(run_len.to_i128().unwrap_or_default()))?;
+            result.extend(repeat_n(val, run));
         }
         Ok(result)
+    }
+
+    fn calc_size<T: PrimInt + Debug>(run_lens: &[T]) -> Result<u32, MltError> {
+        run_lens
+            .iter()
+            .try_fold(T::zero(), |a, v| a.checked_add(v))
+            .and_then(|v| v.to_u32())
+            .ok_or_else(|| RleRunLenInvalid(run_lens.len().to_i128().unwrap_or_default()))
     }
 }
 

@@ -1,5 +1,6 @@
 use js_sys::{Array, Float64Array, Int32Array, Object, Reflect, Uint8Array, Uint32Array};
-use mlt_core::v01::{ParsedProperty, StagedGeometry};
+use mlt_core::EncDec;
+use mlt_core::v01::{ParsedGeometry, ParsedProperty};
 use wasm_bindgen::prelude::*;
 
 use crate::geometry::LayerGeometry;
@@ -102,7 +103,7 @@ impl MltTile {
 
         // Slow path: build the typed arrays once from the decoded geometry.
         let guard = layer.geometry.borrow();
-        let StagedGeometry::Decoded(d) = &*guard else {
+        let EncDec::Decoded(d) = &*guard else {
             unreachable!("geometry should be decoded here");
         };
 
@@ -247,17 +248,13 @@ impl MltTile {
     fn ensure_geometry_decoded(&self, layer_idx: usize) -> Result<(), JsError> {
         let layer = &self.layers[layer_idx];
         let mut geom = layer.geometry.borrow_mut();
-        if matches!(&*geom, StagedGeometry::Encoded(_)) {
-            let owned = std::mem::replace(
-                &mut *geom,
-                StagedGeometry::Decoded(mlt_core::v01::ParsedGeometry::default()),
-            );
-            let StagedGeometry::Encoded(encoded) = owned else {
+        if matches!(&*geom, EncDec::Encoded(_)) {
+            let owned = std::mem::replace(&mut *geom, EncDec::Decoded(ParsedGeometry::default()));
+            let EncDec::Encoded(encoded) = owned else {
                 unreachable!()
             };
-            let decoded = mlt_core::v01::ParsedGeometry::try_from(encoded)
-                .map_err(|e| crate::to_js_err(&e))?;
-            *geom = StagedGeometry::Decoded(decoded);
+            let decoded = ParsedGeometry::try_from(encoded).map_err(|e| crate::to_js_err(&e))?;
+            *geom = EncDec::Decoded(decoded);
         }
         Ok(())
     }

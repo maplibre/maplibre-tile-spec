@@ -196,8 +196,6 @@ pub enum StagedProperty {
     F64(StagedScalar<f64>),
     Str(StagedStrings),
     SharedDict(StagedSharedDict),
-    /// Wire-ready form after encoding; used when serializing the layer.
-    Encoded(Box<EncodedProperty>),
 }
 
 #[derive(Clone, PartialEq)]

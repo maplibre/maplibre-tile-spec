@@ -1,8 +1,5 @@
 use insta::assert_debug_snapshot;
-use mlt_core::optimizer::{
-    AutomaticOptimisation as _, ManualOptimisation as _, ProfileOptimisation as _,
-};
-use mlt_core::v01::{PropertyProfile, StagedProperty};
+use mlt_core::v01::{EncodeProperties as _, PropertyProfile, StagedProperty};
 use rstest::rstest;
 
 fn str_prop(name: &str, values: &[&str]) -> StagedProperty {
@@ -16,11 +13,12 @@ fn make_prop(prop: StagedProperty) -> StagedProperty {
 
 #[test]
 fn no_nulls_produces_absent_presence() {
-    let mut props = vec![make_prop(StagedProperty::u32(
+    let props = vec![make_prop(StagedProperty::u32(
         "pop",
         vec![Some(1), Some(2), Some(3)],
     ))];
-    assert_debug_snapshot!(props.automatic_encoding_optimisation().unwrap(), @"
+    let (_, enc) = props.encode_auto().unwrap();
+    assert_debug_snapshot!(enc, @"
     [
         Scalar(
             ScalarEncoder {
@@ -39,8 +37,9 @@ fn no_nulls_produces_absent_presence() {
 
 #[test]
 fn all_nulls_produces_present_presence() {
-    let mut props = vec![make_prop(StagedProperty::i32("x", vec![None, None, None]))];
-    assert_debug_snapshot!(props.automatic_encoding_optimisation().unwrap(), @"
+    let props = vec![make_prop(StagedProperty::i32("x", vec![None, None, None]))];
+    let (_, enc) = props.encode_auto().unwrap();
+    assert_debug_snapshot!(enc, @"
     [
         Scalar(
             ScalarEncoder {
@@ -59,11 +58,12 @@ fn all_nulls_produces_present_presence() {
 
 #[test]
 fn sequential_u32_picks_delta() {
-    let mut props = vec![make_prop(StagedProperty::u32(
+    let props = vec![make_prop(StagedProperty::u32(
         "id",
         (0u32..1_000).map(Some).collect(),
     ))];
-    assert_debug_snapshot!(props.automatic_encoding_optimisation().unwrap(), @"
+    let (_, enc) = props.encode_auto().unwrap();
+    assert_debug_snapshot!(enc, @"
     [
         Scalar(
             ScalarEncoder {
@@ -82,8 +82,9 @@ fn sequential_u32_picks_delta() {
 
 #[test]
 fn constant_u32_picks_rle() {
-    let mut props = vec![make_prop(StagedProperty::u32("val", vec![Some(42); 500]))];
-    assert_debug_snapshot!(props.automatic_encoding_optimisation().unwrap(), @"
+    let props = vec![make_prop(StagedProperty::u32("val", vec![Some(42); 500]))];
+    let (_, enc) = props.encode_auto().unwrap();
+    assert_debug_snapshot!(enc, @"
     [
         Scalar(
             ScalarEncoder {
@@ -103,10 +104,14 @@ fn constant_u32_picks_rle() {
 #[test]
 fn similar_strings_grouped_into_shared_dict() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
-    let mut props = vec![str_prop("name:en", vocab), str_prop("name:de", vocab)];
-    let enc = props.automatic_encoding_optimisation().unwrap();
+    let props = vec![str_prop("name:en", vocab), str_prop("name:de", vocab)];
+    let (encoded, enc) = props.encode_auto().unwrap();
 
-    assert_eq!(props.len(), 1);
+    assert_eq!(
+        encoded.len(),
+        1,
+        "two similar string columns should be merged into one SharedDict"
+    );
     assert_debug_snapshot!(enc, @"
     [
         SharedDict(
@@ -142,14 +147,18 @@ fn similar_strings_grouped_into_shared_dict() {
 #[test]
 fn multiple_similar_string_columns_grouped() {
     let vocab = &["alpha", "beta", "gamma", "delta"];
-    let mut props = vec![
+    let props = vec![
         str_prop("addr:zip", vocab),
         str_prop("addr:street", vocab),
         str_prop("addr:zipcode", vocab),
     ];
-    let enc = props.automatic_encoding_optimisation().unwrap();
+    let (encoded, enc) = props.encode_auto().unwrap();
 
-    assert_eq!(props.len(), 1);
+    assert_eq!(
+        encoded.len(),
+        1,
+        "three similar string columns should be merged"
+    );
     assert_debug_snapshot!(enc, @"
     [
         SharedDict(
@@ -191,13 +200,13 @@ fn multiple_similar_string_columns_grouped() {
 
 #[test]
 fn dissimilar_strings_stay_scalar() {
-    let mut props = vec![
+    let props = vec![
         str_prop("city:de", &["Munich", "Manheim", "Garching"]),
         str_prop("city:colourado", &["Black", "Red", "Gold"]),
     ];
-    let enc = props.automatic_encoding_optimisation().unwrap();
+    let (encoded, enc) = props.encode_auto().unwrap();
 
-    assert_eq!(props.len(), 2);
+    assert_eq!(encoded.len(), 2, "dissimilar strings should not be merged");
     assert_debug_snapshot!(enc, @"
     [
         Scalar(
@@ -233,7 +242,7 @@ fn dissimilar_strings_stay_scalar() {
 #[test]
 fn mixed_scalars_and_grouped_strings() {
     let vocab = &["alpha", "beta", "gamma"];
-    let mut props = vec![
+    let props = vec![
         make_prop(StagedProperty::u32("id", vec![Some(1), Some(2), Some(3)])),
         str_prop("name:en", vocab),
         str_prop("name:de", vocab),
@@ -242,9 +251,9 @@ fn mixed_scalars_and_grouped_strings() {
             vec![Some(10), Some(20), Some(30)],
         )),
     ];
-    let enc = props.automatic_encoding_optimisation().unwrap();
+    let (encoded, enc) = props.encode_auto().unwrap();
 
-    assert_eq!(props.len(), 3);
+    assert_eq!(encoded.len(), 3, "two scalar + one merged dict");
     assert_debug_snapshot!(enc, @"
     [
         Scalar(
@@ -300,20 +309,19 @@ fn mixed_scalars_and_grouped_strings() {
 }
 
 #[test]
-fn manual_optimisation_reuses_derived_encoder() {
-    let mut ref_props = vec![make_prop(StagedProperty::u32(
+fn manual_encode_applies_given_encoder() {
+    let ref_props = vec![make_prop(StagedProperty::u32(
         "id",
         (0u32..1_000).map(Some).collect(),
     ))];
-    let enc = ref_props.automatic_encoding_optimisation().unwrap();
+    let (_, enc) = ref_props.encode_auto().unwrap();
 
-    let mut props = vec![make_prop(StagedProperty::u32(
+    let props = vec![make_prop(StagedProperty::u32(
         "id",
         (1_000u32..2_000).map(Some).collect(),
     ))];
-    props.manual_optimisation(enc).unwrap();
-
-    assert_eq!(props.len(), 1);
+    let encoded = props.encode(enc).unwrap();
+    assert_eq!(encoded.len(), 1);
 }
 
 #[test]
@@ -499,11 +507,8 @@ fn merge_duplicate_group_not_added_twice() {
 fn profile_driven_matches_automatic(#[case] props: Vec<StagedProperty>) {
     let profile = PropertyProfile::from_sample(&props);
 
-    let mut auto_props = props.clone();
-    let auto_enc = auto_props.automatic_encoding_optimisation().unwrap();
-
-    let mut profile_props = props;
-    let profile_enc = profile_props.profile_driven_optimisation(&profile).unwrap();
+    let (_, auto_enc) = props.clone().encode_auto().unwrap();
+    let (_, profile_enc) = props.encode_with_profile(&profile).unwrap();
 
     assert_eq!(auto_enc, profile_enc);
 }
@@ -516,11 +521,11 @@ fn profile_applied_to_partial_tile_skips_missing_columns() {
     let profile = PropertyProfile::from_sample(&sample);
 
     // Tile only has "name:en" – group resolves to 1 column, so it is skipped.
-    let mut props = vec![str_prop("name:en", vocab)];
-    let enc = props.profile_driven_optimisation(&profile).unwrap();
+    let props = vec![str_prop("name:en", vocab)];
+    let (encoded, enc) = props.encode_with_profile(&profile).unwrap();
 
     assert_eq!(
-        props.len(),
+        encoded.len(),
         1,
         "column must not be merged with a missing partner"
     );
@@ -555,14 +560,14 @@ fn profile_applies_grouping_to_different_tile_data() {
     let profile = PropertyProfile::from_sample(&sample);
 
     let tile_vocab = &["Eve", "Frank", "Grace", "Heidi"];
-    let mut props = vec![
+    let props = vec![
         str_prop("name:en", tile_vocab),
         str_prop("name:de", tile_vocab),
     ];
-    let enc = props.profile_driven_optimisation(&profile).unwrap();
+    let (encoded, enc) = props.encode_with_profile(&profile).unwrap();
 
     // Grouping from the profile must have been applied.
-    assert_eq!(props.len(), 1, "columns must be merged by the profile");
+    assert_eq!(encoded.len(), 1, "columns must be merged by the profile");
     assert_debug_snapshot!(enc, @"
     [
         SharedDict(
@@ -601,16 +606,16 @@ fn profile_ignores_unrecognised_columns() {
     // The tile must still encode correctly with automatic per-column selection.
     let profile = PropertyProfile::new(vec![]);
 
-    let mut props = vec![
+    let props = vec![
         str_prop("highway", &["motorway", "trunk", "primary"]),
         make_prop(StagedProperty::u32(
             "lanes",
             vec![Some(2), Some(4), Some(3)],
         )),
     ];
-    let enc = props.profile_driven_optimisation(&profile).unwrap();
+    let (encoded, enc) = props.encode_with_profile(&profile).unwrap();
 
-    assert_eq!(props.len(), 2);
+    assert_eq!(encoded.len(), 2);
     assert_debug_snapshot!(enc, @"
     [
         Scalar(
@@ -642,13 +647,13 @@ fn profile_ignores_unrecognised_columns() {
 }
 
 #[test]
-fn manual_optimisation_rejects_mismatched_encoder_count() {
-    let mut ref_props = vec![make_prop(StagedProperty::u32("a", vec![Some(1), Some(2)]))];
-    let enc = ref_props.automatic_encoding_optimisation().unwrap();
+fn manual_encode_rejects_mismatched_encoder_count() {
+    let ref_props = vec![make_prop(StagedProperty::u32("a", vec![Some(1), Some(2)]))];
+    let (_, enc) = ref_props.encode_auto().unwrap();
 
-    let mut props = vec![
+    let props = vec![
         make_prop(StagedProperty::u32("a", vec![Some(1), Some(2)])),
         make_prop(StagedProperty::u32("b", vec![Some(3), Some(4)])),
     ];
-    assert!(props.manual_optimisation(enc).is_err());
+    assert!(props.encode(enc).is_err());
 }

@@ -27,8 +27,8 @@ impl arbitrary::Arbitrary<'_> for EncodedProperty {
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl arbitrary::Arbitrary<'_> for StagedProperty {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        // Always produce an Encoded variant for fuzz targets (DecodedLayerInput needs it)
-        Ok(Self::Encoded(Box::new(u.arbitrary()?)))
+        let values: Vec<Option<u32>> = u.arbitrary()?;
+        Ok(Self::u32("prop", values))
     }
 }
 
@@ -308,9 +308,6 @@ impl StagedProperty {
             Self::F64(v) => v.values.iter().map(Option::is_some).collect(),
             Self::Str(v) => v.presence_bools(),
             Self::SharedDict(..) => Err(NotImplemented("presence stream for shared dict"))?,
-            Self::Encoded(_) => Err(NotImplemented(
-                "presence stream for already-encoded property",
-            ))?,
         })
     }
 }
@@ -526,7 +523,6 @@ impl StagedProperty {
             Self::F64(v) => &v.name,
             Self::Str(v) => &v.name,
             Self::SharedDict(v) => &v.prefix,
-            Self::Encoded(_) => "",
         }
     }
 }
@@ -546,7 +542,6 @@ impl From<&StagedProperty> for &'static str {
             StagedProperty::F64(_) => "f64",
             StagedProperty::Str(_) => "str",
             StagedProperty::SharedDict(_) => "shared_dict",
-            StagedProperty::Encoded(_) => "encoded",
         }
     }
 }
