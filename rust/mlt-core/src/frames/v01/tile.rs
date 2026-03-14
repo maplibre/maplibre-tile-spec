@@ -9,62 +9,11 @@
 //! The only conversions to/from [`StagedLayer01`] happen at the optimizer entry
 //! and exit boundaries.
 
-use geo_types::Geometry;
-
 use crate::MltError;
 use crate::v01::{
-    Layer01, ParsedGeometry, ParsedId, StagedLayer01, StagedProperty, StagedScalar,
-    StagedSharedDict, StagedStrings, build_staged_shared_dict,
+    Layer01, ParsedGeometry, ParsedId, PropValue, StagedLayer01, StagedProperty, StagedScalar,
+    StagedSharedDict, StagedStrings, TileFeature, TileLayer01, build_staged_shared_dict,
 };
-
-/// Row-oriented working form for the optimizer.
-///
-/// All features are stored as a flat [`Vec<TileFeature>`] so that sorting is
-/// a single `sort_by_cached_key` call.  The `property_names` vec is parallel
-/// to every `TileFeature::properties` slice in this layer.
-/// FIXME: move this type without impl to the model.rs file
-#[derive(Debug, Clone)]
-pub struct TileLayer01 {
-    pub name: String,
-    pub extent: u32,
-    /// Column names, parallel to `TileFeature::properties`.
-    pub property_names: Vec<String>,
-    pub features: Vec<TileFeature>,
-}
-
-/// A single map feature in row form.
-/// FIXME: move this type without impl to the model.rs file
-#[derive(Debug, Clone, PartialEq)]
-pub struct TileFeature {
-    pub id: Option<u64>,
-    /// Geometry in `geo_types` / `Geom32` form.
-    pub geometry: Geometry<i32>,
-    /// One value per property column, in the same order as
-    /// [`TileLayer01::property_names`].
-    pub properties: Vec<PropValue>,
-}
-
-/// A single typed value for one property of one feature.
-///
-/// Mirrors the scalar variants of `ParsedProperty` at the per-feature
-/// level. `SharedDict` items are flattened: each sub-field becomes its own
-/// `PropValue::Str` entry in `TileFeature::properties`, with the
-/// corresponding entry in `TileLayer01::property_names` set to
-/// `"prefix:suffix"`.
-/// FIXME: move this type without impl to the model.rs file
-#[derive(Debug, Clone, PartialEq)]
-pub enum PropValue {
-    Bool(Option<bool>),
-    I8(Option<i8>),
-    U8(Option<u8>),
-    I32(Option<i32>),
-    U32(Option<u32>),
-    I64(Option<i64>),
-    U64(Option<u64>),
-    F32(Option<f32>),
-    F64(Option<f64>),
-    Str(Option<String>),
-}
 
 // ── StagedLayer01 → TileLayer01 ─────────────────────────────────────────────
 

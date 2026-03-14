@@ -19,4 +19,3 @@ pub use property::*;
 pub use root::LayerOrdering;
 pub use sort::SortStrategy;
 pub use stream::*;
-pub use tile::{PropValue, TileFeature, TileLayer01};

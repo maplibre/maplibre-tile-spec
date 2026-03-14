@@ -7,7 +7,7 @@
 
 use crate::geojson::Geom32;
 use crate::utils::{hilbert_curve_params, hilbert_sort_key, morton_sort_key};
-use crate::v01::tile::{TileFeature, TileLayer01};
+use crate::v01::{TileFeature, TileLayer01};
 
 /// Controls how features inside a layer are reordered before encoding.
 ///
@@ -217,8 +217,10 @@ mod tests {
 
     use super::*;
     use crate::geojson::Geom32;
-    use crate::v01::tile::{TileFeature, TileLayer01};
-    use crate::v01::{Geometry, GeometryEncoder, IntEncoder, ParsedGeometry, RawGeometry};
+    use crate::v01::{
+        Geometry, GeometryEncoder, IntEncoder, ParsedGeometry, RawGeometry, TileFeature,
+        TileLayer01,
+    };
 
     // ── geometry test helpers ──────────────────────────────────────────────────
 

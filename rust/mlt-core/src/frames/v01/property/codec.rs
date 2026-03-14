@@ -130,6 +130,8 @@ impl<'a> ParsedProperty<'a> {
     pub fn f64(name: &'a str, values: Vec<Option<f64>>) -> Self {
         Self::F64(ParsedScalar::new(name, values))
     }
+    // FIXME: `str` should be a constructor for Str,
+    //   not a test helper with static lifetime
     #[must_use]
     pub fn str(name: &'a str, values: Vec<Option<String>>) -> Self {
         Self::Str(ParsedStrings::from_optional_strings(name, values))

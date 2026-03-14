@@ -1,5 +1,5 @@
 use crate::frames::v01::Layer01;
-use crate::v01::{EncodedLayer01, SortStrategy, StagedLayer01, StagedLayer01Encoder, Tag01Profile};
+use crate::v01::{EncodedLayer01, StagedLayer01, StagedLayer01Encoder, Tag01Profile};
 
 /// A layer that can be one of the known types, or an unknown
 #[derive(Debug, PartialEq)]
@@ -58,16 +58,4 @@ pub enum LayerEncoder {
 pub enum LayerProfile {
     Tag01(Tag01Profile),
     Unknown,
-}
-
-/// FIXME: move out of the model.rs file
-impl LayerProfile {
-    /// Return the active sort strategy, or [`None`] for unknown layers.
-    #[must_use]
-    pub fn sort_strategy(&self) -> Option<SortStrategy> {
-        match self {
-            LayerProfile::Tag01(p) => p.sort_strategy(),
-            LayerProfile::Unknown => None,
-        }
-    }
 }
