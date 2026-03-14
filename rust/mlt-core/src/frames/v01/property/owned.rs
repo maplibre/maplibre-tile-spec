@@ -138,6 +138,7 @@ impl RawProperty<'_> {
 
 // ── Cross-type PartialEq between Parsed* (decode-side) and Staged* (encode-side) ──
 
+#[cfg(test)]
 impl<T: Copy + PartialEq> PartialEq<StagedScalar<T>> for ParsedScalar<'_, T> {
     fn eq(&self, other: &StagedScalar<T>) -> bool {
         let Self { name, values } = self;
@@ -149,12 +150,14 @@ impl<T: Copy + PartialEq> PartialEq<StagedScalar<T>> for ParsedScalar<'_, T> {
     }
 }
 
+#[cfg(test)]
 impl<T: Copy + PartialEq> PartialEq<ParsedScalar<'_, T>> for StagedScalar<T> {
     fn eq(&self, other: &ParsedScalar<'_, T>) -> bool {
         other == self
     }
 }
 
+#[cfg(test)]
 impl PartialEq<StagedStrings> for ParsedStrings<'_> {
     fn eq(&self, other: &StagedStrings) -> bool {
         let Self {
