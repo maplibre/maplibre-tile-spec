@@ -4,6 +4,7 @@ import {
     decodeFastPfor,
     decodeFastPforWithWorkspace,
     decodeVarintInt32,
+    decodeVarintInt32Value,
     decodeVarintInt64,
     decodeVarintFloat64,
     decodeZigZagInt32,
@@ -67,6 +68,13 @@ describe("IntegerDecodingUtils", () => {
             const encoded = encodeVarintInt32(new Uint32Array([value]));
             const decoded = decodeVarintInt32(encoded, new IntWrapper(0), 1);
             expect(decoded[0]).toEqual(value);
+        });
+
+        it("should decode scalar Int32 values as unsigned", () => {
+            const value = 0xffffffff;
+            const encoded = encodeVarintInt32(new Uint32Array([value]));
+            const decoded = decodeVarintInt32Value(encoded, new IntWrapper(0));
+            expect(decoded).toEqual(value);
         });
 
         it("should decode Int64", () => {

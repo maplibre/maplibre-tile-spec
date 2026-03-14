@@ -57,27 +57,27 @@ export function decodeVarintInt32Value(buf: Uint8Array, offset: IntWrapper): num
     let b = buf[offset.get()];
     offset.increment();
     let val = b & 0x7f;
-    if (b < 0x80) return val;
+    if (b < 0x80) return val >>> 0;
 
     b = buf[offset.get()];
     offset.increment();
     val |= (b & 0x7f) << 7;
-    if (b < 0x80) return val;
+    if (b < 0x80) return val >>> 0;
 
     b = buf[offset.get()];
     offset.increment();
     val |= (b & 0x7f) << 14;
-    if (b < 0x80) return val;
+    if (b < 0x80) return val >>> 0;
 
     b = buf[offset.get()];
     offset.increment();
     val |= (b & 0x7f) << 21;
-    if (b < 0x80) return val;
+    if (b < 0x80) return val >>> 0;
 
     b = buf[offset.get()];
     offset.increment();
     val |= (b & 0x0f) << 28;
-    return val;
+    return val >>> 0;
 }
 
 export function decodeVarintInt64(src: Uint8Array, offset: IntWrapper, numValues: number): BigUint64Array {
