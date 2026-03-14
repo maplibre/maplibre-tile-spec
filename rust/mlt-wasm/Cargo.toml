@@ -18,6 +18,7 @@ wasm-opt = ["-O3", "--enable-simd", "--enable-bulk-memory"]
 crate-type = ["cdylib"]
 
 [dependencies]
+geo-types.workspace = true
 js-sys.workspace = true
 mlt-core = { workspace = true, default-features = false, features = ["fastpfor-rust"] }
 wasm-bindgen.workspace = true
