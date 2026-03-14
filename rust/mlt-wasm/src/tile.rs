@@ -77,9 +77,9 @@ impl MltTile {
     }
 
     /// All decoded geometry arrays for layer `layer_idx`, in one call.
-    pub fn layer_geometry(&self, layer_idx: usize) -> Result<LayerGeometry, JsError> {
-        LayerGeometry::from_features(&self.layers[layer_idx].tile.features)
-            .map_err(|e| JsError::new(&e.to_string()))
+    #[must_use]
+    pub fn layer_geometry(&self, layer_idx: usize) -> LayerGeometry {
+        LayerGeometry::from_parsed(&self.layers[layer_idx].geometry)
     }
 
     // -----------------------------------------------------------------------

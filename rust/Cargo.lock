@@ -1590,7 +1590,6 @@ dependencies = [
 name = "mlt-wasm"
 version = "0.1.1"
 dependencies = [
- "geo-types",
  "js-sys",
  "mlt-core",
  "wasm-bindgen",

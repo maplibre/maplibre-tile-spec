@@ -1,7 +1,5 @@
 use js_sys::{Int32Array, Uint32Array};
-use mlt_core::MltError;
 use mlt_core::v01::ParsedGeometry;
-use mlt_core::v01::tile::TileFeature;
 use wasm_bindgen::prelude::*;
 
 /// All decoded geometry arrays for a single layer, fetched in one WASM call.
@@ -16,12 +14,12 @@ use wasm_bindgen::prelude::*;
 /// Vertex indices count whole vertices (pairs), so vertex `n` lives at
 /// `vertices[n*2]`, `vertices[n*2+1]`.
 ///
-/// | Getter             | Present for                                         |
-/// |--------------------|-----------------------------------------------------|
+/// | Getter             | Present for                                               |
+/// |--------------------|-----------------------------------------------------------|
 /// | `geometry_offsets` | `MultiPoint`, `MultiLineString`, `MultiPolygon`           |
-/// | `part_offsets`     | `LineString`, `Polygon`, `MultiLineString`, `MultiPolygon`  |
+/// | `part_offsets`     | `LineString`, `Polygon`, `MultiLineString`, `MultiPolygon`|
 /// | `ring_offsets`     | `Polygon`, `MultiPolygon` (+ `LineString` when mixed)     |
-/// | `vertices`         | always                                              |
+/// | `vertices`         | always                                                    |
 ///
 /// Absent offset arrays are returned as zero-length `Uint32Array`s so JS can
 /// always branch on `.length` without a null-check.
@@ -65,44 +63,33 @@ impl LayerGeometry {
 }
 
 impl LayerGeometry {
-    /// Build a [`LayerGeometry`] from a slice of [`TileFeature`]s by
-    /// reconstructing a `ParsedGeometry` and running it through a
-    /// canonical encode→decode round-trip.
-    pub(crate) fn from_features(features: &[TileFeature]) -> Result<LayerGeometry, MltError> {
-        let mut geom = ParsedGeometry::default();
-        for f in features {
-            geom.push_geom(&f.geometry);
-        }
-        // Canonicalize via encode→decode to produce the dense offset form
-        // required by the JS consumers.
-        let (encoded, _enc) = geom.encode_auto()?;
-        let decoded = ParsedGeometry::try_from(encoded)?;
-
-        let geometry_offsets = decoded
+    /// Build a [`LayerGeometry`] from a decoded [`ParsedGeometry`].
+    pub(crate) fn from_parsed(geom: &ParsedGeometry) -> LayerGeometry {
+        let geometry_offsets = geom
             .geometry_offsets
             .as_deref()
             .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
 
-        let part_offsets = decoded
+        let part_offsets = geom
             .part_offsets
             .as_deref()
             .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
 
-        let ring_offsets = decoded
+        let ring_offsets = geom
             .ring_offsets
             .as_deref()
             .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
 
-        let vertices = decoded
+        let vertices = geom
             .vertices
             .as_deref()
             .map_or_else(|| Int32Array::new_with_length(0), Int32Array::from);
 
-        Ok(LayerGeometry {
+        LayerGeometry {
             geometry_offsets,
             part_offsets,
             ring_offsets,
             vertices,
-        })
+        }
     }
 }
