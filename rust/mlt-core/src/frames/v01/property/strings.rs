@@ -75,7 +75,6 @@ impl<'a> arbitrary::Arbitrary<'a> for ParsedStrings<'static> {
     }
 }
 
-
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl<'a> arbitrary::Arbitrary<'a> for ParsedSharedDict<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
