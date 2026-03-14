@@ -85,7 +85,11 @@ impl TryFrom<StagedLayer01> for TileLayer01 {
             match prop {
                 StagedProperty::SharedDict(sd) => {
                     for item in &sd.items {
-                        property_names.push(format!("{prefix}{suffix}", prefix=sd.prefix, suffix=item.suffix));
+                        property_names.push(format!(
+                            "{prefix}{suffix}",
+                            prefix = sd.prefix,
+                            suffix = item.suffix
+                        ));
                     }
                 }
                 other => property_names.push(other.name().to_string()),
