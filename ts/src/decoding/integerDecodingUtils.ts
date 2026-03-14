@@ -12,43 +12,9 @@ export { createFastPforWireDecodeWorkspace } from "./fastPforDecoder";
 //based on https://github.com/mapbox/pbf/blob/main/index.js
 export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, numValues: number): Uint32Array {
     const dst = new Uint32Array(numValues);
-    let dstOffset = 0;
-    let offset = bufferOffset.get();
     for (let i = 0; i < dst.length; i++) {
-        let b = buf[offset++];
-        let val = b & 0x7f;
-        if (b < 0x80) {
-            dst[dstOffset++] = val;
-            continue;
-        }
-
-        b = buf[offset++];
-        val |= (b & 0x7f) << 7;
-        if (b < 0x80) {
-            dst[dstOffset++] = val;
-            continue;
-        }
-
-        b = buf[offset++];
-        val |= (b & 0x7f) << 14;
-        if (b < 0x80) {
-            dst[dstOffset++] = val;
-            continue;
-        }
-
-        b = buf[offset++];
-        val |= (b & 0x7f) << 21;
-        if (b < 0x80) {
-            dst[dstOffset++] = val;
-            continue;
-        }
-
-        b = buf[offset++];
-        val |= (b & 0x0f) << 28;
-        dst[dstOffset++] = val;
+        dst[i] = decodeVarintInt32Value(buf, bufferOffset);
     }
-
-    bufferOffset.set(offset);
     return dst;
 }
 
