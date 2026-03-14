@@ -11,7 +11,7 @@
 
 use crate::MltError;
 use crate::v01::{
-    Layer01, ParsedGeometry, ParsedId, PropValue, StagedLayer01, StagedProperty, StagedScalar,
+    GeometryValues, IdValues, Layer01, PropValue, StagedLayer01, StagedProperty, StagedScalar,
     StagedSharedDict, StagedStrings, TileFeature, TileLayer01, build_staged_shared_dict,
 };
 
@@ -198,7 +198,7 @@ fn extract_staged_values(prop: &StagedProperty, i: usize, out: &mut Vec<PropValu
 impl From<TileLayer01> for StagedLayer01 {
     fn from(source: TileLayer01) -> Self {
         // Rebuild geometry column
-        let mut geom = ParsedGeometry::default();
+        let mut geom = GeometryValues::default();
         for f in &source.features {
             geom.push_geom(&f.geometry);
         }
@@ -206,7 +206,7 @@ impl From<TileLayer01> for StagedLayer01 {
         // Rebuild ID column (only if at least one feature has a non-None id)
         let has_ids = source.features.iter().any(|f| f.id.is_some());
         let id = if has_ids || !source.features.is_empty() {
-            Some(ParsedId(source.features.iter().map(|f| f.id).collect()))
+            Some(IdValues(source.features.iter().map(|f| f.id).collect()))
         } else {
             None
         };
@@ -375,11 +375,11 @@ fn rebuild_shared_dict(
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /// Canonicalize geometry by encoding and decoding to produce the dense offset form
-/// required by [`ParsedGeometry::to_geojson`].
+/// required by [`GeometryValues::to_geojson`].
 ///
 /// Geometry built with `push_geom` uses a "sparse" offset-array layout that
 /// differs from the "dense" layout produced by the wire encode→decode round-trip.
-fn canonicalize_geometry(geom: ParsedGeometry) -> Result<ParsedGeometry, MltError> {
+fn canonicalize_geometry(geom: GeometryValues) -> Result<GeometryValues, MltError> {
     let (encoded, _enc) = geom.encode_auto()?;
-    ParsedGeometry::try_from(encoded)
+    GeometryValues::try_from(encoded)
 }

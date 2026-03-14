@@ -1,5 +1,5 @@
 use crate::analyse::{Analyze, StatType};
-use crate::v01::{GeometryType, ParsedGeometry, RawGeometry, StreamMeta};
+use crate::v01::{GeometryType, GeometryValues, RawGeometry, StreamMeta};
 
 impl Analyze for crate::v01::EncodedGeometry {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
@@ -15,7 +15,7 @@ impl Analyze for RawGeometry<'_> {
     }
 }
 
-impl Analyze for ParsedGeometry {
+impl Analyze for GeometryValues {
     fn collect_statistic(&self, stat: StatType) -> usize {
         match stat {
             StatType::DecodedDataSize => {

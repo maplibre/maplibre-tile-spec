@@ -7,7 +7,7 @@ use crate::MltError;
 use crate::decode::Decode as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2, parse_varint};
 use crate::v01::{
-    ColumnType, DictionaryType, EncodedGeometry, Geometry, IntEncoding, ParsedGeometry,
+    ColumnType, DictionaryType, EncodedGeometry, Geometry, GeometryValues, IntEncoding,
     RawGeometry, RawStream, RawStreamData, StreamMeta, StreamType,
 };
 
@@ -40,21 +40,21 @@ impl<'a> RawGeometry<'a> {
     }
 }
 
-impl TryFrom<RawGeometry<'_>> for ParsedGeometry {
+impl TryFrom<RawGeometry<'_>> for GeometryValues {
     type Error = MltError;
 
     fn try_from(raw: RawGeometry<'_>) -> Result<Self, MltError> {
-        ParsedGeometry::decode(raw)
+        GeometryValues::decode(raw)
     }
 }
 
-impl TryFrom<EncodedGeometry> for ParsedGeometry {
+impl TryFrom<EncodedGeometry> for GeometryValues {
     type Error = MltError;
 
     fn try_from(encoded: EncodedGeometry) -> Result<Self, MltError> {
         let meta = encoded.meta.as_borrowed();
         let items: Vec<_> = encoded.items.iter().map(|s| s.as_borrowed()).collect();
-        ParsedGeometry::decode(RawGeometry { meta, items })
+        GeometryValues::decode(RawGeometry { meta, items })
     }
 }
 
@@ -76,9 +76,9 @@ impl EncodedGeometry {
     }
 }
 
-impl Debug for ParsedGeometry {
+impl Debug for GeometryValues {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let ParsedGeometry {
+        let GeometryValues {
             vector_types,
             geometry_offsets,
             part_offsets,
@@ -87,7 +87,7 @@ impl Debug for ParsedGeometry {
             triangles,
             vertices,
         } = self;
-        f.debug_struct("ParsedGeometry")
+        f.debug_struct("GeometryValues")
             .field("vector_types", &OptSeq(Some(vector_types)))
             .field("geometry_offsets", &OptSeq(geometry_offsets.as_deref()))
             .field("part_offsets", &OptSeq(part_offsets.as_deref()))
@@ -106,15 +106,15 @@ impl<'a> Geometry<'a> {
     }
 
     #[inline]
-    pub fn decode(self) -> Result<ParsedGeometry, MltError> {
+    pub fn decode(self) -> Result<GeometryValues, MltError> {
         Ok(match self {
-            Self::Encoded(v) => ParsedGeometry::decode(v)?,
+            Self::Encoded(v) => GeometryValues::decode(v)?,
             Self::Decoded(v) => v,
         })
     }
 }
 
-impl ParsedGeometry {
+impl GeometryValues {
     #[must_use]
     pub fn feature_count(&self) -> usize {
         self.vector_types.len()

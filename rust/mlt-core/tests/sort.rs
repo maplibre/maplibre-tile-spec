@@ -1,13 +1,13 @@
 use geo_types::{Coord, LineString, Point};
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
-    GeometryEncoder, GeometryType, IntEncoder, ParsedGeometry, ParsedId, SortStrategy,
+    GeometryEncoder, GeometryType, GeometryValues, IdValues, IntEncoder, SortStrategy,
     StagedLayer01, StagedLayer01Encoder, Tile01Encoder, TileLayer01,
 };
 
 /// Helper to build a layer from geometries and IDs.
 fn build_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> StagedLayer01 {
-    let mut geometry = ParsedGeometry::default();
+    let mut geometry = GeometryValues::default();
     for g in geoms {
         geometry.push_geom(g);
     }
@@ -15,7 +15,7 @@ fn build_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> StagedLayer01 {
     StagedLayer01 {
         name: "test".to_string(),
         extent: 4096,
-        id: Some(ParsedId(ids.to_vec())),
+        id: Some(IdValues(ids.to_vec())),
         geometry,
         properties: vec![],
     }
@@ -66,7 +66,7 @@ fn ls(coords: &[(i32, i32)]) -> Geom32 {
 
 /// Rebuild a flat vertex buffer from the feature geometries in source order.
 fn vertices_from_source(source: &TileLayer01) -> Vec<i32> {
-    let mut geom = ParsedGeometry::default();
+    let mut geom = GeometryValues::default();
     for f in &source.features {
         geom.push_geom(&f.geometry);
     }

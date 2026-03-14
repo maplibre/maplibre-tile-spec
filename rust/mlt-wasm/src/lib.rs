@@ -54,7 +54,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             continue;
         };
 
-        // Decode geometry to columnar ParsedGeometry first (for WASM typed-array output),
+        // Decode geometry to columnar GeometryValues first (for WASM typed-array output),
         // then decode the whole layer to TileLayer01 for properties/IDs.
         // We need to re-parse the same layer, so clone the raw geometry before consuming.
         let parsed_geometry = layer01

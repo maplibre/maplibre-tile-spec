@@ -1,5 +1,5 @@
 use js_sys::{Int32Array, Uint32Array};
-use mlt_core::v01::ParsedGeometry;
+use mlt_core::v01::GeometryValues;
 use wasm_bindgen::prelude::*;
 
 /// All decoded geometry arrays for a single layer, fetched in one WASM call.
@@ -7,7 +7,7 @@ use wasm_bindgen::prelude::*;
 /// JS indexes into these typed arrays directly inside `loadGeometry()`, so
 /// there are **zero** per-feature WASM boundary crossings for geometry.
 ///
-/// ## Array semantics (mirrors `ParsedGeometry`)
+/// ## Array semantics (mirrors `GeometryValues`)
 ///
 /// All offset arrays are cumulative: `offsets[i]` is the start index and
 /// `offsets[i+1]` is the exclusive end for feature/part/ring `i`.
@@ -63,8 +63,8 @@ impl LayerGeometry {
 }
 
 impl LayerGeometry {
-    /// Build a [`LayerGeometry`] from a decoded [`ParsedGeometry`].
-    pub(crate) fn from_parsed(geom: &ParsedGeometry) -> LayerGeometry {
+    /// Build a [`LayerGeometry`] from a decoded [`GeometryValues`].
+    pub(crate) fn from_parsed(geom: &GeometryValues) -> LayerGeometry {
         let geometry_offsets = geom
             .geometry_offsets
             .as_deref()

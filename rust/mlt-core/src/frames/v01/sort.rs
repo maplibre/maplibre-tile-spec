@@ -218,7 +218,7 @@ mod tests {
     use super::*;
     use crate::geojson::Geom32;
     use crate::v01::{
-        Geometry, GeometryEncoder, IntEncoder, ParsedGeometry, RawGeometry, TileFeature,
+        Geometry, GeometryEncoder, GeometryValues, IntEncoder, RawGeometry, TileFeature,
         TileLayer01,
     };
 
@@ -254,8 +254,8 @@ mod tests {
         GeoGeom::Polygon(Polygon::new(ring, vec![]))
     }
 
-    /// Encode + serialize + parse + decode a `ParsedGeometry` (round-trip).
-    fn roundtrip_geom(decoded: &ParsedGeometry) -> ParsedGeometry {
+    /// Encode + serialize + parse + decode a `GeometryValues` (round-trip).
+    fn roundtrip_geom(decoded: &GeometryValues) -> GeometryValues {
         let encoded = decoded
             .clone()
             .encode(GeometryEncoder::all(IntEncoder::varint()))
@@ -274,8 +274,8 @@ mod tests {
     }
 
     /// Build the canonical (dense, wire-decoded) form of an ordered geometry sequence.
-    fn canonical(geoms: &[Geom32]) -> ParsedGeometry {
-        let mut decoded = ParsedGeometry::default();
+    fn canonical(geoms: &[Geom32]) -> GeometryValues {
+        let mut decoded = GeometryValues::default();
         for g in geoms {
             decoded.push_geom(g);
         }
@@ -315,7 +315,7 @@ mod tests {
     ) {
         let layer = layer_after_sort(geoms, ids, strategy);
 
-        let mut sorted_decoded = ParsedGeometry::default();
+        let mut sorted_decoded = GeometryValues::default();
         for f in &layer.features {
             sorted_decoded.push_geom(&f.geometry);
         }

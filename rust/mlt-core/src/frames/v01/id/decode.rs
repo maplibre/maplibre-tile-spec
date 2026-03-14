@@ -1,6 +1,6 @@
 use crate::utils::apply_present;
 use crate::v01::{
-    EncodedId, EncodedIdValue, EncodedStream, Id, ParsedId, RawId, RawIdValue, RawStream,
+    EncodedId, EncodedIdValue, EncodedStream, Id, IdValues, RawId, RawIdValue, RawStream,
 };
 use crate::{Decode, DecodeInto as _, MltError};
 
@@ -11,7 +11,7 @@ impl<'a> Id<'a> {
     }
 
     #[inline]
-    pub fn decode(self) -> Result<ParsedId, MltError> {
+    pub fn decode(self) -> Result<IdValues, MltError> {
         Ok(match self {
             Self::Encoded(v) => v.decode_into()?,
             Self::Decoded(v) => v,
@@ -19,14 +19,14 @@ impl<'a> Id<'a> {
     }
 }
 
-impl ParsedId {
+impl IdValues {
     #[must_use]
     pub fn values(&self) -> &[Option<u64>] {
         &self.0
     }
 }
 
-impl TryFrom<RawId<'_>> for ParsedId {
+impl TryFrom<RawId<'_>> for IdValues {
     type Error = MltError;
 
     fn try_from(RawId { presence, value }: RawId<'_>) -> Result<Self, MltError> {
@@ -42,17 +42,17 @@ impl TryFrom<RawId<'_>> for ParsedId {
                 stream.decode_into()?
             }
         };
-        Ok(ParsedId(apply_present(presence, ids_u64)?))
+        Ok(IdValues(apply_present(presence, ids_u64)?))
     }
 }
 
-impl<'a> Decode<RawId<'a>> for ParsedId {
+impl<'a> Decode<RawId<'a>> for IdValues {
     fn decode(input: RawId<'a>) -> Result<Self, MltError> {
-        ParsedId::try_from(input)
+        IdValues::try_from(input)
     }
 }
 
-impl TryFrom<EncodedId> for ParsedId {
+impl TryFrom<EncodedId> for IdValues {
     type Error = MltError;
 
     fn try_from(encoded: EncodedId) -> Result<Self, MltError> {
@@ -61,6 +61,6 @@ impl TryFrom<EncodedId> for ParsedId {
             EncodedIdValue::Id32(s) => RawIdValue::Id32(s.as_borrowed()),
             EncodedIdValue::Id64(s) => RawIdValue::Id64(s.as_borrowed()),
         };
-        ParsedId::try_from(RawId { presence, value })
+        IdValues::try_from(RawId { presence, value })
     }
 }

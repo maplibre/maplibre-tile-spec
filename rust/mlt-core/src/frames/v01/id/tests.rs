@@ -6,14 +6,14 @@ use rstest::rstest;
 
 use crate::encode::FromDecoded as _;
 use crate::frames::v01::id::encode::IdEncoder;
-use crate::frames::v01::id::model::{EncodedId, EncodedIdValue, IdWidth, ParsedId};
+use crate::frames::v01::id::model::{EncodedId, EncodedIdValue, IdValues, IdWidth};
 use crate::v01::LogicalEncoder;
 
 // Helper function to encode and decode for roundtrip testing
-fn roundtrip(decoded: &ParsedId, config: IdEncoder) -> ParsedId {
+fn roundtrip(decoded: &IdValues, config: IdEncoder) -> IdValues {
     match decoded.clone().encode(config).expect("Failed to encode") {
-        Some(encoded) => ParsedId::try_from(encoded).expect("Failed to decode"),
-        None => ParsedId(vec![]), // empty list encodes to nothing and decodes to empty
+        Some(encoded) => IdValues::try_from(encoded).expect("Failed to decode"),
+        None => IdValues(vec![]), // empty list encodes to nothing and decodes to empty
     }
 }
 
@@ -24,7 +24,7 @@ fn roundtrip(decoded: &ParsedId, config: IdEncoder) -> ParsedId {
 #[case::id64(Id64, vec![Some(1), Some(2), Some(3)])]
 #[case::opt_id64(OptId64, vec![Some(1), None, Some(3)])]
 fn test_config_produces_correct_variant(#[case] id_width: IdWidth, #[case] ids: Vec<Option<u64>>) {
-    let input = ParsedId(ids);
+    let input = IdValues(ids);
     let config = IdEncoder {
         logical: LogicalEncoder::None,
         id_width,
@@ -57,7 +57,7 @@ fn test_config_produces_correct_variant(#[case] id_width: IdWidth, #[case] ids: 
 #[case::opt_id64_all_nulls(OptId64, &[None, None, None])]
 #[case::none(Id32, &[])]
 fn test_roundtrip(#[case] id_width: IdWidth, #[case] ids: &[Option<u64>]) {
-    let input = ParsedId(ids.to_vec());
+    let input = IdValues(ids.to_vec());
     let config = IdEncoder {
         logical: LogicalEncoder::None,
         id_width,
@@ -71,7 +71,7 @@ fn test_sequential_ids(
     #[values(LogicalEncoder::None)] logical: LogicalEncoder,
     #[values(Id32, OptId32, Id64, OptId64)] id_width: IdWidth,
 ) {
-    let input = ParsedId((1..=100).map(Some).collect());
+    let input = IdValues((1..=100).map(Some).collect());
     let config = IdEncoder { logical, id_width };
     let output = roundtrip(&input, config);
     assert_eq!(output, input);
@@ -153,9 +153,9 @@ fn assert_roundtrip_succeeds(
     ids: Vec<Option<u64>>,
     config: IdEncoder,
 ) -> Result<(), TestCaseError> {
-    let input = ParsedId(ids.clone());
+    let input = IdValues(ids.clone());
     let output = roundtrip(&input, config);
-    prop_assert_eq!(output, ParsedId(ids));
+    prop_assert_eq!(output, IdValues(ids));
     Ok(())
 }
 
@@ -163,15 +163,15 @@ fn assert_encodable_api_works(
     ids: Vec<Option<u64>>,
     config: IdEncoder,
 ) -> Result<(), TestCaseError> {
-    let decoded = ParsedId(ids.clone());
+    let decoded = IdValues(ids.clone());
 
     let encoded = decoded
         .encode(config)
         .expect("Failed to encode")
         .expect("non-empty IDs should produce Some(EncodedId)");
 
-    let decoded_back = ParsedId::try_from(encoded).expect("Failed to decode");
-    prop_assert_eq!(decoded_back, ParsedId(ids));
+    let decoded_back = IdValues::try_from(encoded).expect("Failed to decode");
+    prop_assert_eq!(decoded_back, IdValues(ids));
     Ok(())
 }
 
@@ -179,7 +179,7 @@ fn assert_produces_correct_variant(
     ids: Vec<Option<u64>>,
     encoder: IdEncoder,
 ) -> Result<(), TestCaseError> {
-    let input = ParsedId(ids);
+    let input = IdValues(ids);
     let enc_id = EncodedId::from_decoded(&input, encoder).expect("Failed to encode");
 
     if matches!(encoder.id_width, Id32 | OptId32) {

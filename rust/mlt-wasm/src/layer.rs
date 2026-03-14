@@ -1,4 +1,4 @@
-use mlt_core::v01::{ParsedGeometry, TileLayer01};
+use mlt_core::v01::{GeometryValues, TileLayer01};
 
 /// All per-layer state owned by [`crate::tile::MltTile`].
 ///
@@ -11,5 +11,5 @@ pub(crate) struct DecodedLayer {
 
     /// Decoded geometry in columnar offset form, kept for the WASM geometry
     /// typed-array accessors which need the raw offset arrays.
-    pub(crate) geometry: ParsedGeometry,
+    pub(crate) geometry: GeometryValues,
 }

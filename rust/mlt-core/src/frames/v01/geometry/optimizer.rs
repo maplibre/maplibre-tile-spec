@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crate::v01::encode::{encode_geometry, z_order_params};
 use crate::v01::{
-    DataProfile, DictionaryType, EncodedGeometry, GeometryEncoder, IntEncoder, LengthType,
-    OffsetType, ParsedGeometry, StreamType, VertexBufferType,
+    DataProfile, DictionaryType, EncodedGeometry, GeometryEncoder, GeometryValues, IntEncoder,
+    LengthType, OffsetType, StreamType, VertexBufferType,
 };
 use crate::{FromDecoded as _, MltError};
 
@@ -39,7 +39,7 @@ impl GeometryProfile {
     }
 
     /// Build a profile from a sample of decoded geometry.
-    pub fn from_sample(decoded: &ParsedGeometry) -> Result<Self, MltError> {
+    pub fn from_sample(decoded: &GeometryValues) -> Result<Self, MltError> {
         let vertex_buffer_type = decoded
             .vertices
             .as_deref()
@@ -86,7 +86,7 @@ impl GeometryProfile {
 ///    `on_stream` callback that collects the raw `u32` payload for every stream.
 /// 2. **Select** - run [`IntEncoder::auto_u32`] on each payload to pick the best
 ///    physical/logical combination per stream.
-fn optimize(decoded: &ParsedGeometry) -> Result<GeometryEncoder, MltError> {
+fn optimize(decoded: &GeometryValues) -> Result<GeometryEncoder, MltError> {
     let vertex_buffer_type = decoded
         .vertices
         .as_deref()
@@ -122,7 +122,7 @@ fn optimize(decoded: &ParsedGeometry) -> Result<GeometryEncoder, MltError> {
 /// over the profile's pre-computed per-stream candidate lists rather than
 /// re-running [`DataProfile::prune_candidates`] from scratch.
 fn apply_profile(
-    decoded: &ParsedGeometry,
+    decoded: &GeometryValues,
     profile: &GeometryProfile,
 ) -> Result<GeometryEncoder, MltError> {
     let vertex_buffer_type = decoded
@@ -162,7 +162,7 @@ fn apply_profile(
 /// Shared by [`optimize`] and [`apply_profile`]; the only difference between
 /// the two is how `opt` resolves the best [`IntEncoder`] for each stream.
 fn build_encoder(
-    decoded: &ParsedGeometry,
+    decoded: &GeometryValues,
     vertex_buffer_type: VertexBufferType,
     mut opt: impl FnMut(StreamType) -> IntEncoder,
 ) -> GeometryEncoder {
@@ -242,7 +242,7 @@ fn select_vertex_strategy(vertices: &[i32]) -> VertexBufferType {
     }
 }
 
-impl ParsedGeometry {
+impl GeometryValues {
     /// Encode this geometry using the given encoder, consuming `self`.
     pub fn encode(self, encoder: GeometryEncoder) -> Result<EncodedGeometry, MltError> {
         EncodedGeometry::from_decoded(&self, encoder)

@@ -2,8 +2,8 @@ use crate::MltError;
 use crate::encode::FromDecoded;
 use crate::utils::{encode_bools_to_bytes, encode_byte_rle};
 use crate::v01::{
-    EncodedId, EncodedIdValue, EncodedStream, EncodedStreamData, IdWidth, IntEncoder, IntEncoding,
-    LogicalEncoder, LogicalEncoding, ParsedId, PhysicalEncoder, PhysicalEncoding, RleMeta,
+    EncodedId, EncodedIdValue, EncodedStream, EncodedStreamData, IdValues, IdWidth, IntEncoder,
+    IntEncoding, LogicalEncoder, LogicalEncoding, PhysicalEncoder, PhysicalEncoding, RleMeta,
     StreamMeta, StreamType,
 };
 
@@ -25,7 +25,7 @@ impl IdEncoder {
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl arbitrary::Arbitrary<'_> for EncodedId {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        let parsed: ParsedId = u.arbitrary()?;
+        let parsed: IdValues = u.arbitrary()?;
         let encoder: IdEncoder = u.arbitrary()?;
         let owned_id =
             Self::from_decoded(&parsed, encoder).map_err(|_| arbitrary::Error::IncorrectFormat)?;
@@ -34,7 +34,7 @@ impl arbitrary::Arbitrary<'_> for EncodedId {
 }
 
 impl FromDecoded<'_> for EncodedId {
-    type Input = ParsedId;
+    type Input = IdValues;
     type Encoder = IdEncoder;
 
     fn from_decoded(decoded: &Self::Input, encoder: IdEncoder) -> Result<Self, MltError> {

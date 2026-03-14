@@ -4,9 +4,9 @@ use crate::MltError;
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, encode_componentwise_delta_vec2s};
 use crate::v01::{
-    DictionaryType, EncodedGeometry, EncodedStream, GeometryType, IntEncoder, IntEncoding,
-    LengthType, LogicalEncoding, MortonMeta, OffsetType, ParsedGeometry, PhysicalEncoder,
-    StreamMeta, StreamType, VertexBufferType,
+    DictionaryType, EncodedGeometry, EncodedStream, GeometryType, GeometryValues, IntEncoder,
+    IntEncoding, LengthType, LogicalEncoding, MortonMeta, OffsetType, PhysicalEncoder, StreamMeta,
+    StreamType, VertexBufferType,
 };
 
 /// Encode vertex buffer using componentwise delta encoding
@@ -408,11 +408,11 @@ fn normalize_part_offsets_for_rings(
 /// topology logic.
 #[expect(clippy::type_complexity)]
 pub fn encode_geometry(
-    decoded: &ParsedGeometry,
+    decoded: &GeometryValues,
     encoder: &GeometryEncoder,
     mut on_stream: Option<&mut dyn FnMut(StreamType, &[u32])>,
 ) -> Result<EncodedGeometry, MltError> {
-    let ParsedGeometry {
+    let GeometryValues {
         vector_types,
         geometry_offsets,
         part_offsets,
