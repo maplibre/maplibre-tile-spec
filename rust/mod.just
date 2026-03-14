@@ -423,7 +423,7 @@ wasm-bench: wasm-build
 # Build the mlt-wasm package (compiles Rust to WASM and TypeScript)
 [working-directory: 'mlt-wasm']
 wasm-build: (just 'cargo-install' 'wasm-pack')
-    npm ci
+    npm ci --no-fund --no-audit
     npm run build
 
 # Run mlt-wasm tests

@@ -2,11 +2,11 @@
 //!
 //! # Design
 //!
-//! A single [`tile::MltTile`] struct owns all decoded columnar data for every
-//! layer in the tile.  No per-layer or per-feature WASM objects are created;
-//! every accessor takes explicit `(layer_idx, feature_idx)` arguments so the
-//! JavaScript side can keep plain numeric indices rather than heap-allocated
-//! wrapper objects.
+//! A single [`tile::MltTile`] struct owns all decoded [`TileLayer01`] data for
+//! every layer in the tile.  No per-layer or per-feature WASM objects are
+//! created; every accessor takes explicit `(layer_idx, feature_idx)` arguments
+//! so the JavaScript side can keep plain numeric indices rather than
+//! heap-allocated wrapper objects.
 //!
 //! ## Geometry
 //!
@@ -28,27 +28,22 @@
 //! traversal.
 
 mod geometry;
-mod ids;
 mod layer;
 mod properties;
 mod tile;
 
-use std::cell::RefCell;
-use std::f64;
-
-use ids::IdState;
-use js_sys::{Float64Array, Uint8Array};
+use js_sys::Uint8Array;
 use layer::DecodedLayer;
-use mlt_core::v01::{Geometry, GeometryType, Id, ParsedProperty};
-use mlt_core::{EncDec, Layer, MltError, parse_layers};
+use mlt_core::v01::GeometryType;
+use mlt_core::v01::tile::TileLayer01;
+use mlt_core::{MltError, parse_layers};
 use tile::MltTile;
 use wasm_bindgen::prelude::*;
 
 /// Decode a raw MLT tile blob and return an [`MltTile`].
 ///
-/// Geometry types and the per-layer `types_array` are decoded eagerly.
-/// Full geometry, IDs, and property columns are decoded lazily on first access
-/// and then cached inside the returned [`MltTile`].
+/// All geometry, IDs and properties are decoded eagerly into row-oriented
+/// [`TileLayer01`] values.
 #[wasm_bindgen]
 pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
     let raw_layers = parse_layers(data).map_err(|e| to_js_err(&e))?;
@@ -56,36 +51,22 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
 
     for raw_layer in raw_layers {
         // Skip non-Tag01 layers.
-        let Layer::Tag01(layer01) = raw_layer else {
+        let mlt_core::Layer::Tag01(layer01) = raw_layer else {
             continue;
         };
 
-        let name = layer01.name.to_string();
-        let extent = layer01.extent;
+        // Decode geometry to columnar ParsedGeometry first (for WASM typed-array output),
+        // then decode the whole layer to TileLayer01 for properties/IDs.
+        // We need to re-parse the same layer, so clone the raw geometry before consuming.
+        let parsed_geometry = layer01
+            .geometry
+            .clone()
+            .decode()
+            .map_err(|e| to_js_err(&e))?;
 
-        // Decode geometry types eagerly — cheap, needed for feature_count and
-        // layer_types on every tile traversal.
-        let vector_types: Vec<GeometryType> = match &layer01.geometry {
-            Geometry::Encoded(encoded) => encoded
-                .meta
-                .clone()
-                .decode_bits_u32()
-                .map_err(|e| to_js_err(&e))?
-                .decode_u32()
-                .map_err(|e| to_js_err(&e))?
-                .into_iter()
-                .map::<Result<GeometryType, JsError>, _>(|v| {
-                    u8::try_from(v)
-                        .map_err(|_| JsError::new("invalid geometry type"))?
-                        .try_into()
-                        .map_err(|_| JsError::new("invalid geometry type"))
-                })
-                .collect::<Result<Vec<_>, _>>()?,
-            Geometry::Decoded(decoded) => decoded.vector_types.clone(),
-        };
-
-        // Build types_array once up front; layer_types() returns a handle clone.
-        let types_bytes: Vec<u8> = vector_types
+        // Build types_array from vector_types.
+        let types_bytes: Vec<u8> = parsed_geometry
+            .vector_types
             .iter()
             .map(|t| match t {
                 GeometryType::Point | GeometryType::MultiPoint => 1,
@@ -97,46 +78,12 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             .collect();
         let types_array = Uint8Array::from(types_bytes.as_slice());
 
-        let geometry = RefCell::new(match layer01.geometry {
-            Geometry::Encoded(raw) => EncDec::Encoded(raw.to_owned()),
-            Geometry::Decoded(decoded) => EncDec::Decoded(decoded),
-        });
-
-        let ids = RefCell::new(match &layer01.id {
-            None => IdState::Absent,
-            Some(Id::Encoded(encoded)) => IdState::Encoded(encoded.to_owned()),
-            Some(Id::Decoded(decoded)) => {
-                let floats: Vec<f64> = decoded
-                    .values()
-                    .iter()
-                    .copied()
-                    .map(|f: Option<u64>| {
-                        #[expect(clippy::cast_precision_loss)]
-                        f.map_or(f64::NAN, |f| f as f64)
-                    })
-                    .collect();
-                IdState::Ready(Float64Array::from(floats.as_slice()))
-            }
-        });
-
-        let props = RefCell::new(
-            layer01
-                .properties
-                .into_iter()
-                .map(|p| p.decode().map(ParsedProperty::into_static))
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| to_js_err(&e))?,
-        );
+        let tile = TileLayer01::try_from(layer01).map_err(|e| to_js_err(&e))?;
 
         layers.push(DecodedLayer {
-            name,
-            extent,
+            tile,
             types_array,
-            geometry,
-            geometry_cache: RefCell::new(None),
-            ids,
-            props,
-            prop_cache: RefCell::new(None),
+            geometry: parsed_geometry,
         });
     }
 

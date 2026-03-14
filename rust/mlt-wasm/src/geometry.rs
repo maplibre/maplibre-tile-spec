@@ -1,4 +1,5 @@
 use js_sys::{Int32Array, Uint32Array};
+use mlt_core::v01::ParsedGeometry;
 use wasm_bindgen::prelude::*;
 
 /// All decoded geometry arrays for a single layer, fetched in one WASM call.
@@ -13,12 +14,12 @@ use wasm_bindgen::prelude::*;
 /// Vertex indices count whole vertices (pairs), so vertex `n` lives at
 /// `vertices[n*2]`, `vertices[n*2+1]`.
 ///
-/// | Getter             | Present for                                         |
-/// |--------------------|-----------------------------------------------------|
+/// | Getter             | Present for                                               |
+/// |--------------------|-----------------------------------------------------------|
 /// | `geometry_offsets` | `MultiPoint`, `MultiLineString`, `MultiPolygon`           |
-/// | `part_offsets`     | `LineString`, `Polygon`, `MultiLineString`, `MultiPolygon`  |
+/// | `part_offsets`     | `LineString`, `Polygon`, `MultiLineString`, `MultiPolygon`|
 /// | `ring_offsets`     | `Polygon`, `MultiPolygon` (+ `LineString` when mixed)     |
-/// | `vertices`         | always                                              |
+/// | `vertices`         | always                                                    |
 ///
 /// Absent offset arrays are returned as zero-length `Uint32Array`s so JS can
 /// always branch on `.length` without a null-check.
@@ -58,5 +59,37 @@ impl LayerGeometry {
     #[must_use]
     pub fn vertices(&self) -> Int32Array {
         self.vertices.clone()
+    }
+}
+
+impl LayerGeometry {
+    /// Build a [`LayerGeometry`] from a decoded [`ParsedGeometry`].
+    pub(crate) fn from_parsed(geom: &ParsedGeometry) -> LayerGeometry {
+        let geometry_offsets = geom
+            .geometry_offsets
+            .as_deref()
+            .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
+
+        let part_offsets = geom
+            .part_offsets
+            .as_deref()
+            .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
+
+        let ring_offsets = geom
+            .ring_offsets
+            .as_deref()
+            .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
+
+        let vertices = geom
+            .vertices
+            .as_deref()
+            .map_or_else(|| Int32Array::new_with_length(0), Int32Array::from);
+
+        LayerGeometry {
+            geometry_offsets,
+            part_offsets,
+            ring_offsets,
+            vertices,
+        }
     }
 }
