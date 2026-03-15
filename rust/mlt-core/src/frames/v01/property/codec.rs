@@ -71,25 +71,6 @@ impl ParsedPresence {
     }
 }
 
-impl From<Vec<bool>> for ParsedPresence {
-    fn from(values: Vec<bool>) -> Self {
-        if values.iter().all(|v| *v) {
-            Self(None)
-        } else {
-            Self(Some(values))
-        }
-    }
-}
-
-impl From<Option<Vec<bool>>> for ParsedPresence {
-    fn from(values: Option<Vec<bool>>) -> Self {
-        match values {
-            Some(values) => Self::from(values),
-            None => Self::default(),
-        }
-    }
-}
-
 impl<'a> ParsedProperty<'a> {
     #[must_use]
     pub fn bool(name: &'a str, values: Vec<Option<bool>>) -> Self {
@@ -409,25 +390,6 @@ impl StagedProperty {
             Self::F64(v) => &v.name,
             Self::Str(v) => &v.name,
             Self::SharedDict(v) => &v.prefix,
-        }
-    }
-}
-
-// `Into<&'static str>` for error messages
-impl From<&StagedProperty> for &'static str {
-    fn from(v: &StagedProperty) -> Self {
-        match v {
-            StagedProperty::Bool(_) => "bool",
-            StagedProperty::I8(_) => "i8",
-            StagedProperty::U8(_) => "u8",
-            StagedProperty::I32(_) => "i32",
-            StagedProperty::U32(_) => "u32",
-            StagedProperty::I64(_) => "i64",
-            StagedProperty::U64(_) => "u64",
-            StagedProperty::F32(_) => "f32",
-            StagedProperty::F64(_) => "f64",
-            StagedProperty::Str(_) => "str",
-            StagedProperty::SharedDict(_) => "shared_dict",
         }
     }
 }

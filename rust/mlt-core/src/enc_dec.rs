@@ -5,6 +5,9 @@ use crate::analyse::{Analyze, StatType};
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum EncDec<Encoded, Decoded> {
+    // /// None is an internal state that must not be exposed externally.
+    // /// It is used during migration from Encoded to Decoded stage.
+    // None,
     Encoded(Encoded),
     Decoded(Decoded),
 }
