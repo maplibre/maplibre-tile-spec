@@ -1,58 +1,34 @@
 use std::collections::HashSet;
 
 use geo_types::{LineString, Point, Polygon, point, wkt};
+use mlt_core::Decode as _;
 use mlt_core::geojson::{Coord32, Geom32};
 use mlt_core::v01::{
     DictionaryType, EncodedGeometry, GeometryProfile, GeometryValues, LengthType, OffsetType,
-    StreamType,
+    RawGeometry, StreamType,
 };
 use pretty_assertions::assert_eq;
 use rstest::rstest;
-
-fn optimize_roundtrip(decoded: &GeometryValues) -> GeometryValues {
-    let (encoded, _) = decoded.clone().encode_auto().expect("optimize failed");
-    GeometryValues::try_from(encoded).unwrap()
-}
-
-fn profile_roundtrip(sample: &GeometryValues, target: &GeometryValues) -> GeometryValues {
-    let profile = GeometryProfile::from_sample(sample).expect("from_sample failed");
-    let (encoded, _) = target
-        .encode_with_profile(&profile)
-        .expect("profile_driven_optimisation failed");
-    GeometryValues::try_from(encoded).unwrap()
-}
-
-fn push_geoms(geoms: &[Geom32]) -> GeometryValues {
-    let mut d = GeometryValues::default();
-    for g in geoms {
-        d.push_geom(g);
-    }
-    d
-}
-
-/// Collect all stream types present in an encoded geometry (meta + items).
-fn encoded_stream_types(encoded: &EncodedGeometry) -> HashSet<StreamType> {
-    std::iter::once(encoded.meta.meta.stream_type)
-        .chain(encoded.items.iter().map(|s| s.meta.stream_type))
-        .collect()
-}
 
 #[rstest]
 #[case::single_point(push_geoms(&[wkt!(POINT(10 20)).into()]))]
 #[case::linestring(push_geoms(&[wkt!(LINESTRING(10 20, 30 40, 50 60)).into()]))]
 #[case::polygon(push_geoms(&[wkt!(POLYGON((0 0, 100 0, 100 100, 0 100, 0 0))).into()]))]
 #[case::multi_polygon(push_geoms(&[wkt!(MULTIPOLYGON(((0 0, 10 0, 10 10, 0 0),(5 5, 15 5, 15 15, 5 15)))).into()]))]
-fn automatic_optimisation_roundtrips(#[case] decoded: GeometryValues) {
-    let result = optimize_roundtrip(&decoded);
-    assert_eq!(decoded, result);
+fn automatic_optimisation_roundtrip(#[case] decoded: GeometryValues) {
+    let (encoded, _) = decoded.clone().encode_auto().expect("optimize failed");
+    assert_geometry_roundtrip(&encoded, &decoded);
 }
 
 #[rstest]
 #[case::single_point(push_geoms(&[wkt!(POINT(10 20)).into()]))]
 #[case::linestring(push_geoms(&[wkt!(LINESTRING(10 20, 30 40, 50 60)).into()]))]
-fn profile_optimisation_roundtrips(#[case] decoded: GeometryValues) {
-    let result = profile_roundtrip(&decoded, &decoded);
-    assert_eq!(decoded, result);
+fn profile_optimisation_roundtrip(#[case] decoded: GeometryValues) {
+    let profile = GeometryProfile::from_sample(&decoded).expect("from_sample failed");
+    let (encoded, _) = decoded
+        .encode_with_profile(&profile)
+        .expect("profile_driven_optimisation failed");
+    assert_geometry_roundtrip(&encoded, &decoded);
 }
 
 #[rstest]
@@ -140,7 +116,7 @@ fn encoded_repeated_points_uses_morton_streams() {
 }
 
 #[test]
-fn profile_applied_to_different_tile_roundtrips() {
+fn profile_applied_to_different_tile_roundtrip() {
     // Build the profile from a polygon tile, apply it to a linestring tile.
     // The topology is completely different — apply_profile must still produce a
     // valid encoding because it re-runs the probe pass on the actual tile data.
@@ -151,12 +127,11 @@ fn profile_applied_to_different_tile_roundtrips() {
     let (encoded, _) = target
         .encode_with_profile(&profile)
         .expect("profile_driven_optimisation failed");
-    let result = GeometryValues::try_from(encoded).unwrap();
-    assert_eq!(target, result);
+    assert_geometry_roundtrip(&encoded, &target);
 }
 
 #[test]
-fn profile_merge_roundtrips() {
+fn profile_merge_roundtrip() {
     // Build two profiles from different geometry types, merge them, and verify
     // the merged profile produces valid encodings for both.
     let poly = push_geoms(&[wkt!(POLYGON((0 0, 100 0, 100 100, 0 0))).into()]);
@@ -166,16 +141,15 @@ fn profile_merge_roundtrips() {
         .expect("from_sample poly failed")
         .merge(&GeometryProfile::from_sample(&ls).expect("from_sample ls failed"));
 
-    for (label, target) in [("poly", &poly), ("ls", &ls)] {
-        let (encoded, _) = target
-            .encode_with_profile(&merged)
-            .unwrap_or_else(|e| panic!("profile_driven_optimisation failed for {label}: {e}"));
-        let result = GeometryValues::try_from(encoded).unwrap();
-        assert_eq!(
-            *target, result,
-            "merged profile roundtrip failed for {label}"
-        );
-    }
+    let (encoded, _) = poly
+        .encode_with_profile(&merged)
+        .unwrap_or_else(|e| panic!("profile_driven_optimisation failed for poly: {e}"));
+    assert_geometry_roundtrip(&encoded, &poly);
+
+    let (encoded, _) = ls
+        .encode_with_profile(&merged)
+        .unwrap_or_else(|e| panic!("profile_driven_optimisation failed for ls: {e}"));
+    assert_geometry_roundtrip(&encoded, &ls);
 }
 
 #[test]
@@ -206,26 +180,7 @@ fn profile_rederives_vertex_strategy_from_actual_data() {
         "apply_profile must not blindly reuse Morton from the sample profile"
     );
 
-    let result = GeometryValues::try_from(encoded).unwrap();
-    assert_eq!(target, result);
-}
-
-#[test]
-fn profile_starting_from_encoded_roundtrips() {
-    // encode_with_profile must work on already-decoded GeometryValues
-    // (this tests the full encode→decode→re-encode cycle via profile)
-    let decoded = push_geoms(&[wkt!(LINESTRING(0 0, 5 10, 15 20)).into()]);
-
-    // First encode automatically, then decode back, then re-encode with profile
-    let (first_encoded, _) = decoded.clone().encode_auto().expect("auto encode failed");
-    let redecoded = GeometryValues::try_from(first_encoded).unwrap();
-
-    let profile = GeometryProfile::from_sample(&decoded).expect("from_sample failed");
-    let (second_encoded, _) = redecoded
-        .encode_with_profile(&profile)
-        .expect("profile encode failed");
-    let result = GeometryValues::try_from(second_encoded).unwrap();
-    assert_eq!(decoded, result);
+    assert_geometry_roundtrip(&encoded, &target);
 }
 
 #[test]
@@ -243,6 +198,30 @@ fn manual_encode_works() {
     let types = encoded_stream_types(&result);
     assert!(types.contains(&StreamType::Data(DictionaryType::Vertex)));
 
-    let decoded_back = GeometryValues::try_from(result).unwrap();
-    assert_eq!(decoded, decoded_back);
+    assert_geometry_roundtrip(&result, &decoded);
+}
+
+/// Round-trip `GeometryValues` via bytes (no encoded→decoded converter).
+fn assert_geometry_roundtrip(encoded: &EncodedGeometry, expected: &GeometryValues) {
+    let mut buf = Vec::new();
+    encoded.write_to(&mut buf).expect("write_to failed");
+    let (inp, raw) = RawGeometry::parse(&buf).expect("parse failed");
+    assert_eq!(inp.len(), 0, "expected all bytes to be consumed in parse");
+    let result = GeometryValues::decode(raw).unwrap();
+    assert_eq!(expected, &result);
+}
+
+fn push_geoms(geoms: &[Geom32]) -> GeometryValues {
+    let mut d = GeometryValues::default();
+    for g in geoms {
+        d.push_geom(g);
+    }
+    d
+}
+
+/// Collect all stream types present in an encoded geometry (meta + items).
+fn encoded_stream_types(encoded: &EncodedGeometry) -> HashSet<StreamType> {
+    std::iter::once(encoded.meta.meta.stream_type)
+        .chain(encoded.items.iter().map(|s| s.meta.stream_type))
+        .collect()
 }

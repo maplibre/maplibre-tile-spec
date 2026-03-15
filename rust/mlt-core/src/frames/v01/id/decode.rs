@@ -1,7 +1,5 @@
 use crate::utils::apply_present;
-use crate::v01::{
-    EncodedId, EncodedIdValue, EncodedStream, Id, IdValues, RawId, RawIdValue, RawStream,
-};
+use crate::v01::{Id, IdValues, RawId, RawIdValue, RawStream};
 use crate::{Decode, DecodeInto as _, MltError};
 
 impl<'a> Id<'a> {
@@ -49,22 +47,5 @@ impl TryFrom<RawId<'_>> for IdValues {
 impl<'a> Decode<RawId<'a>> for IdValues {
     fn decode(input: RawId<'a>) -> Result<Self, MltError> {
         IdValues::try_from(input)
-    }
-}
-
-/// Decode from a wire-ready [`EncodedId`], borrowing its byte buffers.
-///
-/// This conversion is not part of the standard decoding pipeline (`Raw* → Values`),
-/// but is provided for round-trip testing (encode then decode back).
-impl TryFrom<EncodedId> for IdValues {
-    type Error = MltError;
-
-    fn try_from(encoded: EncodedId) -> Result<Self, MltError> {
-        let presence = encoded.presence.as_ref().map(EncodedStream::as_borrowed);
-        let value = match &encoded.value {
-            EncodedIdValue::Id32(s) => RawIdValue::Id32(s.as_borrowed()),
-            EncodedIdValue::Id64(s) => RawIdValue::Id64(s.as_borrowed()),
-        };
-        IdValues::try_from(RawId { presence, value })
     }
 }

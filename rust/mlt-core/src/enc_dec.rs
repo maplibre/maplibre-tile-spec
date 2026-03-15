@@ -1,7 +1,6 @@
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{Decodable, Decode};
-use crate::encode::Encodable;
 
 /// Shared wrapper for values that may still be encoded or already decoded.
 #[allow(clippy::large_enum_variant)]
@@ -15,27 +14,6 @@ pub enum EncDec<Encoded, Decoded> {
 impl<Encoded, Decoded> From<Encoded> for EncDec<Encoded, Decoded> {
     fn from(encoded: Encoded) -> Self {
         Self::Encoded(encoded)
-    }
-}
-
-impl<Encoded, Decoded> Encodable for EncDec<Encoded, Decoded> {
-    type DecodedType = Decoded;
-    type EncodedType = Encoded;
-
-    fn is_decoded(&self) -> bool {
-        matches!(self, Self::Decoded(_))
-    }
-
-    fn new_encoded(encoded: Self::EncodedType) -> Self {
-        Self::Encoded(encoded)
-    }
-
-    fn borrow_encoded(&self) -> Option<&Self::EncodedType> {
-        if let Self::Encoded(encoded) = self {
-            Some(encoded)
-        } else {
-            None
-        }
     }
 }
 

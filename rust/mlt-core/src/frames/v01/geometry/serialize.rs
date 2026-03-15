@@ -41,28 +41,6 @@ impl<'a> RawGeometry<'a> {
     }
 }
 
-impl TryFrom<RawGeometry<'_>> for GeometryValues {
-    type Error = MltError;
-
-    fn try_from(raw: RawGeometry<'_>) -> Result<Self, MltError> {
-        GeometryValues::decode(raw)
-    }
-}
-
-/// Decode from a wire-ready [`EncodedGeometry`], borrowing its byte buffers.
-///
-/// This conversion is not part of the standard decoding pipeline (`Raw* → Values`),
-/// but is provided for round-trip testing and internal use (e.g., `canonicalize_geometry`).
-impl TryFrom<EncodedGeometry> for GeometryValues {
-    type Error = MltError;
-
-    fn try_from(encoded: EncodedGeometry) -> Result<Self, MltError> {
-        let meta = encoded.meta.as_borrowed();
-        let items: Vec<_> = encoded.items.iter().map(|s| s.as_borrowed()).collect();
-        GeometryValues::decode(RawGeometry { meta, items })
-    }
-}
-
 impl EncodedGeometry {
     pub fn write_columns_meta_to<W: Write>(writer: &mut W) -> Result<(), MltError> {
         ColumnType::Geometry.write_to(writer)?;

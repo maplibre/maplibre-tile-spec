@@ -7,7 +7,6 @@ mod analyse;
 mod convert;
 mod decode;
 mod enc_dec;
-mod encode;
 mod errors;
 pub mod frames;
 pub mod optimizer;
@@ -19,7 +18,6 @@ pub use convert::{geojson, mvt};
 pub use decode::Decode;
 pub(crate) use decode::{Decodable, DecodeInto};
 pub use enc_dec::EncDec;
-pub use encode::Encodable;
 pub use errors::{MltError, MltRefResult};
 pub use frames::{EncodedLayer, Layer, StagedLayer, unknown, v01};
 

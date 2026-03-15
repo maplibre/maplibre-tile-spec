@@ -6,72 +6,14 @@
 //! optimizer and sorting pipeline: it is cheap to clone, trivially sortable,
 //! and free from any encoded/decoded duality.
 //!
-//! The only conversions to/from [`StagedLayer01`] happen at the optimizer entry
-//! and exit boundaries.
+//! The only conversion from [`TileLayer01`] to [`StagedLayer01`] is [`From`] at the
+//! optimizer exit boundary; there is no encoded→decoded conversion from Staged back to Tile.
 
 use crate::MltError;
 use crate::v01::{
     GeometryValues, IdValues, Layer01, PropValue, StagedLayer01, StagedProperty, StagedScalar,
     StagedSharedDict, StagedStrings, TileFeature, TileLayer01, build_staged_shared_dict,
 };
-
-// ── StagedLayer01 → TileLayer01 ─────────────────────────────────────────────
-
-impl TryFrom<StagedLayer01> for TileLayer01 {
-    type Error = MltError;
-
-    fn try_from(layer: StagedLayer01) -> Result<Self, Self::Error> {
-        // Canonicalize geometry by encoding and decoding to ensure dense offset form.
-        let geom = canonicalize_geometry(layer.geometry)?;
-
-        let n = geom.vector_types.len();
-
-        // Collect property names and decoded property references.
-        // SharedDict columns are expanded: one entry per sub-field.
-        let mut property_names: Vec<String> = Vec::new();
-
-        for prop in &layer.properties {
-            match prop {
-                StagedProperty::SharedDict(sd) => {
-                    for item in &sd.items {
-                        property_names.push(format!(
-                            "{prefix}{suffix}",
-                            prefix = sd.prefix,
-                            suffix = item.suffix
-                        ));
-                    }
-                }
-                other => property_names.push(other.name().to_string()),
-            }
-        }
-
-        let ids: Option<&[Option<u64>]> = layer.id.as_ref().map(|d| d.0.as_slice());
-
-        let mut features = Vec::with_capacity(n);
-        for i in 0..n {
-            let id = ids.and_then(|ids| ids.get(i).copied().flatten());
-            let geometry = geom.to_geojson(i)?;
-            let mut properties = Vec::with_capacity(property_names.len());
-
-            for prop in &layer.properties {
-                extract_staged_values(prop, i, &mut properties);
-            }
-
-            features.push(TileFeature {
-                id,
-                geometry,
-                properties,
-            });
-        }
-
-        Ok(TileLayer01 {
-            name: layer.name,
-            extent: layer.extent,
-            property_names,
-            features,
-        })
-    }
-}
 
 // ── Layer01 → TileLayer01 ────────────────────────────────────────────────────
 
@@ -84,7 +26,8 @@ impl TryFrom<Layer01<'_>> for TileLayer01 {
 
     fn try_from(layer: Layer01<'_>) -> Result<Self, Self::Error> {
         let id = layer.id.map(crate::v01::Id::decode).transpose()?;
-        let geometry = canonicalize_geometry(layer.geometry.decode()?)?;
+        // Geometry from the wire is already dense (decode produces N+1 offsets); no encode→decode.
+        let geometry = layer.geometry.decode()?;
         #[allow(clippy::redundant_closure_for_method_calls)]
         let properties: Vec<crate::v01::ParsedProperty<'_>> = layer
             .properties
@@ -157,34 +100,6 @@ fn extract_parsed_values(
             out.push(PropValue::Str(val));
         }
         P::SharedDict(sd) => {
-            for item in &sd.items {
-                let val = item.get(sd, i).map(str::to_string);
-                out.push(PropValue::Str(val));
-            }
-        }
-    }
-}
-
-/// Extract the per-feature value at index `i` from a staged property column
-/// and push it (or them, for `SharedDict`) into `out`.
-fn extract_staged_values(prop: &StagedProperty, i: usize, out: &mut Vec<PropValue>) {
-    match prop {
-        StagedProperty::Bool(s) => out.push(PropValue::Bool(s.values[i])),
-        StagedProperty::I8(s) => out.push(PropValue::I8(s.values[i])),
-        StagedProperty::U8(s) => out.push(PropValue::U8(s.values[i])),
-        StagedProperty::I32(s) => out.push(PropValue::I32(s.values[i])),
-        StagedProperty::U32(s) => out.push(PropValue::U32(s.values[i])),
-        StagedProperty::I64(s) => out.push(PropValue::I64(s.values[i])),
-        StagedProperty::U64(s) => out.push(PropValue::U64(s.values[i])),
-        StagedProperty::F32(s) => out.push(PropValue::F32(s.values[i])),
-        StagedProperty::F64(s) => out.push(PropValue::F64(s.values[i])),
-        StagedProperty::Str(s) => {
-            let val = s
-                .get(u32::try_from(i).unwrap_or(u32::MAX))
-                .map(str::to_string);
-            out.push(PropValue::Str(val));
-        }
-        StagedProperty::SharedDict(sd) => {
             for item in &sd.items {
                 let val = item.get(sd, i).map(str::to_string);
                 out.push(PropValue::Str(val));
@@ -367,16 +282,4 @@ fn rebuild_shared_dict(
     // tuple key to build_staged_shared_dict.
     build_staged_shared_dict(prefix.to_string(), items_raw)
         .expect("rebuild_shared_dict should always succeed for valid feature data")
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/// Canonicalize geometry by encoding and decoding to produce the dense offset form
-/// required by [`GeometryValues::to_geojson`].
-///
-/// Geometry built with `push_geom` uses a "sparse" offset-array layout that
-/// differs from the "dense" layout produced by the wire encode→decode round-trip.
-fn canonicalize_geometry(geom: GeometryValues) -> Result<GeometryValues, MltError> {
-    let (encoded, _enc) = geom.encode_auto()?;
-    GeometryValues::try_from(encoded)
 }
