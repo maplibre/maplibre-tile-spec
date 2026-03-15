@@ -1,6 +1,5 @@
 #![cfg(test)]
 
-use insta::assert_snapshot;
 use proptest::prelude::*;
 use rstest::rstest;
 
@@ -9,10 +8,10 @@ use crate::utils::BinarySerializer as _;
 use crate::v01::stream::encoder::IntEncoder;
 use crate::v01::stream::logical::LogicalEncoder;
 use crate::v01::{
-    DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, LogicalData,
-    LogicalEncoding, LogicalValue, MortonMeta, OffsetType, PhysicalEncoder, PhysicalEncoding,
-    RawFsstData, RawPlainData, RawPresence, RawStream, RawStreamData, RawStrings,
-    RawStringsEncoding, RleMeta, StagedStrings, StreamMeta, StreamType,
+    DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, LogicalEncoding,
+    LogicalValue, MortonMeta, OffsetType, PhysicalEncoder, PhysicalEncoding, RawFsstData,
+    RawPlainData, RawPresence, RawStream, RawStreamData, RawStrings, RawStringsEncoding, RleMeta,
+    StagedStrings, StreamMeta, StreamType,
 };
 
 /// Test case for stream decoding tests
@@ -20,7 +19,8 @@ use crate::v01::{
 struct StreamTestCase {
     meta: StreamMeta,
     data: &'static [u8],
-    expected_u32_logical_value: Option<LogicalValue>,
+    /// Expected contents of the physical decode buffer after `decode_bits_u32`.
+    expected_u32_logical_value: Option<Vec<u32>>,
 }
 
 /// Generator function that creates a set of test cases for stream decoding
@@ -34,14 +34,7 @@ fn generate_stream_test_cases() -> Vec<StreamTestCase> {
                 4,
             ),
             data: &[0x04, 0x03, 0x02, 0x01],
-            expected_u32_logical_value: Some(LogicalValue::new(
-                StreamMeta::new(
-                    StreamType::Data(DictionaryType::None),
-                    IntEncoding::new(LogicalEncoding::None, PhysicalEncoding::VarInt),
-                    4,
-                ),
-                LogicalData::VecU32(vec![4, 3, 2, 1]),
-            )),
+            expected_u32_logical_value: Some(vec![4, 3, 2, 1]),
         },
         // Basic Encoded test case
         StreamTestCase {
@@ -51,14 +44,7 @@ fn generate_stream_test_cases() -> Vec<StreamTestCase> {
                 1,
             ),
             data: &[0x04, 0x03, 0x02, 0x01],
-            expected_u32_logical_value: Some(LogicalValue::new(
-                StreamMeta::new(
-                    StreamType::Data(DictionaryType::None),
-                    IntEncoding::none(),
-                    1,
-                ),
-                LogicalData::VecU32(vec![0x0102_0304]),
-            )),
+            expected_u32_logical_value: Some(vec![0x0102_0304]),
         },
     ]
 }
@@ -80,64 +66,66 @@ fn test_decode_bits_u32() {
     let test_cases = generate_stream_test_cases();
 
     for test_case in test_cases {
-        if let Some(expected_u32_logical_value) = &test_case.expected_u32_logical_value {
+        if let Some(expected_buf) = &test_case.expected_u32_logical_value {
             let stream = create_stream_from_test_case(&test_case);
-            let result = stream.decode_bits_u32(&mut dec());
-            assert!(result.is_ok(), "Should successfully decode LogicalValue");
-            let logical_value = result.unwrap();
+            let mut buf = Vec::new();
+            stream
+                .decode_bits_u32(&mut buf)
+                .expect("Should successfully decode u32 values");
             assert_eq!(
-                logical_value, *expected_u32_logical_value,
-                "Should produce LogicalValue correctly"
+                &buf, expected_buf,
+                "Should produce decoded u32 values correctly"
             );
         }
     }
 }
 
-fn make_logical_val(logical_encoding: LogicalEncoding, input_data: Vec<u32>) -> LogicalValue {
+fn make_logical_val(logical_encoding: LogicalEncoding, num_values: usize) -> LogicalValue {
     let meta = StreamMeta::new(
         StreamType::Data(DictionaryType::None),
         IntEncoding::new(logical_encoding, PhysicalEncoding::VarInt),
-        u32::try_from(input_data.len()).expect("input_data length fits in u32"),
+        u32::try_from(num_values).expect("input_data length fits in u32"),
     );
-    let data = LogicalData::VecU32(input_data);
-    LogicalValue::new(meta, data)
+    LogicalValue::new(meta)
 }
 
 #[rstest]
 // ZigZag pairs: [(0,0),(2,4),(2,4)] -> [(0,0),(1,2),(1,2)]
 // Delta: [(0,0),(1,2),(1,2)] -> [(0,0),(1,2),(2,4)]
-#[case::componentwise_delta(LogicalEncoding::ComponentwiseDelta, vec![0, 0, 2, 4, 2, 4], vec![0, 0, 1, 2, 2, 4])]
+#[case::componentwise_delta(LogicalEncoding::ComponentwiseDelta, vec![0u32, 0, 2, 4, 2, 4], vec![0i32, 0, 1, 2, 2, 4])]
 // ZigZag: [0,1,2,1,2] -> [0,-1,1,-1,1]
 // Delta: [0,-1,1,-1,1] -> [0,-1,0,-1,0]
-#[case::delta(LogicalEncoding::Delta, vec![0, 1, 2, 1, 2], vec![0, -1, 0, -1, 0])]
+#[case::delta(LogicalEncoding::Delta, vec![0u32, 1, 2, 1, 2], vec![0i32, -1, 0, -1, 0])]
 // RLE: [3,2] [0,2] -> [0,0,0,2,2]
 // ZigZag: [0,0,0,2,2] -> [0,0,0,1,1]
 // Delta: [0,0,0,1,1] -> [0,0,0,1,2]
-#[case::delta_rle(LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), vec![3, 2, 0, 2], vec![0, 0, 0, 1, 2])]
-#[case::delta(LogicalEncoding::Delta, vec![], vec![])]
+#[case::delta_rle(LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), vec![3u32, 2, 0, 2], vec![0i32, 0, 0, 1, 2])]
+#[case::delta_empty(LogicalEncoding::Delta, vec![], vec![])]
 fn test_decode_i32(
     #[case] logical_encoding: LogicalEncoding,
     #[case] input_data: Vec<u32>,
     #[case] expected: Vec<i32>,
 ) {
-    let result = make_logical_val(logical_encoding, input_data).decode_i32(&mut dec());
+    let result =
+        make_logical_val(logical_encoding, input_data.len()).decode_i32(&input_data, &mut dec());
     assert!(result.is_ok(), "should decode successfully");
     assert_eq!(result.unwrap(), expected, "should match expected output");
 }
 
 #[rstest]
 #[case::empty(LogicalEncoding::None, vec![], vec![])]
-#[case::new_encoded(LogicalEncoding::None, vec![10, 20, 30, 40], vec![10, 20, 30, 40])]
-#[case::rle(LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 6 }), vec![3, 2, 1, 10, 20, 30], vec![10, 10, 10, 20, 20, 30])]
+#[case::new_encoded(LogicalEncoding::None, vec![10u32, 20, 30, 40], vec![10u32, 20, 30, 40])]
+#[case::rle(LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 6 }), vec![3u32, 2, 1, 10, 20, 30], vec![10u32, 10, 10, 20, 20, 30])]
 // ZigZag: [0,2,2,2,2] -> [0,1,1,1,1]
 // Delta: [0,1,1,1,1] -> [0,1,2,3,4]
-#[case::delta(LogicalEncoding::Delta, vec![0, 2, 2, 2, 2], vec![0, 1, 2, 3, 4])]
+#[case::delta(LogicalEncoding::Delta, vec![0u32, 2, 2, 2, 2], vec![0u32, 1, 2, 3, 4])]
 fn test_decode_u32(
     #[case] logical_encoding: LogicalEncoding,
     #[case] input_data: Vec<u32>,
     #[case] expected: Vec<u32>,
 ) {
-    let result = make_logical_val(logical_encoding, input_data).decode_u32(&mut dec());
+    let result =
+        make_logical_val(logical_encoding, input_data.len()).decode_u32(&input_data, &mut dec());
     assert!(result.is_ok(), "should decode successfully");
     assert_eq!(result.unwrap(), expected, "should match expected output");
 }
@@ -157,16 +145,14 @@ fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
     let mut p = parser();
     let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut p).unwrap();
     assert_empty(remaining);
-    assert_snapshot!(p.reserved(), @"0");
-
     let mut d = dec();
-    let decoded_values = parsed_stream
-        .decode_bits_u32(&mut d)
-        .unwrap()
-        .decode_u32(&mut d)
-        .unwrap();
-    assert_snapshot!(d.consumed(), @"28");
-
+    let decoded_values = parsed_stream.decode_u32s(&mut d).unwrap();
+    if !values.is_empty() {
+        assert!(
+            d.consumed() > 0,
+            "decoder should consume bytes after decode"
+        );
+    }
     assert_eq!(decoded_values, values);
 }
 
@@ -224,7 +210,6 @@ fn test_stream_roundtrip(
     };
 
     assert_empty(remaining);
-    assert_snapshot!(p.reserved(), @"0");
     assert_eq!(parsed.meta, stream.meta, "metadata mismatch");
 
     match (&stream.data, &parsed.data) {
@@ -241,22 +226,19 @@ fn test_stream_roundtrip(
 /// OOM regression: `VarInt` stream with huge `num_values` but `byte_length=0`.
 ///
 /// `Wire: stream_type=0x00 | enc=0x02(VarInt) | num_values=0xd5_ff_d5_ff_03 | byte_length=0x00`
-/// Before the fix, `parse_varint_vec` called `Vec::with_capacity(1_073_053_653)` → ~4 GB OOM.
+/// Before the budget fix, `parse_varint_vec` called `Vec::with_capacity(1_073_053_653)` → ~4 GB OOM.
+/// Now the memory budget is checked at parse time: `num_values * 8 = ~8 GB > 10 MB limit`.
 #[test]
 fn test_varint_stream_huge_num_values_empty_data() {
     // enc_byte = 0x02 → logical1=0(None), logical2=0(None), physical=2(VarInt)
     // num_values = 0xd5 0xff 0xd5 0xff 0x03 = 1_073_053_653 (valid u32, 5-byte varint)
     // byte_length = 0x00 → 0 bytes of data
     let wire: &[u8] = &[0x00, 0x02, 0xd5, 0xff, 0xd5, 0xff, 0x03, 0x00];
-    let (remaining, stream) =
-        RawStream::from_bytes(wire, &mut parser()).expect("parse must succeed");
-    assert_empty(remaining);
-    assert_eq!(stream.meta.num_values, 1_073_053_653);
-    // Decoding must return an error, not OOM or panic.
-    let result = stream.decode_bits_u32(&mut dec());
+    // Parsing must fail: budget reserves num_values * 8 ≈ 8 GB which exceeds the 10 MB limit.
+    let result = RawStream::from_bytes(wire, &mut parser());
     assert!(
         result.is_err(),
-        "decode must fail on empty data with huge num_values"
+        "parse must fail when num_values * 8 exceeds the memory budget"
     );
 }
 
@@ -333,7 +315,7 @@ proptest! {
         let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
         assert_empty(remaining);
 
-        let decoded_values = parsed_stream.decode_bits_u32(&mut dec()).unwrap().decode_u32(&mut dec()).unwrap();
+        let decoded_values = parsed_stream.decode_u32s(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -351,7 +333,7 @@ proptest! {
         let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
         assert_empty(remaining);
 
-        let decoded_values = parsed_stream.decode_bits_u32(&mut dec()).unwrap().decode_i32(&mut dec()).unwrap();
+        let decoded_values = parsed_stream.decode_i32s(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
     }

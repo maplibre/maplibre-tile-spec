@@ -363,7 +363,6 @@ fn push_linestrings<'a>(
 #[cfg(test)]
 mod tests {
     use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, wkt};
-    use insta::assert_snapshot;
     use proptest::prelude::*;
 
     use super::*;
@@ -695,11 +694,11 @@ mod tests {
         let mut p = parser();
         let (remaining, parsed) = RawGeometry::from_bytes(&buffer, &mut p).unwrap();
         assert_empty(remaining);
-        assert_snapshot!(p.reserved(), @"0");
+        assert_eq!(p.reserved(), 72);
 
         let mut d = dec();
         let decoded = Geometry::Raw(parsed).into_parsed(&mut d).unwrap();
-        assert_snapshot!(d.consumed(), @"36");
+        assert_eq!(d.consumed(), 48);
         assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));
 
         let geom = decoded.to_geojson(0).unwrap();

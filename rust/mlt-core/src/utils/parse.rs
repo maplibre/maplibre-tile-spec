@@ -11,14 +11,6 @@ pub fn take(input: &[u8], size: u32) -> MltRefResult<'_, &[u8]> {
     Ok((input, value))
 }
 
-pub fn all<T>((input, value): (&[u8], T)) -> Result<T, MltError> {
-    if input.is_empty() {
-        Ok(value)
-    } else {
-        Err(MltError::BufferUnderflow(u32::try_from(input.len())?, 0))
-    }
-}
-
 /// Parse a varint (variable-length integer) from the input
 pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltRefResult<'_, T> {
     match T::decode_var(input) {

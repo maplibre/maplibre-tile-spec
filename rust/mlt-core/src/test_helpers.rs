@@ -25,6 +25,7 @@ pub fn assert_empty(remaining: &[u8]) {
     assert!(remaining.is_empty(), "{} bytes remain", remaining.len());
 }
 
+#[must_use]
 pub fn into_layer01(layer: Layer) -> Layer01 {
     match layer {
         Layer::Tag01(layer01) => layer01,

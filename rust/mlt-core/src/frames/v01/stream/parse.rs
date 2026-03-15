@@ -39,7 +39,8 @@ impl StreamMeta {
     /// automatically instead of reading them from the input.
     ///
     /// Returns the stream metadata and the size of the stream in bytes.
-    /// For RLE streams, reserves decoded bytes (`num_rle_values` * 8) on the parser.
+    /// Reserves an upper-bound estimate of decoded bytes (`num_values * 8`) on the parser
+    /// for all stream types. RLE uses `num_rle_values * 8` since that is the actual expanded count.
     pub(super) fn from_bytes<'a>(
         input: &'a [u8],
         is_bool: bool,
@@ -58,9 +59,17 @@ impl StreamMeta {
 
         let mut input = input;
         let logical_encoding = match (logical1, logical2) {
-            (LT::None, LT::None) => LogicalEncoding::None,
-            (LT::Delta, LT::None) => LogicalEncoding::Delta,
-            (LT::ComponentwiseDelta, LT::None) => LogicalEncoding::ComponentwiseDelta,
+            (LT::None | LT::Delta | LT::ComponentwiseDelta | LT::PseudoDecimal, LT::None) => {
+                // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value
+                let decoded_bytes = num_values.saturating_mul(8);
+                parser.reserve(decoded_bytes)?;
+                match logical1 {
+                    LT::None => LogicalEncoding::None,
+                    LT::Delta => LogicalEncoding::Delta,
+                    LT::ComponentwiseDelta => LogicalEncoding::ComponentwiseDelta,
+                    _ => LogicalEncoding::PseudoDecimal,
+                }
+            }
             (LT::Delta, LT::Rle) | (LT::Rle, LT::None) => {
                 let runs;
                 let num_rle_values;
@@ -85,6 +94,9 @@ impl StreamMeta {
                 }
             }
             (LT::Morton, LT::None | LT::Rle | LT::Delta) => {
+                // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value
+                let decoded_bytes = num_values.saturating_mul(8);
+                parser.reserve(decoded_bytes)?;
                 let num_bits;
                 let coordinate_shift;
                 (input, num_bits) = parse_varint::<u32>(input)?;
@@ -99,7 +111,6 @@ impl StreamMeta {
                     _ => LogicalEncoding::Morton(meta),
                 }
             }
-            (LT::PseudoDecimal, LT::None) => LogicalEncoding::PseudoDecimal,
             _ => Err(MltError::InvalidLogicalEncodings(logical1, logical2))?,
         };
 

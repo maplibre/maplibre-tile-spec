@@ -26,6 +26,12 @@ const DEFAULT_MAX_BYTES: u32 = 10 * 1024 * 1024;
 pub struct Decoder {
     /// Keep track of the memory used when decoding a tile: raw->parsed transition
     budget: MemBudget,
+    /// Reusable scratch buffer for the physical u32 decode pass.
+    /// Held here so its heap allocation is reused across streams without extra cost.
+    pub(crate) buffer_u32: Vec<u32>,
+    /// Reusable scratch buffer for the physical u64 decode pass.
+    /// Held here so its heap allocation is reused across streams without extra cost.
+    pub(crate) buffer_u64: Vec<u64>,
 }
 
 impl Decoder {
@@ -34,6 +40,7 @@ impl Decoder {
     pub fn with_max_size(max_bytes: u32) -> Self {
         Self {
             budget: MemBudget::with_max_size(max_bytes),
+            ..Default::default()
         }
     }
 
@@ -52,6 +59,7 @@ impl Decoder {
         self.budget.consume(size)
     }
 
+    #[must_use]
     pub fn consumed(&self) -> u32 {
         self.budget.consumed()
     }
@@ -92,6 +100,7 @@ impl Parser {
         self.budget.consume(size)
     }
 
+    #[must_use]
     pub fn reserved(&self) -> u32 {
         self.budget.consumed()
     }

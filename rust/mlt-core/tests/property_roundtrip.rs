@@ -1,4 +1,3 @@
-use insta::assert_snapshot;
 use mlt_core::MltError;
 use mlt_core::test_helpers::{dec, parser};
 use mlt_core::v01::{
@@ -53,12 +52,34 @@ fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
     ]
 }
 
+fn staged_len(staged: &StagedProperty) -> usize {
+    match staged {
+        StagedProperty::Bool(s) => s.values.len(),
+        StagedProperty::I8(s) => s.values.len(),
+        StagedProperty::U8(s) => s.values.len(),
+        StagedProperty::I32(s) => s.values.len(),
+        StagedProperty::U32(s) => s.values.len(),
+        StagedProperty::I64(s) => s.values.len(),
+        StagedProperty::U64(s) => s.values.len(),
+        StagedProperty::F32(s) => s.values.len(),
+        StagedProperty::F64(s) => s.values.len(),
+        StagedProperty::Str(s) => s.lengths.len(),
+        StagedProperty::SharedDict(s) => s.items.first().map_or(0, |i| i.ranges.len()),
+    }
+}
+
 fn roundtrip(staged: StagedProperty, expected: &StagedProperty, encoder: ScalarEncoder) {
+    let n = staged_len(&staged);
     let bytes = props_to_layer_bytes(vec![staged], vec![PropertyEncoder::Scalar(encoder)]).unwrap();
     let mut p = parser();
     let mut d = dec();
     let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
-    let _ = p.reserved();
+    if n > 0 {
+        assert!(
+            p.reserved() > 0,
+            "parser should reserve bytes for non-empty input"
+        );
+    }
     let result = layer
         .properties
         .into_iter()
@@ -66,7 +87,12 @@ fn roundtrip(staged: StagedProperty, expected: &StagedProperty, encoder: ScalarE
         .expect("one property")
         .into_parsed(&mut d)
         .expect("decode failed");
-    let _ = d.consumed();
+    if n > 0 {
+        assert!(
+            d.consumed() > 0,
+            "decoder should consume bytes for non-empty input"
+        );
+    }
     assert_eq!(&result, expected);
 }
 
@@ -120,6 +146,7 @@ fn struct_encode_and_decode<F>(
 ) where
     F: FnOnce(&ParsedProperty<'_>),
 {
+    let total_values: usize = children.iter().map(|(_, v)| v.len()).sum();
     // Build a single StagedProperty::SharedDict
     let items: Vec<(String, StagedStrings)> = children
         .iter()
@@ -147,7 +174,12 @@ fn struct_encode_and_decode<F>(
     let mut p = parser();
     let mut d = dec();
     let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
-    let _ = p.reserved();
+    if total_values > 0 {
+        assert!(
+            p.reserved() > 0,
+            "parser should reserve bytes for non-empty input"
+        );
+    }
     let result = layer
         .properties
         .into_iter()
@@ -155,7 +187,12 @@ fn struct_encode_and_decode<F>(
         .expect("one property")
         .into_parsed(&mut d)
         .expect("decode failed");
-    let _ = d.consumed();
+    if total_values > 0 {
+        assert!(
+            d.consumed() > 0,
+            "decoder should consume bytes for non-empty input"
+        );
+    }
     check(&result);
 }
 
@@ -487,14 +524,14 @@ fn struct_mixed_with_scalars() {
     let bytes = props_to_layer_bytes(props, prop_encs).unwrap();
     let mut p = parser();
     let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
-    assert_snapshot!(p.reserved(), @"64");
+    assert_eq!(p.reserved(), 160);
     let mut d = dec();
     let mut decoded_props: Vec<_> = layer
         .properties
         .into_iter()
         .map(|prop| prop.into_parsed(&mut d).expect("decode failed"))
         .collect();
-    assert_snapshot!(d.consumed(), @"157");
+    assert_eq!(d.consumed(), 157);
 
     // Output order: scalar "population", struct "name:", scalar "rank"
     assert_eq!(decoded_props.len(), 3);
@@ -582,14 +619,14 @@ fn two_struct_groups_with_scalar_between() {
     let bytes = props_to_layer_bytes(props, prop_encs).unwrap();
     let mut p = parser();
     let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
-    assert_snapshot!(p.reserved(), @"80");
+    assert_eq!(p.reserved(), 256);
     let mut d = dec();
     let decoded_props: Vec<_> = layer
         .properties
         .into_iter()
         .map(|prop| prop.into_parsed(&mut d).expect("decode failed"))
         .collect();
-    assert_snapshot!(d.consumed(), @"193");
+    assert_eq!(d.consumed(), 193);
 
     // Output order: struct "name:", scalar "population", struct "label:"
     assert_eq!(decoded_props.len(), 3);
