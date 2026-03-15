@@ -1,20 +1,18 @@
 #![cfg(test)]
 
 use IdWidth::*;
+use geo_types::Point;
 use proptest::prelude::*;
 use rstest::rstest;
 
 use crate::frames::v01::id::encode::IdEncoder;
 use crate::frames::v01::id::model::{EncodedId, EncodedIdValue, IdValues, IdWidth};
-use crate::v01::LogicalEncoder;
-
-// Helper function to encode and decode for roundtrip testing
-fn roundtrip(decoded: &IdValues, config: IdEncoder) -> IdValues {
-    match decoded.clone().encode(config).expect("Failed to encode") {
-        Some(encoded) => IdValues::try_from(encoded).expect("Failed to decode"),
-        None => IdValues(vec![]), // empty list encodes to nothing and decodes to empty
-    }
-}
+use crate::geojson::Geom32;
+use crate::v01::{
+    GeometryEncoder, GeometryValues, IntEncoder, LogicalEncoder, StagedLayer01,
+    StagedLayer01Encoder,
+};
+use crate::{EncodedLayer, Layer, MltError};
 
 // Test that each config produces the correct variant and optional stream presence
 #[rstest]
@@ -56,13 +54,12 @@ fn test_config_produces_correct_variant(#[case] id_width: IdWidth, #[case] ids: 
 #[case::opt_id64_all_nulls(OptId64, &[None, None, None])]
 #[case::none(Id32, &[])]
 fn test_roundtrip(#[case] id_width: IdWidth, #[case] ids: &[Option<u64>]) {
-    let input = IdValues(ids.to_vec());
+    let input = ids.to_vec();
     let config = IdEncoder {
         logical: LogicalEncoder::None,
         id_width,
     };
-    let output = roundtrip(&input, config);
-    assert_eq!(output, input);
+    assert_roundtrip(&input, config);
 }
 
 #[rstest]
@@ -70,29 +67,19 @@ fn test_sequential_ids(
     #[values(LogicalEncoder::None)] logical: LogicalEncoder,
     #[values(Id32, OptId32, Id64, OptId64)] id_width: IdWidth,
 ) {
-    let input = IdValues((1..=100).map(Some).collect());
+    let input: Vec<_> = (1..=100).map(Some).collect();
     let config = IdEncoder { logical, id_width };
-    let output = roundtrip(&input, config);
-    assert_eq!(output, input);
+    assert_roundtrip(&input, config);
 }
 
 proptest! {
-    #[test]
-    fn test_roundtrip_id32(
-        ids in prop::collection::vec(any::<u32>(), 1..100),
-        logical in any::<LogicalEncoder>()
-    ) {
-        let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-        assert_roundtrip_succeeds(ids_u64, IdEncoder{ id_width: Id32,logical})?;
-    }
-
     #[test]
     fn test_roundtrip_opt_id32(
         ids in prop::collection::vec(prop::option::of(any::<u32>()), 1..100),
         logical in any::<LogicalEncoder>()
     ) {
         let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| id.map(u64::from)).collect();
-        assert_roundtrip_succeeds(ids_u64, IdEncoder{ id_width: OptId32,logical})?;
+        prop_assert_roundtrip(&ids_u64, IdEncoder { id_width: OptId32, logical })?;
     }
 
     #[test]
@@ -101,7 +88,16 @@ proptest! {
         logical in any::<LogicalEncoder>()
     ) {
         let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
-        assert_roundtrip_succeeds(ids_u64, IdEncoder{ id_width: Id64, logical})?;
+        prop_assert_roundtrip(&ids_u64, IdEncoder { id_width: Id64, logical })?;
+    }
+
+    #[test]
+    fn test_roundtrip_id32(
+        ids in prop::collection::vec(any::<u32>(), 1..100),
+        logical in any::<LogicalEncoder>()
+    ) {
+        let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
+        prop_assert_roundtrip(&ids_u64, IdEncoder { id_width: Id32, logical })?;
     }
 
     #[test]
@@ -109,24 +105,7 @@ proptest! {
         ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100),
         logical in any::<LogicalEncoder>()
     ) {
-        assert_roundtrip_succeeds(ids, IdEncoder{ id_width: OptId64, logical})?;
-    }
-
-    #[test]
-    fn test_encodable_trait_api_id32(
-        ids in prop::collection::vec(any::<u32>(), 1..100),
-        logical in any::<LogicalEncoder>()
-    ) {
-        let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-        assert_encodable_api_works(ids_u64, IdEncoder{ id_width: Id32,logical})?;
-    }
-
-    #[test]
-    fn test_encodable_trait_api_opt_id64(
-        ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100),
-        logical in any::<LogicalEncoder>()
-    ) {
-        assert_encodable_api_works(ids, IdEncoder{ id_width: OptId64,logical})?;
+        prop_assert_roundtrip(&ids, IdEncoder { id_width: OptId64, logical })?;
     }
 
     #[test]
@@ -135,7 +114,7 @@ proptest! {
         logical in any::<LogicalEncoder>()
     ) {
         let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-        assert_produces_correct_variant(ids_u64, IdEncoder{ id_width: Id32,logical})?;
+        assert_produces_correct_variant(ids_u64, IdEncoder { id_width: Id32, logical })?;
     }
 
     #[test]
@@ -144,34 +123,58 @@ proptest! {
         logical in any::<LogicalEncoder>()
     ) {
         let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
-        assert_produces_correct_variant(ids_u64, IdEncoder{ id_width: Id64,logical})?;
+        assert_produces_correct_variant(ids_u64, IdEncoder { id_width: Id64, logical })?;
     }
 }
 
-fn assert_roundtrip_succeeds(
-    ids: Vec<Option<u64>>,
-    config: IdEncoder,
-) -> Result<(), TestCaseError> {
-    let input = IdValues(ids.clone());
-    let output = roundtrip(&input, config);
-    prop_assert_eq!(output, IdValues(ids));
+/// Round-trip `IdValues` via full layer bytes (encode → bytes → parse → decode).
+/// No encoded→decoded converter; used for testing only.
+fn assert_roundtrip(ids: &[Option<u64>], config: IdEncoder) {
+    prop_assert_roundtrip(ids, config).expect("roundtrip failed");
+}
+
+fn prop_assert_roundtrip(ids: &[Option<u64>], config: IdEncoder) -> Result<(), TestCaseError> {
+    let ids = IdValues(ids.to_vec());
+    let res = roundtrip_id_values(&ids, config)
+        .map_err(|e| TestCaseError::Fail(format!("Roundtrip failed: {e:?}").into()))?;
+    prop_assert_eq!(res, ids.clone());
     Ok(())
 }
 
-fn assert_encodable_api_works(
-    ids: Vec<Option<u64>>,
-    config: IdEncoder,
-) -> Result<(), TestCaseError> {
-    let decoded = IdValues(ids.clone());
-
-    let encoded = decoded
-        .encode(config)
-        .expect("Failed to encode")
-        .expect("non-empty IDs should produce Some(EncodedId)");
-
-    let decoded_back = IdValues::try_from(encoded).expect("Failed to decode");
-    prop_assert_eq!(decoded_back, IdValues(ids));
-    Ok(())
+fn roundtrip_id_values(decoded: &IdValues, config: IdEncoder) -> Result<IdValues, MltError> {
+    if decoded.0.is_empty() {
+        return Ok(IdValues(vec![]));
+    }
+    let n = decoded.0.len();
+    let mut geometry = GeometryValues::default();
+    for _ in 0..n {
+        geometry.push_geom(&Geom32::Point(Point::new(0, 0)));
+    }
+    let staged = StagedLayer01 {
+        name: "id_roundtrip".to_string(),
+        extent: 4096,
+        id: Some(decoded.clone()),
+        geometry,
+        properties: vec![],
+    };
+    let stream_encoder = StagedLayer01Encoder {
+        id: Some(config),
+        geometry: GeometryEncoder::all(IntEncoder::varint()),
+        properties: vec![],
+    };
+    let layer_enc = staged.encode(stream_encoder)?;
+    let mut buf = Vec::new();
+    EncodedLayer::Tag01(layer_enc)
+        .write_to(&mut buf)
+        .map_err(MltError::from)?;
+    let (_, layer) = Layer::parse(&buf)?;
+    let Layer::Tag01(layer01) = layer else {
+        return Err(MltError::NotDecoded("expected Tag01 layer"));
+    };
+    let id = layer01
+        .id
+        .ok_or(MltError::NotDecoded("expected id column"))?;
+    id.decode()
 }
 
 fn assert_produces_correct_variant(

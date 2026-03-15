@@ -1,35 +1,37 @@
 use geo_types::{Coord, LineString, Point};
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
-    GeometryEncoder, GeometryType, GeometryValues, IdValues, IntEncoder, SortStrategy,
-    StagedLayer01, StagedLayer01Encoder, Tile01Encoder, TileLayer01,
+    GeometryEncoder, GeometryType, GeometryValues, IntEncoder, SortStrategy, StagedLayer01Encoder,
+    Tile01Encoder, TileLayer01,
 };
 
-/// Helper to build a layer from geometries and IDs.
-fn build_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> StagedLayer01 {
-    let mut geometry = GeometryValues::default();
-    for g in geoms {
-        geometry.push_geom(g);
-    }
-
-    StagedLayer01 {
+/// Build row-oriented tile layer from geometries and IDs (one feature per geometry).
+fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
+    TileLayer01 {
         name: "test".to_string(),
         extent: 4096,
-        id: Some(IdValues(ids.to_vec())),
-        geometry,
-        properties: vec![],
+        property_names: vec![],
+        features: geoms
+            .iter()
+            .zip(ids.iter())
+            .map(|(g, &id)| mlt_core::v01::TileFeature {
+                id,
+                geometry: g.clone(),
+                properties: vec![],
+            })
+            .collect(),
     }
 }
 
 /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer01`.
 /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
-fn sort_encode_decode(layer: StagedLayer01, strategy: SortStrategy) -> TileLayer01 {
+fn sort_encode_decode(tile: TileLayer01, strategy: SortStrategy) -> TileLayer01 {
     use mlt_core::{EncodedLayer, Layer};
 
     let tile_encoder = Tile01Encoder {
         sort_strategy: Some(strategy),
     };
-    let mut tile = TileLayer01::try_from(layer).expect("to TileLayer01 failed");
+    let mut tile = tile;
     let staged = tile_encoder.encode(&mut tile);
     let stream_encoder = StagedLayer01Encoder {
         id: None, // auto-encode IDs
@@ -38,7 +40,7 @@ fn sort_encode_decode(layer: StagedLayer01, strategy: SortStrategy) -> TileLayer
     };
     let layer_enc = staged.encode(stream_encoder).expect("encode failed");
 
-    // Serialize to bytes and re-parse to get a `Layer01`.
+    // Serialize to bytes and reparse to get a `Layer01`.
     let mut buf = Vec::new();
     EncodedLayer::Tag01(layer_enc)
         .write_to(&mut buf)
@@ -97,8 +99,8 @@ fn test_shared_morton_shift() {
     // P2 shifted: (0, 10) -> interleave(0, 10) = 136
     // P1 (key 68) < P2 (key 136), so expected order: [P1(0,-10), P2(-10,0)].
 
-    let layer = build_layer(&[pt(0, -10), pt(-10, 0)], &[Some(1), Some(2)]);
-    let source = sort_encode_decode(layer, SortStrategy::SpatialMorton);
+    let tile = build_tile_layer(&[pt(0, -10), pt(-10, 0)], &[Some(1), Some(2)]);
+    let source = sort_encode_decode(tile, SortStrategy::SpatialMorton);
 
     let verts = vertices_from_source(&source);
     assert_eq!(verts, vec![0, -10, -10, 0]);
@@ -106,8 +108,8 @@ fn test_shared_morton_shift() {
 
 #[test]
 fn test_id_sort_nulls_first() {
-    let layer = build_layer(&[pt(2, 2), pt(1, 1), pt(0, 0)], &[Some(10), None, Some(5)]);
-    let source = sort_encode_decode(layer, SortStrategy::Id);
+    let tile = build_tile_layer(&[pt(2, 2), pt(1, 1), pt(0, 0)], &[Some(10), None, Some(5)]);
+    let source = sort_encode_decode(tile, SortStrategy::Id);
 
     let ids: Vec<Option<u64>> = source.features.iter().map(|f| f.id).collect();
     // Expected order: [None, Some(5), Some(10)]
@@ -127,11 +129,11 @@ fn test_mixed_geometry_morton_sort() {
     // P2(1,0) -> 1
     // Expected order: [LS, P2, P1]
 
-    let layer = build_layer(
+    let tile = build_tile_layer(
         &[pt(2, 0), ls(&[(0, 0), (0, 5)]), pt(1, 0)],
         &[Some(1), Some(2), Some(3)],
     );
-    let source = sort_encode_decode(layer, SortStrategy::SpatialMorton);
+    let source = sort_encode_decode(tile, SortStrategy::SpatialMorton);
 
     let types = geom_types_from_source(&source);
     assert_eq!(

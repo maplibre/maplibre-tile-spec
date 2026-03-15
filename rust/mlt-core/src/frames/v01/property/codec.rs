@@ -347,14 +347,6 @@ fn unapply_presence<T: Clone>(v: &[Option<T>]) -> Vec<T> {
     v.iter().filter_map(|x| x.as_ref()).cloned().collect()
 }
 
-impl<'a> TryFrom<RawProperty<'a>> for ParsedProperty<'a> {
-    type Error = MltError;
-
-    fn try_from(raw: RawProperty<'a>) -> Result<Self, MltError> {
-        ParsedProperty::decode(raw)
-    }
-}
-
 impl<'a> Decode<RawProperty<'a>> for ParsedProperty<'a> {
     fn decode(v: RawProperty<'a>) -> Result<ParsedProperty<'a>, MltError> {
         use RawProperty as E;

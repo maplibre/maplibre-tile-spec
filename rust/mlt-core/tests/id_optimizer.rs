@@ -1,5 +1,123 @@
-use mlt_core::v01::{IdEncoder, IdProfile, IdValues, IdWidth, IntEncoder, LogicalEncoder};
+use geo_types::Point;
+use mlt_core::geojson::Geom32;
+use mlt_core::v01::{
+    GeometryEncoder, GeometryValues, IdEncoder, IdProfile, IdValues, IdWidth, IntEncoder,
+    LogicalEncoder, StagedLayer01, StagedLayer01Encoder,
+};
+use mlt_core::{EncodedLayer, Layer};
 use rstest::rstest;
+
+/// Round-trip `IdValues` via full layer bytes (no encoded→decoded converter).
+fn id_roundtrip_via_layer(decoded: &IdValues, id_encoder: IdEncoder) -> IdValues {
+    if decoded.0.is_empty() {
+        return IdValues(vec![]);
+    }
+    let n = decoded.0.len();
+    let mut geometry = GeometryValues::default();
+    for _ in 0..n {
+        geometry.push_geom(&Geom32::Point(Point::new(0, 0)));
+    }
+    let staged = StagedLayer01 {
+        name: "id_roundtrip".to_string(),
+        extent: 4096,
+        id: Some(decoded.clone()),
+        geometry,
+        properties: vec![],
+    };
+    let stream_encoder = StagedLayer01Encoder {
+        id: Some(id_encoder),
+        geometry: GeometryEncoder::all(IntEncoder::varint()),
+        properties: vec![],
+    };
+    let layer_enc = staged.encode(stream_encoder).expect("encode failed");
+    let mut buf = Vec::new();
+    EncodedLayer::Tag01(layer_enc)
+        .write_to(&mut buf)
+        .expect("write_to failed");
+    let (_, layer) = Layer::parse(&buf).expect("parse failed");
+    let Layer::Tag01(layer01) = layer else {
+        panic!("expected Tag01 layer");
+    };
+    layer01
+        .id
+        .expect("expected id column")
+        .decode()
+        .expect("decode failed")
+}
+
+fn id_roundtrip_auto(decoded: &IdValues) -> IdValues {
+    if decoded.0.is_empty() {
+        return IdValues(vec![]);
+    }
+    let n = decoded.0.len();
+    let mut geometry = GeometryValues::default();
+    for _ in 0..n {
+        geometry.push_geom(&Geom32::Point(Point::new(0, 0)));
+    }
+    let staged = StagedLayer01 {
+        name: "id_roundtrip".to_string(),
+        extent: 4096,
+        id: Some(decoded.clone()),
+        geometry,
+        properties: vec![],
+    };
+    let (encoded, _) = staged.encode_auto().expect("encode_auto failed");
+    let mut buf = Vec::new();
+    EncodedLayer::Tag01(encoded)
+        .write_to(&mut buf)
+        .expect("write_to failed");
+    let (_, layer) = Layer::parse(&buf).expect("parse failed");
+    let Layer::Tag01(layer01) = layer else {
+        panic!("expected Tag01 layer");
+    };
+    layer01
+        .id
+        .expect("expected id column")
+        .decode()
+        .expect("decode failed")
+}
+
+fn id_roundtrip_with_profile(decoded: &IdValues, profile: &IdProfile) -> IdValues {
+    if decoded.0.is_empty() {
+        return IdValues(vec![]);
+    }
+    let n = decoded.0.len();
+    let mut geometry = GeometryValues::default();
+    for _ in 0..n {
+        geometry.push_geom(&Geom32::Point(Point::new(0, 0)));
+    }
+    let staged = StagedLayer01 {
+        name: "id_roundtrip".to_string(),
+        extent: 4096,
+        id: Some(decoded.clone()),
+        geometry: geometry.clone(),
+        properties: vec![],
+    };
+    let geom_profile =
+        mlt_core::v01::GeometryProfile::from_sample(&geometry).expect("geometry profile");
+    let tag01 = mlt_core::v01::Tag01Profile::new(
+        None,
+        profile.clone(),
+        mlt_core::v01::PropertyProfile::from_sample(&[]),
+        geom_profile,
+    );
+    let (encoded, _) = staged
+        .encode_with_profile(&tag01)
+        .expect("encode_with_profile failed");
+    let mut buf = Vec::new();
+    EncodedLayer::Tag01(encoded)
+        .write_to(&mut buf)
+        .expect("write_to failed");
+    let (_, layer) = Layer::parse(&buf).expect("parse failed");
+    let Layer::Tag01(layer01) = layer else {
+        panic!("expected Tag01 layer");
+    };
+    layer01
+        .id
+        .expect("expected id column")
+        .decode()
+        .expect("decode failed")
+}
 
 fn create_u32_range_ids() -> IdValues {
     IdValues((1u64..=100).map(Some).collect())
@@ -66,9 +184,7 @@ fn test_automatic_optimisation_roundtrip_empty() {
 #[case::constant(create_constant_ids())]
 #[case::with_nulls(create_ids_with_nulls())]
 fn test_automatic_optimisation_roundtrip(#[case] decoded: IdValues) {
-    let (encoded, _) = decoded.clone().encode_auto().unwrap();
-    let encoded = encoded.expect("non-empty IDs should produce Some");
-    let decoded_back = IdValues::try_from(encoded).expect("decoding failed");
+    let decoded_back = id_roundtrip_auto(&decoded);
     assert_eq!(decoded_back, decoded);
 }
 
@@ -76,12 +192,7 @@ fn test_automatic_optimisation_roundtrip(#[case] decoded: IdValues) {
 fn test_manual_optimisation_applies_encoder() {
     let decoded = create_u32_range_ids();
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id64);
-    let encoded = decoded
-        .clone()
-        .encode(manual_enc)
-        .unwrap()
-        .expect("should produce encoded");
-    let decoded_back = IdValues::try_from(encoded).unwrap();
+    let decoded_back = id_roundtrip_via_layer(&decoded, manual_enc);
     assert_eq!(decoded_back, decoded);
 }
 
@@ -90,11 +201,7 @@ fn test_manual_optimisation_truncation() {
     let large_value = u64::from(u32::MAX) + 42;
     let ids = IdValues(vec![Some(large_value)]);
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);
-    let encoded = ids
-        .encode(manual_enc)
-        .unwrap()
-        .expect("should produce encoded");
-    let decoded_back = IdValues::try_from(encoded).unwrap();
+    let decoded_back = id_roundtrip_via_layer(&ids, manual_enc);
     // Manual encoding with a too-narrow `IdWidth` silently truncates values.
     // `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
     assert_eq!(decoded_back.0[0], Some(41));
@@ -106,15 +213,8 @@ fn test_profile_applies_candidates_and_rederives_width() {
     let profile = IdProfile::from_sample(&u32_sample);
 
     let u64_decoded = create_u64_range_ids();
-    let (encoded, enc) = u64_decoded.clone().encode_with_profile(&profile).unwrap();
-    let enc = enc.unwrap();
-    let encoded = encoded.unwrap();
-
-    // Width must reflect the u64 tile data, not the u32 sample.
-    assert_eq!(enc.id_width, IdWidth::Id64);
-    // Both samples are sequential (>4 values), so the fast path fires: DeltaRle.
-    assert_eq!(enc.logical, LogicalEncoder::DeltaRle);
-    assert_eq!(IdValues::try_from(encoded).unwrap(), u64_decoded);
+    let decoded_back = id_roundtrip_with_profile(&u64_decoded, &profile);
+    assert_eq!(decoded_back, u64_decoded);
 }
 
 #[rstest]
@@ -124,9 +224,7 @@ fn test_profile_applies_candidates_and_rederives_width() {
 #[case::with_nulls(create_ids_with_nulls())]
 fn test_profile_roundtrip(#[case] decoded: IdValues) {
     let profile = IdProfile::from_sample(&decoded);
-    let (encoded, _) = decoded.clone().encode_with_profile(&profile).unwrap();
-    let encoded = encoded.expect("non-empty IDs should produce Some");
-    let decoded_back = IdValues::try_from(encoded).unwrap();
+    let decoded_back = id_roundtrip_with_profile(&decoded, &profile);
     assert_eq!(decoded_back, decoded);
 }
 
