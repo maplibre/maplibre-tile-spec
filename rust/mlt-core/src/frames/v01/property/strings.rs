@@ -11,11 +11,11 @@ use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 use crate::v01::{
     ColumnType, DictionaryType, EncodedFsstData, EncodedName, EncodedPlainData, EncodedProperty,
-    EncodedSharedDict, EncodedSharedDictChild, EncodedSharedDictEncoding, EncodedStream,
+    EncodedSharedDict, EncodedSharedDictEncoding, EncodedSharedDictItem, EncodedStream,
     EncodedStrings, EncodedStringsEncoding, FsstStrEncoder, IntEncoder, LengthType, OffsetType,
     ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, PresenceStream, PropertyEncoder,
-    RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictChild,
-    RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding, SharedDictEncoder,
+    RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictEncoding,
+    RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding, SharedDictEncoder,
     StagedSharedDict, StagedSharedDictItem, StagedStrings, StrEncoder, StreamType,
 };
 use crate::{Analyze, Decoder, MltError, StatType};
@@ -791,7 +791,7 @@ pub fn encode_shared_dict_prop(
             StreamType::Offset(OffsetType::String),
         )?;
 
-        children.push(EncodedSharedDictChild {
+        children.push(EncodedSharedDictItem {
             name: EncodedName(item.suffix.clone()),
             presence: crate::v01::EncodedPresence(presence),
             data,
@@ -880,7 +880,7 @@ pub fn build_staged_shared_dict(
     })
 }
 
-impl EncodedSharedDictChild {
+impl EncodedSharedDictItem {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         let typ = if self.presence.0.is_some() {
             ColumnType::OptStr
@@ -1062,7 +1062,7 @@ impl<'a> RawSharedDict<'a> {
     pub fn new(
         name: &'a str,
         encoding: RawSharedDictEncoding<'a>,
-        children: Vec<RawSharedDictChild<'a>>,
+        children: Vec<RawSharedDictItem<'a>>,
     ) -> Self {
         Self {
             name,

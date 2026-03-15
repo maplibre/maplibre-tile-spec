@@ -3,7 +3,7 @@ use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint}
 use crate::v01::{
     Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, Layer01, Property,
     RawFsstData, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
-    RawSharedDictChild, RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding,
+    RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
     StreamType,
 };
 use crate::{Decoder, MltError, MltRefResult};
@@ -229,7 +229,7 @@ impl Layer01<'_> {
 fn parse_struct_children<'a>(
     mut input: &'a [u8],
     column: &Column<'a>,
-) -> MltRefResult<'a, Vec<RawSharedDictChild<'a>>> {
+) -> MltRefResult<'a, Vec<RawSharedDictItem<'a>>> {
     let mut children = Vec::with_capacity(column.children.len());
     for child in &column.children {
         let (inp, sc) = parse_varint::<u32>(input)?;
@@ -241,7 +241,7 @@ fn parse_struct_children<'a>(
             return Err(MltError::UnexpectedStructChildCount(data_count));
         }
         let (inp, child_data) = RawStream::parse(inp)?;
-        children.push(RawSharedDictChild {
+        children.push(RawSharedDictItem {
             name: child.name.unwrap_or(""),
             presence: RawPresence(child_optional),
             data: child_data,

@@ -5,10 +5,9 @@ use mlt_core::Decoder;
 use mlt_core::v01::{
     DictionaryType, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
     EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, PhysicalEncoder,
-    PresenceStream, RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictChild,
-    RawSharedDictEncoding, RawStrings, RawStringsEncoding, SharedDictEncoder,
-    SharedDictItemEncoder, StagedStrings, StrEncoder, build_staged_shared_dict,
-    encode_shared_dict_prop,
+    PresenceStream, RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictEncoding,
+    RawSharedDictItem, RawStrings, RawStringsEncoding, SharedDictEncoder, SharedDictItemEncoder,
+    StagedStrings, StrEncoder, build_staged_shared_dict, encode_shared_dict_prop,
 };
 use strum::IntoEnumIterator as _;
 
@@ -160,7 +159,7 @@ fn borrow_owned_shared_dict(sd: &EncodedSharedDict) -> RawSharedDict<'_> {
     let children = sd
         .children
         .iter()
-        .map(|c| RawSharedDictChild {
+        .map(|c| RawSharedDictItem {
             name: &c.name.0,
             presence: RawPresence(c.presence.0.as_ref().map(|s| s.as_borrowed())),
             data: c.data.as_borrowed(),
