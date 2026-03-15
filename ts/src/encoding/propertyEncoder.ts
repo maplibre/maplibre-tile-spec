@@ -1,7 +1,6 @@
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import type { StreamMetadata, RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import IntWrapper from "../decoding/intWrapper";
@@ -378,7 +377,7 @@ function createStreamMetadata(
 ): StreamMetadata {
     return {
         physicalStreamType: PhysicalStreamType.DATA,
-        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
+        logicalStreamType: { dictionaryType: DictionaryType.NONE },
         logicalLevelTechnique1: logicalTechnique1,
         logicalLevelTechnique2: logicalTechnique2,
         physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
@@ -396,7 +395,7 @@ function createRleMetadata(
 ): RleEncodedStreamMetadata {
     return {
         physicalStreamType: PhysicalStreamType.DATA,
-        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
+        logicalStreamType: { dictionaryType: DictionaryType.NONE },
         logicalLevelTechnique1: logicalTechnique1,
         logicalLevelTechnique2: logicalTechnique2,
         physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
