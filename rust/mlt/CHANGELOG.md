@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.6...rust-mlt-v0.1.7) - 2026-03-15
+
+### Other
+
+- *(rust)* minor noop cleanup ([#1167](https://github.com/maplibre/maplibre-tile-spec/pull/1167))
+- *(rust)* rename EncDec variants ([#1165](https://github.com/maplibre/maplibre-tile-spec/pull/1165))
+- *(rust)* add stateful decoder ([#1163](https://github.com/maplibre/maplibre-tile-spec/pull/1163))
+- *(rust)* get rid of borrowme, add EncDec enum ([#1141](https://github.com/maplibre/maplibre-tile-spec/pull/1141))
+
 ## [0.1.6](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.5...rust-mlt-v0.1.6) - 2026-03-10
 
 ### Fixed
