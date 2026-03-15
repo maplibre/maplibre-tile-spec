@@ -34,6 +34,66 @@ export type RleEncodedStreamMetadata = StreamMetadata & {
     readonly numRleValues: number;
 };
 
+const PHYSICAL_STREAM_TYPE_BY_ID: readonly PhysicalStreamType[] = [
+    PhysicalStreamType.PRESENT,
+    PhysicalStreamType.DATA,
+    PhysicalStreamType.OFFSET,
+    PhysicalStreamType.LENGTH,
+];
+
+const LOGICAL_LEVEL_TECHNIQUE_BY_ID: readonly LogicalLevelTechnique[] = [
+    LogicalLevelTechnique.NONE,
+    LogicalLevelTechnique.DELTA,
+    LogicalLevelTechnique.COMPONENTWISE_DELTA,
+    LogicalLevelTechnique.RLE,
+    LogicalLevelTechnique.MORTON,
+    LogicalLevelTechnique.PDE,
+];
+
+const PHYSICAL_LEVEL_TECHNIQUE_BY_ID: readonly PhysicalLevelTechnique[] = [
+    PhysicalLevelTechnique.NONE,
+    PhysicalLevelTechnique.FAST_PFOR,
+    PhysicalLevelTechnique.VARINT,
+    PhysicalLevelTechnique.ALP,
+];
+
+const DICTIONARY_TYPE_BY_ID: readonly DictionaryType[] = [
+    DictionaryType.NONE,
+    DictionaryType.SINGLE,
+    DictionaryType.SHARED,
+    DictionaryType.VERTEX,
+    DictionaryType.MORTON,
+    DictionaryType.FSST,
+];
+
+const OFFSET_TYPE_BY_ID: readonly OffsetType[] = [
+    OffsetType.VERTEX,
+    OffsetType.INDEX,
+    OffsetType.STRING,
+    OffsetType.KEY,
+];
+
+const LENGTH_TYPE_BY_ID: readonly LengthType[] = [
+    LengthType.VAR_BINARY,
+    LengthType.GEOMETRIES,
+    LengthType.PARTS,
+    LengthType.RINGS,
+    LengthType.TRIANGLES,
+    LengthType.SYMBOL,
+    LengthType.DICTIONARY,
+];
+
+const DEFAULT_LOGICAL_STREAM_TYPE = new LogicalStreamType();
+const DATA_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = DICTIONARY_TYPE_BY_ID.map(
+    (type) => new LogicalStreamType(type),
+);
+const OFFSET_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = OFFSET_TYPE_BY_ID.map(
+    (type) => new LogicalStreamType(undefined, type),
+);
+const LENGTH_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = LENGTH_TYPE_BY_ID.map(
+    (type) => new LogicalStreamType(undefined, undefined, type),
+);
+
 export function decodeStreamMetadata(tile: Uint8Array, offset: IntWrapper): StreamMetadata {
     const streamMetadata = decodeStreamMetadataInternal(tile, offset);
     if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.MORTON) {
@@ -93,32 +153,26 @@ function decodePartialRleEncodedStreamMetadata(
 
 function decodeStreamMetadataInternal(tile: Uint8Array, offset: IntWrapper): StreamMetadata {
     const stream_type = tile[offset.get()];
-    const physicalStreamType = Object.values(PhysicalStreamType)[stream_type >> 4] as PhysicalStreamType;
-    let logicalStreamType: LogicalStreamType | null = null;
+    const physicalStreamType = PHYSICAL_STREAM_TYPE_BY_ID[stream_type >> 4];
+    let logicalStreamType = DEFAULT_LOGICAL_STREAM_TYPE;
 
     switch (physicalStreamType) {
         case PhysicalStreamType.DATA:
-            logicalStreamType = new LogicalStreamType(
-                Object.values(DictionaryType)[stream_type & 0xf] as DictionaryType,
-            );
+            logicalStreamType = DATA_LOGICAL_STREAM_TYPES[stream_type & 0xf] ?? DEFAULT_LOGICAL_STREAM_TYPE;
             break;
         case PhysicalStreamType.OFFSET:
-            logicalStreamType = new LogicalStreamType(null, Object.values(OffsetType)[stream_type & 0xf] as OffsetType);
+            logicalStreamType = OFFSET_LOGICAL_STREAM_TYPES[stream_type & 0xf] ?? DEFAULT_LOGICAL_STREAM_TYPE;
             break;
         case PhysicalStreamType.LENGTH:
-            logicalStreamType = new LogicalStreamType(
-                null,
-                null,
-                Object.values(LengthType)[stream_type & 0xf] as LengthType,
-            );
+            logicalStreamType = LENGTH_LOGICAL_STREAM_TYPES[stream_type & 0xf] ?? DEFAULT_LOGICAL_STREAM_TYPE;
             break;
     }
     offset.increment();
 
     const encodings_header = tile[offset.get()];
-    const llt1 = Object.values(LogicalLevelTechnique)[encodings_header >> 5] as LogicalLevelTechnique;
-    const llt2 = Object.values(LogicalLevelTechnique)[(encodings_header >> 2) & 0x7] as LogicalLevelTechnique;
-    const plt = Object.values(PhysicalLevelTechnique)[encodings_header & 0x3] as PhysicalLevelTechnique;
+    const llt1 = LOGICAL_LEVEL_TECHNIQUE_BY_ID[encodings_header >> 5];
+    const llt2 = LOGICAL_LEVEL_TECHNIQUE_BY_ID[(encodings_header >> 2) & 0x7];
+    const plt = PHYSICAL_LEVEL_TECHNIQUE_BY_ID[encodings_header & 0x3];
     offset.increment();
 
     const sizeInfo = decodeVarintInt32(tile, offset, 2);
