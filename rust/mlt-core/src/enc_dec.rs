@@ -20,8 +20,8 @@ pub enum EncDec<Raw, Parsed> {
 }
 
 impl<Raw: Decode<Parsed>, Parsed> EncDec<Raw, Parsed> {
-    /// Decode in place; use the type-specific `decode(self, dec)` when you need to consume and get the value.
-    pub fn decode_in_place(&mut self, decoder: &mut Decoder) -> Result<&mut Parsed, MltError> {
+    /// Decode in place, replacing the raw value with the parsed result.
+    pub fn decode(&mut self, decoder: &mut Decoder) -> Result<&mut Parsed, MltError> {
         match self {
             Self::Parsed(v) => Ok(v),
             Self::Raw(_) => {
@@ -34,6 +34,23 @@ impl<Raw: Decode<Parsed>, Parsed> EncDec<Raw, Parsed> {
                 };
                 Ok(v)
             }
+            Self::ParsingFailed => Err(MltError::PriorParseFailure),
+        }
+    }
+
+    /// Consume and return the parsed value, decoding if currently raw.
+    pub fn into_parsed(self, decoder: &mut Decoder) -> Result<Parsed, MltError> {
+        match self {
+            Self::Parsed(v) => Ok(v),
+            Self::Raw(raw) => raw.decode(decoder),
+            Self::ParsingFailed => Err(MltError::PriorParseFailure),
+        }
+    }
+
+    pub fn as_parsed(&self) -> Result<&Parsed, MltError> {
+        match self {
+            Self::Parsed(v) => Ok(v),
+            Self::Raw(_) => Err(MltError::NotDecoded("enc_dec value")), // TODO: I wonder if the str can be of the type name?
             Self::ParsingFailed => Err(MltError::PriorParseFailure),
         }
     }

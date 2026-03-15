@@ -422,7 +422,7 @@ mod tests {
         assert!(remaining.is_empty(), "Remaining bytes after parse");
 
         Geometry::Raw(parsed)
-            .decode(&mut Decoder::default())
+            .into_parsed(&mut Decoder::default())
             .expect("Failed to decode")
     }
 
@@ -731,7 +731,7 @@ mod tests {
         let (remaining, parsed) = RawGeometry::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
         let decoded = Geometry::Raw(parsed)
-            .decode(&mut Decoder::default())
+            .into_parsed(&mut Decoder::default())
             .unwrap();
 
         assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));

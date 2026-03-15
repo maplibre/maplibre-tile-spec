@@ -1,7 +1,7 @@
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::{
-    Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, Layer01, Property,
+    Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01, Property,
     RawFsstData, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
     RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
     StreamType,
@@ -186,34 +186,27 @@ impl Layer01<'_> {
     /// Decode only the ID column, leaving other columns in their encoded form.
     ///
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
-    pub fn decode_id(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
-        if let Some(id) = self.id.take() {
-            self.id = Some(Id::Parsed(id.decode(dec)?));
-        }
-        Ok(())
+    pub fn decode_id(&mut self, dec: &mut Decoder) -> Result<Option<&mut IdValues>, MltError> {
+        Ok(if let Some(id) = &mut self.id {
+            Some(id.decode(dec)?)
+        } else {
+            None
+        })
     }
 
     /// Decode only the geometry column, leaving other columns in their encoded form.
     ///
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
-    pub fn decode_geometry(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
-        // Swap out the geometry with a temporary default (Decoded(GeometryValues::default()))
-        // so we can take ownership of the raw value without unsafe code.
-        let geom = std::mem::replace(
-            &mut self.geometry,
-            Geometry::Parsed(GeometryValues::default()),
-        );
-        self.geometry = Geometry::Parsed(geom.decode(dec)?);
-        Ok(())
+    pub fn decode_geometry(&mut self, dec: &mut Decoder) -> Result<&mut GeometryValues, MltError> {
+        self.geometry.decode(dec)
     }
 
     /// Decode only the property columns, leaving other columns in their encoded form.
     ///
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
     pub fn decode_properties(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
-        let old_props = std::mem::take(&mut self.properties);
-        for prop in old_props {
-            self.properties.push(Property::Parsed(prop.decode(dec)?));
+        for prop in &mut self.properties {
+            prop.decode(dec)?;
         }
         Ok(())
     }

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::frames::Layer;
-use crate::v01::{Geometry, Id, ParsedProperty, Property};
+use crate::v01::{Id, ParsedProperty};
 use crate::{Decoder, MltError};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
@@ -39,11 +39,7 @@ impl FeatureCollection {
         for layer in layers.iter_mut() {
             let l = layer.decoded_layer01_mut(dec)?;
             l.decode_properties(dec)?;
-            let geom = match &l.geometry {
-                Geometry::Parsed(v) => v,
-                Geometry::Raw(_) => return Err(MltError::NotDecoded("geometry")),
-                Geometry::ParsingFailed => return Err(MltError::PriorParseFailure),
-            };
+            let geom = l.geometry.as_parsed()?;
             let ids: Option<&[Option<u64>]> = l.id.as_ref().and_then(|v| {
                 if let Id::Parsed(d) = v {
                     Some(d.values())
@@ -55,11 +51,7 @@ impl FeatureCollection {
                 let geometry = geom.to_geojson(i)?;
                 let mut properties = BTreeMap::new();
                 for prop in &l.properties {
-                    let prop = match prop {
-                        Property::Parsed(p) => p,
-                        Property::Raw(_) => return Err(MltError::NotDecoded("property")),
-                        Property::ParsingFailed => return Err(MltError::PriorParseFailure),
-                    };
+                    let prop = prop.as_parsed()?;
                     // SharedDict properties are flattened to individual properties
                     // with names like "struct_name:child_suffix"
                     if let ParsedProperty::SharedDict(dict) = prop {

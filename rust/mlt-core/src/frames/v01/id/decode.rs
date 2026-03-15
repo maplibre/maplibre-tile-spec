@@ -43,15 +43,6 @@ impl<'a> Id<'a> {
     pub fn new_raw(presence: Option<RawStream<'a>>, value: RawIdValue<'a>) -> Self {
         Self::Raw(RawId { presence, value })
     }
-
-    #[inline]
-    pub fn decode(self, dec: &mut Decoder) -> Result<IdValues, MltError> {
-        match self {
-            Self::Raw(raw) => raw.decode(dec),
-            Self::Parsed(v) => Ok(v),
-            Self::ParsingFailed => Err(MltError::PriorParseFailure),
-        }
-    }
 }
 
 impl IdValues {

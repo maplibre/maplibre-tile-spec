@@ -61,7 +61,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
         let parsed_geometry = layer01
             .geometry
             .clone()
-            .decode(&mut dec)
+            .into_parsed(&mut dec)
             .map_err(|e| to_js_err(&e))?;
 
         // Build types_array from vector_types.
