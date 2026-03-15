@@ -121,6 +121,8 @@ fn extract_parsed_values(
 
 // ── TileLayer01 → StagedLayer01 ─────────────────────────────────────────────
 
+/// FIXME: this should be part of the [`crate::v01::optimizer::Tile01Encoder::encode`]
+///   `rebuild_properties` would use proper shared dict grouping settings
 impl From<TileLayer01> for StagedLayer01 {
     fn from(source: TileLayer01) -> Self {
         // Rebuild geometry column

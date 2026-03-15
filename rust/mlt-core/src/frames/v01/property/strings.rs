@@ -1124,6 +1124,7 @@ impl<'a> RawSharedDict<'a> {
     }
 }
 
+/// FIXME:  uncertain why we need this, delete?
 impl From<SharedDictEncoder> for PropertyEncoder {
     fn from(encoder: SharedDictEncoder) -> Self {
         Self::SharedDict(encoder)
