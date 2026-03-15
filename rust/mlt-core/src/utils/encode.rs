@@ -237,12 +237,12 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
+    use crate::test_helpers::dec;
     use crate::utils::{
         decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s,
         decode_componentwise_delta_vec2s, decode_fastpfor_composite, decode_zigzag,
         decode_zigzag_delta,
     };
-    use crate::test_helpers::dec;
     use crate::v01::RleMeta;
 
     proptest! {

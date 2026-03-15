@@ -217,11 +217,11 @@ mod tests {
 
     use super::*;
     use crate::geojson::Geom32;
+    use crate::test_helpers::{dec, parser};
     use crate::v01::{
         Geometry, GeometryEncoder, GeometryValues, IntEncoder, RawGeometry, TileFeature,
         TileLayer01,
     };
-    use crate::test_helpers::{dec, parser};
 
     // ── geometry test helpers ──────────────────────────────────────────────────
 

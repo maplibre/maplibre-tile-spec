@@ -1,7 +1,4 @@
-use std::mem::size_of;
-
 use crate::enc_dec::Decode;
-use crate::errors::AsMltError as _;
 use crate::utils::apply_present;
 use crate::v01::{Id, IdValues, RawId, RawIdValue, RawPresence};
 use crate::{Decoder, MltError};

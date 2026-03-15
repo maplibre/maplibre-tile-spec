@@ -1,6 +1,6 @@
-use mlt_core::test_helpers::{dec, parser};
 use geo_types::Point;
 use mlt_core::geojson::Geom32;
+use mlt_core::test_helpers::{dec, parser};
 use mlt_core::v01::{
     GeometryEncoder, GeometryProfile, GeometryValues, IdEncoder, IdProfile, IdValues, IdWidth,
     IntEncoder, LogicalEncoder, PropertyProfile, StagedLayer01, StagedLayer01Encoder, Tag01Profile,

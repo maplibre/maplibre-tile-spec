@@ -8,11 +8,11 @@ use rstest::rstest;
 use crate::frames::v01::id::encode::IdEncoder;
 use crate::frames::v01::id::model::{EncodedId, EncodedIdValue, IdValues, IdWidth};
 use crate::geojson::Geom32;
+use crate::test_helpers::{dec, parser};
 use crate::v01::{
     GeometryEncoder, GeometryValues, IntEncoder, LogicalEncoder, StagedLayer01,
     StagedLayer01Encoder,
 };
-use crate::test_helpers::{dec, parser};
 use crate::{EncodedLayer, Layer, MltError};
 
 // Test that each config produces the correct variant and optional stream presence

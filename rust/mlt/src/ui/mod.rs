@@ -114,7 +114,10 @@ fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
     if is_mlt_extension(path) {
         let mut parser = Parser::default();
         let mut layers = parse_layers(&buf, &mut parser)?;
-        Ok(FeatureCollection::from_layers(&mut layers, &mut Decoder::default())?)
+        Ok(FeatureCollection::from_layers(
+            &mut layers,
+            &mut Decoder::default(),
+        )?)
     } else {
         Ok(mvt_to_feature_collection(buf)?)
     }

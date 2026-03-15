@@ -690,12 +690,9 @@ mod tests {
         };
         let mut buffer = Vec::new();
         owned.write_to(&mut buffer).unwrap();
-        let (remaining, parsed) =
-            RawGeometry::from_bytes(&buffer, &mut parser()).unwrap();
+        let (remaining, parsed) = RawGeometry::from_bytes(&buffer, &mut parser()).unwrap();
         assert!(remaining.is_empty());
-        let decoded = Geometry::Raw(parsed)
-            .into_parsed(&mut dec())
-            .unwrap();
+        let decoded = Geometry::Raw(parsed).into_parsed(&mut dec()).unwrap();
 
         assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));
 

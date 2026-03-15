@@ -4,12 +4,12 @@ use std::io::Write;
 use integer_encoding::VarIntWriter as _;
 
 use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2, parse_varint};
-use crate::{MltError, Parser};
 use crate::v01::geometry::encode::encode_geometry;
 use crate::v01::{
     ColumnType, DictionaryType, EncodedGeometry, Geometry, GeometryEncoder, GeometryValues,
     IntEncoding, RawGeometry, RawStream, RawStreamData, StreamMeta, StreamType,
 };
+use crate::{MltError, Parser};
 
 impl<'a> RawGeometry<'a> {
     /// Parse encoded geometry from bytes (expects varint stream count + streams).

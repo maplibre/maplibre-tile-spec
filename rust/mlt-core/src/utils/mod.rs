@@ -87,7 +87,7 @@ pub fn apply_present<T>(
         "Since the number of present bits is an upper bound on the number of values and equals values.len(), there cannot be more values than entries in the present bitmap"
     );
 
-    let mut result = Vec::with_capacity(present.len());
+    let mut result = dec.alloc::<Option<T>>(present.len())?;
     let mut val_iter = values.into_iter();
     for p in present {
         result.push(if p { val_iter.next() } else { None });

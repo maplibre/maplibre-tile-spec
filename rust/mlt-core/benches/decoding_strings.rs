@@ -412,9 +412,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             |b, sd| {
                 b.iter_batched(
                     || borrow_owned_shared_dict(sd),
-                    |sd_ref: RawSharedDict<'_>| {
-                        black_box(sd_ref.decode(&mut dec()).unwrap())
-                    },
+                    |sd_ref: RawSharedDict<'_>| black_box(sd_ref.decode(&mut dec()).unwrap()),
                     BatchSize::SmallInput,
                 );
             },
@@ -438,9 +436,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("shared_dict_fsst", n), sd_fsst, |b, sd| {
             b.iter_batched(
                 || borrow_owned_shared_dict(sd),
-                |sd_ref: RawSharedDict<'_>| {
-                    black_box(sd_ref.decode(&mut dec()).unwrap())
-                },
+                |sd_ref: RawSharedDict<'_>| black_box(sd_ref.decode(&mut dec()).unwrap()),
                 BatchSize::SmallInput,
             );
         });

@@ -1,6 +1,6 @@
-use mlt_core::test_helpers::{dec, parser};
 use geo_types::{Coord, LineString, Point};
 use mlt_core::geojson::Geom32;
+use mlt_core::test_helpers::{dec, parser};
 use mlt_core::v01::{
     GeometryEncoder, GeometryType, GeometryValues, IntEncoder, SortStrategy, StagedLayer01Encoder,
     Tile01Encoder, TileFeature, TileLayer01,
@@ -47,8 +47,7 @@ fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLaye
         .write_to(&mut buf)
         .expect("write_to failed");
 
-    let (remaining, layer_back) =
-        Layer::from_bytes(&buf, &mut parser()).expect("parse failed");
+    let (remaining, layer_back) = Layer::from_bytes(&buf, &mut parser()).expect("parse failed");
     assert!(remaining.is_empty());
 
     let Layer::Tag01(layer01) = layer_back else {

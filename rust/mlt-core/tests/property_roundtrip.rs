@@ -1,3 +1,4 @@
+use mlt_core::MltError;
 use mlt_core::test_helpers::{dec, parser};
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, GeometryValues, IntEncoder, Layer01, LogicalEncoder,
@@ -5,7 +6,6 @@ use mlt_core::v01::{
     SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty,
     StagedStrings, StrEncoder, build_staged_shared_dict,
 };
-use mlt_core::{MltError};
 use proptest::prelude::*;
 
 // proptest_derive::Arbitrary is only derived for these types inside the crate

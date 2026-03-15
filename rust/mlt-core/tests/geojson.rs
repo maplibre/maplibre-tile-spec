@@ -1,9 +1,9 @@
-use mlt_core::test_helpers::{dec, parser};
 use std::fs;
 use std::path::Path;
 
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::parse_layers;
+use mlt_core::test_helpers::{dec, parser};
 use test_each_file::test_each_path;
 
 test_each_path! { for ["mlt"] in "../test/expected/tag0x01" as geojson => geojson_test }

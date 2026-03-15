@@ -39,7 +39,7 @@ impl StreamMeta {
     /// automatically instead of reading them from the input.
     ///
     /// Returns the stream metadata and the size of the stream in bytes.
-    /// For RLE streams, reserves decoded bytes (num_rle_values * 8) on the parser.
+    /// For RLE streams, reserves decoded bytes (`num_rle_values` * 8) on the parser.
     pub(super) fn from_bytes<'a>(
         input: &'a [u8],
         is_bool: bool,
@@ -228,7 +228,7 @@ impl<'a> RawStream<'a> {
     /// Parse stream from the input
     /// If `is_bool` is true, compute RLE parameters for boolean streams
     /// automatically instead of reading them from the input.
-    /// For RLE streams with VarInt data, validates that run lengths sum to num_rle_values.
+    /// For RLE streams with `VarInt` data, validates that run lengths sum to `num_rle_values`.
     fn from_bytes_internal(
         input: &'a [u8],
         is_bool: bool,
@@ -242,10 +242,11 @@ impl<'a> RawStream<'a> {
         let (input, data) = take(input, byte_length)?;
 
         // For RLE with VarInt physical encoding, validate stream: run lengths must sum to num_rle_values
-        if let LE::Rle(r) | LE::DeltaRle(r) = meta.encoding.logical {
-            if matches!(meta.encoding.physical, PD::VarInt) && !is_bool {
-                validate_rle_varint_stream(data, r.runs, r.num_rle_values)?;
-            }
+        if let LE::Rle(r) | LE::DeltaRle(r) = meta.encoding.logical
+            && matches!(meta.encoding.physical, PD::VarInt)
+            && !is_bool
+        {
+            validate_rle_varint_stream(data, r.runs, r.num_rle_values)?;
         }
 
         let stream_data = match meta.encoding.physical {
@@ -271,8 +272,9 @@ fn validate_rle_varint_stream(data: &[u8], runs: u32, num_rle_values: u32) -> Re
             .ok_or(MltError::IntegerOverflow)?;
     }
     if sum != u64::from(num_rle_values) {
+        let sum_usize = usize::try_from(sum).map_err(|_| MltError::IntegerOverflow)?;
         return Err(MltError::InvalidDecodingStreamSize(
-            sum as usize,
+            sum_usize,
             num_rle_values.as_usize(),
         ));
     }

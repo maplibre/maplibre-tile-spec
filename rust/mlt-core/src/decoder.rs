@@ -1,5 +1,7 @@
+use std::mem::size_of;
+
 use crate::MltError;
-use crate::utils::AsUsize;
+use crate::errors::AsMltError as _;
 
 /// Default memory budget: 10 MiB.
 const DEFAULT_MAX_BYTES: u32 = 10 * 1024 * 1024;
@@ -35,21 +37,30 @@ impl Decoder {
         }
     }
 
+    /// Allocate a `Vec<T>` with the given capacity, charging the decoder's budget for
+    /// `capacity * size_of::<T>()` bytes. Use this instead of `Vec::with_capacity` in decode paths.
     #[inline]
-    pub fn alloc<T>(&mut self, size: u32) -> Result<Vec<T>, MltError> {
-        self.budget.consume(size)?;
-        Ok(Vec::with_capacity(size.as_usize()))
+    pub fn alloc<T>(&mut self, capacity: usize) -> Result<Vec<T>, MltError> {
+        let bytes = capacity.checked_mul(size_of::<T>()).or_overflow()?;
+        let bytes_u32 = u32::try_from(bytes).or_overflow()?;
+        self.budget.consume(bytes_u32)?;
+        Ok(Vec::with_capacity(capacity))
     }
 
+    #[inline]
     pub fn consume(&mut self, size: u32) -> Result<(), MltError> {
         self.budget.consume(size)
+    }
+
+    pub fn consumed(&self) -> u32 {
+        self.budget.consumed()
     }
 }
 
 /// Stateful parser that enforces a memory budget during parsing (binary → raw structures).
 ///
 /// Pass a `Parser` to [`parse_layers`](crate::parse_layers) and to `from_bytes`-style APIs.
-/// The parse chain calls [`Parser::reserve`] before allocations so total heap stays within the limit.
+/// The parse chain reserves memory before allocations so total heap stays within the limit.
 ///
 /// ```
 /// use mlt_core::{Parser, parse_layers};
@@ -79,6 +90,10 @@ impl Parser {
     #[inline]
     pub(crate) fn reserve(&mut self, size: u32) -> Result<(), MltError> {
         self.budget.consume(size)
+    }
+
+    pub fn reserved(&self) -> u32 {
+        self.budget.consumed()
     }
 }
 
@@ -125,5 +140,9 @@ impl MemBudget {
                 requested: size,
             })
         }
+    }
+
+    fn consumed(&self) -> u32 {
+        self.bytes_used
     }
 }

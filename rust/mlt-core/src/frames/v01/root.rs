@@ -32,10 +32,7 @@ impl Analyze for Layer01<'_> {
 
 impl Layer01<'_> {
     /// Parse `v01::Layer` metadata, reserving decoded memory against the parser's budget.
-    pub fn from_bytes<'a>(
-        input: &'a [u8],
-        parser: &mut Parser,
-    ) -> Result<Layer01<'a>, MltError> {
+    pub fn from_bytes<'a>(input: &'a [u8], parser: &mut Parser) -> Result<Layer01<'a>, MltError> {
         let (input, layer_name) = parse_string(input)?;
         let (input, extent) = parse_varint::<u32>(input)?;
         let (input, column_count) = parse_varint::<u32>(input)?;

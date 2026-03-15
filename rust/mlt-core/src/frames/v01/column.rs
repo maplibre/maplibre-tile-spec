@@ -8,10 +8,7 @@ use crate::{MltRefResult, Parser};
 
 impl Column<'_> {
     /// Parse a single column definition
-    pub fn from_bytes<'a>(
-        input: &'a [u8],
-        _parser: &mut Parser,
-    ) -> MltRefResult<'a, Column<'a>> {
+    pub fn from_bytes<'a>(input: &'a [u8], _parser: &mut Parser) -> MltRefResult<'a, Column<'a>> {
         let (mut input, typ) = ColumnType::from_bytes(input)?;
         let name = if typ.has_name() {
             let pair = parse_string(input)?;

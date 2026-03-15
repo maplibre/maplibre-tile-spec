@@ -438,8 +438,9 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers =
-            parse_layers(&data, &mut Parser::default()).expect("parse_layers should succeed");
+        let mut parser = Parser::default();
+        let mut layers = parse_layers(&data, &mut parser).expect("parse_layers should succeed");
+        let mut dec = Decoder::default();
         for layer in &mut layers {
             layer
                 .decode_all(&mut dec)
@@ -464,8 +465,9 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers =
-            parse_layers(&data, &mut Parser::default()).expect("parse_layers should succeed");
+        let mut parser = Parser::default();
+        let mut layers = parse_layers(&data, &mut parser).expect("parse_layers should succeed");
+        let mut dec = Decoder::default();
         for layer in &mut layers {
             layer
                 .decode_all(&mut dec)
@@ -498,6 +500,7 @@ mod tests {
 
         let mut parser = Parser::default();
         let mut layers = parse_layers(&data, &mut parser).expect("parse_layers should succeed");
+        let mut dec = Decoder::default();
         for layer in &mut layers {
             layer
                 .decode_all(&mut dec)
@@ -533,6 +536,7 @@ mod tests {
 
         let mut parser = Parser::default();
         let mut layers = parse_layers(&data, &mut parser).expect("parse_layers should succeed");
+        let mut dec = Decoder::default();
         for layer in &mut layers {
             layer
                 .decode_all(&mut dec)

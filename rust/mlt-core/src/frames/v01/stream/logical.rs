@@ -35,11 +35,11 @@ fn apply_rle<T: PrimInt + Debug>(
 
 impl RleMeta {
     /// Decode RLE (Run-Length Encoding) data.
-    /// Memory for the expanded output was already reserved at parse time via the budget.
+    /// Charges the decoder for the expanded output allocation.
     pub fn decode<T: PrimInt + Debug>(
         self,
         data: &[T],
-        _dec: &mut Decoder,
+        dec: &mut Decoder,
     ) -> Result<Vec<T>, MltError> {
         let expected_len = self.runs.as_usize().checked_mul(2).or_overflow()?;
         fail_if_invalid_stream_size(data.len(), expected_len)?;
@@ -47,7 +47,7 @@ impl RleMeta {
         let (run_lens, values) = data.split_at(self.runs.as_usize());
         fail_if_invalid_stream_size(self.num_rle_values, Self::calc_size(run_lens)?)?;
 
-        let mut result = Vec::with_capacity(self.num_rle_values.as_usize());
+        let mut result = dec.alloc(self.num_rle_values.as_usize())?;
         for (&run_len, &val) in run_lens.iter().zip(values.iter()) {
             let run = run_len
                 .to_usize()
@@ -333,8 +333,8 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::test_helpers::dec;
     use crate::MltError::InvalidDecodingStreamSize;
+    use crate::test_helpers::dec;
     use crate::v01::{DictionaryType, IntEncoding, PhysicalEncoding, StreamType};
 
     fn make_meta(logical_encoding: LogicalEncoding, num_values: usize) -> StreamMeta {
@@ -407,11 +407,7 @@ mod tests {
             runs: 0,
             num_rle_values: 0,
         };
-        assert!(
-            rle.decode::<u32>(&[], &mut dec())
-                .unwrap()
-                .is_empty()
-        );
+        assert!(rle.decode::<u32>(&[], &mut dec()).unwrap().is_empty());
     }
 
     #[test]
@@ -422,9 +418,7 @@ mod tests {
             num_rle_values: 3,
         };
         let data = [1u32, 2, 3];
-        let err = rle
-            .decode::<u32>(&data, &mut dec())
-            .unwrap_err();
+        let err = rle.decode::<u32>(&data, &mut dec()).unwrap_err();
         assert!(matches!(err, InvalidDecodingStreamSize(3, 4)));
     }
 }

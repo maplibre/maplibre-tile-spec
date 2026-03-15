@@ -3,10 +3,10 @@
 use proptest::prelude::*;
 use rstest::rstest;
 
+use crate::test_helpers::{dec, parser};
 use crate::utils::BinarySerializer as _;
 use crate::v01::stream::encoder::IntEncoder;
 use crate::v01::stream::logical::LogicalEncoder;
-use crate::test_helpers::{dec, parser};
 use crate::v01::{
     DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, LogicalData,
     LogicalEncoding, LogicalValue, MortonMeta, OffsetType, PhysicalEncoder, PhysicalEncoding,
@@ -241,7 +241,8 @@ fn test_varint_stream_huge_num_values_empty_data() {
     // num_values = 0xd5 0xff 0xd5 0xff 0x03 = 1_073_053_653 (valid u32, 5-byte varint)
     // byte_length = 0x00 → 0 bytes of data
     let wire: &[u8] = &[0x00, 0x02, 0xd5, 0xff, 0xd5, 0xff, 0x03, 0x00];
-    let (remaining, stream) = RawStream::from_bytes(wire, &mut parser()).expect("parse must succeed");
+    let (remaining, stream) =
+        RawStream::from_bytes(wire, &mut parser()).expect("parse must succeed");
     assert!(remaining.is_empty());
     assert_eq!(stream.meta.num_values, 1_073_053_653);
     // Decoding must return an error, not OOM or panic.

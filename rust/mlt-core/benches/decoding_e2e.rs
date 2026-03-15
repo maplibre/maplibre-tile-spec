@@ -29,8 +29,7 @@ fn bench_mlt_parse(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("zoom", zoom), &tiles, |b, tiles| {
             b.iter(|| {
                 for (_, data) in tiles {
-                    let _ = parse_layers(black_box(data), &mut parser())
-                        .expect("mlt parse failed");
+                    let _ = parse_layers(black_box(data), &mut parser()).expect("mlt parse failed");
                 }
             });
         });
@@ -53,8 +52,7 @@ fn bench_mlt_decode_all(c: &mut Criterion) {
                     tiles
                         .iter()
                         .map(|(_, v)| {
-                            parse_layers(black_box(v), &mut parser())
-                                .expect("mlt parse failed")
+                            parse_layers(black_box(v), &mut parser()).expect("mlt parse failed")
                         })
                         .collect::<Vec<_>>()
                 },
