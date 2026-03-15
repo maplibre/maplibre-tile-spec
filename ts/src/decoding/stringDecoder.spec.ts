@@ -16,7 +16,6 @@ import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsst
 import { ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
 import { LengthType } from "../metadata/tile/lengthType";
-import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 
 describe("decodeString - Plain String Decoder", () => {
     it("should decode plain strings with simple ASCII values", () => {
