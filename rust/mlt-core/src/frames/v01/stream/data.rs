@@ -5,16 +5,6 @@ use super::{EncodedStream, EncodedStreamData, RawStream, RawStreamData};
 use crate::analyse::{Analyze, StatType};
 use crate::utils::formatter::fmt_byte_array;
 
-impl RawStream<'_> {
-    #[must_use]
-    pub fn to_owned(&self) -> EncodedStream {
-        EncodedStream {
-            meta: self.meta,
-            data: self.data.to_owned(),
-        }
-    }
-}
-
 impl EncodedStream {
     #[must_use]
     pub fn as_borrowed(&self) -> RawStream<'_> {
@@ -26,14 +16,6 @@ impl EncodedStream {
 }
 
 impl RawStreamData<'_> {
-    #[must_use]
-    pub fn to_owned(&self) -> EncodedStreamData {
-        match self {
-            Self::VarInt(data) => EncodedStreamData::VarInt(data.to_vec()),
-            Self::Encoded(data) => EncodedStreamData::Encoded(data.to_vec()),
-        }
-    }
-
     #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         match self {

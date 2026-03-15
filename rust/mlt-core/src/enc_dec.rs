@@ -1,12 +1,13 @@
-use crate::MltError;
 use crate::analyse::{Analyze, StatType};
-use crate::decode::{Decodable, Decode};
 
 /// Shared wrapper for values that may still be encoded or already decoded.
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum EncDec<Encoded, Decoded> {
+    // /// None is an internal state that must not be exposed externally.
+    // /// It is used during migration from Encoded to Decoded stage.
+    // None,
     Encoded(Encoded),
     Decoded(Decoded),
 }
@@ -14,40 +15,6 @@ pub enum EncDec<Encoded, Decoded> {
 impl<Encoded, Decoded> From<Encoded> for EncDec<Encoded, Decoded> {
     fn from(encoded: Encoded) -> Self {
         Self::Encoded(encoded)
-    }
-}
-
-impl<Encoded, Decoded> Decodable<'_> for EncDec<Encoded, Decoded>
-where
-    Decoded: Decode<Encoded> + Default,
-{
-    type EncodedType = Encoded;
-    type DecodedType = Decoded;
-
-    fn is_encoded(&self) -> bool {
-        matches!(self, Self::Encoded(_))
-    }
-
-    fn new_decoded(decoded: Self::DecodedType) -> Self {
-        Self::Decoded(decoded)
-    }
-
-    fn take_encoded(&mut self) -> Option<Self::EncodedType> {
-        if let Self::Encoded(encoded) =
-            std::mem::replace(self, Self::Decoded(Self::DecodedType::default()))
-        {
-            Some(encoded)
-        } else {
-            None
-        }
-    }
-
-    fn borrow_decoded_mut(&mut self) -> Option<&mut Self::DecodedType> {
-        if let Self::Decoded(decoded) = self {
-            Some(decoded)
-        } else {
-            None
-        }
     }
 }
 
@@ -67,18 +34,6 @@ where
         match self {
             Self::Encoded(encoded) => encoded.for_each_stream(cb),
             Self::Decoded(decoded) => decoded.for_each_stream(cb),
-        }
-    }
-}
-
-impl<Encoded, Decoded> EncDec<Encoded, Decoded>
-where
-    Decoded: Decode<Encoded>,
-{
-    pub(crate) fn into_decoded(self) -> Result<Decoded, MltError> {
-        match self {
-            Self::Encoded(encoded) => Decode::decode(encoded),
-            Self::Decoded(decoded) => Ok(decoded),
         }
     }
 }

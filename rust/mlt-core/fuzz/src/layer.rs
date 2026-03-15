@@ -1,5 +1,5 @@
 use hex::ToHex as _;
-use mlt_core::Layer;
+use mlt_core::{Decoder, Layer};
 
 #[derive(arbitrary::Arbitrary)]
 pub struct LayerInput {
@@ -18,6 +18,6 @@ impl LayerInput {
         if !remaining.is_empty() {
             return;
         }
-        let _ = layer.decode_all();
+        let _ = layer.decode_all(&mut Decoder::default());
     }
 }

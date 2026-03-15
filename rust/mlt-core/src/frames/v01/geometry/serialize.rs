@@ -3,14 +3,13 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::MltError;
-use crate::decode::Decode as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2, parse_varint};
 use crate::v01::geometry::encode::encode_geometry;
 use crate::v01::{
     ColumnType, DictionaryType, EncodedGeometry, Geometry, GeometryEncoder, GeometryValues,
     IntEncoding, RawGeometry, RawStream, RawStreamData, StreamMeta, StreamType,
 };
+use crate::{Decoder, MltError};
 
 impl<'a> RawGeometry<'a> {
     /// Parse encoded geometry from bytes (expects varint stream count + streams)
@@ -96,11 +95,11 @@ impl<'a> Geometry<'a> {
     }
 
     #[inline]
-    pub fn decode(self) -> Result<GeometryValues, MltError> {
-        Ok(match self {
-            Self::Encoded(v) => GeometryValues::decode(v)?,
-            Self::Decoded(v) => v,
-        })
+    pub fn decode(self, dec: &mut Decoder) -> Result<GeometryValues, MltError> {
+        match self {
+            Self::Encoded(raw) => raw.decode(dec),
+            Self::Decoded(v) => Ok(v),
+        }
     }
 }
 

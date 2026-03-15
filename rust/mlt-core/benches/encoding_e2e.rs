@@ -4,9 +4,8 @@ use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, 
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder,
     PhysicalEncoder, PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer01,
-    TileLayer01,
 };
-use mlt_core::{Layer, StagedLayer, parse_layers};
+use mlt_core::{Decoder, Layer, StagedLayer, parse_layers};
 use strum::IntoEnumIterator as _;
 
 #[path = "bench_utils.rs"]
@@ -36,7 +35,7 @@ fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer> {
                     let Layer::Tag01(layer01) = layer else {
                         return None;
                     };
-                    let tile = TileLayer01::try_from(layer01).ok()?;
+                    let tile = layer01.into_tile(&mut Decoder::default()).ok()?;
                     Some(StagedLayer::Tag01(StagedLayer01::from(tile)))
                 })
                 .collect::<Vec<_>>()

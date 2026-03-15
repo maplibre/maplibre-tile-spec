@@ -4,7 +4,7 @@ use mlt_core::v01::{
     GeometryEncoder, GeometryValues, IdEncoder, IdProfile, IdValues, IdWidth, IntEncoder,
     LogicalEncoder, StagedLayer01, StagedLayer01Encoder,
 };
-use mlt_core::{EncodedLayer, Layer};
+use mlt_core::{Decoder, EncodedLayer, Layer};
 use rstest::rstest;
 
 /// Round-trip `IdValues` via full layer bytes (no encoded→decoded converter).
@@ -41,7 +41,7 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_encoder: IdEncoder) -> IdValues
     layer01
         .id
         .expect("expected id column")
-        .decode()
+        .decode(&mut Decoder::default())
         .expect("decode failed")
 }
 
@@ -73,7 +73,7 @@ fn id_roundtrip_auto(decoded: &IdValues) -> IdValues {
     layer01
         .id
         .expect("expected id column")
-        .decode()
+        .decode(&mut Decoder::default())
         .expect("decode failed")
 }
 
@@ -115,7 +115,7 @@ fn id_roundtrip_with_profile(decoded: &IdValues, profile: &IdProfile) -> IdValue
     layer01
         .id
         .expect("expected id column")
-        .decode()
+        .decode(&mut Decoder::default())
         .expect("decode failed")
 }
 

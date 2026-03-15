@@ -9,30 +9,29 @@
 //! The only conversion from [`TileLayer01`] to [`StagedLayer01`] is [`From`] at the
 //! optimizer exit boundary; there is no encoded→decoded conversion from Staged back to Tile.
 
-use crate::MltError;
+use std::mem::size_of;
+
+use crate::errors::AsMltError as _;
 use crate::v01::{
     GeometryValues, IdValues, Layer01, PropValue, StagedLayer01, StagedProperty, StagedScalar,
     StagedSharedDict, StagedStrings, TileFeature, TileLayer01, build_staged_shared_dict,
 };
+use crate::{Decoder, MltError};
 
 // ── Layer01 → TileLayer01 ────────────────────────────────────────────────────
 
-/// Convert a [`Layer01`] into a [`TileLayer01`] by consuming it.
-///
-/// This implementation decodes the layer's `id`, `geometry`, and `properties`
-/// as needed; callers do not need to pre-call `decode_all` on the source layer.
-impl TryFrom<Layer01<'_>> for TileLayer01 {
-    type Error = MltError;
-
-    fn try_from(layer: Layer01<'_>) -> Result<Self, Self::Error> {
-        let id = layer.id.map(crate::v01::Id::decode).transpose()?;
-        // Geometry from the wire is already dense (decode produces N+1 offsets); no encode→decode.
-        let geometry = layer.geometry.decode()?;
-        #[allow(clippy::redundant_closure_for_method_calls)]
-        let properties: Vec<crate::v01::ParsedProperty<'_>> = layer
+impl Layer01<'_> {
+    /// Decode and convert into a row-oriented [`TileLayer01`], charging every
+    /// heap allocation against `dec`.
+    ///
+    /// Callers do not need to pre-call `decode_all` on the source layer.
+    pub fn into_tile(self, dec: &mut Decoder) -> Result<TileLayer01, MltError> {
+        let id = self.id.map(|id| id.decode(dec)).transpose()?;
+        let geometry = self.geometry.decode(dec)?;
+        let properties: Vec<crate::v01::ParsedProperty<'_>> = self
             .properties
             .into_iter()
-            .map(|p| p.decode())
+            .map(|p| p.decode(dec))
             .collect::<Result<Vec<_>, _>>()?;
 
         let n = geometry.vector_types.len();
@@ -51,6 +50,14 @@ impl TryFrom<Layer01<'_>> for TileLayer01 {
 
         let ids: Option<&[Option<u64>]> = id.as_ref().map(|d| d.0.as_slice());
 
+        // Charge for the features Vec (PropValue slots + geometry pointers).
+        dec.consume(
+            u32::try_from(
+                n * (size_of::<TileFeature>() + property_names.len() * size_of::<PropValue>()),
+            )
+            .or_overflow()?,
+        )?;
+
         let mut features = Vec::with_capacity(n);
         for i in 0..n {
             let feat_id = ids.and_then(|ids| ids.get(i).copied().flatten());
@@ -59,6 +66,10 @@ impl TryFrom<Layer01<'_>> for TileLayer01 {
             for prop in &properties {
                 extract_parsed_values(prop, i, &mut values);
             }
+
+            // Charge owned String bytes inside PropValue::Str.
+            charge_str_props(dec, &values)?;
+
             features.push(TileFeature {
                 id: feat_id,
                 geometry: geom,
@@ -67,8 +78,8 @@ impl TryFrom<Layer01<'_>> for TileLayer01 {
         }
 
         Ok(TileLayer01 {
-            name: layer.name.to_string(),
-            extent: layer.extent,
+            name: self.name.to_string(),
+            extent: self.extent,
             property_names,
             features,
         })
@@ -110,6 +121,8 @@ fn extract_parsed_values(
 
 // ── TileLayer01 → StagedLayer01 ─────────────────────────────────────────────
 
+/// FIXME: this should be part of the [`crate::v01::optimizer::Tile01Encoder::encode`]
+///   `rebuild_properties` would use proper shared dict grouping settings
 impl From<TileLayer01> for StagedLayer01 {
     fn from(source: TileLayer01) -> Self {
         // Rebuild geometry column
@@ -282,4 +295,27 @@ fn rebuild_shared_dict(
     // tuple key to build_staged_shared_dict.
     build_staged_shared_dict(prefix.to_string(), items_raw)
         .expect("rebuild_shared_dict should always succeed for valid feature data")
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/// Charge `dec` for the heap bytes of owned `String` values inside `PropValue::Str`.
+fn charge_str_props(dec: &mut Decoder, props: &[PropValue]) -> Result<(), MltError> {
+    let str_bytes = props
+        .iter()
+        .filter_map(|p| {
+            if let PropValue::Str(Some(s)) = p {
+                Some(s.len())
+            } else {
+                None
+            }
+        })
+        .try_fold(0u32, |acc, n| {
+            acc.checked_add(u32::try_from(n).or_overflow()?)
+                .ok_or(MltError::IntegerOverflow)
+        })?;
+    if str_bytes > 0 {
+        dec.consume(str_bytes)?;
+    }
+    Ok(())
 }

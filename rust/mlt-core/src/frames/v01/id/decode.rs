@@ -1,6 +1,35 @@
+use std::mem::size_of;
+
+use crate::errors::AsMltError as _;
 use crate::utils::apply_present;
 use crate::v01::{Id, IdValues, RawId, RawIdValue, RawStream};
-use crate::{Decode, DecodeInto as _, MltError};
+use crate::{Decoder, MltError};
+
+impl RawId<'_> {
+    /// Decode into [`IdValues`], charging `dec` before each `Vec` allocation.
+    pub fn decode(self, dec: &mut Decoder) -> Result<IdValues, MltError> {
+        let RawId { presence, value } = self;
+
+        // Decode the raw integer stream, charging for it before allocation.
+        let ids_u64: Vec<u64> = match value {
+            RawIdValue::Id32(stream) => {
+                let ids = stream.decode_u32s(dec)?;
+                ids.into_iter().map(u64::from).collect()
+            }
+            RawIdValue::Id64(stream) => stream.decode_u64s(dec)?,
+        };
+
+        // apply_present expands the dense values into a sparse Vec<Option<u64>>.
+        // The presence-expanded output may be larger; charge the extra slots now.
+        let presence_count = presence
+            .as_ref()
+            .map_or(ids_u64.len(), |p| p.meta.num_values as usize);
+        let extra = presence_count.saturating_sub(ids_u64.len());
+        dec.consume(u32::try_from(extra * size_of::<Option<u64>>()).or_overflow()?)?;
+
+        Ok(IdValues(apply_present(presence, ids_u64, dec)?))
+    }
+}
 
 impl<'a> Id<'a> {
     #[must_use]
@@ -9,11 +38,11 @@ impl<'a> Id<'a> {
     }
 
     #[inline]
-    pub fn decode(self) -> Result<IdValues, MltError> {
-        Ok(match self {
-            Self::Encoded(v) => v.decode_into()?,
-            Self::Decoded(v) => v,
-        })
+    pub fn decode(self, dec: &mut Decoder) -> Result<IdValues, MltError> {
+        match self {
+            Self::Encoded(raw) => raw.decode(dec),
+            Self::Decoded(v) => Ok(v),
+        }
     }
 }
 
@@ -21,31 +50,5 @@ impl IdValues {
     #[must_use]
     pub fn values(&self) -> &[Option<u64>] {
         &self.0
-    }
-}
-
-impl TryFrom<RawId<'_>> for IdValues {
-    type Error = MltError;
-
-    fn try_from(RawId { presence, value }: RawId<'_>) -> Result<Self, MltError> {
-        // Decode the ID values first
-        let ids_u64: Vec<u64> = match value {
-            RawIdValue::Id32(stream) => {
-                // Decode 32-bit IDs as u32, then convert to u64
-                let ids: Vec<u32> = stream.decode_into()?;
-                ids.into_iter().map(u64::from).collect()
-            }
-            RawIdValue::Id64(stream) => {
-                // Decode 64-bit IDs directly as u64
-                stream.decode_into()?
-            }
-        };
-        Ok(IdValues(apply_present(presence, ids_u64)?))
-    }
-}
-
-impl<'a> Decode<RawId<'a>> for IdValues {
-    fn decode(input: RawId<'a>) -> Result<Self, MltError> {
-        IdValues::try_from(input)
     }
 }

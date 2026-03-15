@@ -5,7 +5,7 @@ compile_error!("one of `fastpfor-cpp` or `fastpfor-rust` must be enabled");
 
 mod analyse;
 mod convert;
-mod decode;
+pub mod decoder;
 mod enc_dec;
 mod errors;
 pub mod frames;
@@ -15,8 +15,7 @@ pub mod utils;
 
 pub use analyse::{Analyze, StatType};
 pub use convert::{geojson, mvt};
-pub use decode::Decode;
-pub(crate) use decode::{Decodable, DecodeInto};
+pub use decoder::Decoder;
 pub use enc_dec::EncDec;
 pub use errors::{MltError, MltRefResult};
 pub use frames::{EncodedLayer, Layer, StagedLayer, unknown, v01};

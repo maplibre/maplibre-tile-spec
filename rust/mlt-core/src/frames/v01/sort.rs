@@ -270,7 +270,9 @@ mod tests {
             "unexpected trailing bytes after parse"
         );
 
-        Geometry::Encoded(parsed).decode().expect("decode failed")
+        Geometry::Encoded(parsed)
+            .decode(&mut crate::Decoder::default())
+            .expect("decode failed")
     }
 
     /// Build the canonical (dense, wire-decoded) form of an ordered geometry sequence.
