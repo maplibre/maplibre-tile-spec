@@ -174,7 +174,7 @@ fn roundtrip_id_values(decoded: &IdValues, config: IdEncoder) -> Result<IdValues
     let id = layer01
         .id
         .ok_or(MltError::NotDecoded("expected id column"))?;
-    id.decode(&mut Decoder::default())
+    id.into_parsed(&mut Decoder::default())
 }
 
 fn assert_produces_correct_variant(

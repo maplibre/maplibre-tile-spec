@@ -271,7 +271,7 @@ mod tests {
         );
 
         Geometry::Raw(parsed)
-            .decode(&mut crate::Decoder::default())
+            .into_parsed(&mut crate::Decoder::default())
             .expect("decode failed")
     }
 

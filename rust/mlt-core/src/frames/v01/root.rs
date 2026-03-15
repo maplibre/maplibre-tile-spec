@@ -1,7 +1,7 @@
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::{
-    Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, Layer01, Property,
+    Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01, Property,
     RawFsstData, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
     RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
     StreamType,
@@ -78,7 +78,7 @@ impl Layer01<'_> {
                 ColumnType::Bool | ColumnType::OptBool => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse_bool(input)?;
-                    properties.push(Property::from(RawProperty::Bool(RawScalar {
+                    properties.push(Property::Raw(RawProperty::Bool(RawScalar {
                         name,
                         presence: RawPresence(opt),
                         data: value,
@@ -87,7 +87,7 @@ impl Layer01<'_> {
                 ColumnType::I8 | ColumnType::OptI8 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
-                    properties.push(Property::from(RawProperty::I8(RawScalar {
+                    properties.push(Property::Raw(RawProperty::I8(RawScalar {
                         name,
                         presence: RawPresence(opt),
                         data: value,
@@ -96,7 +96,7 @@ impl Layer01<'_> {
                 ColumnType::U8 | ColumnType::OptU8 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
-                    properties.push(Property::from(RawProperty::U8(RawScalar {
+                    properties.push(Property::Raw(RawProperty::U8(RawScalar {
                         name,
                         presence: RawPresence(opt),
                         data: value,
@@ -105,7 +105,7 @@ impl Layer01<'_> {
                 ColumnType::I32 | ColumnType::OptI32 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
-                    properties.push(Property::from(RawProperty::I32(RawScalar {
+                    properties.push(Property::Raw(RawProperty::I32(RawScalar {
                         name,
                         presence: RawPresence(opt),
                         data: value,
@@ -114,7 +114,7 @@ impl Layer01<'_> {
                 ColumnType::U32 | ColumnType::OptU32 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
-                    properties.push(Property::from(RawProperty::U32(RawScalar {
+                    properties.push(Property::Raw(RawProperty::U32(RawScalar {
                         name,
                         presence: RawPresence(opt),
                         data: value,
@@ -123,7 +123,7 @@ impl Layer01<'_> {
                 ColumnType::I64 | ColumnType::OptI64 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
-                    properties.push(Property::from(RawProperty::I64(RawScalar {
+                    properties.push(Property::Raw(RawProperty::I64(RawScalar {
                         name,
                         presence: RawPresence(opt),
                         data: value,
@@ -132,7 +132,7 @@ impl Layer01<'_> {
                 ColumnType::U64 | ColumnType::OptU64 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
-                    properties.push(Property::from(RawProperty::U64(RawScalar {
+                    properties.push(Property::Raw(RawProperty::U64(RawScalar {
                         name,
                         presence: RawPresence(opt),
                         data: value,
@@ -141,7 +141,7 @@ impl Layer01<'_> {
                 ColumnType::F32 | ColumnType::OptF32 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
-                    properties.push(Property::from(RawProperty::F32(RawScalar {
+                    properties.push(Property::Raw(RawProperty::F32(RawScalar {
                         name,
                         presence: RawPresence(opt),
                         data: value,
@@ -150,7 +150,7 @@ impl Layer01<'_> {
                 ColumnType::F64 | ColumnType::OptF64 => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
-                    properties.push(Property::from(RawProperty::F64(RawScalar {
+                    properties.push(Property::Raw(RawProperty::F64(RawScalar {
                         name,
                         presence: RawPresence(opt),
                         data: value,
@@ -159,12 +159,12 @@ impl Layer01<'_> {
                 ColumnType::Str | ColumnType::OptStr => {
                     let prop;
                     (input, prop) = parse_str_column(input, name, column.typ)?;
-                    properties.push(Property::from(prop));
+                    properties.push(Property::Raw(prop));
                 }
                 ColumnType::SharedDict => {
                     let prop;
                     (input, prop) = parse_shared_dict_column(input, &column)?;
-                    properties.push(Property::from(prop));
+                    properties.push(Property::Raw(prop));
                 }
             }
         }
@@ -186,34 +186,27 @@ impl Layer01<'_> {
     /// Decode only the ID column, leaving other columns in their encoded form.
     ///
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
-    pub fn decode_id(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
-        if let Some(id) = self.id.take() {
-            self.id = Some(Id::Parsed(id.decode(dec)?));
-        }
-        Ok(())
+    pub fn decode_id(&mut self, dec: &mut Decoder) -> Result<Option<&mut IdValues>, MltError> {
+        Ok(if let Some(id) = &mut self.id {
+            Some(id.decode(dec)?)
+        } else {
+            None
+        })
     }
 
     /// Decode only the geometry column, leaving other columns in their encoded form.
     ///
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
-    pub fn decode_geometry(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
-        // Swap out the geometry with a temporary default (Decoded(GeometryValues::default()))
-        // so we can take ownership of the raw value without unsafe code.
-        let geom = std::mem::replace(
-            &mut self.geometry,
-            Geometry::Parsed(GeometryValues::default()),
-        );
-        self.geometry = Geometry::Parsed(geom.decode(dec)?);
-        Ok(())
+    pub fn decode_geometry(&mut self, dec: &mut Decoder) -> Result<&mut GeometryValues, MltError> {
+        self.geometry.decode(dec)
     }
 
     /// Decode only the property columns, leaving other columns in their encoded form.
     ///
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
     pub fn decode_properties(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
-        let old_props = std::mem::take(&mut self.properties);
-        for prop in old_props {
-            self.properties.push(Property::Parsed(prop.decode(dec)?));
+        for prop in &mut self.properties {
+            prop.decode(dec)?;
         }
         Ok(())
     }

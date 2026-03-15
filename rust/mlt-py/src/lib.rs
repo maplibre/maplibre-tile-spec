@@ -276,12 +276,14 @@ fn decode_mlt(
         let geom = match &layer.geometry {
             Geometry::Parsed(g) => g,
             Geometry::Raw(_) => Err(PyValueError::new_err("geometry not decoded"))?,
+            Geometry::ParsingFailed => Err(PyValueError::new_err("geometry parse failed"))?,
         };
 
         let ids = match &layer.id {
             None => None,
             Some(Id::Parsed(decoded)) => Some(decoded.values()),
-            Some(Id::Raw(_)) => Err(PyValueError::new_err("id not decoded"))?,
+            Some(Id::Raw(_)) => Err(PyValueError::new_err("ID not decoded"))?,
+            Some(Id::ParsingFailed) => Err(PyValueError::new_err("ID parse failed"))?,
         };
 
         let props: Vec<&ParsedProperty> = layer

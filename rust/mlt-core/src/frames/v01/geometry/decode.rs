@@ -1,3 +1,4 @@
+use crate::enc_dec::Decode;
 use crate::utils::{AsUsize as _, SetOptionOnce as _};
 use crate::v01::{
     DictionaryType, GeometryType, GeometryValues, LengthType, OffsetType, RawGeometry, RawStream,
@@ -155,6 +156,12 @@ pub fn decode_level2_length_stream(
     }
 
     level2_buffer_offsets
+}
+
+impl Decode<GeometryValues> for RawGeometry<'_> {
+    fn decode(self, decoder: &mut Decoder) -> Result<GeometryValues, MltError> {
+        RawGeometry::decode(self, decoder)
+    }
 }
 
 impl RawGeometry<'_> {

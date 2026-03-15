@@ -60,7 +60,7 @@ fn roundtrip(staged: StagedProperty, expected: &StagedProperty, encoder: ScalarE
         .into_iter()
         .next()
         .expect("one property")
-        .decode(&mut dec)
+        .into_parsed(&mut dec)
         .expect("decode failed");
     assert_eq!(&result, expected);
 }
@@ -147,7 +147,7 @@ fn struct_encode_and_decode<F>(
         .into_iter()
         .next()
         .expect("one property")
-        .decode(&mut dec)
+        .into_parsed(&mut dec)
         .expect("decode failed");
     check(&result);
 }
@@ -483,7 +483,7 @@ fn struct_mixed_with_scalars() {
     let mut decoded_props: Vec<_> = layer
         .properties
         .into_iter()
-        .map(|p| p.decode(&mut dec).expect("decode failed"))
+        .map(|p| p.into_parsed(&mut dec).expect("decode failed"))
         .collect();
 
     // Output order: scalar "population", struct "name:", scalar "rank"
@@ -575,7 +575,7 @@ fn two_struct_groups_with_scalar_between() {
     let decoded_props: Vec<_> = layer
         .properties
         .into_iter()
-        .map(|p| p.decode(&mut dec).expect("decode failed"))
+        .map(|p| p.into_parsed(&mut dec).expect("decode failed"))
         .collect();
 
     // Output order: struct "name:", scalar "population", struct "label:"

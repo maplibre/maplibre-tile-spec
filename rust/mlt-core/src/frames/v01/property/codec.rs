@@ -1,14 +1,17 @@
+// TODO: break this into decode.rs and encode.rs
+
 use std::mem::size_of;
 
 use crate::Decoder;
 use crate::MltError::{self, NotImplemented, UnsupportedPropertyEncoderCombination};
+use crate::enc_dec::Decode;
 use crate::errors::AsMltError as _;
 use crate::utils::apply_present;
 use crate::v01::{
     DictionaryType, EncodedName, EncodedPresence, EncodedProperty, EncodedScalar, EncodedStream,
     EncodedStrings, LengthType, ParsedPresence, ParsedProperty, ParsedScalar, PresenceStream,
-    Property, PropertyEncoder, RawPresence, RawProperty, ScalarEncoder, ScalarValueEncoder,
-    StagedProperty, StagedScalar, StagedStrings, StrEncoder, encode_shared_dict_prop,
+    PropertyEncoder, RawPresence, RawProperty, ScalarEncoder, ScalarValueEncoder, StagedProperty,
+    StagedScalar, StagedStrings, StrEncoder, encode_shared_dict_prop,
 };
 
 #[cfg(all(not(test), feature = "arbitrary"))]
@@ -27,16 +30,6 @@ impl arbitrary::Arbitrary<'_> for StagedProperty {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
         let values: Vec<Option<u32>> = u.arbitrary()?;
         Ok(Self::u32("prop", values))
-    }
-}
-
-impl<'a> Property<'a> {
-    #[inline]
-    pub fn decode(self, dec: &mut Decoder) -> Result<ParsedProperty<'a>, MltError> {
-        match self {
-            Self::Raw(raw) => raw.decode(dec),
-            Self::Parsed(v) => Ok(v),
-        }
     }
 }
 
@@ -325,6 +318,12 @@ impl EncodedProperty {
 
 fn unapply_presence<T: Clone>(v: &[Option<T>]) -> Vec<T> {
     v.iter().filter_map(|x| x.as_ref()).cloned().collect()
+}
+
+impl<'a> Decode<ParsedProperty<'a>> for RawProperty<'a> {
+    fn decode(self, decoder: &mut Decoder) -> Result<ParsedProperty<'a>, MltError> {
+        RawProperty::decode(self, decoder)
+    }
 }
 
 impl<'a> RawProperty<'a> {

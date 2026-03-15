@@ -1,9 +1,16 @@
 use std::mem::size_of;
 
+use crate::enc_dec::Decode;
 use crate::errors::AsMltError as _;
 use crate::utils::apply_present;
 use crate::v01::{Id, IdValues, RawId, RawIdValue, RawStream};
 use crate::{Decoder, MltError};
+
+impl Decode<IdValues> for RawId<'_> {
+    fn decode(self, decoder: &mut Decoder) -> Result<IdValues, MltError> {
+        RawId::decode(self, decoder)
+    }
+}
 
 impl RawId<'_> {
     /// Decode into [`IdValues`], charging `dec` before each `Vec` allocation.
@@ -35,14 +42,6 @@ impl<'a> Id<'a> {
     #[must_use]
     pub fn new_raw(presence: Option<RawStream<'a>>, value: RawIdValue<'a>) -> Self {
         Self::Raw(RawId { presence, value })
-    }
-
-    #[inline]
-    pub fn decode(self, dec: &mut Decoder) -> Result<IdValues, MltError> {
-        match self {
-            Self::Raw(raw) => raw.decode(dec),
-            Self::Parsed(v) => Ok(v),
-        }
     }
 }
 

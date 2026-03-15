@@ -41,7 +41,7 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_encoder: IdEncoder) -> IdValues
     layer01
         .id
         .expect("expected id column")
-        .decode(&mut Decoder::default())
+        .into_parsed(&mut Decoder::default())
         .expect("decode failed")
 }
 
@@ -73,7 +73,7 @@ fn id_roundtrip_auto(decoded: &IdValues) -> IdValues {
     layer01
         .id
         .expect("expected id column")
-        .decode(&mut Decoder::default())
+        .into_parsed(&mut Decoder::default())
         .expect("decode failed")
 }
 
@@ -115,7 +115,7 @@ fn id_roundtrip_with_profile(decoded: &IdValues, profile: &IdProfile) -> IdValue
     layer01
         .id
         .expect("expected id column")
-        .decode(&mut Decoder::default())
+        .into_parsed(&mut Decoder::default())
         .expect("decode failed")
 }
 

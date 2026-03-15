@@ -26,12 +26,12 @@ impl Layer01<'_> {
     ///
     /// Callers do not need to pre-call `decode_all` on the source layer.
     pub fn into_tile(self, dec: &mut Decoder) -> Result<TileLayer01, MltError> {
-        let id = self.id.map(|id| id.decode(dec)).transpose()?;
-        let geometry = self.geometry.decode(dec)?;
+        let id = self.id.map(|id| id.into_parsed(dec)).transpose()?;
+        let geometry = self.geometry.into_parsed(dec)?;
         let properties: Vec<crate::v01::ParsedProperty<'_>> = self
             .properties
             .into_iter()
-            .map(|p| p.decode(dec))
+            .map(|p| p.into_parsed(dec))
             .collect::<Result<Vec<_>, _>>()?;
 
         let n = geometry.vector_types.len();
