@@ -136,7 +136,7 @@ pub struct StreamMeta {
 }
 
 /// Representation of an encoded stream
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct RawStream<'a> {
     pub meta: StreamMeta,
     pub data: RawStreamData<'a>,
@@ -149,7 +149,7 @@ pub struct EncodedStream {
     pub data: EncodedStreamData,
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum RawStreamData<'a> {
     VarInt(&'a [u8]),
     Encoded(&'a [u8]),

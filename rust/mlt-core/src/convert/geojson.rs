@@ -1,4 +1,5 @@
 //! `GeoJSON` -like data to represent decoded MLT data with i32 coordinates
+
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};

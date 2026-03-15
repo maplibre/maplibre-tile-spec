@@ -5,14 +5,14 @@ use crate::v01::{EncodedStream, RawStream};
 pub type Id<'a> = EncDec<RawId<'a>, IdValues>;
 
 /// Unparsed ID data as read directly from the tile (borrows from input bytes)
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct RawId<'a> {
     pub(crate) presence: Option<RawStream<'a>>,
     pub(crate) value: RawIdValue<'a>,
 }
 
 /// A sequence of raw ID values, either 32-bit or 64-bit unsigned integers
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum RawIdValue<'a> {
     Id32(RawStream<'a>),
     Id64(RawStream<'a>),

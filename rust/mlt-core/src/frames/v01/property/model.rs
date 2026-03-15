@@ -22,7 +22,7 @@ pub enum PropertyKind {
 }
 
 /// Raw scalar column (bool, integer, or float) as read directly from the tile.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RawScalar<'a> {
     pub name: &'a str,
     pub presence: RawPresence<'a>,
@@ -40,7 +40,7 @@ pub struct EncodedScalar {
 /// Raw encoding payload for a string column (plain, dictionary, or FSST variants).
 ///
 /// `RawStream` order matches the encoder: see `StringEncoder.encode()`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RawStringsEncoding<'a> {
     /// Plain: length stream + data stream
     Plain(RawPlainData<'a>),
@@ -74,7 +74,7 @@ pub enum EncodedStringsEncoding {
 }
 
 /// Raw string column as read directly from the tile.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RawStrings<'a> {
     pub name: &'a str,
     pub presence: RawPresence<'a>,
@@ -94,7 +94,7 @@ pub struct EncodedStrings {
 /// Unlike [`RawStringsEncoding`], shared dictionaries do NOT have their own offset stream.
 /// Instead, each child column has its own offset stream that references the shared dictionary.
 /// This is why only `Plain` and `FsstPlain` variants exist here.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RawSharedDictEncoding<'a> {
     /// Plain shared dict (2 streams): lengths + data.
     Plain(RawPlainData<'a>),
@@ -126,7 +126,7 @@ pub struct EncodedSharedDict {
 }
 
 /// Raw property data as read directly from the tile.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum RawProperty<'a> {
     Bool(RawScalar<'a>),
     I8(RawScalar<'a>),
@@ -279,7 +279,7 @@ pub struct EncodedSharedDictChild {
 }
 
 /// Raw plain data (length stream + data stream) borrowed from input bytes.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RawPlainData<'a> {
     pub lengths: RawStream<'a>,
     pub data: RawStream<'a>,
@@ -293,7 +293,7 @@ pub struct EncodedPlainData {
 }
 
 /// Raw FSST-compressed data (4 streams) borrowed from input bytes.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RawFsstData<'a> {
     pub symbol_lengths: RawStream<'a>,
     pub symbol_table: RawStream<'a>,
@@ -311,7 +311,7 @@ pub struct EncodedFsstData {
 }
 
 /// Raw presence/nullability stream borrowed from input bytes.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct RawPresence<'a>(pub Option<RawStream<'a>>);
 
 /// Wire-ready encoded presence/nullability stream (owns its byte buffers).
