@@ -2,6 +2,11 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::Decoder;
+
+fn dec() -> Decoder {
+    Decoder::default()
+}
+
 use mlt_core::v01::{
     DictionaryType, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
     EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, PhysicalEncoder,
@@ -193,7 +198,7 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
                         b.iter(|| {
                             black_box(
                                 borrow_enc_strings(encoded, "", None)
-                                    .decode(&mut Decoder::default())
+                                    .decode(&mut dec())
                                     .unwrap(),
                             )
                         });
@@ -226,7 +231,7 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
                         b.iter(|| {
                             black_box(
                                 borrow_enc_strings(encoded, "", None)
-                                    .decode(&mut Decoder::default())
+                                    .decode(&mut dec())
                                     .unwrap(),
                             )
                         });
@@ -253,7 +258,7 @@ fn bench_encoding_type(c: &mut Criterion) {
             b.iter(|| {
                 black_box(
                     borrow_enc_strings(encoded, "", None)
-                        .decode(&mut Decoder::default())
+                        .decode(&mut dec())
                         .unwrap(),
                 )
             });
@@ -264,7 +269,7 @@ fn bench_encoding_type(c: &mut Criterion) {
             b.iter(|| {
                 black_box(
                     borrow_enc_strings(encoded, "", None)
-                        .decode(&mut Decoder::default())
+                        .decode(&mut dec())
                         .unwrap(),
                 )
             });
@@ -293,7 +298,7 @@ fn bench_presence(c: &mut Criterion) {
                 b.iter(|| {
                     black_box(
                         borrow_enc_strings(encoded, "", None)
-                            .decode(&mut Decoder::default())
+                            .decode(&mut dec())
                             .unwrap(),
                     )
                 });
@@ -317,7 +322,7 @@ fn bench_presence(c: &mut Criterion) {
                     let p = pres.as_borrowed();
                     black_box(
                         borrow_enc_strings(enc, "", Some(p))
-                            .decode(&mut Decoder::default())
+                            .decode(&mut dec())
                             .unwrap(),
                     )
                 });
@@ -351,12 +356,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             b.iter(|| {
                 black_box(
                     borrow_enc_strings(encoded, "", None)
-                        .decode(&mut Decoder::default())
+                        .decode(&mut dec())
                         .unwrap(),
                 );
                 black_box(
                     borrow_enc_strings(encoded, "", None)
-                        .decode(&mut Decoder::default())
+                        .decode(&mut dec())
                         .unwrap(),
                 );
             });
@@ -408,7 +413,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
                 b.iter_batched(
                     || borrow_owned_shared_dict(sd),
                     |sd_ref: RawSharedDict<'_>| {
-                        black_box(sd_ref.decode(&mut Decoder::default()).unwrap())
+                        black_box(sd_ref.decode(&mut dec()).unwrap())
                     },
                     BatchSize::SmallInput,
                 );
@@ -434,7 +439,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             b.iter_batched(
                 || borrow_owned_shared_dict(sd),
                 |sd_ref: RawSharedDict<'_>| {
-                    black_box(sd_ref.decode(&mut Decoder::default()).unwrap())
+                    black_box(sd_ref.decode(&mut dec()).unwrap())
                 },
                 BatchSize::SmallInput,
             );
@@ -446,12 +451,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             b.iter(|| {
                 black_box(
                     borrow_enc_strings(encoded, "", None)
-                        .decode(&mut Decoder::default())
+                        .decode(&mut dec())
                         .unwrap(),
                 );
                 black_box(
                     borrow_enc_strings(encoded, "", None)
-                        .decode(&mut Decoder::default())
+                        .decode(&mut dec())
                         .unwrap(),
                 );
             });

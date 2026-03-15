@@ -14,7 +14,7 @@ use mlt_core::v01::{
     SharedDictItemEncoder, StagedProperty, StagedStrings, StrEncoder, VertexBufferType,
     build_staged_shared_dict,
 };
-use mlt_core::{Decoder, EncodedLayer, parse_layers};
+use mlt_core::{Decoder, EncodedLayer, Parser, parse_layers};
 
 /// Tessellate a polygon using the geo crate's earcut algorithm.
 ///
@@ -297,8 +297,9 @@ impl Layer {
         self.write_mlt(&path);
 
         let buffer = fs::read(&path).unwrap();
+        let mut parser = Parser::default();
+        let mut data = parse_layers(&buffer, &mut parser).unwrap();
         let mut dec = Decoder::default();
-        let mut data = parse_layers(&buffer, &mut dec).unwrap();
         let fc = FeatureCollection::from_layers(&mut data, &mut dec).unwrap();
         let mut json = serde_json::to_string_pretty(&fc).unwrap();
         json.push('\n');

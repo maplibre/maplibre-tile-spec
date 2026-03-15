@@ -3,7 +3,7 @@ use std::mem::size_of;
 use crate::enc_dec::Decode;
 use crate::errors::AsMltError as _;
 use crate::utils::apply_present;
-use crate::v01::{Id, IdValues, RawId, RawIdValue, RawStream};
+use crate::v01::{Id, IdValues, RawId, RawIdValue, RawPresence};
 use crate::{Decoder, MltError};
 
 impl Decode<IdValues> for RawId<'_> {
@@ -26,21 +26,13 @@ impl RawId<'_> {
             RawIdValue::Id64(stream) => stream.decode_u64s(dec)?,
         };
 
-        // apply_present expands the dense values into a sparse Vec<Option<u64>>.
-        // The presence-expanded output may be larger; charge the extra slots now.
-        let presence_count = presence
-            .as_ref()
-            .map_or(ids_u64.len(), |p| p.meta.num_values as usize);
-        let extra = presence_count.saturating_sub(ids_u64.len());
-        dec.consume(u32::try_from(extra * size_of::<Option<u64>>()).or_overflow()?)?;
-
         Ok(IdValues(apply_present(presence, ids_u64, dec)?))
     }
 }
 
 impl<'a> Id<'a> {
     #[must_use]
-    pub fn new_raw(presence: Option<RawStream<'a>>, value: RawIdValue<'a>) -> Self {
+    pub fn new_raw(presence: RawPresence<'a>, value: RawIdValue<'a>) -> Self {
         Self::Raw(RawId { presence, value })
     }
 }

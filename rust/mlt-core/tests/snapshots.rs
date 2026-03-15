@@ -1,11 +1,12 @@
 #![allow(unused)]
 
+use mlt_core::test_helpers::{dec, parser};
 use std::ffi::OsString;
 use std::fs;
 use std::path::Path;
 
 use insta::{assert_debug_snapshot, with_settings};
-use mlt_core::{Decoder, MemBudget, parse_layers};
+use mlt_core::parse_layers;
 use test_each_file::test_each_path;
 
 //
@@ -34,11 +35,11 @@ fn parse_one_file(path: impl AsRef<Path>) {
     eprintln!("Parsing MLT file: {}", path.display());
     let file_name = path.file_stem().unwrap().to_string_lossy().to_string();
     let buffer = fs::read(path).unwrap();
-    match parse_layers(&buffer, &mut MemBudget::default()) {
+    match parse_layers(&buffer, &mut parser()) {
         Ok(mut layers) => {
             assert_debug_snapshot!(format!("{file_name}-parsed"), layers);
             for layer in &mut layers {
-                if let Err(e) = layer.decode_all(&mut Decoder::default()) {
+                if let Err(e) = layer.decode_all(&mut dec()) {
                     assert_debug_snapshot!(format!("{file_name}___bad-decode"), e);
                     break;
                 }
@@ -79,6 +80,6 @@ fn test_plain() {
 
     let path = Path::new(path);
     let buffer = fs::read(path).unwrap();
-    parse_layers(&buffer, &mut MemBudget::default()).unwrap();
+    parse_layers(&buffer, &mut parser()).unwrap();
     // decode([&path]);
 }

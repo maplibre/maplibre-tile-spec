@@ -1,5 +1,5 @@
 use crate::EncDec;
-use crate::v01::{EncodedStream, RawStream};
+use crate::v01::{EncodedStream, RawPresence, RawStream};
 
 /// ID column representation, either raw (borrowed from bytes) or parsed.
 pub type Id<'a> = EncDec<RawId<'a>, IdValues>;
@@ -7,7 +7,7 @@ pub type Id<'a> = EncDec<RawId<'a>, IdValues>;
 /// Unparsed ID data as read directly from the tile (borrows from input bytes)
 #[derive(Debug, PartialEq, Clone)]
 pub struct RawId<'a> {
-    pub(crate) presence: Option<RawStream<'a>>,
+    pub(crate) presence: RawPresence<'a>,
     pub(crate) value: RawIdValue<'a>,
 }
 

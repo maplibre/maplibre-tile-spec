@@ -242,6 +242,7 @@ mod tests {
         decode_componentwise_delta_vec2s, decode_fastpfor_composite, decode_zigzag,
         decode_zigzag_delta,
     };
+    use crate::test_helpers::dec;
     use crate::v01::RleMeta;
 
     proptest! {
@@ -274,7 +275,7 @@ mod tests {
             let runs = u32::try_from(runs.len()).unwrap();
             let num_rle_values = u32::try_from(data.len()).unwrap();
             let rle = RleMeta { runs, num_rle_values };
-            let decoded = rle.decode(&combined, &mut crate::Decoder::default()).unwrap();
+            let decoded = rle.decode(&combined, &mut dec()).unwrap();
             prop_assert_eq!(data, decoded);
         }
 

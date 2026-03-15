@@ -1,10 +1,11 @@
+use mlt_core::test_helpers::{dec, parser};
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, GeometryValues, IntEncoder, Layer01, LogicalEncoder,
     ParsedProperty, PhysicalEncoder, PresenceStream, PropertyEncoder, ScalarEncoder,
     SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty,
     StagedStrings, StrEncoder, build_staged_shared_dict,
 };
-use mlt_core::{Decoder, MltError};
+use mlt_core::{MltError};
 use proptest::prelude::*;
 
 // proptest_derive::Arbitrary is only derived for these types inside the crate
@@ -53,14 +54,13 @@ fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
 
 fn roundtrip(staged: StagedProperty, expected: &StagedProperty, encoder: ScalarEncoder) {
     let bytes = props_to_layer_bytes(vec![staged], vec![PropertyEncoder::Scalar(encoder)]).unwrap();
-    let mut dec = Decoder::default();
-    let layer = Layer01::from_bytes(&bytes, &mut dec).expect("layer parse failed");
+    let layer = Layer01::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
     let result = layer
         .properties
         .into_iter()
         .next()
         .expect("one property")
-        .into_parsed(&mut dec)
+        .into_parsed(&mut dec())
         .expect("decode failed");
     assert_eq!(&result, expected);
 }
@@ -139,14 +139,13 @@ fn struct_encode_and_decode<F>(
 
     let bytes =
         props_to_layer_bytes(vec![decoded], vec![shared_enc.into()]).expect("encoding failed");
-    let mut dec = Decoder::default();
-    let layer = Layer01::from_bytes(&bytes, &mut dec).expect("layer parse failed");
+    let layer = Layer01::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
     let result = layer
         .properties
         .into_iter()
         .next()
         .expect("one property")
-        .into_parsed(&mut dec)
+        .into_parsed(&mut dec())
         .expect("decode failed");
     check(&result);
 }
@@ -477,12 +476,13 @@ fn struct_mixed_with_scalars() {
         PropertyEncoder::Scalar(scalar_enc),
     ];
     let bytes = props_to_layer_bytes(props, prop_encs).unwrap();
-    let mut dec = Decoder::default();
-    let layer = Layer01::from_bytes(&bytes, &mut dec).expect("layer parse failed");
+    let mut p = parser();
+    let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
+    let mut d = dec();
     let mut decoded_props: Vec<_> = layer
         .properties
         .into_iter()
-        .map(|p| p.into_parsed(&mut dec).expect("decode failed"))
+        .map(|p| p.into_parsed(&mut d).expect("decode failed"))
         .collect();
 
     // Output order: scalar "population", struct "name:", scalar "rank"
@@ -569,12 +569,13 @@ fn two_struct_groups_with_scalar_between() {
     ];
 
     let bytes = props_to_layer_bytes(props, prop_encs).unwrap();
-    let mut dec = Decoder::default();
-    let layer = Layer01::from_bytes(&bytes, &mut dec).expect("layer parse failed");
+    let mut p = parser();
+    let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
+    let mut d = dec();
     let decoded_props: Vec<_> = layer
         .properties
         .into_iter()
-        .map(|p| p.into_parsed(&mut dec).expect("decode failed"))
+        .map(|p| p.into_parsed(&mut d).expect("decode failed"))
         .collect();
 
     // Output order: struct "name:", scalar "population", struct "label:"

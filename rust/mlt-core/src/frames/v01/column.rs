@@ -4,13 +4,13 @@ use std::io::Write;
 use crate::MltError::ParsingColumnType;
 use crate::utils::{BinarySerializer as _, parse_string, parse_u8};
 use crate::v01::{Column, ColumnType};
-use crate::{MemBudget, MltRefResult};
+use crate::{MltRefResult, Parser};
 
 impl Column<'_> {
     /// Parse a single column definition
     pub fn from_bytes<'a>(
         input: &'a [u8],
-        _budget: &mut MemBudget,
+        _parser: &mut Parser,
     ) -> MltRefResult<'a, Column<'a>> {
         let (mut input, typ) = ColumnType::from_bytes(input)?;
         let name = if typ.has_name() {

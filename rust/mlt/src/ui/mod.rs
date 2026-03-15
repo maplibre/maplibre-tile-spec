@@ -22,7 +22,7 @@ use geo_types::Polygon;
 use mlt_core::geojson::{Coord32, FeatureCollection, Geom32};
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::GeometryType;
-use mlt_core::{Decoder, MemBudget, parse_layers};
+use mlt_core::{Decoder, Parser, parse_layers};
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -112,10 +112,9 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
 fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
     let buf = fs::read(path)?;
     if is_mlt_extension(path) {
-        Ok(FeatureCollection::from_layers(
-            &mut parse_layers(&buf, &mut MemBudget::default())?,
-            &mut Decoder::default(),
-        )?)
+        let mut parser = Parser::default();
+        let mut layers = parse_layers(&buf, &mut parser)?;
+        Ok(FeatureCollection::from_layers(&mut layers, &mut Decoder::default())?)
     } else {
         Ok(mvt_to_feature_collection(buf)?)
     }

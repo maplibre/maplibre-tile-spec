@@ -24,7 +24,7 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
     ) -> Result<Self, MltError> {
         Ok(Self {
             name,
-            values: apply_present(presence.0, values, dec)?,
+            values: apply_present(presence, values, dec)?,
         })
     }
 }

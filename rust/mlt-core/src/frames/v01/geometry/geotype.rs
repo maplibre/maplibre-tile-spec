@@ -367,8 +367,8 @@ mod tests {
 
     use super::*;
     use crate::geojson::Coord32;
+    use crate::test_helpers::{dec, parser};
     use crate::v01::{EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, RawGeometry};
-    use crate::{Decoder, MemBudget};
 
     /// Encode, serialize, parse, and decode a `GeometryValues`.
     /// The input must already be in the dense canonical form that `from_encoded`
@@ -380,11 +380,11 @@ mod tests {
         enc_geom.write_to(&mut buffer).expect("Failed to serialize");
 
         let (remaining, parsed) =
-            RawGeometry::from_bytes(&buffer, &mut MemBudget::default()).expect("Failed to parse");
+            RawGeometry::from_bytes(&buffer, &mut parser()).expect("Failed to parse");
         assert!(remaining.is_empty(), "Remaining bytes after parse");
 
         Geometry::Raw(parsed)
-            .into_parsed(&mut Decoder::default())
+            .into_parsed(&mut dec())
             .expect("Failed to decode")
     }
 
@@ -630,7 +630,6 @@ mod tests {
     /// This ensures `GeometryValues` always holds flat `(x, y)` pairs.
     #[test]
     fn test_morton_vertex_dictionary_expansion() {
-        use crate::Decoder;
         use crate::v01::{
             DictionaryType, EncodedStream, IntEncoder, LengthType, LogicalEncoding, MortonMeta,
             OffsetType, StreamMeta, StreamType,
@@ -692,10 +691,10 @@ mod tests {
         let mut buffer = Vec::new();
         owned.write_to(&mut buffer).unwrap();
         let (remaining, parsed) =
-            RawGeometry::from_bytes(&buffer, &mut MemBudget::default()).unwrap();
+            RawGeometry::from_bytes(&buffer, &mut parser()).unwrap();
         assert!(remaining.is_empty());
         let decoded = Geometry::Raw(parsed)
-            .into_parsed(&mut Decoder::default())
+            .into_parsed(&mut dec())
             .unwrap();
 
         assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));

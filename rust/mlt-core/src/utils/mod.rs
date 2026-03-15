@@ -17,7 +17,7 @@ pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt};
 use serde_json::{Number, Value};
 
 use crate::errors::AsMltError as _;
-use crate::v01::RawStream;
+use crate::v01::RawPresence;
 use crate::{Decoder, MltError};
 
 /// Convert f32 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
@@ -63,14 +63,14 @@ impl<T> SetOptionOnce<T> for Option<T> {
 }
 
 /// Apply an optional present bitmap to a vector of values.
-/// If present is None (non-optional column), all values are wrapped in Some.
-/// If present is Some, values are interleaved with None according to the bitmap.
+/// If the presence stream is absent (non-optional column), all values are wrapped in Some.
+/// If present, values are interleaved with None according to the bitmap.
 pub fn apply_present<T>(
-    present: Option<RawStream<'_>>,
+    presence: RawPresence<'_>,
     values: Vec<T>,
     dec: &mut Decoder,
 ) -> Result<Vec<Option<T>>, MltError> {
-    let present: Vec<bool> = if let Some(p) = present {
+    let present: Vec<bool> = if let Some(p) = presence.0 {
         p.decode_bools(dec)?
     } else {
         return Ok(values.into_iter().map(Some).collect());

@@ -333,7 +333,7 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::Decoder;
+    use crate::test_helpers::dec;
     use crate::MltError::InvalidDecodingStreamSize;
     use crate::v01::{DictionaryType, IntEncoding, PhysicalEncoding, StreamType};
 
@@ -356,7 +356,7 @@ mod tests {
             let (encoded, computed) = logical.encode_u32s(&values).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta, LogicalData::VecU32(encoded))
-                .decode_u32(&mut Decoder::default())
+                .decode_u32(&mut dec())
                 .unwrap();
             prop_assert_eq!(decoded, values);
         }
@@ -369,7 +369,7 @@ mod tests {
             let (encoded, computed) = logical.encode_i32s(&values).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta, LogicalData::VecU32(encoded))
-                .decode_i32(&mut Decoder::default())
+                .decode_i32(&mut dec())
                 .unwrap();
             prop_assert_eq!(decoded, values);
         }
@@ -382,7 +382,7 @@ mod tests {
             let (encoded, computed) = logical.encode_u64s(&values).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta, LogicalData::VecU64(encoded))
-                .decode_u64(&mut Decoder::default())
+                .decode_u64(&mut dec())
                 .unwrap();
             prop_assert_eq!(decoded, values);
         }
@@ -395,7 +395,7 @@ mod tests {
             let (encoded, computed) = logical.encode_i64s(&values).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta, LogicalData::VecU64(encoded))
-                .decode_i64(&mut Decoder::default())
+                .decode_i64(&mut dec())
                 .unwrap();
             prop_assert_eq!(decoded, values);
         }
@@ -408,7 +408,7 @@ mod tests {
             num_rle_values: 0,
         };
         assert!(
-            rle.decode::<u32>(&[], &mut Decoder::default())
+            rle.decode::<u32>(&[], &mut dec())
                 .unwrap()
                 .is_empty()
         );
@@ -423,7 +423,7 @@ mod tests {
         };
         let data = [1u32, 2, 3];
         let err = rle
-            .decode::<u32>(&data, &mut Decoder::default())
+            .decode::<u32>(&data, &mut dec())
             .unwrap_err();
         assert!(matches!(err, InvalidDecodingStreamSize(3, 4)));
     }

@@ -6,13 +6,13 @@ use rstest::rstest;
 use crate::utils::BinarySerializer as _;
 use crate::v01::stream::encoder::IntEncoder;
 use crate::v01::stream::logical::LogicalEncoder;
+use crate::test_helpers::{dec, parser};
 use crate::v01::{
     DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, LogicalData,
     LogicalEncoding, LogicalValue, MortonMeta, OffsetType, PhysicalEncoder, PhysicalEncoding,
     RawFsstData, RawPlainData, RawPresence, RawStream, RawStreamData, RawStrings,
     RawStringsEncoding, RleMeta, StagedStrings, StreamMeta, StreamType,
 };
-use crate::{Decoder, MemBudget};
 
 /// Test case for stream decoding tests
 #[derive(Debug)]
@@ -20,14 +20,6 @@ struct StreamTestCase {
     meta: StreamMeta,
     data: &'static [u8],
     expected_u32_logical_value: Option<LogicalValue>,
-}
-
-fn mem() -> MemBudget {
-    MemBudget::default()
-}
-
-fn dec() -> Decoder {
-    Decoder::default()
 }
 
 /// Generator function that creates a set of test cases for stream decoding
@@ -89,7 +81,7 @@ fn test_decode_bits_u32() {
     for test_case in test_cases {
         if let Some(expected_u32_logical_value) = &test_case.expected_u32_logical_value {
             let stream = create_stream_from_test_case(&test_case);
-            let result = stream.decode_bits_u32(&mut Decoder::default());
+            let result = stream.decode_bits_u32(&mut dec());
             assert!(result.is_ok(), "Should successfully decode LogicalValue");
             let logical_value = result.unwrap();
             assert_eq!(
@@ -127,7 +119,7 @@ fn test_decode_i32(
     #[case] input_data: Vec<u32>,
     #[case] expected: Vec<i32>,
 ) {
-    let result = make_logical_val(logical_encoding, input_data).decode_i32(&mut Decoder::default());
+    let result = make_logical_val(logical_encoding, input_data).decode_i32(&mut dec());
     assert!(result.is_ok(), "should decode successfully");
     assert_eq!(result.unwrap(), expected, "should match expected output");
 }
@@ -144,7 +136,7 @@ fn test_decode_u32(
     #[case] input_data: Vec<u32>,
     #[case] expected: Vec<u32>,
 ) {
-    let result = make_logical_val(logical_encoding, input_data).decode_u32(&mut Decoder::default());
+    let result = make_logical_val(logical_encoding, input_data).decode_u32(&mut dec());
     assert!(result.is_ok(), "should decode successfully");
     assert_eq!(result.unwrap(), expected, "should match expected output");
 }
@@ -161,14 +153,13 @@ fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
     let mut buffer = Vec::new();
     buffer.write_stream(&owned_stream).unwrap();
 
-    let (remaining, parsed_stream) =
-        RawStream::from_bytes(&buffer, &mut MemBudget::default()).unwrap();
+    let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
     assert!(remaining.is_empty());
 
     let decoded_values = parsed_stream
-        .decode_bits_u32(&mut Decoder::default())
+        .decode_bits_u32(&mut dec())
         .unwrap()
-        .decode_u32(&mut Decoder::default())
+        .decode_u32(&mut dec())
         .unwrap();
 
     assert_eq!(decoded_values, values);
@@ -221,9 +212,9 @@ fn test_stream_roundtrip(
 
     // Parse back
     let (remaining, parsed) = if is_bool {
-        RawStream::parse_bool(&buffer, &mut MemBudget::default()).unwrap()
+        RawStream::parse_bool(&buffer, &mut parser()).unwrap()
     } else {
-        RawStream::from_bytes(&buffer, &mut MemBudget::default()).unwrap()
+        RawStream::from_bytes(&buffer, &mut parser()).unwrap()
     };
 
     assert!(remaining.is_empty(), "{} bytes remain", remaining.len());
@@ -250,12 +241,11 @@ fn test_varint_stream_huge_num_values_empty_data() {
     // num_values = 0xd5 0xff 0xd5 0xff 0x03 = 1_073_053_653 (valid u32, 5-byte varint)
     // byte_length = 0x00 → 0 bytes of data
     let wire: &[u8] = &[0x00, 0x02, 0xd5, 0xff, 0xd5, 0xff, 0x03, 0x00];
-    let (remaining, stream) =
-        RawStream::from_bytes(wire, &mut MemBudget::default()).expect("parse must succeed");
+    let (remaining, stream) = RawStream::from_bytes(wire, &mut parser()).expect("parse must succeed");
     assert!(remaining.is_empty());
     assert_eq!(stream.meta.num_values, 1_073_053_653);
     // Decoding must return an error, not OOM or panic.
-    let result = stream.decode_bits_u32(&mut Decoder::default());
+    let result = stream.decode_bits_u32(&mut dec());
     assert!(
         result.is_err(),
         "decode must fail on empty data with huge num_values"
@@ -276,7 +266,7 @@ fn test_rle_num_rle_values_mismatch() {
     };
     // data = [run_len=1, value=42] (1 run of length 1 with value 42)
     let data = [1u32, 42u32];
-    let result = rle.decode::<u32>(&data, &mut Decoder::default());
+    let result = rle.decode::<u32>(&data, &mut dec());
     assert!(
         result.is_err(),
         "must reject mismatched num_rle_values before allocating"
@@ -298,10 +288,10 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut MemBudget::default()).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_i8s(&mut Decoder::default()).unwrap();
+        let decoded_values = parsed_stream.decode_i8s(&mut dec()).unwrap();
         assert_eq!(decoded_values, values);
     }
 
@@ -315,10 +305,10 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut MemBudget::default()).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_u8s(&mut Decoder::default()).unwrap();
+        let decoded_values = parsed_stream.decode_u8s(&mut dec()).unwrap();
         assert_eq!(decoded_values, values);
     }
 
@@ -332,7 +322,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut mem()).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_bits_u32(&mut dec()).unwrap().decode_u32(&mut dec()).unwrap();
@@ -350,7 +340,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut mem()).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_bits_u32(&mut dec()).unwrap().decode_i32(&mut dec()).unwrap();
@@ -368,7 +358,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut mem()).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_u64s(&mut dec()).unwrap();
@@ -386,7 +376,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut mem()).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_i64s(&mut dec()).unwrap();
@@ -401,7 +391,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut mem()).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_f32s(&mut dec()).unwrap();
@@ -422,7 +412,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut mem()).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_f64s(&mut dec()).unwrap();
@@ -453,7 +443,7 @@ proptest! {
 
         let mut parsed_streams = Vec::new();
         for buffer in &buffers {
-            let (remaining, parsed_stream) = RawStream::from_bytes(buffer, &mut mem()).unwrap();
+            let (remaining, parsed_stream) = RawStream::from_bytes(buffer, &mut parser()).unwrap();
             assert!(remaining.is_empty());
             parsed_streams.push(parsed_stream);
         }
