@@ -34,7 +34,7 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_encoder: IdEncoder) -> IdValues
     EncodedLayer::Tag01(layer_enc)
         .write_to(&mut buf)
         .expect("write_to failed");
-    let (_, layer) = Layer::parse(&buf).expect("parse failed");
+    let (_, layer) = Layer::from_bytes(&buf).expect("parse failed");
     let Layer::Tag01(layer01) = layer else {
         panic!("expected Tag01 layer");
     };
@@ -66,7 +66,7 @@ fn id_roundtrip_auto(decoded: &IdValues) -> IdValues {
     EncodedLayer::Tag01(encoded)
         .write_to(&mut buf)
         .expect("write_to failed");
-    let (_, layer) = Layer::parse(&buf).expect("parse failed");
+    let (_, layer) = Layer::from_bytes(&buf).expect("parse failed");
     let Layer::Tag01(layer01) = layer else {
         panic!("expected Tag01 layer");
     };
@@ -107,7 +107,7 @@ fn id_roundtrip_with_profile(decoded: &IdValues, profile: &IdProfile) -> IdValue
     EncodedLayer::Tag01(encoded)
         .write_to(&mut buf)
         .expect("write_to failed");
-    let (_, layer) = Layer::parse(&buf).expect("parse failed");
+    let (_, layer) = Layer::from_bytes(&buf).expect("parse failed");
     let Layer::Tag01(layer01) = layer else {
         panic!("expected Tag01 layer");
     };

@@ -264,7 +264,7 @@ mod tests {
         let mut buf = Vec::new();
         encoded.write_to(&mut buf).expect("serialize failed");
 
-        let (remaining, parsed) = RawGeometry::parse(&buf).expect("parse failed");
+        let (remaining, parsed) = RawGeometry::from_bytes(&buf).expect("parse failed");
         assert!(
             remaining.is_empty(),
             "unexpected trailing bytes after parse"

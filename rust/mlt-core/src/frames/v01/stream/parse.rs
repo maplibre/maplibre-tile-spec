@@ -39,10 +39,10 @@ impl StreamMeta {
     /// automatically instead of reading them from the input.
     ///
     /// Returns the stream metadata and the size of the stream in bytes
-    pub(super) fn parse(input: &[u8], is_bool: bool) -> MltRefResult<'_, (Self, u32)> {
+    pub(super) fn from_bytes(input: &[u8], is_bool: bool) -> MltRefResult<'_, (Self, u32)> {
         use crate::v01::LogicalTechnique as LT;
 
-        let (input, stream_type) = StreamType::parse(input)?;
+        let (input, stream_type) = StreamType::from_bytes(input)?;
         let (input, val) = parse_u8(input)?;
         let logical1 = LT::parse(val >> 5)?;
         let logical2 = LT::parse((val >> 2) & 0x7)?;
@@ -195,30 +195,30 @@ impl<'a> RawStream<'a> {
         }
     }
 
-    pub fn parse(input: &'a [u8]) -> MltRefResult<'a, Self> {
-        Self::parse_internal(input, false)
+    pub fn from_bytes(input: &'a [u8]) -> MltRefResult<'a, Self> {
+        Self::from_bytes_internal(input, false)
     }
 
     pub fn parse_multiple(mut input: &'a [u8], count: usize) -> MltRefResult<'a, Vec<Self>> {
         let mut result = Vec::with_capacity(count);
         for _ in 0..count {
             let stream;
-            (input, stream) = RawStream::parse_internal(input, false)?;
+            (input, stream) = RawStream::from_bytes_internal(input, false)?;
             result.push(stream);
         }
         Ok((input, result))
     }
 
     pub fn parse_bool(input: &'a [u8]) -> MltRefResult<'a, Self> {
-        Self::parse_internal(input, true)
+        Self::from_bytes_internal(input, true)
     }
 
     /// Parse stream from the input
     /// If `is_bool` is true, compute RLE parameters for boolean streams
     /// automatically instead of reading them from the input.
-    fn parse_internal(input: &'a [u8], is_bool: bool) -> MltRefResult<'a, Self> {
+    fn from_bytes_internal(input: &'a [u8], is_bool: bool) -> MltRefResult<'a, Self> {
         use PhysicalEncoding as PD;
-        let (input, (meta, byte_length)) = StreamMeta::parse(input, is_bool)?;
+        let (input, (meta, byte_length)) = StreamMeta::from_bytes(input, is_bool)?;
 
         let (input, data) = take(input, byte_length)?;
 

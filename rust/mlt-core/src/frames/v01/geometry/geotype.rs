@@ -379,7 +379,7 @@ mod tests {
         let mut buffer = Vec::new();
         enc_geom.write_to(&mut buffer).expect("Failed to serialize");
 
-        let (remaining, parsed) = RawGeometry::parse(&buffer).expect("Failed to parse");
+        let (remaining, parsed) = RawGeometry::from_bytes(&buffer).expect("Failed to parse");
         assert!(remaining.is_empty(), "Remaining bytes after parse");
 
         Geometry::Raw(parsed)
@@ -689,7 +689,7 @@ mod tests {
         };
         let mut buffer = Vec::new();
         owned.write_to(&mut buffer).unwrap();
-        let (remaining, parsed) = RawGeometry::parse(&buffer).unwrap();
+        let (remaining, parsed) = RawGeometry::from_bytes(&buffer).unwrap();
         assert!(remaining.is_empty());
         let decoded = Geometry::Raw(parsed)
             .into_parsed(&mut Decoder::default())

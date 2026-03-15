@@ -47,7 +47,7 @@ fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLaye
         .write_to(&mut buf)
         .expect("write_to failed");
 
-    let (remaining, layer_back) = Layer::parse(&buf).expect("parse failed");
+    let (remaining, layer_back) = Layer::from_bytes(&buf).expect("parse failed");
     assert!(remaining.is_empty());
 
     let Layer::Tag01(layer01) = layer_back else {

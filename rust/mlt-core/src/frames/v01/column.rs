@@ -8,8 +8,8 @@ use crate::v01::{Column, ColumnType};
 
 impl Column<'_> {
     /// Parse a single column definition
-    pub fn parse(input: &[u8]) -> MltRefResult<'_, Column<'_>> {
-        let (mut input, typ) = ColumnType::parse(input)?;
+    pub fn from_bytes(input: &[u8]) -> MltRefResult<'_, Column<'_>> {
+        let (mut input, typ) = ColumnType::from_bytes(input)?;
         let name = if typ.has_name() {
             let pair = parse_string(input)?;
             input = pair.0;
@@ -31,7 +31,7 @@ impl Column<'_> {
 
 impl ColumnType {
     /// Parse a column type from u8
-    pub fn parse(input: &[u8]) -> MltRefResult<'_, Self> {
+    pub fn from_bytes(input: &[u8]) -> MltRefResult<'_, Self> {
         let (input, value) = parse_u8(input)?;
         let value = Self::try_from(value).or(Err(ParsingColumnType(value)))?;
         Ok((input, value))

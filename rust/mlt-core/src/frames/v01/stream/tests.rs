@@ -153,7 +153,7 @@ fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
     let mut buffer = Vec::new();
     buffer.write_stream(&owned_stream).unwrap();
 
-    let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
+    let (remaining, parsed_stream) = RawStream::from_bytes(&buffer).unwrap();
     assert!(remaining.is_empty());
 
     let mut dec = Decoder::default();
@@ -215,7 +215,7 @@ fn test_stream_roundtrip(
     let (remaining, parsed) = if is_bool {
         RawStream::parse_bool(&buffer).unwrap()
     } else {
-        RawStream::parse(&buffer).unwrap()
+        RawStream::from_bytes(&buffer).unwrap()
     };
 
     assert!(remaining.is_empty(), "{} bytes remain", remaining.len());
@@ -242,7 +242,7 @@ fn test_varint_stream_huge_num_values_empty_data() {
     // num_values = 0xd5 0xff 0xd5 0xff 0x03 = 1_073_053_653 (valid u32, 5-byte varint)
     // byte_length = 0x00 → 0 bytes of data
     let wire: &[u8] = &[0x00, 0x02, 0xd5, 0xff, 0xd5, 0xff, 0x03, 0x00];
-    let (remaining, stream) = RawStream::parse(wire).expect("parse must succeed");
+    let (remaining, stream) = RawStream::from_bytes(wire).expect("parse must succeed");
     assert!(remaining.is_empty());
     assert_eq!(stream.meta.num_values, 1_073_053_653);
     // Decoding must return an error, not OOM or panic.
@@ -289,7 +289,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_i8s(&mut Decoder::default()).unwrap();
@@ -306,7 +306,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_u8s(&mut Decoder::default()).unwrap();
@@ -323,7 +323,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let mut dec = Decoder::default();
@@ -342,7 +342,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let mut dec = Decoder::default();
@@ -361,7 +361,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_u64s(&mut Decoder::default()).unwrap();
@@ -379,7 +379,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_i64s(&mut Decoder::default()).unwrap();
@@ -394,7 +394,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_f32s(&mut Decoder::default()).unwrap();
@@ -415,7 +415,7 @@ proptest! {
         let mut buffer = Vec::new();
         buffer.write_stream(&owned_stream).unwrap();
 
-        let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
+        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer).unwrap();
         assert!(remaining.is_empty());
 
         let decoded_values = parsed_stream.decode_f64s(&mut Decoder::default()).unwrap();
@@ -446,7 +446,7 @@ proptest! {
 
         let mut parsed_streams = Vec::new();
         for buffer in &buffers {
-            let (remaining, parsed_stream) = RawStream::parse(buffer).unwrap();
+            let (remaining, parsed_stream) = RawStream::from_bytes(buffer).unwrap();
             assert!(remaining.is_empty());
             parsed_streams.push(parsed_stream);
         }

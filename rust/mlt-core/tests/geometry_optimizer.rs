@@ -205,7 +205,7 @@ fn manual_encode_works() {
 fn assert_geometry_roundtrip(encoded: &EncodedGeometry, expected: &GeometryValues) {
     let mut buf = Vec::new();
     encoded.write_to(&mut buf).expect("write_to failed");
-    let (inp, raw) = RawGeometry::parse(&buf).expect("parse failed");
+    let (inp, raw) = RawGeometry::from_bytes(&buf).expect("parse failed");
     assert_eq!(inp.len(), 0, "expected all bytes to be consumed in parse");
     let result = raw.decode(&mut Decoder::default()).unwrap();
     assert_eq!(expected, &result);

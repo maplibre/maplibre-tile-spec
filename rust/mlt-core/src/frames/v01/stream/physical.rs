@@ -8,7 +8,7 @@ use crate::v01::{
 use crate::{MltError, MltRefResult};
 
 impl StreamType {
-    pub fn parse(input: &'_ [u8]) -> MltRefResult<'_, Self> {
+    pub fn from_bytes(input: &'_ [u8]) -> MltRefResult<'_, Self> {
         let (input, value) = parse_u8(input)?;
         let pt = Self::from_u8(value).ok_or(ParsingStreamType(value))?;
         Ok((input, pt))

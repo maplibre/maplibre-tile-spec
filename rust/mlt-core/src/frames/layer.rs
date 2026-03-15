@@ -39,7 +39,7 @@ impl<'a> Layer<'a> {
     }
 
     /// Parse a single tuple that consists of `size (varint)`, `tag (varint)`, and `value (bytes)`
-    pub fn parse(input: &'a [u8]) -> MltRefResult<'a, Layer<'a>> {
+    pub fn from_bytes(input: &'a [u8]) -> MltRefResult<'a, Layer<'a>> {
         let (input, size) = parse_varint::<u32>(input)?;
 
         // tag is a varint, but we know fewer than 127 tags for now,
@@ -51,7 +51,7 @@ impl<'a> Layer<'a> {
 
         let layer = match tag {
             // For now, we only support tag 0x01 layers, but more will be added soon
-            1 => Layer::Tag01(Layer01::parse(value)?),
+            1 => Layer::Tag01(Layer01::from_bytes(value)?),
             tag => Layer::Unknown(Unknown { tag, value }),
         };
 

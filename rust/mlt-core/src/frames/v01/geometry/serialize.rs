@@ -13,7 +13,7 @@ use crate::v01::{
 
 impl<'a> RawGeometry<'a> {
     /// Parse encoded geometry from bytes (expects varint stream count + streams)
-    pub fn parse(input: &'a [u8]) -> crate::MltRefResult<'a, Self> {
+    pub fn from_bytes(input: &'a [u8]) -> crate::MltRefResult<'a, Self> {
         let (input, stream_count) = parse_varint::<u32>(input)?;
         let stream_count = stream_count.as_usize();
         if stream_count == 0 {
@@ -33,7 +33,7 @@ impl<'a> RawGeometry<'a> {
             ));
         }
 
-        let (input, meta) = RawStream::parse(input)?;
+        let (input, meta) = RawStream::from_bytes(input)?;
         let (input, items) = RawStream::parse_multiple(input, stream_count - 1)?;
 
         Ok((input, Self { meta, items }))

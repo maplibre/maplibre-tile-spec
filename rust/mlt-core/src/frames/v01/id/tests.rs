@@ -167,7 +167,7 @@ fn roundtrip_id_values(decoded: &IdValues, config: IdEncoder) -> Result<IdValues
     EncodedLayer::Tag01(layer_enc)
         .write_to(&mut buf)
         .map_err(MltError::from)?;
-    let (_, layer) = Layer::parse(&buf)?;
+    let (_, layer) = Layer::from_bytes(&buf)?;
     let Layer::Tag01(layer01) = layer else {
         return Err(MltError::NotDecoded("expected Tag01 layer"));
     };
