@@ -54,6 +54,7 @@ impl ScalarEncoder {
     }
 }
 
+/// FIXME: uncertain why we need this, delete?
 impl From<ScalarEncoder> for PropertyEncoder {
     fn from(encoder: ScalarEncoder) -> Self {
         Self::Scalar(encoder)

@@ -7,7 +7,7 @@ use std::ops::Deref;
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{Geometry, GeometryValues, Id, ParsedProperty, Property};
-use mlt_core::{MltError, parse_layers};
+use mlt_core::{Decoder, MltError, parse_layers};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
@@ -257,9 +257,10 @@ fn decode_mlt(
     tms: bool,
 ) -> PyResult<Vec<MltLayer>> {
     let mut layers = parse_layers(data).map_err(mlt_err)?;
+    let mut dec = Decoder::default();
     let mut result = Vec::with_capacity(layers.len());
     for layer in &mut layers {
-        layer.decode_all().map_err(mlt_err)?;
+        layer.decode_all(&mut dec).map_err(mlt_err)?;
 
         let layer = layer
             .as_layer01()
@@ -309,10 +310,8 @@ fn decode_mlt_to_geojson(
     #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
 ) -> PyResult<String> {
     let mut layers = parse_layers(data).map_err(mlt_err)?;
-    for layer in &mut layers {
-        layer.decode_all().map_err(mlt_err)?;
-    }
-    let fc = FeatureCollection::from_layers(&mut layers).map_err(mlt_err)?;
+    let mut dec = Decoder::default();
+    let fc = FeatureCollection::from_layers(&mut layers, &mut dec).map_err(mlt_err)?;
     serde_json::to_string(&fc).map_err(|e| PyValueError::new_err(format!("JSON error: {e}")))
 }
 
@@ -345,6 +344,8 @@ define_stub_info_gatherer!(stub_info);
 mod tests {
     use std::f64::consts::PI;
     use std::fs;
+
+    use mlt_core::Decoder;
 
     use super::*;
 
@@ -436,16 +437,19 @@ mod tests {
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
         let mut layers = parse_layers(&data).expect("parse_layers should succeed");
+        let mut dec = Decoder::default();
         for layer in &mut layers {
-            layer.decode_all().expect("decode_all should succeed");
+            layer
+                .decode_all(&mut dec)
+                .expect("decode_all should succeed");
         }
 
         assert!(!layers.is_empty(), "should parse at least one layer");
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
         assert!(!l.name.is_empty(), "layer name should be non-empty");
 
-        let fc =
-            FeatureCollection::from_layers(&mut layers).expect("FeatureCollection should succeed");
+        let fc = FeatureCollection::from_layers(&mut layers, &mut Decoder::default())
+            .expect("FeatureCollection should succeed");
         assert!(
             !fc.features.is_empty(),
             "feature collection should have features"
@@ -459,8 +463,11 @@ mod tests {
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
         let mut layers = parse_layers(&data).expect("parse_layers should succeed");
+        let mut dec = Decoder::default();
         for layer in &mut layers {
-            layer.decode_all().expect("decode_all should succeed");
+            layer
+                .decode_all(&mut dec)
+                .expect("decode_all should succeed");
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
@@ -488,8 +495,11 @@ mod tests {
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
         let mut layers = parse_layers(&data).expect("parse_layers should succeed");
+        let mut dec = Decoder::default();
         for layer in &mut layers {
-            layer.decode_all().expect("decode_all should succeed");
+            layer
+                .decode_all(&mut dec)
+                .expect("decode_all should succeed");
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
@@ -520,8 +530,11 @@ mod tests {
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
         let mut layers = parse_layers(&data).expect("parse_layers should succeed");
+        let mut dec = Decoder::default();
         for layer in &mut layers {
-            layer.decode_all().expect("decode_all should succeed");
+            layer
+                .decode_all(&mut dec)
+                .expect("decode_all should succeed");
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");

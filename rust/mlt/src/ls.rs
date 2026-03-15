@@ -17,7 +17,7 @@ use mlt_core::v01::{
     DictionaryType, Geometry, GeometryType, LengthType, LogicalEncoding, OffsetType,
     PhysicalEncoding, StreamType,
 };
-use mlt_core::{Analyze as _, parse_layers};
+use mlt_core::{Analyze as _, Decoder, parse_layers};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
@@ -567,8 +567,9 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<
     let mut data_size = 0;
     let mut meta_size = 0;
 
+    let mut dec = Decoder::default();
     for layer in &mut layers {
-        layer.decode_all()?;
+        layer.decode_all(&mut dec)?;
         if let Some(layer01) = layer.as_layer01() {
             data_size += layer01.collect_statistic(DecodedDataSize);
             meta_size += layer01.collect_statistic(DecodedMetaSize);
@@ -588,7 +589,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<
             let expected: FeatureCollection =
                 serde_json::from_str(&fs::read_to_string(&json_path)?)
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
-            let actual = FeatureCollection::from_layers(&mut layers)?;
+            let actual = FeatureCollection::from_layers(&mut layers, &mut dec)?;
             let expected_val = normalize_tiny_floats(serde_json::to_value(&expected)?);
             let actual_val = normalize_tiny_floats(serde_json::to_value(&actual)?);
             Some(json_values_equal(&expected_val, &actual_val))

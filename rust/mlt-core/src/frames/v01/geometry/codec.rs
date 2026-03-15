@@ -1,5 +1,5 @@
+use crate::Decoder;
 use crate::MltError::{self, NotImplemented};
-use crate::decode::{Decode, DecodeInto as _};
 use crate::utils::{AsUsize as _, SetOptionOnce as _};
 use crate::v01::geometry::decode::{
     decode_geometry_types, decode_level1_length_stream,
@@ -10,9 +10,13 @@ use crate::v01::{
     DictionaryType, GeometryType, GeometryValues, LengthType, OffsetType, RawGeometry, StreamType,
 };
 
-impl<'a> Decode<RawGeometry<'a>> for GeometryValues {
-    fn decode(RawGeometry { meta, items }: RawGeometry<'a>) -> Result<Self, MltError> {
-        let vector_types = decode_geometry_types(&meta)?;
+impl RawGeometry<'_> {
+    /// Decode into [`GeometryValues`], charging `dec` before each `Vec<T>`
+    /// allocation.  All streams carry `num_values` in their metadata so every
+    /// charge is pre-hoc.
+    pub fn decode(self, dec: &mut Decoder) -> Result<GeometryValues, MltError> {
+        let RawGeometry { meta, items } = self;
+        let vector_types = decode_geometry_types(meta, dec)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;
         let mut part_offsets: Option<Vec<u32>> = None;
         let mut ring_offsets: Option<Vec<u32>> = None;
@@ -26,7 +30,7 @@ impl<'a> Decode<RawGeometry<'a>> for GeometryValues {
                 StreamType::Present => {}
                 StreamType::Data(v) => match v {
                     DictionaryType::Vertex | DictionaryType::Morton => {
-                        vertices.set_once(stream.decode_into()?)?;
+                        vertices.set_once(stream.decode_i32s(dec)?)?;
                     }
                     _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                 },
@@ -36,7 +40,7 @@ impl<'a> Decode<RawGeometry<'a>> for GeometryValues {
                         OffsetType::Index => &mut index_buffer,
                         _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
-                    target.set_once(stream.decode_into()?)?;
+                    target.set_once(stream.decode_u32s(dec)?)?;
                 }
                 StreamType::Length(v) => {
                     let target = match v {
@@ -46,8 +50,7 @@ impl<'a> Decode<RawGeometry<'a>> for GeometryValues {
                         LengthType::Triangles => &mut triangles,
                         _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
-                    // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamEncoding<T>
-                    target.set_once(stream.decode_into()?)?;
+                    target.set_once(stream.decode_u32s(dec)?)?;
                 }
             }
         }

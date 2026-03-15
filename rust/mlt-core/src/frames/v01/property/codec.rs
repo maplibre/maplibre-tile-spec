@@ -1,6 +1,8 @@
-use crate::Decodable as _;
+use std::mem::size_of;
+
+use crate::Decoder;
 use crate::MltError::{self, NotImplemented, UnsupportedPropertyEncoderCombination};
-use crate::decode::{Decode, DecodeInto as _};
+use crate::errors::AsMltError as _;
 use crate::utils::apply_present;
 use crate::v01::{
     DictionaryType, EncodedName, EncodedPresence, EncodedProperty, EncodedScalar, EncodedStream,
@@ -30,15 +32,11 @@ impl arbitrary::Arbitrary<'_> for StagedProperty {
 
 impl<'a> Property<'a> {
     #[inline]
-    pub fn decode(self) -> Result<ParsedProperty<'a>, MltError> {
-        Ok(match self {
-            Self::Encoded(v) => v.decode_into()?,
-            Self::Decoded(v) => v,
-        })
-    }
-
-    pub fn decoded_property(&mut self) -> Result<&ParsedProperty<'a>, MltError> {
-        Ok(self.materialize()?)
+    pub fn decode(self, dec: &mut Decoder) -> Result<ParsedProperty<'a>, MltError> {
+        match self {
+            Self::Encoded(raw) => raw.decode(dec),
+            Self::Decoded(v) => Ok(v),
+        }
     }
 }
 
@@ -52,10 +50,11 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
         name: &'a str,
         presence: RawPresence<'a>,
         values: Vec<T>,
+        dec: &mut Decoder,
     ) -> Result<Self, MltError> {
         Ok(Self {
             name,
-            values: apply_present(presence.0, values)?,
+            values: apply_present(presence.0, values, dec)?,
         })
     }
 }
@@ -69,25 +68,6 @@ impl ParsedPresence {
     #[must_use]
     pub fn feature_count(&self, non_null_count: usize) -> usize {
         self.0.as_ref().map_or(non_null_count, Vec::len)
-    }
-}
-
-impl From<Vec<bool>> for ParsedPresence {
-    fn from(values: Vec<bool>) -> Self {
-        if values.iter().all(|v| *v) {
-            Self(None)
-        } else {
-            Self(Some(values))
-        }
-    }
-}
-
-impl From<Option<Vec<bool>>> for ParsedPresence {
-    fn from(values: Option<Vec<bool>>) -> Self {
-        match values {
-            Some(values) => Self::from(values),
-            None => Self::default(),
-        }
     }
 }
 
@@ -347,57 +327,49 @@ fn unapply_presence<T: Clone>(v: &[Option<T>]) -> Vec<T> {
     v.iter().filter_map(|x| x.as_ref()).cloned().collect()
 }
 
-impl<'a> Decode<RawProperty<'a>> for ParsedProperty<'a> {
-    fn decode(v: RawProperty<'a>) -> Result<ParsedProperty<'a>, MltError> {
-        use RawProperty as E;
-        Ok(match v {
-            E::Bool(s) => Self::Bool(ParsedScalar::from_parts(
-                s.name,
-                s.presence,
-                s.data.decode_into()?,
-            )?),
-            E::I8(s) => Self::I8(ParsedScalar::from_parts(
-                s.name,
-                s.presence,
-                s.data.decode_into()?,
-            )?),
-            E::U8(s) => Self::U8(ParsedScalar::from_parts(
-                s.name,
-                s.presence,
-                s.data.decode_into()?,
-            )?),
-            E::I32(s) => Self::I32(ParsedScalar::from_parts(
-                s.name,
-                s.presence,
-                s.data.decode_into()?,
-            )?),
-            E::U32(s) => Self::U32(ParsedScalar::from_parts(
-                s.name,
-                s.presence,
-                s.data.decode_into()?,
-            )?),
-            E::I64(s) => Self::I64(ParsedScalar::from_parts(
-                s.name,
-                s.presence,
-                s.data.decode_into()?,
-            )?),
-            E::U64(s) => Self::U64(ParsedScalar::from_parts(
-                s.name,
-                s.presence,
-                s.data.decode_into()?,
-            )?),
-            E::F32(s) => Self::F32(ParsedScalar::from_parts(
-                s.name,
-                s.presence,
-                s.data.decode_into()?,
-            )?),
-            E::F64(s) => Self::F64(ParsedScalar::from_parts(
-                s.name,
-                s.presence,
-                s.data.decode_into()?,
-            )?),
-            E::Str(s) => Self::Str(s.into_decoded()?),
-            E::SharedDict(s) => Self::SharedDict(s.into_decoded()?),
+impl<'a> RawProperty<'a> {
+    /// Decode into a [`ParsedProperty`], charging `dec` for every heap allocation.
+    ///
+    /// For scalar columns the output size is known from stream metadata, so
+    /// the budget is charged *before* decoding.  For string and shared-dict
+    /// columns the exact decoded size depends on compression, so the budget is
+    /// charged *after* decoding based on actual allocation sizes.
+    pub fn decode(self, dec: &mut Decoder) -> Result<ParsedProperty<'a>, MltError> {
+        /// Charge for the final `Vec<Option<T>>`, then decode the dense stream.
+        /// `$decode_method` is the typed `RawStream` method for element type `$ty`.
+        macro_rules! scalar_decode {
+            ($variant:ident, $ty:ty, $decode_method:ident, $s:expr) => {{
+                let s = $s;
+                let feature_count = s
+                    .presence
+                    .0
+                    .as_ref()
+                    .map_or(s.data.meta.num_values, |p| p.meta.num_values);
+                dec.consume(
+                    feature_count
+                        .saturating_mul(u32::try_from(size_of::<Option<$ty>>()).or_overflow()?),
+                )?;
+                ParsedProperty::$variant(ParsedScalar::from_parts(
+                    s.name,
+                    s.presence,
+                    s.data.$decode_method(dec)?,
+                    dec,
+                )?)
+            }};
+        }
+
+        Ok(match self {
+            Self::Bool(s) => scalar_decode!(Bool, bool, decode_bools, s),
+            Self::I8(s) => scalar_decode!(I8, i8, decode_i8s, s),
+            Self::U8(s) => scalar_decode!(U8, u8, decode_u8s, s),
+            Self::I32(s) => scalar_decode!(I32, i32, decode_i32s, s),
+            Self::U32(s) => scalar_decode!(U32, u32, decode_u32s, s),
+            Self::I64(s) => scalar_decode!(I64, i64, decode_i64s, s),
+            Self::U64(s) => scalar_decode!(U64, u64, decode_u64s, s),
+            Self::F32(s) => scalar_decode!(F32, f32, decode_f32s, s),
+            Self::F64(s) => scalar_decode!(F64, f64, decode_f64s, s),
+            Self::Str(s) => ParsedProperty::Str(s.decode(dec)?),
+            Self::SharedDict(s) => ParsedProperty::SharedDict(s.decode(dec)?),
         })
     }
 }
@@ -418,25 +390,6 @@ impl StagedProperty {
             Self::F64(v) => &v.name,
             Self::Str(v) => &v.name,
             Self::SharedDict(v) => &v.prefix,
-        }
-    }
-}
-
-// `Into<&'static str>` for error messages
-impl From<&StagedProperty> for &'static str {
-    fn from(v: &StagedProperty) -> Self {
-        match v {
-            StagedProperty::Bool(_) => "bool",
-            StagedProperty::I8(_) => "i8",
-            StagedProperty::U8(_) => "u8",
-            StagedProperty::I32(_) => "i32",
-            StagedProperty::U32(_) => "u32",
-            StagedProperty::I64(_) => "i64",
-            StagedProperty::U64(_) => "u64",
-            StagedProperty::F32(_) => "f32",
-            StagedProperty::F64(_) => "f64",
-            StagedProperty::Str(_) => "str",
-            StagedProperty::SharedDict(_) => "shared_dict",
         }
     }
 }

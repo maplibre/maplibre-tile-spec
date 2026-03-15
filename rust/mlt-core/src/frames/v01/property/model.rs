@@ -114,7 +114,7 @@ pub enum EncodedSharedDictEncoding {
 pub struct RawSharedDict<'a> {
     pub name: &'a str,
     pub encoding: RawSharedDictEncoding<'a>,
-    pub children: Vec<RawSharedDictChild<'a>>,
+    pub children: Vec<RawSharedDictItem<'a>>,
 }
 
 /// Wire-ready encoded shared-dictionary column (owns its byte buffers).
@@ -122,11 +122,11 @@ pub struct RawSharedDict<'a> {
 pub struct EncodedSharedDict {
     pub name: EncodedName,
     pub encoding: EncodedSharedDictEncoding,
-    pub children: Vec<EncodedSharedDictChild>,
+    pub children: Vec<EncodedSharedDictItem>,
 }
 
 /// Raw property data as read directly from the tile.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum RawProperty<'a> {
     Bool(RawScalar<'a>),
     I8(RawScalar<'a>),
@@ -183,7 +183,8 @@ pub enum ParsedProperty<'a> {
 /// The `Encoded` variant holds wire-ready data after the `Staged*` → `Encoded*`
 /// encoding step has been applied. This allows `StagedLayer01` to hold a mix of
 /// staged and encoded properties before serialization.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
 pub enum StagedProperty {
     Bool(StagedScalar<bool>),
     I8(StagedScalar<i8>),
@@ -264,7 +265,7 @@ pub enum PresenceStream {
 
 /// A single child field within a `SharedDict` raw column
 #[derive(Clone, Debug, PartialEq)]
-pub struct RawSharedDictChild<'a> {
+pub struct RawSharedDictItem<'a> {
     pub name: &'a str,
     pub presence: RawPresence<'a>,
     pub data: RawStream<'a>,
@@ -272,7 +273,7 @@ pub struct RawSharedDictChild<'a> {
 
 /// Wire-ready encoded shared dict child column (owns its byte buffers).
 #[derive(Clone, Debug, PartialEq)]
-pub struct EncodedSharedDictChild {
+pub struct EncodedSharedDictItem {
     pub name: EncodedName,
     pub presence: EncodedPresence,
     pub data: EncodedStream,

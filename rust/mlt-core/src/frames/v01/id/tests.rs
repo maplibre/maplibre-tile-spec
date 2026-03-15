@@ -12,7 +12,7 @@ use crate::v01::{
     GeometryEncoder, GeometryValues, IntEncoder, LogicalEncoder, StagedLayer01,
     StagedLayer01Encoder,
 };
-use crate::{EncodedLayer, Layer, MltError};
+use crate::{Decoder, EncodedLayer, Layer, MltError};
 
 // Test that each config produces the correct variant and optional stream presence
 #[rstest]
@@ -174,7 +174,7 @@ fn roundtrip_id_values(decoded: &IdValues, config: IdEncoder) -> Result<IdValues
     let id = layer01
         .id
         .ok_or(MltError::NotDecoded("expected id column"))?;
-    id.decode()
+    id.decode(&mut Decoder::default())
 }
 
 fn assert_produces_correct_variant(

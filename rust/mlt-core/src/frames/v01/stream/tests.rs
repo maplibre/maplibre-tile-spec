@@ -3,7 +3,7 @@
 use proptest::prelude::*;
 use rstest::rstest;
 
-use crate::decode::DecodeInto as _;
+use crate::Decoder;
 use crate::utils::BinarySerializer as _;
 use crate::v01::stream::encoder::IntEncoder;
 use crate::v01::stream::logical::LogicalEncoder;
@@ -81,7 +81,7 @@ fn test_decode_bits_u32() {
     for test_case in test_cases {
         if let Some(expected_u32_logical_value) = &test_case.expected_u32_logical_value {
             let stream = create_stream_from_test_case(&test_case);
-            let result = stream.decode_bits_u32();
+            let result = stream.decode_bits_u32(&mut Decoder::default());
             assert!(result.is_ok(), "Should successfully decode LogicalValue");
             let logical_value = result.unwrap();
             assert_eq!(
@@ -119,7 +119,7 @@ fn test_decode_i32(
     #[case] input_data: Vec<u32>,
     #[case] expected: Vec<i32>,
 ) {
-    let result = make_logical_val(logical_encoding, input_data).decode_i32();
+    let result = make_logical_val(logical_encoding, input_data).decode_i32(&mut Decoder::default());
     assert!(result.is_ok(), "should decode successfully");
     assert_eq!(result.unwrap(), expected, "should match expected output");
 }
@@ -136,7 +136,7 @@ fn test_decode_u32(
     #[case] input_data: Vec<u32>,
     #[case] expected: Vec<u32>,
 ) {
-    let result = make_logical_val(logical_encoding, input_data).decode_u32();
+    let result = make_logical_val(logical_encoding, input_data).decode_u32(&mut Decoder::default());
     assert!(result.is_ok(), "should decode successfully");
     assert_eq!(result.unwrap(), expected, "should match expected output");
 }
@@ -156,10 +156,11 @@ fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
     let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
     assert!(remaining.is_empty());
 
+    let mut dec = Decoder::default();
     let decoded_values = parsed_stream
-        .decode_bits_u32()
+        .decode_bits_u32(&mut dec)
         .unwrap()
-        .decode_u32()
+        .decode_u32(&mut dec)
         .unwrap();
 
     assert_eq!(decoded_values, values);
@@ -245,7 +246,7 @@ fn test_varint_stream_huge_num_values_empty_data() {
     assert!(remaining.is_empty());
     assert_eq!(stream.meta.num_values, 1_073_053_653);
     // Decoding must return an error, not OOM or panic.
-    let result = stream.decode_bits_u32();
+    let result = stream.decode_bits_u32(&mut Decoder::default());
     assert!(
         result.is_err(),
         "decode must fail on empty data with huge num_values"
@@ -267,7 +268,7 @@ fn test_rle_num_rle_values_mismatch() {
     };
     // data = [run_len=1, value=42] (1 run of length 1 with value 42)
     let data = [1u32, 42u32];
-    let result = rle.decode::<u32>(&data);
+    let result = rle.decode::<u32>(&data, &mut Decoder::default());
     assert!(
         result.is_err(),
         "must reject mismatched num_rle_values before allocating"
@@ -292,7 +293,7 @@ proptest! {
         let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values: Vec<i8> = parsed_stream.decode_into().unwrap();
+        let decoded_values = parsed_stream.decode_i8s(&mut Decoder::default()).unwrap();
         assert_eq!(decoded_values, values);
     }
 
@@ -309,7 +310,7 @@ proptest! {
         let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values: Vec<u8> = parsed_stream.decode_into().unwrap();
+        let decoded_values = parsed_stream.decode_u8s(&mut Decoder::default()).unwrap();
         assert_eq!(decoded_values, values);
     }
 
@@ -326,7 +327,8 @@ proptest! {
         let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_bits_u32().unwrap().decode_u32().unwrap();
+        let mut dec = Decoder::default();
+        let decoded_values = parsed_stream.decode_bits_u32(&mut dec).unwrap().decode_u32(&mut dec).unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -344,7 +346,8 @@ proptest! {
         let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values = parsed_stream.decode_bits_u32().unwrap().decode_i32().unwrap();
+        let mut dec = Decoder::default();
+        let decoded_values = parsed_stream.decode_bits_u32(&mut dec).unwrap().decode_i32(&mut dec).unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -362,7 +365,7 @@ proptest! {
         let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values: Vec<u64> = parsed_stream.decode_into().unwrap();
+        let decoded_values = parsed_stream.decode_u64s(&mut Decoder::default()).unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -380,7 +383,7 @@ proptest! {
         let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values: Vec<i64> = parsed_stream.decode_into().unwrap();
+        let decoded_values = parsed_stream.decode_i64s(&mut Decoder::default()).unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -395,7 +398,7 @@ proptest! {
         let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values: Vec<f32> = parsed_stream.decode_into().unwrap();
+        let decoded_values = parsed_stream.decode_f32s(&mut Decoder::default()).unwrap();
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {
             assert_eq!(
@@ -416,7 +419,7 @@ proptest! {
         let (remaining, parsed_stream) = RawStream::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
 
-        let decoded_values: Vec<f64> = parsed_stream.decode_into().unwrap();
+        let decoded_values = parsed_stream.decode_f64s(&mut Decoder::default()).unwrap();
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {
             assert_eq!(
@@ -474,7 +477,7 @@ proptest! {
             ).unwrap(),
             n => panic!("unexpected stream count {n}"),
         };
-        let decoded_values = RawStrings { name: "", presence: RawPresence(None), encoding: strings_encoding }.into_decoded().unwrap();
+        let decoded_values = RawStrings { name: "", presence: RawPresence(None), encoding: strings_encoding }.decode(&mut Decoder::default()).unwrap();
         let expected = StagedStrings::from(values.into_iter().map(Some).collect::<Vec<_>>());
         assert_eq!(decoded_values, expected);
     }

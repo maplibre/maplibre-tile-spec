@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::parse_layers;
+use mlt_core::{Decoder, parse_layers};
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
@@ -48,9 +48,10 @@ fn bench_mlt_decode_all(c: &mut Criterion) {
                         .collect::<Vec<_>>()
                 },
                 |mut mlt| {
+                    let mut dec = Decoder::default();
                     for layers in &mut mlt {
                         for layer in layers.iter_mut() {
-                            layer.decode_all().expect("mlt decode_all failed");
+                            layer.decode_all(&mut dec).expect("mlt decode_all failed");
                         }
                     }
                     black_box(mlt);

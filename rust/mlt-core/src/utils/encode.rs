@@ -274,7 +274,7 @@ mod tests {
             let runs = u32::try_from(runs.len()).unwrap();
             let num_rle_values = u32::try_from(data.len()).unwrap();
             let rle = RleMeta { runs, num_rle_values };
-            let decoded = rle.decode(&combined).unwrap();
+            let decoded = rle.decode(&combined, &mut crate::Decoder::default()).unwrap();
             prop_assert_eq!(data, decoded);
         }
 

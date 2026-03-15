@@ -229,16 +229,18 @@ docs *args='--open':
     DOCS_RS=1 cargo doc --no-deps {{args}} --features fastpfor-cpp,arbitrary --package mlt-core
 
 alias f := fmt
+fmt: (_fmt) (_fmt '--manifest-path' 'mlt-core/fuzz/Cargo.toml')
+
 # Reformat code. If nightly is available, use it for better results.
-fmt:
+_fmt *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     if (rustup toolchain list | grep nightly && rustup component list --toolchain nightly | grep rustfmt) &> /dev/null; then
         echo 'Reformatting Rust code using nightly Rust fmt to sort imports'
-        cargo +nightly fmt --all -- --config imports_granularity=Module,group_imports=StdExternalCrate
+        cargo +nightly fmt --all {{ARGS}} -- --config imports_granularity=Module,group_imports=StdExternalCrate
     else
         echo 'Reformatting Rust with the stable cargo fmt.  Install nightly with `rustup install nightly` for better results'
-        cargo fmt --all
+        cargo fmt --all {{ARGS}}
     fi
 
 # Reformat all Cargo.toml files (installs `cargo sort`)

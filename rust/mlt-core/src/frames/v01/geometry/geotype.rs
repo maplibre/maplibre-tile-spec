@@ -405,6 +405,7 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
+    use crate::Decoder;
     use crate::geojson::Coord32;
     use crate::v01::{EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, RawGeometry};
 
@@ -421,7 +422,7 @@ mod tests {
         assert!(remaining.is_empty(), "Remaining bytes after parse");
 
         Geometry::Encoded(parsed)
-            .decode()
+            .decode(&mut Decoder::default())
             .expect("Failed to decode")
     }
 
@@ -729,7 +730,9 @@ mod tests {
         owned.write_to(&mut buffer).unwrap();
         let (remaining, parsed) = RawGeometry::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
-        let decoded = Geometry::Encoded(parsed).decode().unwrap();
+        let decoded = Geometry::Encoded(parsed)
+            .decode(&mut Decoder::default())
+            .unwrap();
 
         assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));
 

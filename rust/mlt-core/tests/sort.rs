@@ -1,4 +1,5 @@
 use geo_types::{Coord, LineString, Point};
+use mlt_core::Decoder;
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     GeometryEncoder, GeometryType, GeometryValues, IntEncoder, SortStrategy, StagedLayer01Encoder,
@@ -7,6 +8,7 @@ use mlt_core::v01::{
 
 /// Build row-oriented tile layer from geometries and IDs (one feature per geometry).
 fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
+    assert_eq!(geoms.len(), ids.len());
     TileLayer01 {
         name: "test".to_string(),
         extent: 4096,
@@ -25,13 +27,12 @@ fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
 
 /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer01`.
 /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
-fn sort_encode_decode(tile: TileLayer01, strategy: SortStrategy) -> TileLayer01 {
+fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLayer01 {
     use mlt_core::{EncodedLayer, Layer};
 
     let tile_encoder = Tile01Encoder {
         sort_strategy: Some(strategy),
     };
-    let mut tile = tile;
     let staged = tile_encoder.encode(&mut tile);
     let stream_encoder = StagedLayer01Encoder {
         id: None, // auto-encode IDs
@@ -53,7 +54,9 @@ fn sort_encode_decode(tile: TileLayer01, strategy: SortStrategy) -> TileLayer01 
         panic!("expected Tag01 layer");
     };
 
-    TileLayer01::try_from(layer01).expect("decode after sort failed")
+    layer01
+        .into_tile(&mut Decoder::default())
+        .expect("decode after sort failed")
 }
 
 fn pt(x: i32, y: i32) -> Geom32 {

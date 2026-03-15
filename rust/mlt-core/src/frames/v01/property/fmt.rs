@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug};
 
 use crate::utils::FmtOptVec;
-use crate::v01::{ParsedProperty, ParsedScalar};
+use crate::v01::ParsedProperty;
 
 /// Custom implementation to ensure values are printed without newlines
 impl Debug for ParsedProperty<'_> {
@@ -63,13 +63,5 @@ impl Debug for ParsedProperty<'_> {
                 .field(&shared_dict.items)
                 .finish(),
         }
-    }
-}
-
-// for impl_decodable
-// FIXME: try to remove
-impl Default for ParsedProperty<'_> {
-    fn default() -> Self {
-        Self::Bool(ParsedScalar::new("", Vec::new()))
     }
 }
