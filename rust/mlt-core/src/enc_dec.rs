@@ -19,12 +19,6 @@ pub enum EncDec<Raw, Parsed> {
     ParsingFailed,
 }
 
-impl<Raw: Decode<Parsed>, Parsed> From<Raw> for EncDec<Raw, Parsed> {
-    fn from(raw: Raw) -> Self {
-        Self::Raw(raw)
-    }
-}
-
 impl<Raw: Decode<Parsed>, Parsed> EncDec<Raw, Parsed> {
     /// Decode in place; use the type-specific `decode(self, dec)` when you need to consume and get the value.
     pub fn decode_in_place(&mut self, decoder: &mut Decoder) -> Result<&mut Parsed, MltError> {
