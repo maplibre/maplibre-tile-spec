@@ -378,7 +378,7 @@ function createStreamMetadata(
 ): StreamMetadata {
     return {
         physicalStreamType: PhysicalStreamType.DATA,
-        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
+        logicalStreamType: { dictionaryType: DictionaryType.NONE },
         logicalLevelTechnique1: logicalTechnique1,
         logicalLevelTechnique2: logicalTechnique2,
         physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
@@ -396,7 +396,7 @@ function createRleMetadata(
 ): RleEncodedStreamMetadata {
     return {
         physicalStreamType: PhysicalStreamType.DATA,
-        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
+        logicalStreamType: { dictionaryType: DictionaryType.NONE },
         logicalLevelTechnique1: logicalTechnique1,
         logicalLevelTechnique2: logicalTechnique2,
         physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
