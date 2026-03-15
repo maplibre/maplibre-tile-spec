@@ -184,7 +184,13 @@ function decodeIdColumn(
     const idDataType = scalarTypeMetadata.longID ? ScalarType.UINT_64 : ScalarType.UINT_32;
     const nullabilityBuffer = typeof sizeOrNullabilityBuffer === "number" ? undefined : sizeOrNullabilityBuffer;
 
-    const vectorType = getVectorType(idDataStreamMetadata, sizeOrNullabilityBuffer, tile, offset);
+    const vectorType = getVectorType(
+        idDataStreamMetadata,
+        sizeOrNullabilityBuffer,
+        tile,
+        offset,
+        idDataType === ScalarType.UINT_64 ? "int64" : "int32",
+    );
     if (idDataType === ScalarType.UINT_32) {
         switch (vectorType) {
             case VectorType.FLAT: {
