@@ -63,7 +63,7 @@ pub struct Layer01<'a> {
     pub geometry: Geometry<'a>,
     pub properties: Vec<Property<'a>>,
     #[cfg(fuzzing)]
-    pub layer_order: Vec<crate::frames::v01::root::LayerOrdering>,
+    pub layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
 }
 
 /// Columnar layer data being prepared for encoding (stage 2 of the encoding pipeline).
@@ -93,7 +93,7 @@ pub struct EncodedLayer01 {
     pub geometry: EncodedGeometry,
     pub properties: Vec<EncodedProperty>,
     #[cfg(fuzzing)]
-    pub layer_order: Vec<crate::frames::v01::root::LayerOrdering>,
+    pub layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
 }
 
 /// Row-oriented working form for the optimizer.

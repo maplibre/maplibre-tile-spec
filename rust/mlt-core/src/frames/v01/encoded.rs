@@ -56,7 +56,7 @@ impl EncodedLayer01 {
     /// TODO: force item ordering to be stable in the spec
     #[cfg(fuzzing)]
     fn write_columns_meta_to(&self, writer: &mut impl Write) -> Result<(), MltError> {
-        use root::LayerOrdering;
+        use crate::frames::v01::fuzzing::LayerOrdering;
         let props = &mut self.properties.iter();
         for ord in &self.layer_order {
             match ord {
@@ -84,7 +84,7 @@ impl EncodedLayer01 {
     /// TODO: force item ordering to be stable in the spec
     #[cfg(fuzzing)]
     fn write_columns_to(&self, writer: &mut impl Write) -> Result<(), MltError> {
-        use root::LayerOrdering;
+        use crate::frames::v01::fuzzing::LayerOrdering;
         let props = &mut self.properties.iter();
         for ord in &self.layer_order {
             match ord {

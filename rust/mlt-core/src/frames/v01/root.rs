@@ -49,7 +49,7 @@ impl Layer01<'_> {
         let layer_order = col_info
             .iter()
             .map(|column| column.typ)
-            .map(LayerOrdering::from)
+            .map(crate::frames::v01::fuzzing::LayerOrdering::from)
             .collect();
 
         let mut properties = Vec::with_capacity(prop_count.as_usize());
