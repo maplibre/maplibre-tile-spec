@@ -6,4 +6,4 @@ export type LogicalStreamType = {
     readonly dictionaryType?: DictionaryType;
     readonly offsetType?: OffsetType;
     readonly lengthType?: LengthType;
-}
+};

@@ -99,17 +99,17 @@ function decodeStreamMetadataInternal(tile: Uint8Array, offset: IntWrapper): Str
     switch (physicalStreamType) {
         case PhysicalStreamType.DATA:
             logicalStreamType = {
-                dictionaryType: Object.values(DictionaryType)[stream_type & 0xf]
-            }
+                dictionaryType: Object.values(DictionaryType)[stream_type & 0xf],
+            };
             break;
         case PhysicalStreamType.OFFSET:
             logicalStreamType = {
-                offsetType: Object.values(OffsetType)[stream_type & 0xf]
+                offsetType: Object.values(OffsetType)[stream_type & 0xf],
             };
             break;
         case PhysicalStreamType.LENGTH:
             logicalStreamType = {
-                lengthType: Object.values(LengthType)[stream_type & 0xf]
+                lengthType: Object.values(LengthType)[stream_type & 0xf],
             };
             break;
     }
