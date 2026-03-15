@@ -4,7 +4,7 @@ use crate::v01::{
     Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01, Property,
     RawFsstData, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
     RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
-    StreamType,
+    StreamMeta, StreamType,
 };
 use crate::{Decoder, MltError, MltRefResult};
 
@@ -21,7 +21,7 @@ impl Analyze for Layer01<'_> {
         }
     }
 
-    fn for_each_stream(&self, cb: &mut dyn FnMut(crate::v01::StreamMeta)) {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         if let Some(ref id) = self.id {
             id.for_each_stream(cb);
         }
@@ -49,7 +49,7 @@ impl Layer01<'_> {
         let layer_order = col_info
             .iter()
             .map(|column| column.typ)
-            .map(LayerOrdering::from)
+            .map(crate::frames::v01::fuzzing::LayerOrdering::from)
             .collect();
 
         let mut properties = Vec::with_capacity(prop_count.as_usize());
@@ -417,29 +417,4 @@ fn parse_columns_meta(
     }
 
     Ok((input, (col_info, column_count - geometries - ids)))
-}
-
-#[cfg(fuzzing)]
-/// To make sure we serialize out in the same order as the original file, we need to store the order in which we parsed the columns
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-pub enum LayerOrdering {
-    Id,
-    Geometry,
-    Property,
-}
-
-#[cfg(fuzzing)]
-impl From<ColumnType> for LayerOrdering {
-    fn from(typ: ColumnType) -> Self {
-        use ColumnType::*;
-        match typ {
-            OptId | Id | LongId | OptLongId => Self::Id,
-            Bool | OptBool | I8 | OptI8 | U8 | OptU8 | I32 | OptI32 | U32 | OptU32 | I64
-            | OptI64 | U64 | OptU64 | F32 | OptF32 | F64 | OptF64 | Str | OptStr | SharedDict => {
-                Self::Property
-            }
-            Geometry => Self::Geometry,
-        }
-    }
 }

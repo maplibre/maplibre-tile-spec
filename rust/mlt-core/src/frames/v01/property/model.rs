@@ -4,7 +4,7 @@ use enum_dispatch::enum_dispatch;
 
 use crate::EncDec;
 use crate::analyse::{Analyze, StatType};
-use crate::v01::{EncodedStream, FsstStrEncoder, IntEncoder, RawStream};
+use crate::v01::{EncodedStream, FsstStrEncoder, IntEncoder, RawStream, StreamMeta};
 
 /// Owned name string (Stage 4/5)
 #[derive(Debug, Clone, PartialEq, Eq)]

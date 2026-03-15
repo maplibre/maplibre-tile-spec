@@ -3,7 +3,7 @@ use mlt_core::Decoder;
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     GeometryEncoder, GeometryType, GeometryValues, IntEncoder, SortStrategy, StagedLayer01Encoder,
-    Tile01Encoder, TileLayer01,
+    Tile01Encoder, TileFeature, TileLayer01,
 };
 
 /// Build row-oriented tile layer from geometries and IDs (one feature per geometry).
@@ -16,7 +16,7 @@ fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
         features: geoms
             .iter()
             .zip(ids.iter())
-            .map(|(g, &id)| mlt_core::v01::TileFeature {
+            .map(|(g, &id)| TileFeature {
                 id,
                 geometry: g.clone(),
                 properties: vec![],

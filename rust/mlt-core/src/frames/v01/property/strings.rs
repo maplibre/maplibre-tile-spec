@@ -10,11 +10,11 @@ use crate::MltError::{
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 use crate::v01::{
-    ColumnType, DictionaryType, EncodedFsstData, EncodedName, EncodedPlainData, EncodedProperty,
-    EncodedSharedDict, EncodedSharedDictEncoding, EncodedSharedDictItem, EncodedStream,
-    EncodedStrings, EncodedStringsEncoding, FsstStrEncoder, IntEncoder, LengthType, OffsetType,
-    ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, PresenceStream, PropertyEncoder,
-    RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictEncoding,
+    ColumnType, DictionaryType, EncodedFsstData, EncodedName, EncodedPlainData, EncodedPresence,
+    EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedSharedDictItem,
+    EncodedStream, EncodedStrings, EncodedStringsEncoding, FsstStrEncoder, IntEncoder, LengthType,
+    OffsetType, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, PresenceStream,
+    PropertyEncoder, RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictEncoding,
     RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding, SharedDictEncoder,
     StagedSharedDict, StagedSharedDictItem, StagedStrings, StrEncoder, StreamType,
 };
@@ -31,30 +31,6 @@ impl StrEncoder {
             symbol_lengths,
             dict_lengths,
         })
-    }
-}
-
-// ── StagedStrings / StagedSharedDict arbitrary impls ─────────────────────────
-// StagedStrings::Arbitrary is in codec.rs alongside the other Staged* impls.
-
-#[cfg(all(not(test), feature = "arbitrary"))]
-impl<'a> arbitrary::Arbitrary<'a> for StagedSharedDict {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        let items_raw: Vec<(String, Vec<Option<String>>)> = u.arbitrary()?;
-        if items_raw.is_empty() {
-            return Ok(Self {
-                prefix: u.arbitrary()?,
-                data: String::new(),
-                items: Vec::new(),
-            });
-        }
-        let prefix: String = u.arbitrary()?;
-        let staged_items: Vec<(String, StagedStrings)> = items_raw
-            .into_iter()
-            .map(|(suffix, vals)| (suffix, StagedStrings::from(vals)))
-            .collect();
-        build_staged_shared_dict(prefix, staged_items)
-            .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
 
@@ -793,7 +769,7 @@ pub fn encode_shared_dict_prop(
 
         children.push(EncodedSharedDictItem {
             name: EncodedName(item.suffix.clone()),
-            presence: crate::v01::EncodedPresence(presence),
+            presence: EncodedPresence(presence),
             data,
         });
     }

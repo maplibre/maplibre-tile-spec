@@ -20,7 +20,7 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
 use crate::MltError;
 use crate::utils::encode_zigzag;
-use crate::v01::property::codec::encode_properties;
+use crate::v01::property::encode::encode_properties;
 use crate::v01::property::strings::{build_staged_shared_dict, collect_staged_shared_dict_spans};
 use crate::v01::property::{
     PresenceStream, PropertyEncoder, ScalarEncoder, StagedProperty, StagedSharedDict,
@@ -314,11 +314,8 @@ fn merge_str_to_shared_dicts(properties: &mut Vec<StagedProperty>, groups: &[Vec
             .iter()
             .map(|&col_idx| {
                 let prop = &properties[col_idx];
-                let suffix = prop
-                    .name()
-                    .strip_prefix(&prefix)
-                    .unwrap_or(prop.name())
-                    .to_owned();
+                let name = prop.name();
+                let suffix = name.strip_prefix(&prefix).unwrap_or(name).to_owned();
                 let StagedProperty::Str(values) = prop else {
                     unreachable!("group should only contain Str columns");
                 };
@@ -329,8 +326,7 @@ fn merge_str_to_shared_dicts(properties: &mut Vec<StagedProperty>, groups: &[Vec
             .expect("building staged shared dictionary from string columns should succeed");
 
         // Replace first property with SharedDict
-        let first_idx = group[0];
-        properties[first_idx] = StagedProperty::SharedDict(shared_dict);
+        properties[group[0]] = StagedProperty::SharedDict(shared_dict);
 
         // Mark other properties for removal
         for &col_idx in &group[1..] {

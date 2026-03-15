@@ -1,6 +1,8 @@
 mod analyze;
 mod decode;
 mod encode;
+#[cfg(all(not(test), feature = "arbitrary"))]
+mod fuzzing;
 mod model;
 mod optimizer;
 mod serialize;

@@ -1,6 +1,7 @@
 mod column;
 mod compare;
 mod encoded;
+mod fuzzing;
 mod geometry;
 mod id;
 mod model;
@@ -16,7 +17,5 @@ pub use id::*;
 pub use model::*;
 pub use optimizer::*;
 pub use property::*;
-#[cfg(fuzzing)]
-pub use root::LayerOrdering;
 pub use sort::SortStrategy;
 pub use stream::*;

@@ -13,8 +13,9 @@ use std::mem::size_of;
 
 use crate::errors::AsMltError as _;
 use crate::v01::{
-    GeometryValues, IdValues, Layer01, PropValue, StagedLayer01, StagedProperty, StagedScalar,
-    StagedSharedDict, StagedStrings, TileFeature, TileLayer01, build_staged_shared_dict,
+    GeometryValues, IdValues, Layer01, ParsedProperty, PropValue, StagedLayer01, StagedProperty,
+    StagedScalar, StagedSharedDict, StagedStrings, TileFeature, TileLayer01,
+    build_staged_shared_dict,
 };
 use crate::{Decoder, MltError};
 
@@ -28,7 +29,7 @@ impl Layer01<'_> {
     pub fn into_tile(self, dec: &mut Decoder) -> Result<TileLayer01, MltError> {
         let id = self.id.map(|id| id.into_parsed(dec)).transpose()?;
         let geometry = self.geometry.into_parsed(dec)?;
-        let properties: Vec<crate::v01::ParsedProperty<'_>> = self
+        let properties: Vec<ParsedProperty<'_>> = self
             .properties
             .into_iter()
             .map(|p| p.into_parsed(dec))
@@ -39,7 +40,7 @@ impl Layer01<'_> {
         let mut property_names: Vec<String> = Vec::new();
         for prop in &properties {
             match prop {
-                crate::v01::ParsedProperty::SharedDict(sd) => {
+                ParsedProperty::SharedDict(sd) => {
                     for item in &sd.items {
                         property_names.push(format!("{}{}", sd.prefix, item.suffix));
                     }
@@ -88,11 +89,7 @@ impl Layer01<'_> {
 
 /// Extract the per-feature value at index `i` from a parsed property column
 /// and push it (or them, for `SharedDict`) into `out`.
-fn extract_parsed_values(
-    prop: &crate::v01::ParsedProperty<'_>,
-    i: usize,
-    out: &mut Vec<PropValue>,
-) {
+fn extract_parsed_values(prop: &ParsedProperty<'_>, i: usize, out: &mut Vec<PropValue>) {
     use crate::v01::ParsedProperty as P;
     match prop {
         P::Bool(s) => out.push(PropValue::Bool(s.values[i])),
