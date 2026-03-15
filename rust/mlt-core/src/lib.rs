@@ -15,17 +15,20 @@ pub mod utils;
 
 pub use analyse::{Analyze, StatType};
 pub use convert::{geojson, mvt};
-pub use decoder::Decoder;
+pub use decoder::{Decoder, MemBudget};
 pub use enc_dec::{Decode, EncDec};
 pub use errors::{MltError, MltRefResult};
 pub use frames::{EncodedLayer, Layer, StagedLayer, unknown, v01};
 
-/// Parse a sequence of binary layers
-pub fn parse_layers(mut input: &[u8]) -> Result<Vec<Layer<'_>>, MltError> {
+/// Parse a sequence of binary layers, reserving decoded memory against `budget`.
+pub fn parse_layers<'a>(
+    mut input: &'a [u8],
+    budget: &mut MemBudget,
+) -> Result<Vec<Layer<'a>>, MltError> {
     let mut result = Vec::new();
     while !input.is_empty() {
         let layer;
-        (input, layer) = Layer::from_bytes(input)?;
+        (input, layer) = Layer::from_bytes(input, budget)?;
         result.push(layer);
     }
     Ok(result)

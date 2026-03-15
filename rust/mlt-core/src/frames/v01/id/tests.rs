@@ -12,7 +12,7 @@ use crate::v01::{
     GeometryEncoder, GeometryValues, IntEncoder, LogicalEncoder, StagedLayer01,
     StagedLayer01Encoder,
 };
-use crate::{Decoder, EncodedLayer, Layer, MltError};
+use crate::{Decoder, EncodedLayer, Layer, MemBudget, MltError};
 
 // Test that each config produces the correct variant and optional stream presence
 #[rstest]
@@ -167,7 +167,7 @@ fn roundtrip_id_values(decoded: &IdValues, config: IdEncoder) -> Result<IdValues
     EncodedLayer::Tag01(layer_enc)
         .write_to(&mut buf)
         .map_err(MltError::from)?;
-    let (_, layer) = Layer::from_bytes(&buf)?;
+    let (_, layer) = Layer::from_bytes(&buf, &mut MemBudget::default())?;
     let Layer::Tag01(layer01) = layer else {
         return Err(MltError::NotDecoded("expected Tag01 layer"));
     };

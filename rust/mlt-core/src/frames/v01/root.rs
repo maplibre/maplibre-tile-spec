@@ -6,7 +6,7 @@ use crate::v01::{
     RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
     StreamMeta, StreamType,
 };
-use crate::{Decoder, MltError, MltRefResult};
+use crate::{Decoder, MemBudget, MltError, MltRefResult};
 
 impl Analyze for Layer01<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
@@ -31,8 +31,11 @@ impl Analyze for Layer01<'_> {
 }
 
 impl Layer01<'_> {
-    /// Parse `v01::Layer` metadata
-    pub fn from_bytes(input: &[u8]) -> Result<Layer01<'_>, MltError> {
+    /// Parse `v01::Layer` metadata, reserving decoded memory against `budget`.
+    pub fn from_bytes<'a>(
+        input: &'a [u8],
+        budget: &mut MemBudget,
+    ) -> Result<Layer01<'a>, MltError> {
         let (input, layer_name) = parse_string(input)?;
         let (input, extent) = parse_varint::<u32>(input)?;
         let (input, column_count) = parse_varint::<u32>(input)?;
@@ -44,7 +47,7 @@ impl Layer01<'_> {
 
         // !!!!!!!
         // WARNING: make sure to never use `let (input, ...)` after this point: input var is reused
-        let (mut input, (col_info, prop_count)) = parse_columns_meta(input, column_count)?;
+        let (mut input, (col_info, prop_count)) = parse_columns_meta(input, column_count, budget)?;
         #[cfg(fuzzing)]
         let layer_order = col_info
             .iter()
@@ -65,71 +68,71 @@ impl Layer01<'_> {
 
             match column.typ {
                 ColumnType::Id | ColumnType::OptId => {
-                    (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = RawStream::from_bytes(input)?;
+                    (input, opt) = parse_optional(column.typ, input, budget)?;
+                    (input, value) = RawStream::from_bytes(input, budget)?;
                     id_column.set_once(Id::new_raw(opt, RawIdValue::Id32(value)))?;
                 }
                 ColumnType::LongId | ColumnType::OptLongId => {
-                    (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = RawStream::from_bytes(input)?;
+                    (input, opt) = parse_optional(column.typ, input, budget)?;
+                    (input, value) = RawStream::from_bytes(input, budget)?;
                     id_column.set_once(Id::new_raw(opt, RawIdValue::Id64(value)))?;
                 }
                 ColumnType::Geometry => {
-                    input = parse_geometry_column(input, &mut geometry)?;
+                    input = parse_geometry_column(input, &mut geometry, budget)?;
                 }
                 ColumnType::Bool | ColumnType::OptBool => {
-                    (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = RawStream::parse_bool(input)?;
+                    (input, opt) = parse_optional(column.typ, input, budget)?;
+                    (input, value) = RawStream::parse_bool(input, budget)?;
                     properties.push(Property::Raw(RP::Bool(scalar(name, opt, value))));
                 }
                 ColumnType::I8 | ColumnType::OptI8 => {
-                    (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = RawStream::from_bytes(input)?;
+                    (input, opt) = parse_optional(column.typ, input, budget)?;
+                    (input, value) = RawStream::from_bytes(input, budget)?;
                     properties.push(Property::Raw(RP::I8(scalar(name, opt, value))));
                 }
                 ColumnType::U8 | ColumnType::OptU8 => {
-                    (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = RawStream::from_bytes(input)?;
+                    (input, opt) = parse_optional(column.typ, input, budget)?;
+                    (input, value) = RawStream::from_bytes(input, budget)?;
                     properties.push(Property::Raw(RP::U8(scalar(name, opt, value))));
                 }
                 ColumnType::I32 | ColumnType::OptI32 => {
-                    (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = RawStream::from_bytes(input)?;
+                    (input, opt) = parse_optional(column.typ, input, budget)?;
+                    (input, value) = RawStream::from_bytes(input, budget)?;
                     properties.push(Property::Raw(RP::I32(scalar(name, opt, value))));
                 }
                 ColumnType::U32 | ColumnType::OptU32 => {
-                    (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = RawStream::from_bytes(input)?;
+                    (input, opt) = parse_optional(column.typ, input, budget)?;
+                    (input, value) = RawStream::from_bytes(input, budget)?;
                     properties.push(Property::Raw(RP::U32(scalar(name, opt, value))));
                 }
                 ColumnType::I64 | ColumnType::OptI64 => {
-                    (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = RawStream::from_bytes(input)?;
+                    (input, opt) = parse_optional(column.typ, input, budget)?;
+                    (input, value) = RawStream::from_bytes(input, budget)?;
                     properties.push(Property::Raw(RP::I64(scalar(name, opt, value))));
                 }
                 ColumnType::U64 | ColumnType::OptU64 => {
-                    (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = RawStream::from_bytes(input)?;
+                    (input, opt) = parse_optional(column.typ, input, budget)?;
+                    (input, value) = RawStream::from_bytes(input, budget)?;
                     properties.push(Property::Raw(RP::U64(scalar(name, opt, value))));
                 }
                 ColumnType::F32 | ColumnType::OptF32 => {
-                    (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = RawStream::from_bytes(input)?;
+                    (input, opt) = parse_optional(column.typ, input, budget)?;
+                    (input, value) = RawStream::from_bytes(input, budget)?;
                     properties.push(Property::Raw(RP::F32(scalar(name, opt, value))));
                 }
                 ColumnType::F64 | ColumnType::OptF64 => {
-                    (input, opt) = parse_optional(column.typ, input)?;
-                    (input, value) = RawStream::from_bytes(input)?;
+                    (input, opt) = parse_optional(column.typ, input, budget)?;
+                    (input, value) = RawStream::from_bytes(input, budget)?;
                     properties.push(Property::Raw(RP::F64(scalar(name, opt, value))));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
                     let prop;
-                    (input, prop) = parse_str_column(input, name, column.typ)?;
+                    (input, prop) = parse_str_column(input, name, column.typ, budget)?;
                     properties.push(Property::Raw(prop));
                 }
                 ColumnType::SharedDict => {
                     let prop;
-                    (input, prop) = parse_shared_dict_column(input, &column)?;
+                    (input, prop) = parse_shared_dict_column(input, &column, budget)?;
                     properties.push(Property::Raw(prop));
                 }
             }
@@ -188,18 +191,19 @@ impl Layer01<'_> {
 fn parse_struct_children<'a>(
     mut input: &'a [u8],
     column: &Column<'a>,
+    budget: &mut MemBudget,
 ) -> MltRefResult<'a, Vec<RawSharedDictItem<'a>>> {
     let mut children = Vec::with_capacity(column.children.len());
     for child in &column.children {
         let (inp, sc) = parse_varint::<u32>(input)?;
-        let (inp, child_optional) = parse_optional(child.typ, inp)?;
+        let (inp, child_optional) = parse_optional(child.typ, inp, budget)?;
         let optional_stream_count = u32::from(child_optional.is_some());
         if let Some(data_count) = sc.checked_sub(optional_stream_count)
             && data_count != 1
         {
             return Err(MltError::UnexpectedStructChildCount(data_count));
         }
-        let (inp, child_data) = RawStream::from_bytes(inp)?;
+        let (inp, child_data) = RawStream::from_bytes(inp, budget)?;
         children.push(RawSharedDictItem {
             name: child.name.unwrap_or(""),
             presence: RawPresence(child_optional),
@@ -210,9 +214,13 @@ fn parse_struct_children<'a>(
     Ok((input, children))
 }
 
-fn parse_optional(typ: ColumnType, input: &[u8]) -> MltRefResult<'_, Option<RawStream<'_>>> {
+fn parse_optional<'a>(
+    typ: ColumnType,
+    input: &'a [u8],
+    budget: &mut MemBudget,
+) -> MltRefResult<'a, Option<RawStream<'a>>> {
     if typ.is_optional() {
-        let (input, optional) = RawStream::parse_bool(input)?;
+        let (input, optional) = RawStream::parse_bool(input, budget)?;
         Ok((input, Some(optional)))
     } else {
         Ok((input, None))
@@ -222,6 +230,7 @@ fn parse_optional(typ: ColumnType, input: &[u8]) -> MltRefResult<'_, Option<RawS
 fn parse_geometry_column<'a>(
     input: &'a [u8],
     geometry: &mut Option<Geometry<'a>>,
+    budget: &mut MemBudget,
 ) -> Result<&'a [u8], MltError> {
     let (input, stream_count) = parse_varint::<u32>(input)?;
     if stream_count == 0 {
@@ -233,9 +242,9 @@ fn parse_geometry_column<'a>(
         return Err(MltError::BufferUnderflow(stream_count, input.len()));
     }
     // metadata
-    let (input, value) = RawStream::from_bytes(input)?;
+    let (input, value) = RawStream::from_bytes(input, budget)?;
     // geometry items
-    let (input, value_vec) = RawStream::parse_multiple(input, stream_count_capa - 1)?;
+    let (input, value_vec) = RawStream::parse_multiple(input, stream_count_capa - 1, budget)?;
     geometry.set_once(Geometry::new_raw(value, value_vec))?;
     Ok(input)
 }
@@ -244,6 +253,7 @@ fn parse_str_column<'a>(
     mut input: &'a [u8],
     name: &'a str,
     typ: ColumnType,
+    budget: &mut MemBudget,
 ) -> MltRefResult<'a, RawProperty<'a>> {
     let mut stream_count = {
         let stream_count_u32;
@@ -251,7 +261,7 @@ fn parse_str_column<'a>(
         stream_count_u32.as_usize()
     };
     let presence;
-    (input, presence) = parse_optional(typ, input)?;
+    (input, presence) = parse_optional(typ, input, budget)?;
     if presence.is_some() {
         if stream_count == 0 {
             return Err(MltError::UnsupportedStringStreamCount(stream_count));
@@ -264,7 +274,7 @@ fn parse_str_column<'a>(
     }
     for slot in str_streams.iter_mut().take(stream_count) {
         let stream;
-        (input, stream) = RawStream::from_bytes(input)?;
+        (input, stream) = RawStream::from_bytes(input, budget)?;
         *slot = Some(stream);
     }
     let encoding = match str_streams {
@@ -295,6 +305,7 @@ fn parse_str_column<'a>(
 fn parse_shared_dict_column<'a>(
     mut input: &'a [u8],
     column: &Column<'a>,
+    budget: &mut MemBudget,
 ) -> MltRefResult<'a, RawProperty<'a>> {
     // Read header streams until we hit the dictionary DATA(Single|Shared) stream.
     let stream_count;
@@ -303,7 +314,7 @@ fn parse_shared_dict_column<'a>(
     let mut streams_taken = 0_usize;
     while streams_taken < stream_count.as_usize() {
         let stream;
-        (input, stream) = RawStream::from_bytes(input)?;
+        (input, stream) = RawStream::from_bytes(input, budget)?;
         let is_last = matches!(
             stream.meta.stream_type,
             StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
@@ -317,7 +328,7 @@ fn parse_shared_dict_column<'a>(
         }
     }
     let children;
-    (input, children) = parse_struct_children(input, column)?;
+    (input, children) = parse_struct_children(input, column, budget)?;
     let name = column.name.unwrap_or("");
     let encoding = match dict_streams {
         [Some(s1), Some(s2), None, None, None] => {
@@ -338,10 +349,11 @@ fn parse_shared_dict_column<'a>(
     ))
 }
 
-fn parse_columns_meta(
-    mut input: &'_ [u8],
+fn parse_columns_meta<'a>(
+    mut input: &'a [u8],
     column_count: u32,
-) -> MltRefResult<'_, (Vec<Column<'_>>, u32)> {
+    budget: &mut MemBudget,
+) -> MltRefResult<'a, (Vec<Column<'a>>, u32)> {
     use crate::v01::ColumnType::{Geometry, Id, LongId, OptId, OptLongId, SharedDict};
 
     let mut col_info = Vec::with_capacity(column_count.as_usize());
@@ -349,7 +361,7 @@ fn parse_columns_meta(
     let mut ids = 0;
     for _ in 0..column_count {
         let mut typ;
-        (input, typ) = Column::from_bytes(input)?;
+        (input, typ) = Column::from_bytes(input, budget)?;
         match typ.typ {
             Geometry => geometries += 1,
             Id | OptId | LongId | OptLongId => ids += 1,
@@ -366,7 +378,7 @@ fn parse_columns_meta(
                 let mut children = Vec::with_capacity(child_col_capacity);
                 for _ in 0..child_column_count {
                     let child;
-                    (input, child) = Column::from_bytes(input)?;
+                    (input, child) = Column::from_bytes(input, budget)?;
                     children.push(child);
                 }
                 typ.children = children;

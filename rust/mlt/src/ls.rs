@@ -549,7 +549,8 @@ pub fn analyze_tile_file(path: &Path, base_path: &Path, flags: LsFlags) -> Resul
 }
 
 pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<MltFileInfo> {
-    let mut layers = parse_layers(buffer)?;
+    let mut dec = Decoder::default();
+    let mut layers = parse_layers(buffer, &mut dec)?;
 
     let mut stream_count = 0;
     let mut algorithms: HashSet<StreamStat> = HashSet::new();
@@ -567,7 +568,6 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<
     let mut data_size = 0;
     let mut meta_size = 0;
 
-    let mut dec = Decoder::default();
     for layer in &mut layers {
         layer.decode_all(&mut dec)?;
         if let Some(layer01) = layer.as_layer01() {

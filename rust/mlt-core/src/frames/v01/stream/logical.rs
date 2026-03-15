@@ -1,7 +1,6 @@
 use std::fmt;
 use std::fmt::Debug;
 use std::iter::repeat_n;
-use std::mem::size_of;
 
 use num_traits::{PrimInt, ToPrimitive as _};
 
@@ -35,11 +34,12 @@ fn apply_rle<T: PrimInt + Debug>(
 }
 
 impl RleMeta {
-    /// Decode RLE (Run-Length Encoding) data, charging `dec` for the expanded output.
+    /// Decode RLE (Run-Length Encoding) data.
+    /// Memory for the expanded output was already reserved at parse time via the budget.
     pub fn decode<T: PrimInt + Debug>(
         self,
         data: &[T],
-        dec: &mut Decoder,
+        _dec: &mut Decoder,
     ) -> Result<Vec<T>, MltError> {
         let expected_len = self.runs.as_usize().checked_mul(2).or_overflow()?;
         fail_if_invalid_stream_size(data.len(), expected_len)?;
@@ -47,10 +47,6 @@ impl RleMeta {
         let (run_lens, values) = data.split_at(self.runs.as_usize());
         fail_if_invalid_stream_size(self.num_rle_values, Self::calc_size(run_lens)?)?;
 
-        dec.consume(
-            self.num_rle_values
-                .saturating_mul(u32::try_from(size_of::<T>()).or_overflow()?),
-        )?;
         let mut result = Vec::with_capacity(self.num_rle_values.as_usize());
         for (&run_len, &val) in run_lens.iter().zip(values.iter()) {
             let run = run_len

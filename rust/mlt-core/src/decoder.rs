@@ -5,9 +5,13 @@ const DEFAULT_MAX_BYTES: u32 = 10 * 1024 * 1024;
 
 /// Stateful decoder that enforces a per-tile memory budget.
 ///
-/// Pass a `Decoder` to every `raw.decode()` / `into_tile()` call. Each method
-/// calls [`Decoder::consume`] before performing heap allocations, so the
-/// total heap used never exceeds `max_bytes` (in bytes).
+/// Pass a `Decoder` to every `raw.decode()` / `into_tile()` call and to
+/// `from_bytes`-style parsers. Each method calls [`Decoder::consume`] before
+/// performing heap allocations, so the total heap used never exceeds `max_bytes`
+/// (in bytes).
+///
+/// *Important:* Decoder should not expose the budget instance because that is used
+/// by the parse* functions for reservation validations - a separate "budget" instance.
 ///
 /// ```
 /// use mlt_core::Decoder;
@@ -18,10 +22,24 @@ const DEFAULT_MAX_BYTES: u32 = 10 * 1024 * 1024;
 /// // Custom budget.
 /// let mut dec = Decoder::with_max_size(64 * 1024 * 1024);
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Decoder {
     /// Keep track of the memory used when decoding a tile: raw->parsed transition
     budget: MemBudget,
+}
+
+impl Decoder {
+    /// Create a decoder with a custom memory budget (in bytes).
+    #[must_use]
+    pub fn with_max_size(max_bytes: u32) -> Self {
+        Self {
+            budget: MemBudget::with_max_size(max_bytes),
+        }
+    }
+
+    pub fn consume(&mut self, size: u32) -> Result<(), MltError> {
+        self.budget.consume(size)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,27 +50,21 @@ pub struct MemBudget {
     pub bytes_used: u32,
 }
 
-impl Default for Decoder {
-    /// Create a decoder with the default 10 MiB memory budget.
-    fn default() -> Self {
-        Self::with_max_size(DEFAULT_MAX_BYTES)
-    }
-}
-
-impl Decoder {
+impl MemBudget {
     /// Create a decoder with a custom memory budget (in bytes).
     #[must_use]
     pub fn with_max_size(max_bytes: u32) -> Self {
         Self {
-            budget: MemBudget {
-                max_bytes,
-                bytes_used: 0,
-            },
+            max_bytes,
+            bytes_used: 0,
         }
     }
+}
 
-    pub fn consume(&mut self, size: u32) -> Result<(), MltError> {
-        self.budget.consume(size)
+impl Default for MemBudget {
+    /// Create a decoder with the default 10 MiB memory budget.
+    fn default() -> Self {
+        Self::with_max_size(DEFAULT_MAX_BYTES)
     }
 }
 

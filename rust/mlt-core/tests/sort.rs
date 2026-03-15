@@ -1,10 +1,10 @@
 use geo_types::{Coord, LineString, Point};
-use mlt_core::Decoder;
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     GeometryEncoder, GeometryType, GeometryValues, IntEncoder, SortStrategy, StagedLayer01Encoder,
     Tile01Encoder, TileFeature, TileLayer01,
 };
+use mlt_core::{Decoder, MemBudget};
 
 /// Build row-oriented tile layer from geometries and IDs (one feature per geometry).
 fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
@@ -47,7 +47,9 @@ fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLaye
         .write_to(&mut buf)
         .expect("write_to failed");
 
-    let (remaining, layer_back) = Layer::from_bytes(&buf).expect("parse failed");
+    let mut dec = Decoder::default();
+    let (remaining, layer_back) =
+        Layer::from_bytes(&buf, &mut MemBudget::default()).expect("parse failed");
     assert!(remaining.is_empty());
 
     let Layer::Tag01(layer01) = layer_back else {

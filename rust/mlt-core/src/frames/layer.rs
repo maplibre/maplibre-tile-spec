@@ -8,7 +8,7 @@ use utils::BinarySerializer as _;
 use crate::frames::Unknown;
 use crate::frames::v01::Layer01;
 use crate::utils::{checked_sum2, parse_u8, parse_varint, take};
-use crate::{Decoder, EncodedLayer, Layer, MltError, MltRefResult, utils};
+use crate::{Decoder, EncodedLayer, Layer, MemBudget, MltError, MltRefResult, utils};
 
 impl<'a> Layer<'a> {
     /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
@@ -38,8 +38,9 @@ impl<'a> Layer<'a> {
         Ok(layer)
     }
 
-    /// Parse a single tuple that consists of `size (varint)`, `tag (varint)`, and `value (bytes)`
-    pub fn from_bytes(input: &'a [u8]) -> MltRefResult<'a, Layer<'a>> {
+    /// Parse a single tuple that consists of `size (varint)`, `tag (varint)`, and `value (bytes)`.
+    /// Reserves memory for decoded data against `budget`.
+    pub fn from_bytes(input: &'a [u8], budget: &mut MemBudget) -> MltRefResult<'a, Layer<'a>> {
         let (input, size) = parse_varint::<u32>(input)?;
 
         // tag is a varint, but we know fewer than 127 tags for now,
@@ -51,7 +52,7 @@ impl<'a> Layer<'a> {
 
         let layer = match tag {
             // For now, we only support tag 0x01 layers, but more will be added soon
-            1 => Layer::Tag01(Layer01::from_bytes(value)?),
+            1 => Layer::Tag01(Layer01::from_bytes(value, budget)?),
             tag => Layer::Unknown(Unknown { tag, value }),
         };
 

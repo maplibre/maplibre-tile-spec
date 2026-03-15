@@ -9,7 +9,7 @@ use crate::v01::{
     IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RawStream,
     RawStreamData, RleMeta, StreamMeta, StreamType,
 };
-use crate::{MltError, MltRefResult};
+use crate::{MemBudget, MltError, MltRefResult};
 
 impl IntEncoding {
     #[must_use]
@@ -38,8 +38,13 @@ impl StreamMeta {
     /// If `is_bool` is true, compute RLE parameters for boolean streams
     /// automatically instead of reading them from the input.
     ///
-    /// Returns the stream metadata and the size of the stream in bytes
-    pub(super) fn from_bytes(input: &[u8], is_bool: bool) -> MltRefResult<'_, (Self, u32)> {
+    /// Returns the stream metadata and the size of the stream in bytes.
+    /// For RLE streams, reserves decoded bytes (num_rle_values * 8) on `budget`.
+    pub(super) fn from_bytes<'a>(
+        input: &'a [u8],
+        is_bool: bool,
+        budget: &mut MemBudget,
+    ) -> MltRefResult<'a, (Self, u32)> {
         use crate::v01::LogicalTechnique as LT;
 
         let (input, stream_type) = StreamType::from_bytes(input)?;
@@ -66,6 +71,9 @@ impl StreamMeta {
                     (input, runs) = parse_varint::<u32>(input)?;
                     (input, num_rle_values) = parse_varint::<u32>(input)?;
                 }
+                // Reserve decoded memory (worst case: u64 = 8 bytes per value)
+                let decoded_bytes = num_rle_values.saturating_mul(8);
+                budget.consume(decoded_bytes)?;
                 let rle = RleMeta {
                     runs,
                     num_rle_values,
@@ -195,32 +203,50 @@ impl<'a> RawStream<'a> {
         }
     }
 
-    pub fn from_bytes(input: &'a [u8]) -> MltRefResult<'a, Self> {
-        Self::from_bytes_internal(input, false)
+    pub fn from_bytes(input: &'a [u8], budget: &mut MemBudget) -> MltRefResult<'a, Self> {
+        Self::from_bytes_internal(input, false, budget)
     }
 
-    pub fn parse_multiple(mut input: &'a [u8], count: usize) -> MltRefResult<'a, Vec<Self>> {
+    pub fn parse_multiple(
+        mut input: &'a [u8],
+        count: usize,
+        budget: &mut MemBudget,
+    ) -> MltRefResult<'a, Vec<Self>> {
         let mut result = Vec::with_capacity(count);
         for _ in 0..count {
             let stream;
-            (input, stream) = RawStream::from_bytes_internal(input, false)?;
+            (input, stream) = RawStream::from_bytes_internal(input, false, budget)?;
             result.push(stream);
         }
         Ok((input, result))
     }
 
-    pub fn parse_bool(input: &'a [u8]) -> MltRefResult<'a, Self> {
-        Self::from_bytes_internal(input, true)
+    pub fn parse_bool(input: &'a [u8], budget: &mut MemBudget) -> MltRefResult<'a, Self> {
+        Self::from_bytes_internal(input, true, budget)
     }
 
     /// Parse stream from the input
     /// If `is_bool` is true, compute RLE parameters for boolean streams
     /// automatically instead of reading them from the input.
-    fn from_bytes_internal(input: &'a [u8], is_bool: bool) -> MltRefResult<'a, Self> {
+    /// For RLE streams with VarInt data, validates that run lengths sum to num_rle_values.
+    fn from_bytes_internal(
+        input: &'a [u8],
+        is_bool: bool,
+        budget: &mut MemBudget,
+    ) -> MltRefResult<'a, Self> {
+        use LogicalEncoding as LE;
         use PhysicalEncoding as PD;
-        let (input, (meta, byte_length)) = StreamMeta::from_bytes(input, is_bool)?;
+
+        let (input, (meta, byte_length)) = StreamMeta::from_bytes(input, is_bool, budget)?;
 
         let (input, data) = take(input, byte_length)?;
+
+        // For RLE with VarInt physical encoding, validate stream: run lengths must sum to num_rle_values
+        if let LE::Rle(r) | LE::DeltaRle(r) = meta.encoding.logical {
+            if matches!(meta.encoding.physical, PD::VarInt) && !is_bool {
+                validate_rle_varint_stream(data, r.runs, r.num_rle_values)?;
+            }
+        }
 
         let stream_data = match meta.encoding.physical {
             PD::None | PD::FastPFOR => RawStreamData::Encoded(data),
@@ -230,4 +256,25 @@ impl<'a> RawStream<'a> {
 
         Ok((input, RawStream::new(meta, stream_data)))
     }
+}
+
+/// Validate RLE stream data: first `runs` varints must sum to `num_rle_values`.
+fn validate_rle_varint_stream(data: &[u8], runs: u32, num_rle_values: u32) -> Result<(), MltError> {
+    use crate::utils::AsUsize as _;
+    let mut rest = data;
+    let mut sum: u64 = 0;
+    for _ in 0..runs {
+        let (next, len) = parse_varint::<u32>(rest)?;
+        rest = next;
+        sum = sum
+            .checked_add(len.into())
+            .ok_or(MltError::IntegerOverflow)?;
+    }
+    if sum != u64::from(num_rle_values) {
+        return Err(MltError::InvalidDecodingStreamSize(
+            sum as usize,
+            num_rle_values.as_usize(),
+        ));
+    }
+    Ok(())
 }

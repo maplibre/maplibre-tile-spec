@@ -45,8 +45,8 @@ use wasm_bindgen::prelude::*;
 /// [`TileLayer01`] values.
 #[wasm_bindgen]
 pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
-    let raw_layers = parse_layers(data).map_err(|e| to_js_err(&e))?;
     let mut dec = Decoder::default();
+    let raw_layers = parse_layers(data, &mut dec).map_err(|e| to_js_err(&e))?;
     let mut layers = Vec::with_capacity(raw_layers.len());
 
     for raw_layer in raw_layers {

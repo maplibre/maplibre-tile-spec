@@ -256,8 +256,8 @@ fn decode_mlt(
     y: Option<u32>,
     tms: bool,
 ) -> PyResult<Vec<MltLayer>> {
-    let mut layers = parse_layers(data).map_err(mlt_err)?;
     let mut dec = Decoder::default();
+    let mut layers = parse_layers(data, &mut dec).map_err(mlt_err)?;
     let mut result = Vec::with_capacity(layers.len());
     for layer in &mut layers {
         layer.decode_all(&mut dec).map_err(mlt_err)?;
@@ -311,8 +311,8 @@ fn decode_mlt(
 fn decode_mlt_to_geojson(
     #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
 ) -> PyResult<String> {
-    let mut layers = parse_layers(data).map_err(mlt_err)?;
     let mut dec = Decoder::default();
+    let mut layers = parse_layers(data, &mut dec).map_err(mlt_err)?;
     let fc = FeatureCollection::from_layers(&mut layers, &mut dec).map_err(mlt_err)?;
     serde_json::to_string(&fc).map_err(|e| PyValueError::new_err(format!("JSON error: {e}")))
 }
@@ -323,7 +323,8 @@ fn decode_mlt_to_geojson(
 fn list_layers(
     #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
 ) -> PyResult<Vec<String>> {
-    let layers = parse_layers(data).map_err(mlt_err)?;
+    let mut dec = Decoder::default();
+    let layers = parse_layers(data, &mut dec).map_err(mlt_err)?;
     Ok(layers
         .iter()
         .filter_map(|l| l.as_layer01().map(|l| l.name.to_string()))
@@ -438,8 +439,8 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = parse_layers(&data).expect("parse_layers should succeed");
         let mut dec = Decoder::default();
+        let mut layers = parse_layers(&data, &mut dec).expect("parse_layers should succeed");
         for layer in &mut layers {
             layer
                 .decode_all(&mut dec)
@@ -450,7 +451,7 @@ mod tests {
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
         assert!(!l.name.is_empty(), "layer name should be non-empty");
 
-        let fc = FeatureCollection::from_layers(&mut layers, &mut Decoder::default())
+        let fc = FeatureCollection::from_layers(&mut layers, &mut dec)
             .expect("FeatureCollection should succeed");
         assert!(
             !fc.features.is_empty(),
@@ -464,8 +465,8 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = parse_layers(&data).expect("parse_layers should succeed");
         let mut dec = Decoder::default();
+        let mut layers = parse_layers(&data, &mut dec).expect("parse_layers should succeed");
         for layer in &mut layers {
             layer
                 .decode_all(&mut dec)
@@ -496,8 +497,8 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = parse_layers(&data).expect("parse_layers should succeed");
         let mut dec = Decoder::default();
+        let mut layers = parse_layers(&data, &mut dec).expect("parse_layers should succeed");
         for layer in &mut layers {
             layer
                 .decode_all(&mut dec)
@@ -531,8 +532,8 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = parse_layers(&data).expect("parse_layers should succeed");
         let mut dec = Decoder::default();
+        let mut layers = parse_layers(&data, &mut dec).expect("parse_layers should succeed");
         for layer in &mut layers {
             layer
                 .decode_all(&mut dec)

@@ -53,8 +53,8 @@ fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
 
 fn roundtrip(staged: StagedProperty, expected: &StagedProperty, encoder: ScalarEncoder) {
     let bytes = props_to_layer_bytes(vec![staged], vec![PropertyEncoder::Scalar(encoder)]).unwrap();
-    let layer = Layer01::from_bytes(&bytes).expect("layer parse failed");
     let mut dec = Decoder::default();
+    let layer = Layer01::from_bytes(&bytes, &mut dec).expect("layer parse failed");
     let result = layer
         .properties
         .into_iter()
@@ -139,8 +139,8 @@ fn struct_encode_and_decode<F>(
 
     let bytes =
         props_to_layer_bytes(vec![decoded], vec![shared_enc.into()]).expect("encoding failed");
-    let layer = Layer01::from_bytes(&bytes).expect("layer parse failed");
     let mut dec = Decoder::default();
+    let layer = Layer01::from_bytes(&bytes, &mut dec).expect("layer parse failed");
     let result = layer
         .properties
         .into_iter()
@@ -477,8 +477,8 @@ fn struct_mixed_with_scalars() {
         PropertyEncoder::Scalar(scalar_enc),
     ];
     let bytes = props_to_layer_bytes(props, prop_encs).unwrap();
-    let layer = Layer01::from_bytes(&bytes).expect("layer parse failed");
     let mut dec = Decoder::default();
+    let layer = Layer01::from_bytes(&bytes, &mut dec).expect("layer parse failed");
     let mut decoded_props: Vec<_> = layer
         .properties
         .into_iter()
@@ -569,8 +569,8 @@ fn two_struct_groups_with_scalar_between() {
     ];
 
     let bytes = props_to_layer_bytes(props, prop_encs).unwrap();
-    let layer = Layer01::from_bytes(&bytes).expect("layer parse failed");
     let mut dec = Decoder::default();
+    let layer = Layer01::from_bytes(&bytes, &mut dec).expect("layer parse failed");
     let decoded_props: Vec<_> = layer
         .properties
         .into_iter()

@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::{Decoder, parse_layers};
+use mlt_core::{Decoder, MemBudget, parse_layers};
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
@@ -22,7 +22,8 @@ fn bench_mlt_parse(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("zoom", zoom), &tiles, |b, tiles| {
             b.iter(|| {
                 for (_, data) in tiles {
-                    let _ = parse_layers(black_box(data)).expect("mlt parse failed");
+                    let _ = parse_layers(black_box(data), &mut MemBudget::default())
+                        .expect("mlt parse failed");
                 }
             });
         });
@@ -44,7 +45,10 @@ fn bench_mlt_decode_all(c: &mut Criterion) {
                 || {
                     tiles
                         .iter()
-                        .map(|(_, v)| parse_layers(black_box(v)).expect("mlt parse failed"))
+                        .map(|(_, v)| {
+                            parse_layers(black_box(v), &mut MemBudget::default())
+                                .expect("mlt parse failed")
+                        })
                         .collect::<Vec<_>>()
                 },
                 |mut mlt| {

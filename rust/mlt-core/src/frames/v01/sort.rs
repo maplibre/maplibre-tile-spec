@@ -216,6 +216,7 @@ mod tests {
     use geo_types::{Coord, Geometry as GeoGeom, LineString, Point, Polygon};
 
     use super::*;
+    use crate::MemBudget;
     use crate::geojson::Geom32;
     use crate::v01::{
         Geometry, GeometryEncoder, GeometryValues, IntEncoder, RawGeometry, TileFeature,
@@ -264,7 +265,8 @@ mod tests {
         let mut buf = Vec::new();
         encoded.write_to(&mut buf).expect("serialize failed");
 
-        let (remaining, parsed) = RawGeometry::from_bytes(&buf).expect("parse failed");
+        let (remaining, parsed) =
+            RawGeometry::from_bytes(&buf, &mut MemBudget::default()).expect("parse failed");
         assert!(
             remaining.is_empty(),
             "unexpected trailing bytes after parse"
