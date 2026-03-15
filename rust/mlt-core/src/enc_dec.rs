@@ -1,14 +1,12 @@
 use crate::analyse::{Analyze, StatType};
 
-/// Shared wrapper for values that may still be encoded or already decoded.
-/// Usage: Id, Geometry, Property,
+/// Shared wrapper for values that may still be in the original (raw) format or
+/// already parsed (but still columnar).
+/// Used by: `Id`, `Geometry`, `Property`, and eventually - `SharedDictItem`
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum EncDec<Raw, Parsed> {
-    // /// None is an internal state that must not be exposed externally.
-    // /// It is used during migration from Encoded to Decoded stage.
-    // None,
     Raw(Raw),       // Raw
     Parsed(Parsed), // Parsed
 }

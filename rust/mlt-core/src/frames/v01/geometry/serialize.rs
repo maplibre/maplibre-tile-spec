@@ -90,7 +90,7 @@ impl Debug for GeometryValues {
 
 impl<'a> Geometry<'a> {
     #[must_use]
-    pub fn new_encoded(meta: RawStream<'a>, items: Vec<RawStream<'a>>) -> Self {
+    pub fn new_raw(meta: RawStream<'a>, items: Vec<RawStream<'a>>) -> Self {
         Self::Raw(RawGeometry { meta, items })
     }
 

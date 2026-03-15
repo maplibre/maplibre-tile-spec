@@ -242,7 +242,7 @@ pub struct ParsedStrings<'a> {
     pub data: Cow<'a, str>,
 }
 
-/// TODO: `ParsedSharedDict` should be able to have non-decoded child items
+/// TODO: `ParsedSharedDict` should be able to have unparsed child items
 pub type SharedDictItem<'a> = EncDec<RawSharedDictItem<'a>, ParsedSharedDictItem<'a>>;
 
 /// Parsed shared dictionary payload shared by one or more child string properties.

@@ -65,12 +65,12 @@ impl Layer01<'_> {
                 ColumnType::Id | ColumnType::OptId => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
-                    id_column.set_once(Id::new_encoded(opt, RawIdValue::Id32(value)))?;
+                    id_column.set_once(Id::new_raw(opt, RawIdValue::Id32(value)))?;
                 }
                 ColumnType::LongId | ColumnType::OptLongId => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
-                    id_column.set_once(Id::new_encoded(opt, RawIdValue::Id64(value)))?;
+                    id_column.set_once(Id::new_raw(opt, RawIdValue::Id64(value)))?;
                 }
                 ColumnType::Geometry => {
                     input = parse_geometry_column(input, &mut geometry)?;
@@ -277,7 +277,7 @@ fn parse_geometry_column<'a>(
     let (input, value) = RawStream::parse(input)?;
     // geometry items
     let (input, value_vec) = RawStream::parse_multiple(input, stream_count_capa - 1)?;
-    geometry.set_once(Geometry::new_encoded(value, value_vec))?;
+    geometry.set_once(Geometry::new_raw(value, value_vec))?;
     Ok(input)
 }
 

@@ -1,5 +1,4 @@
 mod analyze;
-mod codec;
 pub(super) mod decode;
 pub(super) mod encode;
 mod geotype;
