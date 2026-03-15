@@ -42,6 +42,7 @@ impl FeatureCollection {
             let geom = match &l.geometry {
                 Geometry::Parsed(v) => v,
                 Geometry::Raw(_) => return Err(MltError::NotDecoded("geometry")),
+                Geometry::ParsingFailed => return Err(MltError::PriorParseFailure),
             };
             let ids: Option<&[Option<u64>]> = l.id.as_ref().and_then(|v| {
                 if let Id::Parsed(d) = v {
@@ -57,6 +58,7 @@ impl FeatureCollection {
                     let prop = match prop {
                         Property::Parsed(p) => p,
                         Property::Raw(_) => return Err(MltError::NotDecoded("property")),
+                        Property::ParsingFailed => return Err(MltError::PriorParseFailure),
                     };
                     // SharedDict properties are flattened to individual properties
                     // with names like "struct_name:child_suffix"

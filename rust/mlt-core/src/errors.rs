@@ -83,6 +83,8 @@ pub enum MltError {
     IdsMissingForEncoding,
     #[error("missing struct encoder for struct")]
     MissingStructEncoderForStruct,
+    #[error("Mixed-state element has failed parsing")]
+    PriorParseFailure,
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
     #[error("MVT parse error: {0}")]

@@ -1,7 +1,10 @@
+// TODO: break this into decode.rs and encode.rs
+
 use std::mem::size_of;
 
 use crate::Decoder;
 use crate::MltError::{self, NotImplemented, UnsupportedPropertyEncoderCombination};
+use crate::enc_dec::Decode;
 use crate::errors::AsMltError as _;
 use crate::utils::apply_present;
 use crate::v01::{
@@ -36,6 +39,7 @@ impl<'a> Property<'a> {
         match self {
             Self::Raw(raw) => raw.decode(dec),
             Self::Parsed(v) => Ok(v),
+            Self::ParsingFailed => Err(MltError::PriorParseFailure),
         }
     }
 }
@@ -325,6 +329,12 @@ impl EncodedProperty {
 
 fn unapply_presence<T: Clone>(v: &[Option<T>]) -> Vec<T> {
     v.iter().filter_map(|x| x.as_ref()).cloned().collect()
+}
+
+impl<'a> Decode<ParsedProperty<'a>> for RawProperty<'a> {
+    fn decode(self, decoder: &mut Decoder) -> Result<ParsedProperty<'a>, MltError> {
+        RawProperty::decode(self, decoder)
+    }
 }
 
 impl<'a> RawProperty<'a> {

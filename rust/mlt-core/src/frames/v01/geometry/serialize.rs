@@ -99,6 +99,7 @@ impl<'a> Geometry<'a> {
         match self {
             Self::Raw(raw) => raw.decode(dec),
             Self::Parsed(v) => Ok(v),
+            Self::ParsingFailed => Err(MltError::PriorParseFailure),
         }
     }
 }

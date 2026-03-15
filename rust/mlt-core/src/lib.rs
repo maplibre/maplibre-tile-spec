@@ -16,7 +16,7 @@ pub mod utils;
 pub use analyse::{Analyze, StatType};
 pub use convert::{geojson, mvt};
 pub use decoder::Decoder;
-pub use enc_dec::EncDec;
+pub use enc_dec::{Decode, EncDec};
 pub use errors::{MltError, MltRefResult};
 pub use frames::{EncodedLayer, Layer, StagedLayer, unknown, v01};
 

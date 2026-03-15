@@ -15,7 +15,7 @@ impl PartialEq<IdValues> for Id<'_> {
     fn eq(&self, other: &IdValues) -> bool {
         match self {
             Self::Parsed(parsed) => parsed == other,
-            Self::Raw(_) => false,
+            Self::Raw(_) | Self::ParsingFailed => false,
         }
     }
 }
@@ -32,7 +32,7 @@ impl PartialEq<GeometryValues> for Geometry<'_> {
     fn eq(&self, other: &GeometryValues) -> bool {
         match self {
             Self::Parsed(parsed) => parsed == other,
-            Self::Raw(_) => false,
+            Self::Raw(_) | Self::ParsingFailed => false,
         }
     }
 }
@@ -49,7 +49,7 @@ impl PartialEq<StagedProperty> for Property<'_> {
     fn eq(&self, other: &StagedProperty) -> bool {
         match self {
             Self::Parsed(parsed) => parsed == other,
-            Self::Raw(_) => false,
+            Self::Raw(_) | Self::ParsingFailed => false,
         }
     }
 }
