@@ -20,6 +20,14 @@ export function encodeDoubleLE(values: Float64Array): Uint8Array {
     return buffer;
 }
 
+export function encodeUint32sLE(values: Uint32Array): Uint8Array {
+    return new Uint8Array(values.slice().buffer);
+}
+
+export function encodeUint64sLE(values: BigUint64Array): Uint8Array {
+    return new Uint8Array(values.slice().buffer);
+}
+
 export function encodeBooleanRle(values: boolean[]): Uint8Array {
     // Pack booleans into bytes (8 booleans per byte)
     const numBytes = Math.ceil(values.length / 8);

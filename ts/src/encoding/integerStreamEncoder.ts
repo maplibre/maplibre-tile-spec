@@ -22,6 +22,7 @@ import type BitVector from "../vector/flat/bitVector";
 import { packNullable } from "./packNullableUtils";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import type GeometryScaling from "../decoding/geometryScaling";
+import { encodeUint32sLE, encodeUint64sLE } from "./encodingUtils";
 
 export function encodeSignedInt32Stream(
     values: Int32Array,
@@ -53,8 +54,7 @@ function encodePhysicalLevelTechnique(data: Uint32Array, streamMetadata: StreamM
     }
 
     if (physicalLevelTechnique === PhysicalLevelTechnique.NONE) {
-        const slice = data.subarray(0, streamMetadata.byteLength);
-        return new Uint8Array(slice);
+        return encodeUint32sLE(data);
     }
 
     throw new Error("Specified physicalLevelTechnique is not supported (yet).");
@@ -170,11 +170,14 @@ function encodeRleFloat64(data: Float64Array, isSigned: boolean): Float64Array {
 }
 
 /**
- * Encodes BigInt64 values with zigzag encoding and varint compression
+ * Encodes BigInt64 values with zigzag encoding as plain little-endian uint64 words.
  */
 export function encodeInt64SignedNone(values: BigInt64Array): Uint8Array {
-    const zigzagEncoded = new BigUint64Array(Array.from(values, (val) => encodeZigZagInt64Value(val)));
-    return encodeVarintInt64(zigzagEncoded);
+    const zigzagEncoded = new BigUint64Array(values.length);
+    for (let i = 0; i < values.length; i++) {
+        zigzagEncoded[i] = encodeZigZagInt64Value(values[i]);
+    }
+    return encodeUint64sLE(zigzagEncoded);
 }
 
 /**
@@ -228,8 +231,8 @@ export function encodeInt64SignedDeltaRle(runs: Array<[number, bigint]>): Uint8A
 }
 
 /**
- * Encodes unsigned BigInt64 values with varint compression (no zigzag)
+ * Encodes unsigned BigInt64 values as plain little-endian uint64 words.
  */
 export function encodeInt64UnsignedNone(values: BigInt64Array): Uint8Array {
-    return encodeVarintInt64(new BigUint64Array(values));
+    return encodeUint64sLE(new BigUint64Array(values));
 }
