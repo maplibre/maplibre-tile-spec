@@ -45,6 +45,7 @@ pub fn decode_zigzag_delta<T: Copy + ZigZag + WrappingAdd + AsPrimitive<U>, U: '
 }
 
 /// Decode a slice of bytes into a vector of u64 values assuming little-endian encoding
+/// TODO: Should this return `MltRefResult`, or should it assert the entire input is consumed?
 pub fn decode_bytes_to_u64s(mut input: &[u8], num_values: u32) -> MltRefResult<'_, Vec<u64>> {
     let Some(expected_bytes) = num_values.checked_mul(8) else {
         return Err(BufferUnderflow(u32::MAX, input.len()));

@@ -20,11 +20,15 @@ const DEFAULT_MAX_BYTES: u32 = 10 * 1024 * 1024;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Decoder {
+    /// Keep track of the memory used when decoding a tile: raw->parsed transition
+    budget: MemBudget,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MemBudget {
     /// Hard ceiling: total decoded bytes may not exceed this value.
     pub max_bytes: u32,
-    /// Running total of the bytes we expect will be used in the later pass
-    pub bytes_reserved: u32,
-    /// Running total of decoded bytes charged so far.
+    /// Running total of used bytes so far.
     pub bytes_used: u32,
 }
 
@@ -40,28 +44,24 @@ impl Decoder {
     #[must_use]
     pub fn with_max_size(max_bytes: u32) -> Self {
         Self {
-            max_bytes,
-            bytes_reserved: 0,
-            bytes_used: 0,
+            budget: MemBudget {
+                max_bytes,
+                bytes_used: 0,
+            },
         }
     }
 
+    pub fn consume(&mut self, size: u32) -> Result<(), MltError> {
+        self.budget.consume(size)
+    }
+}
+
+impl MemBudget {
     /// Take `size` bytes from the allocation budget. Call this before the actual allocation.
     #[inline]
     pub fn consume(&mut self, size: u32) -> Result<(), MltError> {
-        Self::add(&mut self.bytes_used, size, self.max_bytes)
-    }
-
-    /// Take `size` bytes from the reservation budget.
-    /// Used when we know we will need to allocate in a later pass, but don't want to charge the budget yet.
-    #[inline]
-    pub fn reserve(&mut self, size: u32) -> Result<(), MltError> {
-        Self::add(&mut self.bytes_reserved, size, self.max_bytes)
-    }
-
-    /// Take `size` bytes from the allocation budget. Call this before the actual allocation.
-    #[inline]
-    fn add(accumulator: &mut u32, size: u32, max_bytes: u32) -> Result<(), MltError> {
+        let accumulator = &mut self.bytes_used;
+        let max_bytes = self.max_bytes;
         if let Some(new_value) = accumulator
             .checked_add(size)
             .and_then(|v| if v > max_bytes { None } else { Some(v) })
