@@ -22,8 +22,10 @@ const DEFAULT_MAX_BYTES: u32 = 10 * 1024 * 1024;
 pub struct Decoder {
     /// Hard ceiling: total decoded bytes may not exceed this value.
     pub max_bytes: u32,
+    /// Running total of the bytes we expect will be used in the later pass
+    pub bytes_reserved: u32,
     /// Running total of decoded bytes charged so far.
-    pub used_bytes: u32,
+    pub bytes_used: u32,
 }
 
 impl Default for Decoder {
@@ -39,31 +41,39 @@ impl Decoder {
     pub fn with_max_size(max_bytes: u32) -> Self {
         Self {
             max_bytes,
-            used_bytes: 0,
+            bytes_reserved: 0,
+            bytes_used: 0,
         }
     }
 
-    /// Reserve `size` bytes of budget.
-    ///
-    /// Returns `Err(MltError::MemoryLimitExceeded)` if adding `size` to
-    /// `used_bytes` would exceed `max_bytes`.  On success `used_bytes` is
-    /// increased by `size`.
-    ///
-    /// Prefer calling this *before* allocating.  Where the output size is
-    /// only known *after* the allocation (e.g. FSST decompression), it is
-    /// acceptable to allocate first and then call `consume` to record the
-    /// actual size; a budget check will still prevent unbounded total usage
-    /// as long as every allocation is eventually charged.
+    /// Take `size` bytes from the allocation budget. Call this before the actual allocation.
+    #[inline]
     pub fn consume(&mut self, size: u32) -> Result<(), MltError> {
-        let new_used = self.used_bytes.saturating_add(size);
-        if new_used > self.max_bytes {
-            return Err(MltError::MemoryLimitExceeded {
-                limit: self.max_bytes,
-                used: self.used_bytes,
+        Self::add(&mut self.bytes_used, size, self.max_bytes)
+    }
+
+    /// Take `size` bytes from the reservation budget.
+    /// Used when we know we will need to allocate in a later pass, but don't want to charge the budget yet.
+    #[inline]
+    pub fn reserve(&mut self, size: u32) -> Result<(), MltError> {
+        Self::add(&mut self.bytes_reserved, size, self.max_bytes)
+    }
+
+    /// Take `size` bytes from the allocation budget. Call this before the actual allocation.
+    #[inline]
+    fn add(accumulator: &mut u32, size: u32, max_bytes: u32) -> Result<(), MltError> {
+        if let Some(new_value) = accumulator
+            .checked_add(size)
+            .and_then(|v| if v > max_bytes { None } else { Some(v) })
+        {
+            *accumulator = new_value;
+            Ok(())
+        } else {
+            Err(MltError::MemoryLimitExceeded {
+                limit: max_bytes,
+                used: *accumulator,
                 requested: size,
-            });
+            })
         }
-        self.used_bytes = new_used;
-        Ok(())
     }
 }

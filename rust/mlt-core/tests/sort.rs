@@ -8,6 +8,7 @@ use mlt_core::v01::{
 
 /// Build row-oriented tile layer from geometries and IDs (one feature per geometry).
 fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
+    assert_eq!(geoms.len(), ids.len());
     TileLayer01 {
         name: "test".to_string(),
         extent: 4096,

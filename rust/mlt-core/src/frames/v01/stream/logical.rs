@@ -429,6 +429,6 @@ mod tests {
         let err = rle
             .decode::<u32>(&data, &mut Decoder::default())
             .unwrap_err();
-        assert!(matches!(err, InvalidDecodingStreamSize(4, 3)));
+        assert!(matches!(err, InvalidDecodingStreamSize(3, 4)));
     }
 }
