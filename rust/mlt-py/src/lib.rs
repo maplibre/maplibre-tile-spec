@@ -274,21 +274,21 @@ fn decode_mlt(
         };
 
         let geom = match &layer.geometry {
-            Geometry::Decoded(g) => g,
-            Geometry::Encoded(_) => Err(PyValueError::new_err("geometry not decoded"))?,
+            Geometry::Parsed(g) => g,
+            Geometry::Raw(_) => Err(PyValueError::new_err("geometry not decoded"))?,
         };
 
         let ids = match &layer.id {
             None => None,
-            Some(Id::Decoded(decoded)) => Some(decoded.values()),
-            Some(Id::Encoded(_)) => Err(PyValueError::new_err("id not decoded"))?,
+            Some(Id::Parsed(decoded)) => Some(decoded.values()),
+            Some(Id::Raw(_)) => Err(PyValueError::new_err("id not decoded"))?,
         };
 
         let props: Vec<&ParsedProperty> = layer
             .properties
             .iter()
             .map(|p| match p {
-                Property::Decoded(d) => Ok(d),
+                Property::Parsed(d) => Ok(d),
                 _ => Err(PyValueError::new_err("property not decoded")),
             })
             .collect::<PyResult<_>>()?;
@@ -471,7 +471,7 @@ mod tests {
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let Geometry::Decoded(geom) = &l.geometry else {
+        let Geometry::Parsed(geom) = &l.geometry else {
             panic!("geometry not decoded");
         };
 
@@ -503,7 +503,7 @@ mod tests {
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let Geometry::Decoded(geom) = &l.geometry else {
+        let Geometry::Parsed(geom) = &l.geometry else {
             panic!("geometry not decoded");
         };
 
@@ -538,7 +538,7 @@ mod tests {
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let Geometry::Decoded(geom) = &l.geometry else {
+        let Geometry::Parsed(geom) = &l.geometry else {
             panic!("geometry not decoded");
         };
 

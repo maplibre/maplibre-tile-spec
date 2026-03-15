@@ -40,11 +40,11 @@ impl FeatureCollection {
             let l = layer.decoded_layer01_mut(dec)?;
             l.decode_properties(dec)?;
             let geom = match &l.geometry {
-                Geometry::Decoded(v) => v,
-                Geometry::Encoded(_) => return Err(MltError::NotDecoded("geometry")),
+                Geometry::Parsed(v) => v,
+                Geometry::Raw(_) => return Err(MltError::NotDecoded("geometry")),
             };
             let ids: Option<&[Option<u64>]> = l.id.as_ref().and_then(|v| {
-                if let Id::Decoded(d) = v {
+                if let Id::Parsed(d) = v {
                     Some(d.values())
                 } else {
                     None
@@ -55,8 +55,8 @@ impl FeatureCollection {
                 let mut properties = BTreeMap::new();
                 for prop in &l.properties {
                     let prop = match prop {
-                        Property::Decoded(p) => p,
-                        Property::Encoded(_) => return Err(MltError::NotDecoded("property")),
+                        Property::Parsed(p) => p,
+                        Property::Raw(_) => return Err(MltError::NotDecoded("property")),
                     };
                     // SharedDict properties are flattened to individual properties
                     // with names like "struct_name:child_suffix"

@@ -91,14 +91,14 @@ impl Debug for GeometryValues {
 impl<'a> Geometry<'a> {
     #[must_use]
     pub fn new_encoded(meta: RawStream<'a>, items: Vec<RawStream<'a>>) -> Self {
-        Self::Encoded(RawGeometry { meta, items })
+        Self::Raw(RawGeometry { meta, items })
     }
 
     #[inline]
     pub fn decode(self, dec: &mut Decoder) -> Result<GeometryValues, MltError> {
         match self {
-            Self::Encoded(raw) => raw.decode(dec),
-            Self::Decoded(v) => Ok(v),
+            Self::Raw(raw) => raw.decode(dec),
+            Self::Parsed(v) => Ok(v),
         }
     }
 }

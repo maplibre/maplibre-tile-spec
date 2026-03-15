@@ -188,7 +188,7 @@ impl Layer01<'_> {
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
     pub fn decode_id(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
         if let Some(id) = self.id.take() {
-            self.id = Some(Id::Decoded(id.decode(dec)?));
+            self.id = Some(Id::Parsed(id.decode(dec)?));
         }
         Ok(())
     }
@@ -201,9 +201,9 @@ impl Layer01<'_> {
         // so we can take ownership of the raw value without unsafe code.
         let geom = std::mem::replace(
             &mut self.geometry,
-            Geometry::Decoded(GeometryValues::default()),
+            Geometry::Parsed(GeometryValues::default()),
         );
-        self.geometry = Geometry::Decoded(geom.decode(dec)?);
+        self.geometry = Geometry::Parsed(geom.decode(dec)?);
         Ok(())
     }
 
@@ -213,7 +213,7 @@ impl Layer01<'_> {
     pub fn decode_properties(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
         let old_props = std::mem::take(&mut self.properties);
         for prop in old_props {
-            self.properties.push(Property::Decoded(prop.decode(dec)?));
+            self.properties.push(Property::Parsed(prop.decode(dec)?));
         }
         Ok(())
     }
