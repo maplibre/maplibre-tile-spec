@@ -34,8 +34,8 @@ impl<'a> Property<'a> {
     #[inline]
     pub fn decode(self, dec: &mut Decoder) -> Result<ParsedProperty<'a>, MltError> {
         match self {
-            Self::Encoded(raw) => raw.decode(dec),
-            Self::Decoded(v) => Ok(v),
+            Self::Raw(raw) => raw.decode(dec),
+            Self::Parsed(v) => Ok(v),
         }
     }
 }

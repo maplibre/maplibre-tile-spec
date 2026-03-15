@@ -14,8 +14,8 @@ use crate::v01::{
 impl PartialEq<IdValues> for Id<'_> {
     fn eq(&self, other: &IdValues) -> bool {
         match self {
-            Self::Decoded(parsed) => parsed == other,
-            Self::Encoded(_) => false,
+            Self::Parsed(parsed) => parsed == other,
+            Self::Raw(_) => false,
         }
     }
 }
@@ -31,8 +31,8 @@ impl PartialEq<Id<'_>> for IdValues {
 impl PartialEq<GeometryValues> for Geometry<'_> {
     fn eq(&self, other: &GeometryValues) -> bool {
         match self {
-            Self::Decoded(parsed) => parsed == other,
-            Self::Encoded(_) => false,
+            Self::Parsed(parsed) => parsed == other,
+            Self::Raw(_) => false,
         }
     }
 }
@@ -48,8 +48,8 @@ impl PartialEq<Geometry<'_>> for GeometryValues {
 impl PartialEq<StagedProperty> for Property<'_> {
     fn eq(&self, other: &StagedProperty) -> bool {
         match self {
-            Self::Decoded(parsed) => parsed == other,
-            Self::Encoded(_) => false,
+            Self::Parsed(parsed) => parsed == other,
+            Self::Raw(_) => false,
         }
     }
 }

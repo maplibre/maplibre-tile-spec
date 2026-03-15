@@ -270,7 +270,7 @@ mod tests {
             "unexpected trailing bytes after parse"
         );
 
-        Geometry::Encoded(parsed)
+        Geometry::Raw(parsed)
             .decode(&mut crate::Decoder::default())
             .expect("decode failed")
     }

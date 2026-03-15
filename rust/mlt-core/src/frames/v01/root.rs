@@ -65,12 +65,12 @@ impl Layer01<'_> {
                 ColumnType::Id | ColumnType::OptId => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
-                    id_column.set_once(Id::new_encoded(opt, RawIdValue::Id32(value)))?;
+                    id_column.set_once(Id::new_raw(opt, RawIdValue::Id32(value)))?;
                 }
                 ColumnType::LongId | ColumnType::OptLongId => {
                     (input, opt) = parse_optional(column.typ, input)?;
                     (input, value) = RawStream::parse(input)?;
-                    id_column.set_once(Id::new_encoded(opt, RawIdValue::Id64(value)))?;
+                    id_column.set_once(Id::new_raw(opt, RawIdValue::Id64(value)))?;
                 }
                 ColumnType::Geometry => {
                     input = parse_geometry_column(input, &mut geometry)?;
@@ -188,7 +188,7 @@ impl Layer01<'_> {
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
     pub fn decode_id(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
         if let Some(id) = self.id.take() {
-            self.id = Some(Id::Decoded(id.decode(dec)?));
+            self.id = Some(Id::Parsed(id.decode(dec)?));
         }
         Ok(())
     }
@@ -201,9 +201,9 @@ impl Layer01<'_> {
         // so we can take ownership of the raw value without unsafe code.
         let geom = std::mem::replace(
             &mut self.geometry,
-            Geometry::Decoded(GeometryValues::default()),
+            Geometry::Parsed(GeometryValues::default()),
         );
-        self.geometry = Geometry::Decoded(geom.decode(dec)?);
+        self.geometry = Geometry::Parsed(geom.decode(dec)?);
         Ok(())
     }
 
@@ -213,7 +213,7 @@ impl Layer01<'_> {
     pub fn decode_properties(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
         let old_props = std::mem::take(&mut self.properties);
         for prop in old_props {
-            self.properties.push(Property::Decoded(prop.decode(dec)?));
+            self.properties.push(Property::Parsed(prop.decode(dec)?));
         }
         Ok(())
     }
@@ -277,7 +277,7 @@ fn parse_geometry_column<'a>(
     let (input, value) = RawStream::parse(input)?;
     // geometry items
     let (input, value_vec) = RawStream::parse_multiple(input, stream_count_capa - 1)?;
-    geometry.set_once(Geometry::new_encoded(value, value_vec))?;
+    geometry.set_once(Geometry::new_raw(value, value_vec))?;
     Ok(input)
 }
 

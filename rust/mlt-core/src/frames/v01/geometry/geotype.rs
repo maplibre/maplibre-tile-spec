@@ -421,7 +421,7 @@ mod tests {
         let (remaining, parsed) = RawGeometry::parse(&buffer).expect("Failed to parse");
         assert!(remaining.is_empty(), "Remaining bytes after parse");
 
-        Geometry::Encoded(parsed)
+        Geometry::Raw(parsed)
             .decode(&mut Decoder::default())
             .expect("Failed to decode")
     }
@@ -730,7 +730,7 @@ mod tests {
         owned.write_to(&mut buffer).unwrap();
         let (remaining, parsed) = RawGeometry::parse(&buffer).unwrap();
         assert!(remaining.is_empty());
-        let decoded = Geometry::Encoded(parsed)
+        let decoded = Geometry::Raw(parsed)
             .decode(&mut Decoder::default())
             .unwrap();
 
