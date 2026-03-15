@@ -28,7 +28,13 @@ import {
     encodeInt64UnsignedNone,
     encodeUnsignedInt32Stream,
 } from "../encoding/integerStreamEncoder";
-import { encodeVarintFloat64, encodeVarintInt64, encodeZigZagInt64Value } from "../encoding/integerEncodingUtils";
+import {
+    encodeDeltaRleInt32,
+    encodeVarintFloat64,
+    encodeVarintInt64,
+    encodeZigZagInt32Value,
+    encodeZigZagInt64Value,
+} from "../encoding/integerEncodingUtils";
 
 describe("getVectorType", () => {
     it("should return FLAT for RLE with 0 runs", () => {
@@ -69,8 +75,8 @@ describe("getVectorType", () => {
 
     it("should return SEQUENCE for RLE run with 2 runs", () => {
         const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 2, 5);
-        const data = new Uint8Array([1, 4, 2, 2]); // Can't achieve this array using the encoding method...
-        const result = getVectorType(metadata, 5, data, new IntWrapper(0));
+        const twoRunUnitDeltaVarintPayload = new Uint8Array([1, 4, 2, 2]); // Can't achieve this array using the encoding method...
+        const result = getVectorType(metadata, 5, twoRunUnitDeltaVarintPayload, new IntWrapper(0));
         expect(result).toBe(VectorType.SEQUENCE);
     });
 
@@ -87,29 +93,31 @@ describe("getVectorType", () => {
     });
 
     it("should detect SEQUENCE for DELTA+RLE direct int32 payloads with unit deltas", () => {
+        const unitDeltaEncodedValue = encodeZigZagInt32Value(1);
+        const twoRunUnitDeltaWords = new Uint32Array([1, 4, unitDeltaEncodedValue, unitDeltaEncodedValue]);
+        const twoRunUnitDeltaPayload = new Uint8Array(twoRunUnitDeltaWords.buffer.slice(0));
         const metadata = {
             ...createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 2, 5),
             physicalLevelTechnique: PhysicalLevelTechnique.NONE,
-            byteLength: 16,
+            byteLength: twoRunUnitDeltaPayload.byteLength,
         };
-        const encodedDeltaRleProbe = new Int32Array([1, 4, 2, 2]);
-        const data = new Uint8Array(encodedDeltaRleProbe.buffer.slice(0));
 
-        const result = getVectorType(metadata, 5, data, new IntWrapper(0));
+        const result = getVectorType(metadata, 5, twoRunUnitDeltaPayload, new IntWrapper(0));
 
         expect(result).toBe(VectorType.SEQUENCE);
     });
 
     it("should return FLAT for DELTA+RLE direct int32 payloads with non-unit deltas", () => {
+        const increasingOddValues = new Int32Array([1, 3, 5, 7, 9]);
+        const { data: encodedWords, runs: deltaRleRunCount } = encodeDeltaRleInt32(increasingOddValues);
+        const twoRunMixedDeltaPayload = new Uint8Array(encodedWords.buffer.slice(0));
         const metadata = {
-            ...createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 2, 5),
+            ...createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, deltaRleRunCount, 5),
             physicalLevelTechnique: PhysicalLevelTechnique.NONE,
-            byteLength: 16,
+            byteLength: twoRunMixedDeltaPayload.byteLength,
         };
-        const encodedDeltaRleProbe = new Int32Array([1, 4, 2, 4]);
-        const data = new Uint8Array(encodedDeltaRleProbe.buffer.slice(0));
 
-        const result = getVectorType(metadata, 5, data, new IntWrapper(0));
+        const result = getVectorType(metadata, 5, twoRunMixedDeltaPayload, new IntWrapper(0));
 
         expect(result).toBe(VectorType.FLAT);
     });
