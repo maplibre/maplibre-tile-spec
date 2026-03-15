@@ -360,45 +360,6 @@ fn push_linestrings<'a>(
     }
 }
 
-#[cfg(all(not(test), feature = "arbitrary"))]
-#[derive(Debug, Clone, PartialEq, PartialOrd, arbitrary::Arbitrary)]
-enum ArbitraryGeometry {
-    Point((i32, i32)),
-    // FIXME: Add LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon, once supported upstream
-}
-
-#[cfg(all(not(test), feature = "arbitrary"))]
-impl From<ArbitraryGeometry> for Geom32 {
-    fn from(value: ArbitraryGeometry) -> Self {
-        match value {
-            ArbitraryGeometry::Point((x, y)) => Geom32::Point(Point(Coord32 { x, y })),
-            // FIXME: once fully working, add the rest
-        }
-    }
-}
-
-#[cfg(all(not(test), feature = "arbitrary"))]
-impl arbitrary::Arbitrary<'_> for GeometryValues {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        let geoms = u.arbitrary_iter::<ArbitraryGeometry>()?;
-        let mut decoded = GeometryValues::default();
-        for geo in geoms {
-            decoded.push_geom(&Geom32::from(geo?));
-        }
-        Ok(decoded)
-    }
-}
-
-#[cfg(all(not(test), feature = "arbitrary"))]
-impl arbitrary::Arbitrary<'_> for crate::v01::EncodedGeometry {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        let decoded = u.arbitrary()?;
-        let enc = u.arbitrary()?;
-        let geom = Self::encode(&decoded, enc).map_err(|_| arbitrary::Error::IncorrectFormat)?;
-        Ok(geom)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, wkt};

@@ -15,7 +15,7 @@ use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::{
     DictionaryType, Geometry, GeometryType, LengthType, LogicalEncoding, OffsetType,
-    PhysicalEncoding, StreamType,
+    PhysicalEncoding, StreamMeta, StreamType,
 };
 use mlt_core::{Analyze as _, Decoder, parse_layers};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
@@ -751,7 +751,7 @@ impl From<LogicalEncoding> for StatLogicalCodec {
     }
 }
 
-fn collect_stream_info(meta: mlt_core::v01::StreamMeta, algo: &mut HashSet<StreamStat>) {
+fn collect_stream_info(meta: StreamMeta, algo: &mut HashSet<StreamStat>) {
     algo.insert((
         meta.stream_type,
         meta.encoding.physical,

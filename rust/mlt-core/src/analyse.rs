@@ -1,5 +1,7 @@
 use enum_dispatch::enum_dispatch;
 
+use crate::v01::StreamMeta;
+
 /// What to calculate with [`Analyze::collect_statistic`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StatType {
@@ -18,9 +20,9 @@ pub trait Analyze {
         0
     }
 
-    /// Call `cb` with the [`StreamMeta`](crate::v01::StreamMeta) of every stream contained in `self`.
+    /// Call `cb` with the [`StreamMeta`] of every stream contained in `self`.
     /// Default implementation is a no-op (types that hold no streams).
-    fn for_each_stream(&self, _cb: &mut dyn FnMut(crate::v01::StreamMeta)) {}
+    fn for_each_stream(&self, _cb: &mut dyn FnMut(StreamMeta)) {}
 }
 
 macro_rules! impl_statistics_fixed {
@@ -50,7 +52,7 @@ impl<T: Analyze> Analyze for Option<T> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         self.as_ref().map_or(0, |v| v.collect_statistic(stat))
     }
-    fn for_each_stream(&self, cb: &mut dyn FnMut(crate::v01::StreamMeta)) {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         if let Some(v) = self {
             v.for_each_stream(cb);
         }
@@ -61,7 +63,7 @@ impl<T: Analyze> Analyze for [T] {
     fn collect_statistic(&self, stat: StatType) -> usize {
         self.iter().map(|v| v.collect_statistic(stat)).sum()
     }
-    fn for_each_stream(&self, cb: &mut dyn FnMut(crate::v01::StreamMeta)) {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         for v in self {
             v.for_each_stream(cb);
         }
@@ -72,7 +74,7 @@ impl<T: Analyze> Analyze for Vec<T> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         self.as_slice().collect_statistic(stat)
     }
-    fn for_each_stream(&self, cb: &mut dyn FnMut(crate::v01::StreamMeta)) {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         self.as_slice().for_each_stream(cb);
     }
 }

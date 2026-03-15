@@ -6,8 +6,9 @@ use mlt_core::v01::{
     DictionaryType, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
     EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, PhysicalEncoder,
     PresenceStream, RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictEncoding,
-    RawSharedDictItem, RawStrings, RawStringsEncoding, SharedDictEncoder, SharedDictItemEncoder,
-    StagedStrings, StrEncoder, build_staged_shared_dict, encode_shared_dict_prop,
+    RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding, SharedDictEncoder,
+    SharedDictItemEncoder, StagedStrings, StrEncoder, build_staged_shared_dict,
+    encode_shared_dict_prop,
 };
 use strum::IntoEnumIterator as _;
 
@@ -97,7 +98,7 @@ fn encode_fsst(strings: &[String], int_enc: IntEncoder) -> EncodedStringsEncodin
 fn borrow_enc_strings<'a>(
     enc: &'a EncodedStringsEncoding,
     name: &'a str,
-    presence: Option<mlt_core::v01::RawStream<'a>>,
+    presence: Option<RawStream<'a>>,
 ) -> RawStrings<'a> {
     let encoding = match enc {
         EncodedStringsEncoding::Plain(d) => RawStringsEncoding::Plain(RawPlainData {

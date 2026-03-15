@@ -115,7 +115,6 @@ fn struct_encode_and_decode<F>(
 ) where
     F: FnOnce(&ParsedProperty<'_>),
 {
-    use mlt_core::v01::StagedStrings;
     // Build a single StagedProperty::SharedDict
     let items: Vec<(String, StagedStrings)> = children
         .iter()

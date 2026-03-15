@@ -1,7 +1,7 @@
 use crate::analyse::{Analyze, StatType};
-use crate::v01::{GeometryType, GeometryValues, RawGeometry, StreamMeta};
+use crate::v01::{EncodedGeometry, GeometryType, GeometryValues, RawGeometry, StreamMeta};
 
-impl Analyze for crate::v01::EncodedGeometry {
+impl Analyze for EncodedGeometry {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         self.meta.for_each_stream(cb);
         self.items.for_each_stream(cb);

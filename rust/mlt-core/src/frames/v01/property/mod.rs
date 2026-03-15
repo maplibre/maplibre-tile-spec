@@ -1,6 +1,9 @@
 mod analyze;
-mod codec;
+mod decode;
+mod encode;
 mod fmt;
+#[cfg(all(not(test), feature = "arbitrary"))]
+mod fuzzing;
 mod geojson;
 mod model;
 mod optimizer;

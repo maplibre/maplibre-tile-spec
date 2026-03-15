@@ -3,6 +3,13 @@ use std::io::Write;
 
 use crate::frames::Unknown;
 
+impl Unknown<'_> {
+    /// Write Unknown's binary representation to a Write stream
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        writer.write_all(self.value)
+    }
+}
+
 #[cfg(all(not(test), feature = "arbitrary"))]
 impl arbitrary::Arbitrary<'_> for crate::frames::EncodedUnknown {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
@@ -15,12 +22,5 @@ impl arbitrary::Arbitrary<'_> for crate::frames::EncodedUnknown {
             tag,
             value: u.arbitrary()?,
         })
-    }
-}
-
-impl Unknown<'_> {
-    /// Write Unknown's binary representation to a Write stream
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        writer.write_all(self.value)
     }
 }

@@ -1,8 +1,8 @@
 use geo_types::Point;
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
-    GeometryEncoder, GeometryValues, IdEncoder, IdProfile, IdValues, IdWidth, IntEncoder,
-    LogicalEncoder, StagedLayer01, StagedLayer01Encoder,
+    GeometryEncoder, GeometryProfile, GeometryValues, IdEncoder, IdProfile, IdValues, IdWidth,
+    IntEncoder, LogicalEncoder, PropertyProfile, StagedLayer01, StagedLayer01Encoder, Tag01Profile,
 };
 use mlt_core::{Decoder, EncodedLayer, Layer};
 use rstest::rstest;
@@ -93,12 +93,11 @@ fn id_roundtrip_with_profile(decoded: &IdValues, profile: &IdProfile) -> IdValue
         geometry: geometry.clone(),
         properties: vec![],
     };
-    let geom_profile =
-        mlt_core::v01::GeometryProfile::from_sample(&geometry).expect("geometry profile");
-    let tag01 = mlt_core::v01::Tag01Profile::new(
+    let geom_profile = GeometryProfile::from_sample(&geometry).expect("geometry profile");
+    let tag01 = Tag01Profile::new(
         None,
         profile.clone(),
-        mlt_core::v01::PropertyProfile::from_sample(&[]),
+        PropertyProfile::from_sample(&[]),
         geom_profile,
     );
     let (encoded, _) = staged

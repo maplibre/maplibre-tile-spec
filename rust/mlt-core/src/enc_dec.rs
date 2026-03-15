@@ -1,6 +1,7 @@
 use std::mem;
 
 use crate::analyse::{Analyze, StatType};
+use crate::v01::StreamMeta;
 use crate::{Decoder, MltError};
 
 pub trait Decode<Parsed>: Sized {
@@ -65,7 +66,7 @@ impl<Raw: Analyze, Parsed: Analyze> Analyze for EncDec<Raw, Parsed> {
         }
     }
 
-    fn for_each_stream(&self, cb: &mut dyn FnMut(crate::v01::StreamMeta)) {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         match self {
             Self::Raw(encoded) => encoded.for_each_stream(cb),
             Self::Parsed(decoded) => decoded.for_each_stream(cb),

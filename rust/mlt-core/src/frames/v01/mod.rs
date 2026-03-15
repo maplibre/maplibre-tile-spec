@@ -1,6 +1,7 @@
 mod column;
 mod compare;
 mod encoded;
+mod fuzzing;
 mod geometry;
 mod id;
 mod model;
