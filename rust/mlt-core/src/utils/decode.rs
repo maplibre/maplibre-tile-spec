@@ -319,6 +319,7 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_helpers::assert_empty;
     use crate::utils::encode_morton_15;
 
     #[test]
@@ -330,7 +331,7 @@ mod tests {
         let res = decode_bytes_to_u32s(&bytes, 2);
         assert!(res.is_ok(), "Should decode valid buffer with 2 values");
         let (remaining, u32s) = res.unwrap();
-        assert!(remaining.is_empty(), "All input should be consumed");
+        assert_empty(remaining);
         assert_eq!(
             u32s,
             vec![0x0102_0304, 0xAABB_CCDD],
@@ -344,7 +345,7 @@ mod tests {
         let res = decode_bytes_to_u32s(&bytes, 0);
         assert!(res.is_ok(), "Empty slice with 0 values is valid");
         let (remaining, u32s) = res.unwrap();
-        assert!(remaining.is_empty(), "All input should be consumed");
+        assert_empty(remaining);
         assert!(
             u32s.is_empty(),
             "Output should be an empty Vec for 0 values"
@@ -435,8 +436,8 @@ mod tests {
     #[test]
     fn test_decode_bytes_to_u32s_empty() {
         let (input, decoded) = decode_bytes_to_u32s(&[], 0).unwrap();
+        assert_empty(input);
         assert!(decoded.is_empty());
-        assert!(input.is_empty());
     }
 
     #[test]

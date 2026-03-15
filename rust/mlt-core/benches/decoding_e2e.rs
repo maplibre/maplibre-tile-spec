@@ -1,14 +1,8 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::{Decoder, Parser, parse_layers};
-
-fn parser() -> Parser {
-    Parser::default()
-}
-fn dec() -> Decoder {
-    Decoder::default()
-}
+use mlt_core::parse_layers;
+use mlt_core::test_helpers::{dec, parser};
 
 #[path = "bench_utils.rs"]
 mod bench_utils;

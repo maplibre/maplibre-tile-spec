@@ -1,6 +1,6 @@
 use geo_types::{Coord, LineString, Point};
+use insta::assert_snapshot;
 use mlt_core::geojson::Geom32;
-use mlt_core::test_helpers::{dec, parser};
 use mlt_core::v01::{
     GeometryEncoder, GeometryType, GeometryValues, IntEncoder, SortStrategy, StagedLayer01Encoder,
     Tile01Encoder, TileFeature, TileLayer01,
@@ -27,7 +27,9 @@ fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
 
 /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer01`.
 /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
+#[cfg(test)]
 fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLayer01 {
+    use mlt_core::test_helpers::{assert_empty, dec, into_layer01, parser};
     use mlt_core::{EncodedLayer, Layer};
 
     let tile_encoder = Tile01Encoder {
@@ -47,16 +49,17 @@ fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLaye
         .write_to(&mut buf)
         .expect("write_to failed");
 
-    let (remaining, layer_back) = Layer::from_bytes(&buf, &mut parser()).expect("parse failed");
-    assert!(remaining.is_empty());
+    let mut p = parser();
+    let (remaining, layer_back) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
+    assert_empty(remaining);
+    assert_snapshot!(p.reserved(), @"16");
 
-    let Layer::Tag01(layer01) = layer_back else {
-        panic!("expected Tag01 layer");
-    };
+    let layer01 = into_layer01(layer_back);
 
-    layer01
-        .into_tile(&mut dec())
-        .expect("decode after sort failed")
+    let mut d = dec();
+    let tile = layer01.into_tile(&mut d).expect("decode after sort failed");
+    assert_snapshot!(d.consumed(), @"359");
+    tile
 }
 
 fn pt(x: i32, y: i32) -> Geom32 {

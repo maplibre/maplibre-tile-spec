@@ -1,19 +1,13 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use mlt_core::test_helpers::{dec, parser};
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder,
     PhysicalEncoder, PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer01,
 };
-use mlt_core::{Decoder, Layer, Parser, StagedLayer, parse_layers};
+use mlt_core::{Layer, StagedLayer, parse_layers};
 use strum::IntoEnumIterator as _;
-
-fn parser() -> Parser {
-    Parser::default()
-}
-fn dec() -> Decoder {
-    Decoder::default()
-}
 
 #[path = "bench_utils.rs"]
 mod bench_utils;

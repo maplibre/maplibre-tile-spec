@@ -10,7 +10,12 @@ test_each_path! { for ["mlt"] in "../test/expected/tag0x01" as geojson => geojso
 
 fn geojson_test([mlt]: [&Path; 1]) {
     let buffer = fs::read(mlt).unwrap();
-    let mut layers = parse_layers(&buffer, &mut parser()).unwrap();
-    let fc = FeatureCollection::from_layers(&mut layers, &mut dec()).unwrap();
+    let mut p = parser();
+    let mut layers = parse_layers(&buffer, &mut p).unwrap();
+    assert!(p.reserved() > 0);
+
+    let mut d = dec();
+    let fc = FeatureCollection::from_layers(&mut layers, &mut d).unwrap();
+    assert!(d.consumed() > 0);
     assert!(!fc.features.is_empty(), "expected at least one feature");
 }

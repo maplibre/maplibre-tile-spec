@@ -214,10 +214,11 @@ pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer01) -> bool {
 #[cfg(test)]
 mod tests {
     use geo_types::{Coord, Geometry as GeoGeom, LineString, Point, Polygon};
+    use insta::assert_snapshot;
 
     use super::*;
     use crate::geojson::Geom32;
-    use crate::test_helpers::{dec, parser};
+    use crate::test_helpers::{assert_empty, dec, parser};
     use crate::v01::{
         Geometry, GeometryEncoder, GeometryValues, IntEncoder, RawGeometry, TileFeature,
         TileLayer01,
@@ -265,16 +266,17 @@ mod tests {
         let mut buf = Vec::new();
         encoded.write_to(&mut buf).expect("serialize failed");
 
-        let (remaining, parsed) =
-            RawGeometry::from_bytes(&buf, &mut parser()).expect("parse failed");
-        assert!(
-            remaining.is_empty(),
-            "unexpected trailing bytes after parse"
-        );
+        let mut p = parser();
+        let (remaining, parsed) = RawGeometry::from_bytes(&buf, &mut p).expect("parse failed");
+        assert_empty(remaining);
+        assert_snapshot!(p.reserved(), @"0");
 
-        Geometry::Raw(parsed)
-            .into_parsed(&mut dec())
-            .expect("decode failed")
+        let mut d = dec();
+        let result = Geometry::Raw(parsed)
+            .into_parsed(&mut d)
+            .expect("decode failed");
+        assert_snapshot!(d.consumed(), @"48");
+        result
     }
 
     /// Build the canonical (dense, wire-decoded) form of an ordered geometry sequence.

@@ -1,9 +1,10 @@
 #![cfg(test)]
 
+use insta::assert_snapshot;
 use proptest::prelude::*;
 use rstest::rstest;
 
-use crate::test_helpers::{dec, parser};
+use crate::test_helpers::{assert_empty, dec, parser};
 use crate::utils::BinarySerializer as _;
 use crate::v01::stream::encoder::IntEncoder;
 use crate::v01::stream::logical::LogicalEncoder;
@@ -153,14 +154,18 @@ fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
     let mut buffer = Vec::new();
     buffer.write_stream(&owned_stream).unwrap();
 
-    let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-    assert!(remaining.is_empty());
+    let mut p = parser();
+    let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut p).unwrap();
+    assert_empty(remaining);
+    assert_snapshot!(p.reserved(), @"0");
 
+    let mut d = dec();
     let decoded_values = parsed_stream
-        .decode_bits_u32(&mut dec())
+        .decode_bits_u32(&mut d)
         .unwrap()
-        .decode_u32(&mut dec())
+        .decode_u32(&mut d)
         .unwrap();
+    assert_snapshot!(d.consumed(), @"28");
 
     assert_eq!(decoded_values, values);
 }
@@ -211,13 +216,15 @@ fn test_stream_roundtrip(
     }
 
     // Parse back
+    let mut p = parser();
     let (remaining, parsed) = if is_bool {
-        RawStream::parse_bool(&buffer, &mut parser()).unwrap()
+        RawStream::parse_bool(&buffer, &mut p).unwrap()
     } else {
-        RawStream::from_bytes(&buffer, &mut parser()).unwrap()
+        RawStream::from_bytes(&buffer, &mut p).unwrap()
     };
 
-    assert!(remaining.is_empty(), "{} bytes remain", remaining.len());
+    assert_empty(remaining);
+    assert_snapshot!(p.reserved(), @"0");
     assert_eq!(parsed.meta, stream.meta, "metadata mismatch");
 
     match (&stream.data, &parsed.data) {
@@ -243,7 +250,7 @@ fn test_varint_stream_huge_num_values_empty_data() {
     let wire: &[u8] = &[0x00, 0x02, 0xd5, 0xff, 0xd5, 0xff, 0x03, 0x00];
     let (remaining, stream) =
         RawStream::from_bytes(wire, &mut parser()).expect("parse must succeed");
-    assert!(remaining.is_empty());
+    assert_empty(remaining);
     assert_eq!(stream.meta.num_values, 1_073_053_653);
     // Decoding must return an error, not OOM or panic.
     let result = stream.decode_bits_u32(&mut dec());
@@ -290,7 +297,7 @@ proptest! {
         buffer.write_stream(&owned_stream).unwrap();
 
         let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert!(remaining.is_empty());
+        assert_empty(remaining);
 
         let decoded_values = parsed_stream.decode_i8s(&mut dec()).unwrap();
         assert_eq!(decoded_values, values);
@@ -307,7 +314,7 @@ proptest! {
         buffer.write_stream(&owned_stream).unwrap();
 
         let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert!(remaining.is_empty());
+        assert_empty(remaining);
 
         let decoded_values = parsed_stream.decode_u8s(&mut dec()).unwrap();
         assert_eq!(decoded_values, values);
@@ -324,7 +331,7 @@ proptest! {
         buffer.write_stream(&owned_stream).unwrap();
 
         let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert!(remaining.is_empty());
+        assert_empty(remaining);
 
         let decoded_values = parsed_stream.decode_bits_u32(&mut dec()).unwrap().decode_u32(&mut dec()).unwrap();
 
@@ -342,7 +349,7 @@ proptest! {
         buffer.write_stream(&owned_stream).unwrap();
 
         let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert!(remaining.is_empty());
+        assert_empty(remaining);
 
         let decoded_values = parsed_stream.decode_bits_u32(&mut dec()).unwrap().decode_i32(&mut dec()).unwrap();
 
@@ -360,7 +367,7 @@ proptest! {
         buffer.write_stream(&owned_stream).unwrap();
 
         let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert!(remaining.is_empty());
+        assert_empty(remaining);
 
         let decoded_values = parsed_stream.decode_u64s(&mut dec()).unwrap();
 
@@ -378,7 +385,7 @@ proptest! {
         buffer.write_stream(&owned_stream).unwrap();
 
         let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert!(remaining.is_empty());
+        assert_empty(remaining);
 
         let decoded_values = parsed_stream.decode_i64s(&mut dec()).unwrap();
 
@@ -393,7 +400,7 @@ proptest! {
         buffer.write_stream(&owned_stream).unwrap();
 
         let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert!(remaining.is_empty());
+        assert_empty(remaining);
 
         let decoded_values = parsed_stream.decode_f32s(&mut dec()).unwrap();
         assert_eq!(decoded_values.len(), values.len());
@@ -414,7 +421,7 @@ proptest! {
         buffer.write_stream(&owned_stream).unwrap();
 
         let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert!(remaining.is_empty());
+        assert_empty(remaining);
 
         let decoded_values = parsed_stream.decode_f64s(&mut dec()).unwrap();
         assert_eq!(decoded_values.len(), values.len());
@@ -445,7 +452,7 @@ proptest! {
         let mut parsed_streams = Vec::new();
         for buffer in &buffers {
             let (remaining, parsed_stream) = RawStream::from_bytes(buffer, &mut parser()).unwrap();
-            assert!(remaining.is_empty());
+            assert_empty(remaining);
             parsed_streams.push(parsed_stream);
         }
 

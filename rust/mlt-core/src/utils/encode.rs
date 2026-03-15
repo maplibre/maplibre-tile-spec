@@ -237,7 +237,7 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::test_helpers::dec;
+    use crate::test_helpers::{assert_empty, dec};
     use crate::utils::{
         decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s,
         decode_componentwise_delta_vec2s, decode_fastpfor_composite, decode_zigzag,
@@ -291,7 +291,7 @@ mod tests {
             let encoded = encode_u32s_to_bytes(&data);
             let (rem, decoded) = decode_bytes_to_u32s(&encoded, u32::try_from(data.len()).unwrap()).unwrap();
             prop_assert_eq!(data, decoded);
-            prop_assert!(rem.is_empty());
+            assert_empty(rem);
         }
 
         #[test]
@@ -315,7 +315,7 @@ mod tests {
             let encoded = encode_u64s_to_bytes(&data);
             let (rem, decoded) = decode_bytes_to_u64s(&encoded, u32::try_from(data.len()).unwrap()).unwrap();
             prop_assert_eq!(data, decoded);
-            prop_assert!(rem.is_empty());
+            assert_empty(rem);
         }
 
         #[test]

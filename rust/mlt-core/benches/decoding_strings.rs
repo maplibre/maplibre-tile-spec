@@ -1,12 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::Decoder;
-
-fn dec() -> Decoder {
-    Decoder::default()
-}
-
+use mlt_core::test_helpers::dec;
 use mlt_core::v01::{
     DictionaryType, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
     EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, PhysicalEncoder,
