@@ -185,7 +185,7 @@ describe("decodeString - Empty Column Edge Cases", () => {
 
     it("should handle column with all zero-length streams (returns null)", () => {
         const emptyStream = createStream(PhysicalStreamType.LENGTH, new Uint8Array([]), {
-            logical: new LogicalStreamType(undefined, undefined, LengthType.VAR_BINARY),
+            logical: { lengthType: LengthType.VAR_BINARY },
         });
         const offset = new IntWrapper(0);
         const result = decodeString("testColumn", emptyStream, offset, 1);
