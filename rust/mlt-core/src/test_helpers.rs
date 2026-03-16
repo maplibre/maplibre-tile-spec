@@ -1,10 +1,4 @@
 //! Shared helpers for unit tests, integration tests, and benchmarks.
-//!
-//! Always compiled but `#[doc(hidden)]` so it stays out of the main API.
-//!
-//! - Unit tests: `use crate::test_helpers::{dec, parser};`
-//! - Integration tests: `use mlt_core::test_helpers::{dec, parser};`
-//! - Benchmarks: `use mlt_core::test_helpers::{dec, parser};`
 
 use crate::v01::Layer01;
 use crate::{Decoder, Layer, Parser};

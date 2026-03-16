@@ -1,7 +1,7 @@
+use std::mem::size_of;
+
 use crate::errors::AsMltError as _;
 use crate::{Layer, MltError};
-use num_traits::ToPrimitive;
-use std::mem::size_of;
 
 /// Default memory budget: 10 MiB.
 const DEFAULT_MAX_BYTES: u32 = 10 * 1024 * 1024;

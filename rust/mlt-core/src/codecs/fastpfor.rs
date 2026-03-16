@@ -1,5 +1,3 @@
-use std::mem::size_of;
-
 use num_traits::ToPrimitive as _;
 
 use crate::errors::AsMltError as _;
@@ -120,8 +118,38 @@ pub fn decode_fastpfor_composite(
             &mut std::io::Cursor::new(0u32),
             &mut result,
             &mut output_offset,
-        )?
+        )?;
+
+        result
     };
+
+    // Original code:
+    // {
+    //     use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
+    //
+    //     // Over-allocate: FastPFOR may write a header and padding beyond the input length.
+    //     let mut compressed = vec![0u32; values.len() + 1024];
+    //     let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
+    //     let mut output_offset = std::io::Cursor::new(0u32);
+    //
+    //     comp.compress(
+    //         values,
+    //         u32::try_from(values.len())?,
+    //         &mut std::io::Cursor::new(0u32),
+    //         &mut compressed,
+    //         &mut output_offset,
+    //     )?;
+    //
+    //     // FIXME: handle usize casting to be within u32?
+    //     let written = usize::try_from(output_offset.position())?;
+    //
+    //     // Convert u32 words to big-endian bytes to match the wire format.
+    //     let mut data = Vec::with_capacity(written * 4);
+    //     for word in &compressed[..written] {
+    //         data.extend_from_slice(&word.to_be_bytes());
+    //     }
+    //     Ok(data)
+    // }
 
     if decoded.len() < num_values {
         return Err(MltError::FastPforDecode(num_values, decoded.len()));

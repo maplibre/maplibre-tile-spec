@@ -125,13 +125,6 @@ impl StagedStrings {
         }
         values
     }
-
-    #[must_use]
-    pub fn materialize(&self) -> Vec<Option<String>> {
-        (0..u32::try_from(self.feature_count()).unwrap_or(u32::MAX))
-            .map(|i| self.get(i).map(str::to_string))
-            .collect()
-    }
 }
 
 // ── StagedSharedDict ──────────────────────────────────────────────────────────
@@ -306,24 +299,25 @@ fn decode_shared_dict_range(range: (i32, i32)) -> Option<(u32, u32)> {
     }
 }
 
-fn shared_dict_spans(lengths: &[u32]) -> Vec<(u32, u32)> {
-    lengths
-        .iter()
-        .scan(0_u32, |offset, len| {
-            let start = *offset;
-            *offset = offset.saturating_add(*len);
-            Some((start, *offset))
-        })
-        .collect()
+fn shared_dict_spans(lengths: &[u32], dec: &mut Decoder) -> Result<Vec<(u32, u32)>, MltError> {
+    let mut spans = dec.alloc(lengths.len())?;
+    let mut offset = 0_u32;
+    for &len in lengths {
+        let start = offset;
+        offset = offset.saturating_add(len);
+        spans.push((start, offset));
+    }
+    Ok(spans)
 }
 
 fn resolve_dict_spans(
     offsets: &[u32],
     presence: Option<&[bool]>,
     dict_spans: &[(u32, u32)],
+    dec: &mut Decoder,
 ) -> Result<Vec<Option<(u32, u32)>>, MltError> {
     let present_count = presence.map_or(offsets.len(), <[bool]>::len);
-    let mut resolved = Vec::with_capacity(present_count);
+    let mut resolved = dec.alloc(present_count)?;
     let mut next = offsets.iter().copied();
 
     if let Some(presence) = presence {
@@ -530,7 +524,7 @@ impl<'a> RawFsstData<'a> {
             corpus,
         } = self;
         let sym_lens = symbol_lengths.decode_u32s(dec)?;
-        let decompressed = decode_fsst(symbol_table.as_bytes(), &sym_lens, corpus.as_bytes());
+        let decompressed = decode_fsst(symbol_table.as_bytes(), &sym_lens, corpus.as_bytes(), dec)?;
         Ok((String::from_utf8(decompressed)?, lengths.decode_u32s(dec)?))
     }
 
@@ -891,7 +885,7 @@ impl<'a> RawStrings<'a> {
                 let (data, lengths) = plain_data.decode(dec)?;
                 ParsedStrings {
                     name,
-                    lengths: to_absolute_lengths(&lengths, presence.as_deref())?,
+                    lengths: to_absolute_lengths(&lengths, presence.as_deref(), dec)?,
                     data: data.into(),
                 }
             }
@@ -901,28 +895,40 @@ impl<'a> RawStrings<'a> {
             } => {
                 let (data, lengths) = plain_data.decode(dec)?;
                 let offsets: Vec<u32> = offsets.decode_u32s(dec)?;
-                decode_dictionary_strings(name, &lengths, &offsets, presence.as_deref(), data)?
+                decode_dictionary_strings(name, &lengths, &offsets, presence.as_deref(), data, dec)?
             }
             RawStringsEncoding::FsstPlain(fsst_data) => {
                 let (data, dict_lens) = fsst_data.decode(dec)?;
                 ParsedStrings {
                     name,
-                    lengths: to_absolute_lengths(&dict_lens, presence.as_deref())?,
+                    lengths: to_absolute_lengths(&dict_lens, presence.as_deref(), dec)?,
                     data: data.into(),
                 }
             }
             RawStringsEncoding::FsstDictionary { fsst_data, offsets } => {
                 let (data, lengths) = fsst_data.decode(dec)?;
                 let offsets: Vec<u32> = offsets.decode_u32s(dec)?;
-                decode_dictionary_strings(name, &lengths, &offsets, presence.as_deref(), &data)?
+                decode_dictionary_strings(
+                    name,
+                    &lengths,
+                    &offsets,
+                    presence.as_deref(),
+                    &data,
+                    dec,
+                )?
             }
         };
         Ok(parsed)
     }
 }
 
-fn to_absolute_lengths(lengths: &[u32], presence: Option<&[bool]>) -> Result<Vec<i32>, MltError> {
-    let mut absolute = Vec::with_capacity(presence.map_or(lengths.len(), <[bool]>::len));
+fn to_absolute_lengths(
+    lengths: &[u32],
+    presence: Option<&[bool]>,
+    dec: &mut Decoder,
+) -> Result<Vec<i32>, MltError> {
+    let capacity = presence.map_or(lengths.len(), <[bool]>::len);
+    let mut absolute = dec.alloc(capacity)?;
     let mut iter = lengths.iter().copied();
     let mut end = 0_i32;
     if let Some(presence) = presence {
@@ -959,10 +965,11 @@ fn decode_dictionary_strings<'a>(
     offsets: &[u32],
     presence: Option<&[bool]>,
     dict_data: &str,
+    dec: &mut Decoder,
 ) -> Result<ParsedStrings<'a>, MltError> {
-    let dict_spans = shared_dict_spans(dict_lengths);
-    let resolved_spans = resolve_dict_spans(offsets, presence, &dict_spans)?;
-    let mut lengths = Vec::with_capacity(resolved_spans.len());
+    let dict_spans = shared_dict_spans(dict_lengths, dec)?;
+    let resolved_spans = resolve_dict_spans(offsets, presence, &dict_spans, dec)?;
+    let mut lengths = dec.alloc(resolved_spans.len())?;
     let mut data = String::new();
     let mut end = 0_i32;
     for span in resolved_spans {
@@ -1006,7 +1013,12 @@ fn checked_absolute_end(current_end: i32, delta: u32) -> Result<i32, MltError> {
         .ok_or(MltError::IntegerOverflow)
 }
 
-fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec<u8> {
+fn decode_fsst(
+    symbols: &[u8],
+    symbol_lengths: &[u32],
+    compressed: &[u8],
+    dec: &mut Decoder,
+) -> Result<Vec<u8>, MltError> {
     // Build symbol offset table
     let mut symbol_offsets = vec![0u32; symbol_lengths.len()];
     for i in 1..symbol_lengths.len() {
@@ -1026,7 +1038,8 @@ fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec
         }
         i += 1;
     }
-    output
+    dec.consume(u32::try_from(output.len()).or_overflow()?)?;
+    Ok(output)
 }
 
 impl<'a> RawSharedDict<'a> {
@@ -1049,12 +1062,12 @@ impl<'a> RawSharedDict<'a> {
         let (data, dict_spans) = match self.encoding {
             RawSharedDictEncoding::Plain(plain_data) => {
                 let (decoded, lengths) = plain_data.decode(dec)?;
-                let dict_spans = shared_dict_spans(&lengths);
+                let dict_spans = shared_dict_spans(&lengths, dec)?;
                 (Cow::Borrowed(decoded), dict_spans)
             }
             RawSharedDictEncoding::FsstPlain(fsst_data) => {
                 let (decoded, lengths) = fsst_data.decode(dec)?;
-                let dict_spans = shared_dict_spans(&lengths);
+                let dict_spans = shared_dict_spans(&lengths, dec)?;
                 (decoded.into(), dict_spans)
             }
         };
@@ -1065,7 +1078,7 @@ impl<'a> RawSharedDict<'a> {
                 Some(s) => Some(s.decode_bools(dec)?),
                 None => None,
             };
-            let ranges = resolve_dict_spans(&offsets, presence.as_deref(), &dict_spans)?
+            let ranges = resolve_dict_spans(&offsets, presence.as_deref(), &dict_spans, dec)?
                 .into_iter()
                 .map(|span| match span {
                     Some(span) => encode_shared_dict_range(span.0, span.1),
