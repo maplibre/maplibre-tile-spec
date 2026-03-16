@@ -37,8 +37,7 @@ pub fn dump(args: &DumpArgs, decode: AfterDump) -> Result<()> {
 }
 
 fn dump_mlt(args: &DumpArgs, decode: AfterDump, buffer: &[u8]) -> Result<(), MltError> {
-    let mut parser = Parser::default();
-    let mut layers = parser.parse_layers(buffer)?;
+    let mut layers = Parser::default().parse_layers(buffer)?;
     let mut dec = Decoder::default();
     if decode == AfterDump::Decode {
         for layer in &mut layers {

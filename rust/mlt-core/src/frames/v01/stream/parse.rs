@@ -4,6 +4,7 @@ use std::io::{self, Write};
 use integer_encoding::VarIntWriter as _;
 
 use crate::analyse::{Analyze, StatType};
+use crate::errors::fail_if_invalid_stream_size;
 use crate::utils::{BinarySerializer as _, parse_u8, parse_varint, take};
 use crate::v01::{
     IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RawStream,
@@ -284,10 +285,7 @@ fn validate_rle_varint_stream(data: &[u8], runs: u32, num_rle_values: u32) -> Re
     }
     if sum != u64::from(num_rle_values) {
         let sum_usize = usize::try_from(sum).map_err(|_| MltError::IntegerOverflow)?;
-        return Err(MltError::InvalidDecodingStreamSize(
-            sum_usize,
-            num_rle_values.as_usize(),
-        ));
+        fail_if_invalid_stream_size(sum_usize, num_rle_values.as_usize())?;
     }
     Ok(())
 }
