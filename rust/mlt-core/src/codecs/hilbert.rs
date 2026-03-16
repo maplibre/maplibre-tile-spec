@@ -17,8 +17,9 @@ pub fn hilbert_xy_to_index(level: u32, x: u32, y: u32) -> u32 {
 /// This is the inverse of [`hilbert_xy_to_index`]: the returned coordinates
 /// are in `[0, 2^level)`.  `level` must be in `[1, 16]` and `pos` must be
 /// in `[0, 4^level)`.
+/// FIXME: why is this not used?  Delete?
 #[must_use]
-pub fn hilbert_position_to_xy(level: u32, pos: u32) -> (u32, u32) {
+pub fn _hilbert_position_to_xy(level: u32, pos: u32) -> (u32, u32) {
     debug_assert!((1..=16).contains(&level), "level must be in [1, 16]");
     debug_assert!(u64::from(pos) < (1u64 << (2 * level)), "pos out of range");
 
@@ -121,7 +122,7 @@ mod tests {
         for x in 0u32..2 {
             for y in 0u32..2 {
                 let idx = hilbert_xy_to_index(1, x, y);
-                let (rx, ry) = hilbert_position_to_xy(1, idx);
+                let (rx, ry) = _hilbert_position_to_xy(1, idx);
                 assert_eq!((rx, ry), (x, y), "round-trip failed at level=1 ({x},{y})");
             }
         }
@@ -133,7 +134,7 @@ mod tests {
         for x in 0u32..4 {
             for y in 0u32..4 {
                 let idx = hilbert_xy_to_index(2, x, y);
-                let (rx, ry) = hilbert_position_to_xy(2, idx);
+                let (rx, ry) = _hilbert_position_to_xy(2, idx);
                 assert_eq!((rx, ry), (x, y), "round-trip failed at level=2 ({x},{y})");
             }
         }
@@ -145,7 +146,7 @@ mod tests {
         for x in 0u32..16 {
             for y in 0u32..16 {
                 let idx = hilbert_xy_to_index(4, x, y);
-                let (rx, ry) = hilbert_position_to_xy(4, idx);
+                let (rx, ry) = _hilbert_position_to_xy(4, idx);
                 assert_eq!((rx, ry), (x, y), "round-trip failed at level=4 ({x},{y})");
             }
         }

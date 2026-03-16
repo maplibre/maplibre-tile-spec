@@ -58,10 +58,7 @@ impl EncodedGeometry {
         Ok(())
     }
 
-    pub(crate) fn encode(
-        value: &GeometryValues,
-        encoder: GeometryEncoder,
-    ) -> Result<Self, MltError> {
+    pub fn encode(value: &GeometryValues, encoder: GeometryEncoder) -> Result<Self, MltError> {
         encode_geometry(value, &encoder, None)
     }
 }

@@ -1,6 +1,6 @@
-pub(crate) mod bytes;
-pub(crate) mod fastpfor;
-pub(crate) mod hilbert;
-pub(crate) mod morton;
-pub(crate) mod rle;
-pub(crate) mod zigzag;
+pub mod bytes;
+pub mod fastpfor;
+pub mod hilbert;
+pub mod morton;
+pub mod rle;
+pub mod zigzag;

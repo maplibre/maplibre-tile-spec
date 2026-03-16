@@ -148,7 +148,7 @@ impl StagedSharedDict {
     }
 }
 
-pub(crate) fn collect_staged_shared_dict_spans(items: &[StagedSharedDictItem]) -> Vec<(u32, u32)> {
+pub fn collect_staged_shared_dict_spans(items: &[StagedSharedDictItem]) -> Vec<(u32, u32)> {
     let mut spans = items
         .iter()
         .flat_map(StagedSharedDictItem::dense_spans)

@@ -1,5 +1,5 @@
 mod analyze;
-pub(crate) mod data;
+mod data;
 mod decode;
 mod encode_stream;
 pub mod encoder;

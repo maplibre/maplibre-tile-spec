@@ -5,7 +5,7 @@ use crate::v01::{
     StagedProperty, StrEncoder, encode_shared_dict_prop,
 };
 
-pub(crate) fn encode_properties(
+pub fn encode_properties(
     value: &[StagedProperty],
     encoders: Vec<PropertyEncoder>,
 ) -> Result<Vec<EncodedProperty>, MltError> {

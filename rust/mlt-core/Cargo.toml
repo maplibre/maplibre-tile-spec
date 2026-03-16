@@ -14,24 +14,54 @@ rust-version.workspace = true
 [[bench]]
 name = "decoding_e2e"
 harness = false
+required-features = ["__private"]
 
 [[bench]]
 name = "encoding_e2e"
 harness = false
+required-features = ["__private"]
 
 [[bench]]
 name = "decoding_utils"
 harness = false
+required-features = ["__private"]
 
 [[bench]]
 name = "decoding_strings"
 harness = false
+required-features = ["__private"]
+
+[[test]]
+name = "geojson"
+required-features = ["__private"]
+
+[[test]]
+name = "geometry_optimizer"
+required-features = ["__private"]
+
+[[test]]
+name = "id_optimizer"
+required-features = ["__private"]
+
+[[test]]
+name = "property_roundtrip"
+required-features = ["__private"]
+
+[[test]]
+name = "snapshots"
+required-features = ["__private"]
+
+[[test]]
+name = "sort"
+required-features = ["__private"]
 
 [features]
 default = ["fastpfor-cpp"]
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
 fastpfor-cpp  = ["fastpfor/cpp_portable"]
 fastpfor-rust = ["fastpfor/rust"]
+# Used internally for testing and benchmarking, not intended for public use
+__private = []
 
 [dependencies]
 arbitrary = { workspace = true, optional = true }
