@@ -37,15 +37,12 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_encoder: IdEncoder) -> IdValues
         .expect("write_to failed");
     let mut p = parser();
     let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
-    let layer01 = into_layer01(layer);
 
-    let mut d = dec();
-    let result = layer01
+    into_layer01(layer)
         .id
         .expect("expected id column")
-        .into_parsed(&mut d)
-        .expect("decode failed");
-    result
+        .into_parsed(&mut dec())
+        .expect("decode failed")
 }
 
 fn id_roundtrip_auto(decoded: &IdValues) -> IdValues {

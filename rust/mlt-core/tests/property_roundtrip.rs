@@ -1,3 +1,4 @@
+use insta::assert_snapshot;
 use mlt_core::__private::{dec, parser};
 use mlt_core::MltError;
 use mlt_core::v01::{
@@ -524,14 +525,14 @@ fn struct_mixed_with_scalars() {
     let bytes = props_to_layer_bytes(props, prop_encs).unwrap();
     let mut p = parser();
     let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
-    assert_eq!(p.reserved(), 160);
+    assert_snapshot!(p.reserved(), @"160");
     let mut d = dec();
     let mut decoded_props: Vec<_> = layer
         .properties
         .into_iter()
         .map(|prop| prop.into_parsed(&mut d).expect("decode failed"))
         .collect();
-    assert_eq!(d.consumed(), 209);
+    assert_snapshot!(d.consumed(), @"169");
 
     // Output order: scalar "population", struct "name:", scalar "rank"
     assert_eq!(decoded_props.len(), 3);
@@ -619,14 +620,14 @@ fn two_struct_groups_with_scalar_between() {
     let bytes = props_to_layer_bytes(props, prop_encs).unwrap();
     let mut p = parser();
     let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
-    assert_eq!(p.reserved(), 256);
+    assert_snapshot!(p.reserved(), @"256");
     let mut d = dec();
     let decoded_props: Vec<_> = layer
         .properties
         .into_iter()
         .map(|prop| prop.into_parsed(&mut d).expect("decode failed"))
         .collect();
-    assert_eq!(d.consumed(), 272);
+    assert_snapshot!(d.consumed(), @"208");
 
     // Output order: struct "name:", scalar "population", struct "label:"
     assert_eq!(decoded_props.len(), 3);

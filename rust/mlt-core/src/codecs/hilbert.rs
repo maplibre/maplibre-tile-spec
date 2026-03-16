@@ -105,11 +105,8 @@ mod tests {
     fn hilbert_origin_always_zero() {
         // The origin maps to index 0 at every level.
         for level in 1u32..=8 {
-            assert_eq!(
-                hilbert_xy_to_index(level, 0, 0),
-                0,
-                "origin should be 0 at level {level}"
-            );
+            let idx = hilbert_xy_to_index(level, 0, 0);
+            assert_eq!(idx, 0, "origin should be 0 at level {level}");
         }
     }
 
@@ -212,11 +209,8 @@ mod tests {
                     u32::try_from(i64::from(raw_x) + i64::from(shift)).unwrap(),
                     u32::try_from(i64::from(raw_y) + i64::from(shift)).unwrap(),
                 );
-                assert_eq!(
-                    hilbert_sort_key(raw_x, raw_y, shift, num_bits),
-                    expected,
-                    "mismatch at ({raw_x},{raw_y})"
-                );
+                let actual = hilbert_sort_key(raw_x, raw_y, shift, num_bits);
+                assert_eq!(actual, expected, "mismatch at ({raw_x},{raw_y})");
             }
         }
     }

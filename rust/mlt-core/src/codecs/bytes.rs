@@ -190,32 +190,24 @@ mod tests {
         assert!(res.is_ok(), "Should decode 2 values from larger buffer");
         let (remaining, u32s) = res.unwrap();
         assert_eq!(remaining.len(), 4, "Should have 4 bytes remaining");
-        assert_eq!(u32s.len(), 2, "Should have exactly 2 values");
-        assert_eq!(
-            u32s,
-            vec![0x0403_0201, 0x0807_0605],
-            "Decoded values should match"
-        );
+        assert_eq!(u32s.len(), 2);
+        assert_eq!(u32s, vec![0x0403_0201, 0x0807_0605]);
     }
 
     #[test]
     fn test_decode_u32() {
         let bytes = [1, 0, 0, 0, 2, 0, 0, 0];
         let expected = (&[][..], vec![1, 2]);
-        assert_eq!(
-            decode_bytes_to_u32s(&bytes, 2, &mut dec()).unwrap(),
-            expected
-        );
+        let decoded = decode_bytes_to_u32s(&bytes, 2, &mut dec()).unwrap();
+        assert_eq!(decoded, expected);
     }
 
     #[test]
     fn test_decode_u64() {
         let bytes = [1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0];
         let expected = (&[][..], vec![1, 2]);
-        assert_eq!(
-            decode_bytes_to_u64s(&bytes, 2, &mut dec()).unwrap(),
-            expected
-        );
+        let decoded = decode_bytes_to_u64s(&bytes, 2, &mut dec()).unwrap();
+        assert_eq!(decoded, expected);
     }
 
     #[test]

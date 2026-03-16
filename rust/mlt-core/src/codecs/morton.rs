@@ -393,10 +393,8 @@ mod tests {
     fn test_decode_morton_codes_origin() {
         // Morton code for (COORD_SHIFT, COORD_SHIFT) should decode to (0, 0).
         let code = encode_morton_15(COORD_SHIFT, COORD_SHIFT);
-        assert_eq!(
-            decode_morton_codes(&[code], morton_meta(), &mut dec()).unwrap(),
-            [0, 0]
-        );
+        let decoded = decode_morton_codes(&[code], morton_meta(), &mut dec()).unwrap();
+        assert_eq!(decoded, [0, 0]);
     }
 
     #[test]
@@ -407,10 +405,8 @@ mod tests {
         let code = encode_morton_15(x, y);
         let expected_x = x.cast_signed() - COORD_SHIFT.cast_signed();
         let expected_y = y.cast_signed() - COORD_SHIFT.cast_signed();
-        assert_eq!(
-            decode_morton_codes(&[code], morton_meta(), &mut dec()).unwrap(),
-            [expected_x, expected_y]
-        );
+        let decoded = decode_morton_codes(&[code], morton_meta(), &mut dec()).unwrap();
+        assert_eq!(decoded, [expected_x, expected_y]);
     }
 
     #[test]
@@ -510,11 +506,9 @@ mod tests {
             .cast_signed()
             .wrapping_sub(code_a.cast_signed())
             .cast_unsigned();
-        let deltas = vec![code_a, delta_b];
-        let codes = vec![code_a, code_b];
         assert_eq!(
-            decode_morton_delta(&deltas, morton_meta(), &mut dec()).unwrap(),
-            decode_morton_codes(&codes, morton_meta(), &mut dec()).unwrap()
+            decode_morton_delta(&[code_a, delta_b], morton_meta(), &mut dec()).unwrap(),
+            decode_morton_codes(&[code_a, code_b], morton_meta(), &mut dec()).unwrap()
         );
     }
 

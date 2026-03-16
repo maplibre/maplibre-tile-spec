@@ -6,7 +6,6 @@ use rstest::rstest;
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::utils::BinarySerializer as _;
 use crate::v01::stream::encoder::IntEncoder;
-use crate::v01::stream::logical::LogicalEncoder;
 use crate::v01::{
     DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, LogicalEncoding,
     LogicalValue, MortonMeta, OffsetType, PhysicalEncoder, PhysicalEncoding, RawFsstData,
@@ -136,7 +135,7 @@ fn test_decode_u32(
 #[case::edge_values(vec![0, 1, 2, 4, 8, 16, 1024, 65535, 1_000_000_000, u32::MAX])]
 #[case::empty(vec![])]
 fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
-    let encoder = IntEncoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR);
+    let encoder = IntEncoder::fastpfor();
     let owned_stream = EncodedStream::encode_u32s(&values, encoder).unwrap();
 
     let mut buffer = Vec::new();
