@@ -206,21 +206,6 @@ where
     result
 }
 
-/// Interleave `x` and `y` into a single Morton code using `num_bits` bits per component.
-///
-/// Even bit positions encode `x`, odd positions encode `y`.
-/// This is the inverse of the Morton decode in `decode_morton_codes` / `decode_morton_delta`.
-#[must_use]
-#[inline]
-pub fn encode_morton_15(x: u32, y: u32) -> u32 {
-    let mut code = 0u32;
-    for bit in 0..15 {
-        code |= ((x >> bit) & 1) << (2 * bit);
-        code |= ((y >> bit) & 1) << (2 * bit + 1);
-    }
-    code
-}
-
 /// Helper to pack a `Vec<bool>` into `Vec<u8>` where each byte represents 8 booleans.
 #[must_use]
 pub fn encode_bools_to_bytes(bools: &[bool]) -> Vec<u8> {
@@ -255,7 +240,7 @@ mod tests {
         #[test]
         fn test_zigzag_roundtrip_i64(data: Vec<i64>) {
             let encoded = encode_zigzag(&data);
-            let decoded = decode_zigzag::<i64>(&encoded);
+            let decoded = decode_zigzag::<i64>(&encoded, &mut dec()).unwrap();
             prop_assert_eq!(data, decoded);
         }
 
@@ -263,7 +248,7 @@ mod tests {
         fn test_delta_roundtrip_i32(data: Vec<i32>) {
             if data.is_empty() { return Ok(()); }
             let encoded = encode_zigzag_delta(&data);
-            let decoded: Vec<i32> = decode_zigzag_delta::<i32, i32>(&encoded);
+            let decoded: Vec<i32> = decode_zigzag_delta::<i32, i32>(&encoded, &mut dec()).unwrap();
             prop_assert_eq!(data, decoded);
         }
 
@@ -306,7 +291,7 @@ mod tests {
                 &data[.. data.len()-1]
             };
             let encoded = encode_componentwise_delta_vec2s(data_slice);
-            let decoded = decode_componentwise_delta_vec2s::<i32>(&encoded).unwrap();
+            let decoded = decode_componentwise_delta_vec2s::<i32>(&encoded, &mut dec()).unwrap();
             prop_assert_eq!(data_slice, &decoded);
         }
 

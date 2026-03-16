@@ -165,3 +165,18 @@ impl MemBudget {
         self.bytes_used
     }
 }
+
+/// Assert (in debug builds) that `buffer` did not reallocate beyond its initial `alloc_size`.
+///
+/// Call this after fully populating a `Vec` that was pre-allocated with [`Decoder::alloc`].
+/// A capacity increase beyond `alloc_size` means a reallocation occurred that was not
+/// included in the decoder's budget.
+#[allow(clippy::ptr_arg)]
+#[inline]
+pub(crate) fn debug_assert_alloc<T>(buffer: &Vec<T>, alloc_size: usize) {
+    debug_assert!(
+        buffer.capacity() <= alloc_size,
+        "Vector reallocated beyond initial allocation size ({alloc_size}); final capacity: {}",
+        buffer.capacity()
+    );
+}

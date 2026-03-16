@@ -4,6 +4,8 @@ mod spatial;
 pub use encode::*;
 use num_traits::CheckedAdd;
 pub use spatial::*;
+
+pub use crate::codecs::morton::encode_morton_15;
 mod serialize;
 pub use serialize::*;
 mod parse;

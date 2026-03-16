@@ -4,6 +4,7 @@
 compile_error!("one of `fastpfor-cpp` or `fastpfor-rust` must be enabled");
 
 mod analyse;
+pub mod codecs;
 mod convert;
 pub mod decoder;
 mod enc_dec;

@@ -1,3 +1,4 @@
+use crate::decoder::debug_assert_alloc;
 use crate::enc_dec::Decode;
 use crate::utils::{AsUsize as _, SetOptionOnce as _};
 use crate::v01::{
@@ -25,8 +26,10 @@ pub fn decode_root_length_stream(
     geometry_types: &[GeometryType],
     root_length_stream: &[u32],
     buffer_id: GeometryType,
-) -> Vec<u32> {
-    let mut root_buffer_offsets = Vec::with_capacity(geometry_types.len() + 1);
+    dec: &mut Decoder,
+) -> Result<Vec<u32>, MltError> {
+    let alloc_size = geometry_types.len() + 1;
+    let mut root_buffer_offsets = dec.alloc(alloc_size)?;
     root_buffer_offsets.push(0);
     let mut previous_offset = 0_u32;
     let mut root_length_counter = 0_usize;
@@ -42,7 +45,8 @@ pub fn decode_root_length_stream(
         root_buffer_offsets.push(offset);
         previous_offset = offset;
     }
-    root_buffer_offsets
+    debug_assert_alloc(&root_buffer_offsets, alloc_size);
+    Ok(root_buffer_offsets)
 }
 
 /// Case where no ring buffer exists so no `MultiPolygon` or `Polygon` geometry is part of the buffer
@@ -50,9 +54,10 @@ pub fn decode_level1_without_ring_buffer_length_stream(
     geometry_types: &[GeometryType],
     root_offset_buffer: &[u32],
     level1_length_buffer: &[u32],
-) -> Vec<u32> {
-    let final_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize() + 1;
-    let mut level1_buffer_offsets = Vec::with_capacity(final_size);
+    dec: &mut Decoder,
+) -> Result<Vec<u32>, MltError> {
+    let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize() + 1;
+    let mut level1_buffer_offsets = dec.alloc(alloc_size)?;
     level1_buffer_offsets.push(0);
     let mut previous_offset = 0_u32;
     let mut level1_length_counter = 0_usize;
@@ -76,7 +81,8 @@ pub fn decode_level1_without_ring_buffer_length_stream(
         }
     }
 
-    level1_buffer_offsets
+    debug_assert_alloc(&level1_buffer_offsets, alloc_size);
+    Ok(level1_buffer_offsets)
 }
 
 pub fn decode_level1_length_stream(
@@ -84,9 +90,10 @@ pub fn decode_level1_length_stream(
     root_offset_buffer: &[u32],
     level1_length_buffer: &[u32],
     is_line_string_present: bool,
-) -> Vec<u32> {
-    let final_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize() + 1;
-    let mut level1_buffer_offsets = Vec::with_capacity(final_size);
+    dec: &mut Decoder,
+) -> Result<Vec<u32>, MltError> {
+    let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize() + 1;
+    let mut level1_buffer_offsets = dec.alloc(alloc_size)?;
     level1_buffer_offsets.push(0);
     let mut previous_offset = 0_u32;
     let mut level1_length_buffer_counter = 0_usize;
@@ -112,7 +119,8 @@ pub fn decode_level1_length_stream(
         }
     }
 
-    level1_buffer_offsets
+    debug_assert_alloc(&level1_buffer_offsets, alloc_size);
+    Ok(level1_buffer_offsets)
 }
 
 pub fn decode_level2_length_stream(
@@ -120,9 +128,10 @@ pub fn decode_level2_length_stream(
     root_offset_buffer: &[u32],
     level1_offset_buffer: &[u32],
     level2_length_buffer: &[u32],
-) -> Vec<u32> {
-    let final_size = level1_offset_buffer[level1_offset_buffer.len() - 1].as_usize() + 1;
-    let mut level2_buffer_offsets = Vec::with_capacity(final_size);
+    dec: &mut Decoder,
+) -> Result<Vec<u32>, MltError> {
+    let alloc_size = level1_offset_buffer[level1_offset_buffer.len() - 1].as_usize() + 1;
+    let mut level2_buffer_offsets = dec.alloc(alloc_size)?;
     level2_buffer_offsets.push(0);
     let mut previous_offset = 0_u32;
     let mut level1_offset_buffer_counter = 1_usize;
@@ -155,7 +164,8 @@ pub fn decode_level2_length_stream(
         }
     }
 
-    level2_buffer_offsets
+    debug_assert_alloc(&level2_buffer_offsets, alloc_size);
+    Ok(level2_buffer_offsets)
 }
 
 impl Decode<GeometryValues> for RawGeometry<'_> {
@@ -225,7 +235,8 @@ impl RawGeometry<'_> {
                 &vector_types,
                 &offsets,
                 GeometryType::Polygon,
-            ));
+                dec,
+            )?);
             if let Some(part_offsets_copy) = part_offsets.take() {
                 if let Some(ring_offsets_copy) = ring_offsets.take() {
                     part_offsets = Some(decode_level1_length_stream(
@@ -233,19 +244,22 @@ impl RawGeometry<'_> {
                         geometry_offsets.as_ref().unwrap(),
                         &part_offsets_copy,
                         false, // isLineStringPresent
-                    ));
+                        dec,
+                    )?);
                     ring_offsets = Some(decode_level2_length_stream(
                         &vector_types,
                         geometry_offsets.as_ref().unwrap(),
                         part_offsets.as_ref().unwrap(),
                         &ring_offsets_copy,
-                    ));
+                        dec,
+                    )?);
                 } else {
                     part_offsets = Some(decode_level1_without_ring_buffer_length_stream(
                         &vector_types,
                         geometry_offsets.as_ref().unwrap(),
                         &part_offsets_copy,
-                    ));
+                        dec,
+                    )?);
                 }
             }
         } else if let Some(offsets) = part_offsets.take() {
@@ -255,19 +269,22 @@ impl RawGeometry<'_> {
                     &vector_types,
                     &offsets,
                     GeometryType::LineString,
-                ));
+                    dec,
+                )?);
                 ring_offsets = Some(decode_level1_length_stream(
                     &vector_types,
                     part_offsets.as_ref().unwrap(),
                     &ring_offsets_copy,
                     is_line_string_present,
-                ));
+                    dec,
+                )?);
             } else {
                 part_offsets = Some(decode_root_length_stream(
                     &vector_types,
                     &offsets,
                     GeometryType::Point,
-                ));
+                    dec,
+                )?);
             }
         }
 
