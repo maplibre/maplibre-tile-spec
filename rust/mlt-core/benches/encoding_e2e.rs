@@ -6,7 +6,7 @@ use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder,
     PhysicalEncoder, PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer01,
 };
-use mlt_core::{Layer, StagedLayer, parse_layers};
+use mlt_core::{Layer, StagedLayer};
 use strum::IntoEnumIterator as _;
 
 #[path = "bench_utils.rs"]
@@ -30,7 +30,7 @@ fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer> {
         .iter()
         .flat_map(|(_, data)| {
             let mut d = dec();
-            let layers = parse_layers(data, &mut parser()).expect("mlt parse failed");
+            let layers = parser().parse_layers(data).expect("mlt parse failed");
             layers
                 .into_iter()
                 .filter_map(|layer| {

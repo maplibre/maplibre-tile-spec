@@ -17,7 +17,7 @@ use mlt_core::v01::{
     DictionaryType, Geometry, GeometryType, LengthType, LogicalEncoding, OffsetType,
     PhysicalEncoding, StreamMeta, StreamType,
 };
-use mlt_core::{Analyze as _, Decoder, Parser, parse_layers};
+use mlt_core::{Analyze as _, Decoder, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
@@ -550,7 +550,7 @@ pub fn analyze_tile_file(path: &Path, base_path: &Path, flags: LsFlags) -> Resul
 
 pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<MltFileInfo> {
     let mut parser = Parser::default();
-    let mut layers = parse_layers(buffer, &mut parser)?;
+    let mut layers = parser.parse_layers(buffer)?;
     let mut dec = Decoder::default();
 
     let mut stream_count = 0;

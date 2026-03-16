@@ -1,7 +1,7 @@
 use std::mem::size_of;
 
-use crate::MltError;
 use crate::errors::AsMltError as _;
+use crate::{Layer, MltError};
 
 /// Default memory budget: 10 MiB.
 const DEFAULT_MAX_BYTES: u32 = 10 * 1024 * 1024;
@@ -67,15 +67,14 @@ impl Decoder {
 
 /// Stateful parser that enforces a memory budget during parsing (binary → raw structures).
 ///
-/// Pass a `Parser` to [`parse_layers`](crate::parse_layers) and to `from_bytes`-style APIs.
 /// The parse chain reserves memory before allocations so total heap stays within the limit.
 ///
 /// ```
-/// use mlt_core::{Parser, parse_layers};
+/// use mlt_core::Parser;
 ///
 /// # let bytes: &[u8] = &[];
 /// let mut parser = Parser::default();
-/// let layers = parse_layers(bytes, &mut parser).expect("parse");
+/// let layers = parser.parse_layers(bytes).expect("parse");
 ///
 /// // Or with a custom limit:
 /// let mut parser = Parser::with_max_size(64 * 1024 * 1024);
@@ -92,6 +91,17 @@ impl Parser {
         Self {
             budget: MemBudget::with_max_size(max_bytes),
         }
+    }
+
+    /// Parse a sequence of binary layers, reserving decoded memory against this parser's budget.
+    pub fn parse_layers<'a>(&mut self, mut input: &'a [u8]) -> Result<Vec<Layer<'a>>, MltError> {
+        let mut result = Vec::new();
+        while !input.is_empty() {
+            let layer;
+            (input, layer) = Layer::from_bytes(input, self)?;
+            result.push(layer);
+        }
+        Ok(result)
     }
 
     /// Reserve `size` bytes from the parse budget. Used internally by the parse chain.

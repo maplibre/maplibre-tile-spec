@@ -5,7 +5,6 @@ use std::fs;
 use std::path::Path;
 
 use insta::{assert_debug_snapshot, assert_snapshot, with_settings};
-use mlt_core::parse_layers;
 use mlt_core::test_helpers::{dec, parser};
 use test_each_file::test_each_path;
 
@@ -37,7 +36,7 @@ fn parse_one_file(path: impl AsRef<Path>) {
     let buffer = fs::read(path).unwrap();
     let mut p = parser();
     let mut d = dec();
-    match parse_layers(&buffer, &mut p) {
+    match p.parse_layers(&buffer) {
         Ok(mut layers) => {
             assert_snapshot!(p.reserved(), @"");
             assert_debug_snapshot!(format!("{file_name}-parsed"), layers);
@@ -85,7 +84,7 @@ fn test_plain() {
     let path = Path::new(path);
     let buffer = fs::read(path).unwrap();
     let mut p = parser();
-    let layers = parse_layers(&buffer, &mut p).unwrap();
+    let layers = p.parse_layers(&buffer).unwrap();
     assert_snapshot!(p.reserved(), @"");
     let _ = layers;
     // decode([&path]);
