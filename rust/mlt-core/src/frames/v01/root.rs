@@ -1,15 +1,17 @@
+use std::marker::PhantomData;
+
 use crate::analyse::{Analyze, StatType};
 use crate::codecs::varint::parse_varint;
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
 use crate::v01::{
-    Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01, Property,
-    RawFsstData, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
-    RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
-    StreamMeta, StreamType,
+    Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01,
+    RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
+    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
+    RawStringsEncoding, StreamMeta, StreamType,
 };
-use crate::{Decoder, MltError, MltRefResult, Parser};
+use crate::{Decoded, Decoder, EncDec, Mixed, MltError, MltRefResult, Parser};
 
-impl Analyze for Layer01<'_> {
+impl Analyze for Layer01<'_, Mixed> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         match stat {
             StatType::DecodedMetaSize => self.name.len() + size_of::<u32>(),
@@ -31,9 +33,12 @@ impl Analyze for Layer01<'_> {
     }
 }
 
-impl Layer01<'_> {
+impl<'a> Layer01<'a, Mixed> {
     /// Parse `v01::Layer` metadata, reserving decoded memory against the parser's budget.
-    pub fn from_bytes<'a>(input: &'a [u8], parser: &mut Parser) -> Result<Layer01<'a>, MltError> {
+    pub fn from_bytes(
+        input: &'a [u8],
+        parser: &mut Parser,
+    ) -> Result<Layer01<'a, Mixed>, MltError> {
         let (input, layer_name) = parse_string(input)?;
         let (input, extent) = parse_varint::<u32>(input)?;
         let (input, column_count) = parse_varint::<u32>(input)?;
@@ -68,12 +73,18 @@ impl Layer01<'_> {
                 ColumnType::Id | ColumnType::OptId => {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    id_column.set_once(Id::new_raw(RawPresence(opt), RawIdValue::Id32(value)))?;
+                    id_column.set_once(EncDec::Raw(RawId {
+                        presence: RawPresence(opt),
+                        value: RawIdValue::Id32(value),
+                    }))?;
                 }
                 ColumnType::LongId | ColumnType::OptLongId => {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    id_column.set_once(Id::new_raw(RawPresence(opt), RawIdValue::Id64(value)))?;
+                    id_column.set_once(EncDec::Raw(RawId {
+                        presence: RawPresence(opt),
+                        value: RawIdValue::Id64(value),
+                    }))?;
                 }
                 ColumnType::Geometry => {
                     input = parse_geometry_column(input, &mut geometry, parser)?;
@@ -81,57 +92,57 @@ impl Layer01<'_> {
                 ColumnType::Bool | ColumnType::OptBool => {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::parse_bool(input, parser)?;
-                    properties.push(Property::Raw(RP::Bool(scalar(name, opt, value))));
+                    properties.push(EncDec::Raw(RP::Bool(scalar(name, opt, value))));
                 }
                 ColumnType::I8 | ColumnType::OptI8 => {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Property::Raw(RP::I8(scalar(name, opt, value))));
+                    properties.push(EncDec::Raw(RP::I8(scalar(name, opt, value))));
                 }
                 ColumnType::U8 | ColumnType::OptU8 => {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Property::Raw(RP::U8(scalar(name, opt, value))));
+                    properties.push(EncDec::Raw(RP::U8(scalar(name, opt, value))));
                 }
                 ColumnType::I32 | ColumnType::OptI32 => {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Property::Raw(RP::I32(scalar(name, opt, value))));
+                    properties.push(EncDec::Raw(RP::I32(scalar(name, opt, value))));
                 }
                 ColumnType::U32 | ColumnType::OptU32 => {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Property::Raw(RP::U32(scalar(name, opt, value))));
+                    properties.push(EncDec::Raw(RP::U32(scalar(name, opt, value))));
                 }
                 ColumnType::I64 | ColumnType::OptI64 => {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Property::Raw(RP::I64(scalar(name, opt, value))));
+                    properties.push(EncDec::Raw(RP::I64(scalar(name, opt, value))));
                 }
                 ColumnType::U64 | ColumnType::OptU64 => {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Property::Raw(RP::U64(scalar(name, opt, value))));
+                    properties.push(EncDec::Raw(RP::U64(scalar(name, opt, value))));
                 }
                 ColumnType::F32 | ColumnType::OptF32 => {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Property::Raw(RP::F32(scalar(name, opt, value))));
+                    properties.push(EncDec::Raw(RP::F32(scalar(name, opt, value))));
                 }
                 ColumnType::F64 | ColumnType::OptF64 => {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Property::Raw(RP::F64(scalar(name, opt, value))));
+                    properties.push(EncDec::Raw(RP::F64(scalar(name, opt, value))));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
                     let prop;
                     (input, prop) = parse_str_column(input, name, column.typ, parser)?;
-                    properties.push(Property::Raw(prop));
+                    properties.push(EncDec::Raw(prop));
                 }
                 ColumnType::SharedDict => {
                     let prop;
                     (input, prop) = parse_shared_dict_column(input, &column, parser)?;
-                    properties.push(Property::Raw(prop));
+                    properties.push(EncDec::Raw(prop));
                 }
             }
         }
@@ -144,6 +155,7 @@ impl Layer01<'_> {
                 properties,
                 #[cfg(fuzzing)]
                 layer_order,
+                _state: PhantomData,
             })
         } else {
             Err(MltError::TrailingLayerData(input.len()))
@@ -178,11 +190,28 @@ impl Layer01<'_> {
         Ok(())
     }
 
-    pub fn decode_all(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
-        self.decode_id(dec)?;
-        self.decode_geometry(dec)?;
-        self.decode_properties(dec)?;
-        Ok(())
+    /// Decode all columns and transition to [`Layer01<Decoded>`].
+    ///
+    /// Consumes `self` (a `Layer01<Mixed>`) and returns a `Layer01<Decoded>` where every
+    /// column field holds its parsed value directly, enabling infallible readonly access.
+    pub fn decode_all(self, dec: &mut Decoder) -> Result<Layer01<'a, Decoded>, MltError> {
+        let id = self.id.map(|id| id.into_parsed(dec)).transpose()?;
+        let geometry = self.geometry.into_parsed(dec)?;
+        let properties = self
+            .properties
+            .into_iter()
+            .map(|p| p.into_parsed(dec))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Layer01 {
+            name: self.name,
+            extent: self.extent,
+            id,
+            geometry,
+            properties,
+            #[cfg(fuzzing)]
+            layer_order: self.layer_order,
+            _state: PhantomData,
+        })
     }
 }
 
@@ -243,7 +272,10 @@ fn parse_geometry_column<'a>(
     let (input, value) = RawStream::from_bytes(input, parser)?;
     // geometry items
     let (input, value_vec) = RawStream::parse_multiple(input, stream_count_capa - 1, parser)?;
-    geometry.set_once(Geometry::new_raw(value, value_vec))?;
+    geometry.set_once(EncDec::Raw(RawGeometry {
+        meta: value,
+        items: value_vec,
+    }))?;
     Ok(input)
 }
 

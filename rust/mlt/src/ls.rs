@@ -14,10 +14,10 @@ use mlt_core::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::{
-    DictionaryType, Geometry, GeometryType, LengthType, LogicalEncoding, OffsetType,
-    PhysicalEncoding, StreamMeta, StreamType,
+    DictionaryType, GeometryType, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
+    StreamMeta, StreamType,
 };
-use mlt_core::{Analyze as _, Decoder, Parser};
+use mlt_core::{Analyze as _, Decoder, EncDec, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
@@ -576,7 +576,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<
             meta_size += layer01.collect_statistic(DecodedMetaSize);
             feature_count += layer01.collect_statistic(FeatureCount);
 
-            if let Geometry::Parsed(ref geom) = layer01.geometry {
+            if let EncDec::Parsed(ref geom) = layer01.geometry {
                 for &geom_type in &geom.vector_types {
                     geometries.insert(geom_type);
                 }

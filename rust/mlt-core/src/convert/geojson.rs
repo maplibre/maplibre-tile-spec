@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::frames::Layer;
-use crate::v01::{Id, ParsedProperty};
-use crate::{Decoder, MltError};
+use crate::v01::ParsedProperty;
+use crate::{Decoder, EncDec, MltError};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
 pub type Geom32 = geo_types::Geometry<i32>;
@@ -41,7 +41,7 @@ impl FeatureCollection {
             l.decode_properties(dec)?;
             let geom = l.geometry.as_parsed()?;
             let ids: Option<&[Option<u64>]> = l.id.as_ref().and_then(|v| {
-                if let Id::Parsed(d) = v {
+                if let EncDec::Parsed(d) = v {
                     Some(d.values())
                 } else {
                     None

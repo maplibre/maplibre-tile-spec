@@ -1,8 +1,11 @@
-use crate::EncDec;
 use crate::v01::{EncodedStream, RawPresence, RawStream};
+use crate::{DecodeState, Mixed};
 
-/// ID column representation, either raw (borrowed from bytes) or parsed.
-pub type Id<'a> = EncDec<RawId<'a>, IdValues>;
+/// ID column representation, parameterized by decode state.
+///
+/// - `Id<'a>` / `Id<'a, Mixed>` — either raw bytes or decoded, in an [`EncDec`] enum.
+/// - `Id<'a, Decoded>` — decoded [`IdValues`] directly (no enum wrapper).
+pub type Id<'a, S = Mixed> = <S as DecodeState>::Wrap<RawId<'a>, IdValues>;
 
 /// Unparsed ID data as read directly from the tile (borrows from input bytes)
 #[derive(Debug, PartialEq, Clone)]

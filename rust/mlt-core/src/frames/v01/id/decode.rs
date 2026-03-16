@@ -1,6 +1,6 @@
 use crate::enc_dec::Decode;
 use crate::utils::apply_present;
-use crate::v01::{Id, IdValues, RawId, RawIdValue, RawPresence};
+use crate::v01::{IdValues, RawId, RawIdValue};
 use crate::{Decoder, MltError};
 
 impl Decode<IdValues> for RawId<'_> {
@@ -26,13 +26,6 @@ impl RawId<'_> {
         };
 
         Ok(IdValues(apply_present(presence, ids_u64, dec)?))
-    }
-}
-
-impl<'a> Id<'a> {
-    #[must_use]
-    pub fn new_raw(presence: RawPresence<'a>, value: RawIdValue<'a>) -> Self {
-        Self::Raw(RawId { presence, value })
     }
 }
 
