@@ -1,3 +1,4 @@
+**/*.proptest-regressions
 **/*.rs.bk
 *.pdb
 .idea/
