@@ -99,14 +99,14 @@ pub fn decode_fastpfor_composite(
     let mut result = vec![0u32; buf_size];
 
     #[cfg(feature = "fastpfor-cpp")]
-    let decoded = {
+    let decoded_len = {
         use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
         // The fastpfor crate's FastPFor256Codec is already a CompositeCodec<FastPFor<8>, VariableByte>.
         // It handles the full Composition protocol internally (FastPFor header + VByte remainder).
-        FastPFor256Codec::new().decode32(&input, &mut result)?
+        FastPFor256Codec::new().decode32(&input, &mut result)?.len()
     };
     #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
-    let decoded = {
+    let decoded_len = {
         use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
 
         let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
@@ -120,42 +120,17 @@ pub fn decode_fastpfor_composite(
             &mut output_offset,
         )?;
 
-        result
+        usize::try_from(output_offset.position())?
     };
 
-    // Original code:
-    // {
-    //     use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
-    //
-    //     // Over-allocate: FastPFOR may write a header and padding beyond the input length.
-    //     let mut compressed = vec![0u32; values.len() + 1024];
-    //     let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
-    //     let mut output_offset = std::io::Cursor::new(0u32);
-    //
-    //     comp.compress(
-    //         values,
-    //         u32::try_from(values.len())?,
-    //         &mut std::io::Cursor::new(0u32),
-    //         &mut compressed,
-    //         &mut output_offset,
-    //     )?;
-    //
-    //     // FIXME: handle usize casting to be within u32?
-    //     let written = usize::try_from(output_offset.position())?;
-    //
-    //     // Convert u32 words to big-endian bytes to match the wire format.
-    //     let mut data = Vec::with_capacity(written * 4);
-    //     for word in &compressed[..written] {
-    //         data.extend_from_slice(&word.to_be_bytes());
-    //     }
-    //     Ok(data)
-    // }
+    let Some(adjustment) = decoded_len
+        .checked_sub(num_values)
+        .and_then(|v| u32::try_from(v).ok())
+    else {
+        return Err(MltError::FastPforDecode(num_values, decoded_len));
+    };
 
-    if decoded.len() < num_values {
-        return Err(MltError::FastPforDecode(num_values, decoded.len()));
-    }
-
-    dec.adjust((decoded.len() - num_values) as u32);
+    dec.adjust(adjustment);
     result.truncate(num_values);
 
     Ok(result)

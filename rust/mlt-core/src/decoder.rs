@@ -61,7 +61,7 @@ impl Decoder {
 
     #[inline]
     pub(crate) fn adjust(&mut self, adjustment: u32) {
-        self.budget.adjust(adjustment)
+        self.budget.adjust(adjustment);
     }
 
     #[must_use]

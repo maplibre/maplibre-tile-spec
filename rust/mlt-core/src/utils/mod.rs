@@ -66,7 +66,9 @@ pub fn apply_present<T>(
     let present: Vec<bool> = if let Some(p) = presence.0 {
         p.decode_bools(dec)?
     } else {
-        return Ok(values.into_iter().map(Some).collect());
+        let mut result = dec.alloc::<Option<T>>(values.len())?;
+        result.extend(values.into_iter().map(Some));
+        return Ok(result);
     };
     let present_bit_count = present.iter().filter(|&&b| b).count();
     if present_bit_count != values.len() {

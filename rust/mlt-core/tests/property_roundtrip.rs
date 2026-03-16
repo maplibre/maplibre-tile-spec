@@ -532,7 +532,7 @@ fn struct_mixed_with_scalars() {
         .into_iter()
         .map(|prop| prop.into_parsed(&mut d).expect("decode failed"))
         .collect();
-    assert_snapshot!(d.consumed(), @"169");
+    assert_snapshot!(d.consumed(), @"193");
 
     // Output order: scalar "population", struct "name:", scalar "rank"
     assert_eq!(decoded_props.len(), 3);
@@ -627,7 +627,7 @@ fn two_struct_groups_with_scalar_between() {
         .into_iter()
         .map(|prop| prop.into_parsed(&mut d).expect("decode failed"))
         .collect();
-    assert_snapshot!(d.consumed(), @"208");
+    assert_snapshot!(d.consumed(), @"326");
 
     // Output order: struct "name:", scalar "population", struct "label:"
     assert_eq!(decoded_props.len(), 3);
