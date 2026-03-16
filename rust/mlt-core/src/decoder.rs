@@ -1,7 +1,7 @@
-use std::mem::size_of;
-
 use crate::errors::AsMltError as _;
 use crate::{Layer, MltError};
+use num_traits::ToPrimitive;
+use std::mem::size_of;
 
 /// Default memory budget: 10 MiB.
 const DEFAULT_MAX_BYTES: u32 = 10 * 1024 * 1024;
@@ -57,6 +57,11 @@ impl Decoder {
     #[inline]
     pub(crate) fn consume(&mut self, size: u32) -> Result<(), MltError> {
         self.budget.consume(size)
+    }
+
+    #[inline]
+    pub(crate) fn adjust(&mut self, adjustment: u32) {
+        self.budget.adjust(adjustment)
     }
 
     #[must_use]
@@ -139,6 +144,12 @@ impl MemBudget {
             max_bytes,
             bytes_used: 0,
         }
+    }
+
+    /// Adjust previous consumption by `- adjustment` bytes.  Will panic if used incorrectly.
+    #[inline]
+    fn adjust(&mut self, adjustment: u32) {
+        self.bytes_used = self.bytes_used.checked_sub(adjustment).unwrap();
     }
 
     /// Take `size` bytes from the allocation budget. Call this before the actual allocation.

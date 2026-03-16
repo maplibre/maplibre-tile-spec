@@ -917,10 +917,6 @@ impl<'a> RawStrings<'a> {
                 decode_dictionary_strings(name, &lengths, &offsets, presence.as_deref(), &data)?
             }
         };
-        // String corpus size is only known after decompression; charge after.
-        let bytes = u32::try_from(parsed.lengths.len() * size_of::<i32>()).or_overflow()?
-            + u32::try_from(parsed.data.len()).or_overflow()?;
-        dec.consume(bytes)?;
         Ok(parsed)
     }
 }

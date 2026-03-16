@@ -13,7 +13,6 @@ impl RawStream<'_> {
     /// Decode a boolean stream: byte-RLE → packed bitmap → `Vec<bool>`, charging `dec`.
     pub fn decode_bools(self, dec: &mut Decoder) -> Result<Vec<bool>, MltError> {
         let num_values = self.meta.num_values.as_usize();
-        dec.consume(u32::try_from(num_values * size_of::<bool>()).or_overflow()?)?;
         let num_bytes = num_values.div_ceil(8);
         let raw = match &self.data {
             RawStreamData::Encoded(v) => v,

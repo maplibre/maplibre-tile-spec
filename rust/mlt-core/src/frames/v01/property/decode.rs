@@ -176,10 +176,6 @@ impl<'a> RawProperty<'a> {
                     .0
                     .as_ref()
                     .map_or(s.data.meta.num_values, |p| p.meta.num_values);
-                dec.consume(
-                    feature_count
-                        .saturating_mul(u32::try_from(size_of::<Option<$ty>>()).or_overflow()?),
-                )?;
                 ParsedProperty::$variant(ParsedScalar::from_parts(
                     s.name,
                     s.presence,
