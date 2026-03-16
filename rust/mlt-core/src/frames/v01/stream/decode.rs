@@ -1,3 +1,4 @@
+use std::mem;
 use std::mem::size_of;
 
 use crate::codecs::bytes::{decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s};
@@ -20,8 +21,8 @@ impl RawStream<'_> {
                 return Err(MltError::NotImplemented("varint bool decoding"));
             }
         };
-        let decoded = decode_byte_rle(raw, num_bytes);
-        Ok(decode_bytes_to_bools(&decoded, num_values))
+        let decoded = decode_byte_rle(raw, num_bytes, dec)?;
+        decode_bytes_to_bools(&decoded, num_values, dec)
     }
 
     pub fn decode_i8s(self, dec: &mut Decoder) -> Result<Vec<i8>, MltError> {
@@ -43,8 +44,8 @@ impl RawStream<'_> {
     pub fn decode_i32s(self, dec: &mut Decoder) -> Result<Vec<i32>, MltError> {
         let meta = self.meta;
         // i32 always needs a logical transform (zigzag at minimum) — use scratch buffer.
-        self.decode_bits_u32(&mut dec.buffer_u32)?;
-        let buf = std::mem::take(&mut dec.buffer_u32);
+        let mut buf = mem::take(&mut dec.buffer_u32);
+        self.decode_bits_u32(&mut buf, dec)?;
         let result = LogicalValue::new(meta).decode_i32(&buf, dec);
         dec.buffer_u32 = buf;
         dec.buffer_u32.clear();
@@ -56,13 +57,12 @@ impl RawStream<'_> {
         if meta.encoding.logical == LogicalEncoding::None {
             // No logical transform: physical words are the output — decode into a fresh Vec.
             let mut out = Vec::new();
-            self.decode_bits_u32(&mut out)?;
-            dec.consume(u32::try_from(out.len() * size_of::<u32>()).or_overflow()?)?;
+            self.decode_bits_u32(&mut out, dec)?;
             Ok(out)
         } else {
             // Logical transform needed — use the reusable scratch buffer.
-            self.decode_bits_u32(&mut dec.buffer_u32)?;
-            let buf = std::mem::take(&mut dec.buffer_u32);
+            let mut buf = mem::take(&mut dec.buffer_u32);
+            self.decode_bits_u32(&mut buf, dec)?;
             let result = LogicalValue::new(meta).decode_u32(&buf, dec);
             dec.buffer_u32 = buf;
             dec.buffer_u32.clear();
@@ -75,13 +75,13 @@ impl RawStream<'_> {
         if meta.encoding.logical == LogicalEncoding::None {
             // No logical transform: physical words are the output — decode into a fresh Vec.
             let mut out = Vec::new();
-            self.decode_bits_u64(&mut out)?;
+            self.decode_bits_u64(&mut out, dec)?;
             dec.consume(u32::try_from(out.len() * size_of::<u64>()).or_overflow()?)?;
             Ok(out)
         } else {
             // Logical transform needed — use the reusable scratch buffer.
-            self.decode_bits_u64(&mut dec.buffer_u64)?;
-            let buf = std::mem::take(&mut dec.buffer_u64);
+            let mut buf = mem::take(&mut dec.buffer_u64);
+            self.decode_bits_u64(&mut buf, dec)?;
             let result = LogicalValue::new(meta).decode_u64(&buf, dec);
             dec.buffer_u64 = buf;
             dec.buffer_u64.clear();
@@ -92,8 +92,8 @@ impl RawStream<'_> {
     pub fn decode_i64s(self, dec: &mut Decoder) -> Result<Vec<i64>, MltError> {
         let meta = self.meta;
         // i64 always needs a logical transform (zigzag at minimum) — use scratch buffer.
-        self.decode_bits_u64(&mut dec.buffer_u64)?;
-        let buf = std::mem::take(&mut dec.buffer_u64);
+        let mut buf = mem::take(&mut dec.buffer_u64);
+        self.decode_bits_u64(&mut buf, dec)?;
         let result = LogicalValue::new(meta).decode_i64(&buf, dec);
         dec.buffer_u64 = buf;
         dec.buffer_u64.clear();
@@ -142,7 +142,7 @@ impl RawStream<'_> {
     /// buffer and is responsible for deciding whether it constitutes a final
     /// persistent allocation (and therefore should be charged to a [`Decoder`]).
     /// No budget is charged here.
-    pub fn decode_bits_u32(self, buf: &mut Vec<u32>) -> Result<(), MltError> {
+    pub fn decode_bits_u32(self, buf: &mut Vec<u32>, dec: &mut Decoder) -> Result<(), MltError> {
         buf.clear();
         match self.meta.encoding.physical {
             PhysicalEncoding::VarInt => match &self.data {
@@ -156,7 +156,7 @@ impl RawStream<'_> {
             },
             PhysicalEncoding::None => match &self.data {
                 RawStreamData::Encoded(v) => {
-                    let (_, values) = decode_bytes_to_u32s(v, self.meta.num_values)?;
+                    let (_, values) = decode_bytes_to_u32s(v, self.meta.num_values, dec)?;
                     *buf = values;
                 }
                 RawStreamData::VarInt(_) => {
@@ -165,7 +165,7 @@ impl RawStream<'_> {
             },
             PhysicalEncoding::FastPFOR => match &self.data {
                 RawStreamData::Encoded(v) => {
-                    *buf = decode_fastpfor_composite(v, self.meta.num_values.as_usize())?;
+                    *buf = decode_fastpfor_composite(v, self.meta.num_values.as_usize(), dec)?;
                 }
                 RawStreamData::VarInt(_) => {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
@@ -182,7 +182,7 @@ impl RawStream<'_> {
     /// buffer and is responsible for deciding whether it constitutes a final
     /// persistent allocation (and therefore should be charged to a [`Decoder`]).
     /// No budget is charged here.
-    pub fn decode_bits_u64(self, buf: &mut Vec<u64>) -> Result<(), MltError> {
+    pub fn decode_bits_u64(self, buf: &mut Vec<u64>, dec: &mut Decoder) -> Result<(), MltError> {
         buf.clear();
         match self.meta.encoding.physical {
             PhysicalEncoding::VarInt => match &self.data {
@@ -196,7 +196,7 @@ impl RawStream<'_> {
             },
             PhysicalEncoding::None => match &self.data {
                 RawStreamData::Encoded(v) => {
-                    let (_, values) = decode_bytes_to_u64s(v, self.meta.num_values)?;
+                    let (_, values) = decode_bytes_to_u64s(v, self.meta.num_values, dec)?;
                     *buf = values;
                 }
                 RawStreamData::VarInt(_) => {

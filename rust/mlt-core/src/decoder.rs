@@ -9,7 +9,7 @@ const DEFAULT_MAX_BYTES: u32 = 10 * 1024 * 1024;
 /// Stateful decoder that enforces a per-tile memory budget during decoding.
 ///
 /// Pass a `Decoder` to every `raw.decode()` / `into_tile()` call and to
-/// `from_bytes`-style parsers. Each method calls [`Decoder::consume`] before
+/// `from_bytes`-style parsers. Each method charges the budget before
 /// performing heap allocations, so the total heap used never exceeds `max_bytes`
 /// (in bytes).
 ///
@@ -47,7 +47,7 @@ impl Decoder {
     /// Allocate a `Vec<T>` with the given capacity, charging the decoder's budget for
     /// `capacity * size_of::<T>()` bytes. Use this instead of `Vec::with_capacity` in decode paths.
     #[inline]
-    pub fn alloc<T>(&mut self, capacity: usize) -> Result<Vec<T>, MltError> {
+    pub(crate) fn alloc<T>(&mut self, capacity: usize) -> Result<Vec<T>, MltError> {
         let bytes = capacity.checked_mul(size_of::<T>()).or_overflow()?;
         let bytes_u32 = u32::try_from(bytes).or_overflow()?;
         self.budget.consume(bytes_u32)?;
@@ -55,7 +55,7 @@ impl Decoder {
     }
 
     #[inline]
-    pub fn consume(&mut self, size: u32) -> Result<(), MltError> {
+    pub(crate) fn consume(&mut self, size: u32) -> Result<(), MltError> {
         self.budget.consume(size)
     }
 
@@ -171,12 +171,20 @@ impl MemBudget {
 /// Call this after fully populating a `Vec` that was pre-allocated with [`Decoder::alloc`].
 /// A capacity increase beyond `alloc_size` means a reallocation occurred that was not
 /// included in the decoder's budget.
-#[allow(clippy::ptr_arg)]
 #[inline]
-pub(crate) fn debug_assert_alloc<T>(buffer: &Vec<T>, alloc_size: usize) {
+pub fn debug_assert_alloc<T>(buffer: &Vec<T>, alloc_size: usize) {
     debug_assert!(
         buffer.capacity() <= alloc_size,
         "Vector reallocated beyond initial allocation size ({alloc_size}); final capacity: {}",
         buffer.capacity()
+    );
+}
+
+#[inline]
+pub fn debug_assert_length<T>(buffer: &[T], expected_len: usize) {
+    debug_assert_eq!(
+        buffer.len(),
+        expected_len,
+        "Expected buffer to have exact length"
     );
 }

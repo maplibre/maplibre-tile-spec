@@ -1,4 +1,9 @@
-use crate::MltError;
+use std::mem::size_of;
+
+use num_traits::ToPrimitive as _;
+
+use crate::errors::AsMltError as _;
+use crate::{Decoder, MltError};
 
 /// Encode a `u32` sequence using `FastPFOR256` (composite codec).
 ///
@@ -62,7 +67,11 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
 /// 3. Remaining u32 words = secondary codec (`VByte`) compressed data
 ///
 /// The compressed bytes are stored as big-endian u32 values by the Java encoder.
-pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u32>, MltError> {
+pub fn decode_fastpfor_composite(
+    data: &[u8],
+    num_values: usize,
+    dec: &mut Decoder,
+) -> Result<Vec<u32>, MltError> {
     if num_values == 0 {
         return Ok(vec![]);
     }
@@ -75,6 +84,7 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
     // We must convert BE bytes → u32 to reconstruct the original integer values
     // that the Composition(FastPFOR, VariableByte) codec produced.
     let num_words = data.len() / 4;
+    dec.consume(data.len().to_u32().or_overflow()?)?;
     let input: Vec<u32> = (0..num_words)
         .map(|i| {
             let o = i * 4;
@@ -103,6 +113,7 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
         }
 
         result.truncate(num_values);
+        dec.consume(u32::try_from(num_values * size_of::<u32>()).or_overflow()?)?;
         Ok(result)
     }
     #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
@@ -131,6 +142,7 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
         }
 
         result.truncate(num_values);
+        dec.consume(u32::try_from(num_values * size_of::<u32>()).or_overflow()?)?;
         Ok(result)
     }
 }
@@ -140,12 +152,13 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
+    use crate::test_helpers::dec;
 
     proptest! {
         #[test]
         fn test_fastpfor_roundtrip(data: Vec<u32>) {
             let encoded = encode_fastpfor(&data).unwrap();
-            let decoded = decode_fastpfor_composite(&encoded, data.len()).unwrap();
+            let decoded = decode_fastpfor_composite(&encoded, data.len(), &mut dec()).unwrap();
             prop_assert_eq!(data, decoded);
         }
     }
@@ -158,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_decode_fastpfor_empty() {
-        let decoded = decode_fastpfor_composite(&[], 0).unwrap();
+        let decoded = decode_fastpfor_composite(&[], 0, &mut dec()).unwrap();
         assert!(decoded.is_empty());
     }
 }

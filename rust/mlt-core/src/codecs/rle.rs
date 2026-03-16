@@ -1,5 +1,8 @@
 use num_traits::PrimInt;
 
+use crate::decoder::debug_assert_alloc;
+use crate::{Decoder, MltError};
+
 /// Generic run-length encode: returns `(run_lengths, values)`.
 #[must_use]
 pub fn encode_rle<T: PrimInt>(data: &[T]) -> (Vec<T>, Vec<T>) {
@@ -94,9 +97,12 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
 /// Format: control byte determines the run type:
 /// - `control >= 128`: literal run of `(256 - control)` bytes follow
 /// - `control < 128`: repeating run of `(control + 3)` copies of the next byte
-#[must_use]
-pub fn decode_byte_rle(input: &[u8], num_bytes: usize) -> Vec<u8> {
-    let mut output = Vec::with_capacity(num_bytes);
+pub fn decode_byte_rle(
+    input: &[u8],
+    num_bytes: usize,
+    dec: &mut Decoder,
+) -> Result<Vec<u8>, MltError> {
+    let mut output = dec.alloc(num_bytes)?;
     let mut pos = 0;
     while output.len() < num_bytes && pos < input.len() {
         let control = input[pos];
@@ -112,7 +118,8 @@ pub fn decode_byte_rle(input: &[u8], num_bytes: usize) -> Vec<u8> {
             output.extend(std::iter::repeat_n(value, count));
         }
     }
-    output
+    debug_assert_alloc(&output, num_bytes);
+    Ok(output)
 }
 
 #[cfg(test)]
@@ -139,7 +146,7 @@ mod tests {
         #[test]
         fn test_byte_rle_roundtrip(data: Vec<u8>) {
             let encoded = encode_byte_rle(&data);
-            let decoded = decode_byte_rle(&encoded, data.len());
+            let decoded = decode_byte_rle(&encoded, data.len(), &mut dec()).unwrap();
             prop_assert_eq!(data, decoded);
         }
     }
@@ -158,6 +165,6 @@ mod tests {
 
     #[test]
     fn test_decode_byte_rle_empty() {
-        assert!(decode_byte_rle(&[], 0).is_empty());
+        assert!(decode_byte_rle(&[], 0, &mut dec()).unwrap().is_empty());
     }
 }

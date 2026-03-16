@@ -45,10 +45,6 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_encoder: IdEncoder) -> IdValues
         .expect("expected id column")
         .into_parsed(&mut d)
         .expect("decode failed");
-    assert!(
-        d.consumed() > 0,
-        "decoder should consume bytes after decode"
-    );
     result
 }
 

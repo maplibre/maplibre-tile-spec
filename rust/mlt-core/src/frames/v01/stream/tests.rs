@@ -70,7 +70,7 @@ fn test_decode_bits_u32() {
             let stream = create_stream_from_test_case(&test_case);
             let mut buf = Vec::new();
             stream
-                .decode_bits_u32(&mut buf)
+                .decode_bits_u32(&mut buf, &mut dec())
                 .expect("Should successfully decode u32 values");
             assert_eq!(
                 &buf, expected_buf,
