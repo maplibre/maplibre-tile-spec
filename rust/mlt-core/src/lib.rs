@@ -20,12 +20,12 @@ pub use errors::{MltError, MltRefResult};
 pub use frames::{EncodedLayer, Layer, StagedLayer, unknown, v01};
 
 #[cfg(any(test, feature = "__private"))]
-pub mod test_helpers;
+mod test_helpers;
 
 /// Private re-exports for benchmarks and integration tests. Not part of the public API.
 #[cfg(any(test, feature = "__private"))]
 #[doc(hidden)]
 pub mod __private {
-    pub use crate::codecs::*;
-    pub use crate::*;
+    pub use crate::codecs::{bytes, fastpfor, hilbert, morton, rle, zigzag};
+    pub use crate::test_helpers::*;
 }

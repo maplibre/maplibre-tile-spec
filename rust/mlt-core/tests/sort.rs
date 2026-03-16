@@ -28,7 +28,7 @@ fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
 /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
 #[cfg(test)]
 fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLayer01 {
-    use mlt_core::test_helpers::{assert_empty, dec, into_layer01, parser};
+    use mlt_core::__private::{assert_empty, dec, into_layer01, parser};
     use mlt_core::{EncodedLayer, Layer};
 
     let tile_encoder = Tile01Encoder {

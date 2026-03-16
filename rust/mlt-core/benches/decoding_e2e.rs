@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::test_helpers::{dec, parser};
+use mlt_core::__private::{dec, parser};
 
 #[path = "bench_utils.rs"]
 mod bench_utils;

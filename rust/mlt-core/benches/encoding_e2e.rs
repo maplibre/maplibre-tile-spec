@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::test_helpers::{dec, parser};
+use mlt_core::__private::{dec, parser};
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder,
     PhysicalEncoder, PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer01,

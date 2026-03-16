@@ -12,20 +12,6 @@ pub fn hilbert_xy_to_index(level: u32, x: u32, y: u32) -> u32 {
     hilbert_2d::u32::xy2h_discrete(x, y, level, hilbert_2d::Variant::Hilbert)
 }
 
-/// Return the `(x, y)` coordinates for Hilbert curve index `pos` at `level`.
-///
-/// This is the inverse of [`hilbert_xy_to_index`]: the returned coordinates
-/// are in `[0, 2^level)`.  `level` must be in `[1, 16]` and `pos` must be
-/// in `[0, 4^level)`.
-/// FIXME: why is this not used?  Delete?
-#[must_use]
-pub fn _hilbert_position_to_xy(level: u32, pos: u32) -> (u32, u32) {
-    debug_assert!((1..=16).contains(&level), "level must be in [1, 16]");
-    debug_assert!(u64::from(pos) < (1u64 << (2 * level)), "pos out of range");
-
-    hilbert_2d::u32::h2xy_discrete(pos, level, hilbert_2d::Variant::Hilbert)
-}
-
 /// Compute a Hilbert curve sort key from signed integer `(x, y)` coordinates.
 ///
 /// `shift` is added to both axes to move the origin into the non-negative
@@ -102,6 +88,17 @@ mod tests {
     use super::*;
     use crate::codecs::morton::interleave_bits;
 
+    /// Return the `(x, y)` coordinates for Hilbert curve index `pos` at `level`.
+    ///
+    /// This is the inverse of [`hilbert_xy_to_index`]: the returned coordinates
+    /// are in `[0, 2^level)`.  `level` must be in `[1, 16]` and `pos` must be
+    /// in `[0, 4^level)`.
+    fn hilbert_position_to_xy(level: u32, pos: u32) -> (u32, u32) {
+        debug_assert!((1..=16).contains(&level), "level must be in [1, 16]");
+        debug_assert!(u64::from(pos) < (1u64 << (2 * level)), "pos out of range");
+        hilbert_2d::u32::h2xy_discrete(pos, level, hilbert_2d::Variant::Hilbert)
+    }
+
     // ── Hilbert encode/decode ─────────────────────────────────────────────────
 
     #[test]
@@ -122,7 +119,7 @@ mod tests {
         for x in 0u32..2 {
             for y in 0u32..2 {
                 let idx = hilbert_xy_to_index(1, x, y);
-                let (rx, ry) = _hilbert_position_to_xy(1, idx);
+                let (rx, ry) = hilbert_position_to_xy(1, idx);
                 assert_eq!((rx, ry), (x, y), "round-trip failed at level=1 ({x},{y})");
             }
         }
@@ -134,7 +131,7 @@ mod tests {
         for x in 0u32..4 {
             for y in 0u32..4 {
                 let idx = hilbert_xy_to_index(2, x, y);
-                let (rx, ry) = _hilbert_position_to_xy(2, idx);
+                let (rx, ry) = hilbert_position_to_xy(2, idx);
                 assert_eq!((rx, ry), (x, y), "round-trip failed at level=2 ({x},{y})");
             }
         }
@@ -146,7 +143,7 @@ mod tests {
         for x in 0u32..16 {
             for y in 0u32..16 {
                 let idx = hilbert_xy_to_index(4, x, y);
-                let (rx, ry) = _hilbert_position_to_xy(4, idx);
+                let (rx, ry) = hilbert_position_to_xy(4, idx);
                 assert_eq!((rx, ry), (x, y), "round-trip failed at level=4 ({x},{y})");
             }
         }

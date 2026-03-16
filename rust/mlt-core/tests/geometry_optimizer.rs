@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use geo_types::{LineString, Point, Polygon, point, wkt};
+use mlt_core::__private::{assert_empty, dec, parser};
 use mlt_core::geojson::{Coord32, Geom32};
-use mlt_core::test_helpers::{assert_empty, dec, parser};
 use mlt_core::v01::{
     DictionaryType, EncodedGeometry, GeometryProfile, GeometryValues, LengthType, OffsetType,
     RawGeometry, StreamType,

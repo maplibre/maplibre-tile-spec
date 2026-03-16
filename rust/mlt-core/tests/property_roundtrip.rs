@@ -1,5 +1,5 @@
+use mlt_core::__private::{dec, parser};
 use mlt_core::MltError;
-use mlt_core::test_helpers::{dec, parser};
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, GeometryValues, IntEncoder, Layer01, LogicalEncoder,
     ParsedProperty, PhysicalEncoder, PresenceStream, PropertyEncoder, ScalarEncoder,
