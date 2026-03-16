@@ -88,7 +88,6 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
     }
 
     let alloc_size = data.len();
-    dec.consume(u32::try_from(alloc_size * size_of::<T>()).or_overflow()?)?;
     let mut result = dec.alloc(alloc_size)?;
     let mut last1 = T::zero();
     let mut last2 = T::zero();
