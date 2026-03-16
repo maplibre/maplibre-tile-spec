@@ -14,12 +14,8 @@
 use std::collections::hash_set::IntoIter;
 use std::collections::{HashMap, HashSet};
 
-use fsst::Compressor;
-use probabilistic_collections::similarity::MinHash;
-use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
-
 use crate::MltError;
-use crate::utils::encode_zigzag;
+use crate::codecs::zigzag::encode_zigzag;
 use crate::v01::property::encode::encode_properties;
 use crate::v01::property::strings::{build_staged_shared_dict, collect_staged_shared_dict_spans};
 use crate::v01::property::{
@@ -28,6 +24,9 @@ use crate::v01::property::{
 };
 use crate::v01::stream::IntEncoder;
 use crate::v01::{EncodedProperty, SharedDictEncoder, SharedDictItemEncoder, StrEncoder};
+use fsst::Compressor;
+use probabilistic_collections::similarity::MinHash;
+use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
 /// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;

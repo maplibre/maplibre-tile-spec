@@ -1,9 +1,8 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::codecs::morton::{decode_morton_codes, decode_morton_delta};
+use mlt_core::codecs::{decode_morton_codes, decode_morton_delta};
 use mlt_core::decoder::Decoder;
-use mlt_core::utils::encode_morton_15;
 use mlt_core::v01::MortonMeta;
 
 const NUM_BITS: u32 = 15;
@@ -14,6 +13,21 @@ const COORDINATE_SHIFT: u32 = 1 << (NUM_BITS - 1);
 pub const BENCHMARKED_LENGTHS: [u32; 1] = [1];
 #[cfg(not(debug_assertions))]
 pub const BENCHMARKED_LENGTHS: [u32; 3] = [64, 256, 1024];
+
+/// Interleave `x` and `y` into a single Morton code using 15 bits per component.
+///
+/// Even bit positions encode `x`, odd positions encode `y`.
+/// This is the inverse of [`decode_morton_codes`] / [`decode_morton_delta`].
+#[must_use]
+#[inline]
+pub fn encode_morton_15(x: u32, y: u32) -> u32 {
+    let mut code = 0u32;
+    for bit in 0..15 {
+        code |= ((x >> bit) & 1) << (2 * bit);
+        code |= ((y >> bit) & 1) << (2 * bit + 1);
+    }
+    code
+}
 
 fn make_morton_codes(n: u32) -> Vec<u32> {
     (0..n)

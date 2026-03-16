@@ -1,5 +1,6 @@
 use crate::MltError;
-use crate::utils::{encode_bools_to_bytes, encode_byte_rle};
+use crate::codecs::bytes::encode_bools_to_bytes;
+use crate::codecs::rle::encode_byte_rle;
 use crate::v01::{
     DictionaryType, EncodedFsstData, EncodedPlainData, EncodedStream, EncodedStreamData,
     EncodedStringsEncoding, FsstStrEncoder, IntEncoder, IntEncoding, LengthType, LogicalEncoding,

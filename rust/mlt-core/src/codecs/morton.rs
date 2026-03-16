@@ -63,21 +63,6 @@ pub fn morton_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
 
 // ── Encoder ─────────────────────────────────────────────────────────────────
 
-/// Interleave `x` and `y` into a single Morton code using 15 bits per component.
-///
-/// Even bit positions encode `x`, odd positions encode `y`.
-/// This is the inverse of [`decode_morton_codes`] / [`decode_morton_delta`].
-#[must_use]
-#[inline]
-pub fn encode_morton_15(x: u32, y: u32) -> u32 {
-    let mut code = 0u32;
-    for bit in 0..15 {
-        code |= ((x >> bit) & 1) << (2 * bit);
-        code |= ((y >> bit) & 1) << (2 * bit + 1);
-    }
-    code
-}
-
 /// Encode a single `(x, y)` coordinate pair to its Z-order (Morton) code.
 ///
 /// `num_bits` (≤ 16) bits are used per axis; `coordinate_shift` is added to each
@@ -370,6 +355,21 @@ mod tests {
 
     const NUM_BITS: u32 = 15;
     const COORD_SHIFT: u32 = 1 << (NUM_BITS - 1); // 16384
+
+    /// Interleave `x` and `y` into a single Morton code using 15 bits per component.
+    ///
+    /// Even bit positions encode `x`, odd positions encode `y`.
+    /// This is the inverse of [`decode_morton_codes`] / [`decode_morton_delta`].
+    #[must_use]
+    #[inline]
+    pub fn encode_morton_15(x: u32, y: u32) -> u32 {
+        let mut code = 0u32;
+        for bit in 0..15 {
+            code |= ((x >> bit) & 1) << (2 * bit);
+            code |= ((y >> bit) & 1) << (2 * bit + 1);
+        }
+        code
+    }
 
     fn morton_meta() -> MortonMeta {
         MortonMeta {

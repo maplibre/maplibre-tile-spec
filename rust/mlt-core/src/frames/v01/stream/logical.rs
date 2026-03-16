@@ -7,12 +7,14 @@ use num_traits::{PrimInt, ToPrimitive as _};
 
 use crate::MltError::{ParsingLogicalTechnique, RleRunLenInvalid, UnsupportedLogicalEncoding};
 use crate::codecs::morton::{decode_morton_codes, decode_morton_delta};
+use crate::codecs::rle::encode_rle;
+use crate::codecs::zigzag::{
+    decode_componentwise_delta_vec2s, decode_zigzag, decode_zigzag_delta, encode_zigzag,
+    encode_zigzag_delta,
+};
 use crate::decoder::debug_assert_alloc;
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
-use crate::utils::{
-    AsUsize as _, decode_componentwise_delta_vec2s, decode_zigzag, decode_zigzag_delta, encode_rle,
-    encode_zigzag, encode_zigzag_delta,
-};
+use crate::utils::AsUsize as _;
 use crate::v01::{LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta};
 use crate::{Decoder, MltError};
 

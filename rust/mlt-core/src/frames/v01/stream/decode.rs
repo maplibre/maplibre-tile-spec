@@ -1,10 +1,10 @@
 use std::mem::size_of;
 
+use crate::codecs::bytes::{decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s};
+use crate::codecs::fastpfor::decode_fastpfor_composite;
+use crate::codecs::rle::decode_byte_rle;
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
-use crate::utils::{
-    AsUsize as _, decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s,
-    decode_bytes_to_u64s, decode_fastpfor_composite, parse_varint_vec,
-};
+use crate::utils::{AsUsize as _, parse_varint_vec};
 use crate::v01::{LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream, RawStreamData};
 use crate::{Decoder, MltError};
 

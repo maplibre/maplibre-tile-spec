@@ -5,8 +5,9 @@
 //! call; there is no permutation machinery, no column-by-column scatter, and
 //! no encoded/decoded conversions inside this module.
 
+use crate::codecs::hilbert::{hilbert_curve_params, hilbert_sort_key};
+use crate::codecs::morton::morton_sort_key;
 use crate::geojson::Geom32;
-use crate::utils::{hilbert_curve_params, hilbert_sort_key, morton_sort_key};
 use crate::v01::{TileFeature, TileLayer01};
 
 /// Controls how features inside a layer are reordered before encoding.

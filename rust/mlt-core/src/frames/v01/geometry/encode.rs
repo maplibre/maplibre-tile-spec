@@ -2,8 +2,9 @@ use std::collections::BTreeSet;
 
 use crate::MltError;
 use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
+use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::errors::AsMltError as _;
-use crate::utils::{AsUsize as _, encode_componentwise_delta_vec2s};
+use crate::utils::AsUsize as _;
 use crate::v01::{
     DictionaryType, EncodedGeometry, EncodedStream, GeometryType, GeometryValues, IntEncoder,
     IntEncoding, LengthType, LogicalEncoding, MortonMeta, OffsetType, PhysicalEncoder, StreamMeta,
