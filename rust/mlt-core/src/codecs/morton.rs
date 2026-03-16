@@ -6,6 +6,61 @@ use crate::{Decoder, MltError};
 
 const LANES: usize = 8;
 
+// ── Bit interleaving ─────────────────────────────────────────────────────────
+
+/// Interleave the lower 16 bits of `x` and `y` into a 32-bit Morton code.
+///
+/// Even bit positions (0, 2, 4, …) encode `x`; odd positions (1, 3, 5, …)
+/// encode `y`. Spatially adjacent `(x, y)` pairs produce numerically
+/// adjacent codes, giving Z-order locality when used as a sort key.
+#[must_use]
+pub fn interleave_bits(x: u32, y: u32) -> u32 {
+    // Spread each input's lower 16 bits into every other bit position, then
+    // OR the two together: x occupies even positions (0, 2, 4, …) and y
+    // occupies odd positions (1, 3, 5, …).
+    let mut sx = x & 0xFFFF;
+    sx = (sx | (sx << 8)) & 0x00FF_00FF;
+    sx = (sx | (sx << 4)) & 0x0F0F_0F0F;
+    sx = (sx | (sx << 2)) & 0x3333_3333;
+    sx = (sx | (sx << 1)) & 0x5555_5555;
+
+    let mut sy = y & 0xFFFF;
+    sy = (sy | (sy << 8)) & 0x00FF_00FF;
+    sy = (sy | (sy << 4)) & 0x0F0F_0F0F;
+    sy = (sy | (sy << 2)) & 0x3333_3333;
+    sy = (sy | (sy << 1)) & 0x5555_5555;
+
+    sx | (sy << 1)
+}
+
+/// Compute a Z-order (Morton) sort key from signed integer `(x, y)` coordinates.
+///
+/// `shift` is applied to both `x` and `y` before bit-interleaving to move the
+/// coordinate origin into the non-negative range. It should be computed
+/// once across the entire feature set (typically `min.unsigned_abs()` when
+/// `min < 0`, else `0`) so that the keys are comparable across features.
+///
+/// Each shifted component is truncated to 16 bits before interleaving, so
+/// the returned key fits in a `u32` (32 interleaved bits). This is
+/// sufficient for any tile coordinate system with extent ≤ 65 535.
+#[must_use]
+pub fn morton_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
+    debug_assert!((1..=16).contains(&num_bits));
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
+    )]
+    let sx = ((i64::from(x) + i64::from(shift)) as u32) & 0xFFFF;
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
+    )]
+    let sy = ((i64::from(y) + i64::from(shift)) as u32) & 0xFFFF;
+    interleave_bits(sx, sy)
+}
+
 // ── Encoder ─────────────────────────────────────────────────────────────────
 
 /// Interleave `x` and `y` into a single Morton code using 15 bits per component.
@@ -206,6 +261,112 @@ fn decode_morton_chunk(buf: [u32; LANES], num_bits: u32, shift_vec: u32x8, out: 
 mod tests {
     use super::*;
     use crate::test_helpers::dec;
+
+    // ── interleave_bits / morton_sort_key ─────────────────────────────────────
+
+    /// Spread the lower 16 bits of `tx` into the even bit positions (0, 2, 4, …)
+    /// of a 32-bit word, inserting a 0 between every original bit.
+    fn spread_bits(mut tx: u32) -> u32 {
+        tx = (tx | (tx << 8)) & 0x00FF_00FF;
+        tx = (tx | (tx << 4)) & 0x0F0F_0F0F;
+        tx = (tx | (tx << 2)) & 0x3333_3333;
+        tx = (tx | (tx << 1)) & 0x5555_5555;
+        tx
+    }
+
+    /// Compact the bits at even positions (0, 2, 4, …) of `tx` into the lower
+    /// 16 bits, discarding the interleaved zeros.
+    fn compact_bits(mut tx: u32) -> u32 {
+        tx &= 0x5555_5555;
+        tx = (tx | (tx >> 1)) & 0x3333_3333;
+        tx = (tx | (tx >> 2)) & 0x0F0F_0F0F;
+        tx = (tx | (tx >> 4)) & 0x00FF_00FF;
+        tx = (tx | (tx >> 8)) & 0x0000_FFFF;
+        tx
+    }
+
+    #[test]
+    fn spread_then_compact_is_identity() {
+        for x in 0u32..=0xFFFF {
+            assert_eq!(compact_bits(spread_bits(x)), x, "round-trip failed for {x}");
+        }
+    }
+
+    #[test]
+    fn spread_bits_places_bit0_at_position0() {
+        assert_eq!(spread_bits(1), 1);
+    }
+
+    #[test]
+    fn spread_bits_places_bit1_at_position2() {
+        assert_eq!(spread_bits(2), 4);
+    }
+
+    #[test]
+    fn spread_bits_places_bit2_at_position4() {
+        assert_eq!(spread_bits(4), 16);
+    }
+
+    #[test]
+    fn origin_maps_to_zero() {
+        assert_eq!(morton_sort_key(0, 0, 0, 16), 0);
+    }
+
+    #[test]
+    fn x_axis_produces_even_bits() {
+        // x=1, y=0  →  only bit 0 of x is set → Morton bit 0 set → code = 1
+        assert_eq!(morton_sort_key(1, 0, 0, 16), 1);
+        // x=2, y=0  →  only bit 1 of x is set → Morton bit 2 set → code = 4
+        assert_eq!(morton_sort_key(2, 0, 0, 16), 4);
+    }
+
+    #[test]
+    fn y_axis_produces_odd_bits() {
+        // x=0, y=1  →  only bit 0 of y is set → Morton bit 1 set → code = 2
+        assert_eq!(morton_sort_key(0, 1, 0, 16), 2);
+        // x=0, y=2  →  only bit 1 of y is set → Morton bit 3 set → code = 8
+        assert_eq!(morton_sort_key(0, 2, 0, 16), 8);
+    }
+
+    #[test]
+    fn negative_coords_shift_correctly() {
+        // Shifting (-1, -1) by 1 maps to (0, 0) → Morton code 0
+        assert_eq!(morton_sort_key(-1, -1, 1, 16), 0);
+        // Shifting (-1, 0) by 1 maps to (0, 1) → Morton code 2
+        assert_eq!(morton_sort_key(-1, 0, 1, 16), 2);
+    }
+
+    #[test]
+    fn spatial_locality_z_order() {
+        // After shifting, (0,0) < (1,0) < (0,1) < (1,1) in Z-order
+        let k00 = morton_sort_key(0, 0, 0, 16);
+        let k10 = morton_sort_key(1, 0, 0, 16);
+        let k01 = morton_sort_key(0, 1, 0, 16);
+        let k11 = morton_sort_key(1, 1, 0, 16);
+        assert!(k00 < k10);
+        assert!(k10 < k01);
+        assert!(k01 < k11);
+    }
+
+    #[test]
+    fn interleave_round_trips_via_deinterleave() {
+        // Reconstruct x and y from interleaved bits and verify round-trip.
+        for x in 0u32..16 {
+            for y in 0u32..16 {
+                let code = interleave_bits(x, y);
+                let mut rx = 0u32;
+                let mut ry = 0u32;
+                for bit in 0..16 {
+                    rx |= ((code >> (2 * bit)) & 1) << bit;
+                    ry |= ((code >> (2 * bit + 1)) & 1) << bit;
+                }
+                assert_eq!(rx, x, "x mismatch for ({x}, {y})");
+                assert_eq!(ry, y, "y mismatch for ({x}, {y})");
+            }
+        }
+    }
+
+    // ── Morton encode/decode tests ────────────────────────────────────────────
 
     const NUM_BITS: u32 = 15;
     const COORD_SHIFT: u32 = 1 << (NUM_BITS - 1); // 16384

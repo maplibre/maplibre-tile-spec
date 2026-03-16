@@ -1,23 +1,30 @@
-mod encode;
-mod spatial;
-
-pub use encode::*;
-use num_traits::CheckedAdd;
-pub use spatial::*;
-
-pub use crate::codecs::morton::encode_morton_15;
 mod serialize;
 pub use serialize::*;
 mod parse;
 pub(crate) use parse::*;
-mod decode;
-pub use decode::*;
 pub(crate) mod formatter;
 use std::mem::size_of;
 
 pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt};
+use num_traits::CheckedAdd;
 use serde_json::{Number, Value};
 
+pub(crate) use crate::codecs::bytes::{
+    decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s, encode_bools_to_bytes,
+    encode_u32s_to_bytes, encode_u64s_to_bytes,
+};
+pub(crate) use crate::codecs::fastpfor::{decode_fastpfor_composite, encode_fastpfor};
+pub(crate) use crate::codecs::hilbert::{
+    hilbert_curve_params, hilbert_position_to_xy, hilbert_sort_key, hilbert_xy_to_index,
+};
+pub(crate) use crate::codecs::morton::{
+    encode_morton_15, interleave_bits, morton_sort_key, z_order_params,
+};
+pub(crate) use crate::codecs::rle::{decode_byte_rle, encode_byte_rle, encode_rle};
+pub(crate) use crate::codecs::zigzag::{
+    decode_componentwise_delta_vec2s, decode_zigzag, decode_zigzag_delta,
+    encode_componentwise_delta_vec2s, encode_zigzag, encode_zigzag_delta,
+};
 use crate::errors::AsMltError as _;
 use crate::v01::RawPresence;
 use crate::{Decoder, MltError};
@@ -97,7 +104,7 @@ pub fn apply_present<T>(
     Ok(result)
 }
 
-/// Perform checked addition of three values, returning an error if any overflow occurs.
+/// Perform checked addition of two values, returning an error if any overflow occurs.
 #[inline]
 pub fn checked_sum2<T: CheckedAdd + Copy>(v1: T, v2: T) -> Result<T, MltError> {
     v1.checked_add(&v2).or_overflow()
