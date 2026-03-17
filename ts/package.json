@@ -39,7 +39,7 @@
     "eslint": "^10.0.3",
     "pbf": "^4.0.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.57.0",
+    "typescript-eslint": "^8.57.1",
     "vitest": "^4.0.1"
   },
   "dependencies": {
