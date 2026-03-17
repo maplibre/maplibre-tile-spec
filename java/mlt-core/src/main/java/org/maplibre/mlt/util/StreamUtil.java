@@ -8,6 +8,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import org.apache.commons.lang3.tuple.Pair;
 
 public final class StreamUtil {
   private StreamUtil() {}
@@ -27,38 +28,57 @@ public final class StreamUtil {
             & spliterB.characteristics()
             & ~(Spliterator.DISTINCT | Spliterator.SORTED);
 
+    // If both streams are SIZED, they must have the same size
+    final var sized = (characteristics & Spliterator.SIZED) != 0;
+    if (sized && spliterA.getExactSizeIfKnown() != spliterB.getExactSizeIfKnown()) {
+      throw new IllegalStateException("Streams have different sizes");
+    }
+
+    final var cIterator = new ZipIterator<A, B, C>(spliterA, spliterB, f);
+
     // Get sizes, if both are available.  Zipped result is the smaller of the two sizes.
-    final long zipSize =
-        ((characteristics & Spliterator.SIZED) != 0)
-            ? Math.min(spliterA.getExactSizeIfKnown(), spliterB.getExactSizeIfKnown())
-            : 0;
-
-    final var cIterator =
-        new Iterator<C>() {
-          private final Iterator<A> aIterator = Spliterators.iterator(spliterA);
-          private final Iterator<B> bIterator = Spliterators.iterator(spliterB);
-
-          @Override
-          public boolean hasNext() {
-            final var aHasNext = aIterator.hasNext();
-            final var bHasNext = bIterator.hasNext();
-            if (aHasNext != bHasNext) {
-              throw new IllegalStateException("Streams have different sizes");
-            }
-            return aHasNext && bHasNext;
-          }
-
-          @Override
-          public C next() {
-            return f.apply(aIterator.next(), bIterator.next());
-          }
-        };
-
     final var spliterator =
-        (zipSize > 0)
-            ? Spliterators.spliterator(cIterator, zipSize, characteristics)
+        sized
+            ? Spliterators.spliterator(
+                cIterator,
+                Math.min(spliterA.getExactSizeIfKnown(), spliterB.getExactSizeIfKnown()),
+                characteristics)
             : Spliterators.spliteratorUnknownSize(cIterator, characteristics);
     return StreamSupport.stream(spliterator, a.isParallel() || b.isParallel());
+  }
+
+  private static final class ZipIterator<A, B, C> implements Iterator<C> {
+    private final Iterator<A> aIterator;
+    private final Iterator<B> bIterator;
+    private final BiFunction<? super A, ? super B, ? extends C> function;
+
+    ZipIterator(
+        Spliterator<? extends A> a,
+        Spliterator<? extends B> b,
+        BiFunction<? super A, ? super B, ? extends C> f) {
+      aIterator = Spliterators.iterator(a);
+      bIterator = Spliterators.iterator(b);
+      function = f;
+    }
+
+    @Override
+    public boolean hasNext() {
+      final var aHasNext = aIterator.hasNext();
+      final var bHasNext = bIterator.hasNext();
+      if (aHasNext != bHasNext) {
+        throw new IllegalStateException("Streams have different sizes");
+      }
+      return aHasNext && bHasNext;
+    }
+
+    @Override
+    public C next() {
+      return function.apply(aIterator.next(), bIterator.next());
+    }
+  }
+
+  public static <A, B> Stream<Pair<A, B>> zip(Stream<? extends A> a, Stream<? extends B> b) {
+    return zip(a, b, Pair::of);
   }
 
   /// Run the given function for each pair of elements from the two streams.
@@ -70,8 +90,8 @@ public final class StreamUtil {
             b,
             (x, y) -> {
               f.accept(x, y);
-              return null;
+              return 1;
             })
-        .count();
+        .reduce(0, Integer::sum);
   }
 }
