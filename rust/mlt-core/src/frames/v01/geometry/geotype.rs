@@ -367,9 +367,10 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
+    use crate::EncDec;
     use crate::geojson::Coord32;
     use crate::test_helpers::{assert_empty, dec, parser};
-    use crate::v01::{EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, RawGeometry};
+    use crate::v01::{EncodedGeometry, GeometryEncoder, IntEncoding, RawGeometry};
 
     /// Encode, serialize, parse, and decode a `GeometryValues`.
     /// The input must already be in the dense canonical form that `from_encoded`
@@ -384,7 +385,7 @@ mod tests {
             RawGeometry::from_bytes(&buffer, &mut parser()).expect("Failed to parse");
         assert_empty(remaining);
 
-        Geometry::Raw(parsed)
+        EncDec::Raw(parsed)
             .into_parsed(&mut dec())
             .expect("Failed to decode")
     }
@@ -698,7 +699,7 @@ mod tests {
         assert_snapshot!(p.reserved(), @"72");
 
         let mut d = dec();
-        let decoded = Geometry::Raw(parsed).into_parsed(&mut d).unwrap();
+        let decoded = EncDec::Raw(parsed).into_parsed(&mut d).unwrap();
         assert_snapshot!(d.consumed(), @"100");
         assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));
 

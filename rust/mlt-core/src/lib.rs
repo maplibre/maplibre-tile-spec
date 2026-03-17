@@ -15,7 +15,7 @@ pub(crate) mod utils;
 pub use analyse::{Analyze, StatType};
 pub use convert::{geojson, mvt};
 pub use decoder::{Decoder, Parser};
-pub use enc_dec::{Decode, EncDec};
+pub use enc_dec::{Decode, DecodeState, Decoded, EncDec, Mixed};
 pub use errors::{MltError, MltRefResult};
 pub use frames::{EncodedLayer, Layer, StagedLayer, unknown, v01};
 

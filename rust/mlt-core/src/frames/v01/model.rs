@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use geo_types::Geometry as GeoGeometry;
 use num_enum::TryFromPrimitive;
 
@@ -5,6 +7,7 @@ use crate::v01::{
     EncodedGeometry, EncodedId, EncodedProperty, Geometry, GeometryValues, Id, IdValues, Property,
     StagedProperty,
 };
+use crate::{DecodeState, Mixed};
 
 /// Column definition
 #[derive(Debug, PartialEq)]
@@ -54,16 +57,66 @@ pub enum ColumnType {
     SharedDict = 30,
 }
 
-/// Representation of a feature table layer encoded as MLT tag `0x01`
-#[derive(Debug, PartialEq)]
-pub struct Layer01<'a> {
+/// Representation of a feature table layer encoded as MLT tag `0x01`.
+///
+/// The type parameter `S` controls how columns are stored:
+///
+/// - `Layer01<'a>` / `Layer01<'a, Mixed>` (default) — columns are [`EncDec`](crate::EncDec) enums
+///   that may be raw or decoded. Use `decode_id`, `decode_geometry`, `decode_properties` for
+///   selective in-place decoding, or [`Layer01::decode_all`] to transition to `Layer01<Decoded>`.
+///
+/// - `Layer01<'a, Decoded>` — all columns are fully decoded. The fields `id`, `geometry`, and
+///   `properties` hold the parsed types directly, allowing infallible readonly access.
+pub struct Layer01<'a, S: DecodeState = Mixed> {
     pub name: &'a str,
     pub extent: u32,
-    pub id: Option<Id<'a>>,
-    pub geometry: Geometry<'a>,
-    pub properties: Vec<Property<'a>>,
+    pub id: Option<Id<'a, S>>,
+    pub geometry: Geometry<'a, S>,
+    pub properties: Vec<Property<'a, S>>,
     #[cfg(fuzzing)]
     pub layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
+    pub(crate) _state: PhantomData<S>,
+}
+
+impl<'a, S> std::fmt::Debug for Layer01<'a, S>
+where
+    S: DecodeState,
+    Option<Id<'a, S>>: std::fmt::Debug,
+    Geometry<'a, S>: std::fmt::Debug,
+    Vec<Property<'a, S>>: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = f.debug_struct("Layer01");
+        s.field("name", &self.name)
+            .field("extent", &self.extent)
+            .field("id", &self.id)
+            .field("geometry", &self.geometry)
+            .field("properties", &self.properties);
+        #[cfg(fuzzing)]
+        s.field("layer_order", &self.layer_order);
+        s.finish()
+    }
+}
+
+impl<'a, S> Clone for Layer01<'a, S>
+where
+    S: DecodeState,
+    Option<Id<'a, S>>: Clone,
+    Geometry<'a, S>: Clone,
+    Vec<Property<'a, S>>: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name,
+            extent: self.extent,
+            id: self.id.clone(),
+            geometry: self.geometry.clone(),
+            properties: self.properties.clone(),
+            #[cfg(fuzzing)]
+            layer_order: self.layer_order.clone(),
+            _state: PhantomData,
+        }
+    }
 }
 
 /// Columnar layer data being prepared for encoding (stage 2 of the encoding pipeline).

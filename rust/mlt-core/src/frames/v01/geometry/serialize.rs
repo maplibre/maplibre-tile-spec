@@ -7,8 +7,8 @@ use crate::codecs::varint::parse_varint;
 use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2};
 use crate::v01::geometry::encode::encode_geometry;
 use crate::v01::{
-    ColumnType, DictionaryType, EncodedGeometry, Geometry, GeometryEncoder, GeometryValues,
-    IntEncoding, RawGeometry, RawStream, RawStreamData, StreamMeta, StreamType,
+    ColumnType, DictionaryType, EncodedGeometry, GeometryEncoder, GeometryValues, IntEncoding,
+    RawGeometry, RawStream, RawStreamData, StreamMeta, StreamType,
 };
 use crate::{MltError, Parser};
 
@@ -84,13 +84,6 @@ impl Debug for GeometryValues {
             .field("triangles", &OptSeq(triangles.as_deref()))
             .field("vertices", &OptSeq(vertices.as_deref()))
             .finish()
-    }
-}
-
-impl<'a> Geometry<'a> {
-    #[must_use]
-    pub fn new_raw(meta: RawStream<'a>, items: Vec<RawStream<'a>>) -> Self {
-        Self::Raw(RawGeometry { meta, items })
     }
 }
 

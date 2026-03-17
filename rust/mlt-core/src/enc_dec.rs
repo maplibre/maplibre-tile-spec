@@ -8,6 +8,49 @@ pub trait Decode<Parsed>: Sized {
     fn decode(self, decoder: &mut Decoder) -> Result<Parsed, MltError>;
 }
 
+mod sealed {
+    pub trait Sealed {}
+}
+
+/// Type-state marker for [`Layer01`](crate::v01::Layer01) and related column wrappers.
+///
+/// Implementors determine how `(Raw, Parsed)` column pairs are stored:
+/// - [`Mixed`] stores an [`EncDec<Raw, Parsed>`] enum that can be in Raw, Parsed, or ParsingFailed state.
+/// - [`Decoded`] stores only `Parsed`, giving zero-cost infallible field access.
+pub trait DecodeState: sealed::Sealed {
+    type Wrap<Raw, Parsed>;
+}
+
+/// Mixed state: individual columns may still be raw or already decoded.
+///
+/// This is the default state produced by [`Layer01::from_bytes`](crate::v01::Layer01::from_bytes).
+/// Columns can be decoded in place (via `decode_id`, `decode_geometry`, etc.) or
+/// all at once by calling [`Layer01::decode_all`](crate::v01::Layer01::decode_all), which
+/// consumes `self` and returns a [`Layer01<Decoded>`](crate::v01::Layer01).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Mixed;
+
+impl sealed::Sealed for Mixed {}
+
+impl DecodeState for Mixed {
+    type Wrap<Raw, Parsed> = EncDec<Raw, Parsed>;
+}
+
+/// Fully-decoded state: all columns hold their parsed values directly.
+///
+/// A `Layer01<Decoded>` is produced by [`Layer01::decode_all`](crate::v01::Layer01::decode_all).
+/// Its fields (`id`, `geometry`, `properties`) are the parsed types themselves — no
+/// wrapping enum, no `Result`, just plain field access.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Decoded;
+
+impl sealed::Sealed for Decoded {}
+
+impl DecodeState for Decoded {
+    /// In the decoded state the column IS the parsed value — no enum wrapper.
+    type Wrap<Raw, Parsed> = Parsed;
+}
+
 /// Shared wrapper for values that may still be in the original (raw) format or
 /// already parsed (but still columnar).
 /// Used by: `Id`, `Geometry`, `Property`, and eventually - `SharedDictItem`
