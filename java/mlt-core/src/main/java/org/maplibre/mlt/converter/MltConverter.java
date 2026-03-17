@@ -214,12 +214,17 @@ public class MltConverter {
     featureTableSchema.columns.add(
         createComplexColumnScheme(null, false, MltMetadata.ComplexType.GEOMETRY));
 
-    // Add the remaining items in name order for consistent output
+    // Add the remaining items in name order for consistent output.
+    // Put complex columns after scalar columns to match old behavior.
     columnSchemas.values().stream()
-        .sorted(Comparator.comparing(c -> c.name))
+        .sorted(Comparator.comparing(MltConverter::complexOrder).thenComparing(c -> c.name))
         .forEach(featureTableSchema.columns::add);
 
     return featureTableSchema;
+  }
+
+  private static int complexOrder(MltMetadata.Column c) {
+    return (c.complexType != null) ? 1 : 0;
   }
 
   private static void resolveColumnType(
@@ -247,32 +252,11 @@ public class MltConverter {
         if (previousSchema.scalarType.physicalType != null) {
           final var prevPhysicalType = previousSchema.scalarType.physicalType;
           if (prevPhysicalType != scalarType) {
-            if (prevPhysicalType == MltMetadata.ScalarType.INT_32
-                && scalarType == MltMetadata.ScalarType.INT_64) {
-              // Allow implicit upgrade from INT_32 to INT_64
-              columnSchemas.put(
-                  sourcePropertyName,
-                  new MltMetadata.Column(
-                      previousSchema.name,
-                      new MltMetadata.ScalarField(MltMetadata.ScalarType.INT_64),
-                      previousSchema.isNullable));
-            } else if (prevPhysicalType == MltMetadata.ScalarType.INT_64
-                && scalarType == MltMetadata.ScalarType.INT_32) {
-              // no-op
-              // keep INT_64
-            } else if (prevPhysicalType == MltMetadata.ScalarType.FLOAT
-                && scalarType == MltMetadata.ScalarType.DOUBLE) {
-              // Allow implicit upgrade from FLOAT to DOUBLE
-              columnSchemas.put(
-                  sourcePropertyName,
-                  new MltMetadata.Column(
-                      previousSchema.name,
-                      new MltMetadata.ScalarField(MltMetadata.ScalarType.DOUBLE),
-                      previousSchema.isNullable));
-            } else if (prevPhysicalType == MltMetadata.ScalarType.DOUBLE
-                && scalarType == MltMetadata.ScalarType.FLOAT) {
-              // no-op
-              // keep DOUBLE
+            final var newSchema = checkUpgrade(previousSchema, scalarType);
+            if (newSchema != null) {
+              if (newSchema != previousSchema) {
+                columnSchemas.put(sourcePropertyName, newSchema);
+              }
             } else if (typeMismatchPolicy == ConversionConfig.TypeMismatchPolicy.COERCE) {
               if (prevPhysicalType != MltMetadata.ScalarType.STRING) {
                 columnSchemas.put(
@@ -318,6 +302,37 @@ public class MltConverter {
     // no matching column mappings, create a plain scalar column
     columnSchemas.put(
         sourcePropertyName, createScalarColumnScheme(sourcePropertyName, true, scalarType));
+  }
+
+  private static MltMetadata.Column checkUpgrade(MltMetadata.Column previousSchema, MltMetadata.ScalarType scalarType) {
+    final var prevPhysicalType = previousSchema.scalarType.physicalType;
+
+    if (prevPhysicalType == MltMetadata.ScalarType.INT_32
+            && scalarType == MltMetadata.ScalarType.INT_64) {
+      // Allow implicit upgrade from INT_32 to INT_64
+      return new MltMetadata.Column(
+                      previousSchema.name,
+                      new MltMetadata.ScalarField(MltMetadata.ScalarType.INT_64),
+                      previousSchema.isNullable);
+    } else if (prevPhysicalType == MltMetadata.ScalarType.INT_64
+            && scalarType == MltMetadata.ScalarType.INT_32) {
+      // no-op
+      // keep INT_64
+      return previousSchema;
+    } else if (prevPhysicalType == MltMetadata.ScalarType.FLOAT
+            && scalarType == MltMetadata.ScalarType.DOUBLE) {
+      // Allow implicit upgrade from FLOAT to DOUBLE
+      return new MltMetadata.Column(
+                      previousSchema.name,
+                      new MltMetadata.ScalarField(MltMetadata.ScalarType.DOUBLE),
+                      previousSchema.isNullable);
+    } else if (prevPhysicalType == MltMetadata.ScalarType.DOUBLE
+            && scalarType == MltMetadata.ScalarType.FLOAT) {
+      // no-op
+      // keep DOUBLE
+      return previousSchema;
+    }
+    return null;
   }
 
   /// Resolve complex column mapping by determining common prefix and adjusting child names
