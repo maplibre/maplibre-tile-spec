@@ -95,14 +95,6 @@ pub fn decode_fastpfor_composite(
     let buf_size = num_values + 1024;
     let mut result = vec![0u32; buf_size];
 
-    #[cfg(feature = "fastpfor-cpp")]
-    let decoded_len = {
-        use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
-        // The fastpfor crate's FastPFor256Codec is already a CompositeCodec<FastPFor<8>, VariableByte>.
-        // It handles the full Composition protocol internally (FastPFor header + VByte remainder).
-        FastPFor256Codec::new().decode32(&input, &mut result)?.len()
-    };
-    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
     let decoded_len = {
         use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
 

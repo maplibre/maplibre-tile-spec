@@ -150,7 +150,7 @@ pub enum MltError {
     UnexpectedOffsetCombination(usize, GeometryType),
 
     // Wrapper errors, using `#[from]` to auto-convert from underlying error types
-    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
+    #[cfg(any(feature = "fastpfor-rust", feature = "fastpfor-cpp"))]
     #[error("FastPFor error: {0}")]
     FastPforRust(#[from] fastpfor::rust::FastPForError),
     #[cfg(feature = "fastpfor-cpp")]

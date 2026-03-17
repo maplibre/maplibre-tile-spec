@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 4c1290f9d564044d1e6d056abceae35ab22b729f58e5f78ee416109e73b1ef18 # shrinks to values = [-1], encoding = IntEncoder { logical: DeltaRle, physical: FastPFOR }
+cc 646c86c4f47d09582828a7480fb593d17aa5f25608ff9ed9392589fecbb0bfd5 # shrinks to values = ["0 ", "𐵀"], encoding = IntEncoder { logical: None, physical: FastPFOR }
