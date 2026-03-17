@@ -42,7 +42,7 @@ public class MvtUtils {
     for (var layer : vectorTile.layers.values()) {
       for (int i = 0; i < layer.length; i++) {
         var feature = layer.feature(i);
-        var geometry = feature.loadGeometry();
+        var ignored = feature.loadGeometry();
       }
     }
 

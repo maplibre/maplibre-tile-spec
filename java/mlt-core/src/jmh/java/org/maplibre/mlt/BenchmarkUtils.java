@@ -19,6 +19,7 @@ import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.data.MapboxVectorTile;
 
 public class BenchmarkUtils {
+  private BenchmarkUtils() {}
 
   public static void encodeTile(
       int z,

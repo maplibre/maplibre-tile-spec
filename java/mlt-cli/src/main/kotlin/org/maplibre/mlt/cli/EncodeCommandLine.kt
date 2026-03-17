@@ -715,8 +715,7 @@ Add an explicit column mapping on the specified layers:
                 addColumnMapping(
                     result,
                     layers,
-                    org.maplibre.mlt.converter
-                        .ColumnMapping(columnNames, true),
+                    ColumnMapping(columnNames, true),
                 )
             } else {
                 logger.warn(
@@ -740,8 +739,7 @@ Add an explicit column mapping on the specified layers:
                 addColumnMapping(
                     result,
                     layers,
-                    org.maplibre.mlt.converter
-                        .ColumnMapping(prefix, delimiter, true),
+                    ColumnMapping(prefix, delimiter, true),
                 )
             } else {
                 logger.warn(

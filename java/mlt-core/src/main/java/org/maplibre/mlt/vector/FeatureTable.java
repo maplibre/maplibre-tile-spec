@@ -6,10 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.MLTFeature;
-import org.maplibre.mlt.vector.constant.IntConstVector;
-import org.maplibre.mlt.vector.flat.IntFlatVector;
 import org.maplibre.mlt.vector.geometry.GeometryVector;
-import org.maplibre.mlt.vector.sequence.IntSequenceVector;
 
 /** In-Memory representation of MLT storage format for efficient processing */
 public class FeatureTable implements Iterable<Feature> {
@@ -66,10 +63,7 @@ public class FeatureTable implements Iterable<Feature> {
         if (idColumn != null) {
           final var idValue = idColumn.getValue(index);
           if (idValue.isPresent()) {
-            builder.id(
-                isIntVector(idColumn)
-                    ? ((Integer) idValue.get()).longValue()
-                    : (Long) idValue.get());
+            builder.id((Long) idValue.get());
           }
         }
 
@@ -77,12 +71,6 @@ public class FeatureTable implements Iterable<Feature> {
         return builder.build();
       }
     };
-  }
-
-  private boolean isIntVector(Vector<?, ?> vector) {
-    return vector instanceof IntFlatVector
-        || vector instanceof IntConstVector
-        || vector instanceof IntSequenceVector;
   }
 
   public String getName() {

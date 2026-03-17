@@ -153,7 +153,6 @@ public final class StringDecoder {
 
     List<Integer> dictionaryLengthStream = null;
     List<Integer> offsetStream = null;
-    byte[] dataStream = null;
     byte[] dictionaryStream = null;
     List<Integer> symbolLengthStream = null;
     byte[] symbolTableStream = null;

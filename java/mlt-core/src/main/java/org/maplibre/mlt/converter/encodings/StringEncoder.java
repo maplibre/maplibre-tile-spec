@@ -93,7 +93,6 @@ public class StringEncoder {
                 < ByteArrayUtil.totalLength(encodedSharedDictionary);
     final var result = usingFSST ? encodedSharedFsstDictionary : encodedSharedDictionary;
 
-    final var width = (int) Math.max(1, Math.ceil(Math.log10(dataStreams.size() - 1)));
     for (var i = 0; i < dataStreams.size(); i++) {
       var presentStream = presentStreams.get(i);
       var dataStream = dataStreams.get(i);

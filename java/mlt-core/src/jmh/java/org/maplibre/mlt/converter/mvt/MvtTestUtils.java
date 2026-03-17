@@ -5,8 +5,6 @@ import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.TagKeyValueMapConverter;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.model.JtsMvt;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,16 +16,9 @@ import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapboxVectorTile;
 
 public class MvtTestUtils {
-  private static final String ID_KEY = "id";
+  private MvtTestUtils() {}
 
-  /* Uses the mapbox-vector-tile-java library for decoding the MVT tile */
-  // TODO: combine decodeMvt and decodeMvt2 to get correct features
-  // Ids are present but geometries of type polygon can have missing vertices and can be wrong in
-  // some cases
-  public static MapboxVectorTile decodeMvt2(Path mvtFilePath) throws IOException {
-    var mvt = Files.readAllBytes(mvtFilePath);
-    return decodeMvt2(mvt);
-  }
+  private static final String ID_KEY = "id";
 
   /* Uses the mapbox-vector-tile-java library for decoding the MVT tile */
   public static JtsMvt decodeMvt2Fast(ByteArrayInputStream mvtTile) throws IOException {
@@ -38,6 +29,10 @@ public class MvtTestUtils {
     return MvtReader.loadMvt(mvtTile, geometryFactory, new TagKeyValueMapConverter(true, ID_KEY));
   }
 
+  /* Uses the mapbox-vector-tile-java library for decoding the MVT tile */
+  // TODO: combine decodeMvt and decodeMvt2 to get correct features
+  // Ids are present but geometries of type polygon can have missing vertices and can be wrong in
+  // some cases
   private static MapboxVectorTile decodeMvt2(byte[] mvtTile) throws IOException {
     final PrecisionModel precisionModel = new PrecisionModel();
     final PackedCoordinateSequenceFactory coordinateSequenceFactory =
