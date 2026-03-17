@@ -3,17 +3,19 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::MltError;
-use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2, parse_varint};
+use crate::codecs::varint::parse_varint;
+use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2};
 use crate::v01::geometry::encode::encode_geometry;
 use crate::v01::{
     ColumnType, DictionaryType, EncodedGeometry, Geometry, GeometryEncoder, GeometryValues,
     IntEncoding, RawGeometry, RawStream, RawStreamData, StreamMeta, StreamType,
 };
+use crate::{MltError, Parser};
 
 impl<'a> RawGeometry<'a> {
-    /// Parse encoded geometry from bytes (expects varint stream count + streams)
-    pub fn parse(input: &'a [u8]) -> crate::MltRefResult<'a, Self> {
+    /// Parse encoded geometry from bytes (expects varint stream count + streams).
+    /// Reserves decoded memory against the parser's budget.
+    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> crate::MltRefResult<'a, Self> {
         let (input, stream_count) = parse_varint::<u32>(input)?;
         let stream_count = stream_count.as_usize();
         if stream_count == 0 {
@@ -33,8 +35,8 @@ impl<'a> RawGeometry<'a> {
             ));
         }
 
-        let (input, meta) = RawStream::parse(input)?;
-        let (input, items) = RawStream::parse_multiple(input, stream_count - 1)?;
+        let (input, meta) = RawStream::from_bytes(input, parser)?;
+        let (input, items) = RawStream::parse_multiple(input, stream_count - 1, parser)?;
 
         Ok((input, Self { meta, items }))
     }
@@ -57,10 +59,7 @@ impl EncodedGeometry {
         Ok(())
     }
 
-    pub(crate) fn encode(
-        value: &GeometryValues,
-        encoder: GeometryEncoder,
-    ) -> Result<Self, MltError> {
+    pub fn encode(value: &GeometryValues, encoder: GeometryEncoder) -> Result<Self, MltError> {
         encode_geometry(value, &encoder, None)
     }
 }

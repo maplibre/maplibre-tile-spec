@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use geo_types::{LineString, Point, Polygon, point, wkt};
-use mlt_core::Decoder;
+use mlt_core::__private::{assert_empty, dec, parser};
 use mlt_core::geojson::{Coord32, Geom32};
 use mlt_core::v01::{
     DictionaryType, EncodedGeometry, GeometryProfile, GeometryValues, LengthType, OffsetType,
@@ -205,9 +205,15 @@ fn manual_encode_works() {
 fn assert_geometry_roundtrip(encoded: &EncodedGeometry, expected: &GeometryValues) {
     let mut buf = Vec::new();
     encoded.write_to(&mut buf).expect("write_to failed");
-    let (inp, raw) = RawGeometry::parse(&buf).expect("parse failed");
-    assert_eq!(inp.len(), 0, "expected all bytes to be consumed in parse");
-    let result = raw.decode(&mut Decoder::default()).unwrap();
+    let mut p = parser();
+    let mut d = dec();
+    let (inp, raw) = RawGeometry::from_bytes(&buf, &mut p).expect("parse failed");
+    assert_empty(inp);
+    let result = raw.decode(&mut d).unwrap();
+    assert!(
+        d.consumed() > 0,
+        "decoder should consume bytes after decode"
+    );
     assert_eq!(expected, &result);
 }
 

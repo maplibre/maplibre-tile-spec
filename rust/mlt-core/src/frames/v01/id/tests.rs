@@ -8,11 +8,12 @@ use rstest::rstest;
 use crate::frames::v01::id::encode::IdEncoder;
 use crate::frames::v01::id::model::{EncodedId, EncodedIdValue, IdValues, IdWidth};
 use crate::geojson::Geom32;
+use crate::test_helpers::{dec, parser};
 use crate::v01::{
     GeometryEncoder, GeometryValues, IntEncoder, LogicalEncoder, StagedLayer01,
     StagedLayer01Encoder,
 };
-use crate::{Decoder, EncodedLayer, Layer, MltError};
+use crate::{EncodedLayer, Layer, MltError};
 
 // Test that each config produces the correct variant and optional stream presence
 #[rstest]
@@ -167,14 +168,14 @@ fn roundtrip_id_values(decoded: &IdValues, config: IdEncoder) -> Result<IdValues
     EncodedLayer::Tag01(layer_enc)
         .write_to(&mut buf)
         .map_err(MltError::from)?;
-    let (_, layer) = Layer::parse(&buf)?;
+    let (_, layer) = Layer::from_bytes(&buf, &mut parser())?;
     let Layer::Tag01(layer01) = layer else {
         return Err(MltError::NotDecoded("expected Tag01 layer"));
     };
     let id = layer01
         .id
         .ok_or(MltError::NotDecoded("expected id column"))?;
-    id.into_parsed(&mut Decoder::default())
+    id.into_parsed(&mut dec())
 }
 
 fn assert_produces_correct_variant(

@@ -1,10 +1,11 @@
 use geo_types::Point;
+use mlt_core::__private::{dec, into_layer01, parser};
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     GeometryEncoder, GeometryProfile, GeometryValues, IdEncoder, IdProfile, IdValues, IdWidth,
     IntEncoder, LogicalEncoder, PropertyProfile, StagedLayer01, StagedLayer01Encoder, Tag01Profile,
 };
-use mlt_core::{Decoder, EncodedLayer, Layer};
+use mlt_core::{EncodedLayer, Layer};
 use rstest::rstest;
 
 /// Round-trip `IdValues` via full layer bytes (no encoded→decoded converter).
@@ -34,14 +35,13 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_encoder: IdEncoder) -> IdValues
     EncodedLayer::Tag01(layer_enc)
         .write_to(&mut buf)
         .expect("write_to failed");
-    let (_, layer) = Layer::parse(&buf).expect("parse failed");
-    let Layer::Tag01(layer01) = layer else {
-        panic!("expected Tag01 layer");
-    };
-    layer01
+    let mut p = parser();
+    let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
+
+    into_layer01(layer)
         .id
         .expect("expected id column")
-        .into_parsed(&mut Decoder::default())
+        .into_parsed(&mut dec())
         .expect("decode failed")
 }
 
@@ -66,15 +66,22 @@ fn id_roundtrip_auto(decoded: &IdValues) -> IdValues {
     EncodedLayer::Tag01(encoded)
         .write_to(&mut buf)
         .expect("write_to failed");
-    let (_, layer) = Layer::parse(&buf).expect("parse failed");
-    let Layer::Tag01(layer01) = layer else {
-        panic!("expected Tag01 layer");
-    };
-    layer01
+    let mut p = parser();
+    let mut d = dec();
+    let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
+    assert!(p.reserved() > 0, "parser should reserve bytes after parse");
+    let layer01 = into_layer01(layer);
+
+    let result = layer01
         .id
         .expect("expected id column")
-        .into_parsed(&mut Decoder::default())
-        .expect("decode failed")
+        .into_parsed(&mut d)
+        .expect("decode failed");
+    assert!(
+        d.consumed() > 0,
+        "decoder should consume bytes after decode"
+    );
+    result
 }
 
 fn id_roundtrip_with_profile(decoded: &IdValues, profile: &IdProfile) -> IdValues {
@@ -107,15 +114,22 @@ fn id_roundtrip_with_profile(decoded: &IdValues, profile: &IdProfile) -> IdValue
     EncodedLayer::Tag01(encoded)
         .write_to(&mut buf)
         .expect("write_to failed");
-    let (_, layer) = Layer::parse(&buf).expect("parse failed");
-    let Layer::Tag01(layer01) = layer else {
-        panic!("expected Tag01 layer");
-    };
-    layer01
+    let mut p = parser();
+    let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
+    assert!(p.reserved() > 0, "parser should reserve bytes after parse");
+    let layer01 = into_layer01(layer);
+
+    let mut d = dec();
+    let result = layer01
         .id
         .expect("expected id column")
-        .into_parsed(&mut Decoder::default())
-        .expect("decode failed")
+        .into_parsed(&mut d)
+        .expect("decode failed");
+    assert!(
+        d.consumed() > 0,
+        "decoder should consume bytes after decode"
+    );
+    result
 }
 
 fn create_u32_range_ids() -> IdValues {

@@ -15,16 +15,12 @@ impl IntEncoder {
     }
 
     #[must_use]
-    pub fn plain() -> IntEncoder {
-        IntEncoder::new(LogicalEncoder::None, PhysicalEncoder::None)
+    pub fn delta_fastpfor() -> IntEncoder {
+        IntEncoder::new(LogicalEncoder::Delta, PhysicalEncoder::FastPFOR)
     }
     #[must_use]
-    pub fn varint() -> IntEncoder {
-        IntEncoder::new(LogicalEncoder::None, PhysicalEncoder::VarInt)
-    }
-    #[must_use]
-    pub fn rle_varint() -> IntEncoder {
-        IntEncoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
+    pub fn delta_rle_fastpfor() -> IntEncoder {
+        IntEncoder::new(LogicalEncoder::DeltaRle, PhysicalEncoder::FastPFOR)
     }
     #[must_use]
     pub fn delta_rle_varint() -> IntEncoder {
@@ -39,8 +35,20 @@ impl IntEncoder {
         IntEncoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR)
     }
     #[must_use]
+    pub fn plain() -> IntEncoder {
+        IntEncoder::new(LogicalEncoder::None, PhysicalEncoder::None)
+    }
+    #[must_use]
     pub fn rle_fastpfor() -> IntEncoder {
         IntEncoder::new(LogicalEncoder::Rle, PhysicalEncoder::FastPFOR)
+    }
+    #[must_use]
+    pub fn rle_varint() -> IntEncoder {
+        IntEncoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
+    }
+    #[must_use]
+    pub fn varint() -> IntEncoder {
+        IntEncoder::new(LogicalEncoder::None, PhysicalEncoder::VarInt)
     }
 
     /// Automatically select the best encoder for a `u32` stream.

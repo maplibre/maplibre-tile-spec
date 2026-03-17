@@ -9,8 +9,6 @@
 //! The only conversion from [`TileLayer01`] to [`StagedLayer01`] is [`From`] at the
 //! optimizer exit boundary; there is no encoded→decoded conversion from Staged back to Tile.
 
-use std::mem::size_of;
-
 use crate::errors::AsMltError as _;
 use crate::v01::{
     GeometryValues, IdValues, Layer01, ParsedProperty, PropValue, StagedLayer01, StagedProperty,
@@ -51,19 +49,11 @@ impl Layer01<'_> {
 
         let ids: Option<&[Option<u64>]> = id.as_ref().map(|d| d.0.as_slice());
 
-        // Charge for the features Vec (PropValue slots + geometry pointers).
-        dec.consume(
-            u32::try_from(
-                n * (size_of::<TileFeature>() + property_names.len() * size_of::<PropValue>()),
-            )
-            .or_overflow()?,
-        )?;
-
-        let mut features = Vec::with_capacity(n);
+        let mut features = dec.alloc::<TileFeature>(n)?;
         for i in 0..n {
             let feat_id = ids.and_then(|ids| ids.get(i).copied().flatten());
             let geom = geometry.to_geojson(i)?;
-            let mut values = Vec::with_capacity(property_names.len());
+            let mut values = dec.alloc::<PropValue>(property_names.len())?;
             for prop in &properties {
                 extract_parsed_values(prop, i, &mut values);
             }

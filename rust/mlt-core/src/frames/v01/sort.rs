@@ -5,8 +5,9 @@
 //! call; there is no permutation machinery, no column-by-column scatter, and
 //! no encoded/decoded conversions inside this module.
 
+use crate::codecs::hilbert::{hilbert_curve_params, hilbert_sort_key};
+use crate::codecs::morton::morton_sort_key;
 use crate::geojson::Geom32;
-use crate::utils::{hilbert_curve_params, hilbert_sort_key, morton_sort_key};
 use crate::v01::{TileFeature, TileLayer01};
 
 /// Controls how features inside a layer are reordered before encoding.
@@ -217,6 +218,7 @@ mod tests {
 
     use super::*;
     use crate::geojson::Geom32;
+    use crate::test_helpers::{assert_empty, dec, parser};
     use crate::v01::{
         Geometry, GeometryEncoder, GeometryValues, IntEncoder, RawGeometry, TileFeature,
         TileLayer01,
@@ -264,15 +266,18 @@ mod tests {
         let mut buf = Vec::new();
         encoded.write_to(&mut buf).expect("serialize failed");
 
-        let (remaining, parsed) = RawGeometry::parse(&buf).expect("parse failed");
+        let mut p = parser();
+        let (remaining, parsed) = RawGeometry::from_bytes(&buf, &mut p).expect("parse failed");
+        assert_empty(remaining);
+        let mut d = dec();
+        let result = Geometry::Raw(parsed)
+            .into_parsed(&mut d)
+            .expect("decode failed");
         assert!(
-            remaining.is_empty(),
-            "unexpected trailing bytes after parse"
+            d.consumed() > 0,
+            "decoder should consume bytes after decode"
         );
-
-        Geometry::Raw(parsed)
-            .into_parsed(&mut crate::Decoder::default())
-            .expect("decode failed")
+        result
     }
 
     /// Build the canonical (dense, wire-decoded) form of an ordered geometry sequence.

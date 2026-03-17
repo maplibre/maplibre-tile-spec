@@ -323,7 +323,7 @@ pub struct RawPresence<'a>(pub Option<RawStream<'a>>);
 pub struct EncodedPresence(pub Option<EncodedStream>);
 
 /// Instruction for how to encode a single parsed property when batch-encoding a
-/// [`Vec<ParsedProperty>`] via [`crate::optimizer::ManualOptimisation`].
+/// `Vec<ParsedProperty>`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PropertyEncoder {
     /// How to encode a scalar property

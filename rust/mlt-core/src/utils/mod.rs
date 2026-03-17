@@ -1,23 +1,16 @@
-mod encode;
-mod spatial;
-
-pub use encode::*;
-use num_traits::CheckedAdd;
-pub use spatial::*;
 mod serialize;
 pub use serialize::*;
 mod parse;
 pub(crate) use parse::*;
-mod decode;
-pub use decode::*;
 pub(crate) mod formatter;
 use std::mem::size_of;
 
 pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt};
+use num_traits::CheckedAdd;
 use serde_json::{Number, Value};
 
 use crate::errors::AsMltError as _;
-use crate::v01::RawStream;
+use crate::v01::RawPresence;
 use crate::{Decoder, MltError};
 
 /// Convert f32 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
@@ -63,17 +56,19 @@ impl<T> SetOptionOnce<T> for Option<T> {
 }
 
 /// Apply an optional present bitmap to a vector of values.
-/// If present is None (non-optional column), all values are wrapped in Some.
-/// If present is Some, values are interleaved with None according to the bitmap.
+/// If the presence stream is absent (non-optional column), all values are wrapped in Some.
+/// If present, values are interleaved with None according to the bitmap.
 pub fn apply_present<T>(
-    present: Option<RawStream<'_>>,
+    presence: RawPresence<'_>,
     values: Vec<T>,
     dec: &mut Decoder,
 ) -> Result<Vec<Option<T>>, MltError> {
-    let present: Vec<bool> = if let Some(p) = present {
+    let present: Vec<bool> = if let Some(p) = presence.0 {
         p.decode_bools(dec)?
     } else {
-        return Ok(values.into_iter().map(Some).collect());
+        let mut result = dec.alloc::<Option<T>>(values.len())?;
+        result.extend(values.into_iter().map(Some));
+        return Ok(result);
     };
     let present_bit_count = present.iter().filter(|&&b| b).count();
     if present_bit_count != values.len() {
@@ -87,7 +82,7 @@ pub fn apply_present<T>(
         "Since the number of present bits is an upper bound on the number of values and equals values.len(), there cannot be more values than entries in the present bitmap"
     );
 
-    let mut result = Vec::with_capacity(present.len());
+    let mut result = dec.alloc::<Option<T>>(present.len())?;
     let mut val_iter = values.into_iter();
     for p in present {
         result.push(if p { val_iter.next() } else { None });
@@ -95,7 +90,7 @@ pub fn apply_present<T>(
     Ok(result)
 }
 
-/// Perform checked addition of three values, returning an error if any overflow occurs.
+/// Perform checked addition of two values, returning an error if any overflow occurs.
 #[inline]
 pub fn checked_sum2<T: CheckedAdd + Copy>(v1: T, v2: T) -> Result<T, MltError> {
     v1.checked_add(&v2).or_overflow()

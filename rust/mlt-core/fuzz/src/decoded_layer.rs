@@ -1,5 +1,5 @@
 use mlt_core::v01::EncodedLayer01;
-use mlt_core::{Decoder, EncodedLayer, Layer};
+use mlt_core::{Decoder, EncodedLayer, Layer, Parser};
 
 /// Fuzz input that starts from an already-encoded layer and tests encode → decode roundtrip.
 ///
@@ -28,7 +28,8 @@ impl DecodedLayerInput {
             .expect("write_to cannot fail for a fully-Encoded layer");
 
         // Parse the written bytes back — must not fail.
-        let Ok((remaining, mut parsed_back)) = Layer::parse(&buffer) else {
+        let mut parser = Parser::default();
+        let Ok((remaining, mut parsed_back)) = Layer::from_bytes(&buffer, &mut parser) else {
             panic!(
                 "Written layer cannot be re-parsed\nOriginal layer:\n{:#?}",
                 self.layer

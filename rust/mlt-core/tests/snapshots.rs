@@ -4,8 +4,8 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::Path;
 
-use insta::{assert_debug_snapshot, with_settings};
-use mlt_core::{Decoder, parse_layers};
+use insta::{assert_debug_snapshot, assert_snapshot, with_settings};
+use mlt_core::__private::{dec, parser};
 use test_each_file::test_each_path;
 
 //
@@ -34,16 +34,19 @@ fn parse_one_file(path: impl AsRef<Path>) {
     eprintln!("Parsing MLT file: {}", path.display());
     let file_name = path.file_stem().unwrap().to_string_lossy().to_string();
     let buffer = fs::read(path).unwrap();
-    match parse_layers(&buffer) {
+    let mut p = parser();
+    let mut d = dec();
+    match p.parse_layers(&buffer) {
         Ok(mut layers) => {
+            assert_snapshot!(p.reserved(), @"");
             assert_debug_snapshot!(format!("{file_name}-parsed"), layers);
-            let mut dec = Decoder::default();
             for layer in &mut layers {
-                if let Err(e) = layer.decode_all(&mut dec) {
+                if let Err(e) = layer.decode_all(&mut d) {
                     assert_debug_snapshot!(format!("{file_name}___bad-decode"), e);
                     break;
                 }
             }
+            assert_snapshot!(d.consumed(), @"");
             assert_debug_snapshot!(format!("{file_name}-decoded"), layers);
         }
         Err(e) => {
@@ -80,6 +83,9 @@ fn test_plain() {
 
     let path = Path::new(path);
     let buffer = fs::read(path).unwrap();
-    parse_layers(&buffer).unwrap();
+    let mut p = parser();
+    let layers = p.parse_layers(&buffer).unwrap();
+    assert_snapshot!(p.reserved(), @"");
+    let _ = layers;
     // decode([&path]);
 }

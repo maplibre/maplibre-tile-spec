@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::Args;
 use mlt_core::geojson::FeatureCollection;
-use mlt_core::{Decoder, MltError, parse_layers};
+use mlt_core::{Decoder, MltError, Parser};
 
 use crate::OutputFormat;
 use crate::ls::is_mlt_extension;
@@ -37,7 +37,7 @@ pub fn dump(args: &DumpArgs, decode: AfterDump) -> Result<()> {
 }
 
 fn dump_mlt(args: &DumpArgs, decode: AfterDump, buffer: &[u8]) -> Result<(), MltError> {
-    let mut layers = parse_layers(buffer)?;
+    let mut layers = Parser::default().parse_layers(buffer)?;
     let mut dec = Decoder::default();
     if decode == AfterDump::Decode {
         for layer in &mut layers {

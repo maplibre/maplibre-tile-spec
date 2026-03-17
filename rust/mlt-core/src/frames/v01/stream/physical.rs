@@ -1,14 +1,16 @@
 use integer_encoding::VarInt as _;
 
 use crate::MltError::ParsingStreamType;
-use crate::utils::{encode_fastpfor, encode_u32s_to_bytes, encode_u64s_to_bytes, parse_u8};
+use crate::codecs::bytes::{encode_u32s_to_bytes, encode_u64s_to_bytes};
+use crate::codecs::fastpfor::encode_fastpfor;
+use crate::utils::parse_u8;
 use crate::v01::{
     DictionaryType, EncodedStreamData, LengthType, OffsetType, PhysicalEncoding, StreamType,
 };
 use crate::{MltError, MltRefResult};
 
 impl StreamType {
-    pub fn parse(input: &'_ [u8]) -> MltRefResult<'_, Self> {
+    pub fn from_bytes(input: &'_ [u8]) -> MltRefResult<'_, Self> {
         let (input, value) = parse_u8(input)?;
         let pt = Self::from_u8(value).ok_or(ParsingStreamType(value))?;
         Ok((input, pt))

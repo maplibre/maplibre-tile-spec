@@ -19,7 +19,7 @@ just *args:
 bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack')
     cargo hack insta test --accept --unreferenced=delete --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
+        --exclude-features fastpfor-cpp,default,__private \
         --exclude-all-features \
         --features fastpfor-rust \
         {{args}}
@@ -41,12 +41,12 @@ build: (just 'cargo-install' 'cargo-hack')
         --exclude-no-default-features --exclude-all-features
     cargo hack build --all-targets --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-rust,default \
+        --exclude-features fastpfor-rust,default,__private \
         --exclude-all-features \
         --features fastpfor-cpp
     cargo hack build --all-targets --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
+        --exclude-features fastpfor-cpp,default,__private \
         --exclude-all-features \
         --features fastpfor-rust
 
@@ -58,12 +58,12 @@ check: (just 'cargo-install' 'cargo-hack')
         --exclude-no-default-features --exclude-all-features
     cargo hack check --all-targets --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-rust,default \
+        --exclude-features fastpfor-rust,default,__private \
         --exclude-all-features \
         --features fastpfor-cpp
     cargo hack check --all-targets --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
+        --exclude-features fastpfor-cpp,default,__private \
         --exclude-all-features \
         --features fastpfor-rust
     cd mlt-core/fuzz && cargo check --all-features
@@ -193,13 +193,13 @@ clippy *args: (just 'cargo-install' 'cargo-hack')
         {{args}}
     cargo hack clippy --all-targets --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-rust,default \
+        --exclude-features fastpfor-rust,default,__private \
         --exclude-all-features \
         --features fastpfor-cpp \
         {{args}}
     cargo hack clippy --all-targets --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
+        --exclude-features fastpfor-cpp,default,__private \
         --exclude-all-features \
         --features fastpfor-rust \
         {{args}}
@@ -213,13 +213,13 @@ coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'c
         --include-build-script {{args}}
     cargo hack llvm-cov --all-targets --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-rust,default \
+        --exclude-features fastpfor-rust,default,__private \
         --exclude-all-features \
         --features fastpfor-cpp \
         --include-build-script {{args}}
     cargo hack llvm-cov --all-targets --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
+        --exclude-features fastpfor-cpp,default,__private \
         --exclude-all-features \
         --features fastpfor-rust \
         --include-build-script {{args}}
@@ -317,7 +317,7 @@ release *args='': (just 'cargo-install' 'release-plz')
 semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install' 'cargo-hack')
     cargo hack semver-checks --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-rust,default \
+        --exclude-features fastpfor-rust,default,__private \
         --exclude-all-features \
         --features fastpfor-cpp \
         {{args}}
@@ -357,12 +357,12 @@ test: (just 'cargo-install' 'cargo-hack')
         --exclude-no-default-features --exclude-all-features
     cargo hack test --all-targets --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-rust,default \
+        --exclude-features fastpfor-rust,default,__private \
         --exclude-all-features \
         --features fastpfor-cpp
     cargo hack test --all-targets --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
+        --exclude-features fastpfor-cpp,default,__private \
         --exclude-all-features \
         --features fastpfor-rust
     {{just}} rust::generate-synthetic-mlts
@@ -387,12 +387,12 @@ udeps: (just 'cargo-install' 'cargo-udeps') (just 'cargo-install' 'cargo-hack')
         --exclude-no-default-features --exclude-all-features
     cargo hack +nightly udeps --all-targets --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-rust,default \
+        --exclude-features fastpfor-rust,default,__private \
         --exclude-all-features \
         --features fastpfor-cpp
     cargo hack +nightly udeps --all-targets --feature-powerset \
         --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
+        --exclude-features fastpfor-cpp,default,__private \
         --exclude-all-features \
         --features fastpfor-rust
 

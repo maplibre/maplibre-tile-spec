@@ -363,11 +363,12 @@ fn push_linestrings<'a>(
 #[cfg(test)]
 mod tests {
     use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, wkt};
+    use insta::assert_snapshot;
     use proptest::prelude::*;
 
     use super::*;
-    use crate::Decoder;
     use crate::geojson::Coord32;
+    use crate::test_helpers::{assert_empty, dec, parser};
     use crate::v01::{EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, RawGeometry};
 
     /// Encode, serialize, parse, and decode a `GeometryValues`.
@@ -379,11 +380,12 @@ mod tests {
         let mut buffer = Vec::new();
         enc_geom.write_to(&mut buffer).expect("Failed to serialize");
 
-        let (remaining, parsed) = RawGeometry::parse(&buffer).expect("Failed to parse");
-        assert!(remaining.is_empty(), "Remaining bytes after parse");
+        let (remaining, parsed) =
+            RawGeometry::from_bytes(&buffer, &mut parser()).expect("Failed to parse");
+        assert_empty(remaining);
 
         Geometry::Raw(parsed)
-            .into_parsed(&mut Decoder::default())
+            .into_parsed(&mut dec())
             .expect("Failed to decode")
     }
 
@@ -689,12 +691,15 @@ mod tests {
         };
         let mut buffer = Vec::new();
         owned.write_to(&mut buffer).unwrap();
-        let (remaining, parsed) = RawGeometry::parse(&buffer).unwrap();
-        assert!(remaining.is_empty());
-        let decoded = Geometry::Raw(parsed)
-            .into_parsed(&mut Decoder::default())
-            .unwrap();
 
+        let mut p = parser();
+        let (remaining, parsed) = RawGeometry::from_bytes(&buffer, &mut p).unwrap();
+        assert_empty(remaining);
+        assert_snapshot!(p.reserved(), @"72");
+
+        let mut d = dec();
+        let decoded = Geometry::Raw(parsed).into_parsed(&mut d).unwrap();
+        assert_snapshot!(d.consumed(), @"100");
         assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));
 
         let geom = decoded.to_geojson(0).unwrap();

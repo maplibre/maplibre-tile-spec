@@ -35,7 +35,7 @@ mod tile;
 use js_sys::Uint8Array;
 use layer::DecodedLayer;
 use mlt_core::v01::GeometryType;
-use mlt_core::{Decoder, MltError, parse_layers};
+use mlt_core::{Decoder, MltError, Parser};
 use tile::MltTile;
 use wasm_bindgen::prelude::*;
 
@@ -45,7 +45,8 @@ use wasm_bindgen::prelude::*;
 /// [`TileLayer01`] values.
 #[wasm_bindgen]
 pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
-    let raw_layers = parse_layers(data).map_err(|e| to_js_err(&e))?;
+    let mut parser = Parser::default();
+    let raw_layers = parser.parse_layers(data).map_err(|e| to_js_err(&e))?;
     let mut dec = Decoder::default();
     let mut layers = Vec::with_capacity(raw_layers.len());
 

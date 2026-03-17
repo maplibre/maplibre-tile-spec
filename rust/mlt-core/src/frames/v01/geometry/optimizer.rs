@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use crate::MltError;
-use crate::v01::encode::{encode_geometry, z_order_params};
+use crate::codecs::morton::z_order_params;
+use crate::v01::encode::encode_geometry;
 use crate::v01::{
     DataProfile, DictionaryType, EncodedGeometry, GeometryEncoder, GeometryValues, IntEncoder,
     LengthType, OffsetType, StreamType, VertexBufferType,

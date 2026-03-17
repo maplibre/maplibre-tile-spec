@@ -14,7 +14,7 @@ impl LayerProfile {
 }
 
 impl StagedLayer {
-    /// Encode using a specific [`LayerEncoder`], consuming `self` and producing [`EncodedLayer`].
+    /// Encode using a specific `LayerEncoder`, consuming `self` and producing [`EncodedLayer`].
     pub fn encode(self, encoder: LayerEncoder) -> Result<EncodedLayer, MltError> {
         match (self, encoder) {
             (Self::Tag01(t), LayerEncoder::Tag01(e)) => Ok(EncodedLayer::Tag01(t.encode(e)?)),

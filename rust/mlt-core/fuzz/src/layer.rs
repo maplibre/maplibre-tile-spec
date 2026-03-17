@@ -1,5 +1,5 @@
 use hex::ToHex as _;
-use mlt_core::{Decoder, Layer};
+use mlt_core::{Decoder, Layer, Parser};
 
 #[derive(arbitrary::Arbitrary)]
 pub struct LayerInput {
@@ -12,7 +12,8 @@ impl std::fmt::Debug for LayerInput {
 }
 impl LayerInput {
     pub fn fuzz_roundtrip(self) {
-        let Ok((remaining, mut layer)) = Layer::parse(&self.bytes) else {
+        let mut parser = Parser::default();
+        let Ok((remaining, mut layer)) = Layer::from_bytes(&self.bytes, &mut parser) else {
             return;
         };
         if !remaining.is_empty() {

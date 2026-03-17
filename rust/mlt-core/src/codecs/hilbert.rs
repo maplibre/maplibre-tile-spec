@@ -1,56 +1,3 @@
-/// Compute a Z-order (Morton) sort key from signed integer `(x, y)` coordinates.
-///
-/// `shift` is applied to both `x` and `y` before bit-interleaving to move the
-/// coordinate origin into the non-negative range. It should be computed
-/// once across the entire feature set (typically `min.unsigned_abs()` when
-/// `min < 0`, else `0`) so that the keys are comparable across features.
-///
-/// Each shifted component is truncated to 16 bits before interleaving, so
-/// the returned key fits in a `u32` (32 interleaved bits).  This is
-/// sufficient for any tile coordinate system with extent ≤ 65 535.
-#[must_use]
-pub fn morton_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
-    debug_assert!((1..=16).contains(&num_bits));
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
-    )]
-    let sx = ((i64::from(x) + i64::from(shift)) as u32) & 0xFFFF;
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
-    )]
-    let sy = ((i64::from(y) + i64::from(shift)) as u32) & 0xFFFF;
-    interleave_bits(sx, sy)
-}
-
-/// Interleave the lower 16 bits of `x` and `y` into a 32-bit Morton code.
-///
-/// Even bit positions (0, 2, 4, …) encode `x`; odd positions (1, 3, 5, …)
-/// encode `y`.  Spatially adjacent `(x, y)` pairs produce numerically
-/// adjacent codes, giving Z-order locality when used as a sort key.
-#[must_use]
-pub fn interleave_bits(x: u32, y: u32) -> u32 {
-    // Spread each input's lower 16 bits into every other bit position, then
-    // OR the two together: x occupies even positions (0, 2, 4, …) and y
-    // occupies odd positions (1, 3, 5, …).
-    let mut sx = x & 0xFFFF;
-    sx = (sx | (sx << 8)) & 0x00FF_00FF;
-    sx = (sx | (sx << 4)) & 0x0F0F_0F0F;
-    sx = (sx | (sx << 2)) & 0x3333_3333;
-    sx = (sx | (sx << 1)) & 0x5555_5555;
-
-    let mut sy = y & 0xFFFF;
-    sy = (sy | (sy << 8)) & 0x00FF_00FF;
-    sy = (sy | (sy << 4)) & 0x0F0F_0F0F;
-    sy = (sy | (sy << 2)) & 0x3333_3333;
-    sy = (sy | (sy << 1)) & 0x5555_5555;
-
-    sx | (sy << 1)
-}
-
 /// Return the 1-D Hilbert curve index for `(x, y)` at the given `level`.
 ///
 /// The grid has side `2^level`; both `x` and `y` must be in `[0, 2^level)`,
@@ -63,19 +10,6 @@ pub fn hilbert_xy_to_index(level: u32, x: u32, y: u32) -> u32 {
     debug_assert!(y < (1 << level), "y out of range for level");
 
     hilbert_2d::u32::xy2h_discrete(x, y, level, hilbert_2d::Variant::Hilbert)
-}
-
-/// Return the `(x, y)` coordinates for Hilbert curve index `pos` at `level`.
-///
-/// This is the inverse of [`hilbert_xy_to_index`]: the returned coordinates
-/// are in `[0, 2^level)`.  `level` must be in `[1, 16]` and `pos` must be
-/// in `[0, 4^level)`.
-#[must_use]
-pub fn hilbert_position_to_xy(level: u32, pos: u32) -> (u32, u32) {
-    debug_assert!((1..=16).contains(&level), "level must be in [1, 16]");
-    debug_assert!(u64::from(pos) < (1u64 << (2 * level)), "pos out of range");
-
-    hilbert_2d::u32::h2xy_discrete(pos, level, hilbert_2d::Variant::Hilbert)
 }
 
 /// Compute a Hilbert curve sort key from signed integer `(x, y)` coordinates.
@@ -152,109 +86,17 @@ pub fn hilbert_curve_params(vertices: &[i32]) -> (u32, u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::codecs::morton::interleave_bits;
 
-    /// Spread the lower 16 bits of `tx` into the even bit positions (0, 2, 4, …)
-    /// of a 32-bit word, inserting a 0 between every original bit.
-    fn spread_bits(mut tx: u32) -> u32 {
-        tx = (tx | (tx << 8)) & 0x00FF_00FF;
-        tx = (tx | (tx << 4)) & 0x0F0F_0F0F;
-        tx = (tx | (tx << 2)) & 0x3333_3333;
-        tx = (tx | (tx << 1)) & 0x5555_5555;
-        tx
-    }
-
-    /// Compact the bits at even positions (0, 2, 4, …) of `tx` into the lower
-    /// 16 bits, discarding the interleaved zeros.
-    fn compact_bits(mut tx: u32) -> u32 {
-        tx &= 0x5555_5555;
-        tx = (tx | (tx >> 1)) & 0x3333_3333;
-        tx = (tx | (tx >> 2)) & 0x0F0F_0F0F;
-        tx = (tx | (tx >> 4)) & 0x00FF_00FF;
-        tx = (tx | (tx >> 8)) & 0x0000_FFFF;
-        tx
-    }
-
-    #[test]
-    fn origin_maps_to_zero() {
-        assert_eq!(morton_sort_key(0, 0, 0, 16), 0);
-    }
-
-    #[test]
-    fn x_axis_produces_even_bits() {
-        // x=1, y=0  →  only bit 0 of x is set → Morton bit 0 set → code = 1
-        assert_eq!(morton_sort_key(1, 0, 0, 16), 1);
-        // x=2, y=0  →  only bit 1 of x is set → Morton bit 2 set → code = 4
-        assert_eq!(morton_sort_key(2, 0, 0, 16), 4);
-    }
-
-    #[test]
-    fn y_axis_produces_odd_bits() {
-        // x=0, y=1  →  only bit 0 of y is set → Morton bit 1 set → code = 2
-        assert_eq!(morton_sort_key(0, 1, 0, 16), 2);
-        // x=0, y=2  →  only bit 1 of y is set → Morton bit 3 set → code = 8
-        assert_eq!(morton_sort_key(0, 2, 0, 16), 8);
-    }
-
-    #[test]
-    fn negative_coords_shift_correctly() {
-        // Shifting (-1, -1) by 1 maps to (0, 0) → Morton code 0
-        assert_eq!(morton_sort_key(-1, -1, 1, 16), 0);
-        // Shifting (-1, 0) by 1 maps to (0, 1) → Morton code 2
-        assert_eq!(morton_sort_key(-1, 0, 1, 16), 2);
-    }
-
-    #[test]
-    fn spatial_locality_z_order() {
-        // After shifting, (0,0) < (1,0) < (0,1) < (1,1) in Z-order
-        let k00 = morton_sort_key(0, 0, 0, 16);
-        let k10 = morton_sort_key(1, 0, 0, 16);
-        let k01 = morton_sort_key(0, 1, 0, 16);
-        let k11 = morton_sort_key(1, 1, 0, 16);
-        assert!(k00 < k10);
-        assert!(k10 < k01);
-        assert!(k01 < k11);
-    }
-
-    #[test]
-    fn interleave_round_trips_via_deinterleave() {
-        // Reconstruct x and y from interleaved bits and verify round-trip.
-        for x in 0u32..16 {
-            for y in 0u32..16 {
-                let code = interleave_bits(x, y);
-                let mut rx = 0u32;
-                let mut ry = 0u32;
-                for bit in 0..16 {
-                    rx |= ((code >> (2 * bit)) & 1) << bit;
-                    ry |= ((code >> (2 * bit + 1)) & 1) << bit;
-                }
-                assert_eq!(rx, x, "x mismatch for ({x}, {y})");
-                assert_eq!(ry, y, "y mismatch for ({x}, {y})");
-            }
-        }
-    }
-
-    // ── Hilbert helpers ───────────────────────────────────────────────────────
-
-    #[test]
-    fn spread_then_compact_is_identity() {
-        for x in 0u32..=0xFFFF {
-            assert_eq!(compact_bits(spread_bits(x)), x, "round-trip failed for {x}");
-        }
-    }
-
-    #[test]
-    fn spread_bits_places_bit0_at_position0() {
-        assert_eq!(spread_bits(1), 1);
-    }
-
-    #[test]
-    fn spread_bits_places_bit1_at_position2() {
-        assert_eq!(spread_bits(2), 4);
-    }
-
-    #[test]
-    fn spread_bits_places_bit2_at_position4() {
-        assert_eq!(spread_bits(4), 16);
+    /// Return the `(x, y)` coordinates for Hilbert curve index `pos` at `level`.
+    ///
+    /// This is the inverse of [`hilbert_xy_to_index`]: the returned coordinates
+    /// are in `[0, 2^level)`.  `level` must be in `[1, 16]` and `pos` must be
+    /// in `[0, 4^level)`.
+    fn hilbert_position_to_xy(level: u32, pos: u32) -> (u32, u32) {
+        debug_assert!((1..=16).contains(&level), "level must be in [1, 16]");
+        debug_assert!(u64::from(pos) < (1u64 << (2 * level)), "pos out of range");
+        hilbert_2d::u32::h2xy_discrete(pos, level, hilbert_2d::Variant::Hilbert)
     }
 
     // ── Hilbert encode/decode ─────────────────────────────────────────────────
@@ -263,11 +105,8 @@ mod tests {
     fn hilbert_origin_always_zero() {
         // The origin maps to index 0 at every level.
         for level in 1u32..=8 {
-            assert_eq!(
-                hilbert_xy_to_index(level, 0, 0),
-                0,
-                "origin should be 0 at level {level}"
-            );
+            let idx = hilbert_xy_to_index(level, 0, 0);
+            assert_eq!(idx, 0, "origin should be 0 at level {level}");
         }
     }
 
@@ -370,11 +209,8 @@ mod tests {
                     u32::try_from(i64::from(raw_x) + i64::from(shift)).unwrap(),
                     u32::try_from(i64::from(raw_y) + i64::from(shift)).unwrap(),
                 );
-                assert_eq!(
-                    hilbert_sort_key(raw_x, raw_y, shift, num_bits),
-                    expected,
-                    "mismatch at ({raw_x},{raw_y})"
-                );
+                let actual = hilbert_sort_key(raw_x, raw_y, shift, num_bits);
+                assert_eq!(actual, expected, "mismatch at ({raw_x},{raw_y})");
             }
         }
     }
