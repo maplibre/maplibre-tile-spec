@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -56,7 +57,9 @@ public class MvtUtils {
     final var mvtFeatures = mvtDecoder.decode(mvtTile);
     final var featuresByLayer =
         StreamSupport.stream(mvtFeatures.spliterator(), false)
-            .collect(Collectors.groupingBy(f -> f.getLayerName()));
+            .collect(
+                Collectors.groupingBy(
+                    f -> f.getLayerName(), LinkedHashMap::new, Collectors.toList()));
 
     var layers = new ArrayList<Layer>(featuresByLayer.size());
     for (var layerGroup : featuresByLayer.entrySet()) {

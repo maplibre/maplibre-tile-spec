@@ -194,7 +194,7 @@ public class MltConverter {
           .ifPresent(name -> columnSchemas.put(name, column));
     }
 
-    var featureTableSchema = new MltMetadata.FeatureTable(layer.name());
+    final var featureTableSchema = new MltMetadata.FeatureTable(layer.name());
 
     // If present, `id` must be the first column
     if (columnSchemas.values().stream().anyMatch(MltTypeMap.Tag0x01::isID)) {
@@ -214,7 +214,9 @@ public class MltConverter {
     featureTableSchema.columns.add(
         createComplexColumnScheme(null, false, MltMetadata.ComplexType.GEOMETRY));
 
-    featureTableSchema.columns.addAll(columnSchemas.values());
+    // Add the remaining items in name order for consistent output
+    columnSchemas.values().stream().sorted(Comparator.comparing(c -> c.name)).forEach(featureTableSchema.columns::add);
+
     return featureTableSchema;
   }
 
@@ -329,6 +331,7 @@ public class MltConverter {
         assert (name.startsWith(prefix));
         child.name = name.substring(prefix.length());
       }
+      column.children.sort(Comparator.comparing(f -> f.name));
     }
     return prefix;
   }
@@ -533,7 +536,7 @@ public class MltConverter {
         config.getUseFastPFOR() ? PhysicalLevelTechnique.FAST_PFOR : PhysicalLevelTechnique.VARINT;
 
     final var tileBuffers = new ArrayList<byte[]>((int) sourceLayers.getLayerCount() * 10);
-    for (var sourceLayer : sourceLayers.getLayerStream().toArray(Layer[]::new)) {
+    for (var sourceLayer : sourceLayers.getLayers()) {
       final var featureTableName = sourceLayer.name();
 
       if (config.getLayerFilterPattern() != null) {

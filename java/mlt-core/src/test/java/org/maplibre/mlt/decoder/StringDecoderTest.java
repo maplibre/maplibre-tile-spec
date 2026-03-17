@@ -256,8 +256,8 @@ public class StringDecoderTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {0, 3})
-  public void decodeSharedDictionary_MvtWithNestedColumns(int tableIndex) throws IOException {
+  @ValueSource(strings = {"water_name", "place"})
+  public void decodeSharedDictionary_MvtWithNestedColumns(String tableName) throws IOException {
     final var tileId = String.format("%s_%s_%s", 5, 16, 21);
     final var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
 
@@ -265,13 +265,16 @@ public class StringDecoderTest {
     // feature, causing the metadata field to need to be modified when it is found on a later one.
     final var filter =
         new TestUtils.TileFilter() {
+          private boolean matched = false;
+
           @Override
           public boolean test(
               Layer layer, Feature feature, String propertyKey, Object propertyValue) {
-            return !layer.name().equals("water_name")
-                || !feature.hasId()
-                || feature.getId() != 3056400000L
-                || !propertyKey.equals("name");
+            if (!matched && layer.name().equals(tableName) && propertyKey.equals("name")) {
+              matched = true;
+              return false;
+            }
+            return true;
           }
         };
     final var mvTile = TestUtils.filterTile(MvtUtils.decodeMvt(mvtFilePath), filter);
@@ -282,11 +285,10 @@ public class StringDecoderTest {
     final var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
     final var featureTable =
         tileMetadata.featureTables.stream()
-            .skip(tableIndex)
+            .filter(t -> t.name.equals("place"))
             .findFirst()
             .orElseThrow(
-                () ->
-                    new IllegalArgumentException("Expected feature table at index " + tableIndex));
+                () -> new IllegalArgumentException("Expected feature table  " + tableName));
     final var fieldMetadata =
         featureTable.columns.stream()
             .filter(f -> Objects.equals(f.name, "name"))
@@ -296,10 +298,9 @@ public class StringDecoderTest {
     final var layer =
         mvTile
             .getLayerStream()
-            .skip(tableIndex)
+            .filter(t -> t.name().equals("place"))
             .findFirst()
-            .orElseThrow(
-                () -> new IllegalArgumentException("Expected layer at index " + tableIndex));
+            .orElseThrow(() -> new IllegalArgumentException("Expected layer  " + tableName));
     final var sharedValues = new ArrayList<List<String>>(fieldMetadata.complexType.children.size());
     for (var column : fieldMetadata.complexType.children) {
       var values = new ArrayList<String>();

@@ -1,6 +1,7 @@
 package org.maplibre.mlt.data;
 
 import jakarta.annotation.Nullable;
+import java.math.BigInteger;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
@@ -8,6 +9,9 @@ import java.util.Optional;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.Geometry;
+import org.maplibre.mlt.data.unsigned.U32;
+import org.maplibre.mlt.data.unsigned.U64;
+import org.maplibre.mlt.data.unsigned.U8;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MVTFeature implements Feature {
@@ -85,8 +89,12 @@ public class MVTFeature implements Feature {
       case Boolean b -> makeField(MltMetadata.ScalarType.BOOLEAN);
       case Double d -> makeField(MltMetadata.ScalarType.DOUBLE);
       case Float f -> makeField(MltMetadata.ScalarType.FLOAT);
+      case U8 i -> makeField(MltMetadata.ScalarType.UINT_8);
       case Integer i -> makeField(MltMetadata.ScalarType.INT_32);
+      case U32 i -> makeField(MltMetadata.ScalarType.UINT_32);
       case Long l -> makeField(MltMetadata.ScalarType.INT_64);
+      case U64 i -> makeField(MltMetadata.ScalarType.UINT_64);
+      case BigInteger i -> makeField(MltMetadata.ScalarType.UINT_64);
       default ->
           throw new IllegalArgumentException(
               "Unsupported property value type: " + value.getClass());
