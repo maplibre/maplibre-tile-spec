@@ -699,7 +699,7 @@ mod tests {
 
         let mut d = dec();
         let decoded = Geometry::Raw(parsed).into_parsed(&mut d).unwrap();
-        assert_snapshot!(d.consumed(), @"32");
+        assert_snapshot!(d.consumed(), @"100");
         assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));
 
         let geom = decoded.to_geojson(0).unwrap();

@@ -75,7 +75,6 @@ impl RawStream<'_> {
             // No logical transform: physical words are the output — decode into a fresh Vec.
             let mut out = Vec::new();
             self.decode_bits_u64(&mut out, dec)?;
-            dec.consume(u32::try_from(out.len() * size_of::<u64>()).or_overflow()?)?;
             Ok(out)
         } else {
             // Logical transform needed — use the reusable scratch buffer.
@@ -140,13 +139,13 @@ impl RawStream<'_> {
     /// `buf` is cleared and filled with the decoded words. The caller owns the
     /// buffer and is responsible for deciding whether it constitutes a final
     /// persistent allocation (and therefore should be charged to a [`Decoder`]).
-    /// No budget is charged here.
     pub fn decode_bits_u32(self, buf: &mut Vec<u32>, dec: &mut Decoder) -> Result<(), MltError> {
         buf.clear();
         match self.meta.encoding.physical {
             PhysicalEncoding::VarInt => match &self.data {
                 RawStreamData::VarInt(v) => {
                     let (_, values) = parse_varint_vec::<u32, u32>(v, self.meta.num_values)?;
+                    dec.consume(u32::try_from(values.len() * size_of::<u32>()).or_overflow()?)?;
                     *buf = values;
                 }
                 RawStreamData::Encoded(_) => {
@@ -180,13 +179,15 @@ impl RawStream<'_> {
     /// `buf` is cleared and filled with the decoded words. The caller owns the
     /// buffer and is responsible for deciding whether it constitutes a final
     /// persistent allocation (and therefore should be charged to a [`Decoder`]).
-    /// No budget is charged here.
+    /// The `VarInt` path charges `dec` because `parse_varint_vec` allocates
+    /// internally; other paths leave charging to the callee.
     pub fn decode_bits_u64(self, buf: &mut Vec<u64>, dec: &mut Decoder) -> Result<(), MltError> {
         buf.clear();
         match self.meta.encoding.physical {
             PhysicalEncoding::VarInt => match &self.data {
                 RawStreamData::VarInt(v) => {
                     let (_, values) = parse_varint_vec::<u64, u64>(v, self.meta.num_values)?;
+                    dec.consume(u32::try_from(values.len() * size_of::<u64>()).or_overflow()?)?;
                     *buf = values;
                 }
                 RawStreamData::Encoded(_) => {

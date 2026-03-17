@@ -1,6 +1,5 @@
 use wide::u32x8;
 
-use crate::decoder::debug_assert_alloc;
 use crate::v01::MortonMeta;
 use crate::{Decoder, MltError};
 
@@ -172,7 +171,7 @@ pub fn decode_morton_delta(
         out.push(y);
     }
 
-    debug_assert_alloc(&out, alloc_size);
+    dec.adjust_alloc(&out, alloc_size);
     Ok(out)
 }
 
@@ -206,7 +205,7 @@ pub fn decode_morton_codes(
         out.push(y);
     }
 
-    debug_assert_alloc(&out, alloc_size);
+    dec.adjust_alloc(&out, alloc_size);
     Ok(out)
 }
 

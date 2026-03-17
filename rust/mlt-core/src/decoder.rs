@@ -54,6 +54,7 @@ impl Decoder {
         Ok(Vec::with_capacity(capacity))
     }
 
+    /// TODO: introduce generic type param as a sizeof multiplier
     #[inline]
     pub(crate) fn consume(&mut self, size: u32) -> Result<(), MltError> {
         self.budget.consume(size)
@@ -62,6 +63,34 @@ impl Decoder {
     #[inline]
     pub(crate) fn adjust(&mut self, adjustment: u32) {
         self.budget.adjust(adjustment);
+    }
+
+    /// Assert (in debug builds) that `buf` has not grown beyond `alloc_size`, then adjust the
+    /// budget to return any bytes that were pre-charged but not actually used.
+    ///
+    /// Call this after fully populating a `Vec<T>` that was pre-allocated with [`Decoder::alloc`],
+    /// passing the same `alloc_size` that was given to `alloc`.
+    ///
+    /// - Panics in debug builds if `buf.capacity() > alloc_size` (unexpected reallocation).
+    /// - Subtracts `(alloc_size - buf.len()) * size_of::<T>()` from the budget (the pre-charged
+    ///   bytes that correspond to capacity that was never filled).
+    #[inline]
+    pub(crate) fn adjust_alloc<T>(&mut self, buf: &Vec<T>, alloc_size: usize) {
+        debug_assert!(
+            buf.capacity() <= alloc_size,
+            "Vector reallocated beyond initial allocation size ({alloc_size}); final capacity: {}",
+            buf.capacity()
+        );
+        // Return the unused portion of the pre-charged budget.
+        // alloc_size >= buf.len() is guaranteed by the assert above (capacity >= len always).
+        let unused = (alloc_size - buf.len()) * size_of::<T>();
+        // unused fits in u32: it's at most alloc_size * size_of::<T>(), which was checked to fit
+        // in u32 when alloc() was called. Using saturating_cast to avoid a fallible conversion.
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "unused <= alloc_size * size_of::<T>() which was verified to fit in u32 by alloc()"
+        )]
+        self.budget.adjust(unused as u32);
     }
 
     #[must_use]
@@ -175,20 +204,6 @@ impl MemBudget {
     fn consumed(&self) -> u32 {
         self.bytes_used
     }
-}
-
-/// Assert (in debug builds) that `buffer` did not reallocate beyond its initial `alloc_size`.
-///
-/// Call this after fully populating a `Vec` that was pre-allocated with [`Decoder::alloc`].
-/// A capacity increase beyond `alloc_size` means a reallocation occurred that was not
-/// included in the decoder's budget.
-#[inline]
-pub fn debug_assert_alloc<T>(buffer: &Vec<T>, alloc_size: usize) {
-    debug_assert!(
-        buffer.capacity() <= alloc_size,
-        "Vector reallocated beyond initial allocation size ({alloc_size}); final capacity: {}",
-        buffer.capacity()
-    );
 }
 
 #[inline]

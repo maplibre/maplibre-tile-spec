@@ -12,7 +12,6 @@ use crate::codecs::zigzag::{
     decode_componentwise_delta_vec2s, decode_zigzag, decode_zigzag_delta, encode_zigzag,
     encode_zigzag_delta,
 };
-use crate::decoder::debug_assert_alloc;
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::AsUsize as _;
 use crate::v01::{LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta};
@@ -56,7 +55,7 @@ impl RleMeta {
                 .ok_or_else(|| RleRunLenInvalid(run_len.to_i128().unwrap_or_default()))?;
             result.extend(repeat_n(val, run));
         }
-        debug_assert_alloc(&result, alloc_size);
+        dec.adjust_alloc(&result, alloc_size);
         Ok(result)
     }
 

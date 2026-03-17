@@ -7,6 +7,7 @@ use std::mem::size_of;
 use crate::MltError::{
     BufferUnderflow, DictIndexOutOfBounds, NotImplemented, UnexpectedStreamType2,
 };
+use crate::codecs::fsst::decode_fsst;
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 use crate::v01::{
@@ -517,15 +518,7 @@ impl<'a> RawFsstData<'a> {
     }
 
     pub fn decode(self, dec: &mut Decoder) -> Result<(String, Vec<u32>), MltError> {
-        let RawFsstData {
-            symbol_lengths,
-            symbol_table,
-            lengths,
-            corpus,
-        } = self;
-        let sym_lens = symbol_lengths.decode_u32s(dec)?;
-        let decompressed = decode_fsst(symbol_table.as_bytes(), &sym_lens, corpus.as_bytes(), dec)?;
-        Ok((String::from_utf8(decompressed)?, lengths.decode_u32s(dec)?))
+        decode_fsst(self, dec)
     }
 
     #[must_use]
@@ -1011,35 +1004,6 @@ fn checked_absolute_end(current_end: i32, delta: u32) -> Result<i32, MltError> {
     current_end
         .checked_add(delta)
         .ok_or(MltError::IntegerOverflow)
-}
-
-fn decode_fsst(
-    symbols: &[u8],
-    symbol_lengths: &[u32],
-    compressed: &[u8],
-    dec: &mut Decoder,
-) -> Result<Vec<u8>, MltError> {
-    // Build symbol offset table
-    let mut symbol_offsets = vec![0u32; symbol_lengths.len()];
-    for i in 1..symbol_lengths.len() {
-        symbol_offsets[i] = symbol_offsets[i - 1] + symbol_lengths[i - 1];
-    }
-    let mut output = Vec::new();
-    let mut i = 0;
-    while i < compressed.len() {
-        let sym_idx = usize::from(compressed[i]);
-        if sym_idx == 255 {
-            i += 1;
-            output.push(compressed[i]);
-        } else if sym_idx < symbol_lengths.len() {
-            let len = symbol_lengths[sym_idx].as_usize();
-            let off = symbol_offsets[sym_idx].as_usize();
-            output.extend_from_slice(&symbols[off..off + len]);
-        }
-        i += 1;
-    }
-    dec.consume(u32::try_from(output.len()).or_overflow()?)?;
-    Ok(output)
 }
 
 impl<'a> RawSharedDict<'a> {

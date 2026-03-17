@@ -1,5 +1,5 @@
-use crate::decoder::debug_assert_alloc;
 use crate::enc_dec::Decode;
+use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, SetOptionOnce as _};
 use crate::v01::{
     DictionaryType, GeometryType, GeometryValues, LengthType, OffsetType, RawGeometry, RawStream,
@@ -30,6 +30,7 @@ pub fn decode_root_length_stream(
 ) -> Result<Vec<u32>, MltError> {
     let alloc_size = geometry_types.len() + 1;
     let mut root_buffer_offsets = dec.alloc(alloc_size)?;
+
     root_buffer_offsets.push(0);
     let mut previous_offset = 0_u32;
     let mut root_length_counter = 0_usize;
@@ -45,7 +46,8 @@ pub fn decode_root_length_stream(
         root_buffer_offsets.push(offset);
         previous_offset = offset;
     }
-    debug_assert_alloc(&root_buffer_offsets, alloc_size);
+
+    dec.adjust_alloc(&root_buffer_offsets, alloc_size);
     Ok(root_buffer_offsets)
 }
 
@@ -81,7 +83,7 @@ pub fn decode_level1_without_ring_buffer_length_stream(
         }
     }
 
-    debug_assert_alloc(&level1_buffer_offsets, alloc_size);
+    dec.adjust_alloc(&level1_buffer_offsets, alloc_size);
     Ok(level1_buffer_offsets)
 }
 
@@ -119,7 +121,7 @@ pub fn decode_level1_length_stream(
         }
     }
 
-    debug_assert_alloc(&level1_buffer_offsets, alloc_size);
+    dec.adjust_alloc(&level1_buffer_offsets, alloc_size);
     Ok(level1_buffer_offsets)
 }
 
@@ -164,7 +166,7 @@ pub fn decode_level2_length_stream(
         }
     }
 
-    debug_assert_alloc(&level2_buffer_offsets, alloc_size);
+    dec.adjust_alloc(&level2_buffer_offsets, alloc_size);
     Ok(level2_buffer_offsets)
 }
 
@@ -301,6 +303,7 @@ impl RawGeometry<'_> {
         if let Some(offsets) = vertex_offsets.take()
             && let Some(dict) = vertices.as_deref()
         {
+            dec.consume(u32::try_from(size_of::<i32>() * 2 * offsets.len()).or_overflow()?)?;
             vertices = Some(
                 offsets
                     .iter()

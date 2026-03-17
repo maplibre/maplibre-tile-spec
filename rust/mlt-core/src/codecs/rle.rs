@@ -1,6 +1,5 @@
 use num_traits::PrimInt;
 
-use crate::decoder::debug_assert_alloc;
 use crate::{Decoder, MltError};
 
 /// Generic run-length encode: returns `(run_lengths, values)`.
@@ -118,7 +117,7 @@ pub fn decode_byte_rle(
             output.extend(std::iter::repeat_n(value, count));
         }
     }
-    debug_assert_alloc(&output, num_bytes);
+    dec.adjust_alloc(&output, num_bytes);
     Ok(output)
 }
 

@@ -3,7 +3,6 @@ use std::mem::size_of;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingSub};
 use zigzag::ZigZag;
 
-use crate::decoder::debug_assert_alloc;
 use crate::errors::AsMltError as _;
 use crate::{Decoder, MltError};
 
@@ -99,7 +98,7 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
         result.push(last2);
     }
 
-    debug_assert_alloc(&result, alloc_size);
+    dec.adjust_alloc(&result, alloc_size);
     Ok(result)
 }
 
