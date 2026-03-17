@@ -24,6 +24,7 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
             data.extend_from_slice(&word.to_be_bytes());
         }
         Ok(data)
+}
     #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
     {
         use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
