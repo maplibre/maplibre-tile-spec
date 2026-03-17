@@ -1,3 +1,5 @@
+use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
+
 use crate::{Decoder, MltError};
 
 /// Encode a `u32` sequence using `FastPFOR256` (composite codec).
@@ -10,8 +12,6 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
 
     #[cfg(any(feature = "fastpfor-rust", feature = "fastpfor-cpp"))]
     {
-        use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
-
         // Over-allocate: FastPFOR may write a header and padding beyond the input length.
         let mut compressed = vec![0u32; values.len() + 1024];
         let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
@@ -79,22 +79,18 @@ pub fn decode_fastpfor_composite(
     let buf_size = num_values + 1024;
     let mut result = vec![0u32; buf_size];
 
-    let decoded_len = {
-        use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
+    let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
+    let mut output_offset = std::io::Cursor::new(0u32);
 
-        let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
-        let mut output_offset = std::io::Cursor::new(0u32);
+    comp.uncompress(
+        &input,
+        u32::try_from(input.len())?,
+        &mut std::io::Cursor::new(0u32),
+        &mut result,
+        &mut output_offset,
+    )?;
 
-        comp.uncompress(
-            &input,
-            u32::try_from(input.len())?,
-            &mut std::io::Cursor::new(0u32),
-            &mut result,
-            &mut output_offset,
-        )?;
-
-        usize::try_from(output_offset.position())?
-    };
+    let decoded_len = usize::try_from(output_offset.position())?;
 
     let Some(adjustment) = decoded_len
         .checked_sub(num_values)
