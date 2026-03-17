@@ -9,7 +9,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MVTFeature;
 import org.maplibre.mlt.data.MapboxVectorTile;

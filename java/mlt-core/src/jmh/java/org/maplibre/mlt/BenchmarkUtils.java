@@ -9,12 +9,12 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
+import org.maplibre.mlt.converter.ColumnMapping;
+import org.maplibre.mlt.converter.ColumnMappingConfig;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.data.MapboxVectorTile;
 
@@ -52,7 +52,7 @@ public class BenchmarkUtils {
         TestSettings.OPTIMIZED_MVT_LAYERS.stream()
             .collect(Collectors.toMap(l -> l, l -> optimization));
     var config = new ConversionConfig(true, true, true, optimizations);
-    var encodedMltTile = MltConverter.convertMvt(encodedMvtTile.getRight(), metadata, config, null);
+    var encodedMltTile = MltConverter.encode(encodedMvtTile.getRight(), metadata, config, null);
     encodedMltTiles.put(z, encodedMltTile);
   }
 

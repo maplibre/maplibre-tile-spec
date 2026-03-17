@@ -15,11 +15,11 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.TestUtils;
 import org.maplibre.mlt.compare.CompareHelper;
+import org.maplibre.mlt.converter.ColumnMapping;
+import org.maplibre.mlt.converter.ColumnMappingConfig;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.data.MapboxVectorTile;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
@@ -136,7 +136,7 @@ public class MltDecoderTest {
             .preTessellatePolygons(tessellate)
             .build();
 
-    final var mlTile = MltConverter.convertMvt(mvTile, tileMetadata, config, null);
+    final var mlTile = MltConverter.encode(mvTile, tileMetadata, config, null);
     Assertions.assertNotNull(mlTile);
 
     decodeAndCompare.apply(mlTile, tileMetadata, mvTile);

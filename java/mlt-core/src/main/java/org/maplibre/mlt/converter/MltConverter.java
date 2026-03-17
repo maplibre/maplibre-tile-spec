@@ -5,6 +5,7 @@ import jakarta.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.SequencedCollection;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -27,38 +29,43 @@ import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.converter.encodings.GeometryEncoder;
 import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.converter.encodings.PropertyEncoder;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
-import org.maplibre.mlt.data.MapboxVectorTile;
+import org.maplibre.mlt.data.LayerProvider;
 import org.maplibre.mlt.data.Property;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 import org.maplibre.mlt.util.ByteArrayUtil;
 
 public class MltConverter {
-  /// Create tileset metadata from a MVT tile
-  /// @param tile The MVT tile to create metadata from
+  /// Create tileset metadata from source data
+  /// Note that this method will read through all features of all layers to infer the column
+  /// data types, nullability, etc., it's preferable to construct the metadata from a schema.
+  /// @param layerProvider The input tile to create metadata from
   /// @param columnMappingConfig Optional column mapping configuration
   /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      @NotNull MapboxVectorTile tile,
+      @NotNull LayerProvider layerProvider,
       @Nullable ColumnMappingConfig columnMappingConfig,
       boolean includeIdIfPresent) {
+    // TODO: Allow determining whether ID is present automatically
     return createTilesetMetadata(
-        tile, ConversionConfig.TypeMismatchPolicy.FAIL, columnMappingConfig, includeIdIfPresent);
+        layerProvider,
+        ConversionConfig.TypeMismatchPolicy.FAIL,
+        columnMappingConfig,
+        includeIdIfPresent);
   }
 
-  /// Create tileset metadata from a MVT tile
-  /// @param tile The MVT tile to create metadata from
+  /// Create tileset metadata from source data
+  /// See {@link #createTilesetMetadata(LayerProvider, ColumnMappingConfig, boolean)}
+  /// @param layerProvider The input tile to create metadata from
   /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
   /// @param includeIdIfPresent Whether to include an ID column
   /// @param enableCoerceOnMismatch Whether to coerce values to string on type mismatch
   /// @param enableElideOnMismatch Whether to elide values on type mismatch (for each property, the
   /// first type encountered is used)
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      @NotNull MapboxVectorTile tile,
+      @NotNull LayerProvider layerProvider,
       @Nullable ColumnMappingConfig columnMappingConfig,
       boolean includeIdIfPresent,
       boolean enableCoerceOnMismatch,
@@ -67,69 +74,69 @@ public class MltConverter {
         ConversionConfig.builder()
             .mismatchPolicy(enableCoerceOnMismatch, enableElideOnMismatch)
             .build();
-    return createTilesetMetadata(tile, config, columnMappingConfig, includeIdIfPresent);
+    return createTilesetMetadata(layerProvider, config, columnMappingConfig, includeIdIfPresent);
   }
 
-  /// Create tileset metadata from a MVT tile
-  /// @param tile The MVT tile to create metadata from
+  /// Create tileset metadata from source data
+  /// See {@link #createTilesetMetadata(LayerProvider, ColumnMappingConfig, boolean)}
+  /// @param layerProvider The input tile to create metadata from
   /// @param config Optional configuration
   /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
   /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      @NotNull MapboxVectorTile tile,
+      @NotNull LayerProvider layerProvider,
       @Nullable ConversionConfig config,
       @Nullable ColumnMappingConfig columnMappingConfig,
       boolean includeIdIfPresent) {
     return createTilesetMetadata(
-        tile,
+        layerProvider,
         (config != null) ? config.getTypeMismatchPolicy() : null,
         columnMappingConfig,
         includeIdIfPresent);
   }
 
-  /// Create tileset metadata from a MVT tile
-  /// @param tile The MVT tile to create metadata from
+  /// Create tileset metadata from source data
+  /// See {@link #createTilesetMetadata(LayerProvider, ColumnMappingConfig, boolean)}
+  /// @param layerProvider The input tile to create metadata from
   /// @param config Optional configuration
   /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
   /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      @NotNull MapboxVectorTile tile,
+      @NotNull LayerProvider layerProvider,
       @Nullable ConversionConfig config,
       @Nullable List<ColumnMapping> columnMappingConfig,
       boolean includeIdIfPresent) {
     return createTilesetMetadata(
-        tile,
+        layerProvider,
         (config != null) ? config.getTypeMismatchPolicy() : null,
         ColumnMappingConfig.of(Pattern.compile(".*"), columnMappingConfig),
         includeIdIfPresent);
   }
 
-  /// Create tileset metadata from a MVT tile
-  /// @param tile The MVT tile to create metadata from
+  /// Create tileset metadata from source data
+  /// See {@link #createTilesetMetadata(LayerProvider, ColumnMappingConfig, boolean)}
+  /// @param layerProvider The input tile to create metadata from
   /// @param typeMismatchPolicy Policy for handling type mismatches
   /// @param columnMappingConfig Optional column mapping configuration
   /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      @NotNull MapboxVectorTile tile,
+      @NotNull LayerProvider layerProvider,
       @NotNull ConversionConfig.TypeMismatchPolicy typeMismatchPolicy,
       @Nullable ColumnMappingConfig columnMappingConfig,
       boolean includeIdIfPresent) {
-
-    // TODO: Allow determining whether ID is present automatically
-
     final var tileset = new MltMetadata.TileSetMetadata();
     tileset.featureTables =
-        tile.getLayerStream()
+        layerProvider
+            .getLayerStream()
             .map(
                 layer ->
                     createTilesetMetadata(
-                        tile, layer, typeMismatchPolicy, columnMappingConfig, includeIdIfPresent))
+                        layer, typeMismatchPolicy, columnMappingConfig, includeIdIfPresent))
             .toList();
     return tileset;
   }
 
   private static MltMetadata.FeatureTable createTilesetMetadata(
-      @NotNull MapboxVectorTile tile,
       @NotNull Layer layer,
       @NotNull ConversionConfig.TypeMismatchPolicy typeMismatchPolicy,
       @Nullable ColumnMappingConfig columnMappingConfig,
@@ -219,7 +226,7 @@ public class MltConverter {
       @NotNull LinkedHashMap<String, MltMetadata.Column> columnSchemas,
       @NotNull LinkedHashMap<ColumnMapping, MltMetadata.ComplexField> complexColumnSchemas,
       @NotNull ConversionConfig.TypeMismatchPolicy typeMismatchPolicy) {
-    final var mvtPropertyName = property.getName();
+    final var sourcePropertyName = property.getName();
 
     if (property.isNestedProperty()) {
       throw new NotImplementedException("Nested property types are not yet supported");
@@ -227,7 +234,7 @@ public class MltConverter {
     final var scalarType = property.getType();
 
     // If this property already has a column...
-    final var previousSchema = columnSchemas.get(mvtPropertyName);
+    final var previousSchema = columnSchemas.get(sourcePropertyName);
     if (previousSchema != null) {
       // Make sure the types match.
       // If not, coercion or nullification must be enabled, and replace
@@ -240,7 +247,7 @@ public class MltConverter {
                 && scalarType == MltMetadata.ScalarType.INT_64) {
               // Allow implicit upgrade from INT_32 to INT_64
               columnSchemas.put(
-                  mvtPropertyName,
+                  sourcePropertyName,
                   new MltMetadata.Column(
                       previousSchema.name,
                       new MltMetadata.ScalarField(MltMetadata.ScalarType.INT_64),
@@ -253,7 +260,7 @@ public class MltConverter {
                 && scalarType == MltMetadata.ScalarType.DOUBLE) {
               // Allow implicit upgrade from FLOAT to DOUBLE
               columnSchemas.put(
-                  mvtPropertyName,
+                  sourcePropertyName,
                   new MltMetadata.Column(
                       previousSchema.name,
                       new MltMetadata.ScalarField(MltMetadata.ScalarType.DOUBLE),
@@ -265,7 +272,7 @@ public class MltConverter {
             } else if (typeMismatchPolicy == ConversionConfig.TypeMismatchPolicy.COERCE) {
               if (prevPhysicalType != MltMetadata.ScalarType.STRING) {
                 columnSchemas.put(
-                    mvtPropertyName,
+                    sourcePropertyName,
                     new MltMetadata.Column(
                         previousSchema.name,
                         new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING),
@@ -289,15 +296,15 @@ public class MltConverter {
 
     if (columnMappingConfig != null) {
       final var columnMapping =
-          ColumnMapping.findMapping(columnMappingConfig, layerName, mvtPropertyName);
+          ColumnMapping.findMapping(columnMappingConfig, layerName, sourcePropertyName);
       if (columnMapping != null) {
         // A mapping exists for this property.
         // Create the parent type and add a child type entry.
         final var parentColumn =
             complexColumnSchemas.computeIfAbsent(columnMapping, k -> createComplexColumn());
 
-        if (parentColumn.children.stream().noneMatch(c -> c.name.equals(mvtPropertyName))) {
-          parentColumn.children.add(createScalarFieldScheme(mvtPropertyName, true, scalarType));
+        if (parentColumn.children.stream().noneMatch(c -> c.name.equals(sourcePropertyName))) {
+          parentColumn.children.add(createScalarFieldScheme(sourcePropertyName, true, scalarType));
         }
 
         return;
@@ -305,7 +312,8 @@ public class MltConverter {
     }
 
     // no matching column mappings, create a plain scalar column
-    columnSchemas.put(mvtPropertyName, createScalarColumnScheme(mvtPropertyName, true, scalarType));
+    columnSchemas.put(
+        sourcePropertyName, createScalarColumnScheme(sourcePropertyName, true, scalarType));
   }
 
   /// Resolve complex column mapping by determining common prefix and adjusting child names
@@ -471,20 +479,43 @@ public class MltConverter {
   }
 
   /*
-   * Converts a MVT file to an MLT file.
+   * Converts a collection of layers into an MLT tile
    *
-   * @param mvt The decoded MVT tile to convert
-   * @param config Settings for the conversion
+   * @param sourceLayers The input layers
    * @param tilesetMetadata Metadata of the tile
+   * @param config Settings for the conversion
    * @param tessellateSource Optional URI of a tessellation service to use if polygon pre-tessellation is enabled
-   * @return Converted MapLibreTile
+   * @return Converted MapLibreTile as a byte array
    * @throws IOException
    */
-  public static byte[] convertMvt(
-      MapboxVectorTile mvt,
+  public static byte[] encode(
+      LayerProvider sourceLayers,
       MltMetadata.TileSetMetadata tilesetMetadata,
       ConversionConfig config,
       @Nullable URI tessellateSource)
+      throws IOException {
+    return encode(
+            sourceLayers, tilesetMetadata, config, tessellateSource, ByteArrayOutputStream::new)
+        .toByteArray();
+  }
+
+  /*
+   * Converts a collection of layers into an MLT tile
+   *
+   * @param sourceLayers The input layers
+   * @param tilesetMetadata Metadata of the tile
+   * @param config Settings for the conversion
+   * @param tessellateSource Optional URI of a tessellation service to use if polygon pre-tessellation is enabled
+   * @param outputStreamSupplier A function producing the output stream to which the converted tile will be written.
+   * @return The output stream to which the data was written
+   * @throws IOException
+   */
+  public static <T extends OutputStream> T encode(
+      @NotNull LayerProvider sourceLayers,
+      @NotNull MltMetadata.TileSetMetadata tilesetMetadata,
+      @NotNull ConversionConfig config,
+      @Nullable URI tessellateSource,
+      @NotNull Function<Integer, T> outputStreamSupplier)
       throws IOException {
     // Convert the list of metadatas (one per layer) into a lookup by the first and only layer name
     // We assume that the names are unique.
@@ -501,9 +532,9 @@ public class MltConverter {
     final var physicalLevelTechnique =
         config.getUseFastPFOR() ? PhysicalLevelTechnique.FAST_PFOR : PhysicalLevelTechnique.VARINT;
 
-    final var tileBuffers = new ArrayList<byte[]>((int) mvt.getLayerCount() * 10);
-    for (var mvtLayer : mvt.getLayerStream().toArray(Layer[]::new)) {
-      final var featureTableName = mvtLayer.name();
+    final var tileBuffers = new ArrayList<byte[]>((int) sourceLayers.getLayerCount() * 10);
+    for (var sourceLayer : sourceLayers.getLayerStream().toArray(Layer[]::new)) {
+      final var featureTableName = sourceLayer.name();
 
       if (config.getLayerFilterPattern() != null) {
         final var matcher = config.getLayerFilterPattern().matcher(featureTableName);
@@ -518,8 +549,8 @@ public class MltConverter {
         throw new RuntimeException("Missing Metadata");
       }
 
-      final var mvtFeatures = mvtLayer.features();
-      if (mvtFeatures.isEmpty()) {
+      final var sourceFeatures = sourceLayer.features();
+      if (sourceFeatures.isEmpty()) {
         continue;
       }
 
@@ -535,8 +566,8 @@ public class MltConverter {
           sortFeaturesAndEncodeGeometryColumn(
               config,
               featureTableOptimizations,
-              mvtFeatures,
-              mvtFeatures,
+              sourceFeatures,
+              sourceFeatures,
               physicalLevelTechnique,
               createPolygonOutline,
               tessellateSource);
@@ -581,7 +612,7 @@ public class MltConverter {
       featureTableBodyBuffer.addAll(encodedGeometryColumn.encodedValues());
       featureTableBodyBuffer.addAll(encodedPropertyColumns);
 
-      final var metadataBuffer = createEmbeddedMetadata(layerMetadata, mvtLayer.tileExtent());
+      final var metadataBuffer = createEmbeddedMetadata(layerMetadata, sourceLayer.tileExtent());
 
       final var tag = 1;
       final var tagBuffer = EncodingUtils.encodeVarint(tag, false);
@@ -596,7 +627,9 @@ public class MltConverter {
       tileBuffers.addAll(featureTableBodyBuffer);
     }
 
-    return ByteArrayUtil.concat(tileBuffers);
+    final var targetStream = outputStreamSupplier.apply(ByteArrayUtil.totalLength(tileBuffers));
+    Objects.requireNonNull(targetStream, "Output stream supplier returned null");
+    return ByteArrayUtil.concat(targetStream, tileBuffers);
   }
 
   private static ArrayList<byte[]> encodePropertyColumns(
@@ -625,7 +658,7 @@ public class MltConverter {
           ConversionConfig config,
           FeatureTableOptimizations featureTableOptimizations,
           SequencedCollection<Feature> sortedFeatures,
-          SequencedCollection<Feature> mvtFeatures,
+          SequencedCollection<Feature> sourceFeatures,
           PhysicalLevelTechnique physicalLevelTechnique,
           boolean encodePolygonOutlines,
           @Nullable URI tessellateSource)
@@ -640,7 +673,7 @@ public class MltConverter {
      * based on the latest academic results in the future, the compression ratio can be further improved
      * */
 
-    if (mvtFeatures.isEmpty()) {
+    if (sourceFeatures.isEmpty()) {
       throw new IllegalArgumentException("No features to encode");
     }
 
@@ -649,7 +682,7 @@ public class MltConverter {
             && featureTableOptimizations != null
             && featureTableOptimizations.allowSorting();
     if (isColumnSortable && !featureTableOptimizations.allowIdRegeneration()) {
-      sortedFeatures = sortFeaturesById(mvtFeatures).toList();
+      sortedFeatures = sortFeaturesById(sourceFeatures).toList();
     }
 
     var ids = sortedFeatures.stream().map(Feature::idOrNull).collect(Collectors.toList());
@@ -689,7 +722,7 @@ public class MltConverter {
           ids.stream()
               .map(
                   id ->
-                      mvtFeatures.stream()
+                      sourceFeatures.stream()
                           .filter(fe -> Objects.equals(fe.idOrNull(), id))
                           .findFirst()
                           .orElseThrow())

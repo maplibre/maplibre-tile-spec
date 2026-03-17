@@ -10,10 +10,10 @@ import org.apache.commons.compress.compressors.gzip.GzipParameters
 import org.apache.commons.lang3.mutable.MutableBoolean
 import org.maplibre.mlt.compare.CompareHelper
 import org.maplibre.mlt.compare.CompareHelper.CompareMode
+import org.maplibre.mlt.converter.ColumnMapping
 import org.maplibre.mlt.converter.ConversionConfig
 import org.maplibre.mlt.converter.FeatureTableOptimizations
 import org.maplibre.mlt.converter.MltConverter
-import org.maplibre.mlt.converter.mvt.ColumnMapping
 import org.maplibre.mlt.converter.mvt.MvtUtils
 import org.maplibre.mlt.decoder.MltDecoder
 import org.maplibre.mlt.metadata.tileset.MltMetadata
@@ -199,7 +199,7 @@ fun convertTile(
 
         // Convert the tile using the updated configuration and tessellation source.
         var tileData =
-            MltConverter.convertMvt(
+            MltConverter.encode(
                 decodedMvTile,
                 metadata,
                 targetConfig,

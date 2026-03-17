@@ -25,11 +25,11 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.maplibre.mlt.cli.JsonHelper;
+import org.maplibre.mlt.converter.ColumnMapping;
+import org.maplibre.mlt.converter.ColumnMappingConfig;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MVTFeature;
@@ -297,7 +297,7 @@ class SyntheticMltUtil {
 
       var metadata =
           MltConverter.createTilesetMetadata(tile, columnMappings, config.getIncludeIds());
-      var mlt = MltConverter.convertMvt(tile, metadata, config, null);
+      var mlt = MltConverter.encode(tile, metadata, config, null);
       Files.write(mltFile, mlt, StandardOpenOption.CREATE_NEW);
 
       final String json = JsonHelper.toGeoJson(MltDecoder.decodeMlTile(mlt)) + "\n";

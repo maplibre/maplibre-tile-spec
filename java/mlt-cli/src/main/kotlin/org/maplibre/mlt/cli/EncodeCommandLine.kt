@@ -11,9 +11,9 @@ import org.apache.commons.cli.help.TextHelpAppendable
 import org.apache.commons.lang3.NotImplementedException
 import org.apache.commons.lang3.StringUtils
 import org.apache.logging.log4j.Level
+import org.maplibre.mlt.converter.ColumnMapping
+import org.maplibre.mlt.converter.ColumnMappingConfig
 import org.maplibre.mlt.converter.encodings.fsst.FsstJni
-import org.maplibre.mlt.converter.mvt.ColumnMapping
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.IOException
@@ -712,7 +712,12 @@ Add an explicit column mapping on the specified layers:
                         .map { obj -> obj.trim { it <= ' ' } }
                         .filter { !it.isEmpty() }
                         .toList()
-                addColumnMapping(result, layers, ColumnMapping(columnNames, true))
+                addColumnMapping(
+                    result,
+                    layers,
+                    org.maplibre.mlt.converter
+                        .ColumnMapping(columnNames, true),
+                )
             } else {
                 logger.warn(
                     "Invalid column mapping ignored: '{}'. Expected pattern is: {}",
@@ -732,7 +737,12 @@ Add an explicit column mapping on the specified layers:
                 val layers = parseLayerPatterns(matcher.group(1) ?: "")
                 val prefix = parsePattern(matcher.group(2) ?: "")
                 val delimiter = parsePattern(matcher.group(3) ?: "")
-                addColumnMapping(result, layers, ColumnMapping(prefix, delimiter, true))
+                addColumnMapping(
+                    result,
+                    layers,
+                    org.maplibre.mlt.converter
+                        .ColumnMapping(prefix, delimiter, true),
+                )
             } else {
                 logger.warn(
                     "Invalid column mapping ignored: '{}'. Expected pattern is: {} or {}",

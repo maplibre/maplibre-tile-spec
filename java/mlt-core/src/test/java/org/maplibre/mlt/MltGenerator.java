@@ -24,12 +24,12 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.maplibre.mlt.converter.ColumnMapping;
+import org.maplibre.mlt.converter.ColumnMappingConfig;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.data.MapboxVectorTile;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
@@ -212,7 +212,7 @@ public class MltGenerator {
             .optimizations(optimizations)
             .preTessellatePolygons(preTessellatePolygons)
             .build();
-    return MltConverter.convertMvt(mvTile, tileMetadata, config, null);
+    return MltConverter.encode(mvTile, tileMetadata, config, null);
   }
 
   private static void writeTile(

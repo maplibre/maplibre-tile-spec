@@ -256,7 +256,7 @@ object Encode {
         val targetConfig = applyColumnMappingsToConversionConfig(config, metadata)
 
         val mlTile =
-            MltConverter.convertMvt(
+            MltConverter.encode(
                 decodedMvTile,
                 metadata,
                 targetConfig,
