@@ -304,30 +304,31 @@ public class MltConverter {
         sourcePropertyName, createScalarColumnScheme(sourcePropertyName, true, scalarType));
   }
 
-  private static MltMetadata.Column checkUpgrade(MltMetadata.Column previousSchema, MltMetadata.ScalarType scalarType) {
+  private static MltMetadata.Column checkUpgrade(
+      MltMetadata.Column previousSchema, MltMetadata.ScalarType scalarType) {
     final var prevPhysicalType = previousSchema.scalarType.physicalType;
 
     if (prevPhysicalType == MltMetadata.ScalarType.INT_32
-            && scalarType == MltMetadata.ScalarType.INT_64) {
+        && scalarType == MltMetadata.ScalarType.INT_64) {
       // Allow implicit upgrade from INT_32 to INT_64
       return new MltMetadata.Column(
-                      previousSchema.name,
-                      new MltMetadata.ScalarField(MltMetadata.ScalarType.INT_64),
-                      previousSchema.isNullable);
+          previousSchema.name,
+          new MltMetadata.ScalarField(MltMetadata.ScalarType.INT_64),
+          previousSchema.isNullable);
     } else if (prevPhysicalType == MltMetadata.ScalarType.INT_64
-            && scalarType == MltMetadata.ScalarType.INT_32) {
+        && scalarType == MltMetadata.ScalarType.INT_32) {
       // no-op
       // keep INT_64
       return previousSchema;
     } else if (prevPhysicalType == MltMetadata.ScalarType.FLOAT
-            && scalarType == MltMetadata.ScalarType.DOUBLE) {
+        && scalarType == MltMetadata.ScalarType.DOUBLE) {
       // Allow implicit upgrade from FLOAT to DOUBLE
       return new MltMetadata.Column(
-                      previousSchema.name,
-                      new MltMetadata.ScalarField(MltMetadata.ScalarType.DOUBLE),
-                      previousSchema.isNullable);
+          previousSchema.name,
+          new MltMetadata.ScalarField(MltMetadata.ScalarType.DOUBLE),
+          previousSchema.isNullable);
     } else if (prevPhysicalType == MltMetadata.ScalarType.DOUBLE
-            && scalarType == MltMetadata.ScalarType.FLOAT) {
+        && scalarType == MltMetadata.ScalarType.FLOAT) {
       // no-op
       // keep DOUBLE
       return previousSchema;

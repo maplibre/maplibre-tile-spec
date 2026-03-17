@@ -83,22 +83,27 @@ public class MVTFeature implements Feature {
   }
 
   static MltMetadata.FieldType getType(Object value) {
-    return makeField(switch (value) {
-      case null -> MltMetadata.ScalarType.UNRECOGNIZED;
-      case String s -> MltMetadata.ScalarType.STRING;
-      case Boolean b -> MltMetadata.ScalarType.BOOLEAN;
-      case Double d -> MltMetadata.ScalarType.DOUBLE;
-      case Float f -> MltMetadata.ScalarType.FLOAT;
-      case U8 i -> MltMetadata.ScalarType.UINT_8;
-      case Integer i -> MltMetadata.ScalarType.INT_32;
-      case U32 i -> MltMetadata.ScalarType.UINT_32;
-      case Long l -> (l.intValue() == l) ? MltMetadata.ScalarType.INT_32 : MltMetadata.ScalarType.INT_64;
-      case U64 i -> MltMetadata.ScalarType.UINT_64;
-      case BigInteger i -> (i.intValue() == i.longValue()) ? MltMetadata.ScalarType.INT_32 : MltMetadata.ScalarType.INT_64;
-      default ->
-          throw new IllegalArgumentException(
-              "Unsupported property value type: " + value.getClass());
-    });
+    return makeField(
+        switch (value) {
+          case null -> MltMetadata.ScalarType.UNRECOGNIZED;
+          case String s -> MltMetadata.ScalarType.STRING;
+          case Boolean b -> MltMetadata.ScalarType.BOOLEAN;
+          case Double d -> MltMetadata.ScalarType.DOUBLE;
+          case Float f -> MltMetadata.ScalarType.FLOAT;
+          case U8 i -> MltMetadata.ScalarType.UINT_8;
+          case Integer i -> MltMetadata.ScalarType.INT_32;
+          case U32 i -> MltMetadata.ScalarType.UINT_32;
+          case Long l ->
+              (l.intValue() == l) ? MltMetadata.ScalarType.INT_32 : MltMetadata.ScalarType.INT_64;
+          case U64 i -> MltMetadata.ScalarType.UINT_64;
+          case BigInteger i ->
+              (i.intValue() == i.longValue())
+                  ? MltMetadata.ScalarType.INT_32
+                  : MltMetadata.ScalarType.INT_64;
+          default ->
+              throw new IllegalArgumentException(
+                  "Unsupported property value type: " + value.getClass());
+        });
   }
 
   private static MltMetadata.FieldType makeField(MltMetadata.ScalarType type) {
