@@ -1,5 +1,4 @@
 use crate::enc_dec::Decode;
-use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, SetOptionOnce as _};
 use crate::v01::{
     DictionaryType, GeometryType, GeometryValues, LengthType, OffsetType, RawGeometry, RawStream,
@@ -303,7 +302,7 @@ impl RawGeometry<'_> {
         if let Some(offsets) = vertex_offsets.take()
             && let Some(dict) = vertices.as_deref()
         {
-            dec.consume(u32::try_from(size_of::<i32>() * 2 * offsets.len()).or_overflow()?)?;
+            dec.consume_items::<[i32; 2]>(offsets.len())?;
             vertices = Some(
                 offsets
                     .iter()

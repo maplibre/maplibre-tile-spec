@@ -1,11 +1,11 @@
 use std::mem;
-use std::mem::size_of;
 
 use crate::codecs::bytes::{decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s};
 use crate::codecs::fastpfor::decode_fastpfor_composite;
 use crate::codecs::rle::decode_byte_rle;
+use crate::codecs::varint::parse_varint_vec;
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
-use crate::utils::{AsUsize as _, parse_varint_vec};
+use crate::utils::AsUsize as _;
 use crate::v01::{LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream, RawStreamData};
 use crate::{Decoder, MltError};
 
@@ -101,7 +101,7 @@ impl RawStream<'_> {
     /// Decode a stream of f32 values from raw little-endian bytes, charging `dec`.
     pub fn decode_f32s(self, dec: &mut Decoder) -> Result<Vec<f32>, MltError> {
         let num = self.meta.num_values.as_usize();
-        dec.consume(u32::try_from(num * size_of::<f32>()).or_overflow()?)?;
+        dec.consume_items::<f32>(num)?;
         let raw = match &self.data {
             RawStreamData::Encoded(v) => v,
             RawStreamData::VarInt(_) => {
@@ -118,16 +118,17 @@ impl RawStream<'_> {
 
     /// Decode a stream of f64 values from raw little-endian bytes, charging `dec`.
     pub fn decode_f64s(self, dec: &mut Decoder) -> Result<Vec<f64>, MltError> {
-        let num = self.meta.num_values.as_usize();
-        dec.consume(u32::try_from(num * size_of::<f64>()).or_overflow()?)?;
         let raw = match &self.data {
             RawStreamData::Encoded(v) => v,
             RawStreamData::VarInt(_) => {
                 return Err(MltError::NotImplemented("varint f64 decoding"));
             }
         };
+
+        let num = self.meta.num_values.as_usize();
         fail_if_invalid_stream_size(raw.len(), num.checked_mul(8).or_overflow()?)?;
 
+        dec.consume_items::<f64>(num)?;
         Ok(raw
             .chunks_exact(8)
             .map(|chunk| f64::from_le_bytes(chunk.try_into().expect("infallible: chunks_exact(8)")))
@@ -144,8 +145,7 @@ impl RawStream<'_> {
         match self.meta.encoding.physical {
             PhysicalEncoding::VarInt => match &self.data {
                 RawStreamData::VarInt(v) => {
-                    let (_, values) = parse_varint_vec::<u32, u32>(v, self.meta.num_values)?;
-                    dec.consume(u32::try_from(values.len() * size_of::<u32>()).or_overflow()?)?;
+                    let (_, values) = parse_varint_vec::<u32, u32>(v, self.meta.num_values, dec)?;
                     *buf = values;
                 }
                 RawStreamData::Encoded(_) => {
@@ -179,15 +179,12 @@ impl RawStream<'_> {
     /// `buf` is cleared and filled with the decoded words. The caller owns the
     /// buffer and is responsible for deciding whether it constitutes a final
     /// persistent allocation (and therefore should be charged to a [`Decoder`]).
-    /// The `VarInt` path charges `dec` because `parse_varint_vec` allocates
-    /// internally; other paths leave charging to the callee.
     pub fn decode_bits_u64(self, buf: &mut Vec<u64>, dec: &mut Decoder) -> Result<(), MltError> {
         buf.clear();
         match self.meta.encoding.physical {
             PhysicalEncoding::VarInt => match &self.data {
                 RawStreamData::VarInt(v) => {
-                    let (_, values) = parse_varint_vec::<u64, u64>(v, self.meta.num_values)?;
-                    dec.consume(u32::try_from(values.len() * size_of::<u64>()).or_overflow()?)?;
+                    let (_, values) = parse_varint_vec::<u64, u64>(v, self.meta.num_values, dec)?;
                     *buf = values;
                 }
                 RawStreamData::Encoded(_) => {

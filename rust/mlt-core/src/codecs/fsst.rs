@@ -1,4 +1,3 @@
-use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 use crate::v01::{
     DictionaryType, EncodedFsstData, EncodedStream, EncodedStreamData, FsstStrEncoder, IntEncoding,
@@ -56,7 +55,7 @@ pub fn decode_fsst(
         i += 1;
     }
 
-    dec.consume(u32::try_from(output.len()).or_overflow()?)?;
+    dec.consume_items::<u8>(output.len())?;
     Ok((String::from_utf8(output)?, lengths.decode_u32s(dec)?))
 }
 

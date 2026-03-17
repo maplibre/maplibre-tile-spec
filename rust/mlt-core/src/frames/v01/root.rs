@@ -1,5 +1,6 @@
 use crate::analyse::{Analyze, StatType};
-use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string, parse_varint};
+use crate::codecs::varint::parse_varint;
+use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
 use crate::v01::{
     Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01, Property,
     RawFsstData, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,

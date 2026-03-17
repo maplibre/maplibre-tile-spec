@@ -1,9 +1,6 @@
-use std::mem::size_of;
-
 use num_traits::{AsPrimitive, WrappingAdd, WrappingSub};
 use zigzag::ZigZag;
 
-use crate::errors::AsMltError as _;
 use crate::{Decoder, MltError};
 
 /// ZigZag-encode a slice of signed values into unsigned values.
@@ -55,7 +52,7 @@ where
 
 /// ZigZag-decode a slice, charging `dec` for the output allocation.
 pub fn decode_zigzag<T: ZigZag>(data: &[T::UInt], dec: &mut Decoder) -> Result<Vec<T>, MltError> {
-    dec.consume(u32::try_from(data.len() * size_of::<T>()).or_overflow()?)?;
+    dec.consume_items::<T>(data.len())?;
     Ok(data.iter().map(|&v| T::decode(v)).collect())
 }
 
@@ -64,7 +61,7 @@ pub fn decode_zigzag_delta<T: Copy + ZigZag + WrappingAdd + AsPrimitive<U>, U: '
     data: &[T::UInt],
     dec: &mut Decoder,
 ) -> Result<Vec<U>, MltError> {
-    dec.consume(u32::try_from(data.len() * size_of::<U>()).or_overflow()?)?;
+    dec.consume_items::<U>(data.len())?;
     Ok(data
         .iter()
         .scan(T::zero(), |state, &v| {

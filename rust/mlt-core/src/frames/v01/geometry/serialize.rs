@@ -3,7 +3,8 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2, parse_varint};
+use crate::codecs::varint::parse_varint;
+use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2};
 use crate::v01::geometry::encode::encode_geometry;
 use crate::v01::{
     ColumnType, DictionaryType, EncodedGeometry, Geometry, GeometryEncoder, GeometryValues,

@@ -1,6 +1,4 @@
-use integer_encoding::VarInt;
-
-use crate::utils::AsUsize as _;
+use crate::codecs::varint::parse_varint;
 use crate::{MltError, MltRefResult};
 
 #[inline]
@@ -9,46 +7,6 @@ pub fn take(input: &[u8], size: u32) -> MltRefResult<'_, &[u8]> {
         .split_at_checked(size.try_into()?)
         .ok_or(MltError::UnableToTake(size))?;
     Ok((input, value))
-}
-
-/// Parse a varint (variable-length integer) from the input
-pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltRefResult<'_, T> {
-    match T::decode_var(input) {
-        Some((value, consumed)) => {
-            // Validate canonical encoding:
-            // Check that the value couldn't fit in fewer bytes
-            //
-            // A varint is canonical if its last byte is non-zero (for multibyte encodings).
-            // Value 0 must be encoded as a single 0x00 byte.
-            // For multibyte VarInts, the last byte (without a continuation bit) must be non-zero.
-            //
-            // This ensures we're not using more bytes than necessary.
-            // Using more bytes is an issue as it does violate the roundtrip-ability of MLT
-            if consumed > 1 && input[consumed - 1] == 0 {
-                return Err(MltError::NonCanonicalVarInt);
-            }
-            Ok((&input[consumed..], value))
-        }
-        None => Err(MltError::BufferUnderflow(
-            u32::try_from(input.len().saturating_add(1))?,
-            input.len(),
-        )),
-    }
-}
-
-pub fn parse_varint_vec<T, U>(mut input: &[u8], size: u32) -> MltRefResult<'_, Vec<U>>
-where
-    T: VarInt,
-    U: TryFrom<T>,
-    MltError: From<<U as TryFrom<T>>::Error>,
-{
-    let mut values = Vec::with_capacity(size.as_usize());
-    let mut val;
-    for _ in 0..size {
-        (input, val) = parse_varint::<T>(input)?;
-        values.push(val.try_into()?);
-    }
-    Ok((input, values))
 }
 
 /// Parse a length-prefixed UTF-8 string from the input
@@ -65,37 +23,5 @@ pub fn parse_u8(input: &[u8]) -> MltRefResult<'_, u8> {
         Err(MltError::UnableToTake(1))
     } else {
         Ok((&input[1..], input[0]))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use rstest::rstest;
-
-    use super::*;
-
-    #[rstest]
-    #[case::trailing_bytes(&[0x80, 0x01, 0x42], Ok((vec![0x42_u8], 128)))]
-    #[case::zero(&[0x00], Ok((vec![], 0)))]
-    #[case::max_single_byte(&[0x7F], Ok((vec![], 127)))]
-    #[case::min_two_byte(&[0x80, 0x01], Ok((vec![], 128)))]
-    #[case::max_two_byte(&[0xFF, 0x7F], Ok((vec![], 16383)))]
-    #[case::min_three_byte(&[0x80, 0x80, 0x01], Ok((vec![], 16384)))]
-    #[case::non_canonical_two(&[0x82, 0x00], Err(MltError::NonCanonicalVarInt))]
-    #[case::non_canonical_three_byte(&[0x80, 0x80, 0x00], Err(MltError::NonCanonicalVarInt))]
-    #[case::single_byte_with_trailing(&[0x01, 0x02, 0x03], Ok((vec![2, 3], 1)))]
-    #[case::underflow(&[0x80, 0x80, 0x80], Err(MltError::BufferUnderflow(4, 3)))]
-    fn test_varint_parsing(
-        #[case] bytes: &[u8],
-        #[case] expected: Result<(Vec<u8>, u32), MltError>,
-    ) {
-        let actual = parse_varint::<u32>(bytes);
-        // matching because MltError cannot implement PartialEq
-        // effectively assert_eq!(actual, expected);
-        match (actual, expected) {
-            (Ok((v1, s1)), Ok((v2, s2))) => assert_eq!((v1, s1), (v2.as_slice(), s2)),
-            (Err(actual), Err(expected)) => assert_eq!(actual.to_string(), expected.to_string()),
-            (Ok(_), Err(_)) | (Err(_), Ok(_)) => panic!("Unexpected result"),
-        }
     }
 }

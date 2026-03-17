@@ -54,10 +54,18 @@ impl Decoder {
         Ok(Vec::with_capacity(capacity))
     }
 
-    /// TODO: introduce generic type param as a sizeof multiplier
+    /// Charge the budget for `size` raw bytes. Prefer [`consume_items`][Self::consume_items]
+    /// when charging for a known-type collection.
     #[inline]
     pub(crate) fn consume(&mut self, size: u32) -> Result<(), MltError> {
         self.budget.consume(size)
+    }
+
+    /// Charge the budget for `count` items of type `T` (`count * size_of::<T>()` bytes).
+    #[inline]
+    pub(crate) fn consume_items<T>(&mut self, count: usize) -> Result<(), MltError> {
+        let bytes = count.checked_mul(size_of::<T>()).or_overflow()?;
+        self.budget.consume(u32::try_from(bytes).or_overflow()?)
     }
 
     #[inline]

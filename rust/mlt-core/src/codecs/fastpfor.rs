@@ -1,6 +1,3 @@
-use num_traits::ToPrimitive as _;
-
-use crate::errors::AsMltError as _;
 use crate::{Decoder, MltError};
 
 /// Encode a `u32` sequence using `FastPFOR256` (composite codec).
@@ -82,7 +79,7 @@ pub fn decode_fastpfor_composite(
     // We must convert BE bytes → u32 to reconstruct the original integer values
     // that the Composition(FastPFOR, VariableByte) codec produced.
     let num_words = data.len() / 4;
-    dec.consume(data.len().to_u32().or_overflow()?)?;
+    dec.consume_items::<u32>(num_words)?;
     let input: Vec<u32> = (0..num_words)
         .map(|i| {
             let o = i * 4;

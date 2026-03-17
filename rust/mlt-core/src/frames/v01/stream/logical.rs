@@ -1,7 +1,6 @@
 use std::fmt;
 use std::fmt::Debug;
 use std::iter::repeat_n;
-use std::mem::size_of;
 
 use num_traits::{PrimInt, ToPrimitive as _};
 
@@ -128,12 +127,11 @@ impl LogicalValue {
     /// Not called for `LogicalEncoding::None` — that case is handled entirely
     /// in the bridge (physical buffer decoded directly into the output Vec).
     pub fn decode_u32(self, data: &[u32], dec: &mut Decoder) -> Result<Vec<u32>, MltError> {
-        use size_of as sz;
         let num = self.meta.num_values.as_usize();
         match self.meta.encoding.logical {
             LogicalEncoding::None => {
                 // Caller should have used the direct-output path; this is a fallback.
-                dec.consume(u32::try_from(num * sz::<u32>()).or_overflow()?)?;
+                dec.consume_items::<u32>(num)?;
                 Ok(data.to_vec())
             }
             LogicalEncoding::Rle(rle) => rle.decode(data, dec),
@@ -177,12 +175,11 @@ impl LogicalValue {
     /// Not called for `LogicalEncoding::None` — that case is handled entirely
     /// in the bridge (physical buffer decoded directly into the output Vec).
     pub fn decode_u64(self, data: &[u64], dec: &mut Decoder) -> Result<Vec<u64>, MltError> {
-        use size_of as sz;
         let num = self.meta.num_values.as_usize();
         match self.meta.encoding.logical {
             LogicalEncoding::None => {
                 // Caller should have used the direct-output path; this is a fallback.
-                dec.consume(u32::try_from(num * sz::<u64>()).or_overflow()?)?;
+                dec.consume_items::<u64>(num)?;
                 Ok(data.to_vec())
             }
             LogicalEncoding::Rle(rle) => rle.decode(data, dec),

@@ -1,5 +1,4 @@
 use crate::enc_dec::Decode;
-use crate::errors::AsMltError as _;
 use crate::utils::apply_present;
 use crate::v01::{Id, IdValues, RawId, RawIdValue, RawPresence};
 use crate::{Decoder, MltError};
@@ -20,7 +19,7 @@ impl RawId<'_> {
             RawIdValue::Id32(stream) => {
                 // FIXME: IdValues should be an enum of i32 or i64 values to avoid extra allocations
                 let ids = stream.decode_u32s(dec)?;
-                dec.consume(u32::try_from(size_of::<u64>() * ids.len()).or_overflow()?)?;
+                dec.consume_items::<u64>(ids.len())?;
                 ids.into_iter().map(u64::from).collect()
             }
             RawIdValue::Id64(stream) => stream.decode_u64s(dec)?,
