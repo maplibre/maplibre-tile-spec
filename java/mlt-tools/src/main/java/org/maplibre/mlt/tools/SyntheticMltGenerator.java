@@ -265,13 +265,13 @@ public class SyntheticMltGenerator {
     write(layer("ids64_delta_rle", ids64), cfg(DELTA_RLE).ids());
 
     var optIds =
-        array(idFeat(100), idFeat(101), SyntheticMltUtil.noIdFeat(), idFeat(105), idFeat(106));
+        array(idFeat(100), idFeat(101), SyntheticMltUtil.idFeat(), idFeat(105), idFeat(106));
     write(layer("ids_opt", optIds), cfg().ids());
     write(layer("ids_opt_delta", optIds), cfg(DELTA).ids());
 
     var optIds64 =
         array(
-            SyntheticMltUtil.noIdFeat(),
+            SyntheticMltUtil.idFeat(),
             idFeat(9_234_567_890L),
             idFeat(101),
             idFeat(105),

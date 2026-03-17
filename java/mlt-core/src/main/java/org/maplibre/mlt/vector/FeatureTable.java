@@ -4,14 +4,15 @@ import java.util.HashMap;
 import java.util.Iterator;
 import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.Geometry;
-import org.maplibre.mlt.data.MVTFeature;
+import org.maplibre.mlt.data.Feature;
+import org.maplibre.mlt.data.MLTFeature;
 import org.maplibre.mlt.vector.constant.IntConstVector;
 import org.maplibre.mlt.vector.flat.IntFlatVector;
 import org.maplibre.mlt.vector.geometry.GeometryVector;
 import org.maplibre.mlt.vector.sequence.IntSequenceVector;
 
 /** In-Memory representation of MLT storage format for efficient processing */
-public class FeatureTable implements Iterable<MVTFeature> {
+public class FeatureTable implements Iterable<Feature> {
   private final String name;
 
   private final Vector<?, ?> idColumn;
@@ -37,7 +38,7 @@ public class FeatureTable implements Iterable<MVTFeature> {
 
   @Override
   @NotNull
-  public Iterator<MVTFeature> iterator() {
+  public Iterator<Feature> iterator() {
     return new Iterator<>() {
       private int index = 0;
       private final Iterator<Geometry> geometryIterator = geometryColumn.iterator();
@@ -48,7 +49,7 @@ public class FeatureTable implements Iterable<MVTFeature> {
       }
 
       @Override
-      public MVTFeature next() {
+      public MLTFeature next() {
         var geometry = geometryIterator.next();
 
         var properties = new HashMap<String, Object>();
@@ -61,7 +62,7 @@ public class FeatureTable implements Iterable<MVTFeature> {
           }
         }
 
-        final var builder = MVTFeature.builder().geometry(geometry).properties(properties);
+        final var builder = MLTFeature.builder().geometry(geometry).properties(properties);
         if (idColumn != null) {
           final var idValue = idColumn.getValue(index);
           if (idValue.isPresent()) {
@@ -86,17 +87,5 @@ public class FeatureTable implements Iterable<MVTFeature> {
 
   public String getName() {
     return name;
-  }
-
-  public Vector<?, ?> getIdColumn() {
-    return idColumn;
-  }
-
-  public GeometryVector getGeometryColumn() {
-    return geometryColumn;
-  }
-
-  public Vector<?, ?>[] getPropertyColumns() {
-    return propertyColumns;
   }
 }
