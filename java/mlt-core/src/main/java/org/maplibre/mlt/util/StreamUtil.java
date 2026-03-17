@@ -13,6 +13,24 @@ import org.apache.commons.lang3.tuple.Pair;
 public final class StreamUtil {
   private StreamUtil() {}
 
+  /// Combine two streams into one by applying a function to pairs of elements from the input
+  /// streams.
+  /// The resulting stream will have the same number of elements as the shorter input stream, and
+  /// any remaining elements in the longer stream will be ignored.
+  /// The resulting stream:
+  /// - Is lazy and will only compute elements as needed, allowing for efficient processing of large
+  /// or infinite streams.
+  /// - Is parallel if either of the input streams is parallel.
+  /// - Has the intersection of the characteristics of input streams with DISTINCT and SORTED
+  /// removed
+  /// - Is sized if both input streams are sized, the size being the minimum of the sizes of the
+  /// input streams
+  /// @param a the first input stream, providing the first argument to the function
+  /// @param b the second input stream, providing the second argument to the function
+  /// @param f the function to apply to pairs of elements from the input streams
+  /// @return a stream of the results of applying the function to pairs of elements from the input
+  /// streams
+  /// @throws NullPointerException if any of the input streams or the function is null
   // Really, this isn't in `Stream` anywhere?
   public static <A, B, C> Stream<C> zip(
       Stream<? extends A> a,
@@ -21,6 +39,7 @@ public final class StreamUtil {
     Objects.requireNonNull(f);
     final var spliterA = Objects.requireNonNull(a).spliterator();
     final var spliterB = Objects.requireNonNull(b).spliterator();
+    final var cIterator = new ZipIterator<A, B, C>(spliterA, spliterB, f);
 
     // Eliminate DISTINCT and SORTED characteristics
     final int characteristics =
@@ -28,23 +47,17 @@ public final class StreamUtil {
             & spliterB.characteristics()
             & ~(Spliterator.DISTINCT | Spliterator.SORTED);
 
-    // If both streams are SIZED, they must have the same size
-    final var sized = (characteristics & Spliterator.SIZED) != 0;
-    if (sized && spliterA.getExactSizeIfKnown() != spliterB.getExactSizeIfKnown()) {
-      throw new IllegalStateException("Streams have different sizes");
-    }
+    // the zipped result will be the size of the smaller stream
+    final var sizeIfKnown =
+        ((characteristics & Spliterator.SIZED) != 0)
+            ? Math.min(spliterA.getExactSizeIfKnown(), spliterB.getExactSizeIfKnown())
+            : -1;
 
-    final var cIterator = new ZipIterator<A, B, C>(spliterA, spliterB, f);
-
-    // Get sizes, if both are available.  Zipped result is the smaller of the two sizes.
-    final var spliterator =
-        sized
-            ? Spliterators.spliterator(
-                cIterator,
-                Math.min(spliterA.getExactSizeIfKnown(), spliterB.getExactSizeIfKnown()),
-                characteristics)
-            : Spliterators.spliteratorUnknownSize(cIterator, characteristics);
-    return StreamSupport.stream(spliterator, a.isParallel() || b.isParallel());
+    return StreamSupport.stream(
+        (sizeIfKnown < 0)
+            ? Spliterators.spliteratorUnknownSize(cIterator, characteristics)
+            : Spliterators.spliterator(cIterator, sizeIfKnown, characteristics),
+        a.isParallel() || b.isParallel());
   }
 
   private static final class ZipIterator<A, B, C> implements Iterator<C> {
@@ -63,12 +76,8 @@ public final class StreamUtil {
 
     @Override
     public boolean hasNext() {
-      final var aHasNext = aIterator.hasNext();
-      final var bHasNext = bIterator.hasNext();
-      if (aHasNext != bHasNext) {
-        throw new IllegalStateException("Streams have different sizes");
-      }
-      return aHasNext && bHasNext;
+      // Stop when either stream is exhausted, ignoring remaining elements in the longer stream
+      return aIterator.hasNext() && bIterator.hasNext();
     }
 
     @Override
@@ -77,6 +86,7 @@ public final class StreamUtil {
     }
   }
 
+  /// Return a lazy stream of `Pair<>` objects
   public static <A, B> Stream<Pair<A, B>> zip(Stream<? extends A> a, Stream<? extends B> b) {
     return zip(a, b, Pair::of);
   }

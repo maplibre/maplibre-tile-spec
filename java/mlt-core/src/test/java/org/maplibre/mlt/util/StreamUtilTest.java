@@ -33,33 +33,25 @@ class StreamUtilTest {
 
   @Test
   void zipWithEmptyStreams() {
-    assertEquals(0, StreamUtil.zip(Stream.of(), Stream.of(), (x, y) -> 0).count());
-  }
-
-  @Test
-  void zipWithEmptyStreamsIterated() {
     assertEquals(0, StreamUtil.zip(Stream.of(), Stream.of(), (x, y) -> 0).toList().size());
   }
 
   @Test
-  void zipWithSecondStreamShorter() {
-    final var a = Stream.of(1, 2, 3);
-    final var b = Stream.of("a", "b");
-
-    assertThrows(
-        IllegalStateException.class,
-        () -> StreamUtil.zip(a, b, (x, y) -> x + ":" + y).toList(),
-        "Streams have different sizes");
+  void zipWithFirstStreamShorter() {
+    final var result =
+        StreamUtil.zip(Stream.of(1, 2), Stream.of("a", "b", "c"), (x, y) -> x + ":" + y).toList();
+    assertEquals(2, result.size());
+    assertEquals("1:a", result.get(0));
+    assertEquals("2:b", result.get(1));
   }
 
   @Test
-  void zipWithFirstStreamShorter() {
-    assertThrows(
-        IllegalStateException.class,
-        () ->
-            StreamUtil.zip(Stream.of(1, 2), Stream.of("a", "b", "c"), (x, y) -> x + ":" + y)
-                .toList(),
-        "Streams have different sizes");
+  void zipWithSecondStreamShorter() {
+    final var result =
+        StreamUtil.zip(Stream.of(1, 2, 3), Stream.of("a", "b"), (x, y) -> x + ":" + y).toList();
+    assertEquals(2, result.size());
+    assertEquals("1:a", result.get(0));
+    assertEquals("2:b", result.get(1));
   }
 
   @Test
@@ -87,7 +79,6 @@ class StreamUtilTest {
     final var result =
         StreamUtil.zip(first ? a.parallel() : a, second ? b.parallel() : b, (x, y) -> x + ":" + y)
             .toList();
-
     // Results should contain all expected pairs (order may vary due to parallel processing)
     assertEquals(5, result.size());
     assertTrue(result.contains("1:a"));
@@ -142,31 +133,29 @@ class StreamUtilTest {
 
   @Test
   void zipEachWithEmptyStreams() {
-    assertEquals(0, StreamUtil.zipEach(Stream.empty(), Stream.empty(), (x, y) -> {}));
+    assertEquals(0, StreamUtil.zipEach(Stream.of(), Stream.of(), (x, y) -> {}));
   }
 
   @Test
   void zipEachWithMismatchedKnownStreamSizes() {
     final var sideEffectCount = new MutableInt(0);
-    assertThrows(
-        IllegalStateException.class,
-        () ->
-            StreamUtil.zipEach(
-                Stream.of(1, 2, 3), Stream.of("a", "b"), (x, y) -> sideEffectCount.increment()));
-    // With known stream sizes, no evaluations are made before a mismatch is reported
-    assertEquals(0, sideEffectCount.get());
+    final long count =
+        StreamUtil.zipEach(
+            Stream.of(1, 2, 3), Stream.of("a", "b"), (x, y) -> sideEffectCount.increment());
+    // With the new behavior, we process all pairs from the shorter stream
+    assertEquals(2, count);
+    assertEquals(2, sideEffectCount.get());
   }
 
   @Test
   void zipEachWithMismatchedUnknownStreamSizes() {
     final var sideEffectCount = new MutableInt(0);
-    final var unknownSizeStream = Stream.iterate(0, i -> i < 3, i -> i + 1);
-    assertThrows(
-        IllegalStateException.class,
-        () ->
-            StreamUtil.zipEach(
-                unknownSizeStream, Stream.of("a", "b"), (x, y) -> sideEffectCount.increment()));
-    // With known stream sizes, no evaluations are made before a mismatch is reported
+    final var a = Stream.iterate(0, i -> i < 3, i -> i + 1);
+    final var b = Stream.iterate(0, i -> i < 2, i -> i + 1);
+    // Streams with different sizes now silently truncate to the shorter stream
+    final long count = StreamUtil.zipEach(a, b, (x, y) -> sideEffectCount.increment());
+    // With the new behavior, we process all pairs from the shorter stream
+    assertEquals(2, count);
     assertEquals(2, sideEffectCount.get());
   }
 
@@ -240,5 +229,26 @@ class StreamUtilTest {
     assertTrue(functionCalled.get());
     assertEquals(3, result.size());
     assertEquals("3:c", result.get(2));
+  }
+
+  @Test
+  void zipWithInfiniteFirstStream() {
+    final var infiniteStream = Stream.generate(() -> "x");
+    final var finiteStream = Stream.of(1, 2, 3, 4, 5);
+    final var result = StreamUtil.zip(infiniteStream, finiteStream, (x, y) -> y + ":" + x).toList();
+    assertEquals(5, result.size());
+    assertEquals("1:x", result.get(0));
+    assertEquals("5:x", result.get(4));
+  }
+
+  @Test
+  void zipWithInfiniteSecondStream() {
+    // Test with Stream.generate - an infinite stream as the second argument
+    final var finiteStream = Stream.of("a", "b", "c");
+    final var infiniteStream = Stream.generate(() -> 42);
+    final var result = StreamUtil.zip(finiteStream, infiniteStream, (x, y) -> x + ":" + y).toList();
+    assertEquals(3, result.size());
+    assertEquals("a:42", result.get(0));
+    assertEquals("c:42", result.get(2));
   }
 }
