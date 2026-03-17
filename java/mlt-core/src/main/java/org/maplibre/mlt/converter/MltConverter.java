@@ -215,7 +215,9 @@ public class MltConverter {
         createComplexColumnScheme(null, false, MltMetadata.ComplexType.GEOMETRY));
 
     // Add the remaining items in name order for consistent output
-    columnSchemas.values().stream().sorted(Comparator.comparing(c -> c.name)).forEach(featureTableSchema.columns::add);
+    columnSchemas.values().stream()
+        .sorted(Comparator.comparing(c -> c.name))
+        .forEach(featureTableSchema.columns::add);
 
     return featureTableSchema;
   }
