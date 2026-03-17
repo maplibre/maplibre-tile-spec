@@ -331,6 +331,10 @@ public final class CompareHelper {
   }
 
   private static boolean propertyValuesEqual(Property pa, Property pb) {
+    if (pa == null || pb == null) {
+      return pa == null && pb == null;
+    }
+
     final var a = pa.getValue();
     final var b = pb.getValue();
 

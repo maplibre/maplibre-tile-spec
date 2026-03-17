@@ -1,5 +1,6 @@
 package org.maplibre.mlt.data;
 
+import jakarta.annotation.Nullable;
 import java.util.SequencedCollection;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
@@ -7,7 +8,7 @@ import org.jetbrains.annotations.NotNull;
 
 public class MapboxVectorTile implements LayerProvider {
   private @NotNull SequencedCollection<Layer> layers;
-  private Triple<Integer, Integer, Integer> tileId;
+  private @Nullable Triple<Integer, Integer, Integer> tileId;
 
   public MapboxVectorTile(@NotNull SequencedCollection<Layer> layers) {
     this.layers = layers;
@@ -15,16 +16,16 @@ public class MapboxVectorTile implements LayerProvider {
 
   public MapboxVectorTile(
       @NotNull SequencedCollection<Layer> layers,
-      @NotNull Triple<Integer, Integer, Integer> tileId) {
+      @Nullable Triple<Integer, Integer, Integer> tileId) {
     this(layers);
     this.tileId = tileId;
   }
 
-  public void setTileId(@NotNull Triple<Integer, Integer, Integer> tileId) {
+  public void setTileId(@Nullable Triple<Integer, Integer, Integer> tileId) {
     this.tileId = tileId;
   }
 
-  public @NotNull Triple<Integer, Integer, Integer> tileId() {
+  public @Nullable Triple<Integer, Integer, Integer> tileId() {
     return tileId;
   }
 

@@ -48,8 +48,8 @@ public interface Feature {
 
   /**
    * Returns the ID as a boxed Long, or null if the feature has no ID. Use this where a nullable
-   * Long is required, e.g., intermediate lists,serialization. Prefer {@link #hasId()} and {@link
-   * #id()} in hot paths.
+   * Long is required, e.g., intermediate lists, serialization. Prefer {@link #hasId()} and {@link
+   * #getId()} in hot paths.
    */
   @Nullable
   default Long idOrNull() {

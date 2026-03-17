@@ -214,9 +214,8 @@ public class PropertyEncoder {
             p ->
                 switch (p.getType()) {
                   case BOOLEAN -> ((Boolean) p.getValue()) ? 1 : 0;
-                  case INT_8 -> (Integer) p.getValue();
                   case UINT_8 -> ((U8) p.getValue()).intValue();
-                  case INT_32 -> (Integer) p.getValue();
+                  case INT_8, INT_32 -> ((Number) p.getValue()).intValue();
                   case UINT_32 -> ((U32) p.getValue()).intValue();
                   case INT_64 -> strictIntOrNull((Long) p.getValue());
                   case UINT_64 -> strictIntOrNull((U64) p.getValue());
@@ -234,11 +233,9 @@ public class PropertyEncoder {
             p ->
                 switch (p.getType()) {
                   case BOOLEAN -> ((Boolean) p.getValue()) ? 1L : 0L;
-                  case INT_8 -> (Long) p.getValue();
                   case UINT_8 -> ((U8) p.getValue()).longValue();
-                  case INT_32 -> (Long) p.getValue();
                   case UINT_32 -> ((U32) p.getValue()).longValue();
-                  case INT_64 -> (Long) p.getValue();
+                  case INT_8, INT_32, INT_64 -> ((Number) p.getValue()).longValue();
                   case UINT_64 -> ((U64) p.getValue()).longValue();
                   case FLOAT -> strictLongOrNull((Float) p.getValue());
                   case DOUBLE -> strictLongOrNull((Double) p.getValue());
@@ -254,13 +251,10 @@ public class PropertyEncoder {
             p ->
                 switch (p.getType()) {
                   case BOOLEAN -> ((Boolean) p.getValue()) ? 1.0f : 0.0f;
-                  case INT_8 -> ((Long) p.getValue()).floatValue();
                   case UINT_8 -> ((U8) p.getValue()).intValue().floatValue();
-                  case INT_32 -> ((Long) p.getValue()).floatValue();
                   case UINT_32 -> ((U32) p.getValue()).longValue().floatValue();
-                  case INT_64 -> ((Long) p.getValue()).floatValue();
                   case UINT_64 -> ((U64) p.getValue()).longValue().floatValue();
-                  case FLOAT -> (Float) p.getValue();
+                  case INT_8, INT_32, INT_64, FLOAT -> ((Number) p.getValue()).floatValue();
                   case DOUBLE -> strictFloatOrNull((Double) p.getValue());
                   default -> null;
                 })
@@ -274,14 +268,11 @@ public class PropertyEncoder {
             p ->
                 switch (p.getType()) {
                   case BOOLEAN -> ((Boolean) p.getValue()) ? 1.0 : 0.0;
-                  case INT_8 -> ((Long) p.getValue()).doubleValue();
                   case UINT_8 -> ((U8) p.getValue()).intValue().doubleValue();
-                  case INT_32 -> ((Long) p.getValue()).doubleValue();
                   case UINT_32 -> ((U32) p.getValue()).longValue().doubleValue();
-                  case INT_64 -> ((Long) p.getValue()).doubleValue();
                   case UINT_64 -> ((U64) p.getValue()).longValue().doubleValue();
-                  case FLOAT -> ((Float) p.getValue()).doubleValue();
-                  case DOUBLE -> (Double) p.getValue();
+                  case INT_8, INT_32, INT_64, FLOAT, DOUBLE ->
+                      ((Number) p.getValue()).doubleValue();
                   default -> null;
                 })
         .orElse(null);

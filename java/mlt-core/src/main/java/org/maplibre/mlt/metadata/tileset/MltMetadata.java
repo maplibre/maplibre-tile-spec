@@ -106,7 +106,6 @@ public final class MltMetadata {
     public Field(String name, ComplexField type, boolean isNullable) {
       super(type, isNullable);
       this.name = name;
-      this.name = name;
     }
 
     public String name;

@@ -100,8 +100,8 @@ public final class StreamUtil {
             b,
             (x, y) -> {
               f.accept(x, y);
-              return 1;
+              return 1L;
             })
-        .reduce(0, Integer::sum);
+        .reduce(0L, Long::sum);
   }
 }
