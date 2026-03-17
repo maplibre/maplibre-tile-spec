@@ -8,22 +8,7 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
         return Ok(Vec::new());
     }
 
-    #[cfg(feature = "fastpfor-cpp")]
-    {
-        use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
-        let codec = FastPFor256Codec::new();
-        // Over-allocate: FastPFOR may write a header and padding beyond the input length.
-        let mut compressed = vec![0u32; values.len() + 1024];
-        let out = codec.encode32(values, &mut compressed)?;
-
-        // Convert u32 words to big-endian bytes to match the wire format.
-        let mut data = Vec::with_capacity(out.len() * 4);
-        for word in out.iter() {
-            data.extend_from_slice(&word.to_be_bytes());
-        }
-        Ok(data)
-    }
-    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
+    #[cfg(any(feature = "fastpfor-rust", feature = "fastpfor-cpp"))]
     {
         use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
 
@@ -54,8 +39,7 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
 
 /// Decode `FastPFOR`-compressed data using the composite codec protocol.
 ///
-/// The Java MLT encoder uses `Composition(FastPFOR(), VariableByte())`, matching
-/// the C++ `CompositeCodec<FastPFor<8>, VariableByte>`. The wire format is:
+/// The Java MLT encoder uses `Composition(FastPFOR(), VariableByte())`. The wire format is:
 ///
 /// 1. First u32 = number of compressed u32 words from the primary codec (`FastPFor`)
 /// 2. Next N u32 words = primary codec (`FastPFor`) compressed data
