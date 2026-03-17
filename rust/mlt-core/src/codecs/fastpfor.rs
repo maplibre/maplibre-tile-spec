@@ -11,8 +11,8 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
     }
 
     #[cfg(feature = "fastpfor-cpp")]
-{
-   use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
+    {
+        use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
         let codec = FastPFor256Codec::new();
         // Over-allocate: FastPFOR may write a header and padding beyond the input length.
         let mut compressed = vec![0u32; values.len() + 1024];
@@ -24,7 +24,7 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
             data.extend_from_slice(&word.to_be_bytes());
         }
         Ok(data)
-}
+    }
     #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
     {
         use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
