@@ -347,8 +347,7 @@ public class GeometryEncoder {
               encodingOption);
 
       final var encodedVertexDictionaryStream =
-          encodeVertexBuffer(
-              zigZagDeltaVertexDictionary, physicalLevelTechnique);
+          encodeVertexBuffer(zigZagDeltaVertexDictionary, physicalLevelTechnique);
 
       final var data = encodedTopologyStreams;
       data.addAll(encodedVertexOffsetStream);
@@ -710,8 +709,7 @@ public class GeometryEncoder {
               new LogicalStreamType(OffsetType.VERTEX),
               encodingOption);
       final var encodedVertexDictionaryStream =
-          encodeVertexBuffer(
-              zigZagDeltaVertexDictionary, physicalLevelTechnique);
+          encodeVertexBuffer(zigZagDeltaVertexDictionary, physicalLevelTechnique);
 
       result.addAll(encodedVertexOffsetStream);
       result.addAll(encodedVertexDictionaryStream);
@@ -880,8 +878,7 @@ public class GeometryEncoder {
    * Encodes the StreamMetadata and applies the specified physical level technique to the values.
    */
   private static ArrayList<byte[]> encodeVertexBuffer(
-      int[] values, PhysicalLevelTechnique physicalLevelTechnique)
-      throws IOException {
+      int[] values, PhysicalLevelTechnique physicalLevelTechnique) throws IOException {
     final var encodedValues =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
             ? encodeFastPfor(values, false)

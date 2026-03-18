@@ -1,7 +1,6 @@
 package org.maplibre.mlt.converter;
 
 import java.util.Collection;
-import org.apache.commons.lang3.ArrayUtils;
 
 public class CollectionUtils {
   private CollectionUtils() {}

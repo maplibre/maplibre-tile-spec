@@ -149,7 +149,7 @@ public class ConversionConfig {
         useFSST,
         /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         optimizations, // it was null before, now it is used
-    /* preTessellatePolygons= */       preTessellatePolygons,
+        /* preTessellatePolygons= */ preTessellatePolygons,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,

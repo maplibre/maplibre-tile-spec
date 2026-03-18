@@ -103,13 +103,7 @@ public final class CompareHelper {
       }
 
       public Difference build() {
-        return new Difference(
-            message,
-            layerIndex,
-            layerName,
-            featureIndex,
-            items,
-            geometries);
+        return new Difference(message, layerIndex, layerName, featureIndex, items, geometries);
       }
     }
   }

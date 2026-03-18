@@ -74,6 +74,7 @@ public final class MltMetadata {
       this.name = name;
       this.columns = new ArrayList<>();
     }
+
     public FeatureTable(String name, int initialColumnCapacity) {
       this.name = name;
       this.columns = new ArrayList<>(initialColumnCapacity);

@@ -50,7 +50,7 @@ public class MltConverter {
       boolean includeIdIfPresent) {
     // TODO: Allow determining whether ID is present automatically
     return createTilesetMetadata(
-            layerSource,
+        layerSource,
         ConversionConfig.TypeMismatchPolicy.FAIL,
         columnMappingConfig,
         includeIdIfPresent);
@@ -89,7 +89,7 @@ public class MltConverter {
       @Nullable ColumnMappingConfig columnMappingConfig,
       boolean includeIdIfPresent) {
     return createTilesetMetadata(
-            layerSource,
+        layerSource,
         (config != null) ? config.getTypeMismatchPolicy() : null,
         columnMappingConfig,
         includeIdIfPresent);
@@ -107,7 +107,7 @@ public class MltConverter {
       @Nullable List<ColumnMapping> columnMappingConfig,
       boolean includeIdIfPresent) {
     return createTilesetMetadata(
-            layerSource,
+        layerSource,
         (config != null) ? config.getTypeMismatchPolicy() : null,
         ColumnMappingConfig.of(Pattern.compile(".*"), columnMappingConfig),
         includeIdIfPresent);
@@ -218,7 +218,8 @@ public class MltConverter {
     // Add the remaining items in name order for consistent output.
     // Put complex columns after scalar columns to match old behavior.
     columnSchemas.values().stream()
-        .sorted(Comparator.comparing((MltMetadata.Column c) -> (c.complexType != null) ? 1 : 0)
+        .sorted(
+            Comparator.comparing((MltMetadata.Column c) -> (c.complexType != null) ? 1 : 0)
                 .thenComparing(c -> c.name))
         .forEach(featureTableSchema.columns::add);
 
