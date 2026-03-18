@@ -72,7 +72,6 @@ public class PropertyEncoder {
             "The specified data type for the field is currently not supported: " + columnMetadata);
       }
 
-      var a = ByteArrayUtil.totalLength(encodedColumn);
       featureScopedPropertyColumns.addAll(encodedColumn);
     }
 
@@ -383,7 +382,6 @@ public class PropertyEncoder {
 
   private static ArrayList<byte[]> encodeBooleanColumn(
       SequencedCollection<Feature> features, MltMetadata.Column metadata) throws IOException {
-    final var fieldName = metadata.name;
     final var presentStream = metadata.isNullable ? new BitSet(features.size()) : null;
     final var dataStream = new BitSet();
     var dataStreamIndex = 0;
@@ -496,7 +494,6 @@ public class PropertyEncoder {
       boolean isSigned,
       @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
-    final var fieldName = metadata.name;
     final var values = new ArrayList<Integer>(features.size());
     final var presentValues = metadata.isNullable ? new Boolean[features.size()] : null;
     var presentIndex = 0;
@@ -546,7 +543,6 @@ public class PropertyEncoder {
       boolean isSigned,
       @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
-    final var fieldName = metadata.name;
     final var values = new ArrayList<Long>(features.size());
     final var presentValues = metadata.isNullable ? new Boolean[features.size()] : null;
     var presentIndex = 0;
@@ -578,13 +574,5 @@ public class PropertyEncoder {
       result.addAll(0, encodedPresentStream);
     }
     return result;
-  }
-
-  private static Boolean[] bitValues(BitSet bits) {
-    var values = new Boolean[bits.length()];
-    for (int i = 0; i < bits.length(); i++) {
-      values[i] = bits.get(i);
-    }
-    return values;
   }
 }

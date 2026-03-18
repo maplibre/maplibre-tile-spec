@@ -4,7 +4,7 @@ import java.util.Collection;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 
-public class MapLibreTile implements LayerProvider {
+public class MapLibreTile implements LayerSource {
   @NotNull private final Collection<Layer> layers;
 
   public MapLibreTile(@NotNull Collection<Layer> layers) {

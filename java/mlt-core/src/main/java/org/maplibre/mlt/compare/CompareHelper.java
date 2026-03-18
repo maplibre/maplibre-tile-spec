@@ -37,22 +37,12 @@ public final class CompareHelper {
       Optional<String> layerName,
       Optional<Integer> featureIndex,
       Optional<Pair<String, String>> items,
-      Optional<Pair<Layer, Layer>> layers,
-      Optional<Pair<Feature, Feature>> features,
-      Optional<Pair<Object, Object>> propertyValues,
       Optional<Pair<Geometry, Geometry>> geometries) {
     @Override
     public String toString() {
       final var itemStr =
           items.isPresent()
               ? ("MVT: " + items.get().getLeft() + " MLT: " + items.get().getRight())
-              : "";
-      final var propStr =
-          propertyValues.isPresent()
-              ? ("MVT value: "
-                  + String.valueOf(propertyValues.get().getLeft())
-                  + " MLT value: "
-                  + String.valueOf(propertyValues.get().getRight()))
               : "";
       final var geomStr =
           geometries.isPresent()
@@ -63,7 +53,6 @@ public final class CompareHelper {
               : "";
       return (message
           + (itemStr.isEmpty() ? "" : " " + itemStr)
-          + (propStr.isEmpty() ? "" : " " + propStr)
           + (geomStr.isEmpty() ? "" : "\n" + geomStr)
           + (layerIndex.isPresent() ? (" at layer index " + layerIndex.get()) : "")
           + (layerName.isPresent() ? (" in layer '" + layerName.get() + "': ") : "")
@@ -80,10 +69,7 @@ public final class CompareHelper {
       private Optional<Integer> layerIndex = Optional.empty();
       private Optional<String> layerName = Optional.empty();
       private Optional<Integer> featureIndex = Optional.empty();
-      private Optional<Pair<Layer, Layer>> layers = Optional.empty();
-      private Optional<Pair<Feature, Feature>> features = Optional.empty();
       private Optional<Pair<String, String>> items = Optional.empty();
-      private Optional<Pair<Object, Object>> propertyValues = Optional.empty();
       private Optional<Pair<Geometry, Geometry>> geometries = Optional.empty();
 
       public Builder message(@NotNull String message) {
@@ -111,21 +97,6 @@ public final class CompareHelper {
         return this;
       }
 
-      public Builder layers(@NotNull Layer mvt, @NotNull Layer mlt) {
-        this.layers = Optional.of(Pair.of(mvt, mlt));
-        return this;
-      }
-
-      public Builder features(@NotNull Feature mvt, @NotNull Feature mlt) {
-        this.features = Optional.of(Pair.of(mvt, mlt));
-        return this;
-      }
-
-      public Builder propertyValues(@Nullable Object mvt, @Nullable Object mlt) {
-        this.propertyValues = Optional.of(Pair.of(mvt, mlt));
-        return this;
-      }
-
       public Builder geometries(@Nullable Geometry mvt, @Nullable Geometry mlt) {
         this.geometries = Optional.of(Pair.of(mvt, mlt));
         return this;
@@ -138,9 +109,6 @@ public final class CompareHelper {
             layerName,
             featureIndex,
             items,
-            layers,
-            features,
-            propertyValues,
             geometries);
       }
     }

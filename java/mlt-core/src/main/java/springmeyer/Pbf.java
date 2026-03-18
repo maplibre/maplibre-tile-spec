@@ -67,12 +67,10 @@ public class Pbf {
   }
 
   public int readVarint(boolean isSigned) {
-    int val = 0;
-    int b = 0;
-    var buf = this.buf;
+    final var buf = this.buf;
 
-    b = buf[this.pos++];
-    val = b & 0x7f;
+    int b = buf[this.pos++];
+    int val = b & 0x7f;
     if ((b & 0x80) == 0) return val;
     b = buf[this.pos++];
     val |= (b & 0x7f) << 7;
@@ -91,11 +89,8 @@ public class Pbf {
   }
 
   private int readVarintRemainder(int val, boolean isSigned) {
-    int high = 0;
-    int b = 0;
-
-    b = this.buf[this.pos++];
-    high = (b & 0x70) >> 4;
+    int b = this.buf[this.pos++];
+    int high = (b & 0x70) >> 4;
     if ((b & 0x80) == 0) return toNum(val, high, isSigned);
     b = this.buf[this.pos++];
     high |= (b & 0x7f) << 3;

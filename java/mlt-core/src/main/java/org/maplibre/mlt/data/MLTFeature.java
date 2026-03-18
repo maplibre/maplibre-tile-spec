@@ -39,20 +39,6 @@ public class MLTFeature implements Feature {
     return geometry;
   }
 
-  public Map<String, Object> getRawProperties() {
-    return properties;
-  }
-
-  @Override
-  public int getPropertyCount() {
-    return properties.size();
-  }
-
-  @Override
-  public Stream<String> getPropertyKeys() {
-    return properties.entrySet().stream().map(Map.Entry::getKey);
-  }
-
   @Override
   public Optional<Property> findProperty(String name) {
     return Optional.ofNullable(properties.get(name)).map(value -> adapt(name, value));

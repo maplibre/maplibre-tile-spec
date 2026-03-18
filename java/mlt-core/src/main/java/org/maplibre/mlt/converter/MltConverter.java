@@ -31,7 +31,7 @@ import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.converter.encodings.PropertyEncoder;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
-import org.maplibre.mlt.data.LayerProvider;
+import org.maplibre.mlt.data.LayerSource;
 import org.maplibre.mlt.data.Property;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
@@ -41,31 +41,31 @@ public class MltConverter {
   /// Create tileset metadata from source data
   /// Note that this method will read through all features of all layers to infer the column
   /// data types, nullability, etc., it's preferable to construct the metadata from a schema.
-  /// @param layerProvider The input tile to create metadata from
+  /// @param layerSource The input tile to create metadata from
   /// @param columnMappingConfig Optional column mapping configuration
   /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      @NotNull LayerProvider layerProvider,
+      @NotNull LayerSource layerSource,
       @Nullable ColumnMappingConfig columnMappingConfig,
       boolean includeIdIfPresent) {
     // TODO: Allow determining whether ID is present automatically
     return createTilesetMetadata(
-        layerProvider,
+            layerSource,
         ConversionConfig.TypeMismatchPolicy.FAIL,
         columnMappingConfig,
         includeIdIfPresent);
   }
 
   /// Create tileset metadata from source data
-  /// See {@link #createTilesetMetadata(LayerProvider, ColumnMappingConfig, boolean)}
-  /// @param layerProvider The input tile to create metadata from
+  /// See {@link #createTilesetMetadata(LayerSource, ColumnMappingConfig, boolean)}
+  /// @param layerSource The input tile to create metadata from
   /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
   /// @param includeIdIfPresent Whether to include an ID column
   /// @param enableCoerceOnMismatch Whether to coerce values to string on type mismatch
   /// @param enableElideOnMismatch Whether to elide values on type mismatch (for each property, the
   /// first type encountered is used)
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      @NotNull LayerProvider layerProvider,
+      @NotNull LayerSource layerSource,
       @Nullable ColumnMappingConfig columnMappingConfig,
       boolean includeIdIfPresent,
       boolean enableCoerceOnMismatch,
@@ -74,59 +74,59 @@ public class MltConverter {
         ConversionConfig.builder()
             .mismatchPolicy(enableCoerceOnMismatch, enableElideOnMismatch)
             .build();
-    return createTilesetMetadata(layerProvider, config, columnMappingConfig, includeIdIfPresent);
+    return createTilesetMetadata(layerSource, config, columnMappingConfig, includeIdIfPresent);
   }
 
   /// Create tileset metadata from source data
-  /// See {@link #createTilesetMetadata(LayerProvider, ColumnMappingConfig, boolean)}
-  /// @param layerProvider The input tile to create metadata from
+  /// See {@link #createTilesetMetadata(LayerSource, ColumnMappingConfig, boolean)}
+  /// @param layerSource The input tile to create metadata from
   /// @param config Optional configuration
   /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
   /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      @NotNull LayerProvider layerProvider,
+      @NotNull LayerSource layerSource,
       @Nullable ConversionConfig config,
       @Nullable ColumnMappingConfig columnMappingConfig,
       boolean includeIdIfPresent) {
     return createTilesetMetadata(
-        layerProvider,
+            layerSource,
         (config != null) ? config.getTypeMismatchPolicy() : null,
         columnMappingConfig,
         includeIdIfPresent);
   }
 
   /// Create tileset metadata from source data
-  /// See {@link #createTilesetMetadata(LayerProvider, ColumnMappingConfig, boolean)}
-  /// @param layerProvider The input tile to create metadata from
+  /// See {@link #createTilesetMetadata(LayerSource, ColumnMappingConfig, boolean)}
+  /// @param layerSource The input tile to create metadata from
   /// @param config Optional configuration
   /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
   /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      @NotNull LayerProvider layerProvider,
+      @NotNull LayerSource layerSource,
       @Nullable ConversionConfig config,
       @Nullable List<ColumnMapping> columnMappingConfig,
       boolean includeIdIfPresent) {
     return createTilesetMetadata(
-        layerProvider,
+            layerSource,
         (config != null) ? config.getTypeMismatchPolicy() : null,
         ColumnMappingConfig.of(Pattern.compile(".*"), columnMappingConfig),
         includeIdIfPresent);
   }
 
   /// Create tileset metadata from source data
-  /// See {@link #createTilesetMetadata(LayerProvider, ColumnMappingConfig, boolean)}
-  /// @param layerProvider The input tile to create metadata from
+  /// See {@link #createTilesetMetadata(LayerSource, ColumnMappingConfig, boolean)}
+  /// @param layerSource The input tile to create metadata from
   /// @param typeMismatchPolicy Policy for handling type mismatches
   /// @param columnMappingConfig Optional column mapping configuration
   /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      @NotNull LayerProvider layerProvider,
+      @NotNull LayerSource layerSource,
       @NotNull ConversionConfig.TypeMismatchPolicy typeMismatchPolicy,
       @Nullable ColumnMappingConfig columnMappingConfig,
       boolean includeIdIfPresent) {
     final var tileset = new MltMetadata.TileSetMetadata();
     tileset.featureTables =
-        layerProvider
+        layerSource
             .getLayerStream()
             .map(
                 layer ->
@@ -194,7 +194,8 @@ public class MltConverter {
           .ifPresent(name -> columnSchemas.put(name, column));
     }
 
-    final var featureTableSchema = new MltMetadata.FeatureTable(layer.name());
+    final var estimatedColumns = 2 + columnSchemas.size() + complexPropertyColumnSchemas.size();
+    final var featureTableSchema = new MltMetadata.FeatureTable(layer.name(), estimatedColumns);
 
     // If present, `id` must be the first column
     if (columnSchemas.values().stream().anyMatch(MltTypeMap.Tag0x01::isID)) {
@@ -217,14 +218,11 @@ public class MltConverter {
     // Add the remaining items in name order for consistent output.
     // Put complex columns after scalar columns to match old behavior.
     columnSchemas.values().stream()
-        .sorted(Comparator.comparing(MltConverter::complexOrder).thenComparing(c -> c.name))
+        .sorted(Comparator.comparing((MltMetadata.Column c) -> (c.complexType != null) ? 1 : 0)
+                .thenComparing(c -> c.name))
         .forEach(featureTableSchema.columns::add);
 
     return featureTableSchema;
-  }
-
-  private static int complexOrder(MltMetadata.Column c) {
-    return (c.complexType != null) ? 1 : 0;
   }
 
   private static void resolveColumnType(
@@ -510,7 +508,7 @@ public class MltConverter {
    * @throws IOException
    */
   public static byte[] encode(
-      LayerProvider sourceLayers,
+      LayerSource sourceLayers,
       MltMetadata.TileSetMetadata tilesetMetadata,
       ConversionConfig config,
       @Nullable URI tessellateSource)
@@ -532,7 +530,7 @@ public class MltConverter {
    * @throws IOException
    */
   public static <T extends OutputStream> T encode(
-      @NotNull LayerProvider sourceLayers,
+      @NotNull LayerSource sourceLayers,
       @NotNull MltMetadata.TileSetMetadata tilesetMetadata,
       @NotNull ConversionConfig config,
       @Nullable URI tessellateSource,

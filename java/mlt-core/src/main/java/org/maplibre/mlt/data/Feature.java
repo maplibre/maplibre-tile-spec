@@ -17,14 +17,8 @@ public interface Feature {
   @NotNull
   Geometry getGeometry();
 
-  int getPropertyCount();
-
   default Iterable<Property> getProperties() {
     return () -> getPropertyStream().iterator();
-  }
-
-  default Stream<String> getPropertyKeys() {
-    return getPropertyStream().map(Property::getName);
   }
 
   default Stream<Property> getPropertyStream() {

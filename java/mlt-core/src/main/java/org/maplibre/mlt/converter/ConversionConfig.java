@@ -149,7 +149,7 @@ public class ConversionConfig {
         useFSST,
         /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         optimizations, // it was null before, now it is used
-        /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
+    /* preTessellatePolygons= */       preTessellatePolygons,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
@@ -169,22 +169,6 @@ public class ConversionConfig {
         useFSST,
         /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         optimizations,
-        /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
-        /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
-        /* outlineFeatureTableNames= */ null,
-        /* layerFilterPattern= */ null,
-        /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
-        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
-  }
-
-  public ConversionConfig(boolean includeIds, boolean useAdvancedEncodingSchemes) {
-    this(
-        includeIds,
-        /* useFastPFOR= */ DEFAULT_USE_FAST_PFOR,
-        /* useFSST= */ DEFAULT_USE_FSST,
-        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
-        /* optimizations= */ null,
         /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
         /* outlineFeatureTableNames= */ null,

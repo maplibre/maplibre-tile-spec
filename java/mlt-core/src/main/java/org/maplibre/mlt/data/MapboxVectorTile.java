@@ -6,7 +6,7 @@ import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
 import org.jetbrains.annotations.NotNull;
 
-public class MapboxVectorTile implements LayerProvider {
+public class MapboxVectorTile implements LayerSource {
   private @NotNull SequencedCollection<Layer> layers;
   private @Nullable Triple<Integer, Integer, Integer> tileId;
 

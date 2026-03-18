@@ -48,16 +48,6 @@ public class MVTFeature implements Feature {
   }
 
   @Override
-  public int getPropertyCount() {
-    return properties.size();
-  }
-
-  @Override
-  public Stream<String> getPropertyKeys() {
-    return properties.entrySet().stream().map(Map.Entry::getKey);
-  }
-
-  @Override
   public Optional<Property> findProperty(String name) {
     return Optional.ofNullable(properties.get(name)).map(value -> adapt(name, value));
   }
@@ -86,16 +76,16 @@ public class MVTFeature implements Feature {
     return makeField(
         switch (value) {
           case null -> MltMetadata.ScalarType.UNRECOGNIZED;
-          case String s -> MltMetadata.ScalarType.STRING;
-          case Boolean b -> MltMetadata.ScalarType.BOOLEAN;
-          case Double d -> MltMetadata.ScalarType.DOUBLE;
-          case Float f -> MltMetadata.ScalarType.FLOAT;
-          case U8 i -> MltMetadata.ScalarType.UINT_8;
-          case Integer i -> MltMetadata.ScalarType.INT_32;
-          case U32 i -> MltMetadata.ScalarType.UINT_32;
+          case String ignored -> MltMetadata.ScalarType.STRING;
+          case Boolean ignored -> MltMetadata.ScalarType.BOOLEAN;
+          case Double ignored -> MltMetadata.ScalarType.DOUBLE;
+          case Float ignored -> MltMetadata.ScalarType.FLOAT;
+          case U8 ignored -> MltMetadata.ScalarType.UINT_8;
+          case Integer ignored -> MltMetadata.ScalarType.INT_32;
+          case U32 ignored -> MltMetadata.ScalarType.UINT_32;
           case Long l ->
               (l.intValue() == l) ? MltMetadata.ScalarType.INT_32 : MltMetadata.ScalarType.INT_64;
-          case U64 i -> MltMetadata.ScalarType.UINT_64;
+          case U64 ignored -> MltMetadata.ScalarType.UINT_64;
           case BigInteger i ->
               (i.intValue() == i.longValue())
                   ? MltMetadata.ScalarType.INT_32
