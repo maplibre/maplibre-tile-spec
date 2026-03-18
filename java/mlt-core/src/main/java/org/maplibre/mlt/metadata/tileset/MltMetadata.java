@@ -46,11 +46,11 @@ public final class MltMetadata {
   }
 
   public enum LogicalComplexType {
-    /** physical type: list<UInt8> */
+    /** physical type: list&lt;UInt8&gt; */
     BINARY,
     /**
-     * physical type: map<vec2<double, T>> -> special data structure which can be used for an
-     * efficient representation of linear referencing
+     * physical type: map&lt;vec2&lt;double, T&gt;&gt; -&gt; special data structure which can be
+     * used for an efficient representation of linear referencing
      */
     RANGE_MAP,
     UNRECOGNIZED
