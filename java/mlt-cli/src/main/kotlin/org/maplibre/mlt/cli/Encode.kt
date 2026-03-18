@@ -15,6 +15,7 @@ import org.maplibre.mlt.converter.mvt.MvtUtils
 import org.maplibre.mlt.decoder.MltDecoder
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
 import java.net.URI
@@ -237,7 +238,18 @@ object Encode {
     ) {
         val willCompare = config.compareMode != CompareMode.None
         val inputTilePath = Paths.get(tileFileName)
-        val decodedMvTile = MvtUtils.decodeMvt(inputTilePath)
+        val tileData =
+            Files.readAllBytes(inputTilePath).let {
+                try {
+                    decompress(ByteArrayInputStream(it))
+                } catch (ex: IOException) {
+                    org.maplibre.mlt.cli.logger
+                        .error("Failed to decompress tile {}", tileFileName, ex)
+                    return
+                }
+            }
+
+        val decodedMvTile = MvtUtils.decodeMvt(tileData)
 
         val willTime = config.willTime
         val timer = if (willTime) Timer() else null
