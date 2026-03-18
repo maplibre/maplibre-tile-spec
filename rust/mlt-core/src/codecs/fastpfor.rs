@@ -1,3 +1,5 @@
+use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
+
 use crate::{Decoder, MltError};
 
 /// Encode a `u32` sequence using `FastPFOR256` (composite codec).
@@ -23,10 +25,8 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
         }
         Ok(data)
     }
-    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
+    #[cfg(not(feature = "fastpfor-cpp"))]
     {
-        use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
-
         // Over-allocate: FastPFOR may write a header and padding beyond the input length.
         let mut compressed = vec![0u32; values.len() + 1024];
         let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
@@ -54,8 +54,7 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
 
 /// Decode `FastPFOR`-compressed data using the composite codec protocol.
 ///
-/// The Java MLT encoder uses `Composition(FastPFOR(), VariableByte())`, matching
-/// the C++ `CompositeCodec<FastPFor<8>, VariableByte>`. The wire format is:
+/// The Java MLT encoder uses `Composition(FastPFOR(), VariableByte())`. The wire format is:
 ///
 /// 1. First u32 = number of compressed u32 words from the primary codec (`FastPFor`)
 /// 2. Next N u32 words = primary codec (`FastPFor`) compressed data
@@ -95,30 +94,18 @@ pub fn decode_fastpfor_composite(
     let buf_size = num_values + 1024;
     let mut result = vec![0u32; buf_size];
 
-    #[cfg(feature = "fastpfor-cpp")]
-    let decoded_len = {
-        use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
-        // The fastpfor crate's FastPFor256Codec is already a CompositeCodec<FastPFor<8>, VariableByte>.
-        // It handles the full Composition protocol internally (FastPFor header + VByte remainder).
-        FastPFor256Codec::new().decode32(&input, &mut result)?.len()
-    };
-    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
-    let decoded_len = {
-        use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
+    let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
+    let mut output_offset = std::io::Cursor::new(0u32);
 
-        let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
-        let mut output_offset = std::io::Cursor::new(0u32);
+    comp.uncompress(
+        &input,
+        u32::try_from(input.len())?,
+        &mut std::io::Cursor::new(0u32),
+        &mut result,
+        &mut output_offset,
+    )?;
 
-        comp.uncompress(
-            &input,
-            u32::try_from(input.len())?,
-            &mut std::io::Cursor::new(0u32),
-            &mut result,
-            &mut output_offset,
-        )?;
-
-        usize::try_from(output_offset.position())?
-    };
+    let decoded_len = usize::try_from(output_offset.position())?;
 
     let Some(adjustment) = decoded_len
         .checked_sub(num_values)

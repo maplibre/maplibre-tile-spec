@@ -35,7 +35,6 @@ required-features = ["__private"]
 default = ["fastpfor-cpp"]
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
 fastpfor-cpp  = ["fastpfor/cpp_portable"]
-fastpfor-rust = ["fastpfor/rust"]
 # Used internally for testing and benchmarking, not intended for public use
 __private = []
 
