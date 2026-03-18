@@ -1,4 +1,4 @@
-package org.maplibre.mlt.converter.mvt;
+package org.maplibre.mlt.converter;
 
 import java.util.Collection;
 import java.util.Collections;

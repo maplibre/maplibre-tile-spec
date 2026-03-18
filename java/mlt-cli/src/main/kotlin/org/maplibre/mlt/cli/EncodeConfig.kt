@@ -1,8 +1,8 @@
 package org.maplibre.mlt.cli
 
 import org.maplibre.mlt.compare.CompareHelper.CompareMode
+import org.maplibre.mlt.converter.ColumnMappingConfig
 import org.maplibre.mlt.converter.ConversionConfig
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig
 import java.net.URI
 import java.util.regex.Pattern
 

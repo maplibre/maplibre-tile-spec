@@ -16,6 +16,7 @@ import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.MLTFeature;
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
@@ -159,7 +160,7 @@ public class MltDecoder {
     }
     var features = new ArrayList<Feature>(geometries.length);
     for (var j = 0; j < geometries.length; j++) {
-      var p = new HashMap<String, Object>();
+      final var p = new HashMap<String, Object>();
       for (var propertyColumn : properties.entrySet()) {
         if (propertyColumn.getValue() == null) {
           p.put(propertyColumn.getKey(), null);
@@ -168,12 +169,12 @@ public class MltDecoder {
           p.put(propertyColumn.getKey(), v);
         }
       }
-      final Long idValue = (ids != null) ? ids.get(j) : null;
-      var feature =
-          (idValue != null)
-              ? new Feature(idValue, geometries[j], p)
-              : new Feature(geometries[j], p);
-      features.add(feature);
+      features.add(
+          MLTFeature.builder()
+              .id((ids != null) ? ids.get(j) : null)
+              .geometry(geometries[j])
+              .properties(p)
+              .build());
     }
 
     return new Layer(metadata.name, features, tileExtent);
@@ -184,17 +185,19 @@ public class MltDecoder {
     final var column = MltTypeMap.Tag0x01.decodeColumnType(typeCode);
 
     if (MltTypeMap.Tag0x01.columnTypeHasName(typeCode)) {
-      column.name = DecodingUtils.decodeString(stream);
+      column.name(DecodingUtils.decodeString(stream)).build();
     }
 
     if (MltTypeMap.Tag0x01.columnTypeHasChildren(typeCode)) {
       final var childCount = DecodingUtils.decodeVarint(stream);
+      final var children = new ArrayList<MltMetadata.Field>(childCount);
       for (var i = 0; i < childCount; ++i) {
-        column.complexType.children.add(decodeColumn(stream));
+        children.add(decodeColumn(stream));
       }
+      column.struct(children);
     }
 
-    return column;
+    return column.build();
   }
 
   public static Pair<MltMetadata.FeatureTable, Integer> parseEmbeddedMetadata(InputStream stream)

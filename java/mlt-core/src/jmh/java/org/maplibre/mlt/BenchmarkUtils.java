@@ -9,15 +9,17 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
+import org.maplibre.mlt.converter.ColumnMapping;
+import org.maplibre.mlt.converter.ColumnMappingConfig;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.data.MapboxVectorTile;
 
 public class BenchmarkUtils {
+  private BenchmarkUtils() {}
 
   public static void encodeTile(
       int z,
@@ -30,28 +32,29 @@ public class BenchmarkUtils {
       String path,
       String separator)
       throws IOException {
-    var encodedMvtTile = getMvtFile(z, x, y, path, separator);
+    final var encodedMvtTile = getMvtFile(z, x, y, path, separator);
     encodedMvtTiles.put(z, encodedMvtTile.getLeft());
     encodedMvtTiles2.put(z, new ByteArrayInputStream(encodedMvtTile.getLeft()));
     compressedMvtTiles.put(z, EncodingUtils.gzip(encodedMvtTile.getLeft()));
 
-    var columnMapping = new ColumnMapping("name", ":", true);
-    var columnMappings = List.of(columnMapping);
-    var columnMappingMap = Map.of(Pattern.compile(".*"), columnMappings);
+    final var columnMapping = new ColumnMapping("name", ":", true);
+    final var columnMappings = List.of(columnMapping);
+    final var columnMappingMap = ColumnMappingConfig.of(Pattern.compile(".*"), columnMappings);
     final var isIdPresent = true;
-    var metadata =
+    final var metadata =
         MltConverter.createTilesetMetadata(
             encodedMvtTile.getRight(), columnMappingMap, isIdPresent);
 
-    var allowIdRegeneration = true;
-    var allowSorting = true;
-    var optimization =
+    final var allowIdRegeneration = true;
+    final var allowSorting = true;
+    final var optimization =
         new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
-    var optimizations =
+    final var optimizations =
         TestSettings.OPTIMIZED_MVT_LAYERS.stream()
             .collect(Collectors.toMap(l -> l, l -> optimization));
-    var config = new ConversionConfig(true, true, true, optimizations);
-    var encodedMltTile = MltConverter.convertMvt(encodedMvtTile.getRight(), metadata, config, null);
+    final var config = new ConversionConfig(true, true, true, optimizations);
+    final var encodedMltTile =
+        MltConverter.encode(encodedMvtTile.getRight(), metadata, config, null);
     encodedMltTiles.put(z, encodedMltTile);
   }
 

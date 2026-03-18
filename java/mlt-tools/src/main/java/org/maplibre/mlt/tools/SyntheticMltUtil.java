@@ -25,14 +25,15 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.maplibre.mlt.cli.JsonHelper;
+import org.maplibre.mlt.converter.ColumnMapping;
+import org.maplibre.mlt.converter.ColumnMappingConfig;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.MLTFeature;
+import org.maplibre.mlt.data.MapboxVectorTile;
 import org.maplibre.mlt.decoder.MltDecoder;
 
 /** Utility helpers for synthetic MLT generation. */
@@ -237,21 +238,21 @@ class SyntheticMltUtil {
   }
 
   static Feature feat(Geometry geom) {
-    return new Feature(geom, Map.of());
+    return MLTFeature.builder().geometry(geom).build();
   }
 
-  static Feature feat(Geometry geom, Map<String, Object> props) {
-    return new Feature(geom, props);
+  static MLTFeature feat(Geometry geom, Map<String, Object> props) {
+    return MLTFeature.builder().geometry(geom).properties(props).build();
   }
 
   /** for testing IDs - always use the same geometry */
   static Feature idFeat(long id) {
-    return new Feature(id, p0, Map.of());
+    return MLTFeature.builder().id(id).geometry(p0).build();
   }
 
   /** for testing IDs - simulate missing ID */
   static Feature idFeat() {
-    return new Feature(p0, Map.of());
+    return feat(p0);
   }
 
   static Layer layer(String name, Feature... features) {
@@ -296,7 +297,7 @@ class SyntheticMltUtil {
 
       var metadata =
           MltConverter.createTilesetMetadata(tile, columnMappings, config.getIncludeIds());
-      var mlt = MltConverter.convertMvt(tile, metadata, config, null);
+      var mlt = MltConverter.encode(tile, metadata, config, null);
       Files.write(mltFile, mlt, StandardOpenOption.CREATE_NEW);
 
       final String json = JsonHelper.toGeoJson(MltDecoder.decodeMlTile(mlt)) + "\n";

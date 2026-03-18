@@ -10,10 +10,10 @@ import org.apache.commons.compress.compressors.gzip.GzipParameters
 import org.apache.commons.lang3.mutable.MutableBoolean
 import org.maplibre.mlt.compare.CompareHelper
 import org.maplibre.mlt.compare.CompareHelper.CompareMode
+import org.maplibre.mlt.converter.ColumnMapping
 import org.maplibre.mlt.converter.ConversionConfig
 import org.maplibre.mlt.converter.FeatureTableOptimizations
 import org.maplibre.mlt.converter.MltConverter
-import org.maplibre.mlt.converter.mvt.ColumnMapping
 import org.maplibre.mlt.converter.mvt.MvtUtils
 import org.maplibre.mlt.decoder.MltDecoder
 import org.maplibre.mlt.metadata.tileset.MltMetadata
@@ -124,11 +124,12 @@ fun logColumnMappings(
 
     for (table in metadata.featureTables) {
         for (column in table.columns) {
-            if (column.complexType != null &&
-                column.complexType.physicalType == MltMetadata.ComplexType.STRUCT
+            val complex = column.complexType
+            if (complex != null &&
+                complex.physicalType == MltMetadata.ComplexType.STRUCT
             ) {
                 val mappings =
-                    column.complexType.children
+                    complex.children
                         .map { child -> column.name + child.name }
                         .toSortedSet()
                         .joinToString(", ")
@@ -199,7 +200,7 @@ fun convertTile(
 
         // Convert the tile using the updated configuration and tessellation source.
         var tileData =
-            MltConverter.convertMvt(
+            MltConverter.encode(
                 decodedMvTile,
                 metadata,
                 targetConfig,
