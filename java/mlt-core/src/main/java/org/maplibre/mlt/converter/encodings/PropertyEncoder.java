@@ -24,6 +24,7 @@ import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
 import org.maplibre.mlt.metadata.stream.StreamMetadata;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 import org.maplibre.mlt.util.ByteArrayUtil;
+import org.maplibre.mlt.util.StreamUtil;
 
 public class PropertyEncoder {
 
@@ -117,12 +118,12 @@ public class PropertyEncoder {
           features.stream()
               .map(
                   mvtFeature ->
-                      (String)
-                          mvtFeature
-                              .findProperty(propertyName)
-                              .filter(p -> p.getType() == MltMetadata.ScalarType.STRING)
-                              .map(Property::getValue)
-                              .orElse(null))
+                      mvtFeature
+                          .findProperty(propertyName)
+                          .filter(p -> p.getType() == MltMetadata.ScalarType.STRING)
+                          .map(Property::getValue)
+                          .flatMap(StreamUtil.optionalOfType(String.class))
+                          .orElse(null))
               .collect(Collectors.toList()));
     }
 

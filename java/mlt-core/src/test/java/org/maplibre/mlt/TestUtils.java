@@ -1,11 +1,8 @@
 package org.maplibre.mlt;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.SequencedCollection;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.compare.CompareHelper;
 import org.maplibre.mlt.data.Feature;
@@ -42,20 +39,6 @@ public class TestUtils {
         .reduce(0, Integer::sum);
   }
 
-  /// Helper method to filter and cast stream elements, for use with `Stream.flatMap`
-  public static <Target extends Base, Base> Function<Base, Stream<Target>> ofType(
-      @SuppressWarnings("SameParameterValue") Class<Target> targetType) {
-    return value ->
-        targetType.isInstance(value) ? Stream.of(targetType.cast(value)) : Stream.empty();
-  }
-
-  /// Helper method to filter Optional values by type, for use with `Optional.flatMap`
-  public static <Target extends Base, Base> Function<Base, Optional<Target>> optionalOfType(
-      @SuppressWarnings("SameParameterValue") Class<Target> targetType) {
-    return value ->
-        targetType.isInstance(value) ? Optional.of(targetType.cast(value)) : Optional.empty();
-  }
-
   public static interface TileFilter {
     default boolean test(Layer layer, Feature feature, String propertyKey, Object propertyValue) {
       return true;
@@ -82,7 +65,7 @@ public class TestUtils {
                         layer.name(),
                         layer.features().stream()
                             .filter(feature -> filter.test(layer, feature))
-                            .flatMap(ofType(MVTFeature.class))
+                            .flatMap(StreamUtil.ofType(MVTFeature.class))
                             .map(
                                 feature ->
                                     feature

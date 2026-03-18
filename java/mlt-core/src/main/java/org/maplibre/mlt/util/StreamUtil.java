@@ -2,10 +2,12 @@ package org.maplibre.mlt.util;
 
 import java.util.Iterator;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.commons.lang3.tuple.Pair;
@@ -103,5 +105,27 @@ public final class StreamUtil {
               return 1L;
             })
         .reduce(0L, Long::sum);
+  }
+
+  /// Filter a stream of objects by those that are of the given type or a subtype.
+  /// Intended for use with `Stream.flatMap` to safely change the type within a sequence of chained
+  /// operations.
+  /// @param targetType the type to filter by
+  /// @return A stream of the target type
+  public static <Target extends Base, Base> Function<Base, Stream<Target>> ofType(
+      Class<Target> targetType) {
+    return value ->
+        targetType.isInstance(value) ? Stream.of(targetType.cast(value)) : Stream.empty();
+  }
+
+  /// The equivalent of #ofType for stream-like operations on optional values.
+  /// Intended for use with `Optional.flatMap` to safelyt change the type within a sequence of
+  /// chained operations.
+  /// @param targetType the type
+  /// @return An optional of the target type if the value is of that type, otherwise empty
+  public static <Target extends Base, Base> Function<Base, Optional<Target>> optionalOfType(
+      Class<Target> targetType) {
+    return value ->
+        targetType.isInstance(value) ? Optional.of(targetType.cast(value)) : Optional.empty();
   }
 }

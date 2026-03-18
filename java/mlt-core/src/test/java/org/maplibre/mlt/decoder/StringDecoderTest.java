@@ -29,6 +29,7 @@ import org.maplibre.mlt.data.Property;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 import org.maplibre.mlt.util.ByteArrayUtil;
+import org.maplibre.mlt.util.StreamUtil;
 
 public class StringDecoderTest {
 
@@ -257,7 +258,7 @@ public class StringDecoderTest {
                     feature
                         .getPropertyStream()
                         .map(Property::getValue)
-                        .flatMap(TestUtils.ofType(String.class)))
+                        .flatMap(StreamUtil.ofType(String.class)))
             .toList();
     final var encodedValues = encodeSharedDictionary(List.of(values), technique, false);
     final var isNullable = true;
@@ -326,11 +327,11 @@ public class StringDecoderTest {
       var values = new ArrayList<String>();
       for (var feature : layer.features()) {
         values.add(
-            (String)
-                feature
-                    .findProperty(fieldMetadata.name + column.name, MltMetadata.ScalarType.STRING)
-                    .map(Property::getValue)
-                    .orElse(null));
+            feature
+                .findProperty(fieldMetadata.name + column.name, MltMetadata.ScalarType.STRING)
+                .map(Property::getValue)
+                .flatMap(StreamUtil.optionalOfType(String.class))
+                .orElse(null));
       }
       sharedValues.add(values);
     }
@@ -349,11 +350,11 @@ public class StringDecoderTest {
       for (var feature : layer.features()) {
         final var propertyName = fieldMetadata.name + column.name;
         final var expectedValue =
-            (String)
-                feature
-                    .findProperty(propertyName, MltMetadata.ScalarType.STRING)
-                    .map(Property::getValue)
-                    .orElse(null);
+            feature
+                .findProperty(propertyName, MltMetadata.ScalarType.STRING)
+                .map(Property::getValue)
+                .flatMap(StreamUtil.optionalOfType(String.class))
+                .orElse(null);
         final var field = decodedValues.get(propertyName);
         Assert.isTrue(expectedValue == null || field != null);
         final var actualValue = field.get(i++);

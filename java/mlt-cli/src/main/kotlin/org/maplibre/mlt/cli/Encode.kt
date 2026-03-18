@@ -243,8 +243,7 @@ object Encode {
                 try {
                     decompress(ByteArrayInputStream(it))
                 } catch (ex: IOException) {
-                    org.maplibre.mlt.cli.logger
-                        .error("Failed to decompress tile {}", tileFileName, ex)
+                    logger.error("Failed to decompress tile {}", tileFileName, ex)
                     return
                 }
             }
