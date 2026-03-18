@@ -414,16 +414,27 @@ private fun processTileRange(
     // Convert to MLT and optionally re-compress
     val didCompress = MutableBoolean()
     val mltData =
-        convertTile(
-            firstTileCoord.x().toLong(),
-            firstTileCoord.y().toLong(),
-            firstTileCoord.z(),
-            tileData,
-            state.encodeConfig,
-            Optional.empty<Double>(), // compress even if it increases the size
-            Optional.empty<Long>(),
-            didCompress,
-        )
+        try {
+            convertTile(
+                firstTileCoord.x().toLong(),
+                firstTileCoord.y().toLong(),
+                firstTileCoord.z(),
+                tileData,
+                state.encodeConfig,
+                Optional.empty<Double>(), // compress even if it increases the size
+                Optional.empty<Long>(),
+                didCompress,
+            )
+        } catch (ex: Exception) {
+            logger.error(
+                "Error processing tile range {} +{}",
+                getTileLabel(firstTileCoord),
+                tileCoords.size - 1,
+                ex,
+            )
+            state.success.set(false)
+            return false
+        }
     state.tilesConverted.incrementAndGet()
 
     // Write the result for all the tile coordinates in the range
