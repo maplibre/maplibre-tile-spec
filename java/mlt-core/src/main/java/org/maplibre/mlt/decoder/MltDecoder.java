@@ -185,17 +185,19 @@ public class MltDecoder {
     final var column = MltTypeMap.Tag0x01.decodeColumnType(typeCode);
 
     if (MltTypeMap.Tag0x01.columnTypeHasName(typeCode)) {
-      column.name = DecodingUtils.decodeString(stream);
+      column.name(DecodingUtils.decodeString(stream)).build();
     }
 
     if (MltTypeMap.Tag0x01.columnTypeHasChildren(typeCode)) {
       final var childCount = DecodingUtils.decodeVarint(stream);
+      final var children = new ArrayList<MltMetadata.Field>(childCount);
       for (var i = 0; i < childCount; ++i) {
-        column.complexType.children.add(decodeColumn(stream));
+        children.add(decodeColumn(stream));
       }
+      column.struct(children);
     }
 
-    return column;
+    return column.build();
   }
 
   public static Pair<MltMetadata.FeatureTable, Integer> parseEmbeddedMetadata(InputStream stream)

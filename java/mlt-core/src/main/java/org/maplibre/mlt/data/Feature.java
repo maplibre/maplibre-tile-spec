@@ -50,8 +50,6 @@ public interface Feature {
     return hasId() ? getId() : null;
   }
 
-  // @NotNull
-  // Builder asBuilder();
   @NotNull
   <B extends Builder<B, F>, F extends Feature> Builder<B, F> asBuilder();
 

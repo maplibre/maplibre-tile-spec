@@ -93,12 +93,12 @@ public class MVTFeature implements Feature {
           default ->
               throw new IllegalArgumentException(
                   "Unsupported property value type: " + value.getClass());
-        });
+        },
+        true);
   }
 
-  private static MltMetadata.FieldType makeField(MltMetadata.ScalarType type) {
-    final var isNullable = true;
-    return new MltMetadata.FieldType(new MltMetadata.ScalarField(type), isNullable);
+  private static MltMetadata.FieldType makeField(MltMetadata.ScalarType type, boolean isNullable) {
+    return MltMetadata.fieldBuilder().scalar(type).nullable(isNullable).build();
   }
 
   @Override

@@ -20,13 +20,13 @@ public class MltTypeMapTest {
       if (valid.contains(i)) {
         final var typeCode = i;
         Assertions.assertDoesNotThrow(
-            () -> columns[0] = MltTypeMap.Tag0x01.decodeColumnType(typeCode));
+            () -> columns[0] = MltTypeMap.Tag0x01.decodeColumnType(typeCode).build());
       } else {
         final var typeCode = i;
         Assertions.assertThrows(
             IllegalStateException.class,
             () -> {
-              columns[0] = MltTypeMap.Tag0x01.decodeColumnType(typeCode);
+              columns[0] = MltTypeMap.Tag0x01.decodeColumnType(typeCode).build();
             });
         continue;
       }
@@ -38,8 +38,10 @@ public class MltTypeMapTest {
         Assertions.assertNotNull(column.complexType);
         Assertions.assertNotNull(column.complexType.children);
         column.complexType.children.add(
-            new MltMetadata.Field(
-                null, new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING), true));
+            MltMetadata.fieldBuilder()
+                .scalar(MltMetadata.ScalarType.STRING)
+                .nullable(true)
+                .build());
       }
 
       final boolean complex = column.complexType != null;
