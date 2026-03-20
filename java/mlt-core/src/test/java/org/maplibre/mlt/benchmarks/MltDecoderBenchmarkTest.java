@@ -204,7 +204,15 @@ public class MltDecoderBenchmarkTest {
             optimization);
     var mlTile =
         MltConverter.encode(
-            mvTile, tileMetadata, new ConversionConfig(true, true, true, optimizations), null);
+            mvTile,
+            tileMetadata,
+            ConversionConfig.builder()
+                .includeIds(true)
+                .useFastPFOR(true)
+                .useFSST(true)
+                .optimizations(optimizations)
+                .build(),
+            null);
 
     var mltTimeElapsed = 0L;
     for (int i = 0; i < BENCHMARK_ITERATIONS; i++) {

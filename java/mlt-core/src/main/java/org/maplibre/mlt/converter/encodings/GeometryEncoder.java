@@ -808,14 +808,14 @@ public class GeometryEncoder {
 
   private static Pair<List<Integer>, List<Vertex>> addVerticesToDictionary(
       List<Vertex> vertices, HilbertCurve hilbertCurve) {
-    ArrayList<Indexed> vertexDictionary = new ArrayList<>();
+    ArrayList<Indexed> vertexDictionary = new ArrayList<>(vertices.size());
     for (var vertex : vertices) {
       var hilbertId = hilbertCurve.encode(vertex);
       vertexDictionary.add(new Indexed(hilbertId, vertex));
     }
     vertexDictionary.sort(Comparator.naturalOrder());
-    List<Integer> a = new ArrayList<>();
-    List<Vertex> b = new ArrayList<>();
+    List<Integer> a = new ArrayList<>(vertexDictionary.size());
+    List<Vertex> b = new ArrayList<>(vertexDictionary.size());
     int last = Integer.MIN_VALUE;
     for (var item : vertexDictionary) {
       if (item.hilbert != last) {

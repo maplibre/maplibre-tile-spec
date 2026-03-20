@@ -71,7 +71,7 @@ public class MltConverter {
       boolean enableElideOnMismatch) {
     final var config =
         ConversionConfig.builder()
-            .mismatchPolicy(enableCoerceOnMismatch, enableElideOnMismatch)
+            .typeMismatchPolicy(enableCoerceOnMismatch, enableElideOnMismatch)
             .build();
     return createTilesetMetadata(layerSource, config, columnMappingConfig, includeIdIfPresent);
   }
@@ -89,7 +89,7 @@ public class MltConverter {
       boolean includeIdIfPresent) {
     return createTilesetMetadata(
         layerSource,
-        (config != null) ? config.getTypeMismatchPolicy() : null,
+        (config != null) ? config.typeMismatchPolicy() : null,
         columnMappingConfig,
         includeIdIfPresent);
   }
@@ -539,15 +539,15 @@ public class MltConverter {
                     }));
 
     final var physicalLevelTechnique =
-        config.getUseFastPFOR() ? PhysicalLevelTechnique.FAST_PFOR : PhysicalLevelTechnique.VARINT;
+        config.useFastPFOR() ? PhysicalLevelTechnique.FAST_PFOR : PhysicalLevelTechnique.VARINT;
 
     final var tileBuffers = new ArrayList<byte[]>((int) sourceLayers.getLayerCount() * 10);
     for (var sourceLayer : sourceLayers.getLayers()) {
       final var featureTableName = sourceLayer.name();
 
-      if (config.getLayerFilterPattern() != null) {
-        final var matcher = config.getLayerFilterPattern().matcher(featureTableName);
-        final var isMatch = matcher.matches() ^ config.getLayerFilterInvert();
+      if (config.layerFilterPattern() != null) {
+        final var matcher = config.layerFilterPattern().matcher(featureTableName);
+        final var isMatch = matcher.matches() ^ config.layerFilterInvert();
         if (!isMatch) {
           continue;
         }
@@ -564,13 +564,11 @@ public class MltConverter {
       }
 
       final var featureTableOptimizations =
-          config.getOptimizations() == null
-              ? null
-              : config.getOptimizations().get(featureTableName);
+          config.optimizations() == null ? null : config.optimizations().get(featureTableName);
 
       final var createPolygonOutline =
-          config.getOutlineFeatureTableNames().contains(featureTableName)
-              || config.getOutlineFeatureTableNames().contains("ALL");
+          config.outlineFeatureTableNames().contains(featureTableName)
+              || config.outlineFeatureTableNames().contains("ALL");
       final var result =
           sortFeaturesAndEncodeGeometryColumn(
               config,
@@ -589,7 +587,7 @@ public class MltConverter {
           encodePropertyColumns(config, layerMetadata, sortedFeatures, featureTableOptimizations);
 
       final var featureTableBodyBuffer = new ArrayList<byte[]>(20);
-      if (config.getIncludeIds()) {
+      if (config.includeIds()) {
         final var idMetadata =
             layerMetadata.columns.stream()
                 .filter(MltTypeMap.Tag0x01::isID)
@@ -614,9 +612,9 @@ public class MltConverter {
                 true,
                 sortedFeatures,
                 physicalLevelTechnique,
-                config.getUseFSST(),
-                config.getTypeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE,
-                config.getIntegerEncodingOption()));
+                config.useFSST(),
+                config.typeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE,
+                config.integerEncodingOption()));
       }
 
       featureTableBodyBuffer.add(encodedGeometryFieldMetadata);
@@ -657,11 +655,11 @@ public class MltConverter {
     return PropertyEncoder.encodePropertyColumns(
         propertyColumns,
         sortedFeatures,
-        config.getUseFastPFOR(),
-        config.getUseFSST(),
-        config.getTypeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE,
+        config.useFastPFOR(),
+        config.useFSST(),
+        config.typeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE,
         columnMappings,
-        config.getIntegerEncodingOption());
+        config.integerEncodingOption());
   }
 
   private static Pair<SequencedCollection<Feature>, GeometryEncoder.EncodedGeometryColumn>
@@ -689,7 +687,7 @@ public class MltConverter {
     }
 
     var isColumnSortable =
-        config.getIncludeIds()
+        config.includeIds()
             && featureTableOptimizations != null
             && featureTableOptimizations.allowSorting();
     if (isColumnSortable && !featureTableOptimizations.allowIdRegeneration()) {
@@ -710,9 +708,9 @@ public class MltConverter {
             isColumnSortable && featureTableOptimizations.allowIdRegeneration(), ids);
     /* Morton Vertex Dictionary encoding is currently not supported in pre-tessellation */
     var useMortonEncoding = false;
-    var geometryEncodingOption = config.getGeometryEncodingOption();
+    var geometryEncodingOption = config.geometryEncodingOption();
     var encodedGeometryColumn =
-        config.getPreTessellatePolygons()
+        config.preTessellatePolygons()
             ? GeometryEncoder.encodePretessellatedGeometryColumn(
                 geometries,
                 physicalLevelTechnique,
@@ -725,7 +723,7 @@ public class MltConverter {
                 geometries,
                 physicalLevelTechnique,
                 sortSettings,
-                config.getUseMortonEncoding(),
+                config.useMortonEncoding(),
                 geometryEncodingOption);
 
     if (encodedGeometryColumn.geometryColumnSorted()) {
@@ -740,7 +738,7 @@ public class MltConverter {
               .collect(Collectors.toList());
     }
 
-    if (config.getIncludeIds()
+    if (config.includeIds()
         && featureTableOptimizations != null
         && featureTableOptimizations.allowIdRegeneration()) {
       sortedFeatures = generateSequenceIds(sortedFeatures).toList();

@@ -105,7 +105,7 @@ class SyntheticMltUtil {
     }
 
     public Cfg coercePropValues() {
-      this.mismatchPolicy(ConversionConfig.TypeMismatchPolicy.COERCE);
+      this.typeMismatchPolicy(ConversionConfig.TypeMismatchPolicy.COERCE);
       return this;
     }
 
@@ -148,7 +148,7 @@ class SyntheticMltUtil {
     c.includeIds(false);
     c.useFastPFOR(false);
     c.useFSST(false);
-    c.mismatchPolicy(ConversionConfig.TypeMismatchPolicy.FAIL);
+    c.typeMismatchPolicy(ConversionConfig.TypeMismatchPolicy.FAIL);
     // c.optimizations(null); // Map<String, FeatureTableOptimizations>
     c.preTessellatePolygons(false);
     c.useMortonEncoding(false);
@@ -285,9 +285,9 @@ class SyntheticMltUtil {
 
       // Extract column mappings from the config's optimizations
       final var columnMappings = new ColumnMappingConfig();
-      if (config.getOptimizations() != null && !config.getOptimizations().isEmpty()) {
+      if (config.optimizations() != null && !config.optimizations().isEmpty()) {
         var allColumnMappings =
-            config.getOptimizations().values().stream()
+            config.optimizations().values().stream()
                 .flatMap(opt -> opt.columnMappings().stream())
                 .toList();
         if (!allColumnMappings.isEmpty()) {
@@ -295,8 +295,7 @@ class SyntheticMltUtil {
         }
       }
 
-      var metadata =
-          MltConverter.createTilesetMetadata(tile, columnMappings, config.getIncludeIds());
+      var metadata = MltConverter.createTilesetMetadata(tile, columnMappings, config.includeIds());
       var mlt = MltConverter.encode(tile, metadata, config, null);
       Files.write(mltFile, mlt, StandardOpenOption.CREATE_NEW);
 

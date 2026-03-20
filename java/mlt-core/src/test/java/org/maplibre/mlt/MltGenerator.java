@@ -194,7 +194,7 @@ public class MltGenerator {
   private ConversionConfig.Builder defaultConfigBuilder() {
     return ConversionConfig.builder()
         .includeIds(DEFAULT_INCLUDE_IDS)
-        .mismatchPolicy(DEFAULT_MISMATCH_POLICY)
+        .typeMismatchPolicy(DEFAULT_MISMATCH_POLICY)
         .useFastPFOR(DEFAULT_USE_FAST_PFOR)
         .useFSST(DEFAULT_USE_FSST)
         .useMortonEncoding(DEFAULT_USE_MORTON_ENCODING)

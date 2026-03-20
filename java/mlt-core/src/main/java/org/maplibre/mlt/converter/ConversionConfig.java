@@ -1,13 +1,25 @@
 package org.maplibre.mlt.converter;
 
 import jakarta.annotation.Nullable;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
 
-public class ConversionConfig {
+public record ConversionConfig(
+    boolean includeIds,
+    boolean useFastPFOR,
+    boolean useFSST,
+    TypeMismatchPolicy typeMismatchPolicy,
+    @NotNull Map<String, FeatureTableOptimizations> optimizations,
+    boolean preTessellatePolygons,
+    boolean useMortonEncoding,
+    @NotNull List<String> outlineFeatureTableNames,
+    @Nullable Pattern layerFilterPattern,
+    boolean layerFilterInvert,
+    @NotNull IntegerEncodingOption integerEncodingOption,
+    @NotNull IntegerEncodingOption geometryEncodingOption) {
+
   public enum TypeMismatchPolicy {
     COERCE, // Coerce values to string on type mismatch
     ELIDE, // Skip values that don't match the first type encountered
@@ -31,19 +43,6 @@ public class ConversionConfig {
   public static final boolean DEFAULT_LAYER_FILTER_INVERT = false;
   public static final IntegerEncodingOption DEFAULT_INTEGER_ENCODING = IntegerEncodingOption.AUTO;
 
-  private final boolean includeIds;
-  private final boolean useFastPFOR;
-  private final boolean useFSST;
-  private final TypeMismatchPolicy mismatchPolicy;
-  private final boolean useMortonEncoding;
-  private final boolean preTessellatePolygons;
-  private final @NotNull Map<String, FeatureTableOptimizations> optimizations;
-  private final @NotNull List<String> outlineFeatureTableNames;
-  private final @Nullable Pattern layerFilterPattern;
-  private final boolean layerFilterInvert;
-  private final @NotNull IntegerEncodingOption integerEncodingOption;
-  private final @NotNull IntegerEncodingOption geometryEncodingOption;
-
   /**
    * @param includeIds Specifies if the ids should be included into a FeatureTable.
    * @param useFastPFOR Specifies if FastPfor can be used
@@ -58,221 +57,29 @@ public class ConversionConfig {
    * @param integerEncodingOption Specifies which integer encoding to use for property columns and
    *     other non-geometry integer streams.
    * @param geometryEncodingOption Specifies which integer encoding to use for geometry-related
-   *     streams (lengths, offsets, etc.). When using the builder, leaving this unset defaults to
-   *     {@link #DEFAULT_INTEGER_ENCODING} (AUTO) for backward compatibility; use {@link
-   *     Builder#geometryEncoding(IntegerEncodingOption)} to set it explicitly.
+   *     streams (lengths, offsets, etc.).
    */
-  public ConversionConfig(
-      boolean includeIds,
-      boolean useFastPFOR,
-      boolean useFSST,
-      TypeMismatchPolicy mismatchPolicy,
-      Map<String, FeatureTableOptimizations> optimizations,
-      boolean preTessellatePolygons,
-      boolean useMortonEncoding,
-      List<String> outlineFeatureTableNames,
-      @Nullable Pattern layerFilterPattern,
-      boolean layerFilterInvert,
-      @NotNull IntegerEncodingOption integerEncodingOption,
-      @NotNull IntegerEncodingOption geometryEncodingOption) {
-    this.includeIds = includeIds;
-    this.useFastPFOR = useFastPFOR;
-    this.useFSST = useFSST;
-    this.mismatchPolicy = mismatchPolicy;
-    this.preTessellatePolygons = preTessellatePolygons;
-    this.useMortonEncoding = useMortonEncoding;
-    this.optimizations = (optimizations != null) ? optimizations : new HashMap<>();
-    this.outlineFeatureTableNames =
+  public ConversionConfig {
+    // Normalize nullable collection arguments to defaults when null.
+    optimizations = (optimizations != null) ? optimizations : Map.of();
+    outlineFeatureTableNames =
         (outlineFeatureTableNames != null) ? outlineFeatureTableNames : List.of();
-    this.layerFilterPattern = layerFilterPattern;
-    this.layerFilterInvert = layerFilterInvert;
-    this.integerEncodingOption = integerEncodingOption;
-    this.geometryEncodingOption = geometryEncodingOption;
-  }
-
-  public ConversionConfig(
-      boolean includeIds,
-      boolean useFastPFOR,
-      boolean useFSST,
-      TypeMismatchPolicy mismatchPolicy,
-      Map<String, FeatureTableOptimizations> optimizations,
-      boolean preTessellatePolygons,
-      boolean useMortonEncoding,
-      List<String> outlineFeatureTableNames) {
-    this(
-        includeIds,
-        useFastPFOR,
-        useFSST,
-        mismatchPolicy,
-        optimizations,
-        preTessellatePolygons,
-        useMortonEncoding,
-        outlineFeatureTableNames,
-        /* layerFilterPattern= */ null,
-        /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
-        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
-  }
-
-  public ConversionConfig(
-      boolean includeIds,
-      boolean useFastPFOR,
-      boolean useFSST,
-      Map<String, FeatureTableOptimizations> optimizations,
-      boolean preTessellatePolygons,
-      boolean useMortonEncoding) {
-    this(
-        includeIds,
-        useFastPFOR,
-        useFSST,
-        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
-        optimizations,
-        preTessellatePolygons,
-        useMortonEncoding,
-        /* outlineFeatureTableNames= */ null,
-        /* layerFilterPattern= */ null,
-        /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
-        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
-  }
-
-  public ConversionConfig(
-      boolean includeIds,
-      boolean useFastPFOR,
-      boolean useFSST,
-      Map<String, FeatureTableOptimizations> optimizations,
-      boolean preTessellatePolygons,
-      IntegerEncodingOption integerEncodingOption) {
-    this(
-        includeIds,
-        useFastPFOR,
-        useFSST,
-        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
-        optimizations, // it was null before, now it is used
-        /* preTessellatePolygons= */ preTessellatePolygons,
-        /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
-        /* outlineFeatureTableNames= */ null,
-        /* layerFilterPattern= */ null,
-        /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        integerEncodingOption,
-        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
-  }
-
-  public ConversionConfig(
-      boolean includeIds,
-      boolean useFastPFOR,
-      boolean useFSST,
-      Map<String, FeatureTableOptimizations> optimizations) {
-    this(
-        includeIds,
-        useFastPFOR,
-        useFSST,
-        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
-        optimizations,
-        /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
-        /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
-        /* outlineFeatureTableNames= */ null,
-        /* layerFilterPattern= */ null,
-        /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
-        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
-  }
-
-  public ConversionConfig(boolean includeIds) {
-    this(
-        includeIds,
-        /* useFastPFOR= */ DEFAULT_USE_FAST_PFOR,
-        /* useFSST= */ DEFAULT_USE_FSST,
-        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
-        /* optimizations= */ null,
-        /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
-        /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
-        /* outlineFeatureTableNames= */ null,
-        /* layerFilterPattern= */ null,
-        /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
-        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
-  }
-
-  public ConversionConfig() {
-    this(
-        /* includeIds= */ DEFAULT_INCLUDE_IDS,
-        /* useFastPFOR= */ DEFAULT_USE_FAST_PFOR,
-        /* useFSST= */ DEFAULT_USE_FSST,
-        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
-        /* optimizations= */ null,
-        /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
-        /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
-        /* outlineFeatureTableNames= */ null,
-        /* layerFilterPattern= */ null,
-        /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING,
-        /* geometryEncodingOption= */ DEFAULT_INTEGER_ENCODING);
-  }
-
-  public boolean getIncludeIds() {
-    return this.includeIds;
-  }
-
-  public boolean getUseFastPFOR() {
-    return this.useFastPFOR;
-  }
-
-  public boolean getUseFSST() {
-    return this.useFSST;
-  }
-
-  public TypeMismatchPolicy getTypeMismatchPolicy() {
-    return this.mismatchPolicy;
-  }
-
-  public Map<String, FeatureTableOptimizations> getOptimizations() {
-    return this.optimizations;
-  }
-
-  public boolean getUseMortonEncoding() {
-    return this.useMortonEncoding;
-  }
-
-  public boolean getPreTessellatePolygons() {
-    return this.preTessellatePolygons;
-  }
-
-  public List<String> getOutlineFeatureTableNames() {
-    return outlineFeatureTableNames;
-  }
-
-  @Nullable
-  public Pattern getLayerFilterPattern() {
-    return layerFilterPattern;
-  }
-
-  public boolean getLayerFilterInvert() {
-    return layerFilterInvert;
-  }
-
-  public IntegerEncodingOption getIntegerEncodingOption() {
-    return integerEncodingOption;
-  }
-
-  public IntegerEncodingOption getGeometryEncodingOption() {
-    return geometryEncodingOption;
   }
 
   public Builder asBuilder() {
     return new Builder()
-        .includeIds(this.includeIds)
-        .useFastPFOR(this.useFastPFOR)
-        .useFSST(this.useFSST)
-        .mismatchPolicy(this.mismatchPolicy)
-        .optimizations(this.optimizations)
-        .preTessellatePolygons(this.preTessellatePolygons)
-        .useMortonEncoding(this.useMortonEncoding)
-        .outlineFeatureTableNames(this.outlineFeatureTableNames)
-        .layerFilterPattern(this.layerFilterPattern)
-        .layerFilterInvert(this.layerFilterInvert)
-        .integerEncoding(this.integerEncodingOption)
-        .geometryEncoding(this.geometryEncodingOption);
+        .includeIds(this.includeIds())
+        .useFastPFOR(this.useFastPFOR())
+        .useFSST(this.useFSST())
+        .typeMismatchPolicy(this.typeMismatchPolicy())
+        .optimizations(this.optimizations())
+        .preTessellatePolygons(this.preTessellatePolygons())
+        .useMortonEncoding(this.useMortonEncoding())
+        .outlineFeatureTableNames(this.outlineFeatureTableNames())
+        .layerFilterPattern(this.layerFilterPattern())
+        .layerFilterInvert(this.layerFilterInvert())
+        .integerEncoding(this.integerEncodingOption())
+        .geometryEncoding(this.geometryEncodingOption());
   }
 
   public static Builder builder() {
@@ -294,7 +101,7 @@ public class ConversionConfig {
     private boolean includeIds = DEFAULT_INCLUDE_IDS;
     private boolean useFastPFOR = DEFAULT_USE_FAST_PFOR;
     private boolean useFSST = DEFAULT_USE_FSST;
-    private TypeMismatchPolicy mismatchPolicy = DEFAULT_MISMATCH_POLICY;
+    private TypeMismatchPolicy typeMismatchPolicy = DEFAULT_MISMATCH_POLICY;
     private Map<String, FeatureTableOptimizations> optimizations = Map.of();
     private boolean preTessellatePolygons = DEFAULT_PRE_TESSELLATE_POLYGONS;
     private boolean useMortonEncoding = DEFAULT_USE_MORTON_ENCODING;
@@ -302,7 +109,7 @@ public class ConversionConfig {
     private Pattern layerFilterPattern = null;
     private boolean layerFilterInvert = DEFAULT_LAYER_FILTER_INVERT;
     private IntegerEncodingOption integerEncodingOption = DEFAULT_INTEGER_ENCODING;
-    private @Nullable IntegerEncodingOption geometryEncodingOption = null;
+    private IntegerEncodingOption geometryEncodingOption = DEFAULT_INTEGER_ENCODING;
 
     public Builder includeIds(boolean val) {
       this.includeIds = val;
@@ -319,13 +126,13 @@ public class ConversionConfig {
       return this;
     }
 
-    public Builder mismatchPolicy(TypeMismatchPolicy policy) {
-      this.mismatchPolicy = policy;
+    public Builder typeMismatchPolicy(TypeMismatchPolicy policy) {
+      this.typeMismatchPolicy = policy;
       return this;
     }
 
-    public Builder mismatchPolicy(boolean coerceMismatches, boolean elideMismatches) {
-      return mismatchPolicy(
+    public Builder typeMismatchPolicy(boolean coerceMismatches, boolean elideMismatches) {
+      return typeMismatchPolicy(
           coerceMismatches
               ? ConversionConfig.TypeMismatchPolicy.COERCE
               : (elideMismatches
@@ -374,13 +181,11 @@ public class ConversionConfig {
     }
 
     public ConversionConfig build() {
-      var effectiveGeometryEncoding =
-          geometryEncodingOption != null ? geometryEncodingOption : DEFAULT_INTEGER_ENCODING;
       return new ConversionConfig(
           includeIds,
           useFastPFOR,
           useFSST,
-          mismatchPolicy,
+          typeMismatchPolicy,
           optimizations,
           preTessellatePolygons,
           useMortonEncoding,
@@ -388,7 +193,7 @@ public class ConversionConfig {
           layerFilterPattern,
           layerFilterInvert,
           integerEncodingOption,
-          effectiveGeometryEncoding);
+          geometryEncodingOption);
     }
   }
 }

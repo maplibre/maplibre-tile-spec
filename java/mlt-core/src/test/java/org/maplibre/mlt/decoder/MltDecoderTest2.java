@@ -211,13 +211,23 @@ public class MltDecoderTest2 {
         MltConverter.encode(
             mvTile,
             tileMetadata,
-            new ConversionConfig(includeIds, false, false, optimizations),
+            ConversionConfig.builder()
+                .includeIds(includeIds)
+                .useFastPFOR(false)
+                .useFSST(false)
+                .optimizations(optimizations)
+                .build(),
             null);
     var mlTileAdvanced =
         MltConverter.encode(
             mvTile,
             tileMetadata,
-            new ConversionConfig(includeIds, true, true, optimizations),
+            ConversionConfig.builder()
+                .includeIds(includeIds)
+                .useFastPFOR(true)
+                .useFSST(true)
+                .optimizations(optimizations)
+                .build(),
             null);
     int numErrors = -1;
     int numErrorsAdvanced = -1;

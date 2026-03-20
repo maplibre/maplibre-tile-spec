@@ -52,7 +52,13 @@ public class BenchmarkUtils {
     final var optimizations =
         TestSettings.OPTIMIZED_MVT_LAYERS.stream()
             .collect(Collectors.toMap(l -> l, l -> optimization));
-    final var config = new ConversionConfig(true, true, true, optimizations);
+    final var config =
+        ConversionConfig.builder()
+            .includeIds(true)
+            .useFastPFOR(true)
+            .useFSST(true)
+            .optimizations(optimizations)
+            .build();
     final var encodedMltTile =
         MltConverter.encode(encodedMvtTile.getRight(), metadata, config, null);
     encodedMltTiles.put(z, encodedMltTile);

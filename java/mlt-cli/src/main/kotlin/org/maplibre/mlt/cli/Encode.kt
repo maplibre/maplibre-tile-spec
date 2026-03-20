@@ -110,7 +110,7 @@ object Encode {
                 .includeIds(!cmd.hasOption(EncodeCommandLine.EXCLUDE_IDS_OPTION))
                 .useFastPFOR(cmd.hasOption(EncodeCommandLine.FASTPFOR_ENCODING_OPTION))
                 .useFSST(useFSST)
-                .mismatchPolicy(enableCoerce, enableElide)
+                .typeMismatchPolicy(enableCoerce, enableElide)
                 .preTessellatePolygons(tessellatePolygons)
                 .useMortonEncoding(!cmd.hasOption(EncodeCommandLine.NO_MORTON_OPTION))
                 .outlineFeatureTableNames(
