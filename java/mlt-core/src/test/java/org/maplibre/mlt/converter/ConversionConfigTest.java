@@ -82,8 +82,8 @@ public class ConversionConfigTest {
             .outlineFeatureTableNames(null)
             .layerFilterPattern(null)
             .layerFilterInvert(true)
-            .integerEncoding(ConversionConfig.IntegerEncodingOption.DELTA)
-            .geometryEncoding(ConversionConfig.IntegerEncodingOption.DELTA)
+            .integerEncodingOption(ConversionConfig.IntegerEncodingOption.DELTA)
+            .geometryEncodingOption(ConversionConfig.IntegerEncodingOption.DELTA)
             .build();
 
     assertNotNull(cfg.optimizations());
@@ -109,8 +109,8 @@ public class ConversionConfigTest {
             .outlineFeatureTableNames(outline)
             .layerFilterPattern(Pattern.compile("layerA"))
             .layerFilterInvert(false)
-            .integerEncoding(ConversionConfig.IntegerEncodingOption.PLAIN)
-            .geometryEncoding(ConversionConfig.IntegerEncodingOption.PLAIN)
+            .integerEncodingOption(ConversionConfig.IntegerEncodingOption.PLAIN)
+            .geometryEncodingOption(ConversionConfig.IntegerEncodingOption.PLAIN)
             .build();
 
     assertSame(optim, cfg.optimizations(), "optimizations-same-reference");
@@ -135,7 +135,7 @@ public class ConversionConfigTest {
             .outlineFeatureTableNames(outline)
             .layerFilterPattern(pattern)
             .layerFilterInvert(true)
-            .integerEncoding(ConversionConfig.IntegerEncodingOption.DELTA)
+            .integerEncodingOption(ConversionConfig.IntegerEncodingOption.DELTA)
             .build();
 
     assertEquals(false, built.includeIds());
@@ -166,23 +166,11 @@ public class ConversionConfigTest {
             .outlineFeatureTableNames(List.of("layerA"))
             .layerFilterPattern(Pattern.compile("layerA"))
             .layerFilterInvert(false)
-            .integerEncoding(ConversionConfig.IntegerEncodingOption.PLAIN)
+            .integerEncodingOption(ConversionConfig.IntegerEncodingOption.PLAIN)
             .build();
 
-    var rebuilt = orig.asBuilder().build();
+    var rebuilt = orig.toBuilder().build();
     assertConfigEquals(orig, rebuilt);
-  }
-
-  @Test
-  public void testMismatchPolicy_booleanOverload() {
-    var coerce = ConversionConfig.builder().typeMismatchPolicy(true, false).build();
-    assertEquals(ConversionConfig.TypeMismatchPolicy.COERCE, coerce.typeMismatchPolicy());
-
-    var elide = ConversionConfig.builder().typeMismatchPolicy(false, true).build();
-    assertEquals(ConversionConfig.TypeMismatchPolicy.ELIDE, elide.typeMismatchPolicy());
-
-    var fail = ConversionConfig.builder().typeMismatchPolicy(false, false).build();
-    assertEquals(ConversionConfig.TypeMismatchPolicy.FAIL, fail.typeMismatchPolicy());
   }
 
   @Test
@@ -213,7 +201,7 @@ public class ConversionConfigTest {
 
     var custom =
         ConversionConfig.builder()
-            .integerEncoding(ConversionConfig.IntegerEncodingOption.RLE)
+            .integerEncodingOption(ConversionConfig.IntegerEncodingOption.RLE)
             .build();
     assertEquals(ConversionConfig.IntegerEncodingOption.RLE, custom.integerEncodingOption());
   }
@@ -225,7 +213,7 @@ public class ConversionConfigTest {
 
     var custom =
         ConversionConfig.builder()
-            .geometryEncoding(ConversionConfig.IntegerEncodingOption.PLAIN)
+            .geometryEncodingOption(ConversionConfig.IntegerEncodingOption.PLAIN)
             .build();
     assertEquals(ConversionConfig.IntegerEncodingOption.PLAIN, custom.geometryEncodingOption());
 
@@ -233,7 +221,7 @@ public class ConversionConfigTest {
     // on main, geometry streams always used AUTO and were not controlled by integerEncodingOption).
     var withIntegerOnly =
         ConversionConfig.builder()
-            .integerEncoding(ConversionConfig.IntegerEncodingOption.RLE)
+            .integerEncodingOption(ConversionConfig.IntegerEncodingOption.RLE)
             .build();
     assertEquals(
         ConversionConfig.IntegerEncodingOption.RLE, withIntegerOnly.integerEncodingOption());
@@ -252,7 +240,7 @@ public class ConversionConfigTest {
             .useFSST(false)
             .optimizations(Map.of())
             .preTessellatePolygons(false)
-            .integerEncoding(ConversionConfig.IntegerEncodingOption.DELTA)
+            .integerEncodingOption(ConversionConfig.IntegerEncodingOption.DELTA)
             .build();
     assertEquals(ConversionConfig.IntegerEncodingOption.DELTA, cfg.integerEncodingOption());
     assertEquals(ConversionConfig.DEFAULT_INTEGER_ENCODING, cfg.geometryEncodingOption());

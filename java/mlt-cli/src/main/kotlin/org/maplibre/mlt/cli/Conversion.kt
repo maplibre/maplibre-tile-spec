@@ -366,7 +366,7 @@ fun applyColumnMappingsToConversionConfig(
             )
 
     // re-create the config with the applied column mappings
-    return conversionConfig.asBuilder().optimizations(optimizationMap).build()
+    return conversionConfig.toBuilder().optimizations(optimizationMap).build()
 }
 
 val totalCompressedInput = AtomicLong(0L)

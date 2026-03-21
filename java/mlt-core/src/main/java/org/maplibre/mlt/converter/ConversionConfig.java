@@ -1,24 +1,43 @@
 package org.maplibre.mlt.converter;
 
-import jakarta.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import org.jetbrains.annotations.NotNull;
+import lombok.Builder;
 
+@Builder(builderClassName = "Builder", toBuilder = true)
 public record ConversionConfig(
-    boolean includeIds,
-    boolean useFastPFOR,
-    boolean useFSST,
+    Boolean includeIds,
+    Boolean useFastPFOR,
+    Boolean useFSST,
     TypeMismatchPolicy typeMismatchPolicy,
-    @NotNull Map<String, FeatureTableOptimizations> optimizations,
-    boolean preTessellatePolygons,
-    boolean useMortonEncoding,
-    @NotNull List<String> outlineFeatureTableNames,
-    @Nullable Pattern layerFilterPattern,
-    boolean layerFilterInvert,
-    @NotNull IntegerEncodingOption integerEncodingOption,
-    @NotNull IntegerEncodingOption geometryEncodingOption) {
+    Map<String, FeatureTableOptimizations> optimizations,
+    Boolean preTessellatePolygons,
+    Boolean useMortonEncoding,
+    List<String> outlineFeatureTableNames,
+    Pattern layerFilterPattern,
+    Boolean layerFilterInvert,
+    IntegerEncodingOption integerEncodingOption,
+    IntegerEncodingOption geometryEncodingOption) {
+
+  // We can't declare defaults on the fields of a record, so we have to put them here
+  public static class Builder {
+    // Allow SyntheticMltUtil to extend the builder for testing purposes
+    public Builder() {}
+
+    private Boolean includeIds = DEFAULT_INCLUDE_IDS;
+    private Boolean useFastPFOR = DEFAULT_USE_FAST_PFOR;
+    private Boolean useFSST = DEFAULT_USE_FSST;
+    private TypeMismatchPolicy typeMismatchPolicy = DEFAULT_MISMATCH_POLICY;
+    private Map<String, FeatureTableOptimizations> optimizations = Map.of();
+    private Boolean preTessellatePolygons = DEFAULT_PRE_TESSELLATE_POLYGONS;
+    private Boolean useMortonEncoding = DEFAULT_USE_MORTON_ENCODING;
+    private List<String> outlineFeatureTableNames = List.of();
+    private Pattern layerFilterPattern = null;
+    private Boolean layerFilterInvert = DEFAULT_LAYER_FILTER_INVERT;
+    private IntegerEncodingOption integerEncodingOption = DEFAULT_INTEGER_ENCODING;
+    private IntegerEncodingOption geometryEncodingOption = DEFAULT_INTEGER_ENCODING;
+  }
 
   public enum TypeMismatchPolicy {
     COERCE, // Coerce values to string on type mismatch
@@ -64,136 +83,5 @@ public record ConversionConfig(
     optimizations = (optimizations != null) ? optimizations : Map.of();
     outlineFeatureTableNames =
         (outlineFeatureTableNames != null) ? outlineFeatureTableNames : List.of();
-  }
-
-  public Builder asBuilder() {
-    return new Builder()
-        .includeIds(this.includeIds())
-        .useFastPFOR(this.useFastPFOR())
-        .useFSST(this.useFSST())
-        .typeMismatchPolicy(this.typeMismatchPolicy())
-        .optimizations(this.optimizations())
-        .preTessellatePolygons(this.preTessellatePolygons())
-        .useMortonEncoding(this.useMortonEncoding())
-        .outlineFeatureTableNames(this.outlineFeatureTableNames())
-        .layerFilterPattern(this.layerFilterPattern())
-        .layerFilterInvert(this.layerFilterInvert())
-        .integerEncoding(this.integerEncodingOption())
-        .geometryEncoding(this.geometryEncodingOption());
-  }
-
-  public static Builder builder() {
-    return new Builder();
-  }
-
-  /**
-   * Short builder for ConversionConfig with sensible defaults. Example:
-   *
-   * <pre>{@code
-   * var config = ConversionConfig.builder()
-   *     .includeIds(true)
-   *     .useFastPFOR(true)
-   *     .integerEncoding(IntegerEncodingOption.DELTA)
-   *     .build();
-   * }</pre>
-   */
-  public static class Builder {
-    private boolean includeIds = DEFAULT_INCLUDE_IDS;
-    private boolean useFastPFOR = DEFAULT_USE_FAST_PFOR;
-    private boolean useFSST = DEFAULT_USE_FSST;
-    private TypeMismatchPolicy typeMismatchPolicy = DEFAULT_MISMATCH_POLICY;
-    private Map<String, FeatureTableOptimizations> optimizations = Map.of();
-    private boolean preTessellatePolygons = DEFAULT_PRE_TESSELLATE_POLYGONS;
-    private boolean useMortonEncoding = DEFAULT_USE_MORTON_ENCODING;
-    private List<String> outlineFeatureTableNames = List.of();
-    private Pattern layerFilterPattern = null;
-    private boolean layerFilterInvert = DEFAULT_LAYER_FILTER_INVERT;
-    private IntegerEncodingOption integerEncodingOption = DEFAULT_INTEGER_ENCODING;
-    private IntegerEncodingOption geometryEncodingOption = DEFAULT_INTEGER_ENCODING;
-
-    public Builder includeIds(boolean val) {
-      this.includeIds = val;
-      return this;
-    }
-
-    public Builder useFastPFOR(boolean val) {
-      this.useFastPFOR = val;
-      return this;
-    }
-
-    public Builder useFSST(boolean val) {
-      this.useFSST = val;
-      return this;
-    }
-
-    public Builder typeMismatchPolicy(TypeMismatchPolicy policy) {
-      this.typeMismatchPolicy = policy;
-      return this;
-    }
-
-    public Builder typeMismatchPolicy(boolean coerceMismatches, boolean elideMismatches) {
-      return typeMismatchPolicy(
-          coerceMismatches
-              ? ConversionConfig.TypeMismatchPolicy.COERCE
-              : (elideMismatches
-                  ? ConversionConfig.TypeMismatchPolicy.ELIDE
-                  : ConversionConfig.TypeMismatchPolicy.FAIL));
-    }
-
-    public Builder optimizations(Map<String, FeatureTableOptimizations> val) {
-      this.optimizations = val;
-      return this;
-    }
-
-    public Builder preTessellatePolygons(boolean val) {
-      this.preTessellatePolygons = val;
-      return this;
-    }
-
-    public Builder useMortonEncoding(boolean val) {
-      this.useMortonEncoding = val;
-      return this;
-    }
-
-    public Builder outlineFeatureTableNames(List<String> val) {
-      this.outlineFeatureTableNames = val;
-      return this;
-    }
-
-    public Builder layerFilterPattern(Pattern val) {
-      this.layerFilterPattern = val;
-      return this;
-    }
-
-    public Builder layerFilterInvert(boolean val) {
-      this.layerFilterInvert = val;
-      return this;
-    }
-
-    public Builder integerEncoding(IntegerEncodingOption val) {
-      this.integerEncodingOption = val;
-      return this;
-    }
-
-    public Builder geometryEncoding(IntegerEncodingOption val) {
-      this.geometryEncodingOption = val;
-      return this;
-    }
-
-    public ConversionConfig build() {
-      return new ConversionConfig(
-          includeIds,
-          useFastPFOR,
-          useFSST,
-          typeMismatchPolicy,
-          optimizations,
-          preTessellatePolygons,
-          useMortonEncoding,
-          outlineFeatureTableNames,
-          layerFilterPattern,
-          layerFilterInvert,
-          integerEncodingOption,
-          geometryEncodingOption);
-    }
   }
 }

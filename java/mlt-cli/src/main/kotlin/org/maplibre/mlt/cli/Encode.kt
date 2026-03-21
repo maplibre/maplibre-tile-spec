@@ -63,8 +63,6 @@ object Encode {
         val tessellateURI = cmd.tessellateSource?.let { URI(it) }
         val tessellatePolygons = cmd.tessellatePolygons
         val compressionType = cmd.compressionType
-        val enableCoerce = cmd.enableCoerceOnTypeMismatch
-        val enableElide = cmd.enableElideOnTypeMismatch
         val filterPattern = cmd.filterPattern
         val filterInvert = cmd.filterInvert
         val minZoom = cmd.minZoom
@@ -104,20 +102,29 @@ object Encode {
             useFSST = true
         }
 
+        val typeMismatchPolicy =
+            if (cmd.enableCoerceOnTypeMismatch) {
+                ConversionConfig.TypeMismatchPolicy.COERCE
+            } else if (cmd.enableElideOnTypeMismatch) {
+                ConversionConfig.TypeMismatchPolicy.ELIDE
+            } else {
+                ConversionConfig.TypeMismatchPolicy.FAIL
+            }
+
         val conversionConfig =
             ConversionConfig
                 .builder()
                 .includeIds(!cmd.hasOption(EncodeCommandLine.EXCLUDE_IDS_OPTION))
                 .useFastPFOR(cmd.hasOption(EncodeCommandLine.FASTPFOR_ENCODING_OPTION))
                 .useFSST(useFSST)
-                .typeMismatchPolicy(enableCoerce, enableElide)
+                .typeMismatchPolicy(typeMismatchPolicy)
                 .preTessellatePolygons(tessellatePolygons)
                 .useMortonEncoding(!cmd.hasOption(EncodeCommandLine.NO_MORTON_OPTION))
                 .outlineFeatureTableNames(
                     if (outlineFeatureTables != null) outlineFeatureTables.toList() else listOf<String>(),
                 ).layerFilterPattern(filterPattern)
                 .layerFilterInvert(filterInvert)
-                .integerEncoding(ConversionConfig.IntegerEncodingOption.AUTO)
+                .integerEncodingOption(ConversionConfig.IntegerEncodingOption.AUTO)
                 .build()
         if (outlineFeatureTables != null && outlineFeatureTables.size > 0) {
             logger.debug(

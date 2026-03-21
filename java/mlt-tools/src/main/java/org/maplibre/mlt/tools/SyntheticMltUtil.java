@@ -83,44 +83,43 @@ class SyntheticMltUtil {
 
   /** Builder subclass with no-argument shorthand methods for common flags. */
   static class Cfg extends ConversionConfig.Builder {
-
     public Cfg ids() {
-      this.includeIds(true);
+      super.includeIds(true);
       return this;
     }
 
     public Cfg fastPFOR() {
-      this.useFastPFOR(true);
+      super.useFastPFOR(true);
       return this;
     }
 
     public Cfg fsst() {
-      this.useFSST(true);
+      super.useFSST(true);
       return this;
     }
 
     public Cfg geomEnc(ConversionConfig.IntegerEncodingOption encoding) {
-      this.geometryEncoding(encoding);
+      super.geometryEncodingOption(encoding);
       return this;
     }
 
     public Cfg coercePropValues() {
-      this.typeMismatchPolicy(ConversionConfig.TypeMismatchPolicy.COERCE);
+      super.typeMismatchPolicy(ConversionConfig.TypeMismatchPolicy.COERCE);
       return this;
     }
 
     public Cfg tessellate() {
-      this.preTessellatePolygons(true);
+      super.preTessellatePolygons(true);
       return this;
     }
 
     public Cfg morton() {
-      this.useMortonEncoding(true);
+      super.useMortonEncoding(true);
       return this;
     }
 
     public Cfg filterInvert() {
-      this.layerFilterInvert(true);
+      super.layerFilterInvert(true);
       return this;
     }
 
@@ -134,7 +133,7 @@ class SyntheticMltUtil {
 
       var optimizationsMap = new HashMap<String, FeatureTableOptimizations>();
       optimizationsMap.put("layer1", layerOpt);
-      this.optimizations(optimizationsMap);
+      super.optimizations(optimizationsMap);
       return this;
     }
   }
@@ -160,8 +159,8 @@ class SyntheticMltUtil {
     c.outlineFeatureTableNames(List.of("ALL"));
     // c.layerFilterPattern(null); // Pattern
     c.layerFilterInvert(false);
-    c.integerEncoding(encoding);
-    c.geometryEncoding(AUTO);
+    c.integerEncodingOption(encoding);
+    c.geometryEncodingOption(AUTO);
     return c;
   }
 

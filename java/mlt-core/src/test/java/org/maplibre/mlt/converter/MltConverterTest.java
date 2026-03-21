@@ -19,7 +19,10 @@ class MltConverterTest {
   void coerceValuesToString() {
     var metadata =
         MltConverter.createTilesetMetadata(
-            createTileWithMixedTypes(), new ColumnMappingConfig(), true, true, false);
+            createTileWithMixedTypes(),
+            new ColumnMappingConfig(),
+            true,
+            ConversionConfig.TypeMismatchPolicy.COERCE);
     var column =
         metadata.featureTables.stream()
             .flatMap(it -> it.columns.stream())
@@ -33,7 +36,10 @@ class MltConverterTest {
   void elideValues() {
     var metadata =
         MltConverter.createTilesetMetadata(
-            createTileWithMixedTypes(), new ColumnMappingConfig(), true, false, true);
+            createTileWithMixedTypes(),
+            new ColumnMappingConfig(),
+            true,
+            ConversionConfig.TypeMismatchPolicy.ELIDE);
     var column =
         metadata.featureTables.stream()
             .flatMap(it -> it.columns.stream())

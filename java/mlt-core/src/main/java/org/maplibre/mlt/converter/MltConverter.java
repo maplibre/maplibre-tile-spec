@@ -60,19 +60,14 @@ public class MltConverter {
   /// @param layerSource The input tile to create metadata from
   /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
   /// @param includeIdIfPresent Whether to include an ID column
-  /// @param enableCoerceOnMismatch Whether to coerce values to string on type mismatch
-  /// @param enableElideOnMismatch Whether to elide values on type mismatch (for each property, the
+  /// @param typeMismatchPolicy Policy for handling type mismatches
   /// first type encountered is used)
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       @NotNull LayerSource layerSource,
       @Nullable ColumnMappingConfig columnMappingConfig,
       boolean includeIdIfPresent,
-      boolean enableCoerceOnMismatch,
-      boolean enableElideOnMismatch) {
-    final var config =
-        ConversionConfig.builder()
-            .typeMismatchPolicy(enableCoerceOnMismatch, enableElideOnMismatch)
-            .build();
+      @NotNull ConversionConfig.TypeMismatchPolicy typeMismatchPolicy) {
+    final var config = ConversionConfig.builder().typeMismatchPolicy(typeMismatchPolicy).build();
     return createTilesetMetadata(layerSource, config, columnMappingConfig, includeIdIfPresent);
   }
 

@@ -199,7 +199,8 @@ public class MltDecoderTest2 {
 
     final var columnMappings = new ColumnMappingConfig();
     var tileMetadata =
-        MltConverter.createTilesetMetadata(mvTile, columnMappings, true, false, true);
+        MltConverter.createTilesetMetadata(
+            mvTile, columnMappings, true, ConversionConfig.TypeMismatchPolicy.COERCE);
 
     var allowIdRegeneration = false;
     var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, List.of());
