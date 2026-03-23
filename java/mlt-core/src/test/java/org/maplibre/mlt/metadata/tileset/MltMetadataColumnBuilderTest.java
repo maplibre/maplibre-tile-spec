@@ -14,9 +14,8 @@ class MltMetadataColumnBuilderTest {
   @Test
   void builderCreatesScalarColumn() {
     final var col =
-        MltMetadata.Column.builder()
+        MltMetadata.scalarColumnBuilder(MltMetadata.ScalarType.STRING)
             .name("name")
-            .scalarType(new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING))
             .isNullable(true)
             .columnScope(MltMetadata.ColumnScope.FEATURE)
             .build()
@@ -33,15 +32,10 @@ class MltMetadataColumnBuilderTest {
   @Test
   void builderCreatesComplexColumn() {
     final var child =
-        MltMetadata.Field.builder()
-            .scalarType(new MltMetadata.ScalarField(MltMetadata.ScalarType.INT_32))
-            .isNullable(false)
-            .build();
+        MltMetadata.scalarFieldBuilder(MltMetadata.ScalarType.INT_32).isNullable(false).build();
     final var col =
-        MltMetadata.Column.builder()
+        MltMetadata.structColumnBuilder(List.of(child))
             .name("geom")
-            .complexType(
-                new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT, List.of(child)))
             .isNullable(false)
             .columnScope(MltMetadata.ColumnScope.VERTEX)
             .build()
@@ -60,12 +54,7 @@ class MltMetadataColumnBuilderTest {
   @Test
   void builderAcceptsNullChildren() {
     final var col =
-        MltMetadata.Column.builder()
-            .complexType(new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT, null))
-            .isNullable(true)
-            .build()
-            .toBuilder()
-            .build();
+        MltMetadata.structColumnBuilder(null).isNullable(true).build().toBuilder().build();
 
     assertNotNull(col.complexType);
     assertEquals(MltMetadata.ComplexType.STRUCT, col.complexType.physicalType);
@@ -75,9 +64,8 @@ class MltMetadataColumnBuilderTest {
   @Test
   void builderDefaultsToFeatureScope() {
     final var col =
-        MltMetadata.Column.builder()
+        MltMetadata.scalarColumnBuilder(MltMetadata.ScalarType.STRING)
             .name("name")
-            .scalarType(new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING))
             .isNullable(true)
             .build();
     assertEquals(MltMetadata.ColumnScope.FEATURE, col.columnScope);
@@ -86,9 +74,8 @@ class MltMetadataColumnBuilderTest {
   @Test
   void builderRejectsInvalidScope() {
     final var builder =
-        MltMetadata.Column.builder()
+        MltMetadata.scalarColumnBuilder(MltMetadata.ScalarType.STRING)
             .name("invalid")
-            .scalarType(new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING))
             .isNullable(true)
             .columnScope(MltMetadata.ColumnScope.UNRECOGNIZED);
     assertThrows(IllegalStateException.class, builder::build);
@@ -97,8 +84,7 @@ class MltMetadataColumnBuilderTest {
   @Test
   void builderRejectsScalarAndComplexTypes() {
     final var builder =
-        MltMetadata.Column.builder()
-            .scalarType(new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING))
+        MltMetadata.scalarColumnBuilder(MltMetadata.ScalarType.STRING)
             .complexType(new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT))
             .columnScope(MltMetadata.ColumnScope.FEATURE);
     assertThrows(IllegalStateException.class, builder::build);

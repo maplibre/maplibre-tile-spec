@@ -13,6 +13,35 @@ import org.jetbrains.annotations.NotNull;
 public final class MltMetadata {
   private MltMetadata() {}
 
+  public static Field.FieldBuilder<?, ?> scalarFieldBuilder(@NotNull ScalarType type) {
+    return Field.builder().scalarType(new ScalarField(type));
+  }
+
+  public static Column.ColumnBuilder<?, ?> idColumnBuilder(boolean hasLongId) {
+    return Column.builder().scalarType(new ScalarField(LogicalScalarType.ID, hasLongId));
+  }
+
+  public static Column.ColumnBuilder<?, ?> scalarColumnBuilder(@NotNull ScalarType type) {
+    return Column.builder().scalarType(new ScalarField(type));
+  }
+
+  public static Column.ColumnBuilder<?, ?> structColumnBuilder(@Nullable List<Field> children) {
+    return complexColumnBuilder(ComplexType.STRUCT, children);
+  }
+
+  public static Column.ColumnBuilder<?, ?> geometryColumnBuilder() {
+    return complexColumnBuilder(ComplexType.GEOMETRY);
+  }
+
+  public static Column.ColumnBuilder<?, ?> complexColumnBuilder(@NotNull ComplexType type) {
+    return Column.builder().complexType(new ComplexField(type, null));
+  }
+
+  public static Column.ColumnBuilder<?, ?> complexColumnBuilder(
+      @NotNull ComplexType type, @Nullable List<Field> children) {
+    return Column.builder().complexType(new ComplexField(type, children));
+  }
+
   public enum ColumnScope {
     /** 1:1 Mapping of property and feature to id and geometry */
     FEATURE,

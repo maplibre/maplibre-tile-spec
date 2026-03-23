@@ -38,10 +38,7 @@ public class MltTypeMapTest {
         Assertions.assertNotNull(column.complexType);
         Assertions.assertNotNull(column.complexType.children);
         column.complexType.children.add(
-            MltMetadata.Field.builder()
-                .scalarType(new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING))
-                .isNullable(true)
-                .build());
+            MltMetadata.scalarFieldBuilder(MltMetadata.ScalarType.STRING).isNullable(true).build());
       }
 
       final boolean complex = column.complexType != null;
