@@ -65,7 +65,7 @@ pub enum MltError {
     #[error("buffer underflow: needed {0} bytes, but only {1} remain")]
     BufferUnderflow(u32, usize),
     #[error("FastPFor decode failed: expected={0} got={1}")]
-    FastPforDecode(usize, usize),
+    FastPforDecode(u32, usize),
     #[error("invalid RLE run length (cannot convert to usize): value={0}")]
     RleRunLenInvalid(i128),
 
@@ -150,13 +150,8 @@ pub enum MltError {
     #[error("geometry[{0}]: unexpected offset combination for {1}")]
     UnexpectedOffsetCombination(usize, GeometryType),
 
-    // Wrapper errors, using `#[from]` to auto-convert from underlying error types
-    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
     #[error("FastPFor error: {0}")]
-    FastPforRust(#[from] fastpfor::rust::FastPForError),
-    #[cfg(feature = "fastpfor-cpp")]
-    #[error("FastPFor error: {0}")]
-    FastPforCpp(#[from] fastpfor::cpp::Exception),
+    FastPfor(#[from] fastpfor::FastPForError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("Serde JSON error: {0}")]

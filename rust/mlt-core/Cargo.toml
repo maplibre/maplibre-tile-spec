@@ -32,10 +32,8 @@ harness = false
 required-features = ["__private"]
 
 [features]
-default = ["fastpfor-cpp"]
+default = []
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
-fastpfor-cpp  = ["fastpfor/cpp_portable"]
-fastpfor-rust = ["fastpfor/rust"]
 # Used internally for testing and benchmarking, not intended for public use
 __private = []
 
