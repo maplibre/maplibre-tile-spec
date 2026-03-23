@@ -36,7 +36,7 @@
     "@vitest/coverage-v8": "^4.1.0",
     "bytebuffer": "^5.0.1",
     "earcut": "^3.0.2",
-    "eslint": "^10.0.3",
+    "eslint": "^10.1.0",
     "pbf": "^4.0.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.1",
