@@ -16,7 +16,7 @@ pub use analyse::{Analyze, StatType};
 pub use convert::{geojson, mvt};
 pub use decoder::{Decoder, Parser};
 pub use enc_dec::{Decode, EncDec};
-pub use errors::{MltError, MltRefResult};
+pub use errors::{MltError, MltRefResult, MltResult};
 pub use frames::{EncodedLayer, Layer, StagedLayer, unknown, v01};
 
 #[cfg(any(test, feature = "__private"))]

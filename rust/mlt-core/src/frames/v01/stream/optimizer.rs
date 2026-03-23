@@ -1,7 +1,7 @@
 use num_traits::{AsPrimitive as _, PrimInt as _, WrappingSub, Zero as _};
 use zigzag::ZigZag;
 
-use crate::MltError;
+use crate::MltResult;
 use crate::v01::EncodedStreamData;
 use crate::v01::stream::IntEncoder;
 
@@ -231,7 +231,7 @@ fn sample_size(len: usize) -> usize {
 /// Returns `usize::MAX` on error so that a broken candidate is always ranked
 /// last.
 fn encoded_size_u32(values: &[u32], encoder: IntEncoder) -> usize {
-    let result: Result<_, MltError> = (|| {
+    let result: MltResult<_> = (|| {
         let (physical_u32s, _logical_enc) = encoder.logical.encode_u32s(values)?;
         let (data, _physical_enc) = encoder.physical.encode_u32s(physical_u32s)?;
         Ok(data_byte_len(data))
@@ -240,7 +240,7 @@ fn encoded_size_u32(values: &[u32], encoder: IntEncoder) -> usize {
 }
 
 fn encoded_size_u64(values: &[u64], encoder: IntEncoder) -> usize {
-    let result: Result<_, MltError> = (|| {
+    let result: MltResult<_> = (|| {
         let (physical_u64s, _logical_enc) = encoder.logical.encode_u64s(values)?;
         let (data, _physical_enc) = encoder.physical.encode_u64s(physical_u64s)?;
         Ok(data_byte_len(data))

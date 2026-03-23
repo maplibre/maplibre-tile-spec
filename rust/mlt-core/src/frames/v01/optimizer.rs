@@ -1,15 +1,15 @@
 use strum::{EnumCount as _, IntoEnumIterator as _};
 
-use crate::MltError;
 use crate::v01::sort::{reorder_features, spatial_sort_likely_to_help};
 use crate::v01::{
     EncodeProperties as _, EncodedLayer01, GeometryEncoder, GeometryProfile, IdEncoder, IdProfile,
     PropertyEncoder, PropertyProfile, SortStrategy, StagedLayer01, TileLayer01,
 };
+use crate::{MltError, MltResult};
 
 impl StagedLayer01 {
     /// Encode using a specific [`StagedLayer01Encoder`], consuming `self` and producing [`EncodedLayer01`].
-    pub fn encode(self, encoder: StagedLayer01Encoder) -> Result<EncodedLayer01, MltError> {
+    pub fn encode(self, encoder: StagedLayer01Encoder) -> MltResult<EncodedLayer01> {
         let geometry = self.geometry.encode(encoder.geometry)?;
 
         let id = match (encoder.id, self.id) {

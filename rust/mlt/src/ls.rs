@@ -5,7 +5,7 @@ use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::string::ToString;
 
-use anyhow::Result;
+use anyhow::Result as AnyResult;
 use clap::{Args, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;
@@ -286,7 +286,7 @@ fn has_glob_metachars(path: &Path) -> bool {
 
 /// Expand path arguments: if a path contains glob metacharacters, expand it to matching paths;
 /// otherwise use the path as-is. Directories are left as-is so `collect_tile_files` can recurse into them.
-fn expand_path_args(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
+fn expand_path_args(paths: &[PathBuf]) -> AnyResult<Vec<PathBuf>> {
     let mut out = Vec::new();
     for path in paths {
         if has_glob_metachars(path) {
@@ -301,7 +301,7 @@ fn expand_path_args(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
 }
 
 /// Build a `GlobSet` from patterns; returns None if patterns is empty.
-fn build_exclude_set(patterns: &[String]) -> Result<Option<GlobSet>> {
+fn build_exclude_set(patterns: &[String]) -> AnyResult<Option<GlobSet>> {
     if patterns.is_empty() {
         return Ok(None);
     }
@@ -314,7 +314,7 @@ fn build_exclude_set(patterns: &[String]) -> Result<Option<GlobSet>> {
 
 /// List tile files with statistics.
 /// Returns `true` if all files were valid, `false` if any file had an error, or no files.
-pub fn ls(args: &LsArgs) -> Result<bool> {
+pub fn ls(args: &LsArgs) -> AnyResult<bool> {
     let flags = LsFlags::from(args);
     let mut all_files = Vec::new();
 
@@ -473,7 +473,7 @@ fn collect_tile_files(
     path: &Path,
     args: &LsArgs,
     exclude_set: Option<&GlobSet>,
-) -> Result<Vec<PathBuf>> {
+) -> AnyResult<Vec<PathBuf>> {
     let matches_ext = |p: &Path| {
         if args.extension.is_empty() {
             is_tile_extension(p)
@@ -505,7 +505,7 @@ fn collect_from_dir<F>(
     recursive: bool,
     matches_ext: &F,
     exclude_set: Option<&GlobSet>,
-) -> Result<()>
+) -> AnyResult<()>
 where
     F: Fn(&Path) -> bool,
 {
@@ -522,7 +522,7 @@ where
     Ok(())
 }
 
-pub fn analyze_tile_file(path: &Path, base_path: &Path, flags: LsFlags) -> Result<MltFileInfo> {
+pub fn analyze_tile_file(path: &Path, base_path: &Path, flags: LsFlags) -> AnyResult<MltFileInfo> {
     let buffer = fs::read(path)?;
     let mut info = if is_mlt_extension(path) {
         analyze_mlt_buffer(&buffer, path, flags)?
@@ -548,7 +548,7 @@ pub fn analyze_tile_file(path: &Path, base_path: &Path, flags: LsFlags) -> Resul
     Ok(info)
 }
 
-pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<MltFileInfo> {
+pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResult<MltFileInfo> {
     let mut parser = Parser::default();
     let mut layers = parser.parse_layers(buffer)?;
     let mut dec = Decoder::default();
@@ -681,7 +681,7 @@ fn normalize_tiny_floats(value: JsonValue) -> JsonValue {
     }
 }
 
-fn analyze_mvt_buffer(buffer: &[u8]) -> Result<MltFileInfo> {
+fn analyze_mvt_buffer(buffer: &[u8]) -> AnyResult<MltFileInfo> {
     let fc = mvt_to_feature_collection(buffer.to_vec())?;
 
     let mut layer_names = HashSet::new();
@@ -760,7 +760,7 @@ fn collect_stream_info(meta: StreamMeta, algo: &mut HashSet<StreamStat>) {
     ));
 }
 
-fn estimate_gzip_size(data: &[u8]) -> Result<usize> {
+fn estimate_gzip_size(data: &[u8]) -> AnyResult<usize> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(data)?;
     let compressed = encoder.finish()?;

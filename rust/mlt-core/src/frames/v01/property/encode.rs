@@ -1,4 +1,5 @@
 use crate::MltError::{self, NotImplemented, UnsupportedPropertyEncoderCombination};
+use crate::MltResult;
 use crate::v01::{
     DictionaryType, EncodedName, EncodedPresence, EncodedProperty, EncodedScalar, EncodedStream,
     EncodedStrings, LengthType, PresenceStream, PropertyEncoder, ScalarEncoder, ScalarValueEncoder,
@@ -39,7 +40,7 @@ pub fn encode_properties(
 }
 
 impl EncodedProperty {
-    pub(crate) fn encode(value: &StagedProperty, encoder: ScalarEncoder) -> Result<Self, MltError> {
+    pub(crate) fn encode(value: &StagedProperty, encoder: ScalarEncoder) -> MltResult<Self> {
         use StagedProperty as D;
         let presence = if encoder.presence == PresenceStream::Present {
             let present_vec: Vec<bool> = value.as_presence_stream()?;

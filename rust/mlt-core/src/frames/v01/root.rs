@@ -7,7 +7,7 @@ use crate::v01::{
     RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
     StreamMeta, StreamType,
 };
-use crate::{Decoder, MltError, MltRefResult, Parser};
+use crate::{Decoder, MltError, MltRefResult, MltResult, Parser};
 
 impl Analyze for Layer01<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
@@ -164,21 +164,21 @@ impl Layer01<'_> {
     /// Decode only the geometry column, leaving other columns in their encoded form.
     ///
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
-    pub fn decode_geometry(&mut self, dec: &mut Decoder) -> Result<&mut GeometryValues, MltError> {
+    pub fn decode_geometry(&mut self, dec: &mut Decoder) -> MltResult<&mut GeometryValues> {
         self.geometry.decode(dec)
     }
 
     /// Decode only the property columns, leaving other columns in their encoded form.
     ///
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
-    pub fn decode_properties(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
+    pub fn decode_properties(&mut self, dec: &mut Decoder) -> MltResult<()> {
         for prop in &mut self.properties {
             prop.decode(dec)?;
         }
         Ok(())
     }
 
-    pub fn decode_all(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
+    pub fn decode_all(&mut self, dec: &mut Decoder) -> MltResult<()> {
         self.decode_id(dec)?;
         self.decode_geometry(dec)?;
         self.decode_properties(dec)?;
@@ -229,7 +229,7 @@ fn parse_geometry_column<'a>(
     input: &'a [u8],
     geometry: &mut Option<Geometry<'a>>,
     parser: &mut Parser,
-) -> Result<&'a [u8], MltError> {
+) -> MltResult<&'a [u8]> {
     let (input, stream_count) = parse_varint::<u32>(input)?;
     if stream_count == 0 {
         return Err(MltError::GeometryWithoutStreams);

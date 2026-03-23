@@ -11,7 +11,7 @@ use crate::v01::{
     IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RawStream,
     RawStreamData, RleMeta, StreamMeta, StreamType,
 };
-use crate::{MltError, MltRefResult, Parser};
+use crate::{MltError, MltRefResult, MltResult, Parser};
 
 impl IntEncoding {
     #[must_use]
@@ -273,7 +273,7 @@ impl<'a> RawStream<'a> {
 }
 
 /// Validate RLE stream data: first `runs` varints must sum to `num_rle_values`.
-fn validate_rle_varint_stream(data: &[u8], runs: u32, num_rle_values: u32) -> Result<(), MltError> {
+fn validate_rle_varint_stream(data: &[u8], runs: u32, num_rle_values: u32) -> MltResult<()> {
     use crate::utils::AsUsize as _;
     let mut rest = data;
     let mut sum: u64 = 0;

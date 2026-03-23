@@ -13,7 +13,7 @@ use crate::v01::{
     GeometryEncoder, GeometryValues, IntEncoder, LogicalEncoder, StagedLayer01,
     StagedLayer01Encoder,
 };
-use crate::{EncodedLayer, Layer, MltError};
+use crate::{EncodedLayer, Layer, MltError, MltResult};
 
 // Test that each config produces the correct variant and optional stream presence
 #[rstest]
@@ -142,7 +142,7 @@ fn prop_assert_roundtrip(ids: &[Option<u64>], config: IdEncoder) -> Result<(), T
     Ok(())
 }
 
-fn roundtrip_id_values(decoded: &IdValues, config: IdEncoder) -> Result<IdValues, MltError> {
+fn roundtrip_id_values(decoded: &IdValues, config: IdEncoder) -> MltResult<IdValues> {
     if decoded.0.is_empty() {
         return Ok(IdValues(vec![]));
     }

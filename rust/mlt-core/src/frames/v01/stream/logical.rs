@@ -14,7 +14,7 @@ use crate::codecs::zigzag::{
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::AsUsize as _;
 use crate::v01::{LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta};
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltError, MltResult};
 
 /// RLE-encode a sequence into `[run-lengths | unique-values]` and return the matching `RleMeta`.
 /// `num_logical` is the expanded output length (stored in `RleMeta::num_rle_values`).
@@ -58,7 +58,7 @@ impl RleMeta {
         Ok(result)
     }
 
-    fn calc_size<T: PrimInt + Debug>(run_lens: &[T]) -> Result<u32, MltError> {
+    fn calc_size<T: PrimInt + Debug>(run_lens: &[T]) -> MltResult<u32> {
         run_lens
             .iter()
             .try_fold(T::zero(), |a, v| a.checked_add(v))
@@ -68,7 +68,7 @@ impl RleMeta {
 }
 
 impl LogicalTechnique {
-    pub fn parse(value: u8) -> Result<Self, MltError> {
+    pub fn parse(value: u8) -> MltResult<Self> {
         Self::try_from(value).or(Err(ParsingLogicalTechnique(value)))
     }
 }

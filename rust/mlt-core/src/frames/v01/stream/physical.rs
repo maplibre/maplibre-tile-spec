@@ -7,7 +7,7 @@ use crate::utils::parse_u8;
 use crate::v01::{
     DictionaryType, EncodedStreamData, LengthType, OffsetType, PhysicalEncoding, StreamType,
 };
-use crate::{MltError, MltRefResult};
+use crate::{MltError, MltRefResult, MltResult};
 
 impl StreamType {
     pub fn from_bytes(input: &'_ [u8]) -> MltRefResult<'_, Self> {
@@ -52,7 +52,7 @@ impl StreamType {
 }
 
 impl PhysicalEncoding {
-    pub fn parse(value: u8) -> Result<Self, MltError> {
+    pub fn parse(value: u8) -> MltResult<Self> {
         Self::try_from(value).or(Err(MltError::ParsingPhysicalEncoding(value)))
     }
 }

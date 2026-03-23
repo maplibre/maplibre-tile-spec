@@ -9,7 +9,7 @@ use crate::codecs::varint::parse_varint;
 use crate::frames::Unknown;
 use crate::frames::v01::Layer01;
 use crate::utils::{checked_sum2, parse_u8, take};
-use crate::{Decoder, EncodedLayer, Layer, MltError, MltRefResult, Parser, utils};
+use crate::{Decoder, EncodedLayer, Layer, MltError, MltRefResult, MltResult, Parser, utils};
 
 impl<'a> Layer<'a> {
     /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
@@ -60,7 +60,7 @@ impl<'a> Layer<'a> {
         Ok((input, layer))
     }
 
-    pub fn decode_all(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
+    pub fn decode_all(&mut self, dec: &mut Decoder) -> MltResult<()> {
         match self {
             Layer::Tag01(layer) => layer.decode_all(dec),
             Layer::Unknown(_) => Ok(()),

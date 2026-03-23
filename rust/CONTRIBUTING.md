@@ -49,7 +49,7 @@ Encoding is more complex, and requires owned data structures to support optimiza
 
 ### Notes
 * **Forward Only:** Data moves `1` -> `3`. No backwards conversions (e.g., `Encoded` cannot become `Staged`).
-* All progression steps will use an `Encoder*` types that has some state of **how** to encode, the data of the stage, and return the next stage types, e.g. `TileLayer01` via `Tile01Encoder::encode(&mut self, data: &mut TileLayer01)` -> `Result<StagedLayer01, MltError>` `->` `StagedLayer01`. Note that both `self` and `data` are mutable references, as the encoder may need to mutate internal state and the data being encoded (e.g., for optimizations like reordering features or updating profiling information).
+* All progression steps will use an `Encoder*` types that has some state of **how** to encode, the data of the stage, and return the next stage types, e.g. `TileLayer01` via `Tile01Encoder::encode(&mut self, data: &mut TileLayer01)` -> `MltResult<StagedLayer01>` `->` `StagedLayer01`. Note that both `self` and `data` are mutable references, as the encoder may need to mutate internal state and the data being encoded (e.g., for optimizations like reordering features or updating profiling information).
 * **Staging:** `Tile*` `->` `Staged*`.
 * **Encoding:** `Staged*` `->` `Encoded*`.
 * **Serialization:** `Encoded*` `->` bytes via `write_to(&mut writer)`.
