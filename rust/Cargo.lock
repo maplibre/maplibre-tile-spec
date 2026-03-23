@@ -1250,9 +1250,9 @@ dependencies = [
 
 [[package]]
 name = "instability"
-version = "0.3.11"
+version = "0.3.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "357b7205c6cd18dd2c86ed312d1e70add149aea98e7ef72b9fdf0270e555c11d"
+checksum = "5eb2d60ef19920a3a9193c3e371f726ec1dafc045dac788d0fb3704272458971"
 dependencies = [
  "darling",
  "indoc",
@@ -1515,7 +1515,7 @@ dependencies = [
 
 [[package]]
 name = "mlt"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "clap",
@@ -1537,7 +1537,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "arbitrary",
  "criterion",
@@ -1569,7 +1569,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-py"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "geo-types",
  "mlt-core",
@@ -1592,7 +1592,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-wasm"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "js-sys",
  "mlt-core",
