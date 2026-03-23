@@ -372,9 +372,9 @@ test: (just 'cargo-install' 'cargo-hack')
 test-doc: (docs '--document-private-items')
     cargo test --doc --features fastpfor-cpp,arbitrary --package mlt-core
 
-# Test documentation generation as it would be built on docs.rs (no network, fastpfor-rust only)
+# Test documentation generation as it would be built on docs.rs (docsrs cfg, fastpfor-rust only)
 ci-test-doc:
-    DOCS_RS=1 RUSTDOCFLAGS="--cfg docsrs" cargo doc --no-deps --no-default-features --features fastpfor-rust,arbitrary --package mlt-core
+    DOCS_RS=1 RUSTDOCFLAGS="${RUSTDOCFLAGS} --cfg docsrs" cargo doc --no-deps --no-default-features --features fastpfor-rust,arbitrary --package mlt-core
 
 # Test code formatting
 test-fmt: (fmt-toml '--check' '--check-format')
