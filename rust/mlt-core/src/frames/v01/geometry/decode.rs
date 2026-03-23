@@ -4,7 +4,7 @@ use crate::v01::{
     DictionaryType, GeometryType, GeometryValues, LengthType, OffsetType, RawGeometry, RawStream,
     StreamType,
 };
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltError, MltResult};
 
 pub fn decode_geometry_types(
     meta: RawStream<'_>,
@@ -14,7 +14,7 @@ pub fn decode_geometry_types(
     let vector_types: Vec<u32> = meta.decode_u32s(dec)?;
     let vector_types: Vec<GeometryType> = vector_types
         .into_iter()
-        .map::<Result<GeometryType, MltError>, _>(|v| Ok(u8::try_from(v)?.try_into()?))
+        .map::<MltResult<GeometryType>, _>(|v| Ok(u8::try_from(v)?.try_into()?))
         .collect::<Result<_, _>>()?;
     Ok(vector_types)
 }
@@ -170,7 +170,7 @@ pub fn decode_level2_length_stream(
 }
 
 impl Decode<GeometryValues> for RawGeometry<'_> {
-    fn decode(self, decoder: &mut Decoder) -> Result<GeometryValues, MltError> {
+    fn decode(self, decoder: &mut Decoder) -> MltResult<GeometryValues> {
         RawGeometry::decode(self, decoder)
     }
 }
@@ -179,7 +179,7 @@ impl RawGeometry<'_> {
     /// Decode into [`GeometryValues`], charging `dec` before each `Vec<T>`
     /// allocation.  All streams carry `num_values` in their metadata so every
     /// charge is pre-hoc.
-    pub fn decode(self, dec: &mut Decoder) -> Result<GeometryValues, MltError> {
+    pub fn decode(self, dec: &mut Decoder) -> MltResult<GeometryValues> {
         let RawGeometry { meta, items } = self;
         let vector_types = decode_geometry_types(meta, dec)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;

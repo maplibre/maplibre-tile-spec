@@ -6,6 +6,7 @@ use num_enum::TryFromPrimitiveError;
 use crate::utils::AsUsize;
 use crate::v01::{GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType};
 
+pub type MltResult<T> = Result<T, MltError>;
 pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
 #[derive(Debug, thiserror::Error)]
@@ -186,25 +187,25 @@ impl From<MltError> for std::io::Error {
 }
 
 pub trait AsMltError<T> {
-    fn or_overflow(&self) -> Result<T, MltError>;
+    fn or_overflow(&self) -> MltResult<T>;
 }
 
 impl<T: Copy> AsMltError<T> for Option<T> {
     #[inline]
-    fn or_overflow(&self) -> Result<T, MltError> {
+    fn or_overflow(&self) -> MltResult<T> {
         self.ok_or(MltError::IntegerOverflow)
     }
 }
 
 impl AsMltError<u32> for Result<u32, TryFromIntError> {
     #[inline]
-    fn or_overflow(&self) -> Result<u32, MltError> {
+    fn or_overflow(&self) -> MltResult<u32> {
         self.map_err(|_| MltError::IntegerOverflow)
     }
 }
 
 #[inline]
-pub fn fail_if_invalid_stream_size<T: AsUsize>(actual: T, expected: T) -> Result<(), MltError> {
+pub fn fail_if_invalid_stream_size<T: AsUsize>(actual: T, expected: T) -> MltResult<()> {
     if actual == expected {
         Ok(())
     } else {

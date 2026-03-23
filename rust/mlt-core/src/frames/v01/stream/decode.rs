@@ -7,7 +7,7 @@ use crate::codecs::varint::parse_varint_vec;
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::AsUsize as _;
 use crate::v01::{LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream, RawStreamData};
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltError, MltResult};
 
 impl RawStream<'_> {
     /// Decode a boolean stream: byte-RLE → packed bitmap → `Vec<bool>`, charging `dec`.
@@ -140,7 +140,7 @@ impl RawStream<'_> {
     /// `buf` is cleared and filled with the decoded words. The caller owns the
     /// buffer and is responsible for deciding whether it constitutes a final
     /// persistent allocation (and therefore should be charged to a [`Decoder`]).
-    pub fn decode_bits_u32(self, buf: &mut Vec<u32>, dec: &mut Decoder) -> Result<(), MltError> {
+    pub fn decode_bits_u32(self, buf: &mut Vec<u32>, dec: &mut Decoder) -> MltResult<()> {
         buf.clear();
         match self.meta.encoding.physical {
             PhysicalEncoding::VarInt => match &self.data {
@@ -179,7 +179,7 @@ impl RawStream<'_> {
     /// `buf` is cleared and filled with the decoded words. The caller owns the
     /// buffer and is responsible for deciding whether it constitutes a final
     /// persistent allocation (and therefore should be charged to a [`Decoder`]).
-    pub fn decode_bits_u64(self, buf: &mut Vec<u64>, dec: &mut Decoder) -> Result<(), MltError> {
+    pub fn decode_bits_u64(self, buf: &mut Vec<u64>, dec: &mut Decoder) -> MltResult<()> {
         buf.clear();
         match self.meta.encoding.physical {
             PhysicalEncoding::VarInt => match &self.data {
