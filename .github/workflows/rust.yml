@@ -187,6 +187,16 @@ jobs:
           name: mlt-wasm-npm
           path: rust/mlt-wasm/maplibre-mlt-wasm-*.tgz
 
+  test-docs:
+    name: Test docs.rs build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/mlt-setup-rust
+      - run: just -v rust::ci-test-doc
+
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
   ci-passed-rust:
@@ -199,6 +209,7 @@ jobs:
       - build-release-binaries
       - test-publish
       - build-wasm-npm
+      - test-docs
     if: always()
     runs-on: ubuntu-latest
     steps:

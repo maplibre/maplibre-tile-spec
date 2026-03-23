@@ -11,6 +11,11 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[package.metadata.docs.rs]
+# docs.rs builds without network access, so use the pure-Rust fastpfor implementation
+features = ["fastpfor-rust", "arbitrary"]
+no-default-features = true
+
 [[bench]]
 name = "decoding_e2e"
 harness = false
