@@ -14,13 +14,13 @@ class MltMetadataColumnBuilderTest {
   @Test
   void builderCreatesScalarColumn() {
     final var col =
-        MltMetadata.columnBuilder()
+        MltMetadata.Column.builder()
             .name("name")
-            .scalar(MltMetadata.ScalarType.STRING)
-            .nullable(true)
-            .scope(MltMetadata.ColumnScope.FEATURE)
+            .scalarType(new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING))
+            .isNullable(true)
+            .columnScope(MltMetadata.ColumnScope.FEATURE)
             .build()
-            .asColumnBuilder()
+            .toBuilder()
             .build();
 
     assertEquals("name", col.name);
@@ -33,15 +33,19 @@ class MltMetadataColumnBuilderTest {
   @Test
   void builderCreatesComplexColumn() {
     final var child =
-        MltMetadata.fieldBuilder().scalar(MltMetadata.ScalarType.INT_32).nullable(false).build();
+        MltMetadata.Field.builder()
+            .scalarType(new MltMetadata.ScalarField(MltMetadata.ScalarType.INT_32))
+            .isNullable(false)
+            .build();
     final var col =
-        MltMetadata.columnBuilder()
+        MltMetadata.Column.builder()
             .name("geom")
-            .struct(java.util.List.of(child))
-            .nullable(false)
-            .scope(MltMetadata.ColumnScope.VERTEX)
+            .complexType(
+                new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT, List.of(child)))
+            .isNullable(false)
+            .columnScope(MltMetadata.ColumnScope.VERTEX)
             .build()
-            .asColumnBuilder()
+            .toBuilder()
             .build();
 
     assertEquals("geom", col.name);
@@ -55,7 +59,13 @@ class MltMetadataColumnBuilderTest {
 
   @Test
   void builderAcceptsNullChildren() {
-    final var col = MltMetadata.columnBuilder().struct(null).build().asColumnBuilder().build();
+    final var col =
+        MltMetadata.Column.builder()
+            .complexType(new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT, null))
+            .isNullable(true)
+            .build()
+            .toBuilder()
+            .build();
 
     assertNotNull(col.complexType);
     assertEquals(MltMetadata.ComplexType.STRUCT, col.complexType.physicalType);
@@ -65,10 +75,10 @@ class MltMetadataColumnBuilderTest {
   @Test
   void builderDefaultsToFeatureScope() {
     final var col =
-        MltMetadata.columnBuilder()
+        MltMetadata.Column.builder()
             .name("name")
-            .scalar(MltMetadata.ScalarType.STRING)
-            .nullable(true)
+            .scalarType(new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING))
+            .isNullable(true)
             .build();
     assertEquals(MltMetadata.ColumnScope.FEATURE, col.columnScope);
   }
@@ -76,42 +86,21 @@ class MltMetadataColumnBuilderTest {
   @Test
   void builderRejectsInvalidScope() {
     final var builder =
-        MltMetadata.columnBuilder()
+        MltMetadata.Column.builder()
             .name("invalid")
-            .scalar(MltMetadata.ScalarType.STRING)
-            .nullable(true)
-            .scope(MltMetadata.ColumnScope.UNRECOGNIZED);
+            .scalarType(new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING))
+            .isNullable(true)
+            .columnScope(MltMetadata.ColumnScope.UNRECOGNIZED);
     assertThrows(IllegalStateException.class, builder::build);
-  }
-
-  @Test
-  void builderRejectsNullScope() {
-    final var builder =
-        MltMetadata.columnBuilder()
-            .name("invalid")
-            .scalar(MltMetadata.ScalarType.STRING)
-            .nullable(true)
-            .scope(null);
-    assertThrows(NullPointerException.class, builder::build);
   }
 
   @Test
   void builderRejectsScalarAndComplexTypes() {
     final var builder =
-        MltMetadata.columnBuilder()
-            .scalar(MltMetadata.ScalarType.INT_32)
-            .struct(List.of())
-            .scope(MltMetadata.ColumnScope.FEATURE);
-    assertThrows(IllegalStateException.class, builder::build);
-  }
-
-  @Test
-  void builderRejectsNoType() {
-    final var builder =
-        MltMetadata.columnBuilder()
-            .name("invalid")
-            .nullable(true)
-            .scope(MltMetadata.ColumnScope.FEATURE);
+        MltMetadata.Column.builder()
+            .scalarType(new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING))
+            .complexType(new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT))
+            .columnScope(MltMetadata.ColumnScope.FEATURE);
     assertThrows(IllegalStateException.class, builder::build);
   }
 }

@@ -51,32 +51,32 @@ public class MltTypeMap {
 
     /// Re-create a `Column` from the unique type code.
     /// The inverse of `getTag1TypeEncoding``
-    public static MltMetadata.Column.ColumnBuilder decodeColumnType(int typeCode) {
+    public static MltMetadata.Column.ColumnBuilder<?, ?> decodeColumnType(int typeCode) {
       if (10 <= typeCode && typeCode <= 29) {
         final var isNullable = (typeCode & 1) != 0;
-        return MltMetadata.columnBuilder()
-            .scalar(getScalarType(typeCode))
-            .nullable(isNullable)
-            .scope(MltMetadata.ColumnScope.FEATURE);
+        return MltMetadata.Column.builder()
+            .scalarType(new MltMetadata.ScalarField(getScalarType(typeCode)))
+            .isNullable(isNullable)
+            .columnScope(MltMetadata.ColumnScope.FEATURE);
       } else if (0 <= typeCode && typeCode <= 3) {
         final var isNullable = (typeCode & 1) != 0;
         final var hasLongId = (typeCode > 1);
-        return MltMetadata.columnBuilder()
-            .id(hasLongId)
-            .nullable(isNullable)
-            .scope(MltMetadata.ColumnScope.FEATURE);
+        return MltMetadata.Column.builder()
+            .scalarType(new MltMetadata.ScalarField(MltMetadata.LogicalScalarType.ID, hasLongId))
+            .isNullable(isNullable)
+            .columnScope(MltMetadata.ColumnScope.FEATURE);
       } else if (4 == typeCode) {
         final var isNullable = false;
-        return MltMetadata.columnBuilder()
-            .geometry()
-            .nullable(isNullable)
-            .scope(MltMetadata.ColumnScope.FEATURE);
+        return MltMetadata.Column.builder()
+            .complexType(new MltMetadata.ComplexField(MltMetadata.ComplexType.GEOMETRY))
+            .isNullable(isNullable)
+            .columnScope(MltMetadata.ColumnScope.FEATURE);
       } else if (30 == typeCode) {
         final var isNullable = false;
-        return MltMetadata.columnBuilder()
-            .struct()
-            .nullable(isNullable)
-            .scope(MltMetadata.ColumnScope.FEATURE);
+        return MltMetadata.Column.builder()
+            .complexType(new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT))
+            .isNullable(isNullable)
+            .columnScope(MltMetadata.ColumnScope.FEATURE);
       } else {
         throw new IllegalStateException("Unsupported Type " + typeCode);
       }

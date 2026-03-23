@@ -194,7 +194,7 @@ public class MltDecoder {
       for (var i = 0; i < childCount; ++i) {
         children.add(decodeColumn(stream));
       }
-      column.struct(children);
+      column.complexType(new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT, children));
     }
 
     return column.build();

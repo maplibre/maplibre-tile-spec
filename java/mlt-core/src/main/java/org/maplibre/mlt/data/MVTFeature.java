@@ -98,7 +98,10 @@ public class MVTFeature implements Feature {
   }
 
   private static MltMetadata.FieldType makeField(MltMetadata.ScalarType type, boolean isNullable) {
-    return MltMetadata.fieldBuilder().scalar(type).nullable(isNullable).build();
+    return MltMetadata.Field.builder()
+        .scalarType(new MltMetadata.ScalarField(type))
+        .isNullable(isNullable)
+        .build();
   }
 
   @Override

@@ -63,11 +63,11 @@ public class StringDecoderTest {
 
     final var isNullable = true;
     final var tileMetadata =
-        MltMetadata.columnBuilder()
+        MltMetadata.Column.builder()
             .name("Test")
-            .scalar(MltMetadata.ScalarType.STRING)
-            .nullable(isNullable)
-            .scope(MltMetadata.ColumnScope.FEATURE)
+            .scalarType(new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING))
+            .isNullable(isNullable)
+            .columnScope(MltMetadata.ColumnScope.FEATURE)
             .build();
 
     final var decodedValues =
@@ -91,11 +91,12 @@ public class StringDecoderTest {
     final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, false);
     final var isNullable = true;
     final var tileMetadata =
-        MltMetadata.columnBuilder()
+        MltMetadata.Column.builder()
             .name("Parent")
-            .struct(List.of(test, test2))
-            .nullable(isNullable)
-            .scope(MltMetadata.ColumnScope.FEATURE)
+            .complexType(
+                new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT, List.of(test, test2)))
+            .isNullable(isNullable)
+            .columnScope(MltMetadata.ColumnScope.FEATURE)
             .build();
 
     final var decodedValues =
@@ -115,7 +116,11 @@ public class StringDecoderTest {
       String name,
       @SuppressWarnings("SameParameterValue") MltMetadata.ScalarType type,
       boolean isNullable) {
-    return MltMetadata.fieldBuilder().name(name).scalar(type).nullable(isNullable).build();
+    return MltMetadata.Field.builder()
+        .name(name)
+        .scalarType(new MltMetadata.ScalarField(type))
+        .isNullable(isNullable)
+        .build();
   }
 
   private MltMetadata.ComplexField createComplexColumn(MltMetadata.Field... fields) {
@@ -136,11 +141,12 @@ public class StringDecoderTest {
     final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, false);
     final var isNullable = true;
     final var tileMetadata =
-        MltMetadata.columnBuilder()
+        MltMetadata.Column.builder()
             .name("Parent")
-            .struct(List.of(test, test2))
-            .nullable(isNullable)
-            .scope(MltMetadata.ColumnScope.FEATURE)
+            .complexType(
+                new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT, List.of(test, test2)))
+            .isNullable(isNullable)
+            .columnScope(MltMetadata.ColumnScope.FEATURE)
             .build();
 
     final var decodeResults =
@@ -202,11 +208,12 @@ public class StringDecoderTest {
     final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, false);
     final var isNullable = true;
     final var tileMetadata =
-        MltMetadata.columnBuilder()
+        MltMetadata.Column.builder()
             .name("Parent")
-            .struct(List.of(test, test2))
-            .nullable(isNullable)
-            .scope(MltMetadata.ColumnScope.FEATURE)
+            .complexType(
+                new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT, List.of(test, test2)))
+            .isNullable(isNullable)
+            .columnScope(MltMetadata.ColumnScope.FEATURE)
             .build();
 
     final var decodeResult =
@@ -263,11 +270,14 @@ public class StringDecoderTest {
     final var encodedValues = encodeSharedDictionary(List.of(values), technique, false);
     final var isNullable = true;
     final var tileMetadata =
-        MltMetadata.columnBuilder()
+        MltMetadata.Column.builder()
             .name("TestParent:")
-            .struct(List.of(createField("TestChild", MltMetadata.ScalarType.STRING, isNullable)))
-            .nullable(isNullable)
-            .scope(MltMetadata.ColumnScope.FEATURE)
+            .complexType(
+                new MltMetadata.ComplexField(
+                    MltMetadata.ComplexType.STRUCT,
+                    List.of(createField("TestChild", MltMetadata.ScalarType.STRING, isNullable))))
+            .isNullable(isNullable)
+            .columnScope(MltMetadata.ColumnScope.FEATURE)
             .build();
     var decodeResult =
         StringDecoder.decodeSharedDictionary(

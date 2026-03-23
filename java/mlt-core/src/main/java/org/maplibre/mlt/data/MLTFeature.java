@@ -61,9 +61,9 @@ public class MLTFeature implements Feature {
   static MltMetadata.FieldType getType(Object value) {
     if (value instanceof Map<?, ?>) {
       final boolean isNullable = true;
-      return MltMetadata.fieldBuilder()
-          .complex(MltMetadata.ComplexType.MAP)
-          .nullable(isNullable)
+      return MltMetadata.Field.builder()
+          .complexType(new MltMetadata.ComplexField(MltMetadata.ComplexType.MAP))
+          .isNullable(isNullable)
           .build();
     }
     return MVTFeature.getType(value);
