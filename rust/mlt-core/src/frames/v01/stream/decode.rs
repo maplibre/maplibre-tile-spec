@@ -1,7 +1,7 @@
 use std::mem;
 
 use crate::codecs::bytes::{decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s};
-use crate::codecs::fastpfor::decode_fastpfor_composite;
+use crate::codecs::fastpfor::decode_fastpfor;
 use crate::codecs::rle::decode_byte_rle;
 use crate::codecs::varint::parse_varint_vec;
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
@@ -163,7 +163,7 @@ impl RawStream<'_> {
             },
             PhysicalEncoding::FastPFOR => match &self.data {
                 RawStreamData::Encoded(v) => {
-                    *buf = decode_fastpfor_composite(v, self.meta.num_values.as_usize(), dec)?;
+                    *buf = decode_fastpfor(v, self.meta.num_values, dec)?;
                 }
                 RawStreamData::VarInt(_) => {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));

@@ -1,8 +1,5 @@
 #![doc = include_str!("../README.md")]
 
-#[cfg(not(any(feature = "fastpfor-cpp", feature = "fastpfor-rust")))]
-compile_error!("one of `fastpfor-cpp` or `fastpfor-rust` must be enabled");
-
 pub(crate) mod analyse;
 pub(crate) mod codecs;
 pub(crate) mod convert;
