@@ -8,11 +8,11 @@ use crate::v01::{
 /// These implementations allow round-trip tests to compare a decoded tile
 /// directly against a hand-crafted `Staged*` value without having to convert
 /// one side first.
-use crate::{DecodeState, Mixed};
+use crate::{DecodeState, Lazy};
 
 // ── Id ────────────────────────────────────────────────────────────────────────
 
-impl PartialEq<IdValues> for Id<'_, Mixed> {
+impl PartialEq<IdValues> for Id<'_, Lazy> {
     fn eq(&self, other: &IdValues) -> bool {
         match self {
             Self::Parsed(parsed) => parsed == other,
@@ -21,15 +21,15 @@ impl PartialEq<IdValues> for Id<'_, Mixed> {
     }
 }
 
-impl PartialEq<Id<'_, Mixed>> for IdValues {
-    fn eq(&self, other: &Id<'_, Mixed>) -> bool {
+impl PartialEq<Id<'_, Lazy>> for IdValues {
+    fn eq(&self, other: &Id<'_, Lazy>) -> bool {
         other == self
     }
 }
 
 // ── Geometry ──────────────────────────────────────────────────────────────────
 
-impl PartialEq<GeometryValues> for Geometry<'_, Mixed> {
+impl PartialEq<GeometryValues> for Geometry<'_, Lazy> {
     fn eq(&self, other: &GeometryValues) -> bool {
         match self {
             Self::Parsed(parsed) => parsed == other,
@@ -38,15 +38,15 @@ impl PartialEq<GeometryValues> for Geometry<'_, Mixed> {
     }
 }
 
-impl PartialEq<Geometry<'_, Mixed>> for GeometryValues {
-    fn eq(&self, other: &Geometry<'_, Mixed>) -> bool {
+impl PartialEq<Geometry<'_, Lazy>> for GeometryValues {
+    fn eq(&self, other: &Geometry<'_, Lazy>) -> bool {
         other == self
     }
 }
 
 // ── Property ──────────────────────────────────────────────────────────────────
 
-impl PartialEq<StagedProperty> for Property<'_, Mixed> {
+impl PartialEq<StagedProperty> for Property<'_, Lazy> {
     fn eq(&self, other: &StagedProperty) -> bool {
         match self {
             Self::Parsed(parsed) => parsed == other,
@@ -55,8 +55,8 @@ impl PartialEq<StagedProperty> for Property<'_, Mixed> {
     }
 }
 
-impl PartialEq<Property<'_, Mixed>> for StagedProperty {
-    fn eq(&self, other: &Property<'_, Mixed>) -> bool {
+impl PartialEq<Property<'_, Lazy>> for StagedProperty {
+    fn eq(&self, other: &Property<'_, Lazy>) -> bool {
         other == self
     }
 }
@@ -80,7 +80,7 @@ where
     }
 }
 
-impl PartialEq<StagedLayer01> for Layer01<'_, Mixed> {
+impl PartialEq<StagedLayer01> for Layer01<'_, Lazy> {
     fn eq(&self, other: &StagedLayer01) -> bool {
         let Self {
             name,
@@ -90,7 +90,6 @@ impl PartialEq<StagedLayer01> for Layer01<'_, Mixed> {
             properties,
             #[cfg(fuzzing)]
                 layer_order: _,
-            _state: _,
         } = self;
         let StagedLayer01 {
             name: other_name,
@@ -110,8 +109,8 @@ impl PartialEq<StagedLayer01> for Layer01<'_, Mixed> {
     }
 }
 
-impl PartialEq<Layer01<'_, Mixed>> for StagedLayer01 {
-    fn eq(&self, other: &Layer01<'_, Mixed>) -> bool {
+impl PartialEq<Layer01<'_, Lazy>> for StagedLayer01 {
+    fn eq(&self, other: &Layer01<'_, Lazy>) -> bool {
         other == self
     }
 }

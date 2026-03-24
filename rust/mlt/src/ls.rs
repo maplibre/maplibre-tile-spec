@@ -17,7 +17,7 @@ use mlt_core::v01::{
     DictionaryType, GeometryType, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
     StreamMeta, StreamType,
 };
-use mlt_core::{Analyze as _, Decoder, EncDec, Parser};
+use mlt_core::{Analyze as _, Decoder, LazyParsed, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
@@ -576,7 +576,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
             meta_size += layer01.collect_statistic(DecodedMetaSize);
             feature_count += layer01.collect_statistic(FeatureCount);
 
-            if let EncDec::Parsed(ref geom) = layer01.geometry {
+            if let LazyParsed::Parsed(ref geom) = layer01.geometry {
                 for &geom_type in &geom.vector_types {
                     geometries.insert(geom_type);
                 }

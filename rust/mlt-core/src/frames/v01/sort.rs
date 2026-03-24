@@ -217,7 +217,7 @@ mod tests {
     use geo_types::{Coord, Geometry as GeoGeom, LineString, Point, Polygon};
 
     use super::*;
-    use crate::EncDec;
+    use crate::LazyParsed;
     use crate::geojson::Geom32;
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::v01::{
@@ -270,7 +270,7 @@ mod tests {
         let (remaining, parsed) = RawGeometry::from_bytes(&buf, &mut p).expect("parse failed");
         assert_empty(remaining);
         let mut d = dec();
-        let result = EncDec::Raw(parsed)
+        let result = LazyParsed::Raw(parsed)
             .into_parsed(&mut d)
             .expect("decode failed");
         assert!(

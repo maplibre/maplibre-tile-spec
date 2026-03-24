@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use geo_types::Geometry as GeoGeometry;
 use num_enum::TryFromPrimitive;
 
@@ -7,7 +5,7 @@ use crate::v01::{
     EncodedGeometry, EncodedId, EncodedProperty, Geometry, GeometryValues, Id, IdValues, Property,
     StagedProperty,
 };
-use crate::{DecodeState, Mixed};
+use crate::{DecodeState, Lazy};
 
 /// Column definition
 #[derive(Debug, PartialEq)]
@@ -61,19 +59,18 @@ pub enum ColumnType {
 ///
 /// The type parameter `S` controls how columns are stored:
 ///
-/// - `Layer01<'a>` / `Layer01<'a, Mixed>` (default) — columns are [`EncDec`](crate::EncDec) enums
+/// - `Layer01<'a>` / `Layer01<'a, Lazy>` (default) — columns are [`LazyParsed`](crate::LazyParsed) enums
 ///   that may be raw or decoded. Use `decode_id`, `decode_geometry`, `decode_properties` for
 ///   selective in-place decoding, or [`Layer01::decode_all`] to transition to `Layer01<Decoded>`.
 ///
 /// - `Layer01<'a, Decoded>` — all columns are fully decoded. The fields `id`, `geometry`, and
 ///   `properties` hold the parsed types directly, allowing infallible readonly access.
-pub struct Layer01<'a, S: DecodeState = Mixed> {
+pub struct Layer01<'a, S: DecodeState = Lazy> {
     pub name: &'a str,
     pub extent: u32,
     pub id: Option<Id<'a, S>>,
     pub geometry: Geometry<'a, S>,
     pub properties: Vec<Property<'a, S>>,
-    pub(crate) _state: PhantomData<S>,
     #[cfg(fuzzing)]
     pub layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
 }
@@ -114,7 +111,6 @@ where
             properties: self.properties.clone(),
             #[cfg(fuzzing)]
             layer_order: self.layer_order.clone(),
-            _state: PhantomData,
         }
     }
 }

@@ -4,7 +4,7 @@ use enum_dispatch::enum_dispatch;
 
 use crate::analyse::{Analyze, StatType};
 use crate::v01::{EncodedStream, FsstStrEncoder, IntEncoder, RawStream, StreamMeta};
-use crate::{DecodeState, Mixed};
+use crate::{DecodeState, Lazy};
 
 /// Owned name string (Stage 4/5)
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -12,9 +12,10 @@ pub struct EncodedName(pub String);
 
 /// Property column representation, parameterized by decode state.
 ///
-/// - `Property<'a>` / `Property<'a, Mixed>` — either raw bytes or decoded, in an [`EncDec`] enum.
+/// - `Property<'a>` / `Property<'a, Lazy>` — either raw bytes or decoded, in an [`LazyParsed`] enum.
 /// - `Property<'a, Decoded>` — decoded [`ParsedProperty`] directly (no enum wrapper).
-pub type Property<'a, S = Mixed> = <S as DecodeState>::Wrap<RawProperty<'a>, ParsedProperty<'a>>;
+pub type Property<'a, S = Lazy> =
+    <S as DecodeState>::LazyOrParsed<RawProperty<'a>, ParsedProperty<'a>>;
 
 pub enum PropertyKind {
     Bool,
@@ -245,12 +246,12 @@ pub struct ParsedStrings<'a> {
     pub data: Cow<'a, str>,
 }
 
-/// SharedDictItem column representation, parameterized by decode state.
+/// `SharedDictItem` column representation, parameterized by decode state.
 ///
-/// - `SharedDictItem<'a>` / `SharedDictItem<'a, Mixed>` — either raw or decoded, in an [`EncDec`] enum.
+/// - `SharedDictItem<'a>` / `SharedDictItem<'a, Lazy>` — either raw or decoded, in an [`LazyParsed`] enum.
 /// - `SharedDictItem<'a, Decoded>` — decoded [`ParsedSharedDictItem`] directly.
-pub type SharedDictItem<'a, S = Mixed> =
-    <S as DecodeState>::Wrap<RawSharedDictItem<'a>, ParsedSharedDictItem<'a>>;
+pub type SharedDictItem<'a, S = Lazy> =
+    <S as DecodeState>::LazyOrParsed<RawSharedDictItem<'a>, ParsedSharedDictItem<'a>>;
 
 /// Parsed shared dictionary payload shared by one or more child string properties.
 #[derive(Debug, Clone, PartialEq, Eq)]

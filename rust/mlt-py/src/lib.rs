@@ -7,7 +7,7 @@ use std::ops::Deref;
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{GeometryValues, ParsedProperty};
-use mlt_core::{Decoder, EncDec, MltError, MltResult, Parser};
+use mlt_core::{Decoder, LazyParsed, MltError, MltResult, Parser};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
@@ -274,23 +274,23 @@ fn decode_mlt(
         };
 
         let geom = match &layer.geometry {
-            EncDec::Parsed(g) => g,
-            EncDec::Raw(_) => Err(PyValueError::new_err("geometry not decoded"))?,
-            EncDec::ParsingFailed => Err(PyValueError::new_err("geometry parse failed"))?,
+            LazyParsed::Parsed(g) => g,
+            LazyParsed::Raw(_) => Err(PyValueError::new_err("geometry not decoded"))?,
+            LazyParsed::ParsingFailed => Err(PyValueError::new_err("geometry parse failed"))?,
         };
 
         let ids = match &layer.id {
             None => None,
-            Some(EncDec::Parsed(decoded)) => Some(decoded.values()),
-            Some(EncDec::Raw(_)) => Err(PyValueError::new_err("ID not decoded"))?,
-            Some(EncDec::ParsingFailed) => Err(PyValueError::new_err("ID parse failed"))?,
+            Some(LazyParsed::Parsed(decoded)) => Some(decoded.values()),
+            Some(LazyParsed::Raw(_)) => Err(PyValueError::new_err("ID not decoded"))?,
+            Some(LazyParsed::ParsingFailed) => Err(PyValueError::new_err("ID parse failed"))?,
         };
 
         let props: Vec<&ParsedProperty> = layer
             .properties
             .iter()
             .map(|p| match p {
-                EncDec::Parsed(d) => Ok(d),
+                LazyParsed::Parsed(d) => Ok(d),
                 _ => Err(PyValueError::new_err("property not decoded")),
             })
             .collect::<PyResult<_>>()?;
@@ -479,7 +479,7 @@ mod tests {
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let EncDec::Parsed(geom) = &l.geometry else {
+        let LazyParsed::Parsed(geom) = &l.geometry else {
             panic!("geometry not decoded");
         };
 
@@ -514,7 +514,7 @@ mod tests {
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let EncDec::Parsed(geom) = &l.geometry else {
+        let LazyParsed::Parsed(geom) = &l.geometry else {
             panic!("geometry not decoded");
         };
 
@@ -552,7 +552,7 @@ mod tests {
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let EncDec::Parsed(geom) = &l.geometry else {
+        let LazyParsed::Parsed(geom) = &l.geometry else {
             panic!("geometry not decoded");
         };
 

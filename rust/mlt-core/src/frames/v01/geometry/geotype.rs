@@ -365,7 +365,7 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::EncDec;
+    use crate::LazyParsed;
     use crate::geojson::Coord32;
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::v01::{EncodedGeometry, GeometryEncoder, IntEncoding, RawGeometry};
@@ -383,7 +383,7 @@ mod tests {
             RawGeometry::from_bytes(&buffer, &mut parser()).expect("Failed to parse");
         assert_empty(remaining);
 
-        EncDec::Raw(parsed)
+        LazyParsed::Raw(parsed)
             .into_parsed(&mut dec())
             .expect("Failed to decode")
     }
@@ -697,7 +697,7 @@ mod tests {
         assert_snapshot!(p.reserved(), @"72");
 
         let mut d = dec();
-        let decoded = EncDec::Raw(parsed).into_parsed(&mut d).unwrap();
+        let decoded = LazyParsed::Raw(parsed).into_parsed(&mut d).unwrap();
         assert_snapshot!(d.consumed(), @"100");
         assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));
 

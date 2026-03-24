@@ -15,26 +15,20 @@ mod sealed {
 /// Type-state marker for [`Layer01`](crate::v01::Layer01) and related column wrappers.
 ///
 /// Implementors determine how `(Raw, Parsed)` column pairs are stored:
-/// - [`Mixed`] stores an [`EncDec<Raw, Parsed>`] enum that can be in Raw, Parsed, or ParsingFailed state.
-/// - [`Decoded`] stores only `Parsed`, giving zero-cost infallible field access.
+/// - [`Lazy`] stores an [`LazyParsed<Raw, Parsed>`] enum that can be in `Raw`, `Parsed`, or `ParsingFailed` state.
+/// - [`Parsed`] stores only `Parsed`, giving zero-cost infallible field access.
 pub trait DecodeState: sealed::Sealed {
-    type Wrap<Raw, Parsed>;
+    type LazyOrParsed<Raw, Parsed>;
 }
 
-/// Mixed state: individual columns may still be raw or already decoded.
+/// Lazy state: individual columns may still be raw or already decoded.
 ///
 /// This is the default state produced by [`Layer01::from_bytes`](crate::v01::Layer01::from_bytes).
 /// Columns can be decoded in place (via `decode_id`, `decode_geometry`, etc.) or
 /// all at once by calling [`Layer01::decode_all`](crate::v01::Layer01::decode_all), which
 /// consumes `self` and returns a [`Layer01<Decoded>`](crate::v01::Layer01).
 #[derive(Debug, Clone, PartialEq)]
-pub struct Mixed;
-
-impl sealed::Sealed for Mixed {}
-
-impl DecodeState for Mixed {
-    type Wrap<Raw, Parsed> = EncDec<Raw, Parsed>;
-}
+pub struct Lazy;
 
 /// Fully-decoded state: all columns hold their parsed values directly.
 ///
@@ -42,13 +36,17 @@ impl DecodeState for Mixed {
 /// Its fields (`id`, `geometry`, `properties`) are the parsed types themselves — no
 /// wrapping enum, no `Result`, just plain field access.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Decoded;
+pub struct Parsed;
 
-impl sealed::Sealed for Decoded {}
+impl sealed::Sealed for Lazy {}
+impl sealed::Sealed for Parsed {}
 
-impl DecodeState for Decoded {
+impl DecodeState for Lazy {
+    type LazyOrParsed<Raw, Parsed> = LazyParsed<Raw, Parsed>;
+}
+impl DecodeState for Parsed {
     /// In the decoded state the column IS the parsed value — no enum wrapper.
-    type Wrap<Raw, Parsed> = Parsed;
+    type LazyOrParsed<Raw, Parsed> = Parsed;
 }
 
 /// Shared wrapper for values that may still be in the original (raw) format or
@@ -57,13 +55,13 @@ impl DecodeState for Decoded {
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum EncDec<Raw, Parsed> {
+pub enum LazyParsed<Raw, Parsed> {
     Raw(Raw),
     Parsed(Parsed),
     ParsingFailed,
 }
 
-impl<Raw: Decode<Parsed>, Parsed> EncDec<Raw, Parsed> {
+impl<Raw: Decode<Parsed>, Parsed> LazyParsed<Raw, Parsed> {
     /// Decode in place, replacing the raw value with the parsed result.
     pub fn decode(&mut self, decoder: &mut Decoder) -> MltResult<&mut Parsed> {
         match self {
@@ -100,7 +98,7 @@ impl<Raw: Decode<Parsed>, Parsed> EncDec<Raw, Parsed> {
     }
 }
 
-impl<Raw: Analyze, Parsed: Analyze> Analyze for EncDec<Raw, Parsed> {
+impl<Raw: Analyze, Parsed: Analyze> Analyze for LazyParsed<Raw, Parsed> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         match self {
             Self::Raw(encoded) => encoded.collect_statistic(stat),
