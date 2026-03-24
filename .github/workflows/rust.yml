@@ -313,20 +313,13 @@ jobs:
           name: mlt-wasm-npm
           path: mlt-wasm-pkg
 
-      - name: Release (GitHub) - Create Draft
+      - name: Release (GitHub)
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           name: mlt-wasm-js-v${{ env.version }}
           tag_name: mlt-wasm-js-v${{ env.version }}
           prerelease: ${{ env.prerelease }}
-          draft: true
+          draft: false
 
       - name: Publish npm package
         run: npm publish mlt-wasm-pkg/maplibre-mlt-wasm-*.tgz --access=public
-
-      - name: Publish GitHub release (remove draft)
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
-        with:
-          tag_name: mlt-wasm-js-v${{ env.version }}
-          name: mlt-wasm-js-v${{ env.version }}
-          draft: false
