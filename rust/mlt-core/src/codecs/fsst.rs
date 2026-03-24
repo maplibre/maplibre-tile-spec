@@ -136,6 +136,7 @@ mod tests {
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
     use crate::v01::{FsstStrEncoder, IntEncoder, RawFsstData};
+    use rstest::rstest;
 
     fn roundtrip(values: &[&str]) -> (String, Vec<u32>) {
         let encoding = FsstStrEncoder {
@@ -172,20 +173,16 @@ mod tests {
         assert!(lengths.is_empty());
     }
 
-    #[test]
-    fn test_fsst_roundtrip_multiple() {
-        let cases: &[&[&str]] = &[
-            &["hello world", "hello rust", "hello fsst", "world"],
-            &["hello"],
-        ];
-        for case in cases {
-            let (corpus, lengths) = roundtrip(case);
-            let mut offset = 0;
-            for (s, &len) in case.iter().zip(&lengths) {
-                let len = len as usize;
-                assert_eq!(&corpus[offset..offset + len], *s);
-                offset += len;
-            }
+    #[rstest]
+    #[case::longer(&["hello world", "hello rust", "hello fsst", "world"])]
+    #[case::short(&["hello"])]
+    fn automatic_optimisation_roundtrip(#[case] values: &[&str]) {
+        let (corpus, lengths) = roundtrip(values);
+        let mut offset = 0;
+        for (s, &len) in values.iter().zip(&lengths) {
+            let len = len as usize;
+            assert_eq!(&corpus[offset..offset + len], *s);
+            offset += len;
         }
     }
 }
