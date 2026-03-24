@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::frames::Layer;
-use crate::{Decoder, MltResult};
+use crate::v01::Layer01;
+use crate::{MltResult, Parsed};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
 pub type Geom32 = geo_types::Geometry<i32>;
@@ -29,39 +30,43 @@ pub struct FeatureCollection {
 }
 
 impl FeatureCollection {
-    /// Convert layers to a `GeoJSON` [`FeatureCollection`], consuming them.
+    /// Convert already-decoded layers to a `GeoJSON` [`FeatureCollection`], consuming them.
+    /// Make sure to call `decode_all` on Layer before calling this (won't compile otherwise)
     pub fn from_layers<'a>(
-        layers: impl IntoIterator<Item = Layer<'a>>,
-        dec: &mut Decoder,
+        layers: impl IntoIterator<Item = Layer<'a, Parsed>>,
     ) -> MltResult<FeatureCollection> {
         let mut features = Vec::new();
         for layer in layers {
-            let Layer::Tag01(lazy) = layer else {
+            let Layer::Tag01(parsed) = layer else {
                 continue;
             };
-            let parsed = lazy.decode_all(dec)?;
-            let layer_name = parsed.name;
-            let extent = parsed.extent;
-            for feat in parsed.iter_features() {
-                let feat = feat?;
-                let mut properties = BTreeMap::new();
-                for col in feat.iter_properties() {
-                    properties.insert(col.name.to_string(), col.value.into());
-                }
-                properties.insert("_layer".into(), Value::String(layer_name.to_string()));
-                properties.insert("_extent".into(), Value::Number(extent.into()));
-                features.push(Feature {
-                    geometry: feat.geometry,
-                    id: feat.id,
-                    properties,
-                    ty: "Feature".into(),
-                });
-            }
+            Self::add_layer01(&mut features, &parsed)?;
         }
         Ok(FeatureCollection {
             features,
             ty: "FeatureCollection".into(),
         })
+    }
+
+    fn add_layer01(features: &mut Vec<Feature>, parsed: &Layer01<'_, Parsed>) -> MltResult<()> {
+        let layer_name = parsed.name;
+        let extent = parsed.extent;
+        for feat in parsed.iter_features() {
+            let feat = feat?;
+            let mut properties = BTreeMap::new();
+            for col in feat.iter_properties() {
+                properties.insert(col.name.to_string(), col.value.into());
+            }
+            properties.insert("_layer".into(), Value::String(layer_name.to_string()));
+            properties.insert("_extent".into(), Value::Number(extent.into()));
+            features.push(Feature {
+                geometry: feat.geometry,
+                id: feat.id,
+                properties,
+                ty: "Feature".into(),
+            });
+        }
+        Ok(())
     }
 }
 

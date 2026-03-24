@@ -29,7 +29,7 @@ impl DecodedLayerInput {
 
         // Parse the written bytes back — must not fail.
         let mut parser = Parser::default();
-        let Ok((remaining, mut parsed_back)) = Layer::from_bytes(&buffer, &mut parser) else {
+        let Ok((remaining, parsed_back)) = Layer::from_bytes(&buffer, &mut parser) else {
             panic!(
                 "Written layer cannot be re-parsed\nOriginal layer:\n{:#?}",
                 self.layer

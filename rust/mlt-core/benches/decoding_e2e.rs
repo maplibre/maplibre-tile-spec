@@ -55,14 +55,13 @@ fn bench_mlt_decode_all(c: &mut Criterion) {
                         })
                         .collect::<Vec<_>>()
                 },
-                |mut mlt| {
-                    let mut d = dec();
-                    for layers in &mut mlt {
-                        for layer in layers.iter_mut() {
-                            layer.decode_all(&mut d).expect("mlt decode_all failed");
-                        }
-                    }
-                    black_box(mlt);
+                |mlt| {
+                    let mut dec = dec();
+                    let decoded: Vec<Vec<_>> = mlt
+                        .into_iter()
+                        .map(|layers| dec.decode_all(layers).expect("mlt decode_all failed"))
+                        .collect();
+                    black_box(decoded);
                 },
                 BatchSize::SmallInput,
             );

@@ -17,7 +17,7 @@ use mlt_core::v01::{
     DictionaryType, GeometryType, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
     StreamMeta, StreamType,
 };
-use mlt_core::{Analyze as _, Decoder, LazyParsed, Parser};
+use mlt_core::{Analyze as _, Decoder, MltResult, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
@@ -550,8 +550,7 @@ pub fn analyze_tile_file(path: &Path, base_path: &Path, flags: LsFlags) -> AnyRe
 
 pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResult<MltFileInfo> {
     let mut parser = Parser::default();
-    let mut layers = parser.parse_layers(buffer)?;
-    let mut dec = Decoder::default();
+    let layers = parser.parse_layers(buffer)?;
 
     let mut stream_count = 0;
     let mut algorithms: HashSet<StreamStat> = HashSet::new();
@@ -564,22 +563,21 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
         }
     }
 
+    let mut dec = Decoder::default();
+    let layers = dec.decode_all(layers)?;
+
     let mut geometries = HashSet::new();
     let mut feature_count = 0;
     let mut data_size = 0;
     let mut meta_size = 0;
 
-    for layer in &mut layers {
-        layer.decode_all(&mut dec)?;
+    for layer in &layers {
         if let Some(layer01) = layer.as_layer01() {
             data_size += layer01.collect_statistic(DecodedDataSize);
             meta_size += layer01.collect_statistic(DecodedMetaSize);
             feature_count += layer01.collect_statistic(FeatureCount);
-
-            if let LazyParsed::Parsed(ref geom) = layer01.geometry {
-                for &geom_type in &geom.vector_types {
-                    geometries.insert(geom_type);
-                }
+            for &geom_type in &layer01.geometry.vector_types {
+                geometries.insert(geom_type);
             }
         }
     }
@@ -591,7 +589,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
             let expected: FeatureCollection =
                 serde_json::from_str(&fs::read_to_string(&json_path)?)
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
-            let actual = FeatureCollection::from_layers(layers, &mut dec)?;
+            let actual = FeatureCollection::from_layers(layers)?;
             let expected_val = normalize_tiny_floats(serde_json::to_value(&expected)?);
             let actual_val = normalize_tiny_floats(serde_json::to_value(&actual)?);
             Some(json_values_equal(&expected_val, &actual_val))

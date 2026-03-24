@@ -1,7 +1,7 @@
 use std::mem::size_of;
 
 use crate::errors::AsMltError as _;
-use crate::{Layer, MltError, MltResult};
+use crate::{Layer, MltError, MltResult, ParsedLayer};
 
 /// Default memory budget: 10 MiB.
 const DEFAULT_MAX_BYTES: u32 = 10 * 1024 * 1024;
@@ -42,6 +42,16 @@ impl Decoder {
             budget: MemBudget::with_max_size(max_bytes),
             ..Default::default()
         }
+    }
+
+    pub fn decode_all<'a>(
+        &mut self,
+        layers: impl IntoIterator<Item = Layer<'a>>,
+    ) -> MltResult<Vec<ParsedLayer<'a>>> {
+        layers
+            .into_iter()
+            .map(|l| l.decode_all(self))
+            .collect::<MltResult<_>>()
     }
 
     /// Allocate a `Vec<T>` with the given capacity, charging the decoder's budget for

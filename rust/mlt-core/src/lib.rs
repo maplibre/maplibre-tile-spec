@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+extern crate core;
 
 pub(crate) mod analyse;
 pub(crate) mod codecs;
@@ -13,7 +14,7 @@ pub use analyse::{Analyze, StatType};
 pub use convert::{geojson, mvt};
 pub use decoder::{Decoder, Parser};
 pub use errors::{MltError, MltRefResult, MltResult};
-pub use frames::{EncodedLayer, Layer, StagedLayer, unknown, v01};
+pub use frames::{EncodedLayer, Layer, ParsedLayer, StagedLayer, unknown, v01};
 pub use lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
 
 #[cfg(any(test, feature = "__private"))]

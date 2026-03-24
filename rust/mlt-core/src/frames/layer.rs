@@ -9,7 +9,11 @@ use crate::codecs::varint::parse_varint;
 use crate::frames::Unknown;
 use crate::frames::v01::Layer01;
 use crate::utils::{checked_sum2, parse_u8, take};
-use crate::{Decoder, EncodedLayer, Layer, MltError, MltRefResult, MltResult, Parser, utils};
+use crate::v01::ParsedLayer01;
+use crate::{
+    Decoder, EncodedLayer, Layer, MltError, MltRefResult, MltResult, Parsed, ParsedLayer, Parser,
+    utils,
+};
 
 impl<'a> Layer<'a> {
     /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
@@ -60,15 +64,25 @@ impl<'a> Layer<'a> {
         Ok((input, layer))
     }
 
-    pub fn decode_all(&mut self, dec: &mut Decoder) -> MltResult<()> {
+    /// Decode all columns and return a fully-decoded [`ParsedLayer`].
+    ///
+    /// Consumes `self`.  For partial / incremental decoding, destructure with
+    /// `Layer::Tag01(lazy)` and call the individual methods on [`Layer01`].
+    pub fn decode_all(self, dec: &mut Decoder) -> MltResult<ParsedLayer<'a>> {
         match self {
-            Layer::Tag01(layer) => {
-                layer.decode_id(dec)?;
-                layer.decode_geometry(dec)?;
-                layer.decode_properties(dec)?;
-                Ok(())
-            }
-            Layer::Unknown(_) => Ok(()),
+            Layer::Tag01(lazy) => Ok(Layer::Tag01(lazy.decode_all(dec)?)),
+            Layer::Unknown(u) => Ok(Layer::Unknown(u)),
+        }
+    }
+}
+
+impl<'a> Layer<'a, Parsed> {
+    /// Returns the inner [`ParsedLayer01<'a>`] if this is a Tag01 layer, or `None` otherwise.
+    #[must_use]
+    pub fn as_layer01(&self) -> Option<&ParsedLayer01<'a>> {
+        match self {
+            Self::Tag01(l) => Some(l),
+            Self::Unknown(_) => None,
         }
     }
 }

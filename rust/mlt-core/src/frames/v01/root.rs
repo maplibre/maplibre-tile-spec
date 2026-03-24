@@ -9,9 +9,9 @@ use crate::codecs::varint::parse_varint;
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
 use crate::v01::{
     Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01,
-    Layer01FeatureIter, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence,
-    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream,
-    RawStrings, RawStringsEncoding, StreamMeta, StreamType,
+    Layer01FeatureIter, ParsedLayer01, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData,
+    RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem,
+    RawStream, RawStrings, RawStringsEncoding, StreamMeta, StreamType,
 };
 use crate::{Decoder, Lazy, MltRefResult, MltResult, Parsed, Parser};
 
@@ -35,6 +35,21 @@ impl Analyze for Layer01<'_, Lazy> {
         self.geometry.for_each_stream(cb);
         self.properties.for_each_stream(cb);
     }
+}
+
+impl Analyze for Layer01<'_, Parsed> {
+    fn collect_statistic(&self, stat: StatType) -> usize {
+        match stat {
+            StatType::DecodedMetaSize => self.name.len() + size_of::<u32>(),
+            StatType::DecodedDataSize => {
+                self.id.as_ref().map_or(0, |id| id.collect_statistic(stat))
+                    + self.geometry.collect_statistic(stat)
+                    + self.properties.collect_statistic(stat)
+            }
+            StatType::FeatureCount => self.geometry.collect_statistic(stat),
+        }
+    }
+    // for_each_stream: all columns are already decoded — no raw streams to walk.
 }
 
 impl<'a> Layer01<'a, Lazy> {
@@ -194,27 +209,24 @@ impl<'a> Layer01<'a, Lazy> {
     ///
     /// Consumes `self` (a `Layer01<Lazy>`) and returns a `Layer01<Parsed>` where every
     /// column field holds its parsed value directly, enabling infallible readonly access.
-    pub fn decode_all(self, dec: &mut Decoder) -> MltResult<Layer01<'a, Parsed>> {
-        let id = self.id.map(|id| id.into_parsed(dec)).transpose()?;
-        let geometry = self.geometry.into_parsed(dec)?;
-        let properties = self
-            .properties
-            .into_iter()
-            .map(|p| p.into_parsed(dec))
-            .collect::<MltResult<Vec<_>>>()?;
+    pub fn decode_all(self, dec: &mut Decoder) -> MltResult<ParsedLayer01<'a>> {
         Ok(Layer01 {
             name: self.name,
             extent: self.extent,
-            id,
-            geometry,
-            properties,
+            id: self.id.map(|id| id.into_parsed(dec)).transpose()?,
+            geometry: self.geometry.into_parsed(dec)?,
+            properties: self
+                .properties
+                .into_iter()
+                .map(|p| p.into_parsed(dec))
+                .collect::<MltResult<Vec<_>>>()?,
             #[cfg(fuzzing)]
             layer_order: self.layer_order,
         })
     }
 }
 
-impl<'a> Layer01<'a, Parsed> {
+impl<'a> ParsedLayer01<'a> {
     /// Iterate over all features in this fully-decoded layer.
     ///
     /// Returns a [`Layer01FeatureIter`] that yields one [`FeatureRef`](crate::v01::FeatureRef)

@@ -5,7 +5,7 @@ use crate::v01::{
     EncodedGeometry, EncodedId, EncodedProperty, Geometry, GeometryValues, Id, IdValues, Property,
     StagedProperty,
 };
-use crate::{DecodeState, Lazy};
+use crate::{DecodeState, Lazy, Parsed};
 
 /// Column definition
 #[derive(Debug, PartialEq)]
@@ -65,6 +65,7 @@ pub enum ColumnType {
 ///
 /// - `Layer01<'a, Parsed>` — all columns are fully decoded. The fields `id`, `geometry`, and
 ///   `properties` hold the parsed types directly, allowing infallible readonly access.
+///   There is a `ParsedLayer01<'a>` type alias for this.
 pub struct Layer01<'a, S: DecodeState = Lazy> {
     pub name: &'a str,
     pub extent: u32,
@@ -74,6 +75,8 @@ pub struct Layer01<'a, S: DecodeState = Lazy> {
     #[cfg(fuzzing)]
     pub layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
 }
+
+pub type ParsedLayer01<'a> = Layer01<'a, Parsed>;
 
 impl<'a, S> std::fmt::Debug for Layer01<'a, S>
 where
