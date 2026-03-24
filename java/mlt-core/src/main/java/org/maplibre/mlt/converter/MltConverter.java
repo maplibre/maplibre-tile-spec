@@ -754,7 +754,7 @@ public class MltConverter {
 
   private static Stream<Feature> generateSequenceIds(Collection<Feature> features) {
     final var idCounter = new long[] {0};
-    return features.stream().map(feature -> feature.asBuilder().id(idCounter[0]++).build());
+    return features.stream().map(feature -> feature.toBuilder().id(idCounter[0]++).build());
   }
 
   private static MltMetadata.Column createScalarColumnScheme(

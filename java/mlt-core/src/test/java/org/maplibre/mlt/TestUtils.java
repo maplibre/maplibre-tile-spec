@@ -59,33 +59,29 @@ public class TestUtils {
     return new MapboxVectorTile(
         tile.getLayerStream()
             .filter(layer -> filter.test(layer))
-            .map(
-                layer ->
-                    new Layer(
-                        layer.name(),
-                        layer.features().stream()
-                            .filter(feature -> filter.test(layer, feature))
-                            .flatMap(StreamUtil.ofType(MVTFeature.class))
-                            .map(
-                                feature ->
-                                    feature
-                                        .asBuilder()
-                                        .properties(
-                                            feature.getRawProperties().entrySet().stream()
-                                                .filter(
-                                                    p ->
-                                                        filter.test(
-                                                            layer,
-                                                            feature,
-                                                            p.getKey(),
-                                                            p.getValue()))
-                                                .collect(
-                                                    Collectors.toMap(
-                                                        Map.Entry::getKey, Map.Entry::getValue)))
-                                        .build())
-                            .toList(),
-                        layer.tileExtent()))
+            .map(layer -> filterLayers(layer, filter))
             .toList(),
         tile.tileId());
+  }
+
+  private static @NotNull Layer filterLayers(@NotNull Layer layer, @NotNull TileFilter filter) {
+    return new Layer(
+        layer.name(),
+        layer.features().stream()
+            .filter(feature -> filter.test(layer, feature))
+            .flatMap(StreamUtil.ofType(MVTFeature.class))
+            .map(feature -> filterFeatures(layer, feature, filter))
+            .toList(),
+        layer.tileExtent());
+  }
+
+  private static @NotNull Feature filterFeatures(
+      @NotNull Layer layer, @NotNull MVTFeature feature, @NotNull TileFilter filter) {
+    return feature.toBuilder()
+        .properties(
+            feature.getRawProperties().entrySet().stream()
+                .filter(p -> filter.test(layer, feature, p.getKey(), p.getValue()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
+        .build();
   }
 }

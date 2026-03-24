@@ -1,47 +1,22 @@
 package org.maplibre.mlt.data;
 
-import jakarta.annotation.Nullable;
 import java.math.BigInteger;
-import java.util.Collections;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.experimental.SuperBuilder;
 import org.jetbrains.annotations.NotNull;
-import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
 import org.maplibre.mlt.data.unsigned.U8;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
-public class MVTFeature implements Feature {
-  private final boolean hasId;
-  private final long id;
-  private final Geometry geometry;
-  private final Map<String, Object> properties;
-
-  private MVTFeature(
-      boolean hasId, long id, @NotNull Geometry geometry, @NotNull Map<String, Object> properties) {
-    this.hasId = hasId;
-    this.id = id;
-    this.geometry = geometry;
-    this.properties = properties;
-  }
-
-  @Override
-  public boolean hasId() {
-    return hasId;
-  }
-
-  @Override
-  public long getId() {
-    return id;
-  }
-
-  @Override
-  public Geometry getGeometry() {
-    return geometry;
-  }
+@SuperBuilder(toBuilder = true)
+@EqualsAndHashCode(callSuper = true)
+public class MVTFeature extends Feature {
+  @NotNull @Builder.Default private final Map<String, Object> properties = Map.of();
 
   public Map<String, Object> getRawProperties() {
     return properties;
@@ -102,92 +77,5 @@ public class MVTFeature implements Feature {
         .scalarType(new MltMetadata.ScalarField(type))
         .isNullable(isNullable)
         .build();
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    final var feature = (MVTFeature) o;
-    return hasId == feature.hasId
-        && id == feature.id
-        && Objects.equals(geometry, feature.geometry)
-        && Objects.equals(properties, feature.properties);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(hasId, id, geometry, properties);
-  }
-
-  @Override
-  public String toString() {
-    return "MVTFeature[hasId="
-        + hasId
-        + ", id="
-        + id
-        + ", geometry="
-        + geometry
-        + ", properties="
-        + properties
-        + "]";
-  }
-
-  public static Builder builder() {
-    return new Builder();
-  }
-
-  public static Builder builder(@Nullable MVTFeature feature) {
-    return (feature == null)
-        ? new Builder()
-        : new Builder()
-            .id(feature.idOrNull())
-            .geometry(feature.geometry)
-            .properties(feature.properties);
-  }
-
-  public static class Builder extends Feature.AbstractBuilder<Builder, MVTFeature> {
-    @Nullable private Map<String, Object> properties = null;
-
-    @Override
-    public Builder id(long id) {
-      this.id = id;
-      this.hasId = true;
-      return this;
-    }
-
-    @Override
-    public Builder id(@Nullable Long id) {
-      this.hasId = (id != null);
-      this.id = hasId ? id : 0;
-      return this;
-    }
-
-    @Override
-    public Builder geometry(@Nullable Geometry geometry) {
-      this.geometry = geometry;
-      return this;
-    }
-
-    @Override
-    public Builder properties(@Nullable Map<String, Object> properties) {
-      this.properties = properties;
-      return this;
-    }
-
-    @Override
-    public MVTFeature build() {
-      if (geometry == null) {
-        throw new IllegalStateException("geometry is required");
-      }
-      return new MVTFeature(
-          hasId, id, geometry, (properties == null) ? Collections.emptyMap() : properties);
-    }
-  }
-
-  @Override
-  @SuppressWarnings("unchecked")
-  public <B extends Feature.Builder<B, F>, F extends Feature> Feature.Builder<B, F> asBuilder() {
-    return (Feature.AbstractBuilder<B, F>) builder(this);
   }
 }
