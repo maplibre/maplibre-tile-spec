@@ -6,8 +6,8 @@ use std::ops::Deref;
 
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::v01::{Geometry, GeometryValues, Id, ParsedProperty, Property};
-use mlt_core::{Decoder, MltError, Parser};
+use mlt_core::v01::{GeometryValues, ParsedProperty};
+use mlt_core::{Decoder, EncDec, MltError, MltResult, Parser};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
@@ -102,7 +102,7 @@ fn geom_to_wkb(
     geom: &GeometryValues,
     index: usize,
     xf: Option<TileTransform>,
-) -> Result<Vec<u8>, MltError> {
+) -> MltResult<Vec<u8>> {
     let gj = geom.to_geojson(index)?;
     let mut buf = Vec::with_capacity(128);
 
@@ -274,23 +274,23 @@ fn decode_mlt(
         };
 
         let geom = match &layer.geometry {
-            Geometry::Parsed(g) => g,
-            Geometry::Raw(_) => Err(PyValueError::new_err("geometry not decoded"))?,
-            Geometry::ParsingFailed => Err(PyValueError::new_err("geometry parse failed"))?,
+            EncDec::Parsed(g) => g,
+            EncDec::Raw(_) => Err(PyValueError::new_err("geometry not decoded"))?,
+            EncDec::ParsingFailed => Err(PyValueError::new_err("geometry parse failed"))?,
         };
 
         let ids = match &layer.id {
             None => None,
-            Some(Id::Parsed(decoded)) => Some(decoded.values()),
-            Some(Id::Raw(_)) => Err(PyValueError::new_err("ID not decoded"))?,
-            Some(Id::ParsingFailed) => Err(PyValueError::new_err("ID parse failed"))?,
+            Some(EncDec::Parsed(decoded)) => Some(decoded.values()),
+            Some(EncDec::Raw(_)) => Err(PyValueError::new_err("ID not decoded"))?,
+            Some(EncDec::ParsingFailed) => Err(PyValueError::new_err("ID parse failed"))?,
         };
 
         let props: Vec<&ParsedProperty> = layer
             .properties
             .iter()
             .map(|p| match p {
-                Property::Parsed(d) => Ok(d),
+                EncDec::Parsed(d) => Ok(d),
                 _ => Err(PyValueError::new_err("property not decoded")),
             })
             .collect::<PyResult<_>>()?;
@@ -479,7 +479,7 @@ mod tests {
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let Geometry::Parsed(geom) = &l.geometry else {
+        let EncDec::Parsed(geom) = &l.geometry else {
             panic!("geometry not decoded");
         };
 
@@ -514,7 +514,7 @@ mod tests {
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let Geometry::Parsed(geom) = &l.geometry else {
+        let EncDec::Parsed(geom) = &l.geometry else {
             panic!("geometry not decoded");
         };
 
@@ -552,7 +552,7 @@ mod tests {
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let Geometry::Parsed(geom) = &l.geometry else {
+        let EncDec::Parsed(geom) = &l.geometry else {
             panic!("geometry not decoded");
         };
 

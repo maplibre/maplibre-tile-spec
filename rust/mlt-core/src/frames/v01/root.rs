@@ -9,7 +9,7 @@ use crate::v01::{
     RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
     RawStringsEncoding, StreamMeta, StreamType,
 };
-use crate::{Decoded, Decoder, EncDec, Mixed, MltError, MltRefResult, Parser};
+use crate::{Decoded, Decoder, EncDec, Mixed, MltError, MltRefResult, MltResult, Parser};
 
 impl Analyze for Layer01<'_, Mixed> {
     fn collect_statistic(&self, stat: StatType) -> usize {
@@ -35,10 +35,7 @@ impl Analyze for Layer01<'_, Mixed> {
 
 impl<'a> Layer01<'a, Mixed> {
     /// Parse `v01::Layer` metadata, reserving decoded memory against the parser's budget.
-    pub fn from_bytes(
-        input: &'a [u8],
-        parser: &mut Parser,
-    ) -> Result<Layer01<'a, Mixed>, MltError> {
+    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltResult<Layer01<'a, Mixed>> {
         let (input, layer_name) = parse_string(input)?;
         let (input, extent) = parse_varint::<u32>(input)?;
         let (input, column_count) = parse_varint::<u32>(input)?;
@@ -153,9 +150,9 @@ impl<'a> Layer01<'a, Mixed> {
                 id: id_column,
                 geometry: geometry.ok_or(MltError::MissingGeometry)?,
                 properties,
+                _state: PhantomData,
                 #[cfg(fuzzing)]
                 layer_order,
-                _state: PhantomData,
             })
         } else {
             Err(MltError::TrailingLayerData(input.len()))
@@ -165,7 +162,7 @@ impl<'a> Layer01<'a, Mixed> {
     /// Decode only the ID column, leaving other columns in their encoded form.
     ///
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
-    pub fn decode_id(&mut self, dec: &mut Decoder) -> Result<Option<&mut IdValues>, MltError> {
+    pub fn decode_id(&mut self, dec: &mut Decoder) -> MltResult<Option<&mut IdValues>> {
         Ok(if let Some(id) = &mut self.id {
             Some(id.decode(dec)?)
         } else {
@@ -176,14 +173,14 @@ impl<'a> Layer01<'a, Mixed> {
     /// Decode only the geometry column, leaving other columns in their encoded form.
     ///
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
-    pub fn decode_geometry(&mut self, dec: &mut Decoder) -> Result<&mut GeometryValues, MltError> {
+    pub fn decode_geometry(&mut self, dec: &mut Decoder) -> MltResult<&mut GeometryValues> {
         self.geometry.decode(dec)
     }
 
     /// Decode only the property columns, leaving other columns in their encoded form.
     ///
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
-    pub fn decode_properties(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
+    pub fn decode_properties(&mut self, dec: &mut Decoder) -> MltResult<()> {
         for prop in &mut self.properties {
             prop.decode(dec)?;
         }
@@ -194,14 +191,14 @@ impl<'a> Layer01<'a, Mixed> {
     ///
     /// Consumes `self` (a `Layer01<Mixed>`) and returns a `Layer01<Decoded>` where every
     /// column field holds its parsed value directly, enabling infallible readonly access.
-    pub fn decode_all(self, dec: &mut Decoder) -> Result<Layer01<'a, Decoded>, MltError> {
+    pub fn decode_all(self, dec: &mut Decoder) -> MltResult<Layer01<'a, Decoded>> {
         let id = self.id.map(|id| id.into_parsed(dec)).transpose()?;
         let geometry = self.geometry.into_parsed(dec)?;
         let properties = self
             .properties
             .into_iter()
             .map(|p| p.into_parsed(dec))
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<MltResult<Vec<_>>>()?;
         Ok(Layer01 {
             name: self.name,
             extent: self.extent,
@@ -258,7 +255,7 @@ fn parse_geometry_column<'a>(
     input: &'a [u8],
     geometry: &mut Option<Geometry<'a>>,
     parser: &mut Parser,
-) -> Result<&'a [u8], MltError> {
+) -> MltResult<&'a [u8]> {
     let (input, stream_count) = parse_varint::<u32>(input)?;
     if stream_count == 0 {
         return Err(MltError::GeometryWithoutStreams);
@@ -269,13 +266,10 @@ fn parse_geometry_column<'a>(
         return Err(MltError::BufferUnderflow(stream_count, input.len()));
     }
     // metadata
-    let (input, value) = RawStream::from_bytes(input, parser)?;
+    let (input, meta) = RawStream::from_bytes(input, parser)?;
     // geometry items
-    let (input, value_vec) = RawStream::parse_multiple(input, stream_count_capa - 1, parser)?;
-    geometry.set_once(EncDec::Raw(RawGeometry {
-        meta: value,
-        items: value_vec,
-    }))?;
+    let (input, items) = RawStream::parse_multiple(input, stream_count_capa - 1, parser)?;
+    geometry.set_once(EncDec::Raw(RawGeometry { meta, items }))?;
     Ok(input)
 }
 

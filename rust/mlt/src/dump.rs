@@ -1,10 +1,10 @@
 use std::fs;
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::Result as AnyResult;
 use clap::Args;
 use mlt_core::geojson::FeatureCollection;
-use mlt_core::{Decoder, MltError, Parser};
+use mlt_core::{Decoder, MltResult, Parser};
 
 use crate::OutputFormat;
 use crate::ls::is_mlt_extension;
@@ -25,7 +25,7 @@ pub enum AfterDump {
     Decode,
 }
 
-pub fn dump(args: &DumpArgs, decode: AfterDump) -> Result<()> {
+pub fn dump(args: &DumpArgs, decode: AfterDump) -> AnyResult<()> {
     let buffer = fs::read(&args.file)?;
 
     if is_mlt_extension(&args.file) {
@@ -36,7 +36,7 @@ pub fn dump(args: &DumpArgs, decode: AfterDump) -> Result<()> {
     Ok(())
 }
 
-fn dump_mlt(args: &DumpArgs, decode: AfterDump, buffer: &[u8]) -> Result<(), MltError> {
+fn dump_mlt(args: &DumpArgs, decode: AfterDump, buffer: &[u8]) -> MltResult<()> {
     let mut layers = Parser::default().parse_layers(buffer)?;
     let mut dec = Decoder::default();
     if decode == AfterDump::Decode {
@@ -60,7 +60,7 @@ fn dump_mlt(args: &DumpArgs, decode: AfterDump, buffer: &[u8]) -> Result<(), Mlt
     Ok(())
 }
 
-fn dump_mvt(args: &DumpArgs, buffer: Vec<u8>) -> Result<(), MltError> {
+fn dump_mvt(args: &DumpArgs, buffer: Vec<u8>) -> MltResult<()> {
     let fc = mlt_core::mvt::mvt_to_feature_collection(buffer)?;
     match args.format {
         OutputFormat::Text => {

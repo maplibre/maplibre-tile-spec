@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use crate::frames::Layer;
 use crate::v01::ParsedProperty;
-use crate::{Decoder, EncDec, MltError};
+use crate::{Decoder, EncDec, MltResult};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
 pub type Geom32 = geo_types::Geometry<i32>;
@@ -34,7 +34,7 @@ impl FeatureCollection {
     pub fn from_layers(
         layers: &mut [Layer<'_>],
         dec: &mut Decoder,
-    ) -> Result<FeatureCollection, MltError> {
+    ) -> MltResult<FeatureCollection> {
         let mut features = Vec::new();
         for layer in layers.iter_mut() {
             let l = layer.decoded_layer01_mut(dec)?;

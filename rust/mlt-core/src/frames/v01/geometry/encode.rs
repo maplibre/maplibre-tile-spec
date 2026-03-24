@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::MltError;
+use crate::MltResult;
 use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::errors::AsMltError as _;
@@ -12,10 +12,7 @@ use crate::v01::{
 };
 
 /// Encode vertex buffer using componentwise delta encoding
-fn encode_vertex_buffer(
-    vertices: &[i32],
-    physical: PhysicalEncoder,
-) -> Result<EncodedStream, MltError> {
+fn encode_vertex_buffer(vertices: &[i32], physical: PhysicalEncoder) -> MltResult<EncodedStream> {
     // Componentwise delta encoding: delta X and Y separately
     let physical_u32 = encode_componentwise_delta_vec2s(vertices);
     let num_values = u32::try_from(physical_u32.len())?;
@@ -38,7 +35,7 @@ fn encode_morton_vertex_buffer(
     codes: &[u32],
     meta: MortonMeta,
     physical: PhysicalEncoder,
-) -> Result<EncodedStream, MltError> {
+) -> MltResult<EncodedStream> {
     let deltas = morton_deltas(codes);
     let num_values = u32::try_from(deltas.len())?;
     let (data, physical_encoding) = physical.encode_u32s(deltas)?;
@@ -59,7 +56,7 @@ fn encode_morton_vertex_buffer(
 /// `[x0, y0, x1, y1, …]` vertex slice.
 ///
 /// Returns `(sorted_unique_codes, per_vertex_offsets)`.
-fn build_morton_dict(vertices: &[i32], meta: MortonMeta) -> Result<(Vec<u32>, Vec<u32>), MltError> {
+fn build_morton_dict(vertices: &[i32], meta: MortonMeta) -> MltResult<(Vec<u32>, Vec<u32>)> {
     let codes: Vec<u32> = vertices
         .chunks_exact(2)
         .map(|c| encode_morton(c[0], c[1], meta))
@@ -365,7 +362,7 @@ pub fn encode_geometry(
     decoded: &GeometryValues,
     encoder: &GeometryEncoder,
     mut on_stream: Option<&mut dyn FnMut(StreamType, &[u32])>,
-) -> Result<EncodedGeometry, MltError> {
+) -> MltResult<EncodedGeometry> {
     let GeometryValues {
         vector_types,
         geometry_offsets,

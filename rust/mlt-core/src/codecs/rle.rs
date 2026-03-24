@@ -1,6 +1,6 @@
 use num_traits::PrimInt;
 
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltResult};
 
 /// Generic run-length encode: returns `(run_lengths, values)`.
 #[must_use]
@@ -96,11 +96,7 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
 /// Format: control byte determines the run type:
 /// - `control >= 128`: literal run of `(256 - control)` bytes follow
 /// - `control < 128`: repeating run of `(control + 3)` copies of the next byte
-pub fn decode_byte_rle(
-    input: &[u8],
-    num_bytes: usize,
-    dec: &mut Decoder,
-) -> Result<Vec<u8>, MltError> {
+pub fn decode_byte_rle(input: &[u8], num_bytes: usize, dec: &mut Decoder) -> MltResult<Vec<u8>> {
     let mut output = dec.alloc(num_bytes)?;
     let mut pos = 0;
     while output.len() < num_bytes && pos < input.len() {

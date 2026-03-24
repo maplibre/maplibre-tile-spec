@@ -1,11 +1,10 @@
-use crate::Decoder;
-use crate::MltError::{self};
 use crate::enc_dec::Decode;
 use crate::utils::apply_present;
 use crate::v01::{
     ParsedPresence, ParsedProperty, ParsedScalar, RawPresence, RawProperty, StagedProperty,
     StagedScalar, StagedStrings,
 };
+use crate::{Decoder, MltResult};
 
 impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
     #[must_use]
@@ -18,7 +17,7 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
         presence: RawPresence<'a>,
         values: Vec<T>,
         dec: &mut Decoder,
-    ) -> Result<Self, MltError> {
+    ) -> MltResult<Self> {
         Ok(Self {
             name,
             values: apply_present(presence, values, dec)?,
@@ -35,45 +34,6 @@ impl ParsedPresence {
     #[must_use]
     pub fn feature_count(&self, non_null_count: usize) -> usize {
         self.0.as_ref().map_or(non_null_count, Vec::len)
-    }
-}
-
-impl<'a> ParsedProperty<'a> {
-    #[must_use]
-    pub fn bool(name: &'a str, values: Vec<Option<bool>>) -> Self {
-        Self::Bool(ParsedScalar::new(name, values))
-    }
-    #[must_use]
-    pub fn i8(name: &'a str, values: Vec<Option<i8>>) -> Self {
-        Self::I8(ParsedScalar::new(name, values))
-    }
-    #[must_use]
-    pub fn u8(name: &'a str, values: Vec<Option<u8>>) -> Self {
-        Self::U8(ParsedScalar::new(name, values))
-    }
-    #[must_use]
-    pub fn i32(name: &'a str, values: Vec<Option<i32>>) -> Self {
-        Self::I32(ParsedScalar::new(name, values))
-    }
-    #[must_use]
-    pub fn u32(name: &'a str, values: Vec<Option<u32>>) -> Self {
-        Self::U32(ParsedScalar::new(name, values))
-    }
-    #[must_use]
-    pub fn i64(name: &'a str, values: Vec<Option<i64>>) -> Self {
-        Self::I64(ParsedScalar::new(name, values))
-    }
-    #[must_use]
-    pub fn u64(name: &'a str, values: Vec<Option<u64>>) -> Self {
-        Self::U64(ParsedScalar::new(name, values))
-    }
-    #[must_use]
-    pub fn f32(name: &'a str, values: Vec<Option<f32>>) -> Self {
-        Self::F32(ParsedScalar::new(name, values))
-    }
-    #[must_use]
-    pub fn f64(name: &'a str, values: Vec<Option<f64>>) -> Self {
-        Self::F64(ParsedScalar::new(name, values))
     }
 }
 
@@ -150,7 +110,7 @@ impl StagedProperty {
 }
 
 impl<'a> Decode<ParsedProperty<'a>> for RawProperty<'a> {
-    fn decode(self, decoder: &mut Decoder) -> Result<ParsedProperty<'a>, MltError> {
+    fn decode(self, decoder: &mut Decoder) -> MltResult<ParsedProperty<'a>> {
         RawProperty::decode(self, decoder)
     }
 }
@@ -162,7 +122,7 @@ impl<'a> RawProperty<'a> {
     /// the budget is charged *before* decoding.  For string and shared-dict
     /// columns the exact decoded size depends on compression, so the budget is
     /// charged *after* decoding based on actual allocation sizes.
-    pub fn decode(self, dec: &mut Decoder) -> Result<ParsedProperty<'a>, MltError> {
+    pub fn decode(self, dec: &mut Decoder) -> MltResult<ParsedProperty<'a>> {
         /// Charge for the final `Vec<Option<T>>`, then decode the dense stream.
         /// `$decode_method` is the typed `RawStream` method for element type `$ty`.
         macro_rules! scalar_decode {

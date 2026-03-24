@@ -4,17 +4,17 @@ use crate::v01::{
     DictionaryType, GeometryType, GeometryValues, LengthType, OffsetType, RawGeometry, RawStream,
     StreamType,
 };
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltError, MltResult};
 
 pub fn decode_geometry_types(
     meta: RawStream<'_>,
     dec: &mut Decoder,
-) -> Result<Vec<GeometryType>, MltError> {
+) -> MltResult<Vec<GeometryType>> {
     // TODO: simplify this, e.g. use u8 or even GeometryType directly rather than going via Vec<u32>
     let vector_types: Vec<u32> = meta.decode_u32s(dec)?;
     let vector_types: Vec<GeometryType> = vector_types
         .into_iter()
-        .map::<Result<GeometryType, MltError>, _>(|v| Ok(u8::try_from(v)?.try_into()?))
+        .map::<MltResult<GeometryType>, _>(|v| Ok(u8::try_from(v)?.try_into()?))
         .collect::<Result<_, _>>()?;
     Ok(vector_types)
 }
@@ -26,7 +26,7 @@ pub fn decode_root_length_stream(
     root_length_stream: &[u32],
     buffer_id: GeometryType,
     dec: &mut Decoder,
-) -> Result<Vec<u32>, MltError> {
+) -> MltResult<Vec<u32>> {
     let alloc_size = geometry_types.len() + 1;
     let mut root_buffer_offsets = dec.alloc(alloc_size)?;
 
@@ -56,7 +56,7 @@ pub fn decode_level1_without_ring_buffer_length_stream(
     root_offset_buffer: &[u32],
     level1_length_buffer: &[u32],
     dec: &mut Decoder,
-) -> Result<Vec<u32>, MltError> {
+) -> MltResult<Vec<u32>> {
     let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize() + 1;
     let mut level1_buffer_offsets = dec.alloc(alloc_size)?;
     level1_buffer_offsets.push(0);
@@ -92,7 +92,7 @@ pub fn decode_level1_length_stream(
     level1_length_buffer: &[u32],
     is_line_string_present: bool,
     dec: &mut Decoder,
-) -> Result<Vec<u32>, MltError> {
+) -> MltResult<Vec<u32>> {
     let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize() + 1;
     let mut level1_buffer_offsets = dec.alloc(alloc_size)?;
     level1_buffer_offsets.push(0);
@@ -130,7 +130,7 @@ pub fn decode_level2_length_stream(
     level1_offset_buffer: &[u32],
     level2_length_buffer: &[u32],
     dec: &mut Decoder,
-) -> Result<Vec<u32>, MltError> {
+) -> MltResult<Vec<u32>> {
     let alloc_size = level1_offset_buffer[level1_offset_buffer.len() - 1].as_usize() + 1;
     let mut level2_buffer_offsets = dec.alloc(alloc_size)?;
     level2_buffer_offsets.push(0);
@@ -170,7 +170,7 @@ pub fn decode_level2_length_stream(
 }
 
 impl Decode<GeometryValues> for RawGeometry<'_> {
-    fn decode(self, decoder: &mut Decoder) -> Result<GeometryValues, MltError> {
+    fn decode(self, decoder: &mut Decoder) -> MltResult<GeometryValues> {
         RawGeometry::decode(self, decoder)
     }
 }
@@ -179,7 +179,7 @@ impl RawGeometry<'_> {
     /// Decode into [`GeometryValues`], charging `dec` before each `Vec<T>`
     /// allocation.  All streams carry `num_values` in their metadata so every
     /// charge is pre-hoc.
-    pub fn decode(self, dec: &mut Decoder) -> Result<GeometryValues, MltError> {
+    pub fn decode(self, dec: &mut Decoder) -> MltResult<GeometryValues> {
         let RawGeometry { meta, items } = self;
         let vector_types = decode_geometry_types(meta, dec)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;

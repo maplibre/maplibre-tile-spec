@@ -73,9 +73,9 @@ pub struct Layer01<'a, S: DecodeState = Mixed> {
     pub id: Option<Id<'a, S>>,
     pub geometry: Geometry<'a, S>,
     pub properties: Vec<Property<'a, S>>,
+    pub(crate) _state: PhantomData<S>,
     #[cfg(fuzzing)]
     pub layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
-    pub(crate) _state: PhantomData<S>,
 }
 
 impl<'a, S> std::fmt::Debug for Layer01<'a, S>

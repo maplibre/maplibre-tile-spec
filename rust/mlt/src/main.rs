@@ -4,14 +4,14 @@ pub mod ui;
 
 use std::process::exit;
 
-use anyhow::Result;
+use anyhow::Result as AnyResult;
 use clap::{Parser, Subcommand, ValueEnum};
 
 use crate::dump::{AfterDump, DumpArgs, dump};
 use crate::ls::{LsArgs, ls};
 use crate::ui::{UiArgs, ui};
 
-fn main() -> Result<()> {
+fn main() -> AnyResult<()> {
     match Cli::parse().command {
         Commands::Dump(args) => dump(&args, AfterDump::KeepRaw)?,
         Commands::Decode(args) => dump(&args, AfterDump::Decode)?,

@@ -1,7 +1,7 @@
 [package]
 name = "mlt-core"
 description = "MapLibre Tile library code"
-version = "0.4.0"
+version = "0.6.0"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -32,10 +32,8 @@ harness = false
 required-features = ["__private"]
 
 [features]
-default = ["fastpfor-cpp"]
+default = []
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
-fastpfor-cpp  = ["fastpfor/cpp_portable"]
-fastpfor-rust = ["fastpfor/rust"]
 # Used internally for testing and benchmarking, not intended for public use
 __private = []
 

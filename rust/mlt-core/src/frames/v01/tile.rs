@@ -15,7 +15,7 @@ use crate::v01::{
     StagedScalar, StagedSharedDict, StagedStrings, TileFeature, TileLayer01,
     build_staged_shared_dict,
 };
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltError, MltResult};
 
 // ── Layer01 → TileLayer01 ────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ impl Layer01<'_> {
     /// heap allocation against `dec`.
     ///
     /// Callers do not need to pre-call `decode_all` on the source layer.
-    pub fn into_tile(self, dec: &mut Decoder) -> Result<TileLayer01, MltError> {
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer01> {
         let id = self.id.map(|id| id.into_parsed(dec)).transpose()?;
         let geometry = self.geometry.into_parsed(dec)?;
         let properties: Vec<ParsedProperty<'_>> = self
@@ -287,7 +287,7 @@ fn rebuild_shared_dict(
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /// Charge `dec` for the heap bytes of owned `String` values inside `PropValue::Str`.
-fn charge_str_props(dec: &mut Decoder, props: &[PropValue]) -> Result<(), MltError> {
+fn charge_str_props(dec: &mut Decoder, props: &[PropValue]) -> MltResult<()> {
     let str_bytes = props
         .iter()
         .filter_map(|p| {

@@ -1,10 +1,10 @@
-use std::fmt::{self, Debug};
+use std::fmt;
 
 use crate::utils::FmtOptVec;
 use crate::v01::ParsedProperty;
 
 /// Custom implementation to ensure values are printed without newlines
-impl Debug for ParsedProperty<'_> {
+impl fmt::Debug for ParsedProperty<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Bool(v) => f

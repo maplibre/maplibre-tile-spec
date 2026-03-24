@@ -1,17 +1,17 @@
 use crate::enc_dec::Decode;
 use crate::utils::apply_present;
 use crate::v01::{IdValues, RawId, RawIdValue};
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltResult};
 
 impl Decode<IdValues> for RawId<'_> {
-    fn decode(self, decoder: &mut Decoder) -> Result<IdValues, MltError> {
+    fn decode(self, decoder: &mut Decoder) -> MltResult<IdValues> {
         RawId::decode(self, decoder)
     }
 }
 
 impl RawId<'_> {
     /// Decode into [`IdValues`], charging `dec` before each `Vec` allocation.
-    pub fn decode(self, dec: &mut Decoder) -> Result<IdValues, MltError> {
+    pub fn decode(self, dec: &mut Decoder) -> MltResult<IdValues> {
         let RawId { presence, value } = self;
 
         // Decode the raw integer stream, charging for it before allocation.

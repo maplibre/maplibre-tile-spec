@@ -62,6 +62,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::MltResult;
     use crate::test_helpers::dec;
 
     #[rstest]
@@ -75,10 +76,7 @@ mod tests {
     #[case::non_canonical_three_byte(&[0x80, 0x80, 0x00], Err(MltError::NonCanonicalVarInt))]
     #[case::single_byte_with_trailing(&[0x01, 0x02, 0x03], Ok((vec![2, 3], 1)))]
     #[case::underflow(&[0x80, 0x80, 0x80], Err(MltError::BufferUnderflow(4, 3)))]
-    fn test_varint_parsing(
-        #[case] bytes: &[u8],
-        #[case] expected: Result<(Vec<u8>, u32), MltError>,
-    ) {
+    fn test_varint_parsing(#[case] bytes: &[u8], #[case] expected: MltResult<(Vec<u8>, u32)>) {
         let actual = parse_varint::<u32>(bytes);
         // matching because MltError cannot implement PartialEq
         // effectively assert_eq!(actual, expected);

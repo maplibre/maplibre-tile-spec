@@ -6,6 +6,7 @@ use num_enum::TryFromPrimitiveError;
 use crate::utils::AsUsize;
 use crate::v01::{GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType};
 
+pub type MltResult<T> = Result<T, MltError>;
 pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
 #[derive(Debug, thiserror::Error)]
@@ -64,7 +65,7 @@ pub enum MltError {
     #[error("buffer underflow: needed {0} bytes, but only {1} remain")]
     BufferUnderflow(u32, usize),
     #[error("FastPFor decode failed: expected={0} got={1}")]
-    FastPforDecode(usize, usize),
+    FastPforDecode(u32, usize),
     #[error("invalid RLE run length (cannot convert to usize): value={0}")]
     RleRunLenInvalid(i128),
 
@@ -149,13 +150,8 @@ pub enum MltError {
     #[error("geometry[{0}]: unexpected offset combination for {1}")]
     UnexpectedOffsetCombination(usize, GeometryType),
 
-    // Wrapper errors, using `#[from]` to auto-convert from underlying error types
-    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
     #[error("FastPFor error: {0}")]
-    FastPforRust(#[from] fastpfor::rust::FastPForError),
-    #[cfg(feature = "fastpfor-cpp")]
-    #[error("FastPFor error: {0}")]
-    FastPforCpp(#[from] fastpfor::cpp::Exception),
+    FastPfor(#[from] fastpfor::FastPForError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("Serde JSON error: {0}")]
@@ -186,25 +182,25 @@ impl From<MltError> for std::io::Error {
 }
 
 pub trait AsMltError<T> {
-    fn or_overflow(&self) -> Result<T, MltError>;
+    fn or_overflow(&self) -> MltResult<T>;
 }
 
 impl<T: Copy> AsMltError<T> for Option<T> {
     #[inline]
-    fn or_overflow(&self) -> Result<T, MltError> {
+    fn or_overflow(&self) -> MltResult<T> {
         self.ok_or(MltError::IntegerOverflow)
     }
 }
 
 impl AsMltError<u32> for Result<u32, TryFromIntError> {
     #[inline]
-    fn or_overflow(&self) -> Result<u32, MltError> {
+    fn or_overflow(&self) -> MltResult<u32> {
         self.map_err(|_| MltError::IntegerOverflow)
     }
 }
 
 #[inline]
-pub fn fail_if_invalid_stream_size<T: AsUsize>(actual: T, expected: T) -> Result<(), MltError> {
+pub fn fail_if_invalid_stream_size<T: AsUsize>(actual: T, expected: T) -> MltResult<()> {
     if actual == expected {
         Ok(())
     } else {

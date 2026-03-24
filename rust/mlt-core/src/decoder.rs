@@ -1,7 +1,7 @@
 use std::mem::size_of;
 
 use crate::errors::AsMltError as _;
-use crate::{Layer, MltError};
+use crate::{Layer, MltError, MltResult};
 
 /// Default memory budget: 10 MiB.
 const DEFAULT_MAX_BYTES: u32 = 10 * 1024 * 1024;
@@ -47,7 +47,7 @@ impl Decoder {
     /// Allocate a `Vec<T>` with the given capacity, charging the decoder's budget for
     /// `capacity * size_of::<T>()` bytes. Use this instead of `Vec::with_capacity` in decode paths.
     #[inline]
-    pub(crate) fn alloc<T>(&mut self, capacity: usize) -> Result<Vec<T>, MltError> {
+    pub(crate) fn alloc<T>(&mut self, capacity: usize) -> MltResult<Vec<T>> {
         let bytes = capacity.checked_mul(size_of::<T>()).or_overflow()?;
         let bytes_u32 = u32::try_from(bytes).or_overflow()?;
         self.budget.consume(bytes_u32)?;
@@ -57,13 +57,13 @@ impl Decoder {
     /// Charge the budget for `size` raw bytes. Prefer [`consume_items`][Self::consume_items]
     /// when charging for a known-type collection.
     #[inline]
-    pub(crate) fn consume(&mut self, size: u32) -> Result<(), MltError> {
+    pub(crate) fn consume(&mut self, size: u32) -> MltResult<()> {
         self.budget.consume(size)
     }
 
     /// Charge the budget for `count` items of type `T` (`count * size_of::<T>()` bytes).
     #[inline]
-    pub(crate) fn consume_items<T>(&mut self, count: usize) -> Result<(), MltError> {
+    pub(crate) fn consume_items<T>(&mut self, count: usize) -> MltResult<()> {
         let bytes = count.checked_mul(size_of::<T>()).or_overflow()?;
         self.budget.consume(u32::try_from(bytes).or_overflow()?)
     }
@@ -136,7 +136,7 @@ impl Parser {
     }
 
     /// Parse a sequence of binary layers, reserving decoded memory against this parser's budget.
-    pub fn parse_layers<'a>(&mut self, mut input: &'a [u8]) -> Result<Vec<Layer<'a>>, MltError> {
+    pub fn parse_layers<'a>(&mut self, mut input: &'a [u8]) -> MltResult<Vec<Layer<'a>>> {
         let mut result = Vec::new();
         while !input.is_empty() {
             let layer;
@@ -148,7 +148,7 @@ impl Parser {
 
     /// Reserve `size` bytes from the parse budget. Used internally by the parse chain.
     #[inline]
-    pub(crate) fn reserve(&mut self, size: u32) -> Result<(), MltError> {
+    pub(crate) fn reserve(&mut self, size: u32) -> MltResult<()> {
         self.budget.consume(size)
     }
 
@@ -191,7 +191,7 @@ impl MemBudget {
 
     /// Take `size` bytes from the allocation budget. Call this before the actual allocation.
     #[inline]
-    fn consume(&mut self, size: u32) -> Result<(), MltError> {
+    fn consume(&mut self, size: u32) -> MltResult<()> {
         let accumulator = &mut self.bytes_used;
         let max_bytes = self.max_bytes;
         if let Some(new_value) = accumulator

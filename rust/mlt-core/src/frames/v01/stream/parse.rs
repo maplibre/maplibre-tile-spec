@@ -1,5 +1,4 @@
-use std::fmt::{self, Debug};
-use std::io::{self, Write};
+use std::{fmt, io};
 
 use integer_encoding::VarIntWriter as _;
 
@@ -11,7 +10,7 @@ use crate::v01::{
     IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RawStream,
     RawStreamData, RleMeta, StreamMeta, StreamType,
 };
-use crate::{MltError, MltRefResult, Parser};
+use crate::{MltError, MltRefResult, MltResult, Parser};
 
 impl IntEncoding {
     #[must_use]
@@ -124,7 +123,7 @@ impl StreamMeta {
         Ok((input, (meta, byte_length)))
     }
 
-    pub fn write_to<W: Write>(
+    pub fn write_to<W: io::Write>(
         &self,
         writer: &mut W,
         is_bool: bool,
@@ -183,7 +182,7 @@ impl Analyze for StreamMeta {
     }
 }
 
-impl Debug for StreamMeta {
+impl fmt::Debug for StreamMeta {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // ensure we process all fields, and format them without the alt field
         let Self {
@@ -273,7 +272,7 @@ impl<'a> RawStream<'a> {
 }
 
 /// Validate RLE stream data: first `runs` varints must sum to `num_rle_values`.
-fn validate_rle_varint_stream(data: &[u8], runs: u32, num_rle_values: u32) -> Result<(), MltError> {
+fn validate_rle_varint_stream(data: &[u8], runs: u32, num_rle_values: u32) -> MltResult<()> {
     use crate::utils::AsUsize as _;
     let mut rest = data;
     let mut sum: u64 = 0;

@@ -3,9 +3,10 @@ use std::ops::Range;
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 
 use crate::MltError::{
-    self, GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds,
-    NoGeometryOffsets, NoPartOffsets, NoRingOffsets,
+    GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, NoGeometryOffsets,
+    NoPartOffsets, NoRingOffsets,
 };
+use crate::MltResult;
 use crate::geojson::{Coord32, Geom32};
 use crate::utils::AsUsize as _;
 use crate::v01::{GeometryType, GeometryValues};
@@ -35,13 +36,13 @@ impl GeometryValues {
     /// Build a `GeoJSON` geometry for a single feature at index `i`.
     /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec
     /// (MLT omits the closing vertex).
-    pub fn to_geojson(&self, index: usize) -> Result<Geom32, MltError> {
+    pub fn to_geojson(&self, index: usize) -> MltResult<Geom32> {
         let verts = self.vertices.as_deref().unwrap_or(&[]);
         let geoms = self.geometry_offsets.as_deref();
         let parts = self.part_offsets.as_deref();
         let rings = self.ring_offsets.as_deref();
 
-        let off = |s: &[u32], idx: usize, field: &'static str| -> Result<usize, MltError> {
+        let off = |s: &[u32], idx: usize, field: &'static str| -> MltResult<usize> {
             s.get(idx)
                 .map(|&v| v.as_usize())
                 .ok_or(GeometryOutOfBounds {
@@ -51,10 +52,9 @@ impl GeometryValues {
                     len: s.len(),
                 })
         };
-        let off_pair =
-            |s: &[u32], idx: usize, field: &'static str| -> Result<Range<usize>, MltError> {
-                Ok(off(s, idx, field)?..off(s, idx + 1, field)?)
-            };
+        let off_pair = |s: &[u32], idx: usize, field: &'static str| -> MltResult<Range<usize>> {
+            Ok(off(s, idx, field)?..off(s, idx + 1, field)?)
+        };
 
         let geom_off = |s: &[u32], i: usize| off(s, i, "geometry_offsets");
         let part_off = |s: &[u32], i: usize| off(s, i, "part_offsets");
@@ -63,7 +63,7 @@ impl GeometryValues {
         let part_range = |s: &[u32], i: usize| off_pair(s, i, "part_offsets");
         let ring_range = |s: &[u32], i: usize| off_pair(s, i, "ring_offsets");
 
-        let vert = |idx: usize| -> Result<Coord32, MltError> {
+        let vert = |idx: usize| -> MltResult<Coord32> {
             verts
                 .get(idx * 2..idx * 2 + 2)
                 .map(|s| Coord { x: s[0], y: s[1] })
@@ -73,25 +73,23 @@ impl GeometryValues {
                     count: verts.len() / 2,
                 })
         };
-        let line =
-            |r: Range<usize>| -> Result<LineString<i32>, MltError> { r.map(&vert).collect() };
-        let closed_ring = |r: Range<usize>| -> Result<LineString<i32>, MltError> {
+        let line = |r: Range<usize>| -> MltResult<LineString<i32>> { r.map(&vert).collect() };
+        let closed_ring = |r: Range<usize>| -> MltResult<LineString<i32>> {
             let first = r.start;
             let mut coords: Vec<Coord32> = r.map(&vert).collect::<Result<_, _>>()?;
             coords.push(vert(first)?);
             Ok(LineString(coords))
         };
-        let poly_from_rings =
-            |part_rng: Range<usize>, r: &[u32]| -> Result<Polygon<i32>, MltError> {
-                let mut rings = part_rng
-                    .map(|idx| closed_ring(ring_range(r, idx)?))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter();
-                Ok(Polygon::new(
-                    rings.next().unwrap_or_else(|| LineString(vec![])),
-                    rings.collect(),
-                ))
-            };
+        let poly_from_rings = |part_rng: Range<usize>, r: &[u32]| -> MltResult<Polygon<i32>> {
+            let mut rings = part_rng
+                .map(|idx| closed_ring(ring_range(r, idx)?))
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter();
+            Ok(Polygon::new(
+                rings.next().unwrap_or_else(|| LineString(vec![])),
+                rings.collect(),
+            ))
+        };
 
         let geom_type = *self
             .vector_types

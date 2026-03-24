@@ -11,7 +11,7 @@ use serde_json::{Number, Value};
 
 use crate::errors::AsMltError as _;
 use crate::v01::RawPresence;
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltError, MltResult};
 
 /// Convert f32 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
 #[must_use]
@@ -42,11 +42,11 @@ pub fn f64_to_json(f: f64) -> Value {
 }
 
 pub trait SetOptionOnce<T> {
-    fn set_once(&mut self, value: T) -> Result<(), MltError>;
+    fn set_once(&mut self, value: T) -> MltResult<()>;
 }
 
 impl<T> SetOptionOnce<T> for Option<T> {
-    fn set_once(&mut self, value: T) -> Result<(), MltError> {
+    fn set_once(&mut self, value: T) -> MltResult<()> {
         if self.replace(value).is_some() {
             Err(MltError::DuplicateValue)
         } else {
@@ -62,7 +62,7 @@ pub fn apply_present<T>(
     presence: RawPresence<'_>,
     values: Vec<T>,
     dec: &mut Decoder,
-) -> Result<Vec<Option<T>>, MltError> {
+) -> MltResult<Vec<Option<T>>> {
     let present: Vec<bool> = if let Some(p) = presence.0 {
         p.decode_bools(dec)?
     } else {
@@ -92,13 +92,13 @@ pub fn apply_present<T>(
 
 /// Perform checked addition of two values, returning an error if any overflow occurs.
 #[inline]
-pub fn checked_sum2<T: CheckedAdd + Copy>(v1: T, v2: T) -> Result<T, MltError> {
+pub fn checked_sum2<T: CheckedAdd + Copy>(v1: T, v2: T) -> MltResult<T> {
     v1.checked_add(&v2).or_overflow()
 }
 
 /// Perform checked addition of three values, returning an error if any overflow occurs.
 #[inline]
-pub fn checked_sum3<T: CheckedAdd + Copy>(v1: T, v2: T, v3: T) -> Result<T, MltError> {
+pub fn checked_sum3<T: CheckedAdd + Copy>(v1: T, v2: T, v3: T) -> MltResult<T> {
     v1.checked_add(&v2)
         .and_then(|sum| sum.checked_add(&v3))
         .or_overflow()
@@ -127,4 +127,11 @@ impl AsUsize for u32 {
         };
         usize::try_from(*self).unwrap()
     }
+}
+
+pub fn strings_to_lengths<S: AsRef<str>>(values: &[S]) -> MltResult<Vec<u32>> {
+    Ok(values
+        .iter()
+        .map(|s| u32::try_from(s.as_ref().len()))
+        .collect::<Result<Vec<_>, _>>()?)
 }

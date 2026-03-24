@@ -2,9 +2,9 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::MltError;
 use crate::utils::{BinarySerializer as _, checked_sum3};
 use crate::v01::{ColumnType, EncodedProperty, PropertyKind, StagedProperty};
+use crate::{MltError, MltResult};
 
 impl StagedProperty {
     #[must_use]
@@ -26,7 +26,7 @@ impl StagedProperty {
 }
 
 impl EncodedProperty {
-    pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> MltResult<()> {
         let col_type = match self {
             Self::Bool(s) => {
                 if s.presence.0.is_some() {
@@ -129,7 +129,7 @@ impl EncodedProperty {
         Ok(())
     }
 
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> MltResult<()> {
         match self {
             Self::Bool(s) => {
                 writer.write_optional_stream(s.presence.0.as_ref())?;

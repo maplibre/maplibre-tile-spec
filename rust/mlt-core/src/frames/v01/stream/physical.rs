@@ -7,7 +7,7 @@ use crate::utils::parse_u8;
 use crate::v01::{
     DictionaryType, EncodedStreamData, LengthType, OffsetType, PhysicalEncoding, StreamType,
 };
-use crate::{MltError, MltRefResult};
+use crate::{MltError, MltRefResult, MltResult};
 
 impl StreamType {
     pub fn from_bytes(input: &'_ [u8]) -> MltRefResult<'_, Self> {
@@ -52,7 +52,7 @@ impl StreamType {
 }
 
 impl PhysicalEncoding {
-    pub fn parse(value: u8) -> Result<Self, MltError> {
+    pub fn parse(value: u8) -> MltResult<Self> {
         Self::try_from(value).or(Err(MltError::ParsingPhysicalEncoding(value)))
     }
 }
@@ -73,10 +73,7 @@ pub enum PhysicalEncoder {
 
 impl PhysicalEncoder {
     /// Physically encode a `u32` sequence into the appropriate `EncodedStreamData` variant.
-    pub fn encode_u32s(
-        self,
-        values: Vec<u32>,
-    ) -> Result<(EncodedStreamData, PhysicalEncoding), MltError> {
+    pub fn encode_u32s(self, values: Vec<u32>) -> MltResult<(EncodedStreamData, PhysicalEncoding)> {
         match self {
             Self::None => {
                 let data = encode_u32s_to_bytes(&values);
@@ -100,10 +97,7 @@ impl PhysicalEncoder {
     }
 
     /// Physically encode a `u64` sequence into the appropriate `EncodedStreamData` variant.
-    pub fn encode_u64s(
-        self,
-        values: Vec<u64>,
-    ) -> Result<(EncodedStreamData, PhysicalEncoding), MltError> {
+    pub fn encode_u64s(self, values: Vec<u64>) -> MltResult<(EncodedStreamData, PhysicalEncoding)> {
         match self {
             Self::None => {
                 let data = encode_u64s_to_bytes(&values);

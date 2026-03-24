@@ -1,3 +1,4 @@
+use arbitrary::Error::IncorrectFormat;
 use geo_types::Point;
 
 use crate::geojson::{Coord32, Geom32};
@@ -33,7 +34,7 @@ impl arbitrary::Arbitrary<'_> for EncodedGeometry {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
         let decoded = u.arbitrary()?;
         let enc = u.arbitrary()?;
-        let geom = Self::encode(&decoded, enc).map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        let geom = Self::encode(&decoded, enc).map_err(|_| IncorrectFormat)?;
         Ok(geom)
     }
 }

@@ -1,9 +1,9 @@
-use crate::utils::AsUsize as _;
+use crate::utils::{AsUsize as _, strings_to_lengths};
 use crate::v01::{
     DictionaryType, EncodedFsstData, EncodedStream, EncodedStreamData, FsstStrEncoder, IntEncoding,
     LengthType, RawFsstData, StreamMeta, StreamType,
 };
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltResult};
 
 /// Decode an FSST-compressed byte sequence into the original bytes and value lengths,
 /// charging `dec` for the output.
@@ -19,10 +19,7 @@ use crate::{Decoder, MltError};
 /// - Any other byte `idx < symbol_lengths.len()`: expand the symbol at that index.
 ///
 /// Returns `(decompressed_utf8_string, value_lengths)`.
-pub fn decode_fsst(
-    raw: RawFsstData<'_>,
-    dec: &mut Decoder,
-) -> Result<(String, Vec<u32>), MltError> {
+pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String, Vec<u32>)> {
     let RawFsstData {
         symbol_lengths,
         symbol_table,
@@ -74,7 +71,7 @@ pub fn compress_fsst<S: AsRef<str>>(
     values: &[S],
     encoding: FsstStrEncoder,
     dict_type: DictionaryType,
-) -> Result<EncodedFsstData, MltError> {
+) -> MltResult<EncodedFsstData> {
     // Build byte slices for training
     let byte_slices: Vec<&[u8]> = values.iter().map(|s| s.as_ref().as_bytes()).collect();
     // Train FSST compressor on the corpus
@@ -103,12 +100,6 @@ pub fn compress_fsst<S: AsRef<str>>(
         compressed.extend(compressor.compress(s.as_ref().as_bytes()));
     }
 
-    // Get original string lengths (UTF-8 byte lengths)
-    let value_lengths: Vec<u32> = values
-        .iter()
-        .map(|s| u32::try_from(s.as_ref().len()))
-        .collect::<Result<Vec<_>, _>>()?;
-
     Ok(EncodedFsstData {
         symbol_lengths: EncodedStream::encode_u32s_of_type(
             &symbol_lengths,
@@ -124,7 +115,7 @@ pub fn compress_fsst<S: AsRef<str>>(
             data: EncodedStreamData::Encoded(symbol_bytes),
         },
         lengths: EncodedStream::encode_u32s_of_type(
-            &value_lengths,
+            &strings_to_lengths(values)?,
             encoding.dict_lengths,
             StreamType::Length(LengthType::Dictionary),
         )?,
@@ -141,6 +132,8 @@ pub fn compress_fsst<S: AsRef<str>>(
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
@@ -181,22 +174,11 @@ mod tests {
         assert!(lengths.is_empty());
     }
 
-    #[test]
-    fn test_fsst_roundtrip_single() {
-        let values = ["hello"];
-        let (corpus, lengths) = roundtrip(&values);
-        let mut offset = 0;
-        for (s, &len) in values.iter().zip(&lengths) {
-            let len = len as usize;
-            assert_eq!(&corpus[offset..offset + len], *s);
-            offset += len;
-        }
-    }
-
-    #[test]
-    fn test_fsst_roundtrip_multiple() {
-        let values = ["hello world", "hello rust", "hello fsst", "world"];
-        let (corpus, lengths) = roundtrip(&values);
+    #[rstest]
+    #[case::longer(&["hello world", "hello rust", "hello fsst", "world"])]
+    #[case::short(&["hello"])]
+    fn automatic_optimisation_roundtrip(#[case] values: &[&str]) {
+        let (corpus, lengths) = roundtrip(values);
         let mut offset = 0;
         for (s, &len) in values.iter().zip(&lengths) {
             let len = len as usize;
