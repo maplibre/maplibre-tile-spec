@@ -30,7 +30,7 @@ impl<'a> Layer<'a> {
         }
     }
 
-    pub fn decoded_layer01_mut(&mut self, dec: &mut Decoder) -> Result<&mut Layer01<'a>, MltError> {
+    pub fn decoded_layer01_mut(&mut self, dec: &mut Decoder) -> MltResult<&mut Layer01<'a>> {
         let layer = self
             .as_layer01_mut()
             .ok_or(MltError::NotDecoded("expected Tag01 layer"))?;

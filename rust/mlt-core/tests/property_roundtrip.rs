@@ -1,12 +1,12 @@
 use insta::assert_snapshot;
 use mlt_core::__private::{dec, parser};
-use mlt_core::MltError;
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, GeometryValues, IntEncoder, Layer01, LogicalEncoder,
     ParsedProperty, PhysicalEncoder, PresenceStream, PropertyEncoder, ScalarEncoder,
     SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty,
     StagedStrings, StrEncoder, build_staged_shared_dict,
 };
+use mlt_core::{MltError, MltResult};
 use proptest::prelude::*;
 
 // proptest_derive::Arbitrary is only derived for these types inside the crate
@@ -105,7 +105,7 @@ fn roundtrip(staged: StagedProperty, expected: &StagedProperty, encoder: ScalarE
 fn props_to_layer_bytes(
     props: Vec<StagedProperty>,
     encoders: Vec<PropertyEncoder>,
-) -> Result<Vec<u8>, MltError> {
+) -> MltResult<Vec<u8>> {
     let layer = StagedLayer01 {
         name: "test".to_string(),
         extent: 4096,

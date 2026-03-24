@@ -62,7 +62,7 @@ pub fn apply_present<T>(
     presence: RawPresence<'_>,
     values: Vec<T>,
     dec: &mut Decoder,
-) -> Result<Vec<Option<T>>, MltError> {
+) -> MltResult<Vec<Option<T>>> {
     let present: Vec<bool> = if let Some(p) = presence.0 {
         p.decode_bools(dec)?
     } else {
@@ -127,4 +127,11 @@ impl AsUsize for u32 {
         };
         usize::try_from(*self).unwrap()
     }
+}
+
+pub fn strings_to_lengths<S: AsRef<str>>(values: &[S]) -> MltResult<Vec<u32>> {
+    Ok(values
+        .iter()
+        .map(|s| u32::try_from(s.as_ref().len()))
+        .collect::<Result<Vec<_>, _>>()?)
 }

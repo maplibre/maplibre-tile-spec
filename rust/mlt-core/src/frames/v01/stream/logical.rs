@@ -14,14 +14,11 @@ use crate::codecs::zigzag::{
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::AsUsize as _;
 use crate::v01::{LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta};
-use crate::{Decoder, MltError, MltResult};
+use crate::{Decoder, MltResult};
 
 /// RLE-encode a sequence into `[run-lengths | unique-values]` and return the matching `RleMeta`.
 /// `num_logical` is the expanded output length (stored in `RleMeta::num_rle_values`).
-fn apply_rle<T: PrimInt + Debug>(
-    data: &[T],
-    num_logical: usize,
-) -> Result<(Vec<T>, RleMeta), MltError> {
+fn apply_rle<T: PrimInt + Debug>(data: &[T], num_logical: usize) -> MltResult<(Vec<T>, RleMeta)> {
     let (runs_vec, vals_vec) = encode_rle(data);
     let meta = RleMeta {
         runs: u32::try_from(runs_vec.len())?,
@@ -35,11 +32,7 @@ fn apply_rle<T: PrimInt + Debug>(
 impl RleMeta {
     /// Decode RLE (Run-Length Encoding) data.
     /// Charges the decoder for the expanded output allocation.
-    pub fn decode<T: PrimInt + Debug>(
-        self,
-        data: &[T],
-        dec: &mut Decoder,
-    ) -> Result<Vec<T>, MltError> {
+    pub fn decode<T: PrimInt + Debug>(self, data: &[T], dec: &mut Decoder) -> MltResult<Vec<T>> {
         let expected_len = self.runs.as_usize().checked_mul(2).or_overflow()?;
         fail_if_invalid_stream_size(data.len(), expected_len)?;
 
@@ -99,7 +92,7 @@ impl LogicalValue {
     ///
     /// Never called for `LogicalEncoding::None` — that case is handled directly
     /// in the bridge (physical buffer decoded into a fresh output Vec).
-    pub fn decode_i32(self, data: &[u32], dec: &mut Decoder) -> Result<Vec<i32>, MltError> {
+    pub fn decode_i32(self, data: &[u32], dec: &mut Decoder) -> MltResult<Vec<i32>> {
         match self.meta.encoding.logical {
             LogicalEncoding::None => decode_zigzag(data, dec),
             LogicalEncoding::Rle(rle) => decode_zigzag(&rle.decode(data, dec)?, dec),
@@ -126,7 +119,7 @@ impl LogicalValue {
     ///
     /// Not called for `LogicalEncoding::None` — that case is handled entirely
     /// in the bridge (physical buffer decoded directly into the output Vec).
-    pub fn decode_u32(self, data: &[u32], dec: &mut Decoder) -> Result<Vec<u32>, MltError> {
+    pub fn decode_u32(self, data: &[u32], dec: &mut Decoder) -> MltResult<Vec<u32>> {
         let num = self.meta.num_values.as_usize();
         match self.meta.encoding.logical {
             LogicalEncoding::None => {
@@ -150,7 +143,7 @@ impl LogicalValue {
     ///
     /// Never called for `LogicalEncoding::None` — that case is handled directly
     /// in the bridge (physical buffer decoded into a fresh output Vec).
-    pub fn decode_i64(self, data: &[u64], dec: &mut Decoder) -> Result<Vec<i64>, MltError> {
+    pub fn decode_i64(self, data: &[u64], dec: &mut Decoder) -> MltResult<Vec<i64>> {
         match self.meta.encoding.logical {
             LogicalEncoding::None => decode_zigzag(data, dec),
             LogicalEncoding::Delta => decode_zigzag_delta::<i64, _>(data, dec),
@@ -174,7 +167,7 @@ impl LogicalValue {
     ///
     /// Not called for `LogicalEncoding::None` — that case is handled entirely
     /// in the bridge (physical buffer decoded directly into the output Vec).
-    pub fn decode_u64(self, data: &[u64], dec: &mut Decoder) -> Result<Vec<u64>, MltError> {
+    pub fn decode_u64(self, data: &[u64], dec: &mut Decoder) -> MltResult<Vec<u64>> {
         let num = self.meta.num_values.as_usize();
         match self.meta.encoding.logical {
             LogicalEncoding::None => {
@@ -212,7 +205,7 @@ impl LogicalEncoder {
     ///
     /// [`LogicalEncoding`] is derived from the actual data.
     /// See [`LogicalValue::decode_u32`] for the reverse operation.
-    pub fn encode_u32s(self, values: &[u32]) -> Result<(Vec<u32>, LogicalEncoding), MltError> {
+    pub fn encode_u32s(self, values: &[u32]) -> MltResult<(Vec<u32>, LogicalEncoding)> {
         match self {
             Self::None => Ok((values.to_vec(), LogicalEncoding::None)),
             Self::Delta => {
@@ -237,7 +230,7 @@ impl LogicalEncoder {
     ///
     /// [`LogicalEncoding`] is derived from the actual data.
     /// See [`LogicalValue::decode_i32`] for the reverse operation.
-    pub fn encode_i32s(self, values: &[i32]) -> Result<(Vec<u32>, LogicalEncoding), MltError> {
+    pub fn encode_i32s(self, values: &[i32]) -> MltResult<(Vec<u32>, LogicalEncoding)> {
         match self {
             Self::None => Ok((encode_zigzag(values), LogicalEncoding::None)),
             Self::Delta => Ok((encode_zigzag_delta(values), LogicalEncoding::Delta)),
@@ -256,7 +249,7 @@ impl LogicalEncoder {
     ///
     /// [`LogicalEncoding`] is derived from the actual data.
     /// See [`LogicalValue::decode_u64`] for the reverse operation.
-    pub fn encode_u64s(self, values: &[u64]) -> Result<(Vec<u64>, LogicalEncoding), MltError> {
+    pub fn encode_u64s(self, values: &[u64]) -> MltResult<(Vec<u64>, LogicalEncoding)> {
         match self {
             Self::None => Ok((values.to_vec(), LogicalEncoding::None)),
             Self::Delta => Ok((
@@ -281,7 +274,7 @@ impl LogicalEncoder {
     ///
     /// [`LogicalEncoding`] is derived from the actual data.
     /// See [`LogicalValue::decode_i64`] for the reverse operation.
-    pub fn encode_i64s(self, values: &[i64]) -> Result<(Vec<u64>, LogicalEncoding), MltError> {
+    pub fn encode_i64s(self, values: &[i64]) -> MltResult<(Vec<u64>, LogicalEncoding)> {
         match self {
             Self::None => Ok((encode_zigzag(values), LogicalEncoding::None)),
             Self::Delta => Ok((encode_zigzag_delta(values), LogicalEncoding::Delta)),

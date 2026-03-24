@@ -1,4 +1,6 @@
-use crate::MltError::{self, NotImplemented, UnsupportedPropertyEncoderCombination};
+use crate::MltError::{
+    EncodingInstructionCountMismatch, NotImplemented, UnsupportedPropertyEncoderCombination,
+};
 use crate::MltResult;
 use crate::v01::{
     DictionaryType, EncodedName, EncodedPresence, EncodedProperty, EncodedScalar, EncodedStream,
@@ -9,9 +11,9 @@ use crate::v01::{
 pub fn encode_properties(
     value: &[StagedProperty],
     encoders: Vec<PropertyEncoder>,
-) -> Result<Vec<EncodedProperty>, MltError> {
+) -> MltResult<Vec<EncodedProperty>> {
     if value.len() != encoders.len() {
-        return Err(MltError::EncodingInstructionCountMismatch {
+        return Err(EncodingInstructionCountMismatch {
             input_len: value.len(),
             config_len: encoders.len(),
         });
@@ -134,7 +136,7 @@ fn unapply_presence<T: Clone>(v: &[Option<T>]) -> Vec<T> {
 }
 
 impl StagedProperty {
-    fn as_presence_stream(&self) -> Result<Vec<bool>, MltError> {
+    fn as_presence_stream(&self) -> MltResult<Vec<bool>> {
         Ok(match self {
             Self::Bool(v) => v.values.iter().map(Option::is_some).collect(),
             Self::I8(v) => v.values.iter().map(Option::is_some).collect(),

@@ -33,7 +33,7 @@ impl Analyze for Layer01<'_> {
 
 impl Layer01<'_> {
     /// Parse `v01::Layer` metadata, reserving decoded memory against the parser's budget.
-    pub fn from_bytes<'a>(input: &'a [u8], parser: &mut Parser) -> Result<Layer01<'a>, MltError> {
+    pub fn from_bytes<'a>(input: &'a [u8], parser: &mut Parser) -> MltResult<Layer01<'a>> {
         let (input, layer_name) = parse_string(input)?;
         let (input, extent) = parse_varint::<u32>(input)?;
         let (input, column_count) = parse_varint::<u32>(input)?;
@@ -153,7 +153,7 @@ impl Layer01<'_> {
     /// Decode only the ID column, leaving other columns in their encoded form.
     ///
     /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
-    pub fn decode_id(&mut self, dec: &mut Decoder) -> Result<Option<&mut IdValues>, MltError> {
+    pub fn decode_id(&mut self, dec: &mut Decoder) -> MltResult<Option<&mut IdValues>> {
         Ok(if let Some(id) = &mut self.id {
             Some(id.decode(dec)?)
         } else {

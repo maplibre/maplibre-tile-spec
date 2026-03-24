@@ -2,6 +2,7 @@ use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::fsst::compress_fsst;
 use crate::codecs::rle::encode_byte_rle;
+use crate::utils::strings_to_lengths;
 use crate::v01::{
     DictionaryType, EncodedPlainData, EncodedStream, EncodedStreamData, EncodedStringsEncoding,
     FsstStrEncoder, IntEncoder, IntEncoding, LengthType, LogicalEncoding, OffsetType,
@@ -196,10 +197,7 @@ impl EncodedStream {
         length_type: LengthType,
         dict_type: DictionaryType,
     ) -> MltResult<EncodedStringsEncoding> {
-        let lengths: Vec<u32> = values
-            .iter()
-            .map(|s| u32::try_from(s.as_ref().len()))
-            .collect::<Result<Vec<_>, _>>()?;
+        let lengths = strings_to_lengths(values)?;
         let data: Vec<u8> = values
             .iter()
             .flat_map(|s| s.as_ref().as_bytes().iter().copied())

@@ -47,7 +47,7 @@ impl Decoder {
     /// Allocate a `Vec<T>` with the given capacity, charging the decoder's budget for
     /// `capacity * size_of::<T>()` bytes. Use this instead of `Vec::with_capacity` in decode paths.
     #[inline]
-    pub(crate) fn alloc<T>(&mut self, capacity: usize) -> Result<Vec<T>, MltError> {
+    pub(crate) fn alloc<T>(&mut self, capacity: usize) -> MltResult<Vec<T>> {
         let bytes = capacity.checked_mul(size_of::<T>()).or_overflow()?;
         let bytes_u32 = u32::try_from(bytes).or_overflow()?;
         self.budget.consume(bytes_u32)?;
@@ -136,7 +136,7 @@ impl Parser {
     }
 
     /// Parse a sequence of binary layers, reserving decoded memory against this parser's budget.
-    pub fn parse_layers<'a>(&mut self, mut input: &'a [u8]) -> Result<Vec<Layer<'a>>, MltError> {
+    pub fn parse_layers<'a>(&mut self, mut input: &'a [u8]) -> MltResult<Vec<Layer<'a>>> {
         let mut result = Vec::new();
         while !input.is_empty() {
             let layer;

@@ -7,7 +7,7 @@ use std::ops::Deref;
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{Geometry, GeometryValues, Id, ParsedProperty, Property};
-use mlt_core::{Decoder, MltError, Parser};
+use mlt_core::{Decoder, MltError, MltResult, Parser};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
@@ -102,7 +102,7 @@ fn geom_to_wkb(
     geom: &GeometryValues,
     index: usize,
     xf: Option<TileTransform>,
-) -> Result<Vec<u8>, MltError> {
+) -> MltResult<Vec<u8>> {
     let gj = geom.to_geojson(index)?;
     let mut buf = Vec::with_capacity(128);
 

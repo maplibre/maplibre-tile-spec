@@ -73,10 +73,7 @@ pub enum PhysicalEncoder {
 
 impl PhysicalEncoder {
     /// Physically encode a `u32` sequence into the appropriate `EncodedStreamData` variant.
-    pub fn encode_u32s(
-        self,
-        values: Vec<u32>,
-    ) -> Result<(EncodedStreamData, PhysicalEncoding), MltError> {
+    pub fn encode_u32s(self, values: Vec<u32>) -> MltResult<(EncodedStreamData, PhysicalEncoding)> {
         match self {
             Self::None => {
                 let data = encode_u32s_to_bytes(&values);
@@ -100,10 +97,7 @@ impl PhysicalEncoder {
     }
 
     /// Physically encode a `u64` sequence into the appropriate `EncodedStreamData` variant.
-    pub fn encode_u64s(
-        self,
-        values: Vec<u64>,
-    ) -> Result<(EncodedStreamData, PhysicalEncoding), MltError> {
+    pub fn encode_u64s(self, values: Vec<u64>) -> MltResult<(EncodedStreamData, PhysicalEncoding)> {
         match self {
             Self::None => {
                 let data = encode_u64s_to_bytes(&values);

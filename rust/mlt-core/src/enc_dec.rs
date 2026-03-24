@@ -15,8 +15,8 @@ pub trait Decode<Parsed>: Sized {
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum EncDec<Raw, Parsed> {
-    Raw(Raw),       // Raw
-    Parsed(Parsed), // Parsed
+    Raw(Raw),
+    Parsed(Parsed),
     ParsingFailed,
 }
 
