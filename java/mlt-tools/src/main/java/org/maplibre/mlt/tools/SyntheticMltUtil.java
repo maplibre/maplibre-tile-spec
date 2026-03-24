@@ -82,7 +82,7 @@ class SyntheticMltUtil {
   static final Coordinate[] mortonCurve = buildMortonCurve(16, 8, 4);
 
   /** Builder subclass with no-argument shorthand methods for common flags. */
-  static class Cfg extends ConversionConfig.Builder {
+  static class Cfg extends ConversionConfig.ConfigBuilder {
     public Cfg ids() {
       super.includeIds(true);
       return this;
@@ -262,17 +262,18 @@ class SyntheticMltUtil {
     return new Layer(name, Arrays.asList(features), extent);
   }
 
-  static void write(String name, Feature feat, ConversionConfig.Builder cfg) throws IOException {
+  static void write(String name, Feature feat, ConversionConfig.ConfigBuilder cfg)
+      throws IOException {
     write(layer(name, feat), cfg);
   }
 
-  static void write(Layer layer, ConversionConfig.Builder cfg) throws IOException {
+  static void write(Layer layer, ConversionConfig.ConfigBuilder cfg) throws IOException {
     // layer names should be identical to reduce variability in generated MLT files
     // and ensure we observe differences in encoding rather than layer name variations
     write(layer.name(), List.of(new Layer("layer1", layer.features(), layer.tileExtent())), cfg);
   }
 
-  static void write(String fileName, List<Layer> layers, ConversionConfig.Builder cfg)
+  static void write(String fileName, List<Layer> layers, ConversionConfig.ConfigBuilder cfg)
       throws IOException {
     try {
       System.out.println("Generating: " + fileName);

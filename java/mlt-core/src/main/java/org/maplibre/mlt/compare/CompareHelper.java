@@ -1,5 +1,6 @@
 package org.maplibre.mlt.compare;
 
+import jakarta.annotation.Nullable;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Objects;
@@ -12,7 +13,6 @@ import java.util.stream.Collectors;
 import lombok.Builder;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;

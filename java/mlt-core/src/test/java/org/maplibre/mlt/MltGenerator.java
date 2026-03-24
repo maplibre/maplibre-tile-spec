@@ -191,7 +191,7 @@ public class MltGenerator {
     return optimizations;
   }
 
-  private ConversionConfig.Builder defaultConfigBuilder() {
+  private ConversionConfig.ConfigBuilder defaultConfigBuilder() {
     return ConversionConfig.builder()
         .includeIds(DEFAULT_INCLUDE_IDS)
         .typeMismatchPolicy(DEFAULT_MISMATCH_POLICY)

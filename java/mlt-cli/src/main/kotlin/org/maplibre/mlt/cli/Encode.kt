@@ -310,8 +310,8 @@ object Encode {
                         decodedTile,
                         decodedMvTile,
                         config.compareMode,
-                        targetConfig.layerFilterPattern,
-                        targetConfig.layerFilterInvert,
+                        targetConfig.layerFilterPattern(),
+                        targetConfig.layerFilterInvert(),
                     )
                 if (difference.isPresent) {
                     logger.warn("Tiles do not match: {}", difference)

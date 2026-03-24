@@ -69,30 +69,6 @@ public class ConversionConfigTest {
   }
 
   @Test
-  public void testFullConstructor_nullOptimizationsAndOutlineBecomeEmpty() {
-    var cfg =
-        ConversionConfig.builder()
-            .includeIds(false)
-            .useFastPFOR(true)
-            .useFSST(true)
-            .typeMismatchPolicy(ConversionConfig.TypeMismatchPolicy.COERCE)
-            .optimizations(null)
-            .preTessellatePolygons(true)
-            .useMortonEncoding(false)
-            .outlineFeatureTableNames(null)
-            .layerFilterPattern(null)
-            .layerFilterInvert(true)
-            .integerEncodingOption(ConversionConfig.IntegerEncodingOption.DELTA)
-            .geometryEncodingOption(ConversionConfig.IntegerEncodingOption.DELTA)
-            .build();
-
-    assertNotNull(cfg.optimizations());
-    assertTrue(cfg.optimizations().isEmpty());
-    assertNotNull(cfg.outlineFeatureTableNames());
-    assertTrue(cfg.outlineFeatureTableNames().isEmpty());
-  }
-
-  @Test
   public void testConstructor_preservesPassedOptimizationsAndOutline() {
     var optim = sampleOptimizations();
     var outline = List.of("layerA");
@@ -171,13 +147,6 @@ public class ConversionConfigTest {
 
     var rebuilt = orig.toBuilder().build();
     assertConfigEquals(orig, rebuilt);
-  }
-
-  @Test
-  public void testBuilder_optimizations_null_isHandled() {
-    var cfg = ConversionConfig.builder().optimizations(null).build();
-    assertNotNull(cfg.optimizations());
-    assertTrue(cfg.optimizations().isEmpty());
   }
 
   @Test

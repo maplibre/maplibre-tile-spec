@@ -130,7 +130,7 @@ fun logColumnMappings(
             ) {
                 val mappings =
                     complex.children
-                        .map { child -> column.name + child.name }
+                        .map { child -> (column.name ?: "") + child.name }
                         .toSortedSet()
                         .joinToString(", ")
                 val added = MutableBoolean(false)
@@ -282,8 +282,8 @@ fun convertTile(
                     decodedTile,
                     decodedMvTile,
                     config.compareMode,
-                    targetConfig.layerFilterPattern,
-                    targetConfig.layerFilterInvert,
+                    targetConfig.layerFilterPattern(),
+                    targetConfig.layerFilterInvert(),
                 )
             if (difference.isPresent) {
                 logger.warn("Decoded tile {}:{},{} doesn't match: {}", z, x, y, difference)
@@ -308,7 +308,7 @@ fun applyColumnMappingsToConversionConfig(
 ): ConversionConfig {
     val conversionConfig = config.conversionConfig
     // If the config already has optimizations, don't modify it
-    if (!conversionConfig.optimizations.isEmpty()) {
+    if (!conversionConfig.optimizations().isEmpty()) {
         return conversionConfig
     }
 
