@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.5.0...rust-mlt-core-v0.6.0) - 2026-03-23
+
+### Other
+
+- *(rust)* migrate to Rust fastpfor ([#1190](https://github.com/maplibre/maplibre-tile-spec/pull/1190))
+
 ## [0.5.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.4.0...rust-mlt-core-v0.5.0) - 2026-03-17
 
 ### Added
