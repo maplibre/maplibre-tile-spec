@@ -158,7 +158,8 @@ public class MltDecoder {
               + "), are not equal for layer: "
               + metadata.name);
     }
-    var features = new ArrayList<Feature>(geometries.length);
+    final var features = new ArrayList<Feature>(geometries.length);
+    final var builder = MLTFeature.builder();
     for (var j = 0; j < geometries.length; j++) {
       final var p = new HashMap<String, Object>();
       for (var propertyColumn : properties.entrySet()) {
@@ -170,7 +171,7 @@ public class MltDecoder {
         }
       }
       features.add(
-          MLTFeature.builder()
+          builder
               .id((ids != null) ? ids.get(j) : null)
               .geometry(geometries[j])
               .properties(p)

@@ -68,14 +68,14 @@ public class MvtUtils {
 
       var tileExtent = 0;
       final var features = new ArrayList<Feature>(layerFeatures.size());
+      final var builder = MVTFeature.builder();
       for (var mvtFeature : layerFeatures) {
-        final var feature =
-            MVTFeature.builder()
+        features.add(
+            builder
                 .id(mvtFeature.getId())
                 .geometry(mvtFeature.getGeometry())
                 .properties(mvtFeature.getAttributes())
-                .build();
-        features.add(feature);
+                .build());
         tileExtent = Math.max(tileExtent, mvtFeature.getExtent());
       }
 
