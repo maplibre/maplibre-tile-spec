@@ -12,8 +12,8 @@ pub struct EncodedName(pub String);
 
 /// Property column representation, parameterized by decode state.
 ///
-/// - `Property<'a>` / `Property<'a, Lazy>` — either raw bytes or decoded, in an [`LazyParsed`] enum.
-/// - `Property<'a, Decoded>` — decoded [`ParsedProperty`] directly (no enum wrapper).
+/// - `Property<'a>` / `Property<'a, Lazy>` — either raw bytes or decoded, in an [`crate::LazyParsed`] enum.
+/// - `Property<'a, Parsed>` — decoded [`ParsedProperty`] directly (no enum wrapper).
 pub type Property<'a, S = Lazy> =
     <S as DecodeState>::LazyOrParsed<RawProperty<'a>, ParsedProperty<'a>>;
 
@@ -248,8 +248,8 @@ pub struct ParsedStrings<'a> {
 
 /// `SharedDictItem` column representation, parameterized by decode state.
 ///
-/// - `SharedDictItem<'a>` / `SharedDictItem<'a, Lazy>` — either raw or decoded, in an [`LazyParsed`] enum.
-/// - `SharedDictItem<'a, Decoded>` — decoded [`ParsedSharedDictItem`] directly.
+/// - `SharedDictItem<'a>` / `SharedDictItem<'a, Lazy>` — either raw or decoded, in an [`crate::LazyParsed`] enum.
+/// - `SharedDictItem<'a, Parsed>` — decoded [`ParsedSharedDictItem`] directly.
 pub type SharedDictItem<'a, S = Lazy> =
     <S as DecodeState>::LazyOrParsed<RawSharedDictItem<'a>, ParsedSharedDictItem<'a>>;
 

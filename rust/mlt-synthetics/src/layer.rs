@@ -298,9 +298,9 @@ impl Layer {
 
         let buffer = fs::read(&path).unwrap();
         let mut parser = Parser::default();
-        let mut data = parser.parse_layers(&buffer).unwrap();
+        let data = parser.parse_layers(&buffer).unwrap();
         let mut dec = Decoder::default();
-        let fc = FeatureCollection::from_layers(&mut data, &mut dec).unwrap();
+        let fc = FeatureCollection::from_layers(data, &mut dec).unwrap();
         let mut json = serde_json::to_string_pretty(&fc).unwrap();
         json.push('\n');
         let mut out_file = Self::open_new(&dir.join(format!("{name}.json"))).unwrap();

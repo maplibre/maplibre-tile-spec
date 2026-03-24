@@ -6,8 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::frames::Layer;
-use crate::v01::ParsedProperty;
-use crate::{Decoder, LazyParsed, MltResult};
+use crate::{Decoder, MltResult};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
 pub type Geom32 = geo_types::Geometry<i32>;
@@ -30,46 +29,30 @@ pub struct FeatureCollection {
 }
 
 impl FeatureCollection {
-    /// Convert decoded layers to a `GeoJSON` [`FeatureCollection`]
-    pub fn from_layers(
-        layers: &mut [Layer<'_>],
+    /// Convert layers to a `GeoJSON` [`FeatureCollection`], consuming them.
+    pub fn from_layers<'a>(
+        layers: impl IntoIterator<Item = Layer<'a>>,
         dec: &mut Decoder,
     ) -> MltResult<FeatureCollection> {
         let mut features = Vec::new();
-        for layer in layers.iter_mut() {
-            let l = layer.decoded_layer01_mut(dec)?;
-            l.decode_properties(dec)?;
-            let geom = l.geometry.as_parsed()?;
-            let ids: Option<&[Option<u64>]> = l.id.as_ref().and_then(|v| {
-                if let LazyParsed::Parsed(d) = v {
-                    Some(d.values())
-                } else {
-                    None
-                }
-            });
-            for i in 0..geom.vector_types.len() {
-                let geometry = geom.to_geojson(i)?;
+        for layer in layers {
+            let Layer::Tag01(lazy) = layer else {
+                continue;
+            };
+            let parsed = lazy.decode_all(dec)?;
+            let layer_name = parsed.name;
+            let extent = parsed.extent;
+            for feat in parsed.iter_features() {
+                let feat = feat?;
                 let mut properties = BTreeMap::new();
-                for prop in &l.properties {
-                    let prop = prop.as_parsed()?;
-                    // SharedDict properties are flattened to individual properties
-                    // with names like "struct_name:child_suffix"
-                    if let ParsedProperty::SharedDict(dict) = prop {
-                        for item in &dict.items {
-                            if let Some(s) = item.get(dict, i) {
-                                let key = format!("{}{}", dict.prefix, item.suffix);
-                                properties.insert(key, Value::String(s.to_string()));
-                            }
-                        }
-                    } else if let Some(val) = prop.to_geojson(i) {
-                        properties.insert(prop.name().to_string(), val);
-                    }
+                for col in feat.iter_properties() {
+                    properties.insert(col.name.to_string(), col.value.into());
                 }
-                properties.insert("_layer".into(), Value::String(l.name.to_string()));
-                properties.insert("_extent".into(), Value::Number(l.extent.into()));
+                properties.insert("_layer".into(), Value::String(layer_name.to_string()));
+                properties.insert("_extent".into(), Value::Number(extent.into()));
                 features.push(Feature {
-                    geometry,
-                    id: ids.and_then(|v| v.get(i).copied().flatten()),
+                    geometry: feat.geometry,
+                    id: feat.id,
                     properties,
                     ty: "Feature".into(),
                 });

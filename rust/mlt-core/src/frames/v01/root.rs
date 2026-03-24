@@ -9,9 +9,9 @@ use crate::codecs::varint::parse_varint;
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
 use crate::v01::{
     Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01,
-    RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
-    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
-    RawStringsEncoding, StreamMeta, StreamType,
+    Layer01FeatureIter, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence,
+    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream,
+    RawStrings, RawStringsEncoding, StreamMeta, StreamType,
 };
 use crate::{Decoder, Lazy, MltRefResult, MltResult, Parsed, Parser};
 
@@ -192,7 +192,7 @@ impl<'a> Layer01<'a, Lazy> {
 
     /// Decode all columns and transition to [`Layer01<Parsed>`].
     ///
-    /// Consumes `self` (a `Layer01<Lazy>`) and returns a `Layer01<Decoded>` where every
+    /// Consumes `self` (a `Layer01<Lazy>`) and returns a `Layer01<Parsed>` where every
     /// column field holds its parsed value directly, enabling infallible readonly access.
     pub fn decode_all(self, dec: &mut Decoder) -> MltResult<Layer01<'a, Parsed>> {
         let id = self.id.map(|id| id.into_parsed(dec)).transpose()?;
@@ -211,6 +211,18 @@ impl<'a> Layer01<'a, Lazy> {
             #[cfg(fuzzing)]
             layer_order: self.layer_order,
         })
+    }
+}
+
+impl<'a> Layer01<'a, Parsed> {
+    /// Iterate over all features in this fully-decoded layer.
+    ///
+    /// Returns a [`Layer01FeatureIter`] that yields one [`FeatureRef`](crate::v01::FeatureRef)
+    /// per feature. Construction is infallible; individual `next()` calls return
+    /// `MltResult<FeatureRef>` because geometry decoding can fail.
+    #[must_use]
+    pub fn iter_features(&self) -> Layer01FeatureIter<'_, 'a> {
+        Layer01FeatureIter::new(self)
     }
 }
 

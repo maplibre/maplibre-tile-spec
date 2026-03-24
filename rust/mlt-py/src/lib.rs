@@ -311,9 +311,9 @@ fn decode_mlt(
 fn decode_mlt_to_geojson(
     #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
 ) -> PyResult<String> {
-    let mut layers = Parser::default().parse_layers(data).map_err(mlt_err)?;
+    let layers = Parser::default().parse_layers(data).map_err(mlt_err)?;
     let mut dec = Decoder::default();
-    let fc = FeatureCollection::from_layers(&mut layers, &mut dec).map_err(mlt_err)?;
+    let fc = FeatureCollection::from_layers(layers, &mut dec).map_err(mlt_err)?;
     serde_json::to_string(&fc).map_err(|e| PyValueError::new_err(format!("JSON error: {e}")))
 }
 
@@ -453,7 +453,7 @@ mod tests {
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
         assert!(!l.name.is_empty(), "layer name should be non-empty");
 
-        let fc = FeatureCollection::from_layers(&mut layers, &mut dec)
+        let fc = FeatureCollection::from_layers(layers, &mut dec)
             .expect("FeatureCollection should succeed");
         assert!(
             !fc.features.is_empty(),

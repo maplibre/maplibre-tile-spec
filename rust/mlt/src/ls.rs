@@ -584,13 +584,14 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
         }
     }
 
+    let layer_count = layers.len();
     let matches_json = if flags.validate {
         let json_path = path.with_extension("json");
         if json_path.is_file() {
             let expected: FeatureCollection =
                 serde_json::from_str(&fs::read_to_string(&json_path)?)
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
-            let actual = FeatureCollection::from_layers(&mut layers, &mut dec)?;
+            let actual = FeatureCollection::from_layers(layers, &mut dec)?;
             let expected_val = normalize_tiny_floats(serde_json::to_value(&expected)?);
             let actual_val = normalize_tiny_floats(serde_json::to_value(&actual)?);
             Some(json_values_equal(&expected_val, &actual_val))
@@ -612,7 +613,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
         data_size: Some(data_size),
         meta_size: Some(meta_size),
         meta_pct: Some(percent_of(meta_size, data_size)),
-        layers: layers.len(),
+        layers: layer_count,
         features: feature_count,
         streams: Some(stream_count),
         algorithms,

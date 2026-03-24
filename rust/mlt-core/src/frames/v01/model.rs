@@ -61,9 +61,9 @@ pub enum ColumnType {
 ///
 /// - `Layer01<'a>` / `Layer01<'a, Lazy>` (default) — columns are [`LazyParsed`](crate::LazyParsed) enums
 ///   that may be raw or decoded. Use `decode_id`, `decode_geometry`, `decode_properties` for
-///   selective in-place decoding, or [`Layer01::decode_all`] to transition to `Layer01<Decoded>`.
+///   selective in-place decoding, or [`Layer01::decode_all`] to transition to `Layer01<Parsed>`.
 ///
-/// - `Layer01<'a, Decoded>` — all columns are fully decoded. The fields `id`, `geometry`, and
+/// - `Layer01<'a, Parsed>` — all columns are fully decoded. The fields `id`, `geometry`, and
 ///   `properties` hold the parsed types directly, allowing infallible readonly access.
 pub struct Layer01<'a, S: DecodeState = Lazy> {
     pub name: &'a str,

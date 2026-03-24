@@ -6,8 +6,8 @@ use crate::{DecodeState, Lazy};
 
 /// Geometry column representation, parameterized by decode state.
 ///
-/// - `Geometry<'a>` / `Geometry<'a, Lazy>` — either raw bytes or decoded, in an [`LazyParsed`] enum.
-/// - `Geometry<'a, Decoded>` — decoded [`GeometryValues`] directly (no enum wrapper).
+/// - `Geometry<'a>` / `Geometry<'a, Lazy>` — either raw bytes or decoded, in an [`crate::LazyParsed`] enum.
+/// - `Geometry<'a, Parsed>` — decoded [`GeometryValues`] directly (no enum wrapper).
 pub type Geometry<'a, S = Lazy> = <S as DecodeState>::LazyOrParsed<RawGeometry<'a>, GeometryValues>;
 
 /// Raw geometry data as read directly from the tile (borrows from input bytes)

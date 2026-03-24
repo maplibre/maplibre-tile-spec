@@ -4,6 +4,7 @@ mod encoded;
 mod fuzzing;
 mod geometry;
 mod id;
+mod iterator;
 mod model;
 mod optimizer;
 mod property;
@@ -14,6 +15,7 @@ pub mod tile;
 
 pub use geometry::*;
 pub use id::*;
+pub use iterator::{ColumnRef, FeatureRef, Layer01FeatureIter, PropIter, PropName, PropValueRef};
 pub use model::*;
 pub use optimizer::*;
 pub use property::*;

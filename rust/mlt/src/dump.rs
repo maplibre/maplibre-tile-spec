@@ -53,7 +53,7 @@ fn dump_mlt(args: &DumpArgs, decode: AfterDump, buffer: &[u8]) -> MltResult<()> 
             }
         }
         OutputFormat::GeoJson => {
-            let fc = FeatureCollection::from_layers(&mut layers, &mut dec)?;
+            let fc = FeatureCollection::from_layers(layers, &mut dec)?;
             println!("{}", serde_json::to_string_pretty(&fc)?);
         }
     }
