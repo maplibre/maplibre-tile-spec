@@ -1,4 +1,4 @@
-use crate::enc_dec::Decode;
+use crate::lazy_state::Decode;
 use crate::utils::apply_present;
 use crate::v01::{
     ParsedPresence, ParsedProperty, ParsedScalar, RawPresence, RawProperty, StagedProperty,

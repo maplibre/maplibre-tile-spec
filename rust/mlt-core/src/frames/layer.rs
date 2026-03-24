@@ -62,7 +62,12 @@ impl<'a> Layer<'a> {
 
     pub fn decode_all(&mut self, dec: &mut Decoder) -> MltResult<()> {
         match self {
-            Layer::Tag01(layer) => layer.decode_all(dec),
+            Layer::Tag01(layer) => {
+                layer.decode_id(dec)?;
+                layer.decode_geometry(dec)?;
+                layer.decode_properties(dec)?;
+                Ok(())
+            }
             Layer::Unknown(_) => Ok(()),
         }
     }

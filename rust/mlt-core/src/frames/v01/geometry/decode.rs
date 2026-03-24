@@ -1,4 +1,4 @@
-use crate::enc_dec::Decode;
+use crate::lazy_state::Decode;
 use crate::utils::{AsUsize as _, SetOptionOnce as _};
 use crate::v01::{
     DictionaryType, GeometryType, GeometryValues, LengthType, OffsetType, RawGeometry, RawStream,

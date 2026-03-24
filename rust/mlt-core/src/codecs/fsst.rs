@@ -132,11 +132,12 @@ pub fn compress_fsst<S: AsRef<str>>(
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
     use crate::v01::{FsstStrEncoder, IntEncoder, RawFsstData};
-    use rstest::rstest;
 
     fn roundtrip(values: &[&str]) -> (String, Vec<u32>) {
         let encoding = FsstStrEncoder {

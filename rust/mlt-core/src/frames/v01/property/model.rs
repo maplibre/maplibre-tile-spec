@@ -2,16 +2,20 @@ use std::borrow::Cow;
 
 use enum_dispatch::enum_dispatch;
 
-use crate::EncDec;
 use crate::analyse::{Analyze, StatType};
 use crate::v01::{EncodedStream, FsstStrEncoder, IntEncoder, RawStream, StreamMeta};
+use crate::{DecodeState, Lazy};
 
 /// Owned name string (Stage 4/5)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EncodedName(pub String);
 
-/// Property representation, either raw (borrowed from bytes) or parsed.
-pub type Property<'a> = EncDec<RawProperty<'a>, ParsedProperty<'a>>;
+/// Property column representation, parameterized by decode state.
+///
+/// - `Property<'a>` / `Property<'a, Lazy>` — either raw bytes or decoded, in an [`LazyParsed`] enum.
+/// - `Property<'a, Decoded>` — decoded [`ParsedProperty`] directly (no enum wrapper).
+pub type Property<'a, S = Lazy> =
+    <S as DecodeState>::LazyOrParsed<RawProperty<'a>, ParsedProperty<'a>>;
 
 pub enum PropertyKind {
     Bool,
@@ -242,8 +246,12 @@ pub struct ParsedStrings<'a> {
     pub data: Cow<'a, str>,
 }
 
-/// TODO: `ParsedSharedDict` should be able to have unparsed child items
-pub type SharedDictItem<'a> = EncDec<RawSharedDictItem<'a>, ParsedSharedDictItem<'a>>;
+/// `SharedDictItem` column representation, parameterized by decode state.
+///
+/// - `SharedDictItem<'a>` / `SharedDictItem<'a, Lazy>` — either raw or decoded, in an [`LazyParsed`] enum.
+/// - `SharedDictItem<'a, Decoded>` — decoded [`ParsedSharedDictItem`] directly.
+pub type SharedDictItem<'a, S = Lazy> =
+    <S as DecodeState>::LazyOrParsed<RawSharedDictItem<'a>, ParsedSharedDictItem<'a>>;
 
 /// Parsed shared dictionary payload shared by one or more child string properties.
 #[derive(Debug, Clone, PartialEq, Eq)]
