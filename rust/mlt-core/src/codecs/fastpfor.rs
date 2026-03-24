@@ -1,3 +1,4 @@
+use fastpfor::cpp::CppSimdFastPFor128;
 use fastpfor::{AnyLenCodec as _, FastPFor128};
 
 use crate::utils::AsUsize as _;
@@ -60,7 +61,7 @@ pub fn decode_fastpfor(data: &[u8], num_values: u32, dec: &mut Decoder) -> MltRe
         .collect();
 
     let mut result = Vec::new();
-    FastPFor128::default().decode(&input, &mut result, Some(num_values))?;
+    CppSimdFastPFor128::default().decode(&input, &mut result, Some(num_values))?;
 
     let Some(adjustment) = result
         .len()
