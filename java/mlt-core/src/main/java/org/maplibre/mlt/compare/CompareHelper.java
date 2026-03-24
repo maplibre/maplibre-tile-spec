@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import lombok.Builder;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -31,80 +32,31 @@ public final class CompareHelper {
     All
   }
 
+  @Builder
   public record Difference(
-      String message,
-      Optional<Integer> layerIndex,
-      Optional<String> layerName,
-      Optional<Integer> featureIndex,
-      Optional<Pair<String, String>> items,
-      Optional<Pair<Geometry, Geometry>> geometries) {
+      @NotNull String message,
+      @Nullable Integer layerIndex,
+      @Nullable String layerName,
+      @Nullable Integer featureIndex,
+      @Nullable Pair<@NotNull String, @NotNull String> items,
+      @Nullable Pair<@NotNull Geometry, @NotNull Geometry> geometries) {
     @Override
     public String toString() {
       final var itemStr =
-          items.isPresent()
-              ? ("MVT: " + items.get().getLeft() + " MLT: " + items.get().getRight())
-              : "";
+          (items != null) ? ("MVT: " + items.getLeft() + " MLT: " + items.getRight()) : "";
       final var geomStr =
-          geometries.isPresent()
+          (geometries != null)
               ? ("MVT geometry:\n"
-                  + geometries.get().getLeft()
+                  + geometries.getLeft()
                   + "\nMLT geometry:\n"
-                  + geometries.get().getRight())
+                  + geometries.getRight())
               : "";
       return (message
           + (itemStr.isEmpty() ? "" : " " + itemStr)
           + (geomStr.isEmpty() ? "" : "\n" + geomStr)
-          + (layerIndex.isPresent() ? (" at layer index " + layerIndex.get()) : "")
-          + (layerName.isPresent() ? (" in layer '" + layerName.get() + "': ") : "")
-          + (featureIndex.isPresent() ? (" at feature index " + featureIndex.get()) : ""));
-    }
-
-    static Builder builder(@NotNull String message) {
-      return new Builder().message(message);
-    }
-
-    static class Builder {
-
-      private @NotNull String message = "";
-      private Optional<Integer> layerIndex = Optional.empty();
-      private Optional<String> layerName = Optional.empty();
-      private Optional<Integer> featureIndex = Optional.empty();
-      private Optional<Pair<String, String>> items = Optional.empty();
-      private Optional<Pair<Geometry, Geometry>> geometries = Optional.empty();
-
-      public Builder message(@NotNull String message) {
-        this.message = message;
-        return this;
-      }
-
-      public Builder layerIndex(int layerIndex) {
-        this.layerIndex = Optional.of(layerIndex);
-        return this;
-      }
-
-      public Builder layerName(String layerName) {
-        this.layerName = Optional.of(layerName);
-        return this;
-      }
-
-      public Builder featureIndex(int featureIndex) {
-        this.featureIndex = Optional.of(featureIndex);
-        return this;
-      }
-
-      public Builder items(@NotNull String mvt, @NotNull String mlt) {
-        this.items = Optional.of(Pair.of(mvt, mlt));
-        return this;
-      }
-
-      public Builder geometries(@Nullable Geometry mvt, @Nullable Geometry mlt) {
-        this.geometries = Optional.of(Pair.of(mvt, mlt));
-        return this;
-      }
-
-      public Difference build() {
-        return new Difference(message, layerIndex, layerName, featureIndex, items, geometries);
-      }
+          + ((layerIndex != null) ? (" at layer index " + layerIndex) : "")
+          + ((layerName != null) ? (" in layer '" + layerName + "': ") : "")
+          + ((featureIndex != null) ? (" at feature index " + featureIndex) : ""));
     }
   }
 
@@ -165,8 +117,9 @@ public final class CompareHelper {
       final var mvtNames = mvtLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
       final var mltNames = mltLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
       return Optional.of(
-          Difference.builder("Number of layers in MLT and MVT tiles do not match")
-              .items(mvtNames, mltNames)
+          Difference.builder()
+              .message("Number of layers in MLT and MVT tiles do not match")
+              .items(Pair.of(mvtNames, mltNames))
               .build());
     }
     for (var i = 0; i < mvtLayers.size(); i++) {
@@ -186,9 +139,10 @@ public final class CompareHelper {
     final var mvtFeatures = mvtLayer.features();
     if (!mltLayer.name().equals(mvtLayer.name())) {
       return Optional.of(
-          Difference.builder("Layer names differ")
+          Difference.builder()
+              .message("Layer names differ")
               .layerIndex(layerIndex)
-              .items(mvtLayer.name(), mltLayer.name())
+              .items(Pair.of(mvtLayer.name(), mltLayer.name()))
               .build());
     }
     return compareFeatures(
@@ -204,8 +158,10 @@ public final class CompareHelper {
       boolean allowFeatureSort) {
     if (mltFeatures.size() != mvtFeatures.size()) {
       return Optional.of(
-          Difference.builder("Number of features differ")
-              .items(String.valueOf(mvtFeatures.size()), String.valueOf(mltFeatures.size()))
+          Difference.builder()
+              .message("Number of features differ")
+              .items(
+                  Pair.of(String.valueOf(mvtFeatures.size()), String.valueOf(mltFeatures.size())))
               .layerIndex(layerIndex)
               .layerName(layerName)
               .build());
@@ -244,10 +200,12 @@ public final class CompareHelper {
       String layerName) {
     if (!Objects.equals(mvtFeature.idOrNull(), mltFeature.idOrNull())) {
       return Optional.of(
-          Difference.builder("Feature IDs differ")
+          Difference.builder()
+              .message("Feature IDs differ")
               .layerName(layerName)
               .featureIndex(featureIndex)
-              .items(String.valueOf(mvtFeature.getId()), String.valueOf(mltFeature.getId()))
+              .items(
+                  Pair.of(String.valueOf(mvtFeature.getId()), String.valueOf(mltFeature.getId())))
               .build());
     }
     if (compareMode == CompareMode.Geometry || compareMode == CompareMode.All) {
@@ -273,19 +231,22 @@ public final class CompareHelper {
     final var mvtGeomValid = mvtGeometry.isValid();
     if (mltGeomValid != mvtGeomValid) {
       return Optional.of(
-          Difference.builder("Geometry validity does not match")
+          Difference.builder()
+              .message("Geometry validity does not match")
               .layerName(layerName)
               .featureIndex(featureIndex)
-              .items(mvtGeomValid ? "valid" : "invalid", mltGeomValid ? "valid" : "invalid")
+              .items(
+                  Pair.of(mvtGeomValid ? "valid" : "invalid", mltGeomValid ? "valid" : "invalid"))
               .build());
     }
 
     if (mvtGeomValid && !mltGeometry.equals(mvtGeometry)) {
       return Optional.of(
-          Difference.builder("Geometries do not match")
+          Difference.builder()
+              .message("Geometries do not match")
               .layerName(layerName)
               .featureIndex(featureIndex)
-              .geometries(mvtGeometry, mltGeometry)
+              .geometries(Pair.of(mvtGeometry, mltGeometry))
               .build());
     }
 
@@ -333,10 +294,11 @@ public final class CompareHelper {
       final var mltKeys = getAsymmetricSetDiff(nonNullMLTKeys, nonNullMVTKeys);
       final var mltKeyStr = mltKeys.isEmpty() ? "(none)" : String.join(", ", mltKeys);
       return Optional.of(
-          Difference.builder("Property keys do not match")
+          Difference.builder()
+              .message("Property keys do not match")
               .layerName(layerName)
               .featureIndex(featureIndex)
-              .items(mvtKeyStr, mltKeyStr)
+              .items(Pair.of(mvtKeyStr, mltKeyStr))
               .build());
     }
     // compare values
@@ -372,10 +334,11 @@ public final class CompareHelper {
                               .orElse("null"))
               .collect(Collectors.joining(", "));
       return Optional.of(
-          Difference.builder("Property values do not match")
+          Difference.builder()
+              .message("Property values do not match")
               .layerName(layerName)
               .featureIndex(featureIndex)
-              .items(mvtValues, mltValues)
+              .items(Pair.of(mvtValues, mltValues))
               .build());
     }
     return Optional.empty();
