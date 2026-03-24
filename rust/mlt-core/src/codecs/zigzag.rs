@@ -1,7 +1,7 @@
 use num_traits::{AsPrimitive, WrappingAdd, WrappingSub};
 use zigzag::ZigZag;
 
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltResult};
 
 /// ZigZag-encode a slice of signed values into unsigned values.
 #[must_use]
@@ -51,7 +51,7 @@ where
 }
 
 /// ZigZag-decode a slice, charging `dec` for the output allocation.
-pub fn decode_zigzag<T: ZigZag>(data: &[T::UInt], dec: &mut Decoder) -> Result<Vec<T>, MltError> {
+pub fn decode_zigzag<T: ZigZag>(data: &[T::UInt], dec: &mut Decoder) -> MltResult<Vec<T>> {
     dec.consume_items::<T>(data.len())?;
     Ok(data.iter().map(|&v| T::decode(v)).collect())
 }
@@ -60,7 +60,7 @@ pub fn decode_zigzag<T: ZigZag>(data: &[T::UInt], dec: &mut Decoder) -> Result<V
 pub fn decode_zigzag_delta<T: Copy + ZigZag + WrappingAdd + AsPrimitive<U>, U: 'static + Copy>(
     data: &[T::UInt],
     dec: &mut Decoder,
-) -> Result<Vec<U>, MltError> {
+) -> MltResult<Vec<U>> {
     dec.consume_items::<U>(data.len())?;
     Ok(data
         .iter()
@@ -76,7 +76,7 @@ pub fn decode_zigzag_delta<T: Copy + ZigZag + WrappingAdd + AsPrimitive<U>, U: '
 pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
     data: &[T::UInt],
     dec: &mut Decoder,
-) -> Result<Vec<T>, MltError> {
+) -> MltResult<Vec<T>> {
     use crate::MltError::InvalidPairStreamSize;
 
     if data.is_empty() || !data.len().is_multiple_of(2) {

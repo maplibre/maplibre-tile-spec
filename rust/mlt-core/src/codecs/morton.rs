@@ -145,7 +145,7 @@ pub fn decode_morton_delta(
     data: &[u32],
     meta: MortonMeta,
     dec: &mut Decoder,
-) -> Result<Vec<i32>, MltError> {
+) -> MltResult<Vec<i32>> {
     let alloc_size = data.len() * 2;
     let mut out = dec.alloc(alloc_size)?;
     let shift_vec = u32x8::splat(meta.coordinate_shift);
@@ -184,7 +184,7 @@ pub fn decode_morton_codes(
     data: &[u32],
     meta: MortonMeta,
     dec: &mut Decoder,
-) -> Result<Vec<i32>, MltError> {
+) -> MltResult<Vec<i32>> {
     let alloc_size = data.len() * 2;
     let mut out = dec.alloc(alloc_size)?;
     let shift_vec = u32x8::splat(meta.coordinate_shift);

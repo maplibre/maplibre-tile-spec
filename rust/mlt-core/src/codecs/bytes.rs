@@ -1,7 +1,7 @@
 use crate::MltError::BufferUnderflow;
 use crate::decoder::debug_assert_length;
 use crate::utils::{AsUsize as _, take};
-use crate::{Decoder, MltError, MltRefResult};
+use crate::{Decoder, MltRefResult, MltResult};
 
 /// Encode a `u32` slice into little-endian bytes.
 #[must_use]
@@ -98,7 +98,7 @@ pub fn decode_bytes_to_bools(
     bytes: &[u8],
     num_bools: usize,
     dec: &mut Decoder,
-) -> Result<Vec<bool>, MltError> {
+) -> MltResult<Vec<bool>> {
     debug_assert!(num_bools <= bytes.len() * 8);
     let mut result = dec.alloc(num_bools)?;
     for i in 0..num_bools {

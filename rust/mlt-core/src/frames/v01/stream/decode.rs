@@ -11,7 +11,7 @@ use crate::{Decoder, MltError, MltResult};
 
 impl RawStream<'_> {
     /// Decode a boolean stream: byte-RLE → packed bitmap → `Vec<bool>`, charging `dec`.
-    pub fn decode_bools(self, dec: &mut Decoder) -> Result<Vec<bool>, MltError> {
+    pub fn decode_bools(self, dec: &mut Decoder) -> MltResult<Vec<bool>> {
         let num_values = self.meta.num_values.as_usize();
         let num_bytes = num_values.div_ceil(8);
         let raw = match &self.data {
@@ -24,7 +24,7 @@ impl RawStream<'_> {
         decode_bytes_to_bools(&decoded, num_values, dec)
     }
 
-    pub fn decode_i8s(self, dec: &mut Decoder) -> Result<Vec<i8>, MltError> {
+    pub fn decode_i8s(self, dec: &mut Decoder) -> MltResult<Vec<i8>> {
         self.decode_i32s(dec)?
             .into_iter()
             .map(i8::try_from)
@@ -32,7 +32,7 @@ impl RawStream<'_> {
             .map_err(Into::into)
     }
 
-    pub fn decode_u8s(self, dec: &mut Decoder) -> Result<Vec<u8>, MltError> {
+    pub fn decode_u8s(self, dec: &mut Decoder) -> MltResult<Vec<u8>> {
         self.decode_u32s(dec)?
             .into_iter()
             .map(u8::try_from)
@@ -40,7 +40,7 @@ impl RawStream<'_> {
             .map_err(Into::into)
     }
 
-    pub fn decode_i32s(self, dec: &mut Decoder) -> Result<Vec<i32>, MltError> {
+    pub fn decode_i32s(self, dec: &mut Decoder) -> MltResult<Vec<i32>> {
         let meta = self.meta;
         // i32 always needs a logical transform (zigzag at minimum) — use scratch buffer.
         let mut buf = mem::take(&mut dec.buffer_u32);
@@ -51,7 +51,7 @@ impl RawStream<'_> {
         result
     }
 
-    pub fn decode_u32s(self, dec: &mut Decoder) -> Result<Vec<u32>, MltError> {
+    pub fn decode_u32s(self, dec: &mut Decoder) -> MltResult<Vec<u32>> {
         let meta = self.meta;
         if meta.encoding.logical == LogicalEncoding::None {
             // No logical transform: physical words are the output — decode into a fresh Vec.
@@ -69,7 +69,7 @@ impl RawStream<'_> {
         }
     }
 
-    pub fn decode_u64s(self, dec: &mut Decoder) -> Result<Vec<u64>, MltError> {
+    pub fn decode_u64s(self, dec: &mut Decoder) -> MltResult<Vec<u64>> {
         let meta = self.meta;
         if meta.encoding.logical == LogicalEncoding::None {
             // No logical transform: physical words are the output — decode into a fresh Vec.
@@ -87,7 +87,7 @@ impl RawStream<'_> {
         }
     }
 
-    pub fn decode_i64s(self, dec: &mut Decoder) -> Result<Vec<i64>, MltError> {
+    pub fn decode_i64s(self, dec: &mut Decoder) -> MltResult<Vec<i64>> {
         let meta = self.meta;
         // i64 always needs a logical transform (zigzag at minimum) — use scratch buffer.
         let mut buf = mem::take(&mut dec.buffer_u64);
@@ -99,7 +99,7 @@ impl RawStream<'_> {
     }
 
     /// Decode a stream of f32 values from raw little-endian bytes, charging `dec`.
-    pub fn decode_f32s(self, dec: &mut Decoder) -> Result<Vec<f32>, MltError> {
+    pub fn decode_f32s(self, dec: &mut Decoder) -> MltResult<Vec<f32>> {
         let num = self.meta.num_values.as_usize();
         dec.consume_items::<f32>(num)?;
         let raw = match &self.data {
@@ -117,7 +117,7 @@ impl RawStream<'_> {
     }
 
     /// Decode a stream of f64 values from raw little-endian bytes, charging `dec`.
-    pub fn decode_f64s(self, dec: &mut Decoder) -> Result<Vec<f64>, MltError> {
+    pub fn decode_f64s(self, dec: &mut Decoder) -> MltResult<Vec<f64>> {
         let raw = match &self.data {
             RawStreamData::Encoded(v) => v,
             RawStreamData::VarInt(_) => {

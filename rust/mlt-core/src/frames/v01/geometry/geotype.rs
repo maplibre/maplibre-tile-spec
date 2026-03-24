@@ -3,8 +3,8 @@ use std::ops::Range;
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 
 use crate::MltError::{
-    self, GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds,
-    NoGeometryOffsets, NoPartOffsets, NoRingOffsets,
+    GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, NoGeometryOffsets,
+    NoPartOffsets, NoRingOffsets,
 };
 use crate::MltResult;
 use crate::geojson::{Coord32, Geom32};
@@ -52,10 +52,9 @@ impl GeometryValues {
                     len: s.len(),
                 })
         };
-        let off_pair =
-            |s: &[u32], idx: usize, field: &'static str| -> Result<Range<usize>, MltError> {
-                Ok(off(s, idx, field)?..off(s, idx + 1, field)?)
-            };
+        let off_pair = |s: &[u32], idx: usize, field: &'static str| -> MltResult<Range<usize>> {
+            Ok(off(s, idx, field)?..off(s, idx + 1, field)?)
+        };
 
         let geom_off = |s: &[u32], i: usize| off(s, i, "geometry_offsets");
         let part_off = |s: &[u32], i: usize| off(s, i, "part_offsets");
@@ -74,25 +73,23 @@ impl GeometryValues {
                     count: verts.len() / 2,
                 })
         };
-        let line =
-            |r: Range<usize>| -> Result<LineString<i32>, MltError> { r.map(&vert).collect() };
-        let closed_ring = |r: Range<usize>| -> Result<LineString<i32>, MltError> {
+        let line = |r: Range<usize>| -> MltResult<LineString<i32>> { r.map(&vert).collect() };
+        let closed_ring = |r: Range<usize>| -> MltResult<LineString<i32>> {
             let first = r.start;
             let mut coords: Vec<Coord32> = r.map(&vert).collect::<Result<_, _>>()?;
             coords.push(vert(first)?);
             Ok(LineString(coords))
         };
-        let poly_from_rings =
-            |part_rng: Range<usize>, r: &[u32]| -> Result<Polygon<i32>, MltError> {
-                let mut rings = part_rng
-                    .map(|idx| closed_ring(ring_range(r, idx)?))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter();
-                Ok(Polygon::new(
-                    rings.next().unwrap_or_else(|| LineString(vec![])),
-                    rings.collect(),
-                ))
-            };
+        let poly_from_rings = |part_rng: Range<usize>, r: &[u32]| -> MltResult<Polygon<i32>> {
+            let mut rings = part_rng
+                .map(|idx| closed_ring(ring_range(r, idx)?))
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter();
+            Ok(Polygon::new(
+                rings.next().unwrap_or_else(|| LineString(vec![])),
+                rings.collect(),
+            ))
+        };
 
         let geom_type = *self
             .vector_types

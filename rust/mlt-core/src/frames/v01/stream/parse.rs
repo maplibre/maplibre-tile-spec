@@ -1,5 +1,4 @@
-use std::fmt::{self, Debug};
-use std::io::{self, Write};
+use std::{fmt, io};
 
 use integer_encoding::VarIntWriter as _;
 
@@ -124,7 +123,7 @@ impl StreamMeta {
         Ok((input, (meta, byte_length)))
     }
 
-    pub fn write_to<W: Write>(
+    pub fn write_to<W: io::Write>(
         &self,
         writer: &mut W,
         is_bool: bool,
@@ -183,7 +182,7 @@ impl Analyze for StreamMeta {
     }
 }
 
-impl Debug for StreamMeta {
+impl fmt::Debug for StreamMeta {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // ensure we process all fields, and format them without the alt field
         let Self {

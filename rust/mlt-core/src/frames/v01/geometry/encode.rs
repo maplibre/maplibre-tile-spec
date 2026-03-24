@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use crate::MltResult;
 use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::errors::AsMltError as _;
@@ -9,7 +10,6 @@ use crate::v01::{
     IntEncoding, LengthType, LogicalEncoding, MortonMeta, OffsetType, PhysicalEncoder, StreamMeta,
     StreamType, VertexBufferType,
 };
-use crate::{MltError, MltResult};
 
 /// Encode vertex buffer using componentwise delta encoding
 fn encode_vertex_buffer(vertices: &[i32], physical: PhysicalEncoder) -> MltResult<EncodedStream> {
@@ -56,7 +56,7 @@ fn encode_morton_vertex_buffer(
 /// `[x0, y0, x1, y1, …]` vertex slice.
 ///
 /// Returns `(sorted_unique_codes, per_vertex_offsets)`.
-fn build_morton_dict(vertices: &[i32], meta: MortonMeta) -> Result<(Vec<u32>, Vec<u32>), MltError> {
+fn build_morton_dict(vertices: &[i32], meta: MortonMeta) -> MltResult<(Vec<u32>, Vec<u32>)> {
     let codes: Vec<u32> = vertices
         .chunks_exact(2)
         .map(|c| encode_morton(c[0], c[1], meta))

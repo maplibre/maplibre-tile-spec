@@ -1,12 +1,12 @@
 use fastpfor::{AnyLenCodec as _, FastPFor128};
 
 use crate::utils::AsUsize as _;
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltError, MltResult};
 
 /// Encode a `u32` sequence using `FastPFOR256` (composite codec).
 ///
 /// This is the inverse of `decode_fastpfor_composite`
-pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
+pub fn encode_fastpfor(values: &[u32]) -> MltResult<Vec<u8>> {
     if values.is_empty() {
         // FIXME: eventually there should not be a header anywhere at all
         return Ok(Vec::new());
@@ -33,11 +33,7 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
 /// 3. Remaining u32 words = secondary codec (`VByte`) compressed data
 ///
 /// The compressed bytes are stored as big-endian u32 values by the Java encoder.
-pub fn decode_fastpfor(
-    data: &[u8],
-    num_values: u32,
-    dec: &mut Decoder,
-) -> Result<Vec<u32>, MltError> {
+pub fn decode_fastpfor(data: &[u8], num_values: u32, dec: &mut Decoder) -> MltResult<Vec<u32>> {
     if num_values == 0 {
         // FIXME: eventually there should not be a header anywhere at all
         return if data.is_empty() {

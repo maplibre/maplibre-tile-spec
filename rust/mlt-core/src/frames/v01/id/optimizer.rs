@@ -1,4 +1,4 @@
-use crate::MltError;
+use crate::MltResult;
 use crate::v01::{
     DataProfile, EncodedId, IdEncoder, IdValues, IdWidth, IntEncoder, LogicalEncoder,
     PhysicalEncoder,
@@ -239,7 +239,7 @@ fn filter_varint(candidates: &[IntEncoder]) -> Vec<IntEncoder> {
 impl IdValues {
     /// Encode this ID column using the given encoder, consuming `self`.
     /// Returns `None` if the ID list is empty.
-    pub fn encode(self, encoder: IdEncoder) -> Result<Option<EncodedId>, MltError> {
+    pub fn encode(self, encoder: IdEncoder) -> MltResult<Option<EncodedId>> {
         if self.0.is_empty() {
             Ok(None)
         } else {
@@ -251,7 +251,7 @@ impl IdValues {
     pub fn encode_with_profile(
         &self,
         profile: &IdProfile,
-    ) -> Result<(Option<EncodedId>, Option<IdEncoder>), MltError> {
+    ) -> MltResult<(Option<EncodedId>, Option<IdEncoder>)> {
         if self.0.is_empty() {
             return Ok((None, None));
         }
@@ -261,7 +261,7 @@ impl IdValues {
     }
 
     /// Automatically select the best encoder and encode, consuming `self`.
-    pub fn encode_auto(self) -> Result<(Option<EncodedId>, Option<IdEncoder>), MltError> {
+    pub fn encode_auto(self) -> MltResult<(Option<EncodedId>, Option<IdEncoder>)> {
         if self.0.is_empty() {
             return Ok((None, None));
         }

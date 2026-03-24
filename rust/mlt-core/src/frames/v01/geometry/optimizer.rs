@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
+use crate::MltResult;
 use crate::codecs::morton::z_order_params;
 use crate::v01::encode::encode_geometry;
 use crate::v01::{
     DataProfile, DictionaryType, EncodedGeometry, GeometryEncoder, GeometryValues, IntEncoder,
     LengthType, OffsetType, StreamType, VertexBufferType,
 };
-use crate::{MltError, MltResult};
 
 /// If the ratio of unique vertices to total vertices is below this threshold,
 /// Morton dictionary encoding is preferred over Vec2 componentwise-delta.
@@ -253,14 +253,14 @@ impl GeometryValues {
     pub fn encode_with_profile(
         &self,
         profile: &GeometryProfile,
-    ) -> Result<(EncodedGeometry, GeometryEncoder), MltError> {
+    ) -> MltResult<(EncodedGeometry, GeometryEncoder)> {
         let enc = apply_profile(self, profile)?;
         let encoded = EncodedGeometry::encode(self, enc)?;
         Ok((encoded, enc))
     }
 
     /// Automatically select the best encoder and encode, consuming `self`.
-    pub fn encode_auto(self) -> Result<(EncodedGeometry, GeometryEncoder), MltError> {
+    pub fn encode_auto(self) -> MltResult<(EncodedGeometry, GeometryEncoder)> {
         let enc = optimize(&self)?;
         let encoded = EncodedGeometry::encode(&self, enc)?;
         Ok((encoded, enc))

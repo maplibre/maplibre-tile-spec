@@ -288,7 +288,7 @@ impl Analyze for ParsedStrings<'_> {
     }
 }
 
-fn encode_shared_dict_range(start: u32, end: u32) -> Result<(i32, i32), MltError> {
+fn encode_shared_dict_range(start: u32, end: u32) -> MltResult<(i32, i32)> {
     Ok((i32::try_from(start)?, i32::try_from(end)?))
 }
 
@@ -300,7 +300,7 @@ fn decode_shared_dict_range(range: (i32, i32)) -> Option<(u32, u32)> {
     }
 }
 
-fn shared_dict_spans(lengths: &[u32], dec: &mut Decoder) -> Result<Vec<(u32, u32)>, MltError> {
+fn shared_dict_spans(lengths: &[u32], dec: &mut Decoder) -> MltResult<Vec<(u32, u32)>> {
     let mut spans = dec.alloc(lengths.len())?;
     let mut offset = 0_u32;
     for &len in lengths {
@@ -316,7 +316,7 @@ fn resolve_dict_spans(
     presence: Option<&[bool]>,
     dict_spans: &[(u32, u32)],
     dec: &mut Decoder,
-) -> Result<Vec<Option<(u32, u32)>>, MltError> {
+) -> MltResult<Vec<Option<(u32, u32)>>> {
     let present_count = presence.map_or(offsets.len(), <[bool]>::len);
     let mut resolved = dec.alloc(present_count)?;
     let mut next = offsets.iter().copied();
@@ -461,7 +461,7 @@ impl<'a> RawPlainData<'a> {
         Ok(Self { lengths, data })
     }
 
-    pub fn decode(self, dec: &mut Decoder) -> Result<(&'a str, Vec<u32>), MltError> {
+    pub fn decode(self, dec: &mut Decoder) -> MltResult<(&'a str, Vec<u32>)> {
         Ok((
             str::from_utf8(self.data.as_bytes())?,
             self.lengths.decode_u32s(dec)?,
@@ -517,7 +517,7 @@ impl<'a> RawFsstData<'a> {
         })
     }
 
-    pub fn decode(self, dec: &mut Decoder) -> Result<(String, Vec<u32>), MltError> {
+    pub fn decode(self, dec: &mut Decoder) -> MltResult<(String, Vec<u32>)> {
         decode_fsst(self, dec)
     }
 
@@ -858,7 +858,7 @@ impl<'a> RawStrings<'a> {
     }
 
     /// Decode string property from its encoded column.
-    pub fn decode(self, dec: &mut Decoder) -> Result<ParsedStrings<'a>, MltError> {
+    pub fn decode(self, dec: &mut Decoder) -> MltResult<ParsedStrings<'a>> {
         let name = self.name;
         let presence = match self.presence.0 {
             Some(s) => Some(s.decode_bools(dec)?),
@@ -911,7 +911,7 @@ fn to_absolute_lengths(
     lengths: &[u32],
     presence: Option<&[bool]>,
     dec: &mut Decoder,
-) -> Result<Vec<i32>, MltError> {
+) -> MltResult<Vec<i32>> {
     let capacity = presence.map_or(lengths.len(), <[bool]>::len);
     let mut absolute = dec.alloc(capacity)?;
     let mut iter = lengths.iter().copied();
@@ -951,7 +951,7 @@ fn decode_dictionary_strings<'a>(
     presence: Option<&[bool]>,
     dict_data: &str,
     dec: &mut Decoder,
-) -> Result<ParsedStrings<'a>, MltError> {
+) -> MltResult<ParsedStrings<'a>> {
     let dict_spans = shared_dict_spans(dict_lengths, dec)?;
     let resolved_spans = resolve_dict_spans(offsets, presence, &dict_spans, dec)?;
     let mut lengths = dec.alloc(resolved_spans.len())?;
@@ -1013,7 +1013,7 @@ impl<'a> RawSharedDict<'a> {
     }
 
     /// Decode a shared-dictionary column into its decoded form.
-    pub fn decode(self, dec: &mut Decoder) -> Result<ParsedSharedDict<'a>, MltError> {
+    pub fn decode(self, dec: &mut Decoder) -> MltResult<ParsedSharedDict<'a>> {
         let prefix = self.name;
         let (data, dict_spans) = match self.encoding {
             RawSharedDictEncoding::Plain(plain_data) => {
