@@ -2,10 +2,10 @@ use std::mem;
 
 use crate::analyse::{Analyze, StatType};
 use crate::v01::StreamMeta;
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltError, MltResult};
 
 pub trait Decode<Parsed>: Sized {
-    fn decode(self, decoder: &mut Decoder) -> Result<Parsed, MltError>;
+    fn decode(self, decoder: &mut Decoder) -> MltResult<Parsed>;
 }
 
 /// Shared wrapper for values that may still be in the original (raw) format or
@@ -22,7 +22,7 @@ pub enum EncDec<Raw, Parsed> {
 
 impl<Raw: Decode<Parsed>, Parsed> EncDec<Raw, Parsed> {
     /// Decode in place, replacing the raw value with the parsed result.
-    pub fn decode(&mut self, decoder: &mut Decoder) -> Result<&mut Parsed, MltError> {
+    pub fn decode(&mut self, decoder: &mut Decoder) -> MltResult<&mut Parsed> {
         match self {
             Self::Parsed(v) => Ok(v),
             Self::Raw(_) => {
@@ -40,7 +40,7 @@ impl<Raw: Decode<Parsed>, Parsed> EncDec<Raw, Parsed> {
     }
 
     /// Consume and return the parsed value, decoding if currently raw.
-    pub fn into_parsed(self, decoder: &mut Decoder) -> Result<Parsed, MltError> {
+    pub fn into_parsed(self, decoder: &mut Decoder) -> MltResult<Parsed> {
         match self {
             Self::Parsed(v) => Ok(v),
             Self::Raw(raw) => raw.decode(decoder),
@@ -48,7 +48,7 @@ impl<Raw: Decode<Parsed>, Parsed> EncDec<Raw, Parsed> {
         }
     }
 
-    pub fn as_parsed(&self) -> Result<&Parsed, MltError> {
+    pub fn as_parsed(&self) -> MltResult<&Parsed> {
         match self {
             Self::Parsed(v) => Ok(v),
             Self::Raw(_) => Err(MltError::NotDecoded("enc_dec value")), // TODO: I wonder if the str can be of the type name?

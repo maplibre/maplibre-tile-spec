@@ -19,7 +19,7 @@ use crate::v01::{
     RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding, SharedDictEncoder,
     StagedSharedDict, StagedSharedDictItem, StagedStrings, StrEncoder, StreamType,
 };
-use crate::{Analyze, Decoder, MltError, StatType};
+use crate::{Analyze, Decoder, MltError, MltResult, StatType};
 
 impl StrEncoder {
     #[must_use]
@@ -357,7 +357,7 @@ fn resolve_dict_spans(
     Ok(resolved)
 }
 
-fn dict_span_str(dict_data: &str, span: (u32, u32)) -> Result<&str, MltError> {
+fn dict_span_str(dict_data: &str, span: (u32, u32)) -> MltResult<&str> {
     let start = span.0.as_usize();
     let end = span.1.as_usize();
     let bytes = dict_data.as_bytes();
@@ -447,7 +447,7 @@ macro_rules! validate_stream {
 }
 
 impl<'a> RawPlainData<'a> {
-    pub fn new(lengths: RawStream<'a>, data: RawStream<'a>) -> Result<Self, MltError> {
+    pub fn new(lengths: RawStream<'a>, data: RawStream<'a>) -> MltResult<Self> {
         validate_stream!(
             lengths,
             StreamType::Length(LengthType::VarBinary | LengthType::Dictionary)
@@ -475,7 +475,7 @@ impl<'a> RawPlainData<'a> {
 }
 
 impl EncodedPlainData {
-    pub fn new(lengths: EncodedStream, data: EncodedStream) -> Result<Self, MltError> {
+    pub fn new(lengths: EncodedStream, data: EncodedStream) -> MltResult<Self> {
         validate_stream!(
             lengths,
             StreamType::Length(LengthType::VarBinary | LengthType::Dictionary)
@@ -501,7 +501,7 @@ impl<'a> RawFsstData<'a> {
         symbol_table: RawStream<'a>,
         lengths: RawStream<'a>,
         corpus: RawStream<'a>,
-    ) -> Result<Self, MltError> {
+    ) -> MltResult<Self> {
         validate_stream!(symbol_lengths, StreamType::Length(LengthType::Symbol));
         validate_stream!(symbol_table, StreamType::Data(DictionaryType::Fsst));
         validate_stream!(lengths, StreamType::Length(LengthType::Dictionary));
@@ -550,10 +550,7 @@ impl<'a> RawStringsEncoding<'a> {
         Self::Plain(plain_data)
     }
 
-    pub fn dictionary(
-        plain_data: RawPlainData<'a>,
-        offsets: RawStream<'a>,
-    ) -> Result<Self, MltError> {
+    pub fn dictionary(plain_data: RawPlainData<'a>, offsets: RawStream<'a>) -> MltResult<Self> {
         validate_stream!(offsets, StreamType::Offset(OffsetType::String));
         Ok(Self::Dictionary {
             plain_data,
@@ -566,10 +563,7 @@ impl<'a> RawStringsEncoding<'a> {
         Self::FsstPlain(fsst_data)
     }
 
-    pub fn fsst_dictionary(
-        fsst_data: RawFsstData<'a>,
-        offsets: RawStream<'a>,
-    ) -> Result<Self, MltError> {
+    pub fn fsst_dictionary(fsst_data: RawFsstData<'a>, offsets: RawStream<'a>) -> MltResult<Self> {
         validate_stream!(offsets, StreamType::Offset(OffsetType::String));
         Ok(Self::FsstDictionary { fsst_data, offsets })
     }
@@ -695,7 +689,7 @@ impl EncodedSharedDict {
 pub fn encode_shared_dict_prop(
     shared_dict: &StagedSharedDict,
     encoder: &SharedDictEncoder,
-) -> Result<EncodedProperty, MltError> {
+) -> MltResult<EncodedProperty> {
     if shared_dict.items.len() != encoder.items.len() {
         return Err(NotImplemented(
             "SharedDict items count must match encoder items count",
@@ -788,7 +782,7 @@ pub fn encode_shared_dict_prop(
 pub fn build_staged_shared_dict(
     prefix: impl Into<String>,
     items: impl IntoIterator<Item = (String, StagedStrings)>,
-) -> Result<StagedSharedDict, MltError> {
+) -> MltResult<StagedSharedDict> {
     let prefix = prefix.into();
     let items = items.into_iter().collect::<Vec<_>>();
     let mut dict_entries = Vec::<String>::new();
@@ -816,24 +810,22 @@ pub fn build_staged_shared_dict(
 
     let items = items
         .into_iter()
-        .map(
-            |(suffix, values)| -> Result<StagedSharedDictItem, MltError> {
-                let mut ranges = Vec::with_capacity(values.feature_count());
-                for i in 0..u32::try_from(values.feature_count())? {
-                    if let Some(value) = values.get(i) {
-                        let idx = dict_index
-                            .get(value)
-                            .copied()
-                            .ok_or(DictIndexOutOfBounds(0, dict_entries.len()))?;
-                        let span = dict_ranges[idx as usize];
-                        ranges.push(encode_shared_dict_range(span.0, span.1)?);
-                    } else {
-                        ranges.push((-1, -1));
-                    }
+        .map(|(suffix, values)| -> MltResult<StagedSharedDictItem> {
+            let mut ranges = Vec::with_capacity(values.feature_count());
+            for i in 0..u32::try_from(values.feature_count())? {
+                if let Some(value) = values.get(i) {
+                    let idx = dict_index
+                        .get(value)
+                        .copied()
+                        .ok_or(DictIndexOutOfBounds(0, dict_entries.len()))?;
+                    let span = dict_ranges[idx as usize];
+                    ranges.push(encode_shared_dict_range(span.0, span.1)?);
+                } else {
+                    ranges.push((-1, -1));
                 }
-                Ok(StagedSharedDictItem { suffix, ranges })
-            },
-        )
+            }
+            Ok(StagedSharedDictItem { suffix, ranges })
+        })
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(StagedSharedDict {
@@ -844,7 +836,7 @@ pub fn build_staged_shared_dict(
 }
 
 impl EncodedSharedDictItem {
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> MltResult<()> {
         let typ = if self.presence.0.is_some() {
             ColumnType::OptStr
         } else {
@@ -994,12 +986,12 @@ fn decode_end(end: i32) -> u32 {
     }
 }
 
-fn checked_string_end(current_end: i32, byte_len: usize) -> Result<i32, MltError> {
+fn checked_string_end(current_end: i32, byte_len: usize) -> MltResult<i32> {
     let byte_len = u32::try_from(byte_len)?;
     checked_absolute_end(current_end, byte_len)
 }
 
-fn checked_absolute_end(current_end: i32, delta: u32) -> Result<i32, MltError> {
+fn checked_absolute_end(current_end: i32, delta: u32) -> MltResult<i32> {
     let delta = i32::try_from(delta)?;
     current_end
         .checked_add(delta)

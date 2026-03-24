@@ -10,7 +10,7 @@ use crate::v01::{
     ColumnType, DictionaryType, EncodedGeometry, Geometry, GeometryEncoder, GeometryValues,
     IntEncoding, RawGeometry, RawStream, RawStreamData, StreamMeta, StreamType,
 };
-use crate::{MltError, Parser};
+use crate::{MltResult, Parser};
 
 impl<'a> RawGeometry<'a> {
     /// Parse encoded geometry from bytes (expects varint stream count + streams).
@@ -43,12 +43,12 @@ impl<'a> RawGeometry<'a> {
 }
 
 impl EncodedGeometry {
-    pub fn write_columns_meta_to<W: Write>(writer: &mut W) -> Result<(), MltError> {
+    pub fn write_columns_meta_to<W: Write>(writer: &mut W) -> MltResult<()> {
         ColumnType::Geometry.write_to(writer)?;
         Ok(())
     }
 
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> MltResult<()> {
         let items_len = u32::try_from(self.items.len())?;
         let items_len = checked_sum2(items_len, 1)?;
         writer.write_varint(items_len)?;
@@ -59,7 +59,7 @@ impl EncodedGeometry {
         Ok(())
     }
 
-    pub fn encode(value: &GeometryValues, encoder: GeometryEncoder) -> Result<Self, MltError> {
+    pub fn encode(value: &GeometryValues, encoder: GeometryEncoder) -> MltResult<Self> {
         encode_geometry(value, &encoder, None)
     }
 }

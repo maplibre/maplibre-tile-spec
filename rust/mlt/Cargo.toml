@@ -26,7 +26,7 @@ flate2.workspace = true
 geo-types.workspace = true
 glob.workspace = true
 globset.workspace = true
-mlt-core = { workspace = true, features = ["fastpfor-cpp"] }
+mlt-core.workspace = true
 ratatui.workspace = true
 rayon.workspace = true
 rstar.workspace = true

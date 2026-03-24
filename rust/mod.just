@@ -17,55 +17,31 @@ just *args:
 
 # Run integration tests and save its output as the new expected output
 bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack')
-    cargo hack insta test --accept --unreferenced=delete --feature-powerset \
+    cargo hack insta test --accept --unreferenced=delete --each-feature \
         --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust \
+        --exclude-no-default-features --exclude-all-features \
         {{args}}
 
 # Run benchmarks
 bench *args: (just 'cargo-install' 'cargo-hack')
-    cargo hack bench --all-targets --feature-powerset \
+    cargo hack bench --all-targets --each-feature \
         --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
-        --exclude-all-features \
-        --features fastpfor-rust \
+        --exclude-no-default-features --exclude-all-features \
         {{args}}
 
 alias b := build
 # Build the project
 build: (just 'cargo-install' 'cargo-hack')
     cargo hack build --all-targets --each-feature \
-        --workspace --exclude mlt-core \
+        --workspace \
         --exclude-no-default-features --exclude-all-features
-    cargo hack build --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp
-    cargo hack build --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust
 
 alias c := check
 # Quick compile without building a binary
 check: (just 'cargo-install' 'cargo-hack')
     cargo hack check --all-targets --each-feature \
-        --workspace --exclude mlt-core \
+        --workspace \
         --exclude-no-default-features --exclude-all-features
-    cargo hack check --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp
-    cargo hack check --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
@@ -188,45 +164,21 @@ clean:
 # Run cargo clippy to lint the code
 clippy *args: (just 'cargo-install' 'cargo-hack')
     cargo hack clippy --all-targets --each-feature \
-        --workspace --exclude mlt-core \
+        --workspace \
         --exclude-no-default-features --exclude-all-features \
-        {{args}}
-    cargo hack clippy --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp \
-        {{args}}
-    cargo hack clippy --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust \
         {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
 # Generate code coverage report. Installs `cargo llvm-cov`
 coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov')
     cargo hack llvm-cov --all-targets --each-feature \
-        --workspace --exclude mlt-core \
+        --workspace \
         --exclude-no-default-features --exclude-all-features \
-        --include-build-script {{args}}
-    cargo hack llvm-cov --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp \
-        --include-build-script {{args}}
-    cargo hack llvm-cov --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust \
         --include-build-script {{args}}
 
 # Build and open code documentation
 docs *args='--open':
-    DOCS_RS=1 cargo doc --no-deps {{args}} --features fastpfor-cpp,arbitrary --package mlt-core
+    DOCS_RS=1 cargo doc --no-deps {{args}} --features arbitrary --package mlt-core
 
 alias f := fmt
 fmt: (_fmt) (_fmt '--manifest-path' 'mlt-core/fuzz/Cargo.toml')
@@ -315,11 +267,9 @@ release *args='': (just 'cargo-install' 'release-plz')
 
 # Check semver compatibility with prior published version
 semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install' 'cargo-hack')
-    cargo hack semver-checks --feature-powerset \
+    cargo hack semver-checks --each-feature \
         --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp \
+        --exclude-no-default-features --exclude-all-features \
         {{args}}
 
 # Regenerate the Python type stub for mlt-py
@@ -353,24 +303,14 @@ alias t := test
 # Run all tests
 test: (just 'cargo-install' 'cargo-hack')
     cargo hack test --all-targets --each-feature \
-        --workspace --exclude mlt-core \
+        --workspace \
         --exclude-no-default-features --exclude-all-features
-    cargo hack test --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp
-    cargo hack test --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
 
 # Test documentation generation
 test-doc: (docs '--document-private-items')
-    cargo test --doc --features fastpfor-cpp,arbitrary --package mlt-core
+    cargo test --doc --features arbitrary --package mlt-core
 
 # Test documentation generation as it would be built on docs.rs (docsrs cfg, fastpfor-rust only)
 ci-test-doc:
@@ -387,18 +327,8 @@ test-publish:
 # Find unused dependencies
 udeps: (just 'cargo-install' 'cargo-udeps') (just 'cargo-install' 'cargo-hack')
     cargo hack +nightly udeps --all-targets --each-feature \
-        --workspace --exclude mlt-core \
+        --workspace \
         --exclude-no-default-features --exclude-all-features
-    cargo hack +nightly udeps --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp
-    cargo hack +nightly udeps --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust
 
 # Update all dependencies, including breaking changes
 update:

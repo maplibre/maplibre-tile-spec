@@ -3,7 +3,7 @@ use crate::v01::{
     DictionaryType, EncodedFsstData, EncodedStream, EncodedStreamData, FsstStrEncoder, IntEncoding,
     LengthType, RawFsstData, StreamMeta, StreamType,
 };
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltError, MltResult};
 
 /// Decode an FSST-compressed byte sequence into the original bytes and value lengths,
 /// charging `dec` for the output.
@@ -74,7 +74,7 @@ pub fn compress_fsst<S: AsRef<str>>(
     values: &[S],
     encoding: FsstStrEncoder,
     dict_type: DictionaryType,
-) -> Result<EncodedFsstData, MltError> {
+) -> MltResult<EncodedFsstData> {
     // Build byte slices for training
     let byte_slices: Vec<&[u8]> = values.iter().map(|s| s.as_ref().as_bytes()).collect();
     // Train FSST compressor on the corpus

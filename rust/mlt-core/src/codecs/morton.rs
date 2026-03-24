@@ -1,7 +1,7 @@
 use wide::u32x8;
 
 use crate::v01::MortonMeta;
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltError, MltResult};
 
 const LANES: usize = 8;
 
@@ -66,7 +66,7 @@ pub fn morton_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
 ///
 /// `num_bits` (≤ 16) bits are used per axis; `coordinate_shift` is added to each
 /// component before interleaving so that negative coordinates map to non-negative values.
-pub fn encode_morton(x: i32, y: i32, meta: MortonMeta) -> Result<u32, MltError> {
+pub fn encode_morton(x: i32, y: i32, meta: MortonMeta) -> MltResult<u32> {
     let sx = u32::try_from(i64::from(x) + i64::from(meta.coordinate_shift))?;
     let sy = u32::try_from(i64::from(y) + i64::from(meta.coordinate_shift))?;
     let mut code = 0u32;
@@ -82,7 +82,7 @@ pub fn encode_morton(x: i32, y: i32, meta: MortonMeta) -> Result<u32, MltError> 
 ///
 /// Returns a [`MortonMeta`] whose `num_bits` and `coordinate_shift` match Java's
 /// `SpaceFillingCurve` implementation.
-pub fn z_order_params(vertices: &[i32]) -> Result<MortonMeta, MltError> {
+pub fn z_order_params(vertices: &[i32]) -> MltResult<MortonMeta> {
     let min_v = vertices.iter().copied().min().unwrap_or(0);
     let max_v = vertices.iter().copied().max().unwrap_or(0);
     let coordinate_shift: u32 = if min_v < 0 { min_v.unsigned_abs() } else { 0 };

@@ -1,4 +1,3 @@
-use crate::Decoder;
 use crate::MltError::{self};
 use crate::enc_dec::Decode;
 use crate::utils::apply_present;
@@ -6,6 +5,7 @@ use crate::v01::{
     ParsedPresence, ParsedProperty, ParsedScalar, RawPresence, RawProperty, StagedProperty,
     StagedScalar, StagedStrings,
 };
+use crate::{Decoder, MltResult};
 
 impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
     #[must_use]
@@ -18,7 +18,7 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
         presence: RawPresence<'a>,
         values: Vec<T>,
         dec: &mut Decoder,
-    ) -> Result<Self, MltError> {
+    ) -> MltResult<Self> {
         Ok(Self {
             name,
             values: apply_present(presence, values, dec)?,

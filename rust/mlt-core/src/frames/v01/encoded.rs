@@ -5,7 +5,7 @@ use integer_encoding::VarIntWriter as _;
 use utils::BinarySerializer as _;
 
 use crate::v01::{EncodedGeometry, EncodedLayer01};
-use crate::{MltError, utils};
+use crate::{MltError, MltResult, utils};
 
 impl EncodedLayer01 {
     /// Write layer's binary representation to a [`Write`] stream without allocating a Vec.
@@ -29,14 +29,14 @@ impl EncodedLayer01 {
         Ok(())
     }
 
-    fn write_id_meta(&self, writer: &mut impl Write) -> Result<(), MltError> {
+    fn write_id_meta(&self, writer: &mut impl Write) -> MltResult<()> {
         if let Some(ref id) = self.id {
             id.write_columns_meta_to(writer)?;
         }
         Ok(())
     }
 
-    fn write_id(&self, writer: &mut impl Write) -> Result<(), MltError> {
+    fn write_id(&self, writer: &mut impl Write) -> MltResult<()> {
         if let Some(ref id) = self.id {
             id.write_to(writer)?;
         }
@@ -44,7 +44,7 @@ impl EncodedLayer01 {
     }
 
     #[cfg(not(fuzzing))]
-    fn write_columns_meta_to(&self, writer: &mut impl Write) -> Result<(), MltError> {
+    fn write_columns_meta_to(&self, writer: &mut impl Write) -> MltResult<()> {
         self.write_id_meta(writer)?;
         EncodedGeometry::write_columns_meta_to(writer)?;
         for prop in &self.properties {
@@ -55,7 +55,7 @@ impl EncodedLayer01 {
 
     /// TODO: force item ordering to be stable in the spec
     #[cfg(fuzzing)]
-    fn write_columns_meta_to(&self, writer: &mut impl Write) -> Result<(), MltError> {
+    fn write_columns_meta_to(&self, writer: &mut impl Write) -> MltResult<()> {
         use crate::frames::v01::fuzzing::LayerOrdering;
         let props = &mut self.properties.iter();
         for ord in &self.layer_order {
@@ -72,7 +72,7 @@ impl EncodedLayer01 {
     }
 
     #[cfg(not(fuzzing))]
-    fn write_columns_to(&self, writer: &mut impl Write) -> Result<(), MltError> {
+    fn write_columns_to(&self, writer: &mut impl Write) -> MltResult<()> {
         self.write_id(writer)?;
         self.geometry.write_to(writer)?;
         for prop in &self.properties {
@@ -83,7 +83,7 @@ impl EncodedLayer01 {
 
     /// TODO: force item ordering to be stable in the spec
     #[cfg(fuzzing)]
-    fn write_columns_to(&self, writer: &mut impl Write) -> Result<(), MltError> {
+    fn write_columns_to(&self, writer: &mut impl Write) -> MltResult<()> {
         use crate::frames::v01::fuzzing::LayerOrdering;
         let props = &mut self.properties.iter();
         for ord in &self.layer_order {
