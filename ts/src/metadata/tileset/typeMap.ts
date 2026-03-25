@@ -161,7 +161,7 @@ export function isGeometryColumn(column: Column): boolean {
  * Even codes are non-nullable, odd codes are nullable.
  */
 function mapScalarType(typeCode: number): Column | null {
-    let scalarType: number | null = null;
+    let scalarType: number | null;
 
     switch (typeCode) {
         case 10:

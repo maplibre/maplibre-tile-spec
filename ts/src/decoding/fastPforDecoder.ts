@@ -5,8 +5,6 @@ import {
     greatestMultiple,
     roundUpToMultipleOf32,
     normalizePageSize,
-    type Int32Buf,
-    type Uint8Buf,
 } from "./fastPforShared";
 import {
     fastUnpack32_2,
@@ -46,9 +44,9 @@ import {
  * Workspace for the FastPFOR decoder.
  */
 export type FastPforDecoderWorkspace = {
-    dataToBePacked: Array<Int32Array | undefined>;
+    dataToBePacked: Array<Uint32Array>;
     dataPointers: Int32Array;
-    byteContainer: Uint8Buf;
+    byteContainer: Uint8Array;
     byteContainerI32?: Int32Array;
     exceptionSizes: Int32Array;
 };
@@ -64,7 +62,7 @@ export type FastPforDecoderWorkspace = {
  * The caller is responsible for creating and reusing this object.
  */
 export type FastPforWireDecodeWorkspace = {
-    encodedWords: Int32Array;
+    encodedWords: Uint32Array;
     decoderWorkspace: FastPforDecoderWorkspace;
 };
 
@@ -79,7 +77,7 @@ const BYTE_CONTAINER_SIZE = ((3 * PAGE_SIZE) / BLOCK_SIZE + PAGE_SIZE) | 0;
  * Reusing a workspace across calls avoids repeated allocations.
  */
 export function createDecoderWorkspace(): FastPforDecoderWorkspace {
-    const byteContainer = new Uint8Array(BYTE_CONTAINER_SIZE) as Uint8Buf;
+    const byteContainer = new Uint8Array(BYTE_CONTAINER_SIZE);
     return {
         dataToBePacked: new Array(BIT_WIDTH_SLOTS),
         dataPointers: new Int32Array(BIT_WIDTH_SLOTS),
@@ -93,14 +91,16 @@ export function createDecoderWorkspace(): FastPforDecoderWorkspace {
     };
 }
 
-export function createFastPforWireDecodeWorkspace(initialEncodedWordCapacity = 16): FastPforWireDecodeWorkspace {
+export function createFastPforWireDecodeWorkspace(
+    initialEncodedWordCapacity: number = 16,
+): FastPforWireDecodeWorkspace {
     if (initialEncodedWordCapacity < 0) {
         throw new RangeError(`initialEncodedWordCapacity must be >= 0, got ${initialEncodedWordCapacity}`);
     }
 
     const capacity = Math.max(16, initialEncodedWordCapacity | 0);
     return {
-        encodedWords: new Int32Array(capacity),
+        encodedWords: new Uint32Array(capacity),
         decoderWorkspace: createDecoderWorkspace(),
     };
 }
@@ -108,22 +108,22 @@ export function createFastPforWireDecodeWorkspace(initialEncodedWordCapacity = 1
 export function ensureFastPforWireEncodedWordsCapacity(
     workspace: FastPforWireDecodeWorkspace,
     requiredWordCount: number,
-): Int32Array {
+): Uint32Array {
     if (requiredWordCount <= workspace.encodedWords.length) return workspace.encodedWords;
 
-    const next = new Int32Array(Math.max(16, requiredWordCount * 2));
+    const next = new Uint32Array(Math.max(16, requiredWordCount * 2));
     workspace.encodedWords = next;
     return next;
 }
 
 function materializeByteContainer(
-    inValues: Int32Array,
+    inValues: Uint32Array,
     byteContainerStart: number,
     byteSize: number,
     workspace: FastPforDecoderWorkspace,
-): Uint8Buf {
+): Uint8Array {
     if (workspace.byteContainer.length < byteSize) {
-        workspace.byteContainer = new Uint8Array(byteSize * 2) as Uint8Buf;
+        workspace.byteContainer = new Uint8Array(byteSize * 2);
         workspace.byteContainerI32 = undefined;
     }
     const byteContainer = workspace.byteContainer;
@@ -181,7 +181,7 @@ function materializeByteContainer(
  * @param workspace - Decoder workspace used to store the unpacked exception streams.
  * @returns The new input offset (32-bit word index) after consuming all exception streams.
  */
-function unpackExceptionStreams(inValues: Int32Array, inExcept: number, workspace: FastPforDecoderWorkspace): number {
+function unpackExceptionStreams(inValues: Uint32Array, inExcept: number, workspace: FastPforDecoderWorkspace): number {
     const bitmap = inValues[inExcept++] | 0;
     const dataToBePacked = workspace.dataToBePacked;
 
@@ -205,7 +205,7 @@ function unpackExceptionStreams(inValues: Int32Array, inExcept: number, workspac
 
         let exceptionStream = dataToBePacked[bitWidth];
         if (!exceptionStream || exceptionStream.length < roundedUp) {
-            exceptionStream = dataToBePacked[bitWidth] = new Int32Array(roundedUp);
+            exceptionStream = dataToBePacked[bitWidth] = new Uint32Array(roundedUp);
         }
 
         let j = 0;
@@ -234,9 +234,9 @@ function unpackExceptionStreams(inValues: Int32Array, inExcept: number, workspac
  * @returns The new input offset (32-bit word index) right after the packed block data.
  */
 function unpackBlock256(
-    inValues: Int32Array,
+    inValues: Uint32Array,
     inPos: number,
-    out: Int32Array,
+    out: Uint32Array,
     outPos: number,
     bitWidth: number,
 ): number {
@@ -385,7 +385,7 @@ function readBlockExceptionHeader(
  * Returns the new position in the byteContainer after consuming the exception metadata bytes.
  */
 function applyBlockExceptions(
-    out: Int32Array,
+    out: Uint32Array,
     blockOutPos: number,
     bitWidth: number,
     exceptionCount: number,
@@ -438,11 +438,11 @@ function applyBlockExceptions(
 }
 
 function decodePageBlocks(
-    inValues: Int32Array,
+    inValues: Uint32Array,
     pageStart: number,
     inPos: number,
     packedEnd: number,
-    out: Int32Array,
+    out: Uint32Array,
     outPos: number,
     blocks: number,
     byteContainer: Uint8Array,
@@ -505,8 +505,8 @@ function decodePageBlocks(
  * Decodes one FastPFOR page (aligned to 256-value blocks).
  */
 function decodePage(
-    inValues: Int32Array,
-    out: Int32Array,
+    inValues: Uint32Array,
+    out: Uint32Array,
     inPos: number,
     outPos: number,
     thisSize: number,
@@ -561,8 +561,8 @@ function decodePage(
 }
 
 function decodeAlignedPages(
-    inValues: Int32Array,
-    out: Int32Array,
+    inValues: Uint32Array,
+    out: Uint32Array,
     inPos: number,
     outPos: number,
     outLength: number,
@@ -586,10 +586,10 @@ function decodeAlignedPages(
  * Decodes the VariableByte tail (MSB=1 terminator, opposite of Protobuf Varint).
  */
 function decodeVByte(
-    inValues: Int32Array,
+    inValues: Uint32Array,
     inPos: number,
     inLength: number,
-    out: Int32Array,
+    out: Uint32Array,
     outPos: number,
     expectedCount: number,
 ): number {
@@ -644,13 +644,13 @@ function decodeVByte(
  * @param workspace Optional workspace for reuse across calls. If omitted, a new workspace is created per call.
  */
 export function decodeFastPforInt32(
-    encoded: Int32Buf,
+    encoded: Uint32Array,
     numValues: number,
     workspace?: FastPforDecoderWorkspace,
-): Int32Array {
+): Uint32Array {
     let inPos = 0;
     let outPos = 0;
-    const decoded = new Int32Array(numValues);
+    const decoded = new Uint32Array(numValues);
 
     const decoderWorkspace = workspace ?? createDecoderWorkspace();
 
@@ -658,9 +658,9 @@ export function decodeFastPforInt32(
         const alignedLength = encoded[inPos] | 0;
         inPos = (inPos + 1) | 0;
 
-        if (alignedLength < 0 || (alignedLength & (BLOCK_SIZE - 1)) !== 0) {
+        if ((alignedLength & (BLOCK_SIZE - 1)) !== 0) {
             throw new Error(
-                `FastPFOR decode: invalid alignedLength=${alignedLength} (expected >= 0 and multiple of ${BLOCK_SIZE})`,
+                `FastPFOR decode: invalid alignedLength=${alignedLength} (expected multiple of ${BLOCK_SIZE})`,
             );
         }
 
@@ -676,13 +676,12 @@ export function decodeFastPforInt32(
 
     const remainingLength = (encoded.length - inPos) | 0;
     const expectedTail = (numValues - outPos) | 0;
-    inPos = decodeVByte(encoded, inPos, remainingLength, decoded, outPos, expectedTail);
-    outPos = (outPos + expectedTail) | 0;
+    decodeVByte(encoded, inPos, remainingLength, decoded, outPos, expectedTail);
 
     return decoded;
 }
 
-function fastUnpack32(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number, bitWidth: number): void {
+function fastUnpack32(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number, bitWidth: number): void {
     switch (bitWidth) {
         case 2:
             fastUnpack32_2(inValues, inPos, out, outPos);

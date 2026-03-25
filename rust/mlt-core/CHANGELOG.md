@@ -7,6 +7,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.5.0...rust-mlt-core-v0.6.0) - 2026-03-23
+
+### Other
+
+- *(rust)* migrate to Rust fastpfor ([#1190](https://github.com/maplibre/maplibre-tile-spec/pull/1190))
+
+## [0.5.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.4.0...rust-mlt-core-v0.5.0) - 2026-03-17
+
+### Added
+
+- *(rust)* allow resorting in the optimiser ([#1133](https://github.com/maplibre/maplibre-tile-spec/pull/1133))
+- *(rust)* migrate the property optimiser to the PGO architecture ([#1118](https://github.com/maplibre/maplibre-tile-spec/pull/1118))
+- *(rust)* migrate geometrys to allow for PGO ([#1112](https://github.com/maplibre/maplibre-tile-spec/pull/1112))
+- *(rust)* PGO based Id optimiser ([#1105](https://github.com/maplibre/maplibre-tile-spec/pull/1105))
+
+### Other
+
+- *(rust)* memory budgeting, codecs  ([#1168](https://github.com/maplibre/maplibre-tile-spec/pull/1168))
+- *(rust)* minor noop cleanup ([#1167](https://github.com/maplibre/maplibre-tile-spec/pull/1167))
+- *(rust)* introduce EncDec decode states ([#1166](https://github.com/maplibre/maplibre-tile-spec/pull/1166))
+- *(rust)* rename EncDec variants ([#1165](https://github.com/maplibre/maplibre-tile-spec/pull/1165))
+- *(rust)* add stateful decoder ([#1163](https://github.com/maplibre/maplibre-tile-spec/pull/1163))
+- *(rust)* rm TryFrom EncodedGeometry,EncodedId ([#1162](https://github.com/maplibre/maplibre-tile-spec/pull/1162))
+- *(rust)* rm FromDecoded, use encode(...) ([#1161](https://github.com/maplibre/maplibre-tile-spec/pull/1161))
+- *(rust)* finish big refactoring ([#1160](https://github.com/maplibre/maplibre-tile-spec/pull/1160))
+- *(rust)* rename to IdValues and GeometryValues ([#1159](https://github.com/maplibre/maplibre-tile-spec/pull/1159))
+- *(rust)* mv impls out of models, use full wire round-trips ([#1158](https://github.com/maplibre/maplibre-tile-spec/pull/1158))
+- *(chore)* remove into_static, test fixes ([#1154](https://github.com/maplibre/maplibre-tile-spec/pull/1154))
+- *(rust)* rework WASM code to use TileLayer01 ([#1153](https://github.com/maplibre/maplibre-tile-spec/pull/1153))
+- *(rust)* remove unnecessary to_owned calls ([#1151](https://github.com/maplibre/maplibre-tile-spec/pull/1151))
+- *(rust)* introduce staging types in Rust layer implementation ([#1149](https://github.com/maplibre/maplibre-tile-spec/pull/1149))
+- *(rust)* introduce staging types ([#1148](https://github.com/maplibre/maplibre-tile-spec/pull/1148))
+- *(rust)* code structure and remove NameRef ([#1147](https://github.com/maplibre/maplibre-tile-spec/pull/1147))
+- *(rust)* refactor parsing and encoding code ([#1144](https://github.com/maplibre/maplibre-tile-spec/pull/1144))
+- *(rust)* get rid of borrowme, add EncDec enum ([#1141](https://github.com/maplibre/maplibre-tile-spec/pull/1141))
+- *(rust)* simplify ID model ([#1139](https://github.com/maplibre/maplibre-tile-spec/pull/1139))
+- *(rust)* replace FromEncoded with Decode and decode_into ([#1134](https://github.com/maplibre/maplibre-tile-spec/pull/1134))
+- *(rust)* move impls out of model, scalars ([#1132](https://github.com/maplibre/maplibre-tile-spec/pull/1132))
+- *(rust)* rm borrowme from Layer01 ([#1129](https://github.com/maplibre/maplibre-tile-spec/pull/1129))
+- *(rust)* remove unused defaults ([#1127](https://github.com/maplibre/maplibre-tile-spec/pull/1127))
+- *(rust)* use enum_dispatch where appropriate, Cow for name ([#1125](https://github.com/maplibre/maplibre-tile-spec/pull/1125))
+- *(rust)* streamline str decoding ([#1121](https://github.com/maplibre/maplibre-tile-spec/pull/1121))
+- *(rust)* string performance benchmark ([#1123](https://github.com/maplibre/maplibre-tile-spec/pull/1123))
+- refactor!(rust): make `FromEncoded` and `FromDecoded` `pub(crate)` ([#1119](https://github.com/maplibre/maplibre-tile-spec/pull/1119))
+- *(rust)* use strum::IntoStaticStr ([#1122](https://github.com/maplibre/maplibre-tile-spec/pull/1122))
+- *(rust)* simplify Morton code decoding with SIMD ([#1114](https://github.com/maplibre/maplibre-tile-spec/pull/1114))
+- *(rust)* cleanup after big move ([#1113](https://github.com/maplibre/maplibre-tile-spec/pull/1113))
+- *(rust)* clean up all module and mod files ([#1111](https://github.com/maplibre/maplibre-tile-spec/pull/1111))
+- *(rust)* rename mod layer to frames ([#1110](https://github.com/maplibre/maplibre-tile-spec/pull/1110))
+- *(rust)* rm PropValue, consistent Cows ([#1109](https://github.com/maplibre/maplibre-tile-spec/pull/1109))
+- *(rust)* move name into DecodedStrings ([#1108](https://github.com/maplibre/maplibre-tile-spec/pull/1108))
+- *(rust)* change tests to be based on the new trait based optimization api ([#1104](https://github.com/maplibre/maplibre-tile-spec/pull/1104))
+
+## [0.4.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.3.0...rust-mlt-core-v0.4.0) - 2026-03-10
+
+### Added
+
+- plumbing for profile optimization ([#1101](https://github.com/maplibre/maplibre-tile-spec/pull/1101))
+- *(rust)* trait based automatic optimiser ([#1093](https://github.com/maplibre/maplibre-tile-spec/pull/1093))
+
+### Fixed
+
+- *(rust)* migrate part of our lengths from usize to u32 ([#1078](https://github.com/maplibre/maplibre-tile-spec/pull/1078))
+
+### Other
+
+- *(rust)* rework our internal data model ([#1099](https://github.com/maplibre/maplibre-tile-spec/pull/1099))
+- *(rust)* rename structs to model ([#1100](https://github.com/maplibre/maplibre-tile-spec/pull/1100))
+- *(rust)* handle u32->usize, int overflows ([#1097](https://github.com/maplibre/maplibre-tile-spec/pull/1097))
+- *(rust)* move all structs to structs.rs ([#1094](https://github.com/maplibre/maplibre-tile-spec/pull/1094))
+- renamings in the encoder ([#1090](https://github.com/maplibre/maplibre-tile-spec/pull/1090))
+- *(rust)* refactoring step 3 ([#1088](https://github.com/maplibre/maplibre-tile-spec/pull/1088))
+- *(rust)* refactor name storage ([#1087](https://github.com/maplibre/maplibre-tile-spec/pull/1087))
+- *(rust)* more core renames, rm EncodedValues::typ ([#1084](https://github.com/maplibre/maplibre-tile-spec/pull/1084))
+- *(rust)* some more renames of internals ([#1082](https://github.com/maplibre/maplibre-tile-spec/pull/1082))
+- *(rust)* noop, only renames for future refactoring ([#1081](https://github.com/maplibre/maplibre-tile-spec/pull/1081))
+- make sure we write u32 varints instead of u64 varints ([#1080](https://github.com/maplibre/maplibre-tile-spec/pull/1080))
+- use simd for morton decoding ([#1069](https://github.com/maplibre/maplibre-tile-spec/pull/1069))
+
+## [0.3.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.2.0...rust-mlt-core-v0.3.0) - 2026-03-08
+
+### Added
+
+- *(rust)* property encoder optimizer ([#1042](https://github.com/maplibre/maplibre-tile-spec/pull/1042))
+- *(rust)* Id optimizer impl ([#1043](https://github.com/maplibre/maplibre-tile-spec/pull/1043))
+- *(rust)* Geometry optimizer ([#1045](https://github.com/maplibre/maplibre-tile-spec/pull/1045))
+
+### Other
+
+- *(rust)* rm Dict and FsstDict from SharedDict encoding ([#1068](https://github.com/maplibre/maplibre-tile-spec/pull/1068))
+- *(rust)* major rework of the shared dict ([#1066](https://github.com/maplibre/maplibre-tile-spec/pull/1066))
+- *(rust)* a bit more geotype cleanup ([#1059](https://github.com/maplibre/maplibre-tile-spec/pull/1059))
+- *(rust)* cleanup geotype code ([#1058](https://github.com/maplibre/maplibre-tile-spec/pull/1058))
+- *(rust)* move geotype code to its own mod ([#1053](https://github.com/maplibre/maplibre-tile-spec/pull/1053))
+- *(rust)* Fuzz the return path for roundtrip-ability ([#1044](https://github.com/maplibre/maplibre-tile-spec/pull/1044))
+- *(rust)* bump fastpfor, enable SIMD test, cleanup ([#1052](https://github.com/maplibre/maplibre-tile-spec/pull/1052))
+- move property tests to be based on the public API ([#1038](https://github.com/maplibre/maplibre-tile-spec/pull/1038))
+
 ## [0.2.0](https://github.com/maplibre/maplibre-tile-spec/compare/mlt-core-v0.1.2...rust-mlt-core-v0.2.0) - 2026-03-04
 
 ### Added
@@ -48,7 +146,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- *(rust)* Stream encoding optimiser ([#950](https://github.com/maplibre/maplibre-tile-spec/pull/950))
+- *(rust)* Stream encoding optimizer ([#950](https://github.com/maplibre/maplibre-tile-spec/pull/950))
 - *(rust)* Synthetic generation ([#947](https://github.com/maplibre/maplibre-tile-spec/pull/947))
 - *(rust)* FastPFOR encoding support ([#936](https://github.com/maplibre/maplibre-tile-spec/pull/936))
 - *(rust)* implement geometry encoding functionality ([#933](https://github.com/maplibre/maplibre-tile-spec/pull/933))

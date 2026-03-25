@@ -1,6 +1,6 @@
 {
   "name": "@maplibre/mlt",
-  "version": "1.1.6",
+  "version": "1.1.8",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -26,19 +26,20 @@
     "url": "https://github.com/maplibre/maplibre-tile-spec/issues"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@mapbox/vector-tile": "^2.0.4",
-    "@maplibre/maplibre-gl-style-spec": "^24.3.1",
+    "@maplibre/maplibre-gl-style-spec": "^24.7.0",
     "@types/bytebuffer": "^5.0.49",
     "@types/earcut": "^3.0.0",
-    "@types/node": "^24.10.2",
+    "@types/node": "^25.5.0",
     "@types/pbf": "^3.0.5",
-    "@vitest/coverage-v8": "^4.0.15",
+    "@vitest/coverage-v8": "^4.1.0",
     "bytebuffer": "^5.0.1",
     "earcut": "^3.0.2",
-    "eslint": "^9.39.1",
+    "eslint": "^10.0.3",
     "pbf": "^4.0.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.49.0",
+    "typescript-eslint": "^8.57.1",
     "vitest": "^4.0.1"
   },
   "dependencies": {

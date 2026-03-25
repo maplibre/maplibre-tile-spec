@@ -6,10 +6,20 @@ import java.util.List;
 import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.NotImplementedException;
-import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.LinearRing;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
 import org.maplibre.mlt.converter.geometry.GeometryType;
 import org.maplibre.mlt.converter.geometry.ZOrderCurve;
-import org.maplibre.mlt.metadata.stream.*;
+import org.maplibre.mlt.metadata.stream.DictionaryType;
+import org.maplibre.mlt.metadata.stream.MortonEncodedStreamMetadata;
+import org.maplibre.mlt.metadata.stream.OffsetType;
+import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.vector.geometry.GeometryVector;
 
 public class GeometryDecoder {

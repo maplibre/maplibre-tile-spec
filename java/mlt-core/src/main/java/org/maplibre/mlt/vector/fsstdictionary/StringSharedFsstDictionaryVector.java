@@ -5,7 +5,11 @@ import static org.maplibre.mlt.vector.fsstdictionary.StringFsstDictionaryVector.
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
 import org.maplibre.mlt.vector.VariableSizeVector;
 import org.maplibre.mlt.vector.dictionary.DictionaryDataVector;

@@ -1,118 +1,294 @@
+use geo_types::Point;
+use mlt_core::__private::{dec, into_layer01, parser};
+use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
-    DecodedId, Id, IdEncoder, IdOptimizer, IdWidth, LogicalEncoder, OwnedEncodedId,
+    GeometryEncoder, GeometryProfile, GeometryValues, IdEncoder, IdProfile, IdValues, IdWidth,
+    IntEncoder, LogicalEncoder, PropertyProfile, StagedLayer01, StagedLayer01Encoder, Tag01Profile,
 };
-use mlt_core::{FromDecoded as _, borrowme};
+use mlt_core::{EncodedLayer, Layer};
 use rstest::rstest;
 
-fn make_ids(values: &[Option<u64>]) -> DecodedId {
-    DecodedId(Some(values.to_vec()))
+/// Round-trip `IdValues` via full layer bytes (no encoded→decoded converter).
+fn id_roundtrip_via_layer(decoded: &IdValues, id_encoder: IdEncoder) -> IdValues {
+    if decoded.0.is_empty() {
+        return IdValues(vec![]);
+    }
+    let n = decoded.0.len();
+    let mut geometry = GeometryValues::default();
+    for _ in 0..n {
+        geometry.push_geom(&Geom32::Point(Point::new(0, 0)));
+    }
+    let staged = StagedLayer01 {
+        name: "id_roundtrip".to_string(),
+        extent: 4096,
+        id: Some(decoded.clone()),
+        geometry,
+        properties: vec![],
+    };
+    let stream_encoder = StagedLayer01Encoder {
+        id: Some(id_encoder),
+        geometry: GeometryEncoder::all(IntEncoder::varint()),
+        properties: vec![],
+    };
+    let layer_enc = staged.encode(stream_encoder).expect("encode failed");
+    let mut buf = Vec::new();
+    EncodedLayer::Tag01(layer_enc)
+        .write_to(&mut buf)
+        .expect("write_to failed");
+    let mut p = parser();
+    let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
+
+    into_layer01(layer)
+        .id
+        .expect("expected id column")
+        .into_parsed(&mut dec())
+        .expect("decode failed")
 }
 
-fn u32_range_ids() -> DecodedId {
-    DecodedId(Some((1u64..=100).map(Some).collect()))
+fn id_roundtrip_auto(decoded: &IdValues) -> IdValues {
+    if decoded.0.is_empty() {
+        return IdValues(vec![]);
+    }
+    let n = decoded.0.len();
+    let mut geometry = GeometryValues::default();
+    for _ in 0..n {
+        geometry.push_geom(&Geom32::Point(Point::new(0, 0)));
+    }
+    let staged = StagedLayer01 {
+        name: "id_roundtrip".to_string(),
+        extent: 4096,
+        id: Some(decoded.clone()),
+        geometry,
+        properties: vec![],
+    };
+    let (encoded, _) = staged.encode_auto().expect("encode_auto failed");
+    let mut buf = Vec::new();
+    EncodedLayer::Tag01(encoded)
+        .write_to(&mut buf)
+        .expect("write_to failed");
+    let mut p = parser();
+    let mut d = dec();
+    let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
+    assert!(p.reserved() > 0, "parser should reserve bytes after parse");
+    let layer01 = into_layer01(layer);
+
+    let result = layer01
+        .id
+        .expect("expected id column")
+        .into_parsed(&mut d)
+        .expect("decode failed");
+    assert!(
+        d.consumed() > 0,
+        "decoder should consume bytes after decode"
+    );
+    result
 }
 
-fn u64_range_ids() -> DecodedId {
-    let base = u64::from(u32::MAX) + 1;
-    DecodedId(Some((base..base + 50).map(Some).collect()))
-}
-
-fn u64_range_ids_with_nulls() -> DecodedId {
-    let base = u64::from(u32::MAX) + 1;
-    make_ids(&[
-        Some(base),
+fn id_roundtrip_with_profile(decoded: &IdValues, profile: &IdProfile) -> IdValues {
+    if decoded.0.is_empty() {
+        return IdValues(vec![]);
+    }
+    let n = decoded.0.len();
+    let mut geometry = GeometryValues::default();
+    for _ in 0..n {
+        geometry.push_geom(&Geom32::Point(Point::new(0, 0)));
+    }
+    let staged = StagedLayer01 {
+        name: "id_roundtrip".to_string(),
+        extent: 4096,
+        id: Some(decoded.clone()),
+        geometry: geometry.clone(),
+        properties: vec![],
+    };
+    let geom_profile = GeometryProfile::from_sample(&geometry).expect("geometry profile");
+    let tag01 = Tag01Profile::new(
         None,
-        Some(base + 1),
-        Some(base + 2),
-        None,
-        Some(base + 3),
-    ])
+        profile.clone(),
+        PropertyProfile::from_sample(&[]),
+        geom_profile,
+    );
+    let (encoded, _) = staged
+        .encode_with_profile(&tag01)
+        .expect("encode_with_profile failed");
+    let mut buf = Vec::new();
+    EncodedLayer::Tag01(encoded)
+        .write_to(&mut buf)
+        .expect("write_to failed");
+    let mut p = parser();
+    let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
+    assert!(p.reserved() > 0, "parser should reserve bytes after parse");
+    let layer01 = into_layer01(layer);
+
+    let mut d = dec();
+    let result = layer01
+        .id
+        .expect("expected id column")
+        .into_parsed(&mut d)
+        .expect("decode failed");
+    assert!(
+        d.consumed() > 0,
+        "decoder should consume bytes after decode"
+    );
+    result
 }
 
-fn sequential_ids_large() -> DecodedId {
-    DecodedId(Some((1u64..=1_000).map(Some).collect()))
+fn create_u32_range_ids() -> IdValues {
+    IdValues((1u64..=100).map(Some).collect())
 }
 
-fn sequential_ids_from_zero() -> DecodedId {
-    DecodedId(Some((0u64..500).map(Some).collect()))
-}
-
-fn constant_ids() -> DecodedId {
-    make_ids(&vec![Some(42u64); 500])
-}
-
-fn non_sequential_u64_ids() -> DecodedId {
+fn create_u64_range_ids() -> IdValues {
     let base = u64::from(u32::MAX) + 1;
-    make_ids(&[
-        Some(base + 100),
-        Some(base + 50),
-        Some(base + 200),
-        Some(base + 10),
-        Some(base + 150),
-    ])
+    IdValues((base..base + 50).map(Some).collect())
+}
+
+fn create_ids_with_nulls() -> IdValues {
+    IdValues(vec![Some(10), None, Some(20), None, Some(30)])
+}
+
+fn create_constant_ids() -> IdValues {
+    IdValues(vec![Some(42), Some(42), Some(42), Some(42), Some(42)])
 }
 
 #[rstest]
-#[case::none_input(DecodedId(None))]
-#[case::empty_vec(DecodedId(Some(vec![])))]
-#[case::all_nulls(make_ids(&[None, None, None]))]
-fn returns_default_encoder(#[case] decoded: DecodedId) {
-    let enc = IdOptimizer::optimize(&decoded);
-    assert_eq!(enc, IdEncoder::new(LogicalEncoder::None, IdWidth::Id32));
-}
-
-#[rstest]
-#[case::no_nulls_u32_range(
-    u32_range_ids(),
+#[case::empty(
+    IdValues(vec![]),
+    IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
+)]
+#[case::all_nulls(
+    IdValues(vec![None, None]),
+    IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
+)]
+#[case::short_sequence(
+    IdValues(vec![Some(1), Some(2)]),
+    IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
+)]
+#[case::sequential_u32(
+    create_u32_range_ids(),
     IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::Id32)
 )]
-#[case::with_nulls_u32_range(
-    make_ids(&[Some(1), None, Some(2), Some(3), None, Some(4)]),
-    IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::OptId32)
-)]
-#[case::no_nulls_u64_range(
-    u64_range_ids(),
+#[case::sequential_u64(
+    create_u64_range_ids(),
     IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::Id64)
 )]
-#[case::with_nulls_u64_range(
-    u64_range_ids_with_nulls(),
-    IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::OptId64)
+#[case::constant(
+    create_constant_ids(),
+    IdEncoder::new(LogicalEncoder::Rle, IdWidth::Id32)
 )]
-#[case::max_u32_value(
-    make_ids(&[Some(u64::from(u32::MAX))]),
-    IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
+#[case::with_nulls(
+    create_ids_with_nulls(),
+    IdEncoder::new(LogicalEncoder::Delta, IdWidth::OptId32)
 )]
-#[case::sequential_large(
-    sequential_ids_large(),
-    IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::Id32)
-)]
-#[case::sequential_from_zero(
-    sequential_ids_from_zero(),
-    IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::Id32)
-)]
-#[case::constant(constant_ids(), IdEncoder::new(LogicalEncoder::Rle, IdWidth::Id32))]
-#[case::constant_with_nulls(
-    make_ids(&[Some(7), None, Some(7), Some(7), None]),
-    IdEncoder::new(LogicalEncoder::Rle, IdWidth::OptId32)
-)]
-#[case::single_non_null(
-    make_ids(&[Some(99)]),
-    IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
-)]
-#[case::non_sequential_u32(
-    make_ids(&[Some(100), Some(50), Some(200), Some(10), Some(150), Some(75)]),
-    IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
-)]
-#[case::non_sequential_u64(
-    non_sequential_u64_ids(),
-    IdEncoder::new(LogicalEncoder::Delta, IdWidth::Id64)
-)]
-fn produces_expected_encoder(#[case] decoded: DecodedId, #[case] expected: IdEncoder) {
-    let encoder = IdOptimizer::optimize(&decoded);
-    assert_eq!(encoder, expected);
-    let owned = OwnedEncodedId::from_decoded(&decoded, encoder).expect("encoding failed");
-    let decoded_back = Id::Encoded(borrowme::borrow(&owned))
-        .decode()
-        .expect("decoding failed");
+fn test_automatic_optimization_selection(#[case] input: IdValues, #[case] expected: IdEncoder) {
+    let is_empty = input.0.is_empty();
+    let (_encoded, enc) = input.encode_auto().unwrap();
+    assert_eq!(enc, if is_empty { None } else { Some(expected) });
+}
+
+#[test]
+fn test_automatic_optimization_roundtrip_empty() {
+    let decoded = IdValues(vec![]);
+    let (encoded, _enc) = decoded.clone().encode_auto().unwrap();
+    assert!(encoded.is_none(), "empty ID list should produce None");
+}
+
+#[rstest]
+#[case::sequential_u32(create_u32_range_ids())]
+#[case::sequential_u64(create_u64_range_ids())]
+#[case::constant(create_constant_ids())]
+#[case::with_nulls(create_ids_with_nulls())]
+fn test_automatic_optimization_roundtrip(#[case] decoded: IdValues) {
+    let decoded_back = id_roundtrip_auto(&decoded);
     assert_eq!(decoded_back, decoded);
+}
+
+#[test]
+fn test_manual_optimization_applies_encoder() {
+    let decoded = create_u32_range_ids();
+    let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id64);
+    let decoded_back = id_roundtrip_via_layer(&decoded, manual_enc);
+    assert_eq!(decoded_back, decoded);
+}
+
+#[test]
+fn test_manual_optimization_truncation() {
+    let large_value = u64::from(u32::MAX) + 42;
+    let ids = IdValues(vec![Some(large_value)]);
+    let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);
+    let decoded_back = id_roundtrip_via_layer(&ids, manual_enc);
+    // Manual encoding with a too-narrow `IdWidth` silently truncates values.
+    // `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
+    assert_eq!(decoded_back.0[0], Some(41));
+}
+
+#[test]
+fn test_profile_applies_candidates_and_rederives_width() {
+    let u32_sample = create_u32_range_ids();
+    let profile = IdProfile::from_sample(&u32_sample);
+
+    let u64_decoded = create_u64_range_ids();
+    let decoded_back = id_roundtrip_with_profile(&u64_decoded, &profile);
+    assert_eq!(decoded_back, u64_decoded);
+}
+
+#[rstest]
+#[case::sequential_u32(create_u32_range_ids())]
+#[case::sequential_u64(create_u64_range_ids())]
+#[case::constant(create_constant_ids())]
+#[case::with_nulls(create_ids_with_nulls())]
+fn test_profile_roundtrip(#[case] decoded: IdValues) {
+    let profile = IdProfile::from_sample(&decoded);
+    let decoded_back = id_roundtrip_with_profile(&decoded, &profile);
+    assert_eq!(decoded_back, decoded);
+}
+
+#[test]
+fn test_profile_from_sample_is_nonempty() {
+    let profile = IdProfile::from_sample(&create_u32_range_ids());
+    insta::assert_debug_snapshot!(profile, @"
+    IdProfile {
+        candidates: [
+            IntEncoder {
+                logical: Delta,
+                physical: VarInt,
+            },
+            IntEncoder {
+                logical: None,
+                physical: VarInt,
+            },
+        ],
+    }
+    ");
+}
+
+#[test]
+fn test_profile_merge_is_union() {
+    let p1 = IdProfile::new(vec![IntEncoder::varint()]);
+    let p2 = IdProfile::new(vec![IntEncoder::varint(), IntEncoder::fastpfor()]);
+    let merged = p1.merge(&p2);
+    insta::assert_debug_snapshot!(merged, @"
+    IdProfile {
+        candidates: [
+            IntEncoder {
+                logical: None,
+                physical: VarInt,
+            },
+            IntEncoder {
+                logical: None,
+                physical: FastPFOR,
+            },
+        ],
+    }
+    ");
+}
+
+#[test]
+fn test_profile_merge_empty() {
+    let p1 = IdProfile::new(vec![]);
+    let p2 = IdProfile::new(vec![]);
+    let merged = p1.merge(&p2);
+    insta::assert_debug_snapshot!(merged, @"
+    IdProfile {
+        candidates: [],
+    }
+    ");
 }

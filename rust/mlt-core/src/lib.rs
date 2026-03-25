@@ -1,31 +1,29 @@
-#![expect(dead_code)]
 #![doc = include_str!("../README.md")]
+extern crate core;
 
-mod analyse;
-mod convert;
-mod decode;
-mod encode;
-mod errors;
+pub(crate) mod analyze;
+pub(crate) mod codecs;
+pub(crate) mod convert;
+pub(crate) mod decoder;
+pub(crate) mod errors;
+pub(crate) mod frames;
+pub(crate) mod lazy_state;
+pub(crate) mod utils;
+
+pub use analyze::{Analyze, StatType};
 pub use convert::{geojson, mvt};
-pub mod layer;
-pub use layer::{unknown, v01};
-mod utils;
+pub use decoder::{Decoder, Parser};
+pub use errors::{MltError, MltRefResult, MltResult};
+pub use frames::{EncodedLayer, Layer, ParsedLayer, StagedLayer, unknown, v01};
+pub use lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
 
-pub use analyse::{Analyze, StatType};
-// reexport borrowme to make it easier to use in other crates
-pub use borrowme;
-pub use decode::*;
-pub use encode::*;
-pub use errors::{MltError, MltRefResult};
-pub use layer::{Layer, OwnedLayer};
+#[cfg(any(test, feature = "__private"))]
+mod test_helpers;
 
-/// Parse a sequence of binary layers
-pub fn parse_layers(mut input: &[u8]) -> Result<Vec<Layer<'_>>, MltError> {
-    let mut result = Vec::new();
-    while !input.is_empty() {
-        let layer;
-        (input, layer) = Layer::parse(input)?;
-        result.push(layer);
-    }
-    Ok(result)
+/// Private re-exports for benchmarks and integration tests. Not part of the public API.
+#[cfg(any(test, feature = "__private"))]
+#[doc(hidden)]
+pub mod __private {
+    pub use crate::codecs::{bytes, fastpfor, hilbert, morton, rle, zigzag};
+    pub use crate::test_helpers::*;
 }

@@ -28,7 +28,7 @@ jobs:
       - name: Get version from tag
         id: get_version
         run: |
-          version="$(just extract-version java ${{ github.ref_name }})"
+          version="$(just ci-extract-version java ${{ github.ref_name }})"
           echo version="$version" >> "$GITHUB_ENV"
 
       - name: Make gradlew executable
@@ -54,7 +54,7 @@ jobs:
           cp java/mlt-cli/build/libs/decode.jar mlt-decode.jar
 
       - name: Add CLI artifacts to GitHub release
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           tag_name: java-v${{ env.version }}
           fail_on_unmatched_files: true

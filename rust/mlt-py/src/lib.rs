@@ -6,10 +6,8 @@ use std::ops::Deref;
 
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, Geometry as MltGeometry, Id, PropValue, Property,
-};
-use mlt_core::{MltError, parse_layers};
+use mlt_core::v01::{GeometryValues, ParsedProperty};
+use mlt_core::{Decoder, MltError, MltResult, Parser};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
@@ -101,10 +99,10 @@ fn push_polygon(buf: &mut Vec<u8>, poly: &Polygon<i32>, xf: Option<TileTransform
 }
 
 fn geom_to_wkb(
-    geom: &DecodedGeometry,
+    geom: &GeometryValues,
     index: usize,
     xf: Option<TileTransform>,
-) -> Result<Vec<u8>, MltError> {
+) -> MltResult<Vec<u8>> {
     let gj = geom.to_geojson(index)?;
     let mut buf = Vec::with_capacity(128);
 
@@ -148,57 +146,69 @@ fn geom_to_wkb(
     Ok(buf)
 }
 
-fn prop_value_to_py(py: Python<'_>, pv: &PropValue, i: usize) -> Py<PyAny> {
-    match pv {
-        PropValue::Bool(v) => match v[i] {
+fn prop_value_to_py(py: Python<'_>, prop: &ParsedProperty, i: usize) -> Py<PyAny> {
+    match prop {
+        ParsedProperty::Bool(v) => match v.values[i] {
             Some(b) => b.into_pyobject(py).unwrap().to_owned().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::I8(v) => match v[i] {
+        ParsedProperty::I8(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::U8(v) => match v[i] {
+        ParsedProperty::U8(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::I32(v) => match v[i] {
+        ParsedProperty::I32(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::U32(v) => match v[i] {
+        ParsedProperty::U32(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::I64(v) => match v[i] {
+        ParsedProperty::I64(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::U64(v) => match v[i] {
+        ParsedProperty::U64(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::F32(v) => match v[i] {
+        ParsedProperty::F32(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::F64(v) => match v[i] {
+        ParsedProperty::F64(v) => match v.values[i] {
             Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::Str(v) => match &v[i] {
+        ParsedProperty::Str(v) => match u32::try_from(i).ok().and_then(|i| v.get(i)) {
             Some(s) => s.into_pyobject(py).unwrap().into_any().unbind(),
             None => py.None(),
         },
-        PropValue::SharedDict => py.None(),
+        ParsedProperty::SharedDict(shared_dict) => {
+            let dict = PyDict::new(py);
+            for item in &shared_dict.items {
+                if let Some(s) = item.get(shared_dict, i) {
+                    dict.set_item(item.suffix, s).unwrap();
+                }
+            }
+            if dict.is_empty() {
+                py.None()
+            } else {
+                dict.into_any().unbind()
+            }
+        }
     }
 }
 
 fn build_features(
     py: Python<'_>,
-    geom: &DecodedGeometry,
+    geom: &GeometryValues,
     ids: Option<&[Option<u64>]>,
-    props: &[&DecodedProperty],
+    props: &[&ParsedProperty],
     xf: Option<TileTransform>,
 ) -> PyResult<Vec<Py<MltFeature>>> {
     let count = geom.vector_types.len();
@@ -213,7 +223,7 @@ fn build_features(
 
         let prop_dict = PyDict::new(py);
         for p in props {
-            prop_dict.set_item(&p.name, prop_value_to_py(py, &p.values, i))?;
+            prop_dict.set_item(p.name(), prop_value_to_py(py, p, i))?;
         }
 
         let feat = Py::new(
@@ -246,45 +256,28 @@ fn decode_mlt(
     y: Option<u32>,
     tms: bool,
 ) -> PyResult<Vec<MltLayer>> {
-    let mut layers = parse_layers(data).map_err(mlt_err)?;
+    let layers = Parser::default().parse_layers(data).map_err(mlt_err)?;
+    let layers = Decoder::default().decode_all(layers).map_err(mlt_err)?;
     let mut result = Vec::with_capacity(layers.len());
-    for layer in &mut layers {
-        layer.decode_all().map_err(mlt_err)?;
-
-        let layer = layer
+    for decoded in layers {
+        let layer01 = decoded
             .as_layer01()
             .ok_or_else(|| PyValueError::new_err("unsupported layer tag (expected 0x01)"))?;
 
         let xf = match (z, x, y) {
             (Some(z), Some(x), Some(y)) => {
-                Some(TileTransform::from_zxy(z, x, y, layer.extent, tms)?)
+                Some(TileTransform::from_zxy(z, x, y, layer01.extent, tms)?)
             }
             _ => None,
         };
 
-        let geom = match &layer.geometry {
-            MltGeometry::Decoded(g) => g,
-            _ => return Err(PyValueError::new_err("geometry not decoded")),
-        };
-
-        let ids = match &layer.id {
-            Id::Decoded(DecodedId(v)) => v.as_deref(),
-            Id::None => None,
-            _ => return Err(PyValueError::new_err("id not decoded")),
-        };
-
-        let props: Vec<&DecodedProperty> = layer
-            .properties
-            .iter()
-            .map(|p| match p {
-                Property::Decoded(d) => Ok(d),
-                _ => Err(PyValueError::new_err("property not decoded")),
-            })
-            .collect::<PyResult<_>>()?;
+        let geom = &layer01.geometry;
+        let ids = layer01.id.as_ref().map(|id| id.values());
+        let props: Vec<&ParsedProperty> = layer01.properties.iter().collect();
 
         result.push(MltLayer {
-            name: layer.name.to_string(),
-            extent: layer.extent,
+            name: layer01.name.to_string(),
+            extent: layer01.extent,
             features: build_features(py, geom, ids, &props, xf)?,
         });
     }
@@ -298,11 +291,11 @@ fn decode_mlt(
 fn decode_mlt_to_geojson(
     #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
 ) -> PyResult<String> {
-    let mut layers = parse_layers(data).map_err(mlt_err)?;
-    for layer in &mut layers {
-        layer.decode_all().map_err(mlt_err)?;
-    }
-    let fc = FeatureCollection::from_layers(&layers).map_err(mlt_err)?;
+    let mut dec = Decoder::default();
+    let layers = dec
+        .decode_all(Parser::default().parse_layers(data).map_err(mlt_err)?)
+        .map_err(mlt_err)?;
+    let fc = FeatureCollection::from_layers(layers).map_err(mlt_err)?;
     serde_json::to_string(&fc).map_err(|e| PyValueError::new_err(format!("JSON error: {e}")))
 }
 
@@ -312,7 +305,7 @@ fn decode_mlt_to_geojson(
 fn list_layers(
     #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
 ) -> PyResult<Vec<String>> {
-    let layers = parse_layers(data).map_err(mlt_err)?;
+    let layers = Parser::default().parse_layers(data).map_err(mlt_err)?;
     Ok(layers
         .iter()
         .filter_map(|l| l.as_layer01().map(|l| l.name.to_string()))
@@ -335,6 +328,8 @@ define_stub_info_gatherer!(stub_info);
 mod tests {
     use std::f64::consts::PI;
     use std::fs;
+
+    use mlt_core::Decoder;
 
     use super::*;
 
@@ -425,16 +420,17 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = parse_layers(&data).expect("parse_layers should succeed");
-        for layer in &mut layers {
-            layer.decode_all().expect("decode_all should succeed");
-        }
+        let layers = Parser::default()
+            .parse_layers(&data)
+            .expect("parse_layers should succeed");
+        let mut dec = Decoder::default();
+        let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        assert!(!layers.is_empty(), "should parse at least one layer");
-        let l = layers[0].as_layer01().expect("first layer should be v0.1");
+        assert!(!decoded.is_empty(), "should parse at least one layer");
+        let l = decoded[0].as_layer01().expect("first layer should be v0.1");
         assert!(!l.name.is_empty(), "layer name should be non-empty");
 
-        let fc = FeatureCollection::from_layers(&layers).expect("FeatureCollection should succeed");
+        let fc = FeatureCollection::from_layers(decoded).expect("FeatureCollection should succeed");
         assert!(
             !fc.features.is_empty(),
             "feature collection should have features"
@@ -443,20 +439,18 @@ mod tests {
 
     #[test]
     fn fixture_geom_to_wkb_produces_valid_output() {
-        let fixture_path = "../../test/synthetic/0x01/polygon.mlt";
+        let fixture_path = "../../test/synthetic/0x01/poly.mlt";
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = parse_layers(&data).expect("parse_layers should succeed");
-        for layer in &mut layers {
-            layer.decode_all().expect("decode_all should succeed");
-        }
+        let layers = Parser::default()
+            .parse_layers(&data)
+            .expect("parse_layers should succeed");
+        let mut dec = Decoder::default();
+        let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let geom = match &l.geometry {
-            MltGeometry::Decoded(g) => g,
-            _ => panic!("geometry not decoded"),
-        };
+        let l = decoded[0].as_layer01().expect("first layer should be v0.1");
+        let geom = &l.geometry;
 
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");
         assert!(
@@ -477,16 +471,14 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = parse_layers(&data).expect("parse_layers should succeed");
-        for layer in &mut layers {
-            layer.decode_all().expect("decode_all should succeed");
-        }
+        let layers = Parser::default()
+            .parse_layers(&data)
+            .expect("parse_layers should succeed");
+        let mut dec = Decoder::default();
+        let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let geom = match &l.geometry {
-            MltGeometry::Decoded(g) => g,
-            _ => panic!("geometry not decoded"),
-        };
+        let l = decoded[0].as_layer01().expect("first layer should be v0.1");
+        let geom = &l.geometry;
 
         let xf = TileTransform::from_zxy(0, 0, 0, l.extent, false).unwrap();
 
@@ -510,16 +502,14 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = parse_layers(&data).expect("parse_layers should succeed");
-        for layer in &mut layers {
-            layer.decode_all().expect("decode_all should succeed");
-        }
+        let layers = Parser::default()
+            .parse_layers(&data)
+            .expect("parse_layers should succeed");
+        let mut dec = Decoder::default();
+        let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let geom = match &l.geometry {
-            MltGeometry::Decoded(g) => g,
-            _ => panic!("geometry not decoded"),
-        };
+        let l = decoded[0].as_layer01().expect("first layer should be v0.1");
+        let geom = &l.geometry;
 
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");
         assert!(wkb.len() >= 5);

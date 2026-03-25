@@ -1,10 +1,12 @@
 use std::convert::Infallible;
+use std::num::TryFromIntError;
 
-use fastpfor::cpp::Exception;
 use num_enum::TryFromPrimitiveError;
 
+use crate::utils::AsUsize;
 use crate::v01::{GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType};
 
+pub type MltResult<T> = Result<T, MltError>;
 pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
 #[derive(Debug, thiserror::Error)]
@@ -32,8 +34,6 @@ pub enum MltError {
     NotDecoded(&'static str),
     #[error("decoded data is not in encoded form")]
     NotEncoded,
-    #[error("error 7-bit integer (must be < 128): value={0}")]
-    Parsing7BitInt(u8),
     #[error("error parsing column type: code={0}")]
     ParsingColumnType(u8),
     #[error("error parsing logical technique: code={0}")]
@@ -45,7 +45,7 @@ pub enum MltError {
     #[error("found {0} bytes after the expected end of layer")]
     TrailingLayerData(usize),
     #[error("unexpected end of input (unable to take {0} bytes)")]
-    UnableToTake(usize),
+    UnableToTake(u32),
     #[error("unexpected stream type {0:?}")]
     UnexpectedStreamType(StreamType),
     #[error("unexpected stream type {0:?}, expected {1} for {2}")]
@@ -56,12 +56,16 @@ pub enum MltError {
     InvalidLogicalEncodings(LogicalTechnique, LogicalTechnique),
     #[error("layer has zero size")]
     ZeroLayerSize,
+    #[error("The profile used to optimise data is incompatible")]
+    BadProfileDataCombination,
+    #[error("The encoder used to optimise data is incompatible")]
+    BadEncoderDataCombination,
 
     // Wire/codec decoding (bytes → primitives)
     #[error("buffer underflow: needed {0} bytes, but only {1} remain")]
-    BufferUnderflow(usize, usize),
+    BufferUnderflow(u32, usize),
     #[error("FastPFor decode failed: expected={0} got={1}")]
-    FastPforDecode(usize, usize),
+    FastPforDecode(u32, usize),
     #[error("invalid RLE run length (cannot convert to usize): value={0}")]
     RleRunLenInvalid(i128),
 
@@ -80,18 +84,26 @@ pub enum MltError {
     IdsMissingForEncoding,
     #[error("missing struct encoder for struct")]
     MissingStructEncoderForStruct,
+    #[error("previous decode/parsing attempt failed")]
+    PriorParseFailure,
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
     #[error("MVT parse error: {0}")]
     MvtParse(String),
     #[error("need to encode before being able to write")]
     NeedsEncodingBeforeWriting,
+    #[error("memory limit exceeded: limit={limit}, used={used}, requested={requested}")]
+    MemoryLimitExceeded {
+        limit: u32,
+        used: u32,
+        requested: u32,
+    },
     #[error("not implemented: {0}")]
     NotImplemented(&'static str),
     #[error("unsupported property value and encoder combination: {0:?} + {1:?}")]
     UnsupportedPropertyEncoderCombination(&'static str, &'static str),
-    #[error("struct shared dictionary requires at least 2 streams, got {0}")]
-    StructSharedDictRequiresStreams(usize),
+    #[error("shared dictionary requires at least 2 streams, got {0}")]
+    SharedDictRequiresStreams(usize),
     #[error("unsupported string stream count (expected between 2 and 5): {0}")]
     UnsupportedStringStreamCount(usize),
     #[error("Structs are not allowed to be optional")]
@@ -101,7 +113,7 @@ pub enum MltError {
     )]
     EncodingInstructionCountMismatch { input_len: usize, config_len: usize },
     #[error("struct child data streams expected exactly 1 value, got {0}")]
-    UnexpectedStructChildCount(usize),
+    UnexpectedStructChildCount(u32),
     #[error("unsupported physical encoding: {0}")]
     UnsupportedPhysicalEncoding(&'static str),
     #[error("unsupported physical encoding: {0:?} for {1}")]
@@ -109,7 +121,7 @@ pub enum MltError {
     #[error(
         "Extent {extent} cannot be encoded to morton due to morton allowing max. 16 bits, but {required_bits} would be required"
     )]
-    VertexMortonNotCompatibleWithExtent { extent: u64, required_bits: u32 },
+    VertexMortonNotCompatibleWithExtent { extent: u32, required_bits: u32 },
 
     // Geometry decode errors (field = variable name, geom_type for context)
     #[error("MVT error: {0}")]
@@ -138,19 +150,20 @@ pub enum MltError {
     #[error("geometry[{0}]: unexpected offset combination for {1}")]
     UnexpectedOffsetCombination(usize, GeometryType),
 
-    // Wrapper errors, using `#[from]` to auto-convert from underlying error types
-    #[error("FastPFor FFI error: {0}")]
-    FastPforFfi(#[from] Exception),
+    #[error("FastPFor error: {0}")]
+    FastPfor(#[from] fastpfor::FastPForError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("Serde JSON error: {0}")]
     SerdeJsonError(#[from] serde_json::Error),
     #[error("integer conversion error: {0}")]
-    TryFromIntError(#[from] std::num::TryFromIntError),
+    TryFromIntError(#[from] TryFromIntError),
     #[error("num_enum conversion error: {0}")]
     TryFromPrimitive(#[from] TryFromPrimitiveError<GeometryType>),
     #[error("UTF-8 decode error: {0}")]
     Utf8(#[from] std::str::Utf8Error),
+    #[error("UTF-8 decode error: {0}")]
+    FromUtf8(#[from] std::string::FromUtf8Error),
 }
 
 impl From<Infallible> for MltError {
@@ -163,7 +176,37 @@ impl From<MltError> for std::io::Error {
     fn from(value: MltError) -> Self {
         match value {
             MltError::Io(e) => e,
-            other => std::io::Error::other(other),
+            other => Self::other(other),
         }
+    }
+}
+
+pub trait AsMltError<T> {
+    fn or_overflow(&self) -> MltResult<T>;
+}
+
+impl<T: Copy> AsMltError<T> for Option<T> {
+    #[inline]
+    fn or_overflow(&self) -> MltResult<T> {
+        self.ok_or(MltError::IntegerOverflow)
+    }
+}
+
+impl AsMltError<u32> for Result<u32, TryFromIntError> {
+    #[inline]
+    fn or_overflow(&self) -> MltResult<u32> {
+        self.map_err(|_| MltError::IntegerOverflow)
+    }
+}
+
+#[inline]
+pub fn fail_if_invalid_stream_size<T: AsUsize>(actual: T, expected: T) -> MltResult<()> {
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(MltError::InvalidDecodingStreamSize(
+            actual.as_usize(),
+            expected.as_usize(),
+        ))
     }
 }

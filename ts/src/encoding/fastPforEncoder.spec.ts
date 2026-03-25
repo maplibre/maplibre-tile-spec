@@ -14,7 +14,7 @@ const LARGE_INCOMPRESSIBLE_BLOCK_COUNT = 2050;
 
 describe("FastPFOR encoder", () => {
     it("grows byteContainer when workspace capacity is too small", () => {
-        const values = new Int32Array(BLOCK_SIZE);
+        const values = new Uint32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = i * GROWTH_MULTIPLIER;
 
         const workspace = createFastPforEncoderWorkspace();
@@ -28,13 +28,13 @@ describe("FastPFOR encoder", () => {
     });
 
     it("grows exception buffer when preallocated exception stream is too small", () => {
-        const values = new Int32Array(BLOCK_SIZE);
+        const values = new Uint32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = i & BASE_ALTERNATING_MASK;
         values[EXCEPTION_POS_A] = EXCEPTION_OUTLIER_VALUE;
         values[EXCEPTION_POS_B] = EXCEPTION_OUTLIER_VALUE;
 
         const workspace = createFastPforEncoderWorkspace();
-        workspace.dataToBePacked[2] = new Int32Array(UNDERSIZED_PREALLOCATED_STREAM);
+        workspace.dataToBePacked[2] = new Uint32Array(UNDERSIZED_PREALLOCATED_STREAM);
 
         const encoded = encodeFastPforInt32WithWorkspace(values, workspace);
         const decoded = decodeFastPforInt32(encoded, values.length);
@@ -46,13 +46,13 @@ describe("FastPFOR encoder", () => {
     });
 
     it("rounds grown exception buffers to a multiple of 32", () => {
-        const values = new Int32Array(BLOCK_SIZE);
+        const values = new Uint32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = i & BASE_ALTERNATING_MASK;
         values[EXCEPTION_POS_A] = EXCEPTION_OUTLIER_VALUE;
         values[EXCEPTION_POS_B] = EXCEPTION_OUTLIER_VALUE;
 
         const workspace = createFastPforEncoderWorkspace();
-        workspace.dataToBePacked[2] = new Int32Array(UNDERSIZED_PREALLOCATED_STREAM);
+        workspace.dataToBePacked[2] = new Uint32Array(UNDERSIZED_PREALLOCATED_STREAM);
 
         encodeFastPforInt32WithWorkspace(values, workspace);
 
@@ -64,7 +64,7 @@ describe("FastPFOR encoder", () => {
     });
 
     it("round-trips a large incompressible payload", () => {
-        const values = new Int32Array(BLOCK_SIZE * LARGE_INCOMPRESSIBLE_BLOCK_COUNT);
+        const values = new Uint32Array(BLOCK_SIZE * LARGE_INCOMPRESSIBLE_BLOCK_COUNT);
         for (let i = 0; i < values.length; i++) values[i] = -(i + 1);
 
         const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());

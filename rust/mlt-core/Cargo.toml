@@ -1,7 +1,7 @@
 [package]
 name = "mlt-core"
 description = "MapLibre Tile library code"
-version = "0.2.0"
+version = "0.6.0"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -12,23 +12,39 @@ repository.workspace = true
 rust-version.workspace = true
 
 [[bench]]
-name = "decoding"
+name = "decoding_e2e"
 harness = false
+required-features = ["__private"]
 
 [[bench]]
-name = "encoding"
+name = "encoding_e2e"
 harness = false
+required-features = ["__private"]
+
+[[bench]]
+name = "decoding_utils"
+harness = false
+required-features = ["__private"]
+
+[[bench]]
+name = "decoding_strings"
+harness = false
+required-features = ["__private"]
 
 [features]
+default = []
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
+# Used internally for testing and benchmarking, not intended for public use
+__private = []
 
 [dependencies]
 arbitrary = { workspace = true, optional = true }
-borrowme.workspace = true
+enum_dispatch.workspace = true
 fastpfor.workspace = true
 fsst-rs.workspace = true
 geo-types.workspace = true
 hex.workspace = true
+hilbert_2d.workspace = true
 integer-encoding.workspace = true
 mvt-reader.workspace = true
 num-traits.workspace = true
@@ -38,6 +54,8 @@ serde.workspace = true
 serde_json.workspace = true
 strum.workspace = true
 thiserror.workspace = true
+union-find.workspace = true
+wide.workspace = true
 zigzag.workspace = true
 
 [dev-dependencies]
@@ -52,3 +70,27 @@ test_each_file.workspace = true
 
 [lints]
 workspace = true
+
+[[test]]
+name = "geojson"
+required-features = ["__private"]
+
+[[test]]
+name = "geometry_optimizer"
+required-features = ["__private"]
+
+[[test]]
+name = "id_optimizer"
+required-features = ["__private"]
+
+[[test]]
+name = "property_roundtrip"
+required-features = ["__private"]
+
+[[test]]
+name = "snapshots"
+required-features = ["__private"]
+
+[[test]]
+name = "sort"
+required-features = ["__private"]

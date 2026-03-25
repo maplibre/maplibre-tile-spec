@@ -26,7 +26,11 @@ package org.maplibre.mlt.converter.encodings.fsst;
 
 import com.carrotsearch.hppc.ByteArrayList;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.stream.IntStream;
 import org.jetbrains.annotations.NotNull;
 

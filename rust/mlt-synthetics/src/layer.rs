@@ -1,6 +1,5 @@
 #![expect(dead_code)]
 
-use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -9,14 +8,13 @@ use std::{fs, io};
 use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::v01::PropValue::{Bool, F32, F64, I32, I64, Str, U32, U64};
 use mlt_core::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, GeometryEncoder, IdEncoder, IntEncoder,
-    MultiPropertyEncoder, OwnedEncodedProperty, OwnedGeometry, OwnedId, OwnedLayer01,
-    OwnedProperty, PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, StrEncoder,
-    VertexBufferType,
+    EncodeProperties as _, EncodedLayer01, GeometryEncoder, GeometryValues, IdEncoder, IdValues,
+    IntEncoder, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
+    SharedDictItemEncoder, StagedProperty, StagedStrings, StrEncoder, VertexBufferType,
+    build_staged_shared_dict,
 };
-use mlt_core::{Encodable as _, FromDecoded as _, OwnedLayer, parse_layers};
+use mlt_core::{Decoder, EncodedLayer, Parser};
 
 /// Tessellate a polygon using the geo crate's earcut algorithm.
 ///
@@ -101,24 +99,24 @@ pub struct Layer {
     pub geometry_items: Vec<Geom32>,
     /// Polygons that are also tessellated; triangle data is merged when building decoded geometry.
     pub tessellated_polygons: Vec<Option<Polygon<i32>>>,
-    pub props: Vec<Box<dyn LayerProp>>,
+    pub properties: Vec<StagedProperty>,
+    pub prop_encoders: Vec<PropertyEncoder>,
     pub extent: Option<u32>,
     pub ids: Option<(Vec<Option<u64>>, IdEncoder)>,
-    pub shared_dicts: HashMap<String, StrEncoder>,
 }
 
 impl Layer {
     #[must_use]
-    pub fn new(path: PathBuf, default_geom_enc: IntEncoder) -> Layer {
-        Layer {
+    pub fn new(path: PathBuf, default_geom_enc: IntEncoder) -> Self {
+        Self {
             path,
             geometry_encoder: GeometryEncoder::all(default_geom_enc),
             geometry_items: vec![],
             tessellated_polygons: vec![],
-            props: vec![],
+            properties: vec![],
+            prop_encoders: vec![],
             extent: None,
             ids: None,
-            shared_dicts: HashMap::new(),
         }
     }
 
@@ -232,63 +230,26 @@ impl Layer {
         self
     }
 
-    /// Add a property (boxed dynamic value).
+    /// Add a scalar property.
     #[must_use]
-    pub fn add_prop(
-        mut self,
-        encoder: ScalarEncoder,
-        name: impl Into<String>,
-        prop: PropValue,
-    ) -> Self {
-        let prop = DecodedProperty {
-            name: name.into(),
-            values: prop,
-        };
-
-        self.props.push(Box::new(DecodedProp::new(prop, encoder)));
+    pub fn add_prop(mut self, encoder: ScalarEncoder, prop: StagedProperty) -> Self {
+        self.properties.push(prop);
+        self.prop_encoders.push(PropertyEncoder::Scalar(encoder));
         self
     }
 
-    /// Register a shared dictionary.
+    /// Add a shared dictionary with its child columns.
     ///
-    /// All children with the same `struct_name` are grouped into one struct column. Children are
-    /// ordered within the struct by the order they are added. The struct column is sorted among
-    /// other columns by `struct_name`.
-    ///
-    /// See [`Self::add_shared_dict_column`] to add children.
+    /// Use [`SharedDict::new`] to create the builder, then add columns with
+    /// [`SharedDict::column`], and pass it to this method.
     #[must_use]
-    pub fn add_shared_dict(mut self, struct_name: impl Into<String>, encoder: StrEncoder) -> Self {
-        self.shared_dicts.insert(struct_name.into(), encoder);
-        self
-    }
-
-    /// Add a child field of a shared-dictionary struct column.
-    ///
-    /// All children with the same `struct_name` are grouped into one struct column. Children are
-    /// ordered within the struct by the order they are added. The struct column is sorted among
-    /// other columns by `struct_name`.
-    ///
-    /// Needs [`Self::add_shared_dict`] called before adding columns.
-    #[must_use]
-    pub fn add_shared_dict_column(
-        mut self,
-        struct_name: &str,
-        child_name: &str,
-        optional: PresenceStream,
-        offset: IntEncoder,
-        values: impl IntoIterator<Item = Option<String>>,
-    ) -> Self {
-        assert!(
-            self.shared_dicts.contains_key(struct_name),
-            "shared dictionary needs to be registered before adding columns"
-        );
-        self.props.push(Box::new(StructChild {
-            struct_name: struct_name.to_string(),
-            child_name: child_name.to_string(),
-            values: values.into_iter().collect(),
-            optional,
-            offset,
-        }));
+    pub fn add_shared_dict(mut self, shared_dict: SharedDict) -> Self {
+        let name = shared_dict.name;
+        let encoder = shared_dict.encoder;
+        let dict = build_staged_shared_dict(name, shared_dict.items)
+            .expect("shared dict builder should be valid");
+        self.properties.push(StagedProperty::SharedDict(dict));
+        self.prop_encoders.push(encoder.into());
         self
     }
 
@@ -306,8 +267,8 @@ impl Layer {
         self
     }
 
-    fn build_decoded_geometry(&self) -> DecodedGeometry {
-        let mut geom = DecodedGeometry::default();
+    fn build_decoded_geometry(&self) -> GeometryValues {
+        let mut geom = GeometryValues::default();
         for g in &self.geometry_items {
             geom.push_geom(g);
         }
@@ -336,11 +297,11 @@ impl Layer {
         self.write_mlt(&path);
 
         let buffer = fs::read(&path).unwrap();
-        let mut data = parse_layers(&buffer).unwrap();
-        for l in &mut data {
-            l.decode_all().unwrap();
-        }
-        let fc = FeatureCollection::from_layers(&data).unwrap();
+        let mut dec = Decoder::default();
+        let decoded = dec
+            .decode_all(Parser::default().parse_layers(&buffer).unwrap())
+            .unwrap();
+        let fc = FeatureCollection::from_layers(decoded).unwrap();
         let mut json = serde_json::to_string_pretty(&fc).unwrap();
         json.push('\n');
         let mut out_file = Self::open_new(&dir.join(format!("{name}.json"))).unwrap();
@@ -348,44 +309,30 @@ impl Layer {
     }
 
     fn write_mlt(self, path: &Path) {
-        let decoded_geom = self.build_decoded_geometry();
-        let mut geometry = OwnedGeometry::Decoded(decoded_geom);
-        geometry.encode_with(self.geometry_encoder).unwrap();
-
-        let mut all_props = self
-            .props
-            .iter()
-            .map(|p| p.to_decoded())
-            .collect::<Vec<_>>();
-
-        // Sort by effective column name: struct_name for struct children, property name for
-        // scalars. sort_by is stable so children of the same struct keep their relative order.
-        all_props.sort_by(|(pa, ia), (pb, ib)| {
-            effective_column_name(pa, ia).cmp(effective_column_name(pb, ib))
-        });
-
-        let (decoded, instructions): (Vec<_>, Vec<_>) = all_props.into_iter().unzip();
-        let enc = MultiPropertyEncoder::new(instructions, self.shared_dicts);
-        let encoded_props = Vec::<OwnedEncodedProperty>::from_decoded(&decoded, enc).unwrap();
+        let geometry = self.build_decoded_geometry();
+        let encoded_geometry = geometry
+            .encode(self.geometry_encoder)
+            .unwrap_or_else(|e| panic!("cannot encode geometry: {e}"));
 
         let id = if let Some((ids, ids_encoder)) = self.ids {
-            let mut id = OwnedId::Decoded(DecodedId(Some(ids)));
-            id.encode_with(ids_encoder).unwrap();
-            id
+            IdValues(ids)
+                .encode(ids_encoder)
+                .unwrap_or_else(|e| panic!("cannot encode id: {e}"))
         } else {
-            OwnedId::None
+            None
         };
 
-        let properties = encoded_props
-            .into_iter()
-            .map(OwnedProperty::Encoded)
-            .collect();
-        let layer = OwnedLayer::Tag01(OwnedLayer01 {
+        let encoded_properties = self
+            .properties
+            .encode(self.prop_encoders)
+            .unwrap_or_else(|e| panic!("cannot encode properties: {e}"));
+
+        let layer = EncodedLayer::Tag01(EncodedLayer01 {
             name: "layer1".to_string(),
             extent: self.extent.unwrap_or(80),
             id,
-            geometry,
-            properties,
+            geometry: encoded_geometry,
+            properties: encoded_properties,
         });
 
         let mut file = Self::open_new(path)
@@ -396,188 +343,54 @@ impl Layer {
     }
 }
 
-/// Returns the effective column name used for sorting: `struct_name` for struct children,
-/// `prop.name` for scalars.
-fn effective_column_name<'a>(prop: &'a DecodedProperty, encoder: &'a PropertyEncoder) -> &'a str {
-    match encoder {
-        PropertyEncoder::Scalar(_) => &prop.name,
-        PropertyEncoder::SharedDict(enc) => &enc.struct_name,
-    }
-}
-
-/// Property builder that can be added to a layer as a boxed dynamic value.
-pub trait LayerProp {
-    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder);
-}
-
-/// Dynamic accessor: pushes an optional value onto the property's value list.
-/// Stored as a boxed closure so we can have a uniform Prop<T> API.
-type SetValue<T> = Box<dyn FnMut(&mut Vec<Option<T>>, Option<T>)>;
-
-/// Property builder for a single property with typed values.
-pub struct Prop<T> {
+/// Builder for a shared dictionary struct column with multiple string sub-properties.
+///
+/// Use [`SharedDict::new`] to create the builder, add columns with [`SharedDict::column`],
+/// then pass it to [`Layer::add_shared_dict`].
+pub struct SharedDict {
     name: String,
-    enc: ScalarEncoder,
-    values: Vec<Option<T>>,
-    set_value: SetValue<T>,
+    encoder: SharedDictEncoder,
+    items: Vec<(String, StagedStrings)>,
 }
 
-impl<T: Clone> Prop<T> {
-    pub fn new(name: &str, enc: ScalarEncoder, set_value: SetValue<T>) -> Self {
+impl SharedDict {
+    /// Create a new shared dictionary builder.
+    ///
+    /// # Arguments
+    /// * `name` - The name for the property (e.g., `"name:"` for `"name:de"`, `"name:en"`).
+    /// * `dict_encoder` - The string encoder for the shared dictionary (plain or FSST).
+    #[must_use]
+    pub fn new(name: impl Into<String>, dict_encoder: StrEncoder) -> Self {
         Self {
-            name: name.to_string(),
-            enc,
-            values: vec![],
-            set_value,
+            name: name.into(),
+            encoder: SharedDictEncoder {
+                dict_encoder,
+                items: vec![],
+            },
+            items: vec![],
         }
     }
 
-    /// Add an optional value.
+    /// Add a child column to the shared dictionary.
+    ///
+    /// # Arguments
+    /// * `suffix` - The suffix name for this child (e.g., `"de"` for `"name:de"`).
+    /// * `optional` - Whether to include a presence stream for null values.
+    /// * `offset` - The integer encoder for the offset-index stream.
+    /// * `values` - The string values for each feature.
     #[must_use]
-    pub fn add_none(mut self) -> Self {
-        (self.set_value)(&mut self.values, None);
+    pub fn column(
+        mut self,
+        suffix: impl Into<String>,
+        presence: PresenceStream,
+        offsets: IntEncoder,
+        values: impl IntoIterator<Item = Option<String>>,
+    ) -> Self {
+        let enc = SharedDictItemEncoder { presence, offsets };
+        self.encoder.items.push(enc);
+        let suffix = suffix.into();
+        let values: Vec<Option<String>> = values.into_iter().collect();
+        self.items.push((suffix, StagedStrings::from(values)));
         self
-    }
-
-    #[must_use]
-    pub fn add(mut self, value: T) -> Self {
-        (self.set_value)(&mut self.values, Some(value));
-        self
-    }
-
-    fn to_decoded_with(&self, values: PropValue) -> (DecodedProperty, PropertyEncoder) {
-        (
-            DecodedProperty {
-                name: self.name.clone(),
-                values,
-            },
-            PropertyEncoder::Scalar(self.enc),
-        )
-    }
-}
-
-impl LayerProp for Prop<bool> {
-    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(Bool(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<i32> {
-    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(I32(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<u32> {
-    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(U32(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<i64> {
-    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(I64(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<u64> {
-    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(U64(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<f32> {
-    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(F32(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<f64> {
-    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(F64(self.values.clone()))
-    }
-}
-impl LayerProp for Prop<String> {
-    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        self.to_decoded_with(Str(self.values.clone()))
-    }
-}
-
-/// Push closure: appends to the vec. Used as the dynamic accessor for all Prop<T>.
-fn push_value<T>(v: &mut Vec<Option<T>>, x: Option<T>) {
-    v.push(x);
-}
-
-pub fn bool(name: &str, enc: ScalarEncoder) -> Prop<bool> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn i32(name: &str, enc: ScalarEncoder) -> Prop<i32> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn u32(name: &str, enc: ScalarEncoder) -> Prop<u32> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn i64(name: &str, enc: ScalarEncoder) -> Prop<i64> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn u64(name: &str, enc: ScalarEncoder) -> Prop<u64> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn f32(name: &str, enc: ScalarEncoder) -> Prop<f32> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn f64(name: &str, enc: ScalarEncoder) -> Prop<f64> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-pub fn string(name: &str, enc: ScalarEncoder) -> Prop<String> {
-    Prop::new(name, enc, Box::new(push_value))
-}
-
-/// Erased property: holds a pre-built decoded property and encoder (e.g. for I32, Str, etc.).
-#[derive(Clone)]
-pub struct DecodedProp {
-    prop: DecodedProperty,
-    enc: ScalarEncoder,
-}
-
-impl DecodedProp {
-    #[must_use]
-    pub fn new(prop: DecodedProperty, enc: ScalarEncoder) -> Self {
-        Self { prop, enc }
-    }
-}
-impl LayerProp for DecodedProp {
-    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        (self.prop.clone(), PropertyEncoder::Scalar(self.enc))
-    }
-}
-
-/// A single child field of a shared-dictionary struct column.
-///
-/// All `StructChildProp`s added to a [`Layer`] with the same `struct_name` are grouped into one
-/// struct column. The column appears in the output at the position of its first child after
-/// sorting by effective column name.
-pub struct StructChild {
-    struct_name: String,
-    child_name: String,
-    values: Vec<Option<String>>,
-    optional: PresenceStream,
-    offset: IntEncoder,
-}
-
-impl LayerProp for StructChild {
-    fn to_decoded(&self) -> (DecodedProperty, PropertyEncoder) {
-        let prop = DecodedProperty {
-            name: self.child_name.clone(),
-            values: Str(self.values.clone()),
-        };
-        let instruction = PropertyEncoder::shared_dict(
-            &self.struct_name,
-            &self.child_name,
-            self.optional,
-            self.offset,
-        );
-        (prop, instruction)
     }
 }

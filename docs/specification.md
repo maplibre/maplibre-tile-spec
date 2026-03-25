@@ -12,6 +12,8 @@ An MLT (MapLibre Tile) contains information about a specific geographic region, 
 Each tile is a collection of `FeatureTables`, which are equivalent to `Layers` in the [MVT specification](https://github.com/mapbox/vector-tile-spec).
 
 A `FeatureTable` contains thematically grouped vector data, known as `Features`.
+A `FeatureTable` can contain up to `2^31 - 1` (2,147,483,647) features; this limit is chosen so the feature count fits in signed 32-bit integer fields used by decoders.
+
 Features within a single FeatureTable share a common set of attribute columns (properties) and typically share the same geometry type (though this is not strictly required).
 
 Each `FeatureTable` is preceded by a `FeatureTableMetadata` that describes `FeatureTable`'s structure.

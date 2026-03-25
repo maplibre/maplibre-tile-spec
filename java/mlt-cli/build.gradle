@@ -57,6 +57,10 @@ dependencies {
     testRuntimeOnly(libs.junit.jupiter.engine)
     testRuntimeOnly(libs.junit.jupiter.platform.launcher)
     testImplementation(libs.junit.jupiter.params)
+
+    testImplementation 'org.mockito:mockito-core:5.2.0'
+    testImplementation 'org.mockito:mockito-inline:5.2.0'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.2.0'
 }
 
 // Exclude slf4j-simple from all configurations to prevent conflicts with log4j-slf4j-impl

@@ -16,29 +16,56 @@ just *args:
     {{just}} {{args}}
 
 # Run integration tests and save its output as the new expected output
-bless *args: (just 'cargo-install' 'cargo-insta')
-    cargo insta test --accept --unreferenced=delete --all-features {{args}}
+bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack')
+    cargo hack insta test --accept --unreferenced=delete --each-feature \
+        --package mlt-core \
+        --exclude-no-default-features --exclude-all-features \
+        {{args}}
 
 # Run benchmarks
-bench:
-    cargo bench --all-targets --all-features
+bench *args: (just 'cargo-install' 'cargo-hack')
+    cargo hack bench --all-targets --each-feature \
+        --package mlt-core \
+        --exclude-no-default-features --exclude-all-features \
+        {{args}}
 
 alias b := build
 # Build the project
-build:
-    cargo build --all-targets --all-features
+build: (just 'cargo-install' 'cargo-hack')
+    cargo hack build --all-targets --each-feature \
+        --workspace \
+        --exclude-no-default-features --exclude-all-features
 
 alias c := check
 # Quick compile without building a binary
 check: (just 'cargo-install' 'cargo-hack')
-    cargo hack check --all-targets --each-feature --workspace
+    cargo hack check --all-targets --each-feature \
+        --workspace \
+        --exclude-no-default-features --exclude-all-features
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: ci-env-info (just 'java::gen-snippets')
+ci-coverage: ci-env-info (just 'java::gen-snippets') (just 'cargo-install' 'cargo-llvm-cov')
     mkdir -p target/llvm-cov
+
+    @echo "::group::Generate synthetic MLTs"
+    rm -rf ../test/synthetic/0x01-rust
+    cargo llvm-cov run --no-report -p mlt-synthetics
+    @echo "::endgroup::"
+
+    @echo "::group::Validate synthetic MLTs"
+    {{just}} rust::validate-synthetic
+    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
+    {{just}} rust::_verify-synthetic-equality
+    {{just}} rust::_assert-synthetic-mlt-identity
+    @echo "::endgroup::"
+
     # ATTENTION: the output-path here is used in the CI workflow
-    {{just}} rust::coverage '--codecov --output-path target/llvm-cov/codecov.info'
+    # --no-clean preserves profdata accumulated by the synthetic generation run above
+    # --doctests requires nightly (test job uses nightly toolchain) and may not be mixed with the main
+    {{just}} rust::coverage '--no-clean'
+    # target coverage and docktest coverage cannot be mixed
+    cargo llvm-cov --doctests --no-clean --workspace --codecov --output-path target/llvm-cov/codecov.info
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-check: ci-env-info check
@@ -73,6 +100,10 @@ ci-lint: ci-env-info test-fmt clippy
 ci-test: ci-env-info (just 'java::gen-snippets') test
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
+# Run all tests as expected by CI for wasm
+ci-test-wasm: ci-env-info wasm-test
+    {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
+
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-test-msrv: ci-env-info
     #!/usr/bin/env bash
@@ -91,6 +122,18 @@ ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linu
 
 # Fuzz the target for 90 seconds (installs `cargo fuzz`)
 ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '--max_len=300')
+
+# Run coverage against a previously generated corpus and export LCOV for Codecov upload.
+# Output: target/llvm-cov/fuzz-<target>.lcov
+[working-directory: 'mlt-core']
+ci-fuzz-cov target: (just 'cargo-install' 'cargo-fuzz')
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    LCOV_OUT="../target/llvm-cov/fuzz-{{target}}.lcov"
+    mkdir -p "$(dirname "$LCOV_OUT")"
+    {{just}} rust::fuzz-llvm-cov {{target}} "$LCOV_OUT" export --format=lcov
+    echo "Fuzz coverage LCOV: $LCOV_OUT"
 
 # Build and package release binary for CI
 ci-build-release target artifact_name:
@@ -119,29 +162,37 @@ clean:
     rm -f Cargo.lock
 
 # Run cargo clippy to lint the code
-clippy *args:
-    cargo clippy --workspace --all-targets --all-features {{args}}
+clippy *args: (just 'cargo-install' 'cargo-hack')
+    cargo hack clippy --all-targets --each-feature \
+        --workspace \
+        --exclude-no-default-features --exclude-all-features \
+        {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
 # Generate code coverage report. Installs `cargo llvm-cov`
-coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-llvm-cov')
-    cargo llvm-cov --all-targets --all-features --include-build-script {{args}}
+coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov')
+    cargo hack llvm-cov --all-targets --each-feature \
+        --workspace \
+        --exclude-no-default-features --exclude-all-features \
+        --include-build-script {{args}}
 
 # Build and open code documentation
 docs *args='--open':
-    DOCS_RS=1 cargo doc --no-deps {{args}} --all-features --package mlt-core
+    DOCS_RS=1 cargo doc --no-deps {{args}} --features arbitrary --package mlt-core
 
 alias f := fmt
+fmt: (_fmt) (_fmt '--manifest-path' 'mlt-core/fuzz/Cargo.toml')
+
 # Reformat code. If nightly is available, use it for better results.
-fmt:
+_fmt *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     if (rustup toolchain list | grep nightly && rustup component list --toolchain nightly | grep rustfmt) &> /dev/null; then
         echo 'Reformatting Rust code using nightly Rust fmt to sort imports'
-        cargo +nightly fmt --all -- --config imports_granularity=Module,group_imports=StdExternalCrate
+        cargo +nightly fmt --all {{ARGS}} -- --config imports_granularity=Module,group_imports=StdExternalCrate
     else
         echo 'Reformatting Rust with the stable cargo fmt.  Install nightly with `rustup install nightly` for better results'
-        cargo fmt --all
+        cargo fmt --all {{ARGS}}
     fi
 
 # Reformat all Cargo.toml files (installs `cargo sort`)
@@ -149,13 +200,36 @@ fmt-toml *args: (just 'cargo-install' 'cargo-sort')
     cargo sort --workspace --grouped {{args}}
 
 # Fuzz the layer target (installs `cargo fuzz`)
-fuzz *args: (cargo-fuzz 'run' 'layer' '--' args)
+fuzz target='layer' *args: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' args)
 
-# Minimize the size of the fuzzing corpus (installs `cargo fuzz`)
-fuzz-cmin file: (cargo-fuzz 'tmin' 'layer' file)
+# Seed the layer fuzz corpus from all .mlt test files (run once, or after new .mlts are added)
+fuzz-seed target='layer': (just 'cargo-install' 'fd' 'fd-find')
+    mkdir -p mlt-core/fuzz/corpus/{{target}}
+    fd . ../test --extension mlt --threads=1 --exec cp --force {} mlt-core/fuzz/corpus/{{target}}/
+    {{just}} rust::fuzz-cmin {{target}}
+
+# Minimize the fuzz corpus for target (slow — run occasionally to prune redundant entries)
+fuzz-cmin target='layer': (cargo-fuzz 'cmin' target '--target' 'x86_64-unknown-linux-gnu')
+
+# Collect coverage from the fuzz corpus and open an HTML report (installs `cargo fuzz`, `rustfilt`)
+[working-directory: 'mlt-core']
+fuzz-cov target='layer': (just 'cargo-install' 'cargo-fuzz') (just 'cargo-install' 'rustfilt')
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    HTML_DIR="fuzz/coverage/{{target}}/html"
+    mkdir -p "$HTML_DIR"
+    {{just}} rust::fuzz-llvm-cov {{target}} "" show \
+        --format=html \
+        --output-dir="$HTML_DIR" \
+        --show-instantiations \
+        --show-line-counts-or-regions \
+        --Xdemangler=rustfilt
+    echo "Coverage report: $HTML_DIR/index.html"
+    xdg-open "$HTML_DIR/index.html" 2>/dev/null || open "$HTML_DIR/index.html" 2>/dev/null || true
 
 # Minimize the crash in file (installs `cargo fuzz`)
-fuzz-tmin file: (cargo-fuzz 'tmin' 'layer' file)
+fuzz-tmin file target='layer': (cargo-fuzz 'tmin' target file)
 
 # Get any package's field from the metadata
 get-crate-field field package=main_crate: (just 'assert-cmd' 'jq')
@@ -192,8 +266,11 @@ release *args='': (just 'cargo-install' 'release-plz')
     release-plz {{args}}
 
 # Check semver compatibility with prior published version
-semver *args: (just 'cargo-install' 'cargo-semver-checks')
-    cargo semver-checks --all-features {{args}}
+semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install' 'cargo-hack')
+    cargo hack semver-checks --each-feature \
+        --package mlt-core \
+        --exclude-no-default-features --exclude-all-features \
+        {{args}}
 
 # Regenerate the Python type stub for mlt-py
 sync-pyo3-stubs:
@@ -208,16 +285,32 @@ sync-pyo3-version:
     sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$PYPROJECT"
     echo "Synced $PYPROJECT to version $VERSION"
 
+# Sync the version field in mlt-wasm/package.json to match mlt-wasm/Cargo.toml
+sync-wasm-version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VERSION=$({{just}} rust::get-crate-field version mlt-wasm)
+    PACKAGE_JSON="mlt-wasm/package.json"
+    jq --arg VERSION "$VERSION" '.version = $VERSION' "$PACKAGE_JSON" > "$PACKAGE_JSON.tmp" && mv "$PACKAGE_JSON.tmp" "$PACKAGE_JSON"
+    echo "Synced $PACKAGE_JSON to version $VERSION"
+    if [ -f "mlt-wasm/package-lock.json" ]; then
+        PACKAGE_LOCK="mlt-wasm/package-lock.json"
+        jq --arg VERSION "$VERSION" '.version = $VERSION | .packages[""].version = $VERSION' "$PACKAGE_LOCK" > "$PACKAGE_LOCK.tmp" && mv "$PACKAGE_LOCK.tmp" "$PACKAGE_LOCK"
+        echo "Synced $PACKAGE_LOCK to version $VERSION"
+    fi
+
 alias t := test
 # Run all tests
-test:
-    cargo test --all-features --all-targets
+test: (just 'cargo-install' 'cargo-hack')
+    cargo hack test --all-targets --each-feature \
+        --workspace \
+        --exclude-no-default-features --exclude-all-features
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
 
 # Test documentation generation
 test-doc: (docs '--document-private-items')
-    cargo test --doc --all-features
+    cargo test --doc --features arbitrary --package mlt-core
 
 # Test code formatting
 test-fmt: (fmt-toml '--check' '--check-format')
@@ -228,8 +321,10 @@ test-publish:
     cargo publish --workspace --dry-run
 
 # Find unused dependencies
-udeps: (just 'cargo-install' 'cargo-udeps')
-    cargo +nightly udeps --all-targets --all-features
+udeps: (just 'cargo-install' 'cargo-udeps') (just 'cargo-install' 'cargo-hack')
+    cargo hack +nightly udeps --all-targets --each-feature \
+        --workspace \
+        --exclude-no-default-features --exclude-all-features
 
 # Update all dependencies, including breaking changes
 update:
@@ -248,8 +343,25 @@ generate-synthetic-mlts:
     {{just}} rust::_assert-synthetic-mlt-identity
 
 # Create .dump files for all .mlt files in test/synthetic for all languages
-generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find') build
+generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find')
+    cargo build --bin mlt
     fd . ../test/synthetic -e mlt -x sh -c 'target/debug/mlt dump {} > {.}.dump || echo "Failed to dump {}"'
+
+# Run mlt-wasm benches
+[working-directory: 'mlt-wasm']
+wasm-bench: wasm-build
+    npm run bench
+
+# Build the mlt-wasm package (compiles Rust to WASM and TypeScript)
+[working-directory: 'mlt-wasm']
+wasm-build: (just 'cargo-install' 'wasm-pack')
+    npm ci --no-fund --no-audit
+    npm run build
+
+# Run mlt-wasm tests
+[working-directory: 'mlt-wasm']
+wasm-test: wasm-build
+    npm run test
 
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
@@ -340,8 +452,30 @@ _verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
       fi
     done
 
-
 [private]
 [working-directory: 'mlt-core']
 cargo-fuzz *args:  (just 'cargo-install' 'cargo-fuzz')
     cargo +nightly fuzz {{args}}
+
+# Resolve llvm-cov from the nightly sysroot and run it against the fuzz profdata for target.
+# Pass output_file="" to write to stdout, or a path to redirect stdout there.
+[private]
+[working-directory: 'mlt-core']
+fuzz-llvm-cov target output_file *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    rustup component add llvm-tools-preview --toolchain nightly
+    cargo +nightly fuzz coverage {{target}} --target x86_64-unknown-linux-gnu
+
+    SYSROOT=$(rustup run nightly rustc --print sysroot)
+    HOST=$(rustup run nightly rustc -vV | sed -n 's/^host: //p')
+    LLVM_COV="$SYSROOT/lib/rustlib/$HOST/bin/llvm-cov"
+    FUZZ_DIR="fuzz"
+    TARGET_BIN=$(find target -type f -name '{{target}}' -path '*/coverage/*/release/{{target}}' 2>/dev/null | head -1)
+    echo "target_bin: $TARGET_BIN" >&2
+    PROFDATA="$FUZZ_DIR/coverage/{{target}}/coverage.profdata"
+    [ -n "{{output_file}}" ] && exec > "{{output_file}}"
+    "$LLVM_COV" {{args}} "$TARGET_BIN" \
+        --instr-profile="$PROFDATA" \
+        --ignore-filename-regex="(/.cargo/registry|/rustup/toolchains)"

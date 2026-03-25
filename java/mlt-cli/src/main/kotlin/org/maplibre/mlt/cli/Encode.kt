@@ -1,7 +1,6 @@
 package org.maplibre.mlt.cli
 
 import org.apache.commons.cli.CommandLine
-import org.apache.commons.cli.ParseException
 import org.apache.commons.io.FilenameUtils
 import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.core.config.Configurator
@@ -9,9 +8,6 @@ import org.maplibre.mlt.cli.EncodeCommandLine.getColumnMappings
 import org.maplibre.mlt.compare.CompareHelper
 import org.maplibre.mlt.compare.CompareHelper.CompareMode
 import org.maplibre.mlt.converter.ConversionConfig
-import org.maplibre.mlt.converter.MLTStreamObserver
-import org.maplibre.mlt.converter.MLTStreamObserverDefault
-import org.maplibre.mlt.converter.MLTStreamObserverFile
 import org.maplibre.mlt.converter.MltConverter
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder
 import org.maplibre.mlt.converter.encodings.fsst.FsstJni
@@ -22,17 +18,11 @@ import org.slf4j.LoggerFactory
 import java.io.File
 import java.io.IOException
 import java.net.URI
-import java.net.URISyntaxException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.ThreadPoolExecutor
-import java.util.concurrent.TimeUnit
-import java.util.regex.Pattern
-import kotlin.math.max
 
 object Encode {
     @JvmStatic
@@ -64,53 +54,23 @@ object Encode {
 
     private fun run(cmd: CommandLine): Boolean {
         val tileFileNames = cmd.getOptionValues(EncodeCommandLine.INPUT_TILE_ARG)
-        val sortFeaturesPattern =
-            if (cmd.hasOption(EncodeCommandLine.SORT_FEATURES_OPTION)) {
-                Pattern.compile(cmd.getOptionValue(EncodeCommandLine.SORT_FEATURES_OPTION, ".*"))
-            } else {
-                null
-            }
-        val regenIDsPattern =
-            if (cmd.hasOption(EncodeCommandLine.REGEN_IDS_OPTION)) {
-                Pattern.compile(cmd.getOptionValue(EncodeCommandLine.REGEN_IDS_OPTION, ".*"))
-            } else {
-                null
-            }
-        val outlineFeatureTables =
-            cmd.getOptionValues(EncodeCommandLine.OUTLINE_FEATURE_TABLES_OPTION)
-        val useFSSTJava = cmd.hasOption(EncodeCommandLine.FSST_ENCODING_OPTION)
-        val useFSSTNative = cmd.hasOption(EncodeCommandLine.FSST_NATIVE_ENCODING_OPTION)
-        val tessellateSource =
-            cmd.getOptionValue(EncodeCommandLine.TESSELLATE_URL_OPTION, null as String?)
-        val tessellateURI = if (tessellateSource != null) URI(tessellateSource) else null
-        val tessellatePolygons =
-            (tessellateSource != null) || cmd.hasOption(EncodeCommandLine.PRE_TESSELLATE_OPTION)
-        val compressionType =
-            cmd.getOptionValue(EncodeCommandLine.COMPRESS_OPTION, null as String?)
-        val enableCoerceOnTypeMismatch = cmd.hasOption(EncodeCommandLine.ALLOW_COERCE_OPTION)
-        val enableElideOnTypeMismatch = cmd.hasOption(EncodeCommandLine.ALLOW_ELISION_OPTION)
-        val filterRegex =
-            cmd.getOptionValue(EncodeCommandLine.FILTER_LAYERS_OPTION, null as String?)
-        val filterPattern = if (filterRegex != null) Pattern.compile(filterRegex) else null
-        val filterInvert = cmd.hasOption(EncodeCommandLine.FILTER_LAYERS_INVERT_OPTION)
-        val columnMappings = getColumnMappings(cmd)
-        val minZoom =
-            cmd.getParsedOptionValue<Long?>(EncodeCommandLine.MIN_ZOOM_OPTION, 0L)!!.toInt()
-        val maxZoom =
-            cmd
-                .getParsedOptionValue<Long?>(
-                    EncodeCommandLine.MAX_ZOOM_OPTION,
-                    Int.MAX_VALUE
-                        .toLong(),
-                )!!
-                .toInt()
+        val sortFeaturesPattern = cmd.sortFeaturesPattern
+        val regenIDsPattern = cmd.regenIDsPattern
+        val outlineFeatureTables = cmd.outlineFeatureTables
+        val useFSSTJava = cmd.useFSSTJava
+        val useFSSTNative = cmd.useFSSTNative
+        val tessellateURI = cmd.tessellateSource?.let { URI(it) }
+        val tessellatePolygons = cmd.tessellatePolygons
+        val compressionType = cmd.compressionType
+        val enableCoerce = cmd.enableCoerceOnTypeMismatch
+        val enableElide = cmd.enableElideOnTypeMismatch
+        val filterPattern = cmd.filterPattern
+        val filterInvert = cmd.filterInvert
+        val minZoom = cmd.minZoom
+        val maxZoom = cmd.maxZoom
+        val logLevel = cmd.logLevel
+        val threadCount = cmd.threadCount
 
-        val logLevel =
-            if (cmd.hasOption(EncodeCommandLine.VERBOSE_OPTION)) {
-                Level.toLevel(cmd.getOptionValue(EncodeCommandLine.VERBOSE_OPTION), Level.DEBUG)
-            } else {
-                Level.INFO
-            }
         Configurator.setRootLevel(logLevel)
 
         // PMTiles logs stats at INFO.  Enable that only if the user has selected at least debug.
@@ -120,20 +80,8 @@ object Encode {
             if (logLevel.isLessSpecificThan(Level.DEBUG)) Level.INFO else Level.OFF,
         )
 
-        val threadCountOption =
-            if (cmd.hasOption(EncodeCommandLine.PARALLEL_OPTION)) {
-                cmd.getParsedOptionValue<Long?>(EncodeCommandLine.PARALLEL_OPTION, 0L)!!.toInt()
-            } else {
-                1
-            }
-        val threadCount =
-            if (threadCountOption > 0) {
-                threadCountOption
-            } else {
-                Runtime
-                    .getRuntime()
-                    .availableProcessors()
-            }
+        val columnMappings = getColumnMappings(cmd)
+
         val taskRunner = createBoundedNonRejectingTaskRunner(threadCount)
         logger.debug("Using {} thread(s)", taskRunner.threadCount + 1)
 
@@ -161,7 +109,7 @@ object Encode {
                 .includeIds(!cmd.hasOption(EncodeCommandLine.EXCLUDE_IDS_OPTION))
                 .useFastPFOR(cmd.hasOption(EncodeCommandLine.FASTPFOR_ENCODING_OPTION))
                 .useFSST(useFSST)
-                .mismatchPolicy(enableCoerceOnTypeMismatch, enableElideOnTypeMismatch)
+                .mismatchPolicy(enableCoerce, enableElide)
                 .preTessellatePolygons(tessellatePolygons)
                 .useMortonEncoding(!cmd.hasOption(EncodeCommandLine.NO_MORTON_OPTION))
                 .outlineFeatureTableNames(
@@ -200,9 +148,9 @@ object Encode {
                     cmd.hasOption(EncodeCommandLine.COMPARE_GEOM_OPTION) ||
                         cmd.hasOption(EncodeCommandLine.COMPARE_ALL_OPTION),
                 willTime = cmd.hasOption(EncodeCommandLine.TIMER_OPTION),
-                dumpStreams = cmd.hasOption(EncodeCommandLine.DUMP_STREAMS_OPTION),
                 taskRunner = taskRunner,
                 continueOnError = cmd.hasOption(EncodeCommandLine.CONTINUE_OPTION),
+                logCacheStats = cmd.hasOption(EncodeCommandLine.CACHE_STATS_OPTION),
             )
 
         if (tileFileNames != null && tileFileNames.size > 0) {
@@ -213,20 +161,13 @@ object Encode {
                 )
             }
             for (tileFileName in tileFileNames) {
-                val outputPath = getOutputPath(cmd, tileFileName!!, "mlt")
+                val outputPath = getOutputPath(cmd, tileFileName, "mlt")
                 if (outputPath == null) {
                     continue
                 }
 
-                var streamPath: Path? = null
-                if (encodeConfig.dumpStreams) {
-                    val fileName = MLTStreamObserverFile.sanitizeFilename(tileFileName)
-                    streamPath = getOutputPath(cmd, fileName, null, true)
-                }
-
                 logger.debug("Converting {} to {}", tileFileName, outputPath)
-
-                encodeTile(0, 0, 0, tileFileName, outputPath, streamPath, encodeConfig)
+                encodeTile(0, 0, 0, tileFileName, outputPath, encodeConfig)
             }
         } else if (cmd.hasOption(EncodeCommandLine.INPUT_MBTILES_ARG)) {
             // Converting all the tiles in an MBTiles file
@@ -238,7 +179,7 @@ object Encode {
         } else if (cmd.hasOption(EncodeCommandLine.INPUT_OFFLINEDB_ARG)) {
             val inputPath = cmd.getOptionValue(EncodeCommandLine.INPUT_OFFLINEDB_ARG)
             var ext = FilenameUtils.getExtension(inputPath)
-            if (!ext!!.isEmpty()) {
+            if (ext != null && !ext.isEmpty()) {
                 ext = "." + ext
             }
             val outputPath = getOutputPath(cmd, inputPath, "mlt" + ext)
@@ -248,7 +189,7 @@ object Encode {
         } else if (cmd.hasOption(EncodeCommandLine.INPUT_PMTILES_ARG)) {
             val inputPath = cmd.getOptionValue(EncodeCommandLine.INPUT_PMTILES_ARG)
             var ext = FilenameUtils.getExtension(inputPath)
-            if (!ext!!.isEmpty()) {
+            if (ext != null && !ext.isEmpty()) {
                 ext = "." + ext
             }
             var outputPath = getOutputPath(cmd, inputPath, "mlt" + ext)
@@ -264,11 +205,23 @@ object Encode {
             }
         }
 
-        if (totalCompressedInput.get() > 0 && logger.isDebugEnabled) {
+        if (logger.isDebugEnabled) {
             val input = totalCompressedInput.get()
             val output = totalCompressedOutput.get()
-            val percentStr = String.format("%.1f", 100.0 * output / input)
-            logger.debug("Compressed {} bytes to {} bytes ({}%)", input, output, percentStr)
+            val compressed = totalCompressedTiles.get()
+            val uncompressed = totalUncompressedTiles.get()
+            val total = compressed + uncompressed
+            val sizePercentStr = if (input > 0) String.format(" (%.1f%%)", 100.0 * output / input) else ""
+            val countPercentStr = if (total > 0) String.format(" (%.1f%%)", 100.0 * compressed / total) else ""
+            logger.debug(
+                "Compressed {} bytes to {} bytes{} in {} of {}{} tiles",
+                input,
+                output,
+                sizePercentStr,
+                compressed,
+                total,
+                countPercentStr,
+            )
         }
         return true
     }
@@ -280,10 +233,9 @@ object Encode {
         z: Int,
         tileFileName: String,
         outputPath: Path,
-        streamPath: Path?,
         config: EncodeConfig,
     ) {
-        val willCompare = config.compareProp || config.compareGeom
+        val willCompare = config.compareMode != CompareMode.None
         val inputTilePath = Paths.get(tileFileName)
         val decodedMvTile = MvtUtils.decodeMvt(inputTilePath)
 
@@ -303,25 +255,14 @@ object Encode {
 
         val targetConfig = applyColumnMappingsToConversionConfig(config, metadata)
 
-        var streamObserver: MLTStreamObserver = MLTStreamObserverDefault()
-        if (config.dumpStreams) {
-            if (streamPath != null) {
-                streamObserver = MLTStreamObserverFile(streamPath)
-                Files.createDirectories(streamPath)
-                logger.debug("Writing raw streams to {}", streamPath)
-            }
-        }
         val mlTile =
             MltConverter.convertMvt(
                 decodedMvTile,
                 metadata,
                 targetConfig,
                 config.tessellateSource,
-                streamObserver,
             )
-        if (willTime) {
-            timer!!.stop("encoding")
-        }
+        timer?.stop("encoding")
 
         if (config.willOutput) {
             logger.debug("Writing converted tile to {}", outputPath)
@@ -338,43 +279,26 @@ object Encode {
         val needsDecoding = config.willDecode || willCompare || config.willPrintMLT
         if (needsDecoding) {
             logger.debug("Decoding converted tile...")
-            if (willTime) {
-                timer!!.restart()
-            }
+            timer?.restart()
 
             val decodedTile = MltDecoder.decodeMlTile(mlTile)
-            if (willTime) {
-                timer!!.stop("decoding")
-            }
+            timer?.stop("decoding")
             if (config.willPrintMLT) {
                 System.out.write(decodedTile.toJson().toByteArray(StandardCharsets.UTF_8))
             }
             if (willCompare) {
-                val mode =
-                    if (config.compareGeom && config.compareProp) {
-                        CompareMode.All
-                    } else {
-                        (
-                            if (config.compareGeom) {
-                                CompareMode.Geometry
-                            } else {
-                                CompareMode.Properties
-                            }
-                        )
-                    }
-
-                val result =
+                val difference =
                     CompareHelper.compareTiles(
                         decodedTile,
                         decodedMvTile,
-                        mode,
+                        config.compareMode,
                         targetConfig.layerFilterPattern,
                         targetConfig.layerFilterInvert,
                     )
-                if (result.isPresent) {
-                    logger.warn("Tiles do not match: {}", result)
+                if (difference.isPresent) {
+                    logger.warn("Tiles do not match: {}", difference)
                 } else {
-                    logger.debug("Tiles match")
+                    logger.debug("Tiles match: {}:{},{}", z, x, y)
                 }
             }
         }

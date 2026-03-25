@@ -2,10 +2,10 @@ import { LogicalLevelTechnique } from "./logicalLevelTechnique";
 import { PhysicalLevelTechnique } from "./physicalLevelTechnique";
 import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
 import { PhysicalStreamType } from "./physicalStreamType";
-import { LogicalStreamType } from "./logicalStreamType";
 import { DictionaryType } from "./dictionaryType";
 import { OffsetType } from "./offsetType";
 import { LengthType } from "./lengthType";
+import type { LogicalStreamType } from "./logicalStreamType";
 import type IntWrapper from "../../decoding/intWrapper";
 
 export type StreamMetadata = {
@@ -98,19 +98,19 @@ function decodeStreamMetadataInternal(tile: Uint8Array, offset: IntWrapper): Str
 
     switch (physicalStreamType) {
         case PhysicalStreamType.DATA:
-            logicalStreamType = new LogicalStreamType(
-                Object.values(DictionaryType)[stream_type & 0xf] as DictionaryType,
-            );
+            logicalStreamType = {
+                dictionaryType: Object.values(DictionaryType)[stream_type & 0xf],
+            };
             break;
         case PhysicalStreamType.OFFSET:
-            logicalStreamType = new LogicalStreamType(null, Object.values(OffsetType)[stream_type & 0xf] as OffsetType);
+            logicalStreamType = {
+                offsetType: Object.values(OffsetType)[stream_type & 0xf],
+            };
             break;
         case PhysicalStreamType.LENGTH:
-            logicalStreamType = new LogicalStreamType(
-                null,
-                null,
-                Object.values(LengthType)[stream_type & 0xf] as LengthType,
-            );
+            logicalStreamType = {
+                lengthType: Object.values(LengthType)[stream_type & 0xf],
+            };
             break;
     }
     offset.increment();

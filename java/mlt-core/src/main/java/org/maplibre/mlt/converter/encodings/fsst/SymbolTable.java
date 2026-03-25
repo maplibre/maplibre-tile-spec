@@ -9,6 +9,7 @@ import java.util.Arrays;
  * @param symbolLengths Lengths of each of those 255 symbols in the table
  * @param compressedData Encoded text where a value less than 255 refers to that symbol from the
  *     table, and a value of 255 means the next byte should be used directly.
+ * @param decompressedLength The length of the text after decompression
  */
 public record SymbolTable(
     byte[] symbols, int[] symbolLengths, byte[] compressedData, int decompressedLength) {

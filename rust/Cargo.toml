@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["mlt", "mlt-core", "mlt-py", "mlt-synthetics"]
+members = ["mlt", "mlt-core", "mlt-py", "mlt-synthetics", "mlt-wasm"]
 default-members = ["mlt", "mlt-core", "mlt-synthetics"]
 # Excluding mlt-core/fuzz because cargo-fuzz does not have workspace support
 exclude = ["mlt-core/fuzz"]
@@ -13,17 +13,16 @@ homepage = "https://maplibre.org"
 keywords = ["maplibre", "tile", "mlt", "mvt", "map"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/maplibre-tile-spec"
-rust-version = "1.88.0"
+rust-version = "1.91.0"
 
 [workspace.dependencies]
 anyhow = "1"
 arbitrary = { version = "1.4", features = ["derive"] }
-borrowme = "0.0.15"
-clap = { version = "4.5.58", features = ["derive"] }
+clap = { version = "4.6.0", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 crossterm = "0.29.0"
-derive_builder = "0.20"
-fastpfor = "0.7"
+enum_dispatch = "0.3"
+fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
 fsst-rs = "0.5"
 geo = "0.32.0"
@@ -31,18 +30,20 @@ geo-types = "0.7.18"
 glob = "0.3"
 globset = "0.4"
 hex = "0.4.3"
+hilbert_2d = "1.1.0"
 insta = "1.43.2"
 integer-encoding = "4.0.2"
-mlt-core = { version = "0.2.0", path = "mlt-core" }
+js-sys = "0.3"
+mlt-core = { version = "0.6.0", path = "mlt-core", default-features = false }
 mvt-reader = "2.3.0"
 num-traits = "0.2.19"
-num_enum = "0.7.4"
+num_enum = "0.7.6"
 pretty_assertions = "1.4"
 probabilistic-collections = "0.7"
-proptest = "1.6"
+proptest = "1.11"
 proptest-derive = "0.8"
 pyo3 = "0.28.2"
-pyo3-stub-gen = "0.19.0"
+pyo3-stub-gen = "0.20.0"
 ratatui = "0.30.0"
 rayon = "1"
 rstar = "0.12"
@@ -55,6 +56,9 @@ tabled = "0.20"
 test_each_file = "0.3.5"
 thiserror = "2.0.11"
 thousands = "0.2"
+union-find = "0.4.3"
+wasm-bindgen = "0.2"
+wide = "1.1.1"
 zigzag = "0.1.0"
 
 [workspace.lints.rust]
@@ -71,6 +75,7 @@ panic_in_result_fn = "warn"
 todo = "warn"
 unimplemented = "warn"
 unused_trait_names = "warn"
+use_self = "warn"
 
 # Too noisy
 missing_errors_doc = "allow"

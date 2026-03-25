@@ -10,6 +10,7 @@ import org.apache.commons.cli.help.HelpFormatter
 import org.apache.commons.cli.help.TextHelpAppendable
 import org.apache.commons.lang3.NotImplementedException
 import org.apache.commons.lang3.StringUtils
+import org.apache.logging.log4j.Level
 import org.maplibre.mlt.converter.encodings.fsst.FsstJni
 import org.maplibre.mlt.converter.mvt.ColumnMapping
 import org.maplibre.mlt.converter.mvt.ColumnMappingConfig
@@ -18,7 +19,6 @@ import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.net.URI
 import java.net.URISyntaxException
-import java.util.Arrays
 import java.util.regex.Pattern
 import java.util.regex.PatternSyntaxException
 import java.util.stream.Collectors
@@ -65,14 +65,14 @@ internal object EncodeCommandLine {
     private const val COMPRESS_OPTION_NONE = "none"
     private const val COMPRESS_OPTION_BROTLI = "brotli"
     private const val COMPRESS_OPTION_ZSTD = "zstd"
-    const val DUMP_STREAMS_OPTION = "rawstreams"
     const val PARALLEL_OPTION = "parallel"
     const val VERBOSE_OPTION = "verbose"
+    const val CACHE_STATS_OPTION = "cache-stats"
     const val CONTINUE_OPTION = "continue"
     const val HELP_OPTION = "help"
     const val SERVER_ARG = "server"
 
-    private fun getAllowedCompressions(cmd: CommandLine): Stream<String> {
+    internal fun getAllowedCompressions(cmd: CommandLine): Stream<String> {
         val extra = if (cmd.hasOption(INPUT_PMTILES_ARG)) Stream.of(COMPRESS_OPTION_BROTLI, COMPRESS_OPTION_ZSTD) else Stream.of()
         return Stream.concat(
             Stream.of(
@@ -183,7 +183,8 @@ internal object EncodeCommandLine {
                     .optionalArg(true)
                     .argName("pattern")
                     .desc(
-                        "Re-generate ID values of matching layers (default all).  Sequential values are assigned for optimal encoding, when ID values have no special meaning.",
+                        "Re-generate ID values of matching layers (default all).  " +
+                            "Sequential values are assigned for optimal encoding, when ID values have no special meaning.",
                     ).required(false)
                     .get(),
             )
@@ -213,12 +214,10 @@ internal object EncodeCommandLine {
                     .optionalArg(false)
                     .argName("level")
                     .desc(
-                        (
-                            "Minimum zoom level to encode tiles.  Only applies with --" +
-                                INPUT_MBTILES_ARG +
-                                " or --" +
-                                INPUT_PMTILES_ARG
-                        ),
+                        "Minimum zoom level to encode tiles.  Only applies with --" +
+                            INPUT_MBTILES_ARG +
+                            " or --" +
+                            INPUT_PMTILES_ARG,
                     ).required(false)
                     .converter(Converter.NUMBER)
                     .get(),
@@ -239,22 +238,6 @@ internal object EncodeCommandLine {
                         ),
                     ).required(false)
                     .converter(Converter.NUMBER)
-                    .get(),
-            )
-            options.addOption(
-                Option
-                    .builder()
-                    .longOpt(INCLUDE_METADATA_OPTION)
-                    .hasArg(false)
-                    .deprecated()
-                    .desc(
-                        (
-                            "Write tile metadata alongside the output tile (adding '.meta'). " +
-                                "Only applies with --" +
-                                INPUT_TILE_ARG +
-                                "."
-                        ),
-                    ).required(false)
                     .get(),
             )
             options.addOption(
@@ -299,11 +282,9 @@ internal object EncodeCommandLine {
                     .longOpt(FSST_NATIVE_ENCODING_OPTION)
                     .hasArg(false)
                     .desc(
-                        (
-                            "Enable FSST encodings of string columns (Native implementation: " +
-                                (if (FsstJni.isLoaded()) "" else "Not ") +
-                                " available)"
-                        ),
+                        "Enable FSST encodings of string columns (Native implementation: " +
+                            (if (FsstJni.isLoaded()) "" else "Not ") +
+                            " available)",
                     ).required(false)
                     .get(),
             )
@@ -403,12 +384,10 @@ Add an explicit column mapping on the specified layers:
                     .longOpt(DECODE_OPTION)
                     .hasArg(false)
                     .desc(
-                        (
-                            "Test decoding the tile after encoding it. " +
-                                "Only applies with --" +
-                                INPUT_TILE_ARG +
-                                "."
-                        ),
+                        "Test decoding the tile after encoding it. " +
+                            "Only applies with --" +
+                            INPUT_TILE_ARG +
+                            ".",
                     ).required(false)
                     .get(),
             )
@@ -433,12 +412,10 @@ Add an explicit column mapping on the specified layers:
                     .longOpt(PRINT_MVT_OPTION)
                     .hasArg(false)
                     .desc(
-                        (
-                            "Print the round-tripped MVT tile to stdout. " +
-                                "Only applies with --" +
-                                INPUT_TILE_ARG +
-                                "."
-                        ),
+                        "Print the round-tripped MVT tile to stdout. " +
+                            "Only applies with --" +
+                            INPUT_TILE_ARG +
+                            ".",
                     ).required(false)
                     .get(),
             )
@@ -447,14 +424,8 @@ Add an explicit column mapping on the specified layers:
                     .builder()
                     .longOpt(COMPARE_GEOM_OPTION)
                     .hasArg(false)
-                    .desc(
-                        (
-                            "Assert that geometry in the decoded tile is the same as the input tile. " +
-                                "Only applies with --" +
-                                INPUT_TILE_ARG +
-                                "."
-                        ),
-                    ).required(false)
+                    .desc("Assert that geometry in the decoded tile is the same as the input tile.")
+                    .required(false)
                     .get(),
             )
             options.addOption(
@@ -462,14 +433,8 @@ Add an explicit column mapping on the specified layers:
                     .builder()
                     .longOpt(COMPARE_PROP_OPTION)
                     .hasArg(false)
-                    .desc(
-                        (
-                            "Assert that properties in the decoded tile is the same as the input tile. " +
-                                "Only applies with --" +
-                                INPUT_TILE_ARG +
-                                "."
-                        ),
-                    ).required(false)
+                    .desc("Assert that properties in the decoded tile is the same as the input tile.")
+                    .required(false)
                     .get(),
             )
             options.addOption(
@@ -494,21 +459,6 @@ Add an explicit column mapping on the specified layers:
             options.addOption(
                 Option
                     .builder()
-                    .longOpt(DUMP_STREAMS_OPTION)
-                    .hasArg(false)
-                    .desc(
-                        (
-                            "Dump the raw contents of the individual streams. " +
-                                "Only applies with --" +
-                                INPUT_TILE_ARG +
-                                "."
-                        ),
-                    ).required(false)
-                    .get(),
-            )
-            options.addOption(
-                Option
-                    .builder()
                     .longOpt(TIMER_OPTION)
                     .hasArg(false)
                     .desc("Print the time it takes, in ms, to decode a tile.")
@@ -522,17 +472,15 @@ Add an explicit column mapping on the specified layers:
                     .hasArg(true)
                     .argName("algorithm")
                     .desc(
-                        (
-                            "Compress tile data with one of 'deflate', 'gzip', or 'none'. " +
-                                "Only applies with --" +
-                                INPUT_MBTILES_ARG +
-                                ", --" +
-                                INPUT_PMTILES_ARG +
-                                " or --" +
-                                INPUT_OFFLINEDB_ARG +
-                                "." +
-                                " Default: none for MBTiles and offline database, keep existing for PMTiles."
-                        ),
+                        "Compress tile data with one of 'deflate', 'gzip', or 'none'. " +
+                            "Only applies with --" +
+                            INPUT_MBTILES_ARG +
+                            ", --" +
+                            INPUT_PMTILES_ARG +
+                            " or --" +
+                            INPUT_OFFLINEDB_ARG +
+                            "." +
+                            " Default: none for MBTiles and offline database, keep existing for PMTiles.",
                     ).required(false)
                     .get(),
             )
@@ -545,14 +493,12 @@ Add an explicit column mapping on the specified layers:
                     .optionalArg(true)
                     .argName("threads")
                     .desc(
-                        (
-                            "Enable parallel encoding of tiles.  Only applies with --" +
-                                INPUT_MBTILES_ARG +
-                                ", --" +
-                                INPUT_OFFLINEDB_ARG +
-                                ", or --" +
-                                INPUT_PMTILES_ARG
-                        ),
+                        "Enable parallel encoding of tiles.  Only applies with --" +
+                            INPUT_MBTILES_ARG +
+                            ", --" +
+                            INPUT_OFFLINEDB_ARG +
+                            ", or --" +
+                            INPUT_PMTILES_ARG,
                     ).required(false)
                     .converter(Converter.NUMBER)
                     .get(),
@@ -575,13 +521,22 @@ Add an explicit column mapping on the specified layers:
                     .optionalArg(true)
                     .argName("level")
                     .desc(
-                        (
-                            "Select output verbosity for status and information on stderr. " +
-                                "Optionally specify a level: off, fatal, error, warn, info, debug, trace. " +
-                                "Default is info, or debug if --" +
-                                VERBOSE_OPTION +
-                                " is specified without a level."
-                        ),
+                        "Select output verbosity for status and information on stderr. " +
+                            "Optionally specify a level: off, fatal, error, warn, info, debug, trace. " +
+                            "Default is info, or debug if --" +
+                            VERBOSE_OPTION +
+                            " is specified without a level.",
+                    ).required(false)
+                    .get(),
+            )
+            options.addOption(
+                Option
+                    .builder()
+                    .longOpt(CACHE_STATS_OPTION)
+                    .hasArg(false)
+                    .desc(
+                        "Show cache stats. Implies verbose output. Only applies with --" +
+                            INPUT_PMTILES_ARG,
                     ).required(false)
                     .get(),
             )
@@ -612,13 +567,13 @@ Add an explicit column mapping on the specified layers:
             val tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, null as String?)
             if (tessellateSource != null) {
                 // throw if it's not a valid URI
-                val ignored = URI(tessellateSource)
+                URI(tessellateSource)
             }
 
             val filterRegex = cmd.getOptionValue(FILTER_LAYERS_OPTION, null as String?)
             if (filterRegex != null) {
                 // throw if it's not a valid regex
-                val ignored = Pattern.compile(filterRegex)
+                Pattern.compile(filterRegex)
             }
 
             val compressOption = cmd.getOptionValue(COMPRESS_OPTION, COMPRESS_OPTION_NONE)
@@ -674,27 +629,35 @@ Add an explicit column mapping on the specified layers:
         val header =
             "Convert an MVT tile or a container file containing MVT tiles to MLT format.\n"
         val footer =
-            (
-                "\nExample usages:\n" +
-                    " Encode a single tile:\n" +
-                    "    encode --mvt input.mvt --mlt output.mlt\n" +
-                    " Encode all tiles in an MBTiles file, with compression and parallel encoding:\n" +
-                    "    encode --mbtiles input.mbtiles --dir output_dir --compress gzip -j\n" +
-                    " Start an encoding server on port 8080:\n" +
-                    "    encode --server 8080\n" +
-                    "\nEnvironment variables:\n" +
-                    "  " + ENV_TILE_LOG_INTERVAL + ": Number of tiles between status log messages (default: 10000)\n" +
-                    "  " + ENV_COMPRESSION_RATIO_THRESHOLD + ": Minimum compression ratio to apply compression (default: " +
-                    DEFAULT_COMPRESSION_RATIO_THRESHOLD +
-                    ")\n  " +
-                    ENV_COMPRESSION_FIXED_THRESHOLD + ": Minimum savings in bytes for a tile to be compressed (default: " +
-                    DEFAULT_COMPRESSION_FIXED_THRESHOLD +
-                    ")\n  " +
-                    ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maximum heap size (default: " +
-                    DEFAULT_CACHE_MAX_HEAP_PERCENT + ")\n  " +
-                    ENV_CACHE_EXPIRE + ": Cache expiration duration after access, in ISO-8601 format (e.g. P1.2S) \n" +
-                    "    or plain (e.g., 1.2s) (default: " + DEFAULT_CACHE_EXPIRE.toString() + ")\n"
-            )
+            "\nExample usages:\n" +
+                " Encode a single tile:\n" +
+                "  encode --mvt input.mvt --mlt output.mlt\n" +
+                " Encode all tiles in an MBTiles file, with compression and parallel encoding:\n" +
+                "  encode --mbtiles input.mbtiles --dir output_dir --compress gzip -j\n" +
+                " Start an encoding server on port 8080:\n" +
+                "  encode --server 8080\n\n" +
+                "Environment variables:\n" +
+                " " + ENV_TILE_LOG_INTERVAL + ": Number of tiles between status log messages (default: 10000)\n" +
+                " " + ENV_COMPRESSION_RATIO_THRESHOLD + ": Minimum compression ratio to apply compression (default: " +
+                DEFAULT_COMPRESSION_RATIO_THRESHOLD + ")\n" +
+                "  Only applies with --" + INPUT_MBTILES_ARG + ".\n" +
+                " " + ENV_COMPRESSION_FIXED_THRESHOLD + ": Minimum savings in bytes for a tile to be compressed (default: " +
+                " " + DEFAULT_COMPRESSION_FIXED_THRESHOLD + ")\n" +
+                "  Only applies with --" + INPUT_MBTILES_ARG + ".\n" +
+                " " + ENV_CACHE_MAX + ": Maximum cache size in bytes. (default: " + DEFAULT_CACHE_MAX + ")\n" +
+                " " + ENV_CACHE_MAX_HEAP_PERCENT + ": Maximum cache size as a percentage of maximum heap size.\n" +
+                "  Overrides " + ENV_CACHE_MAX + " if non-zero. (default: " + DEFAULT_CACHE_MAX_HEAP_PERCENT + ")\n" +
+                " " + ENV_CACHE_EXPIRE + ": Cache expiration duration after access, in ISO-8601 format (e.g. P1.2S)\n" +
+                "  or plain (e.g., 1.2s). (default: " + DEFAULT_CACHE_EXPIRE.toString() + ")\n" +
+                "  Zero causes cache entries to be evicted only due to size.\n" +
+                " " + ENV_CACHE_BLOCK_SIZE + ": If zero, individual tiles will be cached. If non-zero, the cache will\n" +
+                "  store aligned blocks of that size. (default: " + DEFAULT_CACHE_BLOCK_SIZE.toString() + ")\n" +
+                " " + ENV_CACHE_AVERAGE_WEIGHT + ": Average size of tiles in bytes. (default: " + DEFAULT_CACHE_AVERAGE_WEIGHT + ")\n" +
+                "  Zero disables initial cache size estimation.\n" +
+                " " + ENV_MAX_TILE_TRACK_SIZE + ": Maximum size of PMTiles tiles to track for duplicate detection. (default: " +
+                DEFAULT_MAX_TILE_TRACK_SIZE +
+                ")\n" +
+                " All cache options only apply with --" + INPUT_PMTILES_ARG + ".\n"
 
         val target = TextHelpAppendable(System.err)
 
@@ -737,89 +700,70 @@ Add an explicit column mapping on the specified layers:
         if (cmd.hasOption(COLUMN_MAPPING_AUTO_OPTION)) {
             throw NotImplementedException("Auto column mappings are not implemented yet")
         }
-        if (cmd.hasOption(COLUMN_MAPPING_LIST_OPTION)) {
-            val strings = cmd.getOptionValues(COLUMN_MAPPING_LIST_OPTION)
-            if (strings != null) {
-                for (item in strings) {
-                    val matcher = colMapListPattern.matcher(item)
-                    if (matcher.matches()) {
-                        // matcher doesn't support multiple group matches, split them separately
-                        val layers = parseLayerPatterns(matcher.group(1))
-                        val list = matcher.group(2)
-                        val columnNames =
-                            Arrays
-                                .stream<String>(
-                                    list
-                                        .split(",".toRegex())
-                                        .dropLastWhile { it.isEmpty() }
-                                        .toTypedArray(),
-                                ).map<String?> { obj: String? -> obj!!.trim { it <= ' ' } }
-                                .filter { s: String? -> !s!!.isEmpty() }
-                                .collect(Collectors.toList())
-                        result.merge(
-                            layers,
-                            listOf(ColumnMapping(columnNames, true)),
-                        ) { oldList: MutableList<ColumnMapping?>?, newList: MutableList<ColumnMapping?>? ->
-                            Stream
-                                .of<MutableList<ColumnMapping?>?>(
-                                    oldList,
-                                    newList,
-                                ).flatMap<ColumnMapping?> { obj: MutableList<ColumnMapping?>? -> obj!!.stream() }
-                                .toList()
-                        }
-                    } else {
-                        logger.warn(
-                            "Invalid column mapping ignored: '{}'. Expected pattern is: {}",
-                            item,
-                            colMapListPattern,
-                        )
-                    }
-                }
+        for (item in cmd.getOptionValues(COLUMN_MAPPING_LIST_OPTION) ?: arrayOf()) {
+            val matcher = colMapListPattern.matcher(item)
+            if (matcher.matches() && matcher.groupCount() == 2) {
+                // matcher doesn't support multiple group matches, split them separately
+                val layers = parseLayerPatterns(matcher.group(1) ?: "")
+                val list = matcher.group(2) ?: ""
+                val columnNames =
+                    list
+                        .split(",")
+                        .map { obj -> obj.trim { it <= ' ' } }
+                        .filter { !it.isEmpty() }
+                        .toList()
+                addColumnMapping(result, layers, ColumnMapping(columnNames, true))
+            } else {
+                logger.warn(
+                    "Invalid column mapping ignored: '{}'. Expected pattern is: {}",
+                    item,
+                    colMapListPattern,
+                )
             }
         }
-        val strings = cmd.getOptionValues(COLUMN_MAPPING_DELIM_OPTION)
-        if (strings != null) {
-            for (item in strings) {
-                var matcher = colMapSeparatorPattern1.matcher(item)
-                if (!matcher.matches()) {
-                    matcher = colMapSeparatorPattern2.matcher(item)
+
+        for (item in cmd.getOptionValues(COLUMN_MAPPING_DELIM_OPTION) ?: arrayOf()) {
+            val matcher =
+                colMapSeparatorPattern1.matcher(item).let {
+                    if (it.matches()) it else colMapSeparatorPattern2.matcher(item)
                 }
-                if (matcher.matches()) {
-                    // matcher doesn't support multiple group matches, split them separately
-                    val layers = parseLayerPatterns(matcher.group(1))
-                    val prefix = parsePattern(matcher.group(2))
-                    val delimiter = parsePattern(matcher.group(3))
-                    result.merge(
-                        layers,
-                        listOf(ColumnMapping(prefix, delimiter, true)),
-                    ) { oldList: MutableList<ColumnMapping?>?, newList: MutableList<ColumnMapping?>? ->
-                        Stream
-                            .of<MutableList<ColumnMapping?>?>(
-                                oldList,
-                                newList,
-                            ).flatMap<ColumnMapping?> { obj: MutableList<ColumnMapping?>? -> obj!!.stream() }
-                            .toList()
-                    }
-                } else {
-                    logger.warn(
-                        "Invalid column mapping ignored: '{}'. Expected pattern is: {} or {}",
-                        item,
-                        colMapSeparatorPattern1,
-                        colMapSeparatorPattern2,
-                    )
-                }
+            if (matcher.matches() && matcher.groupCount() == 3) {
+                // matcher doesn't support multiple group matches, split them separately
+                val layers = parseLayerPatterns(matcher.group(1) ?: "")
+                val prefix = parsePattern(matcher.group(2) ?: "")
+                val delimiter = parsePattern(matcher.group(3) ?: "")
+                addColumnMapping(result, layers, ColumnMapping(prefix, delimiter, true))
+            } else {
+                logger.warn(
+                    "Invalid column mapping ignored: '{}'. Expected pattern is: {} or {}",
+                    item,
+                    colMapSeparatorPattern1,
+                    colMapSeparatorPattern2,
+                )
             }
         }
         return result
     }
 
-    private fun parseLayerPatterns(pattern: String?): Pattern? =
+    /** Add a new item, appending the mappings to any existing mappings for the same layer pattern */
+    private fun addColumnMapping(
+        result: ColumnMappingConfig,
+        newLayer: Pattern,
+        newMapping: ColumnMapping,
+    ) {
+        result.merge(
+            newLayer,
+            listOf(newMapping),
+        ) { oldList, newList ->
+            Stream.of(oldList, newList).flatMap { it.stream() }.toList()
+        }
+    }
+
+    private fun parseLayerPatterns(pattern: String): Pattern =
         if (StringUtils.isBlank(pattern)) {
             colMapMatchAll
         } else {
-            parsePattern(
-                pattern!!,
-            )
+            parsePattern(pattern)
         }
 
     private fun parsePattern(pattern: String): Pattern {
@@ -840,3 +784,56 @@ Add an explicit column mapping on the specified layers:
 
     private val logger: Logger = LoggerFactory.getLogger(EncodeCommandLine::class.java)
 }
+
+val CommandLine.minZoom get() = getParsedOptionValue<Long>(EncodeCommandLine.MIN_ZOOM_OPTION, 0L).toInt()
+val CommandLine.maxZoom get() = getParsedOptionValue<Long>(EncodeCommandLine.MAX_ZOOM_OPTION, Int.MAX_VALUE.toLong()).toInt()
+val CommandLine.logLevel get() =
+    (
+        if (hasOption(EncodeCommandLine.VERBOSE_OPTION)) {
+            Level.toLevel(getOptionValue(EncodeCommandLine.VERBOSE_OPTION), Level.DEBUG)
+        } else {
+            Level.INFO
+        }
+    ).coerceAtLeast(if (hasOption(EncodeCommandLine.CACHE_STATS_OPTION)) Level.DEBUG else Level.OFF)
+val CommandLine.sortFeaturesPattern get() =
+    if (hasOption(EncodeCommandLine.SORT_FEATURES_OPTION)) {
+        Pattern.compile(getOptionValue(EncodeCommandLine.SORT_FEATURES_OPTION, ".*"))
+    } else {
+        null
+    }
+val CommandLine.regenIDsPattern get() =
+    if (hasOption(EncodeCommandLine.REGEN_IDS_OPTION)) {
+        Pattern.compile(getOptionValue(EncodeCommandLine.REGEN_IDS_OPTION, ".*"))
+    } else {
+        null
+    }
+val CommandLine.outlineFeatureTables get() =
+    getOptionValues(EncodeCommandLine.OUTLINE_FEATURE_TABLES_OPTION)
+val CommandLine.useFSSTJava get() = hasOption(EncodeCommandLine.FSST_ENCODING_OPTION)
+val CommandLine.useFSSTNative get() = hasOption(EncodeCommandLine.FSST_NATIVE_ENCODING_OPTION)
+val CommandLine.tessellateSource get() =
+    getOptionValue(EncodeCommandLine.TESSELLATE_URL_OPTION, null as String?)
+val CommandLine.tessellatePolygons get() =
+    (tessellateSource != null) || hasOption(EncodeCommandLine.PRE_TESSELLATE_OPTION)
+val CommandLine.compressionType get() =
+    getOptionValue(EncodeCommandLine.COMPRESS_OPTION, null as String?)
+val CommandLine.enableCoerceOnTypeMismatch get() = hasOption(EncodeCommandLine.ALLOW_COERCE_OPTION)
+val CommandLine.enableElideOnTypeMismatch get() = hasOption(EncodeCommandLine.ALLOW_ELISION_OPTION)
+val CommandLine.filterRegex get() =
+    getOptionValue(EncodeCommandLine.FILTER_LAYERS_OPTION, null as String?)
+val CommandLine.filterPattern get() = filterRegex?.let(Pattern::compile)
+val CommandLine.filterInvert get() = hasOption(EncodeCommandLine.FILTER_LAYERS_INVERT_OPTION)
+val CommandLine.threadCount get() =
+    if (hasOption(EncodeCommandLine.PARALLEL_OPTION)) {
+        getParsedOptionValue<Long>(EncodeCommandLine.PARALLEL_OPTION, 0L).toInt()
+    } else {
+        1
+    }.let {
+        if (it > 0) {
+            it
+        } else {
+            Runtime
+                .getRuntime()
+                .availableProcessors()
+        }
+    }

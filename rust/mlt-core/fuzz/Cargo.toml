@@ -20,12 +20,18 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "decoded_layer"
+path = "fuzz_targets/decoded_layer.rs"
+test = false
+doc = false
+bench = false
+
 [dependencies]
 arbitrary = { version = "1.4.2", features = ["derive"] }
-borrowme = "0.0.15"
 hex = "0.4.3"
 libfuzzer-sys = "0.4"
-mlt-core = { path = ".." }
+mlt-core = { path = "..", features = ["arbitrary"] }
 pretty_assertions = "1.4"
 
 [lints.rust]
@@ -42,3 +48,9 @@ panic_in_result_fn = "warn"
 todo = "warn"
 unimplemented = "warn"
 unused_trait_names = "warn"
+
+# Too noisy
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+multiple_crate_versions = "allow"
+too_many_lines = "allow"

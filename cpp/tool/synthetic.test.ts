@@ -18,6 +18,18 @@ const SKIPPED_TESTS = [
   "polygon_morton_tes",
   "polygon_multi_fpf",
   "polygon_fpf_tes",
+  "poly_colinear_fpf",
+  "poly_colinear_fpf_tes",
+  "poly_fpf",
+  "poly_fpf_tes",
+  "poly_hole_fpf",
+  "poly_hole_fpf_tes",
+  "poly_hole_touching_fpf",
+  "poly_hole_touching_fpf_tes",
+  "poly_multi_fpf",
+  "poly_multi_fpf_tes",
+  "poly_self_intersect_fpf",
+  "poly_self_intersect_fpf_tes",
 ];
 
 describe("MLT Decoder - Synthetic tests", () => {

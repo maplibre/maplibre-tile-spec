@@ -1,9 +1,9 @@
-import type TopologyVector from "../../vector/geometry/topologyVector";
 import { convertGeometryVector } from "./geometryVectorConverter";
 import { decodeZOrderCurve } from "./zOrderCurve";
+import type Point from "@mapbox/point-geometry";
 import type { GEOMETRY_TYPE } from "./geometryType";
 import type { VertexBufferType } from "./vertexBufferType";
-import type Point from "@mapbox/point-geometry";
+import type { TopologyVector } from "../../vector/geometry/topologyVector";
 
 export type CoordinatesArray = Array<Array<Point>>;
 
@@ -21,8 +21,8 @@ export abstract class GeometryVector {
     protected constructor(
         private readonly _vertexBufferType: VertexBufferType,
         private readonly _topologyVector: TopologyVector,
-        private readonly _vertexOffsets: Int32Array,
-        private readonly _vertexBuffer: Int32Array,
+        private readonly _vertexOffsets: Uint32Array | undefined,
+        private readonly _vertexBuffer: Int32Array | Uint32Array,
         private readonly _mortonSettings?: MortonSettings,
     ) {}
 
@@ -34,11 +34,11 @@ export abstract class GeometryVector {
         return this._topologyVector;
     }
 
-    get vertexOffsets(): Int32Array {
+    get vertexOffsets(): Uint32Array | undefined {
         return this._vertexOffsets;
     }
 
-    get vertexBuffer(): Int32Array {
+    get vertexBuffer(): Int32Array | Uint32Array {
         return this._vertexBuffer;
     }
 

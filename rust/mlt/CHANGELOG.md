@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.7...rust-mlt-v0.1.8) - 2026-03-23
+
+### Other
+
+- *(rust)* migrate to Rust fastpfor ([#1190](https://github.com/maplibre/maplibre-tile-spec/pull/1190))
+
+## [0.1.7](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.6...rust-mlt-v0.1.7) - 2026-03-17
+
+### Other
+
+- *(rust)* memory budgeting, codecs  ([#1168](https://github.com/maplibre/maplibre-tile-spec/pull/1168))
+- *(rust)* minor noop cleanup ([#1167](https://github.com/maplibre/maplibre-tile-spec/pull/1167))
+- *(rust)* rename EncDec variants ([#1165](https://github.com/maplibre/maplibre-tile-spec/pull/1165))
+- *(rust)* add stateful decoder ([#1163](https://github.com/maplibre/maplibre-tile-spec/pull/1163))
+- *(rust)* get rid of borrowme, add EncDec enum ([#1141](https://github.com/maplibre/maplibre-tile-spec/pull/1141))
+
+## [0.1.6](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.5...rust-mlt-v0.1.6) - 2026-03-10
+
+### Fixed
+
+- *(rust)* migrate part of our lengths from usize to u32 ([#1078](https://github.com/maplibre/maplibre-tile-spec/pull/1078))
+
+### Other
+
+- *(rust)* rework our internal data model ([#1099](https://github.com/maplibre/maplibre-tile-spec/pull/1099))
+
+## [0.1.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.4...rust-mlt-v0.1.5) - 2026-03-08
+
+### Other
+
+- *(rust)* bump fastpfor, enable SIMD test, cleanup ([#1052](https://github.com/maplibre/maplibre-tile-spec/pull/1052))
+
 ## [0.1.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.3...rust-mlt-v0.1.4) - 2026-03-04
 
 ### Fixed

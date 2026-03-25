@@ -132,14 +132,18 @@ fn feature_property_lines(feat: &Feature) -> Vec<Line<'static>> {
     }
 }
 
-pub fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
+pub fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) -> Rect {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .constraints([
+            Constraint::Percentage(app.properties_pct),
+            Constraint::Percentage(100u16.saturating_sub(app.properties_pct)),
+        ])
         .split(area);
 
     render_properties_top(f, chunks[0], app);
     render_geometry_stats(f, chunks[1], app);
+    chunks[1]
 }
 
 fn render_properties_top(f: &mut Frame<'_>, area: Rect, app: &mut App) {

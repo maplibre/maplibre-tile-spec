@@ -1,11 +1,12 @@
-use std::collections::HashMap;
-
+use insta::assert_snapshot;
+use mlt_core::__private::{dec, parser};
 use mlt_core::v01::{
-    DecodedProperty, IntEncoder, LogicalEncoder, MultiPropertyEncoder, OwnedEncodedProperty,
-    PhysicalEncoder, PresenceStream, PropValue, Property, PropertyEncoder, ScalarEncoder,
-    StrEncoder,
+    EncodeProperties as _, GeometryEncoder, GeometryValues, IntEncoder, Layer01, LogicalEncoder,
+    ParsedProperty, PhysicalEncoder, PresenceStream, PropertyEncoder, ScalarEncoder,
+    SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty,
+    StagedStrings, StrEncoder, build_staged_shared_dict,
 };
-use mlt_core::{FromDecoded as _, FromEncoded as _, MltError, borrowme};
+use mlt_core::{MltError, MltResult};
 use proptest::prelude::*;
 
 // proptest_derive::Arbitrary is only derived for these types inside the crate
@@ -52,85 +53,163 @@ fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
     ]
 }
 
-fn roundtrip(decoded: &DecodedProperty, encoder: ScalarEncoder) -> DecodedProperty {
-    let enc = OwnedEncodedProperty::from_decoded(decoded, encoder).expect("encoding failed");
-    DecodedProperty::from_encoded(borrowme::borrow(&enc)).expect("decoding failed")
+fn staged_len(staged: &StagedProperty) -> usize {
+    match staged {
+        StagedProperty::Bool(s) => s.values.len(),
+        StagedProperty::I8(s) => s.values.len(),
+        StagedProperty::U8(s) => s.values.len(),
+        StagedProperty::I32(s) => s.values.len(),
+        StagedProperty::U32(s) => s.values.len(),
+        StagedProperty::I64(s) => s.values.len(),
+        StagedProperty::U64(s) => s.values.len(),
+        StagedProperty::F32(s) => s.values.len(),
+        StagedProperty::F64(s) => s.values.len(),
+        StagedProperty::Str(s) => s.lengths.len(),
+        StagedProperty::SharedDict(s) => s.items.first().map_or(0, |i| i.ranges.len()),
+    }
+}
+
+fn roundtrip(staged: StagedProperty, expected: &StagedProperty, encoder: ScalarEncoder) {
+    let n = staged_len(&staged);
+    let bytes = props_to_layer_bytes(vec![staged], vec![PropertyEncoder::Scalar(encoder)]).unwrap();
+    let mut p = parser();
+    let mut d = dec();
+    let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
+    if n > 0 {
+        assert!(
+            p.reserved() > 0,
+            "parser should reserve bytes for non-empty input"
+        );
+    }
+    let result = layer
+        .properties
+        .into_iter()
+        .next()
+        .expect("one property")
+        .into_parsed(&mut d)
+        .expect("decode failed");
+    if n > 0 {
+        assert!(
+            d.consumed() > 0,
+            "decoder should consume bytes for non-empty input"
+        );
+    }
+    assert_eq!(&result, expected);
+}
+
+/// Encode `props` using `encoders` through a minimal [`StagedLayer01`], serialize to bytes,
+/// and return the raw buffer so the caller can parse and decode with the correct lifetime.
+///
+/// This exercises the full public wire-format pipeline:
+/// `Staged* → Encoded* → Vec<u8> → Raw* → Parsed*`
+fn props_to_layer_bytes(
+    props: Vec<StagedProperty>,
+    encoders: Vec<PropertyEncoder>,
+) -> MltResult<Vec<u8>> {
+    let layer = StagedLayer01 {
+        name: "test".to_string(),
+        extent: 4096,
+        id: None,
+        geometry: GeometryValues::default(),
+        properties: props,
+    };
+    let encoded = layer.encode(StagedLayer01Encoder {
+        id: None,
+        geometry: GeometryEncoder::all(IntEncoder::varint()),
+        properties: encoders,
+    })?;
+    let mut buf = Vec::new();
+    encoded.write_to(&mut buf).map_err(MltError::Io)?;
+    Ok(buf)
 }
 
 fn strs(vals: &[&str]) -> Vec<Option<String>> {
-    vals.iter().map(|v| Some(v.to_string())).collect()
+    vals.iter().map(|v| Some((*v).to_string())).collect()
 }
 
 fn opt_strs(vals: &[Option<&str>]) -> Vec<Option<String>> {
     vals.iter().map(|v| v.map(ToString::to_string)).collect()
 }
 
-fn str_prop(name: &str, values: Vec<Option<String>>) -> DecodedProperty {
-    DecodedProperty {
-        name: name.to_string(),
-        values: PropValue::Str(values),
-    }
+fn shared_dict_prop(name: &str, children: Vec<(String, StagedStrings)>) -> StagedProperty {
+    let shared_dict =
+        build_staged_shared_dict(name.to_string(), children).expect("build shared dict");
+    StagedProperty::SharedDict(shared_dict)
 }
 
-fn expand_struct(prop: &OwnedEncodedProperty) -> Vec<DecodedProperty> {
-    Property::from(borrowme::borrow(prop))
-        .decode_expand()
-        .expect("decode_expand failed")
-        .into_iter()
-        .map(|p| p.decode().expect("decode failed"))
-        .collect()
-}
-
-fn decode_scalar(prop: &OwnedEncodedProperty) -> DecodedProperty {
-    DecodedProperty::from_encoded(borrowme::borrow(prop)).expect("decode failed")
-}
-
-fn struct_encode_and_expand(
+fn struct_encode_and_decode<F>(
     struct_name: &str,
     children: &[(&str, Vec<Option<String>>)],
     presence: PresenceStream,
     offset_encoder: IntEncoder,
-    shared_dicts: impl Into<HashMap<String, StrEncoder>>,
-) -> Vec<DecodedProperty> {
-    let decoded: Vec<DecodedProperty> = children
+    dict_encoder: StrEncoder,
+    check: F,
+) where
+    F: FnOnce(&ParsedProperty<'_>),
+{
+    let total_values: usize = children.iter().map(|(_, v)| v.len()).sum();
+    // Build a single StagedProperty::SharedDict
+    let items: Vec<(String, StagedStrings)> = children
         .iter()
-        .map(|(child_name, values)| str_prop(child_name, values.clone()))
+        .map(|(suffix, values)| ((*suffix).to_string(), StagedStrings::from(values.clone())))
         .collect();
-    let instructions: Vec<PropertyEncoder> = children
+    let decoded = StagedProperty::SharedDict(
+        build_staged_shared_dict(struct_name.to_string(), items).expect("build shared dict"),
+    );
+
+    // Build encoder with matching item encoders
+    let item_encoders: Vec<SharedDictItemEncoder> = children
         .iter()
-        .map(|(child_name, _)| {
-            PropertyEncoder::shared_dict(struct_name, *child_name, presence, offset_encoder)
+        .map(|_| SharedDictItemEncoder {
+            presence,
+            offsets: offset_encoder,
         })
         .collect();
-    let encoded = Vec::<OwnedEncodedProperty>::from_decoded(
-        &decoded,
-        MultiPropertyEncoder::new(instructions, shared_dicts.into()),
-    )
-    .expect("encoding failed");
-    assert_eq!(
-        encoded.len(),
-        1,
-        "struct children must collapse to one column"
-    );
-    expand_struct(&encoded[0])
+    let shared_enc = SharedDictEncoder {
+        dict_encoder,
+        items: item_encoders,
+    };
+
+    let bytes =
+        props_to_layer_bytes(vec![decoded], vec![shared_enc.into()]).expect("encoding failed");
+    let mut p = parser();
+    let mut d = dec();
+    let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
+    if total_values > 0 {
+        assert!(
+            p.reserved() > 0,
+            "parser should reserve bytes for non-empty input"
+        );
+    }
+    let result = layer
+        .properties
+        .into_iter()
+        .next()
+        .expect("one property")
+        .into_parsed(&mut d)
+        .expect("decode failed");
+    if total_values > 0 {
+        assert!(
+            d.consumed() > 0,
+            "decoder should consume bytes for non-empty input"
+        );
+    }
+    check(&result);
 }
 
 // Absent mode has no presence stream on the wire, so only all-Some inputs are
 // valid for those variants.
 macro_rules! integer_roundtrip_proptests {
-    ($present:ident, $absent:ident, $variant:ident, $ty:ty, $int_encoder:expr) => {
+    ($present:ident, $absent:ident, $variant:ident, $staged_fn:ident, $ty:ty, $int_encoder:expr) => {
         proptest! {
             #[test]
             fn $present(
                 values in prop::collection::vec(prop::option::of(any::<$ty>()), 0..100),
                 enc in $int_encoder,
             ) {
-                let prop = DecodedProperty {
-                    name: "x".to_string(),
-                    values: PropValue::$variant(values),
-                };
+                let staged = StagedProperty::$staged_fn("x", values);
                 let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
-                prop_assert_eq!(roundtrip(&prop, scalar_enc), prop);
+                roundtrip(staged.clone(), &staged, scalar_enc);
             }
 
             #[test]
@@ -139,27 +218,25 @@ macro_rules! integer_roundtrip_proptests {
                 enc in $int_encoder,
             ) {
                 let opt: Vec<Option<$ty>> = values.into_iter().map(Some).collect();
-                let prop = DecodedProperty {
-                    name: "x".to_string(),
-                    values: PropValue::$variant(opt),
-                };
+                let staged = StagedProperty::$staged_fn("x", opt);
                 let scalar_enc = ScalarEncoder::int(PresenceStream::Absent, enc);
-                prop_assert_eq!(roundtrip(&prop, scalar_enc), prop);
+                roundtrip(staged.clone(), &staged, scalar_enc);
             }
         }
     };
 }
 
 // i8, u8, i32, u32 — all physical encoders are valid.
-integer_roundtrip_proptests!(i8_present, i8_absent, I8, i8, arb_int_encoder());
-integer_roundtrip_proptests!(u8_present, u8_absent, U8, u8, arb_int_encoder());
-integer_roundtrip_proptests!(i32_present, i32_absent, I32, i32, arb_int_encoder());
-integer_roundtrip_proptests!(u32_present, u32_absent, U32, u32, arb_int_encoder());
+integer_roundtrip_proptests!(i8_present, i8_absent, I8, i8, i8, arb_int_encoder());
+integer_roundtrip_proptests!(u8_present, u8_absent, U8, u8, u8, arb_int_encoder());
+integer_roundtrip_proptests!(i32_present, i32_absent, I32, i32, i32, arb_int_encoder());
+integer_roundtrip_proptests!(u32_present, u32_absent, U32, u32, u32, arb_int_encoder());
 // FastPFOR does not support 64-bit integers.
 integer_roundtrip_proptests!(
     i64_present,
     i64_absent,
     I64,
+    i64,
     i64,
     arb_int_encoder_no_fastpfor()
 );
@@ -168,30 +245,29 @@ integer_roundtrip_proptests!(
     u64_absent,
     U64,
     u64,
+    u64,
     arb_int_encoder_no_fastpfor()
 );
 
 #[test]
 fn bool_specific_values() {
-    let prop = DecodedProperty {
-        name: "active".to_string(),
-        values: PropValue::Bool(vec![Some(true), None, Some(false), Some(true), None]),
-    };
-    assert_eq!(
-        roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present)),
-        prop
+    let values = vec![Some(true), None, Some(false), Some(true), None];
+    let staged = StagedProperty::bool("active", values);
+    roundtrip(
+        staged.clone(),
+        &staged,
+        ScalarEncoder::bool(PresenceStream::Present),
     );
 }
 
 #[test]
 fn bool_all_null() {
-    let prop = DecodedProperty {
-        name: "active".to_string(),
-        values: PropValue::Bool(vec![None, None, None]),
-    };
-    assert_eq!(
-        roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present)),
-        prop
+    let values = vec![None, None, None];
+    let staged = StagedProperty::bool("active", values);
+    roundtrip(
+        staged.clone(),
+        &staged,
+        ScalarEncoder::bool(PresenceStream::Present),
     );
 }
 
@@ -200,11 +276,8 @@ proptest! {
     fn bool_roundtrip(
         values in prop::collection::vec(prop::option::of(any::<bool>()), 0..100),
     ) {
-        let prop = DecodedProperty {
-            name: "flag".to_string(),
-            values: PropValue::Bool(values),
-        };
-        prop_assert_eq!(roundtrip(&prop, ScalarEncoder::bool(PresenceStream::Present)), prop);
+        let staged = StagedProperty::bool("flag", values);
+        roundtrip(staged.clone(), &staged, ScalarEncoder::bool(PresenceStream::Present));
     }
 }
 
@@ -217,11 +290,8 @@ proptest! {
             0..100,
         ),
     ) {
-        let prop = DecodedProperty {
-            name: "score".to_string(),
-            values: PropValue::F32(values),
-        };
-        prop_assert_eq!(roundtrip(&prop, ScalarEncoder::float(PresenceStream::Present)), prop);
+        let staged = StagedProperty::f32("score", values);
+        roundtrip(staged.clone(), &staged, ScalarEncoder::float(PresenceStream::Present));
     }
 
     #[test]
@@ -231,36 +301,32 @@ proptest! {
             0..100,
         ),
     ) {
-        let prop = DecodedProperty {
-            name: "score".to_string(),
-            values: PropValue::F64(values),
-        };
-        prop_assert_eq!(roundtrip(&prop, ScalarEncoder::float(PresenceStream::Present)), prop);
+        let staged = StagedProperty::f64("score", values);
+        roundtrip(staged.clone(), &staged, ScalarEncoder::float(PresenceStream::Present));
     }
 }
 
 #[test]
 fn str_scalar_with_nulls() {
-    let prop = str_prop(
-        "city",
-        opt_strs(&[Some("Berlin"), None, Some("Hamburg"), None]),
-    );
+    let values = opt_strs(&[Some("Berlin"), None, Some("Hamburg"), None]);
+    let staged = StagedProperty::str("city", values);
     let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-    assert_eq!(roundtrip(&prop, enc), prop);
+    roundtrip(staged.clone(), &staged, enc);
 }
 
 #[test]
 fn str_scalar_all_null() {
-    let prop = str_prop("city", opt_strs(&[None, None, None]));
+    let values = opt_strs(&[None, None, None]);
+    let staged = StagedProperty::str("city", values);
     let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-    assert_eq!(roundtrip(&prop, enc), prop);
+    roundtrip(staged.clone(), &staged, enc);
 }
 
 #[test]
 fn str_scalar_empty() {
-    let prop = str_prop("unused", vec![]);
+    let staged = StagedProperty::str("unused", vec![]);
     let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-    assert_eq!(roundtrip(&prop, enc), prop);
+    roundtrip(staged.clone(), &staged, enc);
 }
 
 proptest! {
@@ -271,9 +337,9 @@ proptest! {
             0..50,
         ),
     ) {
-        let prop = str_prop("name", values);
+        let staged = StagedProperty::str("name", values);
         let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-        prop_assert_eq!(roundtrip(&prop, enc), prop);
+        roundtrip(staged.clone(), &staged, enc);
     }
 }
 
@@ -285,183 +351,326 @@ fn fsst_scalar_string_roundtrip() {
         IntEncoder::plain(),
         IntEncoder::plain(),
     );
-    let prop = str_prop(
-        "name",
-        strs(&["Berlin", "Brandenburg", "Bremen", "Braunschweig"]),
-    );
-    assert_eq!(roundtrip(&prop, enc), prop);
+    let values = strs(&["Berlin", "Brandenburg", "Bremen", "Braunschweig"]);
+    let staged = StagedProperty::str("name", values);
+    roundtrip(staged.clone(), &staged, enc);
 }
 
 #[test]
 fn fsst_struct_shared_dict_roundtrip() {
     let de = strs(&["Berlin", "München", "Köln"]);
     let en = strs(&["Berlin", "Munich", "Cologne"]);
-    let result = struct_encode_and_expand(
+    struct_encode_and_decode(
         "name",
         &[(":de", de.clone()), (":en", en.clone())],
         PresenceStream::Present,
         IntEncoder::plain(),
-        [("name".to_string(), StrEncoder::plain(IntEncoder::plain()))],
+        StrEncoder::plain(IntEncoder::plain()),
+        |result| {
+            assert_eq!(result.name(), "name");
+            let ParsedProperty::SharedDict(shared_dict) = result else {
+                panic!("Expected SharedDict");
+            };
+            let items = &shared_dict.items;
+            assert_eq!(items.len(), 2);
+            assert_eq!(items[0].suffix, ":de");
+            assert_eq!(items[0].materialize(shared_dict), de);
+            assert_eq!(items[1].suffix, ":en");
+            assert_eq!(items[1].materialize(shared_dict), en);
+        },
     );
-    assert_eq!(result[0].values, PropValue::Str(de));
-    assert_eq!(result[1].values, PropValue::Str(en));
 }
 
 #[test]
 fn struct_with_nulls() {
     let de = opt_strs(&[Some("Berlin"), Some("München"), None]);
     let en = opt_strs(&[Some("Berlin"), None, Some("London")]);
-    let result = struct_encode_and_expand(
+    struct_encode_and_decode(
         "name",
         &[(":de", de.clone()), (":en", en.clone())],
         PresenceStream::Present,
         IntEncoder::plain(),
-        [("name".to_string(), StrEncoder::plain(IntEncoder::plain()))],
+        StrEncoder::plain(IntEncoder::plain()),
+        |result| {
+            assert_eq!(result.name(), "name");
+            let ParsedProperty::SharedDict(shared_dict) = result else {
+                panic!("Expected SharedDict");
+            };
+            let items = &shared_dict.items;
+            assert_eq!(items.len(), 2);
+            assert_eq!(items[0].suffix, ":de");
+            assert_eq!(items[0].materialize(shared_dict), de);
+            assert_eq!(items[1].suffix, ":en");
+            assert_eq!(items[1].materialize(shared_dict), en);
+        },
     );
-    assert_eq!(result.len(), 2);
-    assert_eq!(result[0].name, "name:de");
-    assert_eq!(result[0].values, PropValue::Str(de));
-    assert_eq!(result[1].name, "name:en");
-    assert_eq!(result[1].values, PropValue::Str(en));
+}
+
+#[test]
+fn struct_shared_dict_inline_ranges_track_nulls_and_empty_strings() {
+    let de = opt_strs(&[Some(""), None, Some("Berlin")]);
+    let en = opt_strs(&[Some(""), Some("Berlin"), Some("")]);
+    let prop = shared_dict_prop(
+        "name",
+        vec![
+            (":de".to_string(), StagedStrings::from(de.clone())),
+            (":en".to_string(), StagedStrings::from(en.clone())),
+        ],
+    );
+    let StagedProperty::SharedDict(shared_dict) = &prop else {
+        panic!("Expected SharedDict");
+    };
+    let items = &shared_dict.items;
+
+    assert_eq!(items[0].materialize(shared_dict), de);
+    assert_eq!(items[1].materialize(shared_dict), en);
+
+    assert_eq!(items[0].ranges[1], (-1, -1));
+    assert_eq!(items[0].get(shared_dict, 1), None);
+
+    let empty_de = items[0].ranges[0];
+    let empty_en = items[1].ranges[0];
+    assert_ne!(empty_de, (-1, -1));
+    assert_ne!(empty_en, (-1, -1));
+    assert_eq!(empty_de.0, empty_de.1);
+    assert_eq!(empty_en.0, empty_en.1);
 }
 
 #[test]
 fn struct_no_nulls() {
     let de = strs(&["Berlin", "München", "Hamburg"]);
     let en = strs(&["Berlin", "Munich", "Hamburg"]);
-    let result = struct_encode_and_expand(
+    struct_encode_and_decode(
         "name",
         &[(":de", de.clone()), (":en", en.clone())],
         PresenceStream::Present,
         IntEncoder::plain(),
-        [("name".to_string(), StrEncoder::plain(IntEncoder::plain()))],
+        StrEncoder::plain(IntEncoder::plain()),
+        |result| {
+            assert_eq!(result.name(), "name");
+            let ParsedProperty::SharedDict(shared_dict) = result else {
+                panic!("Expected SharedDict");
+            };
+            let items = &shared_dict.items;
+            assert_eq!(items[0].materialize(shared_dict), de);
+            assert_eq!(items[1].materialize(shared_dict), en);
+        },
     );
-    assert_eq!(result[0].values, PropValue::Str(de));
-    assert_eq!(result[1].values, PropValue::Str(en));
 }
 
 #[test]
 fn struct_shared_dict_deduplication() {
     let de = strs(&["Berlin", "Berlin"]);
     let en = strs(&["Berlin", "London"]);
-    let children = struct_encode_and_expand(
+    struct_encode_and_decode(
         "name",
         &[(":de", de.clone()), (":en", en.clone())],
         PresenceStream::Present,
         IntEncoder::plain(),
-        [("name".to_string(), StrEncoder::plain(IntEncoder::plain()))],
+        StrEncoder::plain(IntEncoder::plain()),
+        |result| {
+            let ParsedProperty::SharedDict(shared_dict) = result else {
+                panic!("Expected SharedDict");
+            };
+            let items = &shared_dict.items;
+            assert_eq!(items[0].materialize(shared_dict), de);
+            assert_eq!(items[1].materialize(shared_dict), en);
+        },
     );
-    assert_eq!(children[0].values, PropValue::Str(de));
-    assert_eq!(children[1].values, PropValue::Str(en));
 }
 
 #[test]
 fn struct_mixed_with_scalars() {
     let enc = IntEncoder::plain();
+    let str_enc = StrEncoder::plain(enc);
     let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
-    let population = DecodedProperty {
-        name: "population".to_string(),
-        values: PropValue::U32(vec![Some(3_748_000), Some(1_787_000)]),
-    };
-    let name_de = str_prop(":de", strs(&["Berlin", "Hamburg"]));
-    let name_en = str_prop(":en", strs(&["Berlin", "Hamburg"]));
-    let rank = DecodedProperty {
-        name: "rank".to_string(),
-        values: PropValue::U32(vec![Some(1), Some(2)]),
-    };
+    let population = StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let name_shared = shared_dict_prop(
+        "name:",
+        vec![
+            (
+                "de".to_string(),
+                StagedStrings::from(strs(&["Berlin", "Hamburg"])),
+            ),
+            (
+                "en".to_string(),
+                StagedStrings::from(strs(&["Berlin", "Hamburg"])),
+            ),
+        ],
+    );
+    let rank = StagedProperty::u32("rank", vec![Some(1), Some(2)]);
+    let population_staged =
+        StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let rank_staged = StagedProperty::u32("rank", vec![Some(1), Some(2)]);
 
-    let props = vec![
-        population.clone(),
-        name_de.clone(),
-        name_en.clone(),
-        rank.clone(),
-    ];
+    let props = vec![population, name_shared, rank];
     let prop_encs = vec![
         PropertyEncoder::Scalar(scalar_enc),
-        PropertyEncoder::shared_dict("name", ":de", PresenceStream::Present, enc),
-        PropertyEncoder::shared_dict("name", ":en", PresenceStream::Present, enc),
+        SharedDictEncoder {
+            dict_encoder: str_enc,
+            items: vec![
+                SharedDictItemEncoder {
+                    presence: PresenceStream::Present,
+                    offsets: enc,
+                },
+                SharedDictItemEncoder {
+                    presence: PresenceStream::Present,
+                    offsets: enc,
+                },
+            ],
+        }
+        .into(),
         PropertyEncoder::Scalar(scalar_enc),
     ];
-    let encoded = Vec::<OwnedEncodedProperty>::from_decoded(
-        &props,
-        MultiPropertyEncoder::new(
-            prop_encs,
-            HashMap::from([("name".to_string(), StrEncoder::plain(enc))]),
-        ),
-    )
-    .unwrap();
+    let bytes = props_to_layer_bytes(props, prop_encs).unwrap();
+    let mut p = parser();
+    let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
+    assert_snapshot!(p.reserved(), @"160");
+    let mut d = dec();
+    let mut decoded_props: Vec<_> = layer
+        .properties
+        .into_iter()
+        .map(|prop| prop.into_parsed(&mut d).expect("decode failed"))
+        .collect();
+    assert_snapshot!(d.consumed(), @"193");
 
-    // Output order: scalar "population", struct "name", scalar "rank"
-    assert_eq!(encoded.len(), 3);
-    assert_eq!(decode_scalar(&encoded[0]), population);
-    let name = expand_struct(&encoded[1]);
-    assert_eq!(name[0].name, "name:de");
-    assert_eq!(name[0].values, name_de.values);
-    assert_eq!(name[1].name, "name:en");
-    assert_eq!(name[1].values, name_en.values);
-    assert_eq!(decode_scalar(&encoded[2]), rank);
+    // Output order: scalar "population", struct "name:", scalar "rank"
+    assert_eq!(decoded_props.len(), 3);
+    assert_eq!(decoded_props[0], population_staged);
+    let name = decoded_props.remove(1);
+    assert_eq!(name.name(), "name:");
+    let ParsedProperty::SharedDict(shared_dict) = &name else {
+        panic!("Expected SharedDict");
+    };
+    let items = &shared_dict.items;
+    assert_eq!(items[0].suffix, "de");
+    assert_eq!(
+        items[0].materialize(shared_dict),
+        strs(&["Berlin", "Hamburg"])
+    );
+    assert_eq!(items[1].suffix, "en");
+    assert_eq!(
+        items[1].materialize(shared_dict),
+        strs(&["Berlin", "Hamburg"])
+    );
+    assert_eq!(decoded_props[1], rank_staged);
 }
 
 #[test]
 fn two_struct_groups_with_scalar_between() {
-    let name_de = str_prop(":de", strs(&["Berlin", "Hamburg"]));
-    let name_en = str_prop(":en", strs(&["Berlin", "Hamburg"]));
-    let population = DecodedProperty {
-        name: "population".to_string(),
-        values: PropValue::U32(vec![Some(3_748_000), Some(1_787_000)]),
-    };
-    let label_de = str_prop(":de", strs(&["BE", "HH"]));
-    let label_en = str_prop(":en", strs(&["BER", "HAM"]));
+    let name_shared = shared_dict_prop(
+        "name:",
+        vec![
+            (
+                "de".to_string(),
+                StagedStrings::from(strs(&["Berlin", "Hamburg"])),
+            ),
+            (
+                "en".to_string(),
+                StagedStrings::from(strs(&["Berlin", "Hamburg"])),
+            ),
+        ],
+    );
+    let population = StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let population_staged =
+        StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
+    let label_shared = shared_dict_prop(
+        "label:",
+        vec![
+            ("de".to_string(), StagedStrings::from(strs(&["BE", "HH"]))),
+            ("en".to_string(), StagedStrings::from(strs(&["BER", "HAM"]))),
+        ],
+    );
 
-    let decoded_props = vec![
-        name_de.clone(),
-        name_en.clone(),
-        population.clone(),
-        label_de.clone(),
-        label_en.clone(),
-    ];
+    let props = vec![name_shared, population, label_shared];
     let enc = IntEncoder::plain();
     let str_enc = StrEncoder::plain(IntEncoder::plain());
-    let encoded = Vec::<OwnedEncodedProperty>::from_decoded(
-        &decoded_props,
-        MultiPropertyEncoder::new(
-            vec![
-                PropertyEncoder::shared_dict("name:", "de", PresenceStream::Present, enc),
-                PropertyEncoder::shared_dict("name:", "en", PresenceStream::Present, enc),
-                ScalarEncoder::int(PresenceStream::Present, enc).into(),
-                PropertyEncoder::shared_dict("label:", "de", PresenceStream::Present, enc),
-                PropertyEncoder::shared_dict("label:", "en", PresenceStream::Present, enc),
+    let prop_encs = vec![
+        SharedDictEncoder {
+            dict_encoder: str_enc,
+            items: vec![
+                SharedDictItemEncoder {
+                    presence: PresenceStream::Present,
+                    offsets: enc,
+                },
+                SharedDictItemEncoder {
+                    presence: PresenceStream::Present,
+                    offsets: enc,
+                },
             ],
-            HashMap::from([
-                ("name:".to_string(), str_enc),
-                ("label:".to_string(), str_enc),
-            ]),
-        ),
-    )
-    .unwrap();
+        }
+        .into(),
+        ScalarEncoder::int(PresenceStream::Present, enc).into(),
+        SharedDictEncoder {
+            dict_encoder: str_enc,
+            items: vec![
+                SharedDictItemEncoder {
+                    presence: PresenceStream::Present,
+                    offsets: enc,
+                },
+                SharedDictItemEncoder {
+                    presence: PresenceStream::Present,
+                    offsets: enc,
+                },
+            ],
+        }
+        .into(),
+    ];
+
+    let bytes = props_to_layer_bytes(props, prop_encs).unwrap();
+    let mut p = parser();
+    let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
+    assert_snapshot!(p.reserved(), @"256");
+    let mut d = dec();
+    let decoded_props: Vec<_> = layer
+        .properties
+        .into_iter()
+        .map(|prop| prop.into_parsed(&mut d).expect("decode failed"))
+        .collect();
+    assert_snapshot!(d.consumed(), @"326");
 
     // Output order: struct "name:", scalar "population", struct "label:"
-    assert_eq!(encoded.len(), 3);
-    let name = expand_struct(&encoded[0]);
-    assert_eq!(name[0].name, "name:de");
-    assert_eq!(name[0].values, name_de.values);
-    assert_eq!(name[1].name, "name:en");
-    assert_eq!(name[1].values, name_en.values);
-    assert_eq!(decode_scalar(&encoded[1]), population);
-    let label = expand_struct(&encoded[2]);
-    assert_eq!(label[0].name, "label:de");
-    assert_eq!(label[0].values, label_de.values);
-    assert_eq!(label[1].name, "label:en");
-    assert_eq!(label[1].values, label_en.values);
+    assert_eq!(decoded_props.len(), 3);
+    let name = &decoded_props[0];
+    assert_eq!(name.name(), "name:");
+    let ParsedProperty::SharedDict(name_shared_dict) = name else {
+        panic!("Expected SharedDict");
+    };
+    let name_items = &name_shared_dict.items;
+    assert_eq!(name_items[0].suffix, "de");
+    assert_eq!(
+        name_items[0].materialize(name_shared_dict),
+        strs(&["Berlin", "Hamburg"])
+    );
+    assert_eq!(name_items[1].suffix, "en");
+    assert_eq!(
+        name_items[1].materialize(name_shared_dict),
+        strs(&["Berlin", "Hamburg"])
+    );
+    assert_eq!(decoded_props[1], population_staged);
+    let label = &decoded_props[2];
+    assert_eq!(label.name(), "label:");
+    let ParsedProperty::SharedDict(label_shared_dict) = label else {
+        panic!("Expected SharedDict");
+    };
+    let label_items = &label_shared_dict.items;
+    assert_eq!(label_items[0].suffix, "de");
+    assert_eq!(
+        label_items[0].materialize(label_shared_dict),
+        strs(&["BE", "HH"])
+    );
+    assert_eq!(label_items[1].suffix, "en");
+    assert_eq!(
+        label_items[1].materialize(label_shared_dict),
+        strs(&["BER", "HAM"])
+    );
 }
 
 #[test]
 fn struct_instruction_count_mismatch() {
-    let err = Vec::<OwnedEncodedProperty>::from_decoded(
-        &vec![DecodedProperty::default()],
-        MultiPropertyEncoder::new(vec![], HashMap::default()),
-    )
-    .unwrap_err();
+    let err = vec![StagedProperty::bool("", vec![])]
+        .encode(vec![])
+        .unwrap_err();
     assert!(
         matches!(
             err,
@@ -492,17 +701,29 @@ proptest! {
             .iter()
             .map(|(name, vals)| (name.as_str(), vals.clone()))
             .collect();
-        let re_children = struct_encode_and_expand(
+        let mut test_result: Result<(), TestCaseError> = Ok(());
+        struct_encode_and_decode(
             &struct_name,
             &child_refs,
             PresenceStream::Present,
             encoder,
-            [(struct_name.clone(), string_enc)],
+            string_enc,
+            |result| {
+                test_result = (|| {
+                    prop_assert_eq!(result.name(), struct_name.as_str());
+                    let ParsedProperty::SharedDict(shared_dict) = result else {
+                        return Err(TestCaseError::Fail("Expected SharedDict".into()));
+                    };
+                    let items = &shared_dict.items;
+                    prop_assert_eq!(items.len(), children.len());
+                    for (item, (child_name, values)) in items.iter().zip(children.iter()) {
+                        prop_assert_eq!(&item.suffix, child_name);
+                        prop_assert_eq!(item.materialize(shared_dict), values.clone());
+                    }
+                    Ok(())
+                })();
+            },
         );
-        prop_assert_eq!(re_children.len(), children.len());
-        for (re, (child_name, values)) in re_children.into_iter().zip(children.iter()) {
-            prop_assert_eq!(re.name, format!("{struct_name}{child_name}"));
-            prop_assert_eq!(re.values, PropValue::Str(values.clone()));
-        }
+        test_result?;
     }
 }

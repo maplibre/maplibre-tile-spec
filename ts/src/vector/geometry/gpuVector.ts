@@ -1,14 +1,14 @@
 import Point from "@mapbox/point-geometry";
 import { GEOMETRY_TYPE } from "./geometryType";
 import type { CoordinatesArray } from "./geometryVector";
-import type TopologyVector from "./topologyVector";
+import type { TopologyVector } from "./topologyVector";
 
 export abstract class GpuVector implements Iterable<CoordinatesArray> {
     protected constructor(
         private readonly _triangleOffsets: Uint32Array,
-        private readonly _indexBuffer: Int32Array,
-        private readonly _vertexBuffer: Int32Array,
-        private readonly _topologyVector?: TopologyVector | null,
+        private readonly _indexBuffer: Uint32Array,
+        private readonly _vertexBuffer: Int32Array | Uint32Array,
+        private readonly _topologyVector?: TopologyVector,
     ) {}
 
     abstract geometryType(index: number): number;
@@ -21,15 +21,15 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
         return this._triangleOffsets;
     }
 
-    get indexBuffer(): Int32Array {
+    get indexBuffer(): Uint32Array {
         return this._indexBuffer;
     }
 
-    get vertexBuffer(): Int32Array {
+    get vertexBuffer(): Int32Array | Uint32Array {
         return this._vertexBuffer;
     }
 
-    get topologyVector(): TopologyVector | null {
+    get topologyVector(): TopologyVector | undefined {
         return this._topologyVector;
     }
 

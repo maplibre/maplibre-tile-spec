@@ -5,7 +5,7 @@ use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::string::ToString;
 
-use anyhow::Result;
+use anyhow::Result as AnyResult;
 use clap::{Args, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;
@@ -14,10 +14,10 @@ use mlt_core::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::{
-    DictionaryType, Geometry, GeometryType, LengthType, LogicalEncoding, OffsetType,
-    PhysicalEncoding, Stream, StreamType,
+    DictionaryType, GeometryType, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
+    StreamMeta, StreamType,
 };
-use mlt_core::{Analyze as _, parse_layers};
+use mlt_core::{Analyze as _, Decoder, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
@@ -271,7 +271,7 @@ impl LsRow {
     #[must_use]
     pub fn path(&self) -> &Path {
         match self {
-            LsRow::Info { path, .. } | LsRow::Error { path, .. } | LsRow::Loading { path } => {
+            Self::Info { path, .. } | Self::Error { path, .. } | Self::Loading { path } => {
                 path.as_path()
             }
         }
@@ -286,7 +286,7 @@ fn has_glob_metachars(path: &Path) -> bool {
 
 /// Expand path arguments: if a path contains glob metacharacters, expand it to matching paths;
 /// otherwise use the path as-is. Directories are left as-is so `collect_tile_files` can recurse into them.
-fn expand_path_args(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
+fn expand_path_args(paths: &[PathBuf]) -> AnyResult<Vec<PathBuf>> {
     let mut out = Vec::new();
     for path in paths {
         if has_glob_metachars(path) {
@@ -301,7 +301,7 @@ fn expand_path_args(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
 }
 
 /// Build a `GlobSet` from patterns; returns None if patterns is empty.
-fn build_exclude_set(patterns: &[String]) -> Result<Option<GlobSet>> {
+fn build_exclude_set(patterns: &[String]) -> AnyResult<Option<GlobSet>> {
     if patterns.is_empty() {
         return Ok(None);
     }
@@ -314,7 +314,7 @@ fn build_exclude_set(patterns: &[String]) -> Result<Option<GlobSet>> {
 
 /// List tile files with statistics.
 /// Returns `true` if all files were valid, `false` if any file had an error, or no files.
-pub fn ls(args: &LsArgs) -> Result<bool> {
+pub fn ls(args: &LsArgs) -> AnyResult<bool> {
     let flags = LsFlags::from(args);
     let mut all_files = Vec::new();
 
@@ -473,7 +473,7 @@ fn collect_tile_files(
     path: &Path,
     args: &LsArgs,
     exclude_set: Option<&GlobSet>,
-) -> Result<Vec<PathBuf>> {
+) -> AnyResult<Vec<PathBuf>> {
     let matches_ext = |p: &Path| {
         if args.extension.is_empty() {
             is_tile_extension(p)
@@ -505,7 +505,7 @@ fn collect_from_dir<F>(
     recursive: bool,
     matches_ext: &F,
     exclude_set: Option<&GlobSet>,
-) -> Result<()>
+) -> AnyResult<()>
 where
     F: Fn(&Path) -> bool,
 {
@@ -522,7 +522,7 @@ where
     Ok(())
 }
 
-pub fn analyze_tile_file(path: &Path, base_path: &Path, flags: LsFlags) -> Result<MltFileInfo> {
+pub fn analyze_tile_file(path: &Path, base_path: &Path, flags: LsFlags) -> AnyResult<MltFileInfo> {
     let buffer = fs::read(path)?;
     let mut info = if is_mlt_extension(path) {
         analyze_mlt_buffer(&buffer, path, flags)?
@@ -548,47 +548,46 @@ pub fn analyze_tile_file(path: &Path, base_path: &Path, flags: LsFlags) -> Resul
     Ok(info)
 }
 
-pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<MltFileInfo> {
-    let mut layers = parse_layers(buffer)?;
+pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResult<MltFileInfo> {
+    let layers = Parser::default().parse_layers(buffer)?;
 
     let mut stream_count = 0;
     let mut algorithms: HashSet<StreamStat> = HashSet::new();
     for layer in &layers {
         if let Some(layer01) = layer.as_layer01() {
-            layer01.for_each_stream(&mut |stream| {
+            layer01.for_each_stream(&mut |stream_meta| {
                 stream_count += 1;
-                collect_stream_info(stream, &mut algorithms);
+                collect_stream_info(stream_meta, &mut algorithms);
             });
         }
     }
+
+    let layers = Decoder::default().decode_all(layers)?;
 
     let mut geometries = HashSet::new();
     let mut feature_count = 0;
     let mut data_size = 0;
     let mut meta_size = 0;
 
-    for layer in &mut layers {
-        layer.decode_all()?;
+    for layer in &layers {
         if let Some(layer01) = layer.as_layer01() {
             data_size += layer01.collect_statistic(DecodedDataSize);
             meta_size += layer01.collect_statistic(DecodedMetaSize);
             feature_count += layer01.collect_statistic(FeatureCount);
-
-            if let Geometry::Decoded(ref geom) = layer01.geometry {
-                for &geom_type in &geom.vector_types {
-                    geometries.insert(geom_type);
-                }
+            for &geom_type in &layer01.geometry.vector_types {
+                geometries.insert(geom_type);
             }
         }
     }
 
+    let layer_count = layers.len();
     let matches_json = if flags.validate {
         let json_path = path.with_extension("json");
         if json_path.is_file() {
             let expected: FeatureCollection =
                 serde_json::from_str(&fs::read_to_string(&json_path)?)
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
-            let actual = FeatureCollection::from_layers(&layers)?;
+            let actual = FeatureCollection::from_layers(layers)?;
             let expected_val = normalize_tiny_floats(serde_json::to_value(&expected)?);
             let actual_val = normalize_tiny_floats(serde_json::to_value(&actual)?);
             Some(json_values_equal(&expected_val, &actual_val))
@@ -610,7 +609,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<
         data_size: Some(data_size),
         meta_size: Some(meta_size),
         meta_pct: Some(percent_of(meta_size, data_size)),
-        layers: layers.len(),
+        layers: layer_count,
         features: feature_count,
         streams: Some(stream_count),
         algorithms,
@@ -679,7 +678,7 @@ fn normalize_tiny_floats(value: JsonValue) -> JsonValue {
     }
 }
 
-fn analyze_mvt_buffer(buffer: &[u8]) -> Result<MltFileInfo> {
+fn analyze_mvt_buffer(buffer: &[u8]) -> AnyResult<MltFileInfo> {
     let fc = mvt_to_feature_collection(buffer.to_vec())?;
 
     let mut layer_names = HashSet::new();
@@ -750,15 +749,15 @@ impl From<LogicalEncoding> for StatLogicalCodec {
     }
 }
 
-fn collect_stream_info(stream: &Stream, algo: &mut HashSet<StreamStat>) {
+fn collect_stream_info(meta: StreamMeta, algo: &mut HashSet<StreamStat>) {
     algo.insert((
-        stream.meta.stream_type,
-        stream.meta.encoding.physical,
-        StatLogicalCodec::from(stream.meta.encoding.logical),
+        meta.stream_type,
+        meta.encoding.physical,
+        StatLogicalCodec::from(meta.encoding.logical),
     ));
 }
 
-fn estimate_gzip_size(data: &[u8]) -> Result<usize> {
+fn estimate_gzip_size(data: &[u8]) -> AnyResult<usize> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(data)?;
     let compressed = encoder.finish()?;

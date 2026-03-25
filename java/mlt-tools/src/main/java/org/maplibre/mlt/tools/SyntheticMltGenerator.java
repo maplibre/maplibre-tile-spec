@@ -1,15 +1,49 @@
 package org.maplibre.mlt.tools;
 
-import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.*;
-import static org.maplibre.mlt.tools.SyntheticMltUtil.*;
+import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.DELTA;
+import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.DELTA_RLE;
+import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.PLAIN;
+import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.RLE;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.SYNTHETICS_DIR;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.array;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.c;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.c1;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.c2;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.c3;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.cfg;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.feat;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.gf;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.idFeat;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.kv;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.layer;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.line;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.line1;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.line2;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.mortonCurve;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.multi;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.p0;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.p1;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.p2;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.p3;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.ph1;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.ph2;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.ph3;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.poly;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.poly1;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.poly1h;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.poly2;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.prop;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.props;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.ring;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.write;
 
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.locationtech.jts.geom.Coordinate;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
@@ -43,39 +77,77 @@ public class SyntheticMltGenerator {
   private static void generateLines() throws IOException {
     write("line", feat(line1), cfg());
 
-    // Morton (Z-order) line: de-interleave index bits into x/y (even/odd bits).
-    int numPoints = 16; // 4x4 complete Morton block
-    int scale = 8;
-    int mortonBits = 4;
-    var mortonCurve = new Coordinate[numPoints];
-    for (var i = 0; i < mortonCurve.length; i++) {
-      var x = 0;
-      var y = 0;
-      for (var b = 0; b < mortonBits; b++) {
-        x |= ((i >> (2 * b)) & 1) << b;
-        y |= ((i >> (2 * b + 1)) & 1) << b;
-      }
-      mortonCurve[i] = c(x * scale, y * scale);
-    }
-    write("line_morton", feat(line(mortonCurve)), cfg().morton());
+    write("line_morton_curve_no_morton", feat(line(mortonCurve)), cfg());
+    write("line_morton_curve_morton", feat(line(mortonCurve)), cfg().morton());
+
+    write("line_zero_length", feat(line(c(6, 6), c(6, 6))), cfg());
   }
 
   private static void generatePolygons() throws IOException {
     var pol = feat(poly1);
-    write("polygon", pol, cfg());
-    write("polygon_fpf", pol, cfg().fastPFOR());
-    write("polygon_tes", pol, cfg().tessellate());
-    write("polygon_fpf_tes", pol, cfg().fastPFOR().tessellate());
+    write("poly", pol, cfg());
+    write("poly_fpf", pol, cfg().fastPFOR());
+    write("poly_tes", pol, cfg().tessellate());
+    write("poly_fpf_tes", pol, cfg().fastPFOR().tessellate());
+
+    var polColinear = feat(poly(c(0, 0), c(10, 0), c(20, 0), c(0, 0)));
+    write("poly_colinear", polColinear, cfg());
+    write("poly_colinear_fpf", polColinear, cfg().fastPFOR());
+    write("poly_colinear_tes", polColinear, cfg().tessellate());
+    write("poly_colinear_fpf_tes", polColinear, cfg().fastPFOR().tessellate());
+
+    var polSelfIntersect = feat(poly(c(0, 0), c(10, 10), c(0, 10), c(10, 0), c(0, 0)));
+    write("poly_self_intersect", polSelfIntersect, cfg());
+    write("poly_self_intersect_fpf", polSelfIntersect, cfg().fastPFOR());
+    write("poly_self_intersect_tes", polSelfIntersect, cfg().tessellate());
+    write("poly_self_intersect_fpf_tes", polSelfIntersect, cfg().fastPFOR().tessellate());
 
     // Polygon with hole
     var polWithHole = feat(poly1h);
-    write("polygon_hole", polWithHole, cfg());
-    write("polygon_hole_fpf", polWithHole, cfg().fastPFOR());
+    write("poly_hole", polWithHole, cfg());
+    write("poly_hole_fpf", polWithHole, cfg().fastPFOR());
+    write("poly_hole_tes", polWithHole, cfg().tessellate());
+    write("poly_hole_fpf_tes", polWithHole, cfg().fastPFOR().tessellate());
+
+    var polyHoleTouching =
+        feat(
+            poly(
+                ring(c(0, 0), c(10, 0), c(10, 10), c(0, 10), c(0, 0)),
+                ring(c(0, 0), c(2, 2), c(5, 2), c(0, 0))));
+    write("poly_hole_touching", polyHoleTouching, cfg());
+    write("poly_hole_touching_fpf", polyHoleTouching, cfg().fastPFOR());
+    write("poly_hole_touching_tes", polyHoleTouching, cfg().tessellate());
+    write("poly_hole_touching_fpf_tes", polyHoleTouching, cfg().fastPFOR().tessellate());
 
     // MultiPolygon
     var multiPol = feat(multi(poly1, poly2));
-    write("polygon_multi", multiPol, cfg());
-    write("polygon_multi_fpf", multiPol, cfg().fastPFOR());
+    write("poly_multi", multiPol, cfg());
+    write("poly_multi_fpf", multiPol, cfg().fastPFOR());
+    write("poly_multi_tes", multiPol, cfg().tessellate());
+    write("poly_multi_fpf_tes", multiPol, cfg().fastPFOR().tessellate());
+
+    // Close the shared Morton curve into a ring to test Morton encoding for polygons.
+    var mortonRing = Arrays.copyOf(mortonCurve, mortonCurve.length + 1);
+    mortonRing[mortonCurve.length] = mortonRing[0];
+    write("poly_morton_ring_no_morton", feat(poly(mortonRing)), cfg());
+    write("poly_morton_ring_morton", feat(poly(mortonRing)), cfg().morton());
+
+    // Split the Morton curve into two halves (bottom 2 rows / top 2 rows of the 4x4 grid)
+    // and close each into a ring to form a MultiPolygon.
+    var half = mortonCurve.length / 2;
+    var mortonRing1 = Arrays.copyOf(mortonCurve, half + 1);
+    mortonRing1[half] = mortonRing1[0];
+    var mortonRing2src = Arrays.copyOfRange(mortonCurve, half, mortonCurve.length);
+    var mortonRing2 = Arrays.copyOf(mortonRing2src, mortonRing2src.length + 1);
+    mortonRing2[mortonRing2src.length] = mortonRing2[0];
+    write(
+        "poly_multi_morton_ring_no_morton",
+        feat(multi(poly(mortonRing1), poly(mortonRing2))),
+        cfg());
+    write(
+        "poly_multi_morton_ring_morton",
+        feat(multi(poly(mortonRing1), poly(mortonRing2))),
+        cfg().morton());
   }
 
   private static void generateMultiPoints() throws IOException {
@@ -84,6 +156,11 @@ public class SyntheticMltGenerator {
 
   private static void generateMultiLineStrings() throws IOException {
     write("multiline", feat(multi(line1, line2)), cfg());
+
+    var half = mortonCurve.length / 2;
+    var mortonLine1 = Arrays.copyOf(mortonCurve, half);
+    var mortonLine2 = Arrays.copyOfRange(mortonCurve, half, mortonCurve.length);
+    write("multiline_morton", feat(multi(line(mortonLine1), line(mortonLine2))), cfg().morton());
   }
 
   record GeomType(String sym, Feature feat) {}
@@ -162,9 +239,13 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateIds() throws IOException {
-    write("id0", idFeat(0), cfg().ids());
     write("id", idFeat(100), cfg().ids());
+    write("id_min", idFeat(0), cfg().ids());
+    // FIXME: serialises as -1
+    // write("id_max", idFeat(0xFFFFFFFF), cfg().ids());
     write("id64", idFeat(9_234_567_890L), cfg().ids());
+    // FIXME: writes as Id32 instead of Id64
+    // write("id64_max", idFeat(0xFFFFFFFFFFFFFFFFL), cfg().ids());
 
     var ids32 = array(idFeat(103), idFeat(103), idFeat(103), idFeat(103));
     write(layer("ids", ids32), cfg().ids());
@@ -190,10 +271,20 @@ public class SyntheticMltGenerator {
     var optIds64 = array(idFeat(), idFeat(9_234_567_890L), idFeat(101), idFeat(105), idFeat(106));
     write(layer("ids64_opt", optIds64), cfg().ids());
     write(layer("ids64_opt_delta", optIds64), cfg(DELTA).ids());
+
+    // Java does not generate this as an ID64 if none of them are above the U32::Max threshold
+    // FIXME: serialises as i64
+    // var ids64MinMax = array(idFeat(0L), idFeat(0xFFFFFFFFFFFFFFFFL), idFeat(0L),
+    // idFeat(0xFFFFFFFFFFFFFFFFL));
+    // write(layer("ids64_minmax", ids64MinMax), cfg().ids());
+    // write(layer("ids64_minmax_delta", ids64MinMax), cfg(DELTA).ids());
   }
 
   @SuppressWarnings("cast")
   private static void generateProperties() throws IOException {
+    write("prop_empty_name", feat(p0, prop("", true)), cfg());
+    write("prop_special_name", feat(p0, prop("hello\u0000 world\n", true)), cfg());
+
     write("prop_bool", feat(p0, prop("val", true)), cfg());
     write("prop_bool_false", feat(p0, prop("val", false)), cfg());
     write(layer("prop_bool_true_null", feat(p0, prop("val", true)), feat(p0)), cfg());
@@ -279,6 +370,7 @@ public class SyntheticMltGenerator {
     write("prop_str_ascii", feat(p0, prop("val", "42")), cfg());
     write("prop_str_escape", feat(p0, prop("val", "Line1\n\t\"quoted\"\\path")), cfg());
     write("prop_str_unicode", feat(p0, prop("val", "München 📍 cafe\u0301")), cfg());
+    write("prop_str_special", feat(p0, prop("val", "hello\u0000 world\n")), cfg());
     write(layer("prop_str_val_null", feat(p0, prop("val", "42")), feat(p0)), cfg());
     write(layer("prop_str_null_val", feat(p0), feat(p0, prop("val", "42"))), cfg());
     write(layer("prop_str_val_empty", feat(p0, prop("val", "")), feat(p0)), cfg());
@@ -359,6 +451,20 @@ public class SyntheticMltGenerator {
             feat(ph3, prop("val", "residential_zone_south_sector_6")));
     write(layer("props_str", feat_str), cfg());
     write(layer("props_str_fsst", feat_str), cfg().fsst());
+
+    // 30 because otherwise fsst is skipped
+    var val = "A".repeat(30);
+
+    // If there are many identical strings in the same column,
+    // an offset directory is used to share them
+    // Because the directory we are indexing into has lengths assosciated with it and the offsets
+    // are indexes,
+    // we cannot do overlap-optimization where one ABBA contains BB -> only ABBA would be in the
+    // dict.
+    // -> ABBABB would need to be in the dict
+    var feat_two_str_eq = array(feat(p1, prop("val", val)), feat(p2, prop("val", val)));
+    write(layer("props_offset_str", feat_two_str_eq), cfg());
+    write(layer("props_offset_str_fsst", feat_two_str_eq), cfg().fsst());
   }
 
   private static void generateSharedDictionaries() throws IOException {
@@ -369,5 +475,28 @@ public class SyntheticMltGenerator {
     write(layer("props_no_shared_dict", feat_names), cfg());
     write(layer("props_shared_dict", feat_names), cfg().sharedDictPrefix("name", ":"));
     write(layer("props_shared_dict_fsst", feat_names), cfg().sharedDictPrefix("name", ":").fsst());
+
+    var feat_one_child = array(feat(p0, props(kv("name:en", val), kv("place", val))));
+    write(
+        layer("props_shared_dict_one_child", feat_one_child), cfg().sharedDictPrefix("name", ":"));
+    write(
+        layer("props_shared_dict_one_child_fsst", feat_one_child),
+        cfg().sharedDictPrefix("name", ":").fsst());
+
+    var feat_distinct_keys_same_value = array(feat(p0, props(kv("a", val), kv("b", val))));
+    write(
+        layer("props_shared_dict_no_struct_name", feat_distinct_keys_same_value),
+        cfg().sharedDictPrefix("", ""));
+    write(
+        layer("props_shared_dict_no_struct_name_fsst", feat_distinct_keys_same_value),
+        cfg().sharedDictPrefix("", "").fsst());
+
+    var feat_names_eq_val_eq = array(feat(p0, props(kv("a", val), kv("a", val))));
+    write(
+        layer("props_shared_dict_no_child_name", feat_names_eq_val_eq),
+        cfg().sharedDictPrefix("a", ""));
+    write(
+        layer("props_shared_dict_no_child_name_fsst", feat_names_eq_val_eq),
+        cfg().sharedDictPrefix("a", "").fsst());
   }
 }

@@ -1,6 +1,7 @@
 package org.maplibre.mlt.compare;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -121,7 +122,7 @@ class CompareHelperTest {
     final var point2 = FACTORY.createPoint(new Coordinate(3, 4));
     final var mlt = mltOf(createLayer("roads", createFeature(1, point1)));
     final var mvt = mvtOf(createLayer("roads", createFeature(1, point2)));
-    final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.LayersOnly);
+    final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.Layers);
     assertFalse(result.isPresent());
   }
 
@@ -264,6 +265,60 @@ class CompareHelperTest {
     final var diff = CompareHelper.compareTiles(mlt, mvt, CompareMode.Properties);
     assertTrue(diff.isPresent());
     assertTrue(diff.get().toString().contains("1"));
+  }
+
+  @Test
+  void featuresWithIdsMatchEvenWhenOrderDiffers() {
+    final var mlt =
+        mltOf(
+            createLayer(
+                "roads",
+                createFeature(1, Map.of("name", "first")),
+                createFeature(2, Map.of("name", "second"))));
+    final var mvt =
+        mvtOf(
+            createLayer(
+                "roads",
+                createFeature(2, Map.of("name", "second")),
+                createFeature(1, Map.of("name", "first"))));
+    final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.All);
+    assertFalse(result.isPresent());
+  }
+
+  @Test
+  void featuresWithoutIdsDoNotMatchWhenOrderDiffers() {
+    final var mlt =
+        mltOf(
+            createLayer(
+                "roads",
+                createFeature(Map.of("name", "first")),
+                createFeature(Map.of("name", "second"))));
+    final var mvt =
+        mvtOf(
+            createLayer(
+                "roads",
+                createFeature(Map.of("name", "second")),
+                createFeature(Map.of("name", "first"))));
+    final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.Properties);
+    assertTrue(result.isPresent());
+  }
+
+  @Test
+  void sortingByIdStillDetectsPropertyDifferences() {
+    final var mlt =
+        mltOf(
+            createLayer(
+                "roads",
+                createFeature(1, Map.of("name", "first")),
+                createFeature(2, Map.of("name", "second"))));
+    final var mvt =
+        mvtOf(
+            createLayer(
+                "roads",
+                createFeature(2, Map.of("name", "wrong")),
+                createFeature(1, Map.of("name", "first"))));
+    final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.Properties);
+    assertTrue(result.isPresent());
   }
 
   private static MapLibreTile mltOf(@NotNull Layer... layers) {

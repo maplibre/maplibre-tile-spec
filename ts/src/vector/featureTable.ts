@@ -1,10 +1,10 @@
 import type { Geometry, GeometryVector } from "./geometry/geometryVector";
 import type Vector from "./vector";
-import type { IntVector } from "./intVector";
-import { IntFlatVector } from "./flat/intFlatVector";
+import type { IdVector } from "./idVector";
+import { Int32FlatVector } from "./flat/int32FlatVector";
 import { DoubleFlatVector } from "./flat/doubleFlatVector";
-import { IntSequenceVector } from "./sequence/intSequenceVector";
-import { IntConstVector } from "./constant/intConstVector";
+import { Int32SequenceVector } from "./sequence/int32SequenceVector";
+import { Int32ConstVector } from "./constant/int32ConstVector";
 import type { GpuVector } from "./geometry/gpuVector";
 
 export interface Feature {
@@ -19,7 +19,7 @@ export default class FeatureTable {
     constructor(
         private readonly _name: string,
         private readonly _geometryVector: GeometryVector | GpuVector,
-        private readonly _idVector?: IntVector,
+        private readonly _idVector?: IdVector,
         private readonly _propertyVectors?: Vector[],
         private readonly _extent = 4096,
     ) {}
@@ -28,7 +28,7 @@ export default class FeatureTable {
         return this._name;
     }
 
-    get idVector(): IntVector {
+    get idVector(): IdVector {
         return this._idVector;
     }
 
@@ -67,7 +67,7 @@ export default class FeatureTable {
             let id;
             if (this.idVector) {
                 const idValue = this.idVector.getValue(i);
-                id = this.containsMaxSaveIntegerValues(this.idVector) && idValue !== null ? Number(idValue) : idValue;
+                id = this.containsMaxSafeIntegerValues(this.idVector) && idValue !== null ? Number(idValue) : idValue;
             }
             const geometry = {
                 coordinates: geometries[i],
@@ -89,11 +89,12 @@ export default class FeatureTable {
         return features;
     }
 
-    private containsMaxSaveIntegerValues(intVector: IntVector) {
+    private containsMaxSafeIntegerValues(idVector: IdVector) {
         return (
-            intVector instanceof IntFlatVector ||
-            (intVector instanceof IntConstVector && intVector instanceof IntSequenceVector) ||
-            intVector instanceof DoubleFlatVector
+            idVector instanceof Int32FlatVector ||
+            idVector instanceof Int32ConstVector ||
+            idVector instanceof Int32SequenceVector ||
+            idVector instanceof DoubleFlatVector
         );
     }
 }

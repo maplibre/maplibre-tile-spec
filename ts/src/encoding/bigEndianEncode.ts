@@ -6,7 +6,7 @@ import { bswap32 } from "../decoding/fastPforShared";
  * @param values - Int32 words to serialize.
  * @returns Big-endian byte stream (`values.length * 4` bytes).
  */
-export function encodeBigEndianInt32s(values: Int32Array): Uint8Array {
+export function encodeBigEndianInt32s(values: Uint32Array): Uint8Array {
     const bytes = new Uint8Array(values.length * 4);
     const u32 = new Uint32Array(bytes.buffer, bytes.byteOffset, values.length);
 

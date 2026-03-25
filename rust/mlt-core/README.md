@@ -1,12 +1,10 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://maplibre.org/img/maplibre-logos/maplibre-logo-for-dark-bg.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://maplibre.org/img/maplibre-logos/maplibre-logo-for-light-bg.svg">
-    <img alt="MapLibre Logo" src="https://maplibre.org/img/maplibre-logos/maplibre-logo-for-light-bg.svg" width="200">
-  </picture>
-</p>
-
 # `MapLibre Tile` (MLT) Rust library
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://maplibre.org/img/maplibre-logos/maplibre-logo-for-dark-bg.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://maplibre.org/img/maplibre-logos/maplibre-logo-for-light-bg.svg">
+  <img alt="MapLibre Logo" src="https://maplibre.org/img/maplibre-logos/maplibre-logo-for-light-bg.svg" width="200">
+</picture>
 
 The `MapLibre Tile` specification is mainly inspired by the [Mapbox Vector Tile (MVT)](https://github.com/mapbox/vector-tile-spec) specification,
 but has been redesigned from the ground up to address the challenges of rapidly growing geospatial data volumes
@@ -61,26 +59,7 @@ For any new features and encodings we will simply use a new tag ID, likely reusi
     - `columnType: varint` - same idea as `tag` above, e.g. `1 = id`, `2 = geometry`, `3 = int property`, etc.
     - TODO...
 
-## Code Structure
-Given the encoded input bytes, the parser quickly runs over the input slice and only stores references to the streams and their metadata.
-Later, decoding can be done on-demand, either for all columns, or just for the specific ones needed.
-This example is for `Id`, but the same idea applies to `Geometry`, and `Property` entities.
-
-To avoid copying bytes, we employ `borrowme`:
-* **`EncodedId` struct** contains references into the original input data.
-  The values are not decoded, just some metadata is parsed. Most data is stored as `Stream<'a>` instances, which hold references to parts of the original input and are tied to the input lifetime.
-* **`OwnedEncodedId` struct** is auto-generated with the [borrowme crate](https://docs.rs/borrowme/latest/borrowme/) - it has the same fields as the `EncodedId` struct, but owns its data.
-  This is useful when you want to store an `EncodedId` struct beyond the lifetime of the original input slice, or when you want to modify it or store the result of the encoding before storing it into a file.
-* **`DecodedId` struct** is used to store the decoded value.
-  At the moment, only `DecodedGeometry` is implemented, but the same idea applies to other entities.
-  The decoded values are stored in standard Rust types, e.g. `Vec<u64>` for IDs.
-* **`Id` enum** contains `Encoded(EncodedId)` and `Decoded(DecodedId)` variants, with values described above.
-  This allows in-place decoding, e.g. it is possible to decode just one property column / ID / Geometry, while keeping the rest in their encoded form.
-  The enum also has a corresponding `borrowme`-generated `OwnedId`.
-
-Converting between encoded and decoded representations is done via:
-- `DecodedId::from_encoded` / `OwnedEncodedId::from_decoded` for the struct-level conversions, and
-- `Id::decode`, `Encodable::encode_with`, and `Decodable::materialize` for working with the `Id` enum.
+See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for decoding and encoding pipeline docs.
 
 ## Tools
 
