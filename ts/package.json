@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "vitest --coverage --coverage.reportOnFailure",
+    "test": "vitest run --coverage --coverage.reportOnFailure",
     "lint": "eslint"
   },
   "repository": {
