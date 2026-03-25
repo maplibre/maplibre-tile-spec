@@ -77,14 +77,14 @@ impl StagedLayer01 {
     /// Automatically select the best stream-level encoders by competitive trialing.
     ///
     /// This method does **not** attempt different sort strategies; call
-    /// [`Tile01Encoder::encode_auto`] instead when sort optimisation is also desired.
+    /// [`Tile01Encoder::encode_auto`] instead when sort optimization is also desired.
     pub fn encode_auto(self) -> MltResult<(EncodedLayer01, StagedLayer01Encoder)> {
-        let (geom_enc_result, geom_enc) = self.geometry.encode_auto()?;
-        let (id_enc_result, id_enc) = match self.id {
+        let (geometry, geom_enc) = self.geometry.encode_auto()?;
+        let (id, id_enc) = match self.id {
             Some(parsed_id) => parsed_id.encode_auto()?,
             None => (None, None),
         };
-        let (encoded_properties, props_enc) = self.properties.encode_auto()?;
+        let (properties, props_enc) = self.properties.encode_auto()?;
 
         let stream_encoder = StagedLayer01Encoder {
             id: id_enc,
@@ -95,9 +95,9 @@ impl StagedLayer01 {
         let layer = EncodedLayer01 {
             name: self.name,
             extent: self.extent,
-            id: id_enc_result,
-            geometry: geom_enc_result,
-            properties: encoded_properties,
+            id,
+            geometry,
+            properties,
             #[cfg(fuzzing)]
             layer_order: vec![],
         };
@@ -119,7 +119,7 @@ const TRIAL_STRATEGIES: [Option<SortStrategy>; 3] = [
 
 /// Stream-level encoder configuration for a v01 layer.
 ///
-/// Produced by any of the three optimisation paths (manual, automatic, or profile-driven)
+/// Produced by any of the three optimization paths (manual, automatic, or profile-driven)
 /// and consumed by [`StagedLayer01::encode`].  Sort ordering is handled separately by
 /// [`Tile01Encoder`] before this stage.
 #[derive(Debug, Clone)]
@@ -162,8 +162,8 @@ impl Tile01Encoder {
     ///    - Clone the source layer.
     ///    - Apply `reorder_features` to the clone.
     ///    - Convert the clone to `StagedLayer01` and run automatic
-    ///      stream-level optimisation on id, geometry, and properties.
-    ///    - Serialise the fully-encoded clone to a scratch buffer and record
+    ///      stream-level optimization on id, geometry, and properties.
+    ///    - Serialize the fully-encoded clone to a scratch buffer and record
     ///      its byte count.
     /// 3. Return the trial that produced the smallest byte count.
     pub fn encode_auto(source: &TileLayer01) -> MltResult<(EncodedLayer01, StagedLayer01Encoder)> {
@@ -224,7 +224,7 @@ fn sort_strategy_index(s: Option<SortStrategy>) -> usize {
     }
 }
 
-/// Profile for a v01 layer, built by running automatic optimisation over a
+/// Profile for a v01 layer, built by running automatic optimization over a
 /// representative sample of tiles and capturing the chosen encoders.
 #[derive(Debug, Clone)]
 pub struct Tag01Profile {

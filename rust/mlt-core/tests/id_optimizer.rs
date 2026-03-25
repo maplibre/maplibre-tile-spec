@@ -178,14 +178,14 @@ fn create_constant_ids() -> IdValues {
     create_ids_with_nulls(),
     IdEncoder::new(LogicalEncoder::Delta, IdWidth::OptId32)
 )]
-fn test_automatic_optimisation_selection(#[case] input: IdValues, #[case] expected: IdEncoder) {
+fn test_automatic_optimization_selection(#[case] input: IdValues, #[case] expected: IdEncoder) {
     let is_empty = input.0.is_empty();
     let (_encoded, enc) = input.encode_auto().unwrap();
     assert_eq!(enc, if is_empty { None } else { Some(expected) });
 }
 
 #[test]
-fn test_automatic_optimisation_roundtrip_empty() {
+fn test_automatic_optimization_roundtrip_empty() {
     let decoded = IdValues(vec![]);
     let (encoded, _enc) = decoded.clone().encode_auto().unwrap();
     assert!(encoded.is_none(), "empty ID list should produce None");
@@ -196,13 +196,13 @@ fn test_automatic_optimisation_roundtrip_empty() {
 #[case::sequential_u64(create_u64_range_ids())]
 #[case::constant(create_constant_ids())]
 #[case::with_nulls(create_ids_with_nulls())]
-fn test_automatic_optimisation_roundtrip(#[case] decoded: IdValues) {
+fn test_automatic_optimization_roundtrip(#[case] decoded: IdValues) {
     let decoded_back = id_roundtrip_auto(&decoded);
     assert_eq!(decoded_back, decoded);
 }
 
 #[test]
-fn test_manual_optimisation_applies_encoder() {
+fn test_manual_optimization_applies_encoder() {
     let decoded = create_u32_range_ids();
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id64);
     let decoded_back = id_roundtrip_via_layer(&decoded, manual_enc);
@@ -210,7 +210,7 @@ fn test_manual_optimisation_applies_encoder() {
 }
 
 #[test]
-fn test_manual_optimisation_truncation() {
+fn test_manual_optimization_truncation() {
     let large_value = u64::from(u32::MAX) + 42;
     let ids = IdValues(vec![Some(large_value)]);
     let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);

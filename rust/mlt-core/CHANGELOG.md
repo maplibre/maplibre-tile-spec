@@ -58,13 +58,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(rust)* rename mod layer to frames ([#1110](https://github.com/maplibre/maplibre-tile-spec/pull/1110))
 - *(rust)* rm PropValue, consistent Cows ([#1109](https://github.com/maplibre/maplibre-tile-spec/pull/1109))
 - *(rust)* move name into DecodedStrings ([#1108](https://github.com/maplibre/maplibre-tile-spec/pull/1108))
-- *(rust)* change tests to be based on the new trait based optimisation api ([#1104](https://github.com/maplibre/maplibre-tile-spec/pull/1104))
+- *(rust)* change tests to be based on the new trait based optimization api ([#1104](https://github.com/maplibre/maplibre-tile-spec/pull/1104))
 
 ## [0.4.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.3.0...rust-mlt-core-v0.4.0) - 2026-03-10
 
 ### Added
 
-- plumbing for ProfileOptimisation ([#1101](https://github.com/maplibre/maplibre-tile-spec/pull/1101))
+- plumbing for profile optimization ([#1101](https://github.com/maplibre/maplibre-tile-spec/pull/1101))
 - *(rust)* trait based automatic optimiser ([#1093](https://github.com/maplibre/maplibre-tile-spec/pull/1093))
 
 ### Fixed

@@ -66,7 +66,7 @@ fn sort_key(f: &TileFeature, strategy: SortStrategy, params: &CurveParams) -> u6
 }
 
 /// Parameters derived from the vertex set of a feature collection, used to
-/// normalise coordinates before space-filling-curve key computation.
+/// normalize coordinates before space-filling-curve key computation.
 pub(crate) struct CurveParams {
     pub shift: u32,
     pub num_bits: u32,

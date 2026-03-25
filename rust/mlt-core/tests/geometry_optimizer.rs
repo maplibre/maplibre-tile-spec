@@ -15,7 +15,7 @@ use rstest::rstest;
 #[case::linestring(push_geoms(&[wkt!(LINESTRING(10 20, 30 40, 50 60)).into()]))]
 #[case::polygon(push_geoms(&[wkt!(POLYGON((0 0, 100 0, 100 100, 0 100, 0 0))).into()]))]
 #[case::multi_polygon(push_geoms(&[wkt!(MULTIPOLYGON(((0 0, 10 0, 10 10, 0 0),(5 5, 15 5, 15 15, 5 15)))).into()]))]
-fn automatic_optimisation_roundtrip(#[case] decoded: GeometryValues) {
+fn automatic_optimization_roundtrip(#[case] decoded: GeometryValues) {
     let (encoded, _) = decoded.clone().encode_auto().expect("optimize failed");
     assert_geometry_roundtrip(&encoded, &decoded);
 }
@@ -23,11 +23,11 @@ fn automatic_optimisation_roundtrip(#[case] decoded: GeometryValues) {
 #[rstest]
 #[case::single_point(push_geoms(&[wkt!(POINT(10 20)).into()]))]
 #[case::linestring(push_geoms(&[wkt!(LINESTRING(10 20, 30 40, 50 60)).into()]))]
-fn profile_optimisation_roundtrip(#[case] decoded: GeometryValues) {
+fn profile_optimization_roundtrip(#[case] decoded: GeometryValues) {
     let profile = GeometryProfile::from_sample(&decoded).expect("from_sample failed");
     let (encoded, _) = decoded
         .encode_with_profile(&profile)
-        .expect("profile_driven_optimisation failed");
+        .expect("profile_driven_optimization failed");
     assert_geometry_roundtrip(&encoded, &decoded);
 }
 
@@ -40,7 +40,7 @@ fn profile_optimisation_roundtrip(#[case] decoded: GeometryValues) {
     push_geoms(&std::iter::repeat_n(point!{ x: 5, y: 5 }.into(), 20).collect::<Vec<_>>()),
     DictionaryType::Morton
 )]
-fn automatic_optimisation_picks_correct_vertex_strategy(
+fn automatic_optimization_picks_correct_vertex_strategy(
     #[case] decoded: GeometryValues,
     #[case] expected: DictionaryType,
 ) {
@@ -126,7 +126,7 @@ fn profile_applied_to_different_tile_roundtrip() {
     let profile = GeometryProfile::from_sample(&sample).expect("from_sample failed");
     let (encoded, _) = target
         .encode_with_profile(&profile)
-        .expect("profile_driven_optimisation failed");
+        .expect("profile_driven_optimization failed");
     assert_geometry_roundtrip(&encoded, &target);
 }
 
@@ -143,12 +143,12 @@ fn profile_merge_roundtrip() {
 
     let (encoded, _) = poly
         .encode_with_profile(&merged)
-        .unwrap_or_else(|e| panic!("profile_driven_optimisation failed for poly: {e}"));
+        .unwrap_or_else(|e| panic!("profile_driven_optimization failed for poly: {e}"));
     assert_geometry_roundtrip(&encoded, &poly);
 
     let (encoded, _) = ls
         .encode_with_profile(&merged)
-        .unwrap_or_else(|e| panic!("profile_driven_optimisation failed for ls: {e}"));
+        .unwrap_or_else(|e| panic!("profile_driven_optimization failed for ls: {e}"));
     assert_geometry_roundtrip(&encoded, &ls);
 }
 
@@ -169,7 +169,7 @@ fn profile_rederives_vertex_strategy_from_actual_data() {
     let profile = GeometryProfile::from_sample(&sample).expect("from_sample failed");
     let (encoded, _) = target
         .encode_with_profile(&profile)
-        .expect("profile_driven_optimisation failed");
+        .expect("profile_driven_optimization failed");
     let types = encoded_stream_types(&encoded);
     assert!(
         types.contains(&StreamType::Data(DictionaryType::Vertex)),

@@ -135,7 +135,7 @@ pub struct StagedLayer01 {
 
 /// Wire-ready layer data (stage 3 of the encoding pipeline).
 ///
-/// Produced by encoding a [`StagedLayer01`]. Can be serialised directly to bytes
+/// Produced by encoding a [`StagedLayer01`]. Can be serialized directly to bytes
 /// via [`EncodedLayer01::write_to`].
 #[derive(Debug, PartialEq, Clone)]
 pub struct EncodedLayer01 {
