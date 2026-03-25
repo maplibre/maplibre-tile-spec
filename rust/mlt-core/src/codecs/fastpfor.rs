@@ -1,4 +1,4 @@
-use fastpfor::{AnyLenCodec as _, FastPFor128};
+use fastpfor::{AnyLenCodec as _, FastPFor256};
 
 use crate::utils::AsUsize as _;
 use crate::{Decoder, MltError, MltResult};
@@ -13,7 +13,7 @@ pub fn encode_fastpfor(values: &[u32]) -> MltResult<Vec<u8>> {
     }
 
     let mut compressed = Vec::new();
-    FastPFor128::default().encode(values, &mut compressed)?;
+    FastPFor256::default().encode(values, &mut compressed)?;
 
     // Convert u32 words to big-endian bytes to match the wire format.
     let mut data = Vec::with_capacity(compressed.len() * 4);
@@ -60,7 +60,7 @@ pub fn decode_fastpfor(data: &[u8], num_values: u32, dec: &mut Decoder) -> MltRe
         .collect();
 
     let mut result = Vec::new();
-    FastPFor128::default().decode(&input, &mut result, Some(num_values))?;
+    FastPFor256::default().decode(&input, &mut result, Some(num_values))?;
 
     let Some(adjustment) = result
         .len()
