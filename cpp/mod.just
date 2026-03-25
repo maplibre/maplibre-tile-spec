@@ -71,9 +71,10 @@ test-json:
 
 decode-synthetics: cmake-build (just 'cargo-install' 'fd' 'fd-find')
     #!/usr/bin/env bash
+    set -e
     JSON_TOOL=build/tool/mlt-cpp-json
-    fd . ../test/synthetic/0x01 -e mlt -x bash -c "echo {} ; $JSON_TOOL {} >/dev/null || true"
-    fd . ../test/synthetic/0x01-rust -e mlt -x bash -c "echo {} ; $JSON_TOOL {} >/dev/null || true"
+    fd . ../test/synthetic/0x01 -e mlt -x bash -c "echo {} ; $JSON_TOOL {} >/dev/null"
+    fd . ../test/synthetic/0x01-rust -e mlt -x bash -c "echo {} ; $JSON_TOOL {} >/dev/null"
 
 _check-tool command:
     @which {{command}} > /dev/null || (echo "Error: {{command}} is not installed. Please install it using: brew install {{command}} (macOS) or pip3 install {{command}} (Linux)" && exit 1)
