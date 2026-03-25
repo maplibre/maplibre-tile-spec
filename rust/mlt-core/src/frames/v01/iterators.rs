@@ -23,13 +23,20 @@ use crate::{MltResult, Parsed};
 /// Structural [`PartialEq`] compares both parts independently.  Use [`PartialEq<str>`] or
 /// [`PartialEq<&str>`] (also implemented) to compare against a plain `&str` as if the two
 /// parts were concatenated.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)] // WARN: do not auto-derive PartialEq,Eq,Hash as it won't be correct
 pub struct PropName<'a>(&'a str, &'a str);
 
 impl fmt::Display for PropName<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.0)?;
         f.write_str(self.1)
+    }
+}
+
+impl PartialEq<PropName<'_>> for PropName<'_> {
+    fn eq(&self, other: &PropName<'_>) -> bool {
+        // This is probably ok for performance as it shouldn't be in the hot path
+        self.to_string().as_str() == other
     }
 }
 
@@ -73,7 +80,6 @@ pub enum PropValueRef<'a> {
     U64(u64),
     F32(f32),
     F64(f64),
-    /// Zero-copy borrow from `ParsedStrings::data` or the `SharedDict` corpus.
     Str(&'a str),
 }
 
@@ -124,8 +130,8 @@ impl<'a> FeatureRef<'a> {
     /// `SharedDict` columns are transparently expanded into one [`ColumnRef`] per sub-item.
     /// Null / absent values are skipped entirely. The iterator is infallible.
     #[must_use]
-    pub fn iter_properties(&self) -> PropIter<'a> {
-        PropIter {
+    pub fn iter_properties(&self) -> FeatPropertyIter<'a> {
+        FeatPropertyIter {
             columns: self.columns,
             feat_idx: self.index,
             col_idx: 0,
@@ -139,6 +145,7 @@ impl<'a> FeatureRef<'a> {
     /// the key used by [`iter_properties`](Self::iter_properties).
     #[must_use]
     pub fn get_property(&self, name: &str) -> Option<PropValueRef<'a>> {
+        // TODO: determine if this is a perf issue
         self.iter_properties()
             .find(|col| col.name == name)
             .map(|col| col.value)
@@ -149,7 +156,7 @@ impl<'a> FeatureRef<'a> {
 ///
 /// Returned by [`FeatureRef::iter_properties`]. `SharedDict` columns are expanded
 /// in-place without any heap allocation.
-pub struct PropIter<'a> {
+pub struct FeatPropertyIter<'a> {
     columns: &'a [ParsedProperty<'a>],
     feat_idx: usize,
     col_idx: usize,
@@ -157,7 +164,7 @@ pub struct PropIter<'a> {
     sub_idx: usize,
 }
 
-impl<'a> Iterator for PropIter<'a> {
+impl<'a> Iterator for FeatPropertyIter<'a> {
     type Item = ColumnRef<'a>;
 
     fn next(&mut self) -> Option<ColumnRef<'a>> {
@@ -174,7 +181,7 @@ impl<'a> Iterator for PropIter<'a> {
             self.col_idx += 1;
             let res = match prop {
                 ParsedProperty::SharedDict(dict) => {
-                    // iterate over SharedDict subitems - don't advance just yet
+                    // iterate over SharedDict subitems - undo the idx+=1 until done with shared dict
                     self.col_idx -= 1;
                     while self.sub_idx < dict.items.len() {
                         let item = &dict.items[self.sub_idx];
@@ -241,24 +248,21 @@ impl<'layer> Iterator for Layer01FeatureIter<'layer, '_> {
         if self.index >= count {
             return None;
         }
-        let i = self.index;
+        let index = self.index;
         self.index += 1;
 
-        let id = self
-            .layer
-            .id
-            .as_ref()
-            .and_then(|ids| ids.0.get(i).copied().flatten());
-        let geometry = match self.layer.geometry.to_geojson(i) {
-            Ok(g) => g,
-            Err(e) => return Some(Err(e)),
-        };
-
         Some(Ok(FeatureRef {
-            id,
-            geometry,
+            id: self
+                .layer
+                .id
+                .as_ref()
+                .and_then(|ids| ids.0.get(index).copied().flatten()),
+            geometry: match self.layer.geometry.to_geojson(index) {
+                Ok(g) => g,
+                Err(e) => return Some(Err(e)),
+            },
             columns: &self.layer.properties,
-            index: i,
+            index,
         }))
     }
 
@@ -332,7 +336,7 @@ mod tests {
     #[test]
     fn prop_name_structural_eq_is_part_wise() {
         assert_eq!(PropName("a", "b"), PropName("a", "b"));
-        assert_ne!(PropName("ab", ""), PropName("a", "b"));
+        assert_eq!(PropName("ab", ""), PropName("a", "b"));
     }
 
     #[test]
