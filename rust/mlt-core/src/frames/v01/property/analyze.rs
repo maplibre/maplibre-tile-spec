@@ -1,5 +1,7 @@
-use crate::analyse::{Analyze, StatType};
-use crate::v01::{EncodedProperty, ParsedScalar, ParsedSharedDict, RawProperty, StreamMeta};
+use crate::analyze::{Analyze, StatType};
+use crate::v01::{
+    EncodedProperty, ParsedScalar, ParsedSharedDict, ParsedStrings, RawProperty, StreamMeta,
+};
 
 impl Analyze for EncodedProperty {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
@@ -92,5 +94,16 @@ impl Analyze for ParsedSharedDict<'_> {
             .iter()
             .map(|item| item.materialize(self).collect_statistic(stat))
             .sum::<usize>()
+    }
+}
+
+impl Analyze for ParsedStrings<'_> {
+    fn collect_statistic(&self, stat: StatType) -> usize {
+        let meta = if stat == StatType::DecodedMetaSize {
+            self.name.len()
+        } else {
+            0
+        };
+        meta + self.dense_values().collect_statistic(stat)
     }
 }

@@ -1,4 +1,4 @@
-use crate::analyse::{Analyze, StatType};
+use crate::analyze::{Analyze, StatType};
 use crate::v01::{EncodedGeometry, GeometryType, GeometryValues, RawGeometry, StreamMeta};
 
 impl Analyze for EncodedGeometry {

@@ -19,7 +19,7 @@ use crate::v01::{
     RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding, SharedDictEncoder,
     StagedSharedDict, StagedSharedDictItem, StagedStrings, StrEncoder, StreamType,
 };
-use crate::{Analyze, Decoder, MltError, MltResult, StatType};
+use crate::{Decoder, MltError, MltResult};
 
 impl StrEncoder {
     #[must_use]
@@ -274,17 +274,6 @@ impl<'a> ParsedStrings<'a> {
         (0..u32::try_from(self.feature_count()).unwrap_or(u32::MAX))
             .map(|i| self.get(i).map(str::to_string))
             .collect()
-    }
-}
-
-impl Analyze for ParsedStrings<'_> {
-    fn collect_statistic(&self, stat: StatType) -> usize {
-        let meta = if stat == StatType::DecodedMetaSize {
-            self.name.len()
-        } else {
-            0
-        };
-        meta + self.dense_values().collect_statistic(stat)
     }
 }
 

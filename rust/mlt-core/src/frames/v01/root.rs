@@ -4,53 +4,15 @@ use crate::MltError::{
     MultipleIdColumns, SharedDictRequiresStreams, TrailingLayerData, UnexpectedStructChildCount,
     UnsupportedStringStreamCount,
 };
-use crate::analyse::{Analyze, StatType};
 use crate::codecs::varint::parse_varint;
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
 use crate::v01::{
     Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01,
     Layer01FeatureIter, ParsedLayer01, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData,
     RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem,
-    RawStream, RawStrings, RawStringsEncoding, StreamMeta, StreamType,
+    RawStream, RawStrings, RawStringsEncoding, StreamType,
 };
-use crate::{Decoder, Lazy, MltRefResult, MltResult, Parsed, Parser};
-
-impl Analyze for Layer01<'_, Lazy> {
-    fn collect_statistic(&self, stat: StatType) -> usize {
-        match stat {
-            StatType::DecodedMetaSize => self.name.len() + size_of::<u32>(),
-            StatType::DecodedDataSize => {
-                self.id.as_ref().map_or(0, |id| id.collect_statistic(stat))
-                    + self.geometry.collect_statistic(stat)
-                    + self.properties.collect_statistic(stat)
-            }
-            StatType::FeatureCount => self.geometry.collect_statistic(stat),
-        }
-    }
-
-    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
-        if let Some(ref id) = self.id {
-            id.for_each_stream(cb);
-        }
-        self.geometry.for_each_stream(cb);
-        self.properties.for_each_stream(cb);
-    }
-}
-
-impl Analyze for Layer01<'_, Parsed> {
-    fn collect_statistic(&self, stat: StatType) -> usize {
-        match stat {
-            StatType::DecodedMetaSize => self.name.len() + size_of::<u32>(),
-            StatType::DecodedDataSize => {
-                self.id.as_ref().map_or(0, |id| id.collect_statistic(stat))
-                    + self.geometry.collect_statistic(stat)
-                    + self.properties.collect_statistic(stat)
-            }
-            StatType::FeatureCount => self.geometry.collect_statistic(stat),
-        }
-    }
-    // for_each_stream: all columns are already decoded — no raw streams to walk.
-}
+use crate::{Decoder, Lazy, MltRefResult, MltResult, Parser};
 
 impl<'a> Layer01<'a, Lazy> {
     /// Parse `v01::Layer` metadata, reserving decoded memory against the parser's budget.

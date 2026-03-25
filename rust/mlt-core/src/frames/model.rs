@@ -8,7 +8,7 @@ use crate::{DecodeState, Lazy, Parsed};
 ///
 /// The decode-state type parameter `S` mirrors [`Layer01<'a, S>`]:
 /// - `Layer<'a>` / `Layer<'a, Lazy>` — freshly parsed; columns may still be raw bytes.
-/// - `Layer<'a, Parsed>` — returned by [`Layer::decode_all`]; all columns are decoded.
+/// - `Layer<'a, Parsed>` — returned by [`Layer::decode_all`]; all columns are decoded. Use `ParsedLayer` alias.
 pub enum Layer<'a, S: DecodeState = Lazy> {
     /// MVT-compatible layer (tag = 1)
     Tag01(Layer01<'a, S>),

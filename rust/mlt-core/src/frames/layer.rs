@@ -11,8 +11,7 @@ use crate::frames::v01::Layer01;
 use crate::utils::{checked_sum2, parse_u8, take};
 use crate::v01::ParsedLayer01;
 use crate::{
-    Decoder, EncodedLayer, Layer, MltError, MltRefResult, MltResult, Parsed, ParsedLayer, Parser,
-    utils,
+    Decoder, EncodedLayer, Layer, MltError, MltRefResult, MltResult, ParsedLayer, Parser, utils,
 };
 
 impl<'a> Layer<'a> {
@@ -76,7 +75,7 @@ impl<'a> Layer<'a> {
     }
 }
 
-impl<'a> Layer<'a, Parsed> {
+impl<'a> ParsedLayer<'a> {
     /// Returns the inner [`ParsedLayer01<'a>`] if this is a Tag01 layer, or `None` otherwise.
     #[must_use]
     pub fn as_layer01(&self) -> Option<&ParsedLayer01<'a>> {

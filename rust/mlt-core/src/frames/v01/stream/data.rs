@@ -2,7 +2,6 @@ use std::fmt;
 use std::io::Write;
 
 use super::{EncodedStream, EncodedStreamData, RawStream, RawStreamData};
-use crate::analyse::{Analyze, StatType};
 use crate::utils::formatter::fmt_byte_array;
 
 impl EncodedStream {
@@ -37,12 +36,6 @@ impl EncodedStreamData {
         match self {
             EncodedStreamData::VarInt(d) | EncodedStreamData::Encoded(d) => writer.write_all(d),
         }
-    }
-}
-
-impl Analyze for RawStreamData<'_> {
-    fn collect_statistic(&self, stat: StatType) -> usize {
-        self.as_bytes().collect_statistic(stat)
     }
 }
 

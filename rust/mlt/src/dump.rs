@@ -38,7 +38,6 @@ pub fn dump(args: &DumpArgs, decode: AfterDump) -> AnyResult<()> {
 
 fn dump_mlt(args: &DumpArgs, decode: AfterDump, buffer: &[u8]) -> AnyResult<()> {
     let layers = Parser::default().parse_layers(buffer)?;
-    let mut dec = Decoder::default();
 
     match args.format {
         OutputFormat::Text => match decode {
@@ -49,7 +48,7 @@ fn dump_mlt(args: &DumpArgs, decode: AfterDump, buffer: &[u8]) -> AnyResult<()> 
                 }
             }
             AfterDump::Decode => {
-                let layers = dec.decode_all(layers)?;
+                let layers = Decoder::default().decode_all(layers)?;
                 for (i, layer) in layers.into_iter().enumerate() {
                     println!("=== Layer {i} ===");
                     println!("{layer:#?}");
@@ -60,7 +59,7 @@ fn dump_mlt(args: &DumpArgs, decode: AfterDump, buffer: &[u8]) -> AnyResult<()> 
             if decode == AfterDump::KeepRaw {
                 bail!("GeoJSON output only works with `mlt decode`");
             }
-            let fc = FeatureCollection::from_layers(dec.decode_all(layers)?)?;
+            let fc = FeatureCollection::from_layers(Decoder::default().decode_all(layers)?)?;
             println!("{}", serde_json::to_string_pretty(&fc)?);
         }
     }

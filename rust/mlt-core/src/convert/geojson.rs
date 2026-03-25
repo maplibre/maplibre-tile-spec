@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use crate::frames::Layer;
 use crate::v01::Layer01;
-use crate::{MltResult, Parsed};
+use crate::{MltResult, Parsed, ParsedLayer};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
 pub type Geom32 = geo_types::Geometry<i32>;
@@ -33,7 +33,7 @@ impl FeatureCollection {
     /// Convert already-decoded layers to a `GeoJSON` [`FeatureCollection`], consuming them.
     /// Make sure to call `decode_all` on Layer before calling this (won't compile otherwise)
     pub fn from_layers<'a>(
-        layers: impl IntoIterator<Item = Layer<'a, Parsed>>,
+        layers: impl IntoIterator<Item = ParsedLayer<'a>>,
     ) -> MltResult<FeatureCollection> {
         let mut features = Vec::new();
         for layer in layers {

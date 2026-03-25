@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 extern crate core;
 
-pub(crate) mod analyse;
+pub(crate) mod analyze;
 pub(crate) mod codecs;
 pub(crate) mod convert;
 pub(crate) mod decoder;
@@ -10,7 +10,7 @@ pub(crate) mod frames;
 pub(crate) mod lazy_state;
 pub(crate) mod utils;
 
-pub use analyse::{Analyze, StatType};
+pub use analyze::{Analyze, StatType};
 pub use convert::{geojson, mvt};
 pub use decoder::{Decoder, Parser};
 pub use errors::{MltError, MltRefResult, MltResult};

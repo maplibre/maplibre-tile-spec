@@ -112,11 +112,8 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
 fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
     let buf = fs::read(path)?;
     if is_mlt_extension(path) {
-        let mut parser = Parser::default();
-        Ok(FeatureCollection::from_layers(
-            parser.parse_layers(&buf)?,
-            &mut Decoder::default(),
-        )?)
+        let layers = Decoder::default().decode_all(Parser::default().parse_layers(&buf)?)?;
+        Ok(FeatureCollection::from_layers(layers)?)
     } else {
         Ok(mvt_to_feature_collection(buf)?)
     }

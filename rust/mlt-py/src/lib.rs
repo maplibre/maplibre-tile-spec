@@ -257,10 +257,9 @@ fn decode_mlt(
     tms: bool,
 ) -> PyResult<Vec<MltLayer>> {
     let layers = Parser::default().parse_layers(data).map_err(mlt_err)?;
-    let mut dec = Decoder::default();
+    let layers = Decoder::default().decode_all(layers).map_err(mlt_err)?;
     let mut result = Vec::with_capacity(layers.len());
-    for layer in layers {
-        let decoded = layer.decode_all(&mut dec).map_err(mlt_err)?;
+    for decoded in layers {
         let layer01 = decoded
             .as_layer01()
             .ok_or_else(|| PyValueError::new_err("unsupported layer tag (expected 0x01)"))?;
@@ -292,9 +291,11 @@ fn decode_mlt(
 fn decode_mlt_to_geojson(
     #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
 ) -> PyResult<String> {
-    let layers = Parser::default().parse_layers(data).map_err(mlt_err)?;
     let mut dec = Decoder::default();
-    let fc = FeatureCollection::from_layers(layers, &mut dec).map_err(mlt_err)?;
+    let layers = dec
+        .decode_all(Parser::default().parse_layers(data).map_err(mlt_err)?)
+        .map_err(mlt_err)?;
+    let fc = FeatureCollection::from_layers(layers).map_err(mlt_err)?;
     serde_json::to_string(&fc).map_err(|e| PyValueError::new_err(format!("JSON error: {e}")))
 }
 
@@ -419,15 +420,11 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut parser = Parser::default();
-        let layers = parser
+        let layers = Parser::default()
             .parse_layers(&data)
             .expect("parse_layers should succeed");
         let mut dec = Decoder::default();
-        let decoded: Vec<_> = layers
-            .into_iter()
-            .map(|l| l.decode_all(&mut dec).expect("decode_all should succeed"))
-            .collect();
+        let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
         assert!(!decoded.is_empty(), "should parse at least one layer");
         let l = decoded[0].as_layer01().expect("first layer should be v0.1");
@@ -446,15 +443,11 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut parser = Parser::default();
-        let layers = parser
+        let layers = Parser::default()
             .parse_layers(&data)
             .expect("parse_layers should succeed");
         let mut dec = Decoder::default();
-        let decoded: Vec<_> = layers
-            .into_iter()
-            .map(|l| l.decode_all(&mut dec).expect("decode_all should succeed"))
-            .collect();
+        let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
         let l = decoded[0].as_layer01().expect("first layer should be v0.1");
         let geom = &l.geometry;
@@ -478,15 +471,11 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut parser = Parser::default();
-        let layers = parser
+        let layers = Parser::default()
             .parse_layers(&data)
             .expect("parse_layers should succeed");
         let mut dec = Decoder::default();
-        let decoded: Vec<_> = layers
-            .into_iter()
-            .map(|l| l.decode_all(&mut dec).expect("decode_all should succeed"))
-            .collect();
+        let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
         let l = decoded[0].as_layer01().expect("first layer should be v0.1");
         let geom = &l.geometry;
@@ -513,15 +502,11 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut parser = Parser::default();
-        let layers = parser
+        let layers = Parser::default()
             .parse_layers(&data)
             .expect("parse_layers should succeed");
         let mut dec = Decoder::default();
-        let decoded: Vec<_> = layers
-            .into_iter()
-            .map(|l| l.decode_all(&mut dec).expect("decode_all should succeed"))
-            .collect();
+        let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
         let l = decoded[0].as_layer01().expect("first layer should be v0.1");
         let geom = &l.geometry;

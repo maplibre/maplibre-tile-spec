@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use enum_dispatch::enum_dispatch;
 
-use crate::analyse::{Analyze, StatType};
+use crate::analyze::{Analyze, StatType};
 use crate::v01::{EncodedStream, FsstStrEncoder, IntEncoder, RawStream, StreamMeta};
 use crate::{DecodeState, Lazy};
 

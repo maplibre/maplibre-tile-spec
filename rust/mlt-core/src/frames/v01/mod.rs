@@ -1,3 +1,4 @@
+mod analyze;
 mod column;
 mod compare;
 mod encoded;

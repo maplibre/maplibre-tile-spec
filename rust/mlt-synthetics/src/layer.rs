@@ -297,10 +297,11 @@ impl Layer {
         self.write_mlt(&path);
 
         let buffer = fs::read(&path).unwrap();
-        let mut parser = Parser::default();
-        let data = parser.parse_layers(&buffer).unwrap();
         let mut dec = Decoder::default();
-        let fc = FeatureCollection::from_layers(data, &mut dec).unwrap();
+        let decoded = dec
+            .decode_all(Parser::default().parse_layers(&buffer).unwrap())
+            .unwrap();
+        let fc = FeatureCollection::from_layers(decoded).unwrap();
         let mut json = serde_json::to_string_pretty(&fc).unwrap();
         json.push('\n');
         let mut out_file = Self::open_new(&dir.join(format!("{name}.json"))).unwrap();

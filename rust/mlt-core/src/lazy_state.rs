@@ -1,7 +1,5 @@
 use std::mem;
 
-use crate::analyse::{Analyze, StatType};
-use crate::v01::StreamMeta;
 use crate::{Decoder, MltError, MltResult};
 
 pub trait Decode<Parsed>: Sized {
@@ -94,24 +92,6 @@ impl<Raw: Decode<Parsed>, Parsed> LazyParsed<Raw, Parsed> {
             Self::Parsed(v) => Ok(v),
             Self::Raw(_) => Err(MltError::NotDecoded("enc_dec value")), // TODO: I wonder if the str can be of the type name?
             Self::ParsingFailed => Err(MltError::PriorParseFailure),
-        }
-    }
-}
-
-impl<Raw: Analyze, Parsed: Analyze> Analyze for LazyParsed<Raw, Parsed> {
-    fn collect_statistic(&self, stat: StatType) -> usize {
-        match self {
-            Self::Raw(encoded) => encoded.collect_statistic(stat),
-            Self::Parsed(decoded) => decoded.collect_statistic(stat),
-            Self::ParsingFailed => 0,
-        }
-    }
-
-    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
-        match self {
-            Self::Raw(encoded) => encoded.for_each_stream(cb),
-            Self::Parsed(decoded) => decoded.for_each_stream(cb),
-            Self::ParsingFailed => {}
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Formatter};
 
-use crate::analyse::{Analyze, StatType};
+use crate::analyze::{Analyze, StatType};
 use crate::utils::OptSeqOpt;
 use crate::v01::{EncodedId, EncodedIdValue, IdValues, RawId, RawIdValue, RawPresence, StreamMeta};
 
