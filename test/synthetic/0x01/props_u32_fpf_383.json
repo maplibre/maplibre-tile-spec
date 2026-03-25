@@ -51,6 +51,21 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
+        "val": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
         "val": 1
       },
       "geometry": {
@@ -81,7 +96,22 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 3
+        "val": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -111,7 +141,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 3
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -126,7 +156,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 4
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -141,7 +171,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 3
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -156,7 +186,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 4
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -171,7 +201,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 5
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -186,7 +216,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 4
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -201,7 +231,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 5
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -216,7 +246,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 6
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -231,7 +261,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 5
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -246,7 +276,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 6
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -261,7 +291,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 7
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -276,7 +306,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 6
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -291,7 +321,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 7
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -306,7 +336,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 8
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -321,7 +351,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 7
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -336,7 +366,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 8
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -351,7 +381,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 9
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -366,7 +396,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 8
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -381,7 +411,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 9
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -396,7 +426,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 10
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -411,7 +441,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 9
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -426,7 +456,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 10
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -441,7 +471,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 11
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -456,7 +486,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 10
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -471,7 +501,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 11
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -486,7 +516,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 12
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -501,7 +531,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 11
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -516,7 +546,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 12
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -531,7 +561,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 13
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -546,7 +576,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 12
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -561,7 +591,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 13
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -576,7 +606,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 14
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -591,7 +621,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 13
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -606,7 +636,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 14
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -621,7 +651,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 15
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -636,7 +666,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 14
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -651,7 +681,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 15
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -666,7 +696,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 16
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -681,7 +711,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 15
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -696,7 +726,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 16
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -711,7 +741,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 17
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -726,7 +756,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 16
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -741,7 +771,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 17
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -756,7 +786,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 18
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -771,7 +801,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 17
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -786,7 +816,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 18
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -801,7 +831,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 19
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -816,7 +846,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 18
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -831,7 +861,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 19
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -846,7 +876,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 20
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -861,7 +891,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 19
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -876,7 +906,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 20
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -891,7 +921,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 21
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -906,7 +936,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 20
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -921,7 +951,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 21
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -936,7 +966,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 22
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -951,7 +981,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 21
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -966,7 +996,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 22
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -981,7 +1011,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 23
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -996,7 +1026,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 22
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1011,7 +1041,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 23
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1026,7 +1056,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 24
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1041,7 +1071,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 23
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1056,7 +1086,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 24
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1071,7 +1101,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 25
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1086,7 +1116,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 24
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1101,7 +1131,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 25
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1116,7 +1146,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 26
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1131,7 +1161,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 25
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1146,7 +1176,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 26
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1161,7 +1191,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 27
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1176,7 +1206,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 26
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1191,7 +1221,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 27
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1206,7 +1236,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 28
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1221,7 +1251,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 27
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1236,7 +1266,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 28
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1251,7 +1281,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 29
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1266,7 +1296,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 28
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1281,7 +1311,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 29
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1296,7 +1326,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 30
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1311,7 +1341,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 29
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1326,7 +1356,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 30
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1341,7 +1371,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 31
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1356,7 +1386,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 30
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1371,7 +1401,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 31
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1386,7 +1416,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 32
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1401,7 +1431,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 31
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1416,7 +1446,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 32
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1431,7 +1461,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 33
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1446,7 +1476,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 32
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1461,7 +1491,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 33
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1476,7 +1506,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 34
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1491,7 +1521,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 33
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1506,7 +1536,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 34
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1521,7 +1551,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 35
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1536,7 +1566,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 34
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1551,7 +1581,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 35
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1566,7 +1596,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 36
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1581,7 +1611,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 35
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1596,7 +1626,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 36
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1611,7 +1641,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 37
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1626,7 +1656,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 36
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1641,7 +1671,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 37
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1656,7 +1686,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 38
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1671,7 +1701,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 37
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1686,7 +1716,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 38
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1701,7 +1731,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 39
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1716,7 +1746,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 38
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1731,7 +1761,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 39
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1746,7 +1776,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 40
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1761,7 +1791,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 39
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1776,7 +1806,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 40
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1791,7 +1821,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 41
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1806,7 +1836,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 40
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1821,7 +1851,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 41
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1836,7 +1866,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 42
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1851,7 +1881,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 41
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1866,7 +1896,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 42
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1881,7 +1911,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 43
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1896,7 +1926,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 42
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1911,7 +1941,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 43
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1926,7 +1956,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 44
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1941,7 +1971,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 43
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -1956,7 +1986,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 44
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -1971,7 +2001,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 45
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -1986,7 +2016,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 44
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2001,7 +2031,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 45
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2016,7 +2046,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 46
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2031,7 +2061,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 45
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2046,7 +2076,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 46
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2061,7 +2091,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 47
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2076,7 +2106,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 46
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2091,7 +2121,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 47
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2106,7 +2136,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 48
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2121,7 +2151,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 47
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2136,7 +2166,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 48
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2151,7 +2181,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 49
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2166,7 +2196,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 48
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2181,7 +2211,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 49
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2196,7 +2226,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 50
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2211,7 +2241,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 49
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2226,7 +2256,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 50
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2241,7 +2271,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 51
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2256,7 +2286,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 50
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2271,7 +2301,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 51
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2286,7 +2316,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 52
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2301,7 +2331,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 51
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2316,7 +2346,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 52
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2331,7 +2361,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 53
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2346,7 +2376,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 52
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2361,7 +2391,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 53
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2376,7 +2406,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 54
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2391,7 +2421,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 53
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2406,7 +2436,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 54
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2421,7 +2451,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 55
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2436,7 +2466,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 54
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2451,7 +2481,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 55
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2466,7 +2496,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 56
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2481,7 +2511,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 55
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2496,7 +2526,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 56
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2511,7 +2541,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 57
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2526,7 +2556,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 56
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2541,7 +2571,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 57
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2556,7 +2586,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 58
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2571,7 +2601,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 57
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2586,7 +2616,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 58
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2601,7 +2631,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 59
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2616,7 +2646,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 58
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2631,7 +2661,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 59
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2646,7 +2676,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 60
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2661,7 +2691,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 59
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2676,7 +2706,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 60
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2691,7 +2721,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 61
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2706,7 +2736,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 60
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2721,7 +2751,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 61
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2736,7 +2766,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 62
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2751,7 +2781,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 61
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2766,7 +2796,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 62
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2781,7 +2811,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 63
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2796,7 +2826,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 62
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2811,7 +2841,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 63
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2826,7 +2856,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 64
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2841,7 +2871,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 63
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2856,7 +2886,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 64
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2871,7 +2901,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 65
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2886,7 +2916,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 64
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2901,7 +2931,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 65
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2916,7 +2946,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 66
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2931,7 +2961,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 65
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2946,7 +2976,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 66
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -2961,7 +2991,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 67
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -2976,7 +3006,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 66
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -2991,7 +3021,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 67
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3006,7 +3036,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 68
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3021,7 +3051,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 67
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3036,7 +3066,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 68
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3051,7 +3081,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 69
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3066,7 +3096,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 68
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3081,7 +3111,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 69
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3096,7 +3126,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 70
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3111,7 +3141,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 69
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3126,7 +3156,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 70
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3141,7 +3171,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 71
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3156,7 +3186,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 70
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3171,7 +3201,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 71
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3186,7 +3216,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 72
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3201,7 +3231,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 71
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3216,7 +3246,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 72
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3231,7 +3261,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 73
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3246,7 +3276,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 72
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3261,7 +3291,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 73
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3276,7 +3306,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 74
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3291,7 +3321,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 73
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3306,7 +3336,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 74
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3321,7 +3351,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 75
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3336,7 +3366,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 74
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3351,7 +3381,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 75
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3366,7 +3396,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 76
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3381,7 +3411,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 75
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3396,7 +3426,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 76
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3411,7 +3441,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 77
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3426,7 +3456,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 76
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3441,7 +3471,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 77
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3456,7 +3486,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 78
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3471,7 +3501,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 77
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3486,7 +3516,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 78
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3501,7 +3531,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 79
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3516,7 +3546,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 78
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3531,7 +3561,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 79
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3546,7 +3576,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 80
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3561,7 +3591,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 79
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3576,7 +3606,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 80
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3591,7 +3621,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 81
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3606,7 +3636,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 80
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3621,7 +3651,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 81
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3636,7 +3666,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 82
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3651,7 +3681,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 81
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3666,7 +3696,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 82
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3681,7 +3711,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 83
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3696,7 +3726,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 82
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3711,7 +3741,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 83
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3726,7 +3756,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 84
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3741,7 +3771,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 83
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3756,7 +3786,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 84
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3771,7 +3801,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 85
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3786,7 +3816,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 84
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3801,7 +3831,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 85
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3816,7 +3846,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 86
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3831,7 +3861,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 85
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3846,7 +3876,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 86
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3861,7 +3891,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 87
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3876,7 +3906,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 86
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3891,7 +3921,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 87
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3906,7 +3936,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 88
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3921,7 +3951,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 87
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3936,7 +3966,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 88
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3951,7 +3981,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 89
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -3966,7 +3996,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 88
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -3981,7 +4011,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 89
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -3996,7 +4026,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 90
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4011,7 +4041,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 89
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4026,7 +4056,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 90
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4041,7 +4071,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 91
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4056,7 +4086,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 90
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4071,7 +4101,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 91
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4086,7 +4116,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 92
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4101,7 +4131,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 91
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4116,7 +4146,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 92
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4131,7 +4161,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 93
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4146,7 +4176,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 92
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4161,7 +4191,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 93
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4176,7 +4206,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 94
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4191,7 +4221,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 93
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4206,7 +4236,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 94
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4221,7 +4251,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 95
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4236,7 +4266,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 94
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4251,7 +4281,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 95
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4266,7 +4296,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 96
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4281,7 +4311,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 95
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4296,7 +4326,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 96
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4311,7 +4341,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 97
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4326,7 +4356,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 96
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4341,7 +4371,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 97
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4356,7 +4386,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 98
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4371,7 +4401,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 97
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4386,7 +4416,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 98
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4401,7 +4431,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 99
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4416,7 +4446,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 98
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4431,7 +4461,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 99
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4446,7 +4476,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 100
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4461,7 +4491,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 99
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4476,7 +4506,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 100
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4491,7 +4521,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 101
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4506,7 +4536,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 100
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4521,7 +4551,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 101
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4536,7 +4566,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 102
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4551,7 +4581,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 101
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4566,7 +4596,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 102
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4581,7 +4611,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 103
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4596,7 +4626,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 102
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4611,7 +4641,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 103
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4626,7 +4656,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 104
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4641,7 +4671,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 103
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4656,7 +4686,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 104
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4671,7 +4701,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 105
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4686,7 +4716,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 104
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4701,7 +4731,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 105
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4716,7 +4746,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 106
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4731,7 +4761,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 105
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4746,7 +4776,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 106
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4761,7 +4791,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 107
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4776,7 +4806,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 106
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4791,7 +4821,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 107
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4806,7 +4836,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 108
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4821,7 +4851,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 107
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4836,7 +4866,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 108
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4851,7 +4881,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 109
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4866,7 +4896,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 108
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4881,7 +4911,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 109
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4896,7 +4926,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 110
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4911,7 +4941,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 109
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4926,7 +4956,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 110
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4941,7 +4971,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 111
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -4956,7 +4986,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 110
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -4971,7 +5001,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 111
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -4986,7 +5016,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 112
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5001,7 +5031,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 111
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5016,7 +5046,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 112
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5031,7 +5061,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 113
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5046,7 +5076,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 112
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5061,7 +5091,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 113
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5076,7 +5106,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 114
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5091,7 +5121,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 113
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5106,7 +5136,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 114
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5121,7 +5151,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 115
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5136,7 +5166,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 114
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5151,7 +5181,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 115
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5166,7 +5196,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 116
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5181,7 +5211,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 115
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5196,7 +5226,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 116
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5211,7 +5241,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 117
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5226,7 +5256,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 116
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5241,7 +5271,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 117
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5256,7 +5286,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 118
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5271,7 +5301,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 117
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5286,7 +5316,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 118
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5301,7 +5331,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 119
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5316,7 +5346,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 118
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5331,7 +5361,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 119
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5346,7 +5376,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 120
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5361,7 +5391,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 119
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5376,7 +5406,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 120
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5391,7 +5421,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 121
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5406,7 +5436,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 120
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5421,7 +5451,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 121
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5436,7 +5466,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 122
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5451,7 +5481,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 121
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5466,7 +5496,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 122
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5481,7 +5511,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 123
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5496,7 +5526,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 122
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5511,7 +5541,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 123
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5526,7 +5556,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 124
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5541,7 +5571,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 123
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5556,7 +5586,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 124
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5571,7 +5601,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 125
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5586,7 +5616,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 124
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5601,7 +5631,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 125
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5616,7 +5646,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 126
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5631,7 +5661,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 125
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5646,7 +5676,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 126
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5661,7 +5691,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 127
+        "val": 1
       },
       "geometry": {
         "type": "Point",
@@ -5676,7 +5706,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 126
+        "val": 2
       },
       "geometry": {
         "type": "Point",
@@ -5691,7 +5721,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 127
+        "val": 0
       },
       "geometry": {
         "type": "Point",
@@ -5706,37 +5736,7 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "val": 128
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          13,
-          42
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "_extent": 80,
-        "_layer": "layer1",
-        "val": 127
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          13,
-          42
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "_extent": 80,
-        "_layer": "layer1",
-        "val": 128
+        "val": 1
       },
       "geometry": {
         "type": "Point",

@@ -435,8 +435,8 @@ public class SyntheticMltGenerator {
       for (var offset : new int[] {-1, 0, 1}) {
         var features = new Feature[128 * multiplier + offset];
         for (var i = 0; i < features.length; i++) {
-          // Sequence 0,1,2,1,2,3,2,3,4,3,4,5,...
-          features[i] = feat(p0, prop("val", U32.of(i / 3 + i % 3)));
+          // Sequence 0,1,2, 0,1,2, 0,1,2, 0,1,2, ...
+          features[i] = feat(p0, prop("val", U32.of(i % 3)));
         }
         write(layer("props_u32_fpf_" + features.length, features), cfg().fastPFOR());
       }
