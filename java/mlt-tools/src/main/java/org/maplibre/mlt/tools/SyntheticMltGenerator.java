@@ -430,7 +430,7 @@ public class SyntheticMltGenerator {
     write(layer("props_u32_rle", feat_u32s), cfg(RLE));
     write(layer("props_u32_delta_rle", feat_u32s), cfg(DELTA_RLE));
 
-    // The actual frame size is 256, so cover 128, 256, ...
+    // The actual frame size is 256, so cover multiples of its half
     for (var multiplier : new int[] {1, 2, 3, 4}) {
       for (var offset : new int[] {-1, 0, 1}) {
         var features = new Feature[128 * multiplier + offset];
