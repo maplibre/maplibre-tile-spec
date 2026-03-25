@@ -5,11 +5,8 @@ endif(NOT MLT_WITH_FASTPFOR)
 
 message(STATUS "[MLT] Including FastPFOR support")
 
-# FastPFor
-set(FASTPFOR_WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE) # The fastpfor gtest targets conflict with ours
-
-# SUPPORT_NEON results in trying to link simde (`-lsimde`) but it's a header-only library
-set(SUPPORT_NEON OFF CACHE BOOL "" FORCE)
+# The fastpfor gtest targets conflict with ours
+set(FASTPFOR_WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE)
 
 add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)
 

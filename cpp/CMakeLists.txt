@@ -23,6 +23,7 @@ add_library(mlt-cpp STATIC)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
 option(MLT_WITH_FASTPFOR "Include FastPFor support" ON)
+option(MLT_WITH_FASTPFOR_SIMD "Include SIMD/NEON support in FastPFor decoding" ON)
 option(MLT_WITH_TESTS "Include Tests" ON)
 option(MLT_WITH_TOOLS "Include CLI tools" ON)
 
