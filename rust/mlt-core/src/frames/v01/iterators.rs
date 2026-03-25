@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use crate::geojson::Geom32;
 use crate::utils::{f32_to_json, f64_to_json};
-use crate::v01::{Layer01, ParsedProperty};
+use crate::v01::{Layer01, ParsedProperty, ParsedScalar, ParsedStrings};
 use crate::{MltResult, Parsed};
 
 /// A zero-allocation two-part property name yielded by [`FeatureRef::iter_properties`].
@@ -100,6 +100,42 @@ impl From<PropValueRef<'_>> for Value {
     }
 }
 
+macro_rules! impl_from_for_prop_value_ref {
+    ($($ty:ty => $variant:ident),+ $(,)?) => {
+        $(impl From<$ty> for PropValueRef<'_> {
+            fn from(v: $ty) -> Self { Self::$variant(v) }
+        })+
+    };
+}
+impl_from_for_prop_value_ref!(
+    bool => Bool, i8 => I8, u8 => U8,
+    i32 => I32, u32 => U32,
+    i64 => I64, u64 => U64,
+    f32 => F32, f64 => F64,
+);
+
+impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
+    fn column_at(&self, feat_idx: usize) -> Option<ColumnRef<'a>>
+    where
+        PropValueRef<'a>: From<T>,
+    {
+        self.values[feat_idx].map(|v| ColumnRef {
+            name: PropName(self.name, ""),
+            value: PropValueRef::from(v),
+        })
+    }
+}
+
+impl<'a> ParsedStrings<'a> {
+    fn column_at(&'a self, feat_idx: usize) -> Option<ColumnRef<'a>> {
+        let i = u32::try_from(feat_idx).unwrap_or(u32::MAX);
+        self.get(i).map(|val| ColumnRef {
+            name: PropName(self.name, ""),
+            value: PropValueRef::Str(val),
+        })
+    }
+}
+
 /// A single non-null property value for one feature, yielded by [`FeatureRef::iter_properties`].
 ///
 /// `name` is a [`PropName`] that displays as `"{prefix}{suffix}"`.
@@ -168,19 +204,24 @@ impl<'a> Iterator for FeatPropertyIter<'a> {
     type Item = ColumnRef<'a>;
 
     fn next(&mut self) -> Option<ColumnRef<'a>> {
-        macro_rules! scalar {
-            ($s:expr, $variant:ident) => {
-                $s.values[self.feat_idx].map(|v| ColumnRef {
-                    name: PropName($s.name, ""),
-                    value: PropValueRef::$variant(v),
-                })
-            };
-        }
+        use ParsedProperty as PP;
+
         loop {
             let prop = self.columns.get(self.col_idx)?;
             self.col_idx += 1;
-            let res = match prop {
-                ParsedProperty::SharedDict(dict) => {
+            let feat_idx = self.feat_idx;
+            if let Some(col) = match &prop {
+                PP::Bool(s) => s.column_at(feat_idx),
+                PP::I8(s) => s.column_at(feat_idx),
+                PP::U8(s) => s.column_at(feat_idx),
+                PP::I32(s) => s.column_at(feat_idx),
+                PP::U32(s) => s.column_at(feat_idx),
+                PP::I64(s) => s.column_at(feat_idx),
+                PP::U64(s) => s.column_at(feat_idx),
+                PP::F32(s) => s.column_at(feat_idx),
+                PP::F64(s) => s.column_at(feat_idx),
+                PP::Str(s) => s.column_at(feat_idx),
+                PP::SharedDict(dict) => {
                     // iterate over SharedDict subitems - undo the idx+=1 until done with shared dict
                     self.col_idx -= 1;
                     while self.sub_idx < dict.items.len() {
@@ -193,29 +234,12 @@ impl<'a> Iterator for FeatPropertyIter<'a> {
                             });
                         }
                     }
-                    self.col_idx += 1;
                     self.sub_idx = 0;
-                    None
+                    self.col_idx += 1;
+                    continue;
                 }
-                ParsedProperty::Bool(s) => scalar!(s, Bool),
-                ParsedProperty::I8(s) => scalar!(s, I8),
-                ParsedProperty::U8(s) => scalar!(s, U8),
-                ParsedProperty::I32(s) => scalar!(s, I32),
-                ParsedProperty::U32(s) => scalar!(s, U32),
-                ParsedProperty::I64(s) => scalar!(s, I64),
-                ParsedProperty::U64(s) => scalar!(s, U64),
-                ParsedProperty::F32(s) => scalar!(s, F32),
-                ParsedProperty::F64(s) => scalar!(s, F64),
-                ParsedProperty::Str(s) => {
-                    let i = u32::try_from(self.feat_idx).unwrap_or(u32::MAX);
-                    s.get(i).map(|val| ColumnRef {
-                        name: PropName(s.name, ""),
-                        value: PropValueRef::Str(val),
-                    })
-                }
-            };
-            if let Some(v) = res {
-                return Some(v);
+            } {
+                return Some(col);
             }
         }
     }
