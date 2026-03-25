@@ -161,7 +161,7 @@ impl RawStream<'_> {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
                 }
             },
-            PhysicalEncoding::FastPFOR => match &self.data {
+            PhysicalEncoding::FastPFor256 => match &self.data {
                 RawStreamData::Encoded(v) => {
                     *buf = decode_fastpfor(v, self.meta.num_values, dec)?;
                 }
@@ -200,7 +200,7 @@ impl RawStream<'_> {
                     return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
                 }
             },
-            PhysicalEncoding::FastPFOR => {
+            PhysicalEncoding::FastPFor256 => {
                 return Err(MltError::UnsupportedPhysicalEncoding(
                     "FastPFOR decoding u64",
                 ));

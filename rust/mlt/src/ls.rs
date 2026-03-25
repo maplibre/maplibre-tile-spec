@@ -171,7 +171,7 @@ impl std::fmt::Display for FileAlgorithm {
                 };
                 let physical = match physical {
                     PhysicalEncoding::None => "",
-                    PhysicalEncoding::FastPFOR => "FastPFOR",
+                    PhysicalEncoding::FastPFor256 => "FastPFOR",
                     PhysicalEncoding::VarInt => "VarInt",
                     PhysicalEncoding::Alp => "Alp",
                 };

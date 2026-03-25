@@ -107,7 +107,7 @@ pub enum PhysicalEncoding {
     None = 0,
     /// Preferred, tends to produce the best compression ratio and decoding performance.
     /// But currently limited to 32-bit integer.
-    FastPFOR = 1,
+    FastPFor256 = 1,
     /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
     /// Simple compression scheme where the encoding is easier to implement compared to `FastPfor`.
     VarInt = 2,

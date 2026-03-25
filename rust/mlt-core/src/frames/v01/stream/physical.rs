@@ -91,7 +91,7 @@ impl PhysicalEncoder {
             Self::FastPFOR => {
                 let data = encode_fastpfor(&values)?;
                 let stream = EncodedStreamData::Encoded(data);
-                Ok((stream, PhysicalEncoding::FastPFOR))
+                Ok((stream, PhysicalEncoding::FastPFor256))
             }
         }
     }
