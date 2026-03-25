@@ -1,6 +1,6 @@
 import { globSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
-import { basename, dirname, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -57,11 +57,11 @@ export function getTestCases(skipList: string[]): {
   const skipped: string[] = [];
 
   for (const mltFile of mltFiles) {
-    const testName = basename(mltFile, ".mlt");
+    const testName = path.relative(syntheticDir, mltFile).replace(/\.mlt$/, "");
     if (skipList.includes(testName)) {
       skipped.push(testName);
     } else {
-      const jsonFile = path.join(dirname(mltFile), `${testName}.json`);
+      const jsonFile = mltFile.replace(/\.mlt$/, ".json");
       const expectedRaw = readFileSync(jsonFile, "utf-8");
       const expected = JSON.parse(expectedRaw);
       active.push({ name: testName, fileName: mltFile, content: expected });
