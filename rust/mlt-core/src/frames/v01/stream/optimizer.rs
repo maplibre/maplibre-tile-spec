@@ -120,7 +120,7 @@ impl DataProfile {
         let target = sample_size(values.len());
         let sample = block_sample(values, target);
 
-        let profile = DataProfile::profile::<T>(sample);
+        let profile = Self::profile::<T>(sample);
         profile.candidates(T::zero().count_zeros() == 32)
     }
 

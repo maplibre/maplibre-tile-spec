@@ -7,7 +7,7 @@ use std::ops::Deref;
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
 use mlt_core::v01::{GeometryValues, ParsedProperty};
-use mlt_core::{Decoder, LazyParsed, MltError, MltResult, Parser};
+use mlt_core::{Decoder, MltError, MltResult, Parser};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
@@ -256,48 +256,28 @@ fn decode_mlt(
     y: Option<u32>,
     tms: bool,
 ) -> PyResult<Vec<MltLayer>> {
-    let mut layers = Parser::default().parse_layers(data).map_err(mlt_err)?;
-    let mut dec = Decoder::default();
+    let layers = Parser::default().parse_layers(data).map_err(mlt_err)?;
+    let layers = Decoder::default().decode_all(layers).map_err(mlt_err)?;
     let mut result = Vec::with_capacity(layers.len());
-    for layer in &mut layers {
-        layer.decode_all(&mut dec).map_err(mlt_err)?;
-
-        let layer = layer
+    for decoded in layers {
+        let layer01 = decoded
             .as_layer01()
             .ok_or_else(|| PyValueError::new_err("unsupported layer tag (expected 0x01)"))?;
 
         let xf = match (z, x, y) {
             (Some(z), Some(x), Some(y)) => {
-                Some(TileTransform::from_zxy(z, x, y, layer.extent, tms)?)
+                Some(TileTransform::from_zxy(z, x, y, layer01.extent, tms)?)
             }
             _ => None,
         };
 
-        let geom = match &layer.geometry {
-            LazyParsed::Parsed(g) => g,
-            LazyParsed::Raw(_) => Err(PyValueError::new_err("geometry not decoded"))?,
-            LazyParsed::ParsingFailed => Err(PyValueError::new_err("geometry parse failed"))?,
-        };
-
-        let ids = match &layer.id {
-            None => None,
-            Some(LazyParsed::Parsed(decoded)) => Some(decoded.values()),
-            Some(LazyParsed::Raw(_)) => Err(PyValueError::new_err("ID not decoded"))?,
-            Some(LazyParsed::ParsingFailed) => Err(PyValueError::new_err("ID parse failed"))?,
-        };
-
-        let props: Vec<&ParsedProperty> = layer
-            .properties
-            .iter()
-            .map(|p| match p {
-                LazyParsed::Parsed(d) => Ok(d),
-                _ => Err(PyValueError::new_err("property not decoded")),
-            })
-            .collect::<PyResult<_>>()?;
+        let geom = &layer01.geometry;
+        let ids = layer01.id.as_ref().map(|id| id.values());
+        let props: Vec<&ParsedProperty> = layer01.properties.iter().collect();
 
         result.push(MltLayer {
-            name: layer.name.to_string(),
-            extent: layer.extent,
+            name: layer01.name.to_string(),
+            extent: layer01.extent,
             features: build_features(py, geom, ids, &props, xf)?,
         });
     }
@@ -311,9 +291,11 @@ fn decode_mlt(
 fn decode_mlt_to_geojson(
     #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
 ) -> PyResult<String> {
-    let mut layers = Parser::default().parse_layers(data).map_err(mlt_err)?;
     let mut dec = Decoder::default();
-    let fc = FeatureCollection::from_layers(&mut layers, &mut dec).map_err(mlt_err)?;
+    let layers = dec
+        .decode_all(Parser::default().parse_layers(data).map_err(mlt_err)?)
+        .map_err(mlt_err)?;
+    let fc = FeatureCollection::from_layers(layers).map_err(mlt_err)?;
     serde_json::to_string(&fc).map_err(|e| PyValueError::new_err(format!("JSON error: {e}")))
 }
 
@@ -438,23 +420,17 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut parser = Parser::default();
-        let mut layers = parser
+        let layers = Parser::default()
             .parse_layers(&data)
             .expect("parse_layers should succeed");
         let mut dec = Decoder::default();
-        for layer in &mut layers {
-            layer
-                .decode_all(&mut dec)
-                .expect("decode_all should succeed");
-        }
+        let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        assert!(!layers.is_empty(), "should parse at least one layer");
-        let l = layers[0].as_layer01().expect("first layer should be v0.1");
+        assert!(!decoded.is_empty(), "should parse at least one layer");
+        let l = decoded[0].as_layer01().expect("first layer should be v0.1");
         assert!(!l.name.is_empty(), "layer name should be non-empty");
 
-        let fc = FeatureCollection::from_layers(&mut layers, &mut dec)
-            .expect("FeatureCollection should succeed");
+        let fc = FeatureCollection::from_layers(decoded).expect("FeatureCollection should succeed");
         assert!(
             !fc.features.is_empty(),
             "feature collection should have features"
@@ -467,21 +443,14 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut parser = Parser::default();
-        let mut layers = parser
+        let layers = Parser::default()
             .parse_layers(&data)
             .expect("parse_layers should succeed");
         let mut dec = Decoder::default();
-        for layer in &mut layers {
-            layer
-                .decode_all(&mut dec)
-                .expect("decode_all should succeed");
-        }
+        let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let LazyParsed::Parsed(geom) = &l.geometry else {
-            panic!("geometry not decoded");
-        };
+        let l = decoded[0].as_layer01().expect("first layer should be v0.1");
+        let geom = &l.geometry;
 
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");
         assert!(
@@ -502,21 +471,14 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut parser = Parser::default();
-        let mut layers = parser
+        let layers = Parser::default()
             .parse_layers(&data)
             .expect("parse_layers should succeed");
         let mut dec = Decoder::default();
-        for layer in &mut layers {
-            layer
-                .decode_all(&mut dec)
-                .expect("decode_all should succeed");
-        }
+        let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let LazyParsed::Parsed(geom) = &l.geometry else {
-            panic!("geometry not decoded");
-        };
+        let l = decoded[0].as_layer01().expect("first layer should be v0.1");
+        let geom = &l.geometry;
 
         let xf = TileTransform::from_zxy(0, 0, 0, l.extent, false).unwrap();
 
@@ -540,21 +502,14 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut parser = Parser::default();
-        let mut layers = parser
+        let layers = Parser::default()
             .parse_layers(&data)
             .expect("parse_layers should succeed");
         let mut dec = Decoder::default();
-        for layer in &mut layers {
-            layer
-                .decode_all(&mut dec)
-                .expect("decode_all should succeed");
-        }
+        let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        let l = layers[0].as_layer01().expect("first layer should be v0.1");
-        let LazyParsed::Parsed(geom) = &l.geometry else {
-            panic!("geometry not decoded");
-        };
+        let l = decoded[0].as_layer01().expect("first layer should be v0.1");
+        let geom = &l.geometry;
 
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");
         assert!(wkb.len() >= 5);

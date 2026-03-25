@@ -2,10 +2,9 @@ use std::{fmt, io};
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::analyse::{Analyze, StatType};
 use crate::codecs::varint::parse_varint;
 use crate::errors::fail_if_invalid_stream_size;
-use crate::utils::{BinarySerializer as _, parse_u8, take};
+use crate::utils::{AsUsize as _, BinarySerializer as _, parse_u8, take};
 use crate::v01::{
     IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RawStream,
     RawStreamData, RleMeta, StreamMeta, StreamType,
@@ -115,7 +114,7 @@ impl StreamMeta {
             _ => Err(MltError::InvalidLogicalEncodings(logical1, logical2))?,
         };
 
-        let meta = StreamMeta::new(
+        let meta = Self::new(
             stream_type,
             IntEncoding::new(logical_encoding, physical_encoding),
             num_values,
@@ -169,16 +168,6 @@ impl StreamMeta {
             LE::None | LE::Delta | LE::ComponentwiseDelta | LE::PseudoDecimal => {}
         }
         Ok(())
-    }
-}
-
-impl Analyze for StreamMeta {
-    fn collect_statistic(&self, stat: StatType) -> usize {
-        if stat == StatType::DecodedMetaSize {
-            size_of::<Self>()
-        } else {
-            0
-        }
     }
 }
 
@@ -250,7 +239,6 @@ impl<'a> RawStream<'a> {
         use PhysicalEncoding as PD;
 
         let (input, (meta, byte_length)) = StreamMeta::from_bytes(input, is_bool, parser)?;
-
         let (input, data) = take(input, byte_length)?;
 
         // For RLE with VarInt physical encoding, validate stream: run lengths must sum to num_rle_values
@@ -273,7 +261,6 @@ impl<'a> RawStream<'a> {
 
 /// Validate RLE stream data: first `runs` varints must sum to `num_rle_values`.
 fn validate_rle_varint_stream(data: &[u8], runs: u32, num_rle_values: u32) -> MltResult<()> {
-    use crate::utils::AsUsize as _;
     let mut rest = data;
     let mut sum: u64 = 0;
     for _ in 0..runs {

@@ -47,11 +47,7 @@ impl ColumnType {
     pub fn has_name(self) -> bool {
         !matches!(
             self,
-            ColumnType::Id
-                | ColumnType::OptId
-                | ColumnType::LongId
-                | ColumnType::OptLongId
-                | ColumnType::Geometry
+            Self::Id | Self::OptId | Self::LongId | Self::OptLongId | Self::Geometry
         )
     }
 

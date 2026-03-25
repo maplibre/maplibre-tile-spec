@@ -24,13 +24,13 @@ impl EncodedStream {
     }
 
     #[must_use]
-    fn plain(data: Vec<u8>, num_values: u32) -> EncodedStream {
+    fn plain(data: Vec<u8>, num_values: u32) -> Self {
         Self::plain_with_type(data, num_values, DictionaryType::None)
     }
 
     /// Creates a plain stream with values encoded literally
     #[must_use]
-    fn plain_with_type(data: Vec<u8>, num_values: u32, dict_type: DictionaryType) -> EncodedStream {
+    fn plain_with_type(data: Vec<u8>, num_values: u32, dict_type: DictionaryType) -> Self {
         let meta = StreamMeta::new(StreamType::Data(dict_type), IntEncoding::none(), num_values);
         let data = EncodedStreamData::Encoded(data);
         Self { meta, data }

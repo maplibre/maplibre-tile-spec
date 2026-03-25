@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use anyhow::Result as AnyResult;
+use anyhow::{Result as AnyResult, bail};
 use clap::Args;
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{Decoder, MltResult, Parser};
@@ -36,24 +36,30 @@ pub fn dump(args: &DumpArgs, decode: AfterDump) -> AnyResult<()> {
     Ok(())
 }
 
-fn dump_mlt(args: &DumpArgs, decode: AfterDump, buffer: &[u8]) -> MltResult<()> {
-    let mut layers = Parser::default().parse_layers(buffer)?;
-    let mut dec = Decoder::default();
-    if decode == AfterDump::Decode {
-        for layer in &mut layers {
-            layer.decode_all(&mut dec)?;
-        }
-    }
+fn dump_mlt(args: &DumpArgs, decode: AfterDump, buffer: &[u8]) -> AnyResult<()> {
+    let layers = Parser::default().parse_layers(buffer)?;
 
     match args.format {
-        OutputFormat::Text => {
-            for (i, layer) in layers.iter().enumerate() {
-                println!("=== Layer {i} ===");
-                println!("{layer:#?}");
+        OutputFormat::Text => match decode {
+            AfterDump::KeepRaw => {
+                for (i, layer) in layers.into_iter().enumerate() {
+                    println!("=== Layer {i} ===");
+                    println!("{layer:#?}");
+                }
             }
-        }
+            AfterDump::Decode => {
+                let layers = Decoder::default().decode_all(layers)?;
+                for (i, layer) in layers.into_iter().enumerate() {
+                    println!("=== Layer {i} ===");
+                    println!("{layer:#?}");
+                }
+            }
+        },
         OutputFormat::GeoJson => {
-            let fc = FeatureCollection::from_layers(&mut layers, &mut dec)?;
+            if decode == AfterDump::KeepRaw {
+                bail!("GeoJSON output only works with `mlt decode`");
+            }
+            let fc = FeatureCollection::from_layers(Decoder::default().decode_all(layers)?)?;
             println!("{}", serde_json::to_string_pretty(&fc)?);
         }
     }

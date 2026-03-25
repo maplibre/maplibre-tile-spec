@@ -1,7 +1,5 @@
 use std::mem;
 
-use crate::analyse::{Analyze, StatType};
-use crate::v01::StreamMeta;
 use crate::{Decoder, MltError, MltResult};
 
 pub trait Decode<Parsed>: Sized {
@@ -26,13 +24,13 @@ pub trait DecodeState: sealed::Sealed {
 /// This is the default state produced by [`Layer01::from_bytes`](crate::v01::Layer01::from_bytes).
 /// Columns can be decoded in place (via `decode_id`, `decode_geometry`, etc.) or
 /// all at once by calling [`Layer01::decode_all`](crate::v01::Layer01::decode_all), which
-/// consumes `self` and returns a [`Layer01<Decoded>`](crate::v01::Layer01).
+/// consumes `self` and returns a [`Layer01<Parsed>`](crate::v01::Layer01).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Lazy;
 
 /// Fully-decoded state: all columns hold their parsed values directly.
 ///
-/// A `Layer01<Decoded>` is produced by [`Layer01::decode_all`](crate::v01::Layer01::decode_all).
+/// A `Layer01<Parsed>` is produced by [`Layer01::decode_all`](crate::v01::Layer01::decode_all).
 /// Its fields (`id`, `geometry`, `properties`) are the parsed types themselves — no
 /// wrapping enum, no `Result`, just plain field access.
 #[derive(Debug, Clone, PartialEq)]
@@ -94,24 +92,6 @@ impl<Raw: Decode<Parsed>, Parsed> LazyParsed<Raw, Parsed> {
             Self::Parsed(v) => Ok(v),
             Self::Raw(_) => Err(MltError::NotDecoded("enc_dec value")), // TODO: I wonder if the str can be of the type name?
             Self::ParsingFailed => Err(MltError::PriorParseFailure),
-        }
-    }
-}
-
-impl<Raw: Analyze, Parsed: Analyze> Analyze for LazyParsed<Raw, Parsed> {
-    fn collect_statistic(&self, stat: StatType) -> usize {
-        match self {
-            Self::Raw(encoded) => encoded.collect_statistic(stat),
-            Self::Parsed(decoded) => decoded.collect_statistic(stat),
-            Self::ParsingFailed => 0,
-        }
-    }
-
-    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
-        match self {
-            Self::Raw(encoded) => encoded.for_each_stream(cb),
-            Self::Parsed(decoded) => decoded.for_each_stream(cb),
-            Self::ParsingFailed => {}
         }
     }
 }

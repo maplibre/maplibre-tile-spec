@@ -3,8 +3,8 @@ use crate::{DecodeState, Lazy};
 
 /// ID column representation, parameterized by decode state.
 ///
-/// - `Id<'a>` / `Id<'a, Lazy>` — either raw bytes or decoded, in an [`LazyParsed`] enum.
-/// - `Id<'a, Decoded>` — decoded [`IdValues`] directly (no enum wrapper).
+/// - `Id<'a>` / `Id<'a, Lazy>` — either raw bytes or decoded, in an [`crate::LazyParsed`] enum.
+/// - `Id<'a, Parsed>` — decoded [`IdValues`] directly (no enum wrapper).
 pub type Id<'a, S = Lazy> = <S as DecodeState>::LazyOrParsed<RawId<'a>, IdValues>;
 
 /// Unparsed ID data as read directly from the tile (borrows from input bytes)

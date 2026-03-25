@@ -176,7 +176,7 @@ impl From<MltError> for std::io::Error {
     fn from(value: MltError) -> Self {
         match value {
             MltError::Io(e) => e,
-            other => std::io::Error::other(other),
+            other => Self::other(other),
         }
     }
 }

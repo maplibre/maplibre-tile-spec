@@ -66,7 +66,7 @@ impl EncodedGeometry {
 
 impl Debug for GeometryValues {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let GeometryValues {
+        let Self {
             vector_types,
             geometry_offsets,
             part_offsets,

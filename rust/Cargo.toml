@@ -75,6 +75,7 @@ panic_in_result_fn = "warn"
 todo = "warn"
 unimplemented = "warn"
 unused_trait_names = "warn"
+use_self = "warn"
 
 # Too noisy
 missing_errors_doc = "allow"

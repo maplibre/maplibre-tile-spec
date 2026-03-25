@@ -127,7 +127,7 @@ impl From<TileLayer01> for StagedLayer01 {
         let num_cols = source.property_names.len();
         let properties = rebuild_properties(&source.property_names, &source.features, num_cols);
 
-        StagedLayer01 {
+        Self {
             name: source.name,
             extent: source.extent,
             id,

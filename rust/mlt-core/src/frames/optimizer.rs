@@ -7,8 +7,8 @@ impl LayerProfile {
     #[must_use]
     pub fn sort_strategy(&self) -> Option<SortStrategy> {
         match self {
-            LayerProfile::Tag01(p) => p.sort_strategy(),
-            LayerProfile::Unknown => None,
+            Self::Tag01(p) => p.sort_strategy(),
+            Self::Unknown => None,
         }
     }
 }

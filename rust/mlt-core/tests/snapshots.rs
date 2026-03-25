@@ -37,17 +37,26 @@ fn parse_one_file(path: impl AsRef<Path>) {
     let mut p = parser();
     let mut d = dec();
     match p.parse_layers(&buffer) {
-        Ok(mut layers) => {
+        Ok(layers) => {
             assert_snapshot!(p.reserved(), @"");
             assert_debug_snapshot!(format!("{file_name}-parsed"), layers);
-            for layer in &mut layers {
-                if let Err(e) = layer.decode_all(&mut d) {
-                    assert_debug_snapshot!(format!("{file_name}___bad-decode"), e);
-                    break;
+            let mut decoded = Vec::with_capacity(layers.len());
+            for (idx, layer) in layers.into_iter().enumerate() {
+                match layer.decode_all(&mut d) {
+                    Ok(l) => decoded.push(l),
+                    Err(e) => {
+                        let idx = if idx == 0 {
+                            String::new()
+                        } else {
+                            format!("_{idx}")
+                        };
+                        assert_debug_snapshot!(format!("{file_name}{idx}___bad-decode"), e);
+                        break;
+                    }
                 }
             }
             assert_snapshot!(d.consumed(), @"");
-            assert_debug_snapshot!(format!("{file_name}-decoded"), layers);
+            assert_debug_snapshot!(format!("{file_name}-decoded"), decoded);
         }
         Err(e) => {
             let filesize = buffer.len();
