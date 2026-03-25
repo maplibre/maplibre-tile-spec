@@ -177,7 +177,7 @@ mod tests {
     #[rstest]
     #[case::longer(&["hello world", "hello rust", "hello fsst", "world"])]
     #[case::short(&["hello"])]
-    fn automatic_optimisation_roundtrip(#[case] values: &[&str]) {
+    fn automatic_optimization_roundtrip(#[case] values: &[&str]) {
         let (corpus, lengths) = roundtrip(values);
         let mut offset = 0;
         for (s, &len) in values.iter().zip(&lengths) {

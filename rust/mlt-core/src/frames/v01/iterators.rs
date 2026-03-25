@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use crate::geojson::Geom32;
 use crate::utils::{f32_to_json, f64_to_json};
-use crate::v01::{Layer01, ParsedProperty, ParsedScalar, ParsedStrings};
+use crate::v01::{Layer01, ParsedProperty, ParsedScalar};
 use crate::{MltResult, Parsed};
 
 /// A zero-allocation two-part property name yielded by [`FeatureRef::iter_properties`].
@@ -126,16 +126,6 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
     }
 }
 
-impl<'a> ParsedStrings<'a> {
-    fn column_at(&'a self, feat_idx: usize) -> Option<ColumnRef<'a>> {
-        let i = u32::try_from(feat_idx).unwrap_or(u32::MAX);
-        self.get(i).map(|val| ColumnRef {
-            name: PropName(self.name, ""),
-            value: PropValueRef::Str(val),
-        })
-    }
-}
-
 /// A single non-null property value for one feature, yielded by [`FeatureRef::iter_properties`].
 ///
 /// `name` is a [`PropName`] that displays as `"{prefix}{suffix}"`.
@@ -220,7 +210,15 @@ impl<'a> Iterator for FeatPropertyIter<'a> {
                 PP::U64(s) => s.column_at(feat_idx),
                 PP::F32(s) => s.column_at(feat_idx),
                 PP::F64(s) => s.column_at(feat_idx),
-                PP::Str(s) => s.column_at(feat_idx),
+                PP::Str(s) => {
+                    let Ok(i) = u32::try_from(feat_idx) else {
+                        continue;
+                    };
+                    s.get(i).map(|val| ColumnRef {
+                        name: PropName(s.name, ""),
+                        value: PropValueRef::Str(val),
+                    })
+                }
                 PP::SharedDict(dict) => {
                     // iterate over SharedDict subitems - undo the idx+=1 until done with shared dict
                     self.col_idx -= 1;

@@ -79,7 +79,7 @@ pub enum LayerEncoder {
     Unknown,
 }
 
-/// Profile for a layer, built by running automatic optimisation over a
+/// Profile for a layer, built by running automatic optimization over a
 /// representative sample of tiles and capturing the chosen encoders.
 ///
 /// The `SortStrategy` stored inside the inner [`Tag01Profile`] is recorded
