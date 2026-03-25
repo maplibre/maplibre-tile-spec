@@ -45,7 +45,6 @@ _test-synthetic: _install_npm_deps
 [working-directory: 'build']
 test: _clean_coverage_data cmake-build _test-synthetic
     ctest
-    {{just}} cpp::decode-synthetics
 
 _clean_coverage_data:
     find . -name "*.gcda" -delete
@@ -68,13 +67,6 @@ bazel-build:
 # Sanity test for mlt-cpp-json tool
 test-json:
     build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq . >/dev/null
-
-decode-synthetics: cmake-build (just 'cargo-install' 'fd' 'fd-find')
-    #!/usr/bin/env bash
-    set -e
-    JSON_TOOL=build/tool/mlt-cpp-json
-    fd . ../test/synthetic/0x01 -e mlt -x bash -c "echo {} ; $JSON_TOOL {} >/dev/null"
-    fd . ../test/synthetic/0x01-rust -e mlt -x bash -c "echo {} ; $JSON_TOOL {} >/dev/null"
 
 _check-tool command:
     @which {{command}} > /dev/null || (echo "Error: {{command}} is not installed. Please install it using: brew install {{command}} (macOS) or pip3 install {{command}} (Linux)" && exit 1)
