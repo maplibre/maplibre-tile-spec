@@ -24,7 +24,7 @@ use crate::{MltResult, Parsed};
 /// [`PartialEq<&str>`] (also implemented) to compare against a plain `&str` as if the two
 /// parts were concatenated.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub struct PropName<'a>(pub &'a str, pub &'a str);
+pub struct PropName<'a>(&'a str, &'a str);
 
 impl fmt::Display for PropName<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

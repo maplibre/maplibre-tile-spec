@@ -6,8 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::frames::Layer;
-use crate::v01::Layer01;
-use crate::{MltResult, Parsed, ParsedLayer};
+use crate::{MltResult, ParsedLayer};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
 pub type Geom32 = geo_types::Geometry<i32>;
@@ -40,33 +39,28 @@ impl FeatureCollection {
             let Layer::Tag01(parsed) = layer else {
                 continue;
             };
-            Self::add_layer01(&mut features, &parsed)?;
+            let layer_name = parsed.name;
+            let extent = parsed.extent;
+            for feat in parsed.iter_features() {
+                let feat = feat?;
+                let mut properties = BTreeMap::new();
+                for col in feat.iter_properties() {
+                    properties.insert(col.name.to_string(), col.value.into());
+                }
+                properties.insert("_layer".into(), Value::String(layer_name.to_string()));
+                properties.insert("_extent".into(), Value::Number(extent.into()));
+                features.push(Feature {
+                    geometry: feat.geometry,
+                    id: feat.id,
+                    properties,
+                    ty: "Feature".into(),
+                });
+            }
         }
         Ok(FeatureCollection {
             features,
             ty: "FeatureCollection".into(),
         })
-    }
-
-    fn add_layer01(features: &mut Vec<Feature>, parsed: &Layer01<'_, Parsed>) -> MltResult<()> {
-        let layer_name = parsed.name;
-        let extent = parsed.extent;
-        for feat in parsed.iter_features() {
-            let feat = feat?;
-            let mut properties = BTreeMap::new();
-            for col in feat.iter_properties() {
-                properties.insert(col.name.to_string(), col.value.into());
-            }
-            properties.insert("_layer".into(), Value::String(layer_name.to_string()));
-            properties.insert("_extent".into(), Value::Number(extent.into()));
-            features.push(Feature {
-                geometry: feat.geometry,
-                id: feat.id,
-                properties,
-                ty: "Feature".into(),
-            });
-        }
-        Ok(())
     }
 }
 
