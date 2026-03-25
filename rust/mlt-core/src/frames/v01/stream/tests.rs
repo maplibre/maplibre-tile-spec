@@ -177,7 +177,7 @@ fn test_stream_roundtrip(
     #[case] is_bool: bool,
 ) {
     let stream_data = match physical_encoding {
-        PhysicalEncoding::None | PhysicalEncoding::FastPFOR => {
+        PhysicalEncoding::None | PhysicalEncoding::FastPFor256 => {
             EncodedStreamData::Encoded(data_bytes)
         }
         PhysicalEncoding::VarInt => EncodedStreamData::VarInt(data_bytes),

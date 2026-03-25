@@ -145,7 +145,7 @@ impl StreamMeta {
         };
         let physical_enc_u8: u8 = match self.encoding.physical {
             PhysicalEncoding::None => 0x0,
-            PhysicalEncoding::FastPFOR => 0x1,
+            PhysicalEncoding::FastPFor256 => 0x1,
             PhysicalEncoding::VarInt => 0x2,
             PhysicalEncoding::Alp => 0x3,
         };
@@ -250,7 +250,7 @@ impl<'a> RawStream<'a> {
         }
 
         let stream_data = match meta.encoding.physical {
-            PD::None | PD::FastPFOR => RawStreamData::Encoded(data),
+            PD::None | PD::FastPFor256 => RawStreamData::Encoded(data),
             PD::VarInt => RawStreamData::VarInt(data),
             PD::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
         };
