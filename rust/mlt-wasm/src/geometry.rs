@@ -64,7 +64,7 @@ impl LayerGeometry {
 
 impl LayerGeometry {
     /// Build a [`LayerGeometry`] from a decoded [`GeometryValues`].
-    pub(crate) fn from_values(geom: &GeometryValues) -> LayerGeometry {
+    pub(crate) fn from_values(geom: &GeometryValues) -> Self {
         let geometry_offsets = geom
             .geometry_offsets
             .as_deref()
@@ -85,7 +85,7 @@ impl LayerGeometry {
             .as_deref()
             .map_or_else(|| Int32Array::new_with_length(0), Int32Array::from);
 
-        LayerGeometry {
+        Self {
             geometry_offsets,
             part_offsets,
             ring_offsets,

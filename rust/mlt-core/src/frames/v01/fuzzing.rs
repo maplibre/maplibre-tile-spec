@@ -62,7 +62,7 @@ impl arbitrary::Arbitrary<'_> for EncodedLayer01 {
             layer_order
         };
 
-        Ok(EncodedLayer01 {
+        Ok(Self {
             name,
             extent,
             id,

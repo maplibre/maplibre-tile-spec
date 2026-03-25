@@ -12,7 +12,7 @@ use crate::{DecodeState, Lazy, Parsed};
 pub struct Column<'a> {
     pub typ: ColumnType,
     pub name: Option<&'a str>,
-    pub children: Vec<Column<'a>>,
+    pub children: Vec<Self>,
 }
 
 /// Owned variant of [`Column`].
@@ -20,7 +20,7 @@ pub struct Column<'a> {
 pub struct OwnedColumn {
     pub typ: ColumnType,
     pub name: Option<String>,
-    pub children: Vec<OwnedColumn>,
+    pub children: Vec<Self>,
 }
 
 /// Column data type, as stored in the tile

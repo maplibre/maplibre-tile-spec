@@ -84,18 +84,18 @@ pub enum PropValueRef<'a> {
 }
 
 impl From<PropValueRef<'_>> for Value {
-    fn from(v: PropValueRef<'_>) -> Value {
+    fn from(v: PropValueRef<'_>) -> Self {
         match v {
-            PropValueRef::Bool(v) => Value::Bool(v),
-            PropValueRef::I8(v) => Value::from(v),
-            PropValueRef::U8(v) => Value::from(v),
-            PropValueRef::I32(v) => Value::from(v),
-            PropValueRef::U32(v) => Value::from(v),
-            PropValueRef::I64(v) => Value::from(v),
-            PropValueRef::U64(v) => Value::from(v),
+            PropValueRef::Bool(v) => Self::Bool(v),
+            PropValueRef::I8(v) => Self::from(v),
+            PropValueRef::U8(v) => Self::from(v),
+            PropValueRef::I32(v) => Self::from(v),
+            PropValueRef::U32(v) => Self::from(v),
+            PropValueRef::I64(v) => Self::from(v),
+            PropValueRef::U64(v) => Self::from(v),
             PropValueRef::F32(v) => f32_to_json(v),
             PropValueRef::F64(v) => f64_to_json(v),
-            PropValueRef::Str(s) => Value::String(s.to_string()),
+            PropValueRef::Str(s) => Self::String(s.to_string()),
         }
     }
 }

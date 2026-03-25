@@ -14,7 +14,7 @@ impl Analyze for EncodedId {
 impl Analyze for EncodedIdValue {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         match self {
-            EncodedIdValue::Id32(s) | EncodedIdValue::Id64(s) => {
+            Self::Id32(s) | Self::Id64(s) => {
                 s.for_each_stream(cb);
             }
         }

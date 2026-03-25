@@ -271,7 +271,7 @@ impl LsRow {
     #[must_use]
     pub fn path(&self) -> &Path {
         match self {
-            LsRow::Info { path, .. } | LsRow::Error { path, .. } | LsRow::Loading { path } => {
+            Self::Info { path, .. } | Self::Error { path, .. } | Self::Loading { path } => {
                 path.as_path()
             }
         }

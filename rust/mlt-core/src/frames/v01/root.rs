@@ -16,7 +16,7 @@ use crate::{Decoder, Lazy, MltRefResult, MltResult, Parser};
 
 impl<'a> Layer01<'a, Lazy> {
     /// Parse `v01::Layer` metadata, reserving decoded memory against the parser's budget.
-    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltResult<Layer01<'a, Lazy>> {
+    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltResult<Self> {
         let (input, layer_name) = parse_string(input)?;
         let (input, extent) = parse_varint::<u32>(input)?;
         let (input, column_count) = parse_varint::<u32>(input)?;

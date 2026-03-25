@@ -107,8 +107,8 @@ pub struct Layer {
 
 impl Layer {
     #[must_use]
-    pub fn new(path: PathBuf, default_geom_enc: IntEncoder) -> Layer {
-        Layer {
+    pub fn new(path: PathBuf, default_geom_enc: IntEncoder) -> Self {
+        Self {
             path,
             geometry_encoder: GeometryEncoder::all(default_geom_enc),
             geometry_items: vec![],

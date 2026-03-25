@@ -34,7 +34,7 @@ impl EncodedStreamData {
 
     pub fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
         match self {
-            EncodedStreamData::VarInt(d) | EncodedStreamData::Encoded(d) => writer.write_all(d),
+            Self::VarInt(d) | Self::Encoded(d) => writer.write_all(d),
         }
     }
 }
@@ -50,7 +50,7 @@ impl fmt::Debug for RawStreamData<'_> {
 impl fmt::Debug for EncodedStreamData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            EncodedStreamData::VarInt(d) | EncodedStreamData::Encoded(d) => fmt_byte_array(d, f),
+            Self::VarInt(d) | Self::Encoded(d) => fmt_byte_array(d, f),
         }
     }
 }

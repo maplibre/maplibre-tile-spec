@@ -14,20 +14,17 @@ use crate::v01::{GeometryType, GeometryValues};
 impl GeometryType {
     #[must_use]
     pub fn is_polygon(self) -> bool {
-        matches!(self, GeometryType::Polygon | GeometryType::MultiPolygon)
+        matches!(self, Self::Polygon | Self::MultiPolygon)
     }
     #[must_use]
     pub fn is_linestring(self) -> bool {
-        matches!(
-            self,
-            GeometryType::LineString | GeometryType::MultiLineString
-        )
+        matches!(self, Self::LineString | Self::MultiLineString)
     }
     #[must_use]
     pub fn is_multi(self) -> bool {
         matches!(
             self,
-            GeometryType::MultiPoint | GeometryType::MultiLineString | GeometryType::MultiPolygon
+            Self::MultiPoint | Self::MultiLineString | Self::MultiPolygon
         )
     }
 }

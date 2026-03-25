@@ -6,25 +6,25 @@ use crate::v01::{
 impl Analyze for EncodedProperty {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         match self {
-            EncodedProperty::Bool(s)
-            | EncodedProperty::I8(s)
-            | EncodedProperty::U8(s)
-            | EncodedProperty::I32(s)
-            | EncodedProperty::U32(s)
-            | EncodedProperty::I64(s)
-            | EncodedProperty::U64(s)
-            | EncodedProperty::F32(s)
-            | EncodedProperty::F64(s) => {
+            Self::Bool(s)
+            | Self::I8(s)
+            | Self::U8(s)
+            | Self::I32(s)
+            | Self::U32(s)
+            | Self::I64(s)
+            | Self::U64(s)
+            | Self::F32(s)
+            | Self::F64(s) => {
                 s.presence.0.for_each_stream(cb);
                 s.data.for_each_stream(cb);
             }
-            EncodedProperty::Str(s) => {
+            Self::Str(s) => {
                 s.presence.0.for_each_stream(cb);
                 for stream in s.encoding.streams() {
                     stream.for_each_stream(cb);
                 }
             }
-            EncodedProperty::SharedDict(s) => {
+            Self::SharedDict(s) => {
                 for stream in s.encoding.dict_streams() {
                     stream.for_each_stream(cb);
                 }

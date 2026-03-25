@@ -31,9 +31,7 @@ pub struct FeatureCollection {
 impl FeatureCollection {
     /// Convert already-decoded layers to a `GeoJSON` [`FeatureCollection`], consuming them.
     /// Make sure to call `decode_all` on Layer before calling this (won't compile otherwise)
-    pub fn from_layers<'a>(
-        layers: impl IntoIterator<Item = ParsedLayer<'a>>,
-    ) -> MltResult<FeatureCollection> {
+    pub fn from_layers<'a>(layers: impl IntoIterator<Item = ParsedLayer<'a>>) -> MltResult<Self> {
         let mut features = Vec::new();
         for layer in layers {
             let Layer::Tag01(parsed) = layer else {
@@ -57,7 +55,7 @@ impl FeatureCollection {
                 });
             }
         }
-        Ok(FeatureCollection {
+        Ok(Self {
             features,
             ty: "FeatureCollection".into(),
         })

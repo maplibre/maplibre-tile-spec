@@ -114,7 +114,7 @@ impl StreamMeta {
             _ => Err(MltError::InvalidLogicalEncodings(logical1, logical2))?,
         };
 
-        let meta = StreamMeta::new(
+        let meta = Self::new(
             stream_type,
             IntEncoding::new(logical_encoding, physical_encoding),
             num_values,

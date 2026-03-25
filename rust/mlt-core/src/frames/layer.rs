@@ -9,30 +9,32 @@ use crate::codecs::varint::parse_varint;
 use crate::frames::Unknown;
 use crate::frames::v01::Layer01;
 use crate::utils::{checked_sum2, parse_u8, take};
-use crate::v01::ParsedLayer01;
 use crate::{
-    Decoder, EncodedLayer, Layer, MltError, MltRefResult, MltResult, ParsedLayer, Parser, utils,
+    DecodeState, Decoder, EncodedLayer, Layer, MltError, MltRefResult, MltResult, ParsedLayer,
+    Parser, utils,
 };
 
+impl<'a, S: DecodeState> Layer<'a, S> {
+    /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
+    #[must_use]
+    pub fn as_layer01(&self) -> Option<&Layer01<'a, S>> {
+        match self {
+            Self::Tag01(l) => Some(l),
+            Self::Unknown(_) => None,
+        }
+    }
+
+    /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
+    #[must_use]
+    pub fn as_layer01_mut(&mut self) -> Option<&mut Layer01<'a, S>> {
+        match self {
+            Self::Tag01(l) => Some(l),
+            Self::Unknown(_) => None,
+        }
+    }
+}
+
 impl<'a> Layer<'a> {
-    /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
-    #[must_use]
-    pub fn as_layer01(&self) -> Option<&Layer01<'a>> {
-        match self {
-            Layer::Tag01(l) => Some(l),
-            Layer::Unknown(_) => None,
-        }
-    }
-
-    /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
-    #[must_use]
-    pub fn as_layer01_mut(&mut self) -> Option<&mut Layer01<'a>> {
-        match self {
-            Layer::Tag01(l) => Some(l),
-            Layer::Unknown(_) => None,
-        }
-    }
-
     pub fn decoded_layer01_mut(&mut self, dec: &mut Decoder) -> MltResult<&mut Layer01<'a>> {
         let layer = self
             .as_layer01_mut()
@@ -44,7 +46,7 @@ impl<'a> Layer<'a> {
 
     /// Parse a single tuple that consists of `size (varint)`, `tag (varint)`, and `value (bytes)`.
     /// Reserves memory for decoded data against the parser's budget.
-    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Layer<'a>> {
+    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
         let (input, size) = parse_varint::<u32>(input)?;
 
         // tag is a varint, but we know fewer than 127 tags for now,
@@ -75,27 +77,16 @@ impl<'a> Layer<'a> {
     }
 }
 
-impl<'a> ParsedLayer<'a> {
-    /// Returns the inner [`ParsedLayer01<'a>`] if this is a Tag01 layer, or `None` otherwise.
-    #[must_use]
-    pub fn as_layer01(&self) -> Option<&ParsedLayer01<'a>> {
-        match self {
-            Self::Tag01(l) => Some(l),
-            Self::Unknown(_) => None,
-        }
-    }
-}
-
 impl EncodedLayer {
     /// Write layer's binary representation to a Write stream
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         let (tag, buffer) = match self {
-            EncodedLayer::Tag01(layer) => {
+            Self::Tag01(layer) => {
                 let mut buffer = Vec::new();
                 layer.write_to(&mut buffer)?;
                 (1_u8, Cow::Owned(buffer))
             }
-            EncodedLayer::Unknown(unknown) => (unknown.tag, Cow::Borrowed(&unknown.value)),
+            Self::Unknown(unknown) => (unknown.tag, Cow::Borrowed(&unknown.value)),
         };
 
         let buffer_len = u32::try_from(buffer.len()).map_err(MltError::from)?;
