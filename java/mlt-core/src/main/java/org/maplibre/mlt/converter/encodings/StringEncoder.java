@@ -117,6 +117,7 @@ public class StringEncoder {
       // TODO: make present stream optional
       final var encodedPresentStream =
           BooleanEncoder.encodeBooleanStream(presentStream, PhysicalStreamType.PRESENT);
+      numStreams += 2;
 
       final var encodedDataStream =
           IntegerEncoder.encodeIntStream(
@@ -129,7 +130,6 @@ public class StringEncoder {
       result.add(encodedFieldMetadata);
       result.addAll(encodedPresentStream);
       result.addAll(encodedDataStream);
-      numStreams += encodedPresentStream.isEmpty() ? 1 : 2;
     }
 
     return Pair.of(numStreams, result);
