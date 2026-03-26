@@ -740,6 +740,11 @@ fn print_table(rows: &[LsRow], flags: LsFlags) {
     for (i, row) in rows.iter().enumerate() {
         match row {
             LsRow::Info { info, .. } => {
+                if let Some(true) = info.matches_json
+                    && flags.validate
+                {
+                    continue; // When validating, no need to show valid rows
+                }
                 let mut data_row = vec![
                     info.path.clone(),
                     fmt_size(info.size),
@@ -781,11 +786,7 @@ fn print_table(rows: &[LsRow], flags: LsFlags) {
                 builder.push_record(data_row);
                 error_table_rows.push(i + 1);
             }
-            LsRow::Loading { path } => {
-                let mut data_row = vec![path.display().to_string(), "Loading…".to_string()];
-                data_row.resize(num_cols, String::new());
-                builder.push_record(data_row);
-            }
+            LsRow::Loading { .. } => unreachable!("Loading?"),
         }
     }
 
