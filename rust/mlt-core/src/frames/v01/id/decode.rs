@@ -1,47 +1,31 @@
-use std::mem::size_of;
-
-use crate::enc_dec::Decode;
-use crate::errors::AsMltError as _;
+use crate::lazy_state::Decode;
 use crate::utils::apply_present;
-use crate::v01::{Id, IdValues, RawId, RawIdValue, RawStream};
-use crate::{Decoder, MltError};
+use crate::v01::{IdValues, RawId, RawIdValue};
+use crate::{Decoder, MltResult};
 
 impl Decode<IdValues> for RawId<'_> {
-    fn decode(self, decoder: &mut Decoder) -> Result<IdValues, MltError> {
+    fn decode(self, decoder: &mut Decoder) -> MltResult<IdValues> {
         RawId::decode(self, decoder)
     }
 }
 
 impl RawId<'_> {
     /// Decode into [`IdValues`], charging `dec` before each `Vec` allocation.
-    pub fn decode(self, dec: &mut Decoder) -> Result<IdValues, MltError> {
+    pub fn decode(self, dec: &mut Decoder) -> MltResult<IdValues> {
         let RawId { presence, value } = self;
 
         // Decode the raw integer stream, charging for it before allocation.
         let ids_u64: Vec<u64> = match value {
             RawIdValue::Id32(stream) => {
+                // FIXME: IdValues should be an enum of i32 or i64 values to avoid extra allocations
                 let ids = stream.decode_u32s(dec)?;
+                dec.consume_items::<u64>(ids.len())?;
                 ids.into_iter().map(u64::from).collect()
             }
             RawIdValue::Id64(stream) => stream.decode_u64s(dec)?,
         };
 
-        // apply_present expands the dense values into a sparse Vec<Option<u64>>.
-        // The presence-expanded output may be larger; charge the extra slots now.
-        let presence_count = presence
-            .as_ref()
-            .map_or(ids_u64.len(), |p| p.meta.num_values as usize);
-        let extra = presence_count.saturating_sub(ids_u64.len());
-        dec.consume(u32::try_from(extra * size_of::<Option<u64>>()).or_overflow()?)?;
-
         Ok(IdValues(apply_present(presence, ids_u64, dec)?))
-    }
-}
-
-impl<'a> Id<'a> {
-    #[must_use]
-    pub fn new_raw(presence: Option<RawStream<'a>>, value: RawIdValue<'a>) -> Self {
-        Self::Raw(RawId { presence, value })
     }
 }
 

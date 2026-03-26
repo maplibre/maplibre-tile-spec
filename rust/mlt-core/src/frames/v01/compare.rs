@@ -1,17 +1,18 @@
+use crate::frames::model::{EncodedUnknown, Layer, StagedLayer, Unknown};
+use crate::v01::{
+    Geometry, GeometryValues, Id, IdValues, Layer01, Property, StagedLayer01, StagedProperty,
+};
 /// Cross-type [`PartialEq`] between decode-side (`Parsed*` / `Layer01<'a>`) and
 /// encode-side (`Staged*`) types.
 ///
 /// These implementations allow round-trip tests to compare a decoded tile
 /// directly against a hand-crafted `Staged*` value without having to convert
 /// one side first.
-use crate::frames::model::{EncodedUnknown, Layer, StagedLayer, Unknown};
-use crate::v01::{
-    Geometry, GeometryValues, Id, IdValues, Layer01, Property, StagedLayer01, StagedProperty,
-};
+use crate::{DecodeState, Lazy};
 
 // ── Id ────────────────────────────────────────────────────────────────────────
 
-impl PartialEq<IdValues> for Id<'_> {
+impl PartialEq<IdValues> for Id<'_, Lazy> {
     fn eq(&self, other: &IdValues) -> bool {
         match self {
             Self::Parsed(parsed) => parsed == other,
@@ -20,15 +21,15 @@ impl PartialEq<IdValues> for Id<'_> {
     }
 }
 
-impl PartialEq<Id<'_>> for IdValues {
-    fn eq(&self, other: &Id<'_>) -> bool {
+impl PartialEq<Id<'_, Lazy>> for IdValues {
+    fn eq(&self, other: &Id<'_, Lazy>) -> bool {
         other == self
     }
 }
 
 // ── Geometry ──────────────────────────────────────────────────────────────────
 
-impl PartialEq<GeometryValues> for Geometry<'_> {
+impl PartialEq<GeometryValues> for Geometry<'_, Lazy> {
     fn eq(&self, other: &GeometryValues) -> bool {
         match self {
             Self::Parsed(parsed) => parsed == other,
@@ -37,15 +38,15 @@ impl PartialEq<GeometryValues> for Geometry<'_> {
     }
 }
 
-impl PartialEq<Geometry<'_>> for GeometryValues {
-    fn eq(&self, other: &Geometry<'_>) -> bool {
+impl PartialEq<Geometry<'_, Lazy>> for GeometryValues {
+    fn eq(&self, other: &Geometry<'_, Lazy>) -> bool {
         other == self
     }
 }
 
 // ── Property ──────────────────────────────────────────────────────────────────
 
-impl PartialEq<StagedProperty> for Property<'_> {
+impl PartialEq<StagedProperty> for Property<'_, Lazy> {
     fn eq(&self, other: &StagedProperty) -> bool {
         match self {
             Self::Parsed(parsed) => parsed == other,
@@ -54,15 +55,32 @@ impl PartialEq<StagedProperty> for Property<'_> {
     }
 }
 
-impl PartialEq<Property<'_>> for StagedProperty {
-    fn eq(&self, other: &Property<'_>) -> bool {
+impl PartialEq<Property<'_, Lazy>> for StagedProperty {
+    fn eq(&self, other: &Property<'_, Lazy>) -> bool {
         other == self
     }
 }
 
 // ── Layer01 ───────────────────────────────────────────────────────────────────
 
-impl PartialEq<StagedLayer01> for Layer01<'_> {
+/// TODO: not certain this is needed
+impl<'a, S> PartialEq for Layer01<'a, S>
+where
+    S: DecodeState,
+    Option<Id<'a, S>>: PartialEq,
+    Geometry<'a, S>: PartialEq,
+    Vec<Property<'a, S>>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.extent == other.extent
+            && self.id == other.id
+            && self.geometry == other.geometry
+            && self.properties == other.properties
+    }
+}
+
+impl PartialEq<StagedLayer01> for Layer01<'_, Lazy> {
     fn eq(&self, other: &StagedLayer01) -> bool {
         let Self {
             name,
@@ -91,8 +109,8 @@ impl PartialEq<StagedLayer01> for Layer01<'_> {
     }
 }
 
-impl PartialEq<Layer01<'_>> for StagedLayer01 {
-    fn eq(&self, other: &Layer01<'_>) -> bool {
+impl PartialEq<Layer01<'_, Lazy>> for StagedLayer01 {
+    fn eq(&self, other: &Layer01<'_, Lazy>) -> bool {
         other == self
     }
 }

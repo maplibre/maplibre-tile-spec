@@ -5,31 +5,37 @@ use std::io::Write;
 use integer_encoding::VarIntWriter as _;
 use utils::BinarySerializer as _;
 
+use crate::codecs::varint::parse_varint;
 use crate::frames::Unknown;
 use crate::frames::v01::Layer01;
-use crate::utils::{checked_sum2, parse_u8, parse_varint, take};
-use crate::{Decoder, EncodedLayer, Layer, MltError, MltRefResult, utils};
+use crate::utils::{checked_sum2, parse_u8, take};
+use crate::{
+    DecodeState, Decoder, EncodedLayer, Layer, MltError, MltRefResult, MltResult, ParsedLayer,
+    Parser, utils,
+};
+
+impl<'a, S: DecodeState> Layer<'a, S> {
+    /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
+    #[must_use]
+    pub fn as_layer01(&self) -> Option<&Layer01<'a, S>> {
+        match self {
+            Self::Tag01(l) => Some(l),
+            Self::Unknown(_) => None,
+        }
+    }
+
+    /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
+    #[must_use]
+    pub fn as_layer01_mut(&mut self) -> Option<&mut Layer01<'a, S>> {
+        match self {
+            Self::Tag01(l) => Some(l),
+            Self::Unknown(_) => None,
+        }
+    }
+}
 
 impl<'a> Layer<'a> {
-    /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
-    #[must_use]
-    pub fn as_layer01(&self) -> Option<&Layer01<'a>> {
-        match self {
-            Layer::Tag01(l) => Some(l),
-            Layer::Unknown(_) => None,
-        }
-    }
-
-    /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
-    #[must_use]
-    pub fn as_layer01_mut(&mut self) -> Option<&mut Layer01<'a>> {
-        match self {
-            Layer::Tag01(l) => Some(l),
-            Layer::Unknown(_) => None,
-        }
-    }
-
-    pub fn decoded_layer01_mut(&mut self, dec: &mut Decoder) -> Result<&mut Layer01<'a>, MltError> {
+    pub fn decoded_layer01_mut(&mut self, dec: &mut Decoder) -> MltResult<&mut Layer01<'a>> {
         let layer = self
             .as_layer01_mut()
             .ok_or(MltError::NotDecoded("expected Tag01 layer"))?;
@@ -38,8 +44,9 @@ impl<'a> Layer<'a> {
         Ok(layer)
     }
 
-    /// Parse a single tuple that consists of `size (varint)`, `tag (varint)`, and `value (bytes)`
-    pub fn parse(input: &'a [u8]) -> MltRefResult<'a, Layer<'a>> {
+    /// Parse a single tuple that consists of `size (varint)`, `tag (varint)`, and `value (bytes)`.
+    /// Reserves memory for decoded data against the parser's budget.
+    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
         let (input, size) = parse_varint::<u32>(input)?;
 
         // tag is a varint, but we know fewer than 127 tags for now,
@@ -51,17 +58,21 @@ impl<'a> Layer<'a> {
 
         let layer = match tag {
             // For now, we only support tag 0x01 layers, but more will be added soon
-            1 => Layer::Tag01(Layer01::parse(value)?),
+            1 => Layer::Tag01(Layer01::from_bytes(value, parser)?),
             tag => Layer::Unknown(Unknown { tag, value }),
         };
 
         Ok((input, layer))
     }
 
-    pub fn decode_all(&mut self, dec: &mut Decoder) -> Result<(), MltError> {
+    /// Decode all columns and return a fully-decoded [`ParsedLayer`].
+    ///
+    /// Consumes `self`.  For partial / incremental decoding, destructure with
+    /// `Layer::Tag01(lazy)` and call the individual methods on [`Layer01`].
+    pub fn decode_all(self, dec: &mut Decoder) -> MltResult<ParsedLayer<'a>> {
         match self {
-            Layer::Tag01(layer) => layer.decode_all(dec),
-            Layer::Unknown(_) => Ok(()),
+            Layer::Tag01(lazy) => Ok(Layer::Tag01(lazy.decode_all(dec)?)),
+            Layer::Unknown(u) => Ok(Layer::Unknown(u)),
         }
     }
 }
@@ -70,12 +81,12 @@ impl EncodedLayer {
     /// Write layer's binary representation to a Write stream
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         let (tag, buffer) = match self {
-            EncodedLayer::Tag01(layer) => {
+            Self::Tag01(layer) => {
                 let mut buffer = Vec::new();
                 layer.write_to(&mut buffer)?;
                 (1_u8, Cow::Owned(buffer))
             }
-            EncodedLayer::Unknown(unknown) => (unknown.tag, Cow::Borrowed(&unknown.value)),
+            Self::Unknown(unknown) => (unknown.tag, Cow::Borrowed(&unknown.value)),
         };
 
         let buffer_len = u32::try_from(buffer.len()).map_err(MltError::from)?;

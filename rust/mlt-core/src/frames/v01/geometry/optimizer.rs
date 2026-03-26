@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use crate::MltError;
-use crate::v01::encode::{encode_geometry, z_order_params};
+use crate::MltResult;
+use crate::codecs::morton::z_order_params;
+use crate::v01::encode::encode_geometry;
 use crate::v01::{
     DataProfile, DictionaryType, EncodedGeometry, GeometryEncoder, GeometryValues, IntEncoder,
     LengthType, OffsetType, StreamType, VertexBufferType,
@@ -39,7 +40,7 @@ impl GeometryProfile {
     }
 
     /// Build a profile from a sample of decoded geometry.
-    pub fn from_sample(decoded: &GeometryValues) -> Result<Self, MltError> {
+    pub fn from_sample(decoded: &GeometryValues) -> MltResult<Self> {
         let vertex_buffer_type = decoded
             .vertices
             .as_deref()
@@ -86,7 +87,7 @@ impl GeometryProfile {
 ///    `on_stream` callback that collects the raw `u32` payload for every stream.
 /// 2. **Select** - run [`IntEncoder::auto_u32`] on each payload to pick the best
 ///    physical/logical combination per stream.
-fn optimize(decoded: &GeometryValues) -> Result<GeometryEncoder, MltError> {
+fn optimize(decoded: &GeometryValues) -> MltResult<GeometryEncoder> {
     let vertex_buffer_type = decoded
         .vertices
         .as_deref()
@@ -124,7 +125,7 @@ fn optimize(decoded: &GeometryValues) -> Result<GeometryEncoder, MltError> {
 fn apply_profile(
     decoded: &GeometryValues,
     profile: &GeometryProfile,
-) -> Result<GeometryEncoder, MltError> {
+) -> MltResult<GeometryEncoder> {
     let vertex_buffer_type = decoded
         .vertices
         .as_deref()
@@ -244,7 +245,7 @@ fn select_vertex_strategy(vertices: &[i32]) -> VertexBufferType {
 
 impl GeometryValues {
     /// Encode this geometry using the given encoder, consuming `self`.
-    pub fn encode(self, encoder: GeometryEncoder) -> Result<EncodedGeometry, MltError> {
+    pub fn encode(self, encoder: GeometryEncoder) -> MltResult<EncodedGeometry> {
         EncodedGeometry::encode(&self, encoder)
     }
 
@@ -252,14 +253,14 @@ impl GeometryValues {
     pub fn encode_with_profile(
         &self,
         profile: &GeometryProfile,
-    ) -> Result<(EncodedGeometry, GeometryEncoder), MltError> {
+    ) -> MltResult<(EncodedGeometry, GeometryEncoder)> {
         let enc = apply_profile(self, profile)?;
         let encoded = EncodedGeometry::encode(self, enc)?;
         Ok((encoded, enc))
     }
 
     /// Automatically select the best encoder and encode, consuming `self`.
-    pub fn encode_auto(self) -> Result<(EncodedGeometry, GeometryEncoder), MltError> {
+    pub fn encode_auto(self) -> MltResult<(EncodedGeometry, GeometryEncoder)> {
         let enc = optimize(&self)?;
         let encoded = EncodedGeometry::encode(&self, enc)?;
         Ok((encoded, enc))

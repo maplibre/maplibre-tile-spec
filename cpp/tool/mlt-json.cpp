@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    mlt::Decoder decoder;
+    mlt::Decoder decoder(/*supportFastPFOR=*/true);
     const auto tileData = decoder.decode({buffer.data(), buffer.size()});
 
     nlohmann::json tileJSON;

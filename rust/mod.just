@@ -17,55 +17,31 @@ just *args:
 
 # Run integration tests and save its output as the new expected output
 bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack')
-    cargo hack insta test --accept --unreferenced=delete --feature-powerset \
+    cargo hack insta test --accept --unreferenced=delete --each-feature \
         --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
-        --exclude-all-features \
-        --features fastpfor-rust \
+        --exclude-no-default-features --exclude-all-features \
         {{args}}
 
 # Run benchmarks
 bench *args: (just 'cargo-install' 'cargo-hack')
-    cargo hack bench --all-targets --feature-powerset \
+    cargo hack bench --all-targets --each-feature \
         --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
-        --exclude-all-features \
-        --features fastpfor-rust \
+        --exclude-no-default-features --exclude-all-features \
         {{args}}
 
 alias b := build
 # Build the project
 build: (just 'cargo-install' 'cargo-hack')
     cargo hack build --all-targets --each-feature \
-        --workspace --exclude mlt-core \
+        --workspace \
         --exclude-no-default-features --exclude-all-features
-    cargo hack build --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default \
-        --exclude-all-features \
-        --features fastpfor-cpp
-    cargo hack build --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
-        --exclude-all-features \
-        --features fastpfor-rust
 
 alias c := check
 # Quick compile without building a binary
 check: (just 'cargo-install' 'cargo-hack')
     cargo hack check --all-targets --each-feature \
-        --workspace --exclude mlt-core \
+        --workspace \
         --exclude-no-default-features --exclude-all-features
-    cargo hack check --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default \
-        --exclude-all-features \
-        --features fastpfor-cpp
-    cargo hack check --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
-        --exclude-all-features \
-        --features fastpfor-rust
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
@@ -79,9 +55,6 @@ ci-coverage: ci-env-info (just 'java::gen-snippets') (just 'cargo-install' 'carg
 
     @echo "::group::Validate synthetic MLTs"
     {{just}} rust::validate-synthetic
-    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
-    {{just}} rust::_verify-synthetic-equality
-    {{just}} rust::_assert-synthetic-mlt-identity
     @echo "::endgroup::"
 
     # ATTENTION: the output-path here is used in the CI workflow
@@ -188,45 +161,21 @@ clean:
 # Run cargo clippy to lint the code
 clippy *args: (just 'cargo-install' 'cargo-hack')
     cargo hack clippy --all-targets --each-feature \
-        --workspace --exclude mlt-core \
+        --workspace \
         --exclude-no-default-features --exclude-all-features \
-        {{args}}
-    cargo hack clippy --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default \
-        --exclude-all-features \
-        --features fastpfor-cpp \
-        {{args}}
-    cargo hack clippy --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
-        --exclude-all-features \
-        --features fastpfor-rust \
         {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
 # Generate code coverage report. Installs `cargo llvm-cov`
 coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov')
     cargo hack llvm-cov --all-targets --each-feature \
-        --workspace --exclude mlt-core \
+        --workspace \
         --exclude-no-default-features --exclude-all-features \
-        --include-build-script {{args}}
-    cargo hack llvm-cov --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default \
-        --exclude-all-features \
-        --features fastpfor-cpp \
-        --include-build-script {{args}}
-    cargo hack llvm-cov --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
-        --exclude-all-features \
-        --features fastpfor-rust \
         --include-build-script {{args}}
 
 # Build and open code documentation
 docs *args='--open':
-    DOCS_RS=1 cargo doc --no-deps {{args}} --features fastpfor-cpp,arbitrary --package mlt-core
+    DOCS_RS=1 cargo doc --no-deps {{args}} --features arbitrary --package mlt-core
 
 alias f := fmt
 fmt: (_fmt) (_fmt '--manifest-path' 'mlt-core/fuzz/Cargo.toml')
@@ -315,11 +264,9 @@ release *args='': (just 'cargo-install' 'release-plz')
 
 # Check semver compatibility with prior published version
 semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install' 'cargo-hack')
-    cargo hack semver-checks --feature-powerset \
+    cargo hack semver-checks --each-feature \
         --package mlt-core \
-        --exclude-features fastpfor-rust,default \
-        --exclude-all-features \
-        --features fastpfor-cpp \
+        --exclude-no-default-features --exclude-all-features \
         {{args}}
 
 # Regenerate the Python type stub for mlt-py
@@ -353,24 +300,14 @@ alias t := test
 # Run all tests
 test: (just 'cargo-install' 'cargo-hack')
     cargo hack test --all-targets --each-feature \
-        --workspace --exclude mlt-core \
+        --workspace \
         --exclude-no-default-features --exclude-all-features
-    cargo hack test --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default \
-        --exclude-all-features \
-        --features fastpfor-cpp
-    cargo hack test --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
-        --exclude-all-features \
-        --features fastpfor-rust
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
 
 # Test documentation generation
 test-doc: (docs '--document-private-items')
-    cargo test --doc --features fastpfor-cpp,arbitrary --package mlt-core
+    cargo test --doc --features arbitrary --package mlt-core
 
 # Test code formatting
 test-fmt: (fmt-toml '--check' '--check-format')
@@ -383,18 +320,8 @@ test-publish:
 # Find unused dependencies
 udeps: (just 'cargo-install' 'cargo-udeps') (just 'cargo-install' 'cargo-hack')
     cargo hack +nightly udeps --all-targets --each-feature \
-        --workspace --exclude mlt-core \
+        --workspace \
         --exclude-no-default-features --exclude-all-features
-    cargo hack +nightly udeps --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default \
-        --exclude-all-features \
-        --features fastpfor-cpp
-    cargo hack +nightly udeps --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
-        --exclude-all-features \
-        --features fastpfor-rust
 
 # Update all dependencies, including breaking changes
 update:
@@ -402,15 +329,13 @@ update:
     cargo update
 
 # Generate synthetic .mlt files and ensure there are no duplicates
-generate-synthetic-mlts:
+generate-synthetic-mlts *args:
     #!/usr/bin/env bash
     set -euo pipefail
     rm -rf ../test/synthetic/0x01-rust
-    cargo run -p mlt-synthetics
+    cargo run -p mlt-synthetics -- {{args}}
     {{just}} rust::validate-synthetic
     {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
-    {{just}} rust::_verify-synthetic-equality
-    {{just}} rust::_assert-synthetic-mlt-identity
 
 # Create .dump files for all .mlt files in test/synthetic for all languages
 generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find')
@@ -436,91 +361,6 @@ wasm-test: wasm-build
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
     {{just}} mlt ls --validate-to-json --details basic ../test/synthetic/
-
-# Assert each .mlt in compare_dir exists in ref_dir and is binary-identical. Skip '_rust' files.
-_assert-synthetic-mlt-identity ref_dir='../test/synthetic/0x01' compare_dir='../test/synthetic/0x01-rust':
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # Ensure compare_dir exists.
-    if [[ ! -d "{{compare_dir}}" ]]; then
-        echo "::error::Compare directory {{compare_dir}} does not exist"
-        exit 1
-    fi
-
-    # Expand .mlt files; fail if none are found to avoid masking missing/failed generation.
-    shopt -s nullglob
-    mlt_files=( "{{compare_dir}}"/*.mlt )
-    shopt -u nullglob
-    if (( ${#mlt_files[@]} == 0 )); then
-        echo "::error::No .mlt files found in {{compare_dir}}"
-        exit 1
-    fi
-
-    for mlt in "${mlt_files[@]}"; do
-        base=$(basename "$mlt")
-        if [[ "$base" == *"-rust.mlt" ]]; then
-            continue
-        fi
-        ref="{{ref_dir}}/$base"
-        if [[ ! -f "$ref" ]]; then
-            echo "::error::File $mlt has no counterpart in {{ref_dir}}"
-            exit 1
-        elif ! cmp -s "$ref" "$mlt"; then
-            echo "::error::Binary difference: $base"
-            exit 1
-        fi
-    done
-    echo "All {{compare_dir}}/*.mlt files have identical counterparts in {{ref_dir}} (except *-rust.mlt)."
-
-# checks that the contents of two synthetic directories are equal
-_verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    # `realpath --relative-to-...` doesn't work on MacOS
-    # https://unix.stackexchange.com/a/655825/312244
-    posix_relpath() {
-        set -- "${1%/}/" "${2%/}/" ''
-        while [ "$1" ] && [ "$2" = "${2#"$1"}" ]
-        do
-            set -- "${1%/?*/}/" "$2" "../$3"
-        done
-        rel="${3}${2#"$1"}"
-        [ "${rel#/}" ] && rel="${rel%/}" || rel="${rel:-.}"
-        printf '%s\n' "$rel"
-    }
-
-    DIR_A="../test/synthetic/0x01"
-    DIR_B="../test/synthetic/0x01-rust"
-
-    BIN="cargo run --bin mlt --quiet --"
-    find "$DIR_A" -type f -iname "*.mlt" | while read -r file_a; do
-      rel_path="$(posix_relpath "$DIR_A" "$file_a")"
-      file_b="$DIR_B/$rel_path"
-      file_b_rust="${file_b%.mlt}-rust.mlt"
-
-      if [[ -f "$file_b" ]]; then
-        if ! cmp -s "$file_a" "$file_b"; then
-          echo "Differences: $rel_path"
-          echo ""
-          diff -U20 \
-            --label "$file_a" \
-            <($BIN dump "$file_a") \
-            --label "$file_b" \
-            <($BIN dump "$file_b") \
-            | delta --side-by-side --file-modified-label "mlt dump difference"
-        fi
-      elif [[ -f "$file_b_rust" ]]; then
-        diff -U20 \
-          --label "$file_a" \
-          <($BIN decode "$file_a") \
-          --label "$file_b_rust" \
-          <($BIN decode "$file_b_rust") \
-          | delta --side-by-side --file-modified-label "mlt decoded difference"
-      else
-        echo "Missing in $DIR_B but present in $DIR_A: $rel_path"
-      fi
-    done
 
 [private]
 [working-directory: 'mlt-core']

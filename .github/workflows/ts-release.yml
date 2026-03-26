@@ -24,7 +24,7 @@ jobs:
 
       - name: Check if version has been updated
         id: check
-        uses: EndBug/version-check@5102328418c0130d66ca712d755c303e93368ce2
+        uses: EndBug/version-check@095362f3cd50f690c8fa0e6afeea81834bd8d320
         with:
           file-name: ts/package.json
 

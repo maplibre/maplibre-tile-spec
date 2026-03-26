@@ -22,7 +22,7 @@ use geo_types::Polygon;
 use mlt_core::geojson::{Coord32, FeatureCollection, Geom32};
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::GeometryType;
-use mlt_core::{Decoder, parse_layers};
+use mlt_core::{Decoder, Parser};
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -112,10 +112,8 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
 fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
     let buf = fs::read(path)?;
     if is_mlt_extension(path) {
-        Ok(FeatureCollection::from_layers(
-            &mut parse_layers(&buf)?,
-            &mut Decoder::default(),
-        )?)
+        let layers = Decoder::default().decode_all(Parser::default().parse_layers(&buf)?)?;
+        Ok(FeatureCollection::from_layers(layers)?)
     } else {
         Ok(mvt_to_feature_collection(buf)?)
     }
@@ -981,18 +979,7 @@ fn collect_extensions(files: &[LsRow]) -> Vec<String> {
 // --- Geometry helpers ---
 
 fn geometry_type_name(geom: &Geom32) -> &'static str {
-    match geom {
-        Geom32::Point(_) => "Point",
-        Geom32::Line(_) => "Line",
-        Geom32::LineString(_) => "LineString",
-        Geom32::Polygon(_) => "Polygon",
-        Geom32::MultiPoint(_) => "MultiPoint",
-        Geom32::MultiLineString(_) => "MultiLineString",
-        Geom32::MultiPolygon(_) => "MultiPolygon",
-        Geom32::GeometryCollection(_) => "GeometryCollection",
-        Geom32::Rect(_) => "Rect",
-        Geom32::Triangle(_) => "Triangle",
-    }
+    GeometryType::try_from(geom).map_or("Unknown", Into::into)
 }
 
 fn geometry_color(geom: &Geom32) -> Color {

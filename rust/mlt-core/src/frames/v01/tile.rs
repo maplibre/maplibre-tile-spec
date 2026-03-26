@@ -9,15 +9,13 @@
 //! The only conversion from [`TileLayer01`] to [`StagedLayer01`] is [`From`] at the
 //! optimizer exit boundary; there is no encoded→decoded conversion from Staged back to Tile.
 
-use std::mem::size_of;
-
 use crate::errors::AsMltError as _;
 use crate::v01::{
     GeometryValues, IdValues, Layer01, ParsedProperty, PropValue, StagedLayer01, StagedProperty,
     StagedScalar, StagedSharedDict, StagedStrings, TileFeature, TileLayer01,
     build_staged_shared_dict,
 };
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltResult};
 
 // ── Layer01 → TileLayer01 ────────────────────────────────────────────────────
 
@@ -26,7 +24,7 @@ impl Layer01<'_> {
     /// heap allocation against `dec`.
     ///
     /// Callers do not need to pre-call `decode_all` on the source layer.
-    pub fn into_tile(self, dec: &mut Decoder) -> Result<TileLayer01, MltError> {
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer01> {
         let id = self.id.map(|id| id.into_parsed(dec)).transpose()?;
         let geometry = self.geometry.into_parsed(dec)?;
         let properties: Vec<ParsedProperty<'_>> = self
@@ -51,19 +49,11 @@ impl Layer01<'_> {
 
         let ids: Option<&[Option<u64>]> = id.as_ref().map(|d| d.0.as_slice());
 
-        // Charge for the features Vec (PropValue slots + geometry pointers).
-        dec.consume(
-            u32::try_from(
-                n * (size_of::<TileFeature>() + property_names.len() * size_of::<PropValue>()),
-            )
-            .or_overflow()?,
-        )?;
-
-        let mut features = Vec::with_capacity(n);
+        let mut features = dec.alloc::<TileFeature>(n)?;
         for i in 0..n {
             let feat_id = ids.and_then(|ids| ids.get(i).copied().flatten());
             let geom = geometry.to_geojson(i)?;
-            let mut values = Vec::with_capacity(property_names.len());
+            let mut values = dec.alloc::<PropValue>(property_names.len())?;
             for prop in &properties {
                 extract_parsed_values(prop, i, &mut values);
             }
@@ -137,7 +127,7 @@ impl From<TileLayer01> for StagedLayer01 {
         let num_cols = source.property_names.len();
         let properties = rebuild_properties(&source.property_names, &source.features, num_cols);
 
-        StagedLayer01 {
+        Self {
             name: source.name,
             extent: source.extent,
             id,
@@ -297,7 +287,7 @@ fn rebuild_shared_dict(
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /// Charge `dec` for the heap bytes of owned `String` values inside `PropValue::Str`.
-fn charge_str_props(dec: &mut Decoder, props: &[PropValue]) -> Result<(), MltError> {
+fn charge_str_props(dec: &mut Decoder, props: &[PropValue]) -> MltResult<()> {
     let str_bytes = props
         .iter()
         .filter_map(|p| {
@@ -309,7 +299,7 @@ fn charge_str_props(dec: &mut Decoder, props: &[PropValue]) -> Result<(), MltErr
         })
         .try_fold(0u32, |acc, n| {
             acc.checked_add(u32::try_from(n).or_overflow()?)
-                .ok_or(MltError::IntegerOverflow)
+                .or_overflow()
         })?;
     if str_bytes > 0 {
         dec.consume(str_bytes)?;

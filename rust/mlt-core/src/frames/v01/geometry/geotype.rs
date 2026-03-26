@@ -3,9 +3,10 @@ use std::ops::Range;
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 
 use crate::MltError::{
-    self, GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds,
-    NoGeometryOffsets, NoPartOffsets, NoRingOffsets,
+    GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, NoGeometryOffsets,
+    NoPartOffsets, NoRingOffsets,
 };
+use crate::MltResult;
 use crate::geojson::{Coord32, Geom32};
 use crate::utils::AsUsize as _;
 use crate::v01::{GeometryType, GeometryValues};
@@ -13,21 +14,39 @@ use crate::v01::{GeometryType, GeometryValues};
 impl GeometryType {
     #[must_use]
     pub fn is_polygon(self) -> bool {
-        matches!(self, GeometryType::Polygon | GeometryType::MultiPolygon)
+        matches!(self, Self::Polygon | Self::MultiPolygon)
     }
     #[must_use]
     pub fn is_linestring(self) -> bool {
-        matches!(
-            self,
-            GeometryType::LineString | GeometryType::MultiLineString
-        )
+        matches!(self, Self::LineString | Self::MultiLineString)
     }
     #[must_use]
     pub fn is_multi(self) -> bool {
         matches!(
             self,
-            GeometryType::MultiPoint | GeometryType::MultiLineString | GeometryType::MultiPolygon
+            Self::MultiPoint | Self::MultiLineString | Self::MultiPolygon
         )
+    }
+}
+
+impl TryFrom<&Geom32> for GeometryType {
+    type Error = ();
+
+    fn try_from(geom: &Geom32) -> Result<Self, Self::Error> {
+        Ok(match geom {
+            Geom32::Point(_) => Self::Point,
+            Geom32::MultiPoint(_) => Self::MultiPoint,
+            Geom32::LineString(_) => Self::LineString,
+            Geom32::MultiLineString(_) => Self::MultiLineString,
+            Geom32::Polygon(_) => Self::Polygon,
+            Geom32::MultiPolygon(_) => Self::MultiPolygon,
+            Geom32::Line(_)
+            | Geom32::GeometryCollection(_)
+            | Geom32::Rect(_)
+            | Geom32::Triangle(_) => {
+                return Err(());
+            }
+        })
     }
 }
 
@@ -35,13 +54,13 @@ impl GeometryValues {
     /// Build a `GeoJSON` geometry for a single feature at index `i`.
     /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec
     /// (MLT omits the closing vertex).
-    pub fn to_geojson(&self, index: usize) -> Result<Geom32, MltError> {
+    pub fn to_geojson(&self, index: usize) -> MltResult<Geom32> {
         let verts = self.vertices.as_deref().unwrap_or(&[]);
         let geoms = self.geometry_offsets.as_deref();
         let parts = self.part_offsets.as_deref();
         let rings = self.ring_offsets.as_deref();
 
-        let off = |s: &[u32], idx: usize, field: &'static str| -> Result<usize, MltError> {
+        let off = |s: &[u32], idx: usize, field: &'static str| -> MltResult<usize> {
             s.get(idx)
                 .map(|&v| v.as_usize())
                 .ok_or(GeometryOutOfBounds {
@@ -51,10 +70,9 @@ impl GeometryValues {
                     len: s.len(),
                 })
         };
-        let off_pair =
-            |s: &[u32], idx: usize, field: &'static str| -> Result<Range<usize>, MltError> {
-                Ok(off(s, idx, field)?..off(s, idx + 1, field)?)
-            };
+        let off_pair = |s: &[u32], idx: usize, field: &'static str| -> MltResult<Range<usize>> {
+            Ok(off(s, idx, field)?..off(s, idx + 1, field)?)
+        };
 
         let geom_off = |s: &[u32], i: usize| off(s, i, "geometry_offsets");
         let part_off = |s: &[u32], i: usize| off(s, i, "part_offsets");
@@ -63,7 +81,7 @@ impl GeometryValues {
         let part_range = |s: &[u32], i: usize| off_pair(s, i, "part_offsets");
         let ring_range = |s: &[u32], i: usize| off_pair(s, i, "ring_offsets");
 
-        let vert = |idx: usize| -> Result<Coord32, MltError> {
+        let vert = |idx: usize| -> MltResult<Coord32> {
             verts
                 .get(idx * 2..idx * 2 + 2)
                 .map(|s| Coord { x: s[0], y: s[1] })
@@ -73,25 +91,23 @@ impl GeometryValues {
                     count: verts.len() / 2,
                 })
         };
-        let line =
-            |r: Range<usize>| -> Result<LineString<i32>, MltError> { r.map(&vert).collect() };
-        let closed_ring = |r: Range<usize>| -> Result<LineString<i32>, MltError> {
+        let line = |r: Range<usize>| -> MltResult<LineString<i32>> { r.map(&vert).collect() };
+        let closed_ring = |r: Range<usize>| -> MltResult<LineString<i32>> {
             let first = r.start;
             let mut coords: Vec<Coord32> = r.map(&vert).collect::<Result<_, _>>()?;
             coords.push(vert(first)?);
             Ok(LineString(coords))
         };
-        let poly_from_rings =
-            |part_rng: Range<usize>, r: &[u32]| -> Result<Polygon<i32>, MltError> {
-                let mut rings = part_rng
-                    .map(|idx| closed_ring(ring_range(r, idx)?))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter();
-                Ok(Polygon::new(
-                    rings.next().unwrap_or_else(|| LineString(vec![])),
-                    rings.collect(),
-                ))
-            };
+        let poly_from_rings = |part_rng: Range<usize>, r: &[u32]| -> MltResult<Polygon<i32>> {
+            let mut rings = part_rng
+                .map(|idx| closed_ring(ring_range(r, idx)?))
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter();
+            Ok(Polygon::new(
+                rings.next().unwrap_or_else(|| LineString(vec![])),
+                rings.collect(),
+            ))
+        };
 
         let geom_type = *self
             .vector_types
@@ -363,12 +379,14 @@ fn push_linestrings<'a>(
 #[cfg(test)]
 mod tests {
     use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, wkt};
+    use insta::assert_snapshot;
     use proptest::prelude::*;
 
     use super::*;
-    use crate::Decoder;
+    use crate::LazyParsed;
     use crate::geojson::Coord32;
-    use crate::v01::{EncodedGeometry, Geometry, GeometryEncoder, IntEncoding, RawGeometry};
+    use crate::test_helpers::{assert_empty, dec, parser};
+    use crate::v01::{EncodedGeometry, GeometryEncoder, IntEncoding, RawGeometry};
 
     /// Encode, serialize, parse, and decode a `GeometryValues`.
     /// The input must already be in the dense canonical form that `from_encoded`
@@ -379,11 +397,12 @@ mod tests {
         let mut buffer = Vec::new();
         enc_geom.write_to(&mut buffer).expect("Failed to serialize");
 
-        let (remaining, parsed) = RawGeometry::parse(&buffer).expect("Failed to parse");
-        assert!(remaining.is_empty(), "Remaining bytes after parse");
+        let (remaining, parsed) =
+            RawGeometry::from_bytes(&buffer, &mut parser()).expect("Failed to parse");
+        assert_empty(remaining);
 
-        Geometry::Raw(parsed)
-            .into_parsed(&mut Decoder::default())
+        LazyParsed::Raw(parsed)
+            .into_parsed(&mut dec())
             .expect("Failed to decode")
     }
 
@@ -689,12 +708,15 @@ mod tests {
         };
         let mut buffer = Vec::new();
         owned.write_to(&mut buffer).unwrap();
-        let (remaining, parsed) = RawGeometry::parse(&buffer).unwrap();
-        assert!(remaining.is_empty());
-        let decoded = Geometry::Raw(parsed)
-            .into_parsed(&mut Decoder::default())
-            .unwrap();
 
+        let mut p = parser();
+        let (remaining, parsed) = RawGeometry::from_bytes(&buffer, &mut p).unwrap();
+        assert_empty(remaining);
+        assert_snapshot!(p.reserved(), @"72");
+
+        let mut d = dec();
+        let decoded = LazyParsed::Raw(parsed).into_parsed(&mut d).unwrap();
+        assert_snapshot!(d.consumed(), @"100");
         assert_eq!(decoded.vertices, Some(vec![0i32, 0, 4, 0, 0, 4, 4, 0]));
 
         let geom = decoded.to_geojson(0).unwrap();

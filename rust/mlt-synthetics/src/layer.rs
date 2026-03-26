@@ -1,20 +1,22 @@
 #![expect(dead_code)]
 
+use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
-use std::io::Write as _;
+use std::io;
 use std::path::{Path, PathBuf};
-use std::{fs, io};
 
 use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, Polygon};
-use mlt_core::geojson::{FeatureCollection, Geom32};
+use mlt_core::EncodedLayer;
+use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     EncodeProperties as _, EncodedLayer01, GeometryEncoder, GeometryValues, IdEncoder, IdValues,
     IntEncoder, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
     SharedDictItemEncoder, StagedProperty, StagedStrings, StrEncoder, VertexBufferType,
     build_staged_shared_dict,
 };
-use mlt_core::{Decoder, EncodedLayer, parse_layers};
+
+use crate::writer::{SynthErr, SynthResult};
 
 /// Tessellate a polygon using the geo crate's earcut algorithm.
 ///
@@ -66,35 +68,31 @@ fn tessellate_polygon(polygon: &Polygon<i32>) -> (Vec<u32>, u32) {
 }
 
 pub struct SynthWriter {
-    dir: PathBuf,
+    pub ref_dir: PathBuf,
+    pub out_dir: PathBuf,
+    pub verbose: bool,
+    pub failures: usize,
+    pub generated: HashSet<String>,
+    pub rust_written: usize,
 }
 
-impl SynthWriter {
-    pub fn new(dir: PathBuf) -> Self {
-        Self { dir }
-    }
+/// Create a layer with all geometry encoders set to `VarInt`.
+pub fn geo_varint() -> Layer {
+    Layer::new(IntEncoder::varint())
+}
 
-    #[must_use]
-    pub fn geo(&self, encoder: IntEncoder) -> Layer {
-        Layer::new(self.dir.clone(), encoder)
-    }
+/// Create a layer with all geometry encoders set to `FastPFOR`.
+pub fn geo_fastpfor() -> Layer {
+    Layer::new(IntEncoder::fastpfor())
+}
 
-    /// Create a layer with all geometry encoders set to `VarInt`.
-    #[must_use]
-    pub fn geo_varint(&self) -> Layer {
-        Layer::new(self.dir.clone(), IntEncoder::varint())
-    }
-
-    /// Create a layer with all geometry encoders set to `FastPFOR`.
-    #[must_use]
-    pub fn geo_fastpfor(&self) -> Layer {
-        Layer::new(self.dir.clone(), IntEncoder::fastpfor())
-    }
+/// Create a layer with a custom default geometry encoder.
+pub fn geo(encoder: IntEncoder) -> Layer {
+    Layer::new(encoder)
 }
 
 /// Layer builder: holds geometry encoder, geometry list, properties, extent, and IDs.
 pub struct Layer {
-    pub path: PathBuf,
     pub geometry_encoder: GeometryEncoder,
     pub geometry_items: Vec<Geom32>,
     /// Polygons that are also tessellated; triangle data is merged when building decoded geometry.
@@ -106,10 +104,8 @@ pub struct Layer {
 }
 
 impl Layer {
-    #[must_use]
-    pub fn new(path: PathBuf, default_geom_enc: IntEncoder) -> Layer {
-        Layer {
-            path,
+    fn new(default_geom_enc: IntEncoder) -> Self {
+        Self {
             geometry_encoder: GeometryEncoder::all(default_geom_enc),
             geometry_items: vec![],
             tessellated_polygons: vec![],
@@ -267,7 +263,7 @@ impl Layer {
         self
     }
 
-    fn build_decoded_geometry(&self) -> GeometryValues {
+    pub fn build_decoded_geometry(&self) -> GeometryValues {
         let mut geom = GeometryValues::default();
         for g in &self.geometry_items {
             geom.push_geom(g);
@@ -285,37 +281,18 @@ impl Layer {
         geom
     }
 
-    fn open_new(path: &Path) -> io::Result<File> {
+    pub fn open_new(path: &Path) -> io::Result<File> {
         OpenOptions::new().write(true).create_new(true).open(path)
     }
 
-    /// Write the layer to an MLT file and a corresponding JSON file (consumes self).
-    pub fn write(self, name: impl AsRef<str>) {
-        let name = name.as_ref();
-        let dir = self.path.clone();
-        let path = dir.join(format!("{name}.mlt"));
-        self.write_mlt(&path);
-
-        let buffer = fs::read(&path).unwrap();
-        let mut data = parse_layers(&buffer).unwrap();
-        let mut dec = Decoder::default();
-        let fc = FeatureCollection::from_layers(&mut data, &mut dec).unwrap();
-        let mut json = serde_json::to_string_pretty(&fc).unwrap();
-        json.push('\n');
-        let mut out_file = Self::open_new(&dir.join(format!("{name}.json"))).unwrap();
-        out_file.write_all(json.as_bytes()).unwrap();
-    }
-
-    fn write_mlt(self, path: &Path) {
+    pub fn encode_to_bytes(self) -> SynthResult<Vec<u8>> {
         let geometry = self.build_decoded_geometry();
         let encoded_geometry = geometry
             .encode(self.geometry_encoder)
-            .unwrap_or_else(|e| panic!("cannot encode geometry: {e}"));
+            .map_err(SynthErr::Mlt)?;
 
         let id = if let Some((ids, ids_encoder)) = self.ids {
-            IdValues(ids)
-                .encode(ids_encoder)
-                .unwrap_or_else(|e| panic!("cannot encode id: {e}"))
+            IdValues(ids).encode(ids_encoder).map_err(SynthErr::Mlt)?
         } else {
             None
         };
@@ -323,7 +300,7 @@ impl Layer {
         let encoded_properties = self
             .properties
             .encode(self.prop_encoders)
-            .unwrap_or_else(|e| panic!("cannot encode properties: {e}"));
+            .map_err(SynthErr::Mlt)?;
 
         let layer = EncodedLayer::Tag01(EncodedLayer01 {
             name: "layer1".to_string(),
@@ -333,11 +310,11 @@ impl Layer {
             properties: encoded_properties,
         });
 
-        let mut file = Self::open_new(path)
-            .unwrap_or_else(|e| panic!("cannot create {}: {e}", path.display()));
+        let mut buffer = Vec::new();
         layer
-            .write_to(&mut file)
-            .unwrap_or_else(|e| panic!("cannot encode {}: {e}", path.display()));
+            .write_to(&mut buffer)
+            .map_err(|e| SynthErr::Mlt(e.into()))?;
+        Ok(buffer)
     }
 }
 

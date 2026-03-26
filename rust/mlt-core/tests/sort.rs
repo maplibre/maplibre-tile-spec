@@ -1,5 +1,4 @@
 use geo_types::{Coord, LineString, Point};
-use mlt_core::Decoder;
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     GeometryEncoder, GeometryType, GeometryValues, IntEncoder, SortStrategy, StagedLayer01Encoder,
@@ -27,7 +26,9 @@ fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
 
 /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer01`.
 /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
+#[cfg(test)]
 fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLayer01 {
+    use mlt_core::__private::{assert_empty, dec, into_layer01, parser};
     use mlt_core::{EncodedLayer, Layer};
 
     let tile_encoder = Tile01Encoder {
@@ -47,16 +48,20 @@ fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLaye
         .write_to(&mut buf)
         .expect("write_to failed");
 
-    let (remaining, layer_back) = Layer::parse(&buf).expect("parse failed");
-    assert!(remaining.is_empty());
+    let mut p = parser();
+    let (remaining, layer_back) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
+    assert_empty(remaining);
+    assert!(p.reserved() > 0, "parser should reserve bytes after parse");
 
-    let Layer::Tag01(layer01) = layer_back else {
-        panic!("expected Tag01 layer");
-    };
+    let layer01 = into_layer01(layer_back);
 
-    layer01
-        .into_tile(&mut Decoder::default())
-        .expect("decode after sort failed")
+    let mut d = dec();
+    let tile = layer01.into_tile(&mut d).expect("decode after sort failed");
+    assert!(
+        d.consumed() > 0,
+        "decoder should consume bytes after decode"
+    );
+    tile
 }
 
 fn pt(x: i32, y: i32) -> Geom32 {
@@ -76,22 +81,6 @@ fn vertices_from_source(source: &TileLayer01) -> Vec<i32> {
         geom.push_geom(&f.geometry);
     }
     geom.vertices.unwrap_or_default()
-}
-
-/// Rebuild the `GeometryType` list from source order.
-fn geom_types_from_source(source: &TileLayer01) -> Vec<GeometryType> {
-    source
-        .features
-        .iter()
-        .map(|f| match &f.geometry {
-            geo_types::Geometry::LineString(_) => GeometryType::LineString,
-            geo_types::Geometry::Polygon(_) => GeometryType::Polygon,
-            geo_types::Geometry::MultiPoint(_) => GeometryType::MultiPoint,
-            geo_types::Geometry::MultiLineString(_) => GeometryType::MultiLineString,
-            geo_types::Geometry::MultiPolygon(_) => GeometryType::MultiPolygon,
-            _ => GeometryType::Point, // fallback
-        })
-        .collect()
 }
 
 #[test]
@@ -138,7 +127,12 @@ fn test_mixed_geometry_morton_sort() {
     );
     let source = sort_encode_decode(tile, SortStrategy::SpatialMorton);
 
-    let types = geom_types_from_source(&source);
+    let types: Vec<_> = source
+        .features
+        .iter()
+        .map(|f| GeometryType::try_from(&f.geometry).unwrap())
+        .collect();
+
     assert_eq!(
         types,
         vec![

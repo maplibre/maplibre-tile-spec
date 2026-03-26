@@ -1,5 +1,6 @@
-use crate::MltError;
-use crate::utils::{encode_bools_to_bytes, encode_byte_rle};
+use crate::MltResult;
+use crate::codecs::bytes::encode_bools_to_bytes;
+use crate::codecs::rle::encode_byte_rle;
 use crate::v01::{
     EncodedId, EncodedIdValue, EncodedStream, EncodedStreamData, IdValues, IdWidth, IntEncoder,
     IntEncoding, LogicalEncoder, LogicalEncoding, PhysicalEncoder, PhysicalEncoding, RleMeta,
@@ -22,7 +23,7 @@ impl IdEncoder {
 }
 
 impl EncodedId {
-    pub(crate) fn encode(value: &IdValues, encoder: IdEncoder) -> Result<Self, MltError> {
+    pub(crate) fn encode(value: &IdValues, encoder: IdEncoder) -> MltResult<Self> {
         use IdWidth as CFG;
 
         let presence = if matches!(encoder.id_width, CFG::OptId32 | CFG::OptId64) {

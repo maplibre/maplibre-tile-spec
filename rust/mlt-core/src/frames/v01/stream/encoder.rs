@@ -15,32 +15,40 @@ impl IntEncoder {
     }
 
     #[must_use]
-    pub fn plain() -> IntEncoder {
-        IntEncoder::new(LogicalEncoder::None, PhysicalEncoder::None)
+    pub fn delta_fastpfor() -> Self {
+        Self::new(LogicalEncoder::Delta, PhysicalEncoder::FastPFOR)
     }
     #[must_use]
-    pub fn varint() -> IntEncoder {
-        IntEncoder::new(LogicalEncoder::None, PhysicalEncoder::VarInt)
+    pub fn delta_rle_fastpfor() -> Self {
+        Self::new(LogicalEncoder::DeltaRle, PhysicalEncoder::FastPFOR)
     }
     #[must_use]
-    pub fn rle_varint() -> IntEncoder {
-        IntEncoder::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
+    pub fn delta_rle_varint() -> Self {
+        Self::new(LogicalEncoder::DeltaRle, PhysicalEncoder::VarInt)
     }
     #[must_use]
-    pub fn delta_rle_varint() -> IntEncoder {
-        IntEncoder::new(LogicalEncoder::DeltaRle, PhysicalEncoder::VarInt)
+    pub fn delta_varint() -> Self {
+        Self::new(LogicalEncoder::Delta, PhysicalEncoder::VarInt)
     }
     #[must_use]
-    pub fn delta_varint() -> IntEncoder {
-        IntEncoder::new(LogicalEncoder::Delta, PhysicalEncoder::VarInt)
+    pub fn fastpfor() -> Self {
+        Self::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR)
     }
     #[must_use]
-    pub fn fastpfor() -> IntEncoder {
-        IntEncoder::new(LogicalEncoder::None, PhysicalEncoder::FastPFOR)
+    pub fn plain() -> Self {
+        Self::new(LogicalEncoder::None, PhysicalEncoder::None)
     }
     #[must_use]
-    pub fn rle_fastpfor() -> IntEncoder {
-        IntEncoder::new(LogicalEncoder::Rle, PhysicalEncoder::FastPFOR)
+    pub fn rle_fastpfor() -> Self {
+        Self::new(LogicalEncoder::Rle, PhysicalEncoder::FastPFOR)
+    }
+    #[must_use]
+    pub fn rle_varint() -> Self {
+        Self::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
+    }
+    #[must_use]
+    pub fn varint() -> Self {
+        Self::new(LogicalEncoder::None, PhysicalEncoder::VarInt)
     }
 
     /// Automatically select the best encoder for a `u32` stream.
@@ -52,14 +60,14 @@ impl IntEncoder {
     ///
     /// `FastPFOR` is always preferred over `VarInt` when sizes are equal.
     #[must_use]
-    pub fn auto_u32(values: &[u32]) -> IntEncoder {
+    pub fn auto_u32(values: &[u32]) -> Self {
         let enc = DataProfile::prune_candidates::<i32>(values);
         DataProfile::compete_u32(&enc, values)
     }
 
     /// Automatically select the best encoder for a `u64` stream.
     #[must_use]
-    pub fn auto_u64(values: &[u64]) -> IntEncoder {
+    pub fn auto_u64(values: &[u64]) -> Self {
         let enc = DataProfile::prune_candidates::<i64>(values);
         DataProfile::compete_u64(&enc, values)
     }

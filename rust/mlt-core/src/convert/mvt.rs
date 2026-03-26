@@ -9,11 +9,11 @@ use mvt_reader::Reader;
 use mvt_reader::feature::Value as MvtValue;
 use serde_json::{Number, Value};
 
-use crate::MltError;
 use crate::geojson::{Coord32, Feature, FeatureCollection, Geom32};
+use crate::{MltError, MltResult};
 
 /// Parse MVT binary data and convert to a [`FeatureCollection`].
-pub fn mvt_to_feature_collection(data: Vec<u8>) -> Result<FeatureCollection, MltError> {
+pub fn mvt_to_feature_collection(data: Vec<u8>) -> MltResult<FeatureCollection> {
     let reader = Reader::new(data).map_err(|e| MltError::MvtParse(e.to_string()))?;
     let layers = reader
         .get_layer_metadata()
@@ -61,7 +61,7 @@ fn coord(c: impl AsRef<Coord<f32>>) -> Coord32 {
     }
 }
 
-fn convert_geometry(geom: &Geom<f32>) -> Result<Geom32, MltError> {
+fn convert_geometry(geom: &Geom<f32>) -> MltResult<Geom32> {
     Ok(match geom {
         Geom::Point(v) => Geom32::Point(Point(coord(v))),
         Geom::MultiPoint(v) => {

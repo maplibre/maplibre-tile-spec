@@ -3,17 +3,19 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::MltError;
-use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2, parse_varint};
+use crate::codecs::varint::parse_varint;
+use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2};
 use crate::v01::geometry::encode::encode_geometry;
 use crate::v01::{
-    ColumnType, DictionaryType, EncodedGeometry, Geometry, GeometryEncoder, GeometryValues,
-    IntEncoding, RawGeometry, RawStream, RawStreamData, StreamMeta, StreamType,
+    ColumnType, DictionaryType, EncodedGeometry, GeometryEncoder, GeometryValues, IntEncoding,
+    RawGeometry, RawStream, RawStreamData, StreamMeta, StreamType,
 };
+use crate::{MltResult, Parser};
 
 impl<'a> RawGeometry<'a> {
-    /// Parse encoded geometry from bytes (expects varint stream count + streams)
-    pub fn parse(input: &'a [u8]) -> crate::MltRefResult<'a, Self> {
+    /// Parse encoded geometry from bytes (expects varint stream count + streams).
+    /// Reserves decoded memory against the parser's budget.
+    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> crate::MltRefResult<'a, Self> {
         let (input, stream_count) = parse_varint::<u32>(input)?;
         let stream_count = stream_count.as_usize();
         if stream_count == 0 {
@@ -33,20 +35,20 @@ impl<'a> RawGeometry<'a> {
             ));
         }
 
-        let (input, meta) = RawStream::parse(input)?;
-        let (input, items) = RawStream::parse_multiple(input, stream_count - 1)?;
+        let (input, meta) = RawStream::from_bytes(input, parser)?;
+        let (input, items) = RawStream::parse_multiple(input, stream_count - 1, parser)?;
 
         Ok((input, Self { meta, items }))
     }
 }
 
 impl EncodedGeometry {
-    pub fn write_columns_meta_to<W: Write>(writer: &mut W) -> Result<(), MltError> {
+    pub fn write_columns_meta_to<W: Write>(writer: &mut W) -> MltResult<()> {
         ColumnType::Geometry.write_to(writer)?;
         Ok(())
     }
 
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> MltResult<()> {
         let items_len = u32::try_from(self.items.len())?;
         let items_len = checked_sum2(items_len, 1)?;
         writer.write_varint(items_len)?;
@@ -57,17 +59,14 @@ impl EncodedGeometry {
         Ok(())
     }
 
-    pub(crate) fn encode(
-        value: &GeometryValues,
-        encoder: GeometryEncoder,
-    ) -> Result<Self, MltError> {
+    pub fn encode(value: &GeometryValues, encoder: GeometryEncoder) -> MltResult<Self> {
         encode_geometry(value, &encoder, None)
     }
 }
 
 impl Debug for GeometryValues {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let GeometryValues {
+        let Self {
             vector_types,
             geometry_offsets,
             part_offsets,
@@ -85,13 +84,6 @@ impl Debug for GeometryValues {
             .field("triangles", &OptSeq(triangles.as_deref()))
             .field("vertices", &OptSeq(vertices.as_deref()))
             .finish()
-    }
-}
-
-impl<'a> Geometry<'a> {
-    #[must_use]
-    pub fn new_raw(meta: RawStream<'a>, items: Vec<RawStream<'a>>) -> Self {
-        Self::Raw(RawGeometry { meta, items })
     }
 }
 

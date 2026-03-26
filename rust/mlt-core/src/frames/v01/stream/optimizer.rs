@@ -1,9 +1,9 @@
 use num_traits::{AsPrimitive as _, PrimInt as _, WrappingSub, Zero as _};
 use zigzag::ZigZag;
 
-use crate::MltError;
+use crate::MltResult;
+use crate::v01::EncodedStreamData;
 use crate::v01::stream::IntEncoder;
-use crate::v01::{EncodedStreamData, LogicalEncoder, PhysicalEncoder};
 
 /// Minimum number of values to profile / compete on.
 ///
@@ -120,7 +120,7 @@ impl DataProfile {
         let target = sample_size(values.len());
         let sample = block_sample(values, target);
 
-        let profile = DataProfile::profile::<T>(sample);
+        let profile = Self::profile::<T>(sample);
         profile.candidates(T::zero().count_zeros() == 32)
     }
 
@@ -154,29 +154,17 @@ impl DataProfile {
         // DeltaRle – only when both transforms pay off.
         if self.delta_is_beneficial() && self.rle_is_viable() {
             if fastpfor_is_allowed {
-                out.push(IntEncoder::new(
-                    LogicalEncoder::DeltaRle,
-                    PhysicalEncoder::FastPFOR,
-                ));
+                out.push(IntEncoder::delta_rle_fastpfor());
             }
-            out.push(IntEncoder::new(
-                LogicalEncoder::DeltaRle,
-                PhysicalEncoder::VarInt,
-            ));
+            out.push(IntEncoder::delta_rle_varint());
         }
 
         // Delta-only.
         if self.delta_is_beneficial() {
             if fastpfor_is_allowed {
-                out.push(IntEncoder::new(
-                    LogicalEncoder::Delta,
-                    PhysicalEncoder::FastPFOR,
-                ));
+                out.push(IntEncoder::delta_fastpfor());
             }
-            out.push(IntEncoder::new(
-                LogicalEncoder::Delta,
-                PhysicalEncoder::VarInt,
-            ));
+            out.push(IntEncoder::delta_varint());
         }
 
         // RLE-only (no delta).
@@ -243,7 +231,7 @@ fn sample_size(len: usize) -> usize {
 /// Returns `usize::MAX` on error so that a broken candidate is always ranked
 /// last.
 fn encoded_size_u32(values: &[u32], encoder: IntEncoder) -> usize {
-    let result: Result<_, MltError> = (|| {
+    let result: MltResult<_> = (|| {
         let (physical_u32s, _logical_enc) = encoder.logical.encode_u32s(values)?;
         let (data, _physical_enc) = encoder.physical.encode_u32s(physical_u32s)?;
         Ok(data_byte_len(data))
@@ -252,7 +240,7 @@ fn encoded_size_u32(values: &[u32], encoder: IntEncoder) -> usize {
 }
 
 fn encoded_size_u64(values: &[u64], encoder: IntEncoder) -> usize {
-    let result: Result<_, MltError> = (|| {
+    let result: MltResult<_> = (|| {
         let (physical_u64s, _logical_enc) = encoder.logical.encode_u64s(values)?;
         let (data, _physical_enc) = encoder.physical.encode_u64s(physical_u64s)?;
         Ok(data_byte_len(data))
@@ -270,6 +258,7 @@ fn data_byte_len(data: EncodedStreamData) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::v01::PhysicalEncoder;
 
     #[test]
     fn candidates_rle_excluded_when_short_runs() {
@@ -307,7 +296,7 @@ mod tests {
             assert_ne!(
                 enc.physical,
                 PhysicalEncoder::FastPFOR,
-                "FastPFOR must not appear in u64 candidates"
+                "FastPFOR invalid for u64"
             );
         }
 
@@ -324,13 +313,7 @@ mod tests {
         ]
         ");
         let enc = DataProfile::compete_u64(&candidates, &data);
-        assert_eq!(
-            enc,
-            IntEncoder {
-                logical: LogicalEncoder::Delta,
-                physical: PhysicalEncoder::VarInt
-            }
-        );
+        assert_eq!(enc, IntEncoder::delta_varint());
     }
 
     #[test]
@@ -358,13 +341,7 @@ mod tests {
         ]
         ");
         let enc = DataProfile::compete_u32(&enc, &data);
-        assert_eq!(
-            enc,
-            IntEncoder {
-                logical: LogicalEncoder::Delta,
-                physical: PhysicalEncoder::FastPFOR
-            }
-        );
+        assert_eq!(enc, IntEncoder::delta_fastpfor());
     }
 
     #[test]
@@ -408,13 +385,7 @@ mod tests {
         ]
         ");
         let enc = DataProfile::compete_u32(&enc, &data);
-        assert_eq!(
-            enc,
-            IntEncoder {
-                logical: LogicalEncoder::Rle,
-                physical: PhysicalEncoder::VarInt
-            }
-        );
+        assert_eq!(enc, IntEncoder::rle_varint());
     }
 
     #[test]
@@ -434,13 +405,7 @@ mod tests {
         ]
         ");
         let enc = DataProfile::compete_u64(&enc, &data);
-        assert_eq!(
-            enc,
-            IntEncoder {
-                logical: LogicalEncoder::Delta,
-                physical: PhysicalEncoder::VarInt
-            }
-        );
+        assert_eq!(enc, IntEncoder::delta_varint());
     }
 
     #[test]

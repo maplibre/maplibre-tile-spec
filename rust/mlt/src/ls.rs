@@ -3,24 +3,24 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
+use std::str::FromStr as _;
 use std::string::ToString;
 
-use anyhow::Result;
+use anyhow::Result as AnyResult;
 use clap::{Args, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use globset::{GlobSet, GlobSetBuilder};
 use mlt_core::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
-use mlt_core::geojson::{FeatureCollection, Geom32};
+use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::{
-    DictionaryType, Geometry, GeometryType, LengthType, LogicalEncoding, OffsetType,
-    PhysicalEncoding, StreamMeta, StreamType,
+    DictionaryType, GeometryType, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
+    StreamMeta, StreamType,
 };
-use mlt_core::{Analyze as _, Decoder, parse_layers};
+use mlt_core::{Analyze as _, Decoder, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
-use serde_json::Value as JsonValue;
 use size_format::SizeFormatterSI;
 use tabled::Table;
 use tabled::builder::Builder;
@@ -171,7 +171,7 @@ impl std::fmt::Display for FileAlgorithm {
                 };
                 let physical = match physical {
                     PhysicalEncoding::None => "",
-                    PhysicalEncoding::FastPFOR => "FastPFOR",
+                    PhysicalEncoding::FastPFor256 => "FastPFOR",
                     PhysicalEncoding::VarInt => "VarInt",
                     PhysicalEncoding::Alp => "Alp",
                 };
@@ -271,7 +271,7 @@ impl LsRow {
     #[must_use]
     pub fn path(&self) -> &Path {
         match self {
-            LsRow::Info { path, .. } | LsRow::Error { path, .. } | LsRow::Loading { path } => {
+            Self::Info { path, .. } | Self::Error { path, .. } | Self::Loading { path } => {
                 path.as_path()
             }
         }
@@ -286,7 +286,7 @@ fn has_glob_metachars(path: &Path) -> bool {
 
 /// Expand path arguments: if a path contains glob metacharacters, expand it to matching paths;
 /// otherwise use the path as-is. Directories are left as-is so `collect_tile_files` can recurse into them.
-fn expand_path_args(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
+fn expand_path_args(paths: &[PathBuf]) -> AnyResult<Vec<PathBuf>> {
     let mut out = Vec::new();
     for path in paths {
         if has_glob_metachars(path) {
@@ -301,7 +301,7 @@ fn expand_path_args(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
 }
 
 /// Build a `GlobSet` from patterns; returns None if patterns is empty.
-fn build_exclude_set(patterns: &[String]) -> Result<Option<GlobSet>> {
+fn build_exclude_set(patterns: &[String]) -> AnyResult<Option<GlobSet>> {
     if patterns.is_empty() {
         return Ok(None);
     }
@@ -314,7 +314,7 @@ fn build_exclude_set(patterns: &[String]) -> Result<Option<GlobSet>> {
 
 /// List tile files with statistics.
 /// Returns `true` if all files were valid, `false` if any file had an error, or no files.
-pub fn ls(args: &LsArgs) -> Result<bool> {
+pub fn ls(args: &LsArgs) -> AnyResult<bool> {
     let flags = LsFlags::from(args);
     let mut all_files = Vec::new();
 
@@ -473,7 +473,7 @@ fn collect_tile_files(
     path: &Path,
     args: &LsArgs,
     exclude_set: Option<&GlobSet>,
-) -> Result<Vec<PathBuf>> {
+) -> AnyResult<Vec<PathBuf>> {
     let matches_ext = |p: &Path| {
         if args.extension.is_empty() {
             is_tile_extension(p)
@@ -505,7 +505,7 @@ fn collect_from_dir<F>(
     recursive: bool,
     matches_ext: &F,
     exclude_set: Option<&GlobSet>,
-) -> Result<()>
+) -> AnyResult<()>
 where
     F: Fn(&Path) -> bool,
 {
@@ -522,7 +522,7 @@ where
     Ok(())
 }
 
-pub fn analyze_tile_file(path: &Path, base_path: &Path, flags: LsFlags) -> Result<MltFileInfo> {
+pub fn analyze_tile_file(path: &Path, base_path: &Path, flags: LsFlags) -> AnyResult<MltFileInfo> {
     let buffer = fs::read(path)?;
     let mut info = if is_mlt_extension(path) {
         analyze_mlt_buffer(&buffer, path, flags)?
@@ -548,8 +548,8 @@ pub fn analyze_tile_file(path: &Path, base_path: &Path, flags: LsFlags) -> Resul
     Ok(info)
 }
 
-pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<MltFileInfo> {
-    let mut layers = parse_layers(buffer)?;
+pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResult<MltFileInfo> {
+    let layers = Parser::default().parse_layers(buffer)?;
 
     let mut stream_count = 0;
     let mut algorithms: HashSet<StreamStat> = HashSet::new();
@@ -562,37 +562,32 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<
         }
     }
 
+    let layers = Decoder::default().decode_all(layers)?;
+
     let mut geometries = HashSet::new();
     let mut feature_count = 0;
     let mut data_size = 0;
     let mut meta_size = 0;
 
-    let mut dec = Decoder::default();
-    for layer in &mut layers {
-        layer.decode_all(&mut dec)?;
+    for layer in &layers {
         if let Some(layer01) = layer.as_layer01() {
             data_size += layer01.collect_statistic(DecodedDataSize);
             meta_size += layer01.collect_statistic(DecodedMetaSize);
             feature_count += layer01.collect_statistic(FeatureCount);
-
-            if let Geometry::Parsed(ref geom) = layer01.geometry {
-                for &geom_type in &geom.vector_types {
-                    geometries.insert(geom_type);
-                }
+            for &geom_type in &layer01.geometry.vector_types {
+                geometries.insert(geom_type);
             }
         }
     }
 
+    let layer_count = layers.len();
     let matches_json = if flags.validate {
         let json_path = path.with_extension("json");
         if json_path.is_file() {
-            let expected: FeatureCollection =
-                serde_json::from_str(&fs::read_to_string(&json_path)?)
-                    .map_err(|e| anyhow::anyhow!("{e}"))?;
-            let actual = FeatureCollection::from_layers(&mut layers, &mut dec)?;
-            let expected_val = normalize_tiny_floats(serde_json::to_value(&expected)?);
-            let actual_val = normalize_tiny_floats(serde_json::to_value(&actual)?);
-            Some(json_values_equal(&expected_val, &actual_val))
+            let expected = FeatureCollection::from_str(&fs::read_to_string(&json_path)?)
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
+            let actual = FeatureCollection::from_layers(layers)?;
+            Some(actual.equals(&expected)?)
         } else {
             Some(false)
         }
@@ -611,7 +606,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<
         data_size: Some(data_size),
         meta_size: Some(meta_size),
         meta_pct: Some(percent_of(meta_size, data_size)),
-        layers: layers.len(),
+        layers: layer_count,
         features: feature_count,
         streams: Some(stream_count),
         algorithms,
@@ -621,66 +616,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> Result<
     })
 }
 
-/// Compare two JSON values for equality. Numbers are compared with float tolerance so that
-/// f32 round-trip (e.g. 3.14 vs 3.140000104904175) and Java minimal decimal (e.g. 3.4028235e+38)
-/// match the Rust decoder output.
-fn json_values_equal(a: &JsonValue, b: &JsonValue) -> bool {
-    match (a, b) {
-        (JsonValue::Number(na), JsonValue::Number(nb)) if na.is_f64() && nb.is_f64() => {
-            let na = na.as_f64().expect("f64");
-            let nb = nb.as_f64().expect("f64");
-            assert!(
-                !na.is_nan() && !nb.is_nan(),
-                "unexpected non-finite numbers"
-            );
-            let abs_diff = (na - nb).abs();
-            let max_abs = na.abs().max(nb.abs()).max(1.0);
-            abs_diff <= f64::from(f32::EPSILON) * max_abs * 2.0
-        }
-        (JsonValue::Array(aa), JsonValue::Array(ab)) => {
-            aa.len() == ab.len()
-                && aa
-                    .iter()
-                    .zip(ab.iter())
-                    .all(|(x, y)| json_values_equal(x, y))
-        }
-        (JsonValue::Object(ao), JsonValue::Object(bo)) => {
-            ao.len() == bo.len()
-                && ao
-                    .iter()
-                    .all(|(k, v)| bo.get(k).is_some_and(|w| json_values_equal(v, w)))
-        }
-        _ => a == b,
-    }
-}
-
-/// Replace tiny float values (e.g. `1e-40`) with `0.0` to handle codec precision issues.
-fn normalize_tiny_floats(value: JsonValue) -> JsonValue {
-    match value {
-        JsonValue::Number(ref n) => {
-            let eps = f64::from(f32::EPSILON);
-            if let Some(f) = n.as_f64()
-                && f.is_finite()
-                && f.abs() < eps
-            {
-                JsonValue::from(0.0)
-            } else {
-                value
-            }
-        }
-        JsonValue::Array(arr) => {
-            JsonValue::Array(arr.into_iter().map(normalize_tiny_floats).collect())
-        }
-        JsonValue::Object(obj) => JsonValue::Object(
-            obj.into_iter()
-                .map(|(k, v)| (k, normalize_tiny_floats(v)))
-                .collect(),
-        ),
-        v => v,
-    }
-}
-
-fn analyze_mvt_buffer(buffer: &[u8]) -> Result<MltFileInfo> {
+fn analyze_mvt_buffer(buffer: &[u8]) -> AnyResult<MltFileInfo> {
     let fc = mvt_to_feature_collection(buffer.to_vec())?;
 
     let mut layer_names = HashSet::new();
@@ -690,7 +626,7 @@ fn analyze_mvt_buffer(buffer: &[u8]) -> Result<MltFileInfo> {
         if let Some(name) = feat.properties.get("_layer").and_then(|v| v.as_str()) {
             layer_names.insert(name.to_string());
         }
-        if let Some(gt) = geometry_type_from_geom32(&feat.geometry) {
+        if let Ok(gt) = GeometryType::try_from(&feat.geometry) {
             geometries.insert(gt);
         }
     }
@@ -702,20 +638,6 @@ fn analyze_mvt_buffer(buffer: &[u8]) -> Result<MltFileInfo> {
         algorithms: std::iter::once(FileAlgorithm::Mvt).collect(),
         geometries,
         ..MltFileInfo::default()
-    })
-}
-
-fn geometry_type_from_geom32(geom: &Geom32) -> Option<GeometryType> {
-    Some(match geom {
-        Geom32::Point(_) => GeometryType::Point,
-        Geom32::MultiPoint(_) => GeometryType::MultiPoint,
-        Geom32::LineString(_) => GeometryType::LineString,
-        Geom32::MultiLineString(_) => GeometryType::MultiLineString,
-        Geom32::Polygon(_) => GeometryType::Polygon,
-        Geom32::MultiPolygon(_) => GeometryType::MultiPolygon,
-        Geom32::Line(_) | Geom32::GeometryCollection(_) | Geom32::Rect(_) | Geom32::Triangle(_) => {
-            return None;
-        }
     })
 }
 
@@ -759,7 +681,7 @@ fn collect_stream_info(meta: StreamMeta, algo: &mut HashSet<StreamStat>) {
     ));
 }
 
-fn estimate_gzip_size(data: &[u8]) -> Result<usize> {
+fn estimate_gzip_size(data: &[u8]) -> AnyResult<usize> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(data)?;
     let compressed = encoder.finish()?;
@@ -818,6 +740,11 @@ fn print_table(rows: &[LsRow], flags: LsFlags) {
     for (i, row) in rows.iter().enumerate() {
         match row {
             LsRow::Info { info, .. } => {
+                if let Some(true) = info.matches_json
+                    && flags.validate
+                {
+                    continue; // When validating, no need to show valid rows
+                }
                 let mut data_row = vec![
                     info.path.clone(),
                     fmt_size(info.size),
@@ -859,11 +786,7 @@ fn print_table(rows: &[LsRow], flags: LsFlags) {
                 builder.push_record(data_row);
                 error_table_rows.push(i + 1);
             }
-            LsRow::Loading { path } => {
-                let mut data_row = vec![path.display().to_string(), "Loading…".to_string()];
-                data_row.resize(num_cols, String::new());
-                builder.push_record(data_row);
-            }
+            LsRow::Loading { .. } => unreachable!("Loading?"),
         }
     }
 

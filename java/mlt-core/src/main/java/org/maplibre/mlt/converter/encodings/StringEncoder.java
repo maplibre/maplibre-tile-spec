@@ -93,6 +93,12 @@ public class StringEncoder {
                 < ByteArrayUtil.totalLength(encodedSharedDictionary);
     final var result = usingFSST ? encodedSharedFsstDictionary : encodedSharedDictionary;
 
+    // stream_count = dict streams + actual streams written across all child columns.
+    // Plain has 2 dict streams (length + data).
+    // FSST has 4 dict streams (symbol_lengths, symbol_table, value_lengths, compressed_corpus).
+    // There used to be a bug here where one extra column was counted
+    var numStreams = usingFSST ? 4 : 2;
+
     for (var i = 0; i < dataStreams.size(); i++) {
       var presentStream = presentStreams.get(i);
       var dataStream = dataStreams.get(i);
@@ -105,8 +111,11 @@ public class StringEncoder {
       }
 
       final var encodedFieldMetadata = EncodingUtils.encodeVarints(new int[] {2}, false, false);
+
+      // TODO: make present stream optional
       final var encodedPresentStream =
           BooleanEncoder.encodeBooleanStream(presentStream, PhysicalStreamType.PRESENT);
+      numStreams += 2;
 
       final var encodedDataStream =
           IntegerEncoder.encodeIntStream(
@@ -115,13 +124,12 @@ public class StringEncoder {
               false,
               PhysicalStreamType.OFFSET,
               new LogicalStreamType(OffsetType.STRING));
+
       result.add(encodedFieldMetadata);
       result.addAll(encodedPresentStream);
       result.addAll(encodedDataStream);
     }
 
-    // TODO: make present stream optional
-    final var numStreams = (usingFSST ? 5 : 3) + values.size() * 2;
     return Pair.of(numStreams, result);
   }
 

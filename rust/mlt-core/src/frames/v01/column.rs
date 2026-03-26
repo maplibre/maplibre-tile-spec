@@ -2,14 +2,14 @@ use std::io;
 use std::io::Write;
 
 use crate::MltError::ParsingColumnType;
-use crate::MltRefResult;
 use crate::utils::{BinarySerializer as _, parse_string, parse_u8};
 use crate::v01::{Column, ColumnType};
+use crate::{MltRefResult, Parser};
 
 impl Column<'_> {
     /// Parse a single column definition
-    pub fn parse(input: &[u8]) -> MltRefResult<'_, Column<'_>> {
-        let (mut input, typ) = ColumnType::parse(input)?;
+    pub fn from_bytes<'a>(input: &'a [u8], _parser: &mut Parser) -> MltRefResult<'a, Column<'a>> {
+        let (mut input, typ) = ColumnType::from_bytes(input)?;
         let name = if typ.has_name() {
             let pair = parse_string(input)?;
             input = pair.0;
@@ -31,7 +31,7 @@ impl Column<'_> {
 
 impl ColumnType {
     /// Parse a column type from u8
-    pub fn parse(input: &[u8]) -> MltRefResult<'_, Self> {
+    pub fn from_bytes(input: &[u8]) -> MltRefResult<'_, Self> {
         let (input, value) = parse_u8(input)?;
         let value = Self::try_from(value).or(Err(ParsingColumnType(value)))?;
         Ok((input, value))
@@ -47,11 +47,7 @@ impl ColumnType {
     pub fn has_name(self) -> bool {
         !matches!(
             self,
-            ColumnType::Id
-                | ColumnType::OptId
-                | ColumnType::LongId
-                | ColumnType::OptLongId
-                | ColumnType::Geometry
+            Self::Id | Self::OptId | Self::LongId | Self::OptLongId | Self::Geometry
         )
     }
 

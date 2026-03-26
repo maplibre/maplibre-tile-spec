@@ -430,6 +430,18 @@ public class SyntheticMltGenerator {
     write(layer("props_u32_rle", feat_u32s), cfg(RLE));
     write(layer("props_u32_delta_rle", feat_u32s), cfg(DELTA_RLE));
 
+    // The actual frame size is 256, so cover multiples of its half
+    for (var multiplier : new int[] {1, 2, 3, 4}) {
+      for (var offset : new int[] {-1, 0, 1}) {
+        var features = new Feature[128 * multiplier + offset];
+        for (var i = 0; i < features.length; i++) {
+          // Sequence 0,1,2, 0,1,2, 0,1,2, 0,1,2, ...
+          features[i] = feat(p0, prop("val", U32.of(i % 3)));
+        }
+        write(layer("props_u32_fpf_" + features.length, features), cfg().fastPFOR());
+      }
+    }
+
     var feat_u64s =
         array(
             feat(p0, prop("val", U64.of(BigInteger.valueOf(9_000L)))),

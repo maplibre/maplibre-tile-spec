@@ -49,6 +49,12 @@ jobs:
       - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-rust
       - run: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: "rust/mlt-wasm/.nvmrc"
+          cache: "npm"
+          cache-dependency-path: "rust/mlt-wasm/package-lock.json"
       - run: just -v rust::ci-test-wasm
 
   fuzz:
@@ -322,7 +328,10 @@ jobs:
           draft: true
 
       - name: Publish npm package
-        run: npm publish mlt-wasm-pkg/maplibre-mlt-wasm-*.tgz --access=public
+        run: |
+          package_tgz="$(find mlt-wasm-pkg -type f -name 'maplibre-mlt-wasm-*.tgz' -print -quit)"
+          test -n "$package_tgz" || { echo "::error::Package file not found in mlt-wasm-pkg"; exit 1; }
+          npm publish "$package_tgz" --access=public
 
       - name: Publish GitHub release (remove draft)
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1

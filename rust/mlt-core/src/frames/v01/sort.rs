@@ -5,8 +5,9 @@
 //! call; there is no permutation machinery, no column-by-column scatter, and
 //! no encoded/decoded conversions inside this module.
 
+use crate::codecs::hilbert::{hilbert_curve_params, hilbert_sort_key};
+use crate::codecs::morton::morton_sort_key;
 use crate::geojson::Geom32;
-use crate::utils::{hilbert_curve_params, hilbert_sort_key, morton_sort_key};
 use crate::v01::{TileFeature, TileLayer01};
 
 /// Controls how features inside a layer are reordered before encoding.
@@ -65,7 +66,7 @@ fn sort_key(f: &TileFeature, strategy: SortStrategy, params: &CurveParams) -> u6
 }
 
 /// Parameters derived from the vertex set of a feature collection, used to
-/// normalise coordinates before space-filling-curve key computation.
+/// normalize coordinates before space-filling-curve key computation.
 pub(crate) struct CurveParams {
     pub shift: u32,
     pub num_bits: u32,
@@ -216,9 +217,11 @@ mod tests {
     use geo_types::{Coord, Geometry as GeoGeom, LineString, Point, Polygon};
 
     use super::*;
+    use crate::LazyParsed;
     use crate::geojson::Geom32;
+    use crate::test_helpers::{assert_empty, dec, parser};
     use crate::v01::{
-        Geometry, GeometryEncoder, GeometryValues, IntEncoder, RawGeometry, TileFeature,
+        GeometryEncoder, GeometryType, GeometryValues, IntEncoder, RawGeometry, TileFeature,
         TileLayer01,
     };
 
@@ -264,15 +267,18 @@ mod tests {
         let mut buf = Vec::new();
         encoded.write_to(&mut buf).expect("serialize failed");
 
-        let (remaining, parsed) = RawGeometry::parse(&buf).expect("parse failed");
+        let mut p = parser();
+        let (remaining, parsed) = RawGeometry::from_bytes(&buf, &mut p).expect("parse failed");
+        assert_empty(remaining);
+        let mut d = dec();
+        let result = LazyParsed::Raw(parsed)
+            .into_parsed(&mut d)
+            .expect("decode failed");
         assert!(
-            remaining.is_empty(),
-            "unexpected trailing bytes after parse"
+            d.consumed() > 0,
+            "decoder should consume bytes after decode"
         );
-
-        Geometry::Raw(parsed)
-            .into_parsed(&mut crate::Decoder::default())
-            .expect("decode failed")
+        result
     }
 
     /// Build the canonical (dense, wire-decoded) form of an ordered geometry sequence.
@@ -429,11 +435,7 @@ mod tests {
         let geom_types: Vec<&str> = layer
             .features
             .iter()
-            .map(|f| match &f.geometry {
-                GeoGeom::Point(_) => "Point",
-                GeoGeom::LineString(_) => "LineString",
-                _ => "Other",
-            })
+            .map(|f| GeometryType::try_from(&f.geometry).unwrap().into())
             .collect();
         assert_eq!(geom_types, vec!["LineString", "Point", "Point"]);
     }

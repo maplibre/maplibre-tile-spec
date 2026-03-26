@@ -1,8 +1,10 @@
 **/*.rs.bk
 *.pdb
+*.proptest-regressions
 .idea/
 .vscode/
 debug/
+proptest-regressions/
 target/
 temp/
 tmp/

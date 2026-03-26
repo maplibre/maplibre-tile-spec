@@ -1,11 +1,14 @@
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
-use crate::EncDec;
 use crate::v01::{EncodedStream, RawStream};
+use crate::{DecodeState, Lazy};
 
-/// Geometry column representation, either raw (borrowed from bytes) or parsed.
-pub type Geometry<'a> = EncDec<RawGeometry<'a>, GeometryValues>;
+/// Geometry column representation, parameterized by decode state.
+///
+/// - `Geometry<'a>` / `Geometry<'a, Lazy>` — either raw bytes or decoded, in an [`crate::LazyParsed`] enum.
+/// - `Geometry<'a, Parsed>` — decoded [`GeometryValues`] directly (no enum wrapper).
+pub type Geometry<'a, S = Lazy> = <S as DecodeState>::LazyOrParsed<RawGeometry<'a>, GeometryValues>;
 
 /// Raw geometry data as read directly from the tile (borrows from input bytes)
 #[derive(Debug, PartialEq, Clone)]

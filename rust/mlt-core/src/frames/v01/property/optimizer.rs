@@ -18,8 +18,8 @@ use fsst::Compressor;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
-use crate::MltError;
-use crate::utils::encode_zigzag;
+use crate::MltResult;
+use crate::codecs::zigzag::encode_zigzag;
 use crate::v01::property::encode::encode_properties;
 use crate::v01::property::strings::{build_staged_shared_dict, collect_staged_shared_dict_spans};
 use crate::v01::property::{
@@ -132,31 +132,31 @@ impl PropertyProfile {
 /// Extension trait for consuming-style encoding of staged property columns.
 pub trait EncodeProperties: Sized {
     /// Encode with a specific encoder, consuming `self`.
-    fn encode(self, encoder: Vec<PropertyEncoder>) -> Result<Vec<EncodedProperty>, MltError>;
+    fn encode(self, encoder: Vec<PropertyEncoder>) -> MltResult<Vec<EncodedProperty>>;
     /// Profile-driven encode, consuming `self`.
     fn encode_with_profile(
         self,
         profile: &PropertyProfile,
-    ) -> Result<(Vec<EncodedProperty>, Vec<PropertyEncoder>), MltError>;
+    ) -> MltResult<(Vec<EncodedProperty>, Vec<PropertyEncoder>)>;
     /// Automatic encoding, consuming `self`.
-    fn encode_auto(self) -> Result<(Vec<EncodedProperty>, Vec<PropertyEncoder>), MltError>;
+    fn encode_auto(self) -> MltResult<(Vec<EncodedProperty>, Vec<PropertyEncoder>)>;
 }
 
 impl EncodeProperties for Vec<StagedProperty> {
-    fn encode(self, encoder: Vec<PropertyEncoder>) -> Result<Vec<EncodedProperty>, MltError> {
+    fn encode(self, encoder: Vec<PropertyEncoder>) -> MltResult<Vec<EncodedProperty>> {
         encode_properties(&self, encoder)
     }
 
     fn encode_with_profile(
         mut self,
         profile: &PropertyProfile,
-    ) -> Result<(Vec<EncodedProperty>, Vec<PropertyEncoder>), MltError> {
+    ) -> MltResult<(Vec<EncodedProperty>, Vec<PropertyEncoder>)> {
         let enc = apply_profile(&mut self, profile);
         let encoded = encode_properties(&self, enc.clone())?;
         Ok((encoded, enc))
     }
 
-    fn encode_auto(mut self) -> Result<(Vec<EncodedProperty>, Vec<PropertyEncoder>), MltError> {
+    fn encode_auto(mut self) -> MltResult<(Vec<EncodedProperty>, Vec<PropertyEncoder>)> {
         let enc = optimize(&mut self);
         let encoded = encode_properties(&self, enc.clone())?;
         Ok((encoded, enc))
