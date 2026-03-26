@@ -1,5 +1,3 @@
-use std::mem::size_of;
-
 use crate::errors::AsMltError as _;
 use crate::{Layer, MltError, MltResult, ParsedLayer};
 

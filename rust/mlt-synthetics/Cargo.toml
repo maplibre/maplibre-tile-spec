@@ -12,12 +12,14 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
+clap.workspace = true
 geo.workspace = true
 geo-types.workspace = true
 mlt-core.workspace = true
 pretty_assertions.workspace = true
 serde_json.workspace = true
 test_each_file.workspace = true
+thiserror = "2.0.18"
 
 [lints]
 workspace = true

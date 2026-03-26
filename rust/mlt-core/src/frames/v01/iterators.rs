@@ -7,10 +7,7 @@
 
 use std::fmt;
 
-use serde_json::Value;
-
 use crate::geojson::Geom32;
-use crate::utils::{f32_to_json, f64_to_json};
 use crate::v01::{Layer01, ParsedProperty, ParsedScalar};
 use crate::{MltResult, Parsed};
 
@@ -81,23 +78,6 @@ pub enum PropValueRef<'a> {
     F32(f32),
     F64(f64),
     Str(&'a str),
-}
-
-impl From<PropValueRef<'_>> for Value {
-    fn from(v: PropValueRef<'_>) -> Self {
-        match v {
-            PropValueRef::Bool(v) => Self::Bool(v),
-            PropValueRef::I8(v) => Self::from(v),
-            PropValueRef::U8(v) => Self::from(v),
-            PropValueRef::I32(v) => Self::from(v),
-            PropValueRef::U32(v) => Self::from(v),
-            PropValueRef::I64(v) => Self::from(v),
-            PropValueRef::U64(v) => Self::from(v),
-            PropValueRef::F32(v) => f32_to_json(v),
-            PropValueRef::F64(v) => f64_to_json(v),
-            PropValueRef::Str(s) => Self::String(s.to_string()),
-        }
-    }
 }
 
 macro_rules! impl_from_for_prop_value_ref {

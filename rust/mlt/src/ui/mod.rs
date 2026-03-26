@@ -979,18 +979,7 @@ fn collect_extensions(files: &[LsRow]) -> Vec<String> {
 // --- Geometry helpers ---
 
 fn geometry_type_name(geom: &Geom32) -> &'static str {
-    match geom {
-        Geom32::Point(_) => "Point",
-        Geom32::Line(_) => "Line",
-        Geom32::LineString(_) => "LineString",
-        Geom32::Polygon(_) => "Polygon",
-        Geom32::MultiPoint(_) => "MultiPoint",
-        Geom32::MultiLineString(_) => "MultiLineString",
-        Geom32::MultiPolygon(_) => "MultiPolygon",
-        Geom32::GeometryCollection(_) => "GeometryCollection",
-        Geom32::Rect(_) => "Rect",
-        Geom32::Triangle(_) => "Triangle",
-    }
+    GeometryType::try_from(geom).map_or("Unknown", Into::into)
 }
 
 fn geometry_color(geom: &Geom32) -> Color {

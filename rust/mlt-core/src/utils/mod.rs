@@ -1,45 +1,15 @@
 mod serialize;
 pub use serialize::*;
-mod parse;
-pub(crate) use parse::*;
 pub(crate) mod formatter;
-use std::mem::size_of;
+mod parse;
 
 pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt};
 use num_traits::CheckedAdd;
-use serde_json::{Number, Value};
+pub(crate) use parse::*;
 
 use crate::errors::AsMltError as _;
 use crate::v01::RawPresence;
 use crate::{Decoder, MltError, MltResult};
-
-/// Convert f32 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
-#[must_use]
-pub fn f32_to_json(f: f32) -> Value {
-    if f.is_nan() {
-        Value::String("f32::NAN".to_owned())
-    } else if f == f32::INFINITY {
-        Value::String("f32::INFINITY".to_owned())
-    } else if f == f32::NEG_INFINITY {
-        Value::String("f32::NEG_INFINITY".to_owned())
-    } else {
-        Number::from_f64(f64::from(f)).expect("finite f32").into()
-    }
-}
-
-/// Convert f64 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
-#[must_use]
-pub fn f64_to_json(f: f64) -> Value {
-    if f.is_nan() {
-        Value::String("f64::NAN".to_owned())
-    } else if f == f64::INFINITY {
-        Value::String("f64::INFINITY".to_owned())
-    } else if f == f64::NEG_INFINITY {
-        Value::String("f64::NEG_INFINITY".to_owned())
-    } else {
-        Number::from_f64(f).expect("finite f64").into()
-    }
-}
 
 pub trait SetOptionOnce<T> {
     fn set_once(&mut self, value: T) -> MltResult<()>;

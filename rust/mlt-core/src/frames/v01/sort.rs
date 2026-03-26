@@ -221,7 +221,8 @@ mod tests {
     use crate::geojson::Geom32;
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::v01::{
-        GeometryEncoder, GeometryValues, IntEncoder, RawGeometry, TileFeature, TileLayer01,
+        GeometryEncoder, GeometryType, GeometryValues, IntEncoder, RawGeometry, TileFeature,
+        TileLayer01,
     };
 
     // ── geometry test helpers ──────────────────────────────────────────────────
@@ -434,11 +435,7 @@ mod tests {
         let geom_types: Vec<&str> = layer
             .features
             .iter()
-            .map(|f| match &f.geometry {
-                GeoGeom::Point(_) => "Point",
-                GeoGeom::LineString(_) => "LineString",
-                _ => "Other",
-            })
+            .map(|f| GeometryType::try_from(&f.geometry).unwrap().into())
             .collect();
         assert_eq!(geom_types, vec!["LineString", "Point", "Point"]);
     }

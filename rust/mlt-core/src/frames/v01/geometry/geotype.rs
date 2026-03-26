@@ -29,6 +29,27 @@ impl GeometryType {
     }
 }
 
+impl TryFrom<&Geom32> for GeometryType {
+    type Error = ();
+
+    fn try_from(geom: &Geom32) -> Result<Self, Self::Error> {
+        Ok(match geom {
+            Geom32::Point(_) => Self::Point,
+            Geom32::MultiPoint(_) => Self::MultiPoint,
+            Geom32::LineString(_) => Self::LineString,
+            Geom32::MultiLineString(_) => Self::MultiLineString,
+            Geom32::Polygon(_) => Self::Polygon,
+            Geom32::MultiPolygon(_) => Self::MultiPolygon,
+            Geom32::Line(_)
+            | Geom32::GeometryCollection(_)
+            | Geom32::Rect(_)
+            | Geom32::Triangle(_) => {
+                return Err(());
+            }
+        })
+    }
+}
+
 impl GeometryValues {
     /// Build a `GeoJSON` geometry for a single feature at index `i`.
     /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec

@@ -2,7 +2,6 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::io::Write;
-use std::mem::size_of;
 
 use crate::MltError::{
     BufferUnderflow, DictIndexOutOfBounds, NotImplemented, UnexpectedStreamType2,
