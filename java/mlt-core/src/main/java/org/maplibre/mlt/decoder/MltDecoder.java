@@ -15,9 +15,11 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.data.Feature;
+import org.maplibre.mlt.data.IndexedProperty;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MLTFeature;
 import org.maplibre.mlt.data.MapLibreTile;
+import org.maplibre.mlt.data.Property;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
@@ -64,7 +66,8 @@ public class MltDecoder {
     final var offset = new IntWrapper(0);
     List<Long> ids = null;
     Geometry[] geometries = null;
-    final var properties = new HashMap<String, List<Object>>();
+    // final var properties = new HashMap<String, List<Property>>();
+    final var properties = new ArrayList<Map<String, Property>>();
     for (var columnMetadata : layerMetadata.columns) {
       final var columnName = columnMetadata.name;
       final var hasStreamCount = MltTypeMap.Tag0x01.hasStreamCount(columnMetadata);
@@ -122,16 +125,25 @@ public class MltDecoder {
           @SuppressWarnings("unchecked")
           var p = ((Map<String, Object>) propertyColumn);
           for (var a : p.entrySet()) {
-            if (a.getValue() instanceof List<?>) {
+            final var key = a.getKey();
+            if (a.getValue() instanceof ArrayList<?>) {
               @SuppressWarnings("unchecked")
-              var list = (List<Object>) a.getValue();
-              properties.put(a.getKey(), list);
+              final var list = (ArrayList<Object>) a.getValue();
+              sizeList(properties, list);
+              final var prop = new IndexedProperty(columnMetadata, key, list);
+              for (int i = 0; i < list.size(); i++) {
+                properties.get(i).merge(key, prop, MltDecoder::mergeFail);
+              }
             }
           }
-        } else if (propertyColumn instanceof List<?>) {
+        } else if (propertyColumn instanceof ArrayList<?>) {
           @SuppressWarnings("unchecked")
-          var list = (List<Object>) propertyColumn;
-          properties.put(columnName, list);
+          final var list = (ArrayList<Object>) propertyColumn;
+          sizeList(properties, list);
+          final var prop = new IndexedProperty(columnMetadata, columnName, list);
+          for (int i = 0; i < list.size(); i++) {
+            properties.get(i).merge(columnName, prop, MltDecoder::mergeFail);
+          }
         } else {
           throw new RuntimeException("Unexpected property result");
         }
@@ -143,10 +155,20 @@ public class MltDecoder {
         : null;
   }
 
+  private static void sizeList(ArrayList<Map<String, Property>> properties, List<Object> list) {
+    if (properties.isEmpty()) {
+      for (int i = 0; i < list.size(); i++) {
+        properties.add(new HashMap<>());
+      }
+    } else if (properties.size() != list.size()) {
+      throw new RuntimeException("Feature count mismatch");
+    }
+  }
+
   private static Layer convertToLayer(
       List<Long> ids,
       Geometry[] geometries,
-      Map<String, List<Object>> properties,
+      ArrayList<Map<String, Property>> properties,
       MltMetadata.FeatureTable metadata,
       int tileExtent) {
     if (ids != null && geometries.length != ids.size()) {
@@ -161,24 +183,20 @@ public class MltDecoder {
     final var features = new ArrayList<Feature>(geometries.length);
     final var builder = MLTFeature.builder();
     for (var j = 0; j < geometries.length; j++) {
-      final var p = new HashMap<String, Object>();
-      for (var propertyColumn : properties.entrySet()) {
-        if (propertyColumn.getValue() == null) {
-          p.put(propertyColumn.getKey(), null);
-        } else {
-          var v = propertyColumn.getValue().get(j);
-          p.put(propertyColumn.getKey(), v);
-        }
-      }
       features.add(
           builder
+              .index(j)
               .id((ids != null) ? ids.get(j) : null)
               .geometry(geometries[j])
-              .properties(p)
+              .properties(properties.isEmpty() ? Map.of() : properties.get(j))
               .build());
     }
 
     return new Layer(metadata.name, features, tileExtent);
+  }
+
+  private static Property mergeFail(Property a, Property ignored) {
+    throw new RuntimeException("Duplicate property key: " + a.getName());
   }
 
   private static MltMetadata.Column decodeColumn(InputStream stream) throws IOException {

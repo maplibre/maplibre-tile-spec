@@ -237,16 +237,16 @@ class SyntheticMltUtil {
   }
 
   static Feature feat(Geometry geom) {
-    return MLTFeature.builder().geometry(geom).build();
+    return MLTFeature.builder().index(0).geometry(geom).build();
   }
 
   static MLTFeature feat(Geometry geom, Map<String, Object> props) {
-    return MLTFeature.builder().geometry(geom).properties(props).build();
+    return MLTFeature.builder().index(0).geometry(geom).rawProperties(props).build();
   }
 
   /** for testing IDs - always use the same geometry */
   static Feature idFeat(long id) {
-    return MLTFeature.builder().id(id).geometry(p0).build();
+    return MLTFeature.builder().index(0).id(id).geometry(p0).build();
   }
 
   /** for testing IDs - simulate missing ID */

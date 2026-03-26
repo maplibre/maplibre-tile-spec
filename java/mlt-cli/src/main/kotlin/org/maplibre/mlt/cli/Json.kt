@@ -116,9 +116,9 @@ private fun toJson(feature: Feature): Map<String, Any?> {
         "properties",
         feature.propertyStream
             .asSequence()
-            .filter { entry -> entry.value != null }
+            .filter { entry -> entry.getValue(feature.index) != null }
             .associate { entry ->
-                entry.name to entry.value
+                entry.name to entry.getValue(feature.index)
             },
     )
     return map
@@ -168,8 +168,8 @@ private fun featureToGeoJson(
 private fun getSortedNonNullProperties(feature: Feature): SortedMap<String, Any?> =
     feature.propertyStream
         .asSequence()
-        .filter { entry -> entry.value != null }
-        .associate { entry -> entry.name to entry.value }
+        .filter { entry -> entry.getValue(feature.index) != null }
+        .associate { entry -> entry.name to entry.getValue(feature.index) }
         .toSortedMap()
 
 private fun geometryToGeoJson(

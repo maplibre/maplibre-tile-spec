@@ -66,16 +66,19 @@ class MltConverterTest {
                 "layer",
                 List.of(
                     MVTFeature.builder()
+                        .index(0)
                         .id(1)
                         .geometry(emptyGeometry)
                         .properties(Map.of("key", 1.2))
                         .build(),
                     MVTFeature.builder()
+                        .index(1)
                         .id(2)
                         .geometry(emptyGeometry)
                         .properties(Map.of("key", "2"))
                         .build(),
                     MVTFeature.builder()
+                        .index(2)
                         .id(3)
                         .geometry(emptyGeometry)
                         .properties(Map.of("key", 1))

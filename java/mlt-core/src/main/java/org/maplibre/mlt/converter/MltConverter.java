@@ -207,10 +207,11 @@ public class MltConverter {
       @NotNull ConversionConfig.TypeMismatchPolicy typeMismatchPolicy) {
     final var sourcePropertyName = property.getName();
 
-    if (property.isNestedProperty()) {
+    if (property.isNested()) {
       throw new NotImplementedException("Nested property types are not yet supported");
     }
-    final var scalarType = property.getType();
+    final var scalarField = property.getType().scalarType;
+    final var scalarType = (scalarField != null) ? scalarField.physicalType : null;
 
     // If this property already has a column...
     final var previousSchema = columnSchemas.get(sourcePropertyName);

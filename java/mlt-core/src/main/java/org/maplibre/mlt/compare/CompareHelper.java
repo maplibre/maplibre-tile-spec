@@ -181,12 +181,12 @@ public final class CompareHelper {
             ? mltFeatures.stream().sorted(Comparator.comparing(Feature::getId))
             : mltFeatures.stream();
 
-    final var featureIndex = new int[] {0};
     return StreamUtil.zip(
             maybeSortedMltFeatures,
             maybeSortedMvtFeatures,
             (mltFeature, mvtFeature) ->
-                compareFeature(mltFeature, mvtFeature, compareMode, featureIndex[0]++, layerName))
+                compareFeature(
+                    mltFeature, mvtFeature, compareMode, mltFeature.getIndex(), layerName))
         .filter(Optional::isPresent)
         .map(Optional::get)
         .findFirst();
@@ -253,13 +253,13 @@ public final class CompareHelper {
     return Optional.empty();
   }
 
-  private static boolean propertyValuesEqual(Property pa, Property pb) {
+  private static boolean propertyValuesEqual(Property pa, Property pb, int featureIndex) {
     if (pa == null || pb == null) {
       return pa == null && pb == null;
     }
 
-    final var a = pa.getValue();
-    final var b = pb.getValue();
+    final var a = pa.getValue(featureIndex);
+    final var b = pb.getValue(featureIndex);
 
     // Try simple equality
     if (Objects.equals(a, b)) {
@@ -277,14 +277,14 @@ public final class CompareHelper {
     final var nonNullMVTKeys =
         mvtFeature
             .getPropertyStream()
-            .filter(p -> p.getValue() != null)
+            .filter(p -> p.getValue(featureIndex) != null)
             .map(Property::getName)
             .collect(Collectors.toSet());
 
     final var nonNullMLTKeys =
         mltFeature
             .getPropertyStream()
-            .filter(p -> p.getValue() != null)
+            .filter(p -> p.getValue(featureIndex) != null)
             .map(Property::getName)
             .collect(Collectors.toSet());
     // compare keys
@@ -305,7 +305,10 @@ public final class CompareHelper {
     final var unequalKeys =
         mvtFeature
             .getPropertyStream()
-            .filter(p -> !propertyValuesEqual(p, mltFeature.findProperty(p.getName()).orElse(null)))
+            .filter(
+                p ->
+                    !propertyValuesEqual(
+                        p, mltFeature.findProperty(p.getName()).orElse(null), featureIndex))
             .map(Property::getName)
             .toList();
     if (!unequalKeys.isEmpty()) {
@@ -317,7 +320,7 @@ public final class CompareHelper {
                           + ": "
                           + mvtFeature
                               .findProperty(key)
-                              .map(Property::getValue)
+                              .map(p -> p.getValue(featureIndex))
                               .map(String::valueOf)
                               .orElse("null"))
               .collect(Collectors.joining(", "));
@@ -329,7 +332,7 @@ public final class CompareHelper {
                           + ": "
                           + mltFeature
                               .findProperty(key)
-                              .map(Property::getValue)
+                              .map(p -> p.getValue(featureIndex))
                               .map(String::valueOf)
                               .orElse("null"))
               .collect(Collectors.joining(", "));

@@ -16,6 +16,8 @@ import org.maplibre.mlt.metadata.tileset.MltMetadata;
 @SuperBuilder(toBuilder = true)
 @EqualsAndHashCode
 public abstract class Feature implements FeatureInterface {
+  @Getter protected final int index;
+
   @Accessors(fluent = true)
   @Getter
   @Builder.Default
@@ -43,7 +45,12 @@ public abstract class Feature implements FeatureInterface {
 
   public Optional<Property> findProperty(
       @NotNull String name, @NotNull MltMetadata.ScalarType type) {
-    return findProperty(name).filter(p -> !p.isNestedProperty() && p.getType().equals(type));
+    return findProperty(name)
+        .filter(
+            p ->
+                !p.isNested()
+                    && p.getType().scalarType != null
+                    && p.getType().scalarType.physicalType.equals(type));
   }
 
   /**

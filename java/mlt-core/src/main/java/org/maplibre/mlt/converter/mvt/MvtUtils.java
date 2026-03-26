@@ -72,6 +72,7 @@ public class MvtUtils {
       for (var mvtFeature : layerFeatures) {
         features.add(
             builder
+                .index(features.size())
                 .id(mvtFeature.getId())
                 .geometry(mvtFeature.getGeometry())
                 .properties(mvtFeature.getAttributes())

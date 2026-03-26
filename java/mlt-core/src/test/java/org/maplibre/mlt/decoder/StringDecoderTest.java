@@ -25,7 +25,6 @@ import org.maplibre.mlt.converter.encodings.StringEncoder;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
-import org.maplibre.mlt.data.Property;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 import org.maplibre.mlt.util.ByteArrayUtil;
@@ -253,7 +252,7 @@ public class StringDecoderTest {
                 feature ->
                     feature
                         .getPropertyStream()
-                        .map(Property::getValue)
+                        .map(p -> p.getValue(feature.getIndex()))
                         .flatMap(StreamUtil.ofType(String.class)))
             .toList();
     final var encodedValues = encodeSharedDictionary(List.of(values), technique, false);
@@ -329,7 +328,7 @@ public class StringDecoderTest {
         values.add(
             feature
                 .findProperty(fieldMetadata.name + column.name, MltMetadata.ScalarType.STRING)
-                .map(Property::getValue)
+                .map(p -> p.getValue(feature.getIndex()))
                 .flatMap(StreamUtil.optionalOfType(String.class))
                 .orElse(null));
       }
@@ -352,7 +351,7 @@ public class StringDecoderTest {
         final var expectedValue =
             feature
                 .findProperty(propertyName, MltMetadata.ScalarType.STRING)
-                .map(Property::getValue)
+                .map(p -> p.getValue(feature.getIndex()))
                 .flatMap(StreamUtil.optionalOfType(String.class))
                 .orElse(null);
         final var field = decodedValues.get(propertyName);

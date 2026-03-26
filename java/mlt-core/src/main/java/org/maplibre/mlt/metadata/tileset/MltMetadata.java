@@ -120,18 +120,22 @@ public final class MltMetadata {
 
   @SuperBuilder(toBuilder = true)
   public static class FieldType {
-    public final boolean isNullable;
+    @Builder.Default public final boolean isNullable = false;
     public final @Nullable ComplexField complexType;
     public final @Nullable ScalarField scalarType;
 
     protected FieldType(FieldTypeBuilder<?, ?> builder) {
-      this.isNullable = builder.isNullable;
+      this.isNullable = builder.isNullable$set ? builder.isNullable$value : false;
       this.complexType = builder.complexType;
       this.scalarType = builder.scalarType;
-      if (complexType != null && scalarType != null) {
+      if ((complexType != null) == (scalarType != null)) {
         throw new IllegalStateException(
-            "A field cannot have both a complex type and a scalar type");
+            "Field type must be either a complex type or a scalar type");
       }
+    }
+
+    public boolean is(ScalarType type) {
+      return (scalarType != null && scalarType.physicalType == type);
     }
   }
 

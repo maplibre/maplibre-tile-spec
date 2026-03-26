@@ -250,14 +250,16 @@ class CompareHelperTest {
         mltOf(
             createLayer(
                 "roads",
-                createPointFeature(1, Map.of("x", "ok")),
-                createPointFeature(2, Map.of("x", "bad"))));
+                createPointFeature(1, Map.of("x", "ok"), 0),
+                createPointFeature(2, Map.of("x", "bad"), 1)));
     final var mvt =
         mvtOf(
             createLayer(
                 "roads",
-                createPointFeature(1, Map.of("x", "ok")),
-                createPointFeature(2, Map.of("x", "good"))));
+                createPointFeature(2, Map.of("x", "good"), 1),
+                createPointFeature(1, Map.of("x", "ok"), 0)));
+
+    // Features sorted by id, difference at index 1
     final var diff = CompareHelper.compareTiles(mlt, mvt, CompareMode.Properties);
     assertTrue(diff.isPresent());
     assertTrue(diff.get().toString().contains("1"));
@@ -330,7 +332,12 @@ class CompareHelperTest {
   }
 
   private static MVTFeature createPointFeature(long id, Map<String, Object> props) {
+    return createPointFeature(id, props, 0);
+  }
+
+  private static MVTFeature createPointFeature(long id, Map<String, Object> props, int index) {
     return MVTFeature.builder()
+        .index(index)
         .id(id)
         .geometry(FACTORY.createPoint(new Coordinate(1, 2)))
         .properties(props)
@@ -338,11 +345,20 @@ class CompareHelperTest {
   }
 
   private static MVTFeature createFeature(long id, Geometry geom) {
-    return MVTFeature.builder().id(id).geometry(geom).properties(Map.of()).build();
+    return createFeature(id, geom, 0);
+  }
+
+  private static MVTFeature createFeature(long id, Geometry geom, int index) {
+    return MVTFeature.builder().index(index).id(id).geometry(geom).properties(Map.of()).build();
   }
 
   private static MVTFeature createPointFeature(Map<String, Object> props) {
+    return createPointFeature(props, 0);
+  }
+
+  private static MVTFeature createPointFeature(Map<String, Object> props, int index) {
     return MVTFeature.builder()
+        .index(index)
         .geometry(FACTORY.createPoint(new Coordinate(1, 2)))
         .properties(props)
         .build();

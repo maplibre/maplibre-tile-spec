@@ -2,6 +2,7 @@ package org.maplibre.mlt.data;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -12,17 +13,17 @@ import org.maplibre.mlt.metadata.tileset.MltMetadata;
 @SuperBuilder(toBuilder = true)
 @EqualsAndHashCode(callSuper = true)
 public class MLTFeature extends Feature {
-  @NotNull @Builder.Default private final Map<String, Object> properties = Map.of();
+  @NotNull @Builder.Default private final Map<String, Property> properties = Map.of();
 
   @Override
   public Optional<Property> findProperty(String name) {
-    return Optional.ofNullable(properties.get(name)).map(value -> adapt(name, value));
+    return Optional.ofNullable(properties.get(name));
   }
 
   @Override
   public Stream<Property> getPropertyStream(boolean parallel) {
     final var entries = properties.entrySet();
-    return (parallel ? entries.parallelStream() : entries.stream()).map(MLTFeature::adapt);
+    return (parallel ? entries.parallelStream() : entries.stream()).map(Map.Entry::getValue);
   }
 
   static Property adapt(String name, Object value) {
@@ -42,5 +43,15 @@ public class MLTFeature extends Feature {
           .build();
     }
     return MVTFeature.getType(value);
+  }
+
+  public abstract static class MLTFeatureBuilder<
+          C extends MLTFeature, B extends MLTFeatureBuilder<C, B>>
+      extends Feature.FeatureBuilder<C, B> {
+    public B rawProperties(Map<String, Object> rawProperties) {
+      return properties(
+          rawProperties.entrySet().stream()
+              .collect(Collectors.toMap(Map.Entry::getKey, MLTFeature::adapt)));
+    }
   }
 }
