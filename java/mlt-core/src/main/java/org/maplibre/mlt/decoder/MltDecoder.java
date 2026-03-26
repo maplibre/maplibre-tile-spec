@@ -91,7 +91,9 @@ public class MltDecoder {
         } else {
           denseIds =
               IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false).stream()
-                  .mapToLong(i -> i)
+                  // Use unsigned widening so u32::MAX (stored as int -1) → 4294967295L,
+                  // not -1L (which sign-extension via `i -> i` would produce).
+                  .mapToLong(Integer::toUnsignedLong)
                   .boxed()
                   .collect(Collectors.toList());
         }

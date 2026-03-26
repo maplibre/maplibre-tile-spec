@@ -146,8 +146,9 @@ public class MltConverter {
         if (includeIdIfPresent) {
           if (feature.hasId()) {
             hasId = true;
-            if ((!hasLongId && feature.id() > Integer.MAX_VALUE)
-                || feature.id() < Integer.MIN_VALUE) {
+            // Use unsigned comparison: ID needs 64 bits only if it exceeds u32::MAX (0xFFFFFFFF).
+            // Signed comparison would wrongly classify u64::MAX (-1L) as a 32-bit value.
+            if (!hasLongId && Long.compareUnsigned(feature.id(), 0xFFFFFFFFL) > 0) {
               hasLongId = true;
             }
           } else {

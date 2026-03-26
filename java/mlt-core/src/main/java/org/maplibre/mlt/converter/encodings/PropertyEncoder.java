@@ -440,7 +440,9 @@ public class PropertyEncoder {
       // If long were required, `encodeInt64Column` would have been called instead.
       final var propertyValue =
           isID
-              ? (feature.hasId() ? Integer.valueOf(Math.toIntExact(feature.id())) : null)
+              // Cast to int to preserve the unsigned bit pattern (e.g. u32::MAX = 0xFFFFFFFF
+              // is -1 as int, which VarInt encodes correctly as unsigned 4294967295).
+              ? (feature.hasId() ? Integer.valueOf((int) feature.id()) : null)
               : getIntPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {

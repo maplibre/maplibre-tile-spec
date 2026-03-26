@@ -1,3 +1,6 @@
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+
 use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::fsst::compress_fsst;
@@ -234,6 +237,73 @@ impl EncodedStream {
         let offsets = Self::encode_u32s_of_type(
             &offsets,
             encoding.dict_lengths,
+            StreamType::Offset(OffsetType::String),
+        )?;
+        Ok(EncodedStringsEncoding::FsstDictionary { fsst_data, offsets })
+    }
+
+    /// Deduplicate a slice of strings, returning the unique strings and per-value indices.
+    fn dedup_strings<S: AsRef<str>>(values: &[S]) -> (Vec<String>, Vec<u32>) {
+        let mut unique: Vec<String> = Vec::new();
+        let mut index: HashMap<String, u32> = HashMap::new();
+        let mut indices = Vec::with_capacity(values.len());
+        for s in values.iter().map(|s| s.as_ref().to_owned()) {
+            let idx = match index.entry(s.clone()) {
+                Entry::Occupied(e) => *e.get(),
+                Entry::Vacant(e) => {
+                    let idx =
+                        u32::try_from(unique.len()).expect("unique string count exceeds u32::MAX");
+                    e.insert(idx);
+                    unique.push(s);
+                    idx
+                }
+            };
+            indices.push(idx);
+        }
+        (unique, indices)
+    }
+
+    /// Encode a deduplicated plain dictionary: unique strings + per-feature offset indices.
+    pub fn encode_strings_dict<S: AsRef<str>>(
+        values: &[S],
+        length_encoding: IntEncoder,
+        offsets_encoding: IntEncoder,
+    ) -> MltResult<EncodedStringsEncoding> {
+        let (unique, offset_indices) = Self::dedup_strings(values);
+        let unique_refs: Vec<&str> = unique.iter().map(String::as_str).collect();
+        let lengths = strings_to_lengths(&unique_refs)?;
+        let data: Vec<u8> = unique_refs
+            .iter()
+            .flat_map(|s| s.as_bytes().iter().copied())
+            .collect();
+        let plain_data = EncodedPlainData::new(
+            Self::encode_u32s_of_type(
+                &lengths,
+                length_encoding,
+                StreamType::Length(LengthType::Dictionary),
+            )?,
+            Self::plain_with_type(data, u32::try_from(unique_refs.len())?, DictionaryType::Single),
+        )?;
+        let offsets = Self::encode_u32s_of_type(
+            &offset_indices,
+            offsets_encoding,
+            StreamType::Offset(OffsetType::String),
+        )?;
+        Ok(EncodedStringsEncoding::Dictionary { plain_data, offsets })
+    }
+
+    /// Encode a deduplicated FSST dictionary: FSST-compressed unique strings + per-feature offsets.
+    pub fn encode_strings_fsst_dict<S: AsRef<str>>(
+        values: &[S],
+        encoding: FsstStrEncoder,
+        offsets_encoding: IntEncoder,
+    ) -> MltResult<EncodedStringsEncoding> {
+        let (unique, offset_indices) = Self::dedup_strings(values);
+        let unique_refs: Vec<&str> = unique.iter().map(String::as_str).collect();
+        let fsst_data = compress_fsst(&unique_refs, encoding, DictionaryType::Single)?;
+        let offsets = Self::encode_u32s_of_type(
+            &offset_indices,
+            offsets_encoding,
             StreamType::Offset(OffsetType::String),
         )?;
         Ok(EncodedStringsEncoding::FsstDictionary { fsst_data, offsets })
