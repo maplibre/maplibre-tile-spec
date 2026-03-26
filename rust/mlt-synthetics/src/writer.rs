@@ -106,6 +106,11 @@ impl SynthWriter {
             Ok(is_rust) => {
                 let typ = if is_rust {
                     self.rust_written += 1;
+                    // Record the base name so report_ungenerated won't warn about
+                    // ref files that are covered by a rust-only counterpart.
+                    if let Some(base) = name.strip_suffix("-rust") {
+                        self.generated.insert(base.to_string());
+                    }
                     "wrote"
                 } else {
                     assert!(
