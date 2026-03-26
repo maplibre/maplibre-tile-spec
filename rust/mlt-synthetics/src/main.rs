@@ -858,7 +858,10 @@ fn generate_props_str(w: &mut SynthWriter) {
     let two_same = || P::str("val", vec![Some(val.clone()), Some(val.clone())]);
 
     two_pts()
-        .add_prop(S::str_dict(O::Present, E::varint(), E::rle_varint()), two_same())
+        .add_prop(
+            S::str_dict(O::Present, E::varint(), E::rle_varint()),
+            two_same(),
+        )
         .write(w, "props_offset_str");
     two_pts()
         .add_prop(
@@ -923,14 +926,20 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
     .write(w, "props_shared_dict_no_struct_name_fsst-rust"); // Rust FSST is not byte-for-byte consistent with Java's
 
     // Struct name "a", single child with empty name: key "a" + "" = "a".
-    p0().add_shared_dict(
-        SharedDict::new("a", SE::plain(E::varint()))
-            .column("", O::Present, E::varint(), [Some(val.clone())]),
-    )
+    p0().add_shared_dict(SharedDict::new("a", SE::plain(E::varint())).column(
+        "",
+        O::Present,
+        E::varint(),
+        [Some(val.clone())],
+    ))
     .write(w, "props_shared_dict_no_child_name");
     p0().add_shared_dict(
-        SharedDict::new("a", SE::fsst(E::varint(), E::varint()))
-            .column("", O::Present, E::varint(), [Some(val.clone())]),
+        SharedDict::new("a", SE::fsst(E::varint(), E::varint())).column(
+            "",
+            O::Present,
+            E::varint(),
+            [Some(val.clone())],
+        ),
     )
     .write(w, "props_shared_dict_no_child_name_fsst-rust"); // Rust FSST output is not byte-for-byte consistent with Java's
 
@@ -939,18 +948,24 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         S::str(O::Present, E::varint()),
         P::str("place", vec![Some(val.clone())]),
     )
-    .add_shared_dict(
-        SharedDict::new("name:en", SE::plain(E::varint()))
-            .column("", O::Present, E::varint(), [Some(val.clone())]),
-    )
+    .add_shared_dict(SharedDict::new("name:en", SE::plain(E::varint())).column(
+        "",
+        O::Present,
+        E::varint(),
+        [Some(val.clone())],
+    ))
     .write(w, "props_shared_dict_one_child");
     p0().add_prop(
         S::str(O::Present, E::varint()),
         P::str("place", vec![Some(val.clone())]),
     )
     .add_shared_dict(
-        SharedDict::new("name:en", SE::fsst(E::varint(), E::varint()))
-            .column("", O::Present, E::varint(), [Some(val.clone())]),
+        SharedDict::new("name:en", SE::fsst(E::varint(), E::varint())).column(
+            "",
+            O::Present,
+            E::varint(),
+            [Some(val.clone())],
+        ),
     )
     .write(w, "props_shared_dict_one_child_fsst-rust"); // Rust FSST output is not byte-for-byte consistent with Java's
 }

@@ -1,5 +1,5 @@
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
@@ -282,14 +282,21 @@ impl EncodedStream {
                 length_encoding,
                 StreamType::Length(LengthType::Dictionary),
             )?,
-            Self::plain_with_type(data, u32::try_from(unique_refs.len())?, DictionaryType::Single),
+            Self::plain_with_type(
+                data,
+                u32::try_from(unique_refs.len())?,
+                DictionaryType::Single,
+            ),
         )?;
         let offsets = Self::encode_u32s_of_type(
             &offset_indices,
             offsets_encoding,
             StreamType::Offset(OffsetType::String),
         )?;
-        Ok(EncodedStringsEncoding::Dictionary { plain_data, offsets })
+        Ok(EncodedStringsEncoding::Dictionary {
+            plain_data,
+            offsets,
+        })
     }
 
     /// Encode a deduplicated FSST dictionary: FSST-compressed unique strings + per-feature offsets.

@@ -116,24 +116,21 @@ impl EncodedProperty {
                             DictionaryType::None,
                         )?
                     }
-                    StrEncoder::Dict { string_lengths, offsets } => {
-                        EncodedStream::encode_strings_dict(
-                            &v.dense_values(),
-                            string_lengths,
-                            offsets,
-                        )?
-                    }
+                    StrEncoder::Dict {
+                        string_lengths,
+                        offsets,
+                    } => EncodedStream::encode_strings_dict(
+                        &v.dense_values(),
+                        string_lengths,
+                        offsets,
+                    )?,
                     StrEncoder::Fsst(enc) => EncodedStream::encode_strings_fsst_with_type(
                         &v.dense_values(),
                         enc,
                         DictionaryType::Single,
                     )?,
                     StrEncoder::FsstDict { fsst, offsets } => {
-                        EncodedStream::encode_strings_fsst_dict(
-                            &v.dense_values(),
-                            fsst,
-                            offsets,
-                        )?
+                        EncodedStream::encode_strings_fsst_dict(&v.dense_values(), fsst, offsets)?
                     }
                 },
             })),

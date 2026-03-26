@@ -27,7 +27,10 @@ impl StrEncoder {
     }
     #[must_use]
     pub fn dict(string_lengths: IntEncoder, offsets: IntEncoder) -> Self {
-        Self::Dict { string_lengths, offsets }
+        Self::Dict {
+            string_lengths,
+            offsets,
+        }
     }
     #[must_use]
     pub fn fsst(symbol_lengths: IntEncoder, dict_lengths: IntEncoder) -> Self {
@@ -43,7 +46,10 @@ impl StrEncoder {
         offsets: IntEncoder,
     ) -> Self {
         Self::FsstDict {
-            fsst: FsstStrEncoder { symbol_lengths, dict_lengths },
+            fsst: FsstStrEncoder {
+                symbol_lengths,
+                dict_lengths,
+            },
             offsets,
         }
     }

@@ -30,7 +30,10 @@ impl ScalarEncoder {
     ) -> Self {
         Self {
             presence,
-            value: ScalarValueEncoder::String(StrEncoder::Dict { string_lengths, offsets }),
+            value: ScalarValueEncoder::String(StrEncoder::Dict {
+                string_lengths,
+                offsets,
+            }),
         }
     }
 
