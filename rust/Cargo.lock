@@ -1488,12 +1488,14 @@ dependencies = [
 name = "mlt-synthetics"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "geo",
  "geo-types",
  "mlt-core",
  "pretty_assertions",
  "serde_json",
  "test_each_file",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

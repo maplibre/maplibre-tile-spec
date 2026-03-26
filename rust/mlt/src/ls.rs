@@ -3,6 +3,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
+use std::str::FromStr as _;
 use std::string::ToString;
 
 use anyhow::Result as AnyResult;
@@ -11,7 +12,7 @@ use flate2::Compression;
 use flate2::write::GzEncoder;
 use globset::{GlobSet, GlobSetBuilder};
 use mlt_core::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
-use mlt_core::geojson::{FeatureCollection, Geom32};
+use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::{
     DictionaryType, GeometryType, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
@@ -20,7 +21,6 @@ use mlt_core::v01::{
 use mlt_core::{Analyze as _, Decoder, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
-use serde_json::Value as JsonValue;
 use size_format::SizeFormatterSI;
 use tabled::Table;
 use tabled::builder::Builder;
@@ -584,13 +584,10 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
     let matches_json = if flags.validate {
         let json_path = path.with_extension("json");
         if json_path.is_file() {
-            let expected: FeatureCollection =
-                serde_json::from_str(&fs::read_to_string(&json_path)?)
-                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+            let expected = FeatureCollection::from_str(&fs::read_to_string(&json_path)?)
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
             let actual = FeatureCollection::from_layers(layers)?;
-            let expected_val = normalize_tiny_floats(serde_json::to_value(&expected)?);
-            let actual_val = normalize_tiny_floats(serde_json::to_value(&actual)?);
-            Some(json_values_equal(&expected_val, &actual_val))
+            Some(actual.equals(&expected)?)
         } else {
             Some(false)
         }
@@ -619,65 +616,6 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
     })
 }
 
-/// Compare two JSON values for equality. Numbers are compared with float tolerance so that
-/// f32 round-trip (e.g. 3.14 vs 3.140000104904175) and Java minimal decimal (e.g. 3.4028235e+38)
-/// match the Rust decoder output.
-fn json_values_equal(a: &JsonValue, b: &JsonValue) -> bool {
-    match (a, b) {
-        (JsonValue::Number(na), JsonValue::Number(nb)) if na.is_f64() && nb.is_f64() => {
-            let na = na.as_f64().expect("f64");
-            let nb = nb.as_f64().expect("f64");
-            assert!(
-                !na.is_nan() && !nb.is_nan(),
-                "unexpected non-finite numbers"
-            );
-            let abs_diff = (na - nb).abs();
-            let max_abs = na.abs().max(nb.abs()).max(1.0);
-            abs_diff <= f64::from(f32::EPSILON) * max_abs * 2.0
-        }
-        (JsonValue::Array(aa), JsonValue::Array(ab)) => {
-            aa.len() == ab.len()
-                && aa
-                    .iter()
-                    .zip(ab.iter())
-                    .all(|(x, y)| json_values_equal(x, y))
-        }
-        (JsonValue::Object(ao), JsonValue::Object(bo)) => {
-            ao.len() == bo.len()
-                && ao
-                    .iter()
-                    .all(|(k, v)| bo.get(k).is_some_and(|w| json_values_equal(v, w)))
-        }
-        _ => a == b,
-    }
-}
-
-/// Replace tiny float values (e.g. `1e-40`) with `0.0` to handle codec precision issues.
-fn normalize_tiny_floats(value: JsonValue) -> JsonValue {
-    match value {
-        JsonValue::Number(ref n) => {
-            let eps = f64::from(f32::EPSILON);
-            if let Some(f) = n.as_f64()
-                && f.is_finite()
-                && f.abs() < eps
-            {
-                JsonValue::from(0.0)
-            } else {
-                value
-            }
-        }
-        JsonValue::Array(arr) => {
-            JsonValue::Array(arr.into_iter().map(normalize_tiny_floats).collect())
-        }
-        JsonValue::Object(obj) => JsonValue::Object(
-            obj.into_iter()
-                .map(|(k, v)| (k, normalize_tiny_floats(v)))
-                .collect(),
-        ),
-        v => v,
-    }
-}
-
 fn analyze_mvt_buffer(buffer: &[u8]) -> AnyResult<MltFileInfo> {
     let fc = mvt_to_feature_collection(buffer.to_vec())?;
 
@@ -688,7 +626,7 @@ fn analyze_mvt_buffer(buffer: &[u8]) -> AnyResult<MltFileInfo> {
         if let Some(name) = feat.properties.get("_layer").and_then(|v| v.as_str()) {
             layer_names.insert(name.to_string());
         }
-        if let Some(gt) = geometry_type_from_geom32(&feat.geometry) {
+        if let Ok(gt) = GeometryType::try_from(&feat.geometry) {
             geometries.insert(gt);
         }
     }
@@ -700,20 +638,6 @@ fn analyze_mvt_buffer(buffer: &[u8]) -> AnyResult<MltFileInfo> {
         algorithms: std::iter::once(FileAlgorithm::Mvt).collect(),
         geometries,
         ..MltFileInfo::default()
-    })
-}
-
-fn geometry_type_from_geom32(geom: &Geom32) -> Option<GeometryType> {
-    Some(match geom {
-        Geom32::Point(_) => GeometryType::Point,
-        Geom32::MultiPoint(_) => GeometryType::MultiPoint,
-        Geom32::LineString(_) => GeometryType::LineString,
-        Geom32::MultiLineString(_) => GeometryType::MultiLineString,
-        Geom32::Polygon(_) => GeometryType::Polygon,
-        Geom32::MultiPolygon(_) => GeometryType::MultiPolygon,
-        Geom32::Line(_) | Geom32::GeometryCollection(_) | Geom32::Rect(_) | Geom32::Triangle(_) => {
-            return None;
-        }
     })
 }
 
@@ -816,6 +740,11 @@ fn print_table(rows: &[LsRow], flags: LsFlags) {
     for (i, row) in rows.iter().enumerate() {
         match row {
             LsRow::Info { info, .. } => {
+                if let Some(true) = info.matches_json
+                    && flags.validate
+                {
+                    continue; // When validating, no need to show valid rows
+                }
                 let mut data_row = vec![
                     info.path.clone(),
                     fmt_size(info.size),
@@ -857,11 +786,7 @@ fn print_table(rows: &[LsRow], flags: LsFlags) {
                 builder.push_record(data_row);
                 error_table_rows.push(i + 1);
             }
-            LsRow::Loading { path } => {
-                let mut data_row = vec![path.display().to_string(), "Loading…".to_string()];
-                data_row.resize(num_cols, String::new());
-                builder.push_record(data_row);
-            }
+            LsRow::Loading { .. } => unreachable!("Loading?"),
         }
     }
 

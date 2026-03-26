@@ -55,9 +55,6 @@ ci-coverage: ci-env-info (just 'java::gen-snippets') (just 'cargo-install' 'carg
 
     @echo "::group::Validate synthetic MLTs"
     {{just}} rust::validate-synthetic
-    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
-    {{just}} rust::_verify-synthetic-equality
-    {{just}} rust::_assert-synthetic-mlt-identity
     @echo "::endgroup::"
 
     # ATTENTION: the output-path here is used in the CI workflow
@@ -332,15 +329,13 @@ update:
     cargo update
 
 # Generate synthetic .mlt files and ensure there are no duplicates
-generate-synthetic-mlts:
+generate-synthetic-mlts *args:
     #!/usr/bin/env bash
     set -euo pipefail
     rm -rf ../test/synthetic/0x01-rust
-    cargo run -p mlt-synthetics
+    cargo run -p mlt-synthetics -- {{args}}
     {{just}} rust::validate-synthetic
     {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
-    {{just}} rust::_verify-synthetic-equality
-    {{just}} rust::_assert-synthetic-mlt-identity
 
 # Create .dump files for all .mlt files in test/synthetic for all languages
 generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find')
@@ -366,91 +361,6 @@ wasm-test: wasm-build
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
     {{just}} mlt ls --validate-to-json --details basic ../test/synthetic/
-
-# Assert each .mlt in compare_dir exists in ref_dir and is binary-identical. Skip '_rust' files.
-_assert-synthetic-mlt-identity ref_dir='../test/synthetic/0x01' compare_dir='../test/synthetic/0x01-rust':
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # Ensure compare_dir exists.
-    if [[ ! -d "{{compare_dir}}" ]]; then
-        echo "::error::Compare directory {{compare_dir}} does not exist"
-        exit 1
-    fi
-
-    # Expand .mlt files; fail if none are found to avoid masking missing/failed generation.
-    shopt -s nullglob
-    mlt_files=( "{{compare_dir}}"/*.mlt )
-    shopt -u nullglob
-    if (( ${#mlt_files[@]} == 0 )); then
-        echo "::error::No .mlt files found in {{compare_dir}}"
-        exit 1
-    fi
-
-    for mlt in "${mlt_files[@]}"; do
-        base=$(basename "$mlt")
-        if [[ "$base" == *"-rust.mlt" ]]; then
-            continue
-        fi
-        ref="{{ref_dir}}/$base"
-        if [[ ! -f "$ref" ]]; then
-            echo "::error::File $mlt has no counterpart in {{ref_dir}}"
-            exit 1
-        elif ! cmp -s "$ref" "$mlt"; then
-            echo "::error::Binary difference: $base"
-            exit 1
-        fi
-    done
-    echo "All {{compare_dir}}/*.mlt files have identical counterparts in {{ref_dir}} (except *-rust.mlt)."
-
-# checks that the contents of two synthetic directories are equal
-_verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    # `realpath --relative-to-...` doesn't work on MacOS
-    # https://unix.stackexchange.com/a/655825/312244
-    posix_relpath() {
-        set -- "${1%/}/" "${2%/}/" ''
-        while [ "$1" ] && [ "$2" = "${2#"$1"}" ]
-        do
-            set -- "${1%/?*/}/" "$2" "../$3"
-        done
-        rel="${3}${2#"$1"}"
-        [ "${rel#/}" ] && rel="${rel%/}" || rel="${rel:-.}"
-        printf '%s\n' "$rel"
-    }
-
-    DIR_A="../test/synthetic/0x01"
-    DIR_B="../test/synthetic/0x01-rust"
-
-    BIN="cargo run --bin mlt --quiet --"
-    find "$DIR_A" -type f -iname "*.mlt" | while read -r file_a; do
-      rel_path="$(posix_relpath "$DIR_A" "$file_a")"
-      file_b="$DIR_B/$rel_path"
-      file_b_rust="${file_b%.mlt}-rust.mlt"
-
-      if [[ -f "$file_b" ]]; then
-        if ! cmp -s "$file_a" "$file_b"; then
-          echo "Differences: $rel_path"
-          echo ""
-          diff -U20 \
-            --label "$file_a" \
-            <($BIN dump "$file_a") \
-            --label "$file_b" \
-            <($BIN dump "$file_b") \
-            | delta --side-by-side --file-modified-label "mlt dump difference"
-        fi
-      elif [[ -f "$file_b_rust" ]]; then
-        diff -U20 \
-          --label "$file_a" \
-          <($BIN decode "$file_a") \
-          --label "$file_b_rust" \
-          <($BIN decode "$file_b_rust") \
-          | delta --side-by-side --file-modified-label "mlt decoded difference"
-      else
-        echo "Missing in $DIR_B but present in $DIR_A: $rel_path"
-      fi
-    done
 
 [private]
 [working-directory: 'mlt-core']

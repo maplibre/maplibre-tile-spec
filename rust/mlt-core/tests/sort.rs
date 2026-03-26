@@ -83,22 +83,6 @@ fn vertices_from_source(source: &TileLayer01) -> Vec<i32> {
     geom.vertices.unwrap_or_default()
 }
 
-/// Rebuild the `GeometryType` list from source order.
-fn geom_types_from_source(source: &TileLayer01) -> Vec<GeometryType> {
-    source
-        .features
-        .iter()
-        .map(|f| match &f.geometry {
-            geo_types::Geometry::LineString(_) => GeometryType::LineString,
-            geo_types::Geometry::Polygon(_) => GeometryType::Polygon,
-            geo_types::Geometry::MultiPoint(_) => GeometryType::MultiPoint,
-            geo_types::Geometry::MultiLineString(_) => GeometryType::MultiLineString,
-            geo_types::Geometry::MultiPolygon(_) => GeometryType::MultiPolygon,
-            _ => GeometryType::Point, // fallback
-        })
-        .collect()
-}
-
 #[test]
 fn test_shared_morton_shift() {
     // P1 at (0, -10), P2 at (-10, 0).
@@ -143,7 +127,12 @@ fn test_mixed_geometry_morton_sort() {
     );
     let source = sort_encode_decode(tile, SortStrategy::SpatialMorton);
 
-    let types = geom_types_from_source(&source);
+    let types: Vec<_> = source
+        .features
+        .iter()
+        .map(|f| GeometryType::try_from(&f.geometry).unwrap())
+        .collect();
+
     assert_eq!(
         types,
         vec![

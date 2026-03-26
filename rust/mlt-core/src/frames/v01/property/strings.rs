@@ -2,7 +2,6 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::io::Write;
-use std::mem::size_of;
 
 use crate::MltError::{
     BufferUnderflow, DictIndexOutOfBounds, NotImplemented, UnexpectedStreamType2,
@@ -982,9 +981,7 @@ fn checked_string_end(current_end: i32, byte_len: usize) -> MltResult<i32> {
 
 fn checked_absolute_end(current_end: i32, delta: u32) -> MltResult<i32> {
     let delta = i32::try_from(delta)?;
-    current_end
-        .checked_add(delta)
-        .ok_or(MltError::IntegerOverflow)
+    current_end.checked_add(delta).or_overflow()
 }
 
 impl<'a> RawSharedDict<'a> {
@@ -1046,7 +1043,7 @@ impl<'a> RawSharedDict<'a> {
             u32::try_from(parsed.data.len()).or_overflow()?,
             |acc, item| {
                 let n = u32::try_from(item.ranges.len() * size_of::<(i32, i32)>()).or_overflow()?;
-                acc.checked_add(n).ok_or(MltError::IntegerOverflow)
+                acc.checked_add(n).or_overflow()
             },
         )?;
         dec.consume(bytes)?;

@@ -165,9 +165,7 @@ fn roundtrip_id_values(decoded: &IdValues, config: IdEncoder) -> MltResult<IdVal
     };
     let layer_enc = staged.encode(stream_encoder)?;
     let mut buf = Vec::new();
-    EncodedLayer::Tag01(layer_enc)
-        .write_to(&mut buf)
-        .map_err(MltError::from)?;
+    EncodedLayer::Tag01(layer_enc).write_to(&mut buf)?;
     let (_, layer) = Layer::from_bytes(&buf, &mut parser())?;
     let Layer::Tag01(layer01) = layer else {
         return Err(MltError::NotDecoded("expected Tag01 layer"));
