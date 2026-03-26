@@ -6,7 +6,6 @@
 #if MLT_WITH_FASTPFOR
 #include <compositecodec.h>
 #include <fastpfor.h>
-#include <simdfastpfor.h>
 #include <variablebyte.h>
 #endif // MLT_WITH_FASTPFOR
 
@@ -23,11 +22,7 @@ namespace mlt::decoder {
 struct IntegerDecoder::Impl {
 #if MLT_WITH_FASTPFOR
     // Impl pattern to prevent FastPFOR from being an API dependency
-#if MLT_WITH_FASTPFOR_SIMD
     FastPForLib::CompositeCodec<FastPForLib::FastPFor<8>, FastPForLib::VariableByte> codec;
-#else
-    FastPForLib::CompositeCodec<FastPForLib::SIMDFastPFor<8>, FastPForLib::VariableByte> codec;
-#endif // MLT_WITH_FASTPFOR_SIMD
 #endif // MLT_WITH_FASTPFOR
 };
 
