@@ -1,10 +1,14 @@
-#if MLT_WITH_FASTPFOR
+#if !MLT_WITH_FASTPFOR
+#error This file should be excluded when FastPFor support is not enabled
+#endif
+
 #include <gtest/gtest.h>
 
 // From fastpfor/...
 #include <compositecodec.h>
 #include <fastpfor.h>
 #include <variablebyte.h>
+
 #if MLT_WITH_FASTPFOR_SIMD
 #include <simdfastpfor.h>
 #endif // MLT_WITH_FASTPFOR_SIMD
@@ -27,11 +31,11 @@ TEST(FastPfor, DecompressPartial) {
 
 namespace {
 // Return a sequence of 1,2,1,2,... of length n
-auto simpleValueView(int n) {
-    return std::views::iota(0ul) | std::views::transform([](auto n) { return (n & 1) + 1; }) | std::views::take(n) |
-           std::ranges::views::common;
+auto simpleValueView(std::size_t n) {
+    return std::views::iota(0ul) | std::views::transform([](auto x) { return (x & 1u) + 1u; }) | std::views::take(n) |
+           std::views::common;
 }
-auto simpleValues(int n) {
+auto simpleValues(std::size_t n) {
     const auto view = simpleValueView(n);
     return std::vector<uint32_t>(view.begin(), view.end());
 }
@@ -41,26 +45,22 @@ auto simpleValues(int n) {
 // but not a multiple of, the block size. The result was captured before the final
 // byte-swapping, so no additional swapping is needed as with a typical payload.
 TEST(FastPfor, JavaV1) {
-    // clang-format off
-    const std::int32_t javaEncodedByteSwapped[] = {
-        768,         49,
-        -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919,
-        -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919,
-        -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919,
-        -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919,
-        -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919,
-        -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919, -1717986919,
-        6,           131074,      2,           0,
-        -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663,
-        -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663,
-        -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663,
-        -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663,
-        -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663,
-        -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663,
-        -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663, -2105441663,
-        -2105441663, -2105441663
+    const std::uint32_t javaEncodedByteSwapped[] = {
+        0x00000300ul, 0x00000031ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul,
+        0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul,
+        0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul,
+        0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul,
+        0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul,
+        0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul, 0x99999999ul,
+        0x99999999ul, 0x99999999ul, 0x00000006ul, 0x00020002ul, 0x00000002ul, 0x00000000ul, 0x82818281ul, 0x82818281ul,
+        0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul,
+        0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul,
+        0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul,
+        0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul,
+        0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul,
+        0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul,
+        0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul, 0x82818281ul,
     };
-    // clang-format on
 
     std::vector<std::uint32_t> decoded(1000);
     std::size_t outSize = decoded.size();
@@ -69,7 +69,8 @@ TEST(FastPfor, JavaV1) {
                       sizeof(javaEncodedByteSwapped) / sizeof(uint32_t),
                       decoded.data(),
                       outSize);
-    EXPECT_EQ(decoded, simpleValues(1000));
+    EXPECT_EQ(outSize, decoded.size());
+    EXPECT_EQ(decoded, simpleValues(decoded.size()));
 }
 
 #if MLT_WITH_FASTPFOR_SIMD
@@ -121,7 +122,7 @@ std::vector<SIMDInteropCase> simdInteropCases() {
     constexpr int blockSizes[] = {4, 8};
 
     std::vector<SIMDInteropCase> cases;
-    cases.reserve(std::size(valueCounts) * std::size(blockSizes) * 2);
+    cases.reserve(std::size(valueCounts) * std::size(blockSizes));
 
     for (const int values : valueCounts) {
         for (const int blockSize : blockSizes) {
@@ -155,4 +156,3 @@ TEST_P(PFORSIMDInteropTest, Interop) {
 INSTANTIATE_TEST_SUITE_P(FastPfor, PFORSIMDInteropTest, ::testing::ValuesIn(simdInteropCases()), simdInteropCaseName);
 } // namespace
 #endif // MLT_WITH_FASTPFOR_SIMD
-#endif // MLT_WITH_FASTPFOR
