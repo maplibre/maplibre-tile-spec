@@ -81,6 +81,11 @@ pub fn geo_varint() -> Layer {
     Layer::new(IntEncoder::varint())
 }
 
+/// Create a layer with geometry encoders set to `VarInt` and RLE for meta and geometry length streams.
+pub fn geo_varint_with_rle() -> Layer {
+    Layer::new(IntEncoder::varint()).meta(IntEncoder::rle_varint())
+}
+
 /// Create a layer with all geometry encoders set to `FastPFOR`.
 pub fn geo_fastpfor() -> Layer {
     Layer::new(IntEncoder::fastpfor())

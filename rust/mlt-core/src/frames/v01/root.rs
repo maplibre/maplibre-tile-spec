@@ -1,10 +1,11 @@
 use crate::LazyParsed::Raw;
 use crate::MltError::{
-    BufferUnderflow, GeometryWithoutStreams, MissingGeometry, MultipleGeometryColumns,
-    MultipleIdColumns, SharedDictRequiresStreams, TrailingLayerData, UnexpectedStructChildCount,
-    UnsupportedStringStreamCount,
+    BufferUnderflow, GeometryWithoutStreams, InvalidSharedDictStreamCount, MissingGeometry,
+    MultipleGeometryColumns, MultipleIdColumns, SharedDictRequiresStreams, TrailingLayerData,
+    UnexpectedStructChildCount, UnsupportedStringStreamCount,
 };
 use crate::codecs::varint::parse_varint;
+use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
 use crate::v01::{
     Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01,
@@ -341,6 +342,27 @@ fn parse_shared_dict_column<'a>(
     }
     let children;
     (input, children) = parse_struct_children(input, column, parser)?;
+
+    // Validate stream_count: must equal dict_streams + children + optional_children.
+    let children_n = u32::try_from(children.len()).or_overflow()?;
+    let optional_n = children
+        .iter()
+        .filter(|c| c.presence.0.is_some())
+        .count()
+        .try_into()
+        .or_overflow()?;
+    let dict_n = u32::try_from(streams_taken).or_overflow()?;
+    let expected = dict_n.saturating_add(children_n).saturating_add(optional_n);
+    // Java's encoder had a bug (fixed) that overcounted by 1: dict + 2*N + 1.
+    // Accept that value too so that files produced by older Java encoders still parse.
+    let java_legacy = expected.saturating_add(1);
+    if stream_count != expected && stream_count != java_legacy {
+        return Err(InvalidSharedDictStreamCount {
+            actual: stream_count,
+            expected,
+        });
+    }
+
     let name = column.name.unwrap_or("");
     let encoding = match dict_streams {
         [Some(s1), Some(s2), None, None, None] => {

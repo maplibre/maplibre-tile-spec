@@ -114,6 +114,9 @@ pub enum MltError {
     EncodingInstructionCountMismatch { input_len: usize, config_len: usize },
     #[error("struct child data streams expected exactly 1 value, got {0}")]
     UnexpectedStructChildCount(u32),
+    // Note that {expected}+1 is allowed for the legacy Java encoder bug
+    #[error("SharedDict stream count is {actual}, expected {expected}")]
+    InvalidSharedDictStreamCount { actual: u32, expected: u32 },
     #[error("unsupported physical encoding: {0}")]
     UnsupportedPhysicalEncoding(&'static str),
     #[error("unsupported physical encoding: {0:?} for {1}")]

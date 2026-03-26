@@ -381,8 +381,20 @@ pub struct SharedDictEncoder {
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum StrEncoder {
-    Plain { string_lengths: IntEncoder },
+    Plain {
+        string_lengths: IntEncoder,
+    },
+    /// Deduplicated plain dictionary: unique strings + per-feature offset indices.
+    Dict {
+        string_lengths: IntEncoder,
+        offsets: IntEncoder,
+    },
     Fsst(FsstStrEncoder),
+    /// Deduplicated FSST dictionary: FSST-compressed unique strings + per-feature offset indices.
+    FsstDict {
+        fsst: FsstStrEncoder,
+        offsets: IntEncoder,
+    },
 }
 
 // ── Staged* types (encode-side, fully owned) ─────────────────────────────────

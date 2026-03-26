@@ -26,11 +26,32 @@ impl StrEncoder {
         Self::Plain { string_lengths }
     }
     #[must_use]
+    pub fn dict(string_lengths: IntEncoder, offsets: IntEncoder) -> Self {
+        Self::Dict {
+            string_lengths,
+            offsets,
+        }
+    }
+    #[must_use]
     pub fn fsst(symbol_lengths: IntEncoder, dict_lengths: IntEncoder) -> Self {
         Self::Fsst(FsstStrEncoder {
             symbol_lengths,
             dict_lengths,
         })
+    }
+    #[must_use]
+    pub fn fsst_dict(
+        symbol_lengths: IntEncoder,
+        dict_lengths: IntEncoder,
+        offsets: IntEncoder,
+    ) -> Self {
+        Self::FsstDict {
+            fsst: FsstStrEncoder {
+                symbol_lengths,
+                dict_lengths,
+            },
+            offsets,
+        }
     }
 }
 
@@ -704,6 +725,11 @@ pub fn encode_shared_dict_prop(
         )?,
         StrEncoder::Fsst(enc) => {
             EncodedStream::encode_strings_fsst_plain_with_type(&dict, enc, DictionaryType::Single)?
+        }
+        StrEncoder::Dict { .. } | StrEncoder::FsstDict { .. } => {
+            return Err(NotImplemented(
+                "Dict/FsstDict encoder cannot be used as a shared-dict struct encoder",
+            ));
         }
     };
 
