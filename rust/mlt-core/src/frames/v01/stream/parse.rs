@@ -3,7 +3,7 @@ use std::{fmt, io};
 use integer_encoding::VarIntWriter as _;
 
 use crate::codecs::varint::parse_varint;
-use crate::errors::fail_if_invalid_stream_size;
+use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::{AsUsize as _, BinarySerializer as _, parse_u8, take};
 use crate::v01::{
     IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RawStream,
@@ -266,9 +266,7 @@ fn validate_rle_varint_stream(data: &[u8], runs: u32, num_rle_values: u32) -> Ml
     for _ in 0..runs {
         let (next, len) = parse_varint::<u32>(rest)?;
         rest = next;
-        sum = sum
-            .checked_add(len.into())
-            .ok_or(MltError::IntegerOverflow)?;
+        sum = sum.checked_add(len.into()).or_overflow()?;
     }
     if sum != u64::from(num_rle_values) {
         let sum_usize = usize::try_from(sum).map_err(|_| MltError::IntegerOverflow)?;

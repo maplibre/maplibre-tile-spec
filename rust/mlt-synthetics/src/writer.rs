@@ -149,7 +149,7 @@ impl SynthWriter {
             if ref_json_path.is_file() {
                 check_json(&decoded, &ref_json_path)?;
             } else {
-                eprintln!("Note: {name_mlt} has no corresponding ../0x01/{name_base}");
+                eprintln!("Note: Java synthetics did not generate MLT corresponding to {name_mlt}");
             }
             let mut s = serde_json::to_string_pretty(&decoded).map_err(SynthErr::SerializeJson)?;
             s.push('\n');

@@ -2,9 +2,9 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter as _;
 
+use crate::MltResult;
 use crate::utils::{BinarySerializer as _, checked_sum3};
 use crate::v01::{ColumnType, EncodedProperty, PropertyKind, StagedProperty};
-use crate::{MltError, MltResult};
 
 impl StagedProperty {
     #[must_use]
@@ -149,8 +149,7 @@ impl EncodedProperty {
             Self::Str(s) => {
                 let content = s.encoding.content_streams();
                 let stream_count =
-                    u32::try_from(content.len() + usize::from(s.presence.0.is_some()))
-                        .map_err(MltError::from)?;
+                    u32::try_from(content.len() + usize::from(s.presence.0.is_some()))?;
                 writer.write_varint(stream_count)?;
                 writer.write_optional_stream(s.presence.0.as_ref())?;
                 for stream in content {
@@ -159,12 +158,11 @@ impl EncodedProperty {
             }
             Self::SharedDict(s) => {
                 let dict_streams = s.encoding.dict_streams();
-                let dict_stream_len = u32::try_from(dict_streams.len()).map_err(MltError::from)?;
-                let children_len = u32::try_from(s.children.len()).map_err(MltError::from)?;
+                let dict_stream_len = u32::try_from(dict_streams.len())?;
+                let children_len = u32::try_from(s.children.len())?;
                 let optional_children_count =
                     s.children.iter().filter(|c| c.presence.0.is_some()).count();
-                let optional_children_len =
-                    u32::try_from(optional_children_count).map_err(MltError::from)?;
+                let optional_children_len = u32::try_from(optional_children_count)?;
                 let stream_len =
                     checked_sum3(dict_stream_len, children_len, optional_children_len)?;
                 writer.write_varint(stream_len)?;

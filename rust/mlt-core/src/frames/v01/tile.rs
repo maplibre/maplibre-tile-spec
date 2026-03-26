@@ -15,7 +15,7 @@ use crate::v01::{
     StagedScalar, StagedSharedDict, StagedStrings, TileFeature, TileLayer01,
     build_staged_shared_dict,
 };
-use crate::{Decoder, MltError, MltResult};
+use crate::{Decoder, MltResult};
 
 // ── Layer01 → TileLayer01 ────────────────────────────────────────────────────
 
@@ -299,7 +299,7 @@ fn charge_str_props(dec: &mut Decoder, props: &[PropValue]) -> MltResult<()> {
         })
         .try_fold(0u32, |acc, n| {
             acc.checked_add(u32::try_from(n).or_overflow()?)
-                .ok_or(MltError::IntegerOverflow)
+                .or_overflow()
         })?;
     if str_bytes > 0 {
         dec.consume(str_bytes)?;
