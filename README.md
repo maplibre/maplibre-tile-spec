@@ -34,46 +34,8 @@ GPU buffers with little or no additional processing
 - `/spec` MLT specification and related documentation
 - `/test` Test MVT tiles and the expected MLT conversion results
 - `/java` Java encoder for converting MVT to MLT, as well as a decoder parsing MLT to an in-memory representation.
-- `/js` Javascript decoder
-- `/rust` Rust decoder
+- `/js` Javascript decoder and helper functions.
 
-## Getting Involved
+## Contributing
 
-Join the `#maplibre-tile-format` Slack channel at OSM US: get an invite at https://slack.openstreetmap.us/
-
-### Development
-
-* This project is easier to develop with [just](https://just.systems/man/en/), a modern alternative to `make`.
-* To get a list of available commands, run `just`.
-* To run tests, use `just test`.
-
-## License
-
-* All project documentation and specification content is licensed under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/) - Public Domain Dedication.
-* All code is dual licensed under [Apache License v2.0](http://www.apache.org/licenses/LICENSE-2.0) and [MIT license](http://opensource.org/licenses/MIT), at your option.
-* Tile test data in the `/test` directory has different licenses depending on the source of that data.
-
-### Contribution
-
-Unless you explicitly state otherwise, any code contribution intentionally
-submitted for inclusion in the work by you, as defined in the
-Apache-2.0 license, shall be dual licensed as above, without any
-additional terms or conditions. Similarly, any documentation or specification
-contributions shall be licensed under CC0 1.0 Universal.
-
-## Citing
-
-If you use MapLibre Tile in your research, please cite our paper:
-
-```bibtex
-@inproceedings{tremmel2025maplibretile,
-  title     = {MapLibre Tile: A Next Generation Vector Tile Format},
-  author    = {Tremmel, Markus and Zink, Roland},
-  booktitle = {Proceedings of the 33rd ACM International Conference on Advances in Geographic Information Systems},
-  series    = {SIGSPATIAL '25},
-  year      = {2025},
-  pages     = {1118--1121},
-  doi       = {10.1145/3748636.3763208},
-  url       = {https://doi.org/10.1145/3748636.3763208}
-}
-```
+We welcome contributions to the specification and its implementations! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to get involved, report issues, or submit pull requests. All contributors are expected to follow the [MapLibre Code of Conduct](https://github.com/maplibre/.github/blob/main/CODE_OF_CONDUCT.md).
