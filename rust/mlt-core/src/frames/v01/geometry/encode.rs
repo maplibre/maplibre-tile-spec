@@ -8,7 +8,7 @@ use crate::utils::AsUsize as _;
 use crate::v01::{
     DictionaryType, EncodedGeometry, EncodedStream, GeometryType, GeometryValues, IntEncoder,
     IntEncoding, LengthType, LogicalEncoding, MortonMeta, OffsetType, PhysicalEncoder, StreamMeta,
-    StreamType, VertexBufferType,
+    StreamType, TessellationMode, VertexBufferType,
 };
 
 /// Encode vertex buffer using componentwise delta encoding
@@ -657,6 +657,9 @@ pub struct GeometryEncoder {
     #[cfg_attr(test, proptest(value = "VertexBufferType::Vec2"))]
     #[cfg_attr(all(not(test), feature = "arbitrary"), arbitrary(value = VertexBufferType::Vec2))]
     pub vertex_buffer_type: VertexBufferType,
+
+    /// Whether and how to tessellate polygon geometries during value construction.
+    pub tessellation: TessellationMode,
 }
 
 impl GeometryEncoder {
@@ -677,6 +680,7 @@ impl GeometryEncoder {
             vertex: encoder,
             vertex_offsets: encoder,
             vertex_buffer_type: VertexBufferType::Vec2,
+            tessellation: TessellationMode::None,
         }
     }
 
@@ -755,6 +759,12 @@ impl GeometryEncoder {
     /// Set the vertex buffer encoding type.
     pub fn vertex_buffer_type(&mut self, t: VertexBufferType) -> &mut Self {
         self.vertex_buffer_type = t;
+        self
+    }
+
+    /// Set the tessellation mode for polygon geometry value construction.
+    pub fn tessellation(&mut self, t: TessellationMode) -> &mut Self {
+        self.tessellation = t;
         self
     }
 }

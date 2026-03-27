@@ -5,14 +5,14 @@ use std::io;
 use std::path::Path;
 
 use geo::{Convert as _, TriangulateEarcut as _};
-use geo_types::{LineString, MultiPolygon, Polygon};
+use geo_types::{LineString, Polygon};
 use mlt_core::EncodedLayer;
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     EncodeProperties as _, EncodedLayer01, GeometryEncoder, GeometryValues, IdEncoder, IdValues,
     IntEncoder, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
-    SharedDictItemEncoder, StagedProperty, StagedStrings, StrEncoder, VertexBufferType,
-    build_staged_shared_dict,
+    SharedDictItemEncoder, StagedProperty, StagedStrings, StrEncoder, TessellationMode,
+    VertexBufferType, build_staged_shared_dict,
 };
 
 use crate::writer::{SynthErr, SynthResult};
@@ -86,24 +86,11 @@ pub fn geo(encoder: IntEncoder) -> Layer {
     Layer::new(encoder)
 }
 
-/// Tessellation info for a geometry.
-#[derive(Clone)]
-enum TessellationInfo {
-    /// No tessellation for this geometry.
-    None,
-    /// Single polygon tessellation.
-    Polygon(Polygon<i32>),
-    /// `MultiPolygon` tessellation - all polygons combined into one triangle count.
-    MultiPolygon(MultiPolygon<i32>),
-}
-
 /// Layer builder: holds geometry encoder, geometry list, properties, extent, and IDs.
 #[derive(Clone)]
 pub struct Layer {
     geometry_encoder: GeometryEncoder,
     geometry_items: Vec<Geom32>,
-    tessellate: bool,
-    tessellation: Vec<TessellationInfo>,
     properties: Vec<StagedProperty>,
     prop_encoders: Vec<PropertyEncoder>,
     extent: Option<u32>,
@@ -115,8 +102,6 @@ impl Layer {
         Self {
             geometry_encoder: GeometryEncoder::all(default_geom_enc),
             geometry_items: vec![],
-            tessellate: false,
-            tessellation: vec![],
             properties: vec![],
             prop_encoders: vec![],
             extent: None,
@@ -212,18 +197,7 @@ impl Layer {
     /// Add a geometry (uses [`geo_types::Geometry`] `From` impls: `Point`, `LineString`, etc.).
     #[must_use]
     pub fn geo(mut self, geometry: impl Into<Geom32>) -> Self {
-        let geometry = geometry.into();
-        let tessellation = if self.tessellate {
-            match &geometry {
-                Geom32::Polygon(v) => TessellationInfo::Polygon(v.clone()),
-                Geom32::MultiPolygon(v) => TessellationInfo::MultiPolygon(v.clone()),
-                _ => TessellationInfo::None,
-            }
-        } else {
-            TessellationInfo::None
-        };
-        self.tessellation.push(tessellation);
-        self.geometry_items.push(geometry);
+        self.geometry_items.push(geometry.into());
         self
     }
 
@@ -239,11 +213,7 @@ impl Layer {
     /// Enable polygon tessellation
     #[must_use]
     pub fn tessellate(mut self) -> Self {
-        assert!(
-            self.tessellation.is_empty(),
-            "call tessellate() before adding geometries"
-        );
-        self.tessellate = true;
+        self.geometry_encoder.tessellation(TessellationMode::Earcut);
         self
     }
 
@@ -288,41 +258,41 @@ impl Layer {
         let mut geom = GeometryValues::default();
         for g in &self.geometry_items {
             geom.push_geom(g);
-        }
-        for tess in &self.tessellation {
-            match tess {
-                TessellationInfo::None => {}
-                TessellationInfo::Polygon(poly) => {
-                    let (indices, num_triangles) = tessellate_polygon(poly);
-                    geom.index_buffer
-                        .get_or_insert_with(Vec::new)
-                        .extend(indices);
-                    geom.triangles
-                        .get_or_insert_with(Vec::new)
-                        .push(num_triangles);
-                }
-                TessellationInfo::MultiPolygon(mp) => {
-                    let mut total_triangles = 0u32;
-                    let mut vertex_offset = 0u32;
-                    for poly in &mp.0 {
+            if self.geometry_encoder.tessellation == TessellationMode::Earcut {
+                match g {
+                    Geom32::Polygon(poly) => {
                         let (indices, num_triangles) = tessellate_polygon(poly);
-                        total_triangles += num_triangles;
                         geom.index_buffer
                             .get_or_insert_with(Vec::new)
-                            .extend(indices.iter().map(|&i| i + vertex_offset));
-                        // Count vertices in this polygon (exterior + interiors, minus closing vertices)
-                        let ext_verts = poly.exterior().0.len().saturating_sub(1);
-                        let int_verts: usize = poly
-                            .interiors()
-                            .iter()
-                            .map(|r| r.0.len().saturating_sub(1))
-                            .sum();
-                        vertex_offset +=
-                            u32::try_from(ext_verts + int_verts).expect("vertex overflow");
+                            .extend(indices);
+                        geom.triangles
+                            .get_or_insert_with(Vec::new)
+                            .push(num_triangles);
                     }
-                    geom.triangles
-                        .get_or_insert_with(Vec::new)
-                        .push(total_triangles);
+                    Geom32::MultiPolygon(mp) => {
+                        let mut total_triangles = 0u32;
+                        let mut vertex_offset = 0u32;
+                        for poly in &mp.0 {
+                            let (indices, num_triangles) = tessellate_polygon(poly);
+                            total_triangles += num_triangles;
+                            geom.index_buffer
+                                .get_or_insert_with(Vec::new)
+                                .extend(indices.iter().map(|&i| i + vertex_offset));
+                            // Count vertices in this polygon (exterior + interiors, minus closing vertices)
+                            let ext_verts = poly.exterior().0.len().saturating_sub(1);
+                            let int_verts: usize = poly
+                                .interiors()
+                                .iter()
+                                .map(|r| r.0.len().saturating_sub(1))
+                                .sum();
+                            vertex_offset +=
+                                u32::try_from(ext_verts + int_verts).expect("vertex overflow");
+                        }
+                        geom.triangles
+                            .get_or_insert_with(Vec::new)
+                            .push(total_triangles);
+                    }
+                    _ => {}
                 }
             }
         }
