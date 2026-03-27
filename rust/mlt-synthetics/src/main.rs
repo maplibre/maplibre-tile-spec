@@ -189,11 +189,11 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .tessellate()
         .geo(poly_collinear())
-        .write(w, "poly_colinear_tes");
+        .write(w, "poly_collinear_tes");
     geo_fastpfor()
         .tessellate()
         .geo(poly_collinear())
-        .write(w, "poly_colinear_fpf_tes");
+        .write(w, "poly_collinear_fpf_tes");
 
     geo_varint()
         .geo(poly_self_intersect())
@@ -328,11 +328,22 @@ fn generate_geometry(w: &mut SynthWriter) {
 
 fn write_mix(w: &mut SynthWriter, current: &[usize]) {
     let mut builder = geo_varint();
+    let mut builder_t = Some(geo_varint().tessellate());
     let mut name = format!("mix_{}", current.len());
     for idx in current {
         let mix_type = &MIX_TYPES[*idx];
         builder = builder.geo(mix_type.1.clone());
         write!(&mut name, "_{}", mix_type.0).unwrap();
+        if let Some(bldr) = builder_t {
+            if mix_type.0.contains("poly") {
+                builder_t = Some(bldr.geo(mix_type.1.clone()));
+            } else {
+                builder_t = None;
+            }
+        }
+    }
+    if let Some(bldr) = builder_t {
+        bldr.write(w, &format!("{name}_tes"));
     }
     builder.write(w, &name);
 }

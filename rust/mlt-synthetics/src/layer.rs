@@ -87,6 +87,7 @@ pub fn geo(encoder: IntEncoder) -> Layer {
 }
 
 /// Tessellation info for a geometry.
+#[derive(Clone)]
 enum TessellationInfo {
     /// No tessellation for this geometry.
     None,
@@ -97,6 +98,7 @@ enum TessellationInfo {
 }
 
 /// Layer builder: holds geometry encoder, geometry list, properties, extent, and IDs.
+#[derive(Clone)]
 pub struct Layer {
     geometry_encoder: GeometryEncoder,
     geometry_items: Vec<Geom32>,
@@ -237,6 +239,10 @@ impl Layer {
     /// Enable polygon tessellation
     #[must_use]
     pub fn tessellate(mut self) -> Self {
+        assert!(
+            self.tessellation.is_empty(),
+            "call tessellate() before adding geometries"
+        );
         self.tessellate = true;
         self
     }
