@@ -192,7 +192,7 @@ impl SynthWriter {
     }
 
     /// Warn about `.mlt` files in the reference dir that Rust never generated.
-    /// Prints a summary and returns the total failure count.
+    /// Prints a summary that includes the total failure count.
     pub fn report_ungenerated(&mut self) {
         let mut ref_mlts: Vec<String> = fs::read_dir(&self.ref_dir)
             .unwrap_or_else(|e| panic!("cannot read {}: {e}", self.ref_dir.display()))

@@ -32,6 +32,7 @@ pub fn into_layer01(layer: Layer) -> Layer01 {
 
 #[must_use]
 pub fn roundtrip_stream<'a>(buffer: &'a mut Vec<u8>, stream: &EncodedStream) -> RawStream<'a> {
+    buffer.clear();
     buffer.write_stream(stream).unwrap();
     assert_empty(RawStream::from_bytes(buffer, &mut parser()))
 }
