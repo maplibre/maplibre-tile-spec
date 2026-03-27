@@ -343,7 +343,7 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
         }
     }
     if let Some(bldr) = builder_t {
-        bldr.write(w, &format!("{name}_tes"));
+        bldr.write(w, format!("{name}_tes"));
     }
     builder.write(w, &name);
 }
