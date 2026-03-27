@@ -90,11 +90,11 @@ public class SyntheticMltGenerator {
     write("poly_tes", pol, cfg().tessellate());
     write("poly_fpf_tes", pol, cfg().fastPFOR().tessellate());
 
-    var polColinear = feat(poly(c(0, 0), c(10, 0), c(20, 0), c(0, 0)));
-    write("poly_colinear", polColinear, cfg());
-    write("poly_colinear_fpf", polColinear, cfg().fastPFOR());
-    write("poly_colinear_tes", polColinear, cfg().tessellate());
-    write("poly_colinear_fpf_tes", polColinear, cfg().fastPFOR().tessellate());
+    var polCollinear = feat(poly(c(0, 0), c(10, 0), c(20, 0), c(0, 0)));
+    write("poly_collinear", polCollinear, cfg());
+    write("poly_collinear_fpf", polCollinear, cfg().fastPFOR());
+    write("poly_collinear_tes", polCollinear, cfg().tessellate());
+    write("poly_collinear_fpf_tes", polCollinear, cfg().fastPFOR().tessellate());
 
     var polSelfIntersect = feat(poly(c(0, 0), c(10, 10), c(0, 10), c(10, 0), c(0, 0)));
     write("poly_self_intersect", polSelfIntersect, cfg());
@@ -173,6 +173,11 @@ public class SyntheticMltGenerator {
             + current.stream().map(GeomType::sym).collect(Collectors.joining("_"));
     var feats = current.stream().map(t -> t.feat).toArray(Feature[]::new);
     write(layer(name, feats), cfg().geomEnc(PLAIN));
+
+    // if all geometries are of polygon type, add tessellated variant
+    if (current.stream().allMatch(t -> t.sym.contains("poly"))) {
+      write(layer(name + "_tes", feats), cfg().geomEnc(PLAIN).tessellate());
+    }
   }
 
   private static void generateMixedCombine(GeomType[] arr, int k, int start, List<GeomType> current)

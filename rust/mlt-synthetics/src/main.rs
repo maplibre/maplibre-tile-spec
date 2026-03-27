@@ -121,7 +121,7 @@ fn poly2() -> Polygon<i32> {
 fn poly1h() -> Polygon<i32> {
     wkt!(POLYGON((11 52, 71 72, 61 22, 11 52),(65 66, 35 56, 55 36, 65 66)))
 }
-fn poly_colinear() -> Polygon<i32> {
+fn poly_collinear() -> Polygon<i32> {
     wkt!(POLYGON((0 0, 10 0, 20 0, 0 0)))
 }
 fn poly_self_intersect() -> Polygon<i32> {
@@ -176,16 +176,18 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint().tessellated(poly1()).write(w, "poly_tes");
     geo_fastpfor().tessellated(poly1()).write(w, "poly_fpf_tes");
 
-    geo_varint().geo(poly_colinear()).write(w, "poly_colinear");
-    geo_fastpfor()
-        .geo(poly_colinear())
-        .write(w, "poly_colinear_fpf");
     geo_varint()
-        .tessellated(poly_colinear())
-        .write(w, "poly_colinear_tes");
+        .geo(poly_collinear())
+        .write(w, "poly_collinear");
     geo_fastpfor()
-        .tessellated(poly_colinear())
-        .write(w, "poly_colinear_fpf_tes");
+        .geo(poly_collinear())
+        .write(w, "poly_collinear_fpf");
+    geo_varint()
+        .tessellated(poly_collinear())
+        .write(w, "poly_collinear_tes");
+    geo_fastpfor()
+        .tessellated(poly_collinear())
+        .write(w, "poly_collinear_fpf_tes");
 
     geo_varint()
         .geo(poly_self_intersect())
