@@ -5,14 +5,14 @@ use std::io;
 use std::path::Path;
 
 use geo::{Convert as _, TriangulateEarcut as _};
-use geo_types::{LineString, Polygon};
+use geo_types::{Coord, LineString, Polygon};
 use mlt_core::EncodedLayer;
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
-    EncodeProperties as _, EncodedLayer01, GeometryEncoder, GeometryValues, IdEncoder, IdValues,
-    IntEncoder, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
-    SharedDictItemEncoder, StagedProperty, StagedStrings, StrEncoder, TessellationMode,
-    VertexBufferType, build_staged_shared_dict,
+    GeometryEncoder, IdEncoder, IntEncoder, PresenceStream, PropertyEncoder, ScalarEncoder,
+    SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty,
+    StagedStrings, StrEncoder, TessellationMode, TileFeature, TileLayer01, VertexBufferType,
+    build_staged_shared_dict,
 };
 
 use crate::writer::{SynthErr, SynthResult};
@@ -254,18 +254,70 @@ impl Layer {
         self
     }
 
-    pub fn build_decoded_geometry(&self) -> GeometryValues {
-        let mut geom = GeometryValues::default();
-        for g in &self.geometry_items {
-            geom.push_geom(g);
-            if self.geometry_encoder.tessellation == TessellationMode::Earcut {
+    pub fn open_new(path: &Path) -> io::Result<File> {
+        OpenOptions::new().write(true).create_new(true).open(path)
+    }
+
+    pub fn encode_to_bytes(self) -> SynthResult<Vec<u8>> {
+        let Self {
+            geometry_encoder,
+            geometry_items,
+            properties,
+            prop_encoders,
+            extent,
+            ids,
+        } = self;
+
+        let (id_values, id_encoder) = match ids {
+            Some((v, e)) => (Some(v), Some(e)),
+            None => (None, None),
+        };
+
+        let tile = TileLayer01 {
+            name: "layer1".to_string(),
+            extent: extent.unwrap_or(80),
+            property_names: vec![],
+            features: geometry_items
+                .iter()
+                .enumerate()
+                .map(|(i, geom)| TileFeature {
+                    id: id_values
+                        .as_deref()
+                        .and_then(|v| v.get(i).copied().flatten()),
+                    geometry: geom.clone(),
+                    properties: vec![],
+                })
+                .collect(),
+        };
+
+        // Convert geometry and IDs into columnar form via the TileLayer01 pipeline.
+        // Properties are assigned directly to avoid the lossy name-based reconstruction
+        // in rebuild_properties, which cannot faithfully round-trip all property shapes
+        // (single-child shared dicts, empty prefixes/suffixes, etc.).
+        let mut staged = StagedLayer01::from(tile);
+        staged.properties = properties;
+
+        let encoder = StagedLayer01Encoder {
+            id: id_encoder,
+            geometry: geometry_encoder,
+            properties: prop_encoders,
+        };
+
+        // Apply Earcut tessellation on top of the geometry values built by From<TileLayer01>.
+        // The tessellation index buffer and triangle counts are appended per-feature.
+        if geometry_encoder.tessellation == TessellationMode::Earcut {
+            for g in &geometry_items {
                 match g {
                     Geom32::Polygon(poly) => {
                         let (indices, num_triangles) = tessellate_polygon(poly);
-                        geom.index_buffer
+                        staged
+                            .geometry
+                            .index_buffer
                             .get_or_insert_with(Vec::new)
                             .extend(indices);
-                        geom.triangles
+                        staged
+                            .geometry
+                            .triangles
                             .get_or_insert_with(Vec::new)
                             .push(num_triangles);
                     }
@@ -275,10 +327,12 @@ impl Layer {
                         for poly in &mp.0 {
                             let (indices, num_triangles) = tessellate_polygon(poly);
                             total_triangles += num_triangles;
-                            geom.index_buffer
+                            staged
+                                .geometry
+                                .index_buffer
                                 .get_or_insert_with(Vec::new)
                                 .extend(indices.iter().map(|&i| i + vertex_offset));
-                            // Count vertices in this polygon (exterior + interiors, minus closing vertices)
+                            // Count vertices (exterior + interiors, minus closing vertices)
                             let ext_verts = poly.exterior().0.len().saturating_sub(1);
                             let int_verts: usize = poly
                                 .interiors()
@@ -288,7 +342,9 @@ impl Layer {
                             vertex_offset +=
                                 u32::try_from(ext_verts + int_verts).expect("vertex overflow");
                         }
-                        geom.triangles
+                        staged
+                            .geometry
+                            .triangles
                             .get_or_insert_with(Vec::new)
                             .push(total_triangles);
                     }
@@ -296,40 +352,11 @@ impl Layer {
                 }
             }
         }
-        geom
-    }
 
-    pub fn open_new(path: &Path) -> io::Result<File> {
-        OpenOptions::new().write(true).create_new(true).open(path)
-    }
-
-    pub fn encode_to_bytes(self) -> SynthResult<Vec<u8>> {
-        let geometry = self.build_decoded_geometry();
-        let encoded_geometry = geometry
-            .encode(self.geometry_encoder)
-            .map_err(SynthErr::Mlt)?;
-
-        let id = if let Some((ids, ids_encoder)) = self.ids {
-            IdValues(ids).encode(ids_encoder).map_err(SynthErr::Mlt)?
-        } else {
-            None
-        };
-
-        let encoded_properties = self
-            .properties
-            .encode(self.prop_encoders)
-            .map_err(SynthErr::Mlt)?;
-
-        let layer = EncodedLayer::Tag01(EncodedLayer01 {
-            name: "layer1".to_string(),
-            extent: self.extent.unwrap_or(80),
-            id,
-            geometry: encoded_geometry,
-            properties: encoded_properties,
-        });
+        let encoded_layer = staged.encode(encoder).map_err(SynthErr::Mlt)?;
 
         let mut buffer = Vec::new();
-        layer
+        EncodedLayer::Tag01(encoded_layer)
             .write_to(&mut buffer)
             .map_err(|e| SynthErr::Mlt(e.into()))?;
         Ok(buffer)
@@ -386,4 +413,24 @@ impl SharedDict {
         self.items.push((suffix, StagedStrings::from(values)));
         self
     }
+}
+
+/// Morton (Z-order) curve: de-interleave index bits into x/y (even/odd bits).
+/// Produces a 4×4 complete Morton block (16 points, scale 8).
+pub fn morton_curve() -> Vec<Coord<i32>> {
+    let num_points = 16usize;
+    let scale = 8_i32;
+    let morton_bits = 4u32;
+    let mut curve = Vec::with_capacity(num_points);
+    for i in 0..num_points {
+        let i = i32::try_from(i).unwrap();
+        let mut x = 0_i32;
+        let mut y = 0_i32;
+        for b in 0..morton_bits {
+            x |= ((i >> (2 * b)) & 1) << b;
+            y |= ((i >> (2 * b + 1)) & 1) << b;
+        }
+        curve.push(crate::c(x * scale, y * scale));
+    }
+    curve
 }

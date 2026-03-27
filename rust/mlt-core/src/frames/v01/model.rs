@@ -1,6 +1,6 @@
-use geo_types::Geometry as GeoGeometry;
 use num_enum::TryFromPrimitive;
 
+use crate::geojson::Geom32;
 use crate::v01::{
     EncodedGeometry, EncodedId, EncodedProperty, Geometry, GeometryValues, Id, IdValues, Property,
     StagedProperty,
@@ -55,7 +55,7 @@ pub enum ColumnType {
     SharedDict = 30,
 }
 
-/// Representation of a feature table layer encoded as MLT tag `0x01`.
+/// Representation of an MLT feature table layer with tag `0x01` during decoding.
 ///
 /// The type parameter `S` controls how columns are stored:
 ///
@@ -167,7 +167,7 @@ pub struct TileLayer01 {
 pub struct TileFeature {
     pub id: Option<u64>,
     /// Geometry in `geo_types` / `Geom32` form.
-    pub geometry: GeoGeometry<i32>,
+    pub geometry: Geom32,
     /// One value per property column, in the same order as
     /// [`TileLayer01::property_names`].
     pub properties: Vec<PropValue>,

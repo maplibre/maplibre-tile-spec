@@ -192,7 +192,7 @@ impl GeometryValues {
     }
 
     /// Add a geometry to this decoded geometry collection.
-    /// This is the reverse of `to_geojson` - it converts a `geo_types::Geometry<i32>`
+    /// This is the reverse of `to_geojson` - it converts a `Geom32`
     /// into the internal MLT representation with offset arrays.
     #[must_use]
     pub fn with_geom(mut self, geom: &Geom32) -> Self {

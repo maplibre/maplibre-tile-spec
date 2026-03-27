@@ -22,7 +22,9 @@ use mlt_core::v01::{
     ScalarEncoder as S, StagedProperty as P, StrEncoder as SE, VertexBufferType,
 };
 
-use crate::layer::{Layer, SharedDict, geo_fastpfor, geo_varint, geo_varint_with_rle};
+use crate::layer::{
+    Layer, SharedDict, geo_fastpfor, geo_varint, geo_varint_with_rle, morton_curve,
+};
 use crate::writer::SynthWriter;
 
 #[derive(Parser)]
@@ -132,39 +134,17 @@ fn poly_hole_touching() -> Polygon<i32> {
     wkt!(POLYGON((0 0, 10 0, 10 10, 0 10, 0 0),(0 0, 2 2, 5 2, 0 0)))
 }
 
-/// Morton (Z-order) curve: de-interleave index bits into x/y (even/odd bits).
-/// Produces a 4×4 complete Morton block (16 points, scale 8).
-fn morton_curve() -> Vec<Coord<i32>> {
-    let num_points = 16usize;
-    let scale = 8_i32;
-    let morton_bits = 4u32;
-    let mut curve = Vec::with_capacity(num_points);
-    for i in 0..num_points {
-        let i = i32::try_from(i).unwrap();
-        let mut x = 0_i32;
-        let mut y = 0_i32;
-        for b in 0..morton_bits {
-            x |= ((i >> (2 * b)) & 1) << b;
-            y |= ((i >> (2 * b + 1)) & 1) << b;
-        }
-        curve.push(c(x * scale, y * scale));
-    }
-    curve
-}
-
 fn generate_geometry(w: &mut SynthWriter) {
     p0().write(w, "point");
     geo_varint().geo(line1()).write(w, "line");
 
-    let mc = morton_curve();
-
     geo_varint()
-        .geo(LineString::new(mc.clone()))
+        .geo(LineString::new(morton_curve()))
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
         .write(w, "line_morton_curve_morton");
     geo_varint()
-        .geo(LineString::new(mc.clone()))
+        .geo(LineString::new(morton_curve()))
         .vertex_buffer_type(VertexBufferType::Vec2)
         .vertex_offsets(E::delta_rle_varint())
         .write(w, "line_morton_curve_no_morton");
@@ -272,9 +252,9 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_multi_fpf_tes");
 
     // Close the shared Morton curve into a ring to test Morton encoding for polygons.
-    let mut morton_ring = mc.clone();
-    morton_ring.push(mc[0]);
-    let morton_poly = Polygon::new(LineString::new(morton_ring.clone()), vec![]);
+    let mut morton_ring = morton_curve();
+    morton_ring.push(morton_ring[0]);
+    let morton_poly = Polygon::new(LineString::new(morton_ring), vec![]);
     geo_varint()
         .geo(morton_poly.clone())
         .write(w, "poly_morton_ring_no_morton");
@@ -285,6 +265,7 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_morton_ring_morton");
 
     // Split the Morton curve into two halves and close each into a ring to form a MultiPolygon.
+    let mc = morton_curve();
     let half = mc.len() / 2;
     let mut mr1 = mc[..half].to_vec();
     mr1.push(mr1[0]);

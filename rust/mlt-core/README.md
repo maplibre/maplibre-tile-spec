@@ -59,7 +59,101 @@ For any new features and encodings we will simply use a new tag ID, likely reusi
     - `columnType: varint` - same idea as `tag` above, e.g. `1 = id`, `2 = geometry`, `3 = int property`, etc.
     - TODO...
 
-See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for decoding and encoding pipeline docs.
+See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for additional pipeline docs.
+
+## Data Pipeline
+
+The diagram below shows the full lifecycle of tile data — from raw bytes on the wire,
+through lazy parsing and optional per-column decoding, to zero-copy iteration or
+fully owned row-form access, and back to encoded bytes via the columnar encode pipeline.
+
+```mermaid
+flowchart TB
+    A(["&[u8]  —  raw tile bytes"])
+
+    subgraph DEC ["Decoding"]
+        B["<b>Parser::parse_layers(&[u8])</b>
+        <i>Create zero-copy views into input bytes 
+        for each layer with almost no memory allocations</i>"]
+
+        C["Layer&lt;Lazy>
+           Tag01(Layer01&lt;Lazy>) | Unknown
+           columns = LazyParsed::Raw(RawStream)
+           zero allocations for column data"]
+
+        D["decode_all()  — or per-column:
+           decode_id() / decode_geometry() / decode_properties()
+           
+           RawStream
+           → physical codec: FastPFor · varint · byte-RLE
+           → logical  codec: delta · zigzag · Morton · Hilbert
+           → typed column buffers Vec&lt;T>"]
+
+        E["ParsedLayer  =  Layer&lt;Parsed>
+           all columns decoded into typed buffers"]
+    end
+
+    subgraph ACCESS ["Iterate  (zero-copy borrow)"]
+        F["iter_features()  →  Layer01FeatureIter"]
+        G["FeatureRef
+           id: Option&lt;u64>
+           geometry reference
+           property iterator"]
+    end
+
+    H(["Layer01::into_tile()"])
+
+    subgraph BRIDGE ["TileLayer01  (row-oriented, fully owned)"]
+        I["Vec&lt;TileFeature>
+           id:       Option&lt;u64>
+           geometry: geo_types::Geometry&lt;i32>
+           props:    Vec&lt;PropValue>"]
+    end
+
+    subgraph ENC ["Encoding"]
+        J["StagedLayer01::from(TileLayer01)
+           owned columnar form
+           IdValues · GeometryValues · Vec&lt;StagedProperty>"]
+
+        K["StagedLayer01::encode()
+           / encode_auto() / encode_with_profile()
+           per-column compression applied"]
+
+        L["EncodedLayer01  (wire-ready)
+           EncodedId · EncodedGeometry
+           Vec&lt;EncodedProperty>  each = Vec&lt;EncodedStream>"]
+
+        M["EncodedLayer::write_to()
+           serialises: varint(size) + tag byte + column payloads"]
+    end
+
+    N(["Vec&lt;u8>  —  encoded tile bytes"])
+
+    A --> B --> C --> D --> E
+    E -->|"borrow"| F --> G
+    E -->|"own all data"| H --> I
+    I -->|"From&lt;TileLayer01>"| J --> K --> L --> M --> N
+
+    classDef io fill:#1e5c3a,color:#e8f5e9,stroke:#0a3d22
+    classDef bridge fill:#4a1c6b,color:#f3e5f5,stroke:#2d0b45
+    classDef dec fill:#1a3a5c,color:#e3f2fd,stroke:#0d1f35
+    classDef enc fill:#5c2a1a,color:#fbe9e7,stroke:#3d1510
+    class A,N io
+    class H,I bridge
+    class B,C,D,E,F,G dec
+    class J,K,L,M enc
+```
+
+**Key types and their roles:**
+
+| Type | Role |
+|------|------|
+| `Layer<Lazy>` / `Layer01<Lazy>` | Parsed frame with column byte slices still unprocessed; zero allocation beyond the parse pass |
+| `LazyParsed<Raw, Parsed>` | Type-state wrapper: `Raw(RawStream)` before decoding, `Parsed(T)` after, `ParsingFailed` on error |
+| `ParsedLayer` = `Layer<Parsed>` | All columns decoded; borrow-based iteration via `iter_features()` |
+| `TileLayer01` | Row-oriented, fully owned bridge between decode and encode |
+| `StagedLayer01` | Owned columnar data ready for compression/encoding |
+| `EncodedLayer01` | Wire-ready columnar data; written by `write_to()` with size + tag prefix |
 
 ## Tools
 
