@@ -174,8 +174,11 @@ fn generate_geometry(w: &mut SynthWriter) {
 
     geo_varint().geo(poly1()).write(w, "poly");
     geo_fastpfor().geo(poly1()).write(w, "poly_fpf");
-    geo_varint().tessellated(poly1()).write(w, "poly_tes");
-    geo_fastpfor().tessellated(poly1()).write(w, "poly_fpf_tes");
+    geo_varint().tessellate().geo(poly1()).write(w, "poly_tes");
+    geo_fastpfor()
+        .tessellate()
+        .geo(poly1())
+        .write(w, "poly_fpf_tes");
 
     geo_varint()
         .geo(poly_collinear())
@@ -184,11 +187,13 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(poly_collinear())
         .write(w, "poly_collinear_fpf");
     geo_varint()
-        .tessellated(poly_collinear())
-        .write(w, "poly_collinear_tes");
+        .tessellate()
+        .geo(poly_collinear())
+        .write(w, "poly_colinear_tes");
     geo_fastpfor()
-        .tessellated(poly_collinear())
-        .write(w, "poly_collinear_fpf_tes");
+        .tessellate()
+        .geo(poly_collinear())
+        .write(w, "poly_colinear_fpf_tes");
 
     geo_varint()
         .geo(poly_self_intersect())
@@ -197,10 +202,12 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_fpf");
     geo_varint()
-        .tessellated(poly_self_intersect())
+        .tessellate()
+        .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_tes");
     geo_fastpfor()
-        .tessellated(poly_self_intersect())
+        .tessellate()
+        .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_fpf_tes");
 
     geo_varint()
@@ -213,11 +220,13 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_hole_fpf");
     geo_varint()
         .parts_ring(E::rle_varint())
-        .tessellated(poly1h())
+        .tessellate()
+        .geo(poly1h())
         .write(w, "poly_hole_tes");
     geo_fastpfor()
         .parts_ring(E::rle_fastpfor())
-        .tessellated(poly1h())
+        .tessellate()
+        .geo(poly1h())
         .write(w, "poly_hole_fpf_tes");
 
     geo_varint()
@@ -228,6 +237,16 @@ fn generate_geometry(w: &mut SynthWriter) {
         .parts_ring(E::fastpfor())
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_fpf");
+    geo_varint()
+        .parts_ring(E::varint())
+        .tessellate()
+        .geo(poly_hole_touching())
+        .write(w, "poly_hole_touching_tes");
+    geo_fastpfor()
+        .parts_ring(E::fastpfor())
+        .tessellate()
+        .geo(poly_hole_touching())
+        .write(w, "poly_hole_touching_fpf_tes");
 
     geo_varint()
         .rings(E::rle_varint())
@@ -239,6 +258,18 @@ fn generate_geometry(w: &mut SynthWriter) {
         .rings2(E::rle_fastpfor())
         .geo(MultiPolygon(vec![poly1(), poly2()]))
         .write(w, "poly_multi_fpf");
+    geo_varint()
+        .rings(E::rle_varint())
+        .rings2(E::rle_varint())
+        .tessellate()
+        .geo(MultiPolygon(vec![poly1(), poly2()]))
+        .write(w, "poly_multi_tes");
+    geo_fastpfor()
+        .rings(E::rle_fastpfor())
+        .rings2(E::rle_fastpfor())
+        .tessellate()
+        .geo(MultiPolygon(vec![poly1(), poly2()]))
+        .write(w, "poly_multi_fpf_tes");
 
     // Close the shared Morton curve into a ring to test Morton encoding for polygons.
     let mut morton_ring = mc.clone();
