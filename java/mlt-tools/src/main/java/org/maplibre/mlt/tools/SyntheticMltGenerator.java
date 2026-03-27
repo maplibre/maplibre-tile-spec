@@ -44,6 +44,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.MultiPolygon;
+import org.locationtech.jts.geom.Polygon;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
@@ -175,7 +178,12 @@ public class SyntheticMltGenerator {
     write(layer(name, feats), cfg().geomEnc(PLAIN));
 
     // if all geometries are of polygon type, add tessellated variant
-    if (current.stream().allMatch(t -> t.sym.contains("poly"))) {
+    if (current.stream()
+        .allMatch(
+            t -> {
+              Geometry geo = t.feat.geometry();
+              return geo instanceof Polygon || geo instanceof MultiPolygon;
+            })) {
       write(layer(name + "_tes", feats), cfg().geomEnc(PLAIN).tessellate());
     }
   }
