@@ -1,9 +1,8 @@
 #![expect(dead_code)]
 
-use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, Polygon};
@@ -67,21 +66,12 @@ fn tessellate_polygon(polygon: &Polygon<i32>) -> (Vec<u32>, u32) {
     (indices_u32, num_triangles)
 }
 
-pub struct SynthWriter {
-    pub ref_dir: PathBuf,
-    pub out_dir: PathBuf,
-    pub verbose: bool,
-    pub failures: usize,
-    pub generated: HashSet<String>,
-    pub rust_written: usize,
-}
-
 /// Create a layer with all geometry encoders set to `VarInt`.
 pub fn geo_varint() -> Layer {
     Layer::new(IntEncoder::varint())
 }
 
-/// Create a layer with geometry encoders set to `VarInt` and RLE for meta and geometry length streams.
+/// Create a layer with geometry encoders set to `VarInt` and RLE for the meta (geometry types) stream.
 pub fn geo_varint_with_rle() -> Layer {
     Layer::new(IntEncoder::varint()).meta(IntEncoder::rle_varint())
 }

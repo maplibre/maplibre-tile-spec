@@ -5,6 +5,7 @@ use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::fsst::compress_fsst;
 use crate::codecs::rle::encode_byte_rle;
+use crate::errors::AsMltError as _;
 use crate::utils::strings_to_lengths;
 use crate::v01::{
     DictionaryType, EncodedPlainData, EncodedStream, EncodedStreamData, EncodedStringsEncoding,
@@ -15,7 +16,7 @@ use crate::v01::{
 /// Deduplicate `values` preserving insertion order.
 /// Returns `(unique_strings, per_value_index)` where each entry in `per_value_index` is the
 /// index into `unique_strings` for the corresponding input value.
-fn dedup_strings<S: AsRef<str>>(values: &[S]) -> (Vec<String>, Vec<u32>) {
+fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<String>, Vec<u32>)> {
     let mut unique: Vec<String> = Vec::new();
     let mut index: HashMap<String, u32> = HashMap::new();
     let mut indices = Vec::with_capacity(values.len());
@@ -23,8 +24,7 @@ fn dedup_strings<S: AsRef<str>>(values: &[S]) -> (Vec<String>, Vec<u32>) {
         let idx = match index.entry(s.clone()) {
             Entry::Occupied(e) => *e.get(),
             Entry::Vacant(e) => {
-                let idx =
-                    u32::try_from(unique.len()).expect("unique string count exceeds u32::MAX");
+                let idx = u32::try_from(unique.len()).or_overflow()?;
                 e.insert(idx);
                 unique.push(s);
                 idx
@@ -32,7 +32,7 @@ fn dedup_strings<S: AsRef<str>>(values: &[S]) -> (Vec<String>, Vec<u32>) {
         };
         indices.push(idx);
     }
-    (unique, indices)
+    Ok((unique, indices))
 }
 
 impl EncodedStream {
@@ -306,7 +306,7 @@ impl EncodedStream {
         length_encoding: IntEncoder,
         offsets_encoding: IntEncoder,
     ) -> MltResult<EncodedStringsEncoding> {
-        let (unique, offset_indices) = dedup_strings(values);
+        let (unique, offset_indices) = dedup_strings(values)?;
         let plain_data = Self::strs_to_plain_data(
             &unique,
             length_encoding,
@@ -333,7 +333,7 @@ impl EncodedStream {
         encoding: FsstStrEncoder,
         offsets_encoding: IntEncoder,
     ) -> MltResult<EncodedStringsEncoding> {
-        let (unique, offset_indices) = dedup_strings(values);
+        let (unique, offset_indices) = dedup_strings(values)?;
         let fsst_data = compress_fsst(&unique, encoding, DictionaryType::Single)?;
         let offsets = Self::encode_u32s_of_type(
             &offset_indices,

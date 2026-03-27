@@ -3,14 +3,14 @@
 use proptest::prelude::*;
 use rstest::rstest;
 
-use crate::test_helpers::{assert_empty, dec, parser};
+use crate::test_helpers::{assert_empty, dec, parser, roundtrip_stream, roundtrip_stream_u32s};
 use crate::utils::BinarySerializer as _;
 use crate::v01::stream::encoder::IntEncoder;
 use crate::v01::{
-    DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, LogicalEncoding,
-    LogicalValue, MortonMeta, OffsetType, PhysicalEncoder, PhysicalEncoding, RawFsstData,
-    RawPlainData, RawPresence, RawStream, RawStreamData, RawStrings, RawStringsEncoding, RleMeta,
-    StagedStrings, StreamMeta, StreamType,
+    DictionaryType, EncodedStream, EncodedStreamData, EncodedStringsEncoding, IntEncoding,
+    LengthType, LogicalEncoding, LogicalValue, MortonMeta, OffsetType, PhysicalEncoder,
+    PhysicalEncoding, RawFsstData, RawPlainData, RawPresence, RawStream, RawStreamData, RawStrings,
+    RawStringsEncoding, RleMeta, StagedStrings, StreamMeta, StreamType,
 };
 
 /// Test case for stream decoding tests
@@ -136,22 +136,8 @@ fn test_decode_u32(
 #[case::empty(vec![])]
 fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
     let encoder = IntEncoder::fastpfor();
-    let owned_stream = EncodedStream::encode_u32s(&values, encoder).unwrap();
-
-    let mut buffer = Vec::new();
-    buffer.write_stream(&owned_stream).unwrap();
-
-    let mut p = parser();
-    let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut p).unwrap();
-    assert_empty(remaining);
-    let mut d = dec();
-    let decoded_values = parsed_stream.decode_u32s(&mut d).unwrap();
-    if !values.is_empty() {
-        assert!(
-            d.consumed() > 0,
-            "decoder should consume bytes after decode"
-        );
-    }
+    let stream = EncodedStream::encode_u32s(&values, encoder).unwrap();
+    let decoded_values = roundtrip_stream_u32s(&stream);
     assert_eq!(decoded_values, values);
 }
 
@@ -201,14 +187,12 @@ fn test_stream_roundtrip(
     }
 
     // Parse back
-    let mut p = parser();
-    let (remaining, parsed) = if is_bool {
-        RawStream::parse_bool(&buffer, &mut p).unwrap()
+    let parsed = assert_empty(if is_bool {
+        RawStream::parse_bool(&buffer, &mut parser())
     } else {
-        RawStream::from_bytes(&buffer, &mut p).unwrap()
-    };
+        RawStream::from_bytes(&buffer, &mut parser())
+    });
 
-    assert_empty(remaining);
     assert_eq!(parsed.meta, stream.meta, "metadata mismatch");
 
     match (&stream.data, &parsed.data) {
@@ -266,6 +250,113 @@ fn encoding_no_fastpfor() -> impl Strategy<Value = IntEncoder> {
     any::<IntEncoder>().prop_filter("not fastpfor", |v| v.physical != PhysicalEncoder::FastPFOR)
 }
 
+/// Helper to encode strings as dictionary and extract offset indices and lengths.
+fn encode_dict_and_get_parts(values: &[&str]) -> (Vec<u32>, Vec<u32>) {
+    let encoded =
+        EncodedStream::encode_strings_dict(values, IntEncoder::varint(), IntEncoder::varint())
+            .unwrap();
+    let EncodedStringsEncoding::Dictionary {
+        plain_data,
+        offsets,
+    } = encoded
+    else {
+        panic!("expected Dictionary encoding");
+    };
+    let offsets = roundtrip_stream_u32s(&offsets);
+    let lengths = roundtrip_stream_u32s(&plain_data.lengths);
+    (offsets, lengths)
+}
+
+/// Helper to serialize streams to bytes.
+fn serialize_streams(streams: Vec<&EncodedStream>) -> Vec<Vec<u8>> {
+    streams
+        .into_iter()
+        .map(|s| {
+            let mut buf = Vec::new();
+            buf.write_stream(s).unwrap();
+            buf
+        })
+        .collect()
+}
+
+/// Reconstruct `RawStringsEncoding` from parsed streams based on stream count.
+fn streams_to_encoding<'a>(streams: &[RawStream<'a>]) -> RawStringsEncoding<'a> {
+    match streams.len() {
+        2 => RawStringsEncoding::plain(
+            RawPlainData::new(streams[0].clone(), streams[1].clone()).unwrap(),
+        ),
+        3 => RawStringsEncoding::dictionary(
+            RawPlainData::new(streams[0].clone(), streams[2].clone()).unwrap(),
+            streams[1].clone(),
+        )
+        .unwrap(),
+        4 => RawStringsEncoding::fsst_plain(
+            RawFsstData::new(
+                streams[0].clone(),
+                streams[1].clone(),
+                streams[2].clone(),
+                streams[3].clone(),
+            )
+            .unwrap(),
+        ),
+        5 => RawStringsEncoding::fsst_dictionary(
+            RawFsstData::new(
+                streams[0].clone(),
+                streams[1].clone(),
+                streams[2].clone(),
+                streams[3].clone(),
+            )
+            .unwrap(),
+            streams[4].clone(),
+        )
+        .unwrap(),
+        n => panic!("unexpected stream count {n}"),
+    }
+}
+
+#[rstest]
+#[case::with_duplicates(&["apple", "banana", "apple", "cherry", "banana", "apple"], &[0, 1, 0, 2, 1, 0], &[5, 6, 6])]
+#[case::all_unique(&["a", "b", "c", "d"], &[0, 1, 2, 3], &[1, 1, 1, 1])]
+#[case::all_same(&["same", "same", "same", "same"], &[0, 0, 0, 0], &[4])]
+fn test_encode_strings_dict(
+    #[case] values: &[&str],
+    #[case] expected_offsets: &[u32],
+    #[case] expected_lengths: &[u32],
+) {
+    let (offsets, lengths) = encode_dict_and_get_parts(values);
+    assert_eq!(offsets, expected_offsets);
+    assert_eq!(lengths, expected_lengths);
+}
+
+/// Test roundtrip for `encode_strings_dict`.
+#[test]
+fn test_strings_dict_roundtrip() {
+    let values = vec!["hello", "world", "hello", "rust", "world", "hello"];
+    let encoded =
+        EncodedStream::encode_strings_dict(&values, IntEncoder::varint(), IntEncoder::varint())
+            .unwrap();
+    let buffers = serialize_streams(encoded.streams());
+    let parsed: Vec<_> = buffers
+        .iter()
+        .map(|buf| assert_empty(RawStream::from_bytes(buf, &mut parser())))
+        .collect();
+    let encoding = streams_to_encoding(&parsed);
+    let decoded = RawStrings {
+        name: "",
+        presence: RawPresence(None),
+        encoding,
+    }
+    .decode(&mut dec())
+    .unwrap();
+    let expected = StagedStrings::from(
+        values
+            .into_iter()
+            .map(|s| Some(s.to_string()))
+            .collect::<Vec<_>>(),
+    );
+    assert_eq!(decoded, expected);
+}
+
 proptest! {
     #[test]
     fn test_i8_roundtrip(
@@ -274,13 +365,10 @@ proptest! {
     ) {
         let owned_stream = EncodedStream::encode_i8s(&values, encoding).unwrap();
 
-        let mut buffer = Vec::new();
-        buffer.write_stream(&owned_stream).unwrap();
-
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert_empty(remaining);
-
+        let mut buf = Vec::new();
+        let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
         let decoded_values = parsed_stream.decode_i8s(&mut dec()).unwrap();
+
         assert_eq!(decoded_values, values);
     }
 
@@ -291,13 +379,10 @@ proptest! {
     ) {
         let owned_stream = EncodedStream::encode_u8s(&values, encoding).unwrap();
 
-        let mut buffer = Vec::new();
-        buffer.write_stream(&owned_stream).unwrap();
-
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert_empty(remaining);
-
+        let mut buf = Vec::new();
+        let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
         let decoded_values = parsed_stream.decode_u8s(&mut dec()).unwrap();
+
         assert_eq!(decoded_values, values);
     }
 
@@ -307,15 +392,7 @@ proptest! {
         encoding in any::<IntEncoder>()
     ) {
         let owned_stream = EncodedStream::encode_u32s(&values, encoding).unwrap();
-
-        let mut buffer = Vec::new();
-        buffer.write_stream(&owned_stream).unwrap();
-
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert_empty(remaining);
-
-        let decoded_values = parsed_stream.decode_u32s(&mut dec()).unwrap();
-
+        let decoded_values = roundtrip_stream_u32s(&owned_stream);
         assert_eq!(decoded_values, values);
     }
 
@@ -326,12 +403,8 @@ proptest! {
     ) {
         let owned_stream = EncodedStream::encode_i32s(&values, encoding).unwrap();
 
-        let mut buffer = Vec::new();
-        buffer.write_stream(&owned_stream).unwrap();
-
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert_empty(remaining);
-
+        let mut buf = Vec::new();
+        let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
         let decoded_values = parsed_stream.decode_i32s(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
@@ -344,12 +417,8 @@ proptest! {
     ) {
         let owned_stream = EncodedStream::encode_u64s(&values, encoding).unwrap();
 
-        let mut buffer = Vec::new();
-        buffer.write_stream(&owned_stream).unwrap();
-
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert_empty(remaining);
-
+        let mut buf = Vec::new();
+        let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
         let decoded_values = parsed_stream.decode_u64s(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
@@ -362,12 +431,8 @@ proptest! {
     ) {
         let owned_stream = EncodedStream::encode_i64s(&values, encoding).unwrap();
 
-        let mut buffer = Vec::new();
-        buffer.write_stream(&owned_stream).unwrap();
-
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert_empty(remaining);
-
+        let mut buf = Vec::new();
+        let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
         let decoded_values = parsed_stream.decode_i64s(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
@@ -377,13 +442,10 @@ proptest! {
     fn test_f32_roundtrip(values in prop::collection::vec(any::<f32>(), 0..100)) {
         let owned_stream = EncodedStream::encode_f32(&values).unwrap();
 
-        let mut buffer = Vec::new();
-        buffer.write_stream(&owned_stream).unwrap();
-
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert_empty(remaining);
-
+        let mut buf = Vec::new();
+        let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
         let decoded_values = parsed_stream.decode_f32s(&mut dec()).unwrap();
+
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {
             assert_eq!(
@@ -398,13 +460,10 @@ proptest! {
     fn test_f64_roundtrip(values in prop::collection::vec(any::<f64>(), 0..100)) {
         let owned_stream = EncodedStream::encode_f64(&values).unwrap();
 
-        let mut buffer = Vec::new();
-        buffer.write_stream(&owned_stream).unwrap();
-
-        let (remaining, parsed_stream) = RawStream::from_bytes(&buffer, &mut parser()).unwrap();
-        assert_empty(remaining);
-
+        let mut buf = Vec::new();
+        let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
         let decoded_values = parsed_stream.decode_f64s(&mut dec()).unwrap();
+
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {
             assert_eq!(
@@ -421,49 +480,11 @@ proptest! {
         encoding in any::<IntEncoder>(),
     ) {
         let encoded = EncodedStream::encode_strings_with_type(&values, encoding, LengthType::VarBinary, DictionaryType::None).unwrap();
-        let owned_streams = encoded.streams();
-
-        let mut buffers: Vec<Vec<u8>> = Vec::new();
-        for owned_stream in owned_streams {
-            let mut buffer = Vec::new();
-            buffer.write_stream(owned_stream).unwrap();
-            buffers.push(buffer);
-        }
-
-        let mut parsed_streams = Vec::new();
-        for buffer in &buffers {
-            let (remaining, parsed_stream) = RawStream::from_bytes(buffer, &mut parser()).unwrap();
-            assert_empty(remaining);
-            parsed_streams.push(parsed_stream);
-        }
-
-        let strings_encoding = match parsed_streams.len() {
-            2 => RawStringsEncoding::plain(RawPlainData::new(parsed_streams[0].clone(), parsed_streams[1].clone()).unwrap()),
-            3 => RawStringsEncoding::dictionary(
-                RawPlainData::new(parsed_streams[0].clone(), parsed_streams[2].clone()).unwrap(),
-                parsed_streams[1].clone(),
-            ).unwrap(),
-            4 => RawStringsEncoding::fsst_plain(
-                RawFsstData::new(
-                    parsed_streams[0].clone(),
-                    parsed_streams[1].clone(),
-                    parsed_streams[2].clone(),
-                    parsed_streams[3].clone(),
-                ).unwrap()
-            ),
-            5 => RawStringsEncoding::fsst_dictionary(
-                RawFsstData::new(
-                    parsed_streams[0].clone(),
-                    parsed_streams[1].clone(),
-                    parsed_streams[2].clone(),
-                    parsed_streams[3].clone()
-                ).unwrap(),
-                parsed_streams[4].clone(),
-            ).unwrap(),
-            n => panic!("unexpected stream count {n}"),
-        };
-        let decoded_values = RawStrings { name: "", presence: RawPresence(None), encoding: strings_encoding }.decode(&mut dec()).unwrap();
+        let buffers = serialize_streams(encoded.streams());
+        let parsed: Vec<_> = buffers.iter().map(|buf| assert_empty(RawStream::from_bytes(buf, &mut parser()))).collect();
+        let str_encoding = streams_to_encoding(&parsed);
+        let decoded = RawStrings { name: "", presence: RawPresence(None), encoding: str_encoding }.decode(&mut dec()).unwrap();
         let expected = StagedStrings::from(values.into_iter().map(Some).collect::<Vec<_>>());
-        assert_eq!(decoded_values, expected);
+        assert_eq!(decoded, expected);
     }
 }

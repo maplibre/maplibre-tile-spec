@@ -352,10 +352,10 @@ fn parse_shared_dict_column<'a>(
         .try_into()
         .or_overflow()?;
     let dict_n = u32::try_from(streams_taken).or_overflow()?;
-    let expected = dict_n.saturating_add(children_n).saturating_add(optional_n);
+    let expected = crate::utils::checked_sum3(dict_n, children_n, optional_n)?;
     // Java's encoder had a bug (fixed) that overcounted by 1: dict + 2*N + 1.
     // Accept that value too so that files produced by older Java encoders still parse.
-    let java_legacy = expected.saturating_add(1);
+    let java_legacy = expected.checked_add(1).or_overflow()?;
     if stream_count != expected && stream_count != java_legacy {
         return Err(InvalidSharedDictStreamCount {
             actual: stream_count,

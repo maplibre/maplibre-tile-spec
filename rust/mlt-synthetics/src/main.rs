@@ -22,7 +22,8 @@ use mlt_core::v01::{
     ScalarEncoder as S, StagedProperty as P, StrEncoder as SE, VertexBufferType,
 };
 
-use crate::layer::{Layer, SharedDict, SynthWriter, geo_fastpfor, geo_varint, geo_varint_with_rle};
+use crate::layer::{Layer, SharedDict, geo_fastpfor, geo_varint, geo_varint_with_rle};
+use crate::writer::SynthWriter;
 
 #[derive(Parser)]
 #[command(about = "Verify Rust-generated synthetic MLTs against the Java reference")]

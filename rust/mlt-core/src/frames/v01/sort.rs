@@ -267,9 +267,7 @@ mod tests {
         let mut buf = Vec::new();
         encoded.write_to(&mut buf).expect("serialize failed");
 
-        let mut p = parser();
-        let (remaining, parsed) = RawGeometry::from_bytes(&buf, &mut p).expect("parse failed");
-        assert_empty(remaining);
+        let parsed = assert_empty(RawGeometry::from_bytes(&buf, &mut parser()));
         let mut d = dec();
         let result = LazyParsed::Raw(parsed)
             .into_parsed(&mut d)

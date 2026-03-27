@@ -207,8 +207,7 @@ fn assert_geometry_roundtrip(encoded: &EncodedGeometry, expected: &GeometryValue
     encoded.write_to(&mut buf).expect("write_to failed");
     let mut p = parser();
     let mut d = dec();
-    let (inp, raw) = RawGeometry::from_bytes(&buf, &mut p).expect("parse failed");
-    assert_empty(inp);
+    let raw = assert_empty(RawGeometry::from_bytes(&buf, &mut p));
     let result = raw.decode(&mut d).unwrap();
     assert!(
         d.consumed() > 0,

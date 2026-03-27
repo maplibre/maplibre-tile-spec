@@ -8,7 +8,17 @@ use mlt_core::geojson::FeatureCollection;
 use mlt_core::{Decoder, MltError, Parser};
 
 use crate::Args;
-use crate::layer::{Layer, SynthWriter};
+use crate::layer::Layer;
+
+pub struct SynthWriter {
+    ref_dir: PathBuf,
+    out_dir: PathBuf,
+    verbose: bool,
+    generated: HashSet<String>,
+    rust_written: usize,
+    notes: usize,
+    pub failures: usize,
+}
 
 pub type SynthResult<T> = Result<T, SynthErr>;
 
@@ -95,7 +105,13 @@ impl SynthWriter {
             failures: 0,
             generated: HashSet::new(),
             rust_written: 0,
+            notes: 0,
         }
+    }
+
+    pub fn print_note(&mut self, msg: &str) {
+        self.notes += 1;
+        eprintln!("Note: {msg}");
     }
 
     /// Encode and write (or verify) `layer`, recording the outcome in this writer's statistics.
@@ -134,7 +150,7 @@ impl SynthWriter {
     ///
     /// Returns `Ok(true)` for a rust-only file, `Ok(false)` for a shared file,
     /// or `Err` on any failure.
-    fn write_int(&self, layer: Layer, name: &str) -> SynthResult<bool> {
+    fn write_int(&mut self, layer: Layer, name: &str) -> SynthResult<bool> {
         let name_mlt = format!("{name}.mlt");
         let out_mlt = self.out_dir.join(&name_mlt);
         let name_json = format!("{name}.json");
@@ -149,7 +165,9 @@ impl SynthWriter {
             if ref_json_path.is_file() {
                 check_json(&decoded, &ref_json_path)?;
             } else {
-                eprintln!("Note: Java synthetics did not generate MLT corresponding to {name_mlt}");
+                self.print_note(&format!(
+                    "Java synthetics did not generate MLT corresponding to {name_mlt}"
+                ));
             }
             let mut s = serde_json::to_string_pretty(&decoded).map_err(SynthErr::SerializeJson)?;
             s.push('\n');
@@ -175,7 +193,7 @@ impl SynthWriter {
 
     /// Warn about `.mlt` files in the reference dir that Rust never generated.
     /// Prints a summary and returns the total failure count.
-    pub fn report_ungenerated(&self) {
+    pub fn report_ungenerated(&mut self) {
         let mut ref_mlts: Vec<String> = fs::read_dir(&self.ref_dir)
             .unwrap_or_else(|e| panic!("cannot read {}: {e}", self.ref_dir.display()))
             .flatten()
@@ -187,18 +205,17 @@ impl SynthWriter {
             .collect();
         ref_mlts.sort();
 
-        let mut notes = 0;
         for name in &ref_mlts {
             if !self.generated.contains(name) {
-                eprintln!("Note: Rust synthetics did not generate {name}.mlt");
-                notes += 1;
+                self.print_note(&format!("Rust synthetics did not generate {name}.mlt"));
             }
         }
 
         println!(
-            "Verified: {} | Rust-only: {} | Notes: {notes} | Failures: {}",
+            "Verified: {} | Rust-only: {} | Notes: {} | Failures: {}",
             self.generated.len(),
             self.rust_written,
+            self.notes,
             self.failures,
         );
     }
