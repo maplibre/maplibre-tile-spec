@@ -358,14 +358,14 @@ fn generate_ids(w: &mut SynthWriter) {
         vec![Some(u64::from(u32::MAX))],
         IdEncoder::new(L::None, IdWidth::Id32),
     )
-    .write(w, "id_max-rust");
+    .write(w, "id_max");
     p0().ids(
         vec![Some(9_234_567_890)],
         IdEncoder::new(L::None, IdWidth::Id64),
     )
     .write(w, "id64");
     p0().ids(vec![Some(u64::MAX)], IdEncoder::new(L::None, IdWidth::Id64))
-        .write(w, "id64_max-rust");
+        .write(w, "id64_max");
 
     let four_p0 = || geo_varint().meta(E::rle_varint()).geos([P0, P0, P0, P0]);
     four_p0()
@@ -477,10 +477,10 @@ fn generate_ids(w: &mut SynthWriter) {
     };
     four_p0()
         .ids(min_max(), IdEncoder::new(L::None, IdWidth::Id64))
-        .write(w, "ids64_minmax-rust");
+        .write(w, "ids64_minmax");
     four_p0()
         .ids(min_max(), IdEncoder::new(L::Delta, IdWidth::Id64))
-        .write(w, "ids64_minmax_delta-rust");
+        .write(w, "ids64_minmax_delta");
 }
 
 fn generate_properties(w: &mut SynthWriter) {
@@ -852,6 +852,25 @@ fn generate_props_str(w: &mut SynthWriter) {
     six_points()
         .add_prop(S::str_fsst(O::Present, E::varint(), E::varint()), values())
         .write(w, "props_str_fsst-rust"); // FSST compression output is not byte-for-byte consistent with Java's
+
+    // Two features with the same 30-char value → deduplicated dictionary encoding.
+    // 30 chars because otherwise FSST is skipped.
+    let val = "A".repeat(30);
+    let two_pts = || geo_varint().meta(E::rle_varint()).geos([P1, P2]);
+    let two_same = || P::str("val", vec![Some(val.clone()), Some(val.clone())]);
+
+    two_pts()
+        .add_prop(
+            S::str_dict(O::Present, E::varint(), E::rle_varint()),
+            two_same(),
+        )
+        .write(w, "props_offset_str");
+    two_pts()
+        .add_prop(
+            S::str_fsst_dict(O::Present, E::varint(), E::varint(), E::varint()),
+            two_same(),
+        )
+        .write(w, "props_offset_str_fsst-rust"); // Rust FSST output is not byte-for-byte consistent with Java's
 }
 
 fn generate_shared_dictionaries(w: &mut SynthWriter) {
@@ -895,18 +914,60 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         .write(w, "props_shared_dict_2_same_prefix-rust");
 
     // Empty struct name: keys "a" and "b" both become children of the "" struct.
-    // FIXME: dump equal, but not binary equal
-    // p0()
-    //     .add_shared_dict(
-    //         SharedDict::new("", SE::plain(E::varint()))
-    //             .column("a", O::Present, E::varint(), [Some(val.clone())])
-    //             .column("b", O::Present, E::varint(), [Some(val.clone())]),
-    //     )
-    //     .write("props_shared_dict_no_struct_name", w);
+    p0().add_shared_dict(
+        SharedDict::new("", SE::plain(E::varint()))
+            .column("a", O::Present, E::varint(), [Some(val.clone())])
+            .column("b", O::Present, E::varint(), [Some(val.clone())]),
+    )
+    .write(w, "props_shared_dict_no_struct_name");
     p0().add_shared_dict(
         SharedDict::new("", SE::fsst(E::varint(), E::varint()))
             .column("a", O::Present, E::varint(), [Some(val.clone())])
             .column("b", O::Present, E::varint(), [Some(val.clone())]),
     )
     .write(w, "props_shared_dict_no_struct_name_fsst-rust"); // Rust FSST is not byte-for-byte consistent with Java's
+
+    // Struct name "a", single child with empty name: key "a" + "" = "a".
+    p0().add_shared_dict(SharedDict::new("a", SE::plain(E::varint())).column(
+        "",
+        O::Present,
+        E::varint(),
+        [Some(val.clone())],
+    ))
+    .write(w, "props_shared_dict_no_child_name");
+    p0().add_shared_dict(
+        SharedDict::new("a", SE::fsst(E::varint(), E::varint())).column(
+            "",
+            O::Present,
+            E::varint(),
+            [Some(val.clone())],
+        ),
+    )
+    .write(w, "props_shared_dict_no_child_name_fsst-rust"); // Rust FSST output is not byte-for-byte consistent with Java's
+
+    // Struct name "name:en" with single empty child; "place" is a regular scalar string.
+    p0().add_prop(
+        S::str(O::Present, E::varint()),
+        P::str("place", vec![Some(val.clone())]),
+    )
+    .add_shared_dict(SharedDict::new("name:en", SE::plain(E::varint())).column(
+        "",
+        O::Present,
+        E::varint(),
+        [Some(val.clone())],
+    ))
+    .write(w, "props_shared_dict_one_child");
+    p0().add_prop(
+        S::str(O::Present, E::varint()),
+        P::str("place", vec![Some(val.clone())]),
+    )
+    .add_shared_dict(
+        SharedDict::new("name:en", SE::fsst(E::varint(), E::varint())).column(
+            "",
+            O::Present,
+            E::varint(),
+            [Some(val.clone())],
+        ),
+    )
+    .write(w, "props_shared_dict_one_child_fsst-rust"); // Rust FSST output is not byte-for-byte consistent with Java's
 }

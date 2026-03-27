@@ -2,6 +2,7 @@ package org.maplibre.mlt.cli
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import java.math.BigInteger
 import org.locationtech.jts.geom.Geometry
 import org.locationtech.jts.io.geojson.GeoJsonWriter
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile
@@ -10,6 +11,15 @@ import org.maplibre.mlt.data.Layer
 import org.maplibre.mlt.data.MapLibreTile
 import java.util.SortedMap
 import kotlin.math.floor
+
+/**
+ * Serialize a feature ID as the correct JSON numeric type.
+ * IDs are stored as Java `long` (signed). Values that fit in a positive long are serialized as-is.
+ * Negative values represent unsigned u64 values > Long.MAX_VALUE; they are converted to BigInteger
+ * so Gson emits the full unsigned decimal (e.g. u64::MAX → 18446744073709551615).
+ */
+private fun featureIdForJson(id: Long): Any =
+    if (id >= 0) id else BigInteger(java.lang.Long.toUnsignedString(id))
 
 // GeoJSON does not support non-numeric floats; use Rust-style string tokens for cross-implementation consistency.
 private const val F32_NAN = "f32::NAN"
@@ -107,7 +117,7 @@ private fun toJson(layer: Layer): Map<String, Any?> {
 private fun toJson(feature: Feature): Map<String, Any?> {
     val map = mutableMapOf<String, Any?>()
     if (feature.hasId) {
-        map.put("id", feature.id)
+        map.put("id", featureIdForJson(feature.id))
     }
     map.put("geometry", feature.geometry.toString())
     // Print properties sorted by key and drop those with null
@@ -157,7 +167,7 @@ private fun featureToGeoJson(
     val f = mutableMapOf<String, Any?>()
     f.put("type", "Feature")
     if (feature.hasId) {
-        f.put("id", feature.id)
+        f.put("id", featureIdForJson(feature.id))
     }
     val props = getSortedNonNullProperties(feature)
     props.put("_layer", layer.name)
