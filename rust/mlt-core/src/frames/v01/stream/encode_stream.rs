@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::collections::hash_map::Entry;
 
 use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
@@ -16,22 +15,21 @@ use crate::v01::{
 /// Deduplicate `values` preserving insertion order.
 /// Returns `(unique_strings, per_value_index)` where each entry in `per_value_index` is the
 /// index into `unique_strings` for the corresponding input value.
-fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<String>, Vec<u32>)> {
-    let mut unique: Vec<String> = Vec::new();
-    let mut index: HashMap<String, u32> = HashMap::new();
+fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<&str>, Vec<u32>)> {
+    let mut unique: Vec<&str> = Vec::new();
+    let mut index: HashMap<&str, u32> = HashMap::new();
     let mut indices = Vec::with_capacity(values.len());
-    for s in values.iter().map(|s| s.as_ref().to_owned()) {
-        let idx = match index.entry(s.clone()) {
-            Entry::Occupied(e) => *e.get(),
-            Entry::Vacant(e) => {
-                let idx = u32::try_from(unique.len()).or_overflow()?;
-                e.insert(idx);
-                unique.push(s);
-                idx
-            }
-        };
+    for value in values {
+        let s = value.as_ref();
+        let idx = *index.entry(s).or_insert_with(|| {
+            let idx = unique.len() as u32;
+            unique.push(s);
+            idx
+        });
         indices.push(idx);
     }
+    // Check for overflow after the loop (unique.len() <= values.len() <= u32::MAX in practice)
+    u32::try_from(unique.len()).or_overflow()?;
     Ok((unique, indices))
 }
 
