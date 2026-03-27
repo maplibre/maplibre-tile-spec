@@ -335,7 +335,7 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
         builder = builder.geo(mix_type.1.clone());
         write!(&mut name, "_{}", mix_type.0).unwrap();
         if let Some(bldr) = builder_t {
-            if mix_type.0.contains("poly") {
+            if matches!(mix_type.1, Geom32::Polygon(_) | Geom32::MultiPolygon(_)) {
                 builder_t = Some(bldr.geo(mix_type.1.clone()));
             } else {
                 builder_t = None;
