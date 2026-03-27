@@ -60,12 +60,6 @@ describe("FastPFOR Unpack Library", () => {
 
     const UNPACK256_GENERIC_BIT_WIDTHS: number[] = [9, 10, 11, 12, 13, 14, 15];
 
-    function pack32(values: Int32Array, bitWidth: number): Int32Array {
-        const out = new Int32Array(bitWidth);
-        fastPack32(values, 0, out, 0, bitWidth);
-        return out;
-    }
-
     function pack256(values: Int32Array, bitWidth: number): Int32Array {
         const out = new Int32Array(bitWidth * 8);
         for (let chunk = 0; chunk < 8; chunk++) {
@@ -84,43 +78,30 @@ describe("FastPFOR Unpack Library", () => {
         return new Int32Array(length).fill(valueMask);
     }
 
-    function assertUnpack32RoundTrip(bitWidth: number, unpacker: Unpacker, expected: Int32Array): void {
-        const out = new Int32Array(32);
-        unpacker(pack32(expected, bitWidth), 0, out, 0);
-        expect(out).toEqual(expected);
-    }
-
-    function assertUnpack256RoundTrip(bitWidth: number, unpacker: Unpacker, expected: Int32Array): void {
-        const out = new Int32Array(256);
-        unpacker(pack256(expected, bitWidth), 0, out, 0);
-        expect(out).toEqual(expected);
-    }
-
-    function assertFastUnpack256MatchesGeneric(
-        bitWidth: number,
-        specializedUnpacker: Unpacker,
-        expected: Int32Array,
-    ): void {
-        const input = pack256(expected, bitWidth);
-        const outSpecific = new Int32Array(256);
-        const outGeneric = new Int32Array(256);
-
-        specializedUnpacker(input, 0, outSpecific, 0);
-        fastUnpack256_Generic(input, 0, outGeneric, 0, bitWidth);
-
-        expect(outSpecific).toEqual(outGeneric);
-    }
-
     for (const { bitWidth, unpacker } of UNPACK32_TEST_CASES) {
         describe(`fastUnpack32_${bitWidth}`, () => {
             it("round-trips ramp", () => {
                 const valueMask = MASKS[bitWidth] | 0;
-                assertUnpack32RoundTrip(bitWidth, unpacker, makeRamp(32, valueMask));
+                const expected = makeRamp(32, valueMask);
+
+                const input = new Int32Array(bitWidth);
+                fastPack32(expected, 0, input, 0, bitWidth);
+
+                const out = new Int32Array(32);
+                unpacker(input, 0, out, 0);
+                expect(out).toEqual(expected);
             });
 
             it("round-trips max", () => {
                 const valueMask = MASKS[bitWidth] | 0;
-                assertUnpack32RoundTrip(bitWidth, unpacker, makeMaxPattern(32, valueMask));
+                const expected = makeMaxPattern(32, valueMask);
+
+                const input = new Int32Array(bitWidth);
+                fastPack32(expected, 0, input, 0, bitWidth);
+
+                const out = new Int32Array(32);
+                unpacker(input, 0, out, 0);
+                expect(out).toEqual(expected);
             });
         });
     }
@@ -129,34 +110,58 @@ describe("FastPFOR Unpack Library", () => {
         describe(`fastUnpack256_${bitWidth}`, () => {
             it("round-trips ramp", () => {
                 const valueMask = MASKS[bitWidth] | 0;
-                assertUnpack256RoundTrip(bitWidth, unpacker, makeRamp(256, valueMask));
+                const expected = makeRamp(256, valueMask);
+                const input = pack256(expected, bitWidth);
+
+                const out = new Int32Array(256);
+                unpacker(input, 0, out, 0);
+                expect(out).toEqual(expected);
             });
 
             it("round-trips max", () => {
                 const valueMask = MASKS[bitWidth] | 0;
-                assertUnpack256RoundTrip(bitWidth, unpacker, makeMaxPattern(256, valueMask));
+                const expected = makeMaxPattern(256, valueMask);
+                const input = pack256(expected, bitWidth);
+
+                const out = new Int32Array(256);
+                unpacker(input, 0, out, 0);
+                expect(out).toEqual(expected);
             });
 
             it("matches fastUnpack256_Generic", () => {
                 const valueMask = MASKS[bitWidth] | 0;
-                assertFastUnpack256MatchesGeneric(bitWidth, unpacker, makeRamp(256, valueMask));
+                const expected = makeRamp(256, valueMask);
+                const input = pack256(expected, bitWidth);
+
+                const outSpecific = new Int32Array(256);
+                const outGeneric = new Int32Array(256);
+                unpacker(input, 0, outSpecific, 0);
+                fastUnpack256_Generic(input, 0, outGeneric, 0, bitWidth);
+                expect(outSpecific).toEqual(outGeneric);
             });
         });
     }
 
     for (const bitWidth of UNPACK256_GENERIC_BIT_WIDTHS) {
-        const unpacker: Unpacker = (inValues, inPos, out, outPos) =>
-            fastUnpack256_Generic(inValues, inPos, out, outPos, bitWidth);
-
         describe(`fastUnpack256_Generic bitWidth=${bitWidth}`, () => {
             it("round-trips ramp", () => {
                 const valueMask = MASKS[bitWidth] | 0;
-                assertUnpack256RoundTrip(bitWidth, unpacker, makeRamp(256, valueMask));
+                const expected = makeRamp(256, valueMask);
+                const input = pack256(expected, bitWidth);
+
+                const out = new Int32Array(256);
+                fastUnpack256_Generic(input, 0, out, 0, bitWidth);
+                expect(out).toEqual(expected);
             });
 
             it("round-trips max", () => {
                 const valueMask = MASKS[bitWidth] | 0;
-                assertUnpack256RoundTrip(bitWidth, unpacker, makeMaxPattern(256, valueMask));
+                const expected = makeMaxPattern(256, valueMask);
+                const input = pack256(expected, bitWidth);
+
+                const out = new Int32Array(256);
+                fastUnpack256_Generic(input, 0, out, 0, bitWidth);
+                expect(out).toEqual(expected);
             });
         });
     }
