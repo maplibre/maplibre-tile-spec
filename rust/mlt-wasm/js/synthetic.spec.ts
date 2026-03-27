@@ -15,8 +15,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const EARCUT_MAX_RINGS = 500;
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
-  ["poly_colinear_fpf", "FastPFor not supported"],
-  ["poly_colinear_fpf_tes", "FastPFor not supported"],
+  ["poly_collinear_fpf", "FastPFor not supported"],
+  ["poly_collinear_fpf_tes", "FastPFor not supported"],
   ["poly_fpf", "FastPFor not supported"],
   ["poly_fpf_tes", "FastPFor not supported"],
   ["poly_hole_fpf", "FastPFor not supported"],
