@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
@@ -21,15 +22,16 @@ fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<&str>, Vec<u32>)
     let mut indices = Vec::with_capacity(values.len());
     for value in values {
         let s = value.as_ref();
-        let idx = *index.entry(s).or_insert_with(|| {
-            let idx = unique.len() as u32;
-            unique.push(s);
-            idx
-        });
+        let idx = match index.entry(s) {
+            Entry::Occupied(e) => *e.get(),
+            Entry::Vacant(e) => {
+                let idx = u32::try_from(unique.len()).or_overflow()?;
+                unique.push(s);
+                *e.insert(idx)
+            }
+        };
         indices.push(idx);
     }
-    // Check for overflow after the loop (unique.len() <= values.len() <= u32::MAX in practice)
-    u32::try_from(unique.len()).or_overflow()?;
     Ok((unique, indices))
 }
 

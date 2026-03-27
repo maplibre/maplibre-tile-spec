@@ -386,7 +386,10 @@ mod tests {
     use crate::LazyParsed;
     use crate::geojson::Coord32;
     use crate::test_helpers::{assert_empty, dec, parser};
-    use crate::v01::{EncodedGeometry, GeometryEncoder, IntEncoding, RawGeometry};
+    use crate::v01::{
+        DictionaryType, EncodedGeometry, EncodedStream, GeometryEncoder, IntEncoder, IntEncoding,
+        LengthType, LogicalEncoding, MortonMeta, OffsetType, RawGeometry, StreamMeta, StreamType,
+    };
 
     /// Encode, serialize, parse, and decode a `GeometryValues`.
     /// The input must already be in the dense canonical form that `from_encoded`
@@ -646,11 +649,6 @@ mod tests {
     /// This ensures `GeometryValues` always holds flat `(x, y)` pairs.
     #[test]
     fn test_morton_vertex_dictionary_expansion() {
-        use crate::v01::{
-            DictionaryType, EncodedStream, IntEncoder, LengthType, LogicalEncoding, MortonMeta,
-            OffsetType, StreamMeta, StreamType,
-        };
-
         // meta: single LineString
         let meta = EncodedStream::encode_u32s_of_type(
             &[GeometryType::LineString as u32],

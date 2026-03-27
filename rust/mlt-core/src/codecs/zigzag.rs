@@ -1,6 +1,7 @@
 use num_traits::{AsPrimitive, WrappingAdd, WrappingSub};
 use zigzag::ZigZag;
 
+use crate::MltError::InvalidPairStreamSize;
 use crate::{Decoder, MltResult};
 
 /// ZigZag-encode a slice of signed values into unsigned values.
@@ -77,8 +78,6 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
     data: &[T::UInt],
     dec: &mut Decoder,
 ) -> MltResult<Vec<T>> {
-    use crate::MltError::InvalidPairStreamSize;
-
     if data.is_empty() || !data.len().is_multiple_of(2) {
         return Err(InvalidPairStreamSize(data.len()));
     }
