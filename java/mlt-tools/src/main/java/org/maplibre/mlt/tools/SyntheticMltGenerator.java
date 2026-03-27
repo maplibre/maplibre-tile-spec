@@ -523,5 +523,21 @@ public class SyntheticMltGenerator {
     write(
         layer("props_shared_dict_no_child_name_fsst", feat_names_eq_val_eq),
         cfg().sharedDictPrefix("a", "").fsst());
+
+    // Two separate shared dicts with the same "name" prefix, split by explicit column groups
+    var feat_names_4 =
+        array(
+            feat(
+                p0,
+                props(
+                    kv("name:de", val),
+                    kv("name:en", val),
+                    kv("name:fr", val),
+                    kv("name:he", val))));
+    write(
+        layer("props_shared_dict_2_same_prefix", feat_names_4),
+        cfg()
+            .sharedDictColumnGroups(
+                List.of(List.of("name:de", "name:en"), List.of("name:fr", "name:he"))));
   }
 }

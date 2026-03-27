@@ -136,6 +136,20 @@ class SyntheticMltUtil {
       this.optimizations(optimizationsMap);
       return this;
     }
+
+    /**
+     * Enable shared dictionary encoding using explicit groups of column names. Each group becomes
+     * its own shared dictionary.
+     */
+    public Cfg sharedDictColumnGroups(List<List<String>> columnGroups) {
+      var mappings = columnGroups.stream().map(cols -> new ColumnMapping(cols, true)).toList();
+      var layerOpt = new FeatureTableOptimizations(false, false, mappings);
+
+      var optimizationsMap = new HashMap<String, FeatureTableOptimizations>();
+      optimizationsMap.put("layer1", layerOpt);
+      this.optimizations(optimizationsMap);
+      return this;
+    }
   }
 
   static Cfg cfg() {
