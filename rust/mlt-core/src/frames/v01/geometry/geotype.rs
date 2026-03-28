@@ -92,9 +92,10 @@ fn earcut_into(polygon: &Polygon<i32>, vertex_offset: u32, index_buf: &mut Vec<u
 
     for i in raw.triangle_indices {
         let mlt_idx = geo_to_mlt.get(i).copied().unwrap_or(i);
-        let idx = u32::try_from(mlt_idx)
-            .expect("overflow")
-            .saturating_add(vertex_offset);
+        let base = u32::try_from(mlt_idx).expect("mlt vertex index overflow");
+        let idx = base
+            .checked_add(vertex_offset)
+            .expect("vertex index overflow");
         index_buf.push(idx);
     }
 
@@ -292,7 +293,7 @@ impl GeometryValues {
 }
 
 impl GeometryValues {
-    /// Returns a [`GeometryValues`] with an empty `triangles` buffer pre-initialised.
+    /// Returns a [`GeometryValues`] with an empty `triangles` buffer pre-initialized.
     ///
     /// When `triangles` is `Some`, polygon push methods automatically compute and store
     /// Earcut tessellation data as geometries are added.
@@ -882,5 +883,54 @@ mod tests {
 
         let geom = decoded.to_geojson(0).unwrap();
         assert_eq!(geom, wkt!(LINESTRING(0 0,4 0,0 4,4 0)).into());
+    }
+}
+
+#[cfg(all(test, feature = "tessellate"))]
+mod tessellation_tests {
+    use geo_types::{LineString, MultiPolygon, Polygon};
+
+    use crate::geojson::Geom32;
+    use crate::v01::GeometryValues;
+
+    #[test]
+    fn earcut_closing_vertex_index_remap() {
+        let exterior = LineString::from(vec![(0_i32, 0), (10, 0), (10, 10), (0, 10), (0, 0)]);
+        let polygon = Polygon::new(exterior, vec![]);
+        let mut g = GeometryValues::new_tessellated();
+        g.push_geom(&Geom32::Polygon(polygon));
+        let tris = g.triangles().expect("triangles");
+        let n = tris[0];
+        assert!(n > 0, "expected at least one triangle");
+        let ib = g.index_buffer().expect("index buffer");
+        assert_eq!(ib.len(), usize::try_from(n).unwrap() * 3);
+        // 4 unique (non-closing) vertices → indices in 0..4
+        assert!(ib.iter().all(|&i| i < 4));
+    }
+
+    #[test]
+    fn earcut_vertex_offset_for_multi_polygon_parts() {
+        let exterior1 = LineString::from(vec![(0_i32, 0), (10, 0), (10, 10), (0, 10), (0, 0)]);
+        let poly1 = Polygon::new(exterior1, vec![]);
+        let exterior2 = LineString::from(vec![(20, 0), (30, 0), (30, 10), (20, 10), (20, 0)]);
+        let poly2 = Polygon::new(exterior2, vec![]);
+        let mut g = GeometryValues::new_tessellated();
+        g.push_geom(&Geom32::MultiPolygon(MultiPolygon(vec![poly1, poly2])));
+        let ib = g.index_buffer().expect("index buffer");
+        let tris = g.triangles().expect("triangles");
+        assert_eq!(tris.len(), 1);
+        let total = usize::try_from(tris[0]).unwrap();
+        assert_eq!(ib.len(), total * 3);
+        // First quad: 4 verts → 2 triangles, 6 indices
+        let split = 6;
+        let (first, second) = ib.split_at(split);
+        assert!(
+            first.iter().all(|&i| i < 4),
+            "first polygon indices should reference verts 0..4: {first:?}"
+        );
+        assert!(
+            second.iter().all(|&i| (4..8).contains(&i)),
+            "second polygon indices should reference verts 4..8: {second:?}"
+        );
     }
 }

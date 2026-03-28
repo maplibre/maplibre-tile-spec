@@ -14,7 +14,7 @@ use mlt_core::v01::{
     VertexBufferType, build_staged_shared_dict,
 };
 
-use crate::writer::SynthResult;
+use crate::writer::{SynthErr, SynthResult};
 
 /// Create a layer with all geometry encoders set to `VarInt`.
 pub fn geo_varint() -> Layer {
@@ -249,7 +249,7 @@ impl Layer {
         let mut buffer = Vec::new();
         EncodedLayer::Tag01(encoded_layer)
             .write_to(&mut buffer)
-            .unwrap();
+            .map_err(|e| SynthErr::Mlt(e.into()))?;
         Ok(buffer)
     }
 }
