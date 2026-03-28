@@ -104,25 +104,39 @@ impl EncodedProperty {
                 presence,
                 EncodedStream::encode_f64(&unapply_presence(&v.values))?,
             ))),
-            (D::Str(v), ScalarValueEncoder::String(enc)) => Ok(Self::Str(EncodedStrings {
-                name: EncodedName(v.name.clone()),
-                presence: EncodedPresence(presence),
-                encoding: match enc {
-                    StrEncoder::Plain { string_lengths } => {
-                        EncodedStream::encode_strings_with_type(
-                            &v.dense_values(),
+            (D::Str(v), ScalarValueEncoder::String(enc)) => {
+                let dense_values = v.dense_values();
+                Ok(Self::Str(EncodedStrings {
+                    name: EncodedName(v.name.clone()),
+                    presence: EncodedPresence(presence),
+                    encoding: match enc {
+                        StrEncoder::Plain { string_lengths } => {
+                            EncodedStream::encode_strings_with_type(
+                                &dense_values,
+                                string_lengths,
+                                LengthType::VarBinary,
+                                DictionaryType::None,
+                            )?
+                        }
+                        StrEncoder::Dict {
                             string_lengths,
-                            LengthType::VarBinary,
-                            DictionaryType::None,
-                        )?
-                    }
-                    StrEncoder::Fsst(enc) => EncodedStream::encode_strings_fsst_with_type(
-                        &v.dense_values(),
-                        enc,
-                        DictionaryType::Single,
-                    )?,
-                },
-            })),
+                            offsets,
+                        } => EncodedStream::encode_strings_dict(
+                            &dense_values,
+                            string_lengths,
+                            offsets,
+                        )?,
+                        StrEncoder::Fsst(enc) => EncodedStream::encode_strings_fsst_with_type(
+                            &dense_values,
+                            enc,
+                            DictionaryType::Single,
+                        )?,
+                        StrEncoder::FsstDict { fsst, offsets } => {
+                            EncodedStream::encode_strings_fsst_dict(&dense_values, fsst, offsets)?
+                        }
+                    },
+                }))
+            }
             (D::SharedDict(..), _) => Err(NotImplemented(
                 "SharedDict cannot be encoded via ScalarEncoder",
             ))?,

@@ -192,7 +192,7 @@ impl GeometryValues {
     }
 
     /// Add a geometry to this decoded geometry collection.
-    /// This is the reverse of `to_geojson` - it converts a `geo_types::Geometry<i32>`
+    /// This is the reverse of `to_geojson` - it converts a `Geom32`
     /// into the internal MLT representation with offset arrays.
     #[must_use]
     pub fn with_geom(mut self, geom: &Geom32) -> Self {
@@ -386,7 +386,10 @@ mod tests {
     use crate::LazyParsed;
     use crate::geojson::Coord32;
     use crate::test_helpers::{assert_empty, dec, parser};
-    use crate::v01::{EncodedGeometry, GeometryEncoder, IntEncoding, RawGeometry};
+    use crate::v01::{
+        DictionaryType, EncodedGeometry, EncodedStream, GeometryEncoder, IntEncoder, IntEncoding,
+        LengthType, LogicalEncoding, MortonMeta, OffsetType, RawGeometry, StreamMeta, StreamType,
+    };
 
     /// Encode, serialize, parse, and decode a `GeometryValues`.
     /// The input must already be in the dense canonical form that `from_encoded`
@@ -397,9 +400,7 @@ mod tests {
         let mut buffer = Vec::new();
         enc_geom.write_to(&mut buffer).expect("Failed to serialize");
 
-        let (remaining, parsed) =
-            RawGeometry::from_bytes(&buffer, &mut parser()).expect("Failed to parse");
-        assert_empty(remaining);
+        let parsed = assert_empty(RawGeometry::from_bytes(&buffer, &mut parser()));
 
         LazyParsed::Raw(parsed)
             .into_parsed(&mut dec())
@@ -648,11 +649,6 @@ mod tests {
     /// This ensures `GeometryValues` always holds flat `(x, y)` pairs.
     #[test]
     fn test_morton_vertex_dictionary_expansion() {
-        use crate::v01::{
-            DictionaryType, EncodedStream, IntEncoder, LengthType, LogicalEncoding, MortonMeta,
-            OffsetType, StreamMeta, StreamType,
-        };
-
         // meta: single LineString
         let meta = EncodedStream::encode_u32s_of_type(
             &[GeometryType::LineString as u32],
@@ -710,8 +706,7 @@ mod tests {
         owned.write_to(&mut buffer).unwrap();
 
         let mut p = parser();
-        let (remaining, parsed) = RawGeometry::from_bytes(&buffer, &mut p).unwrap();
-        assert_empty(remaining);
+        let parsed = assert_empty(RawGeometry::from_bytes(&buffer, &mut p));
         assert_snapshot!(p.reserved(), @"72");
 
         let mut d = dec();

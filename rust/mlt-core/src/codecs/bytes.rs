@@ -125,17 +125,15 @@ mod tests {
         #[test]
         fn test_u32_bytes_roundtrip(data: Vec<u32>) {
             let encoded = encode_u32s_to_bytes(&data);
-            let (rem, decoded) = decode_bytes_to_u32s(&encoded, u32::try_from(data.len()).unwrap(), &mut dec()).unwrap();
+            let decoded = assert_empty(decode_bytes_to_u32s(&encoded, u32::try_from(data.len()).unwrap(), &mut dec()));
             prop_assert_eq!(data, decoded);
-            assert_empty(rem);
         }
 
         #[test]
         fn test_u64_bytes_roundtrip(data: Vec<u64>) {
             let encoded = encode_u64s_to_bytes(&data);
-            let (rem, decoded) = decode_bytes_to_u64s(&encoded, u32::try_from(data.len()).unwrap(), &mut dec()).unwrap();
+            let decoded = assert_empty(decode_bytes_to_u64s(&encoded, u32::try_from(data.len()).unwrap(), &mut dec()));
             prop_assert_eq!(data, decoded);
-            assert_empty(rem);
         }
     }
 
@@ -145,10 +143,7 @@ mod tests {
         // [0x04, 0x03, 0x02, 0x01] -> 0x01020304
         // [0xDD, 0xCC, 0xBB, 0xAA] -> 0xAABBCCDD
         let bytes: [u8; 8] = [0x04, 0x03, 0x02, 0x01, 0xDD, 0xCC, 0xBB, 0xAA];
-        let res = decode_bytes_to_u32s(&bytes, 2, &mut dec());
-        assert!(res.is_ok(), "Should decode valid buffer with 2 values");
-        let (remaining, u32s) = res.unwrap();
-        assert_empty(remaining);
+        let u32s = assert_empty(decode_bytes_to_u32s(&bytes, 2, &mut dec()));
         assert_eq!(
             u32s,
             vec![0x0102_0304, 0xAABB_CCDD],
@@ -159,10 +154,7 @@ mod tests {
     #[test]
     fn test_bytes_to_u32s_empty() {
         let bytes: [u8; 0] = [];
-        let res = decode_bytes_to_u32s(&bytes, 0, &mut dec());
-        assert!(res.is_ok(), "Empty slice with 0 values is valid");
-        let (remaining, u32s) = res.unwrap();
-        assert_empty(remaining);
+        let u32s = assert_empty(decode_bytes_to_u32s(&bytes, 0, &mut dec()));
         assert!(
             u32s.is_empty(),
             "Output should be an empty Vec for 0 values"
@@ -212,8 +204,7 @@ mod tests {
 
     #[test]
     fn test_decode_bytes_to_u32s_empty() {
-        let (input, decoded) = decode_bytes_to_u32s(&[], 0, &mut dec()).unwrap();
-        assert_empty(input);
+        let decoded = assert_empty(decode_bytes_to_u32s(&[], 0, &mut dec()));
         assert!(decoded.is_empty());
     }
 }

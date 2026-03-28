@@ -4,8 +4,8 @@ use geo_types::{LineString, Point, Polygon, point, wkt};
 use mlt_core::__private::{assert_empty, dec, parser};
 use mlt_core::geojson::{Coord32, Geom32};
 use mlt_core::v01::{
-    DictionaryType, EncodedGeometry, GeometryProfile, GeometryValues, LengthType, OffsetType,
-    RawGeometry, StreamType,
+    DictionaryType, EncodedGeometry, GeometryEncoder, GeometryProfile, GeometryValues, IntEncoder,
+    LengthType, OffsetType, RawGeometry, StreamType, VertexBufferType,
 };
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -185,8 +185,6 @@ fn profile_rederives_vertex_strategy_from_actual_data() {
 
 #[test]
 fn manual_encode_works() {
-    use mlt_core::v01::{GeometryEncoder, IntEncoder, VertexBufferType};
-
     let decoded = push_geoms(&[wkt!(POINT(10 20)).into()]);
 
     let mut geom_enc = GeometryEncoder::all(IntEncoder::varint());
@@ -207,8 +205,7 @@ fn assert_geometry_roundtrip(encoded: &EncodedGeometry, expected: &GeometryValue
     encoded.write_to(&mut buf).expect("write_to failed");
     let mut p = parser();
     let mut d = dec();
-    let (inp, raw) = RawGeometry::from_bytes(&buf, &mut p).expect("parse failed");
-    assert_empty(inp);
+    let raw = assert_empty(RawGeometry::from_bytes(&buf, &mut p));
     let result = raw.decode(&mut d).unwrap();
     assert!(
         d.consumed() > 0,

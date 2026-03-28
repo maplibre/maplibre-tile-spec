@@ -1,18 +1,17 @@
 #![expect(dead_code)]
 
-use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use geo::{Convert as _, TriangulateEarcut as _};
-use geo_types::{LineString, Polygon};
+use geo_types::{Coord, LineString, Polygon};
 use mlt_core::EncodedLayer;
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
-    EncodeProperties as _, EncodedLayer01, GeometryEncoder, GeometryValues, IdEncoder, IdValues,
-    IntEncoder, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
-    SharedDictItemEncoder, StagedProperty, StagedStrings, StrEncoder, VertexBufferType,
+    GeometryEncoder, IdEncoder, IntEncoder, PresenceStream, PropertyEncoder, ScalarEncoder,
+    SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty,
+    StagedStrings, StrEncoder, TessellationMode, TileFeature, TileLayer01, VertexBufferType,
     build_staged_shared_dict,
 };
 
@@ -67,18 +66,14 @@ fn tessellate_polygon(polygon: &Polygon<i32>) -> (Vec<u32>, u32) {
     (indices_u32, num_triangles)
 }
 
-pub struct SynthWriter {
-    pub ref_dir: PathBuf,
-    pub out_dir: PathBuf,
-    pub verbose: bool,
-    pub failures: usize,
-    pub generated: HashSet<String>,
-    pub rust_written: usize,
-}
-
 /// Create a layer with all geometry encoders set to `VarInt`.
 pub fn geo_varint() -> Layer {
     Layer::new(IntEncoder::varint())
+}
+
+/// Create a layer with geometry encoders set to `VarInt` and RLE for the meta (geometry types) stream.
+pub fn geo_varint_with_rle() -> Layer {
+    Layer::new(IntEncoder::varint()).meta(IntEncoder::rle_varint())
 }
 
 /// Create a layer with all geometry encoders set to `FastPFOR`.
@@ -92,15 +87,14 @@ pub fn geo(encoder: IntEncoder) -> Layer {
 }
 
 /// Layer builder: holds geometry encoder, geometry list, properties, extent, and IDs.
+#[derive(Clone)]
 pub struct Layer {
-    pub geometry_encoder: GeometryEncoder,
-    pub geometry_items: Vec<Geom32>,
-    /// Polygons that are also tessellated; triangle data is merged when building decoded geometry.
-    pub tessellated_polygons: Vec<Option<Polygon<i32>>>,
-    pub properties: Vec<StagedProperty>,
-    pub prop_encoders: Vec<PropertyEncoder>,
-    pub extent: Option<u32>,
-    pub ids: Option<(Vec<Option<u64>>, IdEncoder)>,
+    geometry_encoder: GeometryEncoder,
+    geometry_items: Vec<Geom32>,
+    properties: Vec<StagedProperty>,
+    prop_encoders: Vec<PropertyEncoder>,
+    extent: Option<u32>,
+    ids: Option<(Vec<Option<u64>>, IdEncoder)>,
 }
 
 impl Layer {
@@ -108,7 +102,6 @@ impl Layer {
         Self {
             geometry_encoder: GeometryEncoder::all(default_geom_enc),
             geometry_items: vec![],
-            tessellated_polygons: vec![],
             properties: vec![],
             prop_encoders: vec![],
             extent: None,
@@ -205,7 +198,6 @@ impl Layer {
     #[must_use]
     pub fn geo(mut self, geometry: impl Into<Geom32>) -> Self {
         self.geometry_items.push(geometry.into());
-        self.tessellated_polygons.push(None);
         self
     }
 
@@ -218,11 +210,10 @@ impl Layer {
         self
     }
 
-    /// Add a tessellated polygon (polygon + triangle mesh).
+    /// Enable polygon tessellation
     #[must_use]
-    pub fn tessellated(mut self, polygon: Polygon<i32>) -> Self {
-        self.geometry_items.push(Geom32::Polygon(polygon.clone()));
-        self.tessellated_polygons.push(Some(polygon));
+    pub fn tessellate(mut self) -> Self {
+        self.geometry_encoder.tessellation(TessellationMode::Earcut);
         self
     }
 
@@ -263,55 +254,109 @@ impl Layer {
         self
     }
 
-    pub fn build_decoded_geometry(&self) -> GeometryValues {
-        let mut geom = GeometryValues::default();
-        for g in &self.geometry_items {
-            geom.push_geom(g);
-        }
-        for poly in &self.tessellated_polygons {
-            let Some(poly) = poly else { continue };
-            let (indices, num_triangles) = tessellate_polygon(poly);
-            geom.triangles
-                .get_or_insert_with(Vec::new)
-                .push(num_triangles);
-            geom.index_buffer
-                .get_or_insert_with(Vec::new)
-                .extend(indices);
-        }
-        geom
-    }
-
     pub fn open_new(path: &Path) -> io::Result<File> {
         OpenOptions::new().write(true).create_new(true).open(path)
     }
 
     pub fn encode_to_bytes(self) -> SynthResult<Vec<u8>> {
-        let geometry = self.build_decoded_geometry();
-        let encoded_geometry = geometry
-            .encode(self.geometry_encoder)
-            .map_err(SynthErr::Mlt)?;
+        let Self {
+            geometry_encoder,
+            geometry_items,
+            properties,
+            prop_encoders,
+            extent,
+            ids,
+        } = self;
 
-        let id = if let Some((ids, ids_encoder)) = self.ids {
-            IdValues(ids).encode(ids_encoder).map_err(SynthErr::Mlt)?
-        } else {
-            None
+        let (id_values, id_encoder) = match ids {
+            Some((v, e)) => (Some(v), Some(e)),
+            None => (None, None),
         };
 
-        let encoded_properties = self
-            .properties
-            .encode(self.prop_encoders)
-            .map_err(SynthErr::Mlt)?;
-
-        let layer = EncodedLayer::Tag01(EncodedLayer01 {
+        let tile = TileLayer01 {
             name: "layer1".to_string(),
-            extent: self.extent.unwrap_or(80),
-            id,
-            geometry: encoded_geometry,
-            properties: encoded_properties,
-        });
+            extent: extent.unwrap_or(80),
+            property_names: vec![],
+            features: geometry_items
+                .iter()
+                .enumerate()
+                .map(|(i, geom)| TileFeature {
+                    id: id_values
+                        .as_deref()
+                        .and_then(|v| v.get(i).copied().flatten()),
+                    geometry: geom.clone(),
+                    properties: vec![],
+                })
+                .collect(),
+        };
+
+        // Convert geometry and IDs into columnar form via the TileLayer01 pipeline.
+        // Properties are assigned directly to avoid the lossy name-based reconstruction
+        // in rebuild_properties, which cannot faithfully round-trip all property shapes
+        // (single-child shared dicts, empty prefixes/suffixes, etc.).
+        let mut staged = StagedLayer01::from(tile);
+        staged.properties = properties;
+
+        let encoder = StagedLayer01Encoder {
+            id: id_encoder,
+            geometry: geometry_encoder,
+            properties: prop_encoders,
+        };
+
+        // Apply Earcut tessellation on top of the geometry values built by From<TileLayer01>.
+        // The tessellation index buffer and triangle counts are appended per-feature.
+        if geometry_encoder.tessellation == TessellationMode::Earcut {
+            for g in &geometry_items {
+                match g {
+                    Geom32::Polygon(poly) => {
+                        let (indices, num_triangles) = tessellate_polygon(poly);
+                        staged
+                            .geometry
+                            .index_buffer
+                            .get_or_insert_with(Vec::new)
+                            .extend(indices);
+                        staged
+                            .geometry
+                            .triangles
+                            .get_or_insert_with(Vec::new)
+                            .push(num_triangles);
+                    }
+                    Geom32::MultiPolygon(mp) => {
+                        let mut total_triangles = 0u32;
+                        let mut vertex_offset = 0u32;
+                        for poly in &mp.0 {
+                            let (indices, num_triangles) = tessellate_polygon(poly);
+                            total_triangles += num_triangles;
+                            staged
+                                .geometry
+                                .index_buffer
+                                .get_or_insert_with(Vec::new)
+                                .extend(indices.iter().map(|&i| i + vertex_offset));
+                            // Count vertices (exterior + interiors, minus closing vertices)
+                            let ext_verts = poly.exterior().0.len().saturating_sub(1);
+                            let int_verts: usize = poly
+                                .interiors()
+                                .iter()
+                                .map(|r| r.0.len().saturating_sub(1))
+                                .sum();
+                            vertex_offset +=
+                                u32::try_from(ext_verts + int_verts).expect("vertex overflow");
+                        }
+                        staged
+                            .geometry
+                            .triangles
+                            .get_or_insert_with(Vec::new)
+                            .push(total_triangles);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let encoded_layer = staged.encode(encoder).map_err(SynthErr::Mlt)?;
 
         let mut buffer = Vec::new();
-        layer
+        EncodedLayer::Tag01(encoded_layer)
             .write_to(&mut buffer)
             .map_err(|e| SynthErr::Mlt(e.into()))?;
         Ok(buffer)
@@ -368,4 +413,24 @@ impl SharedDict {
         self.items.push((suffix, StagedStrings::from(values)));
         self
     }
+}
+
+/// Morton (Z-order) curve: de-interleave index bits into x/y (even/odd bits).
+/// Produces a 4×4 complete Morton block (16 points, scale 8).
+pub fn morton_curve() -> Vec<Coord<i32>> {
+    let num_points = 16usize;
+    let scale = 8_i32;
+    let morton_bits = 4u32;
+    let mut curve = Vec::with_capacity(num_points);
+    for i in 0..num_points {
+        let i = i32::try_from(i).unwrap();
+        let mut x = 0_i32;
+        let mut y = 0_i32;
+        for b in 0..morton_bits {
+            x |= ((i >> (2 * b)) & 1) << b;
+            y |= ((i >> (2 * b + 1)) & 1) << b;
+        }
+        curve.push(crate::c(x * scale, y * scale));
+    }
+    curve
 }
