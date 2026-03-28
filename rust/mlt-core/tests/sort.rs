@@ -77,7 +77,7 @@ fn vertices_from_source(source: &TileLayer01) -> Vec<i32> {
     for f in &source.features {
         geom.push_geom(&f.geometry);
     }
-    geom.vertices.unwrap_or_default()
+    geom.vertices().unwrap_or_default().to_vec()
 }
 
 #[test]

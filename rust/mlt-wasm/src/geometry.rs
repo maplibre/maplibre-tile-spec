@@ -66,23 +66,19 @@ impl LayerGeometry {
     /// Build a [`LayerGeometry`] from a decoded [`GeometryValues`].
     pub(crate) fn from_values(geom: &GeometryValues) -> Self {
         let geometry_offsets = geom
-            .geometry_offsets
-            .as_deref()
+            .geometry_offsets()
             .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
 
         let part_offsets = geom
-            .part_offsets
-            .as_deref()
+            .part_offsets()
             .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
 
         let ring_offsets = geom
-            .ring_offsets
-            .as_deref()
+            .ring_offsets()
             .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
 
         let vertices = geom
-            .vertices
-            .as_deref()
+            .vertices()
             .map_or_else(|| Int32Array::new_with_length(0), Int32Array::from);
 
         Self {

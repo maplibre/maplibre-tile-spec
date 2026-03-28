@@ -211,12 +211,12 @@ fn build_features(
     props: &[&ParsedProperty],
     xf: Option<TileTransform>,
 ) -> PyResult<Vec<Py<MltFeature>>> {
-    let count = geom.vector_types.len();
+    let count = geom.vector_types().len();
     let mut features = Vec::with_capacity(count);
 
     for i in 0..count {
         let id = ids.and_then(|v| v.get(i).copied().flatten());
-        let gt = geom.vector_types[i];
+        let gt = geom.vector_types()[i];
 
         let wkb_bytes = geom_to_wkb(geom, i, xf).map_err(mlt_err)?;
         let wkb = PyBytes::new(py, &wkb_bytes).unbind();

@@ -3,15 +3,14 @@ use std::io;
 use std::io::Write;
 
 use integer_encoding::VarIntWriter as _;
-use utils::BinarySerializer as _;
 
 use crate::codecs::varint::parse_varint;
 use crate::frames::Unknown;
 use crate::frames::v01::Layer01;
-use crate::utils::{checked_sum2, parse_u8, take};
+use crate::utils::{BinarySerializer as _, checked_sum2, parse_u8, take};
 use crate::{
     DecodeState, Decoder, EncodedLayer, Layer, MltError, MltRefResult, MltResult, ParsedLayer,
-    Parser, utils,
+    Parser,
 };
 
 impl<'a, S: DecodeState> Layer<'a, S> {

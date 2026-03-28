@@ -20,13 +20,13 @@ pub struct RawGeometry<'a> {
 /// Parsed (decoded) geometry data
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct GeometryValues {
-    pub vector_types: Vec<GeometryType>,
-    pub geometry_offsets: Option<Vec<u32>>,
-    pub part_offsets: Option<Vec<u32>>,
-    pub ring_offsets: Option<Vec<u32>>,
-    pub index_buffer: Option<Vec<u32>>,
-    pub triangles: Option<Vec<u32>>,
-    pub vertices: Option<Vec<i32>>,
+    pub(crate) vector_types: Vec<GeometryType>,
+    pub(crate) geometry_offsets: Option<Vec<u32>>,
+    pub(crate) part_offsets: Option<Vec<u32>>,
+    pub(crate) ring_offsets: Option<Vec<u32>>,
+    pub(crate) index_buffer: Option<Vec<u32>>,
+    pub(crate) triangles: Option<Vec<u32>>,
+    pub(crate) vertices: Option<Vec<i32>>,
 }
 
 /// Wire-ready encoded geometry data (owns its byte buffers)

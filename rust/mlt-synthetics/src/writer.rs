@@ -24,8 +24,8 @@ pub type SynthResult<T> = Result<T, SynthErr>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SynthErr {
-    #[error("MLT error: {0}")]
-    Mlt(#[source] MltError),
+    #[error(transparent)]
+    Mlt(#[from] MltError),
     #[error("cannot read reference MLT file: {0}")]
     ReadRefMlt(#[source] std::io::Error),
     #[error("MLT mismatch: reference file {} does not match generated content. Content saved to -rust dir.", .0.display())]
