@@ -16,9 +16,7 @@ clap.workspace = true
 geo-types.workspace = true
 # Workspace pins mlt-core with default-features = false; synthetics need Earcut.
 mlt-core = { workspace = true, features = ["tessellate"] }
-pretty_assertions.workspace = true
 serde_json.workspace = true
-test_each_file.workspace = true
 thiserror.workspace = true
 
 [lints]
