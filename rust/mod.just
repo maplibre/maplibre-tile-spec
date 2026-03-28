@@ -57,8 +57,8 @@ ci-coverage: ci-env-info (just 'java::gen-snippets') (just 'cargo-install' 'carg
     # --no-clean preserves profdata accumulated by the synthetic generation run above
     # --doctests requires nightly (test job uses nightly toolchain) and may not be mixed with the main
     {{just}} rust::coverage '--no-clean'
-    # target coverage and docktest coverage cannot be mixed
-    cargo llvm-cov --doctests --no-clean --workspace --codecov --output-path target/llvm-cov/codecov.json
+    # target coverage and doctest coverage cannot be mixed
+    cargo llvm-cov --doctests --no-clean --workspace --lcov --output-path target/llvm-cov/lcov.info
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-check: ci-env-info check
