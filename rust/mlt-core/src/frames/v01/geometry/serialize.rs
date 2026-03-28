@@ -86,10 +86,3 @@ impl Debug for GeometryValues {
             .finish()
     }
 }
-
-impl GeometryValues {
-    #[must_use]
-    pub fn feature_count(&self) -> usize {
-        self.vector_types.len()
-    }
-}

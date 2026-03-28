@@ -147,7 +147,7 @@ impl EncodedProperty {
                 writer.write_stream(&s.data)?;
             }
             Self::Str(s) => {
-                let content = s.encoding.content_streams();
+                let content = s.encoding.streams();
                 let stream_count =
                     u32::try_from(content.len() + usize::from(s.presence.0.is_some()))?;
                 writer.write_varint(stream_count)?;

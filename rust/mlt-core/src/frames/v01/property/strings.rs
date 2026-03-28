@@ -476,11 +476,6 @@ impl<'a> RawPlainData<'a> {
             self.lengths.decode_u32s(dec)?,
         ))
     }
-
-    #[must_use]
-    pub fn streams(&self) -> Vec<&RawStream<'_>> {
-        vec![&self.lengths, &self.data]
-    }
 }
 
 impl EncodedPlainData {
@@ -529,16 +524,6 @@ impl<'a> RawFsstData<'a> {
     pub fn decode(self, dec: &mut Decoder) -> MltResult<(String, Vec<u32>)> {
         decode_fsst(self, dec)
     }
-
-    #[must_use]
-    pub fn streams(&self) -> Vec<&RawStream<'_>> {
-        vec![
-            &self.symbol_lengths,
-            &self.symbol_table,
-            &self.lengths,
-            &self.corpus,
-        ]
-    }
 }
 
 impl EncodedFsstData {
@@ -576,34 +561,12 @@ impl<'a> RawStringsEncoding<'a> {
         validate_stream!(offsets, StreamType::Offset(OffsetType::String));
         Ok(Self::FsstDictionary { fsst_data, offsets })
     }
-
-    /// Content streams in wire order.
-    #[must_use]
-    pub fn streams(&self) -> Vec<&RawStream<'_>> {
-        match self {
-            Self::Plain(plain_data) => plain_data.streams(),
-            Self::Dictionary {
-                plain_data,
-                offsets,
-            } => {
-                let mut streams = plain_data.streams();
-                streams.insert(1, offsets); // Offset stays here to preserve the current wire order.
-                streams
-            }
-            Self::FsstPlain(fsst_data) => fsst_data.streams(),
-            Self::FsstDictionary { fsst_data, offsets } => {
-                let mut streams = fsst_data.streams();
-                streams.push(offsets);
-                streams
-            }
-        }
-    }
 }
 
 impl EncodedStringsEncoding {
     /// Content streams only.
     #[must_use]
-    pub fn content_streams(&self) -> Vec<&EncodedStream> {
+    pub fn streams(&self) -> Vec<&EncodedStream> {
         match self {
             Self::Plain(plain_data) => plain_data.streams(),
             Self::Dictionary {
@@ -621,20 +584,6 @@ impl EncodedStringsEncoding {
                 streams
             }
         }
-    }
-
-    /// Streams in wire order.
-    #[must_use]
-    pub fn streams(&self) -> Vec<&EncodedStream> {
-        self.content_streams()
-    }
-}
-
-impl RawStrings<'_> {
-    /// Content streams in wire order.
-    #[must_use]
-    pub fn streams(&self) -> Vec<&RawStream<'_>> {
-        self.encoding.streams()
     }
 }
 
@@ -658,15 +607,6 @@ impl<'a> RawSharedDictEncoding<'a> {
     pub fn fsst_plain(fsst_data: RawFsstData<'a>) -> Self {
         Self::FsstPlain(fsst_data)
     }
-
-    /// Dict streams in wire order (for serialization).
-    #[must_use]
-    pub fn dict_streams(&self) -> Vec<&RawStream<'_>> {
-        match self {
-            Self::Plain(plain_data) => plain_data.streams(),
-            Self::FsstPlain(fsst_data) => fsst_data.streams(),
-        }
-    }
 }
 
 impl EncodedSharedDictEncoding {
@@ -676,14 +616,6 @@ impl EncodedSharedDictEncoding {
             Self::Plain(plain_data) => plain_data.streams(),
             Self::FsstPlain(fsst_data) => fsst_data.streams(),
         }
-    }
-}
-
-impl RawSharedDict<'_> {
-    /// Dict streams in wire order (for serialization).
-    #[must_use]
-    pub fn dict_streams(&self) -> Vec<&RawStream<'_>> {
-        self.encoding.dict_streams()
     }
 }
 
