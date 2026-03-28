@@ -73,7 +73,7 @@ flowchart TB
 
     subgraph DEC ["Decoding"]
         B["<b>Parser::parse_layers(&[u8])</b>
-        <i>Create zero-copy views into input bytes 
+        <i>Create zero-copy views into input bytes
         for each layer with almost no memory allocations</i>"]
 
         C["Layer&lt;Lazy>
@@ -83,7 +83,7 @@ flowchart TB
 
         D["decode_all()  — or per-column:
            decode_id() / decode_geometry() / decode_properties()
-           
+
            RawStream
            → physical codec: FastPFor · varint · byte-RLE
            → logical  codec: delta · zigzag · Morton · Hilbert
