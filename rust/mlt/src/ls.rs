@@ -574,7 +574,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
             data_size += layer01.collect_statistic(DecodedDataSize);
             meta_size += layer01.collect_statistic(DecodedMetaSize);
             feature_count += layer01.collect_statistic(FeatureCount);
-            for &geom_type in &layer01.geometry.vector_types {
+            for &geom_type in layer01.geometry.vector_types() {
                 geometries.insert(geom_type);
             }
         }

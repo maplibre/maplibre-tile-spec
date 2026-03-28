@@ -4,67 +4,17 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::Path;
 
-use geo::{Convert as _, TriangulateEarcut as _};
-use geo_types::{Coord, LineString, Polygon};
+use geo_types::Coord;
 use mlt_core::EncodedLayer;
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
-    GeometryEncoder, IdEncoder, IntEncoder, PresenceStream, PropertyEncoder, ScalarEncoder,
-    SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty,
-    StagedStrings, StrEncoder, TessellationMode, TileFeature, TileLayer01, VertexBufferType,
-    build_staged_shared_dict,
+    GeometryEncoder, GeometryValues, IdEncoder, IdValues, IntEncoder, PresenceStream,
+    PropertyEncoder, ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedLayer01,
+    StagedLayer01Encoder, StagedProperty, StagedStrings, StrEncoder, TessellationMode,
+    VertexBufferType, build_staged_shared_dict,
 };
 
 use crate::writer::{SynthErr, SynthResult};
-
-/// Tessellate a polygon using the geo crate's earcut algorithm.
-///
-/// Geo's earcut includes the closing vertex in each ring; MLT (and Java's `earcut4j`) omit it.
-/// We remap triangle indices so that any index referring to a ring's closing vertex is replaced
-/// by that ring's start index, producing identical index buffers to Java.
-fn tessellate_polygon(polygon: &Polygon<i32>) -> (Vec<u32>, u32) {
-    // Convert i32 polygon to f64 for tessellation (geo's TriangulateEarcut requires CoordFloat)
-    let polygon_f64: Polygon<f64> = polygon.convert();
-    let raw = polygon_f64.earcut_triangles_raw();
-    let num_triangles = u32::try_from(raw.triangle_indices.len() / 3).expect("too many triangles");
-
-    // Build remap: geo index -> MLT index (closing vertex of each ring -> ring start).
-    let mut geo_to_mlt = Vec::with_capacity(raw.vertices.len() / 2);
-    let mut mlt_offset = 0;
-
-    let mut push_ring = |ring: &LineString<i32>| {
-        let len = ring.0.len();
-        let mlt_len = if len > 1 && ring.0.first() == ring.0.last() {
-            len - 1
-        } else {
-            len
-        };
-        for i in 0..len {
-            geo_to_mlt.push(if i == len - 1 && mlt_len < len {
-                mlt_offset
-            } else {
-                mlt_offset + i
-            });
-        }
-        mlt_offset += mlt_len;
-    };
-
-    push_ring(polygon.exterior());
-    for interior in polygon.interiors() {
-        push_ring(interior);
-    }
-
-    let indices_u32: Vec<u32> = raw
-        .triangle_indices
-        .into_iter()
-        .map(|i| {
-            let mlt_idx = geo_to_mlt.get(i).copied().unwrap_or(i);
-            u32::try_from(mlt_idx).expect("index overflow")
-        })
-        .collect();
-
-    (indices_u32, num_triangles)
-}
 
 /// Create a layer with all geometry encoders set to `VarInt`.
 pub fn geo_varint() -> Layer {
@@ -273,29 +223,13 @@ impl Layer {
             None => (None, None),
         };
 
-        let tile = TileLayer01 {
-            name: "layer1".to_string(),
-            extent: extent.unwrap_or(80),
-            property_names: vec![],
-            features: geometry_items
-                .iter()
-                .enumerate()
-                .map(|(i, geom)| TileFeature {
-                    id: id_values
-                        .as_deref()
-                        .and_then(|v| v.get(i).copied().flatten()),
-                    geometry: geom.clone(),
-                    properties: vec![],
-                })
-                .collect(),
+        let mut geometry = match geometry_encoder.tessellation {
+            TessellationMode::Earcut => GeometryValues::new_tessellated(),
+            TessellationMode::None => GeometryValues::default(),
         };
-
-        // Convert geometry and IDs into columnar form via the TileLayer01 pipeline.
-        // Properties are assigned directly to avoid the lossy name-based reconstruction
-        // in rebuild_properties, which cannot faithfully round-trip all property shapes
-        // (single-child shared dicts, empty prefixes/suffixes, etc.).
-        let mut staged = StagedLayer01::from(tile);
-        staged.properties = properties;
+        for geom in &geometry_items {
+            geometry.push_geom(geom);
+        }
 
         let encoder = StagedLayer01Encoder {
             id: id_encoder,
@@ -303,57 +237,14 @@ impl Layer {
             properties: prop_encoders,
         };
 
-        // Apply Earcut tessellation on top of the geometry values built by From<TileLayer01>.
-        // The tessellation index buffer and triangle counts are appended per-feature.
-        if geometry_encoder.tessellation == TessellationMode::Earcut {
-            for g in &geometry_items {
-                match g {
-                    Geom32::Polygon(poly) => {
-                        let (indices, num_triangles) = tessellate_polygon(poly);
-                        staged
-                            .geometry
-                            .index_buffer
-                            .get_or_insert_with(Vec::new)
-                            .extend(indices);
-                        staged
-                            .geometry
-                            .triangles
-                            .get_or_insert_with(Vec::new)
-                            .push(num_triangles);
-                    }
-                    Geom32::MultiPolygon(mp) => {
-                        let mut total_triangles = 0u32;
-                        let mut vertex_offset = 0u32;
-                        for poly in &mp.0 {
-                            let (indices, num_triangles) = tessellate_polygon(poly);
-                            total_triangles += num_triangles;
-                            staged
-                                .geometry
-                                .index_buffer
-                                .get_or_insert_with(Vec::new)
-                                .extend(indices.iter().map(|&i| i + vertex_offset));
-                            // Count vertices (exterior + interiors, minus closing vertices)
-                            let ext_verts = poly.exterior().0.len().saturating_sub(1);
-                            let int_verts: usize = poly
-                                .interiors()
-                                .iter()
-                                .map(|r| r.0.len().saturating_sub(1))
-                                .sum();
-                            vertex_offset +=
-                                u32::try_from(ext_verts + int_verts).expect("vertex overflow");
-                        }
-                        staged
-                            .geometry
-                            .triangles
-                            .get_or_insert_with(Vec::new)
-                            .push(total_triangles);
-                    }
-                    _ => {}
-                }
-            }
+        let encoded_layer = StagedLayer01 {
+            name: "layer1".to_string(),
+            extent: extent.unwrap_or(80),
+            id: id_values.map(IdValues),
+            geometry,
+            properties,
         }
-
-        let encoded_layer = staged.encode(encoder).map_err(SynthErr::Mlt)?;
+        .encode(encoder)?;
 
         let mut buffer = Vec::new();
         EncodedLayer::Tag01(encoded_layer)

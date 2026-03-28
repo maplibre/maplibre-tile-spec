@@ -67,7 +67,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
 
         // Build types_array from vector_types.
         let types_bytes: Vec<u8> = parsed_geometry
-            .vector_types
+            .vector_types()
             .iter()
             .map(|t| match t {
                 GeometryType::Point | GeometryType::MultiPoint => 1,

@@ -1,5 +1,8 @@
 use std::ops::Range;
 
+// geo crate is not supported with WASM until next version
+#[cfg(feature = "tessellate")]
+use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 
 use crate::MltError::{
@@ -50,7 +53,104 @@ impl TryFrom<&Geom32> for GeometryType {
     }
 }
 
+/// Run the Earcut algorithm on `polygon`, append the remapped triangle indices (shifted by
+/// `vertex_offset`) into `index_buf`, and return the number of triangles produced.
+///
+/// Geo's earcut includes the closing vertex of each ring; MLT (and Java's `earcut4j`) omit it.
+/// Any index that would refer to a ring's closing vertex is remapped to that ring's start index,
+/// producing identical index buffers to Java.
+#[cfg(feature = "tessellate")]
+fn earcut_into(polygon: &Polygon<i32>, vertex_offset: u32, index_buf: &mut Vec<u32>) -> u32 {
+    let polygon_f64: Polygon<f64> = polygon.convert();
+    let raw = polygon_f64.earcut_triangles_raw();
+    let num_triangles = u32::try_from(raw.triangle_indices.len() / 3).expect("too many triangles");
+
+    let mut geo_to_mlt = Vec::with_capacity(raw.vertices.len() / 2);
+    let mut mlt_offset = 0usize;
+
+    let mut push_ring = |ring: &LineString<i32>| {
+        let len = ring.0.len();
+        let mlt_len = if len > 1 && ring.0.first() == ring.0.last() {
+            len - 1
+        } else {
+            len
+        };
+        for i in 0..len {
+            geo_to_mlt.push(if i == len - 1 && mlt_len < len {
+                mlt_offset
+            } else {
+                mlt_offset + i
+            });
+        }
+        mlt_offset += mlt_len;
+    };
+
+    push_ring(polygon.exterior());
+    for interior in polygon.interiors() {
+        push_ring(interior);
+    }
+
+    for i in raw.triangle_indices {
+        let mlt_idx = geo_to_mlt.get(i).copied().unwrap_or(i);
+        let base = u32::try_from(mlt_idx).expect("mlt vertex index overflow");
+        let idx = base
+            .checked_add(vertex_offset)
+            .expect("vertex index overflow");
+        index_buf.push(idx);
+    }
+
+    num_triangles
+}
+
 impl GeometryValues {
+    /// Geometry types for each feature, in insertion order.
+    #[must_use]
+    pub fn vector_types(&self) -> &[GeometryType] {
+        &self.vector_types
+    }
+
+    /// Cumulative offsets into `part_offsets` for multi-geometry types.
+    /// `None` when no multi-geometry features are present.
+    #[must_use]
+    pub fn geometry_offsets(&self) -> Option<&[u32]> {
+        self.geometry_offsets.as_deref()
+    }
+
+    /// Cumulative offsets into `ring_offsets` (or directly into `vertices`
+    /// for `LineString` layers without rings).
+    /// `None` for pure `Point` layers.
+    #[must_use]
+    pub fn part_offsets(&self) -> Option<&[u32]> {
+        self.part_offsets.as_deref()
+    }
+
+    /// Cumulative offsets into the vertex buffer (counting whole vertices).
+    /// `None` when no ring-level indirection is needed.
+    #[must_use]
+    pub fn ring_offsets(&self) -> Option<&[u32]> {
+        self.ring_offsets.as_deref()
+    }
+
+    /// Triangle index buffer produced by Earcut tessellation.
+    /// `None` unless the `GeometryValues` was created with [`Self::new_tessellated`].
+    #[must_use]
+    pub fn index_buffer(&self) -> Option<&[u32]> {
+        self.index_buffer.as_deref()
+    }
+
+    /// Per-feature triangle counts produced by Earcut tessellation.
+    /// `None` unless the `GeometryValues` was created with [`Self::new_tessellated`].
+    #[must_use]
+    pub fn triangles(&self) -> Option<&[u32]> {
+        self.triangles.as_deref()
+    }
+
+    /// Flat vertex buffer: `[x0, y0, x1, y1, …]` in tile coordinates.
+    #[must_use]
+    pub fn vertices(&self) -> Option<&[i32]> {
+        self.vertices.as_deref()
+    }
+
     /// Build a `GeoJSON` geometry for a single feature at index `i`.
     /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec
     /// (MLT omits the closing vertex).
@@ -190,6 +290,71 @@ impl GeometryValues {
             }
         }
     }
+}
+
+impl GeometryValues {
+    /// Returns a [`GeometryValues`] with an empty `triangles` buffer pre-initialized.
+    ///
+    /// When `triangles` is `Some`, polygon push methods automatically compute and store
+    /// Earcut tessellation data as geometries are added.
+    /// Use [`Self::default`] when tessellation is not required.
+    #[must_use]
+    pub fn new_tessellated() -> Self {
+        Self {
+            triangles: Some(vec![]),
+            ..Default::default()
+        }
+    }
+
+    /// Tessellate `polygon` using the Earcut algorithm and append the results directly into
+    /// `self.index_buffer` and `self.triangles`.
+    ///
+    /// Geo's earcut includes the closing vertex in each ring; MLT (and Java's `earcut4j`) omit it.
+    /// Triangle indices that would refer to a ring's closing vertex are remapped to that ring's
+    /// start index, producing identical index buffers to Java's `earcut4j`.
+    ///
+    /// The per-feature triangle count is pushed into `self.triangles`.
+    #[cfg(feature = "tessellate")]
+    fn tessellate_polygon(&mut self, polygon: &Polygon<i32>) {
+        if let Some(triangles) = self.triangles.as_mut() {
+            let val = earcut_into(polygon, 0, self.index_buffer.get_or_insert_with(Vec::new));
+            triangles.push(val);
+        }
+    }
+    #[cfg(not(feature = "tessellate"))]
+    #[allow(unused_variables, clippy::unused_self)]
+    fn tessellate_polygon(&mut self, polygon: &Polygon<i32>) {}
+
+    /// Tessellate all polygons in `mp` and append the combined results into
+    /// `self.index_buffer` and `self.triangles`.
+    ///
+    /// Indices for each constituent polygon are offset by the cumulative vertex count of all
+    /// preceding polygons so they reference the correct positions in the shared vertex buffer.
+    /// A single total triangle count (summed over all constituent polygons) is pushed into
+    /// `self.triangles`.
+    #[cfg(feature = "tessellate")]
+    fn tessellate_multi_polygon(&mut self, mp: &MultiPolygon<i32>) {
+        if let Some(triangles) = self.triangles.as_mut() {
+            let mut total_triangles = 0u32;
+            let mut vertex_offset = 0u32;
+            let index_buffer = self.index_buffer.get_or_insert_with(Vec::new);
+            for poly in &mp.0 {
+                total_triangles += earcut_into(poly, vertex_offset, index_buffer);
+                let ext_verts = poly.exterior().0.len().saturating_sub(1);
+                let int_verts: usize = poly
+                    .interiors()
+                    .iter()
+                    .map(|r| r.0.len().saturating_sub(1))
+                    .sum();
+                vertex_offset += u32::try_from(ext_verts + int_verts).expect("vertex overflow");
+            }
+            triangles.push(total_triangles);
+        }
+    }
+
+    #[cfg(not(feature = "tessellate"))]
+    #[allow(unused_variables, clippy::unused_self)]
+    fn tessellate_multi_polygon(&mut self, _mp: &MultiPolygon<i32>) {}
 
     /// Add a geometry to this decoded geometry collection.
     /// This is the reverse of `to_geojson` - it converts a `Geom32`
@@ -258,6 +423,7 @@ impl GeometryValues {
         let parts = self.part_offsets.as_mut().unwrap();
 
         push_polygon_rings(poly, verts, rings, parts);
+        self.tessellate_polygon(poly);
     }
 
     /// Initialize offset arrays for polygon storage. On the first polygon,
@@ -312,6 +478,7 @@ impl GeometryValues {
         }
 
         self.push_geometry_count(u32::try_from(mp.0.len()).expect("polygon count overflow"));
+        self.tessellate_multi_polygon(mp);
     }
 
     /// Initialize and update `geometry_offsets` with a sub-geometry count.
@@ -716,5 +883,54 @@ mod tests {
 
         let geom = decoded.to_geojson(0).unwrap();
         assert_eq!(geom, wkt!(LINESTRING(0 0,4 0,0 4,4 0)).into());
+    }
+}
+
+#[cfg(all(test, feature = "tessellate"))]
+mod tessellation_tests {
+    use geo_types::{LineString, MultiPolygon, Polygon};
+
+    use crate::geojson::Geom32;
+    use crate::v01::GeometryValues;
+
+    #[test]
+    fn earcut_closing_vertex_index_remap() {
+        let exterior = LineString::from(vec![(0_i32, 0), (10, 0), (10, 10), (0, 10), (0, 0)]);
+        let polygon = Polygon::new(exterior, vec![]);
+        let mut g = GeometryValues::new_tessellated();
+        g.push_geom(&Geom32::Polygon(polygon));
+        let tris = g.triangles().expect("triangles");
+        let n = tris[0];
+        assert!(n > 0, "expected at least one triangle");
+        let ib = g.index_buffer().expect("index buffer");
+        assert_eq!(ib.len(), usize::try_from(n).unwrap() * 3);
+        // 4 unique (non-closing) vertices → indices in 0..4
+        assert!(ib.iter().all(|&i| i < 4));
+    }
+
+    #[test]
+    fn earcut_vertex_offset_for_multi_polygon_parts() {
+        let exterior1 = LineString::from(vec![(0_i32, 0), (10, 0), (10, 10), (0, 10), (0, 0)]);
+        let poly1 = Polygon::new(exterior1, vec![]);
+        let exterior2 = LineString::from(vec![(20, 0), (30, 0), (30, 10), (20, 10), (20, 0)]);
+        let poly2 = Polygon::new(exterior2, vec![]);
+        let mut g = GeometryValues::new_tessellated();
+        g.push_geom(&Geom32::MultiPolygon(MultiPolygon(vec![poly1, poly2])));
+        let ib = g.index_buffer().expect("index buffer");
+        let tris = g.triangles().expect("triangles");
+        assert_eq!(tris.len(), 1);
+        let total = usize::try_from(tris[0]).unwrap();
+        assert_eq!(ib.len(), total * 3);
+        // First quad: 4 verts → 2 triangles, 6 indices
+        let split = 6;
+        let (first, second) = ib.split_at(split);
+        assert!(
+            first.iter().all(|&i| i < 4),
+            "first polygon indices should reference verts 0..4: {first:?}"
+        );
+        assert!(
+            second.iter().all(|&i| (4..8).contains(&i)),
+            "second polygon indices should reference verts 4..8: {second:?}"
+        );
     }
 }
