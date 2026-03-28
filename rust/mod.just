@@ -18,30 +18,26 @@ just *args:
 # Run integration tests and save its output as the new expected output
 bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack')
     cargo hack insta test --accept --unreferenced=delete --each-feature \
-        --package mlt-core \
-        --exclude-no-default-features --exclude-all-features \
+        --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
 
 # Run benchmarks
 bench *args: (just 'cargo-install' 'cargo-hack')
     cargo hack bench --all-targets --each-feature \
-        --package mlt-core \
-        --exclude-no-default-features --exclude-all-features \
+        --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
 
 alias b := build
 # Build the project
 build: (just 'cargo-install' 'cargo-hack')
     cargo hack build --all-targets --each-feature \
-        --workspace \
-        --exclude-no-default-features --exclude-all-features
+        --workspace --exclude-no-default-features --exclude-all-features
 
 alias c := check
 # Quick compile without building a binary
 check: (just 'cargo-install' 'cargo-hack')
     cargo hack check --all-targets --each-feature \
-        --workspace \
-        --exclude-no-default-features --exclude-all-features
+        --workspace --exclude-no-default-features --exclude-all-features
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
@@ -62,7 +58,7 @@ ci-coverage: ci-env-info (just 'java::gen-snippets') (just 'cargo-install' 'carg
     # --doctests requires nightly (test job uses nightly toolchain) and may not be mixed with the main
     {{just}} rust::coverage '--no-clean'
     # target coverage and docktest coverage cannot be mixed
-    cargo llvm-cov --doctests --no-clean --workspace --codecov --output-path target/llvm-cov/codecov.info
+    cargo llvm-cov --doctests --no-clean --workspace --codecov --output-path target/llvm-cov/codecov.json
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-check: ci-env-info check
@@ -161,16 +157,14 @@ clean:
 # Run cargo clippy to lint the code
 clippy *args: (just 'cargo-install' 'cargo-hack')
     cargo hack clippy --all-targets --each-feature \
-        --workspace \
-        --exclude-no-default-features --exclude-all-features \
+        --workspace --exclude-no-default-features --exclude-all-features \
         {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
 # Generate code coverage report. Installs `cargo llvm-cov`
 coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov')
     cargo hack llvm-cov --all-targets --each-feature \
-        --workspace \
-        --exclude-no-default-features --exclude-all-features \
+        --workspace --exclude-no-default-features --exclude-all-features \
         --include-build-script {{args}}
 
 # Build and open code documentation
@@ -265,8 +259,7 @@ release *args='': (just 'cargo-install' 'release-plz')
 # Check semver compatibility with prior published version
 semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install' 'cargo-hack')
     cargo hack semver-checks --each-feature \
-        --package mlt-core \
-        --exclude-no-default-features --exclude-all-features \
+        --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
 
 # Regenerate the Python type stub for mlt-py
@@ -300,8 +293,7 @@ alias t := test
 # Run all tests
 test: (just 'cargo-install' 'cargo-hack')
     cargo hack test --all-targets --each-feature \
-        --workspace \
-        --exclude-no-default-features --exclude-all-features
+        --workspace --exclude-no-default-features --exclude-all-features
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
 
@@ -318,10 +310,8 @@ test-publish:
     cargo publish --workspace --dry-run
 
 # Find unused dependencies
-udeps: (just 'cargo-install' 'cargo-udeps') (just 'cargo-install' 'cargo-hack')
-    cargo hack +nightly udeps --all-targets --each-feature \
-        --workspace \
-        --exclude-no-default-features --exclude-all-features
+udeps: (just 'cargo-install' 'cargo-udeps')
+    cargo +nightly udeps --all-targets --workspace --all-features
 
 # Update all dependencies, including breaking changes
 update:

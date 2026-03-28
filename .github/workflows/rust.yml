@@ -39,7 +39,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report
-          path: rust/target/llvm-cov/codecov.info
+          path: rust/target/llvm-cov/codecov.json
       - run: just -v assert-git-is-clean
 
   test-wasm:
