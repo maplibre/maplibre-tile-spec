@@ -11,9 +11,9 @@
 
 use crate::errors::AsMltError as _;
 use crate::v01::{
-    GeometryValues, IdValues, Layer01, ParsedLayer01, PropValue, PropValueRef, StagedLayer01,
-    StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, TileFeature, TileLayer01,
-    build_staged_shared_dict,
+    GeometryValues, IdValues, Layer01, ParsedLayer01, ParsedProperty, PropValue, PropValueRef,
+    StagedLayer01, StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, TileFeature,
+    TileLayer01, build_staged_shared_dict,
 };
 use crate::{Decoder, MltResult};
 
@@ -22,12 +22,16 @@ impl ParsedLayer01<'_> {
     /// heap allocation against `dec`.
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer01> {
         let names: Vec<String> = self.iterate_prop_names().map(|n| n.to_string()).collect();
+        let col_nulls = typed_nulls(&self.properties);
         let mut features = dec.alloc::<TileFeature>(self.feature_count())?;
         for feat in self.iter_features() {
             let feat = feat?;
             let mut values = dec.alloc::<PropValue>(names.len())?;
-            for value in feat.iter_all_properties() {
-                values.push(prop_value_from_ref(value));
+            for (col_idx, value) in feat.iter_all_properties().enumerate() {
+                values.push(match value {
+                    Some(v) => prop_value_from_ref(v),
+                    None => col_nulls[col_idx].clone(),
+                });
             }
 
             charge_str_props(dec, &values)?;
@@ -60,27 +64,53 @@ impl Layer01<'_> {
     }
 }
 
-/// Convert an [`Option<PropValueRef>`] (as yielded by [`crate::v01::FeatureRef::iter_all_properties`])
+/// Convert a [`PropValueRef`] (as yielded by [`crate::v01::FeatureRef::iter_all_properties`])
 /// into an owned [`PropValue`].
-///
-/// Null slots (`None`) produce `PropValue::Str(None)` as an untyped placeholder.
-/// `rebuild_scalar_column` skips these placeholders when inferring the column type from the first
-/// non-null value, so the round-trip is correct as long as at least one feature per column is
-/// non-null.
-fn prop_value_from_ref(value: Option<PropValueRef<'_>>) -> PropValue {
+fn prop_value_from_ref(value: PropValueRef<'_>) -> PropValue {
     match value {
-        Some(PropValueRef::Bool(v)) => PropValue::Bool(Some(v)),
-        Some(PropValueRef::I8(v)) => PropValue::I8(Some(v)),
-        Some(PropValueRef::U8(v)) => PropValue::U8(Some(v)),
-        Some(PropValueRef::I32(v)) => PropValue::I32(Some(v)),
-        Some(PropValueRef::U32(v)) => PropValue::U32(Some(v)),
-        Some(PropValueRef::I64(v)) => PropValue::I64(Some(v)),
-        Some(PropValueRef::U64(v)) => PropValue::U64(Some(v)),
-        Some(PropValueRef::F32(v)) => PropValue::F32(Some(v)),
-        Some(PropValueRef::F64(v)) => PropValue::F64(Some(v)),
-        Some(PropValueRef::Str(s)) => PropValue::Str(Some(s.to_string())),
-        None => PropValue::Str(None),
+        PropValueRef::Bool(v) => PropValue::Bool(Some(v)),
+        PropValueRef::I8(v) => PropValue::I8(Some(v)),
+        PropValueRef::U8(v) => PropValue::U8(Some(v)),
+        PropValueRef::I32(v) => PropValue::I32(Some(v)),
+        PropValueRef::U32(v) => PropValue::U32(Some(v)),
+        PropValueRef::I64(v) => PropValue::I64(Some(v)),
+        PropValueRef::U64(v) => PropValue::U64(Some(v)),
+        PropValueRef::F32(v) => PropValue::F32(Some(v)),
+        PropValueRef::F64(v) => PropValue::F64(Some(v)),
+        PropValueRef::Str(s) => PropValue::Str(Some(s.to_string())),
     }
+}
+
+/// Build a flat list of typed null [`PropValue`]s, one per logical column position
+/// as yielded by [`crate::v01::FeatureRef::iter_all_properties`].
+///
+/// Each scalar column contributes one entry with its specific null variant (e.g.
+/// `PropValue::Bool(None)`).  A `SharedDict` column expands to one `PropValue::Str(None)`
+/// entry per sub-item.
+fn typed_nulls(properties: &[ParsedProperty<'_>]) -> Vec<PropValue> {
+    use ParsedProperty as PP;
+    use PropValue as PV;
+    let mut nulls = Vec::new();
+    for prop in properties {
+        match prop {
+            PP::Bool(_) => nulls.push(PV::Bool(None)),
+            PP::I8(_) => nulls.push(PV::I8(None)),
+            PP::U8(_) => nulls.push(PV::U8(None)),
+            PP::I32(_) => nulls.push(PV::I32(None)),
+            PP::U32(_) => nulls.push(PV::U32(None)),
+            PP::I64(_) => nulls.push(PV::I64(None)),
+            PP::U64(_) => nulls.push(PV::U64(None)),
+            PP::F32(_) => nulls.push(PV::F32(None)),
+            PP::F64(_) => nulls.push(PV::F64(None)),
+            PP::Str(_) => nulls.push(PV::Str(None)),
+            PP::SharedDict(d) => {
+                for _ in &d.items {
+                    nulls.push(PV::Str(None));
+                }
+            }
+        }
+    }
+    nulls
 }
 
 // ── TileLayer01 → StagedLayer01 ─────────────────────────────────────────────
@@ -177,15 +207,11 @@ fn split_prefix(name: &str) -> (Option<&str>, &str) {
 }
 
 fn rebuild_scalar_column(name: &str, col: usize, features: &[TileFeature]) -> StagedProperty {
-    // Determine the variant by looking at the first non-null feature value.
-    // `PropValue::Str(None)` is the untyped null placeholder emitted by `prop_value_from_ref`
-    // for slots whose type could not be determined at conversion time; skip those.
-    // Fall back to Str if all values are None or the column is empty.
-    let first_val = features.iter().find_map(|f| {
-        f.properties
-            .get(col)
-            .filter(|v| !matches!(v, PropValue::Str(None)))
-    });
+    // Determine the variant by peeking at the first feature value.
+    // Typed nulls (e.g. `PropValue::Bool(None)`) already carry the column type,
+    // so no filtering is needed; only a fully-absent column returns `None` here.
+    // Fall back to `Str` if every feature has no value for this column.
+    let first_val = features.iter().find_map(|f| f.properties.get(col));
 
     macro_rules! scalar_col {
         ($variant:ident, $ty:ty, $sv:ident) => {{
@@ -267,8 +293,6 @@ fn rebuild_shared_dict(
         .expect("rebuild_shared_dict should always succeed for valid feature data")
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 /// Charge `dec` for the heap bytes of owned `String` values inside `PropValue::Str`.
 fn charge_str_props(dec: &mut Decoder, props: &[PropValue]) -> MltResult<()> {
     let str_bytes = props
@@ -288,4 +312,103 @@ fn charge_str_props(dec: &mut Decoder, props: &[PropValue]) -> MltResult<()> {
         dec.consume(str_bytes)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use geo_types::Point;
+
+    use super::*;
+    use crate::geojson::Geom32;
+    use crate::test_helpers::{dec, parser};
+    use crate::v01::{GeometryValues, StagedLayer01, StagedProperty};
+    use crate::{EncodedLayer, Layer};
+
+    fn layer_tile(staged: StagedLayer01) -> TileLayer01 {
+        let (enc, _) = staged.encode_auto().unwrap();
+        let mut buf = Vec::new();
+        EncodedLayer::Tag01(enc).write_to(&mut buf).unwrap();
+        let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
+        let Layer::Tag01(lazy) = layer else { panic!() };
+        let mut d = dec();
+        lazy.decode_all(&mut d).unwrap().into_tile(&mut d).unwrap()
+    }
+
+    fn two_points() -> GeometryValues {
+        let mut g = GeometryValues::default();
+        g.push_geom(&Geom32::Point(Point::new(0, 0)));
+        g.push_geom(&Geom32::Point(Point::new(1, 1)));
+        g
+    }
+
+    /// `into_tile` must produce a **typed** null (e.g. `PropValue::Bool(None)`)
+    /// for null slots, matching the column's actual type, even when the **first**
+    /// feature is null.
+    #[test]
+    fn null_first_feature_preserves_later_typed_value() {
+        let tile = layer_tile(StagedLayer01 {
+            name: "t".into(),
+            extent: 4096,
+            id: None,
+            geometry: two_points(),
+            properties: vec![StagedProperty::bool("flag", vec![None, Some(false)])],
+        });
+
+        assert_eq!(tile.property_names, vec!["flag"]);
+        // Null slot → typed null matching the column type
+        assert_eq!(tile.features[0].properties[0], PropValue::Bool(None));
+        // Non-null value after the null must not be dropped
+        assert_eq!(tile.features[1].properties[0], PropValue::Bool(Some(false)));
+    }
+
+    /// Every scalar type must produce a typed null for null slots and a typed
+    /// non-null value for present slots, even when the first feature is null.
+    #[test]
+    fn null_first_feature_across_types() {
+        let props = vec![
+            StagedProperty::bool("b", vec![None, Some(true)]),
+            StagedProperty::i8("i8", vec![None, Some(-1)]),
+            StagedProperty::u8("u8", vec![None, Some(2)]),
+            StagedProperty::i32("i32", vec![None, Some(-3)]),
+            StagedProperty::u32("u32", vec![None, Some(4)]),
+            StagedProperty::i64("i64", vec![None, Some(-5)]),
+            StagedProperty::u64("u64", vec![None, Some(6)]),
+            StagedProperty::f32("f32", vec![None, Some(7.0)]),
+            StagedProperty::f64("f64", vec![None, Some(8.0)]),
+            StagedProperty::str("s", vec![None, Some("ok".into())]),
+        ];
+        let tile = layer_tile(StagedLayer01 {
+            name: "t".into(),
+            extent: 4096,
+            id: None,
+            geometry: two_points(),
+            properties: props,
+        });
+
+        // Feature 0: every column is null → typed null for each column
+        let n = &tile.features[0].properties;
+        assert_eq!(n[0], PropValue::Bool(None));
+        assert_eq!(n[1], PropValue::I8(None));
+        assert_eq!(n[2], PropValue::U8(None));
+        assert_eq!(n[3], PropValue::I32(None));
+        assert_eq!(n[4], PropValue::U32(None));
+        assert_eq!(n[5], PropValue::I64(None));
+        assert_eq!(n[6], PropValue::U64(None));
+        assert_eq!(n[7], PropValue::F32(None));
+        assert_eq!(n[8], PropValue::F64(None));
+        assert_eq!(n[9], PropValue::Str(None));
+
+        // Feature 1: every column has its typed non-null value
+        let p = &tile.features[1].properties;
+        assert_eq!(p[0], PropValue::Bool(Some(true)));
+        assert_eq!(p[1], PropValue::I8(Some(-1)));
+        assert_eq!(p[2], PropValue::U8(Some(2)));
+        assert_eq!(p[3], PropValue::I32(Some(-3)));
+        assert_eq!(p[4], PropValue::U32(Some(4)));
+        assert_eq!(p[5], PropValue::I64(Some(-5)));
+        assert_eq!(p[6], PropValue::U64(Some(6)));
+        assert_eq!(p[7], PropValue::F32(Some(7.0)));
+        assert_eq!(p[8], PropValue::F64(Some(8.0)));
+        assert_eq!(p[9], PropValue::Str(Some("ok".into())));
+    }
 }

@@ -158,9 +158,7 @@ macro_rules! integer_roundtrip_proptests {
                 );
                 prop_assert_eq!(&tile.property_names, &["x"]);
                 for (i, ov) in values.into_iter().enumerate() {
-                    let expected = ov
-                        .map_or(PropValue::Str(None), |x| PropValue::$variant(Some(x)));
-                    prop_assert_eq!(&tile.features[i].properties[0], &expected);
+                    prop_assert_eq!(&tile.features[i].properties[0], &PropValue::$variant(ov));
                 }
             }
 
@@ -216,8 +214,7 @@ fn bool_specific_values() {
     );
     assert_eq!(tile.property_names, vec!["active"]);
     for (i, ov) in values.into_iter().enumerate() {
-        let expected = ov.map_or(PropValue::Str(None), |v| PropValue::Bool(Some(v)));
-        assert_eq!(&tile.features[i].properties[0], &expected);
+        assert_eq!(&tile.features[i].properties[0], &PropValue::Bool(ov));
     }
 }
 
@@ -236,7 +233,7 @@ fn bool_all_null() {
     assert!(
         tile.features
             .iter()
-            .all(|f| f.properties[0] == PropValue::Str(None))
+            .all(|f| f.properties[0] == PropValue::Bool(None))
     );
 }
 
@@ -251,8 +248,7 @@ proptest! {
         );
         prop_assert_eq!(&tile.property_names, &["flag"]);
         for (i, ov) in values.into_iter().enumerate() {
-            let expected = ov.map_or(PropValue::Str(None), |v| PropValue::Bool(Some(v)));
-            prop_assert_eq!(&tile.features[i].properties[0], &expected);
+            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Bool(ov));
         }
     }
 }
@@ -272,8 +268,7 @@ proptest! {
         );
         prop_assert_eq!(&tile.property_names, &["score"]);
         for (i, ov) in values.into_iter().enumerate() {
-            let expected = ov.map_or(PropValue::Str(None), |v| PropValue::F32(Some(v)));
-            prop_assert_eq!(&tile.features[i].properties[0], &expected);
+            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::F32(ov));
         }
     }
 
@@ -290,8 +285,7 @@ proptest! {
         );
         prop_assert_eq!(&tile.property_names, &["score"]);
         for (i, ov) in values.into_iter().enumerate() {
-            let expected = ov.map_or(PropValue::Str(None), |v| PropValue::F64(Some(v)));
-            prop_assert_eq!(&tile.features[i].properties[0], &expected);
+            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::F64(ov));
         }
     }
 }
@@ -604,6 +598,37 @@ fn struct_instruction_count_mismatch() {
         ),
         "unexpected error: {err}"
     );
+}
+
+#[test]
+fn lazy_layer01_iterate_prop_names_returns_column_names() {
+    // Encode a layer with a scalar column and a two-key SharedDict column.
+    let bytes = encode_to_bytes(
+        vec![
+            StagedProperty::u32("pop", vec![Some(1_000), Some(2_000)]),
+            shared_dict_prop(
+                "addr:",
+                vec![
+                    col("city", strs(&["Berlin", "Rome"])),
+                    col("zip", strs(&["10115", "00100"])),
+                ],
+            ),
+        ],
+        vec![
+            PropertyEncoder::Scalar(ScalarEncoder::int(
+                PresenceStream::Present,
+                IntEncoder::varint(),
+            )),
+            plain_enc(),
+        ],
+    );
+
+    // Parse as a lazy Layer01 — no column data decoded yet.
+    let layer = Layer01::from_bytes(&bytes, &mut parser()).expect("parse failed");
+
+    // iterate_prop_names works on the lazy layer before any decoding.
+    let names: Vec<String> = layer.iterate_prop_names().map(|n| n.to_string()).collect();
+    assert_eq!(names, ["pop", "addr:city", "addr:zip"]);
 }
 
 proptest! {

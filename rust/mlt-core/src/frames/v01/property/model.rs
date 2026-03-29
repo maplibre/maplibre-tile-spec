@@ -411,7 +411,7 @@ pub struct StagedScalar<T: Copy + PartialEq> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedStrings {
     pub(crate) name: String,
-    /// Per-feature cumulative end offsets into `data` (same encoding as [`ParsedStrings::lengths`]).
+    /// Per-feature cumulative end offsets into `data` (same encoding as `ParsedStrings::lengths`).
     pub lengths: Vec<i32>,
     pub(crate) data: String,
 }
