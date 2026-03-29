@@ -139,7 +139,7 @@ fn geom32_to_wkb(geom: &Geom32, xf: Option<TileTransform>) -> MltResult<Vec<u8>>
     Ok(buf)
 }
 
-fn prop_value_ref_to_py(py: Python<'_>, v: PropValueRef<'_>) -> Py<PyAny> {
+fn prop_value_to_py(py: Python<'_>, v: PropValueRef<'_>) -> Py<PyAny> {
     match v {
         PropValueRef::Bool(b) => b.into_pyobject(py).unwrap().to_owned().into_any().unbind(),
         PropValueRef::I8(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
@@ -168,13 +168,11 @@ fn build_features(
         let wkb_bytes = geom32_to_wkb(&feat.geometry, xf).map_err(mlt_err)?;
         let wkb = PyBytes::new(py, &wkb_bytes).unbind();
         let prop_dict = PyDict::new(py);
-        for col in feat.iter_properties() {
-            prop_dict.set_item(col.name.to_string(), prop_value_ref_to_py(py, col.value))?;
+        for p in feat.iter_properties() {
+            prop_dict.set_item(p.name.to_string(), prop_value_to_py(py, p.value))?;
         }
-        features.push(Py::new(
-            py,
-            MltFeature::new(feat.id, geometry_type, wkb, prop_dict.unbind()),
-        )?);
+        let feature = MltFeature::new(feat.id, geometry_type, wkb, prop_dict.unbind());
+        features.push(Py::new(py, feature)?);
     }
     Ok(features)
 }

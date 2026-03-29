@@ -104,9 +104,6 @@ fn n_point_geometry(n: usize) -> GeometryValues {
 }
 
 /// Encode `props` as a layer with matching point geometry and return the raw bytes.
-///
-/// The feature count is derived from the first property's length, so all properties
-/// must describe the same number of features.
 fn encode_to_bytes(props: Vec<StagedProperty>, encoders: Vec<PropertyEncoder>) -> Vec<u8> {
     let n = props.iter().map(staged_len).max().unwrap_or(0);
     let layer = StagedLayer01 {
