@@ -10,13 +10,14 @@ use crate::codecs::fsst::decode_fsst;
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 use crate::v01::{
-    ColumnType, DictionaryType, EncodedFsstData, EncodedName, EncodedPlainData, EncodedPresence,
-    EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedSharedDictItem,
-    EncodedStream, EncodedStrings, EncodedStringsEncoding, FsstStrEncoder, IntEncoder, LengthType,
-    OffsetType, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, PresenceStream,
-    PropertyEncoder, RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictEncoding,
-    RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding, SharedDictEncoder,
-    StagedSharedDict, StagedSharedDictItem, StagedStrings, StrEncoder, StreamType,
+    ColumnRef, ColumnType, DictionaryType, EncodedFsstData, EncodedName, EncodedPlainData,
+    EncodedPresence, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding,
+    EncodedSharedDictItem, EncodedStream, EncodedStrings, EncodedStringsEncoding, FsstStrEncoder,
+    IntEncoder, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings,
+    PresenceStream, PropValueRef, PropertyEncoder, RawFsstData, RawPlainData, RawPresence,
+    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
+    RawStringsEncoding, SharedDictEncoder, StagedSharedDict, StagedSharedDictItem, StagedStrings,
+    StrEncoder, StreamType,
 };
 use crate::{Decoder, MltError, MltResult};
 
@@ -295,6 +296,17 @@ impl<'a> ParsedStrings<'a> {
             .map(|i| self.get(i).map(str::to_string))
             .collect()
     }
+
+    #[inline]
+    pub(crate) fn value_at(&'a self, feat_idx: usize) -> Option<PropValueRef<'a>> {
+        let idx = u32::try_from(feat_idx).expect("feat_idx fits u32");
+        self.get(idx).map(PropValueRef::Str)
+    }
+
+    #[inline]
+    pub(crate) fn column_at(&'a self, idx: usize) -> Option<ColumnRef<'a>> {
+        self.value_at(idx).map(|v| ColumnRef::new(self.name, v))
+    }
 }
 
 fn encode_shared_dict_range(start: u32, end: u32) -> MltResult<(i32, i32)> {
@@ -377,7 +389,7 @@ fn dict_span_str(dict_data: &str, span: (u32, u32)) -> MltResult<&str> {
     Ok(str::from_utf8(value)?)
 }
 
-impl ParsedSharedDict<'_> {
+impl<'a> ParsedSharedDict<'a> {
     #[must_use]
     pub fn corpus(&self) -> &str {
         &self.data
@@ -388,6 +400,34 @@ impl ParsedSharedDict<'_> {
         let start = span.0.as_usize();
         let end = span.1.as_usize();
         self.corpus().get(start..end)
+    }
+
+    #[inline]
+    pub(crate) fn value_at(
+        &'a self,
+        feat_idx: usize,
+        dict_idx: &mut usize,
+    ) -> Option<(&'a str, PropValueRef<'a>)> {
+        if *dict_idx < self.items.len() {
+            let idx = *dict_idx;
+            *dict_idx += 1;
+            let item = &self.items[idx];
+            item.get(self, feat_idx)
+                .map(|v| (item.suffix, PropValueRef::Str(v)))
+        } else {
+            *dict_idx = 0;
+            None
+        }
+    }
+
+    #[inline]
+    pub(crate) fn column_at(
+        &'a self,
+        feat_idx: usize,
+        dict_idx: &mut usize,
+    ) -> Option<ColumnRef<'a>> {
+        self.value_at(feat_idx, dict_idx)
+            .map(|v| ColumnRef::new_sub(self.prefix, v.0, v.1))
     }
 }
 

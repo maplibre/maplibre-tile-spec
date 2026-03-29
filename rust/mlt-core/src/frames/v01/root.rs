@@ -9,9 +9,9 @@ use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
 use crate::v01::{
     Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01,
-    Layer01FeatureIter, ParsedLayer01, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData,
-    RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem,
-    RawStream, RawStrings, RawStringsEncoding, StreamType,
+    ParsedLayer01, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence,
+    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream,
+    RawStrings, RawStringsEncoding, StreamType,
 };
 use crate::{Decoder, Lazy, MltRefResult, MltResult, Parser};
 
@@ -186,18 +186,6 @@ impl<'a> Layer01<'a, Lazy> {
             #[cfg(fuzzing)]
             layer_order: self.layer_order,
         })
-    }
-}
-
-impl<'a> ParsedLayer01<'a> {
-    /// Iterate over all features in this fully-decoded layer.
-    ///
-    /// Returns a [`Layer01FeatureIter`] that yields one [`FeatureRef`](crate::v01::FeatureRef)
-    /// per feature. Construction is infallible; individual `next()` calls return
-    /// `MltResult<FeatureRef>` because geometry decoding can fail.
-    #[must_use]
-    pub fn iter_features(&self) -> Layer01FeatureIter<'_, 'a> {
-        Layer01FeatureIter::new(self)
     }
 }
 

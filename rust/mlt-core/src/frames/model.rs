@@ -62,15 +62,15 @@ pub enum EncodedLayer {
 /// Unknown layer data, stored as encoded bytes
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Unknown<'a> {
-    pub tag: u8,
-    pub value: &'a [u8],
+    pub(crate) tag: u8,
+    pub(crate) value: &'a [u8],
 }
 
 /// Owned variant of [`Unknown`].
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct EncodedUnknown {
-    pub tag: u8,
-    pub value: Vec<u8>,
+    pub(crate) tag: u8,
+    pub(crate) value: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]

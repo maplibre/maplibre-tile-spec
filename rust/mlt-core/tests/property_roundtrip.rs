@@ -1,12 +1,13 @@
-use insta::assert_snapshot;
+use geo_types::Point;
+use mlt_core::MltError;
+use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, parser};
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, GeometryValues, IntEncoder, Layer01, LogicalEncoder,
-    ParsedProperty, PhysicalEncoder, PresenceStream, PropertyEncoder, ScalarEncoder,
-    SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty,
-    StagedStrings, StrEncoder, build_staged_shared_dict,
+    PhysicalEncoder, PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
+    SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty, StagedStrings,
+    StrEncoder, TileLayer01, build_staged_shared_dict,
 };
-use mlt_core::{MltError, MltResult};
 use proptest::prelude::*;
 
 // proptest_derive::Arbitrary is only derived for these types inside the crate
@@ -69,60 +70,6 @@ fn staged_len(staged: &StagedProperty) -> usize {
     }
 }
 
-fn roundtrip(staged: StagedProperty, expected: &StagedProperty, encoder: ScalarEncoder) {
-    let n = staged_len(&staged);
-    let bytes = props_to_layer_bytes(vec![staged], vec![PropertyEncoder::Scalar(encoder)]).unwrap();
-    let mut p = parser();
-    let mut d = dec();
-    let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
-    if n > 0 {
-        assert!(
-            p.reserved() > 0,
-            "parser should reserve bytes for non-empty input"
-        );
-    }
-    let result = layer
-        .properties
-        .into_iter()
-        .next()
-        .expect("one property")
-        .into_parsed(&mut d)
-        .expect("decode failed");
-    if n > 0 {
-        assert!(
-            d.consumed() > 0,
-            "decoder should consume bytes for non-empty input"
-        );
-    }
-    assert_eq!(&result, expected);
-}
-
-/// Encode `props` using `encoders` through a minimal [`StagedLayer01`], serialize to bytes,
-/// and return the raw buffer so the caller can parse and decode with the correct lifetime.
-///
-/// This exercises the full public wire-format pipeline:
-/// `Staged* → Encoded* → Vec<u8> → Raw* → Parsed*`
-fn props_to_layer_bytes(
-    props: Vec<StagedProperty>,
-    encoders: Vec<PropertyEncoder>,
-) -> MltResult<Vec<u8>> {
-    let layer = StagedLayer01 {
-        name: "test".to_string(),
-        extent: 4096,
-        id: None,
-        geometry: GeometryValues::default(),
-        properties: props,
-    };
-    let encoded = layer.encode(StagedLayer01Encoder {
-        id: None,
-        geometry: GeometryEncoder::all(IntEncoder::varint()),
-        properties: encoders,
-    })?;
-    let mut buf = Vec::new();
-    encoded.write_to(&mut buf).map_err(MltError::Io)?;
-    Ok(buf)
-}
-
 fn strs(vals: &[&str]) -> Vec<Option<String>> {
     vals.iter().map(|v| Some((*v).to_string())).collect()
 }
@@ -132,69 +79,64 @@ fn opt_strs(vals: &[Option<&str>]) -> Vec<Option<String>> {
 }
 
 fn shared_dict_prop(name: &str, children: Vec<(String, StagedStrings)>) -> StagedProperty {
-    let shared_dict =
-        build_staged_shared_dict(name.to_string(), children).expect("build shared dict");
-    StagedProperty::SharedDict(shared_dict)
+    StagedProperty::SharedDict(
+        build_staged_shared_dict(name.to_string(), children).expect("build shared dict"),
+    )
 }
 
-fn struct_encode_and_decode<F>(
-    struct_name: &str,
-    children: &[(&str, Vec<Option<String>>)],
-    presence: PresenceStream,
-    offset_encoder: IntEncoder,
-    dict_encoder: StrEncoder,
-    check: F,
-) where
-    F: FnOnce(&ParsedProperty<'_>),
-{
-    let total_values: usize = children.iter().map(|(_, v)| v.len()).sum();
-    // Build a single StagedProperty::SharedDict
-    let items: Vec<(String, StagedStrings)> = children
-        .iter()
-        .map(|(suffix, values)| ((*suffix).to_string(), StagedStrings::from(values.clone())))
-        .collect();
-    let decoded = StagedProperty::SharedDict(
-        build_staged_shared_dict(struct_name.to_string(), items).expect("build shared dict"),
-    );
+/// Build a `(name, values)` pair for use as a [`shared_dict_prop`] column.
+fn col(name: &str, values: Vec<Option<String>>) -> (String, StagedStrings) {
+    (name.into(), StagedStrings::from(values))
+}
 
-    // Build encoder with matching item encoders
-    let item_encoders: Vec<SharedDictItemEncoder> = children
-        .iter()
-        .map(|_| SharedDictItemEncoder {
-            presence,
-            offsets: offset_encoder,
-        })
-        .collect();
-    let shared_enc = SharedDictEncoder {
-        dict_encoder,
-        items: item_encoders,
+/// Shorthand for a non-null [`PropValue::Str`].
+fn ps(s: &str) -> PropValue {
+    PropValue::Str(Some(s.into()))
+}
+
+/// Create a [`GeometryValues`] with `n` degenerate point features at the origin.
+fn n_point_geometry(n: usize) -> GeometryValues {
+    let mut g = GeometryValues::default();
+    for _ in 0..n {
+        g.push_geom(&Geom32::Point(Point::new(0, 0)));
+    }
+    g
+}
+
+/// Encode `props` as a layer with matching point geometry and return the raw bytes.
+fn encode_to_bytes(props: Vec<StagedProperty>, encoders: Vec<PropertyEncoder>) -> Vec<u8> {
+    let n = props.iter().map(staged_len).max().unwrap_or(0);
+    let layer = StagedLayer01 {
+        name: "test".into(),
+        extent: 4096,
+        id: None,
+        geometry: n_point_geometry(n),
+        properties: props,
     };
+    let encoded = layer
+        .encode(StagedLayer01Encoder {
+            id: None,
+            geometry: GeometryEncoder::all(IntEncoder::varint()),
+            properties: encoders,
+        })
+        .expect("encoding failed");
+    let mut buf = Vec::new();
+    encoded.write_to(&mut buf).expect("write failed");
+    buf
+}
 
-    let bytes =
-        props_to_layer_bytes(vec![decoded], vec![shared_enc.into()]).expect("encoding failed");
-    let mut p = parser();
+/// Encode and immediately decode `props` into a [`TileLayer01`].
+fn encode_and_tile(props: Vec<StagedProperty>, encoders: Vec<PropertyEncoder>) -> TileLayer01 {
+    let bytes = encode_to_bytes(props, encoders);
+    let layer = Layer01::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
     let mut d = dec();
-    let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
-    if total_values > 0 {
-        assert!(
-            p.reserved() > 0,
-            "parser should reserve bytes for non-empty input"
-        );
-    }
-    let result = layer
-        .properties
-        .into_iter()
-        .next()
-        .expect("one property")
-        .into_parsed(&mut d)
-        .expect("decode failed");
-    if total_values > 0 {
-        assert!(
-            d.consumed() > 0,
-            "decoder should consume bytes for non-empty input"
-        );
-    }
-    check(&result);
+    let parsed = layer.decode_all(&mut d).expect("decode failed");
+    parsed.into_tile(&mut d).expect("into_tile failed")
+}
+
+/// Two-item plain-encoded [`SharedDictEncoder`] — the most common test encoder.
+fn plain_enc() -> PropertyEncoder {
+    two_item_shared_enc(IntEncoder::plain(), StrEncoder::plain(IntEncoder::plain()))
 }
 
 // Absent mode has no presence stream on the wire, so only all-Some inputs are
@@ -207,9 +149,14 @@ macro_rules! integer_roundtrip_proptests {
                 values in prop::collection::vec(prop::option::of(any::<$ty>()), 0..100),
                 enc in $int_encoder,
             ) {
-                let staged = StagedProperty::$staged_fn("x", values);
-                let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
-                roundtrip(staged.clone(), &staged, scalar_enc);
+                let tile = encode_and_tile(
+                    vec![StagedProperty::$staged_fn("x", values.clone())],
+                    vec![PropertyEncoder::Scalar(ScalarEncoder::int(PresenceStream::Present, enc))],
+                );
+                prop_assert_eq!(&tile.property_names, &["x"]);
+                for (i, ov) in values.into_iter().enumerate() {
+                    prop_assert_eq!(&tile.features[i].properties[0], &PropValue::$variant(ov));
+                }
             }
 
             #[test]
@@ -217,10 +164,14 @@ macro_rules! integer_roundtrip_proptests {
                 values in prop::collection::vec(any::<$ty>(), 0..100),
                 enc in $int_encoder,
             ) {
-                let opt: Vec<Option<$ty>> = values.into_iter().map(Some).collect();
-                let staged = StagedProperty::$staged_fn("x", opt);
-                let scalar_enc = ScalarEncoder::int(PresenceStream::Absent, enc);
-                roundtrip(staged.clone(), &staged, scalar_enc);
+                let tile = encode_and_tile(
+                    vec![StagedProperty::$staged_fn("x", values.iter().map(|&v| Some(v)).collect())],
+                    vec![PropertyEncoder::Scalar(ScalarEncoder::int(PresenceStream::Absent, enc))],
+                );
+                prop_assert_eq!(&tile.property_names, &["x"]);
+                for (i, &v) in values.iter().enumerate() {
+                    prop_assert_eq!(&tile.features[i].properties[0], &PropValue::$variant(Some(v)));
+                }
             }
         }
     };
@@ -252,22 +203,34 @@ integer_roundtrip_proptests!(
 #[test]
 fn bool_specific_values() {
     let values = vec![Some(true), None, Some(false), Some(true), None];
-    let staged = StagedProperty::bool("active", values);
-    roundtrip(
-        staged.clone(),
-        &staged,
-        ScalarEncoder::bool(PresenceStream::Present),
+    let tile = encode_and_tile(
+        vec![StagedProperty::bool("active", values.clone())],
+        vec![PropertyEncoder::Scalar(ScalarEncoder::bool(
+            PresenceStream::Present,
+        ))],
     );
+    assert_eq!(tile.property_names, vec!["active"]);
+    for (i, ov) in values.into_iter().enumerate() {
+        assert_eq!(&tile.features[i].properties[0], &PropValue::Bool(ov));
+    }
 }
 
 #[test]
 fn bool_all_null() {
-    let values = vec![None, None, None];
-    let staged = StagedProperty::bool("active", values);
-    roundtrip(
-        staged.clone(),
-        &staged,
-        ScalarEncoder::bool(PresenceStream::Present),
+    let tile = encode_and_tile(
+        vec![StagedProperty::bool(
+            "active",
+            vec![None::<bool>, None, None],
+        )],
+        vec![PropertyEncoder::Scalar(ScalarEncoder::bool(
+            PresenceStream::Present,
+        ))],
+    );
+    assert_eq!(tile.property_names, vec!["active"]);
+    assert!(
+        tile.features
+            .iter()
+            .all(|f| f.properties[0] == PropValue::Bool(None))
     );
 }
 
@@ -276,8 +239,14 @@ proptest! {
     fn bool_roundtrip(
         values in prop::collection::vec(prop::option::of(any::<bool>()), 0..100),
     ) {
-        let staged = StagedProperty::bool("flag", values);
-        roundtrip(staged.clone(), &staged, ScalarEncoder::bool(PresenceStream::Present));
+        let tile = encode_and_tile(
+            vec![StagedProperty::bool("flag", values.clone())],
+            vec![PropertyEncoder::Scalar(ScalarEncoder::bool(PresenceStream::Present))],
+        );
+        prop_assert_eq!(&tile.property_names, &["flag"]);
+        for (i, ov) in values.into_iter().enumerate() {
+            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Bool(ov));
+        }
     }
 }
 
@@ -290,8 +259,14 @@ proptest! {
             0..100,
         ),
     ) {
-        let staged = StagedProperty::f32("score", values);
-        roundtrip(staged.clone(), &staged, ScalarEncoder::float(PresenceStream::Present));
+        let tile = encode_and_tile(
+            vec![StagedProperty::f32("score", values.clone())],
+            vec![PropertyEncoder::Scalar(ScalarEncoder::float(PresenceStream::Present))],
+        );
+        prop_assert_eq!(&tile.property_names, &["score"]);
+        for (i, ov) in values.into_iter().enumerate() {
+            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::F32(ov));
+        }
     }
 
     #[test]
@@ -301,122 +276,165 @@ proptest! {
             0..100,
         ),
     ) {
-        let staged = StagedProperty::f64("score", values);
-        roundtrip(staged.clone(), &staged, ScalarEncoder::float(PresenceStream::Present));
+        let tile = encode_and_tile(
+            vec![StagedProperty::f64("score", values.clone())],
+            vec![PropertyEncoder::Scalar(ScalarEncoder::float(PresenceStream::Present))],
+        );
+        prop_assert_eq!(&tile.property_names, &["score"]);
+        for (i, ov) in values.into_iter().enumerate() {
+            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::F64(ov));
+        }
     }
+}
+
+fn plain_str_enc() -> PropertyEncoder {
+    PropertyEncoder::Scalar(ScalarEncoder::str(
+        PresenceStream::Present,
+        IntEncoder::plain(),
+    ))
 }
 
 #[test]
 fn str_scalar_with_nulls() {
     let values = opt_strs(&[Some("Berlin"), None, Some("Hamburg"), None]);
-    let staged = StagedProperty::str("city", values);
-    let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-    roundtrip(staged.clone(), &staged, enc);
+    let tile = encode_and_tile(
+        vec![StagedProperty::str("city", values.clone())],
+        vec![plain_str_enc()],
+    );
+    assert_eq!(tile.property_names, vec!["city"]);
+    for (i, ov) in values.into_iter().enumerate() {
+        assert_eq!(&tile.features[i].properties[0], &PropValue::Str(ov));
+    }
 }
 
 #[test]
 fn str_scalar_all_null() {
-    let values = opt_strs(&[None, None, None]);
-    let staged = StagedProperty::str("city", values);
-    let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-    roundtrip(staged.clone(), &staged, enc);
+    let tile = encode_and_tile(
+        vec![StagedProperty::str("city", opt_strs(&[None, None, None]))],
+        vec![plain_str_enc()],
+    );
+    assert_eq!(tile.property_names, vec!["city"]);
+    assert!(
+        tile.features
+            .iter()
+            .all(|f| f.properties[0] == PropValue::Str(None))
+    );
 }
 
 #[test]
 fn str_scalar_empty() {
-    let staged = StagedProperty::str("unused", vec![]);
-    let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-    roundtrip(staged.clone(), &staged, enc);
+    let tile = encode_and_tile(
+        vec![StagedProperty::str("unused", vec![])],
+        vec![plain_str_enc()],
+    );
+    assert_eq!(tile.property_names, vec!["unused"]);
+    assert!(tile.features.is_empty());
 }
 
 proptest! {
     #[test]
     fn str_scalar_roundtrip(
-        values in prop::collection::vec(
-            prop::option::of("[a-zA-Z0-9 ]{0,30}"),
-            0..50,
-        ),
+        values in prop::collection::vec(prop::option::of("[a-zA-Z0-9 ]{0,30}"), 0..50),
     ) {
-        let staged = StagedProperty::str("name", values);
-        let enc = ScalarEncoder::str(PresenceStream::Present, IntEncoder::plain());
-        roundtrip(staged.clone(), &staged, enc);
+        let tile = encode_and_tile(
+            vec![StagedProperty::str("name", values.clone())],
+            vec![plain_str_enc()],
+        );
+        prop_assert_eq!(&tile.property_names, &["name"]);
+        for (i, ov) in values.into_iter().enumerate() {
+            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Str(ov));
+        }
     }
 }
 
 #[test]
 fn fsst_scalar_string_roundtrip() {
-    // Repeated "Br" prefix gives FSST something meaningful to compress.
-    let enc = ScalarEncoder::str_fsst(
-        PresenceStream::Present,
-        IntEncoder::plain(),
-        IntEncoder::plain(),
-    );
     let values = strs(&["Berlin", "Brandenburg", "Bremen", "Braunschweig"]);
-    let staged = StagedProperty::str("name", values);
-    roundtrip(staged.clone(), &staged, enc);
+    let tile = encode_and_tile(
+        vec![StagedProperty::str("name", values.clone())],
+        vec![PropertyEncoder::Scalar(ScalarEncoder::str_fsst(
+            PresenceStream::Present,
+            IntEncoder::plain(),
+            IntEncoder::plain(),
+        ))],
+    );
+    assert_eq!(tile.property_names, vec!["name"]);
+    for (i, ov) in values.into_iter().enumerate() {
+        assert_eq!(&tile.features[i].properties[0], &PropValue::Str(ov));
+    }
+}
+
+fn two_item_shared_enc(enc: IntEncoder, dict_encoder: StrEncoder) -> PropertyEncoder {
+    SharedDictEncoder {
+        dict_encoder,
+        items: vec![
+            SharedDictItemEncoder {
+                presence: PresenceStream::Present,
+                offsets: enc,
+            },
+            SharedDictItemEncoder {
+                presence: PresenceStream::Present,
+                offsets: enc,
+            },
+        ],
+    }
+    .into()
+}
+
+/// Round-trip a two-column `SharedDict` with plain encoders and check all feature values.
+fn check_two_col_dict(
+    name: &str,
+    s1: &str,
+    vals1: Vec<Option<String>>,
+    s2: &str,
+    vals2: Vec<Option<String>>,
+) {
+    let tile = encode_and_tile(
+        vec![shared_dict_prop(
+            name,
+            vec![col(s1, vals1.clone()), col(s2, vals2.clone())],
+        )],
+        vec![plain_enc()],
+    );
+    assert_eq!(
+        tile.property_names,
+        vec![format!("{name}{s1}"), format!("{name}{s2}")]
+    );
+    for (i, (v1, v2)) in vals1.into_iter().zip(vals2).enumerate() {
+        assert_eq!(&tile.features[i].properties[0], &PropValue::Str(v1));
+        assert_eq!(&tile.features[i].properties[1], &PropValue::Str(v2));
+    }
 }
 
 #[test]
 fn fsst_struct_shared_dict_roundtrip() {
-    let de = strs(&["Berlin", "München", "Köln"]);
-    let en = strs(&["Berlin", "Munich", "Cologne"]);
-    struct_encode_and_decode(
+    check_two_col_dict(
         "name",
-        &[(":de", de.clone()), (":en", en.clone())],
-        PresenceStream::Present,
-        IntEncoder::plain(),
-        StrEncoder::plain(IntEncoder::plain()),
-        |result| {
-            assert_eq!(result.name(), "name");
-            let ParsedProperty::SharedDict(shared_dict) = result else {
-                panic!("Expected SharedDict");
-            };
-            let items = &shared_dict.items;
-            assert_eq!(items.len(), 2);
-            assert_eq!(items[0].suffix, ":de");
-            assert_eq!(items[0].materialize(shared_dict), de);
-            assert_eq!(items[1].suffix, ":en");
-            assert_eq!(items[1].materialize(shared_dict), en);
-        },
+        ":de",
+        strs(&["Berlin", "München", "Köln"]),
+        ":en",
+        strs(&["Berlin", "Munich", "Cologne"]),
     );
 }
 
 #[test]
 fn struct_with_nulls() {
-    let de = opt_strs(&[Some("Berlin"), Some("München"), None]);
-    let en = opt_strs(&[Some("Berlin"), None, Some("London")]);
-    struct_encode_and_decode(
+    check_two_col_dict(
         "name",
-        &[(":de", de.clone()), (":en", en.clone())],
-        PresenceStream::Present,
-        IntEncoder::plain(),
-        StrEncoder::plain(IntEncoder::plain()),
-        |result| {
-            assert_eq!(result.name(), "name");
-            let ParsedProperty::SharedDict(shared_dict) = result else {
-                panic!("Expected SharedDict");
-            };
-            let items = &shared_dict.items;
-            assert_eq!(items.len(), 2);
-            assert_eq!(items[0].suffix, ":de");
-            assert_eq!(items[0].materialize(shared_dict), de);
-            assert_eq!(items[1].suffix, ":en");
-            assert_eq!(items[1].materialize(shared_dict), en);
-        },
+        ":de",
+        opt_strs(&[Some("Berlin"), Some("München"), None]),
+        ":en",
+        opt_strs(&[Some("Berlin"), None, Some("London")]),
     );
 }
 
 #[test]
 fn struct_shared_dict_inline_ranges_track_nulls_and_empty_strings() {
+    // This test validates internal range bookkeeping in StagedSharedDict —
+    // not the byte encoding pipeline — so it inspects the staged form directly.
     let de = opt_strs(&[Some(""), None, Some("Berlin")]);
     let en = opt_strs(&[Some(""), Some("Berlin"), Some("")]);
-    let prop = shared_dict_prop(
-        "name",
-        vec![
-            (":de".to_string(), StagedStrings::from(de.clone())),
-            (":en".to_string(), StagedStrings::from(en.clone())),
-        ],
-    );
+    let prop = shared_dict_prop("name", vec![col(":de", de.clone()), col(":en", en.clone())]);
     let StagedProperty::SharedDict(shared_dict) = &prop else {
         panic!("Expected SharedDict");
     };
@@ -438,231 +456,127 @@ fn struct_shared_dict_inline_ranges_track_nulls_and_empty_strings() {
 
 #[test]
 fn struct_no_nulls() {
-    let de = strs(&["Berlin", "München", "Hamburg"]);
-    let en = strs(&["Berlin", "Munich", "Hamburg"]);
-    struct_encode_and_decode(
+    check_two_col_dict(
         "name",
-        &[(":de", de.clone()), (":en", en.clone())],
-        PresenceStream::Present,
-        IntEncoder::plain(),
-        StrEncoder::plain(IntEncoder::plain()),
-        |result| {
-            assert_eq!(result.name(), "name");
-            let ParsedProperty::SharedDict(shared_dict) = result else {
-                panic!("Expected SharedDict");
-            };
-            let items = &shared_dict.items;
-            assert_eq!(items[0].materialize(shared_dict), de);
-            assert_eq!(items[1].materialize(shared_dict), en);
-        },
+        ":de",
+        strs(&["Berlin", "München", "Hamburg"]),
+        ":en",
+        strs(&["Berlin", "Munich", "Hamburg"]),
     );
 }
 
 #[test]
 fn struct_shared_dict_deduplication() {
-    let de = strs(&["Berlin", "Berlin"]);
-    let en = strs(&["Berlin", "London"]);
-    struct_encode_and_decode(
+    check_two_col_dict(
         "name",
-        &[(":de", de.clone()), (":en", en.clone())],
-        PresenceStream::Present,
-        IntEncoder::plain(),
-        StrEncoder::plain(IntEncoder::plain()),
-        |result| {
-            let ParsedProperty::SharedDict(shared_dict) = result else {
-                panic!("Expected SharedDict");
-            };
-            let items = &shared_dict.items;
-            assert_eq!(items[0].materialize(shared_dict), de);
-            assert_eq!(items[1].materialize(shared_dict), en);
-        },
+        ":de",
+        strs(&["Berlin", "Berlin"]),
+        ":en",
+        strs(&["Berlin", "London"]),
     );
 }
 
 #[test]
 fn struct_mixed_with_scalars() {
     let enc = IntEncoder::plain();
-    let str_enc = StrEncoder::plain(enc);
-    let scalar_enc = ScalarEncoder::int(PresenceStream::Present, enc);
-    let population = StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
-    let name_shared = shared_dict_prop(
-        "name:",
+    let scalar = || PropertyEncoder::Scalar(ScalarEncoder::int(PresenceStream::Present, enc));
+    let tile = encode_and_tile(
         vec![
-            (
-                "de".to_string(),
-                StagedStrings::from(strs(&["Berlin", "Hamburg"])),
+            StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]),
+            shared_dict_prop(
+                "name:",
+                vec![
+                    col("de", strs(&["Berlin", "Hamburg"])),
+                    col("en", strs(&["Berlin", "Hamburg"])),
+                ],
             ),
-            (
-                "en".to_string(),
-                StagedStrings::from(strs(&["Berlin", "Hamburg"])),
-            ),
+            StagedProperty::u32("rank", vec![Some(1), Some(2)]),
+        ],
+        vec![
+            scalar(),
+            two_item_shared_enc(enc, StrEncoder::plain(enc)),
+            scalar(),
         ],
     );
-    let rank = StagedProperty::u32("rank", vec![Some(1), Some(2)]);
-    let population_staged =
-        StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
-    let rank_staged = StagedProperty::u32("rank", vec![Some(1), Some(2)]);
 
-    let props = vec![population, name_shared, rank];
-    let prop_encs = vec![
-        PropertyEncoder::Scalar(scalar_enc),
-        SharedDictEncoder {
-            dict_encoder: str_enc,
-            items: vec![
-                SharedDictItemEncoder {
-                    presence: PresenceStream::Present,
-                    offsets: enc,
-                },
-                SharedDictItemEncoder {
-                    presence: PresenceStream::Present,
-                    offsets: enc,
-                },
-            ],
-        }
-        .into(),
-        PropertyEncoder::Scalar(scalar_enc),
-    ];
-    let bytes = props_to_layer_bytes(props, prop_encs).unwrap();
-    let mut p = parser();
-    let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
-    assert_snapshot!(p.reserved(), @"160");
-    let mut d = dec();
-    let mut decoded_props: Vec<_> = layer
-        .properties
-        .into_iter()
-        .map(|prop| prop.into_parsed(&mut d).expect("decode failed"))
-        .collect();
-    assert_snapshot!(d.consumed(), @"193");
-
-    // Output order: scalar "population", struct "name:", scalar "rank"
-    assert_eq!(decoded_props.len(), 3);
-    assert_eq!(decoded_props[0], population_staged);
-    let name = decoded_props.remove(1);
-    assert_eq!(name.name(), "name:");
-    let ParsedProperty::SharedDict(shared_dict) = &name else {
-        panic!("Expected SharedDict");
-    };
-    let items = &shared_dict.items;
-    assert_eq!(items[0].suffix, "de");
     assert_eq!(
-        items[0].materialize(shared_dict),
-        strs(&["Berlin", "Hamburg"])
+        tile.property_names,
+        vec!["population", "name:de", "name:en", "rank"]
     );
-    assert_eq!(items[1].suffix, "en");
+    assert_eq!(tile.features.len(), 2);
     assert_eq!(
-        items[1].materialize(shared_dict),
-        strs(&["Berlin", "Hamburg"])
+        tile.features[0].properties,
+        vec![
+            PropValue::U32(Some(3_748_000)),
+            ps("Berlin"),
+            ps("Berlin"),
+            PropValue::U32(Some(1))
+        ]
     );
-    assert_eq!(decoded_props[1], rank_staged);
+    assert_eq!(
+        tile.features[1].properties,
+        vec![
+            PropValue::U32(Some(1_787_000)),
+            ps("Hamburg"),
+            ps("Hamburg"),
+            PropValue::U32(Some(2))
+        ]
+    );
 }
 
 #[test]
 fn two_struct_groups_with_scalar_between() {
-    let name_shared = shared_dict_prop(
-        "name:",
-        vec![
-            (
-                "de".to_string(),
-                StagedStrings::from(strs(&["Berlin", "Hamburg"])),
-            ),
-            (
-                "en".to_string(),
-                StagedStrings::from(strs(&["Berlin", "Hamburg"])),
-            ),
-        ],
-    );
-    let population = StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
-    let population_staged =
-        StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]);
-    let label_shared = shared_dict_prop(
-        "label:",
-        vec![
-            ("de".to_string(), StagedStrings::from(strs(&["BE", "HH"]))),
-            ("en".to_string(), StagedStrings::from(strs(&["BER", "HAM"]))),
-        ],
-    );
-
-    let props = vec![name_shared, population, label_shared];
     let enc = IntEncoder::plain();
-    let str_enc = StrEncoder::plain(IntEncoder::plain());
-    let prop_encs = vec![
-        SharedDictEncoder {
-            dict_encoder: str_enc,
-            items: vec![
-                SharedDictItemEncoder {
-                    presence: PresenceStream::Present,
-                    offsets: enc,
-                },
-                SharedDictItemEncoder {
-                    presence: PresenceStream::Present,
-                    offsets: enc,
-                },
-            ],
-        }
-        .into(),
-        ScalarEncoder::int(PresenceStream::Present, enc).into(),
-        SharedDictEncoder {
-            dict_encoder: str_enc,
-            items: vec![
-                SharedDictItemEncoder {
-                    presence: PresenceStream::Present,
-                    offsets: enc,
-                },
-                SharedDictItemEncoder {
-                    presence: PresenceStream::Present,
-                    offsets: enc,
-                },
-            ],
-        }
-        .into(),
-    ];
+    let str_shared = || two_item_shared_enc(enc, StrEncoder::plain(enc));
+    let tile = encode_and_tile(
+        vec![
+            shared_dict_prop(
+                "name:",
+                vec![
+                    col("de", strs(&["Berlin", "Hamburg"])),
+                    col("en", strs(&["Berlin", "Hamburg"])),
+                ],
+            ),
+            StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]),
+            shared_dict_prop(
+                "label:",
+                vec![
+                    col("de", strs(&["BE", "HH"])),
+                    col("en", strs(&["BER", "HAM"])),
+                ],
+            ),
+        ],
+        vec![
+            str_shared(),
+            PropertyEncoder::Scalar(ScalarEncoder::int(PresenceStream::Present, enc)),
+            str_shared(),
+        ],
+    );
 
-    let bytes = props_to_layer_bytes(props, prop_encs).unwrap();
-    let mut p = parser();
-    let layer = Layer01::from_bytes(&bytes, &mut p).expect("layer parse failed");
-    assert_snapshot!(p.reserved(), @"256");
-    let mut d = dec();
-    let decoded_props: Vec<_> = layer
-        .properties
-        .into_iter()
-        .map(|prop| prop.into_parsed(&mut d).expect("decode failed"))
-        .collect();
-    assert_snapshot!(d.consumed(), @"326");
-
-    // Output order: struct "name:", scalar "population", struct "label:"
-    assert_eq!(decoded_props.len(), 3);
-    let name = &decoded_props[0];
-    assert_eq!(name.name(), "name:");
-    let ParsedProperty::SharedDict(name_shared_dict) = name else {
-        panic!("Expected SharedDict");
-    };
-    let name_items = &name_shared_dict.items;
-    assert_eq!(name_items[0].suffix, "de");
     assert_eq!(
-        name_items[0].materialize(name_shared_dict),
-        strs(&["Berlin", "Hamburg"])
+        tile.property_names,
+        vec!["name:de", "name:en", "population", "label:de", "label:en"]
     );
-    assert_eq!(name_items[1].suffix, "en");
+    assert_eq!(tile.features.len(), 2);
     assert_eq!(
-        name_items[1].materialize(name_shared_dict),
-        strs(&["Berlin", "Hamburg"])
+        tile.features[0].properties,
+        vec![
+            ps("Berlin"),
+            ps("Berlin"),
+            PropValue::U32(Some(3_748_000)),
+            ps("BE"),
+            ps("BER")
+        ]
     );
-    assert_eq!(decoded_props[1], population_staged);
-    let label = &decoded_props[2];
-    assert_eq!(label.name(), "label:");
-    let ParsedProperty::SharedDict(label_shared_dict) = label else {
-        panic!("Expected SharedDict");
-    };
-    let label_items = &label_shared_dict.items;
-    assert_eq!(label_items[0].suffix, "de");
     assert_eq!(
-        label_items[0].materialize(label_shared_dict),
-        strs(&["BE", "HH"])
-    );
-    assert_eq!(label_items[1].suffix, "en");
-    assert_eq!(
-        label_items[1].materialize(label_shared_dict),
-        strs(&["BER", "HAM"])
+        tile.features[1].properties,
+        vec![
+            ps("Hamburg"),
+            ps("Hamburg"),
+            PropValue::U32(Some(1_787_000)),
+            ps("HH"),
+            ps("HAM")
+        ]
     );
 }
 
@@ -683,6 +597,37 @@ fn struct_instruction_count_mismatch() {
     );
 }
 
+#[test]
+fn lazy_layer01_iterate_prop_names_returns_column_names() {
+    // Encode a layer with a scalar column and a two-key SharedDict column.
+    let bytes = encode_to_bytes(
+        vec![
+            StagedProperty::u32("pop", vec![Some(1_000), Some(2_000)]),
+            shared_dict_prop(
+                "addr:",
+                vec![
+                    col("city", strs(&["Berlin", "Rome"])),
+                    col("zip", strs(&["10115", "00100"])),
+                ],
+            ),
+        ],
+        vec![
+            PropertyEncoder::Scalar(ScalarEncoder::int(
+                PresenceStream::Present,
+                IntEncoder::varint(),
+            )),
+            plain_enc(),
+        ],
+    );
+
+    // Parse as a lazy Layer01 — no column data decoded yet.
+    let layer = Layer01::from_bytes(&bytes, &mut parser()).expect("parse failed");
+
+    // iterate_prop_names works on the lazy layer before any decoding.
+    let names: Vec<String> = layer.iterate_prop_names().map(|n| n.to_string()).collect();
+    assert_eq!(names, ["pop", "addr:city", "addr:zip"]);
+}
+
 proptest! {
     #[test]
     fn struct_roundtrip(
@@ -697,33 +642,40 @@ proptest! {
         encoder in arb_int_encoder_no_fastpfor(),
         string_enc in arb_str_encoder(),
     ) {
-        let child_refs: Vec<(&str, Vec<Option<String>>)> = children
+        let n = children[0].1.len();
+        // SharedDict requires all items to have the same number of features.
+        prop_assume!(children.iter().all(|(_, vals)| vals.len() == n));
+
+        let items: Vec<_> = children
             .iter()
-            .map(|(name, vals)| (name.as_str(), vals.clone()))
+            .map(|(suffix, values)| col(suffix, values.clone()))
             .collect();
-        let mut test_result: Result<(), TestCaseError> = Ok(());
-        struct_encode_and_decode(
-            &struct_name,
-            &child_refs,
-            PresenceStream::Present,
-            encoder,
-            string_enc,
-            |result| {
-                test_result = (|| {
-                    prop_assert_eq!(result.name(), struct_name.as_str());
-                    let ParsedProperty::SharedDict(shared_dict) = result else {
-                        return Err(TestCaseError::Fail("Expected SharedDict".into()));
-                    };
-                    let items = &shared_dict.items;
-                    prop_assert_eq!(items.len(), children.len());
-                    for (item, (child_name, values)) in items.iter().zip(children.iter()) {
-                        prop_assert_eq!(&item.suffix, child_name);
-                        prop_assert_eq!(item.materialize(shared_dict), values.clone());
-                    }
-                    Ok(())
-                })();
-            },
+        let staged = StagedProperty::SharedDict(
+            build_staged_shared_dict(struct_name.clone(), items).expect("build shared dict"),
         );
-        test_result?;
+        let item_encoders: Vec<SharedDictItemEncoder> = children
+            .iter()
+            .map(|_| SharedDictItemEncoder { presence: PresenceStream::Present, offsets: encoder })
+            .collect();
+        let tile = encode_and_tile(
+            vec![staged],
+            vec![SharedDictEncoder { dict_encoder: string_enc, items: item_encoders }.into()],
+        );
+
+        let expected_names: Vec<String> = children
+            .iter()
+            .map(|(suffix, _)| format!("{struct_name}{suffix}"))
+            .collect();
+        prop_assert_eq!(&tile.property_names, &expected_names);
+        prop_assert_eq!(tile.features.len(), n);
+
+        for (feat_idx, feat) in tile.features.iter().enumerate() {
+            for (col_idx, (_, values)) in children.iter().enumerate() {
+                prop_assert_eq!(
+                    &feat.properties[col_idx],
+                    &PropValue::Str(values[feat_idx].clone())
+                );
+            }
+        }
     }
 }

@@ -19,8 +19,8 @@ pub enum LogicalTechnique {
 ///     Computing checked sum should not be too expensive.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RleMeta {
-    pub runs: u32,
-    pub num_rle_values: u32,
+    pub(crate) runs: u32,
+    pub(crate) num_rle_values: u32,
 }
 
 /// Metadata for Morton decoding
@@ -128,21 +128,21 @@ pub struct IntEncoding {
 pub struct StreamMeta {
     pub stream_type: StreamType,
     pub encoding: IntEncoding,
-    pub num_values: u32,
+    pub(crate) num_values: u32,
 }
 
 /// Representation of an encoded stream
 #[derive(Debug, PartialEq, Clone)]
 pub struct RawStream<'a> {
-    pub meta: StreamMeta,
-    pub data: RawStreamData<'a>,
+    pub(crate) meta: StreamMeta,
+    pub(crate) data: RawStreamData<'a>,
 }
 
 /// Owned variant of [`RawStream`].
 #[derive(Debug, PartialEq, Clone)]
 pub struct EncodedStream {
     pub meta: StreamMeta,
-    pub data: EncodedStreamData,
+    pub(crate) data: EncodedStreamData,
 }
 
 #[derive(PartialEq, Clone)]

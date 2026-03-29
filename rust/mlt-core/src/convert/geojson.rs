@@ -45,8 +45,8 @@ impl FeatureCollection {
             for feat in parsed.iter_features() {
                 let feat = feat?;
                 let mut properties = BTreeMap::new();
-                for col in feat.iter_properties() {
-                    properties.insert(col.name.to_string(), col.value.into());
+                for p in feat.iter_properties() {
+                    properties.insert(p.name.to_string(), p.value.into());
                 }
                 properties.insert("_layer".into(), Value::String(layer_name.to_string()));
                 properties.insert("_extent".into(), Value::Number(extent.into()));
