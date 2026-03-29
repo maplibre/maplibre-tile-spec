@@ -11,59 +11,30 @@
 
 use crate::errors::AsMltError as _;
 use crate::v01::{
-    GeometryValues, IdValues, Layer01, ParsedProperty, PropValue, StagedLayer01, StagedProperty,
-    StagedScalar, StagedSharedDict, StagedStrings, TileFeature, TileLayer01,
+    GeometryValues, IdValues, Layer01, ParsedLayer01, PropValue, PropValueRef, StagedLayer01,
+    StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, TileFeature, TileLayer01,
     build_staged_shared_dict,
 };
 use crate::{Decoder, MltResult};
 
-// ── Layer01 → TileLayer01 ────────────────────────────────────────────────────
-
-impl Layer01<'_> {
+impl ParsedLayer01<'_> {
     /// Decode and convert into a row-oriented [`TileLayer01`], charging every
     /// heap allocation against `dec`.
-    ///
-    /// Callers do not need to pre-call `decode_all` on the source layer.
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer01> {
-        let id = self.id.map(|id| id.into_parsed(dec)).transpose()?;
-        let geometry = self.geometry.into_parsed(dec)?;
-        let properties: Vec<ParsedProperty<'_>> = self
-            .properties
-            .into_iter()
-            .map(|p| p.into_parsed(dec))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let n = geometry.vector_types.len();
-
-        let mut property_names: Vec<String> = Vec::new();
-        for prop in &properties {
-            match prop {
-                ParsedProperty::SharedDict(sd) => {
-                    for item in &sd.items {
-                        property_names.push(format!("{}{}", sd.prefix, item.suffix));
-                    }
-                }
-                other => property_names.push(other.name().to_string()),
-            }
-        }
-
-        let ids: Option<&[Option<u64>]> = id.as_ref().map(|d| d.0.as_slice());
-
-        let mut features = dec.alloc::<TileFeature>(n)?;
-        for i in 0..n {
-            let feat_id = ids.and_then(|ids| ids.get(i).copied().flatten());
-            let geom = geometry.to_geojson(i)?;
-            let mut values = dec.alloc::<PropValue>(property_names.len())?;
-            for prop in &properties {
-                extract_parsed_values(prop, i, &mut values);
+        let names: Vec<String> = self.iterate_prop_names().map(|n| n.to_string()).collect();
+        let mut features = dec.alloc::<TileFeature>(self.feature_count())?;
+        for feat in self.iter_features() {
+            let feat = feat?;
+            let mut values = dec.alloc::<PropValue>(names.len())?;
+            for value in feat.iter_all_properties() {
+                values.push(prop_value_from_ref(value));
             }
 
-            // Charge owned String bytes inside PropValue::Str.
             charge_str_props(dec, &values)?;
 
             features.push(TileFeature {
-                id: feat_id,
-                geometry: geom,
+                id: feat.id,
+                geometry: feat.geometry,
                 properties: values,
             });
         }
@@ -71,38 +42,44 @@ impl Layer01<'_> {
         Ok(TileLayer01 {
             name: self.name.to_string(),
             extent: self.extent,
-            property_names,
+            property_names: names,
             features,
         })
     }
+
+    #[must_use]
+    pub fn feature_count(&self) -> usize {
+        self.geometry.vector_types.len()
+    }
 }
 
-/// Extract the per-feature value at index `i` from a parsed property column
-/// and push it (or them, for `SharedDict`) into `out`.
-fn extract_parsed_values(prop: &ParsedProperty<'_>, i: usize, out: &mut Vec<PropValue>) {
-    use crate::v01::ParsedProperty as P;
-    match prop {
-        P::Bool(s) => out.push(PropValue::Bool(s.values[i])),
-        P::I8(s) => out.push(PropValue::I8(s.values[i])),
-        P::U8(s) => out.push(PropValue::U8(s.values[i])),
-        P::I32(s) => out.push(PropValue::I32(s.values[i])),
-        P::U32(s) => out.push(PropValue::U32(s.values[i])),
-        P::I64(s) => out.push(PropValue::I64(s.values[i])),
-        P::U64(s) => out.push(PropValue::U64(s.values[i])),
-        P::F32(s) => out.push(PropValue::F32(s.values[i])),
-        P::F64(s) => out.push(PropValue::F64(s.values[i])),
-        P::Str(s) => {
-            let val = s
-                .get(u32::try_from(i).unwrap_or(u32::MAX))
-                .map(str::to_string);
-            out.push(PropValue::Str(val));
-        }
-        P::SharedDict(sd) => {
-            for item in &sd.items {
-                let val = item.get(sd, i).map(str::to_string);
-                out.push(PropValue::Str(val));
-            }
-        }
+impl Layer01<'_> {
+    /// Decode and convert into a row-oriented [`TileLayer01`]
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer01> {
+        self.decode_all(dec)?.into_tile(dec)
+    }
+}
+
+/// Convert an [`Option<PropValueRef>`] (as yielded by [`crate::v01::FeatureRef::iter_all_properties`])
+/// into an owned [`PropValue`].
+///
+/// Null slots (`None`) produce `PropValue::Str(None)` as an untyped placeholder.
+/// `rebuild_scalar_column` skips these placeholders when inferring the column type from the first
+/// non-null value, so the round-trip is correct as long as at least one feature per column is
+/// non-null.
+fn prop_value_from_ref(value: Option<PropValueRef<'_>>) -> PropValue {
+    match value {
+        Some(PropValueRef::Bool(v)) => PropValue::Bool(Some(v)),
+        Some(PropValueRef::I8(v)) => PropValue::I8(Some(v)),
+        Some(PropValueRef::U8(v)) => PropValue::U8(Some(v)),
+        Some(PropValueRef::I32(v)) => PropValue::I32(Some(v)),
+        Some(PropValueRef::U32(v)) => PropValue::U32(Some(v)),
+        Some(PropValueRef::I64(v)) => PropValue::I64(Some(v)),
+        Some(PropValueRef::U64(v)) => PropValue::U64(Some(v)),
+        Some(PropValueRef::F32(v)) => PropValue::F32(Some(v)),
+        Some(PropValueRef::F64(v)) => PropValue::F64(Some(v)),
+        Some(PropValueRef::Str(s)) => PropValue::Str(Some(s.to_string())),
+        None => PropValue::Str(None),
     }
 }
 
@@ -200,9 +177,15 @@ fn split_prefix(name: &str) -> (Option<&str>, &str) {
 }
 
 fn rebuild_scalar_column(name: &str, col: usize, features: &[TileFeature]) -> StagedProperty {
-    // Determine the variant by looking at the first non-None feature value.
+    // Determine the variant by looking at the first non-null feature value.
+    // `PropValue::Str(None)` is the untyped null placeholder emitted by `prop_value_from_ref`
+    // for slots whose type could not be determined at conversion time; skip those.
     // Fall back to Str if all values are None or the column is empty.
-    let first_val = features.iter().find_map(|f| f.properties.get(col));
+    let first_val = features.iter().find_map(|f| {
+        f.properties
+            .get(col)
+            .filter(|v| !matches!(v, PropValue::Str(None)))
+    });
 
     macro_rules! scalar_col {
         ($variant:ident, $ty:ty, $sv:ident) => {{

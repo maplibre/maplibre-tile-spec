@@ -4,7 +4,6 @@ mod encode;
 mod fmt;
 #[cfg(all(not(test), feature = "arbitrary"))]
 mod fuzzing;
-mod geojson;
 mod model;
 mod optimizer;
 mod owned;

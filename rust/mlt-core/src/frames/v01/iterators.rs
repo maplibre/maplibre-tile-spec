@@ -8,8 +8,159 @@
 use std::fmt;
 
 use crate::geojson::Geom32;
-use crate::v01::{Layer01, ParsedProperty, ParsedScalar};
-use crate::{MltResult, Parsed};
+use crate::v01::{Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, RawProperty};
+use crate::{Lazy, LazyParsed, MltResult, Parsed};
+
+impl<'a> Layer01<'a, Lazy> {
+    /// Iterate over the property column names of this layer, in order.
+    ///
+    /// Regular columns yield one [`PropName`]; `SharedDict` columns yield one name per
+    /// sub-item.  Names are available even before any column data has been decoded.
+    ///
+    /// Pair with [`FeatureRef::iter_all_properties`] to associate per-feature
+    /// values with their column names.
+    #[must_use]
+    pub fn iterate_prop_names(&self) -> Layer01PropNamesIter<'_, 'a> {
+        Layer01PropNamesIter::lazy(&self.properties)
+    }
+}
+
+impl<'a> ParsedLayer01<'a> {
+    /// Iterate over all features in this fully-decoded layer.
+    ///
+    /// Returns a [`Layer01FeatureIter`] that yields one [`FeatureRef`]
+    /// per feature. Construction is infallible; individual `next()` calls return
+    /// `MltResult<FeatureRef>` because geometry decoding can fail.
+    #[must_use]
+    pub fn iter_features(&self) -> Layer01FeatureIter<'_, 'a> {
+        Layer01FeatureIter::new(self)
+    }
+
+    /// Iterate over the property column names of this layer, in order.
+    /// See [`Layer01::iterate_prop_names`] for details.
+    #[must_use]
+    pub fn iterate_prop_names(&self) -> Layer01PropNamesIter<'_, 'a> {
+        Layer01PropNamesIter::parsed(&self.properties)
+    }
+}
+
+/// Source of property columns, for either decode state.
+enum PropSource<'a, 'p> {
+    Parsed(&'a [ParsedProperty<'p>]),
+    Lazy(&'a [LazyParsed<RawProperty<'p>, ParsedProperty<'p>>]),
+}
+
+/// Iterates the column names of a [`Layer01`]'s properties, for any decode state.
+///
+/// Returned by [`Layer01::iterate_prop_names`] and [`ParsedLayer01::iterate_prop_names`].
+/// - Regular columns yield one [`PropName`] (the column name with an empty suffix).
+/// - `SharedDict` columns yield one [`PropName`] per sub-item (`(prefix, suffix)`).
+pub struct Layer01PropNamesIter<'a, 'p> {
+    source: PropSource<'a, 'p>,
+    col_idx: usize,
+    dict_idx: usize,
+}
+
+impl<'a, 'p> Layer01PropNamesIter<'a, 'p> {
+    fn parsed(props: &'a [ParsedProperty<'p>]) -> Self {
+        Self {
+            source: PropSource::Parsed(props),
+            col_idx: 0,
+            dict_idx: 0,
+        }
+    }
+
+    fn lazy(props: &'a [LazyParsed<RawProperty<'p>, ParsedProperty<'p>>]) -> Self {
+        Self {
+            source: PropSource::Lazy(props),
+            col_idx: 0,
+            dict_idx: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for Layer01PropNamesIter<'_, 'a> {
+    type Item = PropName<'a>;
+
+    fn next(&mut self) -> Option<PropName<'a>> {
+        loop {
+            let col_idx = self.col_idx;
+            self.col_idx += 1;
+            let name = match &self.source {
+                PropSource::Parsed(props) => {
+                    parsed_col_name(props.get(col_idx)?, &mut self.dict_idx)
+                }
+                PropSource::Lazy(props) => match props.get(col_idx)? {
+                    LazyParsed::Raw(r) => raw_col_name(r, &mut self.dict_idx),
+                    LazyParsed::Parsed(p) => parsed_col_name(p, &mut self.dict_idx),
+                    LazyParsed::ParsingFailed => None,
+                },
+            };
+            if self.dict_idx != 0 {
+                self.col_idx -= 1; // SharedDict not yet exhausted: revisit this column
+            }
+            if let Some(n) = name {
+                return Some(n);
+            }
+        }
+    }
+}
+
+/// Yield the next [`PropName`] from a [`ParsedProperty`] column.
+#[inline]
+fn parsed_col_name<'p>(prop: &ParsedProperty<'p>, dict_idx: &mut usize) -> Option<PropName<'p>> {
+    use ParsedProperty as P;
+    match prop {
+        P::Bool(s) => Some(PropName(s.name, "")),
+        P::I8(s) => Some(PropName(s.name, "")),
+        P::U8(s) => Some(PropName(s.name, "")),
+        P::I32(s) => Some(PropName(s.name, "")),
+        P::U32(s) => Some(PropName(s.name, "")),
+        P::I64(s) => Some(PropName(s.name, "")),
+        P::U64(s) => Some(PropName(s.name, "")),
+        P::F32(s) => Some(PropName(s.name, "")),
+        P::F64(s) => Some(PropName(s.name, "")),
+        P::Str(s) => Some(PropName(s.name, "")),
+        P::SharedDict(sd) => {
+            if *dict_idx < sd.items.len() {
+                let idx = *dict_idx;
+                *dict_idx += 1;
+                Some(PropName(sd.prefix, sd.items[idx].suffix))
+            } else {
+                *dict_idx = 0;
+                None
+            }
+        }
+    }
+}
+
+/// Yield the next [`PropName`] from a [`RawProperty`] column.  See [`parsed_col_name`].
+#[inline]
+fn raw_col_name<'p>(prop: &RawProperty<'p>, dict_idx: &mut usize) -> Option<PropName<'p>> {
+    use RawProperty as P;
+    match prop {
+        P::Bool(s)
+        | P::I8(s)
+        | P::U8(s)
+        | P::I32(s)
+        | P::U32(s)
+        | P::I64(s)
+        | P::U64(s)
+        | P::F32(s)
+        | P::F64(s) => Some(PropName(s.name, "")),
+        P::Str(s) => Some(PropName(s.name, "")),
+        P::SharedDict(sd) => {
+            if *dict_idx < sd.children.len() {
+                let idx = *dict_idx;
+                *dict_idx += 1;
+                Some(PropName(sd.name, sd.children[idx].name))
+            } else {
+                *dict_idx = 0;
+                None
+            }
+        }
+    }
+}
 
 /// A zero-allocation two-part property name yielded by [`FeatureRef::iter_properties`].
 ///
@@ -94,15 +245,19 @@ impl_from_for_prop_value_ref!(
     f32 => F32, f64 => F64,
 );
 
-impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
-    fn column_at(&self, feat_idx: usize) -> Option<ColumnRef<'a>>
-    where
-        PropValueRef<'a>: From<T>,
-    {
-        self.values[feat_idx].map(|v| ColumnRef {
-            name: PropName(self.name, ""),
-            value: PropValueRef::from(v),
-        })
+impl<'a, T> ParsedScalar<'a, T>
+where
+    T: Copy + PartialEq,
+    PropValueRef<'a>: From<T>,
+{
+    #[inline]
+    fn value_at(&self, feat_idx: usize) -> Option<PropValueRef<'a>> {
+        self.values[feat_idx].map(|v| PropValueRef::from(v))
+    }
+
+    #[inline]
+    fn column_at(&self, idx: usize) -> Option<ColumnRef<'a>> {
+        self.value_at(idx).map(|v| ColumnRef::new(self.name, v))
     }
 }
 
@@ -114,6 +269,23 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
 pub struct ColumnRef<'a> {
     pub name: PropName<'a>,
     pub value: PropValueRef<'a>,
+}
+
+impl<'a> ColumnRef<'a> {
+    #[inline]
+    pub(crate) fn new(name: &'a str, value: PropValueRef<'a>) -> Self {
+        Self {
+            name: PropName(name, ""),
+            value,
+        }
+    }
+    #[inline]
+    pub(crate) fn new_sub(prefix: &'a str, suffix: &'a str, value: PropValueRef<'a>) -> Self {
+        Self {
+            name: PropName(prefix, suffix),
+            value,
+        }
+    }
 }
 
 /// A single map feature returned by [`Layer01FeatureIter`].
@@ -131,6 +303,25 @@ pub struct FeatureRef<'a> {
 }
 
 impl<'a> FeatureRef<'a> {
+    /// Iterate over every property slot for this feature, **values only**, in column order.
+    ///
+    /// Yields `Option<PropValueRef>`:
+    /// - `Some(value)` — the slot contains a non-null value.
+    /// - `None` — the slot is null / absent.
+    ///
+    /// The outer `Option` from [`Iterator::next`] signals end-of-iteration as usual.
+    ///
+    /// Use [`Layer01::iterate_prop_names`] to pair values with their column names.
+    #[must_use]
+    pub fn iter_all_properties(&self) -> FeatValuesIter<'a> {
+        FeatValuesIter {
+            columns: self.columns,
+            feat_idx: self.index,
+            col_idx: 0,
+            dict_idx: 0,
+        }
+    }
+
     /// Iterate over all non-null properties for this feature.
     ///
     /// `SharedDict` columns are transparently expanded into one [`ColumnRef`] per sub-item.
@@ -141,7 +332,7 @@ impl<'a> FeatureRef<'a> {
             columns: self.columns,
             feat_idx: self.index,
             col_idx: 0,
-            sub_idx: 0,
+            dict_idx: 0,
         }
     }
 
@@ -158,7 +349,60 @@ impl<'a> FeatureRef<'a> {
     }
 }
 
-/// Iterator over the non-null properties of a single feature.
+// ── Per-feature property iterators ───────────────────────────────────────────
+
+/// Iterates every property slot of a feature as `Option<`[`PropValueRef`]`>`.
+///
+/// Returned by [`FeatureRef::iter_all_properties`].
+///
+/// The [`Iterator::Item`] is `Option<PropValueRef>`:
+/// - `Some(v)` — non-null value.
+/// - `None` — null / absent slot.
+///
+/// Pair with [`Layer01::iterate_prop_names`] to associate values with column names.
+pub struct FeatValuesIter<'a> {
+    columns: &'a [ParsedProperty<'a>],
+    feat_idx: usize,
+    col_idx: usize,
+    dict_idx: usize,
+}
+
+impl<'a> Iterator for FeatValuesIter<'a> {
+    type Item = Option<PropValueRef<'a>>;
+
+    fn next(&mut self) -> Option<Option<PropValueRef<'a>>> {
+        use ParsedProperty as PP;
+
+        loop {
+            let prop = self.columns.get(self.col_idx)?;
+            self.col_idx += 1;
+            let idx = self.feat_idx;
+            return Some(match prop {
+                PP::Bool(s) => s.value_at(idx),
+                PP::I8(s) => s.value_at(idx),
+                PP::U8(s) => s.value_at(idx),
+                PP::I32(s) => s.value_at(idx),
+                PP::U32(s) => s.value_at(idx),
+                PP::I64(s) => s.value_at(idx),
+                PP::U64(s) => s.value_at(idx),
+                PP::F32(s) => s.value_at(idx),
+                PP::F64(s) => s.value_at(idx),
+                PP::Str(s) => s.value_at(idx),
+                PP::SharedDict(s) => {
+                    let result = s.value_at(idx, &mut self.dict_idx);
+                    if self.dict_idx != 0 {
+                        // Not exhausted (null sub-item or more items remain): stay on this column.
+                        self.col_idx -= 1;
+                        return Some(result.map(|(_, v)| v));
+                    }
+                    continue; // exhausted all sub-items
+                }
+            });
+        }
+    }
+}
+
+/// Iterates the non-null properties of a feature as [`ColumnRef`] (name + value).
 ///
 /// Returned by [`FeatureRef::iter_properties`]. `SharedDict` columns are expanded
 /// in-place without any heap allocation.
@@ -166,8 +410,7 @@ pub struct FeatPropertyIter<'a> {
     columns: &'a [ParsedProperty<'a>],
     feat_idx: usize,
     col_idx: usize,
-    /// Sub-item cursor within the current `SharedDict` column; 0 for all other types.
-    sub_idx: usize,
+    dict_idx: usize,
 }
 
 impl<'a> Iterator for FeatPropertyIter<'a> {
@@ -179,42 +422,28 @@ impl<'a> Iterator for FeatPropertyIter<'a> {
         loop {
             let prop = self.columns.get(self.col_idx)?;
             self.col_idx += 1;
-            let feat_idx = self.feat_idx;
+            let idx = self.feat_idx;
             if let Some(col) = match &prop {
-                PP::Bool(s) => s.column_at(feat_idx),
-                PP::I8(s) => s.column_at(feat_idx),
-                PP::U8(s) => s.column_at(feat_idx),
-                PP::I32(s) => s.column_at(feat_idx),
-                PP::U32(s) => s.column_at(feat_idx),
-                PP::I64(s) => s.column_at(feat_idx),
-                PP::U64(s) => s.column_at(feat_idx),
-                PP::F32(s) => s.column_at(feat_idx),
-                PP::F64(s) => s.column_at(feat_idx),
-                PP::Str(s) => {
-                    let Ok(i) = u32::try_from(feat_idx) else {
-                        continue;
-                    };
-                    s.get(i).map(|val| ColumnRef {
-                        name: PropName(s.name, ""),
-                        value: PropValueRef::Str(val),
-                    })
-                }
-                PP::SharedDict(dict) => {
-                    // iterate over SharedDict subitems - undo the idx+=1 until done with shared dict
-                    self.col_idx -= 1;
-                    while self.sub_idx < dict.items.len() {
-                        let item = &dict.items[self.sub_idx];
-                        self.sub_idx += 1;
-                        if let Some(s) = item.get(dict, self.feat_idx) {
-                            return Some(ColumnRef {
-                                name: PropName(dict.prefix, item.suffix),
-                                value: PropValueRef::Str(s),
-                            });
-                        }
+                PP::Bool(s) => s.column_at(idx),
+                PP::I8(s) => s.column_at(idx),
+                PP::U8(s) => s.column_at(idx),
+                PP::I32(s) => s.column_at(idx),
+                PP::U32(s) => s.column_at(idx),
+                PP::I64(s) => s.column_at(idx),
+                PP::U64(s) => s.column_at(idx),
+                PP::F32(s) => s.column_at(idx),
+                PP::F64(s) => s.column_at(idx),
+                PP::Str(s) => s.column_at(idx),
+                PP::SharedDict(s) => {
+                    let result = s.column_at(idx, &mut self.dict_idx);
+                    if self.dict_idx != 0 {
+                        // Not exhausted (null sub-item or more items remain): stay on this column.
+                        self.col_idx -= 1;
                     }
-                    self.sub_idx = 0;
-                    self.col_idx += 1;
-                    continue;
+                    if result.is_none() {
+                        continue;
+                    }
+                    result
                 }
             } {
                 return Some(col);
@@ -222,6 +451,8 @@ impl<'a> Iterator for FeatPropertyIter<'a> {
         }
     }
 }
+
+// ── Feature iterator ──────────────────────────────────────────────────────────
 
 /// Iterator over the features of a fully-decoded [`Layer01<Parsed>`].
 ///
@@ -237,7 +468,7 @@ pub struct Layer01FeatureIter<'layer, 'data> {
 }
 
 impl<'layer, 'data> Layer01FeatureIter<'layer, 'data> {
-    pub(crate) fn new(layer: &'layer Layer01<'data, Parsed>) -> Self {
+    fn new(layer: &'layer Layer01<'data, Parsed>) -> Self {
         Self { layer, index: 0 }
     }
 }
@@ -246,8 +477,7 @@ impl<'layer> Iterator for Layer01FeatureIter<'layer, '_> {
     type Item = MltResult<FeatureRef<'layer>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let count = self.layer.geometry.vector_types.len();
-        if self.index >= count {
+        if self.index >= self.layer.feature_count() {
             return None;
         }
         let index = self.index;
@@ -499,6 +729,18 @@ mod tests {
         assert!(feats[1].iter_properties().next().is_none());
 
         assert_eq!(feats[2].get_property("n"), Some(PropValueRef::U32(3)));
+
+        // iter_all_properties yields Option<PropValueRef> (values only, no names)
+        let all0: Vec<_> = feats[0].iter_all_properties().collect();
+        assert_eq!(all0, [Some(PropValueRef::U32(1))]);
+        let all1: Vec<_> = feats[1].iter_all_properties().collect();
+        assert_eq!(all1, [None]); // null slot
+        let all2: Vec<_> = feats[2].iter_all_properties().collect();
+        assert_eq!(all2, [Some(PropValueRef::U32(3))]);
+
+        // iterate_prop_names yields names from the layer
+        let names: Vec<_> = parsed.iterate_prop_names().map(|n| n.to_string()).collect();
+        assert_eq!(names, ["n"]);
     }
 
     #[test]
@@ -641,5 +883,13 @@ mod tests {
             feats[2].get_property("addr:zip"),
             Some(PropValueRef::Str("00100"))
         );
+
+        // iter_all_properties: values only (no names); SharedDict expands to two slots
+        let all: Vec<_> = feats[1].iter_all_properties().collect();
+        assert_eq!(all, [Some(PropValueRef::Str("Rome")), None]);
+
+        // iterate_prop_names: names from the layer, in order
+        let names: Vec<_> = parsed.iterate_prop_names().map(|n| n.to_string()).collect();
+        assert_eq!(names, ["addr:city", "addr:zip"]);
     }
 }

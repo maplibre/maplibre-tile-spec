@@ -6,8 +6,8 @@ use std::ops::Deref;
 
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::v01::{GeometryValues, ParsedProperty};
-use mlt_core::{Decoder, MltError, MltResult, Parser};
+use mlt_core::v01::{GeometryType, ParsedLayer01, PropValueRef};
+use mlt_core::{Decoder, Layer, MltError, MltResult, Parser};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
@@ -98,22 +98,16 @@ fn push_polygon(buf: &mut Vec<u8>, poly: &Polygon<i32>, xf: Option<TileTransform
     push_rings(buf, once(poly.exterior()).chain(poly.interiors()), xf);
 }
 
-fn geom_to_wkb(
-    geom: &GeometryValues,
-    index: usize,
-    xf: Option<TileTransform>,
-) -> MltResult<Vec<u8>> {
-    let gj = geom.to_geojson(index)?;
+fn geom32_to_wkb(geom: &Geom32, xf: Option<TileTransform>) -> MltResult<Vec<u8>> {
     let mut buf = Vec::with_capacity(128);
-
-    match gj {
+    match geom {
         Geom32::Point(c) => {
             buf.push(0x01);
             push_u32(&mut buf, 1);
-            push_coord(&mut buf, c.into(), xf);
+            push_coord(&mut buf, (*c).into(), xf);
         }
-        Geom32::LineString(coords) => push_linestring(&mut buf, &coords, xf),
-        Geom32::Polygon(poly) => push_polygon(&mut buf, &poly, xf),
+        Geom32::LineString(coords) => push_linestring(&mut buf, coords, xf),
+        Geom32::Polygon(poly) => push_polygon(&mut buf, poly, xf),
         Geom32::MultiPoint(coords) => {
             buf.push(0x01);
             push_u32(&mut buf, 4);
@@ -142,97 +136,46 @@ fn geom_to_wkb(
         }
         _ => return Err(MltError::NotImplemented("unsupported geometry type")),
     }
-
     Ok(buf)
 }
 
-fn prop_value_to_py(py: Python<'_>, prop: &ParsedProperty, i: usize) -> Py<PyAny> {
-    match prop {
-        ParsedProperty::Bool(v) => match v.values[i] {
-            Some(b) => b.into_pyobject(py).unwrap().to_owned().into_any().unbind(),
-            None => py.None(),
-        },
-        ParsedProperty::I8(v) => match v.values[i] {
-            Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-            None => py.None(),
-        },
-        ParsedProperty::U8(v) => match v.values[i] {
-            Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-            None => py.None(),
-        },
-        ParsedProperty::I32(v) => match v.values[i] {
-            Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-            None => py.None(),
-        },
-        ParsedProperty::U32(v) => match v.values[i] {
-            Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-            None => py.None(),
-        },
-        ParsedProperty::I64(v) => match v.values[i] {
-            Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-            None => py.None(),
-        },
-        ParsedProperty::U64(v) => match v.values[i] {
-            Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-            None => py.None(),
-        },
-        ParsedProperty::F32(v) => match v.values[i] {
-            Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-            None => py.None(),
-        },
-        ParsedProperty::F64(v) => match v.values[i] {
-            Some(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-            None => py.None(),
-        },
-        ParsedProperty::Str(v) => match u32::try_from(i).ok().and_then(|i| v.get(i)) {
-            Some(s) => s.into_pyobject(py).unwrap().into_any().unbind(),
-            None => py.None(),
-        },
-        ParsedProperty::SharedDict(shared_dict) => {
-            let dict = PyDict::new(py);
-            for item in &shared_dict.items {
-                if let Some(s) = item.get(shared_dict, i) {
-                    dict.set_item(item.suffix, s).unwrap();
-                }
-            }
-            if dict.is_empty() {
-                py.None()
-            } else {
-                dict.into_any().unbind()
-            }
-        }
+fn prop_value_ref_to_py(py: Python<'_>, v: PropValueRef<'_>) -> Py<PyAny> {
+    match v {
+        PropValueRef::Bool(b) => b.into_pyobject(py).unwrap().to_owned().into_any().unbind(),
+        PropValueRef::I8(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+        PropValueRef::U8(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+        PropValueRef::I32(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+        PropValueRef::U32(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+        PropValueRef::I64(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+        PropValueRef::U64(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+        PropValueRef::F32(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+        PropValueRef::F64(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+        PropValueRef::Str(s) => s.into_pyobject(py).unwrap().into_any().unbind(),
     }
 }
 
 fn build_features(
     py: Python<'_>,
-    geom: &GeometryValues,
-    ids: Option<&[Option<u64>]>,
-    props: &[&ParsedProperty],
+    layer: &ParsedLayer01<'_>,
     xf: Option<TileTransform>,
 ) -> PyResult<Vec<Py<MltFeature>>> {
-    let count = geom.vector_types().len();
-    let mut features = Vec::with_capacity(count);
-
-    for i in 0..count {
-        let id = ids.and_then(|v| v.get(i).copied().flatten());
-        let gt = geom.vector_types()[i];
-
-        let wkb_bytes = geom_to_wkb(geom, i, xf).map_err(mlt_err)?;
+    let mut features = Vec::new();
+    for feat_result in layer.iter_features() {
+        let feat = feat_result.map_err(mlt_err)?;
+        let geometry_type = GeometryType::try_from(&feat.geometry)
+            .map(|gt| gt.to_string())
+            .unwrap_or_else(|_| "Unknown".to_string());
+        let wkb_bytes = geom32_to_wkb(&feat.geometry, xf).map_err(mlt_err)?;
         let wkb = PyBytes::new(py, &wkb_bytes).unbind();
-
         let prop_dict = PyDict::new(py);
-        for p in props {
-            prop_dict.set_item(p.name(), prop_value_to_py(py, p, i))?;
+        for col in feat.iter_properties() {
+            prop_dict.set_item(col.name.to_string(), prop_value_ref_to_py(py, col.value))?;
         }
-
-        let feat = Py::new(
+        features.push(Py::new(
             py,
-            MltFeature::new(id, format!("{gt}"), wkb, prop_dict.unbind()),
-        )?;
-        features.push(feat);
+            MltFeature::new(feat.id, geometry_type, wkb, prop_dict.unbind()),
+        )?);
     }
-
     Ok(features)
 }
 
@@ -256,29 +199,25 @@ fn decode_mlt(
     y: Option<u32>,
     tms: bool,
 ) -> PyResult<Vec<MltLayer>> {
-    let layers = Parser::default().parse_layers(data).map_err(mlt_err)?;
-    let layers = Decoder::default().decode_all(layers).map_err(mlt_err)?;
-    let mut result = Vec::with_capacity(layers.len());
-    for decoded in layers {
-        let layer01 = decoded
-            .as_layer01()
-            .ok_or_else(|| PyValueError::new_err("unsupported layer tag (expected 0x01)"))?;
-
+    let mut dec = Decoder::default();
+    let mut result = Vec::new();
+    for lazy_layer in Parser::default().parse_layers(data).map_err(mlt_err)? {
+        let Layer::Tag01(layer01) = lazy_layer else {
+            return Err(PyValueError::new_err(
+                "unsupported layer tag (expected 0x01)",
+            ));
+        };
+        let decoded = layer01.decode_all(&mut dec).map_err(mlt_err)?;
         let xf = match (z, x, y) {
             (Some(z), Some(x), Some(y)) => {
-                Some(TileTransform::from_zxy(z, x, y, layer01.extent, tms)?)
+                Some(TileTransform::from_zxy(z, x, y, decoded.extent, tms)?)
             }
             _ => None,
         };
-
-        let geom = &layer01.geometry;
-        let ids = layer01.id.as_ref().map(|id| id.values());
-        let props: Vec<&ParsedProperty> = layer01.properties.iter().collect();
-
         result.push(MltLayer {
-            name: layer01.name.to_string(),
-            extent: layer01.extent,
-            features: build_features(py, geom, ids, &props, xf)?,
+            name: decoded.name.to_string(),
+            extent: decoded.extent,
+            features: build_features(py, &decoded, xf)?,
         });
     }
 
@@ -330,8 +269,17 @@ mod tests {
     use std::fs;
 
     use mlt_core::Decoder;
+    use mlt_core::v01::GeometryValues;
 
     use super::*;
+
+    fn geom_to_wkb(
+        geom: &GeometryValues,
+        index: usize,
+        xf: Option<TileTransform>,
+    ) -> MltResult<Vec<u8>> {
+        geom32_to_wkb(&geom.to_geojson(index)?, xf)
+    }
 
     #[test]
     fn tile_transform_rejects_zoom_above_30() {
