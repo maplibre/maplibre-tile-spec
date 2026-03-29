@@ -36,14 +36,11 @@ fn idx_u32(i: usize) -> u32 {
 
 #[allow(clippy::cast_precision_loss)]
 fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
-    // Scan for the first non-null value to determine the column's type.
-    // Null slots are stored as PropValue::Str(None) regardless of the actual column type,
-    // so peeking only at the first feature would misidentify a null-leading column as Str.
+    // Peek at the first feature to determine the column variant.
     let first = tile
         .features
-        .iter()
-        .filter_map(|f| f.properties.get(col_idx))
-        .find(|v| !matches!(v, PropValue::Str(None)));
+        .first()
+        .and_then(|f| f.properties.get(col_idx));
 
     match first {
         Some(PropValue::Bool(_)) => {
@@ -59,7 +56,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
             let any_none = tile
                 .features
                 .iter()
-                .any(|f| !matches!(f.properties.get(col_idx), Some(PropValue::I8(Some(_)))));
+                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::I8(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
@@ -87,7 +84,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
             let any_none = tile
                 .features
                 .iter()
-                .any(|f| !matches!(f.properties.get(col_idx), Some(PropValue::U8(Some(_)))));
+                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::U8(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
@@ -115,7 +112,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
             let any_none = tile
                 .features
                 .iter()
-                .any(|f| !matches!(f.properties.get(col_idx), Some(PropValue::I32(Some(_)))));
+                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::I32(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
@@ -143,7 +140,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
             let any_none = tile
                 .features
                 .iter()
-                .any(|f| !matches!(f.properties.get(col_idx), Some(PropValue::U32(Some(_)))));
+                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::U32(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
@@ -171,7 +168,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
             let any_none = tile
                 .features
                 .iter()
-                .any(|f| !matches!(f.properties.get(col_idx), Some(PropValue::I64(Some(_)))));
+                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::I64(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
@@ -199,7 +196,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
             let any_none = tile
                 .features
                 .iter()
-                .any(|f| !matches!(f.properties.get(col_idx), Some(PropValue::U64(Some(_)))));
+                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::U64(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
@@ -227,7 +224,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
             let any_none = tile
                 .features
                 .iter()
-                .any(|f| !matches!(f.properties.get(col_idx), Some(PropValue::F32(Some(_)))));
+                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::F32(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
@@ -255,7 +252,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
             let any_none = tile
                 .features
                 .iter()
-                .any(|f| !matches!(f.properties.get(col_idx), Some(PropValue::F64(Some(_)))));
+                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::F64(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
