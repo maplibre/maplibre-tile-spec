@@ -452,8 +452,6 @@ impl<'a> Iterator for FeatPropertyIter<'a> {
     }
 }
 
-// ── Feature iterator ──────────────────────────────────────────────────────────
-
 /// Iterator over the features of a fully-decoded [`Layer01<Parsed>`].
 ///
 /// Returned by [`Layer01::iter_features`].
