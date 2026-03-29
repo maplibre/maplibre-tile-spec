@@ -403,7 +403,7 @@ pub enum StrEncoder {
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct StagedScalar<T: Copy + PartialEq> {
-    pub name: String,
+    pub(crate) name: String,
     pub values: Vec<Option<T>>,
 }
 
@@ -419,7 +419,7 @@ pub struct StagedStrings {
 /// A single child within a staged shared-dictionary column.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedSharedDictItem {
-    pub suffix: String,
+    pub(crate) suffix: String,
     /// Per-feature `(start, end)` byte offsets into the shared corpus.
     pub ranges: Vec<(i32, i32)>,
 }

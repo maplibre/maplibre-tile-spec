@@ -10,17 +10,17 @@ use crate::{DecodeState, Lazy, Parsed};
 /// Column definition
 #[derive(Debug, PartialEq)]
 pub struct Column<'a> {
-    pub typ: ColumnType,
-    pub name: Option<&'a str>,
-    pub children: Vec<Self>,
+    pub(crate) typ: ColumnType,
+    pub(crate) name: Option<&'a str>,
+    pub(crate) children: Vec<Self>,
 }
 
 /// Owned variant of [`Column`].
 #[derive(Debug, PartialEq, Clone)]
 pub struct OwnedColumn {
-    pub typ: ColumnType,
-    pub name: Option<String>,
-    pub children: Vec<Self>,
+    pub(crate) typ: ColumnType,
+    pub(crate) name: Option<String>,
+    pub(crate) children: Vec<Self>,
 }
 
 /// Column data type, as stored in the tile
@@ -71,9 +71,9 @@ pub struct Layer01<'a, S: DecodeState = Lazy> {
     pub extent: u32,
     pub id: Option<Id<'a, S>>,
     pub geometry: Geometry<'a, S>,
-    pub properties: Vec<Property<'a, S>>,
+    pub(crate) properties: Vec<Property<'a, S>>,
     #[cfg(fuzzing)]
-    pub layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
+    pub(crate) layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
 }
 
 pub type ParsedLayer01<'a> = Layer01<'a, Parsed>;
@@ -139,13 +139,13 @@ pub struct StagedLayer01 {
 /// via [`EncodedLayer01::write_to`].
 #[derive(Debug, PartialEq, Clone)]
 pub struct EncodedLayer01 {
-    pub name: String,
-    pub extent: u32,
-    pub id: Option<EncodedId>,
-    pub geometry: EncodedGeometry,
-    pub properties: Vec<EncodedProperty>,
+    pub(crate) name: String,
+    pub(crate) extent: u32,
+    pub(crate) id: Option<EncodedId>,
+    pub(crate) geometry: EncodedGeometry,
+    pub(crate) properties: Vec<EncodedProperty>,
     #[cfg(fuzzing)]
-    pub layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
+    pub(crate) layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
 }
 
 /// Row-oriented working form for the optimizer.
