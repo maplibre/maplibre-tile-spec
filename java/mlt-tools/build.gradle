@@ -20,7 +20,6 @@ repositories {
 }
 
 dependencies {
-    implementation project(':mlt-cli')
     implementation project(':mlt-core')
     implementation(libs.jts.core)
 }
