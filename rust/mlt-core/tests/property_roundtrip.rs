@@ -4,9 +4,9 @@ use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, parser};
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, GeometryValues, IntEncoder, Layer01, LogicalEncoder,
-    PhysicalEncoder, PresenceStream, PropValue, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
-    SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty, StagedStrings,
-    StrEncoder, TileLayer01, build_staged_shared_dict,
+    PhysicalEncoder, PresenceStream, PropValue, PropertyEncoder, Scalar, ScalarEncoder,
+    SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty,
+    StagedStrings, StrEncoder, TileLayer01, build_staged_shared_dict,
 };
 use proptest::prelude::*;
 
@@ -56,15 +56,7 @@ fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
 
 fn staged_len(staged: &StagedProperty) -> usize {
     match staged {
-        StagedProperty::Bool(s) => s.values.len(),
-        StagedProperty::I8(s) => s.values.len(),
-        StagedProperty::U8(s) => s.values.len(),
-        StagedProperty::I32(s) => s.values.len(),
-        StagedProperty::U32(s) => s.values.len(),
-        StagedProperty::I64(s) => s.values.len(),
-        StagedProperty::U64(s) => s.values.len(),
-        StagedProperty::F32(s) => s.values.len(),
-        StagedProperty::F64(s) => s.values.len(),
+        StagedProperty::Scalar(s) => s.len(),
         StagedProperty::Str(s) => s.lengths.len(),
         StagedProperty::SharedDict(s) => s.items.first().map_or(0, |i| i.ranges.len()),
     }
@@ -155,7 +147,7 @@ macro_rules! integer_roundtrip_proptests {
                 );
                 prop_assert_eq!(&tile.property_names, &["x"]);
                 for (i, ov) in values.into_iter().enumerate() {
-                    prop_assert_eq!(&tile.features[i].properties[0], &PropValue::$variant(ov));
+                    prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Scalar(Scalar::$variant(ov)));
                 }
             }
 
@@ -170,7 +162,7 @@ macro_rules! integer_roundtrip_proptests {
                 );
                 prop_assert_eq!(&tile.property_names, &["x"]);
                 for (i, &v) in values.iter().enumerate() {
-                    prop_assert_eq!(&tile.features[i].properties[0], &PropValue::$variant(Some(v)));
+                    prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Scalar(Scalar::$variant(Some(v))));
                 }
             }
         }
@@ -211,7 +203,10 @@ fn bool_specific_values() {
     );
     assert_eq!(tile.property_names, vec!["active"]);
     for (i, ov) in values.into_iter().enumerate() {
-        assert_eq!(&tile.features[i].properties[0], &PropValue::Bool(ov));
+        assert_eq!(
+            &tile.features[i].properties[0],
+            &PropValue::Scalar(Scalar::Bool(ov))
+        );
     }
 }
 
@@ -230,7 +225,7 @@ fn bool_all_null() {
     assert!(
         tile.features
             .iter()
-            .all(|f| f.properties[0] == PropValue::Bool(None))
+            .all(|f| f.properties[0] == PropValue::Scalar(Scalar::Bool(None)))
     );
 }
 
@@ -245,7 +240,7 @@ proptest! {
         );
         prop_assert_eq!(&tile.property_names, &["flag"]);
         for (i, ov) in values.into_iter().enumerate() {
-            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Bool(ov));
+            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Scalar(Scalar::Bool(ov)));
         }
     }
 }
@@ -265,7 +260,7 @@ proptest! {
         );
         prop_assert_eq!(&tile.property_names, &["score"]);
         for (i, ov) in values.into_iter().enumerate() {
-            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::F32(ov));
+            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Scalar(Scalar::F32(ov)));
         }
     }
 
@@ -282,7 +277,7 @@ proptest! {
         );
         prop_assert_eq!(&tile.property_names, &["score"]);
         for (i, ov) in values.into_iter().enumerate() {
-            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::F64(ov));
+            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Scalar(Scalar::F64(ov)));
         }
     }
 }
@@ -507,19 +502,19 @@ fn struct_mixed_with_scalars() {
     assert_eq!(
         tile.features[0].properties,
         vec![
-            PropValue::U32(Some(3_748_000)),
+            PropValue::Scalar(Scalar::U32(Some(3_748_000))),
             ps("Berlin"),
             ps("Berlin"),
-            PropValue::U32(Some(1))
+            PropValue::Scalar(Scalar::U32(Some(1)))
         ]
     );
     assert_eq!(
         tile.features[1].properties,
         vec![
-            PropValue::U32(Some(1_787_000)),
+            PropValue::Scalar(Scalar::U32(Some(1_787_000))),
             ps("Hamburg"),
             ps("Hamburg"),
-            PropValue::U32(Some(2))
+            PropValue::Scalar(Scalar::U32(Some(2)))
         ]
     );
 }
@@ -563,7 +558,7 @@ fn two_struct_groups_with_scalar_between() {
         vec![
             ps("Berlin"),
             ps("Berlin"),
-            PropValue::U32(Some(3_748_000)),
+            PropValue::Scalar(Scalar::U32(Some(3_748_000))),
             ps("BE"),
             ps("BER")
         ]
@@ -573,7 +568,7 @@ fn two_struct_groups_with_scalar_between() {
         vec![
             ps("Hamburg"),
             ps("Hamburg"),
-            PropValue::U32(Some(1_787_000)),
+            PropValue::Scalar(Scalar::U32(Some(1_787_000))),
             ps("HH"),
             ps("HAM")
         ]

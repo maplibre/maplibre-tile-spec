@@ -1,12 +1,14 @@
 use std::borrow::Cow;
+use std::fmt;
 
-use enum_dispatch::enum_dispatch;
-
-use crate::analyze::{Analyze, StatType};
-use crate::v01::{EncodedStream, FsstStrEncoder, IntEncoder, RawStream, StreamMeta};
+use super::scalars::Scalar;
+use crate::v01::{
+    EncodedScalarFam, EncodedStream, FsstStrEncoder, IntEncoder, ParsedScalarFam, RawScalarFam,
+    RawStream, StagedScalarFam,
+};
 use crate::{DecodeState, Lazy};
 
-/// Owned name string (Stage 4/5)
+/// Owned name string
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EncodedName(pub String);
 
@@ -132,15 +134,7 @@ pub struct EncodedSharedDict {
 /// Raw property data as read directly from the tile.
 #[derive(Debug, PartialEq, Clone)]
 pub enum RawProperty<'a> {
-    Bool(RawScalar<'a>),
-    I8(RawScalar<'a>),
-    U8(RawScalar<'a>),
-    I32(RawScalar<'a>),
-    U32(RawScalar<'a>),
-    I64(RawScalar<'a>),
-    U64(RawScalar<'a>),
-    F32(RawScalar<'a>),
-    F64(RawScalar<'a>),
+    Scalar(Scalar<RawScalarFam<'a>>),
     Str(RawStrings<'a>),
     SharedDict(RawSharedDict<'a>),
 }
@@ -148,15 +142,7 @@ pub enum RawProperty<'a> {
 /// Wire-ready encoded property data (owns its byte buffers).
 #[derive(Debug, Clone, PartialEq)]
 pub enum EncodedProperty {
-    Bool(EncodedScalar),
-    I8(EncodedScalar),
-    U8(EncodedScalar),
-    I32(EncodedScalar),
-    U32(EncodedScalar),
-    I64(EncodedScalar),
-    U64(EncodedScalar),
-    F32(EncodedScalar),
-    F64(EncodedScalar),
+    Scalar(Scalar<EncodedScalarFam>),
     Str(EncodedStrings),
     SharedDict(EncodedSharedDict),
 }
@@ -164,17 +150,8 @@ pub enum EncodedProperty {
 /// Parsed property values in a typed enum form.
 #[derive(Clone, PartialEq, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
-#[enum_dispatch(Analyze)]
 pub enum ParsedProperty<'a> {
-    Bool(ParsedScalar<'a, bool>),
-    I8(ParsedScalar<'a, i8>),
-    U8(ParsedScalar<'a, u8>),
-    I32(ParsedScalar<'a, i32>),
-    U32(ParsedScalar<'a, u32>),
-    I64(ParsedScalar<'a, i64>),
-    U64(ParsedScalar<'a, u64>),
-    F32(ParsedScalar<'a, f32>),
-    F64(ParsedScalar<'a, f64>),
+    Scalar(Scalar<ParsedScalarFam<'a>>),
     Str(ParsedStrings<'a>),
     SharedDict(ParsedSharedDict<'a>),
 }
@@ -182,30 +159,22 @@ pub enum ParsedProperty<'a> {
 /// Staged property column (encode-side, fully owned).
 ///
 /// Unlike `ParsedProperty` (decode-side, potentially borrowed), all string names
-/// and corpus data are owned `String`s.  No lifetime parameter needed.
+/// and corpus data are owned `String`.  No lifetime parameter needed.
 ///
-/// The `Encoded` variant holds wire-ready data after the `Staged*` → `Encoded*`
+/// The variant `Encoded` holds wire-ready data after the `Staged*` → `Encoded*`
 /// encoding step has been applied. This allows `StagedLayer01` to hold a mix of
 /// staged and encoded properties before serialization.
 #[derive(Debug, Clone, PartialEq, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum StagedProperty {
-    Bool(StagedScalar<bool>),
-    I8(StagedScalar<i8>),
-    U8(StagedScalar<u8>),
-    I32(StagedScalar<i32>),
-    U32(StagedScalar<u32>),
-    I64(StagedScalar<i64>),
-    U64(StagedScalar<u64>),
-    F32(StagedScalar<f32>),
-    F64(StagedScalar<f64>),
+    Scalar(Scalar<StagedScalarFam>),
     Str(StagedStrings),
     SharedDict(StagedSharedDict),
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct ParsedScalar<'a, T: Copy + PartialEq> {
+pub struct ParsedScalar<'a, T: Copy + PartialEq + fmt::Debug> {
     pub(crate) name: &'a str,
     pub(crate) values: Vec<Option<T>>,
 }
@@ -402,7 +371,7 @@ pub enum StrEncoder {
 /// Owned scalar column prepared for encoding (bool, integer, or float).
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-pub struct StagedScalar<T: Copy + PartialEq> {
+pub struct StagedScalar<T: Copy + PartialEq + fmt::Debug> {
     pub(crate) name: String,
     pub values: Vec<Option<T>>,
 }

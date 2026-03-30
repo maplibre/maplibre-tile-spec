@@ -6,7 +6,7 @@ use std::ops::Deref;
 
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::v01::{GeometryType, ParsedLayer01, PropValueRef};
+use mlt_core::v01::{GeometryType, ParsedLayer01, PropValueRef, Scalar};
 use mlt_core::{Decoder, Layer, MltError, MltResult, Parser};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -141,15 +141,17 @@ fn geom32_to_wkb(geom: &Geom32, xf: Option<TileTransform>) -> MltResult<Vec<u8>>
 
 fn prop_value_to_py(py: Python<'_>, v: PropValueRef<'_>) -> Py<PyAny> {
     match v {
-        PropValueRef::Bool(b) => b.into_pyobject(py).unwrap().to_owned().into_any().unbind(),
-        PropValueRef::I8(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-        PropValueRef::U8(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-        PropValueRef::I32(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-        PropValueRef::U32(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-        PropValueRef::I64(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-        PropValueRef::U64(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-        PropValueRef::F32(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
-        PropValueRef::F64(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+        PropValueRef::Scalar(s) => match s {
+            Scalar::Bool(b) => b.into_pyobject(py).unwrap().to_owned().into_any().unbind(),
+            Scalar::I8(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+            Scalar::U8(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+            Scalar::I32(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+            Scalar::U32(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+            Scalar::I64(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+            Scalar::U64(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+            Scalar::F32(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+            Scalar::F64(n) => n.into_pyobject(py).unwrap().into_any().unbind(),
+        },
         PropValueRef::Str(s) => s.into_pyobject(py).unwrap().into_any().unbind(),
     }
 }

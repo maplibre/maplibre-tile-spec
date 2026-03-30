@@ -1,5 +1,5 @@
 use js_sys::{Array, Float64Array, Int8Array, Int32Array, Uint8Array, Uint32Array};
-use mlt_core::v01::{PropValue, TileLayer01};
+use mlt_core::v01::{PropValue, Scalar, TileLayer01};
 use wasm_bindgen::prelude::*;
 
 /// Cached bulk-property data for a single layer.
@@ -43,24 +43,27 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
         .and_then(|f| f.properties.get(col_idx));
 
     match first {
-        Some(PropValue::Bool(_)) => {
+        Some(PropValue::Scalar(Scalar::Bool(_))) => {
             let arr = Array::new_with_length(feature_count_u32(n));
             for (i, f) in tile.features.iter().enumerate() {
-                if let Some(PropValue::Bool(Some(b))) = f.properties.get(col_idx) {
+                if let Some(PropValue::Scalar(Scalar::Bool(Some(b)))) = f.properties.get(col_idx) {
                     arr.set(idx_u32(i), JsValue::from_bool(*b));
                 }
             }
             arr.into()
         }
-        Some(PropValue::I8(_)) => {
-            let any_none = tile
-                .features
-                .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::I8(None))));
+        Some(PropValue::Scalar(Scalar::I8(_))) => {
+            let any_none = tile.features.iter().any(|f| {
+                matches!(
+                    f.properties.get(col_idx),
+                    Some(PropValue::Scalar(Scalar::I8(None)))
+                )
+            });
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::I8(Some(v))) = f.properties.get(col_idx) {
+                    if let Some(PropValue::Scalar(Scalar::I8(Some(v)))) = f.properties.get(col_idx)
+                    {
                         arr.set(idx_u32(i), JsValue::from_f64(f64::from(*v)));
                     }
                 }
@@ -70,7 +73,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                     .features
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::I8(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::Scalar(Scalar::I8(v))) = f.properties.get(col_idx) {
                             *v
                         } else {
                             None
@@ -80,15 +83,18 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                 Int8Array::from(buf.as_slice()).into()
             }
         }
-        Some(PropValue::U8(_)) => {
-            let any_none = tile
-                .features
-                .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::U8(None))));
+        Some(PropValue::Scalar(Scalar::U8(_))) => {
+            let any_none = tile.features.iter().any(|f| {
+                matches!(
+                    f.properties.get(col_idx),
+                    Some(PropValue::Scalar(Scalar::U8(None)))
+                )
+            });
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::U8(Some(v))) = f.properties.get(col_idx) {
+                    if let Some(PropValue::Scalar(Scalar::U8(Some(v)))) = f.properties.get(col_idx)
+                    {
                         arr.set(idx_u32(i), JsValue::from_f64(f64::from(*v)));
                     }
                 }
@@ -98,7 +104,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                     .features
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::U8(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::Scalar(Scalar::U8(v))) = f.properties.get(col_idx) {
                             *v
                         } else {
                             None
@@ -108,15 +114,18 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                 Uint8Array::from(buf.as_slice()).into()
             }
         }
-        Some(PropValue::I32(_)) => {
-            let any_none = tile
-                .features
-                .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::I32(None))));
+        Some(PropValue::Scalar(Scalar::I32(_))) => {
+            let any_none = tile.features.iter().any(|f| {
+                matches!(
+                    f.properties.get(col_idx),
+                    Some(PropValue::Scalar(Scalar::I32(None)))
+                )
+            });
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::I32(Some(v))) = f.properties.get(col_idx) {
+                    if let Some(PropValue::Scalar(Scalar::I32(Some(v)))) = f.properties.get(col_idx)
+                    {
                         arr.set(idx_u32(i), JsValue::from_f64(f64::from(*v)));
                     }
                 }
@@ -126,7 +135,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                     .features
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::I32(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::Scalar(Scalar::I32(v))) = f.properties.get(col_idx) {
                             *v
                         } else {
                             None
@@ -136,15 +145,18 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                 Int32Array::from(buf.as_slice()).into()
             }
         }
-        Some(PropValue::U32(_)) => {
-            let any_none = tile
-                .features
-                .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::U32(None))));
+        Some(PropValue::Scalar(Scalar::U32(_))) => {
+            let any_none = tile.features.iter().any(|f| {
+                matches!(
+                    f.properties.get(col_idx),
+                    Some(PropValue::Scalar(Scalar::U32(None)))
+                )
+            });
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::U32(Some(v))) = f.properties.get(col_idx) {
+                    if let Some(PropValue::Scalar(Scalar::U32(Some(v)))) = f.properties.get(col_idx)
+                    {
                         arr.set(idx_u32(i), JsValue::from_f64(f64::from(*v)));
                     }
                 }
@@ -154,7 +166,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                     .features
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::U32(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::Scalar(Scalar::U32(v))) = f.properties.get(col_idx) {
                             *v
                         } else {
                             None
@@ -164,15 +176,18 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                 Uint32Array::from(buf.as_slice()).into()
             }
         }
-        Some(PropValue::I64(_)) => {
-            let any_none = tile
-                .features
-                .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::I64(None))));
+        Some(PropValue::Scalar(Scalar::I64(_))) => {
+            let any_none = tile.features.iter().any(|f| {
+                matches!(
+                    f.properties.get(col_idx),
+                    Some(PropValue::Scalar(Scalar::I64(None)))
+                )
+            });
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::I64(Some(v))) = f.properties.get(col_idx) {
+                    if let Some(PropValue::Scalar(Scalar::I64(Some(v)))) = f.properties.get(col_idx)
+                    {
                         arr.set(idx_u32(i), JsValue::from_f64(*v as f64));
                     }
                 }
@@ -182,7 +197,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                     .features
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::I64(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::Scalar(Scalar::I64(v))) = f.properties.get(col_idx) {
                             v.map(|n| n as f64)
                         } else {
                             None
@@ -192,15 +207,18 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                 Float64Array::from(buf.as_slice()).into()
             }
         }
-        Some(PropValue::U64(_)) => {
-            let any_none = tile
-                .features
-                .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::U64(None))));
+        Some(PropValue::Scalar(Scalar::U64(_))) => {
+            let any_none = tile.features.iter().any(|f| {
+                matches!(
+                    f.properties.get(col_idx),
+                    Some(PropValue::Scalar(Scalar::U64(None)))
+                )
+            });
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::U64(Some(v))) = f.properties.get(col_idx) {
+                    if let Some(PropValue::Scalar(Scalar::U64(Some(v)))) = f.properties.get(col_idx)
+                    {
                         arr.set(idx_u32(i), JsValue::from_f64(*v as f64));
                     }
                 }
@@ -210,7 +228,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                     .features
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::U64(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::Scalar(Scalar::U64(v))) = f.properties.get(col_idx) {
                             v.map(|n| n as f64)
                         } else {
                             None
@@ -220,15 +238,18 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                 Float64Array::from(buf.as_slice()).into()
             }
         }
-        Some(PropValue::F32(_)) => {
-            let any_none = tile
-                .features
-                .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::F32(None))));
+        Some(PropValue::Scalar(Scalar::F32(_))) => {
+            let any_none = tile.features.iter().any(|f| {
+                matches!(
+                    f.properties.get(col_idx),
+                    Some(PropValue::Scalar(Scalar::F32(None)))
+                )
+            });
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::F32(Some(v))) = f.properties.get(col_idx) {
+                    if let Some(PropValue::Scalar(Scalar::F32(Some(v)))) = f.properties.get(col_idx)
+                    {
                         arr.set(idx_u32(i), JsValue::from_f64(f64::from(*v)));
                     }
                 }
@@ -238,7 +259,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                     .features
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::F32(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::Scalar(Scalar::F32(v))) = f.properties.get(col_idx) {
                             *v
                         } else {
                             None
@@ -248,15 +269,18 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                 js_sys::Float32Array::from(buf.as_slice()).into()
             }
         }
-        Some(PropValue::F64(_)) => {
-            let any_none = tile
-                .features
-                .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::F64(None))));
+        Some(PropValue::Scalar(Scalar::F64(_))) => {
+            let any_none = tile.features.iter().any(|f| {
+                matches!(
+                    f.properties.get(col_idx),
+                    Some(PropValue::Scalar(Scalar::F64(None)))
+                )
+            });
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
                 for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::F64(Some(v))) = f.properties.get(col_idx) {
+                    if let Some(PropValue::Scalar(Scalar::F64(Some(v)))) = f.properties.get(col_idx)
+                    {
                         arr.set(idx_u32(i), JsValue::from_f64(*v));
                     }
                 }
@@ -266,7 +290,7 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
                     .features
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::F64(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::Scalar(Scalar::F64(v))) = f.properties.get(col_idx) {
                             *v
                         } else {
                             None
@@ -293,15 +317,17 @@ fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
 #[allow(clippy::cast_precision_loss)]
 pub(crate) fn prop_value_to_js(val: &PropValue) -> Option<JsValue> {
     match val {
-        PropValue::Bool(v) => v.map(JsValue::from_bool),
-        PropValue::I8(v) => v.map(|n| JsValue::from_f64(f64::from(n))),
-        PropValue::U8(v) => v.map(|n| JsValue::from_f64(f64::from(n))),
-        PropValue::I32(v) => v.map(|n| JsValue::from_f64(f64::from(n))),
-        PropValue::U32(v) => v.map(|n| JsValue::from_f64(f64::from(n))),
-        PropValue::I64(v) => v.map(|n| JsValue::from_f64(n as f64)),
-        PropValue::U64(v) => v.map(|n| JsValue::from_f64(n as f64)),
-        PropValue::F32(v) => v.map(|n| JsValue::from_f64(f64::from(n))),
-        PropValue::F64(v) => v.map(JsValue::from_f64),
+        PropValue::Scalar(s) => match s {
+            Scalar::Bool(v) => v.map(JsValue::from_bool),
+            Scalar::I8(v) => v.map(|n| JsValue::from_f64(f64::from(n))),
+            Scalar::U8(v) => v.map(|n| JsValue::from_f64(f64::from(n))),
+            Scalar::I32(v) => v.map(|n| JsValue::from_f64(f64::from(n))),
+            Scalar::U32(v) => v.map(|n| JsValue::from_f64(f64::from(n))),
+            Scalar::I64(v) => v.map(|n| JsValue::from_f64(n as f64)),
+            Scalar::U64(v) => v.map(|n| JsValue::from_f64(n as f64)),
+            Scalar::F32(v) => v.map(|n| JsValue::from_f64(f64::from(n))),
+            Scalar::F64(v) => v.map(JsValue::from_f64),
+        },
         PropValue::Str(v) => v.as_deref().map(JsValue::from_str),
     }
 }

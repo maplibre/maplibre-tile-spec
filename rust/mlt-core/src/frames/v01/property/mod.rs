@@ -13,4 +13,9 @@ mod strings;
 
 pub use model::*;
 pub use optimizer::{EncodeProperties, PropertyProfile};
+pub(crate) use scalars::scalar_match;
+pub use scalars::{
+    EncodedScalarFam, IdentityFam, OptionFam, ParsedScalarFam, RawScalarFam, Scalar, ScalarFamily,
+    ScalarMapFn, StagedScalarFam,
+};
 pub use strings::{build_staged_shared_dict, encode_shared_dict_prop};

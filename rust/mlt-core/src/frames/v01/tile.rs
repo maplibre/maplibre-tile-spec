@@ -11,9 +11,9 @@
 
 use crate::errors::AsMltError as _;
 use crate::v01::{
-    GeometryValues, IdValues, Layer01, ParsedLayer01, ParsedProperty, PropValue, PropValueRef,
-    StagedLayer01, StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, TileFeature,
-    TileLayer01, build_staged_shared_dict,
+    GeometryValues, IdValues, Layer01, OptionFam, ParsedLayer01, ParsedProperty, PropValue,
+    PropValueRef, Scalar, StagedLayer01, StagedProperty, StagedScalar, StagedScalarFam,
+    StagedSharedDict, StagedStrings, TileFeature, TileLayer01, build_staged_shared_dict,
 };
 use crate::{Decoder, MltResult};
 
@@ -68,15 +68,7 @@ impl Layer01<'_> {
 /// into an owned [`PropValue`].
 fn prop_value_from_ref(value: PropValueRef<'_>) -> PropValue {
     match value {
-        PropValueRef::Bool(v) => PropValue::Bool(Some(v)),
-        PropValueRef::I8(v) => PropValue::I8(Some(v)),
-        PropValueRef::U8(v) => PropValue::U8(Some(v)),
-        PropValueRef::I32(v) => PropValue::I32(Some(v)),
-        PropValueRef::U32(v) => PropValue::U32(Some(v)),
-        PropValueRef::I64(v) => PropValue::I64(Some(v)),
-        PropValueRef::U64(v) => PropValue::U64(Some(v)),
-        PropValueRef::F32(v) => PropValue::F32(Some(v)),
-        PropValueRef::F64(v) => PropValue::F64(Some(v)),
+        PropValueRef::Scalar(s) => PropValue::Scalar(Scalar::<OptionFam>::from(s)),
         PropValueRef::Str(s) => PropValue::Str(Some(s.to_string())),
     }
 }
@@ -88,24 +80,14 @@ fn prop_value_from_ref(value: PropValueRef<'_>) -> PropValue {
 /// `PropValue::Bool(None)`).  A `SharedDict` column expands to one `PropValue::Str(None)`
 /// entry per sub-item.
 fn typed_nulls(properties: &[ParsedProperty<'_>]) -> Vec<PropValue> {
-    use ParsedProperty as PP;
-    use PropValue as PV;
     let mut nulls = Vec::new();
     for prop in properties {
         match prop {
-            PP::Bool(_) => nulls.push(PV::Bool(None)),
-            PP::I8(_) => nulls.push(PV::I8(None)),
-            PP::U8(_) => nulls.push(PV::U8(None)),
-            PP::I32(_) => nulls.push(PV::I32(None)),
-            PP::U32(_) => nulls.push(PV::U32(None)),
-            PP::I64(_) => nulls.push(PV::I64(None)),
-            PP::U64(_) => nulls.push(PV::U64(None)),
-            PP::F32(_) => nulls.push(PV::F32(None)),
-            PP::F64(_) => nulls.push(PV::F64(None)),
-            PP::Str(_) => nulls.push(PV::Str(None)),
-            PP::SharedDict(d) => {
+            ParsedProperty::Scalar(s) => nulls.push(PropValue::Scalar(s.null_option())),
+            ParsedProperty::Str(_) => nulls.push(PropValue::Str(None)),
+            ParsedProperty::SharedDict(d) => {
                 for _ in &d.items {
-                    nulls.push(PV::Str(None));
+                    nulls.push(PropValue::Str(None));
                 }
             }
         }
@@ -218,30 +200,30 @@ fn rebuild_scalar_column(name: &str, col: usize, features: &[TileFeature]) -> St
             let values: Vec<Option<$ty>> = features
                 .iter()
                 .map(|f| {
-                    if let Some(PropValue::$sv(v)) = f.properties.get(col) {
+                    if let Some(PropValue::Scalar(Scalar::$sv(v))) = f.properties.get(col) {
                         *v
                     } else {
                         None
                     }
                 })
                 .collect();
-            StagedProperty::$variant(StagedScalar {
+            StagedProperty::Scalar(Scalar::<StagedScalarFam>::$variant(StagedScalar {
                 name: name.to_string(),
                 values,
-            })
+            }))
         }};
     }
 
     match first_val {
-        Some(PropValue::Bool(_)) => scalar_col!(Bool, bool, Bool),
-        Some(PropValue::I8(_)) => scalar_col!(I8, i8, I8),
-        Some(PropValue::U8(_)) => scalar_col!(U8, u8, U8),
-        Some(PropValue::I32(_)) => scalar_col!(I32, i32, I32),
-        Some(PropValue::U32(_)) => scalar_col!(U32, u32, U32),
-        Some(PropValue::I64(_)) => scalar_col!(I64, i64, I64),
-        Some(PropValue::U64(_)) => scalar_col!(U64, u64, U64),
-        Some(PropValue::F32(_)) => scalar_col!(F32, f32, F32),
-        Some(PropValue::F64(_)) => scalar_col!(F64, f64, F64),
+        Some(PropValue::Scalar(Scalar::Bool(_))) => scalar_col!(Bool, bool, Bool),
+        Some(PropValue::Scalar(Scalar::I8(_))) => scalar_col!(I8, i8, I8),
+        Some(PropValue::Scalar(Scalar::U8(_))) => scalar_col!(U8, u8, U8),
+        Some(PropValue::Scalar(Scalar::I32(_))) => scalar_col!(I32, i32, I32),
+        Some(PropValue::Scalar(Scalar::U32(_))) => scalar_col!(U32, u32, U32),
+        Some(PropValue::Scalar(Scalar::I64(_))) => scalar_col!(I64, i64, I64),
+        Some(PropValue::Scalar(Scalar::U64(_))) => scalar_col!(U64, u64, U64),
+        Some(PropValue::Scalar(Scalar::F32(_))) => scalar_col!(F32, f32, F32),
+        Some(PropValue::Scalar(Scalar::F64(_))) => scalar_col!(F64, f64, F64),
         Some(PropValue::Str(_)) | None => {
             let values: Vec<Option<String>> = features
                 .iter()
@@ -356,9 +338,15 @@ mod tests {
 
         assert_eq!(tile.property_names, vec!["flag"]);
         // Null slot → typed null matching the column type
-        assert_eq!(tile.features[0].properties[0], PropValue::Bool(None));
+        assert_eq!(
+            tile.features[0].properties[0],
+            PropValue::Scalar(Scalar::Bool(None))
+        );
         // Non-null value after the null must not be dropped
-        assert_eq!(tile.features[1].properties[0], PropValue::Bool(Some(false)));
+        assert_eq!(
+            tile.features[1].properties[0],
+            PropValue::Scalar(Scalar::Bool(Some(false)))
+        );
     }
 
     /// Every scalar type must produce a typed null for null slots and a typed
@@ -387,28 +375,28 @@ mod tests {
 
         // Feature 0: every column is null → typed null for each column
         let n = &tile.features[0].properties;
-        assert_eq!(n[0], PropValue::Bool(None));
-        assert_eq!(n[1], PropValue::I8(None));
-        assert_eq!(n[2], PropValue::U8(None));
-        assert_eq!(n[3], PropValue::I32(None));
-        assert_eq!(n[4], PropValue::U32(None));
-        assert_eq!(n[5], PropValue::I64(None));
-        assert_eq!(n[6], PropValue::U64(None));
-        assert_eq!(n[7], PropValue::F32(None));
-        assert_eq!(n[8], PropValue::F64(None));
+        assert_eq!(n[0], PropValue::Scalar(Scalar::Bool(None)));
+        assert_eq!(n[1], PropValue::Scalar(Scalar::I8(None)));
+        assert_eq!(n[2], PropValue::Scalar(Scalar::U8(None)));
+        assert_eq!(n[3], PropValue::Scalar(Scalar::I32(None)));
+        assert_eq!(n[4], PropValue::Scalar(Scalar::U32(None)));
+        assert_eq!(n[5], PropValue::Scalar(Scalar::I64(None)));
+        assert_eq!(n[6], PropValue::Scalar(Scalar::U64(None)));
+        assert_eq!(n[7], PropValue::Scalar(Scalar::F32(None)));
+        assert_eq!(n[8], PropValue::Scalar(Scalar::F64(None)));
         assert_eq!(n[9], PropValue::Str(None));
 
         // Feature 1: every column has its typed non-null value
         let p = &tile.features[1].properties;
-        assert_eq!(p[0], PropValue::Bool(Some(true)));
-        assert_eq!(p[1], PropValue::I8(Some(-1)));
-        assert_eq!(p[2], PropValue::U8(Some(2)));
-        assert_eq!(p[3], PropValue::I32(Some(-3)));
-        assert_eq!(p[4], PropValue::U32(Some(4)));
-        assert_eq!(p[5], PropValue::I64(Some(-5)));
-        assert_eq!(p[6], PropValue::U64(Some(6)));
-        assert_eq!(p[7], PropValue::F32(Some(7.0)));
-        assert_eq!(p[8], PropValue::F64(Some(8.0)));
+        assert_eq!(p[0], PropValue::Scalar(Scalar::Bool(Some(true))));
+        assert_eq!(p[1], PropValue::Scalar(Scalar::I8(Some(-1))));
+        assert_eq!(p[2], PropValue::Scalar(Scalar::U8(Some(2))));
+        assert_eq!(p[3], PropValue::Scalar(Scalar::I32(Some(-3))));
+        assert_eq!(p[4], PropValue::Scalar(Scalar::U32(Some(4))));
+        assert_eq!(p[5], PropValue::Scalar(Scalar::I64(Some(-5))));
+        assert_eq!(p[6], PropValue::Scalar(Scalar::U64(Some(6))));
+        assert_eq!(p[7], PropValue::Scalar(Scalar::F32(Some(7.0))));
+        assert_eq!(p[8], PropValue::Scalar(Scalar::F64(Some(8.0))));
         assert_eq!(p[9], PropValue::Str(Some("ok".into())));
     }
 }

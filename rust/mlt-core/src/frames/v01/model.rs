@@ -2,8 +2,8 @@ use num_enum::TryFromPrimitive;
 
 use crate::geojson::Geom32;
 use crate::v01::{
-    EncodedGeometry, EncodedId, EncodedProperty, Geometry, GeometryValues, Id, IdValues, Property,
-    StagedProperty,
+    EncodedGeometry, EncodedId, EncodedProperty, Geometry, GeometryValues, Id, IdValues, OptionFam,
+    Property, Scalar, StagedProperty,
 };
 use crate::{DecodeState, Lazy, Parsed};
 
@@ -118,7 +118,7 @@ where
     }
 }
 
-/// Columnar layer data being prepared for encoding (stage 2 of the encoding pipeline).
+/// Columnar layer data being prepared for encoding
 ///
 /// Holds fully-owned columnar data. Constructed directly (synthetics, benches) or
 /// converted from [`TileLayer01`].
@@ -182,14 +182,8 @@ pub struct TileFeature {
 /// `"prefix:suffix"`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PropValue {
-    Bool(Option<bool>),
-    I8(Option<i8>),
-    U8(Option<u8>),
-    I32(Option<i32>),
-    U32(Option<u32>),
-    I64(Option<i64>),
-    U64(Option<u64>),
-    F32(Option<f32>),
-    F64(Option<f64>),
+    /// A scalar (bool, integer, or float) value. Use [`Scalar`] variants to
+    /// distinguish the exact type.
+    Scalar(Scalar<OptionFam>),
     Str(Option<String>),
 }

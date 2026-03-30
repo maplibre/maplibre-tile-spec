@@ -1,9 +1,10 @@
 use super::{
-    ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings,
-    StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem, StagedStrings,
+    ParsedProperty, ParsedScalar, ParsedScalarFam, ParsedSharedDict, ParsedSharedDictItem,
+    ParsedStrings, Scalar, StagedProperty, StagedScalar, StagedScalarFam, StagedSharedDict,
+    StagedSharedDictItem, StagedStrings, scalar_match,
 };
 
-impl<T: Copy + PartialEq> PartialEq<StagedScalar<T>> for ParsedScalar<'_, T> {
+impl<T: Copy + PartialEq + std::fmt::Debug> PartialEq<StagedScalar<T>> for ParsedScalar<'_, T> {
     fn eq(&self, other: &StagedScalar<T>) -> bool {
         let Self { name, values } = self;
         let StagedScalar {
@@ -14,7 +15,7 @@ impl<T: Copy + PartialEq> PartialEq<StagedScalar<T>> for ParsedScalar<'_, T> {
     }
 }
 
-impl<T: Copy + PartialEq> PartialEq<ParsedScalar<'_, T>> for StagedScalar<T> {
+impl<T: Copy + PartialEq + std::fmt::Debug> PartialEq<ParsedScalar<'_, T>> for StagedScalar<T> {
     fn eq(&self, other: &ParsedScalar<'_, T>) -> bool {
         other == self
     }
@@ -84,18 +85,22 @@ impl PartialEq<ParsedSharedDict<'_>> for StagedSharedDict {
     }
 }
 
+impl PartialEq<Scalar<StagedScalarFam>> for Scalar<ParsedScalarFam<'_>> {
+    fn eq(&self, other: &Scalar<StagedScalarFam>) -> bool {
+        scalar_match!(self, other, a, b => a == b, else false)
+    }
+}
+
+impl PartialEq<Scalar<ParsedScalarFam<'_>>> for Scalar<StagedScalarFam> {
+    fn eq(&self, other: &Scalar<ParsedScalarFam<'_>>) -> bool {
+        other == self
+    }
+}
+
 impl PartialEq<StagedProperty> for ParsedProperty<'_> {
     fn eq(&self, other: &StagedProperty) -> bool {
         match (self, other) {
-            (Self::Bool(a), StagedProperty::Bool(b)) => a == b,
-            (Self::I8(a), StagedProperty::I8(b)) => a == b,
-            (Self::U8(a), StagedProperty::U8(b)) => a == b,
-            (Self::I32(a), StagedProperty::I32(b)) => a == b,
-            (Self::U32(a), StagedProperty::U32(b)) => a == b,
-            (Self::I64(a), StagedProperty::I64(b)) => a == b,
-            (Self::U64(a), StagedProperty::U64(b)) => a == b,
-            (Self::F32(a), StagedProperty::F32(b)) => a == b,
-            (Self::F64(a), StagedProperty::F64(b)) => a == b,
+            (Self::Scalar(a), StagedProperty::Scalar(b)) => a == b,
             (Self::Str(a), StagedProperty::Str(b)) => a == b,
             (Self::SharedDict(a), StagedProperty::SharedDict(b)) => a == b,
             _ => false,

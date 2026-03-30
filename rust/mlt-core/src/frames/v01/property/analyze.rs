@@ -1,9 +1,10 @@
 use crate::analyze::{Analyze, StatType};
+use crate::v01::property::scalars::scalar_match;
 use crate::v01::{
     EncodedPresence, EncodedProperty, EncodedScalar, EncodedSharedDict, EncodedSharedDictItem,
-    EncodedStrings, ParsedScalar, ParsedSharedDict, ParsedStrings, RawFsstData, RawPlainData,
-    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
-    RawStringsEncoding, StreamMeta,
+    EncodedStrings, ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedStrings, RawFsstData,
+    RawPlainData, RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem,
+    RawStrings, RawStringsEncoding, Scalar, StreamMeta,
 };
 
 impl Analyze for RawPlainData<'_> {
@@ -82,15 +83,7 @@ impl Analyze for RawSharedDict<'_> {
 impl Analyze for RawProperty<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         match self {
-            Self::Bool(s)
-            | Self::I8(s)
-            | Self::U8(s)
-            | Self::I32(s)
-            | Self::U32(s)
-            | Self::I64(s)
-            | Self::U64(s)
-            | Self::F32(s)
-            | Self::F64(s) => s.for_each_stream(cb),
+            Self::Scalar(s) => s.raw_scalar().for_each_stream(cb),
             Self::Str(s) => s.for_each_stream(cb),
             Self::SharedDict(s) => s.for_each_stream(cb),
         }
@@ -138,22 +131,14 @@ impl Analyze for EncodedSharedDict {
 impl Analyze for EncodedProperty {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         match self {
-            Self::Bool(s)
-            | Self::I8(s)
-            | Self::U8(s)
-            | Self::I32(s)
-            | Self::U32(s)
-            | Self::I64(s)
-            | Self::U64(s)
-            | Self::F32(s)
-            | Self::F64(s) => s.for_each_stream(cb),
+            Self::Scalar(s) => s.encoded_scalar().for_each_stream(cb),
             Self::Str(s) => s.for_each_stream(cb),
             Self::SharedDict(s) => s.for_each_stream(cb),
         }
     }
 }
 
-impl<T: Analyze + Copy + PartialEq> Analyze for ParsedScalar<'_, T> {
+impl<T: Analyze + Copy + PartialEq + std::fmt::Debug> Analyze for ParsedScalar<'_, T> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         let meta = if stat == StatType::DecodedMetaSize {
             self.name.len()
@@ -187,5 +172,15 @@ impl Analyze for ParsedStrings<'_> {
             0
         };
         meta + self.dense_values().collect_statistic(stat)
+    }
+}
+
+impl Analyze for ParsedProperty<'_> {
+    fn collect_statistic(&self, stat: StatType) -> usize {
+        match self {
+            Self::Scalar(s) => scalar_match!(s, v => v.collect_statistic(stat)),
+            Self::Str(v) => v.collect_statistic(stat),
+            Self::SharedDict(v) => v.collect_statistic(stat),
+        }
     }
 }

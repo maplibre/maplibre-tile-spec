@@ -8,7 +8,10 @@
 use std::fmt;
 
 use crate::geojson::Geom32;
-use crate::v01::{Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, RawProperty};
+use crate::v01::{
+    IdentityFam, Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, RawProperty, Scalar,
+    scalar_match,
+};
 use crate::{Lazy, LazyParsed, MltResult, Parsed};
 
 impl<'a> Layer01<'a, Lazy> {
@@ -109,19 +112,10 @@ impl<'a> Iterator for Layer01PropNamesIter<'_, 'a> {
 /// Yield the next [`PropName`] from a [`ParsedProperty`] column.
 #[inline]
 fn parsed_col_name<'p>(prop: &ParsedProperty<'p>, dict_idx: &mut usize) -> Option<PropName<'p>> {
-    use ParsedProperty as P;
     match prop {
-        P::Bool(s) => Some(PropName(s.name, "")),
-        P::I8(s) => Some(PropName(s.name, "")),
-        P::U8(s) => Some(PropName(s.name, "")),
-        P::I32(s) => Some(PropName(s.name, "")),
-        P::U32(s) => Some(PropName(s.name, "")),
-        P::I64(s) => Some(PropName(s.name, "")),
-        P::U64(s) => Some(PropName(s.name, "")),
-        P::F32(s) => Some(PropName(s.name, "")),
-        P::F64(s) => Some(PropName(s.name, "")),
-        P::Str(s) => Some(PropName(s.name, "")),
-        P::SharedDict(sd) => {
+        ParsedProperty::Scalar(s) => Some(PropName(s.name(), "")),
+        ParsedProperty::Str(s) => Some(PropName(s.name, "")),
+        ParsedProperty::SharedDict(sd) => {
             if *dict_idx < sd.items.len() {
                 let idx = *dict_idx;
                 *dict_idx += 1;
@@ -137,19 +131,10 @@ fn parsed_col_name<'p>(prop: &ParsedProperty<'p>, dict_idx: &mut usize) -> Optio
 /// Yield the next [`PropName`] from a [`RawProperty`] column.  See [`parsed_col_name`].
 #[inline]
 fn raw_col_name<'p>(prop: &RawProperty<'p>, dict_idx: &mut usize) -> Option<PropName<'p>> {
-    use RawProperty as P;
     match prop {
-        P::Bool(s)
-        | P::I8(s)
-        | P::U8(s)
-        | P::I32(s)
-        | P::U32(s)
-        | P::I64(s)
-        | P::U64(s)
-        | P::F32(s)
-        | P::F64(s) => Some(PropName(s.name, "")),
-        P::Str(s) => Some(PropName(s.name, "")),
-        P::SharedDict(sd) => {
+        RawProperty::Scalar(s) => Some(PropName(s.raw_scalar().name, "")),
+        RawProperty::Str(s) => Some(PropName(s.name, "")),
+        RawProperty::SharedDict(sd) => {
             if *dict_idx < sd.children.len() {
                 let idx = *dict_idx;
                 *dict_idx += 1;
@@ -219,26 +204,22 @@ impl PartialEq<PropName<'_>> for &str {
 /// [`FeatureRef::iter_properties`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PropValueRef<'a> {
-    Bool(bool),
-    I8(i8),
-    U8(u8),
-    I32(i32),
-    U32(u32),
-    I64(i64),
-    U64(u64),
-    F32(f32),
-    F64(f64),
+    /// A scalar (bool, integer, or float) value.
+    Scalar(Scalar<IdentityFam>),
     Str(&'a str),
 }
 
-macro_rules! impl_from_for_prop_value_ref {
+macro_rules! impl_from_primitives {
     ($($ty:ty => $variant:ident),+ $(,)?) => {
-        $(impl From<$ty> for PropValueRef<'_> {
+        $(impl From<$ty> for Scalar<IdentityFam> {
             fn from(v: $ty) -> Self { Self::$variant(v) }
+        }
+        impl From<$ty> for PropValueRef<'_> {
+            fn from(v: $ty) -> Self { Self::Scalar(Scalar::$variant(v)) }
         })+
     };
 }
-impl_from_for_prop_value_ref!(
+impl_from_primitives!(
     bool => Bool, i8 => I8, u8 => U8,
     i32 => I32, u32 => U32,
     i64 => I64, u64 => U64,
@@ -247,16 +228,16 @@ impl_from_for_prop_value_ref!(
 
 impl<'a, T> ParsedScalar<'a, T>
 where
-    T: Copy + PartialEq,
+    T: Copy + PartialEq + fmt::Debug,
     PropValueRef<'a>: From<T>,
 {
     #[inline]
-    fn value_at(&self, feat_idx: usize) -> Option<PropValueRef<'a>> {
-        self.values[feat_idx].map(|v| PropValueRef::from(v))
+    pub(crate) fn value_at(&self, feat_idx: usize) -> Option<PropValueRef<'a>> {
+        self.values[feat_idx].map(PropValueRef::from)
     }
 
     #[inline]
-    fn column_at(&self, idx: usize) -> Option<ColumnRef<'a>> {
+    pub(crate) fn column_at(&self, idx: usize) -> Option<ColumnRef<'a>> {
         self.value_at(idx).map(|v| ColumnRef::new(self.name, v))
     }
 }
@@ -290,19 +271,23 @@ impl<'a> ColumnRef<'a> {
 
 /// A single map feature returned by [`Layer01FeatureIter`].
 ///
+/// The two lifetime parameters separate the *layer borrow* (`'layer`) from the
+/// *data lifetime* (`'data`): property values borrowed from column data carry
+/// `'data`, while the slice reference into the layer lives for `'layer`.
+///
 /// The internal columnar layout is private; use [`iter_properties`](Self::iter_properties)
 /// and [`get_property`](Self::get_property) to access property values.
 #[derive(Debug)]
-pub struct FeatureRef<'a> {
+pub struct FeatureRef<'layer, 'data> {
     /// Optional feature ID.
     pub id: Option<u64>,
     /// Geometry in [`Geom32`] form (owned, computed on demand by the iterator).
     pub geometry: Geom32,
-    columns: &'a [ParsedProperty<'a>],
+    columns: &'layer [ParsedProperty<'data>],
     index: usize,
 }
 
-impl<'a> FeatureRef<'a> {
+impl<'layer, 'data> FeatureRef<'layer, 'data> {
     /// Iterate over every property slot for this feature, **values only**, in column order.
     ///
     /// Yields `Option<PropValueRef>`:
@@ -313,7 +298,10 @@ impl<'a> FeatureRef<'a> {
     ///
     /// Use [`Layer01::iterate_prop_names`] to pair values with their column names.
     #[must_use]
-    pub fn iter_all_properties(&self) -> FeatValuesIter<'a> {
+    pub fn iter_all_properties(&self) -> FeatValuesIter<'layer, 'data>
+    where
+        'data: 'layer,
+    {
         FeatValuesIter {
             columns: self.columns,
             feat_idx: self.index,
@@ -327,7 +315,10 @@ impl<'a> FeatureRef<'a> {
     /// `SharedDict` columns are transparently expanded into one [`ColumnRef`] per sub-item.
     /// Null / absent values are skipped entirely. The iterator is infallible.
     #[must_use]
-    pub fn iter_properties(&self) -> FeatPropertyIter<'a> {
+    pub fn iter_properties(&self) -> FeatPropertyIter<'layer, 'data>
+    where
+        'data: 'layer,
+    {
         FeatPropertyIter {
             columns: self.columns,
             feat_idx: self.index,
@@ -341,8 +332,7 @@ impl<'a> FeatureRef<'a> {
     /// For `SharedDict` columns the expected name is `"{prefix}{suffix}"`, matching
     /// the key used by [`iter_properties`](Self::iter_properties).
     #[must_use]
-    pub fn get_property(&self, name: &str) -> Option<PropValueRef<'a>> {
-        // TODO: determine if this is a perf issue
+    pub fn get_property(&self, name: &str) -> Option<PropValueRef<'layer>> {
         self.iter_properties()
             .find(|col| col.name == name)
             .map(|col| col.value)
@@ -360,35 +350,25 @@ impl<'a> FeatureRef<'a> {
 /// - `None` — null / absent slot.
 ///
 /// Pair with [`Layer01::iterate_prop_names`] to associate values with column names.
-pub struct FeatValuesIter<'a> {
-    columns: &'a [ParsedProperty<'a>],
+pub struct FeatValuesIter<'layer, 'data> {
+    columns: &'layer [ParsedProperty<'data>],
     feat_idx: usize,
     col_idx: usize,
     dict_idx: usize,
 }
 
-impl<'a> Iterator for FeatValuesIter<'a> {
-    type Item = Option<PropValueRef<'a>>;
+impl<'layer, 'data: 'layer> Iterator for FeatValuesIter<'layer, 'data> {
+    type Item = Option<PropValueRef<'layer>>;
 
-    fn next(&mut self) -> Option<Option<PropValueRef<'a>>> {
-        use ParsedProperty as PP;
-
+    fn next(&mut self) -> Option<Option<PropValueRef<'layer>>> {
         loop {
             let prop = self.columns.get(self.col_idx)?;
             self.col_idx += 1;
             let idx = self.feat_idx;
             return Some(match prop {
-                PP::Bool(s) => s.value_at(idx),
-                PP::I8(s) => s.value_at(idx),
-                PP::U8(s) => s.value_at(idx),
-                PP::I32(s) => s.value_at(idx),
-                PP::U32(s) => s.value_at(idx),
-                PP::I64(s) => s.value_at(idx),
-                PP::U64(s) => s.value_at(idx),
-                PP::F32(s) => s.value_at(idx),
-                PP::F64(s) => s.value_at(idx),
-                PP::Str(s) => s.value_at(idx),
-                PP::SharedDict(s) => {
+                ParsedProperty::Scalar(s) => scalar_match!(s, ps => ps.value_at(idx)),
+                ParsedProperty::Str(s) => s.value_at(idx),
+                ParsedProperty::SharedDict(s) => {
                     let result = s.value_at(idx, &mut self.dict_idx);
                     if self.dict_idx != 0 {
                         // Not exhausted (null sub-item or more items remain): stay on this column.
@@ -406,35 +386,25 @@ impl<'a> Iterator for FeatValuesIter<'a> {
 ///
 /// Returned by [`FeatureRef::iter_properties`]. `SharedDict` columns are expanded
 /// in-place without any heap allocation.
-pub struct FeatPropertyIter<'a> {
-    columns: &'a [ParsedProperty<'a>],
+pub struct FeatPropertyIter<'layer, 'data> {
+    columns: &'layer [ParsedProperty<'data>],
     feat_idx: usize,
     col_idx: usize,
     dict_idx: usize,
 }
 
-impl<'a> Iterator for FeatPropertyIter<'a> {
-    type Item = ColumnRef<'a>;
+impl<'layer, 'data: 'layer> Iterator for FeatPropertyIter<'layer, 'data> {
+    type Item = ColumnRef<'layer>;
 
-    fn next(&mut self) -> Option<ColumnRef<'a>> {
-        use ParsedProperty as PP;
-
+    fn next(&mut self) -> Option<ColumnRef<'layer>> {
         loop {
             let prop = self.columns.get(self.col_idx)?;
             self.col_idx += 1;
             let idx = self.feat_idx;
             if let Some(col) = match &prop {
-                PP::Bool(s) => s.column_at(idx),
-                PP::I8(s) => s.column_at(idx),
-                PP::U8(s) => s.column_at(idx),
-                PP::I32(s) => s.column_at(idx),
-                PP::U32(s) => s.column_at(idx),
-                PP::I64(s) => s.column_at(idx),
-                PP::U64(s) => s.column_at(idx),
-                PP::F32(s) => s.column_at(idx),
-                PP::F64(s) => s.column_at(idx),
-                PP::Str(s) => s.column_at(idx),
-                PP::SharedDict(s) => {
+                ParsedProperty::Scalar(s) => scalar_match!(s, ps => ps.column_at(idx)),
+                ParsedProperty::Str(s) => s.column_at(idx),
+                ParsedProperty::SharedDict(s) => {
                     let result = s.column_at(idx, &mut self.dict_idx);
                     if self.dict_idx != 0 {
                         // Not exhausted (null sub-item or more items remain): stay on this column.
@@ -471,8 +441,8 @@ impl<'layer, 'data> Layer01FeatureIter<'layer, 'data> {
     }
 }
 
-impl<'layer> Iterator for Layer01FeatureIter<'layer, '_> {
-    type Item = MltResult<FeatureRef<'layer>>;
+impl<'layer, 'data> Iterator for Layer01FeatureIter<'layer, 'data> {
+    type Item = MltResult<FeatureRef<'layer, 'data>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.layer.feature_count() {
@@ -571,21 +541,24 @@ mod tests {
 
     #[test]
     fn prop_value_ref_scalars_convert_to_json() {
-        assert_eq!(Value::from(PropValueRef::Bool(true)), Value::Bool(true));
-        assert_eq!(Value::from(PropValueRef::Bool(false)), Value::Bool(false));
-        assert_eq!(Value::from(PropValueRef::I8(-1)), Value::from(-1_i8));
-        assert_eq!(Value::from(PropValueRef::U8(255)), Value::from(255_u8));
+        assert_eq!(Value::from(PropValueRef::from(true)), Value::Bool(true));
+        assert_eq!(Value::from(PropValueRef::from(false)), Value::Bool(false));
+        assert_eq!(Value::from(PropValueRef::from(-1_i8)), Value::from(-1_i8));
+        assert_eq!(Value::from(PropValueRef::from(255_u8)), Value::from(255_u8));
         assert_eq!(
-            Value::from(PropValueRef::I32(-1000)),
+            Value::from(PropValueRef::from(-1000_i32)),
             Value::from(-1000_i32)
         );
-        assert_eq!(Value::from(PropValueRef::U32(1000)), Value::from(1000_u32));
         assert_eq!(
-            Value::from(PropValueRef::I64(i64::MIN)),
+            Value::from(PropValueRef::from(1000_u32)),
+            Value::from(1000_u32)
+        );
+        assert_eq!(
+            Value::from(PropValueRef::from(i64::MIN)),
             Value::from(i64::MIN)
         );
         assert_eq!(
-            Value::from(PropValueRef::U64(u64::MAX)),
+            Value::from(PropValueRef::from(u64::MAX)),
             Value::from(u64::MAX)
         );
         assert_eq!(
@@ -597,11 +570,11 @@ mod tests {
     #[test]
     fn prop_value_ref_float_finite_is_number() {
         assert!(matches!(
-            Value::from(PropValueRef::F32(1.5)),
+            Value::from(PropValueRef::from(1.5_f32)),
             Value::Number(_)
         ));
         assert!(matches!(
-            Value::from(PropValueRef::F64(2.5)),
+            Value::from(PropValueRef::from(2.5_f64)),
             Value::Number(_)
         ));
     }
@@ -609,19 +582,19 @@ mod tests {
     #[test]
     fn prop_value_ref_float_non_finite_becomes_string_sentinel() {
         assert_eq!(
-            Value::from(PropValueRef::F32(f32::NAN)),
+            Value::from(PropValueRef::from(f32::NAN)),
             Value::String("f32::NAN".into())
         );
         assert_eq!(
-            Value::from(PropValueRef::F32(f32::INFINITY)),
+            Value::from(PropValueRef::from(f32::INFINITY)),
             Value::String("f32::INFINITY".into())
         );
         assert_eq!(
-            Value::from(PropValueRef::F64(f64::NAN)),
+            Value::from(PropValueRef::from(f64::NAN)),
             Value::String("f64::NAN".into())
         );
         assert_eq!(
-            Value::from(PropValueRef::F64(f64::NEG_INFINITY)),
+            Value::from(PropValueRef::from(f64::NEG_INFINITY)),
             Value::String("f64::NEG_INFINITY".into())
         );
     }
@@ -722,19 +695,19 @@ mod tests {
         assert_eq!(cols0.len(), 1);
         assert_eq!(cols0[0].name, PropName("n", ""));
         assert_eq!(cols0[0].name, "n");
-        assert_eq!(cols0[0].value, PropValueRef::U32(1));
+        assert_eq!(cols0[0].value, PropValueRef::from(1_u32));
 
         assert!(feats[1].iter_properties().next().is_none());
 
-        assert_eq!(feats[2].get_property("n"), Some(PropValueRef::U32(3)));
+        assert_eq!(feats[2].get_property("n"), Some(PropValueRef::from(3_u32)));
 
         // iter_all_properties yields Option<PropValueRef> (values only, no names)
         let all0: Vec<_> = feats[0].iter_all_properties().collect();
-        assert_eq!(all0, [Some(PropValueRef::U32(1))]);
+        assert_eq!(all0, [Some(PropValueRef::from(1_u32))]);
         let all1: Vec<_> = feats[1].iter_all_properties().collect();
         assert_eq!(all1, [None]); // null slot
         let all2: Vec<_> = feats[2].iter_all_properties().collect();
-        assert_eq!(all2, [Some(PropValueRef::U32(3))]);
+        assert_eq!(all2, [Some(PropValueRef::from(3_u32))]);
 
         // iterate_prop_names yields names from the layer
         let names: Vec<_> = parsed.iterate_prop_names().map(|n| n.to_string()).collect();
@@ -791,7 +764,7 @@ mod tests {
         assert_eq!(feats[0].iter_properties().count(), 1);
         assert_eq!(
             feats[0].get_property("flag"),
-            Some(PropValueRef::Bool(true))
+            Some(PropValueRef::from(true))
         );
         assert_eq!(feats[0].get_property("score"), None);
 
@@ -799,14 +772,20 @@ mod tests {
         assert_eq!(feats[1].iter_properties().count(), 2);
         assert_eq!(
             feats[1].get_property("flag"),
-            Some(PropValueRef::Bool(false))
+            Some(PropValueRef::from(false))
         );
-        assert_eq!(feats[1].get_property("score"), Some(PropValueRef::I32(-5)));
+        assert_eq!(
+            feats[1].get_property("score"),
+            Some(PropValueRef::from(-5_i32))
+        );
 
         // feat 2: flag=null, score=7 → 1 property
         assert_eq!(feats[2].iter_properties().count(), 1);
         assert_eq!(feats[2].get_property("flag"), None);
-        assert_eq!(feats[2].get_property("score"), Some(PropValueRef::I32(7)));
+        assert_eq!(
+            feats[2].get_property("score"),
+            Some(PropValueRef::from(7_i32))
+        );
     }
 
     #[test]

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 
 use crate::frames::Layer;
-use crate::v01::PropValueRef;
+use crate::v01::{PropValueRef, Scalar};
 use crate::{MltResult, ParsedLayer};
 
 /// `GeoJSON` geometry with `i32` tile coordinates
@@ -252,15 +252,17 @@ pub fn f64_to_json(f: f64) -> Value {
 impl From<PropValueRef<'_>> for Value {
     fn from(v: PropValueRef<'_>) -> Self {
         match v {
-            PropValueRef::Bool(v) => Self::Bool(v),
-            PropValueRef::I8(v) => Self::from(v),
-            PropValueRef::U8(v) => Self::from(v),
-            PropValueRef::I32(v) => Self::from(v),
-            PropValueRef::U32(v) => Self::from(v),
-            PropValueRef::I64(v) => Self::from(v),
-            PropValueRef::U64(v) => Self::from(v),
-            PropValueRef::F32(v) => f32_to_json(v),
-            PropValueRef::F64(v) => f64_to_json(v),
+            PropValueRef::Scalar(s) => match s {
+                Scalar::Bool(v) => Self::Bool(v),
+                Scalar::I8(v) => Self::from(v),
+                Scalar::U8(v) => Self::from(v),
+                Scalar::I32(v) => Self::from(v),
+                Scalar::U32(v) => Self::from(v),
+                Scalar::I64(v) => Self::from(v),
+                Scalar::U64(v) => Self::from(v),
+                Scalar::F32(v) => f32_to_json(v),
+                Scalar::F64(v) => f64_to_json(v),
+            },
             PropValueRef::Str(s) => Self::String(s.to_string()),
         }
     }

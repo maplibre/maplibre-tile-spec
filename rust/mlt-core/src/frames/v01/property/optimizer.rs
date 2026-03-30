@@ -23,7 +23,7 @@ use crate::codecs::zigzag::encode_zigzag;
 use crate::v01::property::encode::encode_properties;
 use crate::v01::property::strings::{build_staged_shared_dict, collect_staged_shared_dict_spans};
 use crate::v01::property::{
-    PresenceStream, PropertyEncoder, ScalarEncoder, StagedProperty, StagedSharedDict,
+    PresenceStream, PropertyEncoder, Scalar, ScalarEncoder, StagedProperty, StagedSharedDict,
     StagedSharedDictItem,
 };
 use crate::v01::stream::IntEncoder;
@@ -345,64 +345,67 @@ fn merge_str_to_shared_dicts(properties: &mut Vec<StagedProperty>, groups: &[Vec
 /// Build an encoder for any staged property type.
 fn build_encoder(prop: &StagedProperty) -> PropertyEncoder {
     match prop {
-        StagedProperty::Bool(v) => {
-            PropertyEncoder::Scalar(ScalarEncoder::bool(presence_stream(has_nulls(&v.values))))
-        }
-        StagedProperty::F32(v) => {
-            PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(&v.values))))
-        }
-        StagedProperty::F64(v) => {
-            PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(&v.values))))
-        }
-        StagedProperty::I8(v) => {
-            let presence = presence_stream(has_nulls(&v.values));
-            // FIXME: inaccurate, but encoders don't support i8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
-            let non_null = v
-                .values
-                .iter()
-                .flatten()
-                .copied()
-                .map(i32::from)
-                .collect::<Vec<i32>>();
-            let enc = encode_zigzag(&non_null);
-            PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
-        }
-        StagedProperty::U8(v) => {
-            let presence = presence_stream(has_nulls(&v.values));
-            // FIXME: inaccurate, but encoders don't support u8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
-            let non_null: Vec<u32> = v.values.iter().flatten().copied().map(u32::from).collect();
-            PropertyEncoder::Scalar(ScalarEncoder::int(
-                presence,
-                IntEncoder::auto_u32(&non_null),
-            ))
-        }
-        StagedProperty::I32(v) => {
-            let presence = presence_stream(has_nulls(&v.values));
-            let non_null = v.values.iter().flatten().copied().collect::<Vec<i32>>();
-            let enc = encode_zigzag(&non_null);
-            PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
-        }
-        StagedProperty::U32(v) => {
-            let presence = presence_stream(has_nulls(&v.values));
-            let non_null: Vec<u32> = v.values.iter().flatten().copied().collect();
-            PropertyEncoder::Scalar(ScalarEncoder::int(
-                presence,
-                IntEncoder::auto_u32(&non_null),
-            ))
-        }
-        StagedProperty::I64(v) => {
-            let presence = presence_stream(has_nulls(&v.values));
-            let non_null = &v.values.iter().flatten().copied().collect::<Vec<i64>>();
-            let enc = encode_zigzag(non_null);
-            PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u64(&enc)))
-        }
-        StagedProperty::U64(v) => {
-            let non_null: Vec<u64> = v.values.iter().flatten().copied().collect();
-            PropertyEncoder::Scalar(ScalarEncoder::int(
-                presence_stream(has_nulls(&v.values)),
-                IntEncoder::auto_u64(&non_null),
-            ))
-        }
+        StagedProperty::Scalar(s) => match s {
+            Scalar::Bool(v) => {
+                PropertyEncoder::Scalar(ScalarEncoder::bool(presence_stream(has_nulls(&v.values))))
+            }
+            Scalar::F32(v) => {
+                PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(&v.values))))
+            }
+            Scalar::F64(v) => {
+                PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(&v.values))))
+            }
+            Scalar::I8(v) => {
+                let presence = presence_stream(has_nulls(&v.values));
+                // FIXME: inaccurate, but encoders don't support i8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
+                let non_null = v
+                    .values
+                    .iter()
+                    .flatten()
+                    .copied()
+                    .map(i32::from)
+                    .collect::<Vec<i32>>();
+                let enc = encode_zigzag(&non_null);
+                PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
+            }
+            Scalar::U8(v) => {
+                let presence = presence_stream(has_nulls(&v.values));
+                // FIXME: inaccurate, but encoders don't support u8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
+                let non_null: Vec<u32> =
+                    v.values.iter().flatten().copied().map(u32::from).collect();
+                PropertyEncoder::Scalar(ScalarEncoder::int(
+                    presence,
+                    IntEncoder::auto_u32(&non_null),
+                ))
+            }
+            Scalar::I32(v) => {
+                let presence = presence_stream(has_nulls(&v.values));
+                let non_null = v.values.iter().flatten().copied().collect::<Vec<i32>>();
+                let enc = encode_zigzag(&non_null);
+                PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
+            }
+            Scalar::U32(v) => {
+                let presence = presence_stream(has_nulls(&v.values));
+                let non_null: Vec<u32> = v.values.iter().flatten().copied().collect();
+                PropertyEncoder::Scalar(ScalarEncoder::int(
+                    presence,
+                    IntEncoder::auto_u32(&non_null),
+                ))
+            }
+            Scalar::I64(v) => {
+                let presence = presence_stream(has_nulls(&v.values));
+                let non_null = &v.values.iter().flatten().copied().collect::<Vec<i64>>();
+                let enc = encode_zigzag(non_null);
+                PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u64(&enc)))
+            }
+            Scalar::U64(v) => {
+                let non_null: Vec<u64> = v.values.iter().flatten().copied().collect();
+                PropertyEncoder::Scalar(ScalarEncoder::int(
+                    presence_stream(has_nulls(&v.values)),
+                    IntEncoder::auto_u64(&non_null),
+                ))
+            }
+        },
         StagedProperty::Str(v) => {
             let presence = presence_stream(v.has_nulls());
             let owned_values = v.dense_values();

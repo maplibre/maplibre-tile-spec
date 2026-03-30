@@ -4,6 +4,7 @@ use integer_encoding::VarIntWriter as _;
 
 use crate::MltResult;
 use crate::utils::{BinarySerializer as _, checked_sum3};
+use crate::v01::property::scalars::Scalar;
 use crate::v01::{ColumnType, EncodedProperty, PropertyKind, StagedProperty};
 
 impl StagedProperty {
@@ -11,14 +12,16 @@ impl StagedProperty {
     pub fn kind(&self) -> PropertyKind {
         use PropertyKind as T;
         match self {
-            Self::Bool(_) => T::Bool,
-            Self::I8(_)
-            | Self::I32(_)
-            | Self::I64(_)
-            | Self::U8(_)
-            | Self::U32(_)
-            | Self::U64(_) => T::Integer,
-            Self::F32(_) | Self::F64(_) => T::Float,
+            Self::Scalar(s) => match s {
+                Scalar::Bool(_) => T::Bool,
+                Scalar::I8(_)
+                | Scalar::I32(_)
+                | Scalar::I64(_)
+                | Scalar::U8(_)
+                | Scalar::U32(_)
+                | Scalar::U64(_) => T::Integer,
+                Scalar::F32(_) | Scalar::F64(_) => T::Float,
+            },
             Self::Str(_) => T::String,
             Self::SharedDict(_) => T::SharedDict,
         }
@@ -27,94 +30,43 @@ impl StagedProperty {
 
 impl EncodedProperty {
     pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> MltResult<()> {
-        let col_type = match self {
-            Self::Bool(s) => {
-                if s.presence.0.is_some() {
-                    ColumnType::OptBool
-                } else {
-                    ColumnType::Bool
-                }
-            }
-            Self::I8(s) => {
-                if s.presence.0.is_some() {
-                    ColumnType::OptI8
-                } else {
-                    ColumnType::I8
-                }
-            }
-            Self::U8(s) => {
-                if s.presence.0.is_some() {
-                    ColumnType::OptU8
-                } else {
-                    ColumnType::U8
-                }
-            }
-            Self::I32(s) => {
-                if s.presence.0.is_some() {
-                    ColumnType::OptI32
-                } else {
-                    ColumnType::I32
-                }
-            }
-            Self::U32(s) => {
-                if s.presence.0.is_some() {
-                    ColumnType::OptU32
-                } else {
-                    ColumnType::U32
-                }
-            }
-            Self::I64(s) => {
-                if s.presence.0.is_some() {
-                    ColumnType::OptI64
-                } else {
-                    ColumnType::I64
-                }
-            }
-            Self::U64(s) => {
-                if s.presence.0.is_some() {
-                    ColumnType::OptU64
-                } else {
-                    ColumnType::U64
-                }
-            }
-            Self::F32(s) => {
-                if s.presence.0.is_some() {
-                    ColumnType::OptF32
-                } else {
-                    ColumnType::F32
-                }
-            }
-            Self::F64(s) => {
-                if s.presence.0.is_some() {
-                    ColumnType::OptF64
-                } else {
-                    ColumnType::F64
-                }
+        let (col_type, name) = match self {
+            Self::Scalar(s) => {
+                let es = s.encoded_scalar();
+                let has_presence = es.presence.0.is_some();
+                let col_type = match (s, has_presence) {
+                    (Scalar::Bool(_), false) => ColumnType::Bool,
+                    (Scalar::Bool(_), true) => ColumnType::OptBool,
+                    (Scalar::I8(_), false) => ColumnType::I8,
+                    (Scalar::I8(_), true) => ColumnType::OptI8,
+                    (Scalar::U8(_), false) => ColumnType::U8,
+                    (Scalar::U8(_), true) => ColumnType::OptU8,
+                    (Scalar::I32(_), false) => ColumnType::I32,
+                    (Scalar::I32(_), true) => ColumnType::OptI32,
+                    (Scalar::U32(_), false) => ColumnType::U32,
+                    (Scalar::U32(_), true) => ColumnType::OptU32,
+                    (Scalar::I64(_), false) => ColumnType::I64,
+                    (Scalar::I64(_), true) => ColumnType::OptI64,
+                    (Scalar::U64(_), false) => ColumnType::U64,
+                    (Scalar::U64(_), true) => ColumnType::OptU64,
+                    (Scalar::F32(_), false) => ColumnType::F32,
+                    (Scalar::F32(_), true) => ColumnType::OptF32,
+                    (Scalar::F64(_), false) => ColumnType::F64,
+                    (Scalar::F64(_), true) => ColumnType::OptF64,
+                };
+                (col_type, &es.name.0)
             }
             Self::Str(s) => {
-                if s.presence.0.is_some() {
+                let col_type = if s.presence.0.is_some() {
                     ColumnType::OptStr
                 } else {
                     ColumnType::Str
-                }
+                };
+                (col_type, &s.name.0)
             }
-            Self::SharedDict(..) => ColumnType::SharedDict,
+            Self::SharedDict(s) => (ColumnType::SharedDict, &s.name.0),
         };
         col_type.write_to(writer)?;
-
-        let name = match self {
-            Self::Bool(s)
-            | Self::I8(s)
-            | Self::U8(s)
-            | Self::I32(s)
-            | Self::U32(s)
-            | Self::I64(s)
-            | Self::U64(s)
-            | Self::F32(s)
-            | Self::F64(s) => &s.name.0,
-            Self::Str(s) => &s.name.0,
-            Self::SharedDict(s) => &s.name.0,
-        };
         writer.write_string(name)?;
 
         // Struct children metadata must be written inline here so subsequent column
@@ -131,20 +83,14 @@ impl EncodedProperty {
 
     pub fn write_to<W: Write>(&self, writer: &mut W) -> MltResult<()> {
         match self {
-            Self::Bool(s) => {
-                writer.write_optional_stream(s.presence.0.as_ref())?;
-                writer.write_boolean_stream(&s.data)?;
-            }
-            Self::I8(s)
-            | Self::U8(s)
-            | Self::I32(s)
-            | Self::U32(s)
-            | Self::I64(s)
-            | Self::U64(s)
-            | Self::F32(s)
-            | Self::F64(s) => {
-                writer.write_optional_stream(s.presence.0.as_ref())?;
-                writer.write_stream(&s.data)?;
+            Self::Scalar(s) => {
+                let es = s.encoded_scalar();
+                writer.write_optional_stream(es.presence.0.as_ref())?;
+                if matches!(s, Scalar::Bool(_)) {
+                    writer.write_boolean_stream(&es.data)?;
+                } else {
+                    writer.write_stream(&es.data)?;
+                }
             }
             Self::Str(s) => {
                 let content = s.encoding.streams();

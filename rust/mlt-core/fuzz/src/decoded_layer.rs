@@ -1,4 +1,3 @@
-use mlt_core::v01::EncodedLayer01;
 use mlt_core::{Decoder, EncodedLayer, Layer, Parser};
 
 /// Fuzz input that starts from an already-encoded layer and tests encode → decode roundtrip.
@@ -12,9 +11,8 @@ pub struct DecodedLayerInput {
 
 impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        let layer01: EncodedLayer01 = u.arbitrary()?;
         Ok(Self {
-            layer: EncodedLayer::Tag01(layer01),
+            layer: EncodedLayer::Tag01(u.arbitrary()?),
         })
     }
 }
