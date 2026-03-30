@@ -313,7 +313,7 @@ class SyntheticMltUtil {
       var mlt = MltConverter.convertMvt(tile, metadata, config, null);
       Files.write(mltFile, mlt, StandardOpenOption.CREATE_NEW);
 
-      final String json = Json.toGeoJson(MltDecoder.decodeMlTile(mlt)) + "\n";
+      final String json = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";
       Files.writeString(jsonFile, json, StandardOpenOption.CREATE_NEW);
     } catch (Exception e) {
       throw new IOException("Error writing MLT file " + fileName, e);

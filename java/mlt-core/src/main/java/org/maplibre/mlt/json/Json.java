@@ -32,24 +32,12 @@ public final class Json {
 
   private Json() {}
 
-  public static String toJson(MapboxVectorTile tile) {
-    return toJson(tile, true);
-  }
-
   public static String toJson(MapboxVectorTile tile, boolean pretty) {
     return createGson(pretty).toJson(toJsonObjects(tile));
   }
 
-  public static String toJson(MapLibreTile tile) {
-    return toJson(tile, true);
-  }
-
   public static String toJson(MapLibreTile tile, boolean pretty) {
     return createGson(pretty).toJson(toJsonObjects(tile));
-  }
-
-  public static String toGeoJson(MapLibreTile tile) {
-    return toGeoJson(tile, true);
   }
 
   public static String toGeoJson(MapLibreTile tile, boolean pretty) {
@@ -171,8 +159,8 @@ public final class Json {
     return featureMap;
   }
 
-  private static Map.Entry<String, Object> failOnDuplicate(Object a, Object b) {
-    throw new IllegalStateException("Duplicate key: " + a + ", " + b);
+  private static Object failOnDuplicate(Object a, Object b) {
+    throw new IllegalStateException("Duplicate key");
   }
 
   private static SortedMap<String, Object> getSortedNonNullProperties(Feature feature) {
