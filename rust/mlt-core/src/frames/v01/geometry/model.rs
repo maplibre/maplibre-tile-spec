@@ -13,20 +13,20 @@ pub type Geometry<'a, S = Lazy> = <S as DecodeState>::LazyOrParsed<RawGeometry<'
 /// Raw geometry data as read directly from the tile (borrows from input bytes)
 #[derive(Debug, PartialEq, Clone)]
 pub struct RawGeometry<'a> {
-    pub meta: RawStream<'a>,
-    pub items: Vec<RawStream<'a>>,
+    pub(crate) meta: RawStream<'a>,
+    pub(crate) items: Vec<RawStream<'a>>,
 }
 
 /// Parsed (decoded) geometry data
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct GeometryValues {
-    pub vector_types: Vec<GeometryType>,
-    pub geometry_offsets: Option<Vec<u32>>,
-    pub part_offsets: Option<Vec<u32>>,
-    pub ring_offsets: Option<Vec<u32>>,
-    pub index_buffer: Option<Vec<u32>>,
-    pub triangles: Option<Vec<u32>>,
-    pub vertices: Option<Vec<i32>>,
+    pub(crate) vector_types: Vec<GeometryType>,
+    pub(crate) geometry_offsets: Option<Vec<u32>>,
+    pub(crate) part_offsets: Option<Vec<u32>>,
+    pub(crate) ring_offsets: Option<Vec<u32>>,
+    pub(crate) index_buffer: Option<Vec<u32>>,
+    pub(crate) triangles: Option<Vec<u32>>,
+    pub(crate) vertices: Option<Vec<i32>>,
 }
 
 /// Wire-ready encoded geometry data (owns its byte buffers)
@@ -61,6 +61,18 @@ pub enum GeometryType {
     MultiPoint,
     MultiLineString,
     MultiPolygon,
+}
+
+/// Describes how polygon tessellation should be performed during geometry value construction.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum TessellationMode {
+    /// No tessellation; polygons are stored as outline rings only.
+    #[default]
+    None,
+    /// Tessellate polygons using the Earcut algorithm, producing triangle index buffers.
+    Earcut,
 }
 
 /// Describes how the vertex buffer should be encoded.

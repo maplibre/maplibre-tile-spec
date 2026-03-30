@@ -17,7 +17,8 @@ pub mod tile;
 pub use geometry::*;
 pub use id::*;
 pub use iterators::{
-    ColumnRef, FeatPropertyIter, FeatureRef, Layer01FeatureIter, PropName, PropValueRef,
+    ColumnRef, FeatPropertyIter, FeatValuesIter, FeatureRef, Layer01FeatureIter,
+    Layer01PropNamesIter, PropName, PropValueRef,
 };
 pub use model::{
     Column, ColumnType, EncodedLayer01, Layer01, OwnedColumn, ParsedLayer01, PropValue,

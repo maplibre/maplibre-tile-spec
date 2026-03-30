@@ -26,6 +26,8 @@ jobs:
 
   test:
     name: Test
+    permissions:
+      id-token: write  # for OIDC Codecov
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
@@ -35,11 +37,14 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: "cargo-llvm-cov" }
       - run: just -v rust::ci-coverage
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v7
+      - name: Upload coverage to Codecov
+        if: github.repository_owner == 'maplibre'
+        uses: codecov/codecov-action@v5
         with:
-          name: coverage-report
-          path: rust/target/llvm-cov/codecov.info
+          use_oidc: true
+          fail_ci_if_error: true
+          disable_search: true
+          files: rust/target/llvm-cov/lcov.info
       - run: just -v assert-git-is-clean
 
   test-wasm:
@@ -95,24 +100,6 @@ jobs:
   #      - uses: ./.github/actions/mlt-setup-rust
   #        with: { toolchain: msrv }
   #      - run: just -v rust::ci-test-msrv
-
-  upload-coverage:
-    name: Upload coverage to Codecov
-    needs: [test, fuzz]
-    if: github.repository_owner == 'maplibre'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download coverage artifacts
-        uses: actions/download-artifact@v8
-        with:
-          pattern: "*coverage*"
-          path: coverage
-          merge-multiple: true
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          directory: coverage
 
   test-publish:
     name: Test workspace publishing using --dry-run

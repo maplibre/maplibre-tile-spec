@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
+use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 
@@ -44,8 +45,8 @@ impl FeatureCollection {
             for feat in parsed.iter_features() {
                 let feat = feat?;
                 let mut properties = BTreeMap::new();
-                for col in feat.iter_properties() {
-                    properties.insert(col.name.to_string(), col.value.into());
+                for p in feat.iter_properties() {
+                    properties.insert(p.name.to_string(), p.value.into());
                 }
                 properties.insert("_layer".into(), Value::String(layer_name.to_string()));
                 properties.insert("_extent".into(), Value::Number(extent.into()));
@@ -100,7 +101,6 @@ impl Serialize for Geom32Wire<'_> {
 /// Serialize with the preferred order of the keys
 impl Serialize for Feature {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::SerializeMap as _;
         let len = 3 + usize::from(self.id.is_some());
         let mut map = serializer.serialize_map(Some(len))?;
         map.serialize_entry("type", &self.ty)?;
@@ -119,6 +119,8 @@ mod geom_serde {
     use geo_types::{
         Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
     };
+    use serde::de::Error as _;
+    use serde::ser::{Error, SerializeMap as _};
     use serde::{Deserialize, Deserializer, Serializer};
     use serde_json::Value;
 
@@ -148,8 +150,6 @@ mod geom_serde {
     }
 
     pub fn serialize<S: Serializer>(g: &Geom32, s: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::{Error, SerializeMap as _};
-
         let mut m = s.serialize_map(Some(2))?;
         let (ty, coords): (&str, Value) = match g {
             Geometry::Point(p) => ("Point", serde_json::to_value(Arr::from(*p)).unwrap()),
@@ -176,8 +176,6 @@ mod geom_serde {
     }
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Geom32, D::Error> {
-        use serde::de::Error as _;
-
         fn parse<T: serde::de::DeserializeOwned, E: serde::de::Error>(v: Value) -> Result<T, E> {
             serde_json::from_value(v).map_err(E::custom)
         }

@@ -1,9 +1,11 @@
 use geo_types::{Coord, LineString, Point};
 use mlt_core::geojson::Geom32;
+use mlt_core::test_helpers::{assert_empty, dec, into_layer01, parser};
 use mlt_core::v01::{
     GeometryEncoder, GeometryType, GeometryValues, IntEncoder, SortStrategy, StagedLayer01Encoder,
     Tile01Encoder, TileFeature, TileLayer01,
 };
+use mlt_core::{EncodedLayer, Layer};
 
 /// Build row-oriented tile layer from geometries and IDs (one feature per geometry).
 fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
@@ -26,11 +28,7 @@ fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
 
 /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer01`.
 /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
-#[cfg(test)]
 fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLayer01 {
-    use mlt_core::__private::{assert_empty, dec, into_layer01, parser};
-    use mlt_core::{EncodedLayer, Layer};
-
     let tile_encoder = Tile01Encoder {
         sort_strategy: Some(strategy),
     };
@@ -49,8 +47,7 @@ fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLaye
         .expect("write_to failed");
 
     let mut p = parser();
-    let (remaining, layer_back) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
-    assert_empty(remaining);
+    let layer_back = assert_empty(Layer::from_bytes(&buf, &mut p));
     assert!(p.reserved() > 0, "parser should reserve bytes after parse");
 
     let layer01 = into_layer01(layer_back);
@@ -80,7 +77,7 @@ fn vertices_from_source(source: &TileLayer01) -> Vec<i32> {
     for f in &source.features {
         geom.push_geom(&f.geometry);
     }
-    geom.vertices.unwrap_or_default()
+    geom.vertices().unwrap_or_default().to_vec()
 }
 
 #[test]

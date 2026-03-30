@@ -28,17 +28,17 @@ pub enum PropertyKind {
 /// Raw scalar column (bool, integer, or float) as read directly from the tile.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawScalar<'a> {
-    pub name: &'a str,
-    pub presence: RawPresence<'a>,
-    pub data: RawStream<'a>,
+    pub(crate) name: &'a str,
+    pub(crate) presence: RawPresence<'a>,
+    pub(crate) data: RawStream<'a>,
 }
 
 /// Wire-ready encoded scalar column (owns its byte buffers).
 #[derive(Debug, Clone, PartialEq)]
 pub struct EncodedScalar {
-    pub name: EncodedName,
-    pub presence: EncodedPresence,
-    pub data: EncodedStream,
+    pub(crate) name: EncodedName,
+    pub(crate) presence: EncodedPresence,
+    pub(crate) data: EncodedStream,
 }
 
 /// Raw encoding payload for a string column (plain, dictionary, or FSST variants).
@@ -88,9 +88,9 @@ pub struct RawStrings<'a> {
 /// Wire-ready encoded string column (owns its byte buffers).
 #[derive(Debug, Clone, PartialEq)]
 pub struct EncodedStrings {
-    pub name: EncodedName,
-    pub presence: EncodedPresence,
-    pub encoding: EncodedStringsEncoding,
+    pub(crate) name: EncodedName,
+    pub(crate) presence: EncodedPresence,
+    pub(crate) encoding: EncodedStringsEncoding,
 }
 
 /// Raw encoding payload for a `SharedDict` column.
@@ -206,8 +206,8 @@ pub enum StagedProperty {
 #[derive(Clone, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ParsedScalar<'a, T: Copy + PartialEq> {
-    pub name: &'a str,
-    pub values: Vec<Option<T>>,
+    pub(crate) name: &'a str,
+    pub(crate) values: Vec<Option<T>>,
 }
 
 /// A single sub-property within a shared dictionary parsed value.
@@ -215,19 +215,19 @@ pub struct ParsedScalar<'a, T: Copy + PartialEq> {
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ParsedSharedDictItem<'a> {
     /// The suffix name of this sub-property (appended to parent struct name).
-    pub suffix: &'a str,
+    pub(crate) suffix: &'a str,
     /// Per-feature `(start, end)` byte offsets into the parsed shared corpus.
     /// Non-negative pairs indicate a present string stored as
     /// `shared_dict.corpus()[start..end]`.
     /// `(-1, -1)` indicates NULL.
     /// Equal `start` and `end` indicate an empty string.
-    pub ranges: Vec<(i32, i32)>,
+    pub(crate) ranges: Vec<(i32, i32)>,
 }
 
 /// Parsed string values for a single property.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedStrings<'a> {
-    pub name: &'a str,
+    pub(crate) name: &'a str,
     /// Per-feature cumulative end offsets into `data`.
     /// Non-negative values indicate a present string and store its exclusive
     /// end offset in `data`.
@@ -242,8 +242,8 @@ pub struct ParsedStrings<'a> {
     /// NULL,       // 2nd string, offset stays 5 because -6 == -5-1
     /// data[5..8], // 3rd string
     /// ```
-    pub lengths: Vec<i32>,
-    pub data: Cow<'a, str>,
+    pub(crate) lengths: Vec<i32>,
+    pub(crate) data: Cow<'a, str>,
 }
 
 /// `SharedDictItem` column representation, parameterized by decode state.
@@ -256,9 +256,9 @@ pub type SharedDictItem<'a, S = Lazy> =
 /// Parsed shared dictionary payload shared by one or more child string properties.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedSharedDict<'a> {
-    pub prefix: &'a str,
-    pub data: Cow<'a, str>,
-    pub items: Vec<ParsedSharedDictItem<'a>>,
+    pub(crate) prefix: &'a str,
+    pub(crate) data: Cow<'a, str>,
+    pub(crate) items: Vec<ParsedSharedDictItem<'a>>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -344,8 +344,8 @@ pub enum PropertyEncoder {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ScalarEncoder {
-    pub presence: PresenceStream,
-    pub value: ScalarValueEncoder,
+    pub(crate) presence: PresenceStream,
+    pub(crate) value: ScalarValueEncoder,
 }
 
 /// How to encode scalar property values.
@@ -381,8 +381,20 @@ pub struct SharedDictEncoder {
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum StrEncoder {
-    Plain { string_lengths: IntEncoder },
+    Plain {
+        string_lengths: IntEncoder,
+    },
+    /// Deduplicated plain dictionary: unique strings + per-feature offset indices.
+    Dict {
+        string_lengths: IntEncoder,
+        offsets: IntEncoder,
+    },
     Fsst(FsstStrEncoder),
+    /// Deduplicated FSST dictionary: FSST-compressed unique strings + per-feature offset indices.
+    FsstDict {
+        fsst: FsstStrEncoder,
+        offsets: IntEncoder,
+    },
 }
 
 // ── Staged* types (encode-side, fully owned) ─────────────────────────────────
@@ -391,23 +403,23 @@ pub enum StrEncoder {
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct StagedScalar<T: Copy + PartialEq> {
-    pub name: String,
+    pub(crate) name: String,
     pub values: Vec<Option<T>>,
 }
 
 /// Owned string column prepared for encoding.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedStrings {
-    pub name: String,
-    /// Per-feature cumulative end offsets into `data` (same encoding as [`ParsedStrings::lengths`]).
+    pub(crate) name: String,
+    /// Per-feature cumulative end offsets into `data` (same encoding as `ParsedStrings::lengths`).
     pub lengths: Vec<i32>,
-    pub data: String,
+    pub(crate) data: String,
 }
 
 /// A single child within a staged shared-dictionary column.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedSharedDictItem {
-    pub suffix: String,
+    pub(crate) suffix: String,
     /// Per-feature `(start, end)` byte offsets into the shared corpus.
     pub ranges: Vec<(i32, i32)>,
 }
@@ -415,7 +427,7 @@ pub struct StagedSharedDictItem {
 /// Owned shared-dictionary column prepared for encoding.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedSharedDict {
-    pub prefix: String,
-    pub data: String,
+    pub(crate) prefix: String,
+    pub(crate) data: String,
     pub items: Vec<StagedSharedDictItem>,
 }

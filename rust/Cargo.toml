@@ -31,10 +31,10 @@ glob = "0.3"
 globset = "0.4"
 hex = "0.4.3"
 hilbert_2d = "1.1.0"
-insta = "1.43.2"
+insta = "1.47.1"
 integer-encoding = "4.0.2"
 js-sys = "0.3"
-mlt-core = { version = "0.6.0", path = "mlt-core", default-features = false }
+mlt-core = { version = "0.6.0", path = "mlt-core", default-features = false }  # TODO: rm default-features = false after geo 0.33+ is released
 mvt-reader = "2.3.0"
 num-traits = "0.2.19"
 num_enum = "0.7.6"

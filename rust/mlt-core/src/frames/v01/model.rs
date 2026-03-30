@@ -1,6 +1,6 @@
-use geo_types::Geometry as GeoGeometry;
 use num_enum::TryFromPrimitive;
 
+use crate::geojson::Geom32;
 use crate::v01::{
     EncodedGeometry, EncodedId, EncodedProperty, Geometry, GeometryValues, Id, IdValues, Property,
     StagedProperty,
@@ -10,17 +10,17 @@ use crate::{DecodeState, Lazy, Parsed};
 /// Column definition
 #[derive(Debug, PartialEq)]
 pub struct Column<'a> {
-    pub typ: ColumnType,
-    pub name: Option<&'a str>,
-    pub children: Vec<Self>,
+    pub(crate) typ: ColumnType,
+    pub(crate) name: Option<&'a str>,
+    pub(crate) children: Vec<Self>,
 }
 
 /// Owned variant of [`Column`].
 #[derive(Debug, PartialEq, Clone)]
 pub struct OwnedColumn {
-    pub typ: ColumnType,
-    pub name: Option<String>,
-    pub children: Vec<Self>,
+    pub(crate) typ: ColumnType,
+    pub(crate) name: Option<String>,
+    pub(crate) children: Vec<Self>,
 }
 
 /// Column data type, as stored in the tile
@@ -55,7 +55,7 @@ pub enum ColumnType {
     SharedDict = 30,
 }
 
-/// Representation of a feature table layer encoded as MLT tag `0x01`.
+/// Representation of an MLT feature table layer with tag `0x01` during decoding.
 ///
 /// The type parameter `S` controls how columns are stored:
 ///
@@ -71,9 +71,9 @@ pub struct Layer01<'a, S: DecodeState = Lazy> {
     pub extent: u32,
     pub id: Option<Id<'a, S>>,
     pub geometry: Geometry<'a, S>,
-    pub properties: Vec<Property<'a, S>>,
+    pub(crate) properties: Vec<Property<'a, S>>,
     #[cfg(fuzzing)]
-    pub layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
+    pub(crate) layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
 }
 
 pub type ParsedLayer01<'a> = Layer01<'a, Parsed>;
@@ -139,13 +139,13 @@ pub struct StagedLayer01 {
 /// via [`EncodedLayer01::write_to`].
 #[derive(Debug, PartialEq, Clone)]
 pub struct EncodedLayer01 {
-    pub name: String,
-    pub extent: u32,
-    pub id: Option<EncodedId>,
-    pub geometry: EncodedGeometry,
-    pub properties: Vec<EncodedProperty>,
+    pub(crate) name: String,
+    pub(crate) extent: u32,
+    pub(crate) id: Option<EncodedId>,
+    pub(crate) geometry: EncodedGeometry,
+    pub(crate) properties: Vec<EncodedProperty>,
     #[cfg(fuzzing)]
-    pub layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
+    pub(crate) layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
 }
 
 /// Row-oriented working form for the optimizer.
@@ -167,7 +167,7 @@ pub struct TileLayer01 {
 pub struct TileFeature {
     pub id: Option<u64>,
     /// Geometry in `geo_types` / `Geom32` form.
-    pub geometry: GeoGeometry<i32>,
+    pub geometry: Geom32,
     /// One value per property column, in the same order as
     /// [`TileLayer01::property_names`].
     pub properties: Vec<PropValue>,

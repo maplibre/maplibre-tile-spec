@@ -137,7 +137,7 @@ mod tests {
     use super::*;
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
-    use crate::v01::{FsstStrEncoder, IntEncoder, RawFsstData};
+    use crate::v01::{FsstStrEncoder, IntEncoder, RawFsstData, RawStream};
 
     fn roundtrip(values: &[&str]) -> (String, Vec<u32>) {
         let encoding = FsstStrEncoder {
@@ -157,10 +157,7 @@ mod tests {
         }
         let mut raw_streams = Vec::new();
         for buf in &buffers {
-            let (remaining, raw) =
-                crate::v01::RawStream::from_bytes(buf, &mut parser()).expect("from_bytes failed");
-            assert_empty(remaining);
-            raw_streams.push(raw);
+            raw_streams.push(assert_empty(RawStream::from_bytes(buf, &mut parser())));
         }
         let [s0, s1, s2, s3] = raw_streams.try_into().expect("expected 4 streams");
         let raw = RawFsstData::new(s0, s1, s2, s3).expect("RawFsstData::new failed");

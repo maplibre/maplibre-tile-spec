@@ -1,16 +1,17 @@
 use crate::LazyParsed::Raw;
 use crate::MltError::{
-    BufferUnderflow, GeometryWithoutStreams, MissingGeometry, MultipleGeometryColumns,
-    MultipleIdColumns, SharedDictRequiresStreams, TrailingLayerData, UnexpectedStructChildCount,
-    UnsupportedStringStreamCount,
+    BufferUnderflow, GeometryWithoutStreams, InvalidSharedDictStreamCount, MissingGeometry,
+    MultipleGeometryColumns, MultipleIdColumns, SharedDictRequiresStreams, TrailingLayerData,
+    UnexpectedStructChildCount, UnsupportedStringStreamCount,
 };
 use crate::codecs::varint::parse_varint;
+use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
 use crate::v01::{
     Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01,
-    Layer01FeatureIter, ParsedLayer01, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData,
-    RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem,
-    RawStream, RawStrings, RawStringsEncoding, StreamType,
+    ParsedLayer01, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence,
+    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream,
+    RawStrings, RawStringsEncoding, StreamType,
 };
 use crate::{Decoder, Lazy, MltRefResult, MltResult, Parser};
 
@@ -188,18 +189,6 @@ impl<'a> Layer01<'a, Lazy> {
     }
 }
 
-impl<'a> ParsedLayer01<'a> {
-    /// Iterate over all features in this fully-decoded layer.
-    ///
-    /// Returns a [`Layer01FeatureIter`] that yields one [`FeatureRef`](crate::v01::FeatureRef)
-    /// per feature. Construction is infallible; individual `next()` calls return
-    /// `MltResult<FeatureRef>` because geometry decoding can fail.
-    #[must_use]
-    pub fn iter_features(&self) -> Layer01FeatureIter<'_, 'a> {
-        Layer01FeatureIter::new(self)
-    }
-}
-
 fn parse_struct_children<'a>(
     mut input: &'a [u8],
     column: &Column<'a>,
@@ -341,6 +330,27 @@ fn parse_shared_dict_column<'a>(
     }
     let children;
     (input, children) = parse_struct_children(input, column, parser)?;
+
+    // Validate stream_count: must equal dict_streams + children + optional_children.
+    let children_n = u32::try_from(children.len()).or_overflow()?;
+    let optional_n = children
+        .iter()
+        .filter(|c| c.presence.0.is_some())
+        .count()
+        .try_into()
+        .or_overflow()?;
+    let dict_n = u32::try_from(streams_taken).or_overflow()?;
+    let expected = crate::utils::checked_sum3(dict_n, children_n, optional_n)?;
+    // Java's encoder had a bug (fixed) that overcounted by 1: dict + 2*N + 1.
+    // Accept that value too so that files produced by older Java encoders still parse.
+    let java_legacy = expected.checked_add(1).or_overflow()?;
+    if stream_count != expected && stream_count != java_legacy {
+        return Err(InvalidSharedDictStreamCount {
+            actual: stream_count,
+            expected,
+        });
+    }
+
     let name = column.name.unwrap_or("");
     let encoding = match dict_streams {
         [Some(s1), Some(s2), None, None, None] => {

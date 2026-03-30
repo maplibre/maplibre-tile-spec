@@ -19,7 +19,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 js-sys.workspace = true
-mlt-core.workspace = true
+# Once geo supports wasm, use default mlt-core
+mlt-core = { workspace = true, default-features = false }
 wasm-bindgen.workspace = true
 
 [lints]
