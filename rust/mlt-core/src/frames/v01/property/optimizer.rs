@@ -47,7 +47,7 @@ const FSST_SAMPLE_STRINGS: usize = 512;
 
 /// A group of string columns to be merged into a single [`StagedProperty::SharedDict`].
 ///
-/// Produced by `cluster_strings_to_shared_dicts` and consumed by
+/// Produced by [`group_string_properties`] and consumed by
 /// `apply_string_groups` or [`crate::v01::StagedLayer01::from_tile`].
 pub struct StringGroup {
     /// Common prefix of all column names in this group.

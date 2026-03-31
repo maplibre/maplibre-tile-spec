@@ -120,11 +120,12 @@ pub struct Tile01Encoder {
 }
 
 impl Tile01Encoder {
-    /// Reorder features in `tile`
+    /// Reorder features in `tile` and stage it using the same `MinHash`-based
+    /// string grouping that was applied when this encoder was produced.
     pub fn encode(&self, tile: &mut TileLayer01) -> StagedLayer01 {
         reorder_features(tile, self.sort_strategy);
-        StagedLayer01::from(tile.clone())
-        // Self::encode_with(tile, &[SortStrategy::Unsorted]).map(|v| v.0)
+        let str_groups = group_string_properties(tile);
+        StagedLayer01::from_tile(tile.clone(), &str_groups)
     }
 
     /// Automatically select the best sort strategy and stream-level encoders by

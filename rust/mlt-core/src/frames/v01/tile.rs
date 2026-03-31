@@ -121,11 +121,9 @@ impl StagedLayer01 {
     /// pre-computed [`StringGroup`] pairings to merge similar string columns into
     /// shared dictionaries.
     ///
-    /// `groups` should be the output of
-    /// `cluster_strings_to_shared_dicts`
-    /// called on a [`StagedLayer01`] built from the same source (with an empty
-    /// `groups` slice).  Because unique-value membership is row-order-independent,
-    /// the same groups can be reused across sort trials.
+    /// `groups` should be the output of [`crate::v01::group_string_properties`] called on the
+    /// same [`TileLayer01`] source.  Because unique-value membership is
+    /// row-order-independent, the same groups can be reused across sort trials.
     ///
     /// Pass an empty slice to skip `MinHash` grouping (prefix-based shared-dict
     /// detection from the original tile structure is always applied).
