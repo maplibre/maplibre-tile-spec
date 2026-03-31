@@ -56,8 +56,6 @@ pub enum MltError {
     InvalidLogicalEncodings(LogicalTechnique, LogicalTechnique),
     #[error("layer has zero size")]
     ZeroLayerSize,
-    #[error("The profile used to optimise data is incompatible")]
-    BadProfileDataCombination,
     #[error("The encoder used to optimise data is incompatible")]
     BadEncoderDataCombination,
 

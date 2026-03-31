@@ -1,4 +1,4 @@
-//! Optimizer that analyses a batch of [`StagedProperty`] values and produces
+//! Optimizer that analyzes a batch of [`StagedProperty`] values and produces
 //! [`Vec<PropertyEncoder>`] with near-optimal per-column encoding settings.
 //!
 //! # Pipeline
@@ -9,10 +9,10 @@
 //! 3. **Compete & Select** - choose the best `IntEncoder` for integer columns
 //!    via `auto_u32` / `auto_u64` pruning-competition; decide between
 //!    `Plain` and `Fsst` string encodings using an FSST viability probe;
-//!    set `PresenceStream::Absent` for columns that have no null values.
+//!    emit a presence stream only for columns that contain null values (auto-detected).
 
-use std::collections::hash_set::IntoIter;
 use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
 
 use fsst::Compressor;
 use probabilistic_collections::similarity::MinHash;
@@ -23,11 +23,13 @@ use crate::codecs::zigzag::encode_zigzag;
 use crate::v01::property::encode::encode_properties;
 use crate::v01::property::strings::{build_staged_shared_dict, collect_staged_shared_dict_spans};
 use crate::v01::property::{
-    PresenceStream, PropertyEncoder, ScalarEncoder, StagedProperty, StagedSharedDict,
-    StagedSharedDictItem,
+    PropertyEncoder, ScalarEncoder, StagedProperty, StagedSharedDict, StagedSharedDictItem,
+    StagedStrings,
 };
 use crate::v01::stream::IntEncoder;
-use crate::v01::{EncodedProperty, SharedDictEncoder, SharedDictItemEncoder, StrEncoder};
+use crate::v01::{
+    EncodedProperty, PropValue, SharedDictEncoder, SharedDictItemEncoder, StrEncoder, TileLayer01,
+};
 
 /// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;
@@ -43,121 +45,211 @@ const FSST_OVERHEAD_THRESHOLD: usize = 4_096;
 /// Maximum number of strings sampled for the FSST viability probe.
 const FSST_SAMPLE_STRINGS: usize = 512;
 
-/// Statistics collected during Phase 1 for a single string-typed column.
-struct StringProfile {
-    /// Index of this column in the original `properties` slice.
+/// A group of string columns to be merged into a single [`StagedProperty::SharedDict`].
+///
+/// Produced by [`group_string_properties`] and consumed by
+/// `apply_string_groups` or [`crate::v01::StagedLayer01::from_tile`].
+pub struct StringGroup {
+    /// Common prefix of all column names in this group.
+    pub prefix: String,
+    /// `(suffix, col_idx)` pairs: `suffix` is the column name after stripping
+    /// `prefix`; `col_idx` is the index into [`crate::v01::TileLayer01::property_names`]
+    /// from which this group was derived.
+    pub columns: Vec<(String, usize)>,
+}
+
+struct StringProfile<'a> {
     col_idx: usize,
-    /// `MinHash` signature computed over the set of unique non-null values.
-    /// Empty when the column contains no non-null values (all-null column).
+    name: &'a str,
     min_hashes: Vec<u64>,
 }
 
-/// A pre-computed set of string column groupings derived from a representative
-/// sample of tiles.
-///
-/// Building a profile once from sample tiles avoids re-running the expensive
-/// `MinHash` similarity analysis on every subsequent tile; the profile's
-/// pre-computed string groups are applied directly during the grouping step
-/// instead.
-///
-/// Profiles from multiple samples are combined with [`PropertyProfile::merge`],
-/// which takes the union of both sets of string groups.
-#[derive(Debug, Clone, PartialEq)]
-pub struct PropertyProfile {
-    /// Pre-computed string column groupings by column name.
-    ///
-    /// Each inner vec contains 2 or more column names that should share a
-    /// dictionary. An absent entry causes the caller to skip shared-dict
-    /// merging for that group.
-    string_groups: Vec<Vec<String>>,
+fn cluster_by_similarity<'a, T: Iterator<Item = U>, U: Hash>(
+    profiles: Vec<StringProfile<'a>>,
+    min_hash: &MinHash<T, U>,
+) -> Vec<Vec<StringProfile<'a>>> {
+    let n = profiles.len();
+    let mut uf = QuickUnionUf::<UnionBySize>::new(n);
+
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let sim = min_hash
+                .get_similarity_from_hashes(&profiles[i].min_hashes, &profiles[j].min_hashes);
+            if sim > MINHASH_SIMILARITY_THRESHOLD {
+                uf.union(i, j);
+            }
+        }
+    }
+
+    let mut groups_map = HashMap::<usize, Vec<StringProfile<'a>>>::new();
+    for (i, profile) in profiles.into_iter().enumerate() {
+        let root = uf.find(i);
+        groups_map.entry(root).or_default().push(profile);
+    }
+
+    let mut groups: Vec<Vec<StringProfile<'a>>> = groups_map
+        .into_values()
+        .filter_map(|mut v| {
+            if v.len() >= 2 {
+                v.sort_unstable_by_key(|p| p.col_idx);
+                Some(v)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    groups.sort_unstable_by_key(|g| g[0].col_idx);
+    groups
 }
 
-impl PropertyProfile {
-    #[doc(hidden)]
-    #[must_use]
-    pub fn new(string_groups: Vec<Vec<String>>) -> Self {
-        Self { string_groups }
-    }
+/// Analyze a [`TileLayer01`] and return one [`StringGroup`] per cluster of similar
+/// string columns.
+///
+/// Iterates [`TileLayer01::property_names`] and [`TileLayer01::features`] directly.
+/// Only columns that carry at least one non-null [`PropValue::Str`] value are profiled;
+/// columns where every feature value is absent or null are skipped.  For each pair of
+/// remaining string columns whose estimated Jaccard similarity (over unique non-null
+/// values) exceeds `MINHASH_SIMILARITY_THRESHOLD`, the pair is union in a
+/// union-find structure; groups with fewer than two members are discarded.
+///
+/// Row order does not affect unique-value membership, so this can be called once
+/// before sort-strategy trials and the result reused for all of them via
+/// [`crate::v01::StagedLayer01::from_tile`].
+///
+/// [`StringGroup::columns`] indices refer to positions in
+/// [`TileLayer01::property_names`]; `apply_string_groups` identifies staged columns
+/// by name rather than by these indices.
+#[must_use]
+pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
+    let min_hash = MinHash::new(MINHASH_PERMUTATIONS);
 
-    /// Build a profile from a sample of staged properties.
-    ///
-    /// Runs `MinHash` similarity analysis over all string columns and records
-    /// which column names should be grouped into shared dictionaries.
-    #[must_use]
-    pub fn from_sample(properties: &[StagedProperty]) -> Self {
-        let min_hash = MinHash::<IntoIter<&str>, &str>::new(MINHASH_PERMUTATIONS);
-        let profiles = profile_string_columns(properties, &min_hash);
-
-        let string_groups = if profiles.is_empty() {
-            Vec::new()
-        } else {
-            compute_string_groups(&profiles, &min_hash)
-                .into_iter()
-                .filter(|g| g.len() >= 2)
-                .map(|group| {
-                    group
-                        .iter()
-                        .map(|&ci| properties[ci].name().to_owned())
-                        .collect()
+    let profiles: Vec<StringProfile<'_>> = source
+        .property_names
+        .iter()
+        .enumerate()
+        .filter_map(|(col_idx, name)| {
+            let mut vals = source
+                .features
+                .iter()
+                .filter_map(move |f| match f.properties.get(col_idx) {
+                    Some(PropValue::Str(Some(s))) => Some(s.as_str()),
+                    _ => None,
                 })
-                .collect()
-        };
+                .peekable();
+            // get_min_hashes would fail if the iterator is empty
+            vals.peek()?;
+            Some(StringProfile {
+                col_idx,
+                name,
+                min_hashes: min_hash.get_min_hashes(vals),
+            })
+        })
+        .collect();
 
-        Self { string_groups }
+    if profiles.is_empty() {
+        return Vec::new();
     }
 
-    /// Merge two profiles by taking the union of their string groups.
-    ///
-    /// Groups that share at least one column name are merged together.
-    /// Groups already present in `self` are not duplicated.
-    #[must_use]
-    pub fn merge(mut self, other: &Self) -> Self {
-        'outer: for other_group in &other.string_groups {
-            for self_group in &mut self.string_groups {
-                if other_group.iter().any(|n| self_group.contains(n)) {
-                    for name in other_group {
-                        if !self_group.contains(name) {
-                            self_group.push(name.clone());
-                        }
-                    }
-                    continue 'outer;
-                }
+    cluster_by_similarity(profiles, &min_hash)
+        .into_iter()
+        .map(|group| {
+            let prefix = common_prefix_name(&group);
+            let columns = group
+                .into_iter()
+                .map(|p| {
+                    let suffix = p.name.strip_prefix(&prefix).unwrap_or(p.name).to_owned();
+                    (suffix, p.col_idx)
+                })
+                .collect();
+            StringGroup { prefix, columns }
+        })
+        .collect()
+}
+
+/// Merge grouped string columns into [`StagedProperty::SharedDict`] entries in-place.
+///
+/// Looks up each grouped column by name (not index), since staged-property indices may
+/// differ from the tile column indices stored in [`StringGroup::columns`] after
+/// prefix-based `SharedDict` detection.  Columns already merged by prefix detection
+/// (no longer present as `StagedProperty::Str`) are silently skipped; if fewer than
+/// two `Str` columns remain for a given group, no `SharedDict` is created and any
+/// already-extracted columns are returned individually.
+///
+/// Non-grouped properties are preserved in their original relative order; new
+/// `SharedDict` entries are appended at the end.
+pub(crate) fn apply_string_groups(properties: &mut Vec<StagedProperty>, groups: &[StringGroup]) {
+    if groups.is_empty() {
+        return;
+    }
+
+    // Full names of every Str column targeted by a MinHash group.
+    let grouped_names: HashSet<String> = groups
+        .iter()
+        .flat_map(|g| {
+            g.columns
+                .iter()
+                .map(|(suffix, _)| format!("{}{}", g.prefix, suffix))
+        })
+        .collect();
+
+    // Partition: non-grouped properties (and non-Str properties) go directly to
+    // `output`; grouped Str columns are collected into a lookup map for merging.
+    let mut output: Vec<StagedProperty> = Vec::new();
+    let mut grouped_strs: HashMap<String, StagedStrings> = HashMap::new();
+
+    for prop in std::mem::take(properties) {
+        match prop {
+            StagedProperty::Str(s) if grouped_names.contains(&s.name) => {
+                grouped_strs.insert(s.name.clone(), s);
             }
-            self.string_groups.push(other_group.clone());
+            other => output.push(other),
         }
-        self
     }
+
+    // For each group build a SharedDict from whatever Str columns are still present.
+    // Some may have already been merged by prefix-based detection (absent from grouped_strs).
+    for group in groups {
+        let items: Vec<(String, StagedStrings)> = group
+            .columns
+            .iter()
+            .filter_map(|(suffix, _)| {
+                let full = format!("{}{}", group.prefix, suffix);
+                grouped_strs.remove(&full).map(|s| (suffix.clone(), s))
+            })
+            .collect();
+
+        if items.len() >= 2 {
+            let shared_dict = build_staged_shared_dict(group.prefix.clone(), items)
+                .expect("building staged shared dictionary from string columns should succeed");
+            output.push(StagedProperty::SharedDict(shared_dict));
+        } else {
+            // Fewer than 2 Str columns survived — return any extracted ones individually.
+            output.extend(items.into_iter().map(|(_, s)| StagedProperty::Str(s)));
+        }
+    }
+
+    *properties = output;
 }
 
 /// Extension trait for consuming-style encoding of staged property columns.
+///
+/// Each method returns `Vec<Option<EncodedProperty>>` — a `None` entry means
+/// the corresponding column was skipped (empty or all-null).
 pub trait EncodeProperties: Sized {
     /// Encode with a specific encoder, consuming `self`.
-    fn encode(self, encoder: Vec<PropertyEncoder>) -> MltResult<Vec<EncodedProperty>>;
-    /// Profile-driven encode, consuming `self`.
-    fn encode_with_profile(
-        self,
-        profile: &PropertyProfile,
-    ) -> MltResult<(Vec<EncodedProperty>, Vec<PropertyEncoder>)>;
+    fn encode(self, encoder: Vec<PropertyEncoder>) -> MltResult<Vec<Option<EncodedProperty>>>;
     /// Automatic encoding, consuming `self`.
-    fn encode_auto(self) -> MltResult<(Vec<EncodedProperty>, Vec<PropertyEncoder>)>;
+    fn encode_auto(self) -> MltResult<(Vec<Option<EncodedProperty>>, Vec<PropertyEncoder>)>;
 }
 
 impl EncodeProperties for Vec<StagedProperty> {
-    fn encode(self, encoder: Vec<PropertyEncoder>) -> MltResult<Vec<EncodedProperty>> {
+    fn encode(self, encoder: Vec<PropertyEncoder>) -> MltResult<Vec<Option<EncodedProperty>>> {
         encode_properties(&self, encoder)
     }
 
-    fn encode_with_profile(
-        mut self,
-        profile: &PropertyProfile,
-    ) -> MltResult<(Vec<EncodedProperty>, Vec<PropertyEncoder>)> {
-        let enc = apply_profile(&mut self, profile);
-        let encoded = encode_properties(&self, enc.clone())?;
-        Ok((encoded, enc))
-    }
-
-    fn encode_auto(mut self) -> MltResult<(Vec<EncodedProperty>, Vec<PropertyEncoder>)> {
-        let enc = optimize(&mut self);
+    fn encode_auto(self) -> MltResult<(Vec<Option<EncodedProperty>>, Vec<PropertyEncoder>)> {
+        let enc = optimize(&self);
         let encoded = encode_properties(&self, enc.clone())?;
         Ok((encoded, enc))
     }
@@ -165,197 +257,21 @@ impl EncodeProperties for Vec<StagedProperty> {
 
 /// Analyze `properties` and return a configured [`Vec<PropertyEncoder>`].
 ///
-/// This function mutates `properties` by combining similar string columns
-/// into `StagedProperty::SharedDict` values.
-fn optimize(properties: &mut Vec<StagedProperty>) -> Vec<PropertyEncoder> {
-    let profile = PropertyProfile::from_sample(properties);
-    apply_profile(properties, &profile)
-}
-
-/// Apply a profile to `properties`, using the pre-computed string groups
-/// instead of re-running the `MinHash` similarity analysis.
-///
-/// The same encoder selection logic as [`optimize`] is applied after grouping.
-fn apply_profile(
-    properties: &mut Vec<StagedProperty>,
-    profile: &PropertyProfile,
-) -> Vec<PropertyEncoder> {
-    if properties.is_empty() {
-        return Vec::new();
-    }
-    apply_string_groups(properties, &profile.string_groups);
+/// `MinHash`-based string grouping is expected to have been applied already (by
+/// [`crate::v01::StagedLayer01::from_tile`] via [`apply_string_groups`]).  This
+/// function only selects optimal per-column stream encoders.
+fn optimize(properties: &[StagedProperty]) -> Vec<PropertyEncoder> {
     properties.iter().map(build_encoder).collect()
-}
-
-/// Apply pre-computed string groups to `properties` by matching column names.
-///
-/// Columns present in the profile's groups but absent from this tile are
-/// silently skipped. Groups that resolve to fewer than 2 present columns are
-/// also skipped.
-fn apply_string_groups(properties: &mut Vec<StagedProperty>, string_groups: &[Vec<String>]) {
-    let matched_groups: Vec<Vec<usize>> = string_groups
-        .iter()
-        .filter_map(|group| {
-            let mut indices: Vec<usize> = group
-                .iter()
-                .filter_map(|name| {
-                    properties.iter().position(
-                        |p| matches!(p, StagedProperty::Str(v) if v.name == name.as_str()),
-                    )
-                })
-                .collect();
-            indices.sort_unstable();
-            if indices.len() >= 2 {
-                Some(indices)
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    if !matched_groups.is_empty() {
-        merge_str_to_shared_dicts(properties, &matched_groups);
-    }
-}
-
-/// Profile string columns by computing `MinHash` signatures.
-fn profile_string_columns(
-    properties: &[StagedProperty],
-    min_hash: &MinHash<IntoIter<&str>, &str>,
-) -> Vec<StringProfile> {
-    properties
-        .iter()
-        .enumerate()
-        .filter_map(|(col_idx, prop)| {
-            if let StagedProperty::Str(values) = prop {
-                let owned_values = values.dense_values();
-                let unique_set: HashSet<&str> = owned_values.iter().map(String::as_str).collect();
-
-                // Guard against all-null columns - MinHash panics on an empty iterator.
-                let min_hashes = if unique_set.is_empty() {
-                    Vec::new()
-                } else {
-                    min_hash.get_min_hashes(unique_set.into_iter())
-                };
-                Some(StringProfile {
-                    col_idx,
-                    min_hashes,
-                })
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
-/// Compute groups of similar string columns using union-find.
-///
-/// Returns groups as `Vec<Vec<usize>>` where each inner vec contains
-/// column indices sorted by position.
-fn compute_string_groups(
-    profiles: &[StringProfile],
-    min_hash: &MinHash<IntoIter<&str>, &str>,
-) -> Vec<Vec<usize>> {
-    let n = profiles.len();
-    let mut uf = QuickUnionUf::<UnionBySize>::new(n);
-
-    // Compare pairs and union similar columns
-    for i in 0..n {
-        if !profiles[i].min_hashes.is_empty() {
-            for j in (i + 1)..n {
-                if !profiles[j].min_hashes.is_empty() {
-                    let sim = min_hash.get_similarity_from_hashes(
-                        &profiles[i].min_hashes,
-                        &profiles[j].min_hashes,
-                    );
-                    if sim > MINHASH_SIMILARITY_THRESHOLD {
-                        uf.union(i, j);
-                    }
-                }
-            }
-        }
-    }
-
-    // Collect groups by root
-    let mut groups_map = HashMap::<usize, Vec<usize>>::new();
-    for (i, profile) in profiles.iter().enumerate() {
-        let root = uf.find(i);
-        groups_map.entry(root).or_default().push(profile.col_idx);
-    }
-
-    // Convert map to Vec<Vec<usize>>, sort inner lists, sort by first column
-    let mut groups: Vec<Vec<usize>> = groups_map.into_values().collect();
-    for g in &mut groups {
-        g.sort_unstable();
-    }
-    groups.sort_unstable_by_key(|g| g[0]);
-
-    groups
-}
-
-/// Transform multi-member groups into [`StagedProperty::SharedDict`].
-///
-/// For each group with 2+ members:
-/// - Computes the common prefix name
-/// - Builds [`StagedSharedDictItem`] for each child
-/// - Replaces the first property with [`StagedProperty::SharedDict`]
-/// - Removes the other properties from the vector
-fn merge_str_to_shared_dicts(properties: &mut Vec<StagedProperty>, groups: &[Vec<usize>]) {
-    let mut indices_to_remove: HashSet<usize> = HashSet::new();
-
-    for group in groups {
-        if group.len() < 2 {
-            continue;
-        }
-        let names: Vec<&str> = group.iter().map(|&ci| properties[ci].name()).collect();
-        let prefix = common_prefix_name(&names);
-
-        let items = group
-            .iter()
-            .map(|&col_idx| {
-                let prop = &properties[col_idx];
-                let name = prop.name();
-                let suffix = name.strip_prefix(&prefix).unwrap_or(name).to_owned();
-                let StagedProperty::Str(values) = prop else {
-                    unreachable!("group should only contain Str columns");
-                };
-                (suffix, values.clone())
-            })
-            .collect::<Vec<_>>();
-        let shared_dict = build_staged_shared_dict(prefix.clone(), items)
-            .expect("building staged shared dictionary from string columns should succeed");
-
-        // Replace first property with SharedDict
-        properties[group[0]] = StagedProperty::SharedDict(shared_dict);
-
-        // Mark other properties for removal
-        for &col_idx in &group[1..] {
-            indices_to_remove.insert(col_idx);
-        }
-    }
-
-    // Remove merged properties in reverse order to preserve indices
-    let mut indices: Vec<usize> = indices_to_remove.into_iter().collect();
-    indices.sort_unstable();
-    for idx in indices.into_iter().rev() {
-        properties.remove(idx);
-    }
 }
 
 /// Build an encoder for any staged property type.
 fn build_encoder(prop: &StagedProperty) -> PropertyEncoder {
     match prop {
-        StagedProperty::Bool(v) => {
-            PropertyEncoder::Scalar(ScalarEncoder::bool(presence_stream(has_nulls(&v.values))))
-        }
-        StagedProperty::F32(v) => {
-            PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(&v.values))))
-        }
-        StagedProperty::F64(v) => {
-            PropertyEncoder::Scalar(ScalarEncoder::float(presence_stream(has_nulls(&v.values))))
+        StagedProperty::Bool(_) => PropertyEncoder::Scalar(ScalarEncoder::bool()),
+        StagedProperty::F32(_) | StagedProperty::F64(_) => {
+            PropertyEncoder::Scalar(ScalarEncoder::float())
         }
         StagedProperty::I8(v) => {
-            let presence = presence_stream(has_nulls(&v.values));
             // FIXME: inaccurate, but encoders don't support i8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
             let non_null = v
                 .values
@@ -365,49 +281,35 @@ fn build_encoder(prop: &StagedProperty) -> PropertyEncoder {
                 .map(i32::from)
                 .collect::<Vec<i32>>();
             let enc = encode_zigzag(&non_null);
-            PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
+            PropertyEncoder::Scalar(ScalarEncoder::int(IntEncoder::auto_u32(&enc)))
         }
         StagedProperty::U8(v) => {
-            let presence = presence_stream(has_nulls(&v.values));
             // FIXME: inaccurate, but encoders don't support u8 widely. Sometimes, plain might be more efficient for this, but is estimated less effective
             let non_null: Vec<u32> = v.values.iter().flatten().copied().map(u32::from).collect();
-            PropertyEncoder::Scalar(ScalarEncoder::int(
-                presence,
-                IntEncoder::auto_u32(&non_null),
-            ))
+            PropertyEncoder::Scalar(ScalarEncoder::int(IntEncoder::auto_u32(&non_null)))
         }
         StagedProperty::I32(v) => {
-            let presence = presence_stream(has_nulls(&v.values));
             let non_null = v.values.iter().flatten().copied().collect::<Vec<i32>>();
             let enc = encode_zigzag(&non_null);
-            PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u32(&enc)))
+            PropertyEncoder::Scalar(ScalarEncoder::int(IntEncoder::auto_u32(&enc)))
         }
         StagedProperty::U32(v) => {
-            let presence = presence_stream(has_nulls(&v.values));
             let non_null: Vec<u32> = v.values.iter().flatten().copied().collect();
-            PropertyEncoder::Scalar(ScalarEncoder::int(
-                presence,
-                IntEncoder::auto_u32(&non_null),
-            ))
+            PropertyEncoder::Scalar(ScalarEncoder::int(IntEncoder::auto_u32(&non_null)))
         }
         StagedProperty::I64(v) => {
-            let presence = presence_stream(has_nulls(&v.values));
             let non_null = &v.values.iter().flatten().copied().collect::<Vec<i64>>();
             let enc = encode_zigzag(non_null);
-            PropertyEncoder::Scalar(ScalarEncoder::int(presence, IntEncoder::auto_u64(&enc)))
+            PropertyEncoder::Scalar(ScalarEncoder::int(IntEncoder::auto_u64(&enc)))
         }
         StagedProperty::U64(v) => {
             let non_null: Vec<u64> = v.values.iter().flatten().copied().collect();
-            PropertyEncoder::Scalar(ScalarEncoder::int(
-                presence_stream(has_nulls(&v.values)),
-                IntEncoder::auto_u64(&non_null),
-            ))
+            PropertyEncoder::Scalar(ScalarEncoder::int(IntEncoder::auto_u64(&non_null)))
         }
         StagedProperty::Str(v) => {
-            let presence = presence_stream(v.has_nulls());
             let owned_values = v.dense_values();
             let non_null: Vec<&str> = owned_values.iter().map(String::as_str).collect();
-            scalar_str_encoder(presence, &non_null)
+            scalar_str_encoder(&non_null)
         }
         StagedProperty::SharedDict(shared_dict) => build_shared_dict_encoder(shared_dict),
     }
@@ -436,11 +338,7 @@ fn build_shared_dict_encoder(shared_dict: &StagedSharedDict) -> PropertyEncoder 
     let item_encoders: Vec<SharedDictItemEncoder> = shared_dict
         .items
         .iter()
-        .map(|item| {
-            let presence = presence_stream(item.has_nulls());
-            let offsets = compute_offset_encoder(&shared_dict.items, item);
-            SharedDictItemEncoder { presence, offsets }
-        })
+        .map(|item| SharedDictItemEncoder::new(compute_offset_encoder(&shared_dict.items, item)))
         .collect();
 
     SharedDictEncoder {
@@ -477,57 +375,38 @@ fn compute_offset_encoder(
     }
 }
 
-fn has_nulls<T>(values: &[Option<T>]) -> bool {
-    values.iter().any(Option::is_none)
-}
-
-fn presence_stream(has_nulls: bool) -> PresenceStream {
-    if has_nulls {
-        PresenceStream::Present
-    } else {
-        PresenceStream::Absent
-    }
-}
-
 /// Returns the longest common byte prefix of `names`.
-fn common_prefix_name(names: &[&str]) -> String {
-    debug_assert!(!names.is_empty());
-    let first = names[0];
+fn common_prefix_name(profiles: &[StringProfile<'_>]) -> String {
+    debug_assert!(!profiles.is_empty());
+    let first = profiles[0].name;
     let mut prefix_len = first.len();
-    for name in &names[1..] {
+    for p in &profiles[1..] {
         let new_len = first
             .chars()
-            .zip(name.chars())
+            .zip(p.name.chars())
             .take_while(|(a, b)| a == b)
             .count();
         prefix_len = prefix_len.min(new_len);
         if prefix_len == 0 {
-            break;
+            return String::new();
         }
     }
-    let prefix_len = first.floor_char_boundary(prefix_len);
-    let raw = &first[..prefix_len];
-    if raw.is_empty() {
-        String::new()
-    } else {
-        raw.to_owned()
-    }
+    first[..first.floor_char_boundary(prefix_len)].to_owned()
 }
 
 /// Choose between `Plain` and `Fsst` for a standalone string column.
-fn scalar_str_encoder(presence: PresenceStream, non_null: &[&str]) -> PropertyEncoder {
+fn scalar_str_encoder(non_null: &[&str]) -> PropertyEncoder {
     let lengths: Vec<u32> = non_null
         .iter()
         .map(|s| u32::try_from(s.len()).unwrap_or(u32::MAX))
         .collect();
     if fsst_is_viable(non_null) {
         PropertyEncoder::Scalar(ScalarEncoder::str_fsst(
-            presence,
             IntEncoder::varint(),
             IntEncoder::auto_u32(&lengths),
         ))
     } else {
-        PropertyEncoder::Scalar(ScalarEncoder::str(presence, IntEncoder::auto_u32(&lengths)))
+        PropertyEncoder::Scalar(ScalarEncoder::str(IntEncoder::auto_u32(&lengths)))
     }
 }
 

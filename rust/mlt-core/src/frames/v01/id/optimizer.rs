@@ -4,61 +4,6 @@ use crate::v01::{
     PhysicalEncoder,
 };
 
-/// A pre-computed set of [`IntEncoder`] candidates derived from a representative
-/// sample of tiles.
-///
-/// Building a profile once from sample tiles avoids re-running
-/// [`DataProfile::prune_candidates`] on every subsequent tile; the profile's
-/// candidate list is used directly in the competition step instead.
-///
-/// [`IdWidth`] is not stored because it is always re-derived from the actual
-/// data of the tile being encoded.
-///
-/// Profiles from multiple samples are combined with [`IdProfile::merge`], which
-/// takes the union of both candidate sets.
-#[derive(Debug, Clone, PartialEq)]
-pub struct IdProfile {
-    /// Encoder candidates to use during competition.
-    ///
-    /// An empty list causes the caller to fall back to automatic optimization.
-    candidates: Vec<IntEncoder>,
-}
-
-impl IdProfile {
-    #[doc(hidden)]
-    #[must_use]
-    pub fn new(candidates: Vec<IntEncoder>) -> Self {
-        Self { candidates }
-    }
-
-    /// Build a profile from a sample of decoded IDs.
-    #[must_use]
-    pub fn from_sample(decoded: &IdValues) -> Self {
-        let ids = &decoded.0;
-        let Ok((_, _, id_width)) = single_pass_statistics(ids) else {
-            return Self {
-                candidates: vec![IntEncoder::varint()],
-            };
-        };
-        Self {
-            candidates: pruned_candidates(ids, id_width),
-        }
-    }
-
-    /// Merge two profiles by taking the union of their candidate sets.
-    ///
-    /// Encoders already present in `self` are not duplicated.
-    #[must_use]
-    pub fn merge(mut self, other: &Self) -> Self {
-        for &enc in &other.candidates {
-            if !self.candidates.contains(&enc) {
-                self.candidates.push(enc);
-            }
-        }
-        self
-    }
-}
-
 /// Analyze `decoded` and return a near-optimal [`IdEncoder`].
 ///
 /// Fast paths (short sequences, sequential, constant) are checked first.
@@ -84,34 +29,6 @@ fn optimize(decoded: &IdValues) -> IdEncoder {
 
     let candidates = pruned_candidates(ids, id_width);
     let logical = compete_with(ids, id_width, &candidates);
-    IdEncoder::new(logical, id_width)
-}
-
-/// Apply a profile to `decoded`, re-deriving [`IdWidth`] from the tile's data.
-///
-/// The same fast paths as [`optimize`] are applied first. For the general case,
-/// competition is run over the profile's pre-computed candidate list rather
-/// than re-running the full pruning analysis.
-fn apply_profile(decoded: &IdValues, profile: &IdProfile) -> IdEncoder {
-    let ids = &decoded.0;
-    let (is_sequential, is_constant, id_width) = match single_pass_statistics(ids) {
-        Ok(stats) => stats,
-        Err(default_enc) => return default_enc,
-    };
-
-    if ids.len() <= 2 {
-        return IdEncoder::new(LogicalEncoder::None, id_width);
-    }
-
-    if is_sequential && ids.len() > 4 {
-        return IdEncoder::new(LogicalEncoder::DeltaRle, id_width);
-    }
-
-    if is_constant {
-        return IdEncoder::new(LogicalEncoder::Rle, id_width);
-    }
-
-    let logical = compete_with(ids, id_width, &profile.candidates);
     IdEncoder::new(logical, id_width)
 }
 
@@ -172,9 +89,6 @@ fn deduce_width(has_nulls: bool, max_value: u64) -> IdWidth {
 }
 
 /// Run [`DataProfile::prune_candidates`] and filter the result to VarInt-only.
-///
-/// This is the analysis half of automatic optimization; the competition half
-/// is [`compete_with`]. Splitting them lets [`IdProfile`] cache the result.
 fn pruned_candidates(ids: &[Option<u64>], id_width: IdWidth) -> Vec<IntEncoder> {
     match id_width {
         IdWidth::Id32 | IdWidth::OptId32 => {
@@ -237,36 +151,30 @@ fn filter_varint(candidates: &[IntEncoder]) -> Vec<IntEncoder> {
 }
 
 impl IdValues {
+    /// Returns `true` when the column carries no encodable data — either it is
+    /// empty or every value is `None`.  Both cases produce no wire output.
+    fn is_empty_or_all_null(&self) -> bool {
+        self.0.is_empty() || self.0.iter().all(Option::is_none)
+    }
+
     /// Encode this ID column using the given encoder, consuming `self`.
-    /// Returns `None` if the ID list is empty.
+    /// Returns `None` when the ID list is empty or every value is `None`.
     pub fn encode(self, encoder: IdEncoder) -> MltResult<Option<EncodedId>> {
-        if self.0.is_empty() {
+        if self.is_empty_or_all_null() {
             Ok(None)
         } else {
             Ok(Some(EncodedId::encode(&self, encoder)?))
         }
     }
 
-    /// Encode using the profile to select the best encoder.
-    pub fn encode_with_profile(
-        &self,
-        profile: &IdProfile,
-    ) -> MltResult<(Option<EncodedId>, Option<IdEncoder>)> {
-        if self.0.is_empty() {
-            return Ok((None, None));
-        }
-        let enc = apply_profile(self, profile);
-        let encoded = EncodedId::encode(self, enc)?;
-        Ok((Some(encoded), Some(enc)))
-    }
-
     /// Automatically select the best encoder and encode, consuming `self`.
-    pub fn encode_auto(self) -> MltResult<(Option<EncodedId>, Option<IdEncoder>)> {
-        if self.0.is_empty() {
-            return Ok((None, None));
+    /// Returns `(None, None)` when the ID list is empty or every value is `None`.
+    pub fn encode_auto(self) -> MltResult<Option<(EncodedId, IdEncoder)>> {
+        if self.is_empty_or_all_null() {
+            return Ok(None);
         }
         let enc = optimize(&self);
         let encoded = EncodedId::encode(&self, enc)?;
-        Ok((Some(encoded), Some(enc)))
+        Ok(Some((encoded, enc)))
     }
 }

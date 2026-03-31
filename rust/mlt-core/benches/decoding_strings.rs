@@ -4,11 +4,10 @@ use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, 
 use mlt_core::__private::dec;
 use mlt_core::v01::{
     DictionaryType, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
-    EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, PhysicalEncoder,
-    PresenceStream, RawFsstData, RawPlainData, RawPresence, RawSharedDict, RawSharedDictEncoding,
-    RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding, SharedDictEncoder,
-    SharedDictItemEncoder, StagedStrings, StrEncoder, build_staged_shared_dict,
-    encode_shared_dict_prop,
+    EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, PhysicalEncoder, RawFsstData,
+    RawPlainData, RawPresence, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream,
+    RawStrings, RawStringsEncoding, SharedDictEncoder, SharedDictItemEncoder, StagedStrings,
+    StrEncoder, build_staged_shared_dict, encode_shared_dict_prop,
 };
 use strum::IntoEnumIterator as _;
 
@@ -387,16 +386,14 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         )
         .expect("build_staged_shared_dict failed");
 
-        let item_enc = SharedDictItemEncoder {
-            presence: PresenceStream::Absent,
-            offsets: int_enc,
-        };
+        let item_enc = SharedDictItemEncoder::new(int_enc);
         let encoder_plain = SharedDictEncoder {
             dict_encoder: StrEncoder::plain(int_enc),
             items: vec![item_enc.clone(), item_enc],
         };
         let encoded_prop_plain = encode_shared_dict_prop(&decoded_shared, &encoder_plain)
-            .expect("encode_shared_dict_prop failed");
+            .expect("encode_shared_dict_prop failed")
+            .expect("expected non-empty SharedDict");
         let EncodedProperty::SharedDict(ref sd_plain) = encoded_prop_plain else {
             panic!("expected SharedDict property");
         };
@@ -414,16 +411,14 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         );
 
         // --- shared dict (FSST) ---
-        let item_enc_fsst = SharedDictItemEncoder {
-            presence: PresenceStream::Absent,
-            offsets: int_enc,
-        };
+        let item_enc_fsst = SharedDictItemEncoder::new(int_enc);
         let encoder_fsst = SharedDictEncoder {
             dict_encoder: StrEncoder::fsst(int_enc, int_enc),
             items: vec![item_enc_fsst.clone(), item_enc_fsst],
         };
         let encoded_prop_fsst = encode_shared_dict_prop(&decoded_shared, &encoder_fsst)
-            .expect("encode_shared_dict_prop (fsst) failed");
+            .expect("encode_shared_dict_prop (fsst) failed")
+            .expect("expected non-empty SharedDict (fsst)");
         let EncodedProperty::SharedDict(ref sd_fsst) = encoded_prop_fsst else {
             panic!("expected SharedDict property");
         };

@@ -8,10 +8,10 @@ use geo_types::Coord;
 use mlt_core::EncodedLayer;
 use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
-    GeometryEncoder, GeometryValues, IdEncoder, IdValues, IntEncoder, PresenceStream,
-    PropertyEncoder, ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedLayer01,
-    StagedLayer01Encoder, StagedProperty, StagedStrings, StrEncoder, TessellationMode,
-    VertexBufferType, build_staged_shared_dict,
+    GeometryEncoder, GeometryValues, IdEncoder, IdValues, IntEncoder, PropertyEncoder,
+    ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder,
+    StagedProperty, StagedStrings, StrEncoder, TessellationMode, VertexBufferType,
+    build_staged_shared_dict,
 };
 
 use crate::writer::{SynthErr, SynthResult};
@@ -219,8 +219,8 @@ impl Layer {
         } = self;
 
         let (id_values, id_encoder) = match ids {
-            Some((v, e)) => (Some(v), Some(e)),
-            None => (None, None),
+            Some((v, e)) => (Some(v), e),
+            None => (None, IdEncoder::default()),
         };
 
         let mut geometry = match geometry_encoder.tessellation {
@@ -286,18 +286,42 @@ impl SharedDict {
     ///
     /// # Arguments
     /// * `suffix` - The suffix name for this child (e.g., `"de"` for `"name:de"`).
-    /// * `optional` - Whether to include a presence stream for null values.
-    /// * `offset` - The integer encoder for the offset-index stream.
+    /// * `offsets` - The integer encoder for the offset-index stream.
     /// * `values` - The string values for each feature.
     #[must_use]
     pub fn column(
-        mut self,
+        self,
         suffix: impl Into<String>,
-        presence: PresenceStream,
         offsets: IntEncoder,
         values: impl IntoIterator<Item = Option<String>>,
     ) -> Self {
-        let enc = SharedDictItemEncoder { presence, offsets };
+        self.column_with_enc(SharedDictItemEncoder::new(offsets), suffix, values)
+    }
+
+    /// Like [`column`][Self::column] but forces a presence stream even when no nulls exist.
+    ///
+    /// Used in synthetics to match the Java reference format, which always emits a presence
+    /// stream for every shared-dict child column.
+    #[must_use]
+    pub fn column_fp(
+        self,
+        suffix: impl Into<String>,
+        offsets: IntEncoder,
+        values: impl IntoIterator<Item = Option<String>>,
+    ) -> Self {
+        self.column_with_enc(
+            SharedDictItemEncoder::new(offsets).with_forced_presence(true),
+            suffix,
+            values,
+        )
+    }
+
+    fn column_with_enc(
+        mut self,
+        enc: SharedDictItemEncoder,
+        suffix: impl Into<String>,
+        values: impl IntoIterator<Item = Option<String>>,
+    ) -> Self {
         self.encoder.items.push(enc);
         let suffix = suffix.into();
         let values: Vec<Option<String>> = values.into_iter().collect();

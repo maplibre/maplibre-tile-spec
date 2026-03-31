@@ -4,7 +4,7 @@ use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, 
 use mlt_core::__private::{dec, parser};
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LogicalEncoder,
-    PhysicalEncoder, PresenceStream, PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer01,
+    PhysicalEncoder, PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer01,
 };
 use mlt_core::{Layer, StagedLayer};
 use strum::IntoEnumIterator as _;
@@ -128,60 +128,53 @@ fn bench_encode_properties(c: &mut Criterion) {
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
         group.throughput(Throughput::Bytes(total_bytes as u64));
 
-        for presence in limit(PresenceStream::iter()) {
-            for physical in limit(PhysicalEncoder::iter()) {
-                for logical in limit(LogicalEncoder::iter()) {
-                    group.bench_with_input(
-                        BenchmarkId::new(format!("{presence:?}-{logical:?}-{physical:?}"), zoom),
-                        &tiles,
-                        |b, tiles| {
-                            b.iter_batched(
-                                || decode_to_owned(tiles),
-                                |mut layers| {
-                                    for layer in &mut layers {
-                                        if let StagedLayer::Tag01(l) = layer {
-                                            // Skip layers that contain SharedDict properties;
-                                            // this bench focuses on scalar encoding only.
-                                            if l.properties.iter().any(|p| {
-                                                matches!(p.kind(), PropertyKind::SharedDict)
-                                            }) {
-                                                continue;
-                                            }
-                                            let int_enc = IntEncoder::new(logical, physical);
-                                            let encoders: Vec<PropertyEncoder> = l
-                                                .properties
-                                                .iter()
-                                                .map(|prop| match prop.kind() {
-                                                    PropertyKind::Bool => {
-                                                        ScalarEncoder::bool(presence).into()
-                                                    }
-                                                    PropertyKind::Integer => {
-                                                        ScalarEncoder::int(presence, int_enc).into()
-                                                    }
-                                                    PropertyKind::Float => {
-                                                        ScalarEncoder::float(presence).into()
-                                                    }
-                                                    PropertyKind::String => {
-                                                        ScalarEncoder::str_fsst(
-                                                            presence, int_enc, int_enc,
-                                                        )
-                                                        .into()
-                                                    }
-                                                    PropertyKind::SharedDict => unreachable!(),
-                                                })
-                                                .collect();
-                                            let props = std::mem::take(&mut l.properties);
-                                            let _ =
-                                                props.encode(encoders).expect("prop encode failed");
+        for physical in limit(PhysicalEncoder::iter()) {
+            for logical in limit(LogicalEncoder::iter()) {
+                group.bench_with_input(
+                    BenchmarkId::new(format!("{logical:?}-{physical:?}"), zoom),
+                    &tiles,
+                    |b, tiles| {
+                        b.iter_batched(
+                            || decode_to_owned(tiles),
+                            |mut layers| {
+                                for layer in &mut layers {
+                                    if let StagedLayer::Tag01(l) = layer {
+                                        // Skip layers that contain SharedDict properties;
+                                        // this bench focuses on scalar encoding only.
+                                        if l.properties
+                                            .iter()
+                                            .any(|p| matches!(p.kind(), PropertyKind::SharedDict))
+                                        {
+                                            continue;
                                         }
+                                        let int_enc = IntEncoder::new(logical, physical);
+                                        let encoders: Vec<PropertyEncoder> = l
+                                            .properties
+                                            .iter()
+                                            .map(|prop| match prop.kind() {
+                                                PropertyKind::Bool => ScalarEncoder::bool().into(),
+                                                PropertyKind::Integer => {
+                                                    ScalarEncoder::int(int_enc).into()
+                                                }
+                                                PropertyKind::Float => {
+                                                    ScalarEncoder::float().into()
+                                                }
+                                                PropertyKind::String => {
+                                                    ScalarEncoder::str_fsst(int_enc, int_enc).into()
+                                                }
+                                                PropertyKind::SharedDict => unreachable!(),
+                                            })
+                                            .collect();
+                                        let props = std::mem::take(&mut l.properties);
+                                        let _ = props.encode(encoders).expect("prop encode failed");
                                     }
-                                    black_box(layers);
-                                },
-                                BatchSize::SmallInput,
-                            );
-                        },
-                    );
-                }
+                                }
+                                black_box(layers);
+                            },
+                            BatchSize::SmallInput,
+                        );
+                    },
+                );
             }
         }
     }

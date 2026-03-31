@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::frames::v01::Layer01;
-use crate::v01::{EncodedLayer01, StagedLayer01, StagedLayer01Encoder, Tag01Profile};
+use crate::v01::{EncodedLayer01, StagedLayer01, Tile01Encoder};
 use crate::{DecodeState, Lazy, Parsed};
 
 /// A layer that can be one of the known types, or an unknown.
@@ -75,18 +75,6 @@ pub struct EncodedUnknown {
 
 #[derive(Debug, Clone)]
 pub enum LayerEncoder {
-    Tag01(StagedLayer01Encoder),
-    Unknown,
-}
-
-/// Profile for a layer, built by running automatic optimization over a
-/// representative sample of tiles and capturing the chosen encoders.
-///
-/// The `SortStrategy` stored inside the inner [`Tag01Profile`] is recorded
-/// so that profile-driven encoding can reproduce the same feature ordering on
-/// subsequent tiles.
-#[derive(Debug, Clone)]
-pub enum LayerProfile {
-    Tag01(Tag01Profile),
+    Tag01(Tile01Encoder),
     Unknown,
 }

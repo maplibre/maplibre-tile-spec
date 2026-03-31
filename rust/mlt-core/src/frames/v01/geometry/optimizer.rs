@@ -4,8 +4,8 @@ use crate::MltResult;
 use crate::codecs::morton::z_order_params;
 use crate::v01::encode::encode_geometry;
 use crate::v01::{
-    DataProfile, DictionaryType, EncodedGeometry, GeometryEncoder, GeometryValues, IntEncoder,
-    LengthType, OffsetType, StreamType, VertexBufferType,
+    DictionaryType, EncodedGeometry, GeometryEncoder, GeometryValues, IntEncoder, LengthType,
+    OffsetType, StreamType, VertexBufferType,
 };
 
 /// If the ratio of unique vertices to total vertices is below this threshold,
@@ -14,70 +14,6 @@ use crate::v01::{
 /// A lower ratio means more coordinate repetition, which is precisely the
 /// scenario where the dictionary overhead pays off.
 const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.5;
-
-/// A pre-computed set of per-stream [`IntEncoder`] candidates derived from a
-/// representative sample of tiles.
-///
-/// Building a profile once from sample tiles avoids re-running
-/// [`DataProfile::prune_candidates`] on every subsequent tile; the profile's
-/// per-stream candidate lists are used directly in the competition step instead.
-///
-/// Profiles from multiple samples are combined with [`GeometryProfile::merge`],
-/// which takes the union of each stream's candidate sets.
-#[derive(Debug, Clone, PartialEq)]
-pub struct GeometryProfile {
-    /// Per-stream encoder candidates to use during competition.
-    ///
-    /// An absent entry causes the caller to fall back to [`IntEncoder::auto_u32`].
-    stream_candidates: HashMap<StreamType, Vec<IntEncoder>>,
-}
-
-impl GeometryProfile {
-    #[doc(hidden)]
-    #[must_use]
-    pub fn new(stream_candidates: HashMap<StreamType, Vec<IntEncoder>>) -> Self {
-        Self { stream_candidates }
-    }
-
-    /// Build a profile from a sample of decoded geometry.
-    pub fn from_sample(decoded: &GeometryValues) -> MltResult<Self> {
-        let vertex_buffer_type = decoded
-            .vertices
-            .as_deref()
-            .map_or(VertexBufferType::Vec2, select_vertex_strategy);
-
-        let mut probe = GeometryEncoder::all(IntEncoder::varint());
-        probe.vertex_buffer_type(vertex_buffer_type);
-
-        let mut stream_candidates: HashMap<StreamType, Vec<IntEncoder>> = HashMap::new();
-        encode_geometry(
-            decoded,
-            &probe,
-            Some(&mut |st: StreamType, data: &[u32]| {
-                let candidates = DataProfile::prune_candidates::<i32>(data);
-                stream_candidates.insert(st, candidates);
-            }),
-        )?;
-
-        Ok(Self { stream_candidates })
-    }
-
-    /// Merge two profiles by taking the union of per-stream candidate sets.
-    ///
-    /// Encoders already present for a stream in `self` are not duplicated.
-    #[must_use]
-    pub fn merge(mut self, other: &Self) -> Self {
-        for (st, candidates) in &other.stream_candidates {
-            let entry = self.stream_candidates.entry(*st).or_default();
-            for &enc in candidates {
-                if !entry.contains(&enc) {
-                    entry.push(enc);
-                }
-            }
-        }
-        self
-    }
-}
 
 /// Analyze `decoded` and encode it with automatically selected per-stream encoders.
 ///
@@ -116,52 +52,7 @@ fn optimize(decoded: &GeometryValues) -> MltResult<GeometryEncoder> {
     Ok(build_encoder(decoded, vertex_buffer_type, opt))
 }
 
-/// Apply a profile to `decoded`, re-deriving the vertex buffer strategy from
-/// the tile's actual data.
-///
-/// The same probe pass as [`optimize`] is performed, but competition is run
-/// over the profile's pre-computed per-stream candidate lists rather than
-/// re-running [`DataProfile::prune_candidates`] from scratch.
-fn apply_profile(
-    decoded: &GeometryValues,
-    profile: &GeometryProfile,
-) -> MltResult<GeometryEncoder> {
-    let vertex_buffer_type = decoded
-        .vertices
-        .as_deref()
-        .map_or(VertexBufferType::Vec2, select_vertex_strategy);
-
-    let mut probe = GeometryEncoder::all(IntEncoder::varint());
-    probe.vertex_buffer_type(vertex_buffer_type);
-
-    let mut payloads: HashMap<StreamType, Vec<u32>> = HashMap::new();
-    encode_geometry(
-        decoded,
-        &probe,
-        Some(&mut |st: StreamType, data: &[u32]| {
-            payloads.insert(st, data.to_vec());
-        }),
-    )?;
-
-    let opt = |st: StreamType| -> IntEncoder {
-        let data = payloads.get(&st);
-        let candidates = profile.stream_candidates.get(&st).map(Vec::as_slice);
-        match (data, candidates) {
-            (Some(data), Some(candidates)) if !candidates.is_empty() => {
-                DataProfile::compete_u32(candidates, data)
-            }
-            (Some(data), _) => IntEncoder::auto_u32(data),
-            _ => IntEncoder::varint(),
-        }
-    };
-
-    Ok(build_encoder(decoded, vertex_buffer_type, opt))
-}
-
 /// Assemble a [`GeometryEncoder`] from a stream-type-to-encoder mapping function.
-///
-/// Shared by [`optimize`] and [`apply_profile`]; the only difference between
-/// the two is how `opt` resolves the best [`IntEncoder`] for each stream.
 fn build_encoder(
     decoded: &GeometryValues,
     vertex_buffer_type: VertexBufferType,
@@ -247,16 +138,6 @@ impl GeometryValues {
     /// Encode this geometry using the given encoder, consuming `self`.
     pub fn encode(self, encoder: GeometryEncoder) -> MltResult<EncodedGeometry> {
         EncodedGeometry::encode(&self, encoder)
-    }
-
-    /// Encode this geometry using the profile to select the best encoder.
-    pub fn encode_with_profile(
-        &self,
-        profile: &GeometryProfile,
-    ) -> MltResult<(EncodedGeometry, GeometryEncoder)> {
-        let enc = apply_profile(self, profile)?;
-        let encoded = EncodedGeometry::encode(self, enc)?;
-        Ok((encoded, enc))
     }
 
     /// Automatically select the best encoder and encode, consuming `self`.

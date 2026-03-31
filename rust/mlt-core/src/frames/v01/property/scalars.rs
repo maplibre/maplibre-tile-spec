@@ -1,93 +1,71 @@
 use crate::v01::{
-    FsstStrEncoder, IntEncoder, PresenceStream, PropertyEncoder, ScalarEncoder, ScalarValueEncoder,
-    StrEncoder,
+    FsstStrEncoder, IntEncoder, PropertyEncoder, ScalarEncoder, ScalarValueEncoder, StrEncoder,
 };
 
 impl ScalarEncoder {
-    #[must_use]
-    pub fn str(presence: PresenceStream, string_lengths: IntEncoder) -> Self {
-        let enc = StrEncoder::Plain { string_lengths };
+    fn new(value: ScalarValueEncoder) -> Self {
         Self {
-            presence,
-            value: ScalarValueEncoder::String(enc),
+            value,
+            #[cfg(feature = "__private")]
+            forced_presence: false,
         }
+    }
+    #[must_use]
+    pub fn str(string_lengths: IntEncoder) -> Self {
+        let enc = StrEncoder::Plain { string_lengths };
+        Self::new(ScalarValueEncoder::String(enc))
     }
     /// Create a property encoder with integer encoding
     #[must_use]
-    pub fn int(presence: PresenceStream, enc: IntEncoder) -> Self {
-        Self {
-            presence,
-            value: ScalarValueEncoder::Int(enc),
-        }
+    pub fn int(enc: IntEncoder) -> Self {
+        Self::new(ScalarValueEncoder::Int(enc))
     }
     /// Create a property encoder with FSST string encoding
     #[must_use]
-    pub fn str_fsst(
-        presence: PresenceStream,
-        symbol_lengths: IntEncoder,
-        dict_lengths: IntEncoder,
-    ) -> Self {
-        Self {
-            presence,
-            value: ScalarValueEncoder::String(StrEncoder::Fsst(FsstStrEncoder {
+    pub fn str_fsst(symbol_lengths: IntEncoder, dict_lengths: IntEncoder) -> Self {
+        Self::new(ScalarValueEncoder::String(StrEncoder::Fsst(
+            FsstStrEncoder {
                 symbol_lengths,
                 dict_lengths,
-            })),
-        }
+            },
+        )))
     }
 
     /// Create a property encoder with deduplicated plain dictionary string encoding.
     /// Encodes unique strings once; per-feature offsets index into the dictionary.
     #[must_use]
-    pub fn str_dict(
-        presence: PresenceStream,
-        string_lengths: IntEncoder,
-        offsets: IntEncoder,
-    ) -> Self {
-        Self {
-            presence,
-            value: ScalarValueEncoder::String(StrEncoder::Dict {
-                string_lengths,
-                offsets,
-            }),
-        }
+    pub fn str_dict(string_lengths: IntEncoder, offsets: IntEncoder) -> Self {
+        Self::new(ScalarValueEncoder::String(StrEncoder::Dict {
+            string_lengths,
+            offsets,
+        }))
     }
 
     /// Create a property encoder with deduplicated FSST dictionary string encoding.
     /// FSST-compresses unique strings; per-feature offsets index into the dictionary.
     #[must_use]
     pub fn str_fsst_dict(
-        presence: PresenceStream,
         symbol_lengths: IntEncoder,
         dict_lengths: IntEncoder,
         offsets: IntEncoder,
     ) -> Self {
-        Self {
-            presence,
-            value: ScalarValueEncoder::String(StrEncoder::FsstDict {
-                fsst: FsstStrEncoder {
-                    symbol_lengths,
-                    dict_lengths,
-                },
-                offsets,
-            }),
-        }
+        Self::new(ScalarValueEncoder::String(StrEncoder::FsstDict {
+            fsst: FsstStrEncoder {
+                symbol_lengths,
+                dict_lengths,
+            },
+            offsets,
+        }))
     }
     /// Create a property encoder for boolean values
     #[must_use]
-    pub fn bool(presence: PresenceStream) -> Self {
-        Self {
-            presence,
-            value: ScalarValueEncoder::Bool,
-        }
+    pub fn bool() -> Self {
+        Self::new(ScalarValueEncoder::Bool)
     }
     /// Create a property encoder for float values
     #[must_use]
-    pub fn float(presence: PresenceStream) -> Self {
-        Self {
-            presence,
-            value: ScalarValueEncoder::Float,
-        }
+    pub fn float() -> Self {
+        Self::new(ScalarValueEncoder::Float)
     }
 }
 

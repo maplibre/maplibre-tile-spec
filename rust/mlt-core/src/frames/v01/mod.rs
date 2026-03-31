@@ -25,6 +25,7 @@ pub use model::{
     StagedLayer01, TileFeature, TileLayer01,
 };
 pub use optimizer::*;
+pub(crate) use property::apply_string_groups;
 pub use property::*;
 pub use sort::SortStrategy;
 pub use stream::*;

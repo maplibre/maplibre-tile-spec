@@ -13,12 +13,25 @@ use crate::v01::{
 pub struct IdEncoder {
     pub logical: LogicalEncoder,
     pub id_width: IdWidth,
+    #[cfg(feature = "__private")]
+    forced_presence: bool,
 }
 
 impl IdEncoder {
     #[must_use]
     pub fn new(logical: LogicalEncoder, id_width: IdWidth) -> Self {
-        Self { logical, id_width }
+        Self {
+            logical,
+            id_width,
+            #[cfg(feature = "__private")]
+            forced_presence: false,
+        }
+    }
+}
+
+impl Default for IdEncoder {
+    fn default() -> Self {
+        Self::new(LogicalEncoder::None, IdWidth::Id32)
     }
 }
 
@@ -26,7 +39,12 @@ impl EncodedId {
     pub(crate) fn encode(value: &IdValues, encoder: IdEncoder) -> MltResult<Self> {
         use IdWidth as CFG;
 
-        let presence = if matches!(encoder.id_width, CFG::OptId32 | CFG::OptId64) {
+        #[cfg(feature = "__private")]
+        let forced_presence = encoder.forced_presence;
+        #[cfg(not(feature = "__private"))]
+        let forced_presence = false;
+
+        let presence = if forced_presence || value.0.iter().any(Option::is_none) {
             let present: Vec<bool> = value.0.iter().map(Option::is_some).collect();
             let num_values = u32::try_from(present.len())?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present));

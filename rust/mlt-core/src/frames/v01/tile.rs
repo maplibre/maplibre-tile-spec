@@ -6,14 +6,15 @@
 //! optimizer and sorting pipeline: it is cheap to clone, trivially sortable,
 //! and free from any encoded/decoded duality.
 //!
-//! The only conversion from [`TileLayer01`] to [`StagedLayer01`] is [`From`] at the
-//! optimizer exit boundary; there is no encoded→decoded conversion from Staged back to Tile.
+//! Conversion from [`TileLayer01`] to [`StagedLayer01`] is done via
+//! [`StagedLayer01::from_tile`] (which also applies pre-computed
+//! [`StringGroup`] pairings) or the blanket [`From`] impl (no grouping).
 
 use crate::errors::AsMltError as _;
 use crate::v01::{
     GeometryValues, IdValues, Layer01, ParsedLayer01, ParsedProperty, PropValue, PropValueRef,
-    StagedLayer01, StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, TileFeature,
-    TileLayer01, build_staged_shared_dict,
+    StagedLayer01, StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, StringGroup,
+    TileFeature, TileLayer01, apply_string_groups, build_staged_shared_dict,
 };
 use crate::{Decoder, MltResult};
 
@@ -115,11 +116,19 @@ fn typed_nulls(properties: &[ParsedProperty<'_>]) -> Vec<PropValue> {
 
 // ── TileLayer01 → StagedLayer01 ─────────────────────────────────────────────
 
-/// FIXME: this should be part of the [`crate::v01::optimizer::Tile01Encoder::encode`]
-///   `rebuild_properties` would use proper shared dict grouping settings
-impl From<TileLayer01> for StagedLayer01 {
-    fn from(source: TileLayer01) -> Self {
-        // Rebuild geometry column
+impl StagedLayer01 {
+    /// Construct a [`StagedLayer01`] from a row-oriented [`TileLayer01`], applying
+    /// pre-computed [`StringGroup`] pairings to merge similar string columns into
+    /// shared dictionaries.
+    ///
+    /// `groups` should be the output of [`crate::v01::group_string_properties`] called on the
+    /// same [`TileLayer01`] source.  Because unique-value membership is
+    /// row-order-independent, the same groups can be reused across sort trials.
+    ///
+    /// Pass an empty slice to skip `MinHash` grouping (prefix-based shared-dict
+    /// detection from the original tile structure is always applied).
+    #[must_use]
+    pub fn from_tile(source: TileLayer01, groups: &[StringGroup]) -> Self {
         let mut geometry = GeometryValues::default();
         for f in &source.features {
             geometry.push_geom(&f.geometry);
@@ -132,7 +141,8 @@ impl From<TileLayer01> for StagedLayer01 {
         };
 
         let num_cols = source.property_names.len();
-        let properties = rebuild_properties(&source.property_names, &source.features, num_cols);
+        let mut properties = rebuild_properties(&source.property_names, &source.features, num_cols);
+        apply_string_groups(&mut properties, groups);
 
         Self {
             name: source.name,
@@ -141,6 +151,14 @@ impl From<TileLayer01> for StagedLayer01 {
             geometry,
             properties,
         }
+    }
+}
+
+/// Convenience conversion — equivalent to [`StagedLayer01::from_tile`] with no
+/// [`StringGroup`]s (prefix-based shared-dict detection only).
+impl From<TileLayer01> for StagedLayer01 {
+    fn from(source: TileLayer01) -> Self {
+        Self::from_tile(source, &[])
     }
 }
 

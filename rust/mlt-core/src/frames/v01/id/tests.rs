@@ -23,10 +23,7 @@ use crate::{EncodedLayer, Layer, MltError, MltResult};
 #[case::opt_id64(OptId64, vec![Some(1), None, Some(3)])]
 fn test_config_produces_correct_variant(#[case] id_width: IdWidth, #[case] ids: Vec<Option<u64>>) {
     let input = IdValues(ids);
-    let config = IdEncoder {
-        logical: LogicalEncoder::None,
-        id_width,
-    };
+    let config = IdEncoder::new(LogicalEncoder::None, id_width);
     let encoded = EncodedId::encode(&input, config).unwrap();
 
     match id_width {
@@ -56,10 +53,7 @@ fn test_config_produces_correct_variant(#[case] id_width: IdWidth, #[case] ids: 
 #[case::none(Id32, &[])]
 fn test_roundtrip(#[case] id_width: IdWidth, #[case] ids: &[Option<u64>]) {
     let input = ids.to_vec();
-    let config = IdEncoder {
-        logical: LogicalEncoder::None,
-        id_width,
-    };
+    let config = IdEncoder::new(LogicalEncoder::None, id_width);
     assert_roundtrip(&input, config);
 }
 
@@ -69,7 +63,7 @@ fn test_sequential_ids(
     #[values(Id32, OptId32, Id64, OptId64)] id_width: IdWidth,
 ) {
     let input: Vec<_> = (1..=100).map(Some).collect();
-    let config = IdEncoder { logical, id_width };
+    let config = IdEncoder::new(logical, id_width);
     assert_roundtrip(&input, config);
 }
 
@@ -80,7 +74,7 @@ proptest! {
         logical in any::<LogicalEncoder>()
     ) {
         let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| id.map(u64::from)).collect();
-        prop_assert_roundtrip(&ids_u64, IdEncoder { id_width: OptId32, logical })?;
+        prop_assert_roundtrip(&ids_u64, IdEncoder::new(logical, OptId32))?;
     }
 
     #[test]
@@ -89,7 +83,7 @@ proptest! {
         logical in any::<LogicalEncoder>()
     ) {
         let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
-        prop_assert_roundtrip(&ids_u64, IdEncoder { id_width: Id64, logical })?;
+        prop_assert_roundtrip(&ids_u64, IdEncoder::new(logical, Id64))?;
     }
 
     #[test]
@@ -98,7 +92,7 @@ proptest! {
         logical in any::<LogicalEncoder>()
     ) {
         let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-        prop_assert_roundtrip(&ids_u64, IdEncoder { id_width: Id32, logical })?;
+        prop_assert_roundtrip(&ids_u64, IdEncoder::new(logical, Id32))?;
     }
 
     #[test]
@@ -106,7 +100,7 @@ proptest! {
         ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100),
         logical in any::<LogicalEncoder>()
     ) {
-        prop_assert_roundtrip(&ids, IdEncoder { id_width: OptId64, logical })?;
+        prop_assert_roundtrip(&ids, IdEncoder::new(logical, OptId64))?;
     }
 
     #[test]
@@ -115,7 +109,7 @@ proptest! {
         logical in any::<LogicalEncoder>()
     ) {
         let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-        assert_produces_correct_variant(ids_u64, IdEncoder { id_width: Id32, logical })?;
+        assert_produces_correct_variant(ids_u64, IdEncoder::new(logical, Id32))?;
     }
 
     #[test]
@@ -124,7 +118,7 @@ proptest! {
         logical in any::<LogicalEncoder>()
     ) {
         let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
-        assert_produces_correct_variant(ids_u64, IdEncoder { id_width: Id64, logical })?;
+        assert_produces_correct_variant(ids_u64, IdEncoder::new(logical, Id64))?;
     }
 }
 
@@ -159,7 +153,7 @@ fn roundtrip_id_values(decoded: &IdValues, config: IdEncoder) -> MltResult<IdVal
         properties: vec![],
     };
     let stream_encoder = StagedLayer01Encoder {
-        id: Some(config),
+        id: config,
         geometry: GeometryEncoder::all(IntEncoder::varint()),
         properties: vec![],
     };
@@ -170,10 +164,12 @@ fn roundtrip_id_values(decoded: &IdValues, config: IdEncoder) -> MltResult<IdVal
     let Layer::Tag01(layer01) = layer else {
         return Err(MltError::NotDecoded("expected Tag01 layer"));
     };
-    let id = layer01
-        .id
-        .ok_or(MltError::NotDecoded("expected id column"))?;
-    id.into_parsed(&mut dec())
+    // When all source IDs were null, the encoder skips the ID column entirely.
+    // On decode, the absent column is semantically identical to all-null IDs.
+    match layer01.id {
+        Some(id) => id.into_parsed(&mut dec()),
+        None => Ok(IdValues(vec![None; n])),
+    }
 }
 
 fn assert_produces_correct_variant(

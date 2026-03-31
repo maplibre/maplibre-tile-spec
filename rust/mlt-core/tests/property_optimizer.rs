@@ -1,6 +1,8 @@
 use insta::assert_debug_snapshot;
-use mlt_core::v01::{EncodeProperties as _, PropertyProfile, StagedProperty};
-use rstest::rstest;
+use mlt_core::v01::{
+    EncodeProperties as _, PropValue, StagedLayer01, StagedProperty, TileFeature, TileLayer01,
+    group_string_properties,
+};
 
 fn str_prop(name: &str, values: &[&str]) -> StagedProperty {
     let owned: Vec<Option<String>> = values.iter().map(|s| Some((*s).to_string())).collect();
@@ -9,6 +11,40 @@ fn str_prop(name: &str, values: &[&str]) -> StagedProperty {
 
 fn make_prop(prop: StagedProperty) -> StagedProperty {
     prop
+}
+
+/// Build a [`TileLayer01`] from heterogeneous column data (one `Vec<PropValue>` per column).
+fn tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> TileLayer01 {
+    let n = cols.first().map_or(0, |(_, v)| v.len());
+    let property_names = cols.iter().map(|(name, _)| (*name).to_string()).collect();
+    let geom = geo_types::Geometry::<i32>::Point(geo_types::Point::new(0, 0));
+    let features = (0..n)
+        .map(|i| TileFeature {
+            id: None,
+            geometry: geom.clone(),
+            properties: cols.iter().map(|(_, vals)| vals[i].clone()).collect(),
+        })
+        .collect();
+    TileLayer01 {
+        name: "test".to_string(),
+        extent: 4096,
+        property_names,
+        features,
+    }
+}
+
+/// Convert a `&[&str]` slice into a column of `PropValue::Str` values.
+fn str_vals(values: &[&str]) -> Vec<PropValue> {
+    values
+        .iter()
+        .map(|s| PropValue::Str(Some((*s).to_string())))
+        .collect()
+}
+
+/// Stage a [`TileLayer01`] with `MinHash` grouping and return its properties.
+fn stage_props(tile: TileLayer01) -> Vec<StagedProperty> {
+    let groups = group_string_properties(&tile);
+    StagedLayer01::from_tile(tile, &groups).properties
 }
 
 #[test]
@@ -22,7 +58,6 @@ fn no_nulls_produces_absent_presence() {
     [
         Scalar(
             ScalarEncoder {
-                presence: Absent,
                 value: Int(
                     IntEncoder {
                         logical: Delta,
@@ -43,7 +78,6 @@ fn all_nulls_produces_present_presence() {
     [
         Scalar(
             ScalarEncoder {
-                presence: Present,
                 value: Int(
                     IntEncoder {
                         logical: None,
@@ -67,7 +101,6 @@ fn sequential_u32_picks_delta() {
     [
         Scalar(
             ScalarEncoder {
-                presence: Absent,
                 value: Int(
                     IntEncoder {
                         logical: Delta,
@@ -88,7 +121,6 @@ fn constant_u32_picks_rle() {
     [
         Scalar(
             ScalarEncoder {
-                presence: Absent,
                 value: Int(
                     IntEncoder {
                         logical: Rle,
@@ -104,8 +136,8 @@ fn constant_u32_picks_rle() {
 #[test]
 fn similar_strings_grouped_into_shared_dict() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
-    let props = vec![str_prop("name:en", vocab), str_prop("name:de", vocab)];
-    let (encoded, enc) = props.encode_auto().unwrap();
+    let tile = tile_from_cols(&[("name:en", str_vals(vocab)), ("name:de", str_vals(vocab))]);
+    let (encoded, enc) = stage_props(tile).encode_auto().unwrap();
 
     assert_eq!(
         encoded.len(),
@@ -124,14 +156,12 @@ fn similar_strings_grouped_into_shared_dict() {
                 },
                 items: [
                     SharedDictItemEncoder {
-                        presence: Absent,
                         offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
                         },
                     },
                     SharedDictItemEncoder {
-                        presence: Absent,
                         offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
@@ -147,12 +177,12 @@ fn similar_strings_grouped_into_shared_dict() {
 #[test]
 fn multiple_similar_string_columns_grouped() {
     let vocab = &["alpha", "beta", "gamma", "delta"];
-    let props = vec![
-        str_prop("addr:zip", vocab),
-        str_prop("addr:street", vocab),
-        str_prop("addr:zipcode", vocab),
-    ];
-    let (encoded, enc) = props.encode_auto().unwrap();
+    let tile = tile_from_cols(&[
+        ("addr:zip", str_vals(vocab)),
+        ("addr:street", str_vals(vocab)),
+        ("addr:zipcode", str_vals(vocab)),
+    ]);
+    let (encoded, enc) = stage_props(tile).encode_auto().unwrap();
 
     assert_eq!(
         encoded.len(),
@@ -171,21 +201,18 @@ fn multiple_similar_string_columns_grouped() {
                 },
                 items: [
                     SharedDictItemEncoder {
-                        presence: Absent,
                         offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
                         },
                     },
                     SharedDictItemEncoder {
-                        presence: Absent,
                         offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
                         },
                     },
                     SharedDictItemEncoder {
-                        presence: Absent,
                         offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
@@ -211,7 +238,6 @@ fn dissimilar_strings_stay_scalar() {
     [
         Scalar(
             ScalarEncoder {
-                presence: Absent,
                 value: String(
                     Plain {
                         string_lengths: IntEncoder {
@@ -224,7 +250,6 @@ fn dissimilar_strings_stay_scalar() {
         ),
         Scalar(
             ScalarEncoder {
-                presence: Absent,
                 value: String(
                     Plain {
                         string_lengths: IntEncoder {
@@ -242,23 +267,25 @@ fn dissimilar_strings_stay_scalar() {
 #[test]
 fn mixed_scalars_and_grouped_strings() {
     let vocab = &["alpha", "beta", "gamma"];
-    let props = vec![
-        make_prop(StagedProperty::u32("id", vec![Some(1), Some(2), Some(3)])),
-        str_prop("name:en", vocab),
-        str_prop("name:de", vocab),
-        make_prop(StagedProperty::i32(
+    let tile = tile_from_cols(&[
+        ("id", (1u32..=3).map(|v| PropValue::U32(Some(v))).collect()),
+        ("name:en", str_vals(vocab)),
+        ("name:de", str_vals(vocab)),
+        (
             "count",
-            vec![Some(10), Some(20), Some(30)],
-        )),
-    ];
-    let (encoded, enc) = props.encode_auto().unwrap();
+            [10i32, 20, 30]
+                .iter()
+                .map(|&v| PropValue::I32(Some(v)))
+                .collect(),
+        ),
+    ]);
+    let (encoded, enc) = stage_props(tile).encode_auto().unwrap();
 
     assert_eq!(encoded.len(), 3, "two scalar + one merged dict");
     assert_debug_snapshot!(enc, @"
     [
         Scalar(
             ScalarEncoder {
-                presence: Absent,
                 value: Int(
                     IntEncoder {
                         logical: Delta,
@@ -277,14 +304,12 @@ fn mixed_scalars_and_grouped_strings() {
                 },
                 items: [
                     SharedDictItemEncoder {
-                        presence: Absent,
                         offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
                         },
                     },
                     SharedDictItemEncoder {
-                        presence: Absent,
                         offsets: IntEncoder {
                             logical: Delta,
                             physical: VarInt,
@@ -295,7 +320,6 @@ fn mixed_scalars_and_grouped_strings() {
         ),
         Scalar(
             ScalarEncoder {
-                presence: Absent,
                 value: Int(
                     IntEncoder {
                         logical: Delta,
@@ -322,328 +346,6 @@ fn manual_encode_applies_given_encoder() {
     ))];
     let encoded = props.encode(enc).unwrap();
     assert_eq!(encoded.len(), 1);
-}
-
-#[test]
-fn from_sample_similar_strings_groups_them() {
-    let vocab = &["Alice", "Bob", "Carol", "Dave"];
-    let props = vec![str_prop("name:en", vocab), str_prop("name:de", vocab)];
-    let profile = PropertyProfile::from_sample(&props);
-    assert_debug_snapshot!(profile, @"
-    PropertyProfile {
-        string_groups: [
-            [
-                \"name:en\",
-                \"name:de\",
-            ],
-        ],
-    }
-    ");
-}
-
-#[test]
-fn from_sample_dissimilar_strings_no_groups() {
-    let props = vec![
-        str_prop("city:de", &["Munich", "Mannheim", "Garching"]),
-        str_prop("city:us", &["Chicago", "Seattle", "Austin"]),
-    ];
-    let profile = PropertyProfile::from_sample(&props);
-    assert_debug_snapshot!(profile, @"
-    PropertyProfile {
-        string_groups: [],
-    }
-    ");
-}
-
-#[test]
-fn from_sample_single_string_column_no_groups() {
-    // Single-element groups are always filtered out.
-    let props = vec![str_prop("name", &["Alice", "Bob"])];
-    let profile = PropertyProfile::from_sample(&props);
-    assert_debug_snapshot!(profile, @"
-    PropertyProfile {
-        string_groups: [],
-    }
-    ");
-}
-
-#[test]
-fn from_sample_no_string_columns_empty_profile() {
-    let props = vec![
-        StagedProperty::u32("pop", vec![Some(1), Some(2), Some(3)]),
-        StagedProperty::i32("delta", vec![Some(-1), Some(0), Some(1)]),
-    ];
-    let profile = PropertyProfile::from_sample(&props);
-    assert_debug_snapshot!(profile, @"
-    PropertyProfile {
-        string_groups: [],
-    }
-    ");
-}
-
-#[test]
-fn from_sample_multiple_similar_groups() {
-    let alpha_vocab = &["alpha", "beta", "gamma"];
-    let name_vocab = &["Alice", "Bob", "Carol"];
-    let props = vec![
-        str_prop("addr:zip", alpha_vocab),
-        str_prop("addr:city", alpha_vocab),
-        str_prop("name:en", name_vocab),
-        str_prop("name:de", name_vocab),
-    ];
-    let profile = PropertyProfile::from_sample(&props);
-    // Two independent groups, order determined by first column index.
-    assert_debug_snapshot!(profile, @"
-    PropertyProfile {
-        string_groups: [
-            [
-                \"addr:zip\",
-                \"addr:city\",
-            ],
-            [
-                \"name:en\",
-                \"name:de\",
-            ],
-        ],
-    }
-    ");
-}
-
-#[test]
-fn merge_disjoint_groups_both_kept() {
-    let p1 = PropertyProfile::new(vec![vec!["a:en".to_owned(), "a:de".to_owned()]]);
-    let p2 = PropertyProfile::new(vec![vec!["b:en".to_owned(), "b:de".to_owned()]]);
-    let merged = p1.merge(&p2);
-    assert_debug_snapshot!(merged, @"
-    PropertyProfile {
-        string_groups: [
-            [
-                \"a:en\",
-                \"a:de\",
-            ],
-            [
-                \"b:en\",
-                \"b:de\",
-            ],
-        ],
-    }
-    ");
-}
-
-#[test]
-fn merge_overlapping_groups_are_unioned() {
-    // p1 groups en+de; p2 groups en+fr – they share "name:en" so they merge.
-    let p1 = PropertyProfile::new(vec![vec!["name:en".to_owned(), "name:de".to_owned()]]);
-    let p2 = PropertyProfile::new(vec![vec!["name:en".to_owned(), "name:fr".to_owned()]]);
-    let merged = p1.merge(&p2);
-    assert_debug_snapshot!(merged, @"
-    PropertyProfile {
-        string_groups: [
-            [
-                \"name:en\",
-                \"name:de\",
-                \"name:fr\",
-            ],
-        ],
-    }
-    ");
-}
-
-#[test]
-fn merge_with_empty_is_identity() {
-    let p1 = PropertyProfile::new(vec![vec!["name:en".to_owned(), "name:de".to_owned()]]);
-    let empty = PropertyProfile::new(vec![]);
-    let merged = p1.clone().merge(&empty);
-    assert_eq!(merged, p1);
-    let merged_other_way = empty.merge(&p1);
-    assert_eq!(merged_other_way, p1);
-}
-
-#[test]
-fn merge_duplicate_group_not_added_twice() {
-    let group = vec!["name:en".to_owned(), "name:de".to_owned()];
-    let p1 = PropertyProfile::new(vec![group.clone()]);
-    let p2 = PropertyProfile::new(vec![group]);
-    let merged = p1.merge(&p2);
-    assert_debug_snapshot!(merged, @"
-    PropertyProfile {
-        string_groups: [
-            [
-                \"name:en\",
-                \"name:de\",
-            ],
-        ],
-    }
-    ");
-}
-
-#[rstest]
-#[case::sequential_u32(vec![
-    StagedProperty::u32("id", (0u32..100).map(Some).collect()),
-])]
-#[case::constant_u32(vec![
-    StagedProperty::u32("val", vec![Some(42u32); 200]),
-])]
-#[case::signed_i32(vec![
-    StagedProperty::i32("delta", (-50i32..50).map(Some).collect()),
-])]
-#[case::multiple_int_columns(vec![
-    StagedProperty::u32("pop", (0u32..50).map(Some).collect()),
-    StagedProperty::i32("rank", (0i32..50).map(Some).collect()),
-])]
-#[case::similar_strings(vec![
-    str_prop("name:en", &["Alice", "Bob", "Carol", "Dave"]),
-    str_prop("name:de", &["Alice", "Bob", "Carol", "Dave"]),
-])]
-#[case::dissimilar_strings(vec![
-    str_prop("city:de", &["Munich", "Mannheim", "Garching"]),
-    str_prop("city:us", &["Chicago", "Seattle", "Austin"]),
-])]
-#[case::mixed_int_and_similar_strings(vec![
-    StagedProperty::u32("id", (0u32..10).map(Some).collect()),
-    str_prop("name:en", &["alpha", "beta", "gamma"]),
-    str_prop("name:de", &["alpha", "beta", "gamma"]),
-])]
-fn profile_driven_matches_automatic(#[case] props: Vec<StagedProperty>) {
-    let profile = PropertyProfile::from_sample(&props);
-
-    let (_, auto_enc) = props.clone().encode_auto().unwrap();
-    let (_, profile_enc) = props.encode_with_profile(&profile).unwrap();
-
-    assert_eq!(auto_enc, profile_enc);
-}
-
-#[test]
-fn profile_applied_to_partial_tile_skips_missing_columns() {
-    // Profile says "name:en" and "name:de" should be grouped.
-    let vocab = &["Alice", "Bob", "Carol"];
-    let sample = vec![str_prop("name:en", vocab), str_prop("name:de", vocab)];
-    let profile = PropertyProfile::from_sample(&sample);
-
-    // Tile only has "name:en" – group resolves to 1 column, so it is skipped.
-    let props = vec![str_prop("name:en", vocab)];
-    let (encoded, enc) = props.encode_with_profile(&profile).unwrap();
-
-    assert_eq!(
-        encoded.len(),
-        1,
-        "column must not be merged with a missing partner"
-    );
-    assert_debug_snapshot!(enc, @"
-    [
-        Scalar(
-            ScalarEncoder {
-                presence: Absent,
-                value: String(
-                    Plain {
-                        string_lengths: IntEncoder {
-                            logical: None,
-                            physical: VarInt,
-                        },
-                    },
-                ),
-            },
-        ),
-    ]
-    ");
-}
-
-#[test]
-fn profile_applies_grouping_to_different_tile_data() {
-    // Profile is built from one tile, applied to a different tile with the
-    // same column names but different string values.
-    let sample_vocab = &["Alice", "Bob", "Carol", "Dave"];
-    let sample = vec![
-        str_prop("name:en", sample_vocab),
-        str_prop("name:de", sample_vocab),
-    ];
-    let profile = PropertyProfile::from_sample(&sample);
-
-    let tile_vocab = &["Eve", "Frank", "Grace", "Heidi"];
-    let props = vec![
-        str_prop("name:en", tile_vocab),
-        str_prop("name:de", tile_vocab),
-    ];
-    let (encoded, enc) = props.encode_with_profile(&profile).unwrap();
-
-    // Grouping from the profile must have been applied.
-    assert_eq!(encoded.len(), 1, "columns must be merged by the profile");
-    assert_debug_snapshot!(enc, @"
-    [
-        SharedDict(
-            SharedDictEncoder {
-                dict_encoder: Plain {
-                    string_lengths: IntEncoder {
-                        logical: Delta,
-                        physical: VarInt,
-                    },
-                },
-                items: [
-                    SharedDictItemEncoder {
-                        presence: Absent,
-                        offsets: IntEncoder {
-                            logical: Delta,
-                            physical: VarInt,
-                        },
-                    },
-                    SharedDictItemEncoder {
-                        presence: Absent,
-                        offsets: IntEncoder {
-                            logical: Delta,
-                            physical: VarInt,
-                        },
-                    },
-                ],
-            },
-        ),
-    ]
-    ");
-}
-
-#[test]
-fn profile_ignores_unrecognised_columns() {
-    // Profile has no groups for columns that weren't in the sample tile.
-    // The tile must still encode correctly with automatic per-column selection.
-    let profile = PropertyProfile::new(vec![]);
-
-    let props = vec![
-        str_prop("highway", &["motorway", "trunk", "primary"]),
-        make_prop(StagedProperty::u32(
-            "lanes",
-            vec![Some(2), Some(4), Some(3)],
-        )),
-    ];
-    let (encoded, enc) = props.encode_with_profile(&profile).unwrap();
-
-    assert_eq!(encoded.len(), 2);
-    assert_debug_snapshot!(enc, @"
-    [
-        Scalar(
-            ScalarEncoder {
-                presence: Absent,
-                value: String(
-                    Plain {
-                        string_lengths: IntEncoder {
-                            logical: None,
-                            physical: VarInt,
-                        },
-                    },
-                ),
-            },
-        ),
-        Scalar(
-            ScalarEncoder {
-                presence: Absent,
-                value: Int(
-                    IntEncoder {
-                        logical: None,
-                        physical: VarInt,
-                    },
-                ),
-            },
-        ),
-    ]
-    ");
 }
 
 #[test]

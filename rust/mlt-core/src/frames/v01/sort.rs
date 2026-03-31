@@ -15,8 +15,14 @@ use crate::v01::{TileFeature, TileLayer01};
 /// Reordering features changes their position in every parallel column
 /// (geometry, ID, and all properties simultaneously), so the caller must
 /// opt in explicitly.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumIter, strum::EnumCount)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, strum::EnumIter, strum::EnumCount)]
 pub enum SortStrategy {
+    /// Preserve the original feature order — no reordering is applied.
+    ///
+    /// This is the default.
+    #[default]
+    Unsorted,
+
     /// Sort features by the Z-order (Morton) curve index of their first vertex.
     ///
     /// Fast to compute.  Spatially close features end up adjacent in the
@@ -35,46 +41,42 @@ pub enum SortStrategy {
 
 /// Reorder all features of `layer` according to `strategy`.
 ///
-/// If `strategy` is [`None`] this is a no-op.
-/// If the layer has zero or one features the sort is trivially a no-op.
-pub(crate) fn reorder_features(layer: &mut TileLayer01, strategy: Option<SortStrategy>) {
-    let Some(strategy) = strategy else {
-        return;
-    };
-
-    if layer.features.len() <= 1 {
-        return;
-    }
-
-    let curve_params = curve_params_from_features(&layer.features);
-    layer
-        .features
-        .sort_by_cached_key(|f| sort_key(f, strategy, &curve_params));
-}
-
-/// Compute the sort key for a single feature under `strategy`.
-fn sort_key(f: &TileFeature, strategy: SortStrategy, params: &CurveParams) -> u64 {
+/// [`SortStrategy::Unsorted`] is a no-op.
+/// Layers with zero or one features are trivially unchanged by any sort.
+pub(crate) fn reorder_features(layer: &mut TileLayer01, strategy: SortStrategy) {
     match strategy {
-        SortStrategy::SpatialMorton => first_vertex(&f.geometry).map_or(u64::MAX, |(x, y)| {
-            u64::from(morton_sort_key(x, y, params.shift, params.num_bits))
-        }),
-        SortStrategy::SpatialHilbert => first_vertex(&f.geometry).map_or(u64::MAX, |(x, y)| {
-            u64::from(hilbert_sort_key(x, y, params.shift, params.num_bits))
-        }),
-        SortStrategy::Id => f.id.map_or(0, |v| v.saturating_add(1)),
+        SortStrategy::Unsorted => {}
+        SortStrategy::SpatialMorton | SortStrategy::SpatialHilbert => {
+            let params = curve_params_from_features(&layer.features);
+            let curve_key = if let SortStrategy::SpatialMorton = strategy {
+                morton_sort_key
+            } else {
+                hilbert_sort_key
+            };
+            layer.features.sort_by_cached_key(|f| {
+                first_vertex(&f.geometry).map_or(u64::MAX, |(x, y)| {
+                    u64::from(curve_key(x, y, params.shift, params.num_bits))
+                })
+            });
+        }
+        SortStrategy::Id => {
+            layer
+                .features
+                .sort_by_cached_key(|f| f.id.map_or(0, |v| v.saturating_add(1)));
+        }
     }
 }
 
 /// Parameters derived from the vertex set of a feature collection, used to
 /// normalize coordinates before space-filling-curve key computation.
-pub(crate) struct CurveParams {
-    pub shift: u32,
-    pub num_bits: u32,
+struct CurveParams {
+    shift: u32,
+    num_bits: u32,
 }
 
 /// Collect all vertex coordinates from `features` and compute the Hilbert/Morton
 /// curve parameters (coordinate shift and bit width).
-pub(crate) fn curve_params_from_features(features: &[TileFeature]) -> CurveParams {
+fn curve_params_from_features(features: &[TileFeature]) -> CurveParams {
     // Collect a flat `[x0, y0, x1, y1, …]` vertex array from all features,
     // then reuse the existing `hilbert_curve_params` utility.
     let verts: Vec<i32> = features
@@ -308,7 +310,7 @@ mod tests {
             features,
         };
 
-        reorder_features(&mut layer, Some(strategy));
+        reorder_features(&mut layer, strategy);
         layer
     }
 

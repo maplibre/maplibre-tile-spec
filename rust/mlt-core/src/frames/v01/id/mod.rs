@@ -11,4 +11,3 @@ mod tests;
 
 pub use encode::IdEncoder;
 pub use model::*;
-pub use optimizer::IdProfile;
