@@ -12,5 +12,6 @@ mod serialize;
 mod strings;
 
 pub use model::*;
-pub use optimizer::{EncodeProperties, PropertyProfile};
+pub(crate) use optimizer::apply_string_groups;
+pub use optimizer::{EncodeProperties, StringGroup, group_string_properties};
 pub use strings::{build_staged_shared_dict, encode_shared_dict_prop};

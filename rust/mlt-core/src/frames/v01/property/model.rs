@@ -265,15 +265,6 @@ pub struct ParsedSharedDict<'a> {
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ParsedPresence(pub Option<Vec<bool>>);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumIter)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum PresenceStream {
-    /// Attaches a nullability stream
-    Present,
-    /// If there are nulls, drop them
-    Absent,
-}
-
 /// A single child field within a `SharedDict` raw column
 #[derive(Clone, Debug, PartialEq)]
 pub struct RawSharedDictItem<'a> {
@@ -341,11 +332,36 @@ pub enum PropertyEncoder {
 }
 
 /// How to encode properties
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ScalarEncoder {
-    pub(crate) presence: PresenceStream,
     pub(crate) value: ScalarValueEncoder,
+    /// When `true`, always emit a presence stream regardless of whether the column
+    /// contains nulls. `false` (default) = derive from data.
+    /// Only settable via `with_forced_presence` under the `__private` feature or in tests.
+    #[cfg(feature = "__private")]
+    #[cfg_attr(all(not(test), feature = "arbitrary"), arbitrary(value = false))]
+    pub(crate) forced_presence: bool,
+}
+
+#[allow(clippy::missing_fields_in_debug)]
+impl std::fmt::Debug for ScalarEncoder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScalarEncoder")
+            .field("value", &self.value)
+            .finish()
+    }
+}
+
+#[cfg(feature = "__private")]
+impl ScalarEncoder {
+    /// Force a presence stream to be emitted even when the column has no nulls.
+    /// Intended only for generating intentionally edge-case tiles in synthetics/tests.
+    #[must_use]
+    pub fn with_forced_presence(mut self, present: bool) -> Self {
+        self.forced_presence = present;
+        self
+    }
 }
 
 /// How to encode scalar property values.
@@ -360,12 +376,24 @@ pub enum ScalarValueEncoder {
 }
 
 /// Encoder for an individual sub-property within a shared dictionary.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SharedDictItemEncoder {
-    /// If a stream for optional values should be attached.
-    pub presence: PresenceStream,
     /// Encoder used for the offset-index stream of this child.
     pub offsets: IntEncoder,
+    /// When `true`, always emit a presence stream regardless of whether the column
+    /// contains nulls. `false` (default) = derive from data.
+    /// Only settable via `with_forced_presence` under the `__private` feature or in tests.
+    #[cfg(feature = "__private")]
+    pub(crate) forced_presence: bool,
+}
+
+#[allow(clippy::missing_fields_in_debug)]
+impl std::fmt::Debug for SharedDictItemEncoder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SharedDictItemEncoder")
+            .field("offsets", &self.offsets)
+            .finish()
+    }
 }
 
 /// Encoder for a shared dictionary property with multiple string sub-properties.
@@ -397,7 +425,27 @@ pub enum StrEncoder {
     },
 }
 
-// ── Staged* types (encode-side, fully owned) ─────────────────────────────────
+/// Describes the null pattern of a single column.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PresenceKind {
+    /// The column has no rows
+    Empty,
+    /// Every row has a value
+    AllPresent,
+    /// Every row is null
+    AllNull,
+    /// Some rows are null, some have values
+    Mixed,
+}
+
+impl PresenceKind {
+    /// Returns `true` when a presence/validity stream must be written to the
+    /// wire format (i.e. the column has at least one `null` value).
+    #[must_use]
+    pub fn needs_presence_stream(self) -> bool {
+        matches!(self, Self::AllNull | Self::Mixed)
+    }
+}
 
 /// Owned scalar column prepared for encoding (bool, integer, or float).
 #[derive(Debug, Clone, PartialEq)]

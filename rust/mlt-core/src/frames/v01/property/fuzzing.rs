@@ -29,8 +29,8 @@ impl arbitrary::Arbitrary<'_> for EncodedProperty {
     fn arbitrary(u: &mut Unstructured<'_>) -> arbitrary::Result<Self> {
         let decoded: StagedProperty = u.arbitrary()?;
         let encoder: ScalarEncoder = u.arbitrary()?;
-        let prop: Self = Self::encode(&decoded, encoder).map_err(|_| IncorrectFormat)?;
-        Ok(prop)
+        let prop: Option<Self> = Self::encode(&decoded, encoder).map_err(|_| IncorrectFormat)?;
+        prop.ok_or(IncorrectFormat)
     }
 }
 

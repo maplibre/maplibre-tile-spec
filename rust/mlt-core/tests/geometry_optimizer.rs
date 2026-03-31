@@ -4,8 +4,8 @@ use geo_types::{LineString, Point, Polygon, point, wkt};
 use mlt_core::__private::{assert_empty, dec, parser};
 use mlt_core::geojson::{Coord32, Geom32};
 use mlt_core::v01::{
-    DictionaryType, EncodedGeometry, GeometryEncoder, GeometryProfile, GeometryValues, IntEncoder,
-    LengthType, OffsetType, RawGeometry, StreamType, VertexBufferType,
+    DictionaryType, EncodedGeometry, GeometryEncoder, GeometryValues, IntEncoder, LengthType,
+    OffsetType, RawGeometry, StreamType, VertexBufferType,
 };
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -17,17 +17,6 @@ use rstest::rstest;
 #[case::multi_polygon(push_geoms(&[wkt!(MULTIPOLYGON(((0 0, 10 0, 10 10, 0 0),(5 5, 15 5, 15 15, 5 15)))).into()]))]
 fn automatic_optimization_roundtrip(#[case] decoded: GeometryValues) {
     let (encoded, _) = decoded.clone().encode_auto().expect("optimize failed");
-    assert_geometry_roundtrip(&encoded, &decoded);
-}
-
-#[rstest]
-#[case::single_point(push_geoms(&[wkt!(POINT(10 20)).into()]))]
-#[case::linestring(push_geoms(&[wkt!(LINESTRING(10 20, 30 40, 50 60)).into()]))]
-fn profile_optimization_roundtrip(#[case] decoded: GeometryValues) {
-    let profile = GeometryProfile::from_sample(&decoded).expect("from_sample failed");
-    let (encoded, _) = decoded
-        .encode_with_profile(&profile)
-        .expect("profile_driven_optimization failed");
     assert_geometry_roundtrip(&encoded, &decoded);
 }
 
@@ -113,74 +102,6 @@ fn encoded_repeated_points_uses_morton_streams() {
         StreamType::Length(LengthType::VarBinary),
         "meta stream must always be present"
     );
-}
-
-#[test]
-fn profile_applied_to_different_tile_roundtrip() {
-    // Build the profile from a polygon tile, apply it to a linestring tile.
-    // The topology is completely different — apply_profile must still produce a
-    // valid encoding because it re-runs the probe pass on the actual tile data.
-    let sample = push_geoms(&[wkt!(POLYGON((0 0, 50 0, 50 50, 0 50, 0 0))).into()]);
-    let target = push_geoms(&[wkt!(LINESTRING(0 0, 10 10, 20 0, 30 10)).into()]);
-
-    let profile = GeometryProfile::from_sample(&sample).expect("from_sample failed");
-    let (encoded, _) = target
-        .encode_with_profile(&profile)
-        .expect("profile_driven_optimization failed");
-    assert_geometry_roundtrip(&encoded, &target);
-}
-
-#[test]
-fn profile_merge_roundtrip() {
-    // Build two profiles from different geometry types, merge them, and verify
-    // the merged profile produces valid encodings for both.
-    let poly = push_geoms(&[wkt!(POLYGON((0 0, 100 0, 100 100, 0 0))).into()]);
-    let ls = push_geoms(&[wkt!(LINESTRING(0 0, 10 10, 20 20)).into()]);
-
-    let merged = GeometryProfile::from_sample(&poly)
-        .expect("from_sample poly failed")
-        .merge(&GeometryProfile::from_sample(&ls).expect("from_sample ls failed"));
-
-    let (encoded, _) = poly
-        .encode_with_profile(&merged)
-        .unwrap_or_else(|e| panic!("profile_driven_optimization failed for poly: {e}"));
-    assert_geometry_roundtrip(&encoded, &poly);
-
-    let (encoded, _) = ls
-        .encode_with_profile(&merged)
-        .unwrap_or_else(|e| panic!("profile_driven_optimization failed for ls: {e}"));
-    assert_geometry_roundtrip(&encoded, &ls);
-}
-
-#[test]
-fn profile_rederives_vertex_strategy_from_actual_data() {
-    // Sample is built from high-repetition points (→ Morton in profile).
-    // Target has all-unique coordinates in Vec2-only range.
-    // apply_profile must re-derive the vertex strategy from the target data
-    // and select Vec2, not blindly reuse Morton from the sample.
-    let sample =
-        push_geoms(&std::iter::repeat_n(point! { x: 5, y: 5 }.into(), 20).collect::<Vec<_>>());
-    let target = push_geoms(
-        &(0i32..10)
-            .map(|i| point! { x: i, y: i }.into())
-            .collect::<Vec<_>>(),
-    );
-
-    let profile = GeometryProfile::from_sample(&sample).expect("from_sample failed");
-    let (encoded, _) = target
-        .encode_with_profile(&profile)
-        .expect("profile_driven_optimization failed");
-    let types = encoded_stream_types(&encoded);
-    assert!(
-        types.contains(&StreamType::Data(DictionaryType::Vertex)),
-        "apply_profile must re-derive Vec2 for all-unique target vertices"
-    );
-    assert!(
-        !types.contains(&StreamType::Data(DictionaryType::Morton)),
-        "apply_profile must not blindly reuse Morton from the sample profile"
-    );
-
-    assert_geometry_roundtrip(&encoded, &target);
 }
 
 #[test]

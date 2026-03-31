@@ -30,13 +30,14 @@ fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
 /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
 fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLayer01 {
     let tile_encoder = Tile01Encoder {
-        sort_strategy: Some(strategy),
+        sort_strategy: strategy,
+        ..Default::default()
     };
     let staged = tile_encoder.encode(&mut tile);
     let stream_encoder = StagedLayer01Encoder {
-        id: None, // auto-encode IDs
         properties: vec![],
         geometry: GeometryEncoder::all(IntEncoder::varint()),
+        ..Default::default()
     };
     let layer_enc = staged.encode(stream_encoder).expect("encode failed");
 

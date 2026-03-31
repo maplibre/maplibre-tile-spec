@@ -14,10 +14,10 @@ use crate::v01::{
     EncodedPresence, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding,
     EncodedSharedDictItem, EncodedStream, EncodedStrings, EncodedStringsEncoding, FsstStrEncoder,
     IntEncoder, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings,
-    PresenceStream, PropValueRef, PropertyEncoder, RawFsstData, RawPlainData, RawPresence,
+    PresenceKind, PropValueRef, PropertyEncoder, RawFsstData, RawPlainData, RawPresence,
     RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
-    RawStringsEncoding, SharedDictEncoder, StagedSharedDict, StagedSharedDictItem, StagedStrings,
-    StrEncoder, StreamType,
+    RawStringsEncoding, SharedDictEncoder, SharedDictItemEncoder, StagedSharedDict,
+    StagedSharedDictItem, StagedStrings, StrEncoder, StreamType,
 };
 use crate::{Decoder, MltError, MltResult};
 
@@ -117,8 +117,25 @@ impl StagedStrings {
     }
 
     #[must_use]
-    pub fn has_nulls(&self) -> bool {
-        self.lengths.iter().any(|&end| end < 0)
+    pub fn presence(&self) -> PresenceKind {
+        let mut has_null = false;
+        let mut has_present = false;
+        for &end in &self.lengths {
+            if end < 0 {
+                has_null = true;
+            } else {
+                has_present = true;
+            }
+            if has_null && has_present {
+                return PresenceKind::Mixed;
+            }
+        }
+        match (has_null, has_present) {
+            (false, false) => PresenceKind::Empty,
+            (false, true) => PresenceKind::AllPresent,
+            (true, false) => PresenceKind::AllNull,
+            (true, true) => unreachable!("early return handles Mixed"),
+        }
     }
 
     #[must_use]
@@ -173,6 +190,27 @@ pub fn collect_staged_shared_dict_spans(items: &[StagedSharedDictItem]) -> Vec<(
     spans
 }
 
+impl SharedDictItemEncoder {
+    /// Create a new encoder for a shared-dictionary child column.
+    #[must_use]
+    pub fn new(offsets: IntEncoder) -> Self {
+        Self {
+            offsets,
+            #[cfg(feature = "__private")]
+            forced_presence: false,
+        }
+    }
+
+    /// Force a presence stream to be emitted even when the column has no nulls.
+    /// Intended only for generating intentionally edge-case tiles in synthetics/tests.
+    #[cfg(feature = "__private")]
+    #[must_use]
+    pub fn with_forced_presence(mut self, present: bool) -> Self {
+        self.forced_presence = present;
+        self
+    }
+}
+
 impl StagedSharedDictItem {
     #[must_use]
     pub fn feature_count(&self) -> usize {
@@ -180,10 +218,25 @@ impl StagedSharedDictItem {
     }
 
     #[must_use]
-    pub fn has_nulls(&self) -> bool {
-        self.ranges
-            .iter()
-            .any(|&range| decode_shared_dict_range(range).is_none())
+    pub fn presence(&self) -> PresenceKind {
+        let mut has_null = false;
+        let mut has_present = false;
+        for &range in &self.ranges {
+            if decode_shared_dict_range(range).is_none() {
+                has_null = true;
+            } else {
+                has_present = true;
+            }
+            if has_null && has_present {
+                return PresenceKind::Mixed;
+            }
+        }
+        match (has_null, has_present) {
+            (false, false) => PresenceKind::Empty,
+            (false, true) => PresenceKind::AllPresent,
+            (true, false) => PresenceKind::AllNull,
+            (true, true) => unreachable!("early return handles Mixed"),
+        }
     }
 
     #[must_use]
@@ -242,8 +295,25 @@ impl<'a> ParsedStrings<'a> {
     }
 
     #[must_use]
-    pub fn has_nulls(&self) -> bool {
-        self.lengths.iter().any(|end| *end < 0)
+    pub fn presence(&self) -> PresenceKind {
+        let mut has_null = false;
+        let mut has_present = false;
+        for &end in &self.lengths {
+            if end < 0 {
+                has_null = true;
+            } else {
+                has_present = true;
+            }
+            if has_null && has_present {
+                return PresenceKind::Mixed;
+            }
+        }
+        match (has_null, has_present) {
+            (false, false) => PresenceKind::Empty,
+            (false, true) => PresenceKind::AllPresent,
+            (true, false) => PresenceKind::AllNull,
+            (true, true) => unreachable!("early return handles Mixed"),
+        }
     }
 
     #[must_use]
@@ -438,10 +508,25 @@ impl ParsedSharedDictItem<'_> {
     }
 
     #[must_use]
-    pub fn has_nulls(&self) -> bool {
-        self.ranges
-            .iter()
-            .any(|&range| decode_shared_dict_range(range).is_none())
+    pub fn presence(&self) -> PresenceKind {
+        let mut has_null = false;
+        let mut has_present = false;
+        for &range in &self.ranges {
+            if decode_shared_dict_range(range).is_none() {
+                has_null = true;
+            } else {
+                has_present = true;
+            }
+            if has_null && has_present {
+                return PresenceKind::Mixed;
+            }
+        }
+        match (has_null, has_present) {
+            (false, false) => PresenceKind::Empty,
+            (false, true) => PresenceKind::AllPresent,
+            (true, false) => PresenceKind::AllNull,
+            (true, true) => unreachable!("early return handles Mixed"),
+        }
     }
 
     #[must_use]
@@ -667,14 +752,27 @@ impl EncodedSharedDict {
 }
 
 /// Encode a staged shared dictionary property using `SharedDictEncoder`.
+///
+/// Returns `Ok(None)` when every child column is [`PresenceKind::Empty`] or
+/// [`PresenceKind::AllNull`] — the whole shared-dict property is skipped.
 pub fn encode_shared_dict_prop(
     shared_dict: &StagedSharedDict,
     encoder: &SharedDictEncoder,
-) -> MltResult<EncodedProperty> {
+) -> MltResult<Option<EncodedProperty>> {
     if shared_dict.items.len() != encoder.items.len() {
         return Err(NotImplemented(
             "SharedDict items count must match encoder items count",
         ));
+    }
+
+    // Skip the entire shared-dict property when every item column carries no
+    // data worth encoding (empty or all-null).
+    if shared_dict
+        .items
+        .iter()
+        .all(|item| matches!(item.presence(), PresenceKind::Empty | PresenceKind::AllNull))
+    {
+        return Ok(None);
     }
 
     let dict_spans = collect_staged_shared_dict_spans(&shared_dict.items);
@@ -708,8 +806,12 @@ pub fn encode_shared_dict_prop(
     // Encode each child column.
     let mut children = Vec::with_capacity(shared_dict.items.len());
     for (item, item_enc) in shared_dict.items.iter().zip(&encoder.items) {
-        // Presence stream
-        let presence = if item_enc.presence == PresenceStream::Present {
+        #[cfg(feature = "__private")]
+        let forced_presence = item_enc.forced_presence;
+        #[cfg(not(feature = "__private"))]
+        let forced_presence = false;
+
+        let presence = if forced_presence || item.presence().needs_presence_stream() {
             let present_bools = item.presence_bools();
             Some(EncodedStream::encode_presence(&present_bools)?)
         } else {
@@ -754,11 +856,11 @@ pub fn encode_shared_dict_prop(
         }
     };
 
-    Ok(EncodedProperty::SharedDict(EncodedSharedDict {
+    Ok(Some(EncodedProperty::SharedDict(EncodedSharedDict {
         name: EncodedName(shared_dict.prefix.clone()),
         encoding,
         children,
-    }))
+    })))
 }
 
 /// Build a [`StagedSharedDict`] from a list of `(suffix, values)` pairs.
