@@ -773,23 +773,17 @@ fn generate_props_i32(w: &mut SynthWriter) {
     let values = || P::i32("val", vec![Some(42), Some(42), Some(42), Some(42)]);
 
     four_points()
-        .add_prop(S::int(E::varint()).forced_presence(true), values())
-        .write(w, "props_i32");
-    four_points()
         .add_prop(S::int(E::varint()), values())
-        .write(w, "props_i32_np");
+        .write_np(w, "props_i32");
     four_points()
-        .add_prop(S::int(E::delta_varint()).forced_presence(true), values())
-        .write(w, "props_i32_delta");
+        .add_prop(S::int(E::delta_varint()), values())
+        .write_np(w, "props_i32_delta");
     four_points()
-        .add_prop(S::int(E::rle_varint()).forced_presence(true), values())
-        .write(w, "props_i32_rle");
+        .add_prop(S::int(E::rle_varint()), values())
+        .write_np(w, "props_i32_rle");
     four_points()
-        .add_prop(
-            S::int(E::delta_rle_varint()).forced_presence(true),
-            values(),
-        )
-        .write(w, "props_i32_delta_rle");
+        .add_prop(S::int(E::delta_rle_varint()), values())
+        .write_np(w, "props_i32_delta_rle");
 }
 
 fn generate_props_u32(w: &mut SynthWriter) {
