@@ -313,20 +313,6 @@ impl SharedDict {
         self.column_with_enc(SharedDictItemEncoder::new(offsets), suffix, values)
     }
 
-    /// Like [`column`][Self::column] but forces a presence stream even when no nulls exist.
-    ///
-    /// Used in synthetics to match the Java reference format, which always emits a presence
-    /// stream for every shared-dict child column.
-    #[must_use]
-    pub fn column_fp(
-        self,
-        suffix: impl Into<String>,
-        offsets: IntEncoder,
-        values: impl IntoIterator<Item = Option<String>>,
-    ) -> Self {
-        self.column_with_enc(SharedDictItemEncoder::new(offsets), suffix, values)
-    }
-
     fn column_with_enc(
         mut self,
         enc: SharedDictItemEncoder,
