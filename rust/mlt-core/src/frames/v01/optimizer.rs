@@ -124,8 +124,7 @@ impl Tile01Encoder {
     /// string grouping that was applied when this encoder was produced.
     pub fn encode(&self, tile: &mut TileLayer01) -> StagedLayer01 {
         reorder_features(tile, self.sort_strategy);
-        let str_groups = group_string_properties(tile);
-        StagedLayer01::from_tile(tile.clone(), &str_groups)
+        StagedLayer01::from_tile(tile.clone(), &group_string_properties(tile))
     }
 
     /// Automatically select the best sort strategy and stream-level encoders by

@@ -464,18 +464,18 @@ pub struct StagedStrings {
     pub(crate) data: String,
 }
 
-/// A single child within a staged shared-dictionary column.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StagedSharedDictItem {
-    pub(crate) suffix: String,
-    /// Per-feature `(start, end)` byte offsets into the shared corpus.
-    pub ranges: Vec<(i32, i32)>,
-}
-
 /// Owned shared-dictionary column prepared for encoding.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedSharedDict {
     pub(crate) prefix: String,
     pub(crate) data: String,
     pub items: Vec<StagedSharedDictItem>,
+}
+
+/// A single child within a staged shared-dictionary column.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StagedSharedDictItem {
+    pub(crate) suffix: String,
+    /// Per-feature `(start, end)` byte offsets into the shared corpus.
+    pub ranges: Vec<(i32, i32)>,
 }

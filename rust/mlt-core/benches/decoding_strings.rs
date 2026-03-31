@@ -6,8 +6,8 @@ use mlt_core::v01::{
     DictionaryType, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
     EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, PhysicalEncoder, RawFsstData,
     RawPlainData, RawPresence, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream,
-    RawStrings, RawStringsEncoding, SharedDictEncoder, SharedDictItemEncoder, StagedStrings,
-    StrEncoder, build_staged_shared_dict, encode_shared_dict_prop,
+    RawStrings, RawStringsEncoding, SharedDictEncoder, SharedDictItemEncoder, StagedSharedDict,
+    StagedStrings, StrEncoder, encode_shared_dict_prop,
 };
 use strum::IntoEnumIterator as _;
 
@@ -300,7 +300,7 @@ fn bench_presence(c: &mut Criterion) {
         );
 
         // Nullable: attach a presence bitmap and only encode the non-null values.
-        let nullable = StagedStrings::from(make_nullable_strings(n));
+        let nullable = StagedStrings::from_optional("", make_nullable_strings(n));
         let presence_bools = nullable.presence_bools();
         let presence_stream =
             EncodedStream::encode_presence(&presence_bools).expect("encode_presence failed");
@@ -365,26 +365,15 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         //
         // Build a decoded shared dict from two sub-properties; the second child
         // has every 3rd entry as NULL so the child presence path is exercised.
-        let child1: StagedStrings = strings
-            .iter()
-            .map(|s| Some(s.clone()))
-            .collect::<Vec<_>>()
-            .into();
-        let child2: StagedStrings = strings
+        let col1: Vec<Option<&str>> = strings.iter().map(|s| Some(s.as_str())).collect();
+        let col2: Vec<Option<&str>> = strings
             .iter()
             .enumerate()
-            .map(|(i, s)| if i % 3 == 0 { None } else { Some(s.clone()) })
-            .collect::<Vec<_>>()
-            .into();
+            .map(|(i, s)| if i % 3 == 0 { None } else { Some(s.as_str()) })
+            .collect();
 
-        let decoded_shared = build_staged_shared_dict(
-            "place:",
-            [
-                ("type".to_string(), child1),
-                ("subtype".to_string(), child2),
-            ],
-        )
-        .expect("build_staged_shared_dict failed");
+        let decoded_shared = StagedSharedDict::new("place:", [("type", col1), ("subtype", col2)])
+            .expect("StagedSharedDict::try_new failed");
 
         let item_enc = SharedDictItemEncoder::new(int_enc);
         let encoder_plain = SharedDictEncoder {

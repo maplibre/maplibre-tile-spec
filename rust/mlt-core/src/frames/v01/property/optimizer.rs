@@ -11,7 +11,7 @@
 //!    `Plain` and `Fsst` string encodings using an FSST viability probe;
 //!    emit a presence stream only for columns that contain null values (auto-detected).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::hash::Hash;
 
 use fsst::Compressor;
@@ -21,10 +21,9 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 use crate::MltResult;
 use crate::codecs::zigzag::encode_zigzag;
 use crate::v01::property::encode::encode_properties;
-use crate::v01::property::strings::{build_staged_shared_dict, collect_staged_shared_dict_spans};
+use crate::v01::property::strings::collect_staged_shared_dict_spans;
 use crate::v01::property::{
     PropertyEncoder, ScalarEncoder, StagedProperty, StagedSharedDict, StagedSharedDictItem,
-    StagedStrings,
 };
 use crate::v01::stream::IntEncoder;
 use crate::v01::{
@@ -46,9 +45,6 @@ const FSST_OVERHEAD_THRESHOLD: usize = 4_096;
 const FSST_SAMPLE_STRINGS: usize = 512;
 
 /// A group of string columns to be merged into a single [`StagedProperty::SharedDict`].
-///
-/// Produced by [`group_string_properties`] and consumed by
-/// `apply_string_groups` or [`crate::v01::StagedLayer01::from_tile`].
 pub struct StringGroup {
     /// Common prefix of all column names in this group.
     pub prefix: String,
@@ -117,9 +113,15 @@ fn cluster_by_similarity<'a, T: Iterator<Item = U>, U: Hash>(
 /// before sort-strategy trials and the result reused for all of them via
 /// [`crate::v01::StagedLayer01::from_tile`].
 ///
-/// [`StringGroup::columns`] indices refer to positions in
-/// [`TileLayer01::property_names`]; `apply_string_groups` identifies staged columns
-/// by name rather than by these indices.
+/// Returns one [`StringGroup`] per cluster of string columns that should share a
+/// dictionary, combining two detection strategies:
+///
+/// 1. **Prefix groups** — consecutive column names that share the same `"prefix:"` segment
+///    (e.g. `addr:city`, `addr:street`) are grouped before any `MinHash` work.
+/// 2. **`MinHash` groups** — remaining string columns are clustered by estimated Jaccard
+///    similarity over their unique non-null values.
+///
+/// [`StringGroup::columns`] indices refer to positions in [`TileLayer01::property_names`].
 #[must_use]
 pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
     let min_hash = MinHash::new(MINHASH_PERMUTATIONS);
@@ -167,71 +169,6 @@ pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
         .collect()
 }
 
-/// Merge grouped string columns into [`StagedProperty::SharedDict`] entries in-place.
-///
-/// Looks up each grouped column by name (not index), since staged-property indices may
-/// differ from the tile column indices stored in [`StringGroup::columns`] after
-/// prefix-based `SharedDict` detection.  Columns already merged by prefix detection
-/// (no longer present as `StagedProperty::Str`) are silently skipped; if fewer than
-/// two `Str` columns remain for a given group, no `SharedDict` is created and any
-/// already-extracted columns are returned individually.
-///
-/// Non-grouped properties are preserved in their original relative order; new
-/// `SharedDict` entries are appended at the end.
-pub(crate) fn apply_string_groups(properties: &mut Vec<StagedProperty>, groups: &[StringGroup]) {
-    if groups.is_empty() {
-        return;
-    }
-
-    // Full names of every Str column targeted by a MinHash group.
-    let grouped_names: HashSet<String> = groups
-        .iter()
-        .flat_map(|g| {
-            g.columns
-                .iter()
-                .map(|(suffix, _)| format!("{}{}", g.prefix, suffix))
-        })
-        .collect();
-
-    // Partition: non-grouped properties (and non-Str properties) go directly to
-    // `output`; grouped Str columns are collected into a lookup map for merging.
-    let mut output: Vec<StagedProperty> = Vec::new();
-    let mut grouped_strs: HashMap<String, StagedStrings> = HashMap::new();
-
-    for prop in std::mem::take(properties) {
-        match prop {
-            StagedProperty::Str(s) if grouped_names.contains(&s.name) => {
-                grouped_strs.insert(s.name.clone(), s);
-            }
-            other => output.push(other),
-        }
-    }
-
-    // For each group build a SharedDict from whatever Str columns are still present.
-    // Some may have already been merged by prefix-based detection (absent from grouped_strs).
-    for group in groups {
-        let items: Vec<(String, StagedStrings)> = group
-            .columns
-            .iter()
-            .filter_map(|(suffix, _)| {
-                let full = format!("{}{}", group.prefix, suffix);
-                grouped_strs.remove(&full).map(|s| (suffix.clone(), s))
-            })
-            .collect();
-
-        if items.len() >= 2 {
-            let shared_dict = build_staged_shared_dict(group.prefix.clone(), items)
-                .expect("building staged shared dictionary from string columns should succeed");
-            output.push(StagedProperty::SharedDict(shared_dict));
-        } else {
-            // Fewer than 2 Str columns survived — return any extracted ones individually.
-            output.extend(items.into_iter().map(|(_, s)| StagedProperty::Str(s)));
-        }
-    }
-
-    *properties = output;
-}
-
 /// Extension trait for consuming-style encoding of staged property columns.
 ///
 /// Each method returns `Vec<Option<EncodedProperty>>` — a `None` entry means
@@ -256,10 +193,6 @@ impl EncodeProperties for Vec<StagedProperty> {
 }
 
 /// Analyze `properties` and return a configured [`Vec<PropertyEncoder>`].
-///
-/// `MinHash`-based string grouping is expected to have been applied already (by
-/// [`crate::v01::StagedLayer01::from_tile`] via [`apply_string_groups`]).  This
-/// function only selects optimal per-column stream encoders.
 fn optimize(properties: &[StagedProperty]) -> Vec<PropertyEncoder> {
     properties.iter().map(build_encoder).collect()
 }

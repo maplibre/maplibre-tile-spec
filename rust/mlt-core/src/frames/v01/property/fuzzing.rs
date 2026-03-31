@@ -1,10 +1,7 @@
 use arbitrary::Error::IncorrectFormat;
 use arbitrary::Unstructured;
 
-use crate::v01::{
-    EncodedProperty, ScalarEncoder, StagedProperty, StagedSharedDict, StagedStrings,
-    build_staged_shared_dict,
-};
+use crate::v01::{EncodedProperty, ScalarEncoder, StagedProperty, StagedSharedDict, StagedStrings};
 
 impl<'a> arbitrary::Arbitrary<'a> for StagedSharedDict {
     fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
@@ -17,11 +14,7 @@ impl<'a> arbitrary::Arbitrary<'a> for StagedSharedDict {
             });
         }
         let prefix: String = u.arbitrary()?;
-        let staged_items: Vec<(String, StagedStrings)> = items_raw
-            .into_iter()
-            .map(|(suffix, vals)| (suffix, StagedStrings::from(vals)))
-            .collect();
-        build_staged_shared_dict(prefix, staged_items).map_err(|_| IncorrectFormat)
+        Self::new(prefix, items_raw).map_err(|_| IncorrectFormat)
     }
 }
 
@@ -43,6 +36,9 @@ impl arbitrary::Arbitrary<'_> for StagedProperty {
 
 impl arbitrary::Arbitrary<'_> for StagedStrings {
     fn arbitrary(u: &mut Unstructured<'_>) -> arbitrary::Result<Self> {
-        Ok(Self::from(u.arbitrary::<Vec<Option<String>>>()?))
+        Ok(Self::from_optional(
+            u.arbitrary::<String>()?,
+            u.arbitrary::<Vec<Option<String>>>()?,
+        ))
     }
 }

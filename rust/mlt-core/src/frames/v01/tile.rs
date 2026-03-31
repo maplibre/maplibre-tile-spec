@@ -7,14 +7,16 @@
 //! and free from any encoded/decoded duality.
 //!
 //! Conversion from [`TileLayer01`] to [`StagedLayer01`] is done via
-//! [`StagedLayer01::from_tile`] (which also applies pre-computed
-//! [`StringGroup`] pairings) or the blanket [`From`] impl (no grouping).
+//! [`StagedLayer01::from_tile`] (pre-computed [`StringGroup`] pairings produced by
+//! [`crate::v01::group_string_properties`]) or the blanket [`From`] impl (no grouping).
+
+use std::collections::HashMap;
 
 use crate::errors::AsMltError as _;
 use crate::v01::{
     GeometryValues, IdValues, Layer01, ParsedLayer01, ParsedProperty, PropValue, PropValueRef,
     StagedLayer01, StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, StringGroup,
-    TileFeature, TileLayer01, apply_string_groups, build_staged_shared_dict,
+    TileFeature, TileLayer01,
 };
 use crate::{Decoder, MltResult};
 
@@ -124,11 +126,8 @@ impl StagedLayer01 {
     /// `groups` should be the output of [`crate::v01::group_string_properties`] called on the
     /// same [`TileLayer01`] source.  Because unique-value membership is
     /// row-order-independent, the same groups can be reused across sort trials.
-    ///
-    /// Pass an empty slice to skip `MinHash` grouping (prefix-based shared-dict
-    /// detection from the original tile structure is always applied).
     #[must_use]
-    pub fn from_tile(source: TileLayer01, groups: &[StringGroup]) -> Self {
+    pub fn from_tile(mut source: TileLayer01, groups: &[StringGroup]) -> Self {
         let mut geometry = GeometryValues::default();
         for f in &source.features {
             geometry.push_geom(&f.geometry);
@@ -140,9 +139,22 @@ impl StagedLayer01 {
             None
         };
 
-        let num_cols = source.property_names.len();
-        let mut properties = rebuild_properties(&source.property_names, &source.features, num_cols);
-        apply_string_groups(&mut properties, groups);
+        let col_to_group: HashMap<_, _> = groups
+            .iter()
+            .flat_map(|g| g.columns.iter().map(move |(_, i)| (*i, g)))
+            .collect();
+
+        // first col_idx of each group → the group (emit the SharedDict here)
+        let mut group_start: HashMap<_, _> = groups.iter().map(|g| (g.columns[0].1, g)).collect();
+
+        let mut properties = Vec::with_capacity(source.property_names.len());
+        for (col_idx, name) in source.property_names.into_iter().enumerate() {
+            if let Some(g) = group_start.remove(&col_idx) {
+                properties.push(build_shared_dict(g, &mut source.features));
+            } else if !col_to_group.contains_key(&col_idx) {
+                properties.push(build_scalar_column(name, col_idx, &mut source.features));
+            } // else this column is part of a group we already consumed
+        }
 
         Self {
             name: source.name,
@@ -154,77 +166,14 @@ impl StagedLayer01 {
     }
 }
 
-/// Convenience conversion — equivalent to [`StagedLayer01::from_tile`] with no
-/// [`StringGroup`]s (prefix-based shared-dict detection only).
+/// Convenience conversion — equivalent to [`StagedLayer01::from_tile`] with no grouping.
 impl From<TileLayer01> for StagedLayer01 {
     fn from(source: TileLayer01) -> Self {
         Self::from_tile(source, &[])
     }
 }
 
-/// Rebuild the property columns from per-feature `PropValue` rows.
-///
-/// Each column index `c` maps to a column name in `property_names[c]`.
-/// A `SharedDict` column is detected by two or more consecutive names sharing
-/// the same `"prefix:"` portion.  All other columns become scalar columns.
-fn rebuild_properties(
-    names: &[String],
-    features: &[TileFeature],
-    num_cols: usize,
-) -> Vec<StagedProperty> {
-    if num_cols == 0 {
-        return Vec::new();
-    }
-
-    let mut result = Vec::new();
-    let mut col = 0;
-
-    while col < num_cols {
-        // Check if the next column(s) form a SharedDict group (share the same prefix).
-        let (prefix, _suffix) = split_prefix(&names[col]);
-
-        if let Some(dict_prefix) = prefix {
-            let start_col = col;
-            let mut group_end = col + 1;
-            while group_end < num_cols {
-                let (p, _) = split_prefix(&names[group_end]);
-                if p == Some(dict_prefix) {
-                    group_end += 1;
-                } else {
-                    break;
-                }
-            }
-
-            if group_end > start_col + 1 {
-                // Multiple columns with the same prefix → SharedDict
-                let shared_dict =
-                    rebuild_shared_dict(dict_prefix, names, features, start_col, group_end);
-                result.push(StagedProperty::SharedDict(shared_dict));
-                col = group_end;
-                continue;
-            }
-        }
-
-        // Single scalar column
-        let prop = rebuild_scalar_column(&names[col], col, features);
-        result.push(prop);
-        col += 1;
-    }
-
-    result
-}
-
-/// Split `"prefix:suffix"` into `(Some("prefix"), "suffix")`, or
-/// `(None, name)` if there is no colon.
-fn split_prefix(name: &str) -> (Option<&str>, &str) {
-    if let Some(pos) = name.find(':') {
-        (Some(&name[..pos]), &name[pos + 1..])
-    } else {
-        (None, name)
-    }
-}
-
-fn rebuild_scalar_column(name: &str, col: usize, features: &[TileFeature]) -> StagedProperty {
+fn build_scalar_column(name: String, col: usize, features: &mut [TileFeature]) -> StagedProperty {
     // Determine the variant by peeking at the first feature value.
     // Typed nulls (e.g. `PropValue::Bool(None)`) already carry the column type,
     // so no filtering is needed; only a fully-absent column returns `None` here.
@@ -243,10 +192,7 @@ fn rebuild_scalar_column(name: &str, col: usize, features: &[TileFeature]) -> St
                     }
                 })
                 .collect();
-            StagedProperty::$variant(StagedScalar {
-                name: name.to_string(),
-                values,
-            })
+            StagedProperty::$variant(StagedScalar { name, values })
         }};
     }
 
@@ -262,53 +208,36 @@ fn rebuild_scalar_column(name: &str, col: usize, features: &[TileFeature]) -> St
         Some(PropValue::F64(_)) => scalar_col!(F64, f64, F64),
         Some(PropValue::Str(_)) | None => {
             let values: Vec<Option<String>> = features
-                .iter()
-                .map(|f| {
-                    if let Some(PropValue::Str(v)) = f.properties.get(col) {
-                        v.clone()
-                    } else {
-                        None
-                    }
+                .iter_mut()
+                .map(|f| match f.properties.get_mut(col) {
+                    Some(PropValue::Str(v)) => v.take(),
+                    _ => None,
                 })
                 .collect();
-            let mut ds = StagedStrings::from(values);
-            ds.name = name.to_string();
-            StagedProperty::Str(ds)
+            StagedProperty::Str(StagedStrings::from_optional(name, values))
         }
     }
 }
 
-fn rebuild_shared_dict(
-    prefix: &str,
-    names: &[String],
-    features: &[TileFeature],
-    start_col: usize,
-    end_col: usize,
-) -> StagedSharedDict {
-    // Build per-item (start,end) ranges from raw feature data, then
-    // call build_staged_shared_dict to deduplicate into a shared corpus.
-    let items_raw: Vec<(String, StagedStrings)> = (start_col..end_col)
-        .map(|c| {
-            let (_, suffix) = split_prefix(&names[c]);
-            let values: Vec<Option<String>> = features
-                .iter()
-                .map(|f| {
-                    if let Some(PropValue::Str(s)) = f.properties.get(c) {
-                        s.clone()
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            (suffix.to_string(), StagedStrings::from(values))
-        })
-        .collect();
+fn build_shared_dict(group: &StringGroup, features: &mut [TileFeature]) -> StagedProperty {
+    let mut order: Vec<usize> = (0..group.columns.len()).collect();
+    order.sort_by_key(|&i| group.columns[i].1);
 
-    // Set the suffix names on each StagedStrings (for the corpus-dedup step).
-    // The names aren't stored in StagedStrings.name here; they're passed as the
-    // tuple key to build_staged_shared_dict.
-    build_staged_shared_dict(prefix.to_string(), items_raw)
-        .expect("rebuild_shared_dict should always succeed for valid feature data")
+    let columns = order.into_iter().map(|i| {
+        let (suffix, col_idx) = &group.columns[i];
+        let values: Vec<Option<String>> = features
+            .iter()
+            .map(|f| match f.properties.get(*col_idx) {
+                Some(PropValue::Str(s)) => s.clone(),
+                _ => None,
+            })
+            .collect();
+        (suffix.clone(), values)
+    });
+
+    StagedProperty::SharedDict(
+        StagedSharedDict::new(group.prefix.clone(), columns).expect("StagedSharedDict succeed"),
+    )
 }
 
 /// Charge `dec` for the heap bytes of owned `String` values inside `PropValue::Str`.
