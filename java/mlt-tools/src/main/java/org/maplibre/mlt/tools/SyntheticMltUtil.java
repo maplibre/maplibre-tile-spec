@@ -24,7 +24,6 @@ import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.PrecisionModel;
-import org.maplibre.mlt.cli.JsonHelper;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
@@ -34,6 +33,7 @@ import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.decoder.MltDecoder;
+import org.maplibre.mlt.json.Json;
 
 /** Utility helpers for synthetic MLT generation. */
 class SyntheticMltUtil {
@@ -313,7 +313,7 @@ class SyntheticMltUtil {
       var mlt = MltConverter.convertMvt(tile, metadata, config, null);
       Files.write(mltFile, mlt, StandardOpenOption.CREATE_NEW);
 
-      final String json = JsonHelper.toGeoJson(MltDecoder.decodeMlTile(mlt)) + "\n";
+      final String json = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";
       Files.writeString(jsonFile, json, StandardOpenOption.CREATE_NEW);
     } catch (Exception e) {
       throw new IOException("Error writing MLT file " + fileName, e);

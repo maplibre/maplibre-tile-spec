@@ -61,6 +61,14 @@ jacocoTestReport {
 }
 
 java {
+    // Optional feature for GeoJSON support, which adds a dependency on JTS IO Common.
+    // This allows users to opt in to GeoJSON support without forcing the dependency on all users.
+    registerFeature('geojson') {
+        usingSourceSet(sourceSets.create('geojson'))
+        dependencies {
+            implementation(libs.jts.io.common)
+        }
+    }
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
     }
