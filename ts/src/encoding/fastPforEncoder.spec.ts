@@ -71,5 +71,5 @@ describe("FastPFOR encoder", () => {
         const decoded = decodeFastPforInt32(encoded, values.length);
 
         expect(decoded).toEqual(values);
-    }, 30_000);
+    });
 });
