@@ -4,10 +4,11 @@ use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::str::FromStr as _;
 
-use crate::Args;
-use crate::layer::Layer;
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{Decoder, MltError, Parser};
+
+use crate::Args;
+use crate::layer::Layer;
 
 pub struct SynthWriter {
     ref_dir: PathBuf,

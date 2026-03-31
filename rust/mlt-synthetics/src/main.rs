@@ -8,7 +8,7 @@
 //!
 //! ### Common filename abbreviations
 //! * `np` - no presence stream, i.e. values exist for each feature in a column
-//! * `fpf` - uses FastPFor compression
+//! * `fpf` - uses `FastPFor` compression
 //! * `tes` - includes tessellation triangles stream
 
 mod layer;

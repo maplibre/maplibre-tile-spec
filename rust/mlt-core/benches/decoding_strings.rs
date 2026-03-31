@@ -389,7 +389,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         let item_enc = SharedDictItemEncoder::new(int_enc);
         let encoder_plain = SharedDictEncoder {
             dict_encoder: StrEncoder::plain(int_enc),
-            items: vec![item_enc.clone(), item_enc],
+            items: vec![item_enc, item_enc],
         };
         let encoded_prop_plain = encode_shared_dict_prop(&decoded_shared, &encoder_plain)
             .expect("encode_shared_dict_prop failed")
@@ -414,7 +414,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         let item_enc_fsst = SharedDictItemEncoder::new(int_enc);
         let encoder_fsst = SharedDictEncoder {
             dict_encoder: StrEncoder::fsst(int_enc, int_enc),
-            items: vec![item_enc_fsst.clone(), item_enc_fsst],
+            items: vec![item_enc_fsst, item_enc_fsst],
         };
         let encoded_prop_fsst = encode_shared_dict_prop(&decoded_shared, &encoder_fsst)
             .expect("encode_shared_dict_prop (fsst) failed")
