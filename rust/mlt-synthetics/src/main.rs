@@ -866,56 +866,52 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
 
     p0().add_shared_dict(
         SharedDict::new("name:", SE::plain(E::varint()))
-            .column_fp("de", E::varint(), [Some(long_string())])
-            .column_fp("en", E::varint(), [Some(long_string())]),
+            .column("de", E::varint(), [Some(long_string())])
+            .column("en", E::varint(), [Some(long_string())]),
     )
-    // FIXME!   should use _np
-    .write(w, "props_shared_dict");
+    .write_np(w, "props_shared_dict");
 
     p0().add_shared_dict(
         SharedDict::new("", SE::plain(E::varint()))
-            .column_fp("a", E::varint(), [Some(long_string())])
-            .column_fp("b", E::varint(), [Some(long_string())]),
+            .column("a", E::varint(), [Some(long_string())])
+            .column("b", E::varint(), [Some(long_string())]),
     )
-    // FIXME!   should use _np
-    .write(w, "props_shared_dict_no_struct_name");
+    .write_np(w, "props_shared_dict_no_struct_name");
 
     p0().add_prop(e_str, P::str("place", vec![Some(long_string())]))
-        .add_shared_dict(
-            SharedDict::new("name:en", SE::plain(E::varint())).column_fp(
-                "",
-                E::varint(),
-                [Some(long_string())],
-            ),
-        )
+        .add_shared_dict(SharedDict::new("name:en", SE::plain(E::varint())).column(
+            "",
+            E::varint(),
+            [Some(long_string())],
+        ))
         .write_np(w, "props_shared_dict_one_child");
 
-    p0().add_shared_dict(SharedDict::new("a", SE::plain(E::varint())).column_fp(
+    p0().add_shared_dict(SharedDict::new("a", SE::plain(E::varint())).column(
         "",
         E::varint(),
         [Some(long_string())],
     ))
-    .write(w, "props_shared_dict_no_child_name");
+    .write_np(w, "props_shared_dict_no_child_name");
 
     p0().add_shared_dict(
         SharedDict::new("name:", SE::fsst(E::varint(), E::varint()))
-            .column_fp("de", E::varint(), [Some(long_string())])
-            .column_fp("en", E::varint(), [Some(long_string())]),
+            .column("de", E::varint(), [Some(long_string())])
+            .column("en", E::varint(), [Some(long_string())]),
     )
-    .write(w, "props_shared_dict_fsst");
+    .write_np(w, "props_shared_dict_fsst");
 
     p0().add_shared_dict(
-        SharedDict::new("a", SE::fsst(E::varint(), E::varint())).column_fp(
+        SharedDict::new("a", SE::fsst(E::varint(), E::varint())).column(
             "",
             E::varint(),
             [Some(long_string())],
         ),
     )
-    .write(w, "props_shared_dict_no_child_name_fsst");
+    .write_np(w, "props_shared_dict_no_child_name_fsst");
 
     p0().add_prop(e_str, P::str("place", vec![Some(long_string())]))
         .add_shared_dict(
-            SharedDict::new("name:en", SE::fsst(E::varint(), E::varint())).column_fp(
+            SharedDict::new("name:en", SE::fsst(E::varint(), E::varint())).column(
                 "",
                 E::varint(),
                 [Some(long_string())],
@@ -927,20 +923,20 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         // Note that Java sorts column names for some reason
         .add_shared_dict(
             SharedDict::new("name", SE::plain(E::varint()))
-                .column_fp(":de", E::varint(), [Some(long_string())])
-                .column_fp("_en", E::varint(), [Some(long_string())]),
+                .column(":de", E::varint(), [Some(long_string())])
+                .column("_en", E::varint(), [Some(long_string())]),
         )
         .add_shared_dict(
             SharedDict::new("name", SE::plain(E::varint()))
-                .column_fp(":he", E::varint(), [Some(long_string())])
-                .column_fp("_fr", E::varint(), [Some(long_string())]),
+                .column(":he", E::varint(), [Some(long_string())])
+                .column("_fr", E::varint(), [Some(long_string())]),
         )
-        .write(w, "props_shared_dict_2_same_prefix");
+        .write_np(w, "props_shared_dict_2_same_prefix");
 
     p0().add_shared_dict(
         SharedDict::new("", SE::fsst(E::varint(), E::varint()))
-            .column_fp("a", E::varint(), [Some(long_string())])
-            .column_fp("b", E::varint(), [Some(long_string())]),
+            .column("a", E::varint(), [Some(long_string())])
+            .column("b", E::varint(), [Some(long_string())]),
     )
-    .write(w, "props_shared_dict_no_struct_name_fsst");
+    .write_np(w, "props_shared_dict_no_struct_name_fsst");
 }

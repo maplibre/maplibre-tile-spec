@@ -324,11 +324,7 @@ impl SharedDict {
         offsets: IntEncoder,
         values: impl IntoIterator<Item = Option<String>>,
     ) -> Self {
-        self.column_with_enc(
-            SharedDictItemEncoder::new(offsets).forced_presence(true),
-            suffix,
-            values,
-        )
+        self.column_with_enc(SharedDictItemEncoder::new(offsets), suffix, values)
     }
 
     fn column_with_enc(
