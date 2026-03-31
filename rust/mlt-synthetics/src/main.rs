@@ -3,6 +3,13 @@
 //! Verifies non-rust synthetics in-memory against the reference `0x01/` dir.
 //! Writes `-rust`-suffixed files to `0x01-rust/` and compares their decoded JSON
 //! to the corresponding non-rust reference JSON.
+//! If the file does not have -rust, but does not exist in the /0x01/ dir,
+//! it will also be written to /0x01-rust/
+//!
+//! ### Common filename abbreviations
+//! * `np` - no presence stream, i.e. values exist for each feature in a column
+//! * `fpf` - uses FastPFor compression
+//! * `tes` - includes tessellation triangles stream
 
 mod layer;
 mod writer;
@@ -382,14 +389,14 @@ fn generate_ids(w: &mut SynthWriter) {
         vec![Some(u64::from(u32::MAX))],
         IdEncoder::new(L::None, IdWidth::Id32),
     )
-    .write(w, "id_max-rust");
+    .write(w, "id_max");
     p0().ids(
         vec![Some(9_234_567_890)],
         IdEncoder::new(L::None, IdWidth::Id64),
     )
     .write(w, "id64");
     p0().ids(vec![Some(u64::MAX)], IdEncoder::new(L::None, IdWidth::Id64))
-        .write(w, "id64_max-rust");
+        .write(w, "id64_max");
 
     let four_p0 = || geo_varint_with_rle().geos([P0, P0, P0, P0]);
     four_p0()
@@ -497,233 +504,232 @@ fn generate_ids(w: &mut SynthWriter) {
     };
     four_p0()
         .ids(min_max(), IdEncoder::new(L::None, IdWidth::Id64))
-        .write(w, "ids64_minmax-rust");
+        .write(w, "ids64_minmax");
     four_p0()
         .ids(min_max(), IdEncoder::new(L::Delta, IdWidth::Id64))
-        .write(w, "ids64_minmax_delta-rust");
+        .write(w, "ids64_minmax_delta");
 }
 
 fn generate_properties(w: &mut SynthWriter) {
     // Properties with special names
-    let enc_bool = S::bool();
-    let enc_bool_f = S::bool().forced_presence(true);
-    p0().add_prop(enc_bool_f, P::bool("", vec![Some(true)]))
+    let e_bool = S::bool();
+    let e_bool_f = e_bool.forced_presence(true);
+    p0().add_prop(e_bool_f, P::bool("", vec![Some(true)]))
         .write(w, "prop_empty_name");
-    p0().add_prop(enc_bool, P::bool("", vec![Some(true)]))
-        .write(w, "prop_empty_name_no_presence-rust");
-    p0().add_prop(
-        enc_bool_f,
-        P::bool("hello\u{0000} world\n", vec![Some(true)]),
-    )
-    .write(w, "prop_special_name");
-    p0().add_prop(enc_bool, P::bool("hello\u{0000} world\n", vec![Some(true)]))
-        .write(w, "prop_special_name_no_presence-rust");
-
-    p0().add_prop(enc_bool_f, P::bool("val", vec![Some(true)]))
+    p0().add_prop(e_bool, P::bool("", vec![Some(true)]))
+        .write(w, "prop_empty_name_np");
+    p0().add_prop(e_bool_f, P::bool("hello\u{0000} world\n", vec![Some(true)]))
+        .write(w, "prop_special_name");
+    p0().add_prop(e_bool, P::bool("hello\u{0000} world\n", vec![Some(true)]))
+        .write(w, "prop_special_name_np");
+    p0().add_prop(e_bool_f, P::bool("val", vec![Some(true)]))
         .write(w, "prop_bool");
-    p0().add_prop(enc_bool_f, P::bool("val", vec![Some(false)]))
+    p0().add_prop(e_bool_f, P::bool("val", vec![Some(false)]))
         .write(w, "prop_bool_false");
     // Two-feature optional bool variants
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_bool_f, P::bool("val", vec![Some(true), None]))
+        .add_prop(e_bool_f, P::bool("val", vec![Some(true), None]))
         .write(w, "prop_bool_true_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_bool_f, P::bool("val", vec![None, Some(true)]))
+        .add_prop(e_bool_f, P::bool("val", vec![None, Some(true)]))
         .write(w, "prop_bool_null_true");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_bool_f, P::bool("val", vec![Some(false), None]))
+        .add_prop(e_bool_f, P::bool("val", vec![Some(false), None]))
         .write(w, "prop_bool_false_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_bool_f, P::bool("val", vec![None, Some(false)]))
+        .add_prop(e_bool_f, P::bool("val", vec![None, Some(false)]))
         .write(w, "prop_bool_null_false");
 
-    let enc_int_f = S::int(E::varint()).forced_presence(true);
-    p0().add_prop(enc_int_f, P::i32("val", vec![Some(42)]))
+    let e_int = S::int(E::varint());
+    let e_int_f = e_int.forced_presence(true);
+    p0().add_prop(e_int_f, P::i32("val", vec![Some(42)]))
         .write(w, "prop_i32");
-    p0().add_prop(enc_int_f, P::i32("val", vec![Some(-42)]))
+    p0().add_prop(e_int_f, P::i32("val", vec![Some(-42)]))
         .write(w, "prop_i32_neg");
-    p0().add_prop(enc_int_f, P::i32("val", vec![Some(i32::MIN)]))
+    p0().add_prop(e_int_f, P::i32("val", vec![Some(i32::MIN)]))
         .write(w, "prop_i32_min");
-    p0().add_prop(enc_int_f, P::i32("val", vec![Some(i32::MAX)]))
+    p0().add_prop(e_int_f, P::i32("val", vec![Some(i32::MAX)]))
         .write(w, "prop_i32_max");
     // Two-feature optional i32 variants
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_int_f, P::i32("val", vec![Some(42), None]))
+        .add_prop(e_int_f, P::i32("val", vec![Some(42), None]))
         .write(w, "prop_i32_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_int_f, P::i32("val", vec![None, Some(42)]))
+        .add_prop(e_int_f, P::i32("val", vec![None, Some(42)]))
         .write(w, "prop_i32_null_val");
 
-    p0().add_prop(enc_int_f, P::u32("val", vec![Some(42)]))
+    p0().add_prop(e_int_f, P::u32("val", vec![Some(42)]))
         .write(w, "prop_u32");
-    p0().add_prop(enc_int_f, P::u32("val", vec![Some(0)]))
+    p0().add_prop(e_int_f, P::u32("val", vec![Some(0)]))
         .write(w, "prop_u32_min");
-    p0().add_prop(enc_int_f, P::u32("val", vec![Some(u32::MAX)]))
+    p0().add_prop(e_int_f, P::u32("val", vec![Some(u32::MAX)]))
         .write(w, "prop_u32_max");
     // Two-feature optional u32 variants
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_int_f, P::u32("val", vec![Some(42), None]))
+        .add_prop(e_int_f, P::u32("val", vec![Some(42), None]))
         .write(w, "prop_u32_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_int_f, P::u32("val", vec![None, Some(42)]))
+        .add_prop(e_int_f, P::u32("val", vec![None, Some(42)]))
         .write(w, "prop_u32_null_val");
 
-    p0().add_prop(enc_int_f, P::i64("val", vec![Some(9_876_543_210)]))
+    p0().add_prop(e_int_f, P::i64("val", vec![Some(9_876_543_210)]))
         .write(w, "prop_i64");
-    p0().add_prop(enc_int_f, P::i64("val", vec![Some(-9_876_543_210)]))
+    p0().add_prop(e_int_f, P::i64("val", vec![Some(-9_876_543_210)]))
         .write(w, "prop_i64_neg");
-    p0().add_prop(enc_int_f, P::i64("val", vec![Some(i64::MIN)]))
+    p0().add_prop(e_int_f, P::i64("val", vec![Some(i64::MIN)]))
         .write(w, "prop_i64_min");
-    p0().add_prop(enc_int_f, P::i64("val", vec![Some(i64::MAX)]))
+    p0().add_prop(e_int_f, P::i64("val", vec![Some(i64::MAX)]))
         .write(w, "prop_i64_max");
     // Two-feature optional i64 variants
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_int_f, P::i64("val", vec![Some(9_876_543_210), None]))
+        .add_prop(e_int_f, P::i64("val", vec![Some(9_876_543_210), None]))
         .write(w, "prop_i64_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_int_f, P::i64("val", vec![None, Some(9_876_543_210)]))
+        .add_prop(e_int_f, P::i64("val", vec![None, Some(9_876_543_210)]))
         .write(w, "prop_i64_null_val");
 
     p0().add_prop(
-        enc_int_f,
+        e_int_f,
         P::u64("bignum", vec![Some(1_234_567_890_123_456_789)]),
     )
     .write(w, "prop_u64");
-    p0().add_prop(enc_int_f, P::u64("bignum", vec![Some(0)]))
+    p0().add_prop(e_int_f, P::u64("bignum", vec![Some(0)]))
         .write(w, "prop_u64_min");
-    p0().add_prop(enc_int_f, P::u64("bignum", vec![Some(u64::MAX)]))
+    p0().add_prop(e_int_f, P::u64("bignum", vec![Some(u64::MAX)]))
         .write(w, "prop_u64_max");
     // Two-feature optional u64 variants (key is "val" to match Java)
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(
-            enc_int_f,
+            e_int_f,
             P::u64("val", vec![Some(1_234_567_890_123_456_789), None]),
         )
         .write(w, "prop_u64_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(
-            enc_int_f,
+            e_int_f,
             P::u64("val", vec![None, Some(1_234_567_890_123_456_789)]),
         )
         .write(w, "prop_u64_null_val");
 
-    let enc_fl_f = S::float().forced_presence(true);
+    let e_fl = S::float();
+    let e_fl_f = e_fl.forced_presence(true);
     #[expect(clippy::approx_constant)]
-    p0().add_prop(enc_fl_f, P::f32("val", vec![Some(3.14)]))
+    p0().add_prop(e_fl_f, P::f32("val", vec![Some(3.14)]))
         .write(w, "prop_f32");
-    p0().add_prop(enc_fl_f, P::f32("val", vec![Some(f32::NEG_INFINITY)]))
+    p0().add_prop(e_fl_f, P::f32("val", vec![Some(f32::NEG_INFINITY)]))
         .write(w, "prop_f32_neg_inf");
-    p0().add_prop(enc_fl_f, P::f32("val", vec![Some(f32::from_bits(1))]))
+    p0().add_prop(e_fl_f, P::f32("val", vec![Some(f32::from_bits(1))]))
         .write(w, "prop_f32_min_val");
-    p0().add_prop(enc_fl_f, P::f32("val", vec![Some(f32::MIN_POSITIVE)]))
+    p0().add_prop(e_fl_f, P::f32("val", vec![Some(f32::MIN_POSITIVE)]))
         .write(w, "prop_f32_min_norm");
-    p0().add_prop(enc_fl_f, P::f32("val", vec![Some(0.0)]))
+    p0().add_prop(e_fl_f, P::f32("val", vec![Some(0.0)]))
         .write(w, "prop_f32_zero");
-    p0().add_prop(enc_fl_f, P::f32("val", vec![Some(-0.0)]))
+    p0().add_prop(e_fl_f, P::f32("val", vec![Some(-0.0)]))
         .write(w, "prop_f32_neg_zero");
-    p0().add_prop(enc_fl_f, P::f32("val", vec![Some(f32::MAX)]))
+    p0().add_prop(e_fl_f, P::f32("val", vec![Some(f32::MAX)]))
         .write(w, "prop_f32_max");
-    p0().add_prop(enc_fl_f, P::f32("val", vec![Some(f32::INFINITY)]))
+    p0().add_prop(e_fl_f, P::f32("val", vec![Some(f32::INFINITY)]))
         .write(w, "prop_f32_pos_inf");
-    p0().add_prop(enc_fl_f, P::f32("val", vec![Some(f32::NAN)]))
+    p0().add_prop(e_fl_f, P::f32("val", vec![Some(f32::NAN)]))
         .write(w, "prop_f32_nan");
     // Two-feature optional f32 variants
     #[expect(clippy::approx_constant)]
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_fl_f, P::f32("val", vec![Some(3.14), None]))
+        .add_prop(e_fl_f, P::f32("val", vec![Some(3.14), None]))
         .write(w, "prop_f32_val_null");
     #[expect(clippy::approx_constant)]
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_fl_f, P::f32("val", vec![None, Some(3.14)]))
+        .add_prop(e_fl_f, P::f32("val", vec![None, Some(3.14)]))
         .write(w, "prop_f32_null_val");
 
-    p0().add_prop(enc_fl_f, P::f64("val", vec![Some(std::f64::consts::PI)]))
+    p0().add_prop(e_fl_f, P::f64("val", vec![Some(std::f64::consts::PI)]))
         .write(w, "prop_f64");
-    p0().add_prop(enc_fl_f, P::f64("val", vec![Some(f64::NAN)]))
+    p0().add_prop(e_fl_f, P::f64("val", vec![Some(f64::NAN)]))
         .write(w, "prop_f64_nan");
-    p0().add_prop(enc_fl_f, P::f64("val", vec![Some(f64::NEG_INFINITY)]))
+    p0().add_prop(e_fl_f, P::f64("val", vec![Some(f64::NEG_INFINITY)]))
         .write(w, "prop_f64_neg_inf");
-    p0().add_prop(enc_fl_f, P::f64("val", vec![Some(f64::from_bits(1))]))
+    p0().add_prop(e_fl_f, P::f64("val", vec![Some(f64::from_bits(1))]))
         .write(w, "prop_f64_min_val");
-    p0().add_prop(enc_fl_f, P::f64("val", vec![Some(f64::MIN_POSITIVE)]))
+    p0().add_prop(e_fl_f, P::f64("val", vec![Some(f64::MIN_POSITIVE)]))
         .write(w, "prop_f64_min_norm");
-    p0().add_prop(enc_fl_f, P::f64("val", vec![Some(-0.0)]))
+    p0().add_prop(e_fl_f, P::f64("val", vec![Some(-0.0)]))
         .write(w, "prop_f64_neg_zero");
-    p0().add_prop(enc_fl_f, P::f64("val", vec![Some(0.0)]))
+    p0().add_prop(e_fl_f, P::f64("val", vec![Some(0.0)]))
         .write(w, "prop_f64_zero");
-    p0().add_prop(enc_fl_f, P::f64("val", vec![Some(f64::MAX)]))
+    p0().add_prop(e_fl_f, P::f64("val", vec![Some(f64::MAX)]))
         .write(w, "prop_f64_max");
-    p0().add_prop(enc_fl_f, P::f64("val", vec![Some(f64::INFINITY)]))
+    p0().add_prop(e_fl_f, P::f64("val", vec![Some(f64::INFINITY)]))
         .write(w, "prop_f64_pos_inf");
     // Two-feature optional f64 variants
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(
-            enc_fl_f,
+            e_fl_f,
             P::f64("val", vec![Some(std::f64::consts::PI), None]),
         )
         .write(w, "prop_f64_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(
-            enc_fl_f,
+            e_fl_f,
             P::f64("val", vec![None, Some(std::f64::consts::PI)]),
         )
         .write(w, "prop_f64_null_val");
 
-    let enc_str_f = S::str(E::varint()).forced_presence(true);
-    p0().add_prop(enc_str_f, P::str("val", vec![Some(String::new())]))
+    let e_str = S::str(E::varint()).forced_presence(true);
+    let e_str_f = e_str.forced_presence(true);
+    p0().add_prop(e_str_f, P::str("val", vec![Some(String::new())]))
         .write(w, "prop_str_empty");
-    p0().add_prop(enc_str_f, P::str("val", vec![Some("42".to_string())]))
+    p0().add_prop(e_str_f, P::str("val", vec![Some("42".to_string())]))
         .write(w, "prop_str_ascii");
     p0().add_prop(
-        enc_str_f,
+        e_str_f,
         P::str("val", vec![Some("Line1\n\t\"quoted\"\\path".to_string())]),
     )
     .write(w, "prop_str_escape");
     p0().add_prop(
-        enc_str_f,
+        e_str_f,
         P::str("val", vec![Some("München 📍 cafe\u{0301}".to_string())]),
     )
     .write(w, "prop_str_unicode");
     p0().add_prop(
-        enc_str_f,
+        e_str_f,
         P::str("val", vec![Some("hello\u{0000} world\n".to_string())]),
     )
     .write(w, "prop_str_special");
     // Two-feature optional str variants
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_str_f, P::str("val", vec![Some("42".to_string()), None]))
+        .add_prop(e_str_f, P::str("val", vec![Some("42".to_string()), None]))
         .write(w, "prop_str_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_str_f, P::str("val", vec![None, Some("42".to_string())]))
+        .add_prop(e_str_f, P::str("val", vec![None, Some("42".to_string())]))
         .write(w, "prop_str_null_val");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_str_f, P::str("val", vec![Some(String::new()), None]))
+        .add_prop(e_str_f, P::str("val", vec![Some(String::new()), None]))
         .write(w, "prop_str_val_empty");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(enc_str_f, P::str("val", vec![None, Some(String::new())]))
+        .add_prop(e_str_f, P::str("val", vec![None, Some(String::new())]))
         .write(w, "prop_str_empty_val");
 
-    p0().add_prop(enc_bool_f, P::bool("active", vec![Some(true)]))
+    p0().add_prop(e_bool_f, P::bool("active", vec![Some(true)]))
         .add_prop(
             S::int(E::varint()).forced_presence(true),
             P::u64("biggest", vec![Some(0)]),
@@ -771,6 +777,9 @@ fn generate_props_i32(w: &mut SynthWriter) {
     four_points()
         .add_prop(S::int(E::varint()).forced_presence(true), values())
         .write(w, "props_i32");
+    four_points()
+        .add_prop(S::int(E::varint()), values())
+        .write(w, "props_i32_np");
     four_points()
         .add_prop(S::int(E::delta_varint()).forced_presence(true), values())
         .write(w, "props_i32_delta");
@@ -876,16 +885,16 @@ fn generate_props_str(w: &mut SynthWriter) {
         .write(w, "props_str");
     six_points()
         .add_prop(S::str(E::varint()), values())
-        .write(w, "props_str_no_presence-rust");
+        .write(w, "props_str_np");
     six_points()
         .add_prop(
             S::str_fsst(E::varint(), E::varint()).forced_presence(true),
             values(),
         )
-        .write(w, "props_str_fsst-rust"); // FSST compression output is not byte-for-byte consistent with Java's
+        .write(w, "props_str_fsst"); // FSST compression output is not byte-for-byte consistent with Java's
     six_points()
         .add_prop(S::str_fsst(E::varint(), E::varint()), values())
-        .write(w, "props_str_fsst_no_presence-rust");
+        .write(w, "props_str_fsst_np");
 
     // Two features with the same 30-char value → deduplicated dictionary encoding.
     // 30 chars because otherwise FSST is skipped.
@@ -901,41 +910,31 @@ fn generate_props_str(w: &mut SynthWriter) {
         .write(w, "props_offset_str");
     two_pts()
         .add_prop(S::str_dict(E::varint(), E::rle_varint()), two_same())
-        .write(w, "props_offset_str_no_presence-rust");
+        .write(w, "props_offset_str_np");
     two_pts()
         .add_prop(
             S::str_fsst_dict(E::varint(), E::varint(), E::rle_varint()).forced_presence(true),
             two_same(),
         )
-        .write(w, "props_offset_str_fsst-rust"); // FSST output may differ from Java
+        .write(w, "props_offset_str_fsst"); // FSST output may differ from Java
     two_pts()
         .add_prop(
             S::str_fsst_dict(E::varint(), E::varint(), E::rle_varint()),
             two_same(),
         )
-        .write(w, "props_offset_str_fsst_no_presence-rust");
+        .write(w, "props_offset_str_fsst_np");
 }
 
 fn generate_shared_dictionaries(w: &mut SynthWriter) {
     let long_string = || "A".repeat(30);
-    p0().add_prop(
-        S::str(E::varint()).forced_presence(true),
-        P::str("name:de", vec![Some(long_string())]),
-    )
-    .add_prop(
-        S::str(E::varint()).forced_presence(true),
-        P::str("name:en", vec![Some(long_string())]),
-    )
-    .write(w, "props_no_shared_dict");
-    p0().add_prop(
-        S::str(E::varint()),
-        P::str("name:de", vec![Some(long_string())]),
-    )
-    .add_prop(
-        S::str(E::varint()),
-        P::str("name:en", vec![Some(long_string())]),
-    )
-    .write(w, "props_no_shared_dict_no_presence-rust");
+    let e_str = S::str(E::varint());
+    let e_str_f = e_str.forced_presence(true);
+    p0().add_prop(e_str_f, P::str("name:de", vec![Some(long_string())]))
+        .add_prop(e_str_f, P::str("name:en", vec![Some(long_string())]))
+        .write(w, "props_no_shared_dict");
+    p0().add_prop(e_str, P::str("name:de", vec![Some(long_string())]))
+        .add_prop(e_str, P::str("name:en", vec![Some(long_string())]))
+        .write(w, "props_no_shared_dict_np");
 
     p0().add_shared_dict(
         SharedDict::new("name:", SE::plain(E::varint()))
@@ -951,30 +950,24 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
     )
     .write(w, "props_shared_dict_no_struct_name");
 
-    p0().add_prop(
-        S::str(E::varint()).forced_presence(true),
-        P::str("place", vec![Some(long_string())]),
-    )
-    .add_shared_dict(
-        SharedDict::new("name:en", SE::plain(E::varint())).column_fp(
-            "",
-            E::varint(),
-            [Some(long_string())],
-        ),
-    )
-    .write(w, "props_shared_dict_one_child");
-    p0().add_prop(
-        S::str(E::varint()),
-        P::str("place", vec![Some(long_string())]),
-    )
-    .add_shared_dict(
-        SharedDict::new("name:en", SE::plain(E::varint())).column_fp(
-            "",
-            E::varint(),
-            [Some(long_string())],
-        ),
-    )
-    .write(w, "props_shared_dict_one_child_no_presence-rust");
+    p0().add_prop(e_str_f, P::str("place", vec![Some(long_string())]))
+        .add_shared_dict(
+            SharedDict::new("name:en", SE::plain(E::varint())).column_fp(
+                "",
+                E::varint(),
+                [Some(long_string())],
+            ),
+        )
+        .write(w, "props_shared_dict_one_child");
+    p0().add_prop(e_str, P::str("place", vec![Some(long_string())]))
+        .add_shared_dict(
+            SharedDict::new("name:en", SE::plain(E::varint())).column_fp(
+                "",
+                E::varint(),
+                [Some(long_string())],
+            ),
+        )
+        .write(w, "props_shared_dict_one_child_np");
 
     p0().add_shared_dict(SharedDict::new("a", SE::plain(E::varint())).column_fp(
         "",
@@ -988,7 +981,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             .column_fp("de", E::varint(), [Some(long_string())])
             .column_fp("en", E::varint(), [Some(long_string())]),
     )
-    .write(w, "props_shared_dict_fsst-rust");
+    .write(w, "props_shared_dict_fsst");
 
     p0().add_shared_dict(
         SharedDict::new("a", SE::fsst(E::varint(), E::varint())).column_fp(
@@ -997,32 +990,26 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             [Some(long_string())],
         ),
     )
-    .write(w, "props_shared_dict_no_child_name_fsst-rust"); // FSST output differs from Java
+    .write(w, "props_shared_dict_no_child_name_fsst"); // FSST output differs from Java
 
-    p0().add_prop(
-        S::str(E::varint()).forced_presence(true),
-        P::str("place", vec![Some(long_string())]),
-    )
-    .add_shared_dict(
-        SharedDict::new("name:en", SE::fsst(E::varint(), E::varint())).column_fp(
-            "",
-            E::varint(),
-            [Some(long_string())],
-        ),
-    )
-    .write(w, "props_shared_dict_one_child_fsst-rust"); // FSST output differs from Java
-    p0().add_prop(
-        S::str(E::varint()),
-        P::str("place", vec![Some(long_string())]),
-    )
-    .add_shared_dict(
-        SharedDict::new("name:en", SE::fsst(E::varint(), E::varint())).column_fp(
-            "",
-            E::varint(),
-            [Some(long_string())],
-        ),
-    )
-    .write(w, "props_shared_dict_one_child_fsst_no_presence-rust");
+    p0().add_prop(e_str_f, P::str("place", vec![Some(long_string())]))
+        .add_shared_dict(
+            SharedDict::new("name:en", SE::fsst(E::varint(), E::varint())).column_fp(
+                "",
+                E::varint(),
+                [Some(long_string())],
+            ),
+        )
+        .write(w, "props_shared_dict_one_child_fsst"); // FSST output differs from Java
+    p0().add_prop(e_str, P::str("place", vec![Some(long_string())]))
+        .add_shared_dict(
+            SharedDict::new("name:en", SE::fsst(E::varint(), E::varint())).column_fp(
+                "",
+                E::varint(),
+                [Some(long_string())],
+            ),
+        )
+        .write(w, "props_shared_dict_one_child_fsst_np");
     p0()
         // column names MUST be unique, but the shared dict prefix can duplicate
         .add_shared_dict(
@@ -1042,5 +1029,5 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             .column_fp("a", E::varint(), [Some(long_string())])
             .column_fp("b", E::varint(), [Some(long_string())]),
     )
-    .write(w, "props_shared_dict_no_struct_name_fsst-rust");
+    .write(w, "props_shared_dict_no_struct_name_fsst");
 }
