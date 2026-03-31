@@ -10,6 +10,7 @@ import lombok.experimental.SuperBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
+/** An MLT Feature, which may have nested properties that are not supported in MVT. */
 @SuperBuilder(toBuilder = true)
 @EqualsAndHashCode(callSuper = true)
 public class MLTFeature extends Feature {
@@ -45,9 +46,21 @@ public class MLTFeature extends Feature {
     return MVTFeature.getType(value);
   }
 
+  /**
+   * Builder class for #MLTFeature
+   *
+   * @param <B> The final builder type, for covariance in property setters.
+   * @param <C> The final feature type, for covariance in the build() method.
+   */
   public abstract static class MLTFeatureBuilder<
           C extends MLTFeature, B extends MLTFeatureBuilder<C, B>>
       extends Feature.FeatureBuilder<C, B> {
+    /**
+     * Set properties from a Map of raw values, which will be adapted to Property objects.
+     *
+     * @param rawProperties A Map of String keys to Object values
+     * @return The builder instance, for chaining
+     */
     public B rawProperties(Map<String, Object> rawProperties) {
       return properties(
           rawProperties.entrySet().stream()

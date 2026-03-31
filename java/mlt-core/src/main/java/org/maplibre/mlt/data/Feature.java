@@ -13,6 +13,7 @@ import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
+/** A base class for features */
 @SuperBuilder(toBuilder = true)
 @EqualsAndHashCode
 public abstract class Feature implements FeatureInterface {
@@ -25,7 +26,7 @@ public abstract class Feature implements FeatureInterface {
 
   @Getter @Builder.Default long id = 0;
 
-  @Getter @NotNull protected final Geometry geometry;
+  @Getter @Builder.Default @Nullable protected final Geometry geometry = null;
 
   public Iterable<Property> getProperties() {
     return () -> getPropertyStream().iterator();
