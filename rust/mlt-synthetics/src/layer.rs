@@ -59,6 +59,21 @@ impl Layer {
         }
     }
 
+    pub fn force_presence_stream(&mut self) {
+        for p in &mut self.prop_encoders {
+            match p {
+                PropertyEncoder::Scalar(v) => {
+                    *v = v.forced_presence(true);
+                }
+                PropertyEncoder::SharedDict(v) => {
+                    v.items.iter_mut().for_each(|vv| {
+                        *vv = vv.forced_presence(true);
+                    });
+                }
+            }
+        }
+    }
+
     /// Set encoding for parts length stream when rings are present.
     #[must_use]
     pub fn rings(mut self, e: IntEncoder) -> Self {
@@ -296,24 +311,6 @@ impl SharedDict {
         values: impl IntoIterator<Item = Option<String>>,
     ) -> Self {
         self.column_with_enc(SharedDictItemEncoder::new(offsets), suffix, values)
-    }
-
-    /// Like [`column`][Self::column] but forces a presence stream even when no nulls exist.
-    ///
-    /// Used in synthetics to match the Java reference format, which always emits a presence
-    /// stream for every shared-dict child column.
-    #[must_use]
-    pub fn column_fp(
-        self,
-        suffix: impl Into<String>,
-        offsets: IntEncoder,
-        values: impl IntoIterator<Item = Option<String>>,
-    ) -> Self {
-        self.column_with_enc(
-            SharedDictItemEncoder::new(offsets).with_forced_presence(true),
-            suffix,
-            values,
-        )
     }
 
     fn column_with_enc(

@@ -76,6 +76,12 @@ impl Layer {
     pub fn write(self, w: &mut SynthWriter, name: impl AsRef<str>) {
         w.write(self, name);
     }
+    /// Write regular and no-presence variants
+    pub fn write_np(mut self, w: &mut SynthWriter, name: impl AsRef<str>) {
+        w.write(self.clone(), format!("{}_np", name.as_ref()));
+        self.force_presence_stream();
+        w.write(self, name);
+    }
 }
 
 impl SynthWriter {
@@ -150,20 +156,31 @@ impl SynthWriter {
     ///
     /// Returns `Ok(true)` for a rust-only file, `Ok(false)` for a shared file,
     /// or `Err` on any failure.
-    fn write_int(&mut self, layer: Layer, name: &str) -> SynthResult<bool> {
+    fn write_int(&mut self, layer: Layer, mut name: &str) -> SynthResult<bool> {
+        let mut is_rust_specific = false;
+        if let Some(base) = name.strip_suffix("-rust") {
+            is_rust_specific = true;
+            name = base;
+        }
+        if name.contains("_fsst") {
+            // FSST frequently generates binary-different but compatible data
+            is_rust_specific = true;
+        }
         let name_mlt = format!("{name}.mlt");
-        let out_mlt = self.out_dir.join(&name_mlt);
         let name_json = format!("{name}.json");
+        let rust_mlt = self.out_dir.join(&name_mlt);
+        let rust_json = self.out_dir.join(&name_json);
+        let ref_mlt = self.ref_dir.join(&name_mlt);
+        let ref_json = self.ref_dir.join(&name_json);
+        let ref_json_exists = ref_json.is_file();
         let bytes = layer.encode_to_bytes()?;
         let decoded = decode_to_json(&bytes);
 
-        if let Some(base) = name.strip_suffix("-rust") {
+        if is_rust_specific || !ref_json_exists {
             // rust-only: write MLT to disk, compare decoded JSON to reference (if it exists).
-            write_file(&out_mlt, &bytes)?;
-            let name_base = format!("{base}.json");
-            let ref_json_path = self.ref_dir.join(&name_base);
-            if ref_json_path.is_file() {
-                check_json(&decoded, &ref_json_path)?;
+            write_file(&rust_mlt, &bytes)?;
+            if ref_json_exists {
+                check_json(&decoded, &ref_json)?;
             } else {
                 self.print_note(&format!(
                     "Java synthetics did not generate MLT corresponding to {name_mlt}"
@@ -171,22 +188,21 @@ impl SynthWriter {
             }
             let mut s = serde_json::to_string_pretty(&decoded).map_err(SynthErr::SerializeJson)?;
             s.push('\n');
-            write_file(&self.out_dir.join(name_json), s.as_bytes())?;
+            write_file(&rust_json, s.as_bytes())?;
             Ok(true)
         } else {
             // shared: verify bytes and JSON against reference, nothing written to disk.
-            let path = self.ref_dir.join(&name_mlt);
-            fs::read(&path)
+            fs::read(&ref_mlt)
                 .map_err(SynthErr::ReadRefMlt)
                 .and_then(|ref_bytes| {
                     if ref_bytes == bytes {
                         Ok(())
                     } else {
-                        write_file(&out_mlt, &bytes)?;
-                        Err(SynthErr::MltMismatch(path))
+                        write_file(&rust_mlt, &bytes)?;
+                        Err(SynthErr::MltMismatch(ref_mlt))
                     }
                 })?;
-            check_json(&decoded, &self.ref_dir.join(name_json))?;
+            check_json(&decoded, &ref_json)?;
             Ok(false)
         }
     }
