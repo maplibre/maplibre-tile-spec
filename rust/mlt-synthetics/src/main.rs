@@ -879,7 +879,10 @@ fn generate_props_str(w: &mut SynthWriter) {
         .add_prop(S::str(E::varint()).with_forced_presence(true), values())
         .write(w, "props_str");
     six_points()
-        .add_prop(S::str_fsst(E::varint(), E::varint()), values())
+        .add_prop(
+            S::str_fsst(E::varint(), E::varint()).with_forced_presence(true),
+            values(),
+        )
         .write(w, "props_str_fsst-rust"); // FSST compression output is not byte-for-byte consistent with Java's
 
     // Two features with the same 30-char value → deduplicated dictionary encoding.
