@@ -1012,17 +1012,18 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         .write(w, "props_shared_dict_one_child_fsst_np");
     p0()
         // column names MUST be unique, but the shared dict prefix can duplicate
+        // Note that Java sorts column names for some reason
         .add_shared_dict(
             SharedDict::new("name", SE::plain(E::varint()))
                 .column_fp(":de", E::varint(), [Some(long_string())])
-                .column_fp(":en", E::varint(), [Some(long_string())]),
+                .column_fp("_en", E::varint(), [Some(long_string())]),
         )
         .add_shared_dict(
             SharedDict::new("name", SE::plain(E::varint()))
-                .column_fp(":fr", E::varint(), [Some(long_string())])
-                .column_fp(":he", E::varint(), [Some(long_string())]),
+                .column_fp(":he", E::varint(), [Some(long_string())])
+                .column_fp("_fr", E::varint(), [Some(long_string())]),
         )
-        .write(w, "props_shared_dict_2_same_prefix-rust");
+        .write(w, "props_shared_dict_2_same_prefix");
 
     p0().add_shared_dict(
         SharedDict::new("", SE::fsst(E::varint(), E::varint()))

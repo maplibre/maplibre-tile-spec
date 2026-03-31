@@ -531,13 +531,13 @@ public class SyntheticMltGenerator {
                 p0,
                 props(
                     kv("name:de", val),
-                    kv("name:en", val),
-                    kv("name:fr", val),
+                    kv("name_en", val),
+                    kv("name_fr", val),
                     kv("name:he", val))));
     write(
         layer("props_shared_dict_2_same_prefix", feat_names_4),
         cfg()
             .sharedDictColumnGroups(
-                List.of(List.of("name:de", "name:en"), List.of("name:fr", "name:he"))));
+                List.of(List.of("name:de", "name_en"), List.of("name_fr", "name:he"))));
   }
 }
