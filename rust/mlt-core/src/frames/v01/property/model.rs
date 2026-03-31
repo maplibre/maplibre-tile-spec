@@ -376,7 +376,7 @@ pub enum ScalarValueEncoder {
 }
 
 /// Encoder for an individual sub-property within a shared dictionary.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct SharedDictItemEncoder {
     /// Encoder used for the offset-index stream of this child.
     pub offsets: IntEncoder,

@@ -4,11 +4,10 @@ use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::str::FromStr as _;
 
-use mlt_core::geojson::FeatureCollection;
-use mlt_core::{Decoder, MltError, Parser};
-
 use crate::Args;
 use crate::layer::Layer;
+use mlt_core::geojson::FeatureCollection;
+use mlt_core::{Decoder, MltError, Parser};
 
 pub struct SynthWriter {
     ref_dir: PathBuf,
@@ -74,6 +73,12 @@ impl Layer {
     /// Encode and then either verify against the reference dir (non-rust files) or write to the
     /// output dir (`-rust`-suffixed files). Delegates to [`SynthWriter::write`].
     pub fn write(self, w: &mut SynthWriter, name: impl AsRef<str>) {
+        w.write(self, name);
+    }
+    /// Write regular and no-presence variants
+    pub fn write_np(mut self, w: &mut SynthWriter, name: impl AsRef<str>) {
+        w.write(self.clone(), format!("{}_np", name.as_ref()));
+        self.force_presence_stream();
         w.write(self, name);
     }
 }

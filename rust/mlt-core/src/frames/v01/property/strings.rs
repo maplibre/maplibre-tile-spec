@@ -205,7 +205,7 @@ impl SharedDictItemEncoder {
     /// Intended only for generating intentionally edge-case tiles in synthetics/tests.
     #[cfg(feature = "__private")]
     #[must_use]
-    pub fn with_forced_presence(mut self, present: bool) -> Self {
+    pub fn forced_presence(mut self, present: bool) -> Self {
         self.forced_presence = present;
         self
     }

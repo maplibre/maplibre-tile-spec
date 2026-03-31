@@ -325,7 +325,7 @@ generate-synthetic-mlts *args:
     rm -rf ../test/synthetic/0x01-rust
     cargo run -p mlt-synthetics -- {{args}}
     {{just}} rust::validate-synthetic
-    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
+    {{just}} _assert-all-mlt-files-different
 
 # Create .dump files for all .mlt files in test/synthetic for all languages
 generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find')

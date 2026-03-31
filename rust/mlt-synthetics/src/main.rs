@@ -513,35 +513,30 @@ fn generate_ids(w: &mut SynthWriter) {
 fn generate_properties(w: &mut SynthWriter) {
     // Properties with special names
     let e_bool = S::bool();
-    let e_bool_f = e_bool.forced_presence(true);
-    p0().add_prop(e_bool_f, P::bool("", vec![Some(true)]))
-        .write(w, "prop_empty_name");
     p0().add_prop(e_bool, P::bool("", vec![Some(true)]))
-        .write(w, "prop_empty_name_np");
-    p0().add_prop(e_bool_f, P::bool("hello\u{0000} world\n", vec![Some(true)]))
-        .write(w, "prop_special_name");
+        .write_np(w, "prop_empty_name");
     p0().add_prop(e_bool, P::bool("hello\u{0000} world\n", vec![Some(true)]))
-        .write(w, "prop_special_name_np");
-    p0().add_prop(e_bool_f, P::bool("val", vec![Some(true)]))
-        .write(w, "prop_bool");
-    p0().add_prop(e_bool_f, P::bool("val", vec![Some(false)]))
-        .write(w, "prop_bool_false");
+        .write_np(w, "prop_special_name");
+    p0().add_prop(e_bool, P::bool("val", vec![Some(true)]))
+        .write_np(w, "prop_bool");
+    p0().add_prop(e_bool, P::bool("val", vec![Some(false)]))
+        .write_np(w, "prop_bool_false");
     // Two-feature optional bool variants
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_bool_f, P::bool("val", vec![Some(true), None]))
+        .add_prop(e_bool, P::bool("val", vec![Some(true), None]))
         .write(w, "prop_bool_true_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_bool_f, P::bool("val", vec![None, Some(true)]))
+        .add_prop(e_bool, P::bool("val", vec![None, Some(true)]))
         .write(w, "prop_bool_null_true");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_bool_f, P::bool("val", vec![Some(false), None]))
+        .add_prop(e_bool, P::bool("val", vec![Some(false), None]))
         .write(w, "prop_bool_false_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_bool_f, P::bool("val", vec![None, Some(false)]))
+        .add_prop(e_bool, P::bool("val", vec![None, Some(false)]))
         .write(w, "prop_bool_null_false");
 
     let e_int = S::int(E::varint());
@@ -729,39 +724,42 @@ fn generate_properties(w: &mut SynthWriter) {
         .add_prop(e_str_f, P::str("val", vec![None, Some(String::new())]))
         .write(w, "prop_str_empty_val");
 
-    p0().add_prop(e_bool_f, P::bool("active", vec![Some(true)]))
-        .add_prop(
-            S::int(E::varint()).forced_presence(true),
-            P::u64("biggest", vec![Some(0)]),
-        ) // FIXME: this should be u64, but java does it it this way
-        .add_prop(
-            S::int(E::varint()).forced_presence(true),
-            P::i32("bignum", vec![Some(42)]),
-        )
-        .add_prop(
-            S::int(E::varint()).forced_presence(true),
-            P::i32("count", vec![Some(42)]),
-        )
-        .add_prop(
-            S::int(E::varint()).forced_presence(true),
-            P::u32("medium", vec![Some(100)]),
-        )
-        .add_prop(
-            S::str(E::varint()).forced_presence(true),
-            P::str("name", vec![Some("Test Point".to_string())]),
-        )
-        .add_prop(
-            S::float().forced_presence(true),
-            P::f64("precision", vec![Some(0.123_456_789)]),
-        )
-        .add_prop(
-            S::float().forced_presence(true),
-            P::f32("temp", vec![Some(25.5)]),
-        )
-        //FIXME in java
-        //.add_prop(enc, "tiny-count", PropValue::I8(vec![Some(42)]))
-        //.add_prop(enc, "tiny-count", PropValue::U8(vec![Some(100)]))
-        .write(w, "props_mixed");
+    p0().add_prop(
+        S::bool().forced_presence(true),
+        P::bool("active", vec![Some(true)]),
+    )
+    .add_prop(
+        S::int(E::varint()).forced_presence(true),
+        P::u64("biggest", vec![Some(0)]),
+    ) // FIXME: this should be u64, but java does it it this way
+    .add_prop(
+        S::int(E::varint()).forced_presence(true),
+        P::i32("bignum", vec![Some(42)]),
+    )
+    .add_prop(
+        S::int(E::varint()).forced_presence(true),
+        P::i32("count", vec![Some(42)]),
+    )
+    .add_prop(
+        S::int(E::varint()).forced_presence(true),
+        P::u32("medium", vec![Some(100)]),
+    )
+    .add_prop(
+        S::str(E::varint()).forced_presence(true),
+        P::str("name", vec![Some("Test Point".to_string())]),
+    )
+    .add_prop(
+        S::float().forced_presence(true),
+        P::f64("precision", vec![Some(0.123_456_789)]),
+    )
+    .add_prop(
+        S::float().forced_presence(true),
+        P::f32("temp", vec![Some(25.5)]),
+    )
+    //FIXME in java
+    //.add_prop(enc, "tiny-count", PropValue::I8(vec![Some(42)]))
+    //.add_prop(enc, "tiny-count", PropValue::U8(vec![Some(100)]))
+    .write(w, "props_mixed");
 
     generate_props_i32(w);
     generate_props_u32(w);
