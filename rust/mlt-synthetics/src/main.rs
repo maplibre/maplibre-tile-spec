@@ -506,17 +506,17 @@ fn generate_ids(w: &mut SynthWriter) {
 fn generate_properties(w: &mut SynthWriter) {
     // Properties with special names
     p0().add_prop(
-        S::bool().with_forced_presence(true),
+        S::bool().forced_presence(true),
         P::bool("", vec![Some(true)]),
     )
     .write(w, "prop_empty_name");
     p0().add_prop(
-        S::bool().with_forced_presence(true),
+        S::bool().forced_presence(true),
         P::bool("hello\u{0000} world\n", vec![Some(true)]),
     )
     .write(w, "prop_special_name");
 
-    let enc = S::bool().with_forced_presence(true);
+    let enc = S::bool().forced_presence(true);
     p0().add_prop(enc, P::bool("val", vec![Some(true)]))
         .write(w, "prop_bool");
     p0().add_prop(enc, P::bool("val", vec![Some(false)]))
@@ -539,7 +539,7 @@ fn generate_properties(w: &mut SynthWriter) {
         .add_prop(enc, P::bool("val", vec![None, Some(false)]))
         .write(w, "prop_bool_null_false");
 
-    let enc = S::int(E::varint()).with_forced_presence(true);
+    let enc = S::int(E::varint()).forced_presence(true);
     p0().add_prop(enc, P::i32("val", vec![Some(42)]))
         .write(w, "prop_i32");
     p0().add_prop(enc, P::i32("val", vec![Some(-42)]))
@@ -614,7 +614,7 @@ fn generate_properties(w: &mut SynthWriter) {
         )
         .write(w, "prop_u64_null_val");
 
-    let enc = S::float().with_forced_presence(true);
+    let enc = S::float().forced_presence(true);
     #[expect(clippy::approx_constant)]
     p0().add_prop(enc, P::f32("val", vec![Some(3.14)]))
         .write(w, "prop_f32");
@@ -674,7 +674,7 @@ fn generate_properties(w: &mut SynthWriter) {
         .add_prop(enc, P::f64("val", vec![None, Some(std::f64::consts::PI)]))
         .write(w, "prop_f64_null_val");
 
-    let enc = S::str(E::varint()).with_forced_presence(true);
+    let enc = S::str(E::varint()).forced_presence(true);
     p0().add_prop(enc, P::str("val", vec![Some(String::new())]))
         .write(w, "prop_str_empty");
     p0().add_prop(enc, P::str("val", vec![Some("42".to_string())]))
@@ -713,35 +713,35 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_str_empty_val");
 
     p0().add_prop(
-        S::bool().with_forced_presence(true),
+        S::bool().forced_presence(true),
         P::bool("active", vec![Some(true)]),
     )
     .add_prop(
-        S::int(E::varint()).with_forced_presence(true),
+        S::int(E::varint()).forced_presence(true),
         P::u64("biggest", vec![Some(0)]),
     ) // FIXME: this should be u64, but java does it it this way
     .add_prop(
-        S::int(E::varint()).with_forced_presence(true),
+        S::int(E::varint()).forced_presence(true),
         P::i32("bignum", vec![Some(42)]),
     )
     .add_prop(
-        S::int(E::varint()).with_forced_presence(true),
+        S::int(E::varint()).forced_presence(true),
         P::i32("count", vec![Some(42)]),
     )
     .add_prop(
-        S::int(E::varint()).with_forced_presence(true),
+        S::int(E::varint()).forced_presence(true),
         P::u32("medium", vec![Some(100)]),
     )
     .add_prop(
-        S::str(E::varint()).with_forced_presence(true),
+        S::str(E::varint()).forced_presence(true),
         P::str("name", vec![Some("Test Point".to_string())]),
     )
     .add_prop(
-        S::float().with_forced_presence(true),
+        S::float().forced_presence(true),
         P::f64("precision", vec![Some(0.123_456_789)]),
     )
     .add_prop(
-        S::float().with_forced_presence(true),
+        S::float().forced_presence(true),
         P::f32("temp", vec![Some(25.5)]),
     )
     //FIXME in java
@@ -761,20 +761,17 @@ fn generate_props_i32(w: &mut SynthWriter) {
     let values = || P::i32("val", vec![Some(42), Some(42), Some(42), Some(42)]);
 
     four_points()
-        .add_prop(S::int(E::varint()).with_forced_presence(true), values())
+        .add_prop(S::int(E::varint()).forced_presence(true), values())
         .write(w, "props_i32");
     four_points()
-        .add_prop(
-            S::int(E::delta_varint()).with_forced_presence(true),
-            values(),
-        )
+        .add_prop(S::int(E::delta_varint()).forced_presence(true), values())
         .write(w, "props_i32_delta");
     four_points()
-        .add_prop(S::int(E::rle_varint()).with_forced_presence(true), values())
+        .add_prop(S::int(E::rle_varint()).forced_presence(true), values())
         .write(w, "props_i32_rle");
     four_points()
         .add_prop(
-            S::int(E::delta_rle_varint()).with_forced_presence(true),
+            S::int(E::delta_rle_varint()).forced_presence(true),
             values(),
         )
         .write(w, "props_i32_delta_rle");
@@ -790,20 +787,17 @@ fn generate_props_u32(w: &mut SynthWriter) {
     };
 
     four_points()
-        .add_prop(S::int(E::varint()).with_forced_presence(true), values())
+        .add_prop(S::int(E::varint()).forced_presence(true), values())
         .write(w, "props_u32");
     four_points()
-        .add_prop(
-            S::int(E::delta_varint()).with_forced_presence(true),
-            values(),
-        )
+        .add_prop(S::int(E::delta_varint()).forced_presence(true), values())
         .write(w, "props_u32_delta");
     four_points()
-        .add_prop(S::int(E::rle_varint()).with_forced_presence(true), values())
+        .add_prop(S::int(E::rle_varint()).forced_presence(true), values())
         .write(w, "props_u32_rle");
     four_points()
         .add_prop(
-            S::int(E::delta_rle_varint()).with_forced_presence(true),
+            S::int(E::delta_rle_varint()).forced_presence(true),
             values(),
         )
         .write(w, "props_u32_delta_rle");
@@ -819,7 +813,7 @@ fn generate_props_u32(w: &mut SynthWriter) {
                 .meta(E::rle_fastpfor())
                 .geos(vec![P0; count])
                 .add_prop(
-                    S::int(E::fastpfor()).with_forced_presence(true),
+                    S::int(E::fastpfor()).forced_presence(true),
                     P::u32("val", vals),
                 )
                 .write(w, format!("props_u32_fpf_{count}"));
@@ -837,23 +831,17 @@ fn generate_props_u64(w: &mut SynthWriter) {
     };
 
     four_points()
-        .add_prop(S::int(E::varint()).with_forced_presence(true), property())
+        .add_prop(S::int(E::varint()).forced_presence(true), property())
         .write(w, "props_u64");
     four_points()
-        .add_prop(
-            S::int(E::delta_varint()).with_forced_presence(true),
-            property(),
-        )
+        .add_prop(S::int(E::delta_varint()).forced_presence(true), property())
         .write(w, "props_u64_delta");
     four_points()
-        .add_prop(
-            S::int(E::rle_varint()).with_forced_presence(true),
-            property(),
-        )
+        .add_prop(S::int(E::rle_varint()).forced_presence(true), property())
         .write(w, "props_u64_rle");
     four_points()
         .add_prop(
-            S::int(E::delta_rle_varint()).with_forced_presence(true),
+            S::int(E::delta_rle_varint()).forced_presence(true),
             property(),
         )
         .write(w, "props_u64_delta_rle");
@@ -876,11 +864,11 @@ fn generate_props_str(w: &mut SynthWriter) {
     };
 
     six_points()
-        .add_prop(S::str(E::varint()).with_forced_presence(true), values())
+        .add_prop(S::str(E::varint()).forced_presence(true), values())
         .write(w, "props_str");
     six_points()
         .add_prop(
-            S::str_fsst(E::varint(), E::varint()).with_forced_presence(true),
+            S::str_fsst(E::varint(), E::varint()).forced_presence(true),
             values(),
         )
         .write(w, "props_str_fsst-rust"); // FSST compression output is not byte-for-byte consistent with Java's
@@ -893,13 +881,13 @@ fn generate_props_str(w: &mut SynthWriter) {
 
     two_pts()
         .add_prop(
-            S::str_dict(E::varint(), E::rle_varint()).with_forced_presence(true),
+            S::str_dict(E::varint(), E::rle_varint()).forced_presence(true),
             two_same(),
         )
         .write(w, "props_offset_str");
     two_pts()
         .add_prop(
-            S::str_fsst_dict(E::varint(), E::varint(), E::rle_varint()).with_forced_presence(true),
+            S::str_fsst_dict(E::varint(), E::varint(), E::rle_varint()).forced_presence(true),
             two_same(),
         )
         .write(w, "props_offset_str_fsst-rust"); // FSST output may differ from Java
@@ -908,11 +896,11 @@ fn generate_props_str(w: &mut SynthWriter) {
 fn generate_shared_dictionaries(w: &mut SynthWriter) {
     let long_string = || "A".repeat(30);
     p0().add_prop(
-        S::str(E::varint()).with_forced_presence(true),
+        S::str(E::varint()).forced_presence(true),
         P::str("name:de", vec![Some(long_string())]),
     )
     .add_prop(
-        S::str(E::varint()).with_forced_presence(true),
+        S::str(E::varint()).forced_presence(true),
         P::str("name:en", vec![Some(long_string())]),
     )
     .write(w, "props_no_shared_dict");
@@ -932,7 +920,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
     .write(w, "props_shared_dict_no_struct_name");
 
     p0().add_prop(
-        S::str(E::varint()).with_forced_presence(true),
+        S::str(E::varint()).forced_presence(true),
         P::str("place", vec![Some(long_string())]),
     )
     .add_shared_dict(
@@ -968,7 +956,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
     .write(w, "props_shared_dict_no_child_name_fsst-rust"); // FSST output differs from Java
 
     p0().add_prop(
-        S::str(E::varint()).with_forced_presence(true),
+        S::str(E::varint()).forced_presence(true),
         P::str("place", vec![Some(long_string())]),
     )
     .add_shared_dict(
