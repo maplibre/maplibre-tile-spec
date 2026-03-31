@@ -160,16 +160,16 @@ impl Tile01Encoder {
             reorder_features(&mut tile, strategy);
 
             let staged = StagedLayer01::from_tile(tile, &str_groups);
-            let (layer, stream_enc) = staged.encode_auto()?;
+            let (encoded, stream_enc) = staged.encode_auto()?;
 
             // TODO: use Analyze instead of this
             let mut buf: Vec<u8> = Vec::new();
-            layer.write_to(&mut buf)?;
+            encoded.write_to(&mut buf)?;
             let byte_count = buf.len();
 
             if best.as_ref().is_none_or(|b| byte_count < b.byte_count) {
                 best = Some(TrialResult {
-                    layer,
+                    layer: encoded,
                     stream_enc,
                     byte_count,
                     strategy,
