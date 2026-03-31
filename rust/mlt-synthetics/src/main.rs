@@ -540,80 +540,79 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_bool_null_false");
 
     let e_int = S::int(E::varint());
-    let e_int_f = e_int.forced_presence(true);
-    p0().add_prop(e_int_f, P::i32("val", vec![Some(42)]))
-        .write(w, "prop_i32");
-    p0().add_prop(e_int_f, P::i32("val", vec![Some(-42)]))
-        .write(w, "prop_i32_neg");
-    p0().add_prop(e_int_f, P::i32("val", vec![Some(i32::MIN)]))
-        .write(w, "prop_i32_min");
-    p0().add_prop(e_int_f, P::i32("val", vec![Some(i32::MAX)]))
-        .write(w, "prop_i32_max");
+    p0().add_prop(e_int, P::i32("val", vec![Some(42)]))
+        .write_np(w, "prop_i32");
+    p0().add_prop(e_int, P::i32("val", vec![Some(-42)]))
+        .write_np(w, "prop_i32_neg");
+    p0().add_prop(e_int, P::i32("val", vec![Some(i32::MIN)]))
+        .write_np(w, "prop_i32_min");
+    p0().add_prop(e_int, P::i32("val", vec![Some(i32::MAX)]))
+        .write_np(w, "prop_i32_max");
     // Two-feature optional i32 variants
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_int_f, P::i32("val", vec![Some(42), None]))
+        .add_prop(e_int, P::i32("val", vec![Some(42), None]))
         .write(w, "prop_i32_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_int_f, P::i32("val", vec![None, Some(42)]))
+        .add_prop(e_int, P::i32("val", vec![None, Some(42)]))
         .write(w, "prop_i32_null_val");
 
-    p0().add_prop(e_int_f, P::u32("val", vec![Some(42)]))
-        .write(w, "prop_u32");
-    p0().add_prop(e_int_f, P::u32("val", vec![Some(0)]))
-        .write(w, "prop_u32_min");
-    p0().add_prop(e_int_f, P::u32("val", vec![Some(u32::MAX)]))
-        .write(w, "prop_u32_max");
+    p0().add_prop(e_int, P::u32("val", vec![Some(42)]))
+        .write_np(w, "prop_u32");
+    p0().add_prop(e_int, P::u32("val", vec![Some(0)]))
+        .write_np(w, "prop_u32_min");
+    p0().add_prop(e_int, P::u32("val", vec![Some(u32::MAX)]))
+        .write_np(w, "prop_u32_max");
     // Two-feature optional u32 variants
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_int_f, P::u32("val", vec![Some(42), None]))
+        .add_prop(e_int, P::u32("val", vec![Some(42), None]))
         .write(w, "prop_u32_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_int_f, P::u32("val", vec![None, Some(42)]))
+        .add_prop(e_int, P::u32("val", vec![None, Some(42)]))
         .write(w, "prop_u32_null_val");
 
-    p0().add_prop(e_int_f, P::i64("val", vec![Some(9_876_543_210)]))
-        .write(w, "prop_i64");
-    p0().add_prop(e_int_f, P::i64("val", vec![Some(-9_876_543_210)]))
-        .write(w, "prop_i64_neg");
-    p0().add_prop(e_int_f, P::i64("val", vec![Some(i64::MIN)]))
-        .write(w, "prop_i64_min");
-    p0().add_prop(e_int_f, P::i64("val", vec![Some(i64::MAX)]))
-        .write(w, "prop_i64_max");
+    p0().add_prop(e_int, P::i64("val", vec![Some(9_876_543_210)]))
+        .write_np(w, "prop_i64");
+    p0().add_prop(e_int, P::i64("val", vec![Some(-9_876_543_210)]))
+        .write_np(w, "prop_i64_neg");
+    p0().add_prop(e_int, P::i64("val", vec![Some(i64::MIN)]))
+        .write_np(w, "prop_i64_min");
+    p0().add_prop(e_int, P::i64("val", vec![Some(i64::MAX)]))
+        .write_np(w, "prop_i64_max");
     // Two-feature optional i64 variants
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_int_f, P::i64("val", vec![Some(9_876_543_210), None]))
+        .add_prop(e_int, P::i64("val", vec![Some(9_876_543_210), None]))
         .write(w, "prop_i64_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_int_f, P::i64("val", vec![None, Some(9_876_543_210)]))
+        .add_prop(e_int, P::i64("val", vec![None, Some(9_876_543_210)]))
         .write(w, "prop_i64_null_val");
 
     p0().add_prop(
-        e_int_f,
+        e_int,
         P::u64("bignum", vec![Some(1_234_567_890_123_456_789)]),
     )
-    .write(w, "prop_u64");
-    p0().add_prop(e_int_f, P::u64("bignum", vec![Some(0)]))
-        .write(w, "prop_u64_min");
-    p0().add_prop(e_int_f, P::u64("bignum", vec![Some(u64::MAX)]))
-        .write(w, "prop_u64_max");
+    .write_np(w, "prop_u64");
+    p0().add_prop(e_int, P::u64("bignum", vec![Some(0)]))
+        .write_np(w, "prop_u64_min");
+    p0().add_prop(e_int, P::u64("bignum", vec![Some(u64::MAX)]))
+        .write_np(w, "prop_u64_max");
     // Two-feature optional u64 variants (key is "val" to match Java)
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(
-            e_int_f,
+            e_int,
             P::u64("val", vec![Some(1_234_567_890_123_456_789), None]),
         )
         .write(w, "prop_u64_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(
-            e_int_f,
+            e_int,
             P::u64("val", vec![None, Some(1_234_567_890_123_456_789)]),
         )
         .write(w, "prop_u64_null_val");
@@ -796,20 +795,17 @@ fn generate_props_u32(w: &mut SynthWriter) {
     };
 
     four_points()
-        .add_prop(S::int(E::varint()).forced_presence(true), values())
-        .write(w, "props_u32");
+        .add_prop(S::int(E::varint()), values())
+        .write_np(w, "props_u32");
     four_points()
-        .add_prop(S::int(E::delta_varint()).forced_presence(true), values())
-        .write(w, "props_u32_delta");
+        .add_prop(S::int(E::delta_varint()), values())
+        .write_np(w, "props_u32_delta");
     four_points()
-        .add_prop(S::int(E::rle_varint()).forced_presence(true), values())
-        .write(w, "props_u32_rle");
+        .add_prop(S::int(E::rle_varint()), values())
+        .write_np(w, "props_u32_rle");
     four_points()
-        .add_prop(
-            S::int(E::delta_rle_varint()).forced_presence(true),
-            values(),
-        )
-        .write(w, "props_u32_delta_rle");
+        .add_prop(S::int(E::delta_rle_varint()), values())
+        .write_np(w, "props_u32_delta_rle");
 
     for multiplier in [1, 2, 3, 4] {
         for offset in [-1, 0, 1] {
