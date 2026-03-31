@@ -63,17 +63,13 @@ describe("FastPFOR encoder", () => {
         expect((exceptionStreamLength ?? 0) % 32).toBe(0);
     });
 
-    it(
-        "round-trips a large incompressible payload",
-        () => {
-            const values = new Uint32Array(BLOCK_SIZE * LARGE_INCOMPRESSIBLE_BLOCK_COUNT);
-            for (let i = 0; i < values.length; i++) values[i] = -(i + 1);
+    it("round-trips a large incompressible payload", () => {
+        const values = new Uint32Array(BLOCK_SIZE * LARGE_INCOMPRESSIBLE_BLOCK_COUNT);
+        for (let i = 0; i < values.length; i++) values[i] = -(i + 1);
 
-            const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
-            const decoded = decodeFastPforInt32(encoded, values.length);
+        const encoded = encodeFastPforInt32WithWorkspace(values, createFastPforEncoderWorkspace());
+        const decoded = decodeFastPforInt32(encoded, values.length);
 
-            expect(decoded).toEqual(values);
-        },
-        30_000,
-    );
+        expect(decoded).toEqual(values);
+    }, 30_000);
 });
