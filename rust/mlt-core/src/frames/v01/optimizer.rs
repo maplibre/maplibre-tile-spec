@@ -12,6 +12,7 @@ use crate::v01::{
     reason = "enums would not model this better, not a state machine"
 )]
 pub struct EncoderConfig {
+    /// Generate tessellation data for polygons and multi-polygons.
     pub tessellate: bool,
     /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
     pub try_spatial_morton_sort: bool,
