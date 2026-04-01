@@ -97,8 +97,12 @@ fn collect_tile_files(path: &Path, files: &mut Vec<PathBuf>) -> AnyResult<()> {
                 collect_tile_files(&child, files)?;
             }
         }
-    } else if path.is_file() && is_convert_extension(path) {
-        files.push(path.to_path_buf());
+    } else if path.is_file() {
+        if is_convert_extension(path) {
+            files.push(path.to_path_buf());
+        }
+    } else {
+        bail!("path does not exist: {}", path.display());
     }
     Ok(())
 }

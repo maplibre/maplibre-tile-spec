@@ -45,6 +45,7 @@ const FSST_OVERHEAD_THRESHOLD: usize = 4_096;
 const FSST_SAMPLE_STRINGS: usize = 512;
 
 /// A group of string columns to be merged into a single [`StagedProperty::SharedDict`].
+#[derive(Debug, Clone)]
 pub struct StringGroup {
     /// Common prefix of all column names in this group.
     pub prefix: String,

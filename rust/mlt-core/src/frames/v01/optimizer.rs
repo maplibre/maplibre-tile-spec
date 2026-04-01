@@ -2,10 +2,10 @@ use crate::MltResult;
 use crate::v01::sort::{reorder_features, spatial_sort_likely_to_help};
 use crate::v01::{
     EncodeProperties as _, EncodedLayer01, GeometryEncoder, IdEncoder, IntEncoder, PropertyEncoder,
-    SortStrategy, StagedLayer01, TileLayer01, group_string_properties,
+    SortStrategy, StagedLayer01, StringGroup, TileLayer01, group_string_properties,
 };
 
-/// Global encoder settings
+/// Global encoder settings controlling which optimization strategies are attempted.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 #[expect(
     clippy::struct_excessive_bools,
@@ -147,16 +147,19 @@ pub struct Tile01Encoder {
     /// How to reorder features before columnar staging.
     /// [`SortStrategy::Unsorted`] (the default) preserves the original feature order.
     pub sort_strategy: SortStrategy,
+    /// String-property groups computed during optimization; empty when shared dicts are disabled.
+    /// Stored so that [`encode`](Self::encode) uses identical grouping to the original trial run.
+    pub str_groups: Vec<StringGroup>,
     /// Stream-level encoder settings applied after sorting and staging.
     pub stream: StagedLayer01Encoder,
 }
 
 impl Tile01Encoder {
-    /// Reorder features in `tile` and stage it using the same `MinHash`-based
-    /// string grouping that was applied when this encoder was produced.
+    /// Reorder features in `tile` and stage it using the same string grouping
+    /// that was computed when this encoder was produced by [`encode_auto`](Self::encode_auto).
     pub fn encode(&self, tile: &mut TileLayer01) -> StagedLayer01 {
         reorder_features(tile, self.sort_strategy);
-        StagedLayer01::from_tile(tile.clone(), &group_string_properties(tile))
+        StagedLayer01::from_tile(tile.clone(), &self.str_groups)
     }
 
     /// Automatically select the best sort strategy and stream-level encoders by
@@ -166,10 +169,16 @@ impl Tile01Encoder {
         cfg: EncoderConfig,
     ) -> MltResult<(EncodedLayer01, Self)> {
         let mut sort_by = vec![SortStrategy::Unsorted];
-        if cfg.try_spatial_morton_sort
+        let try_spatial_sort = cfg.try_spatial_morton_sort || cfg.try_spatial_hilbert_sort;
+        if try_spatial_sort
             && (tile.features.len() < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(tile))
         {
-            sort_by.push(SortStrategy::SpatialMorton);
+            if cfg.try_spatial_morton_sort {
+                sort_by.push(SortStrategy::SpatialMorton);
+            }
+            if cfg.try_spatial_hilbert_sort {
+                sort_by.push(SortStrategy::SpatialHilbert);
+            }
         }
         if cfg.try_id_sort {
             sort_by.push(SortStrategy::Id);
@@ -224,6 +233,7 @@ impl Tile01Encoder {
             best.layer,
             Self {
                 sort_strategy: best.strategy,
+                str_groups,
                 stream: best.stream_enc,
             },
         ))

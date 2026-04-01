@@ -102,15 +102,12 @@ fn mvt_layer_to_tile(layer: MvtLayer) -> MltResult<TileLayer01> {
             continue;
         };
         for (key, val) in props {
-            let idx = if let Some(&i) = col_index.get(key.as_str()) {
-                i
-            } else {
+            let idx = *col_index.entry(key.clone()).or_insert_with(|| {
                 let i = col_names.len();
-                col_index.insert(key.clone(), i);
                 col_names.push(key.clone());
                 col_types.push(InferredType::Unknown);
                 i
-            };
+            });
             col_types[idx] = col_types[idx].merge(InferredType::from_mvt(val));
         }
     }
@@ -274,13 +271,16 @@ impl InferredType {
     }
 
     /// Convert an owned [`MvtValue`] into a [`PropValue`] matching this column type.
-    #[expect(clippy::cast_possible_wrap)]
     fn convert(self, val: MvtValue) -> PropValue {
         match (self, val) {
             (_, MvtValue::Null) => self.typed_null(),
             (Self::Bool, MvtValue::Bool(b)) => PropValue::Bool(Some(b)),
             (Self::I64, MvtValue::Int(i) | MvtValue::SInt(i)) => PropValue::I64(Some(i)),
-            (Self::I64, MvtValue::UInt(u)) => PropValue::I64(Some(u as i64)),
+            (Self::I64, MvtValue::UInt(u)) if i64::try_from(u).is_ok() => {
+                // Value must be within 0..i64::MAX
+                #[expect(clippy::cast_possible_wrap, reason = "checked above")]
+                PropValue::I64(Some(u as i64))
+            }
             (Self::U64, MvtValue::UInt(u)) => PropValue::U64(Some(u)),
             (Self::F32, MvtValue::Float(f)) => PropValue::F32(Some(f)),
             (Self::F64, MvtValue::Double(f)) => PropValue::F64(Some(f)),
