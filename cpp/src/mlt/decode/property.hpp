@@ -87,7 +87,7 @@ protected:
         }
         const auto scalarType = scalarColumn.getPhysicalType();
 
-        // Everything but string has stream metadata.
+        // String stream metadata is read by StringDecoder
         std::unique_ptr<StreamMetadata> streamMetadata;
         if (scalarType != ScalarType::STRING) {
             streamMetadata = StreamMetadata::decode(tileData);
