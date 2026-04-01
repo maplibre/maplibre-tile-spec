@@ -93,7 +93,7 @@ protected:
             streamMetadata = StreamMetadata::decode(tileData);
         }
 
-        if (streamMetadata && presentValueCount && presentValueCount < streamMetadata->getNumValues()) {
+        if (column.nullable && streamMetadata && presentValueCount < streamMetadata->getNumValues()) {
             throw std::runtime_error("Unexpected present value column");
         }
 
@@ -194,9 +194,8 @@ protected:
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
             case ScalarType::STRING: {
-                const auto stringCount = presentStream.empty() ? presentValueCount : countSetBits(presentStream);
                 auto strings = stringDecoder.decode(tileData, numStreams);
-                if (presentValueCount && countSetBits(presentStream) != strings.getStrings().size()) {
+                if (column.nullable && countSetBits(presentStream) != strings.getStrings().size()) {
                     throw std::runtime_error("String count doesn't match present value count");
                 }
 

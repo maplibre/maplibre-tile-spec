@@ -142,9 +142,8 @@ public:
         }
 
         for (const auto& child : column.getComplexType().children) {
-            const auto childStreams = decodeVarint<std::uint32_t>(tileData);
-            // TODO: We don't really need this stream count until the present stream is optional.
-            // We could infer it from the nullable bit in the column, but only if that applies to all children.
+            [[maybe_unused]] const auto childStreams = decodeVarint<std::uint32_t>(tileData);
+
             if (!child.hasScalarType() || child.getScalarType().getPhysicalType() != ScalarType::STRING) {
                 throw std::runtime_error("Currently only string fields are implemented for a struct");
             }
@@ -166,15 +165,12 @@ public:
             std::vector<std::string_view> propertyValues;
             propertyValues.reserve(dataReferenceStream.size());
 
-            std::uint32_t counter = 0;
             for (std::uint32_t i = 0; i < dataReferenceStream.size(); ++i) {
-                if (presentStream.empty() || testBit(presentStream, i)) {
-                    const auto dictIndex = dataReferenceStream[counter++];
-                    if (dictIndex >= dictionaryViews.size()) {
-                        throw std::runtime_error("StringDecoder: dictionaryViews index out of bounds");
-                    }
-                    propertyValues.push_back(dictionaryViews[dictIndex]);
+                const auto dictIndex = dataReferenceStream[i];
+                if (dictIndex >= dictionaryViews.size()) {
+                    throw std::runtime_error("StringDecoder: dictionaryViews index out of bounds");
                 }
+                propertyValues.push_back(dictionaryViews[dictIndex]);
             }
 
             results.emplace(column.name + child.name,
