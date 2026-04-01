@@ -12,11 +12,13 @@
 
 use std::collections::HashMap;
 
+use crate::encoder::property::{
+    StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, StringGroup,
+};
 use crate::errors::AsMltError as _;
 use crate::v01::{
     GeometryValues, IdValues, Layer01, ParsedLayer01, ParsedProperty, PropValue, PropValueRef,
-    StagedLayer01, StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, StringGroup,
-    TileFeature, TileLayer01,
+    StagedLayer01, TileFeature, TileLayer01,
 };
 use crate::{Decoder, MltResult};
 

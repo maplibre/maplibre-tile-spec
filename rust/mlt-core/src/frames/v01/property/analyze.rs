@@ -1,9 +1,11 @@
 use crate::analyze::{Analyze, StatType};
-use crate::v01::{
+use crate::encoder::property::{
     EncodedPresence, EncodedProperty, EncodedScalar, EncodedSharedDict, EncodedSharedDictItem,
-    EncodedStrings, ParsedScalar, ParsedSharedDict, ParsedStrings, RawFsstData, RawPlainData,
-    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
-    RawStringsEncoding, StreamMeta,
+    EncodedStrings, RawSharedDict, RawSharedDictEncoding, RawStrings, RawStringsEncoding,
+};
+use crate::v01::{
+    ParsedScalar, ParsedSharedDict, ParsedStrings, RawFsstData, RawPlainData, RawProperty,
+    RawScalar, RawSharedDictItem, StreamMeta,
 };
 
 impl Analyze for RawPlainData<'_> {

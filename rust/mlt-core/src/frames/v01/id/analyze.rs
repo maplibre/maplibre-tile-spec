@@ -1,8 +1,9 @@
 use std::fmt::{Debug, Formatter};
 
 use crate::analyze::{Analyze, StatType};
+use crate::encoder::{EncodedId, EncodedIdValue};
 use crate::utils::OptSeqOpt;
-use crate::v01::{EncodedId, EncodedIdValue, IdValues, RawId, RawIdValue, RawPresence, StreamMeta};
+use crate::v01::{IdValues, RawId, RawIdValue, RawPresence, StreamMeta};
 
 impl Analyze for EncodedId {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {

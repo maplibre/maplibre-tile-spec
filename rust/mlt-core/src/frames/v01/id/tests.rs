@@ -1,16 +1,16 @@
 #![cfg(test)]
 
-use IdWidth::*;
 use geo_types::Point;
 use proptest::prelude::*;
 use rstest::rstest;
 
-use crate::frames::v01::id::encode::IdEncoder;
-use crate::frames::v01::id::model::{EncodedId, EncodedIdValue, IdValues, IdWidth};
+use crate::encoder::IdWidth::*;
+use crate::encoder::id::IdEncoder;
+use crate::encoder::{EncodedId, EncodedIdValue, IdWidth};
 use crate::geojson::Geom32;
 use crate::test_helpers::{dec, parser};
 use crate::v01::{
-    GeometryEncoder, GeometryValues, IntEncoder, LogicalEncoder, StagedLayer01,
+    GeometryEncoder, GeometryValues, IdValues, IntEncoder, LogicalEncoder, StagedLayer01,
     StagedLayer01Encoder,
 };
 use crate::{EncodedLayer, Layer, MltError, MltResult};

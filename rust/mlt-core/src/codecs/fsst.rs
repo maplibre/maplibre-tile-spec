@@ -1,7 +1,9 @@
+use crate::encoder::FsstStrEncoder;
+use crate::encoder::property::EncodedFsstData;
 use crate::utils::{AsUsize as _, strings_to_lengths};
 use crate::v01::{
-    DictionaryType, EncodedFsstData, EncodedStream, EncodedStreamData, FsstStrEncoder, IntEncoding,
-    LengthType, RawFsstData, StreamMeta, StreamType,
+    DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, RawFsstData,
+    StreamMeta, StreamType,
 };
 use crate::{Decoder, MltResult};
 

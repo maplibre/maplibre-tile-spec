@@ -3,12 +3,13 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter as _;
 
+use super::encode::{GeometryEncoder, encode_geometry};
+use super::model::EncodedGeometry;
 use crate::codecs::varint::parse_varint;
 use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2};
-use crate::v01::geometry::encode::encode_geometry;
 use crate::v01::{
-    ColumnType, DictionaryType, EncodedGeometry, GeometryEncoder, GeometryValues, IntEncoding,
-    RawGeometry, RawStream, RawStreamData, StreamMeta, StreamType,
+    ColumnType, DictionaryType, GeometryValues, IntEncoding, RawGeometry, RawStream, RawStreamData,
+    StreamMeta, StreamType,
 };
 use crate::{MltResult, Parser};
 

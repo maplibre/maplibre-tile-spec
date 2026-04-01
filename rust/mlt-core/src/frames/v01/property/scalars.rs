@@ -1,4 +1,4 @@
-use crate::v01::{
+use crate::encoder::{
     FsstStrEncoder, IntEncoder, PropertyEncoder, ScalarEncoder, ScalarValueEncoder, StrEncoder,
 };
 

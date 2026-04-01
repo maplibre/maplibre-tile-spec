@@ -1,9 +1,10 @@
 use crate::MltResult;
-use crate::v01::sort::{reorder_features, spatial_sort_likely_to_help};
-use crate::v01::{
-    EncodeProperties as _, EncodedLayer01, GeometryEncoder, IdEncoder, IntEncoder, PropertyEncoder,
-    SortStrategy, StagedLayer01, StringGroup, TileLayer01, group_string_properties,
+use crate::encoder::{
+    EncodeProperties as _, GeometryEncoder, IdEncoder, IntEncoder, PropertyEncoder, StringGroup,
+    group_string_properties,
 };
+use crate::v01::sort::{reorder_features, spatial_sort_likely_to_help};
+use crate::v01::{EncodedLayer01, SortStrategy, StagedLayer01, TileLayer01};
 
 /// Global encoder settings controlling which optimization strategies are attempted.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]

@@ -1,6 +1,6 @@
-use crate::frames::{EncodedLayer, LayerEncoder};
+use crate::encoder::LayerEncoder;
 use crate::v01::{EncoderConfig, Tile01Encoder};
-use crate::{MltError, MltResult, StagedLayer};
+use crate::{EncodedLayer, MltError, MltResult, StagedLayer};
 
 impl StagedLayer {
     /// Encode using a specific `LayerEncoder`, consuming `self` and producing [`EncodedLayer`].
