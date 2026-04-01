@@ -4,8 +4,8 @@ use geo_types::{LineString, Point, Polygon, point, wkt};
 use mlt_core::__private::{assert_empty, dec, parser};
 use mlt_core::geojson::{Coord32, Geom32};
 use mlt_core::v01::{
-    DictionaryType, EncodedGeometry, GeometryEncoder, GeometryValues, IntEncoder, LengthType,
-    OffsetType, RawGeometry, StreamType, VertexBufferType,
+    DictionaryType, EncodedGeometry, EncoderSettings, GeometryEncoder, GeometryValues, IntEncoder,
+    LengthType, OffsetType, RawGeometry, StreamType, VertexBufferType,
 };
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -16,7 +16,10 @@ use rstest::rstest;
 #[case::polygon(push_geoms(&[wkt!(POLYGON((0 0, 100 0, 100 100, 0 100, 0 0))).into()]))]
 #[case::multi_polygon(push_geoms(&[wkt!(MULTIPOLYGON(((0 0, 10 0, 10 10, 0 0),(5 5, 15 5, 15 15, 5 15)))).into()]))]
 fn automatic_optimization_roundtrip(#[case] decoded: GeometryValues) {
-    let (encoded, _) = decoded.clone().encode_auto().expect("optimize failed");
+    let (encoded, _) = decoded
+        .clone()
+        .encode_auto(EncoderSettings::default())
+        .expect("optimize failed");
     assert_geometry_roundtrip(&encoded, &decoded);
 }
 
@@ -39,7 +42,9 @@ fn automatic_optimization_picks_correct_vertex_strategy(
         DictionaryType::Vertex
     };
 
-    let (encoded, _) = decoded.encode_auto().expect("encode failed");
+    let (encoded, _) = decoded
+        .encode_auto(EncoderSettings::default())
+        .expect("encode failed");
     let types = encoded_stream_types(&encoded);
 
     assert!(
@@ -55,7 +60,9 @@ fn automatic_optimization_picks_correct_vertex_strategy(
 #[test]
 fn encoded_output_always_has_meta_stream() {
     let decoded = push_geoms(&[Geom32::Point(Point(Coord32 { x: 1, y: 1 }))]);
-    let (encoded, _) = decoded.encode_auto().expect("encode failed");
+    let (encoded, _) = decoded
+        .encode_auto(EncoderSettings::default())
+        .expect("encode failed");
 
     assert_eq!(
         encoded.meta.meta.stream_type,
@@ -71,7 +78,9 @@ fn encoded_polygon_has_topology_streams() {
         .map(|(x, y)| Coord32 { x, y })
         .collect();
     let decoded = push_geoms(&[Geom32::Polygon(Polygon::new(LineString(coords), vec![]))]);
-    let (encoded, _) = decoded.encode_auto().expect("encode failed");
+    let (encoded, _) = decoded
+        .encode_auto(EncoderSettings::default())
+        .expect("encode failed");
 
     let stream_types = encoded_stream_types(&encoded);
     assert!(
@@ -86,7 +95,9 @@ fn encoded_repeated_points_uses_morton_streams() {
     // All vertices identical: uniqueness ratio = 1/3 < 0.5, so optimizer picks Morton.
     let mut decoded = GeometryValues::default();
     decoded.push_geom(&wkt!(MULTIPOINT(5 5, 5 5, 5 5)).into());
-    let (encoded, _) = decoded.encode_auto().expect("encode failed");
+    let (encoded, _) = decoded
+        .encode_auto(EncoderSettings::default())
+        .expect("encode failed");
 
     let stream_types = encoded_stream_types(&encoded);
     assert!(

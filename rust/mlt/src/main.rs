@@ -1,3 +1,4 @@
+pub mod convert;
 pub mod dump;
 pub mod ls;
 pub mod ui;
@@ -7,12 +8,14 @@ use std::process::exit;
 use anyhow::Result as AnyResult;
 use clap::{Parser, Subcommand, ValueEnum};
 
+use crate::convert::{ConvertArgs, convert};
 use crate::dump::{AfterDump, DumpArgs, dump};
 use crate::ls::{LsArgs, ls};
 use crate::ui::{UiArgs, ui};
 
 fn main() -> AnyResult<()> {
     match Cli::parse().command {
+        Commands::Convert(args) => convert(&args)?,
         Commands::Dump(args) => dump(&args, AfterDump::KeepRaw)?,
         Commands::Decode(args) => dump(&args, AfterDump::Decode)?,
         Commands::Ls(args) => {
@@ -35,6 +38,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Convert .mlt and .mvt tiles in a directory tree to re-encoded .mlt files
+    Convert(ConvertArgs),
     /// Parse a tile file (.mlt, .mvt, .pbf) and dump raw layer data without decoding
     Dump(DumpArgs),
     /// Parse a tile file (.mlt, .mvt, .pbf), decode all layers, and dump the result

@@ -516,11 +516,13 @@ mod tests {
 
     use super::*;
     use crate::test_helpers::{dec, parser};
-    use crate::v01::{GeometryValues, IdValues, StagedLayer01, StagedProperty, StagedSharedDict};
+    use crate::v01::{
+        EncoderSettings, GeometryValues, IdValues, StagedLayer01, StagedProperty, StagedSharedDict,
+    };
     use crate::{EncodedLayer, Layer};
 
     fn layer_buf(staged: StagedLayer01) -> Vec<u8> {
-        let (enc, _) = staged.encode_auto().unwrap();
+        let (enc, _) = staged.encode_auto(EncoderSettings::default()).unwrap();
         let mut buf = Vec::new();
         EncodedLayer::Tag01(enc).write_to(&mut buf).unwrap();
         buf

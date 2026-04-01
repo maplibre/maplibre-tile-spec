@@ -5,6 +5,35 @@ use crate::v01::{
     SortStrategy, StagedLayer01, TileLayer01, group_string_properties,
 };
 
+/// Global encoder settings
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
+pub struct EncoderSettings {
+    pub tessellate: bool,
+    /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
+    pub try_spatial_morton_sort: bool,
+    /// Try sorting features by the Hilbert curve index of their first vertex.
+    pub try_spatial_hilbert_sort: bool,
+    /// Try sorting features by their feature ID in ascending order.
+    pub try_id_sort: bool,
+    /// Allow FSST string compression
+    pub allow_fsst: bool,
+    /// Allow FastPFOR integer compression
+    pub allow_fpf: bool,
+}
+
+impl Default for EncoderSettings {
+    fn default() -> Self {
+        Self {
+            tessellate: false,
+            try_spatial_morton_sort: true,
+            try_spatial_hilbert_sort: true,
+            try_id_sort: true,
+            allow_fsst: true,
+            allow_fpf: true,
+        }
+    }
+}
+
 impl StagedLayer01 {
     /// Encode using a specific [`StagedLayer01Encoder`], consuming `self` and producing [`EncodedLayer01`].
     pub fn encode(self, encoder: StagedLayer01Encoder) -> MltResult<EncodedLayer01> {
@@ -37,10 +66,13 @@ impl StagedLayer01 {
     ///
     /// This method does **not** attempt different sort strategies; call
     /// [`Tile01Encoder::encode_auto`] instead when sort optimization is also desired.
-    pub fn encode_auto(self) -> MltResult<(EncodedLayer01, StagedLayer01Encoder)> {
-        let (geometry, geom_enc) = self.geometry.encode_auto()?;
+    pub fn encode_auto(
+        self,
+        cfg: EncoderSettings,
+    ) -> MltResult<(EncodedLayer01, StagedLayer01Encoder)> {
+        let (geometry, geom_enc) = self.geometry.encode_auto(cfg)?;
         let (id, id_enc) = match self.id {
-            Some(parsed_id) => match parsed_id.encode_auto()? {
+            Some(parsed_id) => match parsed_id.encode_auto(cfg)? {
                 Some((enc_id, enc)) => (Some(enc_id), enc),
                 None => (None, IdEncoder::default()),
             },
@@ -129,7 +161,10 @@ impl Tile01Encoder {
 
     /// Automatically select the best sort strategy and stream-level encoders by
     /// competitive trialing.
-    pub fn encode_auto(tile: &TileLayer01) -> MltResult<(EncodedLayer01, Self)> {
+    pub fn encode_auto(
+        tile: &TileLayer01,
+        cfg: EncoderSettings,
+    ) -> MltResult<(EncodedLayer01, Self)> {
         Self::encode_with(
             tile,
             if tile.features.len() < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(tile) {
@@ -137,12 +172,14 @@ impl Tile01Encoder {
             } else {
                 &[SortStrategy::Unsorted, SortStrategy::Id]
             },
+            cfg,
         )
     }
 
     fn encode_with(
         tile: &TileLayer01,
         sort_by: &[SortStrategy],
+        cfg: EncoderSettings,
     ) -> MltResult<(EncodedLayer01, Self)> {
         struct TrialResult {
             layer: EncodedLayer01,
@@ -160,7 +197,7 @@ impl Tile01Encoder {
             reorder_features(&mut tile, strategy);
 
             let staged = StagedLayer01::from_tile(tile, &str_groups);
-            let (encoded, stream_enc) = staged.encode_auto()?;
+            let (encoded, stream_enc) = staged.encode_auto(cfg)?;
 
             // TODO: use Analyze instead of this
             let mut buf: Vec<u8> = Vec::new();

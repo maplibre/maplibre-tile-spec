@@ -1,42 +1,20 @@
 use crate::MltResult;
 use crate::v01::{
-    DataProfile, EncodedId, IdEncoder, IdValues, IdWidth, IntEncoder, LogicalEncoder,
-    PhysicalEncoder,
+    DataProfile, EncodedId, EncoderSettings, IdEncoder, IdValues, IdWidth, IntEncoder,
+    LogicalEncoder, PhysicalEncoder,
 };
 
-/// Analyze `decoded` and return a near-optimal [`IdEncoder`].
-///
-/// Fast paths (short sequences, sequential, constant) are checked first.
-/// Otherwise, the full pruning + competition pipeline runs.
-fn optimize(decoded: &IdValues) -> IdEncoder {
-    let ids = &decoded.0;
-    let (is_sequential, is_constant, id_width) = match single_pass_statistics(ids) {
-        Ok(stats) => stats,
-        Err(default_enc) => return default_enc,
-    };
-
-    if ids.len() <= 2 {
-        return IdEncoder::new(LogicalEncoder::None, id_width);
-    }
-
-    if is_sequential && ids.len() > 4 {
-        return IdEncoder::new(LogicalEncoder::DeltaRle, id_width);
-    }
-
-    if is_constant {
-        return IdEncoder::new(LogicalEncoder::Rle, id_width);
-    }
-
-    let candidates = pruned_candidates(ids, id_width);
-    let logical = compete_with(ids, id_width, &candidates);
-    IdEncoder::new(logical, id_width)
+struct SequenceStats {
+    is_sequential: bool,
+    is_constant: bool,
+    id_width: IdWidth,
 }
 
 /// Collect `is_sequential`, `is_constant`, and [`IdWidth`] in a single pass.
 ///
 /// Returns `Err(default_encoder)` for the empty or all-null case so callers
 /// can return early.
-fn single_pass_statistics(ids: &[Option<u64>]) -> Result<(bool, bool, IdWidth), IdEncoder> {
+fn calc_sequence_stats(ids: &[Option<u64>]) -> Option<SequenceStats> {
     let mut has_nulls = false;
     let mut is_sequential = true;
     let mut is_constant = true;
@@ -46,7 +24,7 @@ fn single_pass_statistics(ids: &[Option<u64>]) -> Result<(bool, bool, IdWidth), 
         match ids_iter.next() {
             Some(Some(id)) => break *id,
             Some(None) => has_nulls = true,
-            None => return Err(IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)),
+            None => return None, // no ids or all are None
         }
     };
 
@@ -69,23 +47,19 @@ fn single_pass_statistics(ids: &[Option<u64>]) -> Result<(bool, bool, IdWidth), 
         }
     }
 
-    Ok((
-        is_sequential,
-        is_constant,
-        deduce_width(has_nulls, max_value),
-    ))
-}
-
-/// Determine the narrowest correct [`IdWidth`] for the given data.
-#[inline]
-fn deduce_width(has_nulls: bool, max_value: u64) -> IdWidth {
     let fits_u32 = u32::try_from(max_value).is_ok();
-    match (has_nulls, fits_u32) {
+    let id_width = match (has_nulls, fits_u32) {
         (false, true) => IdWidth::Id32,
         (true, true) => IdWidth::OptId32,
         (false, false) => IdWidth::Id64,
         (true, false) => IdWidth::OptId64,
-    }
+    };
+
+    Some(SequenceStats {
+        is_sequential,
+        is_constant,
+        id_width,
+    })
 }
 
 /// Run [`DataProfile::prune_candidates`] and filter the result to VarInt-only.
@@ -169,12 +143,27 @@ impl IdValues {
 
     /// Automatically select the best encoder and encode, consuming `self`.
     /// Returns `(None, None)` when the ID list is empty or every value is `None`.
-    pub fn encode_auto(self) -> MltResult<Option<(EncodedId, IdEncoder)>> {
-        if self.is_empty_or_all_null() {
+    pub fn encode_auto(self, _cfg: EncoderSettings) -> MltResult<Option<(EncodedId, IdEncoder)>> {
+        let ids = &self.0;
+
+        let Some(stat) = calc_sequence_stats(ids) else {
             return Ok(None);
-        }
-        let enc = optimize(&self);
+        };
+
+        let enc = if ids.len() <= 2 {
+            IdEncoder::new(LogicalEncoder::None, stat.id_width)
+        } else if stat.is_sequential && ids.len() > 4 {
+            IdEncoder::new(LogicalEncoder::DeltaRle, stat.id_width)
+        } else if stat.is_constant {
+            IdEncoder::new(LogicalEncoder::Rle, stat.id_width)
+        } else {
+            let candidates = pruned_candidates(ids, stat.id_width);
+            let logical = compete_with(ids, stat.id_width, &candidates);
+            IdEncoder::new(logical, stat.id_width)
+        };
+
         let encoded = EncodedId::encode(&self, enc)?;
+
         Ok(Some((encoded, enc)))
     }
 }

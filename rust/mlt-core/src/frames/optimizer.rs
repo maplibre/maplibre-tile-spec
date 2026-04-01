@@ -1,5 +1,5 @@
 use crate::frames::{EncodedLayer, LayerEncoder};
-use crate::v01::{SortStrategy, Tile01Encoder};
+use crate::v01::{EncoderSettings, SortStrategy, Tile01Encoder};
 use crate::{MltError, MltResult, StagedLayer};
 
 impl StagedLayer {
@@ -24,10 +24,10 @@ impl StagedLayer {
     /// Sort strategy is [`SortStrategy::Unsorted`] in the returned encoder because sorting must
     /// happen before staging. Use [`Tile01Encoder::encode_auto`] for full
     /// sort + stream trialing on a [`crate::v01::TileLayer01`].
-    pub fn encode_auto(self) -> MltResult<(EncodedLayer, LayerEncoder)> {
+    pub fn encode_auto(self, cfg: EncoderSettings) -> MltResult<(EncodedLayer, LayerEncoder)> {
         match self {
             Self::Tag01(t) => {
-                let (encoded, stream_enc) = t.encode_auto()?;
+                let (encoded, stream_enc) = t.encode_auto(cfg)?;
                 let tile_enc = Tile01Encoder {
                     sort_strategy: SortStrategy::Unsorted,
                     stream: stream_enc,

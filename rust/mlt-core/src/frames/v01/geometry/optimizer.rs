@@ -4,8 +4,8 @@ use crate::MltResult;
 use crate::codecs::morton::z_order_params;
 use crate::v01::encode::encode_geometry;
 use crate::v01::{
-    DictionaryType, EncodedGeometry, GeometryEncoder, GeometryValues, IntEncoder, LengthType,
-    OffsetType, StreamType, VertexBufferType,
+    DictionaryType, EncodedGeometry, EncoderSettings, GeometryEncoder, GeometryValues, IntEncoder,
+    LengthType, OffsetType, StreamType, VertexBufferType,
 };
 
 /// If the ratio of unique vertices to total vertices is below this threshold,
@@ -141,7 +141,10 @@ impl GeometryValues {
     }
 
     /// Automatically select the best encoder and encode, consuming `self`.
-    pub fn encode_auto(self) -> MltResult<(EncodedGeometry, GeometryEncoder)> {
+    pub fn encode_auto(
+        self,
+        _cfg: EncoderSettings,
+    ) -> MltResult<(EncodedGeometry, GeometryEncoder)> {
         let enc = optimize(&self)?;
         let encoded = EncodedGeometry::encode(&self, enc)?;
         Ok((encoded, enc))
