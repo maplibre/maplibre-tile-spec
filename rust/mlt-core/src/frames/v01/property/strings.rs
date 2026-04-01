@@ -902,9 +902,6 @@ impl StagedSharedDict {
     /// optional strings (one per feature).  All unique non-null strings across every
     /// column are deduplicated into a shared byte corpus; per-feature byte-range offsets
     /// into that corpus are recorded in each [`StagedSharedDictItem`].
-    ///
-    /// Unlike the old constructor that took pre-encoded [`StagedStrings`], this works
-    /// directly with raw string data and skips the wasteful encode-then-decode round-trip.
     pub fn new<S, I, T>(
         prefix: impl Into<String>,
         columns: impl IntoIterator<Item = (S, I)>,

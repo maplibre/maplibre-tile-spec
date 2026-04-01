@@ -166,13 +166,6 @@ impl StagedLayer01 {
     }
 }
 
-/// Convenience conversion — equivalent to [`StagedLayer01::from_tile`] with no grouping.
-impl From<TileLayer01> for StagedLayer01 {
-    fn from(source: TileLayer01) -> Self {
-        Self::from_tile(source, &[])
-    }
-}
-
 fn build_scalar_column(name: String, col: usize, features: &mut [TileFeature]) -> StagedProperty {
     // Determine the variant by peeking at the first feature value.
     // Typed nulls (e.g. `PropValue::Bool(None)`) already carry the column type,
