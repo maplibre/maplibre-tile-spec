@@ -7,6 +7,7 @@ use crate::v01::{
 
 /// Global encoder settings
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[expect(clippy::struct_excessive_bools)]
 pub struct EncoderSettings {
     pub tessellate: bool,
     /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
@@ -15,9 +16,9 @@ pub struct EncoderSettings {
     pub try_spatial_hilbert_sort: bool,
     /// Try sorting features by their feature ID in ascending order.
     pub try_id_sort: bool,
-    /// Allow FSST string compression
+    /// Allow `FSST` string compression
     pub allow_fsst: bool,
-    /// Allow FastPFOR integer compression
+    /// Allow `FastPFOR` integer compression
     pub allow_fpf: bool,
 }
 
