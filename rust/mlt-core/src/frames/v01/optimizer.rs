@@ -33,6 +33,7 @@ impl Default for EncoderConfig {
             try_id_sort: true,
             allow_fsst: true,
             allow_fpf: true,
+            allow_shared_dict: true,
         }
     }
 }
@@ -162,10 +163,10 @@ impl Tile01Encoder {
         cfg: EncoderConfig,
     ) -> MltResult<(EncodedLayer01, Self)> {
         let mut sort_by = vec![SortStrategy::Unsorted];
-        if cfg.try_spatial_morton_sort {
-            if tile.features.len() < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(tile) {
-                sort_by.push(SortStrategy::SpatialMorton);
-            }
+        if cfg.try_spatial_morton_sort
+            && (tile.features.len() < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(tile))
+        {
+            sort_by.push(SortStrategy::SpatialMorton);
         }
         if cfg.try_id_sort {
             sort_by.push(SortStrategy::Id);
