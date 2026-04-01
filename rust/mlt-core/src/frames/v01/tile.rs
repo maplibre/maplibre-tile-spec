@@ -261,11 +261,11 @@ mod tests {
     use super::*;
     use crate::geojson::Geom32;
     use crate::test_helpers::{dec, parser};
-    use crate::v01::{GeometryValues, StagedLayer01, StagedProperty};
+    use crate::v01::{EncoderConfig, GeometryValues, StagedLayer01, StagedProperty};
     use crate::{EncodedLayer, Layer};
 
     fn layer_tile(staged: StagedLayer01) -> TileLayer01 {
-        let (enc, _) = staged.encode_auto().unwrap();
+        let (enc, _) = staged.encode_auto(EncoderConfig::default()).unwrap();
         let mut buf = Vec::new();
         EncodedLayer::Tag01(enc).write_to(&mut buf).unwrap();
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();

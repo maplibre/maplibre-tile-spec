@@ -1,7 +1,7 @@
 use std::io;
 use std::io::Write;
 
-use crate::frames::Unknown;
+use crate::frames::{EncodedLayer, EncodedUnknown, Unknown};
 
 impl Unknown<'_> {
     /// Write Unknown's binary representation to a Write stream
@@ -10,8 +10,17 @@ impl Unknown<'_> {
     }
 }
 
+impl<'a> From<Unknown<'a>> for EncodedLayer {
+    fn from(u: Unknown<'a>) -> Self {
+        Self::Unknown(EncodedUnknown {
+            tag: u.tag,
+            value: u.value.to_vec(),
+        })
+    }
+}
+
 #[cfg(all(not(test), feature = "arbitrary"))]
-impl arbitrary::Arbitrary<'_> for crate::frames::EncodedUnknown {
+impl arbitrary::Arbitrary<'_> for EncodedUnknown {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
         let mut tag: u8 = u.arbitrary()?;
         // Tag 1 is the known Tag01 format; producing it as Unknown would break round-trip-ability

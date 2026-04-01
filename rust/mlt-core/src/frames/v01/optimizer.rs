@@ -2,8 +2,45 @@ use crate::MltResult;
 use crate::v01::sort::{reorder_features, spatial_sort_likely_to_help};
 use crate::v01::{
     EncodeProperties as _, EncodedLayer01, GeometryEncoder, IdEncoder, IntEncoder, PropertyEncoder,
-    SortStrategy, StagedLayer01, TileLayer01, group_string_properties,
+    SortStrategy, StagedLayer01, StringGroup, TileLayer01, group_string_properties,
 };
+
+/// Global encoder settings controlling which optimization strategies are attempted.
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "enums would not model this better, not a state machine"
+)]
+pub struct EncoderConfig {
+    /// Generate tessellation data for polygons and multi-polygons.
+    pub tessellate: bool,
+    /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
+    pub try_spatial_morton_sort: bool,
+    /// Try sorting features by the Hilbert curve index of their first vertex.
+    pub try_spatial_hilbert_sort: bool,
+    /// Try sorting features by their feature ID in ascending order.
+    pub try_id_sort: bool,
+    /// Allow `FSST` string compression
+    pub allow_fsst: bool,
+    /// Allow `FastPFOR` integer compression
+    pub allow_fpf: bool,
+    /// Allow string grouping into shared dictionaries
+    pub allow_shared_dict: bool,
+}
+
+impl Default for EncoderConfig {
+    fn default() -> Self {
+        Self {
+            tessellate: false,
+            try_spatial_morton_sort: true,
+            try_spatial_hilbert_sort: true,
+            try_id_sort: true,
+            allow_fsst: true,
+            allow_fpf: true,
+            allow_shared_dict: true,
+        }
+    }
+}
 
 impl StagedLayer01 {
     /// Encode using a specific [`StagedLayer01Encoder`], consuming `self` and producing [`EncodedLayer01`].
@@ -37,10 +74,13 @@ impl StagedLayer01 {
     ///
     /// This method does **not** attempt different sort strategies; call
     /// [`Tile01Encoder::encode_auto`] instead when sort optimization is also desired.
-    pub fn encode_auto(self) -> MltResult<(EncodedLayer01, StagedLayer01Encoder)> {
-        let (geometry, geom_enc) = self.geometry.encode_auto()?;
+    pub fn encode_auto(
+        self,
+        cfg: EncoderConfig,
+    ) -> MltResult<(EncodedLayer01, StagedLayer01Encoder)> {
+        let (geometry, geom_enc) = self.geometry.encode_auto(cfg)?;
         let (id, id_enc) = match self.id {
-            Some(parsed_id) => match parsed_id.encode_auto()? {
+            Some(parsed_id) => match parsed_id.encode_auto(cfg)? {
                 Some((enc_id, enc)) => (Some(enc_id), enc),
                 None => (None, IdEncoder::default()),
             },
@@ -72,13 +112,6 @@ impl StagedLayer01 {
 /// Feature-count threshold above which the spatial trial is subject to the
 /// bounding-box pruning heuristic.
 const SORT_TRIAL_THRESHOLD: usize = 512;
-
-/// Candidate sort strategies evaluated during automatic competitive trialing.
-const TRIAL_STRATEGIES: [SortStrategy; 3] = [
-    SortStrategy::Unsorted,
-    SortStrategy::SpatialMorton,
-    SortStrategy::Id,
-];
 
 /// Stream-level encoder configuration for a v01 layer.
 ///
@@ -115,34 +148,49 @@ pub struct Tile01Encoder {
     /// How to reorder features before columnar staging.
     /// [`SortStrategy::Unsorted`] (the default) preserves the original feature order.
     pub sort_strategy: SortStrategy,
+    /// String-property groups computed during optimization; empty when shared dicts are disabled.
+    /// Stored so that [`encode`](Self::encode) uses identical grouping to the original trial run.
+    pub str_groups: Vec<StringGroup>,
     /// Stream-level encoder settings applied after sorting and staging.
     pub stream: StagedLayer01Encoder,
 }
 
 impl Tile01Encoder {
-    /// Reorder features in `tile` and stage it using the same `MinHash`-based
-    /// string grouping that was applied when this encoder was produced.
+    /// Reorder features in `tile` and stage it using the same string grouping
+    /// that was computed when this encoder was produced by [`encode_auto`](Self::encode_auto).
     pub fn encode(&self, tile: &mut TileLayer01) -> StagedLayer01 {
         reorder_features(tile, self.sort_strategy);
-        StagedLayer01::from_tile(tile.clone(), &group_string_properties(tile))
+        StagedLayer01::from_tile(tile.clone(), &self.str_groups)
     }
 
     /// Automatically select the best sort strategy and stream-level encoders by
     /// competitive trialing.
-    pub fn encode_auto(tile: &TileLayer01) -> MltResult<(EncodedLayer01, Self)> {
-        Self::encode_with(
-            tile,
-            if tile.features.len() < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(tile) {
-                &TRIAL_STRATEGIES
-            } else {
-                &[SortStrategy::Unsorted, SortStrategy::Id]
-            },
-        )
+    pub fn encode_auto(
+        tile: &TileLayer01,
+        cfg: EncoderConfig,
+    ) -> MltResult<(EncodedLayer01, Self)> {
+        let mut sort_by = vec![SortStrategy::Unsorted];
+        let try_spatial_sort = cfg.try_spatial_morton_sort || cfg.try_spatial_hilbert_sort;
+        if try_spatial_sort
+            && (tile.features.len() < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(tile))
+        {
+            if cfg.try_spatial_morton_sort {
+                sort_by.push(SortStrategy::SpatialMorton);
+            }
+            if cfg.try_spatial_hilbert_sort {
+                sort_by.push(SortStrategy::SpatialHilbert);
+            }
+        }
+        if cfg.try_id_sort {
+            sort_by.push(SortStrategy::Id);
+        }
+        Self::encode_with(tile, &sort_by, cfg)
     }
 
     fn encode_with(
         tile: &TileLayer01,
         sort_by: &[SortStrategy],
+        cfg: EncoderConfig,
     ) -> MltResult<(EncodedLayer01, Self)> {
         struct TrialResult {
             layer: EncodedLayer01,
@@ -151,16 +199,20 @@ impl Tile01Encoder {
             strategy: SortStrategy,
         }
 
-        // String properties grouping should be the same regardless of the feature order
-        let str_groups = group_string_properties(tile);
-        let mut best: Option<TrialResult> = None;
+        let str_groups = if cfg.allow_shared_dict {
+            // String properties grouping should be the same regardless of the feature order
+            group_string_properties(tile)
+        } else {
+            Vec::new()
+        };
 
+        let mut best: Option<TrialResult> = None;
         for &strategy in sort_by {
             let mut tile = tile.clone();
             reorder_features(&mut tile, strategy);
 
             let staged = StagedLayer01::from_tile(tile, &str_groups);
-            let (encoded, stream_enc) = staged.encode_auto()?;
+            let (encoded, stream_enc) = staged.encode_auto(cfg)?;
 
             // TODO: use Analyze instead of this
             let mut buf: Vec<u8> = Vec::new();
@@ -182,6 +234,7 @@ impl Tile01Encoder {
             best.layer,
             Self {
                 sort_strategy: best.strategy,
+                str_groups,
                 stream: best.stream_enc,
             },
         ))
