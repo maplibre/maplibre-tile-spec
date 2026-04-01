@@ -516,10 +516,7 @@ mod tests {
 
     use super::*;
     use crate::test_helpers::{dec, parser};
-    use crate::v01::{
-        GeometryValues, IdValues, StagedLayer01, StagedProperty, StagedStrings,
-        build_staged_shared_dict,
-    };
+    use crate::v01::{GeometryValues, IdValues, StagedLayer01, StagedProperty, StagedSharedDict};
     use crate::{EncodedLayer, Layer};
 
     fn layer_buf(staged: StagedLayer01) -> Vec<u8> {
@@ -828,17 +825,11 @@ mod tests {
 
     #[test]
     fn shared_dict_columns_are_expanded() {
-        let shared_dict = build_staged_shared_dict(
+        let shared_dict = StagedSharedDict::new(
             "addr:",
-            vec![
-                (
-                    "city".into(),
-                    StagedStrings::from(vec![Some("Paris".into()), Some("Rome".into()), None]),
-                ),
-                (
-                    "zip".into(),
-                    StagedStrings::from(vec![Some("75001".into()), None, Some("00100".into())]),
-                ),
+            [
+                ("city", vec![Some("Paris"), Some("Rome"), None]),
+                ("zip", vec![Some("75001"), None, Some("00100")]),
             ],
         )
         .unwrap();

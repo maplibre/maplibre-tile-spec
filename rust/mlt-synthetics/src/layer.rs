@@ -10,8 +10,7 @@ use mlt_core::geojson::Geom32;
 use mlt_core::v01::{
     GeometryEncoder, GeometryValues, IdEncoder, IdValues, IntEncoder, PropertyEncoder,
     ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder,
-    StagedProperty, StagedStrings, StrEncoder, TessellationMode, VertexBufferType,
-    build_staged_shared_dict,
+    StagedProperty, StagedSharedDict, StrEncoder, TessellationMode, VertexBufferType,
 };
 
 use crate::writer::{SynthErr, SynthResult};
@@ -198,7 +197,7 @@ impl Layer {
     pub fn add_shared_dict(mut self, shared_dict: SharedDict) -> Self {
         let name = shared_dict.name;
         let encoder = shared_dict.encoder;
-        let dict = build_staged_shared_dict(name, shared_dict.items)
+        let dict = StagedSharedDict::new(name, shared_dict.items)
             .expect("shared dict builder should be valid");
         self.properties.push(StagedProperty::SharedDict(dict));
         self.prop_encoders.push(encoder.into());
@@ -276,7 +275,7 @@ impl Layer {
 pub struct SharedDict {
     name: String,
     encoder: SharedDictEncoder,
-    items: Vec<(String, StagedStrings)>,
+    items: Vec<(String, Vec<Option<String>>)>,
 }
 
 impl SharedDict {
@@ -322,7 +321,7 @@ impl SharedDict {
         self.encoder.items.push(enc);
         let suffix = suffix.into();
         let values: Vec<Option<String>> = values.into_iter().collect();
-        self.items.push((suffix, StagedStrings::from(values)));
+        self.items.push((suffix, values));
         self
     }
 }

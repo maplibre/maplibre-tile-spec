@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::collections::hash_map::Entry;
 use std::io::Write;
 
 use crate::MltError::{
@@ -56,36 +55,69 @@ impl StrEncoder {
     }
 }
 
-impl From<Vec<Option<String>>> for StagedStrings {
-    fn from(values: Vec<Option<String>>) -> Self {
-        Self::from_optional_strings(values)
-    }
-}
-
-impl From<Vec<String>> for StagedStrings {
-    fn from(values: Vec<String>) -> Self {
-        Self::from_optional_strings(values.into_iter().map(Some).collect())
-    }
-}
-
 impl StagedStrings {
-    fn from_optional_strings(values: Vec<Option<String>>) -> Self {
-        let mut lengths = Vec::with_capacity(values.len());
+    /// Stages a string column where every row has a value (no nulls).
+    ///
+    /// `name` is the column key (e.g. shared-dict suffix or top-level property name).
+    ///
+    /// `values` can be any iterator of string fragments, for example `["a", "b"]`,
+    /// `vec!["x".into(), "y".into()]`, or `some_vec.iter().map(|s| s.as_str())`.
+    #[must_use]
+    pub fn from_strings(
+        name: impl Into<String>,
+        values: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> Self {
+        let name = name.into();
+        let iter = values.into_iter();
+        let (lower, _) = iter.size_hint();
+        let mut lengths = Vec::with_capacity(lower);
         let mut data = String::new();
         let mut end = 0_i32;
-        for value in values {
+        for value in iter {
+            let value = value.as_ref();
+            end = checked_string_end(end, value.len())
+                .expect("staged string corpus exceeds supported i32 range");
+            lengths.push(end);
+            data.push_str(value);
+        }
+        Self {
+            name,
+            lengths,
+            data,
+        }
+    }
+
+    /// Stages a string column with optional values (nulls encoded in the length stream).
+    ///
+    /// `name` is the column key (e.g. shared-dict suffix or top-level property name).
+    ///
+    /// `values` can be any iterator of optional string fragments, for example
+    /// `vec![Some("a"), None]` or a `Vec<Option<String>>`.
+    #[must_use]
+    pub fn from_optional(
+        name: impl Into<String>,
+        values: impl IntoIterator<Item = Option<impl AsRef<str>>>,
+    ) -> Self {
+        let name = name.into();
+        let iter = values.into_iter();
+        let (lower, _) = iter.size_hint();
+        let mut lengths = Vec::with_capacity(lower);
+        let mut data = String::new();
+        let mut end = 0_i32;
+        for value in iter {
             match value {
                 Some(value) => {
+                    let value = value.as_ref();
                     end = checked_string_end(end, value.len())
                         .expect("staged string corpus exceeds supported i32 range");
                     lengths.push(end);
-                    data.push_str(&value);
+                    data.push_str(value);
                 }
                 None => lengths.push(encode_null_end(end)),
             }
         }
         Self {
-            name: String::new(),
+            name,
             lengths,
             data,
         }
@@ -863,64 +895,77 @@ pub fn encode_shared_dict_prop(
     })))
 }
 
-/// Build a [`StagedSharedDict`] from a list of `(suffix, values)` pairs.
-///
-/// Deduplicates string values into a shared corpus and records per-feature
-/// byte-range offsets into it.
-pub fn build_staged_shared_dict(
-    prefix: impl Into<String>,
-    items: impl IntoIterator<Item = (String, StagedStrings)>,
-) -> MltResult<StagedSharedDict> {
-    let prefix = prefix.into();
-    let items = items.into_iter().collect::<Vec<_>>();
-    let mut dict_entries = Vec::<String>::new();
-    let mut dict_index = HashMap::<String, u32>::new();
+impl StagedSharedDict {
+    /// Build a shared-dictionary column directly from raw per-column string data.
+    ///
+    /// Each column is a `(suffix, values)` pair where `values` is an iterator of
+    /// optional strings (one per feature).  All unique non-null strings across every
+    /// column are deduplicated into a shared byte corpus; per-feature byte-range offsets
+    /// into that corpus are recorded in each [`StagedSharedDictItem`].
+    pub fn new<S, I, T>(
+        prefix: impl Into<String>,
+        columns: impl IntoIterator<Item = (S, I)>,
+    ) -> MltResult<Self>
+    where
+        S: Into<String>,
+        I: IntoIterator<Item = Option<T>>,
+        T: AsRef<str>,
+    {
+        let prefix = prefix.into();
+        // Collect all columns so we can make two passes (dedup then assign ranges).
+        let columns: Vec<(String, Vec<Option<T>>)> = columns
+            .into_iter()
+            .map(|(s, i)| (s.into(), i.into_iter().collect()))
+            .collect();
 
-    for (_, values) in &items {
-        for value in values.dense_values() {
-            if let Entry::Vacant(entry) = dict_index.entry(value.clone()) {
-                let idx = u32::try_from(dict_entries.len())?;
-                entry.insert(idx);
-                dict_entries.push(value);
-            }
-        }
-    }
+        // First pass: build deduplicated corpus in insertion order.
+        let mut dict_index = HashMap::<String, u32>::new();
+        let mut dict_ranges = Vec::<(u32, u32)>::new();
+        let mut data = String::new();
 
-    let mut dict_ranges = Vec::with_capacity(dict_entries.len());
-    let mut data = String::new();
-    for value in &dict_entries {
-        let offset = u32::try_from(data.len())?;
-        let len = u32::try_from(value.len())?;
-        let end = offset.saturating_add(len);
-        dict_ranges.push((offset, end));
-        data.push_str(value);
-    }
-
-    let items = items
-        .into_iter()
-        .map(|(suffix, values)| -> MltResult<StagedSharedDictItem> {
-            let mut ranges = Vec::with_capacity(values.feature_count());
-            for i in 0..u32::try_from(values.feature_count())? {
-                if let Some(value) = values.get(i) {
-                    let idx = dict_index
-                        .get(value)
-                        .copied()
-                        .ok_or(DictIndexOutOfBounds(0, dict_entries.len()))?;
-                    let span = dict_ranges[idx as usize];
-                    ranges.push(encode_shared_dict_range(span.0, span.1)?);
-                } else {
-                    ranges.push((-1, -1));
+        for (_, values) in &columns {
+            for value in values.iter().filter_map(Option::as_ref) {
+                let s = value.as_ref();
+                if !dict_index.contains_key(s) {
+                    let idx = u32::try_from(dict_ranges.len()).or_overflow()?;
+                    let offset = u32::try_from(data.len()).or_overflow()?;
+                    let end = offset
+                        .checked_add(u32::try_from(s.len()).or_overflow()?)
+                        .or_overflow()?;
+                    dict_index.insert(s.to_owned(), idx);
+                    dict_ranges.push((offset, end));
+                    data.push_str(s);
                 }
             }
-            Ok(StagedSharedDictItem { suffix, ranges })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+        }
 
-    Ok(StagedSharedDict {
-        prefix,
-        data,
-        items,
-    })
+        // Second pass: emit per-feature ranges for each column.
+        let items = columns
+            .into_iter()
+            .map(|(suffix, values)| -> MltResult<StagedSharedDictItem> {
+                let mut ranges = Vec::with_capacity(values.len());
+                for opt_val in values {
+                    match opt_val {
+                        Some(value) => {
+                            let idx = *dict_index
+                                .get(value.as_ref())
+                                .expect("StagedSharedDict::new: value must be present");
+                            let (start, end) = dict_ranges[idx as usize];
+                            ranges.push(encode_shared_dict_range(start, end)?);
+                        }
+                        None => ranges.push((-1, -1)),
+                    }
+                }
+                Ok(StagedSharedDictItem { suffix, ranges })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Self {
+            prefix,
+            data,
+            items,
+        })
+    }
 }
 
 impl EncodedSharedDictItem {

@@ -38,7 +38,7 @@ fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer> {
                         return None;
                     };
                     let tile = layer01.into_tile(&mut d).ok()?;
-                    Some(StagedLayer::Tag01(StagedLayer01::from(tile)))
+                    Some(StagedLayer::Tag01(StagedLayer01::from_tile(tile, &[])))
                 })
                 .collect::<Vec<_>>()
         })

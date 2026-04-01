@@ -124,8 +124,7 @@ impl Tile01Encoder {
     /// string grouping that was applied when this encoder was produced.
     pub fn encode(&self, tile: &mut TileLayer01) -> StagedLayer01 {
         reorder_features(tile, self.sort_strategy);
-        let str_groups = group_string_properties(tile);
-        StagedLayer01::from_tile(tile.clone(), &str_groups)
+        StagedLayer01::from_tile(tile.clone(), &group_string_properties(tile))
     }
 
     /// Automatically select the best sort strategy and stream-level encoders by
@@ -161,16 +160,16 @@ impl Tile01Encoder {
             reorder_features(&mut tile, strategy);
 
             let staged = StagedLayer01::from_tile(tile, &str_groups);
-            let (layer, stream_enc) = staged.encode_auto()?;
+            let (encoded, stream_enc) = staged.encode_auto()?;
 
             // TODO: use Analyze instead of this
             let mut buf: Vec<u8> = Vec::new();
-            layer.write_to(&mut buf)?;
+            encoded.write_to(&mut buf)?;
             let byte_count = buf.len();
 
             if best.as_ref().is_none_or(|b| byte_count < b.byte_count) {
                 best = Some(TrialResult {
-                    layer,
+                    layer: encoded,
                     stream_enc,
                     byte_count,
                     strategy,

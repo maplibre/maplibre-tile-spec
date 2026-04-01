@@ -103,9 +103,7 @@ impl StagedProperty {
     }
     #[must_use]
     pub fn str(name: impl Into<String>, values: Vec<Option<String>>) -> Self {
-        let mut s = StagedStrings::from(values);
-        s.name = name.into();
-        Self::Str(s)
+        Self::Str(StagedStrings::from_optional(name, values))
     }
 }
 

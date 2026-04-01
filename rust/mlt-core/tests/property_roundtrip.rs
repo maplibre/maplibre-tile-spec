@@ -5,8 +5,8 @@ use mlt_core::test_helpers::{dec, parser};
 use mlt_core::v01::{
     EncodeProperties as _, GeometryEncoder, GeometryValues, IntEncoder, Layer01, LogicalEncoder,
     PhysicalEncoder, PropValue, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
-    SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty, StagedStrings,
-    StrEncoder, TileLayer01, build_staged_shared_dict,
+    SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty, StagedSharedDict,
+    StrEncoder, TileLayer01,
 };
 use proptest::prelude::*;
 
@@ -78,15 +78,13 @@ fn opt_strs(vals: &[Option<&str>]) -> Vec<Option<String>> {
     vals.iter().map(|v| v.map(ToString::to_string)).collect()
 }
 
-fn shared_dict_prop(name: &str, children: Vec<(String, StagedStrings)>) -> StagedProperty {
-    StagedProperty::SharedDict(
-        build_staged_shared_dict(name.to_string(), children).expect("build shared dict"),
-    )
+fn shared_dict_prop(name: &str, children: Vec<(String, Vec<Option<String>>)>) -> StagedProperty {
+    StagedProperty::SharedDict(StagedSharedDict::new(name, children).expect("build shared dict"))
 }
 
 /// Build a `(name, values)` pair for use as a [`shared_dict_prop`] column.
-fn col(name: &str, values: Vec<Option<String>>) -> (String, StagedStrings) {
-    (name.into(), StagedStrings::from(values))
+fn col(name: &str, values: Vec<Option<String>>) -> (String, Vec<Option<String>>) {
+    (name.to_string(), values)
 }
 
 /// Shorthand for a non-null [`PropValue::Str`].
@@ -646,12 +644,8 @@ proptest! {
         // A SharedDict where every child column is all-null is skipped in encoding.
         prop_assume!(children.iter().any(|(_, vals)| vals.iter().any(Option::is_some)));
 
-        let items: Vec<_> = children
-            .iter()
-            .map(|(suffix, values)| col(suffix, values.clone()))
-            .collect();
         let staged = StagedProperty::SharedDict(
-            build_staged_shared_dict(struct_name.clone(), items).expect("build shared dict"),
+            StagedSharedDict::new(&struct_name, children.clone()).expect("build shared dict"),
         );
         let item_encoders: Vec<SharedDictItemEncoder> = children
             .iter()

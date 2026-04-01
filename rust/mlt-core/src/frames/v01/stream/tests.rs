@@ -348,12 +348,7 @@ fn test_strings_dict_roundtrip() {
     }
     .decode(&mut dec())
     .unwrap();
-    let expected = StagedStrings::from(
-        values
-            .into_iter()
-            .map(|s| Some(s.to_string()))
-            .collect::<Vec<_>>(),
-    );
+    let expected = StagedStrings::from_strings("", values);
     assert_eq!(decoded, expected);
 }
 
@@ -484,7 +479,7 @@ proptest! {
         let parsed: Vec<_> = buffers.iter().map(|buf| assert_empty(RawStream::from_bytes(buf, &mut parser()))).collect();
         let str_encoding = streams_to_encoding(&parsed);
         let decoded = RawStrings { name: "", presence: RawPresence(None), encoding: str_encoding }.decode(&mut dec()).unwrap();
-        let expected = StagedStrings::from(values.into_iter().map(Some).collect::<Vec<_>>());
+        let expected = StagedStrings::from_strings("", values);
         assert_eq!(decoded, expected);
     }
 }
