@@ -930,11 +930,11 @@ impl StagedSharedDict {
             for value in values.iter().filter_map(Option::as_ref) {
                 let s = value.as_ref();
                 if !dict_index.contains_key(s) {
-                    let idx = u32::try_from(dict_ranges.len())?;
-                    let offset = u32::try_from(data.len())?;
+                    let idx = u32::try_from(dict_ranges.len()).or_overflow()?;
+                    let offset = u32::try_from(data.len()).or_overflow()?;
                     let end = offset
-                        .checked_add(u32::try_from(s.len())?)
-                        .ok_or(DictIndexOutOfBounds(0, dict_ranges.len()))?;
+                        .checked_add(u32::try_from(s.len()).or_overflow()?)
+                        .or_overflow()?;
                     dict_index.insert(s.to_owned(), idx);
                     dict_ranges.push((offset, end));
                     data.push_str(s);
@@ -950,10 +950,9 @@ impl StagedSharedDict {
                 for opt_val in values {
                     match opt_val {
                         Some(value) => {
-                            let idx = dict_index
+                            let idx = *dict_index
                                 .get(value.as_ref())
-                                .copied()
-                                .ok_or(DictIndexOutOfBounds(0, dict_ranges.len()))?;
+                                .expect("StagedSharedDict::new: value must be present");
                             let (start, end) = dict_ranges[idx as usize];
                             ranges.push(encode_shared_dict_range(start, end)?);
                         }

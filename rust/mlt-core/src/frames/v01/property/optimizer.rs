@@ -113,13 +113,11 @@ fn cluster_by_similarity<'a, T: Iterator<Item = U>, U: Hash>(
 /// before sort-strategy trials and the result reused for all of them via
 /// [`crate::v01::StagedLayer01::from_tile`].
 ///
-/// Returns one [`StringGroup`] per cluster of string columns that should share a
-/// dictionary, combining two detection strategies:
-///
-/// 1. **Prefix groups** — consecutive column names that share the same `"prefix:"` segment
-///    (e.g. `addr:city`, `addr:street`) are grouped before any `MinHash` work.
-/// 2. **`MinHash` groups** — remaining string columns are clustered by estimated Jaccard
-///    similarity over their unique non-null values.
+/// Returns one [`StringGroup`] per `MinHash`-derived cluster of string columns that
+/// should share a dictionary.  For each cluster, a common name prefix is computed
+/// (via `common_prefix_name`) and stored in [`StringGroup::prefix`], and each
+/// member column is recorded in [`StringGroup::columns`] as a `(suffix, index)`
+/// pair, where `suffix` is the column name with the common prefix stripped.
 ///
 /// [`StringGroup::columns`] indices refer to positions in [`TileLayer01::property_names`].
 #[must_use]

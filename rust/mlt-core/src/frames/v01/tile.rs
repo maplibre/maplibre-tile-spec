@@ -226,9 +226,9 @@ fn build_shared_dict(group: &StringGroup, features: &mut [TileFeature]) -> Stage
     let columns = order.into_iter().map(|i| {
         let (suffix, col_idx) = &group.columns[i];
         let values: Vec<Option<String>> = features
-            .iter()
-            .map(|f| match f.properties.get(*col_idx) {
-                Some(PropValue::Str(s)) => s.clone(),
+            .iter_mut()
+            .map(|f| match f.properties.get_mut(*col_idx) {
+                Some(PropValue::Str(s)) => s.take(),
                 _ => None,
             })
             .collect();
