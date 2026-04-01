@@ -7,7 +7,7 @@ use crate::v01::{
 
 /// Global encoder settings
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
-#[expect(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools, reason = "enums would not model this better, not a state machine")]
 pub struct EncoderConfig {
     pub tessellate: bool,
     /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
