@@ -6,6 +6,6 @@ mod fuzzing;
 mod model;
 mod owned;
 mod scalars;
-mod strings;
+pub(crate) mod strings;
 
 pub use model::*;

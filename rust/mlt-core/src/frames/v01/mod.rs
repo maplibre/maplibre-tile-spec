@@ -7,7 +7,7 @@ mod id;
 mod iterators;
 mod model;
 mod optimizer;
-mod property;
+pub(crate) mod property;
 mod root;
 pub(crate) mod sort;
 pub(crate) mod stream;

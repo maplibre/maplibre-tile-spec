@@ -115,7 +115,7 @@ impl<'a> ParsedStrings<'a> {
     }
 }
 
-fn decode_shared_dict_range(range: (i32, i32)) -> Option<(u32, u32)> {
+pub(crate) fn decode_shared_dict_range(range: (i32, i32)) -> Option<(u32, u32)> {
     if let (Ok(start), Ok(end)) = (u32::try_from(range.0), u32::try_from(range.1)) {
         Some((start, end))
     } else {
@@ -123,7 +123,7 @@ fn decode_shared_dict_range(range: (i32, i32)) -> Option<(u32, u32)> {
     }
 }
 
-fn shared_dict_spans(lengths: &[u32], dec: &mut Decoder) -> MltResult<Vec<(u32, u32)>> {
+pub(crate) fn shared_dict_spans(lengths: &[u32], dec: &mut Decoder) -> MltResult<Vec<(u32, u32)>> {
     let mut spans = dec.alloc(lengths.len())?;
     let mut offset = 0_u32;
     for &len in lengths {
@@ -134,7 +134,7 @@ fn shared_dict_spans(lengths: &[u32], dec: &mut Decoder) -> MltResult<Vec<(u32, 
     Ok(spans)
 }
 
-fn resolve_dict_spans(
+pub(crate) fn resolve_dict_spans(
     offsets: &[u32],
     presence: Option<&[bool]>,
     dict_spans: &[(u32, u32)],
@@ -603,7 +603,7 @@ fn decode_dictionary_strings<'a>(
     })
 }
 
-fn encode_null_end(end: i32) -> i32 {
+pub(crate) fn encode_null_end(end: i32) -> i32 {
     -end - 1
 }
 
@@ -615,12 +615,12 @@ fn decode_end(end: i32) -> u32 {
     }
 }
 
-fn checked_string_end(current_end: i32, byte_len: usize) -> MltResult<i32> {
+pub(crate) fn checked_string_end(current_end: i32, byte_len: usize) -> MltResult<i32> {
     let byte_len = u32::try_from(byte_len)?;
     checked_absolute_end(current_end, byte_len)
 }
 
-fn checked_absolute_end(current_end: i32, delta: u32) -> MltResult<i32> {
+pub(crate) fn checked_absolute_end(current_end: i32, delta: u32) -> MltResult<i32> {
     let delta = i32::try_from(delta)?;
     current_end.checked_add(delta).or_overflow()
 }

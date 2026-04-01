@@ -1,6 +1,6 @@
 use crate::v01::{EncodedLayer01, StagedLayer01, Tile01Encoder};
 
-/// Owned, pre-encoding variant of [`Layer`] (stage 2 of the encoding pipeline).
+/// Owned, pre-encoding variant of [`crate::Layer`] (stage 2 of the encoding pipeline).
 #[derive(Debug, PartialEq, Clone)]
 #[expect(clippy::large_enum_variant)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
@@ -17,7 +17,7 @@ pub enum EncodedLayer {
     Unknown(EncodedUnknown),
 }
 
-/// Owned variant of [`Unknown`].
+/// Owned variant of `Unknown`.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct EncodedUnknown {
     pub(crate) tag: u8,

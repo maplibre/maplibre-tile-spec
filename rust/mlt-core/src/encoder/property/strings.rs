@@ -11,12 +11,16 @@ use super::model::{
 use crate::MltError::{DictIndexOutOfBounds, NotImplemented};
 use crate::encoder::stream::{FsstStrEncoder, IntEncoder};
 use crate::errors::AsMltError as _;
+use crate::frames::v01::property::strings::{
+    checked_string_end, decode_shared_dict_range, encode_null_end, resolve_dict_spans,
+    shared_dict_spans,
+};
 use crate::utils::AsUsize as _;
 use crate::v01::{
     ColumnType, DictionaryType, EncodedStream, LengthType, OffsetType, ParsedSharedDict,
     ParsedSharedDictItem, RawSharedDictItem, StreamType,
 };
-use crate::{Decoder, MltError, MltResult};
+use crate::{Decoder, MltResult};
 
 impl StrEncoder {
     #[must_use]
