@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use anyhow::{Context as _, Result as AnyResult, bail};
 use clap::Args;
 use mlt_core::mvt::mvt_to_tile_layers;
-use mlt_core::v01::{EncoderSettings, Tile01Encoder};
+use mlt_core::v01::{EncoderConfig, Tile01Encoder};
 use mlt_core::{Decoder, EncodedLayer, Layer, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 
@@ -38,7 +38,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         args.input.parent().unwrap_or(Path::new("."))
     };
 
-    let cfg = EncoderSettings {
+    let cfg = EncoderConfig {
         tessellate: args.tessellate,
         ..Default::default()
     };
@@ -58,7 +58,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     Ok(())
 }
 
-fn convert_file(file: &Path, base: &Path, output: &Path, cfg: EncoderSettings) -> AnyResult<()> {
+fn convert_file(file: &Path, base: &Path, output: &Path, cfg: EncoderConfig) -> AnyResult<()> {
     let rel = file
         .strip_prefix(base)
         .with_context(|| format!("stripping prefix from {}", file.display()))?;
@@ -115,7 +115,7 @@ fn is_convert_extension(path: &Path) -> bool {
 /// Every Tag01 layer is fully decoded to [`TileLayer01`] and then re-encoded
 /// via [`Tile01Encoder::encode_auto`].  Unknown layer tags are passed through
 /// unchanged.
-fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderSettings) -> AnyResult<Vec<u8>> {
+fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let layers = Parser::default().parse_layers(buffer)?;
     let mut dec = Decoder::default();
     let mut out: Vec<u8> = Vec::new();
@@ -138,7 +138,7 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderSettings) -> AnyResult<Vec<u8>>
 ///
 /// Each MVT layer is converted to a [`mlt_core::v01::TileLayer01`] and encoded
 /// via [`Tile01Encoder::encode_auto`].
-fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderSettings) -> AnyResult<Vec<u8>> {
+fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();
     for tile in &mvt_to_tile_layers(buffer)? {
         let (encoded, _) = Tile01Encoder::encode_auto(tile, cfg)?;

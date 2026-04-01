@@ -4,7 +4,7 @@ use geo_types::{LineString, Point, Polygon, point, wkt};
 use mlt_core::__private::{assert_empty, dec, parser};
 use mlt_core::geojson::{Coord32, Geom32};
 use mlt_core::v01::{
-    DictionaryType, EncodedGeometry, EncoderSettings, GeometryEncoder, GeometryValues, IntEncoder,
+    DictionaryType, EncodedGeometry, EncoderConfig, GeometryEncoder, GeometryValues, IntEncoder,
     LengthType, OffsetType, RawGeometry, StreamType, VertexBufferType,
 };
 use pretty_assertions::assert_eq;
@@ -18,7 +18,7 @@ use rstest::rstest;
 fn automatic_optimization_roundtrip(#[case] decoded: GeometryValues) {
     let (encoded, _) = decoded
         .clone()
-        .encode_auto(EncoderSettings::default())
+        .encode_auto(EncoderConfig::default())
         .expect("optimize failed");
     assert_geometry_roundtrip(&encoded, &decoded);
 }
@@ -43,7 +43,7 @@ fn automatic_optimization_picks_correct_vertex_strategy(
     };
 
     let (encoded, _) = decoded
-        .encode_auto(EncoderSettings::default())
+        .encode_auto(EncoderConfig::default())
         .expect("encode failed");
     let types = encoded_stream_types(&encoded);
 
@@ -61,7 +61,7 @@ fn automatic_optimization_picks_correct_vertex_strategy(
 fn encoded_output_always_has_meta_stream() {
     let decoded = push_geoms(&[Geom32::Point(Point(Coord32 { x: 1, y: 1 }))]);
     let (encoded, _) = decoded
-        .encode_auto(EncoderSettings::default())
+        .encode_auto(EncoderConfig::default())
         .expect("encode failed");
 
     assert_eq!(
@@ -79,7 +79,7 @@ fn encoded_polygon_has_topology_streams() {
         .collect();
     let decoded = push_geoms(&[Geom32::Polygon(Polygon::new(LineString(coords), vec![]))]);
     let (encoded, _) = decoded
-        .encode_auto(EncoderSettings::default())
+        .encode_auto(EncoderConfig::default())
         .expect("encode failed");
 
     let stream_types = encoded_stream_types(&encoded);
@@ -96,7 +96,7 @@ fn encoded_repeated_points_uses_morton_streams() {
     let mut decoded = GeometryValues::default();
     decoded.push_geom(&wkt!(MULTIPOINT(5 5, 5 5, 5 5)).into());
     let (encoded, _) = decoded
-        .encode_auto(EncoderSettings::default())
+        .encode_auto(EncoderConfig::default())
         .expect("encode failed");
 
     let stream_types = encoded_stream_types(&encoded);

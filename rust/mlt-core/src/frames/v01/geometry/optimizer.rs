@@ -4,7 +4,7 @@ use crate::MltResult;
 use crate::codecs::morton::z_order_params;
 use crate::v01::encode::encode_geometry;
 use crate::v01::{
-    DictionaryType, EncodedGeometry, EncoderSettings, GeometryEncoder, GeometryValues, IntEncoder,
+    DictionaryType, EncodedGeometry, EncoderConfig, GeometryEncoder, GeometryValues, IntEncoder,
     LengthType, OffsetType, StreamType, VertexBufferType,
 };
 
@@ -141,10 +141,7 @@ impl GeometryValues {
     }
 
     /// Automatically select the best encoder and encode, consuming `self`.
-    pub fn encode_auto(
-        self,
-        _cfg: EncoderSettings,
-    ) -> MltResult<(EncodedGeometry, GeometryEncoder)> {
+    pub fn encode_auto(self, _cfg: EncoderConfig) -> MltResult<(EncodedGeometry, GeometryEncoder)> {
         let enc = optimize(&self)?;
         let encoded = EncodedGeometry::encode(&self, enc)?;
         Ok((encoded, enc))

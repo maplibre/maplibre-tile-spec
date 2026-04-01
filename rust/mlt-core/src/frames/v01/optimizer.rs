@@ -8,7 +8,7 @@ use crate::v01::{
 /// Global encoder settings
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 #[expect(clippy::struct_excessive_bools)]
-pub struct EncoderSettings {
+pub struct EncoderConfig {
     pub tessellate: bool,
     /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
     pub try_spatial_morton_sort: bool,
@@ -22,7 +22,7 @@ pub struct EncoderSettings {
     pub allow_fpf: bool,
 }
 
-impl Default for EncoderSettings {
+impl Default for EncoderConfig {
     fn default() -> Self {
         Self {
             tessellate: false,
@@ -69,7 +69,7 @@ impl StagedLayer01 {
     /// [`Tile01Encoder::encode_auto`] instead when sort optimization is also desired.
     pub fn encode_auto(
         self,
-        cfg: EncoderSettings,
+        cfg: EncoderConfig,
     ) -> MltResult<(EncodedLayer01, StagedLayer01Encoder)> {
         let (geometry, geom_enc) = self.geometry.encode_auto(cfg)?;
         let (id, id_enc) = match self.id {
@@ -164,7 +164,7 @@ impl Tile01Encoder {
     /// competitive trialing.
     pub fn encode_auto(
         tile: &TileLayer01,
-        cfg: EncoderSettings,
+        cfg: EncoderConfig,
     ) -> MltResult<(EncodedLayer01, Self)> {
         Self::encode_with(
             tile,
@@ -180,7 +180,7 @@ impl Tile01Encoder {
     fn encode_with(
         tile: &TileLayer01,
         sort_by: &[SortStrategy],
-        cfg: EncoderSettings,
+        cfg: EncoderConfig,
     ) -> MltResult<(EncodedLayer01, Self)> {
         struct TrialResult {
             layer: EncodedLayer01,

@@ -1,6 +1,6 @@
 use crate::MltResult;
 use crate::v01::{
-    DataProfile, EncodedId, EncoderSettings, IdEncoder, IdValues, IdWidth, IntEncoder,
+    DataProfile, EncodedId, EncoderConfig, IdEncoder, IdValues, IdWidth, IntEncoder,
     LogicalEncoder, PhysicalEncoder,
 };
 
@@ -143,7 +143,7 @@ impl IdValues {
 
     /// Automatically select the best encoder and encode, consuming `self`.
     /// Returns `(None, None)` when the ID list is empty or every value is `None`.
-    pub fn encode_auto(self, _cfg: EncoderSettings) -> MltResult<Option<(EncodedId, IdEncoder)>> {
+    pub fn encode_auto(self, _cfg: EncoderConfig) -> MltResult<Option<(EncodedId, IdEncoder)>> {
         let ids = &self.0;
 
         let Some(stat) = calc_sequence_stats(ids) else {

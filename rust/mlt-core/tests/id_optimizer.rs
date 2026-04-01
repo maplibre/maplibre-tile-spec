@@ -2,7 +2,7 @@ use geo_types::Point;
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, into_layer01, parser};
 use mlt_core::v01::{
-    EncoderSettings, GeometryEncoder, GeometryValues, IdEncoder, IdValues, IdWidth, IntEncoder,
+    EncoderConfig, GeometryEncoder, GeometryValues, IdEncoder, IdValues, IdWidth, IntEncoder,
     LogicalEncoder, StagedLayer01, StagedLayer01Encoder,
 };
 use mlt_core::{EncodedLayer, Layer};
@@ -62,7 +62,7 @@ fn id_roundtrip_auto(decoded: &IdValues) -> IdValues {
         properties: vec![],
     };
     let (encoded, _) = staged
-        .encode_auto(EncoderSettings::default())
+        .encode_auto(EncoderConfig::default())
         .expect("encode_auto failed");
     let mut buf = Vec::new();
     EncodedLayer::Tag01(encoded)
@@ -134,7 +134,7 @@ fn create_constant_ids() -> IdValues {
 )]
 fn test_automatic_optimization_selection(#[case] input: IdValues, #[case] expected: IdEncoder) {
     let is_skipped = input.0.is_empty() || input.0.iter().all(Option::is_none);
-    let result = input.encode_auto(EncoderSettings::default()).unwrap();
+    let result = input.encode_auto(EncoderConfig::default()).unwrap();
     let enc = result.map(|(_, enc)| enc);
     assert_eq!(enc, if is_skipped { None } else { Some(expected) });
 }
@@ -144,7 +144,7 @@ fn test_automatic_optimization_roundtrip_empty() {
     let decoded = IdValues(vec![]);
     let result = decoded
         .clone()
-        .encode_auto(EncoderSettings::default())
+        .encode_auto(EncoderConfig::default())
         .unwrap();
     assert!(result.is_none(), "empty ID list should produce None");
 }
