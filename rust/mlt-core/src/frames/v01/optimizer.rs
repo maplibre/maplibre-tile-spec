@@ -20,6 +20,8 @@ pub struct EncoderConfig {
     pub allow_fsst: bool,
     /// Allow `FastPFOR` integer compression
     pub allow_fpf: bool,
+    /// Allow string grouping into shared dictionaries
+    pub allow_shared_dict: bool,
 }
 
 impl Default for EncoderConfig {
@@ -106,13 +108,6 @@ impl StagedLayer01 {
 /// bounding-box pruning heuristic.
 const SORT_TRIAL_THRESHOLD: usize = 512;
 
-/// Candidate sort strategies evaluated during automatic competitive trialing.
-const TRIAL_STRATEGIES: [SortStrategy; 3] = [
-    SortStrategy::Unsorted,
-    SortStrategy::SpatialMorton,
-    SortStrategy::Id,
-];
-
 /// Stream-level encoder configuration for a v01 layer.
 ///
 /// Produced by any of the three optimization paths (manual, automatic, or profile-driven)
@@ -166,15 +161,16 @@ impl Tile01Encoder {
         tile: &TileLayer01,
         cfg: EncoderConfig,
     ) -> MltResult<(EncodedLayer01, Self)> {
-        Self::encode_with(
-            tile,
+        let mut sort_by = vec![SortStrategy::Unsorted];
+        if cfg.try_spatial_morton_sort {
             if tile.features.len() < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(tile) {
-                &TRIAL_STRATEGIES
-            } else {
-                &[SortStrategy::Unsorted, SortStrategy::Id]
-            },
-            cfg,
-        )
+                sort_by.push(SortStrategy::SpatialMorton);
+            }
+        }
+        if cfg.try_id_sort {
+            sort_by.push(SortStrategy::Id);
+        }
+        Self::encode_with(tile, &sort_by, cfg)
     }
 
     fn encode_with(
@@ -189,10 +185,14 @@ impl Tile01Encoder {
             strategy: SortStrategy,
         }
 
-        // String properties grouping should be the same regardless of the feature order
-        let str_groups = group_string_properties(tile);
-        let mut best: Option<TrialResult> = None;
+        let str_groups = if cfg.allow_shared_dict {
+            // String properties grouping should be the same regardless of the feature order
+            group_string_properties(tile)
+        } else {
+            Vec::new()
+        };
 
+        let mut best: Option<TrialResult> = None;
         for &strategy in sort_by {
             let mut tile = tile.clone();
             reorder_features(&mut tile, strategy);
