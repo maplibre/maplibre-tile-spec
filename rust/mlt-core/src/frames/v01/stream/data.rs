@@ -1,19 +1,7 @@
 use std::fmt;
-use std::io::Write;
 
-use super::{RawStream, RawStreamData};
-use crate::encoder::{EncodedStream, EncodedStreamData};
+use super::RawStreamData;
 use crate::utils::formatter::fmt_byte_array;
-
-impl EncodedStream {
-    #[must_use]
-    pub fn as_borrowed(&self) -> RawStream<'_> {
-        RawStream {
-            meta: self.meta,
-            data: self.data.as_borrowed(),
-        }
-    }
-}
 
 impl RawStreamData<'_> {
     #[must_use]
@@ -23,35 +11,10 @@ impl RawStreamData<'_> {
         }
     }
 }
-
-impl EncodedStreamData {
-    #[must_use]
-    pub fn as_borrowed(&self) -> RawStreamData<'_> {
-        match self {
-            Self::VarInt(data) => RawStreamData::VarInt(data),
-            Self::Encoded(data) => RawStreamData::Encoded(data),
-        }
-    }
-
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        match self {
-            Self::VarInt(d) | Self::Encoded(d) => writer.write_all(d),
-        }
-    }
-}
-
 impl fmt::Debug for RawStreamData<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RawStreamData::VarInt(d) | RawStreamData::Encoded(d) => fmt_byte_array(d, f),
-        }
-    }
-}
-
-impl fmt::Debug for EncodedStreamData {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::VarInt(d) | Self::Encoded(d) => fmt_byte_array(d, f),
         }
     }
 }

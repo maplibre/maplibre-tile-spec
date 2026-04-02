@@ -1,3 +1,7 @@
+use std::fmt;
+use std::io::Write;
+
+use crate::utils::formatter::fmt_byte_array;
 use crate::v01::StreamMeta;
 
 /// Owned variant of [`RawStream`](crate::v01::RawStream).
@@ -11,4 +15,18 @@ pub struct EncodedStream {
 pub enum EncodedStreamData {
     VarInt(Vec<u8>),
     Encoded(Vec<u8>),
+}
+impl EncodedStreamData {
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        match self {
+            Self::VarInt(d) | Self::Encoded(d) => writer.write_all(d),
+        }
+    }
+}
+impl fmt::Debug for EncodedStreamData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::VarInt(d) | Self::Encoded(d) => fmt_byte_array(d, f),
+        }
+    }
 }
