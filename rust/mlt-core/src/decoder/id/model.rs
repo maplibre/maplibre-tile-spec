@@ -23,5 +23,4 @@ pub enum RawIdValue<'a> {
 
 /// Parsed ID values as a vector of optional 64-bit unsigned integers
 #[derive(Clone, Default, PartialEq, Eq)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct IdValues(pub Vec<Option<u64>>);

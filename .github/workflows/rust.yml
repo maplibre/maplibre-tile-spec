@@ -78,17 +78,16 @@ jobs:
       - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
       - if: matrix.target == 'layer'
         run: just -v rust::fuzz-seed ${{ matrix.target }}
-      # FIXME: OOM Errors
-      #- run: just -v rust::ci-fuzz-run ${{ matrix.target }}
-      #- name: Generate fuzz coverage
-      #  if: github.repository_owner == 'maplibre'
-      #  run: just -v rust::ci-fuzz-cov ${{ matrix.target }}
-      #- name: Upload fuzz coverage artifact
-      #  if: github.repository_owner == 'maplibre'
-      #  uses: actions/upload-artifact@v7
-      #  with:
-      #    name: fuzz-coverage-${{ matrix.target }}
-      #    path: rust/target/llvm-cov/fuzz-${{ matrix.target }}.lcov
+      - run: just -v rust::ci-fuzz-run ${{ matrix.target }}
+      - name: Generate fuzz coverage
+        if: github.repository_owner == 'maplibre'
+        run: just -v rust::ci-fuzz-cov ${{ matrix.target }}
+      - name: Upload fuzz coverage artifact
+        if: github.repository_owner == 'maplibre'
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-coverage-${{ matrix.target }}
+          path: rust/target/llvm-cov/fuzz-${{ matrix.target }}.lcov
 
   #  MSRV Testing is not really needed at this stage of code completeness
   #  test-msrv:

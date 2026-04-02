@@ -114,7 +114,7 @@ ci-test-msrv: ci-env-info
 ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linux-gnu')
 
 # Fuzz the target for 90 seconds (installs `cargo fuzz`)
-ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '--max_len=300')
+ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '-max_len=300' '-rss_limit_mb=2048')
 
 # Run coverage against a previously generated corpus and export LCOV for Codecov upload.
 # Output: target/llvm-cov/fuzz-<target>.lcov
