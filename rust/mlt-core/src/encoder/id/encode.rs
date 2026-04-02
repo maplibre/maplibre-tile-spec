@@ -2,7 +2,7 @@ use super::model::{EncodedId, EncodedIdValue, IdWidth};
 use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::rle::encode_byte_rle;
-use crate::encoder::stream::{IntEncoder, PhysicalEncoder};
+use crate::encoder::stream::IntEncoder;
 use crate::v01::{
     EncodedStream, EncodedStreamData, IdValues, IntEncoding, LogicalEncoder, LogicalEncoding,
     PhysicalEncoding, RleMeta, StreamMeta, StreamType,
@@ -12,7 +12,7 @@ use crate::v01::{
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct IdEncoder {
-    pub logical: LogicalEncoder,
+    pub int_encoder: IntEncoder,
     pub id_width: IdWidth,
     #[cfg(feature = "__private")]
     forced_presence: bool,
@@ -22,7 +22,17 @@ impl IdEncoder {
     #[must_use]
     pub fn new(logical: LogicalEncoder, id_width: IdWidth) -> Self {
         Self {
-            logical,
+            int_encoder: IntEncoder::varint_with(logical),
+            id_width,
+            #[cfg(feature = "__private")]
+            forced_presence: false,
+        }
+    }
+
+    #[must_use]
+    pub fn with_int_encoder(int_encoder: IntEncoder, id_width: IdWidth) -> Self {
+        Self {
+            int_encoder,
             id_width,
             #[cfg(feature = "__private")]
             forced_presence: false,
@@ -85,13 +95,13 @@ impl EncodedId {
                 .collect();
             EncodedIdValue::Id32(EncodedStream::encode_u32s(
                 &vals,
-                IntEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
+                encoder.int_encoder,
             )?)
         } else {
             let vals: Vec<u64> = value.0.iter().filter_map(|&id| id).collect();
             EncodedIdValue::Id64(EncodedStream::encode_u64s(
                 &vals,
-                IntEncoder::new(encoder.logical, PhysicalEncoder::VarInt),
+                encoder.int_encoder,
             )?)
         };
 
