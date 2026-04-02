@@ -52,6 +52,10 @@ impl IntEncoder {
     pub fn varint() -> Self {
         Self::new(LogicalEncoder::None, PhysicalEncoder::VarInt)
     }
+    #[must_use]
+    pub fn varint_with(logical: LogicalEncoder) -> Self {
+        Self::new(logical, PhysicalEncoder::VarInt)
+    }
 
     /// Automatically select the best encoder for a `u32` stream.
     ///

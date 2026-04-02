@@ -177,3 +177,26 @@ fn test_manual_optimization_truncation() {
     // `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
     assert_eq!(decoded_back.0[0], Some(41));
 }
+
+#[test]
+fn test_manual_fastpfor_roundtrip() {
+    let ids = IdValues((0u64..200).map(|i| Some(i * 7 + 3)).collect());
+    let enc = IdEncoder::with_int_encoder(IntEncoder::fastpfor(), IdWidth::Id32);
+    let decoded_back = id_roundtrip_via_layer(&ids, enc);
+    assert_eq!(decoded_back, ids);
+}
+
+#[test]
+fn test_auto_selects_fastpfor_for_large_u32_ids() {
+    let ids = IdValues((0u64..1000).map(|i| Some(i * 13 + 5)).collect());
+    let (_, enc) = ids.encode_auto(EncoderConfig::default()).unwrap().unwrap();
+    assert_eq!(enc.int_encoder, IntEncoder::delta_fastpfor());
+}
+
+#[test]
+fn test_auto_keeps_varint_for_u64_ids() {
+    let base = u64::from(u32::MAX) + 1;
+    let ids = IdValues((0u64..1000).map(|i| Some(base + i * 13)).collect());
+    let (_, enc) = ids.encode_auto(EncoderConfig::default()).unwrap().unwrap();
+    assert_eq!(enc.int_encoder, IntEncoder::delta_varint());
+}

@@ -1,7 +1,7 @@
 use super::encode::IdEncoder;
 use super::model::{EncodedId, IdWidth};
 use crate::MltResult;
-use crate::encoder::stream::{DataProfile, IntEncoder, PhysicalEncoder};
+use crate::encoder::stream::{DataProfile, IntEncoder};
 use crate::v01::{EncoderConfig, IdValues, LogicalEncoder};
 
 struct SequenceStats {
@@ -62,7 +62,7 @@ fn calc_sequence_stats(ids: &[Option<u64>]) -> Option<SequenceStats> {
     })
 }
 
-/// Run [`DataProfile::prune_candidates`] and filter the result to VarInt-only.
+/// Run [`DataProfile::prune_candidates`] for the given ID width.
 fn pruned_candidates(ids: &[Option<u64>], id_width: IdWidth) -> Vec<IntEncoder> {
     match id_width {
         IdWidth::Id32 | IdWidth::OptId32 => {
@@ -71,22 +71,18 @@ fn pruned_candidates(ids: &[Option<u64>], id_width: IdWidth) -> Vec<IntEncoder> 
                 reason = "width was deduced as ≤ u32::MAX so truncation is safe"
             )]
             let vals: Vec<u32> = ids.iter().flatten().map(|&v| v as u32).collect();
-            filter_varint(&DataProfile::prune_candidates::<i32>(&vals))
+            DataProfile::prune_candidates::<i32>(&vals)
         }
         IdWidth::Id64 | IdWidth::OptId64 => {
             let vals: Vec<u64> = ids.iter().flatten().copied().collect();
-            filter_varint(&DataProfile::prune_candidates::<i64>(&vals))
+            DataProfile::prune_candidates::<i64>(&vals)
         }
     }
 }
 
-/// Run trial encodings over `candidates` and return the [`LogicalEncoder`] that
+/// Run trial encodings over `candidates` and return the [`IntEncoder`] that
 /// produces the smallest output for `ids`.
-fn compete_with(
-    ids: &[Option<u64>],
-    id_width: IdWidth,
-    candidates: &[IntEncoder],
-) -> LogicalEncoder {
+fn compete_with(ids: &[Option<u64>], id_width: IdWidth, candidates: &[IntEncoder]) -> IntEncoder {
     let candidates = if candidates.is_empty() {
         &[IntEncoder::varint()][..]
     } else {
@@ -100,27 +96,12 @@ fn compete_with(
                 reason = "width was deduced as ≤ u32::MAX so truncation is safe"
             )]
             let vals: Vec<u32> = ids.iter().flatten().map(|&v| v as u32).collect();
-            DataProfile::compete_u32(candidates, &vals).logical
+            DataProfile::compete_u32(candidates, &vals)
         }
         IdWidth::Id64 | IdWidth::OptId64 => {
             let vals: Vec<u64> = ids.iter().flatten().copied().collect();
-            DataProfile::compete_u64(candidates, &vals).logical
+            DataProfile::compete_u64(candidates, &vals)
         }
-    }
-}
-
-/// Retain only candidates whose physical encoder is [`PhysicalEncoder::VarInt`],
-/// falling back to a single plain `VarInt` if the result would be empty.
-fn filter_varint(candidates: &[IntEncoder]) -> Vec<IntEncoder> {
-    let filtered: Vec<IntEncoder> = candidates
-        .iter()
-        .copied()
-        .filter(|enc| enc.physical == PhysicalEncoder::VarInt)
-        .collect();
-    if filtered.is_empty() {
-        vec![IntEncoder::varint()]
-    } else {
-        filtered
     }
 }
 
@@ -158,8 +139,8 @@ impl IdValues {
             IdEncoder::new(LogicalEncoder::Rle, stat.id_width)
         } else {
             let candidates = pruned_candidates(ids, stat.id_width);
-            let logical = compete_with(ids, stat.id_width, &candidates);
-            IdEncoder::new(logical, stat.id_width)
+            let winner = compete_with(ids, stat.id_width, &candidates);
+            IdEncoder::with_int_encoder(winner, stat.id_width)
         };
 
         let encoded = EncodedId::encode(&self, enc)?;

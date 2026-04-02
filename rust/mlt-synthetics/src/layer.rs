@@ -1,5 +1,3 @@
-#![expect(dead_code)]
-
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::Path;
@@ -29,11 +27,6 @@ pub fn geo_varint_with_rle() -> Layer {
 /// Create a layer with all geometry encoders set to `FastPFOR`.
 pub fn geo_fastpfor() -> Layer {
     Layer::new(IntEncoder::fastpfor())
-}
-
-/// Create a layer with a custom default geometry encoder.
-pub fn geo(encoder: IntEncoder) -> Layer {
-    Layer::new(encoder)
 }
 
 /// Layer builder: holds geometry encoder, geometry list, properties, extent, and IDs.
@@ -88,24 +81,10 @@ impl Layer {
         self
     }
 
-    /// Set encoding for the vertex data stream.
-    #[must_use]
-    pub fn vertex(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.vertex(e);
-        self
-    }
-
     /// Set encoding for the geometry types (meta) stream.
     #[must_use]
     pub fn meta(mut self, e: IntEncoder) -> Self {
         self.geometry_encoder.meta(e);
-        self
-    }
-
-    /// Set encoding for the geometry length stream.
-    #[must_use]
-    pub fn geometries(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.geometries(e);
         self
     }
 
@@ -116,32 +95,10 @@ impl Layer {
         self
     }
 
-    /// Set encoding for parts length stream (with rings) when `geometry_offsets` absent.
-    #[must_use]
-    pub fn parts(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.parts(e);
-        self
-    }
-
     /// Set encoding for ring lengths when `geometry_offsets` absent.
     #[must_use]
     pub fn parts_ring(mut self, e: IntEncoder) -> Self {
         self.geometry_encoder.parts_ring(e);
-        self
-    }
-
-    /// Set encoding for parts-only stream.
-    #[must_use]
-    pub fn only_parts(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.only_parts(e);
-        self
-    }
-
-    /// Set encoding for triangles and triangle index buffer.
-    #[must_use]
-    pub fn triangles(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.triangles(e);
-        self.geometry_encoder.triangles_indexes(e);
         self
     }
 
