@@ -3,8 +3,8 @@
 use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Polygon};
 
+use crate::decoder::{GeometryType, GeometryValues};
 use crate::geojson::{Coord32, Geom32};
-use crate::v01::{GeometryType, GeometryValues};
 
 impl TryFrom<&Geom32> for GeometryType {
     type Error = ();
@@ -335,13 +335,13 @@ mod tests {
 
     use super::*;
     use crate::LazyParsed;
-    use crate::encoder::{EncodedGeometry, EncodedStream, GeometryEncoder, IntEncoder};
-    use crate::geojson::Coord32;
-    use crate::test_helpers::{assert_empty, dec, parser};
-    use crate::v01::{
+    use crate::decoder::{
         DictionaryType, IntEncoding, LengthType, LogicalEncoding, MortonMeta, OffsetType,
         RawGeometry, StreamMeta, StreamType,
     };
+    use crate::encoder::{EncodedGeometry, EncodedStream, GeometryEncoder, IntEncoder};
+    use crate::geojson::Coord32;
+    use crate::test_helpers::{assert_empty, dec, parser};
 
     /// Encode, serialize, parse, and decode a `GeometryValues`.
     /// The input must already be in the dense canonical form that `from_encoded`
@@ -675,8 +675,8 @@ mod tests {
 mod tessellation_tests {
     use geo_types::{LineString, MultiPolygon, Polygon};
 
+    use crate::decoder::GeometryValues;
     use crate::geojson::Geom32;
-    use crate::v01::GeometryValues;
 
     #[test]
     fn earcut_closing_vertex_index_remap() {

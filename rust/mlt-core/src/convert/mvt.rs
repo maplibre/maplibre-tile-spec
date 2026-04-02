@@ -9,8 +9,8 @@ use mvt_reader::Reader;
 use mvt_reader::feature::{Feature as MvtFeature, Value as MvtValue};
 use serde_json::{Number, Value};
 
+use crate::decoder::{PropValue, TileFeature, TileLayer01};
 use crate::geojson::{Coord32, Feature, FeatureCollection, Geom32};
-use crate::v01::{PropValue, TileFeature, TileLayer01};
 use crate::{MltError, MltResult};
 
 // ── Common MVT parsing ────────────────────────────────────────────────────────

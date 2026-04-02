@@ -3,8 +3,10 @@ use std::num::TryFromIntError;
 
 use num_enum::TryFromPrimitiveError;
 
+use crate::decoder::{
+    GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType,
+};
 use crate::utils::AsUsize;
-use crate::v01::{GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType};
 
 pub type MltResult<T> = Result<T, MltError>;
 pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;

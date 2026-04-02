@@ -7,8 +7,8 @@
 
 use crate::codecs::hilbert::{hilbert_curve_params, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
+use crate::decoder::{TileFeature, TileLayer01};
 use crate::geojson::Geom32;
-use crate::v01::{TileFeature, TileLayer01};
 
 /// Controls how features inside a layer are reordered before encoding.
 ///
@@ -220,10 +220,10 @@ mod tests {
 
     use super::*;
     use crate::LazyParsed;
+    use crate::decoder::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer01};
     use crate::encoder::{GeometryEncoder, IntEncoder};
     use crate::geojson::Geom32;
     use crate::test_helpers::{assert_empty, dec, parser};
-    use crate::v01::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer01};
 
     // ── geometry test helpers ──────────────────────────────────────────────────
 

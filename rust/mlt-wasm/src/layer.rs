@@ -1,4 +1,4 @@
-use mlt_core::v01::{GeometryValues, TileLayer01};
+use mlt_core::{GeometryValues, TileLayer01};
 
 /// All per-layer state owned by [`crate::tile::MltTile`].
 ///

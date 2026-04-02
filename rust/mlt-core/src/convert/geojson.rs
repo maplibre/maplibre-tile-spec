@@ -7,8 +7,7 @@ use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 
-use crate::frames::Layer;
-use crate::v01::PropValueRef;
+use crate::decoder::{Layer, PropValueRef};
 use crate::{MltResult, ParsedLayer};
 
 /// `GeoJSON` geometry with `i32` tile coordinates

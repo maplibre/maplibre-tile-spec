@@ -12,10 +12,10 @@
 
 use std::collections::HashMap;
 
+use crate::decoder::{GeometryValues, IdValues, PropValue, TileFeature, TileLayer01};
 use crate::encoder::{
     StagedLayer01, StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, StringGroup,
 };
-use crate::v01::{GeometryValues, IdValues, PropValue, TileFeature, TileLayer01};
 
 impl StagedLayer01 {
     /// Construct a [`StagedLayer01`] from a row-oriented [`TileLayer01`], applying
@@ -137,10 +137,10 @@ mod tests {
     use geo_types::Point;
 
     use super::*;
+    use crate::decoder::GeometryValues;
     use crate::encoder::optimizer::EncoderConfig;
     use crate::geojson::Geom32;
     use crate::test_helpers::{dec, parser};
-    use crate::v01::GeometryValues;
     use crate::{EncodedLayer, Layer};
 
     fn layer_tile(staged: StagedLayer01) -> TileLayer01 {

@@ -2,8 +2,7 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::__private::{dec, parser};
-use mlt_core::v01::LogicalEncoder;
-use mlt_core::{Layer, StagedLayer};
+use mlt_core::{Layer, LogicalEncoder, StagedLayer};
 use strum::IntoEnumIterator as _;
 
 #[path = "bench_utils.rs"]

@@ -1,9 +1,9 @@
+use crate::decoder::TileLayer01;
 use crate::encoder::{
     EncodeProperties as _, EncodedLayer01, GeometryEncoder, IdEncoder, IntEncoder, LayerEncoder,
     PropertyEncoder, SortStrategy, StagedLayer01, StringGroup, group_string_properties,
     reorder_features, spatial_sort_likely_to_help,
 };
-use crate::v01::TileLayer01;
 use crate::{EncodedLayer, MltError, MltResult, StagedLayer};
 
 impl StagedLayer {
@@ -27,7 +27,7 @@ impl StagedLayer {
     ///
     /// Sort strategy is [`SortStrategy::Unsorted`] in the returned encoder because sorting must
     /// happen before staging. Use [`Tile01Encoder::encode_auto`] for full
-    /// sort + stream trialing on a [`crate::v01::TileLayer01`].
+    /// sort + stream trialing on a [`crate::TileLayer01`].
     pub fn encode_auto(self, cfg: EncoderConfig) -> MltResult<(EncodedLayer, LayerEncoder)> {
         match self {
             Self::Tag01(t) => {

@@ -5,8 +5,7 @@ use mlt_core::encoder::{
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, into_layer01, parser};
-use mlt_core::v01::{GeometryValues, IdValues, LogicalEncoder};
-use mlt_core::{EncodedLayer, Layer};
+use mlt_core::{EncodedLayer, GeometryValues, IdValues, Layer, LogicalEncoder};
 use rstest::rstest;
 
 /// Round-trip `IdValues` via full layer bytes (no encoded→decoded converter).

@@ -3,14 +3,13 @@ use std::io;
 use std::path::Path;
 
 use geo_types::Coord;
-use mlt_core::EncodedLayer;
 use mlt_core::encoder::{
     GeometryEncoder, IdEncoder, IntEncoder, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
     SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty, StagedSharedDict,
     StrEncoder, TessellationMode, VertexBufferType,
 };
 use mlt_core::geojson::Geom32;
-use mlt_core::v01::{GeometryValues, IdValues};
+use mlt_core::{EncodedLayer, GeometryValues, IdValues};
 
 use crate::writer::{SynthErr, SynthResult};
 

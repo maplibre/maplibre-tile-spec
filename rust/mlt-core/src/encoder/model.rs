@@ -1,6 +1,6 @@
+use crate::decoder::{GeometryValues, IdValues};
 use crate::encoder::optimizer::Tile01Encoder;
 use crate::encoder::{EncodedGeometry, EncodedId, EncodedProperty, StagedProperty};
-use crate::v01::{GeometryValues, IdValues};
 
 /// Owned, pre-encoding variant of [`crate::Layer`] (stage 2 of the encoding pipeline).
 #[derive(Debug, PartialEq, Clone)]
@@ -35,7 +35,7 @@ pub enum LayerEncoder {
 /// Columnar layer data being prepared for encoding (stage 2 of the encoding pipeline).
 ///
 /// Holds fully-owned columnar data. Constructed directly (synthetics, benches) or
-/// converted from [`TileLayer01`](crate::v01::TileLayer01).
+/// converted from [`TileLayer01`](crate::TileLayer01).
 /// Consumed by encoding to produce [`EncodedLayer01`].
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
@@ -59,5 +59,5 @@ pub struct EncodedLayer01 {
     pub(crate) geometry: EncodedGeometry,
     pub(crate) properties: Vec<EncodedProperty>,
     #[cfg(fuzzing)]
-    pub(crate) layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering>,
+    pub(crate) layer_order: Vec<crate::decoder::fuzzing::LayerOrdering>,
 }

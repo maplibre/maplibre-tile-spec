@@ -1,13 +1,15 @@
 use geo_types::Point;
 
+#[cfg(fuzzing)]
+use crate::decoder::ColumnType;
+use crate::decoder::GeometryValues;
 use crate::geojson::{Coord32, Geom32};
-use crate::v01::GeometryValues;
 #[allow(
     unused_imports,
     clippy::wildcard_imports,
     reason = "not worth for fuzzing"
 )]
-use crate::v01::*;
+use crate::*;
 
 #[cfg(fuzzing)]
 /// To make sure we serialize out in the same order as the original file, we need to store the order in which we parsed the columns
@@ -22,7 +24,7 @@ pub enum LayerOrdering {
 #[cfg(fuzzing)]
 impl From<ColumnType> for LayerOrdering {
     fn from(typ: ColumnType) -> Self {
-        use crate::frames::v01::model::ColumnType::*;
+        use ColumnType::*;
         match typ {
             OptId | Id | LongId | OptLongId => Self::Id,
             Bool | OptBool | I8 | OptI8 | U8 | OptU8 | I32 | OptI32 | U32 | OptU32 | I64

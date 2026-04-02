@@ -122,8 +122,8 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
+    use crate::decoder::RleMeta;
     use crate::test_helpers::dec;
-    use crate::v01::RleMeta;
 
     proptest! {
         #[test]

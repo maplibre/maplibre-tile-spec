@@ -1,6 +1,6 @@
+use crate::decoder::{IdValues, RawId, RawIdValue};
 use crate::lazy_state::Decode;
 use crate::utils::apply_present;
-use crate::v01::{IdValues, RawId, RawIdValue};
 use crate::{Decoder, MltResult};
 
 impl Decode<IdValues> for RawId<'_> {

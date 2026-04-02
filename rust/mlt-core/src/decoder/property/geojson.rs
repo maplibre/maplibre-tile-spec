@@ -1,4 +1,4 @@
-use crate::v01::ParsedProperty;
+use crate::ParsedProperty;
 
 impl ParsedProperty<'_> {
     #[must_use]

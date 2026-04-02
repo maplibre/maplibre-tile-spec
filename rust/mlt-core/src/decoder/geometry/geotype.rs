@@ -7,9 +7,9 @@ use crate::MltError::{
     NoPartOffsets, NoRingOffsets,
 };
 use crate::MltResult;
+use crate::decoder::{GeometryType, GeometryValues};
 use crate::geojson::{Coord32, Geom32};
 use crate::utils::AsUsize as _;
-use crate::v01::{GeometryType, GeometryValues};
 
 impl GeometryType {
     #[must_use]

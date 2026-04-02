@@ -1,8 +1,8 @@
 use std::io;
 use std::io::Write;
 
+use crate::decoder::Unknown;
 use crate::encoder::model::{EncodedLayer, EncodedUnknown};
-use crate::frames::Unknown;
 
 impl Unknown<'_> {
     /// Write Unknown's binary representation to a Write stream

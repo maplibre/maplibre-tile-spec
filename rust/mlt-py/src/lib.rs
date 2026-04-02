@@ -6,8 +6,9 @@ use std::ops::Deref;
 
 use geo_types::{LineString, Polygon};
 use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::v01::{GeometryType, ParsedLayer01, PropValueRef};
-use mlt_core::{Decoder, Layer, MltError, MltResult, Parser};
+use mlt_core::{
+    Decoder, GeometryType, Layer, MltError, MltResult, ParsedLayer01, Parser, PropValueRef,
+};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
@@ -266,8 +267,7 @@ mod tests {
     use std::f64::consts::PI;
     use std::fs;
 
-    use mlt_core::Decoder;
-    use mlt_core::v01::GeometryValues;
+    use mlt_core::{Decoder, GeometryValues};
 
     use super::*;
 

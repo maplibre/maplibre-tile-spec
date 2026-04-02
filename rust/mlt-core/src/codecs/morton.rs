@@ -1,6 +1,6 @@
 use wide::u32x8;
 
-use crate::v01::MortonMeta;
+use crate::decoder::MortonMeta;
 use crate::{Decoder, MltError, MltResult};
 
 const LANES: usize = 8;

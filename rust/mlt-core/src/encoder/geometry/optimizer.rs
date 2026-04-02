@@ -4,9 +4,9 @@ use super::encode::{GeometryEncoder, encode_geometry};
 use super::model::{EncodedGeometry, VertexBufferType};
 use crate::MltResult;
 use crate::codecs::morton::z_order_params;
+use crate::decoder::{DictionaryType, GeometryValues, LengthType, OffsetType, StreamType};
 use crate::encoder::optimizer::EncoderConfig;
 use crate::encoder::stream::IntEncoder;
-use crate::v01::{DictionaryType, GeometryValues, LengthType, OffsetType, StreamType};
 
 /// If the ratio of unique vertices to total vertices is below this threshold,
 /// Morton dictionary encoding is preferred over Vec2 componentwise-delta.

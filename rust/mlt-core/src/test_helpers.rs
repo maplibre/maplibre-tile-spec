@@ -1,8 +1,8 @@
 //! Shared helpers for unit tests, integration tests, and benchmarks.
 
+use crate::decoder::{Layer01, RawStream};
 use crate::encoder::EncodedStream;
 use crate::utils::BinarySerializer as _;
-use crate::v01::{Layer01, RawStream};
 use crate::{Decoder, Layer, MltRefResult, Parser};
 
 /// Default decoder for decoding in tests.

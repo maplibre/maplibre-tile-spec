@@ -2,8 +2,8 @@ use std::io::Write;
 
 use super::model::{EncodedId, EncodedIdValue};
 use crate::MltResult;
+use crate::decoder::ColumnType;
 use crate::utils::BinarySerializer as _;
-use crate::v01::ColumnType;
 
 impl EncodedId {
     pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> MltResult<()> {

@@ -1,6 +1,5 @@
 use crate::codecs::varint::parse_varint;
-use crate::frames::Unknown;
-use crate::frames::v01::Layer01;
+use crate::decoder::{Layer01, Unknown};
 use crate::utils::{parse_u8, take};
 use crate::{DecodeState, Decoder, Layer, MltError, MltRefResult, MltResult, ParsedLayer, Parser};
 

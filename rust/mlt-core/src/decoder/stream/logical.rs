@@ -11,9 +11,9 @@ use crate::codecs::zigzag::{
     decode_componentwise_delta_vec2s, decode_zigzag, decode_zigzag_delta, encode_zigzag,
     encode_zigzag_delta,
 };
+use crate::decoder::{LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta};
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::AsUsize as _;
-use crate::v01::{LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta};
 use crate::{Decoder, MltResult};
 
 /// RLE-encode a sequence into `[run-lengths | unique-values]` and return the matching `RleMeta`.
@@ -296,8 +296,10 @@ mod tests {
 
     use super::*;
     use crate::MltError::InvalidDecodingStreamSize;
+    use crate::decoder::{
+        DictionaryType, IntEncoding, LogicalEncoding, PhysicalEncoding, StreamType,
+    };
     use crate::test_helpers::dec;
-    use crate::v01::{DictionaryType, IntEncoding, LogicalEncoding, PhysicalEncoding, StreamType};
 
     fn make_meta(logical_encoding: LogicalEncoding, num_values: usize) -> StreamMeta {
         let num_values =

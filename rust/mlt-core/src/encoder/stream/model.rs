@@ -1,10 +1,10 @@
 use std::fmt;
 use std::io::Write;
 
+use crate::decoder::{RawStreamData, StreamMeta};
 use crate::utils::formatter::fmt_byte_array;
-use crate::v01::{RawStreamData, StreamMeta};
 
-/// Owned variant of [`RawStream`](crate::v01::RawStream).
+/// Owned variant of [`RawStream`](crate::RawStream).
 #[derive(Debug, PartialEq, Clone)]
 pub struct EncodedStream {
     pub meta: StreamMeta,

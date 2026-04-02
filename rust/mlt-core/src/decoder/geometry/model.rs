@@ -1,7 +1,7 @@
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
-use crate::v01::RawStream;
+use crate::decoder::RawStream;
 use crate::{DecodeState, Lazy};
 
 /// Geometry column representation, parameterized by decode state.

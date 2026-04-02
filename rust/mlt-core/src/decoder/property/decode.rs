@@ -1,6 +1,6 @@
+use crate::decoder::{ParsedProperty, ParsedScalar, RawPresence, RawProperty};
 use crate::lazy_state::Decode;
 use crate::utils::apply_present;
-use crate::v01::{ParsedPresence, ParsedProperty, ParsedScalar, RawPresence, RawProperty};
 use crate::{Decoder, MltResult};
 
 impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
@@ -19,18 +19,6 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
             name,
             values: apply_present(presence, values, dec)?,
         })
-    }
-}
-
-impl ParsedPresence {
-    #[must_use]
-    pub fn bools(&self, non_null_count: usize) -> Vec<bool> {
-        self.0.clone().unwrap_or_else(|| vec![true; non_null_count])
-    }
-
-    #[must_use]
-    pub fn feature_count(&self, non_null_count: usize) -> usize {
-        self.0.as_ref().map_or(non_null_count, Vec::len)
     }
 }
 

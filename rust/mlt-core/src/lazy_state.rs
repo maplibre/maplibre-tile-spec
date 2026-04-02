@@ -10,7 +10,7 @@ mod sealed {
     pub trait Sealed {}
 }
 
-/// Type-state marker for [`Layer01`](crate::v01::Layer01) and related column wrappers.
+/// Type-state marker for [`Layer01`](crate::Layer01) and related column wrappers.
 ///
 /// Implementors determine how `(Raw, Parsed)` column pairs are stored:
 /// - [`Lazy`] stores an [`LazyParsed<Raw, Parsed>`] enum that can be in `Raw`, `Parsed`, or `ParsingFailed` state.
@@ -21,16 +21,16 @@ pub trait DecodeState: sealed::Sealed {
 
 /// Lazy state: individual columns may still be raw or already decoded.
 ///
-/// This is the default state produced by [`Layer01::from_bytes`](crate::v01::Layer01::from_bytes).
+/// This is the default state produced by [`Layer01::from_bytes`](crate::Layer01::from_bytes).
 /// Columns can be decoded in place (via `decode_id`, `decode_geometry`, etc.) or
-/// all at once by calling [`Layer01::decode_all`](crate::v01::Layer01::decode_all), which
-/// consumes `self` and returns a [`Layer01<Parsed>`](crate::v01::Layer01).
+/// all at once by calling [`Layer01::decode_all`](crate::Layer01::decode_all), which
+/// consumes `self` and returns a [`Layer01<Parsed>`](crate::Layer01).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Lazy;
 
 /// Fully-decoded state: all columns hold their parsed values directly.
 ///
-/// A `Layer01<Parsed>` is produced by [`Layer01::decode_all`](crate::v01::Layer01::decode_all).
+/// A `Layer01<Parsed>` is produced by [`Layer01::decode_all`](crate::Layer01::decode_all).
 /// Its fields (`id`, `geometry`, `properties`) are the parsed types themselves — no
 /// wrapping enum, no `Result`, just plain field access.
 #[derive(Debug, Clone, PartialEq)]
