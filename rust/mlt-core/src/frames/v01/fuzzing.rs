@@ -1,7 +1,5 @@
-use arbitrary::Error::IncorrectFormat;
 use geo_types::Point;
 
-use crate::encoder::{EncodedId, IdEncoder};
 use crate::geojson::{Coord32, Geom32};
 use crate::v01::GeometryValues;
 #[allow(
@@ -59,14 +57,5 @@ impl arbitrary::Arbitrary<'_> for GeometryValues {
             decoded.push_geom(&Geom32::from(geo?));
         }
         Ok(decoded)
-    }
-}
-
-impl arbitrary::Arbitrary<'_> for EncodedId {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        let parsed: IdValues = u.arbitrary()?;
-        let encoder: IdEncoder = u.arbitrary()?;
-        let owned_id = Self::encode(&parsed, encoder).map_err(|_| IncorrectFormat)?;
-        Ok(owned_id)
     }
 }

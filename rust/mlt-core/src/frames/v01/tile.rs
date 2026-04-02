@@ -5,10 +5,6 @@
 //! plain `Vec<PropValue>`.  This is the working form used throughout the
 //! optimizer and sorting pipeline: it is cheap to clone, trivially sortable,
 //! and free from any encoded/decoded duality.
-//!
-//! Conversion from [`TileLayer01`] to [`StagedLayer01`](crate::encoder::StagedLayer01) is done via
-//! [`StagedLayer01::from_tile`](crate::encoder::StagedLayer01::from_tile) (pre-computed [`StringGroup`](crate::encoder::StringGroup) pairings produced by
-//! [`group_string_properties`](crate::encoder::group_string_properties)) or the blanket [`From`] impl (no grouping).
 
 use crate::errors::AsMltError as _;
 use crate::v01::{

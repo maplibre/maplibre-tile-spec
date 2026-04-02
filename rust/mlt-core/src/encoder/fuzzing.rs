@@ -1,9 +1,10 @@
 use arbitrary::Error::IncorrectFormat;
 
 use crate::encoder::{
-    EncodedGeometry, EncodedId, EncodedLayer01, EncodedProperty, ScalarEncoder, StagedProperty,
-    StagedSharedDict, StagedStrings,
+    EncodedGeometry, EncodedId, EncodedLayer01, EncodedProperty, IdEncoder, ScalarEncoder,
+    StagedProperty, StagedSharedDict, StagedStrings,
 };
+use crate::v01::IdValues;
 
 impl arbitrary::Arbitrary<'_> for EncodedGeometry {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
@@ -95,5 +96,14 @@ impl arbitrary::Arbitrary<'_> for StagedStrings {
             u.arbitrary::<String>()?,
             u.arbitrary::<Vec<Option<String>>>()?,
         ))
+    }
+}
+
+impl arbitrary::Arbitrary<'_> for EncodedId {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        let parsed: IdValues = u.arbitrary()?;
+        let encoder: IdEncoder = u.arbitrary()?;
+        let owned_id = Self::encode(&parsed, encoder).map_err(|_| IncorrectFormat)?;
+        Ok(owned_id)
     }
 }

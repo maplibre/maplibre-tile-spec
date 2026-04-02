@@ -1,5 +1,6 @@
 mod analyze;
 mod compare;
+mod encoded;
 #[cfg(all(not(test), feature = "arbitrary"))]
 mod fuzzing;
 mod geometry;
