@@ -2,10 +2,7 @@ use std::borrow::Cow;
 
 use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds, UnexpectedStreamType2};
 use crate::codecs::fsst::decode_fsst;
-use crate::encoder::{
-    EncodedFsstData, EncodedPlainData, EncodedSharedDictEncoding, EncodedStream, EncodedStrings,
-    EncodedStringsEncoding, PresenceKind,
-};
+use crate::encoder::PresenceKind;
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 use crate::v01::{
@@ -28,28 +25,6 @@ impl<'a> ParsedStrings<'a> {
     #[must_use]
     pub fn feature_count(&self) -> usize {
         self.lengths.len()
-    }
-
-    #[must_use]
-    pub fn presence(&self) -> PresenceKind {
-        let mut has_null = false;
-        let mut has_present = false;
-        for &end in &self.lengths {
-            if end < 0 {
-                has_null = true;
-            } else {
-                has_present = true;
-            }
-            if has_null && has_present {
-                return PresenceKind::Mixed;
-            }
-        }
-        match (has_null, has_present) {
-            (false, false) => PresenceKind::Empty,
-            (false, true) => PresenceKind::AllPresent,
-            (true, false) => PresenceKind::AllNull,
-            (true, true) => unreachable!("early return handles Mixed"),
-        }
     }
 
     #[must_use]
@@ -335,27 +310,6 @@ impl<'a> RawPlainData<'a> {
     }
 }
 
-impl EncodedPlainData {
-    pub fn new(lengths: EncodedStream, data: EncodedStream) -> MltResult<Self> {
-        validate_stream!(
-            lengths,
-            StreamType::Length(LengthType::VarBinary | LengthType::Dictionary)
-        );
-        validate_stream!(
-            data,
-            StreamType::Data(
-                DictionaryType::None | DictionaryType::Single | DictionaryType::Shared
-            )
-        );
-        Ok(Self { lengths, data })
-    }
-
-    #[must_use]
-    pub fn streams(&self) -> Vec<&EncodedStream> {
-        vec![&self.lengths, &self.data]
-    }
-}
-
 impl<'a> RawFsstData<'a> {
     pub fn new(
         symbol_lengths: RawStream<'a>,
@@ -380,18 +334,6 @@ impl<'a> RawFsstData<'a> {
 
     pub fn decode(self, dec: &mut Decoder) -> MltResult<(String, Vec<u32>)> {
         decode_fsst(self, dec)
-    }
-}
-
-impl EncodedFsstData {
-    #[must_use]
-    pub fn streams(&self) -> Vec<&EncodedStream> {
-        vec![
-            &self.symbol_lengths,
-            &self.symbol_table,
-            &self.lengths,
-            &self.corpus,
-        ]
     }
 }
 
@@ -420,38 +362,6 @@ impl<'a> RawStringsEncoding<'a> {
     }
 }
 
-impl EncodedStringsEncoding {
-    /// Content streams only.
-    #[must_use]
-    pub fn streams(&self) -> Vec<&EncodedStream> {
-        match self {
-            Self::Plain(plain_data) => plain_data.streams(),
-            Self::Dictionary {
-                plain_data,
-                offsets,
-            } => {
-                let mut streams = plain_data.streams();
-                streams.insert(1, offsets); // Offset stays here to preserve the current wire order.
-                streams
-            }
-            Self::FsstPlain(fsst_data) => fsst_data.streams(),
-            Self::FsstDictionary { fsst_data, offsets } => {
-                let mut streams = fsst_data.streams();
-                streams.push(offsets);
-                streams
-            }
-        }
-    }
-}
-
-impl EncodedStrings {
-    /// Streams in wire order.
-    #[must_use]
-    pub fn streams(&self) -> Vec<&EncodedStream> {
-        self.encoding.streams()
-    }
-}
-
 impl<'a> RawSharedDictEncoding<'a> {
     /// Plain shared dict (2 streams): lengths + data.
     #[must_use]
@@ -463,16 +373,6 @@ impl<'a> RawSharedDictEncoding<'a> {
     #[must_use]
     pub fn fsst_plain(fsst_data: RawFsstData<'a>) -> Self {
         Self::FsstPlain(fsst_data)
-    }
-}
-
-impl EncodedSharedDictEncoding {
-    #[must_use]
-    pub fn dict_streams(&self) -> Vec<&EncodedStream> {
-        match self {
-            Self::Plain(plain_data) => plain_data.streams(),
-            Self::FsstPlain(fsst_data) => fsst_data.streams(),
-        }
     }
 }
 
