@@ -93,16 +93,10 @@ impl EncodedId {
                 .filter_map(|&id| id)
                 .map(|v| v as u32)
                 .collect();
-            EncodedIdValue::Id32(EncodedStream::encode_u32s(
-                &vals,
-                encoder.int_encoder,
-            )?)
+            EncodedIdValue::Id32(EncodedStream::encode_u32s(&vals, encoder.int_encoder)?)
         } else {
             let vals: Vec<u64> = value.0.iter().filter_map(|&id| id).collect();
-            EncodedIdValue::Id64(EncodedStream::encode_u64s(
-                &vals,
-                encoder.int_encoder,
-            )?)
+            EncodedIdValue::Id64(EncodedStream::encode_u64s(&vals, encoder.int_encoder)?)
         };
 
         Ok(Self {
