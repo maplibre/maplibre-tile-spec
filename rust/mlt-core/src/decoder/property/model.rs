@@ -148,13 +148,6 @@ pub struct ParsedStrings<'a> {
     pub(crate) data: Cow<'a, str>,
 }
 
-/// `SharedDictItem` column representation, parameterized by decode state.
-///
-/// - `SharedDictItem<'a>` / `SharedDictItem<'a, Lazy>` — either raw or decoded, in an [`crate::LazyParsed`] enum.
-/// - `SharedDictItem<'a, Parsed>` — decoded [`ParsedSharedDictItem`] directly.
-pub type SharedDictItem<'a, S = Lazy> =
-    <S as DecodeState>::LazyOrParsed<RawSharedDictItem<'a>, ParsedSharedDictItem<'a>>;
-
 /// Parsed shared dictionary payload shared by one or more child string properties.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedSharedDict<'a> {
@@ -162,10 +155,6 @@ pub struct ParsedSharedDict<'a> {
     pub(crate) data: Cow<'a, str>,
     pub(crate) items: Vec<ParsedSharedDictItem<'a>>,
 }
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct ParsedPresence(pub Option<Vec<bool>>);
 
 /// A single child field within a `SharedDict` raw column
 #[derive(Clone, Debug, PartialEq)]

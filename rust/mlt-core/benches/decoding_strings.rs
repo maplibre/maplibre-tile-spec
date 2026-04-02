@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::__private::dec;
+use mlt_core::__private::{RawStream, dec};
 use mlt_core::encoder::{
     EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
     EncodedStringsEncoding, IntEncoder, PhysicalEncoder, SharedDictEncoder, SharedDictItemEncoder,
@@ -9,8 +9,7 @@ use mlt_core::encoder::{
 };
 use mlt_core::{
     DictionaryType, LengthType, LogicalEncoder, RawFsstData, RawPlainData, RawPresence,
-    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
-    RawStringsEncoding,
+    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
 };
 use strum::IntoEnumIterator as _;
 
