@@ -2,8 +2,7 @@ use std::borrow::Cow;
 
 use enum_dispatch::enum_dispatch;
 
-use crate::analyze::{Analyze, StatType};
-use crate::decoder::{RawStream, StreamMeta};
+use crate::decoder::RawStream;
 use crate::{DecodeState, Lazy};
 
 /// Property column representation, parameterized by decode state.

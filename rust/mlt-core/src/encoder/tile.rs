@@ -137,11 +137,12 @@ mod tests {
     use geo_types::Point;
 
     use super::*;
+    use crate::Layer;
     use crate::decoder::GeometryValues;
+    use crate::encoder::EncodedLayer;
     use crate::encoder::optimizer::EncoderConfig;
     use crate::geojson::Geom32;
     use crate::test_helpers::{dec, parser};
-    use crate::{EncodedLayer, Layer};
 
     fn layer_tile(staged: StagedLayer01) -> TileLayer01 {
         let (enc, _) = staged.encode_auto(EncoderConfig::default()).unwrap();

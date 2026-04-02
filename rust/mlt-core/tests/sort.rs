@@ -1,10 +1,10 @@
 use geo_types::{Coord, LineString, Point};
 use mlt_core::encoder::{
-    GeometryEncoder, IntEncoder, SortStrategy, StagedLayer01Encoder, Tile01Encoder,
+    EncodedLayer, GeometryEncoder, IntEncoder, SortStrategy, StagedLayer01Encoder, Tile01Encoder,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{assert_empty, dec, into_layer01, parser};
-use mlt_core::{EncodedLayer, GeometryType, GeometryValues, Layer, TileFeature, TileLayer01};
+use mlt_core::{GeometryType, GeometryValues, Layer, TileFeature, TileLayer01};
 
 /// Build row-oriented tile layer from geometries and IDs (one feature per geometry).
 fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
