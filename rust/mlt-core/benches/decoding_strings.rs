@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
-use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::__private::{dec, roundtrip_stream};
+use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use mlt_core::__private::dec;
 use mlt_core::encoder::{
     EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
     EncodedStringsEncoding, IntEncoder, PhysicalEncoder, SharedDictEncoder, SharedDictItemEncoder,
@@ -9,7 +9,8 @@ use mlt_core::encoder::{
 };
 use mlt_core::v01::{
     DictionaryType, LengthType, LogicalEncoder, RawFsstData, RawPlainData, RawPresence,
-    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
+    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
+    RawStringsEncoding,
 };
 use strum::IntoEnumIterator as _;
 
@@ -93,246 +94,84 @@ fn encode_fsst(strings: &[String], int_enc: IntEncoder) -> EncodedStringsEncodin
         .expect("encode_fsst failed")
 }
 
-/// One `Vec<u8>` per stream so each `roundtrip_stream` borrow is disjoint (see `test_helpers`).
-enum StringsBenchBufs {
-    Plain {
-        lengths: Vec<u8>,
-        data: Vec<u8>,
-    },
-    Dictionary {
-        lengths: Vec<u8>,
-        data: Vec<u8>,
-        offsets: Vec<u8>,
-    },
-    FsstPlain {
-        symbol_lengths: Vec<u8>,
-        symbol_table: Vec<u8>,
-        lengths: Vec<u8>,
-        corpus: Vec<u8>,
-    },
-    FsstDictionary {
-        symbol_lengths: Vec<u8>,
-        symbol_table: Vec<u8>,
-        lengths: Vec<u8>,
-        corpus: Vec<u8>,
-        offsets: Vec<u8>,
-    },
-}
-
-fn strings_bench_bufs_for(enc: &EncodedStringsEncoding) -> StringsBenchBufs {
-    match enc {
-        EncodedStringsEncoding::Plain(_) => StringsBenchBufs::Plain {
-            lengths: Vec::new(),
-            data: Vec::new(),
-        },
-        EncodedStringsEncoding::Dictionary { .. } => StringsBenchBufs::Dictionary {
-            lengths: Vec::new(),
-            data: Vec::new(),
-            offsets: Vec::new(),
-        },
-        EncodedStringsEncoding::FsstPlain(_) => StringsBenchBufs::FsstPlain {
-            symbol_lengths: Vec::new(),
-            symbol_table: Vec::new(),
-            lengths: Vec::new(),
-            corpus: Vec::new(),
-        },
-        EncodedStringsEncoding::FsstDictionary { .. } => StringsBenchBufs::FsstDictionary {
-            symbol_lengths: Vec::new(),
-            symbol_table: Vec::new(),
-            lengths: Vec::new(),
-            corpus: Vec::new(),
-            offsets: Vec::new(),
-        },
-    }
-}
-
-/// Serialize each stream to its buffer, parse with `RawStream::from_bytes` (`roundtrip_stream`).
-fn materialize_raw_strings<'a>(
+/// Borrow an [`EncodedStringsEncoding`] as [`RawStrings<'_>`] for decoding.
+/// This is the benchmark-only helper: owned data stays in the outer scope,
+/// and only leaf-level `EncodedStream::as_borrowed()` calls are made.
+fn borrow_enc_strings<'a>(
     enc: &'a EncodedStringsEncoding,
     name: &'a str,
-    presence_enc: Option<&EncodedStream>,
-    bufs: &'a mut StringsBenchBufs,
-    pres_buf: &'a mut Vec<u8>,
+    presence: Option<RawStream<'a>>,
 ) -> RawStrings<'a> {
-    let presence = RawPresence(presence_enc.map(|s| roundtrip_stream(pres_buf, s)));
-    let encoding = match (enc, bufs) {
-        (EncodedStringsEncoding::Plain(d), StringsBenchBufs::Plain { lengths, data }) => {
-            RawStringsEncoding::Plain(RawPlainData {
-                lengths: roundtrip_stream(lengths, &d.lengths),
-                data: roundtrip_stream(data, &d.data),
-            })
-        }
-        (
-            EncodedStringsEncoding::Dictionary {
-                plain_data,
-                offsets,
-            },
-            StringsBenchBufs::Dictionary {
-                lengths,
-                data,
-                offsets: off,
-            },
-        ) => RawStringsEncoding::Dictionary {
+    let encoding = match enc {
+        EncodedStringsEncoding::Plain(d) => RawStringsEncoding::Plain(RawPlainData {
+            lengths: d.lengths.as_borrowed(),
+            data: d.data.as_borrowed(),
+        }),
+        EncodedStringsEncoding::Dictionary {
+            plain_data,
+            offsets,
+        } => RawStringsEncoding::Dictionary {
             plain_data: RawPlainData {
-                lengths: roundtrip_stream(lengths, &plain_data.lengths),
-                data: roundtrip_stream(data, &plain_data.data),
+                lengths: plain_data.lengths.as_borrowed(),
+                data: plain_data.data.as_borrowed(),
             },
-            offsets: roundtrip_stream(off, offsets),
+            offsets: offsets.as_borrowed(),
         },
-        (
-            EncodedStringsEncoding::FsstPlain(d),
-            StringsBenchBufs::FsstPlain {
-                symbol_lengths,
-                symbol_table,
-                lengths,
-                corpus,
-            },
-        ) => RawStringsEncoding::FsstPlain(
-            RawFsstData::new(
-                roundtrip_stream(symbol_lengths, &d.symbol_lengths),
-                roundtrip_stream(symbol_table, &d.symbol_table),
-                roundtrip_stream(lengths, &d.lengths),
-                roundtrip_stream(corpus, &d.corpus),
-            )
-            .expect("RawFsstData::new"),
-        ),
-        (
-            EncodedStringsEncoding::FsstDictionary { fsst_data, offsets },
-            StringsBenchBufs::FsstDictionary {
-                symbol_lengths,
-                symbol_table,
-                lengths,
-                corpus,
-                offsets: off,
-            },
-        ) => RawStringsEncoding::FsstDictionary {
-            fsst_data: RawFsstData::new(
-                roundtrip_stream(symbol_lengths, &fsst_data.symbol_lengths),
-                roundtrip_stream(symbol_table, &fsst_data.symbol_table),
-                roundtrip_stream(lengths, &fsst_data.lengths),
-                roundtrip_stream(corpus, &fsst_data.corpus),
-            )
-            .expect("RawFsstData::new"),
-            offsets: roundtrip_stream(off, offsets),
-        },
-        _ => panic!("StringsBenchBufs variant does not match EncodedStringsEncoding"),
+        EncodedStringsEncoding::FsstPlain(d) => RawStringsEncoding::FsstPlain(RawFsstData {
+            symbol_lengths: d.symbol_lengths.as_borrowed(),
+            symbol_table: d.symbol_table.as_borrowed(),
+            lengths: d.lengths.as_borrowed(),
+            corpus: d.corpus.as_borrowed(),
+        }),
+        EncodedStringsEncoding::FsstDictionary { fsst_data, offsets } => {
+            RawStringsEncoding::FsstDictionary {
+                fsst_data: RawFsstData {
+                    symbol_lengths: fsst_data.symbol_lengths.as_borrowed(),
+                    symbol_table: fsst_data.symbol_table.as_borrowed(),
+                    lengths: fsst_data.lengths.as_borrowed(),
+                    corpus: fsst_data.corpus.as_borrowed(),
+                },
+                offsets: offsets.as_borrowed(),
+            }
+        }
     };
     RawStrings {
         name,
-        presence,
+        presence: RawPresence(presence),
         encoding,
     }
 }
 
-enum SharedDictBenchBufs {
-    Plain {
-        dict_lengths: Vec<u8>,
-        dict_data: Vec<u8>,
-        children: Vec<(Option<Vec<u8>>, Vec<u8>)>,
-    },
-    FsstPlain {
-        sl: Vec<u8>,
-        st: Vec<u8>,
-        len: Vec<u8>,
-        corpus: Vec<u8>,
-        children: Vec<(Option<Vec<u8>>, Vec<u8>)>,
-    },
-}
-
-fn shared_dict_bench_bufs_for(sd: &EncodedSharedDict) -> SharedDictBenchBufs {
+/// Borrow an [`EncodedSharedDict`] as [`RawSharedDict<'_>`] for decoding.
+fn borrow_owned_shared_dict(sd: &EncodedSharedDict) -> RawSharedDict<'_> {
+    let encoding = match &sd.encoding {
+        EncodedSharedDictEncoding::Plain(d) => RawSharedDictEncoding::Plain(RawPlainData {
+            lengths: d.lengths.as_borrowed(),
+            data: d.data.as_borrowed(),
+        }),
+        EncodedSharedDictEncoding::FsstPlain(d) => RawSharedDictEncoding::FsstPlain(
+            RawFsstData::new(
+                d.symbol_lengths.as_borrowed(),
+                d.symbol_table.as_borrowed(),
+                d.lengths.as_borrowed(),
+                d.corpus.as_borrowed(),
+            )
+            .expect("RawFsstData::new failed"),
+        ),
+    };
     let children = sd
         .children
         .iter()
-        .map(|c| (c.presence.0.as_ref().map(|_| Vec::new()), Vec::new()))
-        .collect();
-    match &sd.encoding {
-        EncodedSharedDictEncoding::Plain(_) => SharedDictBenchBufs::Plain {
-            dict_lengths: Vec::new(),
-            dict_data: Vec::new(),
-            children,
-        },
-        EncodedSharedDictEncoding::FsstPlain(_) => SharedDictBenchBufs::FsstPlain {
-            sl: Vec::new(),
-            st: Vec::new(),
-            len: Vec::new(),
-            corpus: Vec::new(),
-            children,
-        },
-    }
-}
-
-fn materialize_raw_children<'a>(
-    sd: &'a EncodedSharedDict,
-    child_bufs: &'a mut [(Option<Vec<u8>>, Vec<u8>)],
-) -> Vec<RawSharedDictItem<'a>> {
-    sd.children
-        .iter()
-        .zip(child_bufs.iter_mut())
-        .map(|(c, (pres_buf, data_buf))| {
-            let presence = match (&c.presence.0, pres_buf.as_mut()) {
-                (Some(es), Some(buf)) => Some(roundtrip_stream(buf, es)),
-                (None, None) => None,
-                _ => panic!("presence buffer layout mismatch"),
-            };
-            RawSharedDictItem {
-                name: c.name.0.as_str(),
-                presence: RawPresence(presence),
-                data: roundtrip_stream(data_buf, &c.data),
-            }
+        .map(|c| RawSharedDictItem {
+            name: &c.name.0,
+            presence: RawPresence(c.presence.0.as_ref().map(|s| s.as_borrowed())),
+            data: c.data.as_borrowed(),
         })
-        .collect()
-}
-
-fn materialize_raw_shared_dict<'a>(
-    sd: &'a EncodedSharedDict,
-    bufs: &'a mut SharedDictBenchBufs,
-) -> RawSharedDict<'a> {
-    match bufs {
-        SharedDictBenchBufs::Plain {
-            dict_lengths,
-            dict_data,
-            children: child_bufs,
-        } => {
-            let EncodedSharedDictEncoding::Plain(d) = &sd.encoding else {
-                panic!("SharedDictBenchBufs::Plain vs encoding mismatch");
-            };
-            let encoding = RawSharedDictEncoding::Plain(RawPlainData {
-                lengths: roundtrip_stream(dict_lengths, &d.lengths),
-                data: roundtrip_stream(dict_data, &d.data),
-            });
-            let children = materialize_raw_children(sd, child_bufs);
-            RawSharedDict {
-                name: sd.name.0.as_str(),
-                encoding,
-                children,
-            }
-        }
-        SharedDictBenchBufs::FsstPlain {
-            sl,
-            st,
-            len,
-            corpus,
-            children: child_bufs,
-        } => {
-            let EncodedSharedDictEncoding::FsstPlain(d) = &sd.encoding else {
-                panic!("SharedDictBenchBufs::FsstPlain vs encoding mismatch");
-            };
-            let encoding = RawSharedDictEncoding::FsstPlain(
-                RawFsstData::new(
-                    roundtrip_stream(sl, &d.symbol_lengths),
-                    roundtrip_stream(st, &d.symbol_table),
-                    roundtrip_stream(len, &d.lengths),
-                    roundtrip_stream(corpus, &d.corpus),
-                )
-                .expect("RawFsstData::new"),
-            );
-            let children = materialize_raw_children(sd, child_bufs);
-            RawSharedDict {
-                name: sd.name.0.as_str(),
-                encoding,
-                children,
-            }
-        }
+        .collect();
+    RawSharedDict {
+        name: &sd.name.0,
+        encoding,
+        children,
     }
 }
 
@@ -353,20 +192,11 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
                     BenchmarkId::new(format!("{logical:?}-{physical:?}"), n),
                     &encoded,
                     |b, encoded| {
-                        let mut bufs = strings_bench_bufs_for(encoded);
-                        let mut pres_buf = Vec::new();
                         b.iter(|| {
                             black_box(
-                                materialize_raw_strings(
-                                    encoded,
-                                    "",
-                                    None,
-                                    &mut bufs,
-                                    &mut pres_buf,
-                                )
-                                .decode(&mut dec())
-                                .unwrap()
-                                .feature_count(),
+                                borrow_enc_strings(encoded, "", None)
+                                    .decode(&mut dec())
+                                    .unwrap(),
                             )
                         });
                     },
@@ -395,20 +225,11 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
                     BenchmarkId::new(format!("{logical:?}-{physical:?}"), n),
                     &encoded,
                     |b, encoded| {
-                        let mut bufs = strings_bench_bufs_for(encoded);
-                        let mut pres_buf = Vec::new();
                         b.iter(|| {
                             black_box(
-                                materialize_raw_strings(
-                                    encoded,
-                                    "",
-                                    None,
-                                    &mut bufs,
-                                    &mut pres_buf,
-                                )
-                                .decode(&mut dec())
-                                .unwrap()
-                                .feature_count(),
+                                borrow_enc_strings(encoded, "", None)
+                                    .decode(&mut dec())
+                                    .unwrap(),
                             )
                         });
                     },
@@ -431,28 +252,22 @@ fn bench_encoding_type(c: &mut Criterion) {
 
         let plain = encode_plain(&strings, int_enc);
         group.bench_with_input(BenchmarkId::new("plain", n), &plain, |b, encoded| {
-            let mut bufs = strings_bench_bufs_for(encoded);
-            let mut pres_buf = Vec::new();
             b.iter(|| {
                 black_box(
-                    materialize_raw_strings(encoded, "", None, &mut bufs, &mut pres_buf)
+                    borrow_enc_strings(encoded, "", None)
                         .decode(&mut dec())
-                        .unwrap()
-                        .feature_count(),
+                        .unwrap(),
                 )
             });
         });
 
         let fsst = encode_fsst(&strings, int_enc);
         group.bench_with_input(BenchmarkId::new("fsst", n), &fsst, |b, encoded| {
-            let mut bufs = strings_bench_bufs_for(encoded);
-            let mut pres_buf = Vec::new();
             b.iter(|| {
                 black_box(
-                    materialize_raw_strings(encoded, "", None, &mut bufs, &mut pres_buf)
+                    borrow_enc_strings(encoded, "", None)
                         .decode(&mut dec())
-                        .unwrap()
-                        .feature_count(),
+                        .unwrap(),
                 )
             });
         });
@@ -477,14 +292,11 @@ fn bench_presence(c: &mut Criterion) {
             BenchmarkId::new("no_nulls", n),
             &enc_no_nulls,
             |b, encoded| {
-                let mut bufs = strings_bench_bufs_for(encoded);
-                let mut pres_buf = Vec::new();
                 b.iter(|| {
                     black_box(
-                        materialize_raw_strings(encoded, "", None, &mut bufs, &mut pres_buf)
+                        borrow_enc_strings(encoded, "", None)
                             .decode(&mut dec())
-                            .unwrap()
-                            .feature_count(),
+                            .unwrap(),
                     )
                 });
             },
@@ -503,14 +315,12 @@ fn bench_presence(c: &mut Criterion) {
             BenchmarkId::new("with_nulls", n),
             &with_nulls,
             |b, (pres, enc)| {
-                let mut bufs = strings_bench_bufs_for(enc);
-                let mut pres_buf = Vec::new();
                 b.iter(|| {
+                    let p = pres.as_borrowed();
                     black_box(
-                        materialize_raw_strings(enc, "", Some(pres), &mut bufs, &mut pres_buf)
+                        borrow_enc_strings(enc, "", Some(p))
                             .decode(&mut dec())
-                            .unwrap()
-                            .feature_count(),
+                            .unwrap(),
                     )
                 });
             },
@@ -540,17 +350,17 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         // --- plain: two independent decode_strings calls ---
         let enc_plain = encode_plain(&strings, int_enc);
         group.bench_with_input(BenchmarkId::new("plain_x2", n), &enc_plain, |b, encoded| {
-            let mut bufs = strings_bench_bufs_for(encoded);
-            let mut pres_buf = Vec::new();
             b.iter(|| {
-                for _ in 0..2 {
-                    black_box(
-                        materialize_raw_strings(encoded, "", None, &mut bufs, &mut pres_buf)
-                            .decode(&mut dec())
-                            .unwrap()
-                            .feature_count(),
-                    );
-                }
+                black_box(
+                    borrow_enc_strings(encoded, "", None)
+                        .decode(&mut dec())
+                        .unwrap(),
+                );
+                black_box(
+                    borrow_enc_strings(encoded, "", None)
+                        .decode(&mut dec())
+                        .unwrap(),
+                );
             });
         });
 
@@ -584,16 +394,11 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             BenchmarkId::new("shared_dict_plain", n),
             sd_plain,
             |b, sd| {
-                let mut bufs = shared_dict_bench_bufs_for(sd);
-                b.iter(|| {
-                    black_box(
-                        materialize_raw_shared_dict(sd, &mut bufs)
-                            .decode(&mut dec())
-                            .unwrap()
-                            .corpus()
-                            .len(),
-                    )
-                });
+                b.iter_batched(
+                    || borrow_owned_shared_dict(sd),
+                    |sd_ref: RawSharedDict<'_>| black_box(sd_ref.decode(&mut dec()).unwrap()),
+                    BatchSize::SmallInput,
+                );
             },
         );
 
@@ -611,32 +416,27 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         };
 
         group.bench_with_input(BenchmarkId::new("shared_dict_fsst", n), sd_fsst, |b, sd| {
-            let mut bufs = shared_dict_bench_bufs_for(sd);
-            b.iter(|| {
-                black_box(
-                    materialize_raw_shared_dict(sd, &mut bufs)
-                        .decode(&mut dec())
-                        .unwrap()
-                        .corpus()
-                        .len(),
-                )
-            });
+            b.iter_batched(
+                || borrow_owned_shared_dict(sd),
+                |sd_ref: RawSharedDict<'_>| black_box(sd_ref.decode(&mut dec()).unwrap()),
+                BatchSize::SmallInput,
+            );
         });
 
         // --- FSST plain (two independent columns) for a fair FSST comparison ---
         let enc_fsst = encode_fsst(&strings, int_enc);
         group.bench_with_input(BenchmarkId::new("fsst_x2", n), &enc_fsst, |b, encoded| {
-            let mut bufs = strings_bench_bufs_for(encoded);
-            let mut pres_buf = Vec::new();
             b.iter(|| {
-                for _ in 0..2 {
-                    black_box(
-                        materialize_raw_strings(encoded, "", None, &mut bufs, &mut pres_buf)
-                            .decode(&mut dec())
-                            .unwrap()
-                            .feature_count(),
-                    );
-                }
+                black_box(
+                    borrow_enc_strings(encoded, "", None)
+                        .decode(&mut dec())
+                        .unwrap(),
+                );
+                black_box(
+                    borrow_enc_strings(encoded, "", None)
+                        .decode(&mut dec())
+                        .unwrap(),
+                );
             });
         });
     }
