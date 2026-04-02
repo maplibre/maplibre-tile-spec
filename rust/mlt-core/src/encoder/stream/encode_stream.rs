@@ -1,16 +1,17 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
+use super::encoder::{FsstStrEncoder, IntEncoder};
 use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::fsst::compress_fsst;
 use crate::codecs::rle::encode_byte_rle;
+use crate::encoder::property::{EncodedPlainData, EncodedStringsEncoding};
 use crate::errors::AsMltError as _;
 use crate::utils::strings_to_lengths;
 use crate::v01::{
-    DictionaryType, EncodedPlainData, EncodedStream, EncodedStreamData, EncodedStringsEncoding,
-    FsstStrEncoder, IntEncoder, IntEncoding, LengthType, LogicalEncoding, OffsetType,
-    PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+    DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, LogicalEncoding,
+    OffsetType, PhysicalEncoding, RleMeta, StreamMeta, StreamType,
 };
 
 /// Deduplicate `values` preserving insertion order.

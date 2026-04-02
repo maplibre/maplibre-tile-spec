@@ -1,6 +1,6 @@
-use crate::frames::{EncodedLayer, LayerEncoder};
+use crate::encoder::LayerEncoder;
 use crate::v01::{EncoderConfig, Tile01Encoder};
-use crate::{MltError, MltResult, StagedLayer};
+use crate::{EncodedLayer, MltError, MltResult, StagedLayer};
 
 impl StagedLayer {
     /// Encode using a specific `LayerEncoder`, consuming `self` and producing [`EncodedLayer`].
@@ -21,7 +21,7 @@ impl StagedLayer {
     /// Automatically select the best encoders, consuming `self` and producing
     /// `(EncodedLayer, LayerEncoder)`.
     ///
-    /// Sort strategy is [`SortStrategy::Unsorted`] in the returned encoder because sorting must
+    /// Sort strategy is [`crate::v01::SortStrategy::Unsorted`] in the returned encoder because sorting must
     /// happen before staging. Use [`Tile01Encoder::encode_auto`] for full
     /// sort + stream trialing on a [`crate::v01::TileLayer01`].
     pub fn encode_auto(self, cfg: EncoderConfig) -> MltResult<(EncodedLayer, LayerEncoder)> {

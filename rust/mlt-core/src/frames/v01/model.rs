@@ -1,10 +1,8 @@
 use num_enum::TryFromPrimitive;
 
+use crate::encoder::{EncodedGeometry, EncodedId, EncodedProperty, StagedProperty};
 use crate::geojson::Geom32;
-use crate::v01::{
-    EncodedGeometry, EncodedId, EncodedProperty, Geometry, GeometryValues, Id, IdValues, Property,
-    StagedProperty,
-};
+use crate::v01::{Geometry, GeometryValues, Id, IdValues, Property};
 use crate::{DecodeState, Lazy, Parsed};
 
 /// Column definition

@@ -1,12 +1,13 @@
+use super::model::{
+    EncodedName, EncodedPresence, EncodedProperty, EncodedScalar, EncodedStrings, PresenceKind,
+    PropertyEncoder, ScalarEncoder, ScalarValueEncoder, StagedProperty, StrEncoder,
+};
+use super::strings::encode_shared_dict_prop;
 use crate::MltError::{
     EncodingInstructionCountMismatch, NotImplemented, UnsupportedPropertyEncoderCombination,
 };
 use crate::MltResult;
-use crate::v01::{
-    DictionaryType, EncodedName, EncodedPresence, EncodedProperty, EncodedScalar, EncodedStream,
-    EncodedStrings, LengthType, PresenceKind, PropertyEncoder, ScalarEncoder, ScalarValueEncoder,
-    StagedProperty, StrEncoder, encode_shared_dict_prop,
-};
+use crate::v01::{DictionaryType, EncodedStream, LengthType};
 
 pub fn encode_properties(
     value: &[StagedProperty],

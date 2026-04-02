@@ -1,7 +1,6 @@
 use std::fmt;
 
 use crate::frames::v01::Layer01;
-use crate::v01::{EncodedLayer01, StagedLayer01, Tile01Encoder};
 use crate::{DecodeState, Lazy, Parsed};
 
 /// A layer that can be one of the known types, or an unknown.
@@ -42,39 +41,9 @@ where
     }
 }
 
-/// Owned, pre-encoding variant of [`Layer`] (stage 2 of the encoding pipeline).
-#[derive(Debug, PartialEq, Clone)]
-#[expect(clippy::large_enum_variant)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum StagedLayer {
-    Tag01(StagedLayer01),
-    Unknown(EncodedUnknown),
-}
-
-/// Wire-ready variant of a layer (stage 3 of the encoding pipeline).
-#[derive(Debug, PartialEq, Clone)]
-#[expect(clippy::large_enum_variant)]
-pub enum EncodedLayer {
-    Tag01(EncodedLayer01),
-    Unknown(EncodedUnknown),
-}
-
 /// Unknown layer data, stored as encoded bytes
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Unknown<'a> {
     pub(crate) tag: u8,
     pub(crate) value: &'a [u8],
-}
-
-/// Owned variant of [`Unknown`].
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct EncodedUnknown {
-    pub(crate) tag: u8,
-    pub(crate) value: Vec<u8>,
-}
-
-#[derive(Debug, Clone)]
-pub enum LayerEncoder {
-    Tag01(Tile01Encoder),
-    Unknown,
 }

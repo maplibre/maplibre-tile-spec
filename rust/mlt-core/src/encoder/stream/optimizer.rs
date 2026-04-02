@@ -2,8 +2,8 @@ use num_traits::{AsPrimitive as _, PrimInt as _, WrappingSub, Zero as _};
 use zigzag::ZigZag;
 
 use crate::MltResult;
+use crate::encoder::IntEncoder;
 use crate::v01::EncodedStreamData;
-use crate::v01::stream::IntEncoder;
 
 /// Minimum number of values to profile / compete on.
 ///

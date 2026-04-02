@@ -1,7 +1,8 @@
-use crate::frames::model::{EncodedUnknown, Layer, StagedLayer, Unknown};
-use crate::v01::{
-    Geometry, GeometryValues, Id, IdValues, Layer01, Property, StagedLayer01, StagedProperty,
-};
+use crate::Layer;
+use crate::encoder::property::StagedProperty;
+use crate::encoder::{EncodedUnknown, StagedLayer};
+use crate::frames::Unknown;
+use crate::v01::{Geometry, GeometryValues, Id, IdValues, Layer01, Property, StagedLayer01};
 /// Cross-type [`PartialEq`] between decode-side (`Parsed*` / `Layer01<'a>`) and
 /// encode-side (`Staged*`) types.
 ///
@@ -9,8 +10,6 @@ use crate::v01::{
 /// directly against a hand-crafted `Staged*` value without having to convert
 /// one side first.
 use crate::{DecodeState, Lazy};
-
-// ── Id ────────────────────────────────────────────────────────────────────────
 
 impl PartialEq<IdValues> for Id<'_, Lazy> {
     fn eq(&self, other: &IdValues) -> bool {
@@ -27,8 +26,6 @@ impl PartialEq<Id<'_, Lazy>> for IdValues {
     }
 }
 
-// ── Geometry ──────────────────────────────────────────────────────────────────
-
 impl PartialEq<GeometryValues> for Geometry<'_, Lazy> {
     fn eq(&self, other: &GeometryValues) -> bool {
         match self {
@@ -44,8 +41,6 @@ impl PartialEq<Geometry<'_, Lazy>> for GeometryValues {
     }
 }
 
-// ── Property ──────────────────────────────────────────────────────────────────
-
 impl PartialEq<StagedProperty> for Property<'_, Lazy> {
     fn eq(&self, other: &StagedProperty) -> bool {
         match self {
@@ -60,8 +55,6 @@ impl PartialEq<Property<'_, Lazy>> for StagedProperty {
         other == self
     }
 }
-
-// ── Layer01 ───────────────────────────────────────────────────────────────────
 
 /// TODO: not certain this is needed
 impl<'a, S> PartialEq for Layer01<'a, S>
@@ -115,8 +108,6 @@ impl PartialEq<Layer01<'_, Lazy>> for StagedLayer01 {
     }
 }
 
-// ── Unknown ───────────────────────────────────────────────────────────────────
-
 impl PartialEq<EncodedUnknown> for Unknown<'_> {
     fn eq(&self, other: &EncodedUnknown) -> bool {
         let Self { tag, value } = self;
@@ -133,8 +124,6 @@ impl PartialEq<Unknown<'_>> for EncodedUnknown {
         other == self
     }
 }
-
-// ── Layer ─────────────────────────────────────────────────────────────────────
 
 impl PartialEq<StagedLayer> for Layer<'_> {
     fn eq(&self, other: &StagedLayer) -> bool {

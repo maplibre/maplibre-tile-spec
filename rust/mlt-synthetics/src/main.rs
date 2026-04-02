@@ -23,11 +23,12 @@ use geo_types::{
     Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
     line_string as line, wkt,
 };
-use mlt_core::geojson::Geom32;
-use mlt_core::v01::{
-    IdEncoder, IdWidth, IntEncoder as E, LogicalEncoder as L, ScalarEncoder as S,
-    StagedProperty as P, StrEncoder as SE, VertexBufferType,
+use mlt_core::encoder::{
+    IdEncoder, IdWidth, IntEncoder as E, ScalarEncoder as S, StagedProperty as P, StrEncoder as SE,
+    VertexBufferType,
 };
+use mlt_core::geojson::Geom32;
+use mlt_core::v01::LogicalEncoder as L;
 
 use crate::layer::{
     Layer, SharedDict, geo_fastpfor, geo_varint, geo_varint_with_rle, morton_curve,

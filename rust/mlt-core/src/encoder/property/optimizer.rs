@@ -18,17 +18,16 @@ use fsst::Compressor;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
-use crate::MltResult;
-use crate::codecs::zigzag::encode_zigzag;
-use crate::v01::property::encode::encode_properties;
-use crate::v01::property::strings::collect_staged_shared_dict_spans;
-use crate::v01::property::{
+use super::encode::encode_properties;
+use super::model::{EncodedProperty, SharedDictEncoder, SharedDictItemEncoder, StrEncoder};
+use super::strings::collect_staged_shared_dict_spans;
+use super::{
     PropertyEncoder, ScalarEncoder, StagedProperty, StagedSharedDict, StagedSharedDictItem,
 };
-use crate::v01::stream::IntEncoder;
-use crate::v01::{
-    EncodedProperty, PropValue, SharedDictEncoder, SharedDictItemEncoder, StrEncoder, TileLayer01,
-};
+use crate::MltResult;
+use crate::codecs::zigzag::encode_zigzag;
+use crate::encoder::stream::IntEncoder;
+use crate::v01::{PropValue, TileLayer01};
 
 /// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;

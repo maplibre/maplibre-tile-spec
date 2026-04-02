@@ -1,4 +1,6 @@
-use crate::v01::{DataProfile, LogicalEncoder, PhysicalEncoder};
+use super::optimizer::DataProfile;
+use super::physical::PhysicalEncoder;
+use crate::v01::LogicalEncoder;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]

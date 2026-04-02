@@ -3,9 +3,9 @@
 use proptest::prelude::*;
 use rstest::rstest;
 
+use crate::encoder::stream::encoder::IntEncoder;
 use crate::test_helpers::{assert_empty, dec, parser, roundtrip_stream, roundtrip_stream_u32s};
 use crate::utils::BinarySerializer as _;
-use crate::v01::stream::encoder::IntEncoder;
 use crate::v01::{
     DictionaryType, EncodedStream, EncodedStreamData, EncodedStringsEncoding, IntEncoding,
     LengthType, LogicalEncoding, LogicalValue, MortonMeta, OffsetType, PhysicalEncoder,

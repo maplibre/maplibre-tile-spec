@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
+use super::encode::{GeometryEncoder, encode_geometry};
+use super::model::{EncodedGeometry, VertexBufferType};
 use crate::MltResult;
 use crate::codecs::morton::z_order_params;
-use crate::v01::encode::encode_geometry;
+use crate::encoder::stream::IntEncoder;
 use crate::v01::{
-    DictionaryType, EncodedGeometry, EncoderConfig, GeometryEncoder, GeometryValues, IntEncoder,
-    LengthType, OffsetType, StreamType, VertexBufferType,
+    DictionaryType, EncoderConfig, GeometryValues, LengthType, OffsetType, StreamType,
 };
 
 /// If the ratio of unique vertices to total vertices is below this threshold,

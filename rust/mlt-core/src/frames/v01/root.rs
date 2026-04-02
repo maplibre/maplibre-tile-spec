@@ -5,13 +5,15 @@ use crate::MltError::{
     UnexpectedStructChildCount, UnsupportedStringStreamCount,
 };
 use crate::codecs::varint::parse_varint;
+use crate::encoder::property::{
+    RawSharedDict, RawSharedDictEncoding, RawStrings, RawStringsEncoding,
+};
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
 use crate::v01::{
     Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01,
     ParsedLayer01, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence,
-    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream,
-    RawStrings, RawStringsEncoding, StreamType,
+    RawProperty, RawScalar, RawSharedDictItem, RawStream, StreamType,
 };
 use crate::{Decoder, Lazy, MltRefResult, MltResult, Parser};
 
