@@ -7,7 +7,7 @@ use crate::MltError::{
     EncodingInstructionCountMismatch, NotImplemented, UnsupportedPropertyEncoderCombination,
 };
 use crate::MltResult;
-use crate::encoder::EncodedStream;
+use crate::encoder::{EncodedStream, StagedScalar, StagedStrings};
 use crate::v01::{DictionaryType, LengthType};
 
 pub fn encode_properties(
@@ -188,6 +188,74 @@ fn presence_of_options<T>(values: &[Option<T>]) -> PresenceKind {
 }
 
 impl StagedProperty {
+    #[must_use]
+    pub fn bool(name: impl Into<String>, values: Vec<Option<bool>>) -> Self {
+        Self::Bool(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn i8(name: impl Into<String>, values: Vec<Option<i8>>) -> Self {
+        Self::I8(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn u8(name: impl Into<String>, values: Vec<Option<u8>>) -> Self {
+        Self::U8(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn i32(name: impl Into<String>, values: Vec<Option<i32>>) -> Self {
+        Self::I32(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn u32(name: impl Into<String>, values: Vec<Option<u32>>) -> Self {
+        Self::U32(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn i64(name: impl Into<String>, values: Vec<Option<i64>>) -> Self {
+        Self::I64(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn u64(name: impl Into<String>, values: Vec<Option<u64>>) -> Self {
+        Self::U64(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn f32(name: impl Into<String>, values: Vec<Option<f32>>) -> Self {
+        Self::F32(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn f64(name: impl Into<String>, values: Vec<Option<f64>>) -> Self {
+        Self::F64(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn str(name: impl Into<String>, values: Vec<Option<String>>) -> Self {
+        Self::Str(StagedStrings::from_optional(name, values))
+    }
+
     fn as_presence_stream(&self) -> MltResult<Vec<bool>> {
         Ok(match self {
             Self::Bool(v) => v.values.iter().map(Option::is_some).collect(),

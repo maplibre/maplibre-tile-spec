@@ -1,6 +1,8 @@
-use super::{ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings};
 use crate::encoder::{
     StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem, StagedStrings,
+};
+use crate::v01::{
+    ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings,
 };
 
 impl<T: Copy + PartialEq> PartialEq<StagedScalar<T>> for ParsedScalar<'_, T> {
