@@ -16,7 +16,7 @@ pub trait BinarySerializer: Write + VarIntWriter + Sized {
         self.write_all(value.as_bytes())
     }
 
-    /// Reverses [`RawStream::parse`](crate::v01::stream::RawStream::from_bytes)
+    /// Reverses [`RawStream::from_bytes`](crate::v01::RawStream::from_bytes)
     fn write_stream(&mut self, stream: &EncodedStream) -> io::Result<()> {
         let byte_length = match &stream.data {
             EncodedStreamData::VarInt(v) | EncodedStreamData::Encoded(v) => v.len(),
@@ -36,7 +36,7 @@ pub trait BinarySerializer: Write + VarIntWriter + Sized {
         }
     }
 
-    /// Reverses [`RawStream::parse_bool`](crate::v01::stream::RawStream::parse_bool)
+    /// Reverses [`RawStream::parse_bool`](crate::v01::RawStream::parse_bool)
     fn write_boolean_stream(&mut self, stream: &EncodedStream) -> io::Result<()> {
         let byte_length = match &stream.data {
             EncodedStreamData::VarInt(v) | EncodedStreamData::Encoded(v) => v.len(),

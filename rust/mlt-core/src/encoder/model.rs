@@ -35,7 +35,7 @@ pub enum LayerEncoder {
 /// Columnar layer data being prepared for encoding (stage 2 of the encoding pipeline).
 ///
 /// Holds fully-owned columnar data. Constructed directly (synthetics, benches) or
-/// converted from [`TileLayer01`].
+/// converted from [`TileLayer01`](crate::v01::TileLayer01).
 /// Consumed by encoding to produce [`EncodedLayer01`].
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]

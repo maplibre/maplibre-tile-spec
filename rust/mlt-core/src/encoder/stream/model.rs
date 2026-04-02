@@ -1,6 +1,6 @@
 use crate::v01::StreamMeta;
 
-/// Owned variant of [`RawStream`].
+/// Owned variant of [`RawStream`](crate::v01::RawStream).
 #[derive(Debug, PartialEq, Clone)]
 pub struct EncodedStream {
     pub meta: StreamMeta,

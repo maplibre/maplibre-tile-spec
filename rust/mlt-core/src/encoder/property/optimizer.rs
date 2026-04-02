@@ -111,7 +111,7 @@ fn cluster_by_similarity<'a, T: Iterator<Item = U>, U: Hash>(
 ///
 /// Row order does not affect unique-value membership, so this can be called once
 /// before sort-strategy trials and the result reused for all of them via
-/// [`crate::v01::StagedLayer01::from_tile`].
+/// [`StagedLayer01::from_tile`](crate::encoder::StagedLayer01::from_tile).
 ///
 /// Returns one [`StringGroup`] per `MinHash`-derived cluster of string columns that
 /// should share a dictionary.  For each cluster, a common name prefix is computed
