@@ -509,6 +509,20 @@ fn generate_ids(w: &mut SynthWriter) {
     four_p0()
         .ids(min_max(), IdEncoder::new(L::Delta, IdWidth::Id64))
         .write(w, "ids64_minmax_delta");
+
+    // FastPFOR physical encoding for u32 IDs (Rust-only: Java encoder does not support this)
+    four_p0()
+        .ids(
+            vec![Some(103), Some(103), Some(103), Some(103)],
+            IdEncoder::with_int_encoder(E::fastpfor(), IdWidth::Id32),
+        )
+        .write(w, "ids_fpf-rust");
+    four_p0()
+        .ids(
+            vec![Some(103), Some(103), Some(103), Some(103)],
+            IdEncoder::with_int_encoder(E::delta_fastpfor(), IdWidth::Id32),
+        )
+        .write(w, "ids_delta_fpf-rust");
 }
 
 fn generate_properties(w: &mut SynthWriter) {
