@@ -194,7 +194,10 @@ impl MemBudget {
     /// Adjust previous consumption by `- adjustment` bytes.  Will panic if used incorrectly.
     #[inline]
     fn adjust(&mut self, adjustment: u32) {
-        self.bytes_used = self.bytes_used.checked_sub(adjustment).unwrap();
+        self.bytes_used = self
+            .bytes_used
+            .checked_sub(adjustment)
+            .expect("adjust underflow: adjustment exceeds bytes_used");
     }
 
     /// Take `size` bytes from the allocation budget. Call this before the actual allocation.
