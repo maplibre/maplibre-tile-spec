@@ -2,9 +2,8 @@ use std::borrow::Cow;
 
 use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds, UnexpectedStreamType2};
 use crate::codecs::fsst::decode_fsst;
-use crate::encoder::EncodedStream;
-use crate::encoder::property::{
-    EncodedFsstData, EncodedPlainData, EncodedSharedDictEncoding, EncodedStrings,
+use crate::encoder::{
+    EncodedFsstData, EncodedPlainData, EncodedSharedDictEncoding, EncodedStream, EncodedStrings,
     EncodedStringsEncoding, PresenceKind, RawSharedDictEncoding, RawStrings, RawStringsEncoding,
 };
 use crate::errors::AsMltError as _;

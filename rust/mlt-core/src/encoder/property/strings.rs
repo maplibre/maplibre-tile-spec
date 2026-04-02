@@ -12,7 +12,7 @@ use crate::MltError::{DictIndexOutOfBounds, NotImplemented};
 use crate::encoder::EncodedStream;
 use crate::encoder::stream::{FsstStrEncoder, IntEncoder};
 use crate::errors::AsMltError as _;
-use crate::frames::v01::property::strings::{
+use crate::frames::v01::strings::{
     checked_string_end, decode_shared_dict_range, encode_null_end, resolve_dict_spans,
     shared_dict_spans,
 };

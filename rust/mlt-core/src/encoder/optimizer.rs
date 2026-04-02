@@ -1,9 +1,9 @@
 use crate::encoder::{
-    EncodeProperties as _, GeometryEncoder, IdEncoder, IntEncoder, LayerEncoder, PropertyEncoder,
-    StringGroup, group_string_properties,
+    EncodeProperties as _, EncodedLayer01, GeometryEncoder, IdEncoder, IntEncoder, LayerEncoder,
+    PropertyEncoder, SortStrategy, StagedLayer01, StringGroup, group_string_properties,
+    reorder_features, spatial_sort_likely_to_help,
 };
-use crate::v01::sort::{reorder_features, spatial_sort_likely_to_help};
-use crate::v01::{EncodedLayer01, SortStrategy, StagedLayer01, TileLayer01};
+use crate::v01::TileLayer01;
 use crate::{EncodedLayer, MltError, MltResult, StagedLayer};
 
 impl StagedLayer {

@@ -6,8 +6,7 @@ use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::fsst::compress_fsst;
 use crate::codecs::rle::encode_byte_rle;
-use crate::encoder::property::{EncodedPlainData, EncodedStringsEncoding};
-use crate::encoder::{EncodedStream, EncodedStreamData};
+use crate::encoder::{EncodedPlainData, EncodedStream, EncodedStreamData, EncodedStringsEncoding};
 use crate::errors::AsMltError as _;
 use crate::utils::strings_to_lengths;
 use crate::v01::{

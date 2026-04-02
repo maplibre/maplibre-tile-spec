@@ -515,9 +515,9 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
-    use crate::encoder::optimizer::EncoderConfig;
+    use crate::encoder::{EncoderConfig, StagedLayer01, StagedProperty, StagedSharedDict};
     use crate::test_helpers::{dec, parser};
-    use crate::v01::{GeometryValues, IdValues, StagedLayer01, StagedProperty, StagedSharedDict};
+    use crate::v01::{GeometryValues, IdValues};
     use crate::{EncodedLayer, Layer};
 
     fn layer_buf(staged: StagedLayer01) -> Vec<u8> {

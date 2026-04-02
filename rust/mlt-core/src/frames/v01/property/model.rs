@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use enum_dispatch::enum_dispatch;
 
 use crate::analyze::{Analyze, StatType};
-use crate::encoder::property::{RawSharedDict, RawStrings};
+use crate::encoder::{RawSharedDict, RawStrings};
 use crate::v01::{RawStream, StreamMeta};
 use crate::{DecodeState, Lazy};
 

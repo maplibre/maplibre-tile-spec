@@ -2,7 +2,7 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::__private::{dec, parser};
-use mlt_core::v01::{LogicalEncoder, PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer01};
+use mlt_core::v01::LogicalEncoder;
 use mlt_core::{Layer, StagedLayer};
 use strum::IntoEnumIterator as _;
 
@@ -11,6 +11,7 @@ mod bench_utils;
 use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_mlt_tiles};
 use mlt_core::encoder::{
     EncodeProperties as _, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, PhysicalEncoder,
+    PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer01,
 };
 
 fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {

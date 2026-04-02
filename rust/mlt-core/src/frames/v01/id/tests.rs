@@ -5,12 +5,13 @@ use proptest::prelude::*;
 use rstest::rstest;
 
 use crate::encoder::IdWidth::*;
-use crate::encoder::id::IdEncoder;
-use crate::encoder::optimizer::StagedLayer01Encoder;
-use crate::encoder::{EncodedId, EncodedIdValue, GeometryEncoder, IdWidth, IntEncoder};
+use crate::encoder::{
+    EncodedId, EncodedIdValue, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, StagedLayer01,
+    StagedLayer01Encoder,
+};
 use crate::geojson::Geom32;
 use crate::test_helpers::{dec, parser};
-use crate::v01::{GeometryValues, IdValues, LogicalEncoder, StagedLayer01};
+use crate::v01::{GeometryValues, IdValues, LogicalEncoder};
 use crate::{EncodedLayer, Layer, MltError, MltResult};
 
 // Test that each config produces the correct variant and optional stream presence

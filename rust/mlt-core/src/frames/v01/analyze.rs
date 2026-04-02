@@ -2,7 +2,7 @@ use std::fmt::{Debug, Formatter};
 
 use crate::DecodeState;
 use crate::analyze::{Analyze, StatType};
-use crate::encoder::property::{
+use crate::encoder::{
     EncodedPresence, EncodedProperty, EncodedScalar, EncodedSharedDict, EncodedSharedDictItem,
     EncodedStrings, RawSharedDict, RawSharedDictEncoding, RawStrings, RawStringsEncoding,
 };

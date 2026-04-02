@@ -2,8 +2,9 @@ use std::collections::HashSet;
 
 use geo_types::{LineString, Point, Polygon, point, wkt};
 use mlt_core::__private::{assert_empty, dec, parser};
-use mlt_core::encoder::optimizer::EncoderConfig;
-use mlt_core::encoder::{EncodedGeometry, GeometryEncoder, IntEncoder, VertexBufferType};
+use mlt_core::encoder::{
+    EncodedGeometry, EncoderConfig, GeometryEncoder, IntEncoder, VertexBufferType,
+};
 use mlt_core::geojson::{Coord32, Geom32};
 use mlt_core::v01::{
     DictionaryType, GeometryValues, LengthType, OffsetType, RawGeometry, StreamType,

@@ -1,18 +1,21 @@
 mod compare;
 #[cfg(all(not(test), feature = "arbitrary"))]
 mod fuzzing;
-pub mod geometry;
-pub mod id;
+mod geometry;
+mod id;
 mod layer;
 mod model;
-pub mod optimizer;
-pub mod property;
-pub mod stream;
+mod optimizer;
+mod property;
+mod sort;
+mod stream;
 mod tile;
 mod unknown;
 
 pub use geometry::*;
 pub use id::*;
 pub use model::*;
+pub use optimizer::*;
 pub use property::*;
+pub use sort::*;
 pub use stream::*;

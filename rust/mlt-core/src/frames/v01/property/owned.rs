@@ -1,5 +1,5 @@
 use super::{ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings};
-use crate::encoder::property::{
+use crate::encoder::{
     StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem, StagedStrings,
 };
 

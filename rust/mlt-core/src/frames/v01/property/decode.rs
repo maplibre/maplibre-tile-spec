@@ -1,4 +1,4 @@
-use crate::encoder::property::{StagedProperty, StagedScalar, StagedStrings};
+use crate::encoder::{StagedProperty, StagedScalar, StagedStrings};
 use crate::lazy_state::Decode;
 use crate::utils::apply_present;
 use crate::v01::{ParsedPresence, ParsedProperty, ParsedScalar, RawPresence, RawProperty};

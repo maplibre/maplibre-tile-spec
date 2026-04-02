@@ -5,9 +5,7 @@ use crate::MltError::{
     UnexpectedStructChildCount, UnsupportedStringStreamCount,
 };
 use crate::codecs::varint::parse_varint;
-use crate::encoder::property::{
-    RawSharedDict, RawSharedDictEncoding, RawStrings, RawStringsEncoding,
-};
+use crate::encoder::{RawSharedDict, RawSharedDictEncoding, RawStrings, RawStringsEncoding};
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
 use crate::v01::{
