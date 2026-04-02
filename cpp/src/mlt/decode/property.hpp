@@ -78,6 +78,7 @@ protected:
             if ((presentValueCount + 7) / 8 != presentStream.size()) {
                 throw std::runtime_error("invalid present stream");
             }
+            numStreams -= 1;
         }
 
         const auto scalarColumn = std::get<ScalarColumn>(column.type);
@@ -86,34 +87,18 @@ protected:
         }
         const auto scalarType = scalarColumn.getPhysicalType();
 
-        // Everything but string has stream metadata.
+        // String stream metadata is read by StringDecoder
         std::unique_ptr<StreamMetadata> streamMetadata;
-        switch (scalarType) {
-            case ScalarType::BOOLEAN:
-            case ScalarType::INT_8:
-            case ScalarType::UINT_8:
-            case ScalarType::INT_32:
-            case ScalarType::UINT_32:
-            case ScalarType::INT_64:
-            case ScalarType::UINT_64:
-            case ScalarType::FLOAT:
-            case ScalarType::DOUBLE:
-                streamMetadata = StreamMetadata::decode(tileData);
-                break;
-            default:
-            case ScalarType::STRING:
-                // String always has present values stream.
-                if (!presentValueCount) {
-                    throw std::runtime_error("Missing present value column");
-                }
-                break;
+        if (scalarType != ScalarType::STRING) {
+            streamMetadata = StreamMetadata::decode(tileData);
         }
 
-        if (streamMetadata && presentValueCount && presentValueCount < streamMetadata->getNumValues()) {
+        if (column.nullable && streamMetadata && presentValueCount < streamMetadata->getNumValues()) {
             throw std::runtime_error("Unexpected present value column");
         }
 
         const auto checkBits = [&](const auto& presentBuffer, const auto& propertyBuffer, bool isBoolean = false) {
+#ifndef NDEBUG
             if (!presentStream.empty()) {
                 const auto actualProperties = propertyCount(propertyBuffer, isBoolean);
                 const auto presentBits = countSetBits(presentBuffer);
@@ -123,7 +108,9 @@ protected:
                                              " doesn't match present bits " + std::to_string(presentBits));
                 }
             }
+#endif
         };
+
         switch (scalarType) {
             case ScalarType::BOOLEAN: {
                 std::vector<std::uint8_t> byteBuffer;
@@ -207,9 +194,10 @@ protected:
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
             case ScalarType::STRING: {
-                const auto stringCount = presentStream.empty() ? presentValueCount : countSetBits(presentStream);
-                // FIXME? why numStreams - 1? what if its not optional
-                auto strings = stringDecoder.decode(tileData, numStreams - 1, static_cast<std::uint32_t>(stringCount));
+                auto strings = stringDecoder.decode(tileData, numStreams);
+                if (column.nullable && countSetBits(presentStream) != strings.getStrings().size()) {
+                    throw std::runtime_error("String count doesn't match present value count");
+                }
 
                 PropertyVec result{std::move(strings)};
                 checkBits(presentStream, result);
