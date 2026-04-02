@@ -1,4 +1,5 @@
 //! Shared helpers for unit tests, integration tests, and benchmarks.
+#![allow(dead_code, reason = "transcluded in multiple files")]
 
 use crate::decoder::{Layer01, RawStream};
 use crate::encoder::EncodedStream;

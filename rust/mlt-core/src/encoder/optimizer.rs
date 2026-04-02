@@ -1,10 +1,10 @@
 use crate::decoder::TileLayer01;
 use crate::encoder::{
-    EncodeProperties as _, EncodedLayer01, GeometryEncoder, IdEncoder, IntEncoder, LayerEncoder,
-    PropertyEncoder, SortStrategy, StagedLayer01, StringGroup, group_string_properties,
-    reorder_features, spatial_sort_likely_to_help,
+    EncodeProperties as _, EncodedLayer, EncodedLayer01, GeometryEncoder, IdEncoder, IntEncoder,
+    LayerEncoder, PropertyEncoder, SortStrategy, StagedLayer, StagedLayer01, StringGroup,
+    group_string_properties, reorder_features, spatial_sort_likely_to_help,
 };
-use crate::{EncodedLayer, MltError, MltResult, StagedLayer};
+use crate::{MltError, MltResult};
 
 impl StagedLayer {
     /// Encode using a specific `LayerEncoder`, consuming `self` and producing [`EncodedLayer`].

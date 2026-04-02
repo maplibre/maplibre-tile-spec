@@ -1,7 +1,6 @@
 use crate::decoder::{ParsedProperty, ParsedScalar, RawPresence, RawProperty};
-use crate::lazy_state::Decode;
 use crate::utils::apply_present;
-use crate::{Decoder, MltResult};
+use crate::{Decode, Decoder, MltResult};
 
 impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
     #[must_use]

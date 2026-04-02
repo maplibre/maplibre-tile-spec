@@ -6,6 +6,9 @@ mod parse;
 pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt};
 use num_traits::CheckedAdd;
 pub(crate) use parse::*;
+pub(crate) mod analyze;
+pub(crate) mod lazy_state;
+pub mod test_helpers;
 
 use crate::decoder::RawPresence;
 use crate::errors::AsMltError as _;

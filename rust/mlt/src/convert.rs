@@ -5,9 +5,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{Context as _, Result as AnyResult, bail};
 use clap::Args;
-use mlt_core::encoder::{EncoderConfig, Tile01Encoder};
+use mlt_core::encoder::{EncodedLayer, EncoderConfig, Tile01Encoder};
 use mlt_core::mvt::mvt_to_tile_layers;
-use mlt_core::{Decoder, EncodedLayer, Layer, Parser};
+use mlt_core::{Decoder, Layer, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 
 use crate::ls::is_mlt_extension;

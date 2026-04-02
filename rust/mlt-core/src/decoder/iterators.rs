@@ -515,10 +515,12 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
+    use crate::Layer;
     use crate::decoder::{GeometryValues, IdValues};
-    use crate::encoder::{EncoderConfig, StagedLayer01, StagedProperty, StagedSharedDict};
+    use crate::encoder::{
+        EncodedLayer, EncoderConfig, StagedLayer01, StagedProperty, StagedSharedDict,
+    };
     use crate::test_helpers::{dec, parser};
-    use crate::{EncodedLayer, Layer};
 
     fn layer_buf(staged: StagedLayer01) -> Vec<u8> {
         let (enc, _) = staged.encode_auto(EncoderConfig::default()).unwrap();

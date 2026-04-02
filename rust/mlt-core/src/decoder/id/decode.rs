@@ -1,7 +1,6 @@
 use crate::decoder::{IdValues, RawId, RawIdValue};
-use crate::lazy_state::Decode;
 use crate::utils::apply_present;
-use crate::{Decoder, MltResult};
+use crate::{Decode, Decoder, MltResult};
 
 impl Decode<IdValues> for RawId<'_> {
     fn decode(self, decoder: &mut Decoder) -> MltResult<IdValues> {
