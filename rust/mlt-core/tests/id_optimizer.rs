@@ -1,9 +1,10 @@
 use geo_types::Point;
+use mlt_core::encoder::optimizer::{EncoderConfig, StagedLayer01Encoder};
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, into_layer01, parser};
 use mlt_core::v01::{
-    EncoderConfig, GeometryEncoder, GeometryValues, IdEncoder, IdValues, IdWidth, IntEncoder,
-    LogicalEncoder, StagedLayer01, StagedLayer01Encoder,
+    GeometryEncoder, GeometryValues, IdEncoder, IdValues, IdWidth, IntEncoder, LogicalEncoder,
+    StagedLayer01,
 };
 use mlt_core::{EncodedLayer, Layer};
 use rstest::rstest;

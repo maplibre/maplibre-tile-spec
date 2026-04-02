@@ -7,11 +7,12 @@ use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::fsst::compress_fsst;
 use crate::codecs::rle::encode_byte_rle;
 use crate::encoder::property::{EncodedPlainData, EncodedStringsEncoding};
+use crate::encoder::{EncodedStream, EncodedStreamData};
 use crate::errors::AsMltError as _;
 use crate::utils::strings_to_lengths;
 use crate::v01::{
-    DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, LogicalEncoding,
-    OffsetType, PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+    DictionaryType, IntEncoding, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
+    RleMeta, StreamMeta, StreamType,
 };
 
 /// Deduplicate `values` preserving insertion order.

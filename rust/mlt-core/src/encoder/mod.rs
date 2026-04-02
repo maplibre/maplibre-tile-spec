@@ -6,6 +6,7 @@ mod model;
 pub mod optimizer;
 pub mod property;
 pub mod stream;
+mod tile;
 mod unknown;
 
 pub use geometry::*;

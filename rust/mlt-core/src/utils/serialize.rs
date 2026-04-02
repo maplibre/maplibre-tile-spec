@@ -4,7 +4,7 @@ use std::io::Write;
 use integer_encoding::VarIntWriter;
 
 use crate::MltError;
-use crate::v01::{EncodedStream, EncodedStreamData};
+use crate::encoder::{EncodedStream, EncodedStreamData};
 
 pub trait BinarySerializer: Write + VarIntWriter + Sized {
     fn write_u8(&mut self, value: u8) -> io::Result<()> {

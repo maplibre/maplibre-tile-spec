@@ -4,12 +4,13 @@ use super::model::{EncodedGeometry, TessellationMode, VertexBufferType};
 use crate::MltResult;
 use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
+use crate::encoder::EncodedStream;
 use crate::encoder::stream::{IntEncoder, PhysicalEncoder};
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 use crate::v01::{
-    DictionaryType, EncodedStream, GeometryType, GeometryValues, IntEncoding, LengthType,
-    LogicalEncoding, MortonMeta, OffsetType, StreamMeta, StreamType,
+    DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType, LogicalEncoding,
+    MortonMeta, OffsetType, StreamMeta, StreamType,
 };
 
 /// Encode vertex buffer using componentwise delta encoding

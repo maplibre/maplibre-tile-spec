@@ -138,21 +138,8 @@ pub struct RawStream<'a> {
     pub(crate) data: RawStreamData<'a>,
 }
 
-/// Owned variant of [`RawStream`].
-#[derive(Debug, PartialEq, Clone)]
-pub struct EncodedStream {
-    pub meta: StreamMeta,
-    pub(crate) data: EncodedStreamData,
-}
-
 #[derive(PartialEq, Clone)]
 pub enum RawStreamData<'a> {
     VarInt(&'a [u8]),
     Encoded(&'a [u8]),
-}
-
-#[derive(PartialEq, Clone)]
-pub enum EncodedStreamData {
-    VarInt(Vec<u8>),
-    Encoded(Vec<u8>),
 }

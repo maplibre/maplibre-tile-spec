@@ -1,4 +1,5 @@
-use crate::v01::{EncodedLayer01, StagedLayer01, Tile01Encoder};
+use crate::encoder::optimizer::Tile01Encoder;
+use crate::v01::{EncodedLayer01, StagedLayer01};
 
 /// Owned, pre-encoding variant of [`crate::Layer`] (stage 2 of the encoding pipeline).
 #[derive(Debug, PartialEq, Clone)]

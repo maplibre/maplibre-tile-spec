@@ -1,4 +1,4 @@
-use crate::v01::EncodedStream;
+use crate::encoder::EncodedStream;
 
 /// Wire-ready encoded ID data (owns its byte buffers)
 #[derive(Debug, PartialEq, Clone)]

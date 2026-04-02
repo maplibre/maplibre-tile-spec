@@ -1,7 +1,6 @@
+use crate::encoder::EncodedStream;
 use crate::encoder::stream::{FsstStrEncoder, IntEncoder};
-use crate::v01::{
-    EncodedStream, RawFsstData, RawPlainData, RawPresence, RawSharedDictItem, RawStream,
-};
+use crate::v01::{RawFsstData, RawPlainData, RawPresence, RawSharedDictItem, RawStream};
 
 /// Owned name string (Stage 4/5)
 #[derive(Debug, Clone, PartialEq, Eq)]

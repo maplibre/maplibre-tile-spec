@@ -3,14 +3,14 @@
 use proptest::prelude::*;
 use rstest::rstest;
 
-use crate::encoder::stream::encoder::IntEncoder;
+use crate::encoder::{EncodedStream, EncodedStreamData, IntEncoder};
 use crate::test_helpers::{assert_empty, dec, parser, roundtrip_stream, roundtrip_stream_u32s};
 use crate::utils::BinarySerializer as _;
 use crate::v01::{
-    DictionaryType, EncodedStream, EncodedStreamData, EncodedStringsEncoding, IntEncoding,
-    LengthType, LogicalEncoding, LogicalValue, MortonMeta, OffsetType, PhysicalEncoder,
-    PhysicalEncoding, RawFsstData, RawPlainData, RawPresence, RawStream, RawStreamData, RawStrings,
-    RawStringsEncoding, RleMeta, StagedStrings, StreamMeta, StreamType,
+    DictionaryType, EncodedStringsEncoding, IntEncoding, LengthType, LogicalEncoding, LogicalValue,
+    MortonMeta, OffsetType, PhysicalEncoder, PhysicalEncoding, RawFsstData, RawPlainData,
+    RawPresence, RawStream, RawStreamData, RawStrings, RawStringsEncoding, RleMeta, StagedStrings,
+    StreamMeta, StreamType,
 };
 
 /// Test case for stream decoding tests

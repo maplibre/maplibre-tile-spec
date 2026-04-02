@@ -1,6 +1,7 @@
 use crate::StatType;
 use crate::analyze::Analyze;
-use crate::v01::{EncodedStream, RawStream, RawStreamData, StreamMeta};
+use crate::encoder::EncodedStream;
+use crate::v01::{RawStream, RawStreamData, StreamMeta};
 
 impl Analyze for RawStream<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {

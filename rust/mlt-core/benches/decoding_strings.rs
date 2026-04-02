@@ -2,8 +2,9 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::__private::dec;
+use mlt_core::encoder::EncodedStream;
 use mlt_core::v01::{
-    DictionaryType, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
+    DictionaryType, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding,
     EncodedStringsEncoding, IntEncoder, LengthType, LogicalEncoder, PhysicalEncoder, RawFsstData,
     RawPlainData, RawPresence, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream,
     RawStrings, RawStringsEncoding, SharedDictEncoder, SharedDictItemEncoder, StagedSharedDict,

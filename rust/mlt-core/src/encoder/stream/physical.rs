@@ -2,7 +2,8 @@ use integer_encoding::VarInt as _;
 
 use crate::codecs::bytes::{encode_u32s_to_bytes, encode_u64s_to_bytes};
 use crate::codecs::fastpfor::encode_fastpfor;
-use crate::v01::{EncodedStreamData, PhysicalEncoding};
+use crate::encoder::EncodedStreamData;
+use crate::v01::PhysicalEncoding;
 use crate::{MltError, MltResult};
 
 impl PhysicalEncoding {

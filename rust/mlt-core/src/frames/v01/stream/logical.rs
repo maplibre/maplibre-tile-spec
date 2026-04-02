@@ -297,7 +297,7 @@ mod tests {
     use super::*;
     use crate::MltError::InvalidDecodingStreamSize;
     use crate::test_helpers::dec;
-    use crate::v01::{DictionaryType, IntEncoding, PhysicalEncoding, StreamType};
+    use crate::v01::{DictionaryType, IntEncoding, LogicalEncoding, PhysicalEncoding, StreamType};
 
     fn make_meta(logical_encoding: LogicalEncoding, num_values: usize) -> StreamMeta {
         let num_values =

@@ -1,7 +1,8 @@
 use std::fmt;
 use std::io::Write;
 
-use super::{EncodedStream, EncodedStreamData, RawStream, RawStreamData};
+use super::{RawStream, RawStreamData};
+use crate::encoder::{EncodedStream, EncodedStreamData};
 use crate::utils::formatter::fmt_byte_array;
 
 impl EncodedStream {

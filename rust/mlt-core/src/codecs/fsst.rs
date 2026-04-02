@@ -1,10 +1,7 @@
-use crate::encoder::FsstStrEncoder;
 use crate::encoder::property::EncodedFsstData;
+use crate::encoder::{EncodedStream, EncodedStreamData, FsstStrEncoder};
 use crate::utils::{AsUsize as _, strings_to_lengths};
-use crate::v01::{
-    DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, RawFsstData,
-    StreamMeta, StreamType,
-};
+use crate::v01::{DictionaryType, IntEncoding, LengthType, RawFsstData, StreamMeta, StreamType};
 use crate::{Decoder, MltResult};
 
 /// Decode an FSST-compressed byte sequence into the original bytes and value lengths,

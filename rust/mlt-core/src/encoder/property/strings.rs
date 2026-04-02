@@ -9,6 +9,7 @@ use super::model::{
     StagedSharedDictItem, StagedStrings, StrEncoder,
 };
 use crate::MltError::{DictIndexOutOfBounds, NotImplemented};
+use crate::encoder::EncodedStream;
 use crate::encoder::stream::{FsstStrEncoder, IntEncoder};
 use crate::errors::AsMltError as _;
 use crate::frames::v01::property::strings::{
@@ -17,8 +18,8 @@ use crate::frames::v01::property::strings::{
 };
 use crate::utils::AsUsize as _;
 use crate::v01::{
-    ColumnType, DictionaryType, EncodedStream, LengthType, OffsetType, ParsedSharedDict,
-    ParsedSharedDictItem, RawSharedDictItem, StreamType,
+    ColumnType, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
+    RawSharedDictItem, StreamType,
 };
 use crate::{Decoder, MltResult};
 

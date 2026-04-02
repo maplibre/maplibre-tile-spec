@@ -6,12 +6,12 @@ use rstest::rstest;
 
 use crate::encoder::IdWidth::*;
 use crate::encoder::id::IdEncoder;
+use crate::encoder::optimizer::StagedLayer01Encoder;
 use crate::encoder::{EncodedId, EncodedIdValue, IdWidth};
 use crate::geojson::Geom32;
 use crate::test_helpers::{dec, parser};
 use crate::v01::{
     GeometryEncoder, GeometryValues, IdValues, IntEncoder, LogicalEncoder, StagedLayer01,
-    StagedLayer01Encoder,
 };
 use crate::{EncodedLayer, Layer, MltError, MltResult};
 
