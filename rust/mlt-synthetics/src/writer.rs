@@ -1,11 +1,10 @@
+use mlt_core::geojson::FeatureCollection;
+use mlt_core::{Decoder, MltError, Parser};
 use std::collections::HashSet;
 use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::str::FromStr as _;
-
-use mlt_core::geojson::FeatureCollection;
-use mlt_core::{Decoder, MltError, Parser};
 
 use crate::Args;
 use crate::layer::Layer;
@@ -183,7 +182,7 @@ impl SynthWriter {
                 check_json(&decoded, &ref_json)?;
             } else {
                 self.print_note(&format!(
-                    "Java synthetics did not generate MLT corresponding to {name_mlt}"
+                    "Java synthetics doesn't have MLT matching 0x01-rust/{name_mlt}"
                 ));
             }
             let mut s = serde_json::to_string_pretty(&decoded).map_err(SynthErr::SerializeJson)?;
@@ -223,7 +222,9 @@ impl SynthWriter {
 
         for name in &ref_mlts {
             if !self.generated.contains(name) {
-                self.print_note(&format!("Rust synthetics did not generate {name}.mlt"));
+                self.print_note(&format!(
+                    "Rust synthetics did not generate a test matching Java's 0x01/{name}.mlt"
+                ));
             }
         }
 

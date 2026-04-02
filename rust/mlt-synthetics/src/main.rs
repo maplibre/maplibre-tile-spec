@@ -1,10 +1,13 @@
 //! Rust synthetic MLT file generator.
 //!
 //! Verifies non-rust synthetics in-memory against the reference `0x01/` dir.
-//! Writes `-rust`-suffixed files to `0x01-rust/` and compares their decoded JSON
-//! to the corresponding non-rust reference JSON.
-//! If the file does not have -rust, but does not exist in the /0x01/ dir,
-//! it will also be written to /0x01-rust/
+//!
+//! * If the test exists in `0x01/` dir, validates that Rust-generated one is identical
+//! * If the test does not match the one in `0x01/` dir, it gets written to `0x01-rust/` dir.
+//! * Tests with `_fsst` in their name are expected to produce different-but-compatible output,
+//!   and their output is placed into `0x01-rust/` dir.
+//! * Tests with the `-rust` suffix are also written to `0x01-rust/` dir, except without the suffix.
+//! * All tests written to `0x01-rust/` are also validated against the .json file with the same name in `0x01/`
 //!
 //! ### Common filename abbreviations
 //! * `np` - no presence stream, i.e. values exist for each feature in a column
@@ -400,73 +403,32 @@ fn generate_ids(w: &mut SynthWriter) {
         .write(w, "id64_max");
 
     let four_p0 = || geo_varint_with_rle().geos([P0, P0, P0, P0]);
+    let dup_id = || vec![Some(103); 4];
+    let dup_u64_id = || vec![Some(9_234_567_890); 4];
+
     four_p0()
-        .ids(
-            vec![Some(103), Some(103), Some(103), Some(103)],
-            IdEncoder::new(L::None, IdWidth::Id32),
-        )
+        .ids(dup_id(), IdEncoder::new(L::None, IdWidth::Id32))
         .write(w, "ids");
     four_p0()
-        .ids(
-            vec![Some(103), Some(103), Some(103), Some(103)],
-            IdEncoder::new(L::Delta, IdWidth::Id32),
-        )
+        .ids(dup_id(), IdEncoder::new(L::Delta, IdWidth::Id32))
         .write(w, "ids_delta");
     four_p0()
-        .ids(
-            vec![Some(103), Some(103), Some(103), Some(103)],
-            IdEncoder::new(L::Rle, IdWidth::Id32),
-        )
+        .ids(dup_id(), IdEncoder::new(L::Rle, IdWidth::Id32))
         .write(w, "ids_rle");
     four_p0()
-        .ids(
-            vec![Some(103), Some(103), Some(103), Some(103)],
-            IdEncoder::new(L::DeltaRle, IdWidth::Id32),
-        )
+        .ids(dup_id(), IdEncoder::new(L::DeltaRle, IdWidth::Id32))
         .write(w, "ids_delta_rle");
     four_p0()
-        .ids(
-            vec![
-                Some(9_234_567_890),
-                Some(9_234_567_890),
-                Some(9_234_567_890),
-                Some(9_234_567_890),
-            ],
-            IdEncoder::new(L::None, IdWidth::Id64),
-        )
+        .ids(dup_u64_id(), IdEncoder::new(L::None, IdWidth::Id64))
         .write(w, "ids64");
     four_p0()
-        .ids(
-            vec![
-                Some(9_234_567_890),
-                Some(9_234_567_890),
-                Some(9_234_567_890),
-                Some(9_234_567_890),
-            ],
-            IdEncoder::new(L::Delta, IdWidth::Id64),
-        )
+        .ids(dup_u64_id(), IdEncoder::new(L::Delta, IdWidth::Id64))
         .write(w, "ids64_delta");
     four_p0()
-        .ids(
-            vec![
-                Some(9_234_567_890),
-                Some(9_234_567_890),
-                Some(9_234_567_890),
-                Some(9_234_567_890),
-            ],
-            IdEncoder::new(L::Rle, IdWidth::Id64),
-        )
+        .ids(dup_u64_id(), IdEncoder::new(L::Rle, IdWidth::Id64))
         .write(w, "ids64_rle");
     four_p0()
-        .ids(
-            vec![
-                Some(9_234_567_890),
-                Some(9_234_567_890),
-                Some(9_234_567_890),
-                Some(9_234_567_890),
-            ],
-            IdEncoder::new(L::DeltaRle, IdWidth::Id64),
-        )
+        .ids(dup_u64_id(), IdEncoder::new(L::DeltaRle, IdWidth::Id64))
         .write(w, "ids64_delta_rle");
 
     let five_p0 = || geo_varint_with_rle().geos([P0, P0, P0, P0, P0]);
@@ -513,16 +475,16 @@ fn generate_ids(w: &mut SynthWriter) {
     // FastPFOR physical encoding for u32 IDs (Rust-only: Java encoder does not support this)
     four_p0()
         .ids(
-            vec![Some(103), Some(103), Some(103), Some(103)],
+            dup_id(),
             IdEncoder::with_int_encoder(E::fastpfor(), IdWidth::Id32),
         )
-        .write(w, "ids_fpf-rust");
+        .write(w, "ids_fpf");
     four_p0()
         .ids(
-            vec![Some(103), Some(103), Some(103), Some(103)],
+            dup_id(),
             IdEncoder::with_int_encoder(E::delta_fastpfor(), IdWidth::Id32),
         )
-        .write(w, "ids_delta_fpf-rust");
+        .write(w, "ids_delta_fpf");
 }
 
 fn generate_properties(w: &mut SynthWriter) {
