@@ -5,14 +5,14 @@ use rstest::rstest;
 
 use crate::encoder::{
     EncodedStream, EncodedStreamData, EncodedStringsEncoding, IntEncoder, PhysicalEncoder,
-    RawStrings, RawStringsEncoding, StagedStrings,
+    StagedStrings,
 };
 use crate::test_helpers::{assert_empty, dec, parser, roundtrip_stream, roundtrip_stream_u32s};
 use crate::utils::BinarySerializer as _;
 use crate::v01::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalValue, MortonMeta, OffsetType,
-    PhysicalEncoding, RawFsstData, RawPlainData, RawPresence, RawStream, RawStreamData, RleMeta,
-    StreamMeta, StreamType,
+    PhysicalEncoding, RawFsstData, RawPlainData, RawPresence, RawStream, RawStreamData, RawStrings,
+    RawStringsEncoding, RleMeta, StreamMeta, StreamType,
 };
 
 /// Test case for stream decoding tests

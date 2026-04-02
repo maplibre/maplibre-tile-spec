@@ -3,14 +3,13 @@ use std::collections::HashMap;
 use std::io::Write;
 
 use super::model::{
-    EncodedName, EncodedPresence, EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding,
-    EncodedSharedDictItem, EncodedStringsEncoding, PresenceKind, PropertyEncoder, RawSharedDict,
-    RawSharedDictEncoding, SharedDictEncoder, SharedDictItemEncoder, StagedSharedDict,
-    StagedSharedDictItem, StagedStrings, StrEncoder,
+    EncodedName, EncodedPresence, EncodedProperty, EncodedSharedDict, EncodedSharedDictItem,
+    EncodedStringsEncoding, PresenceKind, PropertyEncoder, SharedDictEncoder,
+    SharedDictItemEncoder, StagedSharedDict, StagedSharedDictItem, StagedStrings, StrEncoder,
 };
 use crate::MltError::{DictIndexOutOfBounds, NotImplemented};
-use crate::encoder::EncodedStream;
 use crate::encoder::stream::{FsstStrEncoder, IntEncoder};
+use crate::encoder::{EncodedSharedDictEncoding, EncodedStream};
 use crate::errors::AsMltError as _;
 use crate::frames::v01::strings::{
     checked_string_end, decode_shared_dict_range, encode_null_end, resolve_dict_spans,
@@ -19,7 +18,7 @@ use crate::frames::v01::strings::{
 use crate::utils::AsUsize as _;
 use crate::v01::{
     ColumnType, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
-    RawSharedDictItem, StreamType,
+    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, StreamType,
 };
 use crate::{Decoder, MltResult};
 

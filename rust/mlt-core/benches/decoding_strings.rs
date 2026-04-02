@@ -4,13 +4,13 @@ use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, 
 use mlt_core::__private::dec;
 use mlt_core::encoder::{
     EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
-    EncodedStringsEncoding, IntEncoder, PhysicalEncoder, RawSharedDict, RawSharedDictEncoding,
-    RawStrings, RawStringsEncoding, SharedDictEncoder, SharedDictItemEncoder, StagedSharedDict,
-    StagedStrings, StrEncoder, encode_shared_dict_prop,
+    EncodedStringsEncoding, IntEncoder, PhysicalEncoder, SharedDictEncoder, SharedDictItemEncoder,
+    StagedSharedDict, StagedStrings, StrEncoder, encode_shared_dict_prop,
 };
 use mlt_core::v01::{
     DictionaryType, LengthType, LogicalEncoder, RawFsstData, RawPlainData, RawPresence,
-    RawSharedDictItem, RawStream,
+    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
+    RawStringsEncoding,
 };
 use strum::IntoEnumIterator as _;
 

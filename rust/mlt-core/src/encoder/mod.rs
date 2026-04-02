@@ -1,3 +1,4 @@
+mod analyze;
 mod compare;
 #[cfg(all(not(test), feature = "arbitrary"))]
 mod fuzzing;

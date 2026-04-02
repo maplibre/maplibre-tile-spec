@@ -4,13 +4,14 @@ use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds, UnexpectedStreamTyp
 use crate::codecs::fsst::decode_fsst;
 use crate::encoder::{
     EncodedFsstData, EncodedPlainData, EncodedSharedDictEncoding, EncodedStream, EncodedStrings,
-    EncodedStringsEncoding, PresenceKind, RawSharedDictEncoding, RawStrings, RawStringsEncoding,
+    EncodedStringsEncoding, PresenceKind,
 };
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 use crate::v01::{
     ColumnRef, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
-    ParsedStrings, PropValueRef, RawFsstData, RawPlainData, RawPresence, RawStream, StreamType,
+    ParsedStrings, PropValueRef, RawFsstData, RawPlainData, RawPresence, RawSharedDictEncoding,
+    RawStream, RawStrings, RawStringsEncoding, StreamType,
 };
 use crate::{Decoder, MltError, MltResult};
 
