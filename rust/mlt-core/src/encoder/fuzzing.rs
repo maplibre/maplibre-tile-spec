@@ -1,10 +1,10 @@
 use arbitrary::Error::IncorrectFormat;
 
+use crate::decoder::IdValues;
 use crate::encoder::{
     EncodedGeometry, EncodedId, EncodedLayer01, EncodedProperty, IdEncoder, ScalarEncoder,
     StagedProperty, StagedSharedDict, StagedStrings,
 };
-use crate::v01::IdValues;
 
 impl arbitrary::Arbitrary<'_> for EncodedGeometry {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
@@ -30,7 +30,7 @@ impl arbitrary::Arbitrary<'_> for EncodedLayer01 {
 
         #[cfg(fuzzing)]
         let layer_order = {
-            use crate::v01::fuzzing::LayerOrdering;
+            use crate::fuzzing::LayerOrdering;
             // Build a valid layer_order and Fisher-Yates shuffle it.
             let mut layer_order: Vec<LayerOrdering> = Vec::new();
             if id.is_some() {

@@ -2,13 +2,13 @@ use std::borrow::Cow;
 
 use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds};
 use crate::codecs::fsst::decode_fsst;
-use crate::errors::AsMltError as _;
-use crate::utils::AsUsize as _;
-use crate::v01::{
+use crate::decoder::{
     ColumnRef, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
     ParsedStrings, PropValueRef, RawFsstData, RawPlainData, RawPresence, RawSharedDictEncoding,
     RawStream, RawStrings, RawStringsEncoding, StreamType,
 };
+use crate::errors::AsMltError as _;
+use crate::utils::AsUsize as _;
 use crate::{Decoder, MltError, MltResult};
 
 impl<'a> ParsedStrings<'a> {

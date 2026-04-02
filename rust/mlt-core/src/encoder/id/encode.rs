@@ -2,12 +2,12 @@ use super::model::{EncodedId, EncodedIdValue, IdWidth};
 use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::rle::encode_byte_rle;
-use crate::encoder::stream::IntEncoder;
-use crate::encoder::{EncodedStream, EncodedStreamData};
-use crate::v01::{
+use crate::decoder::{
     IdValues, IntEncoding, LogicalEncoder, LogicalEncoding, PhysicalEncoding, RleMeta, StreamMeta,
     StreamType,
 };
+use crate::encoder::stream::IntEncoder;
+use crate::encoder::{EncodedStream, EncodedStreamData};
 
 /// How to encode IDs
 #[derive(Debug, Clone, Copy, PartialEq)]

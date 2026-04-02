@@ -6,9 +6,7 @@ use mlt_core::encoder::{
     EncodedGeometry, EncoderConfig, GeometryEncoder, IntEncoder, VertexBufferType,
 };
 use mlt_core::geojson::{Coord32, Geom32};
-use mlt_core::v01::{
-    DictionaryType, GeometryValues, LengthType, OffsetType, RawGeometry, StreamType,
-};
+use mlt_core::{DictionaryType, GeometryValues, LengthType, OffsetType, RawGeometry, StreamType};
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 

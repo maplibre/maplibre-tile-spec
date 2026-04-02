@@ -140,7 +140,7 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
 
 /// Convert an MVT tile to an MLT tile using automatic encoding selection.
 ///
-/// Each MVT layer is converted to a [`mlt_core::v01::TileLayer01`] and encoded
+/// Each MVT layer is converted to a [`mlt_core::TileLayer01`] and encoded
 /// via [`Tile01Encoder::encode_auto`].
 fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();

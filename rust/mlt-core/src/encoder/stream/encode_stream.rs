@@ -6,13 +6,13 @@ use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::fsst::compress_fsst;
 use crate::codecs::rle::encode_byte_rle;
-use crate::encoder::{EncodedPlainData, EncodedStream, EncodedStreamData, EncodedStringsEncoding};
-use crate::errors::AsMltError as _;
-use crate::utils::strings_to_lengths;
-use crate::v01::{
+use crate::decoder::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
     RawStream, RleMeta, StreamMeta, StreamType,
 };
+use crate::encoder::{EncodedPlainData, EncodedStream, EncodedStreamData, EncodedStringsEncoding};
+use crate::errors::AsMltError as _;
+use crate::utils::strings_to_lengths;
 
 /// Deduplicate `values` preserving insertion order.
 /// Returns `(unique_strings, per_value_index)` where each entry in `per_value_index` is the

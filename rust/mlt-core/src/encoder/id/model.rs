@@ -1,6 +1,6 @@
 use crate::Analyze;
+use crate::decoder::StreamMeta;
 use crate::encoder::EncodedStream;
-use crate::v01::StreamMeta;
 
 /// Wire-ready encoded ID data (owns its byte buffers)
 #[derive(Debug, PartialEq, Clone)]

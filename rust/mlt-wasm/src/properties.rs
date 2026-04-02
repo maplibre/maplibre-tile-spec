@@ -1,5 +1,5 @@
 use js_sys::{Array, Float64Array, Int8Array, Int32Array, Uint8Array, Uint32Array};
-use mlt_core::v01::{PropValue, TileLayer01};
+use mlt_core::{PropValue, TileLayer01};
 use wasm_bindgen::prelude::*;
 
 /// Cached bulk-property data for a single layer.

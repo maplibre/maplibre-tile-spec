@@ -1,6 +1,8 @@
+use crate::decoder::{
+    DictionaryType, IntEncoding, LengthType, RawFsstData, StreamMeta, StreamType,
+};
 use crate::encoder::{EncodedFsstData, EncodedStream, EncodedStreamData, FsstStrEncoder};
 use crate::utils::{AsUsize as _, strings_to_lengths};
-use crate::v01::{DictionaryType, IntEncoding, LengthType, RawFsstData, StreamMeta, StreamType};
 use crate::{Decoder, MltResult};
 
 /// Decode an FSST-compressed byte sequence into the original bytes and value lengths,
@@ -133,10 +135,10 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::decoder::{RawFsstData, RawStream};
     use crate::encoder::IntEncoder;
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
-    use crate::v01::{RawFsstData, RawStream};
 
     fn roundtrip(values: &[&str]) -> (String, Vec<u32>) {
         let encoding = FsstStrEncoder {

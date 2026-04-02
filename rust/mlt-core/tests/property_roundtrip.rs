@@ -1,5 +1,4 @@
 use geo_types::Point;
-use mlt_core::MltError;
 use mlt_core::encoder::{
     EncodeProperties as _, GeometryEncoder, IntEncoder, PhysicalEncoder, PropertyEncoder,
     ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder,
@@ -7,7 +6,7 @@ use mlt_core::encoder::{
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, parser};
-use mlt_core::v01::{GeometryValues, Layer01, LogicalEncoder, PropValue, TileLayer01};
+use mlt_core::{GeometryValues, Layer01, LogicalEncoder, MltError, PropValue, TileLayer01};
 use proptest::prelude::*;
 // proptest_derive::Arbitrary is only derived for these types inside the crate
 // under #[cfg(test)], so we write the strategies by hand here.

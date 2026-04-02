@@ -1,7 +1,7 @@
 use crate::MltError::ParsingStreamType;
 use crate::MltRefResult;
+use crate::decoder::{DictionaryType, LengthType, OffsetType, StreamType};
 use crate::utils::parse_u8;
-use crate::v01::{DictionaryType, LengthType, OffsetType, StreamType};
 
 impl StreamType {
     pub fn from_bytes(input: &'_ [u8]) -> MltRefResult<'_, Self> {

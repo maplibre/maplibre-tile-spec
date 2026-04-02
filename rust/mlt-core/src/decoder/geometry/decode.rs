@@ -1,9 +1,9 @@
-use crate::lazy_state::Decode;
-use crate::utils::{AsUsize as _, SetOptionOnce as _};
-use crate::v01::{
+use crate::decoder::{
     DictionaryType, GeometryType, GeometryValues, LengthType, OffsetType, RawGeometry, RawStream,
     StreamType,
 };
+use crate::lazy_state::Decode;
+use crate::utils::{AsUsize as _, SetOptionOnce as _};
 use crate::{Decoder, MltError, MltResult};
 
 pub fn decode_geometry_types(

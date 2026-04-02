@@ -6,10 +6,10 @@
 //! optimizer and sorting pipeline: it is cheap to clone, trivially sortable,
 //! and free from any encoded/decoded duality.
 
-use crate::errors::AsMltError as _;
-use crate::v01::{
+use crate::decoder::{
     Layer01, ParsedLayer01, ParsedProperty, PropValue, PropValueRef, TileFeature, TileLayer01,
 };
+use crate::errors::AsMltError as _;
 use crate::{Decoder, MltResult};
 
 impl ParsedLayer01<'_> {
@@ -59,7 +59,7 @@ impl Layer01<'_> {
     }
 }
 
-/// Convert a [`PropValueRef`] (as yielded by [`crate::v01::FeatureRef::iter_all_properties`])
+/// Convert a [`PropValueRef`] (as yielded by [`crate::FeatureRef::iter_all_properties`])
 /// into an owned [`PropValue`].
 fn prop_value_from_ref(value: PropValueRef<'_>) -> PropValue {
     match value {
@@ -77,7 +77,7 @@ fn prop_value_from_ref(value: PropValueRef<'_>) -> PropValue {
 }
 
 /// Build a flat list of typed null [`PropValue`]s, one per logical column position
-/// as yielded by [`crate::v01::FeatureRef::iter_all_properties`].
+/// as yielded by [`crate::FeatureRef::iter_all_properties`].
 ///
 /// Each scalar column contributes one entry with its specific null variant (e.g.
 /// `PropValue::Bool(None)`).  A `SharedDict` column expands to one `PropValue::Str(None)`

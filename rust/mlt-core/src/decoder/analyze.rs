@@ -2,13 +2,13 @@ use std::fmt::{Debug, Formatter};
 
 use crate::DecodeState;
 use crate::analyze::{Analyze, StatType};
-use crate::utils::OptSeqOpt;
-use crate::v01::{
+use crate::decoder::{
     Geometry, GeometryType, GeometryValues, Id, IdValues, Layer01, Property, RawFsstData,
     RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
     RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
     StreamMeta,
 };
+use crate::utils::OptSeqOpt;
 
 impl<'a, S: DecodeState> Analyze for Layer01<'a, S>
 where

@@ -8,20 +8,20 @@ use super::model::{
     SharedDictItemEncoder, StagedSharedDict, StagedSharedDictItem, StagedStrings, StrEncoder,
 };
 use crate::MltError::{DictIndexOutOfBounds, NotImplemented};
+use crate::decoder::strings::{
+    checked_string_end, decode_shared_dict_range, encode_null_end, resolve_dict_spans,
+    shared_dict_spans,
+};
+use crate::decoder::{
+    ColumnType, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
+    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, StreamType,
+};
 use crate::encoder::stream::{FsstStrEncoder, IntEncoder};
 use crate::encoder::{
     EncodedFsstData, EncodedPlainData, EncodedSharedDictEncoding, EncodedStream, EncodedStrings,
 };
 use crate::errors::AsMltError as _;
-use crate::frames::v01::strings::{
-    checked_string_end, decode_shared_dict_range, encode_null_end, resolve_dict_spans,
-    shared_dict_spans,
-};
 use crate::utils::AsUsize as _;
-use crate::v01::{
-    ColumnType, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
-    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, StreamType,
-};
 use crate::{Decoder, MltResult};
 
 impl StrEncoder {

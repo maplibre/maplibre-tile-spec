@@ -3,12 +3,12 @@ use std::{fmt, io};
 use integer_encoding::VarIntWriter as _;
 
 use crate::codecs::varint::parse_varint;
-use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
-use crate::utils::{AsUsize as _, BinarySerializer as _, parse_u8, take};
-use crate::v01::{
+use crate::decoder::{
     IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RawStream,
     RawStreamData, RleMeta, StreamMeta, StreamType,
 };
+use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
+use crate::utils::{AsUsize as _, BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
 
 impl IntEncoding {
@@ -46,7 +46,7 @@ impl StreamMeta {
         is_bool: bool,
         parser: &mut Parser,
     ) -> MltRefResult<'a, (Self, u32)> {
-        use crate::v01::LogicalTechnique as LT;
+        use crate::decoder::LogicalTechnique as LT;
 
         let (input, stream_type) = StreamType::from_bytes(input)?;
         let (input, val) = parse_u8(input)?;

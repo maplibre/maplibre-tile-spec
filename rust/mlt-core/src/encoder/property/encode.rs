@@ -7,8 +7,8 @@ use crate::MltError::{
     EncodingInstructionCountMismatch, NotImplemented, UnsupportedPropertyEncoderCombination,
 };
 use crate::MltResult;
+use crate::decoder::{DictionaryType, LengthType};
 use crate::encoder::{EncodedStream, StagedScalar, StagedStrings};
-use crate::v01::{DictionaryType, LengthType};
 
 pub fn encode_properties(
     value: &[StagedProperty],

@@ -1,7 +1,6 @@
 use crate::Layer;
+use crate::decoder::{Geometry, GeometryValues, Id, IdValues, Layer01, Property, Unknown};
 use crate::encoder::{EncodedUnknown, StagedLayer, StagedLayer01, StagedProperty};
-use crate::frames::Unknown;
-use crate::v01::{Geometry, GeometryValues, Id, IdValues, Layer01, Property};
 /// Cross-type [`PartialEq`] between decode-side (`Parsed*` / `Layer01<'a>`) and
 /// encode-side (`Staged*`) types.
 ///

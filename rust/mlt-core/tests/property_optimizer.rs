@@ -2,7 +2,7 @@ use insta::assert_debug_snapshot;
 use mlt_core::encoder::{
     EncodeProperties as _, StagedLayer01, StagedProperty, group_string_properties,
 };
-use mlt_core::v01::{PropValue, TileFeature, TileLayer01};
+use mlt_core::{PropValue, TileFeature, TileLayer01};
 
 fn str_prop(name: &str, values: &[&str]) -> StagedProperty {
     let owned: Vec<Option<String>> = values.iter().map(|s| Some((*s).to_string())).collect();

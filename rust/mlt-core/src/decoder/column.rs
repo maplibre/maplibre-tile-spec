@@ -2,8 +2,8 @@ use std::io;
 use std::io::Write;
 
 use crate::MltError::ParsingColumnType;
+use crate::decoder::{Column, ColumnType};
 use crate::utils::{BinarySerializer as _, parse_string, parse_u8};
-use crate::v01::{Column, ColumnType};
 use crate::{MltRefResult, Parser};
 
 impl Column<'_> {

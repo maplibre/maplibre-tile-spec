@@ -5,14 +5,14 @@ use crate::MltError::{
     UnexpectedStructChildCount, UnsupportedStringStreamCount,
 };
 use crate::codecs::varint::parse_varint;
-use crate::errors::AsMltError as _;
-use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
-use crate::v01::{
+use crate::decoder::{
     Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01,
     ParsedLayer01, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence,
     RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream,
     RawStrings, RawStringsEncoding, StreamType,
 };
+use crate::errors::AsMltError as _;
+use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
 use crate::{Decoder, Lazy, MltRefResult, MltResult, Parser};
 
 impl<'a> Layer01<'a, Lazy> {
@@ -34,7 +34,7 @@ impl<'a> Layer01<'a, Lazy> {
         let layer_order = col_info
             .iter()
             .map(|column| column.typ)
-            .map(crate::frames::v01::fuzzing::LayerOrdering::from)
+            .map(crate::decoder::fuzzing::LayerOrdering::from)
             .collect();
 
         let mut properties = Vec::with_capacity(prop_count.as_usize());
@@ -42,7 +42,7 @@ impl<'a> Layer01<'a, Lazy> {
         let mut geometry: Option<Geometry> = None;
 
         for column in col_info {
-            use crate::v01::RawProperty as RP;
+            use crate::decoder::RawProperty as RP;
 
             let opt;
             let value;
@@ -376,7 +376,7 @@ fn parse_columns_meta<'a>(
     column_count: u32,
     parser: &mut Parser,
 ) -> MltRefResult<'a, (Vec<Column<'a>>, u32)> {
-    use crate::v01::ColumnType::{Geometry, Id, LongId, OptId, OptLongId, SharedDict};
+    use crate::decoder::ColumnType::{Geometry, Id, LongId, OptId, OptLongId, SharedDict};
 
     let mut col_info = Vec::with_capacity(column_count.as_usize());
     let mut geometries = 0;

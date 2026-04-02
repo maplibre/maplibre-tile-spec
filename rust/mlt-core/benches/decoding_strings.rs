@@ -7,7 +7,7 @@ use mlt_core::encoder::{
     EncodedStringsEncoding, IntEncoder, PhysicalEncoder, SharedDictEncoder, SharedDictItemEncoder,
     StagedSharedDict, StagedStrings, StrEncoder, encode_shared_dict_prop,
 };
-use mlt_core::v01::{
+use mlt_core::{
     DictionaryType, LengthType, LogicalEncoder, RawFsstData, RawPlainData, RawPresence,
     RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
     RawStringsEncoding,

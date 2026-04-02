@@ -1,7 +1,7 @@
 use std::fmt;
 
+use crate::decoder::ParsedProperty;
 use crate::utils::FmtOptVec;
-use crate::v01::ParsedProperty;
 
 /// Custom implementation to ensure values are printed without newlines
 impl fmt::Debug for ParsedProperty<'_> {

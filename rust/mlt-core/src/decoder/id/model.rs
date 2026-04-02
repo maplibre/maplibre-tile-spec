@@ -1,4 +1,4 @@
-use crate::v01::{RawPresence, RawStream};
+use crate::decoder::{RawPresence, RawStream};
 use crate::{DecodeState, Lazy};
 
 /// ID column representation, parameterized by decode state.

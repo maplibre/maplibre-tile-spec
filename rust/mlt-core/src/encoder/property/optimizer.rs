@@ -26,8 +26,8 @@ use super::{
 };
 use crate::MltResult;
 use crate::codecs::zigzag::encode_zigzag;
+use crate::decoder::{PropValue, TileLayer01};
 use crate::encoder::stream::IntEncoder;
-use crate::v01::{PropValue, TileLayer01};
 
 /// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;
@@ -49,7 +49,7 @@ pub struct StringGroup {
     /// Common prefix of all column names in this group.
     pub prefix: String,
     /// `(suffix, col_idx)` pairs: `suffix` is the column name after stripping
-    /// `prefix`; `col_idx` is the index into [`crate::v01::TileLayer01::property_names`]
+    /// `prefix`; `col_idx` is the index into [`crate::TileLayer01::property_names`]
     /// from which this group was derived.
     pub columns: Vec<(String, usize)>,
 }

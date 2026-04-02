@@ -1,9 +1,9 @@
 use crate::analyze::{Analyze, StatType};
+use crate::decoder::{ParsedScalar, ParsedSharedDict, ParsedStrings, StreamMeta};
 use crate::encoder::{
     EncodedPresence, EncodedProperty, EncodedScalar, EncodedSharedDict, EncodedSharedDictItem,
     EncodedStream, EncodedStrings,
 };
-use crate::v01::{ParsedScalar, ParsedSharedDict, ParsedStrings, StreamMeta};
 
 impl Analyze for EncodedPresence {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {

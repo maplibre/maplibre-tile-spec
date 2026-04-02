@@ -7,8 +7,8 @@ pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt};
 use num_traits::CheckedAdd;
 pub(crate) use parse::*;
 
+use crate::decoder::RawPresence;
 use crate::errors::AsMltError as _;
-use crate::v01::RawPresence;
 use crate::{Decoder, MltError, MltResult};
 
 pub trait SetOptionOnce<T> {

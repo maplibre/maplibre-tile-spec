@@ -1,7 +1,7 @@
 use enum_dispatch::enum_dispatch;
 
 use crate::LazyParsed;
-use crate::v01::StreamMeta;
+use crate::decoder::StreamMeta;
 
 /// What to calculate with [`Analyze::collect_statistic`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

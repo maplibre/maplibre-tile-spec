@@ -1,9 +1,9 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use mlt_core::__private::MortonMeta;
 use mlt_core::__private::morton::{decode_morton_codes, decode_morton_delta};
 use mlt_core::Decoder;
-use mlt_core::v01::MortonMeta;
 
 const NUM_BITS: u32 = 15;
 const COORDINATE_SHIFT: u32 = 1 << (NUM_BITS - 1);
