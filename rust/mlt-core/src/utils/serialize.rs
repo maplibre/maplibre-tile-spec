@@ -3,8 +3,8 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter;
 
-use crate::MltError;
 use crate::encoder::{EncodedStream, EncodedStreamData};
+use crate::{MltError, MltResult};
 
 pub trait BinarySerializer: Write + VarIntWriter + Sized {
     fn write_u8(&mut self, value: u8) -> io::Result<()> {
@@ -49,3 +49,10 @@ pub trait BinarySerializer: Write + VarIntWriter + Sized {
 }
 
 impl<T> BinarySerializer for T where T: Write + VarIntWriter {}
+
+pub fn strings_to_lengths<S: AsRef<str>>(values: &[S]) -> MltResult<Vec<u32>> {
+    Ok(values
+        .iter()
+        .map(|s| u32::try_from(s.as_ref().len()))
+        .collect::<Result<Vec<_>, _>>()?)
+}
