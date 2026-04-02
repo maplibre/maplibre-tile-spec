@@ -30,14 +30,15 @@ impl arbitrary::Arbitrary<'_> for EncodedLayer01 {
 
         #[cfg(fuzzing)]
         let layer_order = {
+            use crate::v01::fuzzing::LayerOrdering;
             // Build a valid layer_order and Fisher-Yates shuffle it.
-            let mut layer_order: Vec<crate::frames::v01::fuzzing::LayerOrdering> = Vec::new();
+            let mut layer_order: Vec<LayerOrdering> = Vec::new();
             if id.is_some() {
-                layer_order.push(crate::frames::v01::fuzzing::LayerOrdering::Id);
+                layer_order.push(LayerOrdering::Id);
             }
-            layer_order.push(crate::frames::v01::fuzzing::LayerOrdering::Geometry);
+            layer_order.push(LayerOrdering::Geometry);
             for _ in &properties {
-                layer_order.push(crate::frames::v01::fuzzing::LayerOrdering::Property);
+                layer_order.push(LayerOrdering::Property);
             }
             let n = layer_order.len();
             for i in (1..n).rev() {

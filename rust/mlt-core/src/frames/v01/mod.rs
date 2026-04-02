@@ -1,7 +1,7 @@
 mod analyze;
 mod column;
 #[cfg(all(not(test), feature = "arbitrary"))]
-mod fuzzing;
+pub mod fuzzing;
 mod geometry;
 mod id;
 mod iterators;
