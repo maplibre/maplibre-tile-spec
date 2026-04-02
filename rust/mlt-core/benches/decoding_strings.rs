@@ -1,16 +1,15 @@
 use std::hint::black_box;
 
-use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::__private::{RawStream, dec};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use geo_types::Point;
 use mlt_core::encoder::{
-    EncodedProperty, EncodedSharedDict, EncodedSharedDictEncoding, EncodedStream,
-    EncodedStringsEncoding, IntEncoder, PhysicalEncoder, SharedDictEncoder, SharedDictItemEncoder,
-    StagedSharedDict, StagedStrings, StrEncoder, encode_shared_dict_prop,
+    GeometryEncoder, IntEncoder, PhysicalEncoder, PropertyEncoder, ScalarEncoder,
+    SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty,
+    StagedSharedDict, StrEncoder,
 };
-use mlt_core::{
-    DictionaryType, LengthType, LogicalEncoder, RawFsstData, RawPlainData, RawPresence,
-    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
-};
+use mlt_core::geojson::Geom32;
+use mlt_core::test_helpers::{dec, parser};
+use mlt_core::{GeometryValues, Layer01, LogicalEncoder, ParsedLayer01, PropValueRef};
 use strum::IntoEnumIterator as _;
 
 // This code runs in CI because of --all-targets, so make it run really fast.
@@ -74,104 +73,56 @@ fn make_nullable_strings(n: usize) -> Vec<Option<String>> {
     )
 }
 
-fn encode_plain(strings: &[String], int_enc: IntEncoder) -> EncodedStringsEncoding {
-    EncodedStream::encode_strings_with_type(
-        strings,
-        int_enc,
-        LengthType::VarBinary,
-        DictionaryType::None,
-    )
-    .expect("encode_plain failed")
-}
-
-fn encode_fsst(strings: &[String], int_enc: IntEncoder) -> EncodedStringsEncoding {
-    // StrEncoder::fsst builds the FsstStrEncoder internally; its fields are private.
-    let StrEncoder::Fsst(enc) = StrEncoder::fsst(int_enc, int_enc) else {
-        unreachable!()
-    };
-    EncodedStream::encode_strings_fsst_with_type(strings, enc, DictionaryType::Single)
-        .expect("encode_fsst failed")
-}
-
-/// Borrow an [`EncodedStringsEncoding`] as [`RawStrings<'_>`] for decoding.
-/// This is the benchmark-only helper: owned data stays in the outer scope,
-/// and only leaf-level `EncodedStream::as_borrowed()` calls are made.
-fn borrow_enc_strings<'a>(
-    enc: &'a EncodedStringsEncoding,
-    name: &'a str,
-    presence: Option<RawStream<'a>>,
-) -> RawStrings<'a> {
-    let encoding = match enc {
-        EncodedStringsEncoding::Plain(d) => RawStringsEncoding::Plain(RawPlainData {
-            lengths: d.lengths.as_borrowed(),
-            data: d.data.as_borrowed(),
-        }),
-        EncodedStringsEncoding::Dictionary {
-            plain_data,
-            offsets,
-        } => RawStringsEncoding::Dictionary {
-            plain_data: RawPlainData {
-                lengths: plain_data.lengths.as_borrowed(),
-                data: plain_data.data.as_borrowed(),
-            },
-            offsets: offsets.as_borrowed(),
-        },
-        EncodedStringsEncoding::FsstPlain(d) => RawStringsEncoding::FsstPlain(RawFsstData {
-            symbol_lengths: d.symbol_lengths.as_borrowed(),
-            symbol_table: d.symbol_table.as_borrowed(),
-            lengths: d.lengths.as_borrowed(),
-            corpus: d.corpus.as_borrowed(),
-        }),
-        EncodedStringsEncoding::FsstDictionary { fsst_data, offsets } => {
-            RawStringsEncoding::FsstDictionary {
-                fsst_data: RawFsstData {
-                    symbol_lengths: fsst_data.symbol_lengths.as_borrowed(),
-                    symbol_table: fsst_data.symbol_table.as_borrowed(),
-                    lengths: fsst_data.lengths.as_borrowed(),
-                    corpus: fsst_data.corpus.as_borrowed(),
-                },
-                offsets: offsets.as_borrowed(),
-            }
-        }
-    };
-    RawStrings {
-        name,
-        presence: RawPresence(presence),
-        encoding,
+/// Build `n` degenerate point features at the origin for use as layer geometry.
+fn make_geometry(n: usize) -> GeometryValues {
+    let mut g = GeometryValues::default();
+    for _ in 0..n {
+        g.push_geom(&Geom32::Point(Point::new(0, 0)));
     }
+    g
 }
 
-/// Borrow an [`EncodedSharedDict`] as [`RawSharedDict<'_>`] for decoding.
-fn borrow_owned_shared_dict(sd: &EncodedSharedDict) -> RawSharedDict<'_> {
-    let encoding = match &sd.encoding {
-        EncodedSharedDictEncoding::Plain(d) => RawSharedDictEncoding::Plain(RawPlainData {
-            lengths: d.lengths.as_borrowed(),
-            data: d.data.as_borrowed(),
-        }),
-        EncodedSharedDictEncoding::FsstPlain(d) => RawSharedDictEncoding::FsstPlain(
-            RawFsstData::new(
-                d.symbol_lengths.as_borrowed(),
-                d.symbol_table.as_borrowed(),
-                d.lengths.as_borrowed(),
-                d.corpus.as_borrowed(),
-            )
-            .expect("RawFsstData::new failed"),
-        ),
-    };
-    let children = sd
-        .children
-        .iter()
-        .map(|c| RawSharedDictItem {
-            name: &c.name.0,
-            presence: RawPresence(c.presence.0.as_ref().map(|s| s.as_borrowed())),
-            data: c.data.as_borrowed(),
+/// Encode `props` into a single-layer tile with `n` point features and return wire bytes.
+fn encode_layer(n: usize, props: Vec<StagedProperty>, encoders: Vec<PropertyEncoder>) -> Vec<u8> {
+    let encoded = StagedLayer01 {
+        name: "bench".into(),
+        extent: 4096,
+        id: None,
+        geometry: make_geometry(n),
+        properties: props,
+    }
+    .encode(StagedLayer01Encoder {
+        geometry: GeometryEncoder::all(IntEncoder::varint()),
+        properties: encoders,
+        ..Default::default()
+    })
+    .expect("encode_layer failed");
+    let mut buf = Vec::new();
+    encoded.write_to(&mut buf).expect("write_to failed");
+    buf
+}
+
+/// Sum the byte lengths of all non-null string property values across all features.
+///
+/// Used as the benchmark measurement: the return value prevents the compiler from
+/// optimizing away the iteration, and its magnitude is proportional to work done.
+fn sum_str_lens(parsed: &ParsedLayer01<'_>) -> usize {
+    parsed
+        .iter_features()
+        .map(|feat_res| {
+            feat_res
+                .unwrap()
+                .iter_all_properties()
+                .map(|v| {
+                    if let Some(PropValueRef::Str(s)) = v {
+                        s.len()
+                    } else {
+                        0
+                    }
+                })
+                .sum::<usize>()
         })
-        .collect();
-    RawSharedDict {
-        name: &sd.name.0,
-        encoding,
-        children,
-    }
+        .sum()
 }
 
 /// plain strings: vary the `IntEncoder` used for the length stream
@@ -179,24 +130,26 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
     let mut group = c.benchmark_group("strings/plain/length_enc");
 
     for n in BENCHMARKED_LENGTHS {
-        let strings = make_strings(n);
+        let col: Vec<Option<String>> = make_strings(n).into_iter().map(Some).collect();
         group.throughput(Throughput::Elements(n as u64));
 
         for logical in limit(LogicalEncoder::iter()) {
             for physical in limit(PhysicalEncoder::iter()) {
                 let int_enc = IntEncoder::new(logical, physical);
-                let encoded = encode_plain(&strings, int_enc);
+                let bytes = encode_layer(
+                    n,
+                    vec![StagedProperty::str("name", col.clone())],
+                    vec![PropertyEncoder::Scalar(ScalarEncoder::str(int_enc))],
+                );
 
                 group.bench_with_input(
                     BenchmarkId::new(format!("{logical:?}-{physical:?}"), n),
-                    &encoded,
-                    |b, encoded| {
+                    &bytes,
+                    |b, bytes| {
                         b.iter(|| {
-                            black_box(
-                                borrow_enc_strings(encoded, "", None)
-                                    .decode(&mut dec())
-                                    .unwrap(),
-                            )
+                            let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                            let parsed = layer.decode_all(&mut dec()).expect("decode_all");
+                            black_box(sum_str_lens(&parsed))
                         });
                     },
                 );
@@ -207,29 +160,33 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
     group.finish();
 }
 
-/// FSST strings: vary the `IntEncoder` used for the symbol-length and value-length streams inside the FSST block.
+/// FSST strings: vary the `IntEncoder` used for the symbol-length and value-length streams
 fn bench_fsst_length_encoding(c: &mut Criterion) {
     let mut group = c.benchmark_group("strings/fsst/length_enc");
 
     for n in BENCHMARKED_LENGTHS {
-        let strings = make_strings(n);
+        let col: Vec<Option<String>> = make_strings(n).into_iter().map(Some).collect();
         group.throughput(Throughput::Elements(n as u64));
 
         for logical in limit(LogicalEncoder::iter()) {
             for physical in limit(PhysicalEncoder::iter()) {
                 let int_enc = IntEncoder::new(logical, physical);
-                let encoded = encode_fsst(&strings, int_enc);
+                let bytes = encode_layer(
+                    n,
+                    vec![StagedProperty::str("name", col.clone())],
+                    vec![PropertyEncoder::Scalar(ScalarEncoder::str_fsst(
+                        int_enc, int_enc,
+                    ))],
+                );
 
                 group.bench_with_input(
                     BenchmarkId::new(format!("{logical:?}-{physical:?}"), n),
-                    &encoded,
-                    |b, encoded| {
+                    &bytes,
+                    |b, bytes| {
                         b.iter(|| {
-                            black_box(
-                                borrow_enc_strings(encoded, "", None)
-                                    .decode(&mut dec())
-                                    .unwrap(),
-                            )
+                            let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                            let parsed = layer.decode_all(&mut dec()).expect("decode_all");
+                            black_box(sum_str_lens(&parsed))
                         });
                     },
                 );
@@ -246,28 +203,34 @@ fn bench_encoding_type(c: &mut Criterion) {
     let int_enc = IntEncoder::plain();
 
     for n in BENCHMARKED_LENGTHS {
-        let strings = make_strings(n);
+        let col: Vec<Option<String>> = make_strings(n).into_iter().map(Some).collect();
         group.throughput(Throughput::Elements(n as u64));
 
-        let plain = encode_plain(&strings, int_enc);
-        group.bench_with_input(BenchmarkId::new("plain", n), &plain, |b, encoded| {
+        let plain_bytes = encode_layer(
+            n,
+            vec![StagedProperty::str("name", col.clone())],
+            vec![PropertyEncoder::Scalar(ScalarEncoder::str(int_enc))],
+        );
+        group.bench_with_input(BenchmarkId::new("plain", n), &plain_bytes, |b, bytes| {
             b.iter(|| {
-                black_box(
-                    borrow_enc_strings(encoded, "", None)
-                        .decode(&mut dec())
-                        .unwrap(),
-                )
+                let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                let parsed = layer.decode_all(&mut dec()).expect("decode_all");
+                black_box(sum_str_lens(&parsed))
             });
         });
 
-        let fsst = encode_fsst(&strings, int_enc);
-        group.bench_with_input(BenchmarkId::new("fsst", n), &fsst, |b, encoded| {
+        let fsst_bytes = encode_layer(
+            n,
+            vec![StagedProperty::str("name", col)],
+            vec![PropertyEncoder::Scalar(ScalarEncoder::str_fsst(
+                int_enc, int_enc,
+            ))],
+        );
+        group.bench_with_input(BenchmarkId::new("fsst", n), &fsst_bytes, |b, bytes| {
             b.iter(|| {
-                black_box(
-                    borrow_enc_strings(encoded, "", None)
-                        .decode(&mut dec())
-                        .unwrap(),
-                )
+                let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                let parsed = layer.decode_all(&mut dec()).expect("decode_all");
+                black_box(sum_str_lens(&parsed))
             });
         });
     }
@@ -283,44 +246,41 @@ fn bench_presence(c: &mut Criterion) {
     for n in BENCHMARKED_LENGTHS {
         group.throughput(Throughput::Elements(n as u64));
 
-        // Non-nullable: no presence stream at all.
-        let strings = make_strings(n);
-        let enc_no_nulls = encode_plain(&strings, int_enc);
-
+        // Non-nullable: no presence stream emitted.
+        let no_null_bytes = encode_layer(
+            n,
+            vec![StagedProperty::str(
+                "name",
+                make_strings(n).into_iter().map(Some).collect(),
+            )],
+            vec![PropertyEncoder::Scalar(ScalarEncoder::str(int_enc))],
+        );
         group.bench_with_input(
             BenchmarkId::new("no_nulls", n),
-            &enc_no_nulls,
-            |b, encoded| {
+            &no_null_bytes,
+            |b, bytes| {
                 b.iter(|| {
-                    black_box(
-                        borrow_enc_strings(encoded, "", None)
-                            .decode(&mut dec())
-                            .unwrap(),
-                    )
+                    let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                    let parsed = layer.decode_all(&mut dec()).expect("decode_all");
+                    black_box(sum_str_lens(&parsed))
                 });
             },
         );
 
-        // Nullable: attach a presence bitmap and only encode the non-null values.
-        let nullable = StagedStrings::from_optional("", make_nullable_strings(n));
-        let presence_bools = nullable.presence_bools();
-        let presence_stream =
-            EncodedStream::encode_presence(&presence_bools).expect("encode_presence failed");
-        let dense = nullable.dense_values();
-        let enc_values = encode_plain(&dense, int_enc);
-
-        let with_nulls = (presence_stream, enc_values);
+        // Nullable: presence stream present, every 5th entry is None.
+        let null_bytes = encode_layer(
+            n,
+            vec![StagedProperty::str("name", make_nullable_strings(n))],
+            vec![PropertyEncoder::Scalar(ScalarEncoder::str(int_enc))],
+        );
         group.bench_with_input(
             BenchmarkId::new("with_nulls", n),
-            &with_nulls,
-            |b, (pres, enc)| {
+            &null_bytes,
+            |b, bytes| {
                 b.iter(|| {
-                    let p = pres.as_borrowed();
-                    black_box(
-                        borrow_enc_strings(enc, "", Some(p))
-                            .decode(&mut dec())
-                            .unwrap(),
-                    )
+                    let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                    let parsed = layer.decode_all(&mut dec()).expect("decode_all");
+                    black_box(sum_str_lens(&parsed))
                 });
             },
         );
@@ -331,113 +291,124 @@ fn bench_presence(c: &mut Criterion) {
 
 /// Benchmark 5 – shared dict vs plain
 ///
-/// Compares decoding a plain string column against a shared-dictionary struct
+/// Compares decoding two plain string columns against a shared-dictionary struct
 /// column (plain and FSST flavours) that carries the same string data spread
 /// across two child sub-properties.
-/// Throughput is reported per *logical* string entry so both variants are directly comparable.
+/// Throughput is reported per *logical* string entry so all variants are comparable.
 fn bench_vs_shared_dict(c: &mut Criterion) {
     let mut group = c.benchmark_group("strings/vs_shared_dict");
     let int_enc = IntEncoder::plain();
 
     for n in BENCHMARKED_LENGTHS {
-        // Two logical string columns of N entries each.
         let total_entries = n * 2;
         group.throughput(Throughput::Elements(total_entries as u64));
 
         let strings = make_strings(n);
+        let col: Vec<Option<String>> = strings.iter().map(|s| Some(s.clone())).collect();
 
-        // --- plain: two independent decode_strings calls ---
-        let enc_plain = encode_plain(&strings, int_enc);
-        group.bench_with_input(BenchmarkId::new("plain_x2", n), &enc_plain, |b, encoded| {
-            b.iter(|| {
-                black_box(
-                    borrow_enc_strings(encoded, "", None)
-                        .decode(&mut dec())
-                        .unwrap(),
-                );
-                black_box(
-                    borrow_enc_strings(encoded, "", None)
-                        .decode(&mut dec())
-                        .unwrap(),
-                );
-            });
-        });
+        // --- plain: two independent string columns ---
+        let plain_x2_bytes = encode_layer(
+            n,
+            vec![
+                StagedProperty::str("col1", col.clone()),
+                StagedProperty::str("col2", col.clone()),
+            ],
+            vec![
+                PropertyEncoder::Scalar(ScalarEncoder::str(int_enc)),
+                PropertyEncoder::Scalar(ScalarEncoder::str(int_enc)),
+            ],
+        );
+        group.bench_with_input(
+            BenchmarkId::new("plain_x2", n),
+            &plain_x2_bytes,
+            |b, bytes| {
+                b.iter(|| {
+                    let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                    let parsed = layer.decode_all(&mut dec()).expect("decode_all");
+                    black_box(sum_str_lens(&parsed))
+                });
+            },
+        );
 
         // --- shared dict (plain) ---
         //
-        // Build a decoded shared dict from two sub-properties; the second child
-        // has every 3rd entry as NULL so the child presence path is exercised.
-        let col1: Vec<Option<&str>> = strings.iter().map(|s| Some(s.as_str())).collect();
-        let col2: Vec<Option<&str>> = strings
+        // Two sub-properties; the second child has every 3rd entry as NULL so
+        // the child presence path is exercised.
+        let col2: Vec<Option<String>> = strings
             .iter()
             .enumerate()
-            .map(|(i, s)| if i % 3 == 0 { None } else { Some(s.as_str()) })
+            .map(|(i, s)| if i % 3 == 0 { None } else { Some(s.clone()) })
             .collect();
-
-        let decoded_shared = StagedSharedDict::new("place:", [("type", col1), ("subtype", col2)])
-            .expect("StagedSharedDict::try_new failed");
-
-        let item_enc = SharedDictItemEncoder::new(int_enc);
-        let encoder_plain = SharedDictEncoder {
-            dict_encoder: StrEncoder::plain(int_enc),
-            items: vec![item_enc, item_enc],
+        let make_sd = || {
+            StagedSharedDict::new("place:", [("type", col.clone()), ("subtype", col2.clone())])
+                .expect("StagedSharedDict::new failed")
         };
-        let encoded_prop_plain = encode_shared_dict_prop(&decoded_shared, &encoder_plain)
-            .expect("encode_shared_dict_prop failed")
-            .expect("expected non-empty SharedDict");
-        let EncodedProperty::SharedDict(ref sd_plain) = encoded_prop_plain else {
-            panic!("expected SharedDict property");
+        let two_item_enc = |dict_enc| SharedDictEncoder {
+            dict_encoder: dict_enc,
+            items: vec![
+                SharedDictItemEncoder::new(int_enc),
+                SharedDictItemEncoder::new(int_enc),
+            ],
         };
 
+        let sd_plain_bytes = encode_layer(
+            n,
+            vec![StagedProperty::SharedDict(make_sd())],
+            vec![two_item_enc(StrEncoder::plain(int_enc)).into()],
+        );
         group.bench_with_input(
             BenchmarkId::new("shared_dict_plain", n),
-            sd_plain,
-            |b, sd| {
-                b.iter_batched(
-                    || borrow_owned_shared_dict(sd),
-                    |sd_ref: RawSharedDict<'_>| black_box(sd_ref.decode(&mut dec()).unwrap()),
-                    BatchSize::SmallInput,
-                );
+            &sd_plain_bytes,
+            |b, bytes| {
+                b.iter(|| {
+                    let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                    let parsed = layer.decode_all(&mut dec()).expect("decode_all");
+                    black_box(sum_str_lens(&parsed))
+                });
             },
         );
 
         // --- shared dict (FSST) ---
-        let item_enc_fsst = SharedDictItemEncoder::new(int_enc);
-        let encoder_fsst = SharedDictEncoder {
-            dict_encoder: StrEncoder::fsst(int_enc, int_enc),
-            items: vec![item_enc_fsst, item_enc_fsst],
-        };
-        let encoded_prop_fsst = encode_shared_dict_prop(&decoded_shared, &encoder_fsst)
-            .expect("encode_shared_dict_prop (fsst) failed")
-            .expect("expected non-empty SharedDict (fsst)");
-        let EncodedProperty::SharedDict(ref sd_fsst) = encoded_prop_fsst else {
-            panic!("expected SharedDict property");
-        };
+        let sd_fsst_bytes = encode_layer(
+            n,
+            vec![StagedProperty::SharedDict(make_sd())],
+            vec![two_item_enc(StrEncoder::fsst(int_enc, int_enc)).into()],
+        );
+        group.bench_with_input(
+            BenchmarkId::new("shared_dict_fsst", n),
+            &sd_fsst_bytes,
+            |b, bytes| {
+                b.iter(|| {
+                    let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                    let parsed = layer.decode_all(&mut dec()).expect("decode_all");
+                    black_box(sum_str_lens(&parsed))
+                });
+            },
+        );
 
-        group.bench_with_input(BenchmarkId::new("shared_dict_fsst", n), sd_fsst, |b, sd| {
-            b.iter_batched(
-                || borrow_owned_shared_dict(sd),
-                |sd_ref: RawSharedDict<'_>| black_box(sd_ref.decode(&mut dec()).unwrap()),
-                BatchSize::SmallInput,
-            );
-        });
-
-        // --- FSST plain (two independent columns) for a fair FSST comparison ---
-        let enc_fsst = encode_fsst(&strings, int_enc);
-        group.bench_with_input(BenchmarkId::new("fsst_x2", n), &enc_fsst, |b, encoded| {
-            b.iter(|| {
-                black_box(
-                    borrow_enc_strings(encoded, "", None)
-                        .decode(&mut dec())
-                        .unwrap(),
-                );
-                black_box(
-                    borrow_enc_strings(encoded, "", None)
-                        .decode(&mut dec())
-                        .unwrap(),
-                );
-            });
-        });
+        // --- FSST plain: two independent FSST-encoded columns ---
+        let fsst_x2_bytes = encode_layer(
+            n,
+            vec![
+                StagedProperty::str("col1", col.clone()),
+                StagedProperty::str("col2", col),
+            ],
+            vec![
+                PropertyEncoder::Scalar(ScalarEncoder::str_fsst(int_enc, int_enc)),
+                PropertyEncoder::Scalar(ScalarEncoder::str_fsst(int_enc, int_enc)),
+            ],
+        );
+        group.bench_with_input(
+            BenchmarkId::new("fsst_x2", n),
+            &fsst_x2_bytes,
+            |b, bytes| {
+                b.iter(|| {
+                    let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                    let parsed = layer.decode_all(&mut dec()).expect("decode_all");
+                    black_box(sum_str_lens(&parsed))
+                });
+            },
+        );
     }
 
     group.finish();

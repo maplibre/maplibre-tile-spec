@@ -8,7 +8,7 @@ use crate::codecs::fsst::compress_fsst;
 use crate::codecs::rle::encode_byte_rle;
 use crate::decoder::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
-    RawStream, RleMeta, StreamMeta, StreamType,
+    RleMeta, StreamMeta, StreamType,
 };
 use crate::encoder::{EncodedPlainData, EncodedStream, EncodedStreamData, EncodedStringsEncoding};
 use crate::errors::AsMltError as _;
@@ -34,17 +34,6 @@ fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<&str>, Vec<u32>)
         indices.push(idx);
     }
     Ok((unique, indices))
-}
-
-impl EncodedStream {
-    #[must_use]
-    pub fn as_borrowed(&self) -> RawStream<'_> {
-        // FIXME: remove this method and use roundtrip in the benchmark
-        RawStream {
-            meta: self.meta,
-            data: self.data.as_borrowed(),
-        }
-    }
 }
 
 impl EncodedStream {
