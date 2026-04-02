@@ -1,5 +1,7 @@
 use geo_types::Point;
 
+#[cfg(fuzzing)]
+use crate::decoder::ColumnType;
 use crate::decoder::GeometryValues;
 use crate::geojson::{Coord32, Geom32};
 #[allow(
@@ -22,7 +24,7 @@ pub enum LayerOrdering {
 #[cfg(fuzzing)]
 impl From<ColumnType> for LayerOrdering {
     fn from(typ: ColumnType) -> Self {
-        use crate::decoder::model::ColumnType::*;
+        use ColumnType::*;
         match typ {
             OptId | Id | LongId | OptLongId => Self::Id,
             Bool | OptBool | I8 | OptI8 | U8 | OptU8 | I32 | OptI32 | U32 | OptU32 | I64
