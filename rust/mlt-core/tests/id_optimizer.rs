@@ -187,7 +187,7 @@ fn test_manual_fastpfor_roundtrip() {
 }
 
 #[test]
-fn test_auto_selects_fastpfor_for_large_random_u32_ids() {
+fn test_auto_selects_fastpfor_for_large_u32_ids() {
     let ids = IdValues((0u64..1000).map(|i| Some(i * 13 + 5)).collect());
     let (_, enc) = ids.encode_auto(EncoderConfig::default()).unwrap().unwrap();
     assert_eq!(enc.int_encoder, IntEncoder::delta_fastpfor());
