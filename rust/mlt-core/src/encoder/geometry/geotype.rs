@@ -203,8 +203,14 @@ impl GeometryValues {
         self.init_polygon_offsets();
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
-        let rings = self.ring_offsets.as_mut().unwrap();
-        let parts = self.part_offsets.as_mut().unwrap();
+        let rings = self
+            .ring_offsets
+            .as_mut()
+            .expect("ring_offsets initialized by init_polygon_offsets");
+        let parts = self
+            .part_offsets
+            .as_mut()
+            .expect("part_offsets initialized by init_polygon_offsets");
 
         push_polygon_rings(poly, verts, rings, parts);
         self.tessellate_polygon(poly);
@@ -254,8 +260,14 @@ impl GeometryValues {
         self.init_polygon_offsets();
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
-        let rings = self.ring_offsets.as_mut().unwrap();
-        let parts = self.part_offsets.as_mut().unwrap();
+        let rings = self
+            .ring_offsets
+            .as_mut()
+            .expect("ring_offsets initialized by init_polygon_offsets");
+        let parts = self
+            .part_offsets
+            .as_mut()
+            .expect("part_offsets initialized by init_polygon_offsets");
 
         for poly in mp {
             push_polygon_rings(poly, verts, rings, parts);
@@ -269,7 +281,7 @@ impl GeometryValues {
     fn push_geometry_count(&mut self, count: u32) {
         let g = self.geometry_offsets.get_or_insert_with(Vec::new);
         init_offsets(g);
-        g.push(g.last().unwrap() + count);
+        g.push(g.last().expect("init_offsets guarantees non-empty") + count);
     }
 }
 
@@ -288,7 +300,7 @@ fn push_polygon_rings(
     rings: &mut Vec<u32>,
     parts: &mut Vec<u32>,
 ) {
-    let mut ring_count = *parts.last().unwrap();
+    let mut ring_count = *parts.last().expect("parts always has initial zero offset");
     for ring in std::iter::once(poly.exterior()).chain(poly.interiors()) {
         push_ring(ring, verts, rings);
         ring_count += 1;
@@ -307,7 +319,7 @@ fn push_ring(ring: &LineString<i32>, verts: &mut Vec<i32>, rings: &mut Vec<u32>)
     for c in &coords[..len] {
         verts.extend([c.x, c.y]);
     }
-    let prev = *rings.last().unwrap();
+    let prev = *rings.last().expect("rings always has initial zero offset");
     rings.push(prev + u32::try_from(len).expect("vertex count overflow"));
 }
 
@@ -322,7 +334,7 @@ fn push_linestrings<'a>(
         for c in ls.coords() {
             verts.extend([c.x, c.y]);
         }
-        let prev = *offsets.last().unwrap();
+        let prev = *offsets.last().expect("init_offsets guarantees non-empty");
         offsets.push(prev + u32::try_from(ls.0.len()).expect("vertex count overflow"));
     }
 }

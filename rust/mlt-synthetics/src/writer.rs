@@ -62,12 +62,10 @@ pub fn write_file(path: &Path, data: &[u8]) -> SynthResult<()> {
         .map_err(|source| SynthErr::WriteFile(path.to_path_buf(), source))
 }
 
-pub fn decode_to_json(bytes: &[u8]) -> FeatureCollection {
+pub fn decode_to_json(bytes: &[u8]) -> SynthResult<FeatureCollection> {
     let mut dec = Decoder::default();
-    let decoded = dec
-        .decode_all(Parser::default().parse_layers(bytes).unwrap())
-        .unwrap();
-    FeatureCollection::from_layers(decoded).unwrap()
+    let decoded = dec.decode_all(Parser::default().parse_layers(bytes)?)?;
+    Ok(FeatureCollection::from_layers(decoded)?)
 }
 
 impl Layer {
@@ -174,7 +172,7 @@ impl SynthWriter {
         let ref_json = self.ref_dir.join(&name_json);
         let ref_json_exists = ref_json.is_file();
         let bytes = layer.encode_to_bytes()?;
-        let decoded = decode_to_json(&bytes);
+        let decoded = decode_to_json(&bytes)?;
 
         if is_rust_specific || !ref_json_exists {
             // rust-only: write MLT to disk, compare decoded JSON to reference (if it exists).
@@ -215,8 +213,12 @@ impl SynthWriter {
             .flatten()
             .filter_map(|e| {
                 let p = e.path();
-                (p.extension()? == "mlt")
-                    .then(|| p.file_stem().unwrap().to_string_lossy().into_owned())
+                (p.extension()? == "mlt").then(|| {
+                    p.file_stem()
+                        .expect(".mlt file always has a stem")
+                        .to_string_lossy()
+                        .into_owned()
+                })
             })
             .collect();
         ref_mlts.sort();

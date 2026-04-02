@@ -95,7 +95,7 @@ impl AsUsize for u32 {
                 "usize must be able to hold all u32 values"
             );
         };
-        usize::try_from(*self).unwrap()
+        usize::try_from(*self).expect("u32 always fits in usize (compile-time checked above)")
     }
 }
 

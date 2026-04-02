@@ -32,7 +32,7 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                             .all(|&gi| geometry_type_name(&app.fc.features[gi].geometry) == ft)
                     });
                     let label = if all_same && n > 0 {
-                        format!("{}s", first.unwrap())
+                        format!("{}s", first.expect("all_same implies first is Some"))
                     } else {
                         "features".into()
                     };

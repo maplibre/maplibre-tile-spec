@@ -1,3 +1,5 @@
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 //! Rust synthetic MLT file generator.
 //!
 //! Verifies non-rust synthetics in-memory against the reference `0x01/` dir.
@@ -322,7 +324,7 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
     for idx in current {
         let mix_type = &MIX_TYPES[*idx];
         builder = builder.geo(mix_type.1.clone());
-        write!(&mut name, "_{}", mix_type.0).unwrap();
+        write!(&mut name, "_{}", mix_type.0).expect("write to String never fails");
         if let Some(bldr) = builder_t {
             if matches!(mix_type.1, Geom32::Polygon(_) | Geom32::MultiPolygon(_)) {
                 builder_t = Some(bldr.geo(mix_type.1.clone()));
@@ -781,10 +783,11 @@ fn generate_props_u32(w: &mut SynthWriter) {
 
     for multiplier in [1, 2, 3, 4] {
         for offset in [-1, 0, 1] {
-            let count = usize::try_from(128 * multiplier + offset).unwrap();
+            let count = usize::try_from(128 * multiplier + offset)
+                .expect("small positive value fits usize");
             // Sequence 0,1,2, 0,1,2, 0,1,2, ...
             let vals: Vec<_> = (0..count)
-                .map(|i| Some(u32::try_from(i % 3).unwrap()))
+                .map(|i| Some(u32::try_from(i % 3).expect("i % 3 fits u32")))
                 .collect();
             geo_fastpfor()
                 .meta(E::rle_fastpfor())

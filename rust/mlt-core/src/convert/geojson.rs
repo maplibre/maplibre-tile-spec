@@ -152,21 +152,32 @@ mod geom_serde {
     pub fn serialize<S: Serializer>(g: &Geom32, s: S) -> Result<S::Ok, S::Error> {
         let mut m = s.serialize_map(Some(2))?;
         let (ty, coords): (&str, Value) = match g {
-            Geometry::Point(p) => ("Point", serde_json::to_value(Arr::from(*p)).unwrap()),
-            Geometry::LineString(ls) => ("LineString", serde_json::to_value(ls_arr(ls)).unwrap()),
-            Geometry::Polygon(poly) => ("Polygon", serde_json::to_value(poly_arr(poly)).unwrap()),
+            Geometry::Point(p) => (
+                "Point",
+                serde_json::to_value(Arr::from(*p)).expect("point serialization"),
+            ),
+            Geometry::LineString(ls) => (
+                "LineString",
+                serde_json::to_value(ls_arr(ls)).expect("linestring serialization"),
+            ),
+            Geometry::Polygon(poly) => (
+                "Polygon",
+                serde_json::to_value(poly_arr(poly)).expect("polygon serialization"),
+            ),
             Geometry::MultiPoint(mp) => (
                 "MultiPoint",
                 serde_json::to_value(mp.0.iter().copied().map(Arr::from).collect::<Vec<_>>())
-                    .unwrap(),
+                    .expect("multipoint serialization"),
             ),
             Geometry::MultiLineString(mls) => (
                 "MultiLineString",
-                serde_json::to_value(mls.iter().map(ls_arr).collect::<Vec<_>>()).unwrap(),
+                serde_json::to_value(mls.iter().map(ls_arr).collect::<Vec<_>>())
+                    .expect("multilinestring serialization"),
             ),
             Geometry::MultiPolygon(mpoly) => (
                 "MultiPolygon",
-                serde_json::to_value(mpoly.iter().map(poly_arr).collect::<Vec<_>>()).unwrap(),
+                serde_json::to_value(mpoly.iter().map(poly_arr).collect::<Vec<_>>())
+                    .expect("multipolygon serialization"),
             ),
             _ => return Err(Error::custom("unsupported geometry variant")),
         };

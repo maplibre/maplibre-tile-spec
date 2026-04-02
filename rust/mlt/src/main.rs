@@ -1,3 +1,5 @@
+#![expect(clippy::print_stdout, clippy::print_stderr, reason= "tui output goes to stdout/stderr")]
+
 pub mod convert;
 pub mod dump;
 pub mod ls;

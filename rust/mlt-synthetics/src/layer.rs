@@ -335,7 +335,7 @@ pub fn morton_curve() -> Vec<Coord<i32>> {
     let morton_bits = 4u32;
     let mut curve = Vec::with_capacity(num_points);
     for i in 0..num_points {
-        let i = i32::try_from(i).unwrap();
+        let i = i32::try_from(i).expect("loop index < 16 always fits i32");
         let mut x = 0_i32;
         let mut y = 0_i32;
         for b in 0..morton_bits {

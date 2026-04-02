@@ -20,6 +20,7 @@ pub use frames::{Layer, ParsedLayer, v01};
 pub use lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
 
 #[cfg(any(test, feature = "__private"))]
+#[expect(clippy::unwrap_used)]
 pub mod test_helpers;
 
 /// Private re-exports for benchmarks and integration tests. Not part of the public API.

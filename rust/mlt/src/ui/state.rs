@@ -663,7 +663,8 @@ impl App {
             self.cached_bounds = Some(self.calculate_bounds());
             self.cached_bounds_key = self.selected_index;
         }
-        self.cached_bounds.unwrap()
+        self.cached_bounds
+            .expect("cached_bounds always set by preceding Some assignment")
     }
 
     pub fn calculate_bounds(&self) -> (f64, f64, f64, f64) {

@@ -240,24 +240,31 @@ impl RawGeometry<'_> {
             )?);
             if let Some(part_offsets_copy) = part_offsets.take() {
                 if let Some(ring_offsets_copy) = ring_offsets.take() {
+                    let geo_off = geometry_offsets
+                        .as_ref()
+                        .expect("geometry_offsets just assigned above");
                     part_offsets = Some(decode_level1_length_stream(
                         &vector_types,
-                        geometry_offsets.as_ref().unwrap(),
+                        geo_off,
                         &part_offsets_copy,
                         false, // isLineStringPresent
                         dec,
                     )?);
                     ring_offsets = Some(decode_level2_length_stream(
                         &vector_types,
-                        geometry_offsets.as_ref().unwrap(),
-                        part_offsets.as_ref().unwrap(),
+                        geo_off,
+                        part_offsets
+                            .as_ref()
+                            .expect("part_offsets just assigned above"),
                         &ring_offsets_copy,
                         dec,
                     )?);
                 } else {
                     part_offsets = Some(decode_level1_without_ring_buffer_length_stream(
                         &vector_types,
-                        geometry_offsets.as_ref().unwrap(),
+                        geometry_offsets
+                            .as_ref()
+                            .expect("geometry_offsets just assigned above"),
                         &part_offsets_copy,
                         dec,
                     )?);
@@ -274,7 +281,9 @@ impl RawGeometry<'_> {
                 )?);
                 ring_offsets = Some(decode_level1_length_stream(
                     &vector_types,
-                    part_offsets.as_ref().unwrap(),
+                    part_offsets
+                        .as_ref()
+                        .expect("part_offsets just assigned above"),
                     &ring_offsets_copy,
                     is_line_string_present,
                     dec,
