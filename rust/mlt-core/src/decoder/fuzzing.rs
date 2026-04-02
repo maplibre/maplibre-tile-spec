@@ -36,7 +36,6 @@ impl From<ColumnType> for LayerOrdering {
     }
 }
 
-#[cfg(all(not(test), feature = "arbitrary"))]
 impl arbitrary::Arbitrary<'_> for EncodedLayer01 {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
         // Bound name length to prevent OOM from unbounded string generation
@@ -135,7 +134,6 @@ use arbitrary::Error::IncorrectFormat;
 
 use crate::v01::{EncodedId, IdEncoder, IdValues};
 
-#[cfg(all(not(test), feature = "arbitrary"))]
 impl arbitrary::Arbitrary<'_> for IdValues {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
         // Bound ID count to prevent OOM from unbounded vector generation
