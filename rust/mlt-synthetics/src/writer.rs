@@ -1,10 +1,11 @@
-use mlt_core::geojson::FeatureCollection;
-use mlt_core::{Decoder, MltError, Parser};
 use std::collections::HashSet;
 use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::str::FromStr as _;
+
+use mlt_core::geojson::FeatureCollection;
+use mlt_core::{Decoder, MltError, Parser};
 
 use crate::Args;
 use crate::layer::Layer;
