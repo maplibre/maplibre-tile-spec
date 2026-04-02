@@ -1,6 +1,6 @@
 use num_traits::CheckedAdd;
 
-use crate::errors::AsMltError;
+use crate::errors::AsMltError as _;
 use crate::{MltError, MltResult};
 
 pub trait SetOptionOnce<T> {
