@@ -1,4 +1,6 @@
+use crate::Analyze;
 use crate::encoder::EncodedStream;
+use crate::v01::StreamMeta;
 
 /// Wire-ready encoded ID data (owns its byte buffers)
 #[derive(Debug, PartialEq, Clone)]
@@ -7,11 +9,28 @@ pub struct EncodedId {
     pub(crate) value: EncodedIdValue,
 }
 
+impl Analyze for EncodedId {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
+        self.presence.for_each_stream(cb);
+        self.value.for_each_stream(cb);
+    }
+}
+
 /// Wire-ready encoded ID value, either 32-bit or 64-bit
 #[derive(Debug, PartialEq, Clone)]
 pub enum EncodedIdValue {
     Id32(EncodedStream),
     Id64(EncodedStream),
+}
+
+impl Analyze for EncodedIdValue {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
+        match self {
+            Self::Id32(s) | Self::Id64(s) => {
+                s.for_each_stream(cb);
+            }
+        }
+    }
 }
 
 /// How wide are the IDs

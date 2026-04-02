@@ -257,7 +257,7 @@ fn data_byte_len(data: EncodedStreamData) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::v01::PhysicalEncoder;
+    use crate::encoder::PhysicalEncoder;
 
     #[test]
     fn candidates_rle_excluded_when_short_runs() {

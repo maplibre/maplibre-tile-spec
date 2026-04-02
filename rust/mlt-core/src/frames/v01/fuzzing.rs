@@ -35,7 +35,7 @@ impl arbitrary::Arbitrary<'_> for EncodedLayer01 {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
         let name: String = u.arbitrary()?;
         let extent: u32 = u.arbitrary()?;
-        let id: Option<EncodedId> = if u.arbitrary()? {
+        let id: Option<crate::encoder::EncodedId> = if u.arbitrary()? {
             Some(u.arbitrary()?)
         } else {
             None

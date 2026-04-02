@@ -134,9 +134,10 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::encoder::IntEncoder;
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
-    use crate::v01::{FsstStrEncoder, IntEncoder, RawFsstData, RawStream};
+    use crate::v01::{RawFsstData, RawStream};
 
     fn roundtrip(values: &[&str]) -> (String, Vec<u32>) {
         let encoding = FsstStrEncoder {

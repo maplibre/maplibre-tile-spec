@@ -35,9 +35,3 @@ pub use crate::encoder::property::{
     SharedDictItemEncoder, StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem,
     StagedStrings, StrEncoder, encode_shared_dict_prop,
 };
-pub use crate::encoder::{
-    DataProfile, EncodeProperties, EncodedGeometry, EncodedId, EncodedIdValue, EncodedLayer,
-    EncodedUnknown, FsstStrEncoder, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, LayerEncoder,
-    PhysicalEncoder, StagedLayer, StringGroup, TessellationMode, VertexBufferType,
-    group_string_properties,
-};

@@ -1,26 +1,8 @@
 use std::fmt::{Debug, Formatter};
 
 use crate::analyze::{Analyze, StatType};
-use crate::encoder::{EncodedId, EncodedIdValue};
 use crate::utils::OptSeqOpt;
 use crate::v01::{IdValues, RawId, RawIdValue, RawPresence, StreamMeta};
-
-impl Analyze for EncodedId {
-    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
-        self.presence.for_each_stream(cb);
-        self.value.for_each_stream(cb);
-    }
-}
-
-impl Analyze for EncodedIdValue {
-    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
-        match self {
-            Self::Id32(s) | Self::Id64(s) => {
-                s.for_each_stream(cb);
-            }
-        }
-    }
-}
 
 impl Analyze for RawId<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {

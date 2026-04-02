@@ -1,6 +1,7 @@
 use arbitrary::Error::IncorrectFormat;
 
-use crate::v01::{EncodedId, IdEncoder, IdValues};
+use crate::encoder::{EncodedId, IdEncoder};
+use crate::v01::IdValues;
 
 impl arbitrary::Arbitrary<'_> for EncodedId {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {

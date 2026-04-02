@@ -335,12 +335,12 @@ mod tests {
 
     use super::*;
     use crate::LazyParsed;
-    use crate::encoder::EncodedStream;
+    use crate::encoder::{EncodedGeometry, EncodedStream, GeometryEncoder, IntEncoder};
     use crate::geojson::Coord32;
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::v01::{
-        DictionaryType, EncodedGeometry, GeometryEncoder, IntEncoder, IntEncoding, LengthType,
-        LogicalEncoding, MortonMeta, OffsetType, RawGeometry, StreamMeta, StreamType,
+        DictionaryType, IntEncoding, LengthType, LogicalEncoding, MortonMeta, OffsetType,
+        RawGeometry, StreamMeta, StreamType,
     };
 
     /// Encode, serialize, parse, and decode a `GeometryValues`.

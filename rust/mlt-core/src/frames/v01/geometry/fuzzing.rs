@@ -1,8 +1,9 @@
 use arbitrary::Error::IncorrectFormat;
 use geo_types::Point;
 
+use crate::encoder::EncodedGeometry;
 use crate::geojson::{Coord32, Geom32};
-use crate::v01::{EncodedGeometry, GeometryValues};
+use crate::v01::GeometryValues;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, arbitrary::Arbitrary)]
 enum ArbitraryGeometry {
