@@ -1,3 +1,7 @@
+use geo_types::Point;
+
+use crate::geojson::{Coord32, Geom32};
+use crate::v01::GeometryValues;
 #[allow(
     unused_imports,
     clippy::wildcard_imports,
@@ -30,46 +34,28 @@ impl From<ColumnType> for LayerOrdering {
     }
 }
 
-#[cfg(all(not(test), feature = "arbitrary"))]
-impl arbitrary::Arbitrary<'_> for EncodedLayer01 {
+#[derive(Debug, Clone, PartialEq, PartialOrd, arbitrary::Arbitrary)]
+enum ArbitraryGeometry {
+    Point((i32, i32)),
+    // FIXME: Add LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon, once supported upstream
+}
+
+impl From<ArbitraryGeometry> for Geom32 {
+    fn from(value: ArbitraryGeometry) -> Self {
+        match value {
+            ArbitraryGeometry::Point((x, y)) => Self::Point(Point(Coord32 { x, y })),
+            // FIXME: once fully working, add the rest
+        }
+    }
+}
+
+impl arbitrary::Arbitrary<'_> for GeometryValues {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        let name: String = u.arbitrary()?;
-        let extent: u32 = u.arbitrary()?;
-        let id: Option<EncodedId> = if u.arbitrary()? {
-            Some(u.arbitrary()?)
-        } else {
-            None
-        };
-        let geometry = u.arbitrary()?;
-        let properties: Vec<EncodedProperty> = u.arbitrary()?;
-
-        #[cfg(fuzzing)]
-        let layer_order = {
-            // Build a valid layer_order and Fisher-Yates shuffle it.
-            let mut layer_order: Vec<LayerOrdering> = Vec::new();
-            if id.is_some() {
-                layer_order.push(LayerOrdering::Id);
-            }
-            layer_order.push(LayerOrdering::Geometry);
-            for _ in &properties {
-                layer_order.push(LayerOrdering::Property);
-            }
-            let n = layer_order.len();
-            for i in (1..n).rev() {
-                let j: usize = u.int_in_range(0..=i)?;
-                layer_order.swap(i, j);
-            }
-            layer_order
-        };
-
-        Ok(Self {
-            name,
-            extent,
-            id,
-            geometry,
-            properties,
-            #[cfg(fuzzing)]
-            layer_order,
-        })
+        let geoms = u.arbitrary_iter::<ArbitraryGeometry>()?;
+        let mut decoded = Self::default();
+        for geo in geoms {
+            decoded.push_geom(&Geom32::from(geo?));
+        }
+        Ok(decoded)
     }
 }

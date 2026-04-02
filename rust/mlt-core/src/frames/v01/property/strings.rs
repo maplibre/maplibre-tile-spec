@@ -1,17 +1,13 @@
 use std::borrow::Cow;
 
-use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds, UnexpectedStreamType2};
+use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds};
 use crate::codecs::fsst::decode_fsst;
-use crate::encoder::property::{
-    EncodedFsstData, EncodedPlainData, EncodedSharedDictEncoding, EncodedStrings,
-    EncodedStringsEncoding, PresenceKind, RawSharedDictEncoding, RawStrings, RawStringsEncoding,
-};
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 use crate::v01::{
-    ColumnRef, DictionaryType, EncodedStream, LengthType, OffsetType, ParsedSharedDict,
-    ParsedSharedDictItem, ParsedStrings, PropValueRef, RawFsstData, RawPlainData, RawPresence,
-    RawStream, StreamType,
+    ColumnRef, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
+    ParsedStrings, PropValueRef, RawFsstData, RawPlainData, RawPresence, RawSharedDictEncoding,
+    RawStream, RawStrings, RawStringsEncoding, StreamType,
 };
 use crate::{Decoder, MltError, MltResult};
 
@@ -28,28 +24,6 @@ impl<'a> ParsedStrings<'a> {
     #[must_use]
     pub fn feature_count(&self) -> usize {
         self.lengths.len()
-    }
-
-    #[must_use]
-    pub fn presence(&self) -> PresenceKind {
-        let mut has_null = false;
-        let mut has_present = false;
-        for &end in &self.lengths {
-            if end < 0 {
-                has_null = true;
-            } else {
-                has_present = true;
-            }
-            if has_null && has_present {
-                return PresenceKind::Mixed;
-            }
-        }
-        match (has_null, has_present) {
-            (false, false) => PresenceKind::Empty,
-            (false, true) => PresenceKind::AllPresent,
-            (true, false) => PresenceKind::AllNull,
-            (true, true) => unreachable!("early return handles Mixed"),
-        }
     }
 
     #[must_use]
@@ -240,56 +214,6 @@ impl ParsedSharedDictItem<'_> {
     }
 
     #[must_use]
-    pub fn presence(&self) -> PresenceKind {
-        let mut has_null = false;
-        let mut has_present = false;
-        for &range in &self.ranges {
-            if decode_shared_dict_range(range).is_none() {
-                has_null = true;
-            } else {
-                has_present = true;
-            }
-            if has_null && has_present {
-                return PresenceKind::Mixed;
-            }
-        }
-        match (has_null, has_present) {
-            (false, false) => PresenceKind::Empty,
-            (false, true) => PresenceKind::AllPresent,
-            (true, false) => PresenceKind::AllNull,
-            (true, true) => unreachable!("early return handles Mixed"),
-        }
-    }
-
-    #[must_use]
-    pub fn presence_bools(&self) -> Vec<bool> {
-        self.ranges
-            .iter()
-            .map(|&range| decode_shared_dict_range(range).is_some())
-            .collect()
-    }
-
-    #[must_use]
-    pub fn dense_spans(&self) -> Vec<(u32, u32)> {
-        self.ranges
-            .iter()
-            .filter_map(|&range| decode_shared_dict_range(range))
-            .collect()
-    }
-
-    #[must_use]
-    pub fn materialize(&self, shared_dict: &ParsedSharedDict<'_>) -> Vec<Option<String>> {
-        self.ranges
-            .iter()
-            .map(|&range| {
-                decode_shared_dict_range(range)
-                    .and_then(|span| shared_dict.get(span))
-                    .map(str::to_string)
-            })
-            .collect()
-    }
-
-    #[must_use]
     pub fn get<'a>(&self, shared_dict: &'a ParsedSharedDict<'_>, i: usize) -> Option<&'a str> {
         self.ranges
             .get(i)
@@ -297,19 +221,6 @@ impl ParsedSharedDictItem<'_> {
             .and_then(decode_shared_dict_range)
             .and_then(|span| shared_dict.get(span))
     }
-}
-
-/// a helper to validate stream type to match expectation using matches! syntax
-macro_rules! validate_stream {
-    ($stream:expr, $expected:pat $(,)?) => {
-        if !matches!($stream.meta.stream_type, $expected) {
-            return Err(UnexpectedStreamType2(
-                $stream.meta.stream_type,
-                stringify!($expected),
-                stringify!($stream),
-            ));
-        }
-    };
 }
 
 impl<'a> RawPlainData<'a> {
@@ -332,27 +243,6 @@ impl<'a> RawPlainData<'a> {
             str::from_utf8(self.data.as_bytes())?,
             self.lengths.decode_u32s(dec)?,
         ))
-    }
-}
-
-impl EncodedPlainData {
-    pub fn new(lengths: EncodedStream, data: EncodedStream) -> MltResult<Self> {
-        validate_stream!(
-            lengths,
-            StreamType::Length(LengthType::VarBinary | LengthType::Dictionary)
-        );
-        validate_stream!(
-            data,
-            StreamType::Data(
-                DictionaryType::None | DictionaryType::Single | DictionaryType::Shared
-            )
-        );
-        Ok(Self { lengths, data })
-    }
-
-    #[must_use]
-    pub fn streams(&self) -> Vec<&EncodedStream> {
-        vec![&self.lengths, &self.data]
     }
 }
 
@@ -383,18 +273,6 @@ impl<'a> RawFsstData<'a> {
     }
 }
 
-impl EncodedFsstData {
-    #[must_use]
-    pub fn streams(&self) -> Vec<&EncodedStream> {
-        vec![
-            &self.symbol_lengths,
-            &self.symbol_table,
-            &self.lengths,
-            &self.corpus,
-        ]
-    }
-}
-
 impl<'a> RawStringsEncoding<'a> {
     #[must_use]
     pub fn plain(plain_data: RawPlainData<'a>) -> Self {
@@ -420,38 +298,6 @@ impl<'a> RawStringsEncoding<'a> {
     }
 }
 
-impl EncodedStringsEncoding {
-    /// Content streams only.
-    #[must_use]
-    pub fn streams(&self) -> Vec<&EncodedStream> {
-        match self {
-            Self::Plain(plain_data) => plain_data.streams(),
-            Self::Dictionary {
-                plain_data,
-                offsets,
-            } => {
-                let mut streams = plain_data.streams();
-                streams.insert(1, offsets); // Offset stays here to preserve the current wire order.
-                streams
-            }
-            Self::FsstPlain(fsst_data) => fsst_data.streams(),
-            Self::FsstDictionary { fsst_data, offsets } => {
-                let mut streams = fsst_data.streams();
-                streams.push(offsets);
-                streams
-            }
-        }
-    }
-}
-
-impl EncodedStrings {
-    /// Streams in wire order.
-    #[must_use]
-    pub fn streams(&self) -> Vec<&EncodedStream> {
-        self.encoding.streams()
-    }
-}
-
 impl<'a> RawSharedDictEncoding<'a> {
     /// Plain shared dict (2 streams): lengths + data.
     #[must_use]
@@ -463,16 +309,6 @@ impl<'a> RawSharedDictEncoding<'a> {
     #[must_use]
     pub fn fsst_plain(fsst_data: RawFsstData<'a>) -> Self {
         Self::FsstPlain(fsst_data)
-    }
-}
-
-impl EncodedSharedDictEncoding {
-    #[must_use]
-    pub fn dict_streams(&self) -> Vec<&EncodedStream> {
-        match self {
-            Self::Plain(plain_data) => plain_data.streams(),
-            Self::FsstPlain(fsst_data) => fsst_data.streams(),
-        }
     }
 }
 

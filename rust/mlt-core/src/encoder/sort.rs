@@ -220,12 +220,10 @@ mod tests {
 
     use super::*;
     use crate::LazyParsed;
+    use crate::encoder::{GeometryEncoder, IntEncoder};
     use crate::geojson::Geom32;
     use crate::test_helpers::{assert_empty, dec, parser};
-    use crate::v01::{
-        GeometryEncoder, GeometryType, GeometryValues, IntEncoder, RawGeometry, TileFeature,
-        TileLayer01,
-    };
+    use crate::v01::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer01};
 
     // ── geometry test helpers ──────────────────────────────────────────────────
 

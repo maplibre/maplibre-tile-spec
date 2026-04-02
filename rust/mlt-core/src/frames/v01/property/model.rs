@@ -3,7 +3,6 @@ use std::borrow::Cow;
 use enum_dispatch::enum_dispatch;
 
 use crate::analyze::{Analyze, StatType};
-use crate::encoder::property::{RawSharedDict, RawStrings};
 use crate::v01::{RawStream, StreamMeta};
 use crate::{DecodeState, Lazy};
 
@@ -20,6 +19,56 @@ pub struct RawScalar<'a> {
     pub(crate) name: &'a str,
     pub(crate) presence: RawPresence<'a>,
     pub(crate) data: RawStream<'a>,
+}
+
+/// Raw string column as read directly from the tile.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawStrings<'a> {
+    pub name: &'a str,
+    pub presence: RawPresence<'a>,
+    pub encoding: RawStringsEncoding<'a>,
+}
+
+/// Raw encoding payload for a string column (plain, dictionary, or FSST variants).
+///
+/// `RawStream` order matches the encoder: see `StringEncoder.encode()`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RawStringsEncoding<'a> {
+    /// Plain: length stream + data stream
+    Plain(RawPlainData<'a>),
+    /// Dictionary: lengths + offsets + dictionary data
+    Dictionary {
+        plain_data: RawPlainData<'a>,
+        offsets: RawStream<'a>,
+    },
+    /// FSST plain (4 streams): symbol lengths, symbol table, value lengths, compressed corpus. No offsets.
+    FsstPlain(RawFsstData<'a>),
+    /// FSST dictionary (5 streams): symbol lengths, symbol table, value lengths, compressed corpus, offsets.
+    FsstDictionary {
+        fsst_data: RawFsstData<'a>,
+        offsets: RawStream<'a>,
+    },
+}
+
+/// Raw encoding payload for a `SharedDict` column.
+///
+/// Unlike [`RawStringsEncoding`], shared dictionaries do NOT have their own offset stream.
+/// Instead, each child column has its own offset stream that references the shared dictionary.
+/// This is why only `Plain` and `FsstPlain` variants exist here.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RawSharedDictEncoding<'a> {
+    /// Plain shared dict (2 streams): lengths + data.
+    Plain(RawPlainData<'a>),
+    /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
+    FsstPlain(RawFsstData<'a>),
+}
+
+/// Raw shared-dictionary column as read directly from the tile.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawSharedDict<'a> {
+    pub name: &'a str,
+    pub encoding: RawSharedDictEncoding<'a>,
+    pub children: Vec<RawSharedDictItem<'a>>,
 }
 
 /// Raw property data as read directly from the tile.

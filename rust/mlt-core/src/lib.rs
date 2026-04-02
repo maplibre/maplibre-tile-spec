@@ -1,6 +1,21 @@
 #![doc = include_str!("../README.md")]
 extern crate core;
 
+/// Validates stream metadata in constructors (crate-internal).
+macro_rules! validate_stream {
+    ($stream:expr, $expected:pat $(,)?) => {
+        if !matches!($stream.meta.stream_type, $expected) {
+            return Err($crate::MltError::UnexpectedStreamType2(
+                $stream.meta.stream_type,
+                stringify!($expected),
+                stringify!($stream),
+            ));
+        }
+    };
+}
+#[doc(hidden)]
+pub(crate) use validate_stream;
+
 pub(crate) mod analyze;
 pub(crate) mod codecs;
 pub(crate) mod convert;

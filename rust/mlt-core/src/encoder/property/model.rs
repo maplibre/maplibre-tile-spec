@@ -1,7 +1,5 @@
+use crate::encoder::EncodedStream;
 use crate::encoder::stream::{FsstStrEncoder, IntEncoder};
-use crate::v01::{
-    EncodedStream, RawFsstData, RawPlainData, RawPresence, RawSharedDictItem, RawStream,
-};
 
 /// Owned name string (Stage 4/5)
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,27 +21,6 @@ pub struct EncodedScalar {
     pub(crate) data: EncodedStream,
 }
 
-/// Raw encoding payload for a string column (plain, dictionary, or FSST variants).
-///
-/// `RawStream` order matches the encoder: see `StringEncoder.encode()`.
-#[derive(Debug, Clone, PartialEq)]
-pub enum RawStringsEncoding<'a> {
-    /// Plain: length stream + data stream
-    Plain(RawPlainData<'a>),
-    /// Dictionary: lengths + offsets + dictionary data
-    Dictionary {
-        plain_data: RawPlainData<'a>,
-        offsets: RawStream<'a>,
-    },
-    /// FSST plain (4 streams): symbol lengths, symbol table, value lengths, compressed corpus. No offsets.
-    FsstPlain(RawFsstData<'a>),
-    /// FSST dictionary (5 streams): symbol lengths, symbol table, value lengths, compressed corpus, offsets.
-    FsstDictionary {
-        fsst_data: RawFsstData<'a>,
-        offsets: RawStream<'a>,
-    },
-}
-
 /// Wire-ready encoded strings encoding (owns byte buffers).
 #[derive(Debug, Clone, PartialEq)]
 pub enum EncodedStringsEncoding {
@@ -59,14 +36,6 @@ pub enum EncodedStringsEncoding {
     },
 }
 
-/// Raw string column as read directly from the tile.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RawStrings<'a> {
-    pub name: &'a str,
-    pub presence: RawPresence<'a>,
-    pub encoding: RawStringsEncoding<'a>,
-}
-
 /// Wire-ready encoded string column (owns its byte buffers).
 #[derive(Debug, Clone, PartialEq)]
 pub struct EncodedStrings {
@@ -75,32 +44,11 @@ pub struct EncodedStrings {
     pub(crate) encoding: EncodedStringsEncoding,
 }
 
-/// Raw encoding payload for a `SharedDict` column.
-///
-/// Unlike [`RawStringsEncoding`], shared dictionaries do NOT have their own offset stream.
-/// Instead, each child column has its own offset stream that references the shared dictionary.
-/// This is why only `Plain` and `FsstPlain` variants exist here.
-#[derive(Debug, Clone, PartialEq)]
-pub enum RawSharedDictEncoding<'a> {
-    /// Plain shared dict (2 streams): lengths + data.
-    Plain(RawPlainData<'a>),
-    /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
-    FsstPlain(RawFsstData<'a>),
-}
-
 /// Wire-ready encoded shared dict encoding (owns byte buffers).
 #[derive(Debug, Clone, PartialEq)]
 pub enum EncodedSharedDictEncoding {
     Plain(EncodedPlainData),
     FsstPlain(EncodedFsstData),
-}
-
-/// Raw shared-dictionary column as read directly from the tile.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RawSharedDict<'a> {
-    pub name: &'a str,
-    pub encoding: RawSharedDictEncoding<'a>,
-    pub children: Vec<RawSharedDictItem<'a>>,
 }
 
 /// Wire-ready encoded shared-dictionary column (owns its byte buffers).

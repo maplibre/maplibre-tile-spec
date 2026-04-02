@@ -3,9 +3,10 @@ use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::rle::encode_byte_rle;
 use crate::encoder::stream::IntEncoder;
+use crate::encoder::{EncodedStream, EncodedStreamData};
 use crate::v01::{
-    EncodedStream, EncodedStreamData, IdValues, IntEncoding, LogicalEncoder, LogicalEncoding,
-    PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+    IdValues, IntEncoding, LogicalEncoder, LogicalEncoding, PhysicalEncoding, RleMeta, StreamMeta,
+    StreamType,
 };
 
 /// How to encode IDs

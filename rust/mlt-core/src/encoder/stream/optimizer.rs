@@ -2,8 +2,7 @@ use num_traits::{AsPrimitive as _, PrimInt as _, WrappingSub, Zero as _};
 use zigzag::ZigZag;
 
 use crate::MltResult;
-use crate::encoder::IntEncoder;
-use crate::v01::EncodedStreamData;
+use crate::encoder::{EncodedStreamData, IntEncoder};
 
 /// Minimum number of values to profile / compete on.
 ///
@@ -258,7 +257,7 @@ fn data_byte_len(data: EncodedStreamData) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::v01::PhysicalEncoder;
+    use crate::encoder::PhysicalEncoder;
 
     #[test]
     fn candidates_rle_excluded_when_short_runs() {

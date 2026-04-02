@@ -1,8 +1,9 @@
 use super::encode::IdEncoder;
 use super::model::{EncodedId, IdWidth};
 use crate::MltResult;
+use crate::encoder::optimizer::EncoderConfig;
 use crate::encoder::stream::{DataProfile, IntEncoder};
-use crate::v01::{EncoderConfig, IdValues, LogicalEncoder};
+use crate::v01::{IdValues, LogicalEncoder};
 
 struct SequenceStats {
     is_sequential: bool,

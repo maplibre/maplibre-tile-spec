@@ -6,12 +6,12 @@ use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::fsst::compress_fsst;
 use crate::codecs::rle::encode_byte_rle;
-use crate::encoder::property::{EncodedPlainData, EncodedStringsEncoding};
+use crate::encoder::{EncodedPlainData, EncodedStream, EncodedStreamData, EncodedStringsEncoding};
 use crate::errors::AsMltError as _;
 use crate::utils::strings_to_lengths;
 use crate::v01::{
-    DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, LogicalEncoding,
-    OffsetType, PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+    DictionaryType, IntEncoding, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
+    RawStream, RleMeta, StreamMeta, StreamType,
 };
 
 /// Deduplicate `values` preserving insertion order.
@@ -34,6 +34,17 @@ fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<&str>, Vec<u32>)
         indices.push(idx);
     }
     Ok((unique, indices))
+}
+
+impl EncodedStream {
+    #[must_use]
+    pub fn as_borrowed(&self) -> RawStream<'_> {
+        // FIXME: remove this method and use roundtrip in the benchmark
+        RawStream {
+            meta: self.meta,
+            data: self.data.as_borrowed(),
+        }
+    }
 }
 
 impl EncodedStream {

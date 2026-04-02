@@ -4,8 +4,7 @@ use std::io::Write;
 use integer_encoding::VarIntWriter as _;
 use utils::BinarySerializer as _;
 
-use crate::encoder::EncodedGeometry;
-use crate::v01::EncodedLayer01;
+use crate::encoder::{EncodedGeometry, EncodedLayer01};
 use crate::{MltError, MltResult, utils};
 
 impl EncodedLayer01 {

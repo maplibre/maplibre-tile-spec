@@ -6,11 +6,11 @@ use geo_types::Coord;
 use mlt_core::EncodedLayer;
 use mlt_core::encoder::{
     GeometryEncoder, IdEncoder, IntEncoder, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
-    SharedDictItemEncoder, StagedProperty, StagedSharedDict, StrEncoder, TessellationMode,
-    VertexBufferType,
+    SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty, StagedSharedDict,
+    StrEncoder, TessellationMode, VertexBufferType,
 };
 use mlt_core::geojson::Geom32;
-use mlt_core::v01::{GeometryValues, IdValues, StagedLayer01, StagedLayer01Encoder};
+use mlt_core::v01::{GeometryValues, IdValues};
 
 use crate::writer::{SynthErr, SynthResult};
 

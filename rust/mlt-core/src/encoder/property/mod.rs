@@ -1,6 +1,8 @@
 mod encode;
 mod model;
 mod optimizer;
+mod owned;
+mod scalars;
 mod serialize;
 mod strings;
 

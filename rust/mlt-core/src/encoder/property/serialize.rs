@@ -3,7 +3,7 @@ use std::io::Write;
 use integer_encoding::VarIntWriter as _;
 
 use crate::MltResult;
-use crate::encoder::property::{EncodedProperty, PropertyKind, StagedProperty};
+use crate::encoder::{EncodedProperty, PropertyKind, StagedProperty};
 use crate::utils::{BinarySerializer as _, checked_sum3};
 use crate::v01::ColumnType;
 
