@@ -7,12 +7,12 @@ use rstest::rstest;
 use crate::decoder::{GeometryValues, IdValues, LogicalEncoder};
 use crate::encoder::IdWidth::*;
 use crate::encoder::{
-    EncodedId, EncodedIdValue, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, StagedLayer01,
-    StagedLayer01Encoder,
+    EncodedId, EncodedIdValue, EncodedLayer, GeometryEncoder, IdEncoder, IdWidth, IntEncoder,
+    StagedLayer01, StagedLayer01Encoder,
 };
 use crate::geojson::Geom32;
 use crate::test_helpers::{dec, parser};
-use crate::{EncodedLayer, Layer, MltError, MltResult};
+use crate::{Layer, MltError, MltResult};
 
 // Test that each config produces the correct variant and optional stream presence
 #[rstest]

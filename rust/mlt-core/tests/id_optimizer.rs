@@ -1,11 +1,11 @@
 use geo_types::Point;
 use mlt_core::encoder::{
-    EncoderConfig, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, StagedLayer01,
+    EncodedLayer, EncoderConfig, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, StagedLayer01,
     StagedLayer01Encoder,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, into_layer01, parser};
-use mlt_core::{EncodedLayer, GeometryValues, IdValues, Layer, LogicalEncoder};
+use mlt_core::{GeometryValues, IdValues, Layer, LogicalEncoder};
 use rstest::rstest;
 
 /// Round-trip `IdValues` via full layer bytes (no encoded→decoded converter).

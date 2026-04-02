@@ -4,7 +4,7 @@ use std::io::Write;
 use crate::decoder::StreamMeta;
 use crate::utils::formatter::fmt_byte_array;
 
-/// Owned variant of [`RawStream`](crate::RawStream).
+/// Owned variant of [`RawStream`](crate::decoder::RawStream).
 #[derive(Debug, PartialEq, Clone)]
 pub struct EncodedStream {
     pub meta: StreamMeta,
