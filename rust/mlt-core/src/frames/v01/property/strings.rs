@@ -2,7 +2,6 @@ use std::borrow::Cow;
 
 use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds};
 use crate::codecs::fsst::decode_fsst;
-use crate::encoder::PresenceKind;
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 use crate::v01::{
@@ -215,56 +214,6 @@ impl ParsedSharedDictItem<'_> {
     }
 
     #[must_use]
-    pub fn presence(&self) -> PresenceKind {
-        let mut has_null = false;
-        let mut has_present = false;
-        for &range in &self.ranges {
-            if decode_shared_dict_range(range).is_none() {
-                has_null = true;
-            } else {
-                has_present = true;
-            }
-            if has_null && has_present {
-                return PresenceKind::Mixed;
-            }
-        }
-        match (has_null, has_present) {
-            (false, false) => PresenceKind::Empty,
-            (false, true) => PresenceKind::AllPresent,
-            (true, false) => PresenceKind::AllNull,
-            (true, true) => unreachable!("early return handles Mixed"),
-        }
-    }
-
-    #[must_use]
-    pub fn presence_bools(&self) -> Vec<bool> {
-        self.ranges
-            .iter()
-            .map(|&range| decode_shared_dict_range(range).is_some())
-            .collect()
-    }
-
-    #[must_use]
-    pub fn dense_spans(&self) -> Vec<(u32, u32)> {
-        self.ranges
-            .iter()
-            .filter_map(|&range| decode_shared_dict_range(range))
-            .collect()
-    }
-
-    #[must_use]
-    pub fn materialize(&self, shared_dict: &ParsedSharedDict<'_>) -> Vec<Option<String>> {
-        self.ranges
-            .iter()
-            .map(|&range| {
-                decode_shared_dict_range(range)
-                    .and_then(|span| shared_dict.get(span))
-                    .map(str::to_string)
-            })
-            .collect()
-    }
-
-    #[must_use]
     pub fn get<'a>(&self, shared_dict: &'a ParsedSharedDict<'_>, i: usize) -> Option<&'a str> {
         self.ranges
             .get(i)
@@ -272,20 +221,6 @@ impl ParsedSharedDictItem<'_> {
             .and_then(decode_shared_dict_range)
             .and_then(|span| shared_dict.get(span))
     }
-}
-
-/// a helper to validate stream type to match expectation using matches! syntax
-#[macro_export]
-macro_rules! validate_stream {
-    ($stream:expr, $expected:pat $(,)?) => {
-        if !matches!($stream.meta.stream_type, $expected) {
-            return Err($crate::MltError::UnexpectedStreamType2(
-                $stream.meta.stream_type,
-                stringify!($expected),
-                stringify!($stream),
-            ));
-        }
-    };
 }
 
 impl<'a> RawPlainData<'a> {

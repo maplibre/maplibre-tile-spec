@@ -75,15 +75,11 @@ impl<T: Analyze + Copy + PartialEq> Analyze for ParsedScalar<'_, T> {
 impl Analyze for ParsedSharedDict<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         let meta = if stat == StatType::DecodedMetaSize {
-            self.prefix.len()
+            self.prefix.len() + self.items.iter().map(|v| v.suffix.len()).sum::<usize>()
         } else {
             0
         };
-        meta + self
-            .items
-            .iter()
-            .map(|item| item.materialize(self).collect_statistic(stat))
-            .sum::<usize>()
+        meta + self.data.len()
     }
 }
 
