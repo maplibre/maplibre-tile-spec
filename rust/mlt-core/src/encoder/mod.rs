@@ -1,4 +1,6 @@
 mod compare;
+#[cfg(all(not(test), feature = "arbitrary"))]
+mod fuzzing;
 pub mod geometry;
 pub mod id;
 mod layer;

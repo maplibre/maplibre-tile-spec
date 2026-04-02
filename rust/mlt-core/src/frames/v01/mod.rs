@@ -1,6 +1,7 @@
 mod analyze;
 mod column;
 mod encoded;
+#[cfg(all(not(test), feature = "arbitrary"))]
 mod fuzzing;
 mod geometry;
 mod id;
