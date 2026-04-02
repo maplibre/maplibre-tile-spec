@@ -1,3 +1,4 @@
+use arbitrary::{Arbitrary, Result, Unstructured};
 use geo_types::Point;
 
 #[cfg(fuzzing)]
@@ -36,7 +37,7 @@ impl From<ColumnType> for LayerOrdering {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, arbitrary::Arbitrary)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Arbitrary)]
 enum ArbitraryGeometry {
     Point((i32, i32)),
     // FIXME: Add LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon, once supported upstream
@@ -51,13 +52,24 @@ impl From<ArbitraryGeometry> for Geom32 {
     }
 }
 
-impl arbitrary::Arbitrary<'_> for GeometryValues {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        let geoms = u.arbitrary_iter::<ArbitraryGeometry>()?;
+impl Arbitrary<'_> for GeometryValues {
+    fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
+        // Bound geometry count to prevent OOM from unbounded iteration
+        let count = u.int_in_range(0..=32u16)? as usize;
         let mut decoded = Self::default();
-        for geo in geoms {
-            decoded.push_geom(&Geom32::from(geo?));
+        for _ in 0..count {
+            let geo: ArbitraryGeometry = u.arbitrary()?;
+            decoded.push_geom(&Geom32::from(geo));
         }
         Ok(decoded)
+    }
+}
+
+impl Arbitrary<'_> for IdValues {
+    fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
+        // Bound ID count to prevent OOM from unbounded vector generation
+        let count = u.int_in_range(0..=64u8)? as usize;
+        let values: Vec<Option<u64>> = (0..count).map(|_| u.arbitrary()).collect::<Result<_>>()?;
+        Ok(Self(values))
     }
 }
