@@ -510,11 +510,11 @@ impl StagedSharedDict {
 
 impl EncodedPlainData {
     pub fn new(lengths: EncodedStream, data: EncodedStream) -> MltResult<Self> {
-        validate_stream!(
+        crate::validate_stream!(
             lengths,
             StreamType::Length(LengthType::VarBinary | LengthType::Dictionary)
         );
-        validate_stream!(
+        crate::validate_stream!(
             data,
             StreamType::Data(
                 DictionaryType::None | DictionaryType::Single | DictionaryType::Shared

@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds, UnexpectedStreamType2};
+use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds};
 use crate::codecs::fsst::decode_fsst;
 use crate::encoder::PresenceKind;
 use crate::errors::AsMltError as _;
@@ -275,10 +275,11 @@ impl ParsedSharedDictItem<'_> {
 }
 
 /// a helper to validate stream type to match expectation using matches! syntax
+#[macro_export]
 macro_rules! validate_stream {
     ($stream:expr, $expected:pat $(,)?) => {
         if !matches!($stream.meta.stream_type, $expected) {
-            return Err(UnexpectedStreamType2(
+            return Err($crate::MltError::UnexpectedStreamType2(
                 $stream.meta.stream_type,
                 stringify!($expected),
                 stringify!($stream),
