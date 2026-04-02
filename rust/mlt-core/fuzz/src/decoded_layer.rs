@@ -1,5 +1,5 @@
-use mlt_core::encoder::EncodedLayer01;
-use mlt_core::{Decoder, EncodedLayer, Layer, Parser};
+use mlt_core::encoder::{EncodedLayer, EncodedLayer01};
+use mlt_core::{Decoder, Layer, Parser};
 
 /// Fuzz input that starts from an already-encoded layer and tests encode → decode roundtrip.
 ///

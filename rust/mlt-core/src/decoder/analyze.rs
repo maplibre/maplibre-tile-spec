@@ -1,7 +1,5 @@
 use std::fmt::{Debug, Formatter};
 
-use crate::DecodeState;
-use crate::analyze::{Analyze, StatType};
 use crate::decoder::{
     Geometry, GeometryType, GeometryValues, Id, IdValues, Layer01, Property, RawFsstData,
     RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
@@ -9,6 +7,7 @@ use crate::decoder::{
     StreamMeta,
 };
 use crate::utils::OptSeqOpt;
+use crate::{Analyze, DecodeState, StatType};
 
 impl<'a, S: DecodeState> Analyze for Layer01<'a, S>
 where

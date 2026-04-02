@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-check
       - run: just -v rust::ci-lint
@@ -31,7 +30,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly } # because of covs --doctests
       - uses: taiki-e/install-action@v2
@@ -95,7 +93,6 @@ jobs:
   #    runs-on: ubuntu-latest
   #    steps:
   #      - uses: actions/checkout@v6.0.2
-  #      - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
   #      - uses: ./.github/actions/mlt-setup-rust
   #        with: { toolchain: msrv }
   #      - run: just -v rust::ci-test-msrv
