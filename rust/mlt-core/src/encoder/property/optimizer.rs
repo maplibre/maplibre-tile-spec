@@ -308,7 +308,7 @@ fn compute_offset_encoder(
 
 /// Returns the longest common byte prefix of `names`.
 fn common_prefix_name(profiles: &[StringProfile<'_>]) -> String {
-    debug_assert!(!profiles.is_empty());
+    debug_assert!(!profiles.is_empty(), "profiles must not be empty");
     let first = profiles[0].name;
     let mut prefix_len = first.len();
     for p in &profiles[1..] {

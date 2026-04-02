@@ -99,7 +99,11 @@ pub fn decode_bytes_to_bools(
     num_bools: usize,
     dec: &mut Decoder,
 ) -> MltResult<Vec<bool>> {
-    debug_assert!(num_bools <= bytes.len() * 8);
+    debug_assert!(
+        num_bools <= bytes.len() * 8,
+        "num_bools ({num_bools}) exceeds available bits in byte buffer ({})",
+        bytes.len() * 8
+    );
     let mut result = dec.alloc(num_bools)?;
     for i in 0..num_bools {
         result.push((bytes[i / 8] >> (i % 8)) & 1 == 1);

@@ -44,7 +44,10 @@ pub fn interleave_bits(x: u32, y: u32) -> u32 {
 /// sufficient for any tile coordinate system with extent ≤ 65 535.
 #[must_use]
 pub fn morton_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
-    debug_assert!((1..=16).contains(&num_bits));
+    debug_assert!(
+        (1..=16).contains(&num_bits),
+        "num_bits ({num_bits}) must be in 1..=16"
+    );
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
