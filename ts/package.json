@@ -33,13 +33,13 @@
     "@types/earcut": "^3.0.0",
     "@types/node": "^25.5.0",
     "@types/pbf": "^3.0.5",
-    "@vitest/coverage-v8": "^4.1.0",
+    "@vitest/coverage-v8": "^4.1.2",
     "bytebuffer": "^5.0.1",
     "earcut": "^3.0.2",
-    "eslint": "^10.0.3",
+    "eslint": "^10.1.0",
     "pbf": "^4.0.1",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.57.1",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.0",
     "vitest": "^4.0.1"
   },
   "dependencies": {
