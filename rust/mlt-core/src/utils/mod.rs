@@ -8,6 +8,7 @@ use num_traits::CheckedAdd;
 pub(crate) use parse::*;
 pub(crate) mod analyze;
 pub(crate) mod lazy_state;
+#[cfg(any(test, feature = "__private"))]
 pub mod test_helpers;
 
 use crate::decoder::RawPresence;
