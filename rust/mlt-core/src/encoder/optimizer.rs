@@ -85,10 +85,10 @@ impl StagedLayer01 {
             properties,
         } = self;
 
-        encode_geometry(&geometry, cfg, enc)?;
         if let Some(ids) = id {
             ids.write_to_with(enc, cfg)?;
         }
+        encode_geometry(&geometry, cfg, enc)?;
         write_properties(&properties, Some(cfg), enc)?;
         enc.write_header(&name, extent)?;
 
@@ -111,14 +111,11 @@ impl StagedLayer01 {
     ///
     /// Encoding configuration is read from [`enc.cfg`](Encoder::cfg).
     pub(crate) fn encode_into(self, enc: &mut Encoder) -> MltResult<()> {
-        self.geometry.write_to(enc)?;
-
         if let Some(id) = self.id {
             id.write_to(enc)?;
         }
-
+        self.geometry.write_to(enc)?;
         self.properties.write_to(enc)?;
-
         enc.write_header(&self.name, self.extent)?;
 
         Ok(())

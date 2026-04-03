@@ -413,7 +413,7 @@ pub struct GeometryPayloads {
     // Vertex raw payloads
     pub vertex_vec2_delta: Option<Vec<u32>>,
     pub morton_offsets: Option<Vec<u32>>,
-    pub morton_dict: Option<(Vec<u32>, MortonMeta)>, // (dict_u32s, meta)
+    pub morton_dict: Option<(MortonMeta, Vec<u32>)>, // (dict_u32s, meta)
 }
 
 /// Compute all topology payloads (raw u32 arrays) for a `GeometryValues` without
@@ -546,7 +546,7 @@ pub fn compute_geometry_payloads(
         (Some(verts), VertexBufferType::Morton) => {
             let morton_meta = z_order_params(verts)?;
             let (dict, offsets) = build_morton_dict(verts, morton_meta)?;
-            (None, Some(offsets), Some((dict, morton_meta)))
+            (None, Some(offsets), Some((morton_meta, dict)))
         }
         (None, _) => (None, None, None),
     };
@@ -597,7 +597,7 @@ pub fn write_geometry_auto(payloads: &GeometryPayloads, enc: &mut Encoder) -> Ml
             enc.write_stream(&encode_vertex_delta_stream(delta, cand.physical)?)?;
         }
         enc.finish_alternatives();
-    } else if let (Some(offsets), Some((dict, morton_meta))) =
+    } else if let (Some(offsets), Some((morton_meta, dict))) =
         (&payloads.morton_offsets, &payloads.morton_dict)
     {
         // Morton vertex offsets stream.
@@ -702,7 +702,7 @@ pub(crate) fn encode_geometry(
             decoded.vertices.as_deref().unwrap_or(&[]),
             get_enc("vertex").physical,
         )?)?;
-    } else if let (Some(offsets), Some((dict, morton_meta))) =
+    } else if let (Some(offsets), Some((morton_meta, dict))) =
         (&payloads.morton_offsets, &payloads.morton_dict)
     {
         enc.write_stream(&EncodedStream::encode_u32s_of_type(
