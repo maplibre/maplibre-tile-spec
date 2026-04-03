@@ -7,7 +7,7 @@ use rstest::rstest;
 
 use crate::decoder::{GeometryValues, IdValues, LogicalEncoder, RawIdValue};
 use crate::encoder::IdWidth::*;
-use crate::encoder::{Encoder, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer01, write_id_to};
+use crate::encoder::{Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer01};
 use crate::geojson::Geom32;
 use crate::test_helpers::{dec, parser};
 use crate::{Layer, LazyParsed, MltError, MltResult};
@@ -155,8 +155,11 @@ fn roundtrip_id_values(
         geometry,
         properties: vec![],
     };
-    let mut enc = Encoder::default();
-    staged.encode_explicit(&mut enc, &ExplicitEncoder::for_id(int_enc, id_width))?;
+    let mut enc = Encoder::with_explicit(
+        EncoderConfig::default(),
+        ExplicitEncoder::for_id(int_enc, id_width),
+    );
+    staged.encode_explicit(&mut enc)?;
     let buf = enc.into_layer_bytes()?;
     let (_, layer) = Layer::from_bytes(&buf, &mut parser())?;
     let Layer::Tag01(layer01) = layer else {
@@ -190,10 +193,11 @@ fn encode_id_to_raw_layer(
         geometry,
         properties: vec![],
     };
-    let mut enc = Encoder::default();
-    staged
-        .encode_explicit(&mut enc, &ExplicitEncoder::for_id(int_enc, id_width))
-        .expect("encode failed");
+    let mut enc = Encoder::with_explicit(
+        EncoderConfig::default(),
+        ExplicitEncoder::for_id(int_enc, id_width),
+    );
+    staged.encode_explicit(&mut enc).expect("encode failed");
     let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
     let buf: &'static [u8] = Box::leak(buf.into_boxed_slice());
     let (_, layer) = Layer::from_bytes(buf, &mut parser()).expect("parse failed");
@@ -235,15 +239,4 @@ fn assert_produces_correct_variant(
         prop_assert!(raw_id.presence.0.is_none(), "Expected no optional stream");
     }
     Ok(())
-}
-
-// Verify write_id_to directly using the low-level function
-#[test]
-fn test_write_id_to_direct() {
-    use crate::encoder::EncoderConfig;
-    let ids = IdValues(vec![Some(1), Some(2), Some(3)]);
-    let mut enc = Encoder::new(EncoderConfig::default());
-    let written = write_id_to(&ids, Id32, IntEncoder::varint(), &mut enc).unwrap();
-    assert!(written, "should return true for non-empty ids");
-    assert!(!enc.meta.is_empty(), "should write column type to meta");
 }

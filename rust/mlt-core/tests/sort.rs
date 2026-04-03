@@ -30,13 +30,11 @@ fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
 fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLayer01 {
     reorder_features(&mut tile, strategy);
     let staged = StagedLayer01::from_tile(tile, &[]);
-    let mut enc = Encoder::default();
-    staged
-        .encode_explicit(
-            &mut enc,
-            &ExplicitEncoder::for_id(IntEncoder::varint(), IdWidth::Id32),
-        )
-        .expect("encode failed");
+    let mut enc = Encoder::with_explicit(
+        Encoder::default().cfg,
+        ExplicitEncoder::for_id(IntEncoder::varint(), IdWidth::Id32),
+    );
+    staged.encode_explicit(&mut enc).expect("encode failed");
 
     // Serialize to bytes and reparse to get a `Layer01`.
     let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");

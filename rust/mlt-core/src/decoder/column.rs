@@ -3,6 +3,7 @@ use std::io::Write;
 
 use crate::MltError::ParsingColumnType;
 use crate::decoder::{Column, ColumnType};
+use crate::encoder::IdWidth;
 use crate::utils::{BinarySerializer as _, parse_string, parse_u8};
 use crate::{MltRefResult, Parser};
 
@@ -55,5 +56,16 @@ impl ColumnType {
     #[must_use]
     pub fn is_optional(self) -> bool {
         (self as u8) & 1 != 0
+    }
+}
+
+impl From<IdWidth> for ColumnType {
+    fn from(value: IdWidth) -> Self {
+        match value {
+            IdWidth::Id32 => Self::Id,
+            IdWidth::OptId32 => Self::OptId,
+            IdWidth::Id64 => Self::LongId,
+            IdWidth::OptId64 => Self::OptLongId,
+        }
     }
 }

@@ -64,9 +64,11 @@ fn bench_encode(c: &mut Criterion) {
                             |layers| {
                                 for layer in layers {
                                     if let StagedLayer::Tag01(l) = layer {
-                                        let mut enc = Encoder::default();
-                                        l.encode_explicit(&mut enc, &ExplicitEncoder::all(int_enc))
-                                            .expect("encode failed");
+                                        let mut enc = Encoder::with_explicit(
+                                            Encoder::default().cfg,
+                                            ExplicitEncoder::all(int_enc),
+                                        );
+                                        l.encode_explicit(&mut enc).expect("encode failed");
                                         black_box(enc);
                                     }
                                 }

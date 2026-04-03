@@ -1,8 +1,6 @@
 use crate::MltResult;
 use crate::decoder::TileLayer01;
 #[cfg(feature = "__private")]
-use crate::encoder::geometry::encode::encode_geometry;
-#[cfg(feature = "__private")]
 use crate::encoder::property::encode::write_properties;
 #[cfg(feature = "__private")]
 use crate::encoder::stream::IntEncoder;
@@ -71,12 +69,18 @@ impl ExplicitEncoder {
 }
 
 impl StagedLayer01 {
-    /// Encode using an [`ExplicitEncoder`] and write directly to `enc`.
+    /// Encode using the [`ExplicitEncoder`] stored in [`Encoder::explicit`].
     ///
-    /// All encoding choices are caller-specified. Used by synthetics and tests that require
-    /// deterministic encoding. For automatic optimization, use [`encode_tile_layer`].
+    /// Set `enc.explicit = Some(...)` or use [`Encoder::with_explicit`] before calling.
+    /// Used by synthetics and tests that require deterministic encoding. For automatic
+    /// optimization, use [`encode_tile_layer`].
     #[cfg(feature = "__private")]
-    pub fn encode_explicit(self, enc: &mut Encoder, cfg: &ExplicitEncoder) -> MltResult<()> {
+    pub fn encode_explicit(self, enc: &mut Encoder) -> MltResult<()> {
+        use crate::MltError;
+        if enc.explicit.is_none() {
+            return Err(MltError::MissingExplicitEncoder);
+        }
+
         let Self {
             name,
             extent,
@@ -86,10 +90,10 @@ impl StagedLayer01 {
         } = self;
 
         if let Some(ids) = id {
-            ids.write_to_with(enc, cfg)?;
+            ids.write_to(enc)?;
         }
-        encode_geometry(&geometry, cfg, enc)?;
-        write_properties(&properties, Some(cfg), enc)?;
+        geometry.write_to(enc)?;
+        write_properties(&properties, enc)?;
         enc.write_header(&name, extent)?;
 
         Ok(())

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::decoder::{GeometryValues, IdValues};
 use crate::encoder::{IntEncoder, StagedProperty};
 
@@ -21,7 +23,8 @@ pub struct EncodedUnknown {
 ///
 /// Holds fully-owned columnar data. Constructed directly (synthetics, benches) or
 /// converted from [`TileLayer01`](crate::TileLayer01).
-/// Consumed by encoding via [`StagedLayer::encode_into`] or `StagedLayer01::encode_explicit`.
+/// Consumed by encoding via [`StagedLayer::encode_into`] or [`StagedLayer01::encode_explicit`]
+/// (with [`Encoder::explicit`](crate::encoder::Encoder::explicit) set).
 #[derive(Debug, PartialEq, Clone)]
 pub struct StagedLayer01 {
     pub name: String,
@@ -112,4 +115,10 @@ pub struct ExplicitEncoder {
     /// or if the column is written at all if all values are null.
     /// Arguments: `(kind, name, subname)` — same convention as [`Self::get_int_encoder`]
     pub override_presence: Box<dyn Fn(&str, &str, Option<&str>) -> bool>,
+}
+
+impl fmt::Debug for ExplicitEncoder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ExplicitEncoder").finish_non_exhaustive()
+    }
 }

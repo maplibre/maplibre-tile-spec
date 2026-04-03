@@ -24,10 +24,11 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_width: IdWidth, int_enc: IntEnc
         geometry,
         properties: vec![],
     };
-    let mut enc = Encoder::default();
-    staged
-        .encode_explicit(&mut enc, &ExplicitEncoder::for_id(int_enc, id_width))
-        .expect("encode failed");
+    let mut enc = Encoder::with_explicit(
+        Encoder::default().cfg,
+        ExplicitEncoder::for_id(int_enc, id_width),
+    );
+    staged.encode_explicit(&mut enc).expect("encode failed");
     let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
     let mut p = parser();
     let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
@@ -177,12 +178,11 @@ fn test_auto_fastpfor_beats_varint_for_large_u32_ids() {
     let mut auto_enc = Encoder::default();
     ids.clone().write_to(&mut auto_enc).unwrap();
 
-    let mut plain_enc = Encoder::default();
-    ids.write_to_with(
-        &mut plain_enc,
-        &ExplicitEncoder::for_id(IntEncoder::varint(), IdWidth::Id32),
-    )
-    .unwrap();
+    let mut plain_enc = Encoder::with_explicit(
+        Encoder::default().cfg,
+        ExplicitEncoder::for_id(IntEncoder::varint(), IdWidth::Id32),
+    );
+    ids.write_to(&mut plain_enc).unwrap();
 
     assert!(
         auto_enc.total_len() <= plain_enc.total_len(),

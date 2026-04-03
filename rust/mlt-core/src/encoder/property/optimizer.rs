@@ -133,7 +133,7 @@ pub trait EncodeProperties: Sized {
 impl EncodeProperties for Vec<super::model::StagedProperty> {
     fn write_to(self, enc: &mut Encoder) -> MltResult<u32> {
         let before = enc.layer_column_count;
-        write_properties(&self, None, enc)?;
+        write_properties(&self, enc)?;
         Ok(enc.layer_column_count - before)
     }
 }

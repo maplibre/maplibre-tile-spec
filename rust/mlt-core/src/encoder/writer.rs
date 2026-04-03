@@ -2,7 +2,9 @@ use std::io;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::encoder::EncoderConfig;
+use crate::encoder::{
+    EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StrEncoding, VertexBufferType,
+};
 use crate::{MltError, MltResult};
 
 /// Stateful encoder that accumulates encoded layer bytes and provides
@@ -76,6 +78,11 @@ pub struct Encoder {
     /// automatically to all sub-encoders so individual encode methods do not
     /// need a separate `cfg` argument.
     pub cfg: EncoderConfig,
+
+    /// When [`Some`], property / ID / geometry encoders use [`ExplicitEncoder`]
+    /// callbacks instead of trying candidate encodings. When [`None`], the
+    /// automatic optimization path runs.
+    pub explicit: Option<ExplicitEncoder>,
 
     /// Layer header bytes: `name`, `extent`, `column_count`.
     ///
@@ -169,6 +176,18 @@ impl Encoder {
         }
     }
 
+    /// Like [`Self::new`] but with [`Self::explicit`] set for deterministic encoding
+    /// (tests, synthetics). Use with [`StagedLayer01::encode_explicit`].
+    #[inline]
+    #[must_use]
+    pub fn with_explicit(cfg: EncoderConfig, explicit: ExplicitEncoder) -> Self {
+        Self {
+            cfg,
+            explicit: Some(explicit),
+            ..Self::default()
+        }
+    }
+
     /// Record one layer column (geometry, ID, or property) after writing its
     /// column-type metadata to [`meta`](Encoder::meta).
     #[inline]
@@ -194,6 +213,70 @@ impl Encoder {
             .write_varint(self.layer_column_count)
             .map_err(MltError::from)?;
         Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Explicit encoder (`Encoder::explicit`): copy out choices without `take()`.
+    // `#[cfg(feature = "__private")]` stays here so encode paths stay cfg-free.
+    // -----------------------------------------------------------------------
+
+    /// When [`Self::explicit`] is [`Some`], returns the callback-chosen [`IntEncoder`].
+    /// [`None`] means run automatic candidate selection for that stream.
+    #[inline]
+    pub(crate) fn get_int_encoder(
+        &self,
+        kind: &str,
+        name: &str,
+        subname: Option<&str>,
+    ) -> Option<IntEncoder> {
+        self.explicit
+            .as_ref()
+            .map(|e| (e.get_int_encoder)(kind, name, subname))
+    }
+
+    /// When [`Self::explicit`] is [`Some`], returns the callback-chosen [`StrEncoding`].
+    /// [`None`] means run automatic string / shared-dict corpus selection.
+    #[inline]
+    pub(crate) fn get_str_encoding(&self, kind: &str, name: &str) -> Option<StrEncoding> {
+        self.explicit
+            .as_ref()
+            .map(|e| (e.get_str_encoding)(kind, name))
+    }
+
+    /// Whether the explicit encoder forces a presence stream for an all-present column
+    /// (or similar), per [`ExplicitEncoder::override_presence`].
+    #[inline]
+    pub(crate) fn override_presence(&self, kind: &str, name: &str, subname: Option<&str>) -> bool {
+        self.explicit
+            .as_ref()
+            .is_some_and(|e| (e.override_presence)(kind, name, subname))
+    }
+
+    /// Applies [`ExplicitEncoder::override_id_width`] when the `__private` field exists;
+    /// otherwise returns `auto` unchanged.
+    #[inline]
+    #[allow(clippy::unused_self)]
+    pub(crate) fn override_id_width(&self, auto: IdWidth) -> IdWidth {
+        #[cfg(feature = "__private")]
+        {
+            self.explicit
+                .as_ref()
+                .map_or(auto, |e| (e.override_id_width)(auto))
+        }
+        #[cfg(not(feature = "__private"))]
+        auto
+    }
+
+    /// Pinned vertex layout when explicit encoding is active (`__private` only).
+    #[inline]
+    #[allow(clippy::unused_self)]
+    pub(crate) fn explicit_vertex_buffer_type(&self) -> Option<VertexBufferType> {
+        #[cfg(feature = "__private")]
+        {
+            self.explicit.as_ref().map(|e| e.vertex_buffer_type)
+        }
+        #[cfg(not(feature = "__private"))]
+        None
     }
 
     /// Total encoded bytes across all three sections (`hdr + meta + data`).

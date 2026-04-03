@@ -1,7 +1,7 @@
 use geo_types::Point;
 use mlt_core::encoder::{
-    Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer01, StagedProperty,
-    StagedSharedDict, StrEncoding,
+    Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer01,
+    StagedProperty, StagedSharedDict, StrEncoding,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, parser};
@@ -101,16 +101,16 @@ fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
         geometry: n_point_geometry(n),
         properties: props,
     };
-    let mut enc = Encoder::default();
-    // Use encode_explicit with default varint encoder for deterministic output.
-    layer
-        .encode_explicit(&mut enc, &ExplicitEncoder::all(IntEncoder::varint()))
-        .expect("encoding failed");
+    let mut enc = Encoder::with_explicit(
+        EncoderConfig::default(),
+        ExplicitEncoder::all(IntEncoder::varint()),
+    );
+    layer.encode_explicit(&mut enc).expect("encoding failed");
     enc.into_layer_bytes().expect("into_layer_bytes failed")
 }
 
 /// Encode `props` with explicit encoder config and return the raw bytes.
-fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: &ExplicitEncoder) -> Vec<u8> {
+fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> Vec<u8> {
     let n = props.iter().map(staged_len).max().unwrap_or(0);
     let layer = StagedLayer01 {
         name: "test".into(),
@@ -119,10 +119,8 @@ fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: &ExplicitEncoder) -
         geometry: n_point_geometry(n),
         properties: props,
     };
-    let mut enc = Encoder::default();
-    layer
-        .encode_explicit(&mut enc, cfg)
-        .expect("encoding failed");
+    let mut enc = Encoder::with_explicit(EncoderConfig::default(), cfg);
+    layer.encode_explicit(&mut enc).expect("encoding failed");
     enc.into_layer_bytes().expect("into_layer_bytes failed")
 }
 
@@ -139,7 +137,7 @@ fn encode_and_tile(props: Vec<StagedProperty>) -> TileLayer01 {
 }
 
 /// Encode and decode with explicit encoder config.
-fn encode_and_tile_explicit(props: Vec<StagedProperty>, cfg: &ExplicitEncoder) -> TileLayer01 {
+fn encode_and_tile_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> TileLayer01 {
     let bytes = encode_to_bytes_explicit(props, cfg);
     let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
     let Layer::Tag01(layer01) = layer else {
@@ -165,7 +163,7 @@ macro_rules! integer_roundtrip_proptests {
                 prop_assume!(values.iter().any(Option::is_some));
                 let tile = encode_and_tile_explicit(
                     vec![StagedProperty::$staged_fn("x", values.clone())],
-                    &ExplicitEncoder::all(enc),
+                    ExplicitEncoder::all(enc),
                 );
                 prop_assert_eq!(&tile.property_names, &["x"]);
                 for (i, ov) in values.into_iter().enumerate() {
@@ -180,7 +178,7 @@ macro_rules! integer_roundtrip_proptests {
             ) {
                 let tile = encode_and_tile_explicit(
                     vec![StagedProperty::$staged_fn("x", values.iter().map(|&v| Some(v)).collect())],
-                    &ExplicitEncoder::all(enc),
+                    ExplicitEncoder::all(enc),
                 );
                 prop_assert_eq!(&tile.property_names, &["x"]);
                 for (i, &v) in values.iter().enumerate() {
@@ -343,7 +341,7 @@ fn fsst_scalar_string_roundtrip() {
     let values = strs(&["Berlin", "Brandenburg", "Bremen", "Braunschweig"]);
     let tile = encode_and_tile_explicit(
         vec![StagedProperty::str("name", values.clone())],
-        &ExplicitEncoder::all_with_str(IntEncoder::plain(), StrEncoding::Fsst),
+        ExplicitEncoder::all_with_str(IntEncoder::plain(), StrEncoding::Fsst),
     );
     assert_eq!(tile.property_names, vec!["name"]);
     for (i, ov) in values.into_iter().enumerate() {

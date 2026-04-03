@@ -10,8 +10,6 @@ use crate::decoder::{
     ColumnType, DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType,
     LogicalEncoding, MortonMeta, OffsetType, StreamMeta, StreamType,
 };
-#[cfg(feature = "__private")]
-use crate::encoder::ExplicitEncoder;
 use crate::encoder::stream::{DataProfile, PhysicalEncoder};
 use crate::encoder::{EncodedStream, Encoder};
 use crate::errors::AsMltError as _;
@@ -19,7 +17,7 @@ use crate::utils::{AsUsize as _, BinarySerializer as _, checked_sum2};
 
 /// Encode pre-computed componentwise-delta vertex values with a given physical encoder.
 ///
-/// Shared by both the auto path (which loops over candidates) and the explicit `__private` path.
+/// Shared by the auto path (which loops over candidates) and the explicit-encoder path.
 fn encode_vertex_delta_stream(
     delta: &[u32],
     physical: PhysicalEncoder,
@@ -37,7 +35,6 @@ fn encode_vertex_delta_stream(
 }
 
 /// Encode raw vertex data: applies componentwise delta, then calls [`encode_vertex_delta_stream`].
-#[cfg(feature = "__private")]
 fn encode_vertex_buffer(vertices: &[i32], physical: PhysicalEncoder) -> MltResult<EncodedStream> {
     let delta = encode_componentwise_delta_vec2s(vertices);
     encode_vertex_delta_stream(&delta, physical)
@@ -45,7 +42,7 @@ fn encode_vertex_buffer(vertices: &[i32], physical: PhysicalEncoder) -> MltResul
 
 /// Encode pre-computed Morton delta values with a given physical encoder.
 ///
-/// Shared by both the auto path and the explicit `__private` path.
+/// Shared by the auto path and the explicit-encoder path.
 fn encode_morton_delta_stream(
     deltas: Vec<u32>,
     meta: MortonMeta,
@@ -64,7 +61,6 @@ fn encode_morton_delta_stream(
 }
 
 /// Encode a Morton vertex dictionary: computes deltas, then calls [`encode_morton_delta_stream`].
-#[cfg(feature = "__private")]
 fn encode_morton_vertex_buffer(
     codes: &[u32],
     meta: MortonMeta,
@@ -401,6 +397,25 @@ fn write_stream_auto(data: &[u32], stream_type: StreamType, enc: &mut Encoder) -
     Ok(())
 }
 
+/// Write a geometry `u32` stream: [`Encoder::get_int_encoder`] when explicit mode is active,
+/// otherwise try all pruned candidates and keep the shortest.
+fn write_geo_u32_stream(
+    data: &[u32],
+    stream_type: StreamType,
+    geo_stream_name: &'static str,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    if let Some(int_enc) = enc.get_int_encoder("geo", geo_stream_name, None) {
+        enc.write_stream(&EncodedStream::encode_u32s_of_type(
+            data,
+            int_enc,
+            stream_type,
+        )?)?;
+        return Ok(());
+    }
+    write_stream_auto(data, stream_type, enc)
+}
+
 /// Internal representation of pre-computed geometry topology payloads.
 ///
 /// Each element of `topology` is `(stream_type, raw_u32_payload)` in the
@@ -417,7 +432,7 @@ pub struct GeometryPayloads {
 }
 
 /// Compute all topology payloads (raw u32 arrays) for a `GeometryValues` without
-/// applying any integer codec.  Both the auto path and the `__private` explicit path
+/// applying any integer codec.  Both the auto path and the explicit-encoder path
 /// use this to share topology-computation logic.
 pub fn compute_geometry_payloads(
     decoded: &GeometryValues,
@@ -561,164 +576,116 @@ pub fn compute_geometry_payloads(
     })
 }
 
-/// Automatically encode geometry using `start_alternative`/`finish_alternatives` per stream
-/// to select the shortest encoding for each stream independently.
-pub fn write_geometry_auto(payloads: &GeometryPayloads, enc: &mut Encoder) -> MltResult<()> {
-    let vertex_stream_count = match payloads.vertex_buffer_type {
-        _ if payloads.vertex_vec2_delta.is_none() && payloads.morton_offsets.is_none() => 0,
-        VertexBufferType::Vec2 => 1,
-        VertexBufferType::Morton => 2,
-    };
-    let stream_count = checked_sum2(
-        u32::try_from(1 + payloads.topology.len() + vertex_stream_count)?,
-        0,
-    )?;
+impl GeometryValues {
+    /// Write the geometry column to `enc`.
+    pub fn write_to(self, enc: &mut Encoder) -> MltResult<()> {
+        let vertex_buffer_type = enc.explicit_vertex_buffer_type().unwrap_or_else(|| {
+            self.vertices
+                .as_deref()
+                .map_or(VertexBufferType::Vec2, select_vertex_strategy)
+        });
 
-    ColumnType::Geometry.write_to(&mut enc.meta)?;
-    enc.write_varint(stream_count)?;
+        let payloads = compute_geometry_payloads(&self, vertex_buffer_type)?;
 
-    // Meta stream (geometry types).
-    write_stream_auto(
-        &payloads.meta,
-        StreamType::Length(LengthType::VarBinary),
-        enc,
-    )?;
+        let has_geom_offs = self.geometry_offsets.is_some();
+        let has_ring_offs = self.ring_offsets.is_some();
+        let is_part_with_rings = has_geom_offs && has_ring_offs;
+        let is_ring_level2 = !has_geom_offs && has_ring_offs;
 
-    // Topology streams.
-    for (stream_type, data) in &payloads.topology {
-        write_stream_auto(data, *stream_type, enc)?;
-    }
-
-    // Vertex stream(s).
-    if let Some(delta) = &payloads.vertex_vec2_delta {
-        let candidates = DataProfile::prune_candidates::<i32>(delta);
-        for &cand in &candidates {
-            enc.start_alternative();
-            enc.write_stream(&encode_vertex_delta_stream(delta, cand.physical)?)?;
-        }
-        enc.finish_alternatives();
-    } else if let (Some(offsets), Some((morton_meta, dict))) =
-        (&payloads.morton_offsets, &payloads.morton_dict)
-    {
-        // Morton vertex offsets stream.
-        write_stream_auto(offsets, StreamType::Offset(OffsetType::Vertex), enc)?;
-
-        // Morton dict (delta-encoded) stream.
-        let dict_deltas = morton_deltas(dict);
-        let candidates = DataProfile::prune_candidates::<i32>(&dict_deltas);
-        for &cand in &candidates {
-            enc.start_alternative();
-            enc.write_stream(&encode_morton_delta_stream(
-                dict_deltas.clone(),
-                *morton_meta,
-                cand.physical,
-            )?)?;
-        }
-        enc.finish_alternatives();
-    }
-
-    enc.push_layer_column();
-    Ok(())
-}
-
-/// Encode geometry with explicit per-stream encoders (synthetics / `__private` path).
-///
-/// Stream names passed to [`ExplicitEncoder::get_int_encoder`] with kind `"geo"` are:
-/// `"meta"`, `"geometries"`, `"rings"`, `"rings2"`, `"no_rings"`, `"parts"`,
-/// `"parts_ring"`, `"triangles"`, `"triangles_indexes"`,
-/// `"vertex"`, `"vertex_offsets"`.
-///
-/// Writes the `Geometry` column-type byte to [`enc.meta`](Encoder::meta) and the
-/// stream count + all geometry streams to [`enc.data`](Encoder::data).
-#[cfg(feature = "__private")]
-pub(crate) fn encode_geometry(
-    decoded: &GeometryValues,
-    cfg: &ExplicitEncoder,
-    enc: &mut Encoder,
-) -> MltResult<()> {
-    let get_enc = |name: &str| (cfg.get_int_encoder)("geo", name, None);
-    let payloads = compute_geometry_payloads(decoded, cfg.vertex_buffer_type)?;
-
-    // Determine which topology branch fired (for stream-name lookup).
-    let has_geom_offs = decoded.geometry_offsets.is_some();
-    let has_ring_offs = decoded.ring_offsets.is_some();
-    let is_part_with_rings = has_geom_offs && has_ring_offs;
-    let is_ring_level2 = !has_geom_offs && has_ring_offs;
-
-    let vertex_stream_count = match cfg.vertex_buffer_type {
-        _ if decoded.vertices.is_none() => 0,
-        VertexBufferType::Vec2 => 1,
-        VertexBufferType::Morton => 2,
-    };
-    let stream_count = checked_sum2(
-        u32::try_from(1 + payloads.topology.len() + vertex_stream_count)?,
-        0,
-    )?;
-
-    ColumnType::Geometry.write_to(&mut enc.meta)?;
-    enc.write_varint(stream_count)?;
-
-    // Meta stream.
-    enc.write_stream(&EncodedStream::encode_u32s_of_type(
-        &payloads.meta,
-        get_enc("meta"),
-        StreamType::Length(LengthType::VarBinary),
-    )?)?;
-
-    // Topology streams: map StreamType → stream name → IntEncoder.
-    for (stream_type, data) in &payloads.topology {
-        let name = match stream_type {
-            StreamType::Length(LengthType::Geometries) => "geometries",
-            StreamType::Length(LengthType::Parts) => {
-                if is_part_with_rings {
-                    "rings"
-                } else if is_ring_level2 {
-                    "parts"
-                } else {
-                    "no_rings"
-                }
-            }
-            StreamType::Length(LengthType::Rings) => {
-                if is_part_with_rings {
-                    "rings2"
-                } else {
-                    "parts_ring"
-                }
-            }
-            StreamType::Length(LengthType::Triangles) => "triangles",
-            StreamType::Offset(OffsetType::Index) => "triangles_indexes",
-            _ => "meta",
+        let vertex_stream_count = match payloads.vertex_buffer_type {
+            _ if payloads.vertex_vec2_delta.is_none() && payloads.morton_offsets.is_none() => 0,
+            VertexBufferType::Vec2 => 1,
+            VertexBufferType::Morton => 2,
         };
-        enc.write_stream(&EncodedStream::encode_u32s_of_type(
-            data,
-            get_enc(name),
-            *stream_type,
-        )?)?;
-    }
+        let stream_count = checked_sum2(
+            u32::try_from(1 + payloads.topology.len() + vertex_stream_count)?,
+            0,
+        )?;
 
-    // Vertex streams.
-    if payloads.vertex_vec2_delta.is_some() {
-        enc.write_stream(&encode_vertex_buffer(
-            decoded.vertices.as_deref().unwrap_or(&[]),
-            get_enc("vertex").physical,
-        )?)?;
-    } else if let (Some(offsets), Some((morton_meta, dict))) =
-        (&payloads.morton_offsets, &payloads.morton_dict)
-    {
-        enc.write_stream(&EncodedStream::encode_u32s_of_type(
-            offsets,
-            get_enc("vertex_offsets"),
-            StreamType::Offset(OffsetType::Vertex),
-        )?)?;
-        enc.write_stream(&encode_morton_vertex_buffer(
-            dict,
-            *morton_meta,
-            get_enc("vertex").physical,
-        )?)?;
-    }
+        ColumnType::Geometry.write_to(&mut enc.meta)?;
+        enc.write_varint(stream_count)?;
 
-    enc.push_layer_column();
-    Ok(())
+        write_geo_u32_stream(
+            &payloads.meta,
+            StreamType::Length(LengthType::VarBinary),
+            "meta",
+            enc,
+        )?;
+
+        for (stream_type, data) in &payloads.topology {
+            let name = match stream_type {
+                StreamType::Length(LengthType::Geometries) => "geometries",
+                StreamType::Length(LengthType::Parts) => {
+                    if is_part_with_rings {
+                        "rings"
+                    } else if is_ring_level2 {
+                        "parts"
+                    } else {
+                        "no_rings"
+                    }
+                }
+                StreamType::Length(LengthType::Rings) => {
+                    if is_part_with_rings {
+                        "rings2"
+                    } else {
+                        "parts_ring"
+                    }
+                }
+                StreamType::Length(LengthType::Triangles) => "triangles",
+                StreamType::Offset(OffsetType::Index) => "triangles_indexes",
+                _ => "meta",
+            };
+            write_geo_u32_stream(data, *stream_type, name, enc)?;
+        }
+
+        if let Some(delta) = &payloads.vertex_vec2_delta {
+            if let Some(int_enc) = enc.get_int_encoder("geo", "vertex", None) {
+                enc.write_stream(&encode_vertex_buffer(
+                    self.vertices.as_deref().unwrap_or(&[]),
+                    int_enc.physical,
+                )?)?;
+            } else {
+                let candidates = DataProfile::prune_candidates::<i32>(delta);
+                for &cand in &candidates {
+                    enc.start_alternative();
+                    enc.write_stream(&encode_vertex_delta_stream(delta, cand.physical)?)?;
+                }
+                enc.finish_alternatives();
+            }
+        } else if let (Some(offsets), Some((morton_meta, dict))) =
+            (&payloads.morton_offsets, &payloads.morton_dict)
+        {
+            write_geo_u32_stream(
+                offsets,
+                StreamType::Offset(OffsetType::Vertex),
+                "vertex_offsets",
+                enc,
+            )?;
+
+            let dict_deltas = morton_deltas(dict);
+            if let Some(int_enc) = enc.get_int_encoder("geo", "vertex", None) {
+                enc.write_stream(&encode_morton_vertex_buffer(
+                    dict,
+                    *morton_meta,
+                    int_enc.physical,
+                )?)?;
+            } else {
+                let candidates = DataProfile::prune_candidates::<i32>(&dict_deltas);
+                for &cand in &candidates {
+                    enc.start_alternative();
+                    enc.write_stream(&encode_morton_delta_stream(
+                        dict_deltas.clone(),
+                        *morton_meta,
+                        cand.physical,
+                    )?)?;
+                }
+                enc.finish_alternatives();
+            }
+        }
+
+        enc.push_layer_column();
+        Ok(())
+    }
 }
 
 #[cfg(test)]
