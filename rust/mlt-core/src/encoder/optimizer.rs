@@ -119,13 +119,15 @@ impl StagedLayer01 {
     ///
     /// Encoding configuration is read from [`enc.cfg`](Encoder::cfg).
     pub(crate) fn encode_into(self, enc: &mut Encoder) -> MltResult<()> {
+        self.geometry.write_to(enc)?;
+
         // Write each column's type byte to enc.meta and data to enc.data directly.
         let id_present = if let Some(id) = self.id {
             id.write_to(enc)?
         } else {
             false
         };
-        self.geometry.write_to(enc)?;
+
         let prop_count = self.properties.write_to(enc)?;
 
         // Column count is only known after encoding.
