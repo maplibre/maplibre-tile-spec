@@ -10,6 +10,7 @@ use crate::decoder::{
     ColumnType, DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType,
     LogicalEncoding, MortonMeta, OffsetType, StreamMeta, StreamType,
 };
+#[cfg(feature = "__private")]
 use crate::encoder::optimizer::ExplicitEncoder;
 use crate::encoder::stream::{DataProfile, PhysicalEncoder};
 use crate::encoder::{EncodedStream, Encoder};

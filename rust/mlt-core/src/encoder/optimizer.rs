@@ -6,10 +6,11 @@ use crate::encoder::geometry::encode::encode_geometry;
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::stream::IntEncoder;
 use crate::encoder::{
-    EncodeProperties as _, EncodedLayer, Encoder, IdWidth, SortStrategy, StagedLayer,
-    StagedLayer01, VertexBufferType, group_string_properties, reorder_features,
-    spatial_sort_likely_to_help,
+    EncodeProperties as _, EncodedLayer, Encoder, SortStrategy, StagedLayer, StagedLayer01,
+    group_string_properties, reorder_features, spatial_sort_likely_to_help,
 };
+#[cfg(feature = "__private")]
+use crate::encoder::{IdWidth, VertexBufferType};
 
 impl StagedLayer {
     /// Automatically encode and write `self` to `enc`.
@@ -71,6 +72,10 @@ impl Default for EncoderConfig {
 /// [`crate::encoder`]).  Always compiled so that the unified property-encoding path
 /// can reference it without feature flags.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+    not(feature = "__private"),
+    expect(dead_code, reason = "constructed only in __private synthetics code")
+)]
 pub enum StrEncoding {
     Plain,
     Dict,
@@ -92,6 +97,7 @@ pub enum StrEncoding {
 )]
 pub struct ExplicitEncoder {
     /// Vertex buffer layout for geometry streams.
+    #[cfg(feature = "__private")]
     pub vertex_buffer_type: VertexBufferType,
     /// Return the [`IntEncoder`] for a stream.
     /// Arguments: `(kind, name, subname)` where `kind` is `"id"`, `"geo"`, or `"prop"`;
@@ -101,6 +107,7 @@ pub struct ExplicitEncoder {
     pub get_str_encoding: Box<dyn Fn(&str, &str) -> StrEncoding>,
     /// Override the auto-detected [`IdWidth`].
     /// Arguments: auto-detected `IdWidth`. Return the width to use.
+    #[cfg(feature = "__private")]
     pub override_id_width: Box<dyn Fn(IdWidth) -> IdWidth>,
     /// Override whether a presence stream is written for an all-present column,
     /// or if the column is written at all if all values are null.
@@ -108,6 +115,7 @@ pub struct ExplicitEncoder {
     pub override_presence: Box<dyn Fn(&str, &str, Option<&str>) -> bool>,
 }
 
+#[cfg(feature = "__private")]
 impl ExplicitEncoder {
     /// Use `enc` for all integer streams, plain string encoding, and `Vec2` vertex layout.
     #[must_use]
@@ -157,7 +165,7 @@ impl StagedLayer01 {
     /// deterministic encoding. For automatic optimization, use [`encode_tile_layer`].
     #[cfg(feature = "__private")]
     pub fn encode_explicit(self, enc: &mut Encoder, cfg: &ExplicitEncoder) -> MltResult<()> {
-        let StagedLayer01 {
+        let Self {
             name,
             extent,
             id,

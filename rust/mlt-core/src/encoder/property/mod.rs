@@ -6,7 +6,7 @@ mod serialize;
 mod strings;
 
 pub use model::{
-    PresenceKind, PropertyKind, StagedProperty, StagedScalar, StagedSharedDict,
-    StagedSharedDictItem, StagedStrings,
+    EncodedFsstData, EncodedPlainData, EncodedStringsEncoding, PresenceKind, PropertyKind,
+    StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem, StagedStrings,
 };
 pub use optimizer::{EncodeProperties, StringGroup, group_string_properties};

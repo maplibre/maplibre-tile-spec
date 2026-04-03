@@ -19,7 +19,7 @@ const MINHASH_PERMUTATIONS: usize = 128;
 /// grouped into a single shared dictionary.
 const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.6;
 
-/// A group of string columns to be merged into a single [`StagedProperty::SharedDict`].
+/// A group of string columns to be merged into a single [`crate::encoder::StagedProperty::SharedDict`].
 #[derive(Debug, Clone)]
 pub struct StringGroup {
     pub prefix: String,

@@ -1,9 +1,50 @@
+use crate::encoder::EncodedStream;
+
 pub enum PropertyKind {
     Bool,
     Integer,
     Float,
     String,
     SharedDict,
+}
+
+/// Wire-ready encoded strings encoding (owns byte buffers).
+#[derive(Debug, Clone, PartialEq)]
+pub enum EncodedStringsEncoding {
+    Plain(EncodedPlainData),
+    Dictionary {
+        plain_data: EncodedPlainData,
+        offsets: EncodedStream,
+    },
+    FsstPlain(EncodedFsstData),
+    FsstDictionary {
+        fsst_data: EncodedFsstData,
+        offsets: EncodedStream,
+    },
+}
+
+impl EncodedStringsEncoding {
+    /// Content streams in wire order.
+    #[must_use]
+    pub fn streams(&self) -> Vec<&EncodedStream> {
+        match self {
+            Self::Plain(plain_data) => plain_data.streams(),
+            Self::Dictionary {
+                plain_data,
+                offsets,
+            } => {
+                let mut streams = plain_data.streams();
+                streams.insert(1, offsets);
+                streams
+            }
+            Self::FsstPlain(fsst_data) => fsst_data.streams(),
+            Self::FsstDictionary { fsst_data, offsets } => {
+                let mut streams = fsst_data.streams();
+                streams.push(offsets);
+                streams
+            }
+        }
+    }
 }
 
 /// Staged property column (encode-side, fully owned).
@@ -24,6 +65,39 @@ pub enum StagedProperty {
     F64(StagedScalar<f64>),
     Str(StagedStrings),
     SharedDict(StagedSharedDict),
+}
+
+/// Wire-ready encoded plain-text string data (lengths stream + raw bytes stream).
+#[derive(Debug, Clone, PartialEq)]
+pub struct EncodedPlainData {
+    pub lengths: EncodedStream,
+    pub data: EncodedStream,
+}
+impl EncodedPlainData {
+    #[must_use]
+    pub fn streams(&self) -> Vec<&EncodedStream> {
+        vec![&self.lengths, &self.data]
+    }
+}
+
+/// Wire-ready encoded FSST data (owns its byte buffers).
+#[derive(Debug, Clone, PartialEq)]
+pub struct EncodedFsstData {
+    pub symbol_lengths: EncodedStream,
+    pub symbol_table: EncodedStream,
+    pub lengths: EncodedStream,
+    pub corpus: EncodedStream,
+}
+impl EncodedFsstData {
+    #[must_use]
+    pub fn streams(&self) -> Vec<&EncodedStream> {
+        vec![
+            &self.symbol_lengths,
+            &self.symbol_table,
+            &self.lengths,
+            &self.corpus,
+        ]
+    }
 }
 
 /// Describes the null pattern of a single column.
