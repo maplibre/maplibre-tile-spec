@@ -4,13 +4,14 @@ use crate::decoder::TileLayer01;
 use crate::encoder::geometry::encode::encode_geometry;
 #[cfg(feature = "__private")]
 use crate::encoder::property::encode::write_properties;
+#[cfg(feature = "__private")]
 use crate::encoder::stream::IntEncoder;
 use crate::encoder::{
-    EncodeProperties as _, EncodedLayer, Encoder, SortStrategy, StagedLayer, StagedLayer01,
+    EncodeProperties as _, Encoder, EncoderConfig, SortStrategy, StagedLayer, StagedLayer01,
     group_string_properties, reorder_features, spatial_sort_likely_to_help,
 };
 #[cfg(feature = "__private")]
-use crate::encoder::{IdWidth, VertexBufferType};
+use crate::encoder::{ExplicitEncoder, IdWidth, VertexBufferType};
 
 impl StagedLayer {
     /// Automatically encode and write `self` to `enc`.
@@ -21,98 +22,9 @@ impl StagedLayer {
     pub fn encode_into(self, enc: &mut Encoder) -> MltResult<()> {
         match self {
             Self::Tag01(t) => t.encode_into(enc),
-            Self::Unknown(u) => EncodedLayer::Unknown(u).write_to(enc),
+            Self::Unknown(u) => u.write_to(enc),
         }
     }
-}
-
-/// Global encoder settings controlling which optimization strategies are attempted.
-#[derive(Debug, Clone, Copy, PartialEq, Hash)]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "enums would not model this better, not a state machine"
-)]
-pub struct EncoderConfig {
-    /// Generate tessellation data for polygons and multi-polygons.
-    pub tessellate: bool,
-    /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
-    pub try_spatial_morton_sort: bool,
-    /// Try sorting features by the Hilbert curve index of their first vertex.
-    pub try_spatial_hilbert_sort: bool,
-    /// Try sorting features by their feature ID in ascending order.
-    pub try_id_sort: bool,
-    /// Allow `FSST` string compression
-    pub allow_fsst: bool,
-    /// Allow `FastPFOR` integer compression
-    pub allow_fpf: bool,
-    /// Allow string grouping into shared dictionaries
-    pub allow_shared_dict: bool,
-}
-
-impl Default for EncoderConfig {
-    fn default() -> Self {
-        Self {
-            tessellate: false,
-            try_spatial_morton_sort: true,
-            try_spatial_hilbert_sort: true,
-            try_id_sort: true,
-            allow_fsst: true,
-            allow_fpf: true,
-            allow_shared_dict: true,
-        }
-    }
-}
-
-/// How to encode a string column.
-///
-/// Used by [`ExplicitEncoder`] to control per-column string encoding in the
-/// explicit (synthetics / `__private`) path and in property-encoding helpers.
-///
-/// Publicly visible only when the `__private` feature is enabled (re-exported from
-/// [`crate::encoder`]).  Always compiled so that the unified property-encoding path
-/// can reference it without feature flags.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(
-    not(feature = "__private"),
-    expect(dead_code, reason = "constructed only in __private synthetics code")
-)]
-pub enum StrEncoding {
-    Plain,
-    Dict,
-    Fsst,
-    FsstDict,
-}
-
-/// Explicit, deterministic encoding configuration for synthetics and tests.
-///
-/// All encoding choices are caller-specified via callbacks so one struct can cover
-/// any combination without per-stream boilerplate.  For automatic (optimized)
-/// encoding, use [`encode_tile_layer`].
-///
-/// Always compiled; publicly visible only when the `__private` feature is enabled
-/// (re-exported from [`crate::encoder`]).
-#[expect(
-    clippy::type_complexity,
-    reason = "keep it simple for internal usage without extra types"
-)]
-pub struct ExplicitEncoder {
-    /// Vertex buffer layout for geometry streams.
-    #[cfg(feature = "__private")]
-    pub vertex_buffer_type: VertexBufferType,
-    /// Return the [`IntEncoder`] for a stream.
-    /// Arguments: `(kind, name, subname)` where `kind` is `"id"`, `"geo"`, or `"prop"`;
-    /// `name` is the stream/column name; `subname` is the shared-dict suffix when applicable.
-    pub get_int_encoder: Box<dyn Fn(&str, &str, Option<&str>) -> IntEncoder>,
-    /// Return the string encoding strategy for a string property column.
-    pub get_str_encoding: Box<dyn Fn(&str, &str) -> StrEncoding>,
-    /// Override the auto-detected [`IdWidth`].
-    /// Arguments: auto-detected `IdWidth`. Return the width to use.
-    #[cfg(feature = "__private")]
-    pub override_id_width: Box<dyn Fn(IdWidth) -> IdWidth>,
-    /// Override whether a presence stream is written for an all-present column,
-    /// or if the column is written at all if all values are null.
-    /// Arguments: `(kind, name, subname)` — same convention as [`Self::get_int_encoder`]
-    pub override_presence: Box<dyn Fn(&str, &str, Option<&str>) -> bool>,
 }
 
 #[cfg(feature = "__private")]
@@ -124,14 +36,14 @@ impl ExplicitEncoder {
             override_id_width: Box::new(|w| w),
             vertex_buffer_type: VertexBufferType::Vec2,
             get_int_encoder: Box::new(move |_, _, _| enc),
-            get_str_encoding: Box::new(|_, _| StrEncoding::Plain),
+            get_str_encoding: Box::new(|_, _| crate::encoder::StrEncoding::Plain),
             override_presence: Box::new(|_, _, _| false),
         }
     }
 
     /// Like [`Self::all`] but use `str_enc` for string property columns.
     #[must_use]
-    pub fn all_with_str(enc: IntEncoder, str_enc: StrEncoding) -> Self {
+    pub fn all_with_str(enc: IntEncoder, str_enc: crate::encoder::StrEncoding) -> Self {
         Self {
             get_str_encoding: Box::new(move |_, _| str_enc),
             ..Self::all(enc)

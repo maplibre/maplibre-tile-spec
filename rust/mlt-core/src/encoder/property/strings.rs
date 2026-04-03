@@ -14,10 +14,10 @@ use crate::decoder::{
     ColumnType, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
     RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, StreamType,
 };
-use crate::encoder::optimizer::{ExplicitEncoder, StrEncoding};
 use crate::encoder::stream::{FsstStrEncoder, IntEncoder};
 use crate::encoder::{
     EncodedFsstData, EncodedPlainData, EncodedStream, EncodedStringsEncoding, Encoder,
+    ExplicitEncoder, StrEncoding,
 };
 
 /// Minimum total raw byte size of a column before attempting FSST compression.

@@ -4,9 +4,8 @@ use crate::MltError::NotImplemented;
 use crate::MltResult;
 use crate::codecs::zigzag::encode_zigzag;
 use crate::decoder::ColumnType;
-use crate::encoder::optimizer::ExplicitEncoder;
 use crate::encoder::stream::DataProfile;
-use crate::encoder::{EncodedStream, Encoder, StagedScalar, StagedStrings};
+use crate::encoder::{EncodedStream, Encoder, ExplicitEncoder, StagedScalar, StagedStrings};
 use crate::utils::BinarySerializer as _;
 
 // ── Unified encoding path ────────────────────────────────────────────────────

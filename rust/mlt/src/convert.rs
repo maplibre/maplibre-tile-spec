@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{Context as _, Result as AnyResult, bail};
 use clap::Args;
-use mlt_core::encoder::{EncodedLayer, Encoder, EncoderConfig, encode_tile_layer};
+use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, encode_tile_layer};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{Decoder, Layer, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
@@ -131,7 +131,7 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
             }
             Layer::Unknown(u) => {
                 let mut enc = Encoder::default();
-                EncodedLayer::from(u).write_to(&mut enc)?;
+                EncodedUnknown::from(u).write_to(&mut enc)?;
                 out.extend(enc.data);
             }
         }

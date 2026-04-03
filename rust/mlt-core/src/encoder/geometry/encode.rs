@@ -11,7 +11,7 @@ use crate::decoder::{
     LogicalEncoding, MortonMeta, OffsetType, StreamMeta, StreamType,
 };
 #[cfg(feature = "__private")]
-use crate::encoder::optimizer::ExplicitEncoder;
+use crate::encoder::ExplicitEncoder;
 use crate::encoder::stream::{DataProfile, PhysicalEncoder};
 use crate::encoder::{EncodedStream, Encoder};
 use crate::errors::AsMltError as _;

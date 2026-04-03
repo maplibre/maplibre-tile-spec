@@ -10,7 +10,7 @@ use crate::decoder::{
     StreamMeta, StreamType,
 };
 #[cfg(feature = "__private")]
-use crate::encoder::optimizer::ExplicitEncoder;
+use crate::encoder::ExplicitEncoder;
 use crate::encoder::stream::{DataProfile, IntEncoder};
 use crate::encoder::{EncodedStream, EncodedStreamData, Encoder, EncoderConfig};
 use crate::utils::BinarySerializer as _;
