@@ -26,7 +26,7 @@ pub fn write_id_to(
 }
 
 /// Shared implementation used by both the explicit and auto paths.
-pub(super) fn write_id_col_impl(
+pub(crate) fn write_id_col_impl(
     ids: &IdValues,
     id_width: IdWidth,
     int_enc: IntEncoder,
@@ -79,7 +79,7 @@ pub(super) fn write_id_col_impl(
 
 /// Write just the ID value stream (without presence/header). Used by the auto path's
 /// `start_alternative` loop.
-pub(super) fn write_id_value_stream(
+pub(crate) fn write_id_value_stream(
     ids: &IdValues,
     id_width: IdWidth,
     int_enc: IntEncoder,

@@ -1,4 +1,4 @@
-pub(super) mod decode;
+pub(crate) mod decode;
 mod geotype;
 mod model;
 

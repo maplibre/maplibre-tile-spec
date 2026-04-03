@@ -201,12 +201,12 @@ impl StagedLayer01 {
     ///
     /// Column count is computed after encoding (because all-null / empty
     /// properties are omitted from the wire), so the header is written last
-    /// within the logical ordering — but since [`Encoder`] accumulates
+    /// within the logical ordering. Since [`Encoder`] accumulates
     /// `hdr`/`meta`/`data` in separate buffers the final byte order is always
     /// correct.
     ///
     /// Encoding configuration is read from [`enc.cfg`](Encoder::cfg).
-    pub(super) fn encode_into(self, enc: &mut Encoder) -> MltResult<()> {
+    pub(crate) fn encode_into(self, enc: &mut Encoder) -> MltResult<()> {
         let cfg = enc.cfg;
 
         // Write each column's type byte to enc.meta and data to enc.data directly.

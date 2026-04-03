@@ -41,7 +41,7 @@ impl StreamMeta {
     /// Returns the stream metadata and the size of the stream in bytes.
     /// Reserves an upper-bound estimate of decoded bytes (`num_values * 8`) on the parser
     /// for all stream types. RLE uses `num_rle_values * 8` since that is the actual expanded count.
-    pub(super) fn from_bytes<'a>(
+    pub(crate) fn from_bytes<'a>(
         input: &'a [u8],
         is_bool: bool,
         parser: &mut Parser,

@@ -26,7 +26,7 @@ const FSST_OVERHEAD_THRESHOLD: usize = 4_096;
 const FSST_SAMPLE_STRINGS: usize = 512;
 
 /// Returns `true` when FSST compression is likely to save space on `strings`.
-pub(super) fn fsst_is_viable(strings: &[&str]) -> bool {
+pub(crate) fn fsst_is_viable(strings: &[&str]) -> bool {
     if strings.is_empty() {
         return false;
     }
