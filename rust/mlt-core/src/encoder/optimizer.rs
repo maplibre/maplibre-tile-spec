@@ -1,5 +1,9 @@
 use crate::MltResult;
 use crate::decoder::TileLayer01;
+#[cfg(feature = "__private")]
+use crate::encoder::geometry::encode::encode_geometry;
+#[cfg(feature = "__private")]
+use crate::encoder::property::encode::write_properties;
 use crate::encoder::stream::IntEncoder;
 use crate::encoder::{
     EncodeProperties as _, EncodedLayer, Encoder, IdWidth, SortStrategy, StagedLayer,
@@ -77,11 +81,15 @@ pub enum StrEncoding {
 /// Explicit, deterministic encoding configuration for synthetics and tests.
 ///
 /// All encoding choices are caller-specified via callbacks so one struct can cover
-/// any combination without per-stream boilerplate.  For automatic (optimised)
+/// any combination without per-stream boilerplate.  For automatic (optimized)
 /// encoding, use [`encode_tile_layer`].
 ///
 /// Always compiled; publicly visible only when the `__private` feature is enabled
 /// (re-exported from [`crate::encoder`]).
+#[expect(
+    clippy::type_complexity,
+    reason = "keep it simple for internal usage without extra types"
+)]
 pub struct ExplicitEncoder {
     /// Vertex buffer layout for geometry streams.
     pub vertex_buffer_type: VertexBufferType,
@@ -149,9 +157,6 @@ impl StagedLayer01 {
     /// deterministic encoding. For automatic optimization, use [`encode_tile_layer`].
     #[cfg(feature = "__private")]
     pub fn encode_explicit(self, enc: &mut Encoder, cfg: &ExplicitEncoder) -> MltResult<()> {
-        use crate::encoder::geometry::encode::encode_geometry;
-        use crate::encoder::property::encode::write_properties;
-
         let StagedLayer01 {
             name,
             extent,

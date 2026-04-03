@@ -9,9 +9,10 @@ use crate::decoder::{
     ColumnType, IdValues, IntEncoding, LogicalEncoder, LogicalEncoding, PhysicalEncoding, RleMeta,
     StreamMeta, StreamType,
 };
-use crate::encoder::optimizer::EncoderConfig;
+#[cfg(feature = "__private")]
+use crate::encoder::optimizer::ExplicitEncoder;
 use crate::encoder::stream::{DataProfile, IntEncoder};
-use crate::encoder::{EncodedStream, EncodedStreamData, Encoder};
+use crate::encoder::{EncodedStream, EncodedStreamData, Encoder, EncoderConfig};
 use crate::utils::BinarySerializer as _;
 
 struct SequenceStats {
@@ -102,11 +103,7 @@ impl IdValues {
     ///
     /// For automatic encoding, use [`IdValues::write_to`].
     #[cfg(feature = "__private")]
-    pub fn write_to_with(
-        self,
-        enc: &mut Encoder,
-        cfg: &crate::encoder::optimizer::ExplicitEncoder,
-    ) -> MltResult<bool> {
+    pub fn write_to_with(self, enc: &mut Encoder, cfg: &ExplicitEncoder) -> MltResult<bool> {
         let ids = &self.0;
         let Some(stat) = calc_sequence_stats(ids) else {
             return Ok(false);

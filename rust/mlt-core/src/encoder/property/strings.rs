@@ -14,6 +14,7 @@ use crate::decoder::{
     ColumnType, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
     RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, StreamType,
 };
+use crate::encoder::optimizer::{ExplicitEncoder, StrEncoding};
 use crate::encoder::stream::{FsstStrEncoder, IntEncoder};
 use crate::encoder::{
     EncodedFsstData, EncodedPlainData, EncodedStream, EncodedStringsEncoding, Encoder,
@@ -63,13 +64,11 @@ pub(super) fn fsst_is_viable(strings: &[&str]) -> bool {
 /// go into alternatives in `enc.data`.
 pub(crate) fn write_str_col(
     v: &StagedStrings,
-    cfg: Option<&crate::encoder::optimizer::ExplicitEncoder>,
+    cfg: Option<&ExplicitEncoder>,
     has_presence: bool,
     presence_stream: Option<&EncodedStream>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    use crate::encoder::optimizer::StrEncoding;
-
     let col_type = if has_presence {
         ColumnType::OptStr
     } else {
@@ -170,11 +169,9 @@ fn write_str_streams(
 /// [`PresenceKind::AllNull`] — the whole shared-dict property is skipped.
 pub(crate) fn write_shared_dict(
     shared_dict: &StagedSharedDict,
-    cfg: Option<&crate::encoder::optimizer::ExplicitEncoder>,
+    cfg: Option<&ExplicitEncoder>,
     enc: &mut Encoder,
 ) -> MltResult<bool> {
-    use crate::encoder::optimizer::StrEncoding;
-
     if shared_dict
         .items
         .iter()

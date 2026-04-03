@@ -1,8 +1,9 @@
-use super::encode::{compute_geometry_payloads, select_vertex_strategy, write_geometry_auto};
 use crate::MltResult;
 use crate::decoder::GeometryValues;
-use crate::encoder::Encoder;
-use crate::encoder::optimizer::EncoderConfig;
+use crate::encoder::geometry::encode::{
+    compute_geometry_payloads, select_vertex_strategy, write_geometry_auto,
+};
+use crate::encoder::{Encoder, EncoderConfig};
 
 impl GeometryValues {
     /// Automatically select the best encoder and write the geometry column to `enc`.
