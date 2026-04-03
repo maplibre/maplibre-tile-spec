@@ -617,6 +617,7 @@ pub fn write_geometry_auto(payloads: &GeometryPayloads, enc: &mut Encoder) -> Ml
         enc.finish_alternatives();
     }
 
+    enc.push_layer_column();
     Ok(())
 }
 
@@ -716,6 +717,7 @@ pub(crate) fn encode_geometry(
         )?)?;
     }
 
+    enc.push_layer_column();
     Ok(())
 }
 

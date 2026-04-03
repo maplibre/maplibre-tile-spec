@@ -74,6 +74,7 @@ pub(crate) fn write_id_col_impl(
 
     write_id_value_stream(ids, id_width, int_enc, enc)?;
 
+    enc.push_layer_column();
     Ok(true)
 }
 

@@ -100,6 +100,13 @@ pub struct Encoder {
     /// [`impl Write`]: Encoder#impl-Write
     pub data: Vec<u8>,
 
+    /// Layer columns written so far (geometry, optional ID, property columns).
+    ///
+    /// Incremented by each column encoder when it writes its column-type byte to
+    /// [`meta`](Encoder::meta). [`write_header`](Encoder::write_header) uses this
+    /// as the wire-format `column_count`.
+    pub(crate) layer_column_count: u32,
+
     /// Reusable scratch buffer for intermediate `u32` values.
     ///
     /// Used for the logical-encoding step (e.g. delta or RLE transform) before
@@ -162,18 +169,29 @@ impl Encoder {
         }
     }
 
+    /// Record one layer column (geometry, ID, or property) after writing its
+    /// column-type metadata to [`meta`](Encoder::meta).
+    #[inline]
+    pub(crate) fn push_layer_column(&mut self) {
+        self.layer_column_count = self.layer_column_count.saturating_add(1);
+    }
+
     /// Write the layer header (`name`, `extent`, `column_count`) to [`hdr`].
     ///
-    /// Must be called exactly once per layer, before any column meta or data.
+    /// `column_count` is [`layer_column_count`](Encoder::layer_column_count) —
+    /// each column encoder must call [`push_layer_column`](Encoder::push_layer_column)
+    /// when it commits a column to the wire format.
+    ///
+    /// Must be called exactly once per layer, after all column meta and data.
     ///
     /// [`hdr`]: Encoder::hdr
-    pub fn write_header(&mut self, name: &str, extent: u32, column_count: u32) -> MltResult<()> {
+    pub fn write_header(&mut self, name: &str, extent: u32) -> MltResult<()> {
         let name_len = u32::try_from(name.len())?;
         self.hdr.write_varint(name_len).map_err(MltError::from)?;
         self.hdr.extend_from_slice(name.as_bytes());
         self.hdr.write_varint(extent).map_err(MltError::from)?;
         self.hdr
-            .write_varint(column_count)
+            .write_varint(self.layer_column_count)
             .map_err(MltError::from)?;
         Ok(())
     }

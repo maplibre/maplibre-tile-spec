@@ -21,19 +21,17 @@ use crate::utils::BinarySerializer as _;
 /// When `cfg` is `None` the encoder selects the best encoding automatically.
 /// When `cfg` is `Some` it uses the caller-specified callbacks from [`ExplicitEncoder`].
 ///
-/// Returns the number of columns actually written (all-null / empty columns are skipped).
+/// Each written column calls [`Encoder::push_layer_column`] at the end of its encode path;
+/// skipped columns (all-null / empty) do not.
 pub(crate) fn write_properties(
     props: &[StagedProperty],
     cfg: Option<&ExplicitEncoder>,
     enc: &mut Encoder,
-) -> MltResult<u32> {
-    let mut count = 0u32;
+) -> MltResult<()> {
     for prop in props {
-        if write_prop(prop, cfg, enc)? {
-            count += 1;
-        }
+        write_prop(prop, cfg, enc)?;
     }
-    Ok(count)
+    Ok(())
 }
 
 /// Encode a single property column, dispatching on variant.
@@ -142,6 +140,7 @@ fn write_scalar_prop(
             return Err(NotImplemented("use write_str_col / write_shared_dict"));
         }
     }
+    enc.push_layer_column();
     Ok(())
 }
 

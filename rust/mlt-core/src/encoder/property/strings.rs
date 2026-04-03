@@ -140,6 +140,7 @@ pub(crate) fn write_str_col(
     }
 
     enc.finish_alternatives();
+    enc.push_layer_column();
     Ok(())
 }
 
@@ -348,6 +349,7 @@ pub(crate) fn write_shared_dict(
         enc.write_stream(&child.data)?;
     }
 
+    enc.push_layer_column();
     Ok(true)
 }
 

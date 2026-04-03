@@ -85,21 +85,12 @@ impl StagedLayer01 {
             properties,
         } = self;
 
-        // ── ID column ────────────────────────────────────────────────────────
-        let id_present = if let Some(ids) = id {
-            ids.write_to_with(enc, cfg)?
-        } else {
-            false
-        };
-
-        // ── Geometry column ───────────────────────────────────────────────────
         encode_geometry(&geometry, cfg, enc)?;
-
-        // ── Property columns ──────────────────────────────────────────────────
-        let prop_count = write_properties(&properties, Some(cfg), enc)?;
-
-        let col_count = u32::from(id_present) + 1 + prop_count;
-        enc.write_header(&name, extent, col_count)?;
+        if let Some(ids) = id {
+            ids.write_to_with(enc, cfg)?;
+        }
+        write_properties(&properties, Some(cfg), enc)?;
+        enc.write_header(&name, extent)?;
 
         Ok(())
     }
@@ -111,9 +102,10 @@ impl StagedLayer01 {
     /// trial calls this method on its own fresh `Encoder`, and only the
     /// `Encoder` with the smallest `total_len()` is kept.
     ///
-    /// Column count is computed after encoding (because all-null / empty
-    /// properties are omitted from the wire), so the header is written last
-    /// within the logical ordering. Since [`Encoder`] accumulates
+    /// The wire-format column count is tracked on [`Encoder`] via
+    /// [`Encoder::push_layer_column`] as each column is encoded (including
+    /// skipping omitted all-null / empty properties). The header is written
+    /// last within the logical ordering. Since [`Encoder`] accumulates
     /// `hdr`/`meta`/`data` in separate buffers the final byte order is always
     /// correct.
     ///
@@ -121,20 +113,13 @@ impl StagedLayer01 {
     pub(crate) fn encode_into(self, enc: &mut Encoder) -> MltResult<()> {
         self.geometry.write_to(enc)?;
 
-        // Write each column's type byte to enc.meta and data to enc.data directly.
-        let id_present = if let Some(id) = self.id {
-            id.write_to(enc)?
-        } else {
-            false
-        };
+        if let Some(id) = self.id {
+            id.write_to(enc)?;
+        }
 
-        let prop_count = self.properties.write_to(enc)?;
+        self.properties.write_to(enc)?;
 
-        // Column count is only known after encoding.
-        let col_count = u32::from(id_present)
-            + 1 // geometry
-            + prop_count;
-        enc.write_header(&self.name, self.extent, col_count)?;
+        enc.write_header(&self.name, self.extent)?;
 
         Ok(())
     }

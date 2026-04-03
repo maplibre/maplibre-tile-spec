@@ -127,17 +127,18 @@ impl IdValues {
         };
 
         // Fast-path for small or obviously structured sequences.
-        if ids.len() <= 2 {
-            let int_enc = IntEncoder::varint_with(LogicalEncoder::None);
-            return write_id_to(&self, stat.id_width, int_enc, enc);
-        }
-        if stat.is_sequential && ids.len() > 4 {
-            let int_enc = IntEncoder::varint_with(LogicalEncoder::DeltaRle);
-            return write_id_to(&self, stat.id_width, int_enc, enc);
-        }
-        if stat.is_constant {
-            let int_enc = IntEncoder::varint_with(LogicalEncoder::Rle);
-            return write_id_to(&self, stat.id_width, int_enc, enc);
+        let single_enc = if ids.len() <= 2 {
+            Some(IntEncoder::varint_with(LogicalEncoder::None))
+        } else if stat.is_sequential && ids.len() > 4 {
+            Some(IntEncoder::varint_with(LogicalEncoder::DeltaRle))
+        } else if stat.is_constant {
+            Some(IntEncoder::varint_with(LogicalEncoder::Rle))
+        } else {
+            None
+        };
+
+        if let Some(single_enc) = single_enc {
+            return write_id_to(&self, stat.id_width, single_enc, enc);
         }
 
         // General case: write header+presence once, then try all candidates via
@@ -183,6 +184,7 @@ impl IdValues {
         }
         enc.finish_alternatives();
 
+        enc.push_layer_column();
         Ok(true)
     }
 }
