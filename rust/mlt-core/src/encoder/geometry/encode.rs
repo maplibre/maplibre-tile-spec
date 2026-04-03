@@ -381,17 +381,18 @@ pub fn select_vertex_strategy(vertices: &[i32]) -> VertexBufferType {
     }
 }
 
-/// Auto-encode a stream with `start_alternative`/`finish_alternatives`, trying all
+/// Auto-encode a stream with `start_alternatives`/`finish_alternative`, trying all
 /// pruned `IntEncoder` candidates and keeping the shortest encoding.
 fn write_stream_auto(data: &[u32], stream_type: StreamType, enc: &mut Encoder) -> MltResult<()> {
     let candidates = DataProfile::prune_candidates::<i32>(data);
+    enc.start_alternatives();
     for &cand in &candidates {
-        enc.start_alternative();
         enc.write_stream(&EncodedStream::encode_u32s_of_type(
             data,
             cand,
             stream_type,
         )?)?;
+        enc.finish_alternative();
     }
     enc.finish_alternatives();
     Ok(())
@@ -646,9 +647,10 @@ impl GeometryValues {
                 )?)?;
             } else {
                 let candidates = DataProfile::prune_candidates::<i32>(delta);
+                enc.start_alternatives();
                 for &cand in &candidates {
-                    enc.start_alternative();
                     enc.write_stream(&encode_vertex_delta_stream(delta, cand.physical)?)?;
+                    enc.finish_alternative();
                 }
                 enc.finish_alternatives();
             }
@@ -671,13 +673,14 @@ impl GeometryValues {
                 )?)?;
             } else {
                 let candidates = DataProfile::prune_candidates::<i32>(&dict_deltas);
+                enc.start_alternatives();
                 for &cand in &candidates {
-                    enc.start_alternative();
                     enc.write_stream(&encode_morton_delta_stream(
                         dict_deltas.clone(),
                         *morton_meta,
                         cand.physical,
                     )?)?;
+                    enc.finish_alternative();
                 }
                 enc.finish_alternatives();
             }

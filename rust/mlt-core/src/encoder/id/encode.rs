@@ -153,9 +153,10 @@ impl IdValues {
                     DataProfile::prune_candidates::<i64>(&vals)
                 }
             };
+            enc.start_alternatives();
             for &cand in &candidates {
-                enc.start_alternative();
                 write_id_value_stream(&self, id_width, cand, enc)?;
+                enc.finish_alternative();
             }
             enc.finish_alternatives();
         }
@@ -166,7 +167,7 @@ impl IdValues {
 }
 
 /// Write just the ID value stream (without presence/header). Used by the auto path's
-/// `start_alternative` loop.
+/// `start_alternatives` loop.
 pub(crate) fn write_id_value_stream(
     ids: &IdValues,
     id_width: IdWidth,

@@ -87,9 +87,9 @@ fn write_str_col_impl(
     let dense_values = v.dense_values();
     let non_null: Vec<&str> = dense_values.iter().map(String::as_str).collect();
 
+    enc.start_alternatives();
     if let Some(str_enc) = enc.get_str_encoding("prop", &v.name) {
         // Explicit path: one deterministic encoding chosen by the caller.
-        enc.start_alternative();
         let encoding = match str_enc {
             StrEncoding::Plain => EncodedStream::encode_strings_with_type(
                 &dense_values,
@@ -132,9 +132,9 @@ fn write_str_col_impl(
             )?,
         };
         write_str_streams(encoding.streams(), presence_stream, enc)?;
+        enc.finish_alternative();
     } else {
         // Auto path: try Plain and (if viable) FSST, keeping the shorter.
-        enc.start_alternative();
         {
             let encoding = EncodedStream::encode_strings_with_type(
                 &non_null,
@@ -144,8 +144,8 @@ fn write_str_col_impl(
             )?;
             write_str_streams(encoding.streams(), presence_stream, enc)?;
         }
+        enc.finish_alternative();
         if fsst_is_viable(&non_null) {
-            enc.start_alternative();
             let encoding = EncodedStream::encode_strings_fsst_with_type(
                 &non_null,
                 FsstStrEncoder {
@@ -155,9 +155,9 @@ fn write_str_col_impl(
                 DictionaryType::Single,
             )?;
             write_str_streams(encoding.streams(), presence_stream, enc)?;
+            enc.finish_alternative();
         }
     }
-
     enc.finish_alternatives();
     enc.push_layer_column();
     Ok(())

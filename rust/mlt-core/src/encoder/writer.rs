@@ -51,24 +51,24 @@ use crate::{MltError, MltResult};
 ///
 /// # Stream-level encoding alternatives
 ///
-/// Use [`start_alternative`] / [`finish_alternatives`] to try multiple
+/// Use [`start_alternatives`] / [`finish_alternative`] to try multiple
 /// encodings for a single stream and keep the shortest, all within the
 /// same `data` buffer without extra allocations:
 ///
 /// ```rust,ignore
-/// enc.start_alternative();
+/// enc.start_alternatives();
 /// write_stream_as_varint(data, &mut enc)?;
-/// enc.start_alternative();          // ends the VarInt candidate; starts FastPFOR
+/// enc.finish_alternative();         // commits the VarInt candidate
 /// write_stream_as_fastpfor(data, &mut enc)?;
-/// enc.finish_alternatives();        // keeps whichever was shorter
+/// enc.finish_alternative();         // keeps whichever was shorter
 /// ```
 ///
 /// [`hdr`]: Encoder::hdr
 /// [`meta`]: Encoder::meta
 /// [`data`]: Encoder::data
 /// [`impl Write`]: Encoder#impl-Write
-/// [`start_alternative`]: Encoder::start_alternative
-/// [`finish_alternatives`]: Encoder::finish_alternatives
+/// [`start_alternatives`]: Encoder::start_alternatives
+/// [`finish_alternative`]: Encoder::finish_alternative
 #[derive(Debug, Default)]
 pub struct Encoder {
     /// Encoding configuration: controls which optimisation strategies are tried
@@ -134,33 +134,29 @@ pub struct Encoder {
     pub(crate) tmp_u8: Vec<u8>,
 
     // -----------------------------------------------------------------------
-    // Alternatives state (inlined from the former `AltState` struct).
+    // Alternatives state — a stack that supports nested competitions.
     //
-    // Invariant while active (`alt_active == true`):
-    //   `data.len() == alt_start + alt_best_size.unwrap_or(0)`
+    // Each entry: (start_in_data, best_candidate_size_so_far).
     //
-    // `alt_active == false` ↔ no alternatives session in progress.
+    // Invariant between candidates at any level:
+    //   data.len() == entry.0 + entry.1.unwrap_or(0)
+    //
+    // Empty stack ↔ no competition in progress.
     // -----------------------------------------------------------------------
-    /// `true` while a [`start_alternative`] / [`Encoder::finish_alternatives`] session
+    /// Stack of active encoding competitions, innermost last.
+    ///
+    /// Each entry is `(start, best_size)` where:
+    /// - `start` — position in [`data`] where this competition began.
+    /// - `best_size` — byte count of the best candidate so far (`None` until
+    ///   the first [`finish_alternative`] call at this level).
+    ///
+    /// Empty while no [`start_alternatives`] / `finish_alternatives` session
     /// is in progress.
     ///
-    /// [`start_alternative`]: Encoder::start_alternative
-    alt_active: bool,
-
-    /// Position in [`data`] where the current alternatives set began.
-    ///
-    /// The current best candidate always occupies
-    /// `data[alt_start .. alt_start + alt_best_size.unwrap_or(0)]`.
-    ///
     /// [`data`]: Encoder::data
-    alt_start: usize,
-
-    /// Size of the best candidate seen so far, or `None` if no candidate has
-    /// been fully recorded yet (i.e. between the very first
-    /// [`start_alternative`] call and the subsequent one).
-    ///
-    /// [`start_alternative`]: Encoder::start_alternative
-    alt_best_size: Option<usize>,
+    /// [`start_alternatives`]: Encoder::start_alternatives
+    /// [`finish_alternative`]: Encoder::finish_alternative
+    alt_stack: Vec<(usize, Option<usize>)>,
 }
 
 impl Encoder {
@@ -205,6 +201,10 @@ impl Encoder {
     ///
     /// [`hdr`]: Encoder::hdr
     pub fn write_header(&mut self, name: &str, extent: u32) -> MltResult<()> {
+        debug_assert!(
+            self.alt_stack.is_empty(),
+            "write_header called with an open alternatives session"
+        );
         let name_len = u32::try_from(name.len())?;
         self.hdr.write_varint(name_len).map_err(MltError::from)?;
         self.hdr.extend_from_slice(name.as_bytes());
@@ -309,6 +309,10 @@ impl Encoder {
     ///
     /// Consumes the encoder.  Call this on the winning sort-strategy trial.
     pub fn into_layer_bytes(mut self) -> MltResult<Vec<u8>> {
+        debug_assert!(
+            self.alt_stack.is_empty(),
+            "into_layer_bytes called with an open alternatives session"
+        );
         let body_len = self.hdr.len() + self.meta.len() + self.data.len();
         let size = u32::try_from(body_len + 1)?; // +1 for the tag byte
         let mut out = Vec::with_capacity(5 + 1 + body_len);
@@ -324,85 +328,117 @@ impl Encoder {
     // Stream-level alternatives
     // -----------------------------------------------------------------------
 
-    /// Begin a new encoding alternative for the current stream position.
+    /// Begin a new encoding competition.
     ///
-    /// Call this before writing *each* candidate encoding to `data` (including
-    /// the very first one).  Subsequent calls implicitly close the previous
-    /// candidate: if the just-written bytes are strictly shorter than the
-    /// current best they shift into the best position; otherwise they are
-    /// discarded.
+    /// Call **once** before the candidates loop, then write each candidate
+    /// to `data` and call [`finish_alternative`] after each one.  The
+    /// competition keeps the shortest candidate seen so far.  Between
+    /// candidates `data` always ends at `start + best_size`, so the next
+    /// write is appended naturally.
     ///
-    /// End the alternative set with [`finish_alternatives`].
+    /// Nesting is allowed: calling `start_alternatives` while a competition
+    /// is already active pushes a new independent level onto the stack.
     ///
-    /// # Invariant
+    /// End the competition with [`finish_alternatives`].
     ///
-    /// After every `start_alternative()` call:
-    /// `data.len() == alt_start + alt_best_size.unwrap_or(0)`.
-    /// The next candidate is written starting at `data.len()`.
+    /// # Example
     ///
+    /// ```rust,ignore
+    /// enc.start_alternatives();
+    /// write_stream_as_varint(data, &mut enc)?;
+    /// enc.finish_alternative();              // commits the VarInt candidate
+    /// write_stream_as_fastpfor(data, &mut enc)?;
+    /// enc.finish_alternative();              // commits FastPFOR candidate
+    /// enc.finish_alternatives();             // keeps whichever was shorter
+    /// ```
+    ///
+    /// [`finish_alternative`]: Encoder::finish_alternative
     /// [`finish_alternatives`]: Encoder::finish_alternatives
-    pub fn start_alternative(&mut self) {
-        if self.alt_active {
-            // Close the previous candidate.
-            let best_end = self.alt_start + self.alt_best_size.unwrap_or(0);
-            let cand_size = self.data.len() - best_end;
-
-            if self.alt_best_size.is_none_or(|prev| cand_size < prev) {
-                // This candidate is the new best: shift it to `alt_start`.
-                if self.alt_best_size.is_some() {
-                    self.data
-                        .copy_within(best_end..best_end + cand_size, self.alt_start);
-                }
-                self.data.truncate(self.alt_start + cand_size);
-                self.alt_best_size = Some(cand_size);
-            } else {
-                // Not an improvement: discard.
-                self.data.truncate(best_end);
-            }
-            // Invariant restored: data.len() == alt_start + alt_best_size
-        } else {
-            // First call: activate and record the start position.
-            self.alt_active = true;
-            self.alt_start = self.data.len();
-            self.alt_best_size = None;
-        }
+    pub fn start_alternatives(&mut self) {
+        self.alt_stack.push((self.data.len(), None));
     }
 
-    /// End the alternative set, keeping the shortest encoding.
+    /// Commit the current candidate at the innermost competition level.
     ///
-    /// Closes the last candidate (same comparison logic as
-    /// [`start_alternative`]) and clears the alternative state.
+    /// The candidate bytes (everything written to `data` since the last
+    /// [`finish_alternative`] or [`start_alternatives`] at this level) are
+    /// compared against the current best.  The shorter one is kept; ties
+    /// preserve the earlier candidate (strict `<`).
     ///
-    /// [`start_alternative`]: Encoder::start_alternative
+    /// After the call `data.len() == level_start + best_size`, so the next
+    /// candidate starts at `data.len()`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called outside a [`start_alternatives`] / [`finish_alternatives`] pair.
+    ///
+    /// [`finish_alternative`]: Encoder::finish_alternative
+    /// [`start_alternatives`]: Encoder::start_alternatives
+    /// [`finish_alternatives`]: Encoder::finish_alternatives
+    pub fn finish_alternative(&mut self) {
+        assert!(
+            !self.alt_stack.is_empty(),
+            "finish_alternative called outside a start_alternatives / finish_alternatives pair"
+        );
+        let (data, stack) = (&mut self.data, &mut self.alt_stack);
+        let level = stack.last_mut().unwrap();
+        Self::close_candidate(data, level.0, &mut level.1);
+    }
+
+    /// Commit any pending candidate and end the innermost competition.
+    ///
+    /// If bytes were written since the last [`finish_alternative`] call they
+    /// are evaluated as a final candidate before the level is popped.
+    /// If every candidate was already committed via [`finish_alternative`]
+    /// this is a cheap stack-pop with no `data` changes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called outside a [`start_alternatives`] / [`finish_alternatives`] pair.
+    ///
+    /// [`finish_alternative`]: Encoder::finish_alternative
+    /// [`start_alternatives`]: Encoder::start_alternatives
+    /// [`finish_alternatives`]: Encoder::finish_alternatives
     pub fn finish_alternatives(&mut self) {
-        if self.alt_active {
-            let best_end = self.alt_start + self.alt_best_size.unwrap_or(0);
-            let cand_size = self.data.len() - best_end;
-
-            if self.alt_best_size.is_none_or(|prev| cand_size < prev) {
-                if self.alt_best_size.is_some() {
-                    self.data
-                        .copy_within(best_end..best_end + cand_size, self.alt_start);
-                }
-                self.data.truncate(self.alt_start + cand_size);
-            } else {
-                self.data.truncate(best_end);
+        assert!(
+            !self.alt_stack.is_empty(),
+            "finish_alternatives called outside a start_alternatives / finish_alternatives pair"
+        );
+        {
+            let (data, stack) = (&mut self.data, &mut self.alt_stack);
+            let level = stack.last_mut().unwrap();
+            let (start, best_size) = *level;
+            let pending = data.len() - (start + best_size.unwrap_or(0));
+            // Only evaluate a pending candidate if bytes were actually written
+            // since the last finish_alternative() call (or since
+            // start_alternatives() if this is the sole candidate).
+            // pending == 0 with an existing best means all candidates were
+            // already committed; just pop.
+            if pending > 0 || best_size.is_none() {
+                Self::close_candidate(data, level.0, &mut level.1);
             }
-
-            self.alt_active = false;
-            self.alt_best_size = None;
         }
+        self.alt_stack.pop();
     }
 
-    /// Discard any partially-written bytes for the current candidate and
-    /// restore `data` to the end of the previous best.
+    /// Shared compare-and-keep logic used by both `finish_alternative` and
+    /// `finish_alternatives`.
     ///
-    /// Call this when a candidate encoding fails mid-write so the corrupted
-    /// bytes are removed before continuing.
-    pub fn abort_alternative(&mut self) {
-        if self.alt_active {
-            let clean_end = self.alt_start + self.alt_best_size.unwrap_or(0);
-            self.data.truncate(clean_end);
+    /// Compares the bytes written since the last committed candidate against
+    /// `best_size`.  Keeps the shorter one (ties keep the existing best).
+    fn close_candidate(data: &mut Vec<u8>, start: usize, best_size: &mut Option<usize>) {
+        let best_end = start + best_size.unwrap_or(0);
+        let cand_size = data.len() - best_end;
+        if best_size.is_none_or(|prev| cand_size < prev) {
+            // New best: shift to start (no-op on the very first candidate).
+            if best_size.is_some() {
+                data.copy_within(best_end..best_end + cand_size, start);
+            }
+            data.truncate(start + cand_size);
+            *best_size = Some(cand_size);
+        } else {
+            // Not an improvement: discard.
+            data.truncate(best_end);
         }
     }
 }
@@ -426,5 +462,156 @@ impl io::Write for Encoder {
     #[inline]
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         self.data.write_all(buf)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Helper: directly extend `enc.data` with raw bytes (simulates a stream write).
+    fn push(enc: &mut Encoder, bytes: &[u8]) {
+        enc.data.extend_from_slice(bytes);
+    }
+
+    // ── basic single-level behaviour ──────────────────────────────────────
+
+    /// The shortest candidate wins.
+    #[test]
+    fn alternatives_keeps_shortest() {
+        let mut enc = Encoder::default();
+        push(&mut enc, b"prefix");
+
+        enc.start_alternatives();
+        push(&mut enc, b"longer"); // 6 bytes
+        enc.finish_alternative();
+        push(&mut enc, b"ab"); // 2 bytes — shortest
+        enc.finish_alternative();
+        push(&mut enc, b"xyz"); // 3 bytes
+        enc.finish_alternative();
+        enc.finish_alternatives();
+
+        assert_eq!(enc.data, b"prefixab");
+    }
+
+    /// On a tie the first candidate is kept (strict `<`, not `<=`).
+    #[test]
+    fn alternatives_tie_keeps_first() {
+        let mut enc = Encoder::default();
+
+        enc.start_alternatives();
+        push(&mut enc, b"aaa"); // 3 bytes
+        enc.finish_alternative();
+        push(&mut enc, b"bbb"); // 3 bytes — equal, not strictly shorter
+        enc.finish_alternatives();
+
+        assert_eq!(enc.data, b"aaa");
+    }
+
+    /// A single candidate is unconditionally the winner.
+    #[test]
+    fn alternatives_single_candidate() {
+        let mut enc = Encoder::default();
+
+        enc.start_alternatives();
+        push(&mut enc, b"only");
+        enc.finish_alternatives(); // close only candidate + pop
+
+        assert_eq!(enc.data, b"only");
+    }
+
+    /// Bytes written before `start_alternatives` are left intact throughout.
+    #[test]
+    fn prefix_bytes_are_preserved() {
+        let mut enc = Encoder::default();
+        push(&mut enc, b"HDR");
+
+        enc.start_alternatives();
+        push(&mut enc, b"long_encoding"); // 13 bytes
+        enc.finish_alternative();
+        push(&mut enc, b"short"); // 5 bytes — winner
+        enc.finish_alternatives();
+
+        assert_eq!(&enc.data[..3], b"HDR");
+        assert_eq!(&enc.data[3..], b"short");
+    }
+
+    /// `finish_alternatives` is safe to call after `finish_alternative` covered
+    /// the last candidate — it just pops the level without touching `data`.
+    #[test]
+    fn finish_alternatives_after_finish_alternative_is_noop() {
+        let mut enc = Encoder::default();
+
+        enc.start_alternatives();
+        push(&mut enc, b"best");
+        enc.finish_alternative();
+        assert!(!enc.alt_stack.is_empty(), "level still on stack");
+
+        enc.finish_alternatives(); // pop; data must be untouched
+        assert!(
+            enc.alt_stack.is_empty(),
+            "stack empty after finish_alternatives"
+        );
+        assert_eq!(enc.data, b"best");
+    }
+
+    // ── nesting ───────────────────────────────────────────────────────────
+
+    /// An inner competition is resolved before the outer candidate is committed.
+    #[test]
+    fn nested_alternatives() {
+        let mut enc = Encoder::default();
+
+        // Outer: try two formats — whichever total is shorter wins.
+        enc.start_alternatives();
+
+        // Outer candidate A: header + inner competition.
+        push(&mut enc, b"A:");
+        enc.start_alternatives(); // inner
+        push(&mut enc, b"long_inner"); // 10 bytes
+        enc.finish_alternative();
+        push(&mut enc, b"in"); // 2 bytes — inner winner
+        enc.finish_alternatives(); // inner done; data = b"A:in"
+        push(&mut enc, b"!");
+        enc.finish_alternative(); // outer candidate A = b"A:in!" (5 bytes)
+
+        // Outer candidate B: shorter overall.
+        push(&mut enc, b"B"); // 1 byte — outer winner
+        enc.finish_alternatives(); // outer done
+
+        assert_eq!(enc.data, b"B");
+    }
+
+    /// Stack depth reflects nesting level.
+    #[test]
+    fn nesting_depth_reflected_in_stack() {
+        let mut enc = Encoder::default();
+        assert_eq!(enc.alt_stack.len(), 0);
+        enc.start_alternatives();
+        assert_eq!(enc.alt_stack.len(), 1);
+        enc.start_alternatives();
+        assert_eq!(enc.alt_stack.len(), 2);
+        push(&mut enc, b"x");
+        enc.finish_alternatives();
+        assert_eq!(enc.alt_stack.len(), 1);
+        push(&mut enc, b"y");
+        enc.finish_alternatives();
+        assert_eq!(enc.alt_stack.len(), 0);
+    }
+
+    // ── misuse panics ─────────────────────────────────────────────────────
+
+    #[test]
+    #[should_panic(expected = "finish_alternative called outside")]
+    fn panics_finish_alternative_without_start() {
+        let mut enc = Encoder::default();
+        enc.finish_alternative();
+    }
+
+    #[test]
+    #[should_panic(expected = "finish_alternatives called outside")]
+    fn panics_finish_alternatives_without_start() {
+        let mut enc = Encoder::default();
+        enc.finish_alternatives();
     }
 }

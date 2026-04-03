@@ -157,9 +157,10 @@ fn write_int_prop_i8(
         presence_stream,
         enc,
     )?;
+    enc.start_alternatives();
     for &cand in &candidates {
-        enc.start_alternative();
         enc.write_stream(&EncodedStream::encode_i8s(&non_null, cand)?)?;
+        enc.finish_alternative();
     }
     enc.finish_alternatives();
     Ok(())
@@ -190,9 +191,10 @@ fn write_int_prop_u8(
         presence_stream,
         enc,
     )?;
+    enc.start_alternatives();
     for &cand in &candidates {
-        enc.start_alternative();
         enc.write_stream(&EncodedStream::encode_u8s(&non_null, cand)?)?;
+        enc.finish_alternative();
     }
     enc.finish_alternatives();
     Ok(())
@@ -223,9 +225,10 @@ fn write_int_prop_i32(
         presence_stream,
         enc,
     )?;
+    enc.start_alternatives();
     for &cand in &candidates {
-        enc.start_alternative();
         enc.write_stream(&EncodedStream::encode_i32s(&non_null, cand)?)?;
+        enc.finish_alternative();
     }
     enc.finish_alternatives();
     Ok(())
@@ -255,9 +258,10 @@ fn write_int_prop_u32(
         presence_stream,
         enc,
     )?;
+    enc.start_alternatives();
     for &cand in &candidates {
-        enc.start_alternative();
         enc.write_stream(&EncodedStream::encode_u32s(&non_null, cand)?)?;
+        enc.finish_alternative();
     }
     enc.finish_alternatives();
     Ok(())
@@ -288,9 +292,10 @@ fn write_int_prop_i64(
         presence_stream,
         enc,
     )?;
+    enc.start_alternatives();
     for &cand in &candidates {
-        enc.start_alternative();
         enc.write_stream(&EncodedStream::encode_i64s(&non_null, cand)?)?;
+        enc.finish_alternative();
     }
     enc.finish_alternatives();
     Ok(())
@@ -320,9 +325,10 @@ fn write_int_prop_u64(
         presence_stream,
         enc,
     )?;
+    enc.start_alternatives();
     for &cand in &candidates {
-        enc.start_alternative();
         enc.write_stream(&EncodedStream::encode_u64s(&non_null, cand)?)?;
+        enc.finish_alternative();
     }
     enc.finish_alternatives();
     Ok(())
