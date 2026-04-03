@@ -1,12 +1,12 @@
 use geo_types::Point;
 use mlt_core::encoder::{
-    EncodeProperties as _, GeometryEncoder, IntEncoder, PhysicalEncoder, PropertyEncoder,
-    ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder,
+    EncodeProperties as _, Encoder, GeometryEncoder, IdEncoder, IntEncoder, PhysicalEncoder,
+    PropertyEncoder, ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedLayer01,
     StagedProperty, StagedSharedDict, StrEncoder,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, parser};
-use mlt_core::{GeometryValues, Layer01, LogicalEncoder, MltError, PropValue, TileLayer01};
+use mlt_core::{GeometryValues, Layer, LogicalEncoder, MltError, PropValue, TileLayer01};
 use proptest::prelude::*;
 // proptest_derive::Arbitrary is only derived for these types inside the crate
 // under #[cfg(test)], so we write the strategies by hand here.
@@ -109,24 +109,27 @@ fn encode_to_bytes(props: Vec<StagedProperty>, encoders: Vec<PropertyEncoder>) -
         geometry: n_point_geometry(n),
         properties: props,
     };
-    let encoded = layer
-        .encode(StagedLayer01Encoder {
-            geometry: GeometryEncoder::all(IntEncoder::varint()),
-            properties: encoders,
-            ..Default::default()
-        })
+    let mut enc = Encoder::default();
+    layer
+        .encode_with(
+            &mut enc,
+            IdEncoder::default(),
+            GeometryEncoder::all(IntEncoder::varint()),
+            encoders,
+        )
         .expect("encoding failed");
-    let mut buf = Vec::new();
-    encoded.write_to(&mut buf).expect("write failed");
-    buf
+    enc.into_layer_bytes().expect("into_layer_bytes failed")
 }
 
 /// Encode and immediately decode `props` into a [`TileLayer01`].
 fn encode_and_tile(props: Vec<StagedProperty>, encoders: Vec<PropertyEncoder>) -> TileLayer01 {
     let bytes = encode_to_bytes(props, encoders);
-    let layer = Layer01::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
+    let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
+    let Layer::Tag01(layer01) = layer else {
+        panic!("expected Tag01 layer")
+    };
     let mut d = dec();
-    let parsed = layer.decode_all(&mut d).expect("decode failed");
+    let parsed = layer01.decode_all(&mut d).expect("decode failed");
     parsed.into_tile(&mut d).expect("into_tile failed")
 }
 
@@ -579,8 +582,9 @@ fn two_struct_groups_with_scalar_between() {
 
 #[test]
 fn struct_instruction_count_mismatch() {
+    let mut enc = Encoder::default();
     let err = vec![StagedProperty::bool("", vec![])]
-        .encode(vec![])
+        .write_to_with(&mut enc, vec![])
         .unwrap_err();
     assert!(
         matches!(
@@ -615,7 +619,10 @@ fn lazy_layer01_iterate_prop_names_returns_column_names() {
     );
 
     // Parse as a lazy Layer01 — no column data decoded yet.
-    let layer = Layer01::from_bytes(&bytes, &mut parser()).expect("parse failed");
+    let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("parse failed");
+    let Layer::Tag01(layer) = layer else {
+        panic!("expected Tag01 layer")
+    };
 
     // iterate_prop_names works on the lazy layer before any decoding.
     let names: Vec<String> = layer.iterate_prop_names().map(|n| n.to_string()).collect();

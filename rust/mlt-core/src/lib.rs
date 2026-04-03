@@ -13,8 +13,6 @@ macro_rules! validate_stream {
         }
     };
 }
-#[doc(hidden)]
-pub(crate) use validate_stream;
 
 pub(crate) mod codecs;
 pub(crate) mod convert;

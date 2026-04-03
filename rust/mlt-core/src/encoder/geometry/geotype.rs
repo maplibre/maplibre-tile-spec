@@ -339,20 +339,22 @@ mod tests {
         DictionaryType, IntEncoding, LengthType, LogicalEncoding, MortonMeta, OffsetType,
         RawGeometry, StreamMeta, StreamType,
     };
-    use crate::encoder::{EncodedGeometry, EncodedStream, GeometryEncoder, IntEncoder};
+    use crate::encoder::{EncodedStream, Encoder, GeometryEncoder, IntEncoder};
     use crate::geojson::Coord32;
     use crate::test_helpers::{assert_empty, dec, parser};
+    use crate::utils::BinarySerializer as _;
 
     /// Encode, serialize, parse, and decode a `GeometryValues`.
     /// The input must already be in the dense canonical form that `from_encoded`
     /// produces (i.e. built via a previous `roundtrip` call, not via `push_*`).
     fn roundtrip(decoded: &GeometryValues, encoder: GeometryEncoder) -> GeometryValues {
-        let enc_geom = decoded.clone().encode(encoder).expect("Failed to encode");
+        let mut enc = Encoder::default();
+        decoded
+            .clone()
+            .write_to_with(&mut enc, encoder)
+            .expect("Failed to encode");
 
-        let mut buffer = Vec::new();
-        enc_geom.write_to(&mut buffer).expect("Failed to serialize");
-
-        let parsed = assert_empty(RawGeometry::from_bytes(&buffer, &mut parser()));
+        let parsed = assert_empty(RawGeometry::from_bytes(&enc.data, &mut parser()));
 
         LazyParsed::Raw(parsed)
             .into_parsed(&mut dec())
@@ -601,6 +603,7 @@ mod tests {
     /// This ensures `GeometryValues` always holds flat `(x, y)` pairs.
     #[test]
     fn test_morton_vertex_dictionary_expansion() {
+        use integer_encoding::VarIntWriter as _;
         // meta: single LineString
         let meta = EncodedStream::encode_u32s_of_type(
             &[GeometryType::LineString as u32],
@@ -650,12 +653,15 @@ mod tests {
         };
 
         // Assemble, serialize, parse, decode
-        let owned = EncodedGeometry {
-            meta,
-            items: vec![parts, vertex_offsets_stream, morton_dict],
-        };
-        let mut buffer = Vec::new();
-        owned.write_to(&mut buffer).unwrap();
+        let items = [parts, vertex_offsets_stream, morton_dict];
+        let mut enc = Encoder::default();
+        enc.write_varint(u64::try_from(items.len() + 1).unwrap())
+            .unwrap();
+        enc.write_stream(&meta).unwrap();
+        for item in &items {
+            enc.write_stream(item).unwrap();
+        }
+        let buffer = enc.data;
 
         let mut p = parser();
         let parsed = assert_empty(RawGeometry::from_bytes(&buffer, &mut p));

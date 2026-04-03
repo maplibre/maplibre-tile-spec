@@ -517,16 +517,15 @@ mod tests {
     use super::*;
     use crate::Layer;
     use crate::decoder::{GeometryValues, IdValues};
-    use crate::encoder::{
-        EncodedLayer, EncoderConfig, StagedLayer01, StagedProperty, StagedSharedDict,
-    };
+    use crate::encoder::{Encoder, StagedLayer, StagedLayer01, StagedProperty, StagedSharedDict};
     use crate::test_helpers::{dec, parser};
 
     fn layer_buf(staged: StagedLayer01) -> Vec<u8> {
-        let (enc, _) = staged.encode_auto(EncoderConfig::default()).unwrap();
-        let mut buf = Vec::new();
-        EncodedLayer::Tag01(enc).write_to(&mut buf).unwrap();
-        buf
+        let mut encoder = Encoder::default();
+        StagedLayer::Tag01(staged)
+            .encode_into(&mut encoder)
+            .unwrap();
+        encoder.into_layer_bytes().unwrap()
     }
 
     fn three_points() -> GeometryValues {

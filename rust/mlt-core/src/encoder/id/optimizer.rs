@@ -1,7 +1,8 @@
-use super::encode::IdEncoder;
-use super::model::{EncodedId, IdWidth};
+use super::encode::{IdEncoder, write_id_to};
+use super::model::IdWidth;
 use crate::MltResult;
 use crate::decoder::{IdValues, LogicalEncoder};
+use crate::encoder::Encoder;
 use crate::encoder::optimizer::EncoderConfig;
 use crate::encoder::stream::{DataProfile, IntEncoder};
 
@@ -13,8 +14,7 @@ struct SequenceStats {
 
 /// Collect `is_sequential`, `is_constant`, and [`IdWidth`] in a single pass.
 ///
-/// Returns `Err(default_encoder)` for the empty or all-null case so callers
-/// can return early.
+/// Returns `None` for the empty or all-null case so callers can return early.
 fn calc_sequence_stats(ids: &[Option<u64>]) -> Option<SequenceStats> {
     let mut has_nulls = false;
     let mut is_sequential = true;
@@ -113,26 +113,35 @@ impl IdValues {
         self.0.is_empty() || self.0.iter().all(Option::is_none)
     }
 
-    /// Encode this ID column using the given encoder, consuming `self`.
-    /// Returns `None` when the ID list is empty or every value is `None`.
-    pub fn encode(self, encoder: IdEncoder) -> MltResult<Option<EncodedId>> {
+    /// Encode and write the ID column using an explicit [`IdEncoder`].
+    ///
+    /// Writes the column-type byte to [`enc.meta`](Encoder::meta) and the
+    /// presence + value streams to [`enc.data`](Encoder::data).
+    /// Returns `false` when the ID list is empty or every value is `None`
+    /// (nothing is written in that case).
+    ///
+    /// For automatic encoding, use [`IdValues::write_to`].
+    pub fn write_to_with(self, enc: &mut Encoder, encoder: IdEncoder) -> MltResult<bool> {
         if self.is_empty_or_all_null() {
-            Ok(None)
-        } else {
-            Ok(Some(EncodedId::encode(&self, encoder)?))
+            return Ok(false);
         }
+        write_id_to(&self, encoder, enc)
     }
 
-    /// Automatically select the best encoder and encode, consuming `self`.
-    /// Returns `(None, None)` when the ID list is empty or every value is `None`.
-    pub fn encode_auto(self, _cfg: EncoderConfig) -> MltResult<Option<(EncodedId, IdEncoder)>> {
+    /// Automatically select the best encoder, encode, and write the ID column.
+    ///
+    /// Writes the column-type byte to [`enc.meta`](Encoder::meta) and the
+    /// presence + value streams to [`enc.data`](Encoder::data).
+    /// Returns `false` when the ID list is empty or every value is `None`
+    /// (nothing is written in that case).
+    pub fn write_to(self, enc: &mut Encoder, _cfg: EncoderConfig) -> MltResult<bool> {
         let ids = &self.0;
 
         let Some(stat) = calc_sequence_stats(ids) else {
-            return Ok(None);
+            return Ok(false);
         };
 
-        let enc = if ids.len() <= 2 {
+        let encoder = if ids.len() <= 2 {
             IdEncoder::new(LogicalEncoder::None, stat.id_width)
         } else if stat.is_sequential && ids.len() > 4 {
             IdEncoder::new(LogicalEncoder::DeltaRle, stat.id_width)
@@ -144,8 +153,6 @@ impl IdValues {
             IdEncoder::with_int_encoder(winner, stat.id_width)
         };
 
-        let encoded = EncodedId::encode(&self, enc)?;
-
-        Ok(Some((encoded, enc)))
+        write_id_to(&self, encoder, enc)
     }
 }

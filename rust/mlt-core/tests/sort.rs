@@ -1,6 +1,6 @@
 use geo_types::{Coord, LineString, Point};
 use mlt_core::encoder::{
-    EncodedLayer, GeometryEncoder, IntEncoder, SortStrategy, StagedLayer01Encoder, Tile01Encoder,
+    Encoder, GeometryEncoder, IdEncoder, IntEncoder, SortStrategy, StagedLayer01, reorder_features,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{assert_empty, dec, into_layer01, parser};
@@ -28,23 +28,20 @@ fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
 /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer01`.
 /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
 fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLayer01 {
-    let tile_encoder = Tile01Encoder {
-        sort_strategy: strategy,
-        ..Default::default()
-    };
-    let staged = tile_encoder.encode(&mut tile);
-    let stream_encoder = StagedLayer01Encoder {
-        properties: vec![],
-        geometry: GeometryEncoder::all(IntEncoder::varint()),
-        ..Default::default()
-    };
-    let layer_enc = staged.encode(stream_encoder).expect("encode failed");
+    reorder_features(&mut tile, strategy);
+    let staged = StagedLayer01::from_tile(tile, &[]);
+    let mut enc = Encoder::default();
+    staged
+        .encode_with(
+            &mut enc,
+            IdEncoder::default(),
+            GeometryEncoder::all(IntEncoder::varint()),
+            vec![],
+        )
+        .expect("encode failed");
 
     // Serialize to bytes and reparse to get a `Layer01`.
-    let mut buf = Vec::new();
-    EncodedLayer::Tag01(layer_enc)
-        .write_to(&mut buf)
-        .expect("write_to failed");
+    let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
 
     let mut p = parser();
     let layer_back = assert_empty(Layer::from_bytes(&buf, &mut p));

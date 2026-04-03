@@ -1,7 +1,6 @@
 mod encode;
 mod model;
 mod optimizer;
-mod serialize;
 #[cfg(test)]
 mod tests;
 

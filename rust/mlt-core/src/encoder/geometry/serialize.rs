@@ -1,17 +1,12 @@
 use std::fmt::Debug;
-use std::io::Write;
 
-use integer_encoding::VarIntWriter as _;
-
-use super::encode::{GeometryEncoder, encode_geometry};
-use super::model::EncodedGeometry;
+use crate::Parser;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    ColumnType, DictionaryType, GeometryValues, IntEncoding, RawGeometry, RawStream, RawStreamData,
-    StreamMeta, StreamType,
+    DictionaryType, GeometryValues, IntEncoding, RawGeometry, RawStream, RawStreamData, StreamMeta,
+    StreamType,
 };
-use crate::utils::{AsUsize as _, BinarySerializer as _, OptSeq, checked_sum2};
-use crate::{MltResult, Parser};
+use crate::utils::{AsUsize as _, OptSeq};
 
 impl<'a> RawGeometry<'a> {
     /// Parse encoded geometry from bytes (expects varint stream count + streams).
@@ -40,28 +35,6 @@ impl<'a> RawGeometry<'a> {
         let (input, items) = RawStream::parse_multiple(input, stream_count - 1, parser)?;
 
         Ok((input, Self { meta, items }))
-    }
-}
-
-impl EncodedGeometry {
-    pub fn write_columns_meta_to<W: Write>(writer: &mut W) -> MltResult<()> {
-        ColumnType::Geometry.write_to(writer)?;
-        Ok(())
-    }
-
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> MltResult<()> {
-        let items_len = u32::try_from(self.items.len())?;
-        let items_len = checked_sum2(items_len, 1)?;
-        writer.write_varint(items_len)?;
-        writer.write_stream(&self.meta)?;
-        for item in &self.items {
-            writer.write_stream(item)?;
-        }
-        Ok(())
-    }
-
-    pub fn encode(value: &GeometryValues, encoder: GeometryEncoder) -> MltResult<Self> {
-        encode_geometry(value, &encoder, None)
     }
 }
 

@@ -1,17 +1,19 @@
 use std::collections::BTreeSet;
 
-use super::model::{EncodedGeometry, TessellationMode, VertexBufferType};
+use integer_encoding::VarIntWriter as _;
+
+use super::model::{TessellationMode, VertexBufferType};
 use crate::MltResult;
 use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::{
-    DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType, LogicalEncoding,
-    MortonMeta, OffsetType, StreamMeta, StreamType,
+    ColumnType, DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType,
+    LogicalEncoding, MortonMeta, OffsetType, StreamMeta, StreamType,
 };
-use crate::encoder::EncodedStream;
 use crate::encoder::stream::{IntEncoder, PhysicalEncoder};
+use crate::encoder::{EncodedStream, Encoder};
 use crate::errors::AsMltError as _;
-use crate::utils::AsUsize as _;
+use crate::utils::{AsUsize as _, BinarySerializer as _, checked_sum2};
 
 /// Encode vertex buffer using componentwise delta encoding
 fn encode_vertex_buffer(vertices: &[i32], physical: PhysicalEncoder) -> MltResult<EncodedStream> {
@@ -359,12 +361,16 @@ fn normalize_part_offsets_for_rings(
 /// `u32` payload of every stream that is about to be encoded.  This lets
 /// callers profile the data for encoder selection without duplicating any
 /// topology logic.
+///
+/// Writes the `Geometry` column-type byte to [`enc.meta`](Encoder::meta) and
+/// the stream count + all geometry streams to [`enc.data`](Encoder::data).
 #[expect(clippy::type_complexity)]
 pub fn encode_geometry(
     decoded: &GeometryValues,
     encoder: &GeometryEncoder,
     mut on_stream: Option<&mut dyn FnMut(StreamType, &[u32])>,
-) -> MltResult<EncodedGeometry> {
+    enc: &mut Encoder,
+) -> MltResult<()> {
     let GeometryValues {
         vector_types,
         geometry_offsets,
@@ -614,7 +620,16 @@ pub fn encode_geometry(
         }
     }
 
-    Ok(EncodedGeometry { meta, items })
+    // Write column-type byte to enc.meta, then stream count + all streams to enc.data.
+    ColumnType::Geometry.write_to(&mut enc.meta)?;
+    let items_len = u32::try_from(items.len())?;
+    enc.write_varint(checked_sum2(items_len, 1)?)?;
+    enc.write_stream(&meta)?;
+    for item in &items {
+        enc.write_stream(item)?;
+    }
+
+    Ok(())
 }
 
 /// How to encode Geometry

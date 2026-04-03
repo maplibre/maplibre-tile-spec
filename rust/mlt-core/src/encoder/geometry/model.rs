@@ -1,21 +1,3 @@
-use crate::Analyze;
-use crate::decoder::StreamMeta;
-use crate::encoder::EncodedStream;
-
-/// Wire-ready encoded geometry data (owns its byte buffers)
-#[derive(Debug, PartialEq, Clone)]
-pub struct EncodedGeometry {
-    pub meta: EncodedStream,
-    pub items: Vec<EncodedStream>,
-}
-
-impl Analyze for EncodedGeometry {
-    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
-        self.meta.for_each_stream(cb);
-        self.items.for_each_stream(cb);
-    }
-}
-
 /// Describes how polygon tessellation should be performed during geometry value construction.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]

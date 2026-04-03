@@ -13,8 +13,8 @@ pub type Geometry<'a, S = Lazy> = <S as DecodeState>::LazyOrParsed<RawGeometry<'
 /// Raw geometry data as read directly from the tile (borrows from input bytes)
 #[derive(Debug, PartialEq, Clone)]
 pub struct RawGeometry<'a> {
-    pub(crate) meta: RawStream<'a>,
-    pub(crate) items: Vec<RawStream<'a>>,
+    pub meta: RawStream<'a>,
+    pub items: Vec<RawStream<'a>>,
 }
 
 /// Parsed (decoded) geometry data

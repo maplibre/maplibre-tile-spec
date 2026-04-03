@@ -3,8 +3,8 @@ use std::hint::black_box;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use geo_types::Point;
 use mlt_core::encoder::{
-    GeometryEncoder, IntEncoder, PhysicalEncoder, PropertyEncoder, ScalarEncoder,
-    SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty,
+    Encoder, GeometryEncoder, IdEncoder, IntEncoder, PhysicalEncoder, PropertyEncoder,
+    ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedProperty,
     StagedSharedDict, StrEncoder,
 };
 use mlt_core::geojson::Geom32;
@@ -84,22 +84,22 @@ fn make_geometry(n: usize) -> GeometryValues {
 
 /// Encode `props` into a single-layer tile with `n` point features and return wire bytes.
 fn encode_layer(n: usize, props: Vec<StagedProperty>, encoders: Vec<PropertyEncoder>) -> Vec<u8> {
-    let encoded = StagedLayer01 {
+    let mut enc = Encoder::default();
+    StagedLayer01 {
         name: "bench".into(),
         extent: 4096,
         id: None,
         geometry: make_geometry(n),
         properties: props,
     }
-    .encode(StagedLayer01Encoder {
-        geometry: GeometryEncoder::all(IntEncoder::varint()),
-        properties: encoders,
-        ..Default::default()
-    })
+    .encode_with(
+        &mut enc,
+        IdEncoder::default(),
+        GeometryEncoder::all(IntEncoder::varint()),
+        encoders,
+    )
     .expect("encode_layer failed");
-    let mut buf = Vec::new();
-    encoded.write_to(&mut buf).expect("write_to failed");
-    buf
+    enc.into_raw_bytes()
 }
 
 /// Sum the byte lengths of all non-null string property values across all features.

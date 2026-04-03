@@ -233,10 +233,14 @@ impl EncodedStream {
             .iter()
             .flat_map(|s| s.as_ref().as_bytes().iter().copied())
             .collect();
-        EncodedPlainData::new(
-            Self::encode_u32s_of_type(&lengths, length_encoding, StreamType::Length(length_type))?,
-            Self::plain_with_type(data, u32::try_from(values.len())?, dict_type),
-        )
+        Ok(EncodedPlainData {
+            lengths: Self::encode_u32s_of_type(
+                &lengths,
+                length_encoding,
+                StreamType::Length(length_type),
+            )?,
+            data: Self::plain_with_type(data, u32::try_from(values.len())?, dict_type),
+        })
     }
 
     /// Encode a sequence of strings into a length stream and a data stream.

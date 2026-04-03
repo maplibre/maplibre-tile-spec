@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{Context as _, Result as AnyResult, bail};
 use clap::Args;
-use mlt_core::encoder::{EncodedLayer, EncoderConfig, Tile01Encoder};
+use mlt_core::encoder::{EncodedLayer, Encoder, EncoderConfig, encode_tile_layer};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{Decoder, Layer, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
@@ -117,8 +117,7 @@ fn is_convert_extension(path: &Path) -> bool {
 /// Re-encode an MLT tile using automatic encoding selection.
 ///
 /// Every Tag01 layer is fully decoded to [`TileLayer01`] and then re-encoded
-/// via [`Tile01Encoder::encode_auto`].  Unknown layer tags are passed through
-/// unchanged.
+/// via [`encode_tile_layer`].  Unknown layer tags are passed through unchanged.
 fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let layers = Parser::default().parse_layers(buffer)?;
     let mut dec = Decoder::default();
@@ -128,10 +127,13 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
         match layer {
             Layer::Tag01(l) => {
                 let tile = l.into_tile(&mut dec)?;
-                let (encoded, _) = Tile01Encoder::encode_auto(&tile, cfg)?;
-                EncodedLayer::Tag01(encoded).write_to(&mut out)?;
+                out.extend_from_slice(&encode_tile_layer(&tile, cfg)?);
             }
-            Layer::Unknown(u) => EncodedLayer::from(u).write_to(&mut out)?,
+            Layer::Unknown(u) => {
+                let mut enc = Encoder::default();
+                EncodedLayer::from(u).write_to(&mut enc)?;
+                out.extend(enc.data);
+            }
         }
     }
 
@@ -141,12 +143,11 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
 /// Convert an MVT tile to an MLT tile using automatic encoding selection.
 ///
 /// Each MVT layer is converted to a [`mlt_core::TileLayer01`] and encoded
-/// via [`Tile01Encoder::encode_auto`].
+/// via [`encode_tile_layer`].
 fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();
     for tile in &mvt_to_tile_layers(buffer)? {
-        let (encoded, _) = Tile01Encoder::encode_auto(tile, cfg)?;
-        EncodedLayer::Tag01(encoded).write_to(&mut out)?;
+        out.extend_from_slice(&encode_tile_layer(tile, cfg)?);
     }
     Ok(out)
 }

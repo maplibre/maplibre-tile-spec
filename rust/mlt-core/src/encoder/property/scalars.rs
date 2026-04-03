@@ -1,5 +1,6 @@
 use crate::encoder::{
-    FsstStrEncoder, IntEncoder, PropertyEncoder, ScalarEncoder, ScalarValueEncoder, StrEncoder,
+    FsstStrEncoder, IntEncoder, PropertyEncoder, ScalarEncoder, ScalarValueEncoder,
+    SharedDictEncoder, StrEncoder,
 };
 
 impl ScalarEncoder {
@@ -69,9 +70,14 @@ impl ScalarEncoder {
     }
 }
 
-/// FIXME: uncertain why we need this, delete?
 impl From<ScalarEncoder> for PropertyEncoder {
     fn from(encoder: ScalarEncoder) -> Self {
         Self::Scalar(encoder)
+    }
+}
+
+impl From<SharedDictEncoder> for PropertyEncoder {
+    fn from(encoder: SharedDictEncoder) -> Self {
+        Self::SharedDict(encoder)
     }
 }

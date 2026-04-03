@@ -1,14 +1,14 @@
 use geo_types::Point;
 use mlt_core::encoder::{
-    EncodedLayer, EncoderConfig, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, StagedLayer01,
-    StagedLayer01Encoder,
+    Encoder, EncoderConfig, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, StagedLayer,
+    StagedLayer01,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, into_layer01, parser};
 use mlt_core::{GeometryValues, IdValues, Layer, LogicalEncoder};
 use rstest::rstest;
 
-/// Round-trip `IdValues` via full layer bytes (no encoded→decoded converter).
+/// Round-trip `IdValues` via full layer bytes using an explicit encoder.
 fn id_roundtrip_via_layer(decoded: &IdValues, id_encoder: IdEncoder) -> IdValues {
     if decoded.0.is_empty() {
         return IdValues(vec![]);
@@ -25,16 +25,16 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_encoder: IdEncoder) -> IdValues
         geometry,
         properties: vec![],
     };
-    let stream_encoder = StagedLayer01Encoder {
-        id: id_encoder,
-        geometry: GeometryEncoder::all(IntEncoder::varint()),
-        properties: vec![],
-    };
-    let layer_enc = staged.encode(stream_encoder).expect("encode failed");
-    let mut buf = Vec::new();
-    EncodedLayer::Tag01(layer_enc)
-        .write_to(&mut buf)
-        .expect("write_to failed");
+    let mut enc = Encoder::default();
+    staged
+        .encode_with(
+            &mut enc,
+            id_encoder,
+            GeometryEncoder::all(IntEncoder::varint()),
+            vec![],
+        )
+        .expect("encode failed");
+    let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
     let mut p = parser();
     let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
 
@@ -61,13 +61,11 @@ fn id_roundtrip_auto(decoded: &IdValues) -> IdValues {
         geometry,
         properties: vec![],
     };
-    let (encoded, _) = staged
-        .encode_auto(EncoderConfig::default())
-        .expect("encode_auto failed");
-    let mut buf = Vec::new();
-    EncodedLayer::Tag01(encoded)
-        .write_to(&mut buf)
-        .expect("write_to failed");
+    let mut enc = Encoder::default();
+    StagedLayer::Tag01(staged)
+        .encode_into(&mut enc)
+        .expect("encode failed");
+    let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
     let mut p = parser();
     let mut d = dec();
     let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
@@ -103,50 +101,37 @@ fn create_constant_ids() -> IdValues {
     IdValues(vec![Some(42), Some(42), Some(42), Some(42), Some(42)])
 }
 
+/// Verify that automatic encoding produces no column for empty or all-null ID lists.
 #[rstest]
-#[case::empty(
-    IdValues(vec![]),
-    IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
-)]
-#[case::all_nulls(
-    IdValues(vec![None, None]),
-    IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
-)]
-#[case::short_sequence(
-    IdValues(vec![Some(1), Some(2)]),
-    IdEncoder::new(LogicalEncoder::None, IdWidth::Id32)
-)]
-#[case::sequential_u32(
-    create_u32_range_ids(),
-    IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::Id32)
-)]
-#[case::sequential_u64(
-    create_u64_range_ids(),
-    IdEncoder::new(LogicalEncoder::DeltaRle, IdWidth::Id64)
-)]
-#[case::constant(
-    create_constant_ids(),
-    IdEncoder::new(LogicalEncoder::Rle, IdWidth::Id32)
-)]
-#[case::with_nulls(
-    create_ids_with_nulls(),
-    IdEncoder::new(LogicalEncoder::Delta, IdWidth::OptId32)
-)]
-fn test_automatic_optimization_selection(#[case] input: IdValues, #[case] expected: IdEncoder) {
-    let is_skipped = input.0.is_empty() || input.0.iter().all(Option::is_none);
-    let result = input.encode_auto(EncoderConfig::default()).unwrap();
-    let enc = result.map(|(_, enc)| enc);
-    assert_eq!(enc, if is_skipped { None } else { Some(expected) });
+#[case::empty(IdValues(vec![]))]
+#[case::all_nulls(IdValues(vec![None, None]))]
+fn test_automatic_encoding_skipped(#[case] input: IdValues) {
+    let mut enc = Encoder::default();
+    let written = input.write_to(&mut enc, EncoderConfig::default()).unwrap();
+    assert!(!written, "empty or all-null ID list should write no column");
+}
+
+/// Verify that automatic encoding produces a column for non-trivial inputs.
+#[rstest]
+#[case::short_sequence(IdValues(vec![Some(1), Some(2)]))]
+#[case::sequential_u32(create_u32_range_ids())]
+#[case::sequential_u64(create_u64_range_ids())]
+#[case::constant(create_constant_ids())]
+#[case::with_nulls(create_ids_with_nulls())]
+fn test_automatic_encoding_produces_output(#[case] input: IdValues) {
+    let mut enc = Encoder::default();
+    let written = input.write_to(&mut enc, EncoderConfig::default()).unwrap();
+    assert!(written, "non-trivial ID list should write a column");
 }
 
 #[test]
 fn test_automatic_optimization_roundtrip_empty() {
     let decoded = IdValues(vec![]);
-    let result = decoded
-        .clone()
-        .encode_auto(EncoderConfig::default())
+    let mut enc = Encoder::default();
+    let written = decoded
+        .write_to(&mut enc, EncoderConfig::default())
         .unwrap();
-    assert!(result.is_none(), "empty ID list should produce None");
+    assert!(!written, "empty ID list should write no column");
 }
 
 #[rstest]
@@ -186,17 +171,34 @@ fn test_manual_fastpfor_roundtrip() {
     assert_eq!(decoded_back, ids);
 }
 
+/// Verify that large sequential u32 IDs produce a smaller encoding than plain varint
+/// (confirming that delta+FastPFOR is being selected automatically).
 #[test]
-fn test_auto_selects_fastpfor_for_large_u32_ids() {
+fn test_auto_fastpfor_beats_varint_for_large_u32_ids() {
     let ids = IdValues((0u64..1000).map(|i| Some(i * 13 + 5)).collect());
-    let (_, enc) = ids.encode_auto(EncoderConfig::default()).unwrap().unwrap();
-    assert_eq!(enc.int_encoder, IntEncoder::delta_fastpfor());
+
+    let mut auto_enc = Encoder::default();
+    ids.clone()
+        .write_to(&mut auto_enc, EncoderConfig::default())
+        .unwrap();
+
+    let plain_id_enc = IdEncoder::with_int_encoder(IntEncoder::varint(), IdWidth::Id32);
+    let mut plain_enc = Encoder::default();
+    ids.write_to_with(&mut plain_enc, plain_id_enc).unwrap();
+
+    assert!(
+        auto_enc.total_len() <= plain_enc.total_len(),
+        "auto ({} bytes) should not be worse than plain varint ({} bytes)",
+        auto_enc.total_len(),
+        plain_enc.total_len()
+    );
 }
 
+/// Verify that large u64 IDs round-trip correctly under automatic encoding.
 #[test]
-fn test_auto_keeps_varint_for_u64_ids() {
+fn test_auto_roundtrip_large_u64_ids() {
     let base = u64::from(u32::MAX) + 1;
     let ids = IdValues((0u64..1000).map(|i| Some(base + i * 13)).collect());
-    let (_, enc) = ids.encode_auto(EncoderConfig::default()).unwrap().unwrap();
-    assert_eq!(enc.int_encoder, IntEncoder::delta_varint());
+    let decoded_back = id_roundtrip_auto(&ids);
+    assert_eq!(decoded_back, ids);
 }

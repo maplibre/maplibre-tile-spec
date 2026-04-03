@@ -4,15 +4,12 @@ use geo_types::Point;
 use proptest::prelude::*;
 use rstest::rstest;
 
-use crate::decoder::{GeometryValues, IdValues, LogicalEncoder};
+use crate::decoder::{GeometryValues, IdValues, LogicalEncoder, RawIdValue};
 use crate::encoder::IdWidth::*;
-use crate::encoder::{
-    EncodedId, EncodedIdValue, EncodedLayer, GeometryEncoder, IdEncoder, IdWidth, IntEncoder,
-    StagedLayer01, StagedLayer01Encoder,
-};
+use crate::encoder::{Encoder, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, StagedLayer01};
 use crate::geojson::Geom32;
 use crate::test_helpers::{dec, parser};
-use crate::{Layer, MltError, MltResult};
+use crate::{Layer, LazyParsed, MltError, MltResult};
 
 // Test that each config produces the correct variant and optional stream presence
 #[rstest]
@@ -22,17 +19,16 @@ use crate::{Layer, MltError, MltResult};
 #[case::opt_id64(OptId64, vec![Some(1), None, Some(3)])]
 fn test_config_produces_correct_variant(#[case] id_width: IdWidth, #[case] ids: Vec<Option<u64>>) {
     let input = IdValues(ids);
-    let config = IdEncoder::new(LogicalEncoder::None, id_width);
-    let encoded = EncodedId::encode(&input, config).unwrap();
+    let raw_id = encode_id_to_raw_layer(&input, IdEncoder::new(LogicalEncoder::None, id_width));
 
     match id_width {
-        OptId32 | Id32 => assert!(matches!(encoded.value, EncodedIdValue::Id32(_))),
-        Id64 | OptId64 => assert!(matches!(encoded.value, EncodedIdValue::Id64(_))),
+        OptId32 | Id32 => assert!(matches!(raw_id.value, RawIdValue::Id32(_))),
+        Id64 | OptId64 => assert!(matches!(raw_id.value, RawIdValue::Id64(_))),
     }
 
     match id_width {
-        OptId32 | OptId64 => assert!(encoded.presence.is_some()),
-        Id32 | Id64 => assert!(encoded.presence.is_none()),
+        OptId32 | OptId64 => assert!(raw_id.presence.0.is_some()),
+        Id32 | Id64 => assert!(raw_id.presence.0.is_none()),
     }
 }
 
@@ -151,14 +147,14 @@ fn roundtrip_id_values(decoded: &IdValues, config: IdEncoder) -> MltResult<IdVal
         geometry,
         properties: vec![],
     };
-    let stream_encoder = StagedLayer01Encoder {
-        id: config,
-        geometry: GeometryEncoder::all(IntEncoder::varint()),
-        properties: vec![],
-    };
-    let layer_enc = staged.encode(stream_encoder)?;
-    let mut buf = Vec::new();
-    EncodedLayer::Tag01(layer_enc).write_to(&mut buf)?;
+    let mut enc = Encoder::default();
+    staged.encode_with(
+        &mut enc,
+        config,
+        GeometryEncoder::all(IntEncoder::varint()),
+        vec![],
+    )?;
+    let buf = enc.into_layer_bytes()?;
     let (_, layer) = Layer::from_bytes(&buf, &mut parser())?;
     let Layer::Tag01(layer01) = layer else {
         return Err(MltError::NotDecoded("expected Tag01 layer"));
@@ -171,32 +167,67 @@ fn roundtrip_id_values(decoded: &IdValues, config: IdEncoder) -> MltResult<IdVal
     }
 }
 
+/// Encode `ids` into a full layer and return the parsed raw ID (leaks the buffer for lifetime).
+fn encode_id_to_raw_layer(ids: &IdValues, encoder: IdEncoder) -> crate::decoder::RawId<'static> {
+    let n = ids.0.len();
+    let mut geometry = GeometryValues::default();
+    for _ in 0..n {
+        geometry.push_geom(&Geom32::Point(Point::new(0, 0)));
+    }
+    let staged = StagedLayer01 {
+        name: "id_test".to_string(),
+        extent: 4096,
+        id: Some(ids.clone()),
+        geometry,
+        properties: vec![],
+    };
+    let mut enc = Encoder::default();
+    staged
+        .encode_with(
+            &mut enc,
+            encoder,
+            GeometryEncoder::all(IntEncoder::varint()),
+            vec![],
+        )
+        .expect("encode failed");
+    let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
+    let buf: &'static [u8] = Box::leak(buf.into_boxed_slice());
+    let (_, layer) = Layer::from_bytes(buf, &mut parser()).expect("parse failed");
+    let Layer::Tag01(layer01) = layer else {
+        panic!("expected Tag01")
+    };
+    let Some(LazyParsed::Raw(raw_id)) = layer01.id else {
+        panic!("expected raw id")
+    };
+    raw_id
+}
+
 fn assert_produces_correct_variant(
     ids: Vec<Option<u64>>,
     encoder: IdEncoder,
 ) -> Result<(), TestCaseError> {
     let input = IdValues(ids);
-    let enc_id = EncodedId::encode(&input, encoder).expect("Failed to encode");
+    let raw_id = encode_id_to_raw_layer(&input, encoder);
 
     if matches!(encoder.id_width, Id32 | OptId32) {
         prop_assert!(
-            matches!(enc_id.value, EncodedIdValue::Id32(_)),
+            matches!(raw_id.value, RawIdValue::Id32(_)),
             "Expected Id32 variant"
         );
     } else {
         prop_assert!(
-            matches!(enc_id.value, EncodedIdValue::Id64(_)),
+            matches!(raw_id.value, RawIdValue::Id64(_)),
             "Expected Id64 variant"
         );
     }
 
     if matches!(encoder.id_width, OptId32 | OptId64) {
         prop_assert!(
-            enc_id.presence.is_some(),
+            raw_id.presence.0.is_some(),
             "Expected optional stream to be present"
         );
     } else {
-        prop_assert!(enc_id.presence.is_none(), "Expected no optional stream");
+        prop_assert!(raw_id.presence.0.is_none(), "Expected no optional stream");
     }
     Ok(())
 }

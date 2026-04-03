@@ -1,13 +1,11 @@
-use std::io;
-use std::io::Write;
-
 use crate::decoder::Unknown;
+use crate::encoder::Encoder;
 use crate::encoder::model::{EncodedLayer, EncodedUnknown};
 
 impl Unknown<'_> {
-    /// Write Unknown's binary representation to a Write stream
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        writer.write_all(self.value)
+    /// Append Unknown's raw bytes to the encoder's data buffer.
+    pub fn write_to(&self, enc: &mut Encoder) {
+        enc.data.extend_from_slice(self.value);
     }
 }
 

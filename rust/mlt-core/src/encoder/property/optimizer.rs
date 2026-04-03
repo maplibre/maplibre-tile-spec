@@ -18,8 +18,8 @@ use fsst::Compressor;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
-use super::encode::encode_properties;
-use super::model::{EncodedProperty, SharedDictEncoder, SharedDictItemEncoder, StrEncoder};
+use super::encode::write_properties_to;
+use super::model::{SharedDictEncoder, SharedDictItemEncoder, StrEncoder};
 use super::strings::collect_staged_shared_dict_spans;
 use super::{
     PropertyEncoder, ScalarEncoder, StagedProperty, StagedSharedDict, StagedSharedDictItem,
@@ -27,6 +27,7 @@ use super::{
 use crate::MltResult;
 use crate::codecs::zigzag::encode_zigzag;
 use crate::decoder::{PropValue, TileLayer01};
+use crate::encoder::Encoder;
 use crate::encoder::stream::IntEncoder;
 
 /// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
@@ -167,26 +168,30 @@ pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
         .collect()
 }
 
-/// Extension trait for consuming-style encoding of staged property columns.
+/// Extension trait for consuming-style encoding of staged property columns directly
+/// into an [`Encoder`].
 ///
-/// Each method returns `Vec<Option<EncodedProperty>>` — a `None` entry means
-/// the corresponding column was skipped (empty or all-null).
+/// Each method returns the count of columns actually written — all-null/empty columns
+/// are omitted from the wire format.
 pub trait EncodeProperties: Sized {
-    /// Encode with a specific encoder, consuming `self`.
-    fn encode(self, encoder: Vec<PropertyEncoder>) -> MltResult<Vec<Option<EncodedProperty>>>;
-    /// Automatic encoding, consuming `self`.
-    fn encode_auto(self) -> MltResult<(Vec<Option<EncodedProperty>>, Vec<PropertyEncoder>)>;
+    /// Encode with explicit per-column encoders and write to `enc`, consuming `self`.
+    ///
+    /// For automatic encoding, use [`EncodeProperties::write_to`].
+    fn write_to_with(self, enc: &mut Encoder, encoders: Vec<PropertyEncoder>) -> MltResult<u32>;
+
+    /// Automatically select per-column encoders, encode, and write to `enc`,
+    /// consuming `self`.
+    fn write_to(self, enc: &mut Encoder) -> MltResult<u32>;
 }
 
 impl EncodeProperties for Vec<StagedProperty> {
-    fn encode(self, encoder: Vec<PropertyEncoder>) -> MltResult<Vec<Option<EncodedProperty>>> {
-        encode_properties(&self, encoder)
+    fn write_to_with(self, enc: &mut Encoder, encoders: Vec<PropertyEncoder>) -> MltResult<u32> {
+        write_properties_to(&self, encoders, enc)
     }
 
-    fn encode_auto(self) -> MltResult<(Vec<Option<EncodedProperty>>, Vec<PropertyEncoder>)> {
-        let enc = optimize(&self);
-        let encoded = encode_properties(&self, enc.clone())?;
-        Ok((encoded, enc))
+    fn write_to(self, enc: &mut Encoder) -> MltResult<u32> {
+        let encoders = optimize(&self);
+        write_properties_to(&self, encoders, enc)
     }
 }
 
@@ -272,11 +277,10 @@ fn build_shared_dict_encoder(shared_dict: &StagedSharedDict) -> PropertyEncoder 
         .map(|item| SharedDictItemEncoder::new(compute_offset_encoder(&shared_dict.items, item)))
         .collect();
 
-    SharedDictEncoder {
+    PropertyEncoder::SharedDict(SharedDictEncoder {
         dict_encoder,
         items: item_encoders,
-    }
-    .into()
+    })
 }
 
 /// Compute the optimal `IntEncoder` for the offset stream of one item

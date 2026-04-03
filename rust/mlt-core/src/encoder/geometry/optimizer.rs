@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
 use super::encode::{GeometryEncoder, encode_geometry};
-use super::model::{EncodedGeometry, VertexBufferType};
+use super::model::VertexBufferType;
 use crate::MltResult;
 use crate::codecs::morton::z_order_params;
 use crate::decoder::{DictionaryType, GeometryValues, LengthType, OffsetType, StreamType};
+use crate::encoder::Encoder;
 use crate::encoder::optimizer::EncoderConfig;
 use crate::encoder::stream::IntEncoder;
 
@@ -35,12 +36,14 @@ fn optimize(decoded: &GeometryValues) -> MltResult<GeometryEncoder> {
     probe.vertex_buffer_type(vertex_buffer_type);
 
     let mut payloads: HashMap<StreamType, Vec<u32>> = HashMap::new();
+    let mut probe_enc = Encoder::default();
     encode_geometry(
         decoded,
         &probe,
         Some(&mut |st: StreamType, data: &[u32]| {
             payloads.insert(st, data.to_vec());
         }),
+        &mut probe_enc,
     )?;
 
     let opt = |st: StreamType| -> IntEncoder {
@@ -135,15 +138,22 @@ fn select_vertex_strategy(vertices: &[i32]) -> VertexBufferType {
 }
 
 impl GeometryValues {
-    /// Encode this geometry using the given encoder, consuming `self`.
-    pub fn encode(self, encoder: GeometryEncoder) -> MltResult<EncodedGeometry> {
-        EncodedGeometry::encode(&self, encoder)
+    /// Encode using a specific [`GeometryEncoder`] and write to `enc`.
+    ///
+    /// Writes the `Geometry` column-type byte to [`enc.meta`](Encoder::meta) and
+    /// all geometry streams to [`enc.data`](Encoder::data).
+    ///
+    /// For automatic encoding, use [`GeometryValues::write_to`].
+    pub fn write_to_with(self, enc: &mut Encoder, encoder: GeometryEncoder) -> MltResult<()> {
+        encode_geometry(&self, &encoder, None, enc)
     }
 
-    /// Automatically select the best encoder and encode, consuming `self`.
-    pub fn encode_auto(self, _cfg: EncoderConfig) -> MltResult<(EncodedGeometry, GeometryEncoder)> {
-        let enc = optimize(&self)?;
-        let encoded = EncodedGeometry::encode(&self, enc)?;
-        Ok((encoded, enc))
+    /// Automatically select the best encoder and write the geometry column to `enc`.
+    ///
+    /// Writes the `Geometry` column-type byte to [`enc.meta`](Encoder::meta) and
+    /// all geometry streams to [`enc.data`](Encoder::data).
+    pub fn write_to(self, enc: &mut Encoder, _cfg: EncoderConfig) -> MltResult<()> {
+        let encoder = optimize(&self)?;
+        encode_geometry(&self, &encoder, None, enc)
     }
 }

@@ -43,7 +43,7 @@ pub enum SortStrategy {
 ///
 /// [`SortStrategy::Unsorted`] is a no-op.
 /// Layers with zero or one features are trivially unchanged by any sort.
-pub(crate) fn reorder_features(layer: &mut TileLayer01, strategy: SortStrategy) {
+pub fn reorder_features(layer: &mut TileLayer01, strategy: SortStrategy) {
     match strategy {
         SortStrategy::Unsorted => {}
         SortStrategy::SpatialMorton | SortStrategy::SpatialHilbert => {
@@ -221,7 +221,7 @@ mod tests {
     use super::*;
     use crate::LazyParsed;
     use crate::decoder::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer01};
-    use crate::encoder::{GeometryEncoder, IntEncoder};
+    use crate::encoder::{Encoder, GeometryEncoder, IntEncoder};
     use crate::geojson::Geom32;
     use crate::test_helpers::{assert_empty, dec, parser};
 
@@ -259,13 +259,12 @@ mod tests {
 
     /// Encode + serialize + parse + decode a `GeometryValues` (round-trip).
     fn roundtrip_geom(decoded: &GeometryValues) -> GeometryValues {
-        let encoded = decoded
+        let mut enc = Encoder::default();
+        decoded
             .clone()
-            .encode(GeometryEncoder::all(IntEncoder::varint()))
+            .write_to_with(&mut enc, GeometryEncoder::all(IntEncoder::varint()))
             .expect("encode failed");
-
-        let mut buf = Vec::new();
-        encoded.write_to(&mut buf).expect("serialize failed");
+        let buf = enc.data;
 
         let parsed = assert_empty(RawGeometry::from_bytes(&buf, &mut parser()));
         let mut d = dec();

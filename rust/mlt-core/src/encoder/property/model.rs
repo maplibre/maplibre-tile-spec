@@ -1,9 +1,4 @@
-use crate::encoder::EncodedStream;
 use crate::encoder::stream::{FsstStrEncoder, IntEncoder};
-
-/// Owned name string (Stage 4/5)
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EncodedName(pub String);
 
 pub enum PropertyKind {
     Bool,
@@ -13,76 +8,10 @@ pub enum PropertyKind {
     SharedDict,
 }
 
-/// Wire-ready encoded scalar column (owns its byte buffers).
-#[derive(Debug, Clone, PartialEq)]
-pub struct EncodedScalar {
-    pub(crate) name: EncodedName,
-    pub(crate) presence: EncodedPresence,
-    pub(crate) data: EncodedStream,
-}
-
-/// Wire-ready encoded strings encoding (owns byte buffers).
-#[derive(Debug, Clone, PartialEq)]
-pub enum EncodedStringsEncoding {
-    Plain(EncodedPlainData),
-    Dictionary {
-        plain_data: EncodedPlainData,
-        offsets: EncodedStream,
-    },
-    FsstPlain(EncodedFsstData),
-    FsstDictionary {
-        fsst_data: EncodedFsstData,
-        offsets: EncodedStream,
-    },
-}
-
-/// Wire-ready encoded string column (owns its byte buffers).
-#[derive(Debug, Clone, PartialEq)]
-pub struct EncodedStrings {
-    pub(crate) name: EncodedName,
-    pub(crate) presence: EncodedPresence,
-    pub(crate) encoding: EncodedStringsEncoding,
-}
-
-/// Wire-ready encoded shared dict encoding (owns byte buffers).
-#[derive(Debug, Clone, PartialEq)]
-pub enum EncodedSharedDictEncoding {
-    Plain(EncodedPlainData),
-    FsstPlain(EncodedFsstData),
-}
-
-/// Wire-ready encoded shared-dictionary column (owns its byte buffers).
-#[derive(Debug, Clone, PartialEq)]
-pub struct EncodedSharedDict {
-    pub name: EncodedName,
-    pub encoding: EncodedSharedDictEncoding,
-    pub children: Vec<EncodedSharedDictItem>,
-}
-
-/// Wire-ready encoded property data (owns its byte buffers).
-#[derive(Debug, Clone, PartialEq)]
-pub enum EncodedProperty {
-    Bool(EncodedScalar),
-    I8(EncodedScalar),
-    U8(EncodedScalar),
-    I32(EncodedScalar),
-    U32(EncodedScalar),
-    I64(EncodedScalar),
-    U64(EncodedScalar),
-    F32(EncodedScalar),
-    F64(EncodedScalar),
-    Str(EncodedStrings),
-    SharedDict(EncodedSharedDict),
-}
-
 /// Staged property column (encode-side, fully owned).
 ///
 /// Unlike `ParsedProperty` (decode-side, potentially borrowed), all string names
 /// and corpus data are owned `String`s.  No lifetime parameter needed.
-///
-/// The `Encoded` variant holds wire-ready data after the `Staged*` → `Encoded*`
-/// encoding step has been applied. This allows `StagedLayer01` to hold a mix of
-/// staged and encoded properties before serialization.
 #[derive(Debug, Clone, PartialEq, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum StagedProperty {
@@ -98,34 +27,6 @@ pub enum StagedProperty {
     Str(StagedStrings),
     SharedDict(StagedSharedDict),
 }
-
-/// Wire-ready encoded shared dict child column (owns its byte buffers).
-#[derive(Clone, Debug, PartialEq)]
-pub struct EncodedSharedDictItem {
-    pub name: EncodedName,
-    pub presence: EncodedPresence,
-    pub data: EncodedStream,
-}
-
-/// Wire-ready encoded plain data (owns its byte buffers).
-#[derive(Debug, Clone, PartialEq)]
-pub struct EncodedPlainData {
-    pub lengths: EncodedStream,
-    pub data: EncodedStream,
-}
-
-/// Wire-ready encoded FSST data (owns its byte buffers).
-#[derive(Debug, Clone, PartialEq)]
-pub struct EncodedFsstData {
-    pub symbol_lengths: EncodedStream,
-    pub symbol_table: EncodedStream,
-    pub lengths: EncodedStream,
-    pub corpus: EncodedStream,
-}
-
-/// Wire-ready encoded presence/nullability stream (owns its byte buffers).
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct EncodedPresence(pub Option<EncodedStream>);
 
 /// Instruction for how to encode a single parsed property when batch-encoding a
 /// `Vec<ParsedProperty>`.

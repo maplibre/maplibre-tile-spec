@@ -9,8 +9,8 @@ use strum::IntoEnumIterator as _;
 mod bench_utils;
 use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_mlt_tiles};
 use mlt_core::encoder::{
-    EncodeProperties as _, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, PhysicalEncoder,
-    PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer, StagedLayer01,
+    EncodeProperties as _, Encoder, GeometryEncoder, IdEncoder, IdWidth, IntEncoder,
+    PhysicalEncoder, PropertyEncoder, PropertyKind, ScalarEncoder, StagedLayer, StagedLayer01,
 };
 
 fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
@@ -65,11 +65,11 @@ fn bench_encode_geometry(c: &mut Criterion) {
                             |layers| {
                                 for layer in layers {
                                     if let StagedLayer::Tag01(l) = layer {
-                                        black_box(
-                                            l.geometry
-                                                .encode(geometry_encoder)
-                                                .expect("geometry encode failed"),
-                                        );
+                                        let mut enc = Encoder::default();
+                                        l.geometry
+                                            .write_to_with(&mut enc, geometry_encoder)
+                                            .expect("geometry encode failed");
+                                        black_box(enc);
                                     }
                                 }
                             },
@@ -105,7 +105,10 @@ fn bench_encode_ids(c: &mut Criterion) {
                                 for layer in layers {
                                     if let StagedLayer::Tag01(l) = layer {
                                         let Some(id) = l.id else { continue };
-                                        black_box(id.encode(id_encoder).expect("id encode failed"));
+                                        let mut enc = Encoder::default();
+                                        id.write_to_with(&mut enc, id_encoder)
+                                            .expect("id encode failed");
+                                        black_box(enc);
                                     }
                                 }
                             },
@@ -166,7 +169,10 @@ fn bench_encode_properties(c: &mut Criterion) {
                                             })
                                             .collect();
                                         let props = std::mem::take(&mut l.properties);
-                                        let _ = props.encode(encoders).expect("prop encode failed");
+                                        let mut enc = Encoder::default();
+                                        props
+                                            .write_to_with(&mut enc, encoders)
+                                            .expect("prop encode failed");
                                     }
                                 }
                                 black_box(layers);

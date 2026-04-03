@@ -1,6 +1,5 @@
 mod analyze;
 mod compare;
-mod encoded;
 #[cfg(all(not(test), feature = "arbitrary"))]
 mod fuzzing;
 mod geometry;
@@ -13,6 +12,7 @@ mod sort;
 mod stream;
 mod tile;
 mod unknown;
+mod writer;
 
 pub use geometry::*;
 pub use id::*;
@@ -21,3 +21,4 @@ pub use optimizer::*;
 pub use property::*;
 pub use sort::*;
 pub use stream::*;
+pub use writer::Encoder;

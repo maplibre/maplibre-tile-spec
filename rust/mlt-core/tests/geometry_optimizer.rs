@@ -2,9 +2,7 @@ use std::collections::HashSet;
 
 use geo_types::{LineString, Point, Polygon, point, wkt};
 use mlt_core::__private::{assert_empty, dec, parser};
-use mlt_core::encoder::{
-    EncodedGeometry, EncoderConfig, GeometryEncoder, IntEncoder, VertexBufferType,
-};
+use mlt_core::encoder::{Encoder, EncoderConfig, GeometryEncoder, IntEncoder, VertexBufferType};
 use mlt_core::geojson::{Coord32, Geom32};
 use mlt_core::{DictionaryType, GeometryValues, LengthType, OffsetType, RawGeometry, StreamType};
 use pretty_assertions::assert_eq;
@@ -16,11 +14,12 @@ use rstest::rstest;
 #[case::polygon(push_geoms(&[wkt!(POLYGON((0 0, 100 0, 100 100, 0 100, 0 0))).into()]))]
 #[case::multi_polygon(push_geoms(&[wkt!(MULTIPOLYGON(((0 0, 10 0, 10 10, 0 0),(5 5, 15 5, 15 15, 5 15)))).into()]))]
 fn automatic_optimization_roundtrip(#[case] decoded: GeometryValues) {
-    let (encoded, _) = decoded
+    let mut enc = Encoder::default();
+    decoded
         .clone()
-        .encode_auto(EncoderConfig::default())
+        .write_to(&mut enc, EncoderConfig::default())
         .expect("optimize failed");
-    assert_geometry_roundtrip(&encoded, &decoded);
+    assert_geometry_roundtrip(&enc.data, &decoded);
 }
 
 #[rstest]
@@ -42,10 +41,11 @@ fn automatic_optimization_picks_correct_vertex_strategy(
         DictionaryType::Vertex
     };
 
-    let (encoded, _) = decoded
-        .encode_auto(EncoderConfig::default())
+    let mut enc = Encoder::default();
+    decoded
+        .write_to(&mut enc, EncoderConfig::default())
         .expect("encode failed");
-    let types = encoded_stream_types(&encoded);
+    let types = encoded_stream_types(&enc.data);
 
     assert!(
         types.contains(&StreamType::Data(expected)),
@@ -60,12 +60,14 @@ fn automatic_optimization_picks_correct_vertex_strategy(
 #[test]
 fn encoded_output_always_has_meta_stream() {
     let decoded = push_geoms(&[Geom32::Point(Point(Coord32 { x: 1, y: 1 }))]);
-    let (encoded, _) = decoded
-        .encode_auto(EncoderConfig::default())
+    let mut enc = Encoder::default();
+    decoded
+        .write_to(&mut enc, EncoderConfig::default())
         .expect("encode failed");
+    let raw = assert_empty(RawGeometry::from_bytes(&enc.data, &mut parser()));
 
     assert_eq!(
-        encoded.meta.meta.stream_type,
+        raw.meta.meta.stream_type,
         StreamType::Length(LengthType::VarBinary),
         "meta (VarBinary) stream must always be present"
     );
@@ -78,11 +80,12 @@ fn encoded_polygon_has_topology_streams() {
         .map(|(x, y)| Coord32 { x, y })
         .collect();
     let decoded = push_geoms(&[Geom32::Polygon(Polygon::new(LineString(coords), vec![]))]);
-    let (encoded, _) = decoded
-        .encode_auto(EncoderConfig::default())
+    let mut enc = Encoder::default();
+    decoded
+        .write_to(&mut enc, EncoderConfig::default())
         .expect("encode failed");
 
-    let stream_types = encoded_stream_types(&encoded);
+    let stream_types = encoded_stream_types(&enc.data);
     assert!(
         stream_types.contains(&StreamType::Length(LengthType::Rings))
             || stream_types.contains(&StreamType::Length(LengthType::Parts)),
@@ -95,11 +98,12 @@ fn encoded_repeated_points_uses_morton_streams() {
     // All vertices identical: uniqueness ratio = 1/3 < 0.5, so optimizer picks Morton.
     let mut decoded = GeometryValues::default();
     decoded.push_geom(&wkt!(MULTIPOINT(5 5, 5 5, 5 5)).into());
-    let (encoded, _) = decoded
-        .encode_auto(EncoderConfig::default())
+    let mut enc = Encoder::default();
+    decoded
+        .write_to(&mut enc, EncoderConfig::default())
         .expect("encode failed");
 
-    let stream_types = encoded_stream_types(&encoded);
+    let stream_types = encoded_stream_types(&enc.data);
     assert!(
         stream_types.contains(&StreamType::Data(DictionaryType::Morton)),
         "repeated vertices must trigger Morton dictionary encoding"
@@ -108,8 +112,10 @@ fn encoded_repeated_points_uses_morton_streams() {
         stream_types.contains(&StreamType::Offset(OffsetType::Vertex)),
         "Morton encoding must include a vertex offset stream"
     );
+
+    let raw = assert_empty(RawGeometry::from_bytes(&enc.data, &mut parser()));
     assert_eq!(
-        encoded.meta.meta.stream_type,
+        raw.meta.meta.stream_type,
         StreamType::Length(LengthType::VarBinary),
         "meta stream must always be present"
     );
@@ -121,23 +127,22 @@ fn manual_encode_works() {
 
     let mut geom_enc = GeometryEncoder::all(IntEncoder::varint());
     geom_enc.vertex_buffer_type(VertexBufferType::Vec2);
-    let result = decoded
+    let mut enc = Encoder::default();
+    decoded
         .clone()
-        .encode(geom_enc)
+        .write_to_with(&mut enc, geom_enc)
         .expect("manual encode failed");
-    let types = encoded_stream_types(&result);
+    let types = encoded_stream_types(&enc.data);
     assert!(types.contains(&StreamType::Data(DictionaryType::Vertex)));
 
-    assert_geometry_roundtrip(&result, &decoded);
+    assert_geometry_roundtrip(&enc.data, &decoded);
 }
 
-/// Round-trip `GeometryValues` via bytes (no encoded→decoded converter).
-fn assert_geometry_roundtrip(encoded: &EncodedGeometry, expected: &GeometryValues) {
-    let mut buf = Vec::new();
-    encoded.write_to(&mut buf).expect("write_to failed");
+/// Round-trip geometry bytes: parse then decode and compare.
+fn assert_geometry_roundtrip(data: &[u8], expected: &GeometryValues) {
     let mut p = parser();
     let mut d = dec();
-    let raw = assert_empty(RawGeometry::from_bytes(&buf, &mut p));
+    let raw = assert_empty(RawGeometry::from_bytes(data, &mut p));
     let result = raw.decode(&mut d).unwrap();
     assert!(
         d.consumed() > 0,
@@ -154,9 +159,10 @@ fn push_geoms(geoms: &[Geom32]) -> GeometryValues {
     d
 }
 
-/// Collect all stream types present in an encoded geometry (meta + items).
-fn encoded_stream_types(encoded: &EncodedGeometry) -> HashSet<StreamType> {
-    std::iter::once(encoded.meta.meta.stream_type)
-        .chain(encoded.items.iter().map(|s| s.meta.stream_type))
+/// Collect all stream types present in the encoded geometry bytes (meta + items).
+fn encoded_stream_types(data: &[u8]) -> HashSet<StreamType> {
+    let raw = assert_empty(RawGeometry::from_bytes(data, &mut parser()));
+    std::iter::once(raw.meta.meta.stream_type)
+        .chain(raw.items.iter().map(|s| s.meta.stream_type))
         .collect()
 }

@@ -4,9 +4,9 @@ use std::path::Path;
 
 use geo_types::Coord;
 use mlt_core::encoder::{
-    EncodedLayer, GeometryEncoder, IdEncoder, IntEncoder, PropertyEncoder, ScalarEncoder,
-    SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedLayer01Encoder, StagedProperty,
-    StagedSharedDict, StrEncoder, TessellationMode, VertexBufferType,
+    Encoder, GeometryEncoder, IdEncoder, IntEncoder, PropertyEncoder, ScalarEncoder,
+    SharedDictEncoder, SharedDictItemEncoder, StagedLayer01, StagedProperty, StagedSharedDict,
+    StrEncoder, TessellationMode, VertexBufferType,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::{GeometryValues, IdValues};
@@ -202,26 +202,16 @@ impl Layer {
             geometry.push_geom(geom);
         }
 
-        let encoder = StagedLayer01Encoder {
-            id: id_encoder,
-            geometry: geometry_encoder,
-            properties: prop_encoders,
-        };
-
-        let encoded_layer = StagedLayer01 {
+        let mut enc = Encoder::default();
+        StagedLayer01 {
             name: "layer1".to_string(),
             extent: extent.unwrap_or(80),
             id: id_values.map(IdValues),
             geometry,
             properties,
         }
-        .encode(encoder)?;
-
-        let mut buffer = Vec::new();
-        EncodedLayer::Tag01(encoded_layer)
-            .write_to(&mut buffer)
-            .map_err(|e| SynthErr::Mlt(e.into()))?;
-        Ok(buffer)
+        .encode_with(&mut enc, id_encoder, geometry_encoder, prop_encoders)?;
+        enc.into_layer_bytes().map_err(SynthErr::Mlt)
     }
 }
 

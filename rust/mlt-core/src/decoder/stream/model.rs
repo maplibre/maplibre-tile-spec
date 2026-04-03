@@ -134,7 +134,7 @@ pub struct StreamMeta {
 /// Representation of an encoded stream
 #[derive(Debug, PartialEq, Clone)]
 pub struct RawStream<'a> {
-    pub(crate) meta: StreamMeta,
+    pub meta: StreamMeta,
     pub(crate) data: RawStreamData<'a>,
 }
 
