@@ -1,12 +1,11 @@
 use geo_types::Point;
 use mlt_core::encoder::{
-    EncodeProperties as _, Encoder, GeometryEncoder, IdEncoder, IntEncoder, PhysicalEncoder,
-    PropertyEncoder, ScalarEncoder, SharedDictEncoder, SharedDictItemEncoder, StagedLayer01,
-    StagedProperty, StagedSharedDict, StrEncoder,
+    Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer01, StagedProperty,
+    StagedSharedDict, StrEncoding, VertexBufferType,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, parser};
-use mlt_core::{GeometryValues, Layer, LogicalEncoder, MltError, PropValue, TileLayer01};
+use mlt_core::{GeometryValues, Layer, LogicalEncoder, PropValue, TileLayer01};
 use proptest::prelude::*;
 // proptest_derive::Arbitrary is only derived for these types inside the crate
 // under #[cfg(test)], so we write the strategies by hand here.
@@ -43,13 +42,6 @@ fn arb_int_encoder() -> impl Strategy<Value = IntEncoder> {
 fn arb_int_encoder_no_fastpfor() -> impl Strategy<Value = IntEncoder> {
     (arb_logical_encoder(), arb_physical_no_fastpfor())
         .prop_map(|(logical, physical)| IntEncoder::new(logical, physical))
-}
-
-fn arb_str_encoder() -> impl Strategy<Value = StrEncoder> {
-    prop_oneof![
-        arb_int_encoder().prop_map(StrEncoder::plain),
-        (arb_int_encoder(), arb_int_encoder()).prop_map(|(sym, dict)| StrEncoder::fsst(sym, dict)),
-    ]
 }
 
 fn staged_len(staged: &StagedProperty) -> usize {
@@ -100,7 +92,25 @@ fn n_point_geometry(n: usize) -> GeometryValues {
 }
 
 /// Encode `props` as a layer with matching point geometry and return the raw bytes.
-fn encode_to_bytes(props: Vec<StagedProperty>, encoders: Vec<PropertyEncoder>) -> Vec<u8> {
+fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
+    let n = props.iter().map(staged_len).max().unwrap_or(0);
+    let layer = StagedLayer01 {
+        name: "test".into(),
+        extent: 4096,
+        id: None,
+        geometry: n_point_geometry(n),
+        properties: props,
+    };
+    let mut enc = Encoder::default();
+    // Use encode_explicit with default varint encoder for deterministic output.
+    layer
+        .encode_explicit(&mut enc, &ExplicitEncoder::all(IntEncoder::varint()))
+        .expect("encoding failed");
+    enc.into_layer_bytes().expect("into_layer_bytes failed")
+}
+
+/// Encode `props` with explicit encoder config and return the raw bytes.
+fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: &ExplicitEncoder) -> Vec<u8> {
     let n = props.iter().map(staged_len).max().unwrap_or(0);
     let layer = StagedLayer01 {
         name: "test".into(),
@@ -111,19 +121,14 @@ fn encode_to_bytes(props: Vec<StagedProperty>, encoders: Vec<PropertyEncoder>) -
     };
     let mut enc = Encoder::default();
     layer
-        .encode_with(
-            &mut enc,
-            IdEncoder::default(),
-            GeometryEncoder::all(IntEncoder::varint()),
-            encoders,
-        )
+        .encode_explicit(&mut enc, cfg)
         .expect("encoding failed");
     enc.into_layer_bytes().expect("into_layer_bytes failed")
 }
 
-/// Encode and immediately decode `props` into a [`TileLayer01`].
-fn encode_and_tile(props: Vec<StagedProperty>, encoders: Vec<PropertyEncoder>) -> TileLayer01 {
-    let bytes = encode_to_bytes(props, encoders);
+/// Encode and immediately decode `props` into a [`TileLayer01`] using auto varint encoding.
+fn encode_and_tile(props: Vec<StagedProperty>) -> TileLayer01 {
+    let bytes = encode_to_bytes(props);
     let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
     let Layer::Tag01(layer01) = layer else {
         panic!("expected Tag01 layer")
@@ -133,9 +138,16 @@ fn encode_and_tile(props: Vec<StagedProperty>, encoders: Vec<PropertyEncoder>) -
     parsed.into_tile(&mut d).expect("into_tile failed")
 }
 
-/// Two-item plain-encoded [`SharedDictEncoder`] — the most common test encoder.
-fn plain_enc() -> PropertyEncoder {
-    two_item_shared_enc(IntEncoder::plain(), StrEncoder::plain(IntEncoder::plain()))
+/// Encode and decode with explicit encoder config.
+fn encode_and_tile_explicit(props: Vec<StagedProperty>, cfg: &ExplicitEncoder) -> TileLayer01 {
+    let bytes = encode_to_bytes_explicit(props, cfg);
+    let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
+    let Layer::Tag01(layer01) = layer else {
+        panic!("expected Tag01 layer")
+    };
+    let mut d = dec();
+    let parsed = layer01.decode_all(&mut d).expect("decode failed");
+    parsed.into_tile(&mut d).expect("into_tile failed")
 }
 
 // Absent mode has no presence stream on the wire, so only all-Some inputs are
@@ -151,9 +163,9 @@ macro_rules! integer_roundtrip_proptests {
                 // All-null columns are skipped in encoding; only test when at
                 // least one value is present.
                 prop_assume!(values.iter().any(Option::is_some));
-                let tile = encode_and_tile(
+                let tile = encode_and_tile_explicit(
                     vec![StagedProperty::$staged_fn("x", values.clone())],
-                    vec![PropertyEncoder::Scalar(ScalarEncoder::int(enc))],
+                    &ExplicitEncoder::all(enc),
                 );
                 prop_assert_eq!(&tile.property_names, &["x"]);
                 for (i, ov) in values.into_iter().enumerate() {
@@ -166,9 +178,9 @@ macro_rules! integer_roundtrip_proptests {
                 values in prop::collection::vec(any::<$ty>(), 1..100),
                 enc in $int_encoder,
             ) {
-                let tile = encode_and_tile(
+                let tile = encode_and_tile_explicit(
                     vec![StagedProperty::$staged_fn("x", values.iter().map(|&v| Some(v)).collect())],
-                    vec![PropertyEncoder::Scalar(ScalarEncoder::int(enc))],
+                    &ExplicitEncoder::all(enc),
                 );
                 prop_assert_eq!(&tile.property_names, &["x"]);
                 for (i, &v) in values.iter().enumerate() {
@@ -205,10 +217,7 @@ integer_roundtrip_proptests!(
 #[test]
 fn bool_specific_values() {
     let values = vec![Some(true), None, Some(false), Some(true), None];
-    let tile = encode_and_tile(
-        vec![StagedProperty::bool("active", values.clone())],
-        vec![PropertyEncoder::Scalar(ScalarEncoder::bool())],
-    );
+    let tile = encode_and_tile(vec![StagedProperty::bool("active", values.clone())]);
     assert_eq!(tile.property_names, vec!["active"]);
     for (i, ov) in values.into_iter().enumerate() {
         assert_eq!(&tile.features[i].properties[0], &PropValue::Bool(ov));
@@ -218,13 +227,10 @@ fn bool_specific_values() {
 #[test]
 fn bool_all_null() {
     // All-null columns are skipped in encoding — no column appears on the wire.
-    let tile = encode_and_tile(
-        vec![StagedProperty::bool(
-            "active",
-            vec![None::<bool>, None, None],
-        )],
-        vec![PropertyEncoder::Scalar(ScalarEncoder::bool())],
-    );
+    let tile = encode_and_tile(vec![StagedProperty::bool(
+        "active",
+        vec![None::<bool>, None, None],
+    )]);
     assert!(
         tile.property_names.is_empty(),
         "all-null column must be omitted from the wire"
@@ -239,10 +245,7 @@ proptest! {
     ) {
         // All-null columns are skipped; only test when at least one value is present.
         prop_assume!(values.iter().any(Option::is_some));
-        let tile = encode_and_tile(
-            vec![StagedProperty::bool("flag", values.clone())],
-            vec![PropertyEncoder::Scalar(ScalarEncoder::bool())],
-        );
+        let tile = encode_and_tile(vec![StagedProperty::bool("flag", values.clone())]);
         prop_assert_eq!(&tile.property_names, &["flag"]);
         for (i, ov) in values.into_iter().enumerate() {
             prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Bool(ov));
@@ -261,10 +264,7 @@ proptest! {
     ) {
         // All-null columns are skipped; only test when at least one value is present.
         prop_assume!(values.iter().any(Option::is_some));
-        let tile = encode_and_tile(
-            vec![StagedProperty::f32("score", values.clone())],
-            vec![PropertyEncoder::Scalar(ScalarEncoder::float())],
-        );
+        let tile = encode_and_tile(vec![StagedProperty::f32("score", values.clone())]);
         prop_assert_eq!(&tile.property_names, &["score"]);
         for (i, ov) in values.into_iter().enumerate() {
             prop_assert_eq!(&tile.features[i].properties[0], &PropValue::F32(ov));
@@ -280,10 +280,7 @@ proptest! {
     ) {
         // All-null columns are skipped; only test when at least one value is present.
         prop_assume!(values.iter().any(Option::is_some));
-        let tile = encode_and_tile(
-            vec![StagedProperty::f64("score", values.clone())],
-            vec![PropertyEncoder::Scalar(ScalarEncoder::float())],
-        );
+        let tile = encode_and_tile(vec![StagedProperty::f64("score", values.clone())]);
         prop_assert_eq!(&tile.property_names, &["score"]);
         for (i, ov) in values.into_iter().enumerate() {
             prop_assert_eq!(&tile.features[i].properties[0], &PropValue::F64(ov));
@@ -291,17 +288,10 @@ proptest! {
     }
 }
 
-fn plain_str_enc() -> PropertyEncoder {
-    PropertyEncoder::Scalar(ScalarEncoder::str(IntEncoder::plain()))
-}
-
 #[test]
 fn str_scalar_with_nulls() {
     let values = opt_strs(&[Some("Berlin"), None, Some("Hamburg"), None]);
-    let tile = encode_and_tile(
-        vec![StagedProperty::str("city", values.clone())],
-        vec![plain_str_enc()],
-    );
+    let tile = encode_and_tile(vec![StagedProperty::str("city", values.clone())]);
     assert_eq!(tile.property_names, vec!["city"]);
     for (i, ov) in values.into_iter().enumerate() {
         assert_eq!(&tile.features[i].properties[0], &PropValue::Str(ov));
@@ -311,10 +301,10 @@ fn str_scalar_with_nulls() {
 #[test]
 fn str_scalar_all_null() {
     // All-null columns are skipped in encoding.
-    let tile = encode_and_tile(
-        vec![StagedProperty::str("city", opt_strs(&[None, None, None]))],
-        vec![plain_str_enc()],
-    );
+    let tile = encode_and_tile(vec![StagedProperty::str(
+        "city",
+        opt_strs(&[None, None, None]),
+    )]);
     assert!(
         tile.property_names.is_empty(),
         "all-null string column must be omitted from the wire"
@@ -325,10 +315,7 @@ fn str_scalar_all_null() {
 #[test]
 fn str_scalar_empty() {
     // Empty columns (zero rows) are skipped in encoding.
-    let tile = encode_and_tile(
-        vec![StagedProperty::str("unused", vec![])],
-        vec![plain_str_enc()],
-    );
+    let tile = encode_and_tile(vec![StagedProperty::str("unused", vec![])]);
     assert!(
         tile.property_names.is_empty(),
         "empty column must be omitted from the wire"
@@ -343,10 +330,7 @@ proptest! {
     ) {
         // All-null columns are skipped; only test when at least one value is present.
         prop_assume!(values.iter().any(Option::is_some));
-        let tile = encode_and_tile(
-            vec![StagedProperty::str("name", values.clone())],
-            vec![plain_str_enc()],
-        );
+        let tile = encode_and_tile(vec![StagedProperty::str("name", values.clone())]);
         prop_assert_eq!(&tile.property_names, &["name"]);
         for (i, ov) in values.into_iter().enumerate() {
             prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Str(ov));
@@ -357,12 +341,15 @@ proptest! {
 #[test]
 fn fsst_scalar_string_roundtrip() {
     let values = strs(&["Berlin", "Brandenburg", "Bremen", "Braunschweig"]);
-    let tile = encode_and_tile(
+    let tile = encode_and_tile_explicit(
         vec![StagedProperty::str("name", values.clone())],
-        vec![PropertyEncoder::Scalar(ScalarEncoder::str_fsst(
-            IntEncoder::plain(),
-            IntEncoder::plain(),
-        ))],
+        &ExplicitEncoder {
+            override_id_width: Box::new(|w| w),
+            vertex_buffer_type: VertexBufferType::Vec2,
+            get_int_encoder: Box::new(|_, _, _| IntEncoder::plain()),
+            get_str_encoding: Box::new(|_, _| StrEncoding::Fsst),
+            override_presence: Box::new(|_, _, _| false),
+        },
     );
     assert_eq!(tile.property_names, vec!["name"]);
     for (i, ov) in values.into_iter().enumerate() {
@@ -370,18 +357,7 @@ fn fsst_scalar_string_roundtrip() {
     }
 }
 
-fn two_item_shared_enc(enc: IntEncoder, dict_encoder: StrEncoder) -> PropertyEncoder {
-    SharedDictEncoder {
-        dict_encoder,
-        items: vec![
-            SharedDictItemEncoder::new(enc),
-            SharedDictItemEncoder::new(enc),
-        ],
-    }
-    .into()
-}
-
-/// Round-trip a two-column `SharedDict` with plain encoders and check all feature values.
+/// Round-trip a two-column `SharedDict` with auto encoders and check all feature values.
 fn check_two_col_dict(
     name: &str,
     s1: &str,
@@ -389,13 +365,10 @@ fn check_two_col_dict(
     s2: &str,
     vals2: Vec<Option<String>>,
 ) {
-    let tile = encode_and_tile(
-        vec![shared_dict_prop(
-            name,
-            vec![col(s1, vals1.clone()), col(s2, vals2.clone())],
-        )],
-        vec![plain_enc()],
-    );
+    let tile = encode_and_tile(vec![shared_dict_prop(
+        name,
+        vec![col(s1, vals1.clone()), col(s2, vals2.clone())],
+    )]);
     assert_eq!(
         tile.property_names,
         vec![format!("{name}{s1}"), format!("{name}{s2}")]
@@ -478,26 +451,17 @@ fn struct_shared_dict_deduplication() {
 
 #[test]
 fn struct_mixed_with_scalars() {
-    let enc = IntEncoder::plain();
-    let scalar = || PropertyEncoder::Scalar(ScalarEncoder::int(enc));
-    let tile = encode_and_tile(
-        vec![
-            StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]),
-            shared_dict_prop(
-                "name:",
-                vec![
-                    col("de", strs(&["Berlin", "Hamburg"])),
-                    col("en", strs(&["Berlin", "Hamburg"])),
-                ],
-            ),
-            StagedProperty::u32("rank", vec![Some(1), Some(2)]),
-        ],
-        vec![
-            scalar(),
-            two_item_shared_enc(enc, StrEncoder::plain(enc)),
-            scalar(),
-        ],
-    );
+    let tile = encode_and_tile(vec![
+        StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]),
+        shared_dict_prop(
+            "name:",
+            vec![
+                col("de", strs(&["Berlin", "Hamburg"])),
+                col("en", strs(&["Berlin", "Hamburg"])),
+            ],
+        ),
+        StagedProperty::u32("rank", vec![Some(1), Some(2)]),
+    ]);
 
     assert_eq!(
         tile.property_names,
@@ -526,32 +490,23 @@ fn struct_mixed_with_scalars() {
 
 #[test]
 fn two_struct_groups_with_scalar_between() {
-    let enc = IntEncoder::plain();
-    let str_shared = || two_item_shared_enc(enc, StrEncoder::plain(enc));
-    let tile = encode_and_tile(
-        vec![
-            shared_dict_prop(
-                "name:",
-                vec![
-                    col("de", strs(&["Berlin", "Hamburg"])),
-                    col("en", strs(&["Berlin", "Hamburg"])),
-                ],
-            ),
-            StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]),
-            shared_dict_prop(
-                "label:",
-                vec![
-                    col("de", strs(&["BE", "HH"])),
-                    col("en", strs(&["BER", "HAM"])),
-                ],
-            ),
-        ],
-        vec![
-            str_shared(),
-            PropertyEncoder::Scalar(ScalarEncoder::int(enc)),
-            str_shared(),
-        ],
-    );
+    let tile = encode_and_tile(vec![
+        shared_dict_prop(
+            "name:",
+            vec![
+                col("de", strs(&["Berlin", "Hamburg"])),
+                col("en", strs(&["Berlin", "Hamburg"])),
+            ],
+        ),
+        StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]),
+        shared_dict_prop(
+            "label:",
+            vec![
+                col("de", strs(&["BE", "HH"])),
+                col("en", strs(&["BER", "HAM"])),
+            ],
+        ),
+    ]);
 
     assert_eq!(
         tile.property_names,
@@ -581,42 +536,18 @@ fn two_struct_groups_with_scalar_between() {
 }
 
 #[test]
-fn struct_instruction_count_mismatch() {
-    let mut enc = Encoder::default();
-    let err = vec![StagedProperty::bool("", vec![])]
-        .write_to_with(&mut enc, vec![])
-        .unwrap_err();
-    assert!(
-        matches!(
-            err,
-            MltError::EncodingInstructionCountMismatch {
-                input_len: 1,
-                config_len: 0
-            }
-        ),
-        "unexpected error: {err}"
-    );
-}
-
-#[test]
 fn lazy_layer01_iterate_prop_names_returns_column_names() {
     // Encode a layer with a scalar column and a two-key SharedDict column.
-    let bytes = encode_to_bytes(
-        vec![
-            StagedProperty::u32("pop", vec![Some(1_000), Some(2_000)]),
-            shared_dict_prop(
-                "addr:",
-                vec![
-                    col("city", strs(&["Berlin", "Rome"])),
-                    col("zip", strs(&["10115", "00100"])),
-                ],
-            ),
-        ],
-        vec![
-            PropertyEncoder::Scalar(ScalarEncoder::int(IntEncoder::varint())),
-            plain_enc(),
-        ],
-    );
+    let bytes = encode_to_bytes(vec![
+        StagedProperty::u32("pop", vec![Some(1_000), Some(2_000)]),
+        shared_dict_prop(
+            "addr:",
+            vec![
+                col("city", strs(&["Berlin", "Rome"])),
+                col("zip", strs(&["10115", "00100"])),
+            ],
+        ),
+    ]);
 
     // Parse as a lazy Layer01 — no column data decoded yet.
     let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("parse failed");
@@ -640,8 +571,6 @@ proptest! {
             ),
             1..5usize,
         ),
-        encoder in arb_int_encoder_no_fastpfor(),
-        string_enc in arb_str_encoder(),
     ) {
         let n = children[0].1.len();
         // SharedDict requires all items to have the same number of features.
@@ -652,14 +581,7 @@ proptest! {
         let staged = StagedProperty::SharedDict(
             StagedSharedDict::new(&struct_name, children.clone()).expect("build shared dict"),
         );
-        let item_encoders: Vec<SharedDictItemEncoder> = children
-            .iter()
-            .map(|_| SharedDictItemEncoder::new(encoder))
-            .collect();
-        let tile = encode_and_tile(
-            vec![staged],
-            vec![SharedDictEncoder { dict_encoder: string_enc, items: item_encoders }.into()],
-        );
+        let tile = encode_and_tile(vec![staged]);
 
         let expected_names: Vec<String> = children
             .iter()

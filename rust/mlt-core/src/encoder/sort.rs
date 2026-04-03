@@ -221,7 +221,7 @@ mod tests {
     use super::*;
     use crate::LazyParsed;
     use crate::decoder::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer01};
-    use crate::encoder::{Encoder, GeometryEncoder, IntEncoder};
+    use crate::encoder::{Encoder, EncoderConfig};
     use crate::geojson::Geom32;
     use crate::test_helpers::{assert_empty, dec, parser};
 
@@ -262,7 +262,7 @@ mod tests {
         let mut enc = Encoder::default();
         decoded
             .clone()
-            .write_to_with(&mut enc, GeometryEncoder::all(IntEncoder::varint()))
+            .write_to(&mut enc, EncoderConfig::default())
             .expect("encode failed");
         let buf = enc.data;
 

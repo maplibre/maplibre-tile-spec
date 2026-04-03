@@ -1,7 +1,7 @@
 use geo_types::Point;
 use mlt_core::encoder::{
-    Encoder, EncoderConfig, GeometryEncoder, IdEncoder, IdWidth, IntEncoder, StagedLayer,
-    StagedLayer01,
+    Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer, StagedLayer01,
+    VertexBufferType,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, into_layer01, parser};
@@ -9,7 +9,7 @@ use mlt_core::{GeometryValues, IdValues, Layer, LogicalEncoder};
 use rstest::rstest;
 
 /// Round-trip `IdValues` via full layer bytes using an explicit encoder.
-fn id_roundtrip_via_layer(decoded: &IdValues, id_encoder: IdEncoder) -> IdValues {
+fn id_roundtrip_via_layer(decoded: &IdValues, id_width: IdWidth, int_enc: IntEncoder) -> IdValues {
     if decoded.0.is_empty() {
         return IdValues(vec![]);
     }
@@ -27,11 +27,21 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_encoder: IdEncoder) -> IdValues
     };
     let mut enc = Encoder::default();
     staged
-        .encode_with(
+        .encode_explicit(
             &mut enc,
-            id_encoder,
-            GeometryEncoder::all(IntEncoder::varint()),
-            vec![],
+            &ExplicitEncoder {
+                override_id_width: Box::new(move |_| id_width),
+                vertex_buffer_type: VertexBufferType::Vec2,
+                get_int_encoder: Box::new(move |kind, _, _| {
+                    if kind == "id" {
+                        int_enc
+                    } else {
+                        IntEncoder::varint()
+                    }
+                }),
+                get_str_encoding: Box::new(|_, _| mlt_core::encoder::StrEncoding::Plain),
+                override_presence: Box::new(|_, _, _| false),
+            },
         )
         .expect("encode failed");
     let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
@@ -147,8 +157,11 @@ fn test_automatic_optimization_roundtrip(#[case] decoded: IdValues) {
 #[test]
 fn test_manual_optimization_applies_encoder() {
     let decoded = create_u32_range_ids();
-    let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id64);
-    let decoded_back = id_roundtrip_via_layer(&decoded, manual_enc);
+    let decoded_back = id_roundtrip_via_layer(
+        &decoded,
+        IdWidth::Id64,
+        IntEncoder::varint_with(LogicalEncoder::None),
+    );
     assert_eq!(decoded_back, decoded);
 }
 
@@ -156,8 +169,11 @@ fn test_manual_optimization_applies_encoder() {
 fn test_manual_optimization_truncation() {
     let large_value = u64::from(u32::MAX) + 42;
     let ids = IdValues(vec![Some(large_value)]);
-    let manual_enc = IdEncoder::new(LogicalEncoder::None, IdWidth::Id32);
-    let decoded_back = id_roundtrip_via_layer(&ids, manual_enc);
+    let decoded_back = id_roundtrip_via_layer(
+        &ids,
+        IdWidth::Id32,
+        IntEncoder::varint_with(LogicalEncoder::None),
+    );
     // Manual encoding with a too-narrow `IdWidth` silently truncates values.
     // `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
     assert_eq!(decoded_back.0[0], Some(41));
@@ -166,8 +182,7 @@ fn test_manual_optimization_truncation() {
 #[test]
 fn test_manual_fastpfor_roundtrip() {
     let ids = IdValues((0u64..200).map(|i| Some(i * 7 + 3)).collect());
-    let enc = IdEncoder::with_int_encoder(IntEncoder::fastpfor(), IdWidth::Id32);
-    let decoded_back = id_roundtrip_via_layer(&ids, enc);
+    let decoded_back = id_roundtrip_via_layer(&ids, IdWidth::Id32, IntEncoder::fastpfor());
     assert_eq!(decoded_back, ids);
 }
 
@@ -182,9 +197,18 @@ fn test_auto_fastpfor_beats_varint_for_large_u32_ids() {
         .write_to(&mut auto_enc, EncoderConfig::default())
         .unwrap();
 
-    let plain_id_enc = IdEncoder::with_int_encoder(IntEncoder::varint(), IdWidth::Id32);
     let mut plain_enc = Encoder::default();
-    ids.write_to_with(&mut plain_enc, plain_id_enc).unwrap();
+    ids.write_to_with(
+        &mut plain_enc,
+        &ExplicitEncoder {
+            override_id_width: Box::new(|_| IdWidth::Id32),
+            vertex_buffer_type: VertexBufferType::Vec2,
+            get_int_encoder: Box::new(|_, _, _| IntEncoder::varint()),
+            get_str_encoding: Box::new(|_, _| mlt_core::encoder::StrEncoding::Plain),
+            override_presence: Box::new(|_, _, _| false),
+        },
+    )
+    .unwrap();
 
     assert!(
         auto_enc.total_len() <= plain_enc.total_len(),

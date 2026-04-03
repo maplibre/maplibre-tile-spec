@@ -1,9 +1,8 @@
 use crate::MltResult;
 use crate::decoder::TileLayer01;
 use crate::encoder::{
-    EncodeProperties as _, EncodedLayer, Encoder, GeometryEncoder, IdEncoder, PropertyEncoder,
-    SortStrategy, StagedLayer, StagedLayer01, group_string_properties, reorder_features,
-    spatial_sort_likely_to_help, write_properties_to,
+    EncodeProperties as _, EncodedLayer, Encoder, SortStrategy, StagedLayer, StagedLayer01,
+    group_string_properties, reorder_features, spatial_sort_likely_to_help,
 };
 
 impl StagedLayer {
@@ -57,28 +56,96 @@ impl Default for EncoderConfig {
     }
 }
 
+/// How to encode a string column.
+///
+/// Used by [`ExplicitEncoder`] to control per-column string encoding in the
+/// explicit (synthetics / `__private`) path and in property-encoding helpers.
+///
+/// Publicly visible only when the `__private` feature is enabled (re-exported from
+/// [`crate::encoder`]).  Always compiled so that the unified property-encoding path
+/// can reference it without feature flags.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StrEncoding {
+    Plain,
+    Dict,
+    Fsst,
+    FsstDict,
+}
+
+/// Explicit, deterministic encoding configuration for synthetics and tests.
+///
+/// All encoding choices are caller-specified via callbacks so one struct can cover
+/// any combination without per-stream boilerplate.  For automatic (optimised)
+/// encoding, use [`encode_tile_layer`].
+///
+/// Always compiled; publicly visible only when the `__private` feature is enabled
+/// (re-exported from [`crate::encoder`]).
+pub struct ExplicitEncoder {
+    /// Vertex buffer layout for geometry streams.
+    pub vertex_buffer_type: crate::encoder::VertexBufferType,
+    /// Return the [`crate::encoder::IntEncoder`] for a stream.
+    /// Arguments: `(kind, name, subname)` where `kind` is `"id"`, `"geo"`, or `"prop"`;
+    /// `name` is the stream/column name; `subname` is the shared-dict suffix when applicable.
+    pub get_int_encoder: Box<dyn Fn(&str, &str, Option<&str>) -> crate::encoder::IntEncoder>,
+    /// Return the string encoding strategy for a string property column.
+    pub get_str_encoding: Box<dyn Fn(&str, &str) -> StrEncoding>,
+    /// Override the auto-detected [`crate::encoder::IdWidth`].
+    /// Default: identity (`|w| w` — keep auto-detected width).
+    pub override_id_width: Box<dyn Fn(crate::encoder::IdWidth) -> crate::encoder::IdWidth>,
+    /// Return `true` to force a presence stream for a column even when all values are present.
+    /// Arguments: `(kind, name, subname)` — same convention as [`Self::get_int_encoder`].
+    /// Only called when all values in the column are present (no nulls).
+    /// Default: always `false`.
+    pub override_presence: Box<dyn Fn(&str, &str, Option<&str>) -> bool>,
+}
+
+impl ExplicitEncoder {
+    /// Use `enc` for all integer streams, plain string encoding, and `Vec2` vertex layout.
+    #[must_use]
+    pub fn all(enc: crate::encoder::IntEncoder) -> Self {
+        Self {
+            override_id_width: Box::new(|w| w),
+            vertex_buffer_type: crate::encoder::VertexBufferType::Vec2,
+            get_int_encoder: Box::new(move |_, _, _| enc),
+            get_str_encoding: Box::new(|_, _| StrEncoding::Plain),
+            override_presence: Box::new(|_, _, _| false),
+        }
+    }
+}
+
 impl StagedLayer01 {
-    /// Encode using explicit per-stream encoders and write directly to `enc`.
+    /// Encode using an [`ExplicitEncoder`] and write directly to `enc`.
     ///
     /// All encoding choices are caller-specified. Used by synthetics and tests that require
     /// deterministic encoding. For automatic optimization, use [`encode_tile_layer`].
-    pub fn encode_with(
-        self,
-        enc: &mut Encoder,
-        id_enc: IdEncoder,
-        geometry: GeometryEncoder,
-        properties: Vec<PropertyEncoder>,
-    ) -> MltResult<()> {
-        let id_present = if let Some(id) = self.id {
-            id.write_to_with(enc, id_enc)?
+    #[cfg(feature = "__private")]
+    pub fn encode_explicit(self, enc: &mut Encoder, cfg: &ExplicitEncoder) -> MltResult<()> {
+        use super::property::write_properties;
+        use crate::encoder::geometry::encode::encode_geometry;
+
+        let StagedLayer01 {
+            name,
+            extent,
+            id,
+            geometry,
+            properties,
+        } = self;
+
+        // ── ID column ────────────────────────────────────────────────────────
+        let id_present = if let Some(ids) = id {
+            ids.write_to_with(enc, cfg)?
         } else {
             false
         };
-        self.geometry.write_to_with(enc, geometry)?;
-        let prop_count = write_properties_to(&self.properties, properties, enc)?;
+
+        // ── Geometry column ───────────────────────────────────────────────────
+        encode_geometry(&geometry, cfg, enc)?;
+
+        // ── Property columns ──────────────────────────────────────────────────
+        let prop_count = write_properties(&properties, Some(cfg), enc)?;
 
         let col_count = u32::from(id_present) + 1 + prop_count;
-        enc.write_header(&self.name, self.extent, col_count)?;
+        enc.write_header(&name, extent, col_count)?;
 
         Ok(())
     }

@@ -1,6 +1,5 @@
 use mlt_core::encoder::{
-    EncodeProperties as _, Encoder, IntEncoder, PropertyEncoder, ScalarEncoder, StagedLayer01,
-    StagedProperty, group_string_properties,
+    EncodeProperties as _, Encoder, StagedLayer01, StagedProperty, group_string_properties,
 };
 use mlt_core::{PropValue, TileFeature, TileLayer01};
 
@@ -142,26 +141,7 @@ fn encode_with_explicit_encoder_works() {
         "id",
         (1_000u32..2_000).map(Some).collect(),
     )];
-    let encoders = vec![PropertyEncoder::Scalar(ScalarEncoder::int(
-        IntEncoder::delta_varint(),
-    ))];
     let mut enc = Encoder::default();
-    let col_count = props.write_to_with(&mut enc, encoders).unwrap();
+    let col_count = props.write_to(&mut enc).unwrap();
     assert_eq!(col_count, 1);
-}
-
-#[test]
-fn encode_with_rejects_mismatched_encoder_count() {
-    let props = vec![
-        StagedProperty::u32("a", vec![Some(1), Some(2)]),
-        StagedProperty::u32("b", vec![Some(3), Some(4)]),
-    ];
-    let encoders = vec![PropertyEncoder::Scalar(ScalarEncoder::int(
-        IntEncoder::varint(),
-    ))];
-    let mut enc = Encoder::default();
-    assert!(
-        props.write_to_with(&mut enc, encoders).is_err(),
-        "mismatched encoder count should return Err"
-    );
 }

@@ -1,10 +1,18 @@
-use super::encode::{IdEncoder, write_id_to};
+#[cfg(feature = "__private")]
+use super::encode::write_id_col_impl;
+use super::encode::{write_id_to, write_id_value_stream};
 use super::model::IdWidth;
 use crate::MltResult;
-use crate::decoder::{IdValues, LogicalEncoder};
-use crate::encoder::Encoder;
+use crate::codecs::bytes::encode_bools_to_bytes;
+use crate::codecs::rle::encode_byte_rle;
+use crate::decoder::{
+    ColumnType, IdValues, IntEncoding, LogicalEncoder, LogicalEncoding, PhysicalEncoding, RleMeta,
+    StreamMeta, StreamType,
+};
 use crate::encoder::optimizer::EncoderConfig;
 use crate::encoder::stream::{DataProfile, IntEncoder};
+use crate::encoder::{EncodedStream, EncodedStreamData, Encoder};
+use crate::utils::BinarySerializer as _;
 
 struct SequenceStats {
     is_sequential: bool,
@@ -81,39 +89,11 @@ fn pruned_candidates(ids: &[Option<u64>], id_width: IdWidth) -> Vec<IntEncoder> 
     }
 }
 
-/// Run trial encodings over `candidates` and return the [`IntEncoder`] that
-/// produces the smallest output for `ids`.
-fn compete_with(ids: &[Option<u64>], id_width: IdWidth, candidates: &[IntEncoder]) -> IntEncoder {
-    let candidates = if candidates.is_empty() {
-        &[IntEncoder::varint()][..]
-    } else {
-        candidates
-    };
-
-    match id_width {
-        IdWidth::Id32 | IdWidth::OptId32 => {
-            #[expect(
-                clippy::cast_possible_truncation,
-                reason = "width was deduced as ≤ u32::MAX so truncation is safe"
-            )]
-            let vals: Vec<u32> = ids.iter().flatten().map(|&v| v as u32).collect();
-            DataProfile::compete_u32(candidates, &vals)
-        }
-        IdWidth::Id64 | IdWidth::OptId64 => {
-            let vals: Vec<u64> = ids.iter().flatten().copied().collect();
-            DataProfile::compete_u64(candidates, &vals)
-        }
-    }
-}
-
 impl IdValues {
-    /// Returns `true` when the column carries no encodable data — either it is
-    /// empty or every value is `None`.  Both cases produce no wire output.
-    fn is_empty_or_all_null(&self) -> bool {
-        self.0.is_empty() || self.0.iter().all(Option::is_none)
-    }
-
-    /// Encode and write the ID column using an explicit [`IdEncoder`].
+    /// Encode using an [`ExplicitEncoder`] and write the ID column.
+    ///
+    /// Auto-detects the [`IdWidth`] from the data, then passes it through
+    /// `cfg.override_id_width` so callers can pin the width if needed.
     ///
     /// Writes the column-type byte to [`enc.meta`](Encoder::meta) and the
     /// presence + value streams to [`enc.data`](Encoder::data).
@@ -121,11 +101,19 @@ impl IdValues {
     /// (nothing is written in that case).
     ///
     /// For automatic encoding, use [`IdValues::write_to`].
-    pub fn write_to_with(self, enc: &mut Encoder, encoder: IdEncoder) -> MltResult<bool> {
-        if self.is_empty_or_all_null() {
+    #[cfg(feature = "__private")]
+    pub fn write_to_with(
+        self,
+        enc: &mut Encoder,
+        cfg: &crate::encoder::optimizer::ExplicitEncoder,
+    ) -> MltResult<bool> {
+        let ids = &self.0;
+        let Some(stat) = calc_sequence_stats(ids) else {
             return Ok(false);
-        }
-        write_id_to(&self, encoder, enc)
+        };
+        let id_width = (cfg.override_id_width)(stat.id_width);
+        let int_enc = (cfg.get_int_encoder)("id", "value", None);
+        write_id_col_impl(&self, id_width, int_enc, false, enc)
     }
 
     /// Automatically select the best encoder, encode, and write the ID column.
@@ -141,18 +129,63 @@ impl IdValues {
             return Ok(false);
         };
 
-        let encoder = if ids.len() <= 2 {
-            IdEncoder::new(LogicalEncoder::None, stat.id_width)
-        } else if stat.is_sequential && ids.len() > 4 {
-            IdEncoder::new(LogicalEncoder::DeltaRle, stat.id_width)
-        } else if stat.is_constant {
-            IdEncoder::new(LogicalEncoder::Rle, stat.id_width)
-        } else {
-            let candidates = pruned_candidates(ids, stat.id_width);
-            let winner = compete_with(ids, stat.id_width, &candidates);
-            IdEncoder::with_int_encoder(winner, stat.id_width)
-        };
+        // Fast-path for small or obviously structured sequences.
+        if ids.len() <= 2 {
+            let int_enc = IntEncoder::varint_with(LogicalEncoder::None);
+            return write_id_to(&self, stat.id_width, int_enc, enc);
+        }
+        if stat.is_sequential && ids.len() > 4 {
+            let int_enc = IntEncoder::varint_with(LogicalEncoder::DeltaRle);
+            return write_id_to(&self, stat.id_width, int_enc, enc);
+        }
+        if stat.is_constant {
+            let int_enc = IntEncoder::varint_with(LogicalEncoder::Rle);
+            return write_id_to(&self, stat.id_width, int_enc, enc);
+        }
 
-        write_id_to(&self, encoder, enc)
+        // General case: write header+presence once, then try all candidates via
+        // start_alternative so only the shortest value-stream encoding is kept.
+        let has_nulls = ids.iter().any(Option::is_none);
+        let col_type = match (has_nulls, &stat.id_width) {
+            (false, IdWidth::Id32 | IdWidth::OptId32) => ColumnType::Id,
+            (false, IdWidth::Id64 | IdWidth::OptId64) => ColumnType::LongId,
+            (true, IdWidth::Id32 | IdWidth::OptId32) => ColumnType::OptId,
+            (true, IdWidth::Id64 | IdWidth::OptId64) => ColumnType::OptLongId,
+        };
+        col_type.write_to(&mut enc.meta)?;
+
+        // Presence stream (fixed regardless of value encoding choice).
+        if has_nulls {
+            let present: Vec<bool> = ids.iter().map(Option::is_some).collect();
+            let num_values = u32::try_from(present.len())?;
+            let data = encode_byte_rle(&encode_bools_to_bytes(&present));
+            let runs = num_values.div_ceil(8);
+            let num_rle_values = u32::try_from(data.len())?;
+            let presence = EncodedStream {
+                meta: StreamMeta::new(
+                    StreamType::Present,
+                    IntEncoding::new(
+                        LogicalEncoding::Rle(RleMeta {
+                            runs,
+                            num_rle_values,
+                        }),
+                        PhysicalEncoding::None,
+                    ),
+                    num_values,
+                ),
+                data: EncodedStreamData::Encoded(data),
+            };
+            enc.write_boolean_stream(&presence)?;
+        }
+
+        // Compete: try every candidate and keep the shortest value stream.
+        let candidates = pruned_candidates(ids, stat.id_width);
+        for &cand in &candidates {
+            enc.start_alternative();
+            write_id_value_stream(&self, stat.id_width, cand, enc)?;
+        }
+        enc.finish_alternatives();
+
+        Ok(true)
     }
 }

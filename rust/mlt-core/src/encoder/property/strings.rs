@@ -1,13 +1,11 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
+use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
-use super::model::{
-    PresenceKind, SharedDictEncoder, SharedDictItemEncoder, StagedSharedDict, StagedSharedDictItem,
-    StagedStrings, StrEncoder,
-};
-use crate::MltError::{DictIndexOutOfBounds, NotImplemented};
+use super::model::{PresenceKind, StagedSharedDict, StagedSharedDictItem, StagedStrings};
+use crate::MltError::DictIndexOutOfBounds;
 use crate::decoder::strings::{
     checked_string_end, decode_shared_dict_range, encode_null_end, resolve_dict_spans,
     shared_dict_spans,
@@ -20,6 +18,341 @@ use crate::encoder::stream::{FsstStrEncoder, IntEncoder};
 use crate::encoder::{
     EncodedFsstData, EncodedPlainData, EncodedStream, EncodedStringsEncoding, Encoder,
 };
+
+/// Minimum total raw byte size of a column before attempting FSST compression.
+const FSST_OVERHEAD_THRESHOLD: usize = 4_096;
+/// Maximum number of strings sampled for the FSST viability probe.
+const FSST_SAMPLE_STRINGS: usize = 512;
+
+/// Returns `true` when FSST compression is likely to save space on `strings`.
+pub(super) fn fsst_is_viable(strings: &[&str]) -> bool {
+    if strings.is_empty() {
+        return false;
+    }
+    let sample = if strings.len() <= FSST_SAMPLE_STRINGS {
+        strings
+    } else {
+        &strings[..FSST_SAMPLE_STRINGS]
+    };
+    let plain_size: usize = sample.iter().map(|s| s.len()).sum();
+    if plain_size < FSST_OVERHEAD_THRESHOLD {
+        return false;
+    }
+    let byte_slices: Vec<&[u8]> = sample.iter().map(|s| s.as_bytes()).collect();
+    let compressor = Compressor::train(&byte_slices);
+    let symbols = compressor.symbol_table();
+    let symbol_lengths = compressor.symbol_lengths();
+    let symbol_overhead: usize = symbol_lengths
+        .iter()
+        .take(symbols.len())
+        .map(|&l| usize::from(l))
+        .sum();
+    let compressed_size: usize = sample
+        .iter()
+        .map(|s| compressor.compress(s.as_bytes()).len())
+        .sum();
+    symbol_overhead + compressed_size < plain_size
+}
+
+/// Encode a string column and write it to `enc`.
+///
+/// When `cfg` is `None`, tries Plain and (if viable) FSST, keeping the shorter.
+/// When `cfg` is `Some`, uses the caller-specified encoding from [`ExplicitEncoder`] callbacks.
+///
+/// The `col_type` + `name` are written to `enc.meta` once; the stream count + streams
+/// go into alternatives in `enc.data`.
+pub(crate) fn write_str_col(
+    v: &StagedStrings,
+    cfg: Option<&crate::encoder::optimizer::ExplicitEncoder>,
+    has_presence: bool,
+    presence_stream: Option<&EncodedStream>,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    use crate::encoder::optimizer::StrEncoding;
+
+    let col_type = if has_presence {
+        ColumnType::OptStr
+    } else {
+        ColumnType::Str
+    };
+    col_type.write_to(&mut enc.meta)?;
+    enc.meta.write_string(&v.name)?;
+
+    let dense_values = v.dense_values();
+    let non_null: Vec<&str> = dense_values.iter().map(String::as_str).collect();
+
+    if let Some(c) = cfg {
+        // Explicit path: one deterministic encoding chosen by the caller.
+        enc.start_alternative();
+        let encoding = match (c.get_str_encoding)("prop", &v.name) {
+            StrEncoding::Plain => EncodedStream::encode_strings_with_type(
+                &dense_values,
+                (c.get_int_encoder)("prop", &v.name, Some("lengths")),
+                LengthType::VarBinary,
+                DictionaryType::None,
+            )?,
+            StrEncoding::Dict => EncodedStream::encode_strings_dict(
+                &dense_values,
+                (c.get_int_encoder)("prop", &v.name, Some("lengths")),
+                (c.get_int_encoder)("prop", &v.name, Some("offsets")),
+            )?,
+            StrEncoding::Fsst => EncodedStream::encode_strings_fsst_with_type(
+                &dense_values,
+                FsstStrEncoder {
+                    symbol_lengths: (c.get_int_encoder)("prop", &v.name, Some("sym_lengths")),
+                    dict_lengths: (c.get_int_encoder)("prop", &v.name, Some("dict_lengths")),
+                },
+                DictionaryType::Single,
+            )?,
+            StrEncoding::FsstDict => EncodedStream::encode_strings_fsst_dict(
+                &dense_values,
+                FsstStrEncoder {
+                    symbol_lengths: (c.get_int_encoder)("prop", &v.name, Some("sym_lengths")),
+                    dict_lengths: (c.get_int_encoder)("prop", &v.name, Some("dict_lengths")),
+                },
+                (c.get_int_encoder)("prop", &v.name, Some("offsets")),
+            )?,
+        };
+        write_str_streams(encoding.streams(), presence_stream, enc)?;
+    } else {
+        // Auto path: try Plain and (if viable) FSST, keeping the shorter.
+        enc.start_alternative();
+        {
+            let encoding = EncodedStream::encode_strings_with_type(
+                &non_null,
+                IntEncoder::varint(),
+                LengthType::VarBinary,
+                DictionaryType::None,
+            )?;
+            write_str_streams(encoding.streams(), presence_stream, enc)?;
+        }
+        if fsst_is_viable(&non_null) {
+            enc.start_alternative();
+            let encoding = EncodedStream::encode_strings_fsst_with_type(
+                &non_null,
+                FsstStrEncoder {
+                    symbol_lengths: IntEncoder::varint(),
+                    dict_lengths: IntEncoder::varint(),
+                },
+                DictionaryType::Single,
+            )?;
+            write_str_streams(encoding.streams(), presence_stream, enc)?;
+        }
+    }
+
+    enc.finish_alternatives();
+    Ok(())
+}
+
+/// Write the stream-count varint + optional presence stream + content streams to `enc.data`.
+fn write_str_streams(
+    content_streams: Vec<&EncodedStream>,
+    presence_stream: Option<&EncodedStream>,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let stream_count =
+        u32::try_from(content_streams.len() + usize::from(presence_stream.is_some()))?;
+    enc.write_varint(stream_count)?;
+    enc.write_optional_stream(presence_stream)?;
+    for s in content_streams {
+        enc.write_stream(s)?;
+    }
+    Ok(())
+}
+
+/// Encode a shared-dictionary property and write it to `enc`.
+///
+/// When `cfg` is `None`, auto-selects the corpus encoding (FSST if viable, else plain)
+/// and uses automatic offset encoders.
+/// When `cfg` is `Some`, uses the caller-specified encoding from [`ExplicitEncoder`] callbacks.
+///
+/// Returns `false` when every child column is [`PresenceKind::Empty`] or
+/// [`PresenceKind::AllNull`] — the whole shared-dict property is skipped.
+pub(crate) fn write_shared_dict(
+    shared_dict: &StagedSharedDict,
+    cfg: Option<&crate::encoder::optimizer::ExplicitEncoder>,
+    enc: &mut Encoder,
+) -> MltResult<bool> {
+    use crate::encoder::optimizer::StrEncoding;
+
+    if shared_dict
+        .items
+        .iter()
+        .all(|item| matches!(item.presence(), PresenceKind::Empty | PresenceKind::AllNull))
+    {
+        return Ok(false);
+    }
+
+    let dict_spans = collect_staged_shared_dict_spans(&shared_dict.items);
+    let dict: Vec<&str> = dict_spans
+        .iter()
+        .map(|&span| {
+            shared_dict
+                .get(span)
+                .ok_or(DictIndexOutOfBounds(span.0, dict_spans.len()))
+        })
+        .collect::<Result<_, _>>()?;
+    let dict_index: HashMap<(u32, u32), u32> = dict_spans.iter().copied().zip(0_u32..).collect();
+
+    let dict_enc = if let Some(c) = cfg {
+        // Explicit path: use caller-specified encoding.
+        match (c.get_str_encoding)("prop", &shared_dict.prefix) {
+            StrEncoding::Fsst | StrEncoding::FsstDict => {
+                let fsst_enc = FsstStrEncoder {
+                    symbol_lengths: (c.get_int_encoder)(
+                        "prop",
+                        &shared_dict.prefix,
+                        Some("sym_lengths"),
+                    ),
+                    dict_lengths: (c.get_int_encoder)(
+                        "prop",
+                        &shared_dict.prefix,
+                        Some("dict_lengths"),
+                    ),
+                };
+                let encoded = EncodedStream::encode_strings_fsst_plain_with_type(
+                    &dict,
+                    fsst_enc,
+                    DictionaryType::Single,
+                )?;
+                match encoded {
+                    EncodedStringsEncoding::FsstPlain(fsst_data) => {
+                        EncodedSharedDictEncoding::FsstPlain(fsst_data)
+                    }
+                    _ => {
+                        unreachable!("encode_strings_fsst_plain_with_type always returns FsstPlain")
+                    }
+                }
+            }
+            StrEncoding::Plain | StrEncoding::Dict => {
+                let lengths_enc = (c.get_int_encoder)("prop", &shared_dict.prefix, Some("lengths"));
+                let encoded = EncodedStream::encode_strings_with_type(
+                    &dict,
+                    lengths_enc,
+                    LengthType::Dictionary,
+                    DictionaryType::Shared,
+                )?;
+                match encoded {
+                    EncodedStringsEncoding::Plain(plain_data) => {
+                        EncodedSharedDictEncoding::Plain(plain_data)
+                    }
+                    _ => unreachable!("encode_strings_with_type always returns Plain"),
+                }
+            }
+        }
+    } else {
+        // Auto path: FSST if viable, else plain with auto-selected length encoder.
+        if fsst_is_viable(&dict) {
+            let encoded = EncodedStream::encode_strings_fsst_plain_with_type(
+                &dict,
+                FsstStrEncoder {
+                    symbol_lengths: IntEncoder::varint(),
+                    dict_lengths: IntEncoder::varint(),
+                },
+                DictionaryType::Single,
+            )?;
+            match encoded {
+                EncodedStringsEncoding::FsstPlain(fsst_data) => {
+                    EncodedSharedDictEncoding::FsstPlain(fsst_data)
+                }
+                _ => unreachable!("encode_strings_fsst_plain_with_type always returns FsstPlain"),
+            }
+        } else {
+            let lengths: Vec<u32> = dict
+                .iter()
+                .map(|s| u32::try_from(s.len()).unwrap_or(u32::MAX))
+                .collect();
+            let length_enc = IntEncoder::auto_u32(&lengths);
+            let encoded = EncodedStream::encode_strings_with_type(
+                &dict,
+                length_enc,
+                LengthType::Dictionary,
+                DictionaryType::Shared,
+            )?;
+            match encoded {
+                EncodedStringsEncoding::Plain(plain_data) => {
+                    EncodedSharedDictEncoding::Plain(plain_data)
+                }
+                _ => unreachable!("encode_strings_with_type always returns Plain"),
+            }
+        }
+    };
+
+    // Encode each child column.
+    // `force_presence` is only consulted for all-present items (same rule as scalar properties).
+    let force_presence =
+        cfg.is_some_and(|c| (c.override_presence)("prop", &shared_dict.prefix, None));
+    let mut children: Vec<EncodedChild> = Vec::with_capacity(shared_dict.items.len());
+    for item in &shared_dict.items {
+        let has_presence = item.presence().needs_presence_stream()
+            || (force_presence && matches!(item.presence(), PresenceKind::AllPresent));
+        let presence = if has_presence {
+            Some(EncodedStream::encode_presence(&item.presence_bools())?)
+        } else {
+            None
+        };
+
+        let offsets: Vec<u32> = item
+            .dense_spans()
+            .iter()
+            .map(|span| {
+                dict_index
+                    .get(span)
+                    .copied()
+                    .ok_or(DictIndexOutOfBounds(span.0, dict_spans.len()))
+            })
+            .collect::<Result<_, _>>()?;
+
+        let offsets_enc = if let Some(c) = cfg {
+            (c.get_int_encoder)("prop", &shared_dict.prefix, Some(&item.suffix))
+        } else if offsets.is_empty() {
+            IntEncoder::plain()
+        } else {
+            IntEncoder::auto_u32(&offsets)
+        };
+
+        let data = EncodedStream::encode_u32s_of_type(
+            &offsets,
+            offsets_enc,
+            StreamType::Offset(OffsetType::String),
+        )?;
+
+        children.push(EncodedChild { presence, data });
+    }
+
+    // Write column metadata.
+    ColumnType::SharedDict.write_to(&mut enc.meta)?;
+    enc.meta.write_string(&shared_dict.prefix)?;
+    enc.meta.write_varint(u32::try_from(children.len())?)?;
+    for (item, child) in shared_dict.items.iter().zip(&children) {
+        let child_type = if child.presence.is_some() {
+            ColumnType::OptStr
+        } else {
+            ColumnType::Str
+        };
+        child_type.write_to(&mut enc.meta)?;
+        enc.meta.write_string(&item.suffix)?;
+    }
+
+    // Write stream data.
+    let dict_streams = dict_enc.dict_streams();
+    let dict_stream_len = u32::try_from(dict_streams.len())?;
+    let children_len = u32::try_from(children.len())?;
+    let optional_children_count = children.iter().filter(|c| c.presence.is_some()).count();
+    let optional_children_len = u32::try_from(optional_children_count)?;
+    let stream_len = checked_sum3(dict_stream_len, children_len, optional_children_len)?;
+    enc.write_varint(stream_len)?;
+    for stream in dict_streams {
+        enc.write_stream(stream)?;
+    }
+    for child in &children {
+        enc.write_varint(1 + u32::from(child.presence.is_some()))?;
+        enc.write_optional_stream(child.presence.as_ref())?;
+        enc.write_stream(&child.data)?;
+    }
+
+    Ok(true)
+}
 
 /// Internal encoding of a shared-dict corpus (Plain or FSST-compressed).
 enum EncodedSharedDictEncoding {
@@ -38,41 +371,6 @@ impl EncodedSharedDictEncoding {
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, checked_sum3};
 use crate::{Decoder, MltResult};
-
-impl StrEncoder {
-    #[must_use]
-    pub fn plain(string_lengths: IntEncoder) -> Self {
-        Self::Plain { string_lengths }
-    }
-    #[must_use]
-    pub fn dict(string_lengths: IntEncoder, offsets: IntEncoder) -> Self {
-        Self::Dict {
-            string_lengths,
-            offsets,
-        }
-    }
-    #[must_use]
-    pub fn fsst(symbol_lengths: IntEncoder, dict_lengths: IntEncoder) -> Self {
-        Self::Fsst(FsstStrEncoder {
-            symbol_lengths,
-            dict_lengths,
-        })
-    }
-    #[must_use]
-    pub fn fsst_dict(
-        symbol_lengths: IntEncoder,
-        dict_lengths: IntEncoder,
-        offsets: IntEncoder,
-    ) -> Self {
-        Self::FsstDict {
-            fsst: FsstStrEncoder {
-                symbol_lengths,
-                dict_lengths,
-            },
-            offsets,
-        }
-    }
-}
 
 impl StagedStrings {
     /// Stages a string column where every row has a value (no nulls).
@@ -241,27 +539,6 @@ pub fn collect_staged_shared_dict_spans(items: &[StagedSharedDictItem]) -> Vec<(
     spans
 }
 
-impl SharedDictItemEncoder {
-    /// Create a new encoder for a shared-dictionary child column.
-    #[must_use]
-    pub fn new(offsets: IntEncoder) -> Self {
-        Self {
-            offsets,
-            #[cfg(feature = "__private")]
-            forced_presence: false,
-        }
-    }
-
-    /// Force a presence stream to be emitted even when the column has no nulls.
-    /// Intended only for generating intentionally edge-case tiles in synthetics/tests.
-    #[cfg(feature = "__private")]
-    #[must_use]
-    pub fn forced_presence(mut self, present: bool) -> Self {
-        self.forced_presence = present;
-        self
-    }
-}
-
 impl StagedSharedDictItem {
     #[must_use]
     pub fn feature_count(&self) -> usize {
@@ -335,145 +612,6 @@ fn encode_shared_dict_range(start: u32, end: u32) -> MltResult<(i32, i32)> {
 struct EncodedChild {
     presence: Option<EncodedStream>,
     data: EncodedStream,
-}
-
-/// Encode a staged shared dictionary property and write it directly to `enc`.
-///
-/// Returns `false` when every child column is [`PresenceKind::Empty`] or
-/// [`PresenceKind::AllNull`] — the whole shared-dict property is skipped.
-///
-/// Writes the column-type byte + name + child metadata to [`enc.meta`](Encoder::meta)
-/// and all streams to [`enc.data`](Encoder::data).
-pub fn write_shared_dict_prop_to(
-    shared_dict: &StagedSharedDict,
-    encoder: &SharedDictEncoder,
-    enc: &mut Encoder,
-) -> MltResult<bool> {
-    if shared_dict.items.len() != encoder.items.len() {
-        return Err(NotImplemented(
-            "SharedDict items count must match encoder items count",
-        ));
-    }
-
-    // Skip the entire shared-dict property when every item column carries no
-    // data worth encoding (empty or all-null).
-    if shared_dict
-        .items
-        .iter()
-        .all(|item| matches!(item.presence(), PresenceKind::Empty | PresenceKind::AllNull))
-    {
-        return Ok(false);
-    }
-
-    let dict_spans = collect_staged_shared_dict_spans(&shared_dict.items);
-    let dict: Vec<&str> = dict_spans
-        .iter()
-        .map(|&span| {
-            shared_dict
-                .get(span)
-                .ok_or(DictIndexOutOfBounds(span.0, dict_spans.len()))
-        })
-        .collect::<Result<_, _>>()?;
-    let dict_index: HashMap<(u32, u32), u32> = dict_spans.iter().copied().zip(0_u32..).collect();
-
-    let dict_encoded = match encoder.dict_encoder {
-        StrEncoder::Plain { string_lengths } => EncodedStream::encode_strings_with_type(
-            &dict,
-            string_lengths,
-            LengthType::Dictionary,
-            DictionaryType::Shared,
-        )?,
-        StrEncoder::Fsst(fsst_enc) => EncodedStream::encode_strings_fsst_plain_with_type(
-            &dict,
-            fsst_enc,
-            DictionaryType::Single,
-        )?,
-        StrEncoder::Dict { .. } | StrEncoder::FsstDict { .. } => {
-            return Err(NotImplemented(
-                "Dict/FsstDict encoder cannot be used as a shared-dict struct encoder",
-            ));
-        }
-    };
-
-    let dict_enc = match dict_encoded {
-        EncodedStringsEncoding::Plain(plain_data) => EncodedSharedDictEncoding::Plain(plain_data),
-        EncodedStringsEncoding::FsstPlain(fsst_data) => {
-            EncodedSharedDictEncoding::FsstPlain(fsst_data)
-        }
-        EncodedStringsEncoding::Dictionary { .. }
-        | EncodedStringsEncoding::FsstDictionary { .. } => {
-            return Err(NotImplemented(
-                "SharedDict only supports Plain or FsstPlain encoding",
-            ));
-        }
-    };
-
-    // Encode each child column (presence stream + offset-index data).
-    let mut children: Vec<EncodedChild> = Vec::with_capacity(shared_dict.items.len());
-    for (item, item_enc) in shared_dict.items.iter().zip(&encoder.items) {
-        #[cfg(feature = "__private")]
-        let forced_presence = item_enc.forced_presence;
-        #[cfg(not(feature = "__private"))]
-        let forced_presence = false;
-
-        let presence = if forced_presence || item.presence().needs_presence_stream() {
-            Some(EncodedStream::encode_presence(&item.presence_bools())?)
-        } else {
-            None
-        };
-
-        let offsets: Vec<u32> = item
-            .dense_spans()
-            .iter()
-            .map(|span| {
-                dict_index
-                    .get(span)
-                    .copied()
-                    .ok_or(DictIndexOutOfBounds(span.0, dict_spans.len()))
-            })
-            .collect::<Result<_, _>>()?;
-
-        let data = EncodedStream::encode_u32s_of_type(
-            &offsets,
-            item_enc.offsets,
-            StreamType::Offset(OffsetType::String),
-        )?;
-
-        children.push(EncodedChild { presence, data });
-    }
-
-    // ── Write column metadata to enc.meta ─────────────────────────────────────
-    ColumnType::SharedDict.write_to(&mut enc.meta)?;
-    enc.meta.write_string(&shared_dict.prefix)?;
-    enc.meta.write_varint(u32::try_from(children.len())?)?;
-    for (item, child) in shared_dict.items.iter().zip(&children) {
-        let child_type = if child.presence.is_some() {
-            ColumnType::OptStr
-        } else {
-            ColumnType::Str
-        };
-        child_type.write_to(&mut enc.meta)?;
-        enc.meta.write_string(&item.suffix)?;
-    }
-
-    // ── Write stream data to enc.data ─────────────────────────────────────────
-    let dict_streams = dict_enc.dict_streams();
-    let dict_stream_len = u32::try_from(dict_streams.len())?;
-    let children_len = u32::try_from(children.len())?;
-    let optional_children_count = children.iter().filter(|c| c.presence.is_some()).count();
-    let optional_children_len = u32::try_from(optional_children_count)?;
-    let stream_len = checked_sum3(dict_stream_len, children_len, optional_children_len)?;
-    enc.write_varint(stream_len)?;
-    for stream in dict_streams {
-        enc.write_stream(stream)?;
-    }
-    for child in &children {
-        enc.write_varint(1 + u32::from(child.presence.is_some()))?;
-        enc.write_optional_stream(child.presence.as_ref())?;
-        enc.write_stream(&child.data)?;
-    }
-
-    Ok(true)
 }
 
 impl StagedSharedDict {

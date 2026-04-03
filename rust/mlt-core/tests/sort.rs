@@ -1,6 +1,7 @@
 use geo_types::{Coord, LineString, Point};
 use mlt_core::encoder::{
-    Encoder, GeometryEncoder, IdEncoder, IntEncoder, SortStrategy, StagedLayer01, reorder_features,
+    Encoder, ExplicitEncoder, IdWidth, IntEncoder, SortStrategy, StagedLayer01, VertexBufferType,
+    reorder_features,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{assert_empty, dec, into_layer01, parser};
@@ -32,11 +33,15 @@ fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLaye
     let staged = StagedLayer01::from_tile(tile, &[]);
     let mut enc = Encoder::default();
     staged
-        .encode_with(
+        .encode_explicit(
             &mut enc,
-            IdEncoder::default(),
-            GeometryEncoder::all(IntEncoder::varint()),
-            vec![],
+            &ExplicitEncoder {
+                override_id_width: Box::new(|_| IdWidth::Id32),
+                vertex_buffer_type: VertexBufferType::Vec2,
+                get_int_encoder: Box::new(|_, _, _| IntEncoder::varint()),
+                get_str_encoding: Box::new(|_, _| mlt_core::encoder::StrEncoding::Plain),
+                override_presence: Box::new(|_, _, _| false),
+            },
         )
         .expect("encode failed");
 

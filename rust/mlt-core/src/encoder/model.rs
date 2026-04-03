@@ -13,7 +13,7 @@ pub enum StagedLayer {
 /// Wire-ready variant of a layer that cannot be decoded to Tag01.
 ///
 /// Tag01 layers are encoded directly into [`Encoder`](crate::encoder::Encoder) buffers
-/// via [`StagedLayer::encode_into`] or [`StagedLayer01::encode_with`].
+/// via [`StagedLayer::encode_into`].
 #[derive(Debug, PartialEq, Clone)]
 pub enum EncodedLayer {
     Unknown(EncodedUnknown),
@@ -30,7 +30,7 @@ pub struct EncodedUnknown {
 ///
 /// Holds fully-owned columnar data. Constructed directly (synthetics, benches) or
 /// converted from [`TileLayer01`](crate::TileLayer01).
-/// Consumed by encoding via [`StagedLayer::encode_into`] or [`StagedLayer01::encode_with`].
+/// Consumed by encoding via [`StagedLayer::encode_into`] or [`StagedLayer01::encode_explicit`].
 #[derive(Debug, PartialEq, Clone)]
 pub struct StagedLayer01 {
     pub name: String,

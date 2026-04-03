@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use geo_types::{LineString, Point, Polygon, point, wkt};
 use mlt_core::__private::{assert_empty, dec, parser};
-use mlt_core::encoder::{Encoder, EncoderConfig, GeometryEncoder, IntEncoder, VertexBufferType};
+use mlt_core::encoder::{Encoder, EncoderConfig};
 use mlt_core::geojson::{Coord32, Geom32};
 use mlt_core::{DictionaryType, GeometryValues, LengthType, OffsetType, RawGeometry, StreamType};
 use pretty_assertions::assert_eq;
@@ -125,13 +125,11 @@ fn encoded_repeated_points_uses_morton_streams() {
 fn manual_encode_works() {
     let decoded = push_geoms(&[wkt!(POINT(10 20)).into()]);
 
-    let mut geom_enc = GeometryEncoder::all(IntEncoder::varint());
-    geom_enc.vertex_buffer_type(VertexBufferType::Vec2);
     let mut enc = Encoder::default();
     decoded
         .clone()
-        .write_to_with(&mut enc, geom_enc)
-        .expect("manual encode failed");
+        .write_to(&mut enc, EncoderConfig::default())
+        .expect("encode failed");
     let types = encoded_stream_types(&enc.data);
     assert!(types.contains(&StreamType::Data(DictionaryType::Vertex)));
 

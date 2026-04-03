@@ -17,7 +17,11 @@ mod writer;
 pub use geometry::*;
 pub use id::*;
 pub use model::*;
-pub use optimizer::*;
+pub use optimizer::{EncoderConfig, encode_tile_layer};
+// ExplicitEncoder and StrEncoding are always compiled but exposed in the public API
+// only when the `__private` feature is enabled.
+#[cfg(feature = "__private")]
+pub use optimizer::{ExplicitEncoder, StrEncoding};
 pub use property::*;
 pub use sort::*;
 pub use stream::*;
