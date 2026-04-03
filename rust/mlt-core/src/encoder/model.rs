@@ -86,8 +86,7 @@ pub enum StrEncoding {
 /// Explicit, deterministic encoding configuration for synthetics and tests.
 ///
 /// All encoding choices are caller-specified via callbacks so one struct can cover
-/// any combination without per-stream boilerplate.  For automatic (optimized)
-/// encoding, use [`encode_tile_layer`].
+/// any combination without per-stream boilerplate.
 ///
 /// Always compiled; publicly visible only when the `__private` feature is enabled
 /// (re-exported from [`crate::encoder`]).

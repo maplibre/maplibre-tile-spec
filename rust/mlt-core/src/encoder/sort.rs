@@ -221,7 +221,7 @@ mod tests {
     use super::*;
     use crate::LazyParsed;
     use crate::decoder::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer01};
-    use crate::encoder::{Encoder, EncoderConfig};
+    use crate::encoder::Encoder;
     use crate::geojson::Geom32;
     use crate::test_helpers::{assert_empty, dec, parser};
 
@@ -260,10 +260,7 @@ mod tests {
     /// Encode + serialize + parse + decode a `GeometryValues` (round-trip).
     fn roundtrip_geom(decoded: &GeometryValues) -> GeometryValues {
         let mut enc = Encoder::default();
-        decoded
-            .clone()
-            .write_to(&mut enc, EncoderConfig::default())
-            .expect("encode failed");
+        decoded.clone().write_to(&mut enc).expect("encode failed");
         let buf = enc.data;
 
         let parsed = assert_empty(RawGeometry::from_bytes(&buf, &mut parser()));

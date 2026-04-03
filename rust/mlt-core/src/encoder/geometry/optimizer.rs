@@ -1,16 +1,16 @@
 use crate::MltResult;
 use crate::decoder::GeometryValues;
+use crate::encoder::Encoder;
 use crate::encoder::geometry::encode::{
     compute_geometry_payloads, select_vertex_strategy, write_geometry_auto,
 };
-use crate::encoder::{Encoder, EncoderConfig};
 
 impl GeometryValues {
     /// Automatically select the best encoder and write the geometry column to `enc`.
     ///
     /// Writes the `Geometry` column-type byte to [`enc.meta`](Encoder::meta) and
     /// all geometry streams to [`enc.data`](Encoder::data).
-    pub fn write_to(self, enc: &mut Encoder, _cfg: EncoderConfig) -> MltResult<()> {
+    pub fn write_to(self, enc: &mut Encoder) -> MltResult<()> {
         let vertex_buffer_type = self
             .vertices
             .as_deref()

@@ -1,6 +1,6 @@
 use geo_types::Point;
 use mlt_core::encoder::{
-    Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer, StagedLayer01,
+    Encoder, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer, StagedLayer01,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, into_layer01, parser};
@@ -101,7 +101,7 @@ fn create_constant_ids() -> IdValues {
 #[case::all_nulls(IdValues(vec![None, None]))]
 fn test_automatic_encoding_skipped(#[case] input: IdValues) {
     let mut enc = Encoder::default();
-    let written = input.write_to(&mut enc, EncoderConfig::default()).unwrap();
+    let written = input.write_to(&mut enc).unwrap();
     assert!(!written, "empty or all-null ID list should write no column");
 }
 
@@ -114,7 +114,7 @@ fn test_automatic_encoding_skipped(#[case] input: IdValues) {
 #[case::with_nulls(create_ids_with_nulls())]
 fn test_automatic_encoding_produces_output(#[case] input: IdValues) {
     let mut enc = Encoder::default();
-    let written = input.write_to(&mut enc, EncoderConfig::default()).unwrap();
+    let written = input.write_to(&mut enc).unwrap();
     assert!(written, "non-trivial ID list should write a column");
 }
 
@@ -122,9 +122,7 @@ fn test_automatic_encoding_produces_output(#[case] input: IdValues) {
 fn test_automatic_optimization_roundtrip_empty() {
     let decoded = IdValues(vec![]);
     let mut enc = Encoder::default();
-    let written = decoded
-        .write_to(&mut enc, EncoderConfig::default())
-        .unwrap();
+    let written = decoded.write_to(&mut enc).unwrap();
     assert!(!written, "empty ID list should write no column");
 }
 
@@ -177,9 +175,7 @@ fn test_auto_fastpfor_beats_varint_for_large_u32_ids() {
     let ids = IdValues((0u64..1000).map(|i| Some(i * 13 + 5)).collect());
 
     let mut auto_enc = Encoder::default();
-    ids.clone()
-        .write_to(&mut auto_enc, EncoderConfig::default())
-        .unwrap();
+    ids.clone().write_to(&mut auto_enc).unwrap();
 
     let mut plain_enc = Encoder::default();
     ids.write_to_with(

@@ -12,7 +12,7 @@ use crate::decoder::{
 #[cfg(feature = "__private")]
 use crate::encoder::ExplicitEncoder;
 use crate::encoder::stream::{DataProfile, IntEncoder};
-use crate::encoder::{EncodedStream, EncodedStreamData, Encoder, EncoderConfig};
+use crate::encoder::{EncodedStream, EncodedStreamData, Encoder};
 use crate::utils::BinarySerializer as _;
 
 struct SequenceStats {
@@ -119,7 +119,7 @@ impl IdValues {
     /// presence + value streams to [`enc.data`](Encoder::data).
     /// Returns `false` when the ID list is empty or every value is `None`
     /// (nothing is written in that case).
-    pub fn write_to(self, enc: &mut Encoder, _cfg: EncoderConfig) -> MltResult<bool> {
+    pub fn write_to(self, enc: &mut Encoder) -> MltResult<bool> {
         let ids = &self.0;
 
         let Some(stat) = calc_sequence_stats(ids) else {

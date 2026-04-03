@@ -339,7 +339,7 @@ mod tests {
         DictionaryType, IntEncoding, LengthType, LogicalEncoding, MortonMeta, OffsetType,
         RawGeometry, StreamMeta, StreamType,
     };
-    use crate::encoder::{EncodedStream, Encoder, EncoderConfig, IntEncoder};
+    use crate::encoder::{EncodedStream, Encoder, IntEncoder};
     use crate::geojson::Coord32;
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
@@ -351,7 +351,7 @@ mod tests {
         let mut enc = Encoder::default();
         decoded
             .clone()
-            .write_to(&mut enc, EncoderConfig::default())
+            .write_to(&mut enc)
             .expect("Failed to encode");
 
         let parsed = assert_empty(RawGeometry::from_bytes(&enc.data, &mut parser()));
