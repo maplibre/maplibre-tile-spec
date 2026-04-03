@@ -1,8 +1,10 @@
 use crate::MltResult;
 use crate::decoder::TileLayer01;
+use crate::encoder::stream::IntEncoder;
 use crate::encoder::{
-    EncodeProperties as _, EncodedLayer, Encoder, SortStrategy, StagedLayer, StagedLayer01,
-    group_string_properties, reorder_features, spatial_sort_likely_to_help,
+    EncodeProperties as _, EncodedLayer, Encoder, IdWidth, SortStrategy, StagedLayer,
+    StagedLayer01, VertexBufferType, group_string_properties, reorder_features,
+    spatial_sort_likely_to_help,
 };
 
 impl StagedLayer {
@@ -82,33 +84,60 @@ pub enum StrEncoding {
 /// (re-exported from [`crate::encoder`]).
 pub struct ExplicitEncoder {
     /// Vertex buffer layout for geometry streams.
-    pub vertex_buffer_type: crate::encoder::VertexBufferType,
-    /// Return the [`crate::encoder::IntEncoder`] for a stream.
+    pub vertex_buffer_type: VertexBufferType,
+    /// Return the [`IntEncoder`] for a stream.
     /// Arguments: `(kind, name, subname)` where `kind` is `"id"`, `"geo"`, or `"prop"`;
     /// `name` is the stream/column name; `subname` is the shared-dict suffix when applicable.
-    pub get_int_encoder: Box<dyn Fn(&str, &str, Option<&str>) -> crate::encoder::IntEncoder>,
+    pub get_int_encoder: Box<dyn Fn(&str, &str, Option<&str>) -> IntEncoder>,
     /// Return the string encoding strategy for a string property column.
     pub get_str_encoding: Box<dyn Fn(&str, &str) -> StrEncoding>,
-    /// Override the auto-detected [`crate::encoder::IdWidth`].
-    /// Default: identity (`|w| w` — keep auto-detected width).
-    pub override_id_width: Box<dyn Fn(crate::encoder::IdWidth) -> crate::encoder::IdWidth>,
-    /// Return `true` to force a presence stream for a column even when all values are present.
-    /// Arguments: `(kind, name, subname)` — same convention as [`Self::get_int_encoder`].
-    /// Only called when all values in the column are present (no nulls).
-    /// Default: always `false`.
+    /// Override the auto-detected [`IdWidth`].
+    /// Arguments: auto-detected `IdWidth`. Return the width to use.
+    pub override_id_width: Box<dyn Fn(IdWidth) -> IdWidth>,
+    /// Override whether a presence stream is written for an all-present column,
+    /// or if the column is written at all if all values are null.
+    /// Arguments: `(kind, name, subname)` — same convention as [`Self::get_int_encoder`]
     pub override_presence: Box<dyn Fn(&str, &str, Option<&str>) -> bool>,
 }
 
 impl ExplicitEncoder {
     /// Use `enc` for all integer streams, plain string encoding, and `Vec2` vertex layout.
     #[must_use]
-    pub fn all(enc: crate::encoder::IntEncoder) -> Self {
+    pub fn all(enc: IntEncoder) -> Self {
         Self {
             override_id_width: Box::new(|w| w),
-            vertex_buffer_type: crate::encoder::VertexBufferType::Vec2,
+            vertex_buffer_type: VertexBufferType::Vec2,
             get_int_encoder: Box::new(move |_, _, _| enc),
             get_str_encoding: Box::new(|_, _| StrEncoding::Plain),
             override_presence: Box::new(|_, _, _| false),
+        }
+    }
+
+    /// Like [`Self::all`] but use `str_enc` for string property columns.
+    #[must_use]
+    pub fn all_with_str(enc: IntEncoder, str_enc: StrEncoding) -> Self {
+        Self {
+            get_str_encoding: Box::new(move |_, _| str_enc),
+            ..Self::all(enc)
+        }
+    }
+
+    /// Use `id_enc` for the ID stream with a fixed `id_width`; `varint` for all other streams.
+    ///
+    /// Useful for tests that need to pin the exact ID encoding without caring about
+    /// geometry or property streams.
+    #[must_use]
+    pub fn for_id(id_enc: IntEncoder, id_width: IdWidth) -> Self {
+        Self {
+            override_id_width: Box::new(move |_| id_width),
+            get_int_encoder: Box::new(move |kind, _, _| {
+                if kind == "id" {
+                    id_enc
+                } else {
+                    IntEncoder::varint()
+                }
+            }),
+            ..Self::all(IntEncoder::varint())
         }
     }
 }
@@ -120,8 +149,8 @@ impl StagedLayer01 {
     /// deterministic encoding. For automatic optimization, use [`encode_tile_layer`].
     #[cfg(feature = "__private")]
     pub fn encode_explicit(self, enc: &mut Encoder, cfg: &ExplicitEncoder) -> MltResult<()> {
-        use super::property::write_properties;
         use crate::encoder::geometry::encode::encode_geometry;
+        use crate::encoder::property::encode::write_properties;
 
         let StagedLayer01 {
             name,

@@ -7,9 +7,7 @@ use rstest::rstest;
 
 use crate::decoder::{GeometryValues, IdValues, LogicalEncoder, RawIdValue};
 use crate::encoder::IdWidth::*;
-use crate::encoder::{
-    Encoder, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer01, VertexBufferType, write_id_to,
-};
+use crate::encoder::{Encoder, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer01, write_id_to};
 use crate::geojson::Geom32;
 use crate::test_helpers::{dec, parser};
 use crate::{Layer, LazyParsed, MltError, MltResult};
@@ -158,22 +156,7 @@ fn roundtrip_id_values(
         properties: vec![],
     };
     let mut enc = Encoder::default();
-    staged.encode_explicit(
-        &mut enc,
-        &ExplicitEncoder {
-            override_id_width: Box::new(move |_| id_width),
-            vertex_buffer_type: VertexBufferType::Vec2,
-            get_int_encoder: Box::new(move |kind, _, _| {
-                if kind == "id" {
-                    int_enc
-                } else {
-                    IntEncoder::varint()
-                }
-            }),
-            get_str_encoding: Box::new(|_, _| crate::encoder::StrEncoding::Plain),
-            override_presence: Box::new(|_, _, _| false),
-        },
-    )?;
+    staged.encode_explicit(&mut enc, &ExplicitEncoder::for_id(int_enc, id_width))?;
     let buf = enc.into_layer_bytes()?;
     let (_, layer) = Layer::from_bytes(&buf, &mut parser())?;
     let Layer::Tag01(layer01) = layer else {
@@ -209,22 +192,7 @@ fn encode_id_to_raw_layer(
     };
     let mut enc = Encoder::default();
     staged
-        .encode_explicit(
-            &mut enc,
-            &ExplicitEncoder {
-                override_id_width: Box::new(move |_| id_width),
-                vertex_buffer_type: VertexBufferType::Vec2,
-                get_int_encoder: Box::new(move |kind, _, _| {
-                    if kind == "id" {
-                        int_enc
-                    } else {
-                        IntEncoder::varint()
-                    }
-                }),
-                get_str_encoding: Box::new(|_, _| crate::encoder::StrEncoding::Plain),
-                override_presence: Box::new(|_, _, _| false),
-            },
-        )
+        .encode_explicit(&mut enc, &ExplicitEncoder::for_id(int_enc, id_width))
         .expect("encode failed");
     let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
     let buf: &'static [u8] = Box::leak(buf.into_boxed_slice());

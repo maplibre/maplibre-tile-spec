@@ -1,7 +1,6 @@
 use geo_types::Point;
 use mlt_core::encoder::{
     Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer, StagedLayer01,
-    VertexBufferType,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, into_layer01, parser};
@@ -27,22 +26,7 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_width: IdWidth, int_enc: IntEnc
     };
     let mut enc = Encoder::default();
     staged
-        .encode_explicit(
-            &mut enc,
-            &ExplicitEncoder {
-                override_id_width: Box::new(move |_| id_width),
-                vertex_buffer_type: VertexBufferType::Vec2,
-                get_int_encoder: Box::new(move |kind, _, _| {
-                    if kind == "id" {
-                        int_enc
-                    } else {
-                        IntEncoder::varint()
-                    }
-                }),
-                get_str_encoding: Box::new(|_, _| mlt_core::encoder::StrEncoding::Plain),
-                override_presence: Box::new(|_, _, _| false),
-            },
-        )
+        .encode_explicit(&mut enc, &ExplicitEncoder::for_id(int_enc, id_width))
         .expect("encode failed");
     let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
     let mut p = parser();
@@ -200,13 +184,7 @@ fn test_auto_fastpfor_beats_varint_for_large_u32_ids() {
     let mut plain_enc = Encoder::default();
     ids.write_to_with(
         &mut plain_enc,
-        &ExplicitEncoder {
-            override_id_width: Box::new(|_| IdWidth::Id32),
-            vertex_buffer_type: VertexBufferType::Vec2,
-            get_int_encoder: Box::new(|_, _, _| IntEncoder::varint()),
-            get_str_encoding: Box::new(|_, _| mlt_core::encoder::StrEncoding::Plain),
-            override_presence: Box::new(|_, _, _| false),
-        },
+        &ExplicitEncoder::for_id(IntEncoder::varint(), IdWidth::Id32),
     )
     .unwrap();
 

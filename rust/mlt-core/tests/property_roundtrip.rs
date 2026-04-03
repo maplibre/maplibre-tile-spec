@@ -1,7 +1,7 @@
 use geo_types::Point;
 use mlt_core::encoder::{
     Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer01, StagedProperty,
-    StagedSharedDict, StrEncoding, VertexBufferType,
+    StagedSharedDict, StrEncoding,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, parser};
@@ -343,13 +343,7 @@ fn fsst_scalar_string_roundtrip() {
     let values = strs(&["Berlin", "Brandenburg", "Bremen", "Braunschweig"]);
     let tile = encode_and_tile_explicit(
         vec![StagedProperty::str("name", values.clone())],
-        &ExplicitEncoder {
-            override_id_width: Box::new(|w| w),
-            vertex_buffer_type: VertexBufferType::Vec2,
-            get_int_encoder: Box::new(|_, _, _| IntEncoder::plain()),
-            get_str_encoding: Box::new(|_, _| StrEncoding::Fsst),
-            override_presence: Box::new(|_, _, _| false),
-        },
+        &ExplicitEncoder::all_with_str(IntEncoder::plain(), StrEncoding::Fsst),
     );
     assert_eq!(tile.property_names, vec!["name"]);
     for (i, ov) in values.into_iter().enumerate() {

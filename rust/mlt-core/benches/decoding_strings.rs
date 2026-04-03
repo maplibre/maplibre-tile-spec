@@ -4,7 +4,7 @@ use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_m
 use geo_types::Point;
 use mlt_core::encoder::{
     Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer01, StagedProperty,
-    StagedSharedDict, StrEncoding, VertexBufferType,
+    StagedSharedDict, StrEncoding,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, parser};
@@ -96,26 +96,6 @@ fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: &ExplicitEncoder) -> 
     enc.into_raw_bytes()
 }
 
-fn plain_cfg(int_enc: IntEncoder) -> ExplicitEncoder {
-    ExplicitEncoder {
-        override_id_width: Box::new(|w| w),
-        vertex_buffer_type: VertexBufferType::Vec2,
-        get_int_encoder: Box::new(move |_, _, _| int_enc),
-        get_str_encoding: Box::new(|_, _| StrEncoding::Plain),
-        override_presence: Box::new(|_, _, _| false),
-    }
-}
-
-fn fsst_cfg(int_enc: IntEncoder) -> ExplicitEncoder {
-    ExplicitEncoder {
-        override_id_width: Box::new(|w| w),
-        vertex_buffer_type: VertexBufferType::Vec2,
-        get_int_encoder: Box::new(move |_, _, _| int_enc),
-        get_str_encoding: Box::new(|_, _| StrEncoding::Fsst),
-        override_presence: Box::new(|_, _, _| false),
-    }
-}
-
 /// Sum the byte lengths of all non-null string property values across all features.
 ///
 /// Used as the benchmark measurement: the return value prevents the compiler from
@@ -153,7 +133,7 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
                 let bytes = encode_layer(
                     n,
                     vec![StagedProperty::str("name", col.clone())],
-                    &plain_cfg(int_enc),
+                    &ExplicitEncoder::all(int_enc),
                 );
 
                 group.bench_with_input(
@@ -188,7 +168,7 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
                 let bytes = encode_layer(
                     n,
                     vec![StagedProperty::str("name", col.clone())],
-                    &fsst_cfg(int_enc),
+                    &ExplicitEncoder::all_with_str(int_enc, StrEncoding::Fsst),
                 );
 
                 group.bench_with_input(
@@ -221,7 +201,7 @@ fn bench_encoding_type(c: &mut Criterion) {
         let plain_bytes = encode_layer(
             n,
             vec![StagedProperty::str("name", col.clone())],
-            &plain_cfg(int_enc),
+            &ExplicitEncoder::all(int_enc),
         );
         group.bench_with_input(BenchmarkId::new("plain", n), &plain_bytes, |b, bytes| {
             b.iter(|| {
@@ -234,7 +214,7 @@ fn bench_encoding_type(c: &mut Criterion) {
         let fsst_bytes = encode_layer(
             n,
             vec![StagedProperty::str("name", col)],
-            &fsst_cfg(int_enc),
+            &ExplicitEncoder::all_with_str(int_enc, StrEncoding::Fsst),
         );
         group.bench_with_input(BenchmarkId::new("fsst", n), &fsst_bytes, |b, bytes| {
             b.iter(|| {
@@ -263,7 +243,7 @@ fn bench_presence(c: &mut Criterion) {
                 "name",
                 make_strings(n).into_iter().map(Some).collect(),
             )],
-            &plain_cfg(int_enc),
+            &ExplicitEncoder::all(int_enc),
         );
         group.bench_with_input(
             BenchmarkId::new("no_nulls", n),
@@ -281,7 +261,7 @@ fn bench_presence(c: &mut Criterion) {
         let null_bytes = encode_layer(
             n,
             vec![StagedProperty::str("name", make_nullable_strings(n))],
-            &plain_cfg(int_enc),
+            &ExplicitEncoder::all(int_enc),
         );
         group.bench_with_input(
             BenchmarkId::new("with_nulls", n),
@@ -323,7 +303,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
                 StagedProperty::str("col1", col.clone()),
                 StagedProperty::str("col2", col.clone()),
             ],
-            &plain_cfg(int_enc),
+            &ExplicitEncoder::all(int_enc),
         );
         group.bench_with_input(
             BenchmarkId::new("plain_x2", n),
@@ -354,7 +334,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         let sd_plain_bytes = encode_layer(
             n,
             vec![StagedProperty::SharedDict(make_sd())],
-            &plain_cfg(int_enc),
+            &ExplicitEncoder::all(int_enc),
         );
         group.bench_with_input(
             BenchmarkId::new("shared_dict_plain", n),
@@ -372,7 +352,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         let sd_fsst_bytes = encode_layer(
             n,
             vec![StagedProperty::SharedDict(make_sd())],
-            &fsst_cfg(int_enc),
+            &ExplicitEncoder::all_with_str(int_enc, StrEncoding::Fsst),
         );
         group.bench_with_input(
             BenchmarkId::new("shared_dict_fsst", n),
@@ -393,7 +373,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
                 StagedProperty::str("col1", col.clone()),
                 StagedProperty::str("col2", col),
             ],
-            &fsst_cfg(int_enc),
+            &ExplicitEncoder::all_with_str(int_enc, StrEncoding::Fsst),
         );
         group.bench_with_input(
             BenchmarkId::new("fsst_x2", n),

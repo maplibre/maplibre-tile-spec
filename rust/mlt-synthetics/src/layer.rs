@@ -33,8 +33,6 @@ pub fn geo_fastpfor() -> Layer {
 enum PropConfig {
     /// Int/Bool/Float: `enc` is used for integer streams; Bool/Float auto-detect from type.
     Scalar(IntEncoder),
-    /// String plain encoding: `enc` is the lengths encoder.
-    StrPlain(IntEncoder),
     /// String FSST encoding.
     StrFsst {
         sym_lengths: IntEncoder,
@@ -61,7 +59,7 @@ enum PropConfig {
 impl PropConfig {
     fn str_encoding(&self) -> StrEncoding {
         match self {
-            Self::StrPlain(_) | Self::Scalar(_) => StrEncoding::Plain,
+            Self::Scalar(_) => StrEncoding::Plain,
             Self::StrFsst { .. } => StrEncoding::Fsst,
             Self::StrFsstDict { .. } => StrEncoding::FsstDict,
             Self::StrDict { .. } => StrEncoding::Dict,
@@ -71,7 +69,7 @@ impl PropConfig {
 
     fn int_enc_for_sub(&self, sub: Option<&str>) -> IntEncoder {
         match self {
-            Self::Scalar(e) | Self::StrPlain(e) => *e,
+            Self::Scalar(e) => *e,
             Self::StrFsst {
                 sym_lengths,
                 dict_lengths,
@@ -211,13 +209,6 @@ impl Layer {
     #[must_use]
     pub fn add_prop(mut self, enc: IntEncoder, prop: StagedProperty) -> Self {
         self.props.push((prop, PropConfig::Scalar(enc)));
-        self
-    }
-
-    /// Add a plain-encoded string property.
-    #[must_use]
-    pub fn add_prop_str(mut self, lengths_enc: IntEncoder, prop: StagedProperty) -> Self {
-        self.props.push((prop, PropConfig::StrPlain(lengths_enc)));
         self
     }
 

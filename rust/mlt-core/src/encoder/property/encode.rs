@@ -14,8 +14,8 @@ use crate::utils::BinarySerializer as _;
 // `cfg = None`       → auto path: tries multiple IntEncoder candidates via
 //                      `start_alternative`/`finish_alternatives`.
 // `cfg = Some(cfg)`  → explicit path: uses `cfg.get_int_encoder` for a single
-//                      deterministic encoding; forces presence when `cfg.force_presence`
-//                      returns `true` for the column (called only for AllPresent columns).
+//                      deterministic encoding; presence is controlled by `cfg.override_presence`
+//                      (called only for AllPresent columns).
 
 /// Encode all property columns and write them to `enc`.
 ///
@@ -50,18 +50,13 @@ fn write_prop(
         return write_shared_dict(sd, cfg, enc);
     }
 
-    match prop.presence() {
-        PresenceKind::Empty | PresenceKind::AllNull => return Ok(false),
-        PresenceKind::Mixed | PresenceKind::AllPresent => {}
-    }
-
     let has_presence = match prop.presence() {
+        PresenceKind::Empty | PresenceKind::AllNull => return Ok(false),
         PresenceKind::Mixed => true,
-        // Explicit encoder may force a presence stream even when all values are present.
+        // Explicit encoder may override presence for all-present columns.
         PresenceKind::AllPresent => {
             cfg.is_some_and(|c| (c.override_presence)("prop", prop.name(), None))
         }
-        _ => false,
     };
     let presence_stream = if has_presence {
         Some(EncodedStream::encode_presence(&prop.as_presence_stream()?)?)
