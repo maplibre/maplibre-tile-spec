@@ -154,10 +154,9 @@ impl IdValues {
                 write_id_value_stream(&self, id_width, cand, enc)?;
             }
             enc.finish_alternatives();
-
-            enc.push_layer_column();
         }
 
+        enc.push_layer_column();
         Ok(true)
     }
 }

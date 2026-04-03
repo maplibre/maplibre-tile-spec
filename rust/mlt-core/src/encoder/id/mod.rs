@@ -1,5 +1,5 @@
+mod encoder;
 mod model;
-mod optimizer;
 #[cfg(test)]
 mod tests;
 
