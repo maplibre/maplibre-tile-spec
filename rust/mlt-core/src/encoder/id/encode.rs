@@ -67,24 +67,6 @@ fn calc_sequence_stats(ids: &[Option<u64>]) -> Option<SequenceStats> {
     })
 }
 
-/// Run [`DataProfile::prune_candidates`] for the given ID width.
-fn pruned_candidates(ids: &[Option<u64>], id_width: IdWidth) -> Vec<IntEncoder> {
-    match id_width {
-        IdWidth::Id32 | IdWidth::OptId32 => {
-            #[expect(
-                clippy::cast_possible_truncation,
-                reason = "width was deduced as ≤ u32::MAX so truncation is safe"
-            )]
-            let vals: Vec<u32> = ids.iter().flatten().map(|&v| v as u32).collect();
-            DataProfile::prune_candidates::<i32>(&vals)
-        }
-        IdWidth::Id64 | IdWidth::OptId64 => {
-            let vals: Vec<u64> = ids.iter().flatten().copied().collect();
-            DataProfile::prune_candidates::<i64>(&vals)
-        }
-    }
-}
-
 impl IdValues {
     /// Encode and write the ID column to `enc`.
     ///
@@ -105,13 +87,23 @@ impl IdValues {
         };
 
         let id_width = enc.override_id_width(stat.id_width);
-        let col_type: ColumnType = id_width.into();
+
+        // Nullability comes from the actual data (stat.id_width pre-override) or an explicit
+        // override_presence request.  `override_id_width` only affects the bit width (32 vs 64);
+        // it must not suppress a presence stream when real nulls exist in the data.
+        let has_nulls = matches!(stat.id_width, IdWidth::OptId32 | IdWidth::OptId64)
+            || enc.override_presence("id", "", None);
+        let use_64bit = matches!(id_width, IdWidth::Id64 | IdWidth::OptId64);
+        let col_type = match (has_nulls, use_64bit) {
+            (false, false) => ColumnType::Id,
+            (false, true) => ColumnType::LongId,
+            (true, false) => ColumnType::OptId,
+            (true, true) => ColumnType::OptLongId,
+        };
         col_type.write_to(&mut enc.meta)?;
 
         // Presence stream (fixed regardless of value encoding choice).
-        if matches!(id_width, IdWidth::OptId32 | IdWidth::OptId64)
-            || enc.override_presence("id", "", None)
-        {
+        if has_nulls {
             let present: Vec<bool> = ids.iter().map(Option::is_some).collect();
             let num_values = u32::try_from(present.len())?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present));
@@ -147,8 +139,20 @@ impl IdValues {
         if let Some(single_enc) = single_enc {
             write_id_value_stream(&self, id_width, single_enc, enc)?;
         } else {
-            // Compete: try every candidate and keep the shortest value stream.
-            let candidates = pruned_candidates(ids, id_width);
+            let candidates = match id_width {
+                IdWidth::Id32 | IdWidth::OptId32 => {
+                    #[expect(
+                        clippy::cast_possible_truncation,
+                        reason = "width was deduced as ≤ u32::MAX so truncation is safe"
+                    )]
+                    let vals: Vec<u32> = ids.iter().flatten().map(|&v| v as u32).collect();
+                    DataProfile::prune_candidates::<i32>(&vals)
+                }
+                IdWidth::Id64 | IdWidth::OptId64 => {
+                    let vals: Vec<u64> = ids.iter().flatten().copied().collect();
+                    DataProfile::prune_candidates::<i64>(&vals)
+                }
+            };
             for &cand in &candidates {
                 enc.start_alternative();
                 write_id_value_stream(&self, id_width, cand, enc)?;

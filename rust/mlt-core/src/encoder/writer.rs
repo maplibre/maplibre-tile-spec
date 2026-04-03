@@ -270,7 +270,7 @@ impl Encoder {
     /// Pinned vertex layout when explicit encoding is active (`__private` only).
     #[inline]
     #[allow(clippy::unused_self)]
-    pub(crate) fn explicit_vertex_buffer_type(&self) -> Option<VertexBufferType> {
+    pub(crate) fn override_vertex_buffer_type(&self) -> Option<VertexBufferType> {
         #[cfg(feature = "__private")]
         {
             self.explicit.as_ref().map(|e| e.vertex_buffer_type)

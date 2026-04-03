@@ -579,7 +579,7 @@ pub fn compute_geometry_payloads(
 impl GeometryValues {
     /// Write the geometry column to `enc`.
     pub fn write_to(self, enc: &mut Encoder) -> MltResult<()> {
-        let vertex_buffer_type = enc.explicit_vertex_buffer_type().unwrap_or_else(|| {
+        let vertex_buffer_type = enc.override_vertex_buffer_type().unwrap_or_else(|| {
             self.vertices
                 .as_deref()
                 .map_or(VertexBufferType::Vec2, select_vertex_strategy)

@@ -1,4 +1,4 @@
-mod encoder;
+mod encode;
 mod model;
 #[cfg(test)]
 mod tests;
