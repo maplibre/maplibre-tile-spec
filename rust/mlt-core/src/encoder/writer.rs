@@ -68,7 +68,7 @@ use crate::{MltError, MltResult};
 /// [`data`]: Encoder::data
 /// [`impl Write`]: Encoder#impl-Write
 /// [`start_alternatives`]: Encoder::start_alternatives
-/// [`finish_alternative`]: Encoder::finish_alternative
+/// [`finish_alternative`]: Encoder::end_alternative
 #[derive(Debug, Default)]
 pub struct Encoder {
     /// Encoding configuration: controls which optimisation strategies are tried
@@ -155,7 +155,7 @@ pub struct Encoder {
     ///
     /// [`data`]: Encoder::data
     /// [`start_alternatives`]: Encoder::start_alternatives
-    /// [`finish_alternative`]: Encoder::finish_alternative
+    /// [`finish_alternative`]: Encoder::end_alternative
     alt_stack: Vec<(usize, Option<usize>)>,
 }
 
@@ -352,7 +352,7 @@ impl Encoder {
     /// enc.finish_alternatives();             // keeps whichever was shorter
     /// ```
     ///
-    /// [`finish_alternative`]: Encoder::finish_alternative
+    /// [`finish_alternative`]: Encoder::end_alternative
     /// [`finish_alternatives`]: Encoder::finish_alternatives
     pub fn start_alternatives(&mut self) {
         self.alt_stack.push((self.data.len(), None));
@@ -372,10 +372,10 @@ impl Encoder {
     ///
     /// Panics if called outside a [`start_alternatives`] / [`finish_alternatives`] pair.
     ///
-    /// [`finish_alternative`]: Encoder::finish_alternative
+    /// [`finish_alternative`]: Encoder::end_alternative
     /// [`start_alternatives`]: Encoder::start_alternatives
     /// [`finish_alternatives`]: Encoder::finish_alternatives
-    pub fn finish_alternative(&mut self) {
+    pub fn end_alternative(&mut self) {
         assert!(
             !self.alt_stack.is_empty(),
             "finish_alternative called outside a start_alternatives / finish_alternatives pair"
@@ -396,7 +396,7 @@ impl Encoder {
     ///
     /// Panics if called outside a [`start_alternatives`] / [`finish_alternatives`] pair.
     ///
-    /// [`finish_alternative`]: Encoder::finish_alternative
+    /// [`finish_alternative`]: Encoder::end_alternative
     /// [`start_alternatives`]: Encoder::start_alternatives
     /// [`finish_alternatives`]: Encoder::finish_alternatives
     pub fn finish_alternatives(&mut self) {
@@ -484,11 +484,11 @@ mod tests {
 
         enc.start_alternatives();
         push(&mut enc, b"longer"); // 6 bytes
-        enc.finish_alternative();
+        enc.end_alternative();
         push(&mut enc, b"ab"); // 2 bytes — shortest
-        enc.finish_alternative();
+        enc.end_alternative();
         push(&mut enc, b"xyz"); // 3 bytes
-        enc.finish_alternative();
+        enc.end_alternative();
         enc.finish_alternatives();
 
         assert_eq!(enc.data, b"prefixab");
@@ -501,7 +501,7 @@ mod tests {
 
         enc.start_alternatives();
         push(&mut enc, b"aaa"); // 3 bytes
-        enc.finish_alternative();
+        enc.end_alternative();
         push(&mut enc, b"bbb"); // 3 bytes — equal, not strictly shorter
         enc.finish_alternatives();
 
@@ -528,7 +528,7 @@ mod tests {
 
         enc.start_alternatives();
         push(&mut enc, b"long_encoding"); // 13 bytes
-        enc.finish_alternative();
+        enc.end_alternative();
         push(&mut enc, b"short"); // 5 bytes — winner
         enc.finish_alternatives();
 
@@ -544,7 +544,7 @@ mod tests {
 
         enc.start_alternatives();
         push(&mut enc, b"best");
-        enc.finish_alternative();
+        enc.end_alternative();
         assert!(!enc.alt_stack.is_empty(), "level still on stack");
 
         enc.finish_alternatives(); // pop; data must be untouched
@@ -569,11 +569,11 @@ mod tests {
         push(&mut enc, b"A:");
         enc.start_alternatives(); // inner
         push(&mut enc, b"long_inner"); // 10 bytes
-        enc.finish_alternative();
+        enc.end_alternative();
         push(&mut enc, b"in"); // 2 bytes — inner winner
         enc.finish_alternatives(); // inner done; data = b"A:in"
         push(&mut enc, b"!");
-        enc.finish_alternative(); // outer candidate A = b"A:in!" (5 bytes)
+        enc.end_alternative(); // outer candidate A = b"A:in!" (5 bytes)
 
         // Outer candidate B: shorter overall.
         push(&mut enc, b"B"); // 1 byte — outer winner
@@ -605,7 +605,7 @@ mod tests {
     #[should_panic(expected = "finish_alternative called outside")]
     fn panics_finish_alternative_without_start() {
         let mut enc = Encoder::default();
-        enc.finish_alternative();
+        enc.end_alternative();
     }
 
     #[test]

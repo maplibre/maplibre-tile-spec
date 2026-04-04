@@ -74,15 +74,6 @@ impl StagedLayer01 {
     /// This is the hot path inside [`encode_tile_layer`]: each sort-strategy
     /// trial calls this method on its own fresh `Encoder`, and only the
     /// `Encoder` with the smallest `total_len()` is kept.
-    ///
-    /// The wire-format column count is tracked on [`Encoder`] via
-    /// [`Encoder::increment_column_count`] as each column is encoded (including
-    /// skipping omitted all-null / empty properties). The header is written
-    /// last within the logical ordering. Since [`Encoder`] accumulates
-    /// `hdr`/`meta`/`data` in separate buffers the final byte order is always
-    /// correct.
-    ///
-    /// Encoding configuration is read from [`enc.cfg`](Encoder::cfg).
     pub fn encode_into(self, enc: &mut Encoder) -> MltResult<()> {
         let Self {
             name,

@@ -114,7 +114,7 @@ pub(crate) fn write_str_col(
             )?,
         };
         write_str_streams(encoding.streams(), presence_stream, enc)?;
-        enc.finish_alternative();
+        enc.end_alternative();
     } else {
         // Auto path: two-level competition.
         //
@@ -154,20 +154,20 @@ pub(crate) fn write_str_col(
                 DictionaryType::None,
             )?;
             write_str_streams(encoding.streams(), presence_stream, enc)?;
-            enc.finish_alternative();
+            enc.end_alternative();
         }
         enc.finish_alternatives();
-        enc.finish_alternative(); // commit best-Plain outer candidate
+        enc.end_alternative(); // commit best-Plain outer candidate
 
         // ── Dict (inner: length-encoder competition, offset_enc is fixed) ─
         enc.start_alternatives();
         for lenc in dict_len_cands {
             let encoding = EncodedStream::encode_strings_dict(&non_null, lenc, offset_enc)?;
             write_str_streams(encoding.streams(), presence_stream, enc)?;
-            enc.finish_alternative();
+            enc.end_alternative();
         }
         enc.finish_alternatives();
-        enc.finish_alternative(); // commit best-Dict outer candidate
+        enc.end_alternative(); // commit best-Dict outer candidate
 
         // ── FSST / FsstDict — flat candidates (re-training FSST is expensive)
         if use_fsst {
@@ -181,12 +181,12 @@ pub(crate) fn write_str_col(
                 DictionaryType::Single,
             )?;
             write_str_streams(encoding.streams(), presence_stream, enc)?;
-            enc.finish_alternative(); // FSST outer candidate
+            enc.end_alternative(); // FSST outer candidate
 
             let encoding =
                 EncodedStream::encode_strings_fsst_dict(&non_null, fsst_enc, offset_enc)?;
             write_str_streams(encoding.streams(), presence_stream, enc)?;
-            enc.finish_alternative(); // FsstDict outer candidate
+            enc.end_alternative(); // FsstDict outer candidate
         }
     }
     enc.finish_alternatives();

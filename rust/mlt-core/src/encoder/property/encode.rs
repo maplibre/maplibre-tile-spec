@@ -9,11 +9,6 @@ use crate::encoder::{EncodedStream, Encoder, StagedScalar, StagedStrings};
 use crate::utils::BinarySerializer as _;
 
 /// Encode all property columns and write them to `enc`.
-///
-/// Uses [`Encoder::explicit`] to choose between automatic and callback-driven encoding.
-///
-/// Each written column calls [`Encoder::increment_column_count`] at the end of its encode path;
-/// skipped columns (all-null / empty) do not.
 pub fn write_properties(props: &[StagedProperty], enc: &mut Encoder) -> MltResult<()> {
     for prop in props {
         write_prop(prop, enc)?;
@@ -74,32 +69,38 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
         D::I8(v) => {
             CT::write_one_of(presence.is_some(), CT::OptI8, CT::I8, &mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
-            write_int_prop_i8(v, presence, enc)?;
+            enc.write_optional_stream(presence)?;
+            write_int_prop_i8(v, enc)?;
         }
         D::U8(v) => {
             CT::write_one_of(presence.is_some(), CT::OptU8, CT::U8, &mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
-            write_int_prop_u8(v, presence, enc)?;
+            enc.write_optional_stream(presence)?;
+            write_int_prop_u8(v, enc)?;
         }
         D::I32(v) => {
             CT::write_one_of(presence.is_some(), CT::OptI32, CT::I32, &mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
-            write_int_prop_i32(v, presence, enc)?;
+            enc.write_optional_stream(presence)?;
+            write_int_prop_i32(v, enc)?;
         }
         D::U32(v) => {
             CT::write_one_of(presence.is_some(), CT::OptU32, CT::U32, &mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
-            write_int_prop_u32(v, presence, enc)?;
+            enc.write_optional_stream(presence)?;
+            write_int_prop_u32(v, enc)?;
         }
         D::I64(v) => {
             CT::write_one_of(presence.is_some(), CT::OptI64, CT::I64, &mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
-            write_int_prop_i64(v, presence, enc)?;
+            enc.write_optional_stream(presence)?;
+            write_int_prop_i64(v, enc)?;
         }
         D::U64(v) => {
             CT::write_one_of(presence.is_some(), CT::OptU64, CT::U64, &mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
-            write_int_prop_u64(v, presence, enc)?;
+            enc.write_optional_stream(presence)?;
+            write_int_prop_u64(v, enc)?;
         }
         D::Str(v) => {
             CT::write_one_of(presence.is_some(), CT::OptStr, CT::Str, &mut enc.meta)?;
@@ -115,126 +116,96 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
     Ok(true)
 }
 
-fn write_int_prop_i8(
-    v: &StagedScalar<i8>,
-    presence_stream: Option<&EncodedStream>,
-    enc: &mut Encoder,
-) -> MltResult<()> {
+fn write_int_prop_i8(v: &StagedScalar<i8>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<i8> = unapply_presence(&v.values);
     let widened: Vec<i32> = non_null.iter().map(|&x| i32::from(x)).collect();
-    let zigzagged = encode_zigzag(&widened);
+    let test_vals = encode_zigzag(&widened);
     let candidates = match enc.get_int_encoder("prop", &v.name, None) {
         Some(e) => vec![e],
-        None => DataProfile::prune_candidates::<i32>(&zigzagged),
+        None => DataProfile::prune_candidates::<i32>(&test_vals),
     };
-    enc.write_optional_stream(presence_stream)?;
     enc.start_alternatives();
     for &cand in &candidates {
         enc.write_stream(&EncodedStream::encode_i8s(&non_null, cand)?)?;
-        enc.finish_alternative();
+        enc.end_alternative();
     }
     enc.finish_alternatives();
     Ok(())
 }
 
-fn write_int_prop_u8(
-    v: &StagedScalar<u8>,
-    presence_stream: Option<&EncodedStream>,
-    enc: &mut Encoder,
-) -> MltResult<()> {
-    let non_null: Vec<u8> = unapply_presence(&v.values);
-    let as_u32: Vec<u32> = non_null.iter().map(|&x| u32::from(x)).collect();
-    let candidates = match enc.get_int_encoder("prop", &v.name, None) {
-        Some(e) => vec![e],
-        None => DataProfile::prune_candidates::<i32>(&as_u32),
-    };
-    enc.write_optional_stream(presence_stream)?;
-    enc.start_alternatives();
-    for &cand in &candidates {
-        enc.write_stream(&EncodedStream::encode_u8s(&non_null, cand)?)?;
-        enc.finish_alternative();
-    }
-    enc.finish_alternatives();
-    Ok(())
-}
-
-fn write_int_prop_i32(
-    v: &StagedScalar<i32>,
-    presence_stream: Option<&EncodedStream>,
-    enc: &mut Encoder,
-) -> MltResult<()> {
+fn write_int_prop_i32(v: &StagedScalar<i32>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<i32> = unapply_presence(&v.values);
-    let as_u32 = encode_zigzag(&non_null);
+    let test_vals = encode_zigzag(&non_null);
     let candidates = match enc.get_int_encoder("prop", &v.name, None) {
         Some(e) => vec![e],
-        None => DataProfile::prune_candidates::<i32>(&as_u32),
+        None => DataProfile::prune_candidates::<i32>(&test_vals),
     };
-    enc.write_optional_stream(presence_stream)?;
     enc.start_alternatives();
     for &cand in &candidates {
         enc.write_stream(&EncodedStream::encode_i32s(&non_null, cand)?)?;
-        enc.finish_alternative();
+        enc.end_alternative();
     }
     enc.finish_alternatives();
     Ok(())
 }
 
-fn write_int_prop_u32(
-    v: &StagedScalar<u32>,
-    presence_stream: Option<&EncodedStream>,
-    enc: &mut Encoder,
-) -> MltResult<()> {
+fn write_int_prop_i64(v: &StagedScalar<i64>, enc: &mut Encoder) -> MltResult<()> {
+    let non_null: Vec<i64> = unapply_presence(&v.values);
+    let test_vals: Vec<u64> = encode_zigzag(&non_null);
+    let candidates = match enc.get_int_encoder("prop", &v.name, None) {
+        Some(e) => vec![e],
+        None => DataProfile::prune_candidates::<i64>(&test_vals),
+    };
+    enc.start_alternatives();
+    for &cand in &candidates {
+        enc.write_stream(&EncodedStream::encode_i64s(&non_null, cand)?)?;
+        enc.end_alternative();
+    }
+    enc.finish_alternatives();
+    Ok(())
+}
+
+fn write_int_prop_u8(v: &StagedScalar<u8>, enc: &mut Encoder) -> MltResult<()> {
+    let non_null: Vec<u8> = unapply_presence(&v.values);
+    let test_vals: Vec<u32> = non_null.iter().map(|&x| u32::from(x)).collect();
+    let candidates = match enc.get_int_encoder("prop", &v.name, None) {
+        Some(e) => vec![e],
+        None => DataProfile::prune_candidates::<i32>(&test_vals),
+    };
+    enc.start_alternatives();
+    for &cand in &candidates {
+        enc.write_stream(&EncodedStream::encode_u8s(&non_null, cand)?)?;
+        enc.end_alternative();
+    }
+    enc.finish_alternatives();
+    Ok(())
+}
+
+fn write_int_prop_u32(v: &StagedScalar<u32>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<u32> = unapply_presence(&v.values);
     let candidates = match enc.get_int_encoder("prop", &v.name, None) {
         Some(e) => vec![e],
         None => DataProfile::prune_candidates::<i32>(&non_null),
     };
-    enc.write_optional_stream(presence_stream)?;
     enc.start_alternatives();
     for &cand in &candidates {
         enc.write_stream(&EncodedStream::encode_u32s(&non_null, cand)?)?;
-        enc.finish_alternative();
+        enc.end_alternative();
     }
     enc.finish_alternatives();
     Ok(())
 }
 
-fn write_int_prop_i64(
-    v: &StagedScalar<i64>,
-    presence_stream: Option<&EncodedStream>,
-    enc: &mut Encoder,
-) -> MltResult<()> {
-    let non_null: Vec<i64> = unapply_presence(&v.values);
-    let as_u64: Vec<u64> = encode_zigzag(&non_null);
-    let candidates = match enc.get_int_encoder("prop", &v.name, None) {
-        Some(e) => vec![e],
-        None => DataProfile::prune_candidates::<i64>(&as_u64),
-    };
-    enc.write_optional_stream(presence_stream)?;
-    enc.start_alternatives();
-    for &cand in &candidates {
-        enc.write_stream(&EncodedStream::encode_i64s(&non_null, cand)?)?;
-        enc.finish_alternative();
-    }
-    enc.finish_alternatives();
-    Ok(())
-}
-
-fn write_int_prop_u64(
-    v: &StagedScalar<u64>,
-    presence_stream: Option<&EncodedStream>,
-    enc: &mut Encoder,
-) -> MltResult<()> {
+fn write_int_prop_u64(v: &StagedScalar<u64>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<u64> = unapply_presence(&v.values);
     let candidates = match enc.get_int_encoder("prop", &v.name, None) {
         Some(e) => vec![e],
         None => DataProfile::prune_candidates::<i64>(&non_null),
     };
-    enc.write_optional_stream(presence_stream)?;
     enc.start_alternatives();
     for &cand in &candidates {
         enc.write_stream(&EncodedStream::encode_u64s(&non_null, cand)?)?;
-        enc.finish_alternative();
+        enc.end_alternative();
     }
     enc.finish_alternatives();
     Ok(())

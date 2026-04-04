@@ -156,7 +156,7 @@ impl IdValues {
             enc.start_alternatives();
             for &cand in &candidates {
                 write_id_value_stream(&self, id_width, cand, enc)?;
-                enc.finish_alternative();
+                enc.end_alternative();
             }
             enc.finish_alternatives();
         }

@@ -392,7 +392,7 @@ fn write_stream_auto(data: &[u32], stream_type: StreamType, enc: &mut Encoder) -
             cand,
             stream_type,
         )?)?;
-        enc.finish_alternative();
+        enc.end_alternative();
     }
     enc.finish_alternatives();
     Ok(())
@@ -650,7 +650,7 @@ impl GeometryValues {
                 enc.start_alternatives();
                 for &cand in &candidates {
                     enc.write_stream(&encode_vertex_delta_stream(delta, cand.physical)?)?;
-                    enc.finish_alternative();
+                    enc.end_alternative();
                 }
                 enc.finish_alternatives();
             }
@@ -680,7 +680,7 @@ impl GeometryValues {
                         *morton_meta,
                         cand.physical,
                     )?)?;
-                    enc.finish_alternative();
+                    enc.end_alternative();
                 }
                 enc.finish_alternatives();
             }
