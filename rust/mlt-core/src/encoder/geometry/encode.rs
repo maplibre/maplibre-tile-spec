@@ -355,12 +355,6 @@ fn write_geo_u32_stream(
 impl GeometryValues {
     /// Write the geometry column to `enc`.
     pub fn write_to(self, enc: &mut Encoder) -> MltResult<()> {
-        let vertex_buffer_type = enc.override_vertex_buffer_type().unwrap_or_else(|| {
-            self.vertices
-                .as_deref()
-                .map_or(VertexBufferType::Vec2, select_vertex_strategy)
-        });
-
         let Self {
             vector_types,
             geometry_offsets,
@@ -371,7 +365,13 @@ impl GeometryValues {
             vertices,
         } = self;
 
-        // Normalize offsets (same logic as encode_geometry).
+        let vertex_buffer_type = enc.override_vertex_buffer_type().unwrap_or_else(|| {
+            vertices
+                .as_deref()
+                .map_or(VertexBufferType::Vec2, select_vertex_strategy)
+        });
+
+        // Normalize offsets.
         let normalized_parts = if geometry_offsets.is_none() && ring_offsets.is_some() {
             if let (Some(part_offs), Some(ring_offs)) = (&part_offsets, &ring_offsets) {
                 Some(normalize_part_offsets_for_rings(
