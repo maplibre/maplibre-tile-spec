@@ -118,96 +118,96 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
 
 fn write_int_prop_i8(v: &StagedScalar<i8>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<i8> = unapply_presence(&v.values);
-    let widened: Vec<i32> = non_null.iter().map(|&x| i32::from(x)).collect();
-    let test_vals = encode_zigzag(&widened);
-    let candidates = match enc.get_int_encoder("prop", &v.name, None) {
-        Some(e) => vec![e],
-        None => DataProfile::prune_candidates::<i32>(&test_vals),
-    };
-    enc.start_alternatives();
-    for &cand in &candidates {
-        enc.write_stream(&EncodedStream::encode_i8s(&non_null, cand)?)?;
-        enc.end_alternative();
+    if let Some(e) = enc.get_int_encoder("prop", &v.name, None) {
+        enc.write_stream(&EncodedStream::encode_i8s(&non_null, e)?)?;
+    } else {
+        enc.start_alternatives();
+        let widened: Vec<i32> = non_null.iter().map(|&x| i32::from(x)).collect();
+        let test_vals = encode_zigzag(&widened);
+        for cand in DataProfile::prune_candidates::<i32>(&test_vals) {
+            enc.write_stream(&EncodedStream::encode_i8s(&non_null, cand)?)?;
+            enc.end_alternative();
+        }
+        enc.finish_alternatives();
     }
-    enc.finish_alternatives();
     Ok(())
 }
 
 fn write_int_prop_i32(v: &StagedScalar<i32>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<i32> = unapply_presence(&v.values);
-    let test_vals = encode_zigzag(&non_null);
-    let candidates = match enc.get_int_encoder("prop", &v.name, None) {
-        Some(e) => vec![e],
-        None => DataProfile::prune_candidates::<i32>(&test_vals),
-    };
-    enc.start_alternatives();
-    for &cand in &candidates {
-        enc.write_stream(&EncodedStream::encode_i32s(&non_null, cand)?)?;
-        enc.end_alternative();
+    if let Some(e) = enc.get_int_encoder("prop", &v.name, None) {
+        enc.write_stream(&EncodedStream::encode_i32s(&non_null, e)?)?;
+    } else {
+        enc.start_alternatives();
+        let test_vals = encode_zigzag(&non_null);
+        for cand in DataProfile::prune_candidates::<i32>(&test_vals) {
+            enc.write_stream(&EncodedStream::encode_i32s(&non_null, cand)?)?;
+            enc.end_alternative();
+        }
+        enc.finish_alternatives();
     }
-    enc.finish_alternatives();
     Ok(())
 }
 
 fn write_int_prop_i64(v: &StagedScalar<i64>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<i64> = unapply_presence(&v.values);
-    let test_vals: Vec<u64> = encode_zigzag(&non_null);
-    let candidates = match enc.get_int_encoder("prop", &v.name, None) {
-        Some(e) => vec![e],
-        None => DataProfile::prune_candidates::<i64>(&test_vals),
-    };
-    enc.start_alternatives();
-    for &cand in &candidates {
-        enc.write_stream(&EncodedStream::encode_i64s(&non_null, cand)?)?;
-        enc.end_alternative();
+    if let Some(e) = enc.get_int_encoder("prop", &v.name, None) {
+        enc.write_stream(&EncodedStream::encode_i64s(&non_null, e)?)?;
+    } else {
+        enc.start_alternatives();
+        let test_vals: Vec<u64> = encode_zigzag(&non_null);
+        for cand in DataProfile::prune_candidates::<i64>(&test_vals) {
+            enc.write_stream(&EncodedStream::encode_i64s(&non_null, cand)?)?;
+            enc.end_alternative();
+        }
+        enc.finish_alternatives();
     }
-    enc.finish_alternatives();
     Ok(())
 }
 
 fn write_int_prop_u8(v: &StagedScalar<u8>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<u8> = unapply_presence(&v.values);
-    let test_vals: Vec<u32> = non_null.iter().map(|&x| u32::from(x)).collect();
-    let candidates = match enc.get_int_encoder("prop", &v.name, None) {
-        Some(e) => vec![e],
-        None => DataProfile::prune_candidates::<i32>(&test_vals),
-    };
-    enc.start_alternatives();
-    for &cand in &candidates {
-        enc.write_stream(&EncodedStream::encode_u8s(&non_null, cand)?)?;
-        enc.end_alternative();
+    if let Some(e) = enc.get_int_encoder("prop", &v.name, None) {
+        enc.write_stream(&EncodedStream::encode_u8s(&non_null, e)?)?;
+    } else {
+        enc.start_alternatives();
+        let test_vals: Vec<u32> = non_null.iter().map(|&x| u32::from(x)).collect();
+        for cand in DataProfile::prune_candidates::<i32>(&test_vals) {
+            enc.write_stream(&EncodedStream::encode_u8s(&non_null, cand)?)?;
+            enc.end_alternative();
+        }
+        enc.finish_alternatives();
     }
-    enc.finish_alternatives();
     Ok(())
 }
 
 fn write_int_prop_u32(v: &StagedScalar<u32>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<u32> = unapply_presence(&v.values);
-    let candidates = match enc.get_int_encoder("prop", &v.name, None) {
-        Some(e) => vec![e],
-        None => DataProfile::prune_candidates::<i32>(&non_null),
-    };
-    enc.start_alternatives();
-    for &cand in &candidates {
-        enc.write_stream(&EncodedStream::encode_u32s(&non_null, cand)?)?;
-        enc.end_alternative();
+    if let Some(e) = enc.get_int_encoder("prop", &v.name, None) {
+        enc.write_stream(&EncodedStream::encode_u32s(&non_null, e)?)?;
+    } else {
+        enc.start_alternatives();
+        for cand in DataProfile::prune_candidates::<i32>(&non_null) {
+            enc.write_stream(&EncodedStream::encode_u32s(&non_null, cand)?)?;
+            enc.end_alternative();
+        }
+        enc.finish_alternatives();
     }
-    enc.finish_alternatives();
     Ok(())
 }
 
 fn write_int_prop_u64(v: &StagedScalar<u64>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<u64> = unapply_presence(&v.values);
-    let candidates = match enc.get_int_encoder("prop", &v.name, None) {
-        Some(e) => vec![e],
-        None => DataProfile::prune_candidates::<i64>(&non_null),
-    };
-    enc.start_alternatives();
-    for &cand in &candidates {
-        enc.write_stream(&EncodedStream::encode_u64s(&non_null, cand)?)?;
-        enc.end_alternative();
+    if let Some(e) = enc.get_int_encoder("prop", &v.name, None) {
+        enc.write_stream(&EncodedStream::encode_u64s(&non_null, e)?)?;
+    } else {
+        enc.start_alternatives();
+        for cand in DataProfile::prune_candidates::<i64>(&non_null) {
+            enc.write_stream(&EncodedStream::encode_u64s(&non_null, cand)?)?;
+            enc.end_alternative();
+        }
+        enc.finish_alternatives();
     }
-    enc.finish_alternatives();
     Ok(())
 }
 
