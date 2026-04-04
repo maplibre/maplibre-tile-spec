@@ -352,21 +352,6 @@ fn write_geo_u32_stream(
     write_u32_stream(data, stream_type, "geo", geo_stream_name, "", enc)
 }
 
-/// Internal representation of pre-computed geometry topology payloads.
-///
-/// Each element of `topology` is `(stream_type, raw_u32_payload)` in the
-/// order they must be written.  `vertex_buffer_type` is determined by
-/// `select_vertex_strategy` for the auto path.
-pub struct GeometryPayloads {
-    pub meta: Vec<u32>,
-    pub topology: Vec<(StreamType, Vec<u32>)>,
-    pub vertex_buffer_type: VertexBufferType,
-    // Vertex raw payloads
-    pub vertex_vec2_delta: Option<Vec<u32>>,
-    pub morton_offsets: Option<Vec<u32>>,
-    pub morton_dict: Option<(MortonMeta, Vec<u32>)>, // (dict_u32s, meta)
-}
-
 impl GeometryValues {
     /// Write the geometry column to `enc`.
     pub fn write_to(self, enc: &mut Encoder) -> MltResult<()> {
@@ -376,7 +361,7 @@ impl GeometryValues {
                 .map_or(VertexBufferType::Vec2, select_vertex_strategy)
         });
 
-        let GeometryValues {
+        let Self {
             vector_types,
             geometry_offsets,
             part_offsets,
@@ -510,37 +495,26 @@ impl GeometryValues {
             (None, _) => (None, None, None),
         };
 
-        let payloads = GeometryPayloads {
-            meta,
-            topology,
-            vertex_buffer_type,
-            vertex_vec2_delta,
-            morton_offsets,
-            morton_dict,
-        };
-
         let has_geom_offs = self.geometry_offsets.is_some();
         let has_ring_offs = self.ring_offsets.is_some();
         let is_part_with_rings = has_geom_offs && has_ring_offs;
         let is_ring_level2 = !has_geom_offs && has_ring_offs;
 
-        let vertex_stream_count = match payloads.vertex_buffer_type {
-            _ if payloads.vertex_vec2_delta.is_none() && payloads.morton_offsets.is_none() => 0,
+        let vertex_stream_count = match vertex_buffer_type {
+            _ if vertex_vec2_delta.is_none() && morton_offsets.is_none() => 0,
             VertexBufferType::Vec2 => 1,
             VertexBufferType::Morton => 2,
         };
-        let stream_count = checked_sum2(
-            u32::try_from(1 + payloads.topology.len() + vertex_stream_count)?,
-            0,
-        )?;
+        let stream_count =
+            checked_sum2(u32::try_from(1 + topology.len() + vertex_stream_count)?, 0)?;
 
         ColumnType::Geometry.write_to(&mut enc.meta)?;
         enc.write_varint(stream_count)?;
 
         let typ = StreamType::Length(LengthType::VarBinary);
-        write_geo_u32_stream(&payloads.meta, typ, "meta", enc)?;
+        write_geo_u32_stream(&meta, typ, "meta", enc)?;
 
-        for (stream_type, data) in &payloads.topology {
+        for (stream_type, data) in &topology {
             let name = match stream_type {
                 StreamType::Length(LengthType::Geometries) => "geometries",
                 StreamType::Length(LengthType::Parts) => {
@@ -566,11 +540,9 @@ impl GeometryValues {
             write_geo_u32_stream(data, *stream_type, name, enc)?;
         }
 
-        if let Some(delta) = &payloads.vertex_vec2_delta {
+        if let Some(delta) = &vertex_vec2_delta {
             write_vertex_delta_stream(delta, enc)?;
-        } else if let (Some(offsets), Some((morton_meta, dict))) =
-            (&payloads.morton_offsets, &payloads.morton_dict)
-        {
+        } else if let (Some(offsets), Some((morton_meta, dict))) = (&morton_offsets, &morton_dict) {
             let typ = StreamType::Offset(OffsetType::Vertex);
             write_geo_u32_stream(offsets, typ, "vertex_offsets", enc)?;
             let dict_deltas = morton_deltas(dict);
