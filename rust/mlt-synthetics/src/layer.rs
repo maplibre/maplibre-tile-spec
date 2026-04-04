@@ -11,7 +11,7 @@ use mlt_core::encoder::{
 use mlt_core::geojson::Geom32;
 use mlt_core::{GeometryValues, IdValues};
 
-use crate::writer::{SynthErr, SynthResult};
+use crate::writer::{SynthErr, SynthResult, SynthWriter};
 
 /// Create a layer with all geometry encoders set to `VarInt`.
 pub fn geo_varint() -> Layer {
@@ -313,6 +313,24 @@ impl Layer {
             },
         ));
         self
+    }
+
+    /// Encode and then either verify against the reference dir (non-rust files) or write to the
+    /// output dir (`-rust`-suffixed files). Delegates to [`SynthWriter::write`].
+    /// Automatically creates -ns variant if `force_empty_streams` is set
+    pub fn write(self, w: &mut SynthWriter, name: impl AsRef<str>) {
+        if !self.force_empty_streams.is_empty() {
+            let mut layer = self.clone();
+            layer.force_empty_streams.clear();
+            w.write(layer, format!("{}-ns", name.as_ref()));
+        }
+        w.write(self, name);
+    }
+    /// Write regular and no-presence variants
+    pub fn write_np(mut self, w: &mut SynthWriter, name: impl AsRef<str>) {
+        w.write(self.clone(), format!("{}_np", name.as_ref()));
+        self.force_presence_stream();
+        w.write(self, name);
     }
 
     // ── Layer config ──────────────────────────────────────────────────────────

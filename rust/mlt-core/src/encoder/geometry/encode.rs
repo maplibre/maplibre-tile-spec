@@ -191,6 +191,11 @@ fn encode_level2_length_stream(
 }
 
 /// Convert part offsets without ring buffer to length stream.
+///
+/// This path is reached only when `ring_offsets` is absent, which means no Polygon/MultiPolygon
+/// types are present (they always create `ring_offsets`).  Only LineString/MultiLineString
+/// contribute vertex-count lengths here; Point/MultiPoint use an implicit count of 1 in the
+/// decoder and produce no entry in this stream.
 fn encode_level1_without_ring_buffer_length_stream(
     geometry_types: &[GeometryType],
     geometry_offsets: &[u32],
@@ -202,7 +207,7 @@ fn encode_level1_without_ring_buffer_length_stream(
     for (i, &geom_type) in geometry_types.iter().enumerate() {
         let num_geoms = (geometry_offsets[i + 1] - geometry_offsets[i]).as_usize();
 
-        if geom_type.is_linestring() || geom_type.is_polygon() {
+        if geom_type.is_linestring() {
             for _ in 0..num_geoms {
                 let start = part_offsets[part_idx];
                 let end = part_offsets[part_idx + 1];
@@ -210,7 +215,7 @@ fn encode_level1_without_ring_buffer_length_stream(
                 part_idx += 1;
             }
         }
-        // Note: Point/MultiPoint don't contribute to part_offsets, so don't advance part_idx
+        // Point/MultiPoint don't contribute to part_offsets; part_idx must not advance.
     }
 
     lengths
@@ -249,23 +254,26 @@ fn normalize_geometry_offsets(vector_types: &[GeometryType], geometry_offsets: &
 }
 
 /// Normalize `part_offsets` for ring-based indexing (Polygon mixed with `Point`/`LineString`).
+///
+/// Called only when `geometry_offsets` is absent (no Multi\* types) and `ring_offsets` is
+/// present.  In this context `part_offsets` is a compact polygon-only array; this function
+/// expands it to a dense per-geometry array so that `encode_ring_lengths_for_mixed` can index
+/// directly by geometry position.
+///
+/// Each slot in the output holds the first index into `ring_offsets` for that geometry:
+/// - `Point`: no contribution — slot range is empty (`ring_idx` unchanged).
+/// - `LineString`: contributes 1 slot (vertex count) — slot range is 1.
+/// - `Polygon`: contributes `ring_count` slots — slot range equals its ring count.
 fn normalize_part_offsets_for_rings(
     vector_types: &[GeometryType],
     part_offsets: &[u32],
     ring_offsets: &[u32],
 ) -> Vec<u32> {
-    let num_rings = if ring_offsets.is_empty() {
-        0
-    } else {
-        u32::try_from(ring_offsets.len() - 1).expect("ring count overflow")
-    };
-
-    // Check if already normalized (has N+1 entries for N geometry types)
+    // Check if already normalized (has N+1 entries for N geometry types).
     if part_offsets.len() == vector_types.len() + 1 {
         return part_offsets.to_vec();
     }
 
-    // Build normalized offset array for ring-based indexing
     let mut normalized = Vec::with_capacity(vector_types.len() + 1);
     let mut ring_idx = 0_u32;
     let mut part_idx = 0_usize;
@@ -274,20 +282,26 @@ fn normalize_part_offsets_for_rings(
         normalized.push(ring_idx);
 
         if geom_type == Point {
-            // Point doesn't contribute to ring_offsets
+            // Point has no vertex-count slot in ring_offsets.
         } else if geom_type.is_linestring() {
-            // LineString contributes 1 entry to ring_offsets (its vertex count)
+            // Each LineString occupies exactly one slot in ring_offsets.
             ring_idx += 1;
         } else if geom_type.is_polygon() && part_idx + 1 < part_offsets.len() {
-            // Polygon contributes ring_count entries (vertex count for each ring)
+            // Polygon occupies ring_count slots (one vertex-count per ring).
             let ring_count = part_offsets[part_idx + 1] - part_offsets[part_idx];
             ring_idx += ring_count;
             part_idx += 1;
         }
-        // MultiPolygon is handled through geometry_offsets
+        // No Multi* types can appear here (they always produce geometry_offsets).
     }
 
-    normalized.push(ring_idx.min(num_rings));
+    // ring_idx must equal ring_offsets.len() - 1 for well-formed data.
+    debug_assert_eq!(
+        ring_idx as usize,
+        ring_offsets.len().saturating_sub(1),
+        "ring index mismatch after normalization"
+    );
+    normalized.push(ring_idx);
     normalized
 }
 
@@ -297,17 +311,20 @@ fn normalize_part_offsets_for_rings(
 /// - The coordinate range fits within 16 bits per axis (required by the spec), and
 /// - The uniqueness ratio is below the threshold, meaning enough vertices are
 ///   repeated that the dictionary overhead is worthwhile.
-pub fn select_vertex_strategy(vertices: &[i32]) -> VertexBufferType {
+///
+/// Returns the chosen [`VertexBufferType`] together with the pre-computed [`MortonMeta`]
+/// when Morton is selected, so the caller can reuse it without a second range scan.
+pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<MortonMeta>) {
     const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.5;
 
     let total = vertices.len() / 2;
     if total == 0 {
-        return VertexBufferType::Vec2;
+        return (VertexBufferType::Vec2, None);
     }
 
-    if z_order_params(vertices).is_err() {
-        return VertexBufferType::Vec2;
-    }
+    let Ok(meta) = z_order_params(vertices) else {
+        return (VertexBufferType::Vec2, None);
+    };
 
     let unique_count = vertices
         .chunks_exact(2)
@@ -319,9 +336,9 @@ pub fn select_vertex_strategy(vertices: &[i32]) -> VertexBufferType {
     let uniqueness_ratio = unique_count as f64 / total as f64;
 
     if uniqueness_ratio < MORTON_UNIQUENESS_THRESHOLD {
-        VertexBufferType::Morton
+        (VertexBufferType::Morton, Some(meta))
     } else {
-        VertexBufferType::Vec2
+        (VertexBufferType::Vec2, None)
     }
 }
 
@@ -387,9 +404,12 @@ impl GeometryValues {
         let triangles = triangles.unwrap_or_default();
         let vertices = vertices.unwrap_or_default();
 
-        let vertex_buffer_type = enc
-            .override_vertex_buffer_type()
-            .unwrap_or_else(|| select_vertex_strategy(&vertices));
+        // Select vertex encoding strategy; auto-selection pre-computes MortonMeta so we don't
+        // have to scan the vertex range twice.
+        let (vertex_buffer_type, auto_morton_meta) = match enc.override_vertex_buffer_type() {
+            Some(vbt) => (vbt, None),
+            None => select_vertex_strategy(&vertices),
+        };
 
         let meta: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
 
@@ -502,7 +522,12 @@ impl GeometryValues {
                 n += write_geo_precomputed_stream(&delta, typ, logical, "vertex", enc)?;
             }
             VertexBufferType::Morton => {
-                let morton_meta = z_order_params(&vertices)?;
+                // Reuse the MortonMeta computed during auto-selection to avoid a second vertex
+                // range scan; compute it fresh only when the type was forced via override.
+                let morton_meta = match auto_morton_meta {
+                    Some(meta) => meta,
+                    None => z_order_params(&vertices)?,
+                };
                 let (dict, offsets) = build_morton_dict(&vertices, morton_meta)?;
                 let typ = StreamType::Offset(OffsetType::Vertex);
                 n += write_geo_u32_stream(&offsets, typ, "vertex_offsets", enc)?;

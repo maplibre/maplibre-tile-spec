@@ -13,6 +13,7 @@
 //! * `np` - no presence stream, i.e. values exist for each feature in a column
 //! * `fpf` - uses `FastPFor` compression
 //! * `tes` - includes tessellation triangles stream
+//! * `ns` - unlike Java encoder, empty streams are not forced to be created
 
 mod layer;
 mod writer;
