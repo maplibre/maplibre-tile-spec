@@ -268,6 +268,8 @@ fn normalize_part_offsets_for_rings(
     part_offsets: &[u32],
     ring_offsets: &[u32],
 ) -> Vec<u32> {
+    use GeometryType::*;
+
     let num_rings = if ring_offsets.is_empty() {
         0
     } else {
@@ -287,7 +289,7 @@ fn normalize_part_offsets_for_rings(
     for &geom_type in vector_types {
         normalized.push(ring_idx);
 
-        if geom_type == GeometryType::Point {
+        if geom_type == Point {
             // Point doesn't contribute to ring_offsets
         } else if geom_type.is_linestring() {
             // LineString contributes 1 entry to ring_offsets (its vertex count)
@@ -358,6 +360,8 @@ fn write_geo_u32_stream(
 impl GeometryValues {
     /// Write the geometry column to `enc`.
     pub fn write_to(self, enc: &mut Encoder) -> MltResult<()> {
+        use GeometryType::*;
+
         let Self {
             vector_types,
             geometry_offsets,
@@ -403,13 +407,11 @@ impl GeometryValues {
         // Topology: compute each length stream and write it immediately.
         if let Some(geom_offs) = geometry_offsets {
             let geom_offs = normalize_geometry_offsets(&vector_types, &geom_offs);
-            let lengths =
-                encode_root_length_stream(&vector_types, &geom_offs, GeometryType::Polygon);
-            if !lengths.is_empty() || triangles.is_some() {
-                let typ = StreamType::Length(LengthType::Geometries);
-                write_u32_stream(&lengths, typ, "geo", "geometries", "", enc)?;
-                n += 1;
-            }
+
+            let lengths = encode_root_length_stream(&vector_types, &geom_offs, Polygon);
+            let typ = StreamType::Length(LengthType::Geometries);
+            n += write_geo_u32_stream(&lengths, typ, "geometries", enc)?;
+
             if let Some(part_offs) = &normalized_parts {
                 if let Some(ring_offs) = ring_offsets {
                     // Full topology: geom → parts → rings.
@@ -448,8 +450,7 @@ impl GeometryValues {
                     n += 1;
                 }
 
-                let pl =
-                    encode_root_length_stream(&vector_types, part_offs, GeometryType::LineString);
+                let pl = encode_root_length_stream(&vector_types, part_offs, LineString);
                 let typ = StreamType::Length(LengthType::Parts);
                 n += write_geo_u32_stream(&pl, typ, "parts", enc)?;
 
@@ -468,8 +469,7 @@ impl GeometryValues {
                 let typ = StreamType::Length(LengthType::Rings);
                 n += write_geo_u32_stream(&rl, typ, "parts_ring", enc)?;
             } else {
-                let lengths =
-                    encode_root_length_stream(&vector_types, part_offs, GeometryType::Point);
+                let lengths = encode_root_length_stream(&vector_types, part_offs, Point);
                 let typ = StreamType::Length(LengthType::Parts);
                 n += write_geo_u32_stream(&lengths, typ, "no_rings", enc)?;
             }
