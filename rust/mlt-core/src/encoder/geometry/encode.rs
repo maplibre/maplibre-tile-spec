@@ -372,6 +372,12 @@ impl GeometryValues {
             vertices,
         } = self;
 
+        // Flatten topology Option<Vec> → Vec (empty == not present) so the
+        // rest of the function can use plain emptiness checks.
+        let geometry_offsets = geometry_offsets.unwrap_or_default();
+        let part_offsets = part_offsets.unwrap_or_default();
+        let ring_offsets = ring_offsets.unwrap_or_default();
+
         let vertex_buffer_type = enc.override_vertex_buffer_type().unwrap_or_else(|| {
             vertices
                 .as_deref()
@@ -381,13 +387,11 @@ impl GeometryValues {
         let meta: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
 
         // Normalize part_offsets when there are no geometry offsets but ring offsets exist.
-        let normalized_parts = if geometry_offsets.is_none() && ring_offsets.is_some() {
-            match (&part_offsets, &ring_offsets) {
-                (Some(po), Some(ro)) => {
-                    Some(normalize_part_offsets_for_rings(&vector_types, po, ro))
-                }
-                _ => part_offsets,
-            }
+        let normalized_parts = if geometry_offsets.is_empty()
+            && !ring_offsets.is_empty()
+            && !part_offsets.is_empty()
+        {
+            normalize_part_offsets_for_rings(&vector_types, &part_offsets, &ring_offsets)
         } else {
             part_offsets
         };
@@ -405,27 +409,30 @@ impl GeometryValues {
         n += 1;
 
         // Topology: compute each length stream and write it immediately.
-        if let Some(geom_offs) = geometry_offsets {
-            let geom_offs = normalize_geometry_offsets(&vector_types, &geom_offs);
-
+        if !geometry_offsets.is_empty() {
+            let geom_offs = normalize_geometry_offsets(&vector_types, &geometry_offsets);
             let lengths = encode_root_length_stream(&vector_types, &geom_offs, Polygon);
             let typ = StreamType::Length(LengthType::Geometries);
             n += write_geo_u32_stream(&lengths, typ, "geometries", enc)?;
 
-            if let Some(part_offs) = &normalized_parts {
-                if let Some(ring_offs) = ring_offsets {
+            if !normalized_parts.is_empty() {
+                if !ring_offsets.is_empty() {
                     // Full topology: geom → parts → rings.
                     // LineStrings contribute to rings here, not to parts.
-                    let pl =
-                        encode_level1_length_stream(&vector_types, &geom_offs, part_offs, false);
+                    let pl = encode_level1_length_stream(
+                        &vector_types,
+                        &geom_offs,
+                        &normalized_parts,
+                        false,
+                    );
                     let typ = StreamType::Length(LengthType::Parts);
                     n += write_geo_u32_stream(&pl, typ, "rings", enc)?;
 
                     let rl = encode_level2_length_stream(
                         &vector_types,
                         &geom_offs,
-                        part_offs,
-                        &ring_offs,
+                        &normalized_parts,
+                        &ring_offsets,
                     );
                     let typ = StreamType::Length(LengthType::Rings);
                     n += write_geo_u32_stream(&rl, typ, "rings2", enc)?;
@@ -434,14 +441,14 @@ impl GeometryValues {
                     let pl = encode_level1_without_ring_buffer_length_stream(
                         &vector_types,
                         &geom_offs,
-                        part_offs,
+                        &normalized_parts,
                     );
                     let typ = StreamType::Length(LengthType::Parts);
                     n += write_geo_u32_stream(&pl, typ, "no_rings", enc)?;
                 }
             }
-        } else if let Some(part_offs) = &normalized_parts {
-            if let Some(ring_offs) = ring_offsets {
+        } else if !normalized_parts.is_empty() {
+            if !ring_offsets.is_empty() {
                 // No Multi* types; parts → rings (Polygon / mixed Point+Polygon).
                 // Java includes an empty geometries stream for tessellated polygons with outlines.
                 if triangles.is_some() {
@@ -450,7 +457,7 @@ impl GeometryValues {
                     n += 1;
                 }
 
-                let pl = encode_root_length_stream(&vector_types, part_offs, LineString);
+                let pl = encode_root_length_stream(&vector_types, &normalized_parts, LineString);
                 let typ = StreamType::Length(LengthType::Parts);
                 n += write_geo_u32_stream(&pl, typ, "parts", enc)?;
 
@@ -459,8 +466,8 @@ impl GeometryValues {
                 // Point slots by index rather than a running counter.
                 let rl = encode_ring_lengths_for_mixed(
                     &vector_types,
-                    part_offs,
-                    &ring_offs,
+                    &normalized_parts,
+                    &ring_offsets,
                     vector_types
                         .iter()
                         .copied()
@@ -469,7 +476,7 @@ impl GeometryValues {
                 let typ = StreamType::Length(LengthType::Rings);
                 n += write_geo_u32_stream(&rl, typ, "parts_ring", enc)?;
             } else {
-                let lengths = encode_root_length_stream(&vector_types, part_offs, Point);
+                let lengths = encode_root_length_stream(&vector_types, &normalized_parts, Point);
                 let typ = StreamType::Length(LengthType::Parts);
                 n += write_geo_u32_stream(&lengths, typ, "no_rings", enc)?;
             }
