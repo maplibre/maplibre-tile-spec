@@ -13,7 +13,7 @@ use crate::decoder::{
 use crate::encoder::Encoder;
 use crate::encoder::stream::{write_precomputed_u32, write_u32_stream};
 use crate::errors::AsMltError as _;
-use crate::utils::{AsUsize as _, checked_sum2};
+use crate::utils::AsUsize as _;
 
 /// Write pre-computed componentwise-delta vertex values, competing physical encoders.
 fn write_vertex_delta_stream(delta: &[u32], enc: &mut Encoder) -> MltResult<()> {
@@ -369,29 +369,27 @@ impl GeometryValues {
             index_buffer,
             triangles,
             vertices,
-        } = &self;
+        } = self;
 
         // Normalize offsets (same logic as encode_geometry).
         let normalized_parts = if geometry_offsets.is_none() && ring_offsets.is_some() {
-            if let (Some(part_offs), Some(ring_offs)) = (part_offsets, ring_offsets) {
+            if let (Some(part_offs), Some(ring_offs)) = (&part_offsets, &ring_offsets) {
                 Some(normalize_part_offsets_for_rings(
-                    vector_types,
+                    &vector_types,
                     part_offs,
                     ring_offs,
                 ))
             } else {
-                part_offsets.clone()
+                part_offsets
             }
         } else {
-            part_offsets.clone()
+            part_offsets
         };
-        let part_offsets = &normalized_parts;
 
         // Normalize geometry_offsets for mixed geometry types
         let normalized_geom_offs = geometry_offsets
             .as_ref()
-            .map(|g| normalize_geometry_offsets(vector_types, g));
-        let geometry_offsets = &normalized_geom_offs;
+            .map(|g| normalize_geometry_offsets(&vector_types, g));
 
         let meta: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
 
@@ -401,152 +399,169 @@ impl GeometryValues {
             .any(GeometryType::is_linestring);
         let has_tessellation = triangles.is_some();
 
-        let mut topology: Vec<(StreamType, Vec<u32>)> = Vec::new();
+        // Determine stream naming from the original (un-normalized) offsets.
+        let has_geom_offs = geometry_offsets.is_some();
+        let has_ring_offs = ring_offsets.is_some();
 
-        if let Some(geom_offs) = geometry_offsets {
-            let lengths = encode_root_length_stream(vector_types, geom_offs, GeometryType::Polygon);
+        // Compute each topology stream independently as a typed Option.
+        // `geom_lengths`  → Geometries  (LengthType::Geometries)
+        // `parts_lengths` → Parts       (LengthType::Parts,  name = parts_name)
+        // `rings_lengths` → Rings       (LengthType::Rings,  name = rings_name)
+        // `triangles` and `index_buffer` come directly from the geometry data.
+        let mut geom_lengths: Option<Vec<u32>> = None;
+        let mut parts_lengths: Option<Vec<u32>> = None;
+        let mut rings_lengths: Option<Vec<u32>> = None;
+
+        if let Some(geom_offs) = &normalized_geom_offs {
+            let lengths =
+                encode_root_length_stream(&vector_types, geom_offs, GeometryType::Polygon);
             if !lengths.is_empty() || has_tessellation {
-                topology.push((StreamType::Length(LengthType::Geometries), lengths));
+                geom_lengths = Some(lengths);
             }
-
-            if let Some(part_offs) = part_offsets {
+            if let Some(part_offs) = &normalized_parts {
                 if let Some(ring_offs) = ring_offsets {
-                    // Full topology: geom -> parts -> rings
-                    // When rings are present (Polygon in layer), LineStrings contribute to rings, not parts.
-                    // So is_line_string_present should be false for the parts stream.
-                    let part_lengths =
-                        encode_level1_length_stream(vector_types, geom_offs, part_offs, false);
-                    if !part_lengths.is_empty() {
-                        topology.push((StreamType::Length(LengthType::Parts), part_lengths));
+                    // Full topology: geom → parts → rings.
+                    // LineStrings contribute to rings here, not parts.
+                    let pl =
+                        encode_level1_length_stream(&vector_types, geom_offs, part_offs, false);
+                    if !pl.is_empty() {
+                        parts_lengths = Some(pl);
                     }
-                    let ring_lengths =
-                        encode_level2_length_stream(vector_types, geom_offs, part_offs, ring_offs);
-                    if !ring_lengths.is_empty() {
-                        topology.push((StreamType::Length(LengthType::Rings), ring_lengths));
+                    let rl = encode_level2_length_stream(
+                        &vector_types,
+                        geom_offs,
+                        part_offs,
+                        &ring_offs,
+                    );
+                    if !rl.is_empty() {
+                        rings_lengths = Some(rl);
                     }
                 } else {
-                    // Only geom -> parts (no rings)
-                    let part_lengths = encode_level1_without_ring_buffer_length_stream(
-                        vector_types,
+                    // geom → parts only (no rings).
+                    let pl = encode_level1_without_ring_buffer_length_stream(
+                        &vector_types,
                         geom_offs,
                         part_offs,
                     );
-                    if !part_lengths.is_empty() {
-                        topology.push((StreamType::Length(LengthType::Parts), part_lengths));
+                    if !pl.is_empty() {
+                        parts_lengths = Some(pl);
                     }
                 }
             }
-        } else if let Some(part_offs) = part_offsets {
-            // No geometry offsets (no Multi* types), encode from parts
+        } else if let Some(part_offs) = &normalized_parts {
             if let Some(ring_offs) = ring_offsets {
-                // parts -> rings (e.g., Polygon without Multi, or mixed Point + Polygon)
-
-                // For tessellated polygons with outlines, Java includes an empty geometries stream
+                // No Multi* types; parts → rings (Polygon/mixed Point+Polygon).
+                // Java writes an empty geometries stream for tessellated polygons with outlines.
                 if has_tessellation {
-                    topology.push((StreamType::Length(LengthType::Geometries), vec![]));
+                    geom_lengths = Some(vec![]);
                 }
-                let part_lengths =
-                    encode_root_length_stream(vector_types, part_offs, GeometryType::LineString);
-                if !part_lengths.is_empty() {
-                    topology.push((StreamType::Length(LengthType::Parts), part_lengths));
+                let pl =
+                    encode_root_length_stream(&vector_types, part_offs, GeometryType::LineString);
+                if !pl.is_empty() {
+                    parts_lengths = Some(pl);
                 }
-                // Ring lengths: part_offs is a dense N+1 array (one slot per geometry,
-                // including Points).  ring_offs stores vertex offsets for each slot.
-                // Use the dense-aware helper so Point slots are correctly skipped by
-                // index rather than by a running counter that ignores non-length types.
-                let ring_lengths = encode_ring_lengths_for_mixed(
-                    vector_types,
+                // part_offs is a dense N+1 array (one slot per geometry incl. Points);
+                // ring_offs stores vertex offsets per slot.  Use the dense-aware helper so
+                // Point slots are skipped by index rather than by a running counter.
+                let rl = encode_ring_lengths_for_mixed(
+                    &vector_types,
                     part_offs,
-                    ring_offs,
+                    &ring_offs,
                     has_linestrings,
                 );
-                if !ring_lengths.is_empty() {
-                    topology.push((StreamType::Length(LengthType::Rings), ring_lengths));
+                if !rl.is_empty() {
+                    rings_lengths = Some(rl);
                 }
             } else {
                 let lengths =
-                    encode_root_length_stream(vector_types, part_offs, GeometryType::Point);
+                    encode_root_length_stream(&vector_types, part_offs, GeometryType::Point);
                 if !lengths.is_empty() {
-                    topology.push((StreamType::Length(LengthType::Parts), lengths));
+                    parts_lengths = Some(lengths);
                 }
             }
         }
 
-        // Encode triangles stream if present (for pre-tessellated polygons)
-        if let Some(tris) = triangles {
-            topology.push((StreamType::Length(LengthType::Triangles), tris.clone()));
-        }
-        if let Some(idx_buf) = index_buffer {
-            topology.push((StreamType::Offset(OffsetType::Index), idx_buf.clone()));
-        }
-
-        // Vertex payloads
+        // Vertex payloads.
         let (vertex_vec2_delta, morton_offsets, morton_dict) = match (vertices, vertex_buffer_type)
         {
             (Some(verts), VertexBufferType::Vec2) => {
-                let delta = encode_componentwise_delta_vec2s(verts);
-                (Some(delta), None, None)
+                (Some(encode_componentwise_delta_vec2s(&verts)), None, None)
             }
             (Some(verts), VertexBufferType::Morton) => {
-                let morton_meta = z_order_params(verts)?;
-                let (dict, offsets) = build_morton_dict(verts, morton_meta)?;
+                let morton_meta = z_order_params(&verts)?;
+                let (dict, offsets) = build_morton_dict(&verts, morton_meta)?;
                 (None, Some(offsets), Some((morton_meta, dict)))
             }
             (None, _) => (None, None, None),
         };
 
-        let has_geom_offs = self.geometry_offsets.is_some();
-        let has_ring_offs = self.ring_offsets.is_some();
-        let is_part_with_rings = has_geom_offs && has_ring_offs;
-        let is_ring_level2 = !has_geom_offs && has_ring_offs;
-
+        // Count streams before writing the header.
         let vertex_stream_count = match vertex_buffer_type {
-            _ if vertex_vec2_delta.is_none() && morton_offsets.is_none() => 0,
+            _ if vertex_vec2_delta.is_none() && morton_offsets.is_none() => 0usize,
             VertexBufferType::Vec2 => 1,
             VertexBufferType::Morton => 2,
         };
-        let stream_count =
-            checked_sum2(u32::try_from(1 + topology.len() + vertex_stream_count)?, 0)?;
+        let stream_count = u32::try_from(
+            1 + usize::from(geom_lengths.is_some())
+                + usize::from(parts_lengths.is_some())
+                + usize::from(rings_lengths.is_some())
+                + usize::from(triangles.is_some())
+                + usize::from(index_buffer.is_some())
+                + vertex_stream_count,
+        )?;
 
         ColumnType::Geometry.write_to(&mut enc.meta)?;
         enc.write_varint(stream_count)?;
 
+        // Write streams in order.
         let typ = StreamType::Length(LengthType::VarBinary);
         write_geo_u32_stream(&meta, typ, "meta", enc)?;
-
-        for (stream_type, data) in &topology {
-            let name = match stream_type {
-                StreamType::Length(LengthType::Geometries) => "geometries",
-                StreamType::Length(LengthType::Parts) => {
-                    if is_part_with_rings {
-                        "rings"
-                    } else if is_ring_level2 {
-                        "parts"
-                    } else {
-                        "no_rings"
-                    }
-                }
-                StreamType::Length(LengthType::Rings) => {
-                    if is_part_with_rings {
-                        "rings2"
-                    } else {
-                        "parts_ring"
-                    }
-                }
-                StreamType::Length(LengthType::Triangles) => "triangles",
-                StreamType::Offset(OffsetType::Index) => "triangles_indexes",
-                _ => "meta",
-            };
-            write_geo_u32_stream(data, *stream_type, name, enc)?;
+        if let Some(ref data) = geom_lengths {
+            let typ = StreamType::Length(LengthType::Geometries);
+            write_geo_u32_stream(data, typ, "geometries", enc)?;
         }
-
-        if let Some(delta) = &vertex_vec2_delta {
+        if let Some(ref data) = parts_lengths {
+            write_geo_u32_stream(
+                data,
+                StreamType::Length(LengthType::Parts),
+                if has_geom_offs && has_ring_offs {
+                    "rings"
+                } else if !has_geom_offs && has_ring_offs {
+                    "parts"
+                } else {
+                    "no_rings"
+                },
+                enc,
+            )?;
+        }
+        if let Some(ref data) = rings_lengths {
+            write_geo_u32_stream(
+                data,
+                StreamType::Length(LengthType::Rings),
+                if has_geom_offs && has_ring_offs {
+                    "rings2"
+                } else {
+                    "parts_ring"
+                },
+                enc,
+            )?;
+        }
+        if let Some(tris) = triangles {
+            let typ = StreamType::Length(LengthType::Triangles);
+            write_geo_u32_stream(&tris, typ, "triangles", enc)?;
+        }
+        if let Some(idx_buf) = index_buffer {
+            let typ = StreamType::Offset(OffsetType::Index);
+            write_geo_u32_stream(&idx_buf, typ, "triangles_indexes", enc)?;
+        }
+        if let Some(ref delta) = vertex_vec2_delta {
             write_vertex_delta_stream(delta, enc)?;
-        } else if let (Some(offsets), Some((morton_meta, dict))) = (&morton_offsets, &morton_dict) {
+        } else if let (Some(ref offsets), Some((morton_meta, ref dict))) =
+            (morton_offsets, morton_dict)
+        {
             let typ = StreamType::Offset(OffsetType::Vertex);
             write_geo_u32_stream(offsets, typ, "vertex_offsets", enc)?;
-            let dict_deltas = morton_deltas(dict);
-            write_morton_delta_stream(&dict_deltas, *morton_meta, enc)?;
+            write_morton_delta_stream(&morton_deltas(dict), morton_meta, enc)?;
         }
 
         enc.increment_column_count();
