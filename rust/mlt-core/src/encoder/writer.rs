@@ -215,11 +215,6 @@ impl Encoder {
         Ok(())
     }
 
-    // -----------------------------------------------------------------------
-    // Explicit encoder (`Encoder::explicit`): copy out choices without `take()`.
-    // `#[cfg(feature = "__private")]` stays here so encode paths stay cfg-free.
-    // -----------------------------------------------------------------------
-
     /// When [`Self::explicit`] is [`Some`], returns the callback-chosen [`IntEncoder`].
     /// [`None`] means run automatic candidate selection for that stream.
     #[inline]
@@ -252,31 +247,21 @@ impl Encoder {
             .is_some_and(|e| (e.override_presence)(kind, name, subname))
     }
 
-    /// Applies `ExplicitEncoder::override_id_width` when the `__private` field exists;
+    /// Applies `ExplicitEncoder::override_id_width` when an explicit encoder is active;
     /// otherwise returns `auto` unchanged.
     #[inline]
     #[allow(clippy::unused_self)]
     pub(crate) fn override_id_width(&self, auto: IdWidth) -> IdWidth {
-        #[cfg(feature = "__private")]
-        {
-            self.explicit
-                .as_ref()
-                .map_or(auto, |e| (e.override_id_width)(auto))
-        }
-        #[cfg(not(feature = "__private"))]
-        auto
+        self.explicit
+            .as_ref()
+            .map_or(auto, |e| (e.override_id_width)(auto))
     }
 
-    /// Pinned vertex layout when explicit encoding is active (`__private` only).
+    /// Pinned vertex layout when an explicit encoder is active.
     #[inline]
     #[allow(clippy::unused_self)]
     pub(crate) fn override_vertex_buffer_type(&self) -> Option<VertexBufferType> {
-        #[cfg(feature = "__private")]
-        {
-            self.explicit.as_ref().map(|e| e.vertex_buffer_type)
-        }
-        #[cfg(not(feature = "__private"))]
-        None
+        self.explicit.as_ref().map(|e| e.vertex_buffer_type)
     }
 
     /// Total encoded bytes across all three sections (`hdr + meta + data`).

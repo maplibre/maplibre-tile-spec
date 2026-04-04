@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::decoder::{GeometryValues, IdValues};
-use crate::encoder::{IntEncoder, StagedProperty};
+use crate::encoder::{IdWidth, IntEncoder, StagedProperty, VertexBufferType};
 
 /// Owned, pre-encoding variant of [`crate::Layer`] (stage 2 of the encoding pipeline).
 #[derive(Debug, PartialEq, Clone)]
@@ -99,8 +99,7 @@ pub enum StrEncoding {
 )]
 pub struct ExplicitEncoder {
     /// Vertex buffer layout for geometry streams.
-    #[cfg(any(test, feature = "__private"))]
-    pub vertex_buffer_type: crate::encoder::VertexBufferType,
+    pub vertex_buffer_type: VertexBufferType,
     /// Return the [`IntEncoder`] for a stream.
     /// Arguments: `(kind, name, subname)` where `kind` is `"id"`, `"geo"`, or `"prop"`;
     /// `name` is the stream/column name; `subname` is the shared-dict suffix when applicable.
@@ -109,8 +108,7 @@ pub struct ExplicitEncoder {
     pub get_str_encoding: Box<dyn Fn(&str, &str) -> StrEncoding>,
     /// Override the auto-detected [`IdWidth`].
     /// Arguments: auto-detected `IdWidth`. Return the width to use.
-    #[cfg(any(test, feature = "__private"))]
-    pub override_id_width: Box<dyn Fn(crate::encoder::IdWidth) -> crate::encoder::IdWidth>,
+    pub override_id_width: Box<dyn Fn(IdWidth) -> IdWidth>,
     /// Override whether a presence stream is written for an all-present column,
     /// or if the column is written at all if all values are null.
     /// Arguments: `(kind, name, subname)` — same convention as [`Self::get_int_encoder`]
