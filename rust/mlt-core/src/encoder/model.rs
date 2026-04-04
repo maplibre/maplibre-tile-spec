@@ -106,7 +106,7 @@ pub struct ExplicitEncoder {
     /// `name` is the stream/column name; `subname` is the shared-dict suffix when applicable.
     pub get_int_encoder: Box<dyn Fn(&str, &str, Option<&str>) -> IntEncoder>,
     /// Return the string encoding strategy for a string property column.
-    pub get_str_encoding: Box<dyn Fn(&str, &str) -> StrEncoding>,
+    pub get_str_encoding: Box<dyn Fn(&str) -> StrEncoding>,
     /// Override the auto-detected [`IdWidth`].
     /// Arguments: auto-detected `IdWidth`. Return the width to use.
     pub override_id_width: Box<dyn Fn(IdWidth) -> IdWidth>,

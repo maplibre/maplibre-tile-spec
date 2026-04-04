@@ -54,143 +54,146 @@ pub(crate) fn fsst_is_viable(strings: &[&str]) -> bool {
     symbol_overhead + compressed_size < plain_size
 }
 
-/// Encode a string column and write it to `enc`.
+/// Encode a string column, following the same explicit-or-auto pattern as numeric columns.
 ///
-/// When [`Encoder::get_str_encoding`] returns [`None`], tries Plain and (if viable) FSST, keeping the shorter.
-/// When [`Some`], uses the caller-specified string encoding and [`Encoder::get_int_encoder`] for sub-streams.
-///
-/// The `col_type` + `name` are written to `enc.meta` once; the stream count + streams
-/// go into alternatives in `enc.data`.
+/// If [`Encoder::get_str_encoding`] returns `Some`, only that type is encoded.
+/// Otherwise Plain, Dict, and (when viable) FSST variants are competed via the alternatives
+/// machinery, mirroring the `write_int_prop_*` pattern one level up.
 pub(crate) fn write_str_col(
     v: &StagedStrings,
-    presence_stream: Option<&EncodedStream>,
+    presence: Option<&EncodedStream>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let dense_values = v.dense_values();
-    let non_null: Vec<&str> = dense_values.iter().map(String::as_str).collect();
-
-    enc.start_alternatives();
-    if let Some(str_enc) = enc.get_str_encoding("prop", &v.name) {
-        // Explicit path: one deterministic encoding chosen by the caller.
-        let encoding = match str_enc {
-            StrEncoding::Plain => EncodedStream::encode_strings_with_type(
-                &dense_values,
-                enc.get_int_encoder("prop", &v.name, Some("lengths"))
-                    .expect("explicit string column int encoders"),
-                LengthType::VarBinary,
-                DictionaryType::None,
-            )?,
-            StrEncoding::Dict => EncodedStream::encode_strings_dict(
-                &dense_values,
-                enc.get_int_encoder("prop", &v.name, Some("lengths"))
-                    .expect("explicit string column int encoders"),
-                enc.get_int_encoder("prop", &v.name, Some("offsets"))
-                    .expect("explicit string column int encoders"),
-            )?,
-            StrEncoding::Fsst => EncodedStream::encode_strings_fsst_with_type(
-                &dense_values,
-                FsstStrEncoder {
-                    symbol_lengths: enc
-                        .get_int_encoder("prop", &v.name, Some("sym_lengths"))
-                        .expect("explicit string column int encoders"),
-                    dict_lengths: enc
-                        .get_int_encoder("prop", &v.name, Some("dict_lengths"))
-                        .expect("explicit string column int encoders"),
-                },
-                DictionaryType::Single,
-            )?,
-            StrEncoding::FsstDict => EncodedStream::encode_strings_fsst_dict(
-                &dense_values,
-                FsstStrEncoder {
-                    symbol_lengths: enc
-                        .get_int_encoder("prop", &v.name, Some("sym_lengths"))
-                        .expect("explicit string column int encoders"),
-                    dict_lengths: enc
-                        .get_int_encoder("prop", &v.name, Some("dict_lengths"))
-                        .expect("explicit string column int encoders"),
-                },
-                enc.get_int_encoder("prop", &v.name, Some("offsets"))
-                    .expect("explicit string column int encoders"),
-            )?,
-        };
-        write_str_streams(encoding.streams(), presence_stream, enc)?;
-        enc.end_alternative();
+    let dense = v.dense_values();
+    let non_null: Vec<&str> = dense.iter().map(String::as_str).collect();
+    let name = &v.name;
+    if let Some(str_enc) = enc.get_str_encoding(name) {
+        match str_enc {
+            StrEncoding::Plain => write_str_plain(&non_null, presence, name, enc)?,
+            StrEncoding::Dict => write_str_dict(&non_null, presence, name, enc)?,
+            StrEncoding::Fsst => write_str_fsst(&non_null, presence, name, enc)?,
+            StrEncoding::FsstDict => write_str_fsst_dict(&non_null, presence, name, enc)?,
+        }
     } else {
-        // Auto path: two-level competition.
-        //
-        //  Outer level  — which string-encoding type wins overall?
-        //    Plain / Dict / FSST (if viable) / FsstDict (if viable)
-        //
-        //  Inner level (Plain only) — which int encoder for the lengths stream?
-        //    Candidates from DataProfile::prune_candidates, written as actual
-        //    bytes so the winner is the real smallest encoding.
-        //
-        // All encodings are compared by their total written bytes, so the outer
-        // competition automatically accounts for the inner winner's size.
-
-        // Pre-compute data needed outside the alternatives loops.
-        let plain_lengths = strings_to_lengths(&non_null)?;
-        let plain_len_cands = DataProfile::prune_candidates::<i32>(&plain_lengths);
-
-        // Dedup once; reused by Dict and FsstDict candidates.
-        let (unique, offset_indices) = dedup_strings(&non_null)?;
-        let dict_lengths = strings_to_lengths(&unique)?;
-        let dict_len_cands = DataProfile::prune_candidates::<i32>(&dict_lengths);
-        let offset_enc = if offset_indices.is_empty() {
-            IntEncoder::plain()
-        } else {
-            IntEncoder::auto_u32(&offset_indices)
-        };
-
-        let use_fsst = fsst_is_viable(&non_null);
-
-        // ── Plain (inner: length-encoder competition) ─────────────────────
         enc.start_alternatives();
-        for lenc in plain_len_cands {
+        write_str_plain(&non_null, presence, name, enc)?;
+        enc.end_alternative();
+        write_str_dict(&non_null, presence, name, enc)?;
+        enc.end_alternative();
+
+        if fsst_is_viable(&non_null) {
+            // Re-training FSST per candidate is expensive; use one flat candidate per type.
+            write_str_fsst(&non_null, presence, name, enc)?;
+            enc.end_alternative();
+            write_str_fsst_dict(&non_null, presence, name, enc)?;
+            enc.end_alternative();
+        }
+        enc.finish_alternatives();
+    }
+    Ok(())
+}
+
+/// Encode with plain (`VarBinary` lengths) layout, competing length encoders when not explicit.
+fn write_str_plain(
+    non_null: &[&str],
+    presence: Option<&EncodedStream>,
+    name: &str,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let lengths = strings_to_lengths(non_null)?;
+    if let Some(e) = enc.get_int_encoder("prop", name, Some("lengths")) {
+        let encoding = EncodedStream::encode_strings_with_type(
+            non_null,
+            e,
+            LengthType::VarBinary,
+            DictionaryType::None,
+        )?;
+        write_str_streams(encoding.streams(), presence, enc)?;
+    } else {
+        enc.start_alternatives();
+        for e in DataProfile::prune_candidates::<i32>(&lengths) {
             let encoding = EncodedStream::encode_strings_with_type(
-                &non_null,
-                lenc,
+                non_null,
+                e,
                 LengthType::VarBinary,
                 DictionaryType::None,
             )?;
-            write_str_streams(encoding.streams(), presence_stream, enc)?;
+            write_str_streams(encoding.streams(), presence, enc)?;
             enc.end_alternative();
         }
         enc.finish_alternatives();
-        enc.end_alternative(); // commit best-Plain outer candidate
-
-        // ── Dict (inner: length-encoder competition, offset_enc is fixed) ─
-        enc.start_alternatives();
-        for lenc in dict_len_cands {
-            let encoding = EncodedStream::encode_strings_dict(&non_null, lenc, offset_enc)?;
-            write_str_streams(encoding.streams(), presence_stream, enc)?;
-            enc.end_alternative();
-        }
-        enc.finish_alternatives();
-        enc.end_alternative(); // commit best-Dict outer candidate
-
-        // ── FSST / FsstDict — flat candidates (re-training FSST is expensive)
-        if use_fsst {
-            let fsst_enc = FsstStrEncoder {
-                symbol_lengths: IntEncoder::varint(),
-                dict_lengths: IntEncoder::varint(),
-            };
-            let encoding = EncodedStream::encode_strings_fsst_with_type(
-                &non_null,
-                fsst_enc,
-                DictionaryType::Single,
-            )?;
-            write_str_streams(encoding.streams(), presence_stream, enc)?;
-            enc.end_alternative(); // FSST outer candidate
-
-            let encoding =
-                EncodedStream::encode_strings_fsst_dict(&non_null, fsst_enc, offset_enc)?;
-            write_str_streams(encoding.streams(), presence_stream, enc)?;
-            enc.end_alternative(); // FsstDict outer candidate
-        }
     }
-    enc.finish_alternatives();
     Ok(())
+}
+
+/// Encode with dictionary (deduped corpus + offset indices) layout, competing length encoders.
+fn write_str_dict(
+    non_null: &[&str],
+    presence: Option<&EncodedStream>,
+    name: &str,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let (unique, offset_indices) = dedup_strings(non_null)?;
+    let lengths = strings_to_lengths(&unique)?;
+    let offset_enc = enc
+        .get_int_encoder("prop", name, Some("offsets"))
+        .unwrap_or_else(|| IntEncoder::auto_u32(&offset_indices));
+    if let Some(e) = enc.get_int_encoder("prop", name, Some("lengths")) {
+        let encoding = EncodedStream::encode_strings_dict(non_null, e, offset_enc)?;
+        write_str_streams(encoding.streams(), presence, enc)?;
+    } else {
+        enc.start_alternatives();
+        for e in DataProfile::prune_candidates::<i32>(&lengths) {
+            let encoding = EncodedStream::encode_strings_dict(non_null, e, offset_enc)?;
+            write_str_streams(encoding.streams(), presence, enc)?;
+            enc.end_alternative();
+        }
+        enc.finish_alternatives();
+    }
+    Ok(())
+}
+
+/// Encode with FSST compression (sub-streams use varint or explicit; no int-encoder competition).
+fn write_str_fsst(
+    non_null: &[&str],
+    presence: Option<&EncodedStream>,
+    name: &str,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let encoding = EncodedStream::encode_strings_fsst_with_type(
+        non_null,
+        fsst_enc(enc, name),
+        DictionaryType::Single,
+    )?;
+    write_str_streams(encoding.streams(), presence, enc)
+}
+
+/// Encode with FSST + dictionary layout.
+fn write_str_fsst_dict(
+    non_null: &[&str],
+    presence: Option<&EncodedStream>,
+    name: &str,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let (_, offset_indices) = dedup_strings(non_null)?;
+    let offset_enc = enc
+        .get_int_encoder("prop", name, Some("offsets"))
+        .unwrap_or_else(|| IntEncoder::auto_u32(&offset_indices));
+    let encoding =
+        EncodedStream::encode_strings_fsst_dict(non_null, fsst_enc(enc, name), offset_enc)?;
+    write_str_streams(encoding.streams(), presence, enc)
+}
+
+/// Builds an FSST sub-stream encoder, using explicit overrides when configured or varint otherwise.
+fn fsst_enc(enc: &Encoder, name: &str) -> FsstStrEncoder {
+    FsstStrEncoder {
+        symbol_lengths: enc
+            .get_int_encoder("prop", name, Some("sym_lengths"))
+            .unwrap_or(IntEncoder::varint()),
+        dict_lengths: enc
+            .get_int_encoder("prop", name, Some("dict_lengths"))
+            .unwrap_or(IntEncoder::varint()),
+    }
 }
 
 /// Write the stream-count varint + optional presence stream + content streams to `enc.data`.
@@ -240,7 +243,7 @@ pub(crate) fn write_shared_dict(
         .collect::<Result<_, _>>()?;
     let dict_index: HashMap<(u32, u32), u32> = dict_spans.iter().copied().zip(0_u32..).collect();
 
-    let dict_enc = if let Some(str_enc) = enc.get_str_encoding("prop", &shared_dict.prefix) {
+    let dict_enc = if let Some(str_enc) = enc.get_str_encoding(&shared_dict.prefix) {
         // Explicit path: use caller-specified encoding.
         match str_enc {
             StrEncoding::Fsst | StrEncoding::FsstDict => {

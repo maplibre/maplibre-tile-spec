@@ -1,13 +1,5 @@
 use crate::encoder::EncodedStream;
 
-pub enum PropertyKind {
-    Bool,
-    Integer,
-    Float,
-    String,
-    SharedDict,
-}
-
 /// Wire-ready encoded strings encoding (owns byte buffers).
 #[derive(Debug, Clone, PartialEq)]
 pub enum EncodedStringsEncoding {

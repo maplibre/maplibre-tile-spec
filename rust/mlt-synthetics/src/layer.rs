@@ -372,7 +372,7 @@ impl Layer {
                 )
             },
             get_str_encoding: {
-                Box::new(move |_kind: &str, name: &str| {
+                Box::new(move |name: &str| {
                     prop_map
                         .get(name)
                         .map_or(StrEncoding::Plain, PropConfig::str_encoding)

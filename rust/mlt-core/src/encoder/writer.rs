@@ -231,10 +231,8 @@ impl Encoder {
     /// When [`Self::explicit`] is [`Some`], returns the callback-chosen [`StrEncoding`].
     /// [`None`] means run automatic string / shared-dict corpus selection.
     #[inline]
-    pub(crate) fn get_str_encoding(&self, kind: &str, name: &str) -> Option<StrEncoding> {
-        self.explicit
-            .as_ref()
-            .map(|e| (e.get_str_encoding)(kind, name))
+    pub(crate) fn get_str_encoding(&self, name: &str) -> Option<StrEncoding> {
+        self.explicit.as_ref().map(|e| (e.get_str_encoding)(name))
     }
 
     /// Whether the explicit encoder forces a presence stream for an all-present column
@@ -388,20 +386,20 @@ impl Encoder {
             !self.alt_stack.is_empty(),
             "finish_alternatives called outside a start_alternatives / finish_alternatives pair"
         );
-        {
-            let (data, stack) = (&mut self.data, &mut self.alt_stack);
-            let level = stack.last_mut().unwrap();
-            let (start, best_size) = *level;
-            let pending = data.len() - (start + best_size.unwrap_or(0));
-            // Only evaluate a pending candidate if bytes were actually written
-            // since the last finish_alternative() call (or since
-            // start_alternatives() if this is the sole candidate).
-            // pending == 0 with an existing best means all candidates were
-            // already committed; just pop.
-            if pending > 0 || best_size.is_none() {
-                Self::close_candidate(data, level.0, &mut level.1);
-            }
+
+        let (data, stack) = (&mut self.data, &mut self.alt_stack);
+        let level = stack.last_mut().unwrap();
+        let (start, best_size) = *level;
+        let pending = data.len() - (start + best_size.unwrap_or(0));
+        // Only evaluate a pending candidate if bytes were actually written
+        // since the last finish_alternative() call (or since
+        // start_alternatives() if this is the sole candidate).
+        // pending == 0 with an existing best means all candidates were
+        // already committed; just pop.
+        if pending > 0 || best_size.is_none() {
+            Self::close_candidate(data, level.0, &mut level.1);
         }
+
         self.alt_stack.pop();
     }
 

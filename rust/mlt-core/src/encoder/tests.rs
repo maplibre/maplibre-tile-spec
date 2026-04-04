@@ -8,7 +8,7 @@ impl ExplicitEncoder {
             override_id_width: Box::new(|w| w),
             vertex_buffer_type: VertexBufferType::Vec2,
             get_int_encoder: Box::new(move |_, _, _| enc),
-            get_str_encoding: Box::new(|_, _| crate::encoder::StrEncoding::Plain),
+            get_str_encoding: Box::new(|_| crate::encoder::StrEncoding::Plain),
             override_presence: Box::new(|_, _, _| false),
         }
     }
@@ -17,7 +17,7 @@ impl ExplicitEncoder {
     #[must_use]
     pub fn all_with_str(enc: IntEncoder, str_enc: crate::encoder::StrEncoding) -> Self {
         Self {
-            get_str_encoding: Box::new(move |_, _| str_enc),
+            get_str_encoding: Box::new(move |_| str_enc),
             ..Self::all(enc)
         }
     }
