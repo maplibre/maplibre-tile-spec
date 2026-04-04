@@ -517,7 +517,8 @@ mod tests {
     use super::*;
     use crate::Layer;
     use crate::decoder::{GeometryValues, IdValues};
-    use crate::encoder::{Encoder, StagedLayer, StagedLayer01, StagedProperty, StagedSharedDict};
+    use crate::encoder::model::{StagedLayer, StagedLayer01};
+    use crate::encoder::{Encoder, StagedProperty, StagedSharedDict};
     use crate::test_helpers::{dec, parser};
 
     fn layer_buf(staged: StagedLayer01) -> Vec<u8> {

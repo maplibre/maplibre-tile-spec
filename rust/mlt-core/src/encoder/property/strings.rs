@@ -16,7 +16,7 @@ use crate::decoder::{
 };
 use crate::encoder::stream::{DataProfile, FsstStrEncoder, IntEncoder, dedup_strings};
 use crate::encoder::{
-    EncodedFsstData, EncodedPlainData, EncodedStream, EncodedStringsEncoding, Encoder, StrEncoding,
+    EncodedFsstData, EncodedPlainData, EncodedStream, EncodedStringsEncoding, Encoder,
 };
 
 /// Minimum total raw byte size of a column before attempting FSST compression.
@@ -414,6 +414,7 @@ impl EncodedSharedDictEncoding {
         }
     }
 }
+use crate::encoder::model::StrEncoding;
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, checked_sum3, strings_to_lengths};
 use crate::{Decoder, MltResult};

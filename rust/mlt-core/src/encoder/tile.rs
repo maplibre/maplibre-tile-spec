@@ -13,9 +13,8 @@
 use std::collections::HashMap;
 
 use crate::decoder::{GeometryValues, IdValues, PropValue, TileFeature, TileLayer01};
-use crate::encoder::{
-    StagedLayer01, StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, StringGroup,
-};
+use crate::encoder::model::StagedLayer01;
+use crate::encoder::{StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, StringGroup};
 
 impl StagedLayer01 {
     /// Construct a [`StagedLayer01`] from a row-oriented [`TileLayer01`], applying

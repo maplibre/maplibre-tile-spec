@@ -1,9 +1,10 @@
 use crate::MltResult;
 use crate::decoder::TileLayer01;
+use crate::encoder::model::{StagedLayer, StagedLayer01};
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
-    Encoder, EncoderConfig, SortStrategy, StagedLayer, StagedLayer01, group_string_properties,
-    reorder_features, spatial_sort_likely_to_help,
+    Encoder, EncoderConfig, SortStrategy, group_string_properties, reorder_features,
+    spatial_sort_likely_to_help,
 };
 
 impl StagedLayer {

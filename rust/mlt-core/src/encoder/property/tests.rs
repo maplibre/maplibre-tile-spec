@@ -1,14 +1,15 @@
 use geo_types::Point;
 use proptest::prelude::*;
 
+use crate::encoder::model::{ExplicitEncoder, StagedLayer01, StrEncoding};
+use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
-    Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer01,
-    StagedProperty, StagedSharedDict, StrEncoding, group_string_properties, write_properties,
+    Encoder, EncoderConfig, IntEncoder, PhysicalEncoder, StagedProperty, StagedSharedDict,
+    group_string_properties,
 };
 use crate::geojson::Geom32;
 use crate::test_helpers::{dec, parser};
 use crate::{GeometryValues, Layer, LogicalEncoder, PropValue, TileFeature, TileLayer01};
-
 // proptest_derive::Arbitrary is only derived for these types inside the crate
 // under #[cfg(test)], so we write the strategies by hand here.
 

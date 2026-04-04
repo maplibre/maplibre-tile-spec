@@ -2,9 +2,8 @@ use std::io;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::encoder::{
-    EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StrEncoding, VertexBufferType,
-};
+use crate::encoder::model::{ExplicitEncoder, StrEncoding};
+use crate::encoder::{EncoderConfig, IdWidth, IntEncoder, VertexBufferType};
 use crate::{MltError, MltResult};
 
 /// Stateful encoder that accumulates encoded layer bytes and provides

@@ -7,9 +7,8 @@ mod strings;
 #[cfg(test)]
 mod tests;
 
-pub use encode::write_properties;
 pub use model::{
-    EncodedFsstData, EncodedPlainData, EncodedStringsEncoding, PresenceKind, PropertyKind,
-    StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem, StagedStrings,
+    EncodedFsstData, EncodedPlainData, EncodedStringsEncoding, PropertyKind, StagedProperty,
+    StagedScalar, StagedSharedDict, StagedSharedDictItem, StagedStrings,
 };
 pub use optimizer::{StringGroup, group_string_properties};

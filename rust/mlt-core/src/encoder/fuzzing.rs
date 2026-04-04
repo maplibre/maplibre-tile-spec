@@ -1,7 +1,8 @@
 use arbitrary::Error::IncorrectFormat;
 use arbitrary::{Arbitrary, Result, Unstructured};
 
-use crate::encoder::{StagedLayer01, StagedProperty, StagedSharedDict, StagedStrings};
+use crate::encoder::model::StagedLayer01;
+use crate::encoder::{StagedProperty, StagedSharedDict, StagedStrings};
 
 impl Arbitrary<'_> for StagedLayer01 {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
