@@ -386,11 +386,6 @@ impl GeometryValues {
             part_offsets
         };
 
-        // Normalize geometry_offsets for mixed geometry types
-        let normalized_geom_offs = geometry_offsets
-            .as_ref()
-            .map(|g| normalize_geometry_offsets(&vector_types, g));
-
         let meta: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
 
         let has_linestrings = vector_types
@@ -398,8 +393,6 @@ impl GeometryValues {
             .copied()
             .any(GeometryType::is_linestring);
         let has_tessellation = triangles.is_some();
-
-        // Determine stream naming from the original (un-normalized) offsets.
         let has_geom_offs = geometry_offsets.is_some();
         let has_ring_offs = ring_offsets.is_some();
 
@@ -412,9 +405,11 @@ impl GeometryValues {
         let mut parts_lengths: Option<Vec<u32>> = None;
         let mut rings_lengths: Option<Vec<u32>> = None;
 
-        if let Some(geom_offs) = &normalized_geom_offs {
+        if let Some(geom_offs) = geometry_offsets {
+            // Normalize geometry_offsets for mixed geometry types
+            let geom_offs = normalize_geometry_offsets(&vector_types, &geom_offs);
             let lengths =
-                encode_root_length_stream(&vector_types, geom_offs, GeometryType::Polygon);
+                encode_root_length_stream(&vector_types, &geom_offs, GeometryType::Polygon);
             if !lengths.is_empty() || has_tessellation {
                 geom_lengths = Some(lengths);
             }
@@ -423,13 +418,13 @@ impl GeometryValues {
                     // Full topology: geom → parts → rings.
                     // LineStrings contribute to rings here, not parts.
                     let pl =
-                        encode_level1_length_stream(&vector_types, geom_offs, part_offs, false);
+                        encode_level1_length_stream(&vector_types, &geom_offs, part_offs, false);
                     if !pl.is_empty() {
                         parts_lengths = Some(pl);
                     }
                     let rl = encode_level2_length_stream(
                         &vector_types,
-                        geom_offs,
+                        &geom_offs,
                         part_offs,
                         &ring_offs,
                     );
@@ -440,7 +435,7 @@ impl GeometryValues {
                     // geom → parts only (no rings).
                     let pl = encode_level1_without_ring_buffer_length_stream(
                         &vector_types,
-                        geom_offs,
+                        &geom_offs,
                         part_offs,
                     );
                     if !pl.is_empty() {
