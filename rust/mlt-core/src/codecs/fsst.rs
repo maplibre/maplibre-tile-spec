@@ -56,7 +56,7 @@ pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String
 /// Raw output from FSST compression (unencoded byte buffers).
 ///
 /// Pass to the string encoder's `write_fsst_data` helper to write these
-/// streams to an encoder with a chosen [`FsstStrEncoder`](crate::encoder::FsstStrEncoder).
+/// streams directly to an [`Encoder`](crate::encoder::Encoder).
 pub struct FsstRawData {
     /// Per-symbol byte lengths (to be written as `Length(Symbol)` stream).
     pub symbol_lengths: Vec<u32>,

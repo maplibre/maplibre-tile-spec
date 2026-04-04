@@ -7,7 +7,7 @@ mod physical;
 #[cfg(test)]
 mod tests;
 mod write;
-pub use encoder::{FsstStrEncoder, IntEncoder};
+pub use encoder::IntEncoder;
 pub use model::*;
 pub use optimizer::DataProfile;
 #[cfg(any(test, feature = "__private"))]

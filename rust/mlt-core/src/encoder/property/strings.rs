@@ -17,9 +17,7 @@ use crate::decoder::{
     StreamType,
 };
 use crate::encoder::model::StrEncoding;
-use crate::encoder::stream::{
-    FsstStrEncoder, IntEncoder, dedup_strings, do_write_u32, write_u32_stream,
-};
+use crate::encoder::stream::{dedup_strings, write_u32_stream};
 use crate::encoder::{EncodedStream, Encoder};
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, checked_sum3, strings_to_lengths};
@@ -136,11 +134,9 @@ fn write_str_dict(
     write_raw_str_data(&unique, DictionaryType::Single, enc)
 }
 
-/// Encode with FSST compression (sub-streams use varint or explicit; no int-encoder competition).
+/// Encode with FSST compression (sub-streams use the auto/override pattern; no int-encoder competition).
 ///
-/// The FSST sub-streams are written individually since their encoding is determined by
-/// the FSST algorithm, not by the alternatives machinery.
-/// The offset stream uses [`write_u32_stream`] for explicit/auto dispatch.
+/// The offset stream also uses [`write_u32_stream`] for explicit/auto dispatch.
 fn write_str_fsst(
     non_null: &[&str],
     presence: Option<&EncodedStream>,
@@ -151,7 +147,7 @@ fn write_str_fsst(
     let offsets: Vec<u32> = (0..u32::try_from(non_null.len())?).collect();
     enc.write_varint(5u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
-    write_fsst_data(&raw, fsst_enc(enc, name), DictionaryType::Single, enc)?;
+    write_fsst_data(&raw, DictionaryType::Single, "prop", name, enc)?;
     let typ = StreamType::Offset(OffsetType::String);
     write_u32_stream(&offsets, typ, "prop", name, Some("offsets"), enc)
 }
@@ -167,41 +163,48 @@ fn write_str_fsst_dict(
     let raw = compress_fsst(&unique);
     enc.write_varint(5u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
-    write_fsst_data(&raw, fsst_enc(enc, name), DictionaryType::Single, enc)?;
+    write_fsst_data(&raw, DictionaryType::Single, "prop", name, enc)?;
     let typ = StreamType::Offset(OffsetType::String);
     write_u32_stream(&offset_indices, typ, "prop", name, Some("offsets"), enc)
 }
 
-/// Builds an FSST sub-stream encoder, using explicit overrides when configured or varint otherwise.
-fn fsst_enc(enc: &Encoder, name: &str) -> FsstStrEncoder {
-    FsstStrEncoder {
-        symbol_lengths: enc
-            .get_int_encoder("prop", name, Some("sym_lengths"))
-            .unwrap_or(IntEncoder::varint()),
-        dict_lengths: enc
-            .get_int_encoder("prop", name, Some("dict_lengths"))
-            .unwrap_or(IntEncoder::varint()),
-    }
-}
-
 /// Write 4 FSST sub-streams directly to `enc.data`.
+///
+/// The two integer sub-streams (`symbol_lengths`, `value_lengths`) use [`write_u32_stream`]
+/// so explicit encoder overrides are honoured and all candidates are competed automatically.
+/// The two raw-byte sub-streams (`symbol_table`, `corpus`) are written without integer encoding.
 ///
 /// Stream order: `symbol_lengths`, `symbol_table`, `value_lengths`, `corpus`.
 fn write_fsst_data(
     raw: &FsstRawData,
-    encoding: FsstStrEncoder,
     dict_type: DictionaryType,
+    kind: &str,
+    name: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
     let typ = StreamType::Length(LengthType::Symbol);
-    do_write_u32(&raw.symbol_lengths, typ, encoding.symbol_lengths, enc)?;
+    write_u32_stream(
+        &raw.symbol_lengths,
+        typ,
+        kind,
+        name,
+        Some("sym_lengths"),
+        enc,
+    )?;
     let num_syms = u32::try_from(raw.symbol_lengths.len())?;
     let sym_bytes_len = u32::try_from(raw.symbol_bytes.len())?;
     let typ = StreamType::Data(DictionaryType::Fsst);
     StreamMeta::new(typ, IntEncoding::none(), num_syms).write_to(enc, false, sym_bytes_len)?;
     enc.data.extend_from_slice(&raw.symbol_bytes);
     let typ = StreamType::Length(LengthType::Dictionary);
-    do_write_u32(&raw.value_lengths, typ, encoding.dict_lengths, enc)?;
+    write_u32_stream(
+        &raw.value_lengths,
+        typ,
+        kind,
+        name,
+        Some("dict_lengths"),
+        enc,
+    )?;
     let num_vals = u32::try_from(raw.value_lengths.len())?;
     let corpus_len = u32::try_from(raw.corpus.len())?;
     StreamMeta::new(StreamType::Data(dict_type), IntEncoding::none(), num_vals)
@@ -222,11 +225,8 @@ fn write_raw_str_data(
         .collect();
     let num_values = u32::try_from(strings.len())?;
     let byte_length = u32::try_from(bytes.len())?;
-    StreamMeta::new(StreamType::Data(dict_type), IntEncoding::none(), num_values).write_to(
-        enc,
-        false,
-        byte_length,
-    )?;
+    let typ = StreamType::Data(dict_type);
+    StreamMeta::new(typ, IntEncoding::none(), num_values).write_to(enc, false, byte_length)?;
     enc.data.extend_from_slice(&bytes);
     Ok(())
 }
@@ -300,23 +300,13 @@ pub(crate) fn write_shared_dict(
     enc.write_varint(stream_len)?;
     if use_fsst {
         let raw = compress_fsst(&dict);
-        let enc_type = if let Some(str_enc) = enc.get_str_encoding(&shared_dict.prefix) {
-            debug_assert!(matches!(str_enc, StrEncoding::Fsst | StrEncoding::FsstDict));
-            FsstStrEncoder {
-                symbol_lengths: enc
-                    .get_int_encoder("prop", &shared_dict.prefix, Some("sym_lengths"))
-                    .unwrap_or(IntEncoder::varint()),
-                dict_lengths: enc
-                    .get_int_encoder("prop", &shared_dict.prefix, Some("dict_lengths"))
-                    .unwrap_or(IntEncoder::varint()),
-            }
-        } else {
-            FsstStrEncoder {
-                symbol_lengths: IntEncoder::varint(),
-                dict_lengths: IntEncoder::varint(),
-            }
-        };
-        write_fsst_data(&raw, enc_type, DictionaryType::Single, enc)?;
+        write_fsst_data(
+            &raw,
+            DictionaryType::Single,
+            "prop",
+            &shared_dict.prefix,
+            enc,
+        )?;
     } else {
         let lengths = strings_to_lengths(&dict)?;
         write_u32_stream(
