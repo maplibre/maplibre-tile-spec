@@ -121,37 +121,37 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
 fn write_int_prop_i8(v: &StagedScalar<i8>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<i8> = unapply_presence(&v.values);
     let typ = StreamType::Data(DictionaryType::None);
-    write_i8_stream(&non_null, typ, "prop", &v.name, None, enc)
+    write_i8_stream(&non_null, typ, "prop", &v.name, "", enc)
 }
 
 fn write_int_prop_i32(v: &StagedScalar<i32>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<i32> = unapply_presence(&v.values);
     let typ = StreamType::Data(DictionaryType::None);
-    write_i32_stream(&non_null, typ, "prop", &v.name, None, enc)
+    write_i32_stream(&non_null, typ, "prop", &v.name, "", enc)
 }
 
 fn write_int_prop_i64(v: &StagedScalar<i64>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<i64> = unapply_presence(&v.values);
     let typ = StreamType::Data(DictionaryType::None);
-    write_i64_stream(&non_null, typ, "prop", &v.name, None, enc)
+    write_i64_stream(&non_null, typ, "prop", &v.name, "", enc)
 }
 
 fn write_int_prop_u8(v: &StagedScalar<u8>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<u8> = unapply_presence(&v.values);
     let typ = StreamType::Data(DictionaryType::None);
-    write_u8_stream(&non_null, typ, "prop", &v.name, None, enc)
+    write_u8_stream(&non_null, typ, "prop", &v.name, "", enc)
 }
 
 fn write_int_prop_u32(v: &StagedScalar<u32>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<u32> = unapply_presence(&v.values);
     let typ = StreamType::Data(DictionaryType::None);
-    write_u32_stream(&non_null, typ, "prop", &v.name, None, enc)
+    write_u32_stream(&non_null, typ, "prop", &v.name, "", enc)
 }
 
 fn write_int_prop_u64(v: &StagedScalar<u64>, enc: &mut Encoder) -> MltResult<()> {
     let non_null: Vec<u64> = unapply_presence(&v.values);
     let typ = StreamType::Data(DictionaryType::None);
-    write_u64_stream(&non_null, typ, "prop", &v.name, None, enc)
+    write_u64_stream(&non_null, typ, "prop", &v.name, "", enc)
 }
 
 pub(crate) fn unapply_presence<T: Clone>(v: &[Option<T>]) -> Vec<T> {

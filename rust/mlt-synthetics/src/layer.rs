@@ -67,14 +67,14 @@ impl PropConfig {
         }
     }
 
-    fn int_enc_for_sub(&self, sub: Option<&str>) -> IntEncoder {
+    fn int_enc_for_sub(&self, sub: &str) -> IntEncoder {
         match self {
             Self::Scalar(e) => *e,
             Self::StrFsst {
                 sym_lengths,
                 dict_lengths,
             } => match sub {
-                Some("sym_lengths") => *sym_lengths,
+                "sym_lengths" => *sym_lengths,
                 _ => *dict_lengths,
             },
             Self::StrFsstDict {
@@ -82,20 +82,23 @@ impl PropConfig {
                 dict_lengths,
                 offsets,
             } => match sub {
-                Some("sym_lengths") => *sym_lengths,
-                Some("offsets") => *offsets,
+                "sym_lengths" => *sym_lengths,
+                "offsets" => *offsets,
                 _ => *dict_lengths,
             },
             Self::StrDict {
                 string_lengths,
                 offsets,
             } => match sub {
-                Some("offsets") => *offsets,
+                "offsets" => *offsets,
                 _ => *string_lengths,
             },
             Self::SharedDict { item_encs, .. } => {
                 // sub is the item suffix
-                sub.and_then(|s| item_encs.iter().find(|(k, _)| k == s).map(|(_, e)| *e))
+                item_encs
+                    .iter()
+                    .find(|(k, _)| k == sub)
+                    .map(|(_, e)| *e)
                     .or_else(|| item_encs.first().map(|(_, e)| *e))
                     .unwrap_or_else(IntEncoder::varint)
             }
@@ -358,18 +361,16 @@ impl Layer {
             vertex_buffer_type,
             get_int_encoder: {
                 let prop_map = prop_map.clone();
-                Box::new(
-                    move |kind: &str, name: &str, sub: Option<&str>| match kind {
-                        "id" => id_int_enc.unwrap_or_else(IntEncoder::varint),
-                        "geo" => geo_stream_overrides
-                            .get(name)
-                            .copied()
-                            .unwrap_or(default_geo_enc),
-                        _ => prop_map
-                            .get(name)
-                            .map_or_else(IntEncoder::varint, |c| c.int_enc_for_sub(sub)),
-                    },
-                )
+                Box::new(move |kind: &str, name: &str, sub: &str| match kind {
+                    "id" => id_int_enc.unwrap_or_else(IntEncoder::varint),
+                    "geo" => geo_stream_overrides
+                        .get(name)
+                        .copied()
+                        .unwrap_or(default_geo_enc),
+                    _ => prop_map
+                        .get(name)
+                        .map_or_else(IntEncoder::varint, |c| c.int_enc_for_sub(sub)),
+                })
             },
             get_str_encoding: {
                 Box::new(move |name: &str| {

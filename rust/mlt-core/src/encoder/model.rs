@@ -104,7 +104,7 @@ pub struct ExplicitEncoder {
     /// Return the [`IntEncoder`] for a stream.
     /// Arguments: `(kind, name, subname)` where `kind` is `"id"`, `"geo"`, or `"prop"`;
     /// `name` is the stream/column name; `subname` is the shared-dict suffix when applicable.
-    pub get_int_encoder: Box<dyn Fn(&str, &str, Option<&str>) -> IntEncoder>,
+    pub get_int_encoder: Box<dyn Fn(&str, &str, &str) -> IntEncoder>,
     /// Return the string encoding strategy for a string property column.
     pub get_str_encoding: Box<dyn Fn(&str) -> StrEncoding>,
     /// Override the auto-detected [`IdWidth`].

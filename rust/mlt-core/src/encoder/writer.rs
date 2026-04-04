@@ -232,7 +232,7 @@ impl Encoder {
         &self,
         kind: &str,
         name: &str,
-        subname: Option<&str>,
+        subname: &str,
     ) -> Option<IntEncoder> {
         self.explicit
             .as_ref()

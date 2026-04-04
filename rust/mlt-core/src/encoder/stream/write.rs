@@ -93,7 +93,7 @@ pub(crate) fn write_u32_stream(
     stream_type: StreamType,
     kind: &str,
     name: &str,
-    subname: Option<&str>,
+    subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
     if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
@@ -118,7 +118,7 @@ pub(crate) fn write_i32_stream(
     stream_type: StreamType,
     kind: &str,
     name: &str,
-    subname: Option<&str>,
+    subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
     if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
@@ -141,7 +141,7 @@ pub(crate) fn write_u64_stream(
     stream_type: StreamType,
     kind: &str,
     name: &str,
-    subname: Option<&str>,
+    subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
     if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
@@ -166,7 +166,7 @@ pub(crate) fn write_i64_stream(
     stream_type: StreamType,
     kind: &str,
     name: &str,
-    subname: Option<&str>,
+    subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
     if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
@@ -189,7 +189,7 @@ pub(crate) fn write_i8_stream(
     stream_type: StreamType,
     kind: &str,
     name: &str,
-    subname: Option<&str>,
+    subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
     let widened: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
@@ -212,7 +212,7 @@ pub(crate) fn write_precomputed_u32(
     name: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.get_int_encoder(kind, name, None) {
+    if let Some(int_enc) = enc.get_int_encoder(kind, name, "") {
         let num_values = u32::try_from(values.len())?;
         let (stream_data, physical_encoding) = int_enc.physical.encode_u32s(values.to_vec())?;
         let e = IntEncoding::new(logical_encoding, physical_encoding);
@@ -237,7 +237,7 @@ pub(crate) fn write_u8_stream(
     stream_type: StreamType,
     kind: &str,
     name: &str,
-    subname: Option<&str>,
+    subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
     let widened: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();

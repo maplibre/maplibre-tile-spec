@@ -349,7 +349,7 @@ fn write_geo_u32_stream(
     geo_stream_name: &'static str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    write_u32_stream(data, stream_type, "geo", geo_stream_name, None, enc)
+    write_u32_stream(data, stream_type, "geo", geo_stream_name, "", enc)
 }
 
 /// Internal representation of pre-computed geometry topology payloads.
@@ -541,12 +541,8 @@ impl GeometryValues {
         ColumnType::Geometry.write_to(&mut enc.meta)?;
         enc.write_varint(stream_count)?;
 
-        write_geo_u32_stream(
-            &payloads.meta,
-            StreamType::Length(LengthType::VarBinary),
-            "meta",
-            enc,
-        )?;
+        let typ = StreamType::Length(LengthType::VarBinary);
+        write_geo_u32_stream(&payloads.meta, typ, "meta", enc)?;
 
         for (stream_type, data) in &payloads.topology {
             let name = match stream_type {

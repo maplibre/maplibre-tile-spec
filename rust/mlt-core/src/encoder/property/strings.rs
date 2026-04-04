@@ -112,7 +112,7 @@ fn write_str_plain(
     enc.write_varint(2u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
     let typ = StreamType::Length(LengthType::VarBinary);
-    write_u32_stream(&lengths, typ, "prop", name, Some("lengths"), enc)?;
+    write_u32_stream(&lengths, typ, "prop", name, "lengths", enc)?;
     write_raw_str_data(non_null, DictionaryType::None, enc)
 }
 
@@ -128,9 +128,9 @@ fn write_str_dict(
     enc.write_varint(3u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
     let typ = StreamType::Length(LengthType::Dictionary);
-    write_u32_stream(&lengths, typ, "prop", name, Some("lengths"), enc)?;
+    write_u32_stream(&lengths, typ, "prop", name, "lengths", enc)?;
     let typ = StreamType::Offset(OffsetType::String);
-    write_u32_stream(&offset_indices, typ, "prop", name, Some("offsets"), enc)?;
+    write_u32_stream(&offset_indices, typ, "prop", name, "offsets", enc)?;
     write_raw_str_data(&unique, DictionaryType::Single, enc)
 }
 
@@ -149,7 +149,7 @@ fn write_str_fsst(
     enc.write_optional_stream(presence)?;
     write_fsst_data(&raw, DictionaryType::Single, "prop", name, enc)?;
     let typ = StreamType::Offset(OffsetType::String);
-    write_u32_stream(&offsets, typ, "prop", name, Some("offsets"), enc)
+    write_u32_stream(&offsets, typ, "prop", name, "offsets", enc)
 }
 
 /// Encode with FSST + dictionary layout (deduped unique strings, per-feature offset indices).
@@ -165,7 +165,7 @@ fn write_str_fsst_dict(
     enc.write_optional_stream(presence)?;
     write_fsst_data(&raw, DictionaryType::Single, "prop", name, enc)?;
     let typ = StreamType::Offset(OffsetType::String);
-    write_u32_stream(&offset_indices, typ, "prop", name, Some("offsets"), enc)
+    write_u32_stream(&offset_indices, typ, "prop", name, "offsets", enc)
 }
 
 /// Write 4 FSST sub-streams directly to `enc.data`.
@@ -183,28 +183,14 @@ fn write_fsst_data(
     enc: &mut Encoder,
 ) -> MltResult<()> {
     let typ = StreamType::Length(LengthType::Symbol);
-    write_u32_stream(
-        &raw.symbol_lengths,
-        typ,
-        kind,
-        name,
-        Some("sym_lengths"),
-        enc,
-    )?;
+    write_u32_stream(&raw.symbol_lengths, typ, kind, name, "sym_lengths", enc)?;
     let num_syms = u32::try_from(raw.symbol_lengths.len())?;
     let sym_bytes_len = u32::try_from(raw.symbol_bytes.len())?;
     let typ = StreamType::Data(DictionaryType::Fsst);
     StreamMeta::new(typ, IntEncoding::none(), num_syms).write_to(enc, false, sym_bytes_len)?;
     enc.data.extend_from_slice(&raw.symbol_bytes);
     let typ = StreamType::Length(LengthType::Dictionary);
-    write_u32_stream(
-        &raw.value_lengths,
-        typ,
-        kind,
-        name,
-        Some("dict_lengths"),
-        enc,
-    )?;
+    write_u32_stream(&raw.value_lengths, typ, kind, name, "dict_lengths", enc)?;
     let num_vals = u32::try_from(raw.value_lengths.len())?;
     let corpus_len = u32::try_from(raw.corpus.len())?;
     StreamMeta::new(StreamType::Data(dict_type), IntEncoding::none(), num_vals)
@@ -314,7 +300,7 @@ pub(crate) fn write_shared_dict(
             StreamType::Length(LengthType::Dictionary),
             "prop",
             &shared_dict.prefix,
-            Some("lengths"),
+            "lengths",
             enc,
         )?;
         write_raw_str_data(&dict, DictionaryType::Shared, enc)?;
@@ -343,7 +329,7 @@ pub(crate) fn write_shared_dict(
             typ,
             "prop",
             &shared_dict.prefix,
-            Some(&item.suffix),
+            &item.suffix,
             enc,
         )?;
     }
