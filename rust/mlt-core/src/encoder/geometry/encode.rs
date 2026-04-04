@@ -375,13 +375,12 @@ impl GeometryValues {
             vertices,
         } = self;
 
-        // Flatten topology Option<Vec> → Vec (empty == not present) so the
-        // rest of the function can use plain emptiness checks.
+        // Flatten every Option<Vec> → Vec  (empty == not present).
         let geometry_offsets = geometry_offsets.unwrap_or_default();
         let part_offsets = part_offsets.unwrap_or_default();
         let ring_offsets = ring_offsets.unwrap_or_default();
-        // index_buffer follows the same rule: an empty index buffer is equivalent to absent.
         let index_buffer = index_buffer.unwrap_or_default();
+        let triangles = triangles.unwrap_or_default();
 
         let vertex_buffer_type = enc.override_vertex_buffer_type().unwrap_or_else(|| {
             vertices
@@ -408,7 +407,7 @@ impl GeometryValues {
         enc.data.push(0); // placeholder — patched below
         let mut n: u8 = 0;
 
-        // Meta stream — always written.
+        // Meta stream — always written, even for a zero-feature layer.
         let typ = StreamType::Length(LengthType::VarBinary);
         write_u32_stream(&meta, typ, "geo", "meta", "", enc)?;
         n += 1;
@@ -456,7 +455,7 @@ impl GeometryValues {
             if !ring_offsets.is_empty() {
                 // No Multi* types; parts → rings (Polygon / mixed Point+Polygon).
                 // Java includes an empty geometries stream for tessellated polygons with outlines.
-                if triangles.is_some() {
+                if !triangles.is_empty() {
                     let typ = StreamType::Length(LengthType::Geometries);
                     write_u32_stream(&[], typ, "geo", "geometries", "", enc)?;
                     n += 1;
@@ -487,12 +486,8 @@ impl GeometryValues {
             }
         }
 
-        if let Some(triangles) = triangles {
-            let typ = StreamType::Length(LengthType::Triangles);
-            write_u32_stream(&triangles, typ, "geo", "triangles", "", enc)?;
-            n += 1;
-        }
-
+        let typ = StreamType::Length(LengthType::Triangles);
+        n += write_geo_u32_stream(&triangles, typ, "triangles", enc)?;
         let typ = StreamType::Offset(OffsetType::Index);
         n += write_geo_u32_stream(&index_buffer, typ, "triangles_indexes", enc)?;
 
@@ -506,9 +501,9 @@ impl GeometryValues {
                 let morton_meta = z_order_params(&verts)?;
                 let (dict, offsets) = build_morton_dict(&verts, morton_meta)?;
                 let typ = StreamType::Offset(OffsetType::Vertex);
-                write_u32_stream(&offsets, typ, "geo", "vertex_offsets", "", enc)?;
+                n += write_geo_u32_stream(&offsets, typ, "vertex_offsets", enc)?;
                 write_morton_delta_stream(&morton_deltas(&dict), morton_meta, enc)?;
-                n += 2;
+                n += 1;
             }
             (None, _) => {}
         }
