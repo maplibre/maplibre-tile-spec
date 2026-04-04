@@ -462,11 +462,10 @@ impl GeometryValues {
                 n += write_geo_u32_stream(&lengths, typ, "no_rings", enc)?;
             } else {
                 // No Multi* types; parts → rings (Polygon / mixed Point+Polygon).
-                if !triangles.is_empty() {
-                    let typ = StreamType::Length(LengthType::Geometries);
-                    write_u32_stream(&[], typ, "geo", "geometries", "", enc)?;
-                    n += 1;
-                }
+                // Java writes an empty GEOMETRIES stream here for tessellated polygons; only do
+                // so when explicitly forced (e.g. to preserve byte-for-byte Java compatibility).
+                let typ = StreamType::Length(LengthType::Geometries);
+                n += write_geo_u32_stream(&[], typ, "geometries", enc)?;
 
                 let pl = encode_root_length_stream(&vector_types, &normalized_parts, LineString);
                 let typ = StreamType::Length(LengthType::Parts);
