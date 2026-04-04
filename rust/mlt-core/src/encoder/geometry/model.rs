@@ -1,15 +1,3 @@
-/// Describes how polygon tessellation should be performed during geometry value construction.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum TessellationMode {
-    /// No tessellation; polygons are stored as outline rings only.
-    #[default]
-    None,
-    /// Tessellate polygons using the Earcut algorithm, producing triangle index buffers.
-    Earcut,
-}
-
 /// Describes how the vertex buffer should be encoded.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]

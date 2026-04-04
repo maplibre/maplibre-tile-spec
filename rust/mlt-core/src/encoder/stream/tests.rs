@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use proptest::prelude::*;
 use rstest::rstest;
 

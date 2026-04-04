@@ -1,12 +1,13 @@
 use std::collections::HashSet;
 
 use geo_types::{LineString, Point, Polygon, point, wkt};
-use mlt_core::__private::{assert_empty, dec, parser};
-use mlt_core::encoder::Encoder;
-use mlt_core::geojson::{Coord32, Geom32};
-use mlt_core::{DictionaryType, GeometryValues, LengthType, OffsetType, RawGeometry, StreamType};
 use pretty_assertions::assert_eq;
 use rstest::rstest;
+
+use crate::encoder::Encoder;
+use crate::geojson::{Coord32, Geom32};
+use crate::test_helpers::{assert_empty, dec, parser};
+use crate::{DictionaryType, GeometryValues, LengthType, OffsetType, RawGeometry, StreamType};
 
 #[rstest]
 #[case::single_point(push_geoms(&[wkt!(POINT(10 20)).into()]))]

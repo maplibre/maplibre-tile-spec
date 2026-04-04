@@ -79,21 +79,5 @@ name = "geojson"
 required-features = ["__private"]
 
 [[test]]
-name = "geometry_optimizer"
-required-features = ["__private"]
-
-[[test]]
-name = "id_optimizer"
-required-features = ["__private"]
-
-[[test]]
-name = "property_roundtrip"
-required-features = ["__private"]
-
-[[test]]
 name = "snapshots"
-required-features = ["__private"]
-
-[[test]]
-name = "sort"
 required-features = ["__private"]

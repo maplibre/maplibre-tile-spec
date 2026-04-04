@@ -9,6 +9,8 @@ mod optimizer;
 mod property;
 mod sort;
 mod stream;
+#[cfg(any(test, feature = "__private"))]
+mod tests;
 mod tile;
 mod unknown;
 mod writer;

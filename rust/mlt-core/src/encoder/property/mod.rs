@@ -4,6 +4,8 @@ mod optimizer;
 mod owned;
 mod serialize;
 mod strings;
+#[cfg(test)]
+mod tests;
 
 pub use encode::write_properties;
 pub use model::{
