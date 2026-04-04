@@ -70,9 +70,9 @@ fn calc_sequence_stats(ids: &[Option<u64>]) -> Option<SequenceStats> {
 impl IdValues {
     /// Encode and write the ID column to `enc`.
     ///
-    /// If [`Encoder::get_int_encoder`](Encoder::get_int_encoder) returns
+    /// If `Encoder::get_int_encoder` returns
     /// [`Some`] for `"id"` / `"value"`, uses that encoder and
-    /// [`Encoder::override_id_width_for_id`](Encoder::override_id_width).
+    /// `Encoder::override_id_width`.
     /// Otherwise, selects among candidate encodings automatically.
     ///
     /// Writes column-type byte to [`enc.meta`](Encoder::meta) and the

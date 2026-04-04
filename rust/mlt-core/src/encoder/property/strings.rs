@@ -14,7 +14,7 @@ use crate::decoder::{
     ColumnType, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
     RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, StreamType,
 };
-use crate::encoder::stream::{FsstStrEncoder, IntEncoder};
+use crate::encoder::stream::{DataProfile, FsstStrEncoder, IntEncoder, dedup_strings};
 use crate::encoder::{
     EncodedFsstData, EncodedPlainData, EncodedStream, EncodedStringsEncoding, Encoder, StrEncoding,
 };
@@ -62,15 +62,6 @@ pub(crate) fn fsst_is_viable(strings: &[&str]) -> bool {
 /// The `col_type` + `name` are written to `enc.meta` once; the stream count + streams
 /// go into alternatives in `enc.data`.
 pub(crate) fn write_str_col(
-    v: &StagedStrings,
-    has_presence: bool,
-    presence_stream: Option<&EncodedStream>,
-    enc: &mut Encoder,
-) -> MltResult<()> {
-    write_str_col_impl(v, has_presence, presence_stream, enc)
-}
-
-fn write_str_col_impl(
     v: &StagedStrings,
     has_presence: bool,
     presence_stream: Option<&EncodedStream>,
@@ -134,28 +125,77 @@ fn write_str_col_impl(
         write_str_streams(encoding.streams(), presence_stream, enc)?;
         enc.finish_alternative();
     } else {
-        // Auto path: try Plain and (if viable) FSST, keeping the shorter.
-        {
+        // Auto path: two-level competition.
+        //
+        //  Outer level  — which string-encoding type wins overall?
+        //    Plain / Dict / FSST (if viable) / FsstDict (if viable)
+        //
+        //  Inner level (Plain only) — which int encoder for the lengths stream?
+        //    Candidates from DataProfile::prune_candidates, written as actual
+        //    bytes so the winner is the real smallest encoding.
+        //
+        // All encodings are compared by their total written bytes, so the outer
+        // competition automatically accounts for the inner winner's size.
+
+        // Pre-compute data needed outside the alternatives loops.
+        let plain_lengths = strings_to_lengths(&non_null)?;
+        let plain_len_cands = DataProfile::prune_candidates::<i32>(&plain_lengths);
+
+        // Dedup once; reused by Dict and FsstDict candidates.
+        let (unique, offset_indices) = dedup_strings(&non_null)?;
+        let dict_lengths = strings_to_lengths(&unique)?;
+        let dict_len_cands = DataProfile::prune_candidates::<i32>(&dict_lengths);
+        let offset_enc = if offset_indices.is_empty() {
+            IntEncoder::plain()
+        } else {
+            IntEncoder::auto_u32(&offset_indices)
+        };
+
+        let use_fsst = fsst_is_viable(&non_null);
+
+        // ── Plain (inner: length-encoder competition) ─────────────────────
+        enc.start_alternatives();
+        for lenc in plain_len_cands {
             let encoding = EncodedStream::encode_strings_with_type(
                 &non_null,
-                IntEncoder::varint(),
+                lenc,
                 LengthType::VarBinary,
                 DictionaryType::None,
             )?;
             write_str_streams(encoding.streams(), presence_stream, enc)?;
+            enc.finish_alternative();
         }
-        enc.finish_alternative();
-        if fsst_is_viable(&non_null) {
+        enc.finish_alternatives();
+        enc.finish_alternative(); // commit best-Plain outer candidate
+
+        // ── Dict (inner: length-encoder competition, offset_enc is fixed) ─
+        enc.start_alternatives();
+        for lenc in dict_len_cands {
+            let encoding = EncodedStream::encode_strings_dict(&non_null, lenc, offset_enc)?;
+            write_str_streams(encoding.streams(), presence_stream, enc)?;
+            enc.finish_alternative();
+        }
+        enc.finish_alternatives();
+        enc.finish_alternative(); // commit best-Dict outer candidate
+
+        // ── FSST / FsstDict — flat candidates (re-training FSST is expensive)
+        if use_fsst {
+            let fsst_enc = FsstStrEncoder {
+                symbol_lengths: IntEncoder::varint(),
+                dict_lengths: IntEncoder::varint(),
+            };
             let encoding = EncodedStream::encode_strings_fsst_with_type(
                 &non_null,
-                FsstStrEncoder {
-                    symbol_lengths: IntEncoder::varint(),
-                    dict_lengths: IntEncoder::varint(),
-                },
+                fsst_enc,
                 DictionaryType::Single,
             )?;
             write_str_streams(encoding.streams(), presence_stream, enc)?;
-            enc.finish_alternative();
+            enc.finish_alternative(); // FSST outer candidate
+
+            let encoding =
+                EncodedStream::encode_strings_fsst_dict(&non_null, fsst_enc, offset_enc)?;
+            write_str_streams(encoding.streams(), presence_stream, enc)?;
+            enc.finish_alternative(); // FsstDict outer candidate
         }
     }
     enc.finish_alternatives();
@@ -385,7 +425,7 @@ impl EncodedSharedDictEncoding {
     }
 }
 use crate::errors::AsMltError as _;
-use crate::utils::{AsUsize as _, BinarySerializer as _, checked_sum3};
+use crate::utils::{AsUsize as _, BinarySerializer as _, checked_sum3, strings_to_lengths};
 use crate::{Decoder, MltResult};
 
 impl StagedStrings {

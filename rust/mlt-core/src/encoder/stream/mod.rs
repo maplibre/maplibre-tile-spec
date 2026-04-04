@@ -1,4 +1,5 @@
 mod encode_stream;
+pub(crate) use encode_stream::dedup_strings;
 pub mod encoder;
 mod model;
 mod optimizer;

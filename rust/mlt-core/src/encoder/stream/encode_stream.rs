@@ -17,7 +17,7 @@ use crate::utils::strings_to_lengths;
 /// Deduplicate `values` preserving insertion order.
 /// Returns `(unique_strings, per_value_index)` where each entry in `per_value_index` is the
 /// index into `unique_strings` for the corresponding input value.
-fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<&str>, Vec<u32>)> {
+pub(crate) fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<&str>, Vec<u32>)> {
     let mut unique: Vec<&str> = Vec::new();
     let mut index: HashMap<&str, u32> = HashMap::new();
     let mut indices = Vec::with_capacity(values.len());

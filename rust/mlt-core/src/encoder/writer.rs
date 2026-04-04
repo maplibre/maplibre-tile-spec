@@ -173,7 +173,7 @@ impl Encoder {
     }
 
     /// Like [`Self::new`] but with [`Self::explicit`] set for deterministic encoding
-    /// (tests, synthetics). Use with [`StagedLayer01::encode_explicit`].
+    /// (tests, synthetics). Use with `StagedLayer01::encode_explicit`.
     #[inline]
     #[must_use]
     pub fn with_explicit(cfg: EncoderConfig, explicit: ExplicitEncoder) -> Self {
@@ -193,8 +193,8 @@ impl Encoder {
 
     /// Write the layer header (`name`, `extent`, `column_count`) to [`hdr`].
     ///
-    /// `column_count` is [`layer_column_count`](Encoder::layer_column_count) —
-    /// each column encoder must call [`push_layer_column`](Encoder::push_layer_column)
+    /// `column_count` is `layer_column_count` —
+    /// each column encoder must call `push_layer_column`
     /// when it commits a column to the wire format.
     ///
     /// Must be called exactly once per layer, after all column meta and data.
@@ -252,7 +252,7 @@ impl Encoder {
             .is_some_and(|e| (e.override_presence)(kind, name, subname))
     }
 
-    /// Applies [`ExplicitEncoder::override_id_width`] when the `__private` field exists;
+    /// Applies `ExplicitEncoder::override_id_width` when the `__private` field exists;
     /// otherwise returns `auto` unchanged.
     #[inline]
     #[allow(clippy::unused_self)]
