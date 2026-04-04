@@ -272,6 +272,15 @@ impl Encoder {
         self.explicit.as_ref().map(|e| e.vertex_buffer_type)
     }
 
+    /// Whether to force writing a geometry stream even when its data is empty.
+    ///
+    /// Delegates to [`ExplicitEncoder::force_stream`]; returns `false` when no explicit
+    /// encoder is active (the default "skip empty streams" behaviour).
+    #[inline]
+    pub(crate) fn force_stream(&self, name: &str) -> bool {
+        self.explicit.as_ref().is_some_and(|e| (e.force_stream)(name))
+    }
+
     /// Total encoded bytes across all three sections (`hdr + meta + data`).
     ///
     /// Used to compare sort-strategy trials without assembling the final bytes.

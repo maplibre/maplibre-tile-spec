@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::Path;
@@ -117,6 +117,9 @@ pub struct Layer {
     tessellate: bool,
     /// When `true`, emit a presence stream even for all-present columns.
     force_presence: bool,
+    /// Geometry stream names that must be written even when their data is empty.
+    /// See [`ExplicitEncoder::force_stream`] for details.
+    force_empty_streams: HashSet<&'static str>,
     geometry_items: Vec<Geom32>,
     props: Vec<(StagedProperty, PropConfig)>,
     extent: Option<u32>,
@@ -131,6 +134,7 @@ impl Layer {
             vertex_buffer_type: VertexBufferType::Vec2,
             tessellate: false,
             force_presence: false,
+            force_empty_streams: HashSet::new(),
             geometry_items: vec![],
             props: vec![],
             extent: None,
@@ -185,6 +189,19 @@ impl Layer {
     #[must_use]
     pub fn tessellate(mut self) -> Self {
         self.tessellate = true;
+        self
+    }
+
+    /// Force a geometry stream to be written even when its data is empty.
+    ///
+    /// `name` is the geometry stream name as used internally by the encoder
+    /// (e.g. `"triangles_indexes"`, `"geometries"`, `"rings"`, …).
+    ///
+    /// Useful for producing byte-for-byte output that matches Java's encoder when a
+    /// normally-empty stream must still appear in the wire format.
+    #[must_use]
+    pub fn force_empty_stream(mut self, name: &'static str) -> Self {
+        self.force_empty_streams.insert(name);
         self
     }
 
@@ -324,6 +341,7 @@ impl Layer {
             vertex_buffer_type,
             tessellate,
             force_presence,
+            force_empty_streams,
             geometry_items,
             props,
             extent,
@@ -359,6 +377,7 @@ impl Layer {
                 None => Box::new(|w| w),
             },
             vertex_buffer_type,
+            force_stream: Box::new(move |name| force_empty_streams.contains(name)),
             get_int_encoder: {
                 let prop_map = prop_map.clone();
                 Box::new(move |kind: &str, name: &str, sub: &str| match kind {

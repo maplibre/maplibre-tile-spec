@@ -101,6 +101,20 @@ pub enum StrEncoding {
 pub struct ExplicitEncoder {
     /// Vertex buffer layout for geometry streams.
     pub vertex_buffer_type: VertexBufferType,
+    /// Per-stream override for the skip-empty-stream rule used by `write_geo_u32_stream`.
+    ///
+    /// `write_geo_u32_stream` normally skips writing a stream when its data is empty.
+    /// When this callback returns `true` for a given geometry stream name, the stream is
+    /// written even when empty.
+    ///
+    /// **Argument:** the geometry stream name (e.g. `"triangles_indexes"`, `"geometries"`,
+    /// `"parts"`, `"rings"`, …).
+    ///
+    /// **Typical use:** set to `|name| name == "triangles_indexes"` to force writing an
+    /// empty INDEX stream alongside the TRIANGLES stream for degenerate polygons (0 triangles).
+    /// This matches Java encoder behaviour and avoids a TypeScript decoder issue where an
+    /// absent INDEX stream causes tessellation data to be silently discarded.
+    pub force_stream: Box<dyn Fn(&str) -> bool>,
     /// Return the [`IntEncoder`] for a stream.
     /// Arguments: `(kind, name, subname)` where `kind` is `"id"`, `"geo"`, or `"prop"`;
     /// `name` is the stream/column name; `subname` is the shared-dict suffix when applicable.

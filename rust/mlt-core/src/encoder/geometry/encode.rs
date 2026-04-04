@@ -343,13 +343,16 @@ pub fn select_vertex_strategy(vertices: &[i32]) -> VertexBufferType {
 
 /// Write a geometry `u32` stream: [`Encoder::get_int_encoder`] when explicit mode is active,
 /// otherwise try all pruned candidates and keep the shortest.
+///
+/// Returns `1` if the stream was written, `0` if it was skipped.  Empty streams are skipped
+/// unless [`Encoder::force_stream`] returns `true` for `geo_stream_name`.
 fn write_geo_u32_stream(
     data: &[u32],
     stream_type: StreamType,
     geo_stream_name: &'static str,
     enc: &mut Encoder,
 ) -> MltResult<u8> {
-    Ok(if data.is_empty() {
+    Ok(if data.is_empty() && !enc.force_stream(geo_stream_name) {
         0
     } else {
         write_u32_stream(data, stream_type, "geo", geo_stream_name, "", enc)?;
@@ -377,6 +380,8 @@ impl GeometryValues {
         let geometry_offsets = geometry_offsets.unwrap_or_default();
         let part_offsets = part_offsets.unwrap_or_default();
         let ring_offsets = ring_offsets.unwrap_or_default();
+        // index_buffer follows the same rule: an empty index buffer is equivalent to absent.
+        let index_buffer = index_buffer.unwrap_or_default();
 
         let vertex_buffer_type = enc.override_vertex_buffer_type().unwrap_or_else(|| {
             vertices
@@ -488,11 +493,8 @@ impl GeometryValues {
             n += 1;
         }
 
-        if let Some(index_buffer) = index_buffer {
-            let typ = StreamType::Offset(OffsetType::Index);
-            write_u32_stream(&index_buffer, typ, "geo", "triangles_indexes", "", enc)?;
-            n += 1;
-        }
+        let typ = StreamType::Offset(OffsetType::Index);
+        n += write_geo_u32_stream(&index_buffer, typ, "triangles_indexes", enc)?;
 
         // Vertex streams — compute and write inline.
         match (vertices, vertex_buffer_type) {

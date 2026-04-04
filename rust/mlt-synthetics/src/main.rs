@@ -178,10 +178,12 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_collinear_fpf");
     geo_varint()
         .tessellate()
+        .force_empty_stream("triangles_indexes")
         .geo(poly_collinear())
         .write(w, "poly_collinear_tes");
     geo_fastpfor()
         .tessellate()
+        .force_empty_stream("triangles_indexes")
         .geo(poly_collinear())
         .write(w, "poly_collinear_fpf_tes");
 

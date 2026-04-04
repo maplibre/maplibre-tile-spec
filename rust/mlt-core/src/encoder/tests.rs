@@ -7,6 +7,7 @@ impl ExplicitEncoder {
         Self {
             override_id_width: Box::new(|w| w),
             vertex_buffer_type: VertexBufferType::Vec2,
+            force_stream: Box::new(|_| false),
             get_int_encoder: Box::new(move |_, _, _| enc),
             get_str_encoding: Box::new(|_| crate::encoder::StrEncoding::Plain),
             override_presence: Box::new(|_, _, _| false),
