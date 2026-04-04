@@ -13,20 +13,6 @@ use crate::encoder::stream::{write_precomputed_u32, write_u32_stream};
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 
-/// Write pre-computed componentwise-delta vertex values, competing physical encoders.
-fn write_vertex_delta_stream(delta: &[u32], enc: &mut Encoder) -> MltResult<()> {
-    let typ = StreamType::Data(DictionaryType::Vertex);
-    let logical = LogicalEncoding::ComponentwiseDelta;
-    write_precomputed_u32(delta, typ, logical, "geo", "vertex", enc)
-}
-
-/// Write pre-computed Morton delta values with competing physical encoders.
-fn write_morton_delta_stream(deltas: &[u32], meta: MortonMeta, enc: &mut Encoder) -> MltResult<()> {
-    let typ = StreamType::Data(DictionaryType::Morton);
-    let logical = LogicalEncoding::MortonDelta(meta);
-    write_precomputed_u32(deltas, typ, logical, "geo", "vertex", enc)
-}
-
 /// Compute `ZOrderCurve` parameters from the vertex value range.
 ///
 /// Returns `(num_bits, coordinate_shift)` matching Java's `SpaceFillingCurve`.
@@ -454,7 +440,6 @@ impl GeometryValues {
         } else if !normalized_parts.is_empty() {
             if !ring_offsets.is_empty() {
                 // No Multi* types; parts → rings (Polygon / mixed Point+Polygon).
-                // Java includes an empty geometries stream for tessellated polygons with outlines.
                 if !triangles.is_empty() {
                     let typ = StreamType::Length(LengthType::Geometries);
                     write_u32_stream(&[], typ, "geo", "geometries", "", enc)?;
@@ -494,7 +479,10 @@ impl GeometryValues {
         // Vertex streams — compute and write inline.
         match (vertices, vertex_buffer_type) {
             (Some(verts), VertexBufferType::Vec2) => {
-                write_vertex_delta_stream(&encode_componentwise_delta_vec2s(&verts), enc)?;
+                let delta = &encode_componentwise_delta_vec2s(&verts);
+                let typ = StreamType::Data(DictionaryType::Vertex);
+                let logical = LogicalEncoding::ComponentwiseDelta;
+                write_precomputed_u32(delta, typ, logical, "geo", "vertex", enc)?;
                 n += 1;
             }
             (Some(verts), VertexBufferType::Morton) => {
@@ -502,7 +490,10 @@ impl GeometryValues {
                 let (dict, offsets) = build_morton_dict(&verts, morton_meta)?;
                 let typ = StreamType::Offset(OffsetType::Vertex);
                 n += write_geo_u32_stream(&offsets, typ, "vertex_offsets", enc)?;
-                write_morton_delta_stream(&morton_deltas(&dict), morton_meta, enc)?;
+                let deltas = &morton_deltas(&dict);
+                let typ = StreamType::Data(DictionaryType::Morton);
+                let logical = LogicalEncoding::MortonDelta(morton_meta);
+                write_precomputed_u32(deltas, typ, logical, "geo", "vertex", enc)?;
                 n += 1;
             }
             (None, _) => {}

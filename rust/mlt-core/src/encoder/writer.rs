@@ -278,7 +278,9 @@ impl Encoder {
     /// encoder is active (the default "skip empty streams" behaviour).
     #[inline]
     pub(crate) fn force_stream(&self, name: &str) -> bool {
-        self.explicit.as_ref().is_some_and(|e| (e.force_stream)(name))
+        self.explicit
+            .as_ref()
+            .is_some_and(|e| (e.force_stream)(name))
     }
 
     /// Total encoded bytes across all three sections (`hdr + meta + data`).
