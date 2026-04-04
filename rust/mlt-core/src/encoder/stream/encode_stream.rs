@@ -37,19 +37,6 @@ pub(crate) fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<&str>
 }
 
 impl EncodedStream {
-    /// Creates an empty stream
-    #[must_use]
-    pub fn empty_without_encoding() -> Self {
-        Self {
-            meta: StreamMeta::new(
-                StreamType::Data(DictionaryType::None),
-                IntEncoding::none(),
-                0,
-            ),
-            data: EncodedStreamData::Encoded(Vec::new()),
-        }
-    }
-
     #[must_use]
     fn plain(data: Vec<u8>, num_values: u32) -> Self {
         Self::plain_with_type(data, num_values, DictionaryType::None)

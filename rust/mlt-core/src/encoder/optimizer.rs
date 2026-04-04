@@ -11,7 +11,7 @@ impl StagedLayer {
     /// Automatically encode and write `self` to `enc`.
     ///
     /// Sort strategy for Tag01 layers is [`SortStrategy::Unsorted`] here because
-    /// sorting must happen before staging. Use [`encode_tile_layer`] for the full
+    /// sorting must happen before staging. Use `TileLayer01::encode` for the full
     /// sort + stream trialing on a [`TileLayer01`].
     pub fn encode_into(self, enc: &mut Encoder) -> MltResult<()> {
         match self {
@@ -25,7 +25,7 @@ impl StagedLayer01 {
     /// Encode and serialize the layer directly into `enc`, without creating any
     /// intermediate representation.
     ///
-    /// This is the hot path inside [`encode_tile_layer`]: each sort-strategy
+    /// This is the hot path inside `TileLayer01::encode`: each sort-strategy
     /// trial calls this method on its own fresh `Encoder`, and only the
     /// `Encoder` with the smallest `total_len()` is kept.
     pub fn encode_into(self, enc: &mut Encoder) -> MltResult<()> {

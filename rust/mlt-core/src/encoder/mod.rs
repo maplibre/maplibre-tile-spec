@@ -15,11 +15,17 @@ mod tile;
 mod unknown;
 mod writer;
 
+#[cfg(not(feature = "__private"))]
+pub(crate) use geometry::VertexBufferType;
 #[cfg(feature = "__private")]
 pub use geometry::VertexBufferType;
-#[cfg(any(test, feature = "__private"))]
+#[cfg(not(feature = "__private"))]
+pub(crate) use id::IdWidth;
+#[cfg(feature = "__private")]
 pub use id::IdWidth;
 pub use model::{EncodedUnknown, EncoderConfig};
+#[cfg(all(test, not(feature = "__private")))]
+pub(crate) use model::{ExplicitEncoder, StagedLayer, StagedLayer01, StrEncoding};
 #[cfg(feature = "__private")]
 pub use model::{ExplicitEncoder, StagedLayer, StagedLayer01, StrEncoding};
 pub(crate) use property::*;

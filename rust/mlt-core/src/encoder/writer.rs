@@ -78,10 +78,10 @@ pub struct Encoder {
     /// need a separate `cfg` argument.
     pub cfg: EncoderConfig,
 
-    /// When [`Some`], property / ID / geometry encoders use [`ExplicitEncoder`]
+    /// When [`Some`], property / ID / geometry encoders use `ExplicitEncoder`
     /// callbacks instead of trying candidate encodings. When [`None`], the
     /// automatic optimization path runs.
-    pub explicit: Option<ExplicitEncoder>,
+    pub(crate) explicit: Option<ExplicitEncoder>,
 
     /// Layer header bytes: `name`, `extent`, `column_count`.
     ///
@@ -171,7 +171,7 @@ impl Encoder {
         }
     }
 
-    /// Like [`Self::new`] but with [`Self::explicit`] set for deterministic encoding
+    /// Like [`Self::new`] but with the explicit encoder set for deterministic encoding
     /// (tests, synthetics). Use with `StagedLayer01::encode_explicit`.
     #[inline]
     #[must_use]
