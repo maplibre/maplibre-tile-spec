@@ -4,6 +4,7 @@ use super::model::VertexBufferType;
 use crate::MltResult;
 use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
+use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
     ColumnType, DictionaryType, GeometryType, GeometryValues, LengthType, LogicalEncoding,
     MortonMeta, OffsetType, StreamType,
@@ -254,8 +255,6 @@ fn normalize_part_offsets_for_rings(
     part_offsets: &[u32],
     ring_offsets: &[u32],
 ) -> Vec<u32> {
-    use GeometryType::*;
-
     let num_rings = if ring_offsets.is_empty() {
         0
     } else {
@@ -346,11 +345,28 @@ fn write_geo_u32_stream(
     })
 }
 
+/// Like [`write_geo_u32_stream`] but for pre-logically-encoded data: delegates to
+/// [`write_precomputed_u32`] instead of [`write_u32_stream`].
+///
+/// Returns `1` if the stream was written, `0` if skipped (empty + no force).
+fn write_geo_precomputed_stream(
+    data: &[u32],
+    stream_type: StreamType,
+    logical: LogicalEncoding,
+    geo_stream_name: &'static str,
+    enc: &mut Encoder,
+) -> MltResult<u8> {
+    Ok(if data.is_empty() && !enc.force_stream(geo_stream_name) {
+        0
+    } else {
+        write_precomputed_u32(data, stream_type, logical, "geo", geo_stream_name, enc)?;
+        1
+    })
+}
+
 impl GeometryValues {
     /// Write the geometry column to `enc`.
     pub fn write_to(self, enc: &mut Encoder) -> MltResult<()> {
-        use GeometryType::*;
-
         let Self {
             vector_types,
             geometry_offsets,
@@ -362,17 +378,19 @@ impl GeometryValues {
         } = self;
 
         // Flatten every Option<Vec> → Vec  (empty == not present).
+        // triangles: None means no tessellation; Some([]) can't occur in practice (each
+        // push_geom appends a count), so empty == absent is safe here too.
+        // vertices: None means no coordinate data (e.g. empty layer).
         let geometry_offsets = geometry_offsets.unwrap_or_default();
         let part_offsets = part_offsets.unwrap_or_default();
         let ring_offsets = ring_offsets.unwrap_or_default();
         let index_buffer = index_buffer.unwrap_or_default();
         let triangles = triangles.unwrap_or_default();
+        let vertices = vertices.unwrap_or_default();
 
-        let vertex_buffer_type = enc.override_vertex_buffer_type().unwrap_or_else(|| {
-            vertices
-                .as_deref()
-                .map_or(VertexBufferType::Vec2, select_vertex_strategy)
-        });
+        let vertex_buffer_type = enc
+            .override_vertex_buffer_type()
+            .unwrap_or_else(|| select_vertex_strategy(&vertices));
 
         let meta: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
 
@@ -406,7 +424,16 @@ impl GeometryValues {
             n += write_geo_u32_stream(&lengths, typ, "geometries", enc)?;
 
             if !normalized_parts.is_empty() {
-                if !ring_offsets.is_empty() {
+                if ring_offsets.is_empty() {
+                    // geom → parts only (no rings).
+                    let pl = encode_level1_without_ring_buffer_length_stream(
+                        &vector_types,
+                        &geom_offs,
+                        &normalized_parts,
+                    );
+                    let typ = StreamType::Length(LengthType::Parts);
+                    n += write_geo_u32_stream(&pl, typ, "no_rings", enc)?;
+                } else {
                     // Full topology: geom → parts → rings.
                     // LineStrings contribute to rings here, not to parts.
                     let pl = encode_level1_length_stream(
@@ -426,19 +453,14 @@ impl GeometryValues {
                     );
                     let typ = StreamType::Length(LengthType::Rings);
                     n += write_geo_u32_stream(&rl, typ, "rings2", enc)?;
-                } else {
-                    // geom → parts only (no rings).
-                    let pl = encode_level1_without_ring_buffer_length_stream(
-                        &vector_types,
-                        &geom_offs,
-                        &normalized_parts,
-                    );
-                    let typ = StreamType::Length(LengthType::Parts);
-                    n += write_geo_u32_stream(&pl, typ, "no_rings", enc)?;
                 }
             }
         } else if !normalized_parts.is_empty() {
-            if !ring_offsets.is_empty() {
+            if ring_offsets.is_empty() {
+                let lengths = encode_root_length_stream(&vector_types, &normalized_parts, Point);
+                let typ = StreamType::Length(LengthType::Parts);
+                n += write_geo_u32_stream(&lengths, typ, "no_rings", enc)?;
+            } else {
                 // No Multi* types; parts → rings (Polygon / mixed Point+Polygon).
                 if !triangles.is_empty() {
                     let typ = StreamType::Length(LengthType::Geometries);
@@ -464,10 +486,6 @@ impl GeometryValues {
                 );
                 let typ = StreamType::Length(LengthType::Rings);
                 n += write_geo_u32_stream(&rl, typ, "parts_ring", enc)?;
-            } else {
-                let lengths = encode_root_length_stream(&vector_types, &normalized_parts, Point);
-                let typ = StreamType::Length(LengthType::Parts);
-                n += write_geo_u32_stream(&lengths, typ, "no_rings", enc)?;
             }
         }
 
@@ -477,26 +495,24 @@ impl GeometryValues {
         n += write_geo_u32_stream(&index_buffer, typ, "triangles_indexes", enc)?;
 
         // Vertex streams — compute and write inline.
-        match (vertices, vertex_buffer_type) {
-            (Some(verts), VertexBufferType::Vec2) => {
-                let delta = &encode_componentwise_delta_vec2s(&verts);
+        // write_geo_precomputed_stream skips writing when the input is empty (no vertices).
+        match vertex_buffer_type {
+            VertexBufferType::Vec2 => {
+                let delta = encode_componentwise_delta_vec2s(&vertices);
                 let typ = StreamType::Data(DictionaryType::Vertex);
                 let logical = LogicalEncoding::ComponentwiseDelta;
-                write_precomputed_u32(delta, typ, logical, "geo", "vertex", enc)?;
-                n += 1;
+                n += write_geo_precomputed_stream(&delta, typ, logical, "vertex", enc)?;
             }
-            (Some(verts), VertexBufferType::Morton) => {
-                let morton_meta = z_order_params(&verts)?;
-                let (dict, offsets) = build_morton_dict(&verts, morton_meta)?;
+            VertexBufferType::Morton => {
+                let morton_meta = z_order_params(&vertices)?;
+                let (dict, offsets) = build_morton_dict(&vertices, morton_meta)?;
                 let typ = StreamType::Offset(OffsetType::Vertex);
                 n += write_geo_u32_stream(&offsets, typ, "vertex_offsets", enc)?;
-                let deltas = &morton_deltas(&dict);
+                let deltas = morton_deltas(&dict);
                 let typ = StreamType::Data(DictionaryType::Morton);
                 let logical = LogicalEncoding::MortonDelta(morton_meta);
-                write_precomputed_u32(deltas, typ, logical, "geo", "vertex", enc)?;
-                n += 1;
+                n += write_geo_precomputed_stream(&deltas, typ, logical, "vertex", enc)?;
             }
-            (None, _) => {}
         }
 
         // Patch the reserved stream-count byte.
@@ -514,10 +530,10 @@ mod tests {
     #[test]
     fn test_encode_root_length_stream() {
         // Single Polygon geometry (no Multi)
-        let types = vec![GeometryType::Polygon];
+        let types = vec![Polygon];
         let offsets = vec![0, 1]; // One polygon
 
-        let lengths = encode_root_length_stream(&types, &offsets, GeometryType::Polygon);
+        let lengths = encode_root_length_stream(&types, &offsets, Polygon);
         // Polygon == buffer_id, so no length encoded
         assert!(lengths.is_empty());
 
@@ -525,7 +541,7 @@ mod tests {
         let types = vec![GeometryType::MultiPolygon];
         let offsets = vec![0, 2]; // MultiPolygon with 2 polygons
 
-        let lengths = encode_root_length_stream(&types, &offsets, GeometryType::Polygon);
+        let lengths = encode_root_length_stream(&types, &offsets, Polygon);
         assert_eq!(lengths, vec![2]);
     }
 }
