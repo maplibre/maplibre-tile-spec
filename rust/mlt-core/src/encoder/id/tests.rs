@@ -152,6 +152,7 @@ fn test_manual_optimization_applies_encoder() {
     assert_eq!(decoded_back, decoded);
 }
 
+#[cfg(feature = "__private")]
 #[test]
 fn test_manual_optimization_truncation() {
     let large_value = u64::from(u32::MAX) + 42;
@@ -203,6 +204,7 @@ fn test_auto_roundtrip_large_u64_ids() {
 }
 
 // Test that each config produces the correct variant and optional stream presence
+#[cfg(feature = "__private")]
 #[rstest]
 #[case::id32(Id32, vec![Some(1), Some(2), Some(3)])]
 #[case::opt_id32(OptId32, vec![Some(1), None, Some(3)])]
@@ -298,6 +300,7 @@ proptest! {
         assert_produces_correct_variant(ids_u64, Id32, IntEncoder::varint_with(logical))?;
     }
 
+    #[cfg(feature = "__private")]
     #[test]
     fn test_correct_variant_produced_id64(
         ids in prop::collection::vec(any::<u64>(), 1..50),
