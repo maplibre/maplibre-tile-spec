@@ -84,15 +84,14 @@ fn make_geometry(n: usize) -> GeometryValues {
 /// Encode `props` into a single-layer tile with `n` point features and return wire bytes.
 fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> Vec<u8> {
     let mut enc = Encoder::with_explicit(EncoderConfig::default(), cfg);
-    StagedLayer01 {
+    let self1 = StagedLayer01 {
         name: "bench".into(),
         extent: 4096,
         id: None,
         geometry: make_geometry(n),
         properties: props,
-    }
-    .encode_explicit(&mut enc)
-    .expect("encode_layer failed");
+    };
+    self1.encode_into(&mut enc).expect("encode_layer failed");
     enc.into_raw_bytes()
 }
 

@@ -386,14 +386,14 @@ impl Layer {
             ..EncoderConfig::default()
         };
         let mut enc = Encoder::with_explicit(enc_cfg, cfg);
-        StagedLayer01 {
+        let self1 = StagedLayer01 {
             name: "layer1".to_string(),
             extent: extent.unwrap_or(80),
             id: id_values.map(IdValues),
             geometry,
             properties: props.into_iter().map(|(p, _)| p).collect(),
-        }
-        .encode_explicit(&mut enc)?;
+        };
+        self1.encode_into(&mut enc)?;
         enc.into_layer_bytes().map_err(SynthErr::Mlt)
     }
 }

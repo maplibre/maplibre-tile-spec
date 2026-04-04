@@ -112,7 +112,7 @@ pub struct Encoder {
     /// Incremented by each column encoder when it writes its column-type byte to
     /// [`meta`](Encoder::meta). [`write_header`](Encoder::write_header) uses this
     /// as the wire-format `column_count`.
-    pub(crate) layer_column_count: u32,
+    pub layer_column_count: u32,
 
     /// Reusable scratch buffer for intermediate `u32` values.
     ///

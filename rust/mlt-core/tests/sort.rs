@@ -34,7 +34,7 @@ fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLaye
         Encoder::default().cfg,
         ExplicitEncoder::for_id(IntEncoder::varint(), IdWidth::Id32),
     );
-    staged.encode_explicit(&mut enc).expect("encode failed");
+    staged.encode_into(&mut enc).expect("encode failed");
 
     // Serialize to bytes and reparse to get a `Layer01`.
     let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");

@@ -21,7 +21,7 @@ use crate::utils::BinarySerializer as _;
 ///
 /// Each written column calls [`Encoder::push_layer_column`] at the end of its encode path;
 /// skipped columns (all-null / empty) do not.
-pub(crate) fn write_properties(props: &[StagedProperty], enc: &mut Encoder) -> MltResult<()> {
+pub fn write_properties(props: &[StagedProperty], enc: &mut Encoder) -> MltResult<()> {
     for prop in props {
         write_prop(prop, enc)?;
     }

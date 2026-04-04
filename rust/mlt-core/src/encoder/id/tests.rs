@@ -159,7 +159,7 @@ fn roundtrip_id_values(
         EncoderConfig::default(),
         ExplicitEncoder::for_id(int_enc, id_width),
     );
-    staged.encode_explicit(&mut enc)?;
+    staged.encode_into(&mut enc)?;
     let buf = enc.into_layer_bytes()?;
     let (_, layer) = Layer::from_bytes(&buf, &mut parser())?;
     let Layer::Tag01(layer01) = layer else {
@@ -197,7 +197,7 @@ fn encode_id_to_raw_layer(
         EncoderConfig::default(),
         ExplicitEncoder::for_id(int_enc, id_width),
     );
-    staged.encode_explicit(&mut enc).expect("encode failed");
+    staged.encode_into(&mut enc).expect("encode failed");
     let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
     let buf: &'static [u8] = Box::leak(buf.into_boxed_slice());
     let (_, layer) = Layer::from_bytes(buf, &mut parser()).expect("parse failed");

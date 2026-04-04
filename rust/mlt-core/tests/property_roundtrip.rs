@@ -105,7 +105,7 @@ fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
         EncoderConfig::default(),
         ExplicitEncoder::all(IntEncoder::varint()),
     );
-    layer.encode_explicit(&mut enc).expect("encoding failed");
+    layer.encode_into(&mut enc).expect("encoding failed");
     enc.into_layer_bytes().expect("into_layer_bytes failed")
 }
 
@@ -120,7 +120,7 @@ fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) ->
         properties: props,
     };
     let mut enc = Encoder::with_explicit(EncoderConfig::default(), cfg);
-    layer.encode_explicit(&mut enc).expect("encoding failed");
+    layer.encode_into(&mut enc).expect("encoding failed");
     enc.into_layer_bytes().expect("into_layer_bytes failed")
 }
 

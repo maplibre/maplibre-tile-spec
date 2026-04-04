@@ -28,7 +28,7 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_width: IdWidth, int_enc: IntEnc
         Encoder::default().cfg,
         ExplicitEncoder::for_id(int_enc, id_width),
     );
-    staged.encode_explicit(&mut enc).expect("encode failed");
+    staged.encode_into(&mut enc).expect("encode failed");
     let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
     let mut p = parser();
     let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");

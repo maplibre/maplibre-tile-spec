@@ -1,12 +1,11 @@
 use crate::MltResult;
 use crate::decoder::TileLayer01;
-#[cfg(feature = "__private")]
 use crate::encoder::property::encode::write_properties;
 #[cfg(feature = "__private")]
 use crate::encoder::stream::IntEncoder;
 use crate::encoder::{
-    EncodeProperties as _, Encoder, EncoderConfig, SortStrategy, StagedLayer, StagedLayer01,
-    group_string_properties, reorder_features, spatial_sort_likely_to_help,
+    Encoder, EncoderConfig, SortStrategy, StagedLayer, StagedLayer01, group_string_properties,
+    reorder_features, spatial_sort_likely_to_help,
 };
 #[cfg(feature = "__private")]
 use crate::encoder::{ExplicitEncoder, IdWidth, VertexBufferType};
@@ -69,36 +68,6 @@ impl ExplicitEncoder {
 }
 
 impl StagedLayer01 {
-    /// Encode using the [`ExplicitEncoder`] stored in [`Encoder::explicit`].
-    ///
-    /// Set `enc.explicit = Some(...)` or use [`Encoder::with_explicit`] before calling.
-    /// Used by synthetics and tests that require deterministic encoding. For automatic
-    /// optimization, use [`encode_tile_layer`].
-    #[cfg(feature = "__private")]
-    pub fn encode_explicit(self, enc: &mut Encoder) -> MltResult<()> {
-        use crate::MltError;
-        if enc.explicit.is_none() {
-            return Err(MltError::MissingExplicitEncoder);
-        }
-
-        let Self {
-            name,
-            extent,
-            id,
-            geometry,
-            properties,
-        } = self;
-
-        if let Some(ids) = id {
-            ids.write_to(enc)?;
-        }
-        geometry.write_to(enc)?;
-        write_properties(&properties, enc)?;
-        enc.write_header(&name, extent)?;
-
-        Ok(())
-    }
-
     /// Encode and serialize the layer directly into `enc`, without creating any
     /// intermediate representation.
     ///
@@ -114,13 +83,21 @@ impl StagedLayer01 {
     /// correct.
     ///
     /// Encoding configuration is read from [`enc.cfg`](Encoder::cfg).
-    pub(crate) fn encode_into(self, enc: &mut Encoder) -> MltResult<()> {
-        if let Some(id) = self.id {
-            id.write_to(enc)?;
+    pub fn encode_into(self, enc: &mut Encoder) -> MltResult<()> {
+        let Self {
+            name,
+            extent,
+            id,
+            geometry,
+            properties,
+        } = self;
+
+        if let Some(ids) = id {
+            ids.write_to(enc)?;
         }
-        self.geometry.write_to(enc)?;
-        self.properties.write_to(enc)?;
-        enc.write_header(&self.name, self.extent)?;
+        geometry.write_to(enc)?;
+        write_properties(&properties, enc)?;
+        enc.write_header(&name, extent)?;
 
         Ok(())
     }

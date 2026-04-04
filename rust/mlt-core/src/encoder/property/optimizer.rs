@@ -7,10 +7,7 @@ use std::hash::Hash;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
-use super::encode::write_properties;
-use crate::MltResult;
 use crate::decoder::{PropValue, TileLayer01};
-use crate::encoder::Encoder;
 
 /// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;
@@ -117,25 +114,6 @@ pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
             StringGroup { prefix, columns }
         })
         .collect()
-}
-
-/// Extension trait for consuming-style encoding of staged property columns directly
-/// into an [`Encoder`].
-///
-/// The returned count reflects how many columns were actually written; all-null/empty
-/// columns are omitted from the wire format.
-pub trait EncodeProperties: Sized {
-    /// Automatically select per-column encoders, encode, and write to `enc`,
-    /// consuming `self`.
-    fn write_to(self, enc: &mut Encoder) -> MltResult<u32>;
-}
-
-impl EncodeProperties for Vec<super::model::StagedProperty> {
-    fn write_to(self, enc: &mut Encoder) -> MltResult<u32> {
-        let before = enc.layer_column_count;
-        write_properties(&self, enc)?;
-        Ok(enc.layer_column_count - before)
-    }
 }
 
 /// Returns the longest common byte prefix of `names`.

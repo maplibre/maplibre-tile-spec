@@ -1,5 +1,5 @@
 use mlt_core::encoder::{
-    EncodeProperties as _, Encoder, StagedLayer01, StagedProperty, group_string_properties,
+    Encoder, StagedLayer01, StagedProperty, group_string_properties, write_properties,
 };
 use mlt_core::{PropValue, TileFeature, TileLayer01};
 
@@ -46,8 +46,11 @@ fn stage_props(tile: TileLayer01) -> Vec<StagedProperty> {
 fn no_nulls_produces_encoded_output() {
     let props = vec![StagedProperty::u32("pop", vec![Some(1), Some(2), Some(3)])];
     let mut enc = Encoder::default();
-    let col_count = props.write_to(&mut enc).unwrap();
-    assert_eq!(col_count, 1, "non-null column should write one column");
+    write_properties(&props, &mut enc).unwrap();
+    assert_eq!(
+        enc.layer_column_count, 1,
+        "non-null column should write one column"
+    );
 }
 
 #[test]
@@ -55,23 +58,23 @@ fn all_nulls_encodes_without_error() {
     let props = vec![StagedProperty::i32("x", vec![None, None, None])];
     let mut enc = Encoder::default();
     // An all-null column writes 0 columns (skipped), which is valid.
-    props.write_to(&mut enc).unwrap();
+    write_properties(&props, &mut enc).unwrap();
 }
 
 #[test]
 fn sequential_u32_encodes_successfully() {
     let props = vec![StagedProperty::u32("id", (0u32..1_000).map(Some).collect())];
     let mut enc = Encoder::default();
-    let col_count = props.write_to(&mut enc).unwrap();
-    assert_eq!(col_count, 1);
+    write_properties(&props, &mut enc).unwrap();
+    assert_eq!(enc.layer_column_count, 1);
 }
 
 #[test]
 fn constant_u32_encodes_successfully() {
     let props = vec![StagedProperty::u32("val", vec![Some(42); 500])];
     let mut enc = Encoder::default();
-    let col_count = props.write_to(&mut enc).unwrap();
-    assert_eq!(col_count, 1);
+    write_properties(&props, &mut enc).unwrap();
+    assert_eq!(enc.layer_column_count, 1);
 }
 
 #[test]
@@ -79,10 +82,10 @@ fn similar_strings_grouped_into_shared_dict() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
     let tile = tile_from_cols(&[("name:en", str_vals(vocab)), ("name:de", str_vals(vocab))]);
     let mut enc = Encoder::default();
-    let col_count = stage_props(tile).write_to(&mut enc).unwrap();
+    write_properties(&stage_props(tile), &mut enc).unwrap();
 
     assert_eq!(
-        col_count, 1,
+        enc.layer_column_count, 1,
         "two similar string columns should be merged into one SharedDict"
     );
 }
@@ -96,10 +99,10 @@ fn multiple_similar_string_columns_grouped() {
         ("addr:zipcode", str_vals(vocab)),
     ]);
     let mut enc = Encoder::default();
-    let col_count = stage_props(tile).write_to(&mut enc).unwrap();
+    write_properties(&stage_props(tile), &mut enc).unwrap();
 
     assert_eq!(
-        col_count, 1,
+        enc.layer_column_count, 1,
         "three similar string columns should be merged"
     );
 }
@@ -111,8 +114,11 @@ fn dissimilar_strings_stay_scalar() {
         str_prop("city:colourado", &["Black", "Red", "Gold"]),
     ];
     let mut enc = Encoder::default();
-    let col_count = props.write_to(&mut enc).unwrap();
-    assert_eq!(col_count, 2, "dissimilar strings should not be merged");
+    write_properties(&props, &mut enc).unwrap();
+    assert_eq!(
+        enc.layer_column_count, 2,
+        "dissimilar strings should not be merged"
+    );
 }
 
 #[test]
@@ -131,8 +137,8 @@ fn mixed_scalars_and_grouped_strings() {
         ),
     ]);
     let mut enc = Encoder::default();
-    let col_count = stage_props(tile).write_to(&mut enc).unwrap();
-    assert_eq!(col_count, 3, "two scalar + one merged dict");
+    write_properties(&stage_props(tile), &mut enc).unwrap();
+    assert_eq!(enc.layer_column_count, 3, "two scalar + one merged dict");
 }
 
 #[test]
@@ -142,6 +148,6 @@ fn encode_with_explicit_encoder_works() {
         (1_000u32..2_000).map(Some).collect(),
     )];
     let mut enc = Encoder::default();
-    let col_count = props.write_to(&mut enc).unwrap();
-    assert_eq!(col_count, 1);
+    write_properties(&props, &mut enc).unwrap();
+    assert_eq!(enc.layer_column_count, 1);
 }

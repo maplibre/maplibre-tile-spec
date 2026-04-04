@@ -68,7 +68,7 @@ fn bench_encode(c: &mut Criterion) {
                                             Encoder::default().cfg,
                                             ExplicitEncoder::all(int_enc),
                                         );
-                                        l.encode_explicit(&mut enc).expect("encode failed");
+                                        l.encode_into(&mut enc).expect("encode failed");
                                         black_box(enc);
                                     }
                                 }
