@@ -18,8 +18,9 @@ mod writer;
 pub use geometry::*;
 pub use id::*;
 pub use model::*;
-pub use optimizer::encode_tile_layer;
 pub use property::*;
 pub use sort::*;
 pub use stream::*;
 pub use writer::Encoder;
+
+// pub use self::{EncodedUnknown, EncoderConfig};

@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{Context as _, Result as AnyResult, bail};
 use clap::Args;
-use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, encode_tile_layer};
+use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{Decoder, Layer, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
@@ -127,7 +127,7 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
         match layer {
             Layer::Tag01(l) => {
                 let tile = l.into_tile(&mut dec)?;
-                out.extend_from_slice(&encode_tile_layer(&tile, cfg)?);
+                out.extend_from_slice(&tile.encode(cfg)?);
             }
             Layer::Unknown(u) => {
                 let mut enc = Encoder::default();
@@ -147,7 +147,7 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
 fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();
     for tile in &mvt_to_tile_layers(buffer)? {
-        out.extend_from_slice(&encode_tile_layer(tile, cfg)?);
+        out.extend_from_slice(&tile.encode(cfg)?);
     }
     Ok(out)
 }
