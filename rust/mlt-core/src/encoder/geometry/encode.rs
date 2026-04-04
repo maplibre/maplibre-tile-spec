@@ -369,20 +369,6 @@ impl GeometryValues {
                 .map_or(VertexBufferType::Vec2, select_vertex_strategy)
         });
 
-        // Stream naming depends on which offset levels are present (checked before consumption).
-        let has_geom_offs = geometry_offsets.is_some();
-        let has_ring_offs = ring_offsets.is_some();
-        let parts_name: &'static str = match (has_geom_offs && has_ring_offs, has_ring_offs) {
-            (true, _) => "rings",
-            (false, true) => "parts",
-            _ => "no_rings",
-        };
-        let rings_name: &'static str = if has_geom_offs && has_ring_offs {
-            "rings2"
-        } else {
-            "parts_ring"
-        };
-
         let meta: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
         let has_linestrings = vector_types
             .iter()
@@ -391,7 +377,7 @@ impl GeometryValues {
         let has_tessellation = triangles.is_some();
 
         // Normalize part_offsets when there are no geometry offsets but ring offsets exist.
-        let normalized_parts = if !has_geom_offs && has_ring_offs {
+        let normalized_parts = if geometry_offsets.is_none() && ring_offsets.is_some() {
             match (&part_offsets, &ring_offsets) {
                 (Some(po), Some(ro)) => {
                     Some(normalize_part_offsets_for_rings(&vector_types, po, ro))
@@ -432,7 +418,7 @@ impl GeometryValues {
                         encode_level1_length_stream(&vector_types, &geom_offs, part_offs, false);
                     if !pl.is_empty() {
                         let typ = StreamType::Length(LengthType::Parts);
-                        write_geo_u32_stream(&pl, typ, parts_name, enc)?;
+                        write_geo_u32_stream(&pl, typ, "rings", enc)?;
                         n += 1;
                     }
                     let rl = encode_level2_length_stream(
@@ -443,7 +429,7 @@ impl GeometryValues {
                     );
                     if !rl.is_empty() {
                         let typ = StreamType::Length(LengthType::Rings);
-                        write_geo_u32_stream(&rl, typ, rings_name, enc)?;
+                        write_geo_u32_stream(&rl, typ, "rings2", enc)?;
                         n += 1;
                     }
                 } else {
@@ -455,7 +441,7 @@ impl GeometryValues {
                     );
                     if !pl.is_empty() {
                         let typ = StreamType::Length(LengthType::Parts);
-                        write_geo_u32_stream(&pl, typ, parts_name, enc)?;
+                        write_geo_u32_stream(&pl, typ, "no_rings", enc)?;
                         n += 1;
                     }
                 }
@@ -473,7 +459,7 @@ impl GeometryValues {
                     encode_root_length_stream(&vector_types, part_offs, GeometryType::LineString);
                 if !pl.is_empty() {
                     let typ = StreamType::Length(LengthType::Parts);
-                    write_geo_u32_stream(&pl, typ, parts_name, enc)?;
+                    write_geo_u32_stream(&pl, typ, "parts", enc)?;
                     n += 1;
                 }
                 // part_offs is a dense N+1 array (one slot per geometry incl. Points);
@@ -487,7 +473,7 @@ impl GeometryValues {
                 );
                 if !rl.is_empty() {
                     let typ = StreamType::Length(LengthType::Rings);
-                    write_geo_u32_stream(&rl, typ, rings_name, enc)?;
+                    write_geo_u32_stream(&rl, typ, "parts_ring", enc)?;
                     n += 1;
                 }
             } else {
@@ -495,7 +481,7 @@ impl GeometryValues {
                     encode_root_length_stream(&vector_types, part_offs, GeometryType::Point);
                 if !lengths.is_empty() {
                     let typ = StreamType::Length(LengthType::Parts);
-                    write_geo_u32_stream(&lengths, typ, parts_name, enc)?;
+                    write_geo_u32_stream(&lengths, typ, "no_rings", enc)?;
                     n += 1;
                 }
             }
