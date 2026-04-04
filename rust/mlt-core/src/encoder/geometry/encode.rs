@@ -370,11 +370,6 @@ impl GeometryValues {
         });
 
         let meta: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
-        let has_linestrings = vector_types
-            .iter()
-            .copied()
-            .any(GeometryType::is_linestring);
-        let has_tessellation = triangles.is_some();
 
         // Normalize part_offsets when there are no geometry offsets but ring offsets exist.
         let normalized_parts = if geometry_offsets.is_none() && ring_offsets.is_some() {
@@ -405,7 +400,7 @@ impl GeometryValues {
             let geom_offs = normalize_geometry_offsets(&vector_types, &geom_offs);
             let lengths =
                 encode_root_length_stream(&vector_types, &geom_offs, GeometryType::Polygon);
-            if !lengths.is_empty() || has_tessellation {
+            if !lengths.is_empty() || triangles.is_some() {
                 let typ = StreamType::Length(LengthType::Geometries);
                 write_geo_u32_stream(&lengths, typ, "geometries", enc)?;
                 n += 1;
@@ -450,7 +445,7 @@ impl GeometryValues {
             if let Some(ring_offs) = ring_offsets {
                 // No Multi* types; parts → rings (Polygon / mixed Point+Polygon).
                 // Java includes an empty geometries stream for tessellated polygons with outlines.
-                if has_tessellation {
+                if triangles.is_some() {
                     let typ = StreamType::Length(LengthType::Geometries);
                     write_geo_u32_stream(&[], typ, "geometries", enc)?;
                     n += 1;
@@ -469,7 +464,10 @@ impl GeometryValues {
                     &vector_types,
                     part_offs,
                     &ring_offs,
-                    has_linestrings,
+                    vector_types
+                        .iter()
+                        .copied()
+                        .any(GeometryType::is_linestring),
                 );
                 if !rl.is_empty() {
                     let typ = StreamType::Length(LengthType::Rings);
