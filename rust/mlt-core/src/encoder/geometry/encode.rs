@@ -686,7 +686,7 @@ impl GeometryValues {
             }
         }
 
-        enc.push_layer_column();
+        enc.increment_column_count();
         Ok(())
     }
 }

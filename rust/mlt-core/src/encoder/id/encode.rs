@@ -161,7 +161,7 @@ impl IdValues {
             enc.finish_alternatives();
         }
 
-        enc.push_layer_column();
+        enc.increment_column_count();
         Ok(true)
     }
 }

@@ -8,18 +8,11 @@ use crate::encoder::stream::DataProfile;
 use crate::encoder::{EncodedStream, Encoder, StagedScalar, StagedStrings};
 use crate::utils::BinarySerializer as _;
 
-// ── Unified encoding path ────────────────────────────────────────────────────
-//
-// [`Encoder::get_int_encoder`] / [`Encoder::get_str_encoding`] return [`None`] → auto path:
-// tries multiple IntEncoder candidates via `start_alternative`/`finish_alternatives`.
-// [`Some`] → explicit path: single deterministic encoding; all-present presence is
-// [`Encoder::explicit_override_presence`].
-
 /// Encode all property columns and write them to `enc`.
 ///
 /// Uses [`Encoder::explicit`] to choose between automatic and callback-driven encoding.
 ///
-/// Each written column calls [`Encoder::push_layer_column`] at the end of its encode path;
+/// Each written column calls [`Encoder::increment_column_count`] at the end of its encode path;
 /// skipped columns (all-null / empty) do not.
 pub fn write_properties(props: &[StagedProperty], enc: &mut Encoder) -> MltResult<()> {
     for prop in props {
@@ -32,116 +25,101 @@ pub fn write_properties(props: &[StagedProperty], enc: &mut Encoder) -> MltResul
 ///
 /// Returns `false` when the column is omitted (empty or all-null).
 fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
-    // SharedDict manages its own item-level presence check.
-    if let StagedProperty::SharedDict(sd) = prop {
-        return write_shared_dict(sd, enc);
-    }
+    use ColumnType as CT;
+    use StagedProperty as D;
 
-    let has_presence = match prop.presence() {
-        PresenceKind::Empty | PresenceKind::AllNull => return Ok(false),
-        PresenceKind::Mixed => true,
-        // Explicit encoder may override presence for all-present columns.
-        PresenceKind::AllPresent => enc.override_presence("prop", prop.name(), None),
+    let has_presence = if matches!(prop, StagedProperty::SharedDict(_)) {
+        false
+    } else {
+        match prop.presence() {
+            PresenceKind::Empty => return Ok(false),
+            PresenceKind::Mixed => true,
+            PresenceKind::AllNull => {
+                if enc.override_presence("prop", prop.name(), None) {
+                    true
+                } else {
+                    return Ok(false);
+                }
+            }
+            PresenceKind::AllPresent => enc.override_presence("prop", prop.name(), None),
+        }
     };
-    let presence_stream = if has_presence {
+
+    let presence = if has_presence {
         Some(EncodedStream::encode_presence(&prop.as_presence_stream()?)?)
     } else {
         None
     };
+    let presence = presence.as_ref();
 
-    match prop {
-        StagedProperty::Str(v) => {
-            write_str_col(v, has_presence, presence_stream.as_ref(), enc)?;
-        }
-        StagedProperty::SharedDict(_) => unreachable!("handled above"),
-        _ => {
-            write_scalar_prop(prop, has_presence, presence_stream.as_ref(), enc)?;
-        }
-    }
-    Ok(true)
-}
-
-fn write_int_prop_header<T: Copy>(
-    name: &str,
-    non_null: &[T],
-    col_type: ColumnType,
-    has_presence: bool,
-    presence_stream: Option<&EncodedStream>,
-    enc: &mut Encoder,
-) -> MltResult<()> {
-    let _ = (non_null, has_presence); // used by callers for col_type selection only
-    col_type.write_to(&mut enc.meta)?;
-    enc.meta.write_string(name)?;
-    enc.write_optional_stream(presence_stream)?;
-    Ok(())
-}
-
-fn write_scalar_prop(
-    prop: &StagedProperty,
-    has_presence: bool,
-    presence_stream: Option<&EncodedStream>,
-    enc: &mut Encoder,
-) -> MltResult<()> {
-    use StagedProperty as D;
     match prop {
         D::Bool(v) => {
-            let col_type = if has_presence {
-                ColumnType::OptBool
-            } else {
-                ColumnType::Bool
-            };
-            col_type.write_to(&mut enc.meta)?;
+            CT::write_one_of(presence.is_some(), CT::OptBool, CT::Bool, &mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
-            enc.write_optional_stream(presence_stream)?;
+            enc.write_optional_stream(presence)?;
             enc.write_boolean_stream(&EncodedStream::encode_bools(&unapply_presence(&v.values))?)?;
         }
         D::F32(v) => {
-            let col_type = if has_presence {
-                ColumnType::OptF32
-            } else {
-                ColumnType::F32
-            };
-            col_type.write_to(&mut enc.meta)?;
+            CT::write_one_of(presence.is_some(), CT::OptF32, CT::F32, &mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
-            enc.write_optional_stream(presence_stream)?;
+            enc.write_optional_stream(presence)?;
             enc.write_stream(&EncodedStream::encode_f32(&unapply_presence(&v.values))?)?;
         }
         D::F64(v) => {
-            let col_type = if has_presence {
-                ColumnType::OptF64
-            } else {
-                ColumnType::F64
-            };
-            col_type.write_to(&mut enc.meta)?;
+            CT::write_one_of(presence.is_some(), CT::OptF64, CT::F64, &mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
-            enc.write_optional_stream(presence_stream)?;
+            enc.write_optional_stream(presence)?;
             enc.write_stream(&EncodedStream::encode_f64(&unapply_presence(&v.values))?)?;
         }
-        D::I8(v) => write_int_prop_i8(v, has_presence, presence_stream, enc)?,
-        D::U8(v) => write_int_prop_u8(v, has_presence, presence_stream, enc)?,
-        D::I32(v) => write_int_prop_i32(v, has_presence, presence_stream, enc)?,
-        D::U32(v) => write_int_prop_u32(v, has_presence, presence_stream, enc)?,
-        D::I64(v) => write_int_prop_i64(v, has_presence, presence_stream, enc)?,
-        D::U64(v) => write_int_prop_u64(v, has_presence, presence_stream, enc)?,
-        D::Str(..) | D::SharedDict(..) => {
-            return Err(NotImplemented("use write_str_col / write_shared_dict"));
+        D::I8(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptI8, CT::I8, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            write_int_prop_i8(v, presence, enc)?;
+        }
+        D::U8(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptU8, CT::U8, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            write_int_prop_u8(v, presence, enc)?;
+        }
+        D::I32(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptI32, CT::I32, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            write_int_prop_i32(v, presence, enc)?;
+        }
+        D::U32(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptU32, CT::U32, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            write_int_prop_u32(v, presence, enc)?;
+        }
+        D::I64(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptI64, CT::I64, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            write_int_prop_i64(v, presence, enc)?;
+        }
+        D::U64(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptU64, CT::U64, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            write_int_prop_u64(v, presence, enc)?;
+        }
+        D::Str(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptStr, CT::Str, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            write_str_col(v, presence, enc)?;
+        }
+        D::SharedDict(v) => {
+            // return right away - skip adding column count
+            return write_shared_dict(v, enc);
         }
     }
-    enc.push_layer_column();
-    Ok(())
+    enc.increment_column_count();
+    Ok(true)
 }
 
 fn write_int_prop_i8(
     v: &StagedScalar<i8>,
-    has_presence: bool,
     presence_stream: Option<&EncodedStream>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let col_type = if has_presence {
-        ColumnType::OptI8
-    } else {
-        ColumnType::I8
-    };
     let non_null: Vec<i8> = unapply_presence(&v.values);
     let widened: Vec<i32> = non_null.iter().map(|&x| i32::from(x)).collect();
     let zigzagged = encode_zigzag(&widened);
@@ -149,14 +127,7 @@ fn write_int_prop_i8(
         Some(e) => vec![e],
         None => DataProfile::prune_candidates::<i32>(&zigzagged),
     };
-    write_int_prop_header(
-        &v.name,
-        &non_null,
-        col_type,
-        has_presence,
-        presence_stream,
-        enc,
-    )?;
+    enc.write_optional_stream(presence_stream)?;
     enc.start_alternatives();
     for &cand in &candidates {
         enc.write_stream(&EncodedStream::encode_i8s(&non_null, cand)?)?;
@@ -168,29 +139,16 @@ fn write_int_prop_i8(
 
 fn write_int_prop_u8(
     v: &StagedScalar<u8>,
-    has_presence: bool,
     presence_stream: Option<&EncodedStream>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let col_type = if has_presence {
-        ColumnType::OptU8
-    } else {
-        ColumnType::U8
-    };
     let non_null: Vec<u8> = unapply_presence(&v.values);
     let as_u32: Vec<u32> = non_null.iter().map(|&x| u32::from(x)).collect();
     let candidates = match enc.get_int_encoder("prop", &v.name, None) {
         Some(e) => vec![e],
         None => DataProfile::prune_candidates::<i32>(&as_u32),
     };
-    write_int_prop_header(
-        &v.name,
-        &non_null,
-        col_type,
-        has_presence,
-        presence_stream,
-        enc,
-    )?;
+    enc.write_optional_stream(presence_stream)?;
     enc.start_alternatives();
     for &cand in &candidates {
         enc.write_stream(&EncodedStream::encode_u8s(&non_null, cand)?)?;
@@ -202,29 +160,16 @@ fn write_int_prop_u8(
 
 fn write_int_prop_i32(
     v: &StagedScalar<i32>,
-    has_presence: bool,
     presence_stream: Option<&EncodedStream>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let col_type = if has_presence {
-        ColumnType::OptI32
-    } else {
-        ColumnType::I32
-    };
     let non_null: Vec<i32> = unapply_presence(&v.values);
     let as_u32 = encode_zigzag(&non_null);
     let candidates = match enc.get_int_encoder("prop", &v.name, None) {
         Some(e) => vec![e],
         None => DataProfile::prune_candidates::<i32>(&as_u32),
     };
-    write_int_prop_header(
-        &v.name,
-        &non_null,
-        col_type,
-        has_presence,
-        presence_stream,
-        enc,
-    )?;
+    enc.write_optional_stream(presence_stream)?;
     enc.start_alternatives();
     for &cand in &candidates {
         enc.write_stream(&EncodedStream::encode_i32s(&non_null, cand)?)?;
@@ -236,28 +181,15 @@ fn write_int_prop_i32(
 
 fn write_int_prop_u32(
     v: &StagedScalar<u32>,
-    has_presence: bool,
     presence_stream: Option<&EncodedStream>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let col_type = if has_presence {
-        ColumnType::OptU32
-    } else {
-        ColumnType::U32
-    };
     let non_null: Vec<u32> = unapply_presence(&v.values);
     let candidates = match enc.get_int_encoder("prop", &v.name, None) {
         Some(e) => vec![e],
         None => DataProfile::prune_candidates::<i32>(&non_null),
     };
-    write_int_prop_header(
-        &v.name,
-        &non_null,
-        col_type,
-        has_presence,
-        presence_stream,
-        enc,
-    )?;
+    enc.write_optional_stream(presence_stream)?;
     enc.start_alternatives();
     for &cand in &candidates {
         enc.write_stream(&EncodedStream::encode_u32s(&non_null, cand)?)?;
@@ -269,29 +201,16 @@ fn write_int_prop_u32(
 
 fn write_int_prop_i64(
     v: &StagedScalar<i64>,
-    has_presence: bool,
     presence_stream: Option<&EncodedStream>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let col_type = if has_presence {
-        ColumnType::OptI64
-    } else {
-        ColumnType::I64
-    };
     let non_null: Vec<i64> = unapply_presence(&v.values);
     let as_u64: Vec<u64> = encode_zigzag(&non_null);
     let candidates = match enc.get_int_encoder("prop", &v.name, None) {
         Some(e) => vec![e],
         None => DataProfile::prune_candidates::<i64>(&as_u64),
     };
-    write_int_prop_header(
-        &v.name,
-        &non_null,
-        col_type,
-        has_presence,
-        presence_stream,
-        enc,
-    )?;
+    enc.write_optional_stream(presence_stream)?;
     enc.start_alternatives();
     for &cand in &candidates {
         enc.write_stream(&EncodedStream::encode_i64s(&non_null, cand)?)?;
@@ -303,28 +222,15 @@ fn write_int_prop_i64(
 
 fn write_int_prop_u64(
     v: &StagedScalar<u64>,
-    has_presence: bool,
     presence_stream: Option<&EncodedStream>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let col_type = if has_presence {
-        ColumnType::OptU64
-    } else {
-        ColumnType::U64
-    };
     let non_null: Vec<u64> = unapply_presence(&v.values);
     let candidates = match enc.get_int_encoder("prop", &v.name, None) {
         Some(e) => vec![e],
         None => DataProfile::prune_candidates::<i64>(&non_null),
     };
-    write_int_prop_header(
-        &v.name,
-        &non_null,
-        col_type,
-        has_presence,
-        presence_stream,
-        enc,
-    )?;
+    enc.write_optional_stream(presence_stream)?;
     enc.start_alternatives();
     for &cand in &candidates {
         enc.write_stream(&EncodedStream::encode_u64s(&non_null, cand)?)?;

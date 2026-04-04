@@ -187,7 +187,7 @@ impl Encoder {
     /// Record one layer column (geometry, ID, or property) after writing its
     /// column-type metadata to [`meta`](Encoder::meta).
     #[inline]
-    pub(crate) fn push_layer_column(&mut self) {
+    pub(crate) fn increment_column_count(&mut self) {
         self.layer_column_count = self.layer_column_count.saturating_add(1);
     }
 

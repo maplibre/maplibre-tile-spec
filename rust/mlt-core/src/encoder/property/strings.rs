@@ -63,18 +63,9 @@ pub(crate) fn fsst_is_viable(strings: &[&str]) -> bool {
 /// go into alternatives in `enc.data`.
 pub(crate) fn write_str_col(
     v: &StagedStrings,
-    has_presence: bool,
     presence_stream: Option<&EncodedStream>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let col_type = if has_presence {
-        ColumnType::OptStr
-    } else {
-        ColumnType::Str
-    };
-    col_type.write_to(&mut enc.meta)?;
-    enc.meta.write_string(&v.name)?;
-
     let dense_values = v.dense_values();
     let non_null: Vec<&str> = dense_values.iter().map(String::as_str).collect();
 
@@ -199,7 +190,6 @@ pub(crate) fn write_str_col(
         }
     }
     enc.finish_alternatives();
-    enc.push_layer_column();
     Ok(())
 }
 
@@ -406,7 +396,7 @@ pub(crate) fn write_shared_dict(
         enc.write_stream(&child.data)?;
     }
 
-    enc.push_layer_column();
+    enc.increment_column_count();
     Ok(true)
 }
 
