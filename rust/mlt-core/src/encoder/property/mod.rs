@@ -7,7 +7,6 @@ mod strings;
 mod tests;
 
 pub use model::{
-    EncodedFsstData, EncodedPlainData, EncodedStringsEncoding, StagedProperty, StagedScalar,
-    StagedSharedDict, StagedSharedDictItem, StagedStrings,
+    StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem, StagedStrings,
 };
 pub use optimizer::{StringGroup, group_string_properties};

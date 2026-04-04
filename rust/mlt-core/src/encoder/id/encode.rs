@@ -3,10 +3,10 @@ use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::rle::encode_byte_rle;
 use crate::decoder::{
-    ColumnType, IdValues, IntEncoding, LogicalEncoder, LogicalEncoding, PhysicalEncoding, RleMeta,
-    StreamMeta, StreamType,
+    ColumnType, DictionaryType, IdValues, IntEncoding, LogicalEncoder, LogicalEncoding,
+    PhysicalEncoding, RleMeta, StreamMeta, StreamType,
 };
-use crate::encoder::stream::{DataProfile, IntEncoder};
+use crate::encoder::stream::{DataProfile, IntEncoder, do_write_u32, do_write_u64};
 use crate::encoder::{EncodedStream, EncodedStreamData, Encoder};
 use crate::utils::BinarySerializer as _;
 
@@ -166,8 +166,8 @@ impl IdValues {
     }
 }
 
-/// Write just the ID value stream (without presence/header). Used by the auto path's
-/// `start_alternatives` loop.
+/// Write just the ID value stream (without presence/header). Used by the explicit and
+/// auto-candidate paths in `write_to`.
 pub(crate) fn write_id_value_stream(
     ids: &IdValues,
     id_width: IdWidth,
@@ -178,10 +178,9 @@ pub(crate) fn write_id_value_stream(
     if matches!(id_width, CFG::Id32 | CFG::OptId32) {
         #[expect(clippy::cast_possible_truncation, reason = "truncation was requested")]
         let vals: Vec<u32> = ids.0.iter().flatten().map(|v| *v as u32).collect();
-        enc.write_stream(&EncodedStream::encode_u32s(&vals, int_enc)?)?;
+        do_write_u32(&vals, StreamType::Data(DictionaryType::None), int_enc, enc)
     } else {
         let vals: Vec<u64> = ids.0.iter().flatten().copied().collect();
-        enc.write_stream(&EncodedStream::encode_u64s(&vals, int_enc)?)?;
+        do_write_u64(&vals, StreamType::Data(DictionaryType::None), int_enc, enc)
     }
-    Ok(())
 }

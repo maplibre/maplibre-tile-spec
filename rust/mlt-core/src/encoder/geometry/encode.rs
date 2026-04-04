@@ -7,66 +7,26 @@ use crate::MltResult;
 use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::{
-    ColumnType, DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType,
-    LogicalEncoding, MortonMeta, OffsetType, StreamMeta, StreamType,
+    ColumnType, DictionaryType, GeometryType, GeometryValues, LengthType, LogicalEncoding,
+    MortonMeta, OffsetType, StreamType,
 };
-use crate::encoder::stream::{DataProfile, PhysicalEncoder};
-use crate::encoder::{EncodedStream, Encoder};
+use crate::encoder::Encoder;
+use crate::encoder::stream::{write_precomputed_u32, write_u32_stream};
 use crate::errors::AsMltError as _;
-use crate::utils::{AsUsize as _, BinarySerializer as _, checked_sum2};
+use crate::utils::{AsUsize as _, checked_sum2};
 
-/// Encode pre-computed componentwise-delta vertex values with a given physical encoder.
-///
-/// Shared by the auto path (which loops over candidates) and the explicit-encoder path.
-fn encode_vertex_delta_stream(
-    delta: &[u32],
-    physical: PhysicalEncoder,
-) -> MltResult<EncodedStream> {
-    let num_values = u32::try_from(delta.len())?;
-    let (data, physical_encoding) = physical.encode_u32s(delta.to_vec())?;
-    Ok(EncodedStream {
-        meta: StreamMeta::new(
-            StreamType::Data(DictionaryType::Vertex),
-            IntEncoding::new(LogicalEncoding::ComponentwiseDelta, physical_encoding),
-            num_values,
-        ),
-        data,
-    })
+/// Write pre-computed componentwise-delta vertex values, competing physical encoders.
+fn write_vertex_delta_stream(delta: &[u32], enc: &mut Encoder) -> MltResult<()> {
+    let typ = StreamType::Data(DictionaryType::Vertex);
+    let logical = LogicalEncoding::ComponentwiseDelta;
+    write_precomputed_u32(delta, typ, logical, "geo", "vertex", enc)
 }
 
-/// Encode raw vertex data: applies componentwise delta, then calls [`encode_vertex_delta_stream`].
-fn encode_vertex_buffer(vertices: &[i32], physical: PhysicalEncoder) -> MltResult<EncodedStream> {
-    let delta = encode_componentwise_delta_vec2s(vertices);
-    encode_vertex_delta_stream(&delta, physical)
-}
-
-/// Encode pre-computed Morton delta values with a given physical encoder.
-///
-/// Shared by the auto path and the explicit-encoder path.
-fn encode_morton_delta_stream(
-    deltas: Vec<u32>,
-    meta: MortonMeta,
-    physical: PhysicalEncoder,
-) -> MltResult<EncodedStream> {
-    let num_values = u32::try_from(deltas.len())?;
-    let (data, physical_encoding) = physical.encode_u32s(deltas)?;
-    Ok(EncodedStream {
-        meta: StreamMeta::new(
-            StreamType::Data(DictionaryType::Morton),
-            IntEncoding::new(LogicalEncoding::MortonDelta(meta), physical_encoding),
-            num_values,
-        ),
-        data,
-    })
-}
-
-/// Encode a Morton vertex dictionary: computes deltas, then calls [`encode_morton_delta_stream`].
-fn encode_morton_vertex_buffer(
-    codes: &[u32],
-    meta: MortonMeta,
-    physical: PhysicalEncoder,
-) -> MltResult<EncodedStream> {
-    encode_morton_delta_stream(morton_deltas(codes), meta, physical)
+/// Write pre-computed Morton delta values with competing physical encoders.
+fn write_morton_delta_stream(deltas: &[u32], meta: MortonMeta, enc: &mut Encoder) -> MltResult<()> {
+    let typ = StreamType::Data(DictionaryType::Morton);
+    let logical = LogicalEncoding::MortonDelta(meta);
+    write_precomputed_u32(deltas, typ, logical, "geo", "vertex", enc)
 }
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
@@ -381,23 +341,6 @@ pub fn select_vertex_strategy(vertices: &[i32]) -> VertexBufferType {
     }
 }
 
-/// Auto-encode a stream with `start_alternatives`/`finish_alternative`, trying all
-/// pruned `IntEncoder` candidates and keeping the shortest encoding.
-fn write_stream_auto(data: &[u32], stream_type: StreamType, enc: &mut Encoder) -> MltResult<()> {
-    let candidates = DataProfile::prune_candidates::<i32>(data);
-    enc.start_alternatives();
-    for &cand in &candidates {
-        enc.write_stream(&EncodedStream::encode_u32s_of_type(
-            data,
-            cand,
-            stream_type,
-        )?)?;
-        enc.end_alternative();
-    }
-    enc.finish_alternatives();
-    Ok(())
-}
-
 /// Write a geometry `u32` stream: [`Encoder::get_int_encoder`] when explicit mode is active,
 /// otherwise try all pruned candidates and keep the shortest.
 fn write_geo_u32_stream(
@@ -406,15 +349,7 @@ fn write_geo_u32_stream(
     geo_stream_name: &'static str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.get_int_encoder("geo", geo_stream_name, None) {
-        enc.write_stream(&EncodedStream::encode_u32s_of_type(
-            data,
-            int_enc,
-            stream_type,
-        )?)?;
-        return Ok(());
-    }
-    write_stream_auto(data, stream_type, enc)
+    write_u32_stream(data, stream_type, "geo", geo_stream_name, None, enc)
 }
 
 /// Internal representation of pre-computed geometry topology payloads.
@@ -640,50 +575,14 @@ impl GeometryValues {
         }
 
         if let Some(delta) = &payloads.vertex_vec2_delta {
-            if let Some(int_enc) = enc.get_int_encoder("geo", "vertex", None) {
-                enc.write_stream(&encode_vertex_buffer(
-                    self.vertices.as_deref().unwrap_or(&[]),
-                    int_enc.physical,
-                )?)?;
-            } else {
-                let candidates = DataProfile::prune_candidates::<i32>(delta);
-                enc.start_alternatives();
-                for &cand in &candidates {
-                    enc.write_stream(&encode_vertex_delta_stream(delta, cand.physical)?)?;
-                    enc.end_alternative();
-                }
-                enc.finish_alternatives();
-            }
+            write_vertex_delta_stream(delta, enc)?;
         } else if let (Some(offsets), Some((morton_meta, dict))) =
             (&payloads.morton_offsets, &payloads.morton_dict)
         {
-            write_geo_u32_stream(
-                offsets,
-                StreamType::Offset(OffsetType::Vertex),
-                "vertex_offsets",
-                enc,
-            )?;
-
+            let typ = StreamType::Offset(OffsetType::Vertex);
+            write_geo_u32_stream(offsets, typ, "vertex_offsets", enc)?;
             let dict_deltas = morton_deltas(dict);
-            if let Some(int_enc) = enc.get_int_encoder("geo", "vertex", None) {
-                enc.write_stream(&encode_morton_vertex_buffer(
-                    dict,
-                    *morton_meta,
-                    int_enc.physical,
-                )?)?;
-            } else {
-                let candidates = DataProfile::prune_candidates::<i32>(&dict_deltas);
-                enc.start_alternatives();
-                for &cand in &candidates {
-                    enc.write_stream(&encode_morton_delta_stream(
-                        dict_deltas.clone(),
-                        *morton_meta,
-                        cand.physical,
-                    )?)?;
-                    enc.end_alternative();
-                }
-                enc.finish_alternatives();
-            }
+            write_morton_delta_stream(&dict_deltas, *morton_meta, enc)?;
         }
 
         enc.increment_column_count();

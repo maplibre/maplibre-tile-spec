@@ -3,13 +3,9 @@ use rstest::rstest;
 
 use crate::decoder::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalValue, MortonMeta, OffsetType,
-    PhysicalEncoding, RawFsstData, RawPlainData, RawPresence, RawStream, RawStreamData, RawStrings,
-    RawStringsEncoding, RleMeta, StreamMeta, StreamType,
+    PhysicalEncoding, RawStream, RawStreamData, RleMeta, StreamMeta, StreamType,
 };
-use crate::encoder::{
-    EncodedStream, EncodedStreamData, EncodedStringsEncoding, IntEncoder, PhysicalEncoder,
-    StagedStrings,
-};
+use crate::encoder::{EncodedStream, EncodedStreamData, IntEncoder, PhysicalEncoder};
 use crate::test_helpers::{assert_empty, dec, parser, roundtrip_stream, roundtrip_stream_u32s};
 use crate::utils::BinarySerializer as _;
 
@@ -250,68 +246,13 @@ fn encoding_no_fastpfor() -> impl Strategy<Value = IntEncoder> {
     any::<IntEncoder>().prop_filter("not fastpfor", |v| v.physical != PhysicalEncoder::FastPFOR)
 }
 
-/// Helper to encode strings as dictionary and extract offset indices and lengths.
-fn encode_dict_and_get_parts(values: &[&str]) -> (Vec<u32>, Vec<u32>) {
-    let encoded =
-        EncodedStream::encode_strings_dict(values, IntEncoder::varint(), IntEncoder::varint())
-            .unwrap();
-    let EncodedStringsEncoding::Dictionary {
-        plain_data,
-        offsets,
-    } = encoded
-    else {
-        panic!("expected Dictionary encoding");
-    };
-    let offsets = roundtrip_stream_u32s(&offsets);
-    let lengths = roundtrip_stream_u32s(&plain_data.lengths);
-    (offsets, lengths)
-}
-
-/// Helper to serialize streams to bytes.
-fn serialize_streams(streams: Vec<&EncodedStream>) -> Vec<Vec<u8>> {
-    streams
-        .into_iter()
-        .map(|s| {
-            let mut buf = Vec::new();
-            buf.write_stream(s).unwrap();
-            buf
-        })
-        .collect()
-}
-
-/// Reconstruct `RawStringsEncoding` from parsed streams based on stream count.
-fn streams_to_encoding<'a>(streams: &[RawStream<'a>]) -> RawStringsEncoding<'a> {
-    match streams.len() {
-        2 => RawStringsEncoding::plain(
-            RawPlainData::new(streams[0].clone(), streams[1].clone()).unwrap(),
-        ),
-        3 => RawStringsEncoding::dictionary(
-            RawPlainData::new(streams[0].clone(), streams[2].clone()).unwrap(),
-            streams[1].clone(),
-        )
-        .unwrap(),
-        4 => RawStringsEncoding::fsst_plain(
-            RawFsstData::new(
-                streams[0].clone(),
-                streams[1].clone(),
-                streams[2].clone(),
-                streams[3].clone(),
-            )
-            .unwrap(),
-        ),
-        5 => RawStringsEncoding::fsst_dictionary(
-            RawFsstData::new(
-                streams[0].clone(),
-                streams[1].clone(),
-                streams[2].clone(),
-                streams[3].clone(),
-            )
-            .unwrap(),
-            streams[4].clone(),
-        )
-        .unwrap(),
-        n => panic!("unexpected stream count {n}"),
-    }
+/// Deduplicate strings and return (`offset_indices`, `unique_lengths`).
+fn dedup_and_get_parts(values: &[&str]) -> (Vec<u32>, Vec<u32>) {
+    use crate::encoder::stream::dedup_strings;
+    use crate::utils::strings_to_lengths;
+    let (unique, offset_indices) = dedup_strings(values).unwrap();
+    let lengths = strings_to_lengths(&unique).unwrap();
+    (offset_indices, lengths)
 }
 
 #[rstest]
@@ -323,33 +264,9 @@ fn test_encode_strings_dict(
     #[case] expected_offsets: &[u32],
     #[case] expected_lengths: &[u32],
 ) {
-    let (offsets, lengths) = encode_dict_and_get_parts(values);
+    let (offsets, lengths) = dedup_and_get_parts(values);
     assert_eq!(offsets, expected_offsets);
     assert_eq!(lengths, expected_lengths);
-}
-
-/// Test roundtrip for `encode_strings_dict`.
-#[test]
-fn test_strings_dict_roundtrip() {
-    let values = vec!["hello", "world", "hello", "rust", "world", "hello"];
-    let encoded =
-        EncodedStream::encode_strings_dict(&values, IntEncoder::varint(), IntEncoder::varint())
-            .unwrap();
-    let buffers = serialize_streams(encoded.streams());
-    let parsed: Vec<_> = buffers
-        .iter()
-        .map(|buf| assert_empty(RawStream::from_bytes(buf, &mut parser())))
-        .collect();
-    let encoding = streams_to_encoding(&parsed);
-    let decoded = RawStrings {
-        name: "",
-        presence: RawPresence(None),
-        encoding,
-    }
-    .decode(&mut dec())
-    .unwrap();
-    let expected = StagedStrings::from_strings("", values);
-    assert_eq!(decoded, expected);
 }
 
 proptest! {
@@ -467,19 +384,5 @@ proptest! {
                 "despite being semantically equal, the values are not actually equal"
             );
         }
-    }
-
-    #[test]
-    fn test_string_roundtrip(
-        values in prop::collection::vec(any::<String>(), 0..100),
-        encoding in any::<IntEncoder>(),
-    ) {
-        let encoded = EncodedStream::encode_strings_with_type(&values, encoding, LengthType::VarBinary, DictionaryType::None).unwrap();
-        let buffers = serialize_streams(encoded.streams());
-        let parsed: Vec<_> = buffers.iter().map(|buf| assert_empty(RawStream::from_bytes(buf, &mut parser()))).collect();
-        let str_encoding = streams_to_encoding(&parsed);
-        let decoded = RawStrings { name: "", presence: RawPresence(None), encoding: str_encoding }.decode(&mut dec()).unwrap();
-        let expected = StagedStrings::from_strings("", values);
-        assert_eq!(decoded, expected);
     }
 }

@@ -135,27 +135,38 @@ pub struct Encoder {
     // -----------------------------------------------------------------------
     // Alternatives state — a stack that supports nested competitions.
     //
-    // Each entry: (start_in_data, best_candidate_size_so_far).
-    //
     // Invariant between candidates at any level:
-    //   data.len() == entry.0 + entry.1.unwrap_or(0)
+    //   data.len() == level.data_start + level.best_data_size.unwrap_or(0)
+    //   meta.len() == level.meta_start + level.best_meta_size.unwrap_or(0)
     //
     // Empty stack ↔ no competition in progress.
     // -----------------------------------------------------------------------
     /// Stack of active encoding competitions, innermost last.
     ///
-    /// Each entry is `(start, best_size)` where:
-    /// - `start` — position in [`data`] where this competition began.
-    /// - `best_size` — byte count of the best candidate so far (`None` until
-    ///   the first [`finish_alternative`] call at this level).
-    ///
     /// Empty while no [`start_alternatives`] / `finish_alternatives` session
     /// is in progress.
     ///
-    /// [`data`]: Encoder::data
     /// [`start_alternatives`]: Encoder::start_alternatives
-    /// [`finish_alternative`]: Encoder::end_alternative
-    alt_stack: Vec<(usize, Option<usize>)>,
+    /// [`finish_alternatives`]: Encoder::finish_alternatives
+    alt_stack: Vec<AltLevel>,
+}
+
+/// State for one level of an encoding competition.
+///
+/// Tracks the starting position in both the [`data`](Encoder::data) and
+/// [`meta`](Encoder::meta) buffers, and the byte count of the best candidate
+/// committed so far (via [`end_alternative`](Encoder::end_alternative)).
+///
+/// Candidates are compared by **total** bytes (`data + meta`); the shorter one
+/// wins, with ties resolved in favour of the earlier candidate.
+#[derive(Debug, Default, Clone)]
+struct AltLevel {
+    data_start: usize,
+    meta_start: usize,
+    /// Byte count appended to `data` by the current best candidate.
+    best_data: Option<usize>,
+    /// Byte count appended to `meta` by the current best candidate.
+    best_meta: Option<usize>,
 }
 
 impl Encoder {
@@ -313,10 +324,11 @@ impl Encoder {
     /// Begin a new encoding competition.
     ///
     /// Call **once** before the candidates loop, then write each candidate
-    /// to `data` and call [`finish_alternative`] after each one.  The
-    /// competition keeps the shortest candidate seen so far.  Between
-    /// candidates `data` always ends at `start + best_size`, so the next
-    /// write is appended naturally.
+    /// to `data` (and optionally `meta`) and call [`end_alternative`] after
+    /// each one.  The competition keeps the shortest candidate seen so far,
+    /// measured by **total** bytes across both buffers.  Between candidates
+    /// both buffers always end at their respective `start + best_size`, so
+    /// the next write is appended naturally.
     ///
     /// Nesting is allowed: calling `start_alternatives` while a competition
     /// is already active pushes a new independent level onto the stack.
@@ -328,33 +340,38 @@ impl Encoder {
     /// ```rust,ignore
     /// enc.start_alternatives();
     /// write_stream_as_varint(data, &mut enc)?;
-    /// enc.finish_alternative();              // commits the VarInt candidate
+    /// enc.end_alternative();              // commits the VarInt candidate
     /// write_stream_as_fastpfor(data, &mut enc)?;
-    /// enc.finish_alternative();              // commits FastPFOR candidate
-    /// enc.finish_alternatives();             // keeps whichever was shorter
+    /// enc.end_alternative();              // commits FastPFOR candidate
+    /// enc.finish_alternatives();          // keeps whichever was shorter
     /// ```
     ///
-    /// [`finish_alternative`]: Encoder::end_alternative
+    /// [`end_alternative`]: Encoder::end_alternative
     /// [`finish_alternatives`]: Encoder::finish_alternatives
     pub fn start_alternatives(&mut self) {
-        self.alt_stack.push((self.data.len(), None));
+        self.alt_stack.push(AltLevel {
+            data_start: self.data.len(),
+            meta_start: self.meta.len(),
+            best_data: None,
+            best_meta: None,
+        });
     }
 
     /// Commit the current candidate at the innermost competition level.
     ///
-    /// The candidate bytes (everything written to `data` since the last
-    /// [`finish_alternative`] or [`start_alternatives`] at this level) are
-    /// compared against the current best.  The shorter one is kept; ties
-    /// preserve the earlier candidate (strict `<`).
+    /// Everything written to `data` and `meta` since the last [`end_alternative`]
+    /// or [`start_alternatives`] at this level is compared against the current
+    /// best by **total** bytes.  The shorter one is kept; ties preserve the
+    /// earlier candidate (strict `<`).
     ///
-    /// After the call `data.len() == level_start + best_size`, so the next
-    /// candidate starts at `data.len()`.
+    /// After the call both buffers end at `level_start + best_size`, so the
+    /// next candidate starts at the current end of each buffer.
     ///
     /// # Panics
     ///
     /// Panics if called outside a [`start_alternatives`] / [`finish_alternatives`] pair.
     ///
-    /// [`finish_alternative`]: Encoder::end_alternative
+    /// [`end_alternative`]: Encoder::end_alternative
     /// [`start_alternatives`]: Encoder::start_alternatives
     /// [`finish_alternatives`]: Encoder::finish_alternatives
     pub fn end_alternative(&mut self) {
@@ -362,23 +379,23 @@ impl Encoder {
             !self.alt_stack.is_empty(),
             "finish_alternative called outside a start_alternatives / finish_alternatives pair"
         );
-        let (data, stack) = (&mut self.data, &mut self.alt_stack);
+        let (data, meta, stack) = (&mut self.data, &mut self.meta, &mut self.alt_stack);
         let level = stack.last_mut().unwrap();
-        Self::close_candidate(data, level.0, &mut level.1);
+        Self::close_candidate(data, meta, level);
     }
 
     /// Commit any pending candidate and end the innermost competition.
     ///
-    /// If bytes were written since the last [`finish_alternative`] call they
+    /// If bytes were written since the last [`end_alternative`] call they
     /// are evaluated as a final candidate before the level is popped.
-    /// If every candidate was already committed via [`finish_alternative`]
-    /// this is a cheap stack-pop with no `data` changes.
+    /// If every candidate was already committed via [`end_alternative`]
+    /// this is a cheap stack-pop with no buffer changes.
     ///
     /// # Panics
     ///
     /// Panics if called outside a [`start_alternatives`] / [`finish_alternatives`] pair.
     ///
-    /// [`finish_alternative`]: Encoder::end_alternative
+    /// [`end_alternative`]: Encoder::end_alternative
     /// [`start_alternatives`]: Encoder::start_alternatives
     /// [`finish_alternatives`]: Encoder::finish_alternatives
     pub fn finish_alternatives(&mut self) {
@@ -386,41 +403,52 @@ impl Encoder {
             !self.alt_stack.is_empty(),
             "finish_alternatives called outside a start_alternatives / finish_alternatives pair"
         );
-
-        let (data, stack) = (&mut self.data, &mut self.alt_stack);
-        let level = stack.last_mut().unwrap();
-        let (start, best_size) = *level;
-        let pending = data.len() - (start + best_size.unwrap_or(0));
-        // Only evaluate a pending candidate if bytes were actually written
-        // since the last finish_alternative() call (or since
-        // start_alternatives() if this is the sole candidate).
-        // pending == 0 with an existing best means all candidates were
-        // already committed; just pop.
-        if pending > 0 || best_size.is_none() {
-            Self::close_candidate(data, level.0, &mut level.1);
+        {
+            let (data, meta, stack) = (&mut self.data, &mut self.meta, &mut self.alt_stack);
+            let level = stack.last_mut().unwrap();
+            let data_pending = data.len() - (level.data_start + level.best_data.unwrap_or(0));
+            let meta_pending = meta.len() - (level.meta_start + level.best_meta.unwrap_or(0));
+            // Only evaluate when bytes were actually written since the last
+            // end_alternative() (or since start_alternatives() for a sole candidate).
+            // Both pending == 0 with an existing best means all candidates were
+            // already committed via end_alternative(); just pop.
+            if data_pending > 0 || meta_pending > 0 || level.best_data.is_none() {
+                Self::close_candidate(data, meta, level);
+            }
         }
-
         self.alt_stack.pop();
     }
 
-    /// Shared compare-and-keep logic used by both `finish_alternative` and
-    /// `finish_alternatives`.
+    /// Shared compare-and-keep logic used by both [`end_alternative`] and
+    /// [`finish_alternatives`].
     ///
     /// Compares the bytes written since the last committed candidate against
-    /// `best_size`.  Keeps the shorter one (ties keep the existing best).
-    fn close_candidate(data: &mut Vec<u8>, start: usize, best_size: &mut Option<usize>) {
-        let best_end = start + best_size.unwrap_or(0);
-        let cand_size = data.len() - best_end;
-        if best_size.is_none_or(|prev| cand_size < prev) {
-            // New best: shift to start (no-op on the very first candidate).
-            if best_size.is_some() {
-                data.copy_within(best_end..best_end + cand_size, start);
+    /// the current best by **total** (`data + meta`) size.
+    /// Keeps the shorter one; ties preserve the existing best.
+    ///
+    /// [`end_alternative`]: Encoder::end_alternative
+    /// [`finish_alternatives`]: Encoder::finish_alternatives
+    fn close_candidate(data: &mut Vec<u8>, meta: &mut Vec<u8>, level: &mut AltLevel) {
+        let best_data_end = level.data_start + level.best_data.unwrap_or(0);
+        let best_meta_end = level.meta_start + level.best_meta.unwrap_or(0);
+        let cand_data = data.len() - best_data_end;
+        let cand_meta = meta.len() - best_meta_end;
+        let cand_total = cand_data + cand_meta;
+        let best_total = level.best_data.unwrap_or(0) + level.best_meta.unwrap_or(0);
+        if level.best_data.is_none_or(|_| cand_total < best_total) {
+            // New best: shift data candidate bytes to data_start.
+            if level.best_data.is_some() {
+                data.copy_within(best_data_end..best_data_end + cand_data, level.data_start);
+                meta.copy_within(best_meta_end..best_meta_end + cand_meta, level.meta_start);
             }
-            data.truncate(start + cand_size);
-            *best_size = Some(cand_size);
+            data.truncate(level.data_start + cand_data);
+            meta.truncate(level.meta_start + cand_meta);
+            level.best_data = Some(cand_data);
+            level.best_meta = Some(cand_meta);
         } else {
             // Not an improvement: discard.
-            data.truncate(best_end);
+            data.truncate(best_data_end);
+            meta.truncate(best_meta_end);
         }
     }
 }
@@ -579,6 +607,35 @@ mod tests {
         push(&mut enc, b"y");
         enc.finish_alternatives();
         assert_eq!(enc.alt_stack.len(), 0);
+    }
+
+    // ── meta buffer tracking ──────────────────────────────────────────────
+
+    /// Writes to both `data` and `meta` are rolled back for the losing
+    /// candidate and kept for the winner, measured by total bytes.
+    #[test]
+    fn alternatives_tracks_meta_and_data() {
+        let mut enc = Encoder::default();
+        // Push fixed prefix bytes into data and meta before the competition.
+        enc.data.extend_from_slice(b"D");
+        enc.meta.extend_from_slice(b"M");
+
+        enc.start_alternatives();
+
+        // Candidate A: 4 data bytes + 2 meta bytes = 6 total
+        push(&mut enc, b"DDDD");
+        enc.meta.extend_from_slice(b"mm");
+        enc.end_alternative();
+
+        // Candidate B: 1 data byte + 1 meta byte = 2 total — winner
+        push(&mut enc, b"d");
+        enc.meta.extend_from_slice(b"n");
+        enc.end_alternative();
+
+        enc.finish_alternatives();
+
+        assert_eq!(enc.data, b"Dd");
+        assert_eq!(enc.meta, b"Mn");
     }
 
     // ── misuse panics ─────────────────────────────────────────────────────
