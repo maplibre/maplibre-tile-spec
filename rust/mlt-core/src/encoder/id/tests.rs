@@ -9,7 +9,7 @@ use crate::encoder::{
 };
 use crate::geojson::Geom32;
 use crate::test_helpers::{dec, into_layer01, parser};
-use crate::{Layer, LazyParsed, MltError, MltResult};
+use crate::{Layer, LazyParsed, MltError, MltResult, RawId};
 
 /// Round-trip `IdValues` via full layer bytes using an explicit encoder.
 fn id_roundtrip_via_layer(decoded: &IdValues, id_width: IdWidth, int_enc: IntEncoder) -> IdValues {
@@ -211,17 +211,16 @@ fn test_auto_roundtrip_large_u64_ids() {
 fn test_config_produces_correct_variant(#[case] id_width: IdWidth, #[case] ids: Vec<Option<u64>>) {
     let input = IdValues(ids);
     let int_enc = IntEncoder::varint_with(LogicalEncoder::None);
-    let raw_id = encode_id_to_raw_layer(&input, id_width, int_enc);
-
-    match id_width {
-        OptId32 | Id32 => assert!(matches!(raw_id.value, RawIdValue::Id32(_))),
-        Id64 | OptId64 => assert!(matches!(raw_id.value, RawIdValue::Id64(_))),
-    }
-
-    match id_width {
-        OptId32 | OptId64 => assert!(raw_id.presence.0.is_some()),
-        Id32 | Id64 => assert!(raw_id.presence.0.is_none()),
-    }
+    with_encoded_raw_id(&input, id_width, int_enc, |raw_id| {
+        match id_width {
+            OptId32 | Id32 => assert!(matches!(raw_id.value, RawIdValue::Id32(_))),
+            Id64 | OptId64 => assert!(matches!(raw_id.value, RawIdValue::Id64(_))),
+        }
+        match id_width {
+            OptId32 | OptId64 => assert!(raw_id.presence.0.is_some()),
+            Id32 | Id64 => assert!(raw_id.presence.0.is_none()),
+        }
+    });
 }
 
 #[rstest]
@@ -363,12 +362,13 @@ fn roundtrip_id_values(
     }
 }
 
-/// Encode `ids` into a full layer and return the parsed raw ID.
-fn encode_id_to_raw_layer(
+/// Encode `ids` into a full layer, parse the raw ID, and pass it to `f`.
+fn with_encoded_raw_id<R>(
     ids: &IdValues,
     id_width: IdWidth,
     int_enc: IntEncoder,
-) -> crate::decoder::RawId<'static> {
+    f: impl FnOnce(&RawId<'_>) -> R,
+) -> R {
     // Use write_id_to to directly encode just the ID and verify the encoded bytes.
     // To test via a full layer, we need to call encode_with on a StagedLayer01.
     let n = ids.0.len();
@@ -389,15 +389,14 @@ fn encode_id_to_raw_layer(
     );
     let enc = staged.encode_into(enc).expect("encode failed");
     let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
-    let buf: &'static [u8] = Box::leak(buf.into_boxed_slice());
-    let (_, layer) = Layer::from_bytes(buf, &mut parser()).expect("parse failed");
+    let (_, layer) = Layer::from_bytes(&buf, &mut parser()).expect("parse failed");
     let Layer::Tag01(layer01) = layer else {
         panic!("expected Tag01")
     };
     let Some(LazyParsed::Raw(raw_id)) = layer01.id else {
         panic!("expected raw id")
     };
-    raw_id
+    f(&raw_id)
 }
 
 fn assert_produces_correct_variant(
@@ -406,27 +405,27 @@ fn assert_produces_correct_variant(
     int_enc: IntEncoder,
 ) -> Result<(), TestCaseError> {
     let input = IdValues(ids);
-    let raw_id = encode_id_to_raw_layer(&input, id_width, int_enc);
+    with_encoded_raw_id(&input, id_width, int_enc, |raw_id| {
+        if matches!(id_width, Id32 | OptId32) {
+            prop_assert!(
+                matches!(raw_id.value, RawIdValue::Id32(_)),
+                "Expected Id32 variant"
+            );
+        } else {
+            prop_assert!(
+                matches!(raw_id.value, RawIdValue::Id64(_)),
+                "Expected Id64 variant"
+            );
+        }
 
-    if matches!(id_width, Id32 | OptId32) {
-        prop_assert!(
-            matches!(raw_id.value, RawIdValue::Id32(_)),
-            "Expected Id32 variant"
-        );
-    } else {
-        prop_assert!(
-            matches!(raw_id.value, RawIdValue::Id64(_)),
-            "Expected Id64 variant"
-        );
-    }
-
-    if matches!(id_width, OptId32 | OptId64) {
-        prop_assert!(
-            raw_id.presence.0.is_some(),
-            "Expected optional stream to be present"
-        );
-    } else {
-        prop_assert!(raw_id.presence.0.is_none(), "Expected no optional stream");
-    }
-    Ok(())
+        if matches!(id_width, OptId32 | OptId64) {
+            prop_assert!(
+                raw_id.presence.0.is_some(),
+                "Expected optional stream to be present"
+            );
+        } else {
+            prop_assert!(raw_id.presence.0.is_none(), "Expected no optional stream");
+        }
+        Ok(())
+    })
 }
