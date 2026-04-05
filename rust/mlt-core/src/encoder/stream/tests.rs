@@ -285,7 +285,6 @@ fn auto_u32_sequential_picks_delta_rle() {
     assert_eq!(roundtrip_stream_u32s(&stream), data);
 }
 
-/// Same for u64 — FastPFOR must not appear, DeltaRle + VarInt expected.
 #[test]
 fn auto_u64_sequential_picks_delta_rle() {
     let data: Vec<u64> = (0u64..100).collect();
