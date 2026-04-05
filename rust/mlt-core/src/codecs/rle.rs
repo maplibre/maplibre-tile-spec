@@ -1,6 +1,6 @@
 use num_traits::PrimInt;
 
-use crate::utils::AsUsize;
+use crate::utils::AsUsize as _;
 use crate::{Decoder, MltError, MltResult};
 
 /// Generic run-length encode: returns `(run_lengths, values)`.
