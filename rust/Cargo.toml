@@ -24,15 +24,15 @@ crossterm = "0.29.0"
 enum_dispatch = "0.3"
 fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
-futures = "0.3"
-indicatif = "0.17"
 fsst-rs = "0.5"
+futures = "0.3"
 geo = "0.32.0"
 geo-types = "0.7.18"
 glob = "0.3"
 globset = "0.4"
 hex = "0.4.3"
 hilbert_2d = "1.1.0"
+indicatif = "0.17"
 insta = "1.47.2"
 integer-encoding = "4.0.2"
 js-sys = "0.3"
@@ -55,13 +55,13 @@ rstest = "0.26.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.149"
 size_format = "1"
+sqlx = { version = "0.8", default-features = false, features = ["sqlite"] }
 strum = { version = "0.28.0", default-features = false, features = ["derive"] }
 tabled = "0.20"
-sqlx = { version = "0.8", default-features = false, features = ["sqlite"] }
-tokio = { version = "1", features = ["rt", "sync", "time"] }
 test_each_file = "0.3.5"
 thiserror = "2.0.11"
 thousands = "0.2"
+tokio = { version = "1", features = ["rt", "sync", "time"] }
 union-find = "0.4.3"
 wasm-bindgen = "0.2"
 wide = "1.1.1"
