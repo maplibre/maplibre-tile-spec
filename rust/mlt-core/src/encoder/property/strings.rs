@@ -68,8 +68,7 @@ pub(crate) fn write_str_col(
     presence: Option<&EncodedStream>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let dense = v.dense_values();
-    let non_null: Vec<&str> = dense.iter().map(String::as_str).collect();
+    let non_null = v.dense_values();
     let name = &v.name;
     if let Some(str_enc) = enc.get_str_encoding(name) {
         match str_enc {
@@ -465,13 +464,13 @@ impl StagedStrings {
     }
 
     #[must_use]
-    pub fn dense_values(&self) -> Vec<String> {
+    pub fn dense_values(&self) -> Vec<&str> {
         let mut values = Vec::new();
         let mut start = 0_u32;
         for &end in &self.lengths {
             if end >= 0 {
                 let end = end.cast_unsigned();
-                values.push(self.data[start.as_usize()..end.as_usize()].to_string());
+                values.push(&self.data[start.as_usize()..end.as_usize()]);
                 start = end;
             } else {
                 start = (!end).cast_unsigned();
