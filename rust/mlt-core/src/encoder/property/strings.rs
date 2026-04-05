@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
 
 use fsst::Compressor;
@@ -6,15 +5,13 @@ use integer_encoding::VarIntWriter as _;
 
 use super::model::{PresenceKind, StagedSharedDict, StagedSharedDictItem, StagedStrings};
 use crate::MltError::DictIndexOutOfBounds;
+use crate::MltResult;
 use crate::codecs::fsst::{FsstRawData, compress_fsst};
 use crate::decoder::strings::{
-    checked_string_end, decode_shared_dict_range, encode_null_end, resolve_dict_spans,
-    shared_dict_spans,
+    checked_string_end, decode_shared_dict_range, encode_null_end, encode_shared_dict_range,
 };
 use crate::decoder::{
-    ColumnType, DictionaryType, IntEncoding, LengthType, OffsetType, ParsedSharedDict,
-    ParsedSharedDictItem, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, StreamMeta,
-    StreamType,
+    ColumnType, DictionaryType, IntEncoding, LengthType, OffsetType, StreamMeta, StreamType,
 };
 use crate::encoder::model::ColumnKind::Property;
 use crate::encoder::model::StrEncoding;
@@ -22,7 +19,6 @@ use crate::encoder::stream::{dedup_strings, write_u32_stream};
 use crate::encoder::{EncodedStream, Encoder};
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, checked_sum3, strings_to_lengths};
-use crate::{Decoder, MltResult};
 
 /// Minimum total raw byte size of a column before attempting FSST compression.
 const FSST_OVERHEAD_THRESHOLD: usize = 4_096;
@@ -166,7 +162,7 @@ fn write_str_fsst_dict(
 /// Write 4 FSST sub-streams directly to `enc.data`.
 ///
 /// The two integer sub-streams (`symbol_lengths`, `value_lengths`) use [`write_u32_stream`]
-/// so explicit encoder overrides are honoured and all candidates are competed automatically.
+/// so explicit encoder overrides are honored and all candidates are competed automatically.
 /// The two raw-byte sub-streams (`symbol_table`, `corpus`) are written without integer encoding.
 ///
 /// Stream order: `symbol_lengths`, `symbol_table`, `value_lengths`, `corpus`.
@@ -552,10 +548,6 @@ impl StagedSharedDictItem {
     }
 }
 
-fn encode_shared_dict_range(start: u32, end: u32) -> MltResult<(i32, i32)> {
-    Ok((i32::try_from(start)?, i32::try_from(end)?))
-}
-
 impl StagedSharedDict {
     /// Build a shared-dictionary column directly from raw per-column string data.
     ///
@@ -626,72 +618,5 @@ impl StagedSharedDict {
             data,
             items,
         })
-    }
-}
-
-impl<'a> RawSharedDict<'a> {
-    #[must_use]
-    pub fn new(
-        name: &'a str,
-        encoding: RawSharedDictEncoding<'a>,
-        children: Vec<RawSharedDictItem<'a>>,
-    ) -> Self {
-        Self {
-            name,
-            encoding,
-            children,
-        }
-    }
-
-    /// Decode a shared-dictionary column into its decoded form.
-    pub fn decode(self, dec: &mut Decoder) -> MltResult<ParsedSharedDict<'a>> {
-        let prefix = self.name;
-        let (data, dict_spans) = match self.encoding {
-            RawSharedDictEncoding::Plain(plain_data) => {
-                let (decoded, lengths) = plain_data.decode(dec)?;
-                let dict_spans = shared_dict_spans(&lengths, dec)?;
-                (Cow::Borrowed(decoded), dict_spans)
-            }
-            RawSharedDictEncoding::FsstPlain(fsst_data) => {
-                let (decoded, lengths) = fsst_data.decode(dec)?;
-                let dict_spans = shared_dict_spans(&lengths, dec)?;
-                (decoded.into(), dict_spans)
-            }
-        };
-        let mut items = Vec::with_capacity(self.children.len());
-        for child in self.children {
-            let offsets: Vec<u32> = child.data.decode_u32s(dec)?;
-            let presence = match child.presence.0 {
-                Some(s) => Some(s.decode_bools(dec)?),
-                None => None,
-            };
-            let ranges = resolve_dict_spans(&offsets, presence.as_deref(), &dict_spans, dec)?
-                .into_iter()
-                .map(|span| match span {
-                    Some(span) => encode_shared_dict_range(span.0, span.1),
-                    None => Ok((-1, -1)),
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            items.push(ParsedSharedDictItem {
-                suffix: child.name,
-                ranges,
-            });
-        }
-
-        let parsed = ParsedSharedDict {
-            prefix,
-            data,
-            items,
-        };
-        // Corpus size is only known after decompression; charge after.
-        let bytes = parsed.items.iter().try_fold(
-            u32::try_from(parsed.data.len()).or_overflow()?,
-            |acc, item| {
-                let n = u32::try_from(item.ranges.len() * size_of::<(i32, i32)>()).or_overflow()?;
-                acc.checked_add(n).or_overflow()
-            },
-        )?;
-        dec.consume(bytes)?;
-        Ok(parsed)
     }
 }

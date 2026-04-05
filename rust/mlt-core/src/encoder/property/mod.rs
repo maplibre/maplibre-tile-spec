@@ -1,7 +1,7 @@
+mod compare;
 pub(crate) mod encode;
 mod model;
 mod optimizer;
-mod owned;
 mod strings;
 #[cfg(test)]
 mod tests;
