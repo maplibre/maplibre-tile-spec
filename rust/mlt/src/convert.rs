@@ -4,13 +4,32 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{Context as _, Result as AnyResult, bail};
-use clap::Args;
-use mlt_core::encoder::{EncodedLayer, EncoderConfig, Tile01Encoder};
+use clap::{Args, ValueEnum};
+use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{Decoder, Layer, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 
 use crate::ls::is_mlt_extension;
+
+/// Which sort strategies to attempt during re-encoding.
+///
+/// The encoder always encodes with the original feature order as a baseline
+/// and keeps whichever encoding produces the smallest output.
+#[derive(Clone, Default, ValueEnum)]
+enum SortMode {
+    /// Try all sort strategies and keep the smallest result
+    #[default]
+    Auto,
+    /// Do not reorder features (original order only)
+    None,
+    /// Only try Z-order (Morton) curve sort
+    Morton,
+    /// Only try Hilbert curve sort
+    Hilbert,
+    /// Only try feature-ID ascending sort
+    Id,
+}
 
 #[derive(Args)]
 pub struct ConvertArgs {
@@ -21,6 +40,9 @@ pub struct ConvertArgs {
     /// Add tessellation
     #[clap(short, long, default_value = "false")]
     tessellate: bool,
+    /// Sort strategy to try when re-encoding (encoder keeps the smallest result)
+    #[clap(long, default_value = "auto")]
+    sort: SortMode,
 }
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
@@ -40,6 +62,9 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
 
     let cfg = EncoderConfig {
         tessellate: args.tessellate,
+        try_spatial_morton_sort: matches!(args.sort, SortMode::Auto | SortMode::Morton),
+        try_spatial_hilbert_sort: matches!(args.sort, SortMode::Auto | SortMode::Hilbert),
+        try_id_sort: matches!(args.sort, SortMode::Auto | SortMode::Id),
         ..Default::default()
     };
 
@@ -117,8 +142,7 @@ fn is_convert_extension(path: &Path) -> bool {
 /// Re-encode an MLT tile using automatic encoding selection.
 ///
 /// Every Tag01 layer is fully decoded to [`TileLayer01`] and then re-encoded
-/// via [`Tile01Encoder::encode_auto`].  Unknown layer tags are passed through
-/// unchanged.
+/// via [`encode_tile_layer`].  Unknown layer tags are passed through unchanged.
 fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let layers = Parser::default().parse_layers(buffer)?;
     let mut dec = Decoder::default();
@@ -128,10 +152,11 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
         match layer {
             Layer::Tag01(l) => {
                 let tile = l.into_tile(&mut dec)?;
-                let (encoded, _) = Tile01Encoder::encode_auto(&tile, cfg)?;
-                EncodedLayer::Tag01(encoded).write_to(&mut out)?;
+                out.extend_from_slice(&tile.encode(cfg)?);
             }
-            Layer::Unknown(u) => EncodedLayer::from(u).write_to(&mut out)?,
+            Layer::Unknown(u) => {
+                out.extend(EncodedUnknown::from(u).write_to(Encoder::default())?.data);
+            }
         }
     }
 
@@ -141,12 +166,11 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
 /// Convert an MVT tile to an MLT tile using automatic encoding selection.
 ///
 /// Each MVT layer is converted to a [`mlt_core::TileLayer01`] and encoded
-/// via [`Tile01Encoder::encode_auto`].
+/// via [`encode_tile_layer`].
 fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();
-    for tile in &mvt_to_tile_layers(buffer)? {
-        let (encoded, _) = Tile01Encoder::encode_auto(tile, cfg)?;
-        EncodedLayer::Tag01(encoded).write_to(&mut out)?;
+    for tile in mvt_to_tile_layers(buffer)? {
+        out.extend_from_slice(&tile.encode(cfg)?);
     }
     Ok(out)
 }

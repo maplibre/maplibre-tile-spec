@@ -109,10 +109,14 @@ pub fn z_order_params(vertices: &[i32]) -> MltResult<MortonMeta> {
 }
 
 /// Delta-encode a sorted slice of Morton codes: `[codes[0], codes[1]-codes[0], ...]`.
+/// Returns an empty vec for empty input.
 #[must_use]
 #[inline]
 pub fn morton_deltas(codes: &[u32]) -> Vec<u32> {
-    std::iter::once(codes[0])
+    let Some(&first) = codes.first() else {
+        return vec![];
+    };
+    std::iter::once(first)
         .chain(codes.windows(2).map(|w| w[1] - w[0]))
         .collect()
 }

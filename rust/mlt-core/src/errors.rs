@@ -60,6 +60,8 @@ pub enum MltError {
     ZeroLayerSize,
     #[error("The encoder used to optimise data is incompatible")]
     BadEncoderDataCombination,
+    #[error("StagedLayer01::encode_explicit requires Encoder.explicit to be Some(_)")]
+    MissingExplicitEncoder,
 
     // Wire/codec decoding (bytes → primitives)
     #[error("buffer underflow: needed {0} bytes, but only {1} remain")]

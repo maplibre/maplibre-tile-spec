@@ -156,9 +156,7 @@ clean:
 
 # Run cargo clippy to lint the code
 clippy *args: (just 'cargo-install' 'cargo-hack')
-    cargo hack clippy --all-targets --each-feature \
-        --workspace --exclude-no-default-features --exclude-all-features \
-        {{args}}
+    cargo clippy --all-targets --all-features --workspace {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
 # Generate code coverage report. Installs `cargo llvm-cov`
@@ -230,7 +228,7 @@ get-crate-field field package=main_crate: (just 'assert-cmd' 'jq')
 get-msrv package=main_crate: (get-crate-field 'rust_version' package)
 
 # Run all linting steps good for local development
-lint: fmt clippy test
+lint: fmt check clippy test
 
 # Find the minimum supported Rust version and update Cargo.toml
 msrv: (just 'cargo-install' 'cargo-msrv')

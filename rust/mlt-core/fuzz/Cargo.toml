@@ -31,7 +31,7 @@ bench = false
 arbitrary = { version = "1.4.2", features = ["derive"] }
 hex = "0.4.3"
 libfuzzer-sys = "0.4"
-mlt-core = { path = "..", features = ["arbitrary"] }
+mlt-core = { path = "..", features = ["arbitrary", "__private"] }
 pretty_assertions = "1.4"
 
 [lints.rust]

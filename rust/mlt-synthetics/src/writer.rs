@@ -70,20 +70,6 @@ pub fn decode_to_json(bytes: &[u8]) -> FeatureCollection {
     FeatureCollection::from_layers(decoded).unwrap()
 }
 
-impl Layer {
-    /// Encode and then either verify against the reference dir (non-rust files) or write to the
-    /// output dir (`-rust`-suffixed files). Delegates to [`SynthWriter::write`].
-    pub fn write(self, w: &mut SynthWriter, name: impl AsRef<str>) {
-        w.write(self, name);
-    }
-    /// Write regular and no-presence variants
-    pub fn write_np(mut self, w: &mut SynthWriter, name: impl AsRef<str>) {
-        w.write(self.clone(), format!("{}_np", name.as_ref()));
-        self.force_presence_stream();
-        w.write(self, name);
-    }
-}
-
 impl SynthWriter {
     pub fn new(mut args: Args) -> Self {
         let canonical_synth = args.synthetics.canonicalize();

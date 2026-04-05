@@ -1,11 +1,12 @@
-mod encode;
+mod compare;
+pub(crate) mod encode;
 mod model;
-mod optimizer;
-mod owned;
-mod scalars;
-mod serialize;
+mod shared_dict;
 mod strings;
+#[cfg(test)]
+mod tests;
 
-pub use model::*;
-pub use optimizer::{EncodeProperties, StringGroup, group_string_properties};
-pub use strings::*;
+pub use model::{
+    StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem, StagedStrings,
+};
+pub use shared_dict::{StringGroup, group_string_properties};

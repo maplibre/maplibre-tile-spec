@@ -9,7 +9,7 @@ use crate::decoder::{
 };
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
-use crate::{Decoder, MltError, MltResult};
+use crate::{Decoder, MltError, MltResult, RawSharedDict, RawSharedDictItem};
 
 impl<'a> ParsedStrings<'a> {
     #[must_use]
@@ -459,4 +459,75 @@ pub(crate) fn checked_string_end(current_end: i32, byte_len: usize) -> MltResult
 pub(crate) fn checked_absolute_end(current_end: i32, delta: u32) -> MltResult<i32> {
     let delta = i32::try_from(delta)?;
     current_end.checked_add(delta).or_overflow()
+}
+
+impl<'a> RawSharedDict<'a> {
+    #[must_use]
+    pub fn new(
+        name: &'a str,
+        encoding: RawSharedDictEncoding<'a>,
+        children: Vec<RawSharedDictItem<'a>>,
+    ) -> Self {
+        Self {
+            name,
+            encoding,
+            children,
+        }
+    }
+
+    /// Decode a shared-dictionary column into its decoded form.
+    pub fn decode(self, dec: &mut Decoder) -> MltResult<ParsedSharedDict<'a>> {
+        let prefix = self.name;
+        let (data, dict_spans) = match self.encoding {
+            RawSharedDictEncoding::Plain(plain_data) => {
+                let (decoded, lengths) = plain_data.decode(dec)?;
+                let dict_spans = shared_dict_spans(&lengths, dec)?;
+                (Cow::Borrowed(decoded), dict_spans)
+            }
+            RawSharedDictEncoding::FsstPlain(fsst_data) => {
+                let (decoded, lengths) = fsst_data.decode(dec)?;
+                let dict_spans = shared_dict_spans(&lengths, dec)?;
+                (decoded.into(), dict_spans)
+            }
+        };
+        let mut items = Vec::with_capacity(self.children.len());
+        for child in self.children {
+            let offsets: Vec<u32> = child.data.decode_u32s(dec)?;
+            let presence = match child.presence.0 {
+                Some(s) => Some(s.decode_bools(dec)?),
+                None => None,
+            };
+            let ranges = resolve_dict_spans(&offsets, presence.as_deref(), &dict_spans, dec)?
+                .into_iter()
+                .map(|span| match span {
+                    Some(span) => encode_shared_dict_range(span.0, span.1),
+                    None => Ok((-1, -1)),
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            items.push(ParsedSharedDictItem {
+                suffix: child.name,
+                ranges,
+            });
+        }
+
+        let parsed = ParsedSharedDict {
+            prefix,
+            data,
+            items,
+        };
+        // Corpus size is only known after decompression; charge after.
+        let bytes = parsed.items.iter().try_fold(
+            u32::try_from(parsed.data.len()).or_overflow()?,
+            |acc, item| {
+                let n = u32::try_from(item.ranges.len() * size_of::<(i32, i32)>()).or_overflow()?;
+                acc.checked_add(n).or_overflow()
+            },
+        )?;
+        dec.consume(bytes)?;
+        Ok(parsed)
+    }
+}
+
+pub(crate) fn encode_shared_dict_range(start: u32, end: u32) -> MltResult<(i32, i32)> {
+    Ok((i32::try_from(start)?, i32::try_from(end)?))
 }

@@ -339,20 +339,22 @@ mod tests {
         DictionaryType, IntEncoding, LengthType, LogicalEncoding, MortonMeta, OffsetType,
         RawGeometry, StreamMeta, StreamType,
     };
-    use crate::encoder::{EncodedGeometry, EncodedStream, GeometryEncoder, IntEncoder};
+    use crate::encoder::{EncodedStream, Encoder, IntEncoder};
     use crate::geojson::Coord32;
     use crate::test_helpers::{assert_empty, dec, parser};
+    use crate::utils::BinarySerializer as _;
 
     /// Encode, serialize, parse, and decode a `GeometryValues`.
     /// The input must already be in the dense canonical form that `from_encoded`
     /// produces (i.e. built via a previous `roundtrip` call, not via `push_*`).
-    fn roundtrip(decoded: &GeometryValues, encoder: GeometryEncoder) -> GeometryValues {
-        let enc_geom = decoded.clone().encode(encoder).expect("Failed to encode");
+    fn roundtrip(decoded: &GeometryValues) -> GeometryValues {
+        let mut enc = Encoder::default();
+        decoded
+            .clone()
+            .write_to(&mut enc)
+            .expect("Failed to encode");
 
-        let mut buffer = Vec::new();
-        enc_geom.write_to(&mut buffer).expect("Failed to serialize");
-
-        let parsed = assert_empty(RawGeometry::from_bytes(&buffer, &mut parser()));
+        let parsed = assert_empty(RawGeometry::from_bytes(&enc.data, &mut parser()));
 
         LazyParsed::Raw(parsed)
             .into_parsed(&mut dec())
@@ -370,16 +372,13 @@ mod tests {
     ///
     /// Comparing `canonical == output` catches both panics in the push path
     /// and silent data corruption in encode/decode
-    fn roundtrip_via_push(
-        geoms: &[Geom32],
-        encoder: GeometryEncoder,
-    ) -> (GeometryValues, GeometryValues) {
+    fn roundtrip_via_push(geoms: &[Geom32]) -> (GeometryValues, GeometryValues) {
         let mut pushed = GeometryValues::default();
         for g in geoms {
             pushed.push_geom(g);
         }
-        let canonical = roundtrip(&pushed, encoder);
-        let output = roundtrip(&canonical, encoder);
+        let canonical = roundtrip(&pushed);
+        let output = roundtrip(&canonical);
         (canonical, output)
     }
 
@@ -532,67 +531,46 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_geometry_roundtrip(
-            encoder in any::<GeometryEncoder>(),
-            geom in arb_geom(),
-        ) {
-            let (canonical, output) = roundtrip_via_push(&[geom], encoder);
+        fn test_geometry_roundtrip(geom in arb_geom()) {
+            let (canonical, output) = roundtrip_via_push(&[geom]);
             prop_assert_eq!(output, canonical);
         }
 
         #[test]
-        fn test_mixed_linestring_roundtrip(
-            encoder in any::<GeometryEncoder>(),
-            geoms in arb_mixed_linestring_geoms(),
-        ) {
-            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+        fn test_mixed_linestring_roundtrip(geoms in arb_mixed_linestring_geoms()) {
+            let (canonical, output) = roundtrip_via_push(&geoms);
             prop_assert_eq!(output, canonical);
         }
 
         #[test]
-        fn test_mixed_point_roundtrip(
-            encoder in any::<GeometryEncoder>(),
-            geoms in arb_mixed_point_geoms(),
-        ) {
-            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+        fn test_mixed_point_roundtrip(geoms in arb_mixed_point_geoms()) {
+            let (canonical, output) = roundtrip_via_push(&geoms);
             prop_assert_eq!(output, canonical);
         }
 
         #[test]
-        fn test_mixed_polygon_roundtrip(
-            encoder in any::<GeometryEncoder>(),
-            geoms in arb_mixed_polygon_geoms(),
-        ) {
-            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+        fn test_mixed_polygon_roundtrip(geoms in arb_mixed_polygon_geoms()) {
+            let (canonical, output) = roundtrip_via_push(&geoms);
             prop_assert_eq!(output, canonical);
         }
 
         #[ignore = "encoder does not implement this correctly"]
         #[test]
-        fn test_cross_point_mls_roundtrip(
-            encoder in any::<GeometryEncoder>(),
-            geoms in arb_cross_point_mls_geoms(),
-        ) {
-            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+        fn test_cross_point_mls_roundtrip(geoms in arb_cross_point_mls_geoms()) {
+            let (canonical, output) = roundtrip_via_push(&geoms);
             prop_assert_eq!(output, canonical);
         }
 
         #[ignore = "encoder does not implement this correctly"]
         #[test]
-        fn test_cross_point_mpoly_roundtrip(
-            encoder in any::<GeometryEncoder>(),
-            geoms in arb_cross_point_mpoly_geoms(),
-        ) {
-            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+        fn test_cross_point_mpoly_roundtrip(geoms in arb_cross_point_mpoly_geoms()) {
+            let (canonical, output) = roundtrip_via_push(&geoms);
             prop_assert_eq!(output, canonical);
         }
 
         #[test]
-        fn test_cross_ls_mpoly_roundtrip(
-            encoder in any::<GeometryEncoder>(),
-            geoms in arb_cross_ls_mpoly_geoms(),
-        ) {
-            let (canonical, output) = roundtrip_via_push(&geoms, encoder);
+        fn test_cross_ls_mpoly_roundtrip(geoms in arb_cross_ls_mpoly_geoms()) {
+            let (canonical, output) = roundtrip_via_push(&geoms);
             prop_assert_eq!(output, canonical);
         }
     }
@@ -601,6 +579,7 @@ mod tests {
     /// This ensures `GeometryValues` always holds flat `(x, y)` pairs.
     #[test]
     fn test_morton_vertex_dictionary_expansion() {
+        use integer_encoding::VarIntWriter as _;
         // meta: single LineString
         let meta = EncodedStream::encode_u32s_of_type(
             &[GeometryType::LineString as u32],
@@ -650,12 +629,15 @@ mod tests {
         };
 
         // Assemble, serialize, parse, decode
-        let owned = EncodedGeometry {
-            meta,
-            items: vec![parts, vertex_offsets_stream, morton_dict],
-        };
-        let mut buffer = Vec::new();
-        owned.write_to(&mut buffer).unwrap();
+        let items = [parts, vertex_offsets_stream, morton_dict];
+        let mut enc = Encoder::default();
+        enc.write_varint(u64::try_from(items.len() + 1).unwrap())
+            .unwrap();
+        enc.write_stream(&meta).unwrap();
+        for item in &items {
+            enc.write_stream(item).unwrap();
+        }
+        let buffer = enc.data;
 
         let mut p = parser();
         let parsed = assert_empty(RawGeometry::from_bytes(&buffer, &mut p));

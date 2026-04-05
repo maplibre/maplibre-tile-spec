@@ -13,6 +13,7 @@
 //! * `np` - no presence stream, i.e. values exist for each feature in a column
 //! * `fpf` - uses `FastPFor` compression
 //! * `tes` - includes tessellation triangles stream
+//! * `ns` - unlike Java encoder, empty streams are not forced to be created
 
 mod layer;
 mod writer;
@@ -28,8 +29,7 @@ use geo_types::{
 };
 use mlt_core::LogicalEncoder as L;
 use mlt_core::encoder::{
-    IdEncoder, IdWidth, IntEncoder as E, ScalarEncoder as S, StagedProperty as P, StrEncoder as SE,
-    VertexBufferType,
+    IdWidth, IntEncoder as E, StagedProperty as P, StrEncoding, VertexBufferType,
 };
 use mlt_core::geojson::Geom32;
 
@@ -165,9 +165,14 @@ fn generate_geometry(w: &mut SynthWriter) {
 
     geo_varint().geo(poly1()).write(w, "poly");
     geo_fastpfor().geo(poly1()).write(w, "poly_fpf");
-    geo_varint().tessellate().geo(poly1()).write(w, "poly_tes");
+    geo_varint()
+        .tessellate()
+        .force_empty_stream("geometries")
+        .geo(poly1())
+        .write(w, "poly_tes");
     geo_fastpfor()
         .tessellate()
+        .force_empty_stream("geometries")
         .geo(poly1())
         .write(w, "poly_fpf_tes");
 
@@ -179,10 +184,14 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_collinear_fpf");
     geo_varint()
         .tessellate()
+        .force_empty_stream("geometries")
+        .force_empty_stream("triangles_indexes")
         .geo(poly_collinear())
         .write(w, "poly_collinear_tes");
     geo_fastpfor()
         .tessellate()
+        .force_empty_stream("geometries")
+        .force_empty_stream("triangles_indexes")
         .geo(poly_collinear())
         .write(w, "poly_collinear_fpf_tes");
 
@@ -194,10 +203,12 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_self_intersect_fpf");
     geo_varint()
         .tessellate()
+        .force_empty_stream("geometries")
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_tes");
     geo_fastpfor()
         .tessellate()
+        .force_empty_stream("geometries")
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_fpf_tes");
 
@@ -212,11 +223,13 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .parts_ring(E::rle_varint())
         .tessellate()
+        .force_empty_stream("geometries")
         .geo(poly1h())
         .write(w, "poly_hole_tes");
     geo_fastpfor()
         .parts_ring(E::rle_fastpfor())
         .tessellate()
+        .force_empty_stream("geometries")
         .geo(poly1h())
         .write(w, "poly_hole_fpf_tes");
 
@@ -231,11 +244,13 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .parts_ring(E::varint())
         .tessellate()
+        .force_empty_stream("geometries")
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_tes");
     geo_fastpfor()
         .parts_ring(E::fastpfor())
         .tessellate()
+        .force_empty_stream("geometries")
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_fpf_tes");
 
@@ -335,7 +350,8 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
         }
     }
     if let Some(bldr) = builder_t {
-        bldr.write(w, format!("{name}_tes"));
+        bldr.force_empty_stream("geometries")
+            .write(w, format!("{name}_tes"));
     }
     builder.write(w, &name);
 }
@@ -382,24 +398,27 @@ fn generate_extent(w: &mut SynthWriter) {
 }
 
 fn generate_ids(w: &mut SynthWriter) {
-    p0().ids(vec![Some(100)], IdEncoder::new(L::None, IdWidth::Id32))
+    p0().ids(vec![Some(100)], IdWidth::Id32, E::varint_with(L::None))
         .write(w, "id");
     p0().ids(
         vec![Some(u64::from(u32::MIN))],
-        IdEncoder::new(L::None, IdWidth::Id32),
+        IdWidth::Id32,
+        E::varint_with(L::None),
     )
     .write(w, "id_min");
     p0().ids(
         vec![Some(u64::from(u32::MAX))],
-        IdEncoder::new(L::None, IdWidth::Id32),
+        IdWidth::Id32,
+        E::varint_with(L::None),
     )
     .write(w, "id_max");
     p0().ids(
         vec![Some(9_234_567_890)],
-        IdEncoder::new(L::None, IdWidth::Id64),
+        IdWidth::Id64,
+        E::varint_with(L::None),
     )
     .write(w, "id64");
-    p0().ids(vec![Some(u64::MAX)], IdEncoder::new(L::None, IdWidth::Id64))
+    p0().ids(vec![Some(u64::MAX)], IdWidth::Id64, E::varint_with(L::None))
         .write(w, "id64_max");
 
     let four_p0 = || geo_varint_with_rle().geos([P0, P0, P0, P0]);
@@ -407,53 +426,57 @@ fn generate_ids(w: &mut SynthWriter) {
     let dup_u64_id = || vec![Some(9_234_567_890); 4];
 
     four_p0()
-        .ids(dup_id(), IdEncoder::new(L::None, IdWidth::Id32))
+        .ids(dup_id(), IdWidth::Id32, E::varint_with(L::None))
         .write(w, "ids");
     four_p0()
-        .ids(dup_id(), IdEncoder::new(L::Delta, IdWidth::Id32))
+        .ids(dup_id(), IdWidth::Id32, E::varint_with(L::Delta))
         .write(w, "ids_delta");
     four_p0()
-        .ids(dup_id(), IdEncoder::new(L::Rle, IdWidth::Id32))
+        .ids(dup_id(), IdWidth::Id32, E::varint_with(L::Rle))
         .write(w, "ids_rle");
     four_p0()
-        .ids(dup_id(), IdEncoder::new(L::DeltaRle, IdWidth::Id32))
+        .ids(dup_id(), IdWidth::Id32, E::varint_with(L::DeltaRle))
         .write(w, "ids_delta_rle");
     four_p0()
-        .ids(dup_u64_id(), IdEncoder::new(L::None, IdWidth::Id64))
+        .ids(dup_u64_id(), IdWidth::Id64, E::varint_with(L::None))
         .write(w, "ids64");
     four_p0()
-        .ids(dup_u64_id(), IdEncoder::new(L::Delta, IdWidth::Id64))
+        .ids(dup_u64_id(), IdWidth::Id64, E::varint_with(L::Delta))
         .write(w, "ids64_delta");
     four_p0()
-        .ids(dup_u64_id(), IdEncoder::new(L::Rle, IdWidth::Id64))
+        .ids(dup_u64_id(), IdWidth::Id64, E::varint_with(L::Rle))
         .write(w, "ids64_rle");
     four_p0()
-        .ids(dup_u64_id(), IdEncoder::new(L::DeltaRle, IdWidth::Id64))
+        .ids(dup_u64_id(), IdWidth::Id64, E::varint_with(L::DeltaRle))
         .write(w, "ids64_delta_rle");
 
     let five_p0 = || geo_varint_with_rle().geos([P0, P0, P0, P0, P0]);
     five_p0()
         .ids(
             vec![Some(100), Some(101), None, Some(105), Some(106)],
-            IdEncoder::new(L::None, IdWidth::OptId32),
+            IdWidth::OptId32,
+            E::varint_with(L::None),
         )
         .write(w, "ids_opt");
     five_p0()
         .ids(
             vec![Some(100), Some(101), None, Some(105), Some(106)],
-            IdEncoder::new(L::Delta, IdWidth::OptId32),
+            IdWidth::OptId32,
+            E::varint_with(L::Delta),
         )
         .write(w, "ids_opt_delta");
     five_p0()
         .ids(
             vec![None, Some(9_234_567_890), Some(101), Some(105), Some(106)],
-            IdEncoder::new(L::None, IdWidth::OptId64),
+            IdWidth::OptId64,
+            E::varint_with(L::None),
         )
         .write(w, "ids64_opt");
     five_p0()
         .ids(
             vec![None, Some(9_234_567_890), Some(101), Some(105), Some(106)],
-            IdEncoder::new(L::Delta, IdWidth::OptId64),
+            IdWidth::OptId64,
+            E::varint_with(L::Delta),
         )
         .write(w, "ids64_opt_delta");
 
@@ -466,57 +489,51 @@ fn generate_ids(w: &mut SynthWriter) {
         ]
     };
     four_p0()
-        .ids(min_max(), IdEncoder::new(L::None, IdWidth::Id64))
+        .ids(min_max(), IdWidth::Id64, E::varint_with(L::None))
         .write(w, "ids64_minmax");
     four_p0()
-        .ids(min_max(), IdEncoder::new(L::Delta, IdWidth::Id64))
+        .ids(min_max(), IdWidth::Id64, E::varint_with(L::Delta))
         .write(w, "ids64_minmax_delta");
 
     // FastPFOR physical encoding for u32 IDs (Rust-only: Java encoder does not support this)
     four_p0()
-        .ids(
-            dup_id(),
-            IdEncoder::with_int_encoder(E::fastpfor(), IdWidth::Id32),
-        )
+        .ids(dup_id(), IdWidth::Id32, E::fastpfor())
         .write(w, "ids_fpf");
     four_p0()
-        .ids(
-            dup_id(),
-            IdEncoder::with_int_encoder(E::delta_fastpfor(), IdWidth::Id32),
-        )
+        .ids(dup_id(), IdWidth::Id32, E::delta_fastpfor())
         .write(w, "ids_delta_fpf");
 }
 
 fn generate_properties(w: &mut SynthWriter) {
     // Properties with special names
-    let e_bool = S::bool();
-    p0().add_prop(e_bool, P::bool("", vec![Some(true)]))
+    let e_any = E::varint();
+    p0().add_prop(e_any, P::bool("", vec![Some(true)]))
         .write_np(w, "prop_empty_name");
-    p0().add_prop(e_bool, P::bool("hello\u{0000} world\n", vec![Some(true)]))
+    p0().add_prop(e_any, P::bool("hello\u{0000} world\n", vec![Some(true)]))
         .write_np(w, "prop_special_name");
-    p0().add_prop(e_bool, P::bool("val", vec![Some(true)]))
+    p0().add_prop(e_any, P::bool("val", vec![Some(true)]))
         .write_np(w, "prop_bool");
-    p0().add_prop(e_bool, P::bool("val", vec![Some(false)]))
+    p0().add_prop(e_any, P::bool("val", vec![Some(false)]))
         .write_np(w, "prop_bool_false");
     // Two-feature optional bool variants
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_bool, P::bool("val", vec![Some(true), None]))
+        .add_prop(e_any, P::bool("val", vec![Some(true), None]))
         .write(w, "prop_bool_true_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_bool, P::bool("val", vec![None, Some(true)]))
+        .add_prop(e_any, P::bool("val", vec![None, Some(true)]))
         .write(w, "prop_bool_null_true");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_bool, P::bool("val", vec![Some(false), None]))
+        .add_prop(e_any, P::bool("val", vec![Some(false), None]))
         .write(w, "prop_bool_false_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_bool, P::bool("val", vec![None, Some(false)]))
+        .add_prop(e_any, P::bool("val", vec![None, Some(false)]))
         .write(w, "prop_bool_null_false");
 
-    let e_int = S::int(E::varint());
+    let e_int = E::varint();
     p0().add_prop(e_int, P::i32("val", vec![Some(42)]))
         .write_np(w, "prop_i32");
     p0().add_prop(e_int, P::i32("val", vec![Some(-42)]))
@@ -594,7 +611,7 @@ fn generate_properties(w: &mut SynthWriter) {
         )
         .write(w, "prop_u64_null_val");
 
-    let e_fl = S::float();
+    let e_fl = E::varint();
     #[expect(clippy::approx_constant)]
     p0().add_prop(e_fl, P::f32("val", vec![Some(3.14)]))
         .write_np(w, "prop_f32");
@@ -654,7 +671,7 @@ fn generate_properties(w: &mut SynthWriter) {
         .add_prop(e_fl, P::f64("val", vec![None, Some(std::f64::consts::PI)]))
         .write(w, "prop_f64_null_val");
 
-    let e_str = S::str(E::varint());
+    let e_str = E::varint();
     p0().add_prop(e_str, P::str("val", vec![Some(String::new())]))
         .write_np(w, "prop_str_empty");
     p0().add_prop(e_str, P::str("val", vec![Some("42".to_string())]))
@@ -692,17 +709,17 @@ fn generate_properties(w: &mut SynthWriter) {
         .add_prop(e_str, P::str("val", vec![None, Some(String::new())]))
         .write(w, "prop_str_empty_val");
 
-    p0().add_prop(S::bool(), P::bool("active", vec![Some(true)]))
-        .add_prop(S::int(E::varint()), P::u64("biggest", vec![Some(0)])) // FIXME: this should be u64, but java does it it this way
-        .add_prop(S::int(E::varint()), P::i32("bignum", vec![Some(42)]))
-        .add_prop(S::int(E::varint()), P::i32("count", vec![Some(42)]))
-        .add_prop(S::int(E::varint()), P::u32("medium", vec![Some(100)]))
+    p0().add_prop(E::varint(), P::bool("active", vec![Some(true)]))
+        .add_prop(E::varint(), P::u64("biggest", vec![Some(0)])) // FIXME: this should be u64, but java does it it this way
+        .add_prop(E::varint(), P::i32("bignum", vec![Some(42)]))
+        .add_prop(E::varint(), P::i32("count", vec![Some(42)]))
+        .add_prop(E::varint(), P::u32("medium", vec![Some(100)]))
         .add_prop(
-            S::str(E::varint()),
+            E::varint(),
             P::str("name", vec![Some("Test Point".to_string())]),
         )
-        .add_prop(S::float(), P::f64("precision", vec![Some(0.123_456_789)]))
-        .add_prop(S::float(), P::f32("temp", vec![Some(25.5)]))
+        .add_prop(E::varint(), P::f64("precision", vec![Some(0.123_456_789)]))
+        .add_prop(E::varint(), P::f32("temp", vec![Some(25.5)]))
         //FIXME in java
         //.add_prop(enc, "tiny-count", PropValue::I8(vec![Some(42)]))
         //.add_prop(enc, "tiny-count", PropValue::U8(vec![Some(100)]))
@@ -720,16 +737,16 @@ fn generate_props_i32(w: &mut SynthWriter) {
     let values = || P::i32("val", vec![Some(42), Some(42), Some(42), Some(42)]);
 
     four_points()
-        .add_prop(S::int(E::varint()), values())
+        .add_prop(E::varint(), values())
         .write_np(w, "props_i32");
     four_points()
-        .add_prop(S::int(E::delta_varint()), values())
+        .add_prop(E::delta_varint(), values())
         .write_np(w, "props_i32_delta");
     four_points()
-        .add_prop(S::int(E::rle_varint()), values())
+        .add_prop(E::rle_varint(), values())
         .write_np(w, "props_i32_rle");
     four_points()
-        .add_prop(S::int(E::delta_rle_varint()), values())
+        .add_prop(E::delta_rle_varint(), values())
         .write_np(w, "props_i32_delta_rle");
 }
 
@@ -743,16 +760,16 @@ fn generate_props_u32(w: &mut SynthWriter) {
     };
 
     four_points()
-        .add_prop(S::int(E::varint()), values())
+        .add_prop(E::varint(), values())
         .write_np(w, "props_u32");
     four_points()
-        .add_prop(S::int(E::delta_varint()), values())
+        .add_prop(E::delta_varint(), values())
         .write_np(w, "props_u32_delta");
     four_points()
-        .add_prop(S::int(E::rle_varint()), values())
+        .add_prop(E::rle_varint(), values())
         .write_np(w, "props_u32_rle");
     four_points()
-        .add_prop(S::int(E::delta_rle_varint()), values())
+        .add_prop(E::delta_rle_varint(), values())
         .write_np(w, "props_u32_delta_rle");
 
     for multiplier in [1, 2, 3, 4] {
@@ -765,7 +782,7 @@ fn generate_props_u32(w: &mut SynthWriter) {
             geo_fastpfor()
                 .meta(E::rle_fastpfor())
                 .geos(vec![P0; count])
-                .add_prop(S::int(E::fastpfor()), P::u32("val", vals))
+                .add_prop(E::fastpfor(), P::u32("val", vals))
                 .write_np(w, format!("props_u32_fpf_{count}"));
         }
     }
@@ -781,16 +798,16 @@ fn generate_props_u64(w: &mut SynthWriter) {
     };
 
     four_points()
-        .add_prop(S::int(E::varint()), property())
+        .add_prop(E::varint(), property())
         .write_np(w, "props_u64");
     four_points()
-        .add_prop(S::int(E::delta_varint()), property())
+        .add_prop(E::delta_varint(), property())
         .write_np(w, "props_u64_delta");
     four_points()
-        .add_prop(S::int(E::rle_varint()), property())
+        .add_prop(E::rle_varint(), property())
         .write_np(w, "props_u64_rle");
     four_points()
-        .add_prop(S::int(E::delta_rle_varint()), property())
+        .add_prop(E::delta_rle_varint(), property())
         .write_np(w, "props_u64_delta_rle");
 }
 
@@ -811,10 +828,10 @@ fn generate_props_str(w: &mut SynthWriter) {
     };
 
     six_points()
-        .add_prop(S::str(E::varint()), values())
+        .add_prop(E::varint(), values())
         .write_np(w, "props_str");
     six_points()
-        .add_prop(S::str_fsst(E::varint(), E::varint()), values())
+        .add_prop_str_fsst(E::varint(), E::varint(), values())
         .write_np(w, "props_str_fsst"); // FSST compression output is not byte-for-byte consistent with Java's
 
     // Two features with the same 30-char value → deduplicated dictionary encoding.
@@ -824,46 +841,49 @@ fn generate_props_str(w: &mut SynthWriter) {
     let two_same = || P::str("val", vec![Some(long_string()), Some(long_string())]);
 
     two_pts()
-        .add_prop(S::str_dict(E::varint(), E::rle_varint()), two_same())
+        .add_prop_str_dict(E::varint(), E::rle_varint(), two_same())
         .write_np(w, "props_offset_str");
     two_pts()
-        .add_prop(
-            S::str_fsst_dict(E::varint(), E::varint(), E::rle_varint()),
-            two_same(),
-        )
+        .add_prop_str_fsst_dict(E::varint(), E::varint(), E::rle_varint(), two_same())
         .write_np(w, "props_offset_str_fsst");
 }
 
 fn generate_shared_dictionaries(w: &mut SynthWriter) {
     let long_string = || "A".repeat(30);
-    let e_str = S::str(E::varint());
+    let e_str = E::varint();
     p0().add_prop(e_str, P::str("name:de", vec![Some(long_string())]))
         .add_prop(e_str, P::str("name:en", vec![Some(long_string())]))
         .write_np(w, "props_no_shared_dict");
 
     p0().add_shared_dict(
-        SharedDict::new("name:", SE::plain(E::varint()))
+        SharedDict::new("name:", StrEncoding::Plain)
             .column("de", E::varint(), [Some(long_string())])
             .column("en", E::varint(), [Some(long_string())]),
     )
     .write_np(w, "props_shared_dict");
 
     p0().add_shared_dict(
-        SharedDict::new("", SE::plain(E::varint()))
+        SharedDict::new("", StrEncoding::Plain)
             .column("a", E::varint(), [Some(long_string())])
             .column("b", E::varint(), [Some(long_string())]),
     )
     .write_np(w, "props_shared_dict_no_struct_name");
+    p0().add_shared_dict(
+        SharedDict::new("", StrEncoding::Fsst)
+            .column("a", E::varint(), [Some(long_string())])
+            .column("b", E::varint(), [Some(long_string())]),
+    )
+    .write_np(w, "props_shared_dict_no_struct_name_fsst");
 
     p0().add_prop(e_str, P::str("place", vec![Some(long_string())]))
-        .add_shared_dict(SharedDict::new("name:en", SE::plain(E::varint())).column(
+        .add_shared_dict(SharedDict::new("name:en", StrEncoding::Plain).column(
             "",
             E::varint(),
             [Some(long_string())],
         ))
         .write_np(w, "props_shared_dict_one_child");
 
-    p0().add_shared_dict(SharedDict::new("a", SE::plain(E::varint())).column(
+    p0().add_shared_dict(SharedDict::new("a", StrEncoding::Plain).column(
         "",
         E::varint(),
         [Some(long_string())],
@@ -871,49 +891,99 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
     .write_np(w, "props_shared_dict_no_child_name");
 
     p0().add_shared_dict(
-        SharedDict::new("name:", SE::fsst(E::varint(), E::varint()))
+        SharedDict::new("name:", StrEncoding::Fsst)
             .column("de", E::varint(), [Some(long_string())])
             .column("en", E::varint(), [Some(long_string())]),
     )
     .write_np(w, "props_shared_dict_fsst");
 
-    p0().add_shared_dict(
-        SharedDict::new("a", SE::fsst(E::varint(), E::varint())).column(
-            "",
-            E::varint(),
-            [Some(long_string())],
-        ),
-    )
+    p0().add_shared_dict(SharedDict::new("a", StrEncoding::Fsst).column(
+        "",
+        E::varint(),
+        [Some(long_string())],
+    ))
     .write_np(w, "props_shared_dict_no_child_name_fsst");
 
     p0().add_prop(e_str, P::str("place", vec![Some(long_string())]))
-        .add_shared_dict(
-            SharedDict::new("name:en", SE::fsst(E::varint(), E::varint())).column(
-                "",
-                E::varint(),
-                [Some(long_string())],
-            ),
-        )
+        .add_shared_dict(SharedDict::new("name:en", StrEncoding::Fsst).column(
+            "",
+            E::varint(),
+            [Some(long_string())],
+        ))
         .write_np(w, "props_shared_dict_one_child_fsst");
     p0()
         // column names MUST be unique, but the shared dict prefix can duplicate
         // Note that Java sorts column names for some reason
         .add_shared_dict(
-            SharedDict::new("name", SE::plain(E::varint()))
+            SharedDict::new("name", StrEncoding::Plain)
                 .column(":de", E::varint(), [Some(long_string())])
                 .column("_en", E::varint(), [Some(long_string())]),
         )
         .add_shared_dict(
-            SharedDict::new("name", SE::plain(E::varint()))
+            SharedDict::new("name", StrEncoding::Plain)
                 .column(":he", E::varint(), [Some(long_string())])
                 .column("_fr", E::varint(), [Some(long_string())]),
         )
         .write_np(w, "props_shared_dict_2_same_prefix");
 
-    p0().add_shared_dict(
-        SharedDict::new("", SE::fsst(E::varint(), E::varint()))
-            .column("a", E::varint(), [Some(long_string())])
-            .column("b", E::varint(), [Some(long_string())]),
-    )
-    .write_np(w, "props_shared_dict_no_struct_name_fsst");
+    // ── Presence variants ─────────────────────────────────────────────────────
+
+    let mixed = || [Some(long_string()), None, Some(long_string())];
+    let all = || {
+        [
+            Some(long_string()),
+            Some(long_string()),
+            Some(long_string()),
+        ]
+    };
+    let none = || [None::<String>, None::<String>, None::<String>];
+
+    geo_varint_with_rle()
+        .geos([P0, P0, P0])
+        .add_shared_dict(
+            SharedDict::new("1-", StrEncoding::Plain)
+                .column("a", E::varint(), all())
+                .column("b", E::varint(), all()),
+        )
+        .add_shared_dict(
+            SharedDict::new("2-", StrEncoding::Plain)
+                .column("a", E::varint(), all())
+                .column("b", E::varint(), mixed()),
+        )
+        .add_shared_dict(
+            SharedDict::new("3-", StrEncoding::Plain)
+                .column("a", E::varint(), all())
+                .column("b", E::varint(), none()),
+        )
+        .add_shared_dict(
+            SharedDict::new("4-", StrEncoding::Plain)
+                .column("a", E::varint(), mixed())
+                .column("b", E::varint(), all()),
+        )
+        .add_shared_dict(
+            SharedDict::new("5-", StrEncoding::Plain)
+                .column("a", E::varint(), mixed())
+                .column("b", E::varint(), mixed()),
+        )
+        .add_shared_dict(
+            SharedDict::new("6-", StrEncoding::Plain)
+                .column("a", E::varint(), mixed())
+                .column("b", E::varint(), none()),
+        )
+        .add_shared_dict(
+            SharedDict::new("7-", StrEncoding::Plain)
+                .column("a", E::varint(), none())
+                .column("b", E::varint(), all()),
+        )
+        .add_shared_dict(
+            SharedDict::new("8-", StrEncoding::Plain)
+                .column("a", E::varint(), none())
+                .column("b", E::varint(), mixed()),
+        )
+        .add_shared_dict(
+            SharedDict::new("9-", StrEncoding::Plain)
+                .column("a", E::varint(), none())
+                .column("b", E::varint(), none()),
+        )
+        .write_np(w, "props_shared_dict_presence_variants");
 }
