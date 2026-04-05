@@ -269,8 +269,6 @@ fn test_encode_strings_dict(
     assert_eq!(lengths, expected_lengths);
 }
 
-/// Sequential u32s have distinct raw values but constant deltas —
-/// auto-selection must pick DeltaRle and the stream must round-trip.
 #[test]
 fn auto_u32_sequential_picks_delta_rle() {
     let data: Vec<u32> = (0..100).collect();
