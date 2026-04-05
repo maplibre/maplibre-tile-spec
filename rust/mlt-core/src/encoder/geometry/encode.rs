@@ -405,11 +405,10 @@ impl GeometryValues {
 
         // Topology: compute each length stream and write it immediately.
         if !geom_offsets.is_empty() {
-            let geom_offsets = if geom_offsets.len() != vector_types.len() + 1 {
-                // if not normalized -- does not have N+1 entries for N geometry types
-                normalize_geometry_offsets(&vector_types, &geom_offsets)
-            } else {
+            let geom_offsets = if geom_offsets.len() == vector_types.len() + 1 {
                 geom_offsets
+            } else {
+                normalize_geometry_offsets(&vector_types, &geom_offsets)
             };
             let data = encode_root_length_stream(&vector_types, &geom_offsets, Polygon);
             let typ = StreamType::Length(LengthType::Geometries);

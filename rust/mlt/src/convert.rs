@@ -4,13 +4,32 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{Context as _, Result as AnyResult, bail};
-use clap::Args;
+use clap::{Args, ValueEnum};
 use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{Decoder, Layer, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 
 use crate::ls::is_mlt_extension;
+
+/// Which sort strategies to attempt during re-encoding.
+///
+/// The encoder always encodes with the original feature order as a baseline
+/// and keeps whichever encoding produces the smallest output.
+#[derive(Clone, Default, ValueEnum)]
+enum SortMode {
+    /// Try all sort strategies and keep the smallest result
+    #[default]
+    Auto,
+    /// Do not reorder features (original order only)
+    None,
+    /// Only try Z-order (Morton) curve sort
+    Morton,
+    /// Only try Hilbert curve sort
+    Hilbert,
+    /// Only try feature-ID ascending sort
+    Id,
+}
 
 #[derive(Args)]
 pub struct ConvertArgs {
@@ -21,6 +40,9 @@ pub struct ConvertArgs {
     /// Add tessellation
     #[clap(short, long, default_value = "false")]
     tessellate: bool,
+    /// Sort strategy to try when re-encoding (encoder keeps the smallest result)
+    #[clap(long, default_value = "auto")]
+    sort: SortMode,
 }
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
@@ -40,6 +62,9 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
 
     let cfg = EncoderConfig {
         tessellate: args.tessellate,
+        try_spatial_morton_sort: matches!(args.sort, SortMode::Auto | SortMode::Morton),
+        try_spatial_hilbert_sort: matches!(args.sort, SortMode::Auto | SortMode::Hilbert),
+        try_id_sort: matches!(args.sort, SortMode::Auto | SortMode::Id),
         ..Default::default()
     };
 
