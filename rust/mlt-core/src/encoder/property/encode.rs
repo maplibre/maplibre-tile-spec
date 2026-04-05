@@ -1,9 +1,10 @@
 use super::model::{PresenceKind, StagedProperty};
-use super::strings::{write_shared_dict, write_str_col};
+use super::strings::write_str_col;
 use crate::MltError::NotImplemented;
 use crate::MltResult;
 use crate::decoder::{ColumnType, DictionaryType, StreamType};
 use crate::encoder::model::ColumnKind;
+use crate::encoder::property::shared_dict::write_shared_dict;
 use crate::encoder::stream::{
     write_i8_stream, write_i32_stream, write_i64_stream, write_u8_stream, write_u32_stream,
     write_u64_stream,
