@@ -59,7 +59,10 @@ fn bench_mlt_decode_all(c: &mut Criterion) {
                     let mut dec = dec();
                     let decoded: Vec<Vec<_>> = mlt
                         .into_iter()
-                        .map(|layers| dec.decode_all(layers).expect("mlt decode_all failed"))
+                        .map(|layers| {
+                            dec.reset_budget();
+                            dec.decode_all(layers).expect("mlt decode_all failed")
+                        })
                         .collect();
                     black_box(decoded);
                 },
