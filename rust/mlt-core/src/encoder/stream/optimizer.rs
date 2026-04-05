@@ -44,11 +44,15 @@ pub struct DataProfile {
     /// `avg_run_length = sample_len / num_runs`.
     avg_run_length: f64,
 
-    /// Average run length of the zigzag-delta-transformed values.
+    /// Average run length of the zigzag-encoded delta stream.
+    ///
+    /// This is computed over the deltas between consecutive sample values,
+    /// excluding the initial/base value, so the effective stream length is
+    /// `sample_len - 1`.
     ///
     /// For sequential data like `[1, 2, 3, ...]` the raw values are all
-    /// distinct (`avg_run_length == 1`) but the deltas are all identical
-    /// (`delta_avg_run_length == N-1`), making `DeltaRle` extremely effective.
+    /// distinct (`avg_run_length == 1`) but the delta stream is constant, so
+    /// `delta_avg_run_length == N - 1`, making `DeltaRle` extremely effective.
     delta_avg_run_length: f64,
 
     /// `true` if the sample values are sorted in ascending or descending order.
