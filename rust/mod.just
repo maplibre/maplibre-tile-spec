@@ -27,6 +27,10 @@ bench *args: (just 'cargo-install' 'cargo-hack')
         --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
 
+# Run a specific benchmark target
+bench-one target='encoding_from_mvt': (just 'cargo-install' 'cargo-hack')
+    cargo bench --bench {{target}} -p mlt-core
+
 alias b := build
 # Build the project
 build: (just 'cargo-install' 'cargo-hack')

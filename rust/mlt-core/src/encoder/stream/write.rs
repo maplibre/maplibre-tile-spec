@@ -96,7 +96,7 @@ pub(crate) fn write_u32_stream(
     subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
+    if let Some(int_enc) = enc.override_int_enc(kind, name, subname) {
         do_write_u32(values, stream_type, int_enc, enc)?;
     } else {
         let mut alt = enc.try_alternatives();
@@ -119,7 +119,7 @@ pub(crate) fn write_i32_stream(
     subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
+    if let Some(int_enc) = enc.override_int_enc(kind, name, subname) {
         do_write_i32(values, stream_type, int_enc, enc)?;
     } else {
         let test_vals = encode_zigzag(values);
@@ -140,7 +140,7 @@ pub(crate) fn write_u64_stream(
     subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
+    if let Some(int_enc) = enc.override_int_enc(kind, name, subname) {
         do_write_u64(values, stream_type, int_enc, enc)?;
     } else {
         let mut alt = enc.try_alternatives();
@@ -163,7 +163,7 @@ pub(crate) fn write_i64_stream(
     subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
+    if let Some(int_enc) = enc.override_int_enc(kind, name, subname) {
         do_write_i64(values, stream_type, int_enc, enc)?;
     } else {
         let test_vals: Vec<u64> = encode_zigzag(values);
@@ -204,7 +204,7 @@ pub(crate) fn write_precomputed_u32(
     name: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.get_int_encoder(kind, name, "") {
+    if let Some(int_enc) = enc.override_int_enc(kind, name, "") {
         let num_values = u32::try_from(values.len())?;
         let (stream_data, physical_encoding) = int_enc.physical.encode_u32s(values.to_vec())?;
         let e = IntEncoding::new(logical_encoding, physical_encoding);

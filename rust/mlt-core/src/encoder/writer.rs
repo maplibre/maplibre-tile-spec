@@ -222,7 +222,7 @@ impl Encoder {
     /// When [`Self::explicit`] is [`Some`], returns the callback-chosen [`IntEncoder`].
     /// [`None`] means run automatic candidate selection for that stream.
     #[inline]
-    pub(crate) fn get_int_encoder(
+    pub(crate) fn override_int_enc(
         &self,
         kind: ColumnKind,
         name: &str,
@@ -236,7 +236,7 @@ impl Encoder {
     /// When [`Self::explicit`] is [`Some`], returns the callback-chosen [`StrEncoding`].
     /// [`None`] means run automatic string / shared-dict corpus selection.
     #[inline]
-    pub(crate) fn get_str_encoding(&self, name: &str) -> Option<StrEncoding> {
+    pub(crate) fn override_str_enc(&self, name: &str) -> Option<StrEncoding> {
         self.explicit.as_ref().map(|e| (e.get_str_encoding)(name))
     }
 

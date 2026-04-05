@@ -305,7 +305,7 @@ pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<Mor
     }
 }
 
-/// Write a geometry `u32` stream: [`Encoder::get_int_encoder`] when explicit mode is active,
+/// Write a geometry `u32` stream: [`Encoder::override_int_enc`] when explicit mode is active,
 /// otherwise try all pruned candidates and keep the shortest.
 ///
 /// Returns `1` if the stream was written, `0` if it was skipped.  Empty streams are skipped

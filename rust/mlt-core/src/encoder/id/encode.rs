@@ -125,7 +125,7 @@ impl IdValues {
         }
 
         // Fast-path for small or obviously structured sequences.
-        let single_enc = if let Some(int_enc) = enc.get_int_encoder(ColumnKind::Id, "", "") {
+        let single_enc = if let Some(int_enc) = enc.override_int_enc(ColumnKind::Id, "", "") {
             Some(int_enc)
         } else if ids.len() <= 2 {
             Some(IntEncoder::varint_with(LogicalEncoder::None))
