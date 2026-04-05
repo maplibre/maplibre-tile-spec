@@ -49,20 +49,7 @@ impl<'a> Arbitrary<'a> for StagedSharedDict {
         // Bound item count and string sizes to prevent OOM
         let item_count = u.int_in_range(0..=8u8)? as usize;
         let items_raw: Vec<(String, Vec<Option<String>>)> = (0..item_count)
-            .map(|_| -> Result<_> {
-                let name = bounded_string(u, 32)?;
-                let val_count = u.int_in_range(0..=16u8)? as usize;
-                let values: Vec<Option<String>> = (0..val_count)
-                    .map(|_| -> Result<_> {
-                        if u.arbitrary()? {
-                            Ok(Some(bounded_string(u, 64)?))
-                        } else {
-                            Ok(None)
-                        }
-                    })
-                    .collect::<Result<_>>()?;
-                Ok((name, values))
-            })
+            .map(|_| Ok((bounded_string(u, 32)?, generate_strings(u)?)))
             .collect::<Result<_>>()?;
         if items_raw.is_empty() {
             return Ok(Self {
@@ -87,19 +74,10 @@ impl Arbitrary<'_> for StagedProperty {
 
 impl Arbitrary<'_> for StagedStrings {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
-        let name = bounded_string(u, 32)?;
-        // Bound string count and individual string lengths to prevent OOM
-        let count = u.int_in_range(0..=16u8)? as usize;
-        let values: Vec<Option<String>> = (0..count)
-            .map(|_| -> Result<_> {
-                if u.arbitrary()? {
-                    Ok(Some(bounded_string(u, 64)?))
-                } else {
-                    Ok(None)
-                }
-            })
-            .collect::<Result<_>>()?;
-        Ok(Self::from_optional(name, values))
+        Ok(Self::from_optional(
+            bounded_string(u, 32)?,
+            generate_strings(u)?,
+        ))
     }
 }
 
@@ -109,4 +87,19 @@ pub fn bounded_string(u: &mut Unstructured<'_>, max_len: u8) -> Result<String> {
     (0..len)
         .map(|_| u.arbitrary::<char>())
         .collect::<Result<_>>()
+}
+
+fn generate_strings(u: &mut Unstructured) -> Result<Vec<Option<String>>> {
+    // Bound string count and individual string lengths to prevent OOM
+    let val_count = u.int_in_range(0..=16u8)? as usize;
+    let values: Vec<Option<String>> = (0..val_count)
+        .map(|_| -> Result<_> {
+            if u.arbitrary()? {
+                Ok(Some(bounded_string(u, 64)?))
+            } else {
+                Ok(None)
+            }
+        })
+        .collect::<Result<_>>()?;
+    Ok(values)
 }

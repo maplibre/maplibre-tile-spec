@@ -1,7 +1,7 @@
 /// Staged property column (encode-side, fully owned).
 ///
 /// Unlike `ParsedProperty` (decode-side, potentially borrowed), all string names
-/// and corpus data are owned `String`s.  No lifetime parameter needed.
+/// and corpus data are owned strings.  No lifetime parameter needed.
 #[derive(Debug, Clone, PartialEq, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum StagedProperty {

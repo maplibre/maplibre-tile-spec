@@ -80,7 +80,7 @@ pub(crate) fn do_write_i64(
 // ─── public wrappers ──────────────────────────────────────────────────────────
 //
 // Each wrapper checks for an explicit encoder override (via `enc.get_int_encoder`)
-// and falls back to automatic candidate selection via the alternatives machinery.
+// and falls back to automatic candidate selection via the alternatives' machinery.
 //
 // These are the functions called by geometry, ID, scalar property, and string
 // sub-stream encoders — replacing the previous pattern of:
