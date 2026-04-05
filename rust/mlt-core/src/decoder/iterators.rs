@@ -522,11 +522,11 @@ mod tests {
     use crate::test_helpers::{dec, parser};
 
     fn layer_buf(staged: StagedLayer01) -> Vec<u8> {
-        let mut encoder = Encoder::default();
         StagedLayer::Tag01(staged)
-            .encode_into(&mut encoder)
-            .unwrap();
-        encoder.into_layer_bytes().unwrap()
+            .encode_into(Encoder::default())
+            .unwrap()
+            .into_layer_bytes()
+            .unwrap()
     }
 
     fn three_points() -> GeometryValues {

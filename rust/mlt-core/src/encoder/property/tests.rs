@@ -4,8 +4,8 @@ use proptest::prelude::*;
 use crate::encoder::model::{ExplicitEncoder, StagedLayer01, StrEncoding};
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
-    Encoder, EncoderConfig, IntEncoder, PhysicalEncoder, StagedProperty, StagedSharedDict,
-    group_string_properties,
+    Encoder, EncoderConfig, IntEncoder, PhysicalEncoder, SortStrategy, StagedProperty,
+    StagedSharedDict, group_string_properties,
 };
 use crate::geojson::Geom32;
 use crate::test_helpers::{dec, parser};
@@ -104,11 +104,11 @@ fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
         geometry: n_point_geometry(n),
         properties: props,
     };
-    let mut enc = Encoder::with_explicit(
+    let enc = Encoder::with_explicit(
         EncoderConfig::default(),
         ExplicitEncoder::all(IntEncoder::varint()),
     );
-    layer.encode_into(&mut enc).expect("encoding failed");
+    let enc = layer.encode_into(enc).expect("encoding failed");
     enc.into_layer_bytes().expect("into_layer_bytes failed")
 }
 
@@ -122,8 +122,8 @@ fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) ->
         geometry: n_point_geometry(n),
         properties: props,
     };
-    let mut enc = Encoder::with_explicit(EncoderConfig::default(), cfg);
-    layer.encode_into(&mut enc).expect("encoding failed");
+    let enc = Encoder::with_explicit(EncoderConfig::default(), cfg);
+    let enc = layer.encode_into(enc).expect("encoding failed");
     enc.into_layer_bytes().expect("into_layer_bytes failed")
 }
 
@@ -632,7 +632,7 @@ fn str_vals(values: &[&str]) -> Vec<PropValue> {
 /// Stage a [`TileLayer01`] with `MinHash` grouping and return its properties.
 fn stage_props(tile: TileLayer01) -> Vec<StagedProperty> {
     let groups = group_string_properties(&tile);
-    StagedLayer01::from_tile(tile, &groups).properties
+    StagedLayer01::from_tile(tile, SortStrategy::Unsorted, &groups).properties
 }
 
 #[test]

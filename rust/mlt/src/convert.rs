@@ -130,9 +130,7 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
                 out.extend_from_slice(&tile.encode(cfg)?);
             }
             Layer::Unknown(u) => {
-                let mut enc = Encoder::default();
-                EncodedUnknown::from(u).write_to(&mut enc)?;
-                out.extend(enc.data);
+                out.extend(EncodedUnknown::from(u).write_to(Encoder::default())?.data);
             }
         }
     }
@@ -146,7 +144,7 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
 /// via [`encode_tile_layer`].
 fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();
-    for tile in &mvt_to_tile_layers(buffer)? {
+    for tile in mvt_to_tile_layers(buffer)? {
         out.extend_from_slice(&tile.encode(cfg)?);
     }
     Ok(out)

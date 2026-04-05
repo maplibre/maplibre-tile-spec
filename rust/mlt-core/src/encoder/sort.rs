@@ -39,30 +39,33 @@ pub enum SortStrategy {
     Id,
 }
 
-/// Reorder all features of `layer` according to `strategy`.
-///
-/// [`SortStrategy::Unsorted`] is a no-op.
-/// Layers with zero or one features are trivially unchanged by any sort.
-pub fn reorder_features(layer: &mut TileLayer01, strategy: SortStrategy) {
-    match strategy {
-        SortStrategy::Unsorted => {}
-        SortStrategy::SpatialMorton | SortStrategy::SpatialHilbert => {
-            let params = curve_params_from_features(&layer.features);
-            let curve_key = if let SortStrategy::SpatialMorton = strategy {
-                morton_sort_key
-            } else {
-                hilbert_sort_key
-            };
-            layer.features.sort_by_cached_key(|f| {
-                first_vertex(&f.geometry).map_or(u64::MAX, |(x, y)| {
-                    u64::from(curve_key(x, y, params.shift, params.num_bits))
-                })
-            });
-        }
-        SortStrategy::Id => {
-            layer
-                .features
-                .sort_by_cached_key(|f| f.id.map_or(0, |v| v.saturating_add(1)));
+impl TileLayer01 {
+    /// Reorder all features of `layer` according to `strategy`.
+    ///
+    /// [`SortStrategy::Unsorted`] is a no-op.
+    /// Layers with zero or one features are trivially unchanged by any sort.
+    pub fn sort(&mut self, strategy: SortStrategy) {
+        match strategy {
+            SortStrategy::SpatialMorton | SortStrategy::SpatialHilbert => {
+                let params = curve_params_from_features(&self.features);
+                let curve_key = if let SortStrategy::SpatialMorton = strategy {
+                    morton_sort_key
+                } else {
+                    hilbert_sort_key
+                };
+                self.features.sort_by_cached_key(|f| {
+                    first_vertex(&f.geometry).map_or(u64::MAX, |(x, y)| {
+                        u64::from(curve_key(x, y, params.shift, params.num_bits))
+                    })
+                });
+            }
+            SortStrategy::Id => {
+                self.features
+                    .sort_by_cached_key(|f| f.id.map_or(0, |v| v.saturating_add(1)));
+            }
+            SortStrategy::Unsorted => {
+                // do nothing
+            }
         }
     }
 }
@@ -221,7 +224,6 @@ mod tests {
     use crate::decoder::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer01};
     use crate::encoder::{
         Encoder, ExplicitEncoder, IdWidth, IntEncoder, SortStrategy, StagedLayer01,
-        reorder_features,
     };
     use crate::geojson::Geom32;
     use crate::test_helpers::{assert_empty, dec, into_layer01, parser};
@@ -306,7 +308,7 @@ mod tests {
             features,
         };
 
-        reorder_features(&mut layer, strategy);
+        layer.sort(strategy);
         layer
     }
 
@@ -457,14 +459,14 @@ mod tests {
 
     /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer01`.
     /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
-    fn sort_encode_decode(mut tile: TileLayer01, strategy: SortStrategy) -> TileLayer01 {
-        reorder_features(&mut tile, strategy);
-        let staged = StagedLayer01::from_tile(tile, &[]);
-        let mut enc = Encoder::with_explicit(
+    fn sort_encode_decode(tile: TileLayer01, sort: SortStrategy) -> TileLayer01 {
+        let enc = Encoder::with_explicit(
             Encoder::default().cfg,
             ExplicitEncoder::for_id(IntEncoder::varint(), IdWidth::Id32),
         );
-        staged.encode_into(&mut enc).expect("encode failed");
+        let enc = StagedLayer01::from_tile(tile, sort, &[])
+            .encode_into(enc)
+            .expect("encode failed");
 
         // Serialize to bytes and reparse to get a `Layer01`.
         let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");

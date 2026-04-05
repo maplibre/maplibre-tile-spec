@@ -31,6 +31,7 @@ pub(crate) use model::{ExplicitEncoder, StagedLayer, StagedLayer01, StrEncoding}
 pub(crate) use property::*;
 #[cfg(feature = "__private")]
 pub use property::{StagedProperty, StagedSharedDict};
+pub use sort::SortStrategy;
 pub(crate) use sort::*;
 pub(crate) use stream::*;
 #[cfg(feature = "__private")]

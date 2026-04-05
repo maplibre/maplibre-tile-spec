@@ -2,6 +2,7 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::__private::{dec, parser};
+use mlt_core::encoder::SortStrategy;
 use mlt_core::{Layer, LogicalEncoder};
 use strum::IntoEnumIterator as _;
 
@@ -37,7 +38,11 @@ fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer> {
                         return None;
                     };
                     let tile = layer01.into_tile(&mut d).ok()?;
-                    Some(StagedLayer::Tag01(StagedLayer01::from_tile(tile, &[])))
+                    Some(StagedLayer::Tag01(StagedLayer01::from_tile(
+                        tile,
+                        SortStrategy::Unsorted,
+                        &[],
+                    )))
                 })
                 .collect::<Vec<_>>()
         })
@@ -64,12 +69,11 @@ fn bench_encode(c: &mut Criterion) {
                             |layers| {
                                 for layer in layers {
                                     if let StagedLayer::Tag01(l) = layer {
-                                        let mut enc = Encoder::with_explicit(
+                                        let enc = Encoder::with_explicit(
                                             Encoder::default().cfg,
                                             ExplicitEncoder::all(int_enc),
                                         );
-                                        l.encode_into(&mut enc).expect("encode failed");
-                                        black_box(enc);
+                                        black_box(l.encode_into(enc).expect("encode failed"));
                                     }
                                 }
                             },

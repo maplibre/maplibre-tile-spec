@@ -14,7 +14,9 @@ use std::collections::HashMap;
 
 use crate::decoder::{GeometryValues, IdValues, PropValue, TileFeature, TileLayer01};
 use crate::encoder::model::StagedLayer01;
-use crate::encoder::{StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, StringGroup};
+use crate::encoder::{
+    SortStrategy, StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, StringGroup,
+};
 
 impl StagedLayer01 {
     /// Construct a [`StagedLayer01`] from a row-oriented [`TileLayer01`], applying
@@ -25,7 +27,8 @@ impl StagedLayer01 {
     /// same [`TileLayer01`] source.  Because unique-value membership is
     /// row-order-independent, the same groups can be reused across sort trials.
     #[must_use]
-    pub fn from_tile(mut source: TileLayer01, groups: &[StringGroup]) -> Self {
+    pub fn from_tile(mut source: TileLayer01, sort: SortStrategy, groups: &[StringGroup]) -> Self {
+        source.sort(sort);
         let mut geometry = GeometryValues::default();
         for f in &source.features {
             geometry.push_geom(&f.geometry);
@@ -143,11 +146,11 @@ mod tests {
     use crate::test_helpers::{dec, parser};
 
     fn layer_tile(staged: StagedLayer01) -> TileLayer01 {
-        let mut encoder = Encoder::default();
-        StagedLayer::Tag01(staged)
-            .encode_into(&mut encoder)
+        let buf = StagedLayer::Tag01(staged)
+            .encode_into(Encoder::default())
+            .unwrap()
+            .into_layer_bytes()
             .unwrap();
-        let buf = encoder.into_layer_bytes().unwrap();
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
         let mut d = dec();

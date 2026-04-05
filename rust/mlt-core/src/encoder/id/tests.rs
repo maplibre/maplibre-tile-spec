@@ -28,11 +28,11 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_width: IdWidth, int_enc: IntEnc
         geometry,
         properties: vec![],
     };
-    let mut enc = Encoder::with_explicit(
+    let enc = Encoder::with_explicit(
         Encoder::default().cfg,
         ExplicitEncoder::for_id(int_enc, id_width),
     );
-    staged.encode_into(&mut enc).expect("encode failed");
+    let enc = staged.encode_into(enc).expect("encode failed");
     let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
     let mut p = parser();
     let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
@@ -60,11 +60,11 @@ fn id_roundtrip_auto(decoded: &IdValues) -> IdValues {
         geometry,
         properties: vec![],
     };
-    let mut enc = Encoder::default();
-    StagedLayer::Tag01(staged)
-        .encode_into(&mut enc)
-        .expect("encode failed");
-    let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
+    let buf = StagedLayer::Tag01(staged)
+        .encode_into(Encoder::default())
+        .expect("encode failed")
+        .into_layer_bytes()
+        .expect("into_layer_bytes failed");
     let mut p = parser();
     let mut d = dec();
     let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
@@ -345,11 +345,11 @@ fn roundtrip_id_values(
         geometry,
         properties: vec![],
     };
-    let mut enc = Encoder::with_explicit(
+    let enc = Encoder::with_explicit(
         EncoderConfig::default(),
         ExplicitEncoder::for_id(int_enc, id_width),
     );
-    staged.encode_into(&mut enc)?;
+    let enc = staged.encode_into(enc)?;
     let buf = enc.into_layer_bytes()?;
     let (_, layer) = Layer::from_bytes(&buf, &mut parser())?;
     let Layer::Tag01(layer01) = layer else {
@@ -383,11 +383,11 @@ fn encode_id_to_raw_layer(
         geometry,
         properties: vec![],
     };
-    let mut enc = Encoder::with_explicit(
+    let enc = Encoder::with_explicit(
         EncoderConfig::default(),
         ExplicitEncoder::for_id(int_enc, id_width),
     );
-    staged.encode_into(&mut enc).expect("encode failed");
+    let enc = staged.encode_into(enc).expect("encode failed");
     let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
     let buf: &'static [u8] = Box::leak(buf.into_boxed_slice());
     let (_, layer) = Layer::from_bytes(buf, &mut parser()).expect("parse failed");

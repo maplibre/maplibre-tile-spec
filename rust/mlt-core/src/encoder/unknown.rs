@@ -11,13 +11,13 @@ impl EncodedUnknown {
     ///
     /// Writes the complete `[varint(size)][tag][value]` record — the bytes are
     /// already in wire format so no `hdr`/`meta` split is needed.
-    pub fn write_to(&self, enc: &mut Encoder) -> MltResult<()> {
+    pub fn write_to(&self, mut enc: Encoder) -> MltResult<Encoder> {
         let buffer_len = u32::try_from(self.value.len())?;
         let size = checked_sum2(buffer_len, 1)?;
         enc.write_varint(size)?;
         enc.write_u8(self.tag)?;
         enc.data.extend_from_slice(&self.value);
-        Ok(())
+        Ok(enc)
     }
 }
 

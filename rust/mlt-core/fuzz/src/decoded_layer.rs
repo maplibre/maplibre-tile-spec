@@ -18,12 +18,9 @@ impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
 
 impl DecodedLayerInput {
     pub fn fuzz_roundtrip(self) {
-        // Encode the staged layer to a buffer.
-        let mut enc = Encoder::default();
-        StagedLayer::Tag01(self.layer)
-            .encode_into(&mut enc)
-            .expect("encode_into cannot fail for a valid staged layer");
-        let buffer = enc
+        let buffer = StagedLayer::Tag01(self.layer)
+            .encode_into(Encoder::default())
+            .expect("encode_into cannot fail for a valid staged layer")
             .into_layer_bytes()
             .expect("into_layer_bytes cannot fail");
 
