@@ -369,8 +369,8 @@ fn with_encoded_raw_id<R>(
     int_enc: IntEncoder,
     f: impl FnOnce(&RawId<'_>) -> R,
 ) -> R {
-    // Use write_id_to to directly encode just the ID and verify the encoded bytes.
-    // To test via a full layer, we need to call encode_with on a StagedLayer01.
+    // Encode a full StagedLayer01, parse the layer back out, and inspect the raw ID field.
+    // This exercises the ID encoding as it appears in a real layer payload.
     let n = ids.0.len();
     let mut geometry = GeometryValues::default();
     for _ in 0..n {

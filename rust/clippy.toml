@@ -3,5 +3,5 @@ avoid-breaking-exported-api = false
 
 disallowed-methods = [
     "alloc::boxed::Box::leak",
-    "std::vec::Vec::leak",
+    "alloc::vec::Vec::leak",
 ]
