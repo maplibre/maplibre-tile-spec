@@ -16,6 +16,7 @@ use crate::decoder::{
     ParsedSharedDictItem, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, StreamMeta,
     StreamType,
 };
+use crate::encoder::model::ColumnKind::Property;
 use crate::encoder::model::StrEncoding;
 use crate::encoder::stream::{dedup_strings, write_u32_stream};
 use crate::encoder::{EncodedStream, Encoder};
@@ -111,7 +112,7 @@ fn write_str_plain(
     enc.write_varint(2u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
     let typ = StreamType::Length(LengthType::VarBinary);
-    write_u32_stream(&lengths, typ, "prop", name, "lengths", enc)?;
+    write_u32_stream(&lengths, typ, Property, name, "lengths", enc)?;
     write_raw_str_data(non_null, DictionaryType::None, enc)
 }
 
@@ -127,9 +128,9 @@ fn write_str_dict(
     enc.write_varint(3u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
     let typ = StreamType::Length(LengthType::Dictionary);
-    write_u32_stream(&lengths, typ, "prop", name, "lengths", enc)?;
+    write_u32_stream(&lengths, typ, Property, name, "lengths", enc)?;
     let typ = StreamType::Offset(OffsetType::String);
-    write_u32_stream(&offset_indices, typ, "prop", name, "offsets", enc)?;
+    write_u32_stream(&offset_indices, typ, Property, name, "offsets", enc)?;
     write_raw_str_data(&unique, DictionaryType::Single, enc)
 }
 
@@ -146,9 +147,9 @@ fn write_str_fsst(
     let offsets: Vec<u32> = (0..u32::try_from(non_null.len())?).collect();
     enc.write_varint(5u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
-    write_fsst_data(&raw, DictionaryType::Single, "prop", name, enc)?;
+    write_fsst_data(&raw, DictionaryType::Single, name, enc)?;
     let typ = StreamType::Offset(OffsetType::String);
-    write_u32_stream(&offsets, typ, "prop", name, "offsets", enc)
+    write_u32_stream(&offsets, typ, Property, name, "offsets", enc)
 }
 
 /// Encode with FSST + dictionary layout (deduped unique strings, per-feature offset indices).
@@ -162,9 +163,9 @@ fn write_str_fsst_dict(
     let raw = compress_fsst(&unique);
     enc.write_varint(5u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
-    write_fsst_data(&raw, DictionaryType::Single, "prop", name, enc)?;
+    write_fsst_data(&raw, DictionaryType::Single, name, enc)?;
     let typ = StreamType::Offset(OffsetType::String);
-    write_u32_stream(&offset_indices, typ, "prop", name, "offsets", enc)
+    write_u32_stream(&offset_indices, typ, Property, name, "offsets", enc)
 }
 
 /// Write 4 FSST sub-streams directly to `enc.data`.
@@ -177,19 +178,18 @@ fn write_str_fsst_dict(
 fn write_fsst_data(
     raw: &FsstRawData,
     dict_type: DictionaryType,
-    kind: &str,
     name: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
     let typ = StreamType::Length(LengthType::Symbol);
-    write_u32_stream(&raw.symbol_lengths, typ, kind, name, "sym_lengths", enc)?;
+    write_u32_stream(&raw.symbol_lengths, typ, Property, name, "sym_lengths", enc)?;
     let num_syms = u32::try_from(raw.symbol_lengths.len())?;
     let sym_bytes_len = u32::try_from(raw.symbol_bytes.len())?;
     let typ = StreamType::Data(DictionaryType::Fsst);
     StreamMeta::new(typ, IntEncoding::none(), num_syms).write_to(enc, false, sym_bytes_len)?;
     enc.data.extend_from_slice(&raw.symbol_bytes);
     let typ = StreamType::Length(LengthType::Dictionary);
-    write_u32_stream(&raw.value_lengths, typ, kind, name, "dict_lengths", enc)?;
+    write_u32_stream(&raw.value_lengths, typ, Property, name, "dict_lengths", enc)?;
     let num_vals = u32::try_from(raw.value_lengths.len())?;
     let corpus_len = u32::try_from(raw.corpus.len())?;
     StreamMeta::new(StreamType::Data(dict_type), IntEncoding::none(), num_vals)
@@ -257,7 +257,7 @@ pub(crate) fn write_shared_dict(
     let dict_stream_count = if use_fsst { 4u32 } else { 2u32 };
 
     // Determine per-child presence upfront (needed before writing meta + stream count).
-    let force_presence = enc.override_presence("prop", &shared_dict.prefix, None);
+    let force_presence = enc.override_presence(Property, &shared_dict.prefix, None);
     let child_has_presence: Vec<bool> = shared_dict
         .items
         .iter()
@@ -285,23 +285,11 @@ pub(crate) fn write_shared_dict(
     enc.write_varint(stream_len)?;
     if use_fsst {
         let raw = compress_fsst(&dict);
-        write_fsst_data(
-            &raw,
-            DictionaryType::Single,
-            "prop",
-            &shared_dict.prefix,
-            enc,
-        )?;
+        write_fsst_data(&raw, DictionaryType::Single, &shared_dict.prefix, enc)?;
     } else {
         let lengths = strings_to_lengths(&dict)?;
-        write_u32_stream(
-            &lengths,
-            StreamType::Length(LengthType::Dictionary),
-            "prop",
-            &shared_dict.prefix,
-            "lengths",
-            enc,
-        )?;
+        let typ = StreamType::Length(LengthType::Dictionary);
+        write_u32_stream(&lengths, typ, Property, &shared_dict.prefix, "lengths", enc)?;
         write_raw_str_data(&dict, DictionaryType::Shared, enc)?;
     }
 
@@ -322,11 +310,10 @@ pub(crate) fn write_shared_dict(
             let presence = EncodedStream::encode_presence(&item.presence_bools())?;
             enc.write_boolean_stream(&presence)?;
         }
-        let typ = StreamType::Offset(OffsetType::String);
         write_u32_stream(
             &offsets,
-            typ,
-            "prop",
+            StreamType::Offset(OffsetType::String),
+            Property,
             &shared_dict.prefix,
             &item.suffix,
             enc,

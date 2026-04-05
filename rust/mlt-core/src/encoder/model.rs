@@ -87,6 +87,13 @@ pub enum StrEncoding {
     FsstDict,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ColumnKind {
+    Id,
+    Geometry,
+    Property,
+}
+
 /// Explicit, deterministic encoding configuration for synthetics and tests.
 ///
 /// All encoding choices are caller-specified via callbacks so one struct can cover
@@ -114,11 +121,11 @@ pub struct ExplicitEncoder {
     /// empty INDEX stream alongside the TRIANGLES stream for degenerate polygons (0 triangles).
     /// This matches Java encoder behaviour and avoids a TypeScript decoder issue where an
     /// absent INDEX stream causes tessellation data to be silently discarded.
-    pub force_stream: Box<dyn Fn(&str) -> bool>,
+    pub force_stream: Box<dyn Fn(ColumnKind, &str) -> bool>,
     /// Return the [`IntEncoder`] for a stream.
     /// Arguments: `(kind, name, subname)` where `kind` is `"id"`, `"geo"`, or `"prop"`;
     /// `name` is the stream/column name; `subname` is the shared-dict suffix when applicable.
-    pub get_int_encoder: Box<dyn Fn(&str, &str, &str) -> IntEncoder>,
+    pub get_int_encoder: Box<dyn Fn(ColumnKind, &str, &str) -> IntEncoder>,
     /// Return the string encoding strategy for a string property column.
     pub get_str_encoding: Box<dyn Fn(&str) -> StrEncoding>,
     /// Override the auto-detected [`IdWidth`].
@@ -127,7 +134,7 @@ pub struct ExplicitEncoder {
     /// Override whether a presence stream is written for an all-present column,
     /// or if the column is written at all if all values are null.
     /// Arguments: `(kind, name, subname)` — same convention as [`Self::get_int_encoder`]
-    pub override_presence: Box<dyn Fn(&str, &str, Option<&str>) -> bool>,
+    pub override_presence: Box<dyn Fn(ColumnKind, &str, Option<&str>) -> bool>,
 }
 
 impl fmt::Debug for ExplicitEncoder {

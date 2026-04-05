@@ -1,9 +1,9 @@
 use crate::MltResult;
 use crate::codecs::zigzag::encode_zigzag;
 use crate::decoder::{IntEncoding, LogicalEncoding, StreamMeta, StreamType};
+use crate::encoder::model::ColumnKind;
 use crate::encoder::stream::{DataProfile, IntEncoder};
 use crate::encoder::{EncodedStreamData, Encoder};
-
 // ─── inner helpers ────────────────────────────────────────────────────────────
 //
 // Each `do_write_*` function encodes one stream with a single, already-chosen
@@ -91,7 +91,7 @@ pub(crate) fn do_write_i64(
 pub(crate) fn write_u32_stream(
     values: &[u32],
     stream_type: StreamType,
-    kind: &str,
+    kind: ColumnKind,
     name: &str,
     subname: &str,
     enc: &mut Encoder,
@@ -116,7 +116,7 @@ pub(crate) fn write_u32_stream(
 pub(crate) fn write_i32_stream(
     values: &[i32],
     stream_type: StreamType,
-    kind: &str,
+    kind: ColumnKind,
     name: &str,
     subname: &str,
     enc: &mut Encoder,
@@ -139,7 +139,7 @@ pub(crate) fn write_i32_stream(
 pub(crate) fn write_u64_stream(
     values: &[u64],
     stream_type: StreamType,
-    kind: &str,
+    kind: ColumnKind,
     name: &str,
     subname: &str,
     enc: &mut Encoder,
@@ -164,7 +164,7 @@ pub(crate) fn write_u64_stream(
 pub(crate) fn write_i64_stream(
     values: &[i64],
     stream_type: StreamType,
-    kind: &str,
+    kind: ColumnKind,
     name: &str,
     subname: &str,
     enc: &mut Encoder,
@@ -187,7 +187,7 @@ pub(crate) fn write_i64_stream(
 pub(crate) fn write_i8_stream(
     values: &[i8],
     stream_type: StreamType,
-    kind: &str,
+    kind: ColumnKind,
     name: &str,
     subname: &str,
     enc: &mut Encoder,
@@ -208,7 +208,7 @@ pub(crate) fn write_precomputed_u32(
     values: &[u32],
     stream_type: StreamType,
     logical_encoding: LogicalEncoding,
-    kind: &str,
+    kind: ColumnKind,
     name: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
@@ -235,7 +235,7 @@ pub(crate) fn write_precomputed_u32(
 pub(crate) fn write_u8_stream(
     values: &[u8],
     stream_type: StreamType,
-    kind: &str,
+    kind: ColumnKind,
     name: &str,
     subname: &str,
     enc: &mut Encoder,

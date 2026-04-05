@@ -10,6 +10,7 @@ use crate::decoder::{
     MortonMeta, OffsetType, StreamType,
 };
 use crate::encoder::Encoder;
+use crate::encoder::model::ColumnKind::Geometry;
 use crate::encoder::stream::{write_precomputed_u32, write_u32_stream};
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
@@ -350,15 +351,17 @@ pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<Mor
 fn write_geo_u32_stream(
     data: &[u32],
     stream_type: StreamType,
-    geo_stream_name: &'static str,
+    stream_name: &'static str,
     enc: &mut Encoder,
 ) -> MltResult<u8> {
-    Ok(if data.is_empty() && !enc.force_stream(geo_stream_name) {
-        0
-    } else {
-        write_u32_stream(data, stream_type, "geo", geo_stream_name, "", enc)?;
-        1
-    })
+    Ok(
+        if data.is_empty() && !enc.force_stream(Geometry, stream_name) {
+            0
+        } else {
+            write_u32_stream(data, stream_type, Geometry, stream_name, "", enc)?;
+            1
+        },
+    )
 }
 
 /// Like [`write_geo_u32_stream`] but for pre-logically-encoded data: delegates to
@@ -369,15 +372,17 @@ fn write_geo_precomputed_stream(
     data: &[u32],
     stream_type: StreamType,
     logical: LogicalEncoding,
-    geo_stream_name: &'static str,
+    stream_name: &'static str,
     enc: &mut Encoder,
 ) -> MltResult<u8> {
-    Ok(if data.is_empty() && !enc.force_stream(geo_stream_name) {
-        0
-    } else {
-        write_precomputed_u32(data, stream_type, logical, "geo", geo_stream_name, enc)?;
-        1
-    })
+    Ok(
+        if data.is_empty() && !enc.force_stream(Geometry, stream_name) {
+            0
+        } else {
+            write_precomputed_u32(data, stream_type, logical, Geometry, stream_name, enc)?;
+            1
+        },
+    )
 }
 
 impl GeometryValues {
@@ -432,7 +437,7 @@ impl GeometryValues {
 
         // Meta stream — always written, even for a zero-feature layer.
         let typ = StreamType::Length(LengthType::VarBinary);
-        write_u32_stream(&meta, typ, "geo", "meta", "", enc)?;
+        write_u32_stream(&meta, typ, Geometry, "meta", "", enc)?;
         n += 1;
 
         // Topology: compute each length stream and write it immediately.

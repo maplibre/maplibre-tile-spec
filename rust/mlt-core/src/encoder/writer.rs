@@ -2,7 +2,7 @@ use std::io;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::encoder::model::{ExplicitEncoder, StrEncoding};
+use crate::encoder::model::{ColumnKind, ExplicitEncoder, StrEncoding};
 use crate::encoder::{EncoderConfig, IdWidth, IntEncoder, VertexBufferType};
 use crate::{MltError, MltResult};
 
@@ -230,7 +230,7 @@ impl Encoder {
     #[inline]
     pub(crate) fn get_int_encoder(
         &self,
-        kind: &str,
+        kind: ColumnKind,
         name: &str,
         subname: &str,
     ) -> Option<IntEncoder> {
@@ -249,7 +249,12 @@ impl Encoder {
     /// Whether the explicit encoder forces a presence stream for an all-present column
     /// (or similar), per [`ExplicitEncoder::override_presence`].
     #[inline]
-    pub(crate) fn override_presence(&self, kind: &str, name: &str, subname: Option<&str>) -> bool {
+    pub(crate) fn override_presence(
+        &self,
+        kind: ColumnKind,
+        name: &str,
+        subname: Option<&str>,
+    ) -> bool {
         self.explicit
             .as_ref()
             .is_some_and(|e| (e.override_presence)(kind, name, subname))
@@ -277,10 +282,10 @@ impl Encoder {
     /// Delegates to [`ExplicitEncoder::force_stream`]; returns `false` when no explicit
     /// encoder is active (the default "skip empty streams" behaviour).
     #[inline]
-    pub(crate) fn force_stream(&self, name: &str) -> bool {
+    pub(crate) fn force_stream(&self, kind: ColumnKind, name: &str) -> bool {
         self.explicit
             .as_ref()
-            .is_some_and(|e| (e.force_stream)(name))
+            .is_some_and(|e| (e.force_stream)(kind, name))
     }
 
     /// Total encoded bytes across all three sections (`hdr + meta + data`).

@@ -5,8 +5,8 @@ use std::path::Path;
 
 use geo_types::Coord;
 use mlt_core::encoder::{
-    Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer01, StagedProperty,
-    StagedSharedDict, StrEncoding, VertexBufferType,
+    ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer01,
+    StagedProperty, StagedSharedDict, StrEncoding, VertexBufferType,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::{GeometryValues, IdValues};
@@ -404,16 +404,18 @@ impl Layer {
                 None => Box::new(|w| w),
             },
             vertex_buffer_type,
-            force_stream: Box::new(move |name| force_empty_streams.contains(name)),
+            force_stream: Box::new(move |kind, name| {
+                kind == ColumnKind::Geometry && force_empty_streams.contains(name)
+            }),
             get_int_encoder: {
                 let prop_map = prop_map.clone();
-                Box::new(move |kind: &str, name: &str, sub: &str| match kind {
-                    "id" => id_int_enc.unwrap_or_else(IntEncoder::varint),
-                    "geo" => geo_stream_overrides
+                Box::new(move |kind: ColumnKind, name: &str, sub: &str| match kind {
+                    ColumnKind::Id => id_int_enc.unwrap_or_else(IntEncoder::varint),
+                    ColumnKind::Geometry => geo_stream_overrides
                         .get(name)
                         .copied()
                         .unwrap_or(default_geo_enc),
-                    _ => prop_map
+                    ColumnKind::Property => prop_map
                         .get(name)
                         .map_or_else(IntEncoder::varint, |c| c.int_enc_for_sub(sub)),
                 })

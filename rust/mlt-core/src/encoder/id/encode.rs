@@ -6,6 +6,7 @@ use crate::decoder::{
     ColumnType, DictionaryType, IdValues, IntEncoding, LogicalEncoder, LogicalEncoding,
     PhysicalEncoding, RleMeta, StreamMeta, StreamType,
 };
+use crate::encoder::model::ColumnKind;
 use crate::encoder::stream::{DataProfile, IntEncoder, do_write_u32, do_write_u64};
 use crate::encoder::{EncodedStream, EncodedStreamData, Encoder};
 use crate::utils::BinarySerializer as _;
@@ -92,7 +93,7 @@ impl IdValues {
         // override_presence request.  `override_id_width` only affects the bit width (32 vs 64);
         // it must not suppress a presence stream when real nulls exist in the data.
         let has_nulls = matches!(stat.id_width, IdWidth::OptId32 | IdWidth::OptId64)
-            || enc.override_presence("id", "", None);
+            || enc.override_presence(ColumnKind::Id, "", None);
         let use_64bit = matches!(id_width, IdWidth::Id64 | IdWidth::OptId64);
         let col_type = match (has_nulls, use_64bit) {
             (false, false) => ColumnType::Id,
@@ -124,7 +125,7 @@ impl IdValues {
         }
 
         // Fast-path for small or obviously structured sequences.
-        let single_enc = if let Some(int_enc) = enc.get_int_encoder("id", "", "") {
+        let single_enc = if let Some(int_enc) = enc.get_int_encoder(ColumnKind::Id, "", "") {
             Some(int_enc)
         } else if ids.len() <= 2 {
             Some(IntEncoder::varint_with(LogicalEncoder::None))
