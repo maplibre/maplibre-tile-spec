@@ -1,6 +1,7 @@
 use num_traits::PrimInt;
 
-use crate::{Decoder, MltResult};
+use crate::utils::AsUsize as _;
+use crate::{Decoder, MltError, MltResult};
 
 /// Generic run-length encode: returns `(run_lengths, values)`.
 #[must_use]
@@ -103,12 +104,17 @@ pub fn decode_byte_rle(input: &[u8], num_bytes: usize, dec: &mut Decoder) -> Mlt
         let control = input[pos];
         pos += 1;
         if control >= 128 {
-            let count = usize::from(control ^ 0xFF) + 1;
-            output.extend_from_slice(&input[pos..pos + count]);
-            pos += count;
+            let count = u32::from(control ^ 0xFF) + 1;
+            let end = pos + count.as_usize();
+            let slice = input.get(pos..end).ok_or(MltError::BufferUnderflow(
+                count,
+                input.len().saturating_sub(pos),
+            ))?;
+            output.extend_from_slice(slice);
+            pos = end;
         } else {
             let count = usize::from(control) + 3;
-            let value = input[pos];
+            let &value = input.get(pos).ok_or(MltError::BufferUnderflow(1, 0))?;
             pos += 1;
             output.extend(std::iter::repeat_n(value, count));
         }
