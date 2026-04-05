@@ -79,20 +79,15 @@ pub(crate) fn write_str_col(
             StrEncoding::FsstDict => write_str_fsst_dict(&non_null, presence, name, enc)?,
         }
     } else {
-        enc.start_alternatives();
-        write_str_plain(&non_null, presence, name, enc)?;
-        enc.end_alternative();
-        write_str_dict(&non_null, presence, name, enc)?;
-        enc.end_alternative();
+        let mut alt = enc.try_alternatives();
+        alt.with(|enc| write_str_plain(&non_null, presence, name, enc))?;
+        alt.with(|enc| write_str_dict(&non_null, presence, name, enc))?;
 
         if fsst_is_viable(&non_null) {
             // Re-training FSST per candidate is expensive; use one flat candidate per type.
-            write_str_fsst(&non_null, presence, name, enc)?;
-            enc.end_alternative();
-            write_str_fsst_dict(&non_null, presence, name, enc)?;
-            enc.end_alternative();
+            alt.with(|enc| write_str_fsst(&non_null, presence, name, enc))?;
+            alt.with(|enc| write_str_fsst_dict(&non_null, presence, name, enc))?;
         }
-        enc.finish_alternatives();
     }
     Ok(())
 }

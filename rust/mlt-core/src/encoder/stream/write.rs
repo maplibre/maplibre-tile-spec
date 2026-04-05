@@ -99,12 +99,10 @@ pub(crate) fn write_u32_stream(
     if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
         do_write_u32(values, stream_type, int_enc, enc)?;
     } else {
-        enc.start_alternatives();
+        let mut alt = enc.try_alternatives();
         for cand in DataProfile::prune_candidates::<i32>(values) {
-            do_write_u32(values, stream_type, cand, enc)?;
-            enc.end_alternative();
+            alt.with(|enc| do_write_u32(values, stream_type, cand, enc))?;
         }
-        enc.finish_alternatives();
     }
     Ok(())
 }
@@ -124,13 +122,11 @@ pub(crate) fn write_i32_stream(
     if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
         do_write_i32(values, stream_type, int_enc, enc)?;
     } else {
-        enc.start_alternatives();
         let test_vals = encode_zigzag(values);
+        let mut alt = enc.try_alternatives();
         for cand in DataProfile::prune_candidates::<i32>(&test_vals) {
-            do_write_i32(values, stream_type, cand, enc)?;
-            enc.end_alternative();
+            alt.with(|enc| do_write_i32(values, stream_type, cand, enc))?;
         }
-        enc.finish_alternatives();
     }
     Ok(())
 }
@@ -147,12 +143,10 @@ pub(crate) fn write_u64_stream(
     if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
         do_write_u64(values, stream_type, int_enc, enc)?;
     } else {
-        enc.start_alternatives();
+        let mut alt = enc.try_alternatives();
         for cand in DataProfile::prune_candidates::<i64>(values) {
-            do_write_u64(values, stream_type, cand, enc)?;
-            enc.end_alternative();
+            alt.with(|enc| do_write_u64(values, stream_type, cand, enc))?;
         }
-        enc.finish_alternatives();
     }
     Ok(())
 }
@@ -172,13 +166,11 @@ pub(crate) fn write_i64_stream(
     if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
         do_write_i64(values, stream_type, int_enc, enc)?;
     } else {
-        enc.start_alternatives();
         let test_vals: Vec<u64> = encode_zigzag(values);
+        let mut alt = enc.try_alternatives();
         for cand in DataProfile::prune_candidates::<i64>(&test_vals) {
-            do_write_i64(values, stream_type, cand, enc)?;
-            enc.end_alternative();
+            alt.with(|enc| do_write_i64(values, stream_type, cand, enc))?;
         }
-        enc.finish_alternatives();
     }
     Ok(())
 }
@@ -218,15 +210,16 @@ pub(crate) fn write_precomputed_u32(
         let e = IntEncoding::new(logical_encoding, physical_encoding);
         write_stream_bytes(stream_type, e, num_values, &stream_data, enc)
     } else {
-        enc.start_alternatives();
+        let mut alt = enc.try_alternatives();
         for cand in DataProfile::prune_candidates::<i32>(values) {
-            let num_values = u32::try_from(values.len())?;
-            let (stream_data, physical_encoding) = cand.physical.encode_u32s(values.to_vec())?;
-            let e = IntEncoding::new(logical_encoding, physical_encoding);
-            write_stream_bytes(stream_type, e, num_values, &stream_data, enc)?;
-            enc.end_alternative();
+            alt.with(|enc| {
+                let num_values = u32::try_from(values.len())?;
+                let (stream_data, physical_encoding) =
+                    cand.physical.encode_u32s(values.to_vec())?;
+                let e = IntEncoding::new(logical_encoding, physical_encoding);
+                write_stream_bytes(stream_type, e, num_values, &stream_data, enc)
+            })?;
         }
-        enc.finish_alternatives();
         Ok(())
     }
 }

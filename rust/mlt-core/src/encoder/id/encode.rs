@@ -154,12 +154,10 @@ impl IdValues {
                     DataProfile::prune_candidates::<i64>(&vals)
                 }
             };
-            enc.start_alternatives();
+            let mut alt = enc.try_alternatives();
             for &cand in &candidates {
-                write_id_value_stream(&self, id_width, cand, enc)?;
-                enc.end_alternative();
+                alt.with(|enc| write_id_value_stream(&self, id_width, cand, enc))?;
             }
-            enc.finish_alternatives();
         }
 
         enc.increment_column_count();
