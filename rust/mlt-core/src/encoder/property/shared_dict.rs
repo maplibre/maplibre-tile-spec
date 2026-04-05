@@ -286,6 +286,7 @@ impl StagedSharedDict {
             .into_iter()
             .map(|(suffix, values)| -> MltResult<StagedSharedDictItem> {
                 let mut ranges = Vec::with_capacity(values.len());
+                let mut present_items = 0;
                 for opt_val in values {
                     match opt_val {
                         Some(value) => {
@@ -294,11 +295,25 @@ impl StagedSharedDict {
                                 .expect("StagedSharedDict::new: value must be present");
                             let (start, end) = dict_ranges[idx as usize];
                             ranges.push(encode_shared_dict_range(start, end)?);
+                            present_items += 1;
                         }
                         None => ranges.push((-1, -1)),
                     }
                 }
-                Ok(StagedSharedDictItem { suffix, ranges })
+                let kind = if ranges.is_empty() {
+                    PresenceKind::Empty
+                } else if present_items == ranges.len() {
+                    PresenceKind::AllPresent
+                } else if present_items == 0 {
+                    PresenceKind::AllNull
+                } else {
+                    PresenceKind::Mixed
+                };
+                Ok(StagedSharedDictItem {
+                    suffix,
+                    ranges,
+                    kind,
+                })
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -322,22 +337,18 @@ pub(crate) fn write_shared_dict(
     shared_dict: &StagedSharedDict,
     enc: &mut Encoder,
 ) -> MltResult<bool> {
-    // Determine per-child presence upfront (needed before writing meta + stream count).
-    let force_presence = enc.override_presence(Property, &shared_dict.prefix, None);
-    let child_has_presence: Vec<bool> = shared_dict
-        .items
-        .iter()
-        .map(|item| {
-            let presence = item.presence();
-            matches!(presence, PresenceKind::AllNull | PresenceKind::Mixed)
-                || (force_presence && matches!(presence, PresenceKind::AllPresent))
-        })
-        .collect();
+    // Returns true when a child column requires a presence (nullability) bitmap.
+    let needs_presence = |enc: &mut Encoder, p: PresenceKind, prefix: &str, suffix: &str| {
+        matches!(p, PresenceKind::AllNull | PresenceKind::Mixed)
+            || (enc.override_presence(Property, prefix, Some(suffix))
+                && matches!(p, PresenceKind::AllPresent))
+    };
 
-    if shared_dict
+    // Skip the whole column when every child is Empty or AllNull (no real data).
+    if !shared_dict
         .items
         .iter()
-        .all(|item| matches!(item.presence(), PresenceKind::Empty | PresenceKind::AllNull))
+        .any(|p| matches!(p.kind, PresenceKind::AllPresent | PresenceKind::Mixed))
     {
         return Ok(false);
     }
@@ -364,17 +375,14 @@ pub(crate) fn write_shared_dict(
 
     // Write column metadata.
     let children_count = u32::try_from(shared_dict.items.len())?;
-    let optional_count = u32::try_from(child_has_presence.iter().filter(|&&x| x).count())?;
+    let optional_count = u32::try_from(
+        shared_dict
+            .items
+            .iter()
+            .filter(|&v| needs_presence(enc, v.kind, &shared_dict.prefix, &v.suffix))
+            .count(),
+    )?;
     let stream_len = checked_sum3(dict_stream_count, children_count, optional_count)?;
-
-    ColumnType::SharedDict.write_to(&mut enc.meta)?;
-    enc.meta.write_string(&shared_dict.prefix)?;
-    enc.meta.write_varint(children_count)?;
-    for (item, &has_presence) in shared_dict.items.iter().zip(&child_has_presence) {
-        use ColumnType as CT;
-        CT::write_one_of(has_presence, CT::OptStr, CT::Str, &mut enc.meta)?;
-        enc.meta.write_string(&item.suffix)?;
-    }
 
     // Write stream data: total count, corpus streams, then per-child streams.
     enc.write_varint(stream_len)?;
@@ -388,7 +396,16 @@ pub(crate) fn write_shared_dict(
         write_raw_str_data(&dict, DictionaryType::Shared, enc)?;
     }
 
-    for (item, &has_presence) in shared_dict.items.iter().zip(&child_has_presence) {
+    ColumnType::SharedDict.write_to(&mut enc.meta)?;
+    enc.meta.write_string(&shared_dict.prefix)?;
+    enc.meta.write_varint(children_count)?;
+
+    for item in &shared_dict.items {
+        use ColumnType as CT;
+        let has_presence = needs_presence(enc, item.kind, &shared_dict.prefix, &item.suffix);
+        CT::write_one_of(has_presence, CT::OptStr, CT::Str, &mut enc.meta)?;
+        enc.meta.write_string(&item.suffix)?;
+
         let offsets: Vec<u32> = item
             .dense_spans()
             .iter()
@@ -400,6 +417,7 @@ pub(crate) fn write_shared_dict(
             })
             .collect::<Result<_, _>>()?;
 
+        let has_presence = needs_presence(enc, item.kind, &shared_dict.prefix, &item.suffix);
         enc.write_varint(1 + u32::from(has_presence))?;
         if has_presence {
             let presence = EncodedStream::encode_presence(&item.presence_bools())?;

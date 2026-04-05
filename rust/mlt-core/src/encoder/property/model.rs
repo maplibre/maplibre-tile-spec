@@ -62,4 +62,5 @@ pub struct StagedSharedDictItem {
     pub(crate) suffix: String,
     /// Per-feature `(start, end)` byte offsets into the shared corpus.
     pub ranges: Vec<(i32, i32)>,
+    pub kind: PresenceKind,
 }

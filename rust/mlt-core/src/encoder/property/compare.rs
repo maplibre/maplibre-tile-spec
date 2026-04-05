@@ -50,6 +50,7 @@ impl PartialEq<StagedSharedDictItem> for ParsedSharedDictItem<'_> {
         let StagedSharedDictItem {
             suffix: other_suffix,
             ranges: other_ranges,
+            kind: _,
         } = other;
         suffix == other_suffix && ranges == other_ranges
     }
