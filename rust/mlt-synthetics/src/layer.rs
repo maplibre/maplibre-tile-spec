@@ -317,12 +317,21 @@ impl Layer {
 
     /// Encode and then either verify against the reference dir (non-rust files) or write to the
     /// output dir (`-rust`-suffixed files). Delegates to [`SynthWriter::write`].
-    /// Automatically creates -ns variant if `force_empty_streams` is set
+    ///
+    /// When `force_empty_streams` is non-empty, also emits a `_ns` ("no [forced] stream")
+    /// sibling — but only when removing the forced-empty-stream flag **actually changes the
+    /// encoded output**.  For some geometry configurations (e.g. Multi* types where the
+    /// GEOMETRIES stream is already non-empty) the flag is a no-op; emitting the sibling in
+    /// those cases would produce duplicate MLT files and fail the uniqueness check.
     pub fn write(self, w: &mut SynthWriter, name: impl AsRef<str>) {
         if !self.force_empty_streams.is_empty() {
-            let mut layer = self.clone();
-            layer.force_empty_streams.clear();
-            w.write(layer, format!("{}-ns", name.as_ref()));
+            let forced_bytes = self.clone().encode_to_bytes().ok();
+            let mut ns_layer = self.clone();
+            ns_layer.force_empty_streams.clear();
+            let ns_bytes = ns_layer.clone().encode_to_bytes().ok();
+            if forced_bytes != ns_bytes {
+                w.write(ns_layer, format!("{}_ns", name.as_ref()));
+            }
         }
         w.write(self, name);
     }
