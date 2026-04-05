@@ -18,7 +18,6 @@ wasm-opt = ["-O3", "--enable-simd", "--enable-bulk-memory"]
 crate-type = ["cdylib"]
 
 [dependencies]
-getrandom = { workspace = true, features = ["js"] }
 js-sys.workspace = true
 mlt-core = { workspace = true }
 wasm-bindgen.workspace = true
