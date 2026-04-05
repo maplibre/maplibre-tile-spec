@@ -61,7 +61,8 @@ fn bench_mlt_decode_all(c: &mut Criterion) {
                         .into_iter()
                         .map(|layers| {
                             dec.reset_budget();
-                            dec.decode_all(layers).expect("mlt decode_all failed")
+                            let dec_tile = dec.decode_all(layers).expect("mlt decode_all failed");
+                            black_box(dec_tile)
                         })
                         .collect();
                     black_box(decoded);
