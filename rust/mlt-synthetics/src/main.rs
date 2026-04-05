@@ -868,6 +868,12 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             .column("b", E::varint(), [Some(long_string())]),
     )
     .write_np(w, "props_shared_dict_no_struct_name");
+    p0().add_shared_dict(
+        SharedDict::new("", StrEncoding::Fsst)
+            .column("a", E::varint(), [Some(long_string())])
+            .column("b", E::varint(), [Some(long_string())]),
+    )
+    .write_np(w, "props_shared_dict_no_struct_name_fsst");
 
     p0().add_prop(e_str, P::str("place", vec![Some(long_string())]))
         .add_shared_dict(SharedDict::new("name:en", StrEncoding::Plain).column(
@@ -920,10 +926,64 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         )
         .write_np(w, "props_shared_dict_2_same_prefix");
 
-    p0().add_shared_dict(
-        SharedDict::new("", StrEncoding::Fsst)
-            .column("a", E::varint(), [Some(long_string())])
-            .column("b", E::varint(), [Some(long_string())]),
-    )
-    .write_np(w, "props_shared_dict_no_struct_name_fsst");
+    // ── Presence variants ─────────────────────────────────────────────────────
+
+    let mixed = || [Some(long_string()), None, Some(long_string())];
+    let all = || {
+        [
+            Some(long_string()),
+            Some(long_string()),
+            Some(long_string()),
+        ]
+    };
+    let none = || [None::<String>, None::<String>, None::<String>];
+
+    geo_varint_with_rle()
+        .geos([P0, P0, P0])
+        .add_shared_dict(
+            SharedDict::new("1-", StrEncoding::Plain)
+                .column("a", E::varint(), all())
+                .column("b", E::varint(), all()),
+        )
+        .add_shared_dict(
+            SharedDict::new("2-", StrEncoding::Plain)
+                .column("a", E::varint(), all())
+                .column("b", E::varint(), mixed()),
+        )
+        .add_shared_dict(
+            SharedDict::new("3-", StrEncoding::Plain)
+                .column("a", E::varint(), all())
+                .column("b", E::varint(), none()),
+        )
+        .add_shared_dict(
+            SharedDict::new("4-", StrEncoding::Plain)
+                .column("a", E::varint(), mixed())
+                .column("b", E::varint(), all()),
+        )
+        .add_shared_dict(
+            SharedDict::new("5-", StrEncoding::Plain)
+                .column("a", E::varint(), mixed())
+                .column("b", E::varint(), mixed()),
+        )
+        .add_shared_dict(
+            SharedDict::new("6-", StrEncoding::Plain)
+                .column("a", E::varint(), mixed())
+                .column("b", E::varint(), none()),
+        )
+        .add_shared_dict(
+            SharedDict::new("7-", StrEncoding::Plain)
+                .column("a", E::varint(), none())
+                .column("b", E::varint(), all()),
+        )
+        .add_shared_dict(
+            SharedDict::new("8-", StrEncoding::Plain)
+                .column("a", E::varint(), none())
+                .column("b", E::varint(), mixed()),
+        )
+        .add_shared_dict(
+            SharedDict::new("9-", StrEncoding::Plain)
+                .column("a", E::varint(), none())
+                .column("b", E::varint(), none()),
+        )
+        .write_np(w, "props_shared_dict_presence_variants");
 }
