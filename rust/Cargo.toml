@@ -13,7 +13,7 @@ homepage = "https://maplibre.org"
 keywords = ["maplibre", "tile", "mlt", "mvt", "map"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/maplibre-tile-spec"
-rust-version = "1.91.0"
+rust-version = "1.92"
 
 [workspace.dependencies]
 anyhow = "1"
@@ -24,6 +24,8 @@ crossterm = "0.29.0"
 enum_dispatch = "0.3"
 fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
+futures = "0.3"
+indicatif = "0.17"
 fsst-rs = "0.5"
 geo = "0.32.0"
 geo-types = "0.7.18"
@@ -34,6 +36,8 @@ hilbert_2d = "1.1.0"
 insta = "1.47.2"
 integer-encoding = "4.0.2"
 js-sys = "0.3"
+martin-tile-utils = "0.6"
+mbtiles = { version = "0.15", default-features = false }
 mlt-core = { version = "0.6.0", path = "mlt-core", default-features = false }  # TODO: rm default-features = false after geo 0.33+ is released
 mvt-reader = "2.3.0"
 num-traits = "0.2.19"
@@ -53,6 +57,8 @@ serde_json = "1.0.149"
 size_format = "1"
 strum = { version = "0.28.0", default-features = false, features = ["derive"] }
 tabled = "0.20"
+sqlx = { version = "0.8", default-features = false, features = ["sqlite"] }
+tokio = { version = "1", features = ["rt", "sync", "time"] }
 test_each_file = "0.3.5"
 thiserror = "2.0.11"
 thousands = "0.2"
