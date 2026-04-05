@@ -197,33 +197,28 @@ fn encode_level1_without_ring_buffer_length_stream(
 
 /// Normalize `geom_offsets` for mixed geometry types.
 fn normalize_geometry_offsets(vector_types: &[GeometryType], geom_offsets: &[u32]) -> Vec<u32> {
-    // Check if already normalized (has N+1 entries for N geometry types)
-    if geom_offsets.len() == vector_types.len() + 1 {
-        return geom_offsets.to_vec();
-    }
-
     let mut normalized = Vec::with_capacity(vector_types.len() + 1);
-    let mut current_offset = 0_u32;
+    let mut offset = 0_u32;
     let mut sparse_idx = 0_usize; // Index into sparse geom_offsets
 
     for &geom_type in vector_types {
-        normalized.push(current_offset);
+        normalized.push(offset);
 
         if geom_type.is_multi() {
             // Multi* types get their count from the sparse array
             if sparse_idx + 1 < geom_offsets.len() {
                 let start = geom_offsets[sparse_idx];
                 let end = geom_offsets[sparse_idx + 1];
-                current_offset += end - start;
+                offset += end - start;
                 sparse_idx += 1;
             }
         } else {
             // Non-Multi types have implicit count of 1
-            current_offset += 1;
+            offset += 1;
         }
     }
 
-    normalized.push(current_offset);
+    normalized.push(offset);
     normalized
 }
 
@@ -243,11 +238,6 @@ fn normalize_part_offsets_for_rings(
     part_offsets: &[u32],
     ring_offsets: &[u32],
 ) -> Vec<u32> {
-    // Check if already normalized (has N+1 entries for N geometry types).
-    if part_offsets.len() == vector_types.len() + 1 {
-        return part_offsets.to_vec();
-    }
-
     let mut normalized = Vec::with_capacity(vector_types.len() + 1);
     let mut ring_idx = 0_u32;
     let mut part_idx = 0_usize;
@@ -295,7 +285,6 @@ pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<Mor
     if total == 0 {
         return (VertexBufferType::Vec2, None);
     }
-
     let Ok(meta) = z_order_params(vertices) else {
         return (VertexBufferType::Vec2, None);
     };
@@ -391,13 +380,16 @@ impl GeometryValues {
 
         let meta: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
 
-        // Normalize part_offsets when there are no geometry offsets but ring offsets exist.
-        let normalized_parts =
-            if geom_offsets.is_empty() && !ring_offsets.is_empty() && !part_offsets.is_empty() {
-                normalize_part_offsets_for_rings(&vector_types, &part_offsets, &ring_offsets)
-            } else {
-                part_offsets
-            };
+        let part_offsets = if geom_offsets.is_empty()
+            && !ring_offsets.is_empty()
+            && !part_offsets.is_empty()
+            && part_offsets.len() != vector_types.len() + 1
+        {
+            // Normalize part_offsets when there are no geometry offsets but ring offsets exist.
+            normalize_part_offsets_for_rings(&vector_types, &part_offsets, &ring_offsets)
+        } else {
+            part_offsets
+        };
 
         // Write column type to meta; reserve exactly 1 byte for stream count
         // (geometry never exceeds ~8 streams, always fits in a single varint byte).
@@ -413,18 +405,28 @@ impl GeometryValues {
 
         // Topology: compute each length stream and write it immediately.
         if !geom_offsets.is_empty() {
-            let geom_offs = normalize_geometry_offsets(&vector_types, &geom_offsets);
-            let data = encode_root_length_stream(&vector_types, &geom_offs, Polygon);
+            let geom_offsets = if geom_offsets.len() != vector_types.len() + 1 {
+                // if not normalized -- does not have N+1 entries for N geometry types
+                normalize_geometry_offsets(&vector_types, &geom_offsets)
+            } else {
+                geom_offsets
+            };
+            let data = encode_root_length_stream(&vector_types, &geom_offsets, Polygon);
             let typ = StreamType::Length(LengthType::Geometries);
             n += write_geo_u32_stream(&data, typ, "geometries", enc)?;
 
-            if !normalized_parts.is_empty() {
+            // part_offsets is intentionally kept sparse here (polygon-only cumulative
+            // ring counts). encode_level1/2_length_stream navigate it with a running
+            // part_idx counter that advances only for Polygon/LineString types, which
+            // matches the sparse layout. Densifying via normalize_part_offsets_for_rings
+            // would insert Point slots and corrupt the counter arithmetic.
+            if !part_offsets.is_empty() {
                 if ring_offsets.is_empty() {
                     // geom → parts only (no rings).
                     let data = encode_level1_without_ring_buffer_length_stream(
                         &vector_types,
-                        &geom_offs,
-                        &normalized_parts,
+                        &geom_offsets,
+                        &part_offsets,
                     );
                     let typ = StreamType::Length(LengthType::Parts);
                     n += write_geo_u32_stream(&data, typ, "no_rings", enc)?;
@@ -433,8 +435,8 @@ impl GeometryValues {
                     // LineStrings contribute to rings here, not to parts.
                     let data = encode_level1_length_stream(
                         &vector_types,
-                        &geom_offs,
-                        &normalized_parts,
+                        &geom_offsets,
+                        &part_offsets,
                         false,
                     );
                     let typ = StreamType::Length(LengthType::Parts);
@@ -442,17 +444,17 @@ impl GeometryValues {
 
                     let data = encode_level2_length_stream(
                         &vector_types,
-                        &geom_offs,
-                        &normalized_parts,
+                        &geom_offsets,
+                        &part_offsets,
                         &ring_offsets,
                     );
                     let typ = StreamType::Length(LengthType::Rings);
                     n += write_geo_u32_stream(&data, typ, "rings2", enc)?;
                 }
             }
-        } else if !normalized_parts.is_empty() {
+        } else if !part_offsets.is_empty() {
             if ring_offsets.is_empty() {
-                let data = encode_root_length_stream(&vector_types, &normalized_parts, Point);
+                let data = encode_root_length_stream(&vector_types, &part_offsets, Point);
                 let typ = StreamType::Length(LengthType::Parts);
                 n += write_geo_u32_stream(&data, typ, "no_rings", enc)?;
             } else {
@@ -462,7 +464,7 @@ impl GeometryValues {
                 let typ = StreamType::Length(LengthType::Geometries);
                 n += write_geo_u32_stream(&[], typ, "geometries", enc)?;
 
-                let data = encode_root_length_stream(&vector_types, &normalized_parts, LineString);
+                let data = encode_root_length_stream(&vector_types, &part_offsets, LineString);
                 let typ = StreamType::Length(LengthType::Parts);
                 n += write_geo_u32_stream(&data, typ, "parts", enc)?;
 
@@ -475,7 +477,7 @@ impl GeometryValues {
                     .any(GeometryType::is_linestring);
                 let data = encode_ring_lengths_for_mixed(
                     &vector_types,
-                    &normalized_parts,
+                    &part_offsets,
                     &ring_offsets,
                     has_line_string,
                 );
