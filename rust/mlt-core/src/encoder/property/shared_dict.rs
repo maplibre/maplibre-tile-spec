@@ -338,11 +338,6 @@ pub(crate) fn write_shared_dict(
     enc: &mut Encoder,
 ) -> MltResult<bool> {
     // Returns true when a child column requires a presence (nullability) bitmap.
-    let needs_presence = |enc: &mut Encoder, p: PresenceKind, prefix: &str, suffix: &str| {
-        matches!(p, PresenceKind::AllNull | PresenceKind::Mixed)
-            || (enc.override_presence(Property, prefix, Some(suffix))
-                && matches!(p, PresenceKind::AllPresent))
-    };
 
     // Skip the whole column when every child is Empty or AllNull (no real data).
     if !shared_dict
@@ -373,15 +368,19 @@ pub(crate) fn write_shared_dict(
     };
     let dict_stream_count = if use_fsst { 4u32 } else { 2u32 };
 
-    // Write column metadata.
+    // Pre-compute per-child presence flags once; each call invokes override_presence exactly once.
+    let child_has_presence: Vec<bool> = shared_dict
+        .items
+        .iter()
+        .map(|item| {
+            matches!(item.kind, PresenceKind::AllNull | PresenceKind::Mixed)
+                || (enc.override_presence(Property, &shared_dict.prefix, Some(&item.suffix))
+                    && matches!(item.kind, PresenceKind::AllPresent))
+        })
+        .collect();
+
     let children_count = u32::try_from(shared_dict.items.len())?;
-    let optional_count = u32::try_from(
-        shared_dict
-            .items
-            .iter()
-            .filter(|&v| needs_presence(enc, v.kind, &shared_dict.prefix, &v.suffix))
-            .count(),
-    )?;
+    let optional_count = u32::try_from(child_has_presence.iter().filter(|&&x| x).count())?;
     let stream_len = checked_sum3(dict_stream_count, children_count, optional_count)?;
 
     // Write stream data: total count, corpus streams, then per-child streams.
@@ -400,9 +399,8 @@ pub(crate) fn write_shared_dict(
     enc.meta.write_string(&shared_dict.prefix)?;
     enc.meta.write_varint(children_count)?;
 
-    for item in &shared_dict.items {
+    for (item, &has_presence) in shared_dict.items.iter().zip(&child_has_presence) {
         use ColumnType as CT;
-        let has_presence = needs_presence(enc, item.kind, &shared_dict.prefix, &item.suffix);
         CT::write_one_of(has_presence, CT::OptStr, CT::Str, &mut enc.meta)?;
         enc.meta.write_string(&item.suffix)?;
 
@@ -417,7 +415,6 @@ pub(crate) fn write_shared_dict(
             })
             .collect::<Result<_, _>>()?;
 
-        let has_presence = needs_presence(enc, item.kind, &shared_dict.prefix, &item.suffix);
         enc.write_varint(1 + u32::from(has_presence))?;
         if has_presence {
             let presence = EncodedStream::encode_presence(&item.presence_bools())?;
