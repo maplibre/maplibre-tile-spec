@@ -31,15 +31,6 @@ pub enum PresenceKind {
     Mixed,
 }
 
-impl PresenceKind {
-    /// Returns `true` when a presence/validity stream must be written to the
-    /// wire format (i.e. the column has at least one `null` value).
-    #[must_use]
-    pub fn needs_presence_stream(self) -> bool {
-        matches!(self, Self::AllNull | Self::Mixed)
-    }
-}
-
 /// Owned scalar column prepared for encoding (bool, integer, or float).
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]

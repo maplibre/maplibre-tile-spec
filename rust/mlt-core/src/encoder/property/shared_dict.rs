@@ -322,6 +322,18 @@ pub(crate) fn write_shared_dict(
     shared_dict: &StagedSharedDict,
     enc: &mut Encoder,
 ) -> MltResult<bool> {
+    // Determine per-child presence upfront (needed before writing meta + stream count).
+    let force_presence = enc.override_presence(Property, &shared_dict.prefix, None);
+    let child_has_presence: Vec<bool> = shared_dict
+        .items
+        .iter()
+        .map(|item| {
+            let presence = item.presence();
+            matches!(presence, PresenceKind::AllNull | PresenceKind::Mixed)
+                || (force_presence && matches!(presence, PresenceKind::AllPresent))
+        })
+        .collect();
+
     if shared_dict
         .items
         .iter()
@@ -349,17 +361,6 @@ pub(crate) fn write_shared_dict(
         None => fsst_is_viable(&dict),
     };
     let dict_stream_count = if use_fsst { 4u32 } else { 2u32 };
-
-    // Determine per-child presence upfront (needed before writing meta + stream count).
-    let force_presence = enc.override_presence(Property, &shared_dict.prefix, None);
-    let child_has_presence: Vec<bool> = shared_dict
-        .items
-        .iter()
-        .map(|item| {
-            item.presence().needs_presence_stream()
-                || (force_presence && matches!(item.presence(), PresenceKind::AllPresent))
-        })
-        .collect();
 
     // Write column metadata.
     let children_count = u32::try_from(shared_dict.items.len())?;
