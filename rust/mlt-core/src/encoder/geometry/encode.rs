@@ -43,6 +43,15 @@ fn build_morton_dict(vertices: &[i32], meta: MortonMeta) -> MltResult<(Vec<u32>,
     Ok((dict, offsets))
 }
 
+/// Push consecutive offset-differences from `offsets` onto `lengths`.
+///
+/// Expects a slice of `n + 1` elements and produces `n` lengths,
+/// one per consecutive pair: `offsets[i + 1] - offsets[i]`.
+#[inline]
+fn extend_offsets(lengths: &mut Vec<u32>, offsets: &[u32]) {
+    lengths.extend(offsets.windows(2).map(|w| w[1] - w[0]));
+}
+
 /// Convert geometry offsets to length stream for encoding.
 /// This is the inverse of `decode_root_length_stream`.
 ///
@@ -95,18 +104,10 @@ fn encode_level1_length_stream(
     let mut part_idx = 0;
 
     for (i, &geom_type) in geometry_types.iter().enumerate() {
-        let num_geoms = geometry_offsets[i + 1] - geometry_offsets[i];
-
-        let needs_length =
-            geom_type.is_polygon() || (is_line_string_present && geom_type.is_linestring());
-
-        if needs_length {
-            for _ in 0..num_geoms {
-                let start = part_offsets[part_idx];
-                let end = part_offsets[part_idx + 1];
-                lengths.push(end - start);
-                part_idx += 1;
-            }
+        if geom_type.is_polygon() || (is_line_string_present && geom_type.is_linestring()) {
+            let n = (geometry_offsets[i + 1] - geometry_offsets[i]).as_usize();
+            extend_offsets(&mut lengths, &part_offsets[part_idx..=part_idx + n]);
+            part_idx += n;
         }
         // Note: Point/MultiPoint don't have entries in the sparse part_offsets used
         // at this call site, so part_idx must not advance for non-length types here.
@@ -158,7 +159,7 @@ fn encode_level2_length_stream(
     let mut ring_idx = 0;
 
     for (i, &geom_type) in geometry_types.iter().enumerate() {
-        let num_geoms = geometry_offsets[i + 1] - geometry_offsets[i];
+        let num_geoms = (geometry_offsets[i + 1] - geometry_offsets[i]).as_usize();
 
         // Only Polygon and MultiPolygon have ring data in level 2
         // LineStrings with Polygon present add their vertex counts directly to ring_offsets,
@@ -166,24 +167,15 @@ fn encode_level2_length_stream(
         if geom_type.is_polygon() {
             // Polygon/MultiPolygon: iterate through sub-polygons, each has parts (ring counts)
             for _ in 0..num_geoms {
-                let num_parts = part_offsets[part_idx + 1] - part_offsets[part_idx];
+                let n = (part_offsets[part_idx + 1] - part_offsets[part_idx]).as_usize();
+                extend_offsets(&mut lengths, &ring_offsets[ring_idx..=ring_idx + n]);
+                ring_idx += n;
                 part_idx += 1;
-                for _ in 0..num_parts {
-                    let start = ring_offsets[ring_idx];
-                    let end = ring_offsets[ring_idx + 1];
-                    lengths.push(end - start);
-                    ring_idx += 1;
-                }
             }
         } else if geom_type.is_linestring() {
             // LineStrings contribute to ring_offsets directly (vertex counts)
-            // Each linestring is implicitly 1 "ring" in terms of vertex counts
-            for _ in 0..num_geoms {
-                let start = ring_offsets[ring_idx];
-                let end = ring_offsets[ring_idx + 1];
-                lengths.push(end - start);
-                ring_idx += 1;
-            }
+            extend_offsets(&mut lengths, &ring_offsets[ring_idx..=ring_idx + num_geoms]);
+            ring_idx += num_geoms;
         }
         // Note: Point/MultiPoint don't contribute to ring_offsets
     }
@@ -206,15 +198,10 @@ fn encode_level1_without_ring_buffer_length_stream(
     let mut part_idx = 0;
 
     for (i, &geom_type) in geometry_types.iter().enumerate() {
-        let num_geoms = (geometry_offsets[i + 1] - geometry_offsets[i]).as_usize();
-
         if geom_type.is_linestring() {
-            for _ in 0..num_geoms {
-                let start = part_offsets[part_idx];
-                let end = part_offsets[part_idx + 1];
-                lengths.push(end - start);
-                part_idx += 1;
-            }
+            let n = (geometry_offsets[i + 1] - geometry_offsets[i]).as_usize();
+            extend_offsets(&mut lengths, &part_offsets[part_idx..=part_idx + n]);
+            part_idx += n;
         }
         // Point/MultiPoint don't contribute to part_offsets; part_idx must not advance.
     }
