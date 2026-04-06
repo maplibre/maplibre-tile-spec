@@ -25,7 +25,6 @@ __hotpath-mcp = ["__hotpath", "hotpath/hotpath-mcp", "mlt-core/__hotpath-mcp"]
 
 [dependencies]
 anyhow.workspace = true
-hotpath = { workspace = true, optional = true }
 clap.workspace = true
 crossterm.workspace = true
 flate2.workspace = true
@@ -33,6 +32,7 @@ futures.workspace = true
 geo-types.workspace = true
 glob.workspace = true
 globset.workspace = true
+hotpath = { workspace = true, optional = true }
 indicatif.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
