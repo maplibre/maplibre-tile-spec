@@ -88,7 +88,7 @@ impl TileLayer01 {
                 StagedLayer01::from_tile(self.clone(), *first, &groups)
                     .encode_into(Encoder::new(cfg))?
             };
-            for sort in sort_by {
+            for &sort in rest {
                 let layer = StagedLayer01::from_tile(self.clone(), sort, &groups);
                 let enc = layer.encode_into(Encoder::new(cfg))?;
                 if enc.total_len() < best.total_len() {

@@ -327,9 +327,9 @@ impl StagedSharedDict {
 
 /// Encode a shared-dictionary property and write it to `enc`.
 ///
-/// When [`Encoder::get_str_encoding`] returns [`None`], auto-selects the corpus encoding (FSST if viable, else plain)
+/// When [`Encoder::override_str_enc`] returns [`None`], auto-selects the corpus encoding (FSST if viable, else plain)
 /// and uses automatic offset encoders.
-/// When [`Some`], uses the caller-specified encoding and [`Encoder::get_int_encoder`] for offsets.
+/// When [`Some`], uses the caller-specified encoding and [`Encoder::override_int_enc`] for offsets.
 ///
 /// Returns `false` when every child column is [`PresenceKind::Empty`] or
 /// [`PresenceKind::AllNull`] — the whole shared-dict property is skipped.
@@ -361,7 +361,7 @@ pub(crate) fn write_shared_dict(
 
     // Decide corpus encoding upfront to determine the stream count for the varint header.
     // FSST uses 4 streams; plain uses 2.
-    let use_fsst = match enc.get_str_encoding(&shared_dict.prefix) {
+    let use_fsst = match enc.override_str_enc(&shared_dict.prefix) {
         Some(StrEncoding::Fsst | StrEncoding::FsstDict) => true,
         Some(StrEncoding::Plain | StrEncoding::Dict) => false,
         None => fsst_is_viable(&dict),
