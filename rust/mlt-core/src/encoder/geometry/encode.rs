@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 use std::mem;
 
 use probabilistic_collections::hyperloglog::HyperLogLog;
-
+use probabilistic_collections::SipHasherBuilder;
 use super::model::VertexBufferType;
 use crate::MltResult;
 use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
@@ -294,7 +294,7 @@ pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<Mor
         return (VertexBufferType::Vec2, None);
     };
 
-    let mut hll = HyperLogLog::<(i32, i32)>::new(0.03);
+    let mut hll = HyperLogLog::<(i32, i32)>::with_hasher(0.03, SipHasherBuilder::from_seed(0,0));
     for c in vertices.chunks_exact(2) {
         hll.insert(&(c[0], c[1]));
     }
