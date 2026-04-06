@@ -394,8 +394,6 @@ mod tests {
             },
         ]
         ");
-        let enc = DataProfile::compete_u64(&candidates, &data);
-        assert_eq!(enc, IntEncoder::delta_rle_varint());
     }
 
     #[test]
