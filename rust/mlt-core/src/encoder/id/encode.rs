@@ -107,9 +107,10 @@ impl IdValues {
         if has_nulls {
             let present: Vec<bool> = ids.iter().map(Option::is_some).collect();
             let num_values = u32::try_from(present.len())?;
-            let data = encode_byte_rle(&encode_bools_to_bytes(&present));
+            encode_bools_to_bytes(&present, &mut enc.tmp_u8);
+            encode_byte_rle(&enc.tmp_u8, &mut enc.tmp_u8_b);
             let runs = num_values.div_ceil(8);
-            let num_rle_values = u32::try_from(data.len())?;
+            let num_rle_values = u32::try_from(enc.tmp_u8_b.len())?;
             let int_enc = IntEncoding::new(
                 LogicalEncoding::Rle(RleMeta {
                     runs,
@@ -119,7 +120,7 @@ impl IdValues {
             );
             let presence = EncodedStream {
                 meta: StreamMeta::new(StreamType::Present, int_enc, num_values),
-                data: EncodedStreamData::Encoded(data),
+                data: EncodedStreamData::Encoded(enc.tmp_u8_b.clone()),
             };
             enc.write_boolean_stream(&presence)?;
         }

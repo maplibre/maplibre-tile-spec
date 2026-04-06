@@ -110,28 +110,6 @@ pub struct Encoder {
     /// as the wire-format `column_count`.
     pub layer_column_count: u32,
 
-    /// Reusable scratch buffer for the logical-encoding step of `u32` streams.
-    ///
-    /// Each `do_write_u32` / `do_write_i32` call writes the logically-encoded
-    /// `u32` sequence here (cleared on entry), then passes `&enc.tmp_u32` to
-    /// the physical encoder.  Grows to the high-water mark and is reused across
-    /// streams without re-allocating.
-    pub(crate) tmp_u32: Vec<u32>,
-
-    /// Reusable scratch buffer for the logical-encoding step of `u64` streams.
-    ///
-    /// Same role as `tmp_u32` but for `do_write_u64` / `do_write_i64`.
-    pub(crate) tmp_u64: Vec<u64>,
-
-    /// Reusable scratch buffer for the physical-encoding step.
-    ///
-    /// Each `do_write_*` call clears this buffer, encodes the physical payload
-    /// into it (no heap allocation after the first call), writes the stream
-    /// header to `data` (the byte-length is now known), and then copies from
-    /// here to `data`.  Avoids both the intermediate `Vec` allocation and any
-    /// `memmove` to insert the header before already-written bytes.
-    pub(crate) tmp_u8: Vec<u8>,
-
     // -----------------------------------------------------------------------
     // Alternatives state — a stack that supports nested competitions.
     //
@@ -146,6 +124,11 @@ pub struct Encoder {
     /// Empty while no [`Encoder::try_alternatives`] session
     /// is in progress.
     alt_stack: Vec<AltLevel>,
+
+    pub(crate) tmp_u32: Vec<u32>,
+    pub(crate) tmp_u64: Vec<u64>,
+    pub(crate) tmp_u8: Vec<u8>,
+    pub(crate) tmp_u8_b: Vec<u8>,
 }
 
 impl Encoder {
@@ -179,16 +162,17 @@ impl Encoder {
     pub(crate) fn preserve_results(&mut self) -> Self {
         assert_eq!(self.alt_stack.len(), 0, "Alternatives stack is not empty");
         Self {
-            cfg: Default::default(),
+            cfg: EncoderConfig::default(),
             explicit: None,
             hdr: mem::take(&mut self.hdr),
             meta: mem::take(&mut self.meta),
             data: mem::take(&mut self.data),
             layer_column_count: mem::take(&mut self.layer_column_count),
+            alt_stack: vec![],
             tmp_u32: vec![],
             tmp_u64: vec![],
             tmp_u8: vec![],
-            alt_stack: vec![],
+            tmp_u8_b: vec![],
         }
     }
 

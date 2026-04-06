@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::mem;
 
 use bytemuck;
 use num_traits::PrimInt;
@@ -48,6 +49,7 @@ impl LogicalEncoder {
     pub fn encode_u32s(self, values: &[u32], target: &mut Vec<u32>) -> MltResult<LogicalEncoding> {
         match self {
             Self::None => {
+                // FIXME: avoid this copying - just use source
                 target.clear();
                 target.extend_from_slice(values);
                 Ok(LogicalEncoding::None)
@@ -61,9 +63,10 @@ impl LogicalEncoder {
                 Ok(LogicalEncoding::Rle(meta))
             }
             Self::DeltaRle => {
-                encode_zigzag_delta(bytemuck::cast_slice::<u32, i32>(values), target);
-                let intermediate = std::mem::take(target);
-                let meta = apply_rle(&intermediate, values.len(), target)?;
+                // FIXME: use temp buffer
+                let mut buf = Vec::new();
+                encode_zigzag_delta(bytemuck::cast_slice::<u32, i32>(values), &mut buf);
+                let meta = apply_rle(&buf, values.len(), target)?;
                 Ok(LogicalEncoding::DeltaRle(meta))
             }
         }
@@ -87,13 +90,13 @@ impl LogicalEncoder {
             Self::Rle => {
                 // Use target as the zigzag scratch, then take it and RLE into target.
                 encode_zigzag(values, target);
-                let zz = std::mem::take(target);
+                let zz = mem::take(target);
                 let meta = apply_rle(&zz, values.len(), target)?;
                 Ok(LogicalEncoding::Rle(meta))
             }
             Self::DeltaRle => {
                 encode_zigzag_delta(values, target);
-                let intermediate = std::mem::take(target);
+                let intermediate = mem::take(target);
                 let meta = apply_rle(&intermediate, values.len(), target)?;
                 Ok(LogicalEncoding::DeltaRle(meta))
             }
@@ -122,7 +125,7 @@ impl LogicalEncoder {
             }
             Self::DeltaRle => {
                 encode_zigzag_delta(bytemuck::cast_slice::<u64, i64>(values), target);
-                let intermediate = std::mem::take(target);
+                let intermediate = mem::take(target);
                 let meta = apply_rle(&intermediate, values.len(), target)?;
                 Ok(LogicalEncoding::DeltaRle(meta))
             }
@@ -146,13 +149,13 @@ impl LogicalEncoder {
             }
             Self::Rle => {
                 encode_zigzag(values, target);
-                let zz = std::mem::take(target);
+                let zz = mem::take(target);
                 let meta = apply_rle(&zz, values.len(), target)?;
                 Ok(LogicalEncoding::Rle(meta))
             }
             Self::DeltaRle => {
                 encode_zigzag_delta(values, target);
-                let intermediate = std::mem::take(target);
+                let intermediate = mem::take(target);
                 let meta = apply_rle(&intermediate, values.len(), target)?;
                 Ok(LogicalEncoding::DeltaRle(meta))
             }
