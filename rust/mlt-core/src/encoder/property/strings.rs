@@ -6,8 +6,7 @@ use crate::MltResult;
 use crate::codecs::fsst::{FsstRawData, compress_fsst};
 use crate::decoder::strings::{checked_string_end, encode_null_end};
 use crate::decoder::{DictionaryType, IntEncoding, LengthType, OffsetType, StreamMeta, StreamType};
-use crate::encoder::model::ColumnKind::Property;
-use crate::encoder::model::StrEncoding;
+use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::stream::{dedup_strings, write_u32_stream};
 use crate::encoder::{EncodedStream, Encoder};
 use crate::utils::{AsUsize as _, BinarySerializer as _, strings_to_lengths};
@@ -94,8 +93,8 @@ fn write_str_plain(
     let lengths = strings_to_lengths(non_null)?;
     enc.write_varint(2u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
-    let typ = StreamType::Length(LengthType::VarBinary);
-    write_u32_stream(&lengths, typ, Property, name, "lengths", enc)?;
+    let ctx = StreamCtx::prop(StreamType::Length(LengthType::VarBinary), name);
+    write_u32_stream(&lengths, &ctx, enc)?;
     write_raw_str_data(non_null, DictionaryType::None, enc)
 }
 
@@ -110,10 +109,12 @@ fn write_str_dict(
     let lengths = strings_to_lengths(&unique)?;
     enc.write_varint(3u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
-    let typ = StreamType::Length(LengthType::Dictionary);
-    write_u32_stream(&lengths, typ, Property, name, "lengths", enc)?;
-    let typ = StreamType::Offset(OffsetType::String);
-    write_u32_stream(&offset_indices, typ, Property, name, "offsets", enc)?;
+
+    let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
+    write_u32_stream(&lengths, &ctx, enc)?;
+
+    let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
+    write_u32_stream(&offset_indices, &ctx, enc)?;
     write_raw_str_data(&unique, DictionaryType::Single, enc)
 }
 
@@ -131,8 +132,8 @@ fn write_str_fsst(
     enc.write_varint(5u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
     write_fsst_data(&raw, DictionaryType::Single, name, enc)?;
-    let typ = StreamType::Offset(OffsetType::String);
-    write_u32_stream(&offsets, typ, Property, name, "offsets", enc)
+    let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
+    write_u32_stream(&offsets, &ctx, enc)
 }
 
 /// Encode with FSST + dictionary layout (deduped unique strings, per-feature offset indices).
@@ -147,8 +148,8 @@ fn write_str_fsst_dict(
     enc.write_varint(5u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
     write_fsst_data(&raw, DictionaryType::Single, name, enc)?;
-    let typ = StreamType::Offset(OffsetType::String);
-    write_u32_stream(&offset_indices, typ, Property, name, "offsets", enc)
+    let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
+    write_u32_stream(&offset_indices, &ctx, enc)
 }
 
 /// Write 4 FSST sub-streams directly to `enc.data`.
@@ -164,15 +165,15 @@ pub fn write_fsst_data(
     name: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let typ = StreamType::Length(LengthType::Symbol);
-    write_u32_stream(&raw.symbol_lengths, typ, Property, name, "sym_lengths", enc)?;
+    let ctx = StreamCtx::prop(StreamType::Length(LengthType::Symbol), name);
+    write_u32_stream(&raw.symbol_lengths, &ctx, enc)?;
     let num_syms = u32::try_from(raw.symbol_lengths.len())?;
     let sym_bytes_len = u32::try_from(raw.symbol_bytes.len())?;
     let typ = StreamType::Data(DictionaryType::Fsst);
     StreamMeta::new(typ, IntEncoding::none(), num_syms).write_to(enc, false, sym_bytes_len)?;
     enc.data.extend_from_slice(&raw.symbol_bytes);
-    let typ = StreamType::Length(LengthType::Dictionary);
-    write_u32_stream(&raw.value_lengths, typ, Property, name, "dict_lengths", enc)?;
+    let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
+    write_u32_stream(&raw.value_lengths, &ctx, enc)?;
     let num_vals = u32::try_from(raw.value_lengths.len())?;
     let corpus_len = u32::try_from(raw.corpus.len())?;
     StreamMeta::new(StreamType::Data(dict_type), IntEncoding::none(), num_vals)

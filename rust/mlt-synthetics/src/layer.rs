@@ -6,7 +6,7 @@ use std::path::Path;
 use geo_types::Coord;
 use mlt_core::encoder::{
     ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer01,
-    StagedProperty, StagedSharedDict, StrEncoding, VertexBufferType,
+    StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::{GeometryValues, IdValues};
@@ -67,37 +67,39 @@ impl PropConfig {
         }
     }
 
-    fn int_enc_for_sub(&self, sub: &str) -> IntEncoder {
+    /// Resolve the integer encoder for a property stream using wire `StreamType`.
+    fn int_enc_for_stream_ctx(&self, ctx: &StreamCtx<'_>) -> IntEncoder {
+        use mlt_core::{LengthType as LT, OffsetType as OT, StreamType as ST};
         match self {
             Self::Scalar(e) => *e,
             Self::StrFsst {
                 sym_lengths,
                 dict_lengths,
-            } => match sub {
-                "sym_lengths" => *sym_lengths,
+            } => match ctx.stream_type {
+                ST::Length(LT::Symbol) => *sym_lengths,
                 _ => *dict_lengths,
             },
             Self::StrFsstDict {
                 sym_lengths,
                 dict_lengths,
                 offsets,
-            } => match sub {
-                "sym_lengths" => *sym_lengths,
-                "offsets" => *offsets,
+            } => match ctx.stream_type {
+                ST::Length(LT::Symbol) => *sym_lengths,
+                ST::Offset(OT::String) => *offsets,
                 _ => *dict_lengths,
             },
             Self::StrDict {
                 string_lengths,
                 offsets,
-            } => match sub {
-                "offsets" => *offsets,
+            } => match ctx.stream_type {
+                ST::Offset(OT::String) => *offsets,
                 _ => *string_lengths,
             },
             Self::SharedDict { item_encs, .. } => {
                 // sub is the item suffix
                 item_encs
                     .iter()
-                    .find(|(k, _)| k == sub)
+                    .find(|(k, _)| k == ctx.subname)
                     .map(|(_, e)| *e)
                     .or_else(|| item_encs.first().map(|(_, e)| *e))
                     .unwrap_or_else(IntEncoder::varint)
@@ -404,20 +406,20 @@ impl Layer {
                 None => Box::new(|w| w),
             },
             vertex_buffer_type,
-            force_stream: Box::new(move |kind, name| {
-                kind == ColumnKind::Geometry && force_empty_streams.contains(name)
+            force_stream: Box::new(move |ctx: &StreamCtx<'_>| {
+                ctx.kind == ColumnKind::Geometry && force_empty_streams.contains(ctx.name)
             }),
             get_int_encoder: {
                 let prop_map = prop_map.clone();
-                Box::new(move |kind: ColumnKind, name: &str, sub: &str| match kind {
+                Box::new(move |ctx: &StreamCtx<'_>| match ctx.kind {
                     ColumnKind::Id => id_int_enc.unwrap_or_else(IntEncoder::varint),
                     ColumnKind::Geometry => geo_stream_overrides
-                        .get(name)
+                        .get(ctx.name)
                         .copied()
                         .unwrap_or(default_geo_enc),
                     ColumnKind::Property => prop_map
-                        .get(name)
-                        .map_or_else(IntEncoder::varint, |c| c.int_enc_for_sub(sub)),
+                        .get(ctx.name)
+                        .map_or_else(IntEncoder::varint, |c| c.int_enc_for_stream_ctx(ctx)),
                 })
             },
             get_str_encoding: {
@@ -427,7 +429,7 @@ impl Layer {
                         .map_or(StrEncoding::Plain, PropConfig::str_encoding)
                 })
             },
-            override_presence: Box::new(move |_, _, _| force_presence),
+            override_presence: Box::new(move |_| force_presence),
         };
 
         let enc_cfg = EncoderConfig {

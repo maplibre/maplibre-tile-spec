@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::decoder::{GeometryValues, IdValues};
+use crate::decoder::{GeometryValues, IdValues, StreamType};
 use crate::encoder::geometry::VertexBufferType;
 use crate::encoder::{IdWidth, IntEncoder, StagedProperty};
 
@@ -94,6 +94,57 @@ pub enum ColumnKind {
     Property,
 }
 
+/// Context for per-stream encoding decisions in [`ExplicitEncoder`] callbacks.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StreamCtx<'a> {
+    pub kind: ColumnKind,
+    pub stream_type: StreamType,
+    pub name: &'a str,
+    pub subname: &'a str,
+}
+impl<'a> StreamCtx<'a> {
+    /// Stream with a logical sub-part (e.g. string column `"lengths"` / `"offsets"`, shared-dict child suffix).
+    #[inline]
+    #[must_use]
+    pub const fn new(
+        kind: ColumnKind,
+        stream_type: StreamType,
+        name: &'a str,
+        subname: &'a str,
+    ) -> Self {
+        Self {
+            kind,
+            stream_type,
+            name,
+            subname,
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn id(stream_type: StreamType) -> Self {
+        Self::new(ColumnKind::Id, stream_type, "", "")
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn geom(stream_type: StreamType, name: &'a str) -> Self {
+        Self::new(ColumnKind::Geometry, stream_type, name, "")
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn prop(stream_type: StreamType, name: &'a str) -> Self {
+        Self::new(ColumnKind::Property, stream_type, name, "")
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn prop2(stream_type: StreamType, prefix: &'a str, suffix: &'a str) -> Self {
+        Self::new(ColumnKind::Property, stream_type, prefix, suffix)
+    }
+}
+
 /// Explicit, deterministic encoding configuration for synthetics and tests.
 ///
 /// All encoding choices are caller-specified via callbacks so one struct can cover
@@ -101,31 +152,23 @@ pub enum ColumnKind {
 ///
 /// Always compiled; publicly visible only when the `__private` feature is enabled
 /// (re-exported from [`crate::encoder`]).
-#[expect(
-    clippy::type_complexity,
-    reason = "keep it simple for internal usage without extra types"
-)]
 pub struct ExplicitEncoder {
     /// Vertex buffer layout for geometry streams.
     pub vertex_buffer_type: VertexBufferType,
     /// Per-stream override for the skip-empty-stream rule used by `write_geo_u32_stream`.
     ///
     /// `write_geo_u32_stream` normally skips writing a stream when its data is empty.
-    /// When this callback returns `true` for a given geometry stream name, the stream is
+    /// When this callback returns `true` for a given stream [`StreamCtx`], the stream is
     /// written even when empty.
     ///
-    /// **Argument:** the geometry stream name (e.g. `"triangles_indexes"`, `"geometries"`,
-    /// `"parts"`, `"rings"`, …).
-    ///
-    /// **Typical use:** set to `|name| name == "triangles_indexes"` to force writing an
-    /// empty INDEX stream alongside the TRIANGLES stream for degenerate polygons (0 triangles).
-    /// This matches Java encoder behaviour and avoids a TypeScript decoder issue where an
-    /// absent INDEX stream causes tessellation data to be silently discarded.
-    pub force_stream: Box<dyn Fn(ColumnKind, &str) -> bool>,
-    /// Return the [`IntEncoder`] for a stream.
-    /// Arguments: `(kind, name, subname)` where `kind` is `"id"`, `"geo"`, or `"prop"`;
-    /// `name` is the stream/column name; `subname` is the shared-dict suffix when applicable.
-    pub get_int_encoder: Box<dyn Fn(ColumnKind, &str, &str) -> IntEncoder>,
+    /// **Typical use:** set to `|ctx| ctx.name == "triangles_indexes"` (with
+    /// `ctx.kind == ColumnKind::Geometry`) to force writing an empty INDEX stream alongside the
+    /// TRIANGLES stream for degenerate polygons (0 triangles). This matches Java encoder behaviour
+    /// and avoids a TypeScript decoder issue where an absent INDEX stream causes tessellation data
+    /// to be silently discarded.
+    pub force_stream: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> bool>,
+    /// Return the [`IntEncoder`] for a stream identified by [`StreamCtx`].
+    pub get_int_encoder: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> IntEncoder>,
     /// Return the string encoding strategy for a string property column.
     pub get_str_encoding: Box<dyn Fn(&str) -> StrEncoding>,
     /// Override the auto-detected [`IdWidth`].
@@ -133,8 +176,11 @@ pub struct ExplicitEncoder {
     pub override_id_width: Box<dyn Fn(IdWidth) -> IdWidth>,
     /// Override whether a presence stream is written for an all-present column,
     /// or if the column is written at all if all values are null.
-    /// Arguments: `(kind, name, subname)` — same convention as [`Self::get_int_encoder`]
-    pub override_presence: Box<dyn Fn(ColumnKind, &str, Option<&str>) -> bool>,
+    ///
+    /// Use [`StreamCtx::subname`] `""` for column-level presence; non-empty for shared-dict
+    /// children. Use `StreamType::Present` for `stream_type` when the decision is not tied to a
+    /// specific integer stream.
+    pub override_presence: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> bool>,
 }
 
 impl fmt::Debug for ExplicitEncoder {
