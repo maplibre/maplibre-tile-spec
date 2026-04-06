@@ -1,9 +1,8 @@
+use bytemuck;
+use fastpfor::{AnyLenCodec as _, FastPFor256};
 use integer_encoding::VarInt as _;
 
-use crate::codecs::bytes::{encode_u32s_to_bytes, encode_u64s_to_bytes};
-use crate::codecs::fastpfor::encode_fastpfor;
 use crate::decoder::PhysicalEncoding;
-use crate::encoder::EncodedStreamData;
 use crate::{MltError, MltResult};
 
 impl PhysicalEncoding {
@@ -27,47 +26,74 @@ pub enum PhysicalEncoder {
 }
 
 impl PhysicalEncoder {
-    /// Physically encode a `u32` sequence into the appropriate `EncodedStreamData` variant.
+    /// Physically encode a `u32` sequence into `target`.
+    ///
+    /// `target` is treated as a scratch buffer: it is cleared before writing.
+    /// After the call, `target.len()` is the number of encoded bytes.
     #[cfg_attr(feature = "__hotpath", hotpath::measure)]
-    pub fn encode_u32s(self, values: Vec<u32>) -> MltResult<(EncodedStreamData, PhysicalEncoding)> {
+    pub fn encode_u32s(self, values: &[u32], target: &mut Vec<u8>) -> MltResult<PhysicalEncoding> {
+        target.clear();
         match self {
             Self::None => {
-                let data = encode_u32s_to_bytes(&values);
-                let stream = EncodedStreamData::Encoded(data);
-                Ok((stream, PhysicalEncoding::None))
+                // On little-endian targets native byte order == LE wire format:
+                // cast_slice is a zero-copy reinterpret, extend_from_slice is one memcpy.
+                #[cfg(target_endian = "little")]
+                target.extend_from_slice(bytemuck::cast_slice(values));
+                #[cfg(not(target_endian = "little"))]
+                for &v in values {
+                    target.extend_from_slice(&v.to_le_bytes());
+                }
+                Ok(PhysicalEncoding::None)
             }
             Self::VarInt => {
-                let mut data = Vec::new();
-                for v in values {
-                    data.extend_from_slice(&u64::from(v).encode_var_vec());
+                // encode_var writes to a stack buffer; avoids the Vec<u8> allocation
+                // that encode_var_vec() would produce for every value.
+                let mut buf = [0u8; 10];
+                for &v in values {
+                    let n = u64::from(v).encode_var(&mut buf);
+                    target.extend_from_slice(&buf[..n]);
                 }
-                let stream = EncodedStreamData::VarInt(data);
-                Ok((stream, PhysicalEncoding::VarInt))
+                Ok(PhysicalEncoding::VarInt)
             }
             Self::FastPFOR => {
-                let data = encode_fastpfor(&values)?;
-                let stream = EncodedStreamData::Encoded(data);
-                Ok((stream, PhysicalEncoding::FastPFor256))
+                if !values.is_empty() {
+                    let mut compressed = Vec::new();
+                    FastPFor256::default().encode(values, &mut compressed)?;
+                    for word in compressed {
+                        target.extend_from_slice(&word.to_be_bytes());
+                    }
+                }
+                Ok(PhysicalEncoding::FastPFor256)
             }
         }
     }
 
-    /// Physically encode a `u64` sequence into the appropriate `EncodedStreamData` variant.
+    /// Physically encode a `u64` sequence into `target`.
+    ///
+    /// `target` is treated as a scratch buffer: it is cleared before writing.
+    /// After the call, `target.len()` is the number of encoded bytes.
+    ///
+    /// Note: `FastPFOR` is not supported for `u64` streams.
     #[cfg_attr(feature = "__hotpath", hotpath::measure)]
-    pub fn encode_u64s(self, values: Vec<u64>) -> MltResult<(EncodedStreamData, PhysicalEncoding)> {
+    pub fn encode_u64s(self, values: &[u64], target: &mut Vec<u8>) -> MltResult<PhysicalEncoding> {
+        target.clear();
         match self {
             Self::None => {
-                let data = encode_u64s_to_bytes(&values);
-                let stream = EncodedStreamData::Encoded(data);
-                Ok((stream, PhysicalEncoding::None))
+                #[cfg(target_endian = "little")]
+                target.extend_from_slice(bytemuck::cast_slice(values));
+                #[cfg(not(target_endian = "little"))]
+                for &v in values {
+                    target.extend_from_slice(&v.to_le_bytes());
+                }
+                Ok(PhysicalEncoding::None)
             }
             Self::VarInt => {
-                let mut data = Vec::new();
-                for v in values {
-                    data.extend_from_slice(&v.encode_var_vec());
+                let mut buf = [0u8; 10];
+                for &v in values {
+                    let n = v.encode_var(&mut buf);
+                    target.extend_from_slice(&buf[..n]);
                 }
-                let stream = EncodedStreamData::VarInt(data);
-                Ok((stream, PhysicalEncoding::VarInt))
+                Ok(PhysicalEncoding::VarInt)
             }
             Self::FastPFOR => Err(MltError::UnsupportedPhysicalEncoding("FastPFOR on u64")),
         }

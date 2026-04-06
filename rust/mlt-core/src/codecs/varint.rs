@@ -50,14 +50,6 @@ where
 }
 
 #[cfg(test)]
-fn encode_varint<T: VarInt>(value: T) -> Vec<u8> {
-    let mut buf = vec![0u8; 10];
-    let written = value.encode_var(&mut buf);
-    buf.truncate(written);
-    buf
-}
-
-#[cfg(test)]
 mod tests {
     use rstest::rstest;
 
@@ -91,8 +83,10 @@ mod tests {
     fn test_parse_varint_vec() {
         // Encode [1u32, 2, 3] as varints and parse back.
         let mut buf = Vec::new();
+        let mut buf_tmp = vec![0u8; 10];
         for v in [1u32, 2, 3] {
-            buf.extend_from_slice(&encode_varint(v));
+            let written = v.encode_var(&mut buf_tmp);
+            buf.extend_from_slice(&buf_tmp[0..written]);
         }
         let (remaining, values) =
             parse_varint_vec::<u32, u32>(&buf, 3, &mut dec()).expect("parse_varint_vec failed");

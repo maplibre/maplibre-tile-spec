@@ -87,15 +87,19 @@ impl TileLayer01 {
         if rest.is_empty() {
             StagedLayer01::from_tile(self, *first, &groups).encode_into(Encoder::new(cfg))?
         } else {
-            let mut best: Encoder = {
+            let mut enc: Encoder = {
                 StagedLayer01::from_tile(self.clone(), *first, &groups)
                     .encode_into(Encoder::new(cfg))?
             };
+            let mut best = enc.preserve_results();
+            // At this stage `Encoder` has been "warmed-up", and we could clone it to run
+            // the rest of the sort orders in parallel to reuse internal computations done in the first pass.
+            // We could also do the first pass in parallel if we don't care about that optimization.
             for &sort in rest {
                 let layer = StagedLayer01::from_tile(self.clone(), sort, &groups);
-                let enc = layer.encode_into(Encoder::new(cfg))?;
+                enc = layer.encode_into(enc)?;
                 if enc.total_len() < best.total_len() {
-                    best = enc;
+                    best = enc.preserve_results();
                 }
             }
             best

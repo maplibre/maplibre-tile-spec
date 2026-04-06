@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::mem;
 
 use super::model::VertexBufferType;
 use crate::MltResult;
@@ -486,10 +487,14 @@ impl GeometryValues {
         // Vertex streams — compute and write inline.
         match vertex_buffer_type {
             VertexBufferType::Vec2 => {
-                let delta = encode_componentwise_delta_vec2s(&vertices);
+                // Encode into enc.tmp_u32, then take it so we can pass enc mutably to
+                // write_geo_precomputed_stream (which only touches enc.tmp_u8, not tmp_u32).
+                encode_componentwise_delta_vec2s(&vertices, &mut enc.tmp_u32);
+                let delta = mem::take(&mut enc.tmp_u32);
                 let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
                 let logical = LogicalEncoding::ComponentwiseDelta;
                 n += write_geo_precomputed_stream(&delta, ctx, logical, enc)?;
+                enc.tmp_u32 = delta; // restore allocation for future reuse
             }
             VertexBufferType::Morton => {
                 // Reuse the MortonMeta computed during auto-selection to avoid a second vertex
@@ -502,10 +507,12 @@ impl GeometryValues {
                 let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
                 n += write_geo_u32_stream(&offsets, ctx, enc)?;
 
-                let data = morton_deltas(&dict);
+                morton_deltas(&dict, &mut enc.tmp_u32);
+                let delta = mem::take(&mut enc.tmp_u32);
                 let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Morton), "vertex");
                 let logical = LogicalEncoding::MortonDelta(morton_meta);
-                n += write_geo_precomputed_stream(&data, ctx, logical, enc)?;
+                n += write_geo_precomputed_stream(&delta, ctx, logical, enc)?;
+                enc.tmp_u32 = delta;
             }
         }
 
