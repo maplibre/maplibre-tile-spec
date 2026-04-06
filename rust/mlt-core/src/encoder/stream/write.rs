@@ -1,7 +1,7 @@
 use crate::MltResult;
 use crate::codecs::zigzag::encode_zigzag;
 use crate::decoder::{IntEncoding, LogicalEncoding, StreamMeta, StreamType};
-use crate::encoder::model::ColumnKind;
+use crate::encoder::model::StreamCtx;
 use crate::encoder::stream::{DataProfile, IntEncoder};
 use crate::encoder::{EncodedStreamData, Encoder};
 // ─── inner helpers ────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ pub(crate) fn do_write_i64(
 
 // ─── public wrappers ──────────────────────────────────────────────────────────
 //
-// Each wrapper checks for an explicit encoder override (via `enc.get_int_encoder`)
+// Each wrapper checks for an explicit encoder override (via `enc.override_int_enc`)
 // and falls back to automatic candidate selection via the alternatives' machinery.
 //
 // These are the functions called by geometry, ID, scalar property, and string
@@ -90,13 +90,11 @@ pub(crate) fn do_write_i64(
 /// otherwise compete all pruned candidates and keep the shortest.
 pub(crate) fn write_u32_stream(
     values: &[u32],
-    stream_type: StreamType,
-    kind: ColumnKind,
-    name: &str,
-    subname: &str,
+    ctx: &StreamCtx<'_>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.override_int_enc(kind, name, subname) {
+    let stream_type = ctx.stream_type;
+    if let Some(int_enc) = enc.override_int_enc(ctx) {
         do_write_u32(values, stream_type, int_enc, enc)?;
     } else {
         let mut alt = enc.try_alternatives();
@@ -113,13 +111,11 @@ pub(crate) fn write_u32_stream(
 /// signed values via the logical encoder's `encode_i32s`.
 pub(crate) fn write_i32_stream(
     values: &[i32],
-    stream_type: StreamType,
-    kind: ColumnKind,
-    name: &str,
-    subname: &str,
+    ctx: &StreamCtx<'_>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.override_int_enc(kind, name, subname) {
+    let stream_type = ctx.stream_type;
+    if let Some(int_enc) = enc.override_int_enc(ctx) {
         do_write_i32(values, stream_type, int_enc, enc)?;
     } else {
         let test_vals = encode_zigzag(values);
@@ -134,13 +130,11 @@ pub(crate) fn write_i32_stream(
 /// Write a `u64` integer stream.
 pub(crate) fn write_u64_stream(
     values: &[u64],
-    stream_type: StreamType,
-    kind: ColumnKind,
-    name: &str,
-    subname: &str,
+    ctx: &StreamCtx<'_>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.override_int_enc(kind, name, subname) {
+    let stream_type = ctx.stream_type;
+    if let Some(int_enc) = enc.override_int_enc(ctx) {
         do_write_u64(values, stream_type, int_enc, enc)?;
     } else {
         let mut alt = enc.try_alternatives();
@@ -157,13 +151,11 @@ pub(crate) fn write_u64_stream(
 /// signed values via the logical encoder's `encode_i64s`.
 pub(crate) fn write_i64_stream(
     values: &[i64],
-    stream_type: StreamType,
-    kind: ColumnKind,
-    name: &str,
-    subname: &str,
+    ctx: &StreamCtx<'_>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.override_int_enc(kind, name, subname) {
+    let stream_type = ctx.stream_type;
+    if let Some(int_enc) = enc.override_int_enc(ctx) {
         do_write_i64(values, stream_type, int_enc, enc)?;
     } else {
         let test_vals: Vec<u64> = encode_zigzag(values);
@@ -185,13 +177,12 @@ pub(crate) fn write_i64_stream(
 /// `MortonDelta`) is performed externally before calling this function.
 pub(crate) fn write_precomputed_u32(
     values: &[u32],
-    stream_type: StreamType,
     logical_encoding: LogicalEncoding,
-    kind: ColumnKind,
-    name: &str,
+    ctx: &StreamCtx<'_>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.override_int_enc(kind, name, "") {
+    let stream_type = ctx.stream_type;
+    if let Some(int_enc) = enc.override_int_enc(ctx) {
         let num_values = u32::try_from(values.len())?;
         let (stream_data, physical_encoding) = int_enc.physical.encode_u32s(values.to_vec())?;
         let e = IntEncoding::new(logical_encoding, physical_encoding);

@@ -12,8 +12,7 @@ use crate::MltError::DictIndexOutOfBounds;
 use crate::codecs::fsst::compress_fsst;
 use crate::decoder::strings::{decode_shared_dict_range, encode_shared_dict_range};
 use crate::decoder::{PropValue, TileLayer01};
-use crate::encoder::model::ColumnKind::Property;
-use crate::encoder::model::StrEncoding;
+use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::property::model::PresenceKind;
 use crate::encoder::property::strings::{fsst_is_viable, write_fsst_data, write_raw_str_data};
 use crate::encoder::{
@@ -374,8 +373,11 @@ pub(crate) fn write_shared_dict(
         .iter()
         .map(|item| {
             matches!(item.kind, PresenceKind::AllNull | PresenceKind::Mixed)
-                || (enc.override_presence(Property, &shared_dict.prefix, Some(&item.suffix))
-                    && matches!(item.kind, PresenceKind::AllPresent))
+                || (enc.override_presence(&StreamCtx::prop2(
+                    StreamType::Present,
+                    &shared_dict.prefix,
+                    &item.suffix,
+                )) && matches!(item.kind, PresenceKind::AllPresent))
         })
         .collect();
 
@@ -391,7 +393,7 @@ pub(crate) fn write_shared_dict(
     } else {
         let lengths = strings_to_lengths(&dict)?;
         let typ = StreamType::Length(LengthType::Dictionary);
-        write_u32_stream(&lengths, typ, Property, &shared_dict.prefix, "lengths", enc)?;
+        write_u32_stream(&lengths, &StreamCtx::prop(typ, &shared_dict.prefix), enc)?;
         write_raw_str_data(&dict, DictionaryType::Shared, enc)?;
     }
 
@@ -420,14 +422,9 @@ pub(crate) fn write_shared_dict(
             let presence = EncodedStream::encode_presence(&item.presence_bools())?;
             enc.write_boolean_stream(&presence)?;
         }
-        write_u32_stream(
-            &offsets,
-            StreamType::Offset(OffsetType::String),
-            Property,
-            &shared_dict.prefix,
-            &item.suffix,
-            enc,
-        )?;
+        let typ = StreamType::Offset(OffsetType::String);
+        let ctx = StreamCtx::prop2(typ, &shared_dict.prefix, &item.suffix);
+        write_u32_stream(&offsets, &ctx, enc)?;
     }
 
     enc.increment_column_count();

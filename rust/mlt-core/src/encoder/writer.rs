@@ -2,7 +2,7 @@ use std::io;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::encoder::model::{ColumnKind, ExplicitEncoder, StrEncoding};
+use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
 use crate::encoder::{EncoderConfig, IdWidth, IntEncoder, VertexBufferType};
 use crate::{MltError, MltResult};
 
@@ -222,15 +222,8 @@ impl Encoder {
     /// When [`Self::explicit`] is [`Some`], returns the callback-chosen [`IntEncoder`].
     /// [`None`] means run automatic candidate selection for that stream.
     #[inline]
-    pub(crate) fn override_int_enc(
-        &self,
-        kind: ColumnKind,
-        name: &str,
-        subname: &str,
-    ) -> Option<IntEncoder> {
-        self.explicit
-            .as_ref()
-            .map(|e| (e.get_int_encoder)(kind, name, subname))
+    pub(crate) fn override_int_enc(&self, ctx: &StreamCtx<'_>) -> Option<IntEncoder> {
+        self.explicit.as_ref().map(|e| (e.get_int_encoder)(ctx))
     }
 
     /// When [`Self::explicit`] is [`Some`], returns the callback-chosen [`StrEncoding`].
@@ -243,15 +236,10 @@ impl Encoder {
     /// Whether the explicit encoder forces a presence stream for an all-present column
     /// (or similar), per [`ExplicitEncoder::override_presence`].
     #[inline]
-    pub(crate) fn override_presence(
-        &self,
-        kind: ColumnKind,
-        name: &str,
-        subname: Option<&str>,
-    ) -> bool {
+    pub(crate) fn override_presence(&self, ctx: &StreamCtx<'_>) -> bool {
         self.explicit
             .as_ref()
-            .is_some_and(|e| (e.override_presence)(kind, name, subname))
+            .is_some_and(|e| (e.override_presence)(ctx))
     }
 
     /// Applies `ExplicitEncoder::override_id_width` when an explicit encoder is active;
@@ -276,10 +264,10 @@ impl Encoder {
     /// Delegates to [`ExplicitEncoder::force_stream`]; returns `false` when no explicit
     /// encoder is active (the default "skip empty streams" behavior).
     #[inline]
-    pub(crate) fn force_stream(&self, kind: ColumnKind, name: &str) -> bool {
+    pub(crate) fn force_stream(&self, ctx: &StreamCtx<'_>) -> bool {
         self.explicit
             .as_ref()
-            .is_some_and(|e| (e.force_stream)(kind, name))
+            .is_some_and(|e| (e.force_stream)(ctx))
     }
 
     /// Total encoded bytes across all three sections (`hdr + meta + data`).

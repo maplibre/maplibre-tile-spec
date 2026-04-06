@@ -3,7 +3,7 @@ use super::strings::write_str_col;
 use crate::MltError::NotImplemented;
 use crate::MltResult;
 use crate::decoder::{ColumnType, DictionaryType, StreamType};
-use crate::encoder::model::ColumnKind;
+use crate::encoder::model::StreamCtx;
 use crate::encoder::property::shared_dict::write_shared_dict;
 use crate::encoder::stream::{
     write_i32_stream, write_i64_stream, write_u32_stream, write_u64_stream,
@@ -26,6 +26,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
     use ColumnType as CT;
     use StagedProperty as D;
 
+    let ctx = StreamCtx::prop(StreamType::Present, prop.name());
     let has_presence = if matches!(prop, StagedProperty::SharedDict(_)) {
         false
     } else {
@@ -33,15 +34,13 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             PresenceKind::Empty => return Ok(false),
             PresenceKind::Mixed => true,
             PresenceKind::AllNull => {
-                if enc.override_presence(ColumnKind::Property, prop.name(), None) {
+                if enc.override_presence(&ctx) {
                     true
                 } else {
                     return Ok(false);
                 }
             }
-            PresenceKind::AllPresent => {
-                enc.override_presence(ColumnKind::Property, prop.name(), None)
-            }
+            PresenceKind::AllPresent => enc.override_presence(&ctx),
         }
     };
 
@@ -77,8 +76,8 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             enc.write_optional_stream(presence)?;
             let non_null: Vec<i8> = unapply_presence(&v.values);
             let widened: Vec<i32> = non_null.iter().map(|&v1| i32::from(v1)).collect();
-            let typ = StreamType::Data(DictionaryType::None);
-            write_i32_stream(&widened, typ, ColumnKind::Property, &v.name, "", enc)?;
+            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
+            write_i32_stream(&widened, &ctx, enc)?;
         }
         D::U8(v) => {
             CT::write_one_of(presence.is_some(), CT::OptU8, CT::U8, &mut enc.meta)?;
@@ -86,40 +85,40 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             enc.write_optional_stream(presence)?;
             let non_null: Vec<u8> = unapply_presence(&v.values);
             let widened: Vec<u32> = non_null.iter().map(|&v1| u32::from(v1)).collect();
-            let typ = StreamType::Data(DictionaryType::None);
-            write_u32_stream(&widened, typ, ColumnKind::Property, &v.name, "", enc)?;
+            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
+            write_u32_stream(&widened, &ctx, enc)?;
         }
         D::I32(v) => {
             CT::write_one_of(presence.is_some(), CT::OptI32, CT::I32, &mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
             enc.write_optional_stream(presence)?;
             let non_null: Vec<i32> = unapply_presence(&v.values);
-            let typ = StreamType::Data(DictionaryType::None);
-            write_i32_stream(&non_null, typ, ColumnKind::Property, &v.name, "", enc)?;
+            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
+            write_i32_stream(&non_null, &ctx, enc)?;
         }
         D::U32(v) => {
             CT::write_one_of(presence.is_some(), CT::OptU32, CT::U32, &mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
             enc.write_optional_stream(presence)?;
             let non_null: Vec<u32> = unapply_presence(&v.values);
-            let typ = StreamType::Data(DictionaryType::None);
-            write_u32_stream(&non_null, typ, ColumnKind::Property, &v.name, "", enc)?;
+            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
+            write_u32_stream(&non_null, &ctx, enc)?;
         }
         D::I64(v) => {
             CT::write_one_of(presence.is_some(), CT::OptI64, CT::I64, &mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
             enc.write_optional_stream(presence)?;
             let non_null: Vec<i64> = unapply_presence(&v.values);
-            let typ = StreamType::Data(DictionaryType::None);
-            write_i64_stream(&non_null, typ, ColumnKind::Property, &v.name, "", enc)?;
+            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
+            write_i64_stream(&non_null, &ctx, enc)?;
         }
         D::U64(v) => {
             CT::write_one_of(presence.is_some(), CT::OptU64, CT::U64, &mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
             enc.write_optional_stream(presence)?;
             let non_null: Vec<u64> = unapply_presence(&v.values);
-            let typ = StreamType::Data(DictionaryType::None);
-            write_u64_stream(&non_null, typ, ColumnKind::Property, &v.name, "", enc)?;
+            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
+            write_u64_stream(&non_null, &ctx, enc)?;
         }
         D::Str(v) => {
             CT::write_one_of(presence.is_some(), CT::OptStr, CT::Str, &mut enc.meta)?;

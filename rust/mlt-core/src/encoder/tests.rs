@@ -8,10 +8,10 @@ impl ExplicitEncoder {
         Self {
             override_id_width: Box::new(|w| w),
             vertex_buffer_type: VertexBufferType::Vec2,
-            force_stream: Box::new(|_, _| false),
-            get_int_encoder: Box::new(move |_, _, _| enc),
+            force_stream: Box::new(|_| false),
+            get_int_encoder: Box::new(move |_| enc),
             get_str_encoding: Box::new(|_| crate::encoder::StrEncoding::Plain),
-            override_presence: Box::new(|_, _, _| false),
+            override_presence: Box::new(|_| false),
         }
     }
 
@@ -32,8 +32,8 @@ impl ExplicitEncoder {
     pub fn for_id(id_enc: IntEncoder, id_width: IdWidth) -> Self {
         Self {
             override_id_width: Box::new(move |_| id_width),
-            get_int_encoder: Box::new(move |kind, _, _| {
-                if kind == ColumnKind::Id {
+            get_int_encoder: Box::new(move |ctx| {
+                if ctx.kind == ColumnKind::Id {
                     id_enc
                 } else {
                     IntEncoder::varint()
