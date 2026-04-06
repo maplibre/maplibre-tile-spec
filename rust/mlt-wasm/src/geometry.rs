@@ -1,5 +1,5 @@
 use js_sys::{Int32Array, Uint32Array};
-use mlt_core::v01::GeometryValues;
+use mlt_core::GeometryValues;
 use wasm_bindgen::prelude::*;
 
 /// All decoded geometry arrays for a single layer, fetched in one WASM call.

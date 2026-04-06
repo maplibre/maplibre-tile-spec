@@ -70,20 +70,6 @@ pub fn decode_to_json(bytes: &[u8]) -> FeatureCollection {
     FeatureCollection::from_layers(decoded).unwrap()
 }
 
-impl Layer {
-    /// Encode and then either verify against the reference dir (non-rust files) or write to the
-    /// output dir (`-rust`-suffixed files). Delegates to [`SynthWriter::write`].
-    pub fn write(self, w: &mut SynthWriter, name: impl AsRef<str>) {
-        w.write(self, name);
-    }
-    /// Write regular and no-presence variants
-    pub fn write_np(mut self, w: &mut SynthWriter, name: impl AsRef<str>) {
-        w.write(self.clone(), format!("{}_np", name.as_ref()));
-        self.force_presence_stream();
-        w.write(self, name);
-    }
-}
-
 impl SynthWriter {
     pub fn new(mut args: Args) -> Self {
         let canonical_synth = args.synthetics.canonicalize();
@@ -183,7 +169,7 @@ impl SynthWriter {
                 check_json(&decoded, &ref_json)?;
             } else {
                 self.print_note(&format!(
-                    "Java synthetics did not generate MLT corresponding to {name_mlt}"
+                    "Java synthetics doesn't have MLT matching 0x01-rust/{name_mlt}"
                 ));
             }
             let mut s = serde_json::to_string_pretty(&decoded).map_err(SynthErr::SerializeJson)?;
@@ -223,7 +209,9 @@ impl SynthWriter {
 
         for name in &ref_mlts {
             if !self.generated.contains(name) {
-                self.print_note(&format!("Rust synthetics did not generate {name}.mlt"));
+                self.print_note(&format!(
+                    "Rust synthetics did not generate a test matching Java's 0x01/{name}.mlt"
+                ));
             }
         }
 

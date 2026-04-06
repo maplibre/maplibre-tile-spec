@@ -31,6 +31,11 @@ name = "decoding_strings"
 harness = false
 required-features = ["__private"]
 
+[[bench]]
+name = "encoding_from_mvt"
+harness = false
+required-features = ["__private"]
+
 [features]
 # Workaround until new WASM-compatible geo is released
 default = ["tessellate"]
@@ -38,6 +43,9 @@ tessellate = ["dep:geo"]
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
 # Used internally for testing and benchmarking, not intended for public use
 __private = []
+__hotpath = ["dep:hotpath", "hotpath/hotpath"]
+__hotpath-alloc = ["__hotpath", "hotpath/hotpath-alloc"]
+__hotpath-mcp = ["__hotpath", "hotpath/hotpath-mcp"]
 
 [dependencies]
 arbitrary = { workspace = true, optional = true }
@@ -48,6 +56,7 @@ geo = { workspace = true, optional = true }
 geo-types.workspace = true
 hex.workspace = true
 hilbert_2d.workspace = true
+hotpath = { workspace = true, optional = true }
 integer-encoding.workspace = true
 mvt-reader.workspace = true
 num-traits.workspace = true
@@ -79,21 +88,5 @@ name = "geojson"
 required-features = ["__private"]
 
 [[test]]
-name = "geometry_optimizer"
-required-features = ["__private"]
-
-[[test]]
-name = "id_optimizer"
-required-features = ["__private"]
-
-[[test]]
-name = "property_roundtrip"
-required-features = ["__private"]
-
-[[test]]
 name = "snapshots"
-required-features = ["__private"]
-
-[[test]]
-name = "sort"
 required-features = ["__private"]

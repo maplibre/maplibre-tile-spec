@@ -3,8 +3,10 @@ use std::num::TryFromIntError;
 
 use num_enum::TryFromPrimitiveError;
 
+use crate::decoder::{
+    GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType,
+};
 use crate::utils::AsUsize;
-use crate::v01::{GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType};
 
 pub type MltResult<T> = Result<T, MltError>;
 pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
@@ -58,6 +60,8 @@ pub enum MltError {
     ZeroLayerSize,
     #[error("The encoder used to optimise data is incompatible")]
     BadEncoderDataCombination,
+    #[error("StagedLayer01::encode_explicit requires Encoder.explicit to be Some(_)")]
+    MissingExplicitEncoder,
 
     // Wire/codec decoding (bytes → primitives)
     #[error("buffer underflow: needed {0} bytes, but only {1} remain")]

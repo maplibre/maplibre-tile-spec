@@ -34,8 +34,7 @@ mod tile;
 
 use js_sys::Uint8Array;
 use layer::DecodedLayer;
-use mlt_core::v01::GeometryType;
-use mlt_core::{Decoder, MltError, Parser};
+use mlt_core::{Decoder, GeometryType, MltError, Parser};
 use tile::MltTile;
 use wasm_bindgen::prelude::*;
 

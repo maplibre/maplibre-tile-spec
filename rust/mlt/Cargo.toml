@@ -18,14 +18,24 @@ pkg-fmt = "tgz"
 [package.metadata.binstall.overrides.'cfg(target_os = "windows")']
 pkg-fmt = "zip"
 
+[features]
+__hotpath = ["dep:hotpath", "hotpath/hotpath", "mlt-core/__hotpath"]
+__hotpath-alloc = ["__hotpath", "hotpath/hotpath-alloc", "mlt-core/__hotpath-alloc"]
+__hotpath-mcp = ["__hotpath", "hotpath/hotpath-mcp", "mlt-core/__hotpath-mcp"]
+
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
 crossterm.workspace = true
 flate2.workspace = true
+futures.workspace = true
 geo-types.workspace = true
 glob.workspace = true
 globset.workspace = true
+hotpath = { workspace = true, optional = true }
+indicatif.workspace = true
+martin-tile-utils.workspace = true
+mbtiles.workspace = true
 mlt-core.workspace = true
 ratatui.workspace = true
 rayon.workspace = true
@@ -33,8 +43,10 @@ rstar.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 size_format.workspace = true
+sqlx.workspace = true
 tabled.workspace = true
 thousands.workspace = true
+tokio.workspace = true
 
 [lints]
 workspace = true

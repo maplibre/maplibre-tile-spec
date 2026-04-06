@@ -1,6 +1,5 @@
-use super::optimizer::DataProfile;
-use super::physical::PhysicalEncoder;
-use crate::v01::LogicalEncoder;
+use crate::encoder::stream::logical::LogicalEncoder;
+use crate::encoder::stream::physical::PhysicalEncoder;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
@@ -52,33 +51,8 @@ impl IntEncoder {
     pub fn varint() -> Self {
         Self::new(LogicalEncoder::None, PhysicalEncoder::VarInt)
     }
-
-    /// Automatically select the best encoder for a `u32` stream.
-    ///
-    /// Uses the `BTRBlocks` strategy:
-    /// - profile a small sample of the data to prune unsuitable candidates,
-    /// - then encode the same sample with all survivors and
-    /// - return the encoder that produces the smallest output.
-    ///
-    /// `FastPFOR` is always preferred over `VarInt` when sizes are equal.
     #[must_use]
-    pub fn auto_u32(values: &[u32]) -> Self {
-        let enc = DataProfile::prune_candidates::<i32>(values);
-        DataProfile::compete_u32(&enc, values)
+    pub fn varint_with(logical: LogicalEncoder) -> Self {
+        Self::new(logical, PhysicalEncoder::VarInt)
     }
-
-    /// Automatically select the best encoder for a `u64` stream.
-    #[must_use]
-    pub fn auto_u64(values: &[u64]) -> Self {
-        let enc = DataProfile::prune_candidates::<i64>(values);
-        DataProfile::compete_u64(&enc, values)
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub struct FsstStrEncoder {
-    pub(crate) symbol_lengths: IntEncoder,
-    pub(crate) dict_lengths: IntEncoder,
 }

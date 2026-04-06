@@ -1,5 +1,4 @@
 use crate::MltError::BufferUnderflow;
-use crate::decoder::debug_assert_length;
 use crate::utils::{AsUsize as _, take};
 use crate::{Decoder, MltRefResult, MltResult};
 
@@ -106,6 +105,15 @@ pub fn decode_bytes_to_bools(
     }
     debug_assert_length(&result, num_bools);
     Ok(result)
+}
+
+#[inline]
+pub fn debug_assert_length<T>(buffer: &[T], expected_len: usize) {
+    debug_assert_eq!(
+        buffer.len(),
+        expected_len,
+        "Expected buffer to have exact length"
+    );
 }
 
 #[cfg(test)]

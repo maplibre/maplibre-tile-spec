@@ -9,6 +9,9 @@ export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''}
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
 
+# Features excluded from cargo-hack --each-feature iterations (heavy optional instrumentation)
+hack_skip := '--exclude-features __hotpath,__hotpath-alloc,__hotpath-mcp'
+
 _default: (just '--list' 'rust')
 
 [private]
@@ -17,26 +20,30 @@ just *args:
 
 # Run integration tests and save its output as the new expected output
 bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack')
-    cargo hack insta test --accept --unreferenced=delete --each-feature \
+    cargo hack insta test --accept --unreferenced=delete --each-feature {{hack_skip}} \
         --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
 
 # Run benchmarks
 bench *args: (just 'cargo-install' 'cargo-hack')
-    cargo hack bench --all-targets --each-feature \
+    cargo hack bench --all-targets --each-feature {{hack_skip}} \
         --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
+
+# Run a specific benchmark target
+bench-one target='encoding_from_mvt': (just 'cargo-install' 'cargo-hack')
+    cargo bench --bench {{target}} -p mlt-core
 
 alias b := build
 # Build the project
 build: (just 'cargo-install' 'cargo-hack')
-    cargo hack build --all-targets --each-feature \
+    cargo hack build --all-targets --each-feature {{hack_skip}} \
         --workspace --exclude-no-default-features --exclude-all-features
 
 alias c := check
 # Quick compile without building a binary
 check: (just 'cargo-install' 'cargo-hack')
-    cargo hack check --all-targets --each-feature \
+    cargo hack check --all-targets --each-feature {{hack_skip}} \
         --workspace --exclude-no-default-features --exclude-all-features
     cd mlt-core/fuzz && cargo check --all-features
 
@@ -114,7 +121,7 @@ ci-test-msrv: ci-env-info
 ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linux-gnu')
 
 # Fuzz the target for 90 seconds (installs `cargo fuzz`)
-ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '--max_len=300')
+ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '-max_len=300' '-rss_limit_mb=2048')
 
 # Run coverage against a previously generated corpus and export LCOV for Codecov upload.
 # Output: target/llvm-cov/fuzz-<target>.lcov
@@ -156,16 +163,18 @@ clean:
 
 # Run cargo clippy to lint the code
 clippy *args: (just 'cargo-install' 'cargo-hack')
-    cargo hack clippy --all-targets --each-feature \
-        --workspace --exclude-no-default-features --exclude-all-features \
-        {{args}}
+    cargo clippy --all-targets --all-features --workspace {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
 # Generate code coverage report. Installs `cargo llvm-cov`
 coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov')
-    cargo hack llvm-cov --all-targets --each-feature \
+    cargo hack llvm-cov --all-targets --each-feature {{hack_skip}} \
         --workspace --exclude-no-default-features --exclude-all-features \
         --include-build-script {{args}}
+
+# Run the encoder with hotpath profiling (timing + allocation tracking)
+profile *args:
+    cargo run --release -p mlt --features='__hotpath,__hotpath-alloc,__hotpath-mcp' -- {{args}}
 
 # Build and open code documentation
 docs *args='--open':
@@ -229,8 +238,8 @@ get-crate-field field package=main_crate: (just 'assert-cmd' 'jq')
 # Get the minimum supported Rust version (MSRV) for the crate
 get-msrv package=main_crate: (get-crate-field 'rust_version' package)
 
-# Run linting (clippy + format check)
-lint: clippy test-fmt
+# Run all linting steps good for local development
+lint: fmt check clippy test
 
 # Find the minimum supported Rust version and update Cargo.toml
 msrv: (just 'cargo-install' 'cargo-msrv')
@@ -258,7 +267,7 @@ release *args='': (just 'cargo-install' 'release-plz')
 
 # Check semver compatibility with prior published version
 semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install' 'cargo-hack')
-    cargo hack semver-checks --each-feature \
+    cargo hack semver-checks --each-feature {{hack_skip}} \
         --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
 
@@ -292,7 +301,7 @@ sync-wasm-version:
 alias t := test
 # Run all tests
 test: (just 'cargo-install' 'cargo-hack')
-    cargo hack test --all-targets --each-feature \
+    cargo hack test --all-targets --each-feature {{hack_skip}} \
         --workspace --exclude-no-default-features --exclude-all-features
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc

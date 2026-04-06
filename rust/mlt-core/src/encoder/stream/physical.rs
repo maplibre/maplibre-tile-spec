@@ -2,7 +2,8 @@ use integer_encoding::VarInt as _;
 
 use crate::codecs::bytes::{encode_u32s_to_bytes, encode_u64s_to_bytes};
 use crate::codecs::fastpfor::encode_fastpfor;
-use crate::v01::{EncodedStreamData, PhysicalEncoding};
+use crate::decoder::PhysicalEncoding;
+use crate::encoder::EncodedStreamData;
 use crate::{MltError, MltResult};
 
 impl PhysicalEncoding {
@@ -27,6 +28,7 @@ pub enum PhysicalEncoder {
 
 impl PhysicalEncoder {
     /// Physically encode a `u32` sequence into the appropriate `EncodedStreamData` variant.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_u32s(self, values: Vec<u32>) -> MltResult<(EncodedStreamData, PhysicalEncoding)> {
         match self {
             Self::None => {
@@ -51,6 +53,7 @@ impl PhysicalEncoder {
     }
 
     /// Physically encode a `u64` sequence into the appropriate `EncodedStreamData` variant.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_u64s(self, values: Vec<u64>) -> MltResult<(EncodedStreamData, PhysicalEncoding)> {
         match self {
             Self::None => {

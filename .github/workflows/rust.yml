@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-check
       - run: just -v rust::ci-lint
@@ -31,7 +30,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-      - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly } # because of covs --doctests
       - uses: taiki-e/install-action@v2
@@ -78,17 +76,16 @@ jobs:
       - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
       - if: matrix.target == 'layer'
         run: just -v rust::fuzz-seed ${{ matrix.target }}
-      # FIXME: OOM Errors
-      #- run: just -v rust::ci-fuzz-run ${{ matrix.target }}
-      #- name: Generate fuzz coverage
-      #  if: github.repository_owner == 'maplibre'
-      #  run: just -v rust::ci-fuzz-cov ${{ matrix.target }}
-      #- name: Upload fuzz coverage artifact
-      #  if: github.repository_owner == 'maplibre'
-      #  uses: actions/upload-artifact@v7
-      #  with:
-      #    name: fuzz-coverage-${{ matrix.target }}
-      #    path: rust/target/llvm-cov/fuzz-${{ matrix.target }}.lcov
+      - run: just -v rust::ci-fuzz-run ${{ matrix.target }}
+      - name: Generate fuzz coverage
+        if: github.repository_owner == 'maplibre'
+        run: just -v rust::ci-fuzz-cov ${{ matrix.target }}
+      - name: Upload fuzz coverage artifact
+        if: github.repository_owner == 'maplibre'
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-coverage-${{ matrix.target }}
+          path: rust/target/llvm-cov/fuzz-${{ matrix.target }}.lcov
 
   #  MSRV Testing is not really needed at this stage of code completeness
   #  test-msrv:
@@ -96,7 +93,6 @@ jobs:
   #    runs-on: ubuntu-latest
   #    steps:
   #      - uses: actions/checkout@v6.0.2
-  #      - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
   #      - uses: ./.github/actions/mlt-setup-rust
   #        with: { toolchain: msrv }
   #      - run: just -v rust::ci-test-msrv

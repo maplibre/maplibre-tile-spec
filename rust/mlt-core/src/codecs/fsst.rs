@@ -1,10 +1,5 @@
-use crate::encoder::FsstStrEncoder;
-use crate::encoder::property::EncodedFsstData;
-use crate::utils::{AsUsize as _, strings_to_lengths};
-use crate::v01::{
-    DictionaryType, EncodedStream, EncodedStreamData, IntEncoding, LengthType, RawFsstData,
-    StreamMeta, StreamType,
-};
+use crate::decoder::RawFsstData;
+use crate::utils::AsUsize as _;
 use crate::{Decoder, MltResult};
 
 /// Decode an FSST-compressed byte sequence into the original bytes and value lengths,
@@ -58,30 +53,41 @@ pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String
     Ok((String::from_utf8(output)?, lengths.decode_u32s(dec)?))
 }
 
-/// Shared FSST compression kernel: train a compressor on `values`, compress the corpus,
-/// and return the 4 streams as an [`EncodedFsstData`].
+/// Raw output from FSST compression (unencoded byte buffers).
 ///
-/// 1. Symbol lengths stream (Length, `LengthType::Symbol`)
-/// 2. Symbol table data stream (Data, `DictionaryType::Fsst`)
-/// 3. Value lengths stream (Length, `LengthType::Dictionary`)
-/// 4. Compressed corpus stream (Data, `dict_type`)
+/// Pass to the string encoder's `write_fsst_data` helper to write these
+/// streams directly to an [`Encoder`](crate::encoder::Encoder).
+pub struct FsstRawData {
+    /// Per-symbol byte lengths (to be written as `Length(Symbol)` stream).
+    pub symbol_lengths: Vec<u32>,
+    /// Concatenated raw symbol bytes (to be written as `Data(Fsst)` stream).
+    pub symbol_bytes: Vec<u8>,
+    /// Per-value byte lengths of the compressed corpus (to be written as `Length(Dictionary)` stream).
+    pub value_lengths: Vec<u32>,
+    /// FSST-compressed corpus bytes (to be written as `Data(dict_type)` stream).
+    pub corpus: Vec<u8>,
+}
+
+/// Shared FSST compression kernel: train a compressor on `values` and compress the corpus.
+///
+/// Returns [`FsstRawData`] with the four raw byte/int buffers ready to be written to
+/// an encoder via the caller's chosen integer encoders.
+///
+/// Stream order when written:
+/// 1. Symbol lengths (`Length(Symbol)`)
+/// 2. Symbol table data (`Data(Fsst)`)
+/// 3. Value lengths (`Length(Dictionary)`)
+/// 4. Compressed corpus (`Data(dict_type)` — supplied by the caller at write time)
 ///
 /// Note: The FSST algorithm implementation may differ from Java's, so the
 /// compressed output may not be byte-for-byte identical. Both implementations
 /// are semantically compatible and can decode each other's output.
-pub fn compress_fsst<S: AsRef<str>>(
-    values: &[S],
-    encoding: FsstStrEncoder,
-    dict_type: DictionaryType,
-) -> MltResult<EncodedFsstData> {
-    // Build byte slices for training
+pub fn compress_fsst<S: AsRef<str>>(values: &[S]) -> FsstRawData {
     let byte_slices: Vec<&[u8]> = values.iter().map(|s| s.as_ref().as_bytes()).collect();
-    // Train FSST compressor on the corpus
     let compressor = fsst::Compressor::train(&byte_slices);
     let symbols = compressor.symbol_table();
     let symbol_lengths_u8 = compressor.symbol_lengths();
 
-    // Build concatenated symbol bytes (only the actual bytes for each symbol)
     let mut symbol_bytes = Vec::new();
     for sym in symbols {
         let bytes = sym.to_u64().to_le_bytes();
@@ -89,47 +95,28 @@ pub fn compress_fsst<S: AsRef<str>>(
         symbol_bytes.extend_from_slice(&bytes[..len]);
     }
 
-    // Convert symbol lengths to u32 for encoding
     let symbol_lengths: Vec<u32> = symbol_lengths_u8
         .iter()
         .take(symbols.len())
         .map(|&l| u32::from(l))
         .collect();
 
-    // Compress all strings and concatenate into a single corpus
-    let mut compressed = Vec::new();
+    let value_lengths: Vec<u32> = values
+        .iter()
+        .map(|s| u32::try_from(s.as_ref().len()).unwrap_or(u32::MAX))
+        .collect();
+
+    let mut corpus = Vec::new();
     for s in values {
-        compressed.extend(compressor.compress(s.as_ref().as_bytes()));
+        corpus.extend(compressor.compress(s.as_ref().as_bytes()));
     }
 
-    Ok(EncodedFsstData {
-        symbol_lengths: EncodedStream::encode_u32s_of_type(
-            &symbol_lengths,
-            encoding.symbol_lengths,
-            StreamType::Length(LengthType::Symbol),
-        )?,
-        symbol_table: EncodedStream {
-            meta: StreamMeta::new(
-                StreamType::Data(DictionaryType::Fsst),
-                IntEncoding::none(),
-                u32::try_from(symbol_lengths.len())?,
-            ),
-            data: EncodedStreamData::Encoded(symbol_bytes),
-        },
-        lengths: EncodedStream::encode_u32s_of_type(
-            &strings_to_lengths(values)?,
-            encoding.dict_lengths,
-            StreamType::Length(LengthType::Dictionary),
-        )?,
-        corpus: EncodedStream {
-            meta: StreamMeta::new(
-                StreamType::Data(dict_type),
-                IntEncoding::none(),
-                u32::try_from(values.len())?,
-            ),
-            data: EncodedStreamData::Encoded(compressed),
-        },
-    })
+    FsstRawData {
+        symbol_lengths,
+        symbol_bytes,
+        value_lengths,
+        corpus,
+    }
 }
 
 #[cfg(test)]
@@ -137,26 +124,66 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::decoder::{
+        DictionaryType, IntEncoding, LengthType, RawFsstData, RawStream, StreamType,
+    };
+    use crate::encoder::{EncodedStream, EncodedStreamData, Encoder, IntEncoder, do_write_u32};
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
-    use crate::v01::{FsstStrEncoder, IntEncoder, RawFsstData, RawStream};
 
+    /// Encode the 4 FSST raw streams to wire bytes and parse them back for decoding.
     fn roundtrip(values: &[&str]) -> (String, Vec<u32>) {
-        let encoding = FsstStrEncoder {
-            symbol_lengths: IntEncoder::varint(),
-            dict_lengths: IntEncoder::varint(),
-        };
-        let encoded =
-            compress_fsst(values, encoding, DictionaryType::Single).expect("compress_fsst failed");
+        use crate::decoder::StreamMeta;
+        let raw = compress_fsst(values);
 
-        // Serialize each of the 4 streams to bytes, then parse them back.
-        let streams = encoded.streams();
-        let mut buffers: Vec<Vec<u8>> = Vec::new();
-        for stream in streams {
-            let mut buf = Vec::new();
-            buf.write_stream(stream).expect("write_stream failed");
-            buffers.push(buf);
-        }
+        let sym_len_bytes = {
+            let mut enc = Encoder::default();
+            do_write_u32(
+                &raw.symbol_lengths,
+                StreamType::Length(LengthType::Symbol),
+                IntEncoder::varint(),
+                &mut enc,
+            )
+            .expect("symbol lengths stream");
+            enc.data
+        };
+        let sym_table_stream = EncodedStream {
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::Fsst),
+                IntEncoding::none(),
+                u32::try_from(raw.symbol_lengths.len()).unwrap(),
+            ),
+            data: EncodedStreamData::Encoded(raw.symbol_bytes.clone()),
+        };
+        let lengths_bytes = {
+            let mut enc = Encoder::default();
+            do_write_u32(
+                &raw.value_lengths,
+                StreamType::Length(LengthType::Dictionary),
+                IntEncoder::varint(),
+                &mut enc,
+            )
+            .expect("dictionary lengths stream");
+            enc.data
+        };
+        let corpus_stream = EncodedStream {
+            meta: StreamMeta::new(
+                StreamType::Data(DictionaryType::Single),
+                IntEncoding::none(),
+                u32::try_from(values.len()).unwrap(),
+            ),
+            data: EncodedStreamData::Encoded(raw.corpus.clone()),
+        };
+
+        let mut sym_table_buf = Vec::new();
+        sym_table_buf
+            .write_stream(&sym_table_stream)
+            .expect("write_stream failed");
+        let mut corpus_buf = Vec::new();
+        corpus_buf
+            .write_stream(&corpus_stream)
+            .expect("write_stream failed");
+        let buffers = [sym_len_bytes, sym_table_buf, lengths_bytes, corpus_buf];
         let mut raw_streams = Vec::new();
         for buf in &buffers {
             raw_streams.push(assert_empty(RawStream::from_bytes(buf, &mut parser())));

@@ -1,40 +1,105 @@
-use crate::encoder::LayerEncoder;
-use crate::v01::{EncoderConfig, Tile01Encoder};
-use crate::{EncodedLayer, MltError, MltResult, StagedLayer};
+use crate::MltResult;
+use crate::decoder::TileLayer01;
+use crate::encoder::model::{StagedLayer, StagedLayer01};
+use crate::encoder::property::encode::write_properties;
+use crate::encoder::{
+    Encoder, EncoderConfig, SortStrategy, group_string_properties, spatial_sort_likely_to_help,
+};
 
 impl StagedLayer {
-    /// Encode using a specific `LayerEncoder`, consuming `self` and producing [`EncodedLayer`].
-    ///
-    /// The `sort_strategy` in a `LayerEncoder::Tag01` is ignored here because sorting must
-    /// happen before staging (on the `TileLayer01`). Use [`Tile01Encoder::encode`] for the
-    /// full pipeline including sort.
-    pub fn encode(self, encoder: LayerEncoder) -> MltResult<EncodedLayer> {
-        match (self, encoder) {
-            (Self::Tag01(t), LayerEncoder::Tag01(e)) => {
-                Ok(EncodedLayer::Tag01(t.encode(e.stream)?))
-            }
-            (Self::Unknown(u), LayerEncoder::Unknown) => Ok(EncodedLayer::Unknown(u)),
-            _ => Err(MltError::BadEncoderDataCombination),
+    /// Automatically encode and write `self` to `enc`.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
+    pub fn encode_into(self, enc: Encoder) -> MltResult<Encoder> {
+        match self {
+            Self::Tag01(t) => t.encode_into(enc),
+            Self::Unknown(u) => u.write_to(enc),
         }
     }
+}
 
-    /// Automatically select the best encoders, consuming `self` and producing
-    /// `(EncodedLayer, LayerEncoder)`.
+impl StagedLayer01 {
+    /// Encode and serialize the layer directly into `enc`, without creating any
+    /// intermediate representation.
     ///
-    /// Sort strategy is [`crate::v01::SortStrategy::Unsorted`] in the returned encoder because sorting must
-    /// happen before staging. Use [`Tile01Encoder::encode_auto`] for full
-    /// sort + stream trialing on a [`crate::v01::TileLayer01`].
-    pub fn encode_auto(self, cfg: EncoderConfig) -> MltResult<(EncodedLayer, LayerEncoder)> {
-        match self {
-            Self::Tag01(t) => {
-                let (encoded, stream_enc) = t.encode_auto(cfg)?;
-                let tile_enc = Tile01Encoder {
-                    stream: stream_enc,
-                    ..Default::default()
-                };
-                Ok((EncodedLayer::Tag01(encoded), LayerEncoder::Tag01(tile_enc)))
-            }
-            Self::Unknown(u) => Ok((EncodedLayer::Unknown(u), LayerEncoder::Unknown)),
+    /// This is the hot path inside `TileLayer01::encode`: each sort-strategy
+    /// trial calls this method on its own fresh `Encoder`, and only the
+    /// `Encoder` with the smallest `total_len()` is kept.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
+    pub fn encode_into(self, mut enc: Encoder) -> MltResult<Encoder> {
+        let Self {
+            name,
+            extent,
+            id,
+            geometry,
+            properties,
+        } = self;
+
+        if let Some(ids) = id {
+            ids.write_to(&mut enc)?;
         }
+        geometry.write_to(&mut enc)?;
+        write_properties(&properties, &mut enc)?;
+        enc.write_header(&name, extent)?;
+
+        Ok(enc)
+    }
+}
+
+/// Feature-count threshold above which the spatial trial is subject to the
+/// bounding-box pruning heuristic.
+const SORT_TRIAL_THRESHOLD: usize = 512;
+
+impl TileLayer01 {
+    /// Encode a [`TileLayer01`] to bytes, automatically optimizing all encoding choices.
+    ///
+    /// This is the primary encoding entry point. It:
+    /// 1. Determines which sort strategies to try based on `cfg`
+    /// 2. Tries each sort strategy, encoding and measuring the output size
+    /// 3. Returns the smallest encoding as a complete layer record (including tag and length prefix)
+    ///
+    /// All encoding choices — sort order, per-stream integer encodings, string compression,
+    /// vertex buffer layout — are selected automatically to minimize output size.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
+    pub fn encode(self, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
+        let mut sort_by = vec![SortStrategy::Unsorted];
+        let try_spatial_sort = cfg.try_spatial_morton_sort || cfg.try_spatial_hilbert_sort;
+        if try_spatial_sort
+            && (self.features.len() < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(&self))
+        {
+            if cfg.try_spatial_morton_sort {
+                sort_by.push(SortStrategy::SpatialMorton);
+            }
+            if cfg.try_spatial_hilbert_sort {
+                sort_by.push(SortStrategy::SpatialHilbert);
+            }
+        }
+        if cfg.try_id_sort {
+            sort_by.push(SortStrategy::Id);
+        }
+
+        let groups = if cfg.allow_shared_dict {
+            group_string_properties(&self)
+        } else {
+            Vec::new()
+        };
+
+        let (first, rest) = sort_by.split_first().expect("at least one strategy");
+        if rest.is_empty() {
+            StagedLayer01::from_tile(self, *first, &groups).encode_into(Encoder::new(cfg))?
+        } else {
+            let mut best: Encoder = {
+                StagedLayer01::from_tile(self.clone(), *first, &groups)
+                    .encode_into(Encoder::new(cfg))?
+            };
+            for &sort in rest {
+                let layer = StagedLayer01::from_tile(self.clone(), sort, &groups);
+                let enc = layer.encode_into(Encoder::new(cfg))?;
+                if enc.total_len() < best.total_len() {
+                    best = enc;
+                }
+            }
+            best
+        }
+        .into_layer_bytes()
     }
 }

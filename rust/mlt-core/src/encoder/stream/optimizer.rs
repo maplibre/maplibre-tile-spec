@@ -1,9 +1,7 @@
 use num_traits::{AsPrimitive as _, PrimInt as _, WrappingSub, Zero as _};
 use zigzag::ZigZag;
 
-use crate::MltResult;
 use crate::encoder::IntEncoder;
-use crate::v01::EncodedStreamData;
 
 /// Minimum number of values to profile / compete on.
 ///
@@ -22,18 +20,6 @@ const RLE_MIN_AVG_RUN_LENGTH: f64 = 2.0;
 const DELTA_BIT_SAVINGS_THRESHOLD: u8 = 4;
 
 /// Sampling-based encoder selection
-///
-/// # Strategy
-///
-/// 1. [`Self::prune_candidates`] - **"Prune"**:
-///    Compute lightweight statistics over a representative sample
-///    of the data (average run length, sort order, max bit-width) and use them to prune obviously unsuitable candidates early.
-/// 2. [`Self::compete_u32`] / [`Self::compete_u64`] - **"Compete"**:
-///    Encode the same sample with every surviving candidate and
-///    pick the one whose encoded output is smallest.
-///    In case of a tie
-///    - the physical priority order is `FastPFOR` > `VarInt` > `None` and,
-///    - at the logical level, more complex transforms are deprioritized.
 #[derive(Debug, Clone, Default)]
 pub struct DataProfile {
     /// Number of values in the sample that was analyzed.
@@ -44,6 +30,17 @@ pub struct DataProfile {
     /// A run is a maximal sequence of identical consecutive values.
     /// `avg_run_length = sample_len / num_runs`.
     avg_run_length: f64,
+
+    /// Average run length of the zigzag-encoded delta stream.
+    ///
+    /// This is computed over the deltas between consecutive sample values,
+    /// excluding the initial/base value, so the effective stream length is
+    /// `sample_len - 1`.
+    ///
+    /// For sequential data like `[1, 2, 3, ...]` the raw values are all
+    /// distinct (`avg_run_length == 1`) but the delta stream is constant, so
+    /// `delta_avg_run_length == N - 1`, making `DeltaRle` extremely effective.
+    delta_avg_run_length: f64,
 
     /// `true` if the sample values are sorted in ascending or descending order.
     is_sorted: bool,
@@ -74,13 +71,15 @@ impl DataProfile {
         }
 
         let mut runs: usize = 1;
+        let mut delta_runs: usize = 1;
         let mut is_sorted_rising = true;
         let mut is_sorted_falling = true;
         let mut max_val: T::UInt = sample[0];
         let mut max_delta: T::UInt = T::UInt::zero();
         let mut prev = sample[0];
+        let mut prev_zz: T::UInt = T::UInt::zero();
 
-        for &v in &sample[1..] {
+        for (i, &v) in sample[1..].iter().enumerate() {
             if v != prev {
                 runs += 1;
             }
@@ -92,14 +91,22 @@ impl DataProfile {
             let delta_bits: T::UInt = v.wrapping_sub(&prev);
             let delta_signed: T = delta_bits.as_();
             let zz = T::encode(delta_signed);
+            if i == 0 {
+                prev_zz = zz;
+            } else if zz != prev_zz {
+                delta_runs += 1;
+                prev_zz = zz;
+            }
             max_delta = max_delta.max(zz);
             max_val = v.max(max_val);
             prev = v;
         }
 
+        let delta_len = sample.len().saturating_sub(1).max(1);
         Self {
             _sample_len: sample.len(),
             avg_run_length: sample.len() as f64 / runs as f64,
+            delta_avg_run_length: delta_len as f64 / delta_runs as f64,
             is_sorted: is_sorted_rising || is_sorted_falling,
             max_bit_width: (T::zero().leading_zeros() - max_val.leading_zeros()) as u8,
             delta_max_bit_width: (T::zero().leading_zeros() - max_delta.leading_zeros()) as u8,
@@ -124,21 +131,6 @@ impl DataProfile {
         profile.candidates(T::zero().count_zeros() == 32)
     }
 
-    pub fn compete_u32(candidates: &[IntEncoder], data: &[u32]) -> IntEncoder {
-        candidates
-            .iter()
-            .copied()
-            .min_by_key(|&enc| encoded_size_u32(data, enc))
-            .unwrap_or_else(IntEncoder::fastpfor)
-    }
-    pub fn compete_u64(candidates: &[IntEncoder], data: &[u64]) -> IntEncoder {
-        candidates
-            .iter()
-            .copied()
-            .min_by_key(|&enc| encoded_size_u64(data, enc))
-            .unwrap_or_else(IntEncoder::varint)
-    }
-
     /// Return the list of `Encoder` variants worth trying for `u32` data given the
     /// supplied profile.
     ///
@@ -151,8 +143,8 @@ impl DataProfile {
     fn candidates(&self, fastpfor_is_allowed: bool) -> Vec<IntEncoder> {
         let mut out = Vec::with_capacity(8);
 
-        // DeltaRle – only when both transforms pay off.
-        if self.delta_is_beneficial() && self.rle_is_viable() {
+        // DeltaRle – when delta pays off AND either raw or delta-transformed values have runs.
+        if self.delta_is_beneficial() && (self.rle_is_viable() || self.delta_rle_is_viable()) {
             if fastpfor_is_allowed {
                 out.push(IntEncoder::delta_rle_fastpfor());
             }
@@ -193,6 +185,15 @@ impl DataProfile {
         self.avg_run_length >= RLE_MIN_AVG_RUN_LENGTH
     }
 
+    /// Returns `true` if RLE on the delta-transformed stream is viable.
+    ///
+    /// For sequential or constant-delta data the raw values are all distinct
+    /// but the zigzag-delta values are identical, making `DeltaRle` optimal.
+    #[must_use]
+    fn delta_rle_is_viable(&self) -> bool {
+        self.delta_avg_run_length >= RLE_MIN_AVG_RUN_LENGTH
+    }
+
     /// Returns `true` if Delta encoding is expected to be beneficial.
     #[must_use]
     fn delta_is_beneficial(&self) -> bool {
@@ -225,48 +226,27 @@ fn sample_size(len: usize) -> usize {
     }
 }
 
-/// Encode `values` with `encoder` and return the number of bytes in the
-/// physical payload (excluding stream metadata).
-///
-/// Returns `usize::MAX` on error so that a broken candidate is always ranked
-/// last.
-fn encoded_size_u32(values: &[u32], encoder: IntEncoder) -> usize {
-    let result: MltResult<_> = (|| {
-        let (physical_u32s, _logical_enc) = encoder.logical.encode_u32s(values)?;
-        let (data, _physical_enc) = encoder.physical.encode_u32s(physical_u32s)?;
-        Ok(data_byte_len(data))
-    })();
-    result.unwrap_or(usize::MAX)
-}
-
-fn encoded_size_u64(values: &[u64], encoder: IntEncoder) -> usize {
-    let result: MltResult<_> = (|| {
-        let (physical_u64s, _logical_enc) = encoder.logical.encode_u64s(values)?;
-        let (data, _physical_enc) = encoder.physical.encode_u64s(physical_u64s)?;
-        Ok(data_byte_len(data))
-    })();
-    result.unwrap_or(usize::MAX)
-}
-
-/// Return the byte length stored inside an `EncodedStreamData`.
-fn data_byte_len(data: EncodedStreamData) -> usize {
-    match data {
-        EncodedStreamData::VarInt(v) | EncodedStreamData::Encoded(v) => v.len(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::v01::PhysicalEncoder;
+    use crate::encoder::PhysicalEncoder;
 
     #[test]
     fn candidates_rle_excluded_when_short_runs() {
-        // All-distinct stream → avg_run_length == 1 → no RLE candidate.
+        // All-distinct stream -> avg_run_length == 1 -> no raw-RLE candidate.
+        // But sequential data has constant deltas -> DeltaRle IS included.
         let data: Vec<u32> = (0..100).collect();
         let candidates = DataProfile::prune_candidates::<i32>(&data);
         insta::assert_debug_snapshot!(candidates, @"
         [
+            IntEncoder {
+                logical: DeltaRle,
+                physical: FastPFOR,
+            },
+            IntEncoder {
+                logical: DeltaRle,
+                physical: VarInt,
+            },
             IntEncoder {
                 logical: Delta,
                 physical: FastPFOR,
@@ -303,6 +283,10 @@ mod tests {
         insta::assert_debug_snapshot!(candidates, @"
         [
             IntEncoder {
+                logical: DeltaRle,
+                physical: VarInt,
+            },
+            IntEncoder {
                 logical: Delta,
                 physical: VarInt,
             },
@@ -312,16 +296,22 @@ mod tests {
             },
         ]
         ");
-        let enc = DataProfile::compete_u64(&candidates, &data);
-        assert_eq!(enc, IntEncoder::delta_varint());
     }
 
     #[test]
-    fn select_u32_sequential_picks_delta() {
+    fn select_u32_sequential_picks_delta_rle() {
         let data: Vec<u32> = (0..1_000).collect();
-        let enc = DataProfile::prune_candidates::<i32>(&data);
-        insta::assert_debug_snapshot!(enc, @"
+        let candidates = DataProfile::prune_candidates::<i32>(&data);
+        insta::assert_debug_snapshot!(candidates, @"
         [
+            IntEncoder {
+                logical: DeltaRle,
+                physical: FastPFOR,
+            },
+            IntEncoder {
+                logical: DeltaRle,
+                physical: VarInt,
+            },
             IntEncoder {
                 logical: Delta,
                 physical: FastPFOR,
@@ -340,8 +330,6 @@ mod tests {
             },
         ]
         ");
-        let enc = DataProfile::compete_u32(&enc, &data);
-        assert_eq!(enc, IntEncoder::delta_fastpfor());
     }
 
     #[test]
@@ -384,16 +372,18 @@ mod tests {
             },
         ]
         ");
-        let enc = DataProfile::compete_u32(&enc, &data);
-        assert_eq!(enc, IntEncoder::rle_varint());
     }
 
     #[test]
-    fn select_u64_sequential_picks_delta() {
+    fn select_u64_sequential_picks_delta_rle() {
         let data: Vec<u64> = (0u64..500).collect();
-        let enc = DataProfile::prune_candidates::<i64>(&data);
-        insta::assert_debug_snapshot!(enc, @"
+        let candidates = DataProfile::prune_candidates::<i64>(&data);
+        insta::assert_debug_snapshot!(candidates, @"
         [
+            IntEncoder {
+                logical: DeltaRle,
+                physical: VarInt,
+            },
             IntEncoder {
                 logical: Delta,
                 physical: VarInt,
@@ -404,23 +394,17 @@ mod tests {
             },
         ]
         ");
-        let enc = DataProfile::compete_u64(&enc, &data);
-        assert_eq!(enc, IntEncoder::delta_varint());
     }
 
     #[test]
     fn select_u32_empty_fallback() {
         let enc = DataProfile::prune_candidates::<i32>(&[]);
         assert_eq!(enc, vec![IntEncoder::plain()]);
-        let enc = DataProfile::compete_u64(&enc, &[]);
-        assert_eq!(enc, IntEncoder::plain());
     }
 
     #[test]
     fn select_u64_empty_fallback() {
         let enc = DataProfile::prune_candidates::<i64>(&[]);
         assert_eq!(enc, vec![IntEncoder::plain()]);
-        let enc = DataProfile::compete_u32(&enc, &[]);
-        assert_eq!(enc, IntEncoder::plain());
     }
 }

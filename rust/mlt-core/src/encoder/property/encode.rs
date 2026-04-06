@@ -1,168 +1,265 @@
-use super::model::{
-    EncodedName, EncodedPresence, EncodedProperty, EncodedScalar, EncodedStrings, PresenceKind,
-    PropertyEncoder, ScalarEncoder, ScalarValueEncoder, StagedProperty, StrEncoder,
-};
-use super::strings::encode_shared_dict_prop;
-use crate::MltError::{
-    EncodingInstructionCountMismatch, NotImplemented, UnsupportedPropertyEncoderCombination,
-};
+use super::model::{PresenceKind, StagedProperty};
+use super::strings::write_str_col;
+use crate::MltError::NotImplemented;
 use crate::MltResult;
-use crate::v01::{DictionaryType, EncodedStream, LengthType};
+use crate::decoder::{ColumnType, DictionaryType, StreamType};
+use crate::encoder::model::StreamCtx;
+use crate::encoder::property::shared_dict::write_shared_dict;
+use crate::encoder::stream::{
+    write_i32_stream, write_i64_stream, write_u32_stream, write_u64_stream,
+};
+use crate::encoder::{EncodedStream, Encoder, StagedScalar, StagedStrings};
+use crate::utils::BinarySerializer as _;
 
-pub fn encode_properties(
-    value: &[StagedProperty],
-    encoders: Vec<PropertyEncoder>,
-) -> MltResult<Vec<Option<EncodedProperty>>> {
-    if value.len() != encoders.len() {
-        return Err(EncodingInstructionCountMismatch {
-            input_len: value.len(),
-            config_len: encoders.len(),
-        });
+/// Encode all property columns and write them to `enc`.
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+pub fn write_properties(props: &[StagedProperty], enc: &mut Encoder) -> MltResult<()> {
+    for prop in props {
+        write_prop(prop, enc)?;
+    }
+    Ok(())
+}
+
+/// Encode a single property column, dispatching on variant.
+///
+/// Returns `false` when the column is omitted (empty or all-null).
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
+    use ColumnType as CT;
+    use StagedProperty as D;
+
+    let ctx = StreamCtx::prop(StreamType::Present, prop.name());
+    let has_presence = if matches!(prop, StagedProperty::SharedDict(_)) {
+        false
+    } else {
+        match prop.presence() {
+            PresenceKind::Empty => return Ok(false),
+            PresenceKind::Mixed => true,
+            PresenceKind::AllNull => {
+                if enc.override_presence(&ctx) {
+                    true
+                } else {
+                    return Ok(false);
+                }
+            }
+            PresenceKind::AllPresent => enc.override_presence(&ctx),
+        }
+    };
+
+    let presence = if has_presence {
+        Some(EncodedStream::encode_presence(&prop.as_presence_stream()?)?)
+    } else {
+        None
+    };
+    let presence = presence.as_ref();
+
+    match prop {
+        D::Bool(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptBool, CT::Bool, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            enc.write_optional_stream(presence)?;
+            enc.write_boolean_stream(&EncodedStream::encode_bools(&unapply_presence(&v.values))?)?;
+        }
+        D::F32(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptF32, CT::F32, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            enc.write_optional_stream(presence)?;
+            enc.write_stream(&EncodedStream::encode_f32(&unapply_presence(&v.values))?)?;
+        }
+        D::F64(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptF64, CT::F64, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            enc.write_optional_stream(presence)?;
+            enc.write_stream(&EncodedStream::encode_f64(&unapply_presence(&v.values))?)?;
+        }
+        D::I8(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptI8, CT::I8, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            enc.write_optional_stream(presence)?;
+            let non_null: Vec<i8> = unapply_presence(&v.values);
+            let widened: Vec<i32> = non_null.iter().map(|&v1| i32::from(v1)).collect();
+            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
+            write_i32_stream(&widened, &ctx, enc)?;
+        }
+        D::U8(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptU8, CT::U8, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            enc.write_optional_stream(presence)?;
+            let non_null: Vec<u8> = unapply_presence(&v.values);
+            let widened: Vec<u32> = non_null.iter().map(|&v1| u32::from(v1)).collect();
+            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
+            write_u32_stream(&widened, &ctx, enc)?;
+        }
+        D::I32(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptI32, CT::I32, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            enc.write_optional_stream(presence)?;
+            let non_null: Vec<i32> = unapply_presence(&v.values);
+            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
+            write_i32_stream(&non_null, &ctx, enc)?;
+        }
+        D::U32(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptU32, CT::U32, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            enc.write_optional_stream(presence)?;
+            let non_null: Vec<u32> = unapply_presence(&v.values);
+            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
+            write_u32_stream(&non_null, &ctx, enc)?;
+        }
+        D::I64(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptI64, CT::I64, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            enc.write_optional_stream(presence)?;
+            let non_null: Vec<i64> = unapply_presence(&v.values);
+            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
+            write_i64_stream(&non_null, &ctx, enc)?;
+        }
+        D::U64(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptU64, CT::U64, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            enc.write_optional_stream(presence)?;
+            let non_null: Vec<u64> = unapply_presence(&v.values);
+            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
+            write_u64_stream(&non_null, &ctx, enc)?;
+        }
+        D::Str(v) => {
+            CT::write_one_of(presence.is_some(), CT::OptStr, CT::Str, &mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            write_str_col(v, presence, enc)?;
+        }
+        D::SharedDict(v) => {
+            // return right away - skip adding column count
+            return write_shared_dict(v, enc);
+        }
+    }
+    enc.increment_column_count();
+    Ok(true)
+}
+
+pub(crate) fn unapply_presence<T: Clone>(v: &[Option<T>]) -> Vec<T> {
+    v.iter().filter_map(|x| x.as_ref()).cloned().collect()
+}
+
+impl StagedProperty {
+    pub(crate) fn as_presence_stream(&self) -> MltResult<Vec<bool>> {
+        Ok(match self {
+            Self::Bool(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::I8(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::U8(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::I32(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::U32(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::I64(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::U64(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::F32(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::F64(v) => v.values.iter().map(Option::is_some).collect(),
+            Self::Str(v) => v.presence_bools(),
+            Self::SharedDict(..) => {
+                return Err(NotImplemented("presence stream for shared dict"));
+            }
+        })
     }
 
-    let mut result = Vec::with_capacity(value.len());
+    #[must_use]
+    pub fn bool(name: impl Into<String>, values: Vec<Option<bool>>) -> Self {
+        Self::Bool(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn i8(name: impl Into<String>, values: Vec<Option<i8>>) -> Self {
+        Self::I8(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn u8(name: impl Into<String>, values: Vec<Option<u8>>) -> Self {
+        Self::U8(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn i32(name: impl Into<String>, values: Vec<Option<i32>>) -> Self {
+        Self::I32(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn u32(name: impl Into<String>, values: Vec<Option<u32>>) -> Self {
+        Self::U32(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn i64(name: impl Into<String>, values: Vec<Option<i64>>) -> Self {
+        Self::I64(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn u64(name: impl Into<String>, values: Vec<Option<u64>>) -> Self {
+        Self::U64(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn f32(name: impl Into<String>, values: Vec<Option<f32>>) -> Self {
+        Self::F32(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn f64(name: impl Into<String>, values: Vec<Option<f64>>) -> Self {
+        Self::F64(StagedScalar {
+            name: name.into(),
+            values,
+        })
+    }
+    #[must_use]
+    pub fn str(name: impl Into<String>, values: Vec<Option<String>>) -> Self {
+        Self::Str(StagedStrings::from_optional(name, values))
+    }
 
-    for (prop, encoder) in value.iter().zip(encoders) {
-        match encoder {
-            PropertyEncoder::Scalar(enc) => {
-                result.push(EncodedProperty::encode(prop, enc)?);
-            }
-            PropertyEncoder::SharedDict(enc) => {
-                let StagedProperty::SharedDict(shared_dict) = prop else {
-                    return Err(UnsupportedPropertyEncoderCombination(
-                        prop.into(),
-                        "shared_dict",
-                    ));
-                };
-                result.push(encode_shared_dict_prop(shared_dict, &enc)?);
-            }
+    #[must_use]
+    pub fn presence(&self) -> PresenceKind {
+        match self {
+            Self::Bool(v) => presence_of_options(&v.values),
+            Self::I8(v) => presence_of_options(&v.values),
+            Self::U8(v) => presence_of_options(&v.values),
+            Self::I32(v) => presence_of_options(&v.values),
+            Self::U32(v) => presence_of_options(&v.values),
+            Self::I64(v) => presence_of_options(&v.values),
+            Self::U64(v) => presence_of_options(&v.values),
+            Self::F32(v) => presence_of_options(&v.values),
+            Self::F64(v) => presence_of_options(&v.values),
+            Self::Str(v) => v.presence(),
+            Self::SharedDict(..) => PresenceKind::Empty,
         }
     }
 
-    Ok(result)
-}
-
-impl EncodedProperty {
-    pub(crate) fn encode(
-        value: &StagedProperty,
-        encoder: ScalarEncoder,
-    ) -> MltResult<Option<Self>> {
-        use PresenceKind as Kind;
-        use StagedProperty as D;
-
-        let kind = value.presence();
-
-        #[cfg(feature = "__private")]
-        let kind = if encoder.forced_presence {
-            Kind::Mixed
-        } else {
-            kind
-        };
-
-        let presence = match kind {
-            Kind::Mixed => Some(EncodedStream::encode_presence(
-                &value.as_presence_stream()?,
-            )?),
-            Kind::AllPresent => None,
-            Kind::Empty | Kind::AllNull => return Ok(None),
-        };
-
-        let mk_scalar =
-            |name: &str, presence: Option<EncodedStream>, data: EncodedStream| EncodedScalar {
-                name: EncodedName(name.to_string()),
-                presence: EncodedPresence(presence),
-                data,
-            };
-
-        Ok(Some(match (value, encoder.value) {
-            (D::Bool(v), ScalarValueEncoder::Bool) => Self::Bool(mk_scalar(
-                &v.name,
-                presence,
-                EncodedStream::encode_bools(&unapply_presence(&v.values))?,
-            )),
-            (D::I8(v), ScalarValueEncoder::Int(enc)) => Self::I8(mk_scalar(
-                &v.name,
-                presence,
-                EncodedStream::encode_i8s(&unapply_presence(&v.values), enc)?,
-            )),
-            (D::U8(v), ScalarValueEncoder::Int(enc)) => Self::U8(mk_scalar(
-                &v.name,
-                presence,
-                EncodedStream::encode_u8s(&unapply_presence(&v.values), enc)?,
-            )),
-            (D::I32(v), ScalarValueEncoder::Int(enc)) => Self::I32(mk_scalar(
-                &v.name,
-                presence,
-                EncodedStream::encode_i32s(&unapply_presence(&v.values), enc)?,
-            )),
-            (D::U32(v), ScalarValueEncoder::Int(enc)) => Self::U32(mk_scalar(
-                &v.name,
-                presence,
-                EncodedStream::encode_u32s(&unapply_presence(&v.values), enc)?,
-            )),
-            (D::I64(v), ScalarValueEncoder::Int(enc)) => Self::I64(mk_scalar(
-                &v.name,
-                presence,
-                EncodedStream::encode_i64s(&unapply_presence(&v.values), enc)?,
-            )),
-            (D::U64(v), ScalarValueEncoder::Int(enc)) => Self::U64(mk_scalar(
-                &v.name,
-                presence,
-                EncodedStream::encode_u64s(&unapply_presence(&v.values), enc)?,
-            )),
-            (D::F32(v), ScalarValueEncoder::Float) => Self::F32(mk_scalar(
-                &v.name,
-                presence,
-                EncodedStream::encode_f32(&unapply_presence(&v.values))?,
-            )),
-            (D::F64(v), ScalarValueEncoder::Float) => Self::F64(mk_scalar(
-                &v.name,
-                presence,
-                EncodedStream::encode_f64(&unapply_presence(&v.values))?,
-            )),
-            (D::Str(v), ScalarValueEncoder::String(enc)) => {
-                let dense_values = v.dense_values();
-                Self::Str(EncodedStrings {
-                    name: EncodedName(v.name.clone()),
-                    presence: EncodedPresence(presence),
-                    encoding: match enc {
-                        StrEncoder::Plain { string_lengths } => {
-                            EncodedStream::encode_strings_with_type(
-                                &dense_values,
-                                string_lengths,
-                                LengthType::VarBinary,
-                                DictionaryType::None,
-                            )?
-                        }
-                        StrEncoder::Dict {
-                            string_lengths,
-                            offsets,
-                        } => EncodedStream::encode_strings_dict(
-                            &dense_values,
-                            string_lengths,
-                            offsets,
-                        )?,
-                        StrEncoder::Fsst(enc) => EncodedStream::encode_strings_fsst_with_type(
-                            &dense_values,
-                            enc,
-                            DictionaryType::Single,
-                        )?,
-                        StrEncoder::FsstDict { fsst, offsets } => {
-                            EncodedStream::encode_strings_fsst_dict(&dense_values, fsst, offsets)?
-                        }
-                    },
-                })
-            }
-            (D::SharedDict(..), _) => Err(NotImplemented(
-                "SharedDict cannot be encoded via ScalarEncoder",
-            ))?,
-            (v, e) => Err(UnsupportedPropertyEncoderCombination(v.into(), e.into()))?,
-        }))
+    #[must_use]
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Bool(v) => &v.name,
+            Self::I8(v) => &v.name,
+            Self::U8(v) => &v.name,
+            Self::I32(v) => &v.name,
+            Self::U32(v) => &v.name,
+            Self::I64(v) => &v.name,
+            Self::U64(v) => &v.name,
+            Self::F32(v) => &v.name,
+            Self::F64(v) => &v.name,
+            Self::Str(v) => &v.name,
+            Self::SharedDict(v) => &v.prefix,
+        }
     }
-}
-
-fn unapply_presence<T: Clone>(v: &[Option<T>]) -> Vec<T> {
-    v.iter().filter_map(|x| x.as_ref()).cloned().collect()
 }
 
 fn presence_of_options<T>(values: &[Option<T>]) -> PresenceKind {
@@ -183,58 +280,5 @@ fn presence_of_options<T>(values: &[Option<T>]) -> PresenceKind {
         (false, true) => PresenceKind::AllPresent,
         (true, false) => PresenceKind::AllNull,
         (true, true) => unreachable!("early return handles Mixed"),
-    }
-}
-
-impl StagedProperty {
-    fn as_presence_stream(&self) -> MltResult<Vec<bool>> {
-        Ok(match self {
-            Self::Bool(v) => v.values.iter().map(Option::is_some).collect(),
-            Self::I8(v) => v.values.iter().map(Option::is_some).collect(),
-            Self::U8(v) => v.values.iter().map(Option::is_some).collect(),
-            Self::I32(v) => v.values.iter().map(Option::is_some).collect(),
-            Self::U32(v) => v.values.iter().map(Option::is_some).collect(),
-            Self::I64(v) => v.values.iter().map(Option::is_some).collect(),
-            Self::U64(v) => v.values.iter().map(Option::is_some).collect(),
-            Self::F32(v) => v.values.iter().map(Option::is_some).collect(),
-            Self::F64(v) => v.values.iter().map(Option::is_some).collect(),
-            Self::Str(v) => v.presence_bools(),
-            Self::SharedDict(..) => Err(NotImplemented("presence stream for shared dict"))?,
-        })
-    }
-
-    #[must_use]
-    pub fn presence(&self) -> PresenceKind {
-        match self {
-            Self::Bool(v) => presence_of_options(&v.values),
-            Self::I8(v) => presence_of_options(&v.values),
-            Self::U8(v) => presence_of_options(&v.values),
-            Self::I32(v) => presence_of_options(&v.values),
-            Self::U32(v) => presence_of_options(&v.values),
-            Self::I64(v) => presence_of_options(&v.values),
-            Self::U64(v) => presence_of_options(&v.values),
-            Self::F32(v) => presence_of_options(&v.values),
-            Self::F64(v) => presence_of_options(&v.values),
-            Self::Str(v) => v.presence(),
-            Self::SharedDict(..) => PresenceKind::Empty,
-        }
-    }
-
-    /// Returns the column name regardless of variant.
-    #[must_use]
-    pub fn name(&self) -> &str {
-        match self {
-            Self::Bool(v) => &v.name,
-            Self::I8(v) => &v.name,
-            Self::U8(v) => &v.name,
-            Self::I32(v) => &v.name,
-            Self::U32(v) => &v.name,
-            Self::I64(v) => &v.name,
-            Self::U64(v) => &v.name,
-            Self::F32(v) => &v.name,
-            Self::F64(v) => &v.name,
-            Self::Str(v) => &v.name,
-            Self::SharedDict(v) => &v.prefix,
-        }
     }
 }

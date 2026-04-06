@@ -1,22 +1,32 @@
-use std::io;
-use std::io::Write;
+use integer_encoding::VarIntWriter as _;
 
-use crate::encoder::model::{EncodedLayer, EncodedUnknown};
-use crate::frames::Unknown;
+use crate::MltResult;
+use crate::decoder::Unknown;
+use crate::encoder::Encoder;
+use crate::encoder::model::EncodedUnknown;
+use crate::utils::{BinarySerializer as _, checked_sum2};
 
-impl Unknown<'_> {
-    /// Write Unknown's binary representation to a Write stream
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        writer.write_all(self.value)
+impl EncodedUnknown {
+    /// Serialize an unknown layer record directly to [`enc.data`](Encoder::data).
+    ///
+    /// Writes the complete `[varint(size)][tag][value]` record — the bytes are
+    /// already in wire format so no `hdr`/`meta` split is needed.
+    pub fn write_to(&self, mut enc: Encoder) -> MltResult<Encoder> {
+        let buffer_len = u32::try_from(self.value.len())?;
+        let size = checked_sum2(buffer_len, 1)?;
+        enc.write_varint(size)?;
+        enc.write_u8(self.tag)?;
+        enc.data.extend_from_slice(&self.value);
+        Ok(enc)
     }
 }
 
-impl<'a> From<Unknown<'a>> for EncodedLayer {
+impl<'a> From<Unknown<'a>> for EncodedUnknown {
     fn from(u: Unknown<'a>) -> Self {
-        Self::Unknown(EncodedUnknown {
+        Self {
             tag: u.tag,
             value: u.value.to_vec(),
-        })
+        }
     }
 }
 

@@ -14,11 +14,10 @@ use globset::{GlobSet, GlobSetBuilder};
 use mlt_core::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
-use mlt_core::v01::{
-    DictionaryType, GeometryType, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
-    StreamMeta, StreamType,
+use mlt_core::{
+    Analyze as _, Decoder, DictionaryType, GeometryType, LengthType, LogicalEncoding, OffsetType,
+    Parser, PhysicalEncoding, StreamMeta, StreamType,
 };
-use mlt_core::{Analyze as _, Decoder, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use size_format::SizeFormatterSI;
