@@ -6,5 +6,4 @@ mod model;
 mod parse;
 mod physical;
 
-pub use logical::LogicalEncoder;
 pub use model::*;
