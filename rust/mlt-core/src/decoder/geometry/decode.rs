@@ -333,15 +333,25 @@ impl<'a> RawGeometry<'a> {
             && let Some(dict) = vertices.as_deref()
         {
             dec.consume_items::<[i32; 2]>(offsets.len())?;
-            vertices = Some(
-                offsets
-                    .iter()
-                    .flat_map(|&i| {
-                        let i = i.as_usize();
-                        [dict[i * 2], dict[i * 2 + 1]]
-                    })
-                    .collect(),
-            );
+            // SAFETY:
+            // Check before multiplying: i < dict_vertex_count guarantees
+            // i * 2 + 1 < dict.len() with no risk of overflow, because
+            // Rust limits Vec::len() to isize::MAX, so
+            // dict_vertex_count <= isize::MAX / 2, meaning
+            // i * 2 + 1 <= isize::MAX < usize::MAX.
+            let dict_vertex_count = dict.len() / 2;
+            vertices = Some(offsets.iter().try_fold(
+                Vec::with_capacity(offsets.len() * 2),
+                |mut acc, &idx| -> MltResult<_> {
+                    let i = idx.as_usize();
+                    if i >= dict_vertex_count {
+                        return Err(MltError::DictIndexOutOfBounds(idx, dict_vertex_count));
+                    }
+                    acc.push(dict[i * 2]);
+                    acc.push(dict[i * 2 + 1]);
+                    Ok(acc)
+                },
+            )?);
         }
 
         Ok(GeometryValues {
