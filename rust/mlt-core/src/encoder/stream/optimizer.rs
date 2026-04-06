@@ -233,8 +233,8 @@ mod tests {
 
     #[test]
     fn candidates_rle_excluded_when_short_runs() {
-        // All-distinct stream → avg_run_length == 1 → no raw-RLE candidate.
-        // But sequential data has constant deltas → DeltaRle IS included.
+        // All-distinct stream -> avg_run_length == 1 -> no raw-RLE candidate.
+        // But sequential data has constant deltas -> DeltaRle IS included.
         let data: Vec<u32> = (0..100).collect();
         let candidates = DataProfile::prune_candidates::<i32>(&data);
         insta::assert_debug_snapshot!(candidates, @"
