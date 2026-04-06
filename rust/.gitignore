@@ -9,3 +9,4 @@ target/
 temp/
 tmp/
 venv/
+rustc-ice-*.txt
