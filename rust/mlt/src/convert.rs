@@ -114,7 +114,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             );
         }
         return tokio::runtime::Builder::new_current_thread()
-            .enable_all()
+            .enable_io()
+            .enable_time()
             .build()?
             .block_on(convert_mbtiles_async(args, cfg));
     }
