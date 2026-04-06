@@ -85,6 +85,14 @@ pub struct FsstRawData {
 pub fn compress_fsst<S: AsRef<str>>(values: &[S]) -> FsstRawData {
     let byte_slices: Vec<&[u8]> = values.iter().map(|s| s.as_ref().as_bytes()).collect();
     let compressor = fsst::Compressor::train(&byte_slices);
+    compress_fsst_with(values, &compressor)
+}
+
+/// Like [`compress_fsst`] but reuses an already-trained [`Compressor`].
+pub fn compress_fsst_with<S: AsRef<str>>(
+    values: &[S],
+    compressor: &fsst::Compressor,
+) -> FsstRawData {
     let symbols = compressor.symbol_table();
     let symbol_lengths_u8 = compressor.symbol_lengths();
 

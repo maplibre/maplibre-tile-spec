@@ -3,7 +3,7 @@ use integer_encoding::VarIntWriter as _;
 
 use super::model::{PresenceKind, StagedStrings};
 use crate::MltResult;
-use crate::codecs::fsst::{FsstRawData, compress_fsst};
+use crate::codecs::fsst::{FsstRawData, compress_fsst, compress_fsst_with};
 use crate::decoder::strings::{checked_string_end, encode_null_end};
 use crate::decoder::{DictionaryType, IntEncoding, LengthType, OffsetType, StreamMeta, StreamType};
 use crate::encoder::model::{StrEncoding, StreamCtx};
@@ -16,11 +16,15 @@ const FSST_OVERHEAD_THRESHOLD: usize = 4_096;
 /// Maximum number of strings sampled for the FSST viability probe.
 const FSST_SAMPLE_STRINGS: usize = 512;
 
-/// Returns `true` when FSST compression is likely to save space on `strings`.
+/// Train an FSST compressor and return it when compression is likely to save space.
+///
+/// Returns `None` when the column is empty, too small for FSST overhead to pay off,
+/// or when trial compression shows no benefit. The returned [`Compressor`] is reused
+/// by `write_str_fsst` / `write_str_fsst_dict` to avoid a redundant training pass.
 #[cfg_attr(feature = "__hotpath", hotpath::measure)]
-pub(crate) fn fsst_is_viable(strings: &[&str]) -> bool {
+pub(crate) fn fsst_try_train(strings: &[&str]) -> Option<Compressor> {
     if strings.is_empty() {
-        return false;
+        return None;
     }
     let sample = if strings.len() <= FSST_SAMPLE_STRINGS {
         strings
@@ -29,7 +33,7 @@ pub(crate) fn fsst_is_viable(strings: &[&str]) -> bool {
     };
     let plain_size: usize = sample.iter().map(|s| s.len()).sum();
     if plain_size < FSST_OVERHEAD_THRESHOLD {
-        return false;
+        return None;
     }
     let byte_slices: Vec<&[u8]> = sample.iter().map(|s| s.as_bytes()).collect();
     let compressor = Compressor::train(&byte_slices);
@@ -44,7 +48,11 @@ pub(crate) fn fsst_is_viable(strings: &[&str]) -> bool {
         .iter()
         .map(|s| compressor.compress(s.as_bytes()).len())
         .sum();
-    symbol_overhead + compressed_size < plain_size
+    if symbol_overhead + compressed_size < plain_size {
+        Some(compressor)
+    } else {
+        None
+    }
 }
 
 /// Encode a string column, following the same explicit-or-auto pattern as numeric columns.
@@ -72,10 +80,11 @@ pub(crate) fn write_str_col(
         alt.with(|enc| write_str_plain(&non_null, presence, name, enc))?;
         alt.with(|enc| write_str_dict(&non_null, presence, name, enc))?;
 
-        if fsst_is_viable(&non_null) {
-            // Re-training FSST per candidate is expensive; use one flat candidate per type.
-            alt.with(|enc| write_str_fsst(&non_null, presence, name, enc))?;
-            alt.with(|enc| write_str_fsst_dict(&non_null, presence, name, enc))?;
+        if let Some(compressor) = fsst_try_train(&non_null) {
+            alt.with(|enc| write_str_fsst_with(&non_null, &compressor, presence, name, enc))?;
+            alt.with(|enc| {
+                write_str_fsst_dict_with(&non_null, &compressor, presence, name, enc)
+            })?;
         }
     }
     Ok(())
@@ -122,9 +131,10 @@ fn write_str_dict(
     write_raw_str_data(&unique, DictionaryType::Single, enc)
 }
 
-/// Encode with FSST compression (sub-streams use the auto/override pattern; no int-encoder competition).
+/// Encode with FSST compression, training a fresh compressor.
 ///
-/// The offset stream also uses [`write_u32_stream`] for explicit/auto dispatch.
+/// Used by the explicit-encoder path. The auto path uses [`write_str_fsst_with`]
+/// to reuse the compressor from the viability probe.
 #[cfg_attr(feature = "__hotpath", hotpath::measure)]
 fn write_str_fsst(
     non_null: &[&str],
@@ -133,15 +143,42 @@ fn write_str_fsst(
     enc: &mut Encoder,
 ) -> MltResult<()> {
     let raw = compress_fsst(non_null);
-    let offsets: Vec<u32> = (0..u32::try_from(non_null.len())?).collect();
+    write_str_fsst_raw(&raw, non_null.len(), presence, name, enc)
+}
+
+/// Encode with FSST compression, reusing an already-trained compressor.
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+fn write_str_fsst_with(
+    non_null: &[&str],
+    compressor: &Compressor,
+    presence: Option<&EncodedStream>,
+    name: &str,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let raw = compress_fsst_with(non_null, compressor);
+    write_str_fsst_raw(&raw, non_null.len(), presence, name, enc)
+}
+
+/// Shared FSST write logic for both fresh and reused compressor paths.
+fn write_str_fsst_raw(
+    raw: &FsstRawData,
+    count: usize,
+    presence: Option<&EncodedStream>,
+    name: &str,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let offsets: Vec<u32> = (0..u32::try_from(count)?).collect();
     enc.write_varint(5u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
-    write_fsst_data(&raw, DictionaryType::Single, name, enc)?;
+    write_fsst_data(raw, DictionaryType::Single, name, enc)?;
     let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
     write_u32_stream(&offsets, &ctx, enc)
 }
 
-/// Encode with FSST + dictionary layout (deduped unique strings, per-feature offset indices).
+/// Encode with FSST + dictionary layout, training a fresh compressor.
+///
+/// Used by the explicit-encoder path. The auto path uses [`write_str_fsst_dict_with`]
+/// to reuse the compressor from the viability probe.
 #[cfg_attr(feature = "__hotpath", hotpath::measure)]
 fn write_str_fsst_dict(
     non_null: &[&str],
@@ -151,11 +188,36 @@ fn write_str_fsst_dict(
 ) -> MltResult<()> {
     let (unique, offset_indices) = dedup_strings(non_null)?;
     let raw = compress_fsst(&unique);
+    write_str_fsst_dict_raw(&raw, &offset_indices, presence, name, enc)
+}
+
+/// Encode with FSST + dictionary layout, reusing an already-trained compressor.
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+fn write_str_fsst_dict_with(
+    non_null: &[&str],
+    compressor: &Compressor,
+    presence: Option<&EncodedStream>,
+    name: &str,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let (unique, offset_indices) = dedup_strings(non_null)?;
+    let raw = compress_fsst_with(&unique, compressor);
+    write_str_fsst_dict_raw(&raw, &offset_indices, presence, name, enc)
+}
+
+/// Shared FSST+dict write logic for both fresh and reused compressor paths.
+fn write_str_fsst_dict_raw(
+    raw: &FsstRawData,
+    offset_indices: &[u32],
+    presence: Option<&EncodedStream>,
+    name: &str,
+    enc: &mut Encoder,
+) -> MltResult<()> {
     enc.write_varint(5u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
-    write_fsst_data(&raw, DictionaryType::Single, name, enc)?;
+    write_fsst_data(raw, DictionaryType::Single, name, enc)?;
     let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
-    write_u32_stream(&offset_indices, &ctx, enc)
+    write_u32_stream(offset_indices, &ctx, enc)
 }
 
 /// Write 4 FSST sub-streams directly to `enc.data`.
