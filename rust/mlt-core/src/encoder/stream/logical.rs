@@ -32,90 +32,128 @@ pub enum LogicalEncoder {
     // FIXME: add more of the LogicalEncoding strategies
 }
 impl LogicalEncoder {
-    /// Logically encode `u32` values, returning the physically-stored sequence and the concrete decoder.
+    /// Logically encode `u32` values into `target`.
     ///
-    /// [`LogicalEncoding`] is derived from the actual data.
+    /// `target` is treated as a scratch buffer: it is cleared before writing.
+    /// After the call, `target` holds the physically-stored sequence.
     /// See [`LogicalValue::decode_u32`] for the reverse operation.
-    pub fn encode_u32s(self, values: &[u32]) -> MltResult<(Vec<u32>, LogicalEncoding)> {
+    pub fn encode_u32s(self, values: &[u32], target: &mut Vec<u32>) -> MltResult<LogicalEncoding> {
+        target.clear();
         match self {
-            Self::None => Ok((values.to_vec(), LogicalEncoding::None)),
+            Self::None => {
+                target.extend_from_slice(values);
+                Ok(LogicalEncoding::None)
+            }
             Self::Delta => {
-                let values = values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>();
-                let u32s = encode_zigzag_delta(&values);
-                Ok((u32s, LogicalEncoding::Delta))
+                let i32s: Vec<i32> = values.iter().map(|&v| v.cast_signed()).collect();
+                target.extend_from_slice(&encode_zigzag_delta(&i32s));
+                Ok(LogicalEncoding::Delta)
             }
             Self::Rle => {
                 let (u32s, meta) = apply_rle(values, values.len())?;
-                Ok((u32s, LogicalEncoding::Rle(meta)))
+                target.extend_from_slice(&u32s);
+                Ok(LogicalEncoding::Rle(meta))
             }
             Self::DeltaRle => {
-                let values = values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>();
-                let delta = encode_zigzag_delta(&values);
+                let i32s: Vec<i32> = values.iter().map(|&v| v.cast_signed()).collect();
+                let delta = encode_zigzag_delta(&i32s);
                 let (u32s, meta) = apply_rle(&delta, values.len())?;
-                Ok((u32s, LogicalEncoding::DeltaRle(meta)))
+                target.extend_from_slice(&u32s);
+                Ok(LogicalEncoding::DeltaRle(meta))
             }
         }
     }
 
-    /// Logically encode `i32` values into the `u32` physical representation.
+    /// Logically encode `i32` values into `target` (u32 physical representation).
     ///
-    /// [`LogicalEncoding`] is derived from the actual data.
+    /// `target` is treated as a scratch buffer: it is cleared before writing.
+    /// After the call, `target` holds the physically-stored sequence.
     /// See [`LogicalValue::decode_i32`] for the reverse operation.
-    pub fn encode_i32s(self, values: &[i32]) -> MltResult<(Vec<u32>, LogicalEncoding)> {
+    pub fn encode_i32s(self, values: &[i32], target: &mut Vec<u32>) -> MltResult<LogicalEncoding> {
+        target.clear();
         match self {
-            Self::None => Ok((encode_zigzag(values), LogicalEncoding::None)),
-            Self::Delta => Ok((encode_zigzag_delta(values), LogicalEncoding::Delta)),
+            Self::None => {
+                target.extend_from_slice(&encode_zigzag(values));
+                Ok(LogicalEncoding::None)
+            }
+            Self::Delta => {
+                target.extend_from_slice(&encode_zigzag_delta(values));
+                Ok(LogicalEncoding::Delta)
+            }
             Self::Rle => {
-                let (u32s, meta) = apply_rle(&encode_zigzag(values), values.len())?;
-                Ok((u32s, LogicalEncoding::Rle(meta)))
+                let zz = encode_zigzag(values);
+                let (u32s, meta) = apply_rle(&zz, values.len())?;
+                target.extend_from_slice(&u32s);
+                Ok(LogicalEncoding::Rle(meta))
             }
             Self::DeltaRle => {
-                let (u32s, meta) = apply_rle(&encode_zigzag_delta(values), values.len())?;
-                Ok((u32s, LogicalEncoding::DeltaRle(meta)))
+                let delta = encode_zigzag_delta(values);
+                let (u32s, meta) = apply_rle(&delta, values.len())?;
+                target.extend_from_slice(&u32s);
+                Ok(LogicalEncoding::DeltaRle(meta))
             }
         }
     }
 
-    /// Logically encode `u64` values into the `u64` physical representation.
+    /// Logically encode `u64` values into `target`.
     ///
-    /// [`LogicalEncoding`] is derived from the actual data.
+    /// `target` is treated as a scratch buffer: it is cleared before writing.
+    /// After the call, `target` holds the physically-stored sequence.
     /// See [`LogicalValue::decode_u64`] for the reverse operation.
-    pub fn encode_u64s(self, values: &[u64]) -> MltResult<(Vec<u64>, LogicalEncoding)> {
+    pub fn encode_u64s(self, values: &[u64], target: &mut Vec<u64>) -> MltResult<LogicalEncoding> {
+        target.clear();
         match self {
-            Self::None => Ok((values.to_vec(), LogicalEncoding::None)),
-            Self::Delta => Ok((
-                encode_zigzag_delta(&values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>()),
-                LogicalEncoding::Delta,
-            )),
+            Self::None => {
+                target.extend_from_slice(values);
+                Ok(LogicalEncoding::None)
+            }
+            Self::Delta => {
+                let i64s: Vec<i64> = values.iter().map(|&v| v.cast_signed()).collect();
+                target.extend_from_slice(&encode_zigzag_delta(&i64s));
+                Ok(LogicalEncoding::Delta)
+            }
             Self::Rle => {
                 let (u64s, meta) = apply_rle(values, values.len())?;
-                Ok((u64s, LogicalEncoding::Rle(meta)))
+                target.extend_from_slice(&u64s);
+                Ok(LogicalEncoding::Rle(meta))
             }
             Self::DeltaRle => {
-                let delta = encode_zigzag_delta(
-                    &values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>(),
-                );
+                let i64s: Vec<i64> = values.iter().map(|&v| v.cast_signed()).collect();
+                let delta = encode_zigzag_delta(&i64s);
                 let (u64s, meta) = apply_rle(&delta, values.len())?;
-                Ok((u64s, LogicalEncoding::DeltaRle(meta)))
+                target.extend_from_slice(&u64s);
+                Ok(LogicalEncoding::DeltaRle(meta))
             }
         }
     }
 
-    /// Logically encode `i64` values into the `u64` physical representation.
+    /// Logically encode `i64` values into `target` (u64 physical representation).
     ///
-    /// [`LogicalEncoding`] is derived from the actual data.
+    /// `target` is treated as a scratch buffer: it is cleared before writing.
+    /// After the call, `target` holds the physically-stored sequence.
     /// See [`LogicalValue::decode_i64`] for the reverse operation.
-    pub fn encode_i64s(self, values: &[i64]) -> MltResult<(Vec<u64>, LogicalEncoding)> {
+    pub fn encode_i64s(self, values: &[i64], target: &mut Vec<u64>) -> MltResult<LogicalEncoding> {
+        target.clear();
         match self {
-            Self::None => Ok((encode_zigzag(values), LogicalEncoding::None)),
-            Self::Delta => Ok((encode_zigzag_delta(values), LogicalEncoding::Delta)),
+            Self::None => {
+                target.extend_from_slice(&encode_zigzag(values));
+                Ok(LogicalEncoding::None)
+            }
+            Self::Delta => {
+                target.extend_from_slice(&encode_zigzag_delta(values));
+                Ok(LogicalEncoding::Delta)
+            }
             Self::Rle => {
-                let (u64s, meta) = apply_rle(&encode_zigzag(values), values.len())?;
-                Ok((u64s, LogicalEncoding::Rle(meta)))
+                let zz = encode_zigzag(values);
+                let (u64s, meta) = apply_rle(&zz, values.len())?;
+                target.extend_from_slice(&u64s);
+                Ok(LogicalEncoding::Rle(meta))
             }
             Self::DeltaRle => {
-                let (u64s, meta) = apply_rle(&encode_zigzag_delta(values), values.len())?;
-                Ok((u64s, LogicalEncoding::DeltaRle(meta)))
+                let delta = encode_zigzag_delta(values);
+                let (u64s, meta) = apply_rle(&delta, values.len())?;
+                target.extend_from_slice(&u64s);
+                Ok(LogicalEncoding::DeltaRle(meta))
             }
         }
     }
@@ -127,10 +165,10 @@ mod tests {
 
     use super::*;
     use crate::decoder::{
-        DictionaryType, IntEncoding, LogicalEncoding, LogicalValue, PhysicalEncoding, StreamMeta,
-        StreamType,
+        DictionaryType, IntEncoding, LogicalEncoding, PhysicalEncoding, StreamType,
     };
     use crate::test_helpers::dec;
+    use crate::{LogicalValue, StreamMeta};
 
     fn make_meta(logical_encoding: LogicalEncoding, num_values: usize) -> StreamMeta {
         let num_values =
@@ -148,7 +186,8 @@ mod tests {
             values in prop::collection::vec(any::<u32>(), 0..100),
             logical in any::<LogicalEncoder>(),
         ) {
-            let (encoded, computed) = logical.encode_u32s(&values).unwrap();
+            let mut encoded = Vec::new();
+            let computed = logical.encode_u32s(&values, &mut encoded).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta).decode_u32(&encoded, &mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
@@ -159,7 +198,8 @@ mod tests {
             values in prop::collection::vec(any::<i32>(), 0..100),
             logical in any::<LogicalEncoder>(),
         ) {
-            let (encoded, computed) = logical.encode_i32s(&values).unwrap();
+            let mut encoded = Vec::new();
+            let computed = logical.encode_i32s(&values, &mut encoded).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta).decode_i32(&encoded, &mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
@@ -170,7 +210,8 @@ mod tests {
             values in prop::collection::vec(any::<u64>(), 0..100),
             logical in any::<LogicalEncoder>(),
         ) {
-            let (encoded, computed) = logical.encode_u64s(&values).unwrap();
+            let mut encoded = Vec::new();
+            let computed = logical.encode_u64s(&values, &mut encoded).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta).decode_u64(&encoded, &mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
@@ -181,7 +222,8 @@ mod tests {
             values in prop::collection::vec(any::<i64>(), 0..100),
             logical in any::<LogicalEncoder>(),
         ) {
-            let (encoded, computed) = logical.encode_i64s(&values).unwrap();
+            let mut encoded = Vec::new();
+            let computed = logical.encode_i64s(&values, &mut encoded).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta).decode_i64(&encoded, &mut dec()).unwrap();
             prop_assert_eq!(decoded, values);

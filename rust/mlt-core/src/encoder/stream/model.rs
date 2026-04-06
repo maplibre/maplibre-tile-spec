@@ -11,8 +11,14 @@ pub struct EncodedStream {
     pub(crate) data: EncodedStreamData,
 }
 
+/// The `VarInt` and `Encoded` variants are semantically identical at runtime
+/// (both wrap a `Vec<u8>` of wire bytes); the distinction exists only to allow
+/// test assertions to verify that the correct physical encoding was chosen.
+/// In production code, all streams are written directly to the encoder buffer
+/// and only `Encoded` is constructed; `VarInt` is constructed in tests.
 #[derive(PartialEq, Clone)]
 pub enum EncodedStreamData {
+    #[allow(dead_code)]
     VarInt(Vec<u8>),
     Encoded(Vec<u8>),
 }

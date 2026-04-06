@@ -110,23 +110,26 @@ pub struct Encoder {
     /// as the wire-format `column_count`.
     pub layer_column_count: u32,
 
-    /// Reusable scratch buffer for intermediate `u32` values.
+    /// Reusable scratch buffer for the logical-encoding step of `u32` streams.
     ///
-    /// Used for the logical-encoding step (e.g. delta or RLE transform) before
-    /// physical compression writes the final bytes to `data`.
-    #[expect(dead_code, reason = "reserved for stream-level in-place encoding")]
+    /// Each `do_write_u32` / `do_write_i32` call writes the logically-encoded
+    /// `u32` sequence here (cleared on entry), then passes `&enc.tmp_u32` to
+    /// the physical encoder.  Grows to the high-water mark and is reused across
+    /// streams without re-allocating.
     pub(crate) tmp_u32: Vec<u32>,
 
-    /// Reusable scratch buffer for intermediate `u64` values.
+    /// Reusable scratch buffer for the logical-encoding step of `u64` streams.
     ///
-    /// Same role as `tmp_u32` but for `u64` streams.
-    #[expect(dead_code, reason = "reserved for stream-level in-place encoding")]
+    /// Same role as `tmp_u32` but for `do_write_u64` / `do_write_i64`.
     pub(crate) tmp_u64: Vec<u64>,
 
-    /// Reusable scratch buffer for intermediate `u8` bytes.
+    /// Reusable scratch buffer for the physical-encoding step.
     ///
-    /// Used for multi-step byte transforms before the final bytes land in `data`.
-    #[expect(dead_code, reason = "reserved for stream-level in-place encoding")]
+    /// Each `do_write_*` call clears this buffer, encodes the physical payload
+    /// into it (no heap allocation after the first call), writes the stream
+    /// header to `data` (the byte-length is now known), and then copies from
+    /// here to `data`.  Avoids both the intermediate `Vec` allocation and any
+    /// `memmove` to insert the header before already-written bytes.
     pub(crate) tmp_u8: Vec<u8>,
 
     // -----------------------------------------------------------------------

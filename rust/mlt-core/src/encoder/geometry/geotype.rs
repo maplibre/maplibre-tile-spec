@@ -339,7 +339,7 @@ mod tests {
         DictionaryType, IntEncoding, LengthType, LogicalEncoding, MortonMeta, OffsetType,
         RawGeometry, StreamMeta, StreamType,
     };
-    use crate::encoder::{EncodedStream, Encoder, IntEncoder, do_write_u32};
+    use crate::encoder::{EncodedStream, EncodedStreamData, Encoder, IntEncoder, do_write_u32};
     use crate::geojson::Coord32;
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
@@ -586,9 +586,10 @@ mod tests {
         // The MortonDelta logical encoding means the decoder will undo the delta,
         // then decode each Morton code to an (x, y) pair.
         let morton_deltas = vec![0u32, 16, 16];
-        let (data, physical_encoding) = IntEncoder::varint()
+        let mut raw_bytes = Vec::new();
+        let physical_encoding = IntEncoder::varint()
             .physical
-            .encode_u32s(morton_deltas)
+            .encode_u32s(&morton_deltas, &mut raw_bytes)
             .unwrap();
         let morton_dict = EncodedStream {
             meta: StreamMeta::new(
@@ -602,7 +603,7 @@ mod tests {
                 ),
                 3, // 3 dictionary entries -> 3 physical u32 values
             ),
-            data,
+            data: EncodedStreamData::VarInt(raw_bytes),
         };
 
         // Assemble, serialize, parse, decode — same wire layout as geometry encoder:
