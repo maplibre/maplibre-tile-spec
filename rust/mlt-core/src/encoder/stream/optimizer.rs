@@ -31,6 +31,17 @@ pub struct DataProfile {
     /// `avg_run_length = sample_len / num_runs`.
     avg_run_length: f64,
 
+    /// Average run length of the zigzag-encoded delta stream.
+    ///
+    /// This is computed over the deltas between consecutive sample values,
+    /// excluding the initial/base value, so the effective stream length is
+    /// `sample_len - 1`.
+    ///
+    /// For sequential data like `[1, 2, 3, ...]` the raw values are all
+    /// distinct (`avg_run_length == 1`) but the delta stream is constant, so
+    /// `delta_avg_run_length == N - 1`, making `DeltaRle` extremely effective.
+    delta_avg_run_length: f64,
+
     /// `true` if the sample values are sorted in ascending or descending order.
     is_sorted: bool,
 
@@ -60,13 +71,15 @@ impl DataProfile {
         }
 
         let mut runs: usize = 1;
+        let mut delta_runs: usize = 1;
         let mut is_sorted_rising = true;
         let mut is_sorted_falling = true;
         let mut max_val: T::UInt = sample[0];
         let mut max_delta: T::UInt = T::UInt::zero();
         let mut prev = sample[0];
+        let mut prev_zz: T::UInt = T::UInt::zero();
 
-        for &v in &sample[1..] {
+        for (i, &v) in sample[1..].iter().enumerate() {
             if v != prev {
                 runs += 1;
             }
@@ -78,14 +91,22 @@ impl DataProfile {
             let delta_bits: T::UInt = v.wrapping_sub(&prev);
             let delta_signed: T = delta_bits.as_();
             let zz = T::encode(delta_signed);
+            if i == 0 {
+                prev_zz = zz;
+            } else if zz != prev_zz {
+                delta_runs += 1;
+                prev_zz = zz;
+            }
             max_delta = max_delta.max(zz);
             max_val = v.max(max_val);
             prev = v;
         }
 
+        let delta_len = sample.len().saturating_sub(1).max(1);
         Self {
             _sample_len: sample.len(),
             avg_run_length: sample.len() as f64 / runs as f64,
+            delta_avg_run_length: delta_len as f64 / delta_runs as f64,
             is_sorted: is_sorted_rising || is_sorted_falling,
             max_bit_width: (T::zero().leading_zeros() - max_val.leading_zeros()) as u8,
             delta_max_bit_width: (T::zero().leading_zeros() - max_delta.leading_zeros()) as u8,
@@ -122,8 +143,8 @@ impl DataProfile {
     fn candidates(&self, fastpfor_is_allowed: bool) -> Vec<IntEncoder> {
         let mut out = Vec::with_capacity(8);
 
-        // DeltaRle – only when both transforms pay off.
-        if self.delta_is_beneficial() && self.rle_is_viable() {
+        // DeltaRle – when delta pays off AND either raw or delta-transformed values have runs.
+        if self.delta_is_beneficial() && (self.rle_is_viable() || self.delta_rle_is_viable()) {
             if fastpfor_is_allowed {
                 out.push(IntEncoder::delta_rle_fastpfor());
             }
@@ -162,6 +183,15 @@ impl DataProfile {
     #[must_use]
     fn rle_is_viable(&self) -> bool {
         self.avg_run_length >= RLE_MIN_AVG_RUN_LENGTH
+    }
+
+    /// Returns `true` if RLE on the delta-transformed stream is viable.
+    ///
+    /// For sequential or constant-delta data the raw values are all distinct
+    /// but the zigzag-delta values are identical, making `DeltaRle` optimal.
+    #[must_use]
+    fn delta_rle_is_viable(&self) -> bool {
+        self.delta_avg_run_length >= RLE_MIN_AVG_RUN_LENGTH
     }
 
     /// Returns `true` if Delta encoding is expected to be beneficial.
@@ -203,11 +233,20 @@ mod tests {
 
     #[test]
     fn candidates_rle_excluded_when_short_runs() {
-        // All-distinct stream → avg_run_length == 1 → no RLE candidate.
+        // All-distinct stream -> avg_run_length == 1 -> no raw-RLE candidate.
+        // But sequential data has constant deltas -> DeltaRle IS included.
         let data: Vec<u32> = (0..100).collect();
         let candidates = DataProfile::prune_candidates::<i32>(&data);
         insta::assert_debug_snapshot!(candidates, @"
         [
+            IntEncoder {
+                logical: DeltaRle,
+                physical: FastPFOR,
+            },
+            IntEncoder {
+                logical: DeltaRle,
+                physical: VarInt,
+            },
             IntEncoder {
                 logical: Delta,
                 physical: FastPFOR,
@@ -244,6 +283,10 @@ mod tests {
         insta::assert_debug_snapshot!(candidates, @"
         [
             IntEncoder {
+                logical: DeltaRle,
+                physical: VarInt,
+            },
+            IntEncoder {
                 logical: Delta,
                 physical: VarInt,
             },
@@ -256,11 +299,19 @@ mod tests {
     }
 
     #[test]
-    fn select_u32_sequential_picks_delta() {
+    fn select_u32_sequential_picks_delta_rle() {
         let data: Vec<u32> = (0..1_000).collect();
-        let enc = DataProfile::prune_candidates::<i32>(&data);
-        insta::assert_debug_snapshot!(enc, @"
+        let candidates = DataProfile::prune_candidates::<i32>(&data);
+        insta::assert_debug_snapshot!(candidates, @"
         [
+            IntEncoder {
+                logical: DeltaRle,
+                physical: FastPFOR,
+            },
+            IntEncoder {
+                logical: DeltaRle,
+                physical: VarInt,
+            },
             IntEncoder {
                 logical: Delta,
                 physical: FastPFOR,
@@ -324,11 +375,15 @@ mod tests {
     }
 
     #[test]
-    fn select_u64_sequential_picks_delta() {
+    fn select_u64_sequential_picks_delta_rle() {
         let data: Vec<u64> = (0u64..500).collect();
-        let enc = DataProfile::prune_candidates::<i64>(&data);
-        insta::assert_debug_snapshot!(enc, @"
+        let candidates = DataProfile::prune_candidates::<i64>(&data);
+        insta::assert_debug_snapshot!(candidates, @"
         [
+            IntEncoder {
+                logical: DeltaRle,
+                physical: VarInt,
+            },
             IntEncoder {
                 logical: Delta,
                 physical: VarInt,
