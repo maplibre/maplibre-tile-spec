@@ -32,13 +32,16 @@ impl PhysicalEncoder {
     /// After the call, `target.len()` is the number of encoded bytes.
     ///
     /// `scratch` is a reusable `Vec<u32>` for intermediate codec output (used by
-    /// FastPFOR). Passing a long-lived buffer avoids a fresh allocation per call.
+    /// FastPFOR). `codec` is a reusable `FastPFor256` instance whose internal
+    /// buffers grow once and are retained across calls. Passing long-lived
+    /// instances avoids fresh allocations per call.
     #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_u32s(
         self,
         values: &[u32],
         target: &mut Vec<u8>,
         scratch: &mut Vec<u32>,
+        codec: &mut FastPFor256,
     ) -> MltResult<PhysicalEncoding> {
         target.clear();
         match self {
@@ -66,7 +69,7 @@ impl PhysicalEncoder {
             Self::FastPFOR => {
                 if !values.is_empty() {
                     scratch.clear();
-                    FastPFor256::default().encode(values, scratch)?;
+                    codec.encode(values, scratch)?;
                     for word in scratch.iter_mut() {
                         *word = word.to_be();
                     }

@@ -1,5 +1,6 @@
 use std::{io, mem};
 
+use fastpfor::FastPFor256;
 use integer_encoding::VarIntWriter as _;
 
 use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
@@ -65,7 +66,6 @@ use crate::{MltError, MltResult};
 /// [`meta`]: Encoder::meta
 /// [`data`]: Encoder::data
 /// [`impl Write`]: Encoder#impl-Write
-#[derive(Debug, Default)]
 pub struct Encoder {
     /// Encoding configuration: controls which optimization strategies are tried
     /// (sort orders, compression algorithms, etc.).
@@ -130,6 +130,39 @@ pub struct Encoder {
     pub(crate) tmp_u64: Vec<u64>,
     pub(crate) tmp_u8: Vec<u8>,
     pub(crate) tmp_u8_b: Vec<u8>,
+    pub(crate) fastpfor: FastPFor256,
+}
+
+impl std::fmt::Debug for Encoder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Encoder")
+            .field("cfg", &self.cfg)
+            .field("hdr", &self.hdr.len())
+            .field("meta", &self.meta.len())
+            .field("data", &self.data.len())
+            .field("layer_column_count", &self.layer_column_count)
+            .finish()
+    }
+}
+
+impl Default for Encoder {
+    fn default() -> Self {
+        Self {
+            cfg: EncoderConfig::default(),
+            explicit: None,
+            hdr: Vec::new(),
+            meta: Vec::new(),
+            data: Vec::new(),
+            layer_column_count: 0,
+            alt_stack: Vec::new(),
+            tmp_u32: Vec::new(),
+            tmp_u32_b: Vec::new(),
+            tmp_u64: Vec::new(),
+            tmp_u8: Vec::new(),
+            tmp_u8_b: Vec::new(),
+            fastpfor: FastPFor256::default(),
+        }
+    }
 }
 
 impl Encoder {
@@ -175,6 +208,7 @@ impl Encoder {
             tmp_u64: vec![],
             tmp_u8: vec![],
             tmp_u8_b: vec![],
+            fastpfor: FastPFor256::default(),
         }
     }
 
