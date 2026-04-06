@@ -325,8 +325,8 @@ function runCLISetup() {
 }
 
 export {
-  convertStyleRequest,
   convertSourceRequest,
+  convertStyleRequest,
   convertTileRequest,
   runCLISetup,
 };
