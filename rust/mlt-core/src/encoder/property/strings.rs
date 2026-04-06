@@ -196,15 +196,15 @@ pub fn write_raw_str_data(
     dict_type: DictionaryType,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let bytes: Vec<u8> = strings
-        .iter()
-        .flat_map(|s| s.as_bytes().iter().copied())
-        .collect();
+    let total_len: usize = strings.iter().map(|s| s.len()).sum();
     let num_values = u32::try_from(strings.len())?;
-    let byte_length = u32::try_from(bytes.len())?;
+    let byte_length = u32::try_from(total_len)?;
     let typ = StreamType::Data(dict_type);
     StreamMeta::new(typ, IntEncoding::none(), num_values).write_to(enc, false, byte_length)?;
-    enc.data.extend_from_slice(&bytes);
+    enc.data.reserve(total_len);
+    for s in strings {
+        enc.data.extend_from_slice(s.as_bytes());
+    }
     Ok(())
 }
 
