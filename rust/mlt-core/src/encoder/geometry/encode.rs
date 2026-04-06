@@ -1,6 +1,8 @@
 use std::collections::BTreeSet;
 use std::mem;
 
+use probabilistic_collections::hyperloglog::HyperLogLog;
+
 use super::model::VertexBufferType;
 use crate::MltResult;
 use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
@@ -292,14 +294,13 @@ pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<Mor
         return (VertexBufferType::Vec2, None);
     };
 
-    let unique_count = vertices
-        .chunks_exact(2)
-        .map(|c| (c[0], c[1]))
-        .collect::<std::collections::HashSet<_>>()
-        .len();
+    let mut hll = HyperLogLog::<(i32, i32)>::new(0.03);
+    for c in vertices.chunks_exact(2) {
+        hll.insert(&(c[0], c[1]));
+    }
 
     #[expect(clippy::cast_precision_loss)]
-    let uniqueness_ratio = unique_count as f64 / total as f64;
+    let uniqueness_ratio = hll.len() / total as f64;
 
     if uniqueness_ratio < MORTON_UNIQUENESS_THRESHOLD {
         (VertexBufferType::Morton, Some(meta))
