@@ -6,8 +6,37 @@ use crate::decoder::{
     PhysicalEncoding, RawStream, RawStreamData, RleMeta, StreamMeta, StreamType,
 };
 use crate::encoder::{EncodedStream, EncodedStreamData, IntEncoder, PhysicalEncoder};
-use crate::test_helpers::{assert_empty, dec, parser, roundtrip_stream, roundtrip_stream_u32s};
+use crate::test_helpers::{assert_empty, dec, parser};
 use crate::utils::BinarySerializer as _;
+
+fn roundtrip_stream<'a>(buffer: &'a mut Vec<u8>, stream: &EncodedStream) -> RawStream<'a> {
+    buffer.clear();
+    buffer.write_stream(stream).unwrap();
+    assert_empty(RawStream::from_bytes(buffer, &mut parser()))
+}
+
+fn roundtrip_stream_u32s(stream: &EncodedStream) -> Vec<u32> {
+    let mut buf = Vec::new();
+    let parsed_stream = roundtrip_stream(&mut buf, stream);
+
+    let mut decoder = dec();
+    let values = parsed_stream.decode_u32s(&mut decoder).unwrap();
+    if !values.is_empty() {
+        assert!(
+            decoder.consumed() > 0,
+            "decoder should consume bytes after decode"
+        );
+    }
+    values
+}
+
+fn make_logical_val(logical_encoding: LogicalEncoding, num_values: usize) -> LogicalValue {
+    LogicalValue::new(StreamMeta::new(
+        StreamType::Data(DictionaryType::None),
+        IntEncoding::new(logical_encoding, PhysicalEncoding::VarInt),
+        u32::try_from(num_values).expect("input_data length fits in u32"),
+    ))
+}
 
 /// Test case for stream decoding tests
 #[derive(Debug)]
@@ -73,15 +102,6 @@ fn test_decode_bits_u32() {
             );
         }
     }
-}
-
-fn make_logical_val(logical_encoding: LogicalEncoding, num_values: usize) -> LogicalValue {
-    let meta = StreamMeta::new(
-        StreamType::Data(DictionaryType::None),
-        IntEncoding::new(logical_encoding, PhysicalEncoding::VarInt),
-        u32::try_from(num_values).expect("input_data length fits in u32"),
-    );
-    LogicalValue::new(meta)
 }
 
 #[rstest]
