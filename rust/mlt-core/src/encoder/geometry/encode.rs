@@ -483,10 +483,14 @@ impl GeometryValues {
         // Vertex streams — compute and write inline.
         match vertex_buffer_type {
             VertexBufferType::Vec2 => {
-                let delta = encode_componentwise_delta_vec2s(&vertices);
+                // Encode into enc.tmp_u32, then take it so we can pass enc mutably to
+                // write_geo_precomputed_stream (which only touches enc.tmp_u8, not tmp_u32).
+                encode_componentwise_delta_vec2s(&vertices, &mut enc.tmp_u32);
+                let delta = std::mem::take(&mut enc.tmp_u32);
                 let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
                 let logical = LogicalEncoding::ComponentwiseDelta;
                 n += write_geo_precomputed_stream(&delta, ctx, logical, enc)?;
+                enc.tmp_u32 = delta; // restore allocation for future reuse
             }
             VertexBufferType::Morton => {
                 // Reuse the MortonMeta computed during auto-selection to avoid a second vertex

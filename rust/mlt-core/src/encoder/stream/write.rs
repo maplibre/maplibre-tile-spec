@@ -143,9 +143,12 @@ pub(crate) fn write_i32_stream(
     if let Some(int_enc) = enc.override_int_enc(ctx) {
         do_write_i32(values, stream_type, int_enc, enc)?;
     } else {
-        let test_vals = encode_zigzag(values);
+        // Zigzag-encode into tmp_u32 for pruning; prune_candidates returns an owned Vec
+        // so the borrow ends before the loop calls do_write_i32 (which overwrites tmp_u32).
+        encode_zigzag(values, &mut enc.tmp_u32);
+        let candidates = DataProfile::prune_candidates::<i32>(&enc.tmp_u32);
         let mut alt = enc.try_alternatives();
-        for cand in DataProfile::prune_candidates::<i32>(&test_vals) {
+        for cand in candidates {
             alt.with(|enc| do_write_i32(values, stream_type, cand, enc))?;
         }
     }
@@ -183,9 +186,10 @@ pub(crate) fn write_i64_stream(
     if let Some(int_enc) = enc.override_int_enc(ctx) {
         do_write_i64(values, stream_type, int_enc, enc)?;
     } else {
-        let test_vals: Vec<u64> = encode_zigzag(values);
+        encode_zigzag(values, &mut enc.tmp_u64);
+        let candidates = DataProfile::prune_candidates::<i64>(&enc.tmp_u64);
         let mut alt = enc.try_alternatives();
-        for cand in DataProfile::prune_candidates::<i64>(&test_vals) {
+        for cand in candidates {
             alt.with(|enc| do_write_i64(values, stream_type, cand, enc))?;
         }
     }

@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use bytemuck;
 use num_traits::PrimInt;
 
 use crate::MltResult;
@@ -7,17 +8,24 @@ use crate::codecs::rle::encode_rle;
 use crate::codecs::zigzag::{encode_zigzag, encode_zigzag_delta};
 use crate::decoder::{LogicalEncoding, RleMeta};
 
-/// RLE-encode a sequence into `[run-lengths | unique-values]` and return the matching `RleMeta`.
+/// RLE-encode `data` into `target` and return the matching `RleMeta`.
+///
+/// `target` is treated as a scratch buffer: cleared before writing.
 /// `num_logical` is the expanded output length (stored in `RleMeta::num_rle_values`).
-fn apply_rle<T: PrimInt + Debug>(data: &[T], num_logical: usize) -> MltResult<(Vec<T>, RleMeta)> {
+fn apply_rle<T: PrimInt + Debug>(
+    data: &[T],
+    num_logical: usize,
+    target: &mut Vec<T>,
+) -> MltResult<RleMeta> {
     let (runs_vec, vals_vec) = encode_rle(data);
     let meta = RleMeta {
         runs: u32::try_from(runs_vec.len())?,
         num_rle_values: u32::try_from(num_logical)?,
     };
-    let mut combined = runs_vec;
-    combined.extend(vals_vec);
-    Ok((combined, meta))
+    target.clear();
+    target.extend_from_slice(&runs_vec);
+    target.extend_from_slice(&vals_vec);
+    Ok(meta)
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Default, strum::EnumIter)]
@@ -38,27 +46,24 @@ impl LogicalEncoder {
     /// After the call, `target` holds the physically-stored sequence.
     /// See [`crate::decoder::LogicalValue::decode_u32`] for the reverse operation.
     pub fn encode_u32s(self, values: &[u32], target: &mut Vec<u32>) -> MltResult<LogicalEncoding> {
-        target.clear();
         match self {
             Self::None => {
+                target.clear();
                 target.extend_from_slice(values);
                 Ok(LogicalEncoding::None)
             }
             Self::Delta => {
-                let i32s: Vec<i32> = values.iter().map(|&v| v.cast_signed()).collect();
-                target.extend_from_slice(&encode_zigzag_delta(&i32s));
+                encode_zigzag_delta(bytemuck::cast_slice::<u32, i32>(values), target);
                 Ok(LogicalEncoding::Delta)
             }
             Self::Rle => {
-                let (u32s, meta) = apply_rle(values, values.len())?;
-                target.extend_from_slice(&u32s);
+                let meta = apply_rle(values, values.len(), target)?;
                 Ok(LogicalEncoding::Rle(meta))
             }
             Self::DeltaRle => {
-                let i32s: Vec<i32> = values.iter().map(|&v| v.cast_signed()).collect();
-                let delta = encode_zigzag_delta(&i32s);
-                let (u32s, meta) = apply_rle(&delta, values.len())?;
-                target.extend_from_slice(&u32s);
+                encode_zigzag_delta(bytemuck::cast_slice::<u32, i32>(values), target);
+                let intermediate = std::mem::take(target);
+                let meta = apply_rle(&intermediate, values.len(), target)?;
                 Ok(LogicalEncoding::DeltaRle(meta))
             }
         }
@@ -70,26 +75,26 @@ impl LogicalEncoder {
     /// After the call, `target` holds the physically-stored sequence.
     /// See [`crate::decoder::LogicalValue::decode_i32`] for the reverse operation.
     pub fn encode_i32s(self, values: &[i32], target: &mut Vec<u32>) -> MltResult<LogicalEncoding> {
-        target.clear();
         match self {
             Self::None => {
-                target.extend_from_slice(&encode_zigzag(values));
+                encode_zigzag(values, target);
                 Ok(LogicalEncoding::None)
             }
             Self::Delta => {
-                target.extend_from_slice(&encode_zigzag_delta(values));
+                encode_zigzag_delta(values, target);
                 Ok(LogicalEncoding::Delta)
             }
             Self::Rle => {
-                let zz = encode_zigzag(values);
-                let (u32s, meta) = apply_rle(&zz, values.len())?;
-                target.extend_from_slice(&u32s);
+                // Use target as the zigzag scratch, then take it and RLE into target.
+                encode_zigzag(values, target);
+                let zz = std::mem::take(target);
+                let meta = apply_rle(&zz, values.len(), target)?;
                 Ok(LogicalEncoding::Rle(meta))
             }
             Self::DeltaRle => {
-                let delta = encode_zigzag_delta(values);
-                let (u32s, meta) = apply_rle(&delta, values.len())?;
-                target.extend_from_slice(&u32s);
+                encode_zigzag_delta(values, target);
+                let intermediate = std::mem::take(target);
+                let meta = apply_rle(&intermediate, values.len(), target)?;
                 Ok(LogicalEncoding::DeltaRle(meta))
             }
         }
@@ -101,27 +106,24 @@ impl LogicalEncoder {
     /// After the call, `target` holds the physically-stored sequence.
     /// See [`crate::decoder::LogicalValue::decode_u64`] for the reverse operation.
     pub fn encode_u64s(self, values: &[u64], target: &mut Vec<u64>) -> MltResult<LogicalEncoding> {
-        target.clear();
         match self {
             Self::None => {
+                target.clear();
                 target.extend_from_slice(values);
                 Ok(LogicalEncoding::None)
             }
             Self::Delta => {
-                let i64s: Vec<i64> = values.iter().map(|&v| v.cast_signed()).collect();
-                target.extend_from_slice(&encode_zigzag_delta(&i64s));
+                encode_zigzag_delta(bytemuck::cast_slice::<u64, i64>(values), target);
                 Ok(LogicalEncoding::Delta)
             }
             Self::Rle => {
-                let (u64s, meta) = apply_rle(values, values.len())?;
-                target.extend_from_slice(&u64s);
+                let meta = apply_rle(values, values.len(), target)?;
                 Ok(LogicalEncoding::Rle(meta))
             }
             Self::DeltaRle => {
-                let i64s: Vec<i64> = values.iter().map(|&v| v.cast_signed()).collect();
-                let delta = encode_zigzag_delta(&i64s);
-                let (u64s, meta) = apply_rle(&delta, values.len())?;
-                target.extend_from_slice(&u64s);
+                encode_zigzag_delta(bytemuck::cast_slice::<u64, i64>(values), target);
+                let intermediate = std::mem::take(target);
+                let meta = apply_rle(&intermediate, values.len(), target)?;
                 Ok(LogicalEncoding::DeltaRle(meta))
             }
         }
@@ -133,26 +135,25 @@ impl LogicalEncoder {
     /// After the call, `target` holds the physically-stored sequence.
     /// See [`crate::decoder::LogicalValue::decode_i64`] for the reverse operation.
     pub fn encode_i64s(self, values: &[i64], target: &mut Vec<u64>) -> MltResult<LogicalEncoding> {
-        target.clear();
         match self {
             Self::None => {
-                target.extend_from_slice(&encode_zigzag(values));
+                encode_zigzag(values, target);
                 Ok(LogicalEncoding::None)
             }
             Self::Delta => {
-                target.extend_from_slice(&encode_zigzag_delta(values));
+                encode_zigzag_delta(values, target);
                 Ok(LogicalEncoding::Delta)
             }
             Self::Rle => {
-                let zz = encode_zigzag(values);
-                let (u64s, meta) = apply_rle(&zz, values.len())?;
-                target.extend_from_slice(&u64s);
+                encode_zigzag(values, target);
+                let zz = std::mem::take(target);
+                let meta = apply_rle(&zz, values.len(), target)?;
                 Ok(LogicalEncoding::Rle(meta))
             }
             Self::DeltaRle => {
-                let delta = encode_zigzag_delta(values);
-                let (u64s, meta) = apply_rle(&delta, values.len())?;
-                target.extend_from_slice(&u64s);
+                encode_zigzag_delta(values, target);
+                let intermediate = std::mem::take(target);
+                let meta = apply_rle(&intermediate, values.len(), target)?;
                 Ok(LogicalEncoding::DeltaRle(meta))
             }
         }

@@ -2050,6 +2050,7 @@ name = "mlt-core"
 version = "0.6.0"
 dependencies = [
  "arbitrary",
+ "bytemuck",
  "criterion",
  "enum_dispatch",
  "fastpfor",

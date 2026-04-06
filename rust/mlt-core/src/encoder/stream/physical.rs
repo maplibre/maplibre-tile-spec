@@ -1,3 +1,4 @@
+use bytemuck;
 use fastpfor::{AnyLenCodec as _, FastPFor256};
 use integer_encoding::VarInt as _;
 
@@ -33,14 +34,23 @@ impl PhysicalEncoder {
         target.clear();
         match self {
             Self::None => {
+                // On little-endian targets native byte order == LE wire format:
+                // cast_slice is a zero-copy reinterpret, extend_from_slice is one memcpy.
+                #[cfg(target_endian = "little")]
+                target.extend_from_slice(bytemuck::cast_slice(values));
+                #[cfg(not(target_endian = "little"))]
                 for &v in values {
                     target.extend_from_slice(&v.to_le_bytes());
                 }
                 Ok(PhysicalEncoding::None)
             }
             Self::VarInt => {
+                // encode_var writes to a stack buffer; avoids the Vec<u8> allocation
+                // that encode_var_vec() would produce for every value.
+                let mut buf = [0u8; 10];
                 for &v in values {
-                    target.extend_from_slice(&u64::from(v).encode_var_vec());
+                    let n = u64::from(v).encode_var(&mut buf);
+                    target.extend_from_slice(&buf[..n]);
                 }
                 Ok(PhysicalEncoding::VarInt)
             }
@@ -67,14 +77,19 @@ impl PhysicalEncoder {
         target.clear();
         match self {
             Self::None => {
+                #[cfg(target_endian = "little")]
+                target.extend_from_slice(bytemuck::cast_slice(values));
+                #[cfg(not(target_endian = "little"))]
                 for &v in values {
                     target.extend_from_slice(&v.to_le_bytes());
                 }
                 Ok(PhysicalEncoding::None)
             }
             Self::VarInt => {
-                for v in values {
-                    target.extend_from_slice(&v.encode_var_vec());
+                let mut buf = [0u8; 10];
+                for &v in values {
+                    let n = v.encode_var(&mut buf);
+                    target.extend_from_slice(&buf[..n]);
                 }
                 Ok(PhysicalEncoding::VarInt)
             }
