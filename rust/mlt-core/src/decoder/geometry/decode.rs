@@ -5,8 +5,19 @@ use crate::decoder::{
     DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType, OffsetType, RawGeometry,
     RawStream, RawStreamData, StreamMeta, StreamType,
 };
+use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, OptSeq, SetOptionOnce as _};
 use crate::{Decode, Decoder, MltError, MltResult, Parser};
+
+/// Advance `offset` by `count` and extend `buffer` with the consecutive values
+/// `old_offset + 1, old_offset + 2, …, new_offset`.
+fn push_consecutive_offsets(buffer: &mut Vec<u32>, offset: &mut u32, count: usize) -> MltResult<()> {
+    let count = u32::try_from(count).or_overflow()?;
+    let start = offset.checked_add(1).or_overflow()?;
+    *offset = offset.checked_add(count).or_overflow()?;
+    buffer.extend(start..=*offset);
+    Ok(())
+}
 
 pub fn decode_geometry_types(
     meta: RawStream<'_>,
@@ -29,21 +40,24 @@ pub fn decode_root_length_stream(
     buffer_id: GeometryType,
     dec: &mut Decoder,
 ) -> MltResult<Vec<u32>> {
-    let alloc_size = geometry_types.len() + 1;
+    let alloc_size = geometry_types.len().checked_add(1).or_overflow()?;
     let mut root_buffer_offsets = dec.alloc(alloc_size)?;
 
     root_buffer_offsets.push(0);
     let mut offset = 0_u32;
     let mut root_length_counter = 0_usize;
     for &geom_type in geometry_types {
-        if geom_type > buffer_id {
-            offset += root_length_stream
+        let increment = if geom_type > buffer_id {
+            let val = *root_length_stream
                 .get(root_length_counter)
                 .ok_or(MltError::GeometryIndexOutOfBounds(root_length_counter))?;
+            // Safety: counter bounded by `geometry_types.len()`, which fits in usize.
             root_length_counter += 1;
+            val
         } else {
-            offset += 1;
-        }
+            1
+        };
+        offset = offset.checked_add(increment).or_overflow()?;
         root_buffer_offsets.push(offset);
     }
 
@@ -58,30 +72,31 @@ pub fn decode_level1_without_ring_buffer_length_stream(
     level1_length_buffer: &[u32],
     dec: &mut Decoder,
 ) -> MltResult<Vec<u32>> {
-    let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize() + 1;
+    // Safety: root_offset_buffer is produced by decode_root_length_stream, which always
+    // pushes an initial 0, so it is never empty.
+    let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize().checked_add(1).or_overflow()?;
     let mut level1_buffer_offsets = dec.alloc(alloc_size)?;
     level1_buffer_offsets.push(0);
     let mut offset = 0_u32;
     let mut level1_length_counter = 0_usize;
 
-    for (i, &geometry_type) in geometry_types.iter().enumerate() {
-        let num_geometries = (root_offset_buffer[i + 1] - root_offset_buffer[i]).as_usize();
+    for (&geometry_type, w) in geometry_types.iter().zip(root_offset_buffer.windows(2)) {
+        let num_geometries = w[1].checked_sub(w[0]).or_overflow()?.as_usize();
 
         if geometry_type.is_linestring() {
             // For MultiLineString and LineString a value in the level1LengthBuffer exists
             for _j in 0..num_geometries {
-                offset += level1_length_buffer
+                let val = *level1_length_buffer
                     .get(level1_length_counter)
                     .ok_or(MltError::GeometryIndexOutOfBounds(level1_length_counter))?;
+                offset = offset.checked_add(val).or_overflow()?;
                 level1_buffer_offsets.push(offset);
+                // Safety: counter bounded by slice lengths, which fit in usize.
                 level1_length_counter += 1;
             }
         } else {
             // For MultiPoint and Point no value in level1LengthBuffer exists
-            for _j in 0..num_geometries {
-                offset += 1;
-                level1_buffer_offsets.push(offset);
-            }
+            push_consecutive_offsets(&mut level1_buffer_offsets, &mut offset, num_geometries)?;
         }
     }
 
@@ -96,34 +111,35 @@ pub fn decode_level1_length_stream(
     is_line_string_present: bool,
     dec: &mut Decoder,
 ) -> MltResult<Vec<u32>> {
-    let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize() + 1;
+    // Safety: root_offset_buffer is produced by decode_root_length_stream, which always
+    // pushes an initial 0, so it is never empty.
+    let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize().checked_add(1).or_overflow()?;
     let mut level1_buffer_offsets = dec.alloc(alloc_size)?;
     level1_buffer_offsets.push(0);
     let mut offset = 0_u32;
     let mut level1_length_buffer_counter = 0_usize;
 
-    for (i, &geometry_type) in geometry_types.iter().enumerate() {
-        let num_geometries = (root_offset_buffer[i + 1] - root_offset_buffer[i]).as_usize();
+    for (&geometry_type, w) in geometry_types.iter().zip(root_offset_buffer.windows(2)) {
+        let num_geometries = w[1].checked_sub(w[0]).or_overflow()?.as_usize();
 
         if geometry_type.is_polygon() || (is_line_string_present && geometry_type.is_linestring()) {
             // For MultiPolygon, Polygon and in some cases for MultiLineString and LineString
             // a value in the level1LengthBuffer exists
             for _j in 0..num_geometries {
-                offset += level1_length_buffer
+                let val = *level1_length_buffer
                     .get(level1_length_buffer_counter)
                     .ok_or(MltError::GeometryIndexOutOfBounds(
                         level1_length_buffer_counter,
                     ))?;
+                offset = offset.checked_add(val).or_overflow()?;
                 level1_buffer_offsets.push(offset);
+                // Safety: counter bounded by slice lengths, which fit in usize.
                 level1_length_buffer_counter += 1;
             }
         } else {
             // For MultiPoint and Point and in some cases for MultiLineString and LineString
             // no value in the level1LengthBuffer exists
-            for _j in 0..num_geometries {
-                offset += 1;
-                level1_buffer_offsets.push(offset);
-            }
+            push_consecutive_offsets(&mut level1_buffer_offsets, &mut offset, num_geometries)?;
         }
     }
 
@@ -138,41 +154,45 @@ pub fn decode_level2_length_stream(
     level2_length_buffer: &[u32],
     dec: &mut Decoder,
 ) -> MltResult<Vec<u32>> {
-    let alloc_size = level1_offset_buffer[level1_offset_buffer.len() - 1].as_usize() + 1;
+    // Safety: level1_offset_buffer is produced by decode_level1_*_length_stream, which
+    // always pushes an initial 0, so it is never empty.
+    let last = level1_offset_buffer[level1_offset_buffer.len() - 1];
+    let alloc_size = last.as_usize().checked_add(1).or_overflow()?;
     let mut level2_buffer_offsets = dec.alloc(alloc_size)?;
     level2_buffer_offsets.push(0);
     let mut previous_offset = 0_u32;
-    let mut level1_offset_buffer_counter = 1_usize;
-    let mut level2_length_buffer_counter = 0_usize;
+    let mut level1_tail = level1_offset_buffer;
+    let mut level2_pos = 0_usize;
 
-    for (i, &geometry_type) in geometry_types.iter().enumerate() {
-        let num_geometries = (root_offset_buffer[i + 1] - root_offset_buffer[i]).as_usize();
+    for (&geometry_type, w) in geometry_types.iter().zip(root_offset_buffer.windows(2)) {
+        let num_geometries = w[1].checked_sub(w[0]).or_overflow()?.as_usize();
 
         if geometry_type != GeometryType::Point && geometry_type != GeometryType::MultiPoint {
             // For MultiPolygon, MultiLineString, Polygon and LineString a value in level2LengthBuffer
             // exists
             for _j in 0..num_geometries {
-                let num_parts = (level1_offset_buffer[level1_offset_buffer_counter]
-                    - level1_offset_buffer[level1_offset_buffer_counter - 1])
-                    .as_usize();
-                level1_offset_buffer_counter += 1;
+                let [base, next, ..] = *level1_tail else {
+                    return Err(MltError::IntegerOverflow);
+                };
+                let num_parts = next.checked_sub(base).or_overflow()?.as_usize();
+                level1_tail = &level1_tail[1..];
                 for _k in 0..num_parts {
-                    previous_offset += level2_length_buffer
-                        .get(level2_length_buffer_counter)
-                        .ok_or(MltError::GeometryIndexOutOfBounds(
-                            level2_length_buffer_counter,
-                        ))?;
-                    level2_length_buffer_counter += 1;
+                    let val = *level2_length_buffer
+                        .get(level2_pos)
+                        .ok_or(MltError::GeometryIndexOutOfBounds(level2_pos))?;
+                    previous_offset = previous_offset.checked_add(val).or_overflow()?;
+                    // Safety: counter bounded by slice lengths, which fit in usize.
+                    level2_pos += 1;
                     level2_buffer_offsets.push(previous_offset);
                 }
             }
         } else {
             // For MultiPoint and Point no value in level2LengthBuffer exists
-            for _j in 0..num_geometries {
-                previous_offset += 1;
-                level2_buffer_offsets.push(previous_offset);
-                level1_offset_buffer_counter += 1;
+            push_consecutive_offsets(&mut level2_buffer_offsets, &mut previous_offset, num_geometries)?;
+            if num_geometries > level1_tail.len() {
+                return Err(MltError::IntegerOverflow);
             }
+            level1_tail = &level1_tail[num_geometries..];
         }
     }
 
@@ -210,6 +230,7 @@ impl<'a> RawGeometry<'a> {
         }
 
         let (input, meta) = RawStream::from_bytes(input, parser)?;
+        // Safety: stream_count is validated != 0
         let (input, items) = RawStream::parse_multiple(input, stream_count - 1, parser)?;
 
         Ok((input, Self { meta, items }))
