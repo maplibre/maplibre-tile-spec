@@ -12,7 +12,7 @@ use crate::encoder::{EncodedStream, Encoder};
 use crate::utils::{AsUsize as _, BinarySerializer as _, strings_to_lengths};
 
 /// Minimum total raw byte size of a column before attempting FSST compression.
-const FSST_OVERHEAD_THRESHOLD: usize = 4_096;
+const FSST_OVERHEAD_THRESHOLD: usize = 2_048;
 /// Maximum number of strings sampled for the FSST viability probe.
 const FSST_SAMPLE_STRINGS: usize = 512;
 
