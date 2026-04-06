@@ -17,6 +17,7 @@ const FSST_OVERHEAD_THRESHOLD: usize = 4_096;
 const FSST_SAMPLE_STRINGS: usize = 512;
 
 /// Returns `true` when FSST compression is likely to save space on `strings`.
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
 pub(crate) fn fsst_is_viable(strings: &[&str]) -> bool {
     if strings.is_empty() {
         return false;
@@ -51,6 +52,7 @@ pub(crate) fn fsst_is_viable(strings: &[&str]) -> bool {
 /// If [`Encoder::override_str_enc`] returns `Some`, only that type is encoded.
 /// Otherwise Plain, Dict, and (when viable) FSST variants are competed via the alternatives
 /// machinery, mirroring the `write_int_prop_*` pattern one level up.
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
 pub(crate) fn write_str_col(
     v: &StagedStrings,
     presence: Option<&EncodedStream>,
@@ -84,6 +86,7 @@ pub(crate) fn write_str_col(
 /// Stream count varint is written first, then presence, then the lengths stream
 /// (via [`write_u32_stream`] which handles the explicit/auto dispatch internally),
 /// then the raw string bytes as a plain unencoded data stream.
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
 fn write_str_plain(
     non_null: &[&str],
     presence: Option<&EncodedStream>,
@@ -99,6 +102,7 @@ fn write_str_plain(
 }
 
 /// Encode with dictionary (deduped corpus + offset indices) layout.
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
 fn write_str_dict(
     non_null: &[&str],
     presence: Option<&EncodedStream>,
@@ -121,6 +125,7 @@ fn write_str_dict(
 /// Encode with FSST compression (sub-streams use the auto/override pattern; no int-encoder competition).
 ///
 /// The offset stream also uses [`write_u32_stream`] for explicit/auto dispatch.
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
 fn write_str_fsst(
     non_null: &[&str],
     presence: Option<&EncodedStream>,
@@ -137,6 +142,7 @@ fn write_str_fsst(
 }
 
 /// Encode with FSST + dictionary layout (deduped unique strings, per-feature offset indices).
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
 fn write_str_fsst_dict(
     non_null: &[&str],
     presence: Option<&EncodedStream>,
@@ -159,6 +165,7 @@ fn write_str_fsst_dict(
 /// The two raw-byte sub-streams (`symbol_table`, `corpus`) are written without integer encoding.
 ///
 /// Stream order: `symbol_lengths`, `symbol_table`, `value_lengths`, `corpus`.
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
 pub fn write_fsst_data(
     raw: &FsstRawData,
     dict_type: DictionaryType,
@@ -183,6 +190,7 @@ pub fn write_fsst_data(
 }
 
 /// Write raw string bytes as an unencoded data stream directly to `enc.data`.
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
 pub fn write_raw_str_data(
     strings: &[&str],
     dict_type: DictionaryType,

@@ -28,6 +28,7 @@ pub enum PhysicalEncoder {
 
 impl PhysicalEncoder {
     /// Physically encode a `u32` sequence into the appropriate `EncodedStreamData` variant.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_u32s(self, values: Vec<u32>) -> MltResult<(EncodedStreamData, PhysicalEncoding)> {
         match self {
             Self::None => {
@@ -52,6 +53,7 @@ impl PhysicalEncoder {
     }
 
     /// Physically encode a `u64` sequence into the appropriate `EncodedStreamData` variant.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_u64s(self, values: Vec<u64>) -> MltResult<(EncodedStreamData, PhysicalEncoding)> {
         match self {
             Self::None => {

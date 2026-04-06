@@ -44,6 +44,7 @@ impl TileLayer01 {
     ///
     /// [`SortStrategy::Unsorted`] is a no-op.
     /// Layers with zero or one features are trivially unchanged by any sort.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn sort(&mut self, strategy: SortStrategy) {
         match strategy {
             SortStrategy::SpatialMorton | SortStrategy::SpatialHilbert => {
