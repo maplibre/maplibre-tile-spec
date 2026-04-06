@@ -127,7 +127,7 @@ mod tests {
     use crate::decoder::{
         DictionaryType, IntEncoding, LengthType, RawFsstData, RawStream, StreamType,
     };
-    use crate::encoder::{EncodedStream, EncodedStreamData, IntEncoder};
+    use crate::encoder::{EncodedStream, EncodedStreamData, Encoder, IntEncoder, do_write_u32};
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -136,12 +136,17 @@ mod tests {
         use crate::decoder::StreamMeta;
         let raw = compress_fsst(values);
 
-        let sym_len_stream = EncodedStream::encode_u32s_of_type(
-            &raw.symbol_lengths,
-            IntEncoder::varint(),
-            StreamType::Length(LengthType::Symbol),
-        )
-        .unwrap();
+        let sym_len_bytes = {
+            let mut enc = Encoder::default();
+            do_write_u32(
+                &raw.symbol_lengths,
+                StreamType::Length(LengthType::Symbol),
+                IntEncoder::varint(),
+                &mut enc,
+            )
+            .expect("symbol lengths stream");
+            enc.data
+        };
         let sym_table_stream = EncodedStream {
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::Fsst),
@@ -150,12 +155,17 @@ mod tests {
             ),
             data: EncodedStreamData::Encoded(raw.symbol_bytes.clone()),
         };
-        let lengths_stream = EncodedStream::encode_u32s_of_type(
-            &raw.value_lengths,
-            IntEncoder::varint(),
-            StreamType::Length(LengthType::Dictionary),
-        )
-        .unwrap();
+        let lengths_bytes = {
+            let mut enc = Encoder::default();
+            do_write_u32(
+                &raw.value_lengths,
+                StreamType::Length(LengthType::Dictionary),
+                IntEncoder::varint(),
+                &mut enc,
+            )
+            .expect("dictionary lengths stream");
+            enc.data
+        };
         let corpus_stream = EncodedStream {
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::Single),
@@ -165,18 +175,15 @@ mod tests {
             data: EncodedStreamData::Encoded(raw.corpus.clone()),
         };
 
-        let streams = [
-            sym_len_stream,
-            sym_table_stream,
-            lengths_stream,
-            corpus_stream,
-        ];
-        let mut buffers: Vec<Vec<u8>> = Vec::new();
-        for stream in &streams {
-            let mut buf = Vec::new();
-            buf.write_stream(stream).expect("write_stream failed");
-            buffers.push(buf);
-        }
+        let mut sym_table_buf = Vec::new();
+        sym_table_buf
+            .write_stream(&sym_table_stream)
+            .expect("write_stream failed");
+        let mut corpus_buf = Vec::new();
+        corpus_buf
+            .write_stream(&corpus_stream)
+            .expect("write_stream failed");
+        let buffers = [sym_len_bytes, sym_table_buf, lengths_bytes, corpus_buf];
         let mut raw_streams = Vec::new();
         for buf in &buffers {
             raw_streams.push(assert_empty(RawStream::from_bytes(buf, &mut parser())));

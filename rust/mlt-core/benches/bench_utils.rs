@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::fs;
 use std::path::Path;
 
@@ -6,6 +8,47 @@ use std::path::Path;
 pub const BENCHMARKED_ZOOM_LEVELS: [u8; 1] = [0];
 #[cfg(not(debug_assertions))]
 pub const BENCHMARKED_ZOOM_LEVELS: [u8; 3] = [4, 7, 13];
+
+/// Recursively walk `dir` and collect all files with the given `extension`.
+fn walk_dir(dir: &Path, extension: &str, out: &mut Vec<(String, Vec<u8>)>) {
+    let entries =
+        fs::read_dir(dir).unwrap_or_else(|err| panic!("can't read {}: {err}", dir.display()));
+    for entry in entries {
+        let entry =
+            entry.unwrap_or_else(|err| panic!("can't read entry in {}: {err}", dir.display()));
+        let path = entry.path();
+        if path.is_dir() {
+            walk_dir(&path, extension, out);
+        } else {
+            let name = path.to_string_lossy();
+            if name.ends_with(extension) {
+                let data = fs::read(&path)
+                    .unwrap_or_else(|err| panic!("can't read {}: {err}", path.display()));
+                out.push((path.to_string_lossy().into_owned(), data));
+            }
+        }
+    }
+}
+
+/// Load all `.mvt` files found recursively under `../../test`.
+///
+/// Returns `(path_string, raw_bytes)` pairs sorted by path.
+/// In debug builds (CI), returns only the first file to keep tests fast.
+#[must_use]
+pub fn load_all_mvt_bytes() -> Vec<(String, Vec<u8>)> {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test");
+    let mut tiles = Vec::new();
+    walk_dir(&dir, ".mvt", &mut tiles);
+    assert!(
+        !tiles.is_empty(),
+        "No .mvt files found under {}",
+        dir.display()
+    );
+    tiles.sort_by(|a, b| a.0.cmp(&b.0));
+    #[cfg(debug_assertions)]
+    tiles.truncate(1);
+    tiles
+}
 
 #[must_use]
 pub fn load_mlt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {

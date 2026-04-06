@@ -27,9 +27,9 @@ use geo_types::{
     Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
     line_string as line, wkt,
 };
-use mlt_core::LogicalEncoder as L;
 use mlt_core::encoder::{
-    IdWidth, IntEncoder as E, StagedProperty as P, StrEncoding, VertexBufferType,
+    IdWidth, IntEncoder as E, LogicalEncoder as L, StagedProperty as P, StrEncoding,
+    VertexBufferType,
 };
 use mlt_core::geojson::Geom32;
 

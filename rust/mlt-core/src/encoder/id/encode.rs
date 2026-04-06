@@ -3,11 +3,11 @@ use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::rle::encode_byte_rle;
 use crate::decoder::{
-    ColumnType, DictionaryType, IdValues, IntEncoding, LogicalEncoder, LogicalEncoding,
-    PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+    ColumnType, DictionaryType, IdValues, IntEncoding, LogicalEncoding, PhysicalEncoding, RleMeta,
+    StreamMeta, StreamType,
 };
 use crate::encoder::model::ColumnKind;
-use crate::encoder::stream::{DataProfile, IntEncoder, do_write_u32, do_write_u64};
+use crate::encoder::stream::{DataProfile, IntEncoder, LogicalEncoder, do_write_u32, do_write_u64};
 use crate::encoder::{EncodedStream, EncodedStreamData, Encoder};
 use crate::utils::BinarySerializer as _;
 
@@ -125,7 +125,7 @@ impl IdValues {
         }
 
         // Fast-path for small or obviously structured sequences.
-        let single_enc = if let Some(int_enc) = enc.get_int_encoder(ColumnKind::Id, "", "") {
+        let single_enc = if let Some(int_enc) = enc.override_int_enc(ColumnKind::Id, "", "") {
             Some(int_enc)
         } else if ids.len() <= 2 {
             Some(IntEncoder::varint_with(LogicalEncoder::None))

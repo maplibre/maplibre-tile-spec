@@ -31,6 +31,11 @@ name = "decoding_strings"
 harness = false
 required-features = ["__private"]
 
+[[bench]]
+name = "encoding_from_mvt"
+harness = false
+required-features = ["__private"]
+
 [features]
 # Workaround until new WASM-compatible geo is released
 default = ["tessellate"]

@@ -1,8 +1,7 @@
 use num_traits::{AsPrimitive as _, PrimInt as _, WrappingSub, Zero as _};
 use zigzag::ZigZag;
 
-use crate::MltResult;
-use crate::encoder::{EncodedStreamData, IntEncoder};
+use crate::encoder::IntEncoder;
 
 /// Minimum number of values to profile / compete on.
 ///
@@ -21,18 +20,6 @@ const RLE_MIN_AVG_RUN_LENGTH: f64 = 2.0;
 const DELTA_BIT_SAVINGS_THRESHOLD: u8 = 4;
 
 /// Sampling-based encoder selection
-///
-/// # Strategy
-///
-/// 1. [`Self::prune_candidates`] - **"Prune"**:
-///    Compute lightweight statistics over a representative sample
-///    of the data (average run length, sort order, max bit-width) and use them to prune obviously unsuitable candidates early.
-/// 2. [`Self::compete_u32`] / [`Self::compete_u64`] - **"Compete"**:
-///    Encode the same sample with every surviving candidate and
-///    pick the one whose encoded output is smallest.
-///    In case of a tie
-///    - the physical priority order is `FastPFOR` > `VarInt` > `None` and,
-///    - at the logical level, more complex transforms are deprioritized.
 #[derive(Debug, Clone, Default)]
 pub struct DataProfile {
     /// Number of values in the sample that was analyzed.
@@ -144,21 +131,6 @@ impl DataProfile {
         profile.candidates(T::zero().count_zeros() == 32)
     }
 
-    pub fn compete_u32(candidates: &[IntEncoder], data: &[u32]) -> IntEncoder {
-        candidates
-            .iter()
-            .copied()
-            .min_by_key(|&enc| encoded_size_u32(data, enc))
-            .unwrap_or_else(IntEncoder::fastpfor)
-    }
-    pub fn compete_u64(candidates: &[IntEncoder], data: &[u64]) -> IntEncoder {
-        candidates
-            .iter()
-            .copied()
-            .min_by_key(|&enc| encoded_size_u64(data, enc))
-            .unwrap_or_else(IntEncoder::varint)
-    }
-
     /// Return the list of `Encoder` variants worth trying for `u32` data given the
     /// supplied profile.
     ///
@@ -251,36 +223,6 @@ fn sample_size(len: usize) -> usize {
         len
     } else {
         (len / 100).clamp(MIN_SAMPLE, MAX_SAMPLE)
-    }
-}
-
-/// Encode `values` with `encoder` and return the number of bytes in the
-/// physical payload (excluding stream metadata).
-///
-/// Returns `usize::MAX` on error so that a broken candidate is always ranked
-/// last.
-fn encoded_size_u32(values: &[u32], encoder: IntEncoder) -> usize {
-    let result: MltResult<_> = (|| {
-        let (physical_u32s, _logical_enc) = encoder.logical.encode_u32s(values)?;
-        let (data, _physical_enc) = encoder.physical.encode_u32s(physical_u32s)?;
-        Ok(data_byte_len(data))
-    })();
-    result.unwrap_or(usize::MAX)
-}
-
-fn encoded_size_u64(values: &[u64], encoder: IntEncoder) -> usize {
-    let result: MltResult<_> = (|| {
-        let (physical_u64s, _logical_enc) = encoder.logical.encode_u64s(values)?;
-        let (data, _physical_enc) = encoder.physical.encode_u64s(physical_u64s)?;
-        Ok(data_byte_len(data))
-    })();
-    result.unwrap_or(usize::MAX)
-}
-
-/// Return the byte length stored inside an `EncodedStreamData`.
-fn data_byte_len(data: EncodedStreamData) -> usize {
-    match data {
-        EncodedStreamData::VarInt(v) | EncodedStreamData::Encoded(v) => v.len(),
     }
 }
 
@@ -434,8 +376,6 @@ mod tests {
             },
         ]
         ");
-        let enc = DataProfile::compete_u32(&enc, &data);
-        assert_eq!(enc, IntEncoder::rle_varint());
     }
 
     #[test]
@@ -466,15 +406,11 @@ mod tests {
     fn select_u32_empty_fallback() {
         let enc = DataProfile::prune_candidates::<i32>(&[]);
         assert_eq!(enc, vec![IntEncoder::plain()]);
-        let enc = DataProfile::compete_u64(&enc, &[]);
-        assert_eq!(enc, IntEncoder::plain());
     }
 
     #[test]
     fn select_u64_empty_fallback() {
         let enc = DataProfile::prune_candidates::<i64>(&[]);
         assert_eq!(enc, vec![IntEncoder::plain()]);
-        let enc = DataProfile::compete_u32(&enc, &[]);
-        assert_eq!(enc, IntEncoder::plain());
     }
 }

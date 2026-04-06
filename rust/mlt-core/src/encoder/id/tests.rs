@@ -2,8 +2,9 @@ use geo_types::Point;
 use proptest::prelude::*;
 use rstest::rstest;
 
-use crate::decoder::{GeometryValues, IdValues, LogicalEncoder, RawIdValue};
+use crate::decoder::{GeometryValues, IdValues, RawIdValue};
 use crate::encoder::IdWidth::{Id32, Id64, OptId32, OptId64};
+use crate::encoder::stream::LogicalEncoder;
 use crate::encoder::{
     Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer, StagedLayer01,
 };

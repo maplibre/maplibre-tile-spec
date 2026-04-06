@@ -339,7 +339,7 @@ mod tests {
         DictionaryType, IntEncoding, LengthType, LogicalEncoding, MortonMeta, OffsetType,
         RawGeometry, StreamMeta, StreamType,
     };
-    use crate::encoder::{EncodedStream, Encoder, IntEncoder};
+    use crate::encoder::{EncodedStream, Encoder, IntEncoder, do_write_u32};
     use crate::geojson::Coord32;
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
@@ -580,29 +580,6 @@ mod tests {
     #[test]
     fn test_morton_vertex_dictionary_expansion() {
         use integer_encoding::VarIntWriter as _;
-        // meta: single LineString
-        let meta = EncodedStream::encode_u32s_of_type(
-            &[GeometryType::LineString as u32],
-            IntEncoder::varint(),
-            StreamType::Length(LengthType::VarBinary),
-        )
-        .unwrap();
-
-        // parts: one LineString of length 4
-        let parts = EncodedStream::encode_u32s_of_type(
-            &[4u32],
-            IntEncoder::varint(),
-            StreamType::Length(LengthType::Parts),
-        )
-        .unwrap();
-
-        // vertex offsets: per-vertex indices into the Morton dictionary
-        let vertex_offsets_stream = EncodedStream::encode_u32s_of_type(
-            &[0u32, 1, 2, 1],
-            IntEncoder::varint(),
-            StreamType::Offset(OffsetType::Vertex),
-        )
-        .unwrap();
 
         // Morton vertex dictionary: 3 unique entries.
         // Raw codes [0, 16, 32] -> delta-encoded as [0, 16, 16].
@@ -628,15 +605,32 @@ mod tests {
             data,
         };
 
-        // Assemble, serialize, parse, decode
-        let items = [parts, vertex_offsets_stream, morton_dict];
+        // Assemble, serialize, parse, decode — same wire layout as geometry encoder:
+        // stream count, then meta (geom type), parts, vertex offsets, Morton dict.
         let mut enc = Encoder::default();
-        enc.write_varint(u64::try_from(items.len() + 1).unwrap())
-            .unwrap();
-        enc.write_stream(&meta).unwrap();
-        for item in &items {
-            enc.write_stream(item).unwrap();
-        }
+        enc.write_varint(4u32).unwrap();
+        do_write_u32(
+            &[GeometryType::LineString as u32],
+            StreamType::Length(LengthType::VarBinary),
+            IntEncoder::varint(),
+            &mut enc,
+        )
+        .unwrap();
+        do_write_u32(
+            &[4u32],
+            StreamType::Length(LengthType::Parts),
+            IntEncoder::varint(),
+            &mut enc,
+        )
+        .unwrap();
+        do_write_u32(
+            &[0u32, 1, 2, 1],
+            StreamType::Offset(OffsetType::Vertex),
+            IntEncoder::varint(),
+            &mut enc,
+        )
+        .unwrap();
+        enc.write_stream(&morton_dict).unwrap();
         let buffer = enc.data;
 
         let mut p = parser();

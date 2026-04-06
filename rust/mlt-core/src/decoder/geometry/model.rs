@@ -48,6 +48,9 @@ pub struct GeometryValues {
 #[repr(u8)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum GeometryType {
+    /*
+        ATTENTION: Do not modify the order of this enum - it is being used in geometry decoding
+    */
     Point,
     LineString,
     Polygon,

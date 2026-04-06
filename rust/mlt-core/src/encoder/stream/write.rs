@@ -96,7 +96,7 @@ pub(crate) fn write_u32_stream(
     subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
+    if let Some(int_enc) = enc.override_int_enc(kind, name, subname) {
         do_write_u32(values, stream_type, int_enc, enc)?;
     } else {
         let mut alt = enc.try_alternatives();
@@ -119,7 +119,7 @@ pub(crate) fn write_i32_stream(
     subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
+    if let Some(int_enc) = enc.override_int_enc(kind, name, subname) {
         do_write_i32(values, stream_type, int_enc, enc)?;
     } else {
         let test_vals = encode_zigzag(values);
@@ -140,7 +140,7 @@ pub(crate) fn write_u64_stream(
     subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
+    if let Some(int_enc) = enc.override_int_enc(kind, name, subname) {
         do_write_u64(values, stream_type, int_enc, enc)?;
     } else {
         let mut alt = enc.try_alternatives();
@@ -163,7 +163,7 @@ pub(crate) fn write_i64_stream(
     subname: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.get_int_encoder(kind, name, subname) {
+    if let Some(int_enc) = enc.override_int_enc(kind, name, subname) {
         do_write_i64(values, stream_type, int_enc, enc)?;
     } else {
         let test_vals: Vec<u64> = encode_zigzag(values);
@@ -173,19 +173,6 @@ pub(crate) fn write_i64_stream(
         }
     }
     Ok(())
-}
-
-/// Write an `i8` stream by widening to `i32` and delegating to [`write_i32_stream`].
-pub(crate) fn write_i8_stream(
-    values: &[i8],
-    stream_type: StreamType,
-    kind: ColumnKind,
-    name: &str,
-    subname: &str,
-    enc: &mut Encoder,
-) -> MltResult<()> {
-    let widened: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
-    write_i32_stream(&widened, stream_type, kind, name, subname, enc)
 }
 
 /// Write a pre-logically-encoded `u32` stream, competing physical encoders only.
@@ -204,7 +191,7 @@ pub(crate) fn write_precomputed_u32(
     name: &str,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    if let Some(int_enc) = enc.get_int_encoder(kind, name, "") {
+    if let Some(int_enc) = enc.override_int_enc(kind, name, "") {
         let num_values = u32::try_from(values.len())?;
         let (stream_data, physical_encoding) = int_enc.physical.encode_u32s(values.to_vec())?;
         let e = IntEncoding::new(logical_encoding, physical_encoding);
@@ -222,17 +209,4 @@ pub(crate) fn write_precomputed_u32(
         }
         Ok(())
     }
-}
-
-/// Write a `u8` stream by widening to `u32` and delegating to [`write_u32_stream`].
-pub(crate) fn write_u8_stream(
-    values: &[u8],
-    stream_type: StreamType,
-    kind: ColumnKind,
-    name: &str,
-    subname: &str,
-    enc: &mut Encoder,
-) -> MltResult<()> {
-    let widened: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
-    write_u32_stream(&widened, stream_type, kind, name, subname, enc)
 }

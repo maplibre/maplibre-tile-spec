@@ -49,7 +49,7 @@ pub(crate) fn fsst_is_viable(strings: &[&str]) -> bool {
 
 /// Encode a string column, following the same explicit-or-auto pattern as numeric columns.
 ///
-/// If [`Encoder::get_str_encoding`] returns `Some`, only that type is encoded.
+/// If [`Encoder::override_str_enc`] returns `Some`, only that type is encoded.
 /// Otherwise Plain, Dict, and (when viable) FSST variants are competed via the alternatives
 /// machinery, mirroring the `write_int_prop_*` pattern one level up.
 pub(crate) fn write_str_col(
@@ -59,7 +59,7 @@ pub(crate) fn write_str_col(
 ) -> MltResult<()> {
     let non_null = v.dense_values();
     let name = &v.name;
-    if let Some(str_enc) = enc.get_str_encoding(name) {
+    if let Some(str_enc) = enc.override_str_enc(name) {
         match str_enc {
             StrEncoding::Plain => write_str_plain(&non_null, presence, name, enc)?,
             StrEncoding::Dict => write_str_dict(&non_null, presence, name, enc)?,

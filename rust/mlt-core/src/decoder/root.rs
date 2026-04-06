@@ -127,8 +127,35 @@ impl Decoder {
     pub fn consumed(&self) -> u32 {
         self.budget.consumed()
     }
+
+    /// Reset the memory budget to zero, keeping scratch buffers allocated.
+    ///
+    /// Call this between tiles when reusing a single `Decoder` for multiple
+    /// decodes — the per-tile budget is enforced fresh, but the internal
+    /// `buffer_u32` / `buffer_u64` scratch space is retained so it doesn't
+    /// need to be re-allocated.
+    ///
+    /// # Safety / correctness precondition
+    ///
+    /// Only call this after dropping any decoded allocations returned from the
+    /// previous tile. Resetting the budget while earlier decoded outputs are
+    /// still alive makes the budget enforceable only per-tile and can bypass
+    /// the stronger guarantee that total live heap tracked by this decoder
+    /// never exceeds the configured maximum.
+    pub fn reset_budget(&mut self) {
+        self.budget.reset();
+    }
 }
 
+impl MemBudget {
+    /// Reset tracked usage for a new decode window.
+    ///
+    /// Callers must ensure that allocations accounted for by the previous
+    /// window are no longer live before resetting.
+    fn reset(&mut self) {
+        self.bytes_used = 0;
+    }
+}
 /// Stateful parser that enforces a memory budget during parsing (binary → raw structures).
 ///
 /// The parse chain reserves memory before allocations so total heap stays within the limit.
