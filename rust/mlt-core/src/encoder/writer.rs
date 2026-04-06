@@ -126,6 +126,7 @@ pub struct Encoder {
     alt_stack: Vec<AltLevel>,
 
     pub(crate) tmp_u32: Vec<u32>,
+    pub(crate) tmp_u32_b: Vec<u32>,
     pub(crate) tmp_u64: Vec<u64>,
     pub(crate) tmp_u8: Vec<u8>,
     pub(crate) tmp_u8_b: Vec<u8>,
@@ -170,6 +171,7 @@ impl Encoder {
             layer_column_count: mem::take(&mut self.layer_column_count),
             alt_stack: vec![],
             tmp_u32: vec![],
+            tmp_u32_b: vec![],
             tmp_u64: vec![],
             tmp_u8: vec![],
             tmp_u8_b: vec![],

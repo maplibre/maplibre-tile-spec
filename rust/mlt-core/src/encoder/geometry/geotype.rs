@@ -587,9 +587,10 @@ mod tests {
         // then decode each Morton code to an (x, y) pair.
         let morton_deltas = vec![0u32, 16, 16];
         let mut raw_bytes = Vec::new();
+        let mut scratch = Vec::new();
         let physical_encoding = IntEncoder::varint()
             .physical
-            .encode_u32s(&morton_deltas, &mut raw_bytes)
+            .encode_u32s(&morton_deltas, &mut raw_bytes, &mut scratch)
             .unwrap();
         let morton_dict = EncodedStream {
             meta: StreamMeta::new(

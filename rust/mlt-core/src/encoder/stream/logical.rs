@@ -45,9 +45,19 @@ impl LogicalEncoder {
     ///
     /// `target` is treated as a scratch buffer: it is cleared before writing.
     /// After the call, `target` holds the physically-stored sequence.
+    ///
+    /// `scratch` is a reusable intermediate buffer for two-pass encodings
+    /// (Rle, DeltaRle). Passing a long-lived buffer avoids a fresh allocation
+    /// per call.
+    ///
     /// See [`crate::decoder::LogicalValue::decode_u32`] for the reverse operation.
     #[cfg_attr(feature = "__hotpath", hotpath::measure)]
-    pub fn encode_u32s(self, values: &[u32], target: &mut Vec<u32>) -> MltResult<LogicalEncoding> {
+    pub fn encode_u32s(
+        self,
+        values: &[u32],
+        target: &mut Vec<u32>,
+        scratch: &mut Vec<u32>,
+    ) -> MltResult<LogicalEncoding> {
         match self {
             Self::None => {
                 // FIXME: avoid this copying - just use source
@@ -64,10 +74,8 @@ impl LogicalEncoder {
                 Ok(LogicalEncoding::Rle(meta))
             }
             Self::DeltaRle => {
-                // FIXME: use temp buffer
-                let mut buf = Vec::new();
-                encode_zigzag_delta(bytemuck::cast_slice::<u32, i32>(values), &mut buf);
-                let meta = apply_rle(&buf, values.len(), target)?;
+                encode_zigzag_delta(bytemuck::cast_slice::<u32, i32>(values), scratch);
+                let meta = apply_rle(scratch, values.len(), target)?;
                 Ok(LogicalEncoding::DeltaRle(meta))
             }
         }
@@ -77,9 +85,19 @@ impl LogicalEncoder {
     ///
     /// `target` is treated as a scratch buffer: it is cleared before writing.
     /// After the call, `target` holds the physically-stored sequence.
+    ///
+    /// `scratch` is a reusable intermediate buffer for two-pass encodings
+    /// (Rle, DeltaRle). Passing a long-lived buffer avoids a fresh allocation
+    /// per call.
+    ///
     /// See [`crate::decoder::LogicalValue::decode_i32`] for the reverse operation.
     #[cfg_attr(feature = "__hotpath", hotpath::measure)]
-    pub fn encode_i32s(self, values: &[i32], target: &mut Vec<u32>) -> MltResult<LogicalEncoding> {
+    pub fn encode_i32s(
+        self,
+        values: &[i32],
+        target: &mut Vec<u32>,
+        scratch: &mut Vec<u32>,
+    ) -> MltResult<LogicalEncoding> {
         match self {
             Self::None => {
                 encode_zigzag(values, target);
@@ -90,16 +108,13 @@ impl LogicalEncoder {
                 Ok(LogicalEncoding::Delta)
             }
             Self::Rle => {
-                // Use target as the zigzag scratch, then take it and RLE into target.
-                encode_zigzag(values, target);
-                let zz = mem::take(target);
-                let meta = apply_rle(&zz, values.len(), target)?;
+                encode_zigzag(values, scratch);
+                let meta = apply_rle(scratch, values.len(), target)?;
                 Ok(LogicalEncoding::Rle(meta))
             }
             Self::DeltaRle => {
-                encode_zigzag_delta(values, target);
-                let intermediate = mem::take(target);
-                let meta = apply_rle(&intermediate, values.len(), target)?;
+                encode_zigzag_delta(values, scratch);
+                let meta = apply_rle(scratch, values.len(), target)?;
                 Ok(LogicalEncoding::DeltaRle(meta))
             }
         }
@@ -194,7 +209,8 @@ mod tests {
             logical in any::<LogicalEncoder>(),
         ) {
             let mut encoded = Vec::new();
-            let computed = logical.encode_u32s(&values, &mut encoded).unwrap();
+            let mut scratch = Vec::new();
+            let computed = logical.encode_u32s(&values, &mut encoded, &mut scratch).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta).decode_u32(&encoded, &mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
@@ -206,7 +222,8 @@ mod tests {
             logical in any::<LogicalEncoder>(),
         ) {
             let mut encoded = Vec::new();
-            let computed = logical.encode_i32s(&values, &mut encoded).unwrap();
+            let mut scratch = Vec::new();
+            let computed = logical.encode_i32s(&values, &mut encoded, &mut scratch).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta).decode_i32(&encoded, &mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
