@@ -8,6 +8,7 @@ use crate::encoder::{
 
 impl StagedLayer {
     /// Automatically encode and write `self` to `enc`.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_into(self, enc: Encoder) -> MltResult<Encoder> {
         match self {
             Self::Tag01(t) => t.encode_into(enc),
@@ -23,6 +24,7 @@ impl StagedLayer01 {
     /// This is the hot path inside `TileLayer01::encode`: each sort-strategy
     /// trial calls this method on its own fresh `Encoder`, and only the
     /// `Encoder` with the smallest `total_len()` is kept.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_into(self, mut enc: Encoder) -> MltResult<Encoder> {
         let Self {
             name,
@@ -57,6 +59,7 @@ impl TileLayer01 {
     ///
     /// All encoding choices — sort order, per-stream integer encodings, string compression,
     /// vertex buffer layout — are selected automatically to minimize output size.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode(self, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
         let mut sort_by = vec![SortStrategy::Unsorted];
         let try_spatial_sort = cfg.try_spatial_morton_sort || cfg.try_spatial_hilbert_sort;
