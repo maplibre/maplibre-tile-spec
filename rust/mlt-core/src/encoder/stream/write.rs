@@ -175,19 +175,6 @@ pub(crate) fn write_i64_stream(
     Ok(())
 }
 
-/// Write an `i8` stream by widening to `i32` and delegating to [`write_i32_stream`].
-pub(crate) fn write_i8_stream(
-    values: &[i8],
-    stream_type: StreamType,
-    kind: ColumnKind,
-    name: &str,
-    subname: &str,
-    enc: &mut Encoder,
-) -> MltResult<()> {
-    let widened: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
-    write_i32_stream(&widened, stream_type, kind, name, subname, enc)
-}
-
 /// Write a pre-logically-encoded `u32` stream, competing physical encoders only.
 ///
 /// Unlike [`write_u32_stream`], no logical transformation is applied.  The
@@ -222,17 +209,4 @@ pub(crate) fn write_precomputed_u32(
         }
         Ok(())
     }
-}
-
-/// Write a `u8` stream by widening to `u32` and delegating to [`write_u32_stream`].
-pub(crate) fn write_u8_stream(
-    values: &[u8],
-    stream_type: StreamType,
-    kind: ColumnKind,
-    name: &str,
-    subname: &str,
-    enc: &mut Encoder,
-) -> MltResult<()> {
-    let widened: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
-    write_u32_stream(&widened, stream_type, kind, name, subname, enc)
 }
