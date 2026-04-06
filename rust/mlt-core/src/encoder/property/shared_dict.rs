@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use integer_encoding::VarIntWriter as _;
+use probabilistic_collections::SipHasherBuilder;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
@@ -47,7 +48,10 @@ struct StringProfile<'a> {
 #[must_use]
 #[cfg_attr(feature = "__hotpath", hotpath::measure)]
 pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
-    let min_hash = MinHash::new(MINHASH_PERMUTATIONS);
+    let min_hash = MinHash::with_hashers(
+        MINHASH_PERMUTATIONS,
+        [SipHasherBuilder::from_seed(0, 0), SipHasherBuilder::from_seed(1, 1)],
+    );
 
     let profiles: Vec<StringProfile<'_>> = source
         .property_names
