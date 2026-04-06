@@ -20,18 +20,6 @@ const RLE_MIN_AVG_RUN_LENGTH: f64 = 2.0;
 const DELTA_BIT_SAVINGS_THRESHOLD: u8 = 4;
 
 /// Sampling-based encoder selection
-///
-/// # Strategy
-///
-/// 1. [`Self::prune_candidates`] - **"Prune"**:
-///    Compute lightweight statistics over a representative sample
-///    of the data (average run length, sort order, max bit-width) and use them to prune obviously unsuitable candidates early.
-/// 2. [`Self::compete_u32`] / [`Self::compete_u64`] - **"Compete"**:
-///    Encode the same sample with every surviving candidate and
-///    pick the one whose encoded output is smallest.
-///    In case of a tie
-///    - the physical priority order is `FastPFOR` > `VarInt` > `None` and,
-///    - at the logical level, more complex transforms are deprioritized.
 #[derive(Debug, Clone, Default)]
 pub struct DataProfile {
     /// Number of values in the sample that was analyzed.
