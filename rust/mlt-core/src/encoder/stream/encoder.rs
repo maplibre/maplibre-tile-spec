@@ -1,5 +1,5 @@
-use super::physical::PhysicalEncoder;
-use crate::decoder::LogicalEncoder;
+use crate::encoder::stream::logical::LogicalEncoder;
+use crate::encoder::stream::physical::PhysicalEncoder;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]

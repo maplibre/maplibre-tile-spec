@@ -3,12 +3,12 @@ use std::hint::black_box;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use geo_types::Point;
 use mlt_core::encoder::{
-    Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer01,
-    StagedProperty, StagedSharedDict, StrEncoding,
+    Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder,
+    StagedLayer01, StagedProperty, StagedSharedDict, StrEncoding,
 };
 use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, parser};
-use mlt_core::{GeometryValues, Layer01, LogicalEncoder, ParsedLayer01, PropValueRef};
+use mlt_core::{GeometryValues, Layer01, ParsedLayer01, PropValueRef};
 use strum::IntoEnumIterator as _;
 
 // This code runs in CI because of --all-targets, so make it run really fast.
