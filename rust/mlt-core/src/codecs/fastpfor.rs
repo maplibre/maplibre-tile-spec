@@ -3,26 +3,6 @@ use fastpfor::{AnyLenCodec as _, FastPFor256};
 use crate::utils::AsUsize as _;
 use crate::{Decoder, MltError, MltResult};
 
-/// Encode a `u32` sequence using `FastPFOR256` (composite codec).
-///
-/// This is the inverse of `decode_fastpfor_composite`
-pub fn encode_fastpfor(values: &[u32]) -> MltResult<Vec<u8>> {
-    if values.is_empty() {
-        // FIXME: eventually there should not be a header anywhere at all
-        return Ok(Vec::new());
-    }
-
-    let mut compressed = Vec::new();
-    FastPFor256::default().encode(values, &mut compressed)?;
-
-    // Convert u32 words to big-endian bytes to match the wire format.
-    let mut data = Vec::with_capacity(compressed.len() * 4);
-    for word in &compressed {
-        data.extend_from_slice(&word.to_be_bytes());
-    }
-    Ok(data)
-}
-
 /// Decode `FastPFOR`-compressed data using the composite codec protocol.
 ///
 /// The Java MLT encoder uses `Composition(FastPFOR(), VariableByte())`, matching
@@ -86,16 +66,16 @@ mod tests {
     proptest! {
         #[test]
         fn test_fastpfor_roundtrip(data: Vec<u32>) {
-            let encoded = encode_fastpfor(&data).unwrap();
-            let decoded = decode_fastpfor(&encoded, data.len().try_into().unwrap(), &mut dec()).unwrap();
+            let mut encoded = Vec::new();
+            FastPFor256::default().encode(&data, &mut encoded).unwrap();
+            // Convert u32 words to big-endian bytes to match the wire format.
+            let mut encoded2 = Vec::with_capacity(encoded.len() * 4);
+            for word in &encoded {
+                encoded2.extend_from_slice(&word.to_be_bytes());
+            }
+            let decoded = decode_fastpfor(&encoded2, data.len().try_into().unwrap(), &mut dec()).unwrap();
             prop_assert_eq!(data, decoded);
         }
-    }
-
-    #[test]
-    fn test_encode_fastpfor_empty() {
-        let encoded = encode_fastpfor(&[]).unwrap();
-        assert!(encoded.is_empty());
     }
 
     #[test]

@@ -36,7 +36,7 @@ impl LogicalEncoder {
     ///
     /// `target` is treated as a scratch buffer: it is cleared before writing.
     /// After the call, `target` holds the physically-stored sequence.
-    /// See [`LogicalValue::decode_u32`] for the reverse operation.
+    /// See [`crate::decoder::LogicalValue::decode_u32`] for the reverse operation.
     pub fn encode_u32s(self, values: &[u32], target: &mut Vec<u32>) -> MltResult<LogicalEncoding> {
         target.clear();
         match self {
@@ -68,7 +68,7 @@ impl LogicalEncoder {
     ///
     /// `target` is treated as a scratch buffer: it is cleared before writing.
     /// After the call, `target` holds the physically-stored sequence.
-    /// See [`LogicalValue::decode_i32`] for the reverse operation.
+    /// See [`crate::decoder::LogicalValue::decode_i32`] for the reverse operation.
     pub fn encode_i32s(self, values: &[i32], target: &mut Vec<u32>) -> MltResult<LogicalEncoding> {
         target.clear();
         match self {
@@ -99,7 +99,7 @@ impl LogicalEncoder {
     ///
     /// `target` is treated as a scratch buffer: it is cleared before writing.
     /// After the call, `target` holds the physically-stored sequence.
-    /// See [`LogicalValue::decode_u64`] for the reverse operation.
+    /// See [`crate::decoder::LogicalValue::decode_u64`] for the reverse operation.
     pub fn encode_u64s(self, values: &[u64], target: &mut Vec<u64>) -> MltResult<LogicalEncoding> {
         target.clear();
         match self {
@@ -131,7 +131,7 @@ impl LogicalEncoder {
     ///
     /// `target` is treated as a scratch buffer: it is cleared before writing.
     /// After the call, `target` holds the physically-stored sequence.
-    /// See [`LogicalValue::decode_i64`] for the reverse operation.
+    /// See [`crate::decoder::LogicalValue::decode_i64`] for the reverse operation.
     pub fn encode_i64s(self, values: &[i64], target: &mut Vec<u64>) -> MltResult<LogicalEncoding> {
         target.clear();
         match self {
