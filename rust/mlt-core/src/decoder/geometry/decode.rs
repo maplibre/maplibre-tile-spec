@@ -11,15 +11,13 @@ use crate::{Decode, Decoder, MltError, MltResult, Parser};
 
 /// Advance `offset` by `count` and extend `buffer` with the consecutive values
 /// `old_offset + 1, old_offset + 2, …, new_offset`.
-fn push_consecutive_offsets(
-    buffer: &mut Vec<u32>,
-    offset: &mut u32,
-    count: usize,
-) -> MltResult<()> {
-    let count = u32::try_from(count).or_overflow()?;
-    let start = offset.checked_add(1).or_overflow()?;
-    *offset = offset.checked_add(count).or_overflow()?;
-    buffer.extend(start..=*offset);
+fn push_consecutive_offsets(buffer: &mut Vec<u32>, offset: &mut u32, count: usize) -> MltResult<()> {
+    if count > 0 {
+        let count = u32::try_from(count).or_overflow()?;
+        *offset = offset.checked_add(count).or_overflow()?;
+        // Safety: offset+1 cannot overflow because offset+count didn't and count >= 1.
+        buffer.extend((*offset - count + 1)..=*offset);
+    }
     Ok(())
 }
 
@@ -78,10 +76,7 @@ pub fn decode_level1_without_ring_buffer_length_stream(
 ) -> MltResult<Vec<u32>> {
     // Safety: root_offset_buffer is produced by decode_root_length_stream, which always
     // pushes an initial 0, so it is never empty.
-    let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1]
-        .as_usize()
-        .checked_add(1)
-        .or_overflow()?;
+    let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize().checked_add(1).or_overflow()?;
     let mut level1_buffer_offsets = dec.alloc(alloc_size)?;
     level1_buffer_offsets.push(0);
     let mut offset = 0_u32;
@@ -120,10 +115,7 @@ pub fn decode_level1_length_stream(
 ) -> MltResult<Vec<u32>> {
     // Safety: root_offset_buffer is produced by decode_root_length_stream, which always
     // pushes an initial 0, so it is never empty.
-    let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1]
-        .as_usize()
-        .checked_add(1)
-        .or_overflow()?;
+    let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize().checked_add(1).or_overflow()?;
     let mut level1_buffer_offsets = dec.alloc(alloc_size)?;
     level1_buffer_offsets.push(0);
     let mut offset = 0_u32;
@@ -198,11 +190,7 @@ pub fn decode_level2_length_stream(
             }
         } else {
             // For MultiPoint and Point no value in level2LengthBuffer exists
-            push_consecutive_offsets(
-                &mut level2_buffer_offsets,
-                &mut previous_offset,
-                num_geometries,
-            )?;
+            push_consecutive_offsets(&mut level2_buffer_offsets, &mut previous_offset, num_geometries)?;
             if num_geometries > level1_tail.len() {
                 return Err(MltError::IntegerOverflow);
             }
