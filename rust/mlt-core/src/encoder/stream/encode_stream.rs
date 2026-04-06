@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
-#[cfg(test)]
-use super::encoder::IntEncoder;
 use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::rle::encode_byte_rle;
@@ -106,107 +104,6 @@ impl EncodedStream {
         Ok(Self {
             meta,
             data: EncodedStreamData::Encoded(data),
-        })
-    }
-
-    #[cfg(test)]
-    pub fn encode_i8s(values: &[i8], encoding: IntEncoder) -> MltResult<Self> {
-        let as_i32: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
-        let (physical_u32s, logical_encoding) = encoding.logical.encode_i32s(&as_i32)?;
-        let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s)?;
-        Ok(Self {
-            meta: StreamMeta::new(
-                StreamType::Data(DictionaryType::None),
-                IntEncoding::new(logical_encoding, physical_encoding),
-                num_values,
-            ),
-            data,
-        })
-    }
-
-    #[cfg(test)]
-    pub fn encode_u8s(values: &[u8], encoding: IntEncoder) -> MltResult<Self> {
-        let as_u32: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
-        let (physical_u32s, logical_encoding) = encoding.logical.encode_u32s(&as_u32)?;
-        let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s)?;
-        Ok(Self {
-            meta: StreamMeta::new(
-                StreamType::Data(DictionaryType::None),
-                IntEncoding::new(logical_encoding, physical_encoding),
-                num_values,
-            ),
-            data,
-        })
-    }
-
-    #[cfg(test)]
-    pub fn encode_i32s(values: &[i32], encoding: IntEncoder) -> MltResult<Self> {
-        let (physical_u32s, logical_encoding) = encoding.logical.encode_i32s(values)?;
-        let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s)?;
-        Ok(Self {
-            meta: StreamMeta::new(
-                StreamType::Data(DictionaryType::None),
-                IntEncoding::new(logical_encoding, physical_encoding),
-                num_values,
-            ),
-            data,
-        })
-    }
-
-    #[cfg(test)]
-    pub fn encode_i64s(values: &[i64], encoding: IntEncoder) -> MltResult<Self> {
-        let (physical_u64s, logical_encoding) = encoding.logical.encode_i64s(values)?;
-        let num_values = u32::try_from(physical_u64s.len())?;
-        let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s)?;
-        Ok(Self {
-            meta: StreamMeta::new(
-                StreamType::Data(DictionaryType::None),
-                IntEncoding::new(logical_encoding, physical_encoding),
-                num_values,
-            ),
-            data,
-        })
-    }
-
-    #[cfg(test)]
-    pub fn encode_u32s(values: &[u32], encoding: IntEncoder) -> MltResult<Self> {
-        Self::encode_u32s_of_type(values, encoding, StreamType::Data(DictionaryType::None))
-    }
-
-    #[cfg(test)]
-    pub fn encode_u32s_of_type(
-        values: &[u32],
-        encoding: IntEncoder,
-        stream_type: StreamType,
-    ) -> MltResult<Self> {
-        let (physical_u32s, logical_encoding) = encoding.logical.encode_u32s(values)?;
-        let num_values = u32::try_from(physical_u32s.len())?;
-        let (data, physical_encoding) = encoding.physical.encode_u32s(physical_u32s)?;
-        Ok(Self {
-            meta: StreamMeta::new(
-                stream_type,
-                IntEncoding::new(logical_encoding, physical_encoding),
-                num_values,
-            ),
-            data,
-        })
-    }
-
-    #[cfg(test)]
-    pub fn encode_u64s(values: &[u64], encoding: IntEncoder) -> MltResult<Self> {
-        let (physical_u64s, logical_encoding) = encoding.logical.encode_u64s(values)?;
-        let num_values = u32::try_from(physical_u64s.len())?;
-        let (data, physical_encoding) = encoding.physical.encode_u64s(physical_u64s)?;
-        Ok(Self {
-            meta: StreamMeta::new(
-                StreamType::Data(DictionaryType::None),
-                IntEncoding::new(logical_encoding, physical_encoding),
-                num_values,
-            ),
-            data,
         })
     }
 }
