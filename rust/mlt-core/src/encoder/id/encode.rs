@@ -80,6 +80,7 @@ impl IdValues {
     /// presence + value streams to [`enc.data`](Encoder::data).
     /// Returns `false` when the ID list is empty or every value is `None`
     /// (nothing is written in that case).
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn write_to(self, enc: &mut Encoder) -> MltResult<bool> {
         let ids = &self.0;
 
@@ -170,6 +171,7 @@ impl IdValues {
 
 /// Write just the ID value stream (without presence/header). Used by the explicit and
 /// auto-candidate paths in `write_to`.
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
 pub(crate) fn write_id_value_stream(
     ids: &IdValues,
     id_width: IdWidth,

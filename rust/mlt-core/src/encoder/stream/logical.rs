@@ -46,6 +46,7 @@ impl LogicalEncoder {
     /// `target` is treated as a scratch buffer: it is cleared before writing.
     /// After the call, `target` holds the physically-stored sequence.
     /// See [`crate::decoder::LogicalValue::decode_u32`] for the reverse operation.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_u32s(self, values: &[u32], target: &mut Vec<u32>) -> MltResult<LogicalEncoding> {
         match self {
             Self::None => {
@@ -77,6 +78,7 @@ impl LogicalEncoder {
     /// `target` is treated as a scratch buffer: it is cleared before writing.
     /// After the call, `target` holds the physically-stored sequence.
     /// See [`crate::decoder::LogicalValue::decode_i32`] for the reverse operation.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_i32s(self, values: &[i32], target: &mut Vec<u32>) -> MltResult<LogicalEncoding> {
         match self {
             Self::None => {
@@ -108,6 +110,7 @@ impl LogicalEncoder {
     /// `target` is treated as a scratch buffer: it is cleared before writing.
     /// After the call, `target` holds the physically-stored sequence.
     /// See [`crate::decoder::LogicalValue::decode_u64`] for the reverse operation.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_u64s(self, values: &[u64], target: &mut Vec<u64>) -> MltResult<LogicalEncoding> {
         match self {
             Self::None => {

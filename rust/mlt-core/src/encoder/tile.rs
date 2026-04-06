@@ -27,6 +27,7 @@ impl StagedLayer01 {
     /// same [`TileLayer01`] source.  Because unique-value membership is
     /// row-order-independent, the same groups can be reused across sort trials.
     #[must_use]
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn from_tile(mut source: TileLayer01, sort: SortStrategy, groups: &[StringGroup]) -> Self {
         source.sort(sort);
         let mut geometry = GeometryValues::default();

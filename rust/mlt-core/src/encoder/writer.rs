@@ -192,6 +192,7 @@ impl Encoder {
     /// Must be called exactly once per layer, after all column meta and data.
     ///
     /// [`hdr`]: Encoder::hdr
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn write_header(&mut self, name: &str, extent: u32) -> MltResult<()> {
         debug_assert!(
             self.alt_stack.is_empty(),
@@ -441,6 +442,7 @@ impl AltSession<'_> {
     /// - **`Err`** — truncates the partial write back to the pre-call checkpoint
     ///   and returns the error.  The guard's `Drop` still finalises the
     ///   competition cleanly using whichever candidates succeeded so far.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn with<F>(&mut self, f: F) -> MltResult<()>
     where
         F: FnOnce(&mut Encoder) -> MltResult<()>,

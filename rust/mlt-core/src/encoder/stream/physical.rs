@@ -30,6 +30,7 @@ impl PhysicalEncoder {
     ///
     /// `target` is treated as a scratch buffer: it is cleared before writing.
     /// After the call, `target.len()` is the number of encoded bytes.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_u32s(self, values: &[u32], target: &mut Vec<u8>) -> MltResult<PhysicalEncoding> {
         target.clear();
         match self {
@@ -73,6 +74,7 @@ impl PhysicalEncoder {
     /// After the call, `target.len()` is the number of encoded bytes.
     ///
     /// Note: `FastPFOR` is not supported for `u64` streams.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_u64s(self, values: &[u64], target: &mut Vec<u8>) -> MltResult<PhysicalEncoding> {
         target.clear();
         match self {

@@ -36,6 +36,7 @@ impl EncodedStream {
     /// Encode a boolean data stream: byte-RLE <- packed bitmap <- `Vec<bool>`
     /// Boolean streams always use byte-RLE encoding with `LogicalEncoding::Rle` metadata.
     /// The `RleMeta` values are computed by readers from the stream itself.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_bools(values: &[bool]) -> MltResult<Self> {
         Self::encode_bools_with_type(values, StreamType::Data(DictionaryType::None))
     }
@@ -74,6 +75,7 @@ impl EncodedStream {
     }
 
     /// Encodes `f32`s into a stream
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_f32(values: &[f32]) -> MltResult<Self> {
         let num_values = u32::try_from(values.len())?;
         let data = values
@@ -92,6 +94,7 @@ impl EncodedStream {
     }
 
     /// Encodes `f64`s into a stream
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_f64(values: &[f64]) -> MltResult<Self> {
         let num_values = u32::try_from(values.len())?;
         let data = values

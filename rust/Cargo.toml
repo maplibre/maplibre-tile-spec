@@ -33,6 +33,7 @@ glob = "0.3"
 globset = "0.4"
 hex = "0.4.3"
 hilbert_2d = "1.1.0"
+hotpath = "0.14"
 indicatif = "0.17"
 insta = "1.47.2"
 integer-encoding = "4.0.2"
@@ -71,7 +72,7 @@ zigzag = "0.1.0"
 [workspace.lints.rust]
 unsafe_code = "forbid"
 unused_qualifications = "warn"
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)', 'cfg(feature, values("__hotpath"))'] }
 
 [workspace.lints.clippy]
 cargo = { level = "warn", priority = -1 }
