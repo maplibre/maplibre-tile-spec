@@ -28,7 +28,7 @@ const MINHASH_PERMUTATIONS: usize = 128;
 
 /// String columns whose estimated Jaccard similarity exceeds this threshold are
 /// grouped into a single shared dictionary.
-const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.6;
+const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.3;
 
 /// A group of string columns to be merged into a single [`crate::encoder::StagedProperty::SharedDict`].
 #[derive(Debug, Clone)]
