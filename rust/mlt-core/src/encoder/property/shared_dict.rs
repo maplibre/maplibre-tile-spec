@@ -50,7 +50,10 @@ struct StringProfile<'a> {
 pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
     let min_hash = MinHash::with_hashers(
         MINHASH_PERMUTATIONS,
-        [SipHasherBuilder::from_seed(0, 0), SipHasherBuilder::from_seed(1, 1)],
+        [
+            SipHasherBuilder::from_seed(0, 0),
+            SipHasherBuilder::from_seed(1, 1),
+        ],
     );
 
     let profiles: Vec<StringProfile<'_>> = source
@@ -374,7 +377,11 @@ pub(crate) fn write_shared_dict(
         Some(StrEncoding::Plain | StrEncoding::Dict) => None,
         None => fsst_try_train(&dict),
     };
-    let dict_stream_count = if fsst_compressor.is_some() { 4u32 } else { 2u32 };
+    let dict_stream_count = if fsst_compressor.is_some() {
+        4u32
+    } else {
+        2u32
+    };
 
     // Pre-compute per-child presence flags once; each call invokes override_presence exactly once.
     let child_has_presence: Vec<bool> = shared_dict

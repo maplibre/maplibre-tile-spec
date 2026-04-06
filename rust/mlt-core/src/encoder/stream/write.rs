@@ -224,8 +224,12 @@ pub(crate) fn write_precomputed_u32(
 ) -> MltResult<()> {
     let num_values = u32::try_from(values.len())?;
     let write_one = |phys: PhysicalEncoder, enc: &mut Encoder| -> MltResult<()> {
-        let physical_encoding =
-            phys.encode_u32s(values, &mut enc.tmp_u8, &mut enc.tmp_u32_b, &mut enc.fastpfor)?;
+        let physical_encoding = phys.encode_u32s(
+            values,
+            &mut enc.tmp_u8,
+            &mut enc.tmp_u32_b,
+            &mut enc.fastpfor,
+        )?;
         let e = IntEncoding::new(logical_encoding, physical_encoding);
         write_header_then_scratch(ctx.stream_type, e, num_values, enc)
     };

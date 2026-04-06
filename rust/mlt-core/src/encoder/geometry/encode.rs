@@ -1,8 +1,6 @@
 use std::collections::BTreeSet;
 use std::mem;
 
-use probabilistic_collections::hyperloglog::HyperLogLog;
-use probabilistic_collections::SipHasherBuilder;
 use super::model::VertexBufferType;
 use crate::MltResult;
 use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
@@ -17,6 +15,8 @@ use crate::encoder::model::StreamCtx;
 use crate::encoder::stream::{write_precomputed_u32, write_u32_stream};
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
+use probabilistic_collections::SipHasherBuilder;
+use probabilistic_collections::hyperloglog::HyperLogLog;
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
 ///
@@ -294,7 +294,7 @@ pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<Mor
         return (VertexBufferType::Vec2, None);
     };
 
-    let mut hll = HyperLogLog::<(i32, i32)>::with_hasher(0.03, SipHasherBuilder::from_seed(0,0));
+    let mut hll = HyperLogLog::<(i32, i32)>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
     for c in vertices.chunks_exact(2) {
         hll.insert(&(c[0], c[1]));
     }

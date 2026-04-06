@@ -82,9 +82,7 @@ pub(crate) fn write_str_col(
 
         if let Some(compressor) = fsst_try_train(&non_null) {
             alt.with(|enc| write_str_fsst_with(&non_null, &compressor, presence, name, enc))?;
-            alt.with(|enc| {
-                write_str_fsst_dict_with(&non_null, &compressor, presence, name, enc)
-            })?;
+            alt.with(|enc| write_str_fsst_dict_with(&non_null, &compressor, presence, name, enc))?;
         }
     }
     Ok(())
