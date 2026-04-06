@@ -1,13 +1,17 @@
 use proptest::prelude::*;
 use rstest::rstest;
 
+use super::write::{do_write_i32, do_write_i64};
+use super::{do_write_u32, do_write_u64};
 use crate::decoder::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalValue, MortonMeta, OffsetType,
     PhysicalEncoding, RawStream, RawStreamData, RleMeta, StreamMeta, StreamType,
 };
-use crate::encoder::{EncodedStream, EncodedStreamData, IntEncoder, PhysicalEncoder};
+use crate::encoder::{EncodedStream, EncodedStreamData, Encoder, IntEncoder, PhysicalEncoder};
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::utils::BinarySerializer as _;
+
+const DATA_STREAM: StreamType = StreamType::Data(DictionaryType::None);
 
 fn roundtrip_stream<'a>(buffer: &'a mut Vec<u8>, stream: &EncodedStream) -> RawStream<'a> {
     buffer.clear();
@@ -15,9 +19,8 @@ fn roundtrip_stream<'a>(buffer: &'a mut Vec<u8>, stream: &EncodedStream) -> RawS
     assert_empty(RawStream::from_bytes(buffer, &mut parser()))
 }
 
-fn roundtrip_stream_u32s(stream: &EncodedStream) -> Vec<u32> {
-    let mut buf = Vec::new();
-    let parsed_stream = roundtrip_stream(&mut buf, stream);
+fn roundtrip_stream_u32s(wire: &[u8]) -> Vec<u32> {
+    let parsed_stream = assert_empty(RawStream::from_bytes(wire, &mut parser()));
 
     let mut decoder = dec();
     let values = parsed_stream.decode_u32s(&mut decoder).unwrap();
@@ -152,8 +155,9 @@ fn test_decode_u32(
 #[case::empty(vec![])]
 fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
     let encoder = IntEncoder::fastpfor();
-    let stream = EncodedStream::encode_u32s(&values, encoder).unwrap();
-    let decoded_values = roundtrip_stream_u32s(&stream);
+    let mut enc = Encoder::default();
+    do_write_u32(&values, DATA_STREAM, encoder, &mut enc).unwrap();
+    let decoded_values = roundtrip_stream_u32s(&enc.data);
     assert_eq!(decoded_values, values);
 }
 
@@ -295,10 +299,10 @@ proptest! {
         values in prop::collection::vec(any::<i8>(), 0..100),
         encoding in any::<IntEncoder>(),
     ) {
-        let owned_stream = EncodedStream::encode_i8s(&values, encoding).unwrap();
-
-        let mut buf = Vec::new();
-        let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
+        let widened: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
+        let mut enc = Encoder::default();
+        do_write_i32(&widened, DATA_STREAM, encoding, &mut enc).unwrap();
+        let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
         let decoded_values = parsed_stream.decode_i8s(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
@@ -309,10 +313,10 @@ proptest! {
         values in prop::collection::vec(any::<u8>(), 0..100),
         encoding in any::<IntEncoder>()
     ) {
-        let owned_stream = EncodedStream::encode_u8s(&values, encoding).unwrap();
-
-        let mut buf = Vec::new();
-        let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
+        let widened: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
+        let mut enc = Encoder::default();
+        do_write_u32(&widened, DATA_STREAM, encoding, &mut enc).unwrap();
+        let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
         let decoded_values = parsed_stream.decode_u8s(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
@@ -323,8 +327,9 @@ proptest! {
         values in prop::collection::vec(any::<u32>(), 0..100),
         encoding in any::<IntEncoder>()
     ) {
-        let owned_stream = EncodedStream::encode_u32s(&values, encoding).unwrap();
-        let decoded_values = roundtrip_stream_u32s(&owned_stream);
+        let mut enc = Encoder::default();
+        do_write_u32(&values, DATA_STREAM, encoding, &mut enc).unwrap();
+        let decoded_values = roundtrip_stream_u32s(&enc.data);
         assert_eq!(decoded_values, values);
     }
 
@@ -333,10 +338,9 @@ proptest! {
         values in prop::collection::vec(any::<i32>(), 0..100),
         encoding in any::<IntEncoder>(),
     ) {
-        let owned_stream = EncodedStream::encode_i32s(&values, encoding).unwrap();
-
-        let mut buf = Vec::new();
-        let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
+        let mut enc = Encoder::default();
+        do_write_i32(&values, DATA_STREAM, encoding, &mut enc).unwrap();
+        let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
         let decoded_values = parsed_stream.decode_i32s(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
@@ -347,10 +351,9 @@ proptest! {
         values in prop::collection::vec(any::<u64>(), 0..100),
         encoding in encoding_no_fastpfor()
     ) {
-        let owned_stream = EncodedStream::encode_u64s(&values, encoding).unwrap();
-
-        let mut buf = Vec::new();
-        let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
+        let mut enc = Encoder::default();
+        do_write_u64(&values, DATA_STREAM, encoding, &mut enc).unwrap();
+        let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
         let decoded_values = parsed_stream.decode_u64s(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
@@ -361,10 +364,9 @@ proptest! {
         values in prop::collection::vec(any::<i64>(), 0..100),
         encoding in encoding_no_fastpfor()
     ) {
-        let owned_stream = EncodedStream::encode_i64s(&values, encoding).unwrap();
-
-        let mut buf = Vec::new();
-        let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
+        let mut enc = Encoder::default();
+        do_write_i64(&values, DATA_STREAM, encoding, &mut enc).unwrap();
+        let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
         let decoded_values = parsed_stream.decode_i64s(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
