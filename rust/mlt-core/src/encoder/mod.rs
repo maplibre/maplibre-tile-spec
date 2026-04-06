@@ -35,5 +35,5 @@ pub use sort::SortStrategy;
 pub(crate) use sort::*;
 pub(crate) use stream::*;
 #[cfg(feature = "__private")]
-pub use stream::{IntEncoder, PhysicalEncoder};
+pub use stream::{IntEncoder, LogicalEncoder, PhysicalEncoder};
 pub use writer::Encoder;

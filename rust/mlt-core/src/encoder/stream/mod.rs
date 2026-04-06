@@ -1,13 +1,19 @@
 mod encode_stream;
 pub(crate) use encode_stream::dedup_strings;
-pub mod encoder;
+mod encoder;
+mod logical;
 mod model;
 mod optimizer;
 mod physical;
 #[cfg(test)]
 mod tests;
 mod write;
+
 pub use encoder::IntEncoder;
+#[cfg(any(test, feature = "__private"))]
+pub use logical::LogicalEncoder;
+#[cfg(not(any(test, feature = "__private")))]
+pub(crate) use logical::LogicalEncoder;
 pub use model::*;
 pub use optimizer::DataProfile;
 #[cfg(any(test, feature = "__private"))]

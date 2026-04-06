@@ -3,11 +3,11 @@ use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::rle::encode_byte_rle;
 use crate::decoder::{
-    ColumnType, DictionaryType, IdValues, IntEncoding, LogicalEncoder, LogicalEncoding,
-    PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+    ColumnType, DictionaryType, IdValues, IntEncoding, LogicalEncoding, PhysicalEncoding, RleMeta,
+    StreamMeta, StreamType,
 };
 use crate::encoder::model::StreamCtx;
-use crate::encoder::stream::{DataProfile, IntEncoder, do_write_u32, do_write_u64};
+use crate::encoder::stream::{DataProfile, IntEncoder, LogicalEncoder, do_write_u32, do_write_u64};
 use crate::encoder::{EncodedStream, EncodedStreamData, Encoder};
 use crate::utils::BinarySerializer as _;
 

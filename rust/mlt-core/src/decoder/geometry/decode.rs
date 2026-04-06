@@ -33,19 +33,18 @@ pub fn decode_root_length_stream(
     let mut root_buffer_offsets = dec.alloc(alloc_size)?;
 
     root_buffer_offsets.push(0);
-    let mut previous_offset = 0_u32;
+    let mut offset = 0_u32;
     let mut root_length_counter = 0_usize;
     for &geom_type in geometry_types {
-        let offset = previous_offset
-            + if geom_type > buffer_id {
-                let val = root_length_stream[root_length_counter];
-                root_length_counter += 1;
-                val
-            } else {
-                1
-            };
+        if geom_type > buffer_id {
+            offset += root_length_stream
+                .get(root_length_counter)
+                .ok_or(MltError::GeometryIndexOutOfBounds(root_length_counter))?;
+            root_length_counter += 1;
+        } else {
+            offset += 1;
+        }
         root_buffer_offsets.push(offset);
-        previous_offset = offset;
     }
 
     dec.adjust_alloc(&root_buffer_offsets, alloc_size);
@@ -62,7 +61,7 @@ pub fn decode_level1_without_ring_buffer_length_stream(
     let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize() + 1;
     let mut level1_buffer_offsets = dec.alloc(alloc_size)?;
     level1_buffer_offsets.push(0);
-    let mut previous_offset = 0_u32;
+    let mut offset = 0_u32;
     let mut level1_length_counter = 0_usize;
 
     for (i, &geometry_type) in geometry_types.iter().enumerate() {
@@ -71,15 +70,17 @@ pub fn decode_level1_without_ring_buffer_length_stream(
         if geometry_type.is_linestring() {
             // For MultiLineString and LineString a value in the level1LengthBuffer exists
             for _j in 0..num_geometries {
-                previous_offset += level1_length_buffer[level1_length_counter];
+                offset += level1_length_buffer
+                    .get(level1_length_counter)
+                    .ok_or(MltError::GeometryIndexOutOfBounds(level1_length_counter))?;
+                level1_buffer_offsets.push(offset);
                 level1_length_counter += 1;
-                level1_buffer_offsets.push(previous_offset);
             }
         } else {
             // For MultiPoint and Point no value in level1LengthBuffer exists
             for _j in 0..num_geometries {
-                previous_offset += 1;
-                level1_buffer_offsets.push(previous_offset);
+                offset += 1;
+                level1_buffer_offsets.push(offset);
             }
         }
     }
@@ -98,7 +99,7 @@ pub fn decode_level1_length_stream(
     let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1].as_usize() + 1;
     let mut level1_buffer_offsets = dec.alloc(alloc_size)?;
     level1_buffer_offsets.push(0);
-    let mut previous_offset = 0_u32;
+    let mut offset = 0_u32;
     let mut level1_length_buffer_counter = 0_usize;
 
     for (i, &geometry_type) in geometry_types.iter().enumerate() {
@@ -108,16 +109,20 @@ pub fn decode_level1_length_stream(
             // For MultiPolygon, Polygon and in some cases for MultiLineString and LineString
             // a value in the level1LengthBuffer exists
             for _j in 0..num_geometries {
-                previous_offset += level1_length_buffer[level1_length_buffer_counter];
+                offset += level1_length_buffer
+                    .get(level1_length_buffer_counter)
+                    .ok_or(MltError::GeometryIndexOutOfBounds(
+                        level1_length_buffer_counter,
+                    ))?;
+                level1_buffer_offsets.push(offset);
                 level1_length_buffer_counter += 1;
-                level1_buffer_offsets.push(previous_offset);
             }
         } else {
             // For MultiPoint and Point and in some cases for MultiLineString and LineString
             // no value in the level1LengthBuffer exists
             for _j in 0..num_geometries {
-                previous_offset += 1;
-                level1_buffer_offsets.push(previous_offset);
+                offset += 1;
+                level1_buffer_offsets.push(offset);
             }
         }
     }
@@ -152,7 +157,11 @@ pub fn decode_level2_length_stream(
                     .as_usize();
                 level1_offset_buffer_counter += 1;
                 for _k in 0..num_parts {
-                    previous_offset += level2_length_buffer[level2_length_buffer_counter];
+                    previous_offset += level2_length_buffer
+                        .get(level2_length_buffer_counter)
+                        .ok_or(MltError::GeometryIndexOutOfBounds(
+                            level2_length_buffer_counter,
+                        ))?;
                     level2_length_buffer_counter += 1;
                     level2_buffer_offsets.push(previous_offset);
                 }
