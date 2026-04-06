@@ -23,7 +23,7 @@ use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, checked_sum3, strings_to_lengths};
 use crate::{ColumnType, DictionaryType, LengthType, MltResult, OffsetType, StreamType};
 
-/// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
+/// Number of [`MinHash`] permutations. 128 gives ~9 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;
 
 /// String columns whose estimated Jaccard similarity exceeds this threshold are
