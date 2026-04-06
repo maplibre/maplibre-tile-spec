@@ -67,8 +67,7 @@ impl PropConfig {
         }
     }
 
-    /// Resolve the integer encoder for a property stream using wire [`StreamType`], not ad-hoc
-    /// subfield labels. Shared-dict children still use [`StreamCtx::subname`] as the child suffix.
+    /// Resolve the integer encoder for a property stream using wire `StreamType`.
     fn int_enc_for_stream_ctx(&self, ctx: &StreamCtx<'_>) -> IntEncoder {
         use mlt_core::{LengthType as LT, OffsetType as OT, StreamType as ST};
         match self {

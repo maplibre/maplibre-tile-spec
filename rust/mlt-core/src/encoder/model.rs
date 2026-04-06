@@ -120,28 +120,24 @@ impl<'a> StreamCtx<'a> {
         }
     }
 
-    /// Column-level stream (`subname` is empty).
     #[inline]
     #[must_use]
     pub const fn id(stream_type: StreamType) -> Self {
         Self::new(ColumnKind::Id, stream_type, "", "")
     }
 
-    /// Column-level stream (`subname` is empty).
     #[inline]
     #[must_use]
     pub const fn geom(stream_type: StreamType, name: &'a str) -> Self {
         Self::new(ColumnKind::Geometry, stream_type, name, "")
     }
 
-    /// Column-level stream (`subname` is empty).
     #[inline]
     #[must_use]
     pub const fn prop(stream_type: StreamType, name: &'a str) -> Self {
         Self::new(ColumnKind::Property, stream_type, name, "")
     }
 
-    /// Column-level stream (`subname` is empty).
     #[inline]
     #[must_use]
     pub const fn prop2(stream_type: StreamType, prefix: &'a str, suffix: &'a str) -> Self {
