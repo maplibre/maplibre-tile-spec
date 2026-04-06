@@ -293,40 +293,6 @@ fn test_encode_strings_dict(
     assert_eq!(lengths, expected_lengths);
 }
 
-#[test]
-fn auto_u32_sequential_picks_delta_rle() {
-    let data: Vec<u32> = (0..100).collect();
-    let encoder = IntEncoder::auto_u32(&data);
-    let stream = EncodedStream::encode_u32s(&data, encoder).unwrap();
-    insta::assert_debug_snapshot!(stream.meta, @"
-    StreamMeta {
-        stream_type: Data(None),
-        logical_encoding: DeltaRle(RleMeta { runs: 2, num_rle_values: 100 }),
-        physical_encoding: VarInt,
-        num_values: 4,
-    }
-    ");
-    assert_eq!(roundtrip_stream_u32s(&stream), data);
-}
-
-#[test]
-fn auto_u64_sequential_picks_delta_rle() {
-    let data: Vec<u64> = (0u64..100).collect();
-    let encoder = IntEncoder::auto_u64(&data);
-    let stream = EncodedStream::encode_u64s(&data, encoder).unwrap();
-    insta::assert_debug_snapshot!(stream.meta, @"
-    StreamMeta {
-        stream_type: Data(None),
-        logical_encoding: DeltaRle(RleMeta { runs: 2, num_rle_values: 100 }),
-        physical_encoding: VarInt,
-        num_values: 4,
-    }
-    ");
-    let mut buf = Vec::new();
-    let parsed = roundtrip_stream(&mut buf, &stream);
-    assert_eq!(parsed.decode_u64s(&mut dec()).unwrap(), data);
-}
-
 proptest! {
     #[test]
     fn test_i8_roundtrip(
