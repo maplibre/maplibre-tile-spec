@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, mem};
 
 use integer_encoding::VarIntWriter as _;
 
@@ -148,24 +148,6 @@ pub struct Encoder {
     alt_stack: Vec<AltLevel>,
 }
 
-/// State for one level of an encoding competition.
-///
-/// Tracks the starting position in both the [`data`](Encoder::data) and
-/// [`meta`](Encoder::meta) buffers, and the byte count of the best candidate
-/// committed so far.
-///
-/// Candidates are compared by **total** bytes (`data + meta`); the shorter one
-/// wins, with ties resolved in favor of the earlier candidate.
-#[derive(Debug, Default, Clone)]
-struct AltLevel {
-    data_start: usize,
-    meta_start: usize,
-    /// Byte count appended to `data` by the current best candidate.
-    best_data: Option<usize>,
-    /// Byte count appended to `meta` by the current best candidate.
-    best_meta: Option<usize>,
-}
-
 impl Encoder {
     /// Create a new encoder with the given [`EncoderConfig`].
     ///
@@ -188,6 +170,25 @@ impl Encoder {
             cfg,
             explicit: Some(explicit),
             ..Self::default()
+        }
+    }
+
+    /// Ensure this encoder is in the good state, and moves results to a new instance.
+    /// This allows current instance to be reused for other experiment, avoiding repeat of some operations.
+    #[must_use]
+    pub(crate) fn preserve_results(&mut self) -> Self {
+        assert_eq!(self.alt_stack.len(), 0, "Alternatives stack is not empty");
+        Self {
+            cfg: Default::default(),
+            explicit: None,
+            hdr: mem::take(&mut self.hdr),
+            meta: mem::take(&mut self.meta),
+            data: mem::take(&mut self.data),
+            layer_column_count: mem::take(&mut self.layer_column_count),
+            tmp_u32: vec![],
+            tmp_u64: vec![],
+            tmp_u8: vec![],
+            alt_stack: vec![],
         }
     }
 
@@ -413,6 +414,24 @@ impl Encoder {
             meta.truncate(best_meta_end);
         }
     }
+}
+
+/// State for one level of an encoding competition.
+///
+/// Tracks the starting position in both the [`data`](Encoder::data) and
+/// [`meta`](Encoder::meta) buffers, and the byte count of the best candidate
+/// committed so far.
+///
+/// Candidates are compared by **total** bytes (`data + meta`); the shorter one
+/// wins, with ties resolved in favor of the earlier candidate.
+#[derive(Debug, Default, Clone)]
+struct AltLevel {
+    data_start: usize,
+    meta_start: usize,
+    /// Byte count appended to `data` by the current best candidate.
+    best_data: Option<usize>,
+    /// Byte count appended to `meta` by the current best candidate.
+    best_meta: Option<usize>,
 }
 
 /// RAII guard for a stream-encoding competition opened by [`Encoder::try_alternatives`].

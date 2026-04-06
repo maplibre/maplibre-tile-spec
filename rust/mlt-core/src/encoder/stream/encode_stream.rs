@@ -50,8 +50,7 @@ impl EncodedStream {
     /// Encode a boolean data stream: byte-RLE <- packed bitmap <- `Vec<bool>`
     fn encode_bools_with_type(values: &[bool], stream_type: StreamType) -> MltResult<Self> {
         let num_values = u32::try_from(values.len())?;
-        let bytes = encode_bools_to_bytes(values);
-        let data = encode_byte_rle(&bytes);
+        let data = encode_byte_rle(&encode_bools_to_bytes(values));
         let runs = num_values.div_ceil(8);
         let num_rle_values = u32::try_from(data.len())?;
         let meta = StreamMeta::new(
