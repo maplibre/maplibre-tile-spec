@@ -36,6 +36,7 @@ impl LogicalEncoder {
     ///
     /// [`LogicalEncoding`] is derived from the actual data.
     /// See [`LogicalValue::decode_u32`] for the reverse operation.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_u32s(self, values: &[u32]) -> MltResult<(Vec<u32>, LogicalEncoding)> {
         match self {
             Self::None => Ok((values.to_vec(), LogicalEncoding::None)),
@@ -61,6 +62,7 @@ impl LogicalEncoder {
     ///
     /// [`LogicalEncoding`] is derived from the actual data.
     /// See [`LogicalValue::decode_i32`] for the reverse operation.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_i32s(self, values: &[i32]) -> MltResult<(Vec<u32>, LogicalEncoding)> {
         match self {
             Self::None => Ok((encode_zigzag(values), LogicalEncoding::None)),
@@ -80,6 +82,7 @@ impl LogicalEncoder {
     ///
     /// [`LogicalEncoding`] is derived from the actual data.
     /// See [`LogicalValue::decode_u64`] for the reverse operation.
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn encode_u64s(self, values: &[u64]) -> MltResult<(Vec<u64>, LogicalEncoding)> {
         match self {
             Self::None => Ok((values.to_vec(), LogicalEncoding::None)),
