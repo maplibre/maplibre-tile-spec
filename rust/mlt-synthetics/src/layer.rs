@@ -302,7 +302,7 @@ impl Layer {
         .expect("shared dict builder should be valid");
         for (item, is_optional) in dict.items.iter_mut().zip(is_optional_flags) {
             if is_optional {
-                item.has_presence = true;
+                item.set_presence(true);
             }
         }
         self.props.push((
