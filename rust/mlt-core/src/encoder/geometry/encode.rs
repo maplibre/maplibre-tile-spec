@@ -300,7 +300,9 @@ pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<Mor
     }
 
     #[expect(clippy::cast_precision_loss)]
-    let uniqueness_ratio = hll.len() / total as f64;
+    let estimated_unique = hll.len().min(total);
+    #[expect(clippy::cast_precision_loss)]
+    let uniqueness_ratio = estimated_unique as f64 / total as f64;
 
     if uniqueness_ratio < MORTON_UNIQUENESS_THRESHOLD {
         (VertexBufferType::Morton, Some(meta))
