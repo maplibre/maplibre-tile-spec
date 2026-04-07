@@ -9,7 +9,7 @@ use crate::encoder::IntEncoder;
 const MIN_SAMPLE: usize = 512;
 
 /// Hard upper bound on competition sample size.
-const MAX_SAMPLE: usize = 4_096;
+const MAX_SAMPLE: usize = 16_384;
 
 /// RLE is only worthwhile when runs are on average at least this long.
 const RLE_MIN_AVG_RUN_LENGTH: f64 = 2.0;
