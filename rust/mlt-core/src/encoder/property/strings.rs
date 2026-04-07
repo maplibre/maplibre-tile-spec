@@ -20,7 +20,8 @@ const FSST_SAMPLE_STRINGS: usize = 256;
 ///
 /// Returns `None` when the column is empty, too small for FSST overhead to pay off,
 /// or when trial compression shows no benefit. The returned [`Compressor`] is reused
-/// by `write_str_fsst` / `write_str_fsst_dict` to avoid a redundant training pass.
+/// by `write_str_fsst_with` / `write_str_fsst_dict_with` to avoid a redundant
+/// training pass.
 #[cfg_attr(feature = "__hotpath", hotpath::measure)]
 pub(crate) fn fsst_try_train(strings: &[&str]) -> Option<Compressor> {
     if strings.is_empty() {
