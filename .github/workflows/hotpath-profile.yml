@@ -21,6 +21,20 @@ jobs:
       - name: Create metrics directory
         run: mkdir -p /tmp/metrics
 
+      # ── Download benchmark tiles (cached) ──────────────────────────────
+      # 95 fixture tiles are too few for stable hotpath numbers.
+      # See `just rust::download-benchmark-tiles` for details.
+      - name: Cache benchmark tiles
+        id: cache-tiles
+        uses: actions/cache@v4
+        with:
+          path: /tmp/benchmark-tiles
+          key: hotpath-tiles-protomaps-z6-v1
+
+      - name: Download benchmark tiles
+        if: steps.cache-tiles.outputs.cache-hit != 'true'
+        run: just rust::download-benchmark-tiles
+
       - name: Head benchmark (timing + alloc)
         working-directory: rust
         env:
@@ -28,7 +42,7 @@ jobs:
           HOTPATH_OUTPUT_PATH: /tmp/metrics/head_timing.json
         run: |
           cargo run --release -p mlt --features='__hotpath,__hotpath-alloc' -- \
-            convert ../test/fixtures/omt/ /tmp/mlt-head-out/
+            convert /tmp/benchmark-tiles/ /tmp/mlt-head-out/
 
       - name: Checkout base
         run: git checkout ${{ github.event.pull_request.base.sha }}
@@ -40,7 +54,7 @@ jobs:
           HOTPATH_OUTPUT_PATH: /tmp/metrics/base_timing.json
         run: |
           cargo run --release -p mlt --features='__hotpath,__hotpath-alloc' -- \
-            convert ../test/fixtures/omt/ /tmp/mlt-base-out/
+            convert /tmp/benchmark-tiles/ /tmp/mlt-base-out/
 
       - name: Save PR metadata
         env:
