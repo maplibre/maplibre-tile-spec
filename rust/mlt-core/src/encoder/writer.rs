@@ -134,7 +134,6 @@ pub struct Encoder {
     pub(crate) fastpfor: FastPFor256,
 }
 
-
 impl Encoder {
     /// Create a new encoder with the given [`EncoderConfig`].
     ///
