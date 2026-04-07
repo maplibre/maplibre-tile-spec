@@ -159,7 +159,7 @@ where
 /// All features are stored as a flat [`Vec<TileFeature>`] so that sorting is
 /// a single `sort_by_cached_key` call.  The `property_names` vec is parallel
 /// to every `TileFeature::properties` slice in this layer.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TileLayer01 {
     pub name: String,
     pub extent: u32,

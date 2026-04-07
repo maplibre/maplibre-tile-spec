@@ -3,6 +3,7 @@
 /// Unlike `ParsedProperty` (decode-side, potentially borrowed), all string names
 /// and corpus data are owned strings.  No lifetime parameter needed.
 #[derive(Debug, Clone, PartialEq, strum::IntoStaticStr)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 #[strum(serialize_all = "snake_case")]
 pub enum StagedProperty {
     Bool(StagedScalar<bool>),
