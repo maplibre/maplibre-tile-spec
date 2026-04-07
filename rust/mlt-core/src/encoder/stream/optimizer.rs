@@ -22,9 +22,6 @@ const DELTA_BIT_SAVINGS_THRESHOLD: u8 = 0;
 /// Sampling-based encoder selection
 #[derive(Debug, Clone, Default)]
 pub struct DataProfile {
-    /// Number of values in the sample that was analyzed.
-    _sample_len: usize,
-
     /// Average run length in the sample.
     ///
     /// A run is a maximal sequence of identical consecutive values.
@@ -104,7 +101,6 @@ impl DataProfile {
 
         let delta_len = sample.len().saturating_sub(1).max(1);
         Self {
-            _sample_len: sample.len(),
             avg_run_length: sample.len() as f64 / runs as f64,
             delta_avg_run_length: delta_len as f64 / delta_runs as f64,
             is_sorted: is_sorted_rising || is_sorted_falling,
