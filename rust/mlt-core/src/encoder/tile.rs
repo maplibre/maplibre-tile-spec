@@ -27,6 +27,7 @@ impl StagedLayer01 {
     #[must_use]
     #[hotpath::measure]
     pub fn from_tile(mut source: TileLayer01, sort: SortStrategy, groups: &[StringGroup]) -> Self {
+        assert!(!source.features.is_empty(), "empty tile");
         source.sort(sort);
         let mut geometry = GeometryValues::default();
         for f in &source.features {
@@ -73,9 +74,11 @@ fn build_scalar_column(name: String, col: usize, features: &mut [TileFeature]) -
     // Fall back to `Str` if every feature has no value for this column.
     let first_val = features.iter().find_map(|f| f.properties.get(col));
 
+    // Collect optional values and check whether any are null. When no nulls
+    // exist, use the non-optional staged variant (no presence stream written).
     macro_rules! scalar_col {
-        ($ctor:ident, $ty:ty, $sv:ident) => {{
-            let values: Vec<Option<$ty>> = features
+        ($opt_ctor:ident, $non_opt_ctor:ident, $ty:ty, $sv:ident) => {{
+            let opt_values: Vec<Option<$ty>> = features
                 .iter()
                 .map(|f| {
                     if let Some(PropValue::$sv(v)) = f.properties.get(col) {
@@ -85,29 +88,37 @@ fn build_scalar_column(name: String, col: usize, features: &mut [TileFeature]) -
                     }
                 })
                 .collect();
-            StagedProperty::$ctor(name, values)
+            if opt_values.iter().any(Option::is_none) {
+                StagedProperty::$opt_ctor(name, opt_values)
+            } else {
+                StagedProperty::$non_opt_ctor(name, opt_values.into_iter().flatten().collect())
+            }
         }};
     }
 
     match first_val {
-        Some(PropValue::Bool(_)) => scalar_col!(opt_bool, bool, Bool),
-        Some(PropValue::I8(_)) => scalar_col!(opt_i8, i8, I8),
-        Some(PropValue::U8(_)) => scalar_col!(opt_u8, u8, U8),
-        Some(PropValue::I32(_)) => scalar_col!(opt_i32, i32, I32),
-        Some(PropValue::U32(_)) => scalar_col!(opt_u32, u32, U32),
-        Some(PropValue::I64(_)) => scalar_col!(opt_i64, i64, I64),
-        Some(PropValue::U64(_)) => scalar_col!(opt_u64, u64, U64),
-        Some(PropValue::F32(_)) => scalar_col!(opt_f32, f32, F32),
-        Some(PropValue::F64(_)) => scalar_col!(opt_f64, f64, F64),
+        Some(PropValue::Bool(_)) => scalar_col!(opt_bool, bool, bool, Bool),
+        Some(PropValue::I8(_)) => scalar_col!(opt_i8, i8, i8, I8),
+        Some(PropValue::U8(_)) => scalar_col!(opt_u8, u8, u8, U8),
+        Some(PropValue::I32(_)) => scalar_col!(opt_i32, i32, i32, I32),
+        Some(PropValue::U32(_)) => scalar_col!(opt_u32, u32, u32, U32),
+        Some(PropValue::I64(_)) => scalar_col!(opt_i64, i64, i64, I64),
+        Some(PropValue::U64(_)) => scalar_col!(opt_u64, u64, u64, U64),
+        Some(PropValue::F32(_)) => scalar_col!(opt_f32, f32, f32, F32),
+        Some(PropValue::F64(_)) => scalar_col!(opt_f64, f64, f64, F64),
         Some(PropValue::Str(_)) | None => {
-            let values: Vec<Option<String>> = features
+            let opt_values: Vec<Option<String>> = features
                 .iter_mut()
                 .map(|f| match f.properties.get_mut(col) {
                     Some(PropValue::Str(v)) => v.take(),
                     _ => None,
                 })
                 .collect();
-            StagedProperty::opt_str(name, values)
+            if opt_values.iter().any(Option::is_none) {
+                StagedProperty::opt_str(name, opt_values)
+            } else {
+                StagedProperty::str(name, opt_values.into_iter().flatten())
+            }
         }
     }
 }

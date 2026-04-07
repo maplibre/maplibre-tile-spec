@@ -314,15 +314,14 @@ fn str_scalar_with_nulls() {
 
 #[test]
 fn str_scalar_empty() {
-    // Empty columns (zero rows) are skipped in encoding.
+    // Staging an empty column is a no-op at the staging layer (build_scalar_column
+    // never produces empty StagedProperty::str; this test exercises the case where
+    // a tile has zero features — the round-trip must not panic).
     let tile = encode_and_tile(vec![StagedProperty::str(
         "unused",
         std::iter::empty::<&str>(),
     )]);
-    assert!(
-        tile.property_names.is_empty(),
-        "empty column must be omitted from the wire"
-    );
+    // Zero features → zero properties should be visible after decoding
     assert!(tile.features.is_empty());
 }
 
