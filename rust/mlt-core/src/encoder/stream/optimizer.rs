@@ -9,22 +9,14 @@ use crate::encoder::IntEncoder;
 const MIN_SAMPLE: usize = 512;
 
 /// Hard upper bound on competition sample size.
-const MAX_SAMPLE: usize = 4_096;
+const MAX_SAMPLE: usize = 16_384;
 
 /// RLE is only worthwhile when runs are on average at least this long.
 const RLE_MIN_AVG_RUN_LENGTH: f64 = 2.0;
 
-/// Delta encoding is useful when the absolute delta values fit in fewer bits
-/// than the original values.  Require at least this many bits of reduction
-/// before enabling Delta on an unsorted stream.
-const DELTA_BIT_SAVINGS_THRESHOLD: u8 = 4;
-
 /// Sampling-based encoder selection
 #[derive(Debug, Clone, Default)]
 pub struct DataProfile {
-    /// Number of values in the sample that was analyzed.
-    _sample_len: usize,
-
     /// Average run length in the sample.
     ///
     /// A run is a maximal sequence of identical consecutive values.
@@ -45,22 +37,20 @@ pub struct DataProfile {
     /// `true` if the sample values are sorted in ascending or descending order.
     is_sorted: bool,
 
-    /// Maximum number of bits required to represent any value in the sample
-    /// (`T::BITS - v.leading_zeros()`).
-    max_bit_width: u8,
-
-    /// Maximum bit-width after zigzag-delta encoding.
+    /// Sum of per-value bit widths across the sample.
     ///
-    /// A value lower than `max_bit_width` signals that Delta compression will
-    /// reduce value magnitudes and therefore benefit downstream integer
-    /// encoders.
-    delta_max_bit_width: u8,
+    /// Aggregate bit count captures the *typical* benefit of delta encoding,
+    /// unlike max bit width which can be pinned by a single outlier.
+    total_bits: u32,
+
+    /// Sum of per-value bit widths of the zigzag-delta stream.
+    delta_total_bits: u32,
 }
 
 impl DataProfile {
     /// Profile a `u32` sample in a single pass.
     #[must_use]
-    #[expect(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+    #[expect(clippy::cast_precision_loss)]
     fn profile<T>(sample: &[T::UInt]) -> Self
     where
         T: ZigZag,
@@ -70,12 +60,13 @@ impl DataProfile {
             return Self::default();
         }
 
+        let type_bits = T::zero().leading_zeros();
         let mut runs: usize = 1;
         let mut delta_runs: usize = 1;
         let mut is_sorted_rising = true;
         let mut is_sorted_falling = true;
-        let mut max_val: T::UInt = sample[0];
-        let mut max_delta: T::UInt = T::UInt::zero();
+        let mut total_bits: u32 = type_bits - sample[0].leading_zeros();
+        let mut delta_total_bits: u32 = 0;
         let mut prev = sample[0];
         let mut prev_zz: T::UInt = T::UInt::zero();
 
@@ -97,19 +88,18 @@ impl DataProfile {
                 delta_runs += 1;
                 prev_zz = zz;
             }
-            max_delta = max_delta.max(zz);
-            max_val = v.max(max_val);
+            total_bits += type_bits - v.leading_zeros();
+            delta_total_bits += type_bits - zz.leading_zeros();
             prev = v;
         }
 
         let delta_len = sample.len().saturating_sub(1).max(1);
         Self {
-            _sample_len: sample.len(),
             avg_run_length: sample.len() as f64 / runs as f64,
             delta_avg_run_length: delta_len as f64 / delta_runs as f64,
             is_sorted: is_sorted_rising || is_sorted_falling,
-            max_bit_width: (T::zero().leading_zeros() - max_val.leading_zeros()) as u8,
-            delta_max_bit_width: (T::zero().leading_zeros() - max_delta.leading_zeros()) as u8,
+            total_bits,
+            delta_total_bits,
         }
     }
 
@@ -197,8 +187,7 @@ impl DataProfile {
     /// Returns `true` if Delta encoding is expected to be beneficial.
     #[must_use]
     fn delta_is_beneficial(&self) -> bool {
-        let bit_width_saving = self.max_bit_width.saturating_sub(self.delta_max_bit_width);
-        self.is_sorted || bit_width_saving >= DELTA_BIT_SAVINGS_THRESHOLD
+        self.is_sorted || self.delta_total_bits < self.total_bits
     }
 }
 

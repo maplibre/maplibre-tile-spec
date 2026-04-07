@@ -30,8 +30,19 @@ impl PhysicalEncoder {
     ///
     /// `target` is treated as a scratch buffer: it is cleared before writing.
     /// After the call, `target.len()` is the number of encoded bytes.
-    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
-    pub fn encode_u32s(self, values: &[u32], target: &mut Vec<u8>) -> MltResult<PhysicalEncoding> {
+    ///
+    /// `scratch` is a reusable `Vec<u32>` for intermediate codec output (used by
+    /// `FastPFOR`). `codec` is a reusable `FastPFor256` instance whose internal
+    /// buffers grow once and are retained across calls. Passing long-lived
+    /// instances avoids fresh allocations per call.
+    #[hotpath::measure]
+    pub fn encode_u32s(
+        self,
+        values: &[u32],
+        target: &mut Vec<u8>,
+        scratch: &mut Vec<u32>,
+        codec: &mut FastPFor256,
+    ) -> MltResult<PhysicalEncoding> {
         target.clear();
         match self {
             Self::None => {
@@ -57,11 +68,12 @@ impl PhysicalEncoder {
             }
             Self::FastPFOR => {
                 if !values.is_empty() {
-                    let mut compressed = Vec::new();
-                    FastPFor256::default().encode(values, &mut compressed)?;
-                    for word in compressed {
-                        target.extend_from_slice(&word.to_be_bytes());
+                    scratch.clear();
+                    codec.encode(values, scratch)?;
+                    for word in scratch.iter_mut() {
+                        *word = word.to_be();
                     }
+                    target.extend_from_slice(bytemuck::cast_slice(scratch));
                 }
                 Ok(PhysicalEncoding::FastPFor256)
             }
@@ -74,7 +86,7 @@ impl PhysicalEncoder {
     /// After the call, `target.len()` is the number of encoded bytes.
     ///
     /// Note: `FastPFOR` is not supported for `u64` streams.
-    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
+    #[hotpath::measure]
     pub fn encode_u64s(self, values: &[u64], target: &mut Vec<u8>) -> MltResult<PhysicalEncoding> {
         target.clear();
         match self {

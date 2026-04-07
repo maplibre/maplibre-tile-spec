@@ -1,0 +1,59 @@
+name: Rust Hotpath Profile
+
+on:
+  pull_request:
+    paths:
+      - "rust/**"
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/mlt-setup-rust
+
+      - name: Create metrics directory
+        run: mkdir -p /tmp/metrics
+
+      - name: Head benchmark (timing + alloc)
+        working-directory: rust
+        env:
+          HOTPATH_OUTPUT_FORMAT: json
+          HOTPATH_OUTPUT_PATH: /tmp/metrics/head_timing.json
+        run: |
+          cargo run --release -p mlt --features='__hotpath,__hotpath-alloc' -- \
+            convert ../test/fixtures/omt/ /tmp/mlt-head-out/
+
+      - name: Checkout base
+        run: git checkout ${{ github.event.pull_request.base.sha }}
+
+      - name: Base benchmark (timing + alloc)
+        working-directory: rust
+        env:
+          HOTPATH_OUTPUT_FORMAT: json
+          HOTPATH_OUTPUT_PATH: /tmp/metrics/base_timing.json
+        run: |
+          cargo run --release -p mlt --features='__hotpath,__hotpath-alloc' -- \
+            convert ../test/fixtures/omt/ /tmp/mlt-base-out/
+
+      - name: Save PR metadata
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          echo "$PR_NUMBER" > /tmp/metrics/pr_number.txt
+          echo "$BASE_REF" > /tmp/metrics/base_ref.txt
+          echo "$HEAD_REF" > /tmp/metrics/head_ref.txt
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: profile-metrics
+          path: /tmp/metrics/
+          retention-days: 1

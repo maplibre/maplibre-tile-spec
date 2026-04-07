@@ -21,7 +21,7 @@ use tokio::task::spawn_blocking;
 use crate::ls::is_mlt_extension;
 
 /// How many raw tiles to collect before shipping a batch to the compute stage.
-const BATCH_SIZE: usize = 10000;
+const BATCH_SIZE: usize = 500;
 
 /// Raw MVT batch forwarded from the reader to the compute stage.
 type RawBatch = Vec<(TileCoord, Vec<u8>)>;
@@ -486,8 +486,10 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
     ));
 
     // ── pipeline ──────────────────────────────────────────────────────────────
-    let (raw_tx, raw_rx) = channel::<RawBatch>(CHANNEL_BUFFER);
-    let (mlt_tx, mlt_rx) = channel::<MltBatch>(CHANNEL_BUFFER);
+    let (raw_tx, raw_rx) =
+        hotpath::channel!(channel::<RawBatch>(CHANNEL_BUFFER), label = "raw_mvt");
+    let (mlt_tx, mlt_rx) =
+        hotpath::channel!(channel::<MltBatch>(CHANNEL_BUFFER), label = "encoded_mlt");
 
     let ((), (), total) = tokio::try_join!(
         mbtiles_reader(src, src_conn, raw_tx),

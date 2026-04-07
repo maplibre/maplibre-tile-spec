@@ -5,16 +5,17 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use integer_encoding::VarIntWriter as _;
+use probabilistic_collections::SipHasherBuilder;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
 use crate::MltError::DictIndexOutOfBounds;
-use crate::codecs::fsst::compress_fsst;
+use crate::codecs::fsst::compress_fsst_with;
 use crate::decoder::strings::{decode_shared_dict_range, encode_shared_dict_range};
 use crate::decoder::{PropValue, TileLayer01};
 use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::property::model::PresenceKind;
-use crate::encoder::property::strings::{fsst_is_viable, write_fsst_data, write_raw_str_data};
+use crate::encoder::property::strings::{fsst_try_train, write_fsst_data, write_raw_str_data};
 use crate::encoder::{
     EncodedStream, Encoder, StagedSharedDict, StagedSharedDictItem, write_u32_stream,
 };
@@ -22,12 +23,12 @@ use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, checked_sum3, strings_to_lengths};
 use crate::{ColumnType, DictionaryType, LengthType, MltResult, OffsetType, StreamType};
 
-/// Number of [`MinHash`] permutations. 128 gives ~7 % error on Jaccard estimates.
+/// Number of [`MinHash`] permutations. 128 gives ~9 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;
 
 /// String columns whose estimated Jaccard similarity exceeds this threshold are
 /// grouped into a single shared dictionary.
-const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.6;
+const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.3;
 
 /// A group of string columns to be merged into a single [`crate::encoder::StagedProperty::SharedDict`].
 #[derive(Debug, Clone)]
@@ -45,9 +46,15 @@ struct StringProfile<'a> {
 /// Analyze a [`TileLayer01`] and return one [`StringGroup`] per cluster of similar
 /// string columns.
 #[must_use]
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
-    let min_hash = MinHash::new(MINHASH_PERMUTATIONS);
+    let min_hash = MinHash::with_hashers(
+        MINHASH_PERMUTATIONS,
+        [
+            SipHasherBuilder::from_seed(0, 0),
+            SipHasherBuilder::from_seed(1, 1),
+        ],
+    );
 
     let profiles: Vec<StringProfile<'_>> = source
         .property_names
@@ -333,7 +340,7 @@ impl StagedSharedDict {
 ///
 /// Returns `false` when every child column is [`PresenceKind::Empty`] or
 /// [`PresenceKind::AllNull`] — the whole shared-dict property is skipped.
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 pub(crate) fn write_shared_dict(
     shared_dict: &StagedSharedDict,
     enc: &mut Encoder,
@@ -362,12 +369,19 @@ pub(crate) fn write_shared_dict(
 
     // Decide corpus encoding upfront to determine the stream count for the varint header.
     // FSST uses 4 streams; plain uses 2.
-    let use_fsst = match enc.override_str_enc(&shared_dict.prefix) {
-        Some(StrEncoding::Fsst | StrEncoding::FsstDict) => true,
-        Some(StrEncoding::Plain | StrEncoding::Dict) => false,
-        None => fsst_is_viable(&dict),
+    let fsst_compressor = match enc.override_str_enc(&shared_dict.prefix) {
+        Some(StrEncoding::Fsst | StrEncoding::FsstDict) => {
+            let byte_slices: Vec<&[u8]> = dict.iter().map(|s| s.as_bytes()).collect();
+            Some(fsst::Compressor::train(&byte_slices))
+        }
+        Some(StrEncoding::Plain | StrEncoding::Dict) => None,
+        None => fsst_try_train(&dict),
     };
-    let dict_stream_count = if use_fsst { 4u32 } else { 2u32 };
+    let dict_stream_count = if fsst_compressor.is_some() {
+        4u32
+    } else {
+        2u32
+    };
 
     // Pre-compute per-child presence flags once; each call invokes override_presence exactly once.
     let child_has_presence: Vec<bool> = shared_dict
@@ -389,8 +403,8 @@ pub(crate) fn write_shared_dict(
 
     // Write stream data: total count, corpus streams, then per-child streams.
     enc.write_varint(stream_len)?;
-    if use_fsst {
-        let raw = compress_fsst(&dict);
+    if let Some(compressor) = &fsst_compressor {
+        let raw = compress_fsst_with(&dict, compressor);
         write_fsst_data(&raw, DictionaryType::Single, &shared_dict.prefix, enc)?;
     } else {
         let lengths = strings_to_lengths(&dict)?;

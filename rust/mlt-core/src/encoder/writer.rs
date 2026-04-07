@@ -1,5 +1,6 @@
 use std::{io, mem};
 
+use fastpfor::FastPFor256;
 use integer_encoding::VarIntWriter as _;
 
 use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
@@ -65,7 +66,7 @@ use crate::{MltError, MltResult};
 /// [`meta`]: Encoder::meta
 /// [`data`]: Encoder::data
 /// [`impl Write`]: Encoder#impl-Write
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Encoder {
     /// Encoding configuration: controls which optimization strategies are tried
     /// (sort orders, compression algorithms, etc.).
@@ -126,9 +127,11 @@ pub struct Encoder {
     alt_stack: Vec<AltLevel>,
 
     pub(crate) tmp_u32: Vec<u32>,
+    pub(crate) tmp_u32_b: Vec<u32>,
     pub(crate) tmp_u64: Vec<u64>,
     pub(crate) tmp_u8: Vec<u8>,
     pub(crate) tmp_u8_b: Vec<u8>,
+    pub(crate) fastpfor: FastPFor256,
 }
 
 impl Encoder {
@@ -170,9 +173,11 @@ impl Encoder {
             layer_column_count: mem::take(&mut self.layer_column_count),
             alt_stack: vec![],
             tmp_u32: vec![],
+            tmp_u32_b: vec![],
             tmp_u64: vec![],
             tmp_u8: vec![],
             tmp_u8_b: vec![],
+            fastpfor: FastPFor256::default(),
         }
     }
 
@@ -192,7 +197,7 @@ impl Encoder {
     /// Must be called exactly once per layer, after all column meta and data.
     ///
     /// [`hdr`]: Encoder::hdr
-    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
+    #[hotpath::measure]
     pub fn write_header(&mut self, name: &str, extent: u32) -> MltResult<()> {
         debug_assert!(
             self.alt_stack.is_empty(),
@@ -442,7 +447,7 @@ impl AltSession<'_> {
     /// - **`Err`** — truncates the partial write back to the pre-call checkpoint
     ///   and returns the error.  The guard's `Drop` still finalises the
     ///   competition cleanly using whichever candidates succeeded so far.
-    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
+    #[hotpath::measure]
     pub fn with<F>(&mut self, f: F) -> MltResult<()>
     where
         F: FnOnce(&mut Encoder) -> MltResult<()>,

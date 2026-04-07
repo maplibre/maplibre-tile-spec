@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 use std::mem;
 
+use probabilistic_collections::SipHasherBuilder;
+use probabilistic_collections::hyperloglog::HyperLogLog;
+
 use super::model::VertexBufferType;
 use crate::MltResult;
 use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
@@ -23,7 +26,7 @@ use crate::utils::AsUsize as _;
 /// `[x0, y0, x1, y1, …]` vertex slice.
 ///
 /// Returns `(sorted_unique_codes, per_vertex_offsets)`.
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 fn build_morton_dict(vertices: &[i32], meta: MortonMeta) -> MltResult<(Vec<u32>, Vec<u32>)> {
     let codes: Vec<u32> = vertices
         .chunks_exact(2)
@@ -280,9 +283,9 @@ fn normalize_part_offsets_for_rings(
 ///
 /// Returns the chosen [`VertexBufferType`] together with the pre-computed [`MortonMeta`]
 /// when Morton is selected, so the caller can reuse it without a second range scan.
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<MortonMeta>) {
-    const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.5;
+    const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.66;
 
     let total = vertices.len() / 2;
     if total == 0 {
@@ -292,14 +295,15 @@ pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<Mor
         return (VertexBufferType::Vec2, None);
     };
 
-    let unique_count = vertices
-        .chunks_exact(2)
-        .map(|c| (c[0], c[1]))
-        .collect::<std::collections::HashSet<_>>()
-        .len();
+    let mut hll = HyperLogLog::<(i32, i32)>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
+    for c in vertices.chunks_exact(2) {
+        hll.insert(&(c[0], c[1]));
+    }
 
     #[expect(clippy::cast_precision_loss)]
-    let uniqueness_ratio = unique_count as f64 / total as f64;
+    let estimated_unique = hll.len().min(total as f64);
+    #[expect(clippy::cast_precision_loss)]
+    let uniqueness_ratio = estimated_unique / total as f64;
 
     if uniqueness_ratio < MORTON_UNIQUENESS_THRESHOLD {
         (VertexBufferType::Morton, Some(meta))
@@ -342,7 +346,7 @@ fn write_geo_precomputed_stream(
 
 impl GeometryValues {
     /// Write the geometry column to `enc`.
-    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
+    #[hotpath::measure]
     pub fn write_to(self, enc: &mut Encoder) -> MltResult<()> {
         let Self {
             vector_types,

@@ -48,11 +48,17 @@ pub(crate) fn do_write_u32(
     enc_type: IntEncoder,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let logical_encoding = enc_type.logical.encode_u32s(values, &mut enc.tmp_u32)?;
+    let logical_encoding =
+        enc_type
+            .logical
+            .encode_u32s(values, &mut enc.tmp_u32, &mut enc.tmp_u32_b)?;
     let num_values = u32::try_from(enc.tmp_u32.len())?;
-    let physical_encoding = enc_type
-        .physical
-        .encode_u32s(&enc.tmp_u32, &mut enc.tmp_u8)?;
+    let physical_encoding = enc_type.physical.encode_u32s(
+        &enc.tmp_u32,
+        &mut enc.tmp_u8,
+        &mut enc.tmp_u32_b,
+        &mut enc.fastpfor,
+    )?;
     let e = IntEncoding::new(logical_encoding, physical_encoding);
     write_header_then_scratch(stream_type, e, num_values, enc)
 }
@@ -63,11 +69,17 @@ pub(crate) fn do_write_i32(
     enc_type: IntEncoder,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let logical_encoding = enc_type.logical.encode_i32s(values, &mut enc.tmp_u32)?;
+    let logical_encoding =
+        enc_type
+            .logical
+            .encode_i32s(values, &mut enc.tmp_u32, &mut enc.tmp_u32_b)?;
     let num_values = u32::try_from(enc.tmp_u32.len())?;
-    let physical_encoding = enc_type
-        .physical
-        .encode_u32s(&enc.tmp_u32, &mut enc.tmp_u8)?;
+    let physical_encoding = enc_type.physical.encode_u32s(
+        &enc.tmp_u32,
+        &mut enc.tmp_u8,
+        &mut enc.tmp_u32_b,
+        &mut enc.fastpfor,
+    )?;
     let e = IntEncoding::new(logical_encoding, physical_encoding);
     write_header_then_scratch(stream_type, e, num_values, enc)
 }
@@ -212,7 +224,12 @@ pub(crate) fn write_precomputed_u32(
 ) -> MltResult<()> {
     let num_values = u32::try_from(values.len())?;
     let write_one = |phys: PhysicalEncoder, enc: &mut Encoder| -> MltResult<()> {
-        let physical_encoding = phys.encode_u32s(values, &mut enc.tmp_u8)?;
+        let physical_encoding = phys.encode_u32s(
+            values,
+            &mut enc.tmp_u8,
+            &mut enc.tmp_u32_b,
+            &mut enc.fastpfor,
+        )?;
         let e = IntEncoding::new(logical_encoding, physical_encoding);
         write_header_then_scratch(ctx.stream_type, e, num_values, enc)
     };

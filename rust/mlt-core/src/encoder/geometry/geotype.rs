@@ -329,6 +329,7 @@ fn push_linestrings<'a>(
 
 #[cfg(test)]
 mod tests {
+    use fastpfor::FastPFor256;
     use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, wkt};
     use insta::assert_snapshot;
     use proptest::prelude::*;
@@ -587,9 +588,11 @@ mod tests {
         // then decode each Morton code to an (x, y) pair.
         let morton_deltas = vec![0u32, 16, 16];
         let mut raw_bytes = Vec::new();
+        let mut scratch = Vec::new();
+        let mut codec = FastPFor256::default();
         let physical_encoding = IntEncoder::varint()
             .physical
-            .encode_u32s(&morton_deltas, &mut raw_bytes)
+            .encode_u32s(&morton_deltas, &mut raw_bytes, &mut scratch, &mut codec)
             .unwrap();
         let morton_dict = EncodedStream {
             meta: StreamMeta::new(
