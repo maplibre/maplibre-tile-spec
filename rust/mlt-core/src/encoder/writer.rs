@@ -66,6 +66,7 @@ use crate::{MltError, MltResult};
 /// [`meta`]: Encoder::meta
 /// [`data`]: Encoder::data
 /// [`impl Write`]: Encoder#impl-Write
+#[derive(Default)]
 pub struct Encoder {
     /// Encoding configuration: controls which optimization strategies are tried
     /// (sort orders, compression algorithms, etc.).
@@ -133,37 +134,6 @@ pub struct Encoder {
     pub(crate) fastpfor: FastPFor256,
 }
 
-impl std::fmt::Debug for Encoder {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Encoder")
-            .field("cfg", &self.cfg)
-            .field("hdr", &self.hdr.len())
-            .field("meta", &self.meta.len())
-            .field("data", &self.data.len())
-            .field("layer_column_count", &self.layer_column_count)
-            .finish()
-    }
-}
-
-impl Default for Encoder {
-    fn default() -> Self {
-        Self {
-            cfg: EncoderConfig::default(),
-            explicit: None,
-            hdr: Vec::new(),
-            meta: Vec::new(),
-            data: Vec::new(),
-            layer_column_count: 0,
-            alt_stack: Vec::new(),
-            tmp_u32: Vec::new(),
-            tmp_u32_b: Vec::new(),
-            tmp_u64: Vec::new(),
-            tmp_u8: Vec::new(),
-            tmp_u8_b: Vec::new(),
-            fastpfor: FastPFor256::default(),
-        }
-    }
-}
 
 impl Encoder {
     /// Create a new encoder with the given [`EncoderConfig`].
