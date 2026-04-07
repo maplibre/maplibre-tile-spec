@@ -26,7 +26,7 @@ __hotpath = [
     "hotpath/threads",
     "hotpath/tui",
 ]
-__hotpath-alloc = ["__hotpath", "hotpath/hotpath-alloc", "hotpath/hotpath-alloc-meta"]
+__hotpath-alloc = ["__hotpath", "hotpath/hotpath-alloc"]
 __hotpath-mcp = ["__hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]
 
 [dependencies]
