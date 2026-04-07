@@ -1159,6 +1159,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
 
     let mixed = || [Some(long_string()), None, Some(long_string())];
     let all = || [long_string(), long_string(), long_string()];
+    let all_opt = || all().map(Some);
     let none = || [None::<String>, None::<String>, None::<String>];
 
     geo_varint_with_rle()
@@ -1197,6 +1198,57 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             SharedDict::new("7-", StrEncoding::Plain)
                 .opt("a", E::varint(), none())
                 .col("b", E::varint(), all()),
+        )
+        .add_shared_dict(
+            SharedDict::new("8-", StrEncoding::Plain)
+                .opt("a", E::varint(), none())
+                .opt("b", E::varint(), mixed()),
+        )
+        .add_shared_dict(
+            SharedDict::new("9-", StrEncoding::Plain)
+                .opt("a", E::varint(), none())
+                .opt("b", E::varint(), none()),
+        )
+        .write(w, "props_shared_dict_presence_variants_np");
+
+    // canonical: all columns are optional (presence stream always written),
+    //            matching the force_presence behaviour from the old write_np helper.
+    geo_varint_with_rle()
+        .geos([P0, P0, P0])
+        .add_shared_dict(
+            SharedDict::new("1-", StrEncoding::Plain)
+                .opt("a", E::varint(), all_opt())
+                .opt("b", E::varint(), all_opt()),
+        )
+        .add_shared_dict(
+            SharedDict::new("2-", StrEncoding::Plain)
+                .opt("a", E::varint(), all_opt())
+                .opt("b", E::varint(), mixed()),
+        )
+        .add_shared_dict(
+            SharedDict::new("3-", StrEncoding::Plain)
+                .opt("a", E::varint(), all_opt())
+                .opt("b", E::varint(), none()),
+        )
+        .add_shared_dict(
+            SharedDict::new("4-", StrEncoding::Plain)
+                .opt("a", E::varint(), mixed())
+                .opt("b", E::varint(), all_opt()),
+        )
+        .add_shared_dict(
+            SharedDict::new("5-", StrEncoding::Plain)
+                .opt("a", E::varint(), mixed())
+                .opt("b", E::varint(), mixed()),
+        )
+        .add_shared_dict(
+            SharedDict::new("6-", StrEncoding::Plain)
+                .opt("a", E::varint(), mixed())
+                .opt("b", E::varint(), none()),
+        )
+        .add_shared_dict(
+            SharedDict::new("7-", StrEncoding::Plain)
+                .opt("a", E::varint(), none())
+                .opt("b", E::varint(), all_opt()),
         )
         .add_shared_dict(
             SharedDict::new("8-", StrEncoding::Plain)
