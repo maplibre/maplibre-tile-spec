@@ -50,7 +50,7 @@ pub struct DataProfile {
 impl DataProfile {
     /// Profile a `u32` sample in a single pass.
     #[must_use]
-    #[expect(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+    #[expect(clippy::cast_precision_loss)]
     fn profile<T>(sample: &[T::UInt]) -> Self
     where
         T: ZigZag,
