@@ -80,8 +80,6 @@ impl PartialEq<ParsedStrings<'_>> for StagedStrings {
     }
 }
 
-// ── StagedSharedDictItem ─────────────────────────────────────────────────────
-
 impl PartialEq<StagedSharedDictItem> for ParsedSharedDictItem<'_> {
     fn eq(&self, other: &StagedSharedDictItem) -> bool {
         let Self { suffix, ranges } = self;
