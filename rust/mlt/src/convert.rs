@@ -21,7 +21,7 @@ use tokio::task::spawn_blocking;
 use crate::ls::is_mlt_extension;
 
 /// How many raw tiles to collect before shipping a batch to the compute stage.
-const BATCH_SIZE: usize = 10000;
+const BATCH_SIZE: usize = 500;
 
 /// Raw MVT batch forwarded from the reader to the compute stage.
 type RawBatch = Vec<(TileCoord, Vec<u8>)>;
