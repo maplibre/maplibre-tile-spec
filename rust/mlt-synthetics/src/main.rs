@@ -796,7 +796,7 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_str_empty_val");
 
     p0().add_prop(E::varint(), P::bool("active", vec![true]))
-        .add_prop(E::varint(), P::u64("biggest", vec![0])) // FIXME: this should be u64, but java does it it this way
+        .add_prop(E::varint(), P::u64("biggest", vec![0])) // FIXME: this should be u64, but java does it this way
         .add_prop(E::varint(), P::i32("bignum", vec![42]))
         .add_prop(E::varint(), P::i32("count", vec![42]))
         .add_prop(E::varint(), P::u32("medium", vec![100]))
