@@ -25,7 +25,7 @@ use probabilistic_collections::hyperloglog::HyperLogLog;
 /// `[x0, y0, x1, y1, …]` vertex slice.
 ///
 /// Returns `(sorted_unique_codes, per_vertex_offsets)`.
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 fn build_morton_dict(vertices: &[i32], meta: MortonMeta) -> MltResult<(Vec<u32>, Vec<u32>)> {
     let codes: Vec<u32> = vertices
         .chunks_exact(2)
@@ -282,7 +282,7 @@ fn normalize_part_offsets_for_rings(
 ///
 /// Returns the chosen [`VertexBufferType`] together with the pre-computed [`MortonMeta`]
 /// when Morton is selected, so the caller can reuse it without a second range scan.
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<MortonMeta>) {
     const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.5;
 
@@ -345,7 +345,7 @@ fn write_geo_precomputed_stream(
 
 impl GeometryValues {
     /// Write the geometry column to `enc`.
-    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
+    #[hotpath::measure]
     pub fn write_to(self, enc: &mut Encoder) -> MltResult<()> {
         let Self {
             vector_types,

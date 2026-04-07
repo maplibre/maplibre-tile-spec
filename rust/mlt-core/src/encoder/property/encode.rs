@@ -12,7 +12,7 @@ use crate::encoder::{EncodedStream, Encoder, StagedScalar, StagedStrings};
 use crate::utils::BinarySerializer as _;
 
 /// Encode all property columns and write them to `enc`.
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 pub fn write_properties(props: &[StagedProperty], enc: &mut Encoder) -> MltResult<()> {
     for prop in props {
         write_prop(prop, enc)?;
@@ -23,7 +23,7 @@ pub fn write_properties(props: &[StagedProperty], enc: &mut Encoder) -> MltResul
 /// Encode a single property column, dispatching on variant.
 ///
 /// Returns `false` when the column is omitted (empty or all-null).
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
     use ColumnType as CT;
     use StagedProperty as D;

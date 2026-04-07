@@ -13,7 +13,7 @@ use crate::dump::{AfterDump, DumpArgs, dump};
 use crate::ls::{LsArgs, ls};
 use crate::ui::{UiArgs, ui};
 
-#[cfg_attr(feature = "__hotpath", hotpath::main)]
+#[hotpath::main]
 fn main() -> AnyResult<()> {
     match Cli::parse().command {
         Commands::Convert(args) => convert(&args)?,

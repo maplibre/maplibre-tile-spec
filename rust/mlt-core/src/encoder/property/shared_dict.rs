@@ -46,7 +46,7 @@ struct StringProfile<'a> {
 /// Analyze a [`TileLayer01`] and return one [`StringGroup`] per cluster of similar
 /// string columns.
 #[must_use]
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
     let min_hash = MinHash::with_hashers(
         MINHASH_PERMUTATIONS,
@@ -340,7 +340,7 @@ impl StagedSharedDict {
 ///
 /// Returns `false` when every child column is [`PresenceKind::Empty`] or
 /// [`PresenceKind::AllNull`] — the whole shared-dict property is skipped.
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 pub(crate) fn write_shared_dict(
     shared_dict: &StagedSharedDict,
     enc: &mut Encoder,

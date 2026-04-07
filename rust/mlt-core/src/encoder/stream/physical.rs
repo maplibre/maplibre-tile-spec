@@ -35,7 +35,7 @@ impl PhysicalEncoder {
     /// FastPFOR). `codec` is a reusable `FastPFor256` instance whose internal
     /// buffers grow once and are retained across calls. Passing long-lived
     /// instances avoids fresh allocations per call.
-    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
+    #[hotpath::measure]
     pub fn encode_u32s(
         self,
         values: &[u32],
@@ -86,7 +86,7 @@ impl PhysicalEncoder {
     /// After the call, `target.len()` is the number of encoded bytes.
     ///
     /// Note: `FastPFOR` is not supported for `u64` streams.
-    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
+    #[hotpath::measure]
     pub fn encode_u64s(self, values: &[u64], target: &mut Vec<u8>) -> MltResult<PhysicalEncoding> {
         target.clear();
         match self {

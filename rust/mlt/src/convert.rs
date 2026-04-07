@@ -486,8 +486,10 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
     ));
 
     // ── pipeline ──────────────────────────────────────────────────────────────
-    let (raw_tx, raw_rx) = channel::<RawBatch>(CHANNEL_BUFFER);
-    let (mlt_tx, mlt_rx) = channel::<MltBatch>(CHANNEL_BUFFER);
+    let (raw_tx, raw_rx) =
+        hotpath::channel!(channel::<RawBatch>(CHANNEL_BUFFER), label = "raw_mvt");
+    let (mlt_tx, mlt_rx) =
+        hotpath::channel!(channel::<MltBatch>(CHANNEL_BUFFER), label = "encoded_mlt");
 
     let ((), (), total) = tokio::try_join!(
         mbtiles_reader(src, src_conn, raw_tx),
