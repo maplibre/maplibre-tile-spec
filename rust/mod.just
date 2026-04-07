@@ -57,7 +57,7 @@ prepare-benchmark-data:
     TARGET_DB = os.path.join(REPO_ROOT, "test", "fixtures", "omt-benchmark.mbtiles")
     BENCH_DIR = os.path.join(REPO_ROOT, "test", "fixtures", "omt-bench")
 
-    # Target tile count per zoom level in the .mbtiles (≈ 10k tiles total, ≈ 2 GB)
+    # Target tile count per zoom level in the .mbtiles (≈ 10,085 tiles total, ≈ 2 GB)
     DB_TARGETS = {
         0: 1,     1: 4,    2: 16,   3: 64,   4: 300,
         5: 100,   6: 100,  7: 300,  8: 100,  9: 100,
@@ -66,7 +66,7 @@ prepare-benchmark-data:
 
     # Zoom levels also exported as individual .mvt files for Criterion benchmarks
     # (matches BENCHMARKED_ZOOM_LEVELS = [4, 7, 13] in bench_utils.rs)
-    MVT_TARGETS = {4: 200, 7: 200, 13: 1000}  # ≈ 1 400 files, ≈ 400 MB
+    MVT_TARGETS = {4: 200, 7: 200, 13: 1000}  # ≈ 1,400 files, ≈ 400 MB
 
 
     def read_source(path):
