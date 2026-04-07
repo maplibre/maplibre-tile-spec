@@ -43,9 +43,6 @@ tessellate = ["dep:geo"]
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
 # Used internally for testing and benchmarking, not intended for public use
 __private = []
-__hotpath = ["hotpath/hotpath"]
-__hotpath-alloc = ["__hotpath", "hotpath/hotpath-alloc"]
-__hotpath-mcp = ["__hotpath", "hotpath/hotpath-mcp"]
 
 [dependencies]
 arbitrary = { workspace = true, optional = true }

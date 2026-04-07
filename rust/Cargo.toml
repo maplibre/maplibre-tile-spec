@@ -72,7 +72,7 @@ zigzag = "0.1.0"
 [workspace.lints.rust]
 unsafe_code = "forbid"
 unused_qualifications = "warn"
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)', 'cfg(feature, values("__hotpath"))'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
 
 [workspace.lints.clippy]
 cargo = { level = "warn", priority = -1 }
