@@ -58,6 +58,15 @@ fn staged_len(staged: &StagedProperty) -> usize {
         StagedProperty::U64(s) => s.values.len(),
         StagedProperty::F32(s) => s.values.len(),
         StagedProperty::F64(s) => s.values.len(),
+        StagedProperty::OptBool(s) => s.presence.len(),
+        StagedProperty::OptI8(s) => s.presence.len(),
+        StagedProperty::OptU8(s) => s.presence.len(),
+        StagedProperty::OptI32(s) => s.presence.len(),
+        StagedProperty::OptU32(s) => s.presence.len(),
+        StagedProperty::OptI64(s) => s.presence.len(),
+        StagedProperty::OptU64(s) => s.presence.len(),
+        StagedProperty::OptF32(s) => s.presence.len(),
+        StagedProperty::OptF64(s) => s.presence.len(),
         StagedProperty::Str(s) => s.lengths.len(),
         StagedProperty::SharedDict(s) => s.items.first().map_or(0, |i| i.ranges.len()),
     }
@@ -154,7 +163,7 @@ fn encode_and_tile_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) ->
 // Absent mode has no presence stream on the wire, so only all-Some inputs are
 // valid for those variants.
 macro_rules! integer_roundtrip_proptests {
-    ($present:ident, $absent:ident, $variant:ident, $staged_fn:ident, $ty:ty, $int_encoder:expr) => {
+    ($present:ident, $absent:ident, $variant:ident, $opt_fn:ident, $non_opt_fn:ident, $ty:ty, $int_encoder:expr) => {
         proptest! {
             #[test]
             fn $present(
@@ -165,7 +174,7 @@ macro_rules! integer_roundtrip_proptests {
                 // least one value is present.
                 prop_assume!(values.iter().any(Option::is_some));
                 let tile = encode_and_tile_explicit(
-                    vec![StagedProperty::$staged_fn("x", values.clone())],
+                    vec![StagedProperty::$opt_fn("x", values.clone())],
                     ExplicitEncoder::all(enc),
                 );
                 prop_assert_eq!(&tile.property_names, &["x"]);
@@ -180,7 +189,7 @@ macro_rules! integer_roundtrip_proptests {
                 enc in $int_encoder,
             ) {
                 let tile = encode_and_tile_explicit(
-                    vec![StagedProperty::$staged_fn("x", values.iter().map(|&v| Some(v)).collect())],
+                    vec![StagedProperty::$non_opt_fn("x", values.clone())],
                     ExplicitEncoder::all(enc),
                 );
                 prop_assert_eq!(&tile.property_names, &["x"]);
@@ -193,15 +202,32 @@ macro_rules! integer_roundtrip_proptests {
 }
 
 // i8, u8, i32, u32 — all physical encoders are valid.
-integer_roundtrip_proptests!(i8_present, i8_absent, I8, i8, i8, arb_int_encoder());
-integer_roundtrip_proptests!(u8_present, u8_absent, U8, u8, u8, arb_int_encoder());
-integer_roundtrip_proptests!(i32_present, i32_absent, I32, i32, i32, arb_int_encoder());
-integer_roundtrip_proptests!(u32_present, u32_absent, U32, u32, u32, arb_int_encoder());
+integer_roundtrip_proptests!(i8_present, i8_absent, I8, opt_i8, i8, i8, arb_int_encoder());
+integer_roundtrip_proptests!(u8_present, u8_absent, U8, opt_u8, u8, u8, arb_int_encoder());
+integer_roundtrip_proptests!(
+    i32_present,
+    i32_absent,
+    I32,
+    opt_i32,
+    i32,
+    i32,
+    arb_int_encoder()
+);
+integer_roundtrip_proptests!(
+    u32_present,
+    u32_absent,
+    U32,
+    opt_u32,
+    u32,
+    u32,
+    arb_int_encoder()
+);
 // FastPFOR does not support 64-bit integers.
 integer_roundtrip_proptests!(
     i64_present,
     i64_absent,
     I64,
+    opt_i64,
     i64,
     i64,
     arb_int_encoder_no_fastpfor()
@@ -210,6 +236,7 @@ integer_roundtrip_proptests!(
     u64_present,
     u64_absent,
     U64,
+    opt_u64,
     u64,
     u64,
     arb_int_encoder_no_fastpfor()
@@ -218,7 +245,7 @@ integer_roundtrip_proptests!(
 #[test]
 fn bool_specific_values() {
     let values = vec![Some(true), None, Some(false), Some(true), None];
-    let tile = encode_and_tile(vec![StagedProperty::bool("active", values.clone())]);
+    let tile = encode_and_tile(vec![StagedProperty::opt_bool("active", values.clone())]);
     assert_eq!(tile.property_names, vec!["active"]);
     for (i, ov) in values.into_iter().enumerate() {
         assert_eq!(&tile.features[i].properties[0], &PropValue::Bool(ov));
@@ -228,7 +255,7 @@ fn bool_specific_values() {
 #[test]
 fn bool_all_null() {
     // All-null columns are skipped in encoding — no column appears on the wire.
-    let tile = encode_and_tile(vec![StagedProperty::bool(
+    let tile = encode_and_tile(vec![StagedProperty::opt_bool(
         "active",
         vec![None::<bool>, None, None],
     )]);
@@ -246,7 +273,7 @@ proptest! {
     ) {
         // All-null columns are skipped; only test when at least one value is present.
         prop_assume!(values.iter().any(Option::is_some));
-        let tile = encode_and_tile(vec![StagedProperty::bool("flag", values.clone())]);
+        let tile = encode_and_tile(vec![StagedProperty::opt_bool("flag", values.clone())]);
         prop_assert_eq!(&tile.property_names, &["flag"]);
         for (i, ov) in values.into_iter().enumerate() {
             prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Bool(ov));
@@ -265,7 +292,7 @@ proptest! {
     ) {
         // All-null columns are skipped; only test when at least one value is present.
         prop_assume!(values.iter().any(Option::is_some));
-        let tile = encode_and_tile(vec![StagedProperty::f32("score", values.clone())]);
+        let tile = encode_and_tile(vec![StagedProperty::opt_f32("score", values.clone())]);
         prop_assert_eq!(&tile.property_names, &["score"]);
         for (i, ov) in values.into_iter().enumerate() {
             prop_assert_eq!(&tile.features[i].properties[0], &PropValue::F32(ov));
@@ -281,7 +308,7 @@ proptest! {
     ) {
         // All-null columns are skipped; only test when at least one value is present.
         prop_assume!(values.iter().any(Option::is_some));
-        let tile = encode_and_tile(vec![StagedProperty::f64("score", values.clone())]);
+        let tile = encode_and_tile(vec![StagedProperty::opt_f64("score", values.clone())]);
         prop_assert_eq!(&tile.property_names, &["score"]);
         for (i, ov) in values.into_iter().enumerate() {
             prop_assert_eq!(&tile.features[i].properties[0], &PropValue::F64(ov));
@@ -316,7 +343,10 @@ fn str_scalar_all_null() {
 #[test]
 fn str_scalar_empty() {
     // Empty columns (zero rows) are skipped in encoding.
-    let tile = encode_and_tile(vec![StagedProperty::str("unused", vec![])]);
+    let tile = encode_and_tile(vec![StagedProperty::str(
+        "unused",
+        Vec::<Option<&str>>::new(),
+    )]);
     assert!(
         tile.property_names.is_empty(),
         "empty column must be omitted from the wire"
@@ -447,7 +477,7 @@ fn struct_shared_dict_deduplication() {
 #[test]
 fn struct_mixed_with_scalars() {
     let tile = encode_and_tile(vec![
-        StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]),
+        StagedProperty::opt_u32("population", vec![Some(3_748_000), Some(1_787_000_u32)]),
         shared_dict_prop(
             "name:",
             vec![
@@ -455,7 +485,7 @@ fn struct_mixed_with_scalars() {
                 col("en", strs(&["Berlin", "Hamburg"])),
             ],
         ),
-        StagedProperty::u32("rank", vec![Some(1), Some(2)]),
+        StagedProperty::opt_u32("rank", vec![Some(1_u32), Some(2)]),
     ]);
 
     assert_eq!(
@@ -493,7 +523,7 @@ fn two_struct_groups_with_scalar_between() {
                 col("en", strs(&["Berlin", "Hamburg"])),
             ],
         ),
-        StagedProperty::u32("population", vec![Some(3_748_000), Some(1_787_000)]),
+        StagedProperty::opt_u32("population", vec![Some(3_748_000_u32), Some(1_787_000)]),
         shared_dict_prop(
             "label:",
             vec![
@@ -534,7 +564,7 @@ fn two_struct_groups_with_scalar_between() {
 fn lazy_layer01_iterate_prop_names_returns_column_names() {
     // Encode a layer with a scalar column and a two-key SharedDict column.
     let bytes = encode_to_bytes(vec![
-        StagedProperty::u32("pop", vec![Some(1_000), Some(2_000)]),
+        StagedProperty::opt_u32("pop", vec![Some(1_000_u32), Some(2_000)]),
         shared_dict_prop(
             "addr:",
             vec![
@@ -597,8 +627,7 @@ proptest! {
 }
 
 fn str_prop(name: &str, values: &[&str]) -> StagedProperty {
-    let owned: Vec<Option<String>> = values.iter().map(|s| Some((*s).to_string())).collect();
-    StagedProperty::str(name, owned)
+    StagedProperty::str(name, values.iter().map(|&s| Some(s)))
 }
 
 /// Build a [`TileLayer01`] from heterogeneous column data (one `Vec<PropValue>` per column).
@@ -637,7 +666,7 @@ fn stage_props(tile: TileLayer01) -> Vec<StagedProperty> {
 
 #[test]
 fn no_nulls_produces_encoded_output() {
-    let props = vec![StagedProperty::u32("pop", vec![Some(1), Some(2), Some(3)])];
+    let props = vec![StagedProperty::u32("pop", vec![1, 2, 3])];
     let mut enc = Encoder::default();
     write_properties(&props, &mut enc).unwrap();
     assert_eq!(
@@ -648,7 +677,7 @@ fn no_nulls_produces_encoded_output() {
 
 #[test]
 fn all_nulls_encodes_without_error() {
-    let props = vec![StagedProperty::i32("x", vec![None, None, None])];
+    let props = vec![StagedProperty::opt_i32("x", vec![None, None, None])];
     let mut enc = Encoder::default();
     // An all-null column writes 0 columns (skipped), which is valid.
     write_properties(&props, &mut enc).unwrap();
@@ -656,7 +685,7 @@ fn all_nulls_encodes_without_error() {
 
 #[test]
 fn sequential_u32_encodes_successfully() {
-    let props = vec![StagedProperty::u32("id", (0u32..1_000).map(Some).collect())];
+    let props = vec![StagedProperty::u32("id", (0u32..1_000).collect())];
     let mut enc = Encoder::default();
     write_properties(&props, &mut enc).unwrap();
     assert_eq!(enc.layer_column_count, 1);
@@ -664,7 +693,7 @@ fn sequential_u32_encodes_successfully() {
 
 #[test]
 fn constant_u32_encodes_successfully() {
-    let props = vec![StagedProperty::u32("val", vec![Some(42); 500])];
+    let props = vec![StagedProperty::u32("val", vec![42u32; 500])];
     let mut enc = Encoder::default();
     write_properties(&props, &mut enc).unwrap();
     assert_eq!(enc.layer_column_count, 1);
@@ -736,10 +765,7 @@ fn mixed_scalars_and_grouped_strings() {
 
 #[test]
 fn encode_with_explicit_encoder_works() {
-    let props = vec![StagedProperty::u32(
-        "id",
-        (1_000u32..2_000).map(Some).collect(),
-    )];
+    let props = vec![StagedProperty::u32("id", (1_000u32..2_000).collect())];
     let mut enc = Encoder::default();
     write_properties(&props, &mut enc).unwrap();
     assert_eq!(enc.layer_column_count, 1);

@@ -14,9 +14,7 @@ use std::collections::HashMap;
 
 use crate::decoder::{GeometryValues, IdValues, PropValue, TileFeature, TileLayer01};
 use crate::encoder::model::StagedLayer01;
-use crate::encoder::{
-    SortStrategy, StagedProperty, StagedScalar, StagedSharedDict, StagedStrings, StringGroup,
-};
+use crate::encoder::{SortStrategy, StagedProperty, StagedSharedDict, StagedStrings, StringGroup};
 
 impl StagedLayer01 {
     /// Construct a [`StagedLayer01`] from a row-oriented [`TileLayer01`], applying
@@ -76,7 +74,7 @@ fn build_scalar_column(name: String, col: usize, features: &mut [TileFeature]) -
     let first_val = features.iter().find_map(|f| f.properties.get(col));
 
     macro_rules! scalar_col {
-        ($variant:ident, $ty:ty, $sv:ident) => {{
+        ($ctor:ident, $ty:ty, $sv:ident) => {{
             let values: Vec<Option<$ty>> = features
                 .iter()
                 .map(|f| {
@@ -87,20 +85,20 @@ fn build_scalar_column(name: String, col: usize, features: &mut [TileFeature]) -
                     }
                 })
                 .collect();
-            StagedProperty::$variant(StagedScalar { name, values })
+            StagedProperty::$ctor(name, values)
         }};
     }
 
     match first_val {
-        Some(PropValue::Bool(_)) => scalar_col!(Bool, bool, Bool),
-        Some(PropValue::I8(_)) => scalar_col!(I8, i8, I8),
-        Some(PropValue::U8(_)) => scalar_col!(U8, u8, U8),
-        Some(PropValue::I32(_)) => scalar_col!(I32, i32, I32),
-        Some(PropValue::U32(_)) => scalar_col!(U32, u32, U32),
-        Some(PropValue::I64(_)) => scalar_col!(I64, i64, I64),
-        Some(PropValue::U64(_)) => scalar_col!(U64, u64, U64),
-        Some(PropValue::F32(_)) => scalar_col!(F32, f32, F32),
-        Some(PropValue::F64(_)) => scalar_col!(F64, f64, F64),
+        Some(PropValue::Bool(_)) => scalar_col!(opt_bool, bool, Bool),
+        Some(PropValue::I8(_)) => scalar_col!(opt_i8, i8, I8),
+        Some(PropValue::U8(_)) => scalar_col!(opt_u8, u8, U8),
+        Some(PropValue::I32(_)) => scalar_col!(opt_i32, i32, I32),
+        Some(PropValue::U32(_)) => scalar_col!(opt_u32, u32, U32),
+        Some(PropValue::I64(_)) => scalar_col!(opt_i64, i64, I64),
+        Some(PropValue::U64(_)) => scalar_col!(opt_u64, u64, U64),
+        Some(PropValue::F32(_)) => scalar_col!(opt_f32, f32, F32),
+        Some(PropValue::F64(_)) => scalar_col!(opt_f64, f64, F64),
         Some(PropValue::Str(_)) | None => {
             let values: Vec<Option<String>> = features
                 .iter_mut()
@@ -175,7 +173,7 @@ mod tests {
             extent: 4096,
             id: None,
             geometry: two_points(),
-            properties: vec![StagedProperty::bool("flag", vec![None, Some(false)])],
+            properties: vec![StagedProperty::opt_bool("flag", vec![None, Some(false)])],
         });
 
         assert_eq!(tile.property_names, vec!["flag"]);
@@ -190,16 +188,16 @@ mod tests {
     #[test]
     fn null_first_feature_across_types() {
         let props = vec![
-            StagedProperty::bool("b", vec![None, Some(true)]),
-            StagedProperty::i8("i8", vec![None, Some(-1)]),
-            StagedProperty::u8("u8", vec![None, Some(2)]),
-            StagedProperty::i32("i32", vec![None, Some(-3)]),
-            StagedProperty::u32("u32", vec![None, Some(4)]),
-            StagedProperty::i64("i64", vec![None, Some(-5)]),
-            StagedProperty::u64("u64", vec![None, Some(6)]),
-            StagedProperty::f32("f32", vec![None, Some(7.0)]),
-            StagedProperty::f64("f64", vec![None, Some(8.0)]),
-            StagedProperty::str("s", vec![None, Some("ok".into())]),
+            StagedProperty::opt_bool("b", vec![None, Some(true)]),
+            StagedProperty::opt_i8("i8", vec![None, Some(-1)]),
+            StagedProperty::opt_u8("u8", vec![None, Some(2)]),
+            StagedProperty::opt_i32("i32", vec![None, Some(-3)]),
+            StagedProperty::opt_u32("u32", vec![None, Some(4)]),
+            StagedProperty::opt_i64("i64", vec![None, Some(-5)]),
+            StagedProperty::opt_u64("u64", vec![None, Some(6)]),
+            StagedProperty::opt_f32("f32", vec![None, Some(7.0)]),
+            StagedProperty::opt_f64("f64", vec![None, Some(8.0)]),
+            StagedProperty::str("s", vec![None, Some("ok")]),
         ];
         let tile = layer_tile(StagedLayer01 {
             name: "t".into(),

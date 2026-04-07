@@ -15,6 +15,15 @@ pub enum StagedProperty {
     F32(StagedScalar<f32>),
     F64(StagedScalar<f64>),
     Str(StagedStrings),
+    OptBool(StagedOptScalar<bool>),
+    OptI8(StagedOptScalar<i8>),
+    OptU8(StagedOptScalar<u8>),
+    OptI32(StagedOptScalar<i32>),
+    OptU32(StagedOptScalar<u32>),
+    OptI64(StagedOptScalar<i64>),
+    OptU64(StagedOptScalar<u64>),
+    OptF32(StagedOptScalar<f32>),
+    OptF64(StagedOptScalar<f64>),
     SharedDict(StagedSharedDict),
 }
 
@@ -31,15 +40,29 @@ pub enum PresenceKind {
     Mixed,
 }
 
-/// Owned scalar column prepared for encoding (bool, integer, or float).
+/// Owned non-optional scalar column prepared for encoding (bool, integer, or float).
+///
+/// Every feature in this column has a value; there are no nulls.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct StagedScalar<T: Copy + PartialEq> {
     pub(crate) name: String,
-    pub values: Vec<Option<T>>,
+    pub values: Vec<T>,
 }
 
-/// Owned string column prepared for encoding.
+/// Owned optional scalar column prepared for encoding (bool, integer, or float).
+///
+/// `values` contains only the non-null (present) values in dense order.
+/// `presence[i]` is `true` when feature `i` has a value; the corresponding dense
+/// entry is `values[k]` where `k` is the count of `true` entries before index `i`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StagedOptScalar<T: Copy + PartialEq> {
+    pub(crate) name: String,
+    pub presence: Vec<bool>,
+    pub values: Vec<T>,
+}
+
+/// Owned non-optional string column prepared for encoding.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedStrings {
     pub(crate) name: String,

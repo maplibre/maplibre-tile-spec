@@ -710,7 +710,7 @@ mod tests {
             extent: 4096,
             id: None,
             geometry: three_points(),
-            properties: vec![StagedProperty::u32("n", vec![Some(1), None, Some(3)])],
+            properties: vec![StagedProperty::opt_u32("n", vec![Some(1), None, Some(3)])],
         });
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
@@ -750,7 +750,7 @@ mod tests {
             geometry: three_points(),
             properties: vec![StagedProperty::str(
                 "label",
-                vec![Some("foo".into()), None, Some("bar".into())],
+                vec![Some("foo"), None, Some("bar")],
             )],
         });
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
@@ -777,8 +777,8 @@ mod tests {
             id: None,
             geometry: three_points(),
             properties: vec![
-                StagedProperty::bool("flag", vec![Some(true), Some(false), None]),
-                StagedProperty::i32("score", vec![None, Some(-5), Some(7)]),
+                StagedProperty::opt_bool("flag", vec![Some(true), Some(false), None]),
+                StagedProperty::opt_i32("score", vec![None, Some(-5), Some(7)]),
             ],
         });
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
@@ -816,7 +816,7 @@ mod tests {
             extent: 4096,
             id: None,
             geometry: three_points(),
-            properties: vec![StagedProperty::u32("x", vec![Some(1), Some(2), Some(3)])],
+            properties: vec![StagedProperty::u32("x", vec![1, 2, 3])],
         });
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };

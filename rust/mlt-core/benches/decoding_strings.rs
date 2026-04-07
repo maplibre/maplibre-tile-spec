@@ -240,7 +240,7 @@ fn bench_presence(c: &mut Criterion) {
             n,
             vec![StagedProperty::str(
                 "name",
-                make_strings(n).into_iter().map(Some).collect(),
+                make_strings(n).into_iter().map(Some::<String>),
             )],
             ExplicitEncoder::all(int_enc),
         );
