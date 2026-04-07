@@ -47,7 +47,7 @@ impl LogicalEncoder {
     /// After the call, `target` holds the physically-stored sequence.
     ///
     /// `scratch` is a reusable intermediate buffer for two-pass encodings
-    /// (Rle, DeltaRle). Passing a long-lived buffer avoids a fresh allocation
+    /// (Rle, `DeltaRle`). Passing a long-lived buffer avoids a fresh allocation
     /// per call.
     ///
     /// See [`crate::decoder::LogicalValue::decode_u32`] for the reverse operation.
@@ -87,7 +87,7 @@ impl LogicalEncoder {
     /// After the call, `target` holds the physically-stored sequence.
     ///
     /// `scratch` is a reusable intermediate buffer for two-pass encodings
-    /// (Rle, DeltaRle). Passing a long-lived buffer avoids a fresh allocation
+    /// (Rle, `DeltaRle`). Passing a long-lived buffer avoids a fresh allocation
     /// per call.
     ///
     /// See [`crate::decoder::LogicalValue::decode_i32`] for the reverse operation.

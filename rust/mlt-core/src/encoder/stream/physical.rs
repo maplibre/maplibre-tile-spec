@@ -32,7 +32,7 @@ impl PhysicalEncoder {
     /// After the call, `target.len()` is the number of encoded bytes.
     ///
     /// `scratch` is a reusable `Vec<u32>` for intermediate codec output (used by
-    /// FastPFOR). `codec` is a reusable `FastPFor256` instance whose internal
+    /// `FastPFOR`). `codec` is a reusable `FastPFor256` instance whose internal
     /// buffers grow once and are retained across calls. Passing long-lived
     /// instances avoids fresh allocations per call.
     #[hotpath::measure]
