@@ -93,6 +93,31 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
         fi
     fi
 
+# Install the pmtiles CLI and Python pmtiles library (needed by download-benchmark-tiles)
+install-pmtiles:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v pmtiles > /dev/null; then
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+        case "$OS-$ARCH" in
+            linux-x86_64)   SUFFIX="Linux_x86_64"   ;;
+            linux-aarch64)  SUFFIX="Linux_arm64"     ;;
+            darwin-x86_64)  SUFFIX="Darwin_x86_64"   ;;
+            darwin-arm64)   SUFFIX="Darwin_arm64"    ;;
+            *) echo "Unsupported platform: $OS-$ARCH"; exit 1 ;;
+        esac
+        ASSET_URL=$(curl -sSf https://api.github.com/repos/protomaps/go-pmtiles/releases/latest | \
+            jq -r ".assets[] | select(.name | test(\"${SUFFIX}\")) | .browser_download_url")
+        if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
+            echo "Could not find pmtiles release for $SUFFIX"; exit 1
+        fi
+        curl -sSfL "$ASSET_URL" | sudo tar -xz -C /usr/local/bin pmtiles
+    fi
+    echo "pmtiles: $(pmtiles version)"
+    pip install --break-system-packages pmtiles 2>/dev/null \
+        || pip install pmtiles
+
 # Make sure the git repo has no uncommitted changes. Fails only if CI envvar is set.
 assert-git-is-clean:
     #!/usr/bin/env bash
