@@ -19,9 +19,9 @@ pkg-fmt = "tgz"
 pkg-fmt = "zip"
 
 [features]
-__hotpath = ["hotpath/hotpath", "hotpath/tokio", "mlt-core/__hotpath"]
-__hotpath-alloc = ["__hotpath", "hotpath/hotpath-alloc", "mlt-core/__hotpath-alloc"]
-__hotpath-mcp = ["__hotpath", "hotpath/hotpath-mcp", "mlt-core/__hotpath-mcp"]
+__hotpath = ["hotpath/hotpath", "hotpath/hotpath-meta", "hotpath/tokio", "hotpath/threads", "hotpath/tui", "mlt-core/__hotpath"]
+__hotpath-alloc = ["__hotpath", "hotpath/hotpath-alloc", "hotpath/hotpath-alloc-meta", "mlt-core/__hotpath-alloc"]
+__hotpath-mcp = ["__hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta", "mlt-core/__hotpath-mcp"]
 
 [dependencies]
 anyhow.workspace = true
