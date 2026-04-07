@@ -35,8 +35,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          export GITHUB_BASE_REF=$(cat /tmp/metrics/base_ref.txt)
-          export GITHUB_HEAD_REF=$(cat /tmp/metrics/head_ref.txt)
+          GITHUB_BASE_REF=$(cat /tmp/metrics/base_ref.txt)
+          export GITHUB_BASE_REF
+          GITHUB_HEAD_REF=$(cat /tmp/metrics/head_ref.txt)
+          export GITHUB_HEAD_REF
           hotpath-utils profile-pr \
             --head-metrics /tmp/metrics/head_timing.json \
             --base-metrics /tmp/metrics/base_timing.json \

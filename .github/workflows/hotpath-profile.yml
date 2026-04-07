@@ -43,10 +43,14 @@ jobs:
             convert ../test/fixtures/omt/ /tmp/mlt-base-out/
 
       - name: Save PR metadata
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          echo '${{ github.event.pull_request.number }}' > /tmp/metrics/pr_number.txt
-          echo '${{ github.base_ref }}' > /tmp/metrics/base_ref.txt
-          echo '${{ github.head_ref }}' > /tmp/metrics/head_ref.txt
+          echo "$PR_NUMBER" > /tmp/metrics/pr_number.txt
+          echo "$BASE_REF" > /tmp/metrics/base_ref.txt
+          echo "$HEAD_REF" > /tmp/metrics/head_ref.txt
 
       - uses: actions/upload-artifact@v7
         with:
