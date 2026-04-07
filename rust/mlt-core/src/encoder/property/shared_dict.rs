@@ -372,7 +372,7 @@ pub(crate) fn write_shared_dict(
         } else {
             enc.write_varint(1u32)?;
             ColumnType::Str.write_to(&mut enc.meta)?;
-        };
+        }
         enc.meta.write_string(&item.suffix)?;
 
         let offsets: Vec<u32> = item

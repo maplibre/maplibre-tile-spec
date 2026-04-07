@@ -144,15 +144,6 @@ impl Layer {
         }
     }
 
-    /// Force a presence stream for every property column, even when all values are present.
-    ///
-    /// This is used to generate the "with presence" variant of synthetic test files.
-    pub fn force_presence_stream(&mut self) {
-        self.force_presence = true;
-    }
-
-    // ── Geometry stream encoder setters ──────────────────────────────────────
-
     #[must_use]
     pub fn meta(mut self, e: IntEncoder) -> Self {
         self.geo_stream_overrides.insert("meta", e);
@@ -297,16 +288,23 @@ impl Layer {
         let item_encs: Vec<(String, IntEncoder)> = shared_dict
             .items
             .iter()
-            .map(|(suffix, enc, _)| (suffix.clone(), *enc))
+            .map(|(suffix, enc, _, _)| (suffix.clone(), *enc))
             .collect();
-        let dict = StagedSharedDict::new(
+        let is_optional_flags: Vec<bool> =
+            shared_dict.items.iter().map(|(_, _, _, f)| *f).collect();
+        let mut dict = StagedSharedDict::new(
             shared_dict.name,
             shared_dict
                 .items
                 .into_iter()
-                .map(|(suffix, _, vals)| (suffix, vals)),
+                .map(|(suffix, _, vals, _)| (suffix, vals)),
         )
         .expect("shared dict builder should be valid");
+        for (item, is_optional) in dict.items.iter_mut().zip(is_optional_flags) {
+            if is_optional {
+                item.has_presence = true;
+            }
+        }
         self.props.push((
             StagedProperty::SharedDict(dict),
             PropConfig::SharedDict {
@@ -335,12 +333,6 @@ impl Layer {
                 w.write(ns_layer, format!("{}_ns", name.as_ref()));
             }
         }
-        w.write(self, name);
-    }
-    /// Write regular and no-presence variants
-    pub fn write_np(mut self, w: &mut SynthWriter, name: impl AsRef<str>) {
-        w.write(self.clone(), format!("{}_np", name.as_ref()));
-        self.force_presence_stream();
         w.write(self, name);
     }
 
@@ -453,7 +445,8 @@ impl Layer {
 pub struct SharedDict {
     name: String,
     dict_encoding: StrEncoding,
-    items: Vec<(String, IntEncoder, Vec<Option<String>>)>,
+    /// `(suffix, encoder, values, is_optional)`
+    items: Vec<(String, IntEncoder, Vec<Option<String>>, bool)>,
 }
 
 impl SharedDict {
@@ -471,21 +464,33 @@ impl SharedDict {
         }
     }
 
-    /// Add a child column to the shared dictionary.
-    ///
-    /// # Arguments
-    /// * `suffix` - The suffix name for this child (e.g., `"de"` for `"name:de"`).
-    /// * `offsets` - The integer encoder for the offset-index stream.
-    /// * `values` - The string values for each feature.
+    /// Add a non-optional child column (no presence stream will be written).
     #[must_use]
-    pub fn column(
+    pub fn col<S: Into<String>>(
+        mut self,
+        suffix: impl Into<String>,
+        offsets: IntEncoder,
+        values: impl IntoIterator<Item = S>,
+    ) -> Self {
+        self.items.push((
+            suffix.into(),
+            offsets,
+            values.into_iter().map(|v| Some(v.into())).collect(),
+            false,
+        ));
+        self
+    }
+
+    /// Add an optional child column (a presence stream is always written).
+    #[must_use]
+    pub fn opt(
         mut self,
         suffix: impl Into<String>,
         offsets: IntEncoder,
         values: impl IntoIterator<Item = Option<String>>,
     ) -> Self {
         self.items
-            .push((suffix.into(), offsets, values.into_iter().collect()));
+            .push((suffix.into(), offsets, values.into_iter().collect(), true));
         self
     }
 }

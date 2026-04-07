@@ -508,13 +508,24 @@ fn generate_properties(w: &mut SynthWriter) {
     // Properties with special names
     let e_any = E::varint();
     p0().add_prop(e_any, P::bool("", vec![true]))
-        .write_np(w, "prop_empty_name");
+        .write(w, "prop_empty_name_np");
+    p0().add_prop(e_any, P::opt_bool("", vec![Some(true)]))
+        .write(w, "prop_empty_name");
     p0().add_prop(e_any, P::bool("hello\u{0000} world\n", vec![true]))
-        .write_np(w, "prop_special_name");
+        .write(w, "prop_special_name_np");
+    p0().add_prop(
+        e_any,
+        P::opt_bool("hello\u{0000} world\n", vec![Some(true)]),
+    )
+    .write(w, "prop_special_name");
     p0().add_prop(e_any, P::bool("val", vec![true]))
-        .write_np(w, "prop_bool");
+        .write(w, "prop_bool_np");
+    p0().add_prop(e_any, P::opt_bool("val", vec![Some(true)]))
+        .write(w, "prop_bool");
     p0().add_prop(e_any, P::bool("val", vec![false]))
-        .write_np(w, "prop_bool_false");
+        .write(w, "prop_bool_false_np");
+    p0().add_prop(e_any, P::opt_bool("val", vec![Some(false)]))
+        .write(w, "prop_bool_false");
     // Two-feature optional bool variants
     geo_varint_with_rle()
         .geos([P0, P0])
@@ -535,13 +546,21 @@ fn generate_properties(w: &mut SynthWriter) {
 
     let e_int = E::varint();
     p0().add_prop(e_int, P::i32("val", vec![42]))
-        .write_np(w, "prop_i32");
+        .write(w, "prop_i32_np");
+    p0().add_prop(e_int, P::opt_i32("val", vec![Some(42)]))
+        .write(w, "prop_i32");
     p0().add_prop(e_int, P::i32("val", vec![-42]))
-        .write_np(w, "prop_i32_neg");
+        .write(w, "prop_i32_neg_np");
+    p0().add_prop(e_int, P::opt_i32("val", vec![Some(-42)]))
+        .write(w, "prop_i32_neg");
     p0().add_prop(e_int, P::i32("val", vec![i32::MIN]))
-        .write_np(w, "prop_i32_min");
+        .write(w, "prop_i32_min_np");
+    p0().add_prop(e_int, P::opt_i32("val", vec![Some(i32::MIN)]))
+        .write(w, "prop_i32_min");
     p0().add_prop(e_int, P::i32("val", vec![i32::MAX]))
-        .write_np(w, "prop_i32_max");
+        .write(w, "prop_i32_max_np");
+    p0().add_prop(e_int, P::opt_i32("val", vec![Some(i32::MAX)]))
+        .write(w, "prop_i32_max");
     // Two-feature optional i32 variants
     geo_varint_with_rle()
         .geos([P0, P0])
@@ -553,11 +572,17 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_i32_null_val");
 
     p0().add_prop(e_int, P::u32("val", vec![42]))
-        .write_np(w, "prop_u32");
+        .write(w, "prop_u32_np");
+    p0().add_prop(e_int, P::opt_u32("val", vec![Some(42)]))
+        .write(w, "prop_u32");
     p0().add_prop(e_int, P::u32("val", vec![0]))
-        .write_np(w, "prop_u32_min");
+        .write(w, "prop_u32_min_np");
+    p0().add_prop(e_int, P::opt_u32("val", vec![Some(0)]))
+        .write(w, "prop_u32_min");
     p0().add_prop(e_int, P::u32("val", vec![u32::MAX]))
-        .write_np(w, "prop_u32_max");
+        .write(w, "prop_u32_max_np");
+    p0().add_prop(e_int, P::opt_u32("val", vec![Some(u32::MAX)]))
+        .write(w, "prop_u32_max");
     // Two-feature optional u32 variants
     geo_varint_with_rle()
         .geos([P0, P0])
@@ -569,13 +594,21 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_u32_null_val");
 
     p0().add_prop(e_int, P::i64("val", vec![9_876_543_210]))
-        .write_np(w, "prop_i64");
+        .write(w, "prop_i64_np");
+    p0().add_prop(e_int, P::opt_i64("val", vec![Some(9_876_543_210)]))
+        .write(w, "prop_i64");
     p0().add_prop(e_int, P::i64("val", vec![-9_876_543_210]))
-        .write_np(w, "prop_i64_neg");
+        .write(w, "prop_i64_neg_np");
+    p0().add_prop(e_int, P::opt_i64("val", vec![Some(-9_876_543_210)]))
+        .write(w, "prop_i64_neg");
     p0().add_prop(e_int, P::i64("val", vec![i64::MIN]))
-        .write_np(w, "prop_i64_min");
+        .write(w, "prop_i64_min_np");
+    p0().add_prop(e_int, P::opt_i64("val", vec![Some(i64::MIN)]))
+        .write(w, "prop_i64_min");
     p0().add_prop(e_int, P::i64("val", vec![i64::MAX]))
-        .write_np(w, "prop_i64_max");
+        .write(w, "prop_i64_max_np");
+    p0().add_prop(e_int, P::opt_i64("val", vec![Some(i64::MAX)]))
+        .write(w, "prop_i64_max");
     // Two-feature optional i64 variants
     geo_varint_with_rle()
         .geos([P0, P0])
@@ -587,11 +620,20 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_i64_null_val");
 
     p0().add_prop(e_int, P::u64("bignum", vec![1_234_567_890_123_456_789]))
-        .write_np(w, "prop_u64");
+        .write(w, "prop_u64_np");
+    p0().add_prop(
+        e_int,
+        P::opt_u64("bignum", vec![Some(1_234_567_890_123_456_789)]),
+    )
+    .write(w, "prop_u64");
     p0().add_prop(e_int, P::u64("bignum", vec![0]))
-        .write_np(w, "prop_u64_min");
+        .write(w, "prop_u64_min_np");
+    p0().add_prop(e_int, P::opt_u64("bignum", vec![Some(0)]))
+        .write(w, "prop_u64_min");
     p0().add_prop(e_int, P::u64("bignum", vec![u64::MAX]))
-        .write_np(w, "prop_u64_max");
+        .write(w, "prop_u64_max_np");
+    p0().add_prop(e_int, P::opt_u64("bignum", vec![Some(u64::MAX)]))
+        .write(w, "prop_u64_max");
     // Two-feature optional u64 variants (key is "val" to match Java)
     geo_varint_with_rle()
         .geos([P0, P0])
@@ -611,23 +653,42 @@ fn generate_properties(w: &mut SynthWriter) {
     let e_fl = E::varint();
     #[expect(clippy::approx_constant)]
     p0().add_prop(e_fl, P::f32("val", vec![3.14]))
-        .write_np(w, "prop_f32");
+        .write(w, "prop_f32_np");
+    #[expect(clippy::approx_constant)]
+    p0().add_prop(e_fl, P::opt_f32("val", vec![Some(3.14)]))
+        .write(w, "prop_f32");
     p0().add_prop(e_fl, P::f32("val", vec![f32::NEG_INFINITY]))
-        .write_np(w, "prop_f32_neg_inf");
+        .write(w, "prop_f32_neg_inf_np");
+    p0().add_prop(e_fl, P::opt_f32("val", vec![Some(f32::NEG_INFINITY)]))
+        .write(w, "prop_f32_neg_inf");
     p0().add_prop(e_fl, P::f32("val", vec![f32::from_bits(1)]))
-        .write_np(w, "prop_f32_min_val");
+        .write(w, "prop_f32_min_val_np");
+    p0().add_prop(e_fl, P::opt_f32("val", vec![Some(f32::from_bits(1))]))
+        .write(w, "prop_f32_min_val");
     p0().add_prop(e_fl, P::f32("val", vec![f32::MIN_POSITIVE]))
-        .write_np(w, "prop_f32_min_norm");
+        .write(w, "prop_f32_min_norm_np");
+    p0().add_prop(e_fl, P::opt_f32("val", vec![Some(f32::MIN_POSITIVE)]))
+        .write(w, "prop_f32_min_norm");
     p0().add_prop(e_fl, P::f32("val", vec![0.0]))
-        .write_np(w, "prop_f32_zero");
+        .write(w, "prop_f32_zero_np");
+    p0().add_prop(e_fl, P::opt_f32("val", vec![Some(0.0)]))
+        .write(w, "prop_f32_zero");
     p0().add_prop(e_fl, P::f32("val", vec![-0.0]))
-        .write_np(w, "prop_f32_neg_zero");
+        .write(w, "prop_f32_neg_zero_np");
+    p0().add_prop(e_fl, P::opt_f32("val", vec![Some(-0.0)]))
+        .write(w, "prop_f32_neg_zero");
     p0().add_prop(e_fl, P::f32("val", vec![f32::MAX]))
-        .write_np(w, "prop_f32_max");
+        .write(w, "prop_f32_max_np");
+    p0().add_prop(e_fl, P::opt_f32("val", vec![Some(f32::MAX)]))
+        .write(w, "prop_f32_max");
     p0().add_prop(e_fl, P::f32("val", vec![f32::INFINITY]))
-        .write_np(w, "prop_f32_pos_inf");
+        .write(w, "prop_f32_pos_inf_np");
+    p0().add_prop(e_fl, P::opt_f32("val", vec![Some(f32::INFINITY)]))
+        .write(w, "prop_f32_pos_inf");
     p0().add_prop(e_fl, P::f32("val", vec![f32::NAN]))
-        .write_np(w, "prop_f32_nan");
+        .write(w, "prop_f32_nan_np");
+    p0().add_prop(e_fl, P::opt_f32("val", vec![Some(f32::NAN)]))
+        .write(w, "prop_f32_nan");
     // Two-feature optional f32 variants
     #[expect(clippy::approx_constant)]
     geo_varint_with_rle()
@@ -641,23 +702,41 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_f32_null_val");
 
     p0().add_prop(e_fl, P::f64("val", vec![std::f64::consts::PI]))
-        .write_np(w, "prop_f64");
+        .write(w, "prop_f64_np");
+    p0().add_prop(e_fl, P::opt_f64("val", vec![Some(std::f64::consts::PI)]))
+        .write(w, "prop_f64");
     p0().add_prop(e_fl, P::f64("val", vec![f64::NAN]))
-        .write_np(w, "prop_f64_nan");
+        .write(w, "prop_f64_nan_np");
+    p0().add_prop(e_fl, P::opt_f64("val", vec![Some(f64::NAN)]))
+        .write(w, "prop_f64_nan");
     p0().add_prop(e_fl, P::f64("val", vec![f64::NEG_INFINITY]))
-        .write_np(w, "prop_f64_neg_inf");
+        .write(w, "prop_f64_neg_inf_np");
+    p0().add_prop(e_fl, P::opt_f64("val", vec![Some(f64::NEG_INFINITY)]))
+        .write(w, "prop_f64_neg_inf");
     p0().add_prop(e_fl, P::f64("val", vec![f64::from_bits(1)]))
-        .write_np(w, "prop_f64_min_val");
+        .write(w, "prop_f64_min_val_np");
+    p0().add_prop(e_fl, P::opt_f64("val", vec![Some(f64::from_bits(1))]))
+        .write(w, "prop_f64_min_val");
     p0().add_prop(e_fl, P::f64("val", vec![f64::MIN_POSITIVE]))
-        .write_np(w, "prop_f64_min_norm");
+        .write(w, "prop_f64_min_norm_np");
+    p0().add_prop(e_fl, P::opt_f64("val", vec![Some(f64::MIN_POSITIVE)]))
+        .write(w, "prop_f64_min_norm");
     p0().add_prop(e_fl, P::f64("val", vec![-0.0_f64]))
-        .write_np(w, "prop_f64_neg_zero");
+        .write(w, "prop_f64_neg_zero_np");
+    p0().add_prop(e_fl, P::opt_f64("val", vec![Some(-0.0_f64)]))
+        .write(w, "prop_f64_neg_zero");
     p0().add_prop(e_fl, P::f64("val", vec![0.0_f64]))
-        .write_np(w, "prop_f64_zero");
+        .write(w, "prop_f64_zero_np");
+    p0().add_prop(e_fl, P::opt_f64("val", vec![Some(0.0_f64)]))
+        .write(w, "prop_f64_zero");
     p0().add_prop(e_fl, P::f64("val", vec![f64::MAX]))
-        .write_np(w, "prop_f64_max");
+        .write(w, "prop_f64_max_np");
+    p0().add_prop(e_fl, P::opt_f64("val", vec![Some(f64::MAX)]))
+        .write(w, "prop_f64_max");
     p0().add_prop(e_fl, P::f64("val", vec![f64::INFINITY]))
-        .write_np(w, "prop_f64_pos_inf");
+        .write(w, "prop_f64_pos_inf_np");
+    p0().add_prop(e_fl, P::opt_f64("val", vec![Some(f64::INFINITY)]))
+        .write(w, "prop_f64_pos_inf");
     // Two-feature optional f64 variants
     geo_varint_with_rle()
         .geos([P0, P0])
@@ -724,10 +803,19 @@ fn generate_properties(w: &mut SynthWriter) {
         .add_prop(E::varint(), P::str("name", ["Test Point"]))
         .add_prop(E::varint(), P::f64("precision", vec![0.123_456_789]))
         .add_prop(E::varint(), P::f32("temp", vec![25.5]))
-        //FIXME in java
-        //.add_prop(enc, "tiny-count", PropValue::I8(vec![Some(42)]))
-        //.add_prop(enc, "tiny-count", PropValue::U8(vec![Some(100)]))
-        .write_np(w, "props_mixed");
+        .write(w, "props_mixed_np");
+    p0().add_prop(E::varint(), P::opt_bool("active", vec![Some(true)]))
+        .add_prop(E::varint(), P::opt_u64("biggest", vec![Some(0)]))
+        .add_prop(E::varint(), P::opt_i32("bignum", vec![Some(42)]))
+        .add_prop(E::varint(), P::opt_i32("count", vec![Some(42)]))
+        .add_prop(E::varint(), P::opt_u32("medium", vec![Some(100)]))
+        .add_prop(E::varint(), P::opt_str("name", [Some("Test Point")]))
+        .add_prop(
+            E::varint(),
+            P::opt_f64("precision", vec![Some(0.123_456_789)]),
+        )
+        .add_prop(E::varint(), P::opt_f32("temp", vec![Some(25.5)]))
+        .write(w, "props_mixed");
 
     generate_props_i32(w);
     generate_props_u32(w);
@@ -739,48 +827,85 @@ fn generate_properties(w: &mut SynthWriter) {
 fn generate_props_i32(w: &mut SynthWriter) {
     let four_points = || geo_varint_with_rle().geos([P0, P1, P2, P3]);
     let values = || P::i32("val", vec![42, 42, 42, 42]);
+    let opt_values = || P::opt_i32("val", vec![Some(42), Some(42), Some(42), Some(42)]);
 
     four_points()
         .add_prop(E::varint(), values())
-        .write_np(w, "props_i32");
+        .write(w, "props_i32_np");
+    four_points()
+        .add_prop(E::varint(), opt_values())
+        .write(w, "props_i32");
     four_points()
         .add_prop(E::delta_varint(), values())
-        .write_np(w, "props_i32_delta");
+        .write(w, "props_i32_delta_np");
+    four_points()
+        .add_prop(E::delta_varint(), opt_values())
+        .write(w, "props_i32_delta");
     four_points()
         .add_prop(E::rle_varint(), values())
-        .write_np(w, "props_i32_rle");
+        .write(w, "props_i32_rle_np");
+    four_points()
+        .add_prop(E::rle_varint(), opt_values())
+        .write(w, "props_i32_rle");
     four_points()
         .add_prop(E::delta_rle_varint(), values())
-        .write_np(w, "props_i32_delta_rle");
+        .write(w, "props_i32_delta_rle_np");
+    four_points()
+        .add_prop(E::delta_rle_varint(), opt_values())
+        .write(w, "props_i32_delta_rle");
 }
 
 fn generate_props_u32(w: &mut SynthWriter) {
     let four_points = || geo_varint_with_rle().geos([P0, P1, P2, P3]);
     let values = || P::u32("val", vec![9_000, 9_000, 9_000, 9_000]);
+    let opt_values = || {
+        P::opt_u32(
+            "val",
+            vec![Some(9_000), Some(9_000), Some(9_000), Some(9_000)],
+        )
+    };
 
     four_points()
         .add_prop(E::varint(), values())
-        .write_np(w, "props_u32");
+        .write(w, "props_u32_np");
+    four_points()
+        .add_prop(E::varint(), opt_values())
+        .write(w, "props_u32");
     four_points()
         .add_prop(E::delta_varint(), values())
-        .write_np(w, "props_u32_delta");
+        .write(w, "props_u32_delta_np");
+    four_points()
+        .add_prop(E::delta_varint(), opt_values())
+        .write(w, "props_u32_delta");
     four_points()
         .add_prop(E::rle_varint(), values())
-        .write_np(w, "props_u32_rle");
+        .write(w, "props_u32_rle_np");
+    four_points()
+        .add_prop(E::rle_varint(), opt_values())
+        .write(w, "props_u32_rle");
     four_points()
         .add_prop(E::delta_rle_varint(), values())
-        .write_np(w, "props_u32_delta_rle");
+        .write(w, "props_u32_delta_rle_np");
+    four_points()
+        .add_prop(E::delta_rle_varint(), opt_values())
+        .write(w, "props_u32_delta_rle");
 
     for multiplier in [1, 2, 3, 4] {
         for offset in [-1, 0, 1] {
             let count = usize::try_from(128 * multiplier + offset).unwrap();
             // Sequence 0,1,2, 0,1,2, 0,1,2, ...
             let vals: Vec<u32> = (0..count).map(|i| u32::try_from(i % 3).unwrap()).collect();
+            let opt_vals: Vec<Option<u32>> = vals.iter().map(|&v| Some(v)).collect();
             geo_fastpfor()
                 .meta(E::rle_fastpfor())
                 .geos(vec![P0; count])
                 .add_prop(E::fastpfor(), P::u32("val", vals))
-                .write_np(w, format!("props_u32_fpf_{count}"));
+                .write(w, format!("props_u32_fpf_{count}_np"));
+            geo_fastpfor()
+                .meta(E::rle_fastpfor())
+                .geos(vec![P0; count])
+                .add_prop(E::fastpfor(), P::opt_u32("val", opt_vals))
+                .write(w, format!("props_u32_fpf_{count}"));
         }
     }
 }
@@ -788,19 +913,37 @@ fn generate_props_u32(w: &mut SynthWriter) {
 fn generate_props_u64(w: &mut SynthWriter) {
     let four_points = || geo_varint_with_rle().geos([P0, P1, P2, P3]);
     let property = || P::u64("val", vec![9_000, 9_000, 9_000, 9_000]);
+    let opt_property = || {
+        P::opt_u64(
+            "val",
+            vec![Some(9_000), Some(9_000), Some(9_000), Some(9_000)],
+        )
+    };
 
     four_points()
         .add_prop(E::varint(), property())
-        .write_np(w, "props_u64");
+        .write(w, "props_u64_np");
+    four_points()
+        .add_prop(E::varint(), opt_property())
+        .write(w, "props_u64");
     four_points()
         .add_prop(E::delta_varint(), property())
-        .write_np(w, "props_u64_delta");
+        .write(w, "props_u64_delta_np");
+    four_points()
+        .add_prop(E::delta_varint(), opt_property())
+        .write(w, "props_u64_delta");
     four_points()
         .add_prop(E::rle_varint(), property())
-        .write_np(w, "props_u64_rle");
+        .write(w, "props_u64_rle_np");
+    four_points()
+        .add_prop(E::rle_varint(), opt_property())
+        .write(w, "props_u64_rle");
     four_points()
         .add_prop(E::delta_rle_varint(), property())
-        .write_np(w, "props_u64_delta_rle");
+        .write(w, "props_u64_delta_rle_np");
+    four_points()
+        .add_prop(E::delta_rle_varint(), opt_property())
+        .write(w, "props_u64_delta_rle");
 }
 
 fn generate_props_str(w: &mut SynthWriter) {
@@ -882,69 +1025,105 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
 
     p0().add_shared_dict(
         SharedDict::new("name:", StrEncoding::Plain)
-            .column("de", E::varint(), [Some(long_string())])
-            .column("en", E::varint(), [Some(long_string())]),
+            .col("de", E::varint(), [long_string()])
+            .col("en", E::varint(), [long_string()]),
     )
-    .write_np(w, "props_shared_dict");
+    .write(w, "props_shared_dict_np");
+    p0().add_shared_dict(
+        SharedDict::new("name:", StrEncoding::Plain)
+            .opt("de", E::varint(), [Some(long_string())])
+            .opt("en", E::varint(), [Some(long_string())]),
+    )
+    .write(w, "props_shared_dict");
 
     p0().add_shared_dict(
         SharedDict::new("", StrEncoding::Plain)
-            .column("a", E::varint(), [Some(long_string())])
-            .column("b", E::varint(), [Some(long_string())]),
+            .col("a", E::varint(), [long_string()])
+            .col("b", E::varint(), [long_string()]),
     )
-    .write_np(w, "props_shared_dict_no_struct_name");
+    .write(w, "props_shared_dict_no_struct_name_np");
+    p0().add_shared_dict(
+        SharedDict::new("", StrEncoding::Plain)
+            .opt("a", E::varint(), [Some(long_string())])
+            .opt("b", E::varint(), [Some(long_string())]),
+    )
+    .write(w, "props_shared_dict_no_struct_name");
     p0().add_shared_dict(
         SharedDict::new("", StrEncoding::Fsst)
-            .column("a", E::varint(), [Some(long_string())])
-            .column("b", E::varint(), [Some(long_string())]),
+            .col("a", E::varint(), [long_string()])
+            .col("b", E::varint(), [long_string()]),
     )
-    .write_np(w, "props_shared_dict_no_struct_name_fsst");
+    .write(w, "props_shared_dict_no_struct_name_fsst_np");
+    p0().add_shared_dict(
+        SharedDict::new("", StrEncoding::Fsst)
+            .opt("a", E::varint(), [Some(long_string())])
+            .opt("b", E::varint(), [Some(long_string())]),
+    )
+    .write(w, "props_shared_dict_no_struct_name_fsst");
 
     p0().add_prop(e_str, P::str("place", [long_string()]))
-        .add_shared_dict(SharedDict::new("name:en", StrEncoding::Plain).column(
+        .add_shared_dict(SharedDict::new("name:en", StrEncoding::Plain).col(
             "",
             E::varint(),
-            [Some(long_string())],
+            [long_string()],
         ))
         .write(w, "props_shared_dict_one_child_np");
     p0().add_prop(e_str, P::opt_str("place", [Some(long_string())]))
-        .add_shared_dict(SharedDict::new("name:en", StrEncoding::Plain).column(
+        .add_shared_dict(SharedDict::new("name:en", StrEncoding::Plain).opt(
             "",
             E::varint(),
             [Some(long_string())],
         ))
         .write(w, "props_shared_dict_one_child");
 
-    p0().add_shared_dict(SharedDict::new("a", StrEncoding::Plain).column(
+    p0().add_shared_dict(SharedDict::new("a", StrEncoding::Plain).col(
+        "",
+        E::varint(),
+        [long_string()],
+    ))
+    .write(w, "props_shared_dict_no_child_name_np");
+    p0().add_shared_dict(SharedDict::new("a", StrEncoding::Plain).opt(
         "",
         E::varint(),
         [Some(long_string())],
     ))
-    .write_np(w, "props_shared_dict_no_child_name");
+    .write(w, "props_shared_dict_no_child_name");
 
     p0().add_shared_dict(
         SharedDict::new("name:", StrEncoding::Fsst)
-            .column("de", E::varint(), [Some(long_string())])
-            .column("en", E::varint(), [Some(long_string())]),
+            .col("de", E::varint(), [long_string()])
+            .col("en", E::varint(), [long_string()]),
     )
-    .write_np(w, "props_shared_dict_fsst");
+    .write(w, "props_shared_dict_fsst_np");
+    p0().add_shared_dict(
+        SharedDict::new("name:", StrEncoding::Fsst)
+            .opt("de", E::varint(), [Some(long_string())])
+            .opt("en", E::varint(), [Some(long_string())]),
+    )
+    .write(w, "props_shared_dict_fsst");
 
-    p0().add_shared_dict(SharedDict::new("a", StrEncoding::Fsst).column(
+    p0().add_shared_dict(SharedDict::new("a", StrEncoding::Fsst).col(
+        "",
+        E::varint(),
+        [long_string()],
+    ))
+    .write(w, "props_shared_dict_no_child_name_fsst_np");
+    p0().add_shared_dict(SharedDict::new("a", StrEncoding::Fsst).opt(
         "",
         E::varint(),
         [Some(long_string())],
     ))
-    .write_np(w, "props_shared_dict_no_child_name_fsst");
+    .write(w, "props_shared_dict_no_child_name_fsst");
 
     p0().add_prop(e_str, P::str("place", [long_string()]))
-        .add_shared_dict(SharedDict::new("name:en", StrEncoding::Fsst).column(
+        .add_shared_dict(SharedDict::new("name:en", StrEncoding::Fsst).col(
             "",
             E::varint(),
-            [Some(long_string())],
+            [long_string()],
         ))
         .write(w, "props_shared_dict_one_child_fsst_np");
     p0().add_prop(e_str, P::opt_str("place", [Some(long_string())]))
-        .add_shared_dict(SharedDict::new("name:en", StrEncoding::Fsst).column(
+        .add_shared_dict(SharedDict::new("name:en", StrEncoding::Fsst).opt(
             "",
             E::varint(),
             [Some(long_string())],
@@ -955,74 +1134,79 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         // Note that Java sorts column names for some reason
         .add_shared_dict(
             SharedDict::new("name", StrEncoding::Plain)
-                .column(":de", E::varint(), [Some(long_string())])
-                .column("_en", E::varint(), [Some(long_string())]),
+                .col(":de", E::varint(), [long_string()])
+                .col("_en", E::varint(), [long_string()]),
         )
         .add_shared_dict(
             SharedDict::new("name", StrEncoding::Plain)
-                .column(":he", E::varint(), [Some(long_string())])
-                .column("_fr", E::varint(), [Some(long_string())]),
+                .col(":he", E::varint(), [long_string()])
+                .col("_fr", E::varint(), [long_string()]),
         )
-        .write_np(w, "props_shared_dict_2_same_prefix");
+        .write(w, "props_shared_dict_2_same_prefix_np");
+    p0().add_shared_dict(
+        SharedDict::new("name", StrEncoding::Plain)
+            .opt(":de", E::varint(), [Some(long_string())])
+            .opt("_en", E::varint(), [Some(long_string())]),
+    )
+    .add_shared_dict(
+        SharedDict::new("name", StrEncoding::Plain)
+            .opt(":he", E::varint(), [Some(long_string())])
+            .opt("_fr", E::varint(), [Some(long_string())]),
+    )
+    .write(w, "props_shared_dict_2_same_prefix");
 
     // ── Presence variants ─────────────────────────────────────────────────────
 
     let mixed = || [Some(long_string()), None, Some(long_string())];
-    let all = || {
-        [
-            Some(long_string()),
-            Some(long_string()),
-            Some(long_string()),
-        ]
-    };
+    let all = || [long_string(), long_string(), long_string()];
     let none = || [None::<String>, None::<String>, None::<String>];
 
     geo_varint_with_rle()
         .geos([P0, P0, P0])
         .add_shared_dict(
             SharedDict::new("1-", StrEncoding::Plain)
-                .column("a", E::varint(), all())
-                .column("b", E::varint(), all()),
+                .col("a", E::varint(), all())
+                .col("b", E::varint(), all()),
         )
         .add_shared_dict(
             SharedDict::new("2-", StrEncoding::Plain)
-                .column("a", E::varint(), all())
-                .column("b", E::varint(), mixed()),
+                .col("a", E::varint(), all())
+                .opt("b", E::varint(), mixed()),
         )
         .add_shared_dict(
             SharedDict::new("3-", StrEncoding::Plain)
-                .column("a", E::varint(), all())
-                .column("b", E::varint(), none()),
+                .col("a", E::varint(), all())
+                .opt("b", E::varint(), none()),
         )
         .add_shared_dict(
             SharedDict::new("4-", StrEncoding::Plain)
-                .column("a", E::varint(), mixed())
-                .column("b", E::varint(), all()),
+                .opt("a", E::varint(), mixed())
+                .col("b", E::varint(), all()),
         )
         .add_shared_dict(
             SharedDict::new("5-", StrEncoding::Plain)
-                .column("a", E::varint(), mixed())
-                .column("b", E::varint(), mixed()),
+                .opt("a", E::varint(), mixed())
+                .opt("b", E::varint(), mixed()),
         )
         .add_shared_dict(
             SharedDict::new("6-", StrEncoding::Plain)
-                .column("a", E::varint(), mixed())
-                .column("b", E::varint(), none()),
+                .opt("a", E::varint(), mixed())
+                .opt("b", E::varint(), none()),
         )
         .add_shared_dict(
             SharedDict::new("7-", StrEncoding::Plain)
-                .column("a", E::varint(), none())
-                .column("b", E::varint(), all()),
+                .opt("a", E::varint(), none())
+                .col("b", E::varint(), all()),
         )
         .add_shared_dict(
             SharedDict::new("8-", StrEncoding::Plain)
-                .column("a", E::varint(), none())
-                .column("b", E::varint(), mixed()),
+                .opt("a", E::varint(), none())
+                .opt("b", E::varint(), mixed()),
         )
         .add_shared_dict(
             SharedDict::new("9-", StrEncoding::Plain)
-                .column("a", E::varint(), none())
-                .column("b", E::varint(), none()),
+                .opt("a", E::varint(), none())
+                .opt("b", E::varint(), none()),
         )
-        .write_np(w, "props_shared_dict_presence_variants");
+        .write(w, "props_shared_dict_presence_variants");
 }

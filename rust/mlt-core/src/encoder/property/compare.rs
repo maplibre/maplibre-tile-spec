@@ -150,9 +150,7 @@ impl PartialEq<StagedProperty> for ParsedProperty<'_> {
             (Self::F32(a), StagedProperty::OptF32(b)) => a == b,
             (Self::F64(a), StagedProperty::F64(b)) => a == b,
             (Self::F64(a), StagedProperty::OptF64(b)) => a == b,
-            (Self::Str(a), StagedProperty::Str(b)) | (Self::Str(a), StagedProperty::OptStr(b)) => {
-                a == b
-            }
+            (Self::Str(a), StagedProperty::Str(b) | StagedProperty::OptStr(b)) => a == b,
             (Self::SharedDict(a), StagedProperty::SharedDict(b)) => a == b,
             _ => false,
         }
