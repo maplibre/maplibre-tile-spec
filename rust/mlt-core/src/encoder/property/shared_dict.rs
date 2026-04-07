@@ -186,6 +186,10 @@ impl StagedSharedDictItem {
     pub fn has_presence(&self) -> bool {
         self.has_presence
     }
+    #[cfg(feature = "__private")]
+    pub fn set_presence(&mut self, value: bool) {
+        self.has_presence = value;
+    }
 
     #[must_use]
     pub fn presence_bools(&self) -> Vec<bool> {
