@@ -347,8 +347,13 @@ pub(crate) fn write_shared_dict(
     };
 
     let children_count = u32::try_from(shared_dict.items.len())?;
-    let optional_count =
-        u32::try_from(shared_dict.items.iter().filter(|p| p.has_presence()).count())?;
+    let optional_count = u32::try_from(
+        shared_dict
+            .items
+            .iter()
+            .filter(|p| p.has_presence())
+            .count(),
+    )?;
     let stream_len = checked_sum3(dict_stream_count, children_count, optional_count)?;
 
     // Write stream data: total count, corpus streams, then per-child streams.
