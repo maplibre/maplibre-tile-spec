@@ -38,16 +38,6 @@ impl ColumnType {
         Ok((input, value))
     }
 
-    pub fn write_one_of<W: Write>(
-        is_opt: bool,
-        opt: Self,
-        non_opt: Self,
-        writer: &mut W,
-    ) -> io::Result<()> {
-        let col_type = if is_opt { opt } else { non_opt };
-        col_type.write_to(writer)
-    }
-
     pub fn write_to<W: Write>(self, writer: &mut W) -> io::Result<()> {
         writer.write_u8(self as u8)?;
         Ok(())

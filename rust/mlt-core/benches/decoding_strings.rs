@@ -123,7 +123,7 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
     let mut group = c.benchmark_group("strings/plain/length_enc");
 
     for n in BENCHMARKED_LENGTHS {
-        let col: Vec<Option<String>> = make_strings(n).into_iter().map(Some).collect();
+        let col = make_strings(n);
         group.throughput(Throughput::Elements(n as u64));
 
         for logical in limit(LogicalEncoder::iter()) {
@@ -158,7 +158,7 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
     let mut group = c.benchmark_group("strings/fsst/length_enc");
 
     for n in BENCHMARKED_LENGTHS {
-        let col: Vec<Option<String>> = make_strings(n).into_iter().map(Some).collect();
+        let col = make_strings(n);
         group.throughput(Throughput::Elements(n as u64));
 
         for logical in limit(LogicalEncoder::iter()) {
@@ -194,7 +194,7 @@ fn bench_encoding_type(c: &mut Criterion) {
     let int_enc = IntEncoder::plain();
 
     for n in BENCHMARKED_LENGTHS {
-        let col: Vec<Option<String>> = make_strings(n).into_iter().map(Some).collect();
+        let col = make_strings(n);
         group.throughput(Throughput::Elements(n as u64));
 
         let plain_bytes = encode_layer(
@@ -238,10 +238,7 @@ fn bench_presence(c: &mut Criterion) {
         // Non-nullable: no presence stream emitted.
         let no_null_bytes = encode_layer(
             n,
-            vec![StagedProperty::str(
-                "name",
-                make_strings(n).into_iter().map(Some).collect(),
-            )],
+            vec![StagedProperty::str("name", make_strings(n))],
             ExplicitEncoder::all(int_enc),
         );
         group.bench_with_input(
@@ -259,7 +256,7 @@ fn bench_presence(c: &mut Criterion) {
         // Nullable: presence stream present, every 5th entry is None.
         let null_bytes = encode_layer(
             n,
-            vec![StagedProperty::str("name", make_nullable_strings(n))],
+            vec![StagedProperty::opt_str("name", make_nullable_strings(n))],
             ExplicitEncoder::all(int_enc),
         );
         group.bench_with_input(
@@ -292,8 +289,8 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         let total_entries = n * 2;
         group.throughput(Throughput::Elements(total_entries as u64));
 
-        let strings = make_strings(n);
-        let col: Vec<Option<String>> = strings.iter().map(|s| Some(s.clone())).collect();
+        let col = make_strings(n);
+        let col_opt: Vec<Option<String>> = col.iter().map(|s| Some(s.clone())).collect();
 
         // --- plain: two independent string columns ---
         let plain_x2_bytes = encode_layer(
@@ -320,14 +317,17 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         //
         // Two sub-properties; the second child has every 3rd entry as NULL so
         // the child presence path is exercised.
-        let col2: Vec<Option<String>> = strings
+        let col2: Vec<Option<String>> = col
             .iter()
             .enumerate()
             .map(|(i, s)| if i % 3 == 0 { None } else { Some(s.clone()) })
             .collect();
         let make_sd = || {
-            StagedSharedDict::new("place:", [("type", col.clone()), ("subtype", col2.clone())])
-                .expect("StagedSharedDict::new failed")
+            StagedSharedDict::new(
+                "place:",
+                [("type", col_opt.clone()), ("subtype", col2.clone())],
+            )
+            .expect("StagedSharedDict::new failed")
         };
 
         let sd_plain_bytes = encode_layer(

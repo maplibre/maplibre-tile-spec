@@ -281,35 +281,54 @@ fn normalize_part_offsets_for_rings(
 /// - The uniqueness ratio is below the threshold, meaning enough vertices are
 ///   repeated that the dictionary overhead is worthwhile.
 ///
-/// Returns the chosen [`VertexBufferType`] together with the pre-computed [`MortonMeta`]
-/// when Morton is selected, so the caller can reuse it without a second range scan.
+/// Calls [`Encoder::get_z_order_params`] so the [`MortonMeta`] is cached on the encoder
+/// and can be retrieved again in the Morton encoding branch without a second vertex scan.
 #[hotpath::measure]
-pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<MortonMeta>) {
+fn select_vertex_strategy(vertices: &[i32], enc: &mut Encoder) -> VertexBufferType {
     const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.66;
 
-    let total = vertices.len() / 2;
-    if total == 0 {
-        return (VertexBufferType::Vec2, None);
+    if let Some(v) = enc.override_vertex_buffer_type() {
+        return v;
+    } else if let Some(v) = enc.vertex_buffer_type_cache {
+        return v;
     }
-    let Ok(meta) = z_order_params(vertices) else {
-        return (VertexBufferType::Vec2, None);
+
+    let coord_count = vertices.len() / 2;
+
+    let vertex_buffer_type = if coord_count == 0 || get_z_order_params(vertices, enc).is_err() {
+        VertexBufferType::Vec2
+    } else {
+        let mut hll =
+            HyperLogLog::<(i32, i32)>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
+        for c in vertices.chunks_exact(2) {
+            hll.insert(&(c[0], c[1]));
+        }
+
+        #[expect(clippy::cast_precision_loss)]
+        let estimated_unique = hll.len().min(coord_count as f64);
+        #[expect(clippy::cast_precision_loss)]
+        let uniqueness_ratio = estimated_unique / coord_count as f64;
+
+        if uniqueness_ratio < MORTON_UNIQUENESS_THRESHOLD {
+            VertexBufferType::Morton
+        } else {
+            VertexBufferType::Vec2
+        }
     };
 
-    let mut hll = HyperLogLog::<(i32, i32)>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
-    for c in vertices.chunks_exact(2) {
-        hll.insert(&(c[0], c[1]));
-    }
+    enc.vertex_buffer_type_cache = Some(vertex_buffer_type);
+    vertex_buffer_type
+}
 
-    #[expect(clippy::cast_precision_loss)]
-    let estimated_unique = hll.len().min(total as f64);
-    #[expect(clippy::cast_precision_loss)]
-    let uniqueness_ratio = estimated_unique / total as f64;
-
-    if uniqueness_ratio < MORTON_UNIQUENESS_THRESHOLD {
-        (VertexBufferType::Morton, Some(meta))
+/// Compute or return the cached [`MortonMeta`] for `vertices`.
+fn get_z_order_params(vertices: &[i32], enc: &mut Encoder) -> MltResult<MortonMeta> {
+    Ok(if let Some(meta) = enc.morton_meta_cache {
+        meta
     } else {
-        (VertexBufferType::Vec2, None)
-    }
+        let meta = z_order_params(vertices)?;
+        enc.morton_meta_cache = Some(meta);
+        meta
+    })
 }
 
 /// Write a geometry `u32` stream: [`Encoder::override_int_enc`] when explicit mode is active,
@@ -368,13 +387,6 @@ impl GeometryValues {
         let index_buffer = index_buffer.unwrap_or_default();
         let triangles = triangles.unwrap_or_default();
         let vertices = vertices.unwrap_or_default();
-
-        // Select vertex encoding strategy; auto-selection pre-computes MortonMeta so we don't
-        // have to scan the vertex range twice.
-        let (vertex_buffer_type, auto_morton_meta) = match enc.override_vertex_buffer_type() {
-            Some(vbt) => (vbt, None),
-            None => select_vertex_strategy(&vertices),
-        };
 
         let meta: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
 
@@ -488,8 +500,7 @@ impl GeometryValues {
         let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Index), "triangles_indexes");
         n += write_geo_u32_stream(&index_buffer, ctx, enc)?;
 
-        // Vertex streams — compute and write inline.
-        match vertex_buffer_type {
+        match select_vertex_strategy(&vertices, enc) {
             VertexBufferType::Vec2 => {
                 // Encode into enc.tmp_u32, then take it so we can pass enc mutably to
                 // write_geo_precomputed_stream (which only touches enc.tmp_u8, not tmp_u32).
@@ -501,12 +512,7 @@ impl GeometryValues {
                 enc.tmp_u32 = delta; // restore allocation for future reuse
             }
             VertexBufferType::Morton => {
-                // Reuse the MortonMeta computed during auto-selection to avoid a second vertex
-                // range scan; compute it fresh only when the type was forced via override.
-                let morton_meta = match auto_morton_meta {
-                    Some(meta) => meta,
-                    None => z_order_params(&vertices)?,
-                };
+                let morton_meta = get_z_order_params(&vertices, enc)?;
                 let (dict, offsets) = build_morton_dict(&vertices, morton_meta)?;
                 let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
                 n += write_geo_u32_stream(&offsets, ctx, enc)?;

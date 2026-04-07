@@ -3,6 +3,7 @@ use std::{io, mem};
 use fastpfor::FastPFor256;
 use integer_encoding::VarIntWriter as _;
 
+use crate::decoder::MortonMeta;
 use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
 use crate::encoder::{EncoderConfig, IdWidth, IntEncoder, VertexBufferType};
 use crate::{MltError, MltResult};
@@ -111,6 +112,14 @@ pub struct Encoder {
     /// as the wire-format `column_count`.
     pub layer_column_count: u32,
 
+    /// Regardless of the sort, these values should be identical
+    pub(crate) vertex_buffer_type_cache: Option<VertexBufferType>,
+
+    /// Cached result of [`z_order_params`] for the geometry column currently
+    /// being encoded.  Cleared at the start of each [`GeometryValues::write_to`]
+    /// call so it never leaks across columns.
+    pub(crate) morton_meta_cache: Option<MortonMeta>,
+
     // -----------------------------------------------------------------------
     // Alternatives state — a stack that supports nested competitions.
     //
@@ -171,6 +180,8 @@ impl Encoder {
             meta: mem::take(&mut self.meta),
             data: mem::take(&mut self.data),
             layer_column_count: mem::take(&mut self.layer_column_count),
+            vertex_buffer_type_cache: None,
+            morton_meta_cache: None,
             alt_stack: vec![],
             tmp_u32: vec![],
             tmp_u32_b: vec![],

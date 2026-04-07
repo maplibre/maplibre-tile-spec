@@ -88,7 +88,7 @@ pub fn compress_fsst<S: AsRef<str>>(values: &[S]) -> FsstRawData {
     compress_fsst_with(values, &compressor)
 }
 
-/// Like [`compress_fsst`] but reuses an already-trained [`Compressor`].
+/// Like [`compress_fsst`] but reuses an already-trained [`fsst::Compressor`].
 pub fn compress_fsst_with<S: AsRef<str>>(
     values: &[S],
     compressor: &fsst::Compressor,

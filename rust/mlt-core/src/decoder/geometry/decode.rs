@@ -67,7 +67,7 @@ pub fn decode_root_length_stream(
         root_buffer_offsets.push(offset);
     }
 
-    dec.adjust_alloc(&root_buffer_offsets, alloc_size);
+    dec.adjust_alloc(&root_buffer_offsets, alloc_size)?;
     Ok(root_buffer_offsets)
 }
 
@@ -109,7 +109,7 @@ pub fn decode_level1_without_ring_buffer_length_stream(
         }
     }
 
-    dec.adjust_alloc(&level1_buffer_offsets, alloc_size);
+    dec.adjust_alloc(&level1_buffer_offsets, alloc_size)?;
     Ok(level1_buffer_offsets)
 }
 
@@ -155,7 +155,7 @@ pub fn decode_level1_length_stream(
         }
     }
 
-    dec.adjust_alloc(&level1_buffer_offsets, alloc_size);
+    dec.adjust_alloc(&level1_buffer_offsets, alloc_size)?;
     Ok(level1_buffer_offsets)
 }
 
@@ -212,7 +212,7 @@ pub fn decode_level2_length_stream(
         }
     }
 
-    dec.adjust_alloc(&level2_buffer_offsets, alloc_size);
+    dec.adjust_alloc(&level2_buffer_offsets, alloc_size)?;
     Ok(level2_buffer_offsets)
 }
 

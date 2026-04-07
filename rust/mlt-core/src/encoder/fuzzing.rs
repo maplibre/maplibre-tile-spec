@@ -74,7 +74,7 @@ impl Arbitrary<'_> for StagedProperty {
         // Bound value count to prevent OOM from unbounded vector generation
         let count = u.int_in_range(0..=64u8)? as usize;
         let values: Vec<Option<u32>> = (0..count).map(|_| u.arbitrary()).collect::<Result<_>>()?;
-        Ok(Self::u32("prop", values))
+        Ok(Self::opt_u32("prop", values))
     }
 }
 

@@ -95,7 +95,7 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
         result.push(last2);
     }
 
-    dec.adjust_alloc(&result, alloc_size);
+    dec.adjust_alloc(&result, alloc_size)?;
     Ok(result)
 }
 

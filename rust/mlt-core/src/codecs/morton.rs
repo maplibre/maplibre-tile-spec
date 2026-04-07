@@ -173,7 +173,7 @@ pub fn decode_morton_delta(
         out.push(y);
     }
 
-    dec.adjust_alloc(&out, alloc_size);
+    dec.adjust_alloc(&out, alloc_size)?;
     Ok(out)
 }
 
@@ -207,7 +207,7 @@ pub fn decode_morton_codes(
         out.push(y);
     }
 
-    dec.adjust_alloc(&out, alloc_size);
+    dec.adjust_alloc(&out, alloc_size)?;
     Ok(out)
 }
 

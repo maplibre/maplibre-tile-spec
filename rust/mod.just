@@ -176,6 +176,46 @@ coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'c
 profile *args:
     cargo run --release -p mlt --features='__hotpath,__hotpath-alloc,__hotpath-mcp' -- {{args}}
 
+# Download ~5k benchmark tiles (z0-z6) from Protomaps into outdir.
+# Skips if a previous complete download is detected (.complete sentinel).
+# ODbL-licensed OSM data; extraction explicitly permitted by Protomaps.
+download-benchmark-tiles outdir='/tmp/benchmark-tiles' maxzoom='6': (just 'install-pmtiles')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -f "{{outdir}}/.complete" ]; then
+        echo "{{outdir}} already has tiles, skipping download"
+        exit 0
+    fi
+    TMPFILE=$(mktemp /tmp/benchmark-XXXXXX.pmtiles)
+    trap 'rm -f "$TMPFILE"' EXIT
+    pmtiles extract \
+        https://data.source.coop/protomaps/openstreetmap/v4.pmtiles \
+        "$TMPFILE" \
+        --maxzoom={{maxzoom}}
+    python3 - "{{outdir}}" "{{maxzoom}}" "$TMPFILE" << 'PYEOF'
+    import gzip, os, sys
+    from pmtiles.reader import Reader, MmapSource, Compression
+
+    out, maxzoom, src = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+    os.makedirs(out, exist_ok=True)
+    count = 0
+    with open(src, "rb") as f:
+        reader = Reader(MmapSource(f))
+        is_gzip = reader.header()["tile_compression"] == Compression.GZIP
+        for z in range(maxzoom + 1):
+            for x in range(2 ** z):
+                for y in range(2 ** z):
+                    data = reader.get(z, x, y)
+                    if data:
+                        if is_gzip:
+                            data = gzip.decompress(data)
+                        with open(os.path.join(out, f"{z}_{x}_{y}.mvt"), "wb") as of:
+                            of.write(data)
+                        count += 1
+    print(f"Extracted {count} tiles to {out}")
+    PYEOF
+    touch "{{outdir}}/.complete"
+
 # Build and open code documentation
 docs *args='--open':
     DOCS_RS=1 cargo doc --no-deps {{args}} --features arbitrary --package mlt-core
@@ -238,7 +278,7 @@ get-crate-field field package=main_crate: (just 'assert-cmd' 'jq')
 # Get the minimum supported Rust version (MSRV) for the crate
 get-msrv package=main_crate: (get-crate-field 'rust_version' package)
 
-# Run all linting steps good for local development
+# Run formatting, cargo check, and clippy for local development
 lint: fmt check clippy test
 
 # Find the minimum supported Rust version and update Cargo.toml
