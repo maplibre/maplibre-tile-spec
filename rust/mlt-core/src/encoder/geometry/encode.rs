@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 use std::mem;
 
+use probabilistic_collections::SipHasherBuilder;
+use probabilistic_collections::hyperloglog::HyperLogLog;
+
 use super::model::VertexBufferType;
 use crate::MltResult;
 use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
@@ -15,8 +18,6 @@ use crate::encoder::model::StreamCtx;
 use crate::encoder::stream::{write_precomputed_u32, write_u32_stream};
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
-use probabilistic_collections::SipHasherBuilder;
-use probabilistic_collections::hyperloglog::HyperLogLog;
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
 ///

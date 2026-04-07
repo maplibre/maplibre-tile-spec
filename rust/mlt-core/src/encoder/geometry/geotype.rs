@@ -329,11 +329,10 @@ fn push_linestrings<'a>(
 
 #[cfg(test)]
 mod tests {
+    use fastpfor::FastPFor256;
     use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, wkt};
     use insta::assert_snapshot;
     use proptest::prelude::*;
-
-    use fastpfor::FastPFor256;
 
     use super::*;
     use crate::LazyParsed;
