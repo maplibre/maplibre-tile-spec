@@ -17,7 +17,7 @@ const RLE_MIN_AVG_RUN_LENGTH: f64 = 2.0;
 /// Delta encoding is useful when the absolute delta values fit in fewer bits
 /// than the original values.  Require at least this many bits of reduction
 /// before enabling Delta on an unsorted stream.
-const DELTA_BIT_SAVINGS_THRESHOLD: u8 = 4;
+const DELTA_BIT_SAVINGS_THRESHOLD: u8 = 0;
 
 /// Sampling-based encoder selection
 #[derive(Debug, Clone, Default)]
