@@ -675,32 +675,45 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_f64_null_val");
 
     let e_str = E::varint();
-    p0().add_prop(e_str, P::str("val", [Some("")]))
-        .write_np(w, "prop_str_empty");
-    p0().add_prop(e_str, P::str("val", [Some("42")]))
-        .write_np(w, "prop_str_ascii");
-    p0().add_prop(e_str, P::str("val", [Some("Line1\n\t\"quoted\"\\path")]))
-        .write_np(w, "prop_str_escape");
-    p0().add_prop(e_str, P::str("val", [Some("München 📍 cafe\u{0301}")]))
-        .write_np(w, "prop_str_unicode");
-    p0().add_prop(e_str, P::str("val", [Some("hello\u{0000} world\n")]))
-        .write_np(w, "prop_str_special");
+    p0().add_prop(e_str, P::str("val", [""]))
+        .write(w, "prop_str_empty_np");
+    p0().add_prop(e_str, P::opt_str("val", [Some("")]))
+        .write(w, "prop_str_empty");
+    p0().add_prop(e_str, P::str("val", ["42"]))
+        .write(w, "prop_str_ascii_np");
+    p0().add_prop(e_str, P::opt_str("val", [Some("42")]))
+        .write(w, "prop_str_ascii");
+    p0().add_prop(e_str, P::str("val", ["Line1\n\t\"quoted\"\\path"]))
+        .write(w, "prop_str_escape_np");
+    p0().add_prop(
+        e_str,
+        P::opt_str("val", [Some("Line1\n\t\"quoted\"\\path")]),
+    )
+    .write(w, "prop_str_escape");
+    p0().add_prop(e_str, P::str("val", ["München 📍 cafe\u{0301}"]))
+        .write(w, "prop_str_unicode_np");
+    p0().add_prop(e_str, P::opt_str("val", [Some("München 📍 cafe\u{0301}")]))
+        .write(w, "prop_str_unicode");
+    p0().add_prop(e_str, P::str("val", ["hello\u{0000} world\n"]))
+        .write(w, "prop_str_special_np");
+    p0().add_prop(e_str, P::opt_str("val", [Some("hello\u{0000} world\n")]))
+        .write(w, "prop_str_special");
     // Two-feature optional str variants
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_str, P::str("val", [Some("42"), None]))
+        .add_prop(e_str, P::opt_str("val", [Some("42"), None]))
         .write(w, "prop_str_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_str, P::str("val", [None, Some("42")]))
+        .add_prop(e_str, P::opt_str("val", [None, Some("42")]))
         .write(w, "prop_str_null_val");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_str, P::str("val", [Some(""), None]))
+        .add_prop(e_str, P::opt_str("val", [Some(""), None]))
         .write(w, "prop_str_val_empty");
     geo_varint_with_rle()
         .geos([P0, P0])
-        .add_prop(e_str, P::str("val", [None, Some("")]))
+        .add_prop(e_str, P::opt_str("val", [None, Some("")]))
         .write(w, "prop_str_empty_val");
 
     p0().add_prop(E::varint(), P::bool("active", vec![true]))
@@ -708,7 +721,7 @@ fn generate_properties(w: &mut SynthWriter) {
         .add_prop(E::varint(), P::i32("bignum", vec![42]))
         .add_prop(E::varint(), P::i32("count", vec![42]))
         .add_prop(E::varint(), P::u32("medium", vec![100]))
-        .add_prop(E::varint(), P::str("name", [Some("Test Point")]))
+        .add_prop(E::varint(), P::str("name", ["Test Point"]))
         .add_prop(E::varint(), P::f64("precision", vec![0.123_456_789]))
         .add_prop(E::varint(), P::f32("temp", vec![25.5]))
         //FIXME in java
@@ -792,47 +805,80 @@ fn generate_props_u64(w: &mut SynthWriter) {
 
 fn generate_props_str(w: &mut SynthWriter) {
     let six_points = || geo_varint_with_rle().geos([P1, P2, P3, PH1, PH2, PH3]);
-    let values = || {
-        P::str(
-            "val",
-            [
-                Some("residential_zone_north_sector_1"),
-                Some("commercial_zone_south_sector_2"),
-                Some("industrial_zone_east_sector_3"),
-                Some("park_zone_west_sector_4"),
-                Some("water_zone_north_sector_5"),
-                Some("residential_zone_south_sector_6"),
-            ],
+    let str_vals = [
+        "residential_zone_north_sector_1",
+        "commercial_zone_south_sector_2",
+        "industrial_zone_east_sector_3",
+        "park_zone_west_sector_4",
+        "water_zone_north_sector_5",
+        "residential_zone_south_sector_6",
+    ];
+    // _np variant: non-optional (CT::Str, no presence stream)
+    six_points()
+        .add_prop(E::varint(), P::str("val", str_vals))
+        .write(w, "props_str_np");
+    // canonical: all-present optional (CT::OptStr + presence), matching Java's format
+    six_points()
+        .add_prop(E::varint(), P::opt_str("val", str_vals.map(Some)))
+        .write(w, "props_str");
+    // FSST variants — same split
+    six_points()
+        .add_prop_str_fsst(E::varint(), E::varint(), P::str("val", str_vals))
+        .write(w, "props_str_fsst_np");
+    six_points()
+        .add_prop_str_fsst(
+            E::varint(),
+            E::varint(),
+            P::opt_str("val", str_vals.map(Some)),
         )
-    };
-
-    six_points()
-        .add_prop(E::varint(), values())
-        .write_np(w, "props_str");
-    six_points()
-        .add_prop_str_fsst(E::varint(), E::varint(), values())
-        .write_np(w, "props_str_fsst"); // FSST compression output is not byte-for-byte consistent with Java's
+        .write(w, "props_str_fsst"); // FSST compression output is not byte-for-byte consistent with Java's
 
     // Two features with the same 30-char value → deduplicated dictionary encoding.
     // 30 chars because otherwise FSST is skipped.
     let long_string = || "A".repeat(30);
     let two_pts = || geo_varint_with_rle().geos([P1, P2]);
-    let two_same = || P::str("val", [Some(long_string()), Some(long_string())]);
 
     two_pts()
-        .add_prop_str_dict(E::varint(), E::rle_varint(), two_same())
-        .write_np(w, "props_offset_str");
+        .add_prop_str_dict(
+            E::varint(),
+            E::rle_varint(),
+            P::str("val", [long_string(), long_string()]),
+        )
+        .write(w, "props_offset_str_np");
     two_pts()
-        .add_prop_str_fsst_dict(E::varint(), E::varint(), E::rle_varint(), two_same())
-        .write_np(w, "props_offset_str_fsst");
+        .add_prop_str_dict(
+            E::varint(),
+            E::rle_varint(),
+            P::opt_str("val", [Some(long_string()), Some(long_string())]),
+        )
+        .write(w, "props_offset_str");
+    two_pts()
+        .add_prop_str_fsst_dict(
+            E::varint(),
+            E::varint(),
+            E::rle_varint(),
+            P::str("val", [long_string(), long_string()]),
+        )
+        .write(w, "props_offset_str_fsst_np");
+    two_pts()
+        .add_prop_str_fsst_dict(
+            E::varint(),
+            E::varint(),
+            E::rle_varint(),
+            P::opt_str("val", [Some(long_string()), Some(long_string())]),
+        )
+        .write(w, "props_offset_str_fsst");
 }
 
 fn generate_shared_dictionaries(w: &mut SynthWriter) {
     let long_string = || "A".repeat(30);
     let e_str = E::varint();
-    p0().add_prop(e_str, P::str("name:de", [Some(long_string())]))
-        .add_prop(e_str, P::str("name:en", [Some(long_string())]))
-        .write_np(w, "props_no_shared_dict");
+    p0().add_prop(e_str, P::str("name:de", [long_string()]))
+        .add_prop(e_str, P::str("name:en", [long_string()]))
+        .write(w, "props_no_shared_dict_np");
+    p0().add_prop(e_str, P::opt_str("name:de", [Some(long_string())]))
+        .add_prop(e_str, P::opt_str("name:en", [Some(long_string())]))
+        .write(w, "props_no_shared_dict");
 
     p0().add_shared_dict(
         SharedDict::new("name:", StrEncoding::Plain)
@@ -854,13 +900,20 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
     )
     .write_np(w, "props_shared_dict_no_struct_name_fsst");
 
-    p0().add_prop(e_str, P::str("place", [Some(long_string())]))
+    p0().add_prop(e_str, P::str("place", [long_string()]))
         .add_shared_dict(SharedDict::new("name:en", StrEncoding::Plain).column(
             "",
             E::varint(),
             [Some(long_string())],
         ))
-        .write_np(w, "props_shared_dict_one_child");
+        .write(w, "props_shared_dict_one_child_np");
+    p0().add_prop(e_str, P::opt_str("place", [Some(long_string())]))
+        .add_shared_dict(SharedDict::new("name:en", StrEncoding::Plain).column(
+            "",
+            E::varint(),
+            [Some(long_string())],
+        ))
+        .write(w, "props_shared_dict_one_child");
 
     p0().add_shared_dict(SharedDict::new("a", StrEncoding::Plain).column(
         "",
@@ -883,13 +936,20 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
     ))
     .write_np(w, "props_shared_dict_no_child_name_fsst");
 
-    p0().add_prop(e_str, P::str("place", [Some(long_string())]))
+    p0().add_prop(e_str, P::str("place", [long_string()]))
         .add_shared_dict(SharedDict::new("name:en", StrEncoding::Fsst).column(
             "",
             E::varint(),
             [Some(long_string())],
         ))
-        .write_np(w, "props_shared_dict_one_child_fsst");
+        .write(w, "props_shared_dict_one_child_fsst_np");
+    p0().add_prop(e_str, P::opt_str("place", [Some(long_string())]))
+        .add_shared_dict(SharedDict::new("name:en", StrEncoding::Fsst).column(
+            "",
+            E::varint(),
+            [Some(long_string())],
+        ))
+        .write(w, "props_shared_dict_one_child_fsst");
     p0()
         // column names MUST be unique, but the shared dict prefix can duplicate
         // Note that Java sorts column names for some reason

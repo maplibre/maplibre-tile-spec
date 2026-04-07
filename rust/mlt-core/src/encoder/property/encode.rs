@@ -1,4 +1,4 @@
-use super::model::{PresenceKind, StagedOptScalar, StagedProperty};
+use super::model::{StagedOptScalar, StagedProperty};
 use super::strings::write_str_col;
 use crate::MltResult;
 use crate::decoder::{ColumnType, DictionaryType, StreamType};
@@ -28,7 +28,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
     use StagedProperty as D;
 
     match prop {
-        D::Bool(v) if !v.values.is_empty() => {
+        D::Bool(v) => {
             CT::Bool.write_to(&mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
             enc.write_boolean_stream(&EncodedStream::encode_bools(&v.values)?)?;
@@ -37,7 +37,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             begin_opt_col(CT::OptBool, &v.name, &v.presence, enc)?;
             enc.write_boolean_stream(&EncodedStream::encode_bools(&v.values)?)?;
         }
-        D::F32(v) if !v.values.is_empty() => {
+        D::F32(v) => {
             CT::F32.write_to(&mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
             enc.write_stream(&EncodedStream::encode_f32(&v.values)?)?;
@@ -46,7 +46,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             begin_opt_col(CT::OptF32, &v.name, &v.presence, enc)?;
             enc.write_stream(&EncodedStream::encode_f32(&v.values)?)?;
         }
-        D::F64(v) if !v.values.is_empty() => {
+        D::F64(v) => {
             CT::F64.write_to(&mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
             enc.write_stream(&EncodedStream::encode_f64(&v.values)?)?;
@@ -55,7 +55,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             begin_opt_col(CT::OptF64, &v.name, &v.presence, enc)?;
             enc.write_stream(&EncodedStream::encode_f64(&v.values)?)?;
         }
-        D::I8(v) if !v.values.is_empty() => {
+        D::I8(v) => {
             CT::I8.write_to(&mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
             let widened: Vec<i32> = v.values.iter().map(|&x| i32::from(x)).collect();
@@ -68,7 +68,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_i32_stream(&widened, &ctx, enc)?;
         }
-        D::U8(v) if !v.values.is_empty() => {
+        D::U8(v) => {
             CT::U8.write_to(&mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
             let widened: Vec<u32> = v.values.iter().map(|&x| u32::from(x)).collect();
@@ -81,7 +81,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_u32_stream(&widened, &ctx, enc)?;
         }
-        D::I32(v) if !v.values.is_empty() => {
+        D::I32(v) => {
             CT::I32.write_to(&mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
@@ -92,7 +92,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_i32_stream(&v.values, &ctx, enc)?;
         }
-        D::U32(v) if !v.values.is_empty() => {
+        D::U32(v) => {
             CT::U32.write_to(&mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
@@ -103,7 +103,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_u32_stream(&v.values, &ctx, enc)?;
         }
-        D::I64(v) if !v.values.is_empty() => {
+        D::I64(v) => {
             CT::I64.write_to(&mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
@@ -114,7 +114,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_i64_stream(&v.values, &ctx, enc)?;
         }
-        D::U64(v) if !v.values.is_empty() => {
+        D::U64(v) => {
             CT::U64.write_to(&mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
@@ -126,15 +126,39 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_u64_stream(&v.values, &ctx, enc)?;
         }
         D::Str(v) => {
-            if !write_str_prop(v, enc)? {
+            if v.lengths.is_empty() {
                 return Ok(false);
             }
+            write_str_prop(v, false, enc)?;
+        }
+        D::OptStr(v) => {
+            if v.lengths.is_empty() {
+                return Ok(false);
+            }
+            write_str_prop(v, true, enc)?;
         }
         D::SharedDict(v) => return write_shared_dict(v, enc),
-        _ => return Ok(false), // non-opt scalar with empty values
     }
     enc.increment_column_count();
     Ok(true)
+}
+
+/// Encodes a string column: column-type byte, name, optional presence stream, and data.
+///
+/// `optional = false` → `CT::Str`, no presence stream (caller guarantees no nulls).
+/// `optional = true`  → `CT::OptStr`, presence always written from null-encoded lengths.
+fn write_str_prop(v: &StagedStrings, optional: bool, enc: &mut Encoder) -> MltResult<()> {
+    if optional {
+        ColumnType::OptStr.write_to(&mut enc.meta)?;
+        enc.meta.write_string(&v.name)?;
+        let presence = EncodedStream::encode_presence(&v.presence_bools())?;
+        write_str_col(v, Some(&presence), enc)?;
+    } else {
+        ColumnType::Str.write_to(&mut enc.meta)?;
+        enc.meta.write_string(&v.name)?;
+        write_str_col(v, None, enc)?;
+    }
+    Ok(())
 }
 
 /// Writes the column-type byte, name, and presence stream for an optional column.
@@ -153,39 +177,6 @@ fn begin_opt_col(
     enc.write_boolean_stream(&EncodedStream::encode_presence(presence_bools)?)?;
     Ok(())
 }
-
-/// Encodes a string column, including its column-type byte, name, presence stream, and data.
-///
-/// The column type is [`ColumnType::OptStr`] when a presence stream is written,
-/// [`ColumnType::Str`] otherwise — strings encode nulls as negative lengths, so
-/// the column type must be derived at runtime.
-///
-/// Returns `Ok(false)` when the column should be skipped (empty or all-null).
-fn write_str_prop(v: &StagedStrings, enc: &mut Encoder) -> MltResult<bool> {
-    let ctx = StreamCtx::prop(StreamType::Present, &v.name);
-    let has_presence = match v.presence() {
-        PresenceKind::Empty => return Ok(false),
-        PresenceKind::AllNull => {
-            if enc.override_presence(&ctx) {
-                true
-            } else {
-                return Ok(false);
-            }
-        }
-        PresenceKind::Mixed => true,
-        PresenceKind::AllPresent => enc.override_presence(&ctx),
-    };
-    let presence = if has_presence {
-        Some(EncodedStream::encode_presence(&v.presence_bools())?)
-    } else {
-        None
-    };
-    ColumnType::write_one_of(has_presence, ColumnType::OptStr, ColumnType::Str, &mut enc.meta)?;
-    enc.meta.write_string(&v.name)?;
-    write_str_col(v, presence.as_ref(), enc)?;
-    Ok(true)
-}
-
 
 impl StagedProperty {
     // ── Non-optional constructors (Vec<T>) ────────────────────────────────────
@@ -254,11 +245,16 @@ impl StagedProperty {
         })
     }
     #[must_use]
-    pub fn str(
+    pub fn str(name: impl Into<String>, values: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
+        Self::Str(StagedStrings::from_strings(name, values))
+    }
+
+    #[must_use]
+    pub fn opt_str(
         name: impl Into<String>,
         values: impl IntoIterator<Item = Option<impl AsRef<str>>>,
     ) -> Self {
-        Self::Str(StagedStrings::from_optional(name, values))
+        Self::OptStr(StagedStrings::from_optional(name, values))
     }
 
     // ── Optional constructors (Vec<Option<T>>) ────────────────────────────────
@@ -321,7 +317,7 @@ impl StagedProperty {
             Self::OptU64(v) => &v.name,
             Self::OptF32(v) => &v.name,
             Self::OptF64(v) => &v.name,
-            Self::Str(v) => &v.name,
+            Self::Str(v) | Self::OptStr(v) => &v.name,
             Self::SharedDict(v) => &v.prefix,
         }
     }
@@ -341,4 +337,3 @@ impl<T: Copy + PartialEq> StagedOptScalar<T> {
         }
     }
 }
-

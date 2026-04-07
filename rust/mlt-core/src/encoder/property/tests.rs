@@ -67,7 +67,7 @@ fn staged_len(staged: &StagedProperty) -> usize {
         StagedProperty::OptU64(s) => s.presence.len(),
         StagedProperty::OptF32(s) => s.presence.len(),
         StagedProperty::OptF64(s) => s.presence.len(),
-        StagedProperty::Str(s) => s.lengths.len(),
+        StagedProperty::Str(s) | StagedProperty::OptStr(s) => s.lengths.len(),
         StagedProperty::SharedDict(s) => s.items.first().map_or(0, |i| i.ranges.len()),
     }
 }
@@ -252,20 +252,6 @@ fn bool_specific_values() {
     }
 }
 
-#[test]
-fn bool_all_null() {
-    // All-null columns are skipped in encoding — no column appears on the wire.
-    let tile = encode_and_tile(vec![StagedProperty::opt_bool(
-        "active",
-        vec![None::<bool>, None, None],
-    )]);
-    assert!(
-        tile.property_names.is_empty(),
-        "all-null column must be omitted from the wire"
-    );
-    assert!(tile.features.iter().all(|f| f.properties.is_empty()));
-}
-
 proptest! {
     #[test]
     fn bool_roundtrip(
@@ -319,7 +305,7 @@ proptest! {
 #[test]
 fn str_scalar_with_nulls() {
     let values = opt_strs(&[Some("Berlin"), None, Some("Hamburg"), None]);
-    let tile = encode_and_tile(vec![StagedProperty::str("city", values.clone())]);
+    let tile = encode_and_tile(vec![StagedProperty::opt_str("city", values.clone())]);
     assert_eq!(tile.property_names, vec!["city"]);
     for (i, ov) in values.into_iter().enumerate() {
         assert_eq!(&tile.features[i].properties[0], &PropValue::Str(ov));
@@ -327,25 +313,11 @@ fn str_scalar_with_nulls() {
 }
 
 #[test]
-fn str_scalar_all_null() {
-    // All-null columns are skipped in encoding.
-    let tile = encode_and_tile(vec![StagedProperty::str(
-        "city",
-        opt_strs(&[None, None, None]),
-    )]);
-    assert!(
-        tile.property_names.is_empty(),
-        "all-null string column must be omitted from the wire"
-    );
-    assert!(tile.features.iter().all(|f| f.properties.is_empty()));
-}
-
-#[test]
 fn str_scalar_empty() {
     // Empty columns (zero rows) are skipped in encoding.
     let tile = encode_and_tile(vec![StagedProperty::str(
         "unused",
-        Vec::<Option<&str>>::new(),
+        std::iter::empty::<&str>(),
     )]);
     assert!(
         tile.property_names.is_empty(),
@@ -356,12 +328,22 @@ fn str_scalar_empty() {
 
 proptest! {
     #[test]
-    fn str_scalar_roundtrip(
+    fn str_scalar_roundtrip_non_null(
+        values in prop::collection::vec("[a-zA-Z0-9 ]{0,30}", 1..50),
+    ) {
+        let tile = encode_and_tile(vec![StagedProperty::str("name", values.clone())]);
+        prop_assert_eq!(&tile.property_names, &["name"]);
+        for (i, v) in values.into_iter().enumerate() {
+            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Str(Some(v)));
+        }
+    }
+
+    #[test]
+    fn str_scalar_roundtrip_with_nulls(
         values in prop::collection::vec(prop::option::of("[a-zA-Z0-9 ]{0,30}"), 1..50),
     ) {
-        // All-null columns are skipped; only test when at least one value is present.
         prop_assume!(values.iter().any(Option::is_some));
-        let tile = encode_and_tile(vec![StagedProperty::str("name", values.clone())]);
+        let tile = encode_and_tile(vec![StagedProperty::opt_str("name", values.clone())]);
         prop_assert_eq!(&tile.property_names, &["name"]);
         for (i, ov) in values.into_iter().enumerate() {
             prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Str(ov));
@@ -371,14 +353,17 @@ proptest! {
 
 #[test]
 fn fsst_scalar_string_roundtrip() {
-    let values = strs(&["Berlin", "Brandenburg", "Bremen", "Braunschweig"]);
+    let values = ["Berlin", "Brandenburg", "Bremen", "Braunschweig"];
     let tile = encode_and_tile_explicit(
-        vec![StagedProperty::str("name", values.clone())],
+        vec![StagedProperty::str("name", values)],
         ExplicitEncoder::all_with_str(IntEncoder::plain(), StrEncoding::Fsst),
     );
     assert_eq!(tile.property_names, vec!["name"]);
-    for (i, ov) in values.into_iter().enumerate() {
-        assert_eq!(&tile.features[i].properties[0], &PropValue::Str(ov));
+    for (i, s) in values.iter().enumerate() {
+        assert_eq!(
+            &tile.features[i].properties[0],
+            &PropValue::Str(Some(s.to_string()))
+        );
     }
 }
 
@@ -627,7 +612,7 @@ proptest! {
 }
 
 fn str_prop(name: &str, values: &[&str]) -> StagedProperty {
-    StagedProperty::str(name, values.iter().map(|&s| Some(s)))
+    StagedProperty::str(name, values.iter().copied())
 }
 
 /// Build a [`TileLayer01`] from heterogeneous column data (one `Vec<PropValue>` per column).
@@ -679,7 +664,6 @@ fn no_nulls_produces_encoded_output() {
 fn all_nulls_encodes_without_error() {
     let props = vec![StagedProperty::opt_i32("x", vec![None, None, None])];
     let mut enc = Encoder::default();
-    // An all-null column writes 0 columns (skipped), which is valid.
     write_properties(&props, &mut enc).unwrap();
 }
 

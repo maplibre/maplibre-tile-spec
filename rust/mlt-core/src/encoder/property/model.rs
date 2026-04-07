@@ -24,20 +24,8 @@ pub enum StagedProperty {
     OptU64(StagedOptScalar<u64>),
     OptF32(StagedOptScalar<f32>),
     OptF64(StagedOptScalar<f64>),
+    OptStr(StagedStrings),
     SharedDict(StagedSharedDict),
-}
-
-/// Describes the null pattern of a single column.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PresenceKind {
-    /// The column has no rows
-    Empty,
-    /// Every row has a value
-    AllPresent,
-    /// Every row is null
-    AllNull,
-    /// Some rows are null, some have values
-    Mixed,
 }
 
 /// Owned non-optional scalar column prepared for encoding (bool, integer, or float).
@@ -85,5 +73,7 @@ pub struct StagedSharedDictItem {
     pub(crate) suffix: String,
     /// Per-feature `(start, end)` byte offsets into the shared corpus.
     pub ranges: Vec<(i32, i32)>,
-    pub kind: PresenceKind,
+    /// `true` if presence stream must be written.
+    /// It's OK to write unneeded one, but can't be false with nulls
+    pub has_presence: bool,
 }

@@ -748,7 +748,7 @@ mod tests {
             extent: 4096,
             id: None,
             geometry: three_points(),
-            properties: vec![StagedProperty::str(
+            properties: vec![StagedProperty::opt_str(
                 "label",
                 vec![Some("foo"), None, Some("bar")],
             )],

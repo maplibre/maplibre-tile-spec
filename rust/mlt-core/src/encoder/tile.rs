@@ -14,7 +14,7 @@ use std::collections::HashMap;
 
 use crate::decoder::{GeometryValues, IdValues, PropValue, TileFeature, TileLayer01};
 use crate::encoder::model::StagedLayer01;
-use crate::encoder::{SortStrategy, StagedProperty, StagedSharedDict, StagedStrings, StringGroup};
+use crate::encoder::{SortStrategy, StagedProperty, StagedSharedDict, StringGroup};
 
 impl StagedLayer01 {
     /// Construct a [`StagedLayer01`] from a row-oriented [`TileLayer01`], applying
@@ -107,7 +107,7 @@ fn build_scalar_column(name: String, col: usize, features: &mut [TileFeature]) -
                     _ => None,
                 })
                 .collect();
-            StagedProperty::Str(StagedStrings::from_optional(name, values))
+            StagedProperty::opt_str(name, values)
         }
     }
 }
@@ -197,7 +197,7 @@ mod tests {
             StagedProperty::opt_u64("u64", vec![None, Some(6)]),
             StagedProperty::opt_f32("f32", vec![None, Some(7.0)]),
             StagedProperty::opt_f64("f64", vec![None, Some(8.0)]),
-            StagedProperty::str("s", vec![None, Some("ok")]),
+            StagedProperty::opt_str("s", vec![None, Some("ok")]),
         ];
         let tile = layer_tile(StagedLayer01 {
             name: "t".into(),

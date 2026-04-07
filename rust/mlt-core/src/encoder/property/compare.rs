@@ -88,7 +88,7 @@ impl PartialEq<StagedSharedDictItem> for ParsedSharedDictItem<'_> {
         let StagedSharedDictItem {
             suffix: other_suffix,
             ranges: other_ranges,
-            kind: _,
+            has_presence: _,
         } = other;
         suffix == other_suffix && ranges == other_ranges
     }
@@ -150,7 +150,9 @@ impl PartialEq<StagedProperty> for ParsedProperty<'_> {
             (Self::F32(a), StagedProperty::OptF32(b)) => a == b,
             (Self::F64(a), StagedProperty::F64(b)) => a == b,
             (Self::F64(a), StagedProperty::OptF64(b)) => a == b,
-            (Self::Str(a), StagedProperty::Str(b)) => a == b,
+            (Self::Str(a), StagedProperty::Str(b)) | (Self::Str(a), StagedProperty::OptStr(b)) => {
+                a == b
+            }
             (Self::SharedDict(a), StagedProperty::SharedDict(b)) => a == b,
             _ => false,
         }
