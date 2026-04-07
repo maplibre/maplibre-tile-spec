@@ -12,9 +12,11 @@ impl Arbitrary<'_> for StagedLayer01 {
             .map(|_| u.arbitrary::<char>())
             .collect::<Result<_>>()?;
         let extent: u32 = u.arbitrary()?;
+        // Generate geometry first -- its feature count drives ID and property columns.
+        let geometry: crate::decoder::GeometryValues = u.arbitrary()?;
+        let fc = geometry.vector_types().len();
         let id = if u.arbitrary::<bool>()? {
-            let count = u.int_in_range(0..=32u8)? as usize;
-            let ids: Vec<Option<u64>> = (0..count)
+            let ids: Vec<Option<u64>> = (0..fc)
                 .map(|_| -> Result<_> {
                     if u.arbitrary::<bool>()? {
                         Ok(Some(u.arbitrary::<u64>()?))
@@ -27,11 +29,15 @@ impl Arbitrary<'_> for StagedLayer01 {
         } else {
             None
         };
-        let geometry = u.arbitrary()?;
-        // Bound property count to prevent OOM from unbounded vector generation
+        // Bound property count to prevent OOM from unbounded vector generation.
+        // Each column must have exactly `fc` values to match the feature count.
         let prop_count = u.int_in_range(0..=4u8)? as usize;
         let properties: Vec<StagedProperty> = (0..prop_count)
-            .map(|_| u.arbitrary())
+            .map(|_| {
+                let values: Vec<Option<u32>> =
+                    (0..fc).map(|_| u.arbitrary()).collect::<Result<_>>()?;
+                Ok(StagedProperty::u32("prop", values))
+            })
             .collect::<Result<_>>()?;
 
         Ok(Self {
