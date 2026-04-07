@@ -1204,11 +1204,6 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
                 .opt("a", E::varint(), none())
                 .opt("b", E::varint(), mixed()),
         )
-        .add_shared_dict(
-            SharedDict::new("9-", StrEncoding::Plain)
-                .opt("a", E::varint(), none())
-                .opt("b", E::varint(), none()),
-        )
         .write(w, "props_shared_dict_presence_variants_np");
 
     // canonical: all columns are optional (presence stream always written),
@@ -1254,11 +1249,6 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             SharedDict::new("8-", StrEncoding::Plain)
                 .opt("a", E::varint(), none())
                 .opt("b", E::varint(), mixed()),
-        )
-        .add_shared_dict(
-            SharedDict::new("9-", StrEncoding::Plain)
-                .opt("a", E::varint(), none())
-                .opt("b", E::varint(), none()),
         )
         .write(w, "props_shared_dict_presence_variants");
 }
