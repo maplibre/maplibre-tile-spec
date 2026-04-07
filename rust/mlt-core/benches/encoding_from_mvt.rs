@@ -7,11 +7,11 @@ use mlt_core::{MltResult, TileLayer01};
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
-use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_tiles};
+use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_benchmark_mvt_tiles};
 
 /// Load MVT tiles for a given zoom level from the OMT fixture directory.
 fn load_mvt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
-    load_tiles(zoom, "fixtures/omt", ".mvt")
+    load_benchmark_mvt_tiles(zoom)
 }
 
 /// Parse MVT bytes into `TileLayer01` objects outside the benchmark loop.

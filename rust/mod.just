@@ -34,6 +34,202 @@ bench *args: (just 'cargo-install' 'cargo-hack')
 bench-one target='encoding_from_mvt': (just 'cargo-install' 'cargo-hack')
     cargo bench --bench {{target}} -p mlt-core --features __private
 
+# Prepare benchmark data: expand the OMT fixture from ~95 tiles to ~10k tiles.
+#
+# Generates two gitignored datasets:
+#   test/fixtures/omt-benchmark.mbtiles  – ~10k tiles for `just rust::profile`
+#   test/fixtures/omt-bench/             – .mvt files auto-used by Criterion benchmarks
+#
+# Expected disk usage: omt-benchmark.mbtiles ≈ 2 GB, omt-bench/ ≈ 400 MB
+# Run once before profiling: just rust::profile convert ../test/fixtures/omt-benchmark.mbtiles /tmp/omt-out.mbtiles
+prepare-benchmark-data:
+    #!/usr/bin/env python3
+    # Expand the OMT benchmark fixture from ~95 tiles to ~10k tiles.
+    #
+    # Uses sqlite3 to inspect the source mbtiles schema, then replicates tile
+    # data across the coordinate space to reach the configured target counts.
+
+    import os, sqlite3, sys
+
+    RUST_DIR  = r"{{justfile_directory()}}"
+    REPO_ROOT = os.path.normpath(os.path.join(RUST_DIR, ".."))
+    SOURCE    = os.path.join(REPO_ROOT, "test", "omt-ref.mbtiles")
+    TARGET_DB = os.path.join(REPO_ROOT, "test", "fixtures", "omt-benchmark.mbtiles")
+    BENCH_DIR = os.path.join(REPO_ROOT, "test", "fixtures", "omt-bench")
+
+    # Target tile count per zoom level in the .mbtiles (≈ 10k tiles total, ≈ 2 GB)
+    DB_TARGETS = {
+        0: 1,     1: 4,    2: 16,   3: 64,   4: 300,
+        5: 100,   6: 100,  7: 300,  8: 100,  9: 100,
+        10: 500, 11: 1000, 12: 1000, 13: 6000, 14: 500,
+    }
+
+    # Zoom levels also exported as individual .mvt files for Criterion benchmarks
+    # (matches BENCHMARKED_ZOOM_LEVELS = [4, 7, 13] in bench_utils.rs)
+    MVT_TARGETS = {4: 200, 7: 200, 13: 1000}  # ≈ 1 400 files, ≈ 400 MB
+
+
+    def read_source(path):
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+
+        # Inspect the mbtiles schema so we understand its structure before expanding it
+        print("Source schema:", file=sys.stderr)
+        for (sql,) in conn.execute(
+            "SELECT sql FROM sqlite_master"
+            " WHERE type IN ('table', 'index') AND sql IS NOT NULL"
+            " ORDER BY name"
+        ):
+            print(f"  {sql.split(chr(10))[0].strip()}", file=sys.stderr)
+        print("", file=sys.stderr)
+
+        print("Zoom distribution:", file=sys.stderr)
+        for z, n, sz in conn.execute(
+            "SELECT zoom_level, COUNT(*),"
+            " CAST(AVG(length(tile_data)) AS INTEGER)"
+            " FROM tiles GROUP BY zoom_level ORDER BY zoom_level"
+        ):
+            print(f"  z{z:2d}: {n:3d} tiles  avg {sz // 1024} KB", file=sys.stderr)
+        print("", file=sys.stderr)
+
+        rows = conn.execute(
+            "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles"
+        ).fetchall()
+        conn.close()
+        return [(z, c, r, bytes(d)) for z, c, r, d in rows]
+
+
+    def group_by_zoom(rows):
+        by_zoom = {}
+        for z, c, r, data in rows:
+            by_zoom.setdefault(z, []).append((c, r, data))
+        return by_zoom
+
+
+    def iter_new_tiles(by_zoom, targets, used):
+        """Yield (z, c, r, data) for new tiles up to targets[z] per zoom level.
+
+        Tile data is cycled from the source pool for that zoom level.
+        Coordinates are assigned starting from (0, 0) to keep generation
+        deterministic and fast: source tiles are in specific high-coordinate
+        regions, so low coordinates are almost always available.
+        """
+        used = set(used)
+        zoom_count = {z: 0 for z in targets}
+        for z, c, r in used:
+            if z in zoom_count:
+                zoom_count[z] += 1
+
+        for z in sorted(targets):
+            if z not in by_zoom:
+                continue
+            max_c = 1 << z
+            goal  = min(targets[z], max_c * max_c)
+            need  = goal - zoom_count[z]
+            if need <= 0:
+                continue
+
+            pool  = [d for _, _, d in by_zoom[z]]
+            idx   = 0
+            added = 0
+            for new_c in range(max_c):
+                if added >= need:
+                    break
+                for new_r in range(max_c):
+                    if added >= need:
+                        break
+                    key = (z, new_c, new_r)
+                    if key not in used:
+                        yield (z, new_c, new_r, pool[idx % len(pool)])
+                        used.add(key)
+                        idx   += 1
+                        added += 1
+
+            print(f"  z{z:2d}: {zoom_count[z] + added} tiles", file=sys.stderr)
+
+
+    def create_db(path):
+        if os.path.exists(path):
+            os.remove(path)
+        conn = sqlite3.connect(path)
+        # Use WAL for faster bulk inserts
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        # Canonical mbtiles schema requested by the task
+        conn.executescript("""
+            CREATE TABLE tiles (
+                zoom_level INTEGER,
+                tile_column INTEGER,
+                tile_row    INTEGER,
+                tile_data   BLOB
+            );
+            CREATE UNIQUE INDEX tile_index ON tiles (
+                zoom_level, tile_column, tile_row
+            );
+        """)
+        return conn
+
+
+    def insert_rows(conn, rows, batch_size=200):
+        sql = (
+            "INSERT INTO tiles"
+            " (zoom_level, tile_column, tile_row, tile_data)"
+            " VALUES (?,?,?,?)"
+        )
+        batch = []
+        total = 0
+        for row in rows:
+            batch.append(row)
+            if len(batch) >= batch_size:
+                conn.executemany(sql, batch)
+                conn.commit()
+                total += len(batch)
+                batch = []
+        if batch:
+            conn.executemany(sql, batch)
+            conn.commit()
+            total += len(batch)
+        return total
+
+
+    def main():
+        source   = read_source(SOURCE)
+        print(f"Source: {len(source)} tiles\n", file=sys.stderr)
+        by_zoom  = group_by_zoom(source)
+        orig_used = {(z, c, r) for z, c, r, _ in source}
+
+        # Generate omt-benchmark.mbtiles
+        os.makedirs(os.path.dirname(TARGET_DB), exist_ok=True)
+        print("Generating omt-benchmark.mbtiles:", file=sys.stderr)
+        db = create_db(TARGET_DB)
+        n  = insert_rows(db, source)
+        n += insert_rows(db, iter_new_tiles(by_zoom, DB_TARGETS, orig_used))
+        db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        db.close()
+        print(f"\nomt-benchmark.mbtiles: {n} tiles → {TARGET_DB}\n", file=sys.stderr)
+
+        # Export individual .mvt files for Criterion benchmarks
+        os.makedirs(BENCH_DIR, exist_ok=True)
+        for fn in os.listdir(BENCH_DIR):
+            if fn.endswith(".mvt"):
+                os.remove(os.path.join(BENCH_DIR, fn))
+
+        mvt_source = [(z, c, r, d) for z, c, r, d in source if z in MVT_TARGETS]
+        mvt_used   = {(z, c, r) for z, c, r, _ in mvt_source}
+
+        print("Generating omt-bench/ .mvt files:", file=sys.stderr)
+        mvt_rows = mvt_source + list(iter_new_tiles(by_zoom, MVT_TARGETS, mvt_used))
+        for z, c, r, data in mvt_rows:
+            with open(os.path.join(BENCH_DIR, f"{z}_{c}_{r}.mvt"), "wb") as fh:
+                fh.write(data)
+        print(f"\nomt-bench/: {len(mvt_rows)} .mvt files → {BENCH_DIR}", file=sys.stderr)
+
+        print("\nNext steps:", file=sys.stderr)
+        print("  Criterion: just rust::bench-one encoding_from_mvt", file=sys.stderr)
+        print("  Hotpath:   just rust::profile convert ../test/fixtures/omt-benchmark.mbtiles /tmp/omt-out.mbtiles", file=sys.stderr)
+
+
+    main()
+
 alias b := build
 # Build the project
 build: (just 'cargo-install' 'cargo-hack')

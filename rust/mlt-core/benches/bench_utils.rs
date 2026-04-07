@@ -55,6 +55,52 @@ pub fn load_mlt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
     load_tiles(zoom, "expected/tag0x01/omt", ".mlt")
 }
 
+/// Load MVT tiles for benchmarking, preferring the expanded dataset from
+/// `just rust::prepare-benchmark-data` when it is available.
+///
+/// Falls back to the small OMT fixture (95 tiles) when the benchmark data
+/// has not been prepared yet, so existing benchmarks keep working in CI.
+#[must_use]
+pub fn load_benchmark_mvt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
+    let bench_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/omt-bench");
+    if bench_dir.exists() {
+        let tiles = load_tiles_if_any(zoom, "fixtures/omt-bench", ".mvt");
+        if !tiles.is_empty() {
+            return tiles;
+        }
+    }
+    load_tiles(zoom, "fixtures/omt", ".mvt")
+}
+
+/// Like [`load_tiles`] but returns an empty `Vec` instead of panicking when
+/// the directory does not exist or contains no matching files.
+fn load_tiles_if_any(zoom: u8, test_subpath: &str, extension: &str) -> Vec<(String, Vec<u8>)> {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test")
+        .join(test_subpath);
+    if !dir.exists() {
+        return Vec::new();
+    }
+    let prefix = format!("{zoom}_");
+    let mut tiles = Vec::new();
+    let Ok(entries) = fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    for entry in entries.flatten() {
+        let file_name = entry.file_name();
+        let name = file_name.to_string_lossy();
+        if name.starts_with(&prefix)
+            && let Some(stem) = name.strip_suffix(extension)
+        {
+            if let Ok(data) = fs::read(entry.path()) {
+                tiles.push((stem.to_string(), data));
+            }
+        }
+    }
+    tiles.sort_by(|a, b| a.0.cmp(&b.0));
+    tiles
+}
+
 #[must_use]
 pub fn load_tiles(zoom: u8, test_subpath: &str, extension: &str) -> Vec<(String, Vec<u8>)> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))

@@ -5,10 +5,10 @@ use mlt_core::__private::{dec, parser};
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
-use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_mlt_tiles, load_tiles};
+use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_benchmark_mvt_tiles, load_mlt_tiles};
 
 fn load_mvt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
-    load_tiles(zoom, "fixtures/omt", ".mvt")
+    load_benchmark_mvt_tiles(zoom)
 }
 
 fn bench_mlt_parse(c: &mut Criterion) {
