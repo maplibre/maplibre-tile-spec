@@ -18,6 +18,7 @@ rust-version = "1.92"
 [workspace.dependencies]
 anyhow = "1"
 arbitrary = { version = "1.4", features = ["derive"] }
+bytemuck = "1.25.0"
 clap = { version = "4.6.0", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 crossterm = "0.29.0"
@@ -33,7 +34,7 @@ globset = "0.4"
 hex = "0.4.3"
 hilbert_2d = "1.1.0"
 hotpath = "0.14"
-indicatif = "0.17"
+indicatif = "0.18"
 insta = "1.47.2"
 integer-encoding = "4.0.2"
 js-sys = "0.3"

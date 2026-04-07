@@ -2,35 +2,18 @@ use crate::MltError::BufferUnderflow;
 use crate::utils::{AsUsize as _, take};
 use crate::{Decoder, MltRefResult, MltResult};
 
-/// Encode a `u32` slice into little-endian bytes.
-#[must_use]
-pub fn encode_u32s_to_bytes(data: &[u32]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(data.len() * 4);
-    for &val in data {
-        output.extend_from_slice(&val.to_le_bytes());
-    }
-    output
-}
-
-/// Encode a `u64` slice into little-endian bytes.
-#[must_use]
-pub fn encode_u64s_to_bytes(data: &[u64]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(data.len() * 8);
-    for &val in data {
-        output.extend_from_slice(&val.to_le_bytes());
-    }
-    output
-}
-
 /// Helper to pack a `Vec<bool>` into `Vec<u8>` where each byte represents 8 booleans.
-#[must_use]
-pub fn encode_bools_to_bytes(bools: &[bool]) -> Vec<u8> {
+pub fn encode_bools_to_bytes(bools: &[bool], target: &mut Vec<u8>) {
     let num_bytes = bools.len().div_ceil(8);
-    let mut bytes = vec![0u8; num_bytes];
-    for (i, _) in bools.iter().enumerate().filter(|(_, bit)| **bit) {
-        bytes[i / 8] |= 1 << (i % 8);
+    target.clear();
+    target.resize(num_bytes, 0u8);
+    for i in bools
+        .iter()
+        .enumerate()
+        .filter_map(|(i, bit)| (*bit).then_some(i))
+    {
+        target[i / 8] |= 1 << (i % 8);
     }
-    bytes
 }
 
 /// Decode a slice of bytes into a vector of u64 values assuming little-endian encoding
@@ -126,20 +109,28 @@ mod tests {
     proptest! {
         #[test]
         fn encode_bools_to_bytes_roundtrip(bools: Vec<bool>) {
-            let bools_rountrip = decode_bytes_to_bools(&encode_bools_to_bytes(&bools), bools.len(), &mut dec()).unwrap();
+            let mut bytes = Vec::new();
+            encode_bools_to_bytes(&bools, &mut bytes);
+            let bools_rountrip = decode_bytes_to_bools(&bytes, bools.len(), &mut dec()).unwrap();
             prop_assert_eq!(bools_rountrip, bools);
         }
 
         #[test]
         fn test_u32_bytes_roundtrip(data: Vec<u32>) {
-            let encoded = encode_u32s_to_bytes(&data);
+            let mut encoded = Vec::with_capacity(data.len() * 4);
+            for val in &data {
+                encoded.extend_from_slice(&val.to_le_bytes());
+            }
             let decoded = assert_empty(decode_bytes_to_u32s(&encoded, u32::try_from(data.len()).unwrap(), &mut dec()));
             prop_assert_eq!(data, decoded);
         }
 
         #[test]
         fn test_u64_bytes_roundtrip(data: Vec<u64>) {
-            let encoded = encode_u64s_to_bytes(&data);
+            let mut encoded = Vec::with_capacity(data.len() * 8);
+            for val in &data {
+                encoded.extend_from_slice(&val.to_le_bytes());
+            }
             let decoded = assert_empty(decode_bytes_to_u64s(&encoded, u32::try_from(data.len()).unwrap(), &mut dec()));
             prop_assert_eq!(data, decoded);
         }

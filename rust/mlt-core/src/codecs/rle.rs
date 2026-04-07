@@ -37,9 +37,8 @@ pub fn encode_rle<T: PrimInt>(data: &[T]) -> (Vec<T>, Vec<T>) {
 /// Format: control byte determines the run type:
 /// - `control >= 128`: literal run of `(256 - control)` bytes follow
 /// - `control < 128`: repeating run of `(control + 3)` copies of the next byte
-#[must_use]
-pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
-    let mut output = Vec::new();
+pub fn encode_byte_rle(data: &[u8], target: &mut Vec<u8>) {
+    target.clear();
     let mut pos = 0;
 
     while pos < data.len() {
@@ -56,8 +55,8 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
             // Encode repeating run
             #[expect(clippy::cast_possible_truncation, reason = "3 <= repeat_count < 130")]
             let control = (repeat_count - 3) as u8;
-            output.push(control);
-            output.push(data[pos]);
+            target.push(control);
+            target.push(data[pos]);
             pos += repeat_count;
         } else {
             // Encode literal run
@@ -84,12 +83,11 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
                 reason = "literal_count is always smaller than 128"
             )]
             let control = (256 - literal_count) as u8;
-            output.push(control);
-            output.extend_from_slice(&data[pos..pos + literal_count]);
+            target.push(control);
+            target.extend_from_slice(&data[pos..pos + literal_count]);
             pos += literal_count;
         }
     }
-    output
 }
 
 /// Decode byte-level RLE as used in ORC for boolean and present streams.
@@ -146,7 +144,8 @@ mod tests {
 
         #[test]
         fn test_byte_rle_roundtrip(data: Vec<u8>) {
-            let encoded = encode_byte_rle(&data);
+            let mut encoded = Vec::new();
+            encode_byte_rle(&data, &mut encoded);
             let decoded = decode_byte_rle(&encoded, data.len(), &mut dec()).unwrap();
             prop_assert_eq!(data, decoded);
         }
@@ -161,7 +160,9 @@ mod tests {
 
     #[test]
     fn test_encode_byte_rle_empty() {
-        assert!(encode_byte_rle(&[]).is_empty());
+        let mut buf = Vec::new();
+        encode_byte_rle(&[], &mut buf);
+        assert!(buf.is_empty());
     }
 
     #[test]

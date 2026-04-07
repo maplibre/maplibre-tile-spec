@@ -32,7 +32,7 @@ bench *args: (just 'cargo-install' 'cargo-hack')
 
 # Run a specific benchmark target
 bench-one target='encoding_from_mvt': (just 'cargo-install' 'cargo-hack')
-    cargo bench --bench {{target}} -p mlt-core
+    cargo bench --bench {{target}} -p mlt-core --features __private
 
 alias b := build
 # Build the project
