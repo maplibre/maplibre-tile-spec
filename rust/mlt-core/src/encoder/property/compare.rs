@@ -96,8 +96,6 @@ impl PartialEq<ParsedSharedDictItem<'_>> for StagedSharedDictItem {
     }
 }
 
-// ── StagedSharedDict ──────────────────────────────────────────────────────────
-
 impl PartialEq<StagedSharedDict> for ParsedSharedDict<'_> {
     fn eq(&self, other: &StagedSharedDict) -> bool {
         let Self {
@@ -122,8 +120,6 @@ impl PartialEq<ParsedSharedDict<'_>> for StagedSharedDict {
         other == self
     }
 }
-
-// ── StagedProperty ───────────────────────────────────────────────────────────
 
 impl PartialEq<StagedProperty> for ParsedProperty<'_> {
     fn eq(&self, other: &StagedProperty) -> bool {
