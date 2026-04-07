@@ -30,7 +30,7 @@ impl RleMeta {
                 .ok_or_else(|| RleRunLenInvalid(run_len.to_i128().unwrap_or_default()))?;
             result.extend(repeat_n(val, run));
         }
-        dec.adjust_alloc(&result, alloc_size);
+        dec.adjust_alloc(&result, alloc_size)?;
         Ok(result)
     }
 

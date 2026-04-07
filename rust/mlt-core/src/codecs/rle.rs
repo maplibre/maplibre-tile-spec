@@ -117,7 +117,7 @@ pub fn decode_byte_rle(input: &[u8], num_bytes: usize, dec: &mut Decoder) -> Mlt
             output.extend(std::iter::repeat_n(value, count));
         }
     }
-    dec.adjust_alloc(&output, num_bytes);
+    dec.adjust_alloc(&output, num_bytes)?;
     Ok(output)
 }
 

@@ -95,24 +95,23 @@ impl Decoder {
         self.budget.adjust(adjustment);
     }
 
-    /// Assert (in debug builds) that `buf` has not grown beyond `alloc_size`, then adjust the
-    /// budget to return any bytes that were pre-charged but not actually used.
+    /// Return the unused portion of a pre-charged allocation budget.
     ///
     /// Call this after fully populating a `Vec<T>` that was pre-allocated with [`Decoder::alloc`],
     /// passing the same `alloc_size` that was given to `alloc`.
     ///
-    /// - Panics in debug builds if `buf.capacity() > alloc_size` (unexpected reallocation).
-    /// - Subtracts `(alloc_size - buf.len()) * size_of::<T>()` from the budget (the pre-charged
-    ///   bytes that correspond to capacity that was never filled).
+    /// Returns an error if the vector grew beyond `alloc_size` (malformed input caused more items
+    /// than declared). Subtracts `(alloc_size - buf.len()) * size_of::<T>()` from the budget.
     #[inline]
-    pub(crate) fn adjust_alloc<T>(&mut self, buf: &Vec<T>, alloc_size: usize) {
-        debug_assert!(
-            buf.capacity() <= alloc_size,
-            "Vector reallocated beyond initial allocation size ({alloc_size}); final capacity: {}",
-            buf.capacity()
-        );
+    pub(crate) fn adjust_alloc<T>(
+        &mut self,
+        buf: &[T],
+        alloc_size: usize,
+    ) -> MltResult<()> {
+        if buf.len() > alloc_size {
+            return Err(MltError::InvalidDecodingStreamSize(buf.len(), alloc_size));
+        }
         // Return the unused portion of the pre-charged budget.
-        // alloc_size >= buf.len() is guaranteed by the assert above (capacity >= len always).
         let unused = (alloc_size - buf.len()) * size_of::<T>();
         // unused fits in u32: it's at most alloc_size * size_of::<T>(), which was checked to fit
         // in u32 when alloc() was called. Using saturating_cast to avoid a fallible conversion.
@@ -121,6 +120,7 @@ impl Decoder {
             reason = "unused <= alloc_size * size_of::<T>() which was verified to fit in u32 by alloc()"
         )]
         self.budget.adjust(unused as u32);
+        Ok(())
     }
 
     #[must_use]
