@@ -103,11 +103,7 @@ impl Decoder {
     /// Returns an error if the vector grew beyond `alloc_size` (malformed input caused more items
     /// than declared). Subtracts `(alloc_size - buf.len()) * size_of::<T>()` from the budget.
     #[inline]
-    pub(crate) fn adjust_alloc<T>(
-        &mut self,
-        buf: &[T],
-        alloc_size: usize,
-    ) -> MltResult<()> {
+    pub(crate) fn adjust_alloc<T>(&mut self, buf: &[T], alloc_size: usize) -> MltResult<()> {
         if buf.len() > alloc_size {
             return Err(MltError::InvalidDecodingStreamSize(buf.len(), alloc_size));
         }
