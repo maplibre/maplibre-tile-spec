@@ -6,8 +6,6 @@ use crate::encoder::{
     StagedStrings,
 };
 
-// ── StagedScalar (non-optional): all parsed values must be Some ──────────────
-
 impl<T: Copy + PartialEq> PartialEq<StagedScalar<T>> for ParsedScalar<'_, T> {
     fn eq(&self, other: &StagedScalar<T>) -> bool {
         self.name == other.name
