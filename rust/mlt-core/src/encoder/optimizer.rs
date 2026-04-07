@@ -61,6 +61,10 @@ impl TileLayer01 {
     /// vertex buffer layout — are selected automatically to minimize output size.
     #[hotpath::measure]
     pub fn encode(self, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
+        if self.features.is_empty() {
+            return Ok(Vec::new());
+        }
+
         let mut sort_by = vec![SortStrategy::Unsorted];
         let try_spatial_sort = cfg.try_spatial_morton_sort || cfg.try_spatial_hilbert_sort;
         if try_spatial_sort

@@ -1,7 +1,7 @@
 use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
-use super::model::{PresenceKind, StagedStrings};
+use super::model::StagedStrings;
 use crate::MltResult;
 use crate::codecs::fsst::{FsstRawData, compress_fsst, compress_fsst_with};
 use crate::decoder::strings::{checked_string_end, encode_null_end};
@@ -360,28 +360,6 @@ impl StagedStrings {
             }
         };
         Some((start, end))
-    }
-
-    #[must_use]
-    pub fn presence(&self) -> PresenceKind {
-        let mut has_null = false;
-        let mut has_present = false;
-        for &end in &self.lengths {
-            if end < 0 {
-                has_null = true;
-            } else {
-                has_present = true;
-            }
-            if has_null && has_present {
-                return PresenceKind::Mixed;
-            }
-        }
-        match (has_null, has_present) {
-            (false, false) => PresenceKind::Empty,
-            (false, true) => PresenceKind::AllPresent,
-            (true, false) => PresenceKind::AllNull,
-            (true, true) => unreachable!("early return handles Mixed"),
-        }
     }
 
     #[must_use]

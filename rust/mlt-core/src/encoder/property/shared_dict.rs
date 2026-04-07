@@ -14,7 +14,6 @@ use crate::codecs::fsst::compress_fsst_with;
 use crate::decoder::strings::{decode_shared_dict_range, encode_shared_dict_range};
 use crate::decoder::{PropValue, TileLayer01};
 use crate::encoder::model::{StrEncoding, StreamCtx};
-use crate::encoder::property::model::PresenceKind;
 use crate::encoder::property::strings::{fsst_try_train, write_fsst_data, write_raw_str_data};
 use crate::encoder::{
     EncodedStream, Encoder, StagedSharedDict, StagedSharedDictItem, write_u32_stream,
@@ -184,26 +183,12 @@ impl StagedSharedDictItem {
         self.ranges.len()
     }
 
-    #[must_use]
-    pub fn presence(&self) -> PresenceKind {
-        let mut has_null = false;
-        let mut has_present = false;
-        for &range in &self.ranges {
-            if decode_shared_dict_range(range).is_none() {
-                has_null = true;
-            } else {
-                has_present = true;
-            }
-            if has_null && has_present {
-                return PresenceKind::Mixed;
-            }
-        }
-        match (has_null, has_present) {
-            (false, false) => PresenceKind::Empty,
-            (false, true) => PresenceKind::AllPresent,
-            (true, false) => PresenceKind::AllNull,
-            (true, true) => unreachable!("early return handles Mixed"),
-        }
+    pub fn has_presence(&self) -> bool {
+        self.has_presence
+    }
+    #[cfg(feature = "__private")]
+    pub fn set_presence(&mut self, value: bool) {
+        self.has_presence = value;
     }
 
     #[must_use]
@@ -233,6 +218,7 @@ impl StagedSharedDictItem {
 
     #[must_use]
     pub fn materialize(&self, shared_dict: &StagedSharedDict) -> Vec<Option<String>> {
+        // FIXME: this should not exist; it's only used for testing at the moment - use some equality instead
         self.ranges
             .iter()
             .map(|&range| {
@@ -307,19 +293,11 @@ impl StagedSharedDict {
                         None => ranges.push((-1, -1)),
                     }
                 }
-                let kind = if ranges.is_empty() {
-                    PresenceKind::Empty
-                } else if present_items == ranges.len() {
-                    PresenceKind::AllPresent
-                } else if present_items == 0 {
-                    PresenceKind::AllNull
-                } else {
-                    PresenceKind::Mixed
-                };
+                let has_presence = present_items < ranges.len();
                 Ok(StagedSharedDictItem {
                     suffix,
                     ranges,
-                    kind,
+                    has_presence,
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -338,24 +316,13 @@ impl StagedSharedDict {
 /// and uses automatic offset encoders.
 /// When [`Some`], uses the caller-specified encoding and [`Encoder::override_int_enc`] for offsets.
 ///
-/// Returns `false` when every child column is [`PresenceKind::Empty`] or
-/// [`PresenceKind::AllNull`] — the whole shared-dict property is skipped.
+/// The caller (staging) is responsible for not creating empty `StagedSharedDict` instances.
+/// Always returns `true`.
 #[hotpath::measure]
 pub(crate) fn write_shared_dict(
     shared_dict: &StagedSharedDict,
     enc: &mut Encoder,
 ) -> MltResult<bool> {
-    // Returns true when a child column requires a presence (nullability) bitmap.
-
-    // Skip the whole column when every child is Empty or AllNull (no real data).
-    if !shared_dict
-        .items
-        .iter()
-        .any(|p| matches!(p.kind, PresenceKind::AllPresent | PresenceKind::Mixed))
-    {
-        return Ok(false);
-    }
-
     let dict_spans = collect_staged_shared_dict_spans(&shared_dict.items);
     let dict: Vec<&str> = dict_spans
         .iter()
@@ -383,22 +350,14 @@ pub(crate) fn write_shared_dict(
         2u32
     };
 
-    // Pre-compute per-child presence flags once; each call invokes override_presence exactly once.
-    let child_has_presence: Vec<bool> = shared_dict
-        .items
-        .iter()
-        .map(|item| {
-            matches!(item.kind, PresenceKind::AllNull | PresenceKind::Mixed)
-                || (enc.override_presence(&StreamCtx::prop2(
-                    StreamType::Present,
-                    &shared_dict.prefix,
-                    &item.suffix,
-                )) && matches!(item.kind, PresenceKind::AllPresent))
-        })
-        .collect();
-
     let children_count = u32::try_from(shared_dict.items.len())?;
-    let optional_count = u32::try_from(child_has_presence.iter().filter(|&&x| x).count())?;
+    let optional_count = u32::try_from(
+        shared_dict
+            .items
+            .iter()
+            .filter(|p| p.has_presence())
+            .count(),
+    )?;
     let stream_len = checked_sum3(dict_stream_count, children_count, optional_count)?;
 
     // Write stream data: total count, corpus streams, then per-child streams.
@@ -417,9 +376,16 @@ pub(crate) fn write_shared_dict(
     enc.meta.write_string(&shared_dict.prefix)?;
     enc.meta.write_varint(children_count)?;
 
-    for (item, &has_presence) in shared_dict.items.iter().zip(&child_has_presence) {
-        use ColumnType as CT;
-        CT::write_one_of(has_presence, CT::OptStr, CT::Str, &mut enc.meta)?;
+    for item in &shared_dict.items {
+        if item.has_presence() {
+            enc.write_varint(2u32)?;
+            ColumnType::OptStr.write_to(&mut enc.meta)?;
+            let presence = EncodedStream::encode_presence(&item.presence_bools())?;
+            enc.write_boolean_stream(&presence)?;
+        } else {
+            enc.write_varint(1u32)?;
+            ColumnType::Str.write_to(&mut enc.meta)?;
+        }
         enc.meta.write_string(&item.suffix)?;
 
         let offsets: Vec<u32> = item
@@ -432,12 +398,6 @@ pub(crate) fn write_shared_dict(
                     .ok_or(DictIndexOutOfBounds(span.0, dict_spans.len()))
             })
             .collect::<Result<_, _>>()?;
-
-        enc.write_varint(1 + u32::from(has_presence))?;
-        if has_presence {
-            let presence = EncodedStream::encode_presence(&item.presence_bools())?;
-            enc.write_boolean_stream(&presence)?;
-        }
         let typ = StreamType::Offset(OffsetType::String);
         let ctx = StreamCtx::prop2(typ, &shared_dict.prefix, &item.suffix);
         write_u32_stream(&offsets, &ctx, enc)?;

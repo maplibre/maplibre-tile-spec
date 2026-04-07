@@ -15,31 +15,42 @@ pub enum StagedProperty {
     F32(StagedScalar<f32>),
     F64(StagedScalar<f64>),
     Str(StagedStrings),
+    OptBool(StagedOptScalar<bool>),
+    OptI8(StagedOptScalar<i8>),
+    OptU8(StagedOptScalar<u8>),
+    OptI32(StagedOptScalar<i32>),
+    OptU32(StagedOptScalar<u32>),
+    OptI64(StagedOptScalar<i64>),
+    OptU64(StagedOptScalar<u64>),
+    OptF32(StagedOptScalar<f32>),
+    OptF64(StagedOptScalar<f64>),
+    OptStr(StagedStrings),
     SharedDict(StagedSharedDict),
 }
 
-/// Describes the null pattern of a single column.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PresenceKind {
-    /// The column has no rows
-    Empty,
-    /// Every row has a value
-    AllPresent,
-    /// Every row is null
-    AllNull,
-    /// Some rows are null, some have values
-    Mixed,
-}
-
-/// Owned scalar column prepared for encoding (bool, integer, or float).
+/// Owned non-optional scalar column prepared for encoding (bool, integer, or float).
+///
+/// Every feature in this column has a value; there are no nulls.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct StagedScalar<T: Copy + PartialEq> {
     pub(crate) name: String,
-    pub values: Vec<Option<T>>,
+    pub values: Vec<T>,
 }
 
-/// Owned string column prepared for encoding.
+/// Owned optional scalar column prepared for encoding (bool, integer, or float).
+///
+/// `values` contains only the non-null (present) values in dense order.
+/// `presence[i]` is `true` when feature `i` has a value; the corresponding dense
+/// entry is `values[k]` where `k` is the count of `true` entries before index `i`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StagedOptScalar<T: Copy + PartialEq> {
+    pub(crate) name: String,
+    pub presence: Vec<bool>,
+    pub values: Vec<T>,
+}
+
+/// Owned non-optional string column prepared for encoding.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedStrings {
     pub(crate) name: String,
@@ -62,5 +73,6 @@ pub struct StagedSharedDictItem {
     pub(crate) suffix: String,
     /// Per-feature `(start, end)` byte offsets into the shared corpus.
     pub ranges: Vec<(i32, i32)>,
-    pub kind: PresenceKind,
+    /// It's OK to write unneeded one, but can't be false with nulls.
+    pub(crate) has_presence: bool,
 }

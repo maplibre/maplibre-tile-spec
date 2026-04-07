@@ -156,16 +156,6 @@ pub struct ExplicitEncoder {
     /// Vertex buffer layout for geometry streams.
     pub vertex_buffer_type: VertexBufferType,
     /// Per-stream override for the skip-empty-stream rule used by `write_geo_u32_stream`.
-    ///
-    /// `write_geo_u32_stream` normally skips writing a stream when its data is empty.
-    /// When this callback returns `true` for a given stream [`StreamCtx`], the stream is
-    /// written even when empty.
-    ///
-    /// **Typical use:** set to `|ctx| ctx.name == "triangles_indexes"` (with
-    /// `ctx.kind == ColumnKind::Geometry`) to force writing an empty INDEX stream alongside the
-    /// TRIANGLES stream for degenerate polygons (0 triangles). This matches Java encoder behaviour
-    /// and avoids a TypeScript decoder issue where an absent INDEX stream causes tessellation data
-    /// to be silently discarded.
     pub force_stream: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> bool>,
     /// Return the [`IntEncoder`] for a stream identified by [`StreamCtx`].
     pub get_int_encoder: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> IntEncoder>,
@@ -176,10 +166,6 @@ pub struct ExplicitEncoder {
     pub override_id_width: Box<dyn Fn(IdWidth) -> IdWidth>,
     /// Override whether a presence stream is written for an all-present column,
     /// or if the column is written at all if all values are null.
-    ///
-    /// Use [`StreamCtx::subname`] `""` for column-level presence; non-empty for shared-dict
-    /// children. Use `StreamType::Present` for `stream_type` when the decision is not tied to a
-    /// specific integer stream.
     pub override_presence: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> bool>,
 }
 
