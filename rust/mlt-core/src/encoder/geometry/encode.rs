@@ -284,7 +284,7 @@ fn normalize_part_offsets_for_rings(
 /// when Morton is selected, so the caller can reuse it without a second range scan.
 #[hotpath::measure]
 pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<MortonMeta>) {
-    const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.5;
+    const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.66;
 
     let total = vertices.len() / 2;
     if total == 0 {
