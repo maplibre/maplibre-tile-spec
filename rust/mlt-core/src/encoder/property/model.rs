@@ -73,7 +73,6 @@ pub struct StagedSharedDictItem {
     pub(crate) suffix: String,
     /// Per-feature `(start, end)` byte offsets into the shared corpus.
     pub ranges: Vec<(i32, i32)>,
-    /// `true` if presence stream must be written.
-    /// It's OK to write unneeded one, but can't be false with nulls
-    pub has_presence: bool,
+    /// It's OK to write unneeded one, but can't be false with nulls.
+    pub(crate) has_presence: bool,
 }

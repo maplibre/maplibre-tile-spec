@@ -183,6 +183,10 @@ impl StagedSharedDictItem {
         self.ranges.len()
     }
 
+    pub fn has_presence(&self) -> bool {
+        self.has_presence
+    }
+
     #[must_use]
     pub fn presence_bools(&self) -> Vec<bool> {
         self.ranges
@@ -344,7 +348,7 @@ pub(crate) fn write_shared_dict(
 
     let children_count = u32::try_from(shared_dict.items.len())?;
     let optional_count =
-        u32::try_from(shared_dict.items.iter().filter(|p| p.has_presence).count())?;
+        u32::try_from(shared_dict.items.iter().filter(|p| p.has_presence()).count())?;
     let stream_len = checked_sum3(dict_stream_count, children_count, optional_count)?;
 
     // Write stream data: total count, corpus streams, then per-child streams.
@@ -364,7 +368,7 @@ pub(crate) fn write_shared_dict(
     enc.meta.write_varint(children_count)?;
 
     for item in &shared_dict.items {
-        if item.has_presence {
+        if item.has_presence() {
             enc.write_varint(2u32)?;
             ColumnType::OptStr.write_to(&mut enc.meta)?;
             let presence = EncodedStream::encode_presence(&item.presence_bools())?;
