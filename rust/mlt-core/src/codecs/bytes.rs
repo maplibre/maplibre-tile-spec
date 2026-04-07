@@ -82,10 +82,7 @@ pub fn decode_bytes_to_bools(
     dec: &mut Decoder,
 ) -> MltResult<Vec<bool>> {
     if num_bools > bytes.len() * 8 {
-        return Err(BufferUnderflow(
-            ((num_bools + 7) / 8) as u32,
-            bytes.len(),
-        ));
+        return Err(BufferUnderflow(((num_bools + 7) / 8) as u32, bytes.len()));
     }
     let mut result = dec.alloc(num_bools)?;
     for i in 0..num_bools {
