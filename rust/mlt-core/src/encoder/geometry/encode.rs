@@ -300,7 +300,7 @@ pub fn select_vertex_strategy(vertices: &[i32]) -> (VertexBufferType, Option<Mor
     }
 
     #[expect(clippy::cast_precision_loss)]
-    let estimated_unique = hll.len().min(total);
+    let estimated_unique = hll.len().min(total as f64);
     #[expect(clippy::cast_precision_loss)]
     let uniqueness_ratio = estimated_unique as f64 / total as f64;
 
