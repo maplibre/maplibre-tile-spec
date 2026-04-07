@@ -239,7 +239,7 @@ get-crate-field field package=main_crate: (just 'assert-cmd' 'jq')
 get-msrv package=main_crate: (get-crate-field 'rust_version' package)
 
 # Run formatting, cargo check, and clippy for local development
-lint: fmt check clippy
+lint: fmt check clippy test
 
 # Find the minimum supported Rust version and update Cargo.toml
 msrv: (just 'cargo-install' 'cargo-msrv')

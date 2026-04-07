@@ -126,39 +126,20 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_u64_stream(&v.values, &ctx, enc)?;
         }
         D::Str(v) => {
-            if v.lengths.is_empty() {
-                return Ok(false);
-            }
-            write_str_prop(v, false, enc)?;
+            ColumnType::Str.write_to(&mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            write_str_col(v, None, enc)?;
         }
         D::OptStr(v) => {
-            if v.lengths.is_empty() {
-                return Ok(false);
-            }
-            write_str_prop(v, true, enc)?;
+            ColumnType::OptStr.write_to(&mut enc.meta)?;
+            enc.meta.write_string(&v.name)?;
+            let presence = EncodedStream::encode_presence(&v.presence_bools())?;
+            write_str_col(v, Some(&presence), enc)?;
         }
         D::SharedDict(v) => return write_shared_dict(v, enc),
     }
     enc.increment_column_count();
     Ok(true)
-}
-
-/// Encodes a string column: column-type byte, name, optional presence stream, and data.
-///
-/// `optional = false` → `CT::Str`, no presence stream (caller guarantees no nulls).
-/// `optional = true`  → `CT::OptStr`, presence always written from null-encoded lengths.
-fn write_str_prop(v: &StagedStrings, optional: bool, enc: &mut Encoder) -> MltResult<()> {
-    if optional {
-        ColumnType::OptStr.write_to(&mut enc.meta)?;
-        enc.meta.write_string(&v.name)?;
-        let presence = EncodedStream::encode_presence(&v.presence_bools())?;
-        write_str_col(v, Some(&presence), enc)?;
-    } else {
-        ColumnType::Str.write_to(&mut enc.meta)?;
-        enc.meta.write_string(&v.name)?;
-        write_str_col(v, None, enc)?;
-    }
-    Ok(())
 }
 
 /// Writes the column-type byte, name, and presence stream for an optional column.
