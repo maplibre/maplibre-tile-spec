@@ -87,7 +87,9 @@ pub(crate) fn write_str_col(
         // Pre-compute compressed data while cache is accessible (before try_alternatives
         // borrows enc). The FsstRawData is owned, so the cache borrow ends here.
         let count = non_null.len();
-        let plain_fsst = compressor.as_ref().map(|c| compress_fsst_with(&non_null, c));
+        let plain_fsst = compressor
+            .as_ref()
+            .map(|c| compress_fsst_with(&non_null, c));
         let dict_fsst = compressor.as_ref().map(|c| compress_fsst_with(&unique, c));
 
         let mut alt = enc.try_alternatives();
@@ -98,9 +100,7 @@ pub(crate) fn write_str_col(
             alt.with(|enc| write_str_fsst_raw(raw, count, presence, name, enc))?;
         }
         if let Some(ref raw) = dict_fsst {
-            alt.with(|enc| {
-                write_str_fsst_dict_raw(raw, &offset_indices, presence, name, enc)
-            })?;
+            alt.with(|enc| write_str_fsst_dict_raw(raw, &offset_indices, presence, name, enc))?;
         }
     }
     Ok(())
