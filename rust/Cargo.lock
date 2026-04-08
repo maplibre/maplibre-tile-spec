@@ -1292,9 +1292,8 @@ checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
 name = "fsst-rs"
-version = "0.5.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdf65e16e100438be0030d113042e07a62bed67203998640ca6fae0404eed71e"
+version = "0.0.0"
+source = "git+https://github.com/CommanderStorm/fsst?branch=pruning#628729e994835e21e6ffb2723f9e82035ea6d556"
 dependencies = [
  "rustc-hash 2.1.2",
 ]

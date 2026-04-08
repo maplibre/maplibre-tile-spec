@@ -25,7 +25,7 @@ crossterm = "0.29.0"
 enum_dispatch = "0.3"
 fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
-fsst-rs = "0.5"
+fsst-rs = { git = "https://github.com/CommanderStorm/fsst", branch = "pruning" }
 futures = "0.3"
 geo = "0.32.0"
 geo-types = "0.7.18"
