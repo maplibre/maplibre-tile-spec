@@ -282,12 +282,12 @@ public class StringDecoderTest {
     final var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
     final var featureTable =
         tileMetadata.featureTables.stream()
-            .filter(t -> t.name.equals(tableName))
+            .filter(t -> t.name().equals(tableName))
             .findFirst()
             .orElseThrow(
                 () -> new IllegalArgumentException("Expected feature table  " + tableName));
     final var fieldMetadata =
-        featureTable.columns.stream()
+        featureTable.columns().stream()
             .filter(f -> Objects.equals(f.getName(), "name"))
             .findFirst()
             .orElseThrow();
@@ -300,13 +300,14 @@ public class StringDecoderTest {
             .orElseThrow(() -> new IllegalArgumentException("Expected layer  " + tableName));
 
     final var sharedValues =
-        new ArrayList<List<String>>(fieldMetadata.field.type.complexType.children.size());
-    for (var column : fieldMetadata.field.type.complexType.children) {
+        new ArrayList<List<String>>(fieldMetadata.field().type().complexType().children().size());
+    for (var column : fieldMetadata.field().type().complexType().children()) {
       var values = new ArrayList<String>();
       for (var feature : layer.features()) {
         values.add(
             feature
-                .findProperty(fieldMetadata.getName() + column.name, MltMetadata.ScalarType.STRING)
+                .findProperty(
+                    fieldMetadata.getName() + column.name(), MltMetadata.ScalarType.STRING)
                 .map(p -> p.getValue(feature.getIndex()))
                 .flatMap(StreamUtil.optionalOfType(String.class))
                 .orElse(null));
@@ -323,10 +324,10 @@ public class StringDecoderTest {
             ByteArrayUtil.concat(encodedValues.getRight()), new IntWrapper(0), fieldMetadata);
     final var decodedValues = decodeResult.getRight();
 
-    for (var column : fieldMetadata.field.type.complexType.children) {
+    for (var column : fieldMetadata.field().type().complexType().children()) {
       var i = 0;
       for (var feature : layer.features()) {
-        final var propertyName = fieldMetadata.getName() + column.name;
+        final var propertyName = fieldMetadata.getName() + column.name();
         final var expectedValue =
             feature
                 .findProperty(propertyName, MltMetadata.ScalarType.STRING)
@@ -366,13 +367,13 @@ public class StringDecoderTest {
             "place:name_", 3);
     int found = 0;
     for (var table : metadata.featureTables) {
-      for (var column : table.columns) {
+      for (var column : table.columns()) {
         if (column.is(MltMetadata.ComplexType.STRUCT)) {
-          final var complex = column.field.type.complexType;
-          final var fieldKey = table.name + ":" + column.getName();
+          final var complex = column.field().type().complexType();
+          final var fieldKey = table.name() + ":" + column.getName();
           Assert.equals(
               expected.get(fieldKey),
-              complex.children.size(),
+              complex.children().size(),
               "Unexpected number of children in " + fieldKey);
           found++;
         }
@@ -402,14 +403,14 @@ public class StringDecoderTest {
             "place:name", 5);
     int found = 0;
     for (var table : metadata.featureTables) {
-      for (var column : table.columns) {
+      for (var column : table.columns()) {
         if (column.is(MltMetadata.ComplexType.STRUCT)) {
-          final var complex = column.field.type.complexType;
-          final var fieldKey = table.name + ":" + column.getName();
+          final var complex = column.field().type().complexType();
+          final var fieldKey = table.name() + ":" + column.getName();
           Assert.isTrue(expected.containsKey(fieldKey));
           Assert.equals(
               expected.get(fieldKey),
-              complex.children.size(),
+              complex.children().size(),
               "Unexpected number of children in " + fieldKey);
           found++;
         }

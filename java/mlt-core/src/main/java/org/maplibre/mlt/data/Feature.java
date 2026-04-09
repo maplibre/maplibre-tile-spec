@@ -50,8 +50,8 @@ public abstract class Feature implements FeatureInterface {
         .filter(
             p ->
                 !p.isNested()
-                    && p.getType().scalarType != null
-                    && p.getType().scalarType.physicalType.equals(type));
+                    && p.getType().scalarType() != null
+                    && p.getType().scalarType().physicalType().equals(type));
   }
 
   /**

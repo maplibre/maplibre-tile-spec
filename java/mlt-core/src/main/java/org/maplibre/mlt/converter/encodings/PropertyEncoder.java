@@ -14,7 +14,6 @@ import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.converter.ColumnMapping;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.data.Feature;
-import org.maplibre.mlt.data.Property;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
 import org.maplibre.mlt.data.unsigned.U8;
@@ -99,21 +98,21 @@ public class PropertyEncoder {
     /* Plan -> when there is a struct field and the useSharedDictionaryFlag is enabled
      *  share the dictionary for all string columns which are located one after
      * the other in the sequence */
-    final var complexType = columnMetadata.field.type.complexType;
+    final var complexType = columnMetadata.field().type().complexType();
     final var sharedDictionary =
-        new ArrayList<List<String>>(features.size() * complexType.children.size());
-    for (var nestedFieldMetadata : complexType.children) {
-      if (nestedFieldMetadata.type.scalarType == null) {
+        new ArrayList<List<String>>(features.size() * complexType.children().size());
+    for (var nestedFieldMetadata : complexType.children()) {
+      if (nestedFieldMetadata.type().scalarType() == null) {
         throw new IllegalArgumentException(
-            "Nested field '" + nestedFieldMetadata.name + "' has null scalarType");
+            "Nested field '" + nestedFieldMetadata.name() + "' has null scalarType");
       }
-      final var scalarType = nestedFieldMetadata.type.scalarType.physicalType;
+      final var scalarType = nestedFieldMetadata.type().scalarType().physicalType();
       if (scalarType != MltMetadata.ScalarType.STRING) {
         throw new IllegalArgumentException(
             "Only fields of type String are currently supported as nested property columns");
       }
 
-      final var propertyName = rootName + nestedFieldMetadata.name;
+      final var propertyName = rootName + nestedFieldMetadata.name();
       sharedDictionary.add(
           features.stream()
               .map(
@@ -207,19 +206,13 @@ public class PropertyEncoder {
     return (value != null && value.floatValue() == value) ? value.floatValue() : null;
   }
 
-  private static @Nullable MltMetadata.ScalarType getScalarType(@NotNull Property property) {
-    return property.getType().scalarType != null
-        ? property.getType().scalarType.physicalType
-        : null;
-  }
-
   private static Integer getIntPropertyValue(@NotNull Feature feature, @NotNull String name) {
     final var index = feature.getIndex();
     return feature
         .findProperty(name)
         .map(
             p ->
-                switch (getScalarType(p)) {
+                switch (p.getType().getScalarType().orElse(null)) {
                   case BOOLEAN -> ((Boolean) p.getValue(index)) ? 1 : 0;
                   case UINT_8 -> ((U8) p.getValue(index)).intValue();
                   case INT_8, INT_32 -> ((Number) p.getValue(index)).intValue();
@@ -239,7 +232,7 @@ public class PropertyEncoder {
         .findProperty(name)
         .map(
             p ->
-                switch (getScalarType(p)) {
+                switch (p.getType().getScalarType().orElse(null)) {
                   case BOOLEAN -> ((Boolean) p.getValue(index)) ? 1L : 0L;
                   case UINT_8 -> ((U8) p.getValue(index)).longValue();
                   case UINT_32 -> ((U32) p.getValue(index)).longValue();
@@ -258,7 +251,7 @@ public class PropertyEncoder {
         .findProperty(name)
         .map(
             p ->
-                switch (getScalarType(p)) {
+                switch (p.getType().getScalarType().orElse(null)) {
                   case BOOLEAN -> ((Boolean) p.getValue(index)) ? 1.0f : 0.0f;
                   case UINT_8 -> ((U8) p.getValue(index)).intValue().floatValue();
                   case UINT_32 -> ((U32) p.getValue(index)).longValue().floatValue();
@@ -276,7 +269,7 @@ public class PropertyEncoder {
         .findProperty(name)
         .map(
             p ->
-                switch (getScalarType(p)) {
+                switch (p.getType().getScalarType().orElse(null)) {
                   case BOOLEAN -> ((Boolean) p.getValue(index)) ? 1.0 : 0.0;
                   case UINT_8 -> ((U8) p.getValue(index)).intValue().doubleValue();
                   case UINT_32 -> ((U32) p.getValue(index)).longValue().doubleValue();
@@ -295,7 +288,7 @@ public class PropertyEncoder {
         .findProperty(name)
         .map(
             p ->
-                switch (getScalarType(p)) {
+                switch (p.getType().getScalarType().orElse(null)) {
                   case STRING -> (String) p.getValue(index);
                   default -> coercePropertyValues ? p.getValue(index).toString() : null;
                 })

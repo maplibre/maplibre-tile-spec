@@ -25,9 +25,9 @@ public class Property {
     this.value = value;
 
     if (!isNested(type) && value != null) {
-      if (type.scalarType == null
-          || type.scalarType.physicalType.ordinal() < MltMetadata.ScalarType.BOOLEAN.ordinal()
-          || type.scalarType.physicalType.ordinal() > MltMetadata.ScalarType.STRING.ordinal()) {
+      if (type.scalarType() == null
+          || type.scalarType().physicalType().ordinal() < MltMetadata.ScalarType.BOOLEAN.ordinal()
+          || type.scalarType().physicalType().ordinal() > MltMetadata.ScalarType.STRING.ordinal()) {
         throw new IllegalArgumentException(
             "FieldType must have either a valid scalarType or a complexType of MAP");
       }
@@ -43,8 +43,8 @@ public class Property {
   }
 
   private static boolean isNested(MltMetadata.FieldType type) {
-    return (type.complexType != null
-        && type.complexType.physicalType == MltMetadata.ComplexType.MAP);
+    return (type.complexType() != null
+        && type.complexType().physicalType() == MltMetadata.ComplexType.MAP);
   }
 
   /**

@@ -61,7 +61,7 @@ public class PropertyDecoder {
       presentStreamSize = 0;
     }
 
-    return switch (scalarType.physicalType) {
+    return switch (scalarType.physicalType()) {
       case BOOLEAN -> {
         final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
         final var dataStream =
@@ -71,7 +71,7 @@ public class PropertyDecoder {
       }
       case UINT_32, INT_32 -> {
         final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-        final var signed = (scalarType.physicalType == MltMetadata.ScalarType.INT_32);
+        final var signed = (scalarType.physicalType() == MltMetadata.ScalarType.INT_32);
         final var dataStream =
             IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, signed);
 
@@ -87,7 +87,7 @@ public class PropertyDecoder {
       }
       case UINT_64, INT_64 -> {
         final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-        final var signed = (scalarType.physicalType == MltMetadata.ScalarType.INT_64);
+        final var signed = (scalarType.physicalType() == MltMetadata.ScalarType.INT_64);
         final var dataStream =
             IntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata, signed);
 
@@ -137,7 +137,7 @@ public class PropertyDecoder {
       throws IOException {
     if (column.isScalar()) {
       return decodeScalarPropertyColumn(
-          data, offset, column.field.type.scalarType, column.isNullable(), numStreams);
+          data, offset, column.field().type().scalarType(), column.isNullable(), numStreams);
     }
 
     /* Handle struct which currently only supports strings as nested fields for supporting shared dictionary encoding */

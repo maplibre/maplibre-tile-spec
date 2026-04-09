@@ -38,8 +38,8 @@ public class MltTypeMapTest {
 
       // STRUCT must have children before being re-encoded
       if (MltTypeMap.Tag0x01.columnTypeHasChildren(i)) {
-        Assertions.assertNotNull(column.complexType);
-        Assertions.assertNotNull(column.complexType.children);
+        Assertions.assertNotNull(column.complexType());
+        Assertions.assertNotNull(column.complexType().children());
         column =
             MltMetadata.structFieldType(
                 List.of(
@@ -47,20 +47,20 @@ public class MltTypeMapTest {
                         MltMetadata.scalarFieldType(MltMetadata.ScalarType.STRING, true))));
       }
 
-      final boolean complex = column.complexType != null;
+      final boolean complex = column.complexType() != null;
       final boolean logical =
-          (complex && column.complexType.logicalType != null)
-              || (!complex && column.scalarType.logicalType != null);
+          (complex && column.complexType().logicalType() != null)
+              || (!complex && column.scalarType().logicalType() != null);
 
       final var typeCode =
           MltTypeMap.Tag0x01.encodeColumnType(
-                  (!complex && !logical) ? column.scalarType.physicalType : null,
-                  (!complex && logical) ? column.scalarType.logicalType : null,
-                  (complex && !logical) ? column.complexType.physicalType : null,
-                  (complex && logical) ? column.complexType.logicalType : null,
-                  column.isNullable,
-                  complex && !column.complexType.children.isEmpty(),
-                  !complex && column.scalarType.hasLongId)
+                  (!complex && !logical) ? column.scalarType().physicalType() : null,
+                  (!complex && logical) ? column.scalarType().logicalType() : null,
+                  (complex && !logical) ? column.complexType().physicalType() : null,
+                  (complex && logical) ? column.complexType().logicalType() : null,
+                  column.isNullable(),
+                  complex && !column.complexType().children().isEmpty(),
+                  !complex && column.scalarType().hasLongId())
               .or(Assertions::fail);
       assertEquals(typeCode.get(), i);
     }

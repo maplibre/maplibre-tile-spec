@@ -25,11 +25,11 @@ class MltConverterTest {
             ConversionConfig.TypeMismatchPolicy.COERCE);
     var column =
         metadata.featureTables.stream()
-            .flatMap(it -> it.columns.stream())
+            .flatMap(it -> it.columns().stream())
             .filter(it -> "key".equals(it.getName()))
             .findFirst()
             .get();
-    assertEquals(MltMetadata.ScalarType.STRING, column.field.type.scalarType.physicalType);
+    assertEquals(MltMetadata.ScalarType.STRING, column.field().type().scalarType().physicalType());
   }
 
   @Test
@@ -42,11 +42,11 @@ class MltConverterTest {
             ConversionConfig.TypeMismatchPolicy.ELIDE);
     var column =
         metadata.featureTables.stream()
-            .flatMap(it -> it.columns.stream())
+            .flatMap(it -> it.columns().stream())
             .filter(it -> "key".equals(it.getName()))
             .findFirst()
             .get();
-    assertEquals(MltMetadata.ScalarType.DOUBLE, column.field.type.scalarType.physicalType);
+    assertEquals(MltMetadata.ScalarType.DOUBLE, column.field().type().scalarType().physicalType());
   }
 
   @Test

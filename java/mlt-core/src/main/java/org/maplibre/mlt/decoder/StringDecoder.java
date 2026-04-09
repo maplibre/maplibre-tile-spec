@@ -87,11 +87,11 @@ public final class StringDecoder {
     var presentStreams = new HashMap<String, BitSet>();
     var numValues = new HashMap<String, Integer>();
     var values = new HashMap<String, List<String>>();
-    for (var childField : column.field.type.complexType.children) {
+    for (var childField : column.field().type().complexType().children()) {
       var numStreams = DecodingUtils.decodeVarints(data, offset, 1)[0];
       if (numStreams != 2
-          || childField.type.complexType != null
-          || childField.type.scalarType.physicalType != MltMetadata.ScalarType.STRING) {
+          || childField.type().complexType() != null
+          || childField.type().scalarType().physicalType() != MltMetadata.ScalarType.STRING) {
         throw new IllegalArgumentException(
             "Currently only optional string fields are implemented for a struct.");
       }
@@ -117,7 +117,7 @@ public final class StringDecoder {
         }
       }
 
-      final var columnName = column.getName() + childField.name;
+      final var columnName = column.getName() + childField.name();
       // TODO: refactor to work also when present stream is null
       numValues.put(columnName, presentStreamMetadata.numValues());
       presentStreams.put(columnName, presentStream);

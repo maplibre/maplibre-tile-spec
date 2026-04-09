@@ -93,46 +93,48 @@ public final class MltMetadata {
     public List<Double> center = new ArrayList<>();
   }
 
-  public static final class FeatureTable {
+  public static final record FeatureTable(
+      @NotNull String name, @NotNull SequencedCollection<Column> columns) {
+
+    public FeatureTable {
+      Objects.requireNonNull(name);
+      columns = (columns != null) ? columns : new ArrayList<>();
+    }
+
     public FeatureTable(String name) {
-      this.name = name;
-      this.columns = new ArrayList<>();
+      this(name, null);
     }
 
     public FeatureTable(String name, int initialColumnCapacity) {
-      this.name = name;
-      this.columns = new ArrayList<>(initialColumnCapacity);
+      this(name, new ArrayList<>(initialColumnCapacity));
     }
-
-    public final String name;
-    public final SequencedCollection<Column> columns;
   }
 
   /// The type of data in a Field
-  public static class FieldType {
-    /// Whether the field can be null
-    public final boolean isNullable;
-    /// A complex type, if set.  Mutually exclusive with scalarType.
-    @Nullable public final ComplexField complexType;
-    /// A scalar type, if set.  Mutually exclusive with complexType.
-    @Nullable public final ScalarField scalarType;
+  /// @param scalarType A scalar type, if set.  Mutually exclusive with complexType.
+  /// @param complexType A complex type, if set.  Mutually exclusive with scalarType.
+  /// @param isNullable Whether the field can be null
+  public static final record FieldType(
+      @Nullable ScalarField scalarType, @Nullable ComplexField complexType, boolean isNullable) {
+
+    public FieldType {
+      if ((scalarType == null) == (complexType == null)) {
+        throw new IllegalStateException("FieldType must be either scalar or complex");
+      }
+    }
 
     /// Create a scalar type
     /// @param scalarType the type
     /// @param isNullable whether the field can be null
     public FieldType(@Nullable ScalarField scalarType, boolean isNullable) {
-      this.isNullable = isNullable;
-      this.complexType = null;
-      this.scalarType = scalarType;
+      this(scalarType, null, isNullable);
     }
 
     /// Create a complex type
     /// @param complexType the type
     /// @param isNullable whether the field can be null
     public FieldType(@Nullable ComplexField complexType, boolean isNullable) {
-      this.isNullable = isNullable;
-      this.complexType = complexType;
-      this.scalarType = null;
+      this(null, complexType, isNullable);
     }
 
     /// Check if this field is of the given scalar type
@@ -165,21 +167,21 @@ public final class MltMetadata {
 
     /// Get the physical scalar type of this field, if applicable
     /// @return an Optional containing the physical scalar type of this field, or an empty Optional
-    // if this field is not a scalar type
+    /// if this field is not a scalar type
     public Optional<ScalarType> getScalarType() {
       return (scalarType != null) ? Optional.ofNullable(scalarType.physicalType) : Optional.empty();
     }
 
     /// Get the logical scalar type of this field, if applicable
     /// @return an Optional containing the logical scalar type of this field, or an empty Optional
-    // if this field is not a scalar type
+    /// if this field is not a scalar type
     public Optional<LogicalScalarType> getLogicalScalarType() {
       return (scalarType != null) ? Optional.ofNullable(scalarType.logicalType) : Optional.empty();
     }
 
     /// Get the physical complex type of this field, if applicable
     /// @return an Optional containing the physical complex type of this field, or an empty Optional
-    // if this field is not a complex type
+    /// if this field is not a complex type
     public Optional<ComplexType> getComplexType() {
       return (complexType != null)
           ? Optional.ofNullable(complexType.physicalType)
@@ -188,7 +190,7 @@ public final class MltMetadata {
 
     /// Get the logical complex type of this field, if applicable
     /// @return an Optional containing the logical complex type of this field, or an empty Optional
-    // if this field is not a complex type
+    /// if this field is not a complex type
     public Optional<LogicalComplexType> getLogicalComplexType() {
       return (complexType != null)
           ? Optional.ofNullable(complexType.logicalType)
@@ -203,33 +205,31 @@ public final class MltMetadata {
   }
 
   /// A field may be a column or nested as a child of a complex type
-  public static class Field {
-    /// The name of the field.  May be null for nested fields or implicit types (e.g, ID).
-    @Nullable public final String name;
-    /// The type of the field.  Must be non-null.
-    @NotNull public final FieldType type;
+  /// @param name The name of the field.  May be null for nested fields or implicit types (e.g, ID).
+  /// @param type The type of the field.  Must be non-null.
+  public static final record Field(@NotNull FieldType type, @Nullable String name) {
+    public Field {
+      Objects.requireNonNull(type);
+    }
 
-    /// Create a field with the given type
-    /// @param type the type of the field
     public Field(@NotNull FieldType type) {
       this(type, null);
     }
-
-    /// Create a field with the given type and name
-    /// @param type the type of the field
-    /// @param name the name of the field, or null if unnamed
-    public Field(@NotNull FieldType type, @Nullable String name) {
-      this.type = Objects.requireNonNull(type);
-      this.name = name;
-    }
   }
 
-  /** Column are top-level types in the schema */
-  public static final class Column {
-    /// The field associated with this column.  Must be non-null.
-    @NotNull public final Field field;
-    /// The column scope.  Must be non-null.
-    public final @NotNull ColumnScope columnScope;
+  /// Column are top-level types in the schema
+  /// @param field The field associated with this column.  Must be non-null.
+  /// @param columnScope The column scope, which must be either FEATURE or VERTEX
+  public static final record Column(@NotNull Field field, @NotNull ColumnScope columnScope) {
+
+    /// Create a column with the given field and column scope
+    /// @param field the field associated with this column
+    /// @param columnScope the column scope, which must be either FEATURE or VERTEX
+    public Column {
+      if (columnScope != ColumnScope.FEATURE && columnScope != ColumnScope.VERTEX) {
+        throw new IllegalStateException("Column scope must be either FEATURE or VERTEX");
+      }
+    }
 
     /// Create a column with the given field and default scope of FEATURE
     /// @param field the field associated with this column
@@ -241,17 +241,6 @@ public final class MltMetadata {
     /// @param type the type of the field associated with this column
     public Column(FieldType type) {
       this(new Field(type), ColumnScope.FEATURE);
-    }
-
-    /// Create a column with the given field and column scope
-    /// @param field the field associated with this column
-    /// @param columnScope the column scope, which must be either FEATURE or VERTEX
-    public Column(Field field, ColumnScope columnScope) {
-      this.field = Objects.requireNonNull(field);
-      this.columnScope = columnScope;
-      if (this.columnScope != ColumnScope.FEATURE && this.columnScope != ColumnScope.VERTEX) {
-        throw new IllegalStateException("Column scope must be either FEATURE or VERTEX");
-      }
     }
 
     /// Get the name of this column
@@ -342,57 +331,63 @@ public final class MltMetadata {
   }
 
   /// A scalar field, which may be a physical type or a simple logical type (e.g., ID)
-  public static final class ScalarField {
-    /// The physical type of the field, if applicable.  Mutually exclusive with logicalType.
-    public final ScalarType physicalType;
-    /// The logical type of the field, if applicable.  Mutually exclusive with physicalType.
-    public final LogicalScalarType logicalType;
-    /// Whether the field has long ids (i.e., 64-bit integers) - only applicable for ID logical type
-    public final boolean hasLongId;
+  /// @param physicalType The physical type, if applicable.  Mutually exclusive with logicalType
+  /// @param logicalType The logical type, if applicable.  Mutually exclusive with physicalType
+  /// @param hasLongId Whether the ID field has long ids (i.e., 64-bit integers)
+  public static final record ScalarField(
+      @Nullable ScalarType physicalType,
+      @Nullable LogicalScalarType logicalType,
+      boolean hasLongId) {
+
+    public ScalarField {
+      if ((physicalType == null) == (logicalType == null)) {
+        throw new IllegalStateException(
+            "ScalarField must have either a physical type or a logical type");
+      }
+    }
 
     /// Create a scalar field with the given physical type
     /// @param type the physical type of the field
     public ScalarField(@NotNull ScalarType type) {
-      Objects.requireNonNull(type);
-      physicalType = type;
-      logicalType = null;
-      hasLongId = false;
+      this(type, null, false);
     }
 
     /// Create a scalar field with the given logical type
     /// @param type the logical type of the field
-    /// @param hasLongId whether the field has long ids (i.e., 64-bit integers) - only applicable
-    // for ID logical type
+    /// @param hasLongId whether the ID field has long ids (i.e., 64-bit integers)
     public ScalarField(@NotNull LogicalScalarType type, boolean hasLongId) {
-      Objects.requireNonNull(type);
-      physicalType = null;
-      logicalType = type;
-      this.hasLongId = hasLongId;
+      this(null, type, hasLongId);
     }
   }
 
   /// A complex field
-  public static final class ComplexField {
-    /// The physical type of the field, if applicable.  Mutually exclusive with logicalType.
-    public @Nullable ComplexType physicalType;
-    /// The logical type of the field, if applicable.  Mutually exclusive with physicalType.
-    public @Nullable LogicalComplexType logicalType;
-    /// The child fields of this complex field, if applicable (e.g., for STRUCT or MAP types)
-    public @NotNull SequencedCollection<Field> children;
+  /// @param physicalType The physical type, if applicable.  Mutually exclusive with logicalType
+  /// @param logicalType The logical type, if applicable.  Mutually exclusive with physicalType.
+  /// @param children The child fields of this complex field, if applicable
+  public static final record ComplexField(
+      @Nullable ComplexType physicalType,
+      @Nullable LogicalComplexType logicalType,
+      @NotNull SequencedCollection<Field> children) {
+
+    public ComplexField {
+      if ((physicalType == null) == (logicalType == null)) {
+        throw new IllegalStateException(
+            "ComplexField must have either a physical type or a logical type");
+      }
+      children = (children != null) ? children : new ArrayList<>();
+    }
 
     /// Create a complex field with the given physical type and no children
     /// @param type the physical type of the field
     public ComplexField(@NotNull ComplexType type) {
-      this(type, new ArrayList<>());
+      this(type, null);
     }
 
     /// Create a complex field with the given physical type and children
     /// @param type the physical type of the field
     /// @param children the child fields of this complex field, or null if no children
     public ComplexField(@NotNull ComplexType type, @Nullable SequencedCollection<Field> children) {
-      Objects.requireNonNull(type);
-      this.physicalType = type;
-      this.children = (children != null) ? children : List.of();
+      this(type, null, children);
     }
   }
 }

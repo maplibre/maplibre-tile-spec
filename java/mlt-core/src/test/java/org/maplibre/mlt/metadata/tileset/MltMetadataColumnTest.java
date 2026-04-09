@@ -19,9 +19,9 @@ class MltMetadataColumnTest {
                 MltMetadata.scalarFieldType(MltMetadata.ScalarType.STRING, true), "name"));
     assertEquals("name", col.getName());
     assertTrue(col.isNullable());
-    assertEquals(MltMetadata.ColumnScope.FEATURE, col.columnScope);
-    assertNotNull(col.field.type.scalarType);
-    assertNull(col.field.type.complexType);
+    assertEquals(MltMetadata.ColumnScope.FEATURE, col.columnScope());
+    assertNotNull(col.field().type().scalarType());
+    assertNull(col.field().type().complexType());
   }
 
   @Test
@@ -35,26 +35,26 @@ class MltMetadataColumnTest {
 
     assertEquals("geom", col.getName());
     assertFalse(col.isNullable());
-    assertEquals(MltMetadata.ColumnScope.VERTEX, col.columnScope);
-    assertNotNull(col.field.type.complexType);
-    assertNull(col.field.type.scalarType);
-    assertEquals(MltMetadata.ComplexType.STRUCT, col.field.type.complexType.physicalType);
-    assertEquals(1, col.field.type.complexType.children.size());
+    assertEquals(MltMetadata.ColumnScope.VERTEX, col.columnScope());
+    assertNotNull(col.field().type().complexType());
+    assertNull(col.field().type().scalarType());
+    assertEquals(MltMetadata.ComplexType.STRUCT, col.field().type().complexType().physicalType());
+    assertEquals(1, col.field().type().complexType().children().size());
   }
 
   @Test
   void acceptsNullChildren() {
     final var col = new MltMetadata.Column(MltMetadata.structFieldType(null));
-    assertNotNull(col.field.type.complexType);
-    assertEquals(MltMetadata.ComplexType.STRUCT, col.field.type.complexType.physicalType);
-    assertTrue(col.field.type.complexType.children.isEmpty());
+    assertNotNull(col.field().type().complexType());
+    assertEquals(MltMetadata.ComplexType.STRUCT, col.field().type().complexType().physicalType());
+    assertTrue(col.field().type().complexType().children().isEmpty());
   }
 
   @Test
   void defaultsToFeatureScope() {
     final var col =
         new MltMetadata.Column(MltMetadata.scalarFieldType(MltMetadata.ScalarType.STRING, true));
-    assertEquals(MltMetadata.ColumnScope.FEATURE, col.columnScope);
+    assertEquals(MltMetadata.ColumnScope.FEATURE, col.columnScope());
   }
 
   @Test

@@ -117,9 +117,9 @@ public class MltTypeMap {
 
     public static boolean hasStreamCount(MltMetadata.Column column) {
       if (column.isScalar()) {
-        final var scalar = column.field.type.scalarType;
-        if (scalar.physicalType != null) {
-          switch (scalar.physicalType) {
+        final var scalar = column.field().type().scalarType();
+        if (scalar.physicalType() != null) {
+          switch (scalar.physicalType()) {
             case BOOLEAN:
             case INT_8:
             case UINT_8:
@@ -134,15 +134,15 @@ public class MltTypeMap {
               return true;
             default:
           }
-        } else if (scalar.logicalType != null) {
-          if (scalar.logicalType == MltMetadata.LogicalScalarType.ID) {
+        } else if (scalar.logicalType() != null) {
+          if (scalar.logicalType() == MltMetadata.LogicalScalarType.ID) {
             return false;
           }
         }
       } else if (column.isComplex()) {
-        final var complex = column.field.type.complexType;
-        if (complex.physicalType != null) {
-          switch (complex.physicalType) {
+        final var complex = column.field().type().complexType();
+        if (complex.physicalType() != null) {
+          switch (complex.physicalType()) {
             case GEOMETRY:
             case STRUCT:
               return true;
