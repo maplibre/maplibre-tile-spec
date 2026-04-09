@@ -81,7 +81,7 @@ pub(crate) fn write_str_col(
         // Train on deduplicated values once; cached across sort trials.
         let compressor = enc
             .fsst_cache
-            .entry(name.to_string())
+            .entry(name.clone())
             .or_insert_with(|| fsst_try_train(&unique));
 
         // Pre-compute compressed data while cache is accessible (before try_alternatives
