@@ -29,7 +29,7 @@ class MltConverterTest {
             .filter(it -> "key".equals(it.name))
             .findFirst()
             .get();
-    assertEquals(MltMetadata.ScalarType.STRING, column.scalarType.physicalType);
+    assertEquals(MltMetadata.ScalarType.STRING, column.type.scalarType.physicalType);
   }
 
   @Test
@@ -46,7 +46,7 @@ class MltConverterTest {
             .filter(it -> "key".equals(it.name))
             .findFirst()
             .get();
-    assertEquals(MltMetadata.ScalarType.DOUBLE, column.scalarType.physicalType);
+    assertEquals(MltMetadata.ScalarType.DOUBLE, column.type.scalarType.physicalType);
   }
 
   @Test

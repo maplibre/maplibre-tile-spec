@@ -135,9 +135,9 @@ public class PropertyDecoder {
   public static Object decodePropertyColumn(
       byte[] data, IntWrapper offset, MltMetadata.Column column, int numStreams)
       throws IOException {
-    if (column.scalarType != null) {
+    if (column.type.scalarType != null) {
       return decodeScalarPropertyColumn(
-          data, offset, column.scalarType, column.isNullable, numStreams);
+          data, offset, column.type.scalarType, column.type.isNullable, numStreams);
     }
 
     /* Handle struct which currently only supports strings as nested fields for supporting shared dictionary encoding */

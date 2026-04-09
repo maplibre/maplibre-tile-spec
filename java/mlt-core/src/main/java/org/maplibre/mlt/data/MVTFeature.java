@@ -40,7 +40,7 @@ public class MVTFeature extends Feature {
       throw new IllegalArgumentException(
           "Unsupported property value type: " + value.getClass() + " for property: " + name);
     }
-    return new Property(type.scalarType.physicalType, name, value);
+    return new Property(type, name, value);
   }
 
   static Property adapt(Map.Entry<String, Object> entry) {
@@ -48,7 +48,7 @@ public class MVTFeature extends Feature {
   }
 
   static MltMetadata.FieldType getType(Object value) {
-    return makeField(
+    return MltMetadata.scalarFieldTypeBuilder(
         switch (value) {
           case null -> MltMetadata.ScalarType.UNRECOGNIZED;
           case String ignored -> MltMetadata.ScalarType.STRING;
@@ -68,14 +68,6 @@ public class MVTFeature extends Feature {
           default ->
               throw new IllegalArgumentException(
                   "Unsupported property value type: " + value.getClass());
-        },
-        true);
-  }
-
-  private static MltMetadata.FieldType makeField(MltMetadata.ScalarType type, boolean isNullable) {
-    return MltMetadata.Field.builder()
-        .scalarType(new MltMetadata.ScalarField(type))
-        .isNullable(isNullable)
-        .build();
+        }).isNullable(true).build();
   }
 }

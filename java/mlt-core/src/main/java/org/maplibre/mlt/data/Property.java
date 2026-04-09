@@ -12,18 +12,6 @@ public class Property {
   private final Object value;
 
   /**
-   * Create directly from a scalar type, for convenience
-   *
-   * @param type The scalar type of the property
-   * @param name The name of the property
-   * @param value The value of the property, which should be compatible with the type. No validation
-   *     is performed.
-   */
-  public Property(MltMetadata.ScalarType type, String name, Object value) {
-    this(MltMetadata.scalarFieldBuilder(type).build(), name, value);
-  }
-
-  /**
    * Create directly from a complex type
    *
    * @param type The type of the property

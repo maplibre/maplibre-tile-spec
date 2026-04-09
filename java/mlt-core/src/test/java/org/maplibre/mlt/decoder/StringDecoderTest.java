@@ -62,9 +62,8 @@ public class StringDecoderTest {
 
     final var isNullable = true;
     final var tileMetadata =
-        MltMetadata.scalarColumnBuilder(MltMetadata.ScalarType.STRING)
+            MltMetadata.Column.builder().type(MltMetadata.scalarFieldTypeBuilder(MltMetadata.ScalarType.STRING).isNullable(isNullable).build())
             .name("Test")
-            .isNullable(isNullable)
             .columnScope(MltMetadata.ColumnScope.FEATURE)
             .build();
 
@@ -88,10 +87,10 @@ public class StringDecoderTest {
     final var test = createField("Test", MltMetadata.ScalarType.STRING, false);
     final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, false);
     final var isNullable = true;
+    final var type = MltMetadata.structFieldTypeBuilder(List.of(test, test2)).isNullable(isNullable).build();
     final var tileMetadata =
-        MltMetadata.structColumnBuilder(List.of(test, test2))
+            MltMetadata.Column.builder().type(type)
             .name("Parent")
-            .isNullable(isNullable)
             .columnScope(MltMetadata.ColumnScope.FEATURE)
             .build();
 
@@ -104,15 +103,11 @@ public class StringDecoderTest {
     Assert.equals(values2, v.get("ParentTest2"));
   }
 
-  private MltMetadata.ScalarField createField(MltMetadata.ScalarType type) {
-    return new MltMetadata.ScalarField(type);
-  }
-
   private MltMetadata.Field createField(
       String name,
       @SuppressWarnings("SameParameterValue") MltMetadata.ScalarType type,
       boolean isNullable) {
-    return MltMetadata.scalarFieldBuilder(type).name(name).isNullable(isNullable).build();
+    return MltMetadata.Field.builder().type(MltMetadata.scalarFieldTypeBuilder(type).isNullable(isNullable).build()).name(name).build();
   }
 
   private MltMetadata.ComplexField createComplexColumn(MltMetadata.Field... fields) {
@@ -132,10 +127,10 @@ public class StringDecoderTest {
     final var test = createField("Test", MltMetadata.ScalarType.STRING, false);
     final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, false);
     final var isNullable = true;
+    final var type = MltMetadata.structFieldTypeBuilder(List.of(test, test2)).isNullable(isNullable).build();
     final var tileMetadata =
-        MltMetadata.structColumnBuilder(List.of(test, test2))
+            MltMetadata.Column.builder().type(type)
             .name("Parent")
-            .isNullable(isNullable)
             .columnScope(MltMetadata.ColumnScope.FEATURE)
             .build();
 
@@ -197,10 +192,10 @@ public class StringDecoderTest {
     final var test = createField("Test", MltMetadata.ScalarType.STRING, false);
     final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, false);
     final var isNullable = true;
+    final var type = MltMetadata.structFieldTypeBuilder(List.of(test, test2)).isNullable(isNullable).build();
     final var tileMetadata =
-        MltMetadata.structColumnBuilder(List.of(test, test2))
+            MltMetadata.Column.builder().type(type)
             .name("Parent")
-            .isNullable(isNullable)
             .columnScope(MltMetadata.ColumnScope.FEATURE)
             .build();
 
@@ -260,11 +255,7 @@ public class StringDecoderTest {
     final var tileMetadata =
         MltMetadata.Column.builder()
             .name("TestParent:")
-            .complexType(
-                new MltMetadata.ComplexField(
-                    MltMetadata.ComplexType.STRUCT,
-                    List.of(createField("TestChild", MltMetadata.ScalarType.STRING, isNullable))))
-            .isNullable(isNullable)
+              .type(MltMetadata.complexFieldTypeBuilder(List.of(createField("TestChild", MltMetadata.ScalarType.STRING, isNullable))).isNullable(isNullable).build())
             .columnScope(MltMetadata.ColumnScope.FEATURE)
             .build();
     var decodeResult =
@@ -321,8 +312,8 @@ public class StringDecoderTest {
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Expected layer  " + tableName));
 
-    final var sharedValues = new ArrayList<List<String>>(fieldMetadata.complexType.children.size());
-    for (var column : fieldMetadata.complexType.children) {
+    final var sharedValues = new ArrayList<List<String>>(fieldMetadata.type.complexType.children.size());
+    for (var column : fieldMetadata.type.complexType.children) {
       var values = new ArrayList<String>();
       for (var feature : layer.features()) {
         values.add(
@@ -344,7 +335,7 @@ public class StringDecoderTest {
             ByteArrayUtil.concat(encodedValues.getRight()), new IntWrapper(0), fieldMetadata);
     final var decodedValues = decodeResult.getRight();
 
-    for (var column : fieldMetadata.complexType.children) {
+    for (var column : fieldMetadata.type.complexType.children) {
       var i = 0;
       for (var feature : layer.features()) {
         final var propertyName = fieldMetadata.name + column.name;
@@ -388,9 +379,9 @@ public class StringDecoderTest {
     int found = 0;
     for (var table : metadata.featureTables) {
       for (var column : table.columns) {
-        if (column.complexType != null
-            && column.complexType.physicalType == MltMetadata.ComplexType.STRUCT) {
-          final var complex = column.complexType;
+        if (column.type.complexType != null
+            && column.type.complexType.physicalType == MltMetadata.ComplexType.STRUCT) {
+          final var complex = column.type.complexType;
           final var fieldKey = table.name + ":" + column.name;
           Assert.equals(
               expected.get(fieldKey),
@@ -425,9 +416,9 @@ public class StringDecoderTest {
     int found = 0;
     for (var table : metadata.featureTables) {
       for (var column : table.columns) {
-        if (column.complexType != null
-            && column.complexType.physicalType == MltMetadata.ComplexType.STRUCT) {
-          final var complex = column.complexType;
+        if (column.type.complexType != null
+            && column.type.complexType.physicalType == MltMetadata.ComplexType.STRUCT) {
+          final var complex = column.type.complexType;
           final var fieldKey = table.name + ":" + column.name;
           Assert.isTrue(expected.containsKey(fieldKey));
           Assert.equals(

@@ -50,7 +50,7 @@ public class PropertyEncoder {
     final var columnMappingsIterator = columnMappings.iterator();
     for (var columnMetadata : propertyColumns) {
       final ArrayList<byte[]> encodedColumn;
-      if (columnMetadata.scalarType != null) {
+      if (columnMetadata.type.scalarType != null) {
         encodedColumn =
             encodeScalarPropertyColumn(
                 features,
@@ -99,15 +99,15 @@ public class PropertyEncoder {
     /* Plan -> when there is a struct field and the useSharedDictionaryFlag is enabled
      *  share the dictionary for all string columns which are located one after
      * the other in the sequence */
-    final var complexType = columnMetadata.complexType;
+    final var complexType = columnMetadata.type.complexType;
     final var sharedDictionary =
         new ArrayList<List<String>>(features.size() * complexType.children.size());
     for (var nestedFieldMetadata : complexType.children) {
-      if (nestedFieldMetadata.scalarType == null) {
+      if (nestedFieldMetadata.type.scalarType == null) {
         throw new IllegalArgumentException(
             "Nested field '" + nestedFieldMetadata.name + "' has null scalarType");
       }
-      final var scalarType = nestedFieldMetadata.scalarType.physicalType;
+      final var scalarType = nestedFieldMetadata.type.scalarType.physicalType;
       if (scalarType != MltMetadata.ScalarType.STRING) {
         throw new IllegalArgumentException(
             "Only fields of type String are currently supported as nested property columns");
@@ -311,10 +311,10 @@ public class PropertyEncoder {
       boolean coercePropertyValues,
       @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
-    if (columnMetadata.scalarType == null) {
+    if (columnMetadata.type == null || columnMetadata.type.scalarType == null) {
       throw new IllegalArgumentException("scalarType must not be null");
     }
-    final var scalarType = columnMetadata.scalarType.physicalType;
+    final var scalarType = columnMetadata.type.scalarType.physicalType;
     return switch (scalarType) {
       case BOOLEAN ->
           // no stream count
@@ -369,7 +369,7 @@ public class PropertyEncoder {
     final var stringValues = Arrays.stream(rawStringValues).filter(Objects::nonNull).toList();
 
     final ArrayList<byte[]> presentStream;
-    if (columnMetadata.isNullable) {
+    if (columnMetadata.type.isNullable) {
       final var presentValues =
           Arrays.stream(rawStringValues).map(Objects::nonNull).toArray(Boolean[]::new);
       presentStream = BooleanEncoder.encodeBooleanStream(presentValues, PhysicalStreamType.PRESENT);
@@ -394,7 +394,7 @@ public class PropertyEncoder {
 
   private static ArrayList<byte[]> encodeBooleanColumn(
       SequencedCollection<Feature> features, MltMetadata.Column metadata) throws IOException {
-    final var presentStream = metadata.isNullable ? new BitSet(features.size()) : null;
+    final var presentStream = metadata.type.isNullable ? new BitSet(features.size()) : null;
     final var dataStream = new BitSet();
     var dataStreamIndex = 0;
     var presentStreamIndex = 0;
@@ -447,7 +447,7 @@ public class PropertyEncoder {
   private static ArrayList<byte[]> encodeFloatColumn(
       SequencedCollection<Feature> features, MltMetadata.Column metadata) throws IOException {
     final var values = new ArrayList<Float>(features.size());
-    final var presentValues = metadata.isNullable ? new Boolean[features.size()] : null;
+    final var presentValues = metadata.type.isNullable ? new Boolean[features.size()] : null;
     var presentIndex = 0;
     for (var feature : features) {
       final var propertyValue = getFloatPropertyValue(feature, metadata.name);
@@ -474,7 +474,7 @@ public class PropertyEncoder {
   private static ArrayList<byte[]> encodeDoubleColumn(
       SequencedCollection<Feature> features, MltMetadata.Column metadata) throws IOException {
     final var values = new ArrayList<Double>(features.size());
-    final var presentValues = metadata.isNullable ? new Boolean[features.size()] : null;
+    final var presentValues = metadata.type.isNullable ? new Boolean[features.size()] : null;
     var presentIndex = 0;
     for (var feature : features) {
       final var propertyValue = getDoublePropertyValue(feature, metadata.name);
@@ -507,7 +507,7 @@ public class PropertyEncoder {
       @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
     final var values = new ArrayList<Integer>(features.size());
-    final var presentValues = metadata.isNullable ? new Boolean[features.size()] : null;
+    final var presentValues = metadata.type.isNullable ? new Boolean[features.size()] : null;
     var presentIndex = 0;
     for (var feature : features) {
       // Force ID values to integer for this column.
@@ -526,7 +526,7 @@ public class PropertyEncoder {
       // If the column is not nullable, all values must be present.
       // Failure of this assertion indicates a problem with metadata creation,
       // or use of the metadata to encode data other than what it describes.
-      assert (present || metadata.isNullable);
+      assert (present || metadata.type.isNullable);
     }
 
     final var encodedPresentStream =
@@ -556,7 +556,7 @@ public class PropertyEncoder {
       @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
     final var values = new ArrayList<Long>(features.size());
-    final var presentValues = metadata.isNullable ? new Boolean[features.size()] : null;
+    final var presentValues = metadata.type.isNullable ? new Boolean[features.size()] : null;
     var presentIndex = 0;
     for (var feature : features) {
       final var propertyValue =

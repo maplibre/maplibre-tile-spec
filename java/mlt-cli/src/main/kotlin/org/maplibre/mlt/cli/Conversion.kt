@@ -124,7 +124,7 @@ fun logColumnMappings(
 
     for (table in metadata.featureTables) {
         for (column in table.columns) {
-            val complex = column.complexType
+            val complex = column.type.complexType
             if (complex != null &&
                 complex.physicalType == MltMetadata.ComplexType.STRUCT
             ) {

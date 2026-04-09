@@ -66,7 +66,6 @@ public class MltDecoder {
     final var offset = new IntWrapper(0);
     List<Long> ids = null;
     Geometry[] geometries = null;
-    // final var properties = new HashMap<String, List<Property>>();
     final var properties = new ArrayList<Map<String, Property>>();
     for (var columnMetadata : layerMetadata.columns) {
       final var columnName = columnMetadata.name;
@@ -77,7 +76,7 @@ public class MltDecoder {
       if (MltTypeMap.Tag0x01.isID(columnMetadata)) {
         BitSet presentStream = null;
         int presentStreamSize = 0;
-        if (columnMetadata.isNullable) {
+        if (columnMetadata.type.isNullable) {
           final var presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
           presentStream =
               DecodingUtils.decodeBooleanRle(
@@ -90,7 +89,7 @@ public class MltDecoder {
 
         final var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
         List<Long> denseIds;
-        if (columnMetadata.scalarType.hasLongId) {
+        if (columnMetadata.type.scalarType.hasLongId) {
           denseIds = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
         } else {
           denseIds =
@@ -130,7 +129,7 @@ public class MltDecoder {
               @SuppressWarnings("unchecked")
               final var list = (ArrayList<Object>) a.getValue();
               sizeList(properties, list);
-              final var prop = new IndexedProperty(columnMetadata, key, list);
+              final var prop = new IndexedProperty(columnMetadata.type, key, list);
               for (int i = 0; i < list.size(); i++) {
                 properties.get(i).merge(key, prop, MltDecoder::mergeFail);
               }
@@ -140,7 +139,7 @@ public class MltDecoder {
           @SuppressWarnings("unchecked")
           final var list = (ArrayList<Object>) propertyColumn;
           sizeList(properties, list);
-          final var prop = new IndexedProperty(columnMetadata, columnName, list);
+          final var prop = new IndexedProperty(columnMetadata.type, columnName, list);
           for (int i = 0; i < list.size(); i++) {
             properties.get(i).merge(columnName, prop, MltDecoder::mergeFail);
           }
@@ -201,7 +200,7 @@ public class MltDecoder {
 
   private static MltMetadata.Column decodeColumn(InputStream stream) throws IOException {
     final var typeCode = DecodingUtils.decodeVarint(stream);
-    final var column = MltTypeMap.Tag0x01.decodeColumnType(typeCode);
+    final var column = MltMetadata.Column.builder().type(MltTypeMap.Tag0x01.decodeColumnType(typeCode));
 
     if (MltTypeMap.Tag0x01.columnTypeHasName(typeCode)) {
       column.name(DecodingUtils.decodeString(stream)).build();
@@ -213,7 +212,7 @@ public class MltDecoder {
       for (var i = 0; i < childCount; ++i) {
         children.add(decodeColumn(stream));
       }
-      column.complexType(new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT, children));
+      column.type(MltMetadata.complexFieldTypeBuilder(children).isNullable(column.type.isNullable).build());
     }
 
     return column.build();

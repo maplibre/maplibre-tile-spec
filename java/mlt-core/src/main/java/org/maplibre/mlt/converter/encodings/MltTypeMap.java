@@ -1,6 +1,8 @@
 package org.maplibre.mlt.converter.encodings;
 
 import jakarta.annotation.Nullable;
+
+import java.util.List;
 import java.util.Optional;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
@@ -51,28 +53,20 @@ public class MltTypeMap {
 
     /// Re-create a `Column` from the unique type code.
     /// The inverse of `getTag1TypeEncoding``
-    public static MltMetadata.Column.ColumnBuilder<?, ?> decodeColumnType(int typeCode) {
+    /// @param typeCode the unique type code encoding the column's type
+    /// @return The equivalent type descriptor
+    public static MltMetadata.FieldType decodeColumnType(int typeCode) {
       if (10 <= typeCode && typeCode <= 29) {
         final var isNullable = (typeCode & 1) != 0;
-        return MltMetadata.scalarColumnBuilder(getScalarType(typeCode))
-            .isNullable(isNullable)
-            .columnScope(MltMetadata.ColumnScope.FEATURE);
+        return MltMetadata.scalarFieldTypeBuilder(getScalarType(typeCode)).isNullable(isNullable).build();
       } else if (0 <= typeCode && typeCode <= 3) {
         final var isNullable = (typeCode & 1) != 0;
         final var hasLongId = (typeCode > 1);
-        return MltMetadata.idColumnBuilder(hasLongId)
-            .isNullable(isNullable)
-            .columnScope(MltMetadata.ColumnScope.FEATURE);
+        return MltMetadata.idFieldTypeBuilder(hasLongId).isNullable(isNullable).build();
       } else if (4 == typeCode) {
-        final var isNullable = false;
-        return MltMetadata.geometryColumnBuilder()
-            .isNullable(isNullable)
-            .columnScope(MltMetadata.ColumnScope.FEATURE);
+        return MltMetadata.geometryFieldTypeBuilder().isNullable(false).build();
       } else if (30 == typeCode) {
-        final var isNullable = false;
-        return MltMetadata.structColumnBuilder(null)
-            .isNullable(isNullable)
-            .columnScope(MltMetadata.ColumnScope.FEATURE);
+        return MltMetadata.structFieldTypeBuilder(null).isNullable(false).build();
       } else {
         throw new IllegalStateException("Unsupported Type " + typeCode);
       }
@@ -103,23 +97,23 @@ public class MltTypeMap {
     }
 
     public static boolean isID(MltMetadata.Column column) {
-      return column.scalarType != null
-          && column.scalarType.logicalType == MltMetadata.LogicalScalarType.ID;
+      return column.type.scalarType != null
+          && column.type.scalarType.logicalType == MltMetadata.LogicalScalarType.ID;
     }
 
     public static boolean isGeometry(MltMetadata.Column column) {
-      return column.complexType != null
-          && column.complexType.physicalType == MltMetadata.ComplexType.GEOMETRY;
+      return column.type.complexType != null
+          && column.type.complexType.physicalType == MltMetadata.ComplexType.GEOMETRY;
     }
 
     static boolean isStruct(MltMetadata.Column column) {
-      return column.complexType != null
-          && column.complexType.physicalType == MltMetadata.ComplexType.STRUCT;
+      return column.type.complexType != null
+          && column.type.complexType.physicalType == MltMetadata.ComplexType.STRUCT;
     }
 
     public static boolean hasStreamCount(MltMetadata.Column column) {
-      if (column.scalarType != null) {
-        final var scalar = column.scalarType;
+      if (column.type.scalarType != null) {
+        final var scalar = column.type.scalarType;
         if (scalar.physicalType != null) {
           switch (scalar.physicalType) {
             case BOOLEAN:
@@ -141,8 +135,8 @@ public class MltTypeMap {
             return false;
           }
         }
-      } else if (column.complexType != null) {
-        final var complex = column.complexType;
+      } else if (column.type.complexType != null) {
+        final var complex = column.type.complexType;
         if (complex.physicalType != null) {
           switch (complex.physicalType) {
             case GEOMETRY:

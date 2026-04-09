@@ -16,29 +16,30 @@ public class MltTypeMapTest {
             28, 29, 30);
 
     for (var i = 0; i < 100; ++i) {
-      final MltMetadata.Column[] columns = new MltMetadata.Column[] {null};
+      final MltMetadata.FieldType[] types = new MltMetadata.FieldType[] {null};
       if (valid.contains(i)) {
         final var typeCode = i;
         Assertions.assertDoesNotThrow(
-            () -> columns[0] = MltTypeMap.Tag0x01.decodeColumnType(typeCode).build());
+            () -> types[0] = MltTypeMap.Tag0x01.decodeColumnType(typeCode));
       } else {
         final var typeCode = i;
         Assertions.assertThrows(
             IllegalStateException.class,
             () -> {
-              columns[0] = MltTypeMap.Tag0x01.decodeColumnType(typeCode).build();
+              types[0] = MltTypeMap.Tag0x01.decodeColumnType(typeCode);
             });
         continue;
       }
 
-      final var column = columns[0];
+      final var column = types[0];
 
       // STRUCT must have children before being re-encoded
       if (MltTypeMap.Tag0x01.columnTypeHasChildren(i)) {
         Assertions.assertNotNull(column.complexType);
         Assertions.assertNotNull(column.complexType.children);
-        column.complexType.children.add(
-            MltMetadata.scalarFieldBuilder(MltMetadata.ScalarType.STRING).isNullable(true).build());
+
+        final var fieldType = MltMetadata.scalarFieldTypeBuilder(MltMetadata.ScalarType.STRING).isNullable(true).build();
+        column.complexType.children.add(MltMetadata.Column.builder().type(fieldType).build());
       }
 
       final boolean complex = column.complexType != null;
