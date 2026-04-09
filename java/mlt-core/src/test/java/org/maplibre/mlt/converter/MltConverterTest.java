@@ -26,10 +26,10 @@ class MltConverterTest {
     var column =
         metadata.featureTables.stream()
             .flatMap(it -> it.columns.stream())
-            .filter(it -> "key".equals(it.name))
+            .filter(it -> "key".equals(it.getName()))
             .findFirst()
             .get();
-    assertEquals(MltMetadata.ScalarType.STRING, column.type.scalarType.physicalType);
+    assertEquals(MltMetadata.ScalarType.STRING, column.field.type.scalarType.physicalType);
   }
 
   @Test
@@ -43,10 +43,10 @@ class MltConverterTest {
     var column =
         metadata.featureTables.stream()
             .flatMap(it -> it.columns.stream())
-            .filter(it -> "key".equals(it.name))
+            .filter(it -> "key".equals(it.getName()))
             .findFirst()
             .get();
-    assertEquals(MltMetadata.ScalarType.DOUBLE, column.type.scalarType.physicalType);
+    assertEquals(MltMetadata.ScalarType.DOUBLE, column.field.type.scalarType.physicalType);
   }
 
   @Test

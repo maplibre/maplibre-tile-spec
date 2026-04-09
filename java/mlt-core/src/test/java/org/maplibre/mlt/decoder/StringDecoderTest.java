@@ -62,10 +62,9 @@ public class StringDecoderTest {
 
     final var isNullable = true;
     final var tileMetadata =
-            MltMetadata.Column.builder().type(MltMetadata.scalarFieldTypeBuilder(MltMetadata.ScalarType.STRING).isNullable(isNullable).build())
-            .name("Test")
-            .columnScope(MltMetadata.ColumnScope.FEATURE)
-            .build();
+        new MltMetadata.Column(
+            new MltMetadata.Field(
+                MltMetadata.scalarFieldType(MltMetadata.ScalarType.STRING, isNullable), "Test"));
 
     final var decodedValues =
         StringDecoder.decodeSharedDictionary(
@@ -86,13 +85,9 @@ public class StringDecoderTest {
 
     final var test = createField("Test", MltMetadata.ScalarType.STRING, false);
     final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, false);
-    final var isNullable = true;
-    final var type = MltMetadata.structFieldTypeBuilder(List.of(test, test2)).isNullable(isNullable).build();
     final var tileMetadata =
-            MltMetadata.Column.builder().type(type)
-            .name("Parent")
-            .columnScope(MltMetadata.ColumnScope.FEATURE)
-            .build();
+        new MltMetadata.Column(
+            new MltMetadata.Field(MltMetadata.structFieldType(List.of(test, test2)), "Parent"));
 
     final var decodedValues =
         StringDecoder.decodeSharedDictionary(
@@ -107,7 +102,7 @@ public class StringDecoderTest {
       String name,
       @SuppressWarnings("SameParameterValue") MltMetadata.ScalarType type,
       boolean isNullable) {
-    return MltMetadata.Field.builder().type(MltMetadata.scalarFieldTypeBuilder(type).isNullable(isNullable).build()).name(name).build();
+    return new MltMetadata.Field(MltMetadata.scalarFieldType(type, isNullable), name);
   }
 
   private MltMetadata.ComplexField createComplexColumn(MltMetadata.Field... fields) {
@@ -126,13 +121,9 @@ public class StringDecoderTest {
 
     final var test = createField("Test", MltMetadata.ScalarType.STRING, false);
     final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, false);
-    final var isNullable = true;
-    final var type = MltMetadata.structFieldTypeBuilder(List.of(test, test2)).isNullable(isNullable).build();
     final var tileMetadata =
-            MltMetadata.Column.builder().type(type)
-            .name("Parent")
-            .columnScope(MltMetadata.ColumnScope.FEATURE)
-            .build();
+        new MltMetadata.Column(
+            new MltMetadata.Field(MltMetadata.structFieldType(List.of(test, test2)), "Parent"));
 
     final var decodeResults =
         StringDecoder.decodeSharedDictionary(
@@ -191,13 +182,9 @@ public class StringDecoderTest {
 
     final var test = createField("Test", MltMetadata.ScalarType.STRING, false);
     final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, false);
-    final var isNullable = true;
-    final var type = MltMetadata.structFieldTypeBuilder(List.of(test, test2)).isNullable(isNullable).build();
     final var tileMetadata =
-            MltMetadata.Column.builder().type(type)
-            .name("Parent")
-            .columnScope(MltMetadata.ColumnScope.FEATURE)
-            .build();
+        new MltMetadata.Column(
+            new MltMetadata.Field(MltMetadata.structFieldType(List.of(test, test2)), "Parent"));
 
     final var decodeResult =
         StringDecoder.decodeSharedDictionary(
@@ -253,11 +240,11 @@ public class StringDecoderTest {
     final var encodedValues = encodeSharedDictionary(List.of(values), technique, false);
     final var isNullable = true;
     final var tileMetadata =
-        MltMetadata.Column.builder()
-            .name("TestParent:")
-              .type(MltMetadata.complexFieldTypeBuilder(List.of(createField("TestChild", MltMetadata.ScalarType.STRING, isNullable))).isNullable(isNullable).build())
-            .columnScope(MltMetadata.ColumnScope.FEATURE)
-            .build();
+        new MltMetadata.Column(
+            new MltMetadata.Field(
+                MltMetadata.structFieldType(
+                    List.of(createField("TestChild", MltMetadata.ScalarType.STRING, isNullable))),
+                "TestParent:"));
     var decodeResult =
         StringDecoder.decodeSharedDictionary(
             ByteArrayUtil.concat(encodedValues.getRight()), new IntWrapper(0), tileMetadata);
@@ -301,7 +288,7 @@ public class StringDecoderTest {
                 () -> new IllegalArgumentException("Expected feature table  " + tableName));
     final var fieldMetadata =
         featureTable.columns.stream()
-            .filter(f -> Objects.equals(f.name, "name"))
+            .filter(f -> Objects.equals(f.getName(), "name"))
             .findFirst()
             .orElseThrow();
 
@@ -312,13 +299,14 @@ public class StringDecoderTest {
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Expected layer  " + tableName));
 
-    final var sharedValues = new ArrayList<List<String>>(fieldMetadata.type.complexType.children.size());
-    for (var column : fieldMetadata.type.complexType.children) {
+    final var sharedValues =
+        new ArrayList<List<String>>(fieldMetadata.field.type.complexType.children.size());
+    for (var column : fieldMetadata.field.type.complexType.children) {
       var values = new ArrayList<String>();
       for (var feature : layer.features()) {
         values.add(
             feature
-                .findProperty(fieldMetadata.name + column.name, MltMetadata.ScalarType.STRING)
+                .findProperty(fieldMetadata.getName() + column.name, MltMetadata.ScalarType.STRING)
                 .map(p -> p.getValue(feature.getIndex()))
                 .flatMap(StreamUtil.optionalOfType(String.class))
                 .orElse(null));
@@ -335,10 +323,10 @@ public class StringDecoderTest {
             ByteArrayUtil.concat(encodedValues.getRight()), new IntWrapper(0), fieldMetadata);
     final var decodedValues = decodeResult.getRight();
 
-    for (var column : fieldMetadata.type.complexType.children) {
+    for (var column : fieldMetadata.field.type.complexType.children) {
       var i = 0;
       for (var feature : layer.features()) {
-        final var propertyName = fieldMetadata.name + column.name;
+        final var propertyName = fieldMetadata.getName() + column.name;
         final var expectedValue =
             feature
                 .findProperty(propertyName, MltMetadata.ScalarType.STRING)
@@ -379,10 +367,9 @@ public class StringDecoderTest {
     int found = 0;
     for (var table : metadata.featureTables) {
       for (var column : table.columns) {
-        if (column.type.complexType != null
-            && column.type.complexType.physicalType == MltMetadata.ComplexType.STRUCT) {
-          final var complex = column.type.complexType;
-          final var fieldKey = table.name + ":" + column.name;
+        if (column.is(MltMetadata.ComplexType.STRUCT)) {
+          final var complex = column.field.type.complexType;
+          final var fieldKey = table.name + ":" + column.getName();
           Assert.equals(
               expected.get(fieldKey),
               complex.children.size(),
@@ -416,10 +403,9 @@ public class StringDecoderTest {
     int found = 0;
     for (var table : metadata.featureTables) {
       for (var column : table.columns) {
-        if (column.type.complexType != null
-            && column.type.complexType.physicalType == MltMetadata.ComplexType.STRUCT) {
-          final var complex = column.type.complexType;
-          final var fieldKey = table.name + ":" + column.name;
+        if (column.is(MltMetadata.ComplexType.STRUCT)) {
+          final var complex = column.field.type.complexType;
+          final var fieldKey = table.name + ":" + column.getName();
           Assert.isTrue(expected.containsKey(fieldKey));
           Assert.equals(
               expected.get(fieldKey),

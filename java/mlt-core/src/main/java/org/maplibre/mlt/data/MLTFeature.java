@@ -37,9 +37,10 @@ public class MLTFeature extends Feature {
 
   static MltMetadata.FieldType getType(Object value) {
     if (value instanceof Map<?, ?>) {
-      return MltMetadata.complexFieldTypeBuilder(MltMetadata.ComplexType.MAP).isNullable(true).build();
+      return MltMetadata.complexFieldType(MltMetadata.ComplexType.MAP, true);
     }
-    return MVTFeature.getType(value);
+    final var isNullable = true;
+    return MltMetadata.scalarFieldType(MVTFeature.getType(value), isNullable);
   }
 
   /**

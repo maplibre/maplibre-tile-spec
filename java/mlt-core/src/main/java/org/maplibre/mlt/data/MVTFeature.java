@@ -35,39 +35,34 @@ public class MVTFeature extends Feature {
 
   static Property adapt(String name, Object value) {
     final var type = getType(value);
-    if (type.scalarType == null) {
-      // MVT only supports scalar types
-      throw new IllegalArgumentException(
-          "Unsupported property value type: " + value.getClass() + " for property: " + name);
-    }
-    return new Property(type, name, value);
+    final var isNullable = true;
+    return new Property(MltMetadata.scalarFieldType(type, isNullable), name, value);
   }
 
   static Property adapt(Map.Entry<String, Object> entry) {
     return adapt(entry.getKey(), entry.getValue());
   }
 
-  static MltMetadata.FieldType getType(Object value) {
-    return MltMetadata.scalarFieldTypeBuilder(
-        switch (value) {
-          case null -> MltMetadata.ScalarType.UNRECOGNIZED;
-          case String ignored -> MltMetadata.ScalarType.STRING;
-          case Boolean ignored -> MltMetadata.ScalarType.BOOLEAN;
-          case Double ignored -> MltMetadata.ScalarType.DOUBLE;
-          case Float ignored -> MltMetadata.ScalarType.FLOAT;
-          case U8 ignored -> MltMetadata.ScalarType.UINT_8;
-          case Integer ignored -> MltMetadata.ScalarType.INT_32;
-          case U32 ignored -> MltMetadata.ScalarType.UINT_32;
-          case Long l ->
-              (l.intValue() == l) ? MltMetadata.ScalarType.INT_32 : MltMetadata.ScalarType.INT_64;
-          case U64 ignored -> MltMetadata.ScalarType.UINT_64;
-          case BigInteger i ->
-              (i.intValue() == i.longValue())
-                  ? MltMetadata.ScalarType.INT_32
-                  : MltMetadata.ScalarType.INT_64;
-          default ->
-              throw new IllegalArgumentException(
-                  "Unsupported property value type: " + value.getClass());
-        }).isNullable(true).build();
+  static MltMetadata.ScalarType getType(Object value) {
+    return switch (value) {
+      case null -> MltMetadata.ScalarType.UNRECOGNIZED;
+      case String ignored -> MltMetadata.ScalarType.STRING;
+      case Boolean ignored -> MltMetadata.ScalarType.BOOLEAN;
+      case Double ignored -> MltMetadata.ScalarType.DOUBLE;
+      case Float ignored -> MltMetadata.ScalarType.FLOAT;
+      case U8 ignored -> MltMetadata.ScalarType.UINT_8;
+      case Integer ignored -> MltMetadata.ScalarType.INT_32;
+      case U32 ignored -> MltMetadata.ScalarType.UINT_32;
+      case Long l ->
+          (l.intValue() == l) ? MltMetadata.ScalarType.INT_32 : MltMetadata.ScalarType.INT_64;
+      case U64 ignored -> MltMetadata.ScalarType.UINT_64;
+      case BigInteger i ->
+          (i.intValue() == i.longValue())
+              ? MltMetadata.ScalarType.INT_32
+              : MltMetadata.ScalarType.INT_64;
+      default ->
+          throw new IllegalArgumentException(
+              "Unsupported property value type: " + value.getClass());
+    };
   }
 }

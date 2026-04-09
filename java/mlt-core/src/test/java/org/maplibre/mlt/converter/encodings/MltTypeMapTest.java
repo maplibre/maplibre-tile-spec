@@ -2,12 +2,15 @@ package org.maplibre.mlt.converter.encodings;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
+/// Test encoding and decoding of column types
 public class MltTypeMapTest {
+  /// Test that all valid type codes can be decoded and re-encoded to the same value
   @Test
   public void roundTrips() {
     final var valid =
@@ -31,15 +34,17 @@ public class MltTypeMapTest {
         continue;
       }
 
-      final var column = types[0];
+      var column = types[0];
 
       // STRUCT must have children before being re-encoded
       if (MltTypeMap.Tag0x01.columnTypeHasChildren(i)) {
         Assertions.assertNotNull(column.complexType);
         Assertions.assertNotNull(column.complexType.children);
-
-        final var fieldType = MltMetadata.scalarFieldTypeBuilder(MltMetadata.ScalarType.STRING).isNullable(true).build();
-        column.complexType.children.add(MltMetadata.Column.builder().type(fieldType).build());
+        column =
+            MltMetadata.structFieldType(
+                List.of(
+                    new MltMetadata.Field(
+                        MltMetadata.scalarFieldType(MltMetadata.ScalarType.STRING, true))));
       }
 
       final boolean complex = column.complexType != null;

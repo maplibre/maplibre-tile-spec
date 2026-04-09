@@ -124,13 +124,13 @@ fun logColumnMappings(
 
     for (table in metadata.featureTables) {
         for (column in table.columns) {
-            val complex = column.type.complexType
+            val complex = column.field.type.complexType
             if (complex != null &&
                 complex.physicalType == MltMetadata.ComplexType.STRUCT
             ) {
                 val mappings =
                     complex.children
-                        .map { child -> (column.name ?: "") + child.name }
+                        .map { child -> (column.getName() ?: "") + child.name }
                         .toSortedSet()
                         .joinToString(", ")
                 val added = MutableBoolean(false)

@@ -178,8 +178,9 @@ public class MltConverter {
       throw new RuntimeException("Unexpected ID Column");
     }
     if (hasId) {
-      final var idType = MltMetadata.idFieldTypeBuilder(hasLongId).isNullable(hasNullId).build();
-      featureTableSchema.columns.add(MltMetadata.Column.builder().type(idType).build());
+      featureTableSchema.columns.add(
+          new MltMetadata.Column(
+              new MltMetadata.Field(MltMetadata.idFieldType(hasLongId, hasNullId))));
     }
 
     // The `geometry` column is mandatory and has to be the first column after `ID`
@@ -190,8 +191,8 @@ public class MltConverter {
     // Put complex columns after scalar columns to match old behavior.
     columnSchemas.values().stream()
         .sorted(
-            Comparator.comparing((MltMetadata.Column c) -> (c.type.complexType != null) ? 1 : 0)
-                .thenComparing(c -> c.name))
+            Comparator.comparing((MltMetadata.Column c) -> c.isComplex() ? 1 : 0)
+                .thenComparing(c -> c.getName()))
         .forEach(featureTableSchema.columns::add);
 
     return featureTableSchema;
@@ -219,9 +220,9 @@ public class MltConverter {
       // Make sure the types match.
       // If not, coercion or nullification must be enabled, and replace
       // the column with a string column, if it isn't already.
-      if (previousSchema.type.scalarType != null) {
-        if (previousSchema.type.scalarType.physicalType != null) {
-          final var prevPhysicalType = previousSchema.type.scalarType.physicalType;
+      if (previousSchema.isScalar()) {
+        if (previousSchema.field.type.scalarType.physicalType != null) {
+          final var prevPhysicalType = previousSchema.field.type.scalarType.physicalType;
           if (prevPhysicalType != scalarType) {
             final var newSchema = checkUpgrade(previousSchema, scalarType);
             if (newSchema != null) {
@@ -232,10 +233,11 @@ public class MltConverter {
               if (prevPhysicalType != MltMetadata.ScalarType.STRING) {
                 columnSchemas.put(
                     sourcePropertyName,
-                    MltMetadata.Column.builder().type(MltMetadata.scalarFieldTypeBuilder(MltMetadata.ScalarType.STRING).isNullable(previousSchema.type.isNullable).build())
-                        .name(previousSchema.name)
-                        .columnScope(MltMetadata.ColumnScope.FEATURE)
-                        .build());
+                    new MltMetadata.Column(
+                        new MltMetadata.Field(
+                            MltMetadata.scalarFieldType(
+                                MltMetadata.ScalarType.STRING, previousSchema.isNullable()),
+                            previousSchema.getName())));
               }
             } else if (typeMismatchPolicy != ConversionConfig.TypeMismatchPolicy.ELIDE) {
               throw new RuntimeException(
@@ -277,16 +279,16 @@ public class MltConverter {
 
   private static MltMetadata.Column checkUpgrade(
       MltMetadata.Column previousSchema, MltMetadata.ScalarType scalarType) {
-    final var prevPhysicalType = previousSchema.type.scalarType.physicalType;
+    final var prevPhysicalType = previousSchema.field.type.scalarType.physicalType;
 
     if (prevPhysicalType == MltMetadata.ScalarType.INT_32
         && scalarType == MltMetadata.ScalarType.INT_64) {
       // Allow implicit upgrade from INT_32 to INT_64
-      return
-        MltMetadata.Column.builder().type(MltMetadata.scalarFieldTypeBuilder(MltMetadata.ScalarType.INT_64).isNullable(previousSchema.type.isNullable).build())
-          .name(previousSchema.name)
-          .columnScope(MltMetadata.ColumnScope.FEATURE)
-          .build();
+      return new MltMetadata.Column(
+          new MltMetadata.Field(
+              MltMetadata.scalarFieldType(
+                  MltMetadata.ScalarType.INT_64, previousSchema.isNullable()),
+              previousSchema.getName()));
     } else if (prevPhysicalType == MltMetadata.ScalarType.INT_64
         && scalarType == MltMetadata.ScalarType.INT_32) {
       // no-op
@@ -295,11 +297,11 @@ public class MltConverter {
     } else if (prevPhysicalType == MltMetadata.ScalarType.FLOAT
         && scalarType == MltMetadata.ScalarType.DOUBLE) {
       // Allow implicit upgrade from FLOAT to DOUBLE
-      return
-        MltMetadata.Column.builder().type(MltMetadata.scalarFieldTypeBuilder(MltMetadata.ScalarType.DOUBLE).isNullable(previousSchema.type.isNullable).build())
-          .name(previousSchema.name)
-          .columnScope(MltMetadata.ColumnScope.FEATURE)
-          .build();
+      return new MltMetadata.Column(
+          new MltMetadata.Field(
+              MltMetadata.scalarFieldType(
+                  MltMetadata.ScalarType.DOUBLE, previousSchema.isNullable()),
+              previousSchema.getName()));
     } else if (prevPhysicalType == MltMetadata.ScalarType.DOUBLE
         && scalarType == MltMetadata.ScalarType.FLOAT) {
       // no-op
@@ -326,9 +328,7 @@ public class MltConverter {
                       throw new RuntimeException(
                           "Unexpected column mapping: prefix is not present");
                     }
-                    final MltMetadata.Field namedField =
-                        child.toBuilder().name(name.substring(prefix.length())).build();
-                    return namedField;
+                    return new MltMetadata.Field(child.type, name.substring(prefix.length()));
                   })
               .sorted(Comparator.comparing(f -> f.name))
               .toList();
@@ -444,8 +444,10 @@ public class MltConverter {
   }
 
   /// Produce the binary tile header containing the tile metadata
-  /// <p>Note: Uses the protobuf format as input to avoid repeating the logic there, could be
-  /// refactored to eliminate it</p>
+  /// @param table The metadata to be embedded in the tile
+  /// @param extent The extent of tile coordinates
+  /// @return The binary header to be embedded in the tile
+  /// @throws IOException
   public static byte[] createEmbeddedMetadata(MltMetadata.FeatureTable table, int extent)
       throws IOException {
     try (var byteStream = new ByteArrayOutputStream()) {
@@ -459,22 +461,14 @@ public class MltConverter {
           }
           writeColumnOrFieldType(
               dataStream,
-              column.name,
-              column.type.isNullable,
-              column.type.scalarType != null && column.type.scalarType.hasLongId,
-              column.type.scalarType != null && column.type.scalarType.physicalType != null
-                  ? column.type.scalarType.physicalType
-                  : null,
-              column.type.scalarType != null && column.type.scalarType.logicalType != null
-                  ? column.type.scalarType.logicalType
-                  : null,
-              column.type.complexType != null && column.type.complexType.physicalType != null
-                  ? column.type.complexType.physicalType
-                  : null,
-              column.type.complexType != null && column.type.complexType.logicalType != null
-                  ? column.type.complexType.logicalType
-                  : null,
-              column.type.complexType != null ? column.type.complexType.children : null);
+              column.getName(),
+              column.isNullable(),
+              column.isScalar() && column.field.type.scalarType.hasLongId,
+              column.getScalarType().orElse(null),
+              column.getLogicalScalarType().orElse(null),
+              column.getComplexType().orElse(null),
+              column.getLogicalComplexType().orElse(null),
+              column.getChildren().orElse(null));
         }
       }
       return byteStream.toByteArray();
@@ -591,13 +585,11 @@ public class MltConverter {
         // Write ID as a 32- or 64-bit scalar depending on the flag stored in the column metadata.
         // The decoding assumes unsigned (no zigzag)
         final var rawType =
-            idMetadata.type.scalarType.hasLongId
+            idMetadata.field.type.scalarType.hasLongId
                 ? MltMetadata.ScalarType.UINT_64
                 : MltMetadata.ScalarType.UINT_32;
         final var scalarColumnMetadata =
-                MltMetadata.Column.builder().type(MltMetadata.scalarFieldTypeBuilder(rawType).isNullable(idMetadata.type.isNullable).build())
-                .columnScope(MltMetadata.ColumnScope.FEATURE)
-                .build();
+            new MltMetadata.Column(MltMetadata.scalarFieldType(rawType, idMetadata.isNullable()));
         featureTableBodyBuffer.addAll(
             PropertyEncoder.encodeScalarPropertyColumn(
                 scalarColumnMetadata,
@@ -753,37 +745,31 @@ public class MltConverter {
 
   private static Stream<Feature> generateSequenceIds(Collection<Feature> features) {
     final var idCounter = new long[] {0};
-    return features.stream().map(feature -> feature.toBuilder().id(idCounter[0]++).index(feature.getIndex()).build());
+    return features.stream()
+        .map(feature -> feature.toBuilder().id(idCounter[0]++).index(feature.getIndex()).build());
   }
 
   private static MltMetadata.Column createScalarColumnScheme(
       String columnName,
       @SuppressWarnings("SameParameterValue") boolean nullable,
       MltMetadata.ScalarType type) {
-    return MltMetadata.Column.builder().type(MltMetadata.scalarFieldTypeBuilder(type).isNullable(nullable).build())
-        .name(columnName)
-        .columnScope(MltMetadata.ColumnScope.FEATURE)
-        .build();
+    return new MltMetadata.Column(
+        new MltMetadata.Field(MltMetadata.scalarFieldType(type, nullable), columnName));
   }
 
-  private static MltMetadata.Column createScalarFieldScheme(
+  private static MltMetadata.Field createScalarFieldScheme(
       String fieldName,
       @SuppressWarnings("SameParameterValue") boolean nullable,
       MltMetadata.ScalarType type) {
-    return MltMetadata.Column.builder().type(MltMetadata.scalarFieldTypeBuilder(type).isNullable(nullable).build())
-        .name(fieldName)
-        .columnScope(MltMetadata.ColumnScope.FEATURE)
-        .build();
+    return new MltMetadata.Field(MltMetadata.scalarFieldType(type, nullable), fieldName);
   }
 
   private static MltMetadata.Column createComplexColumnScheme(
       @SuppressWarnings("SameParameterValue") @Nullable String columnName,
       @SuppressWarnings("SameParameterValue") boolean nullable,
       @SuppressWarnings("SameParameterValue") MltMetadata.ComplexType type) {
-    return MltMetadata.Column.builder().type(MltMetadata.complexFieldTypeBuilder(type).isNullable(nullable).build())
-        .name(columnName)
-        .columnScope(MltMetadata.ColumnScope.FEATURE)
-        .build();
+    return new MltMetadata.Column(
+        new MltMetadata.Field(MltMetadata.complexFieldType(type, nullable), columnName));
   }
 
   private static MltMetadata.ComplexField createComplexColumn() {
@@ -793,9 +779,7 @@ public class MltConverter {
   private static MltMetadata.Column createColumn(
       String columnName, MltMetadata.ComplexField complexField) {
     final var isNullable = false; // See `PropertyDecoder.decodePropertyColumn()`
-    return MltMetadata.Column.builder().type(MltMetadata.FieldType.builder().complexType(complexField).isNullable(isNullable).build())
-        .name(columnName)
-        .columnScope(MltMetadata.ColumnScope.FEATURE)
-        .build();
+    return new MltMetadata.Column(
+        new MltMetadata.Field(new MltMetadata.FieldType(complexField, isNullable), columnName));
   }
 }
