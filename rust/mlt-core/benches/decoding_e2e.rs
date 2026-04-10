@@ -168,8 +168,7 @@ fn bench_decode_all(c: &mut Criterion) {
                         .into_iter()
                         .map(|layers| {
                             d.reset_budget();
-                            let dec_tile =
-                                d.decode_all(layers).expect("mlt decode_all failed");
+                            let dec_tile = d.decode_all(layers).expect("mlt decode_all failed");
                             black_box(dec_tile)
                         })
                         .collect();
