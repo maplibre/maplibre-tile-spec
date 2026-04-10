@@ -24,6 +24,8 @@ const UNIMPLEMENTED_SYNTHETICS: string[] = [
     "0x01-rust/props_str_fsst_np",
     "0x01/poly_multi_morton_ring_morton",
     "0x01/poly_multi_morton_ring_no_morton",
+    "0x01/poly_morton_hole_morton",
+    "0x01/poly_multi_morton_hole_morton",
 ];
 
 describe("MLT Decoder - Synthetic tests", () => {

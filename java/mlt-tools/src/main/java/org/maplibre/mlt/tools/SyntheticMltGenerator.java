@@ -151,6 +151,23 @@ public class SyntheticMltGenerator {
         "poly_multi_morton_ring_morton",
         feat(multi(poly(mortonRing1), poly(mortonRing2))),
         cfg().morton());
+
+    // Split the Morton curve at a different place so that the rings are different lengths,
+    // use one as the shell and one as the hole of a single and multi-polygon.
+    final var quarter = mortonCurve.length / 4;
+    mortonRing1 = Arrays.copyOf(mortonCurve, quarter + 1);
+    mortonRing1[quarter] = mortonRing1[0];
+    mortonRing2src = Arrays.copyOfRange(mortonCurve, quarter, mortonCurve.length);
+    mortonRing2 = Arrays.copyOf(mortonRing2src, mortonRing2src.length + 1);
+    mortonRing2[mortonRing2src.length] = mortonRing2[0];
+    write(
+        "poly_morton_hole_morton",
+        feat(poly(ring(mortonRing1), ring(mortonRing2))),
+        cfg().morton());
+    write(
+        "poly_multi_morton_hole_morton",
+        feat(multi(poly(ring(mortonRing1), ring(mortonRing2)))),
+        cfg().morton());
   }
 
   private static void generateMultiPoints() throws IOException {
