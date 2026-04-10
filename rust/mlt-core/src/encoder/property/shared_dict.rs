@@ -38,9 +38,9 @@ pub struct StringGroup {
 struct StringProfile<'a> {
     col_idx: usize,
     name: &'a str,
-    /// MinHash over exact string values.
+    /// `MinHash` over exact string values.
     exact_hashes: Vec<u64>,
-    /// MinHash over byte trigrams (empty when all strings are shorter than 3 bytes).
+    /// `MinHash` over byte trigrams (empty when all strings are shorter than 3 bytes).
     trigram_hashes: Vec<u64>,
 }
 
@@ -119,7 +119,8 @@ pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
         .collect()
 }
 
-/// Estimate Jaccard similarity from two MinHash signature vectors.
+/// Estimate Jaccard similarity from two `MinHash` signature vectors.
+#[allow(clippy::cast_precision_loss)]
 fn minhash_similarity(a: &[u64], b: &[u64]) -> f64 {
     if a.is_empty() || b.is_empty() {
         return 0.0;
