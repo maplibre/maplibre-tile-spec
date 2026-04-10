@@ -39,7 +39,7 @@ required-features = ["__private"]
 [features]
 # Workaround until new WASM-compatible geo is released
 default = ["tessellate"]
-tessellate = ["dep:geo"]
+tessellate = ["geo/earcutr", "geo/multithreading"]
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
 # Used internally for testing and benchmarking, not intended for public use
 __private = []
@@ -50,7 +50,7 @@ bytemuck.workspace = true
 enum_dispatch.workspace = true
 fastpfor.workspace = true
 fsst-rs.workspace = true
-geo = { workspace = true, optional = true }
+geo.workspace = true
 geo-types.workspace = true
 hex.workspace = true
 hilbert_2d.workspace = true

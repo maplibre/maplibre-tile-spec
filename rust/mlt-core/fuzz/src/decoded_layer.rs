@@ -27,7 +27,11 @@ impl DecodedLayerInput {
         let tile2 = encode_decode(StagedLayer01::from_tile(tile1, SortStrategy::Unsorted, &[]));
 
         // Same roundtrip again — must be a fixpoint.
-        let tile3 = encode_decode(StagedLayer01::from_tile(tile2.clone(), SortStrategy::Unsorted, &[]));
+        let tile3 = encode_decode(StagedLayer01::from_tile(
+            tile2.clone(),
+            SortStrategy::Unsorted,
+            &[],
+        ));
 
         assert_eq!(tile2, tile3, "canonical roundtrip is not idempotent");
     }
@@ -43,8 +47,7 @@ fn encode_decode(staged: StagedLayer01) -> TileLayer01 {
         .expect("into_layer_bytes should not fail");
 
     let mut parser = Parser::default();
-    let (remaining, layer) =
-        Layer::from_bytes(&buffer, &mut parser).expect("layer must re-parse");
+    let (remaining, layer) = Layer::from_bytes(&buffer, &mut parser).expect("layer must re-parse");
     assert!(
         remaining.is_empty(),
         "Re-parsing left {} trailing bytes",

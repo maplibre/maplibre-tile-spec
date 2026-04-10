@@ -1,11 +1,8 @@
-//! Feature reordering for the optimizer.
-//!
-//! All sorting operates on [`TileLayer01`] — the row-oriented working form
-//! that the optimizer uses.  A sort is a single `Vec::sort_by_cached_key`
-//! call; there is no permutation machinery, no column-by-column scatter, and
-//! no encoded/decoded conversions inside this module.
+//! Feature reordering for the optimizer
 
-use crate::codecs::hilbert::{hilbert_curve_params, hilbert_sort_key};
+use geo::CoordsIter as _;
+
+use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
 use crate::decoder::{TileFeature, TileLayer01};
 use crate::geojson::Geom32;
@@ -78,84 +75,17 @@ struct CurveParams {
     num_bits: u32,
 }
 
-/// Collect all vertex coordinates from `features` and compute the Hilbert/Morton
-/// curve parameters (coordinate shift and the bit width).
+/// Compute the Hilbert/Morton curve parameters from all vertex coordinates
+/// in `features` without allocating a temporary vertex buffer.
 fn curve_params_from_features(features: &[TileFeature]) -> CurveParams {
-    // Collect a flat `[x0, y0, x1, y1, …]` vertex array from all features,
-    // then reuse the existing `hilbert_curve_params` utility.
-    let verts: Vec<i32> = features
+    let (min_val, max_val) = features
         .iter()
-        .flat_map(|f| geom_vertices(&f.geometry))
-        .collect();
-
-    let (shift, num_bits) = hilbert_curve_params(&verts);
+        .flat_map(|f| f.geometry.coords_iter())
+        .fold((i32::MAX, i32::MIN), |(min, max), c| {
+            (min.min(c.x).min(c.y), max.max(c.x).max(c.y))
+        });
+    let (shift, num_bits) = hilbert_curve_params_from_bounds(min_val, max_val);
     CurveParams { shift, num_bits }
-}
-
-/// Flatten a geometry into its raw vertex sequence as `[x0, y0, x1, y1, …]`.
-fn geom_vertices(geom: &Geom32) -> Vec<i32> {
-    let mut out = Vec::new();
-    push_geom_vertices(geom, &mut out);
-    out
-}
-
-fn push_geom_vertices(geom: &Geom32, out: &mut Vec<i32>) {
-    match geom {
-        Geom32::Point(p) => {
-            out.push(p.0.x);
-            out.push(p.0.y);
-        }
-        Geom32::Line(l) => {
-            out.extend([l.start.x, l.start.y, l.end.x, l.end.y]);
-        }
-        Geom32::LineString(ls) => {
-            for c in &ls.0 {
-                out.push(c.x);
-                out.push(c.y);
-            }
-        }
-        Geom32::Polygon(p) => {
-            for c in &p.exterior().0 {
-                out.push(c.x);
-                out.push(c.y);
-            }
-        }
-        Geom32::MultiPoint(mp) => {
-            for p in &mp.0 {
-                out.push(p.0.x);
-                out.push(p.0.y);
-            }
-        }
-        Geom32::MultiLineString(mls) => {
-            for ls in &mls.0 {
-                for c in &ls.0 {
-                    out.push(c.x);
-                    out.push(c.y);
-                }
-            }
-        }
-        Geom32::MultiPolygon(mp) => {
-            for poly in &mp.0 {
-                for c in &poly.exterior().0 {
-                    out.push(c.x);
-                    out.push(c.y);
-                }
-            }
-        }
-        Geom32::Triangle(t) => {
-            out.extend([t.0.x, t.0.y, t.1.x, t.1.y, t.2.x, t.2.y]);
-        }
-        Geom32::Rect(r) => {
-            let min = r.min();
-            let max = r.max();
-            out.extend([min.x, min.y, max.x, max.y]);
-        }
-        Geom32::GeometryCollection(gc) => {
-            for g in gc {
-                push_geom_vertices(g, out);
-            }
-        }
-    }
 }
 
 /// Extract the `(x, y)` coordinate of the first vertex of a geometry.
