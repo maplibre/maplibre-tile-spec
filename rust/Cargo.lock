@@ -2628,10 +2628,12 @@ name = "mlt-core"
 version = "0.6.0"
 dependencies = [
  "arbitrary",
+ "brotli",
  "bytemuck",
  "criterion",
  "enum_dispatch",
  "fastpfor",
+ "flate2",
  "fsst-rs",
  "geo",
  "geo-types",
@@ -2656,6 +2658,7 @@ dependencies = [
  "union-find",
  "wide",
  "zigzag",
+ "zstd",
 ]
 
 [[package]]

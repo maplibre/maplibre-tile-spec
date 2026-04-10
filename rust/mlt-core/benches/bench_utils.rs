@@ -84,3 +84,8 @@ pub fn load_tiles(zoom: u8, test_subpath: &str, extension: &str) -> Vec<(String,
     tiles.sort_by(|a, b| a.0.cmp(&b.0));
     tiles
 }
+
+#[must_use]
+pub fn total_bytes(tiles: &[(String, Vec<u8>)]) -> usize {
+    tiles.iter().map(|(_, d)| d.len()).sum()
+}

@@ -69,7 +69,9 @@ wide.workspace = true
 zigzag.workspace = true
 
 [dev-dependencies]
+brotli.workspace = true
 criterion.workspace = true
+flate2.workspace = true
 geo-types = { workspace = true, features = ["arbitrary"] }
 insta.workspace = true
 pretty_assertions.workspace = true
@@ -77,6 +79,7 @@ proptest.workspace = true
 proptest-derive.workspace = true
 rstest.workspace = true
 test_each_file.workspace = true
+zstd.workspace = true
 
 [lints]
 workspace = true
