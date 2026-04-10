@@ -18,6 +18,7 @@ rust-version = "1.92"
 [workspace.dependencies]
 anyhow = "1"
 arbitrary = { version = "1.4", features = ["derive"] }
+brotli = "8"
 bytemuck = "1.25.0"
 clap = { version = "4.6.0", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
@@ -68,6 +69,7 @@ union-find = "0.4.4"
 wasm-bindgen = "0.2"
 wide = "1.1.1"
 zigzag = "0.1.0"
+zstd = "0.13"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
