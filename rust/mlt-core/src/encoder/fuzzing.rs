@@ -36,7 +36,7 @@ impl Arbitrary<'_> for StagedLayer01 {
             .map(|_| {
                 let values: Vec<Option<u32>> =
                     (0..fc).map(|_| u.arbitrary()).collect::<Result<_>>()?;
-                Ok(StagedProperty::u32("prop", values))
+                Ok(StagedProperty::opt_u32("prop", values))
             })
             .collect::<Result<_>>()?;
 
