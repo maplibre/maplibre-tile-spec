@@ -1,13 +1,18 @@
-//! Feature reordering for the optimizer.
-//!
-//! All sorting operates on [`TileLayer01`] — the row-oriented working form
-//! that the optimizer uses.  A sort is a single `Vec::sort_by_cached_key`
-//! call; there is no permutation machinery, no column-by-column scatter, and
-//! no encoded/decoded conversions inside this module.
+//! Feature reordering for the optimizer
 
-use crate::codecs::hilbert::{hilbert_curve_params, hilbert_sort_key};
+#[cfg(feature = "sort-coords-iter")]
+use geo::CoordsIter as _;
+
+#[cfg(feature = "sort-coords-iter")]
+use crate::codecs::hilbert::hilbert_curve_params_from_bounds;
+#[cfg(feature = "sort-coords-iter")]
+use crate::codecs::hilbert::hilbert_sort_key;
+#[cfg(feature = "sort-coords-iter")]
 use crate::codecs::morton::morton_sort_key;
-use crate::decoder::{TileFeature, TileLayer01};
+#[cfg(feature = "sort-coords-iter")]
+use crate::decoder::TileFeature;
+use crate::decoder::TileLayer01;
+#[cfg(feature = "sort-coords-iter")]
 use crate::geojson::Geom32;
 
 /// Controls how features inside a layer are reordered before encoding.
@@ -28,11 +33,17 @@ pub enum SortStrategy {
     /// Fast to compute.  Spatially close features end up adjacent in the
     /// stream, improving RLE run lengths for location-correlated properties
     /// and CPU cache locality during client-side decoding.
+    ///
+    /// Requires the `sort-coords-iter` feature.
+    #[cfg(feature = "sort-coords-iter")]
     SpatialMorton,
 
     /// Sort features by the Hilbert curve index of their first vertex.
     ///
     /// Slower to compute than Morton but achieves superior spatial locality.
+    ///
+    /// Requires the `sort-coords-iter` feature.
+    #[cfg(feature = "sort-coords-iter")]
     SpatialHilbert,
 
     /// Sort features by their feature ID in ascending order.
@@ -47,6 +58,7 @@ impl TileLayer01 {
     #[hotpath::measure]
     pub fn sort(&mut self, strategy: SortStrategy) {
         match strategy {
+            #[cfg(feature = "sort-coords-iter")]
             SortStrategy::SpatialMorton | SortStrategy::SpatialHilbert => {
                 let params = curve_params_from_features(&self.features);
                 let curve_key = if let SortStrategy::SpatialMorton = strategy {
@@ -73,92 +85,28 @@ impl TileLayer01 {
 
 /// Parameters derived from the vertex set of a feature collection, used to
 /// normalize coordinates before space-filling-curve key computation.
+#[cfg(feature = "sort-coords-iter")]
 struct CurveParams {
     shift: u32,
     num_bits: u32,
 }
 
-/// Collect all vertex coordinates from `features` and compute the Hilbert/Morton
-/// curve parameters (coordinate shift and the bit width).
+/// Compute the Hilbert/Morton curve parameters from all vertex coordinates
+/// in `features` without allocating a temporary vertex buffer.
+#[cfg(feature = "sort-coords-iter")]
 fn curve_params_from_features(features: &[TileFeature]) -> CurveParams {
-    // Collect a flat `[x0, y0, x1, y1, …]` vertex array from all features,
-    // then reuse the existing `hilbert_curve_params` utility.
-    let verts: Vec<i32> = features
+    let (min_val, max_val) = features
         .iter()
-        .flat_map(|f| geom_vertices(&f.geometry))
-        .collect();
-
-    let (shift, num_bits) = hilbert_curve_params(&verts);
+        .flat_map(|f| f.geometry.coords_iter())
+        .fold((i32::MAX, i32::MIN), |(min, max), c| {
+            (min.min(c.x).min(c.y), max.max(c.x).max(c.y))
+        });
+    let (shift, num_bits) = hilbert_curve_params_from_bounds(min_val, max_val);
     CurveParams { shift, num_bits }
 }
 
-/// Flatten a geometry into its raw vertex sequence as `[x0, y0, x1, y1, …]`.
-fn geom_vertices(geom: &Geom32) -> Vec<i32> {
-    let mut out = Vec::new();
-    push_geom_vertices(geom, &mut out);
-    out
-}
-
-fn push_geom_vertices(geom: &Geom32, out: &mut Vec<i32>) {
-    match geom {
-        Geom32::Point(p) => {
-            out.push(p.0.x);
-            out.push(p.0.y);
-        }
-        Geom32::Line(l) => {
-            out.extend([l.start.x, l.start.y, l.end.x, l.end.y]);
-        }
-        Geom32::LineString(ls) => {
-            for c in &ls.0 {
-                out.push(c.x);
-                out.push(c.y);
-            }
-        }
-        Geom32::Polygon(p) => {
-            for c in &p.exterior().0 {
-                out.push(c.x);
-                out.push(c.y);
-            }
-        }
-        Geom32::MultiPoint(mp) => {
-            for p in &mp.0 {
-                out.push(p.0.x);
-                out.push(p.0.y);
-            }
-        }
-        Geom32::MultiLineString(mls) => {
-            for ls in &mls.0 {
-                for c in &ls.0 {
-                    out.push(c.x);
-                    out.push(c.y);
-                }
-            }
-        }
-        Geom32::MultiPolygon(mp) => {
-            for poly in &mp.0 {
-                for c in &poly.exterior().0 {
-                    out.push(c.x);
-                    out.push(c.y);
-                }
-            }
-        }
-        Geom32::Triangle(t) => {
-            out.extend([t.0.x, t.0.y, t.1.x, t.1.y, t.2.x, t.2.y]);
-        }
-        Geom32::Rect(r) => {
-            let min = r.min();
-            let max = r.max();
-            out.extend([min.x, min.y, max.x, max.y]);
-        }
-        Geom32::GeometryCollection(gc) => {
-            for g in gc {
-                push_geom_vertices(g, out);
-            }
-        }
-    }
-}
-
 /// Extract the `(x, y)` coordinate of the first vertex of a geometry.
+#[cfg(feature = "sort-coords-iter")]
 fn first_vertex(geom: &Geom32) -> Option<(i32, i32)> {
     match geom {
         Geom32::Point(p) => Some((p.0.x, p.0.y)),
@@ -186,6 +134,7 @@ fn first_vertex(geom: &Geom32) -> Option<(i32, i32)> {
 /// `SPATIAL_HELP_COVERAGE` of the layer's tile extent on **both** axes, the
 /// features are too spread-out for locality clustering to help, so spatial
 /// sorting is skipped.
+#[cfg(feature = "sort-coords-iter")]
 pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer01) -> bool {
     const SPATIAL_HELP_COVERAGE: f64 = 0.8;
 
@@ -399,6 +348,7 @@ mod tests {
 
     // ── spatial Morton sort ───────────────────────────────────────────────────
 
+    #[cfg(feature = "sort-coords-iter")]
     #[test]
     fn point_line_point_morton_sort_roundtrip() {
         assert_sort_roundtrip(
@@ -496,6 +446,7 @@ mod tests {
         geom.vertices().unwrap_or_default().to_vec()
     }
 
+    #[cfg(feature = "sort-coords-iter")]
     #[test]
     fn test_shared_morton_shift() {
         // P1 at (0, -10), P2 at (-10, 0).
@@ -525,6 +476,7 @@ mod tests {
         assert_eq!(verts, vec![1, 1, 0, 0, 2, 2]);
     }
 
+    #[cfg(feature = "sort-coords-iter")]
     #[test]
     fn test_mixed_geometry_morton_sort() {
         // [Point(2,0), LineString(0,0 -> 0,5), Point(1,0)]
