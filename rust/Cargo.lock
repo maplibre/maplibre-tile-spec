@@ -1440,7 +1440,6 @@ dependencies = [
  "robust",
  "rstar",
  "sif-itree",
- "spade",
 ]
 
 [[package]]
@@ -1687,9 +1686,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.14.1"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7d9982fcb4356a5260502f0e646411ec1feb2962cc98c230777104a8d1c5ed3"
+checksum = "28594d8a3d30371e1488dcd6ba545bf07e9ce9dff6d8a57d70dbbaa221d3246d"
 dependencies = [
  "arc-swap",
  "axum",
@@ -1726,9 +1725,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-macros"
-version = "0.14.1"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4398eddb78466298f1ddcc739abbbd8a942e541d1972c7590bd83de364e626e0"
+checksum = "c7b87d58f92c09858091f328521db329955e9fc960c3c9c55e5dc0ef228a37b0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1737,9 +1736,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-macros-meta"
-version = "0.14.1"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea11c271b147073895ccde52d94b4ad6fd8dcb68ab5cef13579fc7c6bbd76db2"
+checksum = "b4fcd1a53780c79401c81008b262470386d6dfee64599b337cae37a9674c082d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1748,9 +1747,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-meta"
-version = "0.14.1"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "091d039177e211f66c91bc3c4cbb29f62a0c640376e0d34210e2950908c05fd5"
+checksum = "4aadd604c1aac308bda11d4792ae46c2076acd0523e401ee8640f101c0b99653"
 dependencies = [
  "arc-swap",
  "axum",
@@ -2628,10 +2627,12 @@ name = "mlt-core"
 version = "0.6.0"
 dependencies = [
  "arbitrary",
+ "brotli",
  "bytemuck",
  "criterion",
  "enum_dispatch",
  "fastpfor",
+ "flate2",
  "fsst-rs",
  "geo",
  "geo-types",
@@ -2656,6 +2657,7 @@ dependencies = [
  "union-find",
  "wide",
  "zigzag",
+ "zstd",
 ]
 
 [[package]]
@@ -3440,9 +3442,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-stub-gen"
-version = "0.21.1"
+version = "0.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f46fb981b1d37061425c4c9cc31b2fc59f1067535e5a1201b4bd7ae6c49c6c48"
+checksum = "e09d868168fb3954e4aeb98685d58b2e279dbf8e6712e7b091080a992b21f4b5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3466,9 +3468,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-stub-gen-derive"
-version = "0.21.1"
+version = "0.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22ddd2931e6369c5033cbb7b80619cde1a6d3d6fdd22e549f5c3abd221c41383"
+checksum = "f28dc5902defde44368a85a28608383066110308bf8cf482c6542035f8b26f8f"
 dependencies = [
  "heck",
  "indexmap",
@@ -4668,18 +4670,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spade"
-version = "2.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9699399fd9349b00b184f5635b074f9ec93afffef30c853f8c875b32c0f8c7fa"
-dependencies = [
- "hashbrown 0.16.1",
- "num-traits",
- "robust",
- "smallvec",
-]
-
-[[package]]
 name = "spin"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5359,9 +5349,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.51.0"
+version = "1.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bd1c4c0fc4a7ab90fc15ef6daaa3ec3b893f004f915f2392557ed23237820cd"
+checksum = "f66bf9585cda4b724d3e78ab34b73fb2bbaba9011b9bfdf69dc836382ea13b8c"
 dependencies = [
  "bytes",
  "libc",

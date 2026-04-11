@@ -55,7 +55,7 @@ impl From<ArbitraryGeometry> for Geom32 {
 impl Arbitrary<'_> for GeometryValues {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
         // Bound geometry count to prevent OOM from unbounded iteration
-        let count = u.int_in_range(0..=32u16)? as usize;
+        let count = u.int_in_range(1..=32u16)? as usize;
         let mut decoded = Self::default();
         for _ in 0..count {
             let geo: ArbitraryGeometry = u.arbitrary()?;

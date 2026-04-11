@@ -3,6 +3,7 @@
 /// The grid has side `2^level`; both `x` and `y` must be in `[0, 2^level)`,
 /// and `level` must be in `[1, 16]`.  The returned index is in
 /// `[0, 4^level)` and fits in a `u32` for all valid levels.
+#[cfg(any(feature = "sort-coords-iter", test))]
 #[must_use]
 pub fn hilbert_xy_to_index(level: u32, x: u32, y: u32) -> u32 {
     debug_assert!((1..=16).contains(&level), "level must be in [1, 16]");
@@ -19,8 +20,9 @@ pub fn hilbert_xy_to_index(level: u32, x: u32, y: u32) -> u32 {
 /// per-axis).  `num_bits` is the grid level — both shifted components must
 /// fit in `[0, 2^num_bits)`.
 ///
-/// Use [`hilbert_curve_params`] to compute `shift` and `num_bits` from a
-/// vertex buffer in one pass.
+/// Use [`hilbert_curve_params_from_bounds`] to compute `shift` and `num_bits`
+/// from global min/max coordinates.
+#[cfg(any(feature = "sort-coords-iter", test))]
 #[must_use]
 pub fn hilbert_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
     debug_assert!((1..=16).contains(&num_bits));
@@ -39,8 +41,8 @@ pub fn hilbert_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
     hilbert_xy_to_index(num_bits, sx, sy)
 }
 
-/// Compute the coordinate shift and grid level needed for Hilbert curve
-/// sorting over a flat interleaved `[x0, y0, x1, y1, …]` vertex buffer.
+/// Compute the coordinate shift and grid level from pre-computed global
+/// min/max values across all vertex coordinates (both axes combined).
 ///
 /// Returns `(shift, num_bits)` where:
 /// - `shift` is subtracted from the global minimum (i.e. it equals
@@ -49,21 +51,13 @@ pub fn hilbert_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
 /// - `num_bits` is the smallest level `l` in `[1, 16]` such that all
 ///   shifted values fit in `[0, 2^l)`.
 ///
-/// Matches the semantics of Java's `SpaceFillingCurve` constructor: a single
-/// shared shift is used for both axes so that the bounding box maps to a
-/// square grid.
+/// If `min > max` (empty input), returns `(0, 1)`.
+#[cfg(any(feature = "sort-coords-iter", test))]
 #[must_use]
-pub fn hilbert_curve_params(vertices: &[i32]) -> (u32, u32) {
-    if vertices.is_empty() {
+pub fn hilbert_curve_params_from_bounds(min_val: i32, max_val: i32) -> (u32, u32) {
+    if min_val > max_val {
         return (0, 1);
     }
-    let (min_val, max_val) = vertices
-        .iter()
-        .copied()
-        .fold((i32::MAX, i32::MIN), |(min_v, max_v), v| {
-            (min_v.min(v), max_v.max(v))
-        });
-
     let shift: u32 = if min_val < 0 {
         min_val.unsigned_abs()
     } else {
@@ -98,8 +92,6 @@ mod tests {
         debug_assert!(u64::from(pos) < (1u64 << (2 * level)), "pos out of range");
         hilbert_2d::u32::h2xy_discrete(pos, level, hilbert_2d::Variant::Hilbert)
     }
-
-    // ── Hilbert encode/decode ─────────────────────────────────────────────────
 
     #[test]
     fn hilbert_origin_always_zero() {
@@ -192,7 +184,7 @@ mod tests {
 
     #[test]
     fn hilbert_sort_key_negative_coords_shift_correctly() {
-        // (-1, -1) shifted by 1 maps to (0, 0) → Hilbert index 0 at any level.
+        // (-1, -1) shifted by 1 maps to (0, 0) -> Hilbert index 0 at any level.
         assert_eq!(hilbert_sort_key(-1, -1, 1, 1), 0);
     }
 
@@ -215,60 +207,58 @@ mod tests {
         }
     }
 
-    // ── hilbert_curve_params ──────────────────────────────────────────────────
-
     #[test]
-    fn hilbert_curve_params_empty_vertices() {
-        let (shift, num_bits) = hilbert_curve_params(&[]);
+    fn curve_params_empty_bounds() {
+        // min > max signals empty input.
+        let (shift, num_bits) = hilbert_curve_params_from_bounds(i32::MAX, i32::MIN);
         assert_eq!(shift, 0);
         assert_eq!(num_bits, 1);
     }
 
     #[test]
-    fn hilbert_curve_params_all_zero() {
-        let (shift, num_bits) = hilbert_curve_params(&[0, 0, 0, 0]);
+    fn curve_params_all_zero() {
+        // Degenerate: single point at origin, extent = 0 -> level 1.
+        let (shift, num_bits) = hilbert_curve_params_from_bounds(0, 0);
         assert_eq!(shift, 0);
-        assert_eq!(num_bits, 1); // degenerate: extent = 0 → level 1
+        assert_eq!(num_bits, 1);
     }
 
     #[test]
-    fn hilbert_curve_params_positive_only() {
-        // Vertices at (0,0), (3,3): max = 3, shift = 0, num_bits = 2 (2^2=4 > 3).
-        let (shift, num_bits) = hilbert_curve_params(&[0, 0, 3, 3]);
+    fn curve_params_positive_only() {
+        // Bounds [0, 3]: shift = 0, num_bits = 2 (2^2=4 > 3).
+        let (shift, num_bits) = hilbert_curve_params_from_bounds(0, 3);
         assert_eq!(shift, 0);
         assert_eq!(num_bits, 2);
     }
 
     #[test]
-    fn hilbert_curve_params_negative_min() {
-        // Vertices spanning [-4, 4]: shift = 4, extent = 4+4 = 8,
-        // num_bits = 4 (2^4=16 > 8).
-        let (shift, num_bits) = hilbert_curve_params(&[-4, -4, 4, 4]);
+    fn curve_params_negative_min() {
+        // Bounds [-4, 4]: shift = 4, extent = 4+4 = 8, num_bits = 4 (2^4=16 > 8).
+        let (shift, num_bits) = hilbert_curve_params_from_bounds(-4, 4);
         assert_eq!(shift, 4);
         assert_eq!(num_bits, 4);
     }
 
     #[test]
-    fn hilbert_curve_params_power_of_two_extent() {
+    fn curve_params_power_of_two_extent() {
         // extent = 8 = 2^3: need level 4 so that 2^4 = 16 > 8.
-        let (shift, num_bits) = hilbert_curve_params(&[0, 0, 8, 8]);
+        let (shift, num_bits) = hilbert_curve_params_from_bounds(0, 8);
         assert_eq!(shift, 0);
         assert_eq!(num_bits, 4);
     }
 
     #[test]
-    fn hilbert_curve_params_single_axis_negative() {
-        // min across all values (x and y interleaved): -2 and 0, max 5.
-        // Global min = -2 → shift = 2; extent = 5 + 2 = 7; num_bits = 3.
-        let (shift, num_bits) = hilbert_curve_params(&[-2, 0, 5, 3]);
+    fn curve_params_single_axis_negative() {
+        // Global min = -2 -> shift = 2; extent = 5 + 2 = 7; num_bits = 3.
+        let (shift, num_bits) = hilbert_curve_params_from_bounds(-2, 5);
         assert_eq!(shift, 2);
         assert_eq!(num_bits, 3);
     }
 
     #[test]
-    fn hilbert_curve_params_clamped_at_16_bits() {
-        // A coordinate of 65535 = 2^16 - 1: extent = 65535, num_bits = 16.
-        let (shift, num_bits) = hilbert_curve_params(&[0, 0, 65535, 65535]);
+    fn curve_params_clamped_at_16_bits() {
+        // extent = 65535 = 2^16 - 1, num_bits = 16.
+        let (shift, num_bits) = hilbert_curve_params_from_bounds(0, 65535);
         assert_eq!(shift, 0);
         assert_eq!(num_bits, 16);
     }

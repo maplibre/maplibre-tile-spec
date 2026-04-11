@@ -13,12 +13,9 @@ impl std::fmt::Debug for LayerInput {
 impl LayerInput {
     pub fn fuzz_roundtrip(self) {
         let mut parser = Parser::default();
-        let Ok((remaining, layer)) = Layer::from_bytes(&self.bytes, &mut parser) else {
+        let Ok((_remaining, layer)) = Layer::from_bytes(&self.bytes, &mut parser) else {
             return;
         };
-        if !remaining.is_empty() {
-            return;
-        }
         let _ = layer.decode_all(&mut Decoder::default());
     }
 }

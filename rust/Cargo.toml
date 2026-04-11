@@ -18,6 +18,7 @@ rust-version = "1.92"
 [workspace.dependencies]
 anyhow = "1"
 arbitrary = { version = "1.4", features = ["derive"] }
+brotli = "8"
 bytemuck = "1.25.0"
 clap = { version = "4.6.0", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
@@ -27,13 +28,13 @@ fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
 fsst-rs = "0.5"
 futures = "0.3"
-geo = "0.32.0"
+geo = { version = "0.32.0", default-features = false }
 geo-types = "0.7.18"
 glob = "0.3"
 globset = "0.4"
 hex = "0.4.3"
 hilbert_2d = "1.1.0"
-hotpath = "0.14"
+hotpath = "0.15"
 indicatif = "0.18"
 insta = "1.47.2"
 integer-encoding = "4.0.2"
@@ -49,7 +50,7 @@ probabilistic-collections = "0.7"
 proptest = "1.11"
 proptest-derive = "0.8"
 pyo3 = "0.28.3"
-pyo3-stub-gen = "0.21.1"
+pyo3-stub-gen = "0.21.2"
 ratatui = "0.30.0"
 rayon = "1"
 rstar = "0.12"
@@ -68,6 +69,7 @@ union-find = "0.4.4"
 wasm-bindgen = "0.2"
 wide = "1.1.1"
 zigzag = "0.1.0"
+zstd = "0.13"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
