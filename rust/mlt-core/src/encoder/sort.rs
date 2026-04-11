@@ -9,9 +9,9 @@ use crate::codecs::hilbert::hilbert_curve_params_from_bounds;
 use crate::codecs::hilbert::hilbert_sort_key;
 #[cfg(feature = "sort-coords-iter")]
 use crate::codecs::morton::morton_sort_key;
-use crate::decoder::TileLayer01;
 #[cfg(feature = "sort-coords-iter")]
 use crate::decoder::TileFeature;
+use crate::decoder::TileLayer01;
 #[cfg(feature = "sort-coords-iter")]
 use crate::geojson::Geom32;
 
