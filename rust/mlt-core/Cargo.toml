@@ -37,9 +37,15 @@ harness = false
 required-features = ["__private"]
 
 [features]
-# Workaround until new WASM-compatible geo is released
-default = ["tessellate"]
-tessellate = ["geo/earcutr", "geo/multithreading"]
+# Workaround until new WASM-compatible geo is released: both `tessellate` and
+# `sort-coords-iter` transitively depend on the `geo` crate, which does not
+# yet build on `wasm32-unknown-unknown`. Remove the feature gating once a
+# WASM-capable `geo` release is available.
+default = ["sort-coords-iter", "tessellate"]
+tessellate = ["dep:geo", "geo/earcutr", "geo/multithreading"]
+# Enables feature sort strategies (`SpatialMorton`, `SpatialHilbert`) which
+# use `geo::CoordsIter` for bounds computation. Disable on WASM.
+sort-coords-iter = ["dep:geo"]
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
 # Used internally for testing and benchmarking, not intended for public use
 __private = []
@@ -50,7 +56,8 @@ bytemuck.workspace = true
 enum_dispatch.workspace = true
 fastpfor.workspace = true
 fsst-rs.workspace = true
-geo.workspace = true
+# Only used for tessellation; remove the `optional = true` once `geo` is WASM-capable.
+geo = { workspace = true, optional = true }
 geo-types.workspace = true
 hex.workspace = true
 hilbert_2d.workspace = true
