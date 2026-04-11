@@ -19,9 +19,7 @@ const FSST_SAMPLE_STRINGS: usize = 256;
 /// Train an FSST compressor and return it when compression is likely to save space.
 ///
 /// Returns `None` when the column is empty, too small for FSST overhead to pay off,
-/// or when trial compression shows no benefit. The returned [`Compressor`] is reused
-/// by `write_str_fsst_with` / `write_str_fsst_dict_with` to avoid a redundant
-/// training pass.
+/// or when trial compression shows no benefit.
 #[hotpath::measure]
 pub(crate) fn fsst_try_train(strings: &[&str]) -> Option<Compressor> {
     if strings.is_empty() {
@@ -77,13 +75,32 @@ pub(crate) fn write_str_col(
             StrEncoding::FsstDict => write_str_fsst_dict(&non_null, presence, name, enc)?,
         }
     } else {
+        // Dedup once; reused by Dict and FSST+Dict alternatives.
+        let (unique, offset_indices) = dedup_strings(&non_null)?;
+
+        // Train on deduplicated values once; cached across sort trials.
+        let compressor = enc
+            .fsst_cache
+            .entry(name.clone())
+            .or_insert_with(|| fsst_try_train(&unique));
+
+        // Pre-compute compressed data while cache is accessible (before try_alternatives
+        // borrows enc). The FsstRawData is owned, so the cache borrow ends here.
+        let count = non_null.len();
+        let plain_fsst = compressor
+            .as_ref()
+            .map(|c| compress_fsst_with(&non_null, c));
+        let dict_fsst = compressor.as_ref().map(|c| compress_fsst_with(&unique, c));
+
         let mut alt = enc.try_alternatives();
         alt.with(|enc| write_str_plain(&non_null, presence, name, enc))?;
-        alt.with(|enc| write_str_dict(&non_null, presence, name, enc))?;
+        alt.with(|enc| write_str_dict_raw(&unique, &offset_indices, presence, name, enc))?;
 
-        if let Some(compressor) = fsst_try_train(&non_null) {
-            alt.with(|enc| write_str_fsst_with(&non_null, &compressor, presence, name, enc))?;
-            alt.with(|enc| write_str_fsst_dict_with(&non_null, &compressor, presence, name, enc))?;
+        if let Some(ref raw) = plain_fsst {
+            alt.with(|enc| write_str_fsst_raw(raw, count, presence, name, enc))?;
+        }
+        if let Some(ref raw) = dict_fsst {
+            alt.with(|enc| write_str_fsst_dict_raw(raw, &offset_indices, presence, name, enc))?;
         }
     }
     Ok(())
@@ -118,7 +135,18 @@ fn write_str_dict(
     enc: &mut Encoder,
 ) -> MltResult<()> {
     let (unique, offset_indices) = dedup_strings(non_null)?;
-    let lengths = strings_to_lengths(&unique)?;
+    write_str_dict_raw(&unique, &offset_indices, presence, name, enc)
+}
+
+/// Write pre-deduped dictionary data.
+fn write_str_dict_raw(
+    unique: &[&str],
+    offset_indices: &[u32],
+    presence: Option<&EncodedStream>,
+    name: &str,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let lengths = strings_to_lengths(unique)?;
     enc.write_varint(3u32 + u32::from(presence.is_some()))?;
     enc.write_optional_stream(presence)?;
 
@@ -126,14 +154,13 @@ fn write_str_dict(
     write_u32_stream(&lengths, &ctx, enc)?;
 
     let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
-    write_u32_stream(&offset_indices, &ctx, enc)?;
-    write_raw_str_data(&unique, DictionaryType::Single, enc)
+    write_u32_stream(offset_indices, &ctx, enc)?;
+    write_raw_str_data(unique, DictionaryType::Single, enc)
 }
 
 /// Encode with FSST compression, training a fresh compressor.
 ///
-/// Used by the explicit-encoder path. The auto path uses [`write_str_fsst_with`]
-/// to reuse the compressor from the viability probe.
+/// Used by the explicit-encoder path.
 #[hotpath::measure]
 fn write_str_fsst(
     non_null: &[&str],
@@ -145,20 +172,7 @@ fn write_str_fsst(
     write_str_fsst_raw(&raw, non_null.len(), presence, name, enc)
 }
 
-/// Encode with FSST compression, reusing an already-trained compressor.
-#[hotpath::measure]
-fn write_str_fsst_with(
-    non_null: &[&str],
-    compressor: &Compressor,
-    presence: Option<&EncodedStream>,
-    name: &str,
-    enc: &mut Encoder,
-) -> MltResult<()> {
-    let raw = compress_fsst_with(non_null, compressor);
-    write_str_fsst_raw(&raw, non_null.len(), presence, name, enc)
-}
-
-/// Shared FSST write logic for both fresh and reused compressor paths.
+/// Shared FSST write logic.
 fn write_str_fsst_raw(
     raw: &FsstRawData,
     count: usize,
@@ -176,8 +190,7 @@ fn write_str_fsst_raw(
 
 /// Encode with FSST + dictionary layout, training a fresh compressor.
 ///
-/// Used by the explicit-encoder path. The auto path uses [`write_str_fsst_dict_with`]
-/// to reuse the compressor from the viability probe.
+/// Used by the explicit-encoder path.
 #[hotpath::measure]
 fn write_str_fsst_dict(
     non_null: &[&str],
@@ -190,21 +203,7 @@ fn write_str_fsst_dict(
     write_str_fsst_dict_raw(&raw, &offset_indices, presence, name, enc)
 }
 
-/// Encode with FSST + dictionary layout, reusing an already-trained compressor.
-#[hotpath::measure]
-fn write_str_fsst_dict_with(
-    non_null: &[&str],
-    compressor: &Compressor,
-    presence: Option<&EncodedStream>,
-    name: &str,
-    enc: &mut Encoder,
-) -> MltResult<()> {
-    let (unique, offset_indices) = dedup_strings(non_null)?;
-    let raw = compress_fsst_with(&unique, compressor);
-    write_str_fsst_dict_raw(&raw, &offset_indices, presence, name, enc)
-}
-
-/// Shared FSST+dict write logic for both fresh and reused compressor paths.
+/// Shared FSST+dict write logic.
 fn write_str_fsst_dict_raw(
     raw: &FsstRawData,
     offset_indices: &[u32],

@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::{io, mem};
 
 use fastpfor::FastPFor256;
+use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
 use crate::decoder::MortonMeta;
@@ -120,6 +122,11 @@ pub struct Encoder {
     /// call so it never leaks across columns.
     pub(crate) morton_meta_cache: Option<MortonMeta>,
 
+    /// Cached FSST compressor per string column, keyed by column name.
+    /// `None` means training found FSST not viable for that column.
+    /// Trained on deduplicated values on the first sort trial, reused on subsequent trials.
+    pub(crate) fsst_cache: HashMap<String, Option<Compressor>>,
+
     // -----------------------------------------------------------------------
     // Alternatives state — a stack that supports nested competitions.
     //
@@ -182,6 +189,7 @@ impl Encoder {
             layer_column_count: mem::take(&mut self.layer_column_count),
             vertex_buffer_type_cache: None,
             morton_meta_cache: None,
+            fsst_cache: HashMap::new(),
             alt_stack: vec![],
             tmp_u32: vec![],
             tmp_u32_b: vec![],
