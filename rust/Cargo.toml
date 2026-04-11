@@ -42,6 +42,7 @@ js-sys = "0.3"
 martin-tile-utils = "0.6"
 mbtiles = { version = "0.15", default-features = false }
 mlt-core = { version = "0.6.0", path = "mlt-core", default-features = false }  # TODO: rm default-features = false after geo 0.33+ is released
+moka = { version = "0.12", features = ["sync"] }
 mvt-reader = "2.3.0"
 num-traits = "0.2.19"
 num_enum = "0.7.6"
@@ -66,8 +67,10 @@ thiserror = "2.0.11"
 thousands = "0.2"
 tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 union-find = "0.4.4"
+walkdir = "2"
 wasm-bindgen = "0.2"
 wide = "1.1.1"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
 zigzag = "0.1.0"
 zstd = "0.13"
 
