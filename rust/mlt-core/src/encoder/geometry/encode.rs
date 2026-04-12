@@ -541,6 +541,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_build_morton_dict() {
+        let meta = MortonMeta {
+            num_bits: 4,
+            coordinate_shift: 0,
+        };
+        // vertices: [x0,y0, x1,y1, x2,y2, x3,y3] — repeat (1,2) to test dedup
+        let vertices = [1, 2, 3, 4, 1, 2, 0, 0];
+        let (dict, offsets) = build_morton_dict(&vertices, meta).unwrap();
+
+        assert!(dict.windows(2).all(|w| w[0] < w[1]), "dict not sorted/unique");
+        assert_eq!(offsets.len(), 4, "offsets length == number of vertex pairs");
+        assert_eq!(offsets[0], offsets[2], "duplicate (1,2) should share index");
+        assert!(offsets.iter().all(|&o| (o as usize) < dict.len()));
+    }
+
+    #[test]
     fn test_encode_root_length_stream() {
         // Single Polygon geometry (no Multi)
         let types = vec![Polygon];
