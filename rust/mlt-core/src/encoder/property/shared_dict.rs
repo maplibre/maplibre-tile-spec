@@ -27,7 +27,7 @@ const MINHASH_PERMUTATIONS: usize = 128;
 
 /// String columns whose estimated Jaccard similarity exceeds this threshold are
 /// grouped into a single shared dictionary.
-const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.3;
+const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.075;
 
 /// A group of string columns to be merged into a single [`crate::encoder::StagedProperty::SharedDict`].
 #[derive(Debug, Clone)]
@@ -336,19 +336,24 @@ pub(crate) fn write_shared_dict(
 
     // Decide corpus encoding upfront to determine the stream count for the varint header.
     // FSST uses 4 streams; plain uses 2.
-    let fsst_compressor = match enc.override_str_enc(&shared_dict.prefix) {
+    let str_enc_override = enc.override_str_enc(&shared_dict.prefix);
+    let fsst_raw = match str_enc_override {
         Some(StrEncoding::Fsst | StrEncoding::FsstDict) => {
             let byte_slices: Vec<&[u8]> = dict.iter().map(|s| s.as_bytes()).collect();
-            Some(fsst::Compressor::train(&byte_slices))
+            let compressor = fsst::Compressor::train(&byte_slices);
+            Some(compress_fsst_with(&dict, &compressor))
         }
         Some(StrEncoding::Plain | StrEncoding::Dict) => None,
-        None => fsst_try_train(&dict),
+        None => {
+            // Populate cache on first sort trial, reuse on subsequent.
+            enc.fsst_cache
+                .entry(shared_dict.prefix.clone())
+                .or_insert_with(|| fsst_try_train(&dict))
+                .as_ref()
+                .map(|c| compress_fsst_with(&dict, c))
+        }
     };
-    let dict_stream_count = if fsst_compressor.is_some() {
-        4u32
-    } else {
-        2u32
-    };
+    let dict_stream_count = if fsst_raw.is_some() { 4u32 } else { 2u32 };
 
     let children_count = u32::try_from(shared_dict.items.len())?;
     let optional_count = u32::try_from(
@@ -362,9 +367,8 @@ pub(crate) fn write_shared_dict(
 
     // Write stream data: total count, corpus streams, then per-child streams.
     enc.write_varint(stream_len)?;
-    if let Some(compressor) = &fsst_compressor {
-        let raw = compress_fsst_with(&dict, compressor);
-        write_fsst_data(&raw, DictionaryType::Single, &shared_dict.prefix, enc)?;
+    if let Some(ref raw) = fsst_raw {
+        write_fsst_data(raw, DictionaryType::Single, &shared_dict.prefix, enc)?;
     } else {
         let lengths = strings_to_lengths(&dict)?;
         let typ = StreamType::Length(LengthType::Dictionary);

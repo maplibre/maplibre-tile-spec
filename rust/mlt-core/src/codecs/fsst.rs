@@ -114,10 +114,16 @@ pub fn compress_fsst_with<S: AsRef<str>>(
         .map(|s| u32::try_from(s.as_ref().len()).unwrap_or(u32::MAX))
         .collect();
 
-    let mut corpus = Vec::new();
-    for s in values {
-        corpus.extend(compressor.compress(s.as_ref().as_bytes()));
-    }
+    // Compress all strings as one concatenated buffer.
+    // This allows FSST symbol matches across string boundaries.
+    // For example: `"sdfAAAA" + "AAAAyxc"` may now compress more `A`s.
+    // The decoder decompresses the full corpus and splits by original (uncompressed) value lengths.
+    let concatenated: Vec<u8> = values
+        .iter()
+        .flat_map(|s| s.as_ref().as_bytes())
+        .copied()
+        .collect();
+    let corpus = compressor.compress(&concatenated);
 
     FsstRawData {
         symbol_lengths,
