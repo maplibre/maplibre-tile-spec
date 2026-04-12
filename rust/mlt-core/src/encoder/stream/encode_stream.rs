@@ -35,10 +35,7 @@ pub(crate) fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<&str>
 impl EncodedStream {
     /// Encode a boolean data stream: byte-RLE <- packed bitmap.
     pub fn encode_bools(values: impl ExactSizeIterator<Item = bool>) -> MltResult<Self> {
-        Self::encode_bools_with_type(
-            values,
-            StreamType::Data(DictionaryType::None),
-        )
+        Self::encode_bools_with_type(values, StreamType::Data(DictionaryType::None))
     }
 
     /// Encode a presence/nullability stream.
