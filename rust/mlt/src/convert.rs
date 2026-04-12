@@ -848,10 +848,9 @@ async fn normalized_encode_and_copy(
     // Retarget the bar to the `images` row count (the rate-limiting phase).
     let image_count: u64 = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM images")
         .fetch_one(&mut *src_conn)
-        .await
-        .unwrap_or(0)
+        .await?
         .try_into()
-        .unwrap_or(0);
+        .context("images count does not fit in u64")?;
     bar.set_length(image_count);
     bar.set_message("encoding images");
 
