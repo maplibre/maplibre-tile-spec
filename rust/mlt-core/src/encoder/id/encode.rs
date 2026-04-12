@@ -104,11 +104,10 @@ impl IdValues {
         };
         col_type.write_to(&mut enc.meta)?;
 
-        // Presence stream (fixed regardless of value encoding choice).
+        // Presence stream
         if has_nulls {
-            let present: Vec<bool> = ids.iter().map(Option::is_some).collect();
-            let num_values = u32::try_from(present.len())?;
-            encode_bools_to_bytes(&present, &mut enc.tmp_u8);
+            let num_values = u32::try_from(ids.len())?;
+            encode_bools_to_bytes(ids.iter().map(Option::is_some), &mut enc.tmp_u8);
             encode_byte_rle(&enc.tmp_u8, &mut enc.tmp_u8_b);
             let runs = num_values.div_ceil(8);
             let num_rle_values = u32::try_from(enc.tmp_u8_b.len())?;

@@ -361,9 +361,8 @@ impl StagedStrings {
         Some((start, end))
     }
 
-    #[must_use]
-    pub fn presence_bools(&self) -> Vec<bool> {
-        self.lengths.iter().map(|&end| end >= 0).collect()
+    pub fn presence_bools(&self) -> impl ExactSizeIterator<Item = bool> + '_ {
+        self.lengths.iter().map(|&end| end >= 0)
     }
 
     #[must_use]
