@@ -21,7 +21,6 @@ pkg-fmt = "zip"
 [features]
 __hotpath = [
     "hotpath/hotpath",
-    "hotpath/hotpath-meta",
     "hotpath/tokio",
     "hotpath/threads",
     "hotpath/tui",

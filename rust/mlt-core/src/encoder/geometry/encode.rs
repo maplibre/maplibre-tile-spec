@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::HashMap;
 use std::mem;
 
 use probabilistic_collections::SipHasherBuilder;
@@ -16,7 +16,6 @@ use crate::decoder::{
 use crate::encoder::Encoder;
 use crate::encoder::model::StreamCtx;
 use crate::encoder::stream::{write_precomputed_u32, write_u32_stream};
-use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
@@ -33,17 +32,17 @@ fn build_morton_dict(vertices: &[i32], meta: MortonMeta) -> MltResult<(Vec<u32>,
         .map(|c| encode_morton(c[0], c[1], meta))
         .collect::<Result<_, _>>()?;
 
-    let dict: Vec<u32> = codes
-        .iter()
-        .copied()
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect();
+    let mut dict = codes.clone();
+    dict.sort_unstable();
+    dict.dedup();
 
-    let offsets: Vec<u32> = codes
+    #[expect(clippy::cast_possible_truncation, reason = "dict.len() <= u32::MAX (deduped u32 codes)")]
+    let code_to_idx: HashMap<u32, u32> = dict
         .iter()
-        .map(|&code| u32::try_from(dict.partition_point(|&c| c < code)).or_overflow())
-        .collect::<Result<_, _>>()?;
+        .enumerate()
+        .map(|(i, &c)| (c, i as u32))
+        .collect();
+    let offsets: Vec<u32> = codes.iter().map(|code| code_to_idx[code]).collect();
 
     Ok((dict, offsets))
 }

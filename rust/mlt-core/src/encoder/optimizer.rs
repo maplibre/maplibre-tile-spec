@@ -92,24 +92,29 @@ impl TileLayer01 {
             Vec::new()
         };
 
-        let (first, rest) = sort_by.split_first().expect("at least one strategy");
-        if rest.is_empty() {
-            StagedLayer01::from_tile(self, *first, &groups).encode_into(Encoder::new(cfg))?
+        let (last, init) = sort_by.split_last().expect("at least one strategy");
+        if init.is_empty() {
+            StagedLayer01::from_tile(self, *last, &groups).encode_into(Encoder::new(cfg))?
         } else {
             let mut enc: Encoder = {
-                StagedLayer01::from_tile(self.clone(), *first, &groups)
+                let first = init[0];
+                StagedLayer01::from_tile(self.clone(), first, &groups)
                     .encode_into(Encoder::new(cfg))?
             };
             let mut best = enc.preserve_results();
-            // At this stage `Encoder` has been "warmed-up", and we could clone it to run
-            // the rest of the sort orders in parallel to reuse internal computations done in the first pass.
-            // We could also do the first pass in parallel if we don't care about that optimization.
-            for &sort in rest {
+            // Clone for all-but-last strategies
+            for &sort in &init[1..] {
                 let layer = StagedLayer01::from_tile(self.clone(), sort, &groups);
                 enc = layer.encode_into(enc)?;
                 if enc.total_len() < best.total_len() {
                     best = enc.preserve_results();
                 }
+            }
+            // Last strategy: consume self, no clone
+            let layer = StagedLayer01::from_tile(self, *last, &groups);
+            enc = layer.encode_into(enc)?;
+            if enc.total_len() < best.total_len() {
+                best = enc.preserve_results();
             }
             best
         }
