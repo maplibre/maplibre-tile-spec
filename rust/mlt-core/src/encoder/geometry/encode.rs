@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::HashMap;
 use std::mem;
 
 use probabilistic_collections::SipHasherBuilder;
@@ -16,7 +16,6 @@ use crate::decoder::{
 use crate::encoder::Encoder;
 use crate::encoder::model::StreamCtx;
 use crate::encoder::stream::{write_precomputed_u32, write_u32_stream};
-use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
@@ -33,17 +32,20 @@ fn build_morton_dict(vertices: &[i32], meta: MortonMeta) -> MltResult<(Vec<u32>,
         .map(|c| encode_morton(c[0], c[1], meta))
         .collect::<Result<_, _>>()?;
 
-    let dict: Vec<u32> = codes
-        .iter()
-        .copied()
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect();
+    let mut dict = codes.clone();
+    dict.sort_unstable();
+    dict.dedup();
 
-    let offsets: Vec<u32> = codes
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "dict.len() <= u32::MAX (deduped u32 codes)"
+    )]
+    let code_to_idx: HashMap<u32, u32> = dict
         .iter()
-        .map(|&code| u32::try_from(dict.partition_point(|&c| c < code)).or_overflow())
-        .collect::<Result<_, _>>()?;
+        .enumerate()
+        .map(|(i, &c)| (c, i as u32))
+        .collect();
+    let offsets: Vec<u32> = codes.iter().map(|code| code_to_idx[code]).collect();
 
     Ok((dict, offsets))
 }
@@ -537,6 +539,25 @@ impl GeometryValues {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_build_morton_dict() {
+        let meta = MortonMeta {
+            num_bits: 4,
+            coordinate_shift: 0,
+        };
+        // vertices: [x0,y0, x1,y1, x2,y2, x3,y3] — repeat (1,2) to test dedup
+        let vertices = [1, 2, 3, 4, 1, 2, 0, 0];
+        let (dict, offsets) = build_morton_dict(&vertices, meta).unwrap();
+
+        assert!(
+            dict.windows(2).all(|w| w[0] < w[1]),
+            "dict not sorted/unique"
+        );
+        assert_eq!(offsets.len(), 4, "offsets length == number of vertex pairs");
+        assert_eq!(offsets[0], offsets[2], "duplicate (1,2) should share index");
+        assert!(offsets.iter().all(|&o| (o as usize) < dict.len()));
+    }
 
     #[test]
     fn test_encode_root_length_stream() {
