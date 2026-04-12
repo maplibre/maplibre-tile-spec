@@ -36,7 +36,10 @@ fn build_morton_dict(vertices: &[i32], meta: MortonMeta) -> MltResult<(Vec<u32>,
     dict.sort_unstable();
     dict.dedup();
 
-    #[expect(clippy::cast_possible_truncation, reason = "dict.len() <= u32::MAX (deduped u32 codes)")]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "dict.len() <= u32::MAX (deduped u32 codes)"
+    )]
     let code_to_idx: HashMap<u32, u32> = dict
         .iter()
         .enumerate()
