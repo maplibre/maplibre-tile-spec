@@ -2,7 +2,6 @@
 //! similarity, then hands off to per-column auto-encoders.
 
 use std::collections::HashMap;
-use std::hash::Hash;
 
 use integer_encoding::VarIntWriter as _;
 use probabilistic_collections::SipHasherBuilder;
@@ -39,7 +38,10 @@ pub struct StringGroup {
 struct StringProfile<'a> {
     col_idx: usize,
     name: &'a str,
-    min_hashes: Vec<u64>,
+    /// `MinHash` over exact string values.
+    exact_hashes: Vec<u64>,
+    /// `MinHash` over byte trigrams (empty when all strings are shorter than 3 bytes).
+    trigram_hashes: Vec<u64>,
 }
 
 /// Analyze a [`TileLayer01`] and return one [`StringGroup`] per cluster of similar
@@ -47,7 +49,14 @@ struct StringProfile<'a> {
 #[must_use]
 #[hotpath::measure]
 pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
-    let min_hash = MinHash::with_hashers(
+    let exact_mh = MinHash::with_hashers(
+        MINHASH_PERMUTATIONS,
+        [
+            SipHasherBuilder::from_seed(0, 0),
+            SipHasherBuilder::from_seed(1, 1),
+        ],
+    );
+    let trigram_mh = MinHash::with_hashers(
         MINHASH_PERMUTATIONS,
         [
             SipHasherBuilder::from_seed(0, 0),
@@ -60,19 +69,32 @@ pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
         .iter()
         .enumerate()
         .filter_map(|(col_idx, name)| {
-            let mut vals = source
+            let vals: Vec<&str> = source
                 .features
                 .iter()
-                .filter_map(move |f| match f.properties.get(col_idx) {
+                .filter_map(|f| match f.properties.get(col_idx) {
                     Some(PropValue::Str(Some(s))) => Some(s.as_str()),
                     _ => None,
                 })
-                .peekable();
-            vals.peek()?;
+                .collect();
+            if vals.is_empty() {
+                return None;
+            }
+            let exact_hashes = exact_mh.get_min_hashes(vals.iter().copied());
+            let trigrams: Vec<[u8; 3]> = vals
+                .iter()
+                .flat_map(|s| s.as_bytes().windows(3).map(|w| [w[0], w[1], w[2]]))
+                .collect();
+            let trigram_hashes = if trigrams.is_empty() {
+                Vec::new()
+            } else {
+                trigram_mh.get_min_hashes(trigrams.into_iter())
+            };
             Some(StringProfile {
                 col_idx,
                 name,
-                min_hashes: min_hash.get_min_hashes(vals),
+                exact_hashes,
+                trigram_hashes,
             })
         })
         .collect();
@@ -81,7 +103,7 @@ pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
         return Vec::new();
     }
 
-    cluster_by_similarity(profiles, &min_hash)
+    cluster_by_similarity(profiles)
         .into_iter()
         .map(|group| {
             let prefix = common_prefix_name(&group);
@@ -97,30 +119,37 @@ pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
         .collect()
 }
 
-fn cluster_by_similarity<'a, T: Iterator<Item = U>, U: Hash>(
-    profiles: Vec<StringProfile<'a>>,
-    min_hash: &MinHash<T, U>,
-) -> Vec<Vec<StringProfile<'a>>> {
+/// Estimate Jaccard similarity from two `MinHash` signature vectors.
+#[allow(clippy::cast_precision_loss)]
+fn minhash_similarity(a: &[u64], b: &[u64]) -> f64 {
+    if a.is_empty() || b.is_empty() {
+        return 0.0;
+    }
+    let matches = a.iter().zip(b).filter(|(x, y)| x == y).count();
+    matches as f64 / a.len() as f64
+}
+
+fn cluster_by_similarity(profiles: Vec<StringProfile<'_>>) -> Vec<Vec<StringProfile<'_>>> {
     let n = profiles.len();
     let mut uf = QuickUnionUf::<UnionBySize>::new(n);
 
     for i in 0..n {
         for j in (i + 1)..n {
-            let sim = min_hash
-                .get_similarity_from_hashes(&profiles[i].min_hashes, &profiles[j].min_hashes);
-            if sim > MINHASH_SIMILARITY_THRESHOLD {
+            let exact = minhash_similarity(&profiles[i].exact_hashes, &profiles[j].exact_hashes);
+            let tri = minhash_similarity(&profiles[i].trigram_hashes, &profiles[j].trigram_hashes);
+            if f64::max(exact, tri) > MINHASH_SIMILARITY_THRESHOLD {
                 uf.union(i, j);
             }
         }
     }
 
-    let mut groups_map = HashMap::<usize, Vec<StringProfile<'a>>>::new();
+    let mut groups_map = HashMap::<usize, Vec<StringProfile<'_>>>::new();
     for (i, profile) in profiles.into_iter().enumerate() {
         let root = uf.find(i);
         groups_map.entry(root).or_default().push(profile);
     }
 
-    let mut groups: Vec<Vec<StringProfile<'a>>> = groups_map
+    let mut groups: Vec<Vec<StringProfile<'_>>> = groups_map
         .into_values()
         .filter_map(|mut v| {
             if v.len() >= 2 {
