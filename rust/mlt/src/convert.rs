@@ -33,18 +33,12 @@ const BATCH_SIZE: usize = 500;
 
 /// Maximum input-tile size (bytes) for which we consult the dedup cache.
 ///
-/// Matches the Java CLI's `MLT_MAX_TILE_TRACK_SIZE` default: only tiny tiles
-/// (empty-ocean quads, land backgrounds) tend to repeat in real tilesets, so
-/// tracking anything larger just burns cache weight for a near-zero hit rate.
-/// Observed distribution in OSM-vector data: the #1 repeated tile is ~78B and
-/// the largest meaningfully-repeated tile is ~1.2KB. See the discussion on
-/// the `PMTiles` encoder PR for the underlying numbers.
+/// Only small tiles (empty-ocean quads, land backgrounds) tend to repeat in
+/// real tilesets, so tracking anything larger burns cache weight for a
+/// near-zero hit rate.
 const MAX_TILE_TRACK_SIZE: usize = 1024;
 
 /// Maximum aggregate weight (encoded-tile bytes) held by the dedup cache.
-///
-/// Past this, moka starts evicting least-recently-used entries; the cache
-/// remains correct — a later identical input will just be re-encoded once.
 const CACHE_MAX_BYTES: u64 = 512 * 1024 * 1024;
 
 /// Raw MVT batch forwarded from the reader to the compute stage. The middle
@@ -62,12 +56,7 @@ const SAVE_EVERY: Duration = Duration::from_secs(60);
 /// Minimum interval between progress log lines in non-interactive (non-TTY) mode.
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 
-/// Format a progress bar's throughput as a whole-number `{rate}/s`. `indicatif`'s
-/// built-in `{per_sec}` token runs `state.per_sec()` through `HumanFloatCount`
-/// which inserts thousands separators and keeps fractional digits (e.g.
-/// `3,251.5315/s`); for a per-tile rate the commas and decimals are just
-/// noise. Wire this into a template via
-/// `.with_key("rate", whole_rate_per_sec)` and reference it as `{rate}`.
+/// Format a progress bar's throughput as a whole-number `{rate}/s`.
 #[expect(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
@@ -99,14 +88,6 @@ fn hex_md5_to_u128(s: &str) -> Option<u128> {
 }
 
 /// Counters kept across the encoding stage for end-of-run dedup reporting.
-///
-/// `hits` counts tiles whose encoded output was already in the cache and got
-/// reused without re-encoding. `encoded` counts tiles for which we actually
-/// ran the encoder — this includes both true cache misses (eligible tile not
-/// yet in the cache) and size-bypass encodes (tiles over `MAX_TILE_TRACK_SIZE`
-/// that never consult the cache). The display summarises `encoded` as
-/// "unique encoded" because from the caller's perspective it's the number of
-/// encoder invocations performed.
 #[derive(Default)]
 struct DedupStats {
     hits: AtomicU64,
@@ -126,9 +107,6 @@ impl DedupStats {
 }
 
 /// Print a one-line dedup summary alongside the "done" message.
-///
-/// Flushes the cache's pending bookkeeping before reading `weighted_size()` so
-/// the reported weight reflects committed state.
 #[expect(
     clippy::cast_precision_loss,
     reason = "hit/miss counts are well below 2^52 for realistic tilesets"
@@ -139,10 +117,6 @@ fn format_dedup_line(stats: &DedupStats, cache: &EncodedCache) -> String {
     let encoded = stats.encoded.load(Ordering::Relaxed);
     let bytes_saved = stats.bytes_saved.load(Ordering::Relaxed);
     let total = hits + encoded;
-    // Dataset-wide dedup rate: what fraction of total tiles avoided an
-    // encode. This dilutes with size-bypassed tiles (which are never
-    // eligible for caching) — that's intentional, since the user's mental
-    // model is "how much encode work did the cache save me overall".
     let hit_rate = if total == 0 {
         0.0
     } else {
@@ -176,16 +150,12 @@ impl From<MbtFormat> for MbtType {
         match f {
             MbtFormat::Flat => Self::Flat,
             MbtFormat::FlatWithHash => Self::FlatWithHash,
-            // hash_view=false: skip the tiles_with_hash view (not needed for writes)
             MbtFormat::Normalized => Self::Normalized { hash_view: false },
         }
     }
 }
 
 /// Which sort strategies to attempt during re-encoding.
-///
-/// The encoder always encodes with the original feature order as a baseline
-/// and keeps whichever encoding produces the smallest output.
 #[derive(Clone, Default, ValueEnum)]
 enum SortMode {
     /// Try all sort strategies and keep the smallest result
@@ -261,8 +231,6 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let stats = DedupStats::default();
     let failed = AtomicUsize::new(0);
 
-    // Spinner rather than a bar because we don't know the tile count up front
-    // — discovery and conversion are interleaved by `par_bridge`.
     let bar = ProgressBar::new_spinner();
     bar.set_style(
         ProgressStyle::default_spinner()
@@ -272,9 +240,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     );
     bar.enable_steady_tick(Duration::from_millis(100));
 
-    // `bar.println` is a no-op when the bar is hidden (non-TTY). For errors
-    // and warnings that must always reach the user (CI logs, pipe into less,
-    // etc.) we fall through to `eprintln!` in that case.
+    // `bar.println` is a no-op when hidden (non-TTY), so fall through to `eprintln!`.
     let emit = |msg: String| {
         if bar.is_hidden() {
             eprintln!("{msg}");
@@ -283,10 +249,6 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         }
     };
 
-    // Stream the file tree via walkdir: each entry's type comes from the
-    // dirent (no extra `stat(2)`), and `par_bridge` feeds items to rayon
-    // workers as they're produced — so the encoder starts on file #1, not
-    // after the entire walk finishes.
     WalkDir::new(&args.input)
         .into_iter()
         .filter_map(|r| match r {
@@ -311,9 +273,6 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
 
     bar.finish_and_clear();
 
-    // Error count takes precedence over the "no files" message: a walkdir
-    // error (e.g. input path doesn't exist) would otherwise look like a
-    // successful empty run.
     let n = failed.into_inner();
     if n > 0 {
         bail!("{n} file(s) failed to convert");
@@ -350,9 +309,7 @@ fn convert_file(
     let is_mlt = is_mlt_extension(file);
     let file_display = file.display().to_string();
 
-    // Mirror the mbtiles path's `MAX_TILE_TRACK_SIZE` gate: anything bigger
-    // than this is almost certainly unique, so skip the xxh3 hash AND the
-    // cache lookup/insert to avoid polluting small-tile hot entries.
+    // Skip cache for large tiles — they are almost certainly unique.
     if buffer.len() > MAX_TILE_TRACK_SIZE {
         let out_bytes = if is_mlt {
             convert_mlt_buffer(&buffer, cfg)
@@ -367,10 +324,6 @@ fn convert_file(
         return Ok(());
     }
 
-    // moka's `entry(..).or_try_insert_with` coalesces concurrent callers on
-    // the same key — so if two rayon workers see identical file bytes at the
-    // same time, only one will actually encode and the other will block on
-    // that result. `is_fresh()` tells us which one we were.
     let key = xxh3_128(&buffer);
     let entry = cache
         .entry(key)
@@ -394,8 +347,6 @@ fn convert_file(
         stats.record_hit(out_arc.len());
     }
 
-    // `out_arc.as_slice()` avoids a Vec clone since `fs::write` only needs a
-    // byte slice — the cache still owns the one copy we care about.
     fs::write(&out_path, out_arc.as_slice())
         .with_context(|| format!("writing {}", out_path.display()))?;
 
@@ -449,14 +400,11 @@ fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>>
     Ok(out)
 }
 
-/// Stage 1 of the pipeline: stream raw MVT tiles from the source `.mbtiles` file in
-/// `BATCH_SIZE` chunks and forward each batch to the compute stage via `raw_tx`.
+/// Stage 1: stream raw MVT tiles from the source `.mbtiles` in batches.
 ///
 /// Dispatches to a schema-aware reader so that `FlatWithHash` / `Normalized`
-/// sources can pass their stored content hash straight through to the compute
-/// stage as a cache key, while `Flat` sources fall back to content hashing.
-///
-/// Dropping `raw_tx` at function exit signals EOF to the compute stage.
+/// sources pass their stored content hash as a cache key, while `Flat`
+/// sources fall back to content hashing.
 #[hotpath::measure]
 async fn mbtiles_reader(
     src: Mbtiles,
@@ -488,8 +436,7 @@ async fn mbtiles_reader(
     }
 }
 
-/// Reader for `Flat` schemas — no stored hash, so we pass `None` as the key
-/// and let the compute stage content-hash the bytes.
+/// Reader for `Flat` schemas (no stored hash).
 #[hotpath::measure]
 async fn read_flat(
     src: &Mbtiles,
@@ -521,9 +468,7 @@ async fn read_flat(
     Ok(())
 }
 
-/// Reader for schemas that carry a hex-encoded content hash alongside the tile
-/// data. `sql` must select (in order) `zoom_level`, `tile_column`, `tile_row`,
-/// `tile_data`, `tile_hash`.
+/// Reader for schemas that carry a hex-encoded content hash alongside the tile data.
 #[hotpath::measure]
 async fn read_with_hash(
     src_conn: &mut SqliteConnection,
@@ -542,8 +487,7 @@ async fn read_with_hash(
             continue;
         };
         let hash: Option<String> = row.try_get("tile_hash")?;
-        // Malformed/missing hash falls back to "no key" — the compute stage
-        // will rehash with xxh3 so dedup still works; never a correctness issue.
+        // Malformed/missing hash falls back to content hashing in the compute stage.
         let key = hash.as_deref().and_then(hex_md5_to_u128);
         batch.push((coord, key, data));
         if batch.len() >= BATCH_SIZE {
@@ -564,8 +508,7 @@ async fn read_with_hash(
 }
 
 /// Parse zoom/col/row from a sqlite row into an XYZ-space [`TileCoord`].
-/// Returns `Ok(None)` for rows whose coordinates are NULL or out of range,
-/// mirroring `mbtiles::parse_tile_index` (which is private to that crate).
+/// Returns `Ok(None)` for rows whose coordinates are NULL or out of range.
 fn row_to_coord(row: &SqliteRow) -> AnyResult<Option<TileCoord>> {
     let z: Option<i64> = row.try_get("zoom_level")?;
     let x: Option<i64> = row.try_get("tile_column")?;
@@ -585,17 +528,12 @@ fn row_to_coord(row: &SqliteRow) -> AnyResult<Option<TileCoord>> {
     if !TileCoord::is_possible_on_zoom_level(z, x, y) {
         return Ok(None);
     }
-    // mbtiles stores TMS-oriented y; flip it to match the XYZ space the rest
-    // of the pipeline (and `stream_tiles`) uses.
+    // mbtiles stores TMS-oriented y; flip to XYZ.
     Ok(Some(TileCoord::new_unchecked(z, x, invert_y_value(z, y))))
 }
 
-/// Stage 2 of the pipeline: receive raw MVT batches, decompress and convert each
-/// tile on a blocking thread pool (rayon), then forward converted MLT batches to
-/// the writer stage via `mlt_tx`.
-///
-/// Per-tile errors are logged as warnings; the rest of the batch is still forwarded.
-/// Dropping `mlt_tx` at function exit signals EOF to the writer stage.
+/// Stage 2: decompress and convert each tile on the rayon pool, then forward
+/// converted MLT batches to the writer. Per-tile errors are logged as warnings.
 #[hotpath::measure]
 async fn mbtiles_compute(
     mut raw_rx: Receiver<RawBatch>,
@@ -606,12 +544,6 @@ async fn mbtiles_compute(
     stats: Arc<DedupStats>,
 ) -> AnyResult<()> {
     while let Some(batch) = raw_rx.recv().await {
-        // Hash + cache-lookup + encode all happen on the rayon pool inside
-        // `spawn_blocking` — keeps the single-threaded tokio runtime free to
-        // keep the reader and writer stages polling. moka's entry API handles
-        // cross-batch cache hits, intra-batch dedup, and concurrent encodes of
-        // the same key uniformly: only one worker runs the init closure per
-        // key, and concurrent callers park until it completes.
         let cache = cache.clone();
         let stats = Arc::clone(&stats);
         let mlt_batch: MltBatch = spawn_blocking(move || {
@@ -647,11 +579,7 @@ fn encode_cached(
     cache: &EncodedCache,
     stats: &DedupStats,
 ) -> Option<(TileCoord, Vec<u8>)> {
-    // Tiles above the track-size threshold are virtually never duplicated;
-    // skip the cache entirely so we don't pay for hashing or cache bookkeeping
-    // and so we don't displace high-hit-rate small entries. The miss branch
-    // below goes through the cache (one full-Vec clone) but that only ever
-    // runs for small tiles, so the clone is measured in tens of bytes.
+    // Skip cache for large tiles — they are almost certainly unique.
     if data.len() > MAX_TILE_TRACK_SIZE {
         return match encode_one(data, encoding, cfg) {
             Ok(mlt) => {
@@ -684,15 +612,10 @@ fn encode_cached(
     } else {
         stats.record_hit(arc.len());
     }
-    // The cache keeps a strong ref, so we have to clone out of the arc either
-    // way — taking the clone here (small tile only) is equivalent to the old
-    // pre-cache code that moved the encoded `Vec` through the pipeline, and
-    // keeps `MltBatch` a flat `Vec<u8>` for the writer.
     Some((coord, (*arc).clone()))
 }
 
-/// Decompress one raw tile (using the encoding detected at DB-open time, which
-/// avoids per-tile magic-byte sniffing) and convert it from MVT to MLT.
+/// Decompress one raw tile and convert it from MVT to MLT.
 fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let mvt = match encoding {
         Encoding::Gzip => decode_gzip(&data)?,
@@ -705,9 +628,7 @@ fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResul
 }
 
 /// Flush `pending` tiles to `dst` in a single `SQLite` transaction.
-///
 /// Returns the number of tiles flushed (0 if `pending` was empty).
-/// The caller is responsible for resetting the save timer and updating the progress bar.
 #[hotpath::measure]
 async fn flush_pending(
     dst: &Mbtiles,
@@ -719,7 +640,6 @@ async fn flush_pending(
     if pending.is_empty() {
         return Ok(0);
     }
-    // insert_tiles expects (z, x, y, data); drain moves tile bytes without cloning.
     let flat: Vec<(u8, u32, u32, Vec<u8>)> =
         pending.drain(..).map(|(c, d)| (c.z, c.x, c.y, d)).collect();
     let n = flat.len();
@@ -729,11 +649,8 @@ async fn flush_pending(
     Ok(n)
 }
 
-/// Stage 3 of the pipeline: accumulate converted MLT tiles and flush them to the
-/// destination `.mbtiles` file whenever `BATCH_SIZE` tiles are pending or `SAVE_EVERY`
-/// seconds have elapsed (matches martin-cp's dual-trigger strategy).
-///
-/// Each flush is wrapped in one `SQLite` transaction by `insert_tiles`.
+/// Stage 3: accumulate converted MLT tiles and flush to the destination `.mbtiles`
+/// whenever `BATCH_SIZE` tiles are pending or `SAVE_EVERY` has elapsed.
 /// Returns the total number of tiles written.
 #[hotpath::measure]
 async fn mbtiles_writer(
@@ -743,8 +660,6 @@ async fn mbtiles_writer(
     mbt_type: MbtType,
     bar: ProgressBar,
 ) -> AnyResult<usize> {
-    // WAL mode: readers don't block writers; much better throughput for bulk inserts.
-    // The writer checkpoints + truncates the WAL before closing so no sidecar files remain.
     sqlx::query("PRAGMA journal_mode=WAL")
         .execute(&mut dst_conn)
         .await?;
@@ -779,7 +694,6 @@ async fn mbtiles_writer(
         bar.inc(flushed as u64);
     }
 
-    // Checkpoint + truncate WAL so no -wal/-shm sidecar files remain after close.
     sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
         .execute(&mut dst_conn)
         .await?;
@@ -800,8 +714,6 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
     let src = Mbtiles::new(&args.input)?;
     let mut src_conn = src.open_readonly().await?;
 
-    // Use detect_format (inspects actual tile bytes, not just the metadata string)
-    // to learn the tile format AND the compression encoding used in this file.
     let meta = src.get_metadata(&mut src_conn).await?;
     let tile_info = src
         .detect_format(&meta.tilejson, &mut src_conn)
@@ -815,8 +727,6 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
             args.input.display()
         );
     }
-    // Encoding is Copy; captured by value in the compute stage.
-
     // Detect the source schema type and use it as default for the output.
     let src_type = src.detect_type(&mut src_conn).await?;
     let mbt_type = args.mbtiles_format.clone().map_or(src_type, MbtType::from);
@@ -839,11 +749,7 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
     let mut dst_conn = dst.open_or_new().await?;
     init_mbtiles_schema(&mut dst_conn, mbt_type).await?;
 
-    // Copy every metadata row from source → destination (tilejson, bounds,
-    // minzoom/maxzoom, attribution, custom keys, …). This runs once before
-    // any tile-data pipeline and works for both the Normalized fast path and
-    // the general streaming path. `format` is set to `mlt` afterwards so the
-    // source's `pbf`/`mvt` value is overridden.
+    // Copy metadata from source; `format` is overridden to `mlt` afterwards.
     copy_metadata(&mut src_conn, &mut dst_conn).await?;
     dst.set_metadata_value(&mut dst_conn, "format", Format::Mlt.metadata_format_value())
         .await?;
@@ -859,7 +765,6 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
             .progress_chars("█▓▒░ ")
             .with_key("rate", whole_rate_per_sec),
     );
-    // Use bar.println so the header line is coordinated with bar redraws on TTY.
     bar.println(format!(
         "{} → {} ({mbt_type}):",
         args.input.display(),
@@ -867,14 +772,9 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
     ));
 
     // ── Normalized → Normalized fast path ────────────────────────────────────
-    // When source and destination are both Normalized schemas we can skip the
-    // general tile-streaming pipeline entirely: the source `images` table
-    // already holds exactly one row per unique payload (228k for germany vs
-    // 256k rows in `map`) and the `map` table carries coordinate → tile_id
-    // references that don't need re-encoding at all. We stream-encode `images`
-    // with the existing reader → rayon → writer shape, then bulk-copy `map`
-    // via sqlite's own ATTACH DATABASE — no per-row round trip through Rust,
-    // no dedup cache, no content hashing.
+    // The `images` table already holds one row per unique payload and `map`
+    // carries coordinate → tile_id references that don't need re-encoding.
+    // Stream-encode `images`, then bulk-copy `map` via ATTACH DATABASE.
     if matches!(src_type, MbtType::Normalized { .. })
         && matches!(mbt_type, MbtType::Normalized { .. })
     {
@@ -897,8 +797,6 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
         return Ok(());
     }
 
-    // `Arc` lets us share the stats with the compute stage while `convert()`
-    // (single-runtime) uses a plain `&DedupStats`.
     let cache: EncodedCache = make_cache(CACHE_MAX_BYTES);
     let stats = Arc::new(DedupStats::default());
 
@@ -923,8 +821,6 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
 
     let dedup_line = format_dedup_line(&stats, &cache);
 
-    // When the bar is hidden (non-TTY), `bar.println` is a no-op, so we must
-    // write directly to stderr for the summary lines to actually appear.
     if bar.is_hidden() {
         eprintln!("  done: {total} tiles in {}", HumanDuration(bar.elapsed()));
         eprintln!("{dedup_line}");
@@ -934,24 +830,6 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
     bar.finish_with_message(format!("done, {total} tiles"));
     Ok(())
 }
-
-// ── Normalized fast path ─────────────────────────────────────────────────────
-//
-// For a Normalized → Normalized conversion we exploit the schema's own content
-// dedup:
-//
-//   - `images(tile_id PK, tile_data BLOB)` — one row per unique payload
-//   - `map(z, x, y, tile_id)` — coordinate → tile_id references, no blobs
-//
-// Phase 1 streams `images` through the existing encoder pipeline (reader →
-// rayon → writer) and writes into `dst.images` preserving the source
-// `tile_id`s. Phase 2 then bulk-copies `src.map` into `dst.map` via sqlite's
-// ATTACH DATABASE — a single SQL statement that moves row data directly inside
-// sqlite without touching Rust at all.
-//
-// This skips the moka cache and content hashing entirely: the schema already
-// told us what's unique, so the encoder is only invoked once per distinct
-// payload and the per-coordinate work is offloaded to sqlite.
 
 /// Raw images batch: `(tile_id_hex, mvt_bytes)`.
 type NormRawBatch = Vec<(String, Vec<u8>)>;
@@ -967,9 +845,7 @@ async fn normalized_encode_and_copy(
     cfg: EncoderConfig,
     bar: &ProgressBar,
 ) -> AnyResult<usize> {
-    // The rate-limiting phase is image encoding; retarget the bar to the
-    // `images` row count so progress reflects encoder progress, not the
-    // map-copy phase which is effectively instant.
+    // Retarget the bar to the `images` row count (the rate-limiting phase).
     let image_count: u64 = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM images")
         .fetch_one(&mut *src_conn)
         .await
@@ -979,7 +855,6 @@ async fn normalized_encode_and_copy(
     bar.set_length(image_count);
     bar.set_message("encoding images");
 
-    // Same WAL/sync tradeoffs as the general `mbtiles_writer`.
     sqlx::query("PRAGMA journal_mode=WAL")
         .execute(&mut *dst_conn)
         .await?;
@@ -1007,7 +882,6 @@ async fn normalized_encode_and_copy(
     bar.set_message("copying map");
     copy_map_via_attach(dst_conn, src_path).await?;
 
-    // Checkpoint + truncate WAL so no sidecar files remain after close.
     sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
         .execute(&mut *dst_conn)
         .await?;
@@ -1015,9 +889,7 @@ async fn normalized_encode_and_copy(
     Ok(total)
 }
 
-/// Stream `SELECT tile_id, tile_data FROM images` into `BATCH_SIZE`-sized
-/// batches on the compute channel. One row per unique payload — the PRIMARY
-/// KEY on `tile_id` guarantees this.
+/// Stream `images` rows into batches on the compute channel.
 #[hotpath::measure]
 async fn normalized_read_images(
     src_conn: &mut SqliteConnection,
@@ -1050,9 +922,7 @@ async fn normalized_read_images(
     Ok(())
 }
 
-/// Stage 2 of the Normalized fast path: decompress + re-encode each image on
-/// the rayon pool inside `spawn_blocking`. No cache lookup — Normalized
-/// guarantees one encode per unique payload.
+/// Stage 2 (Normalized): decompress + re-encode each image on the rayon pool.
 #[hotpath::measure]
 async fn normalized_compute(
     mut raw_rx: Receiver<NormRawBatch>,
@@ -1085,9 +955,7 @@ async fn normalized_compute(
     Ok(())
 }
 
-/// Stage 3 of the Normalized fast path: bulk-insert encoded images into
-/// `dst.images` one sqlite transaction per batch. `INSERT OR REPLACE` keeps
-/// re-runs into an existing destination file idempotent.
+/// Stage 3 (Normalized): bulk-insert encoded images into `dst.images`.
 #[hotpath::measure]
 async fn normalized_write_images(
     dst_conn: &mut SqliteConnection,
@@ -1114,10 +982,7 @@ async fn normalized_write_images(
     Ok(total)
 }
 
-/// Stream every `(name, value)` row from `src.metadata` into `dst.metadata`,
-/// replacing existing keys. Covers tilejson, bounds, minzoom/maxzoom,
-/// attribution, and any custom keys the source carries. `format` is set
-/// separately afterwards so the caller's `mlt` override always wins.
+/// Copy all metadata rows from source to destination, replacing existing keys.
 #[hotpath::measure]
 async fn copy_metadata(
     src_conn: &mut SqliteConnection,
@@ -1137,17 +1002,13 @@ async fn copy_metadata(
     Ok(())
 }
 
-/// Bulk-copy `src.map` into `dst.map` using sqlite's ATTACH DATABASE. The row
-/// data never leaves sqlite — this is a single SQL statement executed against
-/// the destination connection with the source attached as `norm_src`.
+/// Bulk-copy `src.map` into `dst.map` using sqlite's ATTACH DATABASE.
 #[hotpath::measure]
 async fn copy_map_via_attach(dst_conn: &mut SqliteConnection, src_path: &Path) -> AnyResult<()> {
     let src_path_str = src_path
         .to_str()
         .ok_or_else(|| anyhow!("source path is not valid UTF-8: {}", src_path.display()))?;
 
-    // The ATTACH statement filename can be bound as a parameter; the alias
-    // name must be a literal identifier, so we hardcode `norm_src`.
     sqlx::query("ATTACH DATABASE ? AS norm_src")
         .bind(src_path_str)
         .execute(&mut *dst_conn)
