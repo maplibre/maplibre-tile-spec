@@ -550,7 +550,10 @@ mod tests {
         let vertices = [1, 2, 3, 4, 1, 2, 0, 0];
         let (dict, offsets) = build_morton_dict(&vertices, meta).unwrap();
 
-        assert!(dict.windows(2).all(|w| w[0] < w[1]), "dict not sorted/unique");
+        assert!(
+            dict.windows(2).all(|w| w[0] < w[1]),
+            "dict not sorted/unique"
+        );
         assert_eq!(offsets.len(), 4, "offsets length == number of vertex pairs");
         assert_eq!(offsets[0], offsets[2], "duplicate (1,2) should share index");
         assert!(offsets.iter().all(|&o| (o as usize) < dict.len()));
