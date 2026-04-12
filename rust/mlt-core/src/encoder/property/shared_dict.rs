@@ -199,12 +199,10 @@ impl StagedSharedDictItem {
             .collect()
     }
 
-    #[must_use]
-    pub fn dense_spans(&self) -> Vec<(u32, u32)> {
+    pub fn dense_spans(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
         self.ranges
             .iter()
             .filter_map(|&range| decode_shared_dict_range(range))
-            .collect()
     }
 
     #[must_use]
@@ -394,10 +392,9 @@ pub(crate) fn write_shared_dict(
 
         let offsets: Vec<u32> = item
             .dense_spans()
-            .iter()
             .map(|span| {
                 dict_index
-                    .get(span)
+                    .get(&span)
                     .copied()
                     .ok_or(DictIndexOutOfBounds(span.0, dict_spans.len()))
             })
