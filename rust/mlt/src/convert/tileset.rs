@@ -39,15 +39,16 @@ pub async fn convert_mbtiles(
 
     eprintln!("{} → {} ({mbt_type}):", input.display(), output.display());
 
-    let mut transcoder = MbtilesTranscoder::new(input.to_path_buf(), output.to_path_buf(), move |data| {
-        encode_one(data, encoding, cfg)
-            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.to_string().into() })
-    })
-    .batch_size(500)
-    .cache_max_bytes(512 * 1024 * 1024)
-    .max_tile_track_size(1024)
-    .copy_metadata(true)
-    .channel_buffer(4);
+    let mut transcoder =
+        MbtilesTranscoder::new(input.to_path_buf(), output.to_path_buf(), move |data| {
+            encode_one(data, encoding, cfg)
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.to_string().into() })
+        })
+        .batch_size(500)
+        .cache_max_bytes(512 * 1024 * 1024)
+        .max_tile_track_size(1024)
+        .copy_metadata(true)
+        .channel_buffer(4);
     if mbt_type != src_type {
         transcoder = transcoder.dst_type(mbt_type);
     }
