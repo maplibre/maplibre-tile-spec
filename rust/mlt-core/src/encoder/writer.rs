@@ -118,7 +118,7 @@ pub struct Encoder {
     pub(crate) vertex_buffer_type_cache: Option<VertexBufferType>,
 
     /// Cached result of `z_order_params` for the geometry column currently
-    /// being encoded.  Cleared at the start of each [`GeometryValues::write_to`](crate::encoder::GeometryValues::write_to)
+    /// being encoded.  Cleared at the start of each [`GeometryValues::write_to`](crate::GeometryValues::write_to)
     /// call so it never leaks across columns.
     pub(crate) morton_meta_cache: Option<MortonMeta>,
 

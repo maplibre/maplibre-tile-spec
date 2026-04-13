@@ -93,7 +93,7 @@ ci-env-info:
     @echo "::endgroup::"
 
 # Run linting as expected by CI
-ci-lint: ci-env-info test-fmt clippy
+ci-lint: ci-env-info test-fmt clippy ci-docs-rs
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run all tests as expected by CI
@@ -349,6 +349,16 @@ test: (just 'cargo-install' 'cargo-hack')
 # Test documentation generation
 test-doc: (docs '--document-private-items')
     cargo test --doc --features arbitrary --package mlt-core
+
+# Simulate docs.rs for all workspace crates and verify docs can build offline.
+ci-docs-rs:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup toolchain install nightly --profile minimal
+    export DOCS_RS=1
+    export RUSTDOCFLAGS="${RUSTDOCFLAGS:+$RUSTDOCFLAGS } --cfg docsrs"
+    cargo fetch --locked
+    CARGO_NET_OFFLINE=true cargo +nightly doc --workspace --no-deps --locked
 
 # Test code formatting
 test-fmt: (fmt-toml '--check' '--check-format')

@@ -25,7 +25,7 @@ pub struct EncodedUnknown {
 /// Holds fully-owned columnar data. Constructed directly (synthetics, benches) or
 /// converted from [`TileLayer01`](crate::TileLayer01).
 /// Consumed by encoding via [`StagedLayer::encode_into`] or `StagedLayer01::encode_explicit`
-/// (with [`Encoder::explicit`](crate::encoder::Encoder::explicit) set).
+/// (with explicit encoding mode enabled).
 #[derive(Debug, PartialEq, Clone)]
 pub struct StagedLayer01 {
     pub name: String,
