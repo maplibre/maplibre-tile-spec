@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.3...rust-mlt-wasm-v0.1.4) - 2026-04-13
+
+### Other
+
+- *(rust)* move frames/v01 -> decoder, adj use ([#1246](https://github.com/maplibre/maplibre-tile-spec/pull/1246))
+- *(rust)* mv tessellation to core ([#1220](https://github.com/maplibre/maplibre-tile-spec/pull/1220))
+- more tessellated synthetics ([#1218](https://github.com/maplibre/maplibre-tile-spec/pull/1218))
+- *(rust)* implement feature/property iterator and more type state ([#1198](https://github.com/maplibre/maplibre-tile-spec/pull/1198))
+
 ## [0.1.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.2...rust-mlt-wasm-v0.1.3) - 2026-03-23
 
 ### Other
