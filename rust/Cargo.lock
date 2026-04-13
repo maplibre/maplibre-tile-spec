@@ -1451,7 +1451,6 @@ dependencies = [
  "approx",
  "arbitrary",
  "num-traits",
- "rayon",
  "rstar",
  "serde",
 ]
@@ -1913,7 +1912,6 @@ dependencies = [
  "i_key_sort",
  "i_shape",
  "i_tree",
- "rayon",
 ]
 
 [[package]]
@@ -2691,6 +2689,7 @@ dependencies = [
 name = "mlt-wasm"
 version = "0.1.4"
 dependencies = [
+ "getrandom 0.2.17",
  "js-sys",
  "mlt-core",
  "wasm-bindgen",

@@ -2,7 +2,6 @@ use crate::MltResult;
 use crate::decoder::TileLayer01;
 use crate::encoder::model::{StagedLayer, StagedLayer01};
 use crate::encoder::property::encode::write_properties;
-#[cfg(feature = "sort-coords-iter")]
 use crate::encoder::spatial_sort_likely_to_help;
 use crate::encoder::{Encoder, EncoderConfig, SortStrategy, group_string_properties};
 
@@ -47,7 +46,6 @@ impl StagedLayer01 {
 
 /// Feature-count threshold above which the spatial trial is subject to the
 /// bounding-box pruning heuristic.
-#[cfg(feature = "sort-coords-iter")]
 const SORT_TRIAL_THRESHOLD: usize = 512;
 
 impl TileLayer01 {
@@ -67,7 +65,6 @@ impl TileLayer01 {
         }
 
         let mut sort_by = vec![SortStrategy::Unsorted];
-        #[cfg(feature = "sort-coords-iter")]
         {
             let try_spatial_sort = cfg.try_spatial_morton_sort || cfg.try_spatial_hilbert_sort;
             if try_spatial_sort
