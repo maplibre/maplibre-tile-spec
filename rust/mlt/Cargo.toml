@@ -25,7 +25,6 @@ __hotpath-mcp = [
     "__hotpath",
     "hotpath/hotpath-mcp",
     "hotpath/hotpath-mcp-meta",
-    "hotpath/hotpath-meta",
 ]
 
 [dependencies]
