@@ -283,7 +283,7 @@ fn normalize_part_offsets_for_rings(
 /// - The uniqueness ratio is below the threshold, meaning enough vertices are
 ///   repeated that the dictionary overhead is worthwhile.
 ///
-/// Calls [`Encoder::get_z_order_params`] so the [`MortonMeta`] is cached on the encoder
+/// Calls `get_z_order_params` so the [`MortonMeta`] is cached on the encoder
 /// and can be retrieved again in the Morton encoding branch without a second vertex scan.
 #[hotpath::measure]
 fn select_vertex_strategy(vertices: &[i32], enc: &mut Encoder) -> VertexBufferType {
