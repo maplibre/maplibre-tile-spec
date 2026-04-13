@@ -211,8 +211,9 @@ fn is_mbtiles_extension(path: &Path) -> bool {
 
 /// Re-encode an MLT tile using automatic encoding selection.
 ///
-/// Every Tag01 layer is fully decoded to [`TileLayer01`] and then re-encoded
-/// via [`encode_tile_layer`].  Unknown layer tags are passed through unchanged.
+/// Every Tag01 layer is fully decoded to [`mlt_core::TileLayer01`] and then
+/// re-encoded via [`mlt_core::TileLayer01::encode`]. Unknown layer tags are
+/// passed through unchanged.
 fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let layers = Parser::default().parse_layers(buffer)?;
     let mut dec = Decoder::default();
@@ -236,7 +237,7 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
 /// Convert an MVT tile to an MLT tile using automatic encoding selection.
 ///
 /// Each MVT layer is converted to a [`mlt_core::TileLayer01`] and encoded
-/// via [`encode_tile_layer`].
+/// via [`mlt_core::TileLayer01::encode`].
 fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();
     for tile in mvt_to_tile_layers(buffer)? {

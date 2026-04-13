@@ -318,7 +318,7 @@ impl Layer {
     /// Encode and then either verify against the reference dir (non-rust files) or write to the
     /// output dir (`-rust`-suffixed files). Delegates to [`SynthWriter::write`].
     ///
-    /// When `force_empty_streams` is non-empty, also emits a `_ns` ("no [forced] stream")
+    /// When `force_empty_streams` is non-empty, also emits a `_ns` ("no forced stream")
     /// sibling — but only when removing the forced-empty-stream flag **actually changes the
     /// encoded output**.  For some geometry configurations (e.g. Multi* types where the
     /// GEOMETRIES stream is already non-empty) the flag is a no-op; emitting the sibling in
