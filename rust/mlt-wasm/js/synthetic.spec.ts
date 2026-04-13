@@ -8,9 +8,9 @@ import {
 } from "../../../test/synthetic/synthetic-test-utils";
 import {
   decodeTile,
-  MltFeature,
+  type MltFeature,
   MltGeometryType,
-  MltLayer,
+  type MltLayer,
 } from "./vectorTile";
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
@@ -131,9 +131,7 @@ function getGeometry(feature: MltFeature): GeoJSON.Geometry {
       return {
         type: "MultiPolygon",
         coordinates: polygons.map((polygon) =>
-          polygon.map((ring) =>
-            closeRing(ring.map((p) => [p.x, p.y])),
-          ),
+          polygon.map((ring) => closeRing(ring.map((p) => [p.x, p.y]))),
         ),
       };
     }
@@ -152,4 +150,3 @@ function closeRing(ring: number[][]): number[][] {
   }
   return ring;
 }
-

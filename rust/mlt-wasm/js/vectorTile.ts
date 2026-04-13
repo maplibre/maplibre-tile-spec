@@ -76,7 +76,7 @@ const LINESTRING = 2;
 const POLYGON = 3;
 
 /** Mirrors `GeometryType` in mlt-core — preserves the single vs multi distinction that MVT collapses. */
-export const enum MltGeometryType {
+export enum MltGeometryType {
   Point = 0,
   LineString = 1,
   Polygon = 2,
@@ -89,11 +89,7 @@ export const enum MltGeometryType {
 // loadGeometry — JS equivalent of DecodedGeometry::to_mvt_rings
 // ---------------------------------------------------------------------------
 
-function openRing(
-  verts: Int32Array,
-  start: number,
-  end: number,
-): Point[] {
+function openRing(verts: Int32Array, start: number, end: number): Point[] {
   const ring: Point[] = new Array(end - start) as Point[];
   for (let i = start; i < end; i++) {
     ring[i - start] = new Point(verts[i * 2], verts[i * 2 + 1]);
@@ -174,7 +170,11 @@ function loadGeometry(
       const partEnd = partOffsets[featureIdx + 1];
       const rings: Point[][] = new Array(partEnd - partStart) as Point[][];
       for (let r = partStart; r < partEnd; r++) {
-        rings[r - partStart] = openRing(verts, ringOffsets[r], ringOffsets[r + 1]);
+        rings[r - partStart] = openRing(
+          verts,
+          ringOffsets[r],
+          ringOffsets[r + 1],
+        );
       }
       return rings;
     } else {
@@ -209,7 +209,11 @@ function loadPolygons(
     const partEnd = partOffsets[featureIdx + 1];
     const rings: Point[][] = new Array(partEnd - partStart) as Point[][];
     for (let r = partStart; r < partEnd; r++) {
-      rings[r - partStart] = openRing(verts, ringOffsets[r], ringOffsets[r + 1]);
+      rings[r - partStart] = openRing(
+        verts,
+        ringOffsets[r],
+        ringOffsets[r + 1],
+      );
     }
     return [rings];
   }
@@ -222,7 +226,11 @@ function loadPolygons(
     const partEnd = partOffsets[g + 1];
     const rings: Point[][] = new Array(partEnd - partStart) as Point[][];
     for (let r = partStart; r < partEnd; r++) {
-      rings[r - partStart] = openRing(verts, ringOffsets[r], ringOffsets[r + 1]);
+      rings[r - partStart] = openRing(
+        verts,
+        ringOffsets[r],
+        ringOffsets[r + 1],
+      );
     }
     polygons[g - gStart] = rings;
   }
@@ -348,8 +356,8 @@ export class MltLayer implements VectorTileLayerLike {
   >;
 
   constructor(
-    private readonly _tile: WasmMltTile,
-    private readonly _layerIdx: number,
+    readonly _tile: WasmMltTile,
+    readonly _layerIdx: number,
     name: string,
   ) {
     this.name = name;
