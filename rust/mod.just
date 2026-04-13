@@ -354,11 +354,11 @@ test-doc: (docs '--document-private-items')
 ci-docs-rs:
     #!/usr/bin/env bash
     set -euo pipefail
+    rustup toolchain install nightly --profile minimal
     export DOCS_RS=1
     export RUSTDOCFLAGS="${RUSTDOCFLAGS:+$RUSTDOCFLAGS } --cfg docsrs"
-    export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS } --cfg docsrs"
     cargo fetch --locked
-    CARGO_NET_OFFLINE=true cargo doc --workspace --no-deps --locked
+    CARGO_NET_OFFLINE=true cargo +nightly doc --workspace --no-deps --locked
 
 # Test code formatting
 test-fmt: (fmt-toml '--check' '--check-format')
