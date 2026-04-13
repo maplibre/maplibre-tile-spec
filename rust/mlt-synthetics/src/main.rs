@@ -324,10 +324,7 @@ fn generate_geometry(w: &mut SynthWriter) {
     mr_shell.push(mr_shell[0]);
     let mut mr_hole = mc[quarter..].to_vec();
     mr_hole.push(mr_hole[0]);
-    let poly_with_hole = Polygon::new(
-        LineString::new(mr_shell),
-        vec![LineString::new(mr_hole)],
-    );
+    let poly_with_hole = Polygon::new(LineString::new(mr_shell), vec![LineString::new(mr_hole)]);
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
