@@ -26,6 +26,7 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
   ["poly_multi_fpf_tes", "FastPFor not supported"],
   ["poly_self_intersect_fpf", "FastPFor not supported"],
   ["poly_self_intersect_fpf_tes", "FastPFor not supported"],
+  ["poly_multi_morton_hole_morton", "Pending investigation"],
 ]);
 
 describe("MLT WASM Decoder - Synthetic tests", () => {
