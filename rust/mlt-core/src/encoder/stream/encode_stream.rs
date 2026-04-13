@@ -33,23 +33,22 @@ pub(crate) fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<&str>
 }
 
 impl EncodedStream {
-    /// Encode a boolean data stream: byte-RLE <- packed bitmap <- `Vec<bool>`
-    /// Boolean streams always use byte-RLE encoding with `LogicalEncoding::Rle` metadata.
-    /// The `RleMeta` values are computed by readers from the stream itself.
-    #[hotpath::measure]
-    pub fn encode_bools(values: &[bool]) -> MltResult<Self> {
+    /// Encode a boolean data stream: byte-RLE <- packed bitmap.
+    pub fn encode_bools(values: impl ExactSizeIterator<Item = bool>) -> MltResult<Self> {
         Self::encode_bools_with_type(values, StreamType::Data(DictionaryType::None))
     }
 
-    /// Encode a presence/nullability stream
-    ///
-    /// Identical to [`Self::encode_bools`] except the stream type is [`StreamType::Present`]
-    pub fn encode_presence(values: &[bool]) -> MltResult<Self> {
+    /// Encode a presence/nullability stream.
+    pub fn encode_presence(values: impl ExactSizeIterator<Item = bool>) -> MltResult<Self> {
         Self::encode_bools_with_type(values, StreamType::Present)
     }
 
     /// Encode a boolean data stream: byte-RLE <- packed bitmap <- `Vec<bool>`
-    fn encode_bools_with_type(values: &[bool], stream_type: StreamType) -> MltResult<Self> {
+    #[hotpath::measure]
+    fn encode_bools_with_type(
+        values: impl ExactSizeIterator<Item = bool>,
+        stream_type: StreamType,
+    ) -> MltResult<Self> {
         let num_values = u32::try_from(values.len())?;
         let mut bools_bytes = Vec::new();
         encode_bools_to_bytes(values, &mut bools_bytes);

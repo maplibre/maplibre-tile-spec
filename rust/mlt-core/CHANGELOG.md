@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.6.0...rust-mlt-core-v0.7.0) - 2026-04-13
+
+### Added
+
+- *(rust)* trigram based shared dictionary selection ([#1283](https://github.com/maplibre/maplibre-tile-spec/pull/1283))
+- *(rust)* allow delta-rle picking in stream selection ([#1258](https://github.com/maplibre/maplibre-tile-spec/pull/1258))
+- *(rust)* impl memory budget reset ([#1257](https://github.com/maplibre/maplibre-tile-spec/pull/1257))
+- *(rust)* enable FPF for id encoding ([#1243](https://github.com/maplibre/maplibre-tile-spec/pull/1243))
+- *(rust)* mlt convert, encoder ([#1240](https://github.com/maplibre/maplibre-tile-spec/pull/1240))
+- *(rust)* enhance property iteration ([#1225](https://github.com/maplibre/maplibre-tile-spec/pull/1225))
+- *(rust)* SharedDict/Plain string enc support ([#1213](https://github.com/maplibre/maplibre-tile-spec/pull/1213))
+
+### Fixed
+
+- don't unwrap in `adjust_alloc` ([#1275](https://github.com/maplibre/maplibre-tile-spec/pull/1275))
+- *(rust)* overflow-panic found by the fuzzer ([#1268](https://github.com/maplibre/maplibre-tile-spec/pull/1268))
+- *(rust)* fix geometry decoding fuzz bug ([#1264](https://github.com/maplibre/maplibre-tile-spec/pull/1264))
+- *(rust)* fix decoding panic found by fuzz ([#1261](https://github.com/maplibre/maplibre-tile-spec/pull/1261))
+- *(rust)* speed up encoding by 30% due to dup sort bug ([#1260](https://github.com/maplibre/maplibre-tile-spec/pull/1260))
+- *(rust)* disallow mem leaks in rust, fix test ([#1256](https://github.com/maplibre/maplibre-tile-spec/pull/1256))
+- *(rust)* test helper accidentally exposed ([#1250](https://github.com/maplibre/maplibre-tile-spec/pull/1250))
+
+### Other
+
+- Use `impl Iterator` in more places ([#1288](https://github.com/maplibre/maplibre-tile-spec/pull/1288))
+- *(rust)* remove a few bad performance choices (+6% encoder gain) ([#1287](https://github.com/maplibre/maplibre-tile-spec/pull/1287))
+- *(rust)* resolve most of the encoding quality + performance benefits of java ([#1281](https://github.com/maplibre/maplibre-tile-spec/pull/1281))
+- *(rust)* Don't allocate for calculating the hilbert params and resulting parameters ([#1285](https://github.com/maplibre/maplibre-tile-spec/pull/1285))
+- *(rust)* improve fuzzer ([#1278](https://github.com/maplibre/maplibre-tile-spec/pull/1278))
+- *(rust)* make sure we benchmark ourselves against the compressed variants ([#1194](https://github.com/maplibre/maplibre-tile-spec/pull/1194))
+- *(rust)* make staging differ optional from non-opt columns ([#1276](https://github.com/maplibre/maplibre-tile-spec/pull/1276))
+- *(rust)* cache morton computation ([#1277](https://github.com/maplibre/maplibre-tile-spec/pull/1277))
+- benchmark and fix various performance issues in the encoder ([#1273](https://github.com/maplibre/maplibre-tile-spec/pull/1273))
+- fix weird unessary allocation ([#1272](https://github.com/maplibre/maplibre-tile-spec/pull/1272))
+- *(rust)* reuse buffers, casting ([#1267](https://github.com/maplibre/maplibre-tile-spec/pull/1267))
+- *(rust)* Hotpath based profiling ([#1269](https://github.com/maplibre/maplibre-tile-spec/pull/1269))
+- *(rust)* add StreamCtx to simplify callbacks ([#1263](https://github.com/maplibre/maplibre-tile-spec/pull/1263))
+- *(rust)* remove unused auto_u32/u64 ([#1265](https://github.com/maplibre/maplibre-tile-spec/pull/1265))
+- *(rust)* rm obsolete encode_* funcs ([#1262](https://github.com/maplibre/maplibre-tile-spec/pull/1262))
+- *(rust)* massive rewrite of the encoder ([#1254](https://github.com/maplibre/maplibre-tile-spec/pull/1254))
+- *(rust)* re-enable the fuzzer in CI ([#1244](https://github.com/maplibre/maplibre-tile-spec/pull/1244))
+- *(rust)* improve decoding benchmarks ([#1247](https://github.com/maplibre/maplibre-tile-spec/pull/1247))
+- *(rust)* clean up utils ([#1251](https://github.com/maplibre/maplibre-tile-spec/pull/1251))
+- *(rust)* consolidate utils ([#1248](https://github.com/maplibre/maplibre-tile-spec/pull/1248))
+- *(rust)* move frames/v01 -> decoder, adj use ([#1246](https://github.com/maplibre/maplibre-tile-spec/pull/1246))
+- *(rust)* move more code to encoder ([#1245](https://github.com/maplibre/maplibre-tile-spec/pull/1245))
+- *(rust)* move all encoding code to separate dir ([#1241](https://github.com/maplibre/maplibre-tile-spec/pull/1241))
+- *(rust)* streamline StagedStrings and StagedSharedDict ([#1236](https://github.com/maplibre/maplibre-tile-spec/pull/1236))
+- *(rust)* add tests with no presence streams ([#1233](https://github.com/maplibre/maplibre-tile-spec/pull/1233))
+- *(rust)* encoder rework, rm profiles ([#1232](https://github.com/maplibre/maplibre-tile-spec/pull/1232))
+- *(rust)* mv tessellation to core ([#1220](https://github.com/maplibre/maplibre-tile-spec/pull/1220))
+- *(rust)* improve synthetics, geojson ([#1210](https://github.com/maplibre/maplibre-tile-spec/pull/1210))
+- add large FastPFOR synthetics ([#1205](https://github.com/maplibre/maplibre-tile-spec/pull/1205))
+- *(rust)* use -ize spelling ([#1200](https://github.com/maplibre/maplibre-tile-spec/pull/1200))
+- *(rust)* implement feature/property iterator and more type state ([#1198](https://github.com/maplibre/maplibre-tile-spec/pull/1198))
+- *(rust)* type state to represent fully-decoded layers ([#1171](https://github.com/maplibre/maplibre-tile-spec/pull/1171))
+- *(rust)* cleanup Results, minor styling ([#1192](https://github.com/maplibre/maplibre-tile-spec/pull/1192))
+
 ## [0.6.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.5.0...rust-mlt-core-v0.6.0) - 2026-03-23
 
 ### Other

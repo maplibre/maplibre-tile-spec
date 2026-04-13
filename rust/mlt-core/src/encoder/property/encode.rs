@@ -31,11 +31,13 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
         D::Bool(v) => {
             CT::Bool.write_to(&mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
-            enc.write_boolean_stream(&EncodedStream::encode_bools(&v.values)?)?;
+            let values = v.values.iter().copied();
+            enc.write_boolean_stream(&EncodedStream::encode_bools(values)?)?;
         }
         D::OptBool(v) => {
-            begin_opt_col(CT::OptBool, &v.name, &v.presence, enc)?;
-            enc.write_boolean_stream(&EncodedStream::encode_bools(&v.values)?)?;
+            begin_opt_col(CT::OptBool, &v.name, v.presence.iter().copied(), enc)?;
+            let values = v.values.iter().copied();
+            enc.write_boolean_stream(&EncodedStream::encode_bools(values)?)?;
         }
         D::F32(v) => {
             CT::F32.write_to(&mut enc.meta)?;
@@ -43,7 +45,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             enc.write_stream(&EncodedStream::encode_f32(&v.values)?)?;
         }
         D::OptF32(v) => {
-            begin_opt_col(CT::OptF32, &v.name, &v.presence, enc)?;
+            begin_opt_col(CT::OptF32, &v.name, v.presence.iter().copied(), enc)?;
             enc.write_stream(&EncodedStream::encode_f32(&v.values)?)?;
         }
         D::F64(v) => {
@@ -52,7 +54,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             enc.write_stream(&EncodedStream::encode_f64(&v.values)?)?;
         }
         D::OptF64(v) => {
-            begin_opt_col(CT::OptF64, &v.name, &v.presence, enc)?;
+            begin_opt_col(CT::OptF64, &v.name, v.presence.iter().copied(), enc)?;
             enc.write_stream(&EncodedStream::encode_f64(&v.values)?)?;
         }
         D::I8(v) => {
@@ -63,7 +65,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_i32_stream(&widened, &ctx, enc)?;
         }
         D::OptI8(v) => {
-            begin_opt_col(CT::OptI8, &v.name, &v.presence, enc)?;
+            begin_opt_col(CT::OptI8, &v.name, v.presence.iter().copied(), enc)?;
             let widened: Vec<i32> = v.values.iter().map(|&x| i32::from(x)).collect();
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_i32_stream(&widened, &ctx, enc)?;
@@ -76,7 +78,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_u32_stream(&widened, &ctx, enc)?;
         }
         D::OptU8(v) => {
-            begin_opt_col(CT::OptU8, &v.name, &v.presence, enc)?;
+            begin_opt_col(CT::OptU8, &v.name, v.presence.iter().copied(), enc)?;
             let widened: Vec<u32> = v.values.iter().map(|&x| u32::from(x)).collect();
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_u32_stream(&widened, &ctx, enc)?;
@@ -88,7 +90,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_i32_stream(&v.values, &ctx, enc)?;
         }
         D::OptI32(v) => {
-            begin_opt_col(CT::OptI32, &v.name, &v.presence, enc)?;
+            begin_opt_col(CT::OptI32, &v.name, v.presence.iter().copied(), enc)?;
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_i32_stream(&v.values, &ctx, enc)?;
         }
@@ -99,7 +101,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_u32_stream(&v.values, &ctx, enc)?;
         }
         D::OptU32(v) => {
-            begin_opt_col(CT::OptU32, &v.name, &v.presence, enc)?;
+            begin_opt_col(CT::OptU32, &v.name, v.presence.iter().copied(), enc)?;
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_u32_stream(&v.values, &ctx, enc)?;
         }
@@ -110,7 +112,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_i64_stream(&v.values, &ctx, enc)?;
         }
         D::OptI64(v) => {
-            begin_opt_col(CT::OptI64, &v.name, &v.presence, enc)?;
+            begin_opt_col(CT::OptI64, &v.name, v.presence.iter().copied(), enc)?;
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_i64_stream(&v.values, &ctx, enc)?;
         }
@@ -121,7 +123,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_u64_stream(&v.values, &ctx, enc)?;
         }
         D::OptU64(v) => {
-            begin_opt_col(CT::OptU64, &v.name, &v.presence, enc)?;
+            begin_opt_col(CT::OptU64, &v.name, v.presence.iter().copied(), enc)?;
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_u64_stream(&v.values, &ctx, enc)?;
         }
@@ -133,7 +135,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
         D::OptStr(v) => {
             ColumnType::OptStr.write_to(&mut enc.meta)?;
             enc.meta.write_string(&v.name)?;
-            let presence = EncodedStream::encode_presence(&v.presence_bools())?;
+            let presence = EncodedStream::encode_presence(v.presence_bools())?;
             write_str_col(v, Some(&presence), enc)?;
         }
         D::SharedDict(v) => return write_shared_dict(v, enc),
@@ -150,7 +152,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
 fn begin_opt_col(
     ct: ColumnType,
     name: &str,
-    presence_bools: &[bool],
+    presence_bools: impl ExactSizeIterator<Item = bool>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
     ct.write_to(&mut enc.meta)?;
