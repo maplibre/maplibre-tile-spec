@@ -21,19 +21,14 @@ use xxhash_rust::xxh3::xxh3_128;
 
 use crate::ls::is_mlt_extension;
 
-/// Maximum input-tile size (bytes) for which we consult the dedup cache
-/// (file-based conversion path only).
+/// Only tiles below this size are tracked in the dedup cache, because
+/// larger tiles almost never repeat across a tileset.
 const MAX_TILE_TRACK_SIZE: usize = 1024;
 
-/// Maximum aggregate weight (encoded-tile bytes) held by the dedup cache
-/// (file-based conversion path only).
 const CACHE_MAX_BYTES: u64 = 512 * 1024 * 1024;
 
-/// Shared cache type: maps an input-identity key to the encoded MLT bytes.
 type EncodedCache = Cache<u128, Arc<Vec<u8>>>;
 
-/// Construct a weighted [`EncodedCache`] bounded by roughly `max_bytes` of
-/// encoded-tile payload.
 fn make_cache(max_bytes: u64) -> EncodedCache {
     Cache::builder()
         .max_capacity(max_bytes)
@@ -41,13 +36,10 @@ fn make_cache(max_bytes: u64) -> EncodedCache {
         .build()
 }
 
-/// Counters kept across the encoding stage for end-of-run dedup reporting
-/// (file-based conversion path only).
 #[derive(Default)]
 struct DedupStats {
     hits: AtomicU64,
     encoded: AtomicU64,
-    /// Cumulative size (bytes) of cache-hit encoded tiles — encode work skipped.
     bytes_saved: AtomicU64,
 }
 
@@ -61,7 +53,6 @@ impl DedupStats {
     }
 }
 
-/// Print a one-line dedup summary alongside the "done" message.
 #[expect(
     clippy::cast_precision_loss,
     reason = "hit/miss counts are well below 2^52 for realistic tilesets"
@@ -85,7 +76,6 @@ fn format_dedup_line(stats: &DedupStats, cache: &EncodedCache) -> String {
     )
 }
 
-/// Format a progress bar's throughput as a whole-number `{rate}/s`.
 #[expect(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
@@ -95,9 +85,7 @@ fn whole_rate_per_sec(state: &ProgressState, w: &mut dyn std::fmt::Write) {
     let _ = w.write_fmt(format_args!("{}/s", state.per_sec() as u64));
 }
 
-/// Output `.mbtiles` schema variant.
-///
-/// Mirrors [`MbtType`] but without the `hash_view` detail, keeping the CLI simple.
+/// CLI-facing subset of [`MbtType`] (hides the `hash_view` detail).
 #[derive(Clone, Default, ValueEnum)]
 enum MbtFormat {
     /// Single table with all tiles; no deduplication (smallest overhead)
@@ -123,7 +111,6 @@ impl From<MbtFormat> for MbtType {
     }
 }
 
-/// Which sort strategies to attempt during re-encoding.
 #[derive(Clone, Default, ValueEnum)]
 enum SortMode {
     /// Try all sort strategies and keep the smallest result
@@ -186,9 +173,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             .block_on(convert_mbtiles_async(args, cfg));
     }
 
-    // Determine the base for computing relative paths. For a single-file
-    // input, the "base" is the parent directory so `strip_prefix` just yields
-    // the filename.
+    // For a single file, use the parent so `strip_prefix` yields just the filename.
     let base = if args.input.is_dir() {
         args.input.as_path()
     } else {
@@ -208,7 +193,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     );
     bar.enable_steady_tick(Duration::from_millis(100));
 
-    // `bar.println` is a no-op when hidden (non-TTY), so fall through to `eprintln!`.
+    // `bar.println` is a no-op when hidden (non-TTY), so fall back to stderr.
     let emit = |msg: String| {
         if bar.is_hidden() {
             eprintln!("{msg}");
@@ -277,7 +262,6 @@ fn convert_file(
     let is_mlt = is_mlt_extension(file);
     let file_display = file.display().to_string();
 
-    // Skip cache for large tiles — they are almost certainly unique.
     if buffer.len() > MAX_TILE_TRACK_SIZE {
         let out_bytes = if is_mlt {
             convert_mlt_buffer(&buffer, cfg)
@@ -332,10 +316,6 @@ fn is_mbtiles_extension(path: &Path) -> bool {
     matches!(path.extension().and_then(OsStr::to_str), Some("mbtiles"))
 }
 
-/// Re-encode an MLT tile using automatic encoding selection.
-///
-/// Every Tag01 layer is fully decoded to [`TileLayer01`] and then re-encoded
-/// via [`encode_tile_layer`].  Unknown layer tags are passed through unchanged.
 fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let layers = Parser::default().parse_layers(buffer)?;
     let mut dec = Decoder::default();
@@ -356,10 +336,6 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     Ok(out)
 }
 
-/// Convert an MVT tile to an MLT tile using automatic encoding selection.
-///
-/// Each MVT layer is converted to a [`mlt_core::TileLayer01`] and encoded
-/// via [`encode_tile_layer`].
 fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();
     for tile in mvt_to_tile_layers(buffer)? {
@@ -368,7 +344,6 @@ fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>>
     Ok(out)
 }
 
-/// Decompress one raw tile and convert it from MVT to MLT.
 fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let mvt = match encoding {
         Encoding::Gzip => decode_gzip(&data)?,
@@ -380,11 +355,7 @@ fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResul
     convert_mvt_buffer(mvt, cfg)
 }
 
-/// Use `MbtilesTranscoder` to run the 3-stage pipeline that decompresses
-/// each MVT tile via `encode_one` and writes the resulting MLT tiles to the
-/// destination `.mbtiles` file.
 async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyResult<()> {
-    // ── Validate source ──────────────────────────────────────────────────────
     let src = Mbtiles::new(&args.input)?;
     let mut src_conn = src.open_readonly().await?;
 
@@ -406,7 +377,7 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
     let mbt_type = args.mbtiles_format.clone().map_or(src_type, MbtType::from);
     let encoding = tile_info.encoding;
 
-    // Done with the source connection — the transcoder opens its own.
+    // The transcoder opens its own connection.
     drop(src_conn);
 
     eprintln!(
@@ -415,19 +386,23 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
         args.output.display()
     );
 
-    // ── Run transcoder ───────────────────────────────────────────────────────
     let mut transcoder =
         MbtilesTranscoder::new(args.input.clone(), args.output.clone(), move |data| {
             encode_one(data, encoding, cfg)
                 .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.to_string().into() })
-        });
+        })
+        .batch_size(500)
+        .cache_max_bytes(512 * 1024 * 1024)
+        .max_tile_track_size(1024)
+        .copy_metadata(true)
+        .channel_buffer(4);
     if mbt_type != src_type {
         transcoder = transcoder.dst_type(mbt_type);
     }
 
     let stats = transcoder.run().await?;
 
-    // ── Set format metadata to MLT ───────────────────────────────────────────
+    // The transcoder copies source metadata; override `format` to MLT.
     let dst = Mbtiles::new(&args.output)?;
     let mut dst_conn = dst.open_or_new().await?;
     dst.set_metadata_value(&mut dst_conn, "format", Format::Mlt.metadata_format_value())
