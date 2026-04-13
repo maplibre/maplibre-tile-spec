@@ -183,8 +183,13 @@ impl fmt::Display for PropName<'_> {
 
 impl PartialEq<PropName<'_>> for PropName<'_> {
     fn eq(&self, other: &PropName<'_>) -> bool {
-        // This is probably ok for performance as it shouldn't be in the hot path
-        self.to_string().as_str() == other
+        // Compare the concatenated strings byte-by-byte without allocating.
+        let (a0, a1) = (self.0.as_bytes(), self.1.as_bytes());
+        let a = a0.iter().chain(a1);
+        let (b0, b1) = (other.0.as_bytes(), other.1.as_bytes());
+        let b = b0.iter().chain(b1);
+        let combined_len_eq = a0.len() + a1.len() == b0.len() + b1.len();
+        combined_len_eq && a.eq(b)
     }
 }
 
@@ -567,6 +572,18 @@ mod tests {
     fn prop_name_structural_eq_is_part_wise() {
         assert_eq!(PropName("a", "b"), PropName("a", "b"));
         assert_eq!(PropName("ab", ""), PropName("a", "b"));
+    }
+
+    #[test]
+    fn prop_name_eq_prop_name_semantic_equality() {
+        assert_eq!(PropName("ab", ""), PropName("a", "b"));
+        assert_eq!(PropName("", "ab"), PropName("a", "b"));
+        assert_eq!(PropName("abc", "def"), PropName("ab", "cdef"));
+        assert_eq!(PropName("a", "bcdef"), PropName("abcde", "f"));
+
+        assert_ne!(PropName("a", "b"), PropName("a", "c"));
+        assert_ne!(PropName("a", "b"), PropName("ab", "c"));
+        assert_ne!(PropName("abc", ""), PropName("ab", ""));
     }
 
     #[test]

@@ -220,20 +220,16 @@ impl StagedSharedDictItem {
         self.has_presence = value;
     }
 
-    #[must_use]
-    pub fn presence_bools(&self) -> Vec<bool> {
+    pub fn presence_bools(&self) -> impl ExactSizeIterator<Item = bool> + '_ {
         self.ranges
             .iter()
             .map(|&range| decode_shared_dict_range(range).is_some())
-            .collect()
     }
 
-    #[must_use]
-    pub fn dense_spans(&self) -> Vec<(u32, u32)> {
+    pub fn dense_spans(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
         self.ranges
             .iter()
             .filter_map(|&range| decode_shared_dict_range(range))
-            .collect()
     }
 
     #[must_use]
@@ -413,7 +409,7 @@ pub(crate) fn write_shared_dict(
         if item.has_presence() {
             enc.write_varint(2u32)?;
             ColumnType::OptStr.write_to(&mut enc.meta)?;
-            let presence = EncodedStream::encode_presence(&item.presence_bools())?;
+            let presence = EncodedStream::encode_presence(item.presence_bools())?;
             enc.write_boolean_stream(&presence)?;
         } else {
             enc.write_varint(1u32)?;
@@ -423,10 +419,9 @@ pub(crate) fn write_shared_dict(
 
         let offsets: Vec<u32> = item
             .dense_spans()
-            .iter()
             .map(|span| {
                 dict_index
-                    .get(span)
+                    .get(&span)
                     .copied()
                     .ok_or(DictIndexOutOfBounds(span.0, dict_spans.len()))
             })
