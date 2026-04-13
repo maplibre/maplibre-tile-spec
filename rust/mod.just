@@ -357,7 +357,7 @@ ci-docs-rs:
     export DOCS_RS=1
     export RUSTDOCFLAGS="${RUSTDOCFLAGS:+$RUSTDOCFLAGS } --cfg docsrs"
     export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS } --cfg docsrs"
-    cargo fetch --locked --workspace
+    cargo fetch --locked
     CARGO_NET_OFFLINE=true cargo doc --workspace --no-deps --locked
 
 # Test code formatting
