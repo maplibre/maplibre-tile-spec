@@ -101,7 +101,7 @@ ci-env-info:
     # MacOS
     if [[ ! $(command -v sysctl &>/dev/null) && ! $(command -v egrep &>/dev/null) ]]; then
         echo "::group::sysctl"
-        sysctl -a | egrep "^hw"
+        sysctl -a 2>/dev/null | egrep "^hw" || true # ignore permission denied to some sysctl entries
         echo "::endgroup::"
     fi
 
