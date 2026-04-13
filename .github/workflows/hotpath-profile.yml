@@ -26,7 +26,7 @@ jobs:
       # See `just rust::download-benchmark-tiles` for details.
       - name: Cache benchmark tiles
         id: cache-tiles
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /tmp/benchmark-tiles
           key: hotpath-tiles-protomaps-z6-v1

@@ -37,7 +37,7 @@ jobs:
       - run: just -v rust::ci-coverage
       - name: Upload coverage to Codecov
         if: github.repository_owner == 'maplibre'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           use_oidc: true
           fail_ci_if_error: true
@@ -252,7 +252,7 @@ jobs:
         uses: actions/download-artifact@v8
         with: { path: artifacts }
       - name: Add binaries to GitHub release
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
           tag_name: ${{ steps.get_version.outputs.tag }}
           files: |
@@ -303,7 +303,7 @@ jobs:
           path: mlt-wasm-pkg
 
       - name: Release (GitHub) - Create Draft
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
           name: mlt-wasm-js-v${{ env.version }}
           tag_name: mlt-wasm-js-v${{ env.version }}
@@ -317,7 +317,7 @@ jobs:
           npm publish "$package_tgz" --access=public
 
       - name: Publish GitHub release (remove draft)
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
           tag_name: mlt-wasm-js-v${{ env.version }}
           name: mlt-wasm-js-v${{ env.version }}
