@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.8...rust-mlt-v0.1.9) - 2026-04-13
+
+### Added
+
+- *(rust)* mlt convert support for full mbtiles conversion ([#1259](https://github.com/maplibre/maplibre-tile-spec/pull/1259))
+- *(rust)* mlt convert, encoder ([#1240](https://github.com/maplibre/maplibre-tile-spec/pull/1240))
+
+### Other
+
+- *(rust)* remove a few bad performance choices (+6% encoder gain) ([#1287](https://github.com/maplibre/maplibre-tile-spec/pull/1287))
+- benchmark and fix various performance issues in the encoder ([#1273](https://github.com/maplibre/maplibre-tile-spec/pull/1273))
+- *(rust)* Hotpath based profiling ([#1269](https://github.com/maplibre/maplibre-tile-spec/pull/1269))
+- *(rust)* massive rewrite of the encoder ([#1254](https://github.com/maplibre/maplibre-tile-spec/pull/1254))
+- *(rust)* consolidate utils ([#1248](https://github.com/maplibre/maplibre-tile-spec/pull/1248))
+- *(rust)* move frames/v01 -> decoder, adj use ([#1246](https://github.com/maplibre/maplibre-tile-spec/pull/1246))
+- *(rust)* move more code to encoder ([#1245](https://github.com/maplibre/maplibre-tile-spec/pull/1245))
+- *(rust)* mv tessellation to core ([#1220](https://github.com/maplibre/maplibre-tile-spec/pull/1220))
+- *(rust)* improve synthetics, geojson ([#1210](https://github.com/maplibre/maplibre-tile-spec/pull/1210))
+- add large FastPFOR synthetics ([#1205](https://github.com/maplibre/maplibre-tile-spec/pull/1205))
+- *(rust)* implement feature/property iterator and more type state ([#1198](https://github.com/maplibre/maplibre-tile-spec/pull/1198))
+- *(rust)* type state to represent fully-decoded layers ([#1171](https://github.com/maplibre/maplibre-tile-spec/pull/1171))
+
 ## [0.1.8](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.7...rust-mlt-v0.1.8) - 2026-03-23
 
 ### Other

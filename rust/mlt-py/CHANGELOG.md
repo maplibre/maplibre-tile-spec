@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.8...python-mlt-v0.1.9) - 2026-04-13
+
+### Added
+
+- *(rust)* enhance property iteration ([#1225](https://github.com/maplibre/maplibre-tile-spec/pull/1225))
+
+### Other
+
+- *(rust)* move frames/v01 -> decoder, adj use ([#1246](https://github.com/maplibre/maplibre-tile-spec/pull/1246))
+- *(rust)* mv tessellation to core ([#1220](https://github.com/maplibre/maplibre-tile-spec/pull/1220))
+- *(rust)* implement feature/property iterator and more type state ([#1198](https://github.com/maplibre/maplibre-tile-spec/pull/1198))
+- *(rust)* type state to represent fully-decoded layers ([#1171](https://github.com/maplibre/maplibre-tile-spec/pull/1171))
+- *(rust)* cleanup Results, minor styling ([#1192](https://github.com/maplibre/maplibre-tile-spec/pull/1192))
+
 ## [0.1.8](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.7...python-mlt-v0.1.8) - 2026-03-23
 
 ### Other
