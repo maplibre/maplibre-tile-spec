@@ -50,14 +50,16 @@ impl MltTile {
     // Bulk typed-array accessors
     // -----------------------------------------------------------------------
 
-    /// All geometry types for every feature in `layer_idx` as a `Uint8Array`.
-    ///
-    /// One byte per feature: `1` = Point, `2` = `LineString`, `3` = Polygon,
-    /// `0` = Unknown.  Pre-built during `decode_tile` — this call is a cheap
-    /// handle clone with no allocation.
+    /// MVT geometry types — collapses single and multi into `1`/`2`/`3`.
     #[must_use]
     pub fn layer_types(&self, layer_idx: usize) -> js_sys::Uint8Array {
         self.layers[layer_idx].types_array.clone()
+    }
+
+    /// Original MLT geometry types — preserves the single vs multi distinction.
+    #[must_use]
+    pub fn layer_mlt_types(&self, layer_idx: usize) -> js_sys::Uint8Array {
+        self.layers[layer_idx].mlt_types_array.clone()
     }
 
     /// All feature IDs for layer `layer_idx` as a `Float64Array`.
