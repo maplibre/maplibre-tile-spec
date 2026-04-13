@@ -2,7 +2,7 @@
 //!
 //! # Design
 //!
-//! A single [`tile::MltTile`] struct owns all decoded [`TileLayer01`] data for
+//! A single `MltTile` struct owns all decoded [`mlt_core::TileLayer01`] data for
 //! every layer in the tile.  No per-layer or per-feature WASM objects are
 //! created; every accessor takes explicit `(layer_idx, feature_idx)` arguments
 //! so the JavaScript side can keep plain numeric indices rather than
@@ -10,19 +10,19 @@
 //!
 //! ## Geometry
 //!
-//! [`tile::MltTile::layer_geometry`] returns a [`geometry::LayerGeometry`]
+//! `MltTile::layer_geometry` returns a `LayerGeometry`
 //! whose typed-array getters expose the raw offset and vertex buffers.
 //! JS walks these directly — zero WASM boundary crossings per feature.
 //!
 //! ## IDs
 //!
-//! [`tile::MltTile::layer_ids`] returns a `Float64Array` — one `f64` per
+//! `MltTile::layer_ids` returns a `Float64Array` — one `f64` per
 //! feature.  Absent IDs are `NaN` (≡ `undefined` after the JS wrapper checks
 //! `isNaN`).  IDs above `Number.MAX_SAFE_INTEGER` lose precision.
 //!
 //! ## Properties
 //!
-//! [`tile::MltTile::layer_property_keys`] and [`tile::MltTile::layer_properties`]
+//! `MltTile::layer_property_keys` and `MltTile::layer_properties`
 //! expose all property columns as typed arrays built once per layer.  JS reads
 //! any feature's property with a single array index — zero WASM calls during
 //! traversal.
@@ -38,10 +38,10 @@ use mlt_core::{Decoder, GeometryType, MltError, Parser};
 use tile::MltTile;
 use wasm_bindgen::prelude::*;
 
-/// Decode a raw MLT tile blob and return an [`MltTile`].
+/// Decode a raw MLT tile blob and return an `MltTile`.
 ///
 /// All geometry, IDs and properties are decoded eagerly into row-oriented
-/// [`TileLayer01`] values.
+/// [`mlt_core::TileLayer01`] values.
 #[wasm_bindgen]
 pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
     let mut parser = Parser::default();

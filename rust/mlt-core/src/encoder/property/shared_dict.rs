@@ -261,7 +261,7 @@ impl StagedSharedDict {
     /// Each column is a `(suffix, values)` pair where `values` is an iterator of
     /// optional strings (one per feature).  All unique non-null strings across every
     /// column are deduplicated into a shared byte corpus; per-feature byte-range offsets
-    /// into that corpus are recorded in each [`StagedSharedDictItem`].
+    /// into that corpus are recorded in each shared-dictionary item.
     pub fn new<S, I, T>(
         prefix: impl Into<String>,
         columns: impl IntoIterator<Item = (S, I)>,

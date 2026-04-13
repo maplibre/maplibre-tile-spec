@@ -7,8 +7,8 @@
 //! and free from any encoded/decoded duality.
 //!
 //! Conversion from [`TileLayer01`] to `StagedLayer01` is done via
-//! `StagedLayer01::from_tile` (pre-computed [`StringGroup`] pairings produced by
-//! [`group_string_properties`](crate::encoder::group_string_properties)) or the blanket [`From`] impl (no grouping).
+//! `StagedLayer01::from_tile` (pre-computed `StringGroup` pairings produced by
+//! `group_string_properties`) or the blanket [`From`] impl (no grouping).
 
 use std::collections::HashMap;
 
@@ -18,10 +18,10 @@ use crate::encoder::{SortStrategy, StagedProperty, StagedSharedDict, StringGroup
 
 impl StagedLayer01 {
     /// Construct a [`StagedLayer01`] from a row-oriented [`TileLayer01`], applying
-    /// pre-computed [`StringGroup`] pairings to merge similar string columns into
+    /// pre-computed `StringGroup` pairings to merge similar string columns into
     /// shared dictionaries.
     ///
-    /// `groups` should be the output of [`group_string_properties`](crate::encoder::group_string_properties) called on the
+    /// `groups` should be the output of `group_string_properties` called on the
     /// same [`TileLayer01`] source.  Because unique-value membership is
     /// row-order-independent, the same groups can be reused across sort trials.
     #[must_use]
