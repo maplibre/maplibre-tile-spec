@@ -72,25 +72,38 @@ ci-check: ci-env-info check
 
 # Print environment info for CI
 ci-env-info:
-    @echo "::group::General environment Information"
-    @echo "Running for '{{main_crate}}' crate {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD {{justfile_directory()}}"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "::group::General environment Information"
+    echo "Running for '{{main_crate}}' crate {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    echo "PWD {{justfile_directory()}}"
     {{just}} --version
     rustc --version
     cargo --version
     rustup --version
-    @echo "RUSTFLAGS='$RUSTFLAGS'"
-    @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
-    @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
-    @echo "::endgroup::"
+    echo "RUSTFLAGS='$RUSTFLAGS'"
+    echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
+    echo "::endgroup::"
 
-    @echo "::group::lscpu"
-    lscpu
-    @echo "::endgroup::"
+    # Linux
+    if [ command -v lscpu &>/dev/null ]; then
+        echo "::group::lscpu"
+        lscpu
+        echo "::endgroup::"
+    fi
+    if [ -f /proc/cpuinfo ]; then
+        echo "::group::/proc/cpuinfo"
+        cat /proc/cpuinfo
+        echo "::endgroup::"
+    fi
 
-    @echo "::group::/proc/cpuinfo"
-    cat /proc/cpuinfo
-    @echo "::endgroup::"
+    # MacOS
+    if [[ ! $(command -v sysctl &>/dev/null) && ! $(command -v egrep &>/dev/null) ]]; then
+        echo "::group::sysctl"
+        sysctl -a | egrep "^hw"
+        echo "::endgroup::"
+    fi
 
 # Run linting as expected by CI
 ci-lint: ci-env-info test-fmt clippy
