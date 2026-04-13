@@ -87,7 +87,7 @@ ci-env-info:
     echo "::endgroup::"
 
     # Linux
-    if [ command -v lscpu &>/dev/null ]; then
+    if command -v lscpu &>/dev/null; then
         echo "::group::lscpu"
         lscpu
         echo "::endgroup::"
@@ -99,7 +99,7 @@ ci-env-info:
     fi
 
     # MacOS
-    if [[ ! $(command -v sysctl &>/dev/null) && ! $(command -v egrep &>/dev/null) ]]; then
+    if command -v sysctl &>/dev/null && command -v egrep &>/dev/null; then
         echo "::group::sysctl"
         sysctl -a 2>/dev/null | egrep "^hw" || true # ignore permission denied to some sysctl entries
         echo "::endgroup::"
