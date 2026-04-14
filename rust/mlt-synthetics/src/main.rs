@@ -317,6 +317,25 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .geo(MultiPoint(vec![P1, P2, P3]))
         .write(w, "multipoint");
+    // Split the Morton curve at a different place so that the rings are different lengths,
+    // use one as the shell and one as the hole of a single and multi-polygon.
+    let quarter = mc.len() / 4;
+    let mut mr_shell = mc[..quarter].to_vec();
+    mr_shell.push(mr_shell[0]);
+    let mut mr_hole = mc[quarter..].to_vec();
+    mr_hole.push(mr_hole[0]);
+    let poly_with_hole = Polygon::new(LineString::new(mr_shell), vec![LineString::new(mr_hole)]);
+    geo_varint()
+        .vertex_buffer_type(VertexBufferType::Morton)
+        .vertex_offsets(E::delta_rle_varint())
+        .geo(poly_with_hole.clone())
+        .write(w, "poly_morton_hole_morton");
+    geo_varint()
+        .vertex_buffer_type(VertexBufferType::Morton)
+        .vertex_offsets(E::delta_rle_varint())
+        .geo(MultiPolygon(vec![poly_with_hole]))
+        .write(w, "poly_multi_morton_hole_morton");
+
     geo_varint()
         .no_rings(E::rle_varint())
         .geo(MultiLineString(vec![line1(), line2()]))

@@ -64,25 +64,29 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             .into_parsed(&mut dec)
             .map_err(|e| to_js_err(&e))?;
 
-        // Build types_array from vector_types.
-        let types_bytes: Vec<u8> = parsed_geometry
+        let (types_bytes, mlt_types_bytes): (Vec<u8>, Vec<u8>) = parsed_geometry
             .vector_types()
             .iter()
-            .map(|t| match t {
-                GeometryType::Point | GeometryType::MultiPoint => 1,
-                GeometryType::LineString | GeometryType::MultiLineString => 2,
-                GeometryType::Polygon | GeometryType::MultiPolygon => 3,
-                #[allow(unreachable_patterns)]
-                _ => 0,
+            .map(|t| {
+                let mvt = match t {
+                    GeometryType::Point | GeometryType::MultiPoint => 1,
+                    GeometryType::LineString | GeometryType::MultiLineString => 2,
+                    GeometryType::Polygon | GeometryType::MultiPolygon => 3,
+                    #[allow(unreachable_patterns)]
+                    _ => 0,
+                };
+                (mvt, *t as u8)
             })
-            .collect();
+            .unzip();
         let types_array = Uint8Array::from(types_bytes.as_slice());
+        let mlt_types_array = Uint8Array::from(mlt_types_bytes.as_slice());
 
         let tile = layer01.into_tile(&mut dec).map_err(|e| to_js_err(&e))?;
 
         layers.push(DecodedLayer {
             tile,
             types_array,
+            mlt_types_array,
             geometry: parsed_geometry,
         });
     }

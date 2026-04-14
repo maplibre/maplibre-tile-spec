@@ -6,10 +6,11 @@ use mlt_core::{GeometryValues, TileLayer01};
 pub(crate) struct DecodedLayer {
     pub(crate) tile: TileLayer01,
 
-    /// Pre-built `Uint8Array` — one MVT type byte per feature (0/1/2/3).
+    /// MVT geometry types (0/1/2/3) — collapses single and multi variants.
     pub(crate) types_array: js_sys::Uint8Array,
 
-    /// Decoded geometry in columnar offset form, kept for the WASM geometry
-    /// typed-array accessors which need the raw offset arrays.
+    /// Original MLT geometry types — preserves the single vs multi distinction.
+    pub(crate) mlt_types_array: js_sys::Uint8Array,
+
     pub(crate) geometry: GeometryValues,
 }

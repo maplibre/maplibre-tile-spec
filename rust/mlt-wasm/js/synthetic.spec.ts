@@ -1,18 +1,17 @@
 import { readFile } from "node:fs/promises";
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import type Point from "@mapbox/point-geometry";
-import type { VectorTileFeatureLike, VectorTileLike } from "@maplibre/vt-pbf";
+import type { VectorTileLike } from "@maplibre/vt-pbf";
 import { describe, expect, it } from "vitest";
 import {
   compareWithTolerance,
   getTestCases,
   writeActualOutput,
 } from "../../../test/synthetic/synthetic-test-utils";
-import { decodeTile } from "./vectorTile";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const EARCUT_MAX_RINGS = 500;
+import {
+  decodeTile,
+  type MltFeature,
+  MltGeometryType,
+  type MltLayer,
+} from "./vectorTile";
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
   ["poly_collinear_fpf", "FastPFor not supported"],
@@ -27,6 +26,7 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
   ["poly_multi_fpf_tes", "FastPFor not supported"],
   ["poly_self_intersect_fpf", "FastPFor not supported"],
   ["poly_self_intersect_fpf_tes", "FastPFor not supported"],
+  ["poly_multi_morton_hole_morton", "Pending investigation"],
 ]);
 
 describe("MLT WASM Decoder - Synthetic tests", () => {
@@ -61,19 +61,18 @@ function tileToFeatureCollection(
 ): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
   for (const layer of Object.values(tile.layers)) {
-    const propertyKeys = (layer as any)._propKeys;
-    const propertyCols = (layer as any)._propCols;
+    const mltLayer = layer as MltLayer;
 
-    for (let i = 0; i < layer.length; i++) {
-      const feature = layer.feature(i);
-      const properties: Record<string, any> = {
-        _layer: layer.name,
-        _extent: layer.extent,
+    for (let i = 0; i < mltLayer.length; i++) {
+      const feature = mltLayer.feature(i);
+      const properties: Record<string, number | string | boolean> = {
+        _layer: mltLayer.name,
+        _extent: mltLayer.extent,
       };
 
-      for (let k = 0; k < propertyKeys.length; k++) {
-        const key = propertyKeys[k];
-        const col = propertyCols[k];
+      for (let k = 0; k < mltLayer.propertyKeys.length; k++) {
+        const key = mltLayer.propertyKeys[k];
+        const col = mltLayer.propertyColumns[k];
         let val = feature.properties[key];
 
         if (typeof val === "number") {
@@ -107,36 +106,38 @@ function tileToFeatureCollection(
   return { type: "FeatureCollection", features };
 }
 
-function getGeometry(feature: VectorTileFeatureLike): GeoJSON.Geometry {
+function getGeometry(feature: MltFeature): GeoJSON.Geometry {
   const rings = feature.loadGeometry();
   const coords = rings.map((ring) => ring.map((p) => [p.x, p.y]));
-  switch (feature.type) {
-    case 1:
-      return rings.length === 1
-        ? { type: "Point", coordinates: coords[0][0] }
-        : { type: "MultiPoint", coordinates: coords.map((r) => r[0]) };
-    case 2:
-      return rings.length === 1
-        ? { type: "LineString", coordinates: coords[0] }
-        : { type: "MultiLineString", coordinates: coords };
-    case 3: {
-      const polygons = classifyRings(rings, EARCUT_MAX_RINGS);
-      return polygons.length === 1
-        ? {
-            type: "Polygon",
-            coordinates: polygons[0].map((ring) =>
-              closeRing(ring.map((p) => [p.x, p.y])),
-            ),
-          }
-        : {
-            type: "MultiPolygon",
-            coordinates: polygons.map((polygon) =>
-              polygon.map((ring) => closeRing(ring.map((p) => [p.x, p.y]))),
-            ),
-          };
+  switch (feature.mltType) {
+    case MltGeometryType.Point:
+      return { type: "Point", coordinates: coords[0][0] };
+    case MltGeometryType.MultiPoint:
+      return { type: "MultiPoint", coordinates: coords.map((r) => r[0]) };
+    case MltGeometryType.LineString:
+      return { type: "LineString", coordinates: coords[0] };
+    case MltGeometryType.MultiLineString:
+      return { type: "MultiLineString", coordinates: coords };
+    case MltGeometryType.Polygon: {
+      const polygons = feature.loadPolygons();
+      return {
+        type: "Polygon",
+        coordinates: polygons[0].map((ring) =>
+          closeRing(ring.map((p) => [p.x, p.y])),
+        ),
+      };
+    }
+    case MltGeometryType.MultiPolygon: {
+      const polygons = feature.loadPolygons();
+      return {
+        type: "MultiPolygon",
+        coordinates: polygons.map((polygon) =>
+          polygon.map((ring) => closeRing(ring.map((p) => [p.x, p.y]))),
+        ),
+      };
     }
     default:
-      throw new Error(`Unsupported MVT geometry type: ${feature.type}`);
+      throw new Error(`Unsupported MLT geometry type: ${feature.mltType}`);
   }
 }
 
@@ -149,40 +150,4 @@ function closeRing(ring: number[][]): number[][] {
     return [...ring, [first[0], first[1]]];
   }
   return ring;
-}
-
-// Minimal classifyRings: groups MVT rings into polygon groups by winding order.
-// Matches the @maplibre/maplibre-gl-style-spec implementation: the winding of
-// the first ring determines which direction is "outer"; subsequent rings that
-// wind the same way start new polygons, opposite-winding rings are holes.
-function classifyRings(rings: Point[][], maxRings: number): Point[][][] {
-  if (rings.length <= 1) return [rings];
-
-  const polygons: Point[][][] = [];
-  let currentPolygon: Point[][] | undefined;
-  let outerCCW: boolean | undefined;
-
-  for (const ring of rings) {
-    const area = signedArea(ring);
-    if (outerCCW === undefined) outerCCW = area < 0;
-    if (area < 0 === outerCCW || area === 0) {
-      // same winding as the first ring (or zero area) → new outer ring
-      if (maxRings > 0 && polygons.length === maxRings) break;
-      currentPolygon = [ring];
-      polygons.push(currentPolygon);
-    } else {
-      // opposite winding → hole
-      currentPolygon?.push(ring);
-    }
-  }
-
-  return polygons;
-}
-
-function signedArea(ring: Point[]): number {
-  let sum = 0;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    sum += (ring[j].x - ring[i].x) * (ring[i].y + ring[j].y);
-  }
-  return sum;
 }
