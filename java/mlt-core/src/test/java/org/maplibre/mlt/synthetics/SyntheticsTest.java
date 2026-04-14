@@ -1,6 +1,9 @@
 package org.maplibre.mlt.synthetics;
 
+import com.google.gson.GsonBuilder;
+import com.google.gson.ToNumberPolicy;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,7 +42,7 @@ public class SyntheticsTest {
       } catch (Exception e) {
         System.err.println("WARNING: Failed to decode " + path);
         e.printStackTrace(System.err);
-        return;
+        continue;
       }
 
       final var baseName = path.getFileName().toString();
@@ -51,7 +54,12 @@ public class SyntheticsTest {
         return;
       }
 
-      final var gson = Json.createGson(true);
+      // Don't let Gson turn Uin64 values into doubles, which loses precision.
+      final var gson =
+          new GsonBuilder()
+              .serializeSpecialFloatingPointValues()
+              .setObjectToNumberStrategy(ToNumberPolicy.BIG_DECIMAL)
+              .create();
 
       Object expectedJsonObjects;
       try (var jsonReader = Files.newBufferedReader(jsonPath)) {
@@ -101,10 +109,35 @@ public class SyntheticsTest {
     if (a instanceof Number numA && b instanceof Number numB) {
       if (numA.doubleValue() == numB.doubleValue()) {
         return true;
-      } else if (a instanceof Double dbl && b instanceof Float flt) {
-        return dbl.floatValue() == flt;
-      } else if (b instanceof Double dbl && a instanceof Float flt) {
-        return dbl.floatValue() == flt;
+      } else if (compareFloats(numA, numB) || compareFloats(numB, numA)) {
+        return true;
+      } else if (a instanceof BigDecimal || b instanceof BigDecimal) {
+        return compareDecimals(a, b) || compareDecimals(b, a);
+      }
+    }
+    return false;
+  }
+
+  private boolean compareFloats(Number a, Number b) {
+    if (a instanceof Double dbl && b instanceof Float flt) {
+      return dbl.floatValue() == flt;
+    }
+    return false;
+  }
+
+  /// Compare values loaded as BigDecimal, with
+  /// particular care for unsigned values loaded as, e.g., -1
+  private boolean compareDecimals(Object a, Object b) {
+    if (a instanceof BigDecimal aDec) {
+      if (b instanceof BigDecimal bDec) {
+        return aDec.compareTo(bDec) == 0;
+      } else if (b instanceof Float fltB) {
+        return aDec.floatValue() == fltB || aDec.compareTo(BigDecimal.valueOf(fltB)) == 0;
+      } else if (b instanceof Number numB) {
+        return numB.intValue() == aDec.intValue()
+            || numB.longValue() == aDec.longValue()
+            || aDec.compareTo(BigDecimal.valueOf(numB.longValue())) == 0
+            || aDec.compareTo(BigDecimal.valueOf(numB.doubleValue())) == 0;
       }
     }
     return false;

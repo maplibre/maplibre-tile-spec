@@ -45,7 +45,7 @@ public final class Json {
     return gson.toJson(toGeoJsonObjects(tile, gson));
   }
 
-  public static Gson createGson(boolean pretty) {
+  private static Gson createGson(boolean pretty) {
     final var builder = new GsonBuilder().serializeSpecialFloatingPointValues();
     if (pretty) {
       builder.setPrettyPrinting();
