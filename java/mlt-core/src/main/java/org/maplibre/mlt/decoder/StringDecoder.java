@@ -90,37 +90,43 @@ public final class StringDecoder {
     var values = new HashMap<String, List<String>>();
     for (var childField : column.field().type().complexType().children()) {
       var numStreams = DecodingUtils.decodeVarints(data, offset, 1)[0];
-      if (numStreams != 2
-          || childField.type().complexType() != null
+      if (childField.type().scalarType() == null
           || childField.type().scalarType().physicalType() != MltMetadata.ScalarType.STRING) {
         throw new IllegalArgumentException(
             "Currently only optional string fields are implemented for a struct.");
       }
+      if ((numStreams > 1) != childField.type().isNullable()) {
+        throw new IllegalArgumentException(
+            "The number of streams for the child field "
+                + childField.name()
+                + " does not match its nullability.");
+      }
 
-      var presentStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-      var presentStream =
-          DecodingUtils.decodeBooleanRle(
-              data, presentStreamMetadata.numValues(), presentStreamMetadata.byteLength(), offset);
-      var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-      var dataReferenceStream =
+      @Nullable BitSet presentStream = null;
+      int presentCount = 0;
+      if (childField.type().isNullable()) {
+        final var presentStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+        presentCount = presentStreamMetadata.numValues();
+        presentStream =
+            DecodingUtils.decodeBooleanRle(
+                data, presentCount, presentStreamMetadata.byteLength(), offset);
+        numStreams -= 1;
+      }
+
+      final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+      final var dataReferenceStream =
           IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, false);
 
-      var propertyValues = new ArrayList<String>(presentStreamMetadata.numValues());
+      final var valueCount = (presentStream != null) ? presentCount : dataReferenceStream.size();
+      final var propertyValues = new ArrayList<String>(valueCount);
       var counter = 0;
-      for (var i = 0; i < presentStreamMetadata.numValues(); i++) {
-        var present = presentStream.get(i);
-        if (present) {
-          var dataReference = dataReferenceStream.get(counter++);
-          var value = dictionary.get(dataReference);
-          propertyValues.add(value);
-        } else {
-          propertyValues.add(null);
-        }
+      for (var i = 0; i < valueCount; i++) {
+        final var present = (presentStream == null) || presentStream.get(i);
+        propertyValues.add(present ? dictionary.get(dataReferenceStream.get(counter++)) : null);
       }
 
       final var columnName = column.getName() + childField.name();
-      // TODO: refactor to work also when present stream is null
-      numValues.put(columnName, presentStreamMetadata.numValues());
+      numValues.put(columnName, valueCount);
       presentStreams.put(columnName, presentStream);
       values.put(columnName, propertyValues);
     }

@@ -83,8 +83,8 @@ public class StringDecoderTest {
     final var encodedValues =
         encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
 
-    final var test = createField("Test", MltMetadata.ScalarType.STRING, false);
-    final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, false);
+    final var test = createField("Test", MltMetadata.ScalarType.STRING, true);
+    final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, true);
     final var tileMetadata =
         new MltMetadata.Column(
             new MltMetadata.Field(MltMetadata.structFieldType(List.of(test, test2)), "Parent"));
@@ -119,8 +119,8 @@ public class StringDecoderTest {
     final var encodedValues =
         encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
 
-    final var test = createField("Test", MltMetadata.ScalarType.STRING, false);
-    final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, false);
+    final var test = createField("Test", MltMetadata.ScalarType.STRING, true);
+    final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, true);
     final var tileMetadata =
         new MltMetadata.Column(
             new MltMetadata.Field(MltMetadata.structFieldType(List.of(test, test2)), "Parent"));
@@ -180,8 +180,8 @@ public class StringDecoderTest {
     final var encodedValues =
         encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, true);
 
-    final var test = createField("Test", MltMetadata.ScalarType.STRING, false);
-    final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, false);
+    final var test = createField("Test", MltMetadata.ScalarType.STRING, true);
+    final var test2 = createField("Test2", MltMetadata.ScalarType.STRING, true);
     final var tileMetadata =
         new MltMetadata.Column(
             new MltMetadata.Field(MltMetadata.structFieldType(List.of(test, test2)), "Parent"));
