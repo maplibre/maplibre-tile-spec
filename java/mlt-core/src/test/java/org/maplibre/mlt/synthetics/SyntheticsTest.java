@@ -7,8 +7,11 @@ import java.math.BigDecimal;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.PathMatcher;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
+import java.util.SequencedCollection;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.data.MapLibreTile;
@@ -22,18 +25,7 @@ public class SyntheticsTest {
     final var rootPaths =
         new String[] {"../../test/synthetic/0x01", "../../test/synthetic/0x01-rust"};
     final var mltPaths =
-        Arrays.stream(rootPaths)
-            .flatMap(
-                root -> {
-                  try {
-                    return Files.walk(Path.of(root));
-                  } catch (IOException e) {
-                    throw new RuntimeException("Failed to walk " + root, e);
-                  }
-                })
-            .filter(matcher::matches)
-            .filter(Files::isRegularFile)
-            .toList();
+        Arrays.stream(rootPaths).flatMap(root -> findFiles(root, matcher).stream()).toList();
     for (Path path : mltPaths) {
       // Load the file
       final MapLibreTile tile;
@@ -51,7 +43,7 @@ public class SyntheticsTest {
               baseName.substring(0, Math.max(0, baseName.lastIndexOf('.'))) + ".json");
       if (!Files.exists(jsonPath)) {
         System.err.println("WARNING: No expected JSON for " + path);
-        return;
+        continue;
       }
 
       // Don't let Gson turn Uin64 values into doubles, which loses precision.
@@ -73,6 +65,14 @@ public class SyntheticsTest {
       Assertions.assertTrue(
           compareJsonObjects(expectedJsonObjects, actualJsonObjects),
           "JSON objects do not match for " + path);
+    }
+  }
+
+  private static SequencedCollection<Path> findFiles(String root, PathMatcher matcher) {
+    try (var paths = Files.walk(Path.of(root))) {
+      return paths.filter(matcher::matches).filter(Files::isRegularFile).toList();
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to walk " + root, e);
     }
   }
 
@@ -102,7 +102,7 @@ public class SyntheticsTest {
       }
       return !expectedIterator.hasNext() && !actualIterator.hasNext();
     }
-    return expected.equals(actual) || numericsEqual(expected, actual);
+    return Objects.equals(expected, actual) || numericsEqual(expected, actual);
   }
 
   private boolean numericsEqual(Object a, Object b) {
