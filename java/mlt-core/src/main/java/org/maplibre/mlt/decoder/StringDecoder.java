@@ -1,5 +1,6 @@
 package org.maplibre.mlt.decoder;
 
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -142,7 +143,11 @@ public final class StringDecoder {
   }
 
   public static Triple<Integer, BitSet, List<String>> decode(
-      byte[] data, IntWrapper offset, int numStreams, BitSet presentStream, int numValues)
+      byte[] data,
+      IntWrapper offset,
+      int numStreams,
+      @Nullable BitSet presentStream,
+      int presentCount)
       throws IOException {
     /*
      * String column layouts:
@@ -191,42 +196,43 @@ public final class StringDecoder {
     }
 
     if (symbolTableStream != null && symbolLengthStream != null && dictionaryLengthStream != null) {
-      var decompressedLength = dictionaryLengthStream.stream().mapToInt(i -> i).sum();
-      var utf8Values =
+      final var decompressedLength = dictionaryLengthStream.stream().mapToInt(i -> i).sum();
+      final var utf8Values =
           FsstEncoder.decode(
               symbolTableStream,
               symbolLengthStream.stream().mapToInt(i -> i).toArray(),
               dictionaryStream,
               decompressedLength);
-      return Triple.of(
-          numValues,
-          presentStream,
+      final var strings =
           decodeDictionary(
-              presentStream, dictionaryLengthStream, utf8Values, offsetStream, numValues));
+              presentStream, dictionaryLengthStream, utf8Values, offsetStream, presentCount);
+      return Triple.of(strings.size(), presentStream, strings);
     } else if (dictionaryStream != null && dictionaryLengthStream != null) {
-      return Triple.of(
-          numValues,
-          presentStream,
+      final var strings =
           decodeDictionary(
-              presentStream, dictionaryLengthStream, dictionaryStream, offsetStream, numValues));
+              presentStream, dictionaryLengthStream, dictionaryStream, offsetStream, presentCount);
+      return Triple.of(strings.size(), presentStream, strings);
     } else {
-      return Triple.of(
-          numValues,
-          presentStream,
-          decodePlain(presentStream, symbolLengthStream, symbolTableStream, numValues));
+      final var strings =
+          decodePlain(presentStream, symbolLengthStream, symbolTableStream, presentCount);
+      return Triple.of(strings.size(), presentStream, strings);
     }
   }
 
   private static List<String> decodePlain(
-      BitSet presentStream, List<Integer> lengthStream, byte[] utf8Values, int numValues) {
-    var decodedValues = new ArrayList<String>(numValues);
+      @Nullable BitSet presentStream,
+      List<Integer> lengthStream,
+      byte[] utf8Values,
+      int presentCount) {
+    final var numValues = (presentStream != null) ? presentCount : lengthStream.size();
+    final var decodedValues = new ArrayList<String>(numValues);
     var lengthOffset = 0;
     var strOffset = 0;
     for (var i = 0; i < numValues; i++) {
-      var present = presentStream.get(i);
+      final var present = (presentStream == null) || presentStream.get(i);
       if (present) {
-        var length = lengthStream.get(lengthOffset++);
-        var value = new String(utf8Values, strOffset, length, StandardCharsets.UTF_8);
+        final var length = lengthStream.get(lengthOffset++);
+        final var value = new String(utf8Values, strOffset, length, StandardCharsets.UTF_8);
         decodedValues.add(value);
         strOffset += length;
       } else {
@@ -238,15 +244,15 @@ public final class StringDecoder {
   }
 
   private static List<String> decodeDictionary(
-      BitSet presentStream,
+      @Nullable BitSet presentStream,
       List<Integer> lengthStream,
       byte[] utf8Values,
       List<Integer> dictionaryOffsets,
-      int numValues) {
-    var dictionary = new ArrayList<String>();
+      int presentCount) {
+    final var dictionary = new ArrayList<String>();
     var dictionaryOffset = 0;
     for (var length : lengthStream) {
-      var value =
+      final var value =
           new String(
               Arrays.copyOfRange(utf8Values, dictionaryOffset, dictionaryOffset + length),
               StandardCharsets.UTF_8);
@@ -254,16 +260,12 @@ public final class StringDecoder {
       dictionaryOffset += length;
     }
 
-    var values = new ArrayList<String>(numValues);
+    final var numValues = (presentStream != null) ? presentCount : dictionaryOffsets.size();
+    final var values = new ArrayList<String>(numValues);
     var offset = 0;
     for (var i = 0; i < numValues; i++) {
-      var present = presentStream.get(i);
-      if (present) {
-        var value = dictionary.get(dictionaryOffsets.get(offset++));
-        values.add(value);
-      } else {
-        values.add(null);
-      }
+      final var present = (presentStream == null) || presentStream.get(i);
+      values.add(present ? dictionary.get(dictionaryOffsets.get(offset++)) : null);
     }
 
     return values;
