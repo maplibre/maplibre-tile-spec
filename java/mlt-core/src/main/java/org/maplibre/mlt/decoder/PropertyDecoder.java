@@ -56,6 +56,7 @@ public class PropertyDecoder {
           DecodingUtils.decodeBooleanRle(
               data, presentStreamMetadata.numValues(), presentStreamMetadata.byteLength(), offset);
       presentStreamSize = presentStreamMetadata.numValues();
+      numStreams -= 1;
     } else {
       presentStream = null;
       presentStreamSize = 0;
@@ -110,13 +111,8 @@ public class PropertyDecoder {
         yield unpack(dataStream, presentStream, presentStreamSize);
       }
       case STRING -> {
-        if (presentStream == null) {
-          throw new RuntimeException("Non-nullable string columns not currently supported");
-        }
-
-        // The present stream has already been decoded
         final var strValues =
-            StringDecoder.decode(data, offset, numStreams - 1, presentStream, presentStreamSize);
+            StringDecoder.decode(data, offset, numStreams, presentStream, presentStreamSize);
         yield strValues.getRight();
       }
       case UINT_8, UNRECOGNIZED, INT_8 ->

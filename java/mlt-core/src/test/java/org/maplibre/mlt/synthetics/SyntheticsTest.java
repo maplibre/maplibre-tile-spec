@@ -32,8 +32,7 @@ public class SyntheticsTest {
       try {
         tile = MltDecoder.decodeMlTile(Files.readAllBytes(path));
       } catch (Exception e) {
-        System.err.println("WARNING: Failed to decode " + path);
-        e.printStackTrace(System.err);
+        Assertions.fail("Failed to decode " + path, e);
         continue;
       }
 
@@ -57,7 +56,8 @@ public class SyntheticsTest {
       try (var jsonReader = Files.newBufferedReader(jsonPath)) {
         expectedJsonObjects = gson.fromJson(jsonReader, Object.class);
       } catch (Exception e) {
-        throw new RuntimeException("Failed to read " + jsonPath, e);
+        Assertions.fail("Failed to read " + jsonPath, e);
+        continue;
       }
 
       final var actualJsonObjects = Json.toGeoJsonObjects(tile, gson);
