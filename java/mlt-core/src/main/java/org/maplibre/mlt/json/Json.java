@@ -161,7 +161,7 @@ public final class Json {
     return featureMap;
   }
 
-  private static Map<String, Object> toGeoJsonObjects(MapLibreTile mlTile, Gson gson) {
+  public static Map<String, Object> toGeoJsonObjects(MapLibreTile mlTile, Gson gson) {
     final var featureCollectionMap = new LinkedHashMap<String, Object>();
     featureCollectionMap.put("type", "FeatureCollection");
     featureCollectionMap.put(
