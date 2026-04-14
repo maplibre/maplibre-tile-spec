@@ -14,7 +14,6 @@ publish = false
 [dependencies]
 clap.workspace = true
 geo-types.workspace = true
-# Workspace pins mlt-core with default-features = false; synthetics need Earcut.
 mlt-core = { workspace = true, features = ["__private"] }
 serde_json.workspace = true
 thiserror.workspace = true
