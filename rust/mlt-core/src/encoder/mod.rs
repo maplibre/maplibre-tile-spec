@@ -32,7 +32,6 @@ pub(crate) use property::*;
 #[cfg(feature = "__private")]
 pub use property::{StagedProperty, StagedSharedDict};
 pub use sort::SortStrategy;
-#[cfg(feature = "sort-coords-iter")]
 pub(crate) use sort::spatial_sort_likely_to_help;
 pub(crate) use stream::*;
 #[cfg(feature = "__private")]

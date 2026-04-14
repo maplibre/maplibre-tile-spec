@@ -12,7 +12,6 @@ const LANES: usize = 8;
 /// Even bit positions (0, 2, 4, …) encode `x`; odd positions (1, 3, 5, …)
 /// encode `y`. Spatially adjacent `(x, y)` pairs produce numerically
 /// adjacent codes, giving Z-order locality when used as a sort key.
-#[cfg(any(feature = "sort-coords-iter", test))]
 #[must_use]
 pub fn interleave_bits(x: u32, y: u32) -> u32 {
     // Spread each input's lower 16 bits into every other bit position, then
@@ -43,7 +42,6 @@ pub fn interleave_bits(x: u32, y: u32) -> u32 {
 /// Each shifted component is truncated to 16 bits before interleaving, so
 /// the returned key fits in a `u32` (32 interleaved bits). This is
 /// sufficient for any tile coordinate system with extent ≤ 65 535.
-#[cfg(any(feature = "sort-coords-iter", test))]
 #[must_use]
 pub fn morton_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
     debug_assert!((1..=16).contains(&num_bits));

@@ -3,7 +3,6 @@
 /// The grid has side `2^level`; both `x` and `y` must be in `[0, 2^level)`,
 /// and `level` must be in `[1, 16]`.  The returned index is in
 /// `[0, 4^level)` and fits in a `u32` for all valid levels.
-#[cfg(any(feature = "sort-coords-iter", test))]
 #[must_use]
 pub fn hilbert_xy_to_index(level: u32, x: u32, y: u32) -> u32 {
     debug_assert!((1..=16).contains(&level), "level must be in [1, 16]");
@@ -22,7 +21,6 @@ pub fn hilbert_xy_to_index(level: u32, x: u32, y: u32) -> u32 {
 ///
 /// Use [`hilbert_curve_params_from_bounds`] to compute `shift` and `num_bits`
 /// from global min/max coordinates.
-#[cfg(any(feature = "sort-coords-iter", test))]
 #[must_use]
 pub fn hilbert_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
     debug_assert!((1..=16).contains(&num_bits));
@@ -52,7 +50,6 @@ pub fn hilbert_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
 ///   shifted values fit in `[0, 2^l)`.
 ///
 /// If `min > max` (empty input), returns `(0, 1)`.
-#[cfg(any(feature = "sort-coords-iter", test))]
 #[must_use]
 pub fn hilbert_curve_params_from_bounds(min_val: i32, max_val: i32) -> (u32, u32) {
     if min_val > max_val {

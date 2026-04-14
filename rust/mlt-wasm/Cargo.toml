@@ -18,9 +18,9 @@ wasm-opt = ["-O3", "--enable-simd", "--enable-bulk-memory"]
 crate-type = ["cdylib"]
 
 [dependencies]
+getrandom = { workspace = true, features = ["js"] }
 js-sys.workspace = true
-# Once geo supports wasm, use default mlt-core
-mlt-core = { workspace = true, default-features = false }
+mlt-core = { workspace = true }
 wasm-bindgen.workspace = true
 
 [lints]
