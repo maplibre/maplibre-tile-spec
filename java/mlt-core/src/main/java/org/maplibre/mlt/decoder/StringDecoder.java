@@ -93,7 +93,7 @@ public final class StringDecoder {
       if (childField.type().scalarType() == null
           || childField.type().scalarType().physicalType() != MltMetadata.ScalarType.STRING) {
         throw new IllegalArgumentException(
-            "Currently only optional string fields are implemented for a struct.");
+            "Currently only scalar string fields are implemented for a struct.");
       }
       if ((numStreams > 1) != childField.type().isNullable()) {
         throw new IllegalArgumentException(
