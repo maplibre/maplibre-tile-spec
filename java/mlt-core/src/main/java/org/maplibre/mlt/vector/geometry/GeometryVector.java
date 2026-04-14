@@ -1,13 +1,10 @@
 package org.maplibre.mlt.vector.geometry;
 
 import java.nio.IntBuffer;
-import java.util.Iterator;
 import java.util.Optional;
-import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.converter.geometry.GeometryType;
-import org.maplibre.mlt.decoder.GeometryDecoder;
 
-public class GeometryVector implements Iterable<Geometry> {
+public class GeometryVector {
 
   public static class MortonSettings {
     public int numBits;
@@ -147,27 +144,5 @@ public class GeometryVector implements Iterable<Geometry> {
 
     return geometryType == GeometryType.POLYGON.ordinal()
         || geometryType == GeometryType.MULTIPOLYGON.ordinal();
-  }
-
-  @Override
-  public Iterator<Geometry> iterator() {
-    return new Iterator<>() {
-      private int index = 0;
-      private Geometry[] geometries;
-
-      @Override
-      public boolean hasNext() {
-        return index < numGeometries;
-      }
-
-      @Override
-      public Geometry next() {
-        if (geometries == null) {
-          // TODO: implement lazy materialization
-          geometries = GeometryDecoder.decodeGeometryVectorized(GeometryVector.this);
-        }
-        return geometries[index++];
-      }
-    };
   }
 }

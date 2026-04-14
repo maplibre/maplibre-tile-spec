@@ -10,8 +10,6 @@ import java.util.concurrent.TimeUnit;
 import no.ecc.vectortile.VectorTileDecoder;
 import org.maplibre.mlt.converter.mvt.MvtTestUtils;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.decoder.MltDecoder;
-import org.maplibre.mlt.vector.FeatureTable;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -73,36 +71,6 @@ public class BingMapsDecoderBenchmark {
         encodedMltTiles,
         TestSettings.BING_MVT_PATH,
         SEPARATOR);
-  }
-
-  private FeatureTable[] decodeVectorized(int n) throws IOException {
-    var mlTile = encodedMltTiles.get(n);
-    var mltMetadataExtent =
-        MltDecoder.parseEmbeddedMetadata(new ByteArrayInputStream(tileMetadata.get(n)));
-    var mltMetadata = mltMetadataExtent.getLeft();
-    var tileExtent = mltMetadataExtent.getRight();
-    // Vectorized decoding currently disabled
-    return new FeatureTable[0]; // MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
-
-  @Benchmark
-  public FeatureTable[] decodeMltZ4() throws IOException {
-    return decodeVectorized(4);
-  }
-
-  @Benchmark
-  public FeatureTable[] decodeMltZ5() throws IOException {
-    return decodeVectorized(5);
-  }
-
-  @Benchmark
-  public FeatureTable[] decodeMltZ6() throws IOException {
-    return decodeVectorized(6);
-  }
-
-  @Benchmark
-  public FeatureTable[] decodeMltZ7() throws IOException {
-    return decodeVectorized(7);
   }
 
   @Benchmark

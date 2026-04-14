@@ -2,7 +2,6 @@ package org.maplibre.mlt;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
-import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -21,33 +20,6 @@ import org.openjdk.jmh.annotations.Warmup;
 @Measurement(iterations = 5)
 @Fork(value = 1)
 public class TileProcessingBenchmarks {
-
-  @Benchmark
-  public org.maplibre.mlt.vector.FeatureTable[] filterVectorized() {
-    /* Filter
-     * ["all", ["==", "$type", "LineString"], ["in", "class", "pier"]],
-     * -> class = pier
-     * -> type == LineString -> DictionaryVector only compare int index
-     *
-     * ["==", "$type", "LineString"], ["==", "brunnel", "tunnel"], ["==", "class", "minor_road"]
-     * -> LineString -> ConstVector
-     *
-     *
-     * ["==", "$type", "LineString"], ["==", "brunnel", "tunnel"], ["in", "class", "primary",
-     * "secondary", "tertiary", "trunk"]
-     * -> LineString -> ConstIntVector -> compare int
-     *   -> only 1 int compared to 70k ints
-     *   -> use vectorized comparison
-     * -> brunnel -> DictionaryStringVector -> get index for literal compare int
-     *
-     * -> class -> DictionaryStringVector -> get indices for literals compare ints
-     * */
-
-    /*var chunk1 = IntVector.fromArray(SPECIES, array1, i);
-    var chunk2 = IntVector.fromArray(SPECIES, array2, i);*/
-
-    return null;
-  }
 
   static ByteBuffer allocateAlignedByteBuffer(int capacity, int alignment) {
     // Check if alignment is a power of two
