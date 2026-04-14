@@ -9,6 +9,7 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SequencedCollection;
 import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.tuple.Pair;
@@ -135,9 +136,9 @@ public class MltDecoder {
               }
             }
           }
-        } else if (propertyColumn instanceof ArrayList<?>) {
+        } else if (propertyColumn instanceof SequencedCollection<?>) {
           @SuppressWarnings("unchecked")
-          final var list = (ArrayList<Object>) propertyColumn;
+          final var list = (SequencedCollection<Object>) propertyColumn;
           sizeList(properties, list);
           final var prop = new IndexedProperty(columnMetadata.field().type(), columnName, list);
           for (int i = 0; i < list.size(); i++) {
@@ -154,7 +155,8 @@ public class MltDecoder {
         : null;
   }
 
-  private static void sizeList(ArrayList<Map<String, Property>> properties, List<Object> list) {
+  private static void sizeList(
+      ArrayList<Map<String, Property>> properties, SequencedCollection<Object> list) {
     if (properties.isEmpty()) {
       for (int i = 0; i < list.size(); i++) {
         properties.add(new HashMap<>());
