@@ -12,6 +12,7 @@ import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
+import org.maplibre.mlt.converter.MortonSettings;
 import org.maplibre.mlt.converter.geometry.GeometryType;
 import org.maplibre.mlt.converter.geometry.ZOrderCurve;
 import org.maplibre.mlt.metadata.stream.DictionaryType;
@@ -19,7 +20,6 @@ import org.maplibre.mlt.metadata.stream.MortonEncodedStreamMetadata;
 import org.maplibre.mlt.metadata.stream.OffsetType;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
-import org.maplibre.mlt.vector.geometry.GeometryVector;
 
 public class GeometryDecoder {
 
@@ -329,19 +329,6 @@ public class GeometryDecoder {
     return geometryFactory.createLinearRing(linearRing);
   }
 
-  private static LinearRing decodeMortonDictionaryEncodedLinearRing(
-      int[] vertexBuffer,
-      int[] vertexOffsets,
-      int vertexOffset,
-      int numVertices,
-      GeometryFactory geometryFactory,
-      GeometryVector.MortonSettings mortonSettings) {
-    var linearRing =
-        decodeMortonDictionaryEncodedLineString(
-            vertexBuffer, vertexOffsets, vertexOffset, numVertices, true, mortonSettings);
-    return geometryFactory.createLinearRing(linearRing);
-  }
-
   private static Coordinate[] getLineString(
       int[] vertexBuffer, int startIndex, int numVertices, boolean closeLineString) {
     var vertices = new Coordinate[closeLineString ? numVertices + 1 : numVertices];
@@ -388,7 +375,7 @@ public class GeometryDecoder {
       int vertexOffset,
       int numVertices,
       boolean closeLineString,
-      GeometryVector.MortonSettings mortonSettings) {
+      MortonSettings mortonSettings) {
     var vertices = new Coordinate[closeLineString ? numVertices + 1 : numVertices];
     for (var i = 0; i < numVertices; i++) {
       var offset = vertexOffsets[vertexOffset + i];

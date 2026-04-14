@@ -25,10 +25,10 @@ public class LinearRegressionTest {
     var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
-    for (var layer : mvTile.layers()) {
+    for (var layer : mvTile.getLayers()) {
       if (layer.name().equals("transportation")) {
         var features = layer.features();
-        var geometries = features.stream().map(f -> f.geometry()).collect(Collectors.toList());
+        var geometries = features.stream().map(f -> f.getGeometry()).collect(Collectors.toList());
         var vertices =
             geometries.stream()
                 .map(g -> g.getCoordinates())
@@ -54,8 +54,6 @@ public class LinearRegressionTest {
                 .toArray();
         var sortedHilbertIndices =
             Arrays.stream(hilbertIndices).sorted().boxed().collect(Collectors.toList());
-        // sortedHilbertIndices =
-        // sortedHilbertIndices.stream().distinct().limit(25).collect(Collectors.toList());
         sortedHilbertIndices =
             sortedHilbertIndices.stream().distinct().collect(Collectors.toList()).subList(82, 99);
 
@@ -99,19 +97,16 @@ public class LinearRegressionTest {
     var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
-    for (var layer : mvTile.layers()) {
+    for (var layer : mvTile.getLayers()) {
       if (layer.name().equals("transportation")) {
         var features = layer.features();
-        var geometries = features.stream().map(f -> f.geometry()).collect(Collectors.toList());
+        var geometries = features.stream().map(f -> f.getGeometry()).collect(Collectors.toList());
         var vertices =
             geometries.stream()
                 .map(g -> g.getCoordinates())
                 .flatMap(i -> Stream.of(i[0], i[1]))
                 .collect(Collectors.toList());
 
-        // var xCoordinates = vertices.stream().mapToInt(i ->
-        // (int)i.getX()).distinct().sorted().boxed()
-        // .collect(Collectors.toList()).subList(82, 99);
         var xCoordinates =
             vertices.stream()
                 .mapToInt(i -> (int) i.getX())

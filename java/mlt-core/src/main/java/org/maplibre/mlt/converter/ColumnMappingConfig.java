@@ -1,4 +1,4 @@
-package org.maplibre.mlt.converter.mvt;
+package org.maplibre.mlt.converter;
 
 import java.util.LinkedHashMap;
 import java.util.List;

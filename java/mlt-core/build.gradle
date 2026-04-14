@@ -27,6 +27,11 @@ dependencies {
     implementation(libs.mapbox.vector.tile.java)
     implementation(libs.protobuf.java)
 
+    compileOnly(libs.lombok)
+    annotationProcessor(libs.lombok)
+    testCompileOnly(libs.lombok)
+    testAnnotationProcessor(libs.lombok)
+
     testImplementation(libs.jmh.core)
     testImplementation(libs.jmh.generator.annprocess)
     testImplementation(libs.junit.jupiter.api)

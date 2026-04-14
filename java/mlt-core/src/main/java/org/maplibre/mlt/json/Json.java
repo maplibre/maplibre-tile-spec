@@ -2,6 +2,7 @@ package org.maplibre.mlt.json;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.Strictness;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
@@ -12,11 +13,13 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
+import org.maplibre.mlt.data.MapboxVectorTile;
+import org.maplibre.mlt.data.Property;
 
+/** Utility for converting MVT and MLT tiles to JSON and GeoJSON. */
 public final class Json {
   // GeoJSON does not support non-numeric floats; use Rust-style string tokens for
   // cross-implementation consistency.
@@ -32,25 +35,54 @@ public final class Json {
 
   private Json() {}
 
+  /**
+   * Convert a MapboxVectorTile to a JSON string with the same structure as the MVT spec. The
+   * geometry is represented as a WKT string for comparison with MLT output. Note that this is not
+   * GeoJSON and is intended for testing/debugging purposes only.
+   *
+   * @param tile the tile to convert
+   * @param pretty if true, the output will be pretty-printed, otherwise, it will be compact
+   * @return a JSON string representing the tile
+   */
   public static String toJson(MapboxVectorTile tile, boolean pretty) {
     return createGson(pretty).toJson(toJsonObjects(tile));
   }
 
+  /**
+   * Convert a MapLibreTile to a JSON string with the same structure as the MLT spec. The geometry
+   * is represented as a WKT string for comparison with MVT output. Note that this is not GeoJSON
+   * and is intended for testing/debugging purposes only.
+   *
+   * @param tile the tile to convert
+   * @param pretty if true, the output will be pretty-printed, otherwise, it will be compact
+   * @return a JSON string representing the tile
+   */
   public static String toJson(MapLibreTile tile, boolean pretty) {
     return createGson(pretty).toJson(toJsonObjects(tile));
   }
 
+  /**
+   * Convert a MapLibreTile to a GeoJSON string. The layer name and tile extent are included as
+   * properties with keys "_layer" and "_extent", respectively, for testing/debugging purposes.
+   *
+   * @param tile the tile to convert
+   * @param pretty if true, the output will be pretty-printed, otherwise, it will be compact
+   * @return a GeoJSON string representing the tile
+   */
   public static String toGeoJson(MapLibreTile tile, boolean pretty) {
     final var gson = createGson(pretty);
     return gson.toJson(toGeoJsonObjects(tile, gson));
   }
 
   private static Gson createGson(boolean pretty) {
-    final var builder = new GsonBuilder().serializeSpecialFloatingPointValues();
-    if (pretty) {
-      builder.setPrettyPrinting();
-    }
-    return builder.create();
+    final var builder =
+        new GsonBuilder()
+            .disableJdkUnsafe()
+            .disableHtmlEscaping()
+            // not .serializeNulls()
+            .serializeSpecialFloatingPointValues()
+            .setStrictness(Strictness.STRICT);
+    return (pretty ? builder.setPrettyPrinting() : builder).create();
   }
 
   private static Object floatToken(Float value) {
@@ -95,7 +127,7 @@ public final class Json {
   }
 
   private static Map<String, Object> toJsonObjects(MapLibreTile mlTile) {
-    return Map.of("layers", mlTile.layers().stream().map(Json::toJson).toList());
+    return Map.of("layers", mlTile.getLayerStream().map(Json::toJson).toList());
   }
 
   private static Map<String, Object> toJson(Layer layer) {
@@ -109,18 +141,19 @@ public final class Json {
   private static Map<String, Object> toJson(Feature feature) {
     final var featureMap = new LinkedHashMap<String, Object>();
     if (feature.hasId()) {
-      featureMap.put("id", feature.id());
+      featureMap.put("id", feature.getId());
     }
-    featureMap.put("geometry", feature.geometry().toString());
+    featureMap.put("geometry", feature.getGeometry().toString());
 
     // Keep non-null properties only to facilitate direct comparison with MVT output.
     final var propertyMap =
-        feature.properties().entrySet().stream()
-            .filter(entry -> entry.getValue() != null)
+        feature
+            .getPropertyStream()
+            .filter(entry -> entry.getValue(feature.getIndex()) != null)
             .collect(
                 Collectors.toMap(
-                    Map.Entry::getKey,
-                    Map.Entry::getValue,
+                    Property::getName,
+                    p -> p.getValue(feature.getIndex()),
                     Json::failOnDuplicate,
                     LinkedHashMap::new));
 
@@ -133,7 +166,8 @@ public final class Json {
     featureCollectionMap.put("type", "FeatureCollection");
     featureCollectionMap.put(
         "features",
-        mlTile.layers().stream()
+        mlTile
+            .getLayerStream()
             .flatMap(
                 layer ->
                     layer.features().stream()
@@ -146,7 +180,7 @@ public final class Json {
     final var featureMap = new LinkedHashMap<String, Object>();
     featureMap.put("type", "Feature");
     if (feature.hasId()) {
-      featureMap.put("id", feature.id());
+      featureMap.put("id", feature.getId());
     }
 
     final var props = getSortedNonNullProperties(feature);
@@ -154,7 +188,7 @@ public final class Json {
     props.put("_extent", layer.tileExtent());
     featureMap.put("properties", floatsAsStrings(props));
 
-    final var geom = feature.geometry();
+    final var geom = feature.getGeometry();
     featureMap.put("geometry", geom == null ? null : geometryToGeoJson(geom, gson));
     return featureMap;
   }
@@ -164,11 +198,15 @@ public final class Json {
   }
 
   private static SortedMap<String, Object> getSortedNonNullProperties(Feature feature) {
-    return feature.properties().entrySet().stream()
-        .filter(entry -> entry.getValue() != null)
+    return feature
+        .getPropertyStream()
+        .filter(entry -> entry.getValue(feature.getIndex()) != null)
         .collect(
             Collectors.toMap(
-                Map.Entry::getKey, Map.Entry::getValue, Json::failOnDuplicate, TreeMap::new));
+                Property::getName,
+                p -> p.getValue(feature.getIndex()),
+                Json::failOnDuplicate,
+                TreeMap::new));
   }
 
   private static Map<String, Object> geometryToGeoJson(Geometry geometry, Gson gson) {
@@ -201,6 +239,6 @@ public final class Json {
   }
 
   private static Map<String, Object> toJsonObjects(MapboxVectorTile mvTile) {
-    return Map.of("layers", mvTile.layers().stream().map(Json::toJson).toList());
+    return Map.of("layers", mvTile.getLayerStream().map(Json::toJson).toList());
   }
 }

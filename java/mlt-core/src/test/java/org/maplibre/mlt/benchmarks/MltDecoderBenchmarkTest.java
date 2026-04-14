@@ -9,11 +9,11 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.TestSettings;
+import org.maplibre.mlt.converter.ColumnMapping;
+import org.maplibre.mlt.converter.ColumnMappingConfig;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.decoder.MltDecoder;
 
@@ -203,8 +203,16 @@ public class MltDecoderBenchmarkTest {
             "aerodrome_label",
             optimization);
     var mlTile =
-        MltConverter.convertMvt(
-            mvTile, tileMetadata, new ConversionConfig(true, true, true, optimizations), null);
+        MltConverter.encode(
+            mvTile,
+            tileMetadata,
+            ConversionConfig.builder()
+                .includeIds(true)
+                .useFastPFOR(true)
+                .useFSST(true)
+                .optimizations(optimizations)
+                .build(),
+            null);
 
     var mltTimeElapsed = 0L;
     for (int i = 0; i < BENCHMARK_ITERATIONS; i++) {
