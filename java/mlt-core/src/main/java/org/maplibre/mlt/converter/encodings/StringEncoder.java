@@ -93,8 +93,6 @@ public class StringEncoder {
                 < ByteArrayUtil.totalLength(encodedSharedDictionary);
     final var result = usingFSST ? encodedSharedFsstDictionary : encodedSharedDictionary;
 
-    final var width = (int) Math.max(1, Math.ceil(Math.log10(dataStreams.size() - 1)));
-
     // stream_count = dict streams + actual streams written across all child columns.
     // Plain has 2 dict streams (length + data).
     // FSST has 4 dict streams (symbol_lengths, symbol_table, value_lengths, compressed_corpus).

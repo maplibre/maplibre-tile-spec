@@ -7,11 +7,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
-import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.MVTFeature;
+import org.maplibre.mlt.data.MapboxVectorTile;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 class MltConverterTest {
@@ -19,28 +19,34 @@ class MltConverterTest {
   void coerceValuesToString() {
     var metadata =
         MltConverter.createTilesetMetadata(
-            createTileWithMixedTypes(), new ColumnMappingConfig(), true, true, false);
+            createTileWithMixedTypes(),
+            new ColumnMappingConfig(),
+            true,
+            ConversionConfig.TypeMismatchPolicy.COERCE);
     var column =
         metadata.featureTables.stream()
-            .flatMap(it -> it.columns.stream())
-            .filter(it -> "key".equals(it.name))
+            .flatMap(it -> it.columns().stream())
+            .filter(it -> "key".equals(it.getName()))
             .findFirst()
             .get();
-    assertEquals(MltMetadata.ScalarType.STRING, column.scalarType.physicalType);
+    assertEquals(MltMetadata.ScalarType.STRING, column.field().type().scalarType().physicalType());
   }
 
   @Test
   void elideValues() {
     var metadata =
         MltConverter.createTilesetMetadata(
-            createTileWithMixedTypes(), new ColumnMappingConfig(), true, false, true);
+            createTileWithMixedTypes(),
+            new ColumnMappingConfig(),
+            true,
+            ConversionConfig.TypeMismatchPolicy.ELIDE);
     var column =
         metadata.featureTables.stream()
-            .flatMap(it -> it.columns.stream())
-            .filter(it -> "key".equals(it.name))
+            .flatMap(it -> it.columns().stream())
+            .filter(it -> "key".equals(it.getName()))
             .findFirst()
             .get();
-    assertEquals(MltMetadata.ScalarType.DOUBLE, column.scalarType.physicalType);
+    assertEquals(MltMetadata.ScalarType.DOUBLE, column.field().type().scalarType().physicalType());
   }
 
   @Test
@@ -54,15 +60,29 @@ class MltConverterTest {
   }
 
   private static MapboxVectorTile createTileWithMixedTypes() {
-    final var factory = new GeometryFactory();
     return new MapboxVectorTile(
         List.of(
             new Layer(
                 "layer",
                 List.of(
-                    new Feature(1, factory.createEmpty(2), Map.of("key", 1.2)),
-                    new Feature(2, factory.createEmpty(2), Map.of("key", "2")),
-                    new Feature(3, factory.createEmpty(2), Map.of("key", 1))),
+                    MVTFeature.builder()
+                        .index(0)
+                        .id(1)
+                        .geometry(emptyGeometry)
+                        .properties(Map.of("key", 1.2))
+                        .build(),
+                    MVTFeature.builder()
+                        .index(1)
+                        .id(2)
+                        .geometry(emptyGeometry)
+                        .properties(Map.of("key", "2"))
+                        .build(),
+                    MVTFeature.builder()
+                        .index(2)
+                        .id(3)
+                        .geometry(emptyGeometry)
+                        .properties(Map.of("key", 1))
+                        .build()),
                 4096)));
   }
 
@@ -81,4 +101,7 @@ class MltConverterTest {
 
     MltConverter.createTilesetMetadataJSON(metadata);
   }
+
+  private static final GeometryFactory factory = new GeometryFactory();
+  private static final Geometry emptyGeometry = factory.createEmpty(2);
 }

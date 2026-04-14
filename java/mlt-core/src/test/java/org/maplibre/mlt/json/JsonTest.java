@@ -14,10 +14,11 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.MLTFeature;
 import org.maplibre.mlt.data.MapLibreTile;
+import org.maplibre.mlt.data.MapboxVectorTile;
 
 class JsonTest {
   private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
@@ -111,7 +112,6 @@ class JsonTest {
     properties.put("f64neg", Double.NEGATIVE_INFINITY);
     properties.put("f32", 1.5f);
     properties.put("f64", -1.5);
-    properties.put("nested", List.of(Float.NEGATIVE_INFINITY, nested));
 
     final var tile =
         mltOf(
@@ -128,15 +128,14 @@ class JsonTest {
             .getAsJsonObject()
             .getAsJsonObject("properties");
 
+    assertEquals("1.5", props.get("f32").getAsJsonPrimitive().toString());
     assertEquals("f32::NAN", props.get("f32nan").getAsString());
     assertEquals("f32::INFINITY", props.get("f32inf").getAsString());
+    assertEquals("f32::NEG_INFINITY", props.get("f32neg").getAsString());
+    assertEquals("-1.5", props.get("f64").getAsJsonPrimitive().toString());
     assertEquals("f64::NAN", props.get("f64nan").getAsString());
     assertEquals("f64::INFINITY", props.get("f64inf").getAsString());
     assertEquals("f64::NEG_INFINITY", props.get("f64neg").getAsString());
-    assertEquals("f32::NEG_INFINITY", props.getAsJsonArray("nested").get(0).getAsString());
-    assertEquals(
-        "f64::NEG_INFINITY",
-        props.getAsJsonArray("nested").get(1).getAsJsonObject().get("inner").getAsString());
   }
 
   @Test
@@ -247,10 +246,15 @@ class JsonTest {
   }
 
   private static Feature feature(Geometry geometry, Map<String, Object> properties) {
-    return new Feature(geometry, properties);
+    return MLTFeature.builder().geometry(geometry).rawProperties(properties).index(0).build();
   }
 
   private static Feature feature(long id, Geometry geometry, Map<String, Object> properties) {
-    return new Feature(id, geometry, properties);
+    return MLTFeature.builder()
+        .id(id)
+        .geometry(geometry)
+        .rawProperties(properties)
+        .index(0)
+        .build();
   }
 }

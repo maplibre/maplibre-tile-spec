@@ -300,7 +300,7 @@ public class GeometryEncoder {
     if (includePreTessellatedPolygonGeometry) {
       // TODO: also support Vertex Dictionary and Morton Encoded Vertex Dictionary encoding?
       var encodedVertexBufferStream =
-          encodeVertexBuffer(zigZagDeltaVertexBuffer, vertexBuffer, physicalLevelTechnique);
+          encodeVertexBuffer(zigZagDeltaVertexBuffer, physicalLevelTechnique);
 
       if (encodePolygonOutlines) {
         final var encodedPretessellationStreams =
@@ -329,7 +329,7 @@ public class GeometryEncoder {
         && plainVertexBufferSize <= mortonDictionaryEncodedSize) {
       // TODO: get rid of extra conversion
       final var encodedVertexBufferStream =
-          encodeVertexBuffer(zigZagDeltaVertexBuffer, vertexBuffer, physicalLevelTechnique);
+          encodeVertexBuffer(zigZagDeltaVertexBuffer, physicalLevelTechnique);
 
       final var data = encodedTopologyStreams;
       data.addAll(encodedVertexBufferStream);
@@ -347,8 +347,7 @@ public class GeometryEncoder {
               encodingOption);
 
       final var encodedVertexDictionaryStream =
-          encodeVertexBuffer(
-              zigZagDeltaVertexDictionary, vertexDictionary.getRight(), physicalLevelTechnique);
+          encodeVertexBuffer(zigZagDeltaVertexDictionary, physicalLevelTechnique);
 
       final var data = encodedTopologyStreams;
       data.addAll(encodedVertexOffsetStream);
@@ -694,14 +693,14 @@ public class GeometryEncoder {
         && (!useMortonEncoding || plainVertexBufferSize <= mortonDictionaryEncodedSize)) {
       // TODO: get rid of extra conversion
       var encodedVertexBufferStream =
-          encodeVertexBuffer(zigZagDeltaVertexBuffer, vertexBuffer, physicalLevelTechnique);
+          encodeVertexBuffer(zigZagDeltaVertexBuffer, physicalLevelTechnique);
 
       result.addAll(encodedVertexBufferStream);
       return new EncodedGeometryColumn(
           numStreams + 1, result, maxVertexValue, geometryColumnSorted);
     } else if (dictionaryEncodedSize < plainVertexBufferSize
         && (!useMortonEncoding || dictionaryEncodedSize <= mortonDictionaryEncodedSize)) {
-      var encodedVertexOffsetStream =
+      final var encodedVertexOffsetStream =
           IntegerEncoder.encodeIntStream(
               dictionaryOffsets,
               physicalLevelTechnique,
@@ -709,9 +708,8 @@ public class GeometryEncoder {
               PhysicalStreamType.OFFSET,
               new LogicalStreamType(OffsetType.VERTEX),
               encodingOption);
-      var encodedVertexDictionaryStream =
-          encodeVertexBuffer(
-              zigZagDeltaVertexDictionary, vertexDictionary.getRight(), physicalLevelTechnique);
+      final var encodedVertexDictionaryStream =
+          encodeVertexBuffer(zigZagDeltaVertexDictionary, physicalLevelTechnique);
 
       result.addAll(encodedVertexOffsetStream);
       result.addAll(encodedVertexDictionaryStream);
@@ -810,14 +808,14 @@ public class GeometryEncoder {
 
   private static Pair<List<Integer>, List<Vertex>> addVerticesToDictionary(
       List<Vertex> vertices, HilbertCurve hilbertCurve) {
-    ArrayList<Indexed> vertexDictionary = new ArrayList<>();
+    ArrayList<Indexed> vertexDictionary = new ArrayList<>(vertices.size());
     for (var vertex : vertices) {
       var hilbertId = hilbertCurve.encode(vertex);
       vertexDictionary.add(new Indexed(hilbertId, vertex));
     }
     vertexDictionary.sort(Comparator.naturalOrder());
-    List<Integer> a = new ArrayList<>();
-    List<Vertex> b = new ArrayList<>();
+    List<Integer> a = new ArrayList<>(vertexDictionary.size());
+    List<Vertex> b = new ArrayList<>(vertexDictionary.size());
     int last = Integer.MIN_VALUE;
     for (var item : vertexDictionary) {
       if (item.hilbert != last) {
@@ -880,8 +878,7 @@ public class GeometryEncoder {
    * Encodes the StreamMetadata and applies the specified physical level technique to the values.
    */
   private static ArrayList<byte[]> encodeVertexBuffer(
-      int[] values, Collection<Vertex> vertices, PhysicalLevelTechnique physicalLevelTechnique)
-      throws IOException {
+      int[] values, PhysicalLevelTechnique physicalLevelTechnique) throws IOException {
     final var encodedValues =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
             ? encodeFastPfor(values, false)

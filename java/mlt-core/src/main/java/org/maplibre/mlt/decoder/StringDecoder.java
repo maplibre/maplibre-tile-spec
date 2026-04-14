@@ -68,7 +68,7 @@ public final class StringDecoder {
       }
     }
 
-    List<String> dictionary = null;
+    List<String> dictionary;
     if (symbolLengthStream != null && symbolTableStream != null && dictionaryLengthStream != null) {
       var decompressedLength = dictionaryLengthStream.stream().mapToInt(i -> i).sum();
       var utf8Values =
@@ -87,11 +87,11 @@ public final class StringDecoder {
     var presentStreams = new HashMap<String, BitSet>();
     var numValues = new HashMap<String, Integer>();
     var values = new HashMap<String, List<String>>();
-    for (var childField : column.complexType.children) {
+    for (var childField : column.field().type().complexType().children()) {
       var numStreams = DecodingUtils.decodeVarints(data, offset, 1)[0];
       if (numStreams != 2
-          || childField.complexType != null
-          || childField.scalarType.physicalType != MltMetadata.ScalarType.STRING) {
+          || childField.type().complexType() != null
+          || childField.type().scalarType().physicalType() != MltMetadata.ScalarType.STRING) {
         throw new IllegalArgumentException(
             "Currently only optional string fields are implemented for a struct.");
       }
@@ -117,7 +117,7 @@ public final class StringDecoder {
         }
       }
 
-      final var columnName = column.name + childField.name;
+      final var columnName = column.getName() + childField.name();
       // TODO: refactor to work also when present stream is null
       numValues.put(columnName, presentStreamMetadata.numValues());
       presentStreams.put(columnName, presentStream);
@@ -153,7 +153,6 @@ public final class StringDecoder {
 
     List<Integer> dictionaryLengthStream = null;
     List<Integer> offsetStream = null;
-    byte[] dataStream = null;
     byte[] dictionaryStream = null;
     List<Integer> symbolLengthStream = null;
     byte[] symbolTableStream = null;
@@ -268,67 +267,5 @@ public final class StringDecoder {
     }
 
     return values;
-  }
-
-  public static List<String> decodeFsstDictionaryEncodedStringColumn(byte[] data, IntWrapper offset)
-      throws IOException {
-    /* FsstDictionary -> SymbolTable, SymbolLength, CompressedCorpus, Length, Data */
-    // TODO: get rid of that IntWrapper creation
-    var symbolTableOffset = new IntWrapper(offset.get());
-    var symbolTableMetadata = StreamMetadataDecoder.decode(data, symbolTableOffset);
-    var symbolLengthOffset =
-        new IntWrapper(symbolTableOffset.get() + symbolTableMetadata.byteLength());
-    var symbolLengthMetadata = StreamMetadataDecoder.decode(data, symbolLengthOffset);
-    var compressedCorpusOffset =
-        new IntWrapper(symbolLengthOffset.get() + symbolLengthMetadata.byteLength());
-    var compressedCorpusMetadata = StreamMetadataDecoder.decode(data, compressedCorpusOffset);
-    var lengthOffset =
-        new IntWrapper(compressedCorpusOffset.get() + compressedCorpusMetadata.byteLength());
-    var lengthMetadata = StreamMetadataDecoder.decode(data, lengthOffset);
-    var dataOffset = new IntWrapper(lengthOffset.get() + lengthMetadata.byteLength());
-    var dataMetadata = StreamMetadataDecoder.decode(data, dataOffset);
-
-    // TODO: get rid of that copy by refactoring the fsst decoding function
-    var symbols =
-        Arrays.copyOfRange(
-            data,
-            symbolTableOffset.get(),
-            symbolTableOffset.get() + symbolTableMetadata.byteLength());
-    var symbolLength =
-        IntegerDecoder.decodeIntStream(data, symbolLengthOffset, symbolLengthMetadata, false);
-    var compressedCorpus =
-        Arrays.copyOfRange(
-            data,
-            compressedCorpusOffset.get(),
-            compressedCorpusOffset.get() + compressedCorpusMetadata.byteLength());
-
-    var length = IntegerDecoder.decodeIntStream(data, lengthOffset, lengthMetadata, false);
-    var decompressedLength = length.stream().mapToInt(i -> i).sum();
-    var values =
-        FsstEncoder.decode(
-            symbols,
-            symbolLength.stream().mapToInt(i -> i).toArray(),
-            compressedCorpus,
-            decompressedLength);
-    var decodedData = IntegerDecoder.decodeIntStream(data, dataOffset, dataMetadata, false);
-
-    var decodedDictionary = new ArrayList<String>();
-    var strStart = 0;
-    for (var l : length) {
-      var v = Arrays.copyOfRange(values, strStart, strStart + l);
-      decodedDictionary.add(new String(v, StandardCharsets.UTF_8));
-      strStart += l;
-    }
-
-    var decodedValues = new ArrayList<String>(decodedData.size());
-    for (var dictionaryOffset : decodedData) {
-      var value = decodedDictionary.get(dictionaryOffset);
-      decodedValues.add(value);
-    }
-
-    // TODO: check -> is this correct?
-    offset.set(dataOffset.get());
-
-    return decodedValues;
   }
 }

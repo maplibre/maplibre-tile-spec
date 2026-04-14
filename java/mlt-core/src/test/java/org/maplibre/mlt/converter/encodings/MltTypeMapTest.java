@@ -2,12 +2,15 @@ package org.maplibre.mlt.converter.encodings;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
+/// Test encoding and decoding of column types
 public class MltTypeMapTest {
+  /// Test that all valid type codes can be decoded and re-encoded to the same value
   @Test
   public void roundTrips() {
     final var valid =
@@ -16,46 +19,48 @@ public class MltTypeMapTest {
             28, 29, 30);
 
     for (var i = 0; i < 100; ++i) {
-      final MltMetadata.Column[] columns = new MltMetadata.Column[] {null};
+      final MltMetadata.FieldType[] types = new MltMetadata.FieldType[] {null};
       if (valid.contains(i)) {
         final var typeCode = i;
         Assertions.assertDoesNotThrow(
-            () -> columns[0] = MltTypeMap.Tag0x01.decodeColumnType(typeCode));
+            () -> types[0] = MltTypeMap.Tag0x01.decodeColumnType(typeCode));
       } else {
         final var typeCode = i;
         Assertions.assertThrows(
             IllegalStateException.class,
             () -> {
-              columns[0] = MltTypeMap.Tag0x01.decodeColumnType(typeCode);
+              types[0] = MltTypeMap.Tag0x01.decodeColumnType(typeCode);
             });
         continue;
       }
 
-      final var column = columns[0];
+      var column = types[0];
 
       // STRUCT must have children before being re-encoded
       if (MltTypeMap.Tag0x01.columnTypeHasChildren(i)) {
-        Assertions.assertNotNull(column.complexType);
-        Assertions.assertNotNull(column.complexType.children);
-        column.complexType.children.add(
-            new MltMetadata.Field(
-                null, new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING)));
+        Assertions.assertNotNull(column.complexType());
+        Assertions.assertNotNull(column.complexType().children());
+        column =
+            MltMetadata.structFieldType(
+                List.of(
+                    new MltMetadata.Field(
+                        MltMetadata.scalarFieldType(MltMetadata.ScalarType.STRING, true))));
       }
 
-      final boolean complex = column.complexType != null;
+      final boolean complex = column.complexType() != null;
       final boolean logical =
-          (complex && column.complexType.logicalType != null)
-              || (!complex && column.scalarType.logicalType != null);
+          (complex && column.complexType().logicalType() != null)
+              || (!complex && column.scalarType().logicalType() != null);
 
       final var typeCode =
           MltTypeMap.Tag0x01.encodeColumnType(
-                  (!complex && !logical) ? column.scalarType.physicalType : null,
-                  (!complex && logical) ? column.scalarType.logicalType : null,
-                  (complex && !logical) ? column.complexType.physicalType : null,
-                  (complex && logical) ? column.complexType.logicalType : null,
-                  column.isNullable,
-                  complex && !column.complexType.children.isEmpty(),
-                  !complex && column.scalarType.hasLongId)
+                  (!complex && !logical) ? column.scalarType().physicalType() : null,
+                  (!complex && logical) ? column.scalarType().logicalType() : null,
+                  (complex && !logical) ? column.complexType().physicalType() : null,
+                  (complex && logical) ? column.complexType().logicalType() : null,
+                  column.isNullable(),
+                  complex && !column.complexType().children().isEmpty(),
+                  !complex && column.scalarType().hasLongId())
               .or(Assertions::fail);
       assertEquals(typeCode.get(), i);
     }

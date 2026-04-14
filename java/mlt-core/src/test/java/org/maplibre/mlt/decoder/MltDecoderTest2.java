@@ -18,10 +18,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.TestUtils;
+import org.maplibre.mlt.converter.ColumnMappingConfig;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 
 enum DecoderType {
@@ -199,7 +199,8 @@ public class MltDecoderTest2 {
 
     final var columnMappings = new ColumnMappingConfig();
     var tileMetadata =
-        MltConverter.createTilesetMetadata(mvTile, columnMappings, true, false, true);
+        MltConverter.createTilesetMetadata(
+            mvTile, columnMappings, true, ConversionConfig.TypeMismatchPolicy.COERCE);
 
     var allowIdRegeneration = false;
     var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, List.of());
@@ -208,16 +209,26 @@ public class MltDecoderTest2 {
             .collect(Collectors.toMap(l -> l, l -> optimization));
     var includeIds = true;
     var mlTile =
-        MltConverter.convertMvt(
+        MltConverter.encode(
             mvTile,
             tileMetadata,
-            new ConversionConfig(includeIds, false, false, optimizations),
+            ConversionConfig.builder()
+                .includeIds(includeIds)
+                .useFastPFOR(false)
+                .useFSST(false)
+                .optimizations(optimizations)
+                .build(),
             null);
     var mlTileAdvanced =
-        MltConverter.convertMvt(
+        MltConverter.encode(
             mvTile,
             tileMetadata,
-            new ConversionConfig(includeIds, true, true, optimizations),
+            ConversionConfig.builder()
+                .includeIds(includeIds)
+                .useFastPFOR(true)
+                .useFSST(true)
+                .optimizations(optimizations)
+                .build(),
             null);
     int numErrors = -1;
     int numErrorsAdvanced = -1;
