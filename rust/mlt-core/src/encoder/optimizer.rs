@@ -65,19 +65,6 @@ impl TileLayer01 {
         }
 
         let mut sort_by = vec![SortStrategy::Unsorted];
-        {
-            let try_spatial_sort = cfg.try_spatial_morton_sort || cfg.try_spatial_hilbert_sort;
-            if try_spatial_sort
-                && (self.features.len() < SORT_TRIAL_THRESHOLD
-                    || spatial_sort_likely_to_help(&self))
-            {
-                if cfg.try_spatial_morton_sort {
-                    sort_by.push(SortStrategy::SpatialMorton);
-                }
-                if cfg.try_spatial_hilbert_sort {
-                    sort_by.push(SortStrategy::SpatialHilbert);
-                }
-            }
 let try_spatial_sort = cfg.try_spatial_morton_sort || cfg.try_spatial_hilbert_sort;
 if try_spatial_sort
 && (self.features.len() < SORT_TRIAL_THRESHOLD
