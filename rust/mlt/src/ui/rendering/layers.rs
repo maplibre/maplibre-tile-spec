@@ -306,10 +306,7 @@ pub fn render_mbtiles_hover_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) 
 
 fn mbt_hover_title_and_lines(app: &App) -> (String, Vec<Line<'static>>) {
     let Some(ref mbt) = app.mbt_state else {
-        return (
-            "Properties".into(),
-            vec![Line::from("No mbtiles loaded")],
-        );
+        return ("Properties".into(), vec![Line::from("No mbtiles loaded")]);
     };
     let Some(ref h) = mbt.hovered else {
         return (
@@ -317,11 +314,11 @@ fn mbt_hover_title_and_lines(app: &App) -> (String, Vec<Line<'static>>) {
             vec![Line::from("Hover over a feature to inspect properties")],
         );
     };
-    let Some(MbtTileData::Loaded { fc, layer_groups, .. }) = mbt.tiles.get(&h.tile) else {
-        return (
-            "Properties".into(),
-            vec![Line::from("Tile loading…")],
-        );
+    let Some(MbtTileData::Loaded {
+        fc, layer_groups, ..
+    }) = mbt.tiles.get(&h.tile)
+    else {
+        return ("Properties".into(), vec![Line::from("Tile loading…")]);
     };
     let Some(group) = layer_groups.get(h.layer_idx) else {
         return ("Properties".into(), vec![Line::from("(feature not found)")]);

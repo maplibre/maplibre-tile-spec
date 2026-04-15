@@ -298,7 +298,12 @@ pub fn render_mbtiles_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
                         let sy = mbt_screen_y(vy0, vy1, cy);
                         ctx.print(cx, sy, Span::styled("…", Style::default().fg(CLR_DIMMED)));
                     }
-                    MbtTileData::Loaded { fc, extent, layer_groups, .. } => {
+                    MbtTileData::Loaded {
+                        fc,
+                        extent,
+                        layer_groups,
+                        ..
+                    } => {
                         draw_mbtiles_loaded_tile_layers(
                             ctx,
                             mbt.hovered.as_ref(),

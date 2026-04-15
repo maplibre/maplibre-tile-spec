@@ -86,8 +86,7 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
         let mut mbt = MbtilesState::new(args.path.clone());
         if let Some(ref s) = args.center_tile {
             let (z, x, y) = parse_center_tile_xyz(s)?;
-            mbt
-                .set_viewport_to_tile(z, x, y)
+            mbt.set_viewport_to_tile(z, x, y)
                 .map_err(|e| anyhow::anyhow!(e))?;
         }
         App::new_mbtiles(mbt, args.path.clone())
@@ -147,7 +146,10 @@ fn parse_center_tile_xyz(s: &str) -> anyhow::Result<(u8, u32, u32)> {
         .checked_shl(u32::from(z))
         .ok_or_else(|| anyhow::anyhow!("zoom z={z} is too large"))?;
     if x >= n || y >= n {
-        bail!("tile x/y must be < 2^z for z={z} (max index {})", n.saturating_sub(1));
+        bail!(
+            "tile x/y must be < 2^z for z={z} (max index {})",
+            n.saturating_sub(1)
+        );
     }
     Ok((z, x, y))
 }
@@ -437,19 +439,20 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
     loop {
         // Process incoming mbtiles tile results and request visible tiles.
         if app.mode == ViewMode::MbtilesMap
-            && let Some(ref mut mbt) = app.mbt_state {
-                if mbt.process_results() {
-                    app.needs_redraw = true;
-                }
-                let visible = mbt.visible_tiles();
-                for (z, x, y) in visible {
-                    mbt.request_tile_with_ancestors(z, x, y);
-                }
-                if app.needs_redraw {
-                    // request redraw in 16ms so loading tiles appear as they arrive
-                    app.needs_redraw = true;
-                }
+            && let Some(ref mut mbt) = app.mbt_state
+        {
+            if mbt.process_results() {
+                app.needs_redraw = true;
             }
+            let visible = mbt.visible_tiles();
+            for (z, x, y) in visible {
+                mbt.request_tile_with_ancestors(z, x, y);
+            }
+            if app.needs_redraw {
+                // request redraw in 16ms so loading tiles appear as they arrive
+                app.needs_redraw = true;
+            }
+        }
 
         if let Some(rows) = app.analysis_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             if rows.len() == app.files.len() {
@@ -820,27 +823,23 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         if app.mode == ViewMode::MbtilesMap
                             && let (Some(area), Some(ref mut mbt)) =
                                 (map_area, app.mbt_state.as_mut())
-                            {
-                                if point_in_rect(mouse.column, mouse.row, area) {
-                                    let rx =
-                                        f64::from(mouse.column - area.x) / f64::from(area.width);
-                                    let ry =
-                                        f64::from(mouse.row - area.y) / f64::from(area.height);
-                                    let (wx, wy) = mbt.viewport_world_at_fracs(rx, ry);
-                                    mbt.zoom_wheel_at(wx, wy, up);
-                                    app.needs_redraw = true;
-                                    continue;
-                                }
-                                // Properties panel scroll
-                                if left_area
-                                    .is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
-                                {
-                                    app.properties_scroll =
-                                        scroll_by(app.properties_scroll, step, up);
-                                    app.invalidate();
-                                    continue;
-                                }
+                        {
+                            if point_in_rect(mouse.column, mouse.row, area) {
+                                let rx = f64::from(mouse.column - area.x) / f64::from(area.width);
+                                let ry = f64::from(mouse.row - area.y) / f64::from(area.height);
+                                let (wx, wy) = mbt.viewport_world_at_fracs(rx, ry);
+                                mbt.zoom_wheel_at(wx, wy, up);
+                                app.needs_redraw = true;
+                                continue;
                             }
+                            // Properties panel scroll
+                            if left_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
+                            {
+                                app.properties_scroll = scroll_by(app.properties_scroll, step, up);
+                                app.invalidate();
+                                continue;
+                            }
+                        }
 
                         if app.mode == ViewMode::FileBrowser {
                             if filter_area
