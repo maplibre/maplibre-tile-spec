@@ -6,6 +6,7 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Line, Modifier, Span, Style};
 use ratatui::widgets::{Paragraph, Wrap};
 
+use crate::ui::mbt::MbtTileData;
 use crate::ui::state::{App, TreeItem, ViewMode};
 use crate::ui::{
     CLR_HOVERED_TREE, STYLE_LABEL, STYLE_SELECTED, block_with_title, feature_suffix,
@@ -99,7 +100,7 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 .unwrap_or("unknown");
             format!("{name} - Enter/+/-:expand, Esc:back, h:help, q:quit")
         }
-        ViewMode::FileBrowser => "Features".into(),
+        ViewMode::FileBrowser | ViewMode::MbtilesMap => "Features".into(),
     };
     let inner = area.height.saturating_sub(2) as usize;
     app.tree_inner_height = inner;
@@ -284,6 +285,57 @@ fn subpart_stats_lines(geom: &Geom32, part: usize) -> Vec<Line<'static>> {
         _ => {}
     }
     lines
+}
+
+// ---------------------------------------------------------------------------
+// MBTiles hover properties panel
+// ---------------------------------------------------------------------------
+
+/// Renders the left panel for `MbtilesMap` mode: shows hovered feature properties only.
+pub fn render_mbtiles_hover_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
+    let (title, lines) = mbt_hover_title_and_lines(app);
+    let inner = area.height.saturating_sub(2) as usize;
+    let max = u16::try_from(lines.len().saturating_sub(inner)).unwrap_or(0);
+    app.properties_scroll = app.properties_scroll.min(max);
+    let para = Paragraph::new(lines)
+        .block(block_with_title(title))
+        .wrap(Wrap { trim: true })
+        .scroll((app.properties_scroll, 0));
+    f.render_widget(para, area);
+}
+
+fn mbt_hover_title_and_lines(app: &App) -> (String, Vec<Line<'static>>) {
+    let Some(ref mbt) = app.mbt_state else {
+        return (
+            "Properties".into(),
+            vec![Line::from("No mbtiles loaded")],
+        );
+    };
+    let Some(ref h) = mbt.hovered else {
+        return (
+            "Properties".into(),
+            vec![Line::from("Hover over a feature to inspect properties")],
+        );
+    };
+    let Some(MbtTileData::Loaded { fc, layer_groups, .. }) = mbt.tiles.get(&h.tile) else {
+        return (
+            "Properties".into(),
+            vec![Line::from("Tile loading…")],
+        );
+    };
+    let Some(group) = layer_groups.get(h.layer_idx) else {
+        return ("Properties".into(), vec![Line::from("(feature not found)")]);
+    };
+    let Some(&gi) = group.feature_indices.get(h.feat_idx) else {
+        return ("Properties".into(), vec![Line::from("(feature not found)")]);
+    };
+    let feat = &fc.features[gi];
+    let (z, tx, ty) = h.tile;
+    let title = format!(
+        "Properties — {} feat {} (tile {z}/{tx}/{ty})",
+        group.name, h.feat_idx
+    );
+    (title, feature_property_lines(feat))
 }
 
 fn render_geometry_stats(f: &mut Frame<'_>, area: Rect, app: &App) {

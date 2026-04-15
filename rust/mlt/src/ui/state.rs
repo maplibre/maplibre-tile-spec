@@ -10,6 +10,7 @@ use ratatui::widgets::TableState;
 use rstar::{PointDistance as _, RTree};
 
 use crate::ls::{FileAlgorithm, FileSortColumn, LsRow};
+use crate::ui::mbt::MbtilesState;
 use crate::ui::{
     GeometryIndexEntry, auto_expand, coord_f64, group_by_layer, is_entry_visible, load_fc,
     multi_part_count,
@@ -19,6 +20,8 @@ use crate::ui::{
 pub enum ViewMode {
     FileBrowser,
     LayerOverview,
+    /// Interactive world map viewer for .mbtiles files.
+    MbtilesMap,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -144,6 +147,8 @@ pub struct App {
     pub(crate) preview_extent: u32,
     pub(crate) preview_rx: Option<mpsc::Receiver<PreviewValue>>,
     pub(crate) preview_load_requested: Option<PathBuf>,
+    /// State for the `MbtilesMap` mode (Some only when mode == `MbtilesMap`).
+    pub(crate) mbt_state: Option<Box<MbtilesState>>,
 }
 
 impl Default for App {
@@ -201,6 +206,7 @@ impl Default for App {
             preview_extent: 4096,
             preview_rx: None,
             preview_load_requested: None,
+            mbt_state: None,
         }
     }
 }
@@ -220,6 +226,15 @@ impl App {
             analysis_rx,
             file_browser_base: Some(base_path),
             filtered_file_indices,
+            ..Self::default()
+        }
+    }
+
+    pub(crate) fn new_mbtiles(mbt_state: MbtilesState, path: PathBuf) -> Self {
+        Self {
+            mode: ViewMode::MbtilesMap,
+            current_file: Some(path),
+            mbt_state: Some(Box::new(mbt_state)),
             ..Self::default()
         }
     }
@@ -405,6 +420,7 @@ impl App {
                     self.invalidate_bounds();
                 }
             }
+            ViewMode::MbtilesMap => {}
         }
     }
 
@@ -419,7 +435,7 @@ impl App {
     pub(crate) fn page_size(&self) -> usize {
         match self.mode {
             ViewMode::FileBrowser => self.file_table_inner_height,
-            ViewMode::LayerOverview => self.tree_inner_height,
+            ViewMode::LayerOverview | ViewMode::MbtilesMap => self.tree_inner_height,
         }
     }
 
@@ -468,6 +484,7 @@ impl App {
                 }
                 _ => {}
             },
+            ViewMode::MbtilesMap => {}
         }
     }
 
@@ -538,7 +555,7 @@ impl App {
 
     pub(crate) fn handle_escape(&mut self) -> bool {
         match self.mode {
-            ViewMode::FileBrowser => true,
+            ViewMode::FileBrowser | ViewMode::MbtilesMap => true,
             ViewMode::LayerOverview if self.files.is_empty() => true,
             ViewMode::LayerOverview => {
                 self.mode = ViewMode::FileBrowser;
