@@ -60,6 +60,7 @@ pub fn render_help_overlay(f: &mut Frame<'_>, app: &mut App) {
     let lines = match app.mode {
         ViewMode::FileBrowser => help_file_browser(),
         ViewMode::LayerOverview => help_layer_overview(),
+        ViewMode::MbtilesMap => help_mbtiles_map(),
     };
     let height = u16::try_from(lines.len())
         .unwrap_or(u16::MAX)
@@ -124,6 +125,26 @@ fn help_file_browser() -> Vec<Line<'static>> {
         heading("Filter Panel"),
         key("Click checkbox", "Toggle geometry/algorithm filter"),
         key("Click [Reset]", "Clear all filters"),
+    ]
+}
+
+fn help_mbtiles_map() -> Vec<Line<'static>> {
+    vec![
+        heading("Keyboard"),
+        key("?  h  F1", "Toggle this help"),
+        key("q  Ctrl+c  Esc", "Quit"),
+        Line::from(""),
+        heading("Mouse"),
+        key("Scroll on map", "Zoom ±0.5 levels (centred on cursor)"),
+        key("Left-drag on map", "Pan"),
+        key("Hover over map", "Inspect feature properties in left panel"),
+        Line::from(""),
+        heading("Map Colors"),
+        color(CLR_POINT, "Magenta", "Point"),
+        color(CLR_LINE, "Cyan", "LineString"),
+        color(CLR_POLYGON, "Blue", "Polygon"),
+        color(CLR_EXTENT, "Dark gray", "Tile boundaries"),
+        color(CLR_HOVERED, "White", "Hovered feature"),
     ]
 }
 

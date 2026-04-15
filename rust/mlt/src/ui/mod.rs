@@ -1,5 +1,6 @@
 //! TUI visualizer for MLT files using ratatui
 
+pub(crate) mod mbt;
 mod rendering;
 mod state;
 
@@ -15,7 +16,7 @@ use anyhow::bail;
 use clap::Args;
 use crossterm::event::{
     self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
-    MouseEventKind,
+    MouseButton, MouseEventKind,
 };
 use crossterm::execute;
 use geo_types::Polygon;
@@ -29,16 +30,19 @@ use ratatui::widgets::{Block, Borders};
 use rstar::{AABB, PointDistance, RTreeObject};
 
 use crate::ls::{
-    FileAlgorithm, FileSortColumn, LsFlags, LsRow, analyze_tile_files, is_mlt_extension,
-    is_tile_extension,
+    FileAlgorithm, FileSortColumn, LsFlags, LsRow, analyze_tile_files, is_mbt_extension,
+    is_mlt_extension, is_tile_extension,
 };
+use crate::ui::mbt::MbtilesState;
 use crate::ui::rendering::files::{
     render_file_browser, render_file_filter_panel, render_file_info_panel,
     render_tile_preview_panel,
 };
 use crate::ui::rendering::help::{render_error_popup, render_help_overlay};
-use crate::ui::rendering::layers::{render_properties_panel, render_tree_panel};
-use crate::ui::rendering::map::render_map_panel;
+use crate::ui::rendering::layers::{
+    render_mbtiles_hover_panel, render_properties_panel, render_tree_panel,
+};
+use crate::ui::rendering::map::{render_map_panel, render_mbtiles_map_panel};
 use crate::ui::state::{App, HoveredInfo, LayerGroup, ResizeHandle, TreeItem, ViewMode};
 
 pub const CLR_POINT: Color = Color::Magenta;
@@ -67,12 +71,26 @@ const HOVER_REDRAW_THROTTLE: Duration = Duration::from_millis(32);
 
 #[derive(Args)]
 pub struct UiArgs {
-    /// Path to a tile file (.mlt, .mvt, .pbf) or directory
+    /// Path to a tile file (`.mlt`, `.mvt`, `.pbf`, `.mbtiles`) or directory
     path: PathBuf,
+    /// Start `MBTiles` map centered on this XYZ tile (`z/x/y`, e.g. `6/32/21`). `MBTiles` only.
+    #[arg(long = "center-tile", value_name = "Z/X/Y")]
+    center_tile: Option<String>,
 }
 
 pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
-    let app = if args.path.is_dir() {
+    if args.center_tile.is_some() && !is_mbt_extension(&args.path) {
+        bail!("--center-tile is only supported when opening an .mbtiles file");
+    }
+    let app = if is_mbt_extension(&args.path) {
+        let mut mbt = MbtilesState::new(args.path.clone());
+        if let Some(ref s) = args.center_tile {
+            let (z, x, y) = parse_center_tile_xyz(s)?;
+            mbt.set_viewport_to_tile(z, x, y)
+                .map_err(|e| anyhow::anyhow!(e))?;
+        }
+        App::new_mbtiles(mbt, args.path.clone())
+    } else if args.path.is_dir() {
         let paths = find_tile_files(&args.path)?;
         if paths.is_empty() {
             bail!(
@@ -104,6 +122,36 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
         bail!("Path is not a file or directory");
     };
     run_app(app)
+}
+
+fn parse_center_tile_xyz(spec: &str) -> anyhow::Result<(u8, u32, u32)> {
+    let parts: Vec<&str> = spec
+        .split('/')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    if parts.len() != 3 {
+        bail!("--center-tile must be z/x/y (three integers), got {spec:?}");
+    }
+    let zoom: u8 = parts[0]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid zoom z in --center-tile: {:?}", parts[0]))?;
+    let tile_x: u32 = parts[1]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid tile x in --center-tile: {:?}", parts[1]))?;
+    let tile_y: u32 = parts[2]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid tile y in --center-tile: {:?}", parts[2]))?;
+    let grid_n = 1u32
+        .checked_shl(u32::from(zoom))
+        .ok_or_else(|| anyhow::anyhow!("zoom z={zoom} is too large"))?;
+    if tile_x >= grid_n || tile_y >= grid_n {
+        bail!(
+            "tile x/y must be < 2^z for z={zoom} (max index {})",
+            grid_n.saturating_sub(1)
+        );
+    }
+    Ok((zoom, tile_x, tile_y))
 }
 
 // --- Data loading ---
@@ -269,6 +317,13 @@ fn block_with_title(title: impl Into<Line<'static>>) -> Block<'static> {
     Block::default().borders(Borders::ALL).title(title)
 }
 
+/// Area where the map canvas actually draws (inside borders + title).
+/// Must stay in sync with `render_map_panel` and `render_mbtiles_map_panel`, which both use
+/// `block_with_title`.
+fn map_canvas_area(outer: Rect) -> Rect {
+    block_with_title(" ").inner(outer)
+}
+
 /// Helper to build `Span::styled(format!("{name}: "), STYLE_LABEL)` + raw value.
 fn stat_line(name: &str, val: &dyn std::fmt::Display) -> Line<'static> {
     Line::from(vec![
@@ -382,6 +437,28 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
     let mut last_hover_redraw: Option<Instant> = None;
 
     loop {
+        // Process incoming mbtiles tile results and request visible tiles.
+        if app.mode == ViewMode::MbtilesMap
+            && let Some(ref mut mbt) = app.mbt_state
+        {
+            if mbt.process_results() {
+                app.needs_redraw = true;
+            }
+            if let Some(msg) = mbt.take_loader_fatal() {
+                let title = app
+                    .current_file
+                    .as_ref()
+                    .map_or_else(|| "MBTiles".to_string(), |p| p.display().to_string());
+                app.error_popup = Some((title, msg));
+                app.needs_redraw = true;
+            }
+            let visible = mbt.visible_tiles();
+            for (z, x, y) in visible {
+                mbt.request_tile_with_ancestors(z, x, y);
+            }
+            mbt.prune_tile_cache_if_needed();
+        }
+
         if let Some(rows) = app.analysis_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             if rows.len() == app.files.len() {
                 for (i, row) in rows.into_iter().enumerate() {
@@ -496,7 +573,20 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         props_area = Some(left[1]);
                         geom_area = Some(ga);
                         left_area = Some(cols[0]);
-                        map_area = Some(cols[1]);
+                        map_area = Some(map_canvas_area(cols[1]));
+                    }
+                    ViewMode::MbtilesMap => {
+                        let cols = Layout::default()
+                            .direction(Direction::Horizontal)
+                            .constraints([
+                                Constraint::Percentage(app.left_pct),
+                                Constraint::Percentage(100u16.saturating_sub(app.left_pct)),
+                            ])
+                            .split(f.area());
+                        render_mbtiles_hover_panel(f, cols[0], app);
+                        render_mbtiles_map_panel(f, cols[1], app);
+                        left_area = Some(cols[0]);
+                        map_area = Some(map_canvas_area(cols[1]));
                     }
                 }
                 if app.error_popup.is_some() {
@@ -600,8 +690,13 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                     _ => {}
                 },
                 Event::Mouse(mouse) => match mouse.kind {
-                    MouseEventKind::Up(_) if app.resizing.take().is_some() => {
-                        app.invalidate();
+                    MouseEventKind::Up(_) => {
+                        if let Some(ref mut mbt) = app.mbt_state {
+                            mbt.map_drag_last = None;
+                        }
+                        if app.resizing.take().is_some() {
+                            app.invalidate();
+                        }
                     }
                     MouseEventKind::Moved | MouseEventKind::Drag(_) => {
                         if let Some(handle) = app.resizing {
@@ -642,6 +737,20 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             }
                             app.invalidate();
                             continue;
+                        }
+                        if app.mode == ViewMode::MbtilesMap
+                            && let MouseEventKind::Drag(MouseButton::Left) = mouse.kind
+                            && let (Some(area), Some(ref mut mbt)) =
+                                (map_area, app.mbt_state.as_mut())
+                            && let Some((lc, lr)) = mbt.map_drag_last
+                        {
+                            let dc = i32::from(mouse.column) - i32::from(lc);
+                            let dr = i32::from(mouse.row) - i32::from(lr);
+                            if dc != 0 || dr != 0 {
+                                mbt.pan_by_pixels(area.width, area.height, dc, dr);
+                                mbt.map_drag_last = Some((mouse.column, mouse.row));
+                                app.needs_redraw = true;
+                            }
                         }
                         let prev = app.hovered.clone();
                         app.hovered = None;
@@ -685,11 +794,55 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 app.invalidate();
                             }
                         }
+
+                        // MbtilesMap: update hover on mouse move over the map.
+                        if app.mode == ViewMode::MbtilesMap
+                            && let Some(area) = map_area
+                            && point_in_rect(mouse.column, mouse.row, area)
+                            && let Some(ref mut mbt) = app.mbt_state
+                        {
+                            let rx = f64::from(mouse.column - area.x) / f64::from(area.width);
+                            let ry = f64::from(mouse.row - area.y) / f64::from(area.height);
+                            let (wx, wy) = mbt.viewport_world_at_fracs(rx, ry);
+                            let prev_hov = mbt.hovered.clone();
+                            mbt.find_hovered(wx, wy);
+                            if mbt.hovered != prev_hov {
+                                let allow = last_hover_redraw
+                                    .is_none_or(|t| t.elapsed() >= HOVER_REDRAW_THROTTLE);
+                                if allow {
+                                    last_hover_redraw = Some(Instant::now());
+                                    app.invalidate();
+                                }
+                            }
+                        }
                     }
                     MouseEventKind::ScrollUp | MouseEventKind::ScrollDown => {
                         let up = matches!(mouse.kind, MouseEventKind::ScrollUp);
                         let s = app.scroll_step();
                         let step = u16::try_from(s)?;
+
+                        // MbtilesMap: scroll zooms in/out centred on the cursor.
+                        if app.mode == ViewMode::MbtilesMap
+                            && let (Some(area), Some(ref mut mbt)) =
+                                (map_area, app.mbt_state.as_mut())
+                        {
+                            if point_in_rect(mouse.column, mouse.row, area) {
+                                let rx = f64::from(mouse.column - area.x) / f64::from(area.width);
+                                let ry = f64::from(mouse.row - area.y) / f64::from(area.height);
+                                let (wx, wy) = mbt.viewport_world_at_fracs(rx, ry);
+                                mbt.zoom_wheel_at(wx, wy, up);
+                                app.needs_redraw = true;
+                                continue;
+                            }
+                            // Properties panel scroll
+                            if left_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
+                            {
+                                app.properties_scroll = scroll_by(app.properties_scroll, step, up);
+                                app.invalidate();
+                                continue;
+                            }
+                        }
+
                         if app.mode == ViewMode::FileBrowser {
                             if filter_area
                                 .is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
@@ -736,7 +889,16 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             app.move_down_by(s);
                         }
                     }
-                    MouseEventKind::Down(_) => {
+                    MouseEventKind::Down(btn) => {
+                        if app.mode == ViewMode::MbtilesMap
+                            && btn == MouseButton::Left
+                            && let (Some(area), Some(ref mut mbt)) =
+                                (map_area, app.mbt_state.as_mut())
+                            && point_in_rect(mouse.column, mouse.row, area)
+                        {
+                            mbt.map_drag_last = Some((mouse.column, mouse.row));
+                            continue;
+                        }
                         if app.mode == ViewMode::FileBrowser {
                             if let Some(fl) = file_left {
                                 let dx = fl.x + fl.width;

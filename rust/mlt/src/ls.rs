@@ -455,6 +455,10 @@ pub(crate) fn is_mlt_extension(path: &Path) -> bool {
     matches!(path.extension().and_then(OsStr::to_str), Some("mlt"))
 }
 
+pub(crate) fn is_mbt_extension(path: &Path) -> bool {
+    matches!(path.extension().and_then(OsStr::to_str), Some("mbtiles"))
+}
+
 fn matches_extension_filter(path: &Path, extensions: &[String]) -> bool {
     let ext = path
         .extension()
