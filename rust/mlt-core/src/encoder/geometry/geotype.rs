@@ -62,7 +62,8 @@ impl GeometryValues {
     /// `self.index_buffer` and `self.triangles`.
     fn tessellate_polygon(&mut self, polygon: &Polygon<i32>) {
         if let Some(triangles) = self.triangles.as_mut() {
-            let (num_triangles, _) = earcut_into(polygon, 0, self.index_buffer.get_or_insert_with(Vec::new));
+            let (num_triangles, _) =
+                earcut_into(polygon, 0, self.index_buffer.get_or_insert_with(Vec::new));
             triangles.push(num_triangles);
         }
     }
