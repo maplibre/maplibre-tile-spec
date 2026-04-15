@@ -3,13 +3,11 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::Path;
 
-use geo_types::Coord;
 use mlt_core::encoder::{
     ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer01,
     StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
 };
-use mlt_core::geojson::Geom32;
-use mlt_core::{GeometryValues, IdValues};
+use mlt_core::{Coord32, Geom32, GeometryValues, IdValues};
 
 use crate::writer::{SynthErr, SynthResult, SynthWriter};
 
@@ -330,7 +328,12 @@ impl Layer {
             ns_layer.force_empty_streams.clear();
             let ns_bytes = ns_layer.clone().encode_to_bytes().ok();
             if forced_bytes != ns_bytes {
-                w.write(ns_layer, format!("{}_ns", name.as_ref()));
+                let name = if let Some(prefix) = name.as_ref().strip_suffix("-rust") {
+                    format!("{prefix}_ns-rust")
+                } else {
+                    format!("{}_ns", name.as_ref())
+                };
+                w.write(ns_layer, name);
             }
         }
         w.write(self, name);
@@ -497,7 +500,7 @@ impl SharedDict {
 
 /// Morton (Z-order) curve: de-interleave index bits into x/y (even/odd bits).
 /// Produces a 4×4 complete Morton block (16 points, scale 8).
-pub fn morton_curve() -> Vec<Coord<i32>> {
+pub fn morton_curve() -> Vec<Coord32> {
     let num_points = 16usize;
     let scale = 8_i32;
     let morton_bits = 4u32;

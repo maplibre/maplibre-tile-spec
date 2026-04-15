@@ -5,9 +5,11 @@ use pretty_assertions::assert_eq;
 use rstest::rstest;
 
 use crate::encoder::Encoder;
-use crate::geojson::{Coord32, Geom32};
 use crate::test_helpers::{assert_empty, dec, parser};
-use crate::{DictionaryType, GeometryValues, LengthType, OffsetType, RawGeometry, StreamType};
+use crate::{
+    Coord32, DictionaryType, Geom32, GeometryValues, LengthType, OffsetType, RawGeometry,
+    StreamType,
+};
 
 #[rstest]
 #[case::single_point(push_geoms(&[wkt!(POINT(10 20)).into()]))]

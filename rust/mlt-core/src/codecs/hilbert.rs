@@ -1,3 +1,5 @@
+use crate::Coord32;
+
 /// Return the 1-D Hilbert curve index for `(x, y)` at the given `level`.
 ///
 /// The grid has side `2^level`; both `x` and `y` must be in `[0, 2^level)`,
@@ -12,7 +14,7 @@ pub fn hilbert_xy_to_index(level: u32, x: u32, y: u32) -> u32 {
     hilbert_2d::u32::xy2h_discrete(x, y, level, hilbert_2d::Variant::Hilbert)
 }
 
-/// Compute a Hilbert curve sort key from signed integer `(x, y)` coordinates.
+/// Compute a Hilbert curve sort key from signed integer coordinates.
 ///
 /// `shift` is added to both axes to move the origin into the non-negative
 /// range (use the global minimum across *all* vertices for the layer, not
@@ -22,20 +24,20 @@ pub fn hilbert_xy_to_index(level: u32, x: u32, y: u32) -> u32 {
 /// Use [`hilbert_curve_params_from_bounds`] to compute `shift` and `num_bits`
 /// from global min/max coordinates.
 #[must_use]
-pub fn hilbert_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
+pub fn hilbert_sort_key(c: Coord32, shift: u32, num_bits: u32) -> u32 {
     debug_assert!((1..=16).contains(&num_bits));
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
     )]
-    let sx = ((i64::from(x) + i64::from(shift)) as u32) & 0xFFFF;
+    let sx = ((i64::from(c.x) + i64::from(shift)) as u32) & 0xFFFF;
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
     )]
-    let sy = ((i64::from(y) + i64::from(shift)) as u32) & 0xFFFF;
+    let sy = ((i64::from(c.y) + i64::from(shift)) as u32) & 0xFFFF;
     hilbert_xy_to_index(num_bits, sx, sy)
 }
 
@@ -78,6 +80,10 @@ pub fn hilbert_curve_params_from_bounds(min_val: i32, max_val: i32) -> (u32, u32
 mod tests {
     use super::*;
     use crate::codecs::morton::interleave_bits;
+
+    const fn c(x: i32, y: i32) -> Coord32 {
+        Coord32 { x, y }
+    }
 
     /// Return the `(x, y)` coordinates for Hilbert curve index `pos` at `level`.
     ///
@@ -176,13 +182,13 @@ mod tests {
 
     #[test]
     fn hilbert_sort_key_origin_zero() {
-        assert_eq!(hilbert_sort_key(0, 0, 0, 1), 0);
+        assert_eq!(hilbert_sort_key(c(0, 0), 0, 1), 0);
     }
 
     #[test]
     fn hilbert_sort_key_negative_coords_shift_correctly() {
         // (-1, -1) shifted by 1 maps to (0, 0) -> Hilbert index 0 at any level.
-        assert_eq!(hilbert_sort_key(-1, -1, 1, 1), 0);
+        assert_eq!(hilbert_sort_key(c(-1, -1), 1, 1), 0);
     }
 
     #[test]
@@ -198,7 +204,7 @@ mod tests {
                     u32::try_from(i64::from(raw_x) + i64::from(shift)).unwrap(),
                     u32::try_from(i64::from(raw_y) + i64::from(shift)).unwrap(),
                 );
-                let actual = hilbert_sort_key(raw_x, raw_y, shift, num_bits);
+                let actual = hilbert_sort_key(c(raw_x, raw_y), shift, num_bits);
                 assert_eq!(actual, expected, "mismatch at ({raw_x},{raw_y})");
             }
         }

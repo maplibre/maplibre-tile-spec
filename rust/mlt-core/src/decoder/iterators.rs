@@ -8,8 +8,7 @@
 use std::fmt;
 
 use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, RawProperty};
-use crate::geojson::Geom32;
-use crate::{Lazy, LazyParsed, MltResult, Parsed};
+use crate::{Geom32, Lazy, LazyParsed, MltResult, Parsed};
 
 impl<'a> Layer01<'a, Lazy> {
     /// Iterate over the property column names of this layer, in order.

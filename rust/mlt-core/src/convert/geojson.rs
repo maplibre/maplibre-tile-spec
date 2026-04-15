@@ -8,19 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 
 use crate::decoder::{Layer, PropValueRef};
-use crate::{MltResult, ParsedLayer};
-
-/// `GeoJSON` geometry with `i32` tile coordinates
-pub type Geom32 = geo_types::Geometry<i32>;
-
-/// A single `i32` coordinate (x, y)
-pub type Coord32 = geo_types::Coord<i32>;
-
-/// `GeoJSON` geometry with `i16` tile coordinates
-pub type Geom16 = geo_types::Geometry<i16>;
-
-/// A single `i16` coordinate (x, y)
-pub type Coord16 = geo_types::Coord<i16>;
+use crate::{Geom32, MltResult, ParsedLayer};
 
 /// `GeoJSON` [`FeatureCollection`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -123,7 +111,7 @@ mod geom_serde {
     use serde::{Deserialize, Deserializer, Serializer};
     use serde_json::Value;
 
-    use crate::geojson::Geom32;
+    use crate::Geom32;
 
     type Arr = [i32; 2];
 

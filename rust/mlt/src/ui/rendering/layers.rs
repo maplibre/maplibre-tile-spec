@@ -1,5 +1,6 @@
 use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
-use mlt_core::geojson::{Feature, Geom32};
+use mlt_core::Geom32;
+use mlt_core::geojson::Feature;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Line, Modifier, Span, Style};

@@ -1,7 +1,7 @@
 use wide::u32x8;
 
 use crate::decoder::MortonMeta;
-use crate::{Decoder, MltError, MltResult};
+use crate::{Coord32, Decoder, MltError, MltResult};
 
 const LANES: usize = 8;
 
@@ -32,9 +32,9 @@ pub fn interleave_bits(x: u32, y: u32) -> u32 {
     sx | (sy << 1)
 }
 
-/// Compute a Z-order (Morton) sort key from signed integer `(x, y)` coordinates.
+/// Compute a Z-order (Morton) sort key from signed integer coordinates.
 ///
-/// `shift` is applied to both `x` and `y` before bit-interleaving to move the
+/// `shift` is applied to both axes before bit-interleaving to move the
 /// coordinate origin into the non-negative range. It should be computed
 /// once across the entire feature set (typically `min.unsigned_abs()` when
 /// `min < 0`, else `0`) so that the keys are comparable across features.
@@ -43,20 +43,20 @@ pub fn interleave_bits(x: u32, y: u32) -> u32 {
 /// the returned key fits in a `u32` (32 interleaved bits). This is
 /// sufficient for any tile coordinate system with extent ≤ 65 535.
 #[must_use]
-pub fn morton_sort_key(x: i32, y: i32, shift: u32, num_bits: u32) -> u32 {
+pub fn morton_sort_key(c: Coord32, shift: u32, num_bits: u32) -> u32 {
     debug_assert!((1..=16).contains(&num_bits));
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
     )]
-    let sx = ((i64::from(x) + i64::from(shift)) as u32) & 0xFFFF;
+    let sx = ((i64::from(c.x) + i64::from(shift)) as u32) & 0xFFFF;
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
     )]
-    let sy = ((i64::from(y) + i64::from(shift)) as u32) & 0xFFFF;
+    let sy = ((i64::from(c.y) + i64::from(shift)) as u32) & 0xFFFF;
     interleave_bits(sx, sy)
 }
 
@@ -248,6 +248,10 @@ mod tests {
     use super::*;
     use crate::test_helpers::dec;
 
+    const fn c(x: i32, y: i32) -> Coord32 {
+        Coord32 { x, y }
+    }
+
     // ── interleave_bits / morton_sort_key ─────────────────────────────────────
 
     /// Spread the lower 16 bits of `tx` into the even bit positions (0, 2, 4, …)
@@ -295,40 +299,40 @@ mod tests {
 
     #[test]
     fn origin_maps_to_zero() {
-        assert_eq!(morton_sort_key(0, 0, 0, 16), 0);
+        assert_eq!(morton_sort_key(c(0, 0), 0, 16), 0);
     }
 
     #[test]
     fn x_axis_produces_even_bits() {
         // x=1, y=0  →  only bit 0 of x is set → Morton bit 0 set → code = 1
-        assert_eq!(morton_sort_key(1, 0, 0, 16), 1);
+        assert_eq!(morton_sort_key(c(1, 0), 0, 16), 1);
         // x=2, y=0  →  only bit 1 of x is set → Morton bit 2 set → code = 4
-        assert_eq!(morton_sort_key(2, 0, 0, 16), 4);
+        assert_eq!(morton_sort_key(c(2, 0), 0, 16), 4);
     }
 
     #[test]
     fn y_axis_produces_odd_bits() {
         // x=0, y=1  →  only bit 0 of y is set → Morton bit 1 set → code = 2
-        assert_eq!(morton_sort_key(0, 1, 0, 16), 2);
+        assert_eq!(morton_sort_key(c(0, 1), 0, 16), 2);
         // x=0, y=2  →  only bit 1 of y is set → Morton bit 3 set → code = 8
-        assert_eq!(morton_sort_key(0, 2, 0, 16), 8);
+        assert_eq!(morton_sort_key(c(0, 2), 0, 16), 8);
     }
 
     #[test]
     fn negative_coords_shift_correctly() {
         // Shifting (-1, -1) by 1 maps to (0, 0) → Morton code 0
-        assert_eq!(morton_sort_key(-1, -1, 1, 16), 0);
+        assert_eq!(morton_sort_key(c(-1, -1), 1, 16), 0);
         // Shifting (-1, 0) by 1 maps to (0, 1) → Morton code 2
-        assert_eq!(morton_sort_key(-1, 0, 1, 16), 2);
+        assert_eq!(morton_sort_key(c(-1, 0), 1, 16), 2);
     }
 
     #[test]
     fn spatial_locality_z_order() {
         // After shifting, (0,0) < (1,0) < (0,1) < (1,1) in Z-order
-        let k00 = morton_sort_key(0, 0, 0, 16);
-        let k10 = morton_sort_key(1, 0, 0, 16);
-        let k01 = morton_sort_key(0, 1, 0, 16);
-        let k11 = morton_sort_key(1, 1, 0, 16);
+        let k00 = morton_sort_key(c(0, 0), 0, 16);
+        let k10 = morton_sort_key(c(1, 0), 0, 16);
+        let k01 = morton_sort_key(c(0, 1), 0, 16);
+        let k11 = morton_sort_key(c(1, 1), 0, 16);
         assert!(k00 < k10);
         assert!(k10 < k01);
         assert!(k01 < k11);

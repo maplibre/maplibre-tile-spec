@@ -5,7 +5,7 @@ use geo::CoordsIter as _;
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
 use crate::decoder::{TileFeature, TileLayer01};
-use crate::geojson::Geom32;
+use crate::{Coord32, Geom32};
 
 /// Controls how features inside a layer are reordered before encoding.
 ///
@@ -53,8 +53,8 @@ impl TileLayer01 {
                     hilbert_sort_key
                 };
                 self.features.sort_by_cached_key(|f| {
-                    first_vertex(&f.geometry).map_or(u64::MAX, |(x, y)| {
-                        u64::from(curve_key(x, y, params.shift, params.num_bits))
+                    first_vertex(&f.geometry).map_or(u64::MAX, |c| {
+                        u64::from(curve_key(c, params.shift, params.num_bits))
                     })
                 });
             }
@@ -89,24 +89,18 @@ fn curve_params_from_features(features: &[TileFeature]) -> CurveParams {
     CurveParams { shift, num_bits }
 }
 
-/// Extract the `(x, y)` coordinate of the first vertex of a geometry.
-fn first_vertex(geom: &Geom32) -> Option<(i32, i32)> {
+/// Extract the coordinate of the first vertex of a geometry.
+fn first_vertex(geom: &Geom32) -> Option<Coord32> {
     match geom {
-        Geom32::Point(p) => Some((p.0.x, p.0.y)),
-        Geom32::Line(l) => Some((l.start.x, l.start.y)),
-        Geom32::LineString(ls) => ls.0.first().map(|c| (c.x, c.y)),
-        Geom32::Polygon(p) => p.exterior().0.first().map(|c| (c.x, c.y)),
-        Geom32::MultiPoint(mp) => mp.0.first().map(|p| (p.0.x, p.0.y)),
-        Geom32::MultiLineString(mls) => mls
-            .0
-            .first()
-            .and_then(|ls| ls.0.first().map(|c| (c.x, c.y))),
-        Geom32::MultiPolygon(mp) => {
-            mp.0.first()
-                .and_then(|p| p.exterior().0.first().map(|c| (c.x, c.y)))
-        }
-        Geom32::Triangle(t) => Some((t.v1().x, t.v1().y)),
-        Geom32::Rect(r) => Some((r.min().x, r.min().y)),
+        Geom32::Point(p) => Some(p.0),
+        Geom32::Line(l) => Some(l.start),
+        Geom32::LineString(ls) => ls.0.first().copied(),
+        Geom32::Polygon(p) => p.exterior().0.first().copied(),
+        Geom32::MultiPoint(mp) => mp.0.first().map(|p| p.0),
+        Geom32::MultiLineString(mls) => mls.0.first().and_then(|ls| ls.0.first().copied()),
+        Geom32::MultiPolygon(mp) => mp.0.first().and_then(|p| p.exterior().0.first().copied()),
+        Geom32::Triangle(t) => Some(t.v1()),
+        Geom32::Rect(r) => Some(r.min()),
         Geom32::GeometryCollection(gc) => gc.0.first().and_then(first_vertex),
     }
 }
@@ -131,7 +125,7 @@ pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer01) -> bool {
         .filter_map(|f| first_vertex(&f.geometry))
         .fold(
             (i32::MAX, i32::MIN, i32::MAX, i32::MIN),
-            |(min_x, max_x, min_y, max_y), (x, y)| {
+            |(min_x, max_x, min_y, max_y), Coord32 { x, y }| {
                 (min_x.min(x), max_x.max(x), min_y.min(y), max_y.max(y))
             },
         );
@@ -157,9 +151,8 @@ mod tests {
     use crate::encoder::{
         Encoder, ExplicitEncoder, IdWidth, IntEncoder, SortStrategy, StagedLayer01,
     };
-    use crate::geojson::Geom32;
     use crate::test_helpers::{assert_empty, dec, into_layer01, parser};
-    use crate::{Layer, LazyParsed};
+    use crate::{Geom32, Layer, LazyParsed};
 
     // ── geometry test helpers ──────────────────────────────────────────────────
 

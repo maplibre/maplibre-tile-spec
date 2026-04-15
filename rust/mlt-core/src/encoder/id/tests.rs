@@ -8,9 +8,8 @@ use crate::encoder::stream::LogicalEncoder;
 use crate::encoder::{
     Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer, StagedLayer01,
 };
-use crate::geojson::Geom32;
 use crate::test_helpers::{dec, into_layer01, parser};
-use crate::{Layer, LazyParsed, MltError, MltResult, RawId};
+use crate::{Geom32, Layer, LazyParsed, MltError, MltResult, RawId};
 
 /// Round-trip `IdValues` via full layer bytes using an explicit encoder.
 fn id_roundtrip_via_layer(decoded: &IdValues, id_width: IdWidth, int_enc: IntEncoder) -> IdValues {
