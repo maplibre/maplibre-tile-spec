@@ -71,9 +71,9 @@ const HOVER_REDRAW_THROTTLE: Duration = Duration::from_millis(32);
 
 #[derive(Args)]
 pub struct UiArgs {
-    /// Path to a tile file (.mlt, .mvt, .pbf) or directory
+    /// Path to a tile file (`.mlt`, `.mvt`, `.pbf`, `.mbtiles`) or directory
     path: PathBuf,
-    /// Start MBTiles map centered on this XYZ tile (`z/x/y`, e.g. `6/32/21`). MBTiles only.
+    /// Start `MBTiles` map centered on this XYZ tile (`z/x/y`, e.g. `6/32/21`). `MBTiles` only.
     #[arg(long = "center-tile", value_name = "Z/X/Y")]
     center_tile: Option<String>,
 }
@@ -124,34 +124,34 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
     run_app(app)
 }
 
-fn parse_center_tile_xyz(s: &str) -> anyhow::Result<(u8, u32, u32)> {
-    let parts: Vec<&str> = s
+fn parse_center_tile_xyz(spec: &str) -> anyhow::Result<(u8, u32, u32)> {
+    let parts: Vec<&str> = spec
         .split('/')
         .map(str::trim)
         .filter(|p| !p.is_empty())
         .collect();
     if parts.len() != 3 {
-        bail!("--center-tile must be z/x/y (three integers), got {s:?}");
+        bail!("--center-tile must be z/x/y (three integers), got {spec:?}");
     }
-    let z: u8 = parts[0]
+    let zoom: u8 = parts[0]
         .parse()
         .map_err(|_| anyhow::anyhow!("invalid zoom z in --center-tile: {:?}", parts[0]))?;
-    let x: u32 = parts[1]
+    let tile_x: u32 = parts[1]
         .parse()
         .map_err(|_| anyhow::anyhow!("invalid tile x in --center-tile: {:?}", parts[1]))?;
-    let y: u32 = parts[2]
+    let tile_y: u32 = parts[2]
         .parse()
         .map_err(|_| anyhow::anyhow!("invalid tile y in --center-tile: {:?}", parts[2]))?;
-    let n = 1u32
-        .checked_shl(u32::from(z))
-        .ok_or_else(|| anyhow::anyhow!("zoom z={z} is too large"))?;
-    if x >= n || y >= n {
+    let grid_n = 1u32
+        .checked_shl(u32::from(zoom))
+        .ok_or_else(|| anyhow::anyhow!("zoom z={zoom} is too large"))?;
+    if tile_x >= grid_n || tile_y >= grid_n {
         bail!(
-            "tile x/y must be < 2^z for z={z} (max index {})",
-            n.saturating_sub(1)
+            "tile x/y must be < 2^z for z={zoom} (max index {})",
+            grid_n.saturating_sub(1)
         );
     }
-    Ok((z, x, y))
+    Ok((zoom, tile_x, tile_y))
 }
 
 // --- Data loading ---
@@ -444,14 +444,19 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
             if mbt.process_results() {
                 app.needs_redraw = true;
             }
+            if let Some(msg) = mbt.take_loader_fatal() {
+                let title = app
+                    .current_file
+                    .as_ref()
+                    .map_or_else(|| "MBTiles".to_string(), |p| p.display().to_string());
+                app.error_popup = Some((title, msg));
+                app.needs_redraw = true;
+            }
             let visible = mbt.visible_tiles();
             for (z, x, y) in visible {
                 mbt.request_tile_with_ancestors(z, x, y);
             }
-            if app.needs_redraw {
-                // request redraw in 16ms so loading tiles appear as they arrive
-                app.needs_redraw = true;
-            }
+            mbt.prune_tile_cache_if_needed();
         }
 
         if let Some(rows) = app.analysis_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
@@ -733,21 +738,18 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             app.invalidate();
                             continue;
                         }
-                        if app.mode == ViewMode::MbtilesMap {
-                            if let MouseEventKind::Drag(MouseButton::Left) = mouse.kind {
-                                if let (Some(area), Some(ref mut mbt)) =
-                                    (map_area, app.mbt_state.as_mut())
-                                {
-                                    if let Some((lc, lr)) = mbt.map_drag_last {
-                                        let dc = i32::from(mouse.column) - i32::from(lc);
-                                        let dr = i32::from(mouse.row) - i32::from(lr);
-                                        if dc != 0 || dr != 0 {
-                                            mbt.pan_by_pixels(area.width, area.height, dc, dr);
-                                            mbt.map_drag_last = Some((mouse.column, mouse.row));
-                                            app.needs_redraw = true;
-                                        }
-                                    }
-                                }
+                        if app.mode == ViewMode::MbtilesMap
+                            && let MouseEventKind::Drag(MouseButton::Left) = mouse.kind
+                            && let (Some(area), Some(ref mut mbt)) =
+                                (map_area, app.mbt_state.as_mut())
+                            && let Some((lc, lr)) = mbt.map_drag_last
+                        {
+                            let dc = i32::from(mouse.column) - i32::from(lc);
+                            let dr = i32::from(mouse.row) - i32::from(lr);
+                            if dc != 0 || dr != 0 {
+                                mbt.pan_by_pixels(area.width, area.height, dc, dr);
+                                mbt.map_drag_last = Some((mouse.column, mouse.row));
+                                app.needs_redraw = true;
                             }
                         }
                         let prev = app.hovered.clone();
@@ -888,14 +890,14 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         }
                     }
                     MouseEventKind::Down(btn) => {
-                        if app.mode == ViewMode::MbtilesMap && btn == MouseButton::Left {
-                            if let (Some(area), Some(ref mut mbt)) =
+                        if app.mode == ViewMode::MbtilesMap
+                            && btn == MouseButton::Left
+                            && let (Some(area), Some(ref mut mbt)) =
                                 (map_area, app.mbt_state.as_mut())
-                                && point_in_rect(mouse.column, mouse.row, area)
-                            {
-                                mbt.map_drag_last = Some((mouse.column, mouse.row));
-                                continue;
-                            }
+                            && point_in_rect(mouse.column, mouse.row, area)
+                        {
+                            mbt.map_drag_last = Some((mouse.column, mouse.row));
+                            continue;
                         }
                         if app.mode == ViewMode::FileBrowser {
                             if let Some(fl) = file_left {

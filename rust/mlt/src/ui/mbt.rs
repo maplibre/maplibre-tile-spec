@@ -1,9 +1,8 @@
 //! `MBTiles` map viewer state and tile loading.
 
-use mlt_core::{Coord32, Geom32};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::mpsc;
+use std::sync::mpsc::{self, TryRecvError};
 use std::thread;
 
 use geo_types::Polygon;
@@ -11,6 +10,7 @@ use martin_tile_utils::{decode_gzip, decode_zstd};
 use mbtiles::Mbtiles;
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
+use mlt_core::{Coord32, Geom32};
 use rstar::{AABB, PointDistance, RTree, RTreeObject};
 
 use super::group_by_layer;
@@ -190,12 +190,17 @@ pub(crate) struct MbtilesState {
     loading: HashSet<(u8, u32, u32)>,
     request_tx: mpsc::SyncSender<TileLoadRequest>,
     pub result_rx: mpsc::Receiver<TileLoadResult>,
+    /// Until the loader thread reports success, holds the one-shot init handshake receiver.
+    loader_init_rx: Option<mpsc::Receiver<Result<(), String>>>,
+    /// Fatal error from `MBTiles` open / connection (surfaced to the UI once via `take_loader_fatal`).
+    loader_fatal: Option<String>,
 }
 
 impl MbtilesState {
     pub(crate) fn new(path: PathBuf) -> Self {
         let (req_tx, req_rx) = mpsc::sync_channel::<TileLoadRequest>(200);
         let (res_tx, res_rx) = mpsc::sync_channel::<TileLoadResult>(200);
+        let (init_tx, init_rx) = mpsc::sync_channel::<Result<(), String>>(1);
 
         let path_clone = path.clone();
         thread::spawn(move || {
@@ -208,17 +213,22 @@ impl MbtilesState {
                 let mbt = match Mbtiles::new(&path_clone) {
                     Ok(m) => m,
                     Err(e) => {
-                        eprintln!("Failed to open mbtiles: {e}");
+                        let _ = init_tx.send(Err(format!("Failed to open mbtiles: {e}")));
                         return;
                     }
                 };
                 let mut conn = match mbt.open_readonly().await {
                     Ok(c) => c,
                     Err(e) => {
-                        eprintln!("mbtiles conn error: {e}");
+                        let _ =
+                            init_tx.send(Err(format!("MBTiles read-only connection failed: {e}")));
                         return;
                     }
                 };
+                if init_tx.send(Ok(())).is_err() {
+                    return;
+                }
+                drop(init_tx);
                 while let Ok(TileLoadRequest::Load { z, x, y }) = req_rx.recv() {
                     let result = mbt
                         .get_tile(&mut conn, z, x, y)
@@ -247,7 +257,13 @@ impl MbtilesState {
             loading: HashSet::new(),
             request_tx: req_tx,
             result_rx: res_rx,
+            loader_init_rx: Some(init_rx),
+            loader_fatal: None,
         }
+    }
+
+    pub(crate) fn take_loader_fatal(&mut self) -> Option<String> {
+        self.loader_fatal.take()
     }
 
     /// Tile zoom used for loading tiles: floor of `-log2(viewport width)`.
@@ -354,7 +370,19 @@ impl MbtilesState {
         if !self.tiles.contains_key(&key) && !self.loading.contains(&key) {
             self.loading.insert(key);
             self.tiles.insert(key, MbtTileData::Loading);
-            let _ = self.request_tx.try_send(TileLoadRequest::Load { z, x, y });
+            if self
+                .request_tx
+                .try_send(TileLoadRequest::Load { z, x, y })
+                .is_err()
+            {
+                self.loading.remove(&key);
+                self.tiles.insert(
+                    key,
+                    MbtTileData::Error(
+                        "Could not enqueue tile load (channel full or loader stopped)".into(),
+                    ),
+                );
+            }
         }
     }
 
@@ -376,12 +404,11 @@ impl MbtilesState {
 
     /// First loaded ancestor for overzoom (`k` levels up: tile `(x>>k, y>>k)` at `z-k`), if any.
     pub(crate) fn find_overzoom_source(&self, z: u8, tx: u32, ty: u32) -> Option<(u8, u32, u32)> {
-        #[expect(clippy::cast_possible_truncation)]
-        let max_k = z as usize;
-        for k in 1..=max_k {
-            let pz = z - k as u8;
-            let px = tx >> k;
-            let py = ty >> k;
+        for k in 1..=z {
+            let pz = z - k;
+            let shift = u32::from(k);
+            let px = tx >> shift;
+            let py = ty >> shift;
             let key = (pz, px, py);
             if matches!(self.tiles.get(&key), Some(MbtTileData::Loaded { .. })) {
                 return Some(key);
@@ -402,6 +429,29 @@ impl MbtilesState {
     /// Drain incoming results and update the tile cache. Returns true if any tiles changed.
     pub(crate) fn process_results(&mut self) -> bool {
         let mut changed = false;
+
+        if let Some(rx) = self.loader_init_rx.take() {
+            match rx.try_recv() {
+                Ok(Ok(())) => {
+                    // Init succeeded; drop the receiver so we do not treat later disconnect as init failure.
+                }
+                Ok(Err(msg)) => {
+                    self.loader_fatal = Some(msg);
+                    changed = true;
+                }
+                Err(TryRecvError::Empty) => {
+                    self.loader_init_rx = Some(rx);
+                }
+                Err(TryRecvError::Disconnected) => {
+                    if self.loader_fatal.is_none() {
+                        self.loader_fatal =
+                            Some("MBTiles loader thread exited during initialization".into());
+                    }
+                    changed = true;
+                }
+            }
+        }
+
         while let Ok(res) = self.result_rx.try_recv() {
             let key = (res.z, res.x, res.y);
             self.loading.remove(&key);
@@ -482,6 +532,7 @@ impl MbtilesState {
         let pt = [wx, wy];
 
         let mut best: BestHover = None;
+        let mut seen_src: HashSet<(u8, u32, u32)> = HashSet::new();
         let visible = self.visible_tiles();
         for (tz, tx, ty) in visible {
             if tz != z {
@@ -490,6 +541,9 @@ impl MbtilesState {
             let Some(src_key) = self.effective_tile_key(tz, tx, ty) else {
                 continue;
             };
+            if !seen_src.insert(src_key) {
+                continue;
+            }
             let Some(MbtTileData::Loaded { geo_index, .. }) = self.tiles.get(&src_key) else {
                 continue;
             };
@@ -509,6 +563,69 @@ impl MbtilesState {
             feat_idx: feat,
         });
         self.hovered = new_hov;
+    }
+
+    /// Keys we keep when pruning: visible tiles (with a 1-tile margin) plus every ancestor chain.
+    fn keep_tile_keys(&self) -> HashSet<(u8, u32, u32)> {
+        let z = self.zoom_level();
+        let Some(n) = 1u32.checked_shl(u32::from(z)) else {
+            return HashSet::new();
+        };
+        let mut out = HashSet::new();
+        for (_zv, tx, ty) in self.visible_tiles() {
+            for dx in -1..=1 {
+                for dy in -1..=1 {
+                    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    let nx = (i64::from(tx) + i64::from(dx))
+                        .clamp(0, i64::from(n.saturating_sub(1)))
+                        as u32;
+                    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    let ny = (i64::from(ty) + i64::from(dy))
+                        .clamp(0, i64::from(n.saturating_sub(1)))
+                        as u32;
+                    let mut cz = z;
+                    let mut cx = nx;
+                    let mut cy = ny;
+                    loop {
+                        out.insert((cz, cx, cy));
+                        if cz == 0 {
+                            break;
+                        }
+                        cz -= 1;
+                        cx >>= 1;
+                        cy >>= 1;
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// Drop cached tiles far from the viewport so panning does not grow memory without bound.
+    pub(crate) fn prune_tile_cache_if_needed(&mut self) {
+        const MAX: usize = 256;
+        if self.tiles.len() <= MAX {
+            return;
+        }
+        let keep = self.keep_tile_keys();
+        let stale: Vec<(u8, u32, u32)> = self
+            .tiles
+            .keys()
+            .filter(|k| !keep.contains(k))
+            .copied()
+            .collect();
+        let stale_set: HashSet<_> = stale.iter().copied().collect();
+        if self
+            .hovered
+            .as_ref()
+            .is_some_and(|h| stale_set.contains(&h.tile))
+        {
+            self.hovered = None;
+        }
+        for k in stale {
+            self.loading.remove(&k);
+            self.tiles.remove(&k);
+        }
     }
 }
 

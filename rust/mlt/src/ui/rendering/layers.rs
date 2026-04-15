@@ -314,11 +314,22 @@ fn mbt_hover_title_and_lines(app: &App) -> (String, Vec<Line<'static>>) {
             vec![Line::from("Hover over a feature to inspect properties")],
         );
     };
+    let tile_entry = mbt.tiles.get(&h.tile);
     let Some(MbtTileData::Loaded {
         fc, layer_groups, ..
-    }) = mbt.tiles.get(&h.tile)
+    }) = tile_entry
     else {
-        return ("Properties".into(), vec![Line::from("Tile loading…")]);
+        let msg: String = match tile_entry {
+            Some(MbtTileData::Empty) => "Tile empty (no vector data)".into(),
+            Some(MbtTileData::Error(e)) => {
+                let snippet: String = e.chars().take(160).collect();
+                format!("Tile error: {snippet}")
+            }
+            None | Some(MbtTileData::Loading | MbtTileData::Loaded { .. }) => {
+                "Tile loading…".into()
+            }
+        };
+        return ("Properties".into(), vec![Line::from(msg)]);
     };
     let Some(group) = layer_groups.get(h.layer_idx) else {
         return ("Properties".into(), vec![Line::from("(feature not found)")]);

@@ -183,6 +183,7 @@ fn draw_polygon(ctx: &mut Context<'_>, poly: &Polygon<i32>, highlighted: bool, f
 // ---------------------------------------------------------------------------
 
 /// Draw all layers from a decoded tile (`data_tile` is the MVT source key used for hover match).
+#[allow(clippy::too_many_arguments)] // Canvas draw context + tile payload + viewport Y range.
 fn draw_mbtiles_loaded_tile_layers(
     ctx: &mut Context<'_>,
     hovered: Option<&MbtHoveredInfo>,
@@ -330,6 +331,7 @@ fn mbt_screen_y(vp_y0: f64, vp_y1: f64, wy: f64) -> f64 {
 }
 
 /// Draw the four edges of a world-coordinate tile rectangle (north-up).
+#[allow(clippy::too_many_arguments)] // Ratatui canvas line API; args map 1:1 to world corners + style.
 fn draw_world_rect_vp(
     ctx: &mut Context<'_>,
     vp_y0: f64,
