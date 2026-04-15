@@ -231,7 +231,7 @@ download-benchmark-tiles outdir='/tmp/benchmark-tiles' maxzoom='6': (just 'insta
 
 # Build and open code documentation
 docs *args='--open':
-    DOCS_RS=1 cargo doc --no-deps {{args}} --features arbitrary --package mlt-core
+    DOCS_RS=1 cargo doc --no-deps {{args}} --features arbitrary --workspace
 
 alias f := fmt
 fmt: (_fmt) (_fmt '--manifest-path' 'mlt-core/fuzz/Cargo.toml')

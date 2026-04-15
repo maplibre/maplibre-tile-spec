@@ -218,9 +218,9 @@ fn draw_mbtiles_loaded_tile_layers(
 
 /// Render the interactive world map for an .mbtiles file.
 ///
-/// World coordinate space: x ∈ [0,1] west→east, y ∈ [0,1] north→south.
+/// World coordinate space: `x ∈ [0, 1]` west→east, `y ∈ [0, 1]` north→south.
 ///
-/// `y_bounds` must be `[min_y, max_y]` with `min_y < max_y` for ratatui's `Painter` clip math.
+/// `y_bounds` must be `[min_y, max_y]` with `min_y < max_y` for Ratatui's `Painter` clip math.
 /// The painter maps **larger** world Y toward the **top** of the widget, so we reflect each
 /// geographic `wy` with [`mbt_screen_y`] to get north-up on screen.
 pub fn render_mbtiles_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
