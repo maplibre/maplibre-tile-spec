@@ -6,9 +6,8 @@ use mlt_core::encoder::{
     Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder,
     StagedLayer01, StagedProperty, StagedSharedDict, StrEncoding,
 };
-use mlt_core::geojson::Geom32;
 use mlt_core::test_helpers::{dec, parser};
-use mlt_core::{GeometryValues, Layer01, ParsedLayer01, PropValueRef};
+use mlt_core::{Geom32, GeometryValues, Layer01, ParsedLayer01, PropValueRef};
 use strum::IntoEnumIterator as _;
 
 // This code runs in CI because of --all-targets, so make it run really fast.
@@ -278,7 +277,7 @@ fn bench_presence(c: &mut Criterion) {
 /// Benchmark 5 – shared dict vs plain
 ///
 /// Compares decoding two plain string columns against a shared-dictionary struct
-/// column (plain and FSST flavours) that carries the same string data spread
+/// column (plain and FSST flavors) that carries the same string data spread
 /// across two child sub-properties.
 /// Throughput is reported per *logical* string entry so all variants are comparable.
 fn bench_vs_shared_dict(c: &mut Criterion) {

@@ -4,7 +4,6 @@ use geo_types::Point;
 #[cfg(fuzzing)]
 use crate::decoder::ColumnType;
 use crate::decoder::GeometryValues;
-use crate::geojson::{Coord32, Geom32};
 #[allow(
     unused_imports,
     clippy::wildcard_imports,

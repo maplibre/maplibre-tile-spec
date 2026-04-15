@@ -30,6 +30,18 @@ pub use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
 #[cfg(any(test, feature = "__private"))]
 pub use crate::utils::test_helpers;
 
+/// `GeoJSON` geometry with `i32` tile coordinates
+pub type Geom32 = geo_types::Geometry<i32>;
+
+/// A single `i32` coordinate (x, y)
+pub type Coord32 = geo_types::Coord<i32>;
+
+/// `GeoJSON` geometry with `i16` tile coordinates
+pub type Geom16 = geo_types::Geometry<i16>;
+
+/// A single `i16` coordinate (x, y)
+pub type Coord16 = geo_types::Coord<i16>;
+
 /// Private re-exports for benchmarks and integration tests. Not part of the public API.
 #[cfg(any(test, feature = "__private"))]
 #[doc(hidden)]

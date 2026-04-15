@@ -7,9 +7,8 @@ use crate::encoder::{
     Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, SortStrategy,
     StagedProperty, StagedSharedDict, group_string_properties,
 };
-use crate::geojson::Geom32;
 use crate::test_helpers::{dec, parser};
-use crate::{GeometryValues, Layer, PropValue, TileFeature, TileLayer01};
+use crate::{Geom32, GeometryValues, Layer, PropValue, TileFeature, TileLayer01};
 // proptest_derive::Arbitrary is only derived for these types inside the crate
 // under #[cfg(test)], so we write the strategies by hand here.
 

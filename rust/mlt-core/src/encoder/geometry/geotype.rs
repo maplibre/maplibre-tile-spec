@@ -2,7 +2,7 @@ use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Polygon};
 
 use crate::decoder::{GeometryType, GeometryValues};
-use crate::geojson::{Coord32, Geom32};
+use crate::{Coord32, Geom32};
 
 impl TryFrom<&Geom32> for GeometryType {
     type Error = ();
@@ -108,9 +108,7 @@ impl GeometryValues {
             Geom32::MultiPoint(mp) => self.push_multi_point(mp),
             Geom32::MultiLineString(mls) => self.push_multi_linestring(mls),
             Geom32::MultiPolygon(mp) => self.push_multi_polygon(mp),
-            Geom32::Triangle(t) => {
-                self.push_polygon(&t.to_polygon());
-            }
+            Geom32::Triangle(t) => self.push_polygon(&t.to_polygon()),
             Geom32::Rect(r) => self.push_polygon(&r.to_polygon()),
             Geom32::GeometryCollection(gc) => {
                 for g in gc {
@@ -290,7 +288,6 @@ mod tests {
         RawGeometry, StreamMeta, StreamType,
     };
     use crate::encoder::{EncodedStream, EncodedStreamData, Encoder, IntEncoder, do_write_u32};
-    use crate::geojson::Coord32;
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -602,8 +599,8 @@ mod tests {
     mod tessellation_tests {
         use geo_types::{LineString, MultiPolygon, Polygon};
 
+        use crate::Geom32;
         use crate::decoder::GeometryValues;
-        use crate::geojson::Geom32;
 
         #[test]
         fn earcut_polygon_indices_in_range() {

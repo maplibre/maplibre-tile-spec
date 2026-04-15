@@ -24,14 +24,14 @@ use std::sync::LazyLock;
 
 use clap::Parser;
 use geo_types::{
-    Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
+    LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
     line_string as line, wkt,
 };
 use mlt_core::encoder::{
     IdWidth, IntEncoder as E, LogicalEncoder as L, StagedProperty as P, StrEncoding,
     VertexBufferType,
 };
-use mlt_core::geojson::Geom32;
+use mlt_core::{Coord32, Geom32};
 
 use crate::layer::{
     Layer, SharedDict, geo_fastpfor, geo_varint, geo_varint_with_rle, morton_curve,
@@ -54,15 +54,15 @@ struct Args {
     synthetics_rust: PathBuf,
 }
 
-const C0: Coord<i32> = coord! { x: 13, y: 42 };
+const C0: Coord32 = coord! { x: 13, y: 42 };
 // triangle 1, clockwise winding, X ends in 1, Y ends in 2
-const C1: Coord<i32> = coord! { x: 11, y: 52 };
-const C2: Coord<i32> = coord! { x: 71, y: 72 };
-const C3: Coord<i32> = coord! { x: 61, y: 22 };
+const C1: Coord32 = coord! { x: 11, y: 52 };
+const C2: Coord32 = coord! { x: 71, y: 72 };
+const C3: Coord32 = coord! { x: 61, y: 22 };
 // hole in triangle 1 with counter-clockwise winding
-const H1: Coord<i32> = coord! { x: 65, y: 66 };
-const H2: Coord<i32> = coord! { x: 35, y: 56 };
-const H3: Coord<i32> = coord! { x: 55, y: 36 };
+const H1: Coord32 = coord! { x: 65, y: 66 };
+const H2: Coord32 = coord! { x: 35, y: 56 };
+const H3: Coord32 = coord! { x: 55, y: 36 };
 
 const P0: Point<i32> = Point(C0);
 const P1: Point<i32> = Point(C1);
@@ -73,7 +73,7 @@ const PH1: Point<i32> = Point(H1);
 const PH2: Point<i32> = Point(H2);
 const PH3: Point<i32> = Point(H3);
 
-const fn c(x: i32, y: i32) -> Coord<i32> {
+const fn c(x: i32, y: i32) -> Coord32 {
     coord! { x: x, y: y }
 }
 
@@ -369,8 +369,10 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
         }
     }
     if let Some(bldr) = builder_t {
+        // let suffix = if ["..."].contains(name) { "" } else { "-rust" };
+        let suffix = "";
         bldr.force_empty_stream("geometries")
-            .write(w, format!("{name}_tes"));
+            .write(w, format!("{name}_tes{suffix}"));
     }
     builder.write(w, &name);
 }

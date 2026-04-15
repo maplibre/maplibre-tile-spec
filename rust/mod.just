@@ -389,6 +389,8 @@ udeps: (just 'cargo-install' 'cargo-udeps')
 update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
+    cd mlt-core/fuzz && cargo +nightly -Z unstable-options update --breaking
+    cd mlt-core/fuzz && cargo update
 
 # Generate synthetic .mlt files and ensure there are no duplicates
 generate-synthetic-mlts *args:

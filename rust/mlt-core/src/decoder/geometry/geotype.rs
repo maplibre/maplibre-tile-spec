@@ -6,10 +6,9 @@ use crate::MltError::{
     GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, NoGeometryOffsets,
     NoPartOffsets, NoRingOffsets,
 };
-use crate::MltResult;
 use crate::decoder::{GeometryType, GeometryValues};
-use crate::geojson::{Coord32, Geom32};
 use crate::utils::AsUsize as _;
+use crate::{Coord32, Geom32, MltResult};
 
 impl GeometryType {
     #[must_use]

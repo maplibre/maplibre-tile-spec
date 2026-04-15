@@ -19,9 +19,9 @@ use crossterm::event::{
 };
 use crossterm::execute;
 use geo_types::Polygon;
-use mlt_core::geojson::{Coord32, FeatureCollection, Geom32};
+use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
-use mlt_core::{Decoder, GeometryType, Parser};
+use mlt_core::{Coord32, Decoder, Geom32, GeometryType, Parser};
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};

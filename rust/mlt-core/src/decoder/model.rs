@@ -3,8 +3,7 @@ use std::fmt;
 use num_enum::TryFromPrimitive;
 
 use crate::decoder::{Geometry, Id, Property};
-use crate::geojson::Geom32;
-use crate::{DecodeState, Lazy, Parsed};
+use crate::{DecodeState, Geom32, Lazy, Parsed};
 
 /// A layer that can be one of the known types, or an unknown.
 ///

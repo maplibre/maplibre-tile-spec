@@ -2,8 +2,9 @@ use crate::MltResult;
 use crate::decoder::TileLayer01;
 use crate::encoder::model::{StagedLayer, StagedLayer01};
 use crate::encoder::property::encode::write_properties;
-use crate::encoder::spatial_sort_likely_to_help;
-use crate::encoder::{Encoder, EncoderConfig, SortStrategy, group_string_properties};
+use crate::encoder::{
+    Encoder, EncoderConfig, SortStrategy, group_string_properties, spatial_sort_likely_to_help,
+};
 
 impl StagedLayer {
     /// Automatically encode and write `self` to `enc`.

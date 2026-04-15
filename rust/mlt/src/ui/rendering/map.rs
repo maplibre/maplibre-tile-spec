@@ -1,5 +1,6 @@
 use geo_types::Polygon;
-use mlt_core::geojson::{Coord32, FeatureCollection, Geom32};
+use mlt_core::geojson::FeatureCollection;
+use mlt_core::{Coord32, Geom32};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Span, Style};
