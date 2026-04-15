@@ -148,7 +148,10 @@ impl GeometryValues {
             Geom32::MultiLineString(mls) => self.push_multi_linestring(mls),
             Geom32::MultiPolygon(mp) => self.push_multi_polygon(mp),
             Geom32::Triangle(t) => {
-                self.push_polygon(&Polygon::new(LineString(vec![t.0, t.1, t.2]), vec![]));
+                self.push_polygon(&Polygon::new(
+                    LineString(vec![t.v1(), t.v2(), t.v3()]),
+                    vec![],
+                ));
             }
             Geom32::Rect(r) => self.push_polygon(&r.to_polygon()),
             Geom32::GeometryCollection(gc) => {

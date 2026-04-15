@@ -105,7 +105,7 @@ fn first_vertex(geom: &Geom32) -> Option<(i32, i32)> {
             mp.0.first()
                 .and_then(|p| p.exterior().0.first().map(|c| (c.x, c.y)))
         }
-        Geom32::Triangle(t) => Some((t.0.x, t.0.y)),
+        Geom32::Triangle(t) => Some((t.v1().x, t.v1().y)),
         Geom32::Rect(r) => Some((r.min().x, r.min().y)),
         Geom32::GeometryCollection(gc) => gc.0.first().and_then(first_vertex),
     }
