@@ -182,11 +182,11 @@ endif(MLT_WITH_JSON)
 
 if(MLT_WITH_TESTS)
     include(CTest)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/test)
 endif(MLT_WITH_TESTS)
 
 if(MLT_WITH_TOOLS)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/tool EXCLUDE_FROM_ALL)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/tool)
 endif(MLT_WITH_TOOLS)
 
 list(APPEND MLT_EXPORT_TARGETS mlt-cpp-encoder)
