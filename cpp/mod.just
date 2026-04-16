@@ -44,7 +44,7 @@ _test-synthetic: _install_npm_deps
 # Run tests
 [working-directory: 'build']
 test: _clean_coverage_data cmake-build _test-synthetic
-    ctest
+    ctest --parallel
 
 _clean_coverage_data:
     find . -name "*.gcda" -delete
