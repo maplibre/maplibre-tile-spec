@@ -15,7 +15,10 @@ cc_library(
     name = "mlt_cpp",
     srcs = glob(
         ["src/mlt/**/*.cpp"],
-        exclude = ["src/mlt/encode/**", "src/mlt/encoder.cpp"],
+        exclude = [
+            "src/mlt/encode/**",
+            "src/mlt/encoder.cpp",
+        ],
     ),
     hdrs = glob(
         ["include/mlt/**/*.hpp"],
