@@ -107,8 +107,8 @@ public:
     static Layer layer(std::string name, std::vector<Feature> features, std::uint32_t extent = defaultExtent) {
         return {
             .name = std::move(name),
-            .features = std::move(features),
             .extent = extent,
+            .features = std::move(features),
         };
     }
 
