@@ -22,6 +22,26 @@
 
 using namespace mlt;
 
+namespace std {
+/// Allow optional IDs to be printed in test failure messages.
+template <typename T>
+// NOLINTNEXTLINE(misc-use-anonymous-namespace) - doesn't work, c-t bug?
+static std::ostream& operator<<(std::ostream& os, const std::optional<T>& opt) {
+    if (opt.has_value()) {
+        return os << *opt;
+    } else {
+        return os << "(none)";
+    }
+}
+} // namespace std
+
+namespace {
+/// Enable FastPFOR by default
+Decoder makeDecoder(bool enableFastPFOR = true) {
+    return Decoder(enableFastPFOR);
+}
+} // namespace
+
 TEST(EncodePrimitives, ZigZagRoundtrip) {
     for (std::int32_t v : {0, 1, -1, 42, -42, 127, -128, 65535, -65536, 2147483647, -2147483647}) {
         auto encoded = util::encoding::encodeZigZag(v);
@@ -164,7 +184,7 @@ MapLibreTile encodeDecode(const std::vector<Encoder::Layer>& layers, EncoderConf
     Encoder encoder;
     auto bytes = encoder.encode(layers, config);
     EXPECT_FALSE(bytes.empty());
-    return Decoder().decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+    return makeDecoder().decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
 }
 
 Encoder::Feature makePointFeature(std::uint64_t id,
@@ -277,9 +297,11 @@ TEST(Encode, MultipleFeatures) {
     ASSERT_TRUE(decoded);
     EXPECT_EQ(decoded->getFeatures().size(), 100u);
 
-    std::set<std::uint64_t> decodedIds;
+    std::set<Feature::id_t> decodedIds;
     for (const auto& f : decoded->getFeatures()) {
-        decodedIds.insert(f.getID());
+        if (const auto id = f.getID(); id) {
+            decodedIds.insert(*id);
+        }
     }
     for (int i = 0; i < 100; ++i) {
         EXPECT_TRUE(decodedIds.count(i)) << "missing feature id " << i;
@@ -450,8 +472,9 @@ TEST(Encode, BoundaryCoordinates) {
     };
 
     std::vector<Encoder::Feature> features;
+    features.reserve(coords.size());
     for (std::size_t i = 0; i < coords.size(); ++i) {
-        features.push_back(makePointFeature(i, {coords[i].first, coords[i].second}));
+        features.push_back(makePointFeature(i, {.x = coords[i].first, .y = coords[i].second}));
     }
     auto layer = makeLayer("boundary", std::move(features));
 
@@ -906,7 +929,11 @@ TEST(Encode, VertexDictionaryRoundtrip) {
     ASSERT_EQ(decoded->getFeatures().size(), 200u);
 
     std::map<std::uint64_t, const mlt::Feature*> byId;
-    for (const auto& f : decoded->getFeatures()) byId[f.getID()] = &f;
+    for (const auto& f : decoded->getFeatures()) {
+        if (const auto id = f.getID(); id) {
+            byId[*id] = &f;
+        }
+    }
 
     for (int i = 0; i < 200; ++i) {
         const auto& ls = dynamic_cast<const geometry::LineString&>(byId.at(i)->getGeometry());
@@ -951,7 +978,11 @@ TEST(Encode, FeatureSortingPoints) {
     ASSERT_EQ(decoded->getFeatures().size(), positions.size());
 
     std::map<std::uint64_t, const mlt::Feature*> byId;
-    for (const auto& f : decoded->getFeatures()) byId[f.getID()] = &f;
+    for (const auto& f : decoded->getFeatures()) {
+        if (const auto id = f.getID(); id) {
+            byId[*id] = &f;
+        }
+    }
 
     for (int i = 0; i < static_cast<int>(positions.size()); ++i) {
         const auto& pt = dynamic_cast<const geometry::Point&>(byId.at(i + 1)->getGeometry());
@@ -966,10 +997,11 @@ TEST(Encode, FeatureSortingPoints) {
     }
     mlt::util::HilbertCurve curve(minV, maxV);
     std::uint32_t prevHilbert = 0;
+    std::uint32_t index = 0;
     for (const auto& f : decoded->getFeatures()) {
         const auto& pt = dynamic_cast<const geometry::Point&>(f.getGeometry());
-        auto h = curve.encode({pt.getCoordinate().x, pt.getCoordinate().y});
-        EXPECT_GE(h, prevHilbert) << "features not in Hilbert order at id=" << f.getID();
+        const auto h = curve.encode({pt.getCoordinate().x, pt.getCoordinate().y});
+        EXPECT_GE(h, prevHilbert) << "features not in Hilbert order at feature index " << index << " id=" << *f.getID();
         prevHilbert = h;
     }
 }
@@ -998,7 +1030,11 @@ TEST(Encode, FeatureSortingLineStrings) {
     ASSERT_TRUE(decoded);
 
     std::map<std::uint64_t, const mlt::Feature*> byId;
-    for (const auto& f : decoded->getFeatures()) byId[f.getID()] = &f;
+    for (const auto& f : decoded->getFeatures()) {
+        if (const auto id = f.getID(); id) {
+            byId[*id] = &f;
+        }
+    }
 
     for (int i = 0; i < static_cast<int>(segments.size()); ++i) {
         const auto& ls = dynamic_cast<const geometry::LineString&>(byId.at(i + 1)->getGeometry());
@@ -1072,7 +1108,10 @@ TEST(Encode, StructColumnRoundtrip) {
 
     std::map<std::uint64_t, std::size_t> idToIdx;
     for (std::size_t i = 0; i < decoded->getFeatures().size(); ++i) {
-        idToIdx[decoded->getFeatures()[i].getID()] = i;
+        const auto& f = decoded->getFeatures()[i];
+        if (const auto id = f.getID(); id) {
+            idToIdx[*id] = i;
+        }
     }
 
     for (int i = 0; i < 50; ++i) {
@@ -1280,7 +1319,9 @@ Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
     for (std::size_t fi = 0; fi < decoded.getFeatures().size(); ++fi) {
         const auto& feat = decoded.getFeatures()[fi];
         Encoder::Feature ef;
-        ef.id = feat.getID();
+        if (feat.getID()) {
+            ef.id = *feat.getID();
+        }
 
         const auto& geom = feat.getGeometry();
         ef.geometry.type = geom.type;
@@ -1315,7 +1356,10 @@ Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
                 const auto& mls = dynamic_cast<const geometry::MultiLineString&>(geom);
                 for (const auto& ls : mls.getLineStrings()) {
                     std::vector<Encoder::Vertex> part;
-                    for (const auto& c : ls) part.push_back(toEncVertex(c));
+                    part.reserve(ls.size());
+                    for (const auto& c : ls) {
+                        part.push_back(toEncVertex(c));
+                    }
                     ef.geometry.parts.push_back(std::move(part));
                 }
                 break;
@@ -1380,15 +1424,23 @@ void compareDecodedTiles(const Layer& a, const Layer& b, bool sortedByEncoder) {
     ASSERT_EQ(a.getFeatures().size(), b.getFeatures().size());
 
     std::map<std::uint64_t, std::size_t> bById;
+    bool hasIds = true;
     bool hasDuplicateIds = false;
     for (std::size_t i = 0; i < b.getFeatures().size(); ++i) {
-        auto [_, inserted] = bById.try_emplace(b.getFeatures()[i].getID(), i);
-        if (!inserted) hasDuplicateIds = true;
+        const auto& feature = b.getFeatures()[i];
+        if (const auto id = feature.getID(); id) {
+            const auto [_, inserted] = bById.try_emplace(*id, i);
+            if (!inserted) {
+                hasDuplicateIds = true;
+            }
+        } else {
+            hasIds = false;
+        }
     }
 
     for (std::size_t ai = 0; ai < a.getFeatures().size(); ++ai) {
         const auto& fa = a.getFeatures()[ai];
-        std::size_t bi = (hasDuplicateIds || sortedByEncoder) ? ai : bById.at(fa.getID());
+        std::size_t bi = (!hasIds || hasDuplicateIds || sortedByEncoder) ? ai : bById.at(*fa.getID());
 
         const auto& fb = b.getFeatures()[bi];
 
@@ -1461,7 +1513,7 @@ TEST_P(CrossValidateJava, DecodeAndRoundtrip) {
     auto fixture = loadFixture(GetParam().path);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << GetParam().path;
 
-    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+    auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
     const auto* javaLayer = javaTile.getLayer("layer");
     ASSERT_TRUE(javaLayer);
     ASSERT_EQ(javaLayer->getFeatures().size(), 1u);
@@ -1471,7 +1523,7 @@ TEST_P(CrossValidateJava, DecodeAndRoundtrip) {
     auto reencoded = Encoder().encode({encLayer});
     ASSERT_FALSE(reencoded.empty());
 
-    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    auto cppTile = makeDecoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
     const auto* cppLayer = cppTile.getLayer("layer");
     ASSERT_TRUE(cppLayer);
     compareDecodedTiles(*javaLayer, *cppLayer, true);
@@ -1500,7 +1552,7 @@ void byteCompareFixtureTest(const std::string& fixturePath) {
     auto fixture = loadFixture(fixturePath);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << fixturePath;
 
-    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+    auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> encoderLayers;
     for (const auto& layer : javaTile.getLayers()) encoderLayers.push_back(decodedToEncoderLayer(layer));
@@ -1511,7 +1563,7 @@ void byteCompareFixtureTest(const std::string& fixturePath) {
 
     EXPECT_LE(reencoded.size(), fixture.size()) << "C++ encoder output larger than Java for " << fixturePath;
 
-    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    auto cppTile = makeDecoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
     for (const auto& javaLayer : javaTile.getLayers()) {
         const auto* cppLayer = cppTile.getLayer(javaLayer.getName());
         ASSERT_TRUE(cppLayer);
@@ -1544,7 +1596,7 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
     auto fixture = loadFixture("omt/2_2_2.mlt");
     ASSERT_FALSE(fixture.empty()) << "Fixture not found";
 
-    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+    auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
     const auto* javaLayer = javaTile.getLayer("water_name");
     ASSERT_TRUE(javaLayer);
     ASSERT_GT(javaLayer->getFeatures().size(), 0u);
@@ -1564,7 +1616,9 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
     for (std::size_t fi = 0; fi < javaLayer->getFeatures().size(); ++fi) {
         const auto& feat = javaLayer->getFeatures()[fi];
         Encoder::Feature ef;
-        ef.id = feat.getID();
+        if (feat.getID()) {
+            ef.id = *feat.getID();
+        }
 
         const auto& geom = feat.getGeometry();
         ef.geometry.type = geom.type;
@@ -1611,7 +1665,7 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
     auto reencoded = Encoder().encode({encLayer}, config);
     ASSERT_FALSE(reencoded.empty());
 
-    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    auto cppTile = makeDecoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
     const auto* cppLayer = cppTile.getLayer("water_name");
     ASSERT_TRUE(cppLayer);
     ASSERT_EQ(cppLayer->getFeatures().size(), javaLayer->getFeatures().size());
@@ -1653,7 +1707,7 @@ void reencodeRoundtrip(const std::string& subdir, const std::string& filename) {
     auto fixture = loadFixture(subdir + "/" + filename);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << filename;
 
-    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+    auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> encoderLayers;
     for (const auto& layer : javaTile.getLayers()) encoderLayers.push_back(decodedToEncoderLayer(layer));
@@ -1664,7 +1718,7 @@ void reencodeRoundtrip(const std::string& subdir, const std::string& filename) {
     auto encoded = Encoder().encode(encoderLayers, config);
     ASSERT_FALSE(encoded.empty());
 
-    auto redecodedTile = Decoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+    auto redecodedTile = makeDecoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
 
     for (const auto& javaLayer : javaTile.getLayers()) {
         const auto* reLayer = redecodedTile.getLayer(javaLayer.getName());
@@ -1709,7 +1763,7 @@ void reencodeRoundtripSorted(const std::string& subdir, const std::string& filen
     auto fixture = loadFixture(subdir + "/" + filename);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << filename;
 
-    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+    auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> originalLayers;
     for (const auto& layer : javaTile.getLayers()) originalLayers.push_back(decodedToEncoderLayer(layer));
@@ -1720,7 +1774,7 @@ void reencodeRoundtripSorted(const std::string& subdir, const std::string& filen
     auto encoded = Encoder().encode(originalLayers, config);
     ASSERT_FALSE(encoded.empty());
 
-    auto redecodedTile = Decoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+    auto redecodedTile = makeDecoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
 
     for (const auto& origLayer : originalLayers) {
         const auto* reDecodedLayer = redecodedTile.getLayer(origLayer.name);
@@ -1752,7 +1806,7 @@ void reencodeTessellated(const std::string& subdir, const std::string& filename)
     auto fixture = loadFixture(subdir + "/" + filename);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << filename;
 
-    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+    auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> encoderLayers;
     for (const auto& layer : javaTile.getLayers()) encoderLayers.push_back(decodedToEncoderLayer(layer));
@@ -1764,7 +1818,7 @@ void reencodeTessellated(const std::string& subdir, const std::string& filename)
     auto encoded = Encoder().encode(encoderLayers, config);
     ASSERT_FALSE(encoded.empty());
 
-    auto redecodedTile = Decoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+    auto redecodedTile = makeDecoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
 
     using GT2 = metadata::tileset::GeometryType;
     for (const auto& origLayer : encoderLayers) {
