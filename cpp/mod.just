@@ -52,11 +52,16 @@ _clean_coverage_data:
 # Generate coverage report
 [working-directory: 'build']
 coverage: _clean_coverage_data (_check-tool 'gcovr') test
-    gcovr --root ../.. \
-        --filter ../src --filter ../include \
+    gcovr -j 0 \
+        --root ../.. \
+        --filter ../src \
+        --filter ../include \
+        --merge-lines \
+        --exclude-noncode-lines \
         --txt coverage.txt \
         --merge-mode-functions=separate \
-        --cobertura-pretty --cobertura coverage.xml \
+        --cobertura-pretty \
+        --cobertura coverage.xml \
         --html-details coverage.html
     @echo "Coverage report at $PWD/coverage.html"
 
