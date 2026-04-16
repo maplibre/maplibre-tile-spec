@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <mlt/decoder.hpp>
+#include <mlt/decode/string.hpp>
 #include <mlt/encoder.hpp>
 #include <mlt/geometry.hpp>
 #include <mlt/metadata/stream.hpp>
@@ -9,18 +10,21 @@
 #include <mlt/util/encoding/fsst.hpp>
 #include <mlt/util/encoding/varint.hpp>
 #include <mlt/util/encoding/zigzag.hpp>
+#include <mlt/util/hilbert_curve.hpp>
 #include <mlt/util/varint.hpp>
 #include <mlt/util/zigzag.hpp>
 
-#include <mlt/decode/string.hpp>
-#include <mlt/util/hilbert_curve.hpp>
-
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <numbers>
 #include <vector>
 
 using namespace mlt;
+
+using GeometryType = metadata::tileset::GeometryType;
+using HilbertCurve = mlt::util::HilbertCurve;
 
 namespace std {
 /// Allow optional IDs to be printed in test failure messages.
@@ -229,7 +233,7 @@ T unwrapProperty(const Property& prop) {
 TEST(Encode, PointRoundtrip) {
     auto layer = makeLayer("layer",
                            {
-                               makePointFeature(1, {100, 200}, {{"flag", true}}),
+                               makePointFeature(1, {.x = 100, .y = 200}, {{"flag", true}}),
                            });
 
     auto tile = encodeDecode({layer});
@@ -248,7 +252,7 @@ TEST(Encode, LineStringRoundtrip) {
     Encoder::Feature f;
     f.id = 42;
     f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
-    f.geometry.coordinates = {{0, 0}, {100, 100}, {200, 50}};
+    f.geometry.coordinates = {{.x = 0, .y = 0}, {.x = 100, .y = 100}, {.x = 200, .y = 50}};
     f.properties["name"] = std::string("Main Street");
     f.properties["lanes"] = std::int32_t{4};
     layer.features.push_back(std::move(f));
@@ -268,7 +272,7 @@ TEST(Encode, PolygonRoundtrip) {
     Encoder::Feature f;
     f.id = 7;
     f.geometry.type = metadata::tileset::GeometryType::POLYGON;
-    f.geometry.coordinates = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
+    f.geometry.coordinates = {{.x = 0, .y = 0}, {.x = 100, .y = 0}, {.x = 100, .y = 100}, {.x = 0, .y = 100}};
     f.geometry.ringSizes = {4};
     f.properties["height"] = 42.5f;
     layer.features.push_back(std::move(f));
@@ -282,9 +286,10 @@ TEST(Encode, PolygonRoundtrip) {
 
 TEST(Encode, MultipleFeatures) {
     std::vector<Encoder::Feature> features;
+    features.reserve(100);
     for (int i = 0; i < 100; ++i) {
         features.push_back(makePointFeature(i,
-                                            {i * 10, i * 20},
+                                            {.x = i * 10, .y = i * 20},
                                             {
                                                 {"rank", std::int32_t{i}},
                                                 {"name", std::string("POI #" + std::to_string(i))},
@@ -311,9 +316,9 @@ TEST(Encode, MultipleFeatures) {
 TEST(Encode, NullableIntProperty) {
     auto layer = makeLayer("test",
                            {
-                               makePointFeature(1, {10, 20}, {{"pop", std::int32_t{100}}}),
-                               makePointFeature(2, {30, 40}),
-                               makePointFeature(3, {50, 60}, {{"pop", std::int32_t{200}}}),
+                               makePointFeature(1, {.x = 10, .y = 20}, {{"pop", std::int32_t{100}}}),
+                               makePointFeature(2, {.x = 30, .y = 40}),
+                               makePointFeature(3, {.x = 50, .y = 60}, {{"pop", std::int32_t{200}}}),
                            });
 
     auto tile = encodeDecode({layer});
@@ -336,7 +341,7 @@ TEST(Encode, PropertyValueTypes) {
     auto layer = makeLayer("types",
                            {
                                makePointFeature(1,
-                                                {100, 200},
+                                                {.x = 100, .y = 200},
                                                 {
                                                     {"bool_val", true},
                                                     {"int32_val", std::int32_t{-42}},
@@ -364,12 +369,13 @@ TEST(Encode, PropertyValueTypes) {
 
 TEST(Encode, AllPropertyTypes) {
     std::vector<Encoder::Feature> features;
+    features.reserve(10);
     for (int i = 0; i < 10; ++i) {
         features.push_back(makePointFeature(i,
-                                            {i * 100, i * 100},
+                                            {.x = i * 100, .y = i * 100},
                                             {
                                                 {"bool_val", (i % 2 == 0)},
-                                                {"int32_val", std::int32_t{-100 + i * 20}},
+                                                {"int32_val", std::int32_t{-100 + (i * 20)}},
                                                 {"int64_val", std::int64_t{-9999999999LL + i}},
                                                 {"uint32_val", std::uint32_t(3000000000u + i)},
                                                 {"uint64_val", std::uint64_t(18000000000000000000ULL + i)},
@@ -388,7 +394,7 @@ TEST(Encode, AllPropertyTypes) {
     const auto& props = decoded->getProperties();
     for (int i = 0; i < 10; ++i) {
         EXPECT_EQ(unwrapProperty<bool>(*props.at("bool_val").getProperty(i)), (i % 2 == 0));
-        EXPECT_EQ(unwrapProperty<std::int32_t>(*props.at("int32_val").getProperty(i)), -100 + i * 20);
+        EXPECT_EQ(unwrapProperty<std::int32_t>(*props.at("int32_val").getProperty(i)), -100 + (i * 20));
         EXPECT_EQ(unwrapProperty<std::int64_t>(*props.at("int64_val").getProperty(i)), -9999999999LL + i);
         EXPECT_EQ(unwrapProperty<std::uint32_t>(*props.at("uint32_val").getProperty(i)), 3000000000u + i);
         EXPECT_EQ(unwrapProperty<std::uint64_t>(*props.at("uint64_val").getProperty(i)), 18000000000000000000ULL + i);
@@ -414,7 +420,7 @@ TEST(Encode, NullableAllTypes) {
                 {"bool_val", true},
             };
         }
-        features.push_back(makePointFeature(i, {i * 100, i * 100}, std::move(props)));
+        features.push_back(makePointFeature(i, {.x = i * 100, .y = i * 100}, std::move(props)));
     }
     auto layer = makeLayer("nullable", std::move(features));
 
@@ -425,7 +431,7 @@ TEST(Encode, NullableAllTypes) {
 
     for (const auto& [name, pp] : decoded->getProperties()) {
         for (int i = 0; i < 6; ++i) {
-            auto val = pp.getProperty(i);
+            const auto val = pp.getProperty(i);
             if (i % 2 == 0) {
                 EXPECT_TRUE(val.has_value()) << name << " at " << i << " should be present";
             } else {
@@ -438,7 +444,7 @@ TEST(Encode, NullableAllTypes) {
 TEST(Encode, EmptyLayer) {
     auto tile = encodeDecode({
         makeLayer("empty", {}),
-        makeLayer("nonempty", {makePointFeature(1, {50, 50})}),
+        makeLayer("nonempty", {makePointFeature(1, {.x = 50, .y = 50})}),
     });
     EXPECT_FALSE(tile.getLayer("empty"));
     EXPECT_TRUE(tile.getLayer("nonempty"));
@@ -452,7 +458,7 @@ TEST(Encode, SingleVertexLineString) {
     Encoder::Feature f;
     f.id = 1;
     f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
-    f.geometry.coordinates = {{100, 200}};
+    f.geometry.coordinates = {{.x = 100, .y = 200}};
     layer.features.push_back(std::move(f));
 
     auto tile = encodeDecode({layer});
@@ -502,8 +508,9 @@ TEST(Encode, MaxUint64Id) {
     };
 
     std::vector<Encoder::Feature> features;
+    features.reserve(testIds.size());
     for (auto id : testIds) {
-        features.push_back(makePointFeature(id, {50, 50}));
+        features.push_back(makePointFeature(id, {.x = 50, .y = 50}));
     }
     auto layer = makeLayer("big_ids", std::move(features));
 
@@ -519,12 +526,13 @@ TEST(Encode, MaxUint64Id) {
 
 TEST(Encode, LongStrings) {
     std::vector<Encoder::Feature> features;
+    features.reserve(10);
     for (int i = 0; i < 10; ++i) {
         features.push_back(
             makePointFeature(i,
-                             {i, i},
+                             {.x = i, .y = i},
                              {
-                                 {"long_str", std::string(10000 + i * 1000, 'a' + (i % 26))},
+                                 {"long_str", std::string(10000 + (i * 1000), 'a' + (i % 26))},
                                  {"unicode_str", std::string("Ünïcödé_τεστ_") + std::to_string(i) + "_日本語"},
                              }));
     }
@@ -537,7 +545,7 @@ TEST(Encode, LongStrings) {
     const auto& longProp = decoded->getProperties().at("long_str");
     for (int i = 0; i < 10; ++i) {
         auto sv = std::get<std::string_view>(*longProp.getProperty(i));
-        EXPECT_EQ(sv.size(), 10000u + i * 1000u);
+        EXPECT_EQ(sv.size(), 10000u + (i * 1000u));
         EXPECT_EQ(sv[0], 'a' + (i % 26));
     }
 
@@ -556,7 +564,7 @@ TEST(Encode, DegeneratePolygon) {
     Encoder::Feature f;
     f.id = 1;
     f.geometry.type = metadata::tileset::GeometryType::POLYGON;
-    f.geometry.coordinates = {{0, 0}, {100, 0}, {100, 100}};
+    f.geometry.coordinates = {{.x = 0, .y = 0}, {.x = 100, .y = 0}, {.x = 100, .y = 100}};
     f.geometry.ringSizes = {3};
     layer.features.push_back(std::move(f));
 
@@ -571,9 +579,10 @@ TEST(Encode, DegeneratePolygon) {
 TEST(Encode, ManyFeatures) {
     constexpr int N = 10000;
     std::vector<Encoder::Feature> features;
+    features.reserve(N);
     for (int i = 0; i < N; ++i) {
         features.push_back(makePointFeature(i,
-                                            {i % 4096, i / 4096},
+                                            {.x = i % 4096, .y = i / 4096},
                                             {
                                                 {"idx", std::int32_t{i}},
                                             }));
@@ -602,9 +611,10 @@ TEST(Encode, MultiPolygonManyParts) {
     f.id = 1;
     f.geometry.type = metadata::tileset::GeometryType::MULTIPOLYGON;
     for (int p = 0; p < 20; ++p) {
-        int ox = (p % 5) * 800;
-        int oy = (p / 5) * 800;
-        f.geometry.parts.push_back({{ox, oy}, {ox + 100, oy}, {ox + 100, oy + 100}, {ox, oy + 100}});
+        const int ox = (p % 5) * 800;
+        const int oy = (p / 5) * 800;
+        f.geometry.parts.push_back(
+            {{.x = ox, .y = oy}, {.x = ox + 100, .y = oy}, {.x = ox + 100, .y = oy + 100}, {.x = ox, .y = oy + 100}});
         f.geometry.partRingSizes.push_back({4});
     }
     layer.features.push_back(std::move(f));
@@ -618,11 +628,12 @@ TEST(Encode, MultiPolygonManyParts) {
 
 TEST(Encode, LargeIntegerEncoding) {
     std::vector<Encoder::Feature> features;
+    features.reserve(50);
     for (int i = 0; i < 50; ++i) {
-        features.push_back(makePointFeature(i, {i * 10, i * 10}, {{"seq", std::int32_t{i * 100}}}));
+        features.push_back(makePointFeature(i, {.x = i * 10, .y = i * 10}, {{"seq", std::int32_t{i * 100}}}));
     }
     for (int i = 50; i < 100; ++i) {
-        features.push_back(makePointFeature(i, {i * 10, i * 10}, {{"seq", std::int32_t{999}}}));
+        features.push_back(makePointFeature(i, {.x = i * 10, .y = i * 10}, {{"seq", std::int32_t{999}}}));
     }
     auto layer = makeLayer("test", std::move(features));
 
@@ -641,7 +652,7 @@ TEST(Encode, LargeIntegerEncoding) {
 }
 
 TEST(Encode, LongIdRoundtrip) {
-    auto layer = makeLayer("longids", {makePointFeature(0xFFFFFFFF00000001ULL, {10, 20})});
+    auto layer = makeLayer("longids", {makePointFeature(0xFFFFFFFF00000001ULL, {.x = 10, .y = 20})});
 
     auto tile = encodeDecode({layer});
     const auto* decoded = tile.getLayer("longids");
@@ -657,7 +668,7 @@ TEST(Encode, MultiPointRoundtrip) {
     Encoder::Feature f;
     f.id = 1;
     f.geometry.type = metadata::tileset::GeometryType::MULTIPOINT;
-    f.geometry.coordinates = {{100, 200}, {300, 400}};
+    f.geometry.coordinates = {{.x = 100, .y = 200}, {.x = 300, .y = 400}};
     f.properties["key"] = true;
     layer.features.push_back(std::move(f));
 
@@ -682,8 +693,8 @@ TEST(Encode, MultiLineStringRoundtrip) {
     f.id = 1;
     f.geometry.type = metadata::tileset::GeometryType::MULTILINESTRING;
     f.geometry.parts = {
-        {{0, 0}, {100, 100}, {200, 50}},
-        {{300, 300}, {400, 200}},
+        {{.x = 0, .y = 0}, {.x = 100, .y = 100}, {.x = 200, .y = 50}},
+        {{.x = 300, .y = 300}, {.x = 400, .y = 200}},
     };
     f.properties["key"] = true;
     layer.features.push_back(std::move(f));
@@ -705,14 +716,14 @@ TEST(Encode, PolygonWithHoleRoundtrip) {
     f.id = 1;
     f.geometry.type = metadata::tileset::GeometryType::POLYGON;
     f.geometry.coordinates = {
-        {0, 0},
-        {1000, 0},
-        {1000, 1000},
-        {0, 1000},
-        {200, 200},
-        {800, 200},
-        {800, 800},
-        {200, 800},
+        {.x = 0, .y = 0},
+        {.x = 1000, .y = 0},
+        {.x = 1000, .y = 1000},
+        {.x = 0, .y = 1000},
+        {.x = 200, .y = 200},
+        {.x = 800, .y = 200},
+        {.x = 800, .y = 800},
+        {.x = 200, .y = 800},
     };
     f.geometry.ringSizes = {4, 4};
     layer.features.push_back(std::move(f));
@@ -731,11 +742,11 @@ TEST(Encode, MultipleLayers) {
     Encoder::Feature lf;
     lf.id = 2;
     lf.geometry.type = metadata::tileset::GeometryType::LINESTRING;
-    lf.geometry.coordinates = {{0, 0}, {100, 100}};
+    lf.geometry.coordinates = {{.x = 0, .y = 0}, {.x = 100, .y = 100}};
     lines.features.push_back(std::move(lf));
 
     auto tile = encodeDecode({
-        makeLayer("points", {makePointFeature(1, {50, 50})}),
+        makeLayer("points", {makePointFeature(1, {.x = 50, .y = 50})}),
         lines,
     });
     EXPECT_EQ(tile.getLayer("points")->getFeatures().size(), 1u);
@@ -807,7 +818,7 @@ TEST(Encode, FsstStringRoundtrip) {
         Encoder::Feature f;
         f.id = i;
         f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
-        f.geometry.coordinates = {{i * 10, i * 10}, {i * 10 + 100, i * 10 + 100}};
+        f.geometry.coordinates = {{.x = i * 10, .y = i * 10}, {.x = (i * 10) + 100, .y = (i * 10) + 100}};
         f.properties["highway"] = roadTypes[i % roadTypes.size()];
         f.properties["name"] = std::string("Road ") + std::to_string(i);
         features.push_back(std::move(f));
@@ -829,50 +840,48 @@ TEST(Encode, FsstStringRoundtrip) {
 // --- Hilbert curve ---
 
 TEST(HilbertCurve, JavaCrossValidation) {
-    using mlt::util::HilbertCurve;
-
     struct TestCase {
         std::uint32_t bits, x, y, expected;
     };
     const TestCase cases[] = {
-        {2, 0, 0, 0},
-        {2, 1, 0, 1},
-        {2, 1, 1, 2},
-        {2, 0, 1, 3},
-        {2, 0, 2, 4},
-        {2, 0, 3, 5},
-        {2, 1, 3, 6},
-        {2, 1, 2, 7},
-        {2, 2, 2, 8},
-        {2, 2, 3, 9},
-        {2, 3, 3, 10},
-        {2, 3, 2, 11},
-        {2, 3, 1, 12},
-        {2, 2, 1, 13},
-        {2, 2, 0, 14},
-        {2, 3, 0, 15},
-        {3, 0, 0, 0},
-        {3, 7, 7, 42},
-        {3, 4, 4, 32},
-        {3, 3, 3, 10},
-        {3, 1, 6, 23},
-        {3, 5, 2, 55},
-        {5, 0, 0, 0},
-        {5, 31, 31, 682},
-        {5, 16, 16, 512},
-        {5, 3, 4, 31},
-        {5, 10, 20, 476},
-        {5, 25, 7, 982},
-        {13, 0, 0, 0},
-        {13, 4095, 4095, 11184810},
-        {13, 2048, 2048, 8388608},
-        {13, 100, 200, 52442},
-        {13, 3000, 1000, 4889386},
-        {13, 500, 4000, 16519952},
-        {14, 0, 0, 0},
-        {14, 8191, 8191, 44739242},
-        {14, 4096, 4096, 33554432},
-        {14, 1000, 2000, 3147584},
+        {.bits = 2, .x = 0, .y = 0, .expected = 0},
+        {.bits = 2, .x = 1, .y = 0, .expected = 1},
+        {.bits = 2, .x = 1, .y = 1, .expected = 2},
+        {.bits = 2, .x = 0, .y = 1, .expected = 3},
+        {.bits = 2, .x = 0, .y = 2, .expected = 4},
+        {.bits = 2, .x = 0, .y = 3, .expected = 5},
+        {.bits = 2, .x = 1, .y = 3, .expected = 6},
+        {.bits = 2, .x = 1, .y = 2, .expected = 7},
+        {.bits = 2, .x = 2, .y = 2, .expected = 8},
+        {.bits = 2, .x = 2, .y = 3, .expected = 9},
+        {.bits = 2, .x = 3, .y = 3, .expected = 10},
+        {.bits = 2, .x = 3, .y = 2, .expected = 11},
+        {.bits = 2, .x = 3, .y = 1, .expected = 12},
+        {.bits = 2, .x = 2, .y = 1, .expected = 13},
+        {.bits = 2, .x = 2, .y = 0, .expected = 14},
+        {.bits = 2, .x = 3, .y = 0, .expected = 15},
+        {.bits = 3, .x = 0, .y = 0, .expected = 0},
+        {.bits = 3, .x = 7, .y = 7, .expected = 42},
+        {.bits = 3, .x = 4, .y = 4, .expected = 32},
+        {.bits = 3, .x = 3, .y = 3, .expected = 10},
+        {.bits = 3, .x = 1, .y = 6, .expected = 23},
+        {.bits = 3, .x = 5, .y = 2, .expected = 55},
+        {.bits = 5, .x = 0, .y = 0, .expected = 0},
+        {.bits = 5, .x = 31, .y = 31, .expected = 682},
+        {.bits = 5, .x = 16, .y = 16, .expected = 512},
+        {.bits = 5, .x = 3, .y = 4, .expected = 31},
+        {.bits = 5, .x = 10, .y = 20, .expected = 476},
+        {.bits = 5, .x = 25, .y = 7, .expected = 982},
+        {.bits = 13, .x = 0, .y = 0, .expected = 0},
+        {.bits = 13, .x = 4095, .y = 4095, .expected = 11184810},
+        {.bits = 13, .x = 2048, .y = 2048, .expected = 8388608},
+        {.bits = 13, .x = 100, .y = 200, .expected = 52442},
+        {.bits = 13, .x = 3000, .y = 1000, .expected = 4889386},
+        {.bits = 13, .x = 500, .y = 4000, .expected = 16519952},
+        {.bits = 14, .x = 0, .y = 0, .expected = 0},
+        {.bits = 14, .x = 8191, .y = 8191, .expected = 44739242},
+        {.bits = 14, .x = 4096, .y = 4096, .expected = 33554432},
+        {.bits = 14, .x = 1000, .y = 2000, .expected = 3147584},
     };
 
     for (const auto& tc : cases) {
@@ -882,7 +891,7 @@ TEST(HilbertCurve, JavaCrossValidation) {
 }
 
 TEST(HilbertCurve, RoundtripThroughSpaceFillingCurve) {
-    mlt::util::HilbertCurve curve(0, 4095);
+    HilbertCurve curve(0, 4095);
 
     for (int x = 0; x < 4096; x += 512) {
         for (int y = 0; y < 4096; y += 512) {
@@ -898,16 +907,16 @@ TEST(HilbertCurve, RoundtripThroughSpaceFillingCurve) {
 
 TEST(Encode, VertexDictionaryRoundtrip) {
     std::vector<Encoder::Vertex> sharedVerts = {
-        {100, 200},
-        {300, 400},
-        {500, 600},
-        {700, 800},
-        {900, 1000},
-        {1200, 1400},
-        {1600, 1800},
-        {2000, 2200},
-        {2500, 2800},
-        {3000, 3200},
+        {.x = 100, .y = 200},
+        {.x = 300, .y = 400},
+        {.x = 500, .y = 600},
+        {.x = 700, .y = 800},
+        {.x = 900, .y = 1000},
+        {.x = 1200, .y = 1400},
+        {.x = 1600, .y = 1800},
+        {.x = 2000, .y = 2200},
+        {.x = 2500, .y = 2800},
+        {.x = 3000, .y = 3200},
     };
 
     std::vector<Encoder::Feature> features;
@@ -950,19 +959,20 @@ TEST(Encode, VertexDictionaryRoundtrip) {
 
 TEST(Encode, FeatureSortingPoints) {
     std::vector<Encoder::Vertex> positions = {
-        {3000, 3000},
-        {100, 100},
-        {2000, 500},
-        {500, 3500},
-        {1500, 1500},
-        {3500, 100},
-        {200, 2000},
-        {2500, 2500},
-        {800, 800},
-        {3200, 1800},
+        {.x = 3000, .y = 3000},
+        {.x = 100, .y = 100},
+        {.x = 2000, .y = 500},
+        {.x = 500, .y = 3500},
+        {.x = 1500, .y = 1500},
+        {.x = 3500, .y = 100},
+        {.x = 200, .y = 2000},
+        {.x = 2500, .y = 2500},
+        {.x = 800, .y = 800},
+        {.x = 3200, .y = 1800},
     };
 
     std::vector<Encoder::Feature> features;
+    features.reserve(static_cast<int>(positions.size()));
     for (int i = 0; i < static_cast<int>(positions.size()); ++i) {
         features.push_back(makePointFeature(i + 1,
                                             positions[i],
@@ -995,7 +1005,7 @@ TEST(Encode, FeatureSortingPoints) {
         minV = std::min({minV, p.x, p.y});
         maxV = std::max({maxV, p.x, p.y});
     }
-    mlt::util::HilbertCurve curve(minV, maxV);
+    HilbertCurve curve(minV, maxV);
     std::uint32_t prevHilbert = 0;
     std::uint32_t index = 0;
     for (const auto& f : decoded->getFeatures()) {
@@ -1008,11 +1018,11 @@ TEST(Encode, FeatureSortingPoints) {
 
 TEST(Encode, FeatureSortingLineStrings) {
     std::vector<std::pair<Encoder::Vertex, Encoder::Vertex>> segments = {
-        {{3000, 3000}, {3100, 3100}},
-        {{100, 100}, {200, 200}},
-        {{2000, 500}, {2100, 600}},
-        {{500, 3500}, {600, 3600}},
-        {{1500, 1500}, {1600, 1600}},
+        {{.x = 3000, .y = 3000}, {.x = 3100, .y = 3100}},
+        {{.x = 100, .y = 100}, {.x = 200, .y = 200}},
+        {{.x = 2000, .y = 500}, {.x = 2100, .y = 600}},
+        {{.x = 500, .y = 3500}, {.x = 600, .y = 3600}},
+        {{.x = 1500, .y = 1500}, {.x = 1600, .y = 1600}},
     };
 
     std::vector<Encoder::Feature> features;
@@ -1047,7 +1057,7 @@ TEST(Encode, FeatureSortingLineStrings) {
         minV = std::min({minV, a.x, a.y, b.x, b.y});
         maxV = std::max({maxV, a.x, a.y, b.x, b.y});
     }
-    mlt::util::HilbertCurve curve(minV, maxV);
+    HilbertCurve curve(minV, maxV);
     std::uint32_t prevHilbert = 0;
     for (const auto& f : decoded->getFeatures()) {
         const auto& ls = dynamic_cast<const geometry::LineString&>(f.getGeometry());
@@ -1065,9 +1075,9 @@ TEST(Encode, NoSortingForMixedTypes) {
     Encoder::Feature f2;
     f2.id = 2;
     f2.geometry.type = metadata::tileset::GeometryType::LINESTRING;
-    f2.geometry.coordinates = {{100, 100}, {200, 200}};
+    f2.geometry.coordinates = {{.x = 100, .y = 100}, {.x = 200, .y = 200}};
 
-    layer.features.push_back(makePointFeature(1, {3000, 3000}));
+    layer.features.push_back(makePointFeature(1, {.x = 3000, .y = 3000}));
     layer.features.push_back(std::move(f2));
 
     auto tile = encodeDecode({layer});
@@ -1085,7 +1095,7 @@ TEST(Encode, StructColumnRoundtrip) {
         Encoder::Feature f;
         f.id = i;
         f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
-        f.geometry.coordinates = {{i * 10, i * 20}, {i * 10 + 5, i * 20 + 5}};
+        f.geometry.coordinates = {{.x = i * 10, .y = i * 20}, {.x = (i * 10) + 5, .y = (i * 20) + 5}};
 
         Encoder::StructValue names;
         names["default"] = "Road " + std::to_string(i);
@@ -1145,7 +1155,8 @@ TEST(Encode, PretessellatedPolygonRoundtrip) {
         Encoder::Feature f;
         f.id = 1;
         f.geometry.type = metadata::tileset::GeometryType::POLYGON;
-        f.geometry.coordinates = {{100, 100}, {200, 100}, {200, 200}, {100, 200}};
+        f.geometry.coordinates = {
+            {.x = 100, .y = 100}, {.x = 200, .y = 100}, {.x = 200, .y = 200}, {.x = 100, .y = 200}};
         f.geometry.ringSizes = {4};
         f.properties["height"] = std::int32_t{10};
         layer.features.push_back(std::move(f));
@@ -1155,8 +1166,14 @@ TEST(Encode, PretessellatedPolygonRoundtrip) {
         Encoder::Feature f;
         f.id = 2;
         f.geometry.type = metadata::tileset::GeometryType::POLYGON;
-        f.geometry.coordinates = {
-            {0, 0}, {400, 0}, {400, 400}, {0, 400}, {100, 100}, {300, 100}, {300, 300}, {100, 300}};
+        f.geometry.coordinates = {{.x = 0, .y = 0},
+                                  {.x = 400, .y = 0},
+                                  {.x = 400, .y = 400},
+                                  {.x = 0, .y = 400},
+                                  {.x = 100, .y = 100},
+                                  {.x = 300, .y = 100},
+                                  {.x = 300, .y = 300},
+                                  {.x = 100, .y = 300}};
         f.geometry.ringSizes = {4, 4};
         f.properties["height"] = std::int32_t{20};
         layer.features.push_back(std::move(f));
@@ -1189,8 +1206,8 @@ TEST(Encode, PretessellatedMultiPolygonCrossValidation) {
     f.id = 1;
     f.geometry.type = metadata::tileset::GeometryType::MULTIPOLYGON;
     f.geometry.parts = {
-        {{0, 0}, {10, 0}, {10, 10}, {0, 10}},
-        {{20, 20}, {40, 20}, {40, 40}, {20, 40}},
+        {{.x = 0, .y = 0}, {.x = 10, .y = 0}, {.x = 10, .y = 10}, {.x = 0, .y = 10}},
+        {{.x = 20, .y = 20}, {.x = 40, .y = 20}, {.x = 40, .y = 40}, {.x = 20, .y = 40}},
     };
     f.geometry.partRingSizes = {{4}, {4}};
     layer.features.push_back(std::move(f));
@@ -1216,8 +1233,15 @@ TEST(Encode, PretessellatedMultiPolygonWithHoles) {
     f.id = 1;
     f.geometry.type = metadata::tileset::GeometryType::MULTIPOLYGON;
     f.geometry.parts = {
-        {{0, 0}, {10, 0}, {10, 10}, {0, 10}, {5, 5}, {5, 7}, {7, 7}, {7, 5}},
-        {{20, 20}, {40, 20}, {40, 40}, {20, 40}},
+        {{.x = 0, .y = 0},
+         {.x = 10, .y = 0},
+         {.x = 10, .y = 10},
+         {.x = 0, .y = 10},
+         {.x = 5, .y = 5},
+         {.x = 5, .y = 7},
+         {.x = 7, .y = 7},
+         {.x = 7, .y = 5}},
+        {{.x = 20, .y = 20}, {.x = 40, .y = 20}, {.x = 40, .y = 40}, {.x = 20, .y = 40}},
     };
     f.geometry.partRingSizes = {{4, 4}, {4}};
     layer.features.push_back(std::move(f));
@@ -1239,14 +1263,14 @@ TEST(Encode, PretessellatedSkippedForMixedGeometry) {
     Encoder::Feature poly;
     poly.id = 1;
     poly.geometry.type = metadata::tileset::GeometryType::POLYGON;
-    poly.geometry.coordinates = {{0, 0}, {10, 0}, {10, 10}, {0, 10}};
+    poly.geometry.coordinates = {{.x = 0, .y = 0}, {.x = 10, .y = 0}, {.x = 10, .y = 10}, {.x = 0, .y = 10}};
     poly.geometry.ringSizes = {4};
     layer.features.push_back(std::move(poly));
 
     Encoder::Feature line;
     line.id = 2;
     line.geometry.type = metadata::tileset::GeometryType::LINESTRING;
-    line.geometry.coordinates = {{0, 0}, {10, 10}};
+    line.geometry.coordinates = {{.x = 0, .y = 0}, {.x = 10, .y = 10}};
     layer.features.push_back(std::move(line));
 
     EncoderConfig config;
@@ -1297,12 +1321,12 @@ std::vector<std::string> discoverFixtures(const std::string& subdir) {
             result.push_back(entry.path().filename().string());
         }
     }
-    std::sort(result.begin(), result.end());
+    std::ranges::sort(result);
     return result;
 }
 
 Encoder::Vertex toEncVertex(const Coordinate& c) {
-    return {static_cast<std::int32_t>(c.x), static_cast<std::int32_t>(c.y)};
+    return {.x = static_cast<std::int32_t>(c.x), .y = static_cast<std::int32_t>(c.y)};
 }
 
 Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
@@ -1529,25 +1553,26 @@ TEST_P(CrossValidateJava, DecodeAndRoundtrip) {
     compareDecodedTiles(*javaLayer, *cppLayer, true);
 }
 
-using GT = metadata::tileset::GeometryType;
-INSTANTIATE_TEST_SUITE_P(Simple,
-                         CrossValidateJava,
-                         ::testing::Values(SimpleFixtureParams{"simple/point-boolean.mlt", GT::POINT},
-                                           SimpleFixtureParams{"simple/line-boolean.mlt", GT::LINESTRING},
-                                           SimpleFixtureParams{"simple/polygon-boolean.mlt", GT::POLYGON},
-                                           SimpleFixtureParams{"simple/multipoint-boolean.mlt", GT::MULTIPOINT},
-                                           SimpleFixtureParams{"simple/multiline-boolean.mlt", GT::MULTILINESTRING},
-                                           SimpleFixtureParams{"simple/multipolygon-boolean.mlt", GT::MULTIPOLYGON}),
-                         [](const auto& info) {
-                             auto name = info.param.path;
-                             std::replace(name.begin(), name.end(), '/', '_');
-                             std::replace(name.begin(), name.end(), '.', '_');
-                             std::replace(name.begin(), name.end(), '-', '_');
-                             return name;
-                         });
+INSTANTIATE_TEST_SUITE_P(
+    Simple,
+    CrossValidateJava,
+    ::testing::Values(SimpleFixtureParams{"simple/point-boolean.mlt", GeometryType::POINT},
+                      SimpleFixtureParams{"simple/line-boolean.mlt", GeometryType::LINESTRING},
+                      SimpleFixtureParams{"simple/polygon-boolean.mlt", GeometryType::POLYGON},
+                      SimpleFixtureParams{"simple/multipoint-boolean.mlt", GeometryType::MULTIPOINT},
+                      SimpleFixtureParams{"simple/multiline-boolean.mlt", GeometryType::MULTILINESTRING},
+                      SimpleFixtureParams{"simple/multipolygon-boolean.mlt", GeometryType::MULTIPOLYGON}),
+    [](const auto& info) {
+        auto name = info.param.path;
+        std::replace(name.begin(), name.end(), '/', '_');
+        std::replace(name.begin(), name.end(), '.', '_');
+        std::replace(name.begin(), name.end(), '-', '_');
+        return name;
+    });
 
 // --- Byte-level cross-validation ---
 
+namespace {
 void byteCompareFixtureTest(const std::string& fixturePath) {
     auto fixture = loadFixture(fixturePath);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << fixturePath;
@@ -1570,6 +1595,7 @@ void byteCompareFixtureTest(const std::string& fixturePath) {
         compareDecodedTiles(javaLayer, *cppLayer, true);
     }
 }
+} // namespace
 
 TEST(ByteCompare, PointBoolean) {
     byteCompareFixtureTest("simple/point-boolean.mlt");
@@ -1703,6 +1729,8 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
 
 // --- Parameterized corpus re-encode tests ---
 
+namespace {
+
 void reencodeRoundtrip(const std::string& subdir, const std::string& filename) {
     auto fixture = loadFixture(subdir + "/" + filename);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << filename;
@@ -1730,10 +1758,12 @@ void reencodeRoundtrip(const std::string& subdir, const std::string& filename) {
 
 std::string sanitizeFixtureName(const ::testing::TestParamInfo<std::string>& info) {
     auto name = info.param;
-    std::replace(name.begin(), name.end(), '.', '_');
-    std::replace(name.begin(), name.end(), '-', '_');
+    std::ranges::replace(name, '.', '_');
+    std::ranges::replace(name, '-', '_');
     return name;
 }
+
+} // namespace
 
 #define REENCODE_CORPUS_SUITE(SuiteName, subdir)                       \
     class SuiteName : public ::testing::TestWithParam<std::string> {}; \
@@ -1756,8 +1786,6 @@ std::string featureFingerprint(const Encoder::Feature& f) {
     for (const auto& v : f.geometry.coordinates) fp += "|" + std::to_string(v.x) + "," + std::to_string(v.y);
     return fp;
 }
-
-} // namespace
 
 void reencodeRoundtripSorted(const std::string& subdir, const std::string& filename) {
     auto fixture = loadFixture(subdir + "/" + filename);
@@ -1794,6 +1822,8 @@ void reencodeRoundtripSorted(const std::string& subdir, const std::string& filen
     }
 }
 
+} // namespace
+
 class ReencodeOMTSorted : public ::testing::TestWithParam<std::string> {};
 TEST_P(ReencodeOMTSorted, Roundtrip) {
     reencodeRoundtripSorted("omt", GetParam());
@@ -1801,6 +1831,8 @@ TEST_P(ReencodeOMTSorted, Roundtrip) {
 INSTANTIATE_TEST_SUITE_P(All, ReencodeOMTSorted, ::testing::ValuesIn(discoverFixtures("omt")), sanitizeFixtureName);
 
 // --- Tessellated re-encode ---
+
+namespace {
 
 void reencodeTessellated(const std::string& subdir, const std::string& filename) {
     auto fixture = loadFixture(subdir + "/" + filename);
@@ -1820,14 +1852,13 @@ void reencodeTessellated(const std::string& subdir, const std::string& filename)
 
     auto redecodedTile = makeDecoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
 
-    using GT2 = metadata::tileset::GeometryType;
     for (const auto& origLayer : encoderLayers) {
         const auto* reLayer = redecodedTile.getLayer(origLayer.name);
         ASSERT_TRUE(reLayer);
         ASSERT_EQ(origLayer.features.size(), reLayer->getFeatures().size());
 
-        bool allPoly = std::ranges::all_of(origLayer.features, [](const auto& f) {
-            return f.geometry.type == GT2::POLYGON || f.geometry.type == GT2::MULTIPOLYGON;
+        const bool allPoly = std::ranges::all_of(origLayer.features, [](const auto& f) {
+            return f.geometry.type == GeometryType::POLYGON || f.geometry.type == GeometryType::MULTIPOLYGON;
         });
 
         if (allPoly && !origLayer.features.empty()) {
@@ -1841,6 +1872,8 @@ void reencodeTessellated(const std::string& subdir, const std::string& filename)
     }
 }
 
+} // namespace
+
 class ReencodeOMTTessellated : public ::testing::TestWithParam<std::string> {};
 TEST_P(ReencodeOMTTessellated, Roundtrip) {
     reencodeTessellated("omt", GetParam());
@@ -1853,8 +1886,8 @@ INSTANTIATE_TEST_SUITE_P(All,
 TEST(Encode, TypePromotionInt32ToInt64) {
     auto layer = makeLayer("promo",
                            {
-                               makePointFeature(1, {10, 20}, {{"val", std::int32_t{42}}}),
-                               makePointFeature(2, {30, 40}, {{"val", std::int64_t{9999999999LL}}}),
+                               makePointFeature(1, {.x = 10, .y = 20}, {{"val", std::int32_t{42}}}),
+                               makePointFeature(2, {.x = 30, .y = 40}, {{"val", std::int64_t{9999999999LL}}}),
                            });
 
     auto tile = encodeDecode({layer});
@@ -1869,8 +1902,8 @@ TEST(Encode, TypePromotionInt32ToInt64) {
 TEST(Encode, TypePromotionInt64ThenInt32) {
     auto layer = makeLayer("promo_rev",
                            {
-                               makePointFeature(1, {10, 20}, {{"val", std::int64_t{100LL}}}),
-                               makePointFeature(2, {30, 40}, {{"val", std::int32_t{200}}}),
+                               makePointFeature(1, {.x = 10, .y = 20}, {{"val", std::int64_t{100LL}}}),
+                               makePointFeature(2, {.x = 30, .y = 40}, {{"val", std::int32_t{200}}}),
                            });
 
     auto tile = encodeDecode({layer});
@@ -1882,8 +1915,8 @@ TEST(Encode, TypePromotionInt64ThenInt32) {
 TEST(Encode, TypePromotionFloatToDouble) {
     auto layer = makeLayer("promo_float",
                            {
-                               makePointFeature(1, {10, 20}, {{"val", 1.5f}}),
-                               makePointFeature(2, {30, 40}, {{"val", 3.14159265358979}}),
+                               makePointFeature(1, {.x = 10, .y = 20}, {{"val", 1.5f}}),
+                               makePointFeature(2, {.x = 30, .y = 40}, {{"val", std::numbers::pi}}),
                            });
 
     auto tile = encodeDecode({layer});
@@ -1895,8 +1928,8 @@ TEST(Encode, TypePromotionFloatToDouble) {
 TEST(Encode, TypePromotionDoubleThenFloat) {
     auto layer = makeLayer("promo_dfloat",
                            {
-                               makePointFeature(1, {10, 20}, {{"val", 2.71828}}),
-                               makePointFeature(2, {30, 40}, {{"val", 1.0f}}),
+                               makePointFeature(1, {.x = 10, .y = 20}, {{"val", std::numbers::e}}),
+                               makePointFeature(2, {.x = 30, .y = 40}, {{"val", 1.0f}}),
                            });
 
     auto tile = encodeDecode({layer});
@@ -1908,8 +1941,8 @@ TEST(Encode, TypePromotionDoubleThenFloat) {
 TEST(Encode, TypePromotionMixedToString) {
     auto layer = makeLayer("mixed_types",
                            {
-                               makePointFeature(1, {10, 20}, {{"val", std::int32_t{42}}}),
-                               makePointFeature(2, {30, 40}, {{"val", std::string("hello")}}),
+                               makePointFeature(1, {.x = 10, .y = 20}, {{"val", std::int32_t{42}}}),
+                               makePointFeature(2, {.x = 30, .y = 40}, {{"val", std::string("hello")}}),
                            });
 
     auto tile = encodeDecode({layer});
@@ -1922,8 +1955,10 @@ TEST(Encode, TypePromotionMixedToString) {
 
 TEST(Encode, Uint64RleEncoding) {
     std::vector<Encoder::Feature> features;
+    features.reserve(100);
     for (int i = 0; i < 100; ++i) {
-        features.push_back(makePointFeature(i, {i * 10, i * 10}, {{"big", std::uint64_t(18000000000000000000ULL)}}));
+        features.push_back(
+            makePointFeature(i, {.x = i * 10, .y = i * 10}, {{"big", std::uint64_t(18000000000000000000ULL)}}));
     }
     auto layer = makeLayer("u64rle", std::move(features));
 
@@ -1938,8 +1973,10 @@ TEST(Encode, Uint64RleEncoding) {
 
 TEST(Encode, Int64DeltaRle) {
     std::vector<Encoder::Feature> features;
+    features.reserve(100);
     for (int i = 0; i < 100; ++i) {
-        features.push_back(makePointFeature(i, {i * 10, i * 10}, {{"val", std::int64_t{1000000000LL + i * 100}}}));
+        features.push_back(
+            makePointFeature(i, {.x = i * 10, .y = i * 10}, {{"val", std::int64_t{1000000000LL + (i * 100)}}}));
     }
     auto layer = makeLayer("i64delta", std::move(features));
 
@@ -1948,17 +1985,18 @@ TEST(Encode, Int64DeltaRle) {
     ASSERT_TRUE(decoded);
     for (int i = 0; i < 100; ++i) {
         EXPECT_EQ(unwrapProperty<std::int64_t>(*decoded->getProperties().at("val").getProperty(i)),
-                  1000000000LL + i * 100);
+                  1000000000LL + (i * 100));
     }
 }
 
 TEST(Encode, SignedInt64RleWithNegatives) {
     std::vector<Encoder::Feature> features;
+    features.reserve(50);
     for (int i = 0; i < 50; ++i) {
-        features.push_back(makePointFeature(i, {i * 10, i * 10}, {{"val", std::int64_t{-999999999LL}}}));
+        features.push_back(makePointFeature(i, {.x = i * 10, .y = i * 10}, {{"val", std::int64_t{-999999999LL}}}));
     }
     for (int i = 50; i < 100; ++i) {
-        features.push_back(makePointFeature(i, {i * 10, i * 10}, {{"val", std::int64_t{999999999LL}}}));
+        features.push_back(makePointFeature(i, {.x = i * 10, .y = i * 10}, {{"val", std::int64_t{999999999LL}}}));
     }
     auto layer = makeLayer("i64rle_signed", std::move(features));
 
@@ -1981,7 +2019,7 @@ TEST(Encode, PretessellatedWithoutOutlinesProducesValidBinary) {
     Encoder::Feature f;
     f.id = 1;
     f.geometry.type = metadata::tileset::GeometryType::POLYGON;
-    f.geometry.coordinates = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
+    f.geometry.coordinates = {{.x = 0, .y = 0}, {.x = 100, .y = 0}, {.x = 100, .y = 100}, {.x = 0, .y = 100}};
     f.geometry.ringSizes = {4};
     layer.features.push_back(std::move(f));
 
@@ -2004,11 +2042,11 @@ TEST(Encode, PretessellatedWithoutOutlinesProducesValidBinary) {
 
 TEST(Encode, MortonVertexDictionaryDisabled) {
     std::vector<Encoder::Vertex> sharedVerts = {
-        {100, 200},
-        {300, 400},
-        {500, 600},
-        {700, 800},
-        {900, 1000},
+        {.x = 100, .y = 200},
+        {.x = 300, .y = 400},
+        {.x = 500, .y = 600},
+        {.x = 700, .y = 800},
+        {.x = 900, .y = 1000},
     };
 
     std::vector<Encoder::Feature> features;
@@ -2034,8 +2072,9 @@ TEST(Encode, MortonVertexDictionaryDisabled) {
 
 TEST(Encode, FastPforDisabled) {
     std::vector<Encoder::Feature> features;
+    features.reserve(50);
     for (int i = 0; i < 50; ++i) {
-        features.push_back(makePointFeature(i, {i * 10, i * 10}, {{"idx", std::int32_t{i}}}));
+        features.push_back(makePointFeature(i, {.x = i * 10, .y = i * 10}, {{"idx", std::int32_t{i}}}));
     }
 
     EncoderConfig config;
@@ -2048,8 +2087,9 @@ TEST(Encode, FastPforDisabled) {
 
 TEST(Encode, FsstDisabledForStrings) {
     std::vector<Encoder::Feature> features;
+    features.reserve(200);
     for (int i = 0; i < 200; ++i) {
-        features.push_back(makePointFeature(i, {i, i}, {{"road", std::string("residential")}}));
+        features.push_back(makePointFeature(i, {.x = i, .y = i}, {{"road", std::string("residential")}}));
     }
 
     EncoderConfig config;
@@ -2066,7 +2106,7 @@ TEST(Encode, StructColumnAllChildrenAbsent) {
         Encoder::Feature f;
         f.id = i;
         f.geometry.type = metadata::tileset::GeometryType::POINT;
-        f.geometry.coordinates = {{i * 100, i * 100}};
+        f.geometry.coordinates = {{.x = i * 100, .y = i * 100}};
 
         if (i < 5) {
             Encoder::StructValue names;
@@ -2116,7 +2156,7 @@ TEST(Encode, MultiLineStringInPolygonLayer) {
     Encoder::Feature poly;
     poly.id = 1;
     poly.geometry.type = metadata::tileset::GeometryType::POLYGON;
-    poly.geometry.coordinates = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
+    poly.geometry.coordinates = {{.x = 0, .y = 0}, {.x = 100, .y = 0}, {.x = 100, .y = 100}, {.x = 0, .y = 100}};
     poly.geometry.ringSizes = {4};
     layer.features.push_back(std::move(poly));
 
@@ -2124,8 +2164,8 @@ TEST(Encode, MultiLineStringInPolygonLayer) {
     mls.id = 2;
     mls.geometry.type = metadata::tileset::GeometryType::MULTILINESTRING;
     mls.geometry.parts = {
-        {{200, 200}, {300, 300}},
-        {{400, 400}, {500, 500}},
+        {{.x = 200, .y = 200}, {.x = 300, .y = 300}},
+        {{.x = 400, .y = 400}, {.x = 500, .y = 500}},
     };
     layer.features.push_back(std::move(mls));
 
@@ -2139,9 +2179,9 @@ TEST(Encode, MultiLineStringInPolygonLayer) {
 
 TEST(Encode, FeatureSortingDisabled) {
     std::vector<Encoder::Feature> features;
-    features.push_back(makePointFeature(1, {3000, 3000}));
-    features.push_back(makePointFeature(2, {100, 100}));
-    features.push_back(makePointFeature(3, {2000, 500}));
+    features.push_back(makePointFeature(1, {.x = 3000, .y = 3000}));
+    features.push_back(makePointFeature(2, {.x = 100, .y = 100}));
+    features.push_back(makePointFeature(3, {.x = 2000, .y = 500}));
 
     EncoderConfig config;
     config.sortFeatures = false;
@@ -2156,8 +2196,8 @@ TEST(Encode, FeatureSortingDisabled) {
 TEST(Encode, StringPropertyFromNonStringType) {
     auto layer = makeLayer("coerced",
                            {
-                               makePointFeature(1, {10, 20}, {{"val", true}}),
-                               makePointFeature(2, {30, 40}, {{"val", std::string("text")}}),
+                               makePointFeature(1, {.x = 10, .y = 20}, {{"val", true}}),
+                               makePointFeature(2, {.x = 30, .y = 40}, {{"val", std::string("text")}}),
                            });
 
     auto tile = encodeDecode({layer});
@@ -2168,8 +2208,10 @@ TEST(Encode, StringPropertyFromNonStringType) {
 
 TEST(Encode, Uint32PropertyColumn) {
     std::vector<Encoder::Feature> features;
+    features.reserve(20);
     for (int i = 0; i < 20; ++i) {
-        features.push_back(makePointFeature(i, {i * 100, i * 100}, {{"val", std::uint32_t(3000000000u + i)}}));
+        features.push_back(
+            makePointFeature(i, {.x = i * 100, .y = i * 100}, {{"val", std::uint32_t(3000000000u + i)}}));
     }
 
     EncoderConfig config;
@@ -2186,9 +2228,9 @@ TEST(Encode, Uint32PropertyColumn) {
 TEST(Encode, NullableDoubleProperty) {
     auto layer = makeLayer("nullable_dbl",
                            {
-                               makePointFeature(1, {10, 20}, {{"val", 3.14159265358979}}),
-                               makePointFeature(2, {30, 40}),
-                               makePointFeature(3, {50, 60}, {{"val", 2.71828182845905}}),
+                               makePointFeature(1, {.x = 10, .y = 20}, {{"val", std::numbers::pi}}),
+                               makePointFeature(2, {.x = 30, .y = 40}),
+                               makePointFeature(3, {.x = 50, .y = 60}, {{"val", std::numbers::e}}),
                            });
 
     auto tile = encodeDecode({layer});
@@ -2202,9 +2244,9 @@ TEST(Encode, NullableDoubleProperty) {
 TEST(Encode, NullableFloatProperty) {
     auto layer = makeLayer("nullable_flt",
                            {
-                               makePointFeature(1, {10, 20}, {{"val", 1.5f}}),
-                               makePointFeature(2, {30, 40}),
-                               makePointFeature(3, {50, 60}, {{"val", 2.5f}}),
+                               makePointFeature(1, {.x = 10, .y = 20}, {{"val", 1.5f}}),
+                               makePointFeature(2, {.x = 30, .y = 40}),
+                               makePointFeature(3, {.x = 50, .y = 60}, {{"val", 2.5f}}),
                            });
 
     auto tile = encodeDecode({layer});
@@ -2218,9 +2260,9 @@ TEST(Encode, NullableFloatProperty) {
 TEST(Encode, NullableStringProperty) {
     auto layer = makeLayer("nullable_str",
                            {
-                               makePointFeature(1, {10, 20}, {{"val", std::string("hello")}}),
-                               makePointFeature(2, {30, 40}),
-                               makePointFeature(3, {50, 60}, {{"val", std::string("world")}}),
+                               makePointFeature(1, {.x = 10, .y = 20}, {{"val", std::string("hello")}}),
+                               makePointFeature(2, {.x = 30, .y = 40}),
+                               makePointFeature(3, {.x = 50, .y = 60}, {{"val", std::string("world")}}),
                            });
 
     auto tile = encodeDecode({layer});
@@ -2239,9 +2281,9 @@ TEST(Encode, NullableStringProperty) {
 TEST(Encode, NullableBoolProperty) {
     auto layer = makeLayer("nullable_bool",
                            {
-                               makePointFeature(1, {10, 20}, {{"val", true}}),
-                               makePointFeature(2, {30, 40}),
-                               makePointFeature(3, {50, 60}, {{"val", false}}),
+                               makePointFeature(1, {.x = 10, .y = 20}, {{"val", true}}),
+                               makePointFeature(2, {.x = 30, .y = 40}),
+                               makePointFeature(3, {.x = 50, .y = 60}, {{"val", false}}),
                            });
 
     auto tile = encodeDecode({layer});
@@ -2255,9 +2297,9 @@ TEST(Encode, NullableBoolProperty) {
 TEST(Encode, NullableUint64Property) {
     auto layer = makeLayer("nullable_u64",
                            {
-                               makePointFeature(1, {10, 20}, {{"val", std::uint64_t(12345678901234ULL)}}),
-                               makePointFeature(2, {30, 40}),
-                               makePointFeature(3, {50, 60}, {{"val", std::uint64_t(98765432109876ULL)}}),
+                               makePointFeature(1, {.x = 10, .y = 20}, {{"val", std::uint64_t(12345678901234ULL)}}),
+                               makePointFeature(2, {.x = 30, .y = 40}),
+                               makePointFeature(3, {.x = 50, .y = 60}, {{"val", std::uint64_t(98765432109876ULL)}}),
                            });
 
     auto tile = encodeDecode({layer});

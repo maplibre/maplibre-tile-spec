@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mlt/encode/boolean.hpp>
 #include <mlt/encode/int.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/util/encoding/fsst.hpp>
@@ -46,11 +47,11 @@ public:
         if (useFsst) {
             auto fsstDict = encodeFsstDictionary(values, physicalTechnique, intEncoder, true, false);
             if (fsstDict.size() < best->size()) {
-                return {5, std::move(fsstDict)};
+                return {.numStreams = 5, .data = std::move(fsstDict)};
             }
         }
 
-        return {bestStreams, std::move(*best)};
+        return {.numStreams = bestStreams, .data = std::move(*best)};
     }
 
     static EncodeResult encodeSharedDictionary(const std::vector<std::vector<const std::string_view*>>& columns,
@@ -80,7 +81,7 @@ public:
         }
 
         if (dictionary.empty()) {
-            return {0, {}};
+            return {.numStreams = 0, .data = {}};
         }
 
         auto dictData = encodeStringBytes(dictionary,
@@ -121,7 +122,7 @@ public:
         }
 
         const auto numStreams = dictStreams + (static_cast<std::uint32_t>(columns.size()) * 2);
-        return {numStreams, std::move(result)};
+        return {.numStreams = numStreams, .data = std::move(result)};
     }
 
 private:
@@ -177,7 +178,7 @@ private:
                                                           IntegerEncoder& intEncoder,
                                                           bool encodeOffsets,
                                                           bool isShared) {
-        auto [dictionary, offsets] = buildDictIndex(values);
+        const auto [dictionary, offsets] = buildDictIndex(values);
         auto fsstData = encodeFsst(dictionary, physicalTechnique, intEncoder, isShared);
 
         if (!encodeOffsets) {
@@ -202,36 +203,36 @@ private:
             joined.insert(joined.end(), sv.begin(), sv.end());
         }
 
-        auto result = fsst::encode(joined);
+        const auto result = fsst::encode(joined);
 
         std::vector<std::int32_t> symLens(result.symbolLengths.begin(), result.symbolLengths.end());
-        auto encodedSymbolLengths = intEncoder.encodeIntStream(
+        const auto encodedSymbolLengths = intEncoder.encodeIntStream(
             symLens, physicalTechnique, false, PhysicalStreamType::LENGTH, LogicalStreamType{LengthType::SYMBOL});
 
-        auto symbolTableMetadata = StreamMetadata(PhysicalStreamType::DATA,
-                                                  LogicalStreamType{DictionaryType::FSST},
-                                                  LogicalLevelTechnique::NONE,
-                                                  LogicalLevelTechnique::NONE,
-                                                  PhysicalLevelTechnique::NONE,
-                                                  static_cast<std::uint32_t>(result.symbolLengths.size()),
-                                                  static_cast<std::uint32_t>(result.symbols.size()))
-                                       .encode();
+        const auto symbolTableMetadata = StreamMetadata(PhysicalStreamType::DATA,
+                                                        LogicalStreamType{DictionaryType::FSST},
+                                                        LogicalLevelTechnique::NONE,
+                                                        LogicalLevelTechnique::NONE,
+                                                        PhysicalLevelTechnique::NONE,
+                                                        static_cast<std::uint32_t>(result.symbolLengths.size()),
+                                                        static_cast<std::uint32_t>(result.symbols.size()))
+                                             .encode();
 
-        auto encodedDictLengths = intEncoder.encodeIntStream(valueLengths,
-                                                             physicalTechnique,
-                                                             false,
-                                                             PhysicalStreamType::LENGTH,
-                                                             LogicalStreamType{LengthType::DICTIONARY});
+        const auto encodedDictLengths = intEncoder.encodeIntStream(valueLengths,
+                                                                   physicalTechnique,
+                                                                   false,
+                                                                   PhysicalStreamType::LENGTH,
+                                                                   LogicalStreamType{LengthType::DICTIONARY});
 
         const auto dictType = isShared ? DictionaryType::SHARED : DictionaryType::SINGLE;
-        auto corpusMetadata = StreamMetadata(PhysicalStreamType::DATA,
-                                             LogicalStreamType{dictType},
-                                             LogicalLevelTechnique::NONE,
-                                             LogicalLevelTechnique::NONE,
-                                             PhysicalLevelTechnique::NONE,
-                                             static_cast<std::uint32_t>(values.size()),
-                                             static_cast<std::uint32_t>(result.compressedData.size()))
-                                  .encode();
+        const auto corpusMetadata = StreamMetadata(PhysicalStreamType::DATA,
+                                                   LogicalStreamType{dictType},
+                                                   LogicalLevelTechnique::NONE,
+                                                   LogicalLevelTechnique::NONE,
+                                                   PhysicalLevelTechnique::NONE,
+                                                   static_cast<std::uint32_t>(values.size()),
+                                                   static_cast<std::uint32_t>(result.compressedData.size()))
+                                        .encode();
 
         std::vector<std::uint8_t> out;
         out.reserve(encodedSymbolLengths.size() + symbolTableMetadata.size() + result.symbols.size() +
@@ -260,17 +261,17 @@ private:
             rawData.insert(rawData.end(), sv.begin(), sv.end());
         }
 
-        auto encodedLengths = intEncoder.encodeIntStream(
+        const auto encodedLengths = intEncoder.encodeIntStream(
             lengths, physicalTechnique, false, PhysicalStreamType::LENGTH, LogicalStreamType{lengthType});
 
-        auto dataMetadata = StreamMetadata(PhysicalStreamType::DATA,
-                                           LogicalStreamType{dictType},
-                                           LogicalLevelTechnique::NONE,
-                                           LogicalLevelTechnique::NONE,
-                                           PhysicalLevelTechnique::NONE,
-                                           static_cast<std::uint32_t>(values.size()),
-                                           static_cast<std::uint32_t>(rawData.size()))
-                                .encode();
+        const auto dataMetadata = StreamMetadata(PhysicalStreamType::DATA,
+                                                 LogicalStreamType{dictType},
+                                                 LogicalLevelTechnique::NONE,
+                                                 LogicalLevelTechnique::NONE,
+                                                 PhysicalLevelTechnique::NONE,
+                                                 static_cast<std::uint32_t>(values.size()),
+                                                 static_cast<std::uint32_t>(rawData.size()))
+                                      .encode();
 
         std::vector<std::uint8_t> result;
         result.reserve(encodedLengths.size() + dataMetadata.size() + rawData.size());

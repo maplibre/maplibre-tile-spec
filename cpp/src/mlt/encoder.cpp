@@ -17,13 +17,14 @@
 #include <array>
 #include <numeric>
 #include <stdexcept>
-#include <unordered_set>
 
 namespace mlt {
 
 using namespace encoder;
 using namespace metadata::tileset;
 using namespace metadata::stream;
+
+using GeometryType = metadata::tileset::GeometryType;
 
 struct Encoder::Impl {
     IntegerEncoder intEncoder;
@@ -56,15 +57,14 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
     if (config.includeIds) {
         // Use 64-bit when any ID exceeds INT32_MAX: delta encoding accumulates in
         // int32_t, so uint32 values with bit 31 set would sign-extend on widening.
-        bool hasLongId = std::any_of(layer.features.begin(), layer.features.end(), [](const auto& f) {
-            return f.id > std::numeric_limits<std::int32_t>::max();
-        });
+        const bool hasLongId = std::ranges::any_of(
+            layer.features, [](const auto& f) { return f.id > std::numeric_limits<std::int32_t>::max(); });
 
-        Column idColumn;
-        idColumn.nullable = false;
-        idColumn.columnScope = ColumnScope::FEATURE;
-        idColumn.type = ScalarColumn{.type = LogicalScalarType::ID, .hasLongID = hasLongId};
-        table.columns.push_back(std::move(idColumn));
+        table.columns.push_back(Column{
+            .nullable = false,
+            .columnScope = ColumnScope::FEATURE,
+            .type = ScalarColumn{.type = LogicalScalarType::ID, .hasLongID = hasLongId},
+        });
     }
 
     Column geomColumn;
@@ -104,7 +104,7 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
                                          },
                                          value);
 
-            auto [it, inserted] = scalarColumns.try_emplace(key, ColumnInfo{scalarType, false});
+            auto [it, inserted] = scalarColumns.try_emplace(key, ColumnInfo{.type = scalarType, .nullable = false});
             if (!inserted) {
                 auto& existing = it->second;
                 if (existing.type != scalarType) {
@@ -168,13 +168,11 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
                                     std::vector<std::uint32_t>& numParts,
                                     std::vector<std::uint32_t>& numRings,
                                     std::vector<GeometryEncoder::Vertex>& vertexBuffer) {
-    using GT = metadata::tileset::GeometryType;
-
-    const bool containsPolygon = std::any_of(features.begin(), features.end(), [](const auto& f) {
-        return f.geometry.type == GT::POLYGON || f.geometry.type == GT::MULTIPOLYGON;
+    const bool containsPolygon = std::ranges::any_of(features, [](const auto& f) {
+        return f.geometry.type == GeometryType::POLYGON || f.geometry.type == GeometryType::MULTIPOLYGON;
     });
 
-    auto pushVertices = [&](const std::vector<Vertex>& coords) {
+    const auto pushVertices = [&](const std::vector<Vertex>& coords) {
         for (const auto& v : coords) vertexBuffer.push_back({v.x, v.y});
     };
 
@@ -183,16 +181,16 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
         geometryTypes.push_back(geom.type);
 
         switch (geom.type) {
-            case GT::POINT:
+            case GeometryType::POINT:
                 pushVertices(geom.coordinates);
                 break;
 
-            case GT::LINESTRING:
+            case GeometryType::LINESTRING:
                 (containsPolygon ? numRings : numParts).push_back(static_cast<std::uint32_t>(geom.coordinates.size()));
                 pushVertices(geom.coordinates);
                 break;
 
-            case GT::POLYGON:
+            case GeometryType::POLYGON:
                 numParts.push_back(static_cast<std::uint32_t>(geom.ringSizes.size()));
                 for (auto ringSize : geom.ringSizes) {
                     numRings.push_back(ringSize);
@@ -200,12 +198,12 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
                 pushVertices(geom.coordinates);
                 break;
 
-            case GT::MULTIPOINT:
+            case GeometryType::MULTIPOINT:
                 numGeometries.push_back(static_cast<std::uint32_t>(geom.coordinates.size()));
                 pushVertices(geom.coordinates);
                 break;
 
-            case GT::MULTILINESTRING:
+            case GeometryType::MULTILINESTRING:
                 numGeometries.push_back(static_cast<std::uint32_t>(geom.parts.size()));
                 for (const auto& part : geom.parts) {
                     (containsPolygon ? numRings : numParts).push_back(static_cast<std::uint32_t>(part.size()));
@@ -213,7 +211,7 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
                 }
                 break;
 
-            case GT::MULTIPOLYGON:
+            case GeometryType::MULTIPOLYGON:
                 numGeometries.push_back(static_cast<std::uint32_t>(geom.parts.size()));
                 for (std::size_t p = 0; p < geom.parts.size(); ++p) {
                     const auto& rings = geom.partRingSizes[p];
@@ -229,15 +227,14 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
 }
 
 bool Encoder::Impl::canSort(const std::vector<Encoder::Feature>& features) {
-    using GT = metadata::tileset::GeometryType;
-    if (features.empty()) return false;
+    if (features.empty()) {
+        return false;
+    }
 
-    auto firstType = features[0].geometry.type;
-    bool allSame = std::all_of(
-        features.begin(), features.end(), [firstType](const auto& f) { return f.geometry.type == firstType; });
-    if (!allSame) return false;
-
-    return firstType == GT::POINT || firstType == GT::LINESTRING;
+    const auto firstType = features[0].geometry.type;
+    const bool allSame = std::ranges::all_of(features,
+                                             [firstType](const auto& f) { return f.geometry.type == firstType; });
+    return allSame && (firstType == GeometryType::POINT || firstType == GeometryType::LINESTRING);
 }
 
 std::vector<Encoder::Feature> Encoder::Impl::sortFeatures(const std::vector<Encoder::Feature>& features) {
@@ -259,16 +256,17 @@ std::vector<Encoder::Feature> Encoder::Impl::sortFeatures(const std::vector<Enco
     }
 
     std::vector<std::size_t> order(features.size());
+    // NOLINTNEXTLINE(boost-use-ranges)
     std::iota(order.begin(), order.end(), 0);
-    std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) { return hilbertIds[a] < hilbertIds[b]; });
+    std::ranges::sort(order, [&](std::size_t a, std::size_t b) { return hilbertIds[a] < hilbertIds[b]; });
 
     std::vector<Feature> sorted(features.size());
-    std::transform(order.begin(), order.end(), sorted.begin(), [&](auto idx) { return features[idx]; });
+    std::ranges::transform(order, sorted.begin(), [&](auto idx) { return features[idx]; });
     return sorted;
 }
 
 bool Encoder::Impl::allPolygons(const std::vector<Encoder::Feature>& features) {
-    return !features.empty() && std::all_of(features.begin(), features.end(), [](const auto& f) {
+    return !features.empty() && std::ranges::all_of(features, [](const auto& f) {
         return f.geometry.type == GeometryType::POLYGON || f.geometry.type == GeometryType::MULTIPOLYGON;
     });
 }
@@ -339,20 +337,18 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
     std::vector<std::uint8_t> bodyBytes;
 
     if (config.includeIds) {
-        bool hasLongId = std::any_of(features.begin(), features.end(), [](const auto& f) {
-            return f.id > std::numeric_limits<std::int32_t>::max();
-        });
+        bool hasLongId = std::ranges::any_of(
+            features, [](const auto& f) { return f.id > std::numeric_limits<std::int32_t>::max(); });
 
         if (hasLongId) {
             std::vector<std::uint64_t> ids(features.size());
-            std::transform(features.begin(), features.end(), ids.begin(), [](const auto& f) { return f.id; });
+            std::ranges::transform(features, ids.begin(), [](const auto& f) { return f.id; });
             auto encoded = PropertyEncoder::encodeUint64Column(ids, intEncoder);
             bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
         } else {
             std::vector<std::uint32_t> ids(features.size());
-            std::transform(features.begin(), features.end(), ids.begin(), [](const auto& f) {
-                return static_cast<std::uint32_t>(f.id);
-            });
+            std::ranges::transform(
+                features, ids.begin(), [](const auto& f) { return static_cast<std::uint32_t>(f.id); });
             auto encoded = PropertyEncoder::encodeUint32Column(ids, physicalTechnique, intEncoder);
             bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
         }

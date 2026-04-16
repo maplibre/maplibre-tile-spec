@@ -4,7 +4,6 @@
 #include <mlt/util/encoding/rle.hpp>
 
 #include <cstdint>
-#include <span>
 #include <vector>
 
 namespace mlt::encoder {
@@ -25,16 +24,17 @@ public:
             }
         }
 
-        auto encodedData = util::encoding::rle::encodeBooleanRle(bitset.data(), static_cast<std::uint32_t>(count));
+        const auto encodedData = util::encoding::rle::encodeBooleanRle(bitset.data(),
+                                                                       static_cast<std::uint32_t>(count));
 
-        auto metadata = StreamMetadata(streamType,
-                                       std::nullopt,
-                                       metadata::stream::LogicalLevelTechnique::RLE,
-                                       metadata::stream::LogicalLevelTechnique::NONE,
-                                       metadata::stream::PhysicalLevelTechnique::NONE,
-                                       static_cast<std::uint32_t>(count),
-                                       static_cast<std::uint32_t>(encodedData.size()))
-                            .encode();
+        const auto metadata = StreamMetadata(streamType,
+                                             std::nullopt,
+                                             metadata::stream::LogicalLevelTechnique::RLE,
+                                             metadata::stream::LogicalLevelTechnique::NONE,
+                                             metadata::stream::PhysicalLevelTechnique::NONE,
+                                             static_cast<std::uint32_t>(count),
+                                             static_cast<std::uint32_t>(encodedData.size()))
+                                  .encode();
 
         std::vector<std::uint8_t> result;
         result.reserve(metadata.size() + encodedData.size());

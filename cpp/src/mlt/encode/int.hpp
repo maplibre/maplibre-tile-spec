@@ -6,11 +6,8 @@
 #include <mlt/util/encoding/zigzag.hpp>
 #include <mlt/util/noncopyable.hpp>
 
-#include <algorithm>
 #include <cstdint>
-#include <limits>
 #include <span>
-#include <type_traits>
 #include <vector>
 
 namespace mlt::encoder {
@@ -57,8 +54,8 @@ private:
     struct Impl;
     std::unique_ptr<Impl> impl;
 
-    std::vector<std::uint8_t> encodeVarints(std::span<const std::int32_t> values, bool zigZag);
-    std::vector<std::uint8_t> encodeVarints(std::span<const std::int64_t> values, bool zigZag);
+    std::vector<std::uint8_t> encodeVarints32(std::span<const std::int32_t> values, bool zigZag);
+    std::vector<std::uint8_t> encodeVarints64(std::span<const std::int64_t> values, bool zigZag);
     std::vector<std::uint8_t> encodeFastPfor(std::span<const std::int32_t> values, bool zigZag);
 
     static std::vector<std::uint8_t> buildStream(const IntegerEncodingResult& encoded,
