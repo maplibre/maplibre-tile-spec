@@ -13,11 +13,14 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-import me.lemire.integercompression.*;
+import me.lemire.integercompression.Composition;
+import me.lemire.integercompression.FastPFOR;
+import me.lemire.integercompression.IntWrapper;
+import me.lemire.integercompression.IntegerCODEC;
+import me.lemire.integercompression.VariableByte;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.maplibre.mlt.converter.CollectionUtils;
-import org.maplibre.mlt.decoder.DecodingUtils;
 
 public class EncodingUtils {
 
@@ -55,6 +58,15 @@ public class EncodingUtils {
     return buffer.array();
   }
 
+  /** Convert the doubles to IEEE754 floating point numbers in Little Endian byte order. */
+  public static byte[] encodeDoublesLE(double[] values) {
+    var buffer = ByteBuffer.allocate(values.length * 8).order(ByteOrder.LITTLE_ENDIAN);
+    for (var value : values) {
+      buffer.putDouble(value);
+    }
+    return buffer.array();
+  }
+
   // Source:
   // https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java
   public static byte[] encodeVarints(int[] values, boolean zigZagEncode, boolean deltaEncode)
@@ -68,12 +80,13 @@ public class EncodingUtils {
       encodedValues = encodeZigZag(encodedValues);
     }
 
-    var varintBuffer = new byte[values.length * MAX_VARLONG_SIZE];
-    var i = 0;
+    var varintBuffer =
+        ByteBuffer.wrap(
+            new byte[Arrays.stream(encodedValues).map(EncodingUtils::getVarIntSize).sum()]);
     for (var value : encodedValues) {
-      i = putVarInt(value, varintBuffer, i);
+      putVarInt(value, varintBuffer);
     }
-    return Arrays.copyOfRange(varintBuffer, 0, i);
+    return varintBuffer.array();
   }
 
   public static byte[] encodeVarints(long[] values, boolean zigZagEncode, boolean deltaEncode)
@@ -87,12 +100,13 @@ public class EncodingUtils {
       encodedValues = encodeZigZag(encodedValues);
     }
 
-    var varintBuffer = new byte[values.length * MAX_VARLONG_SIZE];
-    var i = 0;
+    var varintBuffer =
+        ByteBuffer.wrap(
+            new byte[Arrays.stream(encodedValues).mapToInt(EncodingUtils::getVarLongSize).sum()]);
     for (var value : encodedValues) {
-      i = putVarInt(value, varintBuffer, i);
+      putVarInt(value, varintBuffer);
     }
-    return Arrays.copyOfRange(varintBuffer, 0, i);
+    return varintBuffer.array();
   }
 
   public static byte[] encodeVarints(
@@ -109,8 +123,8 @@ public class EncodingUtils {
     if (zigZagEncode) {
       value = encodeZigZag(value);
     }
-    var varintBuffer = new byte[MAX_VARLONG_SIZE];
-    return Arrays.copyOfRange(varintBuffer, 0, putVarInt(value, varintBuffer, 0));
+    final var buffer = ByteBuffer.wrap(new byte[getVarIntSize(value)]);
+    return putVarInt(value, buffer).array();
   }
 
   // Source:
@@ -121,56 +135,32 @@ public class EncodingUtils {
    *
    * @param v the int value to write to sink
    * @param sink the sink buffer to write to
-   * @param offset the offset within sink to begin writing
-   * @return the updated offset after writing the varint
    */
-  static int putVarInt(int v, byte[] sink, @SuppressWarnings("SameParameterValue") int offset)
-      throws IOException {
-    final var checkValue = v;
-    var sinkRemaining = Math.min(sink.length - offset, MAX_VARINT_SIZE);
-    var sinkUsed = 0;
+  static ByteBuffer putVarInt(int v, ByteBuffer sink) throws IOException {
     do {
       // Encode next 7 bits + terminator bit
       final int bits = v & 0x7F;
       v >>>= 7;
-      final byte b = (byte) (bits + ((v != 0) ? 0x80 : 0));
-      if (sinkRemaining - sinkUsed < 1) {
-        throw new IOException("Varint overflow");
-      }
-      sink[offset + sinkUsed++] = b;
+      sink.put((byte) (bits + ((v != 0) ? 0x80 : 0)));
     } while (v != 0);
-
-    // ensure that the result decodes back into the input
-    assert DecodingUtils.decodeVarints(sink, new IntWrapper(offset), 1)[0] == checkValue
-        : "Varint Overflow";
-
-    return offset + sinkUsed;
+    return sink;
   }
 
-  static int putVarInt(long v, byte[] sink, int offset) throws IOException {
-    final var checkValue = v;
-    var sinkRemaining = Math.min(sink.length - offset, MAX_VARLONG_SIZE);
-    var sinkUsed = 0;
+  static ByteBuffer putVarInt(long v, ByteBuffer sink) throws IOException {
     do {
       // Encode next 7 bits + terminator bit
       final long bits = v & 0x7F;
       v >>>= 7;
-      final byte b = (byte) (bits + ((v != 0) ? 0x80 : 0));
-      if (sinkRemaining - sinkUsed < 1) {
-        throw new IOException("Varint overflow");
-      }
-      sink[offset + sinkUsed++] = b;
+      sink.put((byte) (bits + ((v != 0) ? 0x80 : 0)));
     } while (v != 0);
-
-    assert DecodingUtils.decodeLongVarint(sink, new IntWrapper(offset)) == checkValue
-        : "Varint Overflow";
-    return offset + sinkUsed;
+    return sink;
   }
 
   @SuppressWarnings("UnusedReturnValue")
   public static DataOutputStream putVarInt(DataOutputStream stream, int v) throws IOException {
-    final var buffer = new byte[MAX_VARINT_SIZE];
-    stream.write(buffer, 0, putVarInt(v, buffer, 0));
+    final var buffer = ByteBuffer.wrap(new byte[MAX_VARINT_SIZE]);
+    putVarInt(v, buffer);
+    stream.write(buffer.array(), 0, buffer.position());
     return stream;
   }
 
@@ -309,23 +299,18 @@ public class EncodingUtils {
     IntegerCODEC ic = new Composition(new FastPFOR(), new VariableByte());
     IntWrapper inputoffset = new IntWrapper(0);
     IntWrapper outputoffset = new IntWrapper(0);
-    int[] compressed = new int[encodedValues.length + 1024];
+    final int[] compressed = new int[encodedValues.length + 1024];
     ic.compress(encodedValues, inputoffset, encodedValues.length, compressed, outputoffset);
-    var totalSize = outputoffset.intValue() * 4;
+    final var totalSize = outputoffset.intValue() * 4;
 
-    var compressedBuffer = new byte[totalSize];
+    final var compressedBuffer = new byte[totalSize];
     var valueCounter = 0;
     for (var i = 0; i < totalSize; i += 4) {
       var value = compressed[valueCounter++];
-      var val1 = (byte) (value >>> 24);
-      var val2 = (byte) (value >>> 16);
-      var val3 = (byte) (value >>> 8);
-      var val4 = (byte) value;
-
-      compressedBuffer[i] = val1;
-      compressedBuffer[i + 1] = val2;
-      compressedBuffer[i + 2] = val3;
-      compressedBuffer[i + 3] = val4;
+      compressedBuffer[i] = (byte) (value >>> 24);
+      compressedBuffer[i + 1] = (byte) (value >>> 16);
+      compressedBuffer[i + 2] = (byte) (value >>> 8);
+      compressedBuffer[i + 3] = (byte) value;
     }
 
     return compressedBuffer;

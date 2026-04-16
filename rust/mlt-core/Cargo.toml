@@ -1,0 +1,91 @@
+[package]
+name = "mlt-core"
+description = "MapLibre Tile library code"
+version = "0.7.0"
+authors.workspace = true
+categories.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bench]]
+name = "decoding_e2e"
+harness = false
+required-features = ["__private"]
+
+[[bench]]
+name = "encoding_e2e"
+harness = false
+required-features = ["__private"]
+
+[[bench]]
+name = "decoding_utils"
+harness = false
+required-features = ["__private"]
+
+[[bench]]
+name = "decoding_strings"
+harness = false
+required-features = ["__private"]
+
+[[bench]]
+name = "encoding_from_mvt"
+harness = false
+required-features = ["__private"]
+
+[features]
+default = []
+arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
+# Used internally for testing and benchmarking, not intended for public use
+__private = []
+
+[dependencies]
+arbitrary = { workspace = true, optional = true }
+bytemuck.workspace = true
+enum_dispatch.workspace = true
+fastpfor.workspace = true
+fsst-rs.workspace = true
+geo = { workspace = true, features = ["earcut"] }
+geo-types.workspace = true
+hex.workspace = true
+hilbert_2d.workspace = true
+hotpath.workspace = true
+integer-encoding.workspace = true
+mvt-reader.workspace = true
+num-traits.workspace = true
+num_enum.workspace = true
+probabilistic-collections.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+strum.workspace = true
+thiserror.workspace = true
+union-find.workspace = true
+wide.workspace = true
+zigzag.workspace = true
+
+[dev-dependencies]
+brotli.workspace = true
+criterion.workspace = true
+flate2.workspace = true
+geo-types = { workspace = true, features = ["arbitrary"] }
+insta.workspace = true
+pretty_assertions.workspace = true
+proptest.workspace = true
+proptest-derive.workspace = true
+rstest.workspace = true
+test_each_file.workspace = true
+zstd.workspace = true
+
+[lints]
+workspace = true
+
+[[test]]
+name = "geojson"
+required-features = ["__private"]
+
+[[test]]
+name = "snapshots"
+required-features = ["__private"]

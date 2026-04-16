@@ -9,10 +9,15 @@ import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.BitSet;
-import me.lemire.integercompression.*;
+import me.lemire.integercompression.Composition;
+import me.lemire.integercompression.FastPFOR;
+import me.lemire.integercompression.IntWrapper;
+import me.lemire.integercompression.IntegerCODEC;
+import me.lemire.integercompression.VariableByte;
 import org.apache.commons.lang3.tuple.Pair;
 
 public class DecodingUtils {
+
   private DecodingUtils() {}
 
   // TODO: quick and dirty -> optimize for performance
@@ -253,6 +258,17 @@ public class DecodingUtils {
             .asFloatBuffer();
     pos.set(pos.get() + numValues * Float.BYTES);
     var decodedValues = new float[fb.limit()];
+    fb.get(decodedValues);
+    return decodedValues;
+  }
+
+  public static double[] decodeDoublesLE(byte[] encodedValues, IntWrapper pos, int numValues) {
+    var fb =
+        ByteBuffer.wrap(encodedValues, pos.get(), numValues * Double.BYTES)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .asDoubleBuffer();
+    pos.set(pos.get() + numValues * Double.BYTES);
+    var decodedValues = new double[fb.limit()];
     fb.get(decodedValues);
     return decodedValues;
   }

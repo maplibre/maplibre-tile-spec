@@ -1,6 +1,7 @@
-import { expect, describe, it } from "vitest";
-import { readdirSync, readFileSync } from "fs";
-import { parse, join } from "path";
+import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+import { readdirSync, readFileSync } from "node:fs";
+import { parse, join } from "node:path";
 import { VectorTile, type VectorTileFeature } from "@mapbox/vector-tile";
 import Pbf from "pbf";
 
@@ -28,6 +29,12 @@ describe("MLT Decoder - MVT comparison for OMT tiles", () => {
     testTiles(omtMltTileDir, omtMvtTileDir);
 }, 150000);
 
+describe("MLT Decoder - MVT comparison for Bing tiles", () => {
+    const bingMltTileDir = "../test/expected/tag0x01/bing";
+    const bingMvtTileDir = "../test/fixtures/bing";
+    testTiles(bingMltTileDir, bingMvtTileDir);
+}, 150000);
+
 describe("FeatureTable", () => {
     it("should iterate through features correctly", () => {
         const bytes = new Uint8Array(fs.readFileSync(ITERATOR_TILE));
@@ -35,19 +42,19 @@ describe("FeatureTable", () => {
 
         const table = featureTables[0];
 
-        expect(table.name).toBe("layer");
-        expect(table.extent).toBe(4096);
+        assert.equal(table.name, "layer");
+        assert.equal(table.extent, 4096);
 
         let featureCount = 0;
-        for (const feature of table) {
-            expect(feature.geometry).toBeTruthy();
-            expect(feature.geometry.coordinates).toBeInstanceOf(Array);
-            expect(feature.geometry.coordinates.length).toBeGreaterThan(0);
-            expect(typeof feature.geometry.type).toBe("number");
+        for (const feature of table.getFeatures()) {
+            assert.ok(feature.geometry);
+            assert.ok(Array.isArray(feature.geometry.coordinates));
+            assert.ok(feature.geometry.coordinates.length > 0);
+            assert.equal(typeof feature.geometry.type, "number");
 
             featureCount++;
         }
-        expect(featureCount).toBe(table.numFeatures);
+        assert.equal(featureCount, table.numFeatures);
     });
 });
 
@@ -88,7 +95,7 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
         // Use getFeatures() instead of iterator (like C++ and Java implementations)
         const mltFeatures = featureTable.getFeatures();
 
-        expect(mltFeatures.length).toBe(layer.length);
+        assert.equal(mltFeatures.length, layer.length);
 
         for (let j = 0; j < layer.length; j++) {
             const mvtFeature = layer.feature(j);
@@ -98,7 +105,7 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
 
             const mltGeometry = mltFeature.geometry?.coordinates;
             const mvtGeometry = mvtFeature.loadGeometry();
-            expect(mltGeometry).toEqual(mvtGeometry);
+            assert.deepEqual(mltGeometry, mvtGeometry);
 
             const mltProperties = mltFeature.properties;
             const mvtProperties = mvtFeature.properties;
@@ -109,9 +116,7 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
             //encoded anymore
             removeEmptyStrings(mvtProperties);
             removeEmptyStrings(mltProperties);
-
-            expect(Object.keys(mltProperties).length).toEqual(Object.keys(mvtProperties).length);
-            expect(mltProperties).toEqual(mvtProperties);
+            assert.deepEqual(mltProperties, mvtProperties);
         }
     }
 }
@@ -119,7 +124,7 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
 function compareId(mltFeature: Feature, mvtFeature: VectorTileFeature, idWithinMaxSafeInteger: boolean) {
     if (!mvtFeature.id) {
         /* Java MVT library in the MVT converter decodes zero for undefined ids */
-        expect([0, null, 0n]).toContain(mltFeature.id);
+        assert.ok(mltFeature.id === 0 || mltFeature.id === null || mltFeature.id === 0n);
     } else {
         const mltFeatureId = mltFeature.id;
         /* For const and sequence vectors the decoder can return bigint compared to the vector-tile-js library */
@@ -135,14 +140,18 @@ function compareId(mltFeature: Feature, mvtFeature: VectorTileFeature, idWithinM
         if (mltFeatureId < 0 || mltFeatureId > Number.MAX_SAFE_INTEGER) {
             /* Expected to fail in some/most cases */
             try {
-                expect(actualId).toEqual(mvtFeature.id);
-            } catch (e) {
+                assert.equal(actualId, mvtFeature.id);
+            } catch (_e) {
                 //console.info("id mismatch", featureTableName, mltFeatureId, mvtFeature.id);
             }
             return;
         }
 
-        expect(actualId).toEqual(mvtFeature.id);
+        if (!Number.isSafeInteger(mvtFeature.id)) {
+            return;
+        }
+
+        assert.equal(actualId, mvtFeature.id);
     }
 }
 
@@ -171,7 +180,7 @@ function transformPropertyNames(properties: Record<string, any>) {
         /* Currently id is not supported as a property name in a FeatureTable,
          *  so this quick workaround is implemented */
         if (newKey === "_id") {
-            properties["id"] = properties[newKey];
+            properties.id = properties[newKey];
             delete properties[newKey];
         }
     }

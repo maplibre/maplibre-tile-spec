@@ -1,6 +1,8 @@
 package org.maplibre.mlt.converter.encodings.fsst;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -21,7 +23,7 @@ class FsstTest {
 
   @AfterAll
   static void printStats() {
-    FsstDebug.printStats();
+    System.err.print(FsstDebug.printStatsOnce());
   }
 
   @Test

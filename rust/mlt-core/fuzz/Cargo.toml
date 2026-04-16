@@ -1,0 +1,56 @@
+[package]
+name = "fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+
+[lib]
+name = "mlt_fuzz"
+path = "src/lib.rs"
+
+[[bin]]
+name = "layer"
+path = "fuzz_targets/layer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "decoded_layer"
+path = "fuzz_targets/decoded_layer.rs"
+test = false
+doc = false
+bench = false
+
+[dependencies]
+arbitrary = { version = "1.4.2", features = ["derive"] }
+hex = "0.4.3"
+libfuzzer-sys = "0.4"
+mlt-core = { path = "..", features = ["arbitrary", "__private"] }
+pretty_assertions = "1.4"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_qualifications = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+
+[lints.clippy]
+cargo = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+# Restrictions
+panic_in_result_fn = "warn"
+todo = "warn"
+unimplemented = "warn"
+unused_trait_names = "warn"
+
+# Too noisy
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+multiple_crate_versions = "allow"
+too_many_lines = "allow"

@@ -1,8 +1,8 @@
 package org.maplibre.mlt.metadata.stream;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import me.lemire.integercompression.IntWrapper;
-import org.apache.commons.lang3.ArrayUtils;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.decoder.DecodingUtils;
 
@@ -33,10 +33,10 @@ public class MortonEncodedStreamMetadata extends StreamMetadata {
     this.coordinateShift = coordinateShift;
   }
 
-  public byte[] encode() throws IOException {
-    final var mortonInfos =
-        EncodingUtils.encodeVarints(new int[] {numBits, coordinateShift}, false, false);
-    return ArrayUtils.addAll(super.encode(), mortonInfos);
+  public ArrayList<byte[]> encode() throws IOException {
+    final var result = super.encode();
+    result.add(EncodingUtils.encodeVarints(new int[] {numBits, coordinateShift}, false, false));
+    return result;
   }
 
   public static MortonEncodedStreamMetadata decodePartial(

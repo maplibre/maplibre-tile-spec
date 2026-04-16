@@ -4,19 +4,28 @@ import com.google.common.io.CountingInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.SequencedCollection;
 import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.tuple.Pair;
 import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.data.Feature;
+import org.maplibre.mlt.data.IndexedProperty;
 import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.MLTFeature;
 import org.maplibre.mlt.data.MapLibreTile;
+import org.maplibre.mlt.data.Property;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltDecoder {
+
   private MltDecoder() {}
 
   private static Layer parseBasicMVTEquivalent(int layerSize, InputStream stream)
@@ -45,7 +54,7 @@ public class MltDecoder {
           }
         } else {
           // Skip the remainder of this one
-          final var ignored = stream.skip(length - tag.getRight());
+          stream.skip(length - tag.getRight());
         }
       }
     }
@@ -58,29 +67,52 @@ public class MltDecoder {
     final var offset = new IntWrapper(0);
     List<Long> ids = null;
     Geometry[] geometries = null;
-    final var properties = new HashMap<String, List<Object>>();
-    for (var columnMetadata : layerMetadata.columns) {
-      final var columnName = columnMetadata.name;
+    final var properties = new ArrayList<Map<String, Property>>();
+    for (var columnMetadata : layerMetadata.columns()) {
+      final var columnName = columnMetadata.getName();
       final var hasStreamCount = MltTypeMap.Tag0x01.hasStreamCount(columnMetadata);
       final var numStreams = hasStreamCount ? DecodingUtils.decodeVarints(tile, offset, 1)[0] : 0;
       // TODO: add decoding of vector type to be compliant with the spec
       // TODO: compare based on ids
       if (MltTypeMap.Tag0x01.isID(columnMetadata)) {
-        if (columnMetadata.isNullable) {
+        BitSet presentStream = null;
+        int presentStreamSize = 0;
+        if (columnMetadata.isNullable()) {
           final var presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-          // TODO: handle present stream -> should a id column even be nullable?
-          offset.add(presentStreamMetadata.byteLength());
+          presentStream =
+              DecodingUtils.decodeBooleanRle(
+                  tile,
+                  presentStreamMetadata.numValues(),
+                  presentStreamMetadata.byteLength(),
+                  offset);
+          presentStreamSize = presentStreamMetadata.numValues();
         }
 
         final var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-        if (columnMetadata.scalarType.hasLongId) {
-          ids = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
+        List<Long> denseIds;
+        if (columnMetadata.field().type().scalarType().hasLongId()) {
+          denseIds = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
         } else {
-          ids =
+          denseIds =
               IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false).stream()
                   .mapToLong(i -> i)
                   .boxed()
                   .collect(Collectors.toList());
+        }
+
+        if (presentStream != null) {
+          // Expand the dense (non-null only) ID list into a sparse list with nulls
+          ids = new ArrayList<>(presentStreamSize);
+          int denseIdx = 0;
+          for (int i = 0; i < presentStreamSize; i++) {
+            if (presentStream.get(i)) {
+              ids.add(denseIds.get(denseIdx++));
+            } else {
+              ids.add(null);
+            }
+          }
+        } else {
+          ids = denseIds;
         }
       } else if (MltTypeMap.Tag0x01.isGeometry(columnMetadata)) {
         assert hasStreamCount;
@@ -93,16 +125,25 @@ public class MltDecoder {
           @SuppressWarnings("unchecked")
           var p = ((Map<String, Object>) propertyColumn);
           for (var a : p.entrySet()) {
-            if (a.getValue() instanceof List<?>) {
+            final var key = a.getKey();
+            if (a.getValue() instanceof ArrayList<?>) {
               @SuppressWarnings("unchecked")
-              var list = (List<Object>) a.getValue();
-              properties.put(a.getKey(), list);
+              final var list = (ArrayList<Object>) a.getValue();
+              sizeList(properties, list);
+              final var prop = new IndexedProperty(columnMetadata.field().type(), key, list);
+              for (int i = 0; i < list.size(); i++) {
+                properties.get(i).merge(key, prop, MltDecoder::mergeFail);
+              }
             }
           }
-        } else if (propertyColumn instanceof List<?>) {
+        } else if (propertyColumn instanceof SequencedCollection<?>) {
           @SuppressWarnings("unchecked")
-          var list = (List<Object>) propertyColumn;
-          properties.put(columnName, list);
+          final var list = (SequencedCollection<Object>) propertyColumn;
+          sizeList(properties, list);
+          final var prop = new IndexedProperty(columnMetadata.field().type(), columnName, list);
+          for (int i = 0; i < list.size(); i++) {
+            properties.get(i).merge(columnName, prop, MltDecoder::mergeFail);
+          }
         } else {
           throw new RuntimeException("Unexpected property result");
         }
@@ -114,10 +155,21 @@ public class MltDecoder {
         : null;
   }
 
+  private static void sizeList(
+      ArrayList<Map<String, Property>> properties, SequencedCollection<Object> list) {
+    if (properties.isEmpty()) {
+      for (int i = 0; i < list.size(); i++) {
+        properties.add(new HashMap<>());
+      }
+    } else if (properties.size() != list.size()) {
+      throw new RuntimeException("Feature count mismatch");
+    }
+  }
+
   private static Layer convertToLayer(
       List<Long> ids,
       Geometry[] geometries,
-      Map<String, List<Object>> properties,
+      ArrayList<Map<String, Property>> properties,
       MltMetadata.FeatureTable metadata,
       int tileExtent) {
     if (ids != null && geometries.length != ids.size()) {
@@ -127,43 +179,52 @@ public class MltDecoder {
               + "), geometries("
               + geometries.length
               + "), are not equal for layer: "
-              + metadata.name);
+              + metadata.name());
     }
-    var features = new ArrayList<Feature>(geometries.length);
+    final var features = new ArrayList<Feature>(geometries.length);
+    final var builder = MLTFeature.builder();
     for (var j = 0; j < geometries.length; j++) {
-      var p = new HashMap<String, Object>();
-      for (var propertyColumn : properties.entrySet()) {
-        if (propertyColumn.getValue() == null) {
-          p.put(propertyColumn.getKey(), null);
-        } else {
-          var v = propertyColumn.getValue().get(j);
-          p.put(propertyColumn.getKey(), v);
-        }
-      }
-      final var id = (ids != null) ? ids.get(j) : 0;
-      var feature = new Feature(id, geometries[j], p);
-      features.add(feature);
+      features.add(
+          builder
+              .index(j)
+              .id((ids != null) ? ids.get(j) : null)
+              .geometry(geometries[j])
+              .properties(properties.isEmpty() ? Map.of() : properties.get(j))
+              .build());
     }
 
-    return new Layer(metadata.name, features, tileExtent);
+    return new Layer(metadata.name(), features, tileExtent);
+  }
+
+  private static Property mergeFail(Property a, Property ignored) {
+    throw new RuntimeException("Duplicate property key: " + a.getName());
   }
 
   private static MltMetadata.Column decodeColumn(InputStream stream) throws IOException {
     final var typeCode = DecodingUtils.decodeVarint(stream);
-    final var column = MltTypeMap.Tag0x01.decodeColumnType(typeCode);
+    var type = MltTypeMap.Tag0x01.decodeColumnType(typeCode);
 
+    String name = null;
     if (MltTypeMap.Tag0x01.columnTypeHasName(typeCode)) {
-      column.name = DecodingUtils.decodeString(stream);
+      name = DecodingUtils.decodeString(stream);
     }
 
+    ArrayList<MltMetadata.Field> children = null;
     if (MltTypeMap.Tag0x01.columnTypeHasChildren(typeCode)) {
       final var childCount = DecodingUtils.decodeVarint(stream);
-      for (var i = 0; i < childCount; ++i) {
-        column.complexType.children.add(decodeColumn(stream));
+      if (childCount > 0) {
+        children = new ArrayList<MltMetadata.Field>(childCount);
+        for (var i = 0; i < childCount; ++i) {
+          children.add(decodeColumn(stream).field());
+        }
       }
+      type =
+          new MltMetadata.FieldType(
+              new MltMetadata.ComplexField(type.complexType().physicalType(), children),
+              type.isNullable());
     }
 
-    return column;
+    return new MltMetadata.Column(new MltMetadata.Field(type, name));
   }
 
   public static Pair<MltMetadata.FeatureTable, Integer> parseEmbeddedMetadata(InputStream stream)
@@ -173,7 +234,7 @@ public class MltDecoder {
 
     final var columnCount = DecodingUtils.decodeVarint(stream);
     for (int i = 0; i < columnCount; ++i) {
-      table.columns.add(decodeColumn(stream));
+      table.columns().add(decodeColumn(stream));
     }
     return Pair.of(table, extent);
   }

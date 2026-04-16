@@ -1,10 +1,10 @@
-import express from "express";
 import cors from "cors";
+import express from "express";
 
 import config from "./config.mjs";
 import {
-  convertStyleRequest,
   convertSourceRequest,
+  convertStyleRequest,
   convertTileRequest,
   runCLISetup,
 } from "./convert.mjs";

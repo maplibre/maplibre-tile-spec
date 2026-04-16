@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+    createFastPforWireDecodeWorkspace,
+    decodeFastPfor,
+    decodeFastPforWithWorkspace,
     decodeVarintInt32,
     decodeVarintInt64,
     decodeVarintFloat64,
@@ -61,14 +64,14 @@ describe("IntegerDecodingUtils", () => {
     describe("Varint decoding", () => {
         it("should decode Int32", () => {
             const value = 2 ** 10;
-            const encoded = encodeVarintInt32(new Int32Array([value]));
+            const encoded = encodeVarintInt32(new Uint32Array([value]));
             const decoded = decodeVarintInt32(encoded, new IntWrapper(0), 1);
             expect(decoded[0]).toEqual(value);
         });
 
         it("should decode Int64", () => {
             const value = 2n ** 50n;
-            const encoded = encodeVarintInt64(new BigInt64Array([value]));
+            const encoded = encodeVarintInt64(new BigUint64Array([value]));
             const decoded = decodeVarintInt64(encoded, new IntWrapper(0), 1);
             expect(decoded[0]).toEqual(value);
         });
@@ -84,16 +87,16 @@ describe("IntegerDecodingUtils", () => {
     describe("ZigZag encoding", () => {
         it("should decode zigzag Int32Array", () => {
             const data = new Int32Array([0, 1, 2, 3]);
-            encodeZigZagInt32(data);
-            decodeZigZagInt32(data);
-            expect(Array.from(data)).toEqual([0, 1, 2, 3]);
+            const encoded = encodeZigZagInt32(data);
+            const decoded = decodeZigZagInt32(encoded);
+            expect(Array.from(decoded)).toEqual([0, 1, 2, 3]);
         });
 
         it("should decode zigzag BigInt64Array", () => {
             const data = new BigInt64Array([0n, 1n, 2n, 3n]);
-            encodeZigZagInt64(data);
-            decodeZigZagInt64(data);
-            expect(Array.from(data)).toEqual([0n, 1n, 2n, 3n]);
+            const encoded = encodeZigZagInt64(data);
+            const decoded = decodeZigZagInt64(encoded);
+            expect(Array.from(decoded)).toEqual([0n, 1n, 2n, 3n]);
         });
 
         it("should decode zigzag Float64Array", () => {
@@ -119,14 +122,14 @@ describe("IntegerDecodingUtils", () => {
     describe("RLE decoding", () => {
         describe("Unsigned RLE", () => {
             it("should decode empty unsigned RLE", () => {
-                const data = new Int32Array([]);
+                const data = new Uint32Array([]);
                 const encodedRle = encodeUnsignedRleInt32(data);
                 const decoded = decodeUnsignedRleInt32(encodedRle.data, encodedRle.runs, data.length);
                 expect(Array.from(decoded)).toEqual([]);
             });
 
             it("should decode unsigned RLE", () => {
-                const data = new Int32Array([10, 10, 20, 20, 20]);
+                const data = new Uint32Array([10, 10, 20, 20, 20]);
                 const encodedRle = encodeUnsignedRleInt32(data);
                 const decoded = decodeUnsignedRleInt32(encodedRle.data, encodedRle.runs, data.length);
                 expect(Array.from(decoded)).toEqual([10, 10, 20, 20, 20]);
@@ -210,16 +213,16 @@ describe("IntegerDecodingUtils", () => {
         describe("ZigZag Delta", () => {
             it("should decode zigzag delta Int32", () => {
                 const data = new Int32Array([1, 2, 3, 5, 6, 7]);
-                encodeZigZagDeltaInt32(data);
-                decodeZigZagDeltaInt32(data);
-                expect(Array.from(data)).toEqual([1, 2, 3, 5, 6, 7]);
+                const encoded = encodeZigZagDeltaInt32(data);
+                const decoded = decodeZigZagDeltaInt32(encoded);
+                expect(Array.from(decoded)).toEqual([1, 2, 3, 5, 6, 7]);
             });
 
             it("should decode zigzag delta Int64", () => {
                 const data = new BigInt64Array([1n, 2n, 3n, 5n, 6n, 7n]);
-                encodeZigZagDeltaInt64(data);
-                decodeZigZagDeltaInt64(data);
-                expect(Array.from(data)).toEqual([1n, 2n, 3n, 5n, 6n, 7n]);
+                const encoded = encodeZigZagDeltaInt64(data);
+                const decoded = decodeZigZagDeltaInt64(encoded);
+                expect(Array.from(decoded)).toEqual([1n, 2n, 3n, 5n, 6n, 7n]);
             });
 
             it("should decode zigzag delta Float64", () => {
@@ -243,25 +246,25 @@ describe("IntegerDecodingUtils", () => {
             it("should decode empty array", () => {
                 const data = new Int32Array([]);
                 const expected = new Int32Array(data);
-                encodeComponentwiseDeltaVec2(data);
-                decodeComponentwiseDeltaVec2(data);
-                expect(Array.from(data)).toEqual(Array.from(expected));
+                const encoded = encodeComponentwiseDeltaVec2(data);
+                const decoded = decodeComponentwiseDeltaVec2(encoded);
+                expect(Array.from(decoded)).toEqual(Array.from(expected));
             });
 
             it("should decode single vertex", () => {
                 const data = new Int32Array([10, 20]);
                 const expected = new Int32Array(data);
-                encodeComponentwiseDeltaVec2(data);
-                decodeComponentwiseDeltaVec2(data);
-                expect(Array.from(data)).toEqual(Array.from(expected));
+                const encoded = encodeComponentwiseDeltaVec2(data);
+                const decoded = decodeComponentwiseDeltaVec2(encoded);
+                expect(Array.from(decoded)).toEqual(Array.from(expected));
             });
 
             it("should decode many vertices (unrolled loop test)", () => {
                 const data = new Int32Array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9]);
                 const expected = new Int32Array(data);
-                encodeComponentwiseDeltaVec2(data);
-                decodeComponentwiseDeltaVec2(data);
-                expect(Array.from(data)).toEqual(Array.from(expected));
+                const encoded = encodeComponentwiseDeltaVec2(data);
+                const decoded = decodeComponentwiseDeltaVec2(encoded);
+                expect(Array.from(decoded)).toEqual(Array.from(expected));
             });
         });
 
@@ -273,36 +276,38 @@ describe("IntegerDecodingUtils", () => {
             it("should decode empty array", () => {
                 const data = new Int32Array([]);
                 const expected = new Int32Array(data);
-                encodeComponentwiseDeltaVec2Scaled(data, scale);
-                decodeComponentwiseDeltaVec2Scaled(data, scale, min, max);
-                expect(Array.from(data)).toEqual(Array.from(expected));
+                const encoded = encodeComponentwiseDeltaVec2Scaled(data, scale);
+                const decoded = decodeComponentwiseDeltaVec2Scaled(encoded, scale, min, max);
+                expect(Array.from(decoded)).toEqual(Array.from(expected));
             });
 
             it("should decode single vertex", () => {
                 const data = new Int32Array([100, 200]);
                 const expected = new Int32Array(data);
-                encodeComponentwiseDeltaVec2Scaled(data, scale);
-                decodeComponentwiseDeltaVec2Scaled(data, scale, min, max);
-                expect(Array.from(data)).toEqual(Array.from(expected));
+                const encoded = encodeComponentwiseDeltaVec2Scaled(data, scale);
+                const decoded = decodeComponentwiseDeltaVec2Scaled(encoded, scale, min, max);
+                expect(Array.from(decoded)).toEqual(Array.from(expected));
             });
 
             it("should decode with different scale", () => {
                 const testScale = 10.0;
                 const data = new Int32Array([1000, 2000, 1100, 2200]);
                 const expected = new Int32Array(data);
-                encodeComponentwiseDeltaVec2Scaled(data, testScale);
-                decodeComponentwiseDeltaVec2Scaled(data, testScale, min, max);
-                expect(Array.from(data)).toEqual(Array.from(expected));
+                const encoded = encodeComponentwiseDeltaVec2Scaled(data, testScale);
+                const decoded = decodeComponentwiseDeltaVec2Scaled(encoded, testScale, min, max);
+                expect(Array.from(decoded)).toEqual(Array.from(expected));
             });
 
             it("should decode many vertices (unrolled loop test)", () => {
-                const data = new Int32Array([
-                    0, 0, 10, 10, 20, 20, 30, 30, 40, 40, 50, 50, 60, 60, 70, 70, 80, 80, 90, 90,
-                ]);
+                const numbers: number[] = [];
+                for (let i = 0; i < 100; i++) {
+                    numbers.push(i * 10, i * 10);
+                }
+                const data = new Int32Array(numbers);
                 const expected = new Int32Array(data);
-                encodeComponentwiseDeltaVec2Scaled(data, scale);
-                decodeComponentwiseDeltaVec2Scaled(data, scale, min, max);
-                expect(Array.from(data)).toEqual(Array.from(expected));
+                const encoded = encodeComponentwiseDeltaVec2Scaled(data, scale);
+                const decoded = decodeComponentwiseDeltaVec2Scaled(encoded, scale, min, max);
+                expect(Array.from(decoded)).toEqual(Array.from(expected));
             });
         });
 
@@ -346,7 +351,7 @@ describe("IntegerDecodingUtils", () => {
             });
 
             it("should decode RLE delta", () => {
-                const data = new Int32Array([1, 2, 3, 4]);
+                const data = new Uint32Array([1, 2, 3, 4]);
                 const encoded = encodeRleDeltaInt32(data);
                 const decoded = decodeRleDeltaInt32(encoded.data, encoded.runs, encoded.numTotalValues);
                 // The decoder is adding a 0 at the start
@@ -393,5 +398,24 @@ describe("IntegerDecodingUtils", () => {
             expect(base).toBe(-3n);
             expect(delta).toBe(1n);
         });
+    });
+
+    it("should reject FastPFOR byte lengths that are not multiple of 4", () => {
+        const encoded = new Uint8Array([0x01, 0x02, 0x03]);
+        const offset = new IntWrapper(0);
+
+        expect(() => decodeFastPfor(encoded, 0, encoded.length, offset)).toThrow(/invalid encodedByteLength=3/);
+        expect(offset.get()).toBe(0);
+    });
+
+    it("should reject FastPFOR byte lengths with workspace API when not multiple of 4", () => {
+        const encoded = new Uint8Array([0x01, 0x02, 0x03]);
+        const offset = new IntWrapper(0);
+        const workspace = createFastPforWireDecodeWorkspace();
+
+        expect(() => decodeFastPforWithWorkspace(encoded, 0, encoded.length, offset, workspace)).toThrow(
+            /invalid encodedByteLength=3/,
+        );
+        expect(offset.get()).toBe(0);
     });
 });

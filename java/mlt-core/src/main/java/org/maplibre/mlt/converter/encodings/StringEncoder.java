@@ -1,21 +1,29 @@
 package org.maplibre.mlt.converter.encodings;
 
-import jakarta.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.Pair;
-import org.jetbrains.annotations.NotNull;
-import org.maplibre.mlt.converter.CollectionUtils;
-import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
-import org.maplibre.mlt.metadata.stream.*;
+import org.maplibre.mlt.metadata.stream.DictionaryType;
+import org.maplibre.mlt.metadata.stream.LengthType;
+import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.LogicalStreamType;
+import org.maplibre.mlt.metadata.stream.OffsetType;
+import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
+import org.maplibre.mlt.metadata.stream.StreamMetadata;
+import org.maplibre.mlt.util.ByteArrayUtil;
 
 public class StringEncoder {
 
@@ -23,12 +31,10 @@ public class StringEncoder {
 
   /// Convert a collection of string columns into a shared dictionary encoded byte array
   /// @return Pair of (number of streams, dictionary encoded to byte array)
-  public static Pair<Integer, byte[]> encodeSharedDictionary(
+  public static Pair<Integer, ArrayList<byte[]>> encodeSharedDictionary(
       List<List<String>> values,
       PhysicalLevelTechnique physicalLevelTechnique,
-      boolean useFsstEncoding,
-      @NotNull MLTStreamObserver streamObserver,
-      @Nullable String fieldName)
+      boolean useFsstEncoding)
       throws IOException {
     /*
      * compare single column encoding with shared dictionary encoding
@@ -36,57 +42,63 @@ public class StringEncoder {
      * Shared Fsst dictionary layout ->  symbol table, symbol length, dictionary/compressed corpus, length, present1, data1, present2, data2
      * */
     // TODO: also compare size with plain and single encoded columns
-    // var lengthStream = new ArrayList<Integer>();
     // TODO: also sort dictionary for the usage in combination with Gzip?
-    var dictionary = new ArrayList<String>();
-    var dataStreams = new ArrayList<List<Integer>>(values.size());
-    var presentStreams = new ArrayList<List<Boolean>>();
+    final var dictionary = new ArrayList<String>(values.size());
+    final var dictionarySize = new MutableInt(0);
+    final var dictMap = new HashMap<String, Integer>(values.size());
+    final var dataStreams = new ArrayList<List<Integer>>(values.size());
+    final var presentStreams = new ArrayList<Boolean[]>(values.size());
     for (var column : values) {
-      var presentStream = new ArrayList<Boolean>();
+      final var presentStream = new Boolean[column.size()];
+      final var dataStream = new ArrayList<Integer>(column.size());
       presentStreams.add(presentStream);
-      var dataStream = new ArrayList<Integer>();
       dataStreams.add(dataStream);
-      for (var value : column) {
-        if (value == null) {
-          presentStream.add(false);
-        } else {
-          presentStream.add(true);
 
-          if (!dictionary.contains(value)) {
-            dictionary.add(value);
-            var index = dictionary.size() - 1;
-            dataStream.add(index);
-          } else {
-            var index = dictionary.indexOf(value);
-            dataStream.add(index);
-          }
+      var presentIndex = 0;
+      for (var value : column) {
+        presentStream[presentIndex++] = (value != null);
+        if (value != null) {
+          dataStream.add(
+              dictMap.computeIfAbsent(
+                  value,
+                  v -> {
+                    final var index = dictionarySize.getAndIncrement();
+                    dictionary.add(v);
+                    return index;
+                  }));
         }
       }
     }
 
-    if (dictionary.isEmpty()) {
+    if (dictionarySize.intValue() == 0) {
       /* Set number of streams to zero if no columns are present in this tile */
-      return Pair.of(0, new byte[0]);
+      return Pair.of(0, new ArrayList<>());
     }
 
-    var encodedSharedDictionary =
-        encodeDictionary(
-            dictionary, physicalLevelTechnique, false, true, streamObserver, fieldName);
+    final var encodedSharedDictionary =
+        encodeDictionary(dictionary, physicalLevelTechnique, false, true);
 
-    byte[] encodedSharedFsstDictionary = null;
+    final ArrayList<byte[]> encodedSharedFsstDictionary;
     if (useFsstEncoding) {
       encodedSharedFsstDictionary =
           encodeFsstDictionary(
-              dictionary, physicalLevelTechnique, false, true, streamObserver, fieldName + "_fsst");
+              dictionary, dictionarySize.intValue(), physicalLevelTechnique, false);
+    } else {
+      encodedSharedFsstDictionary = null;
     }
 
-    var sharedDictionary =
-        encodedSharedFsstDictionary != null
-                && encodedSharedFsstDictionary.length < encodedSharedDictionary.length
-            ? encodedSharedFsstDictionary
-            : encodedSharedDictionary;
+    final var usingFSST =
+        useFsstEncoding
+            && ByteArrayUtil.totalLength(encodedSharedFsstDictionary)
+                < ByteArrayUtil.totalLength(encodedSharedDictionary);
+    final var result = usingFSST ? encodedSharedFsstDictionary : encodedSharedDictionary;
 
-    final var width = (int) Math.max(1, Math.ceil(Math.log10(dataStreams.size() - 1)));
+    // stream_count = dict streams + actual streams written across all child columns.
+    // Plain has 2 dict streams (length + data).
+    // FSST has 4 dict streams (symbol_lengths, symbol_table, value_lengths, compressed_corpus).
+    // There used to be a bug here where one extra column was counted
+    var numStreams = usingFSST ? 4 : 2;
+
     for (var i = 0; i < dataStreams.size(); i++) {
       var presentStream = presentStreams.get(i);
       var dataStream = dataStreams.get(i);
@@ -94,18 +106,16 @@ public class StringEncoder {
       if (dataStream.isEmpty()) {
         /* If no values are present in this column add zero for number of streams */
         final var encodedFieldMetadata = EncodingUtils.encodeVarint(0, false);
-        sharedDictionary = CollectionUtils.concatByteArrays(sharedDictionary, encodedFieldMetadata);
+        result.add(encodedFieldMetadata);
         continue;
       }
 
       final var encodedFieldMetadata = EncodingUtils.encodeVarints(new int[] {2}, false, false);
-      final var fieldNumber = String.format("%0" + width + "d", i);
+
+      // TODO: make present stream optional
       final var encodedPresentStream =
-          BooleanEncoder.encodeBooleanStream(
-              presentStream,
-              PhysicalStreamType.PRESENT,
-              streamObserver,
-              fieldName + "_child" + fieldNumber + "_present");
+          BooleanEncoder.encodeBooleanStream(presentStream, PhysicalStreamType.PRESENT);
+      numStreams += 2;
 
       final var encodedDataStream =
           IntegerEncoder.encodeIntStream(
@@ -113,30 +123,20 @@ public class StringEncoder {
               physicalLevelTechnique,
               false,
               PhysicalStreamType.OFFSET,
-              new LogicalStreamType(OffsetType.STRING),
-              streamObserver,
-              fieldName + "_child" + fieldNumber + "_offset");
-      sharedDictionary =
-          CollectionUtils.concatByteArrays(
-              sharedDictionary, encodedFieldMetadata, encodedPresentStream, encodedDataStream);
+              new LogicalStreamType(OffsetType.STRING));
+
+      result.add(encodedFieldMetadata);
+      result.addAll(encodedPresentStream);
+      result.addAll(encodedDataStream);
     }
 
-    // TODO: make present stream optional
-    final var numStreams =
-        (encodedSharedFsstDictionary != null
-                    && encodedSharedFsstDictionary.length < encodedSharedDictionary.length
-                ? 5
-                : 3)
-            + values.size() * 2;
-    return Pair.of(numStreams, sharedDictionary);
+    return Pair.of(numStreams, result);
   }
 
-  public static Pair<Integer, byte[]> encode(
-      List<String> values,
+  public static Pair<Integer, ArrayList<byte[]>> encode(
+      Collection<String> values,
       PhysicalLevelTechnique physicalLevelTechnique,
-      boolean useFsstEncoding,
-      @NotNull MLTStreamObserver streamObserver,
-      @Nullable String fieldName)
+      boolean useFsstEncoding)
       throws IOException {
     /*
      * convert a single string column -> check if plain, dictionary, fsst or fsstDictionary
@@ -148,18 +148,17 @@ public class StringEncoder {
      * -> based on statistics if dictionary encoding is used
      * -> compare four possible encodings in size based on samples
      * */
-    final var plainEncodedColumn =
-        encodePlain(values, physicalLevelTechnique, streamObserver, fieldName + "_plain");
+    final var plainEncodedColumn = encodePlain(values, physicalLevelTechnique);
 
     final var dictionaryEncodedColumn =
-        encodeDictionary(
-            values, physicalLevelTechnique, true, false, streamObserver, fieldName + "_dict");
+        encodeDictionary(values, physicalLevelTechnique, true, false);
 
-    byte[] fsstEncodedDictionary = null;
+    final ArrayList<byte[]> fsstEncodedDictionary;
     if (useFsstEncoding) {
       fsstEncodedDictionary =
-          encodeFsstDictionary(
-              values, physicalLevelTechnique, true, false, streamObserver, fieldName + "_fsstdict");
+          encodeFsstDictionary(values, values.size(), physicalLevelTechnique, true);
+    } else {
+      fsstEncodedDictionary = null;
     }
 
     return Stream.of(
@@ -167,31 +166,30 @@ public class StringEncoder {
             Pair.of(3, dictionaryEncodedColumn),
             Pair.of(5, fsstEncodedDictionary))
         .filter(p -> p.getRight() != null)
-        .min(Comparator.comparingInt(a -> a.getRight().length))
+        .min(Comparator.comparingInt(a -> ByteArrayUtil.totalLength(a.getRight())))
         .orElseThrow();
   }
 
-  private static byte[] encodeFsstDictionary(
-      List<String> values,
+  private static ArrayList<byte[]> encodeFsstDictionary(
+      Collection<String> values,
+      int valueCount,
       PhysicalLevelTechnique physicalLevelTechnique,
-      boolean encodeDataStream,
-      boolean isSharedDictionary,
-      @NotNull MLTStreamObserver streamObserver,
-      String fieldName)
+      boolean encodeDataStream)
       throws IOException {
-    final var dataStream = new ArrayList<Integer>(values.size());
-    final var dictionary = new ArrayList<String>();
+    final var dataStream = new ArrayList<Integer>(valueCount);
+    final var dictionary = new ArrayList<String>(valueCount);
+    final var dictMap = new HashMap<String, Integer>(valueCount);
     for (var value : values) {
-      if (!dictionary.contains(value)) {
-        dictionary.add(value);
-        dataStream.add(dictionary.size() - 1);
-      } else {
-        dataStream.add(dictionary.indexOf(value));
-      }
+      dataStream.add(
+          dictMap.computeIfAbsent(
+              value,
+              v -> {
+                dictionary.add(v);
+                return dictionary.size() - 1;
+              }));
     }
 
-    final var symbolTable =
-        encodeFsst(dictionary, physicalLevelTechnique, false, streamObserver, fieldName);
+    final var symbolTable = encodeFsst(dictionary, physicalLevelTechnique, false);
 
     if (!encodeDataStream) {
       return symbolTable;
@@ -203,37 +201,32 @@ public class StringEncoder {
             physicalLevelTechnique,
             false,
             PhysicalStreamType.OFFSET,
-            new LogicalStreamType(OffsetType.STRING),
-            streamObserver,
-            fieldName);
-    return CollectionUtils.concatByteArrays(symbolTable, encodedDataStream);
+            new LogicalStreamType(OffsetType.STRING));
+    symbolTable.addAll(encodedDataStream);
+    return symbolTable;
   }
 
-  private static byte[] encodeFsst(
-      List<String> values,
+  private static ArrayList<byte[]> encodeFsst(
+      Collection<String> values,
       PhysicalLevelTechnique physicalLevelTechnique,
-      @SuppressWarnings("SameParameterValue") boolean isSharedDictionary,
-      @NotNull MLTStreamObserver streamObserver,
-      @Nullable String fieldName)
+      @SuppressWarnings("SameParameterValue") boolean isSharedDictionary)
       throws IOException {
-    var joinedValues = String.join("", values).getBytes(StandardCharsets.UTF_8);
-    var symbolTable = FsstEncoder.encode(joinedValues);
+    final var joinedValues = String.join("", values).getBytes(StandardCharsets.UTF_8);
+    final var symbolTable = FsstEncoder.encode(joinedValues);
 
-    var encodedSymbols = symbolTable.symbols();
-    var compressedCorpus = symbolTable.compressedData();
+    final var encodedSymbols = symbolTable.symbols();
+    final var compressedCorpus = symbolTable.compressedData();
 
-    var symbolLengths =
+    final var symbolLengths =
         Arrays.stream(symbolTable.symbolLengths()).boxed().collect(Collectors.toList());
-    var encodedSymbolLengths =
+    final var encodedSymbolLengths =
         IntegerEncoder.encodeIntStream(
             symbolLengths,
             physicalLevelTechnique,
             false,
             PhysicalStreamType.LENGTH,
-            new LogicalStreamType(LengthType.SYMBOL),
-            streamObserver,
-            fieldName + "_symlength");
-    var symbolTableMetadata =
+            new LogicalStreamType(LengthType.SYMBOL));
+    final var symbolTableMetadata =
         new StreamMetadata(
                 PhysicalStreamType.DATA,
                 new LogicalStreamType(DictionaryType.FSST),
@@ -245,20 +238,16 @@ public class StringEncoder {
                 symbolLengths.size(),
                 encodedSymbols.length)
             .encode();
-    var lengthStream =
-        values.stream()
-            .map(v -> v.getBytes(StandardCharsets.UTF_8).length)
-            .collect(Collectors.toList());
-    var encodedLengthStream =
+    final var lengthStream =
+        values.stream().mapToInt(v -> v.getBytes(StandardCharsets.UTF_8).length).toArray();
+    final var encodedLengthStream =
         IntegerEncoder.encodeIntStream(
             lengthStream,
             physicalLevelTechnique,
             false,
             PhysicalStreamType.LENGTH,
-            new LogicalStreamType(LengthType.DICTIONARY),
-            streamObserver,
-            fieldName + "_length");
-    var compressedCorpusStreamMetadata =
+            new LogicalStreamType(LengthType.DICTIONARY));
+    final var compressedCorpusStreamMetadata =
         new StreamMetadata(
                 PhysicalStreamType.DATA,
                 new LogicalStreamType(
@@ -270,45 +259,46 @@ public class StringEncoder {
                 compressedCorpus.length)
             .encode();
 
-    streamObserver.observeStream(
-        fieldName + "_corpus", values, compressedCorpusStreamMetadata, compressedCorpus);
-
-    // TODO: how to name the streams and how to order? -> symbol_table, length, data, length
     /* SymbolLength, SymbolTable, Value Length, Compressed Corpus */
-    return CollectionUtils.concatByteArrays(
-        encodedSymbolLengths,
-        symbolTableMetadata,
-        symbolTable.symbols(),
-        encodedLengthStream,
-        compressedCorpusStreamMetadata,
-        compressedCorpus);
+    final var result = encodedSymbolLengths;
+    result.addAll(symbolTableMetadata);
+    result.add(symbolTable.symbols());
+    result.addAll(encodedLengthStream);
+    result.addAll(compressedCorpusStreamMetadata);
+    result.add(compressedCorpus);
+    return result;
   }
 
-  private static byte[] encodeDictionary(
-      List<String> values,
+  private static int totalLengthOf(Collection<String> values) {
+    return values.stream().mapToInt(String::length).sum();
+  }
+
+  private static ArrayList<byte[]> encodeDictionary(
+      Collection<String> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean encodeOffsetStream,
-      boolean isSharedDictionary,
-      @NotNull MLTStreamObserver streamObserver,
-      String fieldName)
+      boolean isSharedDictionary)
       throws IOException {
     final var offsetStream = new ArrayList<Integer>(values.size());
-    final var lengthStream = new ArrayList<Integer>();
-    final var dictionary = new ArrayList<String>();
-    final var dictionaryStream = new ByteArrayOutputStream();
+    final var lengthStream = new ArrayList<Integer>(values.size());
+    final var dictionary = new ArrayList<String>(values.size());
+    final var dictMap = new HashMap<String, Integer>(values.size());
+    final var dictionaryStream = new ByteArrayOutputStream(totalLengthOf(values));
     for (var value : values) {
-      if (!dictionary.contains(value)) {
-        dictionary.add(value);
-        var utf8EncodedData = value.getBytes(StandardCharsets.UTF_8);
-        lengthStream.add(utf8EncodedData.length);
-        var index = dictionary.size() - 1;
-        offsetStream.add(index);
-
-        dictionaryStream.write(utf8EncodedData);
-      } else {
-        var index = dictionary.indexOf(value);
-        offsetStream.add(index);
-      }
+      offsetStream.add(
+          dictMap.computeIfAbsent(
+              value,
+              v -> {
+                dictionary.add(v);
+                final var utf8EncodedData = value.getBytes(StandardCharsets.UTF_8);
+                lengthStream.add(utf8EncodedData.length);
+                try {
+                  dictionaryStream.write(utf8EncodedData);
+                } catch (IOException ex) {
+                  throw new UncheckedIOException(ex);
+                }
+                return dictionary.size() - 1;
+              }));
     }
     final var dictionaryData = dictionaryStream.toByteArray();
 
@@ -318,9 +308,7 @@ public class StringEncoder {
             physicalLevelTechnique,
             false,
             PhysicalStreamType.LENGTH,
-            new LogicalStreamType(LengthType.DICTIONARY),
-            streamObserver,
-            fieldName + "_dict_length");
+            new LogicalStreamType(LengthType.DICTIONARY));
     final var encodedDictionaryStreamMetadata =
         new StreamMetadata(
                 PhysicalStreamType.DATA,
@@ -333,11 +321,11 @@ public class StringEncoder {
                 dictionaryData.length)
             .encode();
 
-    streamObserver.observeStream(
-        fieldName + "_dict", dictionary, encodedDictionaryStreamMetadata, dictionaryData);
     if (!encodeOffsetStream) {
-      return CollectionUtils.concatByteArrays(
-          encodedLengthStream, encodedDictionaryStreamMetadata, dictionaryData);
+      final var result = encodedLengthStream;
+      result.addAll(encodedDictionaryStreamMetadata);
+      result.add(dictionaryData);
+      return result;
     }
 
     final var encodedOffsetStream =
@@ -346,22 +334,19 @@ public class StringEncoder {
             physicalLevelTechnique,
             false,
             PhysicalStreamType.OFFSET,
-            new LogicalStreamType(OffsetType.STRING),
-            streamObserver,
-            fieldName + "_dict_offset");
+            new LogicalStreamType(OffsetType.STRING));
     /* Length, Offset (String), Data (Dictionary -> Single) */
-    return CollectionUtils.concatByteArrays(
-        encodedLengthStream, encodedOffsetStream, encodedDictionaryStreamMetadata, dictionaryData);
+    final var result = encodedLengthStream;
+    result.addAll(encodedOffsetStream);
+    result.addAll(encodedDictionaryStreamMetadata);
+    result.add(dictionaryData);
+    return result;
   }
 
-  public static byte[] encodePlain(
-      List<String> values,
-      PhysicalLevelTechnique physicalLevelTechnique,
-      @NotNull MLTStreamObserver streamObserver,
-      @Nullable String fieldName)
-      throws IOException {
+  public static ArrayList<byte[]> encodePlain(
+      Collection<String> values, PhysicalLevelTechnique physicalLevelTechnique) throws IOException {
     final var lengthStream = new ArrayList<Integer>(values.size());
-    final var dataStream = new ByteArrayOutputStream();
+    final var dataStream = new ByteArrayOutputStream(totalLengthOf(values));
     for (var value : values) {
       final var utf8EncodedValue = value.getBytes(StandardCharsets.UTF_8);
       dataStream.write(utf8EncodedValue);
@@ -375,9 +360,7 @@ public class StringEncoder {
             physicalLevelTechnique,
             false,
             PhysicalStreamType.LENGTH,
-            new LogicalStreamType(LengthType.VAR_BINARY),
-            streamObserver,
-            fieldName + "_length");
+            new LogicalStreamType(LengthType.VAR_BINARY));
 
     final var dataStreamMetadata =
         new StreamMetadata(
@@ -390,8 +373,9 @@ public class StringEncoder {
                 stringData.length)
             .encode();
 
-    streamObserver.observeStream(fieldName + "_data", values, dataStreamMetadata, stringData);
-
-    return CollectionUtils.concatByteArrays(encodedLengthStream, dataStreamMetadata, stringData);
+    final var result = encodedLengthStream;
+    result.addAll(dataStreamMetadata);
+    result.add(stringData);
+    return result;
   }
 }

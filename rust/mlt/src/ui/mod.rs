@@ -1,0 +1,1315 @@
+//! TUI visualizer for MLT files using ratatui
+
+pub(crate) mod mbt;
+mod rendering;
+mod state;
+
+use std::collections::HashSet;
+use std::fs::canonicalize;
+use std::io::Write as _;
+use std::path::{Path, PathBuf};
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
+use std::{fs, thread};
+
+use anyhow::bail;
+use clap::Args;
+use crossterm::event::{
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
+    MouseButton, MouseEventKind,
+};
+use crossterm::execute;
+use geo_types::Polygon;
+use mlt_core::geojson::FeatureCollection;
+use mlt_core::mvt::mvt_to_feature_collection;
+use mlt_core::{Coord32, Decoder, Geom32, GeometryType, Parser};
+use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders};
+use rstar::{AABB, PointDistance, RTreeObject};
+
+use crate::ls::{
+    FileAlgorithm, FileSortColumn, LsFlags, LsRow, analyze_tile_files, is_mbt_extension,
+    is_mlt_extension, is_tile_extension,
+};
+use crate::ui::mbt::MbtilesState;
+use crate::ui::rendering::files::{
+    render_file_browser, render_file_filter_panel, render_file_info_panel,
+    render_tile_preview_panel,
+};
+use crate::ui::rendering::help::{render_error_popup, render_help_overlay};
+use crate::ui::rendering::layers::{
+    render_mbtiles_hover_panel, render_properties_panel, render_tree_panel,
+};
+use crate::ui::rendering::map::{render_map_panel, render_mbtiles_map_panel};
+use crate::ui::state::{App, HoveredInfo, LayerGroup, ResizeHandle, TreeItem, ViewMode};
+
+pub const CLR_POINT: Color = Color::Magenta;
+pub const CLR_MULTI_POINT: Color = Color::LightMagenta;
+pub const CLR_LINE: Color = Color::Cyan;
+pub const CLR_MULTI_LINE: Color = Color::LightCyan;
+pub const CLR_POLYGON: Color = Color::Blue;
+pub const CLR_MULTI_POLYGON: Color = Color::LightBlue;
+pub const CLR_INNER_RING: Color = Color::Red;
+pub const CLR_BAD_WINDING: Color = Color::LightRed;
+pub const CLR_EXTENT: Color = Color::DarkGray;
+pub const CLR_SELECTED: Color = Color::Yellow;
+pub const CLR_HOVERED: Color = Color::White;
+pub const CLR_HOVERED_TREE: Color = Color::LightGreen;
+pub const CLR_DIMMED: Color = Color::DarkGray;
+pub const CLR_INNER_RING_SEL: Color = Color::Rgb(255, 150, 120);
+pub const CLR_LABEL: Color = Color::Cyan;
+pub const CLR_HINT: Color = Color::DarkGray;
+
+pub const STYLE_SELECTED: Style = Style::new().fg(CLR_SELECTED).add_modifier(Modifier::BOLD);
+pub const STYLE_LABEL: Style = Style::new().fg(CLR_LABEL);
+pub const STYLE_BOLD: Style = Style::new().add_modifier(Modifier::BOLD);
+
+/// Throttle hover-driven redraws so mouse move over map doesn't flood the loop
+const HOVER_REDRAW_THROTTLE: Duration = Duration::from_millis(32);
+
+#[derive(Args)]
+pub struct UiArgs {
+    /// Path to a tile file (`.mlt`, `.mvt`, `.pbf`, `.mbtiles`) or directory
+    path: PathBuf,
+    /// Start `MBTiles` map centered on this XYZ tile (`z/x/y`, e.g. `6/32/21`). `MBTiles` only.
+    #[arg(long = "center-tile", value_name = "Z/X/Y")]
+    center_tile: Option<String>,
+}
+
+pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
+    if args.center_tile.is_some() && !is_mbt_extension(&args.path) {
+        bail!("--center-tile is only supported when opening an .mbtiles file");
+    }
+    let app = if is_mbt_extension(&args.path) {
+        let mut mbt = MbtilesState::new(args.path.clone());
+        if let Some(ref s) = args.center_tile {
+            let (z, x, y) = parse_center_tile_xyz(s)?;
+            mbt.set_viewport_to_tile(z, x, y)
+                .map_err(|e| anyhow::anyhow!(e))?;
+        }
+        App::new_mbtiles(mbt, args.path.clone())
+    } else if args.path.is_dir() {
+        let paths = find_tile_files(&args.path)?;
+        if paths.is_empty() {
+            bail!(
+                "No tile files found in {}",
+                canonicalize(&args.path)?.display()
+            );
+        }
+        let base = args.path.clone();
+        let files: Vec<LsRow> = paths
+            .iter()
+            .map(|p| LsRow::Loading { path: p.clone() })
+            .collect();
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            let _ = tx.send(analyze_tile_files(
+                &paths,
+                &base,
+                LsFlags {
+                    gzip: true,
+                    algorithms: true,
+                    validate: false,
+                },
+            ));
+        });
+        App::new_file_browser(files, Some(rx), args.path.clone())
+    } else if args.path.is_file() {
+        App::new_single_file(load_fc(&args.path)?, Some(args.path.clone()))
+    } else {
+        bail!("Path is not a file or directory");
+    };
+    run_app(app)
+}
+
+fn parse_center_tile_xyz(spec: &str) -> anyhow::Result<(u8, u32, u32)> {
+    let parts: Vec<&str> = spec
+        .split('/')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    if parts.len() != 3 {
+        bail!("--center-tile must be z/x/y (three integers), got {spec:?}");
+    }
+    let zoom: u8 = parts[0]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid zoom z in --center-tile: {:?}", parts[0]))?;
+    let tile_x: u32 = parts[1]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid tile x in --center-tile: {:?}", parts[1]))?;
+    let tile_y: u32 = parts[2]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid tile y in --center-tile: {:?}", parts[2]))?;
+    let grid_n = 1u32
+        .checked_shl(u32::from(zoom))
+        .ok_or_else(|| anyhow::anyhow!("zoom z={zoom} is too large"))?;
+    if tile_x >= grid_n || tile_y >= grid_n {
+        bail!(
+            "tile x/y must be < 2^z for z={zoom} (max index {})",
+            grid_n.saturating_sub(1)
+        );
+    }
+    Ok((zoom, tile_x, tile_y))
+}
+
+// --- Data loading ---
+
+fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
+    let buf = fs::read(path)?;
+    if is_mlt_extension(path) {
+        let layers = Decoder::default().decode_all(Parser::default().parse_layers(&buf)?)?;
+        Ok(FeatureCollection::from_layers(layers)?)
+    } else {
+        Ok(mvt_to_feature_collection(buf)?)
+    }
+}
+
+fn extent_from_fc(fc: &FeatureCollection) -> u32 {
+    fc.features
+        .first()
+        .and_then(|f| {
+            f.properties
+                .get("_extent")
+                .and_then(serde_json::Value::as_u64)
+        })
+        .map_or(4096, |v| u32::try_from(v).expect("_extent is valid u32"))
+}
+
+fn refresh_tile_preview(app: &mut App) {
+    let path = if let Some(r) = app.get_selected_file() {
+        r.path().to_path_buf()
+    } else {
+        app.preview_tile_path = None;
+        app.preview_fc = None;
+        app.preview_load_requested = None;
+        return;
+    };
+    if !is_tile_extension(&path) {
+        app.preview_tile_path = None;
+        app.preview_fc = None;
+        app.preview_load_requested = None;
+    }
+}
+
+fn group_by_layer(fc: &FeatureCollection) -> Vec<LayerGroup> {
+    let mut groups: Vec<LayerGroup> = Vec::new();
+    for (i, f) in fc.features.iter().enumerate() {
+        let name = f
+            .properties
+            .get("_layer")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        let extent = f
+            .properties
+            .get("_extent")
+            .and_then(serde_json::Value::as_u64)
+            .map_or(4096, |v| u32::try_from(v).expect("_extent is valid u32"));
+        if let Some(g) = groups.iter_mut().find(|g| g.name == name) {
+            g.feature_indices.push(i);
+        } else {
+            groups.push(LayerGroup::new(name.to_string(), extent, vec![i]));
+        }
+    }
+    groups
+}
+
+fn auto_expand(groups: &[LayerGroup]) -> Vec<bool> {
+    if groups.len() == 1 {
+        vec![true]
+    } else {
+        vec![false; groups.len()]
+    }
+}
+
+fn find_tile_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
+    fn visit(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
+        if dir.is_dir() {
+            for entry in fs::read_dir(dir)? {
+                let p = entry?.path();
+                if p.is_dir() {
+                    visit(&p, out)?;
+                } else if is_tile_extension(&p) {
+                    out.push(p);
+                }
+            }
+        }
+        Ok(())
+    }
+    let mut files = Vec::new();
+    visit(dir, &mut files)?;
+    files.sort_unstable();
+    Ok(files)
+}
+
+// --- Hit testing ---
+
+fn point_in_rect(col: u16, row: u16, r: Rect) -> bool {
+    col >= r.x && col < r.x + r.width && row >= r.y && row < r.y + r.height
+}
+
+fn click_row_in_area(col: u16, row: u16, area: Rect, scroll: usize) -> Option<usize> {
+    let top = area.y + 1;
+    let bot = area.y + area.height.saturating_sub(1);
+    (col >= area.x && col < area.x + area.width && row >= top && row < bot)
+        .then(|| (row - top) as usize + scroll)
+}
+
+const HIGHLIGHT_SYMBOL_WIDTH: u16 = 3;
+const COLUMN_SPACING: u16 = 1;
+
+/// Table has 6 columns: File, Size, Enc %, Layers, Features, Notes. Notes is not sortable.
+fn file_header_click_column(
+    area: Rect,
+    widths: &[Constraint; 6],
+    col: u16,
+    row: u16,
+) -> Option<FileSortColumn> {
+    if row != area.y + 1 {
+        return None;
+    }
+    let inner = area.inner(Margin {
+        vertical: 1,
+        horizontal: 1,
+    });
+    let fixed: u16 = widths
+        .iter()
+        .map(|c| match c {
+            Constraint::Length(l) => *l,
+            _ => 0,
+        })
+        .sum();
+    let remaining = inner
+        .width
+        .saturating_sub(HIGHLIGHT_SYMBOL_WIDTH + fixed + 5 * COLUMN_SPACING);
+    let mut resolved = [0u16; 6];
+    for (i, c) in widths.iter().enumerate() {
+        resolved[i] = match c {
+            Constraint::Length(l) => *l,
+            Constraint::Min(_) => remaining,
+            _ => 0,
+        };
+    }
+    let cols = [
+        FileSortColumn::File,
+        FileSortColumn::Size,
+        FileSortColumn::EncPct,
+        FileSortColumn::Layers,
+        FileSortColumn::Features,
+    ];
+    let mut x = inner.x + HIGHLIGHT_SYMBOL_WIDTH;
+    for (i, &w) in resolved.iter().enumerate() {
+        let end = if i == resolved.len() - 1 {
+            inner.x + inner.width
+        } else {
+            x + w
+        };
+        if col >= x && col < end {
+            return cols.get(i).copied();
+        }
+        x = end + COLUMN_SPACING;
+    }
+    None
+}
+
+fn block_with_title(title: impl Into<Line<'static>>) -> Block<'static> {
+    Block::default().borders(Borders::ALL).title(title)
+}
+
+/// Area where the map canvas actually draws (inside borders + title).
+/// Must stay in sync with `render_map_panel` and `render_mbtiles_map_panel`, which both use
+/// `block_with_title`.
+fn map_canvas_area(outer: Rect) -> Rect {
+    block_with_title(" ").inner(outer)
+}
+
+/// Helper to build `Span::styled(format!("{name}: "), STYLE_LABEL)` + raw value.
+fn stat_line(name: &str, val: &dyn std::fmt::Display) -> Line<'static> {
+    Line::from(vec![
+        Span::styled(format!("{name}: "), STYLE_LABEL),
+        Span::raw(val.to_string()),
+    ])
+}
+
+const DIVIDER_GRAB: u16 = 2;
+
+fn divider_hit(
+    col: u16,
+    row: u16,
+    left: Rect,
+    tree: Rect,
+    geom: Option<Rect>,
+) -> Option<ResizeHandle> {
+    let horiz_hit = |dy: u16| {
+        row >= dy.saturating_sub(DIVIDER_GRAB)
+            && row < dy.saturating_add(DIVIDER_GRAB)
+            && col >= left.x
+            && col < left.x + left.width
+    };
+
+    // Check horizontal dividers (most specific first)
+    if geom.is_some_and(|g| horiz_hit(g.y)) {
+        return Some(ResizeHandle::PropertiesGeometry);
+    }
+    if horiz_hit(tree.y + tree.height) {
+        return Some(ResizeHandle::FeaturesProperties);
+    }
+
+    // Check vertical divider (between left panel and map)
+    let dx = left.x + left.width;
+    if col >= dx.saturating_sub(DIVIDER_GRAB)
+        && col < dx.saturating_add(DIVIDER_GRAB)
+        && row >= left.y
+        && row < left.y + left.height
+    {
+        return Some(ResizeHandle::LeftRight);
+    }
+
+    None
+}
+
+// --- App loop ---
+
+/// OSC 22: set mouse pointer shape
+fn set_pointer_cursor(pointer: bool) {
+    let seq: &[u8] = if pointer {
+        b"\x1b]22;default\x1b\\"
+    } else {
+        b"\x1b]22;\x1b\\"
+    };
+    let _ = std::io::stdout().write_all(seq);
+    let _ = std::io::stdout().flush();
+}
+
+fn run_app(mut app: App) -> anyhow::Result<()> {
+    let mut terminal = ratatui::init();
+    set_pointer_cursor(true);
+    let result = (|| {
+        execute!(terminal.backend_mut(), EnableMouseCapture)?;
+        run_app_loop(&mut terminal, &mut app)
+    })();
+    let _ = execute!(terminal.backend_mut(), DisableMouseCapture);
+    set_pointer_cursor(false);
+    ratatui::restore();
+    result
+}
+
+/// Compute percentage position (clamped to 10..=90) for drag resizing.
+fn pct_at(pos: u16, origin: u16, span: u16) -> u16 {
+    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let pct =
+        (f32::from(pos.saturating_sub(origin)) / f32::from(span.max(1)) * 100.0).round() as u16;
+    pct.clamp(10, 90)
+}
+
+const FILE_RIGHT_PANEL_MIN: u16 = 20;
+fn file_browser_preview_pct_clamped(pct: u16, filter_pct: u16) -> u16 {
+    pct.clamp(
+        FILE_RIGHT_PANEL_MIN,
+        100u16
+            .saturating_sub(FILE_RIGHT_PANEL_MIN)
+            .saturating_sub(filter_pct),
+    )
+}
+fn file_browser_filter_pct_clamped(pct: u16, preview_pct: u16) -> u16 {
+    pct.clamp(
+        FILE_RIGHT_PANEL_MIN,
+        100u16
+            .saturating_sub(FILE_RIGHT_PANEL_MIN)
+            .saturating_sub(preview_pct),
+    )
+}
+
+fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyhow::Result<()> {
+    let mut map_area: Option<Rect> = None;
+    let mut tree_area: Option<Rect> = None;
+    let mut props_area: Option<Rect> = None;
+    let mut geom_area: Option<Rect> = None;
+    let mut left_area: Option<Rect> = None;
+    let mut filter_area: Option<Rect> = None;
+    let mut info_area: Option<Rect> = None;
+    let mut preview_area: Option<Rect> = None;
+    let mut right_col: Option<Rect> = None;
+    let mut file_left: Option<Rect> = None;
+    let mut last_tree_click: Option<(Instant, usize)> = None;
+    let mut last_file_click: Option<(Instant, usize)> = None;
+    let mut last_hover_redraw: Option<Instant> = None;
+
+    loop {
+        // Process incoming mbtiles tile results and request visible tiles.
+        if app.mode == ViewMode::MbtilesMap
+            && let Some(ref mut mbt) = app.mbt_state
+        {
+            if mbt.process_results() {
+                app.needs_redraw = true;
+            }
+            if let Some(msg) = mbt.take_loader_fatal() {
+                let title = app
+                    .current_file
+                    .as_ref()
+                    .map_or_else(|| "MBTiles".to_string(), |p| p.display().to_string());
+                app.error_popup = Some((title, msg));
+                app.needs_redraw = true;
+            }
+            let visible = mbt.visible_tiles();
+            for (z, x, y) in visible {
+                mbt.request_tile_with_ancestors(z, x, y);
+            }
+            mbt.prune_tile_cache_if_needed();
+        }
+
+        if let Some(rows) = app.analysis_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            if rows.len() == app.files.len() {
+                for (i, row) in rows.into_iter().enumerate() {
+                    if let Some(e) = app.files.get_mut(i) {
+                        *e = row;
+                    }
+                }
+            }
+            app.analysis_rx = None;
+            app.rebuild_filtered_files();
+        }
+
+        if let Some((path, result)) = app.preview_rx.as_mut().and_then(|rx| rx.try_recv().ok()) {
+            app.preview_rx = None;
+            app.preview_load_requested = None;
+            if app.get_selected_file().map(LsRow::path) == Some(path.as_path()) {
+                if let Ok((fc, ext)) = result {
+                    app.preview_tile_path = Some(path);
+                    app.preview_fc = Some(fc);
+                    app.preview_extent = ext;
+                } else {
+                    app.preview_tile_path = Some(path);
+                    app.preview_fc = None;
+                }
+            }
+            app.invalidate();
+        }
+        if app.mode == ViewMode::FileBrowser
+            && let Some(selected) = app.get_selected_file()
+        {
+            let path = selected.path().to_path_buf();
+            if is_tile_extension(&path)
+                && (app.preview_tile_path.as_ref() != Some(&path) || app.preview_fc.is_none())
+                && app.preview_load_requested.as_ref() != Some(&path)
+            {
+                let (tx, rx) = mpsc::channel();
+                app.preview_rx = Some(rx);
+                app.preview_load_requested = Some(path.clone());
+                let path_spawn = path.clone();
+                thread::spawn(move || {
+                    let result = load_fc(&path_spawn)
+                        .map(|fc| {
+                            let ext = extent_from_fc(&fc);
+                            (fc, ext)
+                        })
+                        .map_err(|_| ());
+                    let _ = tx.send((path_spawn, result));
+                });
+            }
+        }
+
+        if app.needs_redraw {
+            app.needs_redraw = false;
+            terminal.draw(|f| {
+                match app.mode {
+                    ViewMode::FileBrowser => {
+                        refresh_tile_preview(app);
+                        let cols = Layout::default()
+                            .direction(Direction::Horizontal)
+                            .constraints([
+                                Constraint::Percentage(app.file_left_pct),
+                                Constraint::Percentage(100u16.saturating_sub(app.file_left_pct)),
+                            ])
+                            .split(f.area());
+                        let right_pct = file_browser_preview_pct_clamped(
+                            app.file_preview_pct,
+                            app.file_filter_pct,
+                        );
+                        let filter_pct =
+                            file_browser_filter_pct_clamped(app.file_filter_pct, right_pct);
+                        app.file_preview_pct = right_pct;
+                        app.file_filter_pct = filter_pct;
+                        let right = Layout::default()
+                            .direction(Direction::Vertical)
+                            .constraints([
+                                Constraint::Percentage(right_pct),
+                                Constraint::Percentage(filter_pct),
+                                Constraint::Percentage(
+                                    100u16.saturating_sub(right_pct).saturating_sub(filter_pct),
+                                ),
+                            ])
+                            .split(cols[1]);
+                        render_file_browser(f, cols[0], app);
+                        render_tile_preview_panel(f, right[0], app);
+                        render_file_filter_panel(f, right[1], app);
+                        render_file_info_panel(f, right[2], app);
+                        file_left = Some(cols[0]);
+                        right_col = Some(cols[1]);
+                        preview_area = Some(right[0]);
+                        filter_area = Some(right[1]);
+                        info_area = Some(right[2]);
+                    }
+                    ViewMode::LayerOverview => {
+                        let cols = Layout::default()
+                            .direction(Direction::Horizontal)
+                            .constraints([
+                                Constraint::Percentage(app.left_pct),
+                                Constraint::Percentage(100u16.saturating_sub(app.left_pct)),
+                            ])
+                            .split(f.area());
+                        let left = Layout::default()
+                            .direction(Direction::Vertical)
+                            .constraints([
+                                Constraint::Percentage(app.features_pct),
+                                Constraint::Percentage(100u16.saturating_sub(app.features_pct)),
+                            ])
+                            .split(cols[0]);
+                        render_tree_panel(f, left[0], app);
+                        let ga = render_properties_panel(f, left[1], app);
+                        render_map_panel(f, cols[1], app);
+                        tree_area = Some(left[0]);
+                        props_area = Some(left[1]);
+                        geom_area = Some(ga);
+                        left_area = Some(cols[0]);
+                        map_area = Some(map_canvas_area(cols[1]));
+                    }
+                    ViewMode::MbtilesMap => {
+                        let cols = Layout::default()
+                            .direction(Direction::Horizontal)
+                            .constraints([
+                                Constraint::Percentage(app.left_pct),
+                                Constraint::Percentage(100u16.saturating_sub(app.left_pct)),
+                            ])
+                            .split(f.area());
+                        render_mbtiles_hover_panel(f, cols[0], app);
+                        render_mbtiles_map_panel(f, cols[1], app);
+                        left_area = Some(cols[0]);
+                        map_area = Some(map_canvas_area(cols[1]));
+                    }
+                }
+                if app.error_popup.is_some() {
+                    render_error_popup(f, app);
+                } else if app.show_help {
+                    render_help_overlay(f, app);
+                }
+            })?;
+        }
+
+        if event::poll(Duration::from_millis(16))? {
+            match event::read()? {
+                Event::Key(key) if key.kind == KeyEventKind::Press => {
+                    if key.modifiers.contains(KeyModifiers::CONTROL)
+                        && key.code == KeyCode::Char('c')
+                    {
+                        break;
+                    }
+                    if app.error_popup.is_some() {
+                        app.error_popup = None;
+                        app.invalidate();
+                        continue;
+                    }
+                    if app.show_help {
+                        match key.code {
+                            KeyCode::Up | KeyCode::Char('k') => {
+                                app.help_scroll = app.help_scroll.saturating_sub(1);
+                            }
+                            KeyCode::Down | KeyCode::Char('j') => {
+                                app.help_scroll = app.help_scroll.saturating_add(1);
+                            }
+                            KeyCode::PageUp => {
+                                app.help_scroll = app.help_scroll.saturating_sub(10);
+                            }
+                            KeyCode::PageDown => {
+                                app.help_scroll = app.help_scroll.saturating_add(10);
+                            }
+                            KeyCode::Home => app.help_scroll = 0,
+                            KeyCode::End => app.help_scroll = u16::MAX,
+                            _ => app.show_help = false,
+                        }
+                        app.invalidate();
+                        continue;
+                    }
+                    match key.code {
+                        KeyCode::Char('q') => break,
+                        KeyCode::Esc if app.handle_escape() => break,
+                        KeyCode::Char('?') | KeyCode::F(1) => app.open_help(),
+                        KeyCode::Char('h') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            app.open_help();
+                        }
+                        KeyCode::Enter => app.handle_enter(),
+                        KeyCode::Char('+' | '=') | KeyCode::Right => app.handle_plus(),
+                        KeyCode::Char('-') => app.handle_minus(),
+                        KeyCode::Char('*') => app.handle_star(),
+                        KeyCode::Up | KeyCode::Char('k') => app.move_up_by(1),
+                        KeyCode::Down | KeyCode::Char('j') => app.move_down_by(1),
+                        KeyCode::Left => app.handle_left_arrow(),
+                        KeyCode::PageUp => {
+                            app.move_up_by(app.page_size().saturating_sub(1).max(1));
+                        }
+                        KeyCode::PageDown => {
+                            app.move_down_by(app.page_size().saturating_sub(1).max(1));
+                        }
+                        KeyCode::Home => app.move_to_start(),
+                        KeyCode::End => app.move_to_end(),
+                        KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            app.left_pct = app.left_pct.saturating_sub(5).max(10);
+                            app.invalidate();
+                        }
+                        KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            app.left_pct = (app.left_pct + 5).min(90);
+                            app.invalidate();
+                        }
+                        KeyCode::Char('J') if key.modifiers.contains(KeyModifiers::SHIFT) => {
+                            app.features_pct = app.features_pct.saturating_sub(5).max(10);
+                            app.invalidate();
+                        }
+                        KeyCode::Char('K') if key.modifiers.contains(KeyModifiers::SHIFT) => {
+                            app.features_pct = (app.features_pct + 5).min(90);
+                            app.invalidate();
+                        }
+                        _ => {}
+                    }
+                }
+                Event::Mouse(mouse) if app.error_popup.is_some() => {
+                    if matches!(mouse.kind, MouseEventKind::Down(_)) {
+                        app.error_popup = None;
+                        app.invalidate();
+                    }
+                }
+                Event::Mouse(mouse) if app.show_help => match mouse.kind {
+                    MouseEventKind::ScrollUp => {
+                        app.help_scroll = app.help_scroll.saturating_sub(1);
+                        app.invalidate();
+                    }
+                    MouseEventKind::ScrollDown => {
+                        app.help_scroll = app.help_scroll.saturating_add(1);
+                        app.invalidate();
+                    }
+                    _ => {}
+                },
+                Event::Mouse(mouse) => match mouse.kind {
+                    MouseEventKind::Up(_) => {
+                        if let Some(ref mut mbt) = app.mbt_state {
+                            mbt.map_drag_last = None;
+                        }
+                        if app.resizing.take().is_some() {
+                            app.invalidate();
+                        }
+                    }
+                    MouseEventKind::Moved | MouseEventKind::Drag(_) => {
+                        if let Some(handle) = app.resizing {
+                            let area = terminal.get_frame().area();
+                            let la = left_area.unwrap_or_default();
+                            match handle {
+                                ResizeHandle::LeftRight => {
+                                    app.left_pct = pct_at(mouse.column, area.x, area.width);
+                                }
+                                ResizeHandle::FeaturesProperties => {
+                                    app.features_pct = pct_at(mouse.row, la.y, la.height);
+                                }
+                                ResizeHandle::PropertiesGeometry => {
+                                    if let Some(pa) = props_area {
+                                        app.properties_pct = pct_at(mouse.row, pa.y, pa.height);
+                                    }
+                                }
+                                ResizeHandle::FileBrowserLeftRight => {
+                                    app.file_left_pct = pct_at(mouse.column, area.x, area.width);
+                                }
+                                ResizeHandle::FileBrowserPreviewFilter => {
+                                    if let Some(rc) = right_col {
+                                        app.file_preview_pct = file_browser_preview_pct_clamped(
+                                            pct_at(mouse.row, rc.y, rc.height),
+                                            app.file_filter_pct,
+                                        );
+                                    }
+                                }
+                                ResizeHandle::FileBrowserFilterInfo => {
+                                    if let Some(rc) = right_col {
+                                        app.file_filter_pct = file_browser_filter_pct_clamped(
+                                            pct_at(mouse.row, rc.y, rc.height)
+                                                .saturating_sub(app.file_preview_pct),
+                                            app.file_preview_pct,
+                                        );
+                                    }
+                                }
+                            }
+                            app.invalidate();
+                            continue;
+                        }
+                        if app.mode == ViewMode::MbtilesMap
+                            && let MouseEventKind::Drag(MouseButton::Left) = mouse.kind
+                            && let (Some(area), Some(ref mut mbt)) =
+                                (map_area, app.mbt_state.as_mut())
+                            && let Some((lc, lr)) = mbt.map_drag_last
+                        {
+                            let dc = i32::from(mouse.column) - i32::from(lc);
+                            let dr = i32::from(mouse.row) - i32::from(lr);
+                            if dc != 0 || dr != 0 {
+                                mbt.pan_by_pixels(area.width, area.height, dc, dr);
+                                mbt.map_drag_last = Some((mouse.column, mouse.row));
+                                app.needs_redraw = true;
+                            }
+                        }
+                        let prev = app.hovered.clone();
+                        app.hovered = None;
+
+                        if app.mode == ViewMode::LayerOverview {
+                            let hover_ok = !matches!(
+                                app.tree_items.get(app.selected_index),
+                                Some(TreeItem::Feature { layer, feat })
+                                    if !app.expanded_features.contains(&(*layer, *feat))
+                            );
+                            if hover_ok
+                                && let Some(area) = tree_area
+                                && let Some(row) = click_row_in_area(
+                                    mouse.column,
+                                    mouse.row,
+                                    area,
+                                    app.tree_scroll as usize,
+                                )
+                                && let Some((l, f, p)) =
+                                    app.tree_items.get(row).and_then(TreeItem::layer_feat_part)
+                            {
+                                app.hovered = Some(HoveredInfo::new(row, l, f, p));
+                            }
+                            if app.hovered.is_none()
+                                && let Some(area) = map_area
+                                && point_in_rect(mouse.column, mouse.row, area)
+                            {
+                                let b = app.get_bounds();
+                                let rx = f64::from(mouse.column - area.x) / f64::from(area.width);
+                                let ry = f64::from(mouse.row - area.y) / f64::from(area.height);
+                                let cx = b.0 + rx * (b.2 - b.0);
+                                let cy = b.3 - ry * (b.3 - b.1);
+                                app.find_hovered_feature(cx, cy, b);
+                            }
+                        }
+                        if app.hovered != prev {
+                            let allow = last_hover_redraw
+                                .is_none_or(|t| t.elapsed() >= HOVER_REDRAW_THROTTLE);
+                            if allow {
+                                last_hover_redraw = Some(Instant::now());
+                                app.invalidate();
+                            }
+                        }
+
+                        // MbtilesMap: update hover on mouse move over the map.
+                        if app.mode == ViewMode::MbtilesMap
+                            && let Some(area) = map_area
+                            && point_in_rect(mouse.column, mouse.row, area)
+                            && let Some(ref mut mbt) = app.mbt_state
+                        {
+                            let rx = f64::from(mouse.column - area.x) / f64::from(area.width);
+                            let ry = f64::from(mouse.row - area.y) / f64::from(area.height);
+                            let (wx, wy) = mbt.viewport_world_at_fracs(rx, ry);
+                            let prev_hov = mbt.hovered.clone();
+                            mbt.find_hovered(wx, wy);
+                            if mbt.hovered != prev_hov {
+                                let allow = last_hover_redraw
+                                    .is_none_or(|t| t.elapsed() >= HOVER_REDRAW_THROTTLE);
+                                if allow {
+                                    last_hover_redraw = Some(Instant::now());
+                                    app.invalidate();
+                                }
+                            }
+                        }
+                    }
+                    MouseEventKind::ScrollUp | MouseEventKind::ScrollDown => {
+                        let up = matches!(mouse.kind, MouseEventKind::ScrollUp);
+                        let s = app.scroll_step();
+                        let step = u16::try_from(s)?;
+
+                        // MbtilesMap: scroll zooms in/out centred on the cursor.
+                        if app.mode == ViewMode::MbtilesMap
+                            && let (Some(area), Some(ref mut mbt)) =
+                                (map_area, app.mbt_state.as_mut())
+                        {
+                            if point_in_rect(mouse.column, mouse.row, area) {
+                                let rx = f64::from(mouse.column - area.x) / f64::from(area.width);
+                                let ry = f64::from(mouse.row - area.y) / f64::from(area.height);
+                                let (wx, wy) = mbt.viewport_world_at_fracs(rx, ry);
+                                mbt.zoom_wheel_at(wx, wy, up);
+                                app.needs_redraw = true;
+                                continue;
+                            }
+                            // Properties panel scroll
+                            if left_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
+                            {
+                                app.properties_scroll = scroll_by(app.properties_scroll, step, up);
+                                app.invalidate();
+                                continue;
+                            }
+                        }
+
+                        if app.mode == ViewMode::FileBrowser {
+                            if filter_area
+                                .is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
+                            {
+                                app.filter_scroll = scroll_by(app.filter_scroll, step, up);
+                                app.invalidate();
+                                continue;
+                            }
+                            if info_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
+                            {
+                                app.file_info_scroll = scroll_by(app.file_info_scroll, step, up);
+                                app.invalidate();
+                                continue;
+                            }
+                        }
+                        if app.mode == ViewMode::LayerOverview {
+                            if props_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
+                            {
+                                app.properties_scroll = scroll_by(app.properties_scroll, step, up);
+                                app.invalidate();
+                                continue;
+                            }
+                            if let Some(area) = tree_area
+                                && point_in_rect(mouse.column, mouse.row, area)
+                            {
+                                if up {
+                                    app.tree_scroll = app.tree_scroll.saturating_sub(step);
+                                } else {
+                                    let inner = area.height.saturating_sub(2) as usize;
+                                    let max =
+                                        u16::try_from(app.tree_items.len().saturating_sub(inner))?;
+                                    app.tree_scroll = app.tree_scroll.saturating_add(step).min(max);
+                                }
+                                app.invalidate();
+                                continue;
+                            }
+                            if map_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a)) {
+                                continue;
+                            }
+                        }
+                        if up {
+                            app.move_up_by(s);
+                        } else {
+                            app.move_down_by(s);
+                        }
+                    }
+                    MouseEventKind::Down(btn) => {
+                        if app.mode == ViewMode::MbtilesMap
+                            && btn == MouseButton::Left
+                            && let (Some(area), Some(ref mut mbt)) =
+                                (map_area, app.mbt_state.as_mut())
+                            && point_in_rect(mouse.column, mouse.row, area)
+                        {
+                            mbt.map_drag_last = Some((mouse.column, mouse.row));
+                            continue;
+                        }
+                        if app.mode == ViewMode::FileBrowser {
+                            if let Some(fl) = file_left {
+                                let dx = fl.x + fl.width;
+                                if mouse.column >= dx.saturating_sub(DIVIDER_GRAB)
+                                    && mouse.column < dx.saturating_add(DIVIDER_GRAB)
+                                    && mouse.row >= fl.y
+                                    && mouse.row < fl.y + fl.height
+                                {
+                                    app.resizing = Some(ResizeHandle::FileBrowserLeftRight);
+                                    app.invalidate();
+                                    continue;
+                                }
+                            }
+                            if let (Some(pa), Some(fa)) = (preview_area, filter_area) {
+                                let mut invalidate = |value: u16, resizer: ResizeHandle| {
+                                    if mouse.row >= value.saturating_sub(DIVIDER_GRAB)
+                                        && mouse.row < value.saturating_add(DIVIDER_GRAB)
+                                        && right_col.is_some_and(|rc| {
+                                            point_in_rect(mouse.column, mouse.row, rc)
+                                        })
+                                    {
+                                        app.resizing = Some(resizer);
+                                        app.invalidate();
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                };
+
+                                let dy_preview = pa.y + pa.height;
+                                if invalidate(dy_preview, ResizeHandle::FileBrowserPreviewFilter) {
+                                    continue;
+                                }
+                                let dy_filter = fa.y + fa.height;
+                                if invalidate(dy_filter, ResizeHandle::FileBrowserFilterInfo) {
+                                    continue;
+                                }
+                            }
+                            if let Some(fa) = filter_area
+                                && point_in_rect(mouse.column, mouse.row, fa)
+                            {
+                                let row = mouse.row.saturating_sub(fa.y + 1) as usize
+                                    + app.filter_scroll as usize;
+                                handle_filter_click(app, row);
+                                continue;
+                            }
+                            if let Some(ia) = info_area
+                                && point_in_rect(mouse.column, mouse.row, ia)
+                                && app.filtered_file_indices.is_empty()
+                                && !app.files.is_empty()
+                            {
+                                let row = mouse.row.saturating_sub(ia.y + 1) as usize;
+                                if row == 2 {
+                                    app.ext_filters.clear();
+                                    app.geom_filters.clear();
+                                    app.algo_filters.clear();
+                                    app.rebuild_filtered_files();
+                                }
+                                continue;
+                            }
+                            if let Some(area) = app.file_table_area {
+                                if app.data_loaded()
+                                    && let Some(widths) = app.file_table_widths
+                                    && let Some(c) = file_header_click_column(
+                                        area,
+                                        &widths,
+                                        mouse.column,
+                                        mouse.row,
+                                    )
+                                {
+                                    app.handle_file_header_click(c);
+                                    continue;
+                                }
+                                if let Some(row) = click_row_in_area(
+                                    mouse.column,
+                                    mouse.row,
+                                    area,
+                                    app.file_list_state.offset(),
+                                ) && row < app.filtered_file_indices.len()
+                                {
+                                    let dbl = last_file_click.is_some_and(|(t, prev)| {
+                                        prev == row && t.elapsed().as_millis() < 400
+                                    });
+                                    last_file_click = Some((Instant::now(), row));
+                                    app.selected_file_index = row;
+                                    app.file_list_state.select(Some(row));
+                                    app.invalidate_bounds();
+                                    if dbl {
+                                        app.handle_enter();
+                                    }
+                                }
+                            }
+                        } else if app.mode == ViewMode::LayerOverview {
+                            if let (Some(la), Some(ta)) = (left_area, tree_area)
+                                && let Some(h) =
+                                    divider_hit(mouse.column, mouse.row, la, ta, geom_area)
+                            {
+                                app.resizing = Some(h);
+                                app.invalidate();
+                                continue;
+                            }
+                            if let Some(area) = tree_area
+                                && let Some(row) = click_row_in_area(
+                                    mouse.column,
+                                    mouse.row,
+                                    area,
+                                    app.tree_scroll as usize,
+                                )
+                                && row < app.tree_items.len()
+                            {
+                                let dbl = last_tree_click.is_some_and(|(t, prev)| {
+                                    prev == row && t.elapsed().as_millis() < 400
+                                });
+                                last_tree_click = Some((Instant::now(), row));
+                                if let Some((l, f, p)) =
+                                    app.tree_items.get(row).and_then(TreeItem::layer_feat_part)
+                                {
+                                    app.handle_feature_click(l, f, p, area.height);
+                                } else {
+                                    app.selected_index = row;
+                                    app.scroll_selected_into_view(
+                                        area.height.saturating_sub(2) as usize
+                                    );
+                                }
+                                app.invalidate_bounds();
+                                if dbl {
+                                    app.handle_enter();
+                                }
+                            }
+                            if let Some(ref h) = app.hovered
+                                && let Some(ta) = tree_area
+                                && map_area
+                                    .is_some_and(|m| point_in_rect(mouse.column, mouse.row, m))
+                            {
+                                app.handle_feature_click(h.layer, h.feat, h.part, ta.height);
+                                app.invalidate_bounds();
+                            }
+                        }
+                    }
+                    _ => {}
+                },
+                Event::Resize(_, _) => app.invalidate(),
+                _ => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Apply scroll delta: subtract if up, add if down.
+fn scroll_by(val: u16, step: u16, up: bool) -> u16 {
+    if up {
+        val.saturating_sub(step)
+    } else {
+        val.saturating_add(step)
+    }
+}
+
+// --- Filtering ---
+
+fn handle_filter_click(app: &mut App, row: usize) {
+    let exts = collect_extensions(&app.files);
+    let geoms = collect_file_geometries(&app.files);
+    let algos = collect_file_algorithms(&app.files);
+
+    let ext_start = 3;
+    let ext_end = ext_start + exts.len();
+    let geom_start = ext_end + 2;
+    let geom_end = geom_start + geoms.len();
+    let algo_start = geom_end + 2;
+    let algo_end = algo_start + algos.len();
+
+    if row == 0 {
+        app.ext_filters.clear();
+        app.geom_filters.clear();
+        app.algo_filters.clear();
+    } else if row >= ext_start && row < ext_end {
+        toggle_set_string(&mut app.ext_filters, &exts[row - ext_start]);
+    } else if row >= geom_start && row < geom_end {
+        toggle_set(&mut app.geom_filters, geoms[row - geom_start]);
+    } else if row >= algo_start && row < algo_end {
+        toggle_set(&mut app.algo_filters, algos[row - algo_start]);
+    }
+    app.rebuild_filtered_files();
+}
+
+fn toggle_set<T: Eq + std::hash::Hash>(set: &mut HashSet<T>, val: T) {
+    if !set.remove(&val) {
+        set.insert(val);
+    }
+}
+
+fn toggle_set_string(set: &mut HashSet<String>, val: &str) {
+    if !set.remove(val) {
+        set.insert(val.to_string());
+    }
+}
+
+pub(crate) fn collect_file_geometries(files: &[LsRow]) -> Vec<GeometryType> {
+    let mut set = HashSet::new();
+    for row in files {
+        if let LsRow::Info { info, .. } = row {
+            for g in &info.geometries {
+                set.insert(*g);
+            }
+        }
+    }
+    let mut v: Vec<_> = set.into_iter().collect();
+    v.sort_unstable();
+    v
+}
+
+pub(crate) fn collect_file_algorithms(files: &[LsRow]) -> Vec<FileAlgorithm> {
+    let mut set = HashSet::new();
+    for row in files {
+        if let LsRow::Info { info, .. } = row {
+            for a in &info.algorithms {
+                set.insert(*a);
+            }
+        }
+    }
+    let mut v: Vec<_> = set.into_iter().collect();
+    v.sort_by_key(FileAlgorithm::to_string);
+    v
+}
+
+fn collect_extensions(files: &[LsRow]) -> Vec<String> {
+    let mut set = HashSet::new();
+    for row in files {
+        if let Some(ext) = row.path().extension().and_then(|e| e.to_str()) {
+            set.insert(ext.to_lowercase());
+        }
+    }
+    let mut v: Vec<_> = set.into_iter().collect();
+    v.sort_unstable();
+    v
+}
+
+// --- Geometry helpers ---
+
+fn geometry_type_name(geom: &Geom32) -> &'static str {
+    GeometryType::try_from(geom).map_or("Unknown", Into::into)
+}
+
+fn geometry_color(geom: &Geom32) -> Color {
+    match geom {
+        Geom32::MultiPoint(_) => CLR_MULTI_POINT,
+        Geom32::LineString(_) => CLR_LINE,
+        Geom32::MultiLineString(_) => CLR_MULTI_LINE,
+        Geom32::Polygon(_) | Geom32::MultiPolygon(_) if has_bad_winding(geom) => CLR_BAD_WINDING,
+        Geom32::Polygon(_) => CLR_POLYGON,
+        Geom32::MultiPolygon(_) => CLR_MULTI_POLYGON,
+        Geom32::Point(_)
+        | Geom32::Line(_)
+        | Geom32::GeometryCollection(_)
+        | Geom32::Rect(_)
+        | Geom32::Triangle(_) => CLR_POINT,
+    }
+}
+
+fn multi_part_count(geom: &Geom32) -> usize {
+    match geom {
+        Geom32::MultiPoint(mp) => mp.0.len(),
+        Geom32::MultiLineString(mls) => mls.0.len(),
+        Geom32::MultiPolygon(mpoly) => mpoly.0.len(),
+        _ => 0,
+    }
+}
+
+fn poly_ring_stats(poly: &Polygon<i32>) -> (usize, usize) {
+    let ring_count = 1 + poly.interiors().len();
+    let total_verts =
+        poly.exterior().0.len() + poly.interiors().iter().map(|r| r.0.len()).sum::<usize>();
+    (total_verts, ring_count)
+}
+
+fn feature_suffix(geom: &Geom32) -> String {
+    let n = multi_part_count(geom);
+    if n > 0 {
+        return format!(" ({n} parts)");
+    }
+    match geom {
+        Geom32::LineString(ls) => format!(" ({}v)", ls.0.len()),
+        Geom32::Polygon(poly) => {
+            let (total, ring_count) = poly_ring_stats(poly);
+            if ring_count > 1 {
+                format!(" ({total}v, {ring_count} rings)")
+            } else {
+                format!(" ({total}v)")
+            }
+        }
+        _ => String::new(),
+    }
+}
+
+fn sub_feature_suffix(geom: &Geom32, part: usize) -> String {
+    match geom {
+        Geom32::MultiLineString(mls) => mls
+            .0
+            .get(part)
+            .map_or(String::new(), |ls| format!(" ({}v)", ls.0.len())),
+        Geom32::MultiPolygon(mpoly) => mpoly.0.get(part).map_or(String::new(), |poly| {
+            let (total, ring_count) = poly_ring_stats(poly);
+            if ring_count > 1 {
+                format!(" ({total}v, {ring_count} rings)")
+            } else {
+                format!(" ({total}v)")
+            }
+        }),
+        _ => String::new(),
+    }
+}
+
+fn is_entry_visible(layer: usize, feat: usize, sel: &TreeItem) -> bool {
+    match sel {
+        TreeItem::All => true,
+        TreeItem::Layer(l) => *l == layer,
+        TreeItem::Feature { layer: l, feat: f }
+        | TreeItem::SubFeature {
+            layer: l, feat: f, ..
+        } => *l == layer && *f == feat,
+    }
+}
+
+fn part_color(sel: Option<usize>, hov: Option<usize>, idx: usize, base: Color) -> Color {
+    if sel == Some(idx) {
+        CLR_SELECTED
+    } else if hov == Some(idx) {
+        CLR_HOVERED
+    } else if sel.is_some() || hov.is_some() {
+        CLR_DIMMED
+    } else {
+        base
+    }
+}
+
+// --- Winding ---
+
+fn ring_signed_area(ring: &[Coord32]) -> f64 {
+    let mut area = 0.0;
+    for w in ring.windows(2) {
+        let [x1, y1] = coord_f64(w[0]);
+        let [x2, y2] = coord_f64(w[1]);
+        area += (x2 - x1) * (y2 + y1);
+    }
+    if let (Some(&last), Some(&first)) = (ring.last(), ring.first()) {
+        let [lx, ly] = coord_f64(last);
+        let [fx, fy] = coord_f64(first);
+        area += (fx - lx) * (fy + ly);
+    }
+    area
+}
+
+pub(crate) fn is_ring_ccw(ring: &[Coord32]) -> bool {
+    ring_signed_area(ring) < 0.0
+}
+
+fn has_bad_winding(geom: &Geom32) -> bool {
+    let check = |poly: &Polygon<i32>| {
+        !is_ring_ccw(&poly.exterior().0) || poly.interiors().iter().any(|r| is_ring_ccw(&r.0))
+    };
+    match geom {
+        Geom32::Polygon(poly) => check(poly),
+        Geom32::MultiPolygon(mpoly) => mpoly.iter().any(check),
+        _ => false,
+    }
+}
+
+// --- Spatial index ---
+
+struct GeometryIndexEntry {
+    layer: usize,
+    feat: usize,
+    part: Option<usize>,
+    vertices: Vec<[f64; 2]>,
+}
+
+impl RTreeObject for GeometryIndexEntry {
+    type Envelope = AABB<[f64; 2]>;
+
+    fn envelope(&self) -> Self::Envelope {
+        if self.vertices.is_empty() {
+            return AABB::from_point([0.0, 0.0]);
+        }
+        let (min_x, min_y, max_x, max_y) = self.vertices.iter().fold(
+            (
+                f64::INFINITY,
+                f64::INFINITY,
+                f64::NEG_INFINITY,
+                f64::NEG_INFINITY,
+            ),
+            |(ax, ay, bx, by), v| (ax.min(v[0]), ay.min(v[1]), bx.max(v[0]), by.max(v[1])),
+        );
+        AABB::from_corners([min_x, min_y], [max_x, max_y])
+    }
+}
+
+impl PointDistance for GeometryIndexEntry {
+    fn distance_2(&self, point: &[f64; 2]) -> f64 {
+        self.vertices
+            .iter()
+            .map(|v| {
+                let dx = v[0] - point[0];
+                let dy = v[1] - point[1];
+                dx * dx + dy * dy
+            })
+            .fold(f64::INFINITY, f64::min)
+    }
+}
+
+#[must_use]
+pub fn coord_f64(c: Coord32) -> [f64; 2] {
+    [f64::from(c.x), f64::from(c.y)]
+}

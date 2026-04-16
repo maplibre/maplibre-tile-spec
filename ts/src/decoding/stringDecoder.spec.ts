@@ -16,7 +16,6 @@ import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsst
 import { ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
 import { LengthType } from "../metadata/tile/lengthType";
-import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 
 describe("decodeString - Plain String Decoder", () => {
     it("should decode plain strings with simple ASCII values", () => {
@@ -43,6 +42,17 @@ describe("decodeString - Plain String Decoder", () => {
         for (let i = 0; i < expectedStrings.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedStrings[i]);
         }
+    });
+
+    it("should decode plain strings with empty string", () => {
+        const expectedStrings = [""];
+        const encodedStrings = encodePlainStrings(expectedStrings);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
+
+        expect(result).toBeInstanceOf(StringFlatVector);
+        const resultVec = result as StringFlatVector;
+        expect(resultVec.getValue(0)).toBe(expectedStrings[0]);
     });
 
     it("should decode plain strings with empty strings", () => {
@@ -174,7 +184,7 @@ describe("decodeString - Empty Column Edge Cases", () => {
 
     it("should handle column with all zero-length streams (returns null)", () => {
         const emptyStream = createStream(PhysicalStreamType.LENGTH, new Uint8Array([]), {
-            logical: new LogicalStreamType(undefined, undefined, LengthType.VAR_BINARY),
+            logical: { lengthType: LengthType.VAR_BINARY },
         });
         const offset = new IntWrapper(0);
         const result = decodeString("testColumn", emptyStream, offset, 1);
@@ -196,7 +206,7 @@ describe("decodeString - Empty Column Edge Cases", () => {
         const encodedStrings = encodePlainStrings(strings);
         const offset = new IntWrapper(0);
         const result = decodeString("testColumn", encodedStrings, offset, 3);
-        expect(result).toBeNull();
+        expect((result as StringFlatVector).getValue(0)).toBeNull();
     });
 });
 

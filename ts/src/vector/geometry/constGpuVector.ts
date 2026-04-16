@@ -1,13 +1,13 @@
 import { GpuVector } from "./gpuVector";
-import type TopologyVector from "./topologyVector";
+import type { TopologyVector } from "./topologyVector";
 
 export function createConstGpuVector(
     numGeometries: number,
     geometryType: number,
     triangleOffsets: Uint32Array,
-    indexBuffer: Int32Array,
-    vertexBuffer: Int32Array,
-    topologyVector?: TopologyVector | null,
+    indexBuffer: Uint32Array,
+    vertexBuffer: Int32Array | Uint32Array,
+    topologyVector?: TopologyVector,
 ): GpuVector {
     return new ConstGpuVector(numGeometries, geometryType, triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
 }
@@ -18,14 +18,14 @@ export class ConstGpuVector extends GpuVector {
         private readonly _numGeometries: number,
         private readonly _geometryType: number,
         triangleOffsets: Uint32Array,
-        indexBuffer: Int32Array,
-        vertexBuffer: Int32Array,
-        topologyVector?: TopologyVector | null,
+        indexBuffer: Uint32Array,
+        vertexBuffer: Int32Array | Uint32Array,
+        topologyVector?: TopologyVector,
     ) {
         super(triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
     }
 
-    geometryType(index: number): number {
+    geometryType(_index: number): number {
         return this._geometryType;
     }
 

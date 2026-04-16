@@ -1,16 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { decodePropertyColumn } from "./propertyDecoder";
 import IntWrapper from "./intWrapper";
+import type Vector from "../vector/vector";
 import { ScalarType, type Column } from "../metadata/tileset/tilesetMetadata";
-import { IntFlatVector } from "../vector/flat/intFlatVector";
-import { LongFlatVector } from "../vector/flat/longFlatVector";
+import { Int32FlatVector } from "../vector/flat/int32FlatVector";
+import { Int64FlatVector } from "../vector/flat/int64FlatVector";
 import { FloatFlatVector } from "../vector/flat/floatFlatVector";
 import { DoubleFlatVector } from "../vector/flat/doubleFlatVector";
 import { BooleanFlatVector } from "../vector/flat/booleanFlatVector";
-import { IntSequenceVector } from "../vector/sequence/intSequenceVector";
-import { LongSequenceVector } from "../vector/sequence/longSequenceVector";
-import { IntConstVector } from "../vector/constant/intConstVector";
-import { LongConstVector } from "../vector/constant/longConstVector";
+import { Int32SequenceVector } from "../vector/sequence/int32SequenceVector";
+import { Int64SequenceVector } from "../vector/sequence/int64SequenceVector";
+import { Int32ConstVector } from "../vector/constant/int32ConstVector";
+import { Int64ConstVector } from "../vector/constant/int64ConstVector";
 import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
 import { createColumnMetadataForStruct, encodeSharedDictionary, encodeStructField } from "./decodingTestUtils";
 import { concatenateBuffers } from "../encoding/encodingUtils";
@@ -36,7 +37,7 @@ import {
     encodeInt32NullableColumn,
 } from "../encoding/propertyEncoder";
 
-function createColumnMetadata(name: string, scalarType: number, nullable: boolean = false): Column {
+function createColumnMetadata(name: string, scalarType: number, nullable = false): Column {
     return {
         name: name,
         nullable: nullable,
@@ -57,8 +58,8 @@ describe("decodePropertyColumn - INT_32", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, expectedValues.length);
 
-        expect(result).toBeInstanceOf(IntFlatVector);
-        const resultVec = result as IntFlatVector;
+        expect(result).toBeInstanceOf(Int32FlatVector);
+        const resultVec = result as Int32FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
@@ -72,8 +73,8 @@ describe("decodePropertyColumn - INT_32", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, expectedValues.length);
 
-        expect(result).toBeInstanceOf(IntFlatVector);
-        const resultVec = result as IntFlatVector;
+        expect(result).toBeInstanceOf(Int32FlatVector);
+        const resultVec = result as Int32FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
@@ -90,8 +91,8 @@ describe("decodePropertyColumn - INT_32", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, expectedValues.length);
 
-        expect(result).toBeInstanceOf(IntFlatVector);
-        const resultVec = result as IntFlatVector;
+        expect(result).toBeInstanceOf(Int32FlatVector);
+        const resultVec = result as Int32FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
@@ -109,8 +110,8 @@ describe("decodePropertyColumn - INT_32", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, expectedValues.length);
 
-        expect(result).toBeInstanceOf(IntFlatVector);
-        const resultVec = result as IntFlatVector;
+        expect(result).toBeInstanceOf(Int32FlatVector);
+        const resultVec = result as Int32FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
@@ -124,8 +125,8 @@ describe("decodePropertyColumn - INT_32", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 2, expectedValues.length);
 
-        expect(result).toBeInstanceOf(IntFlatVector);
-        const resultVec = result as IntFlatVector;
+        expect(result).toBeInstanceOf(Int32FlatVector);
+        const resultVec = result as Int32FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
@@ -140,8 +141,8 @@ describe("decodePropertyColumn - INT_32", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, numValues);
 
-        expect(result).toBeInstanceOf(IntSequenceVector);
-        const seqVec = result as IntSequenceVector;
+        expect(result).toBeInstanceOf(Int32SequenceVector);
+        const seqVec = result as Int32SequenceVector;
         expect(seqVec.getValue(0)).toBe(value);
         expect(seqVec.getValue(1)).toBe(value + value);
         expect(seqVec.getValue(2)).toBe(value + value * 2);
@@ -156,8 +157,8 @@ describe("decodePropertyColumn - INT_32", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, numValues);
 
-        expect(result).toBeInstanceOf(IntConstVector);
-        const constVec = result as IntConstVector;
+        expect(result).toBeInstanceOf(Int32ConstVector);
+        const constVec = result as Int32ConstVector;
         expect(constVec.getValue(0)).toBe(constValue);
         expect(constVec.getValue(4)).toBe(constValue);
     });
@@ -172,11 +173,38 @@ describe("decodePropertyColumn - UINT_32", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, expectedValues.length);
 
-        expect(result).toBeInstanceOf(IntFlatVector);
-        const resultVec = result as IntFlatVector;
+        expect(result).toBeInstanceOf(Int32FlatVector);
+        const resultVec = result as Int32FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
+    });
+
+    it("should decode UINT_32 max value in FLAT vector", () => {
+        const expectedValues = new Uint32Array([0xffffffff, 1]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.UINT_32, false);
+        const encodedData = encodeUint32Column(expectedValues);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, expectedValues.length);
+
+        expect(result).toBeInstanceOf(Int32FlatVector);
+        const resultVec = result as Int32FlatVector;
+        expect(resultVec.getValue(0)).toBe(0xffffffff);
+        expect(resultVec.getValue(1)).toBe(1);
+    });
+
+    it("should decode UINT_32 CONST vector", () => {
+        const expectedValue = 0xffffffff;
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.UINT_32, false);
+        const encodedData = encodeUint32Column(new Uint32Array([expectedValue]));
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, 1);
+
+        expect(result).toBeInstanceOf(Int32ConstVector);
+        const constVec = result as Int32ConstVector;
+        expect(constVec.getValue(0)).toBe(expectedValue);
     });
 });
 
@@ -189,8 +217,8 @@ describe("decodePropertyColumn - INT_64", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, expectedValues.length);
 
-        expect(result).toBeInstanceOf(LongFlatVector);
-        const resultVec = result as LongFlatVector;
+        expect(result).toBeInstanceOf(Int64FlatVector);
+        const resultVec = result as Int64FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
@@ -204,8 +232,8 @@ describe("decodePropertyColumn - INT_64", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, expectedValues.length);
 
-        expect(result).toBeInstanceOf(LongFlatVector);
-        const resultVec = result as LongFlatVector;
+        expect(result).toBeInstanceOf(Int64FlatVector);
+        const resultVec = result as Int64FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
@@ -222,8 +250,8 @@ describe("decodePropertyColumn - INT_64", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, expectedValues.length);
 
-        expect(result).toBeInstanceOf(LongFlatVector);
-        const resultVec = result as LongFlatVector;
+        expect(result).toBeInstanceOf(Int64FlatVector);
+        const resultVec = result as Int64FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
@@ -241,8 +269,8 @@ describe("decodePropertyColumn - INT_64", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, expectedValues.length);
 
-        expect(result).toBeInstanceOf(LongFlatVector);
-        const resultVec = result as LongFlatVector;
+        expect(result).toBeInstanceOf(Int64FlatVector);
+        const resultVec = result as Int64FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
@@ -256,8 +284,8 @@ describe("decodePropertyColumn - INT_64", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 2, expectedValues.length);
 
-        expect(result).toBeInstanceOf(LongFlatVector);
-        const resultVec = result as LongFlatVector;
+        expect(result).toBeInstanceOf(Int64FlatVector);
+        const resultVec = result as Int64FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
@@ -272,8 +300,8 @@ describe("decodePropertyColumn - INT_64", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, numValues);
 
-        expect(result).toBeInstanceOf(LongSequenceVector);
-        const seqVec = result as LongSequenceVector;
+        expect(result).toBeInstanceOf(Int64SequenceVector);
+        const seqVec = result as Int64SequenceVector;
         expect(seqVec.getValue(0)).toBe(value);
         expect(seqVec.getValue(1)).toBe(value + value);
         expect(seqVec.getValue(2)).toBe(value + value * 2n);
@@ -288,8 +316,8 @@ describe("decodePropertyColumn - INT_64", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, numValues);
 
-        expect(result).toBeInstanceOf(LongConstVector);
-        const constVec = result as LongConstVector;
+        expect(result).toBeInstanceOf(Int64ConstVector);
+        const constVec = result as Int64ConstVector;
         expect(constVec.getValue(0)).toBe(constValue);
         expect(constVec.getValue(4)).toBe(constValue);
     });
@@ -304,11 +332,38 @@ describe("decodePropertyColumn - UINT_64", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, expectedValues.length);
 
-        expect(result).toBeInstanceOf(LongFlatVector);
-        const resultVec = result as LongFlatVector;
+        expect(result).toBeInstanceOf(Int64FlatVector);
+        const resultVec = result as Int64FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
+    });
+
+    it("should decode UINT_64 max value in FLAT vector", () => {
+        const expectedValues = new BigUint64Array([0xffffffffffffffffn, 1n]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.UINT_64, false);
+        const encodedData = encodeUint64Column(expectedValues);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, expectedValues.length);
+
+        expect(result).toBeInstanceOf(Int64FlatVector);
+        const resultVec = result as Int64FlatVector;
+        expect(resultVec.getValue(0)).toBe(0xffffffffffffffffn);
+        expect(resultVec.getValue(1)).toBe(1n);
+    });
+
+    it("should decode UINT_64 CONST vector", () => {
+        const expectedValue = 0xffffffffffffffffn;
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.UINT_64, false);
+        const encodedData = encodeUint64Column(new BigUint64Array([expectedValue]));
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, 1);
+
+        expect(result).toBeInstanceOf(Int64ConstVector);
+        const constVec = result as Int64ConstVector;
+        expect(constVec.getValue(0)).toBe(expectedValue);
     });
 
     it("should decode nullable UINT_64 column with null values", () => {
@@ -319,8 +374,8 @@ describe("decodePropertyColumn - UINT_64", () => {
 
         const result = decodePropertyColumn(encodedData, offset, columnMetadata, 2, expectedValues.length);
 
-        expect(result).toBeInstanceOf(LongFlatVector);
-        const resultVec = result as LongFlatVector;
+        expect(result).toBeInstanceOf(Int64FlatVector);
+        const resultVec = result as Int64FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
@@ -427,7 +482,7 @@ describe("decodePropertyColumn - DOUBLE", () => {
     });
 
     it("should decode nullable DOUBLE column with null values", () => {
-        const expectedValues = [1.5, null, 2.7, null, 3.14159];
+        const expectedValues = [1.5, null, 2.7, null, Math.PI];
         const columnMetadata = createColumnMetadata("testColumn", ScalarType.DOUBLE, true);
         const encodedData = encodeDoubleNullableColumn(expectedValues);
         const offset = new IntWrapper(0);
@@ -441,7 +496,7 @@ describe("decodePropertyColumn - DOUBLE", () => {
         expect(resultVec.getValue(1)).toBe(null); // null value
         expect(resultVec.getValue(2)).toBeCloseTo(2.7, 5);
         expect(resultVec.getValue(3)).toBe(null); // null value
-        expect(resultVec.getValue(4)).toBeCloseTo(3.14159, 5);
+        expect(resultVec.getValue(4)).toBeCloseTo(Math.PI, 5);
     });
 
     it("should handle offset correctly after decoding DOUBLE column", () => {
@@ -469,10 +524,10 @@ describe("decodePropertyColumn - STRING", () => {
             const result = decodePropertyColumn(completeData, offset, columnMetadata, 1, dictionaryStrings.length);
 
             expect(result).toHaveLength(1);
-            expect(result[0]).toBeInstanceOf(StringDictionaryVector);
-            expect(result[0].name).toBe("address:street");
+            expect((result as Vector[])[0]).toBeInstanceOf(StringDictionaryVector);
+            expect((result as Vector[])[0].name).toBe("address:street");
             for (let i = 0; i < dictionaryStrings.length; i++) {
-                expect(result[0].getValue(i)).toBe(dictionaryStrings[i]);
+                expect((result as Vector[])[0].getValue(i)).toBe(dictionaryStrings[i]);
             }
         });
 
@@ -486,10 +541,10 @@ describe("decodePropertyColumn - STRING", () => {
             const result = decodePropertyColumn(completeData, offset, columnMetadata, 5, dictionaryStrings.length);
 
             expect(result).toHaveLength(1);
-            expect(result[0]).toBeInstanceOf(StringDictionaryVector);
-            expect(result[0].name).toBe("address:street");
+            expect((result as Vector[])[0]).toBeInstanceOf(StringDictionaryVector);
+            expect((result as Vector[])[0].name).toBe("address:street");
             for (let i = 0; i < dictionaryStrings.length; i++) {
-                expect(result[0].getValue(i)).toBe(dictionaryStrings[i]);
+                expect((result as Vector[])[0].getValue(i)).toBe(dictionaryStrings[i]);
             }
         });
     });
@@ -512,8 +567,8 @@ describe("decodePropertyColumn - Edge Cases", () => {
             propertyColumnNames,
         );
 
-        expect(result).toBeInstanceOf(IntFlatVector);
-        const resultVec = result as IntFlatVector;
+        expect(result).toBeInstanceOf(Int32FlatVector);
+        const resultVec = result as Int32FlatVector;
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }

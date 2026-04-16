@@ -1,0 +1,6 @@
+{
+  "name": "synthetic-test-utils",
+  "main": "index.ts",
+  "type": "module",
+  "dependencies": { }
+}

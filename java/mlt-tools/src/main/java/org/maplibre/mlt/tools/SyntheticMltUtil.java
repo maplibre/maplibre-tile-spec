@@ -1,6 +1,7 @@
 package org.maplibre.mlt.tools;
 
-import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.*;
+import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.AUTO;
+import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.PLAIN;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,16 +13,28 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import org.locationtech.jts.geom.*;
-import org.maplibre.mlt.cli.CliUtil;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.LinearRing;
+import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.MultiPoint;
+import org.locationtech.jts.geom.MultiPolygon;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.PrecisionModel;
+import org.maplibre.mlt.converter.ColumnMapping;
+import org.maplibre.mlt.converter.ColumnMappingConfig;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.MLTFeature;
+import org.maplibre.mlt.data.MapboxVectorTile;
 import org.maplibre.mlt.decoder.MltDecoder;
+import org.maplibre.mlt.json.Json;
 
 /** Utility helpers for synthetic MLT generation. */
 class SyntheticMltUtil {
@@ -32,16 +45,23 @@ class SyntheticMltUtil {
   // ensuring we observe difference in encoding rather than geometry variations.
   // Use SRID 4326 for visualization - all coords are in positive longitude/latitude
   // range, but in reality the coords are in SRID=0 tile space.
+  // Use coordinates X in 0..180, Y in 0..85 space to match lon/lat ranges and help QGIS vis.
+  // Try to keep all values unique to simplify validation and debugging.
+  // Use tiny tile extent 80 for most geometry tests to focus on encoding correctness.
   static final GeometryFactory gf = new GeometryFactory(new PrecisionModel(), 4326);
   static final Coordinate c0 = c(13, 42);
-  // triangle
-  static final Coordinate c1 = c(4, 47);
-  static final Coordinate c2 = c(12, 53);
-  static final Coordinate c3 = c(18, 45);
-  // hole with counter-clockwise winding
-  static final Coordinate h1 = c(13, 48);
-  static final Coordinate h2 = c(12, 50);
-  static final Coordinate h3 = c(10, 49);
+  // triangle 1, clockwise winding, X ends in 1, Y ends in 2
+  static final Coordinate c1 = c(11, 52);
+  static final Coordinate c2 = c(71, 72);
+  static final Coordinate c3 = c(61, 22);
+  // triangle 2, clockwise winding, X ends in 3, Y ends in 4
+  static final Coordinate c21 = c(23, 34);
+  static final Coordinate c22 = c(73, 4);
+  static final Coordinate c23 = c(13, 24);
+  // hole in triangle 1 with counter-clockwise winding
+  static final Coordinate h1 = c(65, 66);
+  static final Coordinate h2 = c(35, 56);
+  static final Coordinate h3 = c(55, 36);
 
   static final Point p0 = gf.createPoint(c0);
   static final Point p1 = gf.createPoint(c1);
@@ -52,40 +72,54 @@ class SyntheticMltUtil {
   static final Point ph2 = gf.createPoint(h2);
   static final Point ph3 = gf.createPoint(h3);
 
+  static final LineString line1 = line(c1, c2, c3);
+  static final LineString line2 = line(c21, c22, c23);
+  static final Polygon poly1 = poly(c1, c2, c3, c1);
+  static final Polygon poly2 = poly(c21, c22, c23, c21);
+  static final Polygon poly1h = poly(ring(c1, c2, c3, c1), ring(h1, h2, h3, h1));
+  // 4x4 complete Morton block: 16 points decoded from Z-order (even bits → x, odd bits → y).
+  // Shared by line_morton and poly_morton so both test the same coordinate pattern.
+  static final Coordinate[] mortonCurve = buildMortonCurve(16, 8, 4);
+
   /** Builder subclass with no-argument shorthand methods for common flags. */
-  static class Cfg extends ConversionConfig.Builder {
+  static class Cfg extends ConversionConfig.ConfigBuilder {
     public Cfg ids() {
-      this.includeIds(true);
+      super.includeIds(true);
       return this;
     }
 
     public Cfg fastPFOR() {
-      this.useFastPFOR(true);
+      super.useFastPFOR(true);
       return this;
     }
 
     public Cfg fsst() {
-      this.useFSST(true);
+      super.useFSST(true);
+      return this;
+    }
+
+    public Cfg geomEnc(ConversionConfig.IntegerEncodingOption encoding) {
+      super.geometryEncodingOption(encoding);
       return this;
     }
 
     public Cfg coercePropValues() {
-      this.coercePropertyValues(true);
+      super.typeMismatchPolicy(ConversionConfig.TypeMismatchPolicy.COERCE);
       return this;
     }
 
     public Cfg tessellate() {
-      this.preTessellatePolygons(true);
+      super.preTessellatePolygons(true);
       return this;
     }
 
     public Cfg morton() {
-      this.useMortonEncoding(true);
+      super.useMortonEncoding(true);
       return this;
     }
 
     public Cfg filterInvert() {
-      this.layerFilterInvert(true);
+      super.layerFilterInvert(true);
       return this;
     }
 
@@ -96,6 +130,20 @@ class SyntheticMltUtil {
     public Cfg sharedDictPrefix(String prefix, String delimiter) {
       var mapping = new ColumnMapping(prefix, delimiter, true);
       var layerOpt = new FeatureTableOptimizations(false, false, List.of(mapping));
+
+      var optimizationsMap = new HashMap<String, FeatureTableOptimizations>();
+      optimizationsMap.put("layer1", layerOpt);
+      super.optimizations(optimizationsMap);
+      return this;
+    }
+
+    /**
+     * Enable shared dictionary encoding using explicit groups of column names. Each group becomes
+     * its own shared dictionary.
+     */
+    public Cfg sharedDictColumnGroups(List<List<String>> columnGroups) {
+      var mappings = columnGroups.stream().map(cols -> new ColumnMapping(cols, true)).toList();
+      var layerOpt = new FeatureTableOptimizations(false, false, mappings);
 
       var optimizationsMap = new HashMap<String, FeatureTableOptimizations>();
       optimizationsMap.put("layer1", layerOpt);
@@ -113,7 +161,7 @@ class SyntheticMltUtil {
     c.includeIds(false);
     c.useFastPFOR(false);
     c.useFSST(false);
-    c.coercePropertyValues(false);
+    c.typeMismatchPolicy(ConversionConfig.TypeMismatchPolicy.FAIL);
     // c.optimizations(null); // Map<String, FeatureTableOptimizations>
     c.preTessellatePolygons(false);
     c.useMortonEncoding(false);
@@ -125,7 +173,8 @@ class SyntheticMltUtil {
     c.outlineFeatureTableNames(List.of("ALL"));
     // c.layerFilterPattern(null); // Pattern
     c.layerFilterInvert(false);
-    c.integerEncoding(encoding);
+    c.integerEncodingOption(encoding);
+    c.geometryEncodingOption(AUTO);
     return c;
   }
 
@@ -137,6 +186,21 @@ class SyntheticMltUtil {
 
   static Coordinate c(int x, int y) {
     return new Coordinate(x, y);
+  }
+
+  /** De-interleave Z-order index bits into x (even bits) and y (odd bits) coordinates. */
+  static Coordinate[] buildMortonCurve(int numPoints, int scale, int mortonBits) {
+    var curve = new Coordinate[numPoints];
+    for (var i = 0; i < numPoints; i++) {
+      var x = 0;
+      var y = 0;
+      for (var b = 0; b < mortonBits; b++) {
+        x |= ((i >> (2 * b)) & 1) << b;
+        y |= ((i >> (2 * b + 1)) & 1) << b;
+      }
+      curve[i] = c(x * scale, y * scale);
+    }
+    return curve;
   }
 
   static LineString line(Coordinate... coords) {
@@ -155,7 +219,8 @@ class SyntheticMltUtil {
     return gf.createPolygon(shell, holes);
   }
 
-  static MultiPoint multi(Point... pts) {
+  static MultiPoint multi(Coordinate... coords) {
+    var pts = Arrays.stream(coords).map(t -> gf.createPoint(t)).toArray(Point[]::new);
     return gf.createMultiPoint(pts);
   }
 
@@ -186,43 +251,43 @@ class SyntheticMltUtil {
   }
 
   static Feature feat(Geometry geom) {
-    return new Feature(0, geom, Map.of());
+    return MLTFeature.builder().index(0).geometry(geom).build();
   }
 
-  static Feature feat(Geometry geom, Map<String, Object> props) {
-    return new Feature(0, geom, props);
+  static MLTFeature feat(Geometry geom, Map<String, Object> props) {
+    return MLTFeature.builder().index(0).geometry(geom).rawProperties(props).build();
   }
 
   /** for testing IDs - always use the same geometry */
   static Feature idFeat(long id) {
-    return new Feature(id, p0, Map.of());
+    return MLTFeature.builder().index(0).id(id).geometry(p0).build();
   }
 
   /** for testing IDs - simulate missing ID */
   static Feature idFeat() {
-    // FIXME: once we support nullable IDs, change this code
-    throw new IllegalStateException("Cannot create feature with null ID in current implementation");
+    return feat(p0);
   }
 
   static Layer layer(String name, Feature... features) {
-    return new Layer(name, Arrays.asList(features), 4096);
+    return new Layer(name, Arrays.asList(features), 80);
   }
 
   static Layer layer(String name, int extent, Feature... features) {
     return new Layer(name, Arrays.asList(features), extent);
   }
 
-  static void write(String name, Feature feat, ConversionConfig.Builder cfg) throws IOException {
+  static void write(String name, Feature feat, ConversionConfig.ConfigBuilder cfg)
+      throws IOException {
     write(layer(name, feat), cfg);
   }
 
-  static void write(Layer layer, ConversionConfig.Builder cfg) throws IOException {
+  static void write(Layer layer, ConversionConfig.ConfigBuilder cfg) throws IOException {
     // layer names should be identical to reduce variability in generated MLT files
     // and ensure we observe differences in encoding rather than layer name variations
     write(layer.name(), List.of(new Layer("layer1", layer.features(), layer.tileExtent())), cfg);
   }
 
-  static void write(String fileName, List<Layer> layers, ConversionConfig.Builder cfg)
+  static void write(String fileName, List<Layer> layers, ConversionConfig.ConfigBuilder cfg)
       throws IOException {
     try {
       System.out.println("Generating: " + fileName);
@@ -233,10 +298,10 @@ class SyntheticMltUtil {
       var tile = new MapboxVectorTile(layers);
 
       // Extract column mappings from the config's optimizations
-      var columnMappings = new HashMap<Pattern, List<ColumnMapping>>();
-      if (config.getOptimizations() != null && !config.getOptimizations().isEmpty()) {
+      final var columnMappings = new ColumnMappingConfig();
+      if (config.optimizations() != null && !config.optimizations().isEmpty()) {
         var allColumnMappings =
-            config.getOptimizations().values().stream()
+            config.optimizations().values().stream()
                 .flatMap(opt -> opt.columnMappings().stream())
                 .toList();
         if (!allColumnMappings.isEmpty()) {
@@ -244,12 +309,11 @@ class SyntheticMltUtil {
         }
       }
 
-      var metadata =
-          MltConverter.createTilesetMetadata(tile, columnMappings, config.getIncludeIds());
-      var mlt = MltConverter.convertMvt(tile, metadata, config, null);
+      var metadata = MltConverter.createTilesetMetadata(tile, columnMappings, config.includeIds());
+      var mlt = MltConverter.encode(tile, metadata, config, null);
       Files.write(mltFile, mlt, StandardOpenOption.CREATE_NEW);
 
-      String json = CliUtil.printMltGeoJson(MltDecoder.decodeMlTile(mlt)) + "\n";
+      final String json = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";
       Files.writeString(jsonFile, json, StandardOpenOption.CREATE_NEW);
     } catch (Exception e) {
       throw new IOException("Error writing MLT file " + fileName, e);

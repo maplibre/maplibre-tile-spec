@@ -122,7 +122,9 @@ function readUtf8(buf, pos, end): string {
 
         if (i + bytesPerSequence > end) break;
 
-        let b1, b2, b3;
+        let b1;
+        let b2;
+        let b3;
 
         if (bytesPerSequence === 1) {
             if (b0 < 0x80) {
@@ -181,7 +183,7 @@ export function getVectorTypeBooleanStream(
 ): VectorType {
     const valuesPerRun = 0x83;
     // TODO: use VectorType metadata field for to test which VectorType is used
-    return Math.ceil(numFeatures / valuesPerRun) * 2 == byteLength &&
+    return Math.ceil(numFeatures / valuesPerRun) * 2 === byteLength &&
         /* Test the first value byte if all bits are set to true */
         (data[offset.get() + 1] & 0xff) === (bitCount(numFeatures) << 2) - 1
         ? VectorType.CONST

@@ -1,12 +1,12 @@
 **/*.rs.bk
 *.pdb
+*.proptest-regressions
 .idea/
 .vscode/
 debug/
+proptest-regressions/
 target/
 temp/
 tmp/
 venv/
-
-# This is a library, no lock
-Cargo.lock
+rustc-ice-*.txt

@@ -1,4 +1,4 @@
-import { type SelectionVector } from "./selectionVector";
+import type { SelectionVector } from "./selectionVector";
 
 /**
  * Memory-efficient SelectionVector for arithmetic sequences (base + index * delta).

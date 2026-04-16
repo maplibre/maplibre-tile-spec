@@ -1,15 +1,15 @@
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import { LengthType } from "../metadata/tile/lengthType";
 import { OffsetType } from "../metadata/tile/offsetType";
-import { type RleEncodedStreamMetadata, type StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import IntWrapper from "./intWrapper";
 import { type Column, type Field, ComplexType, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { encodeBooleanRle, encodeStrings, createStringLengths } from "../encoding/encodingUtils";
 import { encodeVarintInt32Value, encodeVarintInt32 } from "../encoding/integerEncodingUtils";
+import type { RleEncodedStreamMetadata, StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
+import type { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 
 /**
  * Creates basic stream metadata with logical techniques.
@@ -17,11 +17,11 @@ import { encodeVarintInt32Value, encodeVarintInt32 } from "../encoding/integerEn
 export function createStreamMetadata(
     logicalTechnique1: LogicalLevelTechnique,
     logicalTechnique2: LogicalLevelTechnique = LogicalLevelTechnique.NONE,
-    numValues: number = 3,
+    numValues = 3,
 ): StreamMetadata {
     return {
         physicalStreamType: PhysicalStreamType.DATA,
-        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
+        logicalStreamType: { dictionaryType: DictionaryType.NONE },
         logicalLevelTechnique1: logicalTechnique1,
         logicalLevelTechnique2: logicalTechnique2,
         physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
@@ -42,7 +42,7 @@ export function createRleMetadata(
 ): RleEncodedStreamMetadata {
     return {
         physicalStreamType: PhysicalStreamType.DATA,
-        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
+        logicalStreamType: { dictionaryType: DictionaryType.NONE },
         logicalLevelTechnique1: logicalTechnique1,
         logicalLevelTechnique2: logicalTechnique2,
         physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
@@ -99,7 +99,7 @@ export function createStream(
     return buildEncodedStream(
         {
             physicalStreamType: physicalType,
-            logicalStreamType: options.logical ?? new LogicalStreamType(),
+            logicalStreamType: options.logical ?? {},
             logicalLevelTechnique1: LogicalLevelTechnique.NONE,
             logicalLevelTechnique2: LogicalLevelTechnique.NONE,
             physicalLevelTechnique: options.technique ?? PhysicalLevelTechnique.NONE,
@@ -118,10 +118,10 @@ export function createStream(
  */
 export function encodeFsstStrings(): Uint8Array {
     const symbolTable = new Uint8Array([99, 97, 116, 100, 111, 103]); // "catdog"
-    const symbolLengths = new Int32Array([3, 3]);
+    const symbolLengths = new Uint32Array([3, 3]);
     const compressedDictionary = new Uint8Array([0, 1]);
-    const dictionaryLengths = new Int32Array([3, 3]);
-    const offsets = new Int32Array([0, 1, 0]); // "cat", "dog", "cat"
+    const dictionaryLengths = new Uint32Array([3, 3]);
+    const offsets = new Uint32Array([0, 1, 0]); // "cat", "dog", "cat"
     const numValues = 3;
 
     return concatenateBuffers(
@@ -130,25 +130,25 @@ export function encodeFsstStrings(): Uint8Array {
             count: numValues,
         }),
         createStream(PhysicalStreamType.DATA, symbolTable, {
-            logical: new LogicalStreamType(DictionaryType.FSST),
+            logical: { dictionaryType: DictionaryType.FSST },
         }),
         createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(symbolLengths), {
-            logical: new LogicalStreamType(undefined, undefined, LengthType.SYMBOL),
+            logical: { lengthType: LengthType.SYMBOL },
             technique: PhysicalLevelTechnique.VARINT,
             count: symbolLengths.length,
         }),
         createStream(PhysicalStreamType.OFFSET, encodeVarintInt32(offsets), {
-            logical: new LogicalStreamType(undefined, OffsetType.STRING),
+            logical: { offsetType: OffsetType.STRING },
             technique: PhysicalLevelTechnique.VARINT,
             count: offsets.length,
         }),
         createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(dictionaryLengths), {
-            logical: new LogicalStreamType(undefined, undefined, LengthType.DICTIONARY),
+            logical: { lengthType: LengthType.DICTIONARY },
             technique: PhysicalLevelTechnique.VARINT,
             count: dictionaryLengths.length,
         }),
         createStream(PhysicalStreamType.DATA, compressedDictionary, {
-            logical: new LogicalStreamType(DictionaryType.SINGLE),
+            logical: { dictionaryType: DictionaryType.SINGLE },
         }),
     );
 }
@@ -173,29 +173,33 @@ export function encodeSharedDictionary(
     const encodedDictionary = encodeStrings(dictionaryStrings);
     const dictionaryLengths = createStringLengths(dictionaryStrings);
 
-    const lengthStream = createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(new Int32Array(dictionaryLengths)), {
-        logical: new LogicalStreamType(undefined, undefined, LengthType.DICTIONARY),
-        technique: PhysicalLevelTechnique.VARINT,
-        count: dictionaryLengths.length,
-    });
+    const lengthStream = createStream(
+        PhysicalStreamType.LENGTH,
+        encodeVarintInt32(new Uint32Array(dictionaryLengths)),
+        {
+            logical: { lengthType: LengthType.DICTIONARY },
+            technique: PhysicalLevelTechnique.VARINT,
+            count: dictionaryLengths.length,
+        },
+    );
 
     const dataStream = createStream(PhysicalStreamType.DATA, encodedDictionary, {
-        logical: new LogicalStreamType(dictionaryType),
+        logical: { dictionaryType: dictionaryType },
         count: encodedDictionary.length,
     });
 
     if (useFsst) {
         const symbolTable = new Uint8Array([99, 97, 116, 100, 111, 103]); // "catdog"
-        const symbolLengths = new Int32Array([3, 3]);
+        const symbolLengths = new Uint32Array([3, 3]);
 
         const symbolLengthStream = createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(symbolLengths), {
-            logical: new LogicalStreamType(undefined, undefined, LengthType.SYMBOL),
+            logical: { lengthType: LengthType.SYMBOL },
             technique: PhysicalLevelTechnique.VARINT,
             count: symbolLengths.length,
         });
 
         const symbolDataStream = createStream(PhysicalStreamType.DATA, symbolTable, {
-            logical: new LogicalStreamType(DictionaryType.FSST),
+            logical: { dictionaryType: DictionaryType.FSST },
             count: symbolTable.length,
         });
 
@@ -212,11 +216,7 @@ export function encodeSharedDictionary(
  * @param isPresent - Whether the field itself is present
  * @returns Encoded streams for the field
  */
-export function encodeStructField(
-    offsetIndices: number[],
-    presentValues: boolean[],
-    isPresent: boolean = true,
-): Uint8Array {
+export function encodeStructField(offsetIndices: number[], presentValues: boolean[], isPresent = true): Uint8Array {
     if (!isPresent) {
         return encodeNumStreams(0);
     }
@@ -238,7 +238,7 @@ function encodeNumStreams(numStreams: number): Uint8Array {
 function createPresentStream(presentValues: boolean[]): Uint8Array {
     const metadata = {
         physicalStreamType: PhysicalStreamType.PRESENT,
-        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
+        logicalStreamType: { dictionaryType: DictionaryType.NONE },
         logicalLevelTechnique1: LogicalLevelTechnique.NONE,
         logicalLevelTechnique2: LogicalLevelTechnique.NONE,
         physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
@@ -252,7 +252,7 @@ function createPresentStream(presentValues: boolean[]): Uint8Array {
 function createOffsetStream(offsetIndices: number[]): Uint8Array {
     const metadata = {
         physicalStreamType: PhysicalStreamType.OFFSET,
-        logicalStreamType: new LogicalStreamType(undefined, OffsetType.STRING),
+        logicalStreamType: { offsetType: OffsetType.STRING },
         logicalLevelTechnique1: LogicalLevelTechnique.NONE,
         logicalLevelTechnique2: LogicalLevelTechnique.NONE,
         physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
@@ -260,7 +260,7 @@ function createOffsetStream(offsetIndices: number[]): Uint8Array {
         byteLength: 0,
         decompressedCount: offsetIndices.length,
     };
-    return buildEncodedStream(metadata, encodeVarintInt32(new Int32Array(offsetIndices)));
+    return buildEncodedStream(metadata, encodeVarintInt32(new Uint32Array(offsetIndices)));
 }
 
 /**

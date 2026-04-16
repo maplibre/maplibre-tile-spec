@@ -10,6 +10,7 @@ This is a multi-project Gradle build with two main components:
 
 - **`mlt-core`** - The core library containing the MLT encoding/decoding functionality
 - **`mlt-cli`** - Command-line tools for converting between MVT and MLT formats
+- **`mlt-tools`** - Utilities for working with MLT, currently only used for testing
 
 The core library is published to Maven Central, while the CLI tools are built locally for development use.
 
@@ -26,7 +27,7 @@ repositories {
 }
 
 dependencies {
-  implementation 'org.maplibre:mlt:0.0.1'
+  implementation 'org.maplibre:mlt:0.0.10'
 }
 ```
 
@@ -41,7 +42,7 @@ repositories {
 }
 
 dependencies {
-  implementation("org.maplibre:mlt:0.0.1")
+  implementation("org.maplibre:mlt:0.0.10")
 }
 ```
 
@@ -63,10 +64,12 @@ dependencies {
   <dependency>
     <groupId>org.maplibre</groupId>
     <artifactId>mlt</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.10</version>
   </dependency>
 </dependencies>
 ```
+
+See the [Maven Central Repository](https://mvnrepository.com/artifact/org.maplibre/mlt) for the latest published versions and syntax for other build systems.
 
 ## Usage Examples
 
@@ -77,7 +80,7 @@ Convert a Mapbox Vector Tile (MVT) to MLT format:
 ```java
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.ColumnMapping;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
@@ -91,11 +94,11 @@ byte[] mvtData = Files.readAllBytes(Path.of("tile.mvt"));
 var mvtTile = MvtUtils.decodeMvt(mvtData);
 
 // Configure column mappings for nested properties (e.g., name:en, name:de)
-var columnMappings = List.of(new ColumnMapping("name", ":", true));
+var columnMappingConfig = List.of(new ColumnMapping("name", ":", true));
 
-var tilesetMetadata = MltConverter.createTilesetMetadata(mvtTile, columnMappings, true);
+var tilesetMetadata = MltConverter.createTilesetMetadata(mvtTile, columnMappingConfig, true);
 
-var optimization = new FeatureTableOptimizations(false, false, columnMappings);
+var optimization = new FeatureTableOptimizations(false, false, columnMappingConfig);
 var optimizations = Map.of("layer_name", optimization);
 var config = new ConversionConfig(true, true, optimizations);
 
@@ -139,7 +142,7 @@ For better compression, you can enable advanced encoding schemes and sorting:
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import java.util.Map;
 
-var optimization = new FeatureTableOptimizations(true, true, columnMappings);
+var optimization = new FeatureTableOptimizations(true, true, columnMappingConfig);
 var optimizations = Map.of(
   "water", optimization,
   "roads", optimization,
@@ -236,20 +239,21 @@ java -jar mlt-cli/build/libs/encode.jar --mvt ../test/fixtures/simple/point-bool
 java -jar mlt-cli/build/libs/encode.jar --mbtiles /path/to/input.mbtiles --mlt /tmp/output.mbtiles --tessellate --outlines ALL --compress=deflate --verbose
 
 java -jar mlt-cli/build/libs/encode.jar --pmtiles /path/to/input.pmtiles --mlt /tmp/output.pmtiles --tessellate --outlines ALL --parallel
-
 ```
 
 Example of decoding MLT files:
 
 ```console
-java -jar mlt-cli/build/libs/decode.jar -mlt /tmp/point-boolean.mlt
+java -jar mlt-cli/build/libs/decode.jar --mlt /tmp/point-boolean.mlt
 ```
+
+For more details, see [README-Encode.md](README-Encode.md) and [README-Decode.md](README-Decode.md).
 
 ## Contributing
 
 Run the tests:
 
 ```
-just test-java
-just test-java-cli
+just java::test
+just java::test-cli
 ```

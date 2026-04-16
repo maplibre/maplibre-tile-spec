@@ -12,7 +12,9 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cmath>
 #include <iterator>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -183,8 +185,11 @@ inline json buildGeometryElement(const geometry::Polygon& poly, const Projection
             }
             ss << "(";
             const auto& coords = rings[i];
-            for (std::size_t j = 0; j < coords.size(); ++j) {
-                ss << (j == 0 ? "" : ", ") << coords[j].x << " " << coords[j].y;
+            for (std::size_t j = 0; j <= coords.size(); ++j) {
+                // Wrap around to the first coordinate to close the ring.
+                // See `getLineStringCoords`
+                const auto& coord = coords[j % coords.size()];
+                ss << (j == 0 ? "" : ", ") << coord.x << " " << coord.y;
             }
             ss << ")";
         }
@@ -214,8 +219,9 @@ inline json buildGeometryElement(const geometry::MultiPolygon& poly, const Proje
                 }
                 ss << "(";
                 const auto& coords = rings[j];
-                for (std::size_t k = 0; k < coords.size(); ++k) {
-                    ss << (k == 0 ? "" : ", ") << coords[k].x << " " << coords[k].y;
+                for (std::size_t k = 0; k <= coords.size(); ++k) {
+                    const auto& coord = coords[k % coords.size()];
+                    ss << (k == 0 ? "" : ", ") << coord.x << " " << coord.y;
                 }
                 ss << ")";
             }
@@ -249,6 +255,23 @@ inline json buildAnyGeometryElement(const geometry::Geometry& geometry, const Pr
 #pragma region Properties
 struct PropertyVisitor {
     template <typename T>
+    std::optional<json> encodeFloatingPoint(T value, std::string_view prefix) const {
+        if (std::isfinite(value)) {
+            return json(value);
+        }
+        if (std::isnan(value)) {
+            return json(std::string(prefix) + "::NAN");
+        }
+        if (std::signbit(value)) {
+            return json(std::string(prefix) + "::NEG_INFINITY");
+        }
+        return json(std::string(prefix) + "::INFINITY");
+    }
+
+    std::optional<json> operator()(float value) const { return encodeFloatingPoint(value, "f32"); }
+    std::optional<json> operator()(double value) const { return encodeFloatingPoint(value, "f64"); }
+
+    template <typename T>
     std::optional<json> operator()(const T& value) const {
         return value;
     }
@@ -271,9 +294,11 @@ inline json buildProperties(const Layer& layer, const Feature& feature) {
 
 inline json toJSON(const Layer& layer, const Feature& feature, const Projection& projection, bool geoJSON) {
     auto result = json{
-        {"id", feature.getID()},
         {"geometry", detail::buildAnyGeometryElement(feature.getGeometry(), projection, geoJSON)},
     };
+    if (const auto id = feature.getID(); id.has_value()) {
+        result["id"] = *id;
+    }
     if (geoJSON) {
         result["type"] = "Feature";
     }

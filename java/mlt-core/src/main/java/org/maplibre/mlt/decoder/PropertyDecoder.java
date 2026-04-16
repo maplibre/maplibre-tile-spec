@@ -2,7 +2,10 @@ package org.maplibre.mlt.decoder;
 
 import jakarta.annotation.Nullable;
 import java.io.IOException;
-import java.util.*;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.List;
 import me.lemire.integercompression.IntWrapper;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
@@ -53,83 +56,84 @@ public class PropertyDecoder {
           DecodingUtils.decodeBooleanRle(
               data, presentStreamMetadata.numValues(), presentStreamMetadata.byteLength(), offset);
       presentStreamSize = presentStreamMetadata.numValues();
+      numStreams -= 1;
     } else {
       presentStream = null;
       presentStreamSize = 0;
     }
 
-    switch (scalarType.physicalType) {
-      case BOOLEAN:
-        {
-          final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-          final var dataStream =
-              DecodingUtils.decodeBooleanRle(
-                  data, dataStreamMetadata.numValues(), dataStreamMetadata.byteLength(), offset);
-          return unpack(
-              dataStream, dataStreamMetadata.numValues(), presentStream, presentStreamSize);
-        }
-      case UINT_32:
-      case INT_32:
-        {
-          final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-          final var dataStream =
-              IntegerDecoder.decodeIntStream(
-                  data,
-                  offset,
-                  dataStreamMetadata,
-                  scalarType.physicalType == MltMetadata.ScalarType.INT_32);
-          return unpack(dataStream, presentStream, presentStreamSize);
-        }
-      case FLOAT:
-        {
-          final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-          final var dataStream = FloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
-          return unpack(dataStream, presentStream, presentStreamSize);
-        }
-      case DOUBLE:
-        {
-          {
-            final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-            final var dataStream = FloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
-            return unpack(dataStream, presentStream, presentStreamSize);
-          }
-        }
-      case UINT_64:
-      case INT_64:
-        {
-          final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-          final var dataStream =
-              IntegerDecoder.decodeLongStream(
-                  data,
-                  offset,
-                  dataStreamMetadata,
-                  scalarType.physicalType == MltMetadata.ScalarType.INT_64);
-          return unpack(dataStream, presentStream, presentStreamSize);
-        }
-      case STRING:
-        {
-          if (presentStream == null) {
-            throw new RuntimeException("Non-nullable string columns not currently supported");
-          }
+    return switch (scalarType.physicalType()) {
+      case BOOLEAN -> {
+        final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+        final var dataStream =
+            DecodingUtils.decodeBooleanRle(
+                data, dataStreamMetadata.numValues(), dataStreamMetadata.byteLength(), offset);
+        yield unpack(dataStream, dataStreamMetadata.numValues(), presentStream, presentStreamSize);
+      }
+      case UINT_32, INT_32 -> {
+        final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+        final var signed = (scalarType.physicalType() == MltMetadata.ScalarType.INT_32);
+        final var dataStream =
+            IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, signed);
 
-          // The present stream has already been decoded
-          final var strValues =
-              StringDecoder.decode(data, offset, numStreams - 1, presentStream, presentStreamSize);
-          return strValues.getRight();
-        }
-      default:
-        throw new IllegalArgumentException(
-            "The specified data type for the field is currently not supported: " + scalarType);
+        // otherwise, we have u32.MAX -> -1
+        final var values =
+            signed
+                ? dataStream
+                : dataStream.stream()
+                    .map(i -> i == null ? null : Integer.toUnsignedLong(i))
+                    .toList();
+
+        yield unpack(values, presentStream, presentStreamSize);
+      }
+      case UINT_64, INT_64 -> {
+        final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+        final var signed = (scalarType.physicalType() == MltMetadata.ScalarType.INT_64);
+        final var dataStream =
+            IntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata, signed);
+
+        // otherwise, we have u64.MAX -> -1
+        final var values =
+            signed
+                ? dataStream
+                : dataStream.stream().map(i -> i == null ? null : toUnsignedBigInteger(i)).toList();
+
+        yield unpack(values, presentStream, presentStreamSize);
+      }
+      case FLOAT -> {
+        final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+        final var dataStream = FloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
+        yield unpack(dataStream, presentStream, presentStreamSize);
+      }
+      case DOUBLE -> {
+        final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+        final var dataStream = DoubleDecoder.decodeDoubleStream(data, offset, dataStreamMetadata);
+        yield unpack(dataStream, presentStream, presentStreamSize);
+      }
+      case STRING -> {
+        final var strValues =
+            StringDecoder.decode(data, offset, numStreams, presentStream, presentStreamSize);
+        yield strValues.getRight();
+      }
+      case UINT_8, UNRECOGNIZED, INT_8 ->
+          throw new IllegalArgumentException(
+              "The specified data type for the field is currently not supported: " + scalarType);
+    };
+  }
+
+  private static BigInteger toUnsignedBigInteger(Long value) {
+    if (value >= 0) {
+      return BigInteger.valueOf(value);
     }
+    return BigInteger.valueOf(value).add(BigInteger.ONE.shiftLeft(64));
   }
 
   public static Object decodePropertyColumn(
       byte[] data, IntWrapper offset, MltMetadata.Column column, int numStreams)
       throws IOException {
-
-    if (column.scalarType != null) {
+    if (column.isScalar()) {
       return decodeScalarPropertyColumn(
-          data, offset, column.scalarType, column.isNullable, numStreams);
+          data, offset, column.field().type().scalarType(), column.isNullable(), numStreams);
     }
 
     /* Handle struct which currently only supports strings as nested fields for supporting shared dictionary encoding */

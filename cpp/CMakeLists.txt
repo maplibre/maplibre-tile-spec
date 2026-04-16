@@ -4,12 +4,6 @@ project(mlt-cpp LANGUAGES CXX)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 include(AddCXXCompilerFlag)
 
-# Use the same deployment target as the parent project, if set.
-if (NOT MLT_OSX_DEPLOYMENT_TARGET)
-    set(MLT_OSX_DEPLOYMENT_TARGET 16)
-endif()
-set(CMAKE_OSX_DEPLOYMENT_TARGET ${MLT_OSX_DEPLOYMENT_TARGET})
-
 # generate compile_commands.json https://cmake.org/cmake/help/latest/variable/CMAKE_EXPORT_COMPILE_COMMANDS.html
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -30,6 +24,7 @@ add_library(mlt-cpp-encoder STATIC)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
 option(MLT_WITH_FASTPFOR "Include FastPFor support" ON)
+option(MLT_WITH_FASTPFOR_SIMD "Include SIMD/NEON support in FastPFor decoding" ON)
 option(MLT_WITH_TESTS "Include Tests" ON)
 option(MLT_WITH_TOOLS "Include CLI tools" ON)
 
@@ -167,9 +162,6 @@ target_sources(mlt-cpp-encoder PRIVATE
     ${PROJECT_SOURCE_DIR}/src/mlt/util/hilbert_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
 )
-
-# SIMD Everywhere (decoder, needed on ARM)
-target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/simde")
 
 include("${PROJECT_SOURCE_DIR}/vendor/fsst.cmake")
 include("${PROJECT_SOURCE_DIR}/vendor/earcut.cmake")

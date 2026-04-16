@@ -7,7 +7,7 @@ import type Vector from "../vector/vector";
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import { LengthType } from "../metadata/tile/lengthType";
-import { decodeIntStream, decodeLengthStreamToOffsetBuffer } from "./integerStreamDecoder";
+import { decodeUnsignedInt32Stream, decodeLengthStreamToOffsetBuffer } from "./integerStreamDecoder";
 import { type Column, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { decodeVarintInt32 } from "./integerDecodingUtils";
 import { decodeBooleanRle, skipColumn } from "./decodingUtils";
@@ -21,61 +21,50 @@ export function decodeString(
     bitVector?: BitVector,
 ): Vector {
     let dictionaryLengthStream: Uint32Array = null;
-    let offsetStream: Int32Array = null;
+    let offsetStream: Uint32Array = null;
     let dictionaryStream: Uint8Array = null;
     let symbolLengthStream: Uint32Array = null;
     let symbolTableStream: Uint8Array = null;
-    let presentStream: BitVector = null;
+    let nullabilityBuffer: BitVector = bitVector ?? null;
     let plainLengthStream: Uint32Array = null;
     let plainDataStream: Uint8Array = null;
 
     for (let i = 0; i < numStreams; i++) {
         const streamMetadata = decodeStreamMetadata(data, offset);
-        if (streamMetadata.byteLength === 0) {
-            continue;
-        }
 
         switch (streamMetadata.physicalStreamType) {
             case PhysicalStreamType.PRESENT: {
                 const presentData = decodeBooleanRle(data, streamMetadata.numValues, streamMetadata.byteLength, offset);
-                presentStream = new BitVector(presentData, streamMetadata.numValues);
+                const presentStream = new BitVector(presentData, streamMetadata.numValues);
+                nullabilityBuffer = bitVector ?? presentStream;
                 break;
             }
             case PhysicalStreamType.OFFSET: {
-                const isNullable = bitVector != null || presentStream != null;
-                const nullabilityBuffer = bitVector ?? presentStream;
-                offsetStream = decodeIntStream(
-                    data,
-                    offset,
-                    streamMetadata,
-                    false,
-                    undefined,
-                    isNullable ? nullabilityBuffer : undefined,
-                );
+                offsetStream = decodeUnsignedInt32Stream(data, offset, streamMetadata, undefined, nullabilityBuffer);
                 break;
             }
             case PhysicalStreamType.LENGTH: {
-                const ls = decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
+                const lengthStream = decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
                 if (LengthType.DICTIONARY === streamMetadata.logicalStreamType.lengthType) {
-                    dictionaryLengthStream = ls;
+                    dictionaryLengthStream = lengthStream;
                 } else if (LengthType.SYMBOL === streamMetadata.logicalStreamType.lengthType) {
-                    symbolLengthStream = ls;
+                    symbolLengthStream = lengthStream;
                 } else {
                     // Plain string encoding uses VAR_BINARY length type
-                    plainLengthStream = ls;
+                    plainLengthStream = lengthStream;
                 }
                 break;
             }
             case PhysicalStreamType.DATA: {
-                const ds = data.subarray(offset.get(), offset.get() + streamMetadata.byteLength);
+                const dataStream = data.subarray(offset.get(), offset.get() + streamMetadata.byteLength);
                 offset.add(streamMetadata.byteLength);
                 const dictType = streamMetadata.logicalStreamType.dictionaryType;
                 if (DictionaryType.FSST === dictType) {
-                    symbolTableStream = ds;
+                    symbolTableStream = dataStream;
                 } else if (DictionaryType.SINGLE === dictType || DictionaryType.SHARED === dictType) {
-                    dictionaryStream = ds;
+                    dictionaryStream = dataStream;
                 } else if (DictionaryType.NONE === dictType) {
-                    plainDataStream = ds;
+                    plainDataStream = dataStream;
                 }
                 break;
             }
@@ -90,23 +79,17 @@ export function decodeString(
             dictionaryLengthStream,
             dictionaryStream,
             symbolLengthStream,
-            bitVector ?? presentStream,
+            nullabilityBuffer,
         ) ??
-        decodeDictionaryVector(
-            name,
-            dictionaryStream,
-            offsetStream,
-            dictionaryLengthStream,
-            bitVector ?? presentStream,
-        ) ??
-        decodePlainStringVector(name, plainLengthStream, plainDataStream, offsetStream, bitVector ?? presentStream)
+        decodeDictionaryVector(name, dictionaryStream, offsetStream, dictionaryLengthStream, nullabilityBuffer) ??
+        decodePlainStringVector(name, plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer)
     );
 }
 
 function decodeFsstDictionaryVector(
     name: string,
     symbolTableStream: Uint8Array | null,
-    offsetStream: Int32Array | null,
+    offsetStream: Uint32Array | null,
     dictionaryLengthStream: Uint32Array | null,
     dictionaryStream: Uint8Array | null,
     symbolLengthStream: Uint32Array | null,
@@ -129,7 +112,7 @@ function decodeFsstDictionaryVector(
 function decodeDictionaryVector(
     name: string,
     dictionaryStream: Uint8Array | null,
-    offsetStream: Int32Array | null,
+    offsetStream: Uint32Array | null,
     dictionaryLengthStream: Uint32Array | null,
     nullabilityBuffer: BitVector | null,
 ): Vector | null {
@@ -145,7 +128,7 @@ function decodePlainStringVector(
     name: string,
     plainLengthStream: Uint32Array | null,
     plainDataStream: Uint8Array | null,
-    offsetStream: Int32Array | null,
+    offsetStream: Uint32Array | null,
     nullabilityBuffer: BitVector | null,
 ): Vector | null {
     if (!plainLengthStream || !plainDataStream) {
@@ -159,7 +142,7 @@ function decodePlainStringVector(
     }
 
     if (nullabilityBuffer && nullabilityBuffer.size() !== plainLengthStream.length - 1) {
-        const sparseOffsetStream = new Int32Array(nullabilityBuffer.size());
+        const sparseOffsetStream = new Uint32Array(nullabilityBuffer.size());
         let valueIndex = 0;
         for (let i = 0; i < nullabilityBuffer.size(); i++) {
             if (nullabilityBuffer.get(i)) {
@@ -225,7 +208,7 @@ export function decodeSharedDictionary(
     let i = 0;
     for (const childField of childFields) {
         const numStreams = decodeVarintInt32(data, offset, 1)[0];
-        if (numStreams == 0) {
+        if (numStreams === 0) {
             /* Column is not present in the tile */
             continue;
         }
@@ -257,11 +240,10 @@ export function decodeSharedDictionary(
         const offsetStreamMetadata = decodeStreamMetadata(data, offset);
         const offsetCount = offsetStreamMetadata.decompressedCount;
         const isNullable = offsetCount !== numFeatures;
-        const offsetStream = decodeIntStream(
+        const offsetStream = decodeUnsignedInt32Stream(
             data,
             offset,
             offsetStreamMetadata,
-            false,
             undefined,
             isNullable ? new BitVector(presentStream, presentStreamMetadata.numValues) : undefined,
         );

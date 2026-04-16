@@ -1,7 +1,7 @@
-import { parseArgs } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const configFile = JSON.parse(

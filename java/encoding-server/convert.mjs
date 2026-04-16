@@ -1,10 +1,10 @@
-import { unlink, existsSync, mkdirSync, createWriteStream } from "node:fs";
+import { exec, execSync, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { createWriteStream, existsSync, mkdirSync, unlink } from "node:fs";
+import net from "node:net";
+import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { join } from "node:path";
-import { randomUUID } from "node:crypto";
-import { exec, execSync, spawn } from "node:child_process";
-import net from "node:net";
 
 import config from "./config.mjs";
 
@@ -51,7 +51,7 @@ function convertURL(urlString, type, req) {
   try {
     const url = new URL(urlString);
 
-    if (url.protocol != "https:" && url.protocol != "http:") {
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
       return urlString;
     }
   } catch (error) {
@@ -69,14 +69,14 @@ function convertStyleResponse(req, data, res) {
     const json = JSON.parse(data);
 
     if (json.sources) {
-      for (let key in json.sources) {
+      for (const key in json.sources) {
         if (!Object.hasOwn(json.sources, key)) {
           continue;
         }
 
-        var source = json.sources[key];
+        const source = json.sources[key];
 
-        if (!source || source.type != "vector") {
+        if (!source || source.type !== "vector") {
           continue;
         }
 
@@ -110,7 +110,7 @@ function convertSourceResponse(req, data, res) {
     json.encoding = "mlt";
 
     if (json.tiles) {
-      for (let key in json.tiles) {
+      for (const key in json.tiles) {
         if (!Object.hasOwn(json.tiles, key)) {
           continue;
         }
@@ -132,7 +132,7 @@ const convertStyleRequest = convertRequest(convertStyleResponse);
 const convertSourceRequest = convertRequest(convertSourceResponse);
 
 function convertTileResponse(filePath, res) {
-  const mltPath = filePath + ".mlt";
+  const mltPath = `${filePath}.mlt`;
   const args =
     " --" +
     config.input +
@@ -144,7 +144,7 @@ function convertTileResponse(filePath, res) {
     (config.fsst ? " --fsst" : "") +
     (config.fastpfor ? " --fastpfor" : "") +
     (config.nomorton ? " --nomorton" : "") +
-    (config.outlines ? " --outlines " + config.outlines : "") +
+    (config.outlines ? ` --outlines ${config.outlines}` : "") +
     (config.tessellate ? " --tessellate" : "") +
     (config.coercemismatch ? " --coerce-mismatch" : "") +
     (config.timer ? " --timer" : "") +
@@ -296,13 +296,13 @@ function convertTileRequest(req, res) {
 
 function runCLISetup() {
   console.log(`Building CLI tools at ${config.cliToolsPath}`);
-  execSync(`./gradlew cli`, { cwd: config.cliToolsPath });
+  execSync("./gradlew cli", { cwd: config.cliToolsPath });
 
   if (config.noencodingserver) {
     return;
   }
 
-  const server = spawn(`java`, [
+  const server = spawn("java", [
     "-jar",
     `${config.encoderPath}`,
     "--server",
@@ -325,8 +325,8 @@ function runCLISetup() {
 }
 
 export {
-  convertStyleRequest,
   convertSourceRequest,
+  convertStyleRequest,
   convertTileRequest,
   runCLISetup,
 };

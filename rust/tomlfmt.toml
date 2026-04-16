@@ -1,4 +1,5 @@
 table_order = [
+    'workspace',
     'package',
     'lib',
     'bin',

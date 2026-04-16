@@ -1,4 +1,6 @@
 import IntWrapper from "../decoding/intWrapper";
+import { createFastPforEncoderWorkspace, encodeFastPforInt32WithWorkspace } from "./fastPforEncoder";
+import { encodeBigEndianInt32s } from "./bigEndianEncode";
 
 export function encodeVarintInt32Value(value: number, dst: Uint8Array, offset: IntWrapper): void {
     let v = value;
@@ -11,7 +13,7 @@ export function encodeVarintInt32Value(value: number, dst: Uint8Array, offset: I
     offset.increment();
 }
 
-export function encodeVarintInt32(values: Int32Array): Uint8Array {
+export function encodeVarintInt32(values: Uint32Array): Uint8Array {
     const buffer = new Uint8Array(values.length * 5);
     const offset = new IntWrapper(0);
 
@@ -21,7 +23,7 @@ export function encodeVarintInt32(values: Int32Array): Uint8Array {
     return buffer.slice(0, offset.get());
 }
 
-export function encodeVarintInt64(values: BigInt64Array): Uint8Array {
+export function encodeVarintInt64(values: BigUint64Array): Uint8Array {
     const buffer = new Uint8Array(values.length * 10);
     const offset = new IntWrapper(0);
 
@@ -101,8 +103,10 @@ function encodeVarintFloat64Value(val: number, buf: Uint8Array, offset: IntWrapp
     offset.increment();
 }
 
-export function encodeFastPfor(data: Int32Array): Uint8Array {
-    throw new Error("FastPFor is not implemented yet.");
+export function encodeFastPfor(values: Uint32Array): Uint8Array {
+    const encoderWorkspace = createFastPforEncoderWorkspace();
+    const encodedWords = encodeFastPforInt32WithWorkspace(values, encoderWorkspace);
+    return encodeBigEndianInt32s(encodedWords);
 }
 
 export function encodeZigZagInt32Value(value: number): number {
@@ -116,16 +120,20 @@ export function encodeZigZagInt64Value(value: bigint): bigint {
 export function encodeZigZagFloat64Value(n: number): number {
     return n >= 0 ? n * 2 : n * -2 - 1;
 }
-export function encodeZigZagInt32(data: Int32Array): void {
+export function encodeZigZagInt32(data: Int32Array): Uint32Array {
+    const result = new Uint32Array(data.length);
     for (let i = 0; i < data.length; i++) {
-        data[i] = encodeZigZagInt32Value(data[i]);
+        result[i] = encodeZigZagInt32Value(data[i]);
     }
+    return result;
 }
 
-export function encodeZigZagInt64(data: BigInt64Array): void {
+export function encodeZigZagInt64(data: BigInt64Array): BigUint64Array {
+    const result = new BigUint64Array(data.length);
     for (let i = 0; i < data.length; i++) {
-        data[i] = encodeZigZagInt64Value(data[i]);
+        result[i] = encodeZigZagInt64Value(data[i]);
     }
+    return result;
 }
 
 export function encodeZigZagFloat64(data: Float64Array): void {
@@ -134,9 +142,9 @@ export function encodeZigZagFloat64(data: Float64Array): void {
     }
 }
 
-export function encodeUnsignedRleInt32(input: Int32Array): { data: Int32Array; runs: number } {
+export function encodeUnsignedRleInt32(input: Uint32Array): { data: Uint32Array; runs: number } {
     if (input.length === 0) {
-        return { data: new Int32Array(0), runs: 0 };
+        return { data: new Uint32Array(0), runs: 0 };
     }
 
     const runLengths: number[] = [];
@@ -167,7 +175,7 @@ export function encodeUnsignedRleInt32(input: Int32Array): { data: Int32Array; r
 
     // Combine lengths and values into the final structured output array
     const numRuns = runLengths.length;
-    const encodedData = new Int32Array(numRuns * 2);
+    const encodedData = new Uint32Array(numRuns * 2);
 
     // Populate the first half with lengths
     encodedData.set(runLengths, 0);
@@ -178,9 +186,9 @@ export function encodeUnsignedRleInt32(input: Int32Array): { data: Int32Array; r
     return { data: encodedData, runs: numRuns };
 }
 
-export function encodeUnsignedRleInt64(input: BigInt64Array): { data: BigInt64Array; runs: number } {
+export function encodeUnsignedRleInt64(input: BigInt64Array): { data: BigUint64Array; runs: number } {
     if (input.length === 0) {
-        return { data: new BigInt64Array(0), runs: 0 };
+        return { data: new BigUint64Array(0), runs: 0 };
     }
 
     const runLengths: number[] = [];
@@ -209,11 +217,11 @@ export function encodeUnsignedRleInt64(input: BigInt64Array): { data: BigInt64Ar
     runLengths.push(currentRunLength);
     runValues.push(currentValue);
 
-    // Combine lengths and values into the final structured output array (BigInt64Array)
+    // Combine lengths and values into the final structured output array (BigUint64Array)
     const numRuns = runLengths.length;
-    const encodedData = new BigInt64Array(numRuns * 2);
+    const encodedData = new BigUint64Array(numRuns * 2);
 
-    // Populate the first half with lengths. We must convert the numbers back to BigInts here.
+    // Populate the first half with lengths, converting the run length numbers to bigint for storage in the BigUint64Array.
     for (let i = 0; i < numRuns; i++) {
         encodedData[i] = BigInt(runLengths[i]);
     }
@@ -269,13 +277,14 @@ export function encodeUnsignedRleFloat64(input: Float64Array): { data: Float64Ar
     return { data: encodedData, runs: numRuns };
 }
 
-export function encodeZigZagDeltaInt32(data: Int32Array): void {
+export function encodeZigZagDeltaInt32(data: Int32Array): Uint32Array {
     if (data.length === 0) {
-        return;
+        return new Uint32Array(0);
     }
 
+    const encodedData = new Uint32Array(data.length);
     let previousValue = data[0];
-    data[0] = encodeZigZagInt32Value(previousValue);
+    encodedData[0] = encodeZigZagInt32Value(previousValue);
 
     for (let i = 1; i < data.length; i++) {
         const currentValue = data[i];
@@ -283,20 +292,22 @@ export function encodeZigZagDeltaInt32(data: Int32Array): void {
         const encodedDelta = encodeZigZagInt32Value(delta);
 
         // Store the encoded delta back into the array
-        data[i] = encodedDelta;
+        encodedData[i] = encodedDelta;
 
         // Update the previous value tracker for the next iteration's delta calculation
         previousValue = currentValue;
     }
+    return encodedData;
 }
 
-export function encodeZigZagDeltaInt64(data: BigInt64Array): void {
+export function encodeZigZagDeltaInt64(data: BigInt64Array): BigUint64Array {
     if (data.length === 0) {
-        return;
+        return new BigUint64Array(0);
     }
 
+    const encodedData = new BigUint64Array(data.length);
     let previousValue = data[0];
-    data[0] = encodeZigZagInt64Value(previousValue);
+    encodedData[0] = encodeZigZagInt64Value(previousValue);
 
     for (let i = 1; i < data.length; i++) {
         const currentValue = data[i];
@@ -304,11 +315,12 @@ export function encodeZigZagDeltaInt64(data: BigInt64Array): void {
         const encodedDelta = encodeZigZagInt64Value(delta);
 
         // Store the encoded delta back into the array
-        data[i] = encodedDelta;
+        encodedData[i] = encodedDelta;
 
         // Update the previous value tracker for the next iteration's delta calculation
         previousValue = currentValue;
     }
+    return encodedData;
 }
 
 export function encodeZigZagDeltaFloat64(data: Float64Array): void {
@@ -333,12 +345,12 @@ export function encodeZigZagDeltaFloat64(data: Float64Array): void {
 }
 
 export function encodeZigZagRleInt32(input: Int32Array): {
-    data: Int32Array;
+    data: Uint32Array;
     runs: number;
     numTotalValues: number;
 } {
     if (input.length === 0) {
-        return { data: new Int32Array(0), runs: 0, numTotalValues: 0 };
+        return { data: new Uint32Array(0), runs: 0, numTotalValues: 0 };
     }
 
     const zigzagEncodedStream: number[] = [];
@@ -374,8 +386,8 @@ export function encodeZigZagRleInt32(input: Int32Array): {
 
     // Step 3: Combine lengths and values into the final structured output array
     const numRuns = runLengths.length;
-    // The final array uses Int32Array for lengths AND values
-    const encodedData = new Int32Array(numRuns * 2);
+    // The final array uses Uint32Array for lengths AND values
+    const encodedData = new Uint32Array(numRuns * 2);
 
     // Populate the first half with lengths
     encodedData.set(runLengths, 0);
@@ -391,12 +403,12 @@ export function encodeZigZagRleInt32(input: Int32Array): {
 }
 
 export function encodeZigZagRleInt64(input: BigInt64Array): {
-    data: BigInt64Array;
+    data: BigUint64Array;
     runs: number;
     numTotalValues: number;
 } {
     if (input.length === 0) {
-        return { data: new BigInt64Array(0), runs: 0, numTotalValues: 0 };
+        return { data: new BigUint64Array(0), runs: 0, numTotalValues: 0 };
     }
 
     const zigzagEncodedStream: bigint[] = [];
@@ -432,10 +444,10 @@ export function encodeZigZagRleInt64(input: BigInt64Array): {
 
     // Step 3: Combine lengths and values into the final structured output array
     const numRuns = runLengths.length;
-    // The final array uses BigInt64Array for lengths AND values
-    const encodedData = new BigInt64Array(numRuns * 2);
+    // The final array uses BigUint64Array for lengths AND values
+    const encodedData = new BigUint64Array(numRuns * 2);
 
-    // Populate the first half with lengths (converting numbers back to BigInts)
+    // Populate the first half with lengths (converting numbers back to BigUint64Array format)
     for (let i = 0; i < numRuns; i++) {
         encodedData[i] = BigInt(runLengths[i]);
     }
@@ -511,7 +523,7 @@ export function encodeZigZagRleFloat64(input: Float64Array): {
 /**
  * This is not really a encode, but more of a decode method...
  */
-export function encodeDeltaInt32(data: Int32Array): void {
+export function encodeDeltaInt32(data: Int32Array | Uint32Array): void {
     if (data.length === 0) {
         return;
     }
@@ -520,54 +532,59 @@ export function encodeDeltaInt32(data: Int32Array): void {
     }
 }
 
-export function encodeComponentwiseDeltaVec2(data: Int32Array): void {
-    if (data.length < 2) return;
+export function encodeComponentwiseDeltaVec2(data: Int32Array): Uint32Array {
+    if (data.length < 2) return new Uint32Array(data);
+
+    const encoded = new Uint32Array(data.length);
 
     // Reverse iterate to avoid overwriting data needed for delta computation
     for (let i = data.length - 2; i >= 2; i -= 2) {
         const deltaX = data[i] - data[i - 2];
         const deltaY = data[i + 1] - data[i - 1];
-        data[i] = encodeZigZagInt32Value(deltaX);
-        data[i + 1] = encodeZigZagInt32Value(deltaY);
+        encoded[i] = encodeZigZagInt32Value(deltaX);
+        encoded[i + 1] = encodeZigZagInt32Value(deltaY);
     }
 
     // Encode first vertex last (after computing all deltas)
-    data[0] = encodeZigZagInt32Value(data[0]);
-    data[1] = encodeZigZagInt32Value(data[1]);
+    encoded[0] = encodeZigZagInt32Value(data[0]);
+    encoded[1] = encodeZigZagInt32Value(data[1]);
+    return encoded;
 }
 
-export function encodeComponentwiseDeltaVec2Scaled(data: Int32Array, scale: number): void {
-    if (data.length < 2) return;
+export function encodeComponentwiseDeltaVec2Scaled(data: Int32Array, scale: number): Uint32Array {
+    if (data.length < 2) return new Uint32Array(data);
+    const encoded = new Uint32Array(data.length);
 
     // First, inverse scale all values (tile space -> original space)
     for (let i = 0; i < data.length; i++) {
-        data[i] = Math.round(data[i] / scale);
+        encoded[i] = Math.round(data[i] / scale);
     }
 
     // Then apply componentwise delta encoding (same as non-scaled version)
     // Reverse iterate to avoid overwriting data needed for delta computation
-    for (let i = data.length - 2; i >= 2; i -= 2) {
-        const deltaX = data[i] - data[i - 2];
-        const deltaY = data[i + 1] - data[i - 1];
-        data[i] = encodeZigZagInt32Value(deltaX);
-        data[i + 1] = encodeZigZagInt32Value(deltaY);
+    for (let i = encoded.length - 2; i >= 2; i -= 2) {
+        const deltaX = encoded[i] - encoded[i - 2];
+        const deltaY = encoded[i + 1] - encoded[i - 1];
+        encoded[i] = encodeZigZagInt32Value(deltaX);
+        encoded[i + 1] = encodeZigZagInt32Value(deltaY);
     }
 
     // Encode first vertex last (after computing all deltas)
-    data[0] = encodeZigZagInt32Value(data[0]);
-    data[1] = encodeZigZagInt32Value(data[1]);
+    encoded[0] = encodeZigZagInt32Value(encoded[0]);
+    encoded[1] = encodeZigZagInt32Value(encoded[1]);
+    return encoded;
 }
 
 // HM TODO:
 // zigZagDeltaOfDeltaDecoding
 
 export function encodeZigZagRleDeltaInt32(values: Int32Array | number[]): {
-    data: Int32Array;
+    data: Uint32Array;
     runs: number;
     numTotalValues: number;
 } {
     if (values.length === 0) {
-        return { data: new Int32Array(0), runs: 0, numTotalValues: 0 };
+        return { data: new Uint32Array(0), runs: 0, numTotalValues: 0 };
     }
 
     const runLengths: number[] = [];
@@ -616,7 +633,7 @@ export function encodeZigZagRleDeltaInt32(values: Int32Array | number[]): {
 
     // The decoder expects 'data' to be: [RunLength 1, RunLength 2... | Value 1, Value 2...]
     // Size is numRuns * 2 (First half lengths, second half values)
-    const data = new Int32Array(numRuns * 2);
+    const data = new Uint32Array(numRuns * 2);
 
     for (let i = 0; i < numRuns; i++) {
         data[i] = runLengths[i]; // First half: Run Lengths
@@ -630,13 +647,13 @@ export function encodeZigZagRleDeltaInt32(values: Int32Array | number[]): {
     };
 }
 
-export function encodeRleDeltaInt32(values: Int32Array | number[]): {
-    data: Int32Array;
+export function encodeRleDeltaInt32(values: Uint32Array | number[]): {
+    data: Uint32Array;
     runs: number;
     numTotalValues: number;
 } {
     if (values.length === 0) {
-        return { data: new Int32Array(0), runs: 0, numTotalValues: 0 };
+        return { data: new Uint32Array(0), runs: 0, numTotalValues: 0 };
     }
 
     const runLengths: number[] = [];
@@ -681,8 +698,8 @@ export function encodeRleDeltaInt32(values: Int32Array | number[]): {
 
     const numRuns = runLengths.length;
 
-    // Pack into Int32Array: [ RunLength 1...N | Delta 1...N ]
-    const data = new Int32Array(numRuns * 2);
+    // Pack into Uint32Array: [ RunLength 1...N | Delta 1...N ]
+    const data = new Uint32Array(numRuns * 2);
     for (let i = 0; i < numRuns; i++) {
         data[i] = runLengths[i];
         data[i + numRuns] = deltas[i];
@@ -696,16 +713,16 @@ export function encodeRleDeltaInt32(values: Int32Array | number[]): {
 }
 
 export function encodeDeltaRleInt32(input: Int32Array): {
-    data: Int32Array;
+    data: Uint32Array;
     runs: number;
     numValues: number;
 } {
     if (input.length === 0) {
-        return { data: new Int32Array(0), runs: 0, numValues: 0 };
+        return { data: new Uint32Array(0), runs: 0, numValues: 0 };
     }
 
     const deltasAndEncoded: number[] = [];
-    let previousValue: number = 0;
+    let previousValue = 0;
 
     // Step 1 & 2: Calculate Deltas and Zigzag Encode them
     for (let i = 0; i < input.length; i++) {
@@ -742,7 +759,7 @@ export function encodeDeltaRleInt32(input: Int32Array): {
 
     // Step 4: Combine lengths and values into the final structured output array
     const numRuns = runLengths.length;
-    const encodedData = new Int32Array(numRuns * 2);
+    const encodedData = new Uint32Array(numRuns * 2);
 
     // Populate the first half with lengths
     for (let i = 0; i < numRuns; i++) {
@@ -750,7 +767,7 @@ export function encodeDeltaRleInt32(input: Int32Array): {
     }
 
     // Populate the second half with zigzagged deltas
-    // Int32Array.set() works with standard number arrays
+    // Uint32Array.set() works with standard number arrays
     encodedData.set(runZigZagDeltas, numRuns);
 
     return {
@@ -761,16 +778,16 @@ export function encodeDeltaRleInt32(input: Int32Array): {
 }
 
 export function encodeDeltaRleInt64(input: BigInt64Array): {
-    data: BigInt64Array;
+    data: BigUint64Array;
     runs: number;
     numValues: number;
 } {
     if (input.length === 0) {
-        return { data: new BigInt64Array(0), runs: 0, numValues: 0 };
+        return { data: new BigUint64Array(0), runs: 0, numValues: 0 };
     }
 
     const deltasAndEncoded: bigint[] = [];
-    let previousValue: bigint = 0n;
+    let previousValue = 0n;
 
     // Step 1 & 2: Calculate Deltas and Zigzag Encode them
     for (let i = 0; i < input.length; i++) {
@@ -807,9 +824,9 @@ export function encodeDeltaRleInt64(input: BigInt64Array): {
 
     // Step 4: Combine lengths and values into the final structured output array
     const numRuns = runLengths.length;
-    const encodedData = new BigInt64Array(numRuns * 2);
+    const encodedData = new BigUint64Array(numRuns * 2);
 
-    // Populate the first half with lengths (converting numbers back to BigInts for storage)
+    // Populate the first half with lengths (converting numbers back to BigUint64Array for storage)
     for (let i = 0; i < numRuns; i++) {
         encodedData[i] = BigInt(runLengths[i]);
     }
