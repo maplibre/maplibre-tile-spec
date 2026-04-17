@@ -54,7 +54,7 @@ impl TileLayer01 {
                 };
                 self.features.sort_by_cached_key(|f| {
                     first_vertex(&f.geometry).map_or(u64::MAX, |c| {
-                        u64::from(curve_key(c, params.shift, params.num_bits))
+                        u64::from(curve_key(c, params.shift, params.bits))
                     })
                 });
             }
@@ -73,7 +73,7 @@ impl TileLayer01 {
 /// normalize coordinates before space-filling-curve key computation.
 struct CurveParams {
     shift: u32,
-    num_bits: u32,
+    bits: u32,
 }
 
 /// Compute the Hilbert/Morton curve parameters from all vertex coordinates
@@ -85,8 +85,8 @@ fn curve_params_from_features(features: &[TileFeature]) -> CurveParams {
         .fold((i32::MAX, i32::MIN), |(min, max), c| {
             (min.min(c.x).min(c.y), max.max(c.x).max(c.y))
         });
-    let (shift, num_bits) = hilbert_curve_params_from_bounds(min_val, max_val);
-    CurveParams { shift, num_bits }
+    let (shift, bits) = hilbert_curve_params_from_bounds(min_val, max_val);
+    CurveParams { shift, bits }
 }
 
 /// Extract the coordinate of the first vertex of a geometry.

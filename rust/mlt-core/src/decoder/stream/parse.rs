@@ -4,8 +4,8 @@ use integer_encoding::VarIntWriter as _;
 
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RawStream,
-    RleMeta, StreamMeta, StreamType,
+    IntEncoding, LogicalEncoding, LogicalTechnique, Morton, PhysicalEncoding, RawStream, RleMeta,
+    StreamMeta, StreamType,
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::{AsUsize as _, BinarySerializer as _, parse_u8, take};
@@ -97,18 +97,15 @@ impl StreamMeta {
                 // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value
                 let decoded_bytes = num_values.saturating_mul(8);
                 parser.reserve(decoded_bytes)?;
-                let num_bits;
-                let coordinate_shift;
-                (input, num_bits) = parse_varint::<u32>(input)?;
-                (input, coordinate_shift) = parse_varint::<u32>(input)?;
-                let meta = MortonMeta {
-                    num_bits,
-                    coordinate_shift,
-                };
+                let bits;
+                let shift;
+                (input, bits) = parse_varint::<u32>(input)?;
+                (input, shift) = parse_varint::<u32>(input)?;
+                let morton = Morton { bits, shift };
                 match logical2 {
-                    LT::Rle => LogicalEncoding::MortonRle(meta),
-                    LT::Delta => LogicalEncoding::MortonDelta(meta),
-                    _ => LogicalEncoding::Morton(meta),
+                    LT::Rle => LogicalEncoding::MortonRle(morton),
+                    LT::Delta => LogicalEncoding::MortonDelta(morton),
+                    _ => LogicalEncoding::Morton(morton),
                 }
             }
             _ => Err(MltError::InvalidLogicalEncodings(logical1, logical2))?,
@@ -161,8 +158,8 @@ impl StreamMeta {
                 }
             }
             LE::Morton(m) | LE::MortonDelta(m) | LE::MortonRle(m) => {
-                writer.write_varint(m.num_bits)?;
-                writer.write_varint(m.coordinate_shift)?;
+                writer.write_varint(m.bits)?;
+                writer.write_varint(m.shift)?;
             }
             LE::None | LE::Delta | LE::ComponentwiseDelta | LE::PseudoDecimal => {}
         }
