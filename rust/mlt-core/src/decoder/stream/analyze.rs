@@ -1,7 +1,11 @@
-use crate::decoder::{RawStream, RawStreamData, StreamMeta};
+use crate::decoder::{RawStream, StreamMeta};
 use crate::{Analyze, StatType};
 
 impl Analyze for RawStream<'_> {
+    fn collect_statistic(&self, stat: StatType) -> usize {
+        self.data.collect_statistic(stat)
+    }
+
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         cb(self.meta);
     }
@@ -14,11 +18,5 @@ impl Analyze for StreamMeta {
         } else {
             0
         }
-    }
-}
-
-impl Analyze for RawStreamData<'_> {
-    fn collect_statistic(&self, stat: StatType) -> usize {
-        self.as_bytes().collect_statistic(stat)
     }
 }

@@ -8,7 +8,7 @@ use crate::decoder::{
 };
 use crate::encoder::model::StreamCtx;
 use crate::encoder::stream::{DataProfile, IntEncoder, LogicalEncoder, do_write_u32, do_write_u64};
-use crate::encoder::{EncodedStream, EncodedStreamData, Encoder};
+use crate::encoder::{EncodedStream, Encoder};
 use crate::utils::BinarySerializer as _;
 
 struct SequenceStats {
@@ -120,7 +120,7 @@ impl IdValues {
             );
             let presence = EncodedStream {
                 meta: StreamMeta::new(StreamType::Present, int_enc, num_values),
-                data: EncodedStreamData::Encoded(enc.tmp_u8_b.clone()),
+                data: enc.tmp_u8_b.clone(),
             };
             enc.write_boolean_stream(&presence)?;
         }

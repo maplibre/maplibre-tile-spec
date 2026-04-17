@@ -1,5 +1,4 @@
 mod analyze;
-mod data;
 mod decode;
 pub mod logical;
 mod model;

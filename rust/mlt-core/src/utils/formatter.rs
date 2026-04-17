@@ -2,6 +2,13 @@ use std::fmt::{Debug, Display, Formatter};
 
 use hex::ToHex as _;
 
+pub struct ByteArrayDbg<'a>(pub &'a [u8]);
+impl Debug for ByteArrayDbg<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        fmt_byte_array(self.0, f)
+    }
+}
+
 /// Wrapper type for optional slices to provide a custom Debug implementation
 pub struct OptSeq<'a, T>(pub Option<&'a [T]>);
 
