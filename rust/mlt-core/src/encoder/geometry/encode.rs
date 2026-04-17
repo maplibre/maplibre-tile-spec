@@ -5,7 +5,6 @@ use probabilistic_collections::SipHasherBuilder;
 use probabilistic_collections::hyperloglog::HyperLogLog;
 
 use super::model::VertexBufferType;
-use crate::MltResult;
 use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
@@ -17,6 +16,7 @@ use crate::encoder::Encoder;
 use crate::encoder::model::StreamCtx;
 use crate::encoder::stream::{write_precomputed_u32, write_u32_stream};
 use crate::utils::AsUsize as _;
+use crate::{Coord32, MltResult};
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
 ///
@@ -300,10 +300,9 @@ fn select_vertex_strategy(vertices: &[i32], enc: &mut Encoder) -> VertexBufferTy
     let vertex_buffer_type = if coord_count == 0 || get_z_order_params(vertices, enc).is_err() {
         VertexBufferType::Vec2
     } else {
-        let mut hll =
-            HyperLogLog::<(i32, i32)>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
+        let mut hll = HyperLogLog::<Coord32>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
         for c in vertices.chunks_exact(2) {
-            hll.insert(&(c[0], c[1]));
+            hll.insert(&Coord32 { x: c[0], y: c[1] });
         }
 
         #[expect(clippy::cast_precision_loss)]

@@ -121,9 +121,9 @@ pub fn morton_deltas(codes: &[u32], target: &mut Vec<u32>) {
 
 // ── Decoder ─────────────────────────────────────────────────────────────────
 
-/// Decode a single Morton code to (x, y) as i32, applying `coordinate_shift`.
+/// Decode a single Morton code to a `Coord32`, applying `coordinate_shift`.
 #[inline]
-fn decode_morton_one(morton_code: u32, meta: MortonMeta) -> (i32, i32) {
+fn decode_morton_one(morton_code: u32, meta: MortonMeta) -> Coord32 {
     let mut x = 0u32;
     let mut y = 0u32;
     for i in 0..meta.num_bits {
@@ -131,10 +131,10 @@ fn decode_morton_one(morton_code: u32, meta: MortonMeta) -> (i32, i32) {
         x |= (morton_code & bit_mask) >> i;
         y |= ((morton_code >> 1) & bit_mask) >> i;
     }
-    (
-        x.cast_signed() - meta.coordinate_shift.cast_signed(),
-        y.cast_signed() - meta.coordinate_shift.cast_signed(),
-    )
+    Coord32 {
+        x: x.cast_signed() - meta.coordinate_shift.cast_signed(),
+        y: y.cast_signed() - meta.coordinate_shift.cast_signed(),
+    }
 }
 
 /// Decode delta-encoded Morton codes to flat `[x0, y0, x1, y1, ...]`, charging `dec` for the output.
@@ -168,9 +168,9 @@ pub fn decode_morton_delta(
     // Scalar tail for any codes that didn't fill a full SIMD chunk.
     for &d in chunks.remainder() {
         prev = prev.wrapping_add(d.cast_signed());
-        let (x, y) = decode_morton_one(prev.cast_unsigned(), meta);
-        out.push(x);
-        out.push(y);
+        let coord = decode_morton_one(prev.cast_unsigned(), meta);
+        out.push(coord.x);
+        out.push(coord.y);
     }
 
     dec.adjust_alloc(&out, alloc_size)?;
@@ -202,9 +202,9 @@ pub fn decode_morton_codes(
 
     // Scalar tail for any codes that didn't fill a full SIMD chunk.
     for &code in chunks.remainder() {
-        let (x, y) = decode_morton_one(code, meta);
-        out.push(x);
-        out.push(y);
+        let coord = decode_morton_one(code, meta);
+        out.push(coord.x);
+        out.push(coord.y);
     }
 
     dec.adjust_alloc(&out, alloc_size)?;
