@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType, OffsetType, RawGeometry,
-    RawStream, RawStreamData, StreamMeta, StreamType,
+    RawStream, StreamMeta, StreamType,
 };
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, OptSeq, SetOptionOnce as _};
@@ -238,7 +238,7 @@ impl<'a> RawGeometry<'a> {
                             IntEncoding::none(),
                             0,
                         ),
-                        RawStreamData::Encoded(&[]),
+                        &[],
                     ),
                     items: Vec::new(),
                 },

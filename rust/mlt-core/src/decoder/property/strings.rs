@@ -240,7 +240,7 @@ impl<'a> RawPlainData<'a> {
 
     pub fn decode(self, dec: &mut Decoder) -> MltResult<(&'a str, Vec<u32>)> {
         Ok((
-            str::from_utf8(self.data.as_bytes())?,
+            str::from_utf8(self.data.data)?,
             self.lengths.decode_u32s(dec)?,
         ))
     }

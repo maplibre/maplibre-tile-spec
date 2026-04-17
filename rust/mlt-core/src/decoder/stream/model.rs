@@ -135,11 +135,5 @@ pub struct StreamMeta {
 #[derive(Debug, PartialEq, Clone)]
 pub struct RawStream<'a> {
     pub meta: StreamMeta,
-    pub(crate) data: RawStreamData<'a>,
-}
-
-#[derive(PartialEq, Clone)]
-pub enum RawStreamData<'a> {
-    VarInt(&'a [u8]),
-    Encoded(&'a [u8]),
+    pub(crate) data: &'a [u8],
 }

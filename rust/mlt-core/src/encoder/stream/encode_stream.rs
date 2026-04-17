@@ -7,7 +7,7 @@ use crate::codecs::rle::encode_byte_rle;
 use crate::decoder::{
     DictionaryType, IntEncoding, LogicalEncoding, PhysicalEncoding, RleMeta, StreamMeta, StreamType,
 };
-use crate::encoder::{EncodedStream, EncodedStreamData};
+use crate::encoder::EncodedStream;
 use crate::errors::AsMltError as _;
 
 /// Deduplicate `values` preserving insertion order.
@@ -67,10 +67,7 @@ impl EncodedStream {
             ),
             num_values,
         );
-        Ok(Self {
-            meta,
-            data: EncodedStreamData::Encoded(data),
-        })
+        Ok(Self { meta, data })
     }
 
     /// Encodes `f32`s into a stream
@@ -86,10 +83,7 @@ impl EncodedStream {
             IntEncoding::none(),
             num_values,
         );
-        Ok(Self {
-            meta,
-            data: EncodedStreamData::Encoded(data),
-        })
+        Ok(Self { meta, data })
     }
 
     /// Encodes `f64`s into a stream
@@ -105,9 +99,6 @@ impl EncodedStream {
             IntEncoding::none(),
             num_values,
         );
-        Ok(Self {
-            meta,
-            data: EncodedStreamData::Encoded(data),
-        })
+        Ok(Self { meta, data })
     }
 }

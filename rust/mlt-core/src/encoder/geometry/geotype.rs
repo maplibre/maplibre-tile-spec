@@ -287,7 +287,7 @@ mod tests {
         DictionaryType, IntEncoding, LengthType, LogicalEncoding, MortonMeta, OffsetType,
         RawGeometry, StreamMeta, StreamType,
     };
-    use crate::encoder::{EncodedStream, EncodedStreamData, Encoder, IntEncoder, do_write_u32};
+    use crate::encoder::{EncodedStream, Encoder, IntEncoder, do_write_u32};
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -552,7 +552,7 @@ mod tests {
                 ),
                 3, // 3 dictionary entries -> 3 physical u32 values
             ),
-            data: EncodedStreamData::VarInt(raw_bytes),
+            data: raw_bytes,
         };
 
         // Assemble, serialize, parse, decode — same wire layout as geometry encoder:

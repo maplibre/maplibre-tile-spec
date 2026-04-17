@@ -5,7 +5,7 @@ use integer_encoding::VarIntWriter as _;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RawStream,
-    RawStreamData, RleMeta, StreamMeta, StreamType,
+    RleMeta, StreamMeta, StreamType,
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::{AsUsize as _, BinarySerializer as _, parse_u8, take};
@@ -193,15 +193,8 @@ impl fmt::Debug for StreamMeta {
 
 impl<'a> RawStream<'a> {
     #[must_use]
-    pub fn new(meta: StreamMeta, data: RawStreamData<'a>) -> Self {
+    pub fn new(meta: StreamMeta, data: &'a [u8]) -> Self {
         Self { meta, data }
-    }
-
-    #[must_use]
-    pub fn as_bytes(&self) -> &'a [u8] {
-        match &self.data {
-            RawStreamData::Encoded(v) | RawStreamData::VarInt(v) => v,
-        }
     }
 
     pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
@@ -249,13 +242,11 @@ impl<'a> RawStream<'a> {
             validate_rle_varint_stream(data, r.runs, r.num_rle_values)?;
         }
 
-        let stream_data = match meta.encoding.physical {
-            PD::None | PD::FastPFor256 => RawStreamData::Encoded(data),
-            PD::VarInt => RawStreamData::VarInt(data),
-            PD::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
-        };
+        if meta.encoding.physical == PD::Alp {
+            return Err(MltError::UnsupportedPhysicalEncoding("ALP"));
+        }
 
-        Ok((input, RawStream::new(meta, stream_data)))
+        Ok((input, RawStream::new(meta, data)))
     }
 }
 
