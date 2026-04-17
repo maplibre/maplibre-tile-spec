@@ -1,3 +1,5 @@
+use crate::DictRange;
+
 /// Staged property column (encode-side, fully owned).
 ///
 /// Unlike `ParsedProperty` (decode-side, potentially borrowed), all string names
@@ -71,8 +73,8 @@ pub struct StagedSharedDict {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedSharedDictItem {
     pub(crate) suffix: String,
-    /// Per-feature `(start, end)` byte offsets into the shared corpus.
-    pub ranges: Vec<(i32, i32)>,
+    /// Per-feature byte ranges into the shared corpus.
+    pub ranges: Vec<DictRange>,
     /// It's OK to write unneeded one, but can't be false with nulls.
     pub(crate) has_presence: bool,
 }

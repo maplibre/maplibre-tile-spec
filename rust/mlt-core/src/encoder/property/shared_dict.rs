@@ -19,7 +19,7 @@ use crate::encoder::{
 };
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, BinarySerializer as _, checked_sum3, strings_to_lengths};
-use crate::{ColumnType, DictionaryType, LengthType, MltResult, OffsetType, StreamType};
+use crate::{ColumnType, DictRange, DictionaryType, LengthType, MltResult, OffsetType, StreamType};
 
 /// Number of [`MinHash`] permutations. 128 gives ~9 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;
@@ -231,28 +231,6 @@ impl StagedSharedDictItem {
             .iter()
             .filter_map(|&range| decode_shared_dict_range(range))
     }
-
-    #[must_use]
-    pub fn get<'a>(&self, shared_dict: &'a StagedSharedDict, i: usize) -> Option<&'a str> {
-        self.ranges
-            .get(i)
-            .copied()
-            .and_then(decode_shared_dict_range)
-            .and_then(|span| shared_dict.get(span))
-    }
-
-    #[must_use]
-    pub fn materialize(&self, shared_dict: &StagedSharedDict) -> Vec<Option<String>> {
-        // FIXME: this should not exist; it's only used for testing at the moment - use some equality instead
-        self.ranges
-            .iter()
-            .map(|&range| {
-                decode_shared_dict_range(range)
-                    .and_then(|span| shared_dict.get(span))
-                    .map(str::to_string)
-            })
-            .collect()
-    }
 }
 
 impl StagedSharedDict {
@@ -315,7 +293,7 @@ impl StagedSharedDict {
                             ranges.push(encode_shared_dict_range(start, end)?);
                             present_items += 1;
                         }
-                        None => ranges.push((-1, -1)),
+                        None => ranges.push(DictRange::NULL),
                     }
                 }
                 let has_presence = present_items < ranges.len();
