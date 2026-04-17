@@ -935,7 +935,7 @@ For example, integer columns resulting from dictionary encoding can be further c
 </tr>
 <tr>
 <td>Float</td>
-<td>Plain, RLE, Dictionary, <a href="https://dl.acm.org/doi/pdf/10.1145/3626717">ALP</a></td>
+<td>Plain, RLE, Dictionary</td>
 <td></td>
 <td></td>
 </tr>
@@ -955,7 +955,7 @@ For example, integer columns resulting from dictionary encoding can be further c
 </table>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p><code>ALP</code>, <code>FSST</code>, and <code>FastPFOR</code> encodings are <span class="experimental"></span>.</p>
+<p><code>FSST</code>, and <code>FastPFOR</code> encodings are <span class="experimental"></span>.</p>
 </div>
 <p>SIMD-FastPFOR is generally preferred over Varint encoding due to its smaller output and faster decoding speed.
 Varint encoding is included mainly for compatibility and simplicity, and it can be more efficient when combined with heavyweight compression like GZip.</p>
