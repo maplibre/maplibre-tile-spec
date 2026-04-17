@@ -115,8 +115,6 @@ pub enum PhysicalEncoding {
     /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
     /// Simple compression scheme where the encoding is easier to implement compared to `FastPfor`.
     VarInt = 2,
-    /// Adaptive Lossless floating-Point Compression
-    Alp = 3,
 }
 
 // RawStream types
