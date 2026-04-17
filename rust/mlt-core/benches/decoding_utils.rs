@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::__private::MortonMeta;
+use mlt_core::__private::GridParams;
 use mlt_core::__private::morton::{decode_morton_codes, decode_morton_delta};
 use mlt_core::Decoder;
 
@@ -74,9 +74,9 @@ fn bench_impls<I: Clone, O>(
 }
 
 fn bench_morton(c: &mut Criterion) {
-    let meta = MortonMeta {
-        num_bits: NUM_BITS,
-        coordinate_shift: COORDINATE_SHIFT,
+    let meta = GridParams {
+        bits: NUM_BITS,
+        shift: COORDINATE_SHIFT,
     };
     bench_impls(c, "morton/decode_codes", make_morton_codes, |v| {
         decode_morton_codes(v, meta, &mut Decoder::with_max_size(u32::MAX)).unwrap()

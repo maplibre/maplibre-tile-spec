@@ -27,11 +27,15 @@ pub struct RleMeta {
     pub(crate) num_rle_values: u32,
 }
 
-/// Metadata for Morton decoding
+/// Shared parameters for space-filling curve encoding (Morton and Hilbert).
+///
+/// - `bits`: number of bits per axis (grid level `l`; coordinates must fit in `[0, 2^l)`)
+/// - `shift`: additive offset applied to both axes before encoding, moving the origin into the
+///   non-negative range
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct MortonMeta {
-    pub num_bits: u32,
-    pub coordinate_shift: u32,
+pub struct GridParams {
+    pub bits: u32,
+    pub shift: u32,
 }
 
 /// How should the stream be interpreted at the logical level (second pass of decoding)
@@ -42,9 +46,9 @@ pub enum LogicalEncoding {
     DeltaRle(RleMeta),
     ComponentwiseDelta,
     Rle(RleMeta),
-    Morton(MortonMeta),
-    MortonDelta(MortonMeta),
-    MortonRle(MortonMeta),
+    Morton(GridParams),
+    MortonDelta(GridParams),
+    MortonRle(GridParams),
     PseudoDecimal,
 }
 

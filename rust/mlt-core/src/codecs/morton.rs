@@ -1,6 +1,6 @@
 use wide::u32x8;
 
-use crate::decoder::MortonMeta;
+use crate::decoder::GridParams;
 use crate::{Coord32, Decoder, MltError, MltResult};
 
 const LANES: usize = 8;
@@ -43,20 +43,20 @@ pub fn interleave_bits(x: u32, y: u32) -> u32 {
 /// the returned key fits in a `u32` (32 interleaved bits). This is
 /// sufficient for any tile coordinate system with extent ≤ 65 535.
 #[must_use]
-pub fn morton_sort_key(c: Coord32, shift: u32, num_bits: u32) -> u32 {
-    debug_assert!((1..=16).contains(&num_bits));
+pub fn morton_sort_key(c: Coord32, params: GridParams) -> u32 {
+    debug_assert!((1..=16).contains(&params.bits));
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
     )]
-    let sx = ((i64::from(c.x) + i64::from(shift)) as u32) & 0xFFFF;
+    let sx = ((i64::from(c.x) + i64::from(params.shift)) as u32) & 0xFFFF;
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
     )]
-    let sy = ((i64::from(c.y) + i64::from(shift)) as u32) & 0xFFFF;
+    let sy = ((i64::from(c.y) + i64::from(params.shift)) as u32) & 0xFFFF;
     interleave_bits(sx, sy)
 }
 
@@ -64,14 +64,14 @@ pub fn morton_sort_key(c: Coord32, shift: u32, num_bits: u32) -> u32 {
 
 /// Encode a single `(x, y)` coordinate pair to its Z-order (Morton) code.
 ///
-/// `num_bits` (≤ 16) bits are used per axis; `coordinate_shift` is added to each
+/// `params.bits` (≤ 16) bits are used per axis; `params.shift` is added to each
 /// component before interleaving so that negative coordinates map to non-negative values.
-pub fn encode_morton(x: i32, y: i32, meta: MortonMeta) -> MltResult<u32> {
-    let sx = u32::try_from(i64::from(x) + i64::from(meta.coordinate_shift))?;
-    let sy = u32::try_from(i64::from(y) + i64::from(meta.coordinate_shift))?;
+pub fn encode_morton(x: i32, y: i32, params: GridParams) -> MltResult<u32> {
+    let sx = u32::try_from(i64::from(x) + i64::from(params.shift))?;
+    let sy = u32::try_from(i64::from(y) + i64::from(params.shift))?;
     let mut code = 0u32;
-    for i in 0..meta.num_bits {
-        // num_bits is capped at 16, so 2*i+1 ≤ 31 — no shift overflow.
+    for i in 0..params.bits {
+        // bits is capped at 16, so 2*i+1 ≤ 31 — no shift overflow.
         code |= ((sx >> i) & 1) << (2 * i);
         code |= ((sy >> i) & 1) << (2 * i + 1);
     }
@@ -80,14 +80,13 @@ pub fn encode_morton(x: i32, y: i32, meta: MortonMeta) -> MltResult<u32> {
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
 ///
-/// Returns a [`MortonMeta`] whose `num_bits` and `coordinate_shift` match Java's
-/// `SpaceFillingCurve` implementation.
-pub fn z_order_params(vertices: &[i32]) -> MltResult<MortonMeta> {
+/// Returns a [`GridParams`] whose `bits` and `shift` match Java's `SpaceFillingCurve` implementation.
+pub fn z_order_params(vertices: &[i32]) -> MltResult<GridParams> {
     let min_v = vertices.iter().copied().min().unwrap_or(0);
     let max_v = vertices.iter().copied().max().unwrap_or(0);
-    let coordinate_shift: u32 = if min_v < 0 { min_v.unsigned_abs() } else { 0 };
-    let tile_extent = i64::from(max_v) + i64::from(coordinate_shift);
-    let num_bits = if let Ok(extent) = u32::try_from(tile_extent) {
+    let shift: u32 = if min_v < 0 { min_v.unsigned_abs() } else { 0 };
+    let tile_extent = i64::from(max_v) + i64::from(shift);
+    let bits = if let Ok(extent) = u32::try_from(tile_extent) {
         // ceil(log2(extent + 1)), matching Java's Math.ceil(Math.log(...) / Math.log(2)).
         // Computed with integer arithmetic: for te >= 1, this equals `u32::BITS - te.leading_zeros()`.
         // Capped at 16: Morton codes are u32, so each axis may use at most 16 bits.
@@ -102,10 +101,7 @@ pub fn z_order_params(vertices: &[i32]) -> MltResult<MortonMeta> {
     } else {
         0u32
     };
-    Ok(MortonMeta {
-        num_bits,
-        coordinate_shift,
-    })
+    Ok(GridParams { bits, shift })
 }
 
 /// Delta-encode a sorted slice of Morton codes: `[codes[0], codes[1]-codes[0], ...]`.
@@ -121,19 +117,19 @@ pub fn morton_deltas(codes: &[u32], target: &mut Vec<u32>) {
 
 // ── Decoder ─────────────────────────────────────────────────────────────────
 
-/// Decode a single Morton code to a `Coord32`, applying `coordinate_shift`.
+/// Decode a single Morton code to a `Coord32`, applying the coordinate shift.
 #[inline]
-fn decode_morton_one(morton_code: u32, meta: MortonMeta) -> Coord32 {
+fn decode_morton_one(morton_code: u32, params: GridParams) -> Coord32 {
     let mut x = 0u32;
     let mut y = 0u32;
-    for i in 0..meta.num_bits {
+    for i in 0..params.bits {
         let bit_mask = 1u32 << (2 * i);
         x |= (morton_code & bit_mask) >> i;
         y |= ((morton_code >> 1) & bit_mask) >> i;
     }
     Coord32 {
-        x: x.cast_signed() - meta.coordinate_shift.cast_signed(),
-        y: y.cast_signed() - meta.coordinate_shift.cast_signed(),
+        x: x.cast_signed() - params.shift.cast_signed(),
+        y: y.cast_signed() - params.shift.cast_signed(),
     }
 }
 
@@ -145,12 +141,12 @@ fn decode_morton_one(morton_code: u32, meta: MortonMeta) -> Coord32 {
 /// This keeps the working set in registers / L1 cache.
 pub fn decode_morton_delta(
     data: &[u32],
-    meta: MortonMeta,
+    params: GridParams,
     dec: &mut Decoder,
 ) -> MltResult<Vec<i32>> {
     let alloc_size = data.len() * 2;
     let mut out = dec.alloc(alloc_size)?;
-    let shift_vec = u32x8::splat(meta.coordinate_shift);
+    let shift_vec = u32x8::splat(params.shift);
 
     let mut prev = 0i32;
     let mut chunks = data.chunks_exact(LANES);
@@ -162,13 +158,13 @@ pub fn decode_morton_delta(
             prev = prev.wrapping_add(d.cast_signed());
             *b = prev.cast_unsigned();
         }
-        decode_morton_chunk(buf, meta.num_bits, shift_vec, &mut out);
+        decode_morton_chunk(buf, params.bits, shift_vec, &mut out);
     }
 
     // Scalar tail for any codes that didn't fill a full SIMD chunk.
     for &d in chunks.remainder() {
         prev = prev.wrapping_add(d.cast_signed());
-        let coord = decode_morton_one(prev.cast_unsigned(), meta);
+        let coord = decode_morton_one(prev.cast_unsigned(), params);
         out.push(coord.x);
         out.push(coord.y);
     }
@@ -184,12 +180,12 @@ pub fn decode_morton_delta(
 /// the coordinate shift. A scalar tail handles any remaining codes.
 pub fn decode_morton_codes(
     data: &[u32],
-    meta: MortonMeta,
+    params: GridParams,
     dec: &mut Decoder,
 ) -> MltResult<Vec<i32>> {
     let alloc_size = data.len() * 2;
     let mut out = dec.alloc(alloc_size)?;
-    let shift_vec = u32x8::splat(meta.coordinate_shift);
+    let shift_vec = u32x8::splat(params.shift);
 
     let mut chunks = data.chunks_exact(LANES);
 
@@ -197,12 +193,12 @@ pub fn decode_morton_codes(
         let buf = [
             chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6], chunk[7],
         ];
-        decode_morton_chunk(buf, meta.num_bits, shift_vec, &mut out);
+        decode_morton_chunk(buf, params.bits, shift_vec, &mut out);
     }
 
     // Scalar tail for any codes that didn't fill a full SIMD chunk.
     for &code in chunks.remainder() {
-        let coord = decode_morton_one(code, meta);
+        let coord = decode_morton_one(code, params);
         out.push(coord.x);
         out.push(coord.y);
     }
@@ -246,6 +242,7 @@ fn decode_morton_chunk(buf: [u32; LANES], num_bits: u32, shift_vec: u32x8, out: 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::decoder::GridParams;
     use crate::test_helpers::dec;
 
     const fn c(x: i32, y: i32) -> Coord32 {
@@ -299,40 +296,61 @@ mod tests {
 
     #[test]
     fn origin_maps_to_zero() {
-        assert_eq!(morton_sort_key(c(0, 0), 0, 16), 0);
+        assert_eq!(
+            morton_sort_key(c(0, 0), GridParams { shift: 0, bits: 16 }),
+            0
+        );
     }
 
     #[test]
     fn x_axis_produces_even_bits() {
         // x=1, y=0  →  only bit 0 of x is set → Morton bit 0 set → code = 1
-        assert_eq!(morton_sort_key(c(1, 0), 0, 16), 1);
+        assert_eq!(
+            morton_sort_key(c(1, 0), GridParams { shift: 0, bits: 16 }),
+            1
+        );
         // x=2, y=0  →  only bit 1 of x is set → Morton bit 2 set → code = 4
-        assert_eq!(morton_sort_key(c(2, 0), 0, 16), 4);
+        assert_eq!(
+            morton_sort_key(c(2, 0), GridParams { shift: 0, bits: 16 }),
+            4
+        );
     }
 
     #[test]
     fn y_axis_produces_odd_bits() {
         // x=0, y=1  →  only bit 0 of y is set → Morton bit 1 set → code = 2
-        assert_eq!(morton_sort_key(c(0, 1), 0, 16), 2);
+        assert_eq!(
+            morton_sort_key(c(0, 1), GridParams { shift: 0, bits: 16 }),
+            2
+        );
         // x=0, y=2  →  only bit 1 of y is set → Morton bit 3 set → code = 8
-        assert_eq!(morton_sort_key(c(0, 2), 0, 16), 8);
+        assert_eq!(
+            morton_sort_key(c(0, 2), GridParams { shift: 0, bits: 16 }),
+            8
+        );
     }
 
     #[test]
     fn negative_coords_shift_correctly() {
         // Shifting (-1, -1) by 1 maps to (0, 0) → Morton code 0
-        assert_eq!(morton_sort_key(c(-1, -1), 1, 16), 0);
+        assert_eq!(
+            morton_sort_key(c(-1, -1), GridParams { shift: 1, bits: 16 }),
+            0
+        );
         // Shifting (-1, 0) by 1 maps to (0, 1) → Morton code 2
-        assert_eq!(morton_sort_key(c(-1, 0), 1, 16), 2);
+        assert_eq!(
+            morton_sort_key(c(-1, 0), GridParams { shift: 1, bits: 16 }),
+            2
+        );
     }
 
     #[test]
     fn spatial_locality_z_order() {
         // After shifting, (0,0) < (1,0) < (0,1) < (1,1) in Z-order
-        let k00 = morton_sort_key(c(0, 0), 0, 16);
-        let k10 = morton_sort_key(c(1, 0), 0, 16);
-        let k01 = morton_sort_key(c(0, 1), 0, 16);
-        let k11 = morton_sort_key(c(1, 1), 0, 16);
+        let k00 = morton_sort_key(c(0, 0), GridParams { shift: 0, bits: 16 });
+        let k10 = morton_sort_key(c(1, 0), GridParams { shift: 0, bits: 16 });
+        let k01 = morton_sort_key(c(0, 1), GridParams { shift: 0, bits: 16 });
+        let k11 = morton_sort_key(c(1, 1), GridParams { shift: 0, bits: 16 });
         assert!(k00 < k10);
         assert!(k10 < k01);
         assert!(k01 < k11);
@@ -376,10 +394,10 @@ mod tests {
         code
     }
 
-    fn morton_meta() -> MortonMeta {
-        MortonMeta {
-            num_bits: NUM_BITS,
-            coordinate_shift: COORD_SHIFT,
+    fn morton_params() -> GridParams {
+        GridParams {
+            bits: NUM_BITS,
+            shift: COORD_SHIFT,
         }
     }
 
@@ -388,7 +406,7 @@ mod tests {
     #[test]
     fn test_decode_morton_codes_empty() {
         assert!(
-            decode_morton_codes(&[], morton_meta(), &mut dec())
+            decode_morton_codes(&[], morton_params(), &mut dec())
                 .unwrap()
                 .is_empty()
         );
@@ -398,7 +416,7 @@ mod tests {
     fn test_decode_morton_codes_origin() {
         // Morton code for (COORD_SHIFT, COORD_SHIFT) should decode to (0, 0).
         let code = encode_morton_15(COORD_SHIFT, COORD_SHIFT);
-        let decoded = decode_morton_codes(&[code], morton_meta(), &mut dec()).unwrap();
+        let decoded = decode_morton_codes(&[code], morton_params(), &mut dec()).unwrap();
         assert_eq!(decoded, [0, 0]);
     }
 
@@ -410,7 +428,7 @@ mod tests {
         let code = encode_morton_15(x, y);
         let expected_x = x.cast_signed() - COORD_SHIFT.cast_signed();
         let expected_y = y.cast_signed() - COORD_SHIFT.cast_signed();
-        let decoded = decode_morton_codes(&[code], morton_meta(), &mut dec()).unwrap();
+        let decoded = decode_morton_codes(&[code], morton_params(), &mut dec()).unwrap();
         assert_eq!(decoded, [expected_x, expected_y]);
     }
 
@@ -419,7 +437,7 @@ mod tests {
         // 3 codes — exercises the scalar tail path (< 8 codes).
         let pairs = [(0u32, 1u32), (2, 3), (4, 5)];
         let codes: Vec<u32> = pairs.iter().map(|&(x, y)| encode_morton_15(x, y)).collect();
-        let result = decode_morton_codes(&codes, morton_meta(), &mut dec()).unwrap();
+        let result = decode_morton_codes(&codes, morton_params(), &mut dec()).unwrap();
         let expected = expected_coords(&pairs);
         assert_eq!(result, expected);
     }
@@ -438,7 +456,7 @@ mod tests {
             (15, 15),
         ];
         let codes: Vec<u32> = pairs.iter().map(|&(x, y)| encode_morton_15(x, y)).collect();
-        let result = decode_morton_codes(&codes, morton_meta(), &mut dec()).unwrap();
+        let result = decode_morton_codes(&codes, morton_params(), &mut dec()).unwrap();
         let expected = expected_coords(&pairs);
         assert_eq!(result, expected);
     }
@@ -448,7 +466,7 @@ mod tests {
         // 11 codes — one full SIMD chunk of 8 plus a scalar tail of 3.
         let pairs: Vec<(u32, u32)> = (0..11u32).map(|i| (i * 3 % 100, i * 7 % 100)).collect();
         let codes: Vec<u32> = pairs.iter().map(|&(x, y)| encode_morton_15(x, y)).collect();
-        let result = decode_morton_codes(&codes, morton_meta(), &mut dec()).unwrap();
+        let result = decode_morton_codes(&codes, morton_params(), &mut dec()).unwrap();
         let expected = expected_coords(&pairs);
         assert_eq!(result, expected);
     }
@@ -458,7 +476,7 @@ mod tests {
     #[test]
     fn test_decode_morton_delta_empty() {
         assert!(
-            decode_morton_delta(&[], morton_meta(), &mut dec())
+            decode_morton_delta(&[], morton_params(), &mut dec())
                 .unwrap()
                 .is_empty()
         );
@@ -468,7 +486,7 @@ mod tests {
     fn test_decode_morton_delta_identity_with_zero_deltas() {
         // All-zero deltas: every resolved code is 0, which decodes to (-COORD_SHIFT, -COORD_SHIFT).
         let deltas = vec![0u32; 3];
-        let result = decode_morton_delta(&deltas, morton_meta(), &mut dec()).unwrap();
+        let result = decode_morton_delta(&deltas, morton_params(), &mut dec()).unwrap();
         let shift = -COORD_SHIFT.cast_signed();
         assert_eq!(result, vec![shift, shift, shift, shift, shift, shift]);
     }
@@ -482,8 +500,8 @@ mod tests {
         let codes: Vec<u32> = pairs.iter().map(|&(x, y)| encode_morton_15(x, y)).collect();
         let deltas = signed_deltas(&codes);
 
-        let from_codes = decode_morton_codes(&codes, morton_meta(), &mut dec()).unwrap();
-        let from_deltas = decode_morton_delta(&deltas, morton_meta(), &mut dec()).unwrap();
+        let from_codes = decode_morton_codes(&codes, morton_params(), &mut dec()).unwrap();
+        let from_deltas = decode_morton_delta(&deltas, morton_params(), &mut dec()).unwrap();
         assert_eq!(from_codes, from_deltas);
     }
 
@@ -496,8 +514,8 @@ mod tests {
             encode_morton_15(50, 60),
         ];
         let deltas = signed_deltas(&codes);
-        let from_codes = decode_morton_codes(&codes, morton_meta(), &mut dec()).unwrap();
-        let from_deltas = decode_morton_delta(&deltas, morton_meta(), &mut dec()).unwrap();
+        let from_codes = decode_morton_codes(&codes, morton_params(), &mut dec()).unwrap();
+        let from_deltas = decode_morton_delta(&deltas, morton_params(), &mut dec()).unwrap();
         assert_eq!(from_codes, from_deltas);
     }
 
@@ -512,8 +530,8 @@ mod tests {
             .wrapping_sub(code_a.cast_signed())
             .cast_unsigned();
         assert_eq!(
-            decode_morton_delta(&[code_a, delta_b], morton_meta(), &mut dec()).unwrap(),
-            decode_morton_codes(&[code_a, code_b], morton_meta(), &mut dec()).unwrap()
+            decode_morton_delta(&[code_a, delta_b], morton_params(), &mut dec()).unwrap(),
+            decode_morton_codes(&[code_a, code_b], morton_params(), &mut dec()).unwrap()
         );
     }
 

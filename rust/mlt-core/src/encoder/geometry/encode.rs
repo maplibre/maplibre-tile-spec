@@ -9,8 +9,8 @@ use crate::codecs::morton::{encode_morton, morton_deltas, z_order_params};
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
-    ColumnType, DictionaryType, GeometryType, GeometryValues, LengthType, LogicalEncoding,
-    MortonMeta, OffsetType, StreamType,
+    ColumnType, DictionaryType, GeometryType, GeometryValues, GridParams, LengthType,
+    LogicalEncoding, OffsetType, StreamType,
 };
 use crate::encoder::Encoder;
 use crate::encoder::model::StreamCtx;
@@ -20,13 +20,13 @@ use crate::{Coord32, MltResult};
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
 ///
-/// Returns `(num_bits, coordinate_shift)` matching Java's `SpaceFillingCurve`.
+/// Returns `(bits, shift)` matching Java's `SpaceFillingCurve`.
 /// Build a sorted unique Morton dictionary and per-vertex offset indices from a flat
 /// `[x0, y0, x1, y1, …]` vertex slice.
 ///
 /// Returns `(sorted_unique_codes, per_vertex_offsets)`.
 #[hotpath::measure]
-fn build_morton_dict(vertices: &[i32], meta: MortonMeta) -> MltResult<(Vec<u32>, Vec<u32>)> {
+fn build_morton_dict(vertices: &[i32], meta: GridParams) -> MltResult<(Vec<u32>, Vec<u32>)> {
     let codes: Vec<u32> = vertices
         .chunks_exact(2)
         .map(|c| encode_morton(c[0], c[1], meta))
@@ -283,7 +283,7 @@ fn normalize_part_offsets_for_rings(
 /// - The uniqueness ratio is below the threshold, meaning enough vertices are
 ///   repeated that the dictionary overhead is worthwhile.
 ///
-/// Calls `get_z_order_params` so the [`MortonMeta`] is cached on the encoder
+/// Calls `get_z_order_params` so the [`GridParams`] is cached on the encoder
 /// and can be retrieved again in the Morton encoding branch without a second vertex scan.
 #[hotpath::measure]
 fn select_vertex_strategy(vertices: &[i32], enc: &mut Encoder) -> VertexBufferType {
@@ -321,8 +321,8 @@ fn select_vertex_strategy(vertices: &[i32], enc: &mut Encoder) -> VertexBufferTy
     vertex_buffer_type
 }
 
-/// Compute or return the cached [`MortonMeta`] for `vertices`.
-fn get_z_order_params(vertices: &[i32], enc: &mut Encoder) -> MltResult<MortonMeta> {
+/// Compute or return the cached [`GridParams`] for `vertices`.
+fn get_z_order_params(vertices: &[i32], enc: &mut Encoder) -> MltResult<GridParams> {
     Ok(if let Some(meta) = enc.morton_meta_cache {
         meta
     } else {
@@ -541,10 +541,7 @@ mod tests {
 
     #[test]
     fn test_build_morton_dict() {
-        let meta = MortonMeta {
-            num_bits: 4,
-            coordinate_shift: 0,
-        };
+        let meta = GridParams { bits: 4, shift: 0 };
         // vertices: [x0,y0, x1,y1, x2,y2, x3,y3] — repeat (1,2) to test dedup
         let vertices = [1, 2, 3, 4, 1, 2, 0, 0];
         let (dict, offsets) = build_morton_dict(&vertices, meta).unwrap();

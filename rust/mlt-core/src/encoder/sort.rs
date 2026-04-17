@@ -4,7 +4,7 @@ use geo::CoordsIter as _;
 
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
-use crate::decoder::{TileFeature, TileLayer01};
+use crate::decoder::{GridParams, TileFeature, TileLayer01};
 use crate::{Coord32, Geom32};
 
 /// Controls how features inside a layer are reordered before encoding.
@@ -47,15 +47,14 @@ impl TileLayer01 {
         match strategy {
             SortStrategy::SpatialMorton | SortStrategy::SpatialHilbert => {
                 let params = curve_params_from_features(&self.features);
-                let curve_key = if let SortStrategy::SpatialMorton = strategy {
-                    morton_sort_key
-                } else {
-                    hilbert_sort_key
-                };
+                let curve_key: fn(Coord32, GridParams) -> u32 =
+                    if let SortStrategy::SpatialMorton = strategy {
+                        morton_sort_key
+                    } else {
+                        hilbert_sort_key
+                    };
                 self.features.sort_by_cached_key(|f| {
-                    first_vertex(&f.geometry).map_or(u64::MAX, |c| {
-                        u64::from(curve_key(c, params.shift, params.num_bits))
-                    })
+                    first_vertex(&f.geometry).map_or(u64::MAX, |c| u64::from(curve_key(c, params)))
                 });
             }
             SortStrategy::Id => {
@@ -69,24 +68,16 @@ impl TileLayer01 {
     }
 }
 
-/// Parameters derived from the vertex set of a feature collection, used to
-/// normalize coordinates before space-filling-curve key computation.
-struct CurveParams {
-    shift: u32,
-    num_bits: u32,
-}
-
 /// Compute the Hilbert/Morton curve parameters from all vertex coordinates
 /// in `features` without allocating a temporary vertex buffer.
-fn curve_params_from_features(features: &[TileFeature]) -> CurveParams {
+fn curve_params_from_features(features: &[TileFeature]) -> GridParams {
     let (min_val, max_val) = features
         .iter()
         .flat_map(|f| f.geometry.coords_iter())
         .fold((i32::MAX, i32::MIN), |(min, max), c| {
             (min.min(c.x).min(c.y), max.max(c.x).max(c.y))
         });
-    let (shift, num_bits) = hilbert_curve_params_from_bounds(min_val, max_val);
-    CurveParams { shift, num_bits }
+    hilbert_curve_params_from_bounds(min_val, max_val)
 }
 
 /// Extract the coordinate of the first vertex of a geometry.

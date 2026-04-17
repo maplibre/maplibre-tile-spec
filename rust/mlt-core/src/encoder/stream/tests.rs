@@ -4,7 +4,7 @@ use rstest::rstest;
 use super::write::{do_write_i32, do_write_i64};
 use super::{do_write_u32, do_write_u64};
 use crate::decoder::{
-    DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalValue, MortonMeta, OffsetType,
+    DictionaryType, GridParams, IntEncoding, LengthType, LogicalEncoding, LogicalValue, OffsetType,
     PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
 };
 use crate::encoder::{EncodedStream, Encoder, IntEncoder, PhysicalEncoder};
@@ -164,7 +164,7 @@ fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
 #[case::varint(StreamType::Length(LengthType::VarBinary), 3, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02], false)]
 #[case::rle(StreamType::Data(DictionaryType::None), 6, LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 6 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x01, 0x0A, 0x14, 0x1E], false)]
 #[case::rle(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x00, 0x02], false)]
-#[case::morton(StreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Morton(MortonMeta { num_bits: 32, coordinate_shift: 0 }), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false)]
+#[case::morton(StreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Morton(GridParams { bits: 32, shift: 0 }), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false)]
 #[case::boolean(StreamType::Present, 16, LogicalEncoding::Rle(RleMeta { runs: 2, num_rle_values: 2 }), PhysicalEncoding::VarInt, vec![0xFF, 0x00], true)]
 fn test_stream_roundtrip(
     #[case] stream_type: StreamType,
