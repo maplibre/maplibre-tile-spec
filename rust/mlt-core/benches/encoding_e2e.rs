@@ -65,7 +65,10 @@ fn bench_encode(c: &mut Criterion) {
                 for logical in limit(LogicalEncoder::iter()) {
                     let int_enc = IntEncoder::new(logical, physical);
                     group.bench_with_input(
-                        BenchmarkId::new(format!("{logical:?}-{physical:?}/tessellate: {tessellate:?}"), zoom),
+                        BenchmarkId::new(
+                            format!("{logical:?}-{physical:?}/tessellate: {tessellate:?}"),
+                            zoom,
+                        ),
                         &tiles,
                         |b, tiles| {
                             b.iter_batched(
