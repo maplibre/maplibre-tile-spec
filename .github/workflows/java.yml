@@ -1,16 +1,7 @@
 name: Java CI
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    paths:
-      - 'justfile'
-      - 'java/mod.just'
-      - '.github/**'
-      - 'java/**'
-      - 'test/**'
+  workflow_call:
   workflow_dispatch:
 
 defaults:
