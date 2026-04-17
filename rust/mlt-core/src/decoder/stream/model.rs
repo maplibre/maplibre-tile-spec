@@ -1,4 +1,8 @@
+use std::fmt;
+
 use num_enum::TryFromPrimitive;
+
+use crate::utils::formatter::ByteArrayDbg;
 
 /// Logical encoding technique used for a column, as stored in the tile
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
@@ -132,8 +136,16 @@ pub struct StreamMeta {
 }
 
 /// Representation of an encoded stream
-#[derive(Debug, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub struct RawStream<'a> {
     pub meta: StreamMeta,
     pub(crate) data: &'a [u8],
+}
+impl fmt::Debug for RawStream<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RawStream")
+            .field("meta", &self.meta)
+            .field("data", &ByteArrayDbg(self.data))
+            .finish()
+    }
 }
