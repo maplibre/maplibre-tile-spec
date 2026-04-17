@@ -89,13 +89,16 @@ public:
                                           intEncoder,
                                           metadata::stream::LengthType::DICTIONARY,
                                           metadata::stream::DictionaryType::SHARED);
-        std::uint32_t dictStreams = 3;
+        // Non-FSST shared dictionary emits only LENGTH + DATA streams.
+        std::uint32_t dictStreams = 2;
 
         if (useFsst) {
             auto fsstData = encodeFsst(dictionary, physicalTechnique, intEncoder, true);
             if (fsstData.size() < dictData.size()) {
                 dictData = std::move(fsstData);
-                dictStreams = 5;
+                // FSST shared dictionary emits LENGTH(symbol), DATA(symbol table),
+                // LENGTH(dictionary), DATA(compressed dictionary).
+                dictStreams = 4;
             }
         }
 

@@ -17,6 +17,7 @@ public:
     using Geometry = Encoder::Geometry;
     using Feature = Encoder::Feature;
     using Layer = Encoder::Layer;
+    using StructValue = Encoder::StructValue;
     using PropertyValue = Encoder::PropertyValue;
     using PropertyMap = std::map<std::string, PropertyValue>;
     using Ring = std::vector<Vertex>;
@@ -28,10 +29,22 @@ public:
         std::string name;
         std::vector<std::uint8_t> bytes;
     };
+    using GeneratedTiles = std::vector<GeneratedTile>;
 
     static constexpr std::uint32_t defaultExtent = 80;
     static constexpr const char* defaultLayerName = "layer1";
     static constexpr Vertex c0 = {.x = 13, .y = 42};
+    // Additional coordinates matching Java SyntheticMltUtil
+    static constexpr Vertex c1 = {.x = 11, .y = 52};
+    static constexpr Vertex c2 = {.x = 71, .y = 72};
+    static constexpr Vertex c3 = {.x = 61, .y = 22};
+    static constexpr Vertex c21 = {.x = 23, .y = 34};
+    static constexpr Vertex c22 = {.x = 73, .y = 4};
+    static constexpr Vertex c23 = {.x = 13, .y = 24};
+    // Hole coordinates
+    static constexpr Vertex h1 = {.x = 65, .y = 66};
+    static constexpr Vertex h2 = {.x = 35, .y = 56};
+    static constexpr Vertex h3 = {.x = 55, .y = 36};
 
     static constexpr Vertex c(std::int32_t x, std::int32_t y) noexcept { return {.x = x, .y = y}; }
 
@@ -104,6 +117,14 @@ public:
         };
     }
 
+    static Feature featWithId(std::uint64_t id, Geometry geometry, PropertyMap properties = {}) {
+        return {
+            .id = id,
+            .geometry = std::move(geometry),
+            .properties = std::move(properties),
+        };
+    }
+
     static Layer layer(std::string name, std::vector<Feature> features, std::uint32_t extent = defaultExtent) {
         return {
             .name = std::move(name),
@@ -124,14 +145,314 @@ public:
         };
     }
 
+    static EncoderConfig cfgWithIds() {
+        auto config = cfg();
+        config.includeIds = true;
+        return config;
+    }
+
+    static EncoderConfig cfgWithFsst() {
+        auto config = cfg();
+        config.useFsst = true;
+        return config;
+    }
+
+    static EncoderConfig cfgWithMorton() {
+        auto config = cfg();
+        config.useMortonEncoding = true;
+        return config;
+    }
+
     static std::vector<std::uint8_t> encode(Layer layer, const EncoderConfig& config = cfg()) {
         return Encoder().encode({std::move(layer)}, config);
     }
+
+    // Helper to create a ring from vertex coordinates
+    static Ring ring(const Vertex* vertices, std::size_t count) { return Ring(vertices, vertices + count); }
 
     static GeneratedTile generatePoints() {
         return {
             .name = "point",
             .bytes = encode(layer(defaultLayerName, {feat(point(c0))}, defaultExtent), cfg()),
+        };
+    }
+
+    static GeneratedTile generateLine() {
+        Ring line_coords{c1, c2, c3};
+        return {
+            .name = "line",
+            .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent), cfg()),
+        };
+    }
+
+    static GeneratedTile generateLineZeroLength() {
+        Ring line_coords{c(6, 6), c(6, 6)};
+        return {
+            .name = "line_zero_length",
+            .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent), cfg()),
+        };
+    }
+
+    static GeneratedTile generateLineMorton() {
+        Ring line_coords{c(0, 0), c(8, 0), c(0, 8), c(8, 8)};
+        return {
+            .name = "line_morton_curve_morton",
+            .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent), cfgWithMorton()),
+        };
+    }
+
+    static GeneratedTiles generateLines() { return {generateLine(), generateLineZeroLength()}; }
+
+    static GeneratedTile generatePolyHole() {
+        // Match Java/JTS polygon ring semantics used by synthetic fixture generation.
+        Ring shell{c1, c2, c3};
+        Ring hole{h1, h2, h3};
+        Rings rings{shell, hole};
+        return {
+            .name = "poly_hole",
+            .bytes = encode(layer(defaultLayerName, {feat(poly(rings))}, defaultExtent), cfg()),
+        };
+    }
+
+    static GeneratedTile generatePoly() {
+        Ring shell{c1, c2, c3};
+        return {
+            .name = "poly",
+            .bytes = encode(layer(defaultLayerName, {feat(poly(shell))}, defaultExtent), cfg()),
+        };
+    }
+
+    static GeneratedTiles generatePolygons() { return {generatePoly(), generatePolyHole()}; }
+
+    static GeneratedTile generateMultiPoint() {
+        Ring points{c1, c2, c3};
+        return {
+            .name = "multipoint",
+            .bytes = encode(layer(defaultLayerName, {feat(multiPoint(points))}, defaultExtent), cfg()),
+        };
+    }
+
+    static GeneratedTiles generateMultiPoints() { return {generateMultiPoint()}; }
+
+    static GeneratedTile generateMultiLine() {
+        Ring line1_coords{c1, c2, c3};
+        Ring line2_coords{c21, c22, c23};
+        Parts lines{line1_coords, line2_coords};
+        return {
+            .name = "multiline",
+            .bytes = encode(layer(defaultLayerName, {feat(multiLine(lines))}, defaultExtent), cfg()),
+        };
+    }
+
+    static GeneratedTiles generateMultiLineStrings() { return {generateMultiLine()}; }
+
+    static GeneratedTile generateExtent4096() {
+        Ring line_coords{c(0, 0), c(4095, 4095)};
+        return {
+            .name = "extent_4096",
+            .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, 4096), cfg()),
+        };
+    }
+
+    static GeneratedTile generateExtent(std::uint32_t extent) {
+        Ring line_coords{c(0, 0), c(static_cast<std::int32_t>(extent - 1), static_cast<std::int32_t>(extent - 1))};
+        return {
+            .name = "extent_" + std::to_string(extent),
+            .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, extent), cfg()),
+        };
+    }
+
+    static GeneratedTile generateExtentBuf(std::uint32_t extent) {
+        Ring line_coords{c(-42, -42),
+                         c(static_cast<std::int32_t>(extent + 42), static_cast<std::int32_t>(extent + 42))};
+        return {
+            .name = "extent_buf_" + std::to_string(extent),
+            .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, extent), cfg()),
+        };
+    }
+
+    static GeneratedTiles generateExtent() {
+        GeneratedTiles tiles;
+        for (const auto e : {512U, 4096U, 131072U}) {
+            tiles.push_back(generateExtent(e));
+            tiles.push_back(generateExtentBuf(e));
+        }
+        return tiles;
+    }
+
+    static GeneratedTile generateIds() {
+        // Java writes: write("id", idFeat(100), cfg().ids());
+        return {
+            .name = "id",
+            .bytes = encode(layer(defaultLayerName, {featWithId(100, point(c0))}, defaultExtent), cfgWithIds()),
+        };
+    }
+
+    static GeneratedTile generateIdMin() {
+        return {
+            .name = "id_min",
+            .bytes = encode(layer(defaultLayerName, {featWithId(0, point(c0))}, defaultExtent), cfgWithIds()),
+        };
+    }
+
+    static GeneratedTile generateId64() {
+        return {
+            .name = "id64",
+            .bytes = encode(layer(defaultLayerName, {featWithId(9234567890ULL, point(c0))}, defaultExtent),
+                            cfgWithIds()),
+        };
+    }
+
+    static GeneratedTiles generateIdsCollection() { return {generateIds(), generateIdMin(), generateId64()}; }
+
+    static GeneratedTile generatePropU64() {
+        // Feature with a u64 property value
+        PropertyMap props;
+        props["bignum"] = PropertyValue{static_cast<std::uint64_t>(1234567890123456789ULL)};
+        return {
+            .name = "prop_u64",
+            .bytes = encode(layer(defaultLayerName, {feat(point(c0), props)}, defaultExtent), cfg()),
+        };
+    }
+
+    static GeneratedTile generatePropsStrFsst() {
+        // Java writes 6 features at p1,p2,p3,ph1,ph2,ph3 with these exact values.
+        Feature f1 = feat(point(c1),
+                          PropertyMap{{"val", PropertyValue{std::string("residential_zone_north_sector_1")}}});
+        Feature f2 = feat(point(c2),
+                          PropertyMap{{"val", PropertyValue{std::string("commercial_zone_south_sector_2")}}});
+        Feature f3 = feat(point(c3), PropertyMap{{"val", PropertyValue{std::string("industrial_zone_east_sector_3")}}});
+        Feature f4 = feat(point(h1), PropertyMap{{"val", PropertyValue{std::string("park_zone_west_sector_4")}}});
+        Feature f5 = feat(point(h2), PropertyMap{{"val", PropertyValue{std::string("water_zone_north_sector_5")}}});
+        Feature f6 = feat(point(h3),
+                          PropertyMap{{"val", PropertyValue{std::string("residential_zone_south_sector_6")}}});
+        return {
+            .name = "props_str_fsst",
+            .bytes = encode(layer(defaultLayerName, {f1, f2, f3, f4, f5, f6}, defaultExtent), cfgWithFsst()),
+        };
+    }
+
+    static GeneratedTiles generateProperties() { return {generatePropU64(), generatePropsStrFsst()}; }
+
+    static GeneratedTile generateMixPtLine() {
+        // Mixed geometry: one point and one line
+        Feature pt = feat(point(c(38, 29)));
+        Ring line_coords{c(5, 38), c(12, 45), c(9, 70)};
+        Feature ln = feat(line(line_coords));
+        return {
+            .name = "mix_2_pt_line",
+            .bytes = encode(layer(defaultLayerName, {pt, ln}, defaultExtent), cfg()),
+        };
+    }
+
+    static GeneratedTiles generateMixed() { return {generateMixPtLine()}; }
+
+    static GeneratedTiles generateSharedDictionaries() {
+        const auto val = std::string(30, 'A');
+
+        auto noSharedDict = GeneratedTile{
+            .name = "props_no_shared_dict",
+            .bytes = encode(
+                layer(defaultLayerName,
+                      {feat(point(c0), PropertyMap{{"name:en", PropertyValue{val}}, {"name:de", PropertyValue{val}}})},
+                      defaultExtent),
+                cfg()),
+        };
+
+        auto sharedDict = GeneratedTile{
+            .name = "props_shared_dict",
+            .bytes = encode(
+                layer(defaultLayerName,
+                      {feat(point(c0), PropertyMap{{"name:", PropertyValue{StructValue{{"en", val}, {"de", val}}}}})},
+                      defaultExtent),
+                cfg()),
+        };
+
+        auto sharedDictFsst = GeneratedTile{
+            .name = "props_shared_dict_fsst",
+            .bytes = encode(
+                layer(defaultLayerName,
+                      {feat(point(c0), PropertyMap{{"name:", PropertyValue{StructValue{{"en", val}, {"de", val}}}}})},
+                      defaultExtent),
+                cfgWithFsst()),
+        };
+
+        auto sharedDictOneChild = GeneratedTile{
+            .name = "props_shared_dict_one_child",
+            .bytes = encode(layer(defaultLayerName,
+                                  {feat(point(c0),
+                                        PropertyMap{{"name:", PropertyValue{StructValue{{"en", val}}}},
+                                                    {"place", PropertyValue{val}}})},
+                                  defaultExtent),
+                            cfg()),
+        };
+
+        auto sharedDictOneChildFsst = GeneratedTile{
+            .name = "props_shared_dict_one_child_fsst",
+            .bytes = encode(layer(defaultLayerName,
+                                  {feat(point(c0),
+                                        PropertyMap{{"name:", PropertyValue{StructValue{{"en", val}}}},
+                                                    {"place", PropertyValue{val}}})},
+                                  defaultExtent),
+                            cfgWithFsst()),
+        };
+
+        auto sharedDictNoStructName = GeneratedTile{
+            .name = "props_shared_dict_no_struct_name",
+            .bytes = encode(
+                layer(defaultLayerName,
+                      {feat(point(c0), PropertyMap{{"", PropertyValue{StructValue{{"a", val}, {"b", val}}}}})},
+                      defaultExtent),
+                cfg()),
+        };
+
+        auto sharedDictNoStructNameFsst = GeneratedTile{
+            .name = "props_shared_dict_no_struct_name_fsst",
+            .bytes = encode(
+                layer(defaultLayerName,
+                      {feat(point(c0), PropertyMap{{"", PropertyValue{StructValue{{"a", val}, {"b", val}}}}})},
+                      defaultExtent),
+                cfgWithFsst()),
+        };
+
+        auto sharedDictNoChildName = GeneratedTile{
+            .name = "props_shared_dict_no_child_name",
+            .bytes = encode(layer(defaultLayerName,
+                                  {feat(point(c0), PropertyMap{{"a", PropertyValue{StructValue{{"", val}}}}})},
+                                  defaultExtent),
+                            cfg()),
+        };
+
+        auto sharedDictNoChildNameFsst = GeneratedTile{
+            .name = "props_shared_dict_no_child_name_fsst",
+            .bytes = encode(layer(defaultLayerName,
+                                  {feat(point(c0), PropertyMap{{"a", PropertyValue{StructValue{{"", val}}}}})},
+                                  defaultExtent),
+                            cfgWithFsst()),
+        };
+
+        auto sharedDictTwoSamePrefix = GeneratedTile{
+            .name = "props_shared_dict_2_same_prefix",
+            .bytes = encode(
+                layer(defaultLayerName,
+                      {feat(point(c0),
+                            PropertyMap{{"name0", PropertyValue{StructValue{{":de", val}, {"_en", val}}}},
+                                        {"name1", PropertyValue{StructValue{{":he", val}, {"_fr", val}}}}})},
+                      defaultExtent),
+                cfg()),
+        };
+
+        return {
+            std::move(noSharedDict),
+            std::move(sharedDict),
+            std::move(sharedDictFsst),
+            std::move(sharedDictOneChild),
+            std::move(sharedDictOneChildFsst),
+            std::move(sharedDictNoStructName),
+            std::move(sharedDictNoStructNameFsst),
+            std::move(sharedDictNoChildName),
+            std::move(sharedDictNoChildNameFsst),
+            std::move(sharedDictTwoSamePrefix),
         };
     }
 };
