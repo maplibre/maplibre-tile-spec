@@ -30,19 +30,6 @@ where
     }
 }
 
-impl<'a, S: DecodeState> PartialEq for Layer<'a, S>
-where
-    Layer01<'a, S>: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Tag01(a), Self::Tag01(b)) => a == b,
-            (Self::Unknown(a), Self::Unknown(b)) => a == b,
-            _ => false,
-        }
-    }
-}
-
 /// Unknown layer data, stored as encoded bytes
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Unknown<'a> {
