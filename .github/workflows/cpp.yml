@@ -1,16 +1,7 @@
 name: C++ CI
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    paths:
-      - 'justfile'
-      - 'cpp/mod.just'
-      - '.github/**'
-      - 'cpp/**'
-      - 'test/**'
+  workflow_call:
   workflow_dispatch:
 
 jobs:
