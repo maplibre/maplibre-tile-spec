@@ -29,9 +29,11 @@ pub struct RleMeta {
 
 /// Metadata for Morton decoding
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct MortonMeta {
-    pub num_bits: u32,
-    pub coordinate_shift: u32,
+pub struct Morton {
+    /// Number of bits used
+    pub bits: u32,
+    /// Coordinate shift
+    pub shift: u32,
 }
 
 /// How should the stream be interpreted at the logical level (second pass of decoding)
@@ -42,9 +44,9 @@ pub enum LogicalEncoding {
     DeltaRle(RleMeta),
     ComponentwiseDelta,
     Rle(RleMeta),
-    Morton(MortonMeta),
-    MortonDelta(MortonMeta),
-    MortonRle(MortonMeta),
+    Morton(Morton),
+    MortonDelta(Morton),
+    MortonRle(Morton),
     PseudoDecimal,
 }
 
