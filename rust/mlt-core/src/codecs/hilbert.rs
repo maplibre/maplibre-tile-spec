@@ -1,6 +1,7 @@
+use geo_types::Coord;
+
 use crate::Coord32;
 use crate::encoder::model::CurveParams;
-use geo_types::Coord;
 
 /// Return the 1-D Hilbert curve index for `(x, y)` at the given `level`.
 ///
@@ -81,9 +82,10 @@ pub fn hilbert_curve_params_from_bounds(min_val: i32, max_val: i32) -> CurvePara
 
 #[cfg(test)]
 mod tests {
+    use geo_types::Coord;
+
     use super::*;
     use crate::codecs::morton::interleave_bits;
-    use geo_types::Coord;
 
     const fn c(x: i32, y: i32) -> Coord32 {
         Coord32 { x, y }

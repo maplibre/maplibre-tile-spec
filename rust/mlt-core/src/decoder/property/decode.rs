@@ -22,19 +22,13 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
 }
 
 impl<'a> Decode<ParsedProperty<'a>> for RawProperty<'a> {
-    fn decode(self, decoder: &mut Decoder) -> MltResult<ParsedProperty<'a>> {
-        RawProperty::decode(self, decoder)
-    }
-}
-
-impl<'a> RawProperty<'a> {
     /// Decode into a [`ParsedProperty`], charging `dec` for every heap allocation.
     ///
     /// For scalar columns the output size is known from stream metadata, so
     /// the budget is charged *before* decoding.  For string and shared-dict
     /// columns the exact decoded size depends on compression, so the budget is
     /// charged *after* decoding based on actual allocation sizes.
-    pub fn decode(self, dec: &mut Decoder) -> MltResult<ParsedProperty<'a>> {
+    fn decode(self, dec: &mut Decoder) -> MltResult<ParsedProperty<'a>> {
         /// Charge for the final `Vec<Option<T>>`, then decode the dense stream.
         /// `$decode_method` is the typed `RawStream` method for element type `$ty`.
         macro_rules! scalar_decode {

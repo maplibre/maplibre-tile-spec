@@ -7,7 +7,7 @@ use rstest::rstest;
 use crate::encoder::Encoder;
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::{
-    Coord32, DictionaryType, Geom32, GeometryValues, LengthType, OffsetType, RawGeometry,
+    Coord32, Decode, DictionaryType, Geom32, GeometryValues, LengthType, OffsetType, RawGeometry,
     StreamType,
 };
 
