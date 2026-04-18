@@ -111,18 +111,34 @@ pub struct ParsedScalar<'a, T: Copy + PartialEq> {
     pub(crate) values: Vec<Option<T>>,
 }
 
+/// Per-feature byte range into a shared dictionary corpus.
+///
+/// `start` and `end` are signed byte offsets into the corpus string.
+/// The sentinel value [`DictRange::NULL`] (`-1, -1`) indicates a NULL (absent) entry.
+/// Equal `start` and `end` indicate an empty string.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+pub struct DictRange {
+    pub start: i32,
+    pub end: i32,
+}
+impl DictRange {
+    /// Sentinel value indicating a NULL (absent) entry.
+    pub const NULL: Self = Self { start: -1, end: -1 };
+}
+
 /// A single sub-property within a shared dictionary parsed value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ParsedSharedDictItem<'a> {
     /// The suffix name of this sub-property (appended to parent struct name).
     pub(crate) suffix: &'a str,
-    /// Per-feature `(start, end)` byte offsets into the parsed shared corpus.
-    /// Non-negative pairs indicate a present string stored as
+    /// Per-feature byte ranges into the parsed shared corpus.
+    /// Non-null entries indicate a present string stored as
     /// `shared_dict.corpus()[start..end]`.
-    /// `(-1, -1)` indicates NULL.
+    /// [`DictRange::NULL`] indicates a NULL value.
     /// Equal `start` and `end` indicate an empty string.
-    pub(crate) ranges: Vec<(i32, i32)>,
+    pub(crate) ranges: Vec<DictRange>,
 }
 
 /// Parsed string values for a single property.

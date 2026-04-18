@@ -144,7 +144,6 @@ impl StreamMeta {
             PhysicalEncoding::None => 0x0,
             PhysicalEncoding::FastPFor256 => 0x1,
             PhysicalEncoding::VarInt => 0x2,
-            PhysicalEncoding::Alp => 0x3,
         };
         writer.write_u8(logical_enc_u8 | physical_enc_u8)?;
         writer.write_varint(self.num_values)?;
@@ -237,10 +236,6 @@ impl<'a> RawStream<'a> {
             && !is_bool
         {
             validate_rle_varint_stream(data, r.runs, r.num_rle_values)?;
-        }
-
-        if meta.encoding.physical == PD::Alp {
-            return Err(MltError::UnsupportedPhysicalEncoding("ALP"));
         }
 
         Ok((input, RawStream::new(meta, data)))

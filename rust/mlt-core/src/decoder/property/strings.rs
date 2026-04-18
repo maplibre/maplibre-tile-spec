@@ -9,7 +9,7 @@ use crate::decoder::{
 };
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
-use crate::{Decoder, MltError, MltResult, RawSharedDict, RawSharedDictItem};
+use crate::{Decoder, DictRange, MltError, MltResult, RawSharedDict, RawSharedDictItem};
 
 impl<'a> ParsedStrings<'a> {
     #[must_use]
@@ -31,24 +31,22 @@ impl<'a> ParsedStrings<'a> {
         self.lengths.iter().map(|&end| end >= 0).collect()
     }
 
-    fn bounds(&self, i: u32) -> Option<(u32, u32)> {
-        let idx = i.as_usize();
+    #[must_use]
+    pub fn get(&self, idx: u32) -> Option<&str> {
+        let idx = idx.as_usize();
+
         let end = *self.lengths.get(idx)?;
         if end < 0 {
             return None;
         }
+        let end = decode_end(end).as_usize();
+
         let start = idx
             .checked_sub(1)
             .and_then(|prev| self.lengths.get(prev).copied())
-            .map_or(0, decode_end);
-        Some((start, decode_end(end)))
-    }
+            .map_or(0, decode_end)
+            .as_usize();
 
-    #[must_use]
-    pub fn get(&self, i: u32) -> Option<&str> {
-        let (start, end) = self.bounds(i)?;
-        let start = start.as_usize();
-        let end = end.as_usize();
         self.data.get(start..end)
     }
 
@@ -89,8 +87,8 @@ impl<'a> ParsedStrings<'a> {
     }
 }
 
-pub(crate) fn decode_shared_dict_range(range: (i32, i32)) -> Option<(u32, u32)> {
-    if let (Ok(start), Ok(end)) = (u32::try_from(range.0), u32::try_from(range.1)) {
+pub(crate) fn decode_shared_dict_range(range: DictRange) -> Option<(u32, u32)> {
+    if let (Ok(start), Ok(end)) = (u32::try_from(range.start), u32::try_from(range.end)) {
         Some((start, end))
     } else {
         None
@@ -501,7 +499,7 @@ impl<'a> RawSharedDict<'a> {
                 .into_iter()
                 .map(|span| match span {
                     Some(span) => encode_shared_dict_range(span.0, span.1),
-                    None => Ok((-1, -1)),
+                    None => Ok(DictRange::NULL),
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             items.push(ParsedSharedDictItem {
@@ -519,7 +517,7 @@ impl<'a> RawSharedDict<'a> {
         let bytes = parsed.items.iter().try_fold(
             u32::try_from(parsed.data.len()).or_overflow()?,
             |acc, item| {
-                let n = u32::try_from(item.ranges.len() * size_of::<(i32, i32)>()).or_overflow()?;
+                let n = u32::try_from(item.ranges.len() * size_of::<DictRange>()).or_overflow()?;
                 acc.checked_add(n).or_overflow()
             },
         )?;
@@ -528,6 +526,9 @@ impl<'a> RawSharedDict<'a> {
     }
 }
 
-pub(crate) fn encode_shared_dict_range(start: u32, end: u32) -> MltResult<(i32, i32)> {
-    Ok((i32::try_from(start)?, i32::try_from(end)?))
+pub(crate) fn encode_shared_dict_range(start: u32, end: u32) -> MltResult<DictRange> {
+    Ok(DictRange {
+        start: i32::try_from(start)?,
+        end: i32::try_from(end)?,
+    })
 }

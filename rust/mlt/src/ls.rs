@@ -172,7 +172,6 @@ impl std::fmt::Display for FileAlgorithm {
                     PhysicalEncoding::None => "",
                     PhysicalEncoding::FastPFor256 => "FastPFOR",
                     PhysicalEncoding::VarInt => "VarInt",
-                    PhysicalEncoding::Alp => "Alp",
                 };
                 let logical = match logical {
                     StatLogicalCodec::None => "",
