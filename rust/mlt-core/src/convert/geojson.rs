@@ -101,7 +101,7 @@ impl Serialize for Feature {
     }
 }
 
-/// Serialize/deserialize [`geo_types::Geometry::<i32> `] in `GeoJSON` wire format:
+/// Serialize/deserialize [`Geometry<i32>`](geo_types::Geometry) in `GeoJSON` wire format:
 /// `{"type":"…","coordinates":…}` with `[x, y]` integer arrays.
 mod geom_serde {
     use geo_types::{
