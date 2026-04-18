@@ -43,7 +43,7 @@ Encoding is more complex, and requires owned data structures to support optimiza
 
 | Stage | Prefix     | Ownership             | Purpose                                                                    |
 |:------|:-----------|:----------------------|:---------------------------------------------------------------------------|
-| **1** | `Tile*`    | Owned                 | **Row-oriented** features using `Geometry<i32>` for geometries. |
+| **1** | `Tile*`    | Owned                 | **Row-oriented** features using `geo_types::Geometry<i32>` for geometries. |
 | **2** | `Staged*`  | Owned                 | **Columnar** data being prepared for encoding.                             |
 | **3** | `Encoded*` | Owned                 | Wire-ready byte buffers.                                                   |
 
