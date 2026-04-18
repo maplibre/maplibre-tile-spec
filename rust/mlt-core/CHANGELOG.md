@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.7.0...rust-mlt-core-v0.8.0) - 2026-04-18
+
+### Fixed
+
+- fix(rust) from_tile tessellates when appropriate ([#1314](https://github.com/maplibre/maplibre-tile-spec/pull/1314))
+- *(rust)* geo builds on wasm, remove unnecessary feature gates ([#1297](https://github.com/maplibre/maplibre-tile-spec/pull/1297))
+
+### Other
+
+- *(rust)* cleanup Morton structs ([#1310](https://github.com/maplibre/maplibre-tile-spec/pull/1310))
+- *(rust)* cleanup dict ranges ([#1313](https://github.com/maplibre/maplibre-tile-spec/pull/1313))
+- remove ALP everywhere - it was never implemented ([#1128](https://github.com/maplibre/maplibre-tile-spec/pull/1128))
+- *(rust)* use Coord32 instead of tuple ([#1312](https://github.com/maplibre/maplibre-tile-spec/pull/1312))
+- *(rust)* rm RawStreamData and EncodedStreamData ([#1309](https://github.com/maplibre/maplibre-tile-spec/pull/1309))
+- *(rust)* Coord32 cleanup, dep update ([#1304](https://github.com/maplibre/maplibre-tile-spec/pull/1304))
+- *(rust)* update geo, simplify tessellation ([#1305](https://github.com/maplibre/maplibre-tile-spec/pull/1305))
+- Add offline docs.rs-style workspace docs check to Rust CI and fix surfaced rustdoc links ([#1295](https://github.com/maplibre/maplibre-tile-spec/pull/1295))
+- docs(rust) Fix broken doc links ([#1293](https://github.com/maplibre/maplibre-tile-spec/pull/1293))
+
 ## [0.7.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.6.0...rust-mlt-core-v0.7.0) - 2026-04-13
 
 ### Added
