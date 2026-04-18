@@ -3,14 +3,8 @@ use crate::utils::apply_present;
 use crate::{Decode, Decoder, MltResult};
 
 impl Decode<IdValues> for RawId<'_> {
-    fn decode(self, decoder: &mut Decoder) -> MltResult<IdValues> {
-        RawId::decode(self, decoder)
-    }
-}
-
-impl RawId<'_> {
     /// Decode into [`IdValues`], charging `dec` before each `Vec` allocation.
-    pub fn decode(self, dec: &mut Decoder) -> MltResult<IdValues> {
+    fn decode(self, dec: &mut Decoder) -> MltResult<IdValues> {
         let RawId { presence, value } = self;
 
         // Decode the raw integer stream, charging for it before allocation.
