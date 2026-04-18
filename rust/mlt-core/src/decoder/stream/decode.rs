@@ -147,7 +147,6 @@ impl RawStream<'_> {
             PhysicalEncoding::FastPFor256 => {
                 *buf = decode_fastpfor(self.data, self.meta.num_values, dec)?;
             }
-            PhysicalEncoding::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
         }
         Ok(())
     }
@@ -174,7 +173,6 @@ impl RawStream<'_> {
                     "FastPFOR decoding u64",
                 ));
             }
-            PhysicalEncoding::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
         }
         Ok(())
     }

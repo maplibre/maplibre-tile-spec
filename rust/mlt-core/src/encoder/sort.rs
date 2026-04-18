@@ -385,11 +385,12 @@ mod tests {
     /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer01`.
     /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
     fn sort_encode_decode(tile: TileLayer01, sort: SortStrategy) -> TileLayer01 {
+        let enc_cfg = Encoder::default().cfg;
         let enc = Encoder::with_explicit(
-            Encoder::default().cfg,
+            enc_cfg,
             ExplicitEncoder::for_id(IntEncoder::varint(), IdWidth::Id32),
         );
-        let enc = StagedLayer01::from_tile(tile, sort, &[])
+        let enc = StagedLayer01::from_tile(tile, sort, &[], enc_cfg.tessellate)
             .encode_into(enc)
             .expect("encode failed");
 

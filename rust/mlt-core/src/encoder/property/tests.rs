@@ -652,7 +652,7 @@ fn str_vals(values: &[&str]) -> Vec<PropValue> {
 /// Stage a [`TileLayer01`] with `MinHash` grouping and return its properties.
 fn stage_props(tile: TileLayer01) -> Vec<StagedProperty> {
     let groups = group_string_properties(&tile);
-    StagedLayer01::from_tile(tile, SortStrategy::Unsorted, &groups).properties
+    StagedLayer01::from_tile(tile, SortStrategy::Unsorted, &groups, false).properties
 }
 
 #[test]

@@ -89,24 +89,25 @@ impl TileLayer01 {
 
         let (last, init) = sort_by.split_last().expect("at least one strategy");
         if init.is_empty() {
-            StagedLayer01::from_tile(self, *last, &groups).encode_into(Encoder::new(cfg))?
+            StagedLayer01::from_tile(self, *last, &groups, cfg.tessellate)
+                .encode_into(Encoder::new(cfg))?
         } else {
             let mut enc: Encoder = {
                 let first = init[0];
-                StagedLayer01::from_tile(self.clone(), first, &groups)
+                StagedLayer01::from_tile(self.clone(), first, &groups, cfg.tessellate)
                     .encode_into(Encoder::new(cfg))?
             };
             let mut best = enc.preserve_results();
             // Clone for all-but-last strategies
             for &sort in &init[1..] {
-                let layer = StagedLayer01::from_tile(self.clone(), sort, &groups);
+                let layer = StagedLayer01::from_tile(self.clone(), sort, &groups, cfg.tessellate);
                 enc = layer.encode_into(enc)?;
                 if enc.total_len() < best.total_len() {
                     best = enc.preserve_results();
                 }
             }
             // Last strategy: consume self, no clone
-            let layer = StagedLayer01::from_tile(self, *last, &groups);
+            let layer = StagedLayer01::from_tile(self, *last, &groups, cfg.tessellate);
             enc = layer.encode_into(enc)?;
             if enc.total_len() < best.total_len() {
                 best = enc.preserve_results();

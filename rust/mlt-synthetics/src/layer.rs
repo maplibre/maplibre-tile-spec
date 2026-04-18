@@ -372,7 +372,12 @@ impl Layer {
             ids,
         } = self;
 
-        let mut geometry = if tessellate {
+        let enc_cfg = EncoderConfig {
+            tessellate,
+            ..EncoderConfig::default()
+        };
+
+        let mut geometry = if enc_cfg.tessellate {
             GeometryValues::new_tessellated()
         } else {
             GeometryValues::default()
@@ -427,10 +432,6 @@ impl Layer {
             override_presence: Box::new(move |_| force_presence),
         };
 
-        let enc_cfg = EncoderConfig {
-            tessellate,
-            ..EncoderConfig::default()
-        };
         StagedLayer01 {
             name: "layer1".to_string(),
             extent: extent.unwrap_or(80),

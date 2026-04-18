@@ -132,19 +132,6 @@ describe("decodeUnsignedInt32Stream", () => {
         expect(result).toEqual(expectedValues);
     });
 
-    it("should throw for unsupported PhysicalLevelTechnique", () => {
-        const data = new Uint8Array([10, 20, 30]);
-        const metadata = {
-            ...createStreamMetadata(LogicalLevelTechnique.NONE),
-            physicalLevelTechnique: PhysicalLevelTechnique.ALP,
-            numValues: 3,
-            byteLength: 3,
-        };
-        expect(() => decodeUnsignedInt32Stream(data, new IntWrapper(0), metadata)).toThrow(
-            "Specified physicalLevelTechnique ALP is not supported (yet).",
-        );
-    });
-
     it("should decode MORTON", () => {
         const expectedValues = new Uint32Array([10, 15, 18, 20]);
         const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON, LogicalLevelTechnique.NONE, 4);
