@@ -238,9 +238,10 @@ impl Morton {
 
 #[cfg(test)]
 mod tests {
+    use geo_types::Coord;
+
     use super::*;
     use crate::test_helpers::dec;
-    use geo_types::Coord;
 
     const fn c(x: i32, y: i32) -> Coord32 {
         Coord32 { x, y }
