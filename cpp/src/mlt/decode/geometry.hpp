@@ -164,8 +164,6 @@ public:
                                     intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t>(
                                         tileData, vertices, *geomStreamMetadata, /*isSigned=*/true);
                                     break;
-                                case PhysicalLevelTechnique::ALP:
-                                    throw std::runtime_error("ALP encoding for geometries is not yet supported");
                                 default:
                                     throw std::runtime_error("Unsupported encoding " +
                                                              std::to_string(std::to_underlying(

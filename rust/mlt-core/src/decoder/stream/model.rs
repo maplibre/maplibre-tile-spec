@@ -1,4 +1,8 @@
+use std::fmt;
+
 use num_enum::TryFromPrimitive;
+
+use crate::utils::formatter::ByteArrayDbg;
 
 /// Logical encoding technique used for a column, as stored in the tile
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
@@ -25,9 +29,11 @@ pub struct RleMeta {
 
 /// Metadata for Morton decoding
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct MortonMeta {
-    pub num_bits: u32,
-    pub coordinate_shift: u32,
+pub struct Morton {
+    /// Number of bits used
+    pub bits: u32,
+    /// Coordinate shift
+    pub shift: u32,
 }
 
 /// How should the stream be interpreted at the logical level (second pass of decoding)
@@ -38,9 +44,9 @@ pub enum LogicalEncoding {
     DeltaRle(RleMeta),
     ComponentwiseDelta,
     Rle(RleMeta),
-    Morton(MortonMeta),
-    MortonDelta(MortonMeta),
-    MortonRle(MortonMeta),
+    Morton(Morton),
+    MortonDelta(Morton),
+    MortonRle(Morton),
     PseudoDecimal,
 }
 
@@ -111,8 +117,6 @@ pub enum PhysicalEncoding {
     /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
     /// Simple compression scheme where the encoding is easier to implement compared to `FastPfor`.
     VarInt = 2,
-    /// Adaptive Lossless floating-Point Compression
-    Alp = 3,
 }
 
 // RawStream types
@@ -132,14 +136,16 @@ pub struct StreamMeta {
 }
 
 /// Representation of an encoded stream
-#[derive(Debug, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub struct RawStream<'a> {
     pub meta: StreamMeta,
-    pub(crate) data: RawStreamData<'a>,
+    pub(crate) data: &'a [u8],
 }
-
-#[derive(PartialEq, Clone)]
-pub enum RawStreamData<'a> {
-    VarInt(&'a [u8]),
-    Encoded(&'a [u8]),
+impl fmt::Debug for RawStream<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RawStream")
+            .field("meta", &self.meta)
+            .field("data", &ByteArrayDbg(self.data))
+            .finish()
+    }
 }

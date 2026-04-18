@@ -28,7 +28,7 @@ type MltBatch = Vec<(TileCoord, Vec<u8>)>;
 const CHANNEL_BUFFER: usize = 4;
 /// Maximum time between forced flushes in the writer, regardless of batch fullness.
 /// Keeps data safe on long-running jobs and avoids holding a huge open transaction.
-const SAVE_EVERY: Duration = Duration::from_secs(60);
+const SAVE_EVERY: Duration = Duration::from_mins(1);
 /// Minimum interval between progress log lines in non-interactive (non-TTY) mode.
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 

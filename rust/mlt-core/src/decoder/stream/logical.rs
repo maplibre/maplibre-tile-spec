@@ -5,7 +5,6 @@ use std::iter::repeat_n;
 use num_traits::{PrimInt, ToPrimitive as _};
 
 use crate::MltError::{ParsingLogicalTechnique, RleRunLenInvalid, UnsupportedLogicalEncoding};
-use crate::codecs::morton::{decode_morton_codes, decode_morton_delta};
 use crate::codecs::zigzag::{decode_componentwise_delta_vec2s, decode_zigzag, decode_zigzag_delta};
 use crate::decoder::{LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta};
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
@@ -78,15 +77,15 @@ impl LogicalValue {
     pub fn decode_i32(self, data: &[u32], dec: &mut Decoder) -> MltResult<Vec<i32>> {
         match self.meta.encoding.logical {
             LogicalEncoding::None => decode_zigzag(data, dec),
-            LogicalEncoding::Rle(rle) => decode_zigzag(&rle.decode(data, dec)?, dec),
+            LogicalEncoding::Rle(v) => decode_zigzag(&v.decode(data, dec)?, dec),
             LogicalEncoding::ComponentwiseDelta => decode_componentwise_delta_vec2s(data, dec),
             LogicalEncoding::Delta => decode_zigzag_delta::<i32, _>(data, dec),
-            LogicalEncoding::DeltaRle(rle) => {
-                let expanded = rle.decode(data, dec)?;
+            LogicalEncoding::DeltaRle(v) => {
+                let expanded = v.decode(data, dec)?;
                 decode_zigzag_delta::<i32, _>(&expanded, dec)
             }
-            LogicalEncoding::Morton(meta) => decode_morton_codes(data, meta, dec),
-            LogicalEncoding::MortonDelta(meta) => decode_morton_delta(data, meta, dec),
+            LogicalEncoding::Morton(v) => v.decode_codes(data, dec),
+            LogicalEncoding::MortonDelta(v) => v.decode_delta(data, dec),
             LogicalEncoding::MortonRle(_) => Err(UnsupportedLogicalEncoding(
                 self.meta.encoding.logical,
                 "i32 (MortonRle)",

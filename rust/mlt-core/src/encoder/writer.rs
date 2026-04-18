@@ -5,7 +5,7 @@ use fastpfor::FastPFor256;
 use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
-use crate::decoder::MortonMeta;
+use crate::decoder::Morton;
 use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
 use crate::encoder::{EncoderConfig, IdWidth, IntEncoder, VertexBufferType};
 use crate::{MltError, MltResult};
@@ -120,7 +120,7 @@ pub struct Encoder {
     /// Cached result of `z_order_params` for the geometry column currently
     /// being encoded.  Cleared at the start of each [`GeometryValues::write_to`](crate::GeometryValues::write_to)
     /// call so it never leaks across columns.
-    pub(crate) morton_meta_cache: Option<MortonMeta>,
+    pub(crate) morton_cache: Option<Morton>,
 
     /// Cached FSST compressor per string column, keyed by column name.
     /// `None` means training found FSST not viable for that column.
@@ -188,7 +188,7 @@ impl Encoder {
             data: mem::take(&mut self.data),
             layer_column_count: mem::take(&mut self.layer_column_count),
             vertex_buffer_type_cache: None,
-            morton_meta_cache: None,
+            morton_cache: None,
             fsst_cache: HashMap::new(),
             alt_stack: vec![],
             tmp_u32: vec![],

@@ -3,7 +3,7 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter;
 
-use crate::encoder::{EncodedStream, EncodedStreamData};
+use crate::encoder::EncodedStream;
 use crate::{MltError, MltResult};
 
 pub trait BinarySerializer: Write + VarIntWriter + Sized {
@@ -18,12 +18,9 @@ pub trait BinarySerializer: Write + VarIntWriter + Sized {
 
     /// Reverses [`RawStream::from_bytes`](crate::decoder::RawStream::from_bytes)
     fn write_stream(&mut self, stream: &EncodedStream) -> io::Result<()> {
-        let byte_length = match &stream.data {
-            EncodedStreamData::VarInt(v) | EncodedStreamData::Encoded(v) => v.len(),
-        };
-        let byte_length = u32::try_from(byte_length).map_err(MltError::from)?;
+        let byte_length = u32::try_from(stream.data.len()).map_err(MltError::from)?;
         stream.meta.write_to(self, false, byte_length)?;
-        stream.data.write_to(self)?;
+        stream.write_to(self)?;
         Ok(())
     }
 
@@ -38,12 +35,9 @@ pub trait BinarySerializer: Write + VarIntWriter + Sized {
 
     /// Reverses [`RawStream::parse_bool`](crate::RawStream::parse_bool)
     fn write_boolean_stream(&mut self, stream: &EncodedStream) -> io::Result<()> {
-        let byte_length = match &stream.data {
-            EncodedStreamData::VarInt(v) | EncodedStreamData::Encoded(v) => v.len(),
-        };
-        let byte_length = u32::try_from(byte_length).map_err(MltError::from)?;
+        let byte_length = u32::try_from(stream.data.len()).map_err(MltError::from)?;
         stream.meta.write_to(self, true, byte_length)?;
-        stream.data.write_to(self)?;
+        stream.write_to(self)?;
         Ok(())
     }
 }

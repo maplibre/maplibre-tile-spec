@@ -5,6 +5,7 @@ use geo::CoordsIter as _;
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
 use crate::decoder::{TileFeature, TileLayer01};
+use crate::encoder::model::CurveParams;
 use crate::{Coord32, Geom32};
 
 /// Controls how features inside a layer are reordered before encoding.
@@ -53,9 +54,7 @@ impl TileLayer01 {
                     hilbert_sort_key
                 };
                 self.features.sort_by_cached_key(|f| {
-                    first_vertex(&f.geometry).map_or(u64::MAX, |c| {
-                        u64::from(curve_key(c, params.shift, params.num_bits))
-                    })
+                    first_vertex(&f.geometry).map_or(u64::MAX, |c| u64::from(curve_key(c, params)))
                 });
             }
             SortStrategy::Id => {
@@ -69,13 +68,6 @@ impl TileLayer01 {
     }
 }
 
-/// Parameters derived from the vertex set of a feature collection, used to
-/// normalize coordinates before space-filling-curve key computation.
-struct CurveParams {
-    shift: u32,
-    num_bits: u32,
-}
-
 /// Compute the Hilbert/Morton curve parameters from all vertex coordinates
 /// in `features` without allocating a temporary vertex buffer.
 fn curve_params_from_features(features: &[TileFeature]) -> CurveParams {
@@ -85,8 +77,7 @@ fn curve_params_from_features(features: &[TileFeature]) -> CurveParams {
         .fold((i32::MAX, i32::MIN), |(min, max), c| {
             (min.min(c.x).min(c.y), max.max(c.x).max(c.y))
         });
-    let (shift, num_bits) = hilbert_curve_params_from_bounds(min_val, max_val);
-    CurveParams { shift, num_bits }
+    hilbert_curve_params_from_bounds(min_val, max_val)
 }
 
 /// Extract the coordinate of the first vertex of a geometry.
@@ -385,11 +376,12 @@ mod tests {
     /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer01`.
     /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
     fn sort_encode_decode(tile: TileLayer01, sort: SortStrategy) -> TileLayer01 {
+        let enc_cfg = Encoder::default().cfg;
         let enc = Encoder::with_explicit(
-            Encoder::default().cfg,
+            enc_cfg,
             ExplicitEncoder::for_id(IntEncoder::varint(), IdWidth::Id32),
         );
-        let enc = StagedLayer01::from_tile(tile, sort, &[])
+        let enc = StagedLayer01::from_tile(tile, sort, &[], enc_cfg.tessellate)
             .encode_into(enc)
             .expect("encode failed");
 

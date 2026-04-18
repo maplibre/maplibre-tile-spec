@@ -80,8 +80,6 @@ pub enum MltError {
     InvalidPairStreamSize(usize),
     #[error("decodable stream size expected {1}, got {0}")]
     InvalidDecodingStreamSize(usize, usize),
-    #[error("stream data mismatch: expected {0}, got {1}")]
-    StreamDataMismatch(&'static str, &'static str),
     #[error("IDs missing for encoding (expected Some IDs, got None)")]
     IdsMissingForEncoding,
     #[error("missing struct encoder for struct")]

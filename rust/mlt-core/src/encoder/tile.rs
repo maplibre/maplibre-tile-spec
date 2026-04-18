@@ -24,12 +24,24 @@ impl StagedLayer01 {
     /// `groups` should be the output of `group_string_properties` called on the
     /// same [`TileLayer01`] source.  Because unique-value membership is
     /// row-order-independent, the same groups can be reused across sort trials.
+    ///
+    /// When `tessellate` is `true`, polygon and multi-polygon geometries have
+    /// their triangulation stored alongside the geometry.
     #[must_use]
     #[hotpath::measure]
-    pub fn from_tile(mut source: TileLayer01, sort: SortStrategy, groups: &[StringGroup]) -> Self {
+    pub fn from_tile(
+        mut source: TileLayer01,
+        sort: SortStrategy,
+        groups: &[StringGroup],
+        tessellate: bool,
+    ) -> Self {
         assert!(!source.features.is_empty(), "empty tile");
         source.sort(sort);
-        let mut geometry = GeometryValues::default();
+        let mut geometry = if tessellate {
+            GeometryValues::new_tessellated()
+        } else {
+            GeometryValues::default()
+        };
         for f in &source.features {
             geometry.push_geom(&f.geometry);
         }
