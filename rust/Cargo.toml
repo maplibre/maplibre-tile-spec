@@ -41,7 +41,7 @@ integer-encoding = "4.0.2"
 js-sys = "0.3"
 martin-tile-utils = "0.6"
 mbtiles = { version = "0.15", default-features = false }
-mlt-core = { version = "0.7.0", path = "mlt-core" }
+mlt-core = { version = "0.8.0", path = "mlt-core" }
 mvt-reader = "2.3.0"
 num-traits = "0.2.19"
 num_enum = "0.7.6"

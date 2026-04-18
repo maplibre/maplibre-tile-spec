@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.10...python-mlt-v0.1.11) - 2026-04-18
+
+### Other
+
+- *(rust)* Coord32 cleanup, dep update ([#1304](https://github.com/maplibre/maplibre-tile-spec/pull/1304))
+
 ## [0.1.10](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.9...python-mlt-v0.1.10) - 2026-04-13
 
 ### Other
