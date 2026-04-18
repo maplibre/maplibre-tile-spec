@@ -3,11 +3,6 @@ use crate::utils::apply_present;
 use crate::{Decode, Decoder, MltResult};
 
 impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
-    #[must_use]
-    pub fn new(name: &'a str, values: Vec<Option<T>>) -> Self {
-        Self { name, values }
-    }
-
     pub fn from_parts(
         name: &'a str,
         presence: RawPresence<'a>,
