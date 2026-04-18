@@ -21,10 +21,3 @@ impl Decode<IdValues> for RawId<'_> {
         Ok(IdValues(apply_present(presence, ids_u64, dec)?))
     }
 }
-
-impl IdValues {
-    #[must_use]
-    pub fn values(&self) -> &[Option<u64>] {
-        &self.0
-    }
-}
