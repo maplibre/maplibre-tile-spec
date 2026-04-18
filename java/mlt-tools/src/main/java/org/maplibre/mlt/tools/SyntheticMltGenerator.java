@@ -530,8 +530,8 @@ public class SyntheticMltGenerator {
   }
 
   /**
-   * Generates FastPFOR tile in 8 variants, with the layer name padded by 0-7
-   * extra bytes, so that the FPF stream starts at every possible byte offset mod 8.
+   * Generates FastPFOR tile in 8 variants, with the layer name padded by 0-7 extra bytes, so that
+   * the FPF stream starts at every possible byte offset mod 8.
    */
   private static void generateFpfAlignments() throws IOException {
     var features = new Feature[128];
