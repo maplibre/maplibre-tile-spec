@@ -1,4 +1,6 @@
 use crate::Coord32;
+use crate::encoder::model::CurveParams;
+use geo_types::Coord;
 
 /// Return the 1-D Hilbert curve index for `(x, y)` at the given `level`.
 ///
@@ -6,12 +8,12 @@ use crate::Coord32;
 /// and `level` must be in `[1, 16]`.  The returned index is in
 /// `[0, 4^level)` and fits in a `u32` for all valid levels.
 #[must_use]
-pub fn hilbert_xy_to_index(level: u32, x: u32, y: u32) -> u32 {
+pub fn hilbert_xy_to_index(level: u32, coord: Coord<u32>) -> u32 {
     debug_assert!((1..=16).contains(&level), "level must be in [1, 16]");
-    debug_assert!(x < (1 << level), "x out of range for level");
-    debug_assert!(y < (1 << level), "y out of range for level");
+    debug_assert!(coord.x < (1 << level), "x out of range for level");
+    debug_assert!(coord.y < (1 << level), "y out of range for level");
 
-    hilbert_2d::u32::xy2h_discrete(x, y, level, hilbert_2d::Variant::Hilbert)
+    hilbert_2d::u32::xy2h_discrete(coord.x, coord.y, level, hilbert_2d::Variant::Hilbert)
 }
 
 /// Compute a Hilbert curve sort key from signed integer coordinates.
@@ -24,21 +26,21 @@ pub fn hilbert_xy_to_index(level: u32, x: u32, y: u32) -> u32 {
 /// Use [`hilbert_curve_params_from_bounds`] to compute `shift` and `bits`
 /// from global min/max coordinates.
 #[must_use]
-pub fn hilbert_sort_key(c: Coord32, shift: u32, bits: u32) -> u32 {
-    debug_assert!((1..=16).contains(&bits));
+pub fn hilbert_sort_key(c: Coord32, params: CurveParams) -> u32 {
+    debug_assert!((1..=16).contains(&params.bits));
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
     )]
-    let sx = ((i64::from(c.x) + i64::from(shift)) as u32) & 0xFFFF;
+    let sx = ((i64::from(c.x) + i64::from(params.shift)) as u32) & 0xFFFF;
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
     )]
-    let sy = ((i64::from(c.y) + i64::from(shift)) as u32) & 0xFFFF;
-    hilbert_xy_to_index(bits, sx, sy)
+    let sy = ((i64::from(c.y) + i64::from(params.shift)) as u32) & 0xFFFF;
+    hilbert_xy_to_index(params.bits, (sx, sy).into())
 }
 
 /// Compute the coordinate shift and grid level from pre-computed global
@@ -53,9 +55,9 @@ pub fn hilbert_sort_key(c: Coord32, shift: u32, bits: u32) -> u32 {
 ///
 /// If `min > max` (empty input), returns `(0, 1)`.
 #[must_use]
-pub fn hilbert_curve_params_from_bounds(min_val: i32, max_val: i32) -> (u32, u32) {
+pub fn hilbert_curve_params_from_bounds(min_val: i32, max_val: i32) -> CurveParams {
     if min_val > max_val {
-        return (0, 1);
+        return CurveParams { shift: 0, bits: 1 };
     }
     let shift: u32 = if min_val < 0 {
         min_val.unsigned_abs()
@@ -71,7 +73,8 @@ pub fn hilbert_curve_params_from_bounds(min_val: i32, max_val: i32) -> (u32, u32
     } else {
         (u64::BITS - extent.leading_zeros()).min(16)
     };
-    (shift, bits)
+
+    CurveParams { shift, bits }
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -80,9 +83,14 @@ pub fn hilbert_curve_params_from_bounds(min_val: i32, max_val: i32) -> (u32, u32
 mod tests {
     use super::*;
     use crate::codecs::morton::interleave_bits;
+    use geo_types::Coord;
 
     const fn c(x: i32, y: i32) -> Coord32 {
         Coord32 { x, y }
+    }
+
+    const fn p(shift: u32, bits: u32) -> CurveParams {
+        CurveParams { shift, bits }
     }
 
     /// Return the `(x, y)` coordinates for Hilbert curve index `pos` at `level`.
@@ -90,17 +98,17 @@ mod tests {
     /// This is the inverse of [`hilbert_xy_to_index`]: the returned coordinates
     /// are in `[0, 2^level)`.  `level` must be in `[1, 16]` and `pos` must be
     /// in `[0, 4^level)`.
-    fn hilbert_position_to_xy(level: u32, pos: u32) -> (u32, u32) {
+    fn hilbert_position_to_xy(level: u32, pos: u32) -> Coord<u32> {
         debug_assert!((1..=16).contains(&level), "level must be in [1, 16]");
         debug_assert!(u64::from(pos) < (1u64 << (2 * level)), "pos out of range");
-        hilbert_2d::u32::h2xy_discrete(pos, level, hilbert_2d::Variant::Hilbert)
+        hilbert_2d::u32::h2xy_discrete(pos, level, hilbert_2d::Variant::Hilbert).into()
     }
 
     #[test]
     fn hilbert_origin_always_zero() {
         // The origin maps to index 0 at every level.
         for level in 1u32..=8 {
-            let idx = hilbert_xy_to_index(level, 0, 0);
+            let idx = hilbert_xy_to_index(level, (0, 0).into());
             assert_eq!(idx, 0, "origin should be 0 at level {level}");
         }
     }
@@ -110,8 +118,8 @@ mod tests {
         // 2×2 grid: all four cells must encode then decode back to themselves.
         for x in 0u32..2 {
             for y in 0u32..2 {
-                let idx = hilbert_xy_to_index(1, x, y);
-                let (rx, ry) = hilbert_position_to_xy(1, idx);
+                let idx = hilbert_xy_to_index(1, (x, y).into());
+                let (rx, ry) = hilbert_position_to_xy(1, idx).into();
                 assert_eq!((rx, ry), (x, y), "round-trip failed at level=1 ({x},{y})");
             }
         }
@@ -122,8 +130,8 @@ mod tests {
         // 4×4 grid: all 16 cells.
         for x in 0u32..4 {
             for y in 0u32..4 {
-                let idx = hilbert_xy_to_index(2, x, y);
-                let (rx, ry) = hilbert_position_to_xy(2, idx);
+                let idx = hilbert_xy_to_index(2, (x, y).into());
+                let (rx, ry) = hilbert_position_to_xy(2, idx).into();
                 assert_eq!((rx, ry), (x, y), "round-trip failed at level=2 ({x},{y})");
             }
         }
@@ -134,8 +142,8 @@ mod tests {
         // 16×16 grid: all 256 cells.
         for x in 0u32..16 {
             for y in 0u32..16 {
-                let idx = hilbert_xy_to_index(4, x, y);
-                let (rx, ry) = hilbert_position_to_xy(4, idx);
+                let idx = hilbert_xy_to_index(4, (x, y).into());
+                let (rx, ry) = hilbert_position_to_xy(4, idx).into();
                 assert_eq!((rx, ry), (x, y), "round-trip failed at level=4 ({x},{y})");
             }
         }
@@ -147,7 +155,7 @@ mod tests {
         let mut seen = [false; 16];
         for x in 0u32..4 {
             for y in 0u32..4 {
-                let idx = hilbert_xy_to_index(2, x, y) as usize;
+                let idx = hilbert_xy_to_index(2, (x, y).into()) as usize;
                 assert!(!seen[idx], "duplicate index {idx} at ({x},{y})");
                 seen[idx] = true;
             }
@@ -160,7 +168,7 @@ mod tests {
         let mut seen = vec![false; 256];
         for x in 0u32..16 {
             for y in 0u32..16 {
-                let idx = hilbert_xy_to_index(4, x, y) as usize;
+                let idx = hilbert_xy_to_index(4, (x, y).into()) as usize;
                 assert!(!seen[idx], "duplicate index {idx} at ({x},{y})");
                 seen[idx] = true;
             }
@@ -172,7 +180,7 @@ mod tests {
     fn hilbert_level1_covers_indices_0_to_3() {
         // Collect all indices produced for the 2×2 grid.
         let mut indices: Vec<u32> = (0u32..2)
-            .flat_map(|x| (0u32..2).map(move |y| hilbert_xy_to_index(1, x, y)))
+            .flat_map(|x| (0u32..2).map(move |y| hilbert_xy_to_index(1, (x, y).into())))
             .collect();
         indices.sort_unstable();
         assert_eq!(indices, [0, 1, 2, 3]);
@@ -182,13 +190,13 @@ mod tests {
 
     #[test]
     fn hilbert_sort_key_origin_zero() {
-        assert_eq!(hilbert_sort_key(c(0, 0), 0, 1), 0);
+        assert_eq!(hilbert_sort_key(c(0, 0), p(0, 1)), 0);
     }
 
     #[test]
     fn hilbert_sort_key_negative_coords_shift_correctly() {
         // (-1, -1) shifted by 1 maps to (0, 0) -> Hilbert index 0 at any level.
-        assert_eq!(hilbert_sort_key(c(-1, -1), 1, 1), 0);
+        assert_eq!(hilbert_sort_key(c(-1, -1), p(1, 1)), 0);
     }
 
     #[test]
@@ -201,10 +209,13 @@ mod tests {
             for raw_y in -5i32..11 {
                 let expected = hilbert_xy_to_index(
                     bits,
-                    u32::try_from(i64::from(raw_x) + i64::from(shift)).unwrap(),
-                    u32::try_from(i64::from(raw_y) + i64::from(shift)).unwrap(),
+                    (
+                        u32::try_from(i64::from(raw_x) + i64::from(shift)).unwrap(),
+                        u32::try_from(i64::from(raw_y) + i64::from(shift)).unwrap(),
+                    )
+                        .into(),
                 );
-                let actual = hilbert_sort_key(c(raw_x, raw_y), shift, bits);
+                let actual = hilbert_sort_key(c(raw_x, raw_y), p(shift, bits));
                 assert_eq!(actual, expected, "mismatch at ({raw_x},{raw_y})");
             }
         }
@@ -213,7 +224,7 @@ mod tests {
     #[test]
     fn curve_params_empty_bounds() {
         // min > max signals empty input.
-        let (shift, bits) = hilbert_curve_params_from_bounds(i32::MAX, i32::MIN);
+        let CurveParams { shift, bits } = hilbert_curve_params_from_bounds(i32::MAX, i32::MIN);
         assert_eq!(shift, 0);
         assert_eq!(bits, 1);
     }
@@ -221,7 +232,7 @@ mod tests {
     #[test]
     fn curve_params_all_zero() {
         // Degenerate: single point at origin, extent = 0 -> level 1.
-        let (shift, bits) = hilbert_curve_params_from_bounds(0, 0);
+        let CurveParams { shift, bits } = hilbert_curve_params_from_bounds(0, 0);
         assert_eq!(shift, 0);
         assert_eq!(bits, 1);
     }
@@ -229,7 +240,7 @@ mod tests {
     #[test]
     fn curve_params_positive_only() {
         // Bounds [0, 3]: shift = 0, bits = 2 (2^2=4 > 3).
-        let (shift, bits) = hilbert_curve_params_from_bounds(0, 3);
+        let CurveParams { shift, bits } = hilbert_curve_params_from_bounds(0, 3);
         assert_eq!(shift, 0);
         assert_eq!(bits, 2);
     }
@@ -237,7 +248,7 @@ mod tests {
     #[test]
     fn curve_params_negative_min() {
         // Bounds [-4, 4]: shift = 4, extent = 4+4 = 8, bits = 4 (2^4=16 > 8).
-        let (shift, bits) = hilbert_curve_params_from_bounds(-4, 4);
+        let CurveParams { shift, bits } = hilbert_curve_params_from_bounds(-4, 4);
         assert_eq!(shift, 4);
         assert_eq!(bits, 4);
     }
@@ -245,7 +256,7 @@ mod tests {
     #[test]
     fn curve_params_power_of_two_extent() {
         // extent = 8 = 2^3: need level 4 so that 2^4 = 16 > 8.
-        let (shift, bits) = hilbert_curve_params_from_bounds(0, 8);
+        let CurveParams { shift, bits } = hilbert_curve_params_from_bounds(0, 8);
         assert_eq!(shift, 0);
         assert_eq!(bits, 4);
     }
@@ -253,7 +264,7 @@ mod tests {
     #[test]
     fn curve_params_single_axis_negative() {
         // Global min = -2 -> shift = 2; extent = 5 + 2 = 7; bits = 3.
-        let (shift, bits) = hilbert_curve_params_from_bounds(-2, 5);
+        let CurveParams { shift, bits } = hilbert_curve_params_from_bounds(-2, 5);
         assert_eq!(shift, 2);
         assert_eq!(bits, 3);
     }
@@ -261,7 +272,7 @@ mod tests {
     #[test]
     fn curve_params_clamped_at_16_bits() {
         // extent = 65535 = 2^16 - 1, bits = 16.
-        let (shift, bits) = hilbert_curve_params_from_bounds(0, 65535);
+        let CurveParams { shift, bits } = hilbert_curve_params_from_bounds(0, 65535);
         assert_eq!(shift, 0);
         assert_eq!(bits, 16);
     }
@@ -274,28 +285,25 @@ mod tests {
         // keys that are all close to each other under both curves.
         // We verify that the maximum key spread for a 2×2 neighbourhood is
         // smaller than the total key range for the full 8×8 grid.
-        let points: Vec<(u32, u32)> = (0u32..8)
-            .flat_map(|x| (0u32..8).map(move |y| (x, y)))
+        let points: Vec<Coord<u32>> = (0u32..8)
+            .flat_map(|x| (0u32..8).map(move |y| (x, y).into()))
             .collect();
 
         // Hilbert: level = 3 (2^3 = 8)
-        let h_keys: Vec<u32> = points
-            .iter()
-            .map(|&(x, y)| hilbert_xy_to_index(3, x, y))
-            .collect();
+        let h_keys: Vec<u32> = points.iter().map(|&c| hilbert_xy_to_index(3, c)).collect();
         let h_max = h_keys.iter().copied().max().unwrap();
 
         // Morton
-        let m_keys: Vec<u32> = points.iter().map(|&(x, y)| interleave_bits(x, y)).collect();
+        let m_keys: Vec<u32> = points.iter().map(|&c| interleave_bits(c)).collect();
         let m_max = m_keys.iter().copied().max().unwrap();
 
         // Both should cover the full range for the grid.
         assert_eq!(h_max, 63, "Hilbert should produce indices 0..63 for 8×8");
-        assert_eq!(m_max, interleave_bits(7, 7));
+        assert_eq!(m_max, interleave_bits((7, 7).into()));
 
         // Neither curve should map (0,0) and (1,0) more than 4 steps apart at level 3.
-        let h_00 = hilbert_xy_to_index(3, 0, 0);
-        let h_10 = hilbert_xy_to_index(3, 1, 0);
+        let h_00 = hilbert_xy_to_index(3, (0, 0).into());
+        let h_10 = hilbert_xy_to_index(3, (1, 0).into());
         assert!(
             h_00.abs_diff(h_10) <= 4,
             "adjacent points should have close Hilbert indices"

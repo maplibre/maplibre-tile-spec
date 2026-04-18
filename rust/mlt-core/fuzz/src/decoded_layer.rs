@@ -24,8 +24,12 @@ impl DecodedLayerInput {
 
         // Canonical roundtrip per CONTRIBUTING.md:
         // Tile → Staged → bytes → Tile
-        let tile2 =
-            encode_decode(StagedLayer01::from_tile(tile1, SortStrategy::Unsorted, &[], false));
+        let tile2 = encode_decode(StagedLayer01::from_tile(
+            tile1,
+            SortStrategy::Unsorted,
+            &[],
+            false,
+        ));
 
         // Same roundtrip again — must be a fixpoint.
         let tile3 = encode_decode(StagedLayer01::from_tile(
