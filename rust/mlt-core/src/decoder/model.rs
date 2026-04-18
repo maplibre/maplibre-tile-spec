@@ -176,7 +176,7 @@ pub struct TileLayer01 {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TileFeature {
     pub id: Option<u64>,
-    /// Geometry in `geo_types` form.
+    /// Geometry as a [`geo_types`] form
     pub geometry: geo_types::Geometry<i32>,
     /// One value per property column, in the same order as
     /// [`TileLayer01::property_names`].
