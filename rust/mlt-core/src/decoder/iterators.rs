@@ -300,7 +300,7 @@ impl<'a> ColumnRef<'a> {
 pub struct FeatureRef<'a> {
     /// Optional feature ID.
     pub id: Option<u64>,
-    /// Geometry in [`Geometry::<i32> `] form (owned, computed on demand by the iterator).
+    /// Geometry in [`Geometry<i32>`] form (owned, computed on demand by the iterator).
     pub geometry: Geometry<i32>,
     columns: &'a [ParsedProperty<'a>],
     index: usize,
