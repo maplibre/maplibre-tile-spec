@@ -22,10 +22,11 @@ const UNIMPLEMENTED_SYNTHETICS: string[] = [
     "0x01-rust/props_shared_dict_one_child_np",
     "0x01-rust/props_shared_dict_presence_variants_np",
     "0x01-rust/props_str_fsst_np",
-    "0x01/poly_multi_morton_ring_morton",
-    "0x01/poly_multi_morton_ring_no_morton",
+    "0x01/multipoint_morton",
     "0x01/poly_morton_hole_morton",
     "0x01/poly_multi_morton_hole_morton",
+    "0x01/poly_multi_morton_ring_morton",
+    "0x01/poly_multi_morton_ring_no_morton",
 ];
 
 describe("MLT Decoder - Synthetic tests", () => {
