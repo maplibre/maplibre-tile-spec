@@ -24,7 +24,6 @@ abi3 = ["pyo3/abi3-py310", "generate-import-lib"]
 generate-import-lib = ["pyo3/generate-import-lib"]
 
 [dependencies]
-geo-types.workspace = true
 mlt-core.workspace = true
 pyo3.workspace = true
 pyo3-stub-gen.workspace = true

@@ -228,6 +228,7 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
             Layer::Unknown(u) => {
                 out.extend(EncodedUnknown::from(u).write_to(Encoder::default())?.data);
             }
+            _ => {}
         }
     }
 

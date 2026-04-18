@@ -3,11 +3,14 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::Path;
 
+use mlt_core::__private::IdValues;
+use mlt_core::GeometryValues;
 use mlt_core::encoder::{
     ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer01,
     StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
 };
-use mlt_core::{Coord32, Geom32, GeometryValues, IdValues};
+use mlt_core::geo_types::{Coord, Geometry};
+use mlt_core::wire::{LengthType, OffsetType, StreamType};
 
 use crate::writer::{SynthErr, SynthResult, SynthWriter};
 
@@ -67,7 +70,9 @@ impl PropConfig {
 
     /// Resolve the integer encoder for a property stream using wire `StreamType`.
     fn int_enc_for_stream_ctx(&self, ctx: &StreamCtx<'_>) -> IntEncoder {
-        use mlt_core::{LengthType as LT, OffsetType as OT, StreamType as ST};
+        use LengthType as LT;
+        use OffsetType as OT;
+        use StreamType as ST;
         match self {
             Self::Scalar(e) => *e,
             Self::StrFsst {
@@ -120,7 +125,7 @@ pub struct Layer {
     /// Geometry stream names that must be written even when their data is empty.
     /// See [`ExplicitEncoder::force_stream`] for details.
     force_empty_streams: HashSet<&'static str>,
-    geometry_items: Vec<Geom32>,
+    geometry_items: Vec<Geometry<i32>>,
     props: Vec<(StagedProperty, PropConfig)>,
     extent: Option<u32>,
     ids: Option<(Vec<Option<u64>>, IdWidth, IntEncoder)>,
@@ -199,13 +204,16 @@ impl Layer {
     // ── Geometry ──────────────────────────────────────────────────────────────
 
     #[must_use]
-    pub fn geo(mut self, geometry: impl Into<Geom32>) -> Self {
+    pub fn geo(mut self, geometry: impl Into<Geometry<i32>>) -> Self {
         self.geometry_items.push(geometry.into());
         self
     }
 
     #[must_use]
-    pub fn geos<T: Into<Geom32>, I: IntoIterator<Item = T>>(mut self, geometries: I) -> Self {
+    pub fn geos<T: Into<Geometry<i32>>, I: IntoIterator<Item = T>>(
+        mut self,
+        geometries: I,
+    ) -> Self {
         for g in geometries {
             self = self.geo(g.into());
         }
@@ -501,7 +509,7 @@ impl SharedDict {
 
 /// Morton (Z-order) curve: de-interleave index bits into x/y (even/odd bits).
 /// Produces a 4×4 complete Morton block (16 points, scale 8).
-pub fn morton_curve() -> Vec<Coord32> {
+pub fn morton_curve() -> Vec<Coord<i32>> {
     let num_points = 16usize;
     let scale = 8_i32;
     let morton_bits = 4u32;

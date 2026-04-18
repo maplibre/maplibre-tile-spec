@@ -1,8 +1,8 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::__private::Morton;
 use mlt_core::Decoder;
+use mlt_core::wire::Morton;
 
 const NUM_BITS: u32 = 15;
 const COORDINATE_SHIFT: u32 = 1 << (NUM_BITS - 1);

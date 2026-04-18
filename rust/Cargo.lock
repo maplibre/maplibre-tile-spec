@@ -2605,7 +2605,6 @@ dependencies = [
  "crossterm 0.29.0",
  "flate2",
  "futures",
- "geo-types",
  "glob",
  "globset",
  "hotpath",
@@ -2667,7 +2666,6 @@ dependencies = [
 name = "mlt-py"
 version = "0.1.11"
 dependencies = [
- "geo-types",
  "mlt-core",
  "pyo3",
  "pyo3-stub-gen",
@@ -2679,7 +2677,6 @@ name = "mlt-synthetics"
 version = "0.1.0"
 dependencies = [
  "clap",
- "geo-types",
  "mlt-core",
  "serde_json",
  "thiserror 2.0.18",

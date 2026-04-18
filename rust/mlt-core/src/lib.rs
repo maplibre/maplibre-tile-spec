@@ -14,6 +14,9 @@ macro_rules! validate_stream {
     };
 }
 
+// re-export geo types
+pub use geo_types;
+
 pub(crate) mod codecs;
 pub(crate) mod convert;
 pub(crate) mod decoder;
@@ -22,25 +25,37 @@ pub(crate) mod errors;
 pub(crate) mod utils;
 
 pub use convert::{geojson, mvt};
-pub use decoder::*;
-pub use errors::{MltError, MltRefResult, MltResult};
-pub use utils::analyze::{Analyze, StatType};
-pub use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
+pub use decoder::{
+    ColumnRef, Decoder, FeatureRef, GeometryType, GeometryValues, Layer, Layer01, ParsedLayer,
+    ParsedLayer01, Parser, PropName, PropValue, PropValueRef, TileFeature, TileLayer01, Unknown,
+};
+// Crate-internal re-exports: allow internal modules to use `crate::Lazy` etc.
+// without exposing these implementation details to external users.
+pub(crate) use decoder::{
+    ColumnType, DictRange, DictionaryType, LengthType, OffsetType, RawPresence, RawSharedDict,
+    RawSharedDictItem, StreamType,
+};
+pub(crate) use errors::MltRefResult;
+pub use errors::{MltError, MltResult};
+pub(crate) use utils::analyze::{Analyze, StatType};
+pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
+
+/// Wire-level encoding metadata — for tile analysis and tooling.
+///
+/// These types describe the physical and logical encoding of streams inside an
+/// MLT tile. Normal tile consumers (parse → iterate features) do not need this
+/// module; it is intended for tools that inspect or report encoding statistics.
+pub mod wire {
+    pub use crate::decoder::ColumnType;
+    pub use crate::decoder::stream::model::{
+        DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalTechnique, Morton,
+        OffsetType, PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+    };
+    pub use crate::utils::analyze::{Analyze, StatType};
+}
 
 #[cfg(any(test, feature = "__private"))]
 pub use crate::utils::test_helpers;
-
-/// `GeoJSON` geometry with `i32` tile coordinates
-pub type Geom32 = geo_types::Geometry<i32>;
-
-/// A single `i32` coordinate (x, y)
-pub type Coord32 = geo_types::Coord<i32>;
-
-/// `GeoJSON` geometry with `i16` tile coordinates
-pub type Geom16 = geo_types::Geometry<i16>;
-
-/// A single `i16` coordinate (x, y)
-pub type Coord16 = geo_types::Coord<i16>;
 
 /// Private re-exports for benchmarks and integration tests. Not part of the public API.
 #[cfg(any(test, feature = "__private"))]

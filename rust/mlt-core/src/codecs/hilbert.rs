@@ -1,6 +1,5 @@
 use geo_types::Coord;
 
-use crate::Coord32;
 use crate::encoder::model::CurveParams;
 
 /// Return the 1-D Hilbert curve index for `(x, y)` at the given `level`.
@@ -27,7 +26,7 @@ pub fn hilbert_xy_to_index(level: u32, coord: Coord<u32>) -> u32 {
 /// Use [`hilbert_curve_params_from_bounds`] to compute `shift` and `bits`
 /// from global min/max coordinates.
 #[must_use]
-pub fn hilbert_sort_key(c: Coord32, params: CurveParams) -> u32 {
+pub fn hilbert_sort_key(c: Coord<i32>, params: CurveParams) -> u32 {
     debug_assert!((1..=16).contains(&params.bits));
     #[expect(
         clippy::cast_possible_truncation,
@@ -82,13 +81,12 @@ pub fn hilbert_curve_params_from_bounds(min_val: i32, max_val: i32) -> CurvePara
 
 #[cfg(test)]
 mod tests {
-    use geo_types::Coord;
 
     use super::*;
     use crate::codecs::morton::interleave_bits;
 
-    const fn c(x: i32, y: i32) -> Coord32 {
-        Coord32 { x, y }
+    const fn c(x: i32, y: i32) -> Coord<i32> {
+        Coord::<i32> { x, y }
     }
 
     const fn p(shift: u32, bits: u32) -> CurveParams {

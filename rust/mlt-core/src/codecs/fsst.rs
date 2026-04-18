@@ -5,7 +5,7 @@ use crate::{Decoder, MltResult};
 /// Decode an FSST-compressed byte sequence into the original bytes and value lengths,
 /// charging `dec` for the output.
 ///
-/// Takes a [`RawFsstData`] which provides the 4 streams needed for FSST decoding:
+/// Takes a `RawFsstData` which provides the 4 streams needed for FSST decoding:
 /// - `symbol_lengths`: per-symbol byte lengths (decoded as u32 values)
 /// - `symbol_table`: concatenated raw symbol bytes (read as raw bytes)
 /// - `lengths`: original string byte lengths (decoded as u32 values)

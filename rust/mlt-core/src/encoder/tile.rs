@@ -161,10 +161,10 @@ mod tests {
     use geo_types::Point;
 
     use super::*;
+    use crate::Layer;
     use crate::decoder::GeometryValues;
     use crate::encoder::{Encoder, StagedLayer};
     use crate::test_helpers::{dec, parser};
-    use crate::{Geom32, Layer};
 
     fn layer_tile(staged: StagedLayer01) -> TileLayer01 {
         let buf = StagedLayer::Tag01(staged)
@@ -180,8 +180,8 @@ mod tests {
 
     fn two_points() -> GeometryValues {
         let mut g = GeometryValues::default();
-        g.push_geom(&Geom32::Point(Point::new(0, 0)));
-        g.push_geom(&Geom32::Point(Point::new(1, 1)));
+        g.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
+        g.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(1, 1)));
         g
     }
 

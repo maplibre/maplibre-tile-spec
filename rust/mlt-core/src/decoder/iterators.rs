@@ -1,14 +1,16 @@
 //! Zero-copy per-feature view into a fully-decoded [`Layer01<Parsed>`].
 //!
-//! [`Layer01FeatureIter`] is returned by [`Layer01::iter_features`]
-//! and yields one [`FeatureRef`] per feature.  [`FeatureRef::iter_properties`] exposes
-//! per-feature property values as flat [`ColumnRef`] items; `SharedDict` columns are
-//! transparently expanded and null values are skipped.
+//! [`ParsedLayer01::iter_features`] yields one [`FeatureRef`] per feature.
+//! [`FeatureRef::iter_properties`] exposes per-feature property values as flat
+//! [`ColumnRef`] items; `SharedDict` columns are transparently expanded and null
+//! values are skipped.
 
 use std::fmt;
 
+use geo_types::Geometry;
+
 use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, RawProperty};
-use crate::{Geom32, Lazy, LazyParsed, MltResult, Parsed};
+use crate::{Lazy, LazyParsed, MltResult, Parsed};
 
 impl<'a> Layer01<'a, Lazy> {
     /// Iterate over the property column names of this layer, in order.
@@ -18,8 +20,7 @@ impl<'a> Layer01<'a, Lazy> {
     ///
     /// Pair with [`FeatureRef::iter_all_properties`] to associate per-feature
     /// values with their column names.
-    #[must_use]
-    pub fn iterate_prop_names(&self) -> Layer01PropNamesIter<'_, 'a> {
+    pub fn iterate_prop_names(&self) -> impl Iterator<Item = PropName<'a>> + '_ {
         Layer01PropNamesIter::lazy(&self.properties)
     }
 }
@@ -27,18 +28,17 @@ impl<'a> Layer01<'a, Lazy> {
 impl<'a> ParsedLayer01<'a> {
     /// Iterate over all features in this fully-decoded layer.
     ///
-    /// Returns a [`Layer01FeatureIter`] that yields one [`FeatureRef`]
-    /// per feature. Construction is infallible; individual `next()` calls return
-    /// `MltResult<FeatureRef>` because geometry decoding can fail.
+    /// Yields one [`FeatureRef`] per feature. Construction is infallible; individual
+    /// `next()` calls return `MltResult<FeatureRef>` because geometry decoding can fail.
+    /// The iterator implements [`ExactSizeIterator`], so `.len()` is available.
     #[must_use]
-    pub fn iter_features(&self) -> Layer01FeatureIter<'_, 'a> {
+    pub fn iter_features(&self) -> impl ExactSizeIterator<Item = MltResult<FeatureRef<'_>>> + '_ {
         Layer01FeatureIter::new(self)
     }
 
     /// Iterate over the property column names of this layer, in order.
     /// See [`Layer01::iterate_prop_names`] for details.
-    #[must_use]
-    pub fn iterate_prop_names(&self) -> Layer01PropNamesIter<'_, 'a> {
+    pub fn iterate_prop_names(&self) -> impl Iterator<Item = PropName<'a>> + '_ {
         Layer01PropNamesIter::parsed(&self.properties)
     }
 }
@@ -54,7 +54,7 @@ enum PropSource<'a, 'p> {
 /// Returned by [`Layer01::iterate_prop_names`] and [`ParsedLayer01::iterate_prop_names`].
 /// - Regular columns yield one [`PropName`] (the column name with an empty suffix).
 /// - `SharedDict` columns yield one [`PropName`] per sub-item (`(prefix, suffix)`).
-pub struct Layer01PropNamesIter<'a, 'p> {
+pub(crate) struct Layer01PropNamesIter<'a, 'p> {
     source: PropSource<'a, 'p>,
     col_idx: usize,
     dict_idx: usize,
@@ -292,7 +292,7 @@ impl<'a> ColumnRef<'a> {
     }
 }
 
-/// A single map feature returned by [`Layer01FeatureIter`].
+/// A single map feature returned by [`ParsedLayer01::iter_features`].
 ///
 /// The internal columnar layout is private; use [`iter_properties`](Self::iter_properties)
 /// and [`get_property`](Self::get_property) to access property values.
@@ -300,8 +300,8 @@ impl<'a> ColumnRef<'a> {
 pub struct FeatureRef<'a> {
     /// Optional feature ID.
     pub id: Option<u64>,
-    /// Geometry in [`Geom32`] form (owned, computed on demand by the iterator).
-    pub geometry: Geom32,
+    /// Geometry in [`Geometry::<i32> `] form (owned, computed on demand by the iterator).
+    pub geometry: Geometry<i32>,
     columns: &'a [ParsedProperty<'a>],
     index: usize,
 }
@@ -316,8 +316,7 @@ impl<'a> FeatureRef<'a> {
     /// The outer `Option` from [`Iterator::next`] signals end-of-iteration as usual.
     ///
     /// Use [`Layer01::iterate_prop_names`] to pair values with their column names.
-    #[must_use]
-    pub fn iter_all_properties(&self) -> FeatValuesIter<'a> {
+    pub fn iter_all_properties(&self) -> impl Iterator<Item = Option<PropValueRef<'a>>> {
         FeatValuesIter {
             columns: self.columns,
             feat_idx: self.index,
@@ -330,8 +329,7 @@ impl<'a> FeatureRef<'a> {
     ///
     /// `SharedDict` columns are transparently expanded into one [`ColumnRef`] per sub-item.
     /// Null / absent values are skipped entirely. The iterator is infallible.
-    #[must_use]
-    pub fn iter_properties(&self) -> FeatPropertyIter<'a> {
+    pub fn iter_properties(&self) -> impl Iterator<Item = ColumnRef<'a>> {
         FeatPropertyIter {
             columns: self.columns,
             feat_idx: self.index,
@@ -364,7 +362,7 @@ impl<'a> FeatureRef<'a> {
 /// - `None` — null / absent slot.
 ///
 /// Pair with [`Layer01::iterate_prop_names`] to associate values with column names.
-pub struct FeatValuesIter<'a> {
+pub(crate) struct FeatValuesIter<'a> {
     columns: &'a [ParsedProperty<'a>],
     feat_idx: usize,
     col_idx: usize,
@@ -410,7 +408,7 @@ impl<'a> Iterator for FeatValuesIter<'a> {
 ///
 /// Returned by [`FeatureRef::iter_properties`]. `SharedDict` columns are expanded
 /// in-place without any heap allocation.
-pub struct FeatPropertyIter<'a> {
+pub(crate) struct FeatPropertyIter<'a> {
     columns: &'a [ParsedProperty<'a>],
     feat_idx: usize,
     col_idx: usize,
@@ -458,13 +456,9 @@ impl<'a> Iterator for FeatPropertyIter<'a> {
 
 /// Iterator over the features of a fully-decoded [`Layer01<Parsed>`].
 ///
-/// Returned by [`Layer01::iter_features`].
+/// Returned by [`ParsedLayer01::iter_features`].
 /// Geometry construction is the only fallible step; all property access is infallible.
-///
-/// The two lifetime parameters are `'layer` (lifetime of the borrow of the layer) and
-/// `'data` (lifetime of the data the layer borrows from, e.g. the input buffer).
-/// In most call sites both can be elided as `Layer01FeatureIter<'_, '_>`.
-pub struct Layer01FeatureIter<'layer, 'data> {
+pub(crate) struct Layer01FeatureIter<'layer, 'data> {
     layer: &'layer Layer01<'data, Parsed>,
     index: usize,
 }
@@ -535,9 +529,9 @@ mod tests {
 
     fn three_points() -> GeometryValues {
         let mut g = GeometryValues::default();
-        g.push_geom(&Geom32::Point(Point::new(1, 2)));
-        g.push_geom(&Geom32::Point(Point::new(3, 4)));
-        g.push_geom(&Geom32::Point(Point::new(5, 6)));
+        g.push_geom(&Geometry::<i32>::Point(Point::new(1, 2)));
+        g.push_geom(&Geometry::<i32>::Point(Point::new(3, 4)));
+        g.push_geom(&Geometry::<i32>::Point(Point::new(5, 6)));
         g
     }
 
@@ -714,9 +708,9 @@ mod tests {
             .iter_features()
             .map(|r| r.unwrap().geometry)
             .collect();
-        assert_eq!(geoms[0], Geom32::Point(Point::new(1, 2)));
-        assert_eq!(geoms[1], Geom32::Point(Point::new(3, 4)));
-        assert_eq!(geoms[2], Geom32::Point(Point::new(5, 6)));
+        assert_eq!(geoms[0], Geometry::<i32>::Point(Point::new(1, 2)));
+        assert_eq!(geoms[1], Geometry::<i32>::Point(Point::new(3, 4)));
+        assert_eq!(geoms[2], Geometry::<i32>::Point(Point::new(5, 6)));
     }
 
     #[test]

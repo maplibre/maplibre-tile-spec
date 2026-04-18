@@ -12,12 +12,21 @@ impl<'a, S: DecodeState> Layer<'a, S> {
             Self::Unknown(_) => None,
         }
     }
+
+    /// Consumes this layer and returns the inner `Layer01`, or `None` if it is not a Tag01 layer.
+    #[must_use]
+    pub fn into_layer01(self) -> Option<Layer01<'a, S>> {
+        match self {
+            Self::Tag01(l) => Some(l),
+            Self::Unknown(_) => None,
+        }
+    }
 }
 
 impl<'a> Layer<'a> {
     /// Parse a single tuple that consists of `size (varint)`, `tag (varint)`, and `value (bytes)`.
     /// Reserves memory for decoded data against the parser's budget.
-    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
+    pub(crate) fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
         let (input, size) = parse_varint::<u32>(input)?;
 
         // tag is a varint, but we know fewer than 127 tags for now,

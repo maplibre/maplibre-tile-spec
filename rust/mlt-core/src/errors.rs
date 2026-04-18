@@ -9,7 +9,7 @@ use crate::decoder::{
 use crate::utils::AsUsize;
 
 pub type MltResult<T> = Result<T, MltError>;
-pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
+pub(crate) type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -184,7 +184,7 @@ impl From<MltError> for std::io::Error {
     }
 }
 
-pub trait AsMltError<T> {
+pub(crate) trait AsMltError<T> {
     fn or_overflow(&self) -> MltResult<T>;
 }
 
@@ -203,7 +203,7 @@ impl AsMltError<u32> for Result<u32, TryFromIntError> {
 }
 
 #[inline]
-pub fn fail_if_invalid_stream_size<T: AsUsize>(actual: T, expected: T) -> MltResult<()> {
+pub(crate) fn fail_if_invalid_stream_size<T: AsUsize>(actual: T, expected: T) -> MltResult<()> {
     if actual == expected {
         Ok(())
     } else {

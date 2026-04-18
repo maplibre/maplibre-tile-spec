@@ -8,7 +8,7 @@ use crate::encoder::{
     StagedProperty, StagedSharedDict, group_string_properties,
 };
 use crate::test_helpers::{dec, parser};
-use crate::{DictRange, Geom32, GeometryValues, Layer, PropValue, TileFeature, TileLayer01};
+use crate::{DictRange, GeometryValues, Layer, PropValue, TileFeature, TileLayer01};
 // proptest_derive::Arbitrary is only derived for these types inside the crate
 // under #[cfg(test)], so we write the strategies by hand here.
 
@@ -97,7 +97,7 @@ fn ps(s: &str) -> PropValue {
 fn n_point_geometry(n: usize) -> GeometryValues {
     let mut g = GeometryValues::default();
     for _ in 0..n {
-        g.push_geom(&Geom32::Point(Point::new(0, 0)));
+        g.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
     }
     g
 }

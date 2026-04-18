@@ -1,8 +1,6 @@
 mod analyze;
 mod decode;
-pub mod logical;
-mod model;
+pub(crate) mod logical;
+pub(crate) mod model;
 mod parse;
 mod physical;
-
-pub use model::*;

@@ -293,8 +293,8 @@ impl Encoder {
     /// Concatenate `hdr + meta + data` into a single buffer **without** a
     /// tag/size prefix.
     ///
-    /// Use this when the caller expects a raw layer body
-    /// (e.g. [`Layer01::from_bytes`](crate::decoder::Layer01)) rather than a framed wire record.
+    /// Use this when the caller expects raw layer body bytes (without the size/tag framing)
+    /// rather than a complete framed wire record — see [`Self::into_layer_bytes`] for the framed form.
     #[must_use]
     pub fn into_raw_bytes(mut self) -> Vec<u8> {
         let mut out = Vec::with_capacity(self.hdr.len() + self.meta.len() + self.data.len());

@@ -1,12 +1,12 @@
 //! Feature reordering for the optimizer
 
 use geo::CoordsIter as _;
+use geo_types::{Coord, Geometry};
 
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
 use crate::decoder::{TileFeature, TileLayer01};
 use crate::encoder::model::CurveParams;
-use crate::{Coord32, Geom32};
 
 /// Controls how features inside a layer are reordered before encoding.
 ///
@@ -81,18 +81,20 @@ fn curve_params_from_features(features: &[TileFeature]) -> CurveParams {
 }
 
 /// Extract the coordinate of the first vertex of a geometry.
-fn first_vertex(geom: &Geom32) -> Option<Coord32> {
+fn first_vertex(geom: &Geometry<i32>) -> Option<Coord<i32>> {
     match geom {
-        Geom32::Point(p) => Some(p.0),
-        Geom32::Line(l) => Some(l.start),
-        Geom32::LineString(ls) => ls.0.first().copied(),
-        Geom32::Polygon(p) => p.exterior().0.first().copied(),
-        Geom32::MultiPoint(mp) => mp.0.first().map(|p| p.0),
-        Geom32::MultiLineString(mls) => mls.0.first().and_then(|ls| ls.0.first().copied()),
-        Geom32::MultiPolygon(mp) => mp.0.first().and_then(|p| p.exterior().0.first().copied()),
-        Geom32::Triangle(t) => Some(t.v1()),
-        Geom32::Rect(r) => Some(r.min()),
-        Geom32::GeometryCollection(gc) => gc.0.first().and_then(first_vertex),
+        Geometry::<i32>::Point(p) => Some(p.0),
+        Geometry::<i32>::Line(l) => Some(l.start),
+        Geometry::<i32>::LineString(ls) => ls.0.first().copied(),
+        Geometry::<i32>::Polygon(p) => p.exterior().0.first().copied(),
+        Geometry::<i32>::MultiPoint(mp) => mp.0.first().map(|p| p.0),
+        Geometry::<i32>::MultiLineString(mls) => mls.0.first().and_then(|ls| ls.0.first().copied()),
+        Geometry::<i32>::MultiPolygon(mp) => {
+            mp.0.first().and_then(|p| p.exterior().0.first().copied())
+        }
+        Geometry::<i32>::Triangle(t) => Some(t.v1()),
+        Geometry::<i32>::Rect(r) => Some(r.min()),
+        Geometry::<i32>::GeometryCollection(gc) => gc.0.first().and_then(first_vertex),
     }
 }
 
@@ -116,7 +118,7 @@ pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer01) -> bool {
         .filter_map(|f| first_vertex(&f.geometry))
         .fold(
             (i32::MAX, i32::MIN, i32::MAX, i32::MIN),
-            |(min_x, max_x, min_y, max_y), Coord32 { x, y }| {
+            |(min_x, max_x, min_y, max_y), Coord::<i32> { x, y }| {
                 (min_x.min(x), max_x.max(x), min_y.min(y), max_y.max(y))
             },
         );
@@ -136,28 +138,28 @@ pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer01) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use geo_types::{Coord, Geometry as GeoGeom, LineString, Point, Polygon};
+    use geo_types::{Coord, Geometry as GeoGeom, Geometry, LineString, Point, Polygon};
 
     use crate::decoder::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer01};
     use crate::encoder::{
         Encoder, ExplicitEncoder, IdWidth, IntEncoder, SortStrategy, StagedLayer01,
     };
     use crate::test_helpers::{assert_empty, dec, into_layer01, parser};
-    use crate::{Geom32, Layer, LazyParsed};
+    use crate::{Layer, LazyParsed};
 
     // ── geometry test helpers ──────────────────────────────────────────────────
 
-    fn pt(x: i32, y: i32) -> Geom32 {
+    fn pt(x: i32, y: i32) -> Geometry<i32> {
         GeoGeom::Point(Point::new(x, y))
     }
 
-    fn ls(coords: &[(i32, i32)]) -> Geom32 {
+    fn ls(coords: &[(i32, i32)]) -> Geometry<i32> {
         GeoGeom::LineString(LineString::new(
             coords.iter().map(|&(x, y)| Coord { x, y }).collect(),
         ))
     }
 
-    fn poly_square(x0: i32, y0: i32, side: i32) -> Geom32 {
+    fn poly_square(x0: i32, y0: i32, side: i32) -> Geometry<i32> {
         let ring = LineString::new(vec![
             Coord { x: x0, y: y0 },
             Coord {
@@ -196,7 +198,7 @@ mod tests {
     }
 
     /// Build the canonical (dense, wire-decoded) form of an ordered geometry sequence.
-    fn canonical(geoms: &[Geom32]) -> GeometryValues {
+    fn canonical(geoms: &[Geometry<i32>]) -> GeometryValues {
         let mut decoded = GeometryValues::default();
         for g in geoms {
             decoded.push_geom(g);
@@ -206,7 +208,11 @@ mod tests {
 
     /// Build a `TileLayer01` from `geoms` and `ids`, apply `reorder_features`,
     /// and return it.
-    fn layer_after_sort(geoms: &[Geom32], ids: &[u64], strategy: SortStrategy) -> TileLayer01 {
+    fn layer_after_sort(
+        geoms: &[Geometry<i32>],
+        ids: &[u64],
+        strategy: SortStrategy,
+    ) -> TileLayer01 {
         let features: Vec<TileFeature> = geoms
             .iter()
             .zip(ids.iter())
@@ -230,10 +236,10 @@ mod tests {
 
     /// Sort, then encode+decode the result and compare to `canonical(expected)`.
     fn assert_sort_roundtrip(
-        geoms: &[Geom32],
+        geoms: &[Geometry<i32>],
         ids: &[u64],
         strategy: SortStrategy,
-        expected: &[Geom32],
+        expected: &[Geometry<i32>],
     ) {
         let layer = layer_after_sort(geoms, ids, strategy);
 
@@ -355,7 +361,7 @@ mod tests {
     }
 
     /// Build row-oriented tile layer from geometries and IDs (one feature per geometry).
-    fn build_tile_layer(geoms: &[Geom32], ids: &[Option<u64>]) -> TileLayer01 {
+    fn build_tile_layer(geoms: &[Geometry<i32>], ids: &[Option<u64>]) -> TileLayer01 {
         assert_eq!(geoms.len(), ids.len());
         TileLayer01 {
             name: "test".to_string(),

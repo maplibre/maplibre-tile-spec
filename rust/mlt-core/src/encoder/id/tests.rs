@@ -2,14 +2,14 @@ use geo_types::Point;
 use proptest::prelude::*;
 use rstest::rstest;
 
-use crate::decoder::{GeometryValues, IdValues, RawIdValue};
+use crate::decoder::{GeometryValues, IdValues, RawId, RawIdValue};
 use crate::encoder::IdWidth::{Id32, Id64, OptId32, OptId64};
 use crate::encoder::stream::LogicalEncoder;
 use crate::encoder::{
     Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer, StagedLayer01,
 };
 use crate::test_helpers::{dec, into_layer01, parser};
-use crate::{Geom32, Layer, LazyParsed, MltError, MltResult, RawId};
+use crate::{Layer, LazyParsed, MltError, MltResult};
 
 /// Round-trip `IdValues` via full layer bytes using an explicit encoder.
 fn id_roundtrip_via_layer(decoded: &IdValues, id_width: IdWidth, int_enc: IntEncoder) -> IdValues {
@@ -19,7 +19,7 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_width: IdWidth, int_enc: IntEnc
     let n = decoded.0.len();
     let mut geometry = GeometryValues::default();
     for _ in 0..n {
-        geometry.push_geom(&Geom32::Point(Point::new(0, 0)));
+        geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
     }
     let staged = StagedLayer01 {
         name: "id_roundtrip".to_string(),
@@ -51,7 +51,7 @@ fn id_roundtrip_auto(decoded: &IdValues) -> IdValues {
     let n = decoded.0.len();
     let mut geometry = GeometryValues::default();
     for _ in 0..n {
-        geometry.push_geom(&Geom32::Point(Point::new(0, 0)));
+        geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
     }
     let staged = StagedLayer01 {
         name: "id_roundtrip".to_string(),
@@ -335,7 +335,7 @@ fn roundtrip_id_values(
     let n = decoded.0.len();
     let mut geometry = GeometryValues::default();
     for _ in 0..n {
-        geometry.push_geom(&Geom32::Point(Point::new(0, 0)));
+        geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
     }
     let staged = StagedLayer01 {
         name: "id_roundtrip".to_string(),
@@ -374,7 +374,7 @@ fn with_encoded_raw_id<R>(
     let n = ids.0.len();
     let mut geometry = GeometryValues::default();
     for _ in 0..n {
-        geometry.push_geom(&Geom32::Point(Point::new(0, 0)));
+        geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
     }
     let staged = StagedLayer01 {
         name: "id_test".to_string(),

@@ -13,19 +13,19 @@ use crate::{MltError, MltRefResult, MltResult, Parser};
 
 impl IntEncoding {
     #[must_use]
-    pub const fn new(logical: LogicalEncoding, physical: PhysicalEncoding) -> Self {
+    pub(crate) const fn new(logical: LogicalEncoding, physical: PhysicalEncoding) -> Self {
         Self { logical, physical }
     }
 
     #[must_use]
-    pub const fn none() -> Self {
+    pub(crate) const fn none() -> Self {
         Self::new(LogicalEncoding::None, PhysicalEncoding::None)
     }
 }
 
 impl StreamMeta {
     #[must_use]
-    pub fn new(stream_type: StreamType, encoding: IntEncoding, num_values: u32) -> Self {
+    pub(crate) fn new(stream_type: StreamType, encoding: IntEncoding, num_values: u32) -> Self {
         Self {
             stream_type,
             encoding,
@@ -119,7 +119,7 @@ impl StreamMeta {
         Ok((input, (meta, byte_length)))
     }
 
-    pub fn write_to<W: io::Write>(
+    pub(crate) fn write_to<W: io::Write>(
         &self,
         writer: &mut W,
         is_bool: bool,
@@ -189,15 +189,15 @@ impl fmt::Debug for StreamMeta {
 
 impl<'a> RawStream<'a> {
     #[must_use]
-    pub fn new(meta: StreamMeta, data: &'a [u8]) -> Self {
+    pub(crate) fn new(meta: StreamMeta, data: &'a [u8]) -> Self {
         Self { meta, data }
     }
 
-    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
+    pub(crate) fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
         Self::from_bytes_internal(input, false, parser)
     }
 
-    pub fn parse_multiple(
+    pub(crate) fn parse_multiple(
         mut input: &'a [u8],
         count: usize,
         parser: &mut Parser,
@@ -211,7 +211,7 @@ impl<'a> RawStream<'a> {
         Ok((input, result))
     }
 
-    pub fn parse_bool(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
+    pub(crate) fn parse_bool(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
         Self::from_bytes_internal(input, true, parser)
     }
 

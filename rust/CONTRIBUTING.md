@@ -28,7 +28,7 @@ When decoding data, `mlt-core` moves through a strict linear pipeline, minimizin
 | **-** | `<Name>`       | Borrowed (`&'a`)         | Container structs to allow partial lazy decoding.                             |
 | **1** | `Raw<Name>`    | Borrowed (`&'a`)         | Zero-copy views of input bytes. No allocation.                                |
 | **2** | `Parsed<Name>` | Owned or Borrowed (`'a`) | Fully decoded Rust values (e.g., `Vec<u64>`), or could reference input bytes. |
-| **3** | `Tile*`        | Owned                    | **Row-oriented** features using `geo_types::Geometry<i32>` for geometries.    |
+| **3** | `Tile*`        | Owned                    | **Row-oriented** features using `Geometry<i32>` for geometries.    |
 
 ### Notes
 * **Forward Only:** Data moves `1` -> `3`. No backwards conversions (e.g., `Tile*` cannot become `Parsed*`).
@@ -43,7 +43,7 @@ Encoding is more complex, and requires owned data structures to support optimiza
 
 | Stage | Prefix     | Ownership             | Purpose                                                                    |
 |:------|:-----------|:----------------------|:---------------------------------------------------------------------------|
-| **1** | `Tile*`    | Owned                 | **Row-oriented** features using `geo_types::Geometry<i32>` for geometries. |
+| **1** | `Tile*`    | Owned                 | **Row-oriented** features using `Geometry<i32>` for geometries. |
 | **2** | `Staged*`  | Owned                 | **Columnar** data being prepared for encoding.                             |
 | **3** | `Encoded*` | Owned                 | Wire-ready byte buffers.                                                   |
 

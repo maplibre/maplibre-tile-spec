@@ -7,7 +7,7 @@ use mlt_core::encoder::{
     StagedLayer01, StagedProperty, StagedSharedDict, StrEncoding,
 };
 use mlt_core::test_helpers::{dec, parser};
-use mlt_core::{Geom32, GeometryValues, Layer01, ParsedLayer01, PropValueRef};
+use mlt_core::{GeometryValues, ParsedLayer01, PropValueRef};
 use strum::IntoEnumIterator as _;
 
 // This code runs in CI because of --all-targets, so make it run really fast.
@@ -75,7 +75,7 @@ fn make_nullable_strings(n: usize) -> Vec<Option<String>> {
 fn make_geometry(n: usize) -> GeometryValues {
     let mut g = GeometryValues::default();
     for _ in 0..n {
-        g.push_geom(&Geom32::Point(Point::new(0, 0)));
+        g.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
     }
     g
 }
@@ -91,7 +91,8 @@ fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> V
     }
     .encode_into(Encoder::with_explicit(EncoderConfig::default(), cfg))
     .expect("encode_layer failed")
-    .into_raw_bytes()
+    .into_layer_bytes()
+    .expect("into_layer_bytes failed")
 }
 
 /// Sum the byte lengths of all non-null string property values across all features.
@@ -139,7 +140,12 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
                     &bytes,
                     |b, bytes| {
                         b.iter(|| {
-                            let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                            let layer = parser()
+                                .parse_layers(bytes)
+                                .expect("parse")
+                                .remove(0)
+                                .into_layer01()
+                                .expect("layer01");
                             let parsed = layer.decode_all(&mut dec()).expect("decode_all");
                             black_box(sum_str_lens(&parsed))
                         });
@@ -174,7 +180,12 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
                     &bytes,
                     |b, bytes| {
                         b.iter(|| {
-                            let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                            let layer = parser()
+                                .parse_layers(bytes)
+                                .expect("parse")
+                                .remove(0)
+                                .into_layer01()
+                                .expect("layer01");
                             let parsed = layer.decode_all(&mut dec()).expect("decode_all");
                             black_box(sum_str_lens(&parsed))
                         });
@@ -203,7 +214,12 @@ fn bench_encoding_type(c: &mut Criterion) {
         );
         group.bench_with_input(BenchmarkId::new("plain", n), &plain_bytes, |b, bytes| {
             b.iter(|| {
-                let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                let layer = parser()
+                    .parse_layers(bytes)
+                    .expect("parse")
+                    .remove(0)
+                    .into_layer01()
+                    .expect("layer01");
                 let parsed = layer.decode_all(&mut dec()).expect("decode_all");
                 black_box(sum_str_lens(&parsed))
             });
@@ -216,7 +232,12 @@ fn bench_encoding_type(c: &mut Criterion) {
         );
         group.bench_with_input(BenchmarkId::new("fsst", n), &fsst_bytes, |b, bytes| {
             b.iter(|| {
-                let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                let layer = parser()
+                    .parse_layers(bytes)
+                    .expect("parse")
+                    .remove(0)
+                    .into_layer01()
+                    .expect("layer01");
                 let parsed = layer.decode_all(&mut dec()).expect("decode_all");
                 black_box(sum_str_lens(&parsed))
             });
@@ -245,7 +266,12 @@ fn bench_presence(c: &mut Criterion) {
             &no_null_bytes,
             |b, bytes| {
                 b.iter(|| {
-                    let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                    let layer = parser()
+                        .parse_layers(bytes)
+                        .expect("parse")
+                        .remove(0)
+                        .into_layer01()
+                        .expect("layer01");
                     let parsed = layer.decode_all(&mut dec()).expect("decode_all");
                     black_box(sum_str_lens(&parsed))
                 });
@@ -263,7 +289,12 @@ fn bench_presence(c: &mut Criterion) {
             &null_bytes,
             |b, bytes| {
                 b.iter(|| {
-                    let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                    let layer = parser()
+                        .parse_layers(bytes)
+                        .expect("parse")
+                        .remove(0)
+                        .into_layer01()
+                        .expect("layer01");
                     let parsed = layer.decode_all(&mut dec()).expect("decode_all");
                     black_box(sum_str_lens(&parsed))
                 });
@@ -305,7 +336,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             &plain_x2_bytes,
             |b, bytes| {
                 b.iter(|| {
-                    let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                    let layer = parser()
+                        .parse_layers(bytes)
+                        .expect("parse")
+                        .remove(0)
+                        .into_layer01()
+                        .expect("layer01");
                     let parsed = layer.decode_all(&mut dec()).expect("decode_all");
                     black_box(sum_str_lens(&parsed))
                 });
@@ -339,7 +375,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             &sd_plain_bytes,
             |b, bytes| {
                 b.iter(|| {
-                    let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                    let layer = parser()
+                        .parse_layers(bytes)
+                        .expect("parse")
+                        .remove(0)
+                        .into_layer01()
+                        .expect("layer01");
                     let parsed = layer.decode_all(&mut dec()).expect("decode_all");
                     black_box(sum_str_lens(&parsed))
                 });
@@ -357,7 +398,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             &sd_fsst_bytes,
             |b, bytes| {
                 b.iter(|| {
-                    let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                    let layer = parser()
+                        .parse_layers(bytes)
+                        .expect("parse")
+                        .remove(0)
+                        .into_layer01()
+                        .expect("layer01");
                     let parsed = layer.decode_all(&mut dec()).expect("decode_all");
                     black_box(sum_str_lens(&parsed))
                 });
@@ -378,7 +424,12 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
             &fsst_x2_bytes,
             |b, bytes| {
                 b.iter(|| {
-                    let layer = Layer01::from_bytes(bytes, &mut parser()).expect("parse");
+                    let layer = parser()
+                        .parse_layers(bytes)
+                        .expect("parse")
+                        .remove(0)
+                        .into_layer01()
+                        .expect("layer01");
                     let parsed = layer.decode_all(&mut dec()).expect("decode_all");
                     black_box(sum_str_lens(&parsed))
                 });
