@@ -123,7 +123,7 @@ pub fn morton_deltas(codes: &[u32], target: &mut Vec<u32>) {
 }
 
 impl Morton {
-    /// Decode a single Morton code to a `Coord32`, applying `shift`.
+    /// Decode a single Morton code to a `Coord<i32>`, applying `shift`.
     #[inline]
     fn decode_one(self, morton_code: u32) -> Coord<i32> {
         let mut x = 0u32;
