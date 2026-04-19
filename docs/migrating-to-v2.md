@@ -121,7 +121,7 @@ depending on its column type:
 [data section]
 ```
 
-**With shared presence** (e.g. `I32SharedPresence`): references a previously declared bitfield:
+**With shared presence** (e.g. `OptRefI32`): references a previously declared bitfield:
 ```
 [u8    column_type]
 [varint name_len] [name bytes]
@@ -307,7 +307,7 @@ distinct variants for any nullable type:
 ← num_values for the data stream = popcount(this bitfield)
 ```
 
-**`*SharedPresence`** — references a prior column's already-declared bitfield:
+**`OptRef*`** — references a prior column's already-declared bitfield:
 ```
 [varint presence_group]   ← 0-based index of the group to reuse
 ← no bitfield bytes follow
@@ -319,9 +319,9 @@ distinct variants for any nullable type:
 | Aspect | v1 | v2 |
 |---|---|---|
 | Encoding | Bool-RLE pairs | Raw packed bitfield (1 bit per feature) |
-| Header overhead | 4–14 bytes | **0 bytes** for `Opt*` (bitfield directly follows column type); 1 byte (varint) for `*SharedPresence` |
+| Header overhead | 4–14 bytes | **0 bytes** for `Opt*` (bitfield directly follows column type); 1 byte (varint) for `OptRef*` |
 | Size known in advance | No (stored in `byte_length`) | Yes: always `ceil(feature_count / 8)` bytes |
-| Sharing identical bitfields | Not possible | `*SharedPresence` type with group index; bitfield stored once |
+| Sharing identical bitfields | Not possible | `OptRef*` type with group index; bitfield stored once |
 | Null count for data stream | Stored in `num_rle_values` | `popcount(bitfield)`, computed at decode time |
 | "Own bitfield" marker | n/a | Encoded in column type — no `presence_ref = 0` byte needed |
 
@@ -330,7 +330,7 @@ distinct variants for any nullable type:
 
 **Dict variants** (`OptStrDict`, `OptStrFsstDict`, `OptSharedDictChildRef`) do **not**
 have a presence section; they encode null via index 0 in the indices stream and therefore
-have no corresponding `*SharedPresence` variant either.
+have no corresponding `OptRef*` variant either.
 
 ---
 
@@ -375,7 +375,7 @@ Optional — own presence (`Opt*`):
 [encoding_byte] [optional count/size] [data bytes]
 ```
 
-Optional — shared presence (`*SharedPresence`):
+Optional — shared presence (`OptRef*`):
 ```
 [u8 column_type]                    ← e.g. I32SharedPresence
 [optional: varint name_len + bytes]
@@ -389,7 +389,7 @@ Optional — shared presence (`*SharedPresence`):
 |---|---|---|
 | Column type in metadata section | 1 (in meta pass) | 1 (inline) |
 | Name in metadata section | 0–33 (in meta pass) | 0–33 (inline) |
-| Presence stream header | 4–14 | 0 (`Opt*` — bitfield directly follows) / 1 (`*SharedPresence` — group ref varint) |
+| Presence stream header | 4–14 | 0 (`Opt*` — bitfield directly follows) / 1 (`OptRef*` — group ref varint) |
 | Presence data | RLE packed | Raw packed bits |
 | `stream_type` byte | 1 | 0 (eliminated) |
 | `num_values` | 1–5 | 0 (derivable from `feature_count` or presence popcount) |
@@ -1026,20 +1026,20 @@ wire in v2.
 
 Per-stream header costs, typical small-integer varint values.
 
-| Stream Kind | v1 overhead (bytes) | v2 overhead (bytes) | Saving |
-|---|---|---|---|
-| Presence bitfield header (`Opt*`) | 4–14 | 0 (bitfield directly follows column type) | 4–14 |
-| Shared presence (`*SharedPresence`) | full bitfield copy | 1 (presence_group varint) | ≈ ceil(N/8) |
-| Non-optional scalar, VarInt | 4–6 | 1 (enc) + varint(size) | 2–4 |
-| Non-optional scalar, None-noLen | 4–6 | 1 | 3–5 |
-| Non-optional scalar, FastPFor128 | 5–7 | 1 (enc) + varint(size) | 2–4 |
-| Optional scalar, VarInt | 4–6 | 1 (enc) + varint(size) | 2–4 |
-| RLE stream, VarInt | 6–10 | 1 | 5–9 |
-| Geometry: stream_count varint | 1–3 | 0 (encoded in column type) | 1–3 |
-| Geometry: types stream | 4–6 | 1 | 3–5 |
-| Geometry: aux stream, FastPFor | 6–10 | 1 + varint(count) + varint(size) | 2–4 |
-| Morton vertex stream | 8–14 | 1 + ext + 2 varints | 4–8 |
-| String variant declaration | 1 (Str/OptStr type) + 1–3 (stream_count) | 0 | 2–4 |
+| Stream Kind                            | v1 overhead (bytes) | v2 overhead (bytes) | Saving |
+|----------------------------------------|---|---|---|
+| Presence bitfield header (`Opt*`)      | 4–14 | 0 (bitfield directly follows column type) | 4–14 |
+| Shared presence (`OptRef*`)            | full bitfield copy | 1 (presence_group varint) | ≈ ceil(N/8) |
+| Non-optional scalar, VarInt            | 4–6 | 1 (enc) + varint(size) | 2–4 |
+| Non-optional scalar, None-noLen        | 4–6 | 1 | 3–5 |
+| Non-optional scalar, FastPFor128       | 5–7 | 1 (enc) + varint(size) | 2–4 |
+| Optional scalar, VarInt                | 4–6 | 1 (enc) + varint(size) | 2–4 |
+| RLE stream, VarInt                     | 6–10 | 1 | 5–9 |
+| Geometry: stream_count varint          | 1–3 | 0 (encoded in column type) | 1–3 |
+| Geometry: types stream                 | 4–6 | 1 | 3–5 |
+| Geometry: aux stream, FastPFor         | 6–10 | 1 + varint(count) + varint(size) | 2–4 |
+| Morton vertex stream                   | 8–14 | 1 + ext + 2 varints | 4–8 |
+| String variant declaration             | 1 (Str/OptStr type) + 1–3 (stream_count) | 0 | 2–4 |
 | Dict optional: presence + index stream | 4–10 + bool-RLE | 0 (null-at-0) | 4–10 + bitfield |
 
 **Estimated total saving for a typical tile (100 streams, 10 optional columns):**
