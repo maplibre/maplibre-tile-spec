@@ -83,6 +83,29 @@ fn shared_dict_prop(name: &str, children: Vec<(String, Vec<Option<String>>)>) ->
     StagedProperty::SharedDict(StagedSharedDict::new(name, children).expect("build shared dict"))
 }
 
+type SharedDictChildren = Vec<(String, Vec<Option<String>>)>;
+
+fn arb_shared_dict_children() -> impl Strategy<Value = (usize, SharedDictChildren)> {
+    (1usize..20, 1usize..5usize).prop_flat_map(|(n, child_count)| {
+        prop::collection::vec(
+            (
+                "[a-z]{1,6}",
+                prop::collection::vec(prop::option::of("[a-zA-Z ]{0,20}"), n),
+            ),
+            child_count,
+        )
+        .prop_map(move |mut children| {
+            if children
+                .iter()
+                .all(|(_, vals)| vals.iter().all(Option::is_none))
+            {
+                children[0].1[0] = Some(String::new());
+            }
+            (n, children)
+        })
+    })
+}
+
 /// Build a `(name, values)` pair for use as a [`shared_dict_prop`] column.
 fn col(name: &str, values: Vec<Option<String>>) -> (String, Vec<Option<String>>) {
     (name.to_string(), values)
@@ -580,20 +603,9 @@ proptest! {
     #[test]
     fn struct_roundtrip(
         struct_name in "[a-z]{1,8}",
-        children in prop::collection::vec(
-            (
-                "[a-z]{1,6}",
-                prop::collection::vec(prop::option::of("[a-zA-Z ]{0,20}"), 1..20),
-            ),
-            1..5usize,
-        ),
+        input in arb_shared_dict_children(),
     ) {
-        let n = children[0].1.len();
-        // SharedDict requires all items to have the same number of features.
-        prop_assume!(children.iter().all(|(_, vals)| vals.len() == n));
-        // A SharedDict where every child column is all-null is skipped in encoding.
-        prop_assume!(children.iter().any(|(_, vals)| vals.iter().any(Option::is_some)));
-
+        let (n, children) = input;
         let staged = StagedProperty::SharedDict(
             StagedSharedDict::new(&struct_name, children.clone()).expect("build shared dict"),
         );
