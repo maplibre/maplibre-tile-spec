@@ -95,6 +95,9 @@ pub struct ConvertArgs {
     /// Schema type for the output `.mbtiles` file; defaults to the input file's schema
     #[clap(long)]
     mbtiles_format: Option<MbtFormat>,
+    /// Disable grouping of similar string columns into shared dictionaries
+    #[clap(long, default_value = "false")]
+    no_shared_dict: bool,
 }
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
@@ -103,6 +106,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         try_spatial_morton_sort: matches!(args.sort, SortMode::Auto | SortMode::Morton),
         try_spatial_hilbert_sort: matches!(args.sort, SortMode::Auto | SortMode::Hilbert),
         try_id_sort: matches!(args.sort, SortMode::Auto | SortMode::Id),
+        allow_shared_dict: !args.no_shared_dict,
         ..Default::default()
     };
 
