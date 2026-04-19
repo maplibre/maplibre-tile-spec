@@ -29,7 +29,6 @@ clap.workspace = true
 crossterm.workspace = true
 flate2.workspace = true
 futures.workspace = true
-geo-types.workspace = true
 glob.workspace = true
 globset.workspace = true
 hotpath.workspace = true

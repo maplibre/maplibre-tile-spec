@@ -3,7 +3,8 @@
 use std::collections::{BTreeMap, HashMap};
 
 use geo_types::{
-    Coord, Geometry as Geom, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
+    Coord, Geometry as Geom, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon,
+    Point, Polygon,
 };
 use mvt_reader::Reader;
 use mvt_reader::feature::{Feature as MvtFeature, Value as MvtValue};
@@ -11,7 +12,7 @@ use serde_json::{Number, Value};
 
 use crate::decoder::{PropValue, TileFeature, TileLayer01};
 use crate::geojson::{Feature, FeatureCollection};
-use crate::{Coord32, Geom32, MltError, MltResult};
+use crate::{MltError, MltResult};
 
 // ── Common MVT parsing ────────────────────────────────────────────────────────
 
@@ -149,7 +150,7 @@ fn mvt_layer_to_tile(layer: MvtLayer) -> MltResult<TileLayer01> {
     })
 }
 
-fn coord(c: impl AsRef<Coord<f32>>) -> Coord32 {
+fn coord(c: impl AsRef<Coord<f32>>) -> Coord<i32> {
     let c = c.as_ref();
     #[expect(clippy::cast_possible_truncation)]
     Coord {
@@ -158,21 +159,23 @@ fn coord(c: impl AsRef<Coord<f32>>) -> Coord32 {
     }
 }
 
-fn convert_geometry(geom: &Geom<f32>) -> MltResult<Geom32> {
+fn convert_geometry(geom: &Geom<f32>) -> MltResult<Geometry<i32>> {
     Ok(match geom {
-        Geom::Point(v) => Geom32::Point(Point(coord(v))),
+        Geom::Point(v) => Geometry::<i32>::Point(Point(coord(v))),
         Geom::MultiPoint(v) => {
-            Geom32::MultiPoint(MultiPoint(v.iter().map(|p| Point(coord(p))).collect()))
+            Geometry::<i32>::MultiPoint(MultiPoint(v.iter().map(|p| Point(coord(p))).collect()))
         }
-        Geom::LineString(v) => Geom32::LineString(LineString(v.coords().map(coord).collect())),
-        Geom::MultiLineString(v) => Geom32::MultiLineString(MultiLineString(
+        Geom::LineString(v) => {
+            Geometry::<i32>::LineString(LineString(v.coords().map(coord).collect()))
+        }
+        Geom::MultiLineString(v) => Geometry::<i32>::MultiLineString(MultiLineString(
             v.iter()
                 .map(|ls| LineString(ls.coords().map(coord).collect()))
                 .collect(),
         )),
-        Geom::Polygon(v) => Geom32::Polygon(convert_polygon(v)),
+        Geom::Polygon(v) => Geometry::<i32>::Polygon(convert_polygon(v)),
         Geom::MultiPolygon(v) => {
-            Geom32::MultiPolygon(MultiPolygon(v.iter().map(convert_polygon).collect()))
+            Geometry::<i32>::MultiPolygon(MultiPolygon(v.iter().map(convert_polygon).collect()))
         }
         Geom::GeometryCollection(v) => {
             return if v.len() == 1 {

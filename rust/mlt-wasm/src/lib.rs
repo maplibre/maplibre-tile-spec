@@ -55,14 +55,12 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             continue;
         };
 
-        // Decode geometry to columnar GeometryValues first (for WASM typed-array output),
-        // then decode the whole layer to TileLayer01 for properties/IDs.
-        // We need to re-parse the same layer, so clone the raw geometry before consuming.
-        let parsed_geometry = layer01
-            .geometry
-            .clone()
-            .into_parsed(&mut dec)
-            .map_err(|e| to_js_err(&e))?;
+        // Decode all columns at once, then extract geometry arrays before consuming into tile.
+        let parsed_layer = layer01.decode_all(&mut dec).map_err(|e| to_js_err(&e))?;
+
+        // Clone geometry values for building WASM typed arrays (zero wire-decode overhead:
+        // geometry is already in columnar form from decode_all).
+        let parsed_geometry = parsed_layer.geometry_values().clone();
 
         let (types_bytes, mlt_types_bytes): (Vec<u8>, Vec<u8>) = parsed_geometry
             .vector_types()
@@ -81,7 +79,9 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
         let types_array = Uint8Array::from(types_bytes.as_slice());
         let mlt_types_array = Uint8Array::from(mlt_types_bytes.as_slice());
 
-        let tile = layer01.into_tile(&mut dec).map_err(|e| to_js_err(&e))?;
+        let tile = parsed_layer
+            .into_tile(&mut dec)
+            .map_err(|e| to_js_err(&e))?;
 
         layers.push(DecodedLayer {
             tile,

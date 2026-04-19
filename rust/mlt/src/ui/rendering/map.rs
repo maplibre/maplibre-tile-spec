@@ -1,8 +1,7 @@
 use std::collections::HashSet;
 
-use geo_types::Polygon;
+use mlt_core::geo_types::{Coord, Geometry, Polygon};
 use mlt_core::geojson::FeatureCollection;
-use mlt_core::{Coord32, Geom32};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Span, Style};
@@ -103,7 +102,7 @@ pub fn render_tile_preview(f: &mut Frame<'_>, area: Rect, fc: &FeatureCollection
 
 fn draw_feature(
     ctx: &mut Context<'_>,
-    geom: &Geom32,
+    geom: &Geometry<i32>,
     base: Color,
     is_hov: bool,
     sel_part: Option<usize>,
@@ -111,20 +110,20 @@ fn draw_feature(
 ) {
     let color = if is_hov { CLR_HOVERED } else { base };
     match geom {
-        Geom32::Point(p) => draw_point(ctx, p.0, color),
-        Geom32::LineString(ls) => draw_line(ctx, &ls.0, color),
-        Geom32::Polygon(poly) => draw_polygon(ctx, poly, is_hov, color),
-        Geom32::MultiPoint(pts) => {
+        Geometry::<i32>::Point(p) => draw_point(ctx, p.0, color),
+        Geometry::<i32>::LineString(ls) => draw_line(ctx, &ls.0, color),
+        Geometry::<i32>::Polygon(poly) => draw_polygon(ctx, poly, is_hov, color),
+        Geometry::<i32>::MultiPoint(pts) => {
             for (i, p) in pts.iter().enumerate() {
                 draw_point(ctx, p.0, part_color(sel_part, hov_part, i, color));
             }
         }
-        Geom32::MultiLineString(lines) => {
+        Geometry::<i32>::MultiLineString(lines) => {
             for (i, ls) in lines.iter().enumerate() {
                 draw_line(ctx, &ls.0, part_color(sel_part, hov_part, i, color));
             }
         }
-        Geom32::MultiPolygon(polys) => {
+        Geometry::<i32>::MultiPolygon(polys) => {
             for (i, poly) in polys.iter().enumerate() {
                 let pc = part_color(sel_part, hov_part, i, color);
                 draw_polygon(ctx, poly, matches!(pc, CLR_HOVERED | CLR_SELECTED), pc);
@@ -134,12 +133,12 @@ fn draw_feature(
     }
 }
 
-fn draw_point(ctx: &mut Context<'_>, c: Coord32, color: Color) {
+fn draw_point(ctx: &mut Context<'_>, c: Coord<i32>, color: Color) {
     let [x, y] = coord_f64(c);
     ctx.print(x, y, Span::styled("×", Style::default().fg(color)));
 }
 
-fn draw_line(ctx: &mut Context<'_>, coords: &[Coord32], color: Color) {
+fn draw_line(ctx: &mut Context<'_>, coords: &[Coord<i32>], color: Color) {
     for w in coords.windows(2) {
         let [x1, y1] = coord_f64(w[0]);
         let [x2, y2] = coord_f64(w[1]);
@@ -147,7 +146,7 @@ fn draw_line(ctx: &mut Context<'_>, coords: &[Coord32], color: Color) {
     }
 }
 
-fn draw_ring(ctx: &mut Context<'_>, ring: &[Coord32], color: Color) {
+fn draw_ring(ctx: &mut Context<'_>, ring: &[Coord<i32>], color: Color) {
     draw_line(ctx, ring, color);
     if let (Some(&last), Some(&first)) = (ring.last(), ring.first()) {
         let [lx, ly] = coord_f64(last);
@@ -156,7 +155,7 @@ fn draw_ring(ctx: &mut Context<'_>, ring: &[Coord32], color: Color) {
     }
 }
 
-fn ring_color(ring: &[Coord32], highlighted: bool, fallback: Color) -> Color {
+fn ring_color(ring: &[Coord<i32>], highlighted: bool, fallback: Color) -> Color {
     if !highlighted {
         if is_ring_ccw(ring) {
             CLR_POLYGON
@@ -353,38 +352,38 @@ fn draw_world_rect_vp(
 /// Draw a geometry in world coordinates using the provided tile transform (north-up on canvas).
 fn draw_geom_world(
     ctx: &mut Context<'_>,
-    geom: &Geom32,
+    geom: &Geometry<i32>,
     t: &TileTransform,
     vp_y0: f64,
     vp_y1: f64,
     color: Color,
 ) {
     match geom {
-        Geom32::Point(p) => {
+        Geometry::<i32>::Point(p) => {
             let [wx, wy] = t.to_world(p.0);
             let sy = mbt_screen_y(vp_y0, vp_y1, wy);
             ctx.print(wx, sy, Span::styled("×", Style::default().fg(color)));
         }
-        Geom32::LineString(ls) => draw_world_line(ctx, &ls.0, t, vp_y0, vp_y1, color),
-        Geom32::Polygon(poly) => {
+        Geometry::<i32>::LineString(ls) => draw_world_line(ctx, &ls.0, t, vp_y0, vp_y1, color),
+        Geometry::<i32>::Polygon(poly) => {
             draw_world_ring(ctx, &poly.exterior().0, t, vp_y0, vp_y1, color);
             for ring in poly.interiors() {
                 draw_world_ring(ctx, &ring.0, t, vp_y0, vp_y1, color);
             }
         }
-        Geom32::MultiPoint(mp) => {
+        Geometry::<i32>::MultiPoint(mp) => {
             for p in mp.iter() {
                 let [wx, wy] = t.to_world(p.0);
                 let sy = mbt_screen_y(vp_y0, vp_y1, wy);
                 ctx.print(wx, sy, Span::styled("×", Style::default().fg(color)));
             }
         }
-        Geom32::MultiLineString(mls) => {
+        Geometry::<i32>::MultiLineString(mls) => {
             for ls in mls.iter() {
                 draw_world_line(ctx, &ls.0, t, vp_y0, vp_y1, color);
             }
         }
-        Geom32::MultiPolygon(mpoly) => {
+        Geometry::<i32>::MultiPolygon(mpoly) => {
             for poly in mpoly.iter() {
                 draw_world_ring(ctx, &poly.exterior().0, t, vp_y0, vp_y1, color);
                 for ring in poly.interiors() {
@@ -398,7 +397,7 @@ fn draw_geom_world(
 
 fn draw_world_line(
     ctx: &mut Context<'_>,
-    coords: &[Coord32],
+    coords: &[Coord<i32>],
     t: &TileTransform,
     vp_y0: f64,
     vp_y1: f64,
@@ -415,7 +414,7 @@ fn draw_world_line(
 
 fn draw_world_ring(
     ctx: &mut Context<'_>,
-    ring: &[Coord32],
+    ring: &[Coord<i32>],
     t: &TileTransform,
     vp_y0: f64,
     vp_y1: f64,

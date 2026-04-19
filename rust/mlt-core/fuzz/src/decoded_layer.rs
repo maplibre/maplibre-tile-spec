@@ -52,15 +52,11 @@ fn encode_decode(staged: StagedLayer01) -> TileLayer01 {
         .into_layer_bytes()
         .expect("into_layer_bytes should not fail");
 
-    let mut parser = Parser::default();
-    let (remaining, layer) = Layer::from_bytes(&buffer, &mut parser).expect("layer must re-parse");
-    assert!(
-        remaining.is_empty(),
-        "Re-parsing left {} trailing bytes",
-        remaining.len(),
-    );
-
-    let Layer::Tag01(lazy) = layer else {
+    let mut layers = Parser::default()
+        .parse_layers(&buffer)
+        .expect("layer must re-parse");
+    assert_eq!(layers.len(), 1, "expected exactly one layer");
+    let Layer::Tag01(lazy) = layers.remove(0) else {
         panic!("expected Tag01 layer");
     };
     lazy.into_tile(&mut Decoder::default())

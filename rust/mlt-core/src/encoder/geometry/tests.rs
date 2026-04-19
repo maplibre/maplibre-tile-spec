@@ -1,15 +1,13 @@
 use std::collections::HashSet;
 
-use geo_types::{LineString, Point, Polygon, point, wkt};
+use geo_types::{Coord, Geometry, LineString, Point, Polygon, point, wkt};
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
+use crate::decoder::RawGeometry;
 use crate::encoder::Encoder;
 use crate::test_helpers::{assert_empty, dec, parser};
-use crate::{
-    Coord32, Decode as _, DictionaryType, Geom32, GeometryValues, LengthType, OffsetType,
-    RawGeometry, StreamType,
-};
+use crate::{Decode as _, DictionaryType, GeometryValues, LengthType, OffsetType, StreamType};
 
 #[rstest]
 #[case::single_point(push_geoms(&[wkt!(POINT(10 20)).into()]))]
@@ -57,7 +55,7 @@ fn automatic_optimization_picks_correct_vertex_strategy(
 
 #[test]
 fn encoded_output_always_has_meta_stream() {
-    let decoded = push_geoms(&[Geom32::Point(Point(Coord32 { x: 1, y: 1 }))]);
+    let decoded = push_geoms(&[Geometry::<i32>::Point(Point(Coord::<i32> { x: 1, y: 1 }))]);
     let mut enc = Encoder::default();
     decoded.write_to(&mut enc).expect("encode failed");
     let raw = assert_empty(RawGeometry::from_bytes(&enc.data, &mut parser()));
@@ -71,11 +69,14 @@ fn encoded_output_always_has_meta_stream() {
 
 #[test]
 fn encoded_polygon_has_topology_streams() {
-    let coords: Vec<Coord32> = [(0, 0), (10, 0), (10, 10), (0, 0)]
+    let coords: Vec<Coord<i32>> = [(0, 0), (10, 0), (10, 10), (0, 0)]
         .into_iter()
-        .map(|(x, y)| Coord32 { x, y })
+        .map(|(x, y)| Coord::<i32> { x, y })
         .collect();
-    let decoded = push_geoms(&[Geom32::Polygon(Polygon::new(LineString(coords), vec![]))]);
+    let decoded = push_geoms(&[Geometry::<i32>::Polygon(Polygon::new(
+        LineString(coords),
+        vec![],
+    ))]);
     let mut enc = Encoder::default();
     decoded.write_to(&mut enc).expect("encode failed");
 
@@ -138,7 +139,7 @@ fn assert_geometry_roundtrip(data: &[u8], expected: &GeometryValues) {
     assert_eq!(expected, &result);
 }
 
-fn push_geoms(geoms: &[Geom32]) -> GeometryValues {
+fn push_geoms(geoms: &[Geometry<i32>]) -> GeometryValues {
     let mut d = GeometryValues::default();
     for g in geoms {
         d.push_geom(g);

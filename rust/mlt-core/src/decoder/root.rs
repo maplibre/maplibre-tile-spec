@@ -6,10 +6,10 @@ use crate::MltError::{
 };
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    Column, ColumnType, DictionaryType, Geometry, GeometryValues, Id, IdValues, Layer01,
-    ParsedLayer01, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence,
-    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream,
-    RawStrings, RawStringsEncoding, StreamType,
+    Column, ColumnType, DictionaryType, Geometry, Id, Layer01, ParsedLayer01, RawFsstData,
+    RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
+    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
+    RawStringsEncoding, StreamType,
 };
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
@@ -261,7 +261,7 @@ impl MemBudget {
 
 impl<'a> Layer01<'a, Lazy> {
     /// Parse `v01::Layer` metadata, reserving decoded memory against the parser's budget.
-    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltResult<Self> {
+    pub(crate) fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltResult<Self> {
         let (input, layer_name) = parse_string(input)?;
         let (input, extent) = parse_varint::<u32>(input)?;
         let (input, column_count) = parse_varint::<u32>(input)?;
@@ -382,34 +382,6 @@ impl<'a> Layer01<'a, Lazy> {
         } else {
             Err(TrailingLayerData(input.len()))
         }
-    }
-
-    /// Decode only the ID column, leaving other columns in their encoded form.
-    ///
-    /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
-    pub fn decode_id(&mut self, dec: &mut Decoder) -> MltResult<Option<&mut IdValues>> {
-        Ok(if let Some(id) = &mut self.id {
-            Some(id.decode(dec)?)
-        } else {
-            None
-        })
-    }
-
-    /// Decode only the geometry column, leaving other columns in their encoded form.
-    ///
-    /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
-    pub fn decode_geometry(&mut self, dec: &mut Decoder) -> MltResult<&mut GeometryValues> {
-        self.geometry.decode(dec)
-    }
-
-    /// Decode only the property columns, leaving other columns in their encoded form.
-    ///
-    /// Use this instead of [`Self::decode_all`] when other columns will be accessed lazily.
-    pub fn decode_properties(&mut self, dec: &mut Decoder) -> MltResult<()> {
-        for prop in &mut self.properties {
-            prop.decode(dec)?;
-        }
-        Ok(())
     }
 
     /// Decode all columns and transition to [`Layer01<Parsed>`].

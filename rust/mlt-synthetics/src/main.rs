@@ -23,15 +23,14 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use clap::Parser;
-use geo_types::{
-    LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
-    line_string as line, wkt,
-};
 use mlt_core::encoder::{
     IdWidth, IntEncoder as E, LogicalEncoder as L, StagedProperty as P, StrEncoding,
     VertexBufferType,
 };
-use mlt_core::{Coord32, Geom32};
+use mlt_core::geo_types::{
+    Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
+    line_string as line, wkt,
+};
 
 use crate::layer::{
     Layer, SharedDict, geo_fastpfor, geo_varint, geo_varint_with_rle, morton_curve,
@@ -54,15 +53,15 @@ struct Args {
     synthetics_rust: PathBuf,
 }
 
-const C0: Coord32 = coord! { x: 13, y: 42 };
+const C0: Coord<i32> = coord! { x: 13, y: 42 };
 // triangle 1, clockwise winding, X ends in 1, Y ends in 2
-const C1: Coord32 = coord! { x: 11, y: 52 };
-const C2: Coord32 = coord! { x: 71, y: 72 };
-const C3: Coord32 = coord! { x: 61, y: 22 };
+const C1: Coord<i32> = coord! { x: 11, y: 52 };
+const C2: Coord<i32> = coord! { x: 71, y: 72 };
+const C3: Coord<i32> = coord! { x: 61, y: 22 };
 // hole in triangle 1 with counter-clockwise winding
-const H1: Coord32 = coord! { x: 65, y: 66 };
-const H2: Coord32 = coord! { x: 35, y: 56 };
-const H3: Coord32 = coord! { x: 55, y: 36 };
+const H1: Coord<i32> = coord! { x: 65, y: 66 };
+const H2: Coord<i32> = coord! { x: 35, y: 56 };
+const H3: Coord<i32> = coord! { x: 55, y: 36 };
 
 const P0: Point<i32> = Point(C0);
 const P1: Point<i32> = Point(C1);
@@ -73,7 +72,7 @@ const PH1: Point<i32> = Point(H1);
 const PH2: Point<i32> = Point(H2);
 const PH3: Point<i32> = Point(H3);
 
-const fn c(x: i32, y: i32) -> Coord32 {
+const fn c(x: i32, y: i32) -> Coord<i32> {
     coord! { x: x, y: y }
 }
 
@@ -81,7 +80,7 @@ fn p0() -> Layer {
     geo_varint().geo(P0)
 }
 
-static MIX_TYPES: LazyLock<[(&'static str, Geom32); 7]> = LazyLock::new(|| {
+static MIX_TYPES: LazyLock<[(&'static str, Geometry<i32>); 7]> = LazyLock::new(|| {
     [
         ("pt", wkt!(POINT(38 29)).into()),
         ("line", wkt!(LINESTRING(5 38, 12 45, 9 70)).into()),
@@ -361,7 +360,10 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
         builder = builder.geo(mix_type.1.clone());
         write!(&mut name, "_{}", mix_type.0).unwrap();
         if let Some(bldr) = builder_t {
-            if matches!(mix_type.1, Geom32::Polygon(_) | Geom32::MultiPolygon(_)) {
+            if matches!(
+                mix_type.1,
+                Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_)
+            ) {
                 builder_t = Some(bldr.geo(mix_type.1.clone()));
             } else {
                 builder_t = None;

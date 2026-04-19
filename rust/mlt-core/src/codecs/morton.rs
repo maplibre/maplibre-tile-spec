@@ -3,7 +3,7 @@ use wide::u32x8;
 
 use crate::decoder::Morton;
 use crate::encoder::model::CurveParams;
-use crate::{Coord32, Decoder, MltError, MltResult};
+use crate::{Decoder, MltError, MltResult};
 
 const LANES: usize = 8;
 
@@ -47,7 +47,7 @@ pub fn interleave_bits(coord: Coord<u32>) -> u32 {
 /// sufficient for any tile coordinate system with extent ≤ 65 535.
 #[must_use]
 #[inline]
-pub fn morton_sort_key(c: Coord32, params: CurveParams) -> u32 {
+pub fn morton_sort_key(c: Coord<i32>, params: CurveParams) -> u32 {
     debug_assert!((1..=16).contains(&params.bits));
     #[expect(
         clippy::cast_possible_truncation,
@@ -123,9 +123,9 @@ pub fn morton_deltas(codes: &[u32], target: &mut Vec<u32>) {
 }
 
 impl Morton {
-    /// Decode a single Morton code to a `Coord32`, applying `shift`.
+    /// Decode a single Morton code to a `Coord<i32>`, applying `shift`.
     #[inline]
-    fn decode_one(self, morton_code: u32) -> Coord32 {
+    fn decode_one(self, morton_code: u32) -> Coord<i32> {
         let mut x = 0u32;
         let mut y = 0u32;
         for i in 0..self.bits {
@@ -133,7 +133,7 @@ impl Morton {
             x |= (morton_code & bit_mask) >> i;
             y |= ((morton_code >> 1) & bit_mask) >> i;
         }
-        Coord32 {
+        Coord::<i32> {
             x: x.cast_signed() - self.shift.cast_signed(),
             y: y.cast_signed() - self.shift.cast_signed(),
         }
@@ -238,13 +238,12 @@ impl Morton {
 
 #[cfg(test)]
 mod tests {
-    use geo_types::Coord;
 
     use super::*;
     use crate::test_helpers::dec;
 
-    const fn c(x: i32, y: i32) -> Coord32 {
-        Coord32 { x, y }
+    const fn c(x: i32, y: i32) -> Coord<i32> {
+        Coord::<i32> { x, y }
     }
 
     const fn p(shift: u32, bits: u32) -> CurveParams {

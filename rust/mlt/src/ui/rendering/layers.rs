@@ -1,5 +1,6 @@
-use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
-use mlt_core::Geom32;
+use mlt_core::geo_types::{
+    Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
+};
 use mlt_core::geojson::Feature;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -58,9 +59,9 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 TreeItem::SubFeature { layer, feat, part } => {
                     let geom = &app.feature(*layer, *feat).geometry;
                     let n = match geom {
-                        Geom32::MultiPoint(_) => "Point",
-                        Geom32::MultiLineString(_) => "LineString",
-                        Geom32::MultiPolygon(_) => "Polygon",
+                        Geometry::<i32>::MultiPoint(_) => "Point",
+                        Geometry::<i32>::MultiLineString(_) => "LineString",
+                        Geometry::<i32>::MultiPolygon(_) => "Polygon",
                         _ => "Part",
                     };
                     (
@@ -244,39 +245,39 @@ fn info_multi_polygon(lines: &mut Vec<Line<'static>>, mpoly: &MultiPolygon<i32>)
     lines.push(stat_line("Total rings", &total_rings));
 }
 
-fn geometry_stats_lines(geom: &Geom32) -> Vec<Line<'static>> {
+fn geometry_stats_lines(geom: &Geometry<i32>) -> Vec<Line<'static>> {
     let mut lines = vec![stat_line("Type", &geometry_type_name(geom))];
     match geom {
-        Geom32::Point(p) => info_point(&mut lines, *p),
-        Geom32::LineString(ls) => info_line_string(&mut lines, ls),
-        Geom32::Polygon(poly) => info_polygon(&mut lines, poly),
-        Geom32::MultiPoint(pts) => info_multi_point(&mut lines, pts),
-        Geom32::MultiLineString(mls) => info_multi_line_string(&mut lines, mls),
-        Geom32::MultiPolygon(mpoly) => info_multi_polygon(&mut lines, mpoly),
+        Geometry::<i32>::Point(p) => info_point(&mut lines, *p),
+        Geometry::<i32>::LineString(ls) => info_line_string(&mut lines, ls),
+        Geometry::<i32>::Polygon(poly) => info_polygon(&mut lines, poly),
+        Geometry::<i32>::MultiPoint(pts) => info_multi_point(&mut lines, pts),
+        Geometry::<i32>::MultiLineString(mls) => info_multi_line_string(&mut lines, mls),
+        Geometry::<i32>::MultiPolygon(mpoly) => info_multi_polygon(&mut lines, mpoly),
         _ => unreachable!("Unexpected geometry type {geom:?}"),
     }
     lines
 }
 
-fn subpart_stats_lines(geom: &Geom32, part: usize) -> Vec<Line<'static>> {
+fn subpart_stats_lines(geom: &Geometry<i32>, part: usize) -> Vec<Line<'static>> {
     let mut lines = vec![stat_line(
         "Component",
         &format!("part #{} of a {}", part, geometry_type_name(geom)),
     )];
     match geom {
-        Geom32::MultiPoint(pts) => {
+        Geometry::<i32>::MultiPoint(pts) => {
             if let Some(p) = pts.0.get(part) {
                 lines.push(stat_line("Type", &"Point"));
                 info_point(&mut lines, *p);
             }
         }
-        Geom32::MultiLineString(mls) => {
+        Geometry::<i32>::MultiLineString(mls) => {
             if let Some(ls) = mls.0.get(part) {
                 lines.push(stat_line("Type", &"LineString"));
                 info_line_string(&mut lines, ls);
             }
         }
-        Geom32::MultiPolygon(mpoly) => {
+        Geometry::<i32>::MultiPolygon(mpoly) => {
             if let Some(poly) = mpoly.0.get(part) {
                 lines.push(stat_line("Type", &"Polygon"));
                 info_polygon(&mut lines, poly);
